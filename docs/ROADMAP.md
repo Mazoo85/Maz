@@ -53,8 +53,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > position/normal/color meshes, MVP+model push constants, directional lighting) behind a new
 > Renderer 3D API (`createMesh` / `setViewProjection3D` / `drawMesh`); `math::perspective`
 > camera. `apps/cube` spins a lit cube with 2D HUD text over it — 2D and 3D compose in one frame.
-> The 2D path is unchanged (sprites disable depth). Everything marked `[x]` below is done;
-> everything else is the road ahead.
+> The 2D path is unchanged (sprites disable depth).
+>
+> **M10 — 3D scene (done).** Procedural mesh primitives (`render::shapes` — box / sphere /
+> plane) and `apps/scene3d`: a ground plane plus a ring of 20 spinning, lit spheres and cubes,
+> each an **ECS entity** (Transform3D + Renderable), viewed by an orbiting camera with a 2D HUD —
+> the 3D renderer, procedural geometry, and the ECS composed together. Everything marked `[x]`
+> below is done; everything else is the road ahead.
 
 ---
 
@@ -124,6 +129,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
 - [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
+- [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
@@ -212,6 +218,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
 - [x] `sandbox`: bouncing textured sprites (proves 2D)
 - [x] `apps/cube`: lit, depth-tested spinning cube + 2D HUD (proves 3D, and 2D+3D together)
+- [x] `apps/scene3d`: a 3D scene (ground + ring of shapes) driven by the ECS, orbiting camera
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →

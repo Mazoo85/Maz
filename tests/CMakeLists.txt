@@ -31,3 +31,11 @@ add_test(
 set_tests_properties(cube_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME scene3d_headless_smoke
+    COMMAND scene3d --headless --frames 30)
+
+set_tests_properties(scene3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

@@ -16,4 +16,5 @@
 #include "maz/platform/Paths.hpp"
 #include "maz/platform/Window.hpp"
 #include "maz/render/Renderer.hpp"
+#include "maz/render/Shapes.hpp"
 #include "maz/ui/Font.hpp"

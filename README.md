@@ -18,12 +18,13 @@ cmake --build build
 ./build/bin/orbs                    # "ORB RUN" — a complete sample arcade game
 ./build/bin/swarm                   # ECS demo — 800 entities
 ./build/bin/cube                    # 3D demo — a lit, spinning cube
+./build/bin/scene3d                 # ECS + 3D — a scene of shapes, orbiting camera
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
 ctest --test-dir build              # headless smoke tests (all apps)
 ```
 
 Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,
-`swarm`, `cube`).
+`swarm`, `cube`, `scene3d`).
 
 ## What works today
 
