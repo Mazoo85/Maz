@@ -10,6 +10,7 @@
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/FlyCamera.hpp"
 #include "maz/game/Tilemap.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"

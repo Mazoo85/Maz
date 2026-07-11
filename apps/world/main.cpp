@@ -1,0 +1,204 @@
+// Maz Engine — "WORLD" (explorable 3D demo)
+// A textured ground and a field of 3D blocks you fly through with a first-person camera
+// (WASD move, Space/Shift up-down, mouse look). Shows interactive 3D navigation via
+// maz::game::FlyCamera. --demo autopilots a fly-through (for capture); --headless / --frames N
+// for CI.
+
+#include "maz/Engine.hpp"
+
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_scancode.h>
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <random>
+#include <string>
+#include <vector>
+
+using namespace maz;
+
+namespace {
+
+struct Block {
+    glm::vec3 pos;
+    glm::vec3 scale;
+    render::MeshHandle mesh;
+};
+
+std::vector<uint8_t> makeChecker(uint32_t size, uint32_t cell, uint8_t a, uint8_t b) {
+    std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4, 255);
+    for (uint32_t y = 0; y < size; ++y) {
+        for (uint32_t x = 0; x < size; ++x) {
+            const bool on = ((x / cell) + (y / cell)) % 2 == 0;
+            const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+            const uint8_t c = on ? a : b;
+            px[i + 0] = c;
+            px[i + 1] = c;
+            px[i + 2] = c;
+        }
+    }
+    return px;
+}
+
+render::MeshHandle upload(render::Renderer& r, const render::shapes::MeshData& m) {
+    return r.createMesh(m.vertices.data(), static_cast<uint32_t>(m.vertices.size()),
+                        m.indices.data(), static_cast<uint32_t>(m.indices.size()));
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    core::AppConfig cfg = core::parseArgs(argc, argv);
+    const bool autopilot = cfg.demo;
+    MAZ_LOG_INFO("WORLD (explorable 3D) starting (autopilot=%d)", autopilot);
+
+    platform::Window window;
+    platform::WindowConfig wc;
+    wc.title = "Maz Engine — 3D World";
+    wc.width = cfg.width;
+    wc.height = cfg.height;
+    wc.headless = cfg.headless;
+    if (!window.init(wc)) {
+        return 1;
+    }
+    if (!cfg.headless && !autopilot) {
+        window.setRelativeMouse(true); // mouse-look
+    }
+
+    render::RendererConfig rc;
+    rc.vsync = cfg.vsync;
+    rc.allowHeadless = cfg.headless;
+    auto renderer = render::createVulkanRenderer();
+    if (!renderer->init(window, rc)) {
+        return 1;
+    }
+
+    platform::Input input;
+    core::Clock clock(1.0 / 60.0);
+
+    namespace sh = render::shapes;
+    render::MeshHandle groundMesh = upload(*renderer, sh::makePlane(40.0f, render::Color{0.5f, 0.55f, 0.6f, 1}));
+    render::TextureHandle groundTex = renderer->createTexture(64, 64, makeChecker(64, 32, 210, 150).data());
+    const uint8_t whitePixel[4] = {255, 255, 255, 255};
+    render::TextureHandle whiteTex = renderer->createTexture(1, 1, whitePixel);
+
+    const render::Color palette[] = {
+        {0.80f, 0.45f, 0.45f, 1}, {0.45f, 0.70f, 0.55f, 1}, {0.45f, 0.55f, 0.80f, 1},
+        {0.80f, 0.70f, 0.45f, 1}, {0.65f, 0.55f, 0.75f, 1},
+    };
+    std::vector<render::MeshHandle> blockMeshes;
+    for (const render::Color& c : palette) {
+        blockMeshes.push_back(upload(*renderer, sh::makeBox(1.0f, c)));
+    }
+
+    // A field of blocks on a grid, with random heights and some gaps to walk between.
+    std::mt19937 rng(2024u);
+    auto frand = [&](float lo, float hi) {
+        return std::uniform_real_distribution<float>(lo, hi)(rng);
+    };
+    std::vector<Block> blocks;
+    for (int gx = -5; gx <= 5; ++gx) {
+        for (int gz = -5; gz <= 5; ++gz) {
+            if (frand(0.0f, 1.0f) < 0.35f) {
+                continue; // leave a gap
+            }
+            const float h = frand(1.5f, 7.0f);
+            Block b;
+            b.pos = glm::vec3(static_cast<float>(gx) * 6.0f + frand(-1.0f, 1.0f), h * 0.5f,
+                              static_cast<float>(gz) * 6.0f + frand(-1.0f, 1.0f));
+            b.scale = glm::vec3(frand(2.0f, 3.0f), h, frand(2.0f, 3.0f));
+            b.mesh = blockMeshes[static_cast<size_t>((gx * 7 + gz * 3 + 100)) % blockMeshes.size()];
+            blocks.push_back(b);
+        }
+    }
+
+    ui::Font font;
+    {
+        const char* base = SDL_GetBasePath();
+        const std::string fontPath =
+            (base ? std::string(base) : std::string()) + "assets/fonts/DejaVuSans.ttf";
+        font.load(*renderer, fontPath.c_str(), 34.0f);
+    }
+
+    game::FlyCamera camera;
+    camera.setPosition(glm::vec3(0.0f, 3.0f, 24.0f));
+    camera.setYawPitch(-1.5708f, -0.12f);
+
+    while (!window.shouldClose()) {
+        window.pumpEvents(input);
+        if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
+            window.requestClose();
+        }
+
+        uint32_t bw = 0, bh = 0;
+        window.drawableSize(bw, bh);
+        const float aspect =
+            bh > 0 ? static_cast<float>(bw) / static_cast<float>(bh) : 16.0f / 9.0f;
+
+        clock.beginFrame();
+        while (clock.consumeFixedStep()) {
+            const float dt = static_cast<float>(clock.fixedDelta());
+            if (autopilot) {
+                camera.move(1.0f, 0.0f, 0.0f, dt, 4.0f);
+            } else {
+                float fwd = 0.0f, right = 0.0f, up = 0.0f;
+                if (input.keyDown(SDL_SCANCODE_W)) fwd += 1.0f;
+                if (input.keyDown(SDL_SCANCODE_S)) fwd -= 1.0f;
+                if (input.keyDown(SDL_SCANCODE_D)) right += 1.0f;
+                if (input.keyDown(SDL_SCANCODE_A)) right -= 1.0f;
+                if (input.keyDown(SDL_SCANCODE_SPACE)) up += 1.0f;
+                if (input.keyDown(SDL_SCANCODE_LSHIFT)) up -= 1.0f;
+                camera.move(fwd, right, up, dt, 9.0f);
+            }
+        }
+
+        // Look: mouse deltas per frame (or a slow pan under autopilot).
+        if (autopilot) {
+            camera.look(0.0022f, 0.0f);
+        } else {
+            const float sens = 0.0025f;
+            camera.look(input.mouseDX() * sens, -input.mouseDY() * sens);
+        }
+
+        const glm::mat4 proj = math::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
+        const glm::mat4 viewProj = proj * camera.view();
+
+        renderer->setClearColor(render::Color{0.55f, 0.68f, 0.85f, 1.0f}); // sky
+        if (renderer->beginFrame()) {
+            renderer->setViewProjection3D(glm::value_ptr(viewProj));
+
+            renderer->drawMesh(groundMesh, glm::value_ptr(glm::mat4(1.0f)), groundTex);
+            for (const Block& b : blocks) {
+                glm::mat4 model = glm::translate(glm::mat4(1.0f), b.pos);
+                model = glm::scale(model, b.scale);
+                renderer->drawMesh(b.mesh, glm::value_ptr(model), whiteTex);
+            }
+
+            render::Camera2D ui;
+            ui.usePixelSpace = true;
+            renderer->setCamera2D(ui);
+            font.drawText(*renderer, 16.0f, 12.0f, "MAZ ENGINE  -  3D WORLD",
+                          render::Color{1, 1, 1, 1}, 0.7f);
+            font.drawText(*renderer, 16.0f, 44.0f,
+                          autopilot ? "AUTOPILOT" : "WASD move   mouse look   SPACE/SHIFT up-down",
+                          render::Color{0.9f, 0.95f, 1.0f, 1}, 0.5f);
+
+            renderer->endFrame();
+        }
+
+        if (cfg.frames >= 0 && clock.frameCount() >= static_cast<uint64_t>(cfg.frames)) {
+            window.requestClose();
+        }
+    }
+
+    MAZ_LOG_INFO("WORLD shutting down (%zu blocks, renderer %s)", blocks.size(),
+                 renderer->isActive() ? "active" : "inactive");
+    renderer->shutdown();
+    window.shutdown();
+    return 0;
+}

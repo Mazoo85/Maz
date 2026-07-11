@@ -64,7 +64,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > both the sprite and mesh renderers, so a texture handle works in 2D or 3D. Meshes gained UVs
 > and a sampler; the mesh shader does texture × vertex-color × lighting. `apps/cube` is now a
 > checkerboard cube and `apps/scene3d` has a tiled floor. The 2D games are unchanged (verified).
-> Everything marked `[x]` below is done; everything else is the road ahead.
+>
+> **M12 — explorable 3D (done).** `maz::game::FlyCamera` — a first-person camera (position +
+> yaw/pitch, `move`/`look`, view matrix) + `Window::setRelativeMouse` for mouse-look. `apps/world`
+> is a navigable field of 3D blocks over a textured floor (WASD + mouse-look; `--demo` autopilots
+> a fly-through). Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -137,6 +141,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
 - [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
 - [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`
+- [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
@@ -226,6 +231,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: bouncing textured sprites (proves 2D)
 - [x] `apps/cube`: lit, depth-tested spinning cube + 2D HUD (proves 3D, and 2D+3D together)
 - [x] `apps/scene3d`: a 3D scene (ground + ring of shapes) driven by the ECS, orbiting camera
+- [x] `apps/world`: an explorable first-person 3D world (fly camera, textured floor, block field)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →

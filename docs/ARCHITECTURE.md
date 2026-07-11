@@ -30,7 +30,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
-game/       Tilemap (grid + solidity + coord helpers)
+game/       Tilemap (grid + solidity), FlyCamera (first-person camera controller)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
@@ -39,6 +39,7 @@ apps/
   swarm/    ECS demo — 800 entities through movement + render systems
   cube/     3D demo — lit, depth-tested spinning cube + 2D HUD
   scene3d/  ECS + 3D — ground plane + ring of shapes, orbiting camera
+  world/    Explorable 3D — fly camera through a textured-floor block field
 ```
 
 ## The frame loop (fixed timestep)

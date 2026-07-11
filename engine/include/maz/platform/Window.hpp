@@ -46,6 +46,10 @@ public:
     // False in headless mode, where the renderer runs without presenting.
     bool supportsVulkan() const { return m_vulkanCapable; }
 
+    // Enable relative mouse mode: the cursor is hidden/locked and motion arrives as deltas
+    // (Input::mouseDX/DY) — the basis for first-person mouse-look.
+    void setRelativeMouse(bool enabled);
+
     SDL_Window* sdl() const { return m_window; }
 
 private:

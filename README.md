@@ -19,12 +19,13 @@ cmake --build build
 ./build/bin/swarm                   # ECS demo — 800 entities
 ./build/bin/cube                    # 3D demo — a lit, spinning cube
 ./build/bin/scene3d                 # ECS + 3D — a scene of shapes, orbiting camera
+./build/bin/world                   # explorable 3D — fly through with WASD + mouse-look
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
 ctest --test-dir build              # headless smoke tests (all apps)
 ```
 
 Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,
-`swarm`, `cube`, `scene3d`).
+`swarm`, `cube`, `scene3d`, `world`).
 
 ## What works today
 

@@ -104,6 +104,12 @@ void Window::pumpEvents(Input& input) {
     }
 }
 
+void Window::setRelativeMouse(bool enabled) {
+    if (m_window) {
+        SDL_SetWindowRelativeMouseMode(m_window, enabled);
+    }
+}
+
 void Window::drawableSize(uint32_t& w, uint32_t& h) const {
     int pw = 0, ph = 0;
     if (m_window) {
