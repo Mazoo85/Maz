@@ -76,7 +76,9 @@ for entry in "${CASES[@]}"; do
             echo "FAIL: $app has no reference (run 'tools/golden.sh capture')"
             fails=$((fails + 1))
         else
-            rmse="$(compare -metric RMSE "$out" "$ref" null: 2>&1 | sed -E 's/.*\(([0-9.]+)\).*/\1/')"
+            # compare prints "<abs> (<normalized>)"; grab the normalized value (may be scientific
+            # notation like 7.8e-06, so allow e/E/+/- in the capture).
+            rmse="$(compare -metric RMSE "$out" "$ref" null: 2>&1 | sed -E 's/.*\(([0-9.eE+-]+)\).*/\1/')"
             if [ -z "$rmse" ]; then rmse=1.0; fi
             if awk "BEGIN{exit !($rmse > $threshold)}"; then
                 echo "FAIL: $app RMSE $rmse > $threshold"

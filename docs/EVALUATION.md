@@ -265,6 +265,24 @@ that the new test infra can verify rigorously.
 
 **Iteration 16 complete** (texture mipmaps; ray/AABB queries + look-at targeting).
 
+### Iteration 17 — "Uniform system refactor" (in progress)
+Self-directed: with golden-image regression protection in place, take on the #1 foundational item —
+retire the mesh push-constant packing.
+- [x] **M54 — Per-frame scene UBO + slim push constant**: the mesh push constant was 56 floats /
+  224 bytes (mvp+model+lightVP+camPos+material), *over* Vulkan's 128-byte guaranteed limit (a
+  portability risk) and out of spare slots (roughness/specular were crammed into `emissive.w` /
+  `camPos.w`). Moved the per-frame data (viewProj, lightVP, camPos) into the existing set-2 scene
+  UBO (now `VERTEX|FRAGMENT`; `flush` writes the matrices once per frame, `setLighting` writes only
+  its own region so they don't clobber each other). The push now carries just `model` + two material
+  vec4s = **96 bytes**, cleanly under the limit, with named material fields instead of packed
+  leftovers. `mesh.vert`/`mesh.frag` read the matrices/camPos from the UBO. Verified: build clean,
+  ctest 11/11, and the golden check is **pixel-equivalent** against the pre-refactor references
+  (model RMSE 0, cube within spin jitter) — proving the refactor is behaviour-preserving. Village
+  (all lighting/fog/spot/emissive/specular features) renders identically. Bonus: fixed a latent bug
+  in the golden harness where the RMSE parser didn't handle scientific-notation values near zero.
+
+**Iteration 17 complete** (per-frame scene UBO; push constant back under 128 bytes).
+
 Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
 depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI,
 a deterministic hold-frame screenshot mode to tighten golden tolerances.

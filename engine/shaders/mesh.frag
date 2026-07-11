@@ -8,24 +8,26 @@ layout(location = 3) in vec4 vLightPos;
 layout(location = 4) in vec3 vWorldPos;
 
 layout(push_constant) uniform Push {
-    mat4 mvp;
     mat4 model;
-    mat4 lightVP;
-    vec4 camPos;   // world-space camera position (xyz)
-    vec4 emissive; // rgb = self-illumination added after lighting (feeds bloom); 0 = none
+    vec4 material0; // rgb = emissive (self-illumination, feeds bloom), w = roughness
+    vec4 material1; // x = specular strength
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
 layout(set = 1, binding = 0) uniform sampler2D uShadow;
 layout(set = 3, binding = 0) uniform sampler2D uNormalMap;
 
-// Scene lighting (set = 2): ambient + one directional "sun" (shadow-mapped) + up to 8 point lights.
+// Per-frame scene UBO (set = 2): camera/light matrices + ambient + one directional "sun"
+// (shadow-mapped) + up to 8 point lights. Shared by the vertex and fragment stages.
 struct PointLight {
     vec4 posRange; // xyz = world position, w = range
     vec4 color;    // rgb = color * intensity, w = cos(inner cone) for spots, < -1.5 for omni
     vec4 spot;     // xyz = spot axis (normalized), w = cos(outer cone)
 };
-layout(set = 2, binding = 0) uniform Lights {
+layout(set = 2, binding = 0) uniform Scene {
+    mat4 viewProj;
+    mat4 lightVP;
+    vec4 camPos;   // xyz = world-space camera position
     vec4 ambient;  // rgb = ambient, w = active point-light count
     vec4 sunDir;   // xyz = direction toward the sun
     vec4 sunColor; // rgb = directional color
@@ -101,15 +103,15 @@ void main() {
         lit += L.points[i].color.rgb * ndl2 * atten * cone;
     }
 
-    vec3 color = albedo * lit + pc.emissive.rgb; // self-illumination (feeds bloom)
+    vec3 color = albedo * lit + pc.material0.rgb; // self-illumination (feeds bloom)
 
-    // Blinn-Phong specular from the sun, gated by the material's specular strength (camPos.w) and
-    // roughness (emissive.w). specStrength 0 (default) leaves matte meshes unchanged.
-    float specStrength = pc.camPos.w;
+    // Blinn-Phong specular from the sun, gated by the material's specular strength (material1.x) and
+    // roughness (material0.w). specStrength 0 (default) leaves matte meshes unchanged.
+    float specStrength = pc.material1.x;
     if (specStrength > 0.0) {
-        float roughness = clamp(pc.emissive.w, 0.02, 1.0);
+        float roughness = clamp(pc.material0.w, 0.02, 1.0);
         float shininess = mix(4.0, 128.0, 1.0 - roughness);
-        vec3 V = normalize(pc.camPos.xyz - vWorldPos);
+        vec3 V = normalize(L.camPos.xyz - vWorldPos);
         vec3 Lsun = normalize(L.sunDir.xyz);
         vec3 H = normalize(Lsun + V);
         float spec = pow(max(dot(N, H), 0.0), shininess);
@@ -118,7 +120,7 @@ void main() {
 
     // Exponential distance fog: blend toward the fog color with camera distance.
     if (L.fog.w > 0.0) {
-        float dist = length(pc.camPos.xyz - vWorldPos);
+        float dist = length(L.camPos.xyz - vWorldPos);
         float f = clamp(1.0 - exp(-L.fog.w * dist), 0.0, 1.0);
         color = mix(color, L.fog.rgb, f);
     }

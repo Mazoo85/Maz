@@ -186,6 +186,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Textured meshes (UVs + sampler; texture × vertex-color × lighting; REPEAT tiling)
 - [x] Buffer + image helpers, staging uploads, `findMemoryType` (manual alloc; VMA swap-in later)
 - [x] Graphics pipeline + descriptor-set management, push constants, dynamic state
+- [x] **Per-frame scene UBO** (camera/light matrices in set-2 UBO; slim ≤96-byte per-draw push
+  with named material fields, under the 128-byte limit; M54)
 - [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload
 - [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
 - [x] **2D:** tilemap rendering (view-culled, via atlas uv sub-rects)

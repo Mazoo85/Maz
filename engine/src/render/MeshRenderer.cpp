@@ -28,6 +28,11 @@ struct GpuPointLight {
     float spot[4];     // xyz spot axis, w = cos(outer)
 };
 struct GpuLights {
+    // Per-frame camera/light matrices (written by flush each frame), then the lighting state
+    // (written by setLighting). The split lets each writer touch only its own region.
+    float viewProj[16];
+    float lightVP[16];
+    float camPos[4];   // xyz world-space camera position
     float ambient[4];  // rgb ambient, w = active point-light count
     float sunDir[4];   // xyz direction toward the sun
     float sunColor[4]; // rgb directional color
@@ -588,7 +593,8 @@ bool MeshRenderer::createLightResources(VulkanContext& ctx) {
     binding.binding = 0;
     binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    // The vertex shader now reads viewProj/lightVP from this UBO too, not just the fragment shader.
+    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     VkDescriptorSetLayoutCreateInfo li{};
     li.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     li.bindingCount = 1;
@@ -681,7 +687,11 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
             g.points[i].color[3] = -2.0f; // omnidirectional marker
         }
     }
-    std::memcpy(m_lightMapped, &g, sizeof(g));
+    // Write only the lighting region; the frame matrices (viewProj/lightVP/camPos) are owned by
+    // flush() and must not be clobbered here.
+    const size_t off = offsetof(GpuLights, ambient);
+    std::memcpy(static_cast<char*>(m_lightMapped) + off,
+                reinterpret_cast<const char*>(&g) + off, sizeof(g) - off);
 }
 
 bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
@@ -768,7 +778,7 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, V
     VkPushConstantRange push{};
     push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     push.offset = 0;
-    push.size = sizeof(float) * 56; // mvp + model + lightVP + camPos (vec4) + emissive (vec4)
+    push.size = sizeof(float) * 24; // model (mat4) + material0 (vec4) + material1 (vec4) = 96 bytes
 
     // set0 = albedo, set1 = shadow map, set2 = lights UBO, set3 = normal map (albedo layout reused).
     const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout,
@@ -989,6 +999,17 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
     const glm::mat4 vp = glm::make_mat4(m_viewProj);
     const glm::mat4 lightVP = glm::make_mat4(m_lightVP);
     const Frustum frustum = makeFrustum(vp);
+
+    // Per-frame camera/light matrices go into the scene UBO (set 2) once, not into every push.
+    if (m_lightMapped) {
+        GpuLights* u = static_cast<GpuLights*>(m_lightMapped);
+        std::memcpy(u->viewProj, glm::value_ptr(vp), sizeof(u->viewProj));
+        std::memcpy(u->lightVP, glm::value_ptr(lightVP), sizeof(u->lightVP));
+        u->camPos[0] = m_camPos[0];
+        u->camPos[1] = m_camPos[1];
+        u->camPos[2] = m_camPos[2];
+        u->camPos[3] = 0.0f;
+    }
     m_drawnLastFrame = 0;
     m_culledLastFrame = 0;
     for (const DrawCmd& dc : m_cmds) {
@@ -1004,20 +1025,17 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         }
         ++m_drawnLastFrame;
 
-        const glm::mat4 mvp = vp * model;
-
-        float push[56];
-        std::memcpy(push, glm::value_ptr(mvp), sizeof(float) * 16);
-        std::memcpy(push + 16, glm::value_ptr(model), sizeof(float) * 16);
-        std::memcpy(push + 32, glm::value_ptr(lightVP), sizeof(float) * 16);
-        push[48] = m_camPos[0];
-        push[49] = m_camPos[1];
-        push[50] = m_camPos[2];
-        push[51] = dc.specular;    // camPos.w = specular strength (0 => matte, no highlight)
-        push[52] = dc.emissive[0]; // self-illumination (added post-lighting, feeds bloom)
-        push[53] = dc.emissive[1];
-        push[54] = dc.emissive[2];
-        push[55] = dc.roughness;   // emissive.w = roughness (1 => broad, 0 => sharp highlight)
+        // Per-draw push: model matrix + material (96 bytes, safely under the 128-byte limit).
+        float push[24];
+        std::memcpy(push, glm::value_ptr(model), sizeof(float) * 16);
+        push[16] = dc.emissive[0]; // material0: rgb = emissive (feeds bloom)
+        push[17] = dc.emissive[1];
+        push[18] = dc.emissive[2];
+        push[19] = dc.roughness;   // material0.w = roughness
+        push[20] = dc.specular;    // material1.x = specular strength (0 => matte)
+        push[21] = 0.0f;
+        push[22] = 0.0f;
+        push[23] = 0.0f;
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(push), push);
 

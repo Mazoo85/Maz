@@ -142,6 +142,9 @@ available):
   stays NEAREST) so distant surfaces stop shimmering while near ones and the 2D UI stay crisp
 - **M53** — ray vs AABB: `game::raycastAabb` / `raycast` (slab method, nearest hit) for targeting and
   interaction queries; `world` outlines the block you're looking at in orange. Unit-tested
+- **M54** — per-frame scene UBO: the mesh path's camera/light matrices moved into a set-2 uniform
+  buffer, shrinking the per-draw push constant from 224 bytes (over the Vulkan limit) to 96 with
+  named material fields — a portability fix and cleaner material model, verified pixel-identical
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
