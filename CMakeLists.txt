@@ -70,6 +70,7 @@ add_subdirectory(apps/boxes)
 add_subdirectory(apps/scenes)
 add_subdirectory(apps/catcher)
 add_subdirectory(apps/data)
+add_subdirectory(apps/level)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

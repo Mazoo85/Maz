@@ -245,6 +245,12 @@ available):
   input returns a null value plus a line/column error — and a compact-or-pretty `dump`. The new `data`
   demo builds an *entire* scene (clear color + eight sprites with shape/position/tint/bob/spin) from an
   embedded JSON document, proving the engine can be driven by editable data files, not just code
+- **M76** — on-disk JSON levels: JSON file IO (`parseJsonFile`/`writeJsonFile`) closes the data
+  pipeline. The new `level` demo reads `assets/levels/arena.json` **from disk** at startup — a tile
+  grid (rows of single-char codes), a color palette, which codes are solid, and a list of pickups —
+  builds a `game::Tilemap` + pickups from it, renders it top-down, and round-trips the level back out
+  to the save directory (proving the format saves as well as loads). Edit the file, and the level
+  changes with no rebuild
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -273,4 +279,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **VILLAGE QUEST**: WASD to move · mouse to look · collect every coin · Esc to quit
 - **CATCHER**: ← / → (or A / D) to move the paddle · catch gold coins, dodge red hazards · plays itself in attract mode · Esc to quit
 - **Data** (data-driven scene): no controls — the whole scene is parsed from an embedded JSON document · Esc to quit
+- **Level** (on-disk JSON level): no controls — the level is loaded from `assets/levels/arena.json`; edit that file to change it · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

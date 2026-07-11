@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -524,6 +525,49 @@ private:
 
 inline JsonParseResult parseJson(const std::string& text) {
     return detail::JsonParser(text).run();
+}
+
+// -------------------------------------------------------------------------------------------------
+// File helpers: read/parse a JSON document from disk, dump/write one to disk. These are the last mile
+// of the data pipeline — an editable .json file on disk (levels, configs) round-trips through here.
+// -------------------------------------------------------------------------------------------------
+
+// Read an entire text file into a string. Returns false (out untouched) if the file can't be opened.
+inline bool readTextFile(const std::string& path, std::string& out) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return false;
+    const std::streamsize n = f.tellg();
+    if (n < 0) return false;
+    out.resize(static_cast<size_t>(n));
+    f.seekg(0);
+    if (n > 0) f.read(&out[0], n);
+    return static_cast<bool>(f) || f.eof();
+}
+
+// Write a string to a file (truncating). Returns false on open/write failure.
+inline bool writeTextFile(const std::string& path, const std::string& text) {
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    if (!f) return false;
+    f.write(text.data(), static_cast<std::streamsize>(text.size()));
+    return static_cast<bool>(f);
+}
+
+// Parse a JSON file from disk. On a missing/unreadable file the result is not-ok with a clear error
+// (so a caller can't confuse "file absent" with "parsed null").
+inline JsonParseResult parseJsonFile(const std::string& path) {
+    std::string text;
+    if (!readTextFile(path, text)) {
+        JsonParseResult r;
+        r.ok = false;
+        r.error = "could not open file: " + path;
+        return r;
+    }
+    return parseJson(text);
+}
+
+// Serialize a value to a JSON file (indent > 0 pretty-prints). Returns false on write failure.
+inline bool writeJsonFile(const std::string& path, const JsonValue& value, int indent = 2) {
+    return writeTextFile(path, value.dump(indent));
 }
 
 }  // namespace maz::io

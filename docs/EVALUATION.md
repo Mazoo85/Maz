@@ -689,10 +689,29 @@ foundational gap: many systems (scene description, difficulty tables, per-app se
   floor bar, two spinning boxes, the JSON-supplied title in the HUD; no validation errors); new
   `data_headless_smoke` + golden (RMSE 0.0079, threshold 0.12) → ctest **32/32**, every existing
   golden unchanged.
+- [x] **M76 — On-disk JSON levels (close the data pipeline)**: M75 gave the engine a JSON format but
+  every use so far read an *embedded* string. This makes it real — content on disk that a person
+  edits. `io::Json` gains file helpers (`readTextFile`/`writeTextFile`, `parseJsonFile`/
+  `writeJsonFile`); a missing/unreadable file returns not-ok with a clear error so "file absent" can't
+  masquerade as "parsed null". A hand-authored `assets/levels/arena.json` describes a level as a tile
+  grid (an array of equal-length strings, one char per tile code), a palette (code → RGB), a solidity
+  list, and pickup coordinates — the compact, diff-friendly shape a level editor would emit. It is
+  staged into `bin/assets/levels/` by the engine build alongside fonts and models. The new `level`
+  demo reads that file **from disk** at startup, builds a `game::Tilemap` + pickups + palette from it,
+  renders it top-down, and then round-trips the parsed document straight back out to the save
+  directory with `writeJsonFile` — proving the format saves as well as loads. Loader fields degrade to
+  defaults on malformed input, so a partial file still draws. Unit tests (**771 checks** total) cover
+  a level round-trip (tile rows + pickups survive parse→dump→parse), file write→read equality on a
+  temp path, and a missing-file failing cleanly. Verified on lavapipe (a 16×11 arena with a wall
+  border, interior wall pattern, red hazard tiles at the `2` codes, six pulsing gold pickups, HUD
+  "loaded 'ARENA' from arena.json — 16x11 tiles, 6 pickups"; the round-trip save logged to the pref
+  path; no validation errors); new `level_headless_smoke` + golden (RMSE 0.0009, threshold 0.05) →
+  ctest **33/33**, every existing golden unchanged. Note: two golden-image runs must not execute
+  concurrently — they share the Xvfb display and temp PNGs, which corrupts both; run them serially.
 
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
-TextureStore/mesh loading with the cache, parallelize a hot loop, load a scene/level from a JSON
-file on disk (build on M75), reflection-driven ECS serialization, UI layout / text input,
-order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
-cross-platform CI, a deterministic hold-frame screenshot mode.
+TextureStore/mesh loading with the cache, parallelize a hot loop, reflection-driven ECS
+serialization, a CVars/config system layered on JSON, UI layout / text input, order-independent
+transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
+deterministic hold-frame screenshot mode.

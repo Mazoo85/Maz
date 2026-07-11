@@ -81,6 +81,10 @@ add_custom_command(TARGET maz POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/assets/models/village.gltf
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models/village.gltf
-    COMMENT "Staging font + model assets into bin/assets")
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/levels
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/levels/arena.json
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/levels/arena.json
+    COMMENT "Staging font + model + level assets into bin/assets")
 
 add_library(maz::maz ALIAS maz)

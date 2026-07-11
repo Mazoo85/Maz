@@ -66,7 +66,8 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
             Json — JsonValue (null/bool/number/string/array/object, insertion-ordered) + never-throwing
-            recursive-descent parseJson (line/col errors) + dump (compact/pretty)  (header-only;
+            recursive-descent parseJson (line/col errors) + dump (compact/pretty) + file IO
+            (readTextFile/writeTextFile, parseJsonFile/writeJsonFile)  (header-only;
             human-editable configs, data-driven scenes/levels/tuning)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
@@ -87,6 +88,9 @@ apps/
               KeyValueStore high score; deterministic attract-mode AI so the render is golden-stable
   data/     Data-driven scene — an embedded JSON document (clear color + sprites: shape/pos/size/
               tint/bob/spin) parsed at runtime with io::parseJson and rendered; nothing hard-coded
+  level/    On-disk JSON level — reads assets/levels/arena.json from disk (io::parseJsonFile) into a
+              game::Tilemap + pickups + palette, renders top-down, and round-trips the level back to
+              the save dir (io::writeJsonFile); the editable-content pipeline end to end
 ```
 
 ## The frame loop (fixed timestep)

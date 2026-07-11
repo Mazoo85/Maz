@@ -674,6 +674,38 @@ void testJson() {
     auto rp = io::parseJson(pretty);
     CHECK(rp.ok);
     CHECK(rp.value["name"].asString() == std::string("level-1"));
+
+    // A level document (tile rows + pickups) survives a parse -> dump -> parse round-trip intact.
+    const char* levelDoc = R"({
+        "name": "ARENA",
+        "tileSize": 44,
+        "tiles": ["111", "1 1", "111"],
+        "pickups": [ {"x": 1, "y": 1} ]
+    })";
+    auto lr = io::parseJson(levelDoc);
+    CHECK(lr.ok);
+    CHECK(lr.value["tiles"].size() == 3);
+    CHECK(lr.value["tiles"][0].asString() == std::string("111"));
+    CHECK(lr.value["pickups"][0]["x"].asInt() == 1);
+    auto lr2 = io::parseJson(lr.value.dump());
+    CHECK(lr2.ok);
+    CHECK(lr2.value["tileSize"].asInt() == 44);
+    CHECK(lr2.value["tiles"].size() == 3);
+    CHECK(lr2.value["pickups"].size() == 1);
+
+    // File IO: write a document to a temp path, read it back, and verify equality of values.
+    const std::string path = "maz_json_roundtrip_test.json";
+    CHECK(io::writeJsonFile(path, lr.value, 2));
+    auto fr = io::parseJsonFile(path);
+    CHECK(fr.ok);
+    CHECK(fr.value["name"].asString() == std::string("ARENA"));
+    CHECK(fr.value["tiles"].size() == 3);
+    std::remove(path.c_str());
+
+    // A missing file fails cleanly (not-ok, non-empty error) rather than throwing.
+    auto missing = io::parseJsonFile("definitely_not_a_real_file_12345.json");
+    CHECK(!missing.ok);
+    CHECK(!missing.error.empty());
 }
 
 void testStateMachine() {
