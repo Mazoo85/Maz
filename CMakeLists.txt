@@ -55,6 +55,7 @@ add_subdirectory(apps/maze)
 add_subdirectory(apps/crowd)
 add_subdirectory(apps/tween)
 add_subdirectory(apps/menu)
+add_subdirectory(apps/persist)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

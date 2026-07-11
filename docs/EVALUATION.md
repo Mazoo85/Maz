@@ -388,7 +388,26 @@ menus. Every shippable game needs a main menu, a pause screen, settings. Build t
   moment one moves. Verified on lavapipe (widgets highlight/toggle/slide, no validation errors); new
   `menu_headless_smoke` + golden → ctest **17/17**, every existing golden unchanged.
 
-Later: UI layout containers / anchoring + text input, behavior trees / FSM on top of steering,
-order-independent transparency, material/uniform system, GPU-driven / indirect instancing, skeletal
-animation, asset manager, cross-platform CI, a deterministic hold-frame screenshot mode to tighten
-golden tolerances.
+**Iteration 23 complete** (immediate-mode UI + menu demo).
+
+### Iteration 24 — "Serialization" (in progress)
+Self-directed: the engine has runtime systems but no way to persist structured state beyond simple
+key/value — no save games, no level files, no foundation for an editor or content pipeline. Build
+the binary serialization backbone.
+- [x] **M61 — Binary serialization + scene save/load**: header-only `maz::io` — `ByteWriter`
+  (append POD / string / POD-vector, plus a magic+version header) and `ByteReader` (read them back
+  with bounds checks so truncated or corrupt input sets `ok() == false` instead of over-reading),
+  plus `writeFile`/`readFile`. Host byte order (fine for the LE desktop targets; a swap layer can
+  slot in later). Pure logic → unit-tested headlessly (183 checks total): mixed-scalar/POD/string/
+  vector round-trip, header validation, wrong magic and wrong version rejection, and two truncation
+  cases (a cut POD and a cut length-prefixed string) that must fail cleanly. New `persist` demo:
+  authors a 14-prop scene, serializes it to a real file under the pref dir, **clears the in-memory
+  copy**, reads the file back, and renders the reconstructed scene — proving an end-to-end disk
+  round-trip (log confirms `wrote=1 loaded=1 (14 props, 604 bytes)`). Verified on lavapipe (the
+  reloaded props render with their saved transforms/colors, no validation errors); new
+  `persist_headless_smoke` + golden → ctest **18/18**, every existing golden unchanged.
+
+Later: reflection-driven ECS component serialization, JSON/text format, UI layout containers /
+text input, behavior trees / FSM, order-independent transparency, material/uniform system,
+GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
+deterministic hold-frame screenshot mode to tighten golden tolerances.

@@ -52,6 +52,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Steering (seek/flee/arrive/separation/path-follow forces + integrate)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample
             (header-only; animate any float/vector/color over time)
+io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
+            + file read/write   (header-only; save games, level files)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/

@@ -11,6 +11,7 @@
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 
@@ -494,6 +495,61 @@ void testUI() {
     CHECK_NEAR(vol, 50.0f, 1e-3f);
 }
 
+void testSerialize() {
+    struct Pod {
+        int32_t a;
+        float b;
+        uint8_t c;
+    };
+
+    // Round-trip mixed scalars, a POD struct, a string, and a vector through the codec.
+    io::ByteWriter w;
+    w.writeHeader(0x1234ABCD, 3);
+    w.write<int32_t>(-42);
+    w.write<float>(3.5f);
+    w.write(Pod{7, 1.25f, 200});
+    w.writeString("hello maz");
+    w.writeVector(std::vector<uint32_t>{10, 20, 30});
+
+    io::ByteReader r(w.data());
+    CHECK(r.readHeader(0x1234ABCD, 3));
+    CHECK(r.read<int32_t>() == -42);
+    CHECK_NEAR(r.read<float>(), 3.5f, 1e-6f);
+    const Pod p = r.read<Pod>();
+    CHECK(p.a == 7);
+    CHECK_NEAR(p.b, 1.25f, 1e-6f);
+    CHECK(p.c == 200);
+    CHECK(r.readString() == std::string("hello maz"));
+    const std::vector<uint32_t> v = r.readVector<uint32_t>();
+    CHECK(v.size() == 3);
+    CHECK(v[0] == 10 && v[1] == 20 && v[2] == 30);
+    CHECK(r.ok());
+    CHECK(r.remaining() == 0);
+
+    // Wrong magic / version is rejected cleanly.
+    io::ByteReader bad(w.data());
+    CHECK(!bad.readHeader(0xDEADBEEF, 3));
+    CHECK(!bad.ok());
+    io::ByteReader badVer(w.data());
+    CHECK(!badVer.readHeader(0x1234ABCD, 99));
+
+    // Truncated input: reading past the end sets not-ok instead of reading garbage/crashing.
+    io::ByteWriter w2;
+    w2.write<uint64_t>(0x1122334455667788ull);
+    std::vector<uint8_t> trunc(w2.data().begin(), w2.data().begin() + 3); // only 3 of 8 bytes
+    io::ByteReader tr(trunc);
+    tr.read<uint64_t>();
+    CHECK(!tr.ok());
+
+    // A truncated length-prefixed string doesn't over-read.
+    io::ByteWriter w3;
+    w3.writeString("abcdef");
+    std::vector<uint8_t> ts(w3.data().begin(), w3.data().begin() + 5); // length + 1 byte only
+    io::ByteReader tsr(ts);
+    tsr.readString();
+    CHECK(!tsr.ok());
+}
+
 } // namespace
 
 int main() {
@@ -506,6 +562,7 @@ int main() {
     testSteering();
     testTween();
     testUI();
+    testSerialize();
     testEcs();
     testShake();
     testParticleAttractor();

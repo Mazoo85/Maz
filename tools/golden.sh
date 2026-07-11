@@ -39,6 +39,7 @@ CASES=(
     "crowd||2.5|0.16"
     "tween||2.5|0.18"
     "menu||2.5|0.18"
+    "persist||2.5|0.14"
 )
 
 if [ ! -f "$ICD" ]; then

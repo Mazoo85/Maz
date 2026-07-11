@@ -167,7 +167,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] String interning / `StringId` (hashed), fixed strings
 - [ ] Event bus / signals, delegates / typed callbacks
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
-- [ ] Serialization (binary + JSON), versioned schemas
+- [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
+  headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)
+  — JSON/text format later
 - [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
       via `Renderer::renderStats`; M29)
 - [ ] Profiling: scoped timers, frame markers, Tracy integration

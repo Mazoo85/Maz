@@ -18,6 +18,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/game/Tilemap.hpp"
+#include "maz/io/Serialize.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/platform/Paths.hpp"

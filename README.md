@@ -169,6 +169,11 @@ available):
   land on it; a slider keeps dragging off-track), drawn via the 2D sprite+font path. The `menu`
   demo is an interactive settings screen driven by a self-playing cursor (real mouse on a desktop).
   Interaction state machine + hit-testing + slider math unit-tested
+- **M61** — binary serialization: `maz::io` provides `ByteWriter`/`ByteReader` (POD/string/vector,
+  versioned magic headers, bounds-checked reads that fail cleanly on truncated/corrupt input) plus
+  file read/write. The `persist` demo authors a 14-prop scene, saves it to disk, clears memory,
+  reloads it from the file, and renders the reconstructed scene. Round-trip + truncation + bad-magic
+  unit-tested — the backbone for save games and level files
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
