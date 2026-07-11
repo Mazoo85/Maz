@@ -117,6 +117,38 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Solid boxes for collision, and pickups to collect in the open spaces between them.
+    std::vector<game::Aabb> solids;
+    for (const Block& b : blocks) {
+        solids.push_back(game::Aabb::fromCenterSize(b.pos, b.scale));
+    }
+    render::MeshHandle pickupMesh =
+        upload(*renderer, sh::makeSphere(0.6f, 14, 20, render::Color{1.0f, 0.92f, 0.35f, 1}));
+    const int kPickups = 10;
+    std::vector<glm::vec3> pickups;
+    std::vector<bool> collected(static_cast<size_t>(kPickups), false);
+    for (int i = 0; i < kPickups; ++i) {
+        glm::vec3 chosen(0.0f, 2.5f, 0.0f);
+        for (int tries = 0; tries < 60; ++tries) {
+            const glm::vec3 p(frand(-28.0f, 28.0f), 2.5f, frand(-28.0f, 28.0f));
+            const game::Aabb probe = game::Aabb::fromCenterSize(p, glm::vec3(1.8f));
+            bool clear = true;
+            for (const game::Aabb& s : solids) {
+                if (probe.overlaps(s)) {
+                    clear = false;
+                    break;
+                }
+            }
+            if (clear) {
+                chosen = p;
+                break;
+            }
+        }
+        pickups.push_back(chosen);
+    }
+    int collectedCount = 0;
+    const glm::vec3 playerHalf(0.7f, 1.2f, 0.7f);
+
     ui::Font font;
     {
         const char* base = SDL_GetBasePath();
@@ -128,6 +160,7 @@ int main(int argc, char** argv) {
     game::FlyCamera camera;
     camera.setPosition(glm::vec3(0.0f, 3.0f, 24.0f));
     camera.setYawPitch(-1.5708f, -0.12f);
+    float avoidYaw = 0.0f; // autopilot: steer around blocks it bumps into
 
     while (!window.shouldClose()) {
         window.pumpEvents(input);
@@ -140,29 +173,74 @@ int main(int argc, char** argv) {
         const float aspect =
             bh > 0 ? static_cast<float>(bw) / static_cast<float>(bh) : 16.0f / 9.0f;
 
+        // Facing: autopilot turns toward the nearest uncollected pickup; else mouse-look.
+        if (autopilot) {
+            int target = -1;
+            float best = 1e18f;
+            for (size_t i = 0; i < pickups.size(); ++i) {
+                if (collected[i]) {
+                    continue;
+                }
+                const float dx = pickups[i].x - camera.position().x;
+                const float dz = pickups[i].z - camera.position().z;
+                const float d = dx * dx + dz * dz;
+                if (d < best) {
+                    best = d;
+                    target = static_cast<int>(i);
+                }
+            }
+            if (target >= 0) {
+                const glm::vec3 dir = pickups[static_cast<size_t>(target)] - camera.position();
+                camera.setYawPitch(std::atan2(dir.z, dir.x) + avoidYaw, -0.05f);
+            } else {
+                camera.look(0.004f, 0.0f);
+            }
+        } else {
+            const float sens = 0.0025f;
+            camera.look(input.mouseDX() * sens, -input.mouseDY() * sens);
+        }
+
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
             const float dt = static_cast<float>(clock.fixedDelta());
+            float fwd = 0.0f, right = 0.0f, up = 0.0f, speed = 9.0f;
             if (autopilot) {
-                camera.move(1.0f, 0.0f, 0.0f, dt, 4.0f);
+                fwd = 1.0f;
+                speed = 5.5f;
             } else {
-                float fwd = 0.0f, right = 0.0f, up = 0.0f;
                 if (input.keyDown(SDL_SCANCODE_W)) fwd += 1.0f;
                 if (input.keyDown(SDL_SCANCODE_S)) fwd -= 1.0f;
                 if (input.keyDown(SDL_SCANCODE_D)) right += 1.0f;
                 if (input.keyDown(SDL_SCANCODE_A)) right -= 1.0f;
                 if (input.keyDown(SDL_SCANCODE_SPACE)) up += 1.0f;
                 if (input.keyDown(SDL_SCANCODE_LSHIFT)) up -= 1.0f;
-                camera.move(fwd, right, up, dt, 9.0f);
             }
-        }
+            // Move, resolved against the solid blocks so you slide instead of passing through.
+            const glm::vec3 delta = camera.moveDelta(fwd, right, up, dt, speed);
+            const glm::vec3 before = camera.position();
+            camera.setPosition(game::slideMove(before, delta, playerHalf, solids));
 
-        // Look: mouse deltas per frame (or a slow pan under autopilot).
-        if (autopilot) {
-            camera.look(0.0022f, 0.0f);
-        } else {
-            const float sens = 0.0025f;
-            camera.look(input.mouseDX() * sens, -input.mouseDY() * sens);
+            if (autopilot) {
+                // If a block blocked most of the intended move, accumulate a turn to steer round.
+                const float intended = glm::length(delta);
+                const float moved = glm::length(camera.position() - before);
+                if (intended > 1e-4f && moved < 0.4f * intended) {
+                    avoidYaw += 0.12f;
+                } else {
+                    avoidYaw *= 0.85f;
+                }
+            }
+
+            for (size_t i = 0; i < pickups.size(); ++i) {
+                if (collected[i]) {
+                    continue;
+                }
+                const glm::vec3 d = pickups[i] - camera.position();
+                if (glm::dot(d, d) < 2.6f * 2.6f) {
+                    collected[i] = true;
+                    ++collectedCount;
+                }
+            }
         }
 
         const glm::mat4 proj = math::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
@@ -179,6 +257,17 @@ int main(int argc, char** argv) {
                 renderer->drawMesh(b.mesh, glm::value_ptr(model), whiteTex);
             }
 
+            const float bob = 0.2f * std::sin(static_cast<float>(clock.elapsed()) * 2.0f);
+            for (size_t i = 0; i < pickups.size(); ++i) {
+                if (collected[i]) {
+                    continue;
+                }
+                glm::vec3 p = pickups[i];
+                p.y += bob;
+                renderer->drawMesh(pickupMesh, glm::value_ptr(glm::translate(glm::mat4(1.0f), p)),
+                                   whiteTex);
+            }
+
             render::Camera2D ui;
             ui.usePixelSpace = true;
             renderer->setCamera2D(ui);
@@ -187,6 +276,13 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, 16.0f, 44.0f,
                           autopilot ? "AUTOPILOT" : "WASD move   mouse look   SPACE/SHIFT up-down",
                           render::Color{0.9f, 0.95f, 1.0f, 1}, 0.5f);
+            char buf[48];
+            if (collectedCount >= kPickups) {
+                std::snprintf(buf, sizeof(buf), "ALL COLLECTED!");
+            } else {
+                std::snprintf(buf, sizeof(buf), "COLLECTED  %d / %d", collectedCount, kPickups);
+            }
+            font.drawText(*renderer, 16.0f, 74.0f, buf, render::Color{1, 0.95f, 0.5f, 1}, 0.6f);
 
             renderer->endFrame();
         }

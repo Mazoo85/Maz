@@ -18,12 +18,19 @@ public:
         m_pitch = m_pitch < -limit ? -limit : (m_pitch > limit ? limit : m_pitch);
     }
 
+    // The world-space displacement for a move this frame, without applying it — so callers can
+    // run it through collision before committing via setPosition().
+    math::vec3 moveDelta(float forwardAmt, float rightAmt, float upAmt, float dt,
+                         float speed = 6.0f) const {
+        const math::vec3 f = forward();
+        const math::vec3 r = math::normalize(math::cross(f, worldUp()));
+        return (f * forwardAmt + r * rightAmt + worldUp() * upAmt) * (speed * dt);
+    }
+
     // Move along the camera's own axes: +forward, +right (strafe), +up (world up). Amounts are
     // in [-1,1]; scaled by speed*dt.
     void move(float forwardAmt, float rightAmt, float upAmt, float dt, float speed = 6.0f) {
-        const math::vec3 f = forward();
-        const math::vec3 r = math::normalize(math::cross(f, worldUp()));
-        m_pos += (f * forwardAmt + r * rightAmt + worldUp() * upAmt) * (speed * dt);
+        m_pos += moveDelta(forwardAmt, rightAmt, upAmt, dt, speed);
     }
 
     math::vec3 forward() const {

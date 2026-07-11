@@ -45,6 +45,8 @@ available):
 - **M9** — 3D rendering (depth buffer + `MeshRenderer`): the `cube` demo shows a lit 3D cube under a 2D HUD
 - **M10** — procedural meshes (`render::shapes`) + an ECS-driven 3D scene (`scene3d`)
 - **M11** — textured 3D (shared `TextureStore`): the cube is checkered and `scene3d` has a tiled floor
+- **M12** — explorable 3D (`maz::game::FlyCamera` + mouse-look): fly through `world` with WASD
+- **M13** — 3D collision (`maz::game::Collision`): `world` is a solid, walkable first-person collect-em-up
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

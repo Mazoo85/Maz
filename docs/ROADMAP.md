@@ -68,7 +68,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M12 — explorable 3D (done).** `maz::game::FlyCamera` — a first-person camera (position +
 > yaw/pitch, `move`/`look`, view matrix) + `Window::setRelativeMouse` for mouse-look. `apps/world`
 > is a navigable field of 3D blocks over a textured floor (WASD + mouse-look; `--demo` autopilots
-> a fly-through). Everything marked `[x]` below is done; everything else is the road ahead.
+> a fly-through).
+>
+> **M13 — 3D collision (done).** `maz::game::Collision` — `Aabb` + `slideMove` (per-axis resolve
+> so you slide along surfaces). `apps/world` is now solid and walkable, turned into a
+> first-person collect-em-up (glowing pickups + a HUD counter; autopilot steers around blocks it
+> bumps). Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -171,7 +176,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
 - [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
 - [ ] 2D physics integration (custom or Box2D)
-- [ ] 3D collision shapes, raycasts / queries, triggers / overlaps
+- [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
+- [ ] 3D: other collision shapes, raycasts / queries, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [ ] Continuous collision, layers / masks, physics materials
 - [ ] Collider / contact debug visualization
@@ -231,7 +237,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: bouncing textured sprites (proves 2D)
 - [x] `apps/cube`: lit, depth-tested spinning cube + 2D HUD (proves 3D, and 2D+3D together)
 - [x] `apps/scene3d`: a 3D scene (ground + ring of shapes) driven by the ECS, orbiting camera
-- [x] `apps/world`: an explorable first-person 3D world (fly camera, textured floor, block field)
+- [x] `apps/world`: a solid, walkable first-person 3D collect-em-up (collision, pickups, HUD)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →
