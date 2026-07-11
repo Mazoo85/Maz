@@ -171,7 +171,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
   headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)
-  — JSON/text format later
+- [x] **JSON / text format** (`maz::io::JsonValue` + never-throwing recursive-descent `parseJson`
+  with line/column errors + compact/pretty `dump`; insertion-ordered objects for stable round-trips;
+  the `data` demo builds an entire scene from an embedded JSON document; M75)
 - [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
       via `Renderer::renderStats`; M29)
 - [ ] Profiling: scoped timers, frame markers, Tracy integration
@@ -367,6 +369,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **VILLAGE QUEST** (`apps/village`) — a first-person 3D game built on a data-loaded glTF
       scene: solid house collision, coins to collect against the clock, a win state, and a
       best-time saved across runs (scene loading + collision + audio + save composed; M20)
+- [x] **Data-driven scene** (`apps/data`) — every sprite (shape, position, size, tint, bob/spin) plus
+      the clear color and title come from an embedded JSON document parsed at runtime; proves the
+      engine can be driven by human-editable data, not just code (M75)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

@@ -22,6 +22,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/io/Json.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
@@ -563,6 +564,116 @@ void testSerialize() {
     io::ByteReader tsr(ts);
     tsr.readString();
     CHECK(!tsr.ok());
+}
+
+void testJson() {
+    using io::JsonValue;
+
+    // Parse a representative document exercising every type + nesting.
+    const char* doc = R"({
+        "name": "level-1",
+        "gravity": -9.8,
+        "count": 3,
+        "enabled": true,
+        "empty": null,
+        "tags": ["start", "boss", "dark"],
+        "player": { "hp": 100, "pos": [4, 5.5] }
+    })";
+    auto r = io::parseJson(doc);
+    CHECK(r.ok);
+    CHECK(r.error.empty());
+    const JsonValue& j = r.value;
+    CHECK(j.isObject());
+
+    // Typed reads with chained lookups + defaults on missing keys never crash.
+    CHECK(j["name"].asString() == std::string("level-1"));
+    CHECK_NEAR(j["gravity"].asFloat(), -9.8f, 1e-5f);
+    CHECK(j["count"].asInt() == 3);
+    CHECK(j["enabled"].asBool() == true);
+    CHECK(j["empty"].isNull());
+    CHECK(j["missing"].asInt(42) == 42);           // absent key -> default
+    CHECK(j["missing"]["deep"].asInt(7) == 7);     // chained missing -> default, no crash
+
+    // Arrays: size, indexing, out-of-range returns null sentinel.
+    CHECK(j["tags"].isArray());
+    CHECK(j["tags"].size() == 3);
+    CHECK(j["tags"][0].asString() == std::string("start"));
+    CHECK(j["tags"][2].asString() == std::string("dark"));
+    CHECK(j["tags"][9].isNull());
+
+    // Nested object + number array.
+    CHECK(j["player"]["hp"].asInt() == 100);
+    CHECK_NEAR(j["player"]["pos"][1].asFloat(), 5.5f, 1e-5f);
+
+    // Insertion order is preserved through the object.
+    const auto& fields = j.fields();
+    CHECK(fields.items.size() == 7);
+    CHECK(fields.items[0].first == std::string("name"));
+    CHECK(fields.items[1].first == std::string("gravity"));
+
+    // Round-trip: parse -> dump -> parse yields the same values.
+    std::string dumped = j.dump();
+    auto r2 = io::parseJson(dumped);
+    CHECK(r2.ok);
+    CHECK(r2.value["player"]["hp"].asInt() == 100);
+    CHECK(r2.value["tags"].size() == 3);
+
+    // Integers dump without a spurious ".0"; the dumped form is compact.
+    CHECK(JsonValue(3).dump() == std::string("3"));
+    CHECK(JsonValue(-42).dump() == std::string("-42"));
+    CHECK(JsonValue(true).dump() == std::string("true"));
+    CHECK(JsonValue(nullptr).dump() == std::string("null"));
+    CHECK(JsonValue("hi").dump() == std::string("\"hi\""));
+
+    // String escaping round-trips control chars, quotes, and backslashes.
+    JsonValue s(std::string("a\"b\\c\nd\te"));
+    auto rs = io::parseJson(s.dump());
+    CHECK(rs.ok);
+    CHECK(rs.value.asString() == std::string("a\"b\\c\nd\te"));
+
+    // \u escape decodes to UTF-8.
+    auto ru = io::parseJson("\"\\u00e9\"");  // é
+    CHECK(ru.ok);
+    CHECK(ru.value.asString().size() == 2);  // two UTF-8 bytes
+
+    // Building a document in code, then dumping + reparsing.
+    JsonValue built = JsonValue::object();
+    built.set("id", 7);
+    built.set("names", JsonValue::array());
+    built.fields()["names"].push_back(JsonValue("a"));
+    built.fields()["names"].push_back(JsonValue("b"));
+    auto rb = io::parseJson(built.dump());
+    CHECK(rb.ok);
+    CHECK(rb.value["id"].asInt() == 7);
+    CHECK(rb.value["names"].size() == 2);
+    CHECK(rb.value["names"][1].asString() == std::string("b"));
+
+    // Malformed inputs fail cleanly (ok == false, non-empty error, line/col set) — never throw.
+    const char* bad[] = {
+        "{",                    // unterminated object
+        "[1, 2,",               // unterminated array
+        "{\"a\": }",            // missing value
+        "{\"a\" 1}",            // missing colon
+        "truue",                // bad literal
+        "\"unterminated",       // unterminated string
+        "[1 2]",                // missing comma
+        "{a: 1}",               // unquoted key
+        "",                     // empty input
+        "123 456",              // trailing tokens
+    };
+    for (const char* b : bad) {
+        auto rbad = io::parseJson(b);
+        CHECK(!rbad.ok);
+        CHECK(!rbad.error.empty());
+        CHECK(rbad.value.isNull());
+    }
+
+    // Pretty-print produces newlines + indentation and still round-trips.
+    std::string pretty = j.dump(2);
+    CHECK(pretty.find('\n') != std::string::npos);
+    auto rp = io::parseJson(pretty);
+    CHECK(rp.ok);
+    CHECK(rp.value["name"].asString() == std::string("level-1"));
 }
 
 void testStateMachine() {
@@ -1450,6 +1561,7 @@ int main() {
     testTween();
     testUI();
     testSerialize();
+    testJson();
     testEcs();
     testShake();
     testParticleAttractor();

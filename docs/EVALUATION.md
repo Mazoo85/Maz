@@ -664,9 +664,35 @@ application-framework layer is what turns single-screen demos into an actual gam
   every existing app's golden unchanged. This is the capstone that shows the engine is not a bag of
   demos but a set of systems that build a game together.
 
+### Iteration 37 — "Human-editable data" (done)
+Self-directed: the engine could persist data (binary `Serialize`, ini-style `KeyValueStore`) but had
+no **human-readable structured format** — the thing you actually author by hand for configs, levels,
+and tuning, and the thing a future editor/tool would read and write. That is the highest-leverage
+foundational gap: many systems (scene description, difficulty tables, per-app settings) want to be
+*data*, and data wants to be editable.
+- [x] **M75 — JSON value + parser + serializer (`io::Json`)**: a header-only, zero-dependency
+  `JsonValue` — a tagged union over the six JSON types with **insertion-ordered** objects (a parallel
+  key list, not a re-sorting `std::map`, so parse → dump → parse is byte-stable and diffs stay small).
+  Reads are total functions: `j["a"]["b"].asInt(default)` walks through missing keys and past array
+  bounds to a shared null sentinel and returns the default rather than crashing, so loading partial or
+  untrusted data is safe. `parseJson` is a hand-written recursive-descent scanner that is fully
+  bounds-checked and **never throws** — malformed input yields a null value plus a human-readable error
+  with line/column (it keeps the first/deepest error), covering unterminated containers/strings,
+  missing colons/commas, bad literals, control chars, and `\uXXXX` escapes (decoded to UTF-8).
+  `dump(indent)` re-serializes compact or pretty, emitting integral numbers without a spurious `.0`.
+  Unit-tested to **757 checks** total: a full round-trip of a nested document, typed reads with
+  defaults, chained missing-key safety, order preservation, escape/`\u` round-trips, in-code document
+  building, ten distinct malformed inputs all failing cleanly, and pretty-print. New `data` demo:
+  an embedded JSON document describes the clear color and eight sprites (shape / fractional position /
+  size / tint / bob amplitude+speed+phase / spin), and the app parses it at runtime and renders it —
+  nothing on screen is hard-coded. Verified on lavapipe (five discs bobbing at data-driven heights, a
+  floor bar, two spinning boxes, the JSON-supplied title in the HUD; no validation errors); new
+  `data_headless_smoke` + golden (RMSE 0.0079, threshold 0.12) → ctest **32/32**, every existing
+  golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
-TextureStore/mesh loading with the cache, parallelize a hot loop, wire the event bus into a game,
-reflection-driven ECS serialization, JSON/text format, UI layout / text input, order-independent
-transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
-deterministic hold-frame screenshot mode.
+TextureStore/mesh loading with the cache, parallelize a hot loop, load a scene/level from a JSON
+file on disk (build on M75), reflection-driven ECS serialization, UI layout / text input,
+order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
+cross-platform CI, a deterministic hold-frame screenshot mode.

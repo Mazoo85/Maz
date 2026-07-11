@@ -239,6 +239,12 @@ available):
   out to scoring + gold/red particle bursts + screen-shake, 2D contact tests decide paddle-vs-coin and
   paddle-vs-hazard, and the high score is saved across runs via the `KeyValueStore`. A deterministic
   attract-mode AI plays itself (seeded RNG, fixed timestep) so the render is golden-stable
+- **M75** — JSON / text data format (`maz::io::JsonValue` + `parseJson`): a human-readable companion to
+  the binary save format. A tagged value over the six JSON types with insertion-ordered objects (so a
+  round-trip is diff-friendly), a hand-written recursive-descent parser that **never throws** — bad
+  input returns a null value plus a line/column error — and a compact-or-pretty `dump`. The new `data`
+  demo builds an *entire* scene (clear color + eight sprites with shape/position/tint/bob/spin) from an
+  embedded JSON document, proving the engine can be driven by editable data files, not just code
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -266,4 +272,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **ORB RUN**: Space to start / restart · WASD / arrows to move · Esc to quit
 - **VILLAGE QUEST**: WASD to move · mouse to look · collect every coin · Esc to quit
 - **CATCHER**: ← / → (or A / D) to move the paddle · catch gold coins, dodge red hazards · plays itself in attract mode · Esc to quit
+- **Data** (data-driven scene): no controls — the whole scene is parsed from an embedded JSON document · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

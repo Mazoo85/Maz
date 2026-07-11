@@ -64,7 +64,10 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             Animator — named-clip library + timed cross-fade controller (play/update/pose)
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
-            + file read/write   (header-only; save games, level files)
+            + file read/write   (header-only; save games, level files);
+            Json — JsonValue (null/bool/number/string/array/object, insertion-ordered) + never-throwing
+            recursive-descent parseJson (line/col errors) + dump (compact/pretty)  (header-only;
+            human-editable configs, data-driven scenes/levels/tuning)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
@@ -82,6 +85,8 @@ apps/
               (menu/play/game-over), EventBus (catch/miss -> score + particle burst + shake),
               2D contact tests (paddle vs falling coins/hazards), ParticleSystem, Shake, and a
               KeyValueStore high score; deterministic attract-mode AI so the render is golden-stable
+  data/     Data-driven scene — an embedded JSON document (clear color + sprites: shape/pos/size/
+              tint/bob/spin) parsed at runtime with io::parseJson and rendered; nothing hard-coded
 ```
 
 ## The frame loop (fixed timestep)

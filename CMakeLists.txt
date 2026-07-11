@@ -69,6 +69,7 @@ add_subdirectory(apps/behavior)
 add_subdirectory(apps/boxes)
 add_subdirectory(apps/scenes)
 add_subdirectory(apps/catcher)
+add_subdirectory(apps/data)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
