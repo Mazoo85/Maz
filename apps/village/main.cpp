@@ -14,6 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -232,6 +233,29 @@ int main(int argc, char** argv) {
         e.life = frand(0.0f, e.maxLife); // stagger so the fire starts full
     }
 
+    // Short-lived sparkle bursts spawned when a coin is collected.
+    struct Spark {
+        glm::vec3 pos, vel;
+        float life, maxLife;
+    };
+    std::vector<Spark> sparks;
+    sparks.reserve(512);
+    auto burst = [&](const glm::vec3& at) {
+        for (int s = 0; s < 24; ++s) {
+            const float a = frand(0.0f, 6.2831853f);
+            const float el = frand(-0.6f, 1.0f);
+            const float speed = frand(1.5f, 4.0f);
+            const float horiz = std::sqrt(std::max(0.0f, 1.0f - el * el));
+            Spark sp;
+            sp.pos = at;
+            sp.vel = glm::vec3(std::cos(a) * horiz, el, std::sin(a) * horiz) * speed;
+            sp.vel.y += 1.5f;
+            sp.maxLife = frand(0.4f, 0.9f);
+            sp.life = sp.maxLife;
+            sparks.push_back(sp);
+        }
+    };
+
     audio::Audio audio;
     audio.init(); // no-op without a device
     const audio::SoundDesc sfxCoin{audio::Wave::Square, 720.0f, 1180.0f, 0.09f, 0.28f};
@@ -312,6 +336,15 @@ int main(int argc, char** argv) {
                     respawnEmber(e);
                 }
             }
+            // Integrate + retire pickup sparks.
+            for (Spark& sp : sparks) {
+                sp.pos += sp.vel * dt;
+                sp.vel.y -= 4.0f * dt;
+                sp.life -= dt;
+            }
+            sparks.erase(std::remove_if(sparks.begin(), sparks.end(),
+                                        [](const Spark& s) { return s.life <= 0.0f; }),
+                         sparks.end());
 
             float fwd = 0.0f, strafe = 0.0f, speed = 8.0f;
             if (autopilot && !won) {
@@ -354,6 +387,7 @@ int main(int argc, char** argv) {
                     collected[i] = true;
                     ++collectedCount;
                     audio.play(sfxCoin);
+                    burst(coins[i]);
                 }
             }
 
@@ -397,6 +431,13 @@ int main(int argc, char** argv) {
                 const float size = 0.05f + 0.16f * t;
                 const float col[4] = {1.0f, 0.35f + 0.4f * t, 0.12f * t, t};
                 renderer->drawParticle3D(glm::value_ptr(e.pos), size, col);
+            }
+            // Golden pickup sparks.
+            for (const Spark& sp : sparks) {
+                const float t = sp.life / sp.maxLife;
+                const float size = 0.04f + 0.11f * t;
+                const float col[4] = {1.0f, 0.92f, 0.45f, t};
+                renderer->drawParticle3D(glm::value_ptr(sp.pos), size, col);
             }
             const float bob = 0.15f * std::sin(static_cast<float>(clock.elapsed()) * 2.5f);
             const float spin = static_cast<float>(clock.elapsed()) * 2.0f;

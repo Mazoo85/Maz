@@ -77,8 +77,10 @@ have no feedback effect. This iteration:
   frustum planes from viewProj and skips meshes whose world AABB is fully outside. `renderStats`
   gains a `culled` count shown in the overlay. Verified in `world`: "MESH 36 (culled 51)" — >50%
   of draws skipped with the visible scene unchanged.
-- [ ] **M31 — Pickup-burst particles**: a sparkle burst of 3D particles when a village coin is
-  collected (reuses Particles3D).
+- [x] **M31 — Pickup-burst particles**: collecting a village coin spawns a 24-spark golden burst
+  (short-lived pooled sparks integrated with gravity), drawn via Particles3D — they glow and bloom.
+  Verified: the collect moment now sprays fading sparkles.
 
-Later: refine bloom (downsampled separable blur + tonemap), alpha-blended smoke, transparency
-sorting, a water/reflective plane.
+**Iteration 5 complete** (frustum culling + pickup juice). Later: refine bloom (downsampled
+separable blur + tonemap), alpha-blended smoke, transparency sorting, a water/reflective plane,
+spatial partitioning for broadphase.
