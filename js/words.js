@@ -206,3 +206,8 @@ const NOUNS = [
   "geology", "germ", "ghost", "giant", "gift", "giraffe", "girl", "glacier", "gland", "glass",
   "glasses", "glaze", "glider", "glitter", "globe", "glory", "glove", "glow", "glue", "goal",
 ];
+
+// Make the word banks available when loaded from Node (harmless in the browser).
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { ADJECTIVES, NOUNS };
+}
