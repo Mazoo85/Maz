@@ -259,7 +259,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] 2D physics integration (custom or Box2D)
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
-- [ ] 3D: other collision shapes, raycasts / queries, triggers / overlaps
+- [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
+  in `world`; M53)
+- [ ] Other collision shapes, sphere/capsule casts, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [ ] Continuous collision, layers / masks, physics materials
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

@@ -83,6 +83,37 @@ void testCollision() {
     CHECK_NEAR(q.z, 4.0f, 1e-4f);
 }
 
+void testRaycast() {
+    using game::Aabb;
+    const Aabb box = Aabb::fromCenterSize(math::vec3(5, 0, 0), math::vec3(2, 2, 2)); // [4,6]x[-1,1]^2
+    // Ray from origin along +x hits the near face at x=4 (t=4).
+    game::RayHit h = game::raycastAabb(math::vec3(0, 0, 0), math::vec3(1, 0, 0), box);
+    CHECK(h.hit);
+    CHECK_NEAR(h.t, 4.0f, 1e-4f);
+    CHECK_NEAR(h.point.x, 4.0f, 1e-4f);
+    // Pointing away (-x) misses.
+    CHECK(!game::raycastAabb(math::vec3(0, 0, 0), math::vec3(-1, 0, 0), box).hit);
+    // Parallel and offset in y misses.
+    CHECK(!game::raycastAabb(math::vec3(0, 5, 0), math::vec3(1, 0, 0), box).hit);
+    // maxDist shorter than the box excludes it.
+    CHECK(!game::raycastAabb(math::vec3(0, 0, 0), math::vec3(1, 0, 0), box, 3.0f).hit);
+    // Ray starting inside the box hits at t=0.
+    game::RayHit inside = game::raycastAabb(math::vec3(5, 0, 0), math::vec3(1, 0, 0), box);
+    CHECK(inside.hit);
+    CHECK_NEAR(inside.t, 0.0f, 1e-4f);
+
+    // List raycast returns the nearest box and its index.
+    std::vector<Aabb> boxes = {
+        Aabb::fromCenterSize(math::vec3(20, 0, 0), math::vec3(2, 2, 2)), // far  (index 0)
+        Aabb::fromCenterSize(math::vec3(8, 0, 0), math::vec3(2, 2, 2)),  // near (index 1)
+    };
+    game::RayHit nearest = game::raycast(math::vec3(0, 0, 0), math::vec3(1, 0, 0), boxes);
+    CHECK(nearest.hit);
+    CHECK(nearest.index == 1);        // the closer box
+    CHECK_NEAR(nearest.t, 7.0f, 1e-4f); // near face of box at [7,9]
+    CHECK(!game::raycast(math::vec3(0, 0, 0), math::vec3(0, 1, 0), boxes).hit); // up misses both
+}
+
 void testSpatialGrid() {
     using game::Aabb;
     std::vector<Aabb> solids;
@@ -205,6 +236,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCollision();
+    testRaycast();
     testSpatialGrid();
     testEcs();
     testShake();

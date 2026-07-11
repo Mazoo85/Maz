@@ -140,6 +140,8 @@ available):
   against committed references — both wired into `ctest`
 - **M52** — texture mipmaps: a blit-generated mip chain with trilinear minification (magnification
   stays NEAREST) so distant surfaces stop shimmering while near ones and the 2D UI stay crisp
+- **M53** — ray vs AABB: `game::raycastAabb` / `raycast` (slab method, nearest hit) for targeting and
+  interaction queries; `world` outlines the block you're looking at in orange. Unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

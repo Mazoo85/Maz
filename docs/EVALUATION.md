@@ -256,6 +256,14 @@ that the new test infra can verify rigorously.
   `magFilter` stays NEAREST so near surfaces and the 2D UI keep their crisp look. Verified on
   lavapipe: scene3d's distant checker floor is smooth instead of shimmering, no validation errors;
   golden references re-recorded (intended change), ctest 11/11.
+- [x] **M53 — Ray vs AABB queries**: `game::raycastAabb` (slab method, handles ray-inside and
+  parallel-slab cases, respects maxDist) and `game::raycast` (nearest hit over a list, returns the
+  struck index). Pure logic → 12 new unit checks (56 total). `world` casts a forward ray from the
+  camera each frame and outlines the looked-at block in orange via the debug-line renderer — a worked
+  targeting/interaction example. Verified: unit tests pass, the static-spawn frame shows the aimed
+  block highlighted, no validation errors, ctest 11/11.
+
+**Iteration 16 complete** (texture mipmaps; ray/AABB queries + look-at targeting).
 
 Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
 depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI,

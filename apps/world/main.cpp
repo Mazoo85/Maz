@@ -356,6 +356,17 @@ int main(int argc, char** argv) {
                     renderer->drawAabb(glm::value_ptr(s.min), glm::value_ptr(s.max), green);
                 }
             }
+            // Look-at highlight: cast a ray forward from the camera and outline the block the player
+            // is aiming at in orange (a worked example of game::raycast for interaction/targeting).
+            {
+                const game::RayHit aim =
+                    game::raycast(camera.position(), camera.forward(), solids, 60.0f);
+                if (aim.hit) {
+                    const game::Aabb& s = solids[aim.index];
+                    const float orange[4] = {1.0f, 0.55f, 0.1f, 1.0f};
+                    renderer->drawAabb(glm::value_ptr(s.min), glm::value_ptr(s.max), orange);
+                }
+            }
             // F6: overlay the broadphase grid's occupied cells as flat cyan tiles on the ground.
             if (showGrid) {
                 const float cyan[4] = {0.2f, 0.85f, 1.0f, 0.8f};
