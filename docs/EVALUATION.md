@@ -606,9 +606,29 @@ grows — behavior trees are the scalable, reactive alternative every modern eng
   distant ones patrol, HUD tallies live counts, no validation errors); new
   `behavior_headless_smoke` + golden → ctest **28/28**, every existing golden unchanged.
 
-Later: parallel/decorator BT nodes + a blackboard, drive the Animator from a state machine, circle-
-vs-AABB / friction / rotation in physics, GPU skinning, glTF skin/animation import, back
-TextureStore/mesh loading with the cache, parallelize a hot loop, wire the event bus into a game,
-reflection-driven ECS serialization, JSON/text format, UI layout / text input, order-independent
-transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
-deterministic hold-frame screenshot mode.
+**Iteration 34 complete** (reactive behavior trees).
+
+### Iteration 35 — "Box physics" (in progress)
+Self-directed: the 2D physics (M69) was circle-only. Boxes + friction are the missing pieces for
+platformers, crates, and walls — extended risk-first so the proven circle path stays byte-identical.
+- [x] **M72 — Box colliders + friction**: `Body2D` gains a `shape` (Circle | Box), box half-extents,
+  and a `friction` coefficient. New contact generators — box-box (separate on the axis of least
+  penetration), circle-box (closest-point, with an inside-box fallback), plus the existing circle-
+  circle — feed a **unified** `resolveContact` that applies the normal impulse, a **Coulomb friction**
+  tangential impulse (clamped to `mu * jn`), and positional correction. `PhysicsWorld2D::step` now
+  dispatches through the shape-aware `collide`, and `collideBounds` uses per-axis extents. Friction
+  defaults to 0 and `resolveContact` matches the old circle math exactly, so the circle path is
+  **byte-identical** (the `physics` golden is unchanged — verified). Pure logic → unit-tested
+  headlessly (663 checks total): box-box separates on the least-penetration axis, a dynamic box and
+  a ball each settle ON a static box platform (not sinking/tunnelling), the static platform never
+  moves, and friction removes a sliding box's horizontal speed while a frictionless one keeps it.
+  New `boxes` demo: a mix of boxes and balls drops onto three static ledges and stacks squarely with
+  friction. Verified on lavapipe (mixed ball/box stacks rest stably, RMSE 0, no validation errors);
+  new `boxes_headless_smoke` + golden → ctest **29/29**, every existing golden unchanged.
+
+Later: box rotation (oriented boxes) + rolling, parallel/decorator BT nodes + a blackboard, drive
+the Animator from a state machine, GPU skinning, glTF skin/animation import, back TextureStore/mesh
+loading with the cache, parallelize a hot loop, wire the event bus into a game, reflection-driven
+ECS serialization, JSON/text format, UI layout / text input, order-independent transparency,
+material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic
+hold-frame screenshot mode.

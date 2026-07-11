@@ -1094,6 +1094,102 @@ void testPhysics2D() {
         CHECK(w3.bodies[0].pos.y + w3.bodies[0].radius <= 10.0f + 1e-3f); // never below the floor
     }
     CHECK(w3.bodies[0].pos.y + w3.bodies[0].radius > 10.0f - 0.05f); // came to rest ON the floor
+
+    // --- Box shapes -------------------------------------------------------------------------------
+    // Box-box overlap resolves along the axis of least penetration (here, X).
+    Body2D bx1;
+    bx1.shape = Body2D::Box;
+    bx1.half = math::vec2(1.0f, 1.0f);
+    bx1.pos = math::vec2(0, 0);
+    Body2D bx2;
+    bx2.shape = Body2D::Box;
+    bx2.half = math::vec2(1.0f, 1.0f);
+    bx2.pos = math::vec2(1.6f, 0.1f); // overlap 0.4 in x, 1.9 in y -> separates on x
+    game::PhysicsWorld2D wb;
+    wb.add(bx1);
+    wb.add(bx2);
+    const float sepBefore = wb.bodies[1].pos.x - wb.bodies[0].pos.x;
+    for (int i = 0; i < 20; ++i) {
+        wb.step(1.0f / 60.0f);
+    }
+    const float sepAfter = wb.bodies[1].pos.x - wb.bodies[0].pos.x;
+    CHECK(sepAfter > sepBefore);                 // pushed apart
+    CHECK(sepAfter <= 2.0f + 1e-2f);             // to (but not past) contact distance in x
+    CHECK_NEAR(wb.bodies[0].pos.y, 0.0f, 1e-2f); // barely moved in y (least-penetration axis was x)
+
+    // A dynamic box settles ON a static box platform (soft-constraint solver: assert final rest,
+    // which proves it neither sank through nor bounced off). Platform top is at y = 9.5.
+    game::PhysicsWorld2D wp;
+    wp.gravity = math::vec2(0, 30.0f);
+    Body2D ground;
+    ground.shape = Body2D::Box;
+    ground.half = math::vec2(6.0f, 0.5f);
+    ground.pos = math::vec2(0, 10.0f);
+    ground.invMass = 0.0f; // static
+    Body2D crate;
+    crate.shape = Body2D::Box;
+    crate.half = math::vec2(0.5f, 0.5f);
+    crate.pos = math::vec2(0, 8.0f); // gentle drop
+    crate.restitution = 0.0f;
+    wp.add(ground);
+    wp.add(crate);
+    for (int i = 0; i < 400; ++i) {
+        wp.step(1.0f / 60.0f);
+    }
+    const float crateTop = wp.bodies[1].pos.y + wp.bodies[1].half.y;
+    CHECK(crateTop > 9.3f && crateTop < 9.7f);   // resting on the platform top (~9.5)
+    CHECK_NEAR(wp.bodies[0].pos.y, 10.0f, 1e-6f); // static platform never moved
+
+    // Circle vs box: a ball falls onto a static box and rests on top.
+    game::PhysicsWorld2D wcb;
+    wcb.gravity = math::vec2(0, 30.0f);
+    Body2D plat;
+    plat.shape = Body2D::Box;
+    plat.half = math::vec2(4.0f, 0.5f);
+    plat.pos = math::vec2(0, 10.0f);
+    plat.invMass = 0.0f;
+    Body2D ball2;
+    ball2.shape = Body2D::Circle;
+    ball2.radius = 0.5f;
+    ball2.pos = math::vec2(0, 8.0f); // gentle drop
+    ball2.restitution = 0.0f;
+    wcb.add(plat);
+    wcb.add(ball2);
+    for (int i = 0; i < 400; ++i) {
+        wcb.step(1.0f / 60.0f);
+    }
+    const float ballTop = wcb.bodies[1].pos.y + wcb.bodies[1].radius;
+    CHECK(ballTop > 9.3f && ballTop < 9.7f); // ball rests on the box top (~9.5)
+
+    // Friction slows a box sliding along a static floor (vs frictionless, which keeps its speed).
+    auto slideVx = [](float mu) {
+        game::PhysicsWorld2D pw;
+        pw.gravity = math::vec2(0, 30.0f);
+        Body2D fl;
+        fl.shape = Body2D::Box;
+        fl.half = math::vec2(20.0f, 0.5f);
+        fl.pos = math::vec2(0, 10.0f);
+        fl.invMass = 0.0f;
+        fl.friction = mu;
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(0.5f, 0.5f);
+        box.pos = math::vec2(0, 9.0f);
+        box.vel = math::vec2(6.0f, 0.0f); // sliding right
+        box.restitution = 0.0f;
+        box.friction = mu;
+        pw.add(fl);
+        pw.add(box);
+        for (int i = 0; i < 120; ++i) {
+            pw.step(1.0f / 60.0f);
+        }
+        return pw.bodies[1].vel.x;
+    };
+    const float vxFric = slideVx(0.8f);
+    const float vxNone = slideVx(0.0f);
+    CHECK(vxFric < vxNone); // friction removed horizontal speed
+    CHECK(vxFric < 6.0f);   // and slowed it below the launch speed
+    CHECK(vxNone > 5.9f);   // frictionless keeps ~all of it
 }
 
 void testAnimator() {

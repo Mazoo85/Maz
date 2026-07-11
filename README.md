@@ -223,6 +223,12 @@ available):
   higher-priority branch pre-empts a running lower one. The `behavior` demo drives agents with a
   `selector(flee, chase, patrol)` tree that reactively switches behavior as an intruder nears/recedes
   (colored by the active leaf). Tick semantics, short-circuit, and reactive preemption unit-tested
+- **M72** — box physics + friction: `PhysicsWorld2D` gains **axis-aligned box** bodies alongside
+  circles, with box-box, circle-box, and circle-circle contact generation feeding a unified impulse
+  + **Coulomb-friction** + positional-correction resolver, so crates settle squarely on ledges and
+  stack instead of sliding. The `boxes` demo drops a mix of boxes and balls onto static shelves. The
+  circle path stayed byte-identical (existing `physics` golden unchanged); box-box, circle-box, and
+  friction unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

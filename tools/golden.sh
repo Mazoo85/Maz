@@ -50,6 +50,7 @@ CASES=(
     "physics||2.5|0.08"
     "animator||2.5|0.16"
     "behavior||2.5|0.16"
+    "boxes||2.5|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
