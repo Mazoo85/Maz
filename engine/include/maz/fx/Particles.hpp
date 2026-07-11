@@ -32,6 +32,16 @@ public:
     void draw(render::Renderer& renderer, render::TextureHandle texture) const;
     void clear();
 
+    // Pull live particles toward (x, y) each update: `strength` is the radial acceleration and
+    // `swirl` adds a perpendicular (tangential) acceleration for a vortex. strength 0 disables it.
+    void setAttractor(float x, float y, float strength, float swirl = 0.0f) {
+        m_attX = x;
+        m_attY = y;
+        m_attStrength = strength;
+        m_attSwirl = swirl;
+    }
+    void clearAttractor() { m_attStrength = 0.0f; m_attSwirl = 0.0f; }
+
     uint32_t alive() const { return m_alive; }
 
 private:
@@ -50,6 +60,7 @@ private:
     uint32_t m_alive = 0;
     uint32_t m_cursor = 0; // round-robin allocation (overwrites oldest when full)
     uint64_t m_rng = 0x9e3779b97f4a7c15ull;
+    float m_attX = 0.0f, m_attY = 0.0f, m_attStrength = 0.0f, m_attSwirl = 0.0f;
 };
 
 } // namespace maz::fx

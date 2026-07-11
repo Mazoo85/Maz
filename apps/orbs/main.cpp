@@ -225,6 +225,8 @@ int main(int argc, char** argv) {
         timeLeft = kRoundSeconds;
         newBest = false;
         state = State::Play;
+        particles.clear();          // drop the title vortex
+        particles.clearAttractor(); // gameplay bursts fly freely
         audio.play(sfxStart);
         audio.setMusic(true);
     };
@@ -254,6 +256,29 @@ int main(int argc, char** argv) {
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
             const float dt = static_cast<float>(clock.fixedDelta());
+            // Title screen: an ambient particle vortex — emit from a point behind the title and let
+            // the attractor pull + swirl the particles into an orbiting cloud.
+            if (state == State::Title) {
+                uint32_t tw = 0, th = 0;
+                window.drawableSize(tw, th);
+                const float cx = static_cast<float>(tw) * 0.5f;
+                const float cy = static_cast<float>(th) * 0.40f;
+                particles.setAttractor(cx, cy, 90.0f, 300.0f);
+                fx::BurstDesc amb;
+                amb.count = 3;
+                amb.x = cx;
+                amb.y = cy;
+                amb.speedMin = 70.0f;
+                amb.speedMax = 170.0f;
+                amb.lifeMin = 1.6f;
+                amb.lifeMax = 2.6f;
+                amb.sizeStart = 9.0f;
+                amb.sizeEnd = 2.0f;
+                amb.colorStart = render::Color{0.5f, 0.8f, 1.0f, 0.85f};
+                amb.colorEnd = render::Color{0.85f, 0.6f, 1.0f, 0.0f};
+                amb.drag = 0.5f;
+                particles.emit(amb);
+            }
             particles.update(dt); // keep animating on the win/lose screens too
             if (state != State::Play) {
                 continue;
@@ -459,6 +484,7 @@ int main(int argc, char** argv) {
             }
 
             if (state == State::Title) {
+                particles.draw(*renderer, glowTex); // ambient attractor swirl behind the title
                 centerText(sw * 0.5f, sh * 0.32f, "ORB RUN", kWhite, 1.6f);
                 centerText(sw * 0.5f, sh * 0.50f, "collect 12 orbs - dodge the red blocks", kDim,
                            0.6f);

@@ -131,6 +131,9 @@ available):
   2D sprites — a worked example of a screen-space HUD map over the 3D scene
 - **M48** — film grain: opt-in animated hashed noise in the composite (`setFilmGrain(strength, time)`,
   off by default); VILLAGE QUEST adds a gentle moving grain for a filmic texture
+- **M49** — particle attractor: `fx::ParticleSystem::setAttractor` pulls live particles toward a
+  point with an optional tangential swirl (a vortex); ORB RUN's title screen swirls an ambient
+  particle cloud behind the logo
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

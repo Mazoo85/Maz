@@ -62,6 +62,16 @@ void ParticleSystem::update(float dt) {
             continue;
         }
         p.vy += p.gravity * dt;
+        // Optional attractor: radial pull toward (m_attX, m_attY) plus a perpendicular swirl.
+        if (m_attStrength != 0.0f || m_attSwirl != 0.0f) {
+            const float dx = m_attX - p.x;
+            const float dy = m_attY - p.y;
+            const float dist = std::sqrt(dx * dx + dy * dy) + 1e-3f;
+            const float nx = dx / dist;
+            const float ny = dy / dist;
+            p.vx += (nx * m_attStrength - ny * m_attSwirl) * dt;
+            p.vy += (ny * m_attStrength + nx * m_attSwirl) * dt;
+        }
         const float damp = std::max(0.0f, 1.0f - p.drag * dt);
         p.vx *= damp;
         p.vy *= damp;

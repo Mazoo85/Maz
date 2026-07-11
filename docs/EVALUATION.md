@@ -216,8 +216,13 @@ This iteration:
   (`Renderer::setFilmGrain(strength, time)`, packed into the third push vec4); off by default.
   VILLAGE QUEST adds a gentle moving grain. Verified on lavapipe: clear speckle across a cropped sky
   region, no validation errors.
-- [ ] **M49 — Particle attractor**: `fx::ParticleSystem` gains an attractor (radial pull + swirl)
-  applied in update; the `orbs` title screen shows an ambient swirl.
+- [x] **M49 — Particle attractor**: `fx::ParticleSystem::setAttractor(x, y, strength, swirl)` adds a
+  radial pull toward a point plus a perpendicular swirl each update (a vortex); `clearAttractor`
+  restores free flight. ORB RUN's title screen emits an ambient cloud that the attractor swirls into
+  an orbiting vortex behind the logo (cleared when a round starts). Verified on lavapipe: the title
+  shows a clear particle vortex, gameplay bursts unaffected, no validation errors.
+
+**Iteration 14 complete** (film grain; particle attractor/vortex).
 
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, reflective water,
-SSAO, in-app settings menu UI.
+SSAO, in-app settings menu UI, instanced mesh rendering, decals.
