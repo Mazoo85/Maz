@@ -1,3 +1,32 @@
+# Maz
+
+This repo holds two things:
+
+1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
+   3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
+   "massive list") and **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
+2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
+   engine's eventual flagship port target (roadmap Phase 13).
+
+## Building Maz Engine
+
+Requires a C++20 compiler, CMake ≥ 3.24, the **Vulkan SDK** (loader + `glslangValidator`), and
+on Linux the X11 dev packages. SDL3 and GLM are fetched automatically.
+
+```
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+./build/bin/sandbox                 # window + animated clear color (needs a GPU + display)
+./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
+ctest --test-dir build              # headless smoke test
+```
+
+The current milestone is **M0** — the walking skeleton: a window, a fixed-timestep loop, a
+Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
+it runs in CI.
+
+---
+
 # ZOMBOID: ANCHORAGE
 
 A browser-playable, **Project Zomboid–style** open-world zombie survival game,

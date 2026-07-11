@@ -1,0 +1,78 @@
+# Maz Engine — Architecture
+
+## Design principles
+1. **2D-first, 3D-ready.** The renderer is an interface (`maz::Renderer`) with a Vulkan
+   implementation behind it. Cameras, scene data, and draw submission are abstracted so a 3D
+   path slots in without rewriting gameplay code.
+2. **Layered, one-directional dependencies.** `core` ← `platform` ← `render` ← `app`. Lower
+   layers never include higher ones.
+3. **Data-oriented where it counts.** Hot paths (entities, rendering) favor contiguous storage
+   and handles over deep pointer graphs.
+4. **Deterministic simulation.** Fixed-timestep update decoupled from render, so gameplay is
+   reproducible and frame-rate independent (mirrors the `STEP = 1/60` accumulator used in the
+   reference browser game `js/game.js`).
+5. **Degrade gracefully.** No GPU / no display (CI, headless) must not crash — the renderer
+   logs and no-ops so tooling and tests still run.
+
+## Module map
+
+```
+core/       Log, Assert, Time (fixed-timestep clock), Config/args
+              — zero dependencies beyond the standard library
+platform/   Window, Input, event pump              (depends on: core, SDL3)
+math/       maz::math = GLM re-export + helpers     (header-only)
+render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
+              VulkanContext  — instance, device, queues, debug messenger
+              VulkanSwapchain— swapchain, render pass, framebuffers, present
+              Renderer       — beginFrame / clear / endFrame
+apps/
+  sandbox/  Demo executable that owns the loop and wires the modules together
+```
+
+## The frame loop (fixed timestep)
+
+```
+accumulator += frameDelta (clamped)
+while (accumulator >= STEP) { update(STEP); accumulator -= STEP; }   // deterministic sim
+render(interpolationAlpha = accumulator / STEP)                       // as fast as GPU allows
+```
+
+`core::Clock` owns the accumulator; the app calls `clock.tick()` and drains fixed steps. This
+keeps physics/gameplay stable regardless of render FPS and enables replay/netcode later.
+
+## Renderer abstraction (why 3D is "free" later)
+
+`Renderer` exposes intent, not Vulkan detail:
+
+```cpp
+struct Renderer {
+    virtual bool  init(Window&, const RendererConfig&) = 0;
+    virtual void  onResize(uint32_t w, uint32_t h)     = 0;
+    virtual bool  beginFrame()                          = 0;   // false => skip (minimized/no dev)
+    virtual void  setClearColor(float r,g,b,a)          = 0;
+    virtual void  endFrame()                            = 0;   // submit + present
+    virtual void  shutdown()                            = 0;
+};
+```
+
+Today the only implementation is `VulkanRenderer` doing a render-pass clear. A sprite-batch and,
+later, a 3D mesh path are added as submission methods (`drawSprite`, `drawMesh`) on the same
+interface — gameplay code never touches Vulkan.
+
+## Dependencies
+- **SDL3** (`FetchContent`, tag `release-3.4.12`) — window, input, later audio/gamepad.
+- **GLM** (`FetchContent`, tag `1.0.1`) — math, header-only.
+- **Vulkan** (`find_package(Vulkan)`) — loader + headers; `glslangValidator` compiles shaders.
+- No other system installs required; SDL3 and GLM build from source at configure time.
+
+## Headless / CI behavior
+Run `sandbox --headless [--frames N]`. It uses SDL's dummy video driver when no display is
+present, ticks the loop N times, attempts Vulkan init, and exits 0. If no Vulkan physical device
+exists (typical in CI containers), the renderer logs a warning and the loop still runs — so the
+smoke test validates wiring, lifetime, and shutdown without a GPU.
+
+## Coding conventions
+- `PascalCase` types, `camelCase` functions/vars, `m_` member prefix, `MAZ_` macro prefix.
+- Namespace everything in `maz::` (sub-namespaces `maz::core`, `maz::render`, `maz::math`).
+- Headers `.hpp`, sources `.cpp`. Public headers under `engine/include/maz/`.
+- `.clang-format` (LLVM-based, 4-space indent, 100 col) is the source of truth.

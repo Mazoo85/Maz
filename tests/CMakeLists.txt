@@ -1,0 +1,9 @@
+# Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
+# This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
+add_test(
+    NAME sandbox_headless_smoke
+    COMMAND sandbox --headless --frames 30)
+
+set_tests_properties(sandbox_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
