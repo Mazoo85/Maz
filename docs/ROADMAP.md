@@ -203,7 +203,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
 - [x] **Dynamic meshes** (`createDynamicMesh` + `updateMesh`, per-frame-in-flight vertex buffers;
   the `water` demo animates a summed-sine grid; M35)
-- [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
+- [x] **Instanced rendering** (`drawMeshInstanced`: per-instance model matrix via a second vertex
+  binding, one `vkCmdDrawIndexed` for N copies; the `instances` demo draws 484 cubes in one call; M55)
+- [ ] Back-face cull toggle, ortho 3D camera
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
   M42)

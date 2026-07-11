@@ -164,7 +164,9 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
 
     if (!createShadowResources(ctx) || !createShadowPipeline(ctx) ||
         !createSkyPipeline(ctx, renderPass) || !createLightResources(ctx) ||
-        !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_pipeline)) {
+        !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_pipeline) ||
+        !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_instancedPipeline, true) ||
+        !createInstanceBuffers(ctx)) {
         return false;
     }
     // Optional wireframe pipeline (needs the fillModeNonSolid feature); best-effort.
@@ -695,9 +697,11 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
 }
 
 bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
-                                  VkPipeline& outPipeline) {
+                                  VkPipeline& outPipeline, bool instanced) {
     const std::string base = assetBase();
-    VkShaderModule vert = createShaderModule(ctx.device(), readFile(base + "shaders/mesh.vert.spv"));
+    VkShaderModule vert = createShaderModule(
+        ctx.device(),
+        readFile(base + (instanced ? "shaders/mesh_instanced.vert.spv" : "shaders/mesh.vert.spv")));
     VkShaderModule frag = createShaderModule(ctx.device(), readFile(base + "shaders/mesh.frag.spv"));
     if (!vert || !frag) {
         return false;
@@ -713,8 +717,13 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, V
     stages[1].module = frag;
     stages[1].pName = "main";
 
-    VkVertexInputBindingDescription vb = meshBinding();
-    VkVertexInputAttributeDescription attrs[4]{};
+    // Binding 0 = per-vertex mesh data; binding 1 (instanced only) = per-instance model matrix.
+    VkVertexInputBindingDescription bindings[2]{};
+    bindings[0] = meshBinding();
+    bindings[1].binding = 1;
+    bindings[1].stride = sizeof(float) * 16; // one mat4 per instance
+    bindings[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+    VkVertexInputAttributeDescription attrs[8]{};
     attrs[0].location = 0;
     attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrs[0].offset = offsetof(MeshVertex, px);
@@ -727,11 +736,18 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, V
     attrs[3].location = 3;
     attrs[3].format = VK_FORMAT_R32G32_SFLOAT;
     attrs[3].offset = offsetof(MeshVertex, u);
+    // Instance model matrix as four vec4 rows (locations 4..7) from binding 1.
+    for (uint32_t i = 0; i < 4; ++i) {
+        attrs[4 + i].location = 4 + i;
+        attrs[4 + i].binding = 1;
+        attrs[4 + i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attrs[4 + i].offset = i * sizeof(float) * 4;
+    }
     VkPipelineVertexInputStateCreateInfo vi{};
     vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vi.vertexBindingDescriptionCount = 1;
-    vi.pVertexBindingDescriptions = &vb;
-    vi.vertexAttributeDescriptionCount = 4;
+    vi.vertexBindingDescriptionCount = instanced ? 2u : 1u;
+    vi.pVertexBindingDescriptions = bindings;
+    vi.vertexAttributeDescriptionCount = instanced ? 8u : 4u;
     vi.pVertexAttributeDescriptions = attrs;
 
     VkPipelineInputAssemblyStateCreateInfo ia{};
@@ -910,7 +926,58 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
     std::memcpy(m_viewProj, viewProj16, sizeof(m_viewProj));
 }
 
-void MeshRenderer::begin() { m_cmds.clear(); }
+void MeshRenderer::begin() {
+    m_cmds.clear();
+    m_instCmds.clear();
+    m_instStaging.clear();
+}
+
+bool MeshRenderer::createInstanceBuffers(VulkanContext& ctx) {
+    m_maxInstances = 8192;
+    const VkDeviceSize bytes = static_cast<VkDeviceSize>(m_maxInstances) * sizeof(float) * 16;
+    m_instVbo.resize(m_framesInFlight);
+    m_instMapped.resize(m_framesInFlight, nullptr);
+    for (uint32_t i = 0; i < m_framesInFlight; ++i) {
+        if (!m_instVbo[i].create(ctx, bytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+            return false;
+        }
+        m_instMapped[i] = m_instVbo[i].map(ctx);
+        if (!m_instMapped[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void MeshRenderer::drawInstanced(MeshHandle mesh, const float* models16, uint32_t count,
+                                 TextureHandle texture, TextureHandle normal,
+                                 const float emissive3[3], float roughness, float specular) {
+    if (mesh == kInvalidMesh || mesh >= m_meshes.size() || count == 0) {
+        return;
+    }
+    const uint32_t already = static_cast<uint32_t>(m_instStaging.size() / 16);
+    if (already + count > m_maxInstances) {
+        count = m_maxInstances - already; // clamp to the per-frame instance budget
+        if (count == 0) {
+            return;
+        }
+    }
+    InstCmd c;
+    c.mesh = mesh;
+    c.texture = texture;
+    c.normal = normal;
+    c.first = already;
+    c.count = count;
+    c.emissive[0] = emissive3 ? emissive3[0] : 0.0f;
+    c.emissive[1] = emissive3 ? emissive3[1] : 0.0f;
+    c.emissive[2] = emissive3 ? emissive3[2] : 0.0f;
+    c.roughness = roughness;
+    c.specular = specular;
+    m_instCmds.push_back(c);
+    m_instStaging.insert(m_instStaging.end(), models16, models16 + static_cast<size_t>(count) * 16);
+}
 
 void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture,
                         TextureHandle normal, const float emissive3[3], float roughness,
@@ -974,7 +1041,7 @@ void MeshRenderer::renderShadow(VkCommandBuffer cmd) {
 }
 
 void MeshRenderer::flush(VkCommandBuffer cmd) {
-    if (m_cmds.empty() || m_pipeline == VK_NULL_HANDLE) {
+    if ((m_cmds.empty() && m_instCmds.empty()) || m_pipeline == VK_NULL_HANDLE) {
         return;
     }
     const VkPipeline pipeline =
@@ -1053,6 +1120,41 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
     }
+
+    // Instanced draws: upload this frame's instance matrices, then one drawIndexed per InstCmd with
+    // instanceCount copies. Uses the instanced pipeline (model matrix from binding 1).
+    m_instancesLastFrame = 0;
+    if (!m_instCmds.empty() && m_instancedPipeline != VK_NULL_HANDLE && m_instMapped[m_frameIndex]) {
+        std::memcpy(m_instMapped[m_frameIndex], m_instStaging.data(),
+                    m_instStaging.size() * sizeof(float));
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_instancedPipeline);
+        VkBuffer instBuf = m_instVbo[m_frameIndex].handle();
+        float idPush[24] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; // identity model (unused)
+        for (const InstCmd& ic : m_instCmds) {
+            const Mesh& mesh = m_meshes[ic.mesh];
+            VkDescriptorSet albedo = m_store->descriptorSet(ic.texture);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &albedo, 0,
+                                    nullptr);
+            const TextureHandle nrm = m_store->valid(ic.normal) ? ic.normal : m_defaultNormal;
+            VkDescriptorSet normalSet = m_store->descriptorSet(nrm);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 3, 1, &normalSet,
+                                    0, nullptr);
+            idPush[16] = ic.emissive[0];
+            idPush[17] = ic.emissive[1];
+            idPush[18] = ic.emissive[2];
+            idPush[19] = ic.roughness;
+            idPush[20] = ic.specular;
+            vkCmdPushConstants(cmd, m_layout,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(idPush), idPush);
+            VkDeviceSize offsets[2] = {0, 0};
+            VkBuffer bufs[2] = {mesh.vboFor(m_frameIndex), instBuf};
+            vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
+            vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(cmd, mesh.indexCount, ic.count, 0, 0, ic.first);
+            m_instancesLastFrame += ic.count;
+        }
+    }
 }
 
 void MeshRenderer::shutdown(VulkanContext& ctx) {
@@ -1065,8 +1167,14 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
         }
     }
     m_meshes.clear();
+    for (VulkanBuffer& b : m_instVbo) {
+        b.destroy(ctx);
+    }
+    m_instVbo.clear();
+    m_instMapped.clear();
 
     if (m_pipeline) vkDestroyPipeline(d, m_pipeline, nullptr);
+    if (m_instancedPipeline) vkDestroyPipeline(d, m_instancedPipeline, nullptr);
     if (m_wireframePipeline) vkDestroyPipeline(d, m_wireframePipeline, nullptr);
     if (m_layout) vkDestroyPipelineLayout(d, m_layout, nullptr);
     if (m_skyPipeline) vkDestroyPipeline(d, m_skyPipeline, nullptr);

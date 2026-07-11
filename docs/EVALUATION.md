@@ -283,6 +283,21 @@ retire the mesh push-constant packing.
 
 **Iteration 17 complete** (per-frame scene UBO; push constant back under 128 bytes).
 
-Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
-depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI,
-a deterministic hold-frame screenshot mode to tighten golden tolerances.
+### Iteration 18 — "Instanced rendering" (in progress)
+Self-directed: with the per-draw push constant now slim (M54), take on the #1 remaining performance
+item — draw many copies of a mesh without one draw call each.
+- [x] **M55 — Instanced mesh rendering**: added a second graphics pipeline
+  (`mesh_instanced.vert`) that reads the per-instance model matrix from a **second vertex binding**
+  (`VK_VERTEX_INPUT_RATE_INSTANCE`, four vec4 attributes = one mat4), leaving the original `drawMesh`
+  path byte-for-byte unchanged. New `Renderer::drawMeshInstanced(mesh, models16, count, material)`
+  packs the caller's matrices into a per-frame host-visible instance buffer (budget 8192) and issues
+  a single `vkCmdDrawIndexed(indexCount, count, …)`. The new `instances` demo animates **484 cubes
+  (bob + spin) in one instanced draw call** with an orbiting camera and fog. Found and fixed a bug
+  where `flush()` early-returned on frames with only instanced draws (no regular `drawMesh` calls),
+  which left the field invisible. Verified on lavapipe: the 484-cube field renders and animates
+  correctly, no validation errors; new `instances_headless_smoke` + golden reference wired into
+  ctest → **12/12**, existing apps' goldens unchanged (isolated pipeline, no regression).
+
+Later: material/uniform system, transparency depth-sorting, GPU-driven / indirect instancing,
+skeletal animation, retained UI, asset manager, cross-platform CI, a deterministic hold-frame
+screenshot mode to tighten golden tolerances.

@@ -206,6 +206,12 @@ public:
     // Draw a mesh with a full material (albedo + normal map + emissive + specular/roughness). The
     // specular highlight comes from the sun. No-op when inactive.
     virtual void drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) = 0;
+    // Draw `count` instances of one mesh in a single instanced draw call — `models16` is `count`
+    // contiguous column-major 4x4 matrices, one per instance; all instances share `mat`. The big win
+    // over calling drawMesh in a loop is one draw call for the whole batch (foliage, debris, crowds).
+    // Instanced meshes receive shadows but do not cast them. No-op when inactive.
+    virtual void drawMeshInstanced(MeshHandle mesh, const float* models16, uint32_t count,
+                                   const Material& mat) = 0;
 
     // --- Debug draw (world-space lines) ---
     // Queue a world-space line segment (RGBA, alpha-blended, depth-tested so geometry occludes it).

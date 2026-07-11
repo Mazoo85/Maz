@@ -145,6 +145,9 @@ available):
 - **M54** — per-frame scene UBO: the mesh path's camera/light matrices moved into a set-2 uniform
   buffer, shrinking the per-draw push constant from 224 bytes (over the Vulkan limit) to 96 with
   named material fields — a portability fix and cleaner material model, verified pixel-identical
+- **M55** — instanced mesh rendering: `drawMeshInstanced` draws one mesh many times in a single
+  `vkCmdDrawIndexed` call, the per-instance model matrix supplied through a second vertex binding.
+  The `instances` demo animates 484 bobbing/spinning cubes in one draw call. Golden-image guarded
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

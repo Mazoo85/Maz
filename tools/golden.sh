@@ -33,6 +33,7 @@ CASES=(
     "scene3d||2.5|0.13"
     "world|--demo|2.5|0.20"
     "village|--demo|2.5|0.22"
+    "instances||2.5|0.15"
 )
 
 if [ ! -f "$ICD" ]; then

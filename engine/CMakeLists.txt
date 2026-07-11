@@ -55,6 +55,7 @@ maz_compile_shaders(maz
         ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh_instanced.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/sky.vert

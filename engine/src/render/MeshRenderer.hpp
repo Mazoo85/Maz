@@ -52,6 +52,13 @@ public:
     void draw(MeshHandle mesh, const float* model16, TextureHandle texture,
               TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
               float roughness = 1.0f, float specular = 0.0f);
+    // Draw `count` copies of one mesh in a single instanced draw call, one model matrix per instance
+    // (models is count contiguous column-major mat4s). All instances share the material/textures.
+    // Instanced meshes receive shadows but do not cast them (v1); no per-instance frustum culling.
+    void drawInstanced(MeshHandle mesh, const float* models16, uint32_t count, TextureHandle texture,
+                       TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
+                       float roughness = 1.0f, float specular = 0.0f);
+    uint32_t instanceCount() const { return m_instancesLastFrame; }
 
     bool hasDraws() const { return !m_cmds.empty(); }
     uint32_t drawCount() const { return m_drawnLastFrame; }   // meshes actually drawn (post-cull)
@@ -92,7 +99,19 @@ private:
     bool createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass);
     bool createLightResources(VulkanContext& ctx);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
-                        VkPipeline& outPipeline);
+                        VkPipeline& outPipeline, bool instanced = false);
+    bool createInstanceBuffers(VulkanContext& ctx);
+
+    struct InstCmd {
+        MeshHandle mesh;
+        TextureHandle texture;
+        TextureHandle normal;
+        uint32_t first; // first instance index into the frame's instance buffer
+        uint32_t count;
+        float emissive[3];
+        float roughness;
+        float specular;
+    };
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
     TextureHandle m_defaultNormal = kInvalidTexture; // flat (0,0,1) normal map for un-mapped meshes
@@ -101,7 +120,17 @@ private:
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipeline m_wireframePipeline = VK_NULL_HANDLE; // LINE polygon mode (if supported)
+    VkPipeline m_instancedPipeline = VK_NULL_HANDLE; // per-instance model matrix from binding 1
     bool m_wireframe = false;
+
+    // Instancing: one host-visible instance buffer (mat4 per instance) per frame-in-flight, filled
+    // from a CPU staging list each frame; drawInstanced records InstCmds flushed after the meshes.
+    std::vector<VulkanBuffer> m_instVbo;
+    std::vector<void*> m_instMapped;
+    std::vector<float> m_instStaging; // packed mat4s for this frame
+    std::vector<InstCmd> m_instCmds;
+    uint32_t m_maxInstances = 0;
+    uint32_t m_instancesLastFrame = 0;
     VkPipelineLayout m_skyLayout = VK_NULL_HANDLE;
     VkPipeline m_skyPipeline = VK_NULL_HANDLE;
 
