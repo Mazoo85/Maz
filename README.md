@@ -156,6 +156,10 @@ available):
   (octile heuristic, no diagonal corner-cutting) and world↔cell mapping, for moving-AI routing. The
   `maze` demo walks an agent through an obstacle field, re-planning each leg; the route is drawn as
   a debug polyline. Unit-tested (open path, walls, unreachable goals, corner rule)
+- **M58** — steering behaviors: `game::Steering` adds Reynolds-style `seek`/`flee`/`arrive`/
+  `separation`/`followPath` forces plus `integrate`, turning pathfinding routes into smooth moving
+  agents. The `crowd` demo drives 14 agents that each A*-route through the maze, follow the
+  waypoints, and separate from their neighbors so the group flows without stacking. Unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

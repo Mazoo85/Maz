@@ -333,6 +333,24 @@ the eventual Zomboid port's zombies) needs it. Build it as pure, unit-testable l
   lavapipe (agent tracks the path to the goal, no validation errors); new `maze_headless_smoke` +
   golden reference → ctest **14/14**, every existing golden unchanged.
 
-Later: steering/behavior trees on top of NavGrid, order-independent transparency, material/uniform
+**Iteration 20 complete** (A* grid pathfinding + maze demo).
+
+### Iteration 21 — "Steering" (in progress)
+Self-directed: pathfinding produces a route, but agents need to *move* along it convincingly and
+not pile into each other. Build the steering layer directly on top of M57.
+- [x] **M58 — Steering behaviors**: header-only `game::Steering` — Reynolds-style `seek`, `flee`,
+  `arrive` (eases to a stop inside a slow radius), `separation` (inverse-square push off crowding
+  neighbors), and `followPath` (arrive at each waypoint, auto-advancing the index), plus `integrate`
+  (semi-implicit Euler with maxForce/maxSpeed clamps). Forces are accelerations that compose by
+  addition, so a caller sums the behaviors it wants and integrates once. Pure vector math →
+  unit-tested headlessly (96 checks total): limit clamping, seek/flee direction, arrive speed
+  ramp, separation push-off, integrate speed cap, a full seek-to-target convergence sim, and
+  followPath index advancement. New `crowd` demo composes M57+M58: 14 agents each A*-route through
+  the maze to a roving goal, follow the waypoints, and separate so the flock streams through the
+  corridors without stacking or clipping. Verified on lavapipe (agents spread and flow toward the
+  goal, no validation errors); new `crowd_headless_smoke` + golden → ctest **15/15**, every existing
+  golden unchanged.
+
+Later: behavior trees / FSM on top of steering, order-independent transparency, material/uniform
 system, GPU-driven / indirect instancing, skeletal animation, retained UI, asset manager,
 cross-platform CI, a deterministic hold-frame screenshot mode to tighten golden tolerances.

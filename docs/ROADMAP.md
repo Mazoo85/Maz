@@ -297,7 +297,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
 - [ ] Script hot-reload, sandboxing
-- [ ] Gameplay: state machines, behavior trees, AI steering
+- [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
+  `crowd` demo flocks 14 agents through the maze; M58) — state machines / behavior trees later
 - [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
   heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
   — navmesh later

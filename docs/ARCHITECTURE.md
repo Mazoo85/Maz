@@ -47,7 +47,8 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
-            NavGrid (8-directional A* grid pathfinding for moving AI)
+            NavGrid (8-directional A* grid pathfinding for moving AI),
+            Steering (seek/flee/arrive/separation/path-follow forces + integrate)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/

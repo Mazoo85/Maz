@@ -9,6 +9,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
+#include "maz/game/Steering.hpp"
 #include "maz/math/Math.hpp"
 
 #include <cmath>
@@ -288,6 +289,72 @@ void testNavGrid() {
     CHECK(cp.size() == 3);
 }
 
+void testSteering() {
+    using game::Agent;
+
+    // limit(): long vectors are capped to the max magnitude, short ones pass through.
+    CHECK_NEAR(glm::length(game::limit(math::vec3(10, 0, 0), 3.0f)), 3.0f, 1e-5f);
+    CHECK_NEAR(glm::length(game::limit(math::vec3(1, 0, 0), 3.0f)), 1.0f, 1e-5f);
+
+    // seek force points toward the target; flee points away.
+    Agent a;
+    a.pos = math::vec3(0, 0, 0);
+    a.vel = math::vec3(0, 0, 0);
+    const math::vec3 target(10, 0, 0);
+    const math::vec3 s = game::seek(a, target);
+    CHECK(s.x > 0.0f);
+    CHECK(math::dot(s, target - a.pos) > 0.0f);
+    const math::vec3 f = game::flee(a, target);
+    CHECK(f.x < 0.0f);
+
+    // Steering force never exceeds maxForce.
+    CHECK(glm::length(s) <= a.maxForce + 1e-4f);
+
+    // arrive: outside slowRadius wants full speed; well inside it wants less. Compare desired speeds
+    // by looking at (force + vel) which reconstructs the desired velocity (vel is zero here).
+    Agent b;
+    b.pos = math::vec3(0, 0, 0);
+    const float slow = 5.0f;
+    const math::vec3 far = game::arrive(b, math::vec3(100, 0, 0), slow);   // desired speed = maxSpeed
+    const math::vec3 near = game::arrive(b, math::vec3(1, 0, 0), slow);    // desired speed ~ maxSpeed/5
+    CHECK(glm::length(far) > glm::length(near));
+
+    // separation pushes away from a close neighbor.
+    Agent c;
+    c.pos = math::vec3(0, 0, 0);
+    std::vector<math::vec3> neighbors = {math::vec3(0, 0, 0), math::vec3(0.5f, 0, 0)};
+    const math::vec3 sep = game::separation(c, neighbors, 2.0f);
+    CHECK(sep.x < 0.0f); // pushed in -x, away from the neighbor at +x
+
+    // integrate caps speed at maxSpeed even under a huge shove.
+    Agent d;
+    d.maxSpeed = 5.0f;
+    game::integrate(d, math::vec3(1000, 0, 0), 1.0f / 60.0f);
+    CHECK(glm::length(d.vel) <= d.maxSpeed + 1e-4f);
+
+    // Full sim: a seeking agent converges on a static target.
+    Agent e;
+    e.pos = math::vec3(-20, 0, 0);
+    const math::vec3 goal(0, 0, 0);
+    for (int i = 0; i < 600; ++i) {
+        game::integrate(e, game::arrive(e, goal, 3.0f), 1.0f / 60.0f);
+    }
+    CHECK(glm::length(e.pos - goal) < 1.0f);
+
+    // followPath advances its waypoint index as the agent reaches each node.
+    Agent p;
+    p.pos = math::vec3(0, 0, 0);
+    std::vector<math::vec3> wps = {math::vec3(0, 0, 0), math::vec3(5, 0, 0), math::vec3(10, 0, 0)};
+    uint32_t idx = 0;
+    game::followPath(p, wps, idx, 1.0f, 2.0f); // starts on wp0 (within 1.0) -> advances to wp1
+    CHECK(idx == 1);
+    uint32_t idx2 = 0;
+    Agent q;
+    q.pos = math::vec3(100, 0, 0); // far from wp0: no advance
+    game::followPath(q, wps, idx2, 1.0f, 2.0f);
+    CHECK(idx2 == 0);
+}
+
 } // namespace
 
 int main() {
@@ -297,6 +364,7 @@ int main() {
     testRaycast();
     testSpatialGrid();
     testNavGrid();
+    testSteering();
     testEcs();
     testShake();
     testParticleAttractor();

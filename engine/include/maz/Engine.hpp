@@ -15,6 +15,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
+#include "maz/game/Steering.hpp"
 #include "maz/game/Tilemap.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"
