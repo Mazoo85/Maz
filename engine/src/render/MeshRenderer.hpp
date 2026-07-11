@@ -13,9 +13,10 @@ namespace maz::render {
 class VulkanContext;
 class TextureStore;
 
-// Minimal indexed 3D mesh renderer: one pipeline (position/normal/color vertices, depth-tested,
-// back-face culled, directional lighting in the shader). Meshes are uploaded once; draws are
-// collected each frame and recorded with an MVP + model push constant.
+// Indexed 3D mesh renderer with shadow mapping. Each frame it first renders queued meshes into a
+// depth-only shadow map from a directional light (renderShadow), then the main pass samples that
+// map. Meshes are position/normal/color/uv, depth-tested, back-face left on (cull none), lit by a
+// directional term modulated by the shadow.
 class MeshRenderer {
 public:
     bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass);
@@ -32,9 +33,14 @@ public:
 
     void begin();
     void draw(MeshHandle mesh, const float* model16, TextureHandle texture);
-    void flush(VkCommandBuffer cmd);
+
+    bool hasDraws() const { return !m_cmds.empty(); }
+    void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
+    void flush(VkCommandBuffer cmd);        // main color pass (call inside the main render pass)
 
 private:
+    static constexpr uint32_t kShadowSize = 2048;
+
     struct Mesh {
         VulkanBuffer vbo;
         VulkanBuffer ibo;
@@ -46,14 +52,33 @@ private:
         float model[16];
     };
 
+    bool createShadowResources(VulkanContext& ctx);
+    bool createShadowPipeline(VulkanContext& ctx);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
+
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+
+    // Shadow map + its depth-only pass/pipeline, and a set-1 descriptor exposing it to the main
+    // fragment shader.
+    VkImage m_shadowImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_shadowMemory = VK_NULL_HANDLE;
+    VkImageView m_shadowView = VK_NULL_HANDLE;
+    VkSampler m_shadowSampler = VK_NULL_HANDLE;
+    VkRenderPass m_shadowPass = VK_NULL_HANDLE;
+    VkFramebuffer m_shadowFbo = VK_NULL_HANDLE;
+    VkPipelineLayout m_shadowLayout = VK_NULL_HANDLE;
+    VkPipeline m_shadowPipeline = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_shadowSetLayout = VK_NULL_HANDLE;
+    VkDescriptorPool m_shadowPool = VK_NULL_HANDLE;
+    VkDescriptorSet m_shadowSet = VK_NULL_HANDLE;
+
     std::vector<Mesh> m_meshes; // index 0 reserved (kInvalidMesh)
     std::vector<DrawCmd> m_cmds;
     float m_viewProj[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    float m_lightVP[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
 };

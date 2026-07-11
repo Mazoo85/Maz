@@ -47,6 +47,7 @@ available):
 - **M11** — textured 3D (shared `TextureStore`): the cube is checkered and `scene3d` has a tiled floor
 - **M12** — explorable 3D (`maz::game::FlyCamera` + mouse-look): fly through `world` with WASD
 - **M13** — 3D collision (`maz::game::Collision`): `world` is a solid, walkable first-person collect-em-up
+- **M14** — shadow mapping: 3D objects cast soft shadows on the ground (directional light + PCF)
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

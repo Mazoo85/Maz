@@ -213,20 +213,8 @@ bool VulkanRenderer::beginFrame() {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(cmd, &begin);
 
-    VkClearValue clears[2]{};
-    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
-    clears[1].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo rp{};
-    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass = m_swapchain.renderPass();
-    rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
-    rp.renderArea.extent = m_swapchain.extent();
-    rp.clearValueCount = 2;
-    rp.pClearValues = clears;
-    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Start fresh 3D and 2D draw lists; draw* calls accumulate until endFrame() flushes them.
+    // The main render pass begins in endFrame() (after the shadow pass). Here we only reset the
+    // per-frame 3D and 2D draw lists; draw* calls accumulate until endFrame() flushes them.
     const uint32_t w = m_swapchain.extent().width;
     const uint32_t h = m_swapchain.extent().height;
     m_meshes.setViewport(w, h);
@@ -241,6 +229,23 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+
+    // 1) Shadow pass — depth-only, into the mesh renderer's shadow map (skipped if no meshes).
+    m_meshes.renderShadow(cmd);
+
+    // 2) Main color pass.
+    VkClearValue clears[2]{};
+    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    clears[1].depthStencil = {1.0f, 0};
+    VkRenderPassBeginInfo rp{};
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = m_swapchain.renderPass();
+    rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
+    rp.renderArea.extent = m_swapchain.extent();
+    rp.clearValueCount = 2;
+    rp.pClearValues = clears;
+    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+
     m_meshes.flush(cmd);                  // 3D first (depth-tested)
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);

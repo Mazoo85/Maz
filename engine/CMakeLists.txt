@@ -47,7 +47,9 @@ maz_compile_shaders(maz
         ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.vert
-        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag)
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.frag)
 
 add_custom_command(TARGET maz POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts

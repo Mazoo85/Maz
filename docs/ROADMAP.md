@@ -73,7 +73,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M13 — 3D collision (done).** `maz::game::Collision` — `Aabb` + `slideMove` (per-axis resolve
 > so you slide along surfaces). `apps/world` is now solid and walkable, turned into a
 > first-person collect-em-up (glowing pickups + a HUD counter; autopilot steers around blocks it
-> bumps). Everything marked `[x]` below is done; everything else is the road ahead.
+> bumps).
+>
+> **M14 — shadows (done).** Shadow mapping in the `MeshRenderer`: a depth-only pass renders
+> casters from a directional light into a 2048² shadow map, sampled with 2×2 PCF in the mesh
+> shader. The frame runs shadow-pass → main-pass; 2D games skip the shadow pass and are
+> unaffected. Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -151,7 +156,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [ ] Point / spot lights; forward+ or deferred path
-- [ ] Shadow maps, skybox / image-based lighting
+- [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
+- [ ] Skybox / image-based lighting, cascaded / point-light shadows
 - [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
 - [ ] Render-to-texture, multiple viewports, MSAA
 - [ ] GPU profiling, keep validation-clean baseline
