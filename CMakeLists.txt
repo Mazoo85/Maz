@@ -54,6 +54,7 @@ add_subdirectory(apps/glass)
 add_subdirectory(apps/maze)
 add_subdirectory(apps/crowd)
 add_subdirectory(apps/tween)
+add_subdirectory(apps/menu)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

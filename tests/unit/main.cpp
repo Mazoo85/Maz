@@ -11,6 +11,7 @@
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 
 #include <cmath>
@@ -431,6 +432,68 @@ void testTween() {
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
 }
 
+void testUI() {
+    // Rect hit-testing (half-open on the far edges).
+    ui::Rect r{10, 20, 100, 40};
+    CHECK(r.contains(10, 20));
+    CHECK(r.contains(50, 40));
+    CHECK(!r.contains(9, 20));
+    CHECK(!r.contains(110, 20)); // x+w is outside
+    CHECK(!r.contains(50, 60));  // y+h is outside
+
+    // Slider value mapping + clamping.
+    ui::Rect track{40, 0, 100, 20};
+    CHECK_NEAR(ui::sliderValueFromX(track, 40, 0, 100), 0.0f, 1e-4f);
+    CHECK_NEAR(ui::sliderValueFromX(track, 90, 0, 100), 50.0f, 1e-4f);
+    CHECK_NEAR(ui::sliderValueFromX(track, 140, 0, 100), 100.0f, 1e-4f);
+    CHECK_NEAR(ui::sliderValueFromX(track, -50, 0, 100), 0.0f, 1e-4f);   // clamped low
+    CHECK_NEAR(ui::sliderValueFromX(track, 9999, 0, 100), 100.0f, 1e-4f); // clamped high
+
+    // Button interaction state machine on a renderer-less context (draw calls no-op).
+    ui::Context ui;
+    const ui::Rect btn{40, 40, 100, 30};
+
+    // Hover only, no press -> no click.
+    ui.begin(50, 50, false);
+    CHECK(!ui.button(1, btn, "x"));
+    ui.end();
+    // Press inside (button-down edge) -> captures active, not yet a click.
+    ui.begin(50, 50, true);
+    CHECK(!ui.button(1, btn, "x"));
+    ui.end();
+    // Release inside -> click fires.
+    ui.begin(50, 50, false);
+    CHECK(ui.button(1, btn, "x"));
+    ui.end();
+
+    // Press inside then release OUTSIDE -> no click (press/release must land on the same widget).
+    ui.begin(50, 50, true);
+    CHECK(!ui.button(1, btn, "x"));
+    ui.end();
+    ui.begin(500, 500, false);
+    CHECK(!ui.button(1, btn, "x"));
+    ui.end();
+
+    // Toggle flips its bound value on a completed click.
+    bool flag = false;
+    ui.begin(50, 50, true);
+    ui.toggle(2, btn, "opt", flag);
+    ui.end();
+    ui.begin(50, 50, false);
+    const bool changed = ui.toggle(2, btn, "opt", flag);
+    ui.end();
+    CHECK(changed);
+    CHECK(flag);
+
+    // Slider: pressing at the track midpoint sets the value to the midpoint of the range.
+    float vol = 0.0f;
+    ui.begin(90, 10, true);
+    const bool moved = ui.slider(3, track, vol, 0.0f, 100.0f);
+    ui.end();
+    CHECK(moved);
+    CHECK_NEAR(vol, 50.0f, 1e-3f);
+}
+
 } // namespace
 
 int main() {
@@ -442,6 +505,7 @@ int main() {
     testNavGrid();
     testSteering();
     testTween();
+    testUI();
     testEcs();
     testShake();
     testParticleAttractor();

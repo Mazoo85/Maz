@@ -164,6 +164,11 @@ available):
   `Tween` time-cursor with once/repeat/ping-pong looping and a generic `sample(from, to)` that
   interpolates any float/vector/color. The `tween` demo animates 8 markers on one shared clock to
   compare curves side by side. Cross-cutting animation for UI, cameras, platforms; unit-tested
+- **M60** — immediate-mode UI: `ui::Context` provides IMGUI-style `panel`/`label`/`button`/
+  `toggle`/`slider` widgets with hot/active tracking (a button only fires when press and release
+  land on it; a slider keeps dragging off-track), drawn via the 2D sprite+font path. The `menu`
+  demo is an interactive settings screen driven by a self-playing cursor (real mouse on a desktop).
+  Interaction state machine + hit-testing + slider math unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

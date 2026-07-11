@@ -290,7 +290,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 9 — UI
 - [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
 - [ ] Dear ImGui integration for tools / debug overlays
-- [ ] Retained/immediate game-UI: widgets, layout, anchoring, scaling
+- [x] **Immediate-mode game-UI** (`ui::Context`: panel/label/button/toggle/slider with hot/active
+  tracking; the `menu` demo is an interactive settings screen; M60) — layout/anchoring/text input later
 - [ ] Text input, focus / navigation, controller UI nav
 - [ ] Nine-slice, fonts, localization-aware text
 

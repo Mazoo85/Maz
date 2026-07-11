@@ -370,6 +370,25 @@ exactly that. Build a general easing/tween toolkit (cross-cutting, not AI-specif
   and `glm::mix` (qualified the call). Verified on lavapipe (markers stagger by curve, no validation
   errors); new `tween_headless_smoke` + golden → ctest **16/16**, every existing golden unchanged.
 
-Later: behavior trees / FSM on top of steering, order-independent transparency, material/uniform
-system, GPU-driven / indirect instancing, skeletal animation, retained UI, asset manager,
-cross-platform CI, a deterministic hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 22 complete** (tweening + easing curves).
+
+### Iteration 23 — "Interactive UI" (in progress)
+Self-directed: the engine can draw text and sprites but has no *interactive* UI — no buttons, no
+menus. Every shippable game needs a main menu, a pause screen, settings. Build the widget layer.
+- [x] **M60 — Immediate-mode UI**: header-only `ui::Context` — an IMGUI-style widget set
+  (`panel`, `label`, `button`, `toggle`, `slider`) that both draws (via the 2D sprite + font path)
+  and returns interaction. Widgets are keyed by a caller id so the context tracks the hovered
+  ("hot") and pressed ("active") widget across frames: a button only fires when press *and* release
+  land on the same widget, and a slider keeps dragging even when the pointer slips off the track.
+  Draw calls are guarded so a renderer-less/headless context still runs the full interaction logic —
+  which is how the unit tests exercise it (167 checks total): rect hit-testing, slider value
+  mapping + clamping, the button press/release-elsewhere state machine, toggle flip, and slider
+  drag. New `menu` demo: a settings screen (buttons + two toggles + a volume slider) driven by a
+  deterministic self-playing cursor for stable golden capture, handing over to a real mouse the
+  moment one moves. Verified on lavapipe (widgets highlight/toggle/slide, no validation errors); new
+  `menu_headless_smoke` + golden → ctest **17/17**, every existing golden unchanged.
+
+Later: UI layout containers / anchoring + text input, behavior trees / FSM on top of steering,
+order-independent transparency, material/uniform system, GPU-driven / indirect instancing, skeletal
+animation, asset manager, cross-platform CI, a deterministic hold-frame screenshot mode to tighten
+golden tolerances.

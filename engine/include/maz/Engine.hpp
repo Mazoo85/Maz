@@ -27,3 +27,4 @@
 #include "maz/render/Shapes.hpp"
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"
+#include "maz/ui/UI.hpp"
