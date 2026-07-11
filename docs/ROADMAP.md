@@ -209,7 +209,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows
-- [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
+- [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
+- [ ] Tonemap/HDR, FXAA/TAA, richer post stack
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [ ] Render-to-texture, multiple viewports
 - [ ] GPU profiling, keep validation-clean baseline

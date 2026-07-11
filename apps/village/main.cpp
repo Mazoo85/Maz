@@ -343,6 +343,12 @@ int main(int argc, char** argv) {
         const glm::mat4 viewProj = proj * camera.view();
 
         renderer->setLighting(dayNightLighting(clock.elapsed()));
+        // Bloom scales with the cycle: strong glow at night (lamps/coins), subtle by day.
+        {
+            const double a = std::fmod(clock.elapsed(), 48.0) / 48.0 * 2.0 * 3.14159265;
+            const float day = glm::clamp(static_cast<float>(std::sin(a)) * 1.6f, 0.0f, 1.0f);
+            renderer->setBloom(glm::mix(0.85f, 0.15f, day), 0.75f);
+        }
         renderer->setClearColor(render::Color{0.10f, 0.12f, 0.16f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));

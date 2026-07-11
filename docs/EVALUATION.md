@@ -51,8 +51,11 @@ implement it, then re-evaluate and repeat. Updated each iteration.
   set=3 normal sampler with a flat default (un-mapped meshes unchanged); the loader decodes glTF
   `normalTexture`; the house/village generators bake a normal-map atlas from a height field; model
   + village bind it. Verified: the brick walls and roof shingles now show per-pixel relief.
-- [ ] **Bloom / tonemap post-processing**: its own focused effort — needs an offscreen HDR
-  render-target refactor (scene → offscreen → bright/blur → composite → swapchain) touching every
-  app's render path, so it gets dedicated care (night lamps + coins would bloom).
+- [x] **M27 — Bloom / post-processing**: the scene now renders into an offscreen sceneColor
+  (MSAA resolves there, SHADER_READ), and a composite pass runs a `PostProcess` fullscreen shader
+  that samples it and writes the swapchain — threshold gaussian bloom, passthrough at strength 0.
+  Landed incrementally (offscreen+passthrough verified pixel-identical for orbs/cube first, then
+  bloom). Village scales bloom with the day/night cycle; night lamps + coins glow. Deferred within
+  post: HDR float target + separable multi-pass blur + tonemap operator.
 - [ ] World-space (billboarded) 3D particles; frustum culling; native scene serialization + a
   debug stats overlay.

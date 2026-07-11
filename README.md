@@ -72,6 +72,8 @@ available):
   searchlight sweeps the village at night
 - **M26** — normal mapping: tangent-space normal maps (glTF `normalTexture`) give the brick walls
   and roof shingles real per-pixel surface relief under the lights
+- **M27** — post-processing bloom: the scene renders to an offscreen target and a composite pass
+  adds a threshold bloom (passthrough at strength 0); VILLAGE QUEST's night lamps and coins glow
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
