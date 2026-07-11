@@ -27,8 +27,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M4 — a complete sample game (done).** `apps/orbs` ("ORB RUN") — an original, genre-neutral
 > arcade game with a full game-state machine (title → play → win/lose → restart), player
 > movement, collectible orbs, roving hazards, a countdown timer, and a HUD. Proves the engine
-> ships a real title and runs more than one app. Everything marked `[x]` below is done;
-> everything else is the road ahead.
+> ships a real title and runs more than one app.
+>
+> **M5 — audio (done).** `maz::audio::Audio` — an SDL3 audio device with a real-time mixer that
+> synthesizes voices (sine/square/triangle/noise, attack/decay envelope, frequency glide) plus a
+> looping arpeggio music bed; thread-safe `play`, master volume, graceful with no device. Wired
+> into ORB RUN (start/pickup/hit/win SFX + music). Verified by capturing 3s of generated audio
+> to a file and rendering its waveform. Everything marked `[x]` below is done; everything else is
+> the road ahead.
 
 ---
 
@@ -130,9 +136,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Collider / contact debug visualization
 
 ## Phase 7 — Audio
-- [ ] Audio device + mixer (SDL audio / miniaudio / OpenAL)
-- [ ] Sound instances, buses / categories, volume / pitch / loop
-- [ ] Streaming music vs one-shot SFX
+- [x] Audio device + real-time float mixer (SDL3, on the audio thread)
+- [x] Synthesized voices (sine/square/triangle/noise), envelope, frequency glide, master volume
+- [x] Looping arpeggio music bed; thread-safe `play`; graceful with no device
+- [ ] WAV/OGG loading, buses / categories, per-sound pitch
 - [ ] 2D panning + 3D spatialization, attenuation, doppler
 - [ ] DSP effects (reverb, filter), ducking
 

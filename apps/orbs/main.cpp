@@ -125,6 +125,16 @@ int main(int argc, char** argv) {
     platform::Input input;
     core::Clock clock(1.0 / 60.0);
 
+    audio::Audio audio;
+    audio.init(); // no-op if no device
+
+    // Procedurally-synthesized sound effects (no asset files).
+    const audio::SoundDesc sfxStart{audio::Wave::Square, 440.0f, 880.0f, 0.16f, 0.30f};
+    const audio::SoundDesc sfxPickup{audio::Wave::Square, 720.0f, 1120.0f, 0.09f, 0.28f};
+    const audio::SoundDesc sfxHit{audio::Wave::Square, 180.0f, 50.0f, 0.35f, 0.35f};
+    const audio::SoundDesc sfxHitNoise{audio::Wave::Noise, 300.0f, 0.0f, 0.25f, 0.25f};
+    const audio::SoundDesc sfxWin{audio::Wave::Square, 523.0f, 1047.0f, 0.5f, 0.30f};
+
     // Textures.
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -189,6 +199,8 @@ int main(int argc, char** argv) {
         score = 0;
         timeLeft = kRoundSeconds;
         state = State::Play;
+        audio.play(sfxStart);
+        audio.setMusic(true);
     };
 
     while (!window.shouldClose()) {
@@ -249,6 +261,7 @@ int main(int argc, char** argv) {
                 if (dist(pcx, pcy, ocx, ocy) < (kPlayerSize + kOrbSize) * 0.4f) {
                     ++score;
                     o = placeInArena(kOrbSize);
+                    audio.play(sfxPickup);
                 }
             }
 
@@ -262,17 +275,25 @@ int main(int argc, char** argv) {
                 if (h.y + kHazardSize > y1) { h.y = y1 - kHazardSize; h.vy = -h.vy; }
                 const float hcx = h.x + kHazardSize * 0.5f;
                 const float hcy = h.y + kHazardSize * 0.5f;
-                if (dist(pcx, pcy, hcx, hcy) < (kPlayerSize + kHazardSize) * 0.4f) {
+                if (state == State::Play &&
+                    dist(pcx, pcy, hcx, hcy) < (kPlayerSize + kHazardSize) * 0.4f) {
                     state = State::Lose;
+                    audio.play(sfxHit);
+                    audio.play(sfxHitNoise);
+                    audio.setMusic(false);
                 }
             }
 
             timeLeft -= dt;
-            if (score >= kWinScore) {
+            if (state == State::Play && score >= kWinScore) {
                 state = State::Win;
-            } else if (timeLeft <= 0.0f) {
+                audio.play(sfxWin);
+                audio.setMusic(false);
+            } else if (state == State::Play && timeLeft <= 0.0f) {
                 timeLeft = 0.0f;
                 state = State::Lose;
+                audio.play(sfxHit);
+                audio.setMusic(false);
             }
         }
 
@@ -358,8 +379,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    MAZ_LOG_INFO("ORB RUN shutting down (score %d, renderer %s)", score,
-                 renderer->isActive() ? "active" : "inactive");
+    MAZ_LOG_INFO("ORB RUN shutting down (score %d, renderer %s, audio %s)", score,
+                 renderer->isActive() ? "active" : "inactive",
+                 audio.active() ? "active" : "inactive");
+    audio.shutdown();
     renderer->shutdown();
     window.shutdown();
     return 0;

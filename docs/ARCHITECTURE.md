@@ -23,9 +23,14 @@ math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain, render pass, framebuffers, present
-              Renderer       — beginFrame / clear / endFrame
+              VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
+              Renderer       — beginFrame / clear / drawSprite / endFrame
+ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
+game/       Tilemap (grid + solidity + coord helpers)
+audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
-  sandbox/  Demo executable that owns the loop and wires the modules together
+  sandbox/  Top-down tile-world demo
+  orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio)
 ```
 
 ## The frame loop (fixed timestep)

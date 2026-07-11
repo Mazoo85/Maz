@@ -29,8 +29,9 @@ Milestones so far: **M0** (window + fixed-timestep loop + Vulkan clear-screen), 
 batched 2D sprite renderer — textured, tinted, rotated sprites with a `Camera2D`), **M2** (a
 playable top-down demo: a tile world you walk with **WASD/arrows**, wall/water collision, and a
 camera that follows the player), **M3** (TrueType text + a pixel-space HUD — title, controls,
-health bar — over the world), and **M4** (`orbs` — a complete original arcade game with a full
-title → play → win/lose → restart state machine). It degrades gracefully with no GPU/display so
+health bar — over the world), **M4** (`orbs` — a complete original arcade game with a full
+title → play → win/lose → restart state machine), and **M5** (a synthesized audio system —
+sound effects + music, wired into `orbs`). It degrades gracefully with no GPU/display/audio so
 `--headless` still runs in CI.
 
 The bundled HUD font is **DejaVu Sans** (`assets/fonts/`, Bitstream Vera / public-domain-style

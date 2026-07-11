@@ -11,7 +11,8 @@ add_library(maz STATIC
     src/render/SpriteRenderer.cpp
     src/render/VulkanRenderer.cpp
     src/game/Tilemap.cpp
-    src/ui/Font.cpp)
+    src/ui/Font.cpp
+    src/audio/Audio.cpp)
 
 target_include_directories(maz
     PUBLIC
