@@ -27,6 +27,7 @@ public:
                           const uint32_t* indices, uint32_t indexCount);
 
     void setViewProjection(const float* viewProj16);
+    void setLighting(VulkanContext& ctx, const SceneLighting& lighting); // updates the lights UBO
     void setViewport(uint32_t w, uint32_t h) {
         m_viewportW = w;
         m_viewportH = h;
@@ -57,6 +58,7 @@ private:
     bool createShadowResources(VulkanContext& ctx);
     bool createShadowPipeline(VulkanContext& ctx);
     bool createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass);
+    bool createLightResources(VulkanContext& ctx);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
@@ -80,6 +82,13 @@ private:
     VkDescriptorSetLayout m_shadowSetLayout = VK_NULL_HANDLE;
     VkDescriptorPool m_shadowPool = VK_NULL_HANDLE;
     VkDescriptorSet m_shadowSet = VK_NULL_HANDLE;
+
+    // set = 2 : scene lighting (ambient + sun + point lights), a host-visible UBO.
+    VulkanBuffer m_lightUbo;
+    VkDescriptorSetLayout m_lightSetLayout = VK_NULL_HANDLE;
+    VkDescriptorPool m_lightPool = VK_NULL_HANDLE;
+    VkDescriptorSet m_lightSet = VK_NULL_HANDLE;
+    void* m_lightMapped = nullptr;
 
     std::vector<Mesh> m_meshes; // index 0 reserved (kInvalidMesh)
     std::vector<DrawCmd> m_cmds;

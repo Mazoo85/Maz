@@ -17,6 +17,7 @@ layout(location = 0) out vec3 vNormal;
 layout(location = 1) out vec3 vColor;
 layout(location = 2) out vec2 vUV;
 layout(location = 3) out vec4 vLightPos;
+layout(location = 4) out vec3 vWorldPos;
 
 void main() {
     vec4 world = pc.model * vec4(inPos, 1.0);
@@ -25,4 +26,5 @@ void main() {
     vColor = inColor;
     vUV = inUV;
     vLightPos = pc.lightVP * world;
+    vWorldPos = world.xyz;
 }

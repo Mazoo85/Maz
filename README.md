@@ -61,6 +61,8 @@ available):
   9 trees) loads from one `village.gltf` — a level as data
 - **M20** — **VILLAGE QUEST**: that scene becomes a playable first-person game — solid house
   collision, coins to collect against the clock, a win state, and a best time saved across runs
+- **M21** — point lights (`Renderer::setLighting`): the 3D path gains ambient + a shadow-mapped sun
+  + up to 8 attenuated point lights; VILLAGE QUEST uses them for a dusk village with glowing lamps
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

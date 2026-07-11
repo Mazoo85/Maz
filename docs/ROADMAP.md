@@ -114,8 +114,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > solid AABB collision (built from each node's world bounds), golden coins are scattered in the open
 > spaces, and you walk the village first-person (WASD + mouse-look) collecting every coin against a
 > timer — with a win state and a best time saved across runs. It composes scene loading + collision
-> + audio + save into one game, the proof the engine ships real games. Everything marked `[x]` below
-> is done; everything else is the road ahead.
+> + audio + save into one game, the proof the engine ships real games.
+>
+> **M21 — point lights (done).** The 3D mesh path gains real positional lighting: a lights UBO
+> (descriptor set 2) carries ambient + one shadow-mapped directional "sun" plus up to eight point
+> lights, and the fragment shader accumulates each point light with smooth distance attenuation.
+> `Renderer::setLighting(SceneLighting)` drives it; the defaults reproduce the prior daytime look so
+> every other app is untouched. VILLAGE QUEST uses it for dusk — a low warm sun over dim ambient
+> with a warm lamp glowing at each house. Everything marked `[x]` below is done; everything else is
+> the road ahead.
 
 ---
 
@@ -192,7 +199,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
-- [ ] Point / spot lights; forward+ or deferred path
+- [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
+- [ ] Spot lights; forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows

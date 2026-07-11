@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
     // Load the scene: one Placed per node; textured nodes (the houses) also become solid collision.
     std::vector<Placed> scene;
     std::vector<game::Aabb> solids;
+    std::vector<glm::vec3> houseCenters;
     render::SceneData sceneData;
     if (render::loadGltfScene(assetPath("assets/models/village.gltf").c_str(), sceneData)) {
         for (const render::SceneNode& node : sceneData.nodes) {
@@ -104,11 +105,30 @@ int main(int argc, char** argv) {
             scene.push_back(pl);
             if (node.hasTexture()) { // houses are the textured nodes
                 solids.push_back(worldBounds(node.mesh, glm::make_mat4(node.model)));
+                houseCenters.emplace_back(node.model[12], node.model[13], node.model[14]);
             }
         }
     } else {
         MAZ_LOG_WARN("no village scene loaded; rendering empty");
     }
+
+    // Dusk lighting: a low warm "golden hour" sun over a dim ambient, plus a warm lamp glowing at
+    // each house — showcasing the engine's point lights (M21).
+    render::SceneLighting lighting;
+    lighting.ambient[0] = 0.17f; lighting.ambient[1] = 0.15f; lighting.ambient[2] = 0.20f;
+    lighting.sunDir[0] = 0.35f;  lighting.sunDir[1] = 0.30f;  lighting.sunDir[2] = 0.50f;
+    lighting.sunColor[0] = 0.48f; lighting.sunColor[1] = 0.38f; lighting.sunColor[2] = 0.30f;
+    for (const glm::vec3& c : houseCenters) {
+        if (lighting.pointCount >= render::SceneLighting::kMaxPointLights) {
+            break;
+        }
+        render::SceneLighting::Point& p = lighting.points[lighting.pointCount++];
+        p.pos[0] = c.x; p.pos[1] = 1.2f; p.pos[2] = c.z;
+        p.range = 8.5f;
+        p.color[0] = 1.0f; p.color[1] = 0.60f; p.color[2] = 0.26f; // warm lamp
+        p.intensity = 3.4f;
+    }
+    renderer->setLighting(lighting);
 
     // A golden coin mesh, scattered in the open spaces between the houses.
     const render::shapes::MeshData coinData =

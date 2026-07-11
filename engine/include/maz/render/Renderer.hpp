@@ -56,6 +56,24 @@ struct MeshVertex {
 using MeshHandle = uint32_t;
 constexpr MeshHandle kInvalidMesh = 0;
 
+// Scene lighting for the 3D mesh path: ambient + one shadow-mapped directional "sun", plus up to
+// kMaxPointLights positional point lights (lamps, window glow). Defaults reproduce the engine's
+// standard daytime look, so apps that never set lighting are unaffected.
+struct SceneLighting {
+    static constexpr uint32_t kMaxPointLights = 8;
+    struct Point {
+        float pos[3] = {0, 0, 0};
+        float range = 8.0f;         // distance at which the light fades to zero
+        float color[3] = {1, 1, 1}; // light color
+        float intensity = 1.0f;     // scales color
+    };
+    float ambient[3] = {0.30f, 0.30f, 0.30f};
+    float sunDir[3] = {0.4f, 0.8f, 0.6f};    // direction toward the sun (need not be normalized)
+    float sunColor[3] = {0.85f, 0.85f, 0.85f};
+    Point points[kMaxPointLights];
+    uint32_t pointCount = 0;
+};
+
 // Rendering interface. Gameplay talks to this, never to Vulkan directly, so a future backend
 // (a 3D path, a null/software path, WebGPU) can be swapped in without touching game code.
 class Renderer {
@@ -90,6 +108,9 @@ public:
                                   const uint32_t* indices, uint32_t indexCount) = 0;
     // Set the combined view*projection matrix (column-major, 16 floats) for 3D draws this frame.
     virtual void setViewProjection3D(const float* viewProj16) = 0;
+    // Set the scene lighting (ambient + sun + point lights) for the 3D mesh path. Persists until
+    // changed; defaults to the standard daytime look. No-op when inactive.
+    virtual void setLighting(const SceneLighting& lighting) = 0;
     // Queue a mesh draw with the given model matrix (column-major, 16 floats) and a texture
     // (use a white texture for flat/vertex-colored meshes). Depth-tested, drawn beneath the 2D
     // layer. No-op when inactive.

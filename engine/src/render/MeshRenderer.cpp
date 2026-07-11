@@ -20,6 +20,18 @@ namespace maz::render {
 
 namespace {
 
+// std140 layout matching the `Lights` UBO block in mesh.frag. Every member is vec4-aligned.
+struct GpuPointLight {
+    float posRange[4]; // xyz world position, w = range
+    float color[4];    // rgb = color * intensity, w unused
+};
+struct GpuLights {
+    float ambient[4];  // rgb ambient, w = active point-light count
+    float sunDir[4];   // xyz direction toward the sun
+    float sunColor[4]; // rgb directional color
+    GpuPointLight points[SceneLighting::kMaxPointLights];
+};
+
 std::vector<char> readFile(const std::string& path) {
     std::ifstream f(path, std::ios::ate | std::ios::binary);
     if (!f) {
@@ -76,8 +88,13 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
     const glm::mat4 lightProj = glm::ortho(-40.0f, 40.0f, -40.0f, 40.0f, 1.0f, 140.0f);
     std::memcpy(m_lightVP, glm::value_ptr(lightProj * lightView), sizeof(m_lightVP));
 
-    return createShadowResources(ctx) && createShadowPipeline(ctx) &&
-           createSkyPipeline(ctx, renderPass) && createPipeline(ctx, renderPass);
+    if (!createShadowResources(ctx) || !createShadowPipeline(ctx) ||
+        !createSkyPipeline(ctx, renderPass) || !createLightResources(ctx) ||
+        !createPipeline(ctx, renderPass)) {
+        return false;
+    }
+    setLighting(ctx, SceneLighting{}); // default daytime look until an app overrides it
+    return true;
 }
 
 bool MeshRenderer::createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
@@ -468,6 +485,96 @@ bool MeshRenderer::createShadowPipeline(VulkanContext& ctx) {
     return true;
 }
 
+bool MeshRenderer::createLightResources(VulkanContext& ctx) {
+    // A host-visible, persistently-mapped UBO for the lighting block, plus its set-2 layout/set.
+    if (!m_lightUbo.create(ctx, sizeof(GpuLights), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+        MAZ_LOG_ERROR("lights UBO create failed");
+        return false;
+    }
+    m_lightMapped = m_lightUbo.map(ctx);
+    if (!m_lightMapped) {
+        MAZ_LOG_ERROR("lights UBO map failed");
+        return false;
+    }
+
+    VkDescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutCreateInfo li{};
+    li.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    li.bindingCount = 1;
+    li.pBindings = &binding;
+    if (vkCreateDescriptorSetLayout(ctx.device(), &li, nullptr, &m_lightSetLayout) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("lights set layout failed");
+        return false;
+    }
+    VkDescriptorPoolSize ps{};
+    ps.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ps.descriptorCount = 1;
+    VkDescriptorPoolCreateInfo pi{};
+    pi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pi.maxSets = 1;
+    pi.poolSizeCount = 1;
+    pi.pPoolSizes = &ps;
+    if (vkCreateDescriptorPool(ctx.device(), &pi, nullptr, &m_lightPool) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("lights pool failed");
+        return false;
+    }
+    VkDescriptorSetAllocateInfo dai{};
+    dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dai.descriptorPool = m_lightPool;
+    dai.descriptorSetCount = 1;
+    dai.pSetLayouts = &m_lightSetLayout;
+    if (vkAllocateDescriptorSets(ctx.device(), &dai, &m_lightSet) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("lights set alloc failed");
+        return false;
+    }
+    VkDescriptorBufferInfo bufInfo{};
+    bufInfo.buffer = m_lightUbo.handle();
+    bufInfo.offset = 0;
+    bufInfo.range = sizeof(GpuLights);
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = m_lightSet;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write.pBufferInfo = &bufInfo;
+    vkUpdateDescriptorSets(ctx.device(), 1, &write, 0, nullptr);
+    return true;
+}
+
+void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting) {
+    (void)ctx;
+    if (!m_lightMapped) {
+        return;
+    }
+    const uint32_t count = lighting.pointCount < SceneLighting::kMaxPointLights
+                               ? lighting.pointCount
+                               : SceneLighting::kMaxPointLights;
+    GpuLights g{};
+    for (int i = 0; i < 3; ++i) {
+        g.ambient[i] = lighting.ambient[i];
+        g.sunDir[i] = lighting.sunDir[i];
+        g.sunColor[i] = lighting.sunColor[i];
+    }
+    g.ambient[3] = static_cast<float>(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        const SceneLighting::Point& p = lighting.points[i];
+        g.points[i].posRange[0] = p.pos[0];
+        g.points[i].posRange[1] = p.pos[1];
+        g.points[i].posRange[2] = p.pos[2];
+        g.points[i].posRange[3] = p.range;
+        g.points[i].color[0] = p.color[0] * p.intensity;
+        g.points[i].color[1] = p.color[1] * p.intensity;
+        g.points[i].color[2] = p.color[2] * p.intensity;
+    }
+    std::memcpy(m_lightMapped, &g, sizeof(g));
+}
+
 bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     const std::string base = assetBase();
     VkShaderModule vert = createShaderModule(ctx.device(), readFile(base + "shaders/mesh.vert.spv"));
@@ -553,10 +660,11 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     push.offset = 0;
     push.size = sizeof(float) * 48; // mvp + model + lightVP
 
-    const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout};
+    const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout,
+                                                m_lightSetLayout};
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl.setLayoutCount = 2;
+    pl.setLayoutCount = 3;
     pl.pSetLayouts = setLayouts;
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &push;
@@ -690,8 +798,10 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
     scissor.extent = {m_viewportW, m_viewportH};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // The shadow map (set = 1) is constant across the frame.
+    // The shadow map (set = 1) and lights UBO (set = 2) are constant across the frame.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 1, 1, &m_shadowSet, 0,
+                            nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 2, 1, &m_lightSet, 0,
                             nullptr);
 
     const glm::mat4 vp = glm::make_mat4(m_viewProj);
@@ -735,6 +845,10 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
     if (m_shadowLayout) vkDestroyPipelineLayout(d, m_shadowLayout, nullptr);
     if (m_shadowPool) vkDestroyDescriptorPool(d, m_shadowPool, nullptr);
     if (m_shadowSetLayout) vkDestroyDescriptorSetLayout(d, m_shadowSetLayout, nullptr);
+    if (m_lightPool) vkDestroyDescriptorPool(d, m_lightPool, nullptr);
+    if (m_lightSetLayout) vkDestroyDescriptorSetLayout(d, m_lightSetLayout, nullptr);
+    m_lightUbo.destroy(ctx);
+    m_lightMapped = nullptr;
     if (m_shadowFbo) vkDestroyFramebuffer(d, m_shadowFbo, nullptr);
     if (m_shadowPass) vkDestroyRenderPass(d, m_shadowPass, nullptr);
     if (m_shadowSampler) vkDestroySampler(d, m_shadowSampler, nullptr);
