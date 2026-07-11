@@ -17,6 +17,7 @@
 
 ```
 core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore (save/load),
+            CVarRegistry (named typed tunables: bool/int/float/string + range clamp + string coercion),
             EventBus (type-safe publish/subscribe for decoupled systems),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
@@ -68,7 +69,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             Json — JsonValue (null/bool/number/string/array/object, insertion-ordered) + never-throwing
             recursive-descent parseJson (line/col errors) + dump (compact/pretty) + file IO
             (readTextFile/writeTextFile, parseJsonFile/writeJsonFile)  (header-only;
-            human-editable configs, data-driven scenes/levels/tuning)
+            human-editable configs, data-driven scenes/levels/tuning);
+            Config — the JSON<->CVarRegistry bridge (loadConfig/configToJson + file convenience), so
+            core stays zero-dependency while apps get "config.json drives the engine"
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
@@ -91,6 +94,9 @@ apps/
   level/    On-disk JSON level — reads assets/levels/arena.json from disk (io::parseJsonFile) into a
               game::Tilemap + pickups + palette, renders top-down, and round-trips the level back to
               the save dir (io::writeJsonFile); the editable-content pipeline end to end
+  config/   CVar/config demo — registers typed tunables, applies a JSON config (io::loadConfig), and
+              renders a scene driven entirely by cvars (orb count/speed/hue/brightness/grid) + a live
+              cvar table
 ```
 
 ## The frame loop (fixed timestep)

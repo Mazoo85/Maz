@@ -709,9 +709,36 @@ foundational gap: many systems (scene description, difficulty tables, per-app se
   ctest **33/33**, every existing golden unchanged. Note: two golden-image runs must not execute
   concurrently — they share the Xvfb display and temp PNGs, which corrupts both; run them serially.
 
+### Iteration 38 — "Config as a first-class system" (done)
+Self-directed: the engine had settings scattered across code and a few app-local `KeyValueStore`
+reads, but no *central* notion of a tunable — the named, typed, documented, clamped variable that any
+subsystem registers and a config file drives. That is the standard engine backbone (Quake-style
+cvars), high-leverage because every subsystem gets uniform, discoverable, file-driven tuning for free.
+- [x] **M77 — CVar / config system (`core::CVarRegistry` + `io::Config`)**: a dependency-free registry
+  of named tunables. Each entry carries a type (bool/int/float/string), a default, a human-readable
+  description, and — for numbers — an optional `[lo, hi]` clamp. Values are set through typed setters
+  (which clamp) or `setFromString` (which coerces `"true"`/`"3"`/`"1.5"` into the declared type and
+  clamps), so the same registry serves programmatic use, command-line `name=value` flags
+  (`applyAssignments`), and text configs. Registration is idempotent — re-registering a name keeps its
+  current value, so start-up order doesn't clobber overrides. The whole set iterates (`entries()`) for
+  a settings UI or a dump. To keep `core` at zero dependencies, the JSON glue lives one layer up in
+  `io/Config.hpp`: `loadConfig` applies a parsed JSON object onto matching cvars (coercing JSON types
+  into each cvar's type, ignoring unknown keys, respecting clamps), `configToJson` serializes the
+  registry back out, and `loadConfigFile`/`saveConfigFile` do the disk round-trip — so `config.json`
+  drives the engine. Unit-tested to **811 checks** total: registration/defaults, idempotent
+  re-register, range clamping on setters, per-type `setFromString` coercion + failure on garbage,
+  CLI assignment parsing, `loadConfig` with type coercion/unknown-key skipping/clamping, a
+  `configToJson` round-trip into a fresh registry, and a file save→load round-trip. The new `config`
+  demo registers six cvars (title, orb count/speed/hue, brightness, grid toggle), applies a JSON
+  config over them, and renders a scene driven **entirely** by the resulting values — a ring of N
+  hue-swept orbiting dots over an optional grid — beside a live `name = value` table of the whole
+  registry. Verified on lavapipe (14 dots from `scene.orbCount=14`, orange→cyan sweep from
+  `scene.hue=0.08`, grid on, table matching the config; no validation errors); new
+  `config_headless_smoke` + golden (RMSE 0, threshold 0.05) → ctest **34/34**, every existing golden
+  unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, reflection-driven ECS
-serialization, a CVars/config system layered on JSON, UI layout / text input, order-independent
-transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
-deterministic hold-frame screenshot mode.
+serialization, UI layout / text input, order-independent transparency, material/uniform system,
+GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode.

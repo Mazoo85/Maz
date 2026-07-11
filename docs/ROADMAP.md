@@ -139,7 +139,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Address/UB sanitizer presets (Debug), leak checks
 - [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
 - [x] Persistent key-value store (ini-style, user-data path) — `maz::core::KeyValueStore`
-- [ ] CVars + full config system layered on the store
+- [x] **CVars / config system** (`maz::core::CVarRegistry`: named typed tunables — bool/int/float/string
+  with descriptions + numeric range clamps + string coercion for CLI flags; the `io::Config` bridge
+  loads/saves them as JSON so `config.json` drives the engine; the `config` demo runs a cvar-driven
+  scene; M77)
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
 
@@ -378,6 +381,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **On-disk JSON level** (`apps/level`) — reads `assets/levels/arena.json` from disk into a
       `game::Tilemap` (tile rows + palette + solidity) plus pickups, renders it top-down, and
       round-trips the level back to the save directory; the editable-content pipeline end to end (M76)
+- [x] **Config / CVars** (`apps/config`) — registers typed tunables, applies a JSON config, and draws
+      a scene whose orb count/speed/hue/brightness/grid are all cvar-driven, beside a live cvar table (M77)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

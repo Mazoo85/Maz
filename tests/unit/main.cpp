@@ -8,6 +8,7 @@
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
+#include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/Resources.hpp"
@@ -22,6 +23,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
@@ -706,6 +708,103 @@ void testJson() {
     auto missing = io::parseJsonFile("definitely_not_a_real_file_12345.json");
     CHECK(!missing.ok);
     CHECK(!missing.error.empty());
+}
+
+void testCVars() {
+    core::CVarRegistry reg;
+
+    // Registration + typed defaults.
+    reg.registerBool("debug.wireframe", false, "draw wireframe");
+    reg.registerInt("scene.count", 8, "entity count");
+    reg.registerFloat("render.exposure", 1.0f, "HDR exposure");
+    reg.registerString("app.title", "MAZ", "window title");
+    CHECK(reg.has("scene.count"));
+    CHECK(!reg.has("nope"));
+    CHECK(reg.entries().size() == 4);
+    CHECK(reg.getBool("debug.wireframe") == false);
+    CHECK(reg.getInt("scene.count") == 8);
+    CHECK_NEAR(reg.getFloat("render.exposure"), 1.0f, 1e-6f);
+    CHECK(reg.getString("app.title") == std::string("MAZ"));
+
+    // Re-registering keeps the current (possibly modified) value rather than resetting.
+    reg.setInt("scene.count", 15);
+    reg.registerInt("scene.count", 8, "entity count");
+    CHECK(reg.getInt("scene.count") == 15);
+
+    // Range clamp on numeric setters.
+    reg.setRange("render.exposure", 0.2, 3.0);
+    reg.setFloat("render.exposure", 9.0f);
+    CHECK_NEAR(reg.getFloat("render.exposure"), 3.0f, 1e-6f);
+    reg.setFloat("render.exposure", -1.0f);
+    CHECK_NEAR(reg.getFloat("render.exposure"), 0.2f, 1e-6f);
+    reg.setRange("scene.count", 1, 10);
+    reg.setInt("scene.count", 100);
+    CHECK(reg.getInt("scene.count") == 10);
+
+    // setFromString coercion per type (+ clamping) and failure on garbage.
+    CHECK(reg.setFromString("debug.wireframe", "true"));
+    CHECK(reg.getBool("debug.wireframe") == true);
+    CHECK(reg.setFromString("debug.wireframe", "off"));
+    CHECK(reg.getBool("debug.wireframe") == false);
+    CHECK(!reg.setFromString("debug.wireframe", "maybe")); // unparsable bool
+    CHECK(reg.setFromString("scene.count", "5"));
+    CHECK(reg.getInt("scene.count") == 5);
+    CHECK(!reg.setFromString("scene.count", "abc"));       // unparsable int
+    CHECK(!reg.setFromString("unknown.name", "1"));        // unknown cvar
+    CHECK(reg.setFromString("app.title", "HELLO"));
+    CHECK(reg.getString("app.title") == std::string("HELLO"));
+
+    // Command-line style assignments.
+    const int applied = reg.applyAssignments({"scene.count=7", "render.exposure=1.5", "bad", "x=y"});
+    CHECK(applied == 2); // two known cvars set; "bad" (no '=') and "x=y" (unknown) skipped
+    CHECK(reg.getInt("scene.count") == 7);
+
+    // --- JSON bridge (io::Config) ---------------------------------------------------------------
+    // loadConfig applies matching keys, coerces types, ignores unknowns, respects clamps.
+    const char* cfgDoc = R"({
+        "debug.wireframe": true,
+        "scene.count": 999,
+        "render.exposure": 2.25,
+        "app.title": "CONFIGURED",
+        "unknown.key": 42
+    })";
+    auto cfg = io::parseJson(cfgDoc);
+    CHECK(cfg.ok);
+    const int n = io::loadConfig(reg, cfg.value);
+    CHECK(n == 4); // four known keys applied, unknown.key ignored
+    CHECK(reg.getBool("debug.wireframe") == true);
+    CHECK(reg.getInt("scene.count") == 10); // clamped to [1,10]
+    CHECK_NEAR(reg.getFloat("render.exposure"), 2.25f, 1e-5f);
+    CHECK(reg.getString("app.title") == std::string("CONFIGURED"));
+
+    // configToJson round-trips the whole registry back out (order preserved).
+    io::JsonValue dumped = io::configToJson(reg);
+    CHECK(dumped.isObject());
+    CHECK(dumped.fields().items.size() == 4);
+    CHECK(dumped["scene.count"].asInt() == 10);
+    CHECK(dumped["app.title"].asString() == std::string("CONFIGURED"));
+
+    // A fresh registry loading that dump reproduces the same values.
+    core::CVarRegistry reg2;
+    reg2.registerBool("debug.wireframe", false);
+    reg2.registerInt("scene.count", 0);
+    reg2.registerFloat("render.exposure", 0.0f);
+    reg2.registerString("app.title", "");
+    io::loadConfig(reg2, dumped);
+    CHECK(reg2.getInt("scene.count") == 10);
+    CHECK(reg2.getBool("debug.wireframe") == true);
+    CHECK(reg2.getString("app.title") == std::string("CONFIGURED"));
+
+    // File round-trip through the io::Config convenience helpers.
+    const std::string path = "maz_cvars_roundtrip_test.json";
+    CHECK(io::saveConfigFile(reg, path));
+    core::CVarRegistry reg3;
+    reg3.registerInt("scene.count", 0);
+    reg3.registerString("app.title", "");
+    const int loaded = io::loadConfigFile(reg3, path);
+    CHECK(loaded == 2);
+    CHECK(reg3.getInt("scene.count") == 10);
+    std::remove(path.c_str());
 }
 
 void testStateMachine() {
@@ -1594,6 +1693,7 @@ int main() {
     testUI();
     testSerialize();
     testJson();
+    testCVars();
     testEcs();
     testShake();
     testParticleAttractor();

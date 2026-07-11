@@ -251,6 +251,13 @@ available):
   builds a `game::Tilemap` + pickups from it, renders it top-down, and round-trips the level back out
   to the save directory (proving the format saves as well as loads). Edit the file, and the level
   changes with no rebuild
+- **M77** — CVar / config system (`maz::core::CVarRegistry`): a central registry of named, typed,
+  self-describing tunables (bool/int/float/string) with descriptions and numeric range clamps — the
+  Quake-style "cvars" every subsystem registers once and everyone reads. Values set programmatically
+  (typed setters clamp) or coerced from strings (for CLI flags and text configs). The `io::Config`
+  bridge loads and saves the whole set as JSON, so a `config.json` drives the engine while `core`
+  stays zero-dependency. The new `config` demo runs a scene whose orb count, speed, hue, brightness,
+  and background grid are all read from cvars a JSON document set, with the live cvar table beside it
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -280,4 +287,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **CATCHER**: ← / → (or A / D) to move the paddle · catch gold coins, dodge red hazards · plays itself in attract mode · Esc to quit
 - **Data** (data-driven scene): no controls — the whole scene is parsed from an embedded JSON document · Esc to quit
 - **Level** (on-disk JSON level): no controls — the level is loaded from `assets/levels/arena.json`; edit that file to change it · Esc to quit
+- **Config** (cvar / config demo): no controls — the scene is driven by cvars a JSON config sets; the cvar table is shown live · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit
