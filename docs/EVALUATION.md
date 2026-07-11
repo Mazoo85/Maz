@@ -199,5 +199,13 @@ This iteration:
 
 **Iteration 12 complete** (soft shadows; composite color grade).
 
+### Iteration 13 — "Lens polish & navigation" (in progress)
+- [x] **M46 — Chromatic aberration**: an opt-in radial RGB split in the composite (third push vec4,
+  `Renderer::setChromaticAberration`); off by default so other apps are unchanged. VILLAGE QUEST
+  enables a gentle amount. Verified on lavapipe: clear red/cyan fringing on the corner HUD text and
+  edge silhouettes, no validation errors.
+- [ ] **M47 — World minimap**: a corner top-down radar in `world` (blocks, pickups, player) via 2D
+  sprites and a corner Camera2D.
+
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
-viewport, reflective water, SSAO, in-app settings menu UI.
+viewport, reflective water, SSAO, in-app settings menu UI, particle attractors.

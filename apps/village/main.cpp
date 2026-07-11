@@ -442,6 +442,7 @@ int main(int argc, char** argv) {
             // Cinematic grade: a soft vignette plus a touch of extra saturation/contrast, a little
             // stronger at night for mood.
             renderer->setColorGrade(glm::mix(0.45f, 0.30f, day), 1.12f, 1.06f, true);
+            renderer->setChromaticAberration(0.004f); // subtle lens fringing at the screen edges
         }
         renderer->setClearColor(render::Color{0.10f, 0.12f, 0.16f, 1.0f});
         if (renderer->beginFrame()) {

@@ -156,6 +156,9 @@ public:
     // `saturation` scales chroma (1 = neutral), `contrast` scales about mid-grey (1 = neutral). Off
     // by default (a faithful passthrough). No-op when inactive.
     virtual void setColorGrade(float vignette, float saturation, float contrast, bool enabled) = 0;
+    // Radial chromatic aberration on the composited image: `strength` is the UV split at the screen
+    // edge (e.g. 0.004). 0 (default) is off. No-op when inactive.
+    virtual void setChromaticAberration(float strength) = 0;
     // Draw meshes as wireframe (line polygons) instead of filled — a debug-draw aid. Requires the
     // GPU's fillModeNonSolid feature; silently stays filled if unsupported. No-op when inactive.
     virtual void setWireframe(bool enabled) = 0;

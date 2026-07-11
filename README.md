@@ -125,6 +125,8 @@ available):
 - **M45** — color grade: the composite gained an opt-in `setColorGrade` (soft **vignette** +
   saturation + contrast); off by default (no regression). VILLAGE QUEST wears a cinematic grade that
   deepens at night
+- **M46** — chromatic aberration: opt-in radial RGB split at the screen edges (`setChromaticAberration`,
+  off by default) for a subtle lens-fringe look; VILLAGE QUEST enables a gentle amount
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -39,6 +39,8 @@ public:
         m_contrast = contrast;
         m_colorGrade = enabled;
     }
+    // Radial chromatic-aberration strength (UV split fraction at the screen edge). 0 (default) = off.
+    void setChromatic(float strength) { m_chromatic = strength; }
 
     // Begin the composite pass into `framebuffer`, draw the full-screen composite, end the pass.
     void record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent);
@@ -63,6 +65,7 @@ private:
     float m_saturation = 1.0f; // 1 = neutral
     float m_contrast = 1.0f;   // 1 = neutral
     bool m_colorGrade = false; // false => no grade (passthrough)
+    float m_chromatic = 0.0f;  // radial RGB split; 0 => off
 };
 
 } // namespace maz::render

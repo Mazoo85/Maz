@@ -11,6 +11,7 @@ layout(set = 0, binding = 1) uniform sampler2D uBloom;
 layout(push_constant) uniform Push {
     vec4 params; // x = bloom strength, y = threshold (unused here), z = exposure, w = tonemap (>0.5)
     vec4 grade;  // x = vignette strength, y = saturation, z = contrast, w = grade enable (>0.5)
+    vec4 extra;  // x = chromatic aberration strength (radial RGB split)
 } pc;
 
 layout(location = 0) out vec4 outColor;
@@ -22,7 +23,17 @@ vec3 acesTonemap(vec3 x) {
 }
 
 void main() {
-    vec3 scene = texture(uScene, vUv).rgb;
+    // Chromatic aberration: split the R/B channels radially from the center (0 = off = single tap).
+    vec3 scene;
+    float ca = pc.extra.x;
+    if (ca > 0.0) {
+        vec2 dir = vUv - 0.5;
+        scene.r = texture(uScene, vUv + dir * ca).r;
+        scene.g = texture(uScene, vUv).g;
+        scene.b = texture(uScene, vUv - dir * ca).b;
+    } else {
+        scene = texture(uScene, vUv).rgb;
+    }
     vec3 bloom = texture(uBloom, vUv).rgb;
     vec3 color = scene + bloom * pc.params.x;
 
