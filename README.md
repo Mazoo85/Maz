@@ -258,6 +258,13 @@ available):
   bridge loads and saves the whole set as JSON, so a `config.json` drives the engine while `core`
   stays zero-dependency. The new `config` demo runs a scene whose orb count, speed, hue, brightness,
   and background grid are all read from cvars a JSON document set, with the live cvar table beside it
+- **M78** — hierarchical CPU profiler (`maz::core::Profiler`): named, nestable timing zones that
+  answer "where did the frame go?". Each zone reports **inclusive** time (its whole span) and **self**
+  time (inclusive minus its children) — the two numbers that actually locate a hotspot — plus call
+  counts and an EMA-smoothed millisecond readout. The core is time-source-agnostic (begin/end take a
+  monotonic timestamp), so tests and deterministic demos feed synthetic times; real code uses a
+  `ScopedZone` RAII over `steady_clock`. The new `profiler` demo renders a sample frame's zone tree as
+  an indented bar chart
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -288,4 +295,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Data** (data-driven scene): no controls — the whole scene is parsed from an embedded JSON document · Esc to quit
 - **Level** (on-disk JSON level): no controls — the level is loaded from `assets/levels/arena.json`; edit that file to change it · Esc to quit
 - **Config** (cvar / config demo): no controls — the scene is driven by cvars a JSON config sets; the cvar table is shown live · Esc to quit
+- **Profiler** (CPU profiler view): no controls — a sample frame's timing zones are drawn as an indented bar chart · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

@@ -15,6 +15,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/KeyValueStore.hpp"
 #include "maz/core/Log.hpp"
+#include "maz/core/Profiler.hpp"
 #include "maz/core/Resources.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Time.hpp"

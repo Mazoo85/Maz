@@ -737,8 +737,33 @@ cvars), high-leverage because every subsystem gets uniform, discoverable, file-d
   `config_headless_smoke` + golden (RMSE 0, threshold 0.05) → ctest **34/34**, every existing golden
   unchanged.
 
+### Iteration 39 — "Measure the frame" (done)
+Self-directed: the engine had an FPS/draw-count overlay (M29) but no real *profiler* — the tool that
+attributes frame time to named, nested spans of work, which is the prerequisite for any serious
+optimization ("you can't fix what you can't measure"). That is foundational infrastructure, not polish.
+- [x] **M78 — Hierarchical CPU profiler (`core::Profiler`)**: nestable timing zones opened with
+  `begin(name)` and closed with `end()`. Zones form a tree, so each records **inclusive** time (the
+  whole span) and **self** time (inclusive minus the direct children) — together they locate a hotspot
+  that either number alone would hide. Per frame each distinct zone name aggregates call count,
+  inclusive, and self microseconds; across frames an exponential moving average smooths the millisecond
+  readout so a live display is legible instead of flickering. The core is deliberately
+  **time-source-agnostic**: `begin`/`end` take a monotonic microsecond timestamp, so unit tests and the
+  golden demo feed synthetic timestamps (no wall clock) and get byte-reproducible output, while real
+  code uses `nowMicros()` (steady_clock) or the `ScopedZone` RAII guard. Unit-tested to **834 checks**
+  total: a hand-built nested frame verifying inclusive time per zone, self = inclusive − children at
+  every level (parents small, leaves self == inclusive), depth, call counts, multi-invocation
+  aggregation within a frame, per-frame reset, EMA convergence to a steady value, and an unbalanced
+  `end()` being ignored rather than crashing. The new `profiler` demo replays a fixed ~16 ms frame
+  (update → physics/ai/particles, render → shadow/opaque/transparent/ui) into the profiler each frame
+  and draws the zone tree as an indented bar chart — bar width ∝ inclusive share, indented by depth,
+  labeled with inclusive/self ms and call count. Verified on lavapipe (frame 16.00 ms; update self
+  0.20 and render self 0.00 with their children summing correctly; leaves self == inclusive; no
+  validation errors); new `profiler_headless_smoke` + golden (RMSE 0, threshold 0.05) → ctest
+  **35/35**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, reflection-driven ECS
 serialization, UI layout / text input, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode.
+GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode,
+wire the profiler's ScopedZone into an app's real frame loop.

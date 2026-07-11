@@ -11,6 +11,7 @@
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
+#include "maz/core/Profiler.hpp"
 #include "maz/core/Resources.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
@@ -805,6 +806,93 @@ void testCVars() {
     CHECK(loaded == 2);
     CHECK(reg3.getInt("scene.count") == 10);
     std::remove(path.c_str());
+}
+
+void testProfiler() {
+    core::Profiler prof(0.5);
+
+    // A synthetic frame with nested zones fed explicit microsecond timestamps (deterministic).
+    //   frame [0..16000]
+    //     update [0..6000]
+    //       physics [0..3500]
+    //       ai      [3500..6000]
+    //     render [6000..15000]
+    //       shadow [6000..8000]
+    //       opaque [8000..14000]
+    prof.beginFrame();
+    prof.begin("frame", 0);
+    prof.begin("update", 0);
+    prof.begin("physics", 0);
+    prof.end(3500);
+    prof.begin("ai", 3500);
+    prof.end(6000);
+    prof.end(6000); // update
+    prof.begin("render", 6000);
+    prof.begin("shadow", 6000);
+    prof.end(8000);
+    prof.begin("opaque", 8000);
+    prof.end(14000);
+    prof.end(15000); // render
+    prof.end(16000); // frame
+    prof.endFrame();
+
+    // Inclusive times.
+    CHECK(prof.find("frame") != nullptr);
+    CHECK(prof.find("frame")->inclusiveUs == 16000);
+    CHECK(prof.find("update")->inclusiveUs == 6000);
+    CHECK(prof.find("physics")->inclusiveUs == 3500);
+    CHECK(prof.find("ai")->inclusiveUs == 2500);
+    CHECK(prof.find("render")->inclusiveUs == 9000);
+    CHECK(prof.find("shadow")->inclusiveUs == 2000);
+    CHECK(prof.find("opaque")->inclusiveUs == 6000);
+
+    // Self time = inclusive minus direct children.
+    CHECK(prof.find("frame")->selfUs == 1000);   // 16000 - (6000 update + 9000 render)
+    CHECK(prof.find("update")->selfUs == 0);      // 6000 - (3500 + 2500)
+    CHECK(prof.find("render")->selfUs == 1000);   // 9000 - (2000 + 6000)
+    CHECK(prof.find("physics")->selfUs == 3500);  // leaf: self == inclusive
+    CHECK(prof.find("opaque")->selfUs == 6000);
+
+    // Depth reflects nesting.
+    CHECK(prof.find("frame")->depth == 0);
+    CHECK(prof.find("update")->depth == 1);
+    CHECK(prof.find("physics")->depth == 2);
+
+    // Calls counted; leaf called once.
+    CHECK(prof.find("physics")->calls == 1);
+
+    // A zone entered multiple times in one frame aggregates its calls + inclusive time.
+    prof.beginFrame();
+    prof.begin("loop", 0);
+    prof.end(100);
+    prof.begin("loop", 100);
+    prof.end(300);
+    prof.begin("loop", 300);
+    prof.end(350);
+    prof.endFrame();
+    CHECK(prof.find("loop")->calls == 3);
+    CHECK(prof.find("loop")->inclusiveUs == 350); // 100 + 200 + 50
+
+    // Per-frame accumulators reset: zones from the first frame read zero this frame.
+    CHECK(prof.find("frame")->inclusiveUs == 0);
+    CHECK(prof.find("frame")->calls == 0);
+
+    // EMA smoothing converges toward a steady per-frame value. Feed the same 4ms zone repeatedly.
+    core::Profiler ema(0.5);
+    for (int i = 0; i < 12; ++i) {
+        ema.beginFrame();
+        ema.begin("z", 0);
+        ema.end(4000); // 4 ms
+        ema.endFrame();
+    }
+    CHECK_NEAR(ema.find("z")->smoothedMs, 4.0, 0.05);
+
+    // Unbalanced end() (more ends than begins) is ignored rather than crashing.
+    core::Profiler safe;
+    safe.beginFrame();
+    safe.end(10); // no open zone
+    safe.endFrame();
+    CHECK(safe.zones().empty());
 }
 
 void testStateMachine() {
@@ -1694,6 +1782,7 @@ int main() {
     testSerialize();
     testJson();
     testCVars();
+    testProfiler();
     testEcs();
     testShake();
     testParticleAttractor();

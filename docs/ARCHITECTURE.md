@@ -18,6 +18,7 @@
 ```
 core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore (save/load),
             CVarRegistry (named typed tunables: bool/int/float/string + range clamp + string coercion),
+            Profiler (hierarchical scoped CPU timing zones: inclusive + self time, EMA-smoothed),
             EventBus (type-safe publish/subscribe for decoupled systems),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
@@ -97,6 +98,8 @@ apps/
   config/   CVar/config demo — registers typed tunables, applies a JSON config (io::loadConfig), and
               renders a scene driven entirely by cvars (orb count/speed/hue/brightness/grid) + a live
               cvar table
+  profiler/ CPU profiler view — feeds a fixed synthetic frame into core::Profiler and draws the zone
+              tree as an indented bar chart (inclusive vs self ms per nested zone)
 ```
 
 ## The frame loop (fixed timestep)

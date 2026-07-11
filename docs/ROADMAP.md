@@ -182,7 +182,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   to the save directory — the editable-content pipeline end to end (M76)
 - [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
       via `Renderer::renderStats`; M29)
-- [ ] Profiling: scoped timers, frame markers, Tracy integration
+- [x] **Profiling: scoped timers** (`maz::core::Profiler`: nestable begin/end timing zones with
+  inclusive + self time, call counts, depth, and EMA smoothing; a `ScopedZone` RAII over steady_clock;
+  the `profiler` demo draws the zone tree as an indented bar chart; M78) — frame graph / Tracy later
 - [x] **Unit tests** (dependency-free runner: math, collision, spatial grid, ECS, shake, particles;
   `maz_unit_tests` via ctest; M50)
 
@@ -383,6 +385,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       round-trips the level back to the save directory; the editable-content pipeline end to end (M76)
 - [x] **Config / CVars** (`apps/config`) — registers typed tunables, applies a JSON config, and draws
       a scene whose orb count/speed/hue/brightness/grid are all cvar-driven, beside a live cvar table (M77)
+- [x] **CPU profiler** (`apps/profiler`) — feeds a fixed synthetic frame into `core::Profiler` and draws
+      the nested zone tree as an indented bar chart (inclusive vs self time per zone) (M78)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

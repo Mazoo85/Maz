@@ -72,6 +72,7 @@ add_subdirectory(apps/catcher)
 add_subdirectory(apps/data)
 add_subdirectory(apps/level)
 add_subdirectory(apps/config)
+add_subdirectory(apps/profiler)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
