@@ -41,21 +41,16 @@ implement it, then re-evaluate and repeat. Updated each iteration.
 
 **Iteration 1 complete.**
 
-### Iteration 2 — "Lighting depth" (in progress)
+### Iteration 2 — "Lighting depth" (complete)
 - [x] **M25 — Spot lights**: point lights gained an optional cone (spot axis + inner/outer angle,
   packed into the lights UBO; omni by default). A cool-white searchlight sweeps the village square
   at night — verified as a crisp cone pool distinct from the warm lamps.
-- [ ] **M26 — Normal mapping**: tangent-space normal maps for richer surface detail under the
-  lights.
 
-> Note: bloom/tonemap post-processing is deferred to its own focused iteration — it needs an
-> offscreen HDR render-target refactor (scene → offscreen → bright/blur → composite→swapchain) that
-> touches every app's render path, so it warrants dedicated care rather than being rushed here.
-
-### Future iterations (backlog, ordered)
-- Bloom / tonemap post-processing (render-to-texture HDR pipeline).
-- Normal mapping (tangent-space) for the textured meshes.
-- Spot lights (cone) extending the light system.
-- World-space (3D) billboarded particles.
-- Frustum culling for the mesh path.
-- Native scene serialization + a debug stats overlay.
+### Iteration 3 — planned
+- [ ] **M26 — Normal mapping**: tangent-space normal maps (derivative-based TBN, no vertex-format
+  change) + a normal-map atlas through the glTF pipeline, for per-pixel surface bump under lights.
+- [ ] **Bloom / tonemap post-processing**: its own focused effort — needs an offscreen HDR
+  render-target refactor (scene → offscreen → bright/blur → composite → swapchain) touching every
+  app's render path, so it gets dedicated care (night lamps + coins would bloom).
+- [ ] World-space (billboarded) 3D particles; frustum culling; native scene serialization + a
+  debug stats overlay.
