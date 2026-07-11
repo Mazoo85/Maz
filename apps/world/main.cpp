@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <random>
 #include <string>
 #include <vector>
@@ -55,6 +56,10 @@ render::MeshHandle upload(render::Renderer& r, const render::shapes::MeshData& m
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
     const bool autopilot = cfg.demo;
+    bool startWireframe = false; // --wireframe starts in wireframe debug draw (also F4 at runtime)
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--wireframe") == 0) startWireframe = true;
+    }
     MAZ_LOG_INFO("WORLD (explorable 3D) starting (autopilot=%d)", autopilot);
 
     platform::Window window;
@@ -173,6 +178,9 @@ int main(int argc, char** argv) {
     ui::DebugOverlay overlay;
     overlay.setEnabled(true); // on by default here; toggle with F3
 
+    bool wireframe = startWireframe; // F4 toggles wireframe debug draw (--wireframe starts on)
+    renderer->setWireframe(wireframe);
+
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -180,6 +188,10 @@ int main(int argc, char** argv) {
         }
         if (input.keyPressed(SDL_SCANCODE_F3)) {
             overlay.toggle();
+        }
+        if (input.keyPressed(SDL_SCANCODE_F4)) {
+            wireframe = !wireframe;
+            renderer->setWireframe(wireframe);
         }
         overlay.update(clock.frameDelta());
 

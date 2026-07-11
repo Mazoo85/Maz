@@ -214,7 +214,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
 - [ ] Tonemap/HDR, FXAA/TAA, richer post stack
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
-- [ ] Render-to-texture, multiple viewports
+- [x] Render-to-texture (offscreen scene color target for post-processing; M27)
+- [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)
+- [ ] Multiple viewports, gizmos
 - [ ] GPU profiling, keep validation-clean baseline
 
 ## Phase 4 — Scene & ECS

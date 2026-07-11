@@ -141,8 +141,12 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
 
     if (!createShadowResources(ctx) || !createShadowPipeline(ctx) ||
         !createSkyPipeline(ctx, renderPass) || !createLightResources(ctx) ||
-        !createPipeline(ctx, renderPass)) {
+        !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_pipeline)) {
         return false;
+    }
+    // Optional wireframe pipeline (needs the fillModeNonSolid feature); best-effort.
+    if (ctx.wireframeSupported()) {
+        createPipeline(ctx, renderPass, VK_POLYGON_MODE_LINE, m_wireframePipeline);
     }
     setLighting(ctx, SceneLighting{}); // default daytime look until an app overrides it
     return true;
@@ -662,7 +666,8 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
     std::memcpy(m_lightMapped, &g, sizeof(g));
 }
 
-bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
+bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
+                                  VkPipeline& outPipeline) {
     const std::string base = assetBase();
     VkShaderModule vert = createShaderModule(ctx.device(), readFile(base + "shaders/mesh.vert.spv"));
     VkShaderModule frag = createShaderModule(ctx.device(), readFile(base + "shaders/mesh.frag.spv"));
@@ -712,7 +717,7 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
 
     VkPipelineRasterizationStateCreateInfo rs{};
     rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.polygonMode = mode;
     rs.cullMode = VK_CULL_MODE_NONE;
     rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rs.lineWidth = 1.0f;
@@ -756,7 +761,9 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     pl.pSetLayouts = setLayouts;
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &push;
-    if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_layout) != VK_SUCCESS) {
+    // The layout is shared by the fill and wireframe pipelines; create it once.
+    if (m_layout == VK_NULL_HANDLE &&
+        vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_layout) != VK_SUCCESS) {
         MAZ_LOG_ERROR("mesh vkCreatePipelineLayout failed");
         vkDestroyShaderModule(ctx.device(), vert, nullptr);
         vkDestroyShaderModule(ctx.device(), frag, nullptr);
@@ -778,7 +785,7 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     gp.layout = m_layout;
     gp.renderPass = renderPass;
     VkResult r = vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr,
-                                           &m_pipeline);
+                                           &outPipeline);
     vkDestroyShaderModule(ctx.device(), vert, nullptr);
     vkDestroyShaderModule(ctx.device(), frag, nullptr);
     if (r != VK_SUCCESS) {
@@ -890,7 +897,9 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
     if (m_cmds.empty() || m_pipeline == VK_NULL_HANDLE) {
         return;
     }
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    const VkPipeline pipeline =
+        (m_wireframe && m_wireframePipeline) ? m_wireframePipeline : m_pipeline;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
     VkViewport viewport{};
     viewport.width = static_cast<float>(m_viewportW);
@@ -963,6 +972,7 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
     m_meshes.clear();
 
     if (m_pipeline) vkDestroyPipeline(d, m_pipeline, nullptr);
+    if (m_wireframePipeline) vkDestroyPipeline(d, m_wireframePipeline, nullptr);
     if (m_layout) vkDestroyPipelineLayout(d, m_layout, nullptr);
     if (m_skyPipeline) vkDestroyPipeline(d, m_skyPipeline, nullptr);
     if (m_skyLayout) vkDestroyPipelineLayout(d, m_skyLayout, nullptr);

@@ -236,12 +236,20 @@ bool VulkanContext::createLogicalDevice(bool wantSurface) {
         deviceExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    // Enable optional features we use where supported (wireframe needs fillModeNonSolid).
+    VkPhysicalDeviceFeatures supported{};
+    vkGetPhysicalDeviceFeatures(m_physical, &supported);
+    VkPhysicalDeviceFeatures enabled{};
+    enabled.fillModeNonSolid = supported.fillModeNonSolid;
+    m_fillModeNonSolid = supported.fillModeNonSolid == VK_TRUE;
+
     VkDeviceCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     ci.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
     ci.pQueueCreateInfos = queueInfos.data();
     ci.enabledExtensionCount = static_cast<uint32_t>(deviceExts.size());
     ci.ppEnabledExtensionNames = deviceExts.empty() ? nullptr : deviceExts.data();
+    ci.pEnabledFeatures = &enabled;
 
     VkResult r = vkCreateDevice(m_physical, &ci, nullptr, &m_device);
     if (r != VK_SUCCESS) {

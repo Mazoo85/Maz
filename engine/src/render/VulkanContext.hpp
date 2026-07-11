@@ -20,6 +20,7 @@ public:
 
     bool valid() const { return m_device != VK_NULL_HANDLE; }
     bool hasSurface() const { return m_surface != VK_NULL_HANDLE; }
+    bool wireframeSupported() const { return m_fillModeNonSolid; }
 
     VkInstance instance() const { return m_instance; }
     VkPhysicalDevice physicalDevice() const { return m_physical; }
@@ -47,6 +48,7 @@ private:
     VkSurfaceKHR m_surface = VK_NULL_HANDLE;
     VkPhysicalDevice m_physical = VK_NULL_HANDLE;
     VkDevice m_device = VK_NULL_HANDLE;
+    bool m_fillModeNonSolid = false;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_presentQueue = VK_NULL_HANDLE;
     VkCommandPool m_transientPool = VK_NULL_HANDLE;

@@ -84,6 +84,11 @@ available):
   golden sparkles that drift, fade, and bloom
 - **M32** — alpha-blended smoke particles: a second particle blend mode (`drawParticle3D(..., false)`);
   the village bonfire billows a smoke column above its embers
+- **M33** — text alignment: `Font::drawTextCentered` centers a string about an x; VILLAGE QUEST's win
+  banner and ORB RUN's title are properly centered
+- **M34** — wireframe debug draw: `Renderer::setWireframe(true)` renders meshes as line polygons (a
+  second `VK_POLYGON_MODE_LINE` pipeline, needs the GPU's `fillModeNonSolid` feature); toggle with
+  **F4** in `world` (or launch with `--wireframe`). The 2D HUD stays solid
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

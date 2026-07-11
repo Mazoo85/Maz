@@ -140,6 +140,9 @@ public:
     // Enable/adjust post-process bloom. strength 0 (default) is a faithful passthrough, so 2D and
     // 3D apps look identical; > 0 adds a soft glow to areas brighter than `threshold` (0..1).
     virtual void setBloom(float strength, float threshold) = 0;
+    // Draw meshes as wireframe (line polygons) instead of filled — a debug-draw aid. Requires the
+    // GPU's fillModeNonSolid feature; silently stays filled if unsupported. No-op when inactive.
+    virtual void setWireframe(bool enabled) = 0;
     // Set the camera's world-space right/up axes (3 floats each) used to orient billboard
     // particles. Call once per frame before drawParticle3D; harmless otherwise.
     virtual void setCameraBasis(const float right3[3], const float up3[3]) = 0;

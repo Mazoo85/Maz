@@ -28,7 +28,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
-                               + dynamic sky + distance fog + normal mapping
+                               + dynamic sky + distance fog + normal mapping + wireframe debug draw
               Particles3D    — world-space camera-facing additive billboard particles
               shapes         — procedural box / sphere / plane geometry
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)

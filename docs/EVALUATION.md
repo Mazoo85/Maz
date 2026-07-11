@@ -96,5 +96,16 @@ in apps. This iteration:
 
 **Iteration 6 complete** (smoke particles + text alignment).
 
+### Iteration 7 — "Tooling & dynamic geometry" (in progress)
+Evaluation: no visual debug-draw (wireframe) despite having a stats overlay; meshes are static
+(no vertex animation). This iteration:
+- [x] **M34 — Wireframe debug mode**: a second `VK_POLYGON_MODE_LINE` mesh pipeline toggled via
+  `Renderer::setWireframe` (built only when the GPU exposes `fillModeNonSolid`, enabled on the
+  logical device; silently stays filled otherwise). `world` toggles it with **F4** and accepts
+  `--wireframe` at launch. Verified on lavapipe: boxes and the sphere render as their edge/triangle
+  lattice while the 2D HUD stays solid.
+- [ ] **M35 — Dynamic meshes + water**: `Renderer::updateMesh` re-uploads a mesh's (host-visible)
+  vertices; a new `water` demo animates a grid with summed sine waves under the lighting.
+
 Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
-water/reflective plane, spatial partitioning, hot-reload shaders, a material struct.
+spatial partitioning, hot-reload shaders, a material struct.

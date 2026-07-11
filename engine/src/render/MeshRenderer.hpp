@@ -32,6 +32,7 @@ public:
         m_camPos[1] = pos3[1];
         m_camPos[2] = pos3[2];
     }
+    void setWireframe(bool w) { m_wireframe = w && m_wireframePipeline != VK_NULL_HANDLE; }
     void setLighting(VulkanContext& ctx, const SceneLighting& lighting); // updates the lights UBO
     void setViewport(uint32_t w, uint32_t h) {
         m_viewportW = w;
@@ -70,7 +71,8 @@ private:
     bool createShadowPipeline(VulkanContext& ctx);
     bool createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass);
     bool createLightResources(VulkanContext& ctx);
-    bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
+    bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
+                        VkPipeline& outPipeline);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
     TextureHandle m_defaultNormal = kInvalidTexture; // flat (0,0,1) normal map for un-mapped meshes
@@ -78,6 +80,8 @@ private:
 
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+    VkPipeline m_wireframePipeline = VK_NULL_HANDLE; // LINE polygon mode (if supported)
+    bool m_wireframe = false;
     VkPipelineLayout m_skyLayout = VK_NULL_HANDLE;
     VkPipeline m_skyPipeline = VK_NULL_HANDLE;
 
