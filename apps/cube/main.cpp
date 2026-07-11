@@ -10,6 +10,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,10 +22,29 @@ namespace {
 void addFace(std::vector<render::MeshVertex>& verts, std::vector<uint32_t>& idx, glm::vec3 a,
              glm::vec3 b, glm::vec3 c, glm::vec3 d, glm::vec3 n, glm::vec3 col) {
     const auto base = static_cast<uint32_t>(verts.size());
-    for (glm::vec3 p : {a, b, c, d}) {
-        verts.push_back({p.x, p.y, p.z, n.x, n.y, n.z, col.r, col.g, col.b});
+    const glm::vec3 corners[4] = {a, b, c, d};
+    const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    for (int i = 0; i < 4; ++i) {
+        const glm::vec3 p = corners[i];
+        verts.push_back({p.x, p.y, p.z, n.x, n.y, n.z, col.r, col.g, col.b, uv[i][0], uv[i][1]});
     }
     idx.insert(idx.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+}
+
+// A 2-color checkerboard RGBA texture.
+std::vector<uint8_t> makeChecker(uint32_t size, uint32_t cell) {
+    std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4, 255);
+    for (uint32_t y = 0; y < size; ++y) {
+        for (uint32_t x = 0; x < size; ++x) {
+            const bool on = ((x / cell) + (y / cell)) % 2 == 0;
+            const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+            const uint8_t c = on ? 235 : 120;
+            px[i + 0] = c;
+            px[i + 1] = c;
+            px[i + 2] = on ? 245 : 130;
+        }
+    }
+    return px;
 }
 
 } // namespace
@@ -70,6 +90,7 @@ int main(int argc, char** argv) {
     render::MeshHandle cube =
         renderer->createMesh(verts.data(), static_cast<uint32_t>(verts.size()), idx.data(),
                              static_cast<uint32_t>(idx.size()));
+    render::TextureHandle checker = renderer->createTexture(64, 64, makeChecker(64, 8).data());
 
     ui::Font font;
     {
@@ -107,7 +128,7 @@ int main(int argc, char** argv) {
         renderer->setClearColor(render::Color{0.08f, 0.09f, 0.13f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
-            renderer->drawMesh(cube, glm::value_ptr(model));
+            renderer->drawMesh(cube, glm::value_ptr(model), checker);
 
             // 2D HUD over the 3D scene (same frame).
             render::Camera2D ui;

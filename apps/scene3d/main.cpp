@@ -12,6 +12,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -30,7 +31,23 @@ struct Transform3D {
 };
 struct Renderable {
     render::MeshHandle mesh;
+    render::TextureHandle tex;
 };
+
+std::vector<uint8_t> makeChecker(uint32_t size, uint32_t cell) {
+    std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4, 255);
+    for (uint32_t y = 0; y < size; ++y) {
+        for (uint32_t x = 0; x < size; ++x) {
+            const bool on = ((x / cell) + (y / cell)) % 2 == 0;
+            const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+            const uint8_t c = on ? 235 : 150;
+            px[i + 0] = c;
+            px[i + 1] = c;
+            px[i + 2] = c;
+        }
+    }
+    return px;
+}
 
 render::MeshHandle upload(render::Renderer& r, const render::shapes::MeshData& m) {
     return r.createMesh(m.vertices.data(), static_cast<uint32_t>(m.vertices.size()),
@@ -75,6 +92,11 @@ int main(int argc, char** argv) {
         upload(*renderer, sh::makeBox(1.1f, render::Color{0.80f, 0.45f, 0.90f, 1})),
     };
 
+    // A flat white texture leaves mesh vertex colors unchanged; a checker tiles across the floor.
+    const uint8_t white[4] = {255, 255, 255, 255};
+    render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
+    render::TextureHandle groundTex = renderer->createTexture(64, 64, makeChecker(64, 32).data());
+
     ui::Font font;
     {
         const char* base = SDL_GetBasePath();
@@ -88,7 +110,7 @@ int main(int argc, char** argv) {
     {
         const ecs::Entity g = world.create();
         world.add<Transform3D>(g, {glm::vec3(0.0f), 1.0f, glm::vec3(0, 1, 0), 0.0f, 0.0f});
-        world.add<Renderable>(g, {ground});
+        world.add<Renderable>(g, {ground, groundTex});
     }
     const int ringCount = 20;
     for (int i = 0; i < ringCount; ++i) {
@@ -102,7 +124,7 @@ int main(int argc, char** argv) {
         t.angle = a;
         const ecs::Entity e = world.create();
         world.add<Transform3D>(e, t);
-        world.add<Renderable>(e, {shapes[static_cast<size_t>(i) % shapes.size()]});
+        world.add<Renderable>(e, {shapes[static_cast<size_t>(i) % shapes.size()], whiteTex});
     }
 
     while (!window.shouldClose()) {
@@ -136,7 +158,7 @@ int main(int argc, char** argv) {
                 glm::mat4 model = glm::translate(glm::mat4(1.0f), t.pos);
                 model = glm::rotate(model, t.angle, t.axis);
                 model = glm::scale(model, glm::vec3(t.scale));
-                renderer->drawMesh(r.mesh, glm::value_ptr(model));
+                renderer->drawMesh(r.mesh, glm::value_ptr(model), r.tex);
             });
 
             render::Camera2D ui;

@@ -23,8 +23,9 @@ math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain, color+depth render pass, framebuffers, present
+              TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
-              MeshRenderer   — indexed 3D meshes (depth-tested, directional lighting)
+              MeshRenderer   — indexed, textured 3D meshes (depth-tested, directional lighting)
               shapes         — procedural box / sphere / plane geometry
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)

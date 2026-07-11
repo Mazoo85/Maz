@@ -2,6 +2,7 @@
 
 #include "maz/core/Log.hpp"
 #include "maz/math/Math.hpp"
+#include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
 
 #include <SDL3/SDL_filesystem.h>
@@ -57,46 +58,13 @@ std::string assetBase() {
 
 } // namespace
 
-bool SpriteRenderer::init(VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight) {
+bool SpriteRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
+                          uint32_t framesInFlight) {
+    m_store = &store;
     m_maxVertices = kMaxSprites * kVertsPerSprite;
-    m_maxTextures = 256;
-    m_textures.push_back(Entry{}); // reserve index 0 == kInvalidTexture
     m_vertices.reserve(m_maxVertices);
 
-    return createDescriptorInfra(ctx) && createPipeline(ctx, renderPass) &&
-           createVertexBuffers(ctx, framesInFlight);
-}
-
-bool SpriteRenderer::createDescriptorInfra(VulkanContext& ctx) {
-    VkDescriptorSetLayoutBinding binding{};
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutCreateInfo li{};
-    li.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    li.bindingCount = 1;
-    li.pBindings = &binding;
-    if (vkCreateDescriptorSetLayout(ctx.device(), &li, nullptr, &m_setLayout) != VK_SUCCESS) {
-        MAZ_LOG_ERROR("vkCreateDescriptorSetLayout failed");
-        return false;
-    }
-
-    VkDescriptorPoolSize size{};
-    size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    size.descriptorCount = m_maxTextures;
-
-    VkDescriptorPoolCreateInfo pi{};
-    pi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pi.maxSets = m_maxTextures;
-    pi.poolSizeCount = 1;
-    pi.pPoolSizes = &size;
-    if (vkCreateDescriptorPool(ctx.device(), &pi, nullptr, &m_pool) != VK_SUCCESS) {
-        MAZ_LOG_ERROR("vkCreateDescriptorPool failed");
-        return false;
-    }
-    return true;
+    return createPipeline(ctx, renderPass) && createVertexBuffers(ctx, framesInFlight);
 }
 
 bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
@@ -195,10 +163,11 @@ bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass)
     push.offset = 0;
     push.size = sizeof(glm::mat4);
 
+    VkDescriptorSetLayout setLayout = m_store->layout();
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl.setLayoutCount = 1;
-    pl.pSetLayouts = &m_setLayout;
+    pl.pSetLayouts = &setLayout;
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &push;
     if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
@@ -253,59 +222,6 @@ bool SpriteRenderer::createVertexBuffers(VulkanContext& ctx, uint32_t framesInFl
     return true;
 }
 
-TextureHandle SpriteRenderer::registerTexture(VulkanContext& ctx, VulkanTexture&& tex) {
-    if (m_textures.size() >= m_maxTextures) {
-        MAZ_LOG_ERROR("texture pool exhausted (max %u)", m_maxTextures);
-        tex.destroy(ctx);
-        return kInvalidTexture;
-    }
-
-    VkDescriptorSetAllocateInfo ai{};
-    ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ai.descriptorPool = m_pool;
-    ai.descriptorSetCount = 1;
-    ai.pSetLayouts = &m_setLayout;
-    VkDescriptorSet set = VK_NULL_HANDLE;
-    if (vkAllocateDescriptorSets(ctx.device(), &ai, &set) != VK_SUCCESS) {
-        MAZ_LOG_ERROR("vkAllocateDescriptorSets failed");
-        tex.destroy(ctx);
-        return kInvalidTexture;
-    }
-
-    VkDescriptorImageInfo img{};
-    img.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    img.imageView = tex.view();
-    img.sampler = tex.sampler();
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = set;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo = &img;
-    vkUpdateDescriptorSets(ctx.device(), 1, &write, 0, nullptr);
-
-    m_textures.push_back(Entry{std::move(tex), set});
-    return static_cast<TextureHandle>(m_textures.size() - 1);
-}
-
-TextureHandle SpriteRenderer::createTexture(VulkanContext& ctx, uint32_t w, uint32_t h,
-                                            const void* rgba) {
-    VulkanTexture tex;
-    if (!tex.create(ctx, w, h, rgba)) {
-        return kInvalidTexture;
-    }
-    return registerTexture(ctx, std::move(tex));
-}
-
-TextureHandle SpriteRenderer::loadTexture(VulkanContext& ctx, const char* path) {
-    VulkanTexture tex;
-    if (!tex.createFromFile(ctx, path)) {
-        return kInvalidTexture;
-    }
-    return registerTexture(ctx, std::move(tex));
-}
-
 void SpriteRenderer::begin() {
     m_vertices.clear();
     m_batches.clear();
@@ -313,7 +229,7 @@ void SpriteRenderer::begin() {
 }
 
 void SpriteRenderer::draw(TextureHandle tex, const SpriteDesc& s) {
-    if (tex == kInvalidTexture || tex >= m_textures.size()) {
+    if (!m_store->valid(tex)) {
         return;
     }
     if (m_vertices.size() + kVertsPerSprite > m_maxVertices) {
@@ -404,8 +320,9 @@ void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
         }
         vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                            glm::value_ptr(viewProj));
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                                &m_textures[batch.tex].set, 0, nullptr);
+        VkDescriptorSet set = m_store->descriptorSet(batch.tex);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &set,
+                                0, nullptr);
         vkCmdDraw(cmd, batch.count, 1, batch.first, 0);
     }
 }
@@ -417,11 +334,6 @@ void SpriteRenderer::shutdown(VulkanContext& ctx) {
     m_vbo.clear();
     m_vboMapped.clear();
 
-    for (size_t i = 1; i < m_textures.size(); ++i) { // index 0 is the reserved invalid slot
-        m_textures[i].texture.destroy(ctx);
-    }
-    m_textures.clear();
-
     if (m_pipeline) {
         vkDestroyPipeline(ctx.device(), m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
@@ -430,14 +342,7 @@ void SpriteRenderer::shutdown(VulkanContext& ctx) {
         vkDestroyPipelineLayout(ctx.device(), m_pipelineLayout, nullptr);
         m_pipelineLayout = VK_NULL_HANDLE;
     }
-    if (m_pool) {
-        vkDestroyDescriptorPool(ctx.device(), m_pool, nullptr);
-        m_pool = VK_NULL_HANDLE;
-    }
-    if (m_setLayout) {
-        vkDestroyDescriptorSetLayout(ctx.device(), m_setLayout, nullptr);
-        m_setLayout = VK_NULL_HANDLE;
-    }
+    // Textures/pool/layout belong to the shared TextureStore, not this renderer.
 }
 
 } // namespace maz::render

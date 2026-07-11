@@ -4,6 +4,7 @@
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
+#include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
@@ -38,7 +39,7 @@ public:
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
     void setViewProjection3D(const float* viewProj16) override;
-    void drawMesh(MeshHandle mesh, const float* model16) override;
+    void drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) override;
 
     bool isActive() const override { return m_active; }
 
@@ -50,6 +51,7 @@ private:
 
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
+    TextureStore m_textureStore;
     SpriteRenderer m_sprites;
     MeshRenderer m_meshes;
     RendererConfig m_cfg;
@@ -97,11 +99,15 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     if (!createCommands() || !createSync()) {
         return false;
     }
-    if (!m_sprites.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight)) {
+    if (!m_textureStore.init(m_ctx)) {
+        MAZ_LOG_ERROR("texture store init failed");
+        return false;
+    }
+    if (!m_sprites.init(m_ctx, m_textureStore, m_swapchain.renderPass(), kMaxFramesInFlight)) {
         MAZ_LOG_ERROR("sprite renderer init failed");
         return false;
     }
-    if (!m_meshes.init(m_ctx, m_swapchain.renderPass())) {
+    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass())) {
         MAZ_LOG_ERROR("mesh renderer init failed");
         return false;
     }
@@ -275,7 +281,7 @@ TextureHandle VulkanRenderer::loadTexture(const char* path) {
     if (!m_active) {
         return kInvalidTexture;
     }
-    return m_sprites.loadTexture(m_ctx, path);
+    return m_textureStore.createFromFile(m_ctx, path);
 }
 
 TextureHandle VulkanRenderer::createTexture(uint32_t width, uint32_t height,
@@ -283,7 +289,7 @@ TextureHandle VulkanRenderer::createTexture(uint32_t width, uint32_t height,
     if (!m_active) {
         return kInvalidTexture;
     }
-    return m_sprites.createTexture(m_ctx, width, height, rgbaPixels);
+    return m_textureStore.createFromPixels(m_ctx, width, height, rgbaPixels);
 }
 
 void VulkanRenderer::setCamera2D(const Camera2D& camera) {
@@ -312,9 +318,9 @@ void VulkanRenderer::setViewProjection3D(const float* viewProj16) {
     }
 }
 
-void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16) {
+void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) {
     if (m_active) {
-        m_meshes.draw(mesh, model16);
+        m_meshes.draw(mesh, model16, texture);
     }
 }
 
@@ -342,6 +348,7 @@ void VulkanRenderer::shutdown() {
     if (m_active) {
         m_meshes.shutdown(m_ctx);
         m_sprites.shutdown(m_ctx);
+        m_textureStore.shutdown(m_ctx); // owns textures used by both; after their pipelines
         destroySync();
         if (m_commandPool) {
             vkDestroyCommandPool(m_ctx.device(), m_commandPool, nullptr);

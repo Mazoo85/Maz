@@ -148,9 +148,11 @@ bool VulkanTexture::create(VulkanContext& ctx, uint32_t width, uint32_t height,
     si.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     si.magFilter = VK_FILTER_NEAREST; // crisp pixels; suits 2D/pixel-art
     si.minFilter = VK_FILTER_NEAREST;
-    si.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    si.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    // REPEAT so 3D meshes can tile a texture (UV > 1); 2D sprite UVs stay within [0,1] so this
+    // is equivalent to clamp for them.
+    si.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    si.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    si.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     si.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     si.maxLod = 0.0f;
     if (vkCreateSampler(ctx.device(), &si, nullptr, &m_sampler) != VK_SUCCESS) {

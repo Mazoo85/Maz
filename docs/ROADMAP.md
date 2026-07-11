@@ -58,8 +58,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M10 — 3D scene (done).** Procedural mesh primitives (`render::shapes` — box / sphere /
 > plane) and `apps/scene3d`: a ground plane plus a ring of 20 spinning, lit spheres and cubes,
 > each an **ECS entity** (Transform3D + Renderable), viewed by an orbiting camera with a 2D HUD —
-> the 3D renderer, procedural geometry, and the ECS composed together. Everything marked `[x]`
-> below is done; everything else is the road ahead.
+> the 3D renderer, procedural geometry, and the ECS composed together.
+>
+> **M11 — textured 3D (done).** A shared `TextureStore` (one descriptor layout/pool) now backs
+> both the sprite and mesh renderers, so a texture handle works in 2D or 3D. Meshes gained UVs
+> and a sampler; the mesh shader does texture × vertex-color × lighting. `apps/cube` is now a
+> checkerboard cube and `apps/scene3d` has a tiled floor. The 2D games are unchanged (verified).
+> Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -116,6 +121,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `beginFrame` / clear / `endFrame` present loop (clear color)
 - [x] Swapchain recreation on resize / out-of-date
 - [x] Graceful degrade when no GPU/ICD present (headless safe)
+- [x] Shared `TextureStore` (one descriptor layout/pool) used by both 2D sprites and 3D meshes
+- [x] Textured meshes (UVs + sampler; texture × vertex-color × lighting; REPEAT tiling)
 - [x] Buffer + image helpers, staging uploads, `findMemoryType` (manual alloc; VMA swap-in later)
 - [x] Graphics pipeline + descriptor-set management, push constants, dynamic state
 - [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload

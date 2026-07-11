@@ -8,6 +8,7 @@ add_library(maz STATIC
     src/platform/Paths.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
+    src/render/TextureStore.cpp
     src/render/VulkanBuffer.cpp
     src/render/VulkanTexture.cpp
     src/render/SpriteRenderer.cpp

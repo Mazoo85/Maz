@@ -42,6 +42,8 @@ available):
 - **M7** — save/load (`maz::core::KeyValueStore`): ORB RUN keeps a high score across runs
 - **M8** — an entity-component system (`maz::ecs::World`): the `swarm` demo runs 800 entities
 - **M9** — 3D rendering (depth buffer + `MeshRenderer`): the `cube` demo shows a lit 3D cube under a 2D HUD
+- **M10** — procedural meshes (`render::shapes`) + an ECS-driven 3D scene (`scene3d`)
+- **M11** — textured 3D (shared `TextureStore`): the cube is checkered and `scene3d` has a tiled floor
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

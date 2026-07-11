@@ -44,11 +44,12 @@ struct Camera2D {
     bool usePixelSpace = true;            // when true, ignore center/zoom and map 1 unit = 1 pixel
 };
 
-// A vertex for 3D meshes: position, normal, and RGB color (all object-space).
+// A vertex for 3D meshes: position, normal, RGB color, and texture coordinate (object-space).
 struct MeshVertex {
     float px, py, pz;
     float nx, ny, nz;
     float r, g, b;
+    float u, v;
 };
 
 // Opaque handle to an uploaded mesh. 0 is invalid.
@@ -89,9 +90,10 @@ public:
                                   const uint32_t* indices, uint32_t indexCount) = 0;
     // Set the combined view*projection matrix (column-major, 16 floats) for 3D draws this frame.
     virtual void setViewProjection3D(const float* viewProj16) = 0;
-    // Queue a mesh draw with the given model matrix (column-major, 16 floats). 3D meshes are
-    // depth-tested and drawn beneath the 2D layer. No-op when inactive.
-    virtual void drawMesh(MeshHandle mesh, const float* model16) = 0;
+    // Queue a mesh draw with the given model matrix (column-major, 16 floats) and a texture
+    // (use a white texture for flat/vertex-colored meshes). Depth-tested, drawn beneath the 2D
+    // layer. No-op when inactive.
+    virtual void drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) = 0;
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;

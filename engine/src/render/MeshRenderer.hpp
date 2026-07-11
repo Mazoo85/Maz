@@ -11,13 +11,14 @@
 namespace maz::render {
 
 class VulkanContext;
+class TextureStore;
 
 // Minimal indexed 3D mesh renderer: one pipeline (position/normal/color vertices, depth-tested,
 // back-face culled, directional lighting in the shader). Meshes are uploaded once; draws are
 // collected each frame and recorded with an MVP + model push constant.
 class MeshRenderer {
 public:
-    bool init(VulkanContext& ctx, VkRenderPass renderPass);
+    bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass);
     void shutdown(VulkanContext& ctx);
 
     MeshHandle createMesh(VulkanContext& ctx, const MeshVertex* vertices, uint32_t vertexCount,
@@ -30,7 +31,7 @@ public:
     }
 
     void begin();
-    void draw(MeshHandle mesh, const float* model16);
+    void draw(MeshHandle mesh, const float* model16, TextureHandle texture);
     void flush(VkCommandBuffer cmd);
 
 private:
@@ -41,11 +42,13 @@ private:
     };
     struct DrawCmd {
         MeshHandle mesh;
+        TextureHandle texture;
         float model[16];
     };
 
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
+    TextureStore* m_store = nullptr; // shared texture registry (not owned)
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     std::vector<Mesh> m_meshes; // index 0 reserved (kInvalidMesh)

@@ -1,6 +1,7 @@
 #include "render/MeshRenderer.hpp"
 
 #include "maz/core/Log.hpp"
+#include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
 
 #include <SDL3/SDL_filesystem.h>
@@ -52,7 +53,8 @@ std::string assetBase() {
 
 } // namespace
 
-bool MeshRenderer::init(VulkanContext& ctx, VkRenderPass renderPass) {
+bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass) {
+    m_store = &store;
     m_meshes.emplace_back(); // reserve index 0 == kInvalidMesh
     return createPipeline(ctx, renderPass);
 }
@@ -80,7 +82,7 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     vb.stride = sizeof(MeshVertex);
     vb.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription attrs[3]{};
+    VkVertexInputAttributeDescription attrs[4]{};
     attrs[0].location = 0;
     attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrs[0].offset = offsetof(MeshVertex, px);
@@ -90,12 +92,15 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     attrs[2].location = 2;
     attrs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrs[2].offset = offsetof(MeshVertex, r);
+    attrs[3].location = 3;
+    attrs[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attrs[3].offset = offsetof(MeshVertex, u);
 
     VkPipelineVertexInputStateCreateInfo vi{};
     vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vi.vertexBindingDescriptionCount = 1;
     vi.pVertexBindingDescriptions = &vb;
-    vi.vertexAttributeDescriptionCount = 3;
+    vi.vertexAttributeDescriptionCount = 4;
     vi.pVertexAttributeDescriptions = attrs;
 
     VkPipelineInputAssemblyStateCreateInfo ia{};
@@ -144,8 +149,11 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     push.offset = 0;
     push.size = sizeof(float) * 32; // mvp (16) + model (16)
 
+    VkDescriptorSetLayout setLayout = m_store->layout();
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl.setLayoutCount = 1;
+    pl.pSetLayouts = &setLayout;
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &push;
     if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_layout) != VK_SUCCESS) {
@@ -215,12 +223,13 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
 
 void MeshRenderer::begin() { m_cmds.clear(); }
 
-void MeshRenderer::draw(MeshHandle mesh, const float* model16) {
+void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
     DrawCmd cmd;
     cmd.mesh = mesh;
+    cmd.texture = texture;
     std::memcpy(cmd.model, model16, sizeof(cmd.model));
     m_cmds.push_back(cmd);
 }
@@ -250,6 +259,10 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         std::memcpy(push, glm::value_ptr(mvp), sizeof(float) * 16);
         std::memcpy(push + 16, glm::value_ptr(model), sizeof(float) * 16);
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+
+        VkDescriptorSet set = m_store->descriptorSet(dc.texture);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &set, 0,
+                                nullptr);
 
         VkDeviceSize offset = 0;
         VkBuffer vbuf = mesh.vbo.handle();

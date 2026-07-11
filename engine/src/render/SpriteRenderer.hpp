@@ -2,7 +2,6 @@
 
 #include "maz/render/Renderer.hpp" // TextureHandle, SpriteDesc, Camera2D
 #include "render/VulkanBuffer.hpp"
-#include "render/VulkanTexture.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -12,17 +11,16 @@
 namespace maz::render {
 
 class VulkanContext;
+class TextureStore;
 
 // Batched 2D sprite renderer. Sprites are transformed to quads on the CPU, streamed into a
 // per-frame dynamic vertex buffer, and drawn in runs grouped by texture. Draws are recorded into
 // the caller's command buffer inside an already-active render pass.
 class SpriteRenderer {
 public:
-    bool init(VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight);
+    bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
+              uint32_t framesInFlight);
     void shutdown(VulkanContext& ctx);
-
-    TextureHandle createTexture(VulkanContext& ctx, uint32_t w, uint32_t h, const void* rgba);
-    TextureHandle loadTexture(VulkanContext& ctx, const char* path);
 
     // May be called multiple times per frame; subsequent draws form new batches under this
     // camera (e.g. world-space follow camera, then a pixel-space HUD pass).
@@ -51,26 +49,17 @@ private:
         uint32_t count;
         Camera2D cam; // camera active when this batch was recorded
     };
-    struct Entry {
-        VulkanTexture texture;
-        VkDescriptorSet set;
-    };
 
-    bool createDescriptorInfra(VulkanContext& ctx);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
     bool createVertexBuffers(VulkanContext& ctx, uint32_t framesInFlight);
-    TextureHandle registerTexture(VulkanContext& ctx, VulkanTexture&& tex);
 
-    VkDescriptorSetLayout m_setLayout = VK_NULL_HANDLE;
-    VkDescriptorPool m_pool = VK_NULL_HANDLE;
+    TextureStore* m_store = nullptr;    // shared texture registry (not owned)
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-    std::vector<Entry> m_textures;      // index 0 is a reserved invalid slot
     std::vector<VulkanBuffer> m_vbo;    // one per frame-in-flight
     std::vector<void*> m_vboMapped;
     uint32_t m_maxVertices = 0;
-    uint32_t m_maxTextures = 0;
 
     std::vector<Vertex> m_vertices;
     std::vector<Batch> m_batches;
