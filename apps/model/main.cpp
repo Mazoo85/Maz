@@ -52,26 +52,34 @@ int main(int argc, char** argv) {
     platform::Input input;
     core::Clock clock(1.0 / 60.0);
 
+    // A 1x1 white texture: used for the ground, and as the house's fallback when the model carries
+    // no texture (so its vertex colors show unmodulated).
+    const uint8_t white[4] = {255, 255, 255, 255};
+    render::TextureHandle blank = renderer->createTexture(1, 1, white);
+
     // Load the house from disk. If it fails (missing asset), fall back to a box so the demo still
     // shows something rather than an empty scene.
-    render::shapes::MeshData houseData;
-    if (!render::loadGltf(assetPath("assets/models/house.gltf").c_str(), houseData)) {
+    render::ModelData houseModel;
+    if (!render::loadGltf(assetPath("assets/models/house.gltf").c_str(), houseModel)) {
         MAZ_LOG_WARN("falling back to a procedural box");
-        houseData = render::shapes::makeBox(1.5f, render::Color{0.8f, 0.7f, 0.5f, 1.0f});
+        houseModel.mesh = render::shapes::makeBox(1.5f, render::Color{0.8f, 0.7f, 0.5f, 1.0f});
     }
     render::MeshHandle house = renderer->createMesh(
-        houseData.vertices.data(), static_cast<uint32_t>(houseData.vertices.size()),
-        houseData.indices.data(), static_cast<uint32_t>(houseData.indices.size()));
+        houseModel.mesh.vertices.data(), static_cast<uint32_t>(houseModel.mesh.vertices.size()),
+        houseModel.mesh.indices.data(), static_cast<uint32_t>(houseModel.mesh.indices.size()));
+
+    // Use the model's own base-color texture (its brick/shingle/plank/glass detail) when present.
+    render::TextureHandle houseTex = blank;
+    if (houseModel.hasTexture()) {
+        houseTex = renderer->createTexture(houseModel.textureWidth, houseModel.textureHeight,
+                                           houseModel.texturePixels.data());
+    }
 
     render::shapes::MeshData groundData =
         render::shapes::makePlane(12.0f, render::Color{0.45f, 0.52f, 0.38f, 1.0f});
     render::MeshHandle ground = renderer->createMesh(
         groundData.vertices.data(), static_cast<uint32_t>(groundData.vertices.size()),
         groundData.indices.data(), static_cast<uint32_t>(groundData.indices.size()));
-
-    // A 1x1 white texture so the mesh shader shows each model's authored vertex colors unmodulated.
-    const uint8_t white[4] = {255, 255, 255, 255};
-    render::TextureHandle blank = renderer->createTexture(1, 1, white);
 
     ui::Font font;
     font.load(*renderer, assetPath("assets/fonts/DejaVuSans.ttf").c_str(), 36.0f);
@@ -104,14 +112,14 @@ int main(int argc, char** argv) {
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->drawMesh(ground, glm::value_ptr(glm::mat4(1.0f)), blank);
-            renderer->drawMesh(house, glm::value_ptr(glm::mat4(1.0f)), blank);
+            renderer->drawMesh(house, glm::value_ptr(glm::mat4(1.0f)), houseTex);
 
             render::Camera2D ui;
             ui.usePixelSpace = true;
             renderer->setCamera2D(ui);
             font.drawText(*renderer, 16.0f, 12.0f, "MAZ ENGINE  -  glTF MODEL",
                           render::Color{1, 1, 1, 1}, 0.75f);
-            font.drawText(*renderer, 16.0f, 46.0f, "house.gltf loaded at runtime",
+            font.drawText(*renderer, 16.0f, 46.0f, "house.gltf loaded at runtime (textured)",
                           render::Color{0.75f, 0.8f, 0.9f, 1}, 0.5f);
 
             renderer->endFrame();

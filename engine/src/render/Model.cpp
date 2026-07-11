@@ -2,14 +2,16 @@
 
 #include "maz/core/Log.hpp"
 
-// cgltf is a single-header library; define its implementation exactly once here. Its C source
-// trips our strict warning set, so silence those diagnostics just around the include.
+// cgltf and stb_image are single-header libraries whose C source trips our strict warning set, so
+// silence those diagnostics just around their includes. cgltf's implementation is defined here;
+// stb_image's implementation already lives in VulkanTexture.cpp, so we include declarations only.
 #define CGLTF_IMPLEMENTATION
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wpedantic"
 #include <cgltf.h>
+#include <stb_image.h>
 #pragma GCC diagnostic pop
 
 #include <glm/gtc/type_ptr.hpp>
@@ -17,6 +19,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <string>
 #include <vector>
 
 namespace maz::render {
@@ -36,11 +40,55 @@ const cgltf_accessor* findAttribute(const cgltf_primitive& prim, cgltf_attribute
     return nullptr;
 }
 
+// Decode the model's first base-color texture into RGBA8. Handles textures embedded via a
+// bufferView (the bytes live in an already-loaded buffer) and external image files referenced by a
+// relative URI. Leaves `out` untouched when the model has no usable base-color texture.
+void loadBaseColorTexture(const cgltf_data* data, const char* gltfPath, ModelData& out) {
+    const cgltf_image* image = nullptr;
+    for (cgltf_size m = 0; m < data->materials_count; ++m) {
+        const cgltf_material& mat = data->materials[m];
+        if (mat.has_pbr_metallic_roughness &&
+            mat.pbr_metallic_roughness.base_color_texture.texture &&
+            mat.pbr_metallic_roughness.base_color_texture.texture->image) {
+            image = mat.pbr_metallic_roughness.base_color_texture.texture->image;
+            break;
+        }
+    }
+    if (!image) {
+        return;
+    }
+
+    int w = 0, h = 0, comp = 0;
+    stbi_uc* pixels = nullptr;
+    if (image->buffer_view) {
+        const cgltf_buffer_view* bv = image->buffer_view;
+        const auto* bytes = static_cast<const stbi_uc*>(bv->buffer->data) + bv->offset;
+        pixels = stbi_load_from_memory(bytes, static_cast<int>(bv->size), &w, &h, &comp, 4);
+    } else if (image->uri && std::strncmp(image->uri, "data:", 5) != 0) {
+        // External image file, resolved relative to the glTF's own directory.
+        std::string dir(gltfPath);
+        const size_t slash = dir.find_last_of("/\\");
+        dir = (slash == std::string::npos) ? std::string() : dir.substr(0, slash + 1);
+        pixels = stbi_load((dir + image->uri).c_str(), &w, &h, &comp, 4);
+    }
+    if (!pixels) {
+        MAZ_LOG_WARN("glTF base-color texture could not be decoded");
+        return;
+    }
+    out.textureWidth = static_cast<uint32_t>(w);
+    out.textureHeight = static_cast<uint32_t>(h);
+    out.texturePixels.assign(pixels, pixels + static_cast<size_t>(w) * h * 4);
+    stbi_image_free(pixels);
+}
+
 } // namespace
 
-bool loadGltf(const char* path, shapes::MeshData& out) {
-    out.vertices.clear();
-    out.indices.clear();
+bool loadGltf(const char* path, ModelData& out) {
+    out.mesh.vertices.clear();
+    out.mesh.indices.clear();
+    out.texturePixels.clear();
+    out.textureWidth = 0;
+    out.textureHeight = 0;
 
     cgltf_options options{};
     cgltf_data* data = nullptr;
@@ -80,7 +128,7 @@ bool loadGltf(const char* path, shapes::MeshData& out) {
             const cgltf_accessor* uv = findAttribute(prim, cgltf_attribute_type_texcoord, 0);
             const cgltf_accessor* col = findAttribute(prim, cgltf_attribute_type_color, 0);
 
-            const auto vertBase = static_cast<uint32_t>(out.vertices.size());
+            const auto vertBase = static_cast<uint32_t>(out.mesh.vertices.size());
             const cgltf_size vcount = pos->count;
             const bool haveNormals = nrm != nullptr;
 
@@ -105,25 +153,25 @@ bool loadGltf(const char* path, shapes::MeshData& out) {
                     cgltf_accessor_read_float(col, i, rgba, 4);
                 }
 
-                out.vertices.push_back(MeshVertex{pv.x, pv.y, pv.z, nv.x, nv.y, nv.z, rgba[0],
+                out.mesh.vertices.push_back(MeshVertex{pv.x, pv.y, pv.z, nv.x, nv.y, nv.z, rgba[0],
                                                   rgba[1], rgba[2], uvw[0], uvw[1]});
             }
 
             // Indices: honor the primitive's index buffer, or synthesize a sequential one.
             const cgltf_size icount = prim.indices ? prim.indices->count : vcount;
-            const auto idxBase = static_cast<uint32_t>(out.indices.size());
+            const auto idxBase = static_cast<uint32_t>(out.mesh.indices.size());
             for (cgltf_size i = 0; i < icount; ++i) {
                 const cgltf_size idx =
                     prim.indices ? cgltf_accessor_read_index(prim.indices, i) : i;
-                out.indices.push_back(vertBase + static_cast<uint32_t>(idx));
+                out.mesh.indices.push_back(vertBase + static_cast<uint32_t>(idx));
             }
 
             // Derive flat normals for a primitive that shipped without them.
             if (!haveNormals) {
-                for (cgltf_size t = idxBase; t + 2 < out.indices.size(); t += 3) {
-                    MeshVertex& a = out.vertices[out.indices[t + 0]];
-                    MeshVertex& b = out.vertices[out.indices[t + 1]];
-                    MeshVertex& c = out.vertices[out.indices[t + 2]];
+                for (cgltf_size t = idxBase; t + 2 < out.mesh.indices.size(); t += 3) {
+                    MeshVertex& a = out.mesh.vertices[out.mesh.indices[t + 0]];
+                    MeshVertex& b = out.mesh.vertices[out.mesh.indices[t + 1]];
+                    MeshVertex& c = out.mesh.vertices[out.mesh.indices[t + 2]];
                     const glm::vec3 pa(a.px, a.py, a.pz);
                     const glm::vec3 pb(b.px, b.py, b.pz);
                     const glm::vec3 pc(c.px, c.py, c.pz);
@@ -138,14 +186,16 @@ bool loadGltf(const char* path, shapes::MeshData& out) {
         }
     }
 
+    loadBaseColorTexture(data, path, out);
     cgltf_free(data);
 
-    if (out.vertices.empty()) {
+    if (out.mesh.vertices.empty()) {
         MAZ_LOG_ERROR("glTF has no triangle geometry: %s", path);
         return false;
     }
-    MAZ_LOG_INFO("glTF loaded: %s (%zu verts, %zu indices)", path, out.vertices.size(),
-                 out.indices.size());
+    MAZ_LOG_INFO("glTF loaded: %s (%zu verts, %zu indices, texture %ux%u)", path,
+                 out.mesh.vertices.size(), out.mesh.indices.size(), out.textureWidth,
+                 out.textureHeight);
     return true;
 }
 

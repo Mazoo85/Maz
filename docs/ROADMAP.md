@@ -95,8 +95,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > merges every scene mesh into one `MeshData` with each node's world transform baked into
 > positions/normals, and maps POSITION/NORMAL/TEXCOORD_0/COLOR_0 to the engine's mesh vertex. The
 > `model` demo loads a bundled `house.gltf` at runtime and renders it with shadows, sky, and a HUD
-> — the engine now shows artist-authored models, not just procedural shapes. Everything marked
-> `[x]` below is done; everything else is the road ahead.
+> — the engine now shows artist-authored models, not just procedural shapes.
+>
+> **M18 — textured glTF (done).** `loadGltf` now also decodes the first material's base-color
+> texture — embedded via a bufferView (stb_image decodes the PNG bytes) or referenced as an
+> external image file — into `ModelData`. The bundled `house.gltf` carries a 4-quadrant detail
+> atlas (brick / shingle / plank / glass) with per-face UVs, so its walls read as brick, the roof
+> as shingle, the door as planks, and the windows as glass. Everything marked `[x]` below is done;
+> everything else is the road ahead.
 
 ---
 
@@ -194,6 +200,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
 - [ ] Image loading (stb_image), compressed textures (KTX2), mipmaps
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
+- [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
 - [ ] Audio asset loading (wav / ogg), font import, shader assets
 - [ ] Asset cooking / packing pipeline, pak archives, streaming
 - [ ] Import settings + dependency graph + reimport
