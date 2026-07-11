@@ -367,6 +367,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **VILLAGE QUEST** (`apps/village`) — a first-person 3D game built on a data-loaded glTF
       scene: solid house collision, coins to collect against the clock, a win state, and a
       best-time saved across runs (scene loading + collision + audio + save composed; M20)
+- [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
+      the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
+      scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
+      hazards), the pooled particle system, screen-shake juice, and a high score persisted across
+      runs via the KeyValueStore — with a deterministic attract-mode AI so the golden is stable (M74)
 - [ ] More sample scenes: pong, platformer, top-down adventure
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.

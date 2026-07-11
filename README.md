@@ -234,6 +234,11 @@ available):
   deferred so a scene can transition itself), top-down update that stops at the first modal scene,
   and overlay-aware render. The `scenes` demo runs a Menu → Game → transparent Pause overlay flow
   (the frozen game shows through). Lifecycle, update propagation, and deferred mutation unit-tested
+- **M74** — **CATCHER** (`apps/catcher`): a complete little game assembled entirely from the engine's
+  own systems — the scene stack drives menu → play → game-over, the event bus fans catch/miss events
+  out to scoring + gold/red particle bursts + screen-shake, 2D contact tests decide paddle-vs-coin and
+  paddle-vs-hazard, and the high score is saved across runs via the `KeyValueStore`. A deterministic
+  attract-mode AI plays itself (seeded RNG, fixed timestep) so the render is golden-stable
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -260,4 +265,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Sandbox** (top-down demo): WASD / arrows to move · Esc to quit
 - **ORB RUN**: Space to start / restart · WASD / arrows to move · Esc to quit
 - **VILLAGE QUEST**: WASD to move · mouse to look · collect every coin · Esc to quit
+- **CATCHER**: ← / → (or A / D) to move the paddle · catch gold coins, dodge red hazards · plays itself in attract mode · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

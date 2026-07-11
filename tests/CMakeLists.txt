@@ -237,6 +237,15 @@ set_tests_properties(scenes_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME catcher_headless_smoke
+    COMMAND catcher --headless --frames 30)
+
+set_tests_properties(catcher_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+
 
 
 

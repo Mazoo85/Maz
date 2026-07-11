@@ -78,6 +78,10 @@ apps/
   village/  VILLAGE QUEST — a game on the loaded village.gltf: house collision, coins, timer,
               win state, best-time save (scene loading + collision + audio + save composed)
   water/    Dynamic-mesh demo — a grid re-streamed each frame with summed sine waves, lit + fogged
+  catcher/  CATCHER — a full 2D game wiring the engine's own systems together: SceneStack
+              (menu/play/game-over), EventBus (catch/miss -> score + particle burst + shake),
+              2D contact tests (paddle vs falling coins/hazards), ParticleSystem, Shake, and a
+              KeyValueStore high score; deterministic attract-mode AI so the render is golden-stable
 ```
 
 ## The frame loop (fixed timestep)

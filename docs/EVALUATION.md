@@ -628,10 +628,11 @@ platformers, crates, and walls — extended risk-first so the proven circle path
 
 **Iteration 35 complete** (2D box colliders + friction).
 
-### Iteration 36 — "App framework" (in progress)
+### Iteration 36 — "App framework" (done)
 Self-directed: after 18 isolated feature modules the biggest gap is the layer *above* them — the
 engine had no notion of game *scenes/states* (menu, playing, paused) with a stack and overlays. That
-application-framework layer is what turns single-screen demos into an actual game shell.
+application-framework layer is what turns single-screen demos into an actual game shell. M74 then
+*proves* it by shipping a real game built from nothing but existing engine systems.
 - [x] **M73 — Scene stack / game state manager**: header-only `core::SceneStack` over a `Scene`
   base with an enter/exit/pause/resume lifecycle. `push` pauses the current top and enters the new
   scene; `pop` exits it and resumes the revealed one; `replace` swaps the top; `clear` unwinds all.
@@ -647,8 +648,23 @@ application-framework layer is what turns single-screen demos into an actual gam
   resume; the HUD prints the live stack depth + top scene. Verified on lavapipe (the PAUSED panel
   draws over the frozen balls, "stack depth 2 top: Pause", no validation errors); new
   `scenes_headless_smoke` + golden → ctest **30/30**, every existing golden unchanged.
+- [x] **M74 — CATCHER (integration game)**: the point of an engine is that the parts compose, so this
+  milestone builds a *whole* small game (`apps/catcher`) out of pieces already in the tree — no new
+  engine code, only assembly. The **scene stack** runs the shell (title → play → game-over, each
+  scene transitioning itself via the deferred-mutation path); the **event bus** is the gameplay spine
+  — a caught coin publishes a `CatchEvent` and a missed one a `HitEvent`, and independent subscribers
+  turn those into score, a gold or red **particle** burst, and a **screen-shake** kick, so scoring /
+  juice / feedback stay decoupled; **2D contact tests** decide paddle-vs-coin and paddle-vs-hazard;
+  and the **KeyValueStore** persists the high score to the pref path across runs. Because a golden has
+  to be reproducible, the game ships a deterministic **attract-mode AI** (seeded xorshift RNG, fixed
+  timestep) that plays itself — tracking the nearest coin and dodging hazards — so no input or wall
+  clock enters the frame. Verified on lavapipe (HUD "SCORE / LIVES / BEST", a falling gold coin, the
+  paddle tracking below, "ATTRACT MODE" prompt; a catch fires its burst — no validation errors); new
+  `catcher_headless_smoke` + golden (RMSE 0.0044, threshold tightened to 0.08) → ctest **31/31**, and
+  every existing app's golden unchanged. This is the capstone that shows the engine is not a bag of
+  demos but a set of systems that build a game together.
 
-Later: build a small complete game on the scene stack (menu/play/gameover + save), box rotation,
+Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, wire the event bus into a game,
 reflection-driven ECS serialization, JSON/text format, UI layout / text input, order-independent
