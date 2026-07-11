@@ -97,6 +97,23 @@ bool aabbInFrustum(const Frustum& f, const glm::vec3& mn, const glm::vec3& mx) {
     }
     return true;
 }
+// Local-space AABB (min/max over vertex positions) used for frustum culling.
+void computeLocalAabb(const MeshVertex* vertices, uint32_t count, float bmin[3], float bmax[3]) {
+    if (count == 0) {
+        bmin[0] = bmin[1] = bmin[2] = bmax[0] = bmax[1] = bmax[2] = 0.0f;
+        return;
+    }
+    bmin[0] = bmax[0] = vertices[0].px;
+    bmin[1] = bmax[1] = vertices[0].py;
+    bmin[2] = bmax[2] = vertices[0].pz;
+    for (uint32_t i = 1; i < count; ++i) {
+        const float p[3] = {vertices[i].px, vertices[i].py, vertices[i].pz};
+        for (int k = 0; k < 3; ++k) {
+            bmin[k] = p[k] < bmin[k] ? p[k] : bmin[k];
+            bmax[k] = p[k] > bmax[k] ? p[k] : bmax[k];
+        }
+    }
+}
 // World-space AABB of a local AABB transformed by `model` (8 corners).
 void worldAabb(const glm::mat4& model, const float bmin[3], const float bmax[3], glm::vec3& outMin,
                glm::vec3& outMax) {
@@ -122,9 +139,10 @@ VkVertexInputBindingDescription meshBinding() {
 } // namespace
 
 bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
-                        VkSampleCountFlagBits samples) {
+                        VkSampleCountFlagBits samples, uint32_t framesInFlight) {
     m_store = &store;
     m_samples = samples;
+    m_framesInFlight = framesInFlight > 0 ? framesInFlight : 1;
     m_meshes.emplace_back(); // reserve index 0 == kInvalidMesh
 
     // Directional light space: an orthographic volume over the scene, looking along the light.
@@ -800,19 +818,8 @@ MeshHandle MeshRenderer::createMesh(VulkanContext& ctx, const MeshVertex* vertic
                                     uint32_t indexCount) {
     Mesh mesh;
     mesh.indexCount = indexCount;
-    // Local-space AABB for frustum culling.
-    if (vertexCount > 0) {
-        mesh.bmin[0] = mesh.bmax[0] = vertices[0].px;
-        mesh.bmin[1] = mesh.bmax[1] = vertices[0].py;
-        mesh.bmin[2] = mesh.bmax[2] = vertices[0].pz;
-        for (uint32_t i = 1; i < vertexCount; ++i) {
-            const float p[3] = {vertices[i].px, vertices[i].py, vertices[i].pz};
-            for (int k = 0; k < 3; ++k) {
-                mesh.bmin[k] = p[k] < mesh.bmin[k] ? p[k] : mesh.bmin[k];
-                mesh.bmax[k] = p[k] > mesh.bmax[k] ? p[k] : mesh.bmax[k];
-            }
-        }
-    }
+    mesh.vertexCount = vertexCount;
+    computeLocalAabb(vertices, vertexCount, mesh.bmin, mesh.bmax);
     const VkDeviceSize vbytes = static_cast<VkDeviceSize>(vertexCount) * sizeof(MeshVertex);
     const VkDeviceSize ibytes = static_cast<VkDeviceSize>(indexCount) * sizeof(uint32_t);
     const VkMemoryPropertyFlags hostVisible =
@@ -832,6 +839,61 @@ MeshHandle MeshRenderer::createMesh(VulkanContext& ctx, const MeshVertex* vertic
     }
     m_meshes.push_back(std::move(mesh));
     return static_cast<MeshHandle>(m_meshes.size() - 1);
+}
+
+MeshHandle MeshRenderer::createDynamicMesh(VulkanContext& ctx, const MeshVertex* vertices,
+                                           uint32_t vertexCount, const uint32_t* indices,
+                                           uint32_t indexCount) {
+    Mesh mesh;
+    mesh.dynamic = true;
+    mesh.indexCount = indexCount;
+    mesh.vertexCount = vertexCount;
+    computeLocalAabb(vertices, vertexCount, mesh.bmin, mesh.bmax);
+    const VkDeviceSize vbytes = static_cast<VkDeviceSize>(vertexCount) * sizeof(MeshVertex);
+    const VkDeviceSize ibytes = static_cast<VkDeviceSize>(indexCount) * sizeof(uint32_t);
+    const VkMemoryPropertyFlags hostVisible =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    // Indices are static -> one buffer; vertices restream each frame -> one buffer per frame so a
+    // write never races a prior frame still reading.
+    if (!mesh.ibo.create(ctx, ibytes, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, hostVisible)) {
+        return kInvalidMesh;
+    }
+    if (void* ip = mesh.ibo.map(ctx)) {
+        std::memcpy(ip, indices, static_cast<size_t>(ibytes));
+    }
+    mesh.dynVbo.resize(m_framesInFlight);
+    mesh.dynMapped.resize(m_framesInFlight, nullptr);
+    for (uint32_t i = 0; i < m_framesInFlight; ++i) {
+        if (!mesh.dynVbo[i].create(ctx, vbytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, hostVisible)) {
+            for (auto& b : mesh.dynVbo) b.destroy(ctx);
+            mesh.ibo.destroy(ctx);
+            return kInvalidMesh;
+        }
+        mesh.dynMapped[i] = mesh.dynVbo[i].map(ctx);
+        if (mesh.dynMapped[i]) {
+            std::memcpy(mesh.dynMapped[i], vertices, static_cast<size_t>(vbytes));
+        }
+    }
+    m_meshes.push_back(std::move(mesh));
+    return static_cast<MeshHandle>(m_meshes.size() - 1);
+}
+
+void MeshRenderer::updateMesh(VulkanContext&, MeshHandle handle, const MeshVertex* vertices,
+                              uint32_t vertexCount) {
+    if (handle == kInvalidMesh || handle >= m_meshes.size()) {
+        return;
+    }
+    Mesh& mesh = m_meshes[handle];
+    if (!mesh.dynamic || vertexCount > mesh.vertexCount) {
+        return; // static mesh, or more vertices than the buffer holds
+    }
+    void* dst = mesh.dynMapped[m_frameIndex];
+    if (dst) {
+        std::memcpy(dst, vertices,
+                    static_cast<size_t>(vertexCount) * sizeof(MeshVertex));
+    }
+    computeLocalAabb(vertices, vertexCount, mesh.bmin, mesh.bmax); // keep culling AABB in sync
 }
 
 void MeshRenderer::setViewProjection(const float* viewProj16) {
@@ -885,7 +947,7 @@ void MeshRenderer::renderShadow(VkCommandBuffer cmd) {
         vkCmdPushConstants(cmd, m_shadowLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 16,
                            glm::value_ptr(lightMVP));
         VkDeviceSize offset = 0;
-        VkBuffer vbuf = mesh.vbo.handle();
+        VkBuffer vbuf = mesh.vboFor(m_frameIndex);
         vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
         vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
@@ -956,7 +1018,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
                                 nullptr);
 
         VkDeviceSize offset = 0;
-        VkBuffer vbuf = mesh.vbo.handle();
+        VkBuffer vbuf = mesh.vboFor(m_frameIndex);
         vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
         vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
@@ -968,6 +1030,9 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
     for (Mesh& mesh : m_meshes) {
         mesh.vbo.destroy(ctx);
         mesh.ibo.destroy(ctx);
+        for (VulkanBuffer& b : mesh.dynVbo) {
+            b.destroy(ctx);
+        }
     }
     m_meshes.clear();
 

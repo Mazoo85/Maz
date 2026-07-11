@@ -63,3 +63,11 @@ add_test(
 set_tests_properties(village_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME water_headless_smoke
+    COMMAND water --headless --frames 30)
+
+set_tests_properties(water_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

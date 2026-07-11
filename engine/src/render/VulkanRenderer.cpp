@@ -41,6 +41,9 @@ public:
 
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
+    MeshHandle createDynamicMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                 const uint32_t* indices, uint32_t indexCount) override;
+    void updateMesh(MeshHandle mesh, const MeshVertex* vertices, uint32_t vertexCount) override;
     void setViewProjection3D(const float* viewProj16) override;
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
@@ -129,7 +132,8 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         MAZ_LOG_ERROR("sprite renderer init failed");
         return false;
     }
-    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples())) {
+    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples(),
+                       kMaxFramesInFlight)) {
         MAZ_LOG_ERROR("mesh renderer init failed");
         return false;
     }
@@ -251,6 +255,7 @@ bool VulkanRenderer::beginFrame() {
     // per-frame 3D and 2D draw lists; draw* calls accumulate until endFrame() flushes them.
     const uint32_t w = m_swapchain.extent().width;
     const uint32_t h = m_swapchain.extent().height;
+    m_meshes.setFrameIndex(m_currentFrame); // select this frame's dynamic-mesh buffers (post fence)
     m_meshes.setViewport(w, h);
     m_meshes.begin();
     m_particles.setViewport(w, h);
@@ -362,6 +367,20 @@ MeshHandle VulkanRenderer::createMesh(const MeshVertex* vertices, uint32_t verte
         return kInvalidMesh;
     }
     return m_meshes.createMesh(m_ctx, vertices, vertexCount, indices, indexCount);
+}
+
+MeshHandle VulkanRenderer::createDynamicMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                             const uint32_t* indices, uint32_t indexCount) {
+    if (!m_active) {
+        return kInvalidMesh;
+    }
+    return m_meshes.createDynamicMesh(m_ctx, vertices, vertexCount, indices, indexCount);
+}
+
+void VulkanRenderer::updateMesh(MeshHandle mesh, const MeshVertex* vertices, uint32_t vertexCount) {
+    if (m_active) {
+        m_meshes.updateMesh(m_ctx, mesh, vertices, vertexCount);
+    }
 }
 
 void VulkanRenderer::setViewProjection3D(const float* viewProj16) {

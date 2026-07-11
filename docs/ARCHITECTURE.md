@@ -49,6 +49,7 @@ apps/
   model/    glTF demo — loads house.gltf at runtime, orbits with shadows + sky
   village/  VILLAGE QUEST — a game on the loaded village.gltf: house collision, coins, timer,
               win state, best-time save (scene loading + collision + audio + save composed)
+  water/    Dynamic-mesh demo — a grid re-streamed each frame with summed sine waves, lit + fogged
 ```
 
 ## The frame loop (fixed timestep)

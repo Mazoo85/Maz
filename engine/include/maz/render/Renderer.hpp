@@ -129,6 +129,13 @@ public:
     // Upload an indexed mesh. Returns kInvalidMesh on failure or when inactive.
     virtual MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                                   const uint32_t* indices, uint32_t indexCount) = 0;
+    // Upload an indexed mesh whose vertices can be re-streamed every frame via updateMesh (animated
+    // geometry: water, cloth, morph targets). Indices are fixed. Returns kInvalidMesh if inactive.
+    virtual MeshHandle createDynamicMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                         const uint32_t* indices, uint32_t indexCount) = 0;
+    // Replace a dynamic mesh's vertices for the current frame (vertexCount must not exceed the
+    // count it was created with). No-op for a static mesh or when inactive.
+    virtual void updateMesh(MeshHandle mesh, const MeshVertex* vertices, uint32_t vertexCount) = 0;
     // Set the combined view*projection matrix (column-major, 16 floats) for 3D draws this frame.
     virtual void setViewProjection3D(const float* viewProj16) = 0;
     // Set the world-space camera position for this frame (3 floats). Only needed for distance fog;

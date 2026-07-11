@@ -20,11 +20,20 @@ class TextureStore;
 class MeshRenderer {
 public:
     bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
-              VkSampleCountFlagBits samples);
+              VkSampleCountFlagBits samples, uint32_t framesInFlight);
     void shutdown(VulkanContext& ctx);
 
     MeshHandle createMesh(VulkanContext& ctx, const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount);
+    // Like createMesh, but the vertex buffer is per-frame-in-flight and host-writable so the app
+    // can restream its vertices every frame via updateMesh (animated geometry: water, cloth, …).
+    MeshHandle createDynamicMesh(VulkanContext& ctx, const MeshVertex* vertices,
+                                 uint32_t vertexCount, const uint32_t* indices, uint32_t indexCount);
+    // Overwrite a dynamic mesh's vertices (count must match its capacity). Writes the current
+    // frame's buffer only, so it is safe with frames in flight. No-op for a static mesh.
+    void updateMesh(VulkanContext& ctx, MeshHandle mesh, const MeshVertex* vertices,
+                    uint32_t vertexCount);
+    void setFrameIndex(uint32_t frame) { m_frameIndex = frame; }
 
     void setViewProjection(const float* viewProj16);
     void setCameraPosition(const float* pos3) {
@@ -54,11 +63,18 @@ private:
     static constexpr uint32_t kShadowSize = 2048;
 
     struct Mesh {
-        VulkanBuffer vbo;
+        VulkanBuffer vbo;                     // static mesh: the sole vertex buffer
         VulkanBuffer ibo;
+        std::vector<VulkanBuffer> dynVbo;     // dynamic mesh: one host-visible VBO per frame
+        std::vector<void*> dynMapped;         // persistent maps for the dynVbo ring
+        bool dynamic = false;
+        uint32_t vertexCount = 0;
         uint32_t indexCount = 0;
         float bmin[3] = {0, 0, 0}; // local-space AABB for frustum culling
         float bmax[3] = {0, 0, 0};
+        VkBuffer vboFor(uint32_t frame) const {
+            return dynamic ? dynVbo[frame].handle() : vbo.handle();
+        }
     };
     struct DrawCmd {
         MeshHandle mesh;
@@ -117,6 +133,8 @@ private:
     float m_skyZenith[3] = {0.24f, 0.44f, 0.82f};
     float m_skyHorizon[3] = {0.72f, 0.82f, 0.95f};
     float m_skyGround[3] = {0.42f, 0.45f, 0.50f};
+    uint32_t m_framesInFlight = 1;
+    uint32_t m_frameIndex = 0;
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
     uint32_t m_drawnLastFrame = 0;

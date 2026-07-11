@@ -23,12 +23,13 @@ cmake --build build
 ./build/bin/model                   # glTF demo — loads house.gltf, orbits with shadows + sky
 ./build/bin/village                 # VILLAGE QUEST — collect coins across the loaded village
 ./build/bin/village --demo          # autopilot playthrough (for capture)
+./build/bin/water                   # dynamic-mesh demo — a rippling sine-wave water surface
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
 ctest --test-dir build              # headless smoke tests (all apps)
 ```
 
 Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,
-`swarm`, `cube`, `scene3d`, `world`, `model`, `village`).
+`swarm`, `cube`, `scene3d`, `world`, `model`, `village`, `water`).
 
 ## What works today
 
@@ -89,6 +90,9 @@ available):
 - **M34** — wireframe debug draw: `Renderer::setWireframe(true)` renders meshes as line polygons (a
   second `VK_POLYGON_MODE_LINE` pipeline, needs the GPU's `fillModeNonSolid` feature); toggle with
   **F4** in `world` (or launch with `--wireframe`). The 2D HUD stays solid
+- **M35** — dynamic meshes: `createDynamicMesh` + `updateMesh` re-stream a mesh's vertices every frame
+  (one host-visible vertex buffer per frame-in-flight, so a write never races a frame still reading);
+  the new `water` demo animates a grid with summed sine waves lit and fogged under the sun
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

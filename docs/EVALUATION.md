@@ -104,8 +104,15 @@ Evaluation: no visual debug-draw (wireframe) despite having a stats overlay; mes
   logical device; silently stays filled otherwise). `world` toggles it with **F4** and accepts
   `--wireframe` at launch. Verified on lavapipe: boxes and the sphere render as their edge/triangle
   lattice while the 2D HUD stays solid.
-- [ ] **M35 — Dynamic meshes + water**: `Renderer::updateMesh` re-uploads a mesh's (host-visible)
-  vertices; a new `water` demo animates a grid with summed sine waves under the lighting.
+- [x] **M35 — Dynamic meshes + water**: `Renderer::createDynamicMesh` + `updateMesh` re-stream a
+  mesh's vertices every frame. Each dynamic mesh holds one host-visible vertex buffer *per frame in
+  flight*; `updateMesh` writes the current frame's buffer (selected after the fence wait in
+  `beginFrame`) so a write never races a frame still reading. The new `water` demo animates a 64×64
+  grid with four summed sine trains, deriving per-vertex normals analytically so the sunlit crests
+  and shadowed troughs respond to the ripples; distance fog fades it into the sky. Verified on
+  lavapipe: two frames 2s apart differ by ~600k pixels (genuinely animating), no validation errors.
+
+**Iteration 7 complete** (wireframe debug draw + dynamic meshes/water).
 
 Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
-spatial partitioning, hot-reload shaders, a material struct.
+spatial partitioning, hot-reload shaders, a material struct, GPU/compute particle simulation.

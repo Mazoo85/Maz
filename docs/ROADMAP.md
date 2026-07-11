@@ -198,6 +198,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
 - [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`
 - [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
+- [x] **Dynamic meshes** (`createDynamicMesh` + `updateMesh`, per-frame-in-flight vertex buffers;
+  the `water` demo animates a summed-sine grid; M35)
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
