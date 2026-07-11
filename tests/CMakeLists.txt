@@ -5,6 +5,12 @@ target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_tests COMMAND maz_unit_tests)
 set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 
+# Golden-image regression: render each app on lavapipe and diff against committed references. Self-
+# skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
+# GPU-less CI. Requires an up-to-date build/bin.
+add_test(NAME golden_images COMMAND ${CMAKE_SOURCE_DIR}/tools/golden.sh check)
+set_tests_properties(golden_images PROPERTIES TIMEOUT 180)
+
 # Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
 # This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
 add_test(

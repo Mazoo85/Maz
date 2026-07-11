@@ -308,7 +308,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Profiler + log panels
 
 ## Phase 12 — Cross-cutting quality
-- [ ] Unit + golden-image render tests, CI gates
+- [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE
+  tolerance, ctest-integrated, self-skips without a GPU; M51)
+- [ ] CI gates / cross-platform build matrix
 - [ ] Deterministic fixed-step simulation, replay
 - [ ] Performance budgets + profiling dashboards
 - [ ] Docs site, API docs (Doxygen), tutorials / samples

@@ -234,8 +234,18 @@ regressions. Highest-leverage fix before more features: real testing.
   (gather locality, grid vs vector slideMove parity, occupied-cell count), `ecs::World`
   (create/destroy/id-reuse, add/get/has/remove, each/view iteration), `game::Shake` (trauma clamp +
   decay), and the `fx` particle attractor. 44 checks, all passing; ctest is now 10/10.
-- [ ] **M51 — Golden-image regression harness**: render each app on lavapipe and diff against
-  committed reference PNGs with a tolerance, to catch silent visual regressions.
+- [x] **M51 — Golden-image regression harness**: `tools/golden.sh` renders each app on lavapipe
+  under Xvfb and diffs against committed references (`tests/golden/`) using a **per-app RMSE
+  tolerance** — tight (0.03) for deterministic scenes like `cube`/`water`, looser (0.20–0.22) for the
+  time-animated `world`/`village` — so it fails on structural breaks (broken pass, wrong colours,
+  missing geometry) without false-positiving on animation jitter. Integrated into ctest (self-skips
+  without a GPU). Verified both directions: clean runs pass (11/11 ctest), and a deliberately altered
+  cube texture is caught (RMSE 0.039 > 0.03). Finding along the way: the flat first attempt missed
+  the change while false-positiving on `world`, which is what drove the per-app thresholds.
+
+**Iteration 15 complete** (unit tests + golden-image regression harness — the engine now has
+automated logic and visual regression protection).
 
 Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
-depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI.
+depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI,
+a deterministic hold-frame screenshot mode to tighten golden tolerances.

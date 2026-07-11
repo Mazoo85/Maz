@@ -104,6 +104,18 @@ present, ticks the loop N times, attempts Vulkan init, and exits 0. If no Vulkan
 exists (typical in CI containers), the renderer logs a warning and the loop still runs — so the
 smoke test validates wiring, lifetime, and shutdown without a GPU.
 
+## Testing
+Three layers, all under `ctest`:
+- **Unit tests** (`tests/unit/main.cpp` → `maz_unit_tests`): a dependency-free `CHECK` runner over
+  the pure-logic modules (math, collision, spatial grid, ECS, shake, particles). Fast, deterministic,
+  no GPU.
+- **Smoke tests**: each app run `--headless --frames 30` must exit 0 (wiring / lifetime / shutdown).
+- **Golden-image tests** (`tools/golden.sh`): render each app on lavapipe under Xvfb and diff against
+  committed references in `tests/golden/` using a per-app RMSE tolerance (tight for deterministic
+  scenes, looser for time-animated ones). Catches structural render regressions; self-skips (exit 0)
+  when software Vulkan / Xvfb / ImageMagick are absent, so it's harmless in a GPU-less CI. Re-record
+  references after an intended visual change with `tools/golden.sh capture`.
+
 ## Coding conventions
 - `PascalCase` types, `camelCase` functions/vars, `m_` member prefix, `MAZ_` macro prefix.
 - Namespace everything in `maz::` (sub-namespaces `maz::core`, `maz::render`, `maz::math`).
