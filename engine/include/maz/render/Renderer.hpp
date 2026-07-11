@@ -129,6 +129,9 @@ public:
     // Set the scene lighting (ambient + sun + point lights + fog) for the 3D mesh path. Persists
     // until changed; defaults to the standard daytime look. No-op when inactive.
     virtual void setLighting(const SceneLighting& lighting) = 0;
+    // Enable/adjust post-process bloom. strength 0 (default) is a faithful passthrough, so 2D and
+    // 3D apps look identical; > 0 adds a soft glow to areas brighter than `threshold` (0..1).
+    virtual void setBloom(float strength, float threshold) = 0;
     // Queue a mesh draw with the given model matrix (column-major, 16 floats), an albedo texture
     // (use a white texture for flat/vertex-colored meshes), and an optional tangent-space normal
     // map (kInvalidTexture -> flat, no bump). Depth-tested, drawn beneath the 2D layer. No-op when

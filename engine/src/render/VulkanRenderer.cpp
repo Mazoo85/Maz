@@ -3,6 +3,7 @@
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
@@ -41,6 +42,7 @@ public:
     void setViewProjection3D(const float* viewProj16) override;
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
+    void setBloom(float strength, float threshold) override;
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
@@ -58,6 +60,7 @@ private:
     TextureStore m_textureStore;
     SpriteRenderer m_sprites;
     MeshRenderer m_meshes;
+    PostProcess m_post;
     RendererConfig m_cfg;
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
@@ -114,6 +117,11 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     }
     if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples())) {
         MAZ_LOG_ERROR("mesh renderer init failed");
+        return false;
+    }
+    if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
+                     m_swapchain.sceneSampler())) {
+        MAZ_LOG_ERROR("post-process init failed");
         return false;
     }
     m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
@@ -176,6 +184,8 @@ void VulkanRenderer::recreateSwapchain(uint32_t width, uint32_t height) {
         m_active = false;
         return;
     }
+    // The scene color image changed; re-point the composite's sampler at the new one.
+    m_post.updateSource(m_ctx, m_swapchain.sceneColorView(), m_swapchain.sceneSampler());
     m_imagesInFlight.assign(m_swapchain.imageCount(), VK_NULL_HANDLE);
 }
 
@@ -238,14 +248,14 @@ void VulkanRenderer::endFrame() {
     // 1) Shadow pass — depth-only, into the mesh renderer's shadow map (skipped if no meshes).
     m_meshes.renderShadow(cmd);
 
-    // 2) Main color pass.
+    // 2) Scene pass — renders sky/3D/2D into the offscreen sceneColor.
     VkClearValue clears[2]{};
     clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
     clears[1].depthStencil = {1.0f, 0};
     VkRenderPassBeginInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass = m_swapchain.renderPass();
-    rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
+    rp.framebuffer = m_swapchain.sceneFramebuffer();
     rp.renderArea.extent = m_swapchain.extent();
     rp.clearValueCount = 2;
     rp.pClearValues = clears;
@@ -255,6 +265,9 @@ void VulkanRenderer::endFrame() {
     m_meshes.flush(cmd);                  // 3D (depth-tested)
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
+
+    // 3) Composite pass — tonemap/bloom sceneColor into the swapchain image.
+    m_post.record(cmd, m_swapchain.compositeFramebuffer(m_imageIndex), m_swapchain.extent());
     vkEndCommandBuffer(cmd);
 
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -341,6 +354,12 @@ void VulkanRenderer::setLighting(const SceneLighting& lighting) {
     }
 }
 
+void VulkanRenderer::setBloom(float strength, float threshold) {
+    if (m_active) {
+        m_post.setBloom(strength, threshold);
+    }
+}
+
 void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                              TextureHandle normal) {
     if (m_active) {
@@ -370,6 +389,7 @@ void VulkanRenderer::shutdown() {
         vkDeviceWaitIdle(m_ctx.device());
     }
     if (m_active) {
+        m_post.shutdown(m_ctx);
         m_meshes.shutdown(m_ctx);
         m_sprites.shutdown(m_ctx);
         m_textureStore.shutdown(m_ctx); // owns textures used by both; after their pipelines
