@@ -403,6 +403,41 @@ int main(int argc, char** argv) {
                           bloomOn ? "ON" : "OFF", tonemapOn ? "ON" : "OFF", wireframe ? "ON" : "OFF");
             font.drawText(*renderer, 16.0f, 100.0f, sbuf, render::Color{0.8f, 0.85f, 0.95f, 1}, 0.42f);
 
+            // Top-down minimap (top-right): blocks (gray), uncollected pickups (gold), player (white
+            // dot + heading tick). World X/Z is mapped into a square panel.
+            {
+                const float mmSize = 176.0f;
+                const float mmX = static_cast<float>(bw) - mmSize - 16.0f;
+                const float mmY = 16.0f;
+                const float mmCX = mmX + mmSize * 0.5f;
+                const float mmCY = mmY + mmSize * 0.5f;
+                const float worldR = 38.0f; // world half-extent shown across the panel
+                const float scale = (mmSize * 0.5f) / worldR;
+                auto plot = [&](float wx, float wz, float dot, render::Color col) {
+                    const float px = mmCX + wx * scale;
+                    const float py = mmCY + wz * scale; // +z maps down
+                    renderer->drawSprite(whiteTex, render::SpriteDesc{px - dot * 0.5f,
+                                                                      py - dot * 0.5f, dot, dot,
+                                                                      0, 0, 0, 1, 1, col});
+                };
+                // Panel background.
+                renderer->drawSprite(whiteTex, render::SpriteDesc{mmX, mmY, mmSize, mmSize, 0, 0, 0,
+                                                                  1, 1,
+                                                                  render::Color{0.05f, 0.07f, 0.10f,
+                                                                                0.55f}});
+                for (const Block& b : blocks) {
+                    plot(b.pos.x, b.pos.z, 4.0f, render::Color{0.6f, 0.63f, 0.68f, 0.9f});
+                }
+                for (size_t i = 0; i < pickups.size(); ++i) {
+                    if (!collected[i]) {
+                        plot(pickups[i].x, pickups[i].z, 5.0f,
+                             render::Color{1.0f, 0.85f, 0.2f, 1.0f});
+                    }
+                }
+                plot(camera.position().x, camera.position().z, 7.0f,
+                     render::Color{0.4f, 0.9f, 1.0f, 1.0f});
+            }
+
             // Profiling overlay (F3): FPS / frame time / draw counts.
             overlay.draw(*renderer, font, 16.0f, static_cast<float>(bh) - 66.0f, 0.42f);
 

@@ -127,6 +127,8 @@ available):
   deepens at night
 - **M46** — chromatic aberration: opt-in radial RGB split at the screen edges (`setChromaticAberration`,
   off by default) for a subtle lens-fringe look; VILLAGE QUEST enables a gentle amount
+- **M47** — minimap: `world` draws a top-down corner radar (blocks, uncollected pickups, player) with
+  2D sprites — a worked example of a screen-space HUD map over the 3D scene
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

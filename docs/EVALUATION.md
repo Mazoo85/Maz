@@ -204,8 +204,12 @@ This iteration:
   `Renderer::setChromaticAberration`); off by default so other apps are unchanged. VILLAGE QUEST
   enables a gentle amount. Verified on lavapipe: clear red/cyan fringing on the corner HUD text and
   edge silhouettes, no validation errors.
-- [ ] **M47 — World minimap**: a corner top-down radar in `world` (blocks, pickups, player) via 2D
-  sprites and a corner Camera2D.
+- [x] **M47 — World minimap**: `world` draws a top-down corner radar — a translucent panel with the
+  blocks (gray), uncollected pickups (gold), and the player (cyan) plotted from world X/Z into the
+  panel via 2D sprites. Verified on lavapipe: the radar mirrors the block field with the player and
+  pickups placed correctly, 3D scene unaffected, no validation errors.
 
-Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
-viewport, reflective water, SSAO, in-app settings menu UI, particle attractors.
+**Iteration 13 complete** (chromatic aberration; world minimap).
+
+Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, reflective water,
+SSAO, in-app settings menu UI, particle attractors, film grain.
