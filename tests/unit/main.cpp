@@ -6,6 +6,7 @@
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/core/Events.hpp"
+#include "maz/core/Jobs.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
@@ -18,8 +19,11 @@
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <numeric>
 #include <vector>
 
 namespace {
@@ -730,6 +734,82 @@ void testEventBus() {
     bus2.unsubscribe(core::EventBus::kInvalidToken);
 }
 
+void testJobs() {
+    core::JobSystem js;
+    CHECK(js.workerCount() >= 1);
+
+    // parallelFor writes to distinct indices -> deterministic, race-free result.
+    const size_t N = 10000;
+    std::vector<uint64_t> out(N, 0);
+    js.parallelFor(0, N, [&](size_t i) { out[i] = static_cast<uint64_t>(i) * i; });
+    bool allOk = true;
+    for (size_t i = 0; i < N; ++i) {
+        if (out[i] != static_cast<uint64_t>(i) * i) {
+            allOk = false;
+            break;
+        }
+    }
+    CHECK(allOk);
+
+    // Every index is visited exactly once (atomic tally).
+    std::vector<std::atomic<int>> visits(N);
+    for (auto& v : visits) {
+        v.store(0);
+    }
+    js.parallelFor(0, N, [&](size_t i) { visits[i].fetch_add(1); });
+    bool onceEach = true;
+    for (size_t i = 0; i < N; ++i) {
+        if (visits[i].load() != 1) {
+            onceEach = false;
+            break;
+        }
+    }
+    CHECK(onceEach);
+
+    // parallelRanges tiles [0,N) exactly once (chunks are contiguous and cover everything).
+    std::vector<std::atomic<int>> rangeVisits(N);
+    for (auto& v : rangeVisits) {
+        v.store(0);
+    }
+    js.parallelRanges(0, N, [&](size_t a, size_t b) {
+        for (size_t i = a; i < b; ++i) {
+            rangeVisits[i].fetch_add(1);
+        }
+    });
+    bool rangeOk = true;
+    for (size_t i = 0; i < N; ++i) {
+        if (rangeVisits[i].load() != 1) {
+            rangeOk = false;
+            break;
+        }
+    }
+    CHECK(rangeOk);
+
+    // submit() returns a future carrying the task's result.
+    std::vector<std::future<int>> futs;
+    for (int i = 0; i < 20; ++i) {
+        futs.push_back(js.submit([i] { return i * 2; }));
+    }
+    int sum = 0;
+    for (auto& f : futs) {
+        sum += f.get();
+    }
+    CHECK(sum == 2 * (19 * 20 / 2)); // 2 * sum(0..19) = 380
+
+    // Empty / inverted ranges are safe no-ops.
+    int touched = 0;
+    js.parallelFor(5, 5, [&](size_t) { ++touched; });
+    js.parallelFor(10, 3, [&](size_t) { ++touched; });
+    CHECK(touched == 0);
+
+    // A pool with an explicit single worker still runs everything correctly.
+    core::JobSystem single(1);
+    CHECK(single.workerCount() == 1);
+    std::atomic<int> counter{0};
+    single.parallelFor(0, 500, [&](size_t) { counter.fetch_add(1); });
+    CHECK(counter.load() == 500);
+}
+
 } // namespace
 
 int main() {
@@ -743,6 +823,7 @@ int main() {
     testStateMachine();
     testSpriteAnim();
     testEventBus();
+    testJobs();
     testTween();
     testUI();
     testSerialize();

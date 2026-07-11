@@ -155,7 +155,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
 - [ ] Filesystem abstraction, virtual paths, save-directory resolution
-- [ ] Thread pool + job/task system, lock-free work queues
+- [x] **Thread pool + job system** (`core::JobSystem`: worker pool, `submit`/`parallelFor`/
+  `parallelRanges`; the `jobs` demo shows a ~3.8x fractal speedup; M65) — lock-free queues later
 
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`

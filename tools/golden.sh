@@ -43,6 +43,7 @@ CASES=(
     "guard||2.5|0.16"
     "sprites||2.5|0.16"
     "events||2.5|0.12"
+    "jobs||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

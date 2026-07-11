@@ -59,6 +59,7 @@ add_subdirectory(apps/persist)
 add_subdirectory(apps/guard)
 add_subdirectory(apps/sprites)
 add_subdirectory(apps/events)
+add_subdirectory(apps/jobs)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -187,6 +187,11 @@ available):
   or emit re-entrantly). The `events` demo fires one impact event that three independent subscribers
   react to — particle burst, score tally, expanding ring — none aware of the others. Subscribe/emit/
   unsubscribe/isolation/re-entrancy unit-tested
+- **M65** — job system: `core::JobSystem` is a worker thread pool with `submit<F>` (returns a
+  future), `parallelFor`, and `parallelRanges` (blocking range splits) — the engine's parallelism
+  foundation. The `jobs` demo computes a Julia fractal single-threaded then via `parallelFor`,
+  reporting a real ~3.8× speedup on 4 cores with byte-identical output. Parallel correctness +
+  futures + edge cases unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -463,8 +463,27 @@ one of the last missing architectural primitives.
   (rings + bursts bloom at each impact, deterministic RMSE 0, no validation errors); new
   `events_headless_smoke` + golden → ctest **21/21**, every existing golden unchanged.
 
-Later: wire the bus into an existing game (decouple audio/score), animation events / multi-clip
-switching, behavior trees, reflection-driven ECS serialization, JSON/text format, UI layout
-containers / text input, order-independent transparency, material/uniform system, GPU-driven /
-indirect instancing, skeletal animation, asset manager, cross-platform CI, a deterministic
-hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 27 complete** (type-safe event bus).
+
+### Iteration 28 — "Parallelism" (in progress)
+Self-directed: the whole engine runs single-threaded, yet Phase 1's "thread pool + job system" was
+never built — the foundation that lets any heavy data-parallel work (image gen, particle/transform
+updates, culling, batched pathfinding) use every core.
+- [x] **M65 — Job system / thread pool**: header-only `core::JobSystem` — a fixed worker pool with a
+  task queue; `submit<F>(f)` runs a callable on a worker and returns a `std::future` for its result,
+  `parallelFor(begin, end, fn, grain)` and `parallelRanges(begin, end, fn)` split an index range
+  into chunks across the workers and block until the whole range is done. Unit-tested headlessly
+  (239 checks total): a 10k-element parallelFor writing distinct indices (race-free, correct
+  values), every index visited exactly once (atomic tally), parallelRanges tiling a range exactly
+  once, futures carrying results (sum), empty/inverted ranges as no-ops, and a single-worker pool.
+  New `jobs` demo: computes a 1024x576 Julia fractal single-threaded, then via `parallelFor`,
+  displays the (identical) image and reports the timings — a measured **~3.85x speedup on 4 threads
+  with byte-identical output** (`identical=1` in the log), so parallelism changes only speed. New
+  `jobs_headless_smoke` + golden (RMSE ~0.004, HUD timing variance absorbed) → ctest **22/22**,
+  every existing golden unchanged.
+
+Later: parallelize an existing hot loop (particles / frustum culling) via parallelFor, wire the
+event bus into a game, animation events, behavior trees, reflection-driven ECS serialization,
+JSON/text format, UI layout / text input, order-independent transparency, material/uniform system,
+GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
+deterministic hold-frame screenshot mode to tighten golden tolerances.
