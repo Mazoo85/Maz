@@ -433,8 +433,7 @@ int main(int argc, char** argv) {
             };
             auto centerText = [&](float cx, float ty, const char* text, render::Color col,
                                   float scale) {
-                font.drawText(*renderer, cx - font.textWidth(text, scale) * 0.5f, ty, text, col,
-                              scale);
+                font.drawTextCentered(*renderer, cx, ty, text, col, scale);
             };
 
             const render::Color kWhite{1, 1, 1, 1};

@@ -503,9 +503,9 @@ int main(int argc, char** argv) {
             }
             if (won) {
                 std::snprintf(buf, sizeof(buf), "VILLAGE CLEARED!  %.1fs", runTime);
-                font.drawText(*renderer, static_cast<float>(bw) * 0.5f - 220.0f,
-                              static_cast<float>(bh) * 0.5f - 20.0f, buf,
-                              render::Color{0.4f, 1.0f, 0.5f, 1}, 0.9f);
+                font.drawTextCentered(*renderer, static_cast<float>(bw) * 0.5f,
+                                      static_cast<float>(bh) * 0.5f - 20.0f, buf,
+                                      render::Color{0.4f, 1.0f, 0.5f, 1}, 0.9f);
             } else if (!autopilot) {
                 font.drawText(*renderer, 16.0f, static_cast<float>(bh) - 40.0f,
                               "WASD move   mouse look   collect every coin",

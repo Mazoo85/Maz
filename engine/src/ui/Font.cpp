@@ -138,6 +138,11 @@ void Font::drawText(render::Renderer& renderer, float x, float y, const char* te
     }
 }
 
+void Font::drawTextCentered(render::Renderer& renderer, float cx, float y, const char* text,
+                            const render::Color& color, float scale) const {
+    drawText(renderer, cx - textWidth(text, scale) * 0.5f, y, text, color, scale);
+}
+
 float Font::textWidth(const char* text, float scale) const {
     if (text == nullptr) {
         return 0.0f;

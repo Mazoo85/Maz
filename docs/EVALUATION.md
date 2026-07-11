@@ -90,8 +90,11 @@ in apps. This iteration:
   for alpha over-blending; `drawParticle3D(..., additive)` selects the mode (embers/sparks additive,
   smoke/dust alpha). The village bonfire now billows a gray smoke column above its glowing embers —
   both blend modes in one frame, verified on lavapipe.
-- [ ] **M33 — Font text alignment**: `Font::drawTextCentered` (+ measured helpers), used to fix the
-  hand-offset win text in village/orbs.
+- [x] **M33 — Font text alignment**: `Font::drawTextCentered` (uses `textWidth`); village's win
+  text is now properly centered (was hand-offset by ~220px) and orbs' `centerText` routes through
+  it (removing the duplicated math). Verified: orbs' title screen and village win text center.
 
-Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency sorting, water/
-reflective plane, spatial partitioning, hot-reload shaders.
+**Iteration 6 complete** (smoke particles + text alignment).
+
+Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
+water/reflective plane, spatial partitioning, hot-reload shaders, a material struct.

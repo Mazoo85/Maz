@@ -19,6 +19,10 @@ public:
     void drawText(render::Renderer& renderer, float x, float y, const char* text,
                   const render::Color& color, float scale = 1.0f) const;
 
+    // Draw `text` horizontally centered on `cx` (single line; `y` is the top).
+    void drawTextCentered(render::Renderer& renderer, float cx, float y, const char* text,
+                          const render::Color& color, float scale = 1.0f) const;
+
     float textWidth(const char* text, float scale = 1.0f) const;
     float lineHeight(float scale = 1.0f) const { return m_pixelHeight * scale; }
     bool valid() const { return m_texture != render::kInvalidTexture; }
