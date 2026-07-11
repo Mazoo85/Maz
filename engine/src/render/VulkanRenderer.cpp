@@ -2,6 +2,7 @@
 
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
+#include "render/SpriteRenderer.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
@@ -27,6 +28,12 @@ public:
     bool beginFrame() override;
     void setClearColor(const Color& color) override { m_clearColor = color; }
     void endFrame() override;
+
+    TextureHandle loadTexture(const char* path) override;
+    TextureHandle createTexture(uint32_t width, uint32_t height, const void* rgbaPixels) override;
+    void setCamera2D(const Camera2D& camera) override;
+    void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
+
     bool isActive() const override { return m_active; }
 
 private:
@@ -37,6 +44,7 @@ private:
 
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
+    SpriteRenderer m_sprites;
     RendererConfig m_cfg;
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
@@ -82,6 +90,11 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     if (!createCommands() || !createSync()) {
         return false;
     }
+    if (!m_sprites.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight)) {
+        MAZ_LOG_ERROR("sprite renderer init failed");
+        return false;
+    }
+    m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
 
     m_active = true;
     MAZ_LOG_INFO("renderer active (%ux%u, vsync %s)", m_swapchain.extent().width,
@@ -195,7 +208,9 @@ bool VulkanRenderer::beginFrame() {
     rp.pClearValues = &clear;
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    // (Phase 3: bind pipelines and issue sprite/mesh draws here.)
+    // Start a fresh sprite batch; drawSprite() calls accumulate until endFrame() flushes them.
+    m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
+    m_sprites.begin();
     return true;
 }
 
@@ -204,6 +219,7 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+    m_sprites.flush(cmd, m_currentFrame);
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
 
@@ -238,6 +254,33 @@ void VulkanRenderer::endFrame() {
     m_currentFrame = (m_currentFrame + 1) % kMaxFramesInFlight;
 }
 
+TextureHandle VulkanRenderer::loadTexture(const char* path) {
+    if (!m_active) {
+        return kInvalidTexture;
+    }
+    return m_sprites.loadTexture(m_ctx, path);
+}
+
+TextureHandle VulkanRenderer::createTexture(uint32_t width, uint32_t height,
+                                            const void* rgbaPixels) {
+    if (!m_active) {
+        return kInvalidTexture;
+    }
+    return m_sprites.createTexture(m_ctx, width, height, rgbaPixels);
+}
+
+void VulkanRenderer::setCamera2D(const Camera2D& camera) {
+    if (m_active) {
+        m_sprites.setCamera(camera);
+    }
+}
+
+void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite) {
+    if (m_active) {
+        m_sprites.draw(texture, sprite);
+    }
+}
+
 void VulkanRenderer::destroySync() {
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
         if (m_imageAvailable[i]) {
@@ -260,6 +303,7 @@ void VulkanRenderer::shutdown() {
         vkDeviceWaitIdle(m_ctx.device());
     }
     if (m_active) {
+        m_sprites.shutdown(m_ctx);
         destroySync();
         if (m_commandPool) {
             vkDestroyCommandPool(m_ctx.device(), m_commandPool, nullptr);

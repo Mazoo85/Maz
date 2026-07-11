@@ -30,10 +30,17 @@ public:
     uint32_t graphicsFamily() const { return m_graphicsFamily; }
     uint32_t presentFamily() const { return m_presentFamily; }
 
+    // One-time command submission on the graphics queue (staging uploads, layout transitions).
+    // Simple and synchronous: allocates, records, submits, waits idle, frees. Fine for uploads
+    // done at load time. Returns VK_NULL_HANDLE if the context is invalid.
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer cmd);
+
 private:
     bool createInstance(platform::Window& window, bool wantSurface, bool enableValidation);
     bool pickPhysicalDevice(bool wantSurface);
     bool createLogicalDevice(bool wantSurface);
+    bool createTransientPool();
 
     VkInstance m_instance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
@@ -42,6 +49,7 @@ private:
     VkDevice m_device = VK_NULL_HANDLE;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_presentQueue = VK_NULL_HANDLE;
+    VkCommandPool m_transientPool = VK_NULL_HANDLE;
     uint32_t m_graphicsFamily = 0;
     uint32_t m_presentFamily = 0;
     bool m_validation = false;

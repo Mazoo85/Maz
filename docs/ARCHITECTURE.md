@@ -55,9 +55,12 @@ struct Renderer {
 };
 ```
 
-Today the only implementation is `VulkanRenderer` doing a render-pass clear. A sprite-batch and,
-later, a 3D mesh path are added as submission methods (`drawSprite`, `drawMesh`) on the same
-interface — gameplay code never touches Vulkan.
+`VulkanRenderer` implements this over Vulkan and owns a `SpriteRenderer` (batched textured
+quads: `loadTexture`/`createTexture`/`drawSprite`/`setCamera2D`). A 3D mesh path will be added
+as further submission methods (`drawMesh`) on the same interface — gameplay code never touches
+Vulkan. Internals: `VulkanContext` (instance/device/queues + single-time command helper),
+`VulkanSwapchain` (swapchain/render pass/framebuffers), `VulkanBuffer`/`VulkanTexture` (memory +
+staging), `SpriteRenderer` (pipeline/descriptors/vertex streaming).
 
 ## Dependencies
 - **SDL3** (`FetchContent`, tag `release-3.4.12`) — window, input, later audio/gamepad.

@@ -6,4 +6,6 @@ target_link_libraries(sandbox PRIVATE maz::maz maz_warnings)
 maz_compile_shaders(sandbox
     SOURCES
         ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.vert
-        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag)
+        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag)

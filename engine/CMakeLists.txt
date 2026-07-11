@@ -6,6 +6,9 @@ add_library(maz STATIC
     src/platform/Input.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
+    src/render/VulkanBuffer.cpp
+    src/render/VulkanTexture.cpp
+    src/render/SpriteRenderer.cpp
     src/render/VulkanRenderer.cpp)
 
 target_include_directories(maz
@@ -20,6 +23,7 @@ target_link_libraries(maz
         glm::glm
         Vulkan::Vulkan
     PRIVATE
+        stb
         maz_warnings)
 
 # Enable validation-layer plumbing in debug builds.

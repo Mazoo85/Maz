@@ -21,9 +21,17 @@ cmake --build build
 ctest --test-dir build              # headless smoke test
 ```
 
-The current milestone is **M0** — the walking skeleton: a window, a fixed-timestep loop, a
-Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
-it runs in CI.
+Milestones so far: **M0** (window + fixed-timestep loop + Vulkan clear-screen) and **M1** (a
+batched 2D sprite renderer — textured, tinted, rotated sprites with a `Camera2D`). It degrades
+gracefully with no GPU/display so `--headless` still runs in CI.
+
+To exercise real rendering without a GPU (e.g. CI), use a software Vulkan driver + virtual
+display:
+
+```
+VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json \
+  xvfb-run -a ./build/bin/sandbox --frames 90     # Mesa lavapipe + Xvfb
+```
 
 ---
 

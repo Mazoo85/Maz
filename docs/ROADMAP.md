@@ -7,9 +7,13 @@ This document is the master to-do list. It's organized into phases; **each bulle
 buildable task**. Phases are ordered roughly by dependency, but many items inside a phase can be
 done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
-> **Current milestone: M0 — walking skeleton.** Window opens, fixed-timestep loop runs, Vulkan
-> clears the screen, clean shutdown. Everything marked `[x]` below is done in the initial
-> scaffold; everything else is the road ahead.
+> **M0 — walking skeleton (done).** Window opens, fixed-timestep loop runs, Vulkan clears the
+> screen, clean shutdown.
+>
+> **M1 — 2D sprite renderer (done).** Textured, tinted, rotated sprites via a batched Vulkan
+> pipeline (buffers, staging uploads, descriptor sets, dynamic viewport/scissor, alpha blend);
+> `Camera2D`; stb_image loading. Verified validation-clean end-to-end on a software Vulkan
+> device (llvmpipe). Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -65,11 +69,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `beginFrame` / clear / `endFrame` present loop (clear color)
 - [x] Swapchain recreation on resize / out-of-date
 - [x] Graceful degrade when no GPU/ICD present (headless safe)
-- [ ] VMA (Vulkan Memory Allocator), buffer/image helpers, staging uploads
-- [ ] Graphics pipeline + descriptor-set management, push constants, dynamic state
-- [ ] Shader module loading from SPIR-V + reflection + hot reload
-- [ ] **2D:** sprite batch renderer, texture atlas, `Camera2D`, line/shape debug draw
-- [ ] **2D:** tilemap renderer (chunked), sprite sorting / layers
+- [x] Buffer + image helpers, staging uploads, `findMemoryType` (manual alloc; VMA swap-in later)
+- [x] Graphics pipeline + descriptor-set management, push constants, dynamic state
+- [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload
+- [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
+- [ ] **2D:** line/shape debug draw, tilemap renderer (chunked), sprite sorting / layers
+- [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [ ] Mesh renderer (indexed draw), vertex layouts, instancing
 - [ ] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull
@@ -151,7 +156,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 13 — Demos & the first real game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
-- [ ] `sandbox`: textured sprite + rotating cube (proves 2D + 3D)
+- [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
 - [ ] Sample scenes: pong, platformer, top-down shooter
 - [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
       loot, hordes, audio — the flagship proof the engine ships a full game (the existing

@@ -252,10 +252,59 @@ bool VulkanContext::createLogicalDevice(bool wantSurface) {
 
     vkGetDeviceQueue(m_device, m_graphicsFamily, 0, &m_graphicsQueue);
     vkGetDeviceQueue(m_device, m_presentFamily, 0, &m_presentQueue);
+    return createTransientPool();
+}
+
+bool VulkanContext::createTransientPool() {
+    VkCommandPoolCreateInfo pool{};
+    pool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    pool.queueFamilyIndex = m_graphicsFamily;
+    if (vkCreateCommandPool(m_device, &pool, nullptr, &m_transientPool) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("vkCreateCommandPool (transient) failed");
+        return false;
+    }
     return true;
 }
 
+VkCommandBuffer VulkanContext::beginSingleTimeCommands() {
+    if (m_device == VK_NULL_HANDLE || m_transientPool == VK_NULL_HANDLE) {
+        return VK_NULL_HANDLE;
+    }
+    VkCommandBufferAllocateInfo alloc{};
+    alloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc.commandPool = m_transientPool;
+    alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc.commandBufferCount = 1;
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    vkAllocateCommandBuffers(m_device, &alloc, &cmd);
+
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &begin);
+    return cmd;
+}
+
+void VulkanContext::endSingleTimeCommands(VkCommandBuffer cmd) {
+    if (cmd == VK_NULL_HANDLE) {
+        return;
+    }
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo submit{};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &cmd;
+    vkQueueSubmit(m_graphicsQueue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_graphicsQueue);
+    vkFreeCommandBuffers(m_device, m_transientPool, 1, &cmd);
+}
+
 void VulkanContext::shutdown() {
+    if (m_transientPool) {
+        vkDestroyCommandPool(m_device, m_transientPool, nullptr);
+        m_transientPool = VK_NULL_HANDLE;
+    }
     if (m_device) {
         vkDestroyDevice(m_device, nullptr);
         m_device = VK_NULL_HANDLE;
