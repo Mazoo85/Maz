@@ -10,6 +10,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -166,6 +167,7 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
         !createSkyPipeline(ctx, renderPass) || !createLightResources(ctx) ||
         !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_pipeline) ||
         !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_instancedPipeline, true) ||
+        !createPipeline(ctx, renderPass, VK_POLYGON_MODE_FILL, m_transparentPipeline, false, true) ||
         !createInstanceBuffers(ctx)) {
         return false;
     }
@@ -697,7 +699,7 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
 }
 
 bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
-                                  VkPipeline& outPipeline, bool instanced) {
+                                  VkPipeline& outPipeline, bool instanced, bool transparent) {
     const std::string base = assetBase();
     VkShaderModule vert = createShaderModule(
         ctx.device(),
@@ -773,11 +775,20 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, V
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable = VK_TRUE;
-    ds.depthWriteEnable = VK_TRUE;
+    // Transparent surfaces test against opaque depth but must not write it, so overlapping panes
+    // don't occlude each other and the back-to-front blend stays correct.
+    ds.depthWriteEnable = transparent ? VK_FALSE : VK_TRUE;
     ds.depthCompareOp = VK_COMPARE_OP_LESS;
 
+    // Opaque pipelines overwrite; the transparent pipeline does standard src-alpha over blending.
     VkPipelineColorBlendAttachmentState blend{};
-    blend.blendEnable = VK_FALSE;
+    blend.blendEnable = transparent ? VK_TRUE : VK_FALSE;
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blend.colorBlendOp = VK_BLEND_OP_ADD;
+    blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     VkPipelineColorBlendStateCreateInfo cb{};
@@ -928,6 +939,7 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
 
 void MeshRenderer::begin() {
     m_cmds.clear();
+    m_transCmds.clear();
     m_instCmds.clear();
     m_instStaging.clear();
 }
@@ -1000,6 +1012,28 @@ void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle tex
     m_cmds.push_back(cmd);
 }
 
+void MeshRenderer::drawTransparent(MeshHandle mesh, const float* model16, TextureHandle texture,
+                                   TextureHandle normal, const float emissive3[3], float roughness,
+                                   float specular, float opacity) {
+    if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
+        return;
+    }
+    DrawCmd cmd;
+    cmd.mesh = mesh;
+    cmd.texture = texture;
+    cmd.normal = normal;
+    std::memcpy(cmd.model, model16, sizeof(cmd.model));
+    if (emissive3) {
+        cmd.emissive[0] = emissive3[0];
+        cmd.emissive[1] = emissive3[1];
+        cmd.emissive[2] = emissive3[2];
+    }
+    cmd.roughness = roughness;
+    cmd.specular = specular;
+    cmd.alpha = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity);
+    m_transCmds.push_back(cmd);
+}
+
 void MeshRenderer::renderShadow(VkCommandBuffer cmd) {
     if (m_cmds.empty() || m_shadowPipeline == VK_NULL_HANDLE) {
         return;
@@ -1041,7 +1075,8 @@ void MeshRenderer::renderShadow(VkCommandBuffer cmd) {
 }
 
 void MeshRenderer::flush(VkCommandBuffer cmd) {
-    if ((m_cmds.empty() && m_instCmds.empty()) || m_pipeline == VK_NULL_HANDLE) {
+    if ((m_cmds.empty() && m_instCmds.empty() && m_transCmds.empty()) ||
+        m_pipeline == VK_NULL_HANDLE) {
         return;
     }
     const VkPipeline pipeline =
@@ -1100,7 +1135,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         push[18] = dc.emissive[2];
         push[19] = dc.roughness;   // material0.w = roughness
         push[20] = dc.specular;    // material1.x = specular strength (0 => matte)
-        push[21] = 0.0f;
+        push[21] = 1.0f;           // material1.y = opacity (opaque)
         push[22] = 0.0f;
         push[23] = 0.0f;
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1144,6 +1179,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
             idPush[18] = ic.emissive[2];
             idPush[19] = ic.roughness;
             idPush[20] = ic.specular;
+            idPush[21] = 1.0f; // opacity (opaque)
             vkCmdPushConstants(cmd, m_layout,
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(idPush), idPush);
@@ -1153,6 +1189,64 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
             vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(cmd, mesh.indexCount, ic.count, 0, 0, ic.first);
             m_instancesLastFrame += ic.count;
+        }
+    }
+
+    // Transparent pass: sort back-to-front by camera distance, then draw with alpha blending and
+    // no depth-write so overlapping translucent surfaces composite correctly over the opaque scene.
+    if (!m_transCmds.empty() && m_transparentPipeline != VK_NULL_HANDLE) {
+        const glm::vec3 camPos(m_camPos[0], m_camPos[1], m_camPos[2]);
+        std::vector<uint32_t> order(m_transCmds.size());
+        for (uint32_t i = 0; i < order.size(); ++i) {
+            order[i] = i;
+        }
+        auto dist2 = [&](uint32_t i) {
+            const DrawCmd& dc = m_transCmds[i];
+            const glm::vec3 c(dc.model[12], dc.model[13], dc.model[14]); // model translation
+            return glm::dot(c - camPos, c - camPos);
+        };
+        std::sort(order.begin(), order.end(),
+                  [&](uint32_t a, uint32_t b) { return dist2(a) > dist2(b); }); // farthest first
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_transparentPipeline);
+        for (uint32_t oi : order) {
+            const DrawCmd& dc = m_transCmds[oi];
+            const Mesh& mesh = m_meshes[dc.mesh];
+            const glm::mat4 model = glm::make_mat4(dc.model);
+
+            glm::vec3 wmin, wmax;
+            worldAabb(model, mesh.bmin, mesh.bmax, wmin, wmax);
+            if (!aabbInFrustum(frustum, wmin, wmax)) {
+                continue;
+            }
+
+            float push[24];
+            std::memcpy(push, glm::value_ptr(model), sizeof(float) * 16);
+            push[16] = dc.emissive[0];
+            push[17] = dc.emissive[1];
+            push[18] = dc.emissive[2];
+            push[19] = dc.roughness;
+            push[20] = dc.specular;
+            push[21] = dc.alpha; // material1.y = opacity
+            push[22] = 0.0f;
+            push[23] = 0.0f;
+            vkCmdPushConstants(cmd, m_layout,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(push), push);
+
+            VkDescriptorSet albedo = m_store->descriptorSet(dc.texture);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &albedo, 0,
+                                    nullptr);
+            const TextureHandle nrm = m_store->valid(dc.normal) ? dc.normal : m_defaultNormal;
+            VkDescriptorSet normalSet = m_store->descriptorSet(nrm);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 3, 1, &normalSet,
+                                    0, nullptr);
+
+            VkDeviceSize offset = 0;
+            VkBuffer vbuf = mesh.vboFor(m_frameIndex);
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
+            vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
         }
     }
 }
@@ -1175,6 +1269,7 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
 
     if (m_pipeline) vkDestroyPipeline(d, m_pipeline, nullptr);
     if (m_instancedPipeline) vkDestroyPipeline(d, m_instancedPipeline, nullptr);
+    if (m_transparentPipeline) vkDestroyPipeline(d, m_transparentPipeline, nullptr);
     if (m_wireframePipeline) vkDestroyPipeline(d, m_wireframePipeline, nullptr);
     if (m_layout) vkDestroyPipelineLayout(d, m_layout, nullptr);
     if (m_skyPipeline) vkDestroyPipeline(d, m_skyPipeline, nullptr);
@@ -1194,6 +1289,9 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
     if (m_shadowImage) vkDestroyImage(d, m_shadowImage, nullptr);
     if (m_shadowMemory) vkFreeMemory(d, m_shadowMemory, nullptr);
     m_pipeline = VK_NULL_HANDLE;
+    m_instancedPipeline = VK_NULL_HANDLE;
+    m_transparentPipeline = VK_NULL_HANDLE;
+    m_wireframePipeline = VK_NULL_HANDLE;
     m_layout = VK_NULL_HANDLE;
     m_skyPipeline = VK_NULL_HANDLE;
     m_skyLayout = VK_NULL_HANDLE;

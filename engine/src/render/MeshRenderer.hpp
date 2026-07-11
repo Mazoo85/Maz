@@ -58,6 +58,12 @@ public:
     void drawInstanced(MeshHandle mesh, const float* models16, uint32_t count, TextureHandle texture,
                        TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
                        float roughness = 1.0f, float specular = 0.0f);
+    // Queue a translucent mesh (opacity in [0,1]). Transparent draws are collected separately,
+    // sorted back-to-front by camera distance, and drawn after all opaque geometry with alpha
+    // blending and depth-write disabled so overlapping surfaces composite correctly.
+    void drawTransparent(MeshHandle mesh, const float* model16, TextureHandle texture,
+                         TextureHandle normal, const float emissive3[3], float roughness,
+                         float specular, float opacity);
     uint32_t instanceCount() const { return m_instancesLastFrame; }
 
     bool hasDraws() const { return !m_cmds.empty(); }
@@ -92,6 +98,7 @@ private:
         float emissive[3] = {0, 0, 0};
         float roughness = 1.0f;
         float specular = 0.0f;
+        float alpha = 1.0f; // opacity; < 1 routes the draw through the transparent pass
     };
 
     bool createShadowResources(VulkanContext& ctx);
@@ -99,7 +106,7 @@ private:
     bool createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass);
     bool createLightResources(VulkanContext& ctx);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass, VkPolygonMode mode,
-                        VkPipeline& outPipeline, bool instanced = false);
+                        VkPipeline& outPipeline, bool instanced = false, bool transparent = false);
     bool createInstanceBuffers(VulkanContext& ctx);
 
     struct InstCmd {
@@ -121,6 +128,7 @@ private:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipeline m_wireframePipeline = VK_NULL_HANDLE; // LINE polygon mode (if supported)
     VkPipeline m_instancedPipeline = VK_NULL_HANDLE; // per-instance model matrix from binding 1
+    VkPipeline m_transparentPipeline = VK_NULL_HANDLE; // alpha blend, depth-test but no depth-write
     bool m_wireframe = false;
 
     // Instancing: one host-visible instance buffer (mat4 per instance) per frame-in-flight, filled
@@ -157,6 +165,7 @@ private:
 
     std::vector<Mesh> m_meshes; // index 0 reserved (kInvalidMesh)
     std::vector<DrawCmd> m_cmds;
+    std::vector<DrawCmd> m_transCmds; // translucent draws, sorted back-to-front at flush
     float m_viewProj[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_lightVP[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_camPos[3] = {0, 0, 0};

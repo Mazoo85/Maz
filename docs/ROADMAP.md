@@ -210,6 +210,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
   M42)
 - [x] **Texture mipmaps** (blit-generated chain, trilinear min sampling, NEAREST mag; M52)
+- [x] **Transparency** (`drawMeshTransparent`: alpha-blended, depth-tested/no-write, back-to-front
+  sorted; the `glass` demo layers 3 panes over opaque pillars; M56)
 - [ ] Full PBR (energy-conserving metallic/roughness, IBL)
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader

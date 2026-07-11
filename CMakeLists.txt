@@ -50,6 +50,7 @@ add_subdirectory(apps/model)
 add_subdirectory(apps/village)
 add_subdirectory(apps/water)
 add_subdirectory(apps/instances)
+add_subdirectory(apps/glass)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

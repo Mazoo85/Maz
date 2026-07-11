@@ -212,6 +212,13 @@ public:
     // Instanced meshes receive shadows but do not cast them. No-op when inactive.
     virtual void drawMeshInstanced(MeshHandle mesh, const float* models16, uint32_t count,
                                    const Material& mat) = 0;
+    // Draw a translucent mesh with `opacity` in [0,1] (1 = fully opaque). Transparent draws are
+    // collected, sorted back-to-front by camera distance, and blended over the opaque scene after
+    // it is complete (glass, water panes, force fields, ghosts). They receive lighting/fog like
+    // opaque meshes but do not write depth (so they don't occlude each other) or cast shadows.
+    // No-op when inactive.
+    virtual void drawMeshTransparent(MeshHandle mesh, const float* model16, const Material& mat,
+                                     float opacity) = 0;
 
     // --- Debug draw (world-space lines) ---
     // Queue a world-space line segment (RGBA, alpha-blended, depth-tested so geometry occludes it).

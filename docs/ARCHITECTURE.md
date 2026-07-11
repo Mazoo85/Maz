@@ -31,10 +31,12 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog + normal mapping + emissive + specular
-                               (Material) + wireframe debug draw + instancing. Per-frame camera/light
-                               matrices live in a set-2 scene UBO; the per-draw push is just model +
-                               material. drawMeshInstanced renders N copies in one indexed draw via a
-                               per-instance vertex binding.
+                               (Material) + wireframe debug draw + instancing + transparency.
+                               Per-frame camera/light matrices live in a set-2 scene UBO; the
+                               per-draw push is just model + material. drawMeshInstanced renders N
+                               copies in one indexed draw via a per-instance vertex binding;
+                               drawMeshTransparent alpha-blends depth-sorted translucent meshes
+                               after the opaque pass.
               Particles3D    — world-space camera-facing additive billboard particles
               DebugDraw      — world-space debug lines / AABBs (collider + gizmo visualization)
               shapes         — procedural box / sphere / plane geometry

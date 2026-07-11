@@ -67,6 +67,8 @@ public:
     void drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) override;
     void drawMeshInstanced(MeshHandle mesh, const float* models16, uint32_t count,
                            const Material& mat) override;
+    void drawMeshTransparent(MeshHandle mesh, const float* model16, const Material& mat,
+                             float opacity) override;
     void drawLine(const float a3[3], const float b3[3], const float color4[4]) override;
     void drawAabb(const float min3[3], const float max3[3], const float color4[4]) override;
 
@@ -524,6 +526,14 @@ void VulkanRenderer::drawMeshInstanced(MeshHandle mesh, const float* models16, u
     if (m_active) {
         m_meshes.drawInstanced(mesh, models16, count, mat.albedo, mat.normal, mat.emissive,
                                mat.roughness, mat.specular);
+    }
+}
+
+void VulkanRenderer::drawMeshTransparent(MeshHandle mesh, const float* model16, const Material& mat,
+                                         float opacity) {
+    if (m_active) {
+        m_meshes.drawTransparent(mesh, model16, mat.albedo, mat.normal, mat.emissive, mat.roughness,
+                                 mat.specular, opacity);
     }
 }
 

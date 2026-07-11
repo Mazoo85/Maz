@@ -298,6 +298,24 @@ item — draw many copies of a mesh without one draw call each.
   correctly, no validation errors; new `instances_headless_smoke` + golden reference wired into
   ctest → **12/12**, existing apps' goldens unchanged (isolated pipeline, no regression).
 
-Later: material/uniform system, transparency depth-sorting, GPU-driven / indirect instancing,
-skeletal animation, retained UI, asset manager, cross-platform CI, a deterministic hold-frame
-screenshot mode to tighten golden tolerances.
+**Iteration 18 complete** (instanced mesh rendering; 484 cubes in one draw call).
+
+### Iteration 19 — "Transparency" (in progress)
+Self-directed: the mesh path was opaque-only — a hard limitation for any real scene (glass,
+water panes, holograms, fade-outs). Fill that gap.
+- [x] **M56 — Transparent (alpha-blended) mesh rendering**: added a third mesh pipeline with alpha
+  blending (`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA`) and **depth-write disabled** (depth-test still on),
+  so translucent surfaces test against the opaque scene but don't occlude each other. New
+  `Renderer::drawMeshTransparent(mesh, model, material, opacity)` collects translucent draws into a
+  separate list; at flush they are **sorted back-to-front by camera distance** and drawn after all
+  opaque + instanced geometry. The shared `mesh.frag` now outputs `material1.y` as opacity (opaque
+  draws set it to 1.0, so they're unchanged). Transparent meshes receive full lighting/fog but do
+  not cast shadows. New `glass` demo: three colored panes blended over five opaque colored pillars,
+  camera orbiting so the tints sweep across the geometry. Verified on lavapipe: the pillars read
+  clearly through the glass and overlapping panes stack their tints correctly, no validation errors;
+  new `glass_headless_smoke` + golden reference wired into ctest → **13/13**, and every existing
+  app's golden is unchanged (opaque path byte-identical), proving no regression.
+
+Later: order-independent transparency (weighted-blended), material/uniform system, GPU-driven /
+indirect instancing, skeletal animation, retained UI, asset manager, cross-platform CI, a
+deterministic hold-frame screenshot mode to tighten golden tolerances.

@@ -148,6 +148,10 @@ available):
 - **M55** — instanced mesh rendering: `drawMeshInstanced` draws one mesh many times in a single
   `vkCmdDrawIndexed` call, the per-instance model matrix supplied through a second vertex binding.
   The `instances` demo animates 484 bobbing/spinning cubes in one draw call. Golden-image guarded
+- **M56** — transparent meshes: `drawMeshTransparent` renders translucent geometry (glass, water
+  panes, ghosts) with alpha blending, depth-tested but not depth-writing, sorted back-to-front by
+  camera distance so overlapping surfaces composite correctly. The `glass` demo blends three
+  colored panes over opaque pillars. Opaque draws are byte-identical, so existing apps are unchanged
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

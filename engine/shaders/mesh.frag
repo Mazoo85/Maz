@@ -10,7 +10,7 @@ layout(location = 4) in vec3 vWorldPos;
 layout(push_constant) uniform Push {
     mat4 model;
     vec4 material0; // rgb = emissive (self-illumination, feeds bloom), w = roughness
-    vec4 material1; // x = specular strength
+    vec4 material1; // x = specular strength, y = opacity (1 = opaque)
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
@@ -125,5 +125,5 @@ void main() {
         color = mix(color, L.fog.rgb, f);
     }
 
-    outColor = vec4(color, 1.0);
+    outColor = vec4(color, pc.material1.y); // material1.y = opacity (1 for opaque draws)
 }
