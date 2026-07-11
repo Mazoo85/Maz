@@ -55,8 +55,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             StateMachine (generic FSM: enter/update/exit + guarded transitions)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
-            SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot)
-            (header-only; animate any float/vector/color over time, or a sprite through frames)
+            SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
+            Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation
+            (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)

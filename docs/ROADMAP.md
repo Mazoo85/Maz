@@ -289,7 +289,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 8 — Animation
 - [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot
   UV-frame playback; the `sprites` demo plays a phase-staggered wave; M63) — frame events later
-- [ ] Skeletal animation (glTF skins), GPU skinning, blend trees
+- [x] **Skeletal animation core** (`anim::Skeleton`: joint hierarchy + bind/inverse-bind + skinning
+  matrices; the `skeleton` demo CPU-skins a tapered tube on an 8-bone chain; M67) — glTF skins /
+  GPU skinning / blend trees later
 - [ ] Animation state machine, transitions, IK (later)
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later

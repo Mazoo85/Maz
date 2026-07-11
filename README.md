@@ -197,6 +197,11 @@ available):
   callback) when the count hits zero, plus load/hit stats. The `assetcache` demo draws a 240-tile
   mosaic that resolves to only 8 GPU textures (232 cache hits, 97% saved). Dedup/refcount/evict
   unit-tested
+- **M67** — skeletal animation: `anim::Skeleton` is a joint hierarchy that precomputes bind/inverse-
+  bind globals and turns an animated pose into skinning matrices (`skin = globalPose · inverseBind`).
+  The `skeleton` demo binds a tapered tube to an 8-bone chain and CPU-skins it (two-bone weight
+  blend) through the dynamic-mesh path — no new vertex format, so the existing mesh pipeline is
+  untouched. Rest-pose identity, transform chaining, and rigid skinning unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

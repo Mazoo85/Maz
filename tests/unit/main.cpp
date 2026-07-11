@@ -3,6 +3,7 @@
 // if any check fails, so it plugs straight into ctest. Kept minimal to match the engine's no-extra-
 // dependency philosophy.
 
+#include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/core/Events.hpp"
@@ -878,6 +879,56 @@ void testResourceCache() {
     CHECK(pool.size() == 0);
 }
 
+void testSkeleton() {
+    // Two joints: root at origin, child one unit up (local translate (0,1,0)).
+    std::vector<anim::Joint> joints(2);
+    joints[0].parent = -1;
+    joints[0].localBind = math::mat4(1.0f);
+    joints[1].parent = 0;
+    joints[1].localBind = glm::translate(math::mat4(1.0f), math::vec3(0, 1, 0));
+    anim::Skeleton skel(joints);
+    CHECK(skel.jointCount() == 2);
+    CHECK(skel.parent(1) == 0);
+
+    // Global bind of the child places it at (0,1,0).
+    const math::vec4 childBindPos = skel.globalBind()[1] * math::vec4(0, 0, 0, 1);
+    CHECK_NEAR(childBindPos.x, 0.0f, 1e-5f);
+    CHECK_NEAR(childBindPos.y, 1.0f, 1e-5f);
+
+    // At rest (local == localBind), every skinning matrix is the identity (no deformation).
+    std::vector<math::mat4> skin;
+    skel.computeSkinning(skel.restLocals(), skin);
+    for (size_t i = 0; i < skel.jointCount(); ++i) {
+        const math::vec4 p = skin[i] * math::vec4(0.3f, 0.7f, -0.2f, 1.0f);
+        CHECK_NEAR(p.x, 0.3f, 1e-5f);
+        CHECK_NEAR(p.y, 0.7f, 1e-5f);
+        CHECK_NEAR(p.z, -0.2f, 1e-5f);
+    }
+
+    // computeGlobals chains transforms: translate root by (5,0,0), keep child local (0,1,0) ->
+    // child global maps the origin to (5,1,0).
+    std::vector<math::mat4> locals = skel.restLocals();
+    locals[0] = glm::translate(math::mat4(1.0f), math::vec3(5, 0, 0));
+    std::vector<math::mat4> globals;
+    skel.computeGlobals(locals, globals);
+    const math::vec4 childPos = globals[1] * math::vec4(0, 0, 0, 1);
+    CHECK_NEAR(childPos.x, 5.0f, 1e-5f);
+    CHECK_NEAR(childPos.y, 1.0f, 1e-5f);
+
+    // Rigidly rotating the root 90 deg about Z moves a root-bound vertex from (1,0,0) to (0,1,0).
+    std::vector<math::mat4> rot = skel.restLocals();
+    rot[0] = glm::rotate(math::mat4(1.0f), glm::radians(90.0f), math::vec3(0, 0, 1));
+    std::vector<math::mat4> skin2;
+    skel.computeSkinning(rot, skin2);
+    const math::vec4 v = skin2[0] * math::vec4(1, 0, 0, 1);
+    CHECK_NEAR(v.x, 0.0f, 1e-5f);
+    CHECK_NEAR(v.y, 1.0f, 1e-5f);
+    // And a child-bound vertex at the child's bind position (0,1,0) rotates about the root to (-1,0,0).
+    const math::vec4 cv = skin2[1] * math::vec4(0, 1, 0, 1);
+    CHECK_NEAR(cv.x, -1.0f, 1e-5f);
+    CHECK_NEAR(cv.y, 0.0f, 1e-5f);
+}
+
 } // namespace
 
 int main() {
@@ -890,6 +941,7 @@ int main() {
     testSteering();
     testStateMachine();
     testSpriteAnim();
+    testSkeleton();
     testEventBus();
     testJobs();
     testResourceCache();

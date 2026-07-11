@@ -503,8 +503,30 @@ asset manager and a prerequisite for any content pipeline.
   renders, RMSE 0, no validation errors); new `assetcache_headless_smoke` + golden → ctest
   **23/23**, every existing golden unchanged.
 
-Later: back TextureStore/mesh loading with the cache, parallelize a hot loop via parallelFor, wire
-the event bus into a game, animation events, behavior trees, reflection-driven ECS serialization,
-JSON/text format, UI layout / text input, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, skeletal animation, cross-platform CI, a deterministic hold-frame
-screenshot mode to tighten golden tolerances.
+**Iteration 29 complete** (resource cache / asset manager core).
+
+### Iteration 30 — "Skeletal animation" (in progress)
+Self-directed: the biggest remaining capability gap for 3D games — deforming a mesh with a bone
+hierarchy (animated characters). Tackled risk-first: build the math as pure logic and drive it
+through the EXISTING dynamic-mesh path (CPU skinning), so no vertex-format or shader change can
+regress the mesh pipeline.
+- [x] **M67 — Skeletal animation core**: header-only `anim::Skeleton` — joints stored parents-
+  before-children with a parent index and a rest-pose local transform; `setJoints` precomputes each
+  joint's global bind matrix (parent-chained) and its inverse. `computeGlobals` chains an animated
+  pose's local transforms into model space; `computeSkinning` returns `skin[i] = globalPose[i] *
+  inverseBind[i]`, which is the identity at rest (a strong correctness invariant). Pure matrix math
+  → unit-tested headlessly (287 checks total): rest-pose skin == identity, global-bind child
+  placement, transform chaining (translate root -> child follows), and rigid rotation moving a
+  bound vertex to the expected spot for both a root- and a child-bound vertex. New `skeleton` demo:
+  a tapered tube bound to an 8-bone chain, each vertex weighted to its two nearest bones; a
+  travelling bend wave animates the pose, the mesh is CPU-skinned (position + normal blend) and
+  streamed via `updateMesh`, and the bone chain is drawn as a debug line over the deforming skin —
+  the tube smoothly S-curves with no faceting at the joints. Verified on lavapipe (448 vertices
+  skinned, no validation errors); new `skeleton_headless_smoke` + golden → ctest **24/24**, every
+  existing golden unchanged.
+
+Later: GPU skinning (skinned vertex format + joint-matrix UBO), glTF skin/animation import, pose
+interpolation + blend trees, back TextureStore/mesh loading with the cache, parallelize a hot loop,
+wire the event bus into a game, behavior trees, reflection-driven ECS serialization, JSON/text
+format, UI layout / text input, order-independent transparency, material/uniform system, GPU-driven
+/ indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode.
