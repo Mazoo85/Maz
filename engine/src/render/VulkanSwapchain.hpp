@@ -31,6 +31,7 @@ public:
 
     VkExtent2D extent() const { return m_extent; }
     VkFormat format() const { return m_format; }
+    VkFormat sceneFormat() const { return m_sceneFormat; } // HDR float format of the scene target
     VkSampleCountFlagBits samples() const { return m_samples; }
     uint32_t imageCount() const { return static_cast<uint32_t>(m_images.size()); }
 

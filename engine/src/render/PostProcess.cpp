@@ -54,24 +54,26 @@ struct PushParams {
 } // namespace
 
 bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageView sceneView,
-                       VkSampler sceneSampler) {
-    // Descriptor set: one combined image sampler for the scene color.
-    VkDescriptorSetLayoutBinding binding{};
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+                       VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler) {
+    // Descriptor set: combined image samplers for the scene color (0) and the bloom texture (1).
+    VkDescriptorSetLayoutBinding bindings[2]{};
+    for (uint32_t i = 0; i < 2; ++i) {
+        bindings[i].binding = i;
+        bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[i].descriptorCount = 1;
+        bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
     VkDescriptorSetLayoutCreateInfo li{};
     li.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    li.bindingCount = 1;
-    li.pBindings = &binding;
+    li.bindingCount = 2;
+    li.pBindings = bindings;
     if (vkCreateDescriptorSetLayout(ctx.device(), &li, nullptr, &m_setLayout) != VK_SUCCESS) {
         MAZ_LOG_ERROR("composite set layout failed");
         return false;
     }
     VkDescriptorPoolSize ps{};
     ps.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    ps.descriptorCount = 1;
+    ps.descriptorCount = 2;
     VkDescriptorPoolCreateInfo pi{};
     pi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pi.maxSets = 1;
@@ -90,28 +92,35 @@ bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageVi
         MAZ_LOG_ERROR("composite set alloc failed");
         return false;
     }
-    writeDescriptor(ctx, sceneView, sceneSampler);
+    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler);
     m_compositePass = compositePass;
     return createPipeline(ctx, compositePass);
 }
 
-void PostProcess::writeDescriptor(VulkanContext& ctx, VkImageView view, VkSampler sampler) {
-    VkDescriptorImageInfo img{};
-    img.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    img.imageView = view;
-    img.sampler = sampler;
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = m_set;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo = &img;
-    vkUpdateDescriptorSets(ctx.device(), 1, &write, 0, nullptr);
+void PostProcess::writeDescriptor(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
+                                  VkImageView bloomView, VkSampler bloomSampler) {
+    VkDescriptorImageInfo imgs[2]{};
+    imgs[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgs[0].imageView = sceneView;
+    imgs[0].sampler = sceneSampler;
+    imgs[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgs[1].imageView = bloomView;
+    imgs[1].sampler = bloomSampler;
+    VkWriteDescriptorSet writes[2]{};
+    for (uint32_t i = 0; i < 2; ++i) {
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = m_set;
+        writes[i].dstBinding = i;
+        writes[i].descriptorCount = 1;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[i].pImageInfo = &imgs[i];
+    }
+    vkUpdateDescriptorSets(ctx.device(), 2, writes, 0, nullptr);
 }
 
-void PostProcess::updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler) {
-    writeDescriptor(ctx, sceneView, sceneSampler);
+void PostProcess::updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
+                               VkImageView bloomView, VkSampler bloomSampler) {
+    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler);
 }
 
 bool PostProcess::createPipeline(VulkanContext& ctx, VkRenderPass compositePass) {

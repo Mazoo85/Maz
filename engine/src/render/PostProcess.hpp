@@ -14,11 +14,12 @@ class VulkanContext;
 class PostProcess {
 public:
     bool init(VulkanContext& ctx, VkRenderPass compositePass, VkImageView sceneView,
-              VkSampler sceneSampler);
+              VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler);
     void shutdown(VulkanContext& ctx);
 
-    // Re-point the sampled scene color after a swapchain rebuild (resize).
-    void updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler);
+    // Re-point the sampled scene color + bloom after a swapchain rebuild (resize).
+    void updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
+                      VkImageView bloomView, VkSampler bloomSampler);
 
     void setBloom(float strength, float threshold) {
         m_strength = strength;
@@ -36,7 +37,8 @@ public:
 
 private:
     bool createPipeline(VulkanContext& ctx, VkRenderPass compositePass);
-    void writeDescriptor(VulkanContext& ctx, VkImageView view, VkSampler sampler);
+    void writeDescriptor(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
+                         VkImageView bloomView, VkSampler bloomSampler);
 
     VkRenderPass m_compositePass = VK_NULL_HANDLE; // not owned
     VkDescriptorSetLayout m_setLayout = VK_NULL_HANDLE;

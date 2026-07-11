@@ -217,7 +217,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Image-based lighting, cascaded / point-light shadows
 - [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
 - [x] **HDR scene target + ACES tonemap/exposure** (16-bit float scene color, `setTonemap`; M38)
-- [ ] Separable multi-pass bloom, FXAA/TAA, richer post stack
+- [x] **Separable downsampled bloom** (`BloomChain`: bright-pass + ½-res 2-pass Gaussian; M41)
+- [ ] FXAA/TAA, richer post stack (dirt/lens, chromatic aberration)
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [x] Render-to-texture (offscreen scene color target for post-processing; M27)
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)

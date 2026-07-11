@@ -158,8 +158,15 @@ blur (narrow, aliased at higher strengths). This iteration:
   (deduped by a per-query stamp). `world` collides against the grid and draws occupied cells in cyan
   with **F6** (`--grid`). Verified on lavapipe: the grid overlay tiles the block field, movement and
   pickups still work (autopilot collects), no validation errors.
-- [ ] **M41 — Separable downsampled bloom**: bright-pass + downsample the HDR scene to a half-res
-  target, separable horizontal/vertical Gaussian blur, then add it back in composite.
+- [x] **M41 — Separable downsampled bloom**: a `BloomChain` runs three half-res fullscreen passes —
+  bright-pass + 2×2 downsample of the HDR sceneColor, then a separable horizontal and vertical
+  9-tap Gaussian (ping-pong between two float targets). The composite samples the blurred result
+  (a second sampler) and adds it scaled by strength; the in-shader single-pass bloom is gone. Wider,
+  smoother glow at lower cost (O(2n) taps, ¼ the pixels). Verified on lavapipe: orbs (2D) and cube
+  (3D) pixel-identical with bloom off, water/world show a broader soft glow with bloom on, no
+  validation errors across the new render passes.
+
+**Iteration 10 complete** (spatial-grid broadphase; separable downsampled bloom).
 
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, save graphics settings via
-KeyValueStore, FXAA, second/ortho viewport.
+KeyValueStore, FXAA, second/ortho viewport, reflective water.

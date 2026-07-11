@@ -109,6 +109,10 @@ available):
 - **M40** — spatial grid broadphase: `maz::game::SpatialGrid` buckets static colliders into X/Z
   cells so movement only tests nearby boxes (a `slideMove` overload uses it); `world` collides
   against the grid and **F6** overlays the occupied cells in cyan
+- **M41** — separable downsampled bloom: a `BloomChain` bright-passes + 2× downsamples the HDR scene,
+  then blurs it separably (horizontal then vertical) at half resolution; the composite adds the
+  result. Wider, smoother glow than the old single-pass bloom, and cheaper. Bloom-off apps stay
+  pixel-identical
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

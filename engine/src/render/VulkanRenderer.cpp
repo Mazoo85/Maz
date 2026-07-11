@@ -5,6 +5,7 @@
 #include "render/MeshRenderer.hpp"
 #include "render/DebugDraw.hpp"
 #include "render/Particles3D.hpp"
+#include "render/BloomChain.hpp"
 #include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureStore.hpp"
@@ -80,6 +81,7 @@ private:
     Particles3D m_particles;
     DebugDraw m_debug;
     PostProcess m_post;
+    BloomChain m_bloom;
     RendererConfig m_cfg;
 
     float m_viewProj3D[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
@@ -153,8 +155,13 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         MAZ_LOG_ERROR("debug-draw renderer init failed");
         return false;
     }
+    if (!m_bloom.init(m_ctx, m_swapchain.sceneFormat(), m_swapchain.extent(),
+                      m_swapchain.sceneColorView(), m_swapchain.sceneSampler())) {
+        MAZ_LOG_ERROR("bloom chain init failed");
+        return false;
+    }
     if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
-                     m_swapchain.sceneSampler())) {
+                     m_swapchain.sceneSampler(), m_bloom.bloomView(), m_bloom.sampler())) {
         MAZ_LOG_ERROR("post-process init failed");
         return false;
     }
@@ -218,8 +225,11 @@ void VulkanRenderer::recreateSwapchain(uint32_t width, uint32_t height) {
         m_active = false;
         return;
     }
-    // The scene color image changed; re-point the composite's sampler at the new one.
-    m_post.updateSource(m_ctx, m_swapchain.sceneColorView(), m_swapchain.sceneSampler());
+    // The scene color image changed; rebuild the bloom targets and re-point both samplers.
+    m_bloom.resize(m_ctx, m_swapchain.extent(), m_swapchain.sceneColorView(),
+                   m_swapchain.sceneSampler());
+    m_post.updateSource(m_ctx, m_swapchain.sceneColorView(), m_swapchain.sceneSampler(),
+                        m_bloom.bloomView(), m_bloom.sampler());
     m_imagesInFlight.assign(m_swapchain.imageCount(), VK_NULL_HANDLE);
 }
 
@@ -313,7 +323,10 @@ void VulkanRenderer::endFrame() {
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
 
-    // 3) Composite pass — tonemap/bloom sceneColor into the swapchain image.
+    // 3) Bloom chain — bright-pass + separable blur of sceneColor into a half-res target.
+    m_bloom.record(cmd);
+
+    // 4) Composite pass — add bloom + tonemap sceneColor into the swapchain image.
     m_post.record(cmd, m_swapchain.compositeFramebuffer(m_imageIndex), m_swapchain.extent());
     vkEndCommandBuffer(cmd);
 
@@ -457,6 +470,7 @@ void VulkanRenderer::setTonemap(float exposure, bool enabled) {
 void VulkanRenderer::setBloom(float strength, float threshold) {
     if (m_active) {
         m_post.setBloom(strength, threshold);
+        m_bloom.setThreshold(threshold);
     }
 }
 
@@ -497,6 +511,7 @@ void VulkanRenderer::shutdown() {
     }
     if (m_active) {
         m_post.shutdown(m_ctx);
+        m_bloom.shutdown(m_ctx);
         m_debug.shutdown(m_ctx);
         m_particles.shutdown(m_ctx);
         m_meshes.shutdown(m_ctx);
