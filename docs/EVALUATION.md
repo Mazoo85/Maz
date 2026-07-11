@@ -168,5 +168,17 @@ blur (narrow, aliased at higher strengths). This iteration:
 
 **Iteration 10 complete** (spatial-grid broadphase; separable downsampled bloom).
 
-Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, save graphics settings via
-KeyValueStore, FXAA, second/ortho viewport, reflective water.
+### Iteration 11 — "Materials & settings" (in progress)
+Evaluation: meshes were purely diffuse (no glossy highlights), and graphics/quality choices weren't
+persisted. This iteration:
+- [x] **M42 — Specular/roughness material**: `Renderer::Material` (albedo, normal, emissive,
+  roughness, specular) + `drawMeshMaterial`. mesh.frag adds a Blinn-Phong sun highlight gated by the
+  specular strength (packed into the spare `camPos.w`) and roughness (spare `emissive.w`); matte
+  defaults (specular 0) leave every existing draw byte-identical. The `cube` demo opts in and shows a
+  glossy highlight sweeping across its faces. Verified on lavapipe: highlight visible in the spin
+  montage, orbs/matte unchanged, no validation errors.
+- [ ] **M43 — Persist graphics settings**: `world` saves bloom/tonemap/wireframe toggles via
+  `KeyValueStore` and restores them on launch.
+
+Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
+viewport, reflective water, SSAO.

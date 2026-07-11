@@ -118,9 +118,9 @@ int main(int argc, char** argv) {
         }
 
         // Camera: perspective (Vulkan-correct) looking at the origin.
+        const glm::vec3 eye(2.6f, 2.0f, 3.2f);
         const glm::mat4 proj = math::perspective(glm::radians(50.0f), aspect, 0.1f, 100.0f);
-        const glm::mat4 view =
-            glm::lookAt(glm::vec3(2.6f, 2.0f, 3.2f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+        const glm::mat4 view = glm::lookAt(eye, glm::vec3(0.0f), glm::vec3(0, 1, 0));
         const glm::mat4 viewProj = proj * view;
         const glm::mat4 model =
             glm::rotate(glm::mat4(1.0f), spin, glm::normalize(glm::vec3(0.35f, 1.0f, 0.2f)));
@@ -128,7 +128,12 @@ int main(int argc, char** argv) {
         renderer->setClearColor(render::Color{0.08f, 0.09f, 0.13f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
-            renderer->drawMesh(cube, glm::value_ptr(model), checker);
+            renderer->setCameraPosition(glm::value_ptr(eye)); // for the specular view direction
+            render::Renderer::Material mat;
+            mat.albedo = checker;
+            mat.roughness = 0.45f; // glossy with a broad sheen
+            mat.specular = 1.3f;   // bright sun highlight sweeps across the cube as it spins
+            renderer->drawMeshMaterial(cube, glm::value_ptr(model), mat);
 
             // 2D HUD over the 3D scene (same frame).
             render::Camera2D ui;

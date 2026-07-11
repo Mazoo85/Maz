@@ -113,6 +113,10 @@ available):
   then blurs it separably (horizontal then vertical) at half resolution; the composite adds the
   result. Wider, smoother glow than the old single-pass bloom, and cheaper. Bloom-off apps stay
   pixel-identical
+- **M42** — specular/roughness material: `Renderer::Material` + `drawMeshMaterial` add a Blinn-Phong
+  sun highlight to meshes (albedo + normal + emissive + `roughness`/`specular`); matte defaults leave
+  existing draws unchanged. The `cube` demo is now a glossy checker with a highlight that sweeps as
+  it spins
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

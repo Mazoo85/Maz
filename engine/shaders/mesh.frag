@@ -102,6 +102,19 @@ void main() {
 
     vec3 color = albedo * lit + pc.emissive.rgb; // self-illumination (feeds bloom)
 
+    // Blinn-Phong specular from the sun, gated by the material's specular strength (camPos.w) and
+    // roughness (emissive.w). specStrength 0 (default) leaves matte meshes unchanged.
+    float specStrength = pc.camPos.w;
+    if (specStrength > 0.0) {
+        float roughness = clamp(pc.emissive.w, 0.02, 1.0);
+        float shininess = mix(4.0, 128.0, 1.0 - roughness);
+        vec3 V = normalize(pc.camPos.xyz - vWorldPos);
+        vec3 Lsun = normalize(L.sunDir.xyz);
+        vec3 H = normalize(Lsun + V);
+        float spec = pow(max(dot(N, H), 0.0), shininess);
+        color += L.sunColor.rgb * spec * specStrength * ndl * shadowFactor();
+    }
+
     // Exponential distance fog: blend toward the fog color with camera distance.
     if (L.fog.w > 0.0) {
         float dist = length(pc.camPos.xyz - vWorldPos);

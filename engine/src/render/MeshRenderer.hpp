@@ -50,7 +50,8 @@ public:
 
     void begin();
     void draw(MeshHandle mesh, const float* model16, TextureHandle texture,
-              TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr);
+              TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
+              float roughness = 1.0f, float specular = 0.0f);
 
     bool hasDraws() const { return !m_cmds.empty(); }
     uint32_t drawCount() const { return m_drawnLastFrame; }   // meshes actually drawn (post-cull)
@@ -82,6 +83,8 @@ private:
         TextureHandle normal;
         float model[16];
         float emissive[3] = {0, 0, 0};
+        float roughness = 1.0f;
+        float specular = 0.0f;
     };
 
     bool createShadowResources(VulkanContext& ctx);

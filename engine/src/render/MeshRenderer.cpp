@@ -903,7 +903,8 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
 void MeshRenderer::begin() { m_cmds.clear(); }
 
 void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture,
-                        TextureHandle normal, const float emissive3[3]) {
+                        TextureHandle normal, const float emissive3[3], float roughness,
+                        float specular) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
@@ -917,6 +918,8 @@ void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle tex
         cmd.emissive[1] = emissive3[1];
         cmd.emissive[2] = emissive3[2];
     }
+    cmd.roughness = roughness;
+    cmd.specular = specular;
     m_cmds.push_back(cmd);
 }
 
@@ -1010,11 +1013,11 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         push[48] = m_camPos[0];
         push[49] = m_camPos[1];
         push[50] = m_camPos[2];
-        push[51] = 1.0f;
+        push[51] = dc.specular;    // camPos.w = specular strength (0 => matte, no highlight)
         push[52] = dc.emissive[0]; // self-illumination (added post-lighting, feeds bloom)
         push[53] = dc.emissive[1];
         push[54] = dc.emissive[2];
-        push[55] = 0.0f;
+        push[55] = dc.roughness;   // emissive.w = roughness (1 => broad, 0 => sharp highlight)
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(push), push);
 

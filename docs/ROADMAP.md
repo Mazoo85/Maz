@@ -202,8 +202,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   the `water` demo animates a summed-sine grid; M35)
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
-  (`drawMeshEmissive`, feeds bloom; M37) — PBR metallic/roughness still to come
-- [ ] Full PBR (metallic/roughness), texture mipmaps
+  (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
+  M42)
+- [ ] Full PBR (energy-conserving metallic/roughness, IBL), texture mipmaps
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

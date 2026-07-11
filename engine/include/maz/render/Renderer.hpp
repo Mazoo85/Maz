@@ -183,6 +183,20 @@ public:
     virtual void drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
                                   TextureHandle normal, const float emissive3[3]) = 0;
 
+    // Surface material for a mesh draw. The defaults reproduce the plain matte look of drawMesh
+    // (no emissive, no specular), so switching an existing draw to drawMeshMaterial changes nothing
+    // until you raise `specular`. `roughness` 1 is a broad soft highlight, 0 a tight glossy one.
+    struct Material {
+        TextureHandle albedo = kInvalidTexture;
+        TextureHandle normal = kInvalidTexture;
+        float emissive[3] = {0.0f, 0.0f, 0.0f};
+        float roughness = 1.0f;
+        float specular = 0.0f; // specular strength (0 = matte)
+    };
+    // Draw a mesh with a full material (albedo + normal map + emissive + specular/roughness). The
+    // specular highlight comes from the sun. No-op when inactive.
+    virtual void drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) = 0;
+
     // --- Debug draw (world-space lines) ---
     // Queue a world-space line segment (RGBA, alpha-blended, depth-tested so geometry occludes it).
     // Useful for visualizing colliders, light ranges, paths, and gizmos. No-op when inactive.
