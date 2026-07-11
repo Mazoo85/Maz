@@ -122,6 +122,9 @@ available):
   launch; a HUD line shows the live state
 - **M44** — soft shadows: the shadow-map filter widened from 2×2 to a 5×5 PCF kernel (25 taps, wider
   spread) for a soft penumbra instead of blocky edges — every shadowed 3D scene benefits
+- **M45** — color grade: the composite gained an opt-in `setColorGrade` (soft **vignette** +
+  saturation + contrast); off by default (no regression). VILLAGE QUEST wears a cinematic grade that
+  deepens at night
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -31,6 +31,14 @@ public:
         m_exposure = exposure;
         m_tonemap = enabled;
     }
+    // Enable a color grade: vignette strength (0..1 corner darkening), saturation (1 = neutral),
+    // contrast (1 = neutral). Off by default so apps that don't opt in are unchanged.
+    void setColorGrade(float vignette, float saturation, float contrast, bool enabled) {
+        m_vignette = vignette;
+        m_saturation = saturation;
+        m_contrast = contrast;
+        m_colorGrade = enabled;
+    }
 
     // Begin the composite pass into `framebuffer`, draw the full-screen composite, end the pass.
     void record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent);
@@ -51,6 +59,10 @@ private:
     float m_threshold = 0.75f; // brightness above which pixels bloom
     float m_exposure = 1.0f;   // HDR exposure multiplier before tonemapping
     bool m_tonemap = false;    // false => no tonemap (passthrough of [0,1] values)
+    float m_vignette = 0.0f;   // corner darkening amount
+    float m_saturation = 1.0f; // 1 = neutral
+    float m_contrast = 1.0f;   // 1 = neutral
+    bool m_colorGrade = false; // false => no grade (passthrough)
 };
 
 } // namespace maz::render

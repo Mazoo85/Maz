@@ -191,8 +191,13 @@ This iteration:
 - [x] **M44 — Soft shadows**: `shadowFactor()` widened to a 5×5 PCF kernel (25 taps at 1.5-texel
   spread) for a soft penumbra. Shader-only; every shadowed 3D app benefits. Verified on lavapipe:
   the `model` house casts a soft self-shadow with no blocky edges, no validation errors.
-- [ ] **M45 — Vignette + color grade**: an opt-in vignette + saturation/contrast in the composite
-  (`setColorGrade`), off by default so bloom-off/tonemap-off apps are unchanged.
+- [x] **M45 — Vignette + color grade**: the composite gained an opt-in grade (soft vignette +
+  saturation + contrast) via a second push-constant vec4 and `Renderer::setColorGrade`; off by
+  default, so bloom-off/tonemap-off apps stay byte-identical. VILLAGE QUEST wears a cinematic grade
+  that deepens at night. Verified on lavapipe: the village shows darkened corners + richer color,
+  orbs (grade off) unchanged, no validation errors.
+
+**Iteration 12 complete** (soft shadows; composite color grade).
 
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
 viewport, reflective water, SSAO, in-app settings menu UI.

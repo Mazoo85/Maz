@@ -152,6 +152,10 @@ public:
     // highlights off smoothly. Off by default (a faithful passthrough); enable per app. No-op when
     // inactive.
     virtual void setTonemap(float exposure, bool enabled) = 0;
+    // Enable a filmic color grade on the composited image: `vignette` darkens the corners (0..1),
+    // `saturation` scales chroma (1 = neutral), `contrast` scales about mid-grey (1 = neutral). Off
+    // by default (a faithful passthrough). No-op when inactive.
+    virtual void setColorGrade(float vignette, float saturation, float contrast, bool enabled) = 0;
     // Draw meshes as wireframe (line polygons) instead of filled — a debug-draw aid. Requires the
     // GPU's fillModeNonSolid feature; silently stays filled if unsupported. No-op when inactive.
     virtual void setWireframe(bool enabled) = 0;

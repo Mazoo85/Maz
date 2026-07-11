@@ -49,6 +49,7 @@ std::string assetBase() {
 
 struct PushParams {
     float params[4]; // x = bloom strength, y = threshold, z = exposure, w = tonemap enable
+    float grade[4];  // x = vignette, y = saturation, z = contrast, w = color-grade enable
 };
 
 } // namespace
@@ -248,6 +249,10 @@ void PostProcess::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExten
     pc.params[1] = m_threshold;
     pc.params[2] = m_exposure;
     pc.params[3] = m_tonemap ? 1.0f : 0.0f;
+    pc.grade[0] = m_vignette;
+    pc.grade[1] = m_saturation;
+    pc.grade[2] = m_contrast;
+    pc.grade[3] = m_colorGrade ? 1.0f : 0.0f;
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
