@@ -56,7 +56,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             StateMachine (generic FSM: enter/update/exit + guarded transitions)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
-            Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation
+            Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
+            AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files)

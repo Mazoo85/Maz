@@ -46,6 +46,7 @@ CASES=(
     "jobs||2.5|0.05"
     "assetcache||2.5|0.05"
     "skeleton||2.5|0.16"
+    "animclip||2.5|0.16"
 )
 
 if [ ! -f "$ICD" ]; then

@@ -3,6 +3,7 @@
 // if any check fails, so it plugs straight into ctest. Kept minimal to match the engine's no-extra-
 // dependency philosophy.
 
+#include "maz/anim/AnimClip.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
@@ -929,6 +930,84 @@ void testSkeleton() {
     CHECK_NEAR(cv.y, 0.0f, 1e-5f);
 }
 
+void testAnimClip() {
+    using anim::Key;
+
+    // vec3 track: keys at t=0 -> (0,0,0), t=1 -> (10,0,0). Linear interp + endpoint clamping.
+    std::vector<Key<math::vec3>> vt = {{0.0f, math::vec3(0, 0, 0)}, {1.0f, math::vec3(10, 0, 0)}};
+    CHECK_NEAR(anim::sampleVec3(vt, 0.5f, math::vec3(0)).x, 5.0f, 1e-5f);
+    CHECK_NEAR(anim::sampleVec3(vt, -1.0f, math::vec3(0)).x, 0.0f, 1e-5f);  // clamp low
+    CHECK_NEAR(anim::sampleVec3(vt, 9.0f, math::vec3(0)).x, 10.0f, 1e-5f);  // clamp high
+    // Empty track -> fallback.
+    CHECK_NEAR(anim::sampleVec3({}, 0.5f, math::vec3(3, 0, 0)).x, 3.0f, 1e-6f);
+
+    // quat track: identity at 0 -> rotZ90 at 1. Slerp midpoint is rotZ45.
+    const math::quat qid(1, 0, 0, 0);
+    const math::quat q90 = glm::angleAxis(glm::radians(90.0f), math::vec3(0, 0, 1));
+    std::vector<Key<math::quat>> qt = {{0.0f, qid}, {1.0f, q90}};
+    {
+        const math::quat mid = anim::sampleQuat(qt, 0.5f, qid);
+        const math::vec3 r = mid * math::vec3(1, 0, 0); // rotate +x by 45 deg
+        CHECK_NEAR(r.x, std::cos(glm::radians(45.0f)), 1e-4f);
+        CHECK_NEAR(r.y, std::sin(glm::radians(45.0f)), 1e-4f);
+    }
+    {
+        const math::quat end = anim::sampleQuat(qt, 2.0f, qid); // clamp to last
+        const math::vec3 r = end * math::vec3(1, 0, 0);
+        CHECK_NEAR(r.x, 0.0f, 1e-4f);
+        CHECK_NEAR(r.y, 1.0f, 1e-4f);
+    }
+
+    // JointPose::matrix at identity leaves a point unchanged.
+    {
+        anim::JointPose jp;
+        const math::vec4 p = jp.matrix() * math::vec4(2, 3, 4, 1);
+        CHECK_NEAR(p.x, 2.0f, 1e-5f);
+        CHECK_NEAR(p.y, 3.0f, 1e-5f);
+        CHECK_NEAR(p.z, 4.0f, 1e-5f);
+    }
+
+    // Clip sampling: one joint, translation keyed; looping wraps the time.
+    anim::AnimClip clip;
+    clip.duration = 2.0f;
+    clip.loop = true;
+    clip.tracks.resize(1);
+    clip.tracks[0].translation = {{0.0f, math::vec3(0, 0, 0)}, {2.0f, math::vec3(0, 8, 0)}};
+    std::vector<anim::JointPose> rest(1);
+    std::vector<anim::JointPose> out;
+    clip.sample(1.0f, rest, out);
+    CHECK_NEAR(out[0].translation.y, 4.0f, 1e-5f);
+    clip.sample(2.5f, rest, out); // wraps to t=0.5 -> y=2
+    CHECK_NEAR(out[0].translation.y, 2.0f, 1e-5f);
+
+    // A joint with no keys falls back to the provided rest pose.
+    rest[0].translation = math::vec3(1, 2, 3);
+    anim::AnimClip empty;
+    empty.duration = 1.0f;
+    empty.tracks.resize(1);
+    empty.sample(0.5f, rest, out);
+    CHECK_NEAR(out[0].translation.x, 1.0f, 1e-6f);
+    CHECK_NEAR(out[0].translation.z, 3.0f, 1e-6f);
+
+    // blendPoses: lerp translation, slerp rotation.
+    std::vector<anim::JointPose> a(1), b(1);
+    a[0].translation = math::vec3(0, 0, 0);
+    b[0].translation = math::vec3(10, 0, 0);
+    a[0].rotation = qid;
+    b[0].rotation = q90;
+    std::vector<anim::JointPose> blended;
+    anim::blendPoses(a, b, 0.25f, blended);
+    CHECK_NEAR(blended[0].translation.x, 2.5f, 1e-5f);
+    {
+        const math::vec3 r = blended[0].rotation * math::vec3(1, 0, 0); // 22.5 deg
+        CHECK_NEAR(r.x, std::cos(glm::radians(22.5f)), 1e-4f);
+        CHECK_NEAR(r.y, std::sin(glm::radians(22.5f)), 1e-4f);
+    }
+    // Blend weight clamps.
+    anim::blendPoses(a, b, 2.0f, blended);
+    CHECK_NEAR(blended[0].translation.x, 10.0f, 1e-5f);
+}
+
 } // namespace
 
 int main() {
@@ -942,6 +1021,7 @@ int main() {
     testStateMachine();
     testSpriteAnim();
     testSkeleton();
+    testAnimClip();
     testEventBus();
     testJobs();
     testResourceCache();

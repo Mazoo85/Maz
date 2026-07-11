@@ -291,7 +291,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   UV-frame playback; the `sprites` demo plays a phase-staggered wave; M63) — frame events later
 - [x] **Skeletal animation core** (`anim::Skeleton`: joint hierarchy + bind/inverse-bind + skinning
   matrices; the `skeleton` demo CPU-skins a tapered tube on an 8-bone chain; M67) — glTF skins /
-  GPU skinning / blend trees later
+  GPU skinning later
+- [x] **Keyframe clips + blending** (`anim::AnimClip`: per-joint TRS tracks, lerp/slerp sampling +
+  loop, `blendPoses` cross-fade; the `animclip` demo blends a wave and a coil clip; M68) — blend
+  trees later
 - [ ] Animation state machine, transitions, IK (later)
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later

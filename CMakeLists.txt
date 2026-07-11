@@ -62,6 +62,7 @@ add_subdirectory(apps/events)
 add_subdirectory(apps/jobs)
 add_subdirectory(apps/assetcache)
 add_subdirectory(apps/skeleton)
+add_subdirectory(apps/animclip)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

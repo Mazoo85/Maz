@@ -525,8 +525,29 @@ regress the mesh pipeline.
   skinned, no validation errors); new `skeleton_headless_smoke` + golden → ctest **24/24**, every
   existing golden unchanged.
 
-Later: GPU skinning (skinned vertex format + joint-matrix UBO), glTF skin/animation import, pose
-interpolation + blend trees, back TextureStore/mesh loading with the cache, parallelize a hot loop,
-wire the event bus into a game, behavior trees, reflection-driven ECS serialization, JSON/text
-format, UI layout / text input, order-independent transparency, material/uniform system, GPU-driven
-/ indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode.
+**Iteration 30 complete** (skeletal animation core + CPU skinning).
+
+### Iteration 31 — "Animation clips" (in progress)
+Self-directed: the skeleton can be posed, but nothing yet turns authored keyframes into a pose or
+blends between animations — the playback layer that makes skeletal animation usable (idle/walk/run
+clips, cross-fades).
+- [x] **M68 — Keyframe animation clips + blending**: header-only `anim::AnimClip` — per-joint
+  translation/rotation/scale keyframe tracks; `sample(time, rest, out)` interpolates each track
+  (vec3 lerp, quaternion **slerp**) into per-joint local poses, wrapping time when looping and
+  falling back to the rest pose for unkeyed tracks. `blendPoses(a, b, w)` cross-fades two poses
+  (lerp T/S, slerp R) — the basis of animation state blending. `posesToLocals` feeds the result to
+  `Skeleton::computeSkinning`. Pure math → unit-tested headlessly (306 checks total): vec3 lerp +
+  endpoint clamp, quaternion slerp midpoint (45 deg) and clamp, `JointPose::matrix` identity, clip
+  sampling with loop-wrap, unkeyed-track rest fallback, and pose blend (translation lerp + rotation
+  slerp at 22.5 deg + weight clamp). New `animclip` demo: two authored looping clips (a travelling
+  "wave" of keyframed joint rotations and a "coil") sampled every frame and cross-faded by an
+  oscillating weight, driving the M67 skinned tube; the HUD shows the live blend weight. Verified on
+  lavapipe (the tube morphs smoothly between waving and coiling, no validation errors); new
+  `animclip_headless_smoke` + golden → ctest **25/25**, every existing golden unchanged.
+
+Later: an animation state machine wiring clips to game states, GPU skinning (skinned vertex format +
+joint-matrix UBO), glTF skin/animation import, back TextureStore/mesh loading with the cache,
+parallelize a hot loop, wire the event bus into a game, behavior trees, reflection-driven ECS
+serialization, JSON/text format, UI layout / text input, order-independent transparency,
+material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic
+hold-frame screenshot mode.

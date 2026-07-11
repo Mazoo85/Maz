@@ -202,6 +202,11 @@ available):
   The `skeleton` demo binds a tapered tube to an 8-bone chain and CPU-skins it (two-bone weight
   blend) through the dynamic-mesh path — no new vertex format, so the existing mesh pipeline is
   untouched. Rest-pose identity, transform chaining, and rigid skinning unit-tested
+- **M68** — animation clips: `anim::AnimClip` samples per-joint TRS keyframe tracks at a time (vec3
+  lerp, quaternion slerp) into a pose with looping, and `blendPoses` cross-fades two poses — the
+  playback + blending layer on the skeleton. The `animclip` demo cross-fades two authored looping
+  clips (a travelling "wave" and a "coil") to drive the skinned tube. Interpolation, loop-wrap, and
+  blend unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
