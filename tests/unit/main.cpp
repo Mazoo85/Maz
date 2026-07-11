@@ -13,6 +13,7 @@
 #include "maz/core/Resources.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/BehaviorTree.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Physics2D.hpp"
@@ -1144,6 +1145,64 @@ void testAnimator() {
     CHECK(!anim.isFading());
 }
 
+void testBehaviorTree() {
+    using namespace maz::game::bt;
+    auto ok = [] { return Status::Success; };
+    auto no = [] { return Status::Failure; };
+    auto run = [] { return Status::Running; };
+
+    // Sequence: AND semantics, short-circuits at the first non-Success.
+    CHECK(sequence(action(ok), action(ok))->tick() == Status::Success);
+    CHECK(sequence(action(ok), action(no))->tick() == Status::Failure);
+    CHECK(sequence(action(ok), action(run))->tick() == Status::Running);
+
+    // Selector: OR / priority fallback, short-circuits at the first non-Failure.
+    CHECK(selector(action(no), action(ok))->tick() == Status::Success);
+    CHECK(selector(action(no), action(no))->tick() == Status::Failure);
+    CHECK(selector(action(run), action(ok))->tick() == Status::Running);
+
+    // Inverter flips success/failure, passes running.
+    CHECK(inverter(action(ok))->tick() == Status::Failure);
+    CHECK(inverter(action(no))->tick() == Status::Success);
+    CHECK(inverter(action(run))->tick() == Status::Running);
+
+    // Condition maps a predicate to success/failure.
+    CHECK(condition([] { return true; })->tick() == Status::Success);
+    CHECK(condition([] { return false; })->tick() == Status::Failure);
+
+    // Short-circuit: a Sequence that fails early doesn't tick later children.
+    int firstTicks = 0, secondTicks = 0;
+    auto seq = sequence(action([&] { ++firstTicks; return Status::Failure; }),
+                        action([&] { ++secondTicks; return Status::Success; }));
+    seq->tick();
+    CHECK(firstTicks == 1);
+    CHECK(secondTicks == 0); // never reached
+
+    // Short-circuit: a Selector that succeeds early doesn't tick later children.
+    int aTicks = 0, bTicks = 0;
+    auto sel = selector(action([&] { ++aTicks; return Status::Success; }),
+                        action([&] { ++bTicks; return Status::Success; }));
+    sel->tick();
+    CHECK(aTicks == 1);
+    CHECK(bTicks == 0);
+
+    // Reactive priority: a gated high-priority branch pre-empts the fallback the instant its
+    // condition flips, because the memoryless selector re-evaluates from the top every tick.
+    bool alarm = false;
+    const char* acted = "";
+    BehaviorTree tree(selector(
+        sequence(condition([&] { return alarm; }), action([&] { acted = "flee"; return Status::Running; })),
+        action([&] { acted = "patrol"; return Status::Running; })));
+    tree.tick();
+    CHECK(std::string(acted) == "patrol"); // alarm off -> fallback
+    alarm = true;
+    tree.tick();
+    CHECK(std::string(acted) == "flee"); // alarm on -> high-priority branch pre-empts
+    alarm = false;
+    tree.tick();
+    CHECK(std::string(acted) == "patrol"); // and back again
+}
+
 } // namespace
 
 int main() {
@@ -1154,6 +1213,7 @@ int main() {
     testSpatialGrid();
     testNavGrid();
     testPhysics2D();
+    testBehaviorTree();
     testSteering();
     testStateMachine();
     testSpriteAnim();

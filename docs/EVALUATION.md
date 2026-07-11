@@ -585,9 +585,30 @@ them. That's the standard animation-graph top layer.
   the HUD caught a "cross-fading 19%" transition, no validation errors); new
   `animator_headless_smoke` + golden → ctest **27/27**, every existing golden unchanged.
 
-Later: drive the Animator from a StateMachine (animation graph), circle-vs-AABB / friction /
-rotation in physics, GPU skinning, glTF skin/animation import, back TextureStore/mesh loading with
-the cache, parallelize a hot loop, wire the event bus into a game, behavior trees, reflection-driven
-ECS serialization, JSON/text format, UI layout / text input, order-independent transparency,
-material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic
-hold-frame screenshot mode.
+**Iteration 33 complete** (animation controller with cross-fades).
+
+### Iteration 34 — "Behavior trees" (in progress)
+Self-directed: the AI stack has a finite state machine (M62), but FSMs get unwieldy as behavior
+grows — behavior trees are the scalable, reactive alternative every modern engine ships.
+- [x] **M71 — Behavior trees**: header-only `game::bt` — `Status` (Success/Failure/Running),
+  `Action`/`Condition` leaves wrapping gameplay via `std::function`, and `Sequence` (AND, stop at
+  first non-Success), `Selector` (priority OR, stop at first non-Failure), and `Inverter`
+  composites, with variadic `sequence()`/`selector()` builders and a `BehaviorTree` root holder. The
+  composites are **reactive (memoryless)**: every tick re-evaluates from the first child, so a
+  higher-priority branch pre-empts a running lower-priority one the instant its condition flips —
+  the behaviour reactive agents want. Pure logic → unit-tested headlessly (654 checks total):
+  sequence/selector/inverter/condition truth tables, short-circuit (later children not ticked after
+  a decisive result), and a reactive-priority scenario where flipping an alarm flag pre-empts the
+  fallback branch and then falls back again. New `behavior` demo: 5 agents each driven by a
+  `selector(flee, chase, patrol)` tree — they reactively pre-empt patrol to chase and chase to flee
+  as an intruder crosses range rings, coloured by the active leaf (green/red/yellow), composing the
+  tree with M58 steering. Verified on lavapipe (agents nearest the intruder flip to flee while
+  distant ones patrol, HUD tallies live counts, no validation errors); new
+  `behavior_headless_smoke` + golden → ctest **28/28**, every existing golden unchanged.
+
+Later: parallel/decorator BT nodes + a blackboard, drive the Animator from a state machine, circle-
+vs-AABB / friction / rotation in physics, GPU skinning, glTF skin/animation import, back
+TextureStore/mesh loading with the cache, parallelize a hot loop, wire the event bus into a game,
+reflection-driven ECS serialization, JSON/text format, UI layout / text input, order-independent
+transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
+deterministic hold-frame screenshot mode.

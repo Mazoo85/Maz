@@ -18,6 +18,7 @@
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/BehaviorTree.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/FlyCamera.hpp"
 #include "maz/game/NavGrid.hpp"

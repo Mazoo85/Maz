@@ -218,6 +218,11 @@ available):
   is smooth — the stateful layer a game drives (idle→walk→jump). The `animator` demo auto-cycles a
   skinned character through idle/wave/coil clips with timed cross-fades (HUD shows the live fade %).
   Snap-in, cross-fade progression, and no-restart-on-repeat unit-tested
+- **M71** — behavior trees: `game::bt` is a reactive behavior tree — `Sequence`/`Selector`/
+  `Inverter` composites over `Action`/`Condition` leaves, re-evaluated from the top each tick so a
+  higher-priority branch pre-empts a running lower one. The `behavior` demo drives agents with a
+  `selector(flee, chase, patrol)` tree that reactively switches behavior as an intruder nears/recedes
+  (colored by the active leaf). Tick semantics, short-circuit, and reactive preemption unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
