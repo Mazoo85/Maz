@@ -57,6 +57,7 @@ add_subdirectory(apps/tween)
 add_subdirectory(apps/menu)
 add_subdirectory(apps/persist)
 add_subdirectory(apps/guard)
+add_subdirectory(apps/sprites)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

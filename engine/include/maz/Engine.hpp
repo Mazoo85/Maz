@@ -2,6 +2,7 @@
 
 // Umbrella header — pull in the whole Maz Engine public API.
 
+#include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/audio/Audio.hpp"
 #include "maz/core/Assert.hpp"

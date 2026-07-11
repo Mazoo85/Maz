@@ -178,6 +178,10 @@ available):
   callbacks and guarded transitions (plus any-state transitions), evaluated deterministically. The
   `guard` demo composes it with steering: guards patrol posts until an intruder nears (→ chase),
   then return when it escapes — color-coded green/red/amber by state. Transition logic unit-tested
+- **M63** — sprite-sheet animation: `anim::SpriteAnim` plays a list of UV frames (built from a grid
+  sheet via `gridFrames`) at a fixed rate with loop/one-shot modes, feeding `SpriteDesc`'s uv-rect.
+  The `sprites` demo generates an 8-frame sheet at runtime and plays a phase-staggered grid so a
+  wave of motion sweeps across it. Frame timing + grid UVs + loop/clamp unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

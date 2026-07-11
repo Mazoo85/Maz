@@ -3,6 +3,7 @@
 // if any check fails, so it plugs straight into ctest. Kept minimal to match the engine's no-extra-
 // dependency philosophy.
 
+#include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
@@ -616,6 +617,56 @@ void testStateMachine() {
     CHECK(g.isIn(G::Dead));
 }
 
+void testSpriteAnim() {
+    // gridFrames: a 4x1 strip yields 4 evenly-split columns spanning full height.
+    const auto strip = anim::gridFrames(4, 1, 0, 4);
+    CHECK(strip.size() == 4);
+    CHECK_NEAR(strip[0].u0, 0.0f, 1e-6f);
+    CHECK_NEAR(strip[0].u1, 0.25f, 1e-6f);
+    CHECK_NEAR(strip[1].u0, 0.25f, 1e-6f);
+    CHECK_NEAR(strip[3].u1, 1.0f, 1e-6f);
+    CHECK_NEAR(strip[0].v0, 0.0f, 1e-6f);
+    CHECK_NEAR(strip[0].v1, 1.0f, 1e-6f);
+
+    // Row-major indexing on a 2x2 sheet: cell 3 is the bottom-right quadrant.
+    const auto grid = anim::gridFrames(2, 2, 0, 4);
+    CHECK_NEAR(grid[3].u0, 0.5f, 1e-6f);
+    CHECK_NEAR(grid[3].v0, 0.5f, 1e-6f);
+    CHECK_NEAR(grid[3].u1, 1.0f, 1e-6f);
+
+    // Looping clip at 10 fps: each 0.1s advances one frame; wraps after the last.
+    anim::SpriteAnim a;
+    a.play(anim::gridFrames(4, 1, 0, 4), 10.0f, true);
+    CHECK(a.index() == 0);
+    a.update(0.1f);
+    CHECK(a.index() == 1);
+    a.update(0.25f); // +2.5 frames -> lands on frame 3 (1 + 2)
+    CHECK(a.index() == 3);
+    a.update(0.1f); // wrap back to 0
+    CHECK(a.index() == 0);
+    CHECK(!a.finished());
+    // frame() matches the strip UV for the current index.
+    a.update(0.1f);
+    CHECK_NEAR(a.frame().u0, 0.25f, 1e-6f);
+
+    // One-shot clip: clamps on the last frame and reports finished.
+    anim::SpriteAnim once;
+    once.play(anim::gridFrames(3, 1, 0, 3), 10.0f, false);
+    once.update(1.0f); // way past the end
+    CHECK(once.index() == 2);
+    CHECK(once.finished());
+    once.reset();
+    CHECK(once.index() == 0);
+    CHECK(!once.finished());
+
+    // A single-frame clip never advances or finishes (nothing to animate).
+    anim::SpriteAnim one;
+    one.play(anim::gridFrames(1, 1, 0, 1), 10.0f, false);
+    one.update(5.0f);
+    CHECK(one.index() == 0);
+    CHECK(!one.finished());
+}
+
 } // namespace
 
 int main() {
@@ -627,6 +678,7 @@ int main() {
     testNavGrid();
     testSteering();
     testStateMachine();
+    testSpriteAnim();
     testTween();
     testUI();
     testSerialize();

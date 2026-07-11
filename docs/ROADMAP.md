@@ -283,7 +283,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] DSP effects (reverb, filter), ducking
 
 ## Phase 8 — Animation
-- [ ] Sprite / flipbook animation, frame events
+- [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot
+  UV-frame playback; the `sprites` demo plays a phase-staggered wave; M63) — frame events later
 - [ ] Skeletal animation (glTF skins), GPU skinning, blend trees
 - [ ] Animation state machine, transitions, IK (later)
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween

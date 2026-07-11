@@ -427,7 +427,24 @@ and use it to cap the AI stack.
   near the intruder turn red and pursue while distant ones stay green, no validation errors); new
   `guard_headless_smoke` + golden → ctest **19/19**, every existing golden unchanged.
 
-Later: behavior trees, reflection-driven ECS component serialization, JSON/text format, UI layout
-containers / text input, order-independent transparency, material/uniform system, GPU-driven /
-indirect instancing, skeletal animation, asset manager, cross-platform CI, a deterministic
-hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 25 complete** (finite state machine + guard AI).
+
+### Iteration 26 — "Sprite animation" (in progress)
+Self-directed: the 2D toolkit (sprites, tilemaps, text, particles) has no way to animate a sprite
+through frames — the one missing primitive for 2D characters (walk cycles, explosions, idle bobs).
+- [x] **M63 — Sprite-sheet (flipbook) animation**: header-only `anim::SpriteAnim` — plays a list of
+  `SpriteFrame` UV rects (built from a regular grid sheet via `gridFrames(cols, rows, first,
+  count)`) at a fixed fps, with looping (wrap) or one-shot (clamp + `finished()`) modes; the current
+  `frame()` copies straight into `SpriteDesc`'s uvMin/uvMax. Pure frame timing → unit-tested
+  headlessly (220 checks total): grid UV geometry (strip + 2x2 row-major), fps-paced frame advance,
+  loop wrap, one-shot clamp/finished/reset, and a single-frame no-op clip. New `sprites` demo:
+  generates an 8-frame sheet at runtime (a dot orbiting a ring), then plays it back on a large hero
+  sprite plus a 10x6 grid started at staggered phases, so a diagonal wave of motion sweeps the grid
+  (the HUD tracks the hero's live frame). Verified on lavapipe (the phase wave is clearly visible,
+  no validation errors); new `sprites_headless_smoke` + golden → ctest **20/20**, every existing
+  golden unchanged.
+
+Later: animation events / multi-clip switching, behavior trees, reflection-driven ECS serialization,
+JSON/text format, UI layout containers / text input, order-independent transparency, material/uniform
+system, GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
+deterministic hold-frame screenshot mode to tighten golden tolerances.
