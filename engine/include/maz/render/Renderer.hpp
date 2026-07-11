@@ -66,6 +66,12 @@ struct SceneLighting {
         float range = 8.0f;         // distance at which the light fades to zero
         float color[3] = {1, 1, 1}; // light color
         float intensity = 1.0f;     // scales color
+        // Optional spotlight cone. spotOuterDeg > 0 turns this into a spotlight aimed along
+        // spotDir, full-bright within spotInnerDeg and fading to dark by spotOuterDeg (half-angles,
+        // degrees). Left at 0 (default) the light is an omnidirectional point light.
+        float spotDir[3] = {0, -1, 0};
+        float spotInnerDeg = 0.0f;
+        float spotOuterDeg = 0.0f;
     };
     float ambient[3] = {0.30f, 0.30f, 0.30f};
     float sunDir[3] = {0.4f, 0.8f, 0.6f};    // direction toward the sun (need not be normalized)

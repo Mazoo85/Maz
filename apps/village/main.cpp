@@ -149,12 +149,26 @@ int main(int argc, char** argv) {
         // Lamps: bright at night, nearly off at noon.
         const float lamp = mix3(glm::vec3(3.8f), glm::vec3(0.4f), day).x;
         for (const glm::vec3& c : houseCenters) {
-            if (L.pointCount >= render::SceneLighting::kMaxPointLights) break;
+            if (L.pointCount >= render::SceneLighting::kMaxPointLights - 1) break; // leave 1 for spot
             render::SceneLighting::Point& p = L.points[L.pointCount++];
             p.pos[0] = c.x; p.pos[1] = 1.2f; p.pos[2] = c.z;
             p.range = 8.5f;
             p.color[0] = 1.0f; p.color[1] = 0.60f; p.color[2] = 0.26f;
             p.intensity = lamp;
+        }
+        // A cool-white searchlight sweeping the square — a spotlight cone, lit only at night.
+        if (L.pointCount < render::SceneLighting::kMaxPointLights) {
+            render::SceneLighting::Point& s = L.points[L.pointCount++];
+            s.pos[0] = 0.0f; s.pos[1] = 7.5f; s.pos[2] = 0.0f;
+            s.range = 26.0f;
+            const float sweep = static_cast<float>(elapsed) * 0.7f;
+            s.spotDir[0] = std::cos(sweep) * 0.8f;
+            s.spotDir[1] = -1.0f;
+            s.spotDir[2] = std::sin(sweep) * 0.8f;
+            s.spotInnerDeg = 9.0f;
+            s.spotOuterDeg = 15.0f;
+            s.color[0] = 0.85f; s.color[1] = 0.92f; s.color[2] = 1.0f;
+            s.intensity = mix3(glm::vec3(6.0f), glm::vec3(0.0f), day).x; // night only
         }
         return L;
     };

@@ -68,6 +68,8 @@ available):
   are playable with a controller
 - **M24** — dynamic sky + day/night: sky colors + sun are lighting parameters; VILLAGE QUEST runs a
   full day→night cycle where the sky, fog, and house lamps all respond
+- **M25** — spot lights: point lights gain an optional cone (direction + inner/outer angle); a
+  searchlight sweeps the village at night
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

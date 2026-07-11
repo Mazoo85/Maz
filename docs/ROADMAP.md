@@ -203,7 +203,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Distance fog** (exponential, camera-distance, blends meshes into the sky; M22)
 - [x] **Dynamic sky + day/night** (sky colors + sun are `SceneLighting` params; `village` animates
       a full sun arc with responding sky/ambient/fog/lamps; M24)
-- [ ] Spot lights; forward+ or deferred path
+- [x] **Spot lights** (point lights gain an optional cone: direction + inner/outer angle; M25)
+- [ ] Forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows

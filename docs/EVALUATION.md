@@ -39,7 +39,18 @@ implement it, then re-evaluate and repeat. Updated each iteration.
   are now driven by `SceneLighting` (defaults reproduce the old sky); `village` animates a ~48s
   sun arc so the sky, ambient, fog, and warm house lamps shift from bright noon to lamp-lit night.
 
-**Iteration 1 complete.** Next: bloom/tonemap post-processing, then normal mapping.
+**Iteration 1 complete.**
+
+### Iteration 2 — "Lighting depth" (in progress)
+- [x] **M25 — Spot lights**: point lights gained an optional cone (spot axis + inner/outer angle,
+  packed into the lights UBO; omni by default). A cool-white searchlight sweeps the village square
+  at night — verified as a crisp cone pool distinct from the warm lamps.
+- [ ] **M26 — Normal mapping**: tangent-space normal maps for richer surface detail under the
+  lights.
+
+> Note: bloom/tonemap post-processing is deferred to its own focused iteration — it needs an
+> offscreen HDR render-target refactor (scene → offscreen → bright/blur → composite→swapchain) that
+> touches every app's render path, so it warrants dedicated care rather than being rushed here.
 
 ### Future iterations (backlog, ordered)
 - Bloom / tonemap post-processing (render-to-texture HDR pipeline).

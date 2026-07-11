@@ -20,7 +20,8 @@ layout(set = 1, binding = 0) uniform sampler2D uShadow;
 // Scene lighting (set = 2): ambient + one directional "sun" (shadow-mapped) + up to 8 point lights.
 struct PointLight {
     vec4 posRange; // xyz = world position, w = range
-    vec4 color;    // rgb = color * intensity
+    vec4 color;    // rgb = color * intensity, w = cos(inner cone) for spots, < -1.5 for omni
+    vec4 spot;     // xyz = spot axis (normalized), w = cos(outer cone)
 };
 layout(set = 2, binding = 0) uniform Lights {
     vec4 ambient;  // rgb = ambient, w = active point-light count
@@ -63,13 +64,21 @@ void main() {
     // Point lights: distance attenuation with a smooth range cutoff.
     int count = int(L.ambient.w + 0.5);
     for (int i = 0; i < count; ++i) {
-        vec3 d = L.points[i].posRange.xyz - vWorldPos;
-        float dist = length(d);
+        vec3 toL = L.points[i].posRange.xyz - vWorldPos;
+        float dist = length(toL);
+        vec3 Ldir = toL / max(dist, 1e-4);
         float range = max(L.points[i].posRange.w, 1e-3);
         float atten = clamp(1.0 - dist / range, 0.0, 1.0);
         atten *= atten;
-        float ndl2 = max(dot(N, d / max(dist, 1e-4)), 0.0);
-        lit += L.points[i].color.rgb * ndl2 * atten;
+        float ndl2 = max(dot(N, Ldir), 0.0);
+
+        // Spotlight cone: fade between the outer and inner cone; omni lights skip this.
+        float cone = 1.0;
+        if (L.points[i].color.w > -1.5) {
+            float cosA = dot(-Ldir, normalize(L.points[i].spot.xyz));
+            cone = smoothstep(L.points[i].spot.w, L.points[i].color.w, cosA);
+        }
+        lit += L.points[i].color.rgb * ndl2 * atten * cone;
     }
 
     vec3 color = albedo * lit;

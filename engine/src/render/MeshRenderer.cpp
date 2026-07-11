@@ -10,6 +10,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <fstream>
@@ -23,7 +24,8 @@ namespace {
 // std140 layout matching the `Lights` UBO block in mesh.frag. Every member is vec4-aligned.
 struct GpuPointLight {
     float posRange[4]; // xyz world position, w = range
-    float color[4];    // rgb = color * intensity, w unused
+    float color[4];    // rgb = color * intensity, w = cos(inner) for spots (< -1.5 = omni)
+    float spot[4];     // xyz spot axis, w = cos(outer)
 };
 struct GpuLights {
     float ambient[4];  // rgb ambient, w = active point-light count
@@ -595,6 +597,19 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
         g.points[i].color[0] = p.color[0] * p.intensity;
         g.points[i].color[1] = p.color[1] * p.intensity;
         g.points[i].color[2] = p.color[2] * p.intensity;
+        if (p.spotOuterDeg > 0.0f) {
+            // Spotlight: pack cone cosines (inner angle <= outer angle => cosInner >= cosOuter).
+            const float inner = p.spotInnerDeg < p.spotOuterDeg ? p.spotInnerDeg : p.spotOuterDeg;
+            const glm::vec3 axis = glm::normalize(
+                glm::vec3(p.spotDir[0], p.spotDir[1], p.spotDir[2]));
+            g.points[i].color[3] = std::cos(glm::radians(inner));
+            g.points[i].spot[0] = axis.x;
+            g.points[i].spot[1] = axis.y;
+            g.points[i].spot[2] = axis.z;
+            g.points[i].spot[3] = std::cos(glm::radians(p.spotOuterDeg));
+        } else {
+            g.points[i].color[3] = -2.0f; // omnidirectional marker
+        }
     }
     std::memcpy(m_lightMapped, &g, sizeof(g));
 }
