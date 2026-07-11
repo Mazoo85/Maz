@@ -246,7 +246,8 @@ void VulkanRenderer::endFrame() {
     rp.pClearValues = clears;
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    m_meshes.flush(cmd);                  // 3D first (depth-tested)
+    m_meshes.renderSky(cmd);              // gradient sky behind the 3D scene (no-op if no meshes)
+    m_meshes.flush(cmd);                  // 3D (depth-tested)
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);

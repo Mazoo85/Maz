@@ -78,7 +78,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M14 — shadows (done).** Shadow mapping in the `MeshRenderer`: a depth-only pass renders
 > casters from a directional light into a 2048² shadow map, sampled with 2×2 PCF in the mesh
 > shader. The frame runs shadow-pass → main-pass; 2D games skip the shadow pass and are
-> unaffected. Everything marked `[x]` below is done; everything else is the road ahead.
+> unaffected.
+>
+> **M15 — skybox (done).** A gradient sky drawn behind the 3D scene: a fullscreen pass
+> reconstructs the per-pixel view ray from the inverse view-projection and shades a
+> zenith→horizon→ground gradient with a sun glow. Drawn automatically for any 3D scene (no meshes
+> queued → no sky), so 2D is unaffected. Everything marked `[x]` below is done; everything else is
+> the road ahead.
 
 ---
 
@@ -157,7 +163,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [ ] Point / spot lights; forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
-- [ ] Skybox / image-based lighting, cascaded / point-light shadows
+- [x] Gradient skybox (per-pixel view-ray sky + sun glow)
+- [ ] Image-based lighting, cascaded / point-light shadows
 - [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
 - [ ] Render-to-texture, multiple viewports, MSAA
 - [ ] GPU profiling, keep validation-clean baseline

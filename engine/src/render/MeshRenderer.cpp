@@ -75,7 +75,128 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
     std::memcpy(m_lightVP, glm::value_ptr(lightProj * lightView), sizeof(m_lightVP));
 
     return createShadowResources(ctx) && createShadowPipeline(ctx) &&
-           createPipeline(ctx, renderPass);
+           createSkyPipeline(ctx, renderPass) && createPipeline(ctx, renderPass);
+}
+
+bool MeshRenderer::createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
+    const std::string base = assetBase();
+    VkShaderModule vert = createShaderModule(ctx.device(), readFile(base + "shaders/sky.vert.spv"));
+    VkShaderModule frag = createShaderModule(ctx.device(), readFile(base + "shaders/sky.frag.spv"));
+    if (!vert || !frag) {
+        return false;
+    }
+
+    VkPipelineShaderStageCreateInfo stages[2]{};
+    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = vert;
+    stages[0].pName = "main";
+    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = frag;
+    stages[1].pName = "main";
+
+    VkPipelineVertexInputStateCreateInfo vi{}; // no vertex buffer
+    vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    VkPipelineInputAssemblyStateCreateInfo ia{};
+    ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo vp{};
+    vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vp.viewportCount = 1;
+    vp.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rs{};
+    rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.cullMode = VK_CULL_MODE_NONE;
+    rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rs.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo ms{};
+    ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineDepthStencilStateCreateInfo ds{}; // sky writes no depth and ignores it
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+
+    VkPipelineColorBlendAttachmentState blend{};
+    blend.blendEnable = VK_FALSE;
+    blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VkPipelineColorBlendStateCreateInfo cb{};
+    cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.attachmentCount = 1;
+    cb.pAttachments = &blend;
+
+    VkDynamicState dynamics[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dyn{};
+    dyn.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dyn.dynamicStateCount = 2;
+    dyn.pDynamicStates = dynamics;
+
+    VkPushConstantRange push{};
+    push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    push.offset = 0;
+    push.size = sizeof(float) * 16; // invViewProj
+    VkPipelineLayoutCreateInfo pl{};
+    pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl.pushConstantRangeCount = 1;
+    pl.pPushConstantRanges = &push;
+    if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_skyLayout) != VK_SUCCESS) {
+        vkDestroyShaderModule(ctx.device(), vert, nullptr);
+        vkDestroyShaderModule(ctx.device(), frag, nullptr);
+        return false;
+    }
+
+    VkGraphicsPipelineCreateInfo gp{};
+    gp.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gp.stageCount = 2;
+    gp.pStages = stages;
+    gp.pVertexInputState = &vi;
+    gp.pInputAssemblyState = &ia;
+    gp.pViewportState = &vp;
+    gp.pRasterizationState = &rs;
+    gp.pMultisampleState = &ms;
+    gp.pDepthStencilState = &ds;
+    gp.pColorBlendState = &cb;
+    gp.pDynamicState = &dyn;
+    gp.layout = m_skyLayout;
+    gp.renderPass = renderPass;
+    VkResult r =
+        vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr, &m_skyPipeline);
+    vkDestroyShaderModule(ctx.device(), vert, nullptr);
+    vkDestroyShaderModule(ctx.device(), frag, nullptr);
+    if (r != VK_SUCCESS) {
+        MAZ_LOG_ERROR("sky pipeline failed (VkResult %d)", (int)r);
+        return false;
+    }
+    return true;
+}
+
+void MeshRenderer::renderSky(VkCommandBuffer cmd) {
+    if (m_cmds.empty() || m_skyPipeline == VK_NULL_HANDLE) {
+        return; // only draw a sky when there's a 3D scene
+    }
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_skyPipeline);
+    VkViewport viewport{};
+    viewport.width = static_cast<float>(m_viewportW);
+    viewport.height = static_cast<float>(m_viewportH);
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    VkRect2D scissor{};
+    scissor.extent = {m_viewportW, m_viewportH};
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    const glm::mat4 invVP = glm::inverse(glm::make_mat4(m_viewProj));
+    vkCmdPushConstants(cmd, m_skyLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 16,
+                       glm::value_ptr(invVP));
+    vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
 bool MeshRenderer::createShadowResources(VulkanContext& ctx) {
@@ -606,6 +727,8 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
 
     if (m_pipeline) vkDestroyPipeline(d, m_pipeline, nullptr);
     if (m_layout) vkDestroyPipelineLayout(d, m_layout, nullptr);
+    if (m_skyPipeline) vkDestroyPipeline(d, m_skyPipeline, nullptr);
+    if (m_skyLayout) vkDestroyPipelineLayout(d, m_skyLayout, nullptr);
     if (m_shadowPipeline) vkDestroyPipeline(d, m_shadowPipeline, nullptr);
     if (m_shadowLayout) vkDestroyPipelineLayout(d, m_shadowLayout, nullptr);
     if (m_shadowPool) vkDestroyDescriptorPool(d, m_shadowPool, nullptr);
@@ -618,6 +741,8 @@ void MeshRenderer::shutdown(VulkanContext& ctx) {
     if (m_shadowMemory) vkFreeMemory(d, m_shadowMemory, nullptr);
     m_pipeline = VK_NULL_HANDLE;
     m_layout = VK_NULL_HANDLE;
+    m_skyPipeline = VK_NULL_HANDLE;
+    m_skyLayout = VK_NULL_HANDLE;
     m_shadowPipeline = VK_NULL_HANDLE;
     m_shadowLayout = VK_NULL_HANDLE;
     m_shadowPool = VK_NULL_HANDLE;

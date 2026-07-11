@@ -48,6 +48,7 @@ available):
 - **M12** — explorable 3D (`maz::game::FlyCamera` + mouse-look): fly through `world` with WASD
 - **M13** — 3D collision (`maz::game::Collision`): `world` is a solid, walkable first-person collect-em-up
 - **M14** — shadow mapping: 3D objects cast soft shadows on the ground (directional light + PCF)
+- **M15** — gradient skybox: a real sky (horizon → zenith + sun glow) behind every 3D scene
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -36,6 +36,7 @@ public:
 
     bool hasDraws() const { return !m_cmds.empty(); }
     void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
+    void renderSky(VkCommandBuffer cmd);    // gradient sky background (call at main-pass start)
     void flush(VkCommandBuffer cmd);        // main color pass (call inside the main render pass)
 
 private:
@@ -54,12 +55,15 @@ private:
 
     bool createShadowResources(VulkanContext& ctx);
     bool createShadowPipeline(VulkanContext& ctx);
+    bool createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass);
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
 
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_skyLayout = VK_NULL_HANDLE;
+    VkPipeline m_skyPipeline = VK_NULL_HANDLE;
 
     // Shadow map + its depth-only pass/pipeline, and a set-1 descriptor exposing it to the main
     // fragment shader.
