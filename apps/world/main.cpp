@@ -171,6 +171,7 @@ int main(int argc, char** argv) {
     lighting.fogColor[2] = 0.95f;
     lighting.fogDensity = 0.018f;
     renderer->setLighting(lighting);
+    renderer->setBloom(0.35f, 0.75f); // soft glow on the emissive gold pickups
 
     game::FlyCamera camera;
     camera.setPosition(glm::vec3(0.0f, 3.0f, 24.0f));
@@ -308,14 +309,18 @@ int main(int argc, char** argv) {
             }
 
             const float bob = 0.2f * std::sin(static_cast<float>(clock.elapsed()) * 2.0f);
+            // Emissive gold that pulses — self-illuminated so the pickups glow and bloom.
+            const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(clock.elapsed()) * 3.0f);
+            const float glow[3] = {1.15f * pulse, 0.85f * pulse, 0.20f * pulse};
             for (size_t i = 0; i < pickups.size(); ++i) {
                 if (collected[i]) {
                     continue;
                 }
                 glm::vec3 p = pickups[i];
                 p.y += bob;
-                renderer->drawMesh(pickupMesh, glm::value_ptr(glm::translate(glm::mat4(1.0f), p)),
-                                   whiteTex);
+                renderer->drawMeshEmissive(pickupMesh,
+                                           glm::value_ptr(glm::translate(glm::mat4(1.0f), p)),
+                                           whiteTex, render::kInvalidTexture, glow);
             }
 
             render::Camera2D ui;

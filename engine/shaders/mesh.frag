@@ -11,7 +11,8 @@ layout(push_constant) uniform Push {
     mat4 mvp;
     mat4 model;
     mat4 lightVP;
-    vec4 camPos; // world-space camera position (xyz)
+    vec4 camPos;   // world-space camera position (xyz)
+    vec4 emissive; // rgb = self-illumination added after lighting (feeds bloom); 0 = none
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
@@ -99,7 +100,7 @@ void main() {
         lit += L.points[i].color.rgb * ndl2 * atten * cone;
     }
 
-    vec3 color = albedo * lit;
+    vec3 color = albedo * lit + pc.emissive.rgb; // self-illumination (feeds bloom)
 
     // Exponential distance fog: blend toward the fog color with camera distance.
     if (L.fog.w > 0.0) {

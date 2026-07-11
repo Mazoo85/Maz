@@ -123,8 +123,13 @@ could self-glow to feed bloom. This iteration:
   vertex buffers, alpha-blended and depth-tested (geometry occludes them) inside the scene pass.
   `world` overlays every collision box in green with **F5** (or `--colliders`). Verified on lavapipe:
   the green boxes wrap each block exactly, confirming colliders match geometry; no validation errors.
-- [ ] **M37 — Emissive material term**: a per-draw emissive color added to the lit result (unlit,
-  feeds bloom) so objects can self-glow (coins, lamps, lava).
+- [x] **M37 — Emissive material term**: `Renderer::drawMeshEmissive` adds a per-draw emissive RGB
+  (four more push-constant floats) to the fragment result *after* lighting and *before* fog, so an
+  object self-illuminates and feeds bloom. `world` enables soft bloom and draws its pickups as
+  pulsing emissive gold. Verified on lavapipe: the pickups glow vivid gold with a bloom halo while
+  the (below-threshold) scene is unaffected; no validation errors.
+
+**Iteration 8 complete** (debug line/collider draw + emissive materials).
 
 Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
-spatial partitioning, hot-reload shaders, a fuller material struct, GPU/compute particle simulation.
+spatial partitioning, hot-reload shaders, full PBR (metallic/roughness), GPU/compute particles.

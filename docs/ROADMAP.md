@@ -201,7 +201,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Dynamic meshes** (`createDynamicMesh` + `updateMesh`, per-frame-in-flight vertex buffers;
   the `water` demo animates a summed-sine grid; M35)
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
-- [ ] Materials + PBR groundwork, texture sampling / mipmaps
+- [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
+  (`drawMeshEmissive`, feeds bloom; M37) — PBR metallic/roughness still to come
+- [ ] Full PBR (metallic/roughness), texture mipmaps
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

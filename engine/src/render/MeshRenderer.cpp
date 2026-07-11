@@ -768,7 +768,7 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, V
     VkPushConstantRange push{};
     push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     push.offset = 0;
-    push.size = sizeof(float) * 52; // mvp + model + lightVP + camPos (vec4)
+    push.size = sizeof(float) * 56; // mvp + model + lightVP + camPos (vec4) + emissive (vec4)
 
     // set0 = albedo, set1 = shadow map, set2 = lights UBO, set3 = normal map (albedo layout reused).
     const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout,
@@ -903,7 +903,7 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
 void MeshRenderer::begin() { m_cmds.clear(); }
 
 void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture,
-                        TextureHandle normal) {
+                        TextureHandle normal, const float emissive3[3]) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
@@ -912,6 +912,11 @@ void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle tex
     cmd.texture = texture;
     cmd.normal = normal;
     std::memcpy(cmd.model, model16, sizeof(cmd.model));
+    if (emissive3) {
+        cmd.emissive[0] = emissive3[0];
+        cmd.emissive[1] = emissive3[1];
+        cmd.emissive[2] = emissive3[2];
+    }
     m_cmds.push_back(cmd);
 }
 
@@ -998,7 +1003,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
 
         const glm::mat4 mvp = vp * model;
 
-        float push[52];
+        float push[56];
         std::memcpy(push, glm::value_ptr(mvp), sizeof(float) * 16);
         std::memcpy(push + 16, glm::value_ptr(model), sizeof(float) * 16);
         std::memcpy(push + 32, glm::value_ptr(lightVP), sizeof(float) * 16);
@@ -1006,6 +1011,10 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         push[49] = m_camPos[1];
         push[50] = m_camPos[2];
         push[51] = 1.0f;
+        push[52] = dc.emissive[0]; // self-illumination (added post-lighting, feeds bloom)
+        push[53] = dc.emissive[1];
+        push[54] = dc.emissive[2];
+        push[55] = 0.0f;
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(push), push);
 

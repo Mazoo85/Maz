@@ -172,6 +172,11 @@ public:
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo) {
         drawMesh(mesh, model16, albedo, kInvalidTexture);
     }
+    // Draw a mesh with an added emissive (self-illumination) color — applied after lighting, so the
+    // object glows on its own and feeds bloom (coins, lamps, lava). emissive3 is linear RGB (values
+    // above 1 glow harder). normal may be kInvalidTexture for no bump map. No-op when inactive.
+    virtual void drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                                  TextureHandle normal, const float emissive3[3]) = 0;
 
     // --- Debug draw (world-space lines) ---
     // Queue a world-space line segment (RGBA, alpha-blended, depth-tested so geometry occludes it).

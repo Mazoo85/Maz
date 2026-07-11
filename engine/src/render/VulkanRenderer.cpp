@@ -57,6 +57,8 @@ public:
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
+    void drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                          TextureHandle normal, const float emissive3[3]) override;
     void drawLine(const float a3[3], const float b3[3], const float color4[4]) override;
     void drawAabb(const float min3[3], const float max3[3], const float color4[4]) override;
 
@@ -455,6 +457,13 @@ void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHand
                              TextureHandle normal) {
     if (m_active) {
         m_meshes.draw(mesh, model16, albedo, normal);
+    }
+}
+
+void VulkanRenderer::drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                                      TextureHandle normal, const float emissive3[3]) {
+    if (m_active) {
+        m_meshes.draw(mesh, model16, albedo, normal, emissive3);
     }
 }
 

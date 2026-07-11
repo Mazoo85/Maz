@@ -96,6 +96,9 @@ available):
 - **M36** — debug line draw: `Renderer::drawLine` / `drawAabb` render world-space colored lines (a
   `LINE_LIST` pipeline, depth-tested so geometry occludes them); **F5** in `world` overlays every
   collision box in green — a visual check that colliders match the geometry
+- **M37** — emissive materials: `Renderer::drawMeshEmissive` adds a self-illumination color after
+  lighting (so an object glows on its own and feeds bloom); `world`'s collectible pickups now pulse
+  as glowing gold
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
