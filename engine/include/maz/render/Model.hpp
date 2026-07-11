@@ -19,6 +19,24 @@ struct ModelData {
     bool hasTexture() const { return textureWidth > 0 && textureHeight > 0; }
 };
 
+// One placed object in a scene: geometry in its own local space, a world transform positioning it,
+// and its own base-color texture (empty when the object has no material texture).
+struct SceneNode {
+    shapes::MeshData mesh;
+    std::vector<uint8_t> texturePixels;
+    uint32_t textureWidth = 0;
+    uint32_t textureHeight = 0;
+    float model[16]; // column-major world transform (row order matches Renderer::drawMesh)
+
+    bool hasTexture() const { return textureWidth > 0 && textureHeight > 0; }
+};
+
+// A whole scene loaded from a glTF file: one SceneNode per placed object, preserving transforms so
+// the same source mesh can appear many times at different positions (a village of houses).
+struct SceneData {
+    std::vector<SceneNode> nodes;
+};
+
 // Load a glTF 2.0 model (.gltf or .glb) into CPU data ready for the Renderer.
 //
 // All meshes in the file's scene are merged into one MeshData, with each node's world transform
@@ -29,5 +47,11 @@ struct ModelData {
 // referenced as an external image file) is decoded into `texturePixels`. Returns false (and leaves
 // `out` empty) on a missing/invalid file.
 bool loadGltf(const char* path, ModelData& out);
+
+// Load a glTF 2.0 file as a scene: each node with a mesh becomes a SceneNode carrying that mesh's
+// geometry (in local space), its world transform, and the first primitive's base-color texture.
+// Unlike loadGltf, nothing is merged — objects stay independent so the renderer can place and draw
+// each one. Returns false (and leaves `out` empty) on a missing/invalid file.
+bool loadGltfScene(const char* path, SceneData& out);
 
 } // namespace maz::render

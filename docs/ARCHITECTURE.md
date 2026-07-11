@@ -29,6 +29,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               MeshRenderer   — textured 3D meshes; directional light + shadow mapping + sky
               shapes         — procedural box / sphere / plane geometry
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color texture)
+              loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + texture)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
@@ -43,6 +44,7 @@ apps/
   scene3d/  ECS + 3D — ground plane + ring of shapes, orbiting camera
   world/    Explorable 3D — fly camera through a textured-floor block field
   model/    glTF demo — loads house.gltf at runtime, orbits with shadows + sky
+  village/  glTF scene demo — loads village.gltf (ground + houses + trees), fly-through
 ```
 
 ## The frame loop (fixed timestep)

@@ -101,8 +101,16 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > texture — embedded via a bufferView (stb_image decodes the PNG bytes) or referenced as an
 > external image file — into `ModelData`. The bundled `house.gltf` carries a 4-quadrant detail
 > atlas (brick / shingle / plank / glass) with per-face UVs, so its walls read as brick, the roof
-> as shingle, the door as planks, and the windows as glass. Everything marked `[x]` below is done;
-> everything else is the road ahead.
+> as shingle, the door as planks, and the windows as glass.
+>
+> **M19 — glTF scene loading (done).** `maz::render::loadGltfScene` reads a glTF file as a *scene*:
+> each node with a mesh becomes a `SceneNode` carrying that mesh's geometry (in local space), its
+> world transform, and its base-color texture — nothing is merged, so one source mesh can appear
+> many times at different positions. The `village` app loads a bundled `village.gltf` (a ground
+> plane, six textured houses, and nine trees — 16 nodes over 3 shared meshes) and lets you fly
+> through it with WASD + mouse-look, shadows and sky included. This is the data-driven step: a whole
+> level lives in one asset file, not in C++. Everything marked `[x]` below is done; everything else
+> is the road ahead.
 
 ---
 
@@ -193,7 +201,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
 - [ ] Scene graph, world-transform propagation, dirty flags
 - [ ] System scheduler (ordered + parallel execution)
-- [ ] Scene serialization (save/load), prefabs / blueprints
+- [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
+- [ ] Native scene serialization (save/load), prefabs / blueprints
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries
 
 ## Phase 5 — Asset pipeline

@@ -47,6 +47,7 @@ add_subdirectory(apps/cube)
 add_subdirectory(apps/scene3d)
 add_subdirectory(apps/world)
 add_subdirectory(apps/model)
+add_subdirectory(apps/village)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
