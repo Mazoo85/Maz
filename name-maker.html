@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Name Maker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%234f46e5'/><text x='8' y='12' font-size='11' text-anchor='middle' fill='white'>N</text></svg>" />
+  <style>
+    :root {
+      --bg1: #6366f1;
+      --bg2: #a855f7;
+      --card: #ffffff;
+      --text: #1e1b3a;
+      --muted: #6b7280;
+      --accent: #4f46e5;
+      --accent-dark: #4338ca;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--card);
+      width: 100%;
+      max-width: 460px;
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.9rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0 0 1.75rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    #result {
+      min-height: 2.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 1.75rem;
+      word-break: break-word;
+    }
+
+    #result:empty::before {
+      content: "Press the button";
+      color: #c4c4d4;
+      font-weight: 500;
+      font-size: 1.4rem;
+    }
+
+    #generate {
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      padding: 0.95rem 1rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border-radius: 12px;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    #generate:hover { background: var(--accent-dark); }
+    #generate:active { transform: scale(0.98); }
+
+    .count {
+      margin-top: 1.25rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Name Maker</h1>
+    <p class="subtitle">One random adjective, one random noun.</p>
+    <div id="result" aria-live="polite"></div>
+    <button id="generate" type="button">Generate Name</button>
+    <p class="count">1000 adjectives &times; 1000 nouns</p>
+  </main>
+
+  <script src="js/words.js"></script>
+  <script src="js/name-maker.js"></script>
+</body>
+</html>
