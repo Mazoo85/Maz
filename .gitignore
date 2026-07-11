@@ -1,3 +1,15 @@
 .DS_Store
 node_modules/
 *.log
+
+# C++ / CMake build artifacts
+build/
+build-*/
+out/
+cmake-build-*/
+*.o
+*.obj
+*.spv
+compile_commands.json
+CMakeUserPresets.json
+_deps/

@@ -1,0 +1,49 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+
+namespace maz::platform {
+class Window;
+}
+
+namespace maz::render {
+
+struct RendererConfig {
+    bool vsync = true;
+    bool enableValidation = false;   // Vulkan validation layers (debug builds)
+    // When true the renderer may run without a presentable surface / GPU and simply no-ops.
+    // Used for headless CI so the rest of the engine can still be exercised.
+    bool allowHeadless = false;
+};
+
+struct Color {
+    float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
+};
+
+// Rendering interface. Gameplay talks to this, never to Vulkan directly, so a future backend
+// (a 3D path, a null/software path, WebGPU) can be swapped in without touching game code.
+class Renderer {
+public:
+    virtual ~Renderer() = default;
+
+    virtual bool init(platform::Window& window, const RendererConfig& cfg) = 0;
+    virtual void shutdown() = 0;
+
+    // Rebuild swapchain-sized resources after a window resize.
+    virtual void onResize(uint32_t width, uint32_t height) = 0;
+
+    // Acquire the next frame. Returns false if there's nothing to draw into this frame
+    // (minimized, swapchain out-of-date, or headless/no-GPU) — callers should skip endFrame.
+    virtual bool beginFrame() = 0;
+    virtual void setClearColor(const Color& color) = 0;
+    virtual void endFrame() = 0;
+
+    // True when a real GPU + presentable surface are backing this renderer.
+    virtual bool isActive() const = 0;
+};
+
+// Factory for the Vulkan backend.
+std::unique_ptr<Renderer> createVulkanRenderer();
+
+} // namespace maz::render
