@@ -265,6 +265,7 @@ void VulkanRenderer::endFrame() {
 
     // Snapshot this frame's draw counts for the debug overlay to read next frame.
     m_stats.meshDraws = m_meshes.drawCount();
+    m_stats.culled = m_meshes.culledCount();
     m_stats.particles = m_particles.particleCount();
     m_stats.sprites = m_sprites.spriteCount();
 

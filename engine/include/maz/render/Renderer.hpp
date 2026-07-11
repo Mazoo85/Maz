@@ -58,7 +58,8 @@ constexpr MeshHandle kInvalidMesh = 0;
 
 // Per-frame draw counts for profiling/debug overlays (the previous completed frame).
 struct RenderStats {
-    uint32_t meshDraws = 0;
+    uint32_t meshDraws = 0; // meshes drawn after frustum culling
+    uint32_t culled = 0;    // meshes skipped by frustum culling
     uint32_t particles = 0;
     uint32_t sprites = 0;
 };

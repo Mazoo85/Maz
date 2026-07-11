@@ -68,6 +68,49 @@ std::string assetBase() {
     return base ? std::string(base) : std::string();
 }
 
+// Six world-space frustum planes (inward normals) extracted from a view-projection matrix
+// (Gribb-Hartmann; near uses row2 for Vulkan's [0,1] clip depth).
+struct Frustum {
+    glm::vec4 planes[6];
+};
+Frustum makeFrustum(const glm::mat4& m) {
+    const glm::vec4 r0(m[0][0], m[1][0], m[2][0], m[3][0]);
+    const glm::vec4 r1(m[0][1], m[1][1], m[2][1], m[3][1]);
+    const glm::vec4 r2(m[0][2], m[1][2], m[2][2], m[3][2]);
+    const glm::vec4 r3(m[0][3], m[1][3], m[2][3], m[3][3]);
+    Frustum f;
+    f.planes[0] = r3 + r0; // left
+    f.planes[1] = r3 - r0; // right
+    f.planes[2] = r3 + r1; // bottom
+    f.planes[3] = r3 - r1; // top
+    f.planes[4] = r2;      // near
+    f.planes[5] = r3 - r2; // far
+    return f;
+}
+// True if the world-space AABB [mn,mx] is at least partially inside the frustum.
+bool aabbInFrustum(const Frustum& f, const glm::vec3& mn, const glm::vec3& mx) {
+    for (const glm::vec4& p : f.planes) {
+        const glm::vec3 pv(p.x > 0 ? mx.x : mn.x, p.y > 0 ? mx.y : mn.y, p.z > 0 ? mx.z : mn.z);
+        if (p.x * pv.x + p.y * pv.y + p.z * pv.z + p.w < 0.0f) {
+            return false; // fully outside this plane
+        }
+    }
+    return true;
+}
+// World-space AABB of a local AABB transformed by `model` (8 corners).
+void worldAabb(const glm::mat4& model, const float bmin[3], const float bmax[3], glm::vec3& outMin,
+               glm::vec3& outMax) {
+    outMin = glm::vec3(1e30f);
+    outMax = glm::vec3(-1e30f);
+    for (int i = 0; i < 8; ++i) {
+        const glm::vec3 c((i & 1) ? bmax[0] : bmin[0], (i & 2) ? bmax[1] : bmin[1],
+                          (i & 4) ? bmax[2] : bmin[2]);
+        const glm::vec3 w = glm::vec3(model * glm::vec4(c, 1.0f));
+        outMin = glm::min(outMin, w);
+        outMax = glm::max(outMax, w);
+    }
+}
+
 VkVertexInputBindingDescription meshBinding() {
     VkVertexInputBindingDescription vb{};
     vb.binding = 0;
@@ -750,6 +793,19 @@ MeshHandle MeshRenderer::createMesh(VulkanContext& ctx, const MeshVertex* vertic
                                     uint32_t indexCount) {
     Mesh mesh;
     mesh.indexCount = indexCount;
+    // Local-space AABB for frustum culling.
+    if (vertexCount > 0) {
+        mesh.bmin[0] = mesh.bmax[0] = vertices[0].px;
+        mesh.bmin[1] = mesh.bmax[1] = vertices[0].py;
+        mesh.bmin[2] = mesh.bmax[2] = vertices[0].pz;
+        for (uint32_t i = 1; i < vertexCount; ++i) {
+            const float p[3] = {vertices[i].px, vertices[i].py, vertices[i].pz};
+            for (int k = 0; k < 3; ++k) {
+                mesh.bmin[k] = p[k] < mesh.bmin[k] ? p[k] : mesh.bmin[k];
+                mesh.bmax[k] = p[k] > mesh.bmax[k] ? p[k] : mesh.bmax[k];
+            }
+        }
+    }
     const VkDeviceSize vbytes = static_cast<VkDeviceSize>(vertexCount) * sizeof(MeshVertex);
     const VkDeviceSize ibytes = static_cast<VkDeviceSize>(indexCount) * sizeof(uint32_t);
     const VkMemoryPropertyFlags hostVisible =
@@ -853,9 +909,22 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
 
     const glm::mat4 vp = glm::make_mat4(m_viewProj);
     const glm::mat4 lightVP = glm::make_mat4(m_lightVP);
+    const Frustum frustum = makeFrustum(vp);
+    m_drawnLastFrame = 0;
+    m_culledLastFrame = 0;
     for (const DrawCmd& dc : m_cmds) {
         const Mesh& mesh = m_meshes[dc.mesh];
         const glm::mat4 model = glm::make_mat4(dc.model);
+
+        // Frustum culling: skip meshes whose world AABB is entirely outside the camera frustum.
+        glm::vec3 wmin, wmax;
+        worldAabb(model, mesh.bmin, mesh.bmax, wmin, wmax);
+        if (!aabbInFrustum(frustum, wmin, wmax)) {
+            ++m_culledLastFrame;
+            continue;
+        }
+        ++m_drawnLastFrame;
+
         const glm::mat4 mvp = vp * model;
 
         float push[52];

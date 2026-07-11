@@ -43,7 +43,8 @@ public:
               TextureHandle normal = kInvalidTexture);
 
     bool hasDraws() const { return !m_cmds.empty(); }
-    uint32_t drawCount() const { return static_cast<uint32_t>(m_cmds.size()); }
+    uint32_t drawCount() const { return m_drawnLastFrame; }   // meshes actually drawn (post-cull)
+    uint32_t culledCount() const { return m_culledLastFrame; } // meshes skipped by frustum culling
     void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
     void renderSky(VkCommandBuffer cmd);    // gradient sky background (call at main-pass start)
     void flush(VkCommandBuffer cmd);        // main color pass (call inside the main render pass)
@@ -55,6 +56,8 @@ private:
         VulkanBuffer vbo;
         VulkanBuffer ibo;
         uint32_t indexCount = 0;
+        float bmin[3] = {0, 0, 0}; // local-space AABB for frustum culling
+        float bmax[3] = {0, 0, 0};
     };
     struct DrawCmd {
         MeshHandle mesh;
@@ -112,6 +115,8 @@ private:
     float m_skyGround[3] = {0.42f, 0.45f, 0.50f};
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
+    uint32_t m_drawnLastFrame = 0;
+    uint32_t m_culledLastFrame = 0;
 };
 
 } // namespace maz::render

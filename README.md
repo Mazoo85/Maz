@@ -78,6 +78,8 @@ available):
   QUEST has a bonfire whose glowing embers rise, fade, and bloom at night
 - **M29** — debug stats overlay (`ui::DebugOverlay`): smoothed FPS, frame time, and per-frame draw
   counts (mesh/particle/sprite) from `Renderer::renderStats`; toggle with **F3** in `world`
+- **M30** — frustum culling: meshes outside the camera frustum are skipped (world-AABB vs viewProj
+  planes); the overlay shows the culled count (e.g. "MESH 36 (culled 51)")
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

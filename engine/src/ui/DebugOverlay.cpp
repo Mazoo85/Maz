@@ -24,8 +24,8 @@ void DebugOverlay::draw(render::Renderer& renderer, Font& font, float x, float y
     char buf[96];
     std::snprintf(buf, sizeof(buf), "FPS %4.0f    FRAME %5.2f ms", fps, ms);
     font.drawText(renderer, x, y, buf, col, scale);
-    std::snprintf(buf, sizeof(buf), "MESH %u   PARTICLES %u   SPRITES %u", s.meshDraws, s.particles,
-                  s.sprites);
+    std::snprintf(buf, sizeof(buf), "MESH %u (culled %u)   PART %u   SPR %u", s.meshDraws, s.culled,
+                  s.particles, s.sprites);
     font.drawText(renderer, x, y + 22.0f, buf, col, scale);
 }
 

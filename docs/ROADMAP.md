@@ -224,7 +224,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] System scheduler (ordered + parallel execution)
 - [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
 - [ ] Native scene serialization (save/load), prefabs / blueprints
-- [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries
+- [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
+- [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
 
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
