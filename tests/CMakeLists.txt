@@ -1,3 +1,10 @@
+# Unit tests for the pure-logic modules (math, collision, spatial grid, ECS, shake, particles).
+# No GPU/window needed — fast, deterministic, and the first line of defence against logic bugs.
+add_executable(maz_unit_tests unit/main.cpp)
+target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME unit_tests COMMAND maz_unit_tests)
+set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
+
 # Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
 # This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
 add_test(

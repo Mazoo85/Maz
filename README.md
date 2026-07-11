@@ -25,7 +25,7 @@ cmake --build build
 ./build/bin/village --demo          # autopilot playthrough (for capture)
 ./build/bin/water                   # dynamic-mesh demo — a rippling sine-wave water surface
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
-ctest --test-dir build              # headless smoke tests (all apps)
+ctest --test-dir build              # unit tests + headless smoke tests (all apps)
 ```
 
 Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,

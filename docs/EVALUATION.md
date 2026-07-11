@@ -224,5 +224,18 @@ This iteration:
 
 **Iteration 14 complete** (film grain; particle attractor/vortex).
 
-Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, reflective water,
-SSAO, in-app settings menu UI, instanced mesh rendering, decals.
+### Iteration 15 — "Foundations: automated testing" (in progress)
+Self-directed evaluation: the engine's biggest *process* gap is that everything was verified by
+hand (screenshots) or by "exits 0" smoke tests — no automated protection against logic or visual
+regressions. Highest-leverage fix before more features: real testing.
+- [x] **M50 — Unit test suite**: a dependency-free `CHECK`/`CHECK_NEAR` runner (`tests/unit/main.cpp`
+  → `maz_unit_tests`, wired into ctest) covering `math` (Vulkan perspective Y-flip, ortho2D mapping,
+  vector identities), `game::Collision` (AABB overlap, slideMove stop + slide), `game::SpatialGrid`
+  (gather locality, grid vs vector slideMove parity, occupied-cell count), `ecs::World`
+  (create/destroy/id-reuse, add/get/has/remove, each/view iteration), `game::Shake` (trauma clamp +
+  decay), and the `fx` particle attractor. 44 checks, all passing; ctest is now 10/10.
+- [ ] **M51 — Golden-image regression harness**: render each app on lavapipe and diff against
+  committed reference PNGs with a tolerance, to catch silent visual regressions.
+
+Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
+depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI.

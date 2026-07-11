@@ -171,7 +171,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
       via `Renderer::renderStats`; M29)
 - [ ] Profiling: scoped timers, frame markers, Tracy integration
-- [ ] Unit-test framework wiring (doctest/Catch2)
+- [x] **Unit tests** (dependency-free runner: math, collision, spatial grid, ECS, shake, particles;
+  `maz_unit_tests` via ctest; M50)
 
 ## Phase 3 — Rendering (Vulkan)
 - [x] Instance + validation layers (debug), debug messenger
