@@ -1,12 +1,13 @@
-# Maz
+# Maz Engine
 
-This repo holds two things:
+A native **C++20 + Vulkan + SDL3** game engine — 2D-first, architected so 3D drops in later.
+See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
+**[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
 
-1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
-   3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
-   "massive list") and **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
-2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
-   engine's eventual flagship port target (roadmap Phase 13).
+> This repository also contains an **unrelated, pre-existing browser game**, *ZOMBOID:
+> ANCHORAGE* (`index.html`, `js/`, `css/`, documented further below). It is a separate project
+> that merely shares this repo — **the engine has nothing to do with it**, does not depend on
+> it, and does not target porting it.
 
 ## Building Maz Engine
 

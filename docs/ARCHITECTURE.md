@@ -8,9 +8,8 @@
    layers never include higher ones.
 3. **Data-oriented where it counts.** Hot paths (entities, rendering) favor contiguous storage
    and handles over deep pointer graphs.
-4. **Deterministic simulation.** Fixed-timestep update decoupled from render, so gameplay is
-   reproducible and frame-rate independent (mirrors the `STEP = 1/60` accumulator used in the
-   reference browser game `js/game.js`).
+4. **Deterministic simulation.** Fixed-timestep update decoupled from render (a `1/60`
+   accumulator), so gameplay is reproducible and frame-rate independent.
 5. **Degrade gracefully.** No GPU / no display (CI, headless) must not crash — the renderer
    logs and no-ops so tooling and tests still run.
 

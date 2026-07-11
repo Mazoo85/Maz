@@ -170,15 +170,19 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Packaging / installers per platform, asset signing
 - [ ] Opt-in telemetry / crash reporting
 
-## Phase 13 — Demos & the first real game
+## Phase 13 — Demos & a first complete sample game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
 - [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
-- [ ] Sample scenes: pong, platformer, top-down shooter
-- [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
-      loot, hordes, audio — the flagship proof the engine ships a full game (the existing
-      `index.html` / `js/` browser version is the design reference)
+- [ ] Sample scenes: pong, platformer, top-down adventure
+- [ ] One complete **original** sample game (genre TBD) — end-to-end proof the engine ships a
+      full title: menu → play → win/lose → restart, with sound and saved state
+
+> Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
+> The unrelated *ZOMBOID: ANCHORAGE* browser game that also lives in this repo is **not** an
+> engine target or dependency. Sample games built to exercise the engine are original and
+> genre-neutral.
 
 ---
 
@@ -186,5 +190,5 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 1. Finish **Phase 3** rendering (VMA → pipeline → sprite batch) — it unblocks everything visual.
 2. In parallel, stand up **Phase 4 ECS** — it unblocks scenes and gameplay.
 3. Then **Phase 5 assets** so you can load real textures/models.
-4. Everything after is genre-driven; the Zomboid port (Phase 13) is the forcing function that
-   keeps the API honest.
+4. Everything after is genre-driven; a small original sample game (Phase 13) is the forcing
+   function that keeps the API honest.
