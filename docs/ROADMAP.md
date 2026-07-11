@@ -297,7 +297,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Keyframe clips + blending** (`anim::AnimClip`: per-joint TRS tracks, lerp/slerp sampling +
   loop, `blendPoses` cross-fade; the `animclip` demo blends a wave and a coil clip; M68) — blend
   trees later
-- [ ] Animation state machine, transitions, IK (later)
+- [x] **Animation controller** (`anim::Animator`: named clips + timed cross-fade transitions via
+  play/update/pose; the `animator` demo cycles idle/wave/coil clips; M70) — full state graph / IK later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later
 

@@ -213,6 +213,11 @@ available):
   the existing collision detection. The `physics` demo drops 45 balls that bounce, collide, and
   stack. Momentum conservation, elastic bounce, static bodies, wall reflection, and no-sink resting
   unit-tested
+- **M70** — animation controller: `anim::Animator` holds named clips and `play(name, fade)` cross-
+  fades from the current clip to a new one over a duration, sampling both continuously so the blend
+  is smooth — the stateful layer a game drives (idle→walk→jump). The `animator` demo auto-cycles a
+  skinned character through idle/wave/coil clips with timed cross-fades (HUD shows the live fade %).
+  Snap-in, cross-fade progression, and no-restart-on-repeat unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

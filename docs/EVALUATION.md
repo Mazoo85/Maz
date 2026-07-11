@@ -566,8 +566,27 @@ real rigid-body layer is a genuine capability gap for physics-driven games.
   Verified on lavapipe (the pile is stable, no interpenetration, RMSE 0, no validation errors); new
   `physics_headless_smoke` + golden → ctest **26/26**, every existing golden unchanged.
 
-Later: circle-vs-AABB / oriented boxes + friction + rotation, an animation state machine wiring
-clips to game states, GPU skinning, glTF skin/animation import, back TextureStore/mesh loading with
+**Iteration 32 complete** (2D impulse physics).
+
+### Iteration 33 — "Animation controller" (in progress)
+Self-directed: skeleton (M67) and clips (M68) exist as separate primitives, but nothing ties them
+into the stateful controller a game actually drives — named clips with timed cross-fades between
+them. That's the standard animation-graph top layer.
+- [x] **M70 — Animation controller**: header-only `anim::Animator` — a clip library (`addClip`/
+  `findClip`) plus a two-track cross-fader. `play(id_or_name, fadeDuration)` moves the current clip
+  to an outgoing track and fades to the new one; `update(dt)` advances both tracks and the fade
+  timer; `pose()` returns the blended per-joint result (both clips keep animating during the fade,
+  so motion doesn't freeze). The first clip snaps in; replaying the active clip is a no-op.
+  Pure logic → unit-tested headlessly (636 checks total): rest pose when idle, first-clip snap,
+  A->B cross-fade sampled at start (all A), midpoint (50/50 blend) and end (all B), fadeProgress,
+  and no-restart on repeat. New `animator` demo: a skinned tube driven by the controller through
+  three named clips (idle / wave / coil), auto-cycling every 3s with a 0.7s cross-fade; the HUD
+  shows the active clip and live fade %. Verified on lavapipe (the tube eases between animations,
+  the HUD caught a "cross-fading 19%" transition, no validation errors); new
+  `animator_headless_smoke` + golden → ctest **27/27**, every existing golden unchanged.
+
+Later: drive the Animator from a StateMachine (animation graph), circle-vs-AABB / friction /
+rotation in physics, GPU skinning, glTF skin/animation import, back TextureStore/mesh loading with
 the cache, parallelize a hot loop, wire the event bus into a game, behavior trees, reflection-driven
 ECS serialization, JSON/text format, UI layout / text input, order-independent transparency,
 material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic

@@ -4,6 +4,7 @@
 // dependency philosophy.
 
 #include "maz/anim/AnimClip.hpp"
+#include "maz/anim/Animator.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
@@ -1094,6 +1095,55 @@ void testPhysics2D() {
     CHECK(w3.bodies[0].pos.y + w3.bodies[0].radius > 10.0f - 0.05f); // came to rest ON the floor
 }
 
+void testAnimator() {
+    // Two single-key (constant) clips with distinct joint translations.
+    auto makeConst = [](math::vec3 t) {
+        anim::AnimClip c;
+        c.duration = 1.0f;
+        c.loop = true;
+        c.tracks.resize(1);
+        c.tracks[0].translation = {{0.0f, t}};
+        return c;
+    };
+    anim::Animator anim;
+    anim.setRestPose(std::vector<anim::JointPose>(1));
+    const int a = anim.addClip("A", makeConst(math::vec3(10, 0, 0)));
+    const int b = anim.addClip("B", makeConst(math::vec3(0, 10, 0)));
+    CHECK(anim.clipCount() == 2);
+    CHECK(anim.findClip("B") == b);
+    CHECK(anim.findClip("nope") == -1);
+
+    // With nothing playing, the pose is the rest pose.
+    anim.update(0.1f);
+    CHECK_NEAR(anim.pose()[0].translation.x, 0.0f, 1e-6f);
+
+    // First clip snaps in (no cross-fade): pose == A immediately.
+    anim.play(a, 0.5f);
+    CHECK(anim.currentClip() == a);
+    CHECK(!anim.isFading());
+    CHECK_NEAR(anim.pose()[0].translation.x, 10.0f, 1e-5f);
+    CHECK_NEAR(anim.pose()[0].translation.y, 0.0f, 1e-5f);
+
+    // Cross-fade A -> B over 1 second. At the start the pose is still A; halfway it's the 50/50
+    // blend; at the end it's fully B.
+    anim.play(b, 1.0f);
+    CHECK(anim.isFading());
+    CHECK_NEAR(anim.pose()[0].translation.x, 10.0f, 1e-4f); // fadeT 0 -> still A
+    CHECK_NEAR(anim.pose()[0].translation.y, 0.0f, 1e-4f);
+    anim.update(0.5f); // halfway
+    CHECK_NEAR(anim.pose()[0].translation.x, 5.0f, 1e-3f);
+    CHECK_NEAR(anim.pose()[0].translation.y, 5.0f, 1e-3f);
+    anim.update(0.5f); // fade complete
+    CHECK(!anim.isFading());
+    CHECK_NEAR(anim.pose()[0].translation.x, 0.0f, 1e-4f);
+    CHECK_NEAR(anim.pose()[0].translation.y, 10.0f, 1e-4f);
+    CHECK_NEAR(anim.fadeProgress(), 1.0f, 1e-5f);
+
+    // Re-playing the current clip is a no-op (doesn't restart a fade).
+    anim.play(b, 1.0f);
+    CHECK(!anim.isFading());
+}
+
 } // namespace
 
 int main() {
@@ -1109,6 +1159,7 @@ int main() {
     testSpriteAnim();
     testSkeleton();
     testAnimClip();
+    testAnimator();
     testEventBus();
     testJobs();
     testResourceCache();
