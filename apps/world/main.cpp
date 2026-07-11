@@ -206,6 +206,9 @@ int main(int argc, char** argv) {
         } else {
             const float sens = 0.0025f;
             camera.look(input.mouseDX() * sens, -input.mouseDY() * sens);
+            const float padLook = 0.05f;
+            camera.look(input.gamepadAxis(platform::pad::RightX) * padLook,
+                        -input.gamepadAxis(platform::pad::RightY) * padLook);
         }
 
         clock.beginFrame();
@@ -222,6 +225,11 @@ int main(int argc, char** argv) {
                 if (input.keyDown(SDL_SCANCODE_A)) right -= 1.0f;
                 if (input.keyDown(SDL_SCANCODE_SPACE)) up += 1.0f;
                 if (input.keyDown(SDL_SCANCODE_LSHIFT)) up -= 1.0f;
+                // Gamepad: left stick moves, triggers rise/descend.
+                fwd -= input.gamepadAxis(platform::pad::LeftY);
+                right += input.gamepadAxis(platform::pad::LeftX);
+                up += input.gamepadAxis(platform::pad::RightTrigger) -
+                      input.gamepadAxis(platform::pad::LeftTrigger);
             }
             // Move, resolved against the solid blocks so you slide instead of passing through.
             const glm::vec3 delta = camera.moveDelta(fwd, right, up, dt, speed);

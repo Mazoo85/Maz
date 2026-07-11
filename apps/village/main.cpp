@@ -225,6 +225,10 @@ int main(int argc, char** argv) {
         } else if (!autopilot) {
             const float sens = 0.0025f;
             camera.look(input.mouseDX() * sens, -input.mouseDY() * sens);
+            // Right stick looks around (gamepad).
+            const float padLook = 0.05f;
+            camera.look(input.gamepadAxis(platform::pad::RightX) * padLook,
+                        -input.gamepadAxis(platform::pad::RightY) * padLook);
         }
 
         clock.beginFrame();
@@ -243,6 +247,9 @@ int main(int argc, char** argv) {
                 if (input.keyDown(SDL_SCANCODE_S)) fwd -= 1.0f;
                 if (input.keyDown(SDL_SCANCODE_D)) strafe += 1.0f;
                 if (input.keyDown(SDL_SCANCODE_A)) strafe -= 1.0f;
+                // Left stick moves (gamepad); up on the stick is forward.
+                fwd -= input.gamepadAxis(platform::pad::LeftY);
+                strafe += input.gamepadAxis(platform::pad::LeftX);
             }
 
             // Move on the ground plane (no vertical fly), sliding against the solid houses.

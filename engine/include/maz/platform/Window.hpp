@@ -3,6 +3,7 @@
 #include <cstdint>
 
 struct SDL_Window;
+struct SDL_Gamepad;
 
 namespace maz::platform {
 
@@ -54,6 +55,7 @@ public:
 
 private:
     SDL_Window* m_window = nullptr;
+    SDL_Gamepad* m_gamepad = nullptr; // first connected controller, or null
     uint32_t m_width = 0;
     uint32_t m_height = 0;
     bool m_shouldClose = false;

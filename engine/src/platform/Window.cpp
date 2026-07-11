@@ -18,7 +18,7 @@ bool Window::init(const WindowConfig& cfg) {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
     }
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         MAZ_LOG_ERROR("SDL_Init failed: %s", SDL_GetError());
         return false;
     }
@@ -49,6 +49,10 @@ bool Window::init(const WindowConfig& cfg) {
 }
 
 void Window::shutdown() {
+    if (m_gamepad) {
+        SDL_CloseGamepad(m_gamepad);
+        m_gamepad = nullptr;
+    }
     if (m_window) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
@@ -98,9 +102,41 @@ void Window::pumpEvents(Input& input) {
         case SDL_EVENT_MOUSE_WHEEL:
             input.onMouseWheel(e.wheel.y);
             break;
+        case SDL_EVENT_GAMEPAD_ADDED:
+            if (!m_gamepad) {
+                m_gamepad = SDL_OpenGamepad(e.gdevice.which);
+                if (m_gamepad) {
+                    MAZ_LOG_INFO("gamepad connected: %s",
+                                 SDL_GetGamepadName(m_gamepad) ? SDL_GetGamepadName(m_gamepad) : "?");
+                }
+            }
+            break;
+        case SDL_EVENT_GAMEPAD_REMOVED:
+            if (m_gamepad &&
+                e.gdevice.which == SDL_GetGamepadID(m_gamepad)) {
+                SDL_CloseGamepad(m_gamepad);
+                m_gamepad = nullptr;
+            }
+            break;
         default:
             break;
         }
+    }
+
+    // Snapshot the gamepad state for this frame (SDL axes are Sint16; normalize to [-1,1]).
+    if (m_gamepad) {
+        float axes[pad::AxisCount];
+        for (int i = 0; i < pad::AxisCount; ++i) {
+            const Sint16 raw = SDL_GetGamepadAxis(m_gamepad, static_cast<SDL_GamepadAxis>(i));
+            axes[i] = static_cast<float>(raw) / 32767.0f;
+        }
+        bool buttons[pad::ButtonCount];
+        for (int i = 0; i < pad::ButtonCount; ++i) {
+            buttons[i] = SDL_GetGamepadButton(m_gamepad, static_cast<SDL_GamepadButton>(i));
+        }
+        input.onGamepadState(true, axes, buttons);
+    } else {
+        input.onGamepadState(false, nullptr, nullptr);
     }
 }
 

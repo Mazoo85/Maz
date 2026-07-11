@@ -32,8 +32,9 @@ implement it, then re-evaluate and repeat. Updated each iteration.
   mesh path; fog params in the lights UBO, camera position threaded via `setCameraPosition` +
   push constant. Off by default (density 0) so existing apps are unchanged; `world` and `village`
   opt in so distance fades into the sky.
-- [ ] **M23 — Gamepad support** (platform): SDL3 gamepad in `platform::Input` (sticks, buttons,
-  triggers) with graceful absence; wired into `world`/`village` movement + look.
+- [x] **M23 — Gamepad support** (platform): SDL3 gamepad in `platform::Input` (sticks, buttons,
+  triggers, deadzone) with hotplug + graceful absence; `world`/`village` movement + look use the
+  sticks (world uses triggers for up/down).
 - [ ] **M24 — Day/night dynamic sky** (engine+app): sky colors + sun become parameters; `village`
   animates a sun arc with the sky and lamp intensity responding.
 

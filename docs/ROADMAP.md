@@ -150,7 +150,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Fixed-timestep clock (accumulator) + frame delta
 - [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
 - [ ] Focus / minimize / occlusion handling (pause when unfocused)
-- [ ] Gamepad / controller support + haptics (rumble)
+- [x] **Gamepad / controller support** (SDL3, sticks/buttons/triggers + deadzone; M23) — haptics TODO
 - [ ] Action-mapping layer (bind abstract actions like "Jump" to keys/buttons/axes)
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
