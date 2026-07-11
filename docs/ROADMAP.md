@@ -271,7 +271,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Gameplay: state machines, behavior trees, AI steering
 - [ ] Pathfinding (A* / nav grid; navmesh later)
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
-- [ ] GPU particles, continuous emitters, affectors/attractors
+- [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)
+- [ ] GPU-simulated particles, affectors/attractors
 - [ ] Tilemap tools, procedural generation utilities
 - [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
 - [ ] Full game-state serialization + checkpoints

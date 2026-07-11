@@ -214,6 +214,24 @@ int main(int argc, char** argv) {
     const glm::vec3 playerHalf(0.5f, 1.1f, 0.5f);
     const float eyeHeight = 1.7f;
 
+    // A bonfire of glowing embers rising in the square (3D billboard particles; M28).
+    struct Ember {
+        glm::vec3 pos, vel;
+        float life, maxLife;
+    };
+    const glm::vec3 fire(0.0f, 0.2f, 4.0f);
+    std::vector<Ember> embers(110);
+    auto respawnEmber = [&](Ember& e) {
+        e.pos = fire + glm::vec3(frand(-0.35f, 0.35f), 0.0f, frand(-0.35f, 0.35f));
+        e.vel = glm::vec3(frand(-0.4f, 0.4f), frand(1.3f, 2.6f), frand(-0.4f, 0.4f));
+        e.maxLife = frand(1.2f, 2.6f);
+        e.life = e.maxLife;
+    };
+    for (Ember& e : embers) {
+        respawnEmber(e);
+        e.life = frand(0.0f, e.maxLife); // stagger so the fire starts full
+    }
+
     audio::Audio audio;
     audio.init(); // no-op without a device
     const audio::SoundDesc sfxCoin{audio::Wave::Square, 720.0f, 1180.0f, 0.09f, 0.28f};
@@ -281,6 +299,18 @@ int main(int argc, char** argv) {
             const float dt = static_cast<float>(clock.fixedDelta());
             if (!won) {
                 runTime += dt;
+            }
+
+            // Integrate the bonfire embers: rise, arc, fade, respawn.
+            for (Ember& e : embers) {
+                e.pos += e.vel * dt;
+                e.vel.y -= 0.5f * dt;
+                e.vel.x *= 0.985f;
+                e.vel.z *= 0.985f;
+                e.life -= dt;
+                if (e.life <= 0.0f) {
+                    respawnEmber(e);
+                }
             }
 
             float fwd = 0.0f, strafe = 0.0f, speed = 8.0f;
@@ -355,6 +385,18 @@ int main(int argc, char** argv) {
             renderer->setCameraPosition(glm::value_ptr(camera.position()));
             for (const Placed& pl : scene) {
                 renderer->drawMesh(pl.mesh, pl.model, pl.tex, pl.normal);
+            }
+
+            // Bonfire embers as camera-facing billboards (warm, additive, fading with life).
+            const glm::vec3 fwd = camera.forward();
+            const glm::vec3 right = glm::normalize(glm::cross(fwd, glm::vec3(0, 1, 0)));
+            const glm::vec3 up = glm::normalize(glm::cross(right, fwd));
+            renderer->setCameraBasis(glm::value_ptr(right), glm::value_ptr(up));
+            for (const Ember& e : embers) {
+                const float t = e.life / e.maxLife; // 1 fresh -> 0 dead
+                const float size = 0.05f + 0.16f * t;
+                const float col[4] = {1.0f, 0.35f + 0.4f * t, 0.12f * t, t};
+                renderer->drawParticle3D(glm::value_ptr(e.pos), size, col);
             }
             const float bob = 0.15f * std::sin(static_cast<float>(clock.elapsed()) * 2.5f);
             const float spin = static_cast<float>(clock.elapsed()) * 2.0f;

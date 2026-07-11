@@ -57,5 +57,13 @@ implement it, then re-evaluate and repeat. Updated each iteration.
   Landed incrementally (offscreen+passthrough verified pixel-identical for orbs/cube first, then
   bloom). Village scales bloom with the day/night cycle; night lamps + coins glow. Deferred within
   post: HDR float target + separable multi-pass blur + tonemap operator.
-- [ ] World-space (billboarded) 3D particles; frustum culling; native scene serialization + a
-  debug stats overlay.
+- [x] **M28 — World-space 3D particles**: a `Particles3D` renderer draws camera-facing additive
+  billboards (expanded along the camera basis in the vertex shader, radial-falloff soft dots),
+  depth-tested against the scene but not depth-writing, inside the scene pass. `Renderer` gains
+  `setCameraBasis` + `drawParticle3D`. Village adds a bonfire ember plume that glows and blooms at
+  night. Verified on lavapipe.
+- [ ] Frustum culling; native scene serialization + a debug stats overlay; GPU-simulated particles.
+
+### Iteration 4 — in progress
+Started with M28 (3D particles). Next candidates: refine bloom (downsampled separable blur +
+tonemap), frustum culling, a debug stats overlay.

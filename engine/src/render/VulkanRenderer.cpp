@@ -3,6 +3,7 @@
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/Particles3D.hpp"
 #include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureStore.hpp"
@@ -11,6 +12,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -43,6 +45,8 @@ public:
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
     void setBloom(float strength, float threshold) override;
+    void setCameraBasis(const float right3[3], const float up3[3]) override;
+    void drawParticle3D(const float pos3[3], float size, const float color4[4]) override;
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
@@ -60,8 +64,13 @@ private:
     TextureStore m_textureStore;
     SpriteRenderer m_sprites;
     MeshRenderer m_meshes;
+    Particles3D m_particles;
     PostProcess m_post;
     RendererConfig m_cfg;
+
+    float m_viewProj3D[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    float m_camRight[3] = {1, 0, 0};
+    float m_camUp[3] = {0, 1, 0};
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     std::array<VkCommandBuffer, kMaxFramesInFlight> m_commandBuffers{};
@@ -117,6 +126,11 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     }
     if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples())) {
         MAZ_LOG_ERROR("mesh renderer init failed");
+        return false;
+    }
+    if (!m_particles.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight,
+                          m_swapchain.samples())) {
+        MAZ_LOG_ERROR("particle renderer init failed");
         return false;
     }
     if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
@@ -234,6 +248,8 @@ bool VulkanRenderer::beginFrame() {
     const uint32_t h = m_swapchain.extent().height;
     m_meshes.setViewport(w, h);
     m_meshes.begin();
+    m_particles.setViewport(w, h);
+    m_particles.begin();
     m_sprites.setViewport(w, h);
     m_sprites.begin();
     return true;
@@ -263,6 +279,7 @@ void VulkanRenderer::endFrame() {
 
     m_meshes.renderSky(cmd);              // gradient sky behind the 3D scene (no-op if no meshes)
     m_meshes.flush(cmd);                  // 3D (depth-tested)
+    m_particles.flush(cmd, m_currentFrame, m_viewProj3D, m_camRight, m_camUp); // billboards
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
 
@@ -339,6 +356,20 @@ MeshHandle VulkanRenderer::createMesh(const MeshVertex* vertices, uint32_t verte
 void VulkanRenderer::setViewProjection3D(const float* viewProj16) {
     if (m_active) {
         m_meshes.setViewProjection(viewProj16);
+        std::memcpy(m_viewProj3D, viewProj16, sizeof(m_viewProj3D));
+    }
+}
+
+void VulkanRenderer::setCameraBasis(const float right3[3], const float up3[3]) {
+    if (m_active) {
+        std::memcpy(m_camRight, right3, sizeof(m_camRight));
+        std::memcpy(m_camUp, up3, sizeof(m_camUp));
+    }
+}
+
+void VulkanRenderer::drawParticle3D(const float pos3[3], float size, const float color4[4]) {
+    if (m_active) {
+        m_particles.draw(pos3, size, color4);
     }
 }
 
@@ -390,6 +421,7 @@ void VulkanRenderer::shutdown() {
     }
     if (m_active) {
         m_post.shutdown(m_ctx);
+        m_particles.shutdown(m_ctx);
         m_meshes.shutdown(m_ctx);
         m_sprites.shutdown(m_ctx);
         m_textureStore.shutdown(m_ctx); // owns textures used by both; after their pipelines

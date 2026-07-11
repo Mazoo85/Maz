@@ -74,6 +74,8 @@ available):
   and roof shingles real per-pixel surface relief under the lights
 - **M27** — post-processing bloom: the scene renders to an offscreen target and a composite pass
   adds a threshold bloom (passthrough at strength 0); VILLAGE QUEST's night lamps and coins glow
+- **M28** — world-space 3D particles: camera-facing additive billboards (`drawParticle3D`); VILLAGE
+  QUEST has a bonfire whose glowing embers rise, fade, and bloom at night
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
