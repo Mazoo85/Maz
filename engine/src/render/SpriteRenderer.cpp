@@ -300,6 +300,7 @@ TextureHandle SpriteRenderer::loadTexture(VulkanContext& ctx, const char* path) 
 void SpriteRenderer::begin() {
     m_vertices.clear();
     m_batches.clear();
+    m_cameraChanged = true; // first draw captures the current camera
 }
 
 void SpriteRenderer::draw(TextureHandle tex, const SpriteDesc& s) {
@@ -341,8 +342,9 @@ void SpriteRenderer::draw(TextureHandle tex, const SpriteDesc& s) {
     const Vertex bl = corner(-hw, hh, s.uvMinX, s.uvMaxY);
 
     const auto first = static_cast<uint32_t>(m_vertices.size());
-    if (m_batches.empty() || m_batches.back().tex != tex) {
-        m_batches.push_back(Batch{tex, first, 0});
+    if (m_batches.empty() || m_batches.back().tex != tex || m_cameraChanged) {
+        m_batches.push_back(Batch{tex, first, 0, m_camera});
+        m_cameraChanged = false;
     }
     m_vertices.push_back(tl);
     m_vertices.push_back(tr);
@@ -359,18 +361,8 @@ void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
     }
     std::memcpy(m_vboMapped[frameIndex], m_vertices.data(), m_vertices.size() * sizeof(Vertex));
 
-    // Camera view-projection.
-    glm::mat4 viewProj;
     const float w = static_cast<float>(m_viewportW);
     const float h = static_cast<float>(m_viewportH);
-    if (m_camera.usePixelSpace) {
-        viewProj = math::ortho2D(w, h);
-    } else {
-        const float halfW = w * 0.5f / m_camera.zoom;
-        const float halfH = h * 0.5f / m_camera.zoom;
-        viewProj = glm::ortho(m_camera.centerX - halfW, m_camera.centerX + halfW,
-                              m_camera.centerY + halfH, m_camera.centerY - halfH, -1.0f, 1.0f);
-    }
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
@@ -383,14 +375,26 @@ void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
     scissor.extent = {m_viewportW, m_viewportH};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                       glm::value_ptr(viewProj));
-
     VkDeviceSize offset = 0;
     VkBuffer buffer = m_vbo[frameIndex].handle();
     vkCmdBindVertexBuffers(cmd, 0, 1, &buffer, &offset);
 
+    // Each batch carries its own camera, so a world-space pass and a pixel-space HUD pass can
+    // coexist in one frame.
     for (const Batch& batch : m_batches) {
+        glm::mat4 viewProj;
+        if (batch.cam.usePixelSpace) {
+            viewProj = math::ortho2D(w, h);
+        } else {
+            const float halfW = w * 0.5f / batch.cam.zoom;
+            const float halfH = h * 0.5f / batch.cam.zoom;
+            // y-down (top-left origin): min-y maps to the top. See math::ortho2D.
+            viewProj = glm::ortho(batch.cam.centerX - halfW, batch.cam.centerX + halfW,
+                                  batch.cam.centerY - halfH, batch.cam.centerY + halfH, -1.0f,
+                                  1.0f);
+        }
+        vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                           glm::value_ptr(viewProj));
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
                                 &m_textures[batch.tex].set, 0, nullptr);
         vkCmdDraw(cmd, batch.count, 1, batch.first, 0);

@@ -17,8 +17,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 >
 > **M2 — playable top-down demo (done).** A `Tilemap` module + a sandbox that renders a
 > view-culled tile world, moves a player with WASD, blocks movement into solid tiles
-> (axis-separated sliding), and follows the player with the camera. Everything marked `[x]`
-> below is done; everything else is the road ahead.
+> (axis-separated sliding), and follows the player with the camera.
+>
+> **M3 — text + HUD (done).** TrueType text via `stb_truetype` baked to an atlas (`ui::Font`,
+> `drawText`), a bundled DejaVu Sans, and multi-camera batching so a pixel-space HUD (title,
+> controls, animated health bar) draws over the world-space follow camera. Fixed the Vulkan
+> clip-space Y orientation to true top-left/y-down. Everything marked `[x]` below is done;
+> everything else is the road ahead.
 
 ---
 
@@ -79,7 +84,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload
 - [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
 - [x] **2D:** tilemap rendering (view-culled, via atlas uv sub-rects)
+- [x] **2D:** multi-camera passes (world-space + pixel-space HUD in one frame)
+- [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
+- [ ] SDF text for crisp scaling, text layout/wrapping
 - [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [ ] Mesh renderer (indexed draw), vertex layouts, instancing
@@ -130,6 +138,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Tween / timeline system, curves
 
 ## Phase 9 — UI
+- [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
 - [ ] Dear ImGui integration for tools / debug overlays
 - [ ] Retained/immediate game-UI: widgets, layout, anchoring, scaling
 - [ ] Text input, focus / navigation, controller UI nav
@@ -165,6 +174,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
 - [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
+- [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [ ] Sample scenes: pong, platformer, top-down shooter
 - [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
       loot, hordes, audio — the flagship proof the engine ships a full game (the existing

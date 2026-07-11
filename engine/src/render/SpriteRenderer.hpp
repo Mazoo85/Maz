@@ -24,7 +24,12 @@ public:
     TextureHandle createTexture(VulkanContext& ctx, uint32_t w, uint32_t h, const void* rgba);
     TextureHandle loadTexture(VulkanContext& ctx, const char* path);
 
-    void setCamera(const Camera2D& cam) { m_camera = cam; }
+    // May be called multiple times per frame; subsequent draws form new batches under this
+    // camera (e.g. world-space follow camera, then a pixel-space HUD pass).
+    void setCamera(const Camera2D& cam) {
+        m_camera = cam;
+        m_cameraChanged = true;
+    }
     void setViewport(uint32_t w, uint32_t h) {
         m_viewportW = w;
         m_viewportH = h;
@@ -44,6 +49,7 @@ private:
         TextureHandle tex;
         uint32_t first;
         uint32_t count;
+        Camera2D cam; // camera active when this batch was recorded
     };
     struct Entry {
         VulkanTexture texture;
@@ -71,6 +77,7 @@ private:
     bool m_capacityWarned = false;
 
     Camera2D m_camera{};
+    bool m_cameraChanged = true;
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
 };

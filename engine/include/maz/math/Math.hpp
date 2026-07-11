@@ -33,9 +33,11 @@ inline mat4 perspective(float fovYRadians, float aspect, float zNear, float zFar
     return proj;
 }
 
-// 2D pixel-space orthographic projection (origin top-left), ready for a sprite renderer.
+// 2D pixel-space orthographic projection, origin top-left, y increasing downward.
+// Vulkan clip-space y points down (opposite of OpenGL), so top maps to the near-clip edge:
+// glm::ortho(l, r, bottom, top) sends `bottom` -> -1; we pass 0 as bottom so y=0 is the top.
 inline mat4 ortho2D(float width, float height) {
-    return glm::ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
+    return glm::ortho(0.0f, width, 0.0f, height, -1.0f, 1.0f);
 }
 
 } // namespace maz::math

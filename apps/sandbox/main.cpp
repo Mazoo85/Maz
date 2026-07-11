@@ -6,11 +6,14 @@
 
 #include "maz/Engine.hpp"
 
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_scancode.h>
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <random>
+#include <string>
 #include <vector>
 
 using namespace maz;
@@ -180,6 +183,22 @@ int main(int argc, char** argv) {
     const auto playerPixels = makePlayer();
     render::TextureHandle playerTex = renderer->createTexture(16, 16, playerPixels.data());
 
+    // 1x1 white texture for solid-color HUD rectangles (health bar, panels).
+    const uint8_t white[4] = {255, 255, 255, 255};
+    render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
+
+    // Font for the HUD, loaded from the bundled TTF next to the executable.
+    ui::Font font;
+    {
+        const char* base = SDL_GetBasePath();
+        const std::string fontPath =
+            (base ? std::string(base) : std::string()) + "assets/fonts/DejaVuSans.ttf";
+        if (!font.load(*renderer, fontPath.c_str(), 32.0f)) {
+            MAZ_LOG_WARN("HUD font failed to load; continuing without text");
+        }
+    }
+    float health = 100.0f;
+
     // Player state, in world pixels. Spawn on the cleared center tile.
     const float playerSize = 26.0f;
     float px = 24.0f * tile + (tile - playerSize) * 0.5f;
@@ -217,6 +236,9 @@ int main(int argc, char** argv) {
                 if (!boxHitsSolid(map, px, py + dy, playerSize)) py += dy;
             }
         }
+
+        // Animate the HUD health value so the bar visibly moves (placeholder for real stats).
+        health = 65.0f + 30.0f * std::sin(static_cast<float>(clock.elapsed()) * 0.8f);
 
         // Camera follows the player.
         render::Camera2D cam;
@@ -257,6 +279,43 @@ int main(int argc, char** argv) {
             p.width = playerSize;
             p.height = playerSize;
             renderer->drawSprite(playerTex, p);
+
+            // --- HUD: a pixel-space overlay drawn over the world with a second camera ---
+            render::Camera2D ui;
+            ui.usePixelSpace = true;
+            renderer->setCamera2D(ui);
+
+            const float sh = static_cast<float>(bh);
+            auto drawRect = [&](float rx, float ry, float rw, float rh, render::Color col) {
+                render::SpriteDesc s;
+                s.x = rx;
+                s.y = ry;
+                s.width = rw;
+                s.height = rh;
+                s.color = col;
+                renderer->drawSprite(whiteTex, s);
+            };
+
+            const render::Color kWhite{1.0f, 1.0f, 1.0f, 1.0f};
+            const render::Color kDim{0.75f, 0.80f, 0.85f, 1.0f};
+            font.drawText(*renderer, 16.0f, 12.0f, "MAZ ENGINE  -  TOP-DOWN DEMO", kWhite, 0.85f);
+            font.drawText(*renderer, 16.0f, 46.0f,
+                          autopilot ? "AUTOPILOT" : "WASD / ARROWS: MOVE     ESC: QUIT", kDim,
+                          0.55f);
+
+            // Health bar, bottom-left.
+            const float barX = 16.0f, barY = sh - 34.0f, barW = 240.0f, barH = 18.0f;
+            font.drawText(*renderer, barX, barY - 26.0f, "HEALTH", kWhite, 0.55f);
+            drawRect(barX - 2.0f, barY - 2.0f, barW + 4.0f, barH + 4.0f,
+                     render::Color{0.0f, 0.0f, 0.0f, 0.55f});
+            drawRect(barX, barY, barW, barH, render::Color{0.15f, 0.15f, 0.18f, 1.0f});
+            const float frac = health / 100.0f;
+            const render::Color hp = frac > 0.5f ? render::Color{0.30f, 0.90f, 0.40f, 1.0f}
+                                                 : render::Color{0.95f, 0.70f, 0.20f, 1.0f};
+            drawRect(barX, barY, barW * frac, barH, hp);
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%d", static_cast<int>(health + 0.5f));
+            font.drawText(*renderer, barX + barW + 10.0f, barY - 4.0f, buf, kWhite, 0.65f);
 
             renderer->endFrame();
         }

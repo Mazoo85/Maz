@@ -11,3 +11,4 @@
 #include "maz/platform/Input.hpp"
 #include "maz/platform/Window.hpp"
 #include "maz/render/Renderer.hpp"
+#include "maz/ui/Font.hpp"

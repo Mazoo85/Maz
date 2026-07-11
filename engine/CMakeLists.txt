@@ -10,7 +10,8 @@ add_library(maz STATIC
     src/render/VulkanTexture.cpp
     src/render/SpriteRenderer.cpp
     src/render/VulkanRenderer.cpp
-    src/game/Tilemap.cpp)
+    src/game/Tilemap.cpp
+    src/ui/Font.cpp)
 
 target_include_directories(maz
     PUBLIC
