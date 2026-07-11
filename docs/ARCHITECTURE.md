@@ -34,7 +34,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
-ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
+ui/         Font (TTF baked via stb_truetype -> atlas) + drawText, DebugOverlay (FPS/draw stats)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB + slide)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)

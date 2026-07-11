@@ -31,6 +31,7 @@ public:
         m_viewportW = w;
         m_viewportH = h;
     }
+    uint32_t particleCount() const { return static_cast<uint32_t>(m_vertices.size() / 6); }
 
 private:
     struct Vertex {

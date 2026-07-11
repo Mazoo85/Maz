@@ -56,6 +56,13 @@ struct MeshVertex {
 using MeshHandle = uint32_t;
 constexpr MeshHandle kInvalidMesh = 0;
 
+// Per-frame draw counts for profiling/debug overlays (the previous completed frame).
+struct RenderStats {
+    uint32_t meshDraws = 0;
+    uint32_t particles = 0;
+    uint32_t sprites = 0;
+};
+
 // Scene lighting for the 3D mesh path: ambient + one shadow-mapped directional "sun", plus up to
 // kMaxPointLights positional point lights (lamps, window glow). Defaults reproduce the engine's
 // standard daytime look, so apps that never set lighting are unaffected.
@@ -148,6 +155,9 @@ public:
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo) {
         drawMesh(mesh, model16, albedo, kInvalidTexture);
     }
+
+    // Draw counts from the previous completed frame (all zero when inactive).
+    virtual RenderStats renderStats() const = 0;
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;

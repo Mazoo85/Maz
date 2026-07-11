@@ -170,11 +170,18 @@ int main(int argc, char** argv) {
     camera.setYawPitch(-1.5708f, -0.12f);
     float avoidYaw = 0.0f; // autopilot: steer around blocks it bumps into
 
+    ui::DebugOverlay overlay;
+    overlay.setEnabled(true); // on by default here; toggle with F3
+
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
             window.requestClose();
         }
+        if (input.keyPressed(SDL_SCANCODE_F3)) {
+            overlay.toggle();
+        }
+        overlay.update(clock.frameDelta());
 
         uint32_t bw = 0, bh = 0;
         window.drawableSize(bw, bh);
@@ -300,6 +307,9 @@ int main(int argc, char** argv) {
                 std::snprintf(buf, sizeof(buf), "COLLECTED  %d / %d", collectedCount, kPickups);
             }
             font.drawText(*renderer, 16.0f, 74.0f, buf, render::Color{1, 0.95f, 0.5f, 1}, 0.6f);
+
+            // Profiling overlay (F3): FPS / frame time / draw counts.
+            overlay.draw(*renderer, font, 16.0f, static_cast<float>(bh) - 66.0f, 0.42f);
 
             renderer->endFrame();
         }

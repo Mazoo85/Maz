@@ -76,6 +76,8 @@ available):
   adds a threshold bloom (passthrough at strength 0); VILLAGE QUEST's night lamps and coins glow
 - **M28** — world-space 3D particles: camera-facing additive billboards (`drawParticle3D`); VILLAGE
   QUEST has a bonfire whose glowing embers rise, fade, and bloom at night
+- **M29** — debug stats overlay (`ui::DebugOverlay`): smoothed FPS, frame time, and per-frame draw
+  counts (mesh/particle/sprite) from `Renderer::renderStats`; toggle with **F3** in `world`
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -51,6 +51,7 @@ public:
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
 
+    RenderStats renderStats() const override { return m_stats; }
     bool isActive() const override { return m_active; }
 
 private:
@@ -71,6 +72,7 @@ private:
     float m_viewProj3D[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_camRight[3] = {1, 0, 0};
     float m_camUp[3] = {0, 1, 0};
+    RenderStats m_stats{};
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     std::array<VkCommandBuffer, kMaxFramesInFlight> m_commandBuffers{};
@@ -260,6 +262,11 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+
+    // Snapshot this frame's draw counts for the debug overlay to read next frame.
+    m_stats.meshDraws = m_meshes.drawCount();
+    m_stats.particles = m_particles.particleCount();
+    m_stats.sprites = m_sprites.spriteCount();
 
     // 1) Shadow pass — depth-only, into the mesh renderer's shadow map (skipped if no meshes).
     m_meshes.renderShadow(cmd);

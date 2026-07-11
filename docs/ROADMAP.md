@@ -168,6 +168,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Event bus / signals, delegates / typed callbacks
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [ ] Serialization (binary + JSON), versioned schemas
+- [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
+      via `Renderer::renderStats`; M29)
 - [ ] Profiling: scoped timers, frame markers, Tracy integration
 - [ ] Unit-test framework wiring (doctest/Catch2)
 

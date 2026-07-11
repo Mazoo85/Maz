@@ -43,6 +43,7 @@ public:
               TextureHandle normal = kInvalidTexture);
 
     bool hasDraws() const { return !m_cmds.empty(); }
+    uint32_t drawCount() const { return static_cast<uint32_t>(m_cmds.size()); }
     void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
     void renderSky(VkCommandBuffer cmd);    // gradient sky background (call at main-pass start)
     void flush(VkCommandBuffer cmd);        // main color pass (call inside the main render pass)

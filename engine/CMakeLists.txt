@@ -20,6 +20,7 @@ add_library(maz STATIC
     src/render/VulkanRenderer.cpp
     src/game/Tilemap.cpp
     src/ui/Font.cpp
+    src/ui/DebugOverlay.cpp
     src/audio/Audio.cpp
     src/fx/Particles.cpp)
 

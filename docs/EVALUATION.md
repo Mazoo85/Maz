@@ -65,5 +65,10 @@ implement it, then re-evaluate and repeat. Updated each iteration.
 - [ ] Frustum culling; native scene serialization + a debug stats overlay; GPU-simulated particles.
 
 ### Iteration 4 — in progress
-Started with M28 (3D particles). Next candidates: refine bloom (downsampled separable blur +
-tonemap), frustum culling, a debug stats overlay.
+- [x] **M28 — World-space 3D particles** (bonfire embers).
+- [x] **M29 — Debug stats overlay**: `Renderer::renderStats()` reports per-frame mesh/particle/
+  sprite counts; `ui::DebugOverlay` draws smoothed FPS + frame-ms + those counts via the font
+  (F3 toggles it in `world`). Verified: the overlay reads live stats on lavapipe.
+
+Next candidates: refine bloom (downsampled separable blur + tonemap), frustum culling, pickup
+burst particles on coin collection.
