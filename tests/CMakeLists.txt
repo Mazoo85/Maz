@@ -116,3 +116,11 @@ add_test(
 set_tests_properties(crowd_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tween_headless_smoke
+    COMMAND tween --headless --frames 30)
+
+set_tests_properties(tween_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

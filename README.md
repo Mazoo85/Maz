@@ -160,6 +160,10 @@ available):
   `separation`/`followPath` forces plus `integrate`, turning pathfinding routes into smooth moving
   agents. The `crowd` demo drives 14 agents that each A*-route through the maze, follow the
   waypoints, and separate from their neighbors so the group flows without stacking. Unit-tested
+- **M59** — tweening + easing: `maz::anim` provides 15 easing curves (`ease(Ease, t)`) and a
+  `Tween` time-cursor with once/repeat/ping-pong looping and a generic `sample(from, to)` that
+  interpolates any float/vector/color. The `tween` demo animates 8 markers on one shared clock to
+  compare curves side by side. Cross-cutting animation for UI, cameras, platforms; unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

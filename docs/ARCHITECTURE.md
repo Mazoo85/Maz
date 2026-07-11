@@ -49,6 +49,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate)
+anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample
+            (header-only; animate any float/vector/color over time)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/

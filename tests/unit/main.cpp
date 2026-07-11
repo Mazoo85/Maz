@@ -3,6 +3,7 @@
 // if any check fails, so it plugs straight into ctest. Kept minimal to match the engine's no-extra-
 // dependency philosophy.
 
+#include "maz/anim/Tween.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
@@ -355,6 +356,81 @@ void testSteering() {
     CHECK(idx2 == 0);
 }
 
+void testTween() {
+    using anim::Ease;
+
+    // Every curve pins its endpoints: ease(type,0)==0 and ease(type,1)==1 (within tolerance;
+    // Back/Elastic overshoot in the middle but still land on the endpoints).
+    const Ease all[] = {Ease::Linear,     Ease::QuadIn,   Ease::QuadOut,   Ease::QuadInOut,
+                        Ease::CubicIn,    Ease::CubicOut, Ease::CubicInOut, Ease::SineIn,
+                        Ease::SineOut,    Ease::SineInOut, Ease::ExpoOut,   Ease::CircOut,
+                        Ease::BackOut,    Ease::ElasticOut, Ease::BounceOut};
+    for (Ease e : all) {
+        CHECK_NEAR(anim::ease(e, 0.0f), 0.0f, 1e-3f);
+        CHECK_NEAR(anim::ease(e, 1.0f), 1.0f, 1e-3f);
+    }
+
+    // Known curve values.
+    CHECK_NEAR(anim::ease(Ease::Linear, 0.5f), 0.5f, 1e-6f);
+    CHECK_NEAR(anim::ease(Ease::QuadIn, 0.5f), 0.25f, 1e-6f);
+    CHECK_NEAR(anim::ease(Ease::QuadOut, 0.5f), 0.75f, 1e-6f);
+    CHECK_NEAR(anim::ease(Ease::SineInOut, 0.5f), 0.5f, 1e-6f);
+
+    // Input clamping: t below 0 / above 1 behaves like the endpoints.
+    CHECK_NEAR(anim::ease(Ease::CubicInOut, -3.0f), 0.0f, 1e-6f);
+    CHECK_NEAR(anim::ease(Ease::CubicInOut, 5.0f), 1.0f, 1e-6f);
+
+    // BackOut overshoots above 1 before settling (anticipation), proving it's not clamped mid-curve.
+    bool overshot = false;
+    for (float t = 0.6f; t < 0.95f; t += 0.01f) {
+        if (anim::ease(Ease::BackOut, t) > 1.0f) overshot = true;
+    }
+    CHECK(overshot);
+
+    // mix helpers.
+    CHECK_NEAR(anim::mix(0.0f, 10.0f, 0.25f), 2.5f, 1e-6f);
+    const math::vec3 vm = anim::mix(math::vec3(0, 0, 0), math::vec3(4, 8, 0), 0.5f);
+    CHECK_NEAR(vm.x, 2.0f, 1e-6f);
+    CHECK_NEAR(vm.y, 4.0f, 1e-6f);
+
+    // Tween Once: reaches the end and finishes, clamped there.
+    anim::Tween once;
+    once.duration = 1.0f;
+    once.loop = anim::Loop::Once;
+    once.update(0.5f);
+    CHECK_NEAR(once.progress(), 0.5f, 1e-5f);
+    CHECK(!once.finished);
+    once.update(1.0f); // overshoot
+    CHECK(once.finished);
+    CHECK_NEAR(once.progress(), 1.0f, 1e-5f);
+    CHECK_NEAR(once.sample(10.0f, 20.0f), 20.0f, 1e-4f);
+
+    // Tween Repeat: wraps back to the start.
+    anim::Tween rep;
+    rep.duration = 1.0f;
+    rep.loop = anim::Loop::Repeat;
+    rep.update(1.5f);
+    CHECK(!rep.finished);
+    CHECK_NEAR(rep.progress(), 0.5f, 1e-5f);
+
+    // Tween PingPong: reverses direction after each cycle.
+    anim::Tween pp;
+    pp.duration = 1.0f;
+    pp.loop = anim::Loop::PingPong;
+    pp.update(1.5f); // one full cycle + half back
+    CHECK(pp.reversing);
+    CHECK_NEAR(pp.progress(), 0.5f, 1e-5f);
+    pp.update(1.0f); // cross back through 0 and forward again
+    CHECK(!pp.reversing);
+    CHECK_NEAR(pp.progress(), 0.5f, 1e-5f);
+
+    // Zero-duration tween is treated as instantly complete.
+    anim::Tween zero;
+    zero.duration = 0.0f;
+    zero.update(0.016f);
+    CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
 } // namespace
 
 int main() {
@@ -365,6 +441,7 @@ int main() {
     testSpatialGrid();
     testNavGrid();
     testSteering();
+    testTween();
     testEcs();
     testShake();
     testParticleAttractor();

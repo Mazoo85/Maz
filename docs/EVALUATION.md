@@ -351,6 +351,25 @@ not pile into each other. Build the steering layer directly on top of M57.
   goal, no validation errors); new `crowd_headless_smoke` + golden → ctest **15/15**, every existing
   golden unchanged.
 
+**Iteration 21 complete** (steering behaviors + crowd demo).
+
+### Iteration 22 — "Tweening" (in progress)
+Self-directed: the demos hand-roll `sin`-based motion everywhere and there is no reusable way to
+animate a value over time — yet UI, cameras, moving platforms, doors, and gameplay juice all need
+exactly that. Build a general easing/tween toolkit (cross-cutting, not AI-specific this time).
+- [x] **M59 — Tweening + easing**: header-only `maz::anim` (new module) — 15 Penner-style easing
+  curves via `ease(Ease, t)` (t auto-clamped; Back/Elastic deliberately overshoot), a generic
+  `mix`, and a `Tween` time-cursor with `Once`/`Repeat`/`PingPong` looping that exposes raw
+  `progress()`, curved `eased()`, and `sample(from, to)` to interpolate any float/glm-vector/color.
+  One Tween can drive many values. Pure math → unit-tested headlessly (148 checks total): endpoint
+  pinning for all 15 curves, known curve values, input clamping, Back overshoot, the three loop
+  modes, ping-pong direction reversal, and zero-duration handling. New `tween` demo: 8 markers on a
+  single shared ping-pong tween, each drawn with a different curve so the motion differences
+  (linear vs. accelerating vs. spring vs. bounce) are directly comparable; a second tween color-
+  fades the floor. Fixed an ADL ambiguity where `Tween::sample` on a vector type saw both `anim::mix`
+  and `glm::mix` (qualified the call). Verified on lavapipe (markers stagger by curve, no validation
+  errors); new `tween_headless_smoke` + golden → ctest **16/16**, every existing golden unchanged.
+
 Later: behavior trees / FSM on top of steering, order-independent transparency, material/uniform
 system, GPU-driven / indirect instancing, skeletal animation, retained UI, asset manager,
 cross-platform CI, a deterministic hold-frame screenshot mode to tighten golden tolerances.

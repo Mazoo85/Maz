@@ -284,7 +284,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Sprite / flipbook animation, frame events
 - [ ] Skeletal animation (glTF skins), GPU skinning, blend trees
 - [ ] Animation state machine, transitions, IK (later)
-- [ ] Tween / timeline system, curves
+- [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
+  with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later
 
 ## Phase 9 — UI
 - [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
