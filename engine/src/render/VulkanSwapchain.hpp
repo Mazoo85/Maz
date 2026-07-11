@@ -20,10 +20,13 @@ public:
     VkRenderPass renderPass() const { return m_renderPass; }
     VkExtent2D extent() const { return m_extent; }
     VkFormat format() const { return m_format; }
+    VkSampleCountFlagBits samples() const { return m_samples; }
     uint32_t imageCount() const { return static_cast<uint32_t>(m_images.size()); }
     VkFramebuffer framebuffer(uint32_t i) const { return m_framebuffers[i]; }
 
 private:
+    void chooseSampleCount(VulkanContext& ctx);
+    bool createColorTarget(VulkanContext& ctx);
     bool createDepthResources(VulkanContext& ctx);
     bool createRenderPass(VulkanContext& ctx);
     bool createFramebuffers(VulkanContext& ctx);
@@ -32,11 +35,16 @@ private:
     VkRenderPass m_renderPass = VK_NULL_HANDLE;
     VkFormat m_format = VK_FORMAT_UNDEFINED;
     VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
+    VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     VkExtent2D m_extent{};
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_views;
     std::vector<VkFramebuffer> m_framebuffers;
 
+    // Multisampled color + depth; resolved into the swapchain image on store.
+    VkImage m_colorImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_colorMemory = VK_NULL_HANDLE;
+    VkImageView m_colorView = VK_NULL_HANDLE;
     VkImage m_depthImage = VK_NULL_HANDLE;
     VkDeviceMemory m_depthMemory = VK_NULL_HANDLE;
     VkImageView m_depthView = VK_NULL_HANDLE;

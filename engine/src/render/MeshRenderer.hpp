@@ -19,7 +19,8 @@ class TextureStore;
 // directional term modulated by the shadow.
 class MeshRenderer {
 public:
-    bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass);
+    bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
+              VkSampleCountFlagBits samples);
     void shutdown(VulkanContext& ctx);
 
     MeshHandle createMesh(VulkanContext& ctx, const MeshVertex* vertices, uint32_t vertexCount,
@@ -59,6 +60,7 @@ private:
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
+    VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT; // main/sky pass sample count
 
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;

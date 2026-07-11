@@ -22,7 +22,8 @@ platform/   Window, Input, event pump, prefPath (user-data dir)   (depends on: c
 math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
-              VulkanSwapchain— swapchain, color+depth render pass, framebuffers, present
+              VulkanSwapchain— swapchain, multisampled color+depth render pass (MSAA ≤4× with
+                               resolve to the swapchain image), framebuffers, present
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               MeshRenderer   — textured 3D meshes; directional light + shadow mapping + sky

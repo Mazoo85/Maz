@@ -59,8 +59,9 @@ std::string assetBase() {
 } // namespace
 
 bool SpriteRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
-                          uint32_t framesInFlight) {
+                          uint32_t framesInFlight, VkSampleCountFlagBits samples) {
     m_store = &store;
+    m_samples = samples;
     m_maxVertices = kMaxSprites * kVertsPerSprite;
     m_vertices.reserve(m_maxVertices);
 
@@ -126,7 +127,7 @@ bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass)
 
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = m_samples;
 
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;

@@ -49,6 +49,7 @@ available):
 - **M13** — 3D collision (`maz::game::Collision`): `world` is a solid, walkable first-person collect-em-up
 - **M14** — shadow mapping: 3D objects cast soft shadows on the ground (directional light + PCF)
 - **M15** — gradient skybox: a real sky (horizon → zenith + sun glow) behind every 3D scene
+- **M16** — MSAA: multisample anti-aliasing (up to 4×) smooths jagged edges in every scene, 2D and 3D
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

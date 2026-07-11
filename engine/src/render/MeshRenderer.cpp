@@ -63,8 +63,10 @@ VkVertexInputBindingDescription meshBinding() {
 
 } // namespace
 
-bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass) {
+bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
+                        VkSampleCountFlagBits samples) {
     m_store = &store;
+    m_samples = samples;
     m_meshes.emplace_back(); // reserve index 0 == kInvalidMesh
 
     // Directional light space: an orthographic volume over the scene, looking along the light.
@@ -117,7 +119,7 @@ bool MeshRenderer::createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass
 
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = m_samples;
 
     VkPipelineDepthStencilStateCreateInfo ds{}; // sky writes no depth and ignores it
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;

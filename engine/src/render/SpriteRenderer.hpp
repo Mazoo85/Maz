@@ -19,7 +19,7 @@ class TextureStore;
 class SpriteRenderer {
 public:
     bool init(VulkanContext& ctx, TextureStore& store, VkRenderPass renderPass,
-              uint32_t framesInFlight);
+              uint32_t framesInFlight, VkSampleCountFlagBits samples);
     void shutdown(VulkanContext& ctx);
 
     // May be called multiple times per frame; subsequent draws form new batches under this
@@ -54,6 +54,7 @@ private:
     bool createVertexBuffers(VulkanContext& ctx, uint32_t framesInFlight);
 
     TextureStore* m_store = nullptr;    // shared texture registry (not owned)
+    VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 

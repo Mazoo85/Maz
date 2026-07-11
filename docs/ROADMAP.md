@@ -83,8 +83,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M15 — skybox (done).** A gradient sky drawn behind the 3D scene: a fullscreen pass
 > reconstructs the per-pixel view ray from the inverse view-projection and shades a
 > zenith→horizon→ground gradient with a sun glow. Drawn automatically for any 3D scene (no meshes
-> queued → no sky), so 2D is unaffected. Everything marked `[x]` below is done; everything else is
-> the road ahead.
+> queued → no sky), so 2D is unaffected.
+>
+> **M16 — MSAA (done).** Multisample anti-aliasing smooths jagged edges everywhere, 2D and 3D.
+> The swapchain picks the best supported sample count (≤4×), renders into a multisampled
+> color+depth target, and resolves into the swapchain image for presentation. All pipelines
+> (sprites, meshes, sky) rasterize at that sample count; the shadow-map pass stays single-sample.
+> A single-sample fallback path keeps devices without MSAA working. Everything marked `[x]` below
+> is done; everything else is the road ahead.
 
 ---
 
@@ -166,7 +172,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows
 - [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
-- [ ] Render-to-texture, multiple viewports, MSAA
+- [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
+- [ ] Render-to-texture, multiple viewports
 - [ ] GPU profiling, keep validation-clean baseline
 
 ## Phase 4 — Scene & ECS

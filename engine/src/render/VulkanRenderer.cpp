@@ -103,11 +103,12 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         MAZ_LOG_ERROR("texture store init failed");
         return false;
     }
-    if (!m_sprites.init(m_ctx, m_textureStore, m_swapchain.renderPass(), kMaxFramesInFlight)) {
+    if (!m_sprites.init(m_ctx, m_textureStore, m_swapchain.renderPass(), kMaxFramesInFlight,
+                        m_swapchain.samples())) {
         MAZ_LOG_ERROR("sprite renderer init failed");
         return false;
     }
-    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass())) {
+    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples())) {
         MAZ_LOG_ERROR("mesh renderer init failed");
         return false;
     }
