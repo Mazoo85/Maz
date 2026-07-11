@@ -17,6 +17,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.vsync = false;
         } else if (std::strcmp(arg, "--vsync") == 0) {
             cfg.vsync = true;
+        } else if (std::strcmp(arg, "--demo") == 0) {
+            cfg.demo = true;
         } else if (std::strcmp(arg, "--frames") == 0 && i + 1 < argc) {
             cfg.frames = std::atoi(argv[++i]);
         } else if (std::strcmp(arg, "--width") == 0 && i + 1 < argc) {

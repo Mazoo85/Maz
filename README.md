@@ -21,9 +21,11 @@ cmake --build build
 ctest --test-dir build              # headless smoke test
 ```
 
-Milestones so far: **M0** (window + fixed-timestep loop + Vulkan clear-screen) and **M1** (a
-batched 2D sprite renderer — textured, tinted, rotated sprites with a `Camera2D`). It degrades
-gracefully with no GPU/display so `--headless` still runs in CI.
+Milestones so far: **M0** (window + fixed-timestep loop + Vulkan clear-screen), **M1** (a
+batched 2D sprite renderer — textured, tinted, rotated sprites with a `Camera2D`), and **M2** (a
+playable top-down demo: a tile world you walk with **WASD/arrows**, wall/water collision, and a
+camera that follows the player). It degrades gracefully with no GPU/display so `--headless`
+still runs in CI.
 
 To exercise real rendering without a GPU (e.g. CI), use a software Vulkan driver + virtual
 display:

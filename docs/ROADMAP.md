@@ -13,7 +13,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M1 — 2D sprite renderer (done).** Textured, tinted, rotated sprites via a batched Vulkan
 > pipeline (buffers, staging uploads, descriptor sets, dynamic viewport/scissor, alpha blend);
 > `Camera2D`; stb_image loading. Verified validation-clean end-to-end on a software Vulkan
-> device (llvmpipe). Everything marked `[x]` below is done; everything else is the road ahead.
+> device (llvmpipe).
+>
+> **M2 — playable top-down demo (done).** A `Tilemap` module + a sandbox that renders a
+> view-culled tile world, moves a player with WASD, blocks movement into solid tiles
+> (axis-separated sliding), and follows the player with the camera. Everything marked `[x]`
+> below is done; everything else is the road ahead.
 
 ---
 
@@ -73,7 +78,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Graphics pipeline + descriptor-set management, push constants, dynamic state
 - [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload
 - [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
-- [ ] **2D:** line/shape debug draw, tilemap renderer (chunked), sprite sorting / layers
+- [x] **2D:** tilemap rendering (view-culled, via atlas uv sub-rects)
+- [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [ ] Mesh renderer (indexed draw), vertex layouts, instancing
@@ -102,7 +108,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Import settings + dependency graph + reimport
 
 ## Phase 6 — Physics & collision
-- [ ] 2D: AABB / circle, broadphase (grid / sweep-and-prune), resolution
+- [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
+- [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
 - [ ] 2D physics integration (custom or Box2D)
 - [ ] 3D collision shapes, raycasts / queries, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
@@ -157,6 +164,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 13 — Demos & the first real game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
 - [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
+- [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [ ] Sample scenes: pong, platformer, top-down shooter
 - [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
       loot, hordes, audio — the flagship proof the engine ships a full game (the existing
