@@ -316,6 +316,23 @@ water panes, holograms, fade-outs). Fill that gap.
   new `glass_headless_smoke` + golden reference wired into ctest → **13/13**, and every existing
   app's golden is unchanged (opaque path byte-identical), proving no regression.
 
-Later: order-independent transparency (weighted-blended), material/uniform system, GPU-driven /
-indirect instancing, skeletal animation, retained UI, asset manager, cross-platform CI, a
-deterministic hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 19 complete** (transparent mesh rendering; depth-sorted alpha blending).
+
+### Iteration 20 — "Navigation" (in progress)
+Self-directed: the engine's rendering is deep but its *gameplay* systems are comparatively thin.
+The single most reusable missing AI primitive is pathfinding — any game with a moving agent (and
+the eventual Zomboid port's zombies) needs it. Build it as pure, unit-testable logic.
+- [x] **M57 — A\* grid pathfinding**: header-only `game::NavGrid` — a uniform X/Z navigation grid
+  of walkable/blocked cells with 8-directional A\* (orthogonal cost 1, diagonal √2, octile-distance
+  heuristic, **no diagonal corner-cutting**), deterministic tie-breaking, and world↔cell mapping
+  (`worldToCell`/`cellToWorld`/`blockWorldBox`, `findPath`/`findWorldPath`). No GPU or windowing
+  deps, so it unit-tests headlessly (84 checks total now pass) covering the open-grid shortest
+  diagonal, routing around a wall, an unreachable sealed goal, blocked endpoints, world round-trips,
+  and the corner-cutting rule. New `maze` demo: a walker crosses a 20×20 obstacle field, re-planning
+  each leg with A\* and following the waypoints; the route is drawn as a debug polyline. Verified on
+  lavapipe (agent tracks the path to the goal, no validation errors); new `maze_headless_smoke` +
+  golden reference → ctest **14/14**, every existing golden unchanged.
+
+Later: steering/behavior trees on top of NavGrid, order-independent transparency, material/uniform
+system, GPU-driven / indirect instancing, skeletal animation, retained UI, asset manager,
+cross-platform CI, a deterministic hold-frame screenshot mode to tighten golden tolerances.

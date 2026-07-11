@@ -6,6 +6,7 @@
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
+#include "maz/game/NavGrid.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/math/Math.hpp"
@@ -230,6 +231,63 @@ void testParticleAttractor() {
     CHECK(ps.alive() == 0);
 }
 
+void testNavGrid() {
+    // Open 10x10 grid: straight-line diagonal path from a corner to the opposite corner.
+    game::NavGrid grid(10, 10, 1.0f);
+    std::vector<game::NavGrid::Cell> path;
+    CHECK(grid.findPath({0, 0}, {9, 9}, path));
+    CHECK(!path.empty());
+    CHECK(path.front() == (game::NavGrid::Cell{0, 0}));
+    CHECK(path.back() == (game::NavGrid::Cell{9, 9}));
+    // On an open grid the shortest 8-connected route is a pure diagonal: 10 cells (start..goal).
+    CHECK(path.size() == 10);
+
+    // A vertical wall spanning x=5 for z in [0..8] leaves a one-cell gap at z=9, so a path must
+    // exist but be longer than the blocked straight line.
+    game::NavGrid walled(12, 12, 1.0f);
+    for (int z = 0; z <= 8; ++z) {
+        walled.setBlocked(5, z, true);
+    }
+    std::vector<game::NavGrid::Cell> around;
+    CHECK(walled.findPath({2, 4}, {9, 4}, around));
+    CHECK(!around.empty());
+    CHECK(around.back() == (game::NavGrid::Cell{9, 4}));
+    for (const auto& c : around) {
+        CHECK(!(c.x == 5 && c.z <= 8)); // never steps onto the wall
+    }
+
+    // Fully sealing the wall (all 12 rows at x=5) makes the goal unreachable.
+    game::NavGrid sealed(12, 12, 1.0f);
+    for (int z = 0; z < 12; ++z) {
+        sealed.setBlocked(5, z, true);
+    }
+    std::vector<game::NavGrid::Cell> none;
+    CHECK(!sealed.findPath({2, 4}, {9, 4}, none));
+    CHECK(none.empty());
+
+    // Blocked endpoints fail cleanly.
+    game::NavGrid g2(5, 5, 1.0f);
+    g2.setBlocked(4, 4, true);
+    std::vector<game::NavGrid::Cell> p2;
+    CHECK(!g2.findPath({0, 0}, {4, 4}, p2));
+
+    // World<->cell round-trips: a point maps to a cell whose center is within half a cell of it.
+    game::NavGrid wg(8, 8, 2.0f, math::vec3(-8.0f, 0.0f, -8.0f));
+    const math::vec3 probe(1.0f, 0.0f, -3.0f);
+    const game::NavGrid::Cell wc = wg.worldToCell(probe);
+    const math::vec3 center = wg.cellToWorld(wc);
+    CHECK(std::fabs(center.x - probe.x) <= 1.0f);
+    CHECK(std::fabs(center.z - probe.z) <= 1.0f);
+
+    // No corner-cutting: a single solid at (1,0) forbids the (0,0)->(1,1) diagonal (it would squeeze
+    // past the corner), forcing a 3-cell orthogonal detour via (0,1) instead of the 2-cell diagonal.
+    game::NavGrid corner(4, 4, 1.0f);
+    corner.setBlocked(1, 0, true);
+    std::vector<game::NavGrid::Cell> cp;
+    CHECK(corner.findPath({0, 0}, {1, 1}, cp));
+    CHECK(cp.size() == 3);
+}
+
 } // namespace
 
 int main() {
@@ -238,6 +296,7 @@ int main() {
     testCollision();
     testRaycast();
     testSpatialGrid();
+    testNavGrid();
     testEcs();
     testShake();
     testParticleAttractor();

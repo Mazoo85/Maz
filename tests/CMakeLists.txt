@@ -100,3 +100,11 @@ add_test(
 set_tests_properties(glass_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME maze_headless_smoke
+    COMMAND maze --headless --frames 30)
+
+set_tests_properties(maze_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

@@ -298,7 +298,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
 - [ ] Script hot-reload, sandboxing
 - [ ] Gameplay: state machines, behavior trees, AI steering
-- [ ] Pathfinding (A* / nav grid; navmesh later)
+- [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
+  heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
+  — navmesh later
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
 - [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
 - [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)

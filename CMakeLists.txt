@@ -51,6 +51,7 @@ add_subdirectory(apps/village)
 add_subdirectory(apps/water)
 add_subdirectory(apps/instances)
 add_subdirectory(apps/glass)
+add_subdirectory(apps/maze)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -35,6 +35,7 @@ CASES=(
     "village|--demo|2.5|0.22"
     "instances||2.5|0.15"
     "glass||2.5|0.16"
+    "maze||2.5|0.14"
 )
 
 if [ ! -f "$ICD" ]; then
