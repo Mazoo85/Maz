@@ -11,6 +11,7 @@
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/Resources.hpp"
+#include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/BehaviorTree.hpp"
@@ -1299,6 +1300,132 @@ void testBehaviorTree() {
     CHECK(std::string(acted) == "patrol"); // and back again
 }
 
+// A scene that logs its lifecycle + update calls into a shared vector for assertions.
+struct LogScene : core::Scene {
+    std::vector<std::string>* log = nullptr;
+    std::string name;
+    bool blockU = true;
+    bool blockR = true;
+    core::SceneStack* stack = nullptr; // optional: for self-mutation tests
+    int pushCountdown = -1;            // if >=0, push a child scene when it hits 0 during update
+
+    void onEnter() override { log->push_back(name + ":enter"); }
+    void onExit() override { log->push_back(name + ":exit"); }
+    void onPause() override { log->push_back(name + ":pause"); }
+    void onResume() override { log->push_back(name + ":resume"); }
+    void update(float) override {
+        log->push_back(name + ":update");
+        if (pushCountdown == 0 && stack) {
+            auto child = std::make_unique<LogScene>();
+            child->log = log;
+            child->name = name + "-child";
+            stack->push(std::move(child));
+        }
+        if (pushCountdown >= 0) {
+            --pushCountdown;
+        }
+    }
+    bool blocksUpdate() const override { return blockU; }
+    bool blocksRender() const override { return blockR; }
+};
+
+void testSceneStack() {
+    auto make = [](std::vector<std::string>& log, const char* n) {
+        auto s = std::make_unique<LogScene>();
+        s->log = &log;
+        s->name = n;
+        return s;
+    };
+
+    // push / pause / resume / pop lifecycle.
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        stack.push(make(log, "A"));
+        CHECK(stack.size() == 1);
+        CHECK(log.size() == 1 && log[0] == "A:enter");
+        stack.push(make(log, "B")); // A pauses, B enters
+        CHECK(stack.size() == 2);
+        CHECK(log[1] == "A:pause");
+        CHECK(log[2] == "B:enter");
+        CHECK(stack.top() != nullptr);
+        stack.pop(); // B exits, A resumes
+        CHECK(stack.size() == 1);
+        CHECK(log[3] == "B:exit");
+        CHECK(log[4] == "A:resume");
+    }
+
+    // replace: old exits, new enters, no pause/resume.
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        stack.push(make(log, "A"));
+        stack.replace(make(log, "C"));
+        CHECK(stack.size() == 1);
+        CHECK(log[1] == "A:exit");
+        CHECK(log[2] == "C:enter");
+    }
+
+    // update propagation: a non-blocking overlay lets the scene below update too; a blocking one
+    // stops it.
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        stack.push(make(log, "A"));
+        auto overlay = make(log, "B");
+        overlay->blockU = false; // transparent, non-modal
+        stack.push(std::move(overlay));
+        log.clear();
+        stack.update(0.016f);
+        // Top (B) updates first, then A (because B doesn't block).
+        CHECK(log.size() == 2);
+        CHECK(log[0] == "B:update");
+        CHECK(log[1] == "A:update");
+    }
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        stack.push(make(log, "A"));
+        stack.push(make(log, "B")); // B blocks by default
+        log.clear();
+        stack.update(0.016f);
+        CHECK(log.size() == 1); // only B updates
+        CHECK(log[0] == "B:update");
+    }
+
+    // Deferred mutation: a scene pushing another during update applies AFTER the pass (no
+    // invalidation), so the child's enter happens once and the parent finished its update.
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        auto a = make(log, "A");
+        a->stack = &stack;
+        a->pushCountdown = 0; // push a child on the next update
+        stack.push(std::move(a));
+        log.clear();
+        stack.update(0.016f);
+        CHECK(stack.size() == 2);
+        // A updated, then the deferred child push applied (A pauses, child enters).
+        CHECK(log[0] == "A:update");
+        CHECK(log[1] == "A:pause");
+        CHECK(log[2] == "A-child:enter");
+    }
+
+    // clear() exits every scene, top-down.
+    {
+        std::vector<std::string> log;
+        core::SceneStack stack;
+        stack.push(make(log, "A"));
+        stack.push(make(log, "B"));
+        log.clear();
+        stack.clear();
+        CHECK(stack.empty());
+        CHECK(log.size() == 2);
+        CHECK(log[0] == "B:exit");
+        CHECK(log[1] == "A:exit");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -1319,6 +1446,7 @@ int main() {
     testEventBus();
     testJobs();
     testResourceCache();
+    testSceneStack();
     testTween();
     testUI();
     testSerialize();

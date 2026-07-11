@@ -67,6 +67,7 @@ add_subdirectory(apps/physics)
 add_subdirectory(apps/animator)
 add_subdirectory(apps/behavior)
 add_subdirectory(apps/boxes)
+add_subdirectory(apps/scenes)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

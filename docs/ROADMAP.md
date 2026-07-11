@@ -330,6 +330,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Tilemap tools, procedural generation utilities
 - [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
 - [x] **Camera juice**: trauma-based screen shake (`maz::game::Shake`, deterministic; M39)
+- [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
+  lifecycle, modal + transparent-overlay support, deferred mutation; the `scenes` demo runs a
+  menu→game→pause flow; M73)
 - [ ] Full game-state serialization + checkpoints
 - [ ] Localization + string tables, deterministic time / RNG
 

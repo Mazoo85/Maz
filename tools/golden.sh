@@ -51,6 +51,7 @@ CASES=(
     "animator||2.5|0.16"
     "behavior||2.5|0.16"
     "boxes||2.5|0.06"
+    "scenes||2.5|0.12"
 )
 
 if [ ! -f "$ICD" ]; then

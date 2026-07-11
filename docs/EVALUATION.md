@@ -626,9 +626,31 @@ platformers, crates, and walls — extended risk-first so the proven circle path
   friction. Verified on lavapipe (mixed ball/box stacks rest stably, RMSE 0, no validation errors);
   new `boxes_headless_smoke` + golden → ctest **29/29**, every existing golden unchanged.
 
-Later: box rotation (oriented boxes) + rolling, parallel/decorator BT nodes + a blackboard, drive
-the Animator from a state machine, GPU skinning, glTF skin/animation import, back TextureStore/mesh
-loading with the cache, parallelize a hot loop, wire the event bus into a game, reflection-driven
-ECS serialization, JSON/text format, UI layout / text input, order-independent transparency,
-material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic
-hold-frame screenshot mode.
+**Iteration 35 complete** (2D box colliders + friction).
+
+### Iteration 36 — "App framework" (in progress)
+Self-directed: after 18 isolated feature modules the biggest gap is the layer *above* them — the
+engine had no notion of game *scenes/states* (menu, playing, paused) with a stack and overlays. That
+application-framework layer is what turns single-screen demos into an actual game shell.
+- [x] **M73 — Scene stack / game state manager**: header-only `core::SceneStack` over a `Scene`
+  base with an enter/exit/pause/resume lifecycle. `push` pauses the current top and enters the new
+  scene; `pop` exits it and resumes the revealed one; `replace` swaps the top; `clear` unwinds all.
+  Scenes expose `blocksUpdate()` (a modal scene freezes those beneath) and `blocksRender()` (opaque
+  vs. transparent overlay); `update` walks top-down stopping at the first modal scene, and `render`
+  draws from the topmost opaque scene up so overlays composite over the game. Stack mutations
+  requested **during** update are DEFERRED and applied afterwards, so a scene can safely pop or
+  replace itself without invalidating the iteration. `render()` is a no-op hook so the core stays
+  renderer-agnostic and unit-tests headless (688 checks total): push/pause/resume/pop order,
+  replace, update propagation through a non-modal overlay vs. a modal one, deferred self-push, and
+  clear(). New `scenes` demo: a Menu scene replaces itself with a Game scene (bouncing physics),
+  which pushes a **transparent** Pause overlay — the game freezes but shows through — then pops it to
+  resume; the HUD prints the live stack depth + top scene. Verified on lavapipe (the PAUSED panel
+  draws over the frozen balls, "stack depth 2 top: Pause", no validation errors); new
+  `scenes_headless_smoke` + golden → ctest **30/30**, every existing golden unchanged.
+
+Later: build a small complete game on the scene stack (menu/play/gameover + save), box rotation,
+parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
+TextureStore/mesh loading with the cache, parallelize a hot loop, wire the event bus into a game,
+reflection-driven ECS serialization, JSON/text format, UI layout / text input, order-independent
+transparency, material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a
+deterministic hold-frame screenshot mode.

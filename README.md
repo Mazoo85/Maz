@@ -229,6 +229,11 @@ available):
   stack instead of sliding. The `boxes` demo drops a mix of boxes and balls onto static shelves. The
   circle path stayed byte-identical (existing `physics` golden unchanged); box-box, circle-box, and
   friction unit-tested
+- **M73** — scene stack: `core::SceneStack` is the app-framework layer — a stack of `Scene`s with an
+  enter/pause/resume/exit lifecycle, `push`/`pop`/`replace`/`clear` (mutations during update are
+  deferred so a scene can transition itself), top-down update that stops at the first modal scene,
+  and overlay-aware render. The `scenes` demo runs a Menu → Game → transparent Pause overlay flow
+  (the frozen game shows through). Lifecycle, update propagation, and deferred mutation unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
