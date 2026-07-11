@@ -250,10 +250,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
 - [ ] 2D physics integration (custom or Box2D)
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
+- [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [ ] 3D: other collision shapes, raycasts / queries, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [ ] Continuous collision, layers / masks, physics materials
-- [ ] Collider / contact debug visualization
+- [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
 
 ## Phase 7 — Audio
 - [x] Audio device + real-time float mixer (SDL3, on the audio thread)

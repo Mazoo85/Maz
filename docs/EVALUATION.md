@@ -149,5 +149,17 @@ tonemap; and pickups/hits had no camera feedback. This iteration:
 
 **Iteration 9 complete** (HDR scene target + ACES tonemap; trauma-based camera shake).
 
-Later: separable multi-pass bloom, transparency/particle depth-sorting, spatial partitioning (grid)
-for broadphase, hot-reload shaders, full PBR, save graphics settings via KeyValueStore.
+### Iteration 10 — "Broadphase & bloom quality" (in progress)
+Evaluation: collision tested every solid per move (O(n)), and bloom was a single-pass in-composite
+blur (narrow, aliased at higher strengths). This iteration:
+- [x] **M40 — Spatial grid broadphase**: `maz::game::SpatialGrid` buckets static colliders into an
+  X/Z hash of square cells (Y ignored in bucketing; narrow-phase overlap is still full 3D). A
+  `slideMove(pos, delta, half, grid)` overload gathers only the solids sharing the swept box's cells
+  (deduped by a per-query stamp). `world` collides against the grid and draws occupied cells in cyan
+  with **F6** (`--grid`). Verified on lavapipe: the grid overlay tiles the block field, movement and
+  pickups still work (autopilot collects), no validation errors.
+- [ ] **M41 — Separable downsampled bloom**: bright-pass + downsample the HDR scene to a half-res
+  target, separable horizontal/vertical Gaussian blur, then add it back in composite.
+
+Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, save graphics settings via
+KeyValueStore, FXAA, second/ortho viewport.

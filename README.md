@@ -106,6 +106,9 @@ available):
 - **M39** — camera shake (game feel): `maz::game::Shake` is a trauma-based camera shake (amount =
   trauma², decays on its own) built from layered sines — no RNG, deterministic. `world` jolts the
   camera each time a pickup is collected; the 2D HUD stays fixed
+- **M40** — spatial grid broadphase: `maz::game::SpatialGrid` buckets static colliders into X/Z
+  cells so movement only tests nearby boxes (a `slideMove` overload uses it); `world` collides
+  against the grid and **F6** overlays the occupied cells in cyan
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

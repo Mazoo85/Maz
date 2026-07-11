@@ -58,10 +58,12 @@ int main(int argc, char** argv) {
     const bool autopilot = cfg.demo;
     bool startWireframe = false;  // --wireframe starts in wireframe debug draw (also F4 at runtime)
     bool startColliders = false;  // --colliders starts with the collider overlay on (also F5)
+    bool startGrid = false;       // --grid starts with the broadphase-grid overlay on (also F6)
     bool shakeTest = false;       // --shaketest pins camera shake on (for verification)
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--wireframe") == 0) startWireframe = true;
         if (std::strcmp(argv[i], "--colliders") == 0) startColliders = true;
+        if (std::strcmp(argv[i], "--grid") == 0) startGrid = true;
         if (std::strcmp(argv[i], "--shaketest") == 0) shakeTest = true;
     }
     MAZ_LOG_INFO("WORLD (explorable 3D) starting (autopilot=%d)", autopilot);
@@ -131,6 +133,10 @@ int main(int argc, char** argv) {
     for (const Block& b : blocks) {
         solids.push_back(game::Aabb::fromCenterSize(b.pos, b.scale));
     }
+    // Broadphase acceleration: bucket the solids into a spatial grid so movement only tests nearby
+    // boxes. Cell ~2x the widest block keeps a handful of solids per cell.
+    game::SpatialGrid grid;
+    grid.build(solids, 6.0f);
     render::MeshHandle pickupMesh =
         upload(*renderer, sh::makeSphere(0.6f, 14, 20, render::Color{1.0f, 0.92f, 0.35f, 1}));
     const int kPickups = 10;
@@ -186,6 +192,7 @@ int main(int argc, char** argv) {
     bool wireframe = startWireframe; // F4 toggles wireframe debug draw (--wireframe starts on)
     renderer->setWireframe(wireframe);
     bool showColliders = startColliders; // F5 draws the collision AABBs as debug lines
+    bool showGrid = startGrid;           // F6 draws the broadphase grid's occupied cells
     game::Shake shake; // camera juice — a jolt each time a pickup is collected
 
     while (!window.shouldClose()) {
@@ -202,6 +209,9 @@ int main(int argc, char** argv) {
         }
         if (input.keyPressed(SDL_SCANCODE_F5)) {
             showColliders = !showColliders;
+        }
+        if (input.keyPressed(SDL_SCANCODE_F6)) {
+            showGrid = !showGrid;
         }
         overlay.update(clock.frameDelta());
         shake.update(static_cast<float>(clock.frameDelta()));
@@ -267,7 +277,7 @@ int main(int argc, char** argv) {
             // Move, resolved against the solid blocks so you slide instead of passing through.
             const glm::vec3 delta = camera.moveDelta(fwd, right, up, dt, speed);
             const glm::vec3 before = camera.position();
-            camera.setPosition(game::slideMove(before, delta, playerHalf, solids));
+            camera.setPosition(game::slideMove(before, delta, playerHalf, grid));
 
             if (autopilot) {
                 // If a block blocked most of the intended move, accumulate a turn to steer round.
@@ -319,6 +329,15 @@ int main(int argc, char** argv) {
                 for (const game::Aabb& s : solids) {
                     renderer->drawAabb(glm::value_ptr(s.min), glm::value_ptr(s.max), green);
                 }
+            }
+            // F6: overlay the broadphase grid's occupied cells as flat cyan tiles on the ground.
+            if (showGrid) {
+                const float cyan[4] = {0.2f, 0.85f, 1.0f, 0.8f};
+                grid.forEachOccupiedCell([&](float minX, float minZ, float maxX, float maxZ) {
+                    const glm::vec3 lo(minX, 0.02f, minZ);
+                    const glm::vec3 hi(maxX, 0.35f, maxZ);
+                    renderer->drawAabb(glm::value_ptr(lo), glm::value_ptr(hi), cyan);
+                });
             }
 
             const float bob = 0.2f * std::sin(static_cast<float>(clock.elapsed()) * 2.0f);
