@@ -5,6 +5,7 @@
 
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
+#include "maz/core/Events.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
@@ -667,6 +668,68 @@ void testSpriteAnim() {
     CHECK(!one.finished());
 }
 
+void testEventBus() {
+    struct Damage {
+        int amount;
+    };
+    struct Healed {
+        int amount;
+    };
+
+    core::EventBus bus;
+
+    // Multiple subscribers of one type all fire, in subscription order, with the payload.
+    int total = 0;
+    int calls = 0;
+    int lastSeen = 0;
+    bus.subscribe<Damage>([&](const Damage& d) { total += d.amount; ++calls; lastSeen = d.amount; });
+    bus.subscribe<Damage>([&](const Damage& d) { total += d.amount * 10; });
+    CHECK(bus.subscriberCount<Damage>() == 2);
+
+    bus.emit(Damage{5});
+    CHECK(calls == 1);
+    CHECK(lastSeen == 5);
+    CHECK(total == 55); // 5 + 50
+
+    // A different event type is isolated — emitting Healed doesn't call Damage handlers.
+    int healed = 0;
+    bus.subscribe<Healed>([&](const Healed& h) { healed += h.amount; });
+    bus.emit(Healed{7});
+    CHECK(healed == 7);
+    CHECK(calls == 1); // unchanged
+
+    // Unsubscribe stops delivery to that one handler only.
+    core::EventBus::Token t = bus.subscribe<Healed>([&](const Healed& h) { healed += h.amount * 100; });
+    CHECK(bus.subscriberCount<Healed>() == 2);
+    bus.unsubscribe(t);
+    CHECK(bus.subscriberCount<Healed>() == 1);
+    bus.emit(Healed{2});
+    CHECK(healed == 9); // only the first handler ran (7 + 2), not the *100 one
+
+    // Emitting a type with no subscribers is a harmless no-op.
+    struct Unheard {
+        int x;
+    };
+    bus.emit(Unheard{1});
+
+    // Re-entrancy: a handler that unsubscribes itself mid-dispatch is safe (snapshotted list).
+    core::EventBus bus2;
+    int fired = 0;
+    core::EventBus::Token self = 0;
+    self = bus2.subscribe<Damage>([&](const Damage&) {
+        ++fired;
+        bus2.unsubscribe(self); // remove self during dispatch
+    });
+    bus2.emit(Damage{1});
+    bus2.emit(Damage{1});
+    CHECK(fired == 1); // only the first emit reaches it
+    CHECK(bus2.subscriberCount<Damage>() == 0);
+
+    // Stale/invalid tokens unsubscribe cleanly.
+    bus2.unsubscribe(999999);
+    bus2.unsubscribe(core::EventBus::kInvalidToken);
+}
+
 } // namespace
 
 int main() {
@@ -679,6 +742,7 @@ int main() {
     testSteering();
     testStateMachine();
     testSpriteAnim();
+    testEventBus();
     testTween();
     testUI();
     testSerialize();

@@ -7,6 +7,7 @@
 #include "maz/audio/Audio.hpp"
 #include "maz/core/Assert.hpp"
 #include "maz/core/Config.hpp"
+#include "maz/core/Events.hpp"
 #include "maz/core/KeyValueStore.hpp"
 #include "maz/core/Log.hpp"
 #include "maz/core/Time.hpp"

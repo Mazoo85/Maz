@@ -165,7 +165,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Handles / generational indices, object pools
 - [ ] Containers: `small_vector`, sparse set, ring buffer
 - [ ] String interning / `StringId` (hashed), fixed strings
-- [ ] Event bus / signals, delegates / typed callbacks
+- [x] **Event bus / signals** (`core::EventBus`: type-safe subscribe/emit/unsubscribe, per-type
+  isolation, re-entrancy-safe snapshot dispatch; the `events` demo fans one event to 3 subscribers; M64)
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
   headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)

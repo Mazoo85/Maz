@@ -444,7 +444,27 @@ through frames — the one missing primitive for 2D characters (walk cycles, exp
   no validation errors); new `sprites_headless_smoke` + golden → ctest **20/20**, every existing
   golden unchanged.
 
-Later: animation events / multi-clip switching, behavior trees, reflection-driven ECS serialization,
-JSON/text format, UI layout containers / text input, order-independent transparency, material/uniform
-system, GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
-deterministic hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 26 complete** (sprite-sheet flipbook animation).
+
+### Iteration 27 — "Event bus" (in progress)
+Self-directed: the engine has many systems (audio, particles, UI, scoring) but they'd have to call
+each other directly to react to gameplay. A publish/subscribe hub is the standard decoupling glue —
+one of the last missing architectural primitives.
+- [x] **M64 — Type-safe event bus**: header-only `core::EventBus` — `subscribe<T>(fn)` returns a
+  token, `emit<T>(event)` delivers to every subscriber of exactly that type (isolated by
+  `std::type_index`), `unsubscribe(token)` removes one. Dispatch iterates a **snapshot** of the
+  handler list, so a handler may subscribe/unsubscribe or emit further events mid-dispatch without
+  invalidating the loop. Pure logic → unit-tested headlessly (231 checks total): multi-subscriber
+  fan-out in order with payload, type isolation (emitting one type doesn't call another's handlers),
+  unsubscribe stops delivery to just that handler, no-subscriber no-op, and self-unsubscribe during
+  dispatch (re-entrancy). New `events` demo: one emitter fires an ImpactEvent every 0.35s and three
+  independent subscribers react — a particle burst, a score/energy tally, and an expanding ring —
+  none referencing the others; the HUD shows each subscriber's own counter. Verified on lavapipe
+  (rings + bursts bloom at each impact, deterministic RMSE 0, no validation errors); new
+  `events_headless_smoke` + golden → ctest **21/21**, every existing golden unchanged.
+
+Later: wire the bus into an existing game (decouple audio/score), animation events / multi-clip
+switching, behavior trees, reflection-driven ECS serialization, JSON/text format, UI layout
+containers / text input, order-independent transparency, material/uniform system, GPU-driven /
+indirect instancing, skeletal animation, asset manager, cross-platform CI, a deterministic
+hold-frame screenshot mode to tighten golden tolerances.

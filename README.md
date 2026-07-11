@@ -182,6 +182,11 @@ available):
   sheet via `gridFrames`) at a fixed rate with loop/one-shot modes, feeding `SpriteDesc`'s uv-rect.
   The `sprites` demo generates an 8-frame sheet at runtime and plays a phase-staggered grid so a
   wave of motion sweeps across it. Frame timing + grid UVs + loop/clamp unit-tested
+- **M64** — event bus: `core::EventBus` is a type-safe publish/subscribe hub — `subscribe<T>`/
+  `emit<T>`/`unsubscribe` with per-type isolation and snapshot dispatch (handlers may (un)subscribe
+  or emit re-entrantly). The `events` demo fires one impact event that three independent subscribers
+  react to — particle burst, score tally, expanding ring — none aware of the others. Subscribe/emit/
+  unsubscribe/isolation/re-entrancy unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
