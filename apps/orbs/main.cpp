@@ -82,6 +82,22 @@ std::vector<uint8_t> makeOrb(uint32_t s) {
     return px;
 }
 
+// A soft radial glow (white core fading to transparent) for particles.
+std::vector<uint8_t> makeGlow(uint32_t s) {
+    std::vector<uint8_t> px(static_cast<size_t>(s) * s * 4, 0);
+    const float c = (static_cast<float>(s) - 1.0f) * 0.5f;
+    for (uint32_t y = 0; y < s; ++y) {
+        for (uint32_t x = 0; x < s; ++x) {
+            const float dx = static_cast<float>(x) - c;
+            const float dy = static_cast<float>(y) - c;
+            const float d = std::sqrt(dx * dx + dy * dy) / c;
+            const float a = std::max(0.0f, 1.0f - d);
+            putPixel(px, s, x, y, 255, 255, 255, static_cast<uint8_t>(a * a * 255.0f));
+        }
+    }
+    return px;
+}
+
 struct Vec {
     float x, y;
 };
@@ -143,6 +159,9 @@ int main(int argc, char** argv) {
     render::TextureHandle orbTex = renderer->createTexture(24, 24, makeOrb(24).data());
     render::TextureHandle hazardTex =
         renderer->createTexture(20, 20, makeSquare(20, 220, 60, 70, false).data());
+    render::TextureHandle glowTex = renderer->createTexture(32, 32, makeGlow(32).data());
+
+    fx::ParticleSystem particles;
 
     ui::Font font;
     {
@@ -217,10 +236,11 @@ int main(int argc, char** argv) {
 
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
+            const float dt = static_cast<float>(clock.fixedDelta());
+            particles.update(dt); // keep animating on the win/lose screens too
             if (state != State::Play) {
                 continue;
             }
-            const float dt = static_cast<float>(clock.fixedDelta());
             float x0, y0, x1, y1;
             arenaBounds(x0, y0, x1, y1);
 
@@ -254,6 +274,24 @@ int main(int argc, char** argv) {
             const float pcx = player.x + kPlayerSize * 0.5f;
             const float pcy = player.y + kPlayerSize * 0.5f;
 
+            // A little sparkle trail behind the player while moving.
+            if (mlen > 0.0001f) {
+                fx::BurstDesc trail;
+                trail.count = 2;
+                trail.x = pcx;
+                trail.y = pcy;
+                trail.speedMin = 6.0f;
+                trail.speedMax = 34.0f;
+                trail.lifeMin = 0.22f;
+                trail.lifeMax = 0.45f;
+                trail.sizeStart = 12.0f;
+                trail.sizeEnd = 1.0f;
+                trail.colorStart = render::Color{1.0f, 0.85f, 0.35f, 0.9f};
+                trail.colorEnd = render::Color{1.0f, 0.5f, 0.15f, 0.0f};
+                trail.drag = 3.0f;
+                particles.emit(trail);
+            }
+
             // Collect orbs.
             for (Vec& o : orbs) {
                 const float ocx = o.x + kOrbSize * 0.5f;
@@ -262,6 +300,20 @@ int main(int argc, char** argv) {
                     ++score;
                     o = placeInArena(kOrbSize);
                     audio.play(sfxPickup);
+                    fx::BurstDesc pop;
+                    pop.count = 22;
+                    pop.x = ocx;
+                    pop.y = ocy;
+                    pop.speedMin = 60.0f;
+                    pop.speedMax = 230.0f;
+                    pop.lifeMin = 0.30f;
+                    pop.lifeMax = 0.65f;
+                    pop.sizeStart = 14.0f;
+                    pop.sizeEnd = 1.0f;
+                    pop.colorStart = render::Color{0.7f, 1.0f, 0.95f, 1.0f};
+                    pop.colorEnd = render::Color{0.2f, 0.8f, 1.0f, 0.0f};
+                    pop.drag = 2.0f;
+                    particles.emit(pop);
                 }
             }
 
@@ -281,6 +333,21 @@ int main(int argc, char** argv) {
                     audio.play(sfxHit);
                     audio.play(sfxHitNoise);
                     audio.setMusic(false);
+                    fx::BurstDesc boom;
+                    boom.count = 40;
+                    boom.x = pcx;
+                    boom.y = pcy;
+                    boom.speedMin = 40.0f;
+                    boom.speedMax = 280.0f;
+                    boom.lifeMin = 0.4f;
+                    boom.lifeMax = 0.9f;
+                    boom.sizeStart = 16.0f;
+                    boom.sizeEnd = 1.0f;
+                    boom.colorStart = render::Color{1.0f, 0.6f, 0.4f, 1.0f};
+                    boom.colorEnd = render::Color{0.8f, 0.1f, 0.1f, 0.0f};
+                    boom.gravity = 220.0f;
+                    boom.drag = 1.0f;
+                    particles.emit(boom);
                 }
             }
 
@@ -289,6 +356,24 @@ int main(int argc, char** argv) {
                 state = State::Win;
                 audio.play(sfxWin);
                 audio.setMusic(false);
+                for (int k = 0; k < 3; ++k) {
+                    fx::BurstDesc party;
+                    party.count = 40;
+                    party.x = pcx + frand(-120.0f, 120.0f);
+                    party.y = pcy + frand(-90.0f, 90.0f);
+                    party.speedMin = 40.0f;
+                    party.speedMax = 240.0f;
+                    party.lifeMin = 0.5f;
+                    party.lifeMax = 1.1f;
+                    party.sizeStart = 14.0f;
+                    party.sizeEnd = 1.0f;
+                    party.colorStart =
+                        render::Color{frand(0.4f, 1.0f), frand(0.6f, 1.0f), frand(0.5f, 1.0f), 1.0f};
+                    party.colorEnd = render::Color{1.0f, 1.0f, 0.4f, 0.0f};
+                    party.gravity = 160.0f;
+                    party.drag = 0.8f;
+                    particles.emit(party);
+                }
             } else if (state == State::Play && timeLeft <= 0.0f) {
                 timeLeft = 0.0f;
                 state = State::Lose;
@@ -344,6 +429,7 @@ int main(int argc, char** argv) {
                     sprite(hazardTex, h.x, h.y, kHazardSize);
                 }
                 sprite(playerTex, player.x, player.y, kPlayerSize);
+                particles.draw(*renderer, glowTex);
 
                 // HUD.
                 char buf[64];

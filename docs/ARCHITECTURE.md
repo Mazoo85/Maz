@@ -27,6 +27,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               Renderer       — beginFrame / clear / drawSprite / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 game/       Tilemap (grid + solidity + coord helpers)
+fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo

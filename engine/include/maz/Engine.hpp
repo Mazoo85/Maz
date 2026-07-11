@@ -7,6 +7,7 @@
 #include "maz/core/Config.hpp"
 #include "maz/core/Log.hpp"
 #include "maz/core/Time.hpp"
+#include "maz/fx/Particles.hpp"
 #include "maz/game/Tilemap.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"

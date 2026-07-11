@@ -12,7 +12,8 @@ add_library(maz STATIC
     src/render/VulkanRenderer.cpp
     src/game/Tilemap.cpp
     src/ui/Font.cpp
-    src/audio/Audio.cpp)
+    src/audio/Audio.cpp
+    src/fx/Particles.cpp)
 
 target_include_directories(maz
     PUBLIC

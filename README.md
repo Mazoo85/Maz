@@ -34,6 +34,7 @@ available):
 - **M4** — `orbs` ("ORB RUN"): a complete arcade game with a title → play → win/lose → restart
   state machine, score + timer HUD, collectibles, and hazards
 - **M5** — a synthesized audio system (`maz::audio::Audio`): sound effects + looping music
+- **M6** — a particle system (`maz::fx::ParticleSystem`): player spark trail + pickup/win/lose bursts
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -33,8 +33,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > synthesizes voices (sine/square/triangle/noise, attack/decay envelope, frequency glide) plus a
 > looping arpeggio music bed; thread-safe `play`, master volume, graceful with no device. Wired
 > into ORB RUN (start/pickup/hit/win SFX + music). Verified by capturing 3s of generated audio
-> to a file and rendering its waveform. Everything marked `[x]` below is done; everything else is
-> the road ahead.
+> to a file and rendering its waveform.
+>
+> **M6 — particles (done).** `maz::fx::ParticleSystem` — a pooled 2D particle system (burst
+> emitters with speed/angle/life/size ranges, start→end color, gravity, drag), drawn as
+> size/alpha-faded sprites through the Renderer. Wired into ORB RUN: a player spark trail, pickup
+> bursts, and win/lose bursts. Everything marked `[x]` below is done; everything else is the road
+> ahead.
 
 ---
 
@@ -162,7 +167,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Script hot-reload, sandboxing
 - [ ] Gameplay: state machines, behavior trees, AI steering
 - [ ] Pathfinding (A* / nav grid; navmesh later)
-- [ ] Particle system (CPU + GPU), emitters, affectors
+- [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
+- [ ] GPU particles, continuous emitters, affectors/attractors
 - [ ] Tilemap tools, procedural generation utilities
 - [ ] Save/load game state, checkpoints
 - [ ] Localization + string tables, deterministic time / RNG
