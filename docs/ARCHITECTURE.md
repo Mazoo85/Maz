@@ -28,6 +28,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               MeshRenderer   — textured 3D meshes; directional light + shadow mapping + sky
               shapes         — procedural box / sphere / plane geometry
+              loadGltf       — glTF 2.0 model import (cgltf) -> MeshData
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
@@ -41,6 +42,7 @@ apps/
   cube/     3D demo — lit, depth-tested spinning cube + 2D HUD
   scene3d/  ECS + 3D — ground plane + ring of shapes, orbiting camera
   world/    Explorable 3D — fly camera through a textured-floor block field
+  model/    glTF demo — loads house.gltf at runtime, orbits with shadows + sky
 ```
 
 ## The frame loop (fixed timestep)
@@ -80,6 +82,8 @@ staging), `SpriteRenderer` (pipeline/descriptors/vertex streaming).
 - **SDL3** (`FetchContent`, tag `release-3.4.12`) — window, input, later audio/gamepad.
 - **GLM** (`FetchContent`, tag `1.0.1`) — math, header-only.
 - **Vulkan** (`find_package(Vulkan)`) — loader + headers; `glslangValidator` compiles shaders.
+- **stb_image** (`FetchContent`, master) — image decoding, header-only.
+- **cgltf** (`FetchContent`, tag `v1.14`) — glTF 2.0 model parsing, header-only.
 - No other system installs required; SDL3 and GLM build from source at configure time.
 
 ## Headless / CI behavior

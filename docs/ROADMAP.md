@@ -89,8 +89,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > The swapchain picks the best supported sample count (≤4×), renders into a multisampled
 > color+depth target, and resolves into the swapchain image for presentation. All pipelines
 > (sprites, meshes, sky) rasterize at that sample count; the shadow-map pass stays single-sample.
-> A single-sample fallback path keeps devices without MSAA working. Everything marked `[x]` below
-> is done; everything else is the road ahead.
+> A single-sample fallback path keeps devices without MSAA working.
+>
+> **M17 — glTF model loading (done).** `maz::render::loadGltf` parses glTF 2.0 files (via cgltf),
+> merges every scene mesh into one `MeshData` with each node's world transform baked into
+> positions/normals, and maps POSITION/NORMAL/TEXCOORD_0/COLOR_0 to the engine's mesh vertex. The
+> `model` demo loads a bundled `house.gltf` at runtime and renders it with shadows, sky, and a HUD
+> — the engine now shows artist-authored models, not just procedural shapes. Everything marked
+> `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -187,7 +193,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
 - [ ] Image loading (stb_image), compressed textures (KTX2), mipmaps
-- [ ] Model import (glTF via cgltf/tinygltf; optional assimp)
+- [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
 - [ ] Audio asset loading (wav / ogg), font import, shader assets
 - [ ] Asset cooking / packing pipeline, pak archives, streaming
 - [ ] Import settings + dependency graph + reimport

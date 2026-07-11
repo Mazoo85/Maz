@@ -14,6 +14,7 @@ add_library(maz STATIC
     src/render/SpriteRenderer.cpp
     src/render/MeshRenderer.cpp
     src/render/Shapes.cpp
+    src/render/Model.cpp
     src/render/VulkanRenderer.cpp
     src/game/Tilemap.cpp
     src/ui/Font.cpp
@@ -33,6 +34,7 @@ target_link_libraries(maz
         Vulkan::Vulkan
     PRIVATE
         stb
+        cgltf
         maz_warnings)
 
 # Enable validation-layer plumbing in debug builds.
@@ -58,6 +60,10 @@ add_custom_command(TARGET maz POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/assets/fonts/DejaVuSans.ttf
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts/DejaVuSans.ttf
-    COMMENT "Staging font asset into bin/assets/fonts")
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/models/house.gltf
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models/house.gltf
+    COMMENT "Staging font + model assets into bin/assets")
 
 add_library(maz::maz ALIAS maz)
