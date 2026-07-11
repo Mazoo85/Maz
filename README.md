@@ -21,7 +21,8 @@ cmake --build build
 ./build/bin/scene3d                 # ECS + 3D — a scene of shapes, orbiting camera
 ./build/bin/world                   # explorable 3D — fly through with WASD + mouse-look
 ./build/bin/model                   # glTF demo — loads house.gltf, orbits with shadows + sky
-./build/bin/village                 # glTF scene — a village loaded from one file, fly-through
+./build/bin/village                 # VILLAGE QUEST — collect coins across the loaded village
+./build/bin/village --demo          # autopilot playthrough (for capture)
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
 ctest --test-dir build              # headless smoke tests (all apps)
 ```
@@ -56,8 +57,10 @@ available):
   `house.gltf` from disk and renders it with shadows + sky
 - **M18** — textured glTF: the loader decodes a model's base-color texture, so `house.gltf` shows
   brick walls, a shingle roof, a plank door, and glass windows
-- **M19** — glTF scene loading (`maz::render::loadGltfScene`): the `village` app loads a whole
-  scene (ground + 6 houses + 9 trees) from one `village.gltf` and flies through it — a level as data
+- **M19** — glTF scene loading (`maz::render::loadGltfScene`): a whole scene (ground + 6 houses +
+  9 trees) loads from one `village.gltf` — a level as data
+- **M20** — **VILLAGE QUEST**: that scene becomes a playable first-person game — solid house
+  collision, coins to collect against the clock, a win state, and a best time saved across runs
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -83,3 +86,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 
 - **Sandbox** (top-down demo): WASD / arrows to move · Esc to quit
 - **ORB RUN**: Space to start / restart · WASD / arrows to move · Esc to quit
+- **VILLAGE QUEST**: WASD to move · mouse to look · collect every coin · Esc to quit
+- **World** / **Village** (explore): WASD move · mouse look · Esc to quit

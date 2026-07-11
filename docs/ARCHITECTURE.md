@@ -44,7 +44,8 @@ apps/
   scene3d/  ECS + 3D — ground plane + ring of shapes, orbiting camera
   world/    Explorable 3D — fly camera through a textured-floor block field
   model/    glTF demo — loads house.gltf at runtime, orbits with shadows + sky
-  village/  glTF scene demo — loads village.gltf (ground + houses + trees), fly-through
+  village/  VILLAGE QUEST — a game on the loaded village.gltf: house collision, coins, timer,
+              win state, best-time save (scene loading + collision + audio + save composed)
 ```
 
 ## The frame loop (fixed timestep)

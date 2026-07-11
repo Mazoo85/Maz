@@ -107,10 +107,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > each node with a mesh becomes a `SceneNode` carrying that mesh's geometry (in local space), its
 > world transform, and its base-color texture — nothing is merged, so one source mesh can appear
 > many times at different positions. The `village` app loads a bundled `village.gltf` (a ground
-> plane, six textured houses, and nine trees — 16 nodes over 3 shared meshes) and lets you fly
-> through it with WASD + mouse-look, shadows and sky included. This is the data-driven step: a whole
-> level lives in one asset file, not in C++. Everything marked `[x]` below is done; everything else
-> is the road ahead.
+> plane, six textured houses, and nine trees — 16 nodes over 3 shared meshes). This is the
+> data-driven step: a whole level lives in one asset file, not in C++.
+>
+> **M20 — VILLAGE QUEST (done).** The village scene becomes a playable game: the houses turn into
+> solid AABB collision (built from each node's world bounds), golden coins are scattered in the open
+> spaces, and you walk the village first-person (WASD + mouse-look) collecting every coin against a
+> timer — with a win state and a best time saved across runs. It composes scene loading + collision
+> + audio + save into one game, the proof the engine ships real games. Everything marked `[x]` below
+> is done; everything else is the road ahead.
 
 ---
 
@@ -284,8 +289,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →
       restart, score + timer HUD, collectibles, hazards
+- [x] **VILLAGE QUEST** (`apps/village`) — a first-person 3D game built on a data-loaded glTF
+      scene: solid house collision, coins to collect against the clock, a win state, and a
+      best-time saved across runs (scene loading + collision + audio + save composed; M20)
 - [ ] More sample scenes: pong, platformer, top-down adventure
-- [ ] Add sound + saved state to a sample game
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
 > The unrelated *ZOMBOID: ANCHORAGE* browser game that also lives in this repo is **not** an
