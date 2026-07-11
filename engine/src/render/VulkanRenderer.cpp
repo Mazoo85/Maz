@@ -49,6 +49,7 @@ public:
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
     void setBloom(float strength, float threshold) override;
+    void setTonemap(float exposure, bool enabled) override;
     void setWireframe(bool enabled) override;
     void setCameraBasis(const float right3[3], const float up3[3]) override;
     void drawParticle3D(const float pos3[3], float size, const float color4[4],
@@ -444,6 +445,12 @@ void VulkanRenderer::setLighting(const SceneLighting& lighting) {
 void VulkanRenderer::setWireframe(bool enabled) {
     if (m_active) {
         m_meshes.setWireframe(enabled);
+    }
+}
+
+void VulkanRenderer::setTonemap(float exposure, bool enabled) {
+    if (m_active) {
+        m_post.setTonemap(exposure, enabled);
     }
 }
 

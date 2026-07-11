@@ -47,6 +47,9 @@ private:
     VkRenderPass m_renderPass = VK_NULL_HANDLE;    // scene pass
     VkRenderPass m_compositePass = VK_NULL_HANDLE; // scene -> swapchain
     VkFormat m_format = VK_FORMAT_UNDEFINED;
+    // The offscreen scene renders to an HDR float target so emissive/bloom can exceed 1.0; the
+    // composite pass tonemaps it down to the LDR swapchain (m_format).
+    VkFormat m_sceneFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     VkExtent2D m_extent{};

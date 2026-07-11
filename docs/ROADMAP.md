@@ -216,7 +216,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows
 - [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
-- [ ] Tonemap/HDR, FXAA/TAA, richer post stack
+- [x] **HDR scene target + ACES tonemap/exposure** (16-bit float scene color, `setTonemap`; M38)
+- [ ] Separable multi-pass bloom, FXAA/TAA, richer post stack
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [x] Render-to-texture (offscreen scene color target for post-processing; M27)
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)

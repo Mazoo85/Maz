@@ -22,9 +22,10 @@ platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depe
 math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
-              VulkanSwapchain— swapchain + offscreen scene pass (MSAA ≤4× resolving to a sampled
-                               sceneColor) + composite pass to the swapchain image
-              PostProcess    — fullscreen composite: samples sceneColor -> swapchain, threshold bloom
+              VulkanSwapchain— swapchain + offscreen HDR scene pass (16-bit float, MSAA ≤4×
+                               resolving to a sampled sceneColor) + composite pass to the swapchain
+              PostProcess    — fullscreen composite: samples HDR sceneColor -> swapchain, threshold
+                               bloom + optional ACES tonemap/exposure
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights

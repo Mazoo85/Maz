@@ -138,9 +138,9 @@ int main(int argc, char** argv) {
     lighting.sunDir[0] = 0.35f;
     lighting.sunDir[1] = 0.55f;
     lighting.sunDir[2] = 0.75f;
-    lighting.sunColor[0] = 1.0f;
-    lighting.sunColor[1] = 0.96f;
-    lighting.sunColor[2] = 0.85f;
+    lighting.sunColor[0] = 2.2f; // over-bright HDR sun; the tonemap rolls the sunlit crests off
+    lighting.sunColor[1] = 2.0f;
+    lighting.sunColor[2] = 1.6f;
     lighting.fogColor[0] = 0.62f;
     lighting.fogColor[1] = 0.74f;
     lighting.fogColor[2] = 0.88f;
@@ -149,7 +149,8 @@ int main(int argc, char** argv) {
     lighting.skyHorizon[1] = 0.74f;
     lighting.skyHorizon[2] = 0.88f;
     renderer->setLighting(lighting);
-    renderer->setBloom(0.18f, 0.72f); // gentle sparkle on the crests
+    renderer->setBloom(0.18f, 0.72f);  // gentle sparkle on the crests
+    renderer->setTonemap(1.0f, true); // filmic tonemap of the HDR scene (rolls the over-bright sun)
 
     ui::Font font;
     {

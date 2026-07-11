@@ -139,7 +139,7 @@ bool VulkanSwapchain::createSceneColor(VulkanContext& ctx) {
     VkImageCreateInfo ii{};
     ii.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     ii.imageType = VK_IMAGE_TYPE_2D;
-    ii.format = m_format;
+    ii.format = m_sceneFormat;
     ii.extent = {m_extent.width, m_extent.height, 1};
     ii.mipLevels = 1;
     ii.arrayLayers = 1;
@@ -169,7 +169,7 @@ bool VulkanSwapchain::createSceneColor(VulkanContext& ctx) {
     vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vi.image = m_sceneImage;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vi.format = m_format;
+    vi.format = m_sceneFormat;
     vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     vi.subresourceRange.levelCount = 1;
     vi.subresourceRange.layerCount = 1;
@@ -273,6 +273,7 @@ bool VulkanSwapchain::createColorTarget(VulkanContext& ctx) {
     ii.arrayLayers = 1;
     ii.samples = m_samples;
     ii.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ii.format = m_sceneFormat; // HDR scene target (see createSceneColor)
     ii.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     if (vkCreateImage(ctx.device(), &ii, nullptr, &m_colorImage) != VK_SUCCESS) {
@@ -297,7 +298,7 @@ bool VulkanSwapchain::createColorTarget(VulkanContext& ctx) {
     vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vi.image = m_colorImage;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vi.format = m_format;
+    vi.format = m_sceneFormat;
     vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     vi.subresourceRange.levelCount = 1;
     vi.subresourceRange.layerCount = 1;
@@ -362,7 +363,7 @@ bool VulkanSwapchain::createRenderPass(VulkanContext& ctx) {
     // resolved into sceneColor and discarded), otherwise it IS sceneColor. Either way the scene
     // ends up in the single-sample sceneColor image, left in SHADER_READ_ONLY for the composite.
     VkAttachmentDescription color{};
-    color.format = m_format;
+    color.format = m_sceneFormat;
     color.samples = m_samples;
     color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color.storeOp = msaa ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
@@ -394,7 +395,7 @@ bool VulkanSwapchain::createRenderPass(VulkanContext& ctx) {
     // Attachment 2 (MSAA only): the single-sample sceneColor the color attachment resolves into,
     // left ready to be sampled by the composite pass.
     VkAttachmentDescription resolve{};
-    resolve.format = m_format;
+    resolve.format = m_sceneFormat;
     resolve.samples = VK_SAMPLE_COUNT_1_BIT;
     resolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

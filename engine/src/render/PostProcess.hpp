@@ -24,6 +24,12 @@ public:
         m_strength = strength;
         m_threshold = threshold;
     }
+    // Enable ACES tonemapping of the HDR scene with the given exposure. Off by default so apps that
+    // don't opt in are a faithful passthrough (values already in [0,1] are written unchanged).
+    void setTonemap(float exposure, bool enabled) {
+        m_exposure = exposure;
+        m_tonemap = enabled;
+    }
 
     // Begin the composite pass into `framebuffer`, draw the full-screen composite, end the pass.
     void record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent);
@@ -41,6 +47,8 @@ private:
 
     float m_strength = 0.0f;   // 0 => passthrough
     float m_threshold = 0.75f; // brightness above which pixels bloom
+    float m_exposure = 1.0f;   // HDR exposure multiplier before tonemapping
+    bool m_tonemap = false;    // false => no tonemap (passthrough of [0,1] values)
 };
 
 } // namespace maz::render

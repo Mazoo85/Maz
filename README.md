@@ -99,6 +99,10 @@ available):
 - **M37** — emissive materials: `Renderer::drawMeshEmissive` adds a self-illumination color after
   lighting (so an object glows on its own and feeds bloom); `world`'s collectible pickups now pulse
   as glowing gold
+- **M38** — HDR scene + tonemap: the offscreen scene now renders to a **16-bit float** target so
+  lighting/emissive/bloom can exceed 1.0; the composite pass applies an **ACES filmic tonemap** with
+  exposure (`Renderer::setTonemap`) to roll highlights smoothly into the LDR image. Off by default
+  (a faithful passthrough); the `water` demo opts in with an over-bright sun
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

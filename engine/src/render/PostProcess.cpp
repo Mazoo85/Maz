@@ -48,7 +48,7 @@ std::string assetBase() {
 }
 
 struct PushParams {
-    float params[4]; // x = bloom strength, y = threshold
+    float params[4]; // x = bloom strength, y = threshold, z = exposure, w = tonemap enable
 };
 
 } // namespace
@@ -237,6 +237,8 @@ void PostProcess::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExten
     PushParams pc{};
     pc.params[0] = m_strength;
     pc.params[1] = m_threshold;
+    pc.params[2] = m_exposure;
+    pc.params[3] = m_tonemap ? 1.0f : 0.0f;
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);

@@ -8,7 +8,7 @@ layout(location = 0) in vec2 vUv;
 layout(set = 0, binding = 0) uniform sampler2D uScene;
 
 layout(push_constant) uniform Push {
-    vec4 params; // x = bloom strength, y = brightness threshold
+    vec4 params; // x = bloom strength, y = threshold, z = exposure, w = tonemap enable (>0.5)
 } pc;
 
 layout(location = 0) out vec4 outColor;
@@ -17,6 +17,12 @@ layout(location = 0) out vec4 outColor;
 vec3 brightPass(vec3 c, float t) {
     float b = max(max(c.r, c.g), c.b);
     return c * smoothstep(t, t + 0.25, b);
+}
+
+// Narkowicz ACES filmic tonemap: maps unbounded HDR into [0,1] with a pleasing shoulder.
+vec3 acesTonemap(vec3 x) {
+    const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
 void main() {
@@ -39,6 +45,12 @@ void main() {
             }
         }
         color = scene + (bloom / wsum) * strength;
+    }
+
+    // Optional HDR tonemap: exposure-scale then ACES. Off (w <= 0.5) leaves values untouched, so
+    // apps that don't opt in are a faithful passthrough of the (already [0,1]) scene color.
+    if (pc.params.w > 0.5) {
+        color = acesTonemap(color * pc.params.z);
     }
 
     outColor = vec4(color, 1.0);

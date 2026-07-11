@@ -147,6 +147,11 @@ public:
     // Enable/adjust post-process bloom. strength 0 (default) is a faithful passthrough, so 2D and
     // 3D apps look identical; > 0 adds a soft glow to areas brighter than `threshold` (0..1).
     virtual void setBloom(float strength, float threshold) = 0;
+    // Enable ACES filmic tonemapping of the HDR scene with an exposure multiplier (1 = neutral).
+    // The scene renders to a float target, so emissive/bloom can exceed 1 and the tonemap rolls the
+    // highlights off smoothly. Off by default (a faithful passthrough); enable per app. No-op when
+    // inactive.
+    virtual void setTonemap(float exposure, bool enabled) = 0;
     // Draw meshes as wireframe (line polygons) instead of filled — a debug-draw aid. Requires the
     // GPU's fillModeNonSolid feature; silently stays filled if unsupported. No-op when inactive.
     virtual void setWireframe(bool enabled) = 0;

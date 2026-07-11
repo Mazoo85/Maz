@@ -131,5 +131,17 @@ could self-glow to feed bloom. This iteration:
 
 **Iteration 8 complete** (debug line/collider draw + emissive materials).
 
-Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
-spatial partitioning, hot-reload shaders, full PBR (metallic/roughness), GPU/compute particles.
+### Iteration 9 — "HDR & game feel" (in progress)
+Evaluation: the scene target was 8-bit LDR, so emissive/bloom clipped at 1.0 and there was no
+tonemap; and pickups/hits had no camera feedback. This iteration:
+- [x] **M38 — HDR scene target + ACES tonemap**: the offscreen scene color (and MSAA color) is now
+  `R16G16B16A16_SFLOAT`, so lighting/emissive/bloom can exceed 1.0. The composite pass applies an
+  exposure multiply + Narkowicz ACES tonemap (`Renderer::setTonemap`), off by default so 2D/3D apps
+  are a faithful passthrough. Verified: orbs (2D) and cube (3D) unchanged with tonemap off; `water`
+  with an over-bright sun rolls its sunlit crests off smoothly instead of clipping; no validation
+  errors on the format change.
+- [ ] **M39 — Screen-shake / camera juice**: a trauma-based `maz::game::Shake` that offsets the
+  camera and decays; apps trigger it on impactful moments (pickups).
+
+Later: separable multi-pass bloom, transparency/particle depth-sorting, spatial partitioning (grid)
+for broadphase, hot-reload shaders, full PBR, save graphics settings via KeyValueStore.
