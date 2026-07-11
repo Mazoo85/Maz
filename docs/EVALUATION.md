@@ -211,5 +211,13 @@ This iteration:
 
 **Iteration 13 complete** (chromatic aberration; world minimap).
 
+### Iteration 14 — "Grain & particle forces" (in progress)
+- [x] **M48 — Film grain**: opt-in animated hashed noise added at the end of the composite
+  (`Renderer::setFilmGrain(strength, time)`, packed into the third push vec4); off by default.
+  VILLAGE QUEST adds a gentle moving grain. Verified on lavapipe: clear speckle across a cropped sky
+  region, no validation errors.
+- [ ] **M49 — Particle attractor**: `fx::ParticleSystem` gains an attractor (radial pull + swirl)
+  applied in update; the `orbs` title screen shows an ambient swirl.
+
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, reflective water,
-SSAO, in-app settings menu UI, particle attractors, film grain.
+SSAO, in-app settings menu UI.

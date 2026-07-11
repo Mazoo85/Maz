@@ -50,7 +50,7 @@ std::string assetBase() {
 struct PushParams {
     float params[4]; // x = bloom strength, y = threshold, z = exposure, w = tonemap enable
     float grade[4];  // x = vignette, y = saturation, z = contrast, w = color-grade enable
-    float extra[4];  // x = chromatic aberration strength
+    float extra[4];  // x = chromatic aberration, y = film-grain strength, z = grain time seed
 };
 
 } // namespace
@@ -255,6 +255,8 @@ void PostProcess::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExten
     pc.grade[2] = m_contrast;
     pc.grade[3] = m_colorGrade ? 1.0f : 0.0f;
     pc.extra[0] = m_chromatic;
+    pc.extra[1] = m_grain;
+    pc.extra[2] = m_grainTime;
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);

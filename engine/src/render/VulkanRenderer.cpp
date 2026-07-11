@@ -53,6 +53,7 @@ public:
     void setTonemap(float exposure, bool enabled) override;
     void setColorGrade(float vignette, float saturation, float contrast, bool enabled) override;
     void setChromaticAberration(float strength) override;
+    void setFilmGrain(float strength, float time) override;
     void setWireframe(bool enabled) override;
     void setCameraBasis(const float right3[3], const float up3[3]) override;
     void drawParticle3D(const float pos3[3], float size, const float color4[4],
@@ -479,6 +480,12 @@ void VulkanRenderer::setColorGrade(float vignette, float saturation, float contr
 void VulkanRenderer::setChromaticAberration(float strength) {
     if (m_active) {
         m_post.setChromatic(strength);
+    }
+}
+
+void VulkanRenderer::setFilmGrain(float strength, float time) {
+    if (m_active) {
+        m_post.setFilmGrain(strength, time);
     }
 }
 

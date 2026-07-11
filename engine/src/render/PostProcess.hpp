@@ -41,6 +41,11 @@ public:
     }
     // Radial chromatic-aberration strength (UV split fraction at the screen edge). 0 (default) = off.
     void setChromatic(float strength) { m_chromatic = strength; }
+    // Animated film grain: `strength` is the noise amplitude (0 = off), `time` shifts the pattern.
+    void setFilmGrain(float strength, float time) {
+        m_grain = strength;
+        m_grainTime = time;
+    }
 
     // Begin the composite pass into `framebuffer`, draw the full-screen composite, end the pass.
     void record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent);
@@ -66,6 +71,8 @@ private:
     float m_contrast = 1.0f;   // 1 = neutral
     bool m_colorGrade = false; // false => no grade (passthrough)
     float m_chromatic = 0.0f;  // radial RGB split; 0 => off
+    float m_grain = 0.0f;      // film-grain amplitude; 0 => off
+    float m_grainTime = 0.0f;  // grain animation seed
 };
 
 } // namespace maz::render

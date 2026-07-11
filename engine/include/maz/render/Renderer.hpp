@@ -159,6 +159,9 @@ public:
     // Radial chromatic aberration on the composited image: `strength` is the UV split at the screen
     // edge (e.g. 0.004). 0 (default) is off. No-op when inactive.
     virtual void setChromaticAberration(float strength) = 0;
+    // Animated film grain on the composited image: `strength` is the noise amplitude (0 = off, the
+    // default), `time` (e.g. the app clock) shifts the pattern each frame. No-op when inactive.
+    virtual void setFilmGrain(float strength, float time) = 0;
     // Draw meshes as wireframe (line polygons) instead of filled — a debug-draw aid. Requires the
     // GPU's fillModeNonSolid feature; silently stays filled if unsupported. No-op when inactive.
     virtual void setWireframe(bool enabled) = 0;

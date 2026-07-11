@@ -221,7 +221,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Separable downsampled bloom** (`BloomChain`: bright-pass + ½-res 2-pass Gaussian; M41)
 - [x] **Color grade** (composite vignette + saturation + contrast, `setColorGrade`; M45)
 - [x] **Chromatic aberration** (composite radial RGB split, `setChromaticAberration`; M46)
-- [ ] FXAA/TAA, richer post stack (lens dirt, film grain)
+- [x] **Film grain** (composite animated hashed noise, `setFilmGrain`; M48)
+- [ ] FXAA/TAA, lens dirt / bloom-dirt mask
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [x] Render-to-texture (offscreen scene color target for post-processing; M27)
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)

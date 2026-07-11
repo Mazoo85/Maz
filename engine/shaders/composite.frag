@@ -11,7 +11,7 @@ layout(set = 0, binding = 1) uniform sampler2D uBloom;
 layout(push_constant) uniform Push {
     vec4 params; // x = bloom strength, y = threshold (unused here), z = exposure, w = tonemap (>0.5)
     vec4 grade;  // x = vignette strength, y = saturation, z = contrast, w = grade enable (>0.5)
-    vec4 extra;  // x = chromatic aberration strength (radial RGB split)
+    vec4 extra;  // x = chromatic aberration, y = film-grain strength, z = grain time seed
 } pc;
 
 layout(location = 0) out vec4 outColor;
@@ -50,6 +50,13 @@ void main() {
         vec2 d = vUv - 0.5;
         float vig = 1.0 - pc.grade.x * smoothstep(0.15, 0.75, dot(d, d) * 2.0);
         color *= vig;                                          // darken toward the corners
+    }
+
+    // Optional animated film grain: hashed per-pixel noise that shifts each frame. 0 = off.
+    float grain = pc.extra.y;
+    if (grain > 0.0) {
+        float n = fract(sin(dot(vUv + pc.extra.z, vec2(12.9898, 78.233))) * 43758.5453);
+        color += (n - 0.5) * grain;
     }
 
     outColor = vec4(color, 1.0);
