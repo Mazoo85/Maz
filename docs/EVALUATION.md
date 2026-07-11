@@ -177,8 +177,13 @@ persisted. This iteration:
   defaults (specular 0) leave every existing draw byte-identical. The `cube` demo opts in and shows a
   glossy highlight sweeping across its faces. Verified on lavapipe: highlight visible in the spin
   montage, orbs/matte unchanged, no validation errors.
-- [ ] **M43 — Persist graphics settings**: `world` saves bloom/tonemap/wireframe toggles via
-  `KeyValueStore` and restores them on launch.
+- [x] **M43 — Persist graphics settings**: `world` loads bloom/tonemap/wireframe from a
+  `settings.ini` (via `KeyValueStore` at `platform::prefPath`) and re-applies them on launch; F7
+  (bloom), F8 (tonemap), and F4 (wireframe) toggle and immediately save, and a HUD line shows the
+  live state. Verified on lavapipe: an externally-written `bloom=0/tonemap=1/wireframe=1` is loaded
+  and applied (wireframe scene, tonemap look, no bloom) with the HUD matching.
+
+**Iteration 11 complete** (specular/roughness material; persistent graphics settings).
 
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
-viewport, reflective water, SSAO.
+viewport, reflective water, SSAO, in-app settings menu UI.

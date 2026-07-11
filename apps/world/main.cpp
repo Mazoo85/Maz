@@ -179,7 +179,25 @@ int main(int argc, char** argv) {
     lighting.fogColor[2] = 0.95f;
     lighting.fogDensity = 0.018f;
     renderer->setLighting(lighting);
-    renderer->setBloom(0.35f, 0.75f); // soft glow on the emissive gold pickups
+
+    // Persistent graphics/quality settings (bloom, tonemap, wireframe) — restored across runs.
+    core::KeyValueStore settings;
+    settings.load(platform::prefPath("MazEngine", "World", "settings.ini"));
+    bool bloomOn = settings.getInt("bloom", 1) != 0;
+    bool tonemapOn = settings.getInt("tonemap", 0) != 0;
+    bool wireframe = settings.getInt("wireframe", startWireframe ? 1 : 0) != 0;
+    auto applyGraphics = [&]() {
+        renderer->setBloom(bloomOn ? 0.35f : 0.0f, 0.75f); // soft glow on the emissive gold pickups
+        renderer->setTonemap(1.0f, tonemapOn);
+        renderer->setWireframe(wireframe);
+    };
+    auto saveGraphics = [&]() {
+        settings.set("bloom", bloomOn ? 1 : 0);
+        settings.set("tonemap", tonemapOn ? 1 : 0);
+        settings.set("wireframe", wireframe ? 1 : 0);
+        settings.save();
+    };
+    applyGraphics();
 
     game::FlyCamera camera;
     camera.setPosition(glm::vec3(0.0f, 3.0f, 24.0f));
@@ -188,9 +206,6 @@ int main(int argc, char** argv) {
 
     ui::DebugOverlay overlay;
     overlay.setEnabled(true); // on by default here; toggle with F3
-
-    bool wireframe = startWireframe; // F4 toggles wireframe debug draw (--wireframe starts on)
-    renderer->setWireframe(wireframe);
     bool showColliders = startColliders; // F5 draws the collision AABBs as debug lines
     bool showGrid = startGrid;           // F6 draws the broadphase grid's occupied cells
     game::Shake shake; // camera juice — a jolt each time a pickup is collected
@@ -205,13 +220,24 @@ int main(int argc, char** argv) {
         }
         if (input.keyPressed(SDL_SCANCODE_F4)) {
             wireframe = !wireframe;
-            renderer->setWireframe(wireframe);
+            applyGraphics();
+            saveGraphics();
         }
         if (input.keyPressed(SDL_SCANCODE_F5)) {
             showColliders = !showColliders;
         }
         if (input.keyPressed(SDL_SCANCODE_F6)) {
             showGrid = !showGrid;
+        }
+        if (input.keyPressed(SDL_SCANCODE_F7)) {
+            bloomOn = !bloomOn;
+            applyGraphics();
+            saveGraphics();
+        }
+        if (input.keyPressed(SDL_SCANCODE_F8)) {
+            tonemapOn = !tonemapOn;
+            applyGraphics();
+            saveGraphics();
         }
         overlay.update(clock.frameDelta());
         shake.update(static_cast<float>(clock.frameDelta()));
@@ -370,6 +396,12 @@ int main(int argc, char** argv) {
                 std::snprintf(buf, sizeof(buf), "COLLECTED  %d / %d", collectedCount, kPickups);
             }
             font.drawText(*renderer, 16.0f, 74.0f, buf, render::Color{1, 0.95f, 0.5f, 1}, 0.6f);
+
+            // Saved graphics settings (persisted via KeyValueStore; F7 bloom, F8 tonemap, F4 wire).
+            char sbuf[80];
+            std::snprintf(sbuf, sizeof(sbuf), "F7 BLOOM %s   F8 TONEMAP %s   F4 WIRE %s",
+                          bloomOn ? "ON" : "OFF", tonemapOn ? "ON" : "OFF", wireframe ? "ON" : "OFF");
+            font.drawText(*renderer, 16.0f, 100.0f, sbuf, render::Color{0.8f, 0.85f, 0.95f, 1}, 0.42f);
 
             // Profiling overlay (F3): FPS / frame time / draw counts.
             overlay.draw(*renderer, font, 16.0f, static_cast<float>(bh) - 66.0f, 0.42f);

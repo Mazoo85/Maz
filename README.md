@@ -117,6 +117,9 @@ available):
   sun highlight to meshes (albedo + normal + emissive + `roughness`/`specular`); matte defaults leave
   existing draws unchanged. The `cube` demo is now a glossy checker with a highlight that sweeps as
   it spins
+- **M43** — persistent graphics settings: `world` saves its bloom (**F7**), tonemap (**F8**), and
+  wireframe (**F4**) choices to a `settings.ini` via `KeyValueStore` and restores them on the next
+  launch; a HUD line shows the live state
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
