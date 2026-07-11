@@ -23,3 +23,11 @@ add_test(
 set_tests_properties(swarm_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME cube_headless_smoke
+    COMMAND cube --headless --frames 30)
+
+set_tests_properties(cube_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

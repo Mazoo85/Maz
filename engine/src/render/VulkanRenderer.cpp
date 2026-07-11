@@ -2,6 +2,7 @@
 
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
+#include "render/MeshRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
@@ -34,6 +35,11 @@ public:
     void setCamera2D(const Camera2D& camera) override;
     void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
 
+    MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                          const uint32_t* indices, uint32_t indexCount) override;
+    void setViewProjection3D(const float* viewProj16) override;
+    void drawMesh(MeshHandle mesh, const float* model16) override;
+
     bool isActive() const override { return m_active; }
 
 private:
@@ -45,6 +51,7 @@ private:
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
     SpriteRenderer m_sprites;
+    MeshRenderer m_meshes;
     RendererConfig m_cfg;
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
@@ -92,6 +99,10 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     }
     if (!m_sprites.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight)) {
         MAZ_LOG_ERROR("sprite renderer init failed");
+        return false;
+    }
+    if (!m_meshes.init(m_ctx, m_swapchain.renderPass())) {
+        MAZ_LOG_ERROR("mesh renderer init failed");
         return false;
     }
     m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
@@ -196,20 +207,25 @@ bool VulkanRenderer::beginFrame() {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(cmd, &begin);
 
-    VkClearValue clear{};
-    clear.color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    VkClearValue clears[2]{};
+    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    clears[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass = m_swapchain.renderPass();
     rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
     rp.renderArea.extent = m_swapchain.extent();
-    rp.clearValueCount = 1;
-    rp.pClearValues = &clear;
+    rp.clearValueCount = 2;
+    rp.pClearValues = clears;
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Start a fresh sprite batch; drawSprite() calls accumulate until endFrame() flushes them.
-    m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
+    // Start fresh 3D and 2D draw lists; draw* calls accumulate until endFrame() flushes them.
+    const uint32_t w = m_swapchain.extent().width;
+    const uint32_t h = m_swapchain.extent().height;
+    m_meshes.setViewport(w, h);
+    m_meshes.begin();
+    m_sprites.setViewport(w, h);
     m_sprites.begin();
     return true;
 }
@@ -219,7 +235,8 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
-    m_sprites.flush(cmd, m_currentFrame);
+    m_meshes.flush(cmd);                  // 3D first (depth-tested)
+    m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
 
@@ -281,6 +298,26 @@ void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite)
     }
 }
 
+MeshHandle VulkanRenderer::createMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                      const uint32_t* indices, uint32_t indexCount) {
+    if (!m_active) {
+        return kInvalidMesh;
+    }
+    return m_meshes.createMesh(m_ctx, vertices, vertexCount, indices, indexCount);
+}
+
+void VulkanRenderer::setViewProjection3D(const float* viewProj16) {
+    if (m_active) {
+        m_meshes.setViewProjection(viewProj16);
+    }
+}
+
+void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16) {
+    if (m_active) {
+        m_meshes.draw(mesh, model16);
+    }
+}
+
 void VulkanRenderer::destroySync() {
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
         if (m_imageAvailable[i]) {
@@ -303,6 +340,7 @@ void VulkanRenderer::shutdown() {
         vkDeviceWaitIdle(m_ctx.device());
     }
     if (m_active) {
+        m_meshes.shutdown(m_ctx);
         m_sprites.shutdown(m_ctx);
         destroySync();
         if (m_commandPool) {

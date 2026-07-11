@@ -1,7 +1,7 @@
 # Maz Engine
 
-A native **C++20 + Vulkan + SDL3** game engine — 2D-first, architected so 3D drops in later
-(pluggable renderer, camera abstraction, scene-friendly modules).
+A native **C++20 + Vulkan + SDL3** game engine — 2D-complete with a working 3D path (a
+pluggable renderer, 2D and 3D cameras, a depth buffer, and lit meshes alongside batched sprites).
 
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.
@@ -17,12 +17,13 @@ cmake --build build
 ./build/bin/sandbox                 # top-down tile-world demo (needs a GPU + display)
 ./build/bin/orbs                    # "ORB RUN" — a complete sample arcade game
 ./build/bin/swarm                   # ECS demo — 800 entities
+./build/bin/cube                    # 3D demo — a lit, spinning cube
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
 ctest --test-dir build              # headless smoke tests (all apps)
 ```
 
 Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,
-`swarm`).
+`swarm`, `cube`).
 
 ## What works today
 
@@ -39,6 +40,7 @@ available):
 - **M6** — a particle system (`maz::fx::ParticleSystem`): player spark trail + pickup/win/lose bursts
 - **M7** — save/load (`maz::core::KeyValueStore`): ORB RUN keeps a high score across runs
 - **M8** — an entity-component system (`maz::ecs::World`): the `swarm` demo runs 800 entities
+- **M9** — 3D rendering (depth buffer + `MeshRenderer`): the `cube` demo shows a lit 3D cube under a 2D HUD
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -44,6 +44,17 @@ struct Camera2D {
     bool usePixelSpace = true;            // when true, ignore center/zoom and map 1 unit = 1 pixel
 };
 
+// A vertex for 3D meshes: position, normal, and RGB color (all object-space).
+struct MeshVertex {
+    float px, py, pz;
+    float nx, ny, nz;
+    float r, g, b;
+};
+
+// Opaque handle to an uploaded mesh. 0 is invalid.
+using MeshHandle = uint32_t;
+constexpr MeshHandle kInvalidMesh = 0;
+
 // Rendering interface. Gameplay talks to this, never to Vulkan directly, so a future backend
 // (a 3D path, a null/software path, WebGPU) can be swapped in without touching game code.
 class Renderer {
@@ -71,6 +82,16 @@ public:
     virtual void setCamera2D(const Camera2D& camera) = 0;
     // Queue a sprite for drawing between beginFrame/endFrame. No-op when inactive.
     virtual void drawSprite(TextureHandle texture, const SpriteDesc& sprite) = 0;
+
+    // --- 3D meshes (Phase 3) ---
+    // Upload an indexed mesh. Returns kInvalidMesh on failure or when inactive.
+    virtual MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                  const uint32_t* indices, uint32_t indexCount) = 0;
+    // Set the combined view*projection matrix (column-major, 16 floats) for 3D draws this frame.
+    virtual void setViewProjection3D(const float* viewProj16) = 0;
+    // Queue a mesh draw with the given model matrix (column-major, 16 floats). 3D meshes are
+    // depth-tested and drawn beneath the 2D layer. No-op when inactive.
+    virtual void drawMesh(MeshHandle mesh, const float* model16) = 0;
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;

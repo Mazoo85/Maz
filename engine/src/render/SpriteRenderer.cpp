@@ -176,6 +176,14 @@ bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass)
     cb.attachmentCount = 1;
     cb.pAttachments = &blend;
 
+    // The shared render pass has a depth attachment, but 2D sprites don't use it: draw them in
+    // submission order with depth test/write off.
+    VkPipelineDepthStencilStateCreateInfo ds{};
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+
     VkDynamicState dynamics[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dyn{};
     dyn.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -209,6 +217,7 @@ bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass)
     gp.pViewportState = &vp;
     gp.pRasterizationState = &rs;
     gp.pMultisampleState = &ms;
+    gp.pDepthStencilState = &ds;
     gp.pColorBlendState = &cb;
     gp.pDynamicState = &dyn;
     gp.layout = m_pipelineLayout;

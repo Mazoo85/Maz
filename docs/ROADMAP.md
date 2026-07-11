@@ -47,7 +47,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M8 — ECS (done).** `maz::ecs::World` — a lightweight entity-component system (entity
 > free-list, type-erased sparse-set component pools, `add/get/has/remove`, `each<T>` and
 > `view<A,B>` iteration). A third sample app, `apps/swarm`, runs 800 entities through movement +
-> render systems. Everything marked `[x]` below is done; everything else is the road ahead.
+> render systems.
+>
+> **M9 — 3D rendering (done).** Depth buffer added to the render pass; a `MeshRenderer` (indexed
+> position/normal/color meshes, MVP+model push constants, directional lighting) behind a new
+> Renderer 3D API (`createMesh` / `setViewProjection3D` / `drawMesh`); `math::perspective`
+> camera. `apps/cube` spins a lit cube with 2D HUD text over it — 2D and 3D compose in one frame.
+> The 2D path is unchanged (sprites disable depth). Everything marked `[x]` below is done;
+> everything else is the road ahead.
 
 ---
 
@@ -115,10 +122,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] SDF text for crisp scaling, text layout/wrapping
 - [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
-- [ ] Mesh renderer (indexed draw), vertex layouts, instancing
-- [ ] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull
+- [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
+- [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
+- [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
-- [ ] Lighting: directional / point / spot; forward+ or deferred path
+- [x] Lighting: directional (Lambert) + ambient in the mesh shader
+- [ ] Point / spot lights; forward+ or deferred path
 - [ ] Shadow maps, skybox / image-based lighting
 - [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
 - [ ] Render-to-texture, multiple viewports, MSAA
@@ -201,7 +210,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 13 — Demos & a first complete sample game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
-- [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
+- [x] `sandbox`: bouncing textured sprites (proves 2D)
+- [x] `apps/cube`: lit, depth-tested spinning cube + 2D HUD (proves 3D, and 2D+3D together)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
 - [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →

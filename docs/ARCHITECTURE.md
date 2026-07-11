@@ -22,9 +22,10 @@ platform/   Window, Input, event pump, prefPath (user-data dir)   (depends on: c
 math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
-              VulkanSwapchain— swapchain, render pass, framebuffers, present
+              VulkanSwapchain— swapchain, color+depth render pass, framebuffers, present
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
-              Renderer       — beginFrame / clear / drawSprite / endFrame
+              MeshRenderer   — indexed 3D meshes (depth-tested, directional lighting)
+              Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 game/       Tilemap (grid + solidity + coord helpers)
@@ -34,6 +35,7 @@ apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
   swarm/    ECS demo — 800 entities through movement + render systems
+  cube/     3D demo — lit, depth-tested spinning cube + 2D HUD
 ```
 
 ## The frame loop (fixed timestep)

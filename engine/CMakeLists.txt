@@ -11,6 +11,7 @@ add_library(maz STATIC
     src/render/VulkanBuffer.cpp
     src/render/VulkanTexture.cpp
     src/render/SpriteRenderer.cpp
+    src/render/MeshRenderer.cpp
     src/render/VulkanRenderer.cpp
     src/game/Tilemap.cpp
     src/ui/Font.cpp
@@ -42,7 +43,9 @@ maz_compile_shaders(maz
         ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
-        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag)
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag)
 
 add_custom_command(TARGET maz POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts
