@@ -198,6 +198,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
 - [ ] Vertex layouts / instancing, back-face cull toggle, ortho 3D camera
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
+- [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
 - [x] **Distance fog** (exponential, camera-distance, blends meshes into the sky; M22)

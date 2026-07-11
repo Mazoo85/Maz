@@ -35,6 +35,7 @@ std::string assetPath(const char* rel) {
 struct Placed {
     render::MeshHandle mesh;
     render::TextureHandle tex;
+    render::TextureHandle normal;
     float model[16];
 };
 
@@ -101,6 +102,10 @@ int main(int argc, char** argv) {
                          ? renderer->createTexture(node.textureWidth, node.textureHeight,
                                                    node.texturePixels.data())
                          : blank;
+            pl.normal = node.hasNormal()
+                            ? renderer->createTexture(node.normalWidth, node.normalHeight,
+                                                      node.normalPixels.data())
+                            : render::kInvalidTexture;
             std::memcpy(pl.model, node.model, sizeof(pl.model));
             scene.push_back(pl);
             if (node.hasTexture()) { // houses are the textured nodes
@@ -343,7 +348,7 @@ int main(int argc, char** argv) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->setCameraPosition(glm::value_ptr(camera.position()));
             for (const Placed& pl : scene) {
-                renderer->drawMesh(pl.mesh, pl.model, pl.tex);
+                renderer->drawMesh(pl.mesh, pl.model, pl.tex, pl.normal);
             }
             const float bob = 0.15f * std::sin(static_cast<float>(clock.elapsed()) * 2.5f);
             const float spin = static_cast<float>(clock.elapsed()) * 2.0f;

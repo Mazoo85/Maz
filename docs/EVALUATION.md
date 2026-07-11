@@ -46,9 +46,11 @@ implement it, then re-evaluate and repeat. Updated each iteration.
   packed into the lights UBO; omni by default). A cool-white searchlight sweeps the village square
   at night — verified as a crisp cone pool distinct from the warm lamps.
 
-### Iteration 3 — planned
-- [ ] **M26 — Normal mapping**: tangent-space normal maps (derivative-based TBN, no vertex-format
-  change) + a normal-map atlas through the glTF pipeline, for per-pixel surface bump under lights.
+### Iteration 3 — in progress
+- [x] **M26 — Normal mapping**: derivative-based TBN in mesh.frag (no vertex-format change) + a
+  set=3 normal sampler with a flat default (un-mapped meshes unchanged); the loader decodes glTF
+  `normalTexture`; the house/village generators bake a normal-map atlas from a height field; model
+  + village bind it. Verified: the brick walls and roof shingles now show per-pixel relief.
 - [ ] **Bloom / tonemap post-processing**: its own focused effort — needs an offscreen HDR
   render-target refactor (scene → offscreen → bright/blur → composite → swapchain) touching every
   app's render path, so it gets dedicated care (night lamps + coins would bloom).

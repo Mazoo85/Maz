@@ -143,6 +143,41 @@ def build_atlas():
     return bytes(px), S, S
 
 
+def build_normal_atlas():
+    S, H = 64, 32
+    hgt = [[1.0] * S for _ in range(S)]
+    for y in range(S):
+        for x in range(S):
+            qx, qy = x % H, y % H
+            if x < H and y < H:
+                row = qy // 8
+                off = 0 if row % 2 == 0 else 8
+                mortar = (qy % 8 == 0) or ((qx + off) % 16 == 0)
+                hgt[y][x] = 0.25 if mortar else 1.0
+            elif x >= H and y < H:
+                r = qy % 8
+                hgt[y][x] = 0.2 if r == 0 else 0.5 + r * 0.06
+            elif x < H and y >= H:
+                hgt[y][x] = 0.3 if (qx % 8 == 0) else 1.0
+            else:
+                frame = (qx in (0, 1, 15, 16, 31)) or (qy in (0, 1, 15, 16, 31))
+                hgt[y][x] = 0.55 if frame else 1.0
+    px = bytearray(S * S * 4)
+    strength = 2.4
+    for y in range(S):
+        for x in range(S):
+            hl, hr = hgt[y][(x - 1) % S], hgt[y][(x + 1) % S]
+            hd, hu = hgt[(y - 1) % S][x], hgt[(y + 1) % S][x]
+            nx, ny, nz = (hl - hr) * strength, (hd - hu) * strength, 1.0
+            inv = 1.0 / ((nx * nx + ny * ny + nz * nz) ** 0.5)
+            i = (y * S + x) * 4
+            px[i] = int((nx * inv * 0.5 + 0.5) * 255)
+            px[i + 1] = int((ny * inv * 0.5 + 0.5) * 255)
+            px[i + 2] = int((nz * inv * 0.5 + 0.5) * 255)
+            px[i + 3] = 255
+    return bytes(px), S, S
+
+
 def png_encode(rgba, w, h):
     def chunk(tag, data):
         c = tag + data
@@ -172,6 +207,8 @@ meshes = [house, ground, tree]
 
 atlas_rgba, aw, ah = build_atlas()
 png = png_encode(atlas_rgba, aw, ah)
+normal_rgba, _, _ = build_normal_atlas()
+npng = png_encode(normal_rgba, aw, ah)
 
 # Pack all mesh arrays + the PNG into one buffer, recording bufferViews/accessors per mesh.
 blob = bytearray()
@@ -218,6 +255,7 @@ for m in meshes:
     mesh_prims.append((a_pos, a_nrm, a_col, a_tex, a_idx))
 
 png_view = add_view(png)
+normal_view = add_view(npng)
 
 gltf_meshes = []
 for k, (a_pos, a_nrm, a_col, a_tex, a_idx) in enumerate(mesh_prims):
@@ -243,9 +281,11 @@ gltf = {
     "nodes": nodes,
     "meshes": gltf_meshes,
     "materials": [{"name": "HouseDetail", "pbrMetallicRoughness": {
-        "baseColorTexture": {"index": 0}, "metallicFactor": 0.0, "roughnessFactor": 1.0}}],
-    "textures": [{"source": 0, "sampler": 0}],
-    "images": [{"bufferView": png_view, "mimeType": "image/png"}],
+        "baseColorTexture": {"index": 0}, "metallicFactor": 0.0, "roughnessFactor": 1.0},
+        "normalTexture": {"index": 1}}],
+    "textures": [{"source": 0, "sampler": 0}, {"source": 1, "sampler": 0}],
+    "images": [{"bufferView": png_view, "mimeType": "image/png"},
+               {"bufferView": normal_view, "mimeType": "image/png"}],
     "samplers": [{"magFilter": 9729, "minFilter": 9729, "wrapS": 10497, "wrapT": 10497}],
     "buffers": [{"byteLength": len(blob),
                  "uri": "data:application/octet-stream;base64," + base64.b64encode(bytes(blob)).decode()}],

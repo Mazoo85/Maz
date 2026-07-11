@@ -15,8 +15,13 @@ struct ModelData {
     std::vector<uint8_t> texturePixels;
     uint32_t textureWidth = 0;
     uint32_t textureHeight = 0;
+    // Decoded RGBA8 tangent-space normal map (material normalTexture), empty when absent.
+    std::vector<uint8_t> normalPixels;
+    uint32_t normalWidth = 0;
+    uint32_t normalHeight = 0;
 
     bool hasTexture() const { return textureWidth > 0 && textureHeight > 0; }
+    bool hasNormal() const { return normalWidth > 0 && normalHeight > 0; }
 };
 
 // One placed object in a scene: geometry in its own local space, a world transform positioning it,
@@ -26,9 +31,13 @@ struct SceneNode {
     std::vector<uint8_t> texturePixels;
     uint32_t textureWidth = 0;
     uint32_t textureHeight = 0;
+    std::vector<uint8_t> normalPixels; // tangent-space normal map, empty when absent
+    uint32_t normalWidth = 0;
+    uint32_t normalHeight = 0;
     float model[16]; // column-major world transform (row order matches Renderer::drawMesh)
 
     bool hasTexture() const { return textureWidth > 0 && textureHeight > 0; }
+    bool hasNormal() const { return normalWidth > 0 && normalHeight > 0; }
 };
 
 // A whole scene loaded from a glTF file: one SceneNode per placed object, preserving transforms so

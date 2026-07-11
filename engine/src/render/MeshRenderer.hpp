@@ -39,7 +39,8 @@ public:
     }
 
     void begin();
-    void draw(MeshHandle mesh, const float* model16, TextureHandle texture);
+    void draw(MeshHandle mesh, const float* model16, TextureHandle texture,
+              TextureHandle normal = kInvalidTexture);
 
     bool hasDraws() const { return !m_cmds.empty(); }
     void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
@@ -57,6 +58,7 @@ private:
     struct DrawCmd {
         MeshHandle mesh;
         TextureHandle texture;
+        TextureHandle normal;
         float model[16];
     };
 
@@ -67,6 +69,7 @@ private:
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)
+    TextureHandle m_defaultNormal = kInvalidTexture; // flat (0,0,1) normal map for un-mapped meshes
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT; // main/sky pass sample count
 
     VkPipelineLayout m_layout = VK_NULL_HANDLE;

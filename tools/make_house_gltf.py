@@ -131,8 +131,47 @@ def png_encode(rgba, w, h):
             + chunk(b"IEND", b""))
 
 
+# Tangent-space normal-map atlas: a height field per quadrant (mortar/seams/grooves are recessed),
+# converted to normals via the height gradient, so the lights catch the surface relief.
+def build_normal_atlas():
+    S, H = 64, 32
+    hgt = [[1.0] * S for _ in range(S)]
+    for y in range(S):
+        for x in range(S):
+            qx, qy = x % H, y % H
+            if x < H and y < H:            # brick: recessed mortar lines
+                row = qy // 8
+                off = 0 if row % 2 == 0 else 8
+                mortar = (qy % 8 == 0) or ((qx + off) % 16 == 0)
+                hgt[y][x] = 0.25 if mortar else 1.0
+            elif x >= H and y < H:         # shingle: a step down at each row seam
+                r = qy % 8
+                hgt[y][x] = 0.2 if r == 0 else 0.5 + r * 0.06
+            elif x < H and y >= H:         # plank: grooves between boards
+                hgt[y][x] = 0.3 if (qx % 8 == 0) else 1.0
+            else:                          # glass: raised frame
+                frame = (qx in (0, 1, 15, 16, 31)) or (qy in (0, 1, 15, 16, 31))
+                hgt[y][x] = 0.55 if frame else 1.0
+    px = bytearray(S * S * 4)
+    strength = 2.4
+    for y in range(S):
+        for x in range(S):
+            hl, hr = hgt[y][(x - 1) % S], hgt[y][(x + 1) % S]
+            hd, hu = hgt[(y - 1) % S][x], hgt[(y + 1) % S][x]
+            nx, ny, nz = (hl - hr) * strength, (hd - hu) * strength, 1.0
+            inv = 1.0 / ((nx * nx + ny * ny + nz * nz) ** 0.5)
+            i = (y * S + x) * 4
+            px[i] = int((nx * inv * 0.5 + 0.5) * 255)
+            px[i + 1] = int((ny * inv * 0.5 + 0.5) * 255)
+            px[i + 2] = int((nz * inv * 0.5 + 0.5) * 255)
+            px[i + 3] = 255
+    return bytes(px), S, S
+
+
 atlas_rgba, aw, ah = build_atlas()
 png = png_encode(atlas_rgba, aw, ah)
+normal_rgba, _, _ = build_normal_atlas()
+npng = png_encode(normal_rgba, aw, ah)
 
 # --- pack one binary blob: POSITION, NORMAL, COLOR_0, TEXCOORD_0, INDICES, PNG
 pos = b"".join(struct.pack("<3f", v[0], v[1], v[2]) for v in verts)
@@ -146,7 +185,7 @@ def pad4(b):
     return b + b"\x00" * ((4 - len(b) % 4) % 4)
 
 
-parts = [pad4(pos), pad4(nrm), pad4(col), pad4(tex), pad4(idx), pad4(png)]
+parts = [pad4(pos), pad4(nrm), pad4(col), pad4(tex), pad4(idx), pad4(png), pad4(npng)]
 offs, cur = [], 0
 for p in parts:
     offs.append(cur)
@@ -169,9 +208,11 @@ gltf = {
         "name": "HouseDetail",
         "pbrMetallicRoughness": {
             "baseColorTexture": {"index": 0},
-            "metallicFactor": 0.0, "roughnessFactor": 1.0}}],
-    "textures": [{"source": 0, "sampler": 0}],
-    "images": [{"bufferView": 5, "mimeType": "image/png"}],
+            "metallicFactor": 0.0, "roughnessFactor": 1.0},
+        "normalTexture": {"index": 1}}],
+    "textures": [{"source": 0, "sampler": 0}, {"source": 1, "sampler": 0}],
+    "images": [{"bufferView": 5, "mimeType": "image/png"},
+               {"bufferView": 6, "mimeType": "image/png"}],
     "samplers": [{"magFilter": 9729, "minFilter": 9729, "wrapS": 10497, "wrapT": 10497}],
     "buffers": [{
         "byteLength": len(blob),
@@ -183,6 +224,7 @@ gltf = {
         {"buffer": 0, "byteOffset": offs[3], "byteLength": len(tex), "target": 34962},
         {"buffer": 0, "byteOffset": offs[4], "byteLength": len(idx), "target": 34963},
         {"buffer": 0, "byteOffset": offs[5], "byteLength": len(png)},
+        {"buffer": 0, "byteOffset": offs[6], "byteLength": len(npng)},
     ],
     "accessors": [
         {"bufferView": 0, "componentType": 5126, "count": n, "type": "VEC3",

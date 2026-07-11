@@ -111,18 +111,13 @@ void appendPrimitive(const cgltf_primitive& prim, const glm::mat4& xform, shapes
     }
 }
 
-// Decode a material's base-color texture into RGBA8. Handles textures embedded via a bufferView
-// (the bytes live in an already-loaded buffer) and external image files referenced by a relative
-// URI. Returns false when there is no usable base-color texture.
-bool decodeBaseColor(const cgltf_material* mat, const char* gltfPath, std::vector<uint8_t>& outPx,
-                     uint32_t& outW, uint32_t& outH) {
-    if (!mat || !mat->has_pbr_metallic_roughness ||
-        !mat->pbr_metallic_roughness.base_color_texture.texture ||
-        !mat->pbr_metallic_roughness.base_color_texture.texture->image) {
+// Decode a glTF image into RGBA8. Handles images embedded via a bufferView (bytes live in an
+// already-loaded buffer) and external image files referenced by a relative URI.
+bool decodeImage(const cgltf_image* image, const char* gltfPath, std::vector<uint8_t>& outPx,
+                 uint32_t& outW, uint32_t& outH) {
+    if (!image) {
         return false;
     }
-    const cgltf_image* image = mat->pbr_metallic_roughness.base_color_texture.texture->image;
-
     int w = 0, h = 0, comp = 0;
     stbi_uc* pixels = nullptr;
     if (image->buffer_view) {
@@ -136,7 +131,7 @@ bool decodeBaseColor(const cgltf_material* mat, const char* gltfPath, std::vecto
         pixels = stbi_load((dir + image->uri).c_str(), &w, &h, &comp, 4);
     }
     if (!pixels) {
-        MAZ_LOG_WARN("glTF base-color texture could not be decoded");
+        MAZ_LOG_WARN("glTF image could not be decoded");
         return false;
     }
     outW = static_cast<uint32_t>(w);
@@ -144,6 +139,21 @@ bool decodeBaseColor(const cgltf_material* mat, const char* gltfPath, std::vecto
     outPx.assign(pixels, pixels + static_cast<size_t>(w) * h * 4);
     stbi_image_free(pixels);
     return true;
+}
+
+const cgltf_image* baseColorImage(const cgltf_material* mat) {
+    if (mat && mat->has_pbr_metallic_roughness &&
+        mat->pbr_metallic_roughness.base_color_texture.texture) {
+        return mat->pbr_metallic_roughness.base_color_texture.texture->image;
+    }
+    return nullptr;
+}
+
+const cgltf_image* normalImage(const cgltf_material* mat) {
+    if (mat && mat->normal_texture.texture) {
+        return mat->normal_texture.texture->image;
+    }
+    return nullptr;
 }
 
 // First material referenced by any of a node's mesh primitives (nullptr if none).
@@ -200,7 +210,10 @@ bool loadGltf(const char* path, ModelData& out) {
     }
 
     if (texMat) {
-        decodeBaseColor(texMat, path, out.texturePixels, out.textureWidth, out.textureHeight);
+        decodeImage(baseColorImage(texMat), path, out.texturePixels, out.textureWidth,
+                    out.textureHeight);
+        decodeImage(normalImage(texMat), path, out.normalPixels, out.normalWidth,
+                    out.normalHeight);
     }
     cgltf_free(data);
 
@@ -235,8 +248,9 @@ bool loadGltfScene(const char* path, SceneData& out) {
             continue;
         }
         cgltf_node_transform_world(&node, sn.model);
-        decodeBaseColor(firstMaterial(node.mesh), path, sn.texturePixels, sn.textureWidth,
-                        sn.textureHeight);
+        const cgltf_material* mat = firstMaterial(node.mesh);
+        decodeImage(baseColorImage(mat), path, sn.texturePixels, sn.textureWidth, sn.textureHeight);
+        decodeImage(normalImage(mat), path, sn.normalPixels, sn.normalWidth, sn.normalHeight);
         out.nodes.push_back(std::move(sn));
     }
     cgltf_free(data);

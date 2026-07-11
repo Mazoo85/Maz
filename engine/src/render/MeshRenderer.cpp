@@ -91,6 +91,11 @@ bool MeshRenderer::init(VulkanContext& ctx, TextureStore& store, VkRenderPass re
     const glm::mat4 lightProj = glm::ortho(-40.0f, 40.0f, -40.0f, 40.0f, 1.0f, 140.0f);
     std::memcpy(m_lightVP, glm::value_ptr(lightProj * lightView), sizeof(m_lightVP));
 
+    // A flat tangent-space normal (0,0,1) -> RGBA (128,128,255,255); the default when a mesh has no
+    // normal map, so those meshes are lit by their geometric normal (unchanged).
+    const uint8_t flatNormal[4] = {128, 128, 255, 255};
+    m_defaultNormal = store.createFromPixels(ctx, 1, 1, flatNormal);
+
     if (!createShadowResources(ctx) || !createShadowPipeline(ctx) ||
         !createSkyPipeline(ctx, renderPass) || !createLightResources(ctx) ||
         !createPipeline(ctx, renderPass)) {
@@ -699,11 +704,12 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     push.offset = 0;
     push.size = sizeof(float) * 52; // mvp + model + lightVP + camPos (vec4)
 
+    // set0 = albedo, set1 = shadow map, set2 = lights UBO, set3 = normal map (albedo layout reused).
     const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout,
-                                                m_lightSetLayout};
+                                                m_lightSetLayout, m_store->layout()};
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl.setLayoutCount = 3;
+    pl.setLayoutCount = 4;
     pl.pSetLayouts = setLayouts;
     pl.pushConstantRangeCount = 1;
     pl.pPushConstantRanges = &push;
@@ -771,13 +777,15 @@ void MeshRenderer::setViewProjection(const float* viewProj16) {
 
 void MeshRenderer::begin() { m_cmds.clear(); }
 
-void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture) {
+void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture,
+                        TextureHandle normal) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
     DrawCmd cmd;
     cmd.mesh = mesh;
     cmd.texture = texture;
+    cmd.normal = normal;
     std::memcpy(cmd.model, model16, sizeof(cmd.model));
     m_cmds.push_back(cmd);
 }
@@ -863,6 +871,10 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
 
         VkDescriptorSet albedo = m_store->descriptorSet(dc.texture);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &albedo, 0,
+                                nullptr);
+        const TextureHandle nrm = m_store->valid(dc.normal) ? dc.normal : m_defaultNormal;
+        VkDescriptorSet normalSet = m_store->descriptorSet(nrm);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 3, 1, &normalSet, 0,
                                 nullptr);
 
         VkDeviceSize offset = 0;

@@ -41,7 +41,9 @@ public:
     void setViewProjection3D(const float* viewProj16) override;
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
-    void drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) override;
+    void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                  TextureHandle normal) override;
+    using Renderer::drawMesh; // keep the 3-arg convenience overload visible
 
     bool isActive() const override { return m_active; }
 
@@ -339,9 +341,10 @@ void VulkanRenderer::setLighting(const SceneLighting& lighting) {
     }
 }
 
-void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) {
+void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                             TextureHandle normal) {
     if (m_active) {
-        m_meshes.draw(mesh, model16, texture);
+        m_meshes.draw(mesh, model16, albedo, normal);
     }
 }
 

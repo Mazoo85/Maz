@@ -68,11 +68,17 @@ int main(int argc, char** argv) {
         houseModel.mesh.vertices.data(), static_cast<uint32_t>(houseModel.mesh.vertices.size()),
         houseModel.mesh.indices.data(), static_cast<uint32_t>(houseModel.mesh.indices.size()));
 
-    // Use the model's own base-color texture (its brick/shingle/plank/glass detail) when present.
+    // Use the model's own base-color texture (its brick/shingle/plank/glass detail) when present,
+    // and its tangent-space normal map so the lights catch the surface relief.
     render::TextureHandle houseTex = blank;
     if (houseModel.hasTexture()) {
         houseTex = renderer->createTexture(houseModel.textureWidth, houseModel.textureHeight,
                                            houseModel.texturePixels.data());
+    }
+    render::TextureHandle houseNormal = render::kInvalidTexture;
+    if (houseModel.hasNormal()) {
+        houseNormal = renderer->createTexture(houseModel.normalWidth, houseModel.normalHeight,
+                                              houseModel.normalPixels.data());
     }
 
     render::shapes::MeshData groundData =
@@ -112,7 +118,7 @@ int main(int argc, char** argv) {
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->drawMesh(ground, glm::value_ptr(glm::mat4(1.0f)), blank);
-            renderer->drawMesh(house, glm::value_ptr(glm::mat4(1.0f)), houseTex);
+            renderer->drawMesh(house, glm::value_ptr(glm::mat4(1.0f)), houseTex, houseNormal);
 
             render::Camera2D ui;
             ui.usePixelSpace = true;

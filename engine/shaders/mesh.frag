@@ -16,6 +16,7 @@ layout(push_constant) uniform Push {
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
 layout(set = 1, binding = 0) uniform sampler2D uShadow;
+layout(set = 3, binding = 0) uniform sampler2D uNormalMap;
 
 // Scene lighting (set = 2): ambient + one directional "sun" (shadow-mapped) + up to 8 point lights.
 struct PointLight {
@@ -52,8 +53,25 @@ float shadowFactor() {
     return shadow * 0.25;
 }
 
+// Perturb the geometric normal by the tangent-space normal map, building the TBN frame from
+// screen-space derivatives (no per-vertex tangents needed). A neutral (0,0,1) map is identity.
+vec3 perturbNormal(vec3 N, vec3 worldPos, vec2 uv) {
+    vec3 dp1 = dFdx(worldPos);
+    vec3 dp2 = dFdy(worldPos);
+    vec2 duv1 = dFdx(uv);
+    vec2 duv2 = dFdy(uv);
+    vec3 dp2perp = cross(dp2, N);
+    vec3 dp1perp = cross(N, dp1);
+    vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+    vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+    float invmax = inversesqrt(max(dot(T, T), dot(B, B)));
+    mat3 TBN = mat3(T * invmax, B * invmax, N);
+    vec3 tsn = texture(uNormalMap, uv).xyz * 2.0 - 1.0;
+    return normalize(TBN * tsn);
+}
+
 void main() {
-    vec3 N = normalize(vNormal);
+    vec3 N = perturbNormal(normalize(vNormal), vWorldPos, vUV);
     vec3 albedo = texture(uTexture, vUV).rgb * vColor;
 
     // Ambient + shadow-mapped directional sun.

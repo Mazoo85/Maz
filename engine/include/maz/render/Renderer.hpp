@@ -129,10 +129,16 @@ public:
     // Set the scene lighting (ambient + sun + point lights + fog) for the 3D mesh path. Persists
     // until changed; defaults to the standard daytime look. No-op when inactive.
     virtual void setLighting(const SceneLighting& lighting) = 0;
-    // Queue a mesh draw with the given model matrix (column-major, 16 floats) and a texture
-    // (use a white texture for flat/vertex-colored meshes). Depth-tested, drawn beneath the 2D
-    // layer. No-op when inactive.
-    virtual void drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) = 0;
+    // Queue a mesh draw with the given model matrix (column-major, 16 floats), an albedo texture
+    // (use a white texture for flat/vertex-colored meshes), and an optional tangent-space normal
+    // map (kInvalidTexture -> flat, no bump). Depth-tested, drawn beneath the 2D layer. No-op when
+    // inactive.
+    virtual void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                          TextureHandle normal) = 0;
+    // Convenience: draw with no normal map.
+    void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo) {
+        drawMesh(mesh, model16, albedo, kInvalidTexture);
+    }
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;

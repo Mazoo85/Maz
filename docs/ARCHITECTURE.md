@@ -29,8 +29,8 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog
               shapes         — procedural box / sphere / plane geometry
-              loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color texture)
-              loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + texture)
+              loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
+              loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
