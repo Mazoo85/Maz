@@ -31,4 +31,20 @@ target_link_libraries(maz
 # Enable validation-layer plumbing in debug builds.
 target_compile_definitions(maz PUBLIC $<$<CONFIG:Debug>:MAZ_DEBUG=1>)
 
+# Stage runtime assets next to the executables (bin/) so every app that links maz can load them
+# via a relative path: shaders compiled to SPIR-V, and the bundled HUD font.
+maz_compile_shaders(maz
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag)
+
+add_custom_command(TARGET maz POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/fonts/DejaVuSans.ttf
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts/DejaVuSans.ttf
+    COMMENT "Staging font asset into bin/assets/fonts")
+
 add_library(maz::maz ALIAS maz)

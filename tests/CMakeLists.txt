@@ -7,3 +7,11 @@ add_test(
 set_tests_properties(sandbox_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME orbs_headless_smoke
+    COMMAND orbs --headless --frames 30)
+
+set_tests_properties(orbs_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

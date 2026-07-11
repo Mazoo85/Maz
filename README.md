@@ -17,17 +17,21 @@ on Linux the X11 dev packages. SDL3 and GLM are fetched automatically.
 ```
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-./build/bin/sandbox                 # window + animated clear color (needs a GPU + display)
+./build/bin/sandbox                 # top-down tile world demo (needs a GPU + display)
+./build/bin/orbs                    # "ORB RUN" — a complete sample arcade game
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
-ctest --test-dir build              # headless smoke test
+ctest --test-dir build              # headless smoke tests (both apps)
 ```
+
+Sample apps live under `apps/` (`sandbox`, `orbs`); the engine library is `engine/`.
 
 Milestones so far: **M0** (window + fixed-timestep loop + Vulkan clear-screen), **M1** (a
 batched 2D sprite renderer — textured, tinted, rotated sprites with a `Camera2D`), **M2** (a
 playable top-down demo: a tile world you walk with **WASD/arrows**, wall/water collision, and a
-camera that follows the player), and **M3** (TrueType text + a pixel-space HUD — title, controls,
-health bar — over the world). It degrades gracefully with no GPU/display so `--headless` still
-runs in CI.
+camera that follows the player), **M3** (TrueType text + a pixel-space HUD — title, controls,
+health bar — over the world), and **M4** (`orbs` — a complete original arcade game with a full
+title → play → win/lose → restart state machine). It degrades gracefully with no GPU/display so
+`--headless` still runs in CI.
 
 The bundled HUD font is **DejaVu Sans** (`assets/fonts/`, Bitstream Vera / public-domain-style
 license — see `DejaVuSans.LICENSE.txt`).

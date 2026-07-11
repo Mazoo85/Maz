@@ -22,7 +22,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M3 — text + HUD (done).** TrueType text via `stb_truetype` baked to an atlas (`ui::Font`,
 > `drawText`), a bundled DejaVu Sans, and multi-camera batching so a pixel-space HUD (title,
 > controls, animated health bar) draws over the world-space follow camera. Fixed the Vulkan
-> clip-space Y orientation to true top-left/y-down. Everything marked `[x]` below is done;
+> clip-space Y orientation to true top-left/y-down.
+>
+> **M4 — a complete sample game (done).** `apps/orbs` ("ORB RUN") — an original, genre-neutral
+> arcade game with a full game-state machine (title → play → win/lose → restart), player
+> movement, collectible orbs, roving hazards, a countdown timer, and a HUD. Proves the engine
+> ships a real title and runs more than one app. Everything marked `[x]` below is done;
 > everything else is the road ahead.
 
 ---
@@ -145,6 +150,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Nine-slice, fonts, localization-aware text
 
 ## Phase 10 — Scripting & gameplay framework
+- [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
 - [ ] Script hot-reload, sandboxing
 - [ ] Gameplay: state machines, behavior trees, AI steering
@@ -175,9 +181,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: bouncing textured sprites (proves 2D)  ·  [ ] rotating cube (proves 3D)
 - [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
 - [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
-- [ ] Sample scenes: pong, platformer, top-down adventure
-- [ ] One complete **original** sample game (genre TBD) — end-to-end proof the engine ships a
-      full title: menu → play → win/lose → restart, with sound and saved state
+- [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →
+      restart, score + timer HUD, collectibles, hazards
+- [ ] More sample scenes: pong, platformer, top-down adventure
+- [ ] Add sound + saved state to a sample game
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
 > The unrelated *ZOMBOID: ANCHORAGE* browser game that also lives in this repo is **not** an
