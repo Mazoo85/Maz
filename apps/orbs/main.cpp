@@ -187,6 +187,12 @@ int main(int argc, char** argv) {
     int score = 0;
     float timeLeft = kRoundSeconds;
 
+    // Persistent high score.
+    core::KeyValueStore store;
+    store.load(platform::prefPath("MazEngine", "OrbRun", "save.ini"));
+    int best = store.getInt("highscore", 0);
+    bool newBest = false;
+
     auto arenaBounds = [&](float& x0, float& y0, float& x1, float& y1) {
         uint32_t bw = 0, bh = 0;
         window.drawableSize(bw, bh);
@@ -217,9 +223,20 @@ int main(int argc, char** argv) {
         }
         score = 0;
         timeLeft = kRoundSeconds;
+        newBest = false;
         state = State::Play;
         audio.play(sfxStart);
         audio.setMusic(true);
+    };
+
+    // Persist the best score when a round ends.
+    auto recordEnd = [&]() {
+        if (score > best) {
+            best = score;
+            newBest = true;
+            store.set("highscore", best);
+            store.save();
+        }
     };
 
     while (!window.shouldClose()) {
@@ -247,11 +264,11 @@ int main(int argc, char** argv) {
             // Movement input (or autopilot toward the nearest orb).
             float mx = 0.0f, my = 0.0f;
             if (autopilot) {
-                float best = 1e9f;
+                float bestDist = 1e9f;
                 for (const Vec& o : orbs) {
                     const float d = dist(player.x, player.y, o.x, o.y);
-                    if (d < best) {
-                        best = d;
+                    if (d < bestDist) {
+                        bestDist = d;
                         mx = o.x - player.x;
                         my = o.y - player.y;
                     }
@@ -330,6 +347,7 @@ int main(int argc, char** argv) {
                 if (state == State::Play &&
                     dist(pcx, pcy, hcx, hcy) < (kPlayerSize + kHazardSize) * 0.4f) {
                     state = State::Lose;
+                    recordEnd();
                     audio.play(sfxHit);
                     audio.play(sfxHitNoise);
                     audio.setMusic(false);
@@ -354,6 +372,7 @@ int main(int argc, char** argv) {
             timeLeft -= dt;
             if (state == State::Play && score >= kWinScore) {
                 state = State::Win;
+                recordEnd();
                 audio.play(sfxWin);
                 audio.setMusic(false);
                 for (int k = 0; k < 3; ++k) {
@@ -377,6 +396,7 @@ int main(int argc, char** argv) {
             } else if (state == State::Play && timeLeft <= 0.0f) {
                 timeLeft = 0.0f;
                 state = State::Lose;
+                recordEnd();
                 audio.play(sfxHit);
                 audio.setMusic(false);
             }
@@ -445,6 +465,9 @@ int main(int argc, char** argv) {
                            0.6f);
                 centerText(sw * 0.5f, sh * 0.60f, "WASD / ARROWS to move", kDim, 0.6f);
                 centerText(sw * 0.5f, sh * 0.72f, "PRESS SPACE TO START", kWhite, 0.8f);
+                char tb[48];
+                std::snprintf(tb, sizeof(tb), "BEST  %d", best);
+                centerText(sw * 0.5f, sh * 0.84f, tb, kDim, 0.6f);
             } else if (state == State::Win || state == State::Lose) {
                 rect(0.0f, 0.0f, sw, sh, render::Color{0.0f, 0.0f, 0.0f, 0.6f});
                 const bool win = state == State::Win;
@@ -453,8 +476,14 @@ int main(int argc, char** argv) {
                            1.5f);
                 char buf[48];
                 std::snprintf(buf, sizeof(buf), "SCORE  %d", score);
-                centerText(sw * 0.5f, sh * 0.52f, buf, kWhite, 0.8f);
-                centerText(sw * 0.5f, sh * 0.66f, "PRESS SPACE TO PLAY AGAIN", kDim, 0.7f);
+                centerText(sw * 0.5f, sh * 0.50f, buf, kWhite, 0.8f);
+                std::snprintf(buf, sizeof(buf), "BEST  %d", best);
+                centerText(sw * 0.5f, sh * 0.60f, buf, kDim, 0.7f);
+                if (newBest) {
+                    centerText(sw * 0.5f, sh * 0.68f, "NEW BEST!",
+                               render::Color{1.0f, 0.9f, 0.3f, 1.0f}, 0.7f);
+                }
+                centerText(sw * 0.5f, sh * 0.80f, "PRESS SPACE TO PLAY AGAIN", kDim, 0.7f);
             }
 
             renderer->endFrame();

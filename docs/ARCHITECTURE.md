@@ -16,9 +16,9 @@
 ## Module map
 
 ```
-core/       Log, Assert, Time (fixed-timestep clock), Config/args
+core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore (save/load)
               — zero dependencies beyond the standard library
-platform/   Window, Input, event pump              (depends on: core, SDL3)
+platform/   Window, Input, event pump, prefPath (user-data dir)   (depends on: core, SDL3)
 math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger

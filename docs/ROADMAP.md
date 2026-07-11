@@ -38,8 +38,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 > **M6 — particles (done).** `maz::fx::ParticleSystem` — a pooled 2D particle system (burst
 > emitters with speed/angle/life/size ranges, start→end color, gravity, drag), drawn as
 > size/alpha-faded sprites through the Renderer. Wired into ORB RUN: a player spark trail, pickup
-> bursts, and win/lose bursts. Everything marked `[x]` below is done; everything else is the road
-> ahead.
+> bursts, and win/lose bursts.
+>
+> **M7 — persistence (done).** `maz::core::KeyValueStore` (stdlib-only ini-style load/save) +
+> `maz::platform::prefPath` (SDL user-data dir). ORB RUN now keeps a **high score across runs** —
+> verified by writing a value from one process and loading it in another. Everything marked `[x]`
+> below is done; everything else is the road ahead.
 
 ---
 
@@ -55,7 +59,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] clang-tidy config + CI lint gate
 - [ ] Address/UB sanitizer presets (Debug), leak checks
 - [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
-- [ ] Config system (CVars / ini / json), persisted settings
+- [x] Persistent key-value store (ini-style, user-data path) — `maz::core::KeyValueStore`
+- [ ] CVars + full config system layered on the store
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
 
@@ -170,7 +175,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
 - [ ] GPU particles, continuous emitters, affectors/attractors
 - [ ] Tilemap tools, procedural generation utilities
-- [ ] Save/load game state, checkpoints
+- [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
+- [ ] Full game-state serialization + checkpoints
 - [ ] Localization + string tables, deterministic time / RNG
 
 ## Phase 11 — Editor & tooling

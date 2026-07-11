@@ -2,8 +2,10 @@ add_library(maz STATIC
     src/core/Log.cpp
     src/core/Time.cpp
     src/core/Config.cpp
+    src/core/KeyValueStore.cpp
     src/platform/Window.cpp
     src/platform/Input.cpp
+    src/platform/Paths.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
     src/render/VulkanBuffer.cpp
