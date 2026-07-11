@@ -154,6 +154,33 @@
     outline-offset: 3px;
   }
 
+  button.copy {
+    appearance: none;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 0.7rem;
+    padding: 0.85rem 1rem;
+    font: inherit;
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  button.copy:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.copy:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 60%, var(--ink));
+    outline-offset: 3px;
+  }
+  button.copy:disabled { opacity: 0.45; cursor: default; }
+  button.copy.copied {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+  }
+
   .recent {
     margin-top: 1.75rem;
     border-top: 1px solid var(--line);
@@ -204,6 +231,7 @@
   </div>
 
   <button id="make" class="make" type="button">Make a name</button>
+  <button id="copy" class="copy" type="button" disabled>Copy name</button>
 
   <section class="recent">
     <h2>Recent names</h2>
@@ -429,9 +457,12 @@ function makeName() { return cap(pick(ADJECTIVES)) + " " + cap(pick(NOUNS)); }
 
 const nameEl = document.getElementById("name");
 const btn = document.getElementById("make");
+const copyBtn = document.getElementById("copy");
 const recentEl = document.getElementById("recent");
 const history = [];
 let rolling = false;
+let currentName = "";
+let copyResetTimer = null;
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -442,6 +473,8 @@ function show(name) {
 
 function commit(name) {
   show(name);
+  currentName = name;
+  copyBtn.disabled = false;
   history.unshift(name);
   if (history.length > 5) history.pop();
   recentEl.innerHTML = "";
@@ -482,10 +515,47 @@ function run() {
   step();
 }
 
+function flashCopied() {
+  copyBtn.textContent = "Copied!";
+  copyBtn.classList.add("copied");
+  if (copyResetTimer) clearTimeout(copyResetTimer);
+  copyResetTimer = setTimeout(() => {
+    copyBtn.textContent = "Copy name";
+    copyBtn.classList.remove("copied");
+  }, 1400);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "absolute";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+function copyName() {
+  if (!currentName) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(currentName).then(flashCopied, () => {
+      fallbackCopy(currentName);
+      flashCopied();
+    });
+  } else {
+    fallbackCopy(currentName);
+    flashCopied();
+  }
+}
+
 btn.addEventListener("click", run);
+copyBtn.addEventListener("click", copyName);
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space" || e.code === "Enter") {
-    if (document.activeElement !== btn) { e.preventDefault(); run(); }
+    const active = document.activeElement;
+    if (active !== btn && active !== copyBtn) { e.preventDefault(); run(); }
   }
 });
 </script>
