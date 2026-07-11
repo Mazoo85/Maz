@@ -53,7 +53,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
-            StateMachine (generic FSM: enter/update/exit + guarded transitions)
+            StateMachine (generic FSM: enter/update/exit + guarded transitions),
+            Physics2D (circle rigid bodies: gravity + impulse collisions + stacking)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;

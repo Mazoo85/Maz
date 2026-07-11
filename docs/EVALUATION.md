@@ -545,9 +545,30 @@ clips, cross-fades).
   lavapipe (the tube morphs smoothly between waving and coiling, no validation errors); new
   `animclip_headless_smoke` + golden → ctest **25/25**, every existing golden unchanged.
 
-Later: an animation state machine wiring clips to game states, GPU skinning (skinned vertex format +
-joint-matrix UBO), glTF skin/animation import, back TextureStore/mesh loading with the cache,
-parallelize a hot loop, wire the event bus into a game, behavior trees, reflection-driven ECS
-serialization, JSON/text format, UI layout / text input, order-independent transparency,
+**Iteration 31 complete** (keyframe animation clips + blending).
+
+### Iteration 32 — "2D physics" (in progress)
+Self-directed: the engine can *detect* collisions (AABB overlap, raycast, slide) but has no
+*dynamics* — nothing has velocity, mass, or bounce, and objects can't resolve contacts or stack. A
+real rigid-body layer is a genuine capability gap for physics-driven games.
+- [x] **M69 — 2D impulse physics**: header-only `game::PhysicsWorld2D` — circle bodies with
+  position, velocity, inverse mass (0 = static), and restitution; `step` integrates gravity, then
+  for a few iterations resolves circle-circle overlaps with a **normal impulse** (only when the
+  bodies are closing, scaled by `(1+e)` and inverse masses) plus **Baumgarte positional correction**
+  with slop (so resting stacks don't sink or jitter), and bounces bodies off a static box.
+  `collideCircles`/`collideBounds` are exposed as free functions. Pure logic → unit-tested
+  headlessly (618 checks total): head-on elastic collision conserves momentum and separates, a
+  static body is unmoved by impact while the dynamic one bounces, positional correction increases a
+  heavy overlap's separation toward the contact distance without over-shooting, a wall reflects
+  velocity by restitution (5 -> -2.5) and clamps position, and a ball under gravity settles ON an
+  inelastic floor across 300 steps and never sinks below it. New `physics` demo: 45 varied balls
+  drop, bounce off the walls and each other, and stack into a stable non-overlapping pile.
+  Verified on lavapipe (the pile is stable, no interpenetration, RMSE 0, no validation errors); new
+  `physics_headless_smoke` + golden → ctest **26/26**, every existing golden unchanged.
+
+Later: circle-vs-AABB / oriented boxes + friction + rotation, an animation state machine wiring
+clips to game states, GPU skinning, glTF skin/animation import, back TextureStore/mesh loading with
+the cache, parallelize a hot loop, wire the event bus into a game, behavior trees, reflection-driven
+ECS serialization, JSON/text format, UI layout / text input, order-independent transparency,
 material/uniform system, GPU-driven / indirect instancing, cross-platform CI, a deterministic
 hold-frame screenshot mode.

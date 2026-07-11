@@ -207,6 +207,12 @@ available):
   playback + blending layer on the skeleton. The `animclip` demo cross-fades two authored looping
   clips (a travelling "wave" and a "coil") to drive the skinned tube. Interpolation, loop-wrap, and
   blend unit-tested
+- **M69** — 2D physics: `game::PhysicsWorld2D` gives circle bodies velocity/mass/restitution,
+  integrates gravity, and resolves circle-circle collisions with a normal impulse + positional
+  correction (so stacks don't sink) plus static-box bouncing — real rigid-body dynamics on top of
+  the existing collision detection. The `physics` demo drops 45 balls that bounce, collide, and
+  stack. Momentum conservation, elastic bounce, static bodies, wall reflection, and no-sink resting
+  unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

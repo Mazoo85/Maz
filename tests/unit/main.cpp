@@ -14,6 +14,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/NavGrid.hpp"
+#include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
@@ -1008,6 +1009,91 @@ void testAnimClip() {
     CHECK_NEAR(blended[0].translation.x, 10.0f, 1e-5f);
 }
 
+void testPhysics2D() {
+    using game::Body2D;
+
+    // Head-on elastic collision of equal-mass circles: momentum is conserved and they separate.
+    game::PhysicsWorld2D w;
+    Body2D a;
+    a.pos = math::vec2(0, 0);
+    a.vel = math::vec2(2, 0);
+    a.radius = 0.5f;
+    a.restitution = 1.0f;
+    Body2D b;
+    b.pos = math::vec2(0.9f, 0); // overlapping (dist 0.9 < r 1.0)
+    b.vel = math::vec2(-2, 0);
+    b.radius = 0.5f;
+    b.restitution = 1.0f;
+    w.add(a);
+    w.add(b);
+    w.step(1.0f / 60.0f);
+    CHECK(w.bodies[0].vel.x < 0.0f); // 'a' bounced back left
+    CHECK(w.bodies[1].vel.x > 0.0f); // 'b' bounced back right
+    // Equal mass => sum of velocities (proportional to momentum) is conserved at ~0.
+    CHECK_NEAR(w.bodies[0].vel.x + w.bodies[1].vel.x, 0.0f, 1e-3f);
+
+    // A static body (invMass 0) is unmoved by an impact.
+    Body2D dyn;
+    dyn.pos = math::vec2(0, 0);
+    dyn.vel = math::vec2(5, 0);
+    dyn.radius = 0.5f;
+    Body2D wall;
+    wall.pos = math::vec2(0.9f, 0);
+    wall.vel = math::vec2(0, 0);
+    wall.radius = 0.5f;
+    wall.invMass = 0.0f;
+    game::collideCircles(dyn, wall);
+    CHECK_NEAR(wall.pos.x, 0.9f, 1e-6f); // static didn't move
+    CHECK_NEAR(wall.vel.x, 0.0f, 1e-6f);
+    CHECK(dyn.vel.x < 0.0f); // dynamic bounced off
+
+    // Positional correction pushes overlapping bodies apart (distance increases toward r).
+    game::PhysicsWorld2D w2;
+    Body2D c1;
+    c1.pos = math::vec2(0, 0);
+    c1.radius = 0.5f;
+    Body2D c2;
+    c2.pos = math::vec2(0.5f, 0); // heavy overlap (dist 0.5 < r 1.0), both at rest
+    c2.radius = 0.5f;
+    w2.add(c1);
+    w2.add(c2);
+    const float before = glm::length(w2.bodies[1].pos - w2.bodies[0].pos);
+    for (int i = 0; i < 20; ++i) {
+        w2.step(1.0f / 60.0f);
+    }
+    const float after = glm::length(w2.bodies[1].pos - w2.bodies[0].pos);
+    CHECK(after > before);
+    CHECK(after <= 1.0f + 1e-3f); // never over-separates past the contact distance
+
+    // Wall bounce reflects velocity by restitution.
+    Body2D ball;
+    ball.pos = math::vec2(5, 9.9f);
+    ball.vel = math::vec2(0, 5); // moving down (+y)
+    ball.radius = 0.5f;
+    ball.restitution = 0.5f;
+    game::Bounds2D bnd{0, 0, 10, 10};
+    game::collideBounds(ball, bnd);
+    CHECK(ball.vel.y < 0.0f);                   // now moving up
+    CHECK_NEAR(ball.vel.y, -2.5f, 1e-4f);        // 5 * 0.5
+    CHECK_NEAR(ball.pos.y, 9.5f, 1e-4f);         // clamped to floor - radius
+
+    // Gravity + inelastic floor: a ball settles and never sinks through the floor.
+    game::PhysicsWorld2D w3;
+    w3.gravity = math::vec2(0, 30.0f);
+    w3.bounds = game::Bounds2D{0, 0, 10, 10};
+    w3.hasBounds = true;
+    Body2D drop;
+    drop.pos = math::vec2(5, 2);
+    drop.radius = 0.5f;
+    drop.restitution = 0.0f;
+    w3.add(drop);
+    for (int i = 0; i < 300; ++i) {
+        w3.step(1.0f / 60.0f);
+        CHECK(w3.bodies[0].pos.y + w3.bodies[0].radius <= 10.0f + 1e-3f); // never below the floor
+    }
+    CHECK(w3.bodies[0].pos.y + w3.bodies[0].radius > 10.0f - 0.05f); // came to rest ON the floor
+}
+
 } // namespace
 
 int main() {
@@ -1017,6 +1103,7 @@ int main() {
     testRaycast();
     testSpatialGrid();
     testNavGrid();
+    testPhysics2D();
     testSteering();
     testStateMachine();
     testSpriteAnim();

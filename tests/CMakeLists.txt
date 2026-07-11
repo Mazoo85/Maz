@@ -197,6 +197,15 @@ set_tests_properties(animclip_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME physics_headless_smoke
+    COMMAND physics --headless --frames 30)
+
+set_tests_properties(physics_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+
 
 
 

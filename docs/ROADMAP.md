@@ -268,7 +268,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 6 — Physics & collision
 - [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
 - [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
-- [ ] 2D physics integration (custom or Box2D)
+- [x] **2D physics** (`game::PhysicsWorld2D`: circle rigid bodies, gravity, impulse resolution +
+  positional correction, static-box bounce; the `physics` demo stacks 45 balls; M69) — boxes /
+  friction / rotation later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
