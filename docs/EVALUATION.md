@@ -482,8 +482,29 @@ updates, culling, batched pathfinding) use every core.
   `jobs_headless_smoke` + golden (RMSE ~0.004, HUD timing variance absorbed) → ctest **22/22**,
   every existing golden unchanged.
 
-Later: parallelize an existing hot loop (particles / frustum culling) via parallelFor, wire the
-event bus into a game, animation events, behavior trees, reflection-driven ECS serialization,
+**Iteration 28 complete** (job system / thread pool).
+
+### Iteration 29 — "Asset cache" (in progress)
+Self-directed: every app creates textures/meshes ad hoc with no sharing or lifetime tracking — the
+same asset loads many times. A reference-counted, dedup-by-key resource cache is the core of an
+asset manager and a prerequisite for any content pipeline.
+- [x] **M66 — Resource cache / asset manager**: header-only generic `core::ResourceCache<Key,T>` —
+  `acquire(key, loader)` builds the value via the loader on first request and returns the same
+  cached instance (bumping a refcount) on later requests; `release(key, onEvict)` drops a reference
+  and, at zero, runs an unload callback and erases the entry; plus `find`, `refCount`, `size`, and
+  `loads()`/`hits()` stats. Storage is `std::unordered_map`, so a `T&` from acquire stays valid
+  until that key is evicted. Pure logic → unit-tested headlessly (271 checks total): load-once +
+  dedup (loader called once, same instance, hit counted), distinct keys as separate loads, refcount
+  down to eviction with the callback firing the stored value, no-op release of unknown keys, `find`
+  not touching refcounts, a 100-acquire/5-key stress (5 loads + 95 hits), and clear() evicting all.
+  New `assetcache` demo: a 240-tile mosaic whose colors resolve through the cache to **only 8 GPU
+  textures (232 cache hits, 97% saved)**, shown in the HUD. Renamed the app binary to `assetcache`
+  to avoid clashing with the staged `bin/assets/` font directory. Verified on lavapipe (mosaic
+  renders, RMSE 0, no validation errors); new `assetcache_headless_smoke` + golden → ctest
+  **23/23**, every existing golden unchanged.
+
+Later: back TextureStore/mesh loading with the cache, parallelize a hot loop via parallelFor, wire
+the event bus into a game, animation events, behavior trees, reflection-driven ECS serialization,
 JSON/text format, UI layout / text input, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
-deterministic hold-frame screenshot mode to tighten golden tolerances.
+GPU-driven / indirect instancing, skeletal animation, cross-platform CI, a deterministic hold-frame
+screenshot mode to tighten golden tolerances.

@@ -60,6 +60,7 @@ add_subdirectory(apps/guard)
 add_subdirectory(apps/sprites)
 add_subdirectory(apps/events)
 add_subdirectory(apps/jobs)
+add_subdirectory(apps/assetcache)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

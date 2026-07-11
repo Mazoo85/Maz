@@ -11,6 +11,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/KeyValueStore.hpp"
 #include "maz/core/Log.hpp"
+#include "maz/core/Resources.hpp"
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"

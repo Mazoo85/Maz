@@ -7,6 +7,7 @@
 #include "maz/anim/Tween.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
+#include "maz/core/Resources.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
@@ -24,6 +25,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <numeric>
+#include <string>
 #include <vector>
 
 namespace {
@@ -810,6 +812,72 @@ void testJobs() {
     CHECK(counter.load() == 500);
 }
 
+void testResourceCache() {
+    core::ResourceCache<std::string, int> cache;
+    int loaderCalls = 0;
+    auto loadValue = [&](int v) {
+        return [&, v] { ++loaderCalls; return v; };
+    };
+
+    // First acquire loads; second acquire of the same key reuses (loader not called again).
+    int& a = cache.acquire("tex.png", loadValue(42));
+    CHECK(a == 42);
+    CHECK(loaderCalls == 1);
+    CHECK(cache.loads() == 1);
+    CHECK(cache.hits() == 0);
+    CHECK(cache.refCount("tex.png") == 1);
+
+    int& a2 = cache.acquire("tex.png", loadValue(999)); // loader value ignored — cached
+    CHECK(a2 == 42);
+    CHECK(&a == &a2);          // same instance
+    CHECK(loaderCalls == 1);   // not reloaded
+    CHECK(cache.hits() == 1);
+    CHECK(cache.refCount("tex.png") == 2);
+
+    // A different key is a separate load.
+    cache.acquire("mesh.obj", loadValue(7));
+    CHECK(cache.loads() == 2);
+    CHECK(cache.size() == 2);
+
+    // Release drops refs; the entry survives until the count hits zero, then evicts (with callback).
+    int evicted = -1;
+    CHECK(!cache.release("tex.png", [&](int& v) { evicted = v; })); // refs 2 -> 1, not evicted
+    CHECK(cache.refCount("tex.png") == 1);
+    CHECK(evicted == -1);
+    CHECK(cache.release("tex.png", [&](int& v) { evicted = v; })); // refs 1 -> 0, evicted
+    CHECK(evicted == 42);
+    CHECK(!cache.contains("tex.png"));
+    CHECK(cache.size() == 1);
+
+    // Releasing an unknown / already-evicted key is a harmless false.
+    CHECK(!cache.release("tex.png"));
+    CHECK(!cache.release("does-not-exist"));
+
+    // find() reflects presence without touching refcounts.
+    CHECK(cache.find("mesh.obj") != nullptr);
+    CHECK(*cache.find("mesh.obj") == 7);
+    CHECK(cache.find("tex.png") == nullptr);
+    CHECK(cache.refCount("mesh.obj") == 1);
+
+    // Dedup under heavy reuse: 100 acquires across 5 keys => 5 loads, 95 hits.
+    core::ResourceCache<int, int> pool;
+    int builds = 0;
+    for (int i = 0; i < 100; ++i) {
+        pool.acquire(i % 5, [&] { ++builds; return 0; });
+    }
+    CHECK(builds == 5);
+    CHECK(pool.loads() == 5);
+    CHECK(pool.hits() == 95);
+    CHECK(pool.size() == 5);
+    CHECK(pool.refCount(0) == 20);
+
+    // clear() runs the evict callback for every remaining entry.
+    int clears = 0;
+    pool.clear([&](int&) { ++clears; });
+    CHECK(clears == 5);
+    CHECK(pool.size() == 0);
+}
+
 } // namespace
 
 int main() {
@@ -824,6 +892,7 @@ int main() {
     testSpriteAnim();
     testEventBus();
     testJobs();
+    testResourceCache();
     testTween();
     testUI();
     testSerialize();

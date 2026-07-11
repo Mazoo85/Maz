@@ -18,7 +18,8 @@
 ```
 core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore (save/load),
             EventBus (type-safe publish/subscribe for decoupled systems),
-            JobSystem (worker thread pool: submit/parallelFor for data-parallel work)
+            JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
+            ResourceCache (generic ref-counted, dedup-by-key asset cache)
               — zero dependencies beyond the standard library
 platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depends on: core, SDL3)
 math/       maz::math = GLM re-export + helpers     (header-only)

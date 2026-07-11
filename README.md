@@ -192,6 +192,11 @@ available):
   foundation. The `jobs` demo computes a Julia fractal single-threaded then via `parallelFor`,
   reporting a real ~3.8× speedup on 4 cores with byte-identical output. Parallel correctness +
   futures + edge cases unit-tested
+- **M66** — resource cache: `core::ResourceCache<Key,T>` is a generic reference-counted asset cache —
+  `acquire` loads-once/dedups by key and bumps a refcount, `release` evicts (with an unload
+  callback) when the count hits zero, plus load/hit stats. The `assetcache` demo draws a 240-tile
+  mosaic that resolves to only 8 GPU textures (232 cache hits, 97% saved). Dedup/refcount/evict
+  unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

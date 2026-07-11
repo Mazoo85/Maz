@@ -173,5 +173,14 @@ set_tests_properties(jobs_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME assetcache_headless_smoke
+    COMMAND assetcache --headless --frames 30)
+
+set_tests_properties(assetcache_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+
 
 

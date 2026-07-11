@@ -254,7 +254,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
 
 ## Phase 5 — Asset pipeline
-- [ ] Asset manager: async load, ref counting, GUIDs, hot reload
+- [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +
+  evict callback + stats; the `assetcache` demo dedups 240 tiles to 8 textures; M66) — async load /
+  GUIDs / hot reload later
 - [x] Image loading (stb_image PNG/JPEG) + **blit-generated mipmaps** (M52)
 - [ ] Compressed textures (KTX2), anisotropic filtering
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
