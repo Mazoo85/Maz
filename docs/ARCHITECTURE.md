@@ -26,12 +26,14 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
               Renderer       — beginFrame / clear / drawSprite / endFrame
 ui/         Font (TTF baked via stb_truetype -> atlas) + drawText   (on top of Renderer)
+ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 game/       Tilemap (grid + solidity + coord helpers)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
-  orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio)
+  orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
+  swarm/    ECS demo — 800 entities through movement + render systems
 ```
 
 ## The frame loop (fixed timestep)

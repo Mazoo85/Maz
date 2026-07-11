@@ -16,11 +16,13 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ./build/bin/sandbox                 # top-down tile-world demo (needs a GPU + display)
 ./build/bin/orbs                    # "ORB RUN" — a complete sample arcade game
+./build/bin/swarm                   # ECS demo — 800 entities
 ./build/bin/sandbox --headless      # CI: init, run, exit cleanly with no display/GPU
-ctest --test-dir build              # headless smoke tests (both apps)
+ctest --test-dir build              # headless smoke tests (all apps)
 ```
 
-Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`).
+Layout: the engine library is `engine/`; sample apps are under `apps/` (`sandbox`, `orbs`,
+`swarm`).
 
 ## What works today
 
@@ -36,6 +38,7 @@ available):
 - **M5** — a synthesized audio system (`maz::audio::Audio`): sound effects + looping music
 - **M6** — a particle system (`maz::fx::ParticleSystem`): player spark trail + pickup/win/lose bursts
 - **M7** — save/load (`maz::core::KeyValueStore`): ORB RUN keeps a high score across runs
+- **M8** — an entity-component system (`maz::ecs::World`): the `swarm` demo runs 800 entities
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

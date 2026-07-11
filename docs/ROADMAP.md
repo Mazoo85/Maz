@@ -42,8 +42,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 >
 > **M7 — persistence (done).** `maz::core::KeyValueStore` (stdlib-only ini-style load/save) +
 > `maz::platform::prefPath` (SDL user-data dir). ORB RUN now keeps a **high score across runs** —
-> verified by writing a value from one process and loading it in another. Everything marked `[x]`
-> below is done; everything else is the road ahead.
+> verified by writing a value from one process and loading it in another.
+>
+> **M8 — ECS (done).** `maz::ecs::World` — a lightweight entity-component system (entity
+> free-list, type-erased sparse-set component pools, `add/get/has/remove`, `each<T>` and
+> `view<A,B>` iteration). A third sample app, `apps/swarm`, runs 800 entities through movement +
+> render systems. Everything marked `[x]` below is done; everything else is the road ahead.
 
 ---
 
@@ -121,8 +125,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] GPU profiling, keep validation-clean baseline
 
 ## Phase 4 — Scene & ECS
-- [ ] Entity Component System (sparse-set or archetype), entity handles
-- [ ] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
+- [x] Entity Component System (sparse-set pools, `each<T>` / `view<A,B>`) — `maz::ecs::World`
+- [ ] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
 - [ ] Scene graph, world-transform propagation, dirty flags
 - [ ] System scheduler (ordered + parallel execution)
 - [ ] Scene serialization (save/load), prefabs / blueprints

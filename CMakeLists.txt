@@ -42,6 +42,7 @@ include(CompileShaders)
 add_subdirectory(engine)
 add_subdirectory(apps/sandbox)
 add_subdirectory(apps/orbs)
+add_subdirectory(apps/swarm)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

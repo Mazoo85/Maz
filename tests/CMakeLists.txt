@@ -15,3 +15,11 @@ add_test(
 set_tests_properties(orbs_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME swarm_headless_smoke
+    COMMAND swarm --headless --frames 30)
+
+set_tests_properties(swarm_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
