@@ -81,6 +81,17 @@ have no feedback effect. This iteration:
   (short-lived pooled sparks integrated with gravity), drawn via Particles3D — they glow and bloom.
   Verified: the collect moment now sprays fading sparkles.
 
-**Iteration 5 complete** (frustum culling + pickup juice). Later: refine bloom (downsampled
-separable blur + tonemap), alpha-blended smoke, transparency sorting, a water/reflective plane,
-spatial partitioning for broadphase.
+**Iteration 5 complete** (frustum culling + pickup juice).
+
+### Iteration 6 — "Effects & polish" (in progress)
+Evaluation: Particles3D only does additive blending (no smoke/dust); text centering is hand-rolled
+in apps. This iteration:
+- [x] **M32 — Alpha-blended smoke particles**: Particles3D gained a second pipeline + vertex list
+  for alpha over-blending; `drawParticle3D(..., additive)` selects the mode (embers/sparks additive,
+  smoke/dust alpha). The village bonfire now billows a gray smoke column above its glowing embers —
+  both blend modes in one frame, verified on lavapipe.
+- [ ] **M33 — Font text alignment**: `Font::drawTextCentered` (+ measured helpers), used to fix the
+  hand-offset win text in village/orbs.
+
+Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency sorting, water/
+reflective plane, spatial partitioning, hot-reload shaders.

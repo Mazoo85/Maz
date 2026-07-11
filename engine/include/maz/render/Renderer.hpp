@@ -144,8 +144,14 @@ public:
     // particles. Call once per frame before drawParticle3D; harmless otherwise.
     virtual void setCameraBasis(const float right3[3], const float up3[3]) = 0;
     // Queue a camera-facing billboard particle at a world position, with a size and RGBA color.
-    // Additive-blended and depth-tested against the 3D scene. No-op when inactive.
-    virtual void drawParticle3D(const float pos3[3], float size, const float color4[4]) = 0;
+    // additive=true glows (embers/sparks); false is alpha-blended (smoke/dust). Depth-tested
+    // against the 3D scene. No-op when inactive.
+    virtual void drawParticle3D(const float pos3[3], float size, const float color4[4],
+                                bool additive) = 0;
+    // Convenience: additive particle.
+    void drawParticle3D(const float pos3[3], float size, const float color4[4]) {
+        drawParticle3D(pos3, size, color4, true);
+    }
     // Queue a mesh draw with the given model matrix (column-major, 16 floats), an albedo texture
     // (use a white texture for flat/vertex-colored meshes), and an optional tangent-space normal
     // map (kInvalidTexture -> flat, no bump). Depth-tested, drawn beneath the 2D layer. No-op when

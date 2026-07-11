@@ -82,6 +82,8 @@ available):
   planes); the overlay shows the culled count (e.g. "MESH 36 (culled 51)")
 - **M31** — pickup-burst particles: collecting a coin in VILLAGE QUEST sprays a burst of glowing
   golden sparkles that drift, fade, and bloom
+- **M32** — alpha-blended smoke particles: a second particle blend mode (`drawParticle3D(..., false)`);
+  the village bonfire billows a smoke column above its embers
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

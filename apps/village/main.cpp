@@ -233,6 +233,23 @@ int main(int argc, char** argv) {
         e.life = frand(0.0f, e.maxLife); // stagger so the fire starts full
     }
 
+    // A smoke column rising above the embers (alpha-blended particles that grow and fade).
+    struct Smoke {
+        glm::vec3 pos, vel;
+        float life, maxLife;
+    };
+    std::vector<Smoke> smoke(70);
+    auto respawnSmoke = [&](Smoke& s) {
+        s.pos = fire + glm::vec3(frand(-0.2f, 0.2f), 0.5f, frand(-0.2f, 0.2f));
+        s.vel = glm::vec3(frand(-0.15f, 0.15f), frand(0.8f, 1.5f), frand(-0.15f, 0.15f));
+        s.maxLife = frand(2.2f, 3.8f);
+        s.life = s.maxLife;
+    };
+    for (Smoke& s : smoke) {
+        respawnSmoke(s);
+        s.life = frand(0.0f, s.maxLife);
+    }
+
     // Short-lived sparkle bursts spawned when a coin is collected.
     struct Spark {
         glm::vec3 pos, vel;
@@ -336,6 +353,16 @@ int main(int argc, char** argv) {
                     respawnEmber(e);
                 }
             }
+            // Smoke rises, drifts, slows, respawns.
+            for (Smoke& s : smoke) {
+                s.pos += s.vel * dt;
+                s.vel.x *= 0.99f;
+                s.vel.z *= 0.99f;
+                s.life -= dt;
+                if (s.life <= 0.0f) {
+                    respawnSmoke(s);
+                }
+            }
             // Integrate + retire pickup sparks.
             for (Spark& sp : sparks) {
                 sp.pos += sp.vel * dt;
@@ -426,6 +453,15 @@ int main(int argc, char** argv) {
             const glm::vec3 right = glm::normalize(glm::cross(fwd, glm::vec3(0, 1, 0)));
             const glm::vec3 up = glm::normalize(glm::cross(right, fwd));
             renderer->setCameraBasis(glm::value_ptr(right), glm::value_ptr(up));
+            // Smoke first (alpha, grows + fades as it rises).
+            for (const Smoke& s : smoke) {
+                const float t = s.life / s.maxLife;      // 1 fresh -> 0 dead
+                const float age = 1.0f - t;
+                const float size = 0.35f + age * 1.2f;   // billows outward as it rises
+                const float g = 0.22f + 0.12f * t;       // dark gray, lighter when fresh
+                const float col[4] = {g, g, g, t * 0.30f};
+                renderer->drawParticle3D(glm::value_ptr(s.pos), size, col, false);
+            }
             for (const Ember& e : embers) {
                 const float t = e.life / e.maxLife; // 1 fresh -> 0 dead
                 const float size = 0.05f + 0.16f * t;

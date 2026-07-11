@@ -63,11 +63,29 @@ bool Particles3D::init(VulkanContext& ctx, VkRenderPass renderPass, uint32_t fra
                        VkSampleCountFlagBits samples) {
     m_samples = samples;
     m_maxVertices = kMaxParticles * kVertsPerParticle;
-    m_vertices.reserve(m_maxVertices);
-    return createPipeline(ctx, renderPass) && createVertexBuffers(ctx, framesInFlight);
+    m_additive.reserve(m_maxVertices);
+
+    // Shared pipeline layout (push constant only): viewProj + camera basis.
+    VkPushConstantRange push{};
+    push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    push.offset = 0;
+    push.size = sizeof(PushData);
+    VkPipelineLayoutCreateInfo pl{};
+    pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl.pushConstantRangeCount = 1;
+    pl.pPushConstantRanges = &push;
+    if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("particle pipeline layout failed");
+        return false;
+    }
+
+    return createPipeline(ctx, renderPass, true, m_pipelineAdd) &&
+           createPipeline(ctx, renderPass, false, m_pipelineAlpha) &&
+           createVertexBuffers(ctx, framesInFlight);
 }
 
-bool Particles3D::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
+bool Particles3D::createPipeline(VulkanContext& ctx, VkRenderPass renderPass, bool additive,
+                                 VkPipeline& outPipeline) {
     const std::string base = assetBase();
     VkShaderModule vert =
         createShaderModule(ctx.device(), readFile(base + "shaders/particle.vert.spv"));
@@ -131,14 +149,14 @@ bool Particles3D::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = m_samples;
 
-    // Additive blending so overlapping particles build up a glow (and bloom nicely).
+    // additive: overlapping particles build up a glow (embers). alpha: standard over-blend (smoke).
     VkPipelineColorBlendAttachmentState blend{};
     blend.blendEnable = VK_TRUE;
     blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.dstColorBlendFactor = additive ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blend.colorBlendOp = VK_BLEND_OP_ADD;
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.dstAlphaBlendFactor = additive ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blend.alphaBlendOp = VK_BLEND_OP_ADD;
     blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -160,22 +178,6 @@ bool Particles3D::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     dyn.dynamicStateCount = 2;
     dyn.pDynamicStates = dynamics;
 
-    VkPushConstantRange push{};
-    push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push.offset = 0;
-    push.size = sizeof(PushData);
-
-    VkPipelineLayoutCreateInfo pl{};
-    pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &push;
-    if (vkCreatePipelineLayout(ctx.device(), &pl, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
-        MAZ_LOG_ERROR("particle pipeline layout failed");
-        vkDestroyShaderModule(ctx.device(), vert, nullptr);
-        vkDestroyShaderModule(ctx.device(), frag, nullptr);
-        return false;
-    }
-
     VkGraphicsPipelineCreateInfo gp{};
     gp.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     gp.stageCount = 2;
@@ -191,7 +193,7 @@ bool Particles3D::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     gp.layout = m_pipelineLayout;
     gp.renderPass = renderPass;
     const VkResult r =
-        vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr, &m_pipeline);
+        vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr, &outPipeline);
     vkDestroyShaderModule(ctx.device(), vert, nullptr);
     vkDestroyShaderModule(ctx.device(), frag, nullptr);
     if (r != VK_SUCCESS) {
@@ -219,10 +221,14 @@ bool Particles3D::createVertexBuffers(VulkanContext& ctx, uint32_t framesInFligh
     return true;
 }
 
-void Particles3D::begin() { m_vertices.clear(); }
+void Particles3D::begin() {
+    m_additive.clear();
+    m_alpha.clear();
+}
 
-void Particles3D::draw(const float pos[3], float size, const float color[4]) {
-    if (m_vertices.size() + kVertsPerParticle > m_maxVertices) {
+void Particles3D::draw(const float pos[3], float size, const float color[4], bool additive) {
+    std::vector<Vertex>& list = additive ? m_additive : m_alpha;
+    if (m_additive.size() + m_alpha.size() + kVertsPerParticle > m_maxVertices) {
         if (!m_capacityWarned) {
             MAZ_LOG_WARN("particle buffer full (%u/frame); dropping extras", kMaxParticles);
             m_capacityWarned = true;
@@ -248,18 +254,26 @@ void Particles3D::draw(const float pos[3], float size, const float color[4]) {
         v.color[1] = color[1];
         v.color[2] = color[2];
         v.color[3] = color[3];
-        m_vertices.push_back(v);
+        list.push_back(v);
     }
 }
 
 void Particles3D::flush(VkCommandBuffer cmd, uint32_t frameIndex, const float viewProj16[16],
                         const float right3[3], const float up3[3]) {
-    if (m_vertices.empty() || m_pipeline == VK_NULL_HANDLE) {
+    const uint32_t addCount = static_cast<uint32_t>(m_additive.size());
+    const uint32_t alphaCount = static_cast<uint32_t>(m_alpha.size());
+    if ((addCount == 0 && alphaCount == 0) || m_pipelineAdd == VK_NULL_HANDLE) {
         return;
     }
-    std::memcpy(m_vboMapped[frameIndex], m_vertices.data(), m_vertices.size() * sizeof(Vertex));
+    // Pack both lists contiguously: [additive | alpha].
+    auto* dst = static_cast<Vertex*>(m_vboMapped[frameIndex]);
+    if (addCount) {
+        std::memcpy(dst, m_additive.data(), addCount * sizeof(Vertex));
+    }
+    if (alphaCount) {
+        std::memcpy(dst + addCount, m_alpha.data(), alphaCount * sizeof(Vertex));
+    }
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     VkViewport viewport{};
     viewport.width = static_cast<float>(m_viewportW);
     viewport.height = static_cast<float>(m_viewportH);
@@ -282,7 +296,16 @@ void Particles3D::flush(VkCommandBuffer cmd, uint32_t frameIndex, const float vi
     VkDeviceSize offset = 0;
     VkBuffer buf = m_vbo[frameIndex].handle();
     vkCmdBindVertexBuffers(cmd, 0, 1, &buf, &offset);
-    vkCmdDraw(cmd, static_cast<uint32_t>(m_vertices.size()), 1, 0, 0);
+
+    // Additive first (embers), then alpha (smoke) over them.
+    if (addCount) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineAdd);
+        vkCmdDraw(cmd, addCount, 1, 0, 0);
+    }
+    if (alphaCount) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineAlpha);
+        vkCmdDraw(cmd, alphaCount, 1, addCount, 0);
+    }
 }
 
 void Particles3D::shutdown(VulkanContext& ctx) {
@@ -291,9 +314,13 @@ void Particles3D::shutdown(VulkanContext& ctx) {
     }
     m_vbo.clear();
     m_vboMapped.clear();
-    if (m_pipeline) {
-        vkDestroyPipeline(ctx.device(), m_pipeline, nullptr);
-        m_pipeline = VK_NULL_HANDLE;
+    if (m_pipelineAdd) {
+        vkDestroyPipeline(ctx.device(), m_pipelineAdd, nullptr);
+        m_pipelineAdd = VK_NULL_HANDLE;
+    }
+    if (m_pipelineAlpha) {
+        vkDestroyPipeline(ctx.device(), m_pipelineAlpha, nullptr);
+        m_pipelineAlpha = VK_NULL_HANDLE;
     }
     if (m_pipelineLayout) {
         vkDestroyPipelineLayout(ctx.device(), m_pipelineLayout, nullptr);

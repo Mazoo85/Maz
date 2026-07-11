@@ -46,7 +46,9 @@ public:
     void setLighting(const SceneLighting& lighting) override;
     void setBloom(float strength, float threshold) override;
     void setCameraBasis(const float right3[3], const float up3[3]) override;
-    void drawParticle3D(const float pos3[3], float size, const float color4[4]) override;
+    void drawParticle3D(const float pos3[3], float size, const float color4[4],
+                        bool additive) override;
+    using Renderer::drawParticle3D; // keep the additive-default overload visible
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
@@ -375,9 +377,10 @@ void VulkanRenderer::setCameraBasis(const float right3[3], const float up3[3]) {
     }
 }
 
-void VulkanRenderer::drawParticle3D(const float pos3[3], float size, const float color4[4]) {
+void VulkanRenderer::drawParticle3D(const float pos3[3], float size, const float color4[4],
+                                   bool additive) {
     if (m_active) {
-        m_particles.draw(pos3, size, color4);
+        m_particles.draw(pos3, size, color4, additive);
     }
 }
 

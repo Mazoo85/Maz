@@ -22,7 +22,8 @@ public:
     void shutdown(VulkanContext& ctx);
 
     void begin(); // clear the frame's particles
-    void draw(const float pos[3], float size, const float color[4]);
+    // additive=true: glowing embers/sparks (order-independent). false: alpha-blended smoke/dust.
+    void draw(const float pos[3], float size, const float color[4], bool additive);
     // Record the billboards. viewProj16 column-major; right/up are the camera's world-space axes.
     void flush(VkCommandBuffer cmd, uint32_t frameIndex, const float viewProj16[16],
                const float right3[3], const float up3[3]);
@@ -31,7 +32,9 @@ public:
         m_viewportW = w;
         m_viewportH = h;
     }
-    uint32_t particleCount() const { return static_cast<uint32_t>(m_vertices.size() / 6); }
+    uint32_t particleCount() const {
+        return static_cast<uint32_t>((m_additive.size() + m_alpha.size()) / 6);
+    }
 
 private:
     struct Vertex {
@@ -41,18 +44,21 @@ private:
         float color[4];
     };
 
-    bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
+    bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass, bool additive,
+                        VkPipeline& outPipeline);
     bool createVertexBuffers(VulkanContext& ctx, uint32_t framesInFlight);
 
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
+    VkPipeline m_pipelineAdd = VK_NULL_HANDLE;   // additive (embers/sparks)
+    VkPipeline m_pipelineAlpha = VK_NULL_HANDLE; // alpha (smoke/dust)
 
     std::vector<VulkanBuffer> m_vbo; // one per frame-in-flight
     std::vector<void*> m_vboMapped;
     uint32_t m_maxVertices = 0;
 
-    std::vector<Vertex> m_vertices;
+    std::vector<Vertex> m_additive;
+    std::vector<Vertex> m_alpha;
     bool m_capacityWarned = false;
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
