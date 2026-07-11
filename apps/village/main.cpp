@@ -112,26 +112,52 @@ int main(int argc, char** argv) {
         MAZ_LOG_WARN("no village scene loaded; rendering empty");
     }
 
-    // Dusk lighting: a low warm "golden hour" sun over a dim ambient, plus a warm lamp glowing at
-    // each house — showcasing the engine's point lights (M21).
-    render::SceneLighting lighting;
-    lighting.ambient[0] = 0.17f; lighting.ambient[1] = 0.15f; lighting.ambient[2] = 0.20f;
-    lighting.sunDir[0] = 0.35f;  lighting.sunDir[1] = 0.30f;  lighting.sunDir[2] = 0.50f;
-    lighting.sunColor[0] = 0.48f; lighting.sunColor[1] = 0.38f; lighting.sunColor[2] = 0.30f;
-    for (const glm::vec3& c : houseCenters) {
-        if (lighting.pointCount >= render::SceneLighting::kMaxPointLights) {
-            break;
+    // A full day/night cycle: the sun arcs over ~48s while the sky, ambient, fog, and the warm
+    // house lamps all respond (lamps brighten at night, dim by day) — showcasing dynamic lighting,
+    // the dynamic sky, point lights, and fog together.
+    auto mix3 = [](const glm::vec3& a, const glm::vec3& b, float t) { return glm::mix(a, b, t); };
+    auto dayNightLighting = [&](double elapsed) {
+        const double period = 48.0;
+        const double a = std::fmod(elapsed, period) / period * 2.0 * 3.14159265;
+        const float sh = static_cast<float>(std::sin(a)); // sun height, -1..1
+        const float day = glm::clamp(sh * 1.6f, 0.0f, 1.0f);
+        const float dusk = glm::clamp(1.0f - std::fabs(sh) * 2.5f, 0.0f, 1.0f); // near the horizon
+
+        render::SceneLighting L;
+        const glm::vec3 sunD = glm::normalize(
+            glm::vec3(std::cos(a) * 0.55f, glm::max(sh, -0.15f), 0.45f));
+        L.sunDir[0] = sunD.x; L.sunDir[1] = sunD.y; L.sunDir[2] = sunD.z;
+
+        const glm::vec3 sunCol = mix3(glm::vec3(0.02f), mix3(glm::vec3(1.0f, 0.55f, 0.25f),
+                                                            glm::vec3(1.0f, 0.96f, 0.85f), day),
+                                      glm::clamp(day + dusk, 0.0f, 1.0f)) * (0.25f + 0.75f * day);
+        L.sunColor[0] = sunCol.r; L.sunColor[1] = sunCol.g; L.sunColor[2] = sunCol.b;
+
+        const glm::vec3 amb = mix3(glm::vec3(0.08f, 0.09f, 0.14f), glm::vec3(0.34f, 0.34f, 0.36f), day);
+        L.ambient[0] = amb.r; L.ambient[1] = amb.g; L.ambient[2] = amb.b;
+
+        glm::vec3 zen = mix3(glm::vec3(0.02f, 0.03f, 0.09f), glm::vec3(0.24f, 0.44f, 0.82f), day);
+        glm::vec3 hor = mix3(glm::vec3(0.05f, 0.06f, 0.13f), glm::vec3(0.72f, 0.82f, 0.95f), day);
+        hor = mix3(hor, glm::vec3(0.95f, 0.5f, 0.25f), dusk * 0.7f); // sunset/sunrise warmth
+        const glm::vec3 grd = mix3(glm::vec3(0.04f, 0.04f, 0.07f), glm::vec3(0.42f, 0.45f, 0.50f), day);
+        L.skyZenith[0] = zen.r; L.skyZenith[1] = zen.g; L.skyZenith[2] = zen.b;
+        L.skyHorizon[0] = hor.r; L.skyHorizon[1] = hor.g; L.skyHorizon[2] = hor.b;
+        L.skyGround[0] = grd.r; L.skyGround[1] = grd.g; L.skyGround[2] = grd.b;
+        L.fogColor[0] = hor.r; L.fogColor[1] = hor.g; L.fogColor[2] = hor.b;
+        L.fogDensity = 0.03f;
+
+        // Lamps: bright at night, nearly off at noon.
+        const float lamp = mix3(glm::vec3(3.8f), glm::vec3(0.4f), day).x;
+        for (const glm::vec3& c : houseCenters) {
+            if (L.pointCount >= render::SceneLighting::kMaxPointLights) break;
+            render::SceneLighting::Point& p = L.points[L.pointCount++];
+            p.pos[0] = c.x; p.pos[1] = 1.2f; p.pos[2] = c.z;
+            p.range = 8.5f;
+            p.color[0] = 1.0f; p.color[1] = 0.60f; p.color[2] = 0.26f;
+            p.intensity = lamp;
         }
-        render::SceneLighting::Point& p = lighting.points[lighting.pointCount++];
-        p.pos[0] = c.x; p.pos[1] = 1.2f; p.pos[2] = c.z;
-        p.range = 8.5f;
-        p.color[0] = 1.0f; p.color[1] = 0.60f; p.color[2] = 0.26f; // warm lamp
-        p.intensity = 3.4f;
-    }
-    // Distance fog fading the far edges of the village into the sky horizon.
-    lighting.fogColor[0] = 0.72f; lighting.fogColor[1] = 0.78f; lighting.fogColor[2] = 0.88f;
-    lighting.fogDensity = 0.035f;
-    renderer->setLighting(lighting);
+        return L;
+    };
 
     // A golden coin mesh, scattered in the open spaces between the houses.
     const render::shapes::MeshData coinData =
@@ -297,6 +323,7 @@ int main(int argc, char** argv) {
         const glm::mat4 proj = math::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
         const glm::mat4 viewProj = proj * camera.view();
 
+        renderer->setLighting(dayNightLighting(clock.elapsed()));
         renderer->setClearColor(render::Color{0.10f, 0.12f, 0.16f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));

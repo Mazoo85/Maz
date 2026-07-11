@@ -76,6 +76,11 @@ struct SceneLighting {
     // so apps that don't opt in are unaffected. Pair fogColor with the sky horizon to fade cleanly.
     float fogColor[3] = {0.72f, 0.82f, 0.95f};
     float fogDensity = 0.0f;
+    // Sky gradient colors used by the sky pass (defaults reproduce the standard daytime sky). The
+    // sky's sun glow follows sunDir/sunColor above, so animating the sun moves the glow too.
+    float skyZenith[3] = {0.24f, 0.44f, 0.82f};
+    float skyHorizon[3] = {0.72f, 0.82f, 0.95f};
+    float skyGround[3] = {0.42f, 0.45f, 0.50f};
 };
 
 // Rendering interface. Gameplay talks to this, never to Vulkan directly, so a future backend

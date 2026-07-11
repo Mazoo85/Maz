@@ -201,6 +201,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
 - [x] **Distance fog** (exponential, camera-distance, blends meshes into the sky; M22)
+- [x] **Dynamic sky + day/night** (sky colors + sun are `SceneLighting` params; `village` animates
+      a full sun arc with responding sky/ambient/fog/lamps; M24)
 - [ ] Spot lights; forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)

@@ -163,7 +163,7 @@ bool MeshRenderer::createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass
     VkPushConstantRange push{};
     push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push.offset = 0;
-    push.size = sizeof(float) * 16; // invViewProj
+    push.size = sizeof(float) * 36; // invViewProj + zenith/horizon/ground/sunDir/sunColor
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl.pushConstantRangeCount = 1;
@@ -213,9 +213,22 @@ void MeshRenderer::renderSky(VkCommandBuffer cmd) {
     scissor.extent = {m_viewportW, m_viewportH};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+    // Push: invViewProj (16) + zenith/horizon/ground/sunDir/sunColor as vec4s (20).
+    float push[36] = {0};
     const glm::mat4 invVP = glm::inverse(glm::make_mat4(m_viewProj));
-    vkCmdPushConstants(cmd, m_skyLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 16,
-                       glm::value_ptr(invVP));
+    std::memcpy(push, glm::value_ptr(invVP), sizeof(float) * 16);
+    auto putVec3 = [&](int base, const float* v) {
+        push[base] = v[0];
+        push[base + 1] = v[1];
+        push[base + 2] = v[2];
+        push[base + 3] = 1.0f;
+    };
+    putVec3(16, m_skyZenith);
+    putVec3(20, m_skyHorizon);
+    putVec3(24, m_skyGround);
+    putVec3(28, m_sunDir);
+    putVec3(32, m_sunColor);
+    vkCmdPushConstants(cmd, m_skyLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
@@ -561,6 +574,12 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
         g.ambient[i] = lighting.ambient[i];
         g.sunDir[i] = lighting.sunDir[i];
         g.sunColor[i] = lighting.sunColor[i];
+        // Cache the sky/sun params for the sky pass (which uses push constants, not the UBO).
+        m_sunDir[i] = lighting.sunDir[i];
+        m_sunColor[i] = lighting.sunColor[i];
+        m_skyZenith[i] = lighting.skyZenith[i];
+        m_skyHorizon[i] = lighting.skyHorizon[i];
+        m_skyGround[i] = lighting.skyGround[i];
     }
     g.ambient[3] = static_cast<float>(count);
     g.fog[0] = lighting.fogColor[0];

@@ -35,8 +35,11 @@ implement it, then re-evaluate and repeat. Updated each iteration.
 - [x] **M23 — Gamepad support** (platform): SDL3 gamepad in `platform::Input` (sticks, buttons,
   triggers, deadzone) with hotplug + graceful absence; `world`/`village` movement + look use the
   sticks (world uses triggers for up/down).
-- [ ] **M24 — Day/night dynamic sky** (engine+app): sky colors + sun become parameters; `village`
-  animates a sun arc with the sky and lamp intensity responding.
+- [x] **M24 — Day/night dynamic sky** (engine+app): the sky's zenith/horizon/ground colors + sun
+  are now driven by `SceneLighting` (defaults reproduce the old sky); `village` animates a ~48s
+  sun arc so the sky, ambient, fog, and warm house lamps shift from bright noon to lamp-lit night.
+
+**Iteration 1 complete.** Next: bloom/tonemap post-processing, then normal mapping.
 
 ### Future iterations (backlog, ordered)
 - Bloom / tonemap post-processing (render-to-texture HDR pipeline).

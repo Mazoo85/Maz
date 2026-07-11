@@ -100,6 +100,12 @@ private:
     float m_viewProj[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_lightVP[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_camPos[3] = {0, 0, 0};
+    // Sky/sun params (from setLighting) fed to the sky pass so it matches the scene lighting.
+    float m_sunDir[3] = {0.4f, 0.8f, 0.6f};
+    float m_sunColor[3] = {1.0f, 0.95f, 0.8f};
+    float m_skyZenith[3] = {0.24f, 0.44f, 0.82f};
+    float m_skyHorizon[3] = {0.72f, 0.82f, 0.95f};
+    float m_skyGround[3] = {0.42f, 0.45f, 0.50f};
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
 };

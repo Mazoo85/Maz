@@ -63,6 +63,11 @@ available):
   collision, coins to collect against the clock, a win state, and a best time saved across runs
 - **M21** — point lights (`Renderer::setLighting`): the 3D path gains ambient + a shadow-mapped sun
   + up to 8 attenuated point lights; VILLAGE QUEST uses them for a dusk village with glowing lamps
+- **M22** — distance fog: meshes fade into the sky with distance (`world`, `village`)
+- **M23** — gamepad support (SDL3): sticks/buttons/triggers in `platform::Input`; `world`/`village`
+  are playable with a controller
+- **M24** — dynamic sky + day/night: sky colors + sun are lighting parameters; VILLAGE QUEST runs a
+  full day→night cycle where the sky, fog, and house lamps all respond
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
