@@ -135,6 +135,11 @@ available):
 - **M49** — particle attractor: `fx::ParticleSystem::setAttractor` pulls live particles toward a
   point with an optional tangential swirl (a vortex); ORB RUN's title screen swirls an ambient
   particle cloud behind the logo
+- **M50/M51** — automated tests: a dependency-free unit suite (`maz_unit_tests`) for math/collision/
+  grid/ECS/particles, plus a golden-image regression harness (`tools/golden.sh`) that diffs each app
+  against committed references — both wired into `ctest`
+- **M52** — texture mipmaps: a blit-generated mip chain with trilinear minification (magnification
+  stays NEAREST) so distant surfaces stop shimmering while near ones and the 2D UI stay crisp
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

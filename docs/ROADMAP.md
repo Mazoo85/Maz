@@ -205,7 +205,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
   M42)
-- [ ] Full PBR (energy-conserving metallic/roughness, IBL), texture mipmaps
+- [x] **Texture mipmaps** (blit-generated chain, trilinear min sampling, NEAREST mag; M52)
+- [ ] Full PBR (energy-conserving metallic/roughness, IBL)
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
@@ -244,7 +245,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
-- [ ] Image loading (stb_image), compressed textures (KTX2), mipmaps
+- [x] Image loading (stb_image PNG/JPEG) + **blit-generated mipmaps** (M52)
+- [ ] Compressed textures (KTX2), anisotropic filtering
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
 - [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
 - [ ] Audio asset loading (wav / ogg), font import, shader assets

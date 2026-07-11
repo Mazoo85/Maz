@@ -246,6 +246,17 @@ regressions. Highest-leverage fix before more features: real testing.
 **Iteration 15 complete** (unit tests + golden-image regression harness — the engine now has
 automated logic and visual regression protection).
 
+### Iteration 16 — "Rendering correctness" (in progress)
+Self-directed: the biggest backlog items (material-UBO refactor, instancing) are large shared-render
+refactors best given their own iterations. This iteration takes two foundational *correctness* wins
+that the new test infra can verify rigorously.
+- [x] **M52 — Texture mipmaps**: `VulkanTexture::create` now allocates a full mip chain and blit-
+  generates it (`vkCmdBlitImage`, linear downsample, per-level layout transitions). The sampler uses
+  `minFilter LINEAR` + `mipmapMode LINEAR` (trilinear) so minified/distant surfaces anti-alias, while
+  `magFilter` stays NEAREST so near surfaces and the 2D UI keep their crisp look. Verified on
+  lavapipe: scene3d's distant checker floor is smooth instead of shimmering, no validation errors;
+  golden references re-recorded (intended change), ctest 11/11.
+
 Later: material/uniform system (retire push-constant packing), instanced mesh rendering, transparency
 depth-sorting, texture mipmaps, skeletal animation, retained UI, asset manager, cross-platform CI,
 a deterministic hold-frame screenshot mode to tighten golden tolerances.
