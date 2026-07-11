@@ -140,8 +140,14 @@ tonemap; and pickups/hits had no camera feedback. This iteration:
   are a faithful passthrough. Verified: orbs (2D) and cube (3D) unchanged with tonemap off; `water`
   with an over-bright sun rolls its sunlit crests off smoothly instead of clipping; no validation
   errors on the format change.
-- [ ] **M39 — Screen-shake / camera juice**: a trauma-based `maz::game::Shake` that offsets the
-  camera and decays; apps trigger it on impactful moments (pickups).
+- [x] **M39 — Screen-shake / camera juice**: `maz::game::Shake` is a header-only trauma-based shake
+  (applied amount = trauma², decaying linearly) whose offset/rotation are pure functions of
+  (trauma, time) from layered sines — no RNG, deterministic. `world` adds trauma on each pickup and
+  offsets the camera eye (restored afterward so collision sees the true position); the 2D HUD is
+  unaffected. Verified on lavapipe: with shake pinned the frame-to-frame delta is ~468k pixels vs
+  ~6.6k for a static camera (~70×), and the shaken frame renders cleanly; no validation errors.
+
+**Iteration 9 complete** (HDR scene target + ACES tonemap; trauma-based camera shake).
 
 Later: separable multi-pass bloom, transparency/particle depth-sorting, spatial partitioning (grid)
 for broadphase, hot-reload shaders, full PBR, save graphics settings via KeyValueStore.

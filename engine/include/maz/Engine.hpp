@@ -12,6 +12,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/FlyCamera.hpp"
+#include "maz/game/Shake.hpp"
 #include "maz/game/Tilemap.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"

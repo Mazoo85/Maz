@@ -103,6 +103,9 @@ available):
   lighting/emissive/bloom can exceed 1.0; the composite pass applies an **ACES filmic tonemap** with
   exposure (`Renderer::setTonemap`) to roll highlights smoothly into the LDR image. Off by default
   (a faithful passthrough); the `water` demo opts in with an over-bright sun
+- **M39** — camera shake (game feel): `maz::game::Shake` is a trauma-based camera shake (amount =
+  trauma², decays on its own) built from layered sines — no RNG, deterministic. `world` jolts the
+  camera each time a pickup is collected; the 2D HUD stays fixed
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

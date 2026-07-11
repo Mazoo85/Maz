@@ -38,7 +38,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay (FPS/draw stats)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
-game/       Tilemap, FlyCamera (first-person camera), Collision (AABB + slide)
+game/       Tilemap, FlyCamera (first-person camera), Collision (AABB + slide), Shake (camera juice)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/

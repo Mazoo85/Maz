@@ -58,9 +58,11 @@ int main(int argc, char** argv) {
     const bool autopilot = cfg.demo;
     bool startWireframe = false;  // --wireframe starts in wireframe debug draw (also F4 at runtime)
     bool startColliders = false;  // --colliders starts with the collider overlay on (also F5)
+    bool shakeTest = false;       // --shaketest pins camera shake on (for verification)
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--wireframe") == 0) startWireframe = true;
         if (std::strcmp(argv[i], "--colliders") == 0) startColliders = true;
+        if (std::strcmp(argv[i], "--shaketest") == 0) shakeTest = true;
     }
     MAZ_LOG_INFO("WORLD (explorable 3D) starting (autopilot=%d)", autopilot);
 
@@ -184,6 +186,7 @@ int main(int argc, char** argv) {
     bool wireframe = startWireframe; // F4 toggles wireframe debug draw (--wireframe starts on)
     renderer->setWireframe(wireframe);
     bool showColliders = startColliders; // F5 draws the collision AABBs as debug lines
+    game::Shake shake; // camera juice — a jolt each time a pickup is collected
 
     while (!window.shouldClose()) {
         window.pumpEvents(input);
@@ -201,6 +204,10 @@ int main(int argc, char** argv) {
             showColliders = !showColliders;
         }
         overlay.update(clock.frameDelta());
+        shake.update(static_cast<float>(clock.frameDelta()));
+        if (shakeTest) {
+            shake.addTrauma(1.0f); // hold max trauma so the camera visibly shakes for verification
+        }
 
         uint32_t bw = 0, bh = 0;
         window.drawableSize(bw, bh);
@@ -281,12 +288,18 @@ int main(int argc, char** argv) {
                 if (glm::dot(d, d) < 2.6f * 2.6f) {
                     collected[i] = true;
                     ++collectedCount;
+                    shake.addTrauma(0.6f); // jolt the camera on pickup
                 }
             }
         }
 
         const glm::mat4 proj = math::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
+        // Apply camera shake by temporarily offsetting the eye, then restore so gameplay/collision
+        // see the true position.
+        const glm::vec3 basePos = camera.position();
+        camera.setPosition(basePos + shake.offset(static_cast<float>(clock.elapsed()), 0.6f));
         const glm::mat4 viewProj = proj * camera.view();
+        camera.setPosition(basePos);
 
         renderer->setClearColor(render::Color{0.55f, 0.68f, 0.85f, 1.0f}); // sky
         if (renderer->beginFrame()) {
