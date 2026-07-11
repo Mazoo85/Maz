@@ -56,9 +56,11 @@ render::MeshHandle upload(render::Renderer& r, const render::shapes::MeshData& m
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
     const bool autopilot = cfg.demo;
-    bool startWireframe = false; // --wireframe starts in wireframe debug draw (also F4 at runtime)
+    bool startWireframe = false;  // --wireframe starts in wireframe debug draw (also F4 at runtime)
+    bool startColliders = false;  // --colliders starts with the collider overlay on (also F5)
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--wireframe") == 0) startWireframe = true;
+        if (std::strcmp(argv[i], "--colliders") == 0) startColliders = true;
     }
     MAZ_LOG_INFO("WORLD (explorable 3D) starting (autopilot=%d)", autopilot);
 
@@ -180,6 +182,7 @@ int main(int argc, char** argv) {
 
     bool wireframe = startWireframe; // F4 toggles wireframe debug draw (--wireframe starts on)
     renderer->setWireframe(wireframe);
+    bool showColliders = startColliders; // F5 draws the collision AABBs as debug lines
 
     while (!window.shouldClose()) {
         window.pumpEvents(input);
@@ -192,6 +195,9 @@ int main(int argc, char** argv) {
         if (input.keyPressed(SDL_SCANCODE_F4)) {
             wireframe = !wireframe;
             renderer->setWireframe(wireframe);
+        }
+        if (input.keyPressed(SDL_SCANCODE_F5)) {
+            showColliders = !showColliders;
         }
         overlay.update(clock.frameDelta());
 
@@ -291,6 +297,14 @@ int main(int argc, char** argv) {
                 glm::mat4 model = glm::translate(glm::mat4(1.0f), b.pos);
                 model = glm::scale(model, b.scale);
                 renderer->drawMesh(b.mesh, glm::value_ptr(model), whiteTex);
+            }
+
+            // F5: overlay each collision box as green debug lines (verifies colliders match geometry).
+            if (showColliders) {
+                const float green[4] = {0.2f, 1.0f, 0.35f, 0.9f};
+                for (const game::Aabb& s : solids) {
+                    renderer->drawAabb(glm::value_ptr(s.min), glm::value_ptr(s.max), green);
+                }
             }
 
             const float bob = 0.2f * std::sin(static_cast<float>(clock.elapsed()) * 2.0f);

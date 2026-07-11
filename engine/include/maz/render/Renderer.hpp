@@ -173,6 +173,13 @@ public:
         drawMesh(mesh, model16, albedo, kInvalidTexture);
     }
 
+    // --- Debug draw (world-space lines) ---
+    // Queue a world-space line segment (RGBA, alpha-blended, depth-tested so geometry occludes it).
+    // Useful for visualizing colliders, light ranges, paths, and gizmos. No-op when inactive.
+    virtual void drawLine(const float a3[3], const float b3[3], const float color4[4]) = 0;
+    // Queue the 12 edges of an axis-aligned box between min and max corners. No-op when inactive.
+    virtual void drawAabb(const float min3[3], const float max3[3], const float color4[4]) = 0;
+
     // Draw counts from the previous completed frame (all zero when inactive).
     virtual RenderStats renderStats() const = 0;
 

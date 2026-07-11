@@ -93,6 +93,9 @@ available):
 - **M35** — dynamic meshes: `createDynamicMesh` + `updateMesh` re-stream a mesh's vertices every frame
   (one host-visible vertex buffer per frame-in-flight, so a write never races a frame still reading);
   the new `water` demo animates a grid with summed sine waves lit and fogged under the sun
+- **M36** — debug line draw: `Renderer::drawLine` / `drawAabb` render world-space colored lines (a
+  `LINE_LIST` pipeline, depth-tested so geometry occludes them); **F5** in `world` overlays every
+  collision box in green — a visual check that colliders match the geometry
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

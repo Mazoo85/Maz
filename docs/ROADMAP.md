@@ -218,6 +218,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [x] Render-to-texture (offscreen scene color target for post-processing; M27)
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)
+- [x] **Debug line draw** (`drawLine` / `drawAabb`, world-space `LINE_LIST` pipeline; F5 collider
+  overlay in `world`; M36)
 - [ ] Multiple viewports, gizmos
 - [ ] GPU profiling, keep validation-clean baseline
 

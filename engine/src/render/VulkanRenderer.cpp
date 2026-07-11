@@ -3,6 +3,7 @@
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/DebugDraw.hpp"
 #include "render/Particles3D.hpp"
 #include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
@@ -56,6 +57,8 @@ public:
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
                   TextureHandle normal) override;
     using Renderer::drawMesh; // keep the 3-arg convenience overload visible
+    void drawLine(const float a3[3], const float b3[3], const float color4[4]) override;
+    void drawAabb(const float min3[3], const float max3[3], const float color4[4]) override;
 
     RenderStats renderStats() const override { return m_stats; }
     bool isActive() const override { return m_active; }
@@ -72,6 +75,7 @@ private:
     SpriteRenderer m_sprites;
     MeshRenderer m_meshes;
     Particles3D m_particles;
+    DebugDraw m_debug;
     PostProcess m_post;
     RendererConfig m_cfg;
 
@@ -140,6 +144,10 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     if (!m_particles.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight,
                           m_swapchain.samples())) {
         MAZ_LOG_ERROR("particle renderer init failed");
+        return false;
+    }
+    if (!m_debug.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight, m_swapchain.samples())) {
+        MAZ_LOG_ERROR("debug-draw renderer init failed");
         return false;
     }
     if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
@@ -260,6 +268,8 @@ bool VulkanRenderer::beginFrame() {
     m_meshes.begin();
     m_particles.setViewport(w, h);
     m_particles.begin();
+    m_debug.setViewport(w, h);
+    m_debug.begin();
     m_sprites.setViewport(w, h);
     m_sprites.begin();
     return true;
@@ -296,6 +306,7 @@ void VulkanRenderer::endFrame() {
     m_meshes.renderSky(cmd);              // gradient sky behind the 3D scene (no-op if no meshes)
     m_meshes.flush(cmd);                  // 3D (depth-tested)
     m_particles.flush(cmd, m_currentFrame, m_viewProj3D, m_camRight, m_camUp); // billboards
+    m_debug.flush(cmd, m_currentFrame, m_viewProj3D);                          // debug lines
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
 
@@ -404,6 +415,18 @@ void VulkanRenderer::drawParticle3D(const float pos3[3], float size, const float
     }
 }
 
+void VulkanRenderer::drawLine(const float a3[3], const float b3[3], const float color4[4]) {
+    if (m_active) {
+        m_debug.line(a3, b3, color4);
+    }
+}
+
+void VulkanRenderer::drawAabb(const float min3[3], const float max3[3], const float color4[4]) {
+    if (m_active) {
+        m_debug.aabb(min3, max3, color4);
+    }
+}
+
 void VulkanRenderer::setCameraPosition(const float* pos3) {
     if (m_active) {
         m_meshes.setCameraPosition(pos3);
@@ -458,6 +481,7 @@ void VulkanRenderer::shutdown() {
     }
     if (m_active) {
         m_post.shutdown(m_ctx);
+        m_debug.shutdown(m_ctx);
         m_particles.shutdown(m_ctx);
         m_meshes.shutdown(m_ctx);
         m_sprites.shutdown(m_ctx);

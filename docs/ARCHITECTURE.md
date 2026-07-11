@@ -30,6 +30,7 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog + normal mapping + wireframe debug draw
               Particles3D    — world-space camera-facing additive billboard particles
+              DebugDraw      — world-space debug lines / AABBs (collider + gizmo visualization)
               shapes         — procedural box / sphere / plane geometry
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)

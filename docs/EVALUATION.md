@@ -114,5 +114,17 @@ Evaluation: no visual debug-draw (wireframe) despite having a stats overlay; mes
 
 **Iteration 7 complete** (wireframe debug draw + dynamic meshes/water).
 
+### Iteration 8 — "Debug visualization & materials" (in progress)
+Evaluation: the only debug-draw was all-or-nothing mesh wireframe — no way to draw arbitrary
+world-space lines (colliders, light ranges, paths, gizmos); and meshes could only be lit, nothing
+could self-glow to feed bloom. This iteration:
+- [x] **M36 — Debug line/shape renderer**: a `DebugDraw` renderer draws world-space colored lines
+  (`Renderer::drawLine`) and AABBs (`drawAabb`) via a `LINE_LIST` pipeline with per-frame-in-flight
+  vertex buffers, alpha-blended and depth-tested (geometry occludes them) inside the scene pass.
+  `world` overlays every collision box in green with **F5** (or `--colliders`). Verified on lavapipe:
+  the green boxes wrap each block exactly, confirming colliders match geometry; no validation errors.
+- [ ] **M37 — Emissive material term**: a per-draw emissive color added to the lit result (unlit,
+  feeds bloom) so objects can self-glow (coins, lamps, lava).
+
 Later: refine bloom (downsampled separable blur + tonemap/HDR), transparency/particle sorting,
-spatial partitioning, hot-reload shaders, a material struct, GPU/compute particle simulation.
+spatial partitioning, hot-reload shaders, a fuller material struct, GPU/compute particle simulation.

@@ -14,6 +14,7 @@ add_library(maz STATIC
     src/render/SpriteRenderer.cpp
     src/render/MeshRenderer.cpp
     src/render/Particles3D.cpp
+    src/render/DebugDraw.cpp
     src/render/PostProcess.cpp
     src/render/Shapes.cpp
     src/render/Model.cpp
@@ -60,7 +61,9 @@ maz_compile_shaders(maz
         ${CMAKE_SOURCE_DIR}/engine/shaders/composite.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/composite.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/particle.vert
-        ${CMAKE_SOURCE_DIR}/engine/shaders/particle.frag)
+        ${CMAKE_SOURCE_DIR}/engine/shaders/particle.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/debugline.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/debugline.frag)
 
 add_custom_command(TARGET maz POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts
