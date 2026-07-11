@@ -407,7 +407,27 @@ the binary serialization backbone.
   reloaded props render with their saved transforms/colors, no validation errors); new
   `persist_headless_smoke` + golden → ctest **18/18**, every existing golden unchanged.
 
-Later: reflection-driven ECS component serialization, JSON/text format, UI layout containers /
-text input, behavior trees / FSM, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, skeletal animation, asset manager, cross-platform CI, a
-deterministic hold-frame screenshot mode to tighten golden tolerances.
+**Iteration 24 complete** (binary serialization + scene save/load).
+
+### Iteration 25 — "State machines" (in progress)
+Self-directed: the AI stack has locomotion (pathfinding + steering) but no decision layer, and the
+same primitive underpins game flow (menu/playing/paused) and animation states. Build a generic FSM
+and use it to cap the AI stack.
+- [x] **M62 — Finite state machine**: header-only `game::StateMachine<StateId>` — states carry
+  optional onEnter/onUpdate/onExit callbacks; transitions are guarded predicates evaluated every
+  `update()`, with `addAnyTransition` for from-any-state rules. Evaluation is deterministic: any-
+  transitions first (registration order), then the current state's, first true guard wins, one
+  switch per update, then the (new) state's onUpdate runs. Pure logic → unit-tested headlessly (198
+  checks total): enter/exit/update side effects fire correctly, a Patrol→Chase→Return→Patrol cycle
+  with the switch count, that a left state's onUpdate stops running, and that an any-transition
+  takes priority over a would-fire per-state one. New `guard` demo composes M62 with M58 steering:
+  4 guards run a Patrol/Chase/Return FSM — patrol the posts, flip to Chase (seek) when the roving
+  intruder comes within range, and Return to the nearest post when it escapes — color-coded
+  green/red/amber by state (the HUD's "N chasing" tracks live state). Verified on lavapipe (guards
+  near the intruder turn red and pursue while distant ones stay green, no validation errors); new
+  `guard_headless_smoke` + golden → ctest **19/19**, every existing golden unchanged.
+
+Later: behavior trees, reflection-driven ECS component serialization, JSON/text format, UI layout
+containers / text input, order-independent transparency, material/uniform system, GPU-driven /
+indirect instancing, skeletal animation, asset manager, cross-platform CI, a deterministic
+hold-frame screenshot mode to tighten golden tolerances.

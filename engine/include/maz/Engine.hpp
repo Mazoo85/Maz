@@ -16,6 +16,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
+#include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/game/Tilemap.hpp"
 #include "maz/io/Serialize.hpp"

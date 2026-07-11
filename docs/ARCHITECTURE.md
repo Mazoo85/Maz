@@ -49,7 +49,8 @@ ecs/        World — entity-component system (sparse-set pools, each/view)   (h
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
-            Steering (seek/flee/arrive/separation/path-follow forces + integrate)
+            Steering (seek/flee/arrive/separation/path-follow forces + integrate),
+            StateMachine (generic FSM: enter/update/exit + guarded transitions)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample
             (header-only; animate any float/vector/color over time)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)

@@ -174,6 +174,10 @@ available):
   file read/write. The `persist` demo authors a 14-prop scene, saves it to disk, clears memory,
   reloads it from the file, and renders the reconstructed scene. Round-trip + truncation + bad-magic
   unit-tested — the backbone for save games and level files
+- **M62** — finite state machine: `game::StateMachine<StateId>` gives states enter/update/exit
+  callbacks and guarded transitions (plus any-state transitions), evaluated deterministically. The
+  `guard` demo composes it with steering: guards patrol posts until an intruder nears (→ chase),
+  then return when it escapes — color-coded green/red/amber by state. Transition logic unit-tested
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -140,3 +140,11 @@ add_test(
 set_tests_properties(persist_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME guard_headless_smoke
+    COMMAND guard --headless --frames 30)
+
+set_tests_properties(guard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

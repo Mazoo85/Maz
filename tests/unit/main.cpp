@@ -10,6 +10,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
+#include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
@@ -550,6 +551,71 @@ void testSerialize() {
     CHECK(!tsr.ok());
 }
 
+void testStateMachine() {
+    enum class S { Patrol, Chase, Return };
+
+    // Track enter/exit/update side effects and drive transitions with plain flags.
+    int patrolEnters = 0, chaseEnters = 0, patrolExits = 0;
+    float patrolUpdateTime = 0.0f;
+    bool seePlayer = false;
+    bool lostPlayer = false;
+    bool backHome = false;
+
+    game::StateMachine<S> fsm;
+    fsm.addState(
+        S::Patrol, [&](float dt) { patrolUpdateTime += dt; }, [&]() { ++patrolEnters; },
+        [&]() { ++patrolExits; });
+    fsm.addState(S::Chase, {}, [&]() { ++chaseEnters; });
+    fsm.addState(S::Return);
+    fsm.addTransition(S::Patrol, S::Chase, [&]() { return seePlayer; });
+    fsm.addTransition(S::Chase, S::Return, [&]() { return lostPlayer; });
+    fsm.addTransition(S::Return, S::Patrol, [&]() { return backHome; });
+
+    fsm.start(S::Patrol);
+    CHECK(fsm.isIn(S::Patrol));
+    CHECK(patrolEnters == 1);
+
+    // No trigger: stays in Patrol, its onUpdate accumulates dt.
+    fsm.update(0.5f);
+    CHECK(fsm.isIn(S::Patrol));
+    CHECK_NEAR(patrolUpdateTime, 0.5f, 1e-5f);
+    CHECK(fsm.transitionCount() == 0);
+
+    // Trigger Patrol -> Chase: exit Patrol, enter Chase.
+    seePlayer = true;
+    fsm.update(0.5f);
+    CHECK(fsm.isIn(S::Chase));
+    CHECK(patrolExits == 1);
+    CHECK(chaseEnters == 1);
+    CHECK(fsm.transitionCount() == 1);
+    // Patrol's onUpdate must not run once we've left it.
+    CHECK_NEAR(patrolUpdateTime, 0.5f, 1e-5f);
+
+    // Chase -> Return -> Patrol across updates.
+    lostPlayer = true;
+    fsm.update(0.1f);
+    CHECK(fsm.isIn(S::Return));
+    backHome = true;
+    fsm.update(0.1f);
+    CHECK(fsm.isIn(S::Patrol));
+    CHECK(patrolEnters == 2);
+    CHECK(fsm.transitionCount() == 3);
+
+    // Any-transition fires from any state and takes priority.
+    enum class G { A, B, Dead };
+    bool dead = false;
+    game::StateMachine<G> g;
+    g.addState(G::A);
+    g.addState(G::B);
+    g.addState(G::Dead);
+    g.addTransition(G::A, G::B, [&]() { return true; }); // would fire, but...
+    g.addAnyTransition(G::Dead, [&]() { return dead; });  // ...any-transition checked first
+    g.start(G::A);
+    dead = true;
+    g.update(0.0f);
+    CHECK(g.isIn(G::Dead));
+}
+
 } // namespace
 
 int main() {
@@ -560,6 +626,7 @@ int main() {
     testSpatialGrid();
     testNavGrid();
     testSteering();
+    testStateMachine();
     testTween();
     testUI();
     testSerialize();
