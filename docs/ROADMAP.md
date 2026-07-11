@@ -200,6 +200,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
+- [x] **Distance fog** (exponential, camera-distance, blends meshes into the sky; M22)
 - [ ] Spot lights; forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)

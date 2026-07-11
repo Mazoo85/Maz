@@ -29,6 +29,7 @@ struct GpuLights {
     float ambient[4];  // rgb ambient, w = active point-light count
     float sunDir[4];   // xyz direction toward the sun
     float sunColor[4]; // rgb directional color
+    float fog[4];      // rgb fog color, w = density (0 disables)
     GpuPointLight points[SceneLighting::kMaxPointLights];
 };
 
@@ -562,6 +563,10 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
         g.sunColor[i] = lighting.sunColor[i];
     }
     g.ambient[3] = static_cast<float>(count);
+    g.fog[0] = lighting.fogColor[0];
+    g.fog[1] = lighting.fogColor[1];
+    g.fog[2] = lighting.fogColor[2];
+    g.fog[3] = lighting.fogDensity;
     for (uint32_t i = 0; i < count; ++i) {
         const SceneLighting::Point& p = lighting.points[i];
         g.points[i].posRange[0] = p.pos[0];
@@ -656,9 +661,9 @@ bool MeshRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass) {
     dyn.pDynamicStates = dynamics;
 
     VkPushConstantRange push{};
-    push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     push.offset = 0;
-    push.size = sizeof(float) * 48; // mvp + model + lightVP
+    push.size = sizeof(float) * 52; // mvp + model + lightVP + camPos (vec4)
 
     const VkDescriptorSetLayout setLayouts[] = {m_store->layout(), m_shadowSetLayout,
                                                 m_lightSetLayout};
@@ -811,11 +816,16 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         const glm::mat4 model = glm::make_mat4(dc.model);
         const glm::mat4 mvp = vp * model;
 
-        float push[48];
+        float push[52];
         std::memcpy(push, glm::value_ptr(mvp), sizeof(float) * 16);
         std::memcpy(push + 16, glm::value_ptr(model), sizeof(float) * 16);
         std::memcpy(push + 32, glm::value_ptr(lightVP), sizeof(float) * 16);
-        vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+        push[48] = m_camPos[0];
+        push[49] = m_camPos[1];
+        push[50] = m_camPos[2];
+        push[51] = 1.0f;
+        vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0, sizeof(push), push);
 
         VkDescriptorSet albedo = m_store->descriptorSet(dc.texture);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &albedo, 0,

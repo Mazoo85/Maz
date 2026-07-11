@@ -7,6 +7,13 @@ layout(location = 2) in vec2 vUV;
 layout(location = 3) in vec4 vLightPos;
 layout(location = 4) in vec3 vWorldPos;
 
+layout(push_constant) uniform Push {
+    mat4 mvp;
+    mat4 model;
+    mat4 lightVP;
+    vec4 camPos; // world-space camera position (xyz)
+} pc;
+
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
 layout(set = 1, binding = 0) uniform sampler2D uShadow;
 
@@ -19,6 +26,7 @@ layout(set = 2, binding = 0) uniform Lights {
     vec4 ambient;  // rgb = ambient, w = active point-light count
     vec4 sunDir;   // xyz = direction toward the sun
     vec4 sunColor; // rgb = directional color
+    vec4 fog;      // rgb = fog color, w = density (0 disables fog)
     PointLight points[8];
 } L;
 
@@ -64,5 +72,14 @@ void main() {
         lit += L.points[i].color.rgb * ndl2 * atten;
     }
 
-    outColor = vec4(albedo * lit, 1.0);
+    vec3 color = albedo * lit;
+
+    // Exponential distance fog: blend toward the fog color with camera distance.
+    if (L.fog.w > 0.0) {
+        float dist = length(pc.camPos.xyz - vWorldPos);
+        float f = clamp(1.0 - exp(-L.fog.w * dist), 0.0, 1.0);
+        color = mix(color, L.fog.rgb, f);
+    }
+
+    outColor = vec4(color, 1.0);
 }

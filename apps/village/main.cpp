@@ -128,6 +128,9 @@ int main(int argc, char** argv) {
         p.color[0] = 1.0f; p.color[1] = 0.60f; p.color[2] = 0.26f; // warm lamp
         p.intensity = 3.4f;
     }
+    // Distance fog fading the far edges of the village into the sky horizon.
+    lighting.fogColor[0] = 0.72f; lighting.fogColor[1] = 0.78f; lighting.fogColor[2] = 0.88f;
+    lighting.fogDensity = 0.035f;
     renderer->setLighting(lighting);
 
     // A golden coin mesh, scattered in the open spaces between the houses.
@@ -290,6 +293,7 @@ int main(int argc, char** argv) {
         renderer->setClearColor(render::Color{0.10f, 0.12f, 0.16f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
+            renderer->setCameraPosition(glm::value_ptr(camera.position()));
             for (const Placed& pl : scene) {
                 renderer->drawMesh(pl.mesh, pl.model, pl.tex);
             }

@@ -72,6 +72,10 @@ struct SceneLighting {
     float sunColor[3] = {0.85f, 0.85f, 0.85f};
     Point points[kMaxPointLights];
     uint32_t pointCount = 0;
+    // Exponential distance fog blending meshes toward fogColor; fogDensity 0 disables it (default),
+    // so apps that don't opt in are unaffected. Pair fogColor with the sky horizon to fade cleanly.
+    float fogColor[3] = {0.72f, 0.82f, 0.95f};
+    float fogDensity = 0.0f;
 };
 
 // Rendering interface. Gameplay talks to this, never to Vulkan directly, so a future backend
@@ -108,8 +112,11 @@ public:
                                   const uint32_t* indices, uint32_t indexCount) = 0;
     // Set the combined view*projection matrix (column-major, 16 floats) for 3D draws this frame.
     virtual void setViewProjection3D(const float* viewProj16) = 0;
-    // Set the scene lighting (ambient + sun + point lights) for the 3D mesh path. Persists until
-    // changed; defaults to the standard daytime look. No-op when inactive.
+    // Set the world-space camera position for this frame (3 floats). Only needed for distance fog;
+    // harmless otherwise. No-op when inactive.
+    virtual void setCameraPosition(const float* pos3) = 0;
+    // Set the scene lighting (ambient + sun + point lights + fog) for the 3D mesh path. Persists
+    // until changed; defaults to the standard daytime look. No-op when inactive.
     virtual void setLighting(const SceneLighting& lighting) = 0;
     // Queue a mesh draw with the given model matrix (column-major, 16 floats) and a texture
     // (use a white texture for flat/vertex-colored meshes). Depth-tested, drawn beneath the 2D

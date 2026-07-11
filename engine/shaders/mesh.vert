@@ -11,6 +11,7 @@ layout(push_constant) uniform Push {
     mat4 mvp;
     mat4 model;
     mat4 lightVP;
+    vec4 camPos; // world-space camera position (xyz); used by the fragment shader for fog
 } pc;
 
 layout(location = 0) out vec3 vNormal;

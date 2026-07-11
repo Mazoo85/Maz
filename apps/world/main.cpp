@@ -157,6 +157,14 @@ int main(int argc, char** argv) {
         font.load(*renderer, fontPath.c_str(), 34.0f);
     }
 
+    // Daytime lighting (defaults) plus distance fog fading the far blocks into the sky horizon.
+    render::SceneLighting lighting;
+    lighting.fogColor[0] = 0.72f;
+    lighting.fogColor[1] = 0.82f;
+    lighting.fogColor[2] = 0.95f;
+    lighting.fogDensity = 0.018f;
+    renderer->setLighting(lighting);
+
     game::FlyCamera camera;
     camera.setPosition(glm::vec3(0.0f, 3.0f, 24.0f));
     camera.setYawPitch(-1.5708f, -0.12f);
@@ -249,6 +257,7 @@ int main(int argc, char** argv) {
         renderer->setClearColor(render::Color{0.55f, 0.68f, 0.85f, 1.0f}); // sky
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
+            renderer->setCameraPosition(glm::value_ptr(camera.position()));
 
             renderer->drawMesh(groundMesh, glm::value_ptr(glm::mat4(1.0f)), groundTex);
             for (const Block& b : blocks) {

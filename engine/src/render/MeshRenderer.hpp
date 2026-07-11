@@ -27,6 +27,11 @@ public:
                           const uint32_t* indices, uint32_t indexCount);
 
     void setViewProjection(const float* viewProj16);
+    void setCameraPosition(const float* pos3) {
+        m_camPos[0] = pos3[0];
+        m_camPos[1] = pos3[1];
+        m_camPos[2] = pos3[2];
+    }
     void setLighting(VulkanContext& ctx, const SceneLighting& lighting); // updates the lights UBO
     void setViewport(uint32_t w, uint32_t h) {
         m_viewportW = w;
@@ -94,6 +99,7 @@ private:
     std::vector<DrawCmd> m_cmds;
     float m_viewProj[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_lightVP[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    float m_camPos[3] = {0, 0, 0};
     uint32_t m_viewportW = 0;
     uint32_t m_viewportH = 0;
 };

@@ -39,6 +39,7 @@ public:
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
     void setViewProjection3D(const float* viewProj16) override;
+    void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
     void drawMesh(MeshHandle mesh, const float* model16, TextureHandle texture) override;
 
@@ -323,6 +324,12 @@ MeshHandle VulkanRenderer::createMesh(const MeshVertex* vertices, uint32_t verte
 void VulkanRenderer::setViewProjection3D(const float* viewProj16) {
     if (m_active) {
         m_meshes.setViewProjection(viewProj16);
+    }
+}
+
+void VulkanRenderer::setCameraPosition(const float* pos3) {
+    if (m_active) {
+        m_meshes.setCameraPosition(pos3);
     }
 }
 
