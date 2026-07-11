@@ -120,6 +120,8 @@ available):
 - **M43** — persistent graphics settings: `world` saves its bloom (**F7**), tonemap (**F8**), and
   wireframe (**F4**) choices to a `settings.ini` via `KeyValueStore` and restores them on the next
   launch; a HUD line shows the live state
+- **M44** — soft shadows: the shadow-map filter widened from 2×2 to a 5×5 PCF kernel (25 taps, wider
+  spread) for a soft penumbra instead of blocky edges — every shadowed 3D scene benefits
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

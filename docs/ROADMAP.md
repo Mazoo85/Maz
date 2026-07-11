@@ -213,7 +213,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       a full sun arc with responding sky/ambient/fog/lamps; M24)
 - [x] **Spot lights** (point lights gain an optional cone: direction + inner/outer angle; M25)
 - [ ] Forward+ or deferred path
-- [x] Shadow maps (directional light, depth-only pass, 2×2 PCF)
+- [x] Shadow maps (directional light, depth-only pass, **5×5 PCF** soft penumbra; M44)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
 - [ ] Image-based lighting, cascaded / point-light shadows
 - [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)

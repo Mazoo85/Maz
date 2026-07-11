@@ -42,16 +42,17 @@ float shadowFactor() {
         return 1.0; // outside the shadow map => lit
     }
     const float bias = 0.0025;
-    // 2x2 percentage-closer filtering for softer edges.
+    // 5x5 percentage-closer filtering (25 taps, 1.5-texel spread) for a soft shadow penumbra.
     float shadow = 0.0;
-    vec2 texel = 1.0 / vec2(textureSize(uShadow, 0));
-    for (int y = 0; y <= 1; ++y) {
-        for (int x = 0; x <= 1; ++x) {
+    vec2 texel = 1.5 / vec2(textureSize(uShadow, 0));
+    const int R = 2;
+    for (int y = -R; y <= R; ++y) {
+        for (int x = -R; x <= R; ++x) {
             float closest = texture(uShadow, uv + vec2(x, y) * texel).r;
             shadow += (p.z - bias > closest) ? 0.35 : 1.0;
         }
     }
-    return shadow * 0.25;
+    return shadow / float((2 * R + 1) * (2 * R + 1));
 }
 
 // Perturb the geometric normal by the tangent-space normal map, building the TBN frame from

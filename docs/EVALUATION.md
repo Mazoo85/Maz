@@ -185,5 +185,14 @@ persisted. This iteration:
 
 **Iteration 11 complete** (specular/roughness material; persistent graphics settings).
 
+### Iteration 12 — "Shadow & post polish" (in progress)
+Evaluation: shadows used a hard 2×2 PCF (blocky edges), and post-processing had no color grading.
+This iteration:
+- [x] **M44 — Soft shadows**: `shadowFactor()` widened to a 5×5 PCF kernel (25 taps at 1.5-texel
+  spread) for a soft penumbra. Shader-only; every shadowed 3D app benefits. Verified on lavapipe:
+  the `model` house casts a soft self-shadow with no blocky edges, no validation errors.
+- [ ] **M45 — Vignette + color grade**: an opt-in vignette + saturation/contrast in the composite
+  (`setColorGrade`), off by default so bloom-off/tonemap-off apps are unchanged.
+
 Later: transparency/particle depth-sorting, hot-reload shaders, full PBR, FXAA, second/ortho
 viewport, reflective water, SSAO, in-app settings menu UI.
