@@ -102,6 +102,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             Animator — named-clip library + timed cross-fade controller (play/update/pose);
             BlendSpace1D/2D — blend animations by a 1-D/2-D parameter (linear / barycentric-over-
               triangulation weights), Godot AnimationTree-style;
+            AnimStateMachine — named states + cross-fading transitions (fade + condition + travel);
+              active() returns weighted states (blend-space-shaped), so states compose with blend spaces,
+              Godot AnimationNodeStateMachine-style;
             solveTwoBoneIK — 2-bone inverse kinematics (law-of-cosines elbow solve + bend select +
               straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
@@ -197,6 +200,8 @@ apps/
               corners, stretching edges/center (ui::ninePatch)
   blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
+  statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-
+              fading colour bands over a scripted timeline (anim::AnimStateMachine)
 ```
 
 ## The frame loop (fixed timestep)

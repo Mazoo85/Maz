@@ -477,6 +477,14 @@ set_tests_properties(blackboard_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME statemachine_headless_smoke
+    COMMAND statemachine --headless --frames 30)
+
+set_tests_properties(statemachine_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

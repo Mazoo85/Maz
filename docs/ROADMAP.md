@@ -353,7 +353,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   play/update/pose; the `animator` demo cycles idle/wave/coil clips; M70) — full state graph / IK later
 - [x] **Blend spaces** (`anim::BlendSpace1D` linear-neighbour blend + `anim::BlendSpace2D` barycentric
   blend over a triangulation + `blendPosesWeighted` N-way pose mix — Godot AnimationTree BlendSpace1D/2D;
-  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92) — blend trees later
+  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92)
+- [x] **Animation state machine** (`anim::AnimStateMachine`: named states + cross-fading transitions
+  (fade time + condition + `travel()`) whose `active()` weights sum to 1 like a blend space, so states
+  compose with blend spaces — Godot AnimationNodeStateMachine; the `statemachine` demo cross-fades a
+  locomotion machine over a scripted timeline; M105) — nested sub-state-machines / root-motion later
 - [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
   select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
   arms solving toward targets; M97) — CCD / FABRIK multi-bone chains later
@@ -488,6 +492,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
+- [x] **Animation state machine** (`apps/statemachine`) — a locomotion machine's active-state weights as
+      stacked cross-fading colour bands over a scripted timeline (`anim::AnimStateMachine`) (M105)
 - [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel
       string-pulling (M87)
 - [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent

@@ -4,6 +4,7 @@
 // dependency philosophy.
 
 #include "maz/anim/AnimClip.hpp"
+#include "maz/anim/AnimStateMachine.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/IK.hpp"
@@ -3454,6 +3455,118 @@ void testBlendSpace() {
     }
 }
 
+void testAnimStateMachine() {
+    using anim::AnimStateMachine;
+
+    // Controllable inputs the transition conditions read.
+    bool moving = false, jump = false;
+
+    auto build = [&] {
+        AnimStateMachine sm;
+        sm.addState("idle", 0);
+        sm.addState("move", 1);
+        sm.addState("jump", 2);
+        sm.addTransition("idle", "move", 0.2f, [&] { return moving; });
+        sm.addTransition("move", "idle", 0.2f, [&] { return !moving; });
+        sm.addTransition("idle", "jump", 0.1f, [&] { return jump; });
+        sm.addTransition("move", "jump", 0.1f, [&] { return jump; });
+        sm.setStart("idle");
+        return sm;
+    };
+
+    // Starts in idle at full weight.
+    {
+        auto sm = build();
+        const auto a = sm.active();
+        CHECK(a.size() == 1);
+        CHECK(a[0].id == 0);
+        CHECK_NEAR(a[0].weight, 1.0f, 1e-6f);
+        CHECK(!sm.transitioning());
+        CHECK(sm.currentName() == "idle");
+    }
+
+    // Condition fires -> cross-fade idle->move; weights always sum to 1; midpoint ~0.5/0.5.
+    {
+        auto sm = build();
+        moving = true;
+        sm.update(1.0f / 60.0f); // begins the transition (fade 0.2s)
+        CHECK(sm.transitioning());
+        CHECK(sm.current() == 1); // heading toward move
+        // Step to roughly half the fade.
+        for (int i = 0; i < 5; ++i) {
+            sm.update(1.0f / 60.0f);
+        }
+        auto a = sm.active();
+        CHECK(a.size() == 2);
+        CHECK_NEAR(a[0].weight + a[1].weight, 1.0f, 1e-5f); // partition of unity
+        CHECK(a[0].id == 0 && a[1].id == 1);
+        CHECK(a[1].weight > 0.2f && a[1].weight < 0.8f); // genuinely blending
+        // Finish the fade -> pure move.
+        for (int i = 0; i < 20; ++i) {
+            sm.update(1.0f / 60.0f);
+        }
+        CHECK(!sm.transitioning());
+        a = sm.active();
+        CHECK(a.size() == 1);
+        CHECK(a[0].id == 1);
+        CHECK_NEAR(a[0].weight, 1.0f, 1e-6f);
+        moving = false;
+    }
+
+    // travel() forces a transition using the defined fade; an instant (fade 0) switch has no blend.
+    {
+        AnimStateMachine sm;
+        sm.addState("a", 10);
+        sm.addState("b", 20);
+        sm.addTransition("a", "b", 0.0f); // instant
+        sm.setStart("a");
+        sm.travel("b");
+        CHECK(!sm.transitioning()); // fade 0 -> switched immediately
+        CHECK(sm.active()[0].id == 20);
+    }
+
+    // Only OUTGOING transitions from the current state fire (idle's condition ignored while in move).
+    {
+        auto sm = build();
+        moving = true;
+        for (int i = 0; i < 30; ++i) {
+            sm.update(1.0f / 60.0f); // settle into move
+        }
+        CHECK(sm.currentName() == "move");
+        // Now request jump via condition; move->jump exists, fades over 0.1s.
+        jump = true;
+        sm.update(1.0f / 60.0f);
+        CHECK(sm.current() == 2);
+        jump = false;
+        moving = false;
+    }
+
+    // Composition with a blend space: state weight x leaf weight still sums to 1.
+    {
+        auto sm = build();
+        moving = true;
+        sm.update(1.0f / 60.0f);
+        for (int i = 0; i < 5; ++i) {
+            sm.update(1.0f / 60.0f);
+        }
+        anim::BlendSpace1D moveBlend; // the "move" state is itself walk<->run
+        moveBlend.addPoint(0.0f, 100); // walk
+        moveBlend.addPoint(1.0f, 101); // run
+        float total = 0.0f;
+        for (const auto& act : sm.active()) {
+            if (act.id == 1) { // the move state -> expand through its blend space at speed 0.5
+                for (const auto& lw : moveBlend.weights(0.5f)) {
+                    total += act.weight * lw.weight;
+                }
+            } else {
+                total += act.weight;
+            }
+        }
+        CHECK_NEAR(total, 1.0f, 1e-5f);
+        moving = false;
+    }
+}
+
 void testAnimator() {
     // Two single-key (constant) clips with distinct joint translations.
     auto makeConst = [](math::vec3 t) {
@@ -3817,6 +3930,7 @@ int main() {
     testSpatial2D();
     testTwoBoneIK();
     testBlendSpace();
+    testAnimStateMachine();
     testBehaviorTree();
     testBehaviorTreeExtras();
     testSteering();

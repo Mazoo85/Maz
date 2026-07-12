@@ -1459,13 +1459,43 @@ there — a clean, low-risk, exactly-testable additive win with a legible golden
   this rounds out the classic BT node set; it is not utility AI / GOAP, a HTN planner, or an event-
   driven BT scheduler — those remain.
 
+### Iteration 66 — "Benchmarking against Godot: animation state machine" (done)
+Continuing the Godot benchmark; animation was the most overdue subsystem. Maz had blend spaces (M92), a
+cross-fade animator (M70), an FSM (M62), and a keyframe timeline (M100) — but no *animation* state
+machine, which is the heart of Godot's AnimationTree (`AnimationNodeStateMachine`): a graph of states
+that cross-fade between each other, where a state can itself be a blend space. All the pieces existed;
+what was missing was the composition. It's pure logic with a legible, deterministic golden, so it was
+the clear animation pick.
+- [x] **M105 — Animation state machine (`anim::AnimStateMachine`)**: a graph of named states (each with
+  an int payload — a clip or blend-space id) and cross-fading transitions (a fade time + an optional
+  condition callback, plus explicit `travel(name)`). `update(dt)` advances an in-progress cross-fade and,
+  when idle, fires the first outgoing transition from the current state whose condition returns true.
+  The key design choice: `active()` returns the current state(s) with weights that **sum to 1** — during
+  a fade it's the from-state at `1−t` and the to-state at `t` — which is the *exact same shape* as a
+  blend space's weights, so the output feeds straight into `blendPosesWeighted` and a state can itself be
+  a blend space (state weight × leaf weight). `testAnimStateMachine` checks it exactly: it starts in the
+  start state at full weight; a condition fires a cross-fade whose two weights always partition unity
+  with a genuine mid-blend, then resolve to the pure target; `travel()` with a fade-0 transition switches
+  instantly with no blend; only *outgoing* transitions from the current state fire; and a state weight
+  multiplied through a nested blend space still sums to 1. Unit count **3686 → 3706**. The new
+  `statemachine` demo steps a locomotion machine (idle/move/jump) over a scripted speed+jump timeline and
+  draws the active-state weights as stacked colour bands across time — every cross-fade shows as one
+  colour smoothly slanting into the next (idle→move→jump→idle→move→idle), and the `move` band is itself a
+  walk→run blend space shaded dark→bright by speed, so you can *see* a state machine layered over a blend
+  space. Precomputed once, so the render is deterministic. New `statemachine_headless_smoke` + golden
+  (static, RMSE 0, threshold 0.05). Purely additive (new header + new app), so all existing goldens are
+  unchanged — confirmed by a serial golden run. ctest **61/61**. Honest scope: this is a flat state
+  machine with cross-fades + condition/travel transitions; it is not nested sub-state-machines,
+  root-motion extraction, or an animation-tree blend-graph editor — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): utility AI / GOAP / HTN planners on top of the BT (M104 rounds
-out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
+Later (Godot-gap priorities + backlog): nested sub-state-machines + root-motion on the animation state
+machine (M105 gives a flat cross-fading state machine); utility AI / GOAP / HTN planners on top of the BT
+(M104 rounds out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
 rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
 2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
 joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft

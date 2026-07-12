@@ -98,6 +98,7 @@ add_subdirectory(apps/softshadow)
 add_subdirectory(apps/groove)
 add_subdirectory(apps/stylebox)
 add_subdirectory(apps/blackboard)
+add_subdirectory(apps/statemachine)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -475,6 +475,16 @@ available):
   reactive selector). The new `blackboard` demo draws a sentry's tree twice — with `visible` false
   (PATROL) and true (ENGAGE) — each node box coloured by the *real* per-tick status, so you can watch
   the selector switch branches from one blackboard flag and leave the unused branch un-ticked.
+- **M105** — an animation **state machine** (`anim::AnimStateMachine`), toward Godot's
+  `AnimationNodeStateMachine`: a graph of named states with **cross-fading** transitions (a fade time +
+  an optional condition, plus explicit `travel()`), whose `active()` reports the current state(s) and
+  blend weights that sum to 1 — the same shape as a blend space's weights, so a state can itself *be* a
+  blend space (state weight × leaf weight) and the two compose. Pure logic, unit-tested (start state,
+  auto-transition on condition, cross-fade weights partition to 1 with a real midpoint, instant fade-0
+  switch, `travel()`, only-outgoing transitions fire, blend-space composition). The new `statemachine`
+  demo steps a locomotion machine (idle/move/jump) over a scripted speed+jump timeline and draws the
+  active-state weights as stacked colour bands — every cross-fade shows as one colour smoothly giving
+  way to the next, and the `move` band is itself a walk→run blend space shaded by speed.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
