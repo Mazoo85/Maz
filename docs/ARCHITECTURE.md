@@ -78,6 +78,8 @@ ecs/        World — entity-component system (sparse-set pools, each/view)   (h
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
             propagates world transforms parent-first (decomposed TRS); localToWorld   (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
+            CollisionLayers (32-bit layer/mask filtering: directional detects() + symmetric interact() +
+              CollisionObject2D + a named-layer LayerRegistry), Godot collision_layer/collision_mask-style,
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
             NavMesh (convex-cell navigation mesh: A* over cells + funnel string-pull for smooth paths),
@@ -238,6 +240,9 @@ apps/
               collapsed folders, and a selected-row highlight (ui::Tree)
   area2d/   Area2D sensors — 14 agents stream through a circular aura + a box gate; each zone shows agents
               inside now + enter/exit counts, agents inside a zone lit + ringed (game::Area2D)
+  layers/   Collision layers & masks — player/enemy/pickup species stream through a hurtbox watching only
+              enemies + a magnet watching only pickups; matches ring, ignored overlaps go dashed
+              (game::CollisionLayers + game::Area2D)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not

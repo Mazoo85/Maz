@@ -329,15 +329,21 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   applying any force; `overlaps()` covers circle-circle, box-box (AABB), and mixed circle-box via
   closest-point; an `AreaMonitor` diffs each frame's overlapping set to fire **enter / exit** events — a
   monitoring `Area2D` in Godot terms; the `area2d` demo streams agents through a circular aura + a box gate,
-  showing live membership + enter/exit counts per zone; M116) — collision layers / masks + body-vs-body
-  sensor pairs later
+  showing live membership + enter/exit counts per zone; M116) — body-vs-body sensor pairs later
+- [x] **Collision layers & masks** (`game::CollisionLayers`: 32-bit `LayerMask`; a directional
+  `detects(observerMask, targetLayer)` for Area2D/ray-style filtering + a symmetric
+  `interact(aLayer,aMask,bLayer,bMask)` for physics pairing; a `CollisionObject2D` with per-bit editing;
+  a named-layer `LayerRegistry` — Godot's collision_layer / collision_mask, the "which things does this
+  react to" half of the collision system; the `layers` demo streams player/enemy/pickup species through
+  a hurtbox watching only enemies + a magnet watching only pickups; M118) — per-shape layers + a
+  layer-filtered broadphase query later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
   in `world`; M53)
 - [ ] Other collision shapes, sphere/capsule casts, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
-- [ ] Continuous collision, layers / masks, physics materials
+- [~] Continuous collision, **layers / masks** (`game::CollisionLayers`, M118), physics materials
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
 
 ## Phase 7 — Audio
@@ -553,6 +559,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       arrows, two collapsed folders, and a selected-row highlight (`ui::Tree`) (M115)
 - [x] **Area2D sensors** (`apps/area2d`) — agents stream through a circular aura + a box gate; each zone
       shows live membership + enter/exit counts, agents inside a zone lit + ringed (`game::Area2D`) (M116)
+- [x] **Collision layers** (`apps/layers`) — player/enemy/pickup species stream through a hurtbox watching
+      only enemies + a magnet watching only pickups; matches light up, ignored overlaps go dashed
+      (`game::CollisionLayers`) (M118)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
 - [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the

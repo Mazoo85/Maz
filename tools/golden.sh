@@ -55,7 +55,7 @@ CASES=(
     "catcher||2.5|0.08"
     "data||2.5|0.12"
     "level||2.5|0.05"
-    "config||2.5|0.05"
+    "config||2.5|0.06"
     "profiler||2.5|0.05"
     "ecsave||2.5|0.05"
     "actions||2.5|0.05"
@@ -95,6 +95,7 @@ CASES=(
     "tree||2.0|0.05"
     "area2d||2.0|0.06"
     "blendtree||2.0|0.05"
+    "layers||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

@@ -39,6 +39,7 @@
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
+#include "maz/game/CollisionLayers.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/FlyCamera.hpp"
 #include "maz/game/Goap.hpp"

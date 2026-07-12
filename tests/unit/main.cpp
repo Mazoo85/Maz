@@ -34,6 +34,7 @@
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
+#include "maz/game/CollisionLayers.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
@@ -432,6 +433,93 @@ void testSoftShadow2D() {
         const float v = game::softVisibility(vec2{3, 20}, vec2{0, 0}, 30.0f, occ, 48);
         CHECK(v > 0.0f);
         CHECK(v < 1.0f);
+    }
+}
+
+void testCollisionLayers() {
+    using game::CollisionObject2D;
+    using game::detects;
+    using game::interact;
+    using game::layerBit;
+    using game::layerMask;
+    using game::LayerRegistry;
+
+    // Bits & mask building.
+    CHECK(layerBit(0) == 1u);
+    CHECK(layerBit(3) == 8u);
+    CHECK(layerBit(31) == 0x80000000u);
+    CHECK(layerBit(-1) == 0u);  // out of range -> empty
+    CHECK(layerBit(32) == 0u);
+    CHECK(layerMask({0, 1, 4}) == (1u | 2u | 16u));
+
+    // Directional detect: observer's mask vs target's layer.
+    CHECK(detects(layerBit(2), layerBit(2)));          // scanning the layer it lives in
+    CHECK(!detects(layerBit(2), layerBit(3)));         // different bit -> no
+    CHECK(detects(layerMask({1, 2}), layerBit(2)));    // mask covering several layers
+    CHECK(!detects(0u, layerBit(0)));                  // scans nothing
+
+    // Symmetric interact: either side scanning the other pairs them.
+    // A scans B's layer, B scans nothing back -> still interact (Godot pairs on either direction).
+    CHECK(interact(layerBit(0), layerBit(1), layerBit(1), 0u));
+    CHECK(interact(layerBit(1), 0u, layerBit(0), layerBit(1))); // B scans A
+    CHECK(!interact(layerBit(0), layerBit(0), layerBit(1), layerBit(1))); // neither scans the other
+    CHECK(interact(layerBit(0), layerBit(0), layerBit(0), layerBit(0)));  // both on/scan layer 0
+
+    // CollisionObject2D bit editing + queries.
+    {
+        CollisionObject2D player;
+        player.layer = 0;
+        player.mask = 0;
+        player.setLayerBit(0, true);  // player lives on layer 0
+        player.setMaskBit(1, true);   // player scans layer 1 (enemies)
+        player.setMaskBit(2, true);   // and layer 2 (pickups)
+        CHECK(player.layerHas(0));
+        CHECK(!player.layerHas(1));
+        CHECK(player.maskHas(1));
+        CHECK(player.maskHas(2));
+        CHECK(!player.maskHas(0));
+        player.setMaskBit(2, false); // stop scanning pickups
+        CHECK(!player.maskHas(2));
+
+        CollisionObject2D enemy;
+        enemy.layer = layerBit(1); // enemy lives on layer 1
+        enemy.mask = layerBit(0);  // enemy scans layer 0 (player)
+        CHECK(player.detects(enemy));      // player.mask(1) & enemy.layer(1) -> yes
+        CHECK(enemy.detects(player));      // enemy.mask(0) & player.layer(0) -> yes
+        CHECK(player.interactsWith(enemy));
+
+        CollisionObject2D pickup;
+        pickup.layer = layerBit(2); // pickups on layer 2
+        pickup.mask = 0;            // pickups scan nothing
+        CHECK(!player.detects(pickup));      // player no longer scans layer 2
+        CHECK(!pickup.detects(player));      // pickup scans nothing
+        CHECK(!player.interactsWith(pickup)); // neither scans the other -> no pairing
+    }
+
+    // Named-layer registry: insertion-ordered bit assignment, lookup, combined masks, overflow.
+    {
+        LayerRegistry reg;
+        const int p = reg.add("player");
+        const int e = reg.add("enemy");
+        const int k = reg.add("pickup");
+        CHECK(p == 0);
+        CHECK(e == 1);
+        CHECK(k == 2);
+        CHECK(reg.add("player") == 0); // re-adding returns the existing index
+        CHECK(reg.size() == 3);
+        CHECK(reg.index("enemy") == 1);
+        CHECK(reg.index("missing") == -1);
+        CHECK(reg.bit("pickup") == layerBit(2));
+        CHECK(reg.bit("missing") == 0u);
+        CHECK(reg.mask({"player", "pickup"}) == (layerBit(0) | layerBit(2)));
+
+        // Fill to 32 then overflow.
+        LayerRegistry full;
+        for (int i = 0; i < 32; ++i) {
+            CHECK(full.add("l" + std::to_string(i)) == i);
+        }
+        CHECK(full.add("overflow") == -1);
+        CHECK(full.size() == 32);
     }
 }
 
@@ -5078,6 +5166,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testCollisionLayers();
     testArea2D();
     testAvoidance();
     testVisibility2D();

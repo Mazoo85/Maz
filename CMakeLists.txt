@@ -111,6 +111,7 @@ add_subdirectory(apps/sequencer)
 add_subdirectory(apps/envelope)
 add_subdirectory(apps/tree)
 add_subdirectory(apps/area2d)
+add_subdirectory(apps/layers)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

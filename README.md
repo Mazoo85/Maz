@@ -603,6 +603,15 @@ available):
   air parameter" is one evaluable tree. Pure pose math, unit-tested (each node type + a nested tree +
   degenerate cases). The new `blendtree` demo drives a stick figure through exactly that tree on a grid:
   columns sweep gait (idle → walk → run), rows sweep air (grounded → jump).
+- **M118** — **collision layers & masks** (`game::CollisionLayers`), Godot's `collision_layer` /
+  `collision_mask`: the other half of the collision system. Overlap geometry answers "do these shapes
+  touch?"; layers answer "should they even be considered?". Each object lives in some *layers* ("what I
+  am") and scans some *mask* ("what I react to"), so a pickup magnet ignores enemies and an enemy
+  hurtbox ignores coins even when they physically overlap. Pure 32-bit bitmask logic — a directional
+  `detects()` (Area2D/ray-style), a symmetric `interact()` (physics-pair-style), a `CollisionObject2D`
+  with per-bit editing, and a named-layer registry — all unit-tested. The new `layers` demo streams
+  three species (player/enemy/pickup) through a hurtbox that watches only enemies and a magnet that
+  watches only pickups; matching agents light up, overlapping-but-ignored ones get a faint dashed ring.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
