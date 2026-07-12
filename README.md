@@ -8,6 +8,10 @@ This repo holds two things:
 2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
    engine's eventual flagship port target (roadmap Phase 13).
 
+> **Codebase memory:** this repo is set up with a
+> [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
+> cross-session memory about the project. It starts automatically in Claude Code — no setup needed.
+
 ## Building Maz Engine
 
 Requires a C++20 compiler, CMake ≥ 3.24, the **Vulkan SDK** (loader + `glslangValidator`), and
