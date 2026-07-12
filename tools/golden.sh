@@ -104,6 +104,7 @@ CASES=(
     "choreo||2.0|0.06"
     "prefab||2.0|0.06"
     "line2d||2.0|0.06"
+    "restext||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

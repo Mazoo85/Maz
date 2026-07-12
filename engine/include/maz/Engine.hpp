@@ -62,6 +62,7 @@
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
+#include "maz/io/PrefabText.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/math/Math.hpp"

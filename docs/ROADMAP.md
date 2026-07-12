@@ -302,8 +302,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Prefabs / instancing** (`scene::Prefab`: a `PrefabNode` tree of named nodes each with an exported
   `PropBag` (Float/Int/Bool/Vec2/Color/Text `PropValue`s); `instantiate(prefab, overrides)` deep-copies the
   template and applies per-node-path property overrides → an independent instance — Godot PackedScene; the
-  `prefab` demo instances one turret template six times with per-instance overrides; M125) — on-disk prefab
-  serialization + nested-prefab references + editable-children later
+  `prefab` demo instances one turret template six times with per-instance overrides; M125)
+- [x] **Text resource save/load** (`io::savePrefabText` / `io::loadPrefabText`: round-trip a `scene::Prefab`
+  to Godot-`.tscn`-style text — `[node name/parent]` sections + typed `key = TYPE value` lines — diffable,
+  version-control-friendly, idempotent; the `restext` demo serializes an Enemy prefab + confirms the
+  parse-back; M127) — full `.tscn` parsing (ExtResource/SubResource refs, arrays) + SceneSerializer bridge
+  later
 - [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
 

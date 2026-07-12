@@ -2159,6 +2159,33 @@ headlessly and is deterministic.
   line, no texture-along-the-line (Godot's `texture_mode`), and no antialiased edges — those remain
   rendering-2D gaps.
 
+### Iteration 88 — "Benchmarking against Godot: .tscn/.tres text resources" (done)
+Rotating to core/io for breadth, and a deliberate follow-on to M125: prefabs got an in-memory template +
+instancing, but M125 explicitly left "no on-disk prefab serialization" open. Godot stores scenes and
+resources as **human-readable text** (`.tscn` / `.tres`) — that's what makes them diffable and
+merge-friendly in version control, and it's a distinct core/io subsystem (its whole save format). This
+gives a Maz prefab that same text round-trip.
+- [x] **M127 — text resource save/load (`io::savePrefabText` / `io::loadPrefabText`)**: a new
+  `PrefabText.hpp`. `savePrefabText(prefab)` serializes a `scene::Prefab` tree to Godot-`.tscn`-style text —
+  a `[node name="…"]` section per node (children carry `parent="…"`, `"."` for the root), each followed by
+  typed `key = TYPE values` lines (`int 100`, `float 3.5`, `bool true`, `vec2 64 48`, `color 0.8 0.3 0.3
+  1`, `text "grunt"`). `loadPrefabText(text, out)` parses it straight back into an identical tree: it reads
+  each `[node …]` header (extracting `name`/`parent`), attaches the node under its parent by path, and
+  fills each property from its typed value line. `testPrefabText` pins the exact serialized text
+  (`[node name="chassis"]`, `hp = int 100`, `[node name="turret" parent="."]`, `[node name="barrel"
+  parent="turret"]`, `len = float 46`), a full parse-back (root name, 3 nodes, hp, a nested vec2/color/float
+  by path), **idempotence** (re-serializing the loaded tree yields byte-identical text), a round-trip of
+  **every** property type (float/int/bool/vec2/color/text), and a clean failure on empty input. Unit checks
+  **4445 → 4468**. The new `restext` demo authors a small "Enemy" prefab (chassis with hp/speed/pos/name +
+  Sprite and Hitbox children), renders the serialized `.tscn` text in a panel, and shows a live round-trip
+  readout (parsed back OK, 3 nodes reconstructed, `Enemy.hp = 120`, re-serialize identical). Static text →
+  deterministic golden (threshold 0.06, text-dense). Purely additive (new header + new app), so every
+  existing golden is byte-unchanged (confirmed by a serial golden run); ctest **82/82 → 83/83**. Honest
+  scope: this serializes the *prefab* node/property model; it does not yet parse full Godot `.tscn`
+  (`[gd_scene]`/`[ext_resource]`/`[sub_resource]` headers, `ExtResource(…)`/`SubResource(…)` references,
+  arrays/dictionaries, or string escaping), and it isn't wired to the ECS `SceneSerializer` — those remain
+  io gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

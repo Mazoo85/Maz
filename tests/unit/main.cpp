@@ -64,6 +64,7 @@
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
+#include "maz/io/PrefabText.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/scene/Prefab.hpp"
@@ -3261,6 +3262,79 @@ void testPrefab() {
     }
 }
 
+void testPrefabText() {
+    using scene::Prefab;
+    using scene::PrefabNode;
+    using scene::PropValue;
+
+    // Build a small tree: chassis (int hp, vec2 pos) → turret (color) → barrel (float len).
+    Prefab pf;
+    pf.root.name = "chassis";
+    scene::setProp(pf.root.props, "hp", PropValue::makeInt(100));
+    scene::setProp(pf.root.props, "pos", PropValue::makeVec2(math::vec2(3.0f, 4.0f)));
+    PrefabNode turret;
+    turret.name = "turret";
+    scene::setProp(turret.props, "color", PropValue::makeColor(math::vec4(0.5f, 0.25f, 0.75f, 1.0f)));
+    PrefabNode barrel;
+    barrel.name = "barrel";
+    scene::setProp(barrel.props, "len", PropValue::makeFloat(46.0f));
+    turret.children.push_back(barrel);
+    pf.root.children.push_back(turret);
+
+    const std::string text = io::savePrefabText(pf);
+
+    // The text has the expected node sections + typed property lines.
+    CHECK(text.find("[node name=\"chassis\"]") != std::string::npos);
+    CHECK(text.find("hp = int 100") != std::string::npos);
+    CHECK(text.find("[node name=\"turret\" parent=\".\"]") != std::string::npos);
+    CHECK(text.find("[node name=\"barrel\" parent=\"turret\"]") != std::string::npos);
+    CHECK(text.find("len = float 46") != std::string::npos);
+
+    // Parse it back into an identical tree.
+    Prefab loaded;
+    CHECK(io::loadPrefabText(text, loaded));
+    CHECK(loaded.root.name == "chassis");
+    CHECK(scene::nodeCount(loaded.root) == 3);
+    CHECK(scene::getInt(loaded.root.props, "hp") == 100);
+    CHECK_NEAR(scene::getVec2(loaded.root.props, "pos").x, 3.0f, 1e-4f);
+    PrefabNode* lt = scene::findNode(loaded.root, "turret");
+    CHECK(lt != nullptr);
+    CHECK_NEAR(scene::getColor(lt->props, "color").z, 0.75f, 1e-4f);
+    PrefabNode* lb = scene::findNode(loaded.root, "turret/barrel");
+    CHECK(lb != nullptr);
+    CHECK_NEAR(scene::getFloat(lb->props, "len"), 46.0f, 1e-4f);
+
+    // Round-trip is idempotent: re-serializing the loaded tree yields identical text.
+    CHECK(io::savePrefabText(loaded) == text);
+
+    // Every property type survives a round-trip.
+    {
+        Prefab one;
+        one.root.name = "n";
+        scene::setProp(one.root.props, "f", PropValue::makeFloat(1.5f));
+        scene::setProp(one.root.props, "i", PropValue::makeInt(-7));
+        scene::setProp(one.root.props, "b", PropValue::makeBool(true));
+        scene::setProp(one.root.props, "v", PropValue::makeVec2(math::vec2(2.0f, -3.0f)));
+        scene::setProp(one.root.props, "c", PropValue::makeColor(math::vec4(0.1f, 0.2f, 0.3f, 0.4f)));
+        scene::setProp(one.root.props, "t", PropValue::makeText("hello world"));
+        Prefab back;
+        CHECK(io::loadPrefabText(io::savePrefabText(one), back));
+        CHECK_NEAR(scene::getFloat(back.root.props, "f"), 1.5f, 1e-4f);
+        CHECK(scene::getInt(back.root.props, "i") == -7);
+        CHECK(scene::getBool(back.root.props, "b") == true);
+        CHECK_NEAR(scene::getVec2(back.root.props, "v").y, -3.0f, 1e-4f);
+        CHECK_NEAR(scene::getColor(back.root.props, "c").w, 0.4f, 1e-4f);
+        const PropValue* tp = scene::findProp(back.root.props, "t");
+        CHECK(tp != nullptr && tp->text == "hello world");
+    }
+
+    // Empty text yields no root (load fails cleanly).
+    {
+        Prefab empty;
+        CHECK(!io::loadPrefabText("", empty));
+    }
+}
+
 void testActionMap() {
     using input::Device;
     input::ActionMap map;
@@ -6012,6 +6086,7 @@ int main() {
     testCameraController();
     testTransformGraph();
     testPrefab();
+    testPrefabText();
     testPolyline();
     testActionMap();
     testSceneSerializer();

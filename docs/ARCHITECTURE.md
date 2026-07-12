@@ -168,6 +168,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             core stays zero-dependency while apps get "config.json drives the engine";
             SceneSerializer — reflection-lite ECS save/load: register per-component JSON converters,
             then saveWorld/loadWorld a live ecs::World to/from JSON (save games, prefabs, editor)
+            PrefabText — savePrefabText/loadPrefabText: round-trip a scene::Prefab tree to Godot-.tscn-style
+              text ([node name/parent] sections + typed key = TYPE value lines), diffable + version-control-
+              friendly (Godot .tscn/.tres)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
             Emitter — a particle emitter RESOURCE (Godot CPUParticles2D): emission shape (point/disk/
               ring/rect) + per-lifetime scale/alpha Curve + multi-stop colour Gradient + direction/spread/
@@ -230,6 +233,8 @@ apps/
               snapshotted at a fixed time, each dot placed by its anim::TweenPlayer through a bound setter
   prefab/    Prefabs / instancing — one turret prefab (chassis>turret>barrel) instanced six times with
               per-node overrides (body/turret colour, barrel length, body width) via scene::instantiate
+  restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
+              then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar
               under none/box/round caps, a sampled sine curve, and a closed star (render::buildPolyline)
   parallax/  Parallax backgrounds — the same five-layer scene in three strips at different camera scrolls;

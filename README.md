@@ -674,6 +674,12 @@ available):
   the primitive behind trails, curves, graphs, and outlines. It returns a triangle soup fed straight to
   `drawConvexPolygon`. The new `line2d` demo strokes a zig-zag under each joint mode, a bar under each cap
   mode, an 80-point sine curve, and a closed star loop.
+- **M127** — **`.tscn`/`.tres` text resources** (`io::savePrefabText` / `io::loadPrefabText`), toward
+  Godot's text scene format: M125 gave prefabs an in-memory template; this makes them a *disk resource* you
+  can read, diff, and version-control as plain text. A prefab serializes to `[node name="…" parent="…"]`
+  sections with typed `key = TYPE value` lines and parses straight back into an identical tree. The new
+  `restext` demo authors an "Enemy" prefab, renders its serialized text, and confirms the round-trip
+  (parsed back, 3 nodes, re-serialize identical).
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
