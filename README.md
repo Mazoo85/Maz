@@ -535,6 +535,17 @@ available):
   separated pair reports none, and a settled tower stays near-upright with manifolds on where the
   single-point solver lets it rotate away). The new `stack` demo drops two identical five-box towers side
   by side — with manifolds on the tower stands square, with them off the same tower topples.
+- **M111** — **normal-mapped 2D lighting** (`game::PointLight2D` + `shadeSurface`), toward Godot's
+  Light2D with a normal map. A flat 2D surface carries a normal map (a per-texel surface normal); a 2D
+  point light then shades each texel by how squarely its normal faces the light (a 3D N·L Lambert term
+  with the light taken at a height above the plane, plus smooth distance falloff), so bumps read as
+  three-dimensional — lit on the side facing the light, shadowed on the far side. Earlier lights
+  (M89/M101) were flat-coloured pools with occluder shadows but no surface relief; this adds it. Pure
+  vector math, unit-tested (a flat texel under a light overhead is fully lit; a normal tilted toward the
+  light beats one tilted away; back-facing and out-of-range texels get nothing; ambient keeps unlit areas
+  from going black and strong light clamps to white). The new `normalmap` demo lights a field of dome
+  bumps with three coloured point lights — each dome catches its nearest light on the facing side, and
+  the warm / cool / magenta pools overlap and mix.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

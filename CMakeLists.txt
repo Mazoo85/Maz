@@ -104,6 +104,7 @@ add_subdirectory(apps/tentacle)
 add_subdirectory(apps/goap)
 add_subdirectory(apps/theme)
 add_subdirectory(apps/stack)
+add_subdirectory(apps/normalmap)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

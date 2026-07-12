@@ -525,6 +525,14 @@ set_tests_properties(stack_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME normalmap_headless_smoke
+    COMMAND normalmap --headless --frames 30)
+
+set_tests_properties(normalmap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

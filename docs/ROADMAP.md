@@ -225,7 +225,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D:** soft/penumbra shadows (`game::SoftShadow2D`: model a light as a disc, spread `diskSamples`
   Vogel-spiral samples across it, `softVisibility` = fraction of the disc visible from a point — Godot
   Light2D soft shadows; the `softshadow` demo contrasts a hard point light with an area light whose
-  shadow feathers into a penumbra; M101) — normal-mapped / textured 2D lights later
+  shadow feathers into a penumbra; M101)
+- [x] **2D:** normal-mapped lighting (`game::PointLight2D` + `shadeSurface`: a per-texel surface normal
+  shaded by a 3D N·L Lambert term — the light taken at a height above the plane — plus smooth distance
+  falloff and ambient, so a flat surface with a normal map reads as embossed relief — Godot Light2D
+  normal maps; the `normalmap` demo lights a field of dome bumps with three coloured point lights; M111)
+  — texture-projected light cookies + a CanvasItem material/shader hook later
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -562,6 +567,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       ones curl to touch (green), out-of-reach ones straighten and point (red) (`anim::solveFabrik`) (M107)
 - [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
       vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
+- [x] **Normal-mapped lighting** (`apps/normalmap`) — a field of dome bumps lit by three coloured point
+      lights, each dome shaded on the side facing a light so it reads as 3D relief (`game::shadeSurface`) (M111)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

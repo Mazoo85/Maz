@@ -1637,6 +1637,34 @@ path, so I gated it behind an opt-in flag to keep every existing rotating golden
   which Box2D adds for very tall/heavy stacks — and it is opt-in rather than the default until the existing
   demos migrate. Those remain physics gaps.
 
+### Iteration 72 — "Benchmarking against Godot: normal-mapped 2D lighting" (done)
+Rotating to 2D rendering (last was M101's soft shadows). Maz's 2D lights (M89 flat pools + occluder
+shadows, M101 penumbra) all shade a light as a *flat* colour wash — they have no idea about the surface
+underneath. Godot's Light2D reads a sprite's NORMAL MAP so each texel is lit by how squarely it faces the
+light, which is what makes a flat-painted 2D wall or floor look embossed and three-dimensional. That
+per-texel normal response was the clear rendering gap: it's pure shading math (a 3D Lambert term), fully
+unit-testable, deterministic, and a brand-new header so it can't regress anything.
+- [x] **M111 — Normal-mapped 2D lighting (`game::PointLight2D` / `shadeSurface`)**: a new math-only
+  `NormalLight2D.hpp`. A `PointLight2D` floats at a `height` above the surface plane (setting the grazing
+  angle) with a colour, `energy`, and `range`. `shadePointLight(p, n, albedo, L)` builds the 3D direction
+  from the texel (on the z=0 plane) up to the light, takes the Lambert **N·L** against the texel's unit
+  surface normal `n` (tangent space, +z out of the screen), and multiplies by a smooth `(1−(d/range)²)²`
+  distance falloff — returning zero when the texel faces away or lies outside range. `shadeSurface` sums
+  several lights over an `albedo·ambient` base and clamps to [0,1]; `decodeNormal` unpacks the usual
+  blue-encoded normal-map texel. `testNormalLight` pins it down: a flat texel under an overhead light is
+  fully lit; a normal tilted toward the light beats one tilted away; a back-facing or out-of-range texel
+  gets nothing; nearer beats farther; ambient keeps unlit areas off pure black while a strong light clamps
+  to white; the flat (0.5,0.5,1) texel decodes to +z and every decode is unit-length. Unit count **3975 →
+  3992**. The new `normalmap` demo paints one flat stone-coloured surface with a procedural dome-bump
+  normal map and lights it with three coloured point lights (warm, cool, magenta): each dome is bright on
+  the side facing a light and shadowed on the far side, so the flat field reads as rows of raised studs,
+  and the three colour pools overlap and mix. Purely additive (new header + new app), so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); the shaded field is static → deterministic
+  golden (RMSE 0, threshold 0.05). ctest **66/66 → 67/67**. Honest scope: this is the normal-map lighting
+  model computed per cell on the CPU; it is not yet a GPU fragment-shader sprite-material path, a
+  texture-projected light *cookie*, or specular/rim terms — those remain rendering gaps (and a true
+  per-pixel shader path needs the Vulkan sprite pipeline, not just this math).
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1653,8 +1681,9 @@ StyleBoxFlat rounded corners/border/shadow + a flat named-style Theme registry; 
 texture mapping);
 cross-frame warm starting + a block solver for very tall stacks + making two-point manifolds the default +
 motorized/limited slider + gear/weld joints (M110 gives opt-in two-point contact manifolds for stable
-stacks; M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
-shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the
+stacks; M102 completes the pin/spring/groove trio); a GPU fragment-shader sprite-material path + a
+texture-projected light *cookie* + specular/rim terms (M111 gives CPU normal-mapped point lighting; M101
+gives soft shadows); call-method/trigger tracks + a visual track editor on the
 timeline (M100 gives value tracks + per-segment easing);
 ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
 crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone angle

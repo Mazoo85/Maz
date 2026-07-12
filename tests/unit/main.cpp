@@ -33,6 +33,7 @@
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
+#include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SoftShadow2D.hpp"
@@ -3374,6 +3375,104 @@ void testManifold2() {
     CHECK(tiltManifolds <= tiltSingle + 1e-4f);
 }
 
+void testNormalLight() {
+    using game::PointLight2D;
+    using math::vec2;
+    using math::vec3;
+
+    const vec3 white(1.0f, 1.0f, 1.0f);
+    const vec3 flat(0.0f, 0.0f, 1.0f); // +z, facing the viewer
+
+    // A light directly above a flat-facing texel lights it fully (N·L = 1 at the centre, atten ~1).
+    {
+        PointLight2D L;
+        L.pos = vec2(0.0f, 0.0f);
+        L.height = 50.0f;
+        L.range = 400.0f;
+        L.energy = 1.0f;
+        L.color = white;
+        const vec3 c = game::shadePointLight(vec2(0.0f, 0.0f), flat, white, L);
+        // Straight down onto a +z normal -> N·L = 1, distance in-plane 0 -> atten 1.
+        CHECK_NEAR(c.x, 1.0f, 1e-4f);
+        CHECK_NEAR(c.y, 1.0f, 1e-4f);
+        CHECK_NEAR(c.z, 1.0f, 1e-4f);
+    }
+
+    // A normal tilted TOWARD the light is brighter than one tilted AWAY.
+    {
+        PointLight2D L;
+        L.pos = vec2(100.0f, 0.0f); // light to the right
+        L.height = 40.0f;
+        L.range = 400.0f;
+        const vec3 nRight = glm::normalize(vec3(0.6f, 0.0f, 0.8f)); // tilts right, toward the light
+        const vec3 nLeft = glm::normalize(vec3(-0.6f, 0.0f, 0.8f)); // tilts left, away
+        const vec3 cR = game::shadePointLight(vec2(0.0f, 0.0f), nRight, white, L);
+        const vec3 cL = game::shadePointLight(vec2(0.0f, 0.0f), nLeft, white, L);
+        CHECK(cR.x > cL.x); // the face turned toward the light catches more
+    }
+
+    // A back-facing normal (pointing into the screen) receives nothing.
+    {
+        PointLight2D L;
+        L.pos = vec2(0.0f, 0.0f);
+        L.height = 40.0f;
+        const vec3 back(0.0f, 0.0f, -1.0f);
+        const vec3 c = game::shadePointLight(vec2(0.0f, 0.0f), back, white, L);
+        CHECK_NEAR(c.x, 0.0f, 1e-6f);
+        CHECK_NEAR(c.y, 0.0f, 1e-6f);
+        CHECK_NEAR(c.z, 0.0f, 1e-6f);
+    }
+
+    // Distance attenuation: a nearer texel is brighter than a farther one, and past the range it is dark.
+    {
+        PointLight2D L;
+        L.pos = vec2(0.0f, 0.0f);
+        L.height = 30.0f;
+        L.range = 200.0f;
+        const vec3 near = game::shadePointLight(vec2(40.0f, 0.0f), flat, white, L);
+        const vec3 far = game::shadePointLight(vec2(150.0f, 0.0f), flat, white, L);
+        CHECK(near.x > far.x);
+        const vec3 outside = game::shadePointLight(vec2(250.0f, 0.0f), flat, white, L);
+        CHECK_NEAR(outside.x, 0.0f, 1e-6f); // beyond range
+    }
+
+    // shadeSurface: ambient keeps unlit areas from going fully black, and lights add on top clamped to 1.
+    {
+        std::vector<PointLight2D> lights;
+        PointLight2D L;
+        L.pos = vec2(0.0f, 0.0f);
+        L.height = 40.0f;
+        L.range = 300.0f;
+        L.energy = 5.0f; // strong -> would exceed 1 before clamping
+        lights.push_back(L);
+
+        const vec3 albedo(0.8f, 0.4f, 0.2f);
+        const vec3 ambient(0.2f, 0.2f, 0.2f);
+
+        // Far, back-facing point: only ambient -> albedo*ambient.
+        const vec3 dark = game::shadeSurface(vec2(0.0f, 0.0f), vec3(0.0f, 0.0f, -1.0f), albedo, lights,
+                                             ambient);
+        CHECK_NEAR(dark.x, albedo.x * ambient.x, 1e-4f);
+
+        // Directly lit + strong energy clamps to 1.
+        const vec3 lit = game::shadeSurface(vec2(0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), albedo, lights,
+                                            ambient);
+        CHECK_NEAR(lit.x, 1.0f, 1e-4f);
+        CHECK(lit.y <= 1.0f && lit.y >= 0.0f);
+    }
+
+    // decodeNormal: the flat "blue" texel (0.5,0.5,1) decodes to +z; a normalized result always.
+    {
+        const vec3 n = game::decodeNormal(vec3(0.5f, 0.5f, 1.0f));
+        CHECK_NEAR(n.x, 0.0f, 1e-4f);
+        CHECK_NEAR(n.y, 0.0f, 1e-4f);
+        CHECK_NEAR(n.z, 1.0f, 1e-4f);
+        const vec3 m = game::decodeNormal(vec3(1.0f, 0.5f, 0.5f)); // +x lean
+        CHECK(m.x > 0.0f);
+        CHECK_NEAR(std::sqrt(glm::dot(m, m)), 1.0f, 1e-4f); // unit length
+    }
+}
+
 void testAudioDsp() {
     const float sr = 44100.0f;
 
@@ -4376,6 +4475,7 @@ int main() {
     testPhysics2DJoints();
     testPhysics2DGroove();
     testManifold2();
+    testNormalLight();
     testAudioDsp();
     testAudioEffects();
     testSpatial2D();

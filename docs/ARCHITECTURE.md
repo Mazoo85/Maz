@@ -97,6 +97,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
+            NormalLight2D (normal-mapped 2D lighting — PointLight2D shaded by a 3D N·L Lambert term with the
+            light at a height above the plane + smooth distance falloff + ambient; shadeSurface sums lights,
+            decodeNormal unpacks a normal-map texel), Godot Light2D normal-map-style,
             SoftShadow2D (area-light soft/penumbra shadows: diskSamples Vogel-spiral across the light +
             softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
@@ -218,6 +221,8 @@ apps/
               disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels (ui::StyleBoxFlat + Theme)
   stack/    Stable box stacks — two identical five-box towers dropped side by side; two-point manifolds on
               keeps one square, off lets the other topple (PhysicsWorld2D::solveManifolds)
+  normalmap/ Normal-mapped 2D lighting — a field of dome bumps lit by three coloured point lights, each
+              dome shaded on the side facing a light so it reads as 3D relief (game::shadeSurface)
   blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
   statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-

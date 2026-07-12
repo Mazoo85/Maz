@@ -39,6 +39,7 @@
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
+#include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SoftShadow2D.hpp"
