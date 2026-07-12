@@ -693,6 +693,14 @@ set_tests_properties(rayquery_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME strtable_headless_smoke
+    COMMAND strtable --headless --frames 30)
+
+set_tests_properties(strtable_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

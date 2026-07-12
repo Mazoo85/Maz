@@ -2307,6 +2307,36 @@ renders a clean deterministic golden.
   (queries are linear over the shape list — fine for hundreds, not thousands), or motion-query
   integration with the rigid-body solver (`move_and_collide`); those remain physics gaps.
 
+### Iteration 93 — "Benchmarking against Godot: interned strings (StringName)" (done)
+Rotating to **core data structures** for breadth — no core-utility milestone in many rounds, and this
+closes a genuinely foundational gap that's been on the Phase-2 backlog since the start: **string
+interning**. A game names things constantly — node names, signal names, animation tracks, input actions,
+entity tags — and Godot represents those as `StringName`: each unique string is stored once and referred
+to thereafter by a tiny integer, so comparison is an int compare and hashing is trivial. Maz had no such
+facility; every subsystem hand-hashed or string-compared. It's a pure data structure (a table + a
+handle), so it unit-tests exhaustively and renders a clean deterministic golden.
+- [x] **M132 — string interning / `StringId` (`core::StringTable` + `core::fnv1a32`)**: a new
+  `StringId.hpp`. `StringTable::intern(text)` adds-or-finds and returns a stable `StringId` handle (a
+  32-bit dense insertion index); interning the **same** text always returns the **same** id, so name
+  equality becomes an integer compare. `find(text)` looks up *without* inserting (invalid id if absent);
+  `str(id)` reverses an id back to its text; `hash(id)` exposes the stored **FNV-1a-32** hash;
+  `contains` / `size` / `empty` / `clear` round it out. `StringId` is trivially copyable, ordered (usable
+  as a map key), and gets a `std::hash` specialization so it works in unordered containers. The free
+  `fnv1a32` is a stable, platform-independent content hash. `testStringId` pins: dedup (same text → same
+  id, three interns → two unique), reverse lookup + invalid-id → empty string, non-inserting `find`,
+  dense stable ids, the FNV hash against the **known** constant `fnv1a32("hello") == 0x4F9F2CAB` (and the
+  empty-string offset basis), the empty string as a legitimate interned value, `StringId` as an
+  `unordered_map` key, and `clear`. Unit checks **4567 → 4595**. The new `strtable` demo interns a stream
+  of ten tag references (`player`/`enemy`/`pickup`/… with repeats) into a table and shows two panels: the
+  raw reference stream with each name's assigned id (first appearance of an id flagged green "new",
+  repeats blue), and the deduplicated pool (id → text → FNV hash) — "10 references collapse to 5 unique
+  ids". Static → deterministic golden (threshold 0.06). Purely additive (new header + new app), so every
+  existing golden is byte-unchanged (confirmed by a serial golden run); ctest **87/87 → 88/88**. Honest
+  scope: this is a per-`StringTable` interner with 32-bit ids. It is not a *global* process-wide
+  `StringName` registry (Godot interns into one global table shared everywhere), it isn't thread-safe
+  (core is single-threaded by convention — wrap externally if shared), and the subsystems that currently
+  hand-hash names aren't retrofitted to use it yet; those remain follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

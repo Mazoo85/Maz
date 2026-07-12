@@ -171,7 +171,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [ ] Handles / generational indices, object pools
 - [ ] Containers: `small_vector`, sparse set, ring buffer
-- [ ] String interning / `StringId` (hashed), fixed strings
+- [x] **String interning / `StringId`** (`core::StringTable`: intern-or-find each unique name once →
+  a stable 32-bit `StringId` handle so name equality is an int compare; `find` (non-inserting) / `str`
+  (reverse) / `hash` (stored FNV-1a-32) / `contains` / `clear`; a `std::hash<StringId>` for unordered
+  containers; the free `fnv1a32` content hash — Godot `StringName`; the `strtable` demo interns a repeated
+  tag stream into a dedup pool; M132) — a global process-wide registry + retrofitting subsystems to use it later
 - [x] **Event bus / signals** (`core::EventBus`: type-safe subscribe/emit/unsubscribe, per-type
   isolation, re-entrancy-safe snapshot dispatch; the `events` demo fans one event to 3 subscribers; M64)
 - [x] **Per-object named signals** (`core::Signal<Args...>`: each object owns typed named channels others

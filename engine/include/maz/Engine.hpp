@@ -34,6 +34,7 @@
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"
+#include "maz/core/StringId.hpp"
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/ParticleEmitter.hpp"

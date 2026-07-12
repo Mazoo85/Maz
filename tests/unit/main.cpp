@@ -30,6 +30,7 @@
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"
+#include "maz/core/StringId.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -4004,6 +4005,98 @@ void testSignal() {
     }
 }
 
+void testStringId() {
+    using core::StringId;
+    using core::StringTable;
+
+    // Interning the SAME text twice yields the SAME id; different text yields different ids.
+    {
+        StringTable t;
+        const StringId a = t.intern("player");
+        const StringId b = t.intern("enemy");
+        const StringId a2 = t.intern("player");
+        CHECK(a.valid());
+        CHECK(a == a2);        // deduplicated
+        CHECK(a != b);         // distinct strings
+        CHECK(t.size() == 2);  // only two unique entries despite three interns
+    }
+
+    // str() reverses an id back to its text.
+    {
+        StringTable t;
+        const StringId id = t.intern("jump");
+        CHECK(t.str(id) == "jump");
+        // An invalid id reverses to the empty string.
+        CHECK(t.str(StringId{core::kInvalidStringId}).empty());
+    }
+
+    // find() looks up WITHOUT inserting; contains() reflects membership.
+    {
+        StringTable t;
+        t.intern("alpha");
+        CHECK(t.find("alpha").valid());
+        CHECK(!t.find("beta").valid()); // absent
+        CHECK(t.size() == 1);           // find() did not grow the table
+        CHECK(t.contains("alpha"));
+        CHECK(!t.contains("beta"));
+    }
+
+    // Ids are dense insertion indices, stable across more interns.
+    {
+        StringTable t;
+        const StringId a = t.intern("a");
+        const StringId b = t.intern("b");
+        const StringId c = t.intern("c");
+        CHECK(a.value == 0u);
+        CHECK(b.value == 1u);
+        CHECK(c.value == 2u);
+        CHECK(t.intern("a").value == 0u); // re-intern returns the original id
+    }
+
+    // The FNV-1a hash is deterministic and matches the id's stored hash; different strings differ.
+    {
+        // Known FNV-1a-32 of "hello" is 0x4F9F2CAB.
+        CHECK(core::fnv1a32("hello") == 0x4F9F2CABu);
+        CHECK(core::fnv1a32("") == 0x811C9DC5u); // empty -> offset basis
+        StringTable t;
+        const StringId h = t.intern("hello");
+        CHECK(t.hash(h) == core::fnv1a32("hello"));
+        CHECK(core::fnv1a32("hello") != core::fnv1a32("world"));
+    }
+
+    // The empty string is a legitimate, interned value.
+    {
+        StringTable t;
+        const StringId e = t.intern("");
+        CHECK(e.valid());
+        CHECK(t.str(e).empty());
+        CHECK(t.intern("") == e); // still dedups
+        CHECK(t.size() == 1);
+    }
+
+    // StringId works as an unordered_map key (hash specialization).
+    {
+        StringTable t;
+        std::unordered_map<StringId, int> counts;
+        counts[t.intern("x")] += 3;
+        counts[t.intern("x")] += 4; // same id -> same bucket
+        counts[t.intern("y")] += 1;
+        CHECK(counts.size() == 2);
+        CHECK(counts[t.find("x")] == 7);
+    }
+
+    // clear() empties the table.
+    {
+        StringTable t;
+        t.intern("one");
+        t.intern("two");
+        t.clear();
+        CHECK(t.empty());
+        CHECK(t.size() == 0);
+        CHECK(!t.contains("one"));
+    }
+}
+
 void testJobs() {
     core::JobSystem js;
     CHECK(js.workerCount() >= 1);
@@ -6508,6 +6601,7 @@ int main() {
     testAnimator();
     testEventBus();
     testSignal();
+    testStringId();
     testJobs();
     testResourceCache();
     testSceneStack();

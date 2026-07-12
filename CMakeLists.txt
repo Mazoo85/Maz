@@ -125,6 +125,7 @@ add_subdirectory(apps/signals)
 add_subdirectory(apps/wav)
 add_subdirectory(apps/grid3d)
 add_subdirectory(apps/rayquery)
+add_subdirectory(apps/strtable)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

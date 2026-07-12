@@ -25,6 +25,8 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
             EventBus (type-safe publish/subscribe for decoupled systems),
             Signal (per-object named channels — Godot signal/connect/emit: typed Signal<Args...> with
               connect/disconnect/isConnected, immediate emit, one-shot + deferred(+flushDeferred) connections),
+            StringId (interned strings — Godot StringName: StringTable intern/find/str/hash dedups each
+              unique name to a stable 32-bit id so name equality is an int compare; + FNV-1a-32 hash),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
             SceneStack (game-state stack: push/pop/replace + overlay-aware update/render)
@@ -252,6 +254,8 @@ apps/
               a wireframe box on the floor, all built by render::buildGrid / buildWireBox and drawn via drawLine
   rayquery/  2D physics queries — a muzzle fans hitscan rays that pass through a glass layer and stop on the
               first solid circle/box (game::queryRay, mask-filtered), with contact normals + a point-picked shape
+  strtable/  String interning — a stream of repeated tag references interned into a core::StringTable, shown as
+              the reference stream (name -> #id) beside the deduplicated pool (id -> text -> FNV hash)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

@@ -109,6 +109,7 @@ CASES=(
     "wav||2.0|0.06"
     "grid3d||2.5|0.10"
     "rayquery||2.0|0.06"
+    "strtable||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

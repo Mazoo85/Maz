@@ -707,6 +707,12 @@ available):
   shapes filtered by a collision mask; `queryPoint` reports which shapes contain a point. The new
   `rayquery` demo fans hitscan rays that pass through a "glass" layer and stop on "solid", with contact
   normals drawn and a point-picked shape highlighted.
+- **M132** — **string interning / `StringId`** (`core::StringTable` + `core::fnv1a32`), toward Godot's
+  `StringName`: a game refers to the same names (tags, signals, actions, tracks) constantly; interning
+  stores each unique string once and hands back a small integer id, so comparison is an int compare and
+  hashing is trivial. `intern` dedups (same text → same id), `find` looks up without inserting, `str`
+  reverses an id to its text, `hash` exposes the FNV-1a hash. The new `strtable` demo interns a stream of
+  repeated tags and shows the reference stream (name → id) beside the deduplicated pool (id → text → hash).
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
