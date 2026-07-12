@@ -2127,6 +2127,38 @@ headlessly, and it's a clean new header.
   another prefab by id), no "editable children" / inherited-scene diffing, and no live scene-tree node
   lifetime — those remain scene/resource gaps.
 
+### Iteration 87 — "Benchmarking against Godot: 2D polyline stroking (Line2D)" (done)
+Rotating to rendering-2D for breadth. Maz could FILL a convex polygon since M88 (`drawConvexPolygon`), but
+had no way to *stroke a path* — Godot's **Line2D**, the primitive behind trails, drawn curves, graphs,
+outlines, connectors, and lightning. A polyline stroke thickens a point list into a ribbon of a given
+**width** and then has to shape the corners (**joints**) and the two ends (**caps**) so it reads as one
+continuous stroke rather than a stack of disjoint rectangles. That corner/end geometry is exactly what
+`drawConvexPolygon` alone can't give you, and it's pure geometry (no renderer dependency) so it unit-tests
+headlessly and is deterministic.
+- [x] **M126 — 2D polyline stroking (`render::buildPolyline`)**: a new `Line2D.hpp`. `buildPolyline(points,
+  style)` turns a point list into a flat **triangle soup** (`std::vector<math::vec2>`, groups of three)
+  that any 2D fill path can draw. A `PolylineStyle` picks the `width`, a `JointMode`
+  (**Miter** — extend the outer edges to their intersection, falling back to bevel past a `miterLimit`;
+  **Bevel** — a flat triangle across the outer gap; **Round** — a fan filling the outer arc), a `CapMode`
+  (**None** / **Box** — extend half a width past the end / **Round** — a semicircular fan), and a `closed`
+  flag for loops (joins last→first, skips caps). Each segment becomes a rectangle; interior vertices get a
+  joint on the *outer* side of the turn (chosen by the cross-product sign); miter apexes come from a
+  line-line intersection. `testPolyline` pins the exact geometry: a single segment is one rectangle
+  (6 verts) with an exact bounding box; box caps extend the box to [−2, 12]; round caps add triangles but
+  stay within the half-width radius; a right-angle **bevel** corner is 5 triangles; a 90° **miter** emits a
+  vertex exactly at the outer apex (12, −2); a closed square is 12 triangles (4 bodies + 4 joints); and
+  degenerate input (< 2 points) yields nothing. Unit checks **4430 → 4445**. The new `line2d` demo is a
+  gallery: the same sharp zig-zag under all three joint modes, a bar under all three cap modes, an
+  80-point sampled sine **curve** (round joints + caps), and a **closed** 5-point star loop — all drawn by
+  feeding `buildPolyline`'s triangles to `drawConvexPolygon`. Static geometry → deterministic golden
+  (threshold 0.06). Purely additive (new header + new app), so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **81/81 → 82/82**. (A first build attempt tripped
+  `-Werror=unused-variable` because the cap-mode array wasn't yet wired into the style — caught by
+  warnings-as-errors, fixed, rebuilt clean.) Honest scope: this is the stroke *geometry*; it does not own a
+  batched Line2D draw call (the app fans the triangles itself), has no per-vertex gradient/width along the
+  line, no texture-along-the-line (Godot's `texture_mode`), and no antialiased edges — those remain
+  rendering-2D gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

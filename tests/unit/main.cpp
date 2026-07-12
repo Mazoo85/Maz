@@ -65,6 +65,7 @@
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/render/Line2D.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
@@ -3089,6 +3090,107 @@ void testTransformGraph() {
     CHECK(g.size() == 3);
 }
 
+void testPolyline() {
+    using math::vec2;
+    using render::buildPolyline;
+    using render::CapMode;
+    using render::JointMode;
+    using render::PolylineStyle;
+
+    auto bbox = [](const std::vector<vec2>& v, vec2& mn, vec2& mx) {
+        mn = vec2(1e9f, 1e9f);
+        mx = vec2(-1e9f, -1e9f);
+        for (const vec2& p : v) {
+            mn.x = std::min(mn.x, p.x);
+            mn.y = std::min(mn.y, p.y);
+            mx.x = std::max(mx.x, p.x);
+            mx.y = std::max(mx.y, p.y);
+        }
+    };
+
+    // A single horizontal segment, width 4 (half 2), no caps → one rectangle = 2 triangles = 6 verts.
+    {
+        PolylineStyle s;
+        s.width = 4.0f;
+        s.cap = CapMode::None;
+        const std::vector<vec2> tris = buildPolyline({vec2(0, 0), vec2(10, 0)}, s);
+        CHECK(tris.size() == 6);
+        vec2 mn, mx;
+        bbox(tris, mn, mx);
+        CHECK_NEAR(mn.x, 0.0f, 1e-4f);
+        CHECK_NEAR(mx.x, 10.0f, 1e-4f);
+        CHECK_NEAR(mn.y, -2.0f, 1e-4f);
+        CHECK_NEAR(mx.y, 2.0f, 1e-4f);
+    }
+
+    // Box caps extend the ribbon half a width past each end (x: -2 … 12).
+    {
+        PolylineStyle s;
+        s.width = 4.0f;
+        s.cap = CapMode::Box;
+        const std::vector<vec2> tris = buildPolyline({vec2(0, 0), vec2(10, 0)}, s);
+        vec2 mn, mx;
+        bbox(tris, mn, mx);
+        CHECK_NEAR(mn.x, -2.0f, 1e-4f);
+        CHECK_NEAR(mx.x, 12.0f, 1e-4f);
+    }
+
+    // Round caps add a fan, so more triangles than box, but stay within the half-width radius.
+    {
+        PolylineStyle s;
+        s.width = 4.0f;
+        s.cap = CapMode::Round;
+        const std::vector<vec2> tris = buildPolyline({vec2(0, 0), vec2(10, 0)}, s);
+        CHECK(tris.size() > 6);
+        vec2 mn, mx;
+        bbox(tris, mn, mx);
+        CHECK_NEAR(mn.x, -2.0f, 1e-3f); // furthest cap point reaches -radius
+        CHECK_NEAR(mx.x, 12.0f, 1e-3f);
+    }
+
+    // A right-angle bevel joint: 2 segment rectangles (4 tris) + 1 bevel triangle = 5 tris = 15 verts.
+    {
+        PolylineStyle s;
+        s.width = 4.0f;
+        s.joint = JointMode::Bevel;
+        s.cap = CapMode::None;
+        const std::vector<vec2> tris = buildPolyline({vec2(0, 0), vec2(10, 0), vec2(10, 10)}, s);
+        CHECK(tris.size() == 15);
+    }
+
+    // Miter joint on a 90° corner (within the limit) reaches the outer apex at (12, -2).
+    {
+        PolylineStyle s;
+        s.width = 4.0f;
+        s.joint = JointMode::Miter;
+        s.cap = CapMode::None;
+        const std::vector<vec2> tris = buildPolyline({vec2(0, 0), vec2(10, 0), vec2(10, 10)}, s);
+        float best = 1e9f;
+        for (const vec2& p : tris) {
+            best = std::min(best, std::fabs(p.x - 12.0f) + std::fabs(p.y + 2.0f));
+        }
+        CHECK(best < 1e-3f); // an emitted vertex sits at the miter apex
+    }
+
+    // A closed square loop: 4 segment rectangles (8 tris) + 4 bevel joints (4 tris) = 12 tris = 36 verts.
+    {
+        PolylineStyle s;
+        s.width = 2.0f;
+        s.joint = JointMode::Bevel;
+        s.closed = true;
+        const std::vector<vec2> tris =
+            buildPolyline({vec2(0, 0), vec2(10, 0), vec2(10, 10), vec2(0, 10)}, s);
+        CHECK(tris.size() == 36);
+    }
+
+    // Degenerate input (fewer than 2 points) yields nothing.
+    {
+        PolylineStyle s;
+        CHECK(buildPolyline({vec2(1, 1)}, s).empty());
+        CHECK(buildPolyline({}, s).empty());
+    }
+}
+
 void testPrefab() {
     using scene::Prefab;
     using scene::PrefabNode;
@@ -5910,6 +6012,7 @@ int main() {
     testCameraController();
     testTransformGraph();
     testPrefab();
+    testPolyline();
     testActionMap();
     testSceneSerializer();
     testEcs();

@@ -68,6 +68,7 @@
 #include "maz/platform/Input.hpp"
 #include "maz/platform/Paths.hpp"
 #include "maz/platform/Window.hpp"
+#include "maz/render/Line2D.hpp"
 #include "maz/render/Model.hpp"
 #include "maz/render/Renderer.hpp"
 #include "maz/render/Shapes.hpp"

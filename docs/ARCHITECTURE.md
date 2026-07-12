@@ -55,6 +55,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               Particles3D    — world-space camera-facing additive billboard particles
               DebugDraw      — world-space debug lines / AABBs (collider + gizmo visualization)
               shapes         — procedural box / sphere / plane geometry
+              buildPolyline  — 2D polyline stroking (Godot Line2D): thicken a point list to a ribbon of a
+                               given width with Miter/Bevel/Round joints + None/Box/Round caps + closed
+                               loops → a triangle soup for drawConvexPolygon (header-only, no GPU dep)
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
@@ -227,6 +230,8 @@ apps/
               snapshotted at a fixed time, each dot placed by its anim::TweenPlayer through a bound setter
   prefab/    Prefabs / instancing — one turret prefab (chassis>turret>barrel) instanced six times with
               per-node overrides (body/turret colour, barrel length, body width) via scene::instantiate
+  line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar
+              under none/box/round caps, a sampled sine curve, and a closed star (render::buildPolyline)
   parallax/  Parallax backgrounds — the same five-layer scene in three strips at different camera scrolls;
               far layers barely move, near layers sweep, every layer mirror-tiled (game::layerOffset/
               firstTile/tileCount)

@@ -668,6 +668,12 @@ available):
   deep-copies the tree and overlays overrides by node path, returning a fully independent instance. The new
   `prefab` demo authors one turret prefab (chassis → turret → barrel) and stamps out six instances — each
   with a different body colour, turret tint, barrel length, and body width.
+- **M126** — a **2D polyline / Line2D renderer** (`render::buildPolyline`), toward Godot's `Line2D`: the
+  renderer could fill convex polygons, but a *stroke* thickens a path into a ribbon and shapes its corners
+  (**joints**: miter / bevel / round) and ends (**caps**: none / box / round) so it reads as one line —
+  the primitive behind trails, curves, graphs, and outlines. It returns a triangle soup fed straight to
+  `drawConvexPolygon`. The new `line2d` demo strokes a zig-zag under each joint mode, a bar under each cap
+  mode, an 80-point sine curve, and a closed star loop.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
