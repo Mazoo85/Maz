@@ -117,6 +117,7 @@ add_subdirectory(apps/emitter)
 add_subdirectory(apps/spatial3d)
 add_subdirectory(apps/containers)
 add_subdirectory(apps/parallax)
+add_subdirectory(apps/choreo)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

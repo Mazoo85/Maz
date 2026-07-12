@@ -126,6 +126,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
               via closest-point; AreaMonitor diffs each frame's overlapping set to emit enter/exit events),
               Godot Area2D-monitoring-style)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
+            TweenPlayer — tween sequencer / property animator (Godot SceneTreeTween): chains Property/
+              Interval/Callback tweeners into sequential groups (parallel within a group), loops, and writes
+              bound float setters every update(dt);
             Timeline — keyframe sequencer: named Tracks of Keyframes (time→value + per-segment easing) +
               a once/repeat/ping-pong playhead, Godot AnimationPlayer-style;
             TriggerTrack + MethodTimeline — call-method / trigger tracks: timed markers that FIRE as a
@@ -216,6 +219,8 @@ apps/
   containers/ Auto-layout containers — four cards showing HBox (Fill/Expand stretch ratios), a 3-column
               Grid, a VBox (header/body-Expand/footer), and a MarginContainer framing a CenterContainer
               (ui::hbox/vbox/grid/margin/center)
+  choreo/    Tween choreography — five property-tween sequences (sequential/parallel/delay/loop/bounce)
+              snapshotted at a fixed time, each dot placed by its anim::TweenPlayer through a bound setter
   parallax/  Parallax backgrounds — the same five-layer scene in three strips at different camera scrolls;
               far layers barely move, near layers sweep, every layer mirror-tiled (game::layerOffset/
               firstTile/tileCount)

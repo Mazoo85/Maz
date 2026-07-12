@@ -654,6 +654,13 @@ available):
   `tileCount` / `pmod` place the seamless tiles. The new `parallax` demo shows the same five-layer scene in
   three strips at different scrolls — look down a column and the near layers sweep while the far ones
   barely budge.
+- **M124** — a **tween sequencer / property animator** (`anim::TweenPlayer`), toward Godot's
+  `SceneTreeTween`: `anim::Tween` (M59) is a single time-cursor you read yourself; this is the "create a
+  tween, chain a few property animations, fire and forget" runtime that *drives bound values itself*.
+  `appendProperty` / `appendInterval` / `appendCallback` chain steps in sequence, `parallelProperty` runs
+  steps together, `setLoops` replays the whole thing, and `update(dt)` writes each property's eased value
+  through its setter. The new `choreo` demo snapshots five choreographies (sequential, parallel, delay,
+  loop, bounce) at a fixed time — every dot placed by its player, nothing hand-positioned.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

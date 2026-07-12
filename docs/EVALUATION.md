@@ -2059,6 +2059,42 @@ an unbounded scroll. That's a high-leverage, very *visible* rendering-2D gap; it
   positions), has no vertical infinite-scroll camera integration wired to `CameraController2D`, and no
   per-layer z-ordering scene node — those remain rendering gaps.
 
+### Iteration 85 — "Benchmarking against Godot: tween sequencer / property animator" (done)
+Rotating to core/io for breadth (last eight were rendering-2D/parallax, UI/containers, audio/spatial3d,
+particles/emitter, tilemap/TileSet, physics-2D/layers, animation/blend-tree, physics-2D/Area2D). Maz had
+`anim::Tween` since M59 — but that's a single time-cursor: it interpolates ONE from→to over one duration
+and you read `sample()` yourself. Godot's **SceneTreeTween** (`create_tween()` + `tween_property` /
+`tween_interval` / `tween_callback` + `parallel()` + `set_loops()`) is a different, higher-level thing: a
+*runtime* that choreographs many bound properties over time — steps chained in sequence, some running in
+parallel, with delays and callbacks interleaved, the whole thing looping — and it *writes the properties
+itself* every frame. That "create a tween, chain a few property animations, fire and forget" ergonomic is
+one of the most-used conveniences in Godot gameplay/UI code, and Maz had no equivalent. It's pure logic so
+it unit-tests headlessly, and it's a clean new header that composes the existing easing (Tween untouched →
+zero regression).
+- [x] **M124 — tween sequencer / property animator (`anim::TweenPlayer`)**: a new `TweenPlayer.hpp`. A
+  `Tweener` is one element — `Property` (interpolate a bound `void(float)` setter from→to over a duration
+  with an `Ease`), `Interval` (a pure delay), or `Callback` (fire once). The player holds an ordered list
+  of GROUPS: groups run sequentially, tweeners within a group run in parallel. `appendProperty` /
+  `appendInterval` / `appendCallback` start a new sequential group; `parallelProperty` adds to the current
+  group; `setLoops(n)` replays the whole sequence (`n ≤ 0` = forever). `update(dt)` advances the current
+  group, writing every property's eased value through its setter, snaps to the end value + fires callbacks
+  when a group completes, then moves on (carrying the remainder so one big `dt` can cross several groups),
+  and wraps for looping. `testTweenPlayer` pins a sequential two-property chain (x 0→100 then 100→0, exact
+  Linear values as it advances), a parallel group (x and y animating together in one step), an interval
+  delaying the next tween, a callback firing once per loop (twice over `setLoops(2)`), easing being applied
+  (QuadOut ahead of linear at the midpoint), and an infinite loop never finishing. Unit checks
+  **4395 → 4414**. The new `choreo` demo advances five different choreographies to the SAME fixed time
+  (t = 0.70s) and draws each dot where its player put it — a sequential ease-out (near the end), a parallel
+  move+grow (mid-track, enlarged), a delay-then-move (still near the start), a 0.5s loop (40% into its
+  second lap), and a bounce (settling near the end) — every position written by the player through a bound
+  setter, nothing hand-placed. Fixed time + fixed step → deterministic golden (threshold 0.06). Purely
+  additive (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden
+  run); ctest **79/79 → 80/80**. Honest scope: this is the tween *runtime* (float properties); it does not
+  yet tween vector/color properties in one call (the app binds one setter per channel), has no
+  `from_current` / relative (`as_relative`) capture, no per-tween easing *transition+ease* pair beyond the
+  single `Ease` enum, no pause/speed-scale, and isn't bound to a scene-tree node lifetime — those remain
+  gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

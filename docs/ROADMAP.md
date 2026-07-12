@@ -413,6 +413,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   toward targets; M107) — CCD + pole targets / bone constraints later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59)
+- [x] **Tween sequencer / property animator** (`anim::TweenPlayer`: chains Property/Interval/Callback
+  tweeners into sequential groups that run in parallel within a group, loops the sequence, and writes bound
+  `void(float)` setters every `update(dt)` — Godot SceneTreeTween (`create_tween` + `tween_property` /
+  `tween_interval` / `tween_callback` + `parallel` + `set_loops`); the `choreo` demo snapshots five
+  choreographies at a fixed time; M124) — vector/colour-in-one-call + `from_current`/relative + speed-scale
+  later
 - [x] **Keyframe timeline / sequencer** (`anim::Timeline`: named `Track`s of `Keyframe`s (time→value +
   per-segment easing) with endpoint-holding `sample`, plus a Once/Repeat/PingPong playhead — Godot
   AnimationPlayer; the `timeline` demo animates an arrow from keyed x/y/rot/scale/colour tracks with an

@@ -18,6 +18,7 @@
 #include "maz/anim/Timeline.hpp"
 #include "maz/anim/TriggerTrack.hpp"
 #include "maz/anim/Tween.hpp"
+#include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
@@ -1245,6 +1246,90 @@ void testTween() {
     zero.duration = 0.0f;
     zero.update(0.016f);
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
+void testTweenPlayer() {
+    using anim::TweenPlayer;
+
+    // Sequential: x goes 0->100 (1s), then 100->0 (1s). Linear so values are exact.
+    {
+        float x = -1.0f;
+        TweenPlayer tp;
+        tp.appendProperty([&](float v) { x = v; }, 0.0f, 100.0f, 1.0f)
+            .appendProperty([&](float v) { x = v; }, 100.0f, 0.0f, 1.0f);
+        CHECK(tp.stepCount() == 2);
+        CHECK_NEAR(tp.totalDuration(), 2.0f, 1e-5f);
+        tp.update(0.5f);
+        CHECK_NEAR(x, 50.0f, 1e-4f); // half through step 1
+        tp.update(0.5f);
+        CHECK_NEAR(x, 100.0f, 1e-4f); // step 1 complete
+        tp.update(0.5f);
+        CHECK_NEAR(x, 50.0f, 1e-4f); // half through step 2 (100 -> 0)
+        CHECK(!tp.finished());
+        tp.update(0.5f);
+        CHECK_NEAR(x, 0.0f, 1e-4f);
+        CHECK(tp.finished());
+    }
+
+    // Parallel: within ONE step, x:0->10 and y:0->20 animate together over 1s.
+    {
+        float x = 0.0f, y = 0.0f;
+        TweenPlayer tp;
+        tp.appendProperty([&](float v) { x = v; }, 0.0f, 10.0f, 1.0f)
+            .parallelProperty([&](float v) { y = v; }, 0.0f, 20.0f, 1.0f);
+        CHECK(tp.stepCount() == 1); // one group, two tweeners
+        tp.update(0.5f);
+        CHECK_NEAR(x, 5.0f, 1e-4f);
+        CHECK_NEAR(y, 10.0f, 1e-4f);
+    }
+
+    // Interval delays the next property tween.
+    {
+        float x = 7.0f;
+        TweenPlayer tp;
+        tp.appendInterval(1.0f).appendProperty([&](float v) { x = v; }, 0.0f, 10.0f, 1.0f);
+        tp.update(0.5f);
+        CHECK_NEAR(x, 7.0f, 1e-4f); // still waiting
+        tp.update(1.0f);           // 1.5s total: 0.5s into the property
+        CHECK_NEAR(x, 5.0f, 1e-4f);
+    }
+
+    // Callback fires once, sequenced; loops replay it.
+    {
+        int hits = 0;
+        float x = 0.0f;
+        TweenPlayer tp;
+        tp.appendProperty([&](float v) { x = v; }, 0.0f, 1.0f, 1.0f)
+            .appendCallback([&]() { ++hits; })
+            .setLoops(2);
+        tp.update(1.0f); // finishes property + fires callback (loop 1), wraps to start of loop 2
+        CHECK(hits == 1);
+        tp.update(1.0f); // finishes loop 2's property + callback, then done
+        CHECK(hits == 2);
+        CHECK(tp.finished());
+    }
+
+    // Easing is applied: QuadOut is past the halfway value at t=0.5 (fast start, slow end).
+    {
+        float x = 0.0f;
+        TweenPlayer tp;
+        tp.appendProperty([&](float v) { x = v; }, 0.0f, 100.0f, 1.0f, anim::Ease::QuadOut);
+        tp.update(0.5f);
+        CHECK(x > 50.0f); // ease-out is ahead of linear mid-way
+        tp.update(0.5f);
+        CHECK_NEAR(x, 100.0f, 1e-4f);
+    }
+
+    // Infinite loop (loops <= 0) never finishes.
+    {
+        float x = 0.0f;
+        TweenPlayer tp;
+        tp.appendProperty([&](float v) { x = v; }, 0.0f, 1.0f, 1.0f).setLoops(0);
+        for (int i = 0; i < 50; ++i) {
+            tp.update(1.0f);
+        }
+        CHECK(!tp.finished());
+    }
 }
 
 void testTriggerTrack() {
@@ -5733,6 +5818,7 @@ int main() {
     testResourceCache();
     testSceneStack();
     testTween();
+    testTweenPlayer();
     testTimeline();
     testTriggerTrack();
     testLayout();
