@@ -123,6 +123,7 @@ add_subdirectory(apps/line2d)
 add_subdirectory(apps/restext)
 add_subdirectory(apps/signals)
 add_subdirectory(apps/wav)
+add_subdirectory(apps/grid3d)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

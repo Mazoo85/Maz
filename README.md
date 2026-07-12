@@ -693,6 +693,13 @@ available):
   mono/multi-channel) into float samples; `encodeWav` writes them back out. The new `wav` demo synthesizes
   a decaying tone, encodes it to `.wav` bytes, decodes them back, and draws the reconstructed waveform on
   an oscilloscope beside the parsed header.
+- **M130** — a **3D reference grid + RGB gizmo axes builder** (`render::buildGrid` / `render::buildWireBox`),
+  toward Godot's Node3D editor viewport: Maz could draw lit meshes and debug lines but had no builder for the
+  spatial-reference primitives every 3D editor shows — a world-space ground grid and the X=red/Y=green/Z=blue
+  origin gizmo. `buildGrid` emits the XZ-plane grid (center axis lines brighter) plus the RGB origin axes;
+  `buildWireBox` emits the 12 edges of a placeable wireframe box. Pure geometry (colored line segments) drawn
+  through the existing `drawLine` path — no shared shader change. The new `grid3d` demo draws the grid, gizmo,
+  and a wire box under a fixed editor-style camera.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -60,6 +60,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               buildPolyline  — 2D polyline stroking (Godot Line2D): thicken a point list to a ribbon of a
                                given width with Miter/Bevel/Round joints + None/Box/Round caps + closed
                                loops → a triangle soup for drawConvexPolygon (header-only, no GPU dep)
+              buildGrid      — 3D editor reference geometry (Godot Node3D viewport): an XZ-plane ground grid
+                               (buildGrid) + the X=red/Y=green/Z=blue origin gizmo, and buildWireBox (12 edges
+                               of a placeable AABB) — colored Line3 lists drawn via DebugDraw/drawLine (no GPU dep)
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
@@ -241,6 +244,8 @@ apps/
               render::buildPolyline) + an event log showing immediate/one-shot/deferred (core::Signal)
   wav/       WAV load/save — synthesize → encodeWav → decodeWav → draw the reconstructed waveform as an
               oscilloscope beside the parsed RIFF/WAVE header (audio::Wav)
+  grid3d/    3D editor viewport reference — a fixed camera over an XZ ground grid + the RGB origin gizmo +
+              a wireframe box on the floor, all built by render::buildGrid / buildWireBox and drawn via drawLine
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

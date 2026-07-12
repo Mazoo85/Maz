@@ -290,6 +290,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)
 - [x] **Debug line draw** (`drawLine` / `drawAabb`, world-space `LINE_LIST` pipeline; F5 collider
   overlay in `world`; M36)
+- [x] **3D reference grid + RGB gizmo axes** (`render::buildGrid` / `render::buildWireBox`: an XZ-plane
+  ground grid with brighter center-axis lines + the X=red/Y=green/Z=blue origin gizmo, and a placeable
+  12-edge wireframe box — colored `Line3` lists drawn via `drawLine`, no shared shader change — Godot
+  Node3D viewport; the `grid3d` demo draws them under a fixed camera; M130) — interactive translate/rotate/
+  scale gizmo handles + screen-constant sizing + snapping + picking need the shipping editor UI
 - [ ] Multiple viewports, gizmos
 - [ ] GPU profiling, keep validation-clean baseline
 

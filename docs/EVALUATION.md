@@ -2245,6 +2245,35 @@ deterministic waveform golden.
   WAV, ADPCM, or streaming/looping metadata, and the decoded samples aren't yet auto-registered as a
   playable voice in the SDL mixer (the app owns playback) — those remain audio gaps.
 
+### Iteration 91 — "Benchmarking against Godot: 3D reference grid + RGB gizmo axes" (done)
+Rotating to **3D rendering** for breadth — the last 3D-focused milestone was many rounds back, and every
+recent round has been 2D/audio/AI/UI. Closing a concrete editor-viewport gap: Maz could draw lit,
+depth-tested meshes and debug lines, but had **no builder for the two spatial-reference primitives every
+3D editor draws** — Godot's Node3D viewport always shows a world-space ground grid (so you can read scale
+and position on the floor plane) and an origin gizmo (the X=red / Y=green / Z=blue axis marker). Without
+them, placing anything in 3D is guesswork. This is pure geometry (a list of colored line segments), so it
+unit-tests headlessly and draws through the existing debug-line path — **no shared shader/mesh change**.
+- [x] **M130 — 3D reference grid + RGB gizmo axes builder (`render::buildGrid` / `render::buildWireBox`)**:
+  a new `Grid3D.hpp`. `buildGrid(GridSpec)` emits an XZ-plane ground grid — for each cell index it lays a
+  line parallel to X and a line parallel to Z, the two center lines through the origin getting a brighter
+  `axisColor`, the rest `minorColor`, spanning `±divisions·spacing`. With `gizmoAxes` on it appends the
+  three origin axes as colored segments: +X **red**, +Y **green**, +Z **blue** (Godot's convention),
+  each `axisLength` long. `buildWireBox(min, max, color)` returns the 12 edges of an axis-aligned box as
+  line segments — a wireframe bounding box you can place anywhere (unlike a filled AABB). `testGrid3D` pins
+  the line count (a 2-division grid + axes = 13 lines; gizmo off → `(2·3+1)·2`), the XZ span (±2), that the
+  center X-parallel line carries `axisColor`, that the last three lines are the RGB axes with the correct
+  channel dominant and endpoints at the axis length, and that `buildWireBox` emits exactly 12 edges bounded
+  by `[min,max]`. Unit checks **4520 → 4537**. The new `grid3d` demo sets a fixed editor-style camera
+  looking down at an 8-division grid, draws the grid + RGB origin gizmo + a wireframe box sitting on the
+  floor (each `Line3` fed to `Renderer::drawLine`) with a 2D HUD label over the top. Fixed camera (nothing
+  animates) → deterministic 3D golden (threshold 0.10, settle 2.5). Purely additive (new header + new app),
+  so every existing golden — including all the 3D scenes — is byte-unchanged (confirmed by a serial golden
+  run); ctest **85/85 → 86/86**. Honest scope: this is the *reference geometry* — a static ground grid,
+  origin gizmo, and wire box. It is **not** the interactive editor manipulator: there are no
+  translate/rotate/scale gizmo handles you can grab, no screen-space-constant sizing, no snapping, and no
+  picking — those need the shipping editor UI that this headless sandbox can't host. It gives the viewport
+  its spatial frame of reference, not its mouse-driven tooling.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

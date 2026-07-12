@@ -68,6 +68,7 @@
 #include "maz/ui/UI.hpp"
 #include "maz/io/PrefabText.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -3189,6 +3190,83 @@ void testTransformGraph() {
     CHECK(g.size() == 3);
 }
 
+void testGrid3D() {
+    using math::vec3;
+    using math::vec4;
+    using render::buildGrid;
+    using render::GridSpec;
+    using render::Line3;
+
+    // A 2-division grid + axes: (2*2+1) lines each way = 5*2 = 10 grid lines, + 3 gizmo axes = 13.
+    {
+        GridSpec s;
+        s.divisions = 2;
+        s.spacing = 1.0f;
+        s.gizmoAxes = true;
+        s.axisLength = 3.0f;
+        const std::vector<Line3> g = buildGrid(s);
+        CHECK(g.size() == 13);
+
+        // The grid lines span +/- 2 (ext = divisions*spacing). Measure only the 10 grid lines — the
+        // last 3 lines are the gizmo axes, whose +X leg reaches x=3 and would pollute the span.
+        float minX = 1e9f, maxX = -1e9f;
+        for (std::size_t i = 0; i + 3 < g.size(); ++i) {
+            minX = std::min({minX, g[i].a.x, g[i].b.x});
+            maxX = std::max({maxX, g[i].a.x, g[i].b.x});
+        }
+        CHECK_NEAR(minX, -2.0f, 1e-4f);
+        CHECK_NEAR(maxX, 2.0f, 1e-4f);
+
+        // The center line parallel to X (z=0, x from -2..2) carries the axisColor, not the minor color.
+        bool foundCenter = false;
+        for (const Line3& l : g) {
+            if (std::fabs(l.a.z) < 1e-5f && std::fabs(l.b.z) < 1e-5f && l.a.y == 0.0f &&
+                std::fabs(l.a.x + 2.0f) < 1e-5f) {
+                foundCenter = true;
+                CHECK_NEAR(l.color.x, s.axisColor.x, 1e-5f);
+            }
+        }
+        CHECK(foundCenter);
+
+        // RGB gizmo axes: +X is red, +Y green, +Z blue, each from the origin.
+        const Line3& xAxis = g[g.size() - 3];
+        const Line3& yAxis = g[g.size() - 2];
+        const Line3& zAxis = g[g.size() - 1];
+        CHECK_NEAR(xAxis.b.x, 3.0f, 1e-5f);
+        CHECK(xAxis.color.x > xAxis.color.y && xAxis.color.x > xAxis.color.z); // red dominant
+        CHECK_NEAR(yAxis.b.y, 3.0f, 1e-5f);
+        CHECK(yAxis.color.y > yAxis.color.x && yAxis.color.y > yAxis.color.z); // green dominant
+        CHECK_NEAR(zAxis.b.z, 3.0f, 1e-5f);
+        CHECK(zAxis.color.z > zAxis.color.x && zAxis.color.z > zAxis.color.y); // blue dominant
+    }
+
+    // gizmoAxes off → only the grid lines.
+    {
+        GridSpec s;
+        s.divisions = 3;
+        s.gizmoAxes = false;
+        CHECK(buildGrid(s).size() == static_cast<std::size_t>((2 * 3 + 1) * 2));
+    }
+
+    // A wire box has 12 edges bounded exactly by [min, max].
+    {
+        const std::vector<Line3> box =
+            render::buildWireBox(vec3(-1, 0, -2), vec3(1, 3, 2), vec4(1, 1, 1, 1));
+        CHECK(box.size() == 12);
+        float mnx = 1e9f, mxx = -1e9f, mny = 1e9f, mxy = -1e9f;
+        for (const Line3& l : box) {
+            mnx = std::min({mnx, l.a.x, l.b.x});
+            mxx = std::max({mxx, l.a.x, l.b.x});
+            mny = std::min({mny, l.a.y, l.b.y});
+            mxy = std::max({mxy, l.a.y, l.b.y});
+        }
+        CHECK_NEAR(mnx, -1.0f, 1e-4f);
+        CHECK_NEAR(mxx, 1.0f, 1e-4f);
+        CHECK_NEAR(mny, 0.0f, 1e-4f);
+        CHECK_NEAR(mxy, 3.0f, 1e-4f);
+    }
+}
+
 void testPolyline() {
     using math::vec2;
     using render::buildPolyline;
@@ -6293,6 +6371,7 @@ int main() {
     testTransformGraph();
     testPrefab();
     testPrefabText();
+    testGrid3D();
     testPolyline();
     testActionMap();
     testSceneSerializer();

@@ -677,6 +677,14 @@ set_tests_properties(wav_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME grid3d_headless_smoke
+    COMMAND grid3d --headless --frames 30)
+
+set_tests_properties(grid3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 
