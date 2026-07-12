@@ -327,9 +327,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (linear / inverse-distance) + constant-power stereo pan; the mixer is stereo with per-voice L/R gain
   (`SoundDesc::leftGain`/`rightGain`) — Godot AudioStreamPlayer2D; the `spatial2d` demo visualizes the
   field; M94)
-- [ ] WAV/OGG loading, buses / categories, per-sound pitch
+- [x] **DSP effects + mix buses** (`audio::Biquad` RBJ low/high/band-pass + `audio::Delay` feedback echo
+  + `audio::Bus` ordered effect chain with output gain — Godot AudioEffectFilter/AudioEffectDelay + bus
+  layout; pure per-sample math, the `bus` demo scopes source/low-pass/high-pass/low-pass→delay as
+  stacked waveforms; M99) — reverb, distortion, compressor, and real-time per-voice bus routing later
+- [ ] WAV/OGG loading, per-sound pitch, categories/ducking
 - [ ] 3D spatialization, doppler
-- [ ] DSP effects (reverb, filter), ducking
 
 ## Phase 8 — Animation
 - [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot
@@ -488,6 +491,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **RVO avoidance** (`apps/avoid`) — 14 agents crossing a circle to antipodal goals, their trails
       bulging around the crowded centre as reciprocal velocity obstacles route them apart
       (`game::rvoVelocity`) (M98)
+- [x] **Audio DSP buses** (`apps/bus`) — one plucked-sawtooth note scoped as four stacked waveforms:
+      source, low-pass, high-pass, and a low-pass→delay bus (filtered note + echoes) (`audio::Biquad`
+      / `audio::Delay` / `audio::Bus`) (M99)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

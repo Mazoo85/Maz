@@ -1285,22 +1285,57 @@ the canonical missing piece on top of the existing navigation stack, it's pure d
   ORCA half-plane linear programming, it doesn't yet avoid *static* navmesh obstacles, and it isn't
   wired into `NavMesh`/`Steering` as an integrated crowd simulation — those remain.
 
+### Iteration 60 — "Benchmarking against Godot: audio DSP + mix buses" (done)
+Continuing the Godot benchmark; audio was the least-developed subsystem. Maz had a real-time SDL mixer
+with synthesized voices and 2D pan/attenuation (M5/M94), but the mix was a *flat sum* — no bus routing
+and, crucially, no **effects**. Godot's AudioServer is built around buses each carrying an ordered
+effect chain (AudioEffectFilter, AudioEffectDelay, reverb, ...). The reusable, high-leverage,
+exactly-testable core of that is pure per-sample DSP, and it has a crisp deterministic golden — an
+offline waveform scope showing what each effect does.
+- [x] **M99 — Audio DSP effects + mix buses (`audio::Biquad` / `audio::Delay` / `audio::Bus`)**: a
+  header-only DSP core matching the `Spatial2D` pattern (pure math, no device, so any backend can
+  consume it). `Biquad` is the standard second-order IIR filter behind Godot's AudioEffectFilter, with
+  RBJ-audio-EQ-cookbook low/high/band-pass factories (cutoff + resonance Q) and a transposed-direct-
+  form-II `process` (coefficients pre-normalized by a0, so no per-sample division). `Delay` is a
+  feedback echo — a ring buffer with wet/feedback controls — matching AudioEffectDelay. `Bus` holds an
+  ordered `std::vector<unique_ptr<Effect>>` chain plus an output gain and runs a sample (or a whole
+  buffer) through each effect in series, exactly like a Godot audio bus. `testAudioDsp` checks the math
+  exactly: the low-pass passes DC at unity gain and a 200 Hz tone at ~full amplitude while crushing an
+  8 kHz tone to <5% (>8× ratio); the high-pass decays a DC input to ~0 and blocks a 100 Hz tone while
+  passing 10 kHz; a unit impulse through a 10-sample delay (wet 0.8, feedback 0.5) reappears at exactly
+  sample 10 at 0.8 and at sample 20 at 0.4, with silence between the taps; and an empty bus is a
+  gain-only pass-through while a low-pass→delay chain preserves both the immediate and the delayed
+  energy. Unit count **3529 → 3544**. The new `bus` demo is an offline scope: it synthesizes one
+  plucked-sawtooth note (rich harmonics, then silence) at 44.1 kHz, runs it through a 600 Hz low-pass, a
+  1.5 kHz high-pass, and a low-pass→delay bus, and draws all four as stacked waveform bands (decimated
+  for display) — the whole thing computed once at startup so the render is deterministic. On lavapipe
+  the difference is obvious: the source's buzzy sawtooth teeth become smooth rounded waves under the
+  low-pass, collapse to just the sharp transient spikes under the high-pass, and the bus band shows the
+  filtered note followed by evenly-spaced decaying echoes. New `bus_headless_smoke` + golden (static,
+  RMSE 0, threshold 0.05). Purely additive (new header + new app), so all existing goldens are
+  unchanged — confirmed by a serial golden run (strays killed first; golden check then ctest one at a
+  time). ctest **55/55**. Honest scope: this is the pure DSP + bus-chain core plus reverb-less filter/
+  delay effects; it does not yet include reverb/distortion/compressor effects, and the *real-time*
+  mixer still sums voices flatly — per-voice bus routing through the live SDL callback is the remaining
+  integration step (and can't be verified headlessly here anyway, so it's deliberately deferred).
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): ORCA half-plane avoidance + static-obstacle avoidance + wiring
-RVO into NavMesh/Steering as an integrated crowd sim (M98 gives agent-vs-agent velocity-sampling RVO);
-multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK modifications (M97 gives closed-form 2-bone
-IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96 gives 4-bit autotiling + cellular caves); text
-selection/clipboard + multi-line TextEdit + UI themes + controller UI nav (M95 gives single-line
-LineEdit + focus); audio buses + DSP effects (reverb/filter) + 3D spatial audio + doppler (M94 gives 2D
-pan/attenuation); animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend
-spaces); 2-point (warm-started) manifolds for stable box STACKS + more joint types (groove/slider)
-building on M93's pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights (M90 made
-lights additive but they're hard-edged and flat-colored); 3D rigid-body physics; GPU particles; navmesh
-dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
-prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
-tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
-system, cross-platform CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): wiring the DSP buses into the real-time mixer (per-voice bus
+routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA half-plane
+avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated crowd sim (M98
+gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK
+modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96
+gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
+controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial audio + doppler + WAV/OGG loading
+(M94 gives 2D pan/attenuation); animation blend *trees* (state-machine over blend spaces) + IK (M92
+gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS + more joint types (groove/
+slider) building on M93's pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights
+(M90 made lights additive but they're hard-edged and flat-colored); 3D rigid-body physics; GPU
+particles; navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF
+skin/animation import, prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to
+TransformGraph, noise-driven tilemap/cave generation, localization / string tables, order-independent
+transparency, material/uniform system, cross-platform CI, a deterministic hold-frame screenshot mode.

@@ -7,6 +7,7 @@
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/IK.hpp"
+#include "maz/audio/Dsp.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
@@ -2863,6 +2864,103 @@ void testPhysics2DJoints() {
     }
 }
 
+void testAudioDsp() {
+    const float sr = 44100.0f;
+
+    // Helper: RMS of a tone of `freq` Hz after passing through a fresh copy of `filter`, skipping the
+    // filter's start-up transient so we measure steady-state gain.
+    auto toneRms = [&](audio::Biquad filter, float freq) {
+        const int n = 4000;
+        double acc = 0.0;
+        int counted = 0;
+        for (int i = 0; i < n; ++i) {
+            const float x = std::sin(2.0f * 3.14159265f * freq * static_cast<float>(i) / sr);
+            const float y = filter.process(x);
+            if (i >= 1000) { // let the IIR settle
+                acc += static_cast<double>(y) * static_cast<double>(y);
+                ++counted;
+            }
+        }
+        return std::sqrt(acc / static_cast<double>(counted));
+    };
+
+    // Lowpass passes DC (a constant input) at unity gain and near-fully passes a low tone.
+    {
+        audio::Biquad lp = audio::Biquad::lowpass(1000.0f, 0.707f, sr);
+        float dc = 0.0f;
+        for (int i = 0; i < 2000; ++i) {
+            dc = lp.process(1.0f);
+        }
+        CHECK_NEAR(dc, 1.0f, 1e-3f);
+        // A tone well below cutoff comes through much stronger than one well above it.
+        const double lowPass = toneRms(audio::Biquad::lowpass(1000.0f, 0.707f, sr), 200.0f);
+        const double highPass = toneRms(audio::Biquad::lowpass(1000.0f, 0.707f, sr), 8000.0f);
+        CHECK(lowPass > 0.5);      // ~0.707 for a full-amplitude sine that passes
+        CHECK(highPass < 0.05);    // heavily attenuated above cutoff
+        CHECK(lowPass > highPass * 8.0);
+    }
+
+    // Highpass BLOCKS DC (a constant input decays to ~0) and blocks a low tone while passing a high one.
+    {
+        audio::Biquad hp = audio::Biquad::highpass(1000.0f, 0.707f, sr);
+        float dc = 1.0f;
+        for (int i = 0; i < 2000; ++i) {
+            dc = hp.process(1.0f);
+        }
+        CHECK_NEAR(dc, 0.0f, 1e-3f);
+        const double lowTone = toneRms(audio::Biquad::highpass(1000.0f, 0.707f, sr), 100.0f);
+        const double highTone = toneRms(audio::Biquad::highpass(1000.0f, 0.707f, sr), 10000.0f);
+        CHECK(highTone > 0.5);
+        CHECK(lowTone < 0.05);
+        CHECK(highTone > lowTone * 8.0);
+    }
+
+    // Delay: an impulse reappears after exactly `delaySamples`, scaled by `wet`, then a second, quieter
+    // echo one delay-length later scaled by wet*feedback.
+    {
+        audio::Delay d;
+        d.configure(10, 0.5f, 0.8f);
+        std::vector<float> out;
+        out.reserve(40);
+        // Feed a single unit impulse followed by silence.
+        out.push_back(d.process(1.0f));
+        for (int i = 1; i < 40; ++i) {
+            out.push_back(d.process(0.0f));
+        }
+        CHECK_NEAR(out[0], 1.0f, 1e-6f);        // dry impulse passes straight through
+        CHECK_NEAR(out[10], 0.8f, 1e-6f);       // first echo: wet * 1.0
+        CHECK_NEAR(out[20], 0.8f * 0.5f, 1e-6f);// second echo: wet * (echo fed back at feedback)
+        CHECK_NEAR(out[5], 0.0f, 1e-6f);        // nothing between the taps
+    }
+
+    // Bus: an empty chain is a pass-through scaled by gain; a chain applies effects in order.
+    {
+        audio::Bus bus;
+        bus.gain = 0.5f;
+        CHECK_NEAR(bus.process(1.0f), 0.5f, 1e-6f); // empty chain, gain only
+
+        audio::Bus chain;
+        // Lowpass then delay: verify the delay tap still fires through the chain (order-preserving).
+        chain.add(std::make_unique<audio::BiquadEffect>(audio::Biquad::lowpass(2000.0f, 0.707f, sr)));
+        audio::Delay dd;
+        dd.configure(8, 0.0f, 1.0f); // no feedback, full wet
+        chain.add(std::make_unique<audio::DelayEffect>(dd));
+        std::vector<float> sig(32, 0.0f);
+        sig[0] = 1.0f;
+        chain.processBuffer(sig);
+        // Energy shows up both immediately (dry, lowpassed) and one delay-length later (the echo tap).
+        double early = 0.0, echo = 0.0;
+        for (int i = 0; i < 6; ++i) {
+            early += std::fabs(static_cast<double>(sig[static_cast<std::size_t>(i)]));
+        }
+        for (int i = 8; i < 14; ++i) {
+            echo += std::fabs(static_cast<double>(sig[static_cast<std::size_t>(i)]));
+        }
+        CHECK(early > 0.0);
+        CHECK(echo > 0.0);
+    }
+}
+
 void testSpatial2D() {
     using math::vec2;
     audio::Listener2D lis;
@@ -3303,6 +3401,7 @@ int main() {
     testPhysics2D();
     testPhysics2DRotation();
     testPhysics2DJoints();
+    testAudioDsp();
     testSpatial2D();
     testTwoBoneIK();
     testBlendSpace();

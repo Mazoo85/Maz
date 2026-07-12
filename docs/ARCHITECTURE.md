@@ -110,7 +110,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
-            stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style  (depends on: core, SDL3)
+            stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
+            Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo + Bus
+            ordered effect chain), Godot AudioEffectFilter/AudioEffectDelay-style  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -175,6 +177,8 @@ apps/
               target (out-of-reach targets shown extended) (anim::solveTwoBoneIK)
   avoid/    RVO local avoidance — 14 agents crossing a circle to antipodal goals, their trails bulging
               around the crowded centre as reciprocal velocity obstacles route them apart (game::rvoVelocity)
+  bus/      Audio DSP buses — one plucked-sawtooth note scoped as four stacked waveforms (source,
+              low-pass, high-pass, low-pass→delay bus) (audio::Biquad / audio::Delay / audio::Bus)
 ```
 
 ## The frame loop (fixed timestep)

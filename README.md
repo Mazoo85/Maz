@@ -422,6 +422,15 @@ available):
   new `avoid` demo is the classic circle test — 14 agents each heading for the point opposite, their
   trails bulging outward around the crowded centre; the whole crossing is simulated once at startup so
   the render is deterministic.
+- **M99** — audio **DSP effects + mix buses**, toward Godot's `AudioEffectFilter`/`AudioEffectDelay`
+  and audio-bus layout: a header-only `audio::Biquad` (RBJ-cookbook low/high/band-pass filters), an
+  `audio::Delay` (feedback echo), and an `audio::Bus` that chains effects in series with an output
+  gain. All pure per-sample math — no device, no threads — so it unit-tests exactly (low-pass passes
+  DC and low tones but kills highs; high-pass blocks DC; an impulse re-emerges after exactly one delay
+  length, then a quieter echo at twice that; a bus chain preserves order) and drives a deterministic
+  offline scope. The new `bus` demo plays one plucked-sawtooth note and draws four stacked waveform
+  bands — the raw source, a low-pass (harmonics smoothed away), a high-pass (only the bright edges),
+  and a low-pass→delay bus (filtered note + decaying echoes) — computed once at 44.1 kHz.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
