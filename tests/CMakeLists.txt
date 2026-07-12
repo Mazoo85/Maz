@@ -19,3 +19,10 @@ set_tests_properties(model_load_gltf PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "24 verts, 12 tris")
+
+# Unit tests: pure C++ (no GPU/display). Camera view/projection math.
+add_executable(maz_unit_tests unit_camera.cpp)
+target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_camera COMMAND maz_unit_tests)
+set_tests_properties(unit_camera PROPERTIES TIMEOUT 30)

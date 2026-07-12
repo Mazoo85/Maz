@@ -128,7 +128,56 @@ bool VulkanSwapchain::create(VulkanContext& ctx, uint32_t width, uint32_t height
         }
     }
 
-    return createRenderPass(ctx) && createFramebuffers(ctx);
+    return createDepthResources(ctx) && createRenderPass(ctx) && createFramebuffers(ctx);
+}
+
+bool VulkanSwapchain::createDepthResources(VulkanContext& ctx) {
+    VkImageCreateInfo img{};
+    img.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    img.imageType = VK_IMAGE_TYPE_2D;
+    img.format = m_depthFormat;
+    img.extent = {m_extent.width, m_extent.height, 1};
+    img.mipLevels = 1;
+    img.arrayLayers = 1;
+    img.samples = VK_SAMPLE_COUNT_1_BIT;
+    img.tiling = VK_IMAGE_TILING_OPTIMAL;
+    img.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    img.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(ctx.device(), &img, nullptr, &m_depthImage) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("vkCreateImage (depth) failed");
+        return false;
+    }
+
+    VkMemoryRequirements req{};
+    vkGetImageMemoryRequirements(ctx.device(), m_depthImage, &req);
+    uint32_t memType = ctx.findMemoryType(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (memType == UINT32_MAX) {
+        MAZ_LOG_ERROR("no device-local memory type for depth image");
+        return false;
+    }
+    VkMemoryAllocateInfo alloc{};
+    alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc.allocationSize = req.size;
+    alloc.memoryTypeIndex = memType;
+    if (vkAllocateMemory(ctx.device(), &alloc, nullptr, &m_depthMemory) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("vkAllocateMemory (depth) failed");
+        return false;
+    }
+    vkBindImageMemory(ctx.device(), m_depthImage, m_depthMemory, 0);
+
+    VkImageViewCreateInfo vi{};
+    vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vi.image = m_depthImage;
+    vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vi.format = m_depthFormat;
+    vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    vi.subresourceRange.levelCount = 1;
+    vi.subresourceRange.layerCount = 1;
+    if (vkCreateImageView(ctx.device(), &vi, nullptr, &m_depthView) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("vkCreateImageView (depth) failed");
+        return false;
+    }
+    return true;
 }
 
 bool VulkanSwapchain::createRenderPass(VulkanContext& ctx) {
@@ -142,26 +191,45 @@ bool VulkanSwapchain::createRenderPass(VulkanContext& ctx) {
     color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+    VkAttachmentDescription depth{};
+    depth.format = m_depthFormat;
+    depth.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference colorRef{};
     colorRef.attachment = 0;
     colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthRef{};
+    depthRef.attachment = 1;
+    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorRef;
+    subpass.pDepthStencilAttachment = &depthRef;
 
     VkSubpassDependency dep{};
     dep.srcSubpass = VK_SUBPASS_EXTERNAL;
     dep.dstSubpass = 0;
-    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
+    VkAttachmentDescription attachments[] = {color, depth};
     VkRenderPassCreateInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    rp.attachmentCount = 1;
-    rp.pAttachments = &color;
+    rp.attachmentCount = 2;
+    rp.pAttachments = attachments;
     rp.subpassCount = 1;
     rp.pSubpasses = &subpass;
     rp.dependencyCount = 1;
@@ -177,11 +245,11 @@ bool VulkanSwapchain::createRenderPass(VulkanContext& ctx) {
 bool VulkanSwapchain::createFramebuffers(VulkanContext& ctx) {
     m_framebuffers.resize(m_views.size());
     for (size_t i = 0; i < m_views.size(); ++i) {
-        VkImageView attachments[] = {m_views[i]};
+        VkImageView attachments[] = {m_views[i], m_depthView};
         VkFramebufferCreateInfo fb{};
         fb.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fb.renderPass = m_renderPass;
-        fb.attachmentCount = 1;
+        fb.attachmentCount = 2;
         fb.pAttachments = attachments;
         fb.width = m_extent.width;
         fb.height = m_extent.height;
@@ -200,6 +268,18 @@ void VulkanSwapchain::destroy(VulkanContext& ctx) {
         vkDestroyFramebuffer(device, fb, nullptr);
     }
     m_framebuffers.clear();
+    if (m_depthView) {
+        vkDestroyImageView(device, m_depthView, nullptr);
+        m_depthView = VK_NULL_HANDLE;
+    }
+    if (m_depthImage) {
+        vkDestroyImage(device, m_depthImage, nullptr);
+        m_depthImage = VK_NULL_HANDLE;
+    }
+    if (m_depthMemory) {
+        vkFreeMemory(device, m_depthMemory, nullptr);
+        m_depthMemory = VK_NULL_HANDLE;
+    }
     if (m_renderPass) {
         vkDestroyRenderPass(device, m_renderPass, nullptr);
         m_renderPass = VK_NULL_HANDLE;

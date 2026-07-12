@@ -24,7 +24,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
 - [ ] clang-tidy config + CI lint gate
 - [ ] Address/UB sanitizer presets (Debug), leak checks
-- [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
+- [~] CI matrix (Linux/Windows/macOS) running the headless smoke test — **Linux CI landed**
+      (`.github/workflows/ci.yml`: installs the Vulkan SDK + glslang, builds under `-Werror`,
+      runs ctest headless). Windows/macOS still to add.
 - [ ] Config system (CVars / ini / json), persisted settings
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
@@ -66,13 +68,19 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Swapchain recreation on resize / out-of-date
 - [x] Graceful degrade when no GPU/ICD present (headless safe)
 - [ ] VMA (Vulkan Memory Allocator), buffer/image helpers, staging uploads
-- [ ] Graphics pipeline + descriptor-set management, push constants, dynamic state
-- [ ] Shader module loading from SPIR-V + reflection + hot reload
+- [~] Graphics pipeline + descriptor-set management, push constants, dynamic state — **pipeline +
+      push constants + dynamic viewport/scissor landed** (MeshRenderer). Descriptor sets still to do.
+- [~] Shader module loading from SPIR-V + reflection + hot reload — **SPIR-V load landed** (mesh
+      shaders loaded from beside the exe). Reflection + hot reload still to do.
 - [ ] **2D:** sprite batch renderer, texture atlas, `Camera2D`, line/shape debug draw
 - [ ] **2D:** tilemap renderer (chunked), sprite sorting / layers
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
-- [ ] Mesh renderer (indexed draw), vertex layouts, instancing
-- [ ] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull
+- [~] Mesh renderer (indexed draw), vertex layouts, instancing — **indexed draw + vertex layout
+      landed** (`MeshRenderer` draws a `maz::assets::Model` with per-mesh vertex/index buffers).
+      Instancing + staging-buffer uploads (currently host-visible) still to do.
+- [~] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull — **perspective camera +
+      depth buffer landed** (`maz::scene::Camera`; swapchain has a D32 depth attachment, pipeline
+      depth-tests). Ortho + back-face cull (currently cull-none) still to do.
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [ ] Lighting: directional / point / spot; forward+ or deferred path
 - [ ] Shadow maps, skybox / image-based lighting

@@ -19,10 +19,12 @@ public:
     VkRenderPass renderPass() const { return m_renderPass; }
     VkExtent2D extent() const { return m_extent; }
     VkFormat format() const { return m_format; }
+    VkFormat depthFormat() const { return m_depthFormat; }
     uint32_t imageCount() const { return static_cast<uint32_t>(m_images.size()); }
     VkFramebuffer framebuffer(uint32_t i) const { return m_framebuffers[i]; }
 
 private:
+    bool createDepthResources(VulkanContext& ctx);
     bool createRenderPass(VulkanContext& ctx);
     bool createFramebuffers(VulkanContext& ctx);
 
@@ -33,6 +35,12 @@ private:
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_views;
     std::vector<VkFramebuffer> m_framebuffers;
+
+    // Depth attachment (shared across swapchain images; recreated on resize).
+    VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
+    VkImage m_depthImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_depthMemory = VK_NULL_HANDLE;
+    VkImageView m_depthView = VK_NULL_HANDLE;
 };
 
 } // namespace maz::render

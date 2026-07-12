@@ -22,11 +22,14 @@ Working today:
 - **Verified end to end** — a headless test (`ctest -R model_load_gltf`) loads
   `assets/models/cube.gltf` and checks the geometry.
 
+- **Drawing the model on screen** — `./build/bin/sandbox --load-model <file>` draws it as a
+  spinning, lit mesh (needs a real GPU + display; runs headless as a no-op for CI). See the mesh
+  renderer in `engine/src/render/MeshRenderer.cpp`.
+
 Not done yet (later milestones):
 
-- **Drawing the model on screen.** The mesh renderer is a later roadmap item (Phase 3).
-  For now the engine loads and inspects the geometry but doesn't yet rasterize it.
 - Materials/textures, skeletal animation, and async streaming via the asset manager.
+- Back-face culling (currently draws all faces, sorted by the depth buffer) and instancing.
 
 ## Exporting from Blender
 

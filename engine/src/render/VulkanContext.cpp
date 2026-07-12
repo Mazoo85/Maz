@@ -278,4 +278,17 @@ void VulkanContext::shutdown() {
     }
 }
 
+uint32_t VulkanContext::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
+    VkPhysicalDeviceMemoryProperties memProps{};
+    vkGetPhysicalDeviceMemoryProperties(m_physical, &memProps);
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
+        const bool typeOk = (typeFilter & (1u << i)) != 0;
+        const bool propsOk = (memProps.memoryTypes[i].propertyFlags & properties) == properties;
+        if (typeOk && propsOk) {
+            return i;
+        }
+    }
+    return UINT32_MAX;
+}
+
 } // namespace maz::render

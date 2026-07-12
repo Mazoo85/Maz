@@ -11,11 +11,13 @@ add_library(maz STATIC
     src/core/Time.cpp
     src/core/Config.cpp
     src/assets/Model.cpp
+    src/scene/Camera.cpp
     src/platform/Window.cpp
     src/platform/Input.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
-    src/render/VulkanRenderer.cpp)
+    src/render/VulkanRenderer.cpp
+    src/render/MeshRenderer.cpp)
 
 target_include_directories(maz
     PUBLIC
