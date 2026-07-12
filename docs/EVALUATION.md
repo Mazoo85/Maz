@@ -1046,16 +1046,38 @@ Continuing the Godot benchmark. With arbitrary polygon fill in hand (M88), the t
   default), so every existing 2D/3D golden is unchanged — confirmed by a serial golden run (strays
   killed first; golden check then ctest one at a time). ctest **46/46**. Unit count **3389 → 3399**.
 
+### Iteration 51 — "Benchmarking against Godot: additive 2D light blending" (done)
+Continuing the Godot benchmark. M89 shipped 2D lights, but with one honest flaw called out in its own
+summary: the light pools were **alpha-blended**, so where two lights overlapped they *averaged* (a
+bright light over a dim one just muddied) instead of *brightening*. Godot's Light2D composites lights
+**additively** — light is energy, and energy adds. Closing that was the top-ranked closable gap.
+- [x] **M90 — Additive blending in the 2D renderer (`BlendMode` + a 2nd sprite pipeline)**: the sprite
+  renderer had exactly one pipeline (standard alpha "over" blend), shared by sprites, fonts, polygons,
+  and the M89 lights. This adds a second pipeline that is byte-identical except for the blend
+  attachment — src·alpha is **added** to the destination (dst factor `ONE`) — built right after the
+  alpha one from the same shaders/layout. A `BlendMode { Alpha, Additive }` enum threads through
+  `drawConvexPolygon` / `drawPolygonFan` (defaulting to Alpha, so every existing call is unchanged);
+  each `Batch` records its blend mode, `fillPolygon*` starts a new batch when the mode changes, and
+  `flush` binds the matching pipeline per batch (tracking the currently-bound one to avoid redundant
+  binds). The `lights2d` demo now draws its light pools additively: where the warm, cool, and magenta
+  lights overlap the colors sum toward white — visibly, correctly brighter than the M89 render — while
+  the boxes still cast their hard shadows. Verified on lavapipe (the additive hotspots appear exactly
+  where pools overlap; no validation errors); `lights2d` golden recaptured (RMSE 0, threshold 0.05).
+  The change is additive and opt-in, so all 40 other goldens are unchanged — confirmed by a serial
+  golden run (strays killed first; golden check then ctest one at a time). ctest **46/46**. This is a
+  render-path feature exercised by the golden, so the CPU unit count is steady at **3399**. Additive
+  blending is also the standard mode for glows / fire / energy, so it's reusable well beyond lights.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): normal-mapped / textured 2D lights + soft (penumbra) shadows +
-additive blending for the 2D light path (M89 is hard-edged, alpha-blended, flat); 3D rigid-body physics
-+ joints; audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text input + focus nav
-+ themes; GPU particles; navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse)
-in Physics2D, parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
+Later (Godot-gap priorities + backlog): soft (penumbra) 2D shadows + normal-mapped / textured 2D lights
+(M90 made lights additive; they're still hard-edged and flat-colored); 3D rigid-body physics + joints;
+audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text input + focus nav + themes;
+GPU particles; navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse) in
+Physics2D, parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
 prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
 tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
 system, cross-platform CI, a deterministic hold-frame screenshot mode.

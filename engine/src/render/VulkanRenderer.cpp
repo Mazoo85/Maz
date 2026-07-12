@@ -40,8 +40,9 @@ public:
     TextureHandle createTexture(uint32_t width, uint32_t height, const void* rgbaPixels) override;
     void setCamera2D(const Camera2D& camera) override;
     void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
-    void drawConvexPolygon(const Point2* points, uint32_t count, Color color) override;
-    void drawPolygonFan(const PolyVertex* verts, uint32_t count) override;
+    void drawConvexPolygon(const Point2* points, uint32_t count, Color color,
+                           BlendMode blend) override;
+    void drawPolygonFan(const PolyVertex* verts, uint32_t count, BlendMode blend) override;
 
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
@@ -405,15 +406,16 @@ void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite)
     }
 }
 
-void VulkanRenderer::drawConvexPolygon(const Point2* points, uint32_t count, Color color) {
+void VulkanRenderer::drawConvexPolygon(const Point2* points, uint32_t count, Color color,
+                                       BlendMode blend) {
     if (m_active) {
-        m_sprites.fillPolygon(m_whiteTex, points, count, color);
+        m_sprites.fillPolygon(m_whiteTex, points, count, color, blend);
     }
 }
 
-void VulkanRenderer::drawPolygonFan(const PolyVertex* verts, uint32_t count) {
+void VulkanRenderer::drawPolygonFan(const PolyVertex* verts, uint32_t count, BlendMode blend) {
     if (m_active) {
-        m_sprites.fillPolygonFan(m_whiteTex, verts, count);
+        m_sprites.fillPolygonFan(m_whiteTex, verts, count, blend);
     }
 }
 

@@ -218,6 +218,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   gradient fan `Renderer::drawPolygonFan` — Godot Light2D / LightOccluder2D-style; occluder boxes carve
   real hard-edged shadow notches out of each light pool; the `lights2d` demo lights a dark room with three
   colored lights; M89)
+- [x] **2D:** additive blending (`BlendMode::Additive` on `drawConvexPolygon`/`drawPolygonFan`: a second
+  blend pipeline where src·alpha is ADDED to the destination, batched per blend mode — overlapping 2D
+  lights brighten instead of averaging, matching Godot's Light2D compositing; also for glows/fire/energy;
+  M90)
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -439,7 +443,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       overlapping triangles via `drawConvexPolygon` (M88)
 - [x] **2D lights + shadows** (`apps/lights2d`) — a dark room lit by three colored lights, each a
       visibility polygon (`game::Visibility2D`) rendered as a gradient fan, with solid occluder boxes
-      casting real hard-edged shadows (M89)
+      casting real hard-edged shadows; lights composite additively so overlaps brighten (M89, M90)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

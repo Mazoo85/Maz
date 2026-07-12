@@ -21,6 +21,15 @@ struct Color {
     float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
 };
 
+// How a 2D draw composites over what's already in the framebuffer.
+//   Alpha    — standard "over" blend (src·a + dst·(1−a)); the default for sprites/UI/shapes.
+//   Additive — src·a is ADDED to dst; overlapping draws get brighter, never darker. This is how
+//              Godot's Light2D accumulates light, and the right mode for glows / fire / energy.
+enum class BlendMode {
+    Alpha,
+    Additive,
+};
+
 // Opaque texture handle. 0 is the invalid/"no texture" sentinel.
 using TextureHandle = uint32_t;
 constexpr TextureHandle kInvalidTexture = 0;
@@ -137,18 +146,24 @@ public:
     virtual void drawSprite(TextureHandle texture, const SpriteDesc& sprite) = 0;
     // Fill a CONVEX polygon (points in world/pixel space per the active 2D camera, any winding),
     // triangulated as a fan and flat-shaded with `color` — the vector-shape primitive (analogous to
-    // Godot's draw_colored_polygon / Polygon2D). Alpha-blended like sprites. No-op when inactive.
-    virtual void drawConvexPolygon(const Point2* points, uint32_t count, Color color) {
+    // Godot's draw_colored_polygon / Polygon2D). `blend` selects alpha (default) or additive
+    // compositing. No-op when inactive.
+    virtual void drawConvexPolygon(const Point2* points, uint32_t count, Color color,
+                                   BlendMode blend = BlendMode::Alpha) {
         (void)points;
         (void)count;
         (void)color;
+        (void)blend;
     }
     // A triangle fan from verts[0] with PER-VERTEX color (interpolated) — for gradients: 2D light
     // pools (bright center, faded rim), soft fills. verts[0] must "see" every other vertex (the shape
-    // is a fan / star around it). Alpha-blended. No-op when inactive.
-    virtual void drawPolygonFan(const PolyVertex* verts, uint32_t count) {
+    // is a fan / star around it). `blend` selects alpha (default) or additive — additive is how 2D
+    // lights accumulate (overlaps brighten), matching Godot's Light2D. No-op when inactive.
+    virtual void drawPolygonFan(const PolyVertex* verts, uint32_t count,
+                                BlendMode blend = BlendMode::Alpha) {
         (void)verts;
         (void)count;
+        (void)blend;
     }
 
     // --- 3D meshes (Phase 3) ---

@@ -37,9 +37,11 @@ public:
     uint32_t spriteCount() const { return static_cast<uint32_t>(m_vertices.size() / 6); }
     void draw(TextureHandle tex, const SpriteDesc& s);
     // Fill a convex polygon (triangle fan from points[0]) with a flat color, using `whiteTex`.
-    void fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count, const Color& color);
+    void fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count, const Color& color,
+                     BlendMode blend = BlendMode::Alpha);
     // Fill a triangle fan from verts[0] with per-vertex (interpolated) color, using `whiteTex`.
-    void fillPolygonFan(TextureHandle whiteTex, const PolyVertex* verts, uint32_t count);
+    void fillPolygonFan(TextureHandle whiteTex, const PolyVertex* verts, uint32_t count,
+                        BlendMode blend = BlendMode::Alpha);
     void flush(VkCommandBuffer cmd, uint32_t frameIndex); // record the batched draws
 
 private:
@@ -52,7 +54,8 @@ private:
         TextureHandle tex;
         uint32_t first;
         uint32_t count;
-        Camera2D cam; // camera active when this batch was recorded
+        Camera2D cam;                        // camera active when this batch was recorded
+        BlendMode blend = BlendMode::Alpha;  // alpha (over) or additive compositing
     };
 
     bool createPipeline(VulkanContext& ctx, VkRenderPass renderPass);
@@ -61,7 +64,8 @@ private:
     TextureStore* m_store = nullptr;    // shared texture registry (not owned)
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
+    VkPipeline m_pipeline = VK_NULL_HANDLE;     // alpha (over) blend
+    VkPipeline m_pipelineAdd = VK_NULL_HANDLE;  // additive blend (same layout/shaders)
 
     std::vector<VulkanBuffer> m_vbo;    // one per frame-in-flight
     std::vector<void*> m_vboMapped;

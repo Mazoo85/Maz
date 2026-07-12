@@ -66,7 +66,9 @@ void drawLight(render::Renderer& r, const Light& li, const std::vector<game::Seg
         fan.push_back(rim(p));
     }
     fan.push_back(rim(poly.front())); // close the loop back to the first rim vertex
-    r.drawPolygonFan(fan.data(), static_cast<uint32_t>(fan.size()));
+    // Additive: where two lights overlap the light ADDS up (brightens) instead of averaging —
+    // physically how light accumulates, and how Godot's Light2D composites.
+    r.drawPolygonFan(fan.data(), static_cast<uint32_t>(fan.size()), render::BlendMode::Additive);
 }
 
 } // namespace
@@ -120,11 +122,12 @@ int main(int argc, char** argv) {
         addBoxEdges(occ, b);
     }
 
-    // Static colored lights.
+    // Static colored lights. Alphas are moderate because the pools composite ADDITIVELY — where they
+    // overlap the colors sum toward white, so keeping each below 1 leaves the blend colorful.
     const std::vector<Light> lights = {
-        {sw * 0.20f, sh * 0.22f, render::Color{1.0f, 0.85f, 0.55f, 0.95f}, sw * 0.55f}, // warm
-        {sw * 0.80f, sh * 0.70f, render::Color{0.45f, 0.75f, 1.0f, 0.9f}, sw * 0.55f},  // cool
-        {sw * 0.52f, sh * 0.40f, render::Color{1.0f, 0.4f, 0.7f, 0.8f}, sw * 0.42f},    // magenta
+        {sw * 0.20f, sh * 0.22f, render::Color{1.0f, 0.82f, 0.5f, 0.85f}, sw * 0.55f}, // warm
+        {sw * 0.80f, sh * 0.70f, render::Color{0.4f, 0.72f, 1.0f, 0.8f}, sw * 0.55f},  // cool
+        {sw * 0.52f, sh * 0.40f, render::Color{1.0f, 0.35f, 0.7f, 0.7f}, sw * 0.42f},  // magenta
     };
 
     while (!window.shouldClose()) {
@@ -167,7 +170,7 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, 16.0f, 12.0f, "MAZ ENGINE  -  2D LIGHTS + SHADOWS",
                           render::Color{1, 1, 1, 1}, 0.7f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          "visibility-polygon light pools; boxes cast real shadows",
+                          "additive light pools (overlaps brighten); boxes cast real shadows",
                           render::Color{0.75f, 0.82f, 0.95f, 1}, 0.44f);
 
             renderer->endFrame();

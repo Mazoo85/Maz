@@ -196,10 +196,25 @@ bool SpriteRenderer::createPipeline(VulkanContext& ctx, VkRenderPass renderPass)
 
     VkResult r = vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr,
                                            &m_pipeline);
-    vkDestroyShaderModule(ctx.device(), vert, nullptr);
-    vkDestroyShaderModule(ctx.device(), frag, nullptr);
     if (r != VK_SUCCESS) {
         MAZ_LOG_ERROR("vkCreateGraphicsPipelines failed (VkResult %d)", (int)r);
+        vkDestroyShaderModule(ctx.device(), vert, nullptr);
+        vkDestroyShaderModule(ctx.device(), frag, nullptr);
+        return false;
+    }
+
+    // Additive variant: identical pipeline, but src·alpha is ADDED to the destination (dst factor ONE)
+    // instead of replacing it — overlapping draws brighten. Used by 2D lights / glows.
+    blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    VkResult ra = vkCreateGraphicsPipelines(ctx.device(), VK_NULL_HANDLE, 1, &gp, nullptr,
+                                            &m_pipelineAdd);
+    vkDestroyShaderModule(ctx.device(), vert, nullptr);
+    vkDestroyShaderModule(ctx.device(), frag, nullptr);
+    if (ra != VK_SUCCESS) {
+        MAZ_LOG_ERROR("vkCreateGraphicsPipelines (additive) failed (VkResult %d)", (int)ra);
         return false;
     }
     return true;
@@ -282,7 +297,7 @@ void SpriteRenderer::draw(TextureHandle tex, const SpriteDesc& s) {
 }
 
 void SpriteRenderer::fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count,
-                                 const Color& color) {
+                                 const Color& color, BlendMode blend) {
     if (!m_store->valid(whiteTex) || count < 3 || points == nullptr) {
         return;
     }
@@ -309,8 +324,9 @@ void SpriteRenderer::fillPolygon(TextureHandle whiteTex, const Point2* points, u
     };
 
     const auto first = static_cast<uint32_t>(m_vertices.size());
-    if (m_batches.empty() || m_batches.back().tex != whiteTex || m_cameraChanged) {
-        m_batches.push_back(Batch{whiteTex, first, 0, m_camera});
+    if (m_batches.empty() || m_batches.back().tex != whiteTex || m_batches.back().blend != blend ||
+        m_cameraChanged) {
+        m_batches.push_back(Batch{whiteTex, first, 0, m_camera, blend});
         m_cameraChanged = false;
     }
     for (uint32_t i = 1; i + 1 < count; ++i) {
@@ -321,7 +337,8 @@ void SpriteRenderer::fillPolygon(TextureHandle whiteTex, const Point2* points, u
     m_batches.back().count += triVerts;
 }
 
-void SpriteRenderer::fillPolygonFan(TextureHandle whiteTex, const PolyVertex* verts, uint32_t count) {
+void SpriteRenderer::fillPolygonFan(TextureHandle whiteTex, const PolyVertex* verts, uint32_t count,
+                                   BlendMode blend) {
     if (!m_store->valid(whiteTex) || count < 3 || verts == nullptr) {
         return;
     }
@@ -348,8 +365,9 @@ void SpriteRenderer::fillPolygonFan(TextureHandle whiteTex, const PolyVertex* ve
     };
 
     const auto first = static_cast<uint32_t>(m_vertices.size());
-    if (m_batches.empty() || m_batches.back().tex != whiteTex || m_cameraChanged) {
-        m_batches.push_back(Batch{whiteTex, first, 0, m_camera});
+    if (m_batches.empty() || m_batches.back().tex != whiteTex || m_batches.back().blend != blend ||
+        m_cameraChanged) {
+        m_batches.push_back(Batch{whiteTex, first, 0, m_camera, blend});
         m_cameraChanged = false;
     }
     for (uint32_t i = 1; i + 1 < count; ++i) {
@@ -369,8 +387,6 @@ void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
     const float w = static_cast<float>(m_viewportW);
     const float h = static_cast<float>(m_viewportH);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
     VkViewport viewport{};
     viewport.width = w;
     viewport.height = h;
@@ -384,9 +400,15 @@ void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
     VkBuffer buffer = m_vbo[frameIndex].handle();
     vkCmdBindVertexBuffers(cmd, 0, 1, &buffer, &offset);
 
-    // Each batch carries its own camera, so a world-space pass and a pixel-space HUD pass can
-    // coexist in one frame.
+    // Each batch carries its own camera and blend mode, so a world-space pass, a pixel-space HUD
+    // pass, and additive light pools can all coexist in one frame.
+    VkPipeline bound = VK_NULL_HANDLE;
     for (const Batch& batch : m_batches) {
+        VkPipeline want = batch.blend == BlendMode::Additive ? m_pipelineAdd : m_pipeline;
+        if (want != bound) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, want);
+            bound = want;
+        }
         glm::mat4 viewProj;
         if (batch.cam.usePixelSpace) {
             viewProj = math::ortho2D(w, h);
@@ -414,6 +436,10 @@ void SpriteRenderer::shutdown(VulkanContext& ctx) {
     m_vbo.clear();
     m_vboMapped.clear();
 
+    if (m_pipelineAdd) {
+        vkDestroyPipeline(ctx.device(), m_pipelineAdd, nullptr);
+        m_pipelineAdd = VK_NULL_HANDLE;
+    }
     if (m_pipeline) {
         vkDestroyPipeline(ctx.device(), m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;

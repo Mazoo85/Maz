@@ -42,7 +42,8 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites + convex-polygon fill
                                (drawConvexPolygon: triangle-fan flat shapes via a 1×1 white texture) +
-                               per-vertex-color gradient fans (drawPolygonFan: 2D light pools / shadows)
+                               per-vertex-color gradient fans (drawPolygonFan: 2D light pools / shadows);
+                               alpha + additive blend pipelines, batched per BlendMode (additive lights)
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog + normal mapping + emissive + specular
                                (Material) + wireframe debug draw + instancing + transparency.
@@ -139,7 +140,8 @@ apps/
   vectors/  Filled polygons — regular N-gons, a 64-gon "circle", and overlapping translucent triangles
               via Renderer::drawConvexPolygon (Godot Polygon2D-style vector shapes, alpha-composited)
   lights2d/ 2D lights + shadows — a dark room lit by three colored lights, each a visibility polygon
-              (game::Visibility2D) rendered as a gradient fan, with solid boxes casting real shadows
+              (game::Visibility2D) rendered as an ADDITIVE gradient fan (overlaps brighten), with
+              solid boxes casting real shadows
 ```
 
 ## The frame loop (fixed timestep)

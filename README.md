@@ -344,6 +344,13 @@ available):
   occluders **are** the shadows — hard-edged, geometrically exact. The new `lights2d` demo lights a
   dark room with three colored lights and four solid boxes that cast real shadows. The visibility
   geometry is pure 2D math, so it unit-tests without a GPU
+- **M90** — additive blending in the 2D renderer, toward Godot's `Light2D` compositing: the sprite
+  path could only alpha-blend ("over"), so overlapping M89 lights *averaged* instead of *brightening*.
+  This adds a second blend pipeline (src·alpha ADDED to the destination) sharing the same shaders and
+  layout, a `BlendMode` selector on `drawConvexPolygon` / `drawPolygonFan`, and per-blend-mode
+  batching (each batch binds the matching pipeline). The `lights2d` demo now composites its light
+  pools additively — where two lights overlap the colors sum toward white, exactly how real light
+  accumulates. Additive is also the right mode for glows, fire, and energy effects generally
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
