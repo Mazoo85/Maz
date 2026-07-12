@@ -1227,13 +1227,39 @@ with rigorous verification.
   cave gen; it is not the full 47-tile Wang/blob terrain matcher, BSP/room-graph dungeon generation, or
   a runtime TileMap terrain-painting API — those remain.
 
+### Iteration 58 — "Benchmarking against Godot: 2-bone inverse kinematics" (done)
+Continuing the Godot benchmark. The animation system had skeletons (M67), clips + blending (M68),
+a controller (M70), and blend spaces (M92), but everything was FORWARD kinematics — you posed joints and
+the ends followed. Godot's SkeletonModification2D adds inverse kinematics: you place a *target* and the
+joints solve to reach it (foot planting, hand-to-object, look/aim). 2-bone IK is the canonical building
+block, it's pure closed-form math, and it has a crisp visual golden — a strong, high-confidence pick.
+- [x] **M97 — 2-bone inverse kinematics (`anim::solveTwoBoneIK`)**: given a fixed root (shoulder), two
+  bone lengths, a target, and a `bendSign`, it returns the middle joint (elbow) and end effector. The
+  elbow is placed by the law of cosines: the angle at the root between the root→target line and the
+  upper bone is `acos((len1²+d²−len2²)/(2·len1·d))`, and `bendSign` (+1/−1) rotates the upper bone to
+  either side so the elbow bends up or down. Within the working range `[|len1−len2|, len1+len2]` the hand
+  lands on the target exactly; beyond it the chain points straight at the target, fully extended
+  (`reachable=false`). Pure 2D math (no skeleton, no GPU), so `testTwoBoneIK` checks it exactly: a
+  reachable target puts the hand on the target with both bone lengths preserved; flipping `bendSign` puts
+  the elbow on the opposite side of the root→target line (the cross-product sign flips) while still
+  reaching; an out-of-reach target gives a straight, collinear arm at full stretch; and a target exactly
+  at full stretch is reachable with a straight arm. Unit count **3505 → 3523**. The new `reach` demo is a
+  6×3 grid of arms, each solving toward its own fanned-out target with alternating bend direction —
+  reachable targets ringed green, the bottom-right out-of-reach ones red with the arm extended straight
+  at them; on lavapipe the elbow solve + bend + overreach all read clearly. New `reach_headless_smoke` +
+  golden (static, RMSE 0, threshold 0.05). Purely additive (new header + a new app), so all existing
+  goldens are unchanged — confirmed by a serial golden run (strays killed first; golden check then ctest
+  one at a time). ctest **53/53**. Honest scope: this is closed-form 2-bone IK; it is not a multi-bone
+  CCD/FABRIK chain solver, a full-body IK rig, or a Skeleton-integrated modification stack — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): 47-tile Wang autotiling + BSP/room dungeon gen (M96 gives
-4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
+Later (Godot-gap priorities + backlog): multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK
+modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96
+gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
 controller UI nav (M95 gives single-line LineEdit + focus); audio buses + DSP effects (reverb/filter) +
 3D spatial audio + doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh;
 animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point

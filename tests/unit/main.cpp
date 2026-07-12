@@ -6,6 +6,7 @@
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
+#include "maz/anim/IK.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
@@ -2858,6 +2859,63 @@ void testSpatial2D() {
     }
 }
 
+void testTwoBoneIK() {
+    using math::vec2;
+    const vec2 root(0.0f, 0.0f);
+    const float l1 = 10.0f, l2 = 8.0f;
+    auto len = [](vec2 a, vec2 b) {
+        const vec2 d = b - a;
+        return std::sqrt(d.x * d.x + d.y * d.y);
+    };
+
+    // Reachable target: the end effector lands exactly on it, and the bone lengths are preserved.
+    {
+        const vec2 target(9.0f, 6.0f); // |target| ~= 10.8, within [2, 18]
+        auto s = anim::solveTwoBoneIK(root, l1, l2, target, +1.0f);
+        CHECK(s.reachable);
+        CHECK_NEAR(s.end.x, target.x, 1e-3f);
+        CHECK_NEAR(s.end.y, target.y, 1e-3f);
+        CHECK_NEAR(len(root, s.mid), l1, 1e-3f); // upper bone length
+        CHECK_NEAR(len(s.mid, s.end), l2, 1e-3f); // lower bone length
+    }
+
+    // bendSign flips the elbow to the opposite side of the root->target line (cross product changes sign).
+    {
+        const vec2 target(12.0f, 2.0f);
+        auto a = anim::solveTwoBoneIK(root, l1, l2, target, +1.0f);
+        auto b = anim::solveTwoBoneIK(root, l1, l2, target, -1.0f);
+        const auto cross = [&](const anim::IKResult& r) {
+            return (r.mid.x - root.x) * (target.y - root.y) - (r.mid.y - root.y) * (target.x - root.x);
+        };
+        CHECK(cross(a) * cross(b) < 0.0f); // elbows on opposite sides
+        // Both still reach the target with correct bone lengths.
+        CHECK_NEAR(len(root, a.mid), l1, 1e-3f);
+        CHECK_NEAR(len(a.mid, a.end), l2, 1e-3f);
+        CHECK_NEAR(len(root, b.mid), l1, 1e-3f);
+        CHECK_NEAR(len(b.mid, b.end), l2, 1e-3f);
+    }
+
+    // Out of reach: the chain points straight at the target, fully extended (root, mid, end collinear).
+    {
+        const vec2 target(30.0f, 0.0f); // |target| = 30 > 18
+        auto s = anim::solveTwoBoneIK(root, l1, l2, target, +1.0f);
+        CHECK(!s.reachable);
+        CHECK_NEAR(s.mid.x, l1, 1e-3f);        // elbow at len1 along +x
+        CHECK_NEAR(s.mid.y, 0.0f, 1e-3f);
+        CHECK_NEAR(s.end.x, l1 + l2, 1e-3f);   // hand at len1+len2 along +x
+        CHECK_NEAR(s.end.y, 0.0f, 1e-3f);
+    }
+
+    // Exactly at full stretch: reachable, straight arm ending on the target.
+    {
+        const vec2 target(l1 + l2, 0.0f);
+        auto s = anim::solveTwoBoneIK(root, l1, l2, target, +1.0f);
+        CHECK(s.reachable);
+        CHECK_NEAR(s.end.x, l1 + l2, 1e-2f);
+        CHECK_NEAR(s.mid.y, 0.0f, 1e-2f); // elbow on the line (no bend possible at full stretch)
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -3195,6 +3253,7 @@ int main() {
     testPhysics2DRotation();
     testPhysics2DJoints();
     testSpatial2D();
+    testTwoBoneIK();
     testBlendSpace();
     testBehaviorTree();
     testSteering();

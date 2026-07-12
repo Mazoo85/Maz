@@ -344,7 +344,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   play/update/pose; the `animator` demo cycles idle/wave/coil clips; M70) — full state graph / IK later
 - [x] **Blend spaces** (`anim::BlendSpace1D` linear-neighbour blend + `anim::BlendSpace2D` barycentric
   blend over a triangulation + `blendPosesWeighted` N-way pose mix — Godot AnimationTree BlendSpace1D/2D;
-  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92) — blend trees / IK later
+  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92) — blend trees later
+- [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
+  select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
+  arms solving toward targets; M97) — CCD / FABRIK multi-bone chains later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later
 
@@ -476,6 +479,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       field (accent border + caret), type to edit (`ui::TextField` + `ui::FocusChain`) (M95)
 - [x] **Procedural cave** (`apps/cave`) — a seeded cellular-automata cavern with autotiled wall borders
       (`game::CellularCave` + `game::autotileMask4`) (M96)
+- [x] **Inverse kinematics** (`apps/reach`) — a grid of 2-bone arms whose elbows are solved so each hand
+      reaches its target, with out-of-reach targets shown extended (`anim::solveTwoBoneIK`) (M97)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

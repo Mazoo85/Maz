@@ -5,6 +5,7 @@
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
+#include "maz/anim/IK.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"

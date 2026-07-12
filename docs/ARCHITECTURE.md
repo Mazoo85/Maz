@@ -91,7 +91,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
               blendPosesWeighted (N-way weighted pose mix);
             Animator — named-clip library + timed cross-fade controller (play/update/pose);
             BlendSpace1D/2D — blend animations by a 1-D/2-D parameter (linear / barycentric-over-
-              triangulation weights), Godot AnimationTree-style
+              triangulation weights), Godot AnimationTree-style;
+            solveTwoBoneIK — 2-bone inverse kinematics (law-of-cosines elbow solve + bend select +
+              straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
@@ -167,6 +169,8 @@ apps/
               border + caret), type to edit (ui::TextField + ui::FocusChain + Context::textField)
   cave/     Procedural cave — a seeded cellular-automata cavern with autotiled wall borders (walls inset
               per their edge bitmask) (game::CellularCave + game::autotileMask4)
+  reach/    Inverse kinematics — a grid of 2-bone arms whose elbows are solved so each hand reaches its
+              target (out-of-reach targets shown extended) (anim::solveTwoBoneIK)
 ```
 
 ## The frame loop (fixed timestep)

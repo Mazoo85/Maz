@@ -404,6 +404,13 @@ available):
   tile. Both are pure logic (only `core::Random`), deterministic under a seed, and unit-tested. The new
   `cave` demo generates a seeded cave and renders each wall cell inset on the sides that face open floor
   (driven by its mask), so the walls round off into smooth cave borders
+- **M97** — 2-bone **inverse kinematics**, toward Godot's `SkeletonModification2DTwoBoneIK`: given a
+  fixed shoulder, two bone lengths, and a target, `anim::solveTwoBoneIK` places the elbow (via the law
+  of cosines) so the hand lands on the target, with a `bendSign` choosing which way the elbow bends;
+  when the target is out of reach the arm points straight at it, fully extended. Pure 2D math,
+  unit-tested (the hand reaches the target with bone lengths preserved; the bend flips the elbow to the
+  other side; overreach gives a straight arm). The new `reach` demo is a grid of arms each solving
+  toward its own target — reachable targets ringed green, out-of-reach ones red with the arm extended
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
