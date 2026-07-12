@@ -351,6 +351,16 @@ available):
   batching (each batch binds the matching pipeline). The `lights2d` demo now composites its light
   pools additively — where two lights overlap the colors sum toward white, exactly how real light
   accumulates. Additive is also the right mode for glows, fire, and energy effects generally
+- **M91** — 2D rigid-body **rotation**, toward Godot's `RigidBody2D` angular dynamics: the physics
+  bodies could translate but never spin — boxes slid around always axis-aligned. This adds real
+  angular dynamics: a body carries an orientation + spin and a finite moment of inertia (derived from
+  its shape and mass via `enableRotation()`), and contact impulses applied at the actual contact point
+  produce torque. Collision uses oriented-box SAT (`game::PhysicsWorld2D`'s oriented solver) so a box
+  landing on a corner tips and tumbles, and linear/angular damping lets a pile settle. Rotation is
+  opt-in (inverse-inertia defaults to 0 = locked), so every existing physics scene is byte-identical.
+  The new `tumble` demo drops a stack of tilted rectangles into a bin; they fall, tumble on their
+  corners, and settle into a leaning heap. Verified by unit tests (inertia values, free-spin
+  integration, damping, a tilted box toppling flat) plus the golden
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

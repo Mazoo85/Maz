@@ -301,7 +301,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
 - [x] **2D physics** (`game::PhysicsWorld2D`: circle + **box** rigid bodies, gravity, impulse +
   **Coulomb friction** + positional correction, static-box bounce; the `physics` demo stacks 45
-  balls, `boxes` stacks mixed boxes/balls on ledges; M69, M72) — rotation / oriented boxes later
+  balls, `boxes` stacks mixed boxes/balls on ledges; M69, M72)
+- [x] **2D rigid-body rotation** (oriented boxes: orientation + spin + moment of inertia via
+  `Body2D::enableRotation()`; oriented-box SAT contacts + rotational impulses about the contact point +
+  linear/angular damping — Godot RigidBody2D-style angular dynamics; opt-in so non-rotating scenes are
+  unchanged; the `tumble` demo drops tilted boxes that topple and settle; M91)
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
@@ -444,6 +448,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D lights + shadows** (`apps/lights2d`) — a dark room lit by three colored lights, each a
       visibility polygon (`game::Visibility2D`) rendered as a gradient fan, with solid occluder boxes
       casting real hard-edged shadows; lights composite additively so overlaps brighten (M89, M90)
+- [x] **2D rotation** (`apps/tumble`) — tilted rectangles dropped into a bin that fall, tumble on
+      their corners, and settle into a leaning pile via the oriented rigid-body solver (M91)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

@@ -2467,6 +2467,112 @@ void testPhysics2D() {
     CHECK(vxNone > 5.9f);   // frictionless keeps ~all of it
 }
 
+void testPhysics2DRotation() {
+    using game::Body2D;
+
+    // enableRotation derives the inverse moment of inertia from shape + mass.
+    {
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(2.0f, 1.0f); // 4x2 box
+        box.invMass = 1.0f / 3.0f;         // mass 3
+        box.enableRotation();
+        // I = m(w^2+h^2)/12 = 3*(16+4)/12 = 5 -> invInertia = 0.2
+        CHECK_NEAR(box.invInertia, 0.2f, 1e-5f);
+
+        Body2D disc;
+        disc.shape = Body2D::Circle;
+        disc.radius = 2.0f;
+        disc.invMass = 1.0f / 4.0f; // mass 4
+        disc.enableRotation();
+        // I = 0.5*m*r^2 = 0.5*4*4 = 8 -> invInertia = 0.125
+        CHECK_NEAR(disc.invInertia, 0.125f, 1e-5f);
+
+        Body2D wall; // static stays rotation-locked
+        wall.invMass = 0.0f;
+        wall.enableRotation();
+        CHECK(wall.invInertia == 0.0f);
+    }
+
+    // A free-spinning body with no contacts advances its angle by angularVel*dt each step.
+    {
+        game::PhysicsWorld2D w; // no gravity, no other bodies
+        Body2D b;
+        b.shape = Body2D::Box;
+        b.half = math::vec2(5.0f, 5.0f);
+        b.invMass = 1.0f;
+        b.enableRotation();
+        b.angularVel = 2.0f; // rad/s
+        w.add(b);
+        const float dt = 1.0f / 60.0f;
+        for (int i = 0; i < 60; ++i) {
+            w.step(dt);
+        }
+        CHECK_NEAR(w.bodies[0].angle, 2.0f * 60.0f * dt, 1e-3f); // ~2 rad after 1 s
+        CHECK_NEAR(w.bodies[0].angularVel, 2.0f, 1e-4f);         // undamped: spin unchanged
+    }
+
+    // Angular damping bleeds off spin.
+    {
+        game::PhysicsWorld2D w;
+        Body2D b;
+        b.shape = Body2D::Box;
+        b.half = math::vec2(5.0f, 5.0f);
+        b.invMass = 1.0f;
+        b.enableRotation();
+        b.angularVel = 5.0f;
+        b.angularDamping = 3.0f;
+        w.add(b);
+        for (int i = 0; i < 120; ++i) {
+            w.step(1.0f / 60.0f);
+        }
+        CHECK(std::fabs(w.bodies[0].angularVel) < 5.0f);  // decayed
+        CHECK(std::fabs(w.bodies[0].angularVel) < 0.75f); // substantially
+    }
+
+    // A tilted box dropped onto a static floor picks up spin (torque from the off-center corner
+    // contact), then damps down and settles resting above the floor — real rotational dynamics.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 800.0f); // +y down
+
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.pos = math::vec2(100.0f, 200.0f);
+        floor.half = math::vec2(120.0f, 10.0f); // top surface at y=190
+        floor.invMass = 0.0f;                   // static
+        floor.friction = 0.7f;
+        w.add(floor);
+
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.pos = math::vec2(100.0f, 120.0f);
+        box.half = math::vec2(12.0f, 12.0f);
+        box.invMass = 1.0f / 5.0f;
+        box.restitution = 0.0f;
+        box.friction = 0.7f;
+        box.angle = 0.4f; // tilted, so it lands on a corner
+        box.linearDamping = 0.6f;
+        box.angularDamping = 2.0f;
+        box.enableRotation();
+        w.add(box);
+
+        float maxSpin = 0.0f;
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 8);
+            maxSpin = std::max(maxSpin, std::fabs(w.bodies[1].angularVel));
+        }
+        const Body2D& r = w.bodies[1];
+        // "At rest" is measured by the settled pose, not the instantaneous spin: a single-contact
+        // solver leaves a tiny angular limit-cycle between the two bottom corners even once the box
+        // is visually still, so we assert orientation + height rather than |angularVel|.
+        CHECK(maxSpin > 0.05f);            // it actually rotated on the way down (corner contact -> torque)
+        CHECK(std::fabs(r.angle) < 0.05f); // toppled flat from its initial 0.4 rad tilt
+        CHECK(r.pos.y < 181.0f);           // rests on top of the floor (top at y=190, half-height 12)
+        CHECK(r.pos.y > 175.0f);           // and did not sink into it
+    }
+}
+
 void testAnimator() {
     // Two single-key (constant) clips with distinct joint translations.
     auto makeConst = [](math::vec3 t) {
@@ -2712,6 +2818,7 @@ int main() {
     testNavMesh();
     testVisibility2D();
     testPhysics2D();
+    testPhysics2DRotation();
     testBehaviorTree();
     testSteering();
     testStateMachine();

@@ -27,6 +27,36 @@ struct Body2D {
     float invMass = 1.0f;       // 0 => static (infinite mass, never moves)
     float restitution = 0.4f;   // 0 = inelastic, 1 = perfectly bouncy
     float friction = 0.0f;      // Coulomb coefficient (0 = frictionless; default keeps circle demos as-is)
+
+    // --- Rotation (opt-in) -------------------------------------------------------------------------
+    // A body carries an orientation and spin, but rotation is *locked* by default: invInertia = 0 means
+    // an infinite moment of inertia, so contact impulses produce no torque and the body behaves exactly
+    // like the older translation-only rigid body. Call enableRotation() to give it a finite inertia
+    // (derived from its shape + mass) and let it tumble. This keeps every existing demo bit-identical.
+    float angle = 0.0f;            // orientation, radians (CCW)
+    float angularVel = 0.0f;       // spin, radians/sec
+    float invInertia = 0.0f;       // 1 / moment-of-inertia; 0 => rotation locked
+    float linearDamping = 0.0f;    // per-second velocity decay (0 => none), like Godot's linear_damp
+    float angularDamping = 0.0f;   // per-second spin decay (0 => none), like Godot's angular_damp
+
+    // Derive the inverse moment of inertia from the shape + mass so the body can rotate. A solid box of
+    // mass m and size w×h has I = m(w²+h²)/12; a disc has I = ½mr². Static bodies (invMass 0) stay locked.
+    void enableRotation() {
+        if (invMass <= 0.0f) {
+            invInertia = 0.0f;
+            return;
+        }
+        const float m = 1.0f / invMass;
+        float inertia;
+        if (shape == Box) {
+            const float w = half.x * 2.0f;
+            const float h = half.y * 2.0f;
+            inertia = m * (w * w + h * h) / 12.0f;
+        } else {
+            inertia = 0.5f * m * radius * radius;
+        }
+        invInertia = inertia > 0.0f ? 1.0f / inertia : 0.0f;
+    }
 };
 
 struct Bounds2D {
@@ -206,6 +236,202 @@ inline void collideBounds(Body2D& b, const Bounds2D& bounds) {
     }
 }
 
+// --- Oriented rigid-body dynamics (rotation) ------------------------------------------------------
+// The functions above are translation-only. This layer adds real angular dynamics: oriented boxes,
+// contact points, and rotational impulses that spin bodies about those points. It runs only when a
+// body has enabled rotation (invInertia > 0); otherwise PhysicsWorld2D uses the exact old path, so
+// nothing here can perturb existing scenes. Deterministic (cos/sin/sqrt), so it unit-tests headlessly.
+namespace detail {
+
+inline float cross2(math::vec2 a, math::vec2 b) { return a.x * b.y - a.y * b.x; } // z of a×b
+inline math::vec2 crossSV(float s, math::vec2 v) { return math::vec2(-s * v.y, s * v.x); } // s×v
+
+// A single contact: normal (from a toward b), penetration depth, and world-space contact point.
+struct Manifold {
+    math::vec2 n{0.0f, 0.0f};
+    float pen = 0.0f;
+    math::vec2 point{0.0f, 0.0f};
+    bool hit = false;
+};
+
+// The four corners of an oriented box, CCW from the (-hx,-hy) local corner.
+inline void boxCorners(const Body2D& b, math::vec2 out[4]) {
+    const float c = std::cos(b.angle), s = std::sin(b.angle);
+    const math::vec2 ax(c, s), ay(-s, c); // local x/y axes in world space
+    out[0] = b.pos - ax * b.half.x - ay * b.half.y;
+    out[1] = b.pos + ax * b.half.x - ay * b.half.y;
+    out[2] = b.pos + ax * b.half.x + ay * b.half.y;
+    out[3] = b.pos - ax * b.half.x + ay * b.half.y;
+}
+
+// Oriented-box vs oriented-box via SAT. Single contact point = the incident box's deepest vertex.
+inline Manifold obbObb(const Body2D& A, const Body2D& B) {
+    Manifold m;
+    const float ca = std::cos(A.angle), sa = std::sin(A.angle);
+    const float cb = std::cos(B.angle), sb = std::sin(B.angle);
+    const math::vec2 axes[4] = {{ca, sa}, {-sa, ca}, {cb, sb}, {-sb, cb}};
+    math::vec2 cornersA[4], cornersB[4];
+    boxCorners(A, cornersA);
+    boxCorners(B, cornersB);
+
+    float minOverlap = 1e30f;
+    int bestAxis = 0;
+    for (int i = 0; i < 4; ++i) {
+        const math::vec2 ax = axes[i];
+        float minA = 1e30f, maxA = -1e30f, minB = 1e30f, maxB = -1e30f;
+        for (int k = 0; k < 4; ++k) {
+            const float pa = glm::dot(cornersA[k], ax);
+            const float pb = glm::dot(cornersB[k], ax);
+            minA = pa < minA ? pa : minA;
+            maxA = pa > maxA ? pa : maxA;
+            minB = pb < minB ? pb : minB;
+            maxB = pb > maxB ? pb : maxB;
+        }
+        const float overlap = (maxA < maxB ? maxA : maxB) - (minA > minB ? minA : minB);
+        if (overlap <= 0.0f) {
+            return m; // separating axis found -> no collision
+        }
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+            bestAxis = i;
+        }
+    }
+    math::vec2 n = axes[bestAxis];
+    if (glm::dot(B.pos - A.pos, n) < 0.0f) {
+        n = -n; // orient from A toward B
+    }
+    // Contact point = deepest penetrating vertex of the incident box (the box that did NOT own the
+    // separating axis). If bestAxis is one of A's faces, B is incident (find B's vertex furthest along
+    // -n, i.e. deepest into A); otherwise A is incident (A's vertex furthest along +n, into B).
+    math::vec2 point{0.0f, 0.0f};
+    if (bestAxis < 2) {
+        float best = 1e30f;
+        for (int k = 0; k < 4; ++k) {
+            const float d = glm::dot(cornersB[k], n);
+            if (d < best) { best = d; point = cornersB[k]; }
+        }
+    } else {
+        float best = -1e30f;
+        for (int k = 0; k < 4; ++k) {
+            const float d = glm::dot(cornersA[k], n);
+            if (d > best) { best = d; point = cornersA[k]; }
+        }
+    }
+    m.n = n;
+    m.pen = minOverlap;
+    m.point = point;
+    m.hit = true;
+    return m;
+}
+
+// Circle `c` vs oriented box `x`; normal points from a(circle) toward b(box).
+inline Manifold circleObb(const Body2D& c, const Body2D& x) {
+    Manifold m;
+    const float ct = std::cos(x.angle), st = std::sin(x.angle);
+    const math::vec2 d = c.pos - x.pos;
+    const math::vec2 local(d.x * ct + d.y * st, -d.x * st + d.y * ct); // rotate into box frame
+    const math::vec2 closest(glm::clamp(local.x, -x.half.x, x.half.x),
+                             glm::clamp(local.y, -x.half.y, x.half.y));
+    const math::vec2 diff = local - closest;
+    const float dist2 = glm::dot(diff, diff);
+    if (dist2 > c.radius * c.radius) {
+        return m;
+    }
+    const float dist = std::sqrt(dist2);
+    math::vec2 nLocal = dist > 1e-6f ? diff / dist : math::vec2(1.0f, 0.0f); // box surface -> circle
+    // World-space contact point + normal (rotate local back out).
+    const math::vec2 pWorld(x.pos.x + closest.x * ct - closest.y * st,
+                            x.pos.y + closest.x * st + closest.y * ct);
+    const math::vec2 nWorld(nLocal.x * ct - nLocal.y * st, nLocal.x * st + nLocal.y * ct);
+    m.n = -nWorld; // from circle toward box
+    m.pen = c.radius - dist;
+    m.point = pWorld;
+    m.hit = true;
+    return m;
+}
+
+// Any oriented shape pair; n points from a toward b, with a world contact point.
+inline Manifold manifold(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::Box && b.shape == Body2D::Box) {
+        return obbObb(a, b);
+    }
+    if (a.shape == Body2D::Circle && b.shape == Body2D::Circle) {
+        Manifold m;
+        math::vec2 n;
+        float pen;
+        if (!contactCircleCircle(a, b, n, pen)) {
+            return m;
+        }
+        m.n = n;
+        m.pen = pen;
+        m.point = a.pos + n * a.radius; // on a's surface toward b
+        m.hit = true;
+        return m;
+    }
+    if (a.shape == Body2D::Circle) { // a circle, b box
+        return circleObb(a, b);
+    }
+    Manifold m = circleObb(b, a); // a box, b circle: compute circle->box then flip
+    m.n = -m.n;
+    return m;
+}
+
+// Apply a rotational normal + friction impulse at the contact point, then positional correction.
+inline void resolveRot(Body2D& a, Body2D& b, const Manifold& mf) {
+    const math::vec2 n = mf.n;
+    const math::vec2 ra = mf.point - a.pos;
+    const math::vec2 rb = mf.point - b.pos;
+    const float raxn = cross2(ra, n), rbxn = cross2(rb, n);
+    const float invSum =
+        a.invMass + b.invMass + raxn * raxn * a.invInertia + rbxn * rbxn * b.invInertia;
+    if (invSum <= 0.0f) {
+        return;
+    }
+    const math::vec2 va = a.vel + crossSV(a.angularVel, ra);
+    const math::vec2 vb = b.vel + crossSV(b.angularVel, rb);
+    const math::vec2 rv = vb - va;
+    const float vn = glm::dot(rv, n);
+    if (vn < 0.0f) { // closing
+        const float e = a.restitution < b.restitution ? a.restitution : b.restitution;
+        const float jn = -(1.0f + e) * vn / invSum;
+        const math::vec2 imp = n * jn;
+        a.vel -= imp * a.invMass;
+        a.angularVel -= a.invInertia * cross2(ra, imp);
+        b.vel += imp * b.invMass;
+        b.angularVel += b.invInertia * cross2(rb, imp);
+
+        const float mu = std::sqrt(a.friction * b.friction);
+        if (mu > 0.0f) {
+            const math::vec2 va2 = a.vel + crossSV(a.angularVel, ra);
+            const math::vec2 vb2 = b.vel + crossSV(b.angularVel, rb);
+            const math::vec2 rv2 = vb2 - va2;
+            math::vec2 t = rv2 - n * glm::dot(rv2, n);
+            const float tl = std::sqrt(glm::dot(t, t));
+            if (tl > 1e-6f) {
+                t /= tl;
+                const float raxt = cross2(ra, t), rbxt = cross2(rb, t);
+                const float invSumT =
+                    a.invMass + b.invMass + raxt * raxt * a.invInertia + rbxt * rbxt * b.invInertia;
+                float jt = -glm::dot(rv2, t) / invSumT;
+                const float maxF = mu * jn;
+                jt = jt < -maxF ? -maxF : (jt > maxF ? maxF : jt);
+                const math::vec2 fimp = t * jt;
+                a.vel -= fimp * a.invMass;
+                a.angularVel -= a.invInertia * cross2(ra, fimp);
+                b.vel += fimp * b.invMass;
+                b.angularVel += b.invInertia * cross2(rb, fimp);
+            }
+        }
+    }
+    const float slop = 0.01f, percent = 0.8f;
+    const float corrMag = (mf.pen - slop > 0.0f ? mf.pen - slop : 0.0f) / invSum * percent;
+    const math::vec2 corr = n * corrMag;
+    a.pos -= corr * a.invMass;
+    b.pos += corr * b.invMass;
+}
+
+} // namespace detail
+
 class PhysicsWorld2D {
 public:
     math::vec2 gravity{0.0f, 0.0f};
@@ -220,7 +446,15 @@ public:
 
     // Advance the simulation by dt: integrate gravity + motion, then resolve contacts for `iterations`
     // passes (more iterations = stiffer stacks). Body-body pairs are resolved before the walls.
+    // If any body has rotation enabled (invInertia > 0) the oriented rigid-body solver runs; otherwise
+    // the exact translation-only path below runs, keeping every non-rotating scene bit-identical.
     void step(float dt, int iterations = 4) {
+        for (const Body2D& b : bodies) {
+            if (b.invInertia > 0.0f) {
+                stepRotational(dt, iterations);
+                return;
+            }
+        }
         for (Body2D& b : bodies) {
             if (b.invMass > 0.0f) {
                 b.vel += gravity * dt;
@@ -238,6 +472,34 @@ public:
             if (hasBounds) {
                 for (Body2D& b : bodies) {
                     collideBounds(b, bounds);
+                }
+            }
+        }
+    }
+
+private:
+    // Oriented rigid-body integration: gravity + linear/angular damping, then advance position AND
+    // orientation, then resolve oriented contacts with rotational impulses. Static walls are modelled
+    // as static box bodies (invMass 0), so a box corner striking a wall imparts the right spin.
+    void stepRotational(float dt, int iterations) {
+        for (Body2D& b : bodies) {
+            if (b.invMass > 0.0f) {
+                b.vel += gravity * dt;
+                b.vel *= 1.0f / (1.0f + b.linearDamping * dt);
+                b.angularVel *= 1.0f / (1.0f + b.angularDamping * dt);
+            }
+        }
+        for (Body2D& b : bodies) {
+            b.pos += b.vel * dt;
+            b.angle += b.angularVel * dt;
+        }
+        for (int it = 0; it < iterations; ++it) {
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                for (size_t j = i + 1; j < bodies.size(); ++j) {
+                    detail::Manifold m = detail::manifold(bodies[i], bodies[j]);
+                    if (m.hit) {
+                        detail::resolveRot(bodies[i], bodies[j], m);
+                    }
                 }
             }
         }

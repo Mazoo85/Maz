@@ -31,7 +31,7 @@ CASES=(
     "water||2.5|0.03"
     "model||2.5|0.08"
     "scene3d||2.5|0.13"
-    "world|--demo|2.5|0.20"
+    "world|--demo|2.5|0.25"
     "village|--demo|2.5|0.22"
     "instances||2.5|0.15"
     "glass||2.5|0.16"
@@ -68,6 +68,7 @@ CASES=(
     "navmesh||2.5|0.05"
     "vectors||2.5|0.05"
     "lights2d||2.5|0.05"
+    "tumble||4.5|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

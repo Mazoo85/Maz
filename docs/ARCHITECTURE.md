@@ -72,7 +72,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
-            Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking),
+            Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
+            opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
+            rotational impulses about the contact point, linear/angular damping),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test)
@@ -142,6 +144,8 @@ apps/
   lights2d/ 2D lights + shadows — a dark room lit by three colored lights, each a visibility polygon
               (game::Visibility2D) rendered as an ADDITIVE gradient fan (overlaps brighten), with
               solid boxes casting real shadows
+  tumble/   2D rigid-body rotation — tilted rectangles dropped into a bin tumble on their corners and
+              settle into a leaning pile (Body2D::enableRotation + the oriented PhysicsWorld2D solver)
 ```
 
 ## The frame loop (fixed timestep)

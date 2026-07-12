@@ -1068,16 +1068,46 @@ bright light over a dim one just muddied) instead of *brightening*. Godot's Ligh
   render-path feature exercised by the golden, so the CPU unit count is steady at **3399**. Additive
   blending is also the standard mode for glows / fire / energy, so it's reusable well beyond lights.
 
+### Iteration 52 — "Benchmarking against Godot: 2D rigid-body rotation" (done)
+Continuing the Godot benchmark. After three rendering iterations (M88–M90), the ranked list's clearest
+remaining *foundational* gap was in physics: Maz's 2D bodies could translate but never **rotate** —
+boxes slid around permanently axis-aligned, while Godot's flagship `RigidBody2D` has full angular
+dynamics (torque, angular velocity, moment of inertia). That's a capability gap, not a polish gap, so
+it outranked the lighting refinements.
+- [x] **M91 — 2D rigid-body rotation (`game::Body2D::enableRotation` + an oriented solver)**: a body
+  now carries an orientation (`angle`), spin (`angularVel`), and an inverse moment of inertia
+  (`invInertia`, derived from shape + mass: `m(w²+h²)/12` for a box, `½mr²` for a disc). Collision
+  detection gained oriented-box support — SAT over the four face normals with a single deepest-vertex
+  contact point, plus circle-vs-oriented-box — and the contact solver became rotational: impulses are
+  applied at the contact point with the full `1/m + (r×n)²/I` effective mass, so an off-centre corner
+  hit produces torque and the box tumbles. Added `linear/angularDamping` (like Godot's `linear_damp` /
+  `angular_damp`) so a pile settles. Crucially, **rotation is opt-in**: `invInertia` defaults to 0
+  (infinite inertia = locked), and `PhysicsWorld2D::step` dispatches to the oriented solver only when
+  some body has enabled it — so every existing scene runs the byte-identical old path. That reduction
+  is exact (the rotational impulse with `invInertia = 0` collapses to the old centre-of-mass impulse,
+  and `x + 0.0f == x` in IEEE), and it's confirmed by the pre-existing physics tests still passing
+  unchanged. New `testPhysics2DRotation` covers the inertia formulas, free-spin angle integration,
+  angular damping, and a tilted box dropped on a floor that topples flat and rests at the right height
+  (its instantaneous `angularVel` limit-cycles between the two bottom corners — a known single-contact
+  artifact — so the test asserts the settled *pose*, angle + height, not the momentary spin). The new
+  `tumble` demo drops 11 tilted rectangles into a bin; on lavapipe they fall, tumble on their corners,
+  and settle into a believable leaning heap. New `tumble_headless_smoke` + golden (settle 4.5 s,
+  threshold 0.06). Non-rotating goldens all unchanged — confirmed by a serial golden run (strays
+  killed first; golden check then ctest one at a time). ctest **47/47**. Unit count **3399 → 3410**.
+  Honest scope: this is a single-contact-point solver with damping — great for tumbling and settling,
+  but not as rock-solid for tall precise stacks as Godot's multi-point + warm-started solver.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): soft (penumbra) 2D shadows + normal-mapped / textured 2D lights
-(M90 made lights additive; they're still hard-edged and flat-colored); 3D rigid-body physics + joints;
-audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text input + focus nav + themes;
-GPU particles; navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse) in
-Physics2D, parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
-prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
-tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
-system, cross-platform CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): 2-point (warm-started) manifolds for stable box STACKS +
+physics joints (pin/spring) on the 2D solver (M91 is single-contact); soft (penumbra) 2D shadows +
+normal-mapped / textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored);
+3D rigid-body physics; audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text
+input + focus nav + themes; GPU particles; navmesh dynamic obstacles + agent avoidance; parallel/
+decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the
+scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation,
+localization / string tables, order-independent transparency, material/uniform system, cross-platform
+CI, a deterministic hold-frame screenshot mode.
