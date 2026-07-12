@@ -314,8 +314,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   Baumgarte), a **damped Spring**, and a **Groove**/slider (a body pinned to a line, free to slide along
   it) — Godot PinJoint2D / DampedSpringJoint2D / GrooveJoint2D; solved by sequential impulses in the
   oriented step; either end may be a fixed world anchor; the `joints` demo builds a pin-chain rope bridge
-  + spring-hung masses and the `groove` demo slides boxes down tilted rails; M93, M102) — 2-point stacks
-  / warm starting later
+  + spring-hung masses and the `groove` demo slides boxes down tilted rails; M93, M102)
+- [x] **2-point contact manifolds** (`PhysicsWorld2D::solveManifolds`: reference/incident-face clipping
+  gives oriented box-box contacts TWO points along the shared face, so a stacked box has the torque
+  balance to stay square instead of rotating off — Box2D/Godot-style stable stacks; opt-in so existing
+  rotating scenes keep their single-point numerics; the `stack` demo drops two identical towers, one
+  stable, one toppling; M110) — cross-frame warm starting / a block solver later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
@@ -533,6 +537,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
 - [x] **Groove/slider joints** (`apps/groove`) — three boxes pinned to tilted rails, each sliding down
       its incline (not straight down) and settling against a stop (`game::Joint2D::Groove`) (M102)
+- [x] **Stable box stacks** (`apps/stack`) — two identical five-box towers dropped side by side; with
+      two-point manifolds on the tower stays square, with them off it topples (`solveManifolds`) (M110)
 - [x] **Positional audio** (`apps/spatial2d`) — a listener + sound sources with per-source distance
       attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
 - [x] **Text input form** (`apps/form`) — an editable account-settings form: click/Tab to focus a

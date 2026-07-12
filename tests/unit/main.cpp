@@ -3265,6 +3265,115 @@ void testPhysics2DGroove() {
     }
 }
 
+void testManifold2() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    // Two axis-aligned boxes overlapping along y produce a TWO-point manifold on the shared face,
+    // with the normal pointing a->b (+y) and both points at the contact plane.
+    {
+        Body2D a;
+        a.shape = Body2D::Box;
+        a.half = math::vec2(1.0f, 1.0f);
+        a.pos = math::vec2(0.0f, 0.0f); // spans y[-1,1], top face y=1
+        Body2D b;
+        b.shape = Body2D::Box;
+        b.half = math::vec2(1.0f, 1.0f);
+        b.pos = math::vec2(0.0f, 1.5f); // spans y[0.5,2.5], bottom face y=0.5; overlap 0.5
+
+        d::Contact2 m = d::obbObbManifold(a, b);
+        CHECK(m.hit);
+        CHECK(m.count == 2);
+        CHECK_NEAR(m.n.x, 0.0f, 1e-4f);
+        CHECK_NEAR(m.n.y, 1.0f, 1e-4f); // from a toward b (b is above in +y)
+        // Both contact points lie on the incident (b bottom) face at y=0.5, spanning the shared width.
+        for (int k = 0; k < 2; ++k) {
+            CHECK_NEAR(m.point[k].y, 0.5f, 1e-3f);
+            CHECK(m.point[k].x >= -1.0f - 1e-3f && m.point[k].x <= 1.0f + 1e-3f);
+            CHECK_NEAR(m.pen[k], 0.5f, 1e-3f); // 0.5 deep behind the reference face
+        }
+        // The two points are at opposite ends of the face (distinct x).
+        CHECK(std::fabs(m.point[0].x - m.point[1].x) > 1.5f);
+    }
+
+    // Horizontal overlap gives a vertical shared face with normal ~ (1,0) and two points.
+    {
+        Body2D a;
+        a.shape = Body2D::Box;
+        a.half = math::vec2(1.0f, 1.0f);
+        a.pos = math::vec2(0.0f, 0.0f);
+        Body2D b;
+        b.shape = Body2D::Box;
+        b.half = math::vec2(1.0f, 1.0f);
+        b.pos = math::vec2(1.5f, 0.0f);
+        d::Contact2 m = d::obbObbManifold(a, b);
+        CHECK(m.hit);
+        CHECK(m.count == 2);
+        CHECK_NEAR(m.n.x, 1.0f, 1e-4f);
+        CHECK_NEAR(m.n.y, 0.0f, 1e-4f);
+    }
+
+    // Clearly separated boxes: no contact.
+    {
+        Body2D a;
+        a.shape = Body2D::Box;
+        a.half = math::vec2(1.0f, 1.0f);
+        a.pos = math::vec2(0.0f, 0.0f);
+        Body2D b;
+        b.shape = Body2D::Box;
+        b.half = math::vec2(1.0f, 1.0f);
+        b.pos = math::vec2(5.0f, 0.0f);
+        d::Contact2 m = d::obbObbManifold(a, b);
+        CHECK(!m.hit);
+        CHECK(m.count == 0);
+    }
+
+    // End to end: a stack of oriented boxes on a static floor stays SQUARE with manifolds on, where the
+    // single-point solver lets it rotate away. Build identical stacks, step both, compare max tilt.
+    auto buildStack = [](bool manifolds) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f); // +y down
+        w.solveManifolds = manifolds;
+
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 10.0f);
+        floor.pos = math::vec2(0.0f, 200.0f);
+        floor.invMass = 0.0f; // static
+        floor.friction = 0.9f;
+        w.add(floor);
+
+        for (int i = 0; i < 4; ++i) {
+            Body2D box;
+            box.shape = Body2D::Box;
+            box.half = math::vec2(30.0f, 18.0f);
+            // Start each box a hair off-centre so a single-point solver has an asymmetry to amplify.
+            const float dx = (i % 2 == 0) ? 3.0f : -3.0f;
+            box.pos = math::vec2(dx, 154.0f - static_cast<float>(i) * 37.0f);
+            box.invMass = 1.0f;
+            box.friction = 0.9f;
+            box.restitution = 0.0f;
+            box.enableRotation();
+            w.add(box);
+        }
+        for (int s = 0; s < 360; ++s) {
+            w.step(1.0f / 60.0f, 10);
+        }
+        float maxTilt = 0.0f;
+        for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+            maxTilt = std::max(maxTilt, std::fabs(w.bodies[i].angle));
+        }
+        return maxTilt;
+    };
+
+    const float tiltManifolds = buildStack(true);
+    const float tiltSingle = buildStack(false);
+    // With two-point manifolds the tower stays nearly upright...
+    CHECK(tiltManifolds < 0.15f);
+    // ...and it is meaningfully more stable than the single-point solver on the same scene.
+    CHECK(tiltManifolds <= tiltSingle + 1e-4f);
+}
+
 void testAudioDsp() {
     const float sr = 44100.0f;
 
@@ -4266,6 +4375,7 @@ int main() {
     testPhysics2DRotation();
     testPhysics2DJoints();
     testPhysics2DGroove();
+    testManifold2();
     testAudioDsp();
     testAudioEffects();
     testSpatial2D();

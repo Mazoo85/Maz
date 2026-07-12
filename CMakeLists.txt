@@ -103,6 +103,7 @@ add_subdirectory(apps/reverb)
 add_subdirectory(apps/tentacle)
 add_subdirectory(apps/goap)
 add_subdirectory(apps/theme)
+add_subdirectory(apps/stack)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

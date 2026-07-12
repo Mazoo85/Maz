@@ -525,6 +525,16 @@ available):
   `theme` demo builds one dark theme and draws a button in each state through it, plus a gallery of the
   individual features — sharp, rounded, thick border, soft shadow, a max-radius pill, and a top-corners-
   only tab.
+- **M110** — **2-point contact manifolds** for stable box stacks (`PhysicsWorld2D::solveManifolds`). The
+  oriented rigid-body solver resolved each box pair at a single contact point — enough to stop overlap,
+  but with no torque balance a stacked box slowly rotates off and the tower topples. This adds proper
+  reference/incident-face clipping (Box2D-style) so a box resting on another is held at **two** points
+  along the shared face, keeping the stack square. It is opt-in (default off) so every existing rotating
+  scene keeps its exact single-point numerics; new scenes set `solveManifolds = true`. Unit-tested (a
+  clipped manifold returns two points on the shared face with the right normal and penetration, a
+  separated pair reports none, and a settled tower stays near-upright with manifolds on where the
+  single-point solver lets it rotate away). The new `stack` demo drops two identical five-box towers side
+  by side — with manifolds on the tower stands square, with them off the same tower topples.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

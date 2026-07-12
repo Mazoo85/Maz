@@ -87,6 +87,7 @@ CASES=(
     "tentacle||2.0|0.05"
     "goap||2.0|0.05"
     "theme||2.0|0.05"
+    "stack||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

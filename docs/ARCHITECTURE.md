@@ -91,7 +91,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
             rotational impulses about the contact point, linear/angular damping; JOINTS: Joint2D
             Pin (point constraint) + damped Spring + Groove/slider (a body pinned to a line, free to
-            slide along it), sequential-impulse solved — Godot PinJoint2D/DampedSpringJoint2D/GrooveJoint2D),
+            slide along it), sequential-impulse solved — Godot PinJoint2D/DampedSpringJoint2D/GrooveJoint2D;
+            opt-in TWO-point contact manifolds (reference/incident-face clipping, solveManifolds) for
+            torque-balanced stable box stacks),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
@@ -214,6 +216,8 @@ apps/
               corners, stretching edges/center (ui::ninePatch)
   theme/    StyleBoxFlat + Theme — a dark theme drawing a button in each state (normal/hover/pressed/
               disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels (ui::StyleBoxFlat + Theme)
+  stack/    Stable box stacks — two identical five-box towers dropped side by side; two-point manifolds on
+              keeps one square, off lets the other topple (PhysicsWorld2D::solveManifolds)
   blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
   statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-

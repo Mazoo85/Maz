@@ -1605,6 +1605,38 @@ unit-tests headlessly and the demo renders deterministically.
   anti-aliased corner edges (the corners are polygon-faceted at `seg` segments), or theme overrides bound
   live to the immediate-mode widget set — those remain UI gaps.
 
+### Iteration 71 — "Benchmarking against Godot: 2-point contact manifolds (stable stacks)" (done)
+Rotating to physics (last physics was M102's groove joint). The biggest remaining 2D-physics credibility
+gap: the oriented rigid-body solver generated a SINGLE contact point per box pair (the incident box's
+deepest vertex). A single point stops overlap but carries no torque balance, so an oriented box resting on
+another slowly rotates off its support and the stack topples — exactly the thing a game physics engine is
+judged on. Box2D and Godot both build a TWO-point manifold along the shared face by reference/incident-face
+clipping. That is the highest-leverage physics pick; unlike a purely-additive module it touches the contact
+path, so I gated it behind an opt-in flag to keep every existing rotating golden bit-identical.
+- [x] **M110 — 2-point contact manifolds (`PhysicsWorld2D::solveManifolds`)**: new `detail::Contact2`
+  (up to two points, each with its own penetration) + `obbObbManifold`, added additively to `Physics2D.hpp`.
+  It runs the same SAT to find the separating axis + normal (a→b), then identifies the reference box (the
+  one owning the axis) and the incident box, picks the reference face (outward normal ≈ the axis) and the
+  incident face (most anti-parallel), and **clips** the incident segment to the reference face's two side
+  planes (`clipSegment`, the standard Sutherland-Hodgman half-plane clip), keeping the clipped points that
+  lie behind the reference face with their depth as penetration. `resolveManifold` then applies the
+  existing, tested single-point rotational solve (`resolveRot`) at *each* point, so two points sharing a
+  face give the torque balance that holds a stack square. A new `solveManifolds` world flag (default
+  **false**) selects this path in `stepRotational`; the else-branch is the exact previous single-point code,
+  so every existing rotating scene (`tumble`, `joints`, `groove`) is byte-unchanged — confirmed by a serial
+  golden run. `testManifold2` checks the geometry (two boxes overlapping in y give **two** points on the
+  shared face, correct +y normal and 0.5 penetration; a horizontal overlap gives the (1,0) normal; a
+  separated pair reports no contact) and the end-to-end payoff (a five-box tower settled with manifolds ON
+  stays within 0.15 rad of upright, and is provably no worse-tilted than the single-point solver on the
+  same scene). Unit count **3956 → 3975**. The new `stack` demo drops two identical five-box towers side by
+  side, simulated once at startup and drawn statically: the left (`solveManifolds = true`) settles into a
+  clean square tower, the right (false) shears and topples — the only difference between them is the flag.
+  Deterministic golden (RMSE 0, threshold 0.06). ctest **65/65 → 66/66**. Honest scope: this is a two-point
+  clip resolved with per-point sequential impulses; it is not yet *cross-frame warm starting* (persisting
+  accumulated impulses by contact ID across steps) or a *block solver* (solving both points simultaneously),
+  which Box2D adds for very tall/heavy stacks — and it is opt-in rather than the default until the existing
+  demos migrate. Those remain physics gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1619,8 +1651,9 @@ M104 rounds out the classic BT node set + blackboard); a full per-control-class 
 base types) + anti-aliased StyleBoxFlat corners + theme overrides bound to the live widget set (M109 gives
 StyleBoxFlat rounded corners/border/shadow + a flat named-style Theme registry; M103 gives the nine-slice
 texture mapping);
-2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
-joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
+cross-frame warm starting + a block solver for very tall stacks + making two-point manifolds the default +
+motorized/limited slider + gear/weld joints (M110 gives opt-in two-point contact manifolds for stable
+stacks; M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
 shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the
 timeline (M100 gives value tracks + per-segment easing);
 ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated

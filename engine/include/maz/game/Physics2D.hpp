@@ -451,6 +451,166 @@ inline void resolveRot(Body2D& a, Body2D& b, const Manifold& mf) {
     b.pos += corr * b.invMass;
 }
 
+// --- Two-point contact manifolds (stable stacks) --------------------------------------------------
+// obbObb above returns a SINGLE contact point (the deepest incident vertex). That is enough to stop
+// two boxes overlapping, but a single point carries no torque balance, so an oriented box resting on
+// another slowly rotates off and the stack topples. Real engines (Box2D, Godot) generate a TWO-point
+// manifold along the shared face by reference/incident-face clipping, so both far ends of the contact
+// are held and the stack stays square. This is that clip. It is opt-in (PhysicsWorld2D::solveManifolds)
+// so every existing rotating scene keeps the exact single-point numerics; new scenes switch it on.
+struct Contact2 {
+    math::vec2 n{0.0f, 0.0f}; // from a toward b
+    int count = 0;
+    math::vec2 point[2]{};
+    float pen[2]{0.0f, 0.0f};
+    bool hit = false;
+};
+
+// Pick the edge of a CCW box (corners c0..c3) whose outward normal best matches `dir`; return its two
+// vertices in perimeter order. Outward normal of edge (p,q) on a CCW polygon is (e.y, -e.x).
+inline void bestFace(const math::vec2 c[4], math::vec2 dir, math::vec2& v0, math::vec2& v1) {
+    float best = -1e30f;
+    for (int i = 0; i < 4; ++i) {
+        const math::vec2 p = c[i];
+        const math::vec2 q = c[(i + 1) & 3];
+        const math::vec2 e = q - p;
+        const math::vec2 outward(e.y, -e.x);
+        const float d = glm::dot(outward, dir);
+        if (d > best) {
+            best = d;
+            v0 = p;
+            v1 = q;
+        }
+    }
+}
+
+// Clip segment (in[0],in[1]) to the half-plane { x : dot(nrm, x) <= offset }. Keeps inside endpoints and
+// adds the crossing point when the segment straddles the plane. Returns 0..2 output points.
+inline int clipSegment(math::vec2 out[2], const math::vec2 in[2], math::vec2 nrm, float offset) {
+    int o = 0;
+    const float d0 = glm::dot(nrm, in[0]) - offset;
+    const float d1 = glm::dot(nrm, in[1]) - offset;
+    if (d0 <= 0.0f && o < 2) out[o++] = in[0];
+    if (d1 <= 0.0f && o < 2) out[o++] = in[1];
+    if (d0 * d1 < 0.0f && o < 2) {
+        const float t = d0 / (d0 - d1);
+        out[o++] = in[0] + (in[1] - in[0]) * t;
+    }
+    return o;
+}
+
+// Oriented-box vs oriented-box, returning up to TWO contact points along the shared face (n from a→b).
+inline Contact2 obbObbManifold(const Body2D& A, const Body2D& B) {
+    Contact2 m;
+    const float ca = std::cos(A.angle), sa = std::sin(A.angle);
+    const float cb = std::cos(B.angle), sb = std::sin(B.angle);
+    const math::vec2 axes[4] = {{ca, sa}, {-sa, ca}, {cb, sb}, {-sb, cb}};
+    math::vec2 cA[4], cB[4];
+    boxCorners(A, cA);
+    boxCorners(B, cB);
+
+    float minOverlap = 1e30f;
+    int best = 0;
+    for (int i = 0; i < 4; ++i) {
+        const math::vec2 ax = axes[i];
+        float minA = 1e30f, maxA = -1e30f, minB = 1e30f, maxB = -1e30f;
+        for (int k = 0; k < 4; ++k) {
+            const float pa = glm::dot(cA[k], ax);
+            const float pb = glm::dot(cB[k], ax);
+            minA = pa < minA ? pa : minA;
+            maxA = pa > maxA ? pa : maxA;
+            minB = pb < minB ? pb : minB;
+            maxB = pb > maxB ? pb : maxB;
+        }
+        const float overlap = (maxA < maxB ? maxA : maxB) - (minA > minB ? minA : minB);
+        if (overlap <= 0.0f) {
+            return m; // separating axis -> no contact
+        }
+        if (overlap < minOverlap) {
+            minOverlap = overlap;
+            best = i;
+        }
+    }
+    math::vec2 n = axes[best];
+    if (glm::dot(B.pos - A.pos, n) < 0.0f) {
+        n = -n; // orient a -> b
+    }
+    m.n = n;
+
+    // Reference box owns the separating axis; the other is incident. refN is the reference face's
+    // outward normal (pointing toward the incident box).
+    const bool refIsA = best < 2;
+    const math::vec2* refC = refIsA ? cA : cB;
+    const math::vec2* incC = refIsA ? cB : cA;
+    const math::vec2 refN = refIsA ? n : -n;
+
+    math::vec2 rv0, rv1, iv0, iv1;
+    bestFace(refC, refN, rv0, rv1);   // reference face (its outward normal ~ refN)
+    bestFace(incC, -refN, iv0, iv1);  // incident face (most anti-parallel to refN)
+
+    math::vec2 tangent = rv1 - rv0;
+    const float tl = std::sqrt(glm::dot(tangent, tangent));
+    if (tl < 1e-9f) {
+        return m;
+    }
+    tangent /= tl;
+
+    // Clip the incident segment to the reference face's two side planes.
+    math::vec2 seg[2] = {iv0, iv1};
+    math::vec2 tmp[2];
+    if (clipSegment(tmp, seg, -tangent, -glm::dot(tangent, rv0)) < 2) {
+        return m;
+    }
+    math::vec2 clipped[2];
+    if (clipSegment(clipped, tmp, tangent, glm::dot(tangent, rv1)) < 2) {
+        return m;
+    }
+
+    // Keep clipped points that lie behind the reference face; penetration = depth behind it.
+    const float refOffset = glm::dot(refN, rv0);
+    for (int k = 0; k < 2; ++k) {
+        const float sep = glm::dot(refN, clipped[k]) - refOffset;
+        if (sep <= 0.0f && m.count < 2) {
+            m.point[m.count] = clipped[k];
+            m.pen[m.count] = -sep;
+            ++m.count;
+        }
+    }
+    m.hit = m.count > 0;
+    return m;
+}
+
+// Any oriented pair as a Contact2. Box-box uses the two-point clip; other pairs reuse the single-point
+// manifold() (count 1), so the manifold solver handles mixed scenes uniformly.
+inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::Box && b.shape == Body2D::Box) {
+        return obbObbManifold(a, b);
+    }
+    Contact2 m;
+    const Manifold s = manifold(a, b);
+    if (s.hit) {
+        m.n = s.n;
+        m.count = 1;
+        m.point[0] = s.point;
+        m.pen[0] = s.pen;
+        m.hit = true;
+    }
+    return m;
+}
+
+// Resolve a multi-point manifold by applying the (tested) single-point rotational solve at each contact
+// point in turn. Two points sharing a face give the torque balance that keeps a stack square.
+inline void resolveManifold(Body2D& a, Body2D& b, const Contact2& m) {
+    for (int k = 0; k < m.count; ++k) {
+        Manifold s;
+        s.n = m.n;
+        s.point = m.point[k];
+        s.pen = m.pen[k];
+        s.hit = true;
+        resolveRot(a, b, s);
+    }
+}
+
 // Rotate a local offset into world space by a body's orientation.
 inline math::vec2 rotate2(math::vec2 v, float angle) {
     const float c = std::cos(angle), s = std::sin(angle);
@@ -579,6 +739,9 @@ public:
     math::vec2 gravity{0.0f, 0.0f};
     Bounds2D bounds{};
     bool hasBounds = false;
+    // Opt-in: resolve oriented box-box contacts with two-point clipped manifolds (stable stacks). Off by
+    // default so every existing rotating scene keeps its exact single-point numerics.
+    bool solveManifolds = false;
     std::vector<Body2D> bodies;
     std::vector<Joint2D> joints;
 
@@ -648,9 +811,16 @@ private:
         for (int it = 0; it < iterations; ++it) {
             for (size_t i = 0; i < bodies.size(); ++i) {
                 for (size_t j = i + 1; j < bodies.size(); ++j) {
-                    detail::Manifold m = detail::manifold(bodies[i], bodies[j]);
-                    if (m.hit) {
-                        detail::resolveRot(bodies[i], bodies[j], m);
+                    if (solveManifolds) {
+                        detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
+                        if (m.hit) {
+                            detail::resolveManifold(bodies[i], bodies[j], m);
+                        }
+                    } else {
+                        detail::Manifold m = detail::manifold(bodies[i], bodies[j]);
+                        if (m.hit) {
+                            detail::resolveRot(bodies[i], bodies[j], m);
+                        }
                     }
                 }
             }
