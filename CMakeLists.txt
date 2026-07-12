@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 project(MazEngine
     VERSION 0.1.0
     DESCRIPTION "Maz Engine — a native C++/Vulkan/SDL3 2D/3D game engine"
-    LANGUAGES CXX)
+    LANGUAGES C CXX) # C is needed for the vendored cgltf implementation (third_party/cgltf)
 
 # ---- Global settings --------------------------------------------------------
 set(CMAKE_CXX_STANDARD 20)
