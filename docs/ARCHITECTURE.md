@@ -40,7 +40,8 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               PostProcess    — fullscreen composite: HDR sceneColor + bloom -> swapchain, with
                                optional ACES tonemap/exposure
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
-              VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites
+              VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites + convex-polygon fill
+                               (drawConvexPolygon: triangle-fan flat shapes via a 1×1 white texture)
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog + normal mapping + emissive + specular
                                (Material) + wireframe debug draw + instancing + transparency.
@@ -132,6 +133,8 @@ apps/
               + centered modal) laid out entirely by ui::LayoutNode anchors + containers, no fixed pixels
   navmesh/  Navigation mesh — a room with a pillar as convex cells; game::NavMesh A*+funnel string-pulls
               a smooth path that hugs the pillar's corner (polygon nav, beyond grid A*)
+  vectors/  Filled polygons — regular N-gons, a 64-gon "circle", and overlapping translucent triangles
+              via Renderer::drawConvexPolygon (Godot Polygon2D-style vector shapes, alpha-composited)
 ```
 
 ## The frame loop (fixed timestep)

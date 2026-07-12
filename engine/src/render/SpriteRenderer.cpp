@@ -281,6 +281,46 @@ void SpriteRenderer::draw(TextureHandle tex, const SpriteDesc& s) {
     m_batches.back().count += kVertsPerSprite;
 }
 
+void SpriteRenderer::fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count,
+                                 const Color& color) {
+    if (!m_store->valid(whiteTex) || count < 3 || points == nullptr) {
+        return;
+    }
+    const uint32_t triVerts = (count - 2) * 3; // triangle fan from points[0]
+    if (m_vertices.size() + triVerts > m_maxVertices) {
+        if (!m_capacityWarned) {
+            MAZ_LOG_WARN("sprite batch full; dropping polygon");
+            m_capacityWarned = true;
+        }
+        return;
+    }
+
+    auto vert = [&](const Point2& p) -> Vertex {
+        Vertex out{};
+        out.pos[0] = p.x;
+        out.pos[1] = p.y;
+        out.uv[0] = 0.0f; // sample the white texel -> flat vertex color
+        out.uv[1] = 0.0f;
+        out.color[0] = color.r;
+        out.color[1] = color.g;
+        out.color[2] = color.b;
+        out.color[3] = color.a;
+        return out;
+    };
+
+    const auto first = static_cast<uint32_t>(m_vertices.size());
+    if (m_batches.empty() || m_batches.back().tex != whiteTex || m_cameraChanged) {
+        m_batches.push_back(Batch{whiteTex, first, 0, m_camera});
+        m_cameraChanged = false;
+    }
+    for (uint32_t i = 1; i + 1 < count; ++i) {
+        m_vertices.push_back(vert(points[0]));
+        m_vertices.push_back(vert(points[i]));
+        m_vertices.push_back(vert(points[i + 1]));
+    }
+    m_batches.back().count += triVerts;
+}
+
 void SpriteRenderer::flush(VkCommandBuffer cmd, uint32_t frameIndex) {
     if (m_vertices.empty() || m_pipeline == VK_NULL_HANDLE) {
         return;

@@ -211,6 +211,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D:** multi-camera passes (world-space + pixel-space HUD in one frame)
 - [x] **2D:** follow camera (`game::CameraController2D`: deadzone + frame-rate-independent smoothing +
   world-bounds clamp + shake offset + worldToScreen; the `camera` demo tracks an avatar in a large world; M82)
+- [x] **2D:** filled convex polygons (`Renderer::drawConvexPolygon`: triangle-fan flat shapes streamed
+  through the sprite batch via a 1×1 white texture — Godot Polygon2D-style vector shapes; the `vectors`
+  demo draws N-gons + a disc + translucent overlaps; M88) — unblocks 2D lights/shadows next
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -424,6 +427,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       rarity (Common/Uncommon/Rare/Epic) and a distribution legend; same seed → same field (M84)
 - [x] **Procedural terrain** (`apps/noise`) — a heightmap from fbm noise, colored by a terrain ramp
       with hillshade; same seed → same continent (M85)
+- [x] **UI layout** (`apps/uilayout`) — a responsive app UI (top bar + sidebar + content + modal) from
+      anchors and containers (M86)
+- [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel
+      string-pulling (M87)
+- [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent
+      overlapping triangles via `drawConvexPolygon` (M88)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

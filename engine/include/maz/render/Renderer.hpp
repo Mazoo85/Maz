@@ -37,6 +37,11 @@ struct SpriteDesc {
     Color color{1.0f, 1.0f, 1.0f, 1.0f};
 };
 
+// A 2D point in the active camera's space (world or pixel), used for polygon fills.
+struct Point2 {
+    float x = 0.0f, y = 0.0f;
+};
+
 // 2D camera. Defaults to pixel-space matching the framebuffer (origin top-left, y-down).
 struct Camera2D {
     float centerX = 0.0f, centerY = 0.0f; // world point at the viewport center (0 = use default)
@@ -124,6 +129,14 @@ public:
     virtual void setCamera2D(const Camera2D& camera) = 0;
     // Queue a sprite for drawing between beginFrame/endFrame. No-op when inactive.
     virtual void drawSprite(TextureHandle texture, const SpriteDesc& sprite) = 0;
+    // Fill a CONVEX polygon (points in world/pixel space per the active 2D camera, any winding),
+    // triangulated as a fan and flat-shaded with `color` — the vector-shape primitive (analogous to
+    // Godot's draw_colored_polygon / Polygon2D). Alpha-blended like sprites. No-op when inactive.
+    virtual void drawConvexPolygon(const Point2* points, uint32_t count, Color color) {
+        (void)points;
+        (void)count;
+        (void)color;
+    }
 
     // --- 3D meshes (Phase 3) ---
     // Upload an indexed mesh. Returns kInvalidMesh on failure or when inactive.

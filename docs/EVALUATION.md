@@ -1003,11 +1003,37 @@ editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a J
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): arbitrary 2D polygon fill in the renderer → then 2D lights/
-shadows; 3D rigid-body physics + joints; audio buses/effects + 3D spatial audio; animation blend
-trees / IK; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles + agent
-avoidance; plus box rotation (angular impulse) in Physics2D, parallel/decorator BT nodes + a
-blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the scene serializer, an
-ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation, localization /
-string tables, order-independent transparency, material/uniform system, cross-platform CI, a
-deterministic hold-frame screenshot mode.
+### Iteration 49 — "Benchmarking against Godot: vector shapes" (done)
+Continuing the Godot benchmark. The top-ranked closable gap was 2D lights/shadows, but that needs a
+prerequisite Maz lacked: the renderer could only draw textured quads, with no way to fill an arbitrary
+shape — so a light cone, a shadow volume, or Godot's Polygon2D were impossible. This iteration builds
+that prerequisite (also a Godot feature in its own right: `draw_colored_polygon` / `Polygon2D`).
+- [x] **M88 — Filled convex polygons (`Renderer::drawConvexPolygon`)**: the sprite renderer already
+  streams textured quads (6 vertices each, pos/uv/color) into a per-frame dynamic buffer batched by
+  texture. Polygon fill slots straight into that: `drawConvexPolygon(points, count, color)` triangulates
+  the polygon as a fan from `points[0]`, emits `3·(count−2)` vertices with uv=(0,0) and the flat color
+  into the same stream, batched against a renderer-owned **1×1 white texture** (sampled white × vertex
+  color = the fill color) — so it reuses the exact sprite pipeline and alpha-blends like everything
+  else, at zero new pipeline cost. `VulkanRenderer` creates the white texture at init; the base
+  `Renderer` provides a no-op default so headless stays clean. The new `vectors` demo draws a row of
+  regular N-gons (triangle→octagon), a 64-sided polygon that reads as a smooth filled circle, and three
+  overlapping translucent triangles whose crossings composite correctly — none of which the quad-only
+  path could do. Verified on lavapipe (all shapes fill and alpha-blend correctly; no validation errors);
+  new `vectors_headless_smoke` + golden (RMSE 0, threshold 0.05). The renderer change is additive, so
+  every existing 2D/3D golden is unchanged — confirmed by a serial golden run (strays killed first,
+  golden check then ctest run one at a time). ctest **45/45**. Unit count steady at **3389** (this is a
+  render-path feature, exercised by the golden rather than the CPU unit suite).
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
+Later (Godot-gap priorities + backlog): **2D lights + shadows** (now unblocked by drawConvexPolygon —
+radial light polygons + occluder shadow geometry); 3D rigid-body physics + joints; audio buses/effects
++ 3D spatial audio; animation blend trees / IK; UI text input + focus nav + themes; GPU particles;
+navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse) in Physics2D,
+parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints
+on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave
+generation, localization / string tables, order-independent transparency, material/uniform system,
+cross-platform CI, a deterministic hold-frame screenshot mode.

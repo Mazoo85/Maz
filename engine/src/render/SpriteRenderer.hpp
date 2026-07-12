@@ -36,6 +36,8 @@ public:
     void begin();                                 // clear the frame's accumulated sprites
     uint32_t spriteCount() const { return static_cast<uint32_t>(m_vertices.size() / 6); }
     void draw(TextureHandle tex, const SpriteDesc& s);
+    // Fill a convex polygon (triangle fan from points[0]) with a flat color, using `whiteTex`.
+    void fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count, const Color& color);
     void flush(VkCommandBuffer cmd, uint32_t frameIndex); // record the batched draws
 
 private:

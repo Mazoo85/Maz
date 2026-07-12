@@ -329,6 +329,13 @@ available):
   algorithm** to string-pull the corridor into a short, smooth path that **hugs corners** instead of
   zig-zagging through cell centers like a grid. The new `navmesh` demo routes an agent around a central
   pillar, and the path bends tightly around its corner
+- **M88** — filled 2D polygons (`Renderer::drawConvexPolygon`), toward Godot's `Polygon2D` /
+  `draw_colored_polygon`: the renderer could only draw textured quads. This adds arbitrary **convex
+  polygon fill** — the points are triangulated as a fan and streamed through the same batched 2D
+  pipeline as sprites (flat-shaded via a 1×1 white texture), so vector shapes cost nothing extra and
+  alpha-composite like everything else. The new `vectors` demo draws regular N-gons (triangle through
+  octagon), a 64-sided "circle," and three overlapping translucent triangles. This also unblocks 2D
+  lights/shadows (which need polygon light/occluder meshes) in a later loop
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -369,4 +376,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Noise** (procedural terrain): no controls — an fbm-noise heightmap rendered as a terrain map; same seed → same continent · Esc to quit
 - **UILayout** (retained UI): no controls — a responsive app UI (top bar + sidebar + content + modal) laid out by anchors and containers · Esc to quit
 - **NavMesh** (navigation mesh): no controls — an agent path routed around a pillar with A* + funnel string-pulling · Esc to quit
+- **Vectors** (filled polygons): no controls — regular N-gons, a 64-gon circle, and translucent overlapping triangles · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

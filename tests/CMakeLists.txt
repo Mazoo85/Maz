@@ -349,6 +349,14 @@ set_tests_properties(navmesh_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME vectors_headless_smoke
+    COMMAND vectors --headless --frames 30)
+
+set_tests_properties(vectors_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

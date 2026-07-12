@@ -40,6 +40,7 @@ public:
     TextureHandle createTexture(uint32_t width, uint32_t height, const void* rgbaPixels) override;
     void setCamera2D(const Camera2D& camera) override;
     void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
+    void drawConvexPolygon(const Point2* points, uint32_t count, Color color) override;
 
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
@@ -108,6 +109,7 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_imageIndex = 0;
     bool m_active = false;
+    TextureHandle m_whiteTex = kInvalidTexture; // 1x1 white, for flat polygon fills
 };
 
 bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
@@ -174,6 +176,12 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         return false;
     }
     m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
+
+    // A 1x1 white texture backs flat polygon fills (sampled white * vertex color = the fill color).
+    {
+        const uint8_t white[4] = {255, 255, 255, 255};
+        m_whiteTex = m_textureStore.createFromPixels(m_ctx, 1, 1, white);
+    }
 
     m_active = true;
     MAZ_LOG_INFO("renderer active (%ux%u, vsync %s)", m_swapchain.extent().width,
@@ -393,6 +401,12 @@ void VulkanRenderer::setCamera2D(const Camera2D& camera) {
 void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite) {
     if (m_active) {
         m_sprites.draw(texture, sprite);
+    }
+}
+
+void VulkanRenderer::drawConvexPolygon(const Point2* points, uint32_t count, Color color) {
+    if (m_active) {
+        m_sprites.fillPolygon(m_whiteTex, points, count, color);
     }
 }
 
