@@ -55,4 +55,5 @@
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"
 #include "maz/ui/Layout.hpp"
+#include "maz/ui/TextInput.hpp"
 #include "maz/ui/UI.hpp"

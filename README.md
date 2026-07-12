@@ -388,6 +388,14 @@ available):
   demo visualizes the field — each source's halo scales with its gain and a small L|R bar shows its pan,
   with the listener's range rings and a master stereo meter. The spatializer is pure math, unit-tested
   headlessly (attenuation curve, hard-left/right pan, silence past max range, constant-power invariant)
+- **M95** — UI **text input + focus navigation**, toward Godot's `LineEdit` + Control focus system: the
+  UI had buttons/toggles/sliders but no editable text. `ui::TextField` is a single-line edit model
+  (caret + insert / backspace / delete / arrows / home / end + max length), `ui::FocusChain` is an
+  ordered set of focusable widgets with Tab / Shift+Tab wraparound and click-to-focus, and a new
+  `Context::textField` widget draws the box + text + caret and applies per-frame typed characters and
+  editing keys to whichever field owns focus. Both models are pure logic, unit-tested headlessly. The
+  new `form` demo is an account-settings form of four fields — click or Tab to move focus (the focused
+  field shows an accent border + caret), type to edit, one field length-capped
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

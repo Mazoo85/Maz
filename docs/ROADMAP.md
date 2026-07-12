@@ -356,8 +356,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Retained UI layout** (`ui::LayoutNode`: Godot-style anchors + margins + HBox/VBox/Center
   containers with expand/spacing/padding; resolution-responsive computed rects; the `uilayout` demo
   builds a top-bar + sidebar + content + modal UI with no hand-placed pixels; M86)
-- [ ] Text input, focus / navigation, controller UI nav
-- [ ] Nine-slice, fonts, localization-aware text
+- [x] **Text input + focus navigation** (`ui::TextField` single-line edit model: caret + insert/
+  backspace/delete/arrows/home/end + max length; `ui::FocusChain`: ordered focusable ids with Tab/
+  Shift+Tab wraparound; `Context::textField` widget draws box+text+caret + click-to-focus — Godot
+  LineEdit + Control focus; the `form` demo is an editable account-settings form; M95) — controller UI nav later
+- [ ] Nine-slice, themes, localization-aware text
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
@@ -467,6 +470,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
 - [x] **Positional audio** (`apps/spatial2d`) — a listener + sound sources with per-source distance
       attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
+- [x] **Text input form** (`apps/form`) — an editable account-settings form: click/Tab to focus a
+      field (accent border + caret), type to edit (`ui::TextField` + `ui::FocusChain`) (M95)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

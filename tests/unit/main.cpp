@@ -38,6 +38,7 @@
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/Layout.hpp"
+#include "maz/ui/TextInput.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -696,6 +697,109 @@ void testLayout() {
         CHECK_NEAR(top.rect.x, 200.0f, 1e-3f);   // inherits the content cell's x
         CHECK_NEAR(top.rect.h, 200.0f, 1e-3f);
         CHECK_NEAR(bottom.rect.y, 200.0f, 1e-3f);
+    }
+}
+
+void testTextInput() {
+    // TextField editing: construct at end, move, insert, backspace, delete, home/end, max length.
+    {
+        ui::TextField f("hello");
+        CHECK(f.text() == "hello");
+        CHECK(f.caret() == 5); // caret starts at the end
+
+        f.moveLeft();
+        f.moveLeft(); // caret at 3 (between 'l' and 'l')
+        CHECK(f.caret() == 3);
+        f.insert('X'); // "helXlo", caret 4
+        CHECK(f.text() == "helXlo");
+        CHECK(f.caret() == 4);
+        f.backspace(); // remove the 'X' -> "hello", caret 3
+        CHECK(f.text() == "hello");
+        CHECK(f.caret() == 3);
+        f.del(); // remove the char at caret ('l') -> "helo", caret 3
+        CHECK(f.text() == "helo");
+        CHECK(f.caret() == 3);
+
+        f.home();
+        CHECK(f.caret() == 0);
+        f.backspace(); // nothing before the start -> no-op
+        CHECK(f.text() == "helo");
+        f.end();
+        CHECK(f.caret() == 4);
+        f.del(); // nothing after the end -> no-op
+        CHECK(f.text() == "helo");
+
+        f.insert('\n'); // control chars are ignored
+        f.insert('\t');
+        CHECK(f.text() == "helo");
+
+        ui::TextField g;
+        g.setMaxLength(3);
+        g.insert("abcdef"); // only the first 3 fit
+        CHECK(g.text() == "abc");
+        CHECK(g.caret() == 3);
+    }
+
+    // FocusChain: tab traversal wraps, focus() jumps, empty -> kNone.
+    {
+        ui::FocusChain fc;
+        CHECK(fc.focused() == ui::FocusChain::kNone);
+        fc.add(10);
+        fc.add(20);
+        fc.add(30);
+        CHECK(fc.focused() == 10); // first added grabs focus
+        fc.next();
+        CHECK(fc.focused() == 20);
+        fc.next();
+        CHECK(fc.focused() == 30);
+        fc.next();
+        CHECK(fc.focused() == 10); // wrap forward
+        fc.prev();
+        CHECK(fc.focused() == 30); // wrap backward
+        fc.focus(20);
+        CHECK(fc.focused() == 20);
+        CHECK(fc.isFocused(20));
+        fc.focus(999); // unknown id -> no change
+        CHECK(fc.focused() == 20);
+    }
+
+    // Context widget: clicking a field grabs focus and typed input lands only in the focused field.
+    {
+        ui::Context ui; // no renderer bound -> pure interaction logic (as other UI tests do)
+        ui::TextField a("A"), b("B");
+        ui::FocusChain focus;
+        focus.add(1);
+        focus.add(2); // field 1 focused initially
+        const ui::Rect ra{0, 0, 100, 30}, rb{0, 40, 100, 30};
+
+        // Type "x" with field 1 focused -> goes into a.
+        {
+            ui::TextEditInput e;
+            e.typed = "x";
+            ui.begin(500, 500, false); // pointer away, not clicking
+            ui.textField(1, ra, a, focus, e);
+            ui.textField(2, rb, b, focus, ui::TextEditInput{});
+            ui.end();
+            CHECK(a.text() == "Ax");
+            CHECK(b.text() == "B");
+        }
+        // Click field 2 (press) -> focus moves; then next frame typing lands in b.
+        {
+            ui.begin(50, 55, true); // press inside rb
+            ui.textField(1, ra, a, focus, ui::TextEditInput{});
+            ui.textField(2, rb, b, focus, ui::TextEditInput{});
+            ui.end();
+            CHECK(focus.isFocused(2));
+
+            ui::TextEditInput e;
+            e.typed = "y";
+            ui.begin(50, 55, false);
+            ui.textField(1, ra, a, focus, ui::TextEditInput{});
+            ui.textField(2, rb, b, focus, e);
+            ui.end();
+            CHECK(a.text() == "Ax");
+            CHECK(b.text() == "By");
+        }
     }
 }
 
@@ -3045,6 +3149,7 @@ int main() {
     testSceneStack();
     testTween();
     testLayout();
+    testTextInput();
     testUI();
     testSerialize();
     testJson();

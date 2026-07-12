@@ -3,8 +3,11 @@
 #include "maz/render/Renderer.hpp"
 #include "maz/ui/Font.hpp"
 #include "maz/ui/Rect.hpp"
+#include "maz/ui/TextInput.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace maz::ui {
 
@@ -144,6 +147,58 @@ public:
         const float hw = track.h * 0.5f;
         quad(Rect{track.x + track.w * t - hw, track.y - hw * 0.5f, hw * 2.0f, track.h + hw},
              (m_active == id || m_hot == id) ? colText : colHot);
+        return changed;
+    }
+
+    // An editable single-line text field (Godot's LineEdit). Clicking it grabs focus in `focus`; while
+    // it holds focus the per-frame `edit` (typed chars + editing keys) is applied to `state`. Draws the
+    // box (accent border when focused), the text, and a caret. Returns true if the text changed.
+    bool textField(uint32_t id, const Rect& r, TextField& state, FocusChain& focus,
+                   const TextEditInput& edit, float scale = 0.5f) {
+        const bool inside = r.contains(m_px, m_py);
+        if (inside) {
+            m_hot = id;
+        }
+        // Click to focus.
+        if (inside && m_down && !m_downPrev) {
+            focus.focus(id);
+        }
+        const bool isFocused = focus.isFocused(id);
+        bool changed = false;
+        if (isFocused) {
+            const std::string before = state.text();
+            const std::size_t caretBefore = state.caret();
+            if (edit.typed != nullptr) {
+                state.insert(edit.typed);
+            }
+            if (edit.backspace) state.backspace();
+            if (edit.del) state.del();
+            if (edit.left) state.moveLeft();
+            if (edit.right) state.moveRight();
+            if (edit.home) state.home();
+            if (edit.end) state.end();
+            changed = state.text() != before || state.caret() != caretBefore;
+        }
+
+        // Draw: box, then text, then caret.
+        quad(r, isFocused ? colHot : colItem);
+        if (isFocused) {
+            const float b = 2.0f; // accent border
+            quad(Rect{r.x, r.y, r.w, b}, colAccent);
+            quad(Rect{r.x, r.y + r.h - b, r.w, b}, colAccent);
+            quad(Rect{r.x, r.y, b, r.h}, colAccent);
+            quad(Rect{r.x + r.w - b, r.y, b, r.h}, colAccent);
+        }
+        const float pad = 8.0f;
+        const float ty = r.y + r.h * 0.5f - (m_font ? m_font->lineHeight(scale) : 0.0f) * 0.5f;
+        if (m_r && m_font) {
+            m_font->drawText(*m_r, r.x + pad, ty, state.text().c_str(), colText, scale);
+        }
+        if (isFocused && m_font) {
+            const std::string head = state.text().substr(0, state.caret());
+            const float cx = r.x + pad + m_font->textWidth(head.c_str(), scale);
+            quad(Rect{cx, r.y + r.h * 0.2f, 2.0f, r.h * 0.6f}, colText); // caret (solid; deterministic)
+        }
         return changed;
     }
 

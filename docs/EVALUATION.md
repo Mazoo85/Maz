@@ -1174,17 +1174,45 @@ by direction. Closing that is high-leverage and its core is pure, deterministic 
   (Godot AudioStreamPlayer2D); it is not a full bus graph with DSP effects, nor 3D spatialization with
   doppler — those remain.
 
+### Iteration 56 — "Benchmarking against Godot: UI text input + focus" (done)
+Continuing the Godot benchmark, diversifying into UI. Maz had immediate-mode widgets (M60) and a
+retained layout system (M86), but no way for a player to *type* — no editable text field and no focus
+system, while Godot's Control tree has LineEdit plus Tab-based focus traversal. That's a clear
+interactive-UI gap, and its core (a text-edit model + a focus ring) is pure, deterministic logic.
+- [x] **M95 — UI text input (`ui::TextField`) + focus navigation (`ui::FocusChain`)**: `TextField` is a
+  single-line edit model — a string + a byte caret with `insert` (filters control chars, honours a max
+  length), `backspace`/`del`, `moveLeft`/`moveRight`/`home`/`end` — the model behind Godot's LineEdit.
+  `FocusChain` is an ordered set of focusable widget ids with `next()`/`prev()` (Tab / Shift+Tab, with
+  wraparound), `focus(id)`, and `focused()` — Godot's focus_next / focus_previous. Both are pure logic,
+  so `testTextInput` checks them exactly: caret editing (insert/backspace/delete/home/end/no-op at
+  bounds, control chars ignored, max length), focus wraparound + jump + unknown-id no-op, and the
+  immediate-mode `Context::textField` widget itself (a renderer-less Context still runs the interaction:
+  typed input lands only in the focused field, and a click grabs focus). Unit count **3462 -> 3492**.
+  The new `Context::textField` widget draws the box (accent border when focused), the text, and a solid
+  caret at the measured caret x (via `Font::textWidth`), and applies a per-frame `TextEditInput` (typed
+  chars + editing keys, supplied by the caller) to whichever field owns focus. The new `form` demo is an
+  account-settings form of four fields: click or Tab to move focus (the focused field shows the accent
+  border + caret), type to edit, with one field length-capped — the demo maps SDL scancodes to
+  characters and feeds the widget. Deterministic initial state (Server focused, caret at end), so the
+  render is golden-stable; verified on lavapipe (the focused field's border + caret render correctly, no
+  validation errors). New `form_headless_smoke` + golden (static, RMSE 0, threshold 0.05). Purely
+  additive (new header + a new widget method + a new app), so all existing goldens are unchanged —
+  confirmed by a serial golden run (strays killed first; golden check then ctest one at a time). ctest
+  **51/51**. Honest scope: this is single-line editing + focus + click/Tab (Godot LineEdit); it has no
+  text selection/clipboard, no multi-line TextEdit, and no theme resources yet — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): audio buses + DSP effects (reverb/filter) + 3D spatial audio +
-doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh; animation blend *trees*
-(state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for
-stable box STACKS + more joint types (groove/slider) building on M93's pin/spring; soft (penumbra) 2D
-shadows + normal-mapped / textured 2D lights (M90 made lights additive but they're hard-edged and
-flat-colored); 3D rigid-body physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic
+Later (Godot-gap priorities + backlog): text selection/clipboard + multi-line TextEdit + UI themes +
+controller UI nav (M95 gives single-line LineEdit + focus); audio buses + DSP effects (reverb/filter) +
+3D spatial audio + doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh;
+animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point
+(warm-started) manifolds for stable box STACKS + more joint types (groove/slider) building on M93's
+pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights (M90 made lights additive
+but they're hard-edged and flat-colored); 3D rigid-body physics; GPU particles; navmesh dynamic
 obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
 prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
 tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform

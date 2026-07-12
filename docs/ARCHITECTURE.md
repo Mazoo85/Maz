@@ -59,9 +59,12 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay (FPS/draw stats),
-            Context (immediate-mode widgets: panel/label/button/toggle/slider, hot/active tracking),
+            Context (immediate-mode widgets: panel/label/button/toggle/slider/textField, hot/active),
             LayoutNode (retained layout — Godot-style anchors/margins + HBox/VBox/Center containers,
-              computed rects, resolution-responsive), Rect (shared screen rectangle)
+              computed rects, resolution-responsive),
+            TextField (single-line edit model: caret + insert/erase/move + max length) + FocusChain
+              (ordered focusable ids, Tab/Shift+Tab wraparound) — Godot LineEdit + Control focus,
+            Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
             propagates world transforms parent-first (decomposed TRS); localToWorld   (header-only)
@@ -158,6 +161,8 @@ apps/
               masses of increasing stiffness (game::Joint2D Pin + Spring)
   spatial2d/ Positional audio — a listener + sound sources with per-source distance attenuation + stereo
               pan visualized as gain halos + L/R bars + a master meter (audio::spatialize)
+  form/     UI text input — an editable account-settings form: click/Tab to focus a field (accent
+              border + caret), type to edit (ui::TextField + ui::FocusChain + Context::textField)
 ```
 
 ## The frame loop (fixed timestep)
