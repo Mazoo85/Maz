@@ -111,6 +111,7 @@ CASES=(
     "rayquery||2.0|0.06"
     "strtable||2.0|0.06"
     "locale||2.0|0.06"
+    "textwrap||2.0|0.07"
 )
 
 if [ ! -f "$ICD" ]; then

@@ -252,7 +252,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   — texture-projected light cookies + a CanvasItem material/shader hook later
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
-- [ ] SDF text for crisp scaling, text layout/wrapping
+- [x] **Text layout / wrapping** (`ui::layoutText` + `ui::TextLayout`: greedy word-wrap to a max width
+  via an injected measure callback + `\n` hard breaks + L/C/R alignment → positioned `TextLine` list;
+  renderer-independent — Godot `Label` autowrap; the `textwrap` demo fits one paragraph three ways + a
+  hard-break log; M134) — SDF text for crisp scaling, mid-word/hyphenation breaks, rich-text spans, and
+  RTL/complex-script shaping later
 - [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`

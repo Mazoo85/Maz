@@ -77,6 +77,9 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               center write child rects; hboxMinSize/vboxMinSize/gridMinSize for bottom-up sizing),
             TextField (single-line edit model: caret + insert/erase/move + max length) + FocusChain
               (ordered focusable ids, Tab/Shift+Tab wraparound) — Godot LineEdit + Control focus,
+            layoutText (word-wrap + alignment — Godot Label autowrap: greedy-wrap a paragraph to a max
+              width via an injected measure callback, honor \n hard breaks, align each line L/C/R →
+              positioned TextLine list; renderer-independent, no Font dependency),
             ninePatch (StyleBox nine-slice: slice a dest rect into a 3×3 grid by border insets —
               fixed corners, stretching edges/center — mapping to source regions), Godot StyleBoxTexture-style,
             StyleBoxFlat + Theme (procedural rounded-corner panel — fill/border/per-corner radius/soft drop
@@ -261,6 +264,8 @@ apps/
               the reference stream (name -> #id) beside the deduplicated pool (id -> text -> FNV hash)
   locale/    CSV localization — one translation CSV renders the same game menu in four languages side by side
               (io::TranslationTable::tr per locale), with the empty German QUIT cell falling back to English
+  textwrap/  Text layout — one prose paragraph fit into three fixed-width panels (left/center/right aligned)
+              via ui::layoutText measured with Font::textWidth, plus a \n-delimited quest log with hard breaks
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

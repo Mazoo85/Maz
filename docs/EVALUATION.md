@@ -2367,6 +2367,32 @@ deterministic golden.
   doesn't auto-detect the OS locale, and it isn't wired into a global `TranslationServer` that the UI
   widgets consult automatically (the app owns the table); those remain localization follow-ups.
 
+### Iteration 95 — "Benchmarking against Godot: text layout (word-wrap + alignment)" (done)
+Rotating to **UI / 2D text** for breadth (last UI was M122, the longest-idle subsystem) and closing a
+gap present since the font landed: the `Font` renderer can draw and *measure* a single line, but it has
+**no notion of fitting text into a box** — wrapping a paragraph across lines at word boundaries so it
+doesn't overflow, and aligning each line. That's what every dialog box, tooltip, description pane, and
+subtitle needs; Godot's `Label` does it as autowrap + horizontal align. The layout is a pure algorithm
+(it takes a MEASURE callback, so it has no renderer/Font dependency), which unit-tests headlessly.
+- [x] **M134 — text layout / word-wrap (`ui::layoutText` + `ui::TextLayout`)**: a new `TextLayout.hpp`.
+  `layoutText(text, maxWidth, measure, lineHeight, align)` splits the input on explicit `\n` (hard
+  breaks), greedily word-wraps each paragraph so no line exceeds `maxWidth` (an over-long single word is
+  placed alone rather than mid-word-broken; blank lines are preserved), and returns a `TextLayout` — a
+  list of `TextLine{text, x, y, width}` plus the overall `width`/`height`. Each line's `x` is set from
+  `TextAlign::Left/Center/Right`; `y` stacks by `lineHeight`. Because `measure` is injected, the same code
+  serves any font backend and the tests drive it with a synthetic 10px-per-character measurer for exact
+  expectations. `testTextLayout` pins: greedy wrap at the fit boundary, `\n` hard breaks, preserved blank
+  lines, an over-long word alone on its line, the three alignment x-offsets (`0` / `(M−W)/2` / `M−W`),
+  stacked line y-offsets, and empty-input → one empty line. Unit checks **4628 → 4651**. The new
+  `textwrap` demo fits one prose paragraph into three fixed-width panels — left, center, right aligned —
+  measured with the real `Font::textWidth`, plus a fourth panel showing a `\n`-delimited quest log with
+  its hard breaks preserved. Static → deterministic golden (threshold 0.07, text-dense). Purely additive
+  (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run);
+  ctest **89/89 → 90/90**. Honest scope: this is line-level word-wrap + horizontal alignment. It does
+  **not** do mid-word/hyphenation breaking of over-long words, per-run rich text (bold/italic/color spans
+  — no BBCode), bidirectional/RTL or complex-script shaping, vertical alignment/justification, or
+  ellipsis truncation; those remain text follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

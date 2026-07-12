@@ -127,6 +127,7 @@ add_subdirectory(apps/grid3d)
 add_subdirectory(apps/rayquery)
 add_subdirectory(apps/strtable)
 add_subdirectory(apps/locale)
+add_subdirectory(apps/textwrap)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -719,6 +719,12 @@ available):
   CRLF/LF); `TranslationTable` loads a Godot-style translation CSV (key + one column per locale) and
   answers `tr(key)` in the active locale with fallback (empty cell → source language, unknown key → the
   key itself). The new `locale` demo renders one game menu in four languages from a single CSV.
+- **M134** — a **text layout engine** (`ui::layoutText` + `ui::TextLayout`), toward Godot's `Label`
+  autowrap: the `Font` could draw/measure one line but couldn't fit a paragraph into a box. `layoutText`
+  greedily word-wraps text to a max width (honoring explicit `\n` hard breaks) and aligns each line
+  left/center/right, returning positioned lines the caller draws one-per-line. It's renderer-independent
+  via an injected measure callback. The new `textwrap` demo wraps one paragraph three ways plus a
+  hard-break quest log.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

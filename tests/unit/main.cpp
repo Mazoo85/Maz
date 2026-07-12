@@ -66,6 +66,7 @@
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
+#include "maz/ui/TextLayout.hpp"
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
@@ -2154,6 +2155,77 @@ void testTree() {
         ui::Tree empty;
         CHECK(empty.visibleRows().empty());
         CHECK(empty.visibleCount() == 0);
+    }
+}
+
+void testTextLayout() {
+    using ui::TextAlign;
+    using ui::TextLayout;
+    // A synthetic measurer: every character (spaces included) is exactly 10px wide, so line widths are
+    // perfectly predictable — text.size() * 10.
+    auto measure = [](std::string_view s) { return static_cast<float>(s.size()) * 10.0f; };
+
+    // Greedy wrap: with maxWidth 50, "aa bb" (5 chars = 50) just fits; adding " cc" (80) overflows.
+    {
+        const TextLayout t = ui::layoutText("aa bb cc", 50.0f, measure, 16.0f);
+        CHECK(t.lines.size() == 2);
+        CHECK(t.lines[0].text == "aa bb");
+        CHECK(t.lines[1].text == "cc");
+        CHECK_NEAR(t.lines[0].width, 50.0f, 1e-4f);
+        CHECK_NEAR(t.height, 32.0f, 1e-4f); // 2 lines * 16
+        CHECK_NEAR(t.width, 50.0f, 1e-4f);  // widest line
+    }
+
+    // Explicit '\n' is a hard break independent of width.
+    {
+        const TextLayout t = ui::layoutText("aa\nbb", 1000.0f, measure, 20.0f);
+        CHECK(t.lines.size() == 2);
+        CHECK(t.lines[0].text == "aa");
+        CHECK(t.lines[1].text == "bb");
+    }
+
+    // A blank line (consecutive newlines) is preserved.
+    {
+        const TextLayout t = ui::layoutText("aa\n\nbb", 1000.0f, measure, 10.0f);
+        CHECK(t.lines.size() == 3);
+        CHECK(t.lines[1].text.empty());
+    }
+
+    // A single word wider than maxWidth goes on its own line (no mid-word break).
+    {
+        const TextLayout t = ui::layoutText("tiny enormouslylongword end", 60.0f, measure, 10.0f);
+        // "tiny"(40) fits; "tiny enormouslylongword" overflows -> break; the long word alone; then "end".
+        CHECK(t.lines.size() == 3);
+        CHECK(t.lines[0].text == "tiny");
+        CHECK(t.lines[1].text == "enormouslylongword");
+        CHECK(t.lines[2].text == "end");
+    }
+
+    // Alignment: for a line of width W in a box of maxWidth M, left x=0, center x=(M-W)/2, right x=M-W.
+    {
+        const float M = 100.0f;
+        const TextLayout left = ui::layoutText("abc", M, measure, 10.0f, TextAlign::Left);
+        const TextLayout center = ui::layoutText("abc", M, measure, 10.0f, TextAlign::Center);
+        const TextLayout right = ui::layoutText("abc", M, measure, 10.0f, TextAlign::Right);
+        const float W = 30.0f; // "abc" = 3 * 10
+        CHECK_NEAR(left.lines[0].x, 0.0f, 1e-4f);
+        CHECK_NEAR(center.lines[0].x, (M - W) * 0.5f, 1e-4f);
+        CHECK_NEAR(right.lines[0].x, M - W, 1e-4f);
+    }
+
+    // Line y offsets stack by lineHeight.
+    {
+        const TextLayout t = ui::layoutText("a\nb\nc", 1000.0f, measure, 24.0f);
+        CHECK_NEAR(t.lines[0].y, 0.0f, 1e-4f);
+        CHECK_NEAR(t.lines[1].y, 24.0f, 1e-4f);
+        CHECK_NEAR(t.lines[2].y, 48.0f, 1e-4f);
+    }
+
+    // Empty input yields a single empty line (a paragraph with no words).
+    {
+        const TextLayout t = ui::layoutText("", 100.0f, measure, 10.0f);
+        CHECK(t.lines.size() == 1);
+        CHECK(t.lines[0].text.empty());
     }
 }
 
@@ -6704,6 +6776,7 @@ int main() {
     testStyleBox();
     testTheme();
     testTree();
+    testTextLayout();
     testTextInput();
     testUI();
     testSerialize();
