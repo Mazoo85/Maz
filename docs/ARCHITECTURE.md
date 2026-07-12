@@ -80,6 +80,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves +
               Blackboard shared memory + Parallel composite + Repeater/AlwaysSucceed/AlwaysFail/Tap decorators),
+            Goap (goap:: goal-oriented action planning — A* over a 64-bit-bitmask world state, Actions as
+              precondition/effects/cost triples, returning the cheapest action sequence to a goal Condition;
+              a planner beyond the behaviour tree, no Godot built-in equivalent),
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
             opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
             rotational impulses about the contact point, linear/angular damping; JOINTS: Joint2D
@@ -209,6 +212,8 @@ apps/
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
   statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-
               fading colour bands over a scripted timeline (anim::AnimStateMachine)
+  goap/     GOAP planner — a survival agent plans "make fire" from an action library; the optimal plan is
+              drawn as a flow with the world-state changing fact-by-fact until fire lights (game::goap)
 ```
 
 ## The frame loop (fixed timestep)

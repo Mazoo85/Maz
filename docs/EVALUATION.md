@@ -1544,6 +1544,36 @@ highest-leverage closable gap this round.
   0). ctest **63/63**. Honest scope: this is position-based FABRIK; it does not yet do pole targets, per-
   bone angle constraints, or a Skeleton2D-integrated modification stack — those remain Godot-side gaps.
 
+### Iteration 69 — "Benchmarking against Godot: GOAP planner" (done)
+Rotating to gameplay/AI (last AI was M104's behaviour tree). Godot's AI story is a scene-tree of nodes
+plus community behaviour-tree add-ons — but it ships no *planner*: nothing that, given a goal and a set of
+actions, works out the sequence of actions itself. Goal-Oriented Action Planning (the classic F.E.A.R.
+technique) does exactly that, and it's the highest-leverage AI gap because it's a genuine capability Godot
+lacks, it's purely additive (a brand-new header — zero regression risk), and it's pure graph search so it
+unit-tests headlessly and to provable optimality.
+- [x] **M108 — GOAP planner (`game::goap`)**: a new header. The world is a set of boolean facts packed
+  into a 64-bit word; a `Condition` is a partial state (a `mask` of the facts it cares about + their
+  wanted `want` values) used for goals and preconditions; an `Action` is a precondition `Condition`, a
+  `set`/`clear` bitmask of effects, and a `cost`, with chainable builders (`.needs().sets().clears().
+  withCost()`). `plan(start, goal, library)` runs **A\*** over world states — `g` = accumulated action
+  cost, `h` = an admissible lower bound (goal unmet ⇒ at least one more action at the cheapest action's
+  cost) — popping the goal first, so the returned action sequence is guaranteed minimum-cost; it
+  reconstructs the plan by walking predecessor links, returns an empty found-plan when the goal already
+  holds, and reports `found=false` for unreachable goals (bounded by a max-expansion backstop).
+  `testGoap` checks it hard: a five-action "make fire" plan comes back at the exact optimal cost 8 and
+  avoids a deliberately-overpriced shortcut; raising the axe-route cost flips the planner to the shortcut
+  (cost 11); the already-satisfied goal yields an empty zero-cost plan; a fact no action can produce is
+  unreachable; partial-`Condition` match semantics and an empty library are covered. Unit count **3735 →
+  3761**. The new `goap` demo has a survival agent plan "make fire" from six actions and draws the result:
+  the action library down the left (the skipped "scavenge wood" decoy dimmed), and the optimal plan as a
+  left-to-right flow — START → get axe → forest → chop → camp → build fire (green) — with a five-dot
+  world-state strip under each step so you watch the facts turn green one by one until FIRE lights.
+  Planned once at startup → deterministic golden (RMSE 0, threshold 0.05). Purely additive (new header +
+  new app), so every existing golden is byte-unchanged, confirmed by a serial golden run. ctest **64/64**.
+  Honest scope: this is boolean-fact STRIPS-style GOAP; it is not yet numeric/fuzzy world state, a utility-
+  AI scorer, or an HTN task-network planner, and it caps the world at 64 facts — those remain as further
+  planner work.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1552,8 +1582,9 @@ gaps and will not declare total superiority over Godot.
 Later (Godot-gap priorities + backlog): wiring the DSP buses into the real-time mixer (per-voice bus
 routing) + chorus/phaser/limiter/pitch-shift effects + WAV/OGG file loading (M106 completes the core
 AudioEffect set; M99 gives the bus core); nested sub-state-machines + root-motion on the animation state
-machine (M105 gives a flat cross-fading state machine); utility AI / GOAP / HTN planners on top of the BT
-(M104 rounds out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
+machine (M105 gives a flat cross-fading state machine); utility-AI scorers + HTN task-network planners +
+numeric/fuzzy world state on top of the planner (M108 gives boolean-fact STRIPS-style GOAP A* planning;
+M104 rounds out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
 rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
 2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
 joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft

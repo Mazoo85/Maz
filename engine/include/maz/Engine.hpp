@@ -36,6 +36,7 @@
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/FlyCamera.hpp"
+#include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/Physics2D.hpp"

@@ -504,6 +504,16 @@ available):
   straightens collinearly toward an unreachable target; single-bone + degenerate cases). The new
   `tentacle` demo anchors a row of 8-bone chains along the floor, each reaching for its own target —
   reachable ones curl to touch it (green), out-of-reach ones straighten and point (red).
+- **M108** — a **GOAP planner** (`game::goap`), goal-oriented action planning that goes *beyond* the
+  behaviour tree (M104) — a planner Godot ships no built-in equivalent for. Instead of hand-authoring what
+  an agent does, you give it a GOAL (a desired world-state) and a LIBRARY of actions — each a
+  precondition, effects, and cost — and it runs A* over world states (packed as a 64-bit fact bitmask) to
+  return the *cheapest* action sequence that reaches the goal, re-planning automatically if you add a new
+  action. Pure integer/graph search, unit-tested (finds the optimal plan and its cost; switches routes
+  when costs change; empty plan when the goal already holds; reports unreachable goals). The new `goap`
+  demo has a survival agent plan "make fire" from six actions; it draws the computed plan as a flow with
+  the five world-facts turning green step-by-step until fire lights, and dims the pricey "scavenge wood"
+  shortcut A* rejected.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -30,6 +30,7 @@
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
+#include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/Physics2D.hpp"
@@ -3521,6 +3522,94 @@ void testFabrik() {
     }
 }
 
+void testGoap() {
+    namespace goap = game::goap;
+
+    // A "make fire" survival scenario. Facts:
+    enum { HasAxe = 0, AtForest = 1, HasWood = 2, AtCamp = 3, HasFire = 4 };
+
+    std::vector<goap::Action> lib;
+    lib.push_back(goap::Action{"GetAxe"}.sets(HasAxe).withCost(2.0f));
+    lib.push_back(goap::Action{"GoForest"}.sets(AtForest).clears(AtCamp).withCost(1.0f));
+    lib.push_back(
+        goap::Action{"ChopWood"}.needs(HasAxe, true).needs(AtForest, true).sets(HasWood).withCost(3.0f));
+    lib.push_back(goap::Action{"GoCamp"}.sets(AtCamp).clears(AtForest).withCost(1.0f));
+    lib.push_back(
+        goap::Action{"BuildFire"}.needs(HasWood, true).needs(AtCamp, true).sets(HasFire).withCost(1.0f));
+    // A decoy shortcut: scavenge wood with no axe, but expensive enough that the axe path wins.
+    lib.push_back(goap::Action{"ScavengeWood"}.sets(HasWood).withCost(10.0f));
+
+    const goap::State start = goap::bit(AtCamp); // begin at camp, nothing else
+    const goap::Condition goal = goap::Condition{}.require(HasFire, true);
+
+    // Optimal plan: GetAxe(2) + GoForest(1) + ChopWood(3) + GoCamp(1) + BuildFire(1) = 8, beating the
+    // ScavengeWood(10)+BuildFire(1)=11 shortcut.
+    {
+        goap::Plan p = goap::plan(start, goal, lib);
+        CHECK(p.found);
+        CHECK(p.steps.size() == 5);
+        CHECK_NEAR(p.cost, 8.0f, 1e-4f);
+
+        // Replay the plan and confirm each action's precondition held and the goal is reached.
+        goap::State s = start;
+        bool scavenged = false;
+        for (int idx : p.steps) {
+            CHECK(goap::satisfied(s, lib[static_cast<std::size_t>(idx)].pre));
+            if (lib[static_cast<std::size_t>(idx)].name == "ScavengeWood") scavenged = true;
+            s = goap::apply(s, lib[static_cast<std::size_t>(idx)]);
+        }
+        CHECK(goap::satisfied(s, goal));
+        CHECK(!scavenged); // the optimal plan avoids the expensive decoy
+        // Last action must be the one that produces fire.
+        CHECK(lib[static_cast<std::size_t>(p.steps.back())].name == "BuildFire");
+    }
+
+    // If the axe path is made costlier than the shortcut, the planner switches to ScavengeWood.
+    {
+        std::vector<goap::Action> lib2 = lib;
+        lib2[0].cost = 20.0f; // GetAxe now absurdly expensive
+        goap::Plan p = goap::plan(start, goal, lib2);
+        CHECK(p.found);
+        CHECK(p.steps.size() == 2); // ScavengeWood + BuildFire
+        CHECK_NEAR(p.cost, 11.0f, 1e-4f);
+        CHECK(lib2[static_cast<std::size_t>(p.steps.front())].name == "ScavengeWood");
+    }
+
+    // Goal already satisfied: empty plan, zero cost, found.
+    {
+        goap::Plan p = goap::plan(goap::bit(HasFire), goal, lib);
+        CHECK(p.found);
+        CHECK(p.steps.empty());
+        CHECK_NEAR(p.cost, 0.0f, 1e-6f);
+    }
+
+    // Unreachable goal: need a fact no action can produce.
+    {
+        const goap::Condition impossible = goap::Condition{}.require(7, true); // fact 7 untouched by any action
+        goap::Plan p = goap::plan(start, impossible, lib);
+        CHECK(!p.found);
+        CHECK(p.steps.empty());
+    }
+
+    // Condition partial-match semantics: cares only about its masked bits.
+    {
+        goap::State s = goap::bit(HasWood) | goap::bit(AtCamp);
+        CHECK(goap::satisfied(s, goap::Condition{}.require(HasWood, true)));
+        CHECK(goap::satisfied(s, goap::Condition{}.require(HasAxe, false)));
+        CHECK(!goap::satisfied(s, goap::Condition{}.require(HasWood, false)));
+        // A two-fact condition must match both.
+        CHECK(goap::satisfied(s, goap::Condition{}.require(HasWood, true).require(AtCamp, true)));
+        CHECK(!goap::satisfied(s, goap::Condition{}.require(HasWood, true).require(AtForest, true)));
+    }
+
+    // Empty library with an unmet goal is simply unreachable (heuristic must not divide by zero, etc.).
+    {
+        std::vector<goap::Action> none;
+        goap::Plan p = goap::plan(start, goal, none);
+        CHECK(!p.found);
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -4085,6 +4174,7 @@ int main() {
     testSpatial2D();
     testTwoBoneIK();
     testFabrik();
+    testGoap();
     testBlendSpace();
     testAnimStateMachine();
     testBehaviorTree();

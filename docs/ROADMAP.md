@@ -406,7 +406,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   the `behavior` demo runs a flee/chase/patrol priority tree; M71) + a **Blackboard** (typed shared
   memory), a **Parallel** composite (RequireOne/RequireAll), and **Repeater/AlwaysSucceed/AlwaysFail/
   Tap** decorators; the `blackboard` demo colours a sentry's tree by live per-node status as one flag
-  flips it between patrol and engage; M104) — utility AI / GOAP later
+  flips it between patrol and engage; M104)
+- [x] **GOAP planner** (`game::goap`: goal-oriented action planning — A* over a 64-bit-bitmask world
+  state, each `Action` a precondition/effects/cost triple, returning the cheapest action sequence from
+  the current world to a goal `Condition`; the `goap` demo has a survival agent plan "make fire" and
+  shows the flow + fact-by-fact world-state, skipping a pricey shortcut; M108) — a planner beyond the
+  behaviour tree, which Godot ships no built-in equivalent for; utility AI / HTN later
 - [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
   heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
 - [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
@@ -500,6 +505,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
+- [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the
+      computed optimal plan is drawn as a flow with the world-state changing fact-by-fact until fire
+      lights, and the expensive shortcut dimmed as skipped (`game::goap`) (M108)
 - [x] **Animation state machine** (`apps/statemachine`) — a locomotion machine's active-state weights as
       stacked cross-fading colour bands over a scripted timeline (`anim::AnimStateMachine`) (M105)
 - [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel

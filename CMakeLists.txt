@@ -101,6 +101,7 @@ add_subdirectory(apps/blackboard)
 add_subdirectory(apps/statemachine)
 add_subdirectory(apps/reverb)
 add_subdirectory(apps/tentacle)
+add_subdirectory(apps/goap)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
