@@ -152,7 +152,10 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             core stays zero-dependency while apps get "config.json drives the engine";
             SceneSerializer — reflection-lite ECS save/load: register per-component JSON converters,
             then saveWorld/loadWorld a live ecs::World to/from JSON (save games, prefabs, editor)
-fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
+fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
+            Emitter — a particle emitter RESOURCE (Godot CPUParticles2D): emission shape (point/disk/
+              ring/rect) + per-lifetime scale/alpha Curve + multi-stop colour Gradient + direction/spread/
+              speed/gravity/explosiveness; simulate(seed,t) returns every live particle deterministically
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
@@ -196,6 +199,8 @@ apps/
               deadzone, smoothing, and world-bounds clamp (world-space pass + pixel-space HUD)
   fireworks/Scheduler demo — core::Scheduler timers spawn rockets (every) that each explode after a
               delay (after) into particle bursts; a looping core::Sequence pulses the title glow
+  emitter/  Particle emitter resource — a gravity fountain (point), an omnidirectional ring burst, and
+              angled rect rain, each an authored fx::Emitter simulated deterministically (fx::simulate)
   scatter/  Procedural RNG demo — a seeded core::Random scatters a token field (uniform-in-disc), each
               token's rarity chosen by weighted(); a legend tallies the resulting distribution
   noise/    Procedural terrain — a heightmap texture generated from core::Noise fbm2, colored by a

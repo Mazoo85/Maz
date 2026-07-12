@@ -472,6 +472,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   static-obstacle ORCA half-planes later
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
 - [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
+- [x] **Particle emitter resource** (`fx::Emitter`: emission **shape** (point/disk/ring/rect) +
+  per-lifetime scale/alpha **curves** (`fx::Curve`) + multi-stop colour **gradient** (`fx::Gradient`) +
+  direction/spread/speed + gravity + explosiveness; a deterministic `simulate(seed, t)` returns every
+  live particle's pos/size/colour — Godot CPUParticles2D; the `emitter` demo shows a gravity fountain, a
+  ring burst, and rect rain from three authored resources; M120) — GPU sim + trails + sub-emitters later
 - [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)
 - [ ] GPU-simulated particles, affectors/attractors
 - [x] **Procedural generation: noise** (`maz::core::Noise`: seeded Perlin `noise2` + fractal-Brownian
@@ -550,6 +555,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       deadzone, smoothing, and world-bounds clamp (M82)
 - [x] **Fireworks** (`apps/fireworks`) — timers spawn rockets that each explode into particle bursts
       after a delay; the whole show is scheduler-driven (M83)
+- [x] **Particle emitters** (`apps/emitter`) — a gravity fountain, an omnidirectional ring burst, and
+      angled rect rain, each an authored `fx::Emitter` resource simulated deterministically (M120)
 - [x] **Procedural scatter** (`apps/scatter`) — a seeded RNG generates a token field with weighted
       rarity (Common/Uncommon/Rare/Epic) and a distribution legend; same seed → same field (M84)
 - [x] **Procedural terrain** (`apps/noise`) — a heightmap from fbm noise, colored by a terrain ramp

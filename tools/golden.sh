@@ -97,6 +97,7 @@ CASES=(
     "blendtree||2.0|0.05"
     "layers||2.0|0.06"
     "tileset||2.0|0.05"
+    "emitter||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

@@ -32,6 +32,7 @@
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
+#include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AutoTile.hpp"

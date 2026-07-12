@@ -27,6 +27,7 @@
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
+#include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AutoTile.hpp"
@@ -434,6 +435,145 @@ void testSoftShadow2D() {
         const float v = game::softVisibility(vec2{3, 20}, vec2{0, 0}, 30.0f, occ, 48);
         CHECK(v > 0.0f);
         CHECK(v < 1.0f);
+    }
+}
+
+void testParticleEmitter() {
+    using fx::Curve;
+    using fx::EmitShape;
+    using fx::Emitter;
+    using fx::Gradient;
+    using fx::ParticleState;
+    using fx::sampleOffset;
+    using fx::simulate;
+    using math::vec2;
+
+    // Curve: linear ramp 1 -> 0, clamped at the ends, empty -> 0.
+    {
+        Curve c;
+        c.addPoint(1.0f, 0.0f); // add out of order to exercise sorted insert
+        c.addPoint(0.0f, 1.0f);
+        CHECK(c.size() == 2);
+        CHECK_NEAR(c.sample(0.0f), 1.0f, 1e-5f);
+        CHECK_NEAR(c.sample(1.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(c.sample(0.25f), 0.75f, 1e-5f);
+        CHECK_NEAR(c.sample(-1.0f), 1.0f, 1e-5f); // clamp low
+        CHECK_NEAR(c.sample(2.0f), 0.0f, 1e-5f);  // clamp high
+        Curve empty;
+        CHECK_NEAR(empty.sample(0.5f), 0.0f, 1e-5f);
+    }
+
+    // Gradient: red -> blue, midpoint is the average; empty -> white.
+    {
+        Gradient g;
+        g.addStop(0.0f, render::Color{1, 0, 0, 1});
+        g.addStop(1.0f, render::Color{0, 0, 1, 1});
+        const render::Color mid = g.sample(0.5f);
+        CHECK_NEAR(mid.r, 0.5f, 1e-5f);
+        CHECK_NEAR(mid.b, 0.5f, 1e-5f);
+        CHECK_NEAR(g.sample(-1.0f).r, 1.0f, 1e-5f); // clamp low -> red
+        CHECK_NEAR(g.sample(2.0f).b, 1.0f, 1e-5f);  // clamp high -> blue
+        Gradient empty;
+        CHECK_NEAR(empty.sample(0.3f).g, 1.0f, 1e-5f); // white
+    }
+
+    // Emission shapes: Point is always the origin; Rect stays within its half-extents; Circle within
+    // its radius; Ring within [inner, outer].
+    {
+        EmitShape pt;
+        CHECK_NEAR(sampleOffset(pt, 0.3f, 0.7f).x, 0.0f, 1e-6f);
+        CHECK_NEAR(sampleOffset(pt, 0.3f, 0.7f).y, 0.0f, 1e-6f);
+
+        EmitShape rect;
+        rect.type = EmitShape::Rect;
+        rect.half = vec2(10.0f, 4.0f);
+        for (int i = 0; i <= 10; ++i) {
+            const float u = static_cast<float>(i) / 10.0f;
+            const vec2 o = sampleOffset(rect, u, 1.0f - u);
+            CHECK(std::fabs(o.x) <= 10.0f + 1e-4f);
+            CHECK(std::fabs(o.y) <= 4.0f + 1e-4f);
+        }
+
+        EmitShape circ;
+        circ.type = EmitShape::Circle;
+        circ.radius = 12.0f;
+        for (int i = 0; i <= 10; ++i) {
+            const float u = static_cast<float>(i) / 10.0f;
+            const vec2 o = sampleOffset(circ, u, u);
+            CHECK(std::sqrt(o.x * o.x + o.y * o.y) <= 12.0f + 1e-4f);
+        }
+
+        EmitShape ring;
+        ring.type = EmitShape::Ring;
+        ring.radius = 20.0f;
+        ring.innerRadius = 10.0f;
+        for (int i = 0; i <= 10; ++i) {
+            const float u = static_cast<float>(i) / 10.0f;
+            const vec2 o = sampleOffset(ring, u, 0.5f);
+            const float r = std::sqrt(o.x * o.x + o.y * o.y);
+            CHECK(r >= 10.0f - 1e-4f);
+            CHECK(r <= 20.0f + 1e-4f);
+        }
+    }
+
+    // simulate: a single particle, fixed life/speed/direction so the motion is exact.
+    {
+        Emitter e;
+        e.position = vec2(100.0f, 100.0f);
+        e.count = 1;               // i=0, frac=0 -> birth 0
+        e.explosiveness = 1.0f;    // born at t=0
+        e.lifeMin = e.lifeMax = 1.0f;
+        e.shape.type = EmitShape::Point;
+        e.direction = vec2(1.0f, 0.0f); // +x
+        e.spread = 0.0f;
+        e.speedMin = e.speedMax = 100.0f;
+        e.gravity = vec2(0.0f, 0.0f);
+        e.sizeBase = 4.0f;
+
+        auto at0 = simulate(e, 7u, 0.0f);
+        CHECK(at0.size() == 1);
+        CHECK_NEAR(at0[0].pos.x, 100.0f, 1e-3f); // at origin at age 0
+        CHECK_NEAR(at0[0].pos.y, 100.0f, 1e-3f);
+
+        auto at05 = simulate(e, 7u, 0.5f); // moved +50 in x at 100px/s for 0.5s
+        CHECK(at05.size() == 1);
+        CHECK_NEAR(at05[0].pos.x, 150.0f, 1e-3f);
+        CHECK_NEAR(at05[0].pos.y, 100.0f, 1e-3f);
+
+        // Past its lifetime -> not alive.
+        auto atDead = simulate(e, 7u, 1.01f);
+        CHECK(atDead.empty());
+
+        // Gravity adds 0.5*g*t^2: with g=(0,200) at t=0.5 -> +25 in y.
+        Emitter g = e;
+        g.gravity = vec2(0.0f, 200.0f);
+        auto gs = simulate(g, 7u, 0.5f);
+        CHECK(gs.size() == 1);
+        CHECK_NEAR(gs[0].pos.y, 100.0f + 25.0f, 1e-3f);
+        CHECK_NEAR(gs[0].pos.x, 150.0f, 1e-3f);
+    }
+
+    // Determinism + burst count: an explosive burst has all `count` particles alive right after t=0.
+    {
+        Emitter e;
+        e.count = 50;
+        e.explosiveness = 1.0f; // all born at 0
+        e.lifeMin = e.lifeMax = 2.0f;
+        auto a = simulate(e, 123u, 0.01f);
+        auto b = simulate(e, 123u, 0.01f);
+        CHECK(a.size() == 50);
+        CHECK(a.size() == b.size());
+        bool identical = true;
+        for (std::size_t i = 0; i < a.size(); ++i) {
+            if (std::fabs(a[i].pos.x - b[i].pos.x) > 1e-6f ||
+                std::fabs(a[i].pos.y - b[i].pos.y) > 1e-6f) {
+                identical = false;
+            }
+        }
+        CHECK(identical); // same seed + time -> identical result
+        // A different seed generally moves the particles.
+        auto c = simulate(e, 999u, 0.01f);
+        CHECK(c.size() == 50);
     }
 }
 
@@ -5243,6 +5383,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testParticleEmitter();
     testTileSet();
     testCollisionLayers();
     testArea2D();

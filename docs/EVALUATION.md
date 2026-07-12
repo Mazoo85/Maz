@@ -1918,6 +1918,41 @@ regression risk), and it builds directly on the existing `Tilemap`.
   yet a bound atlas *texture* sampled by the sprite renderer; and terrain/peering autotile bitmasks
   (M96) aren't yet wired to auto-pick a TileDef. Those remain gaps.
 
+### Iteration 81 — "Benchmarking against Godot: particle emitter resource" (done)
+Rotating to particles / rendering-2D (last four were tilemap, physics-2D, animation, physics-2D). Maz had
+a particle system since M6 — `fx::ParticleSystem`, a runtime pool that emits point bursts with a linear
+start→end colour/size and gravity/drag (M49 added an attractor). But that's an ad-hoc runtime object, not
+Godot's **CPUParticles2D**, whose whole value is being a *resource*: an emission **shape** (you scatter
+from a disk/ring/rectangle, not just a point), per-lifetime **curves** for scale and alpha (not just two
+endpoints), and a multi-stop colour **gradient** — authored once and reused. Particles are one of the most
+visible things a 2D engine does (fire, smoke, sparks, rain, explosions), so a proper emitter resource is a
+high-leverage rendering-2D gap; it's a clean new header (the existing pool is untouched → zero regression),
+and made fully deterministic it unit-tests headlessly and renders a golden-stable snapshot.
+- [x] **M120 — particle emitter resource (`fx::Emitter`)**: a new `ParticleEmitter.hpp`. Three small
+  building blocks: `Curve` (a piecewise-linear 1-D ramp over t∈[0,1] with sorted insert + clamped sample —
+  Godot Curve), `Gradient` (a multi-stop colour ramp — Godot Gradient), and `EmitShape` + `sampleOffset`
+  (Point / Circle (area-uniform disk via √u) / Ring / Rect, mapping two uniform samples to an emission
+  offset). The `Emitter` resource bundles position, count, duration + **explosiveness** (0 = born evenly
+  over the duration, 1 = all at once), lifetime range, shape, launch direction + **spread** (a half-angle;
+  π = omnidirectional) + speed range, gravity, a base size, and the scale/alpha `Curve`s + colour
+  `Gradient`. `simulate(e, seed, t)` is **deterministic**: each particle's randomness is a hash of
+  (seed, index, channel) — no global RNG — so it births each particle, integrates constant-acceleration
+  motion (`pos = origin + emitOffset + vel·age + ½·gravity·age²`), and returns the pos/size/colour of
+  everything alive at time `t`. `testParticleEmitter` pins Curve (ramp + clamp + empty), Gradient (lerp +
+  clamp + empty→white), each shape's bounds (Point at origin, Rect within half-extents, Circle within
+  radius, Ring within [inner,outer]), and simulate with fixed life/speed/direction so the motion is exact
+  (a particle at origin at age 0; +50px after 0.5s at 100px/s; dead past its lifetime; +25px in y from
+  ½·200·0.5²), plus determinism (same seed+t → identical) and burst count. Unit checks **4223 → 4306**.
+  The new `emitter` demo authors three resources — a gravity **fountain** (point emit, fire gradient, size
+  curve), an omnidirectional **burst** (ring shape, spread π, explosiveness 1), and angled **rect rain** —
+  simulates each to a fixed time and draws every live particle at its gradient colour + curve-driven size.
+  Purely additive (new header + new app), so every existing golden is byte-unchanged (confirmed by a
+  serial golden run); fixed seed + fixed time → deterministic golden (threshold 0.06, particle-dense).
+  ctest **75/75 → 76/76**. Honest scope: this is the emitter *resource* + a deterministic snapshot
+  simulator; it is not GPU-simulated, has no trails / sub-emitters / collision-aware particles / animated
+  sprite frames, and isn't yet wired into the runtime `fx::ParticleSystem` pool as its config — those
+  remain gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

@@ -622,6 +622,14 @@ available):
   geometry, unit-tested. The new `tileset` demo builds one level mixing solid ground/wall tiles with
   half-height ledges, draws every tile's collision box, and drops probe balls that rest exactly on
   whatever they hit — the ones on ledges sitting mid-cell.
+- **M120** — a **particle emitter resource** (`fx::Emitter`), toward Godot's `CPUParticles2D`: the older
+  `fx::ParticleSystem` emits point bursts with a linear start→end colour/size; a real emitter is a
+  *resource* you author once and reuse, with an emission **shape** (point / disk / ring / rectangle),
+  per-lifetime **curves** for scale and alpha (`fx::Curve`), and a multi-stop colour **gradient**
+  (`fx::Gradient`). `fx::simulate(emitter, seed, t)` runs the whole thing **deterministically** and
+  returns every live particle's position/size/colour, so it unit-tests headlessly and renders a
+  golden-stable snapshot. The new `emitter` demo stands up three resources at once — a gravity fountain
+  (point + fire gradient), an omnidirectional burst (ring, all-at-once), and angled rect rain.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
