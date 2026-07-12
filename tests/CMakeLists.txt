@@ -749,6 +749,14 @@ set_tests_properties(polycollide_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME sampler_headless_smoke
+    COMMAND sampler --headless --frames 30)
+
+set_tests_properties(sampler_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

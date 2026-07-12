@@ -426,7 +426,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **WAV load/save** (`audio::decodeWav`/`encodeWav`: RIFF/WAVE PCM codec — parse 8-bit-unsigned +
   16-bit-signed PCM into float samples and write them back as 16-bit `.wav` bytes, byte-in/out — Godot
   AudioStreamWAV; the `wav` demo synthesizes → encodes → decodes → scopes the waveform; M129) — OGG/MP3
-  decode + registering a decoded clip as a playable mixer voice + per-sound pitch/categories/ducking later
+  decode + per-sound categories/ducking later
+- [x] **Sample-playback mixer** (`audio::SampleMixer`: plays decoded `WavData` clips as voices — `play(clip,
+  gain, pan, loop, speed)` → voice id, `stop`/`activeVoices`/`clear`, and `mix(out, frames, outRate)` sums
+  every active voice into an interleaved-stereo buffer with linear-interpolated resampling/pitch, per-voice
+  gain + stereo pan, mono→both-channels / stereo passthrough, auto-stop at clip end + loop wrap — Godot
+  `AudioStreamPlayer` over `AudioStreamWAV`; the `sampler` demo plays a tone (left) + noise blip (right) and
+  scopes the mixed L/R output; M139) — wiring it into the live SDL device callback + bus routing / DSP-insert
+  + streaming decode later
 - [x] **3D spatialization + doppler** (`audio::Spatial3D`: a `Listener3D` (pos + forward/up basis +
   velocity) and `Source3D`; four Godot AudioStreamPlayer3D attenuation models (None / Linear / Inverse /
   InverseSquare via `attenuation3D`), a listener-*orientation*-relative stereo pan (`panPosition` projects

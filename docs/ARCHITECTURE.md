@@ -206,6 +206,10 @@ fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
             Wav — RIFF/WAVE PCM codec: decodeWav (8-bit unsigned + 16-bit signed → float samples) +
               encodeWav (float → 16-bit .wav bytes), byte-in/out, Godot AudioStreamWAV-style;
+            SampleMixer — offline sample-playback mixer: plays decoded WavData clips as voices
+              (play(gain/pan/loop/speed)→id, stop/activeVoices/clear) and mix()es them into an
+              interleaved-stereo buffer (linear-interpolated resample/pitch, auto-stop/loop-wrap),
+              Godot AudioStreamPlayer-over-AudioStreamWAV-style;
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
             Spatial3D — 3D positional audio math (Listener3D forward/up basis + Source3D; four
@@ -285,6 +289,8 @@ apps/
               array (occupied/free + generation) beside the handle table showing which handles are live vs stale
   polycollide/ Convex polygon collision — a probe pentagon tested (game::satOverlap) against a ring of convex
               shapes; overlaps drawn red with the MTV push-arrow, clear shapes green
+  sampler/   Sample-playback mixer — two decoded WAV clips (a tone + a noise blip) played as audio::SampleMixer
+              voices panned L/R, mixed offline into one stereo buffer drawn as L/R oscilloscopes
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

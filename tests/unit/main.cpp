@@ -12,6 +12,7 @@
 #include "maz/anim/IK.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
+#include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
 #include "maz/audio/Wav.hpp"
@@ -654,6 +655,150 @@ void testWav() {
         CHECK(!audio::decodeWav(nullptr, 0, out));
         const std::vector<std::uint8_t> junk = {'N', 'O', 'P', 'E'};
         CHECK(!audio::decodeWav(junk, out));
+    }
+}
+
+void testSampleMixer() {
+    using audio::SampleMixer;
+    using audio::WavData;
+
+    // A mono clip at the output's own rate plays its samples straight into both channels.
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {0.2f, 0.4f, 0.6f, 0.8f};
+
+        SampleMixer mix;
+        const int v = mix.play(clip);
+        CHECK(v >= 0);
+        CHECK(mix.activeVoices() == 1);
+
+        float out[8] = {0}; // 4 stereo frames
+        mix.mix(out, 4, 8000);
+        // L and R both carry the mono source (centered pan).
+        CHECK_NEAR(out[0], 0.2f, 1e-5f);
+        CHECK_NEAR(out[1], 0.2f, 1e-5f);
+        CHECK_NEAR(out[2], 0.4f, 1e-5f);
+        CHECK_NEAR(out[6], 0.8f, 1e-5f);
+        // Playing off the end (non-loop) deactivates the voice.
+        float tail[8] = {0};
+        mix.mix(tail, 4, 8000);
+        CHECK(mix.activeVoices() == 0);
+        CHECK_NEAR(tail[0], 0.0f, 1e-5f);
+    }
+
+    // Gain scales the output; the buffer is zeroed each call.
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {1.0f, 1.0f};
+        SampleMixer mix;
+        mix.play(clip, 0.5f);
+        float out[4] = {9, 9, 9, 9};
+        mix.mix(out, 2, 8000);
+        CHECK_NEAR(out[0], 0.5f, 1e-5f);
+        CHECK_NEAR(out[1], 0.5f, 1e-5f);
+    }
+
+    // Full-left pan mutes the right channel; full-right mutes the left.
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {1.0f};
+        {
+            SampleMixer mix;
+            mix.play(clip, 1.0f, -1.0f);
+            float out[2] = {0};
+            mix.mix(out, 1, 8000);
+            CHECK_NEAR(out[0], 1.0f, 1e-5f); // left
+            CHECK_NEAR(out[1], 0.0f, 1e-5f); // right silent
+        }
+        {
+            SampleMixer mix;
+            mix.play(clip, 1.0f, 1.0f);
+            float out[2] = {0};
+            mix.mix(out, 1, 8000);
+            CHECK_NEAR(out[0], 0.0f, 1e-5f); // left silent
+            CHECK_NEAR(out[1], 1.0f, 1e-5f); // right
+        }
+    }
+
+    // Two voices sum together.
+    {
+        WavData a;
+        a.sampleRate = 8000;
+        a.channels = 1;
+        a.samples = {0.3f, 0.3f};
+        WavData b;
+        b.sampleRate = 8000;
+        b.channels = 1;
+        b.samples = {0.4f, 0.4f};
+        SampleMixer mix;
+        mix.play(a);
+        mix.play(b);
+        CHECK(mix.activeVoices() == 2);
+        float out[4] = {0};
+        mix.mix(out, 2, 8000);
+        CHECK_NEAR(out[0], 0.7f, 1e-5f);
+        CHECK_NEAR(out[2], 0.7f, 1e-5f);
+    }
+
+    // A looping voice wraps and stays active past the clip's end.
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {0.5f, -0.5f};
+        SampleMixer mix;
+        mix.play(clip, 1.0f, 0.0f, /*loop=*/true);
+        float out[8] = {0}; // 4 frames = 2× the clip
+        mix.mix(out, 4, 8000);
+        CHECK(mix.activeVoices() == 1); // still playing
+        CHECK_NEAR(out[0], 0.5f, 1e-5f);
+        CHECK_NEAR(out[2], -0.5f, 1e-5f);
+        CHECK_NEAR(out[4], 0.5f, 1e-5f); // wrapped
+        CHECK_NEAR(out[6], -0.5f, 1e-5f);
+    }
+
+    // speed 2.0 consumes the clip twice as fast (interpolated).
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {0.0f, 1.0f, 2.0f, 3.0f};
+        SampleMixer mix;
+        mix.play(clip, 1.0f, 0.0f, false, 2.0f);
+        float out[4] = {0}; // 2 frames -> positions 0, 2
+        mix.mix(out, 2, 8000);
+        CHECK_NEAR(out[0], 0.0f, 1e-5f);
+        CHECK_NEAR(out[2], 2.0f, 1e-5f);
+    }
+
+    // stop() silences a voice; an empty mixer produces pure silence.
+    {
+        WavData clip;
+        clip.sampleRate = 8000;
+        clip.channels = 1;
+        clip.samples = {1.0f, 1.0f};
+        SampleMixer mix;
+        const int v = mix.play(clip);
+        mix.stop(v);
+        CHECK(mix.activeVoices() == 0);
+        float out[4] = {0};
+        mix.mix(out, 2, 8000);
+        CHECK_NEAR(out[0], 0.0f, 1e-5f);
+        CHECK_NEAR(out[1], 0.0f, 1e-5f);
+    }
+
+    // An empty clip is rejected.
+    {
+        WavData empty;
+        SampleMixer mix;
+        CHECK(mix.play(empty) == -1);
+        CHECK(mix.activeVoices() == 0);
     }
 }
 
@@ -7120,6 +7265,7 @@ int main() {
     testAutoTile();
     testSpatial3D();
     testWav();
+    testSampleMixer();
     testParticleEmitter();
     testTileSet();
     testCollisionLayers();

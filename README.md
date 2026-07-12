@@ -747,6 +747,13 @@ available):
   vector (push direction + depth) to separate them, plus point-in-polygon. The new `polycollide` demo
   tests a probe pentagon against a ring of shapes, drawing overlaps red with the MTV arrow and clear ones
   green.
+- **M139** — a **sample-playback mixer** (`audio::SampleMixer`), toward Godot's `AudioStreamPlayer` over an
+  `AudioStreamWAV`: Maz could decode a `.wav` and synthesize tones, but had no way to *play a decoded clip*.
+  This is a self-contained offline stereo mixer — `play(clip, gain, pan, loop, speed)` starts a voice,
+  reads are linearly interpolated (smooth pitch/resampling), voices are summed into one interleaved buffer,
+  non-looping voices auto-stop at the end and looping ones wrap. The new `sampler` demo plays two decoded
+  clips (a tone panned left, a noise blip panned right), mixes them, and draws the resulting L/R
+  oscilloscopes.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

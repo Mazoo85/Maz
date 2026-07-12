@@ -18,6 +18,7 @@
 #include "maz/audio/Audio.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
+#include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
 #include "maz/audio/Wav.hpp"
