@@ -1953,6 +1953,44 @@ and made fully deterministic it unit-tests headlessly and renders a golden-stabl
   sprite frames, and isn't yet wired into the runtime `fx::ParticleSystem` pool as its config — those
   remain gaps.
 
+### Iteration 82 — "Benchmarking against Godot: 3D spatial audio" (done)
+Rotating to audio for breadth (last five were particles/emitter, tilemap/TileSet, physics-2D/layers,
+animation/blend-tree, physics-2D/Area2D). Maz gained 2D positional audio at M94 (`audio::Spatial2D` — a
+left/right pan + distance attenuation for a source and listener on a *plane*). Godot's next tier up is
+**AudioStreamPlayer3D**: a sound placed in 3D space, heard by a 3D listener that has an *orientation*
+(a forward/up basis), needing three things a planar panner doesn't have — a choice of distance-falloff
+**model**, a stereo pan derived from where the source sits relative to the listener's *facing*, and
+**doppler** (the pitch shift when source and listener move toward or away from each other). That's the
+single most-requested audio gap on the list ("3D spatial audio + doppler"), it's pure math so it
+unit-tests headlessly and drives any backend that takes a per-voice left/right gain + pitch, and it's a
+clean new header (Spatial2D untouched → zero regression).
+- [x] **M121 — 3D spatial audio (`audio::Spatial3D`)**: a new `Spatial3D.hpp`. `Listener3D` (pos +
+  forward/up basis + velocity) and `Source3D` (pos + velocity). Four **attenuation models** matching
+  Godot AudioStreamPlayer3D (`attenuation3D`, distance clamped to [ref,max] first): **None** (flat),
+  **Linear** (`1 − rolloff·t`), **Inverse** (`ref/(ref+rolloff·(d−ref))`, natural 1/r-ish), and
+  **InverseSquare** (`ref²/(ref²+rolloff·(d−ref)²)`, steeper ~1/r²). `panPosition` projects the
+  source direction onto the listener's **right axis** (`forward × up`) for a −1…+1 pan that respects the
+  listener's facing (turn around and left/right swap). `equalPowerPan` splits a gain into constant-power
+  left/right (`left²+right² == gain²`) so panning holds loudness. `dopplerPitch` is the classic
+  `(c − v_listener)/(c − v_source)` along the source→listener axis, velocities clamped below the speed of
+  sound so the ratio stays finite. `computeSpatialMix` bundles it all into a `SpatialMix`
+  (left/right/pitch/distance/pan) from a `SpatialConfig` (base volume, ref/max distance, rolloff, speed of
+  sound, model, doppler on/off). `testSpatial3D` pins each attenuation model at a known distance (Inverse
+  d=3→1/3, InverseSquare d=3→1/5, Linear at midpoint→0.5, None→1), pan sign (source on the right→+1, left→
+  −1, straight ahead→0), equal-power split (centre→0.707/0.707, extremes hard-panned), doppler
+  (static→1.0, approaching source→343/308.7>1, receding<1, listener moving in→(343+34.3)/343), and the
+  combined mix (right source louder in the right channel, farther source quieter). Unit checks
+  **4306 → 4334**. The new `spatial3d` demo is a top-down **radar**: the listener sits at centre facing
+  up, six sources are placed by world x (left/right) and z (front/back), and each is drawn as a disc sized
+  by its distance attenuation, tinted by its doppler pitch (warm/red = approaching, cool/blue = receding),
+  with a velocity arrow and a two-bar L/R stereo meter; a side panel lists every source's L/R gain and
+  pitch. Everything is computed once and drawn statically → deterministic, golden-stable. Purely additive
+  (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run);
+  threshold 0.06 (text/meter-dense). ctest **76/76 → 77/77**. Honest scope: this is the spatialization
+  *math* + a visual snapshot; it is not wired into the real-time SDL mixer as a per-voice 3D bus, has no
+  HRTF/binaural filtering, no occlusion/reverb-zone modelling, and still no WAV/OGG file loading — those
+  remain audio gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1980,8 +2018,10 @@ M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone 
 constraints + a Skeleton2D-integrated IK modification stack (M107 gives multi-bone FABRIK chains; M97 gives
 closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
-TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
-audio + doppler + WAV/OGG loading (M94 gives 2D pan/attenuation); animation blend *trees* (state-machine
+TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); wiring 3D spatial audio into the
+real-time mixer as a per-voice 3D bus + HRTF/binaural + occlusion/reverb zones + WAV/OGG loading (M121
+gives the 3D spatialization math — attenuation models/listener-relative pan/doppler; M94 gives 2D
+pan/attenuation); animation blend *trees* (state-machine
 over blend spaces) + IK (M92 gives blend spaces); 3D rigid-body physics; GPU particles;
 navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation
 import, prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph,

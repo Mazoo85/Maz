@@ -366,7 +366,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing
   in the live mixer + LFOs / mod matrix later
 - [ ] WAV/OGG loading, per-sound pitch, categories/ducking
-- [ ] 3D spatialization, doppler
+- [x] **3D spatialization + doppler** (`audio::Spatial3D`: a `Listener3D` (pos + forward/up basis +
+  velocity) and `Source3D`; four Godot AudioStreamPlayer3D attenuation models (None / Linear / Inverse /
+  InverseSquare via `attenuation3D`), a listener-*orientation*-relative stereo pan (`panPosition` projects
+  onto the listener's right axis `forward × up`) split constant-power (`equalPowerPan`), and doppler
+  pitch (`dopplerPitch`, `(c−v_listener)/(c−v_source)`); `computeSpatialMix` bundles it into a
+  left/right/pitch/distance/pan `SpatialMix`; the `spatial3d` demo is a top-down radar of six sources
+  around one listener; M121) — real-time per-voice 3D bus wiring + HRTF/binaural + occlusion/reverb zones
+  later
 
 ## Phase 8 — Animation
 - [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot

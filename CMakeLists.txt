@@ -114,6 +114,7 @@ add_subdirectory(apps/area2d)
 add_subdirectory(apps/layers)
 add_subdirectory(apps/tileset)
 add_subdirectory(apps/emitter)
+add_subdirectory(apps/spatial3d)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

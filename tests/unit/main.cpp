@@ -12,6 +12,7 @@
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/Spatial2D.hpp"
+#include "maz/audio/Spatial3D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Timeline.hpp"
@@ -435,6 +436,111 @@ void testSoftShadow2D() {
         const float v = game::softVisibility(vec2{3, 20}, vec2{0, 0}, 30.0f, occ, 48);
         CHECK(v > 0.0f);
         CHECK(v < 1.0f);
+    }
+}
+
+void testSpatial3D() {
+    using audio::Attenuation3D;
+    using audio::computeSpatialMix;
+    using audio::dopplerPitch;
+    using audio::equalPowerPan;
+    using audio::Listener3D;
+    using audio::panPosition;
+    using audio::Source3D;
+    using audio::SpatialConfig;
+    using audio::SpatialMix;
+    using math::vec3;
+
+    // Attenuation: 1 at/inside ref; models fall off past it; None is flat.
+    {
+        CHECK_NEAR(audio::attenuation3D(0.5f, 1.0f, 100.0f, 1.0f, Attenuation3D::Inverse), 1.0f, 1e-5f);
+        CHECK_NEAR(audio::attenuation3D(1.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::Inverse), 1.0f, 1e-5f);
+        // Inverse at d=3, ref=1, rolloff=1: 1/(1+1*2) = 1/3.
+        CHECK_NEAR(audio::attenuation3D(3.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::Inverse), 1.0f / 3.0f,
+                   1e-5f);
+        // InverseSquare at d=3, ref=1: 1/(1+1*4) = 1/5.
+        CHECK_NEAR(audio::attenuation3D(3.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::InverseSquare),
+                   1.0f / 5.0f, 1e-5f);
+        // Linear midway with rolloff 1 -> 0.5.
+        CHECK_NEAR(audio::attenuation3D(50.5f, 1.0f, 100.0f, 1.0f, Attenuation3D::Linear), 0.5f, 1e-3f);
+        // None is always 1; clamps beyond max for the falloff models.
+        CHECK_NEAR(audio::attenuation3D(999.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::None), 1.0f, 1e-5f);
+        const float atMax = audio::attenuation3D(100.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::Inverse);
+        CHECK_NEAR(audio::attenuation3D(999.0f, 1.0f, 100.0f, 1.0f, Attenuation3D::Inverse), atMax,
+                   1e-5f);
+    }
+
+    // Panning: a listener at origin facing -z with up +y has right = forward x up = +x.
+    {
+        Listener3D l;
+        l.pos = vec3(0, 0, 0);
+        l.forward = vec3(0, 0, -1);
+        l.up = vec3(0, 1, 0);
+        CHECK_NEAR(panPosition(l, vec3(5, 0, 0)), 1.0f, 1e-5f);   // straight right
+        CHECK_NEAR(panPosition(l, vec3(-5, 0, 0)), -1.0f, 1e-5f); // straight left
+        CHECK_NEAR(panPosition(l, vec3(0, 0, -5)), 0.0f, 1e-5f);  // straight ahead -> centred
+        CHECK_NEAR(panPosition(l, vec3(0, 0, 0)), 0.0f, 1e-5f);   // on top of listener -> centred
+    }
+
+    // Constant-power pan split: centre is equal + power-preserving; extremes are hard channels.
+    {
+        float lft = 0.0f, rgt = 0.0f;
+        equalPowerPan(0.0f, 1.0f, lft, rgt);
+        CHECK_NEAR(lft, 0.70710678f, 1e-4f);
+        CHECK_NEAR(rgt, 0.70710678f, 1e-4f);
+        CHECK_NEAR(lft * lft + rgt * rgt, 1.0f, 1e-4f); // constant power
+        equalPowerPan(-1.0f, 1.0f, lft, rgt);
+        CHECK_NEAR(lft, 1.0f, 1e-4f);
+        CHECK_NEAR(rgt, 0.0f, 1e-4f);
+        equalPowerPan(1.0f, 1.0f, lft, rgt);
+        CHECK_NEAR(lft, 0.0f, 1e-4f);
+        CHECK_NEAR(rgt, 1.0f, 1e-4f);
+    }
+
+    // Doppler: static -> 1; source approaching -> pitch up; receding -> pitch down; listener approaching
+    // -> pitch up. Source at (0,0,-10), listener at origin, so dHat (source->listener) = +z.
+    {
+        Listener3D l;
+        l.pos = vec3(0, 0, 0);
+        Source3D s;
+        s.pos = vec3(0, 0, -10);
+        const float c = 343.0f;
+
+        CHECK_NEAR(dopplerPitch(l, s, c), 1.0f, 1e-5f); // both static
+
+        s.velocity = vec3(0, 0, 34.3f); // moving +z = toward the listener
+        CHECK(dopplerPitch(l, s, c) > 1.0f);
+        // vS = +34.3 -> ratio = c/(c-34.3) = 343/308.7.
+        CHECK_NEAR(dopplerPitch(l, s, c), 343.0f / (343.0f - 34.3f), 1e-4f);
+
+        s.velocity = vec3(0, 0, -34.3f); // moving -z = away
+        CHECK(dopplerPitch(l, s, c) < 1.0f);
+
+        s.velocity = vec3(0, 0, 0);
+        l.velocity = vec3(0, 0, -34.3f); // listener moving -z = toward the source
+        // vL = dot(vel, dHat=+z) = -34.3 -> ratio = (c+34.3)/c.
+        CHECK_NEAR(dopplerPitch(l, s, c), (343.0f + 34.3f) / 343.0f, 1e-4f);
+        CHECK(dopplerPitch(l, s, c) > 1.0f);
+    }
+
+    // computeSpatialMix ties it together: a source to the right is louder in the right channel, and
+    // farther sources are quieter overall.
+    {
+        Listener3D l;
+        l.forward = vec3(0, 0, -1);
+        l.up = vec3(0, 1, 0);
+        SpatialConfig cfg;
+        cfg.model = Attenuation3D::Inverse;
+        cfg.refDistance = 1.0f;
+        cfg.maxDistance = 100.0f;
+
+        SpatialMix near = computeSpatialMix(l, Source3D{vec3(2, 0, 0), vec3(0, 0, 0)}, cfg);
+        CHECK(near.right > near.left); // to the right -> louder right
+        CHECK_NEAR(near.pan, 1.0f, 1e-4f);
+
+        SpatialMix far = computeSpatialMix(l, Source3D{vec3(20, 0, 0), vec3(0, 0, 0)}, cfg);
+        CHECK(far.right < near.right); // farther -> quieter
+        CHECK_NEAR(near.pitch, 1.0f, 1e-5f); // no motion -> no doppler
     }
 }
 
@@ -5383,6 +5489,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testSpatial3D();
     testParticleEmitter();
     testTileSet();
     testCollisionLayers();

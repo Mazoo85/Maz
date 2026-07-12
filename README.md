@@ -630,6 +630,15 @@ available):
   returns every live particle's position/size/colour, so it unit-tests headlessly and renders a
   golden-stable snapshot. The new `emitter` demo stands up three resources at once — a gravity fountain
   (point + fire gradient), an omnidirectional burst (ring, all-at-once), and angled rect rain.
+- **M121** — **3D spatial audio** (`audio::Spatial3D`), toward Godot's `AudioStreamPlayer3D`: M94 gave 2D
+  pan/attenuation on a plane; a 3D source heard by a 3D listener needs three more things. A `Listener3D`
+  carries a **forward/up basis** (an orientation), so `panPosition` places the source left/right relative
+  to where the listener is *facing* (turn around and the pan flips); there are four Godot **attenuation
+  models** (`None` / `Linear` / `Inverse` / `InverseSquare`); and `dopplerPitch` raises pitch when source
+  and listener close on each other, lowers it when they part. `computeSpatialMix` returns one voice's
+  left/right gain + pitch. It's pure math (no device), so it unit-tests headlessly; the new `spatial3d`
+  demo is a top-down **radar** — six sources around one listener, each a disc sized by loudness, tinted
+  warm (approaching) or cool (receding), with a velocity arrow and an L/R stereo meter.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

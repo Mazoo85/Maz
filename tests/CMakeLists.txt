@@ -605,6 +605,14 @@ set_tests_properties(emitter_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME spatial3d_headless_smoke
+    COMMAND spatial3d --headless --frames 30)
+
+set_tests_properties(spatial3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

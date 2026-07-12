@@ -159,6 +159,9 @@ fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
+            Spatial3D — 3D positional audio math (Listener3D forward/up basis + Source3D; four
+            attenuation models None/Linear/Inverse/InverseSquare + listener-orientation-relative pan +
+            doppler pitch → left/right/pitch SpatialMix), Godot AudioStreamPlayer3D-style;
             Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo +
             Reverb Schroeder/Freeverb (comb+allpass) + Distortion tanh waveshaper + Compressor + Bus
             ordered effect chain), Godot AudioEffectFilter/Delay/Reverb/Distortion/Compressor-style;
@@ -201,6 +204,9 @@ apps/
               delay (after) into particle bursts; a looping core::Sequence pulses the title glow
   emitter/  Particle emitter resource — a gravity fountain (point), an omnidirectional ring burst, and
               angled rect rain, each an authored fx::Emitter simulated deterministically (fx::simulate)
+  spatial3d/ 3D positional audio — a top-down radar of six sources around one listener; each disc sized
+              by distance attenuation, tinted by doppler pitch, with a velocity arrow + L/R stereo meter
+              (audio::computeSpatialMix)
   scatter/  Procedural RNG demo — a seeded core::Random scatters a token field (uniform-in-disc), each
               token's rarity chosen by weighted(); a legend tallies the resulting distribution
   noise/    Procedural terrain — a heightmap texture generated from core::Noise fbm2, colored by a

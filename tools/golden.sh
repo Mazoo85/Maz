@@ -98,6 +98,7 @@ CASES=(
     "layers||2.0|0.06"
     "tileset||2.0|0.05"
     "emitter||2.0|0.06"
+    "spatial3d||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
