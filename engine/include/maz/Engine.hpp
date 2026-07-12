@@ -71,6 +71,7 @@
 #include "maz/render/Model.hpp"
 #include "maz/render/Renderer.hpp"
 #include "maz/render/Shapes.hpp"
+#include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/DebugOverlay.hpp"

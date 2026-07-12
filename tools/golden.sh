@@ -102,6 +102,7 @@ CASES=(
     "containers||2.0|0.06"
     "parallax||2.0|0.06"
     "choreo||2.0|0.06"
+    "prefab||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

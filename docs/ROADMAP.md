@@ -294,7 +294,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Native scene serialization (ECS save/load)** (`io::SceneSerializer`: register per-component
   JSON converters, then `saveWorld`/`loadWorld` a live `ecs::World` to/from JSON — the reflection-lite
   content backbone for save games, prefabs, and an editor; the `ecsave` demo round-trips a world; M79)
-  — prefabs / blueprints layered on this later
+- [x] **Prefabs / instancing** (`scene::Prefab`: a `PrefabNode` tree of named nodes each with an exported
+  `PropBag` (Float/Int/Bool/Vec2/Color/Text `PropValue`s); `instantiate(prefab, overrides)` deep-copies the
+  template and applies per-node-path property overrides → an independent instance — Godot PackedScene; the
+  `prefab` demo instances one turret template six times with per-instance overrides; M125) — on-disk prefab
+  serialization + nested-prefab references + editable-children later
 - [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
 

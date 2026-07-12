@@ -118,6 +118,7 @@ add_subdirectory(apps/spatial3d)
 add_subdirectory(apps/containers)
 add_subdirectory(apps/parallax)
 add_subdirectory(apps/choreo)
+add_subdirectory(apps/prefab)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

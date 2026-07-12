@@ -661,6 +661,13 @@ available):
   steps together, `setLoops` replays the whole thing, and `update(dt)` writes each property's eased value
   through its setter. The new `choreo` demo snapshots five choreographies (sequential, parallel, delay,
   loop, bounce) at a fixed time — every dot placed by its player, nothing hand-positioned.
+- **M125** — **prefabs / instancing** (`scene::Prefab`), toward Godot's `PackedScene`: a reusable node-tree
+  *template* you author once and instantiate many times, each instance applying per-node property
+  *overrides* so every copy differs without duplicating the definition. A `PrefabNode` holds a name, an
+  exported `PropBag` (Float/Int/Bool/Vec2/Color/Text) and children; `instantiate(prefab, overrides)`
+  deep-copies the tree and overlays overrides by node path, returning a fully independent instance. The new
+  `prefab` demo authors one turret prefab (chassis → turret → barrel) and stamps out six instances — each
+  with a different body colour, turret tint, barrel length, and body width.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

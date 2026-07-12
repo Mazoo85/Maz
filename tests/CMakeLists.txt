@@ -637,6 +637,14 @@ set_tests_properties(choreo_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME prefab_headless_smoke
+    COMMAND prefab --headless --frames 30)
+
+set_tests_properties(prefab_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -2095,6 +2095,38 @@ zero regression).
   single `Ease` enum, no pause/speed-scale, and isn't bound to a scene-tree node lifetime — those remain
   gaps.
 
+### Iteration 86 — "Benchmarking against Godot: prefabs / instancing" (done)
+Rotating to scene/resources for breadth — it hadn't come up in the last nine (core/tween-sequencer,
+rendering-2D/parallax, UI/containers, audio/spatial3d, particles/emitter, tilemap/TileSet,
+physics-2D/layers, animation/blend-tree, physics-2D/Area2D). This closes arguably Godot's **single most
+defining feature**: the **PackedScene** — a reusable scene/node *template* you author once and INSTANTIATE
+many times, each instance applying per-node property *overrides* so every copy differs without duplicating
+the definition. Maz had ECS→JSON serialization (M79) and a transform hierarchy (M81), but no prefab/
+instancing concept at all — the thing you reach for to spawn a hundred enemies from one enemy definition,
+or place the same lamppost down a street with different tints. It's pure data (no GPU), so it unit-tests
+headlessly, and it's a clean new header.
+- [x] **M125 — prefabs / instancing (`scene::Prefab`)**: a new `Prefab.hpp`. A `PropValue` is a small
+  tagged union over the exported-property types a 2D game uses (Float / Int / Bool / Vec2 / Color / Text);
+  a `PropBag` is an ordered key→value list with `findProp` / `setProp` (replace-or-add) + typed getters
+  (`getFloat` / `getInt` / `getVec2` / `getColor` …). A `PrefabNode` is a named node carrying a `PropBag`
+  and child nodes; a `Prefab` is its root — the template. `findNode(root, "Body/Gun")` walks a `/`-path;
+  `instantiate(prefab, overrides)` deep-copies the whole tree and applies each override entry's `PropBag`
+  to the node at its path, returning a fully **independent** instance (mutating one never touches the
+  template or a sibling). `testPrefab` pins: instancing with no overrides carries the defaults; overriding
+  the root's `hp` + a child's `dmg` leaves the other keys at their defaults; an override may ADD a key not
+  in the template; two instances are independent and the template is never mutated; and unknown override
+  paths are ignored. Unit checks **4414 → 4430**. The new `prefab` demo authors ONE turret prefab
+  (chassis → turret → barrel, each with exported pos/size/colour props) and instantiates it six times —
+  the leftmost is the untouched template, the other five apply per-node overrides (body colour, turret
+  colour, barrel length, body width) — drawing each from its resolved tree by composing child offsets onto
+  the chassis anchor (the parent→child hierarchy). Deterministic (resolved once, drawn statically) →
+  golden-stable (threshold 0.06). Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); ctest **80/80 → 81/81**. Honest scope: this is the
+  prefab *data model* + instancing-with-overrides; it does not yet serialize prefabs to/from disk (the
+  `io::SceneSerializer` bridge is future), has no nested-prefab *instance* references (a prefab embedding
+  another prefab by id), no "editable children" / inherited-scene diffing, and no live scene-tree node
+  lifetime — those remain scene/resource gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

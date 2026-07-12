@@ -65,6 +65,7 @@
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
 #include <atomic>
@@ -3088,6 +3089,76 @@ void testTransformGraph() {
     CHECK(g.size() == 3);
 }
 
+void testPrefab() {
+    using scene::Prefab;
+    using scene::PrefabNode;
+    using scene::PropValue;
+
+    // Build a "turret" template: root chassis (hp, pos) with a child "gun" (dmg).
+    Prefab turret;
+    turret.root.name = "chassis";
+    scene::setProp(turret.root.props, "hp", PropValue::makeInt(100));
+    turret.root.props.emplace_back("pos", PropValue::makeVec2(math::vec2(0.0f, 0.0f)));
+    PrefabNode gun;
+    gun.name = "gun";
+    scene::setProp(gun.props, "dmg", PropValue::makeFloat(10.0f));
+    turret.root.children.push_back(gun);
+
+    CHECK(scene::nodeCount(turret.root) == 2);
+
+    // Instantiate with no overrides → defaults carried through.
+    {
+        PrefabNode inst = scene::instantiate(turret);
+        CHECK(inst.name == "chassis");
+        CHECK(scene::getInt(inst.props, "hp") == 100);
+        PrefabNode* g = scene::findNode(inst, "gun");
+        CHECK(g != nullptr);
+        CHECK_NEAR(scene::getFloat(g->props, "dmg"), 10.0f, 1e-5f);
+    }
+
+    // Override the root's hp + a child's dmg; the other keys keep their defaults.
+    {
+        scene::OverrideMap ov;
+        ov.push_back({"", {{"hp", PropValue::makeInt(250)}}});
+        ov.push_back({"gun", {{"dmg", PropValue::makeFloat(25.0f)}}});
+        PrefabNode inst = scene::instantiate(turret, ov);
+        CHECK(scene::getInt(inst.props, "hp") == 250);
+        CHECK_NEAR(scene::getVec2(inst.props, "pos").x, 0.0f, 1e-5f); // untouched default
+        CHECK_NEAR(scene::getFloat(scene::findNode(inst, "gun")->props, "dmg"), 25.0f, 1e-5f);
+    }
+
+    // An override may ADD a key not present in the template.
+    {
+        scene::OverrideMap ov;
+        ov.push_back({"", {{"tint", PropValue::makeColor(math::vec4(1, 0, 0, 1))}}});
+        PrefabNode inst = scene::instantiate(turret, ov);
+        const PropValue* t = scene::findProp(inst.props, "tint");
+        CHECK(t != nullptr);
+        CHECK(t->type == PropValue::Type::Color);
+        CHECK_NEAR(t->color.x, 1.0f, 1e-5f);
+    }
+
+    // Instances are INDEPENDENT: overriding one never mutates the template or a sibling instance.
+    {
+        scene::OverrideMap ov;
+        ov.push_back({"", {{"hp", PropValue::makeInt(1)}}});
+        PrefabNode a = scene::instantiate(turret, ov);
+        PrefabNode b = scene::instantiate(turret); // no overrides
+        CHECK(scene::getInt(a.props, "hp") == 1);
+        CHECK(scene::getInt(b.props, "hp") == 100);       // sibling unaffected
+        CHECK(scene::getInt(turret.root.props, "hp") == 100); // template unaffected
+    }
+
+    // Unknown override paths are ignored (no crash, no effect).
+    {
+        scene::OverrideMap ov;
+        ov.push_back({"does/not/exist", {{"x", PropValue::makeFloat(9.0f)}}});
+        PrefabNode inst = scene::instantiate(turret, ov);
+        CHECK(scene::getInt(inst.props, "hp") == 100);
+        CHECK(scene::findNode(inst, "missing") == nullptr);
+    }
+}
+
 void testActionMap() {
     using input::Device;
     input::ActionMap map;
@@ -5838,6 +5909,7 @@ int main() {
     testSequence();
     testCameraController();
     testTransformGraph();
+    testPrefab();
     testActionMap();
     testSceneSerializer();
     testEcs();

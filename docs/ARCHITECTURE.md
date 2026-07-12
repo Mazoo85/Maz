@@ -79,7 +79,11 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
             Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
-            propagates world transforms parent-first (decomposed TRS); localToWorld   (header-only)
+            propagates world transforms parent-first (decomposed TRS); localToWorld;
+            Prefab — prefabs / instancing (Godot PackedScene): a PrefabNode tree of named nodes with an
+            exported PropBag (PropValue tagged union: Float/Int/Bool/Vec2/Color/Text); instantiate(prefab,
+            overrides) deep-copies the tree and applies per-node-path overrides → an independent instance
+            (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             CollisionLayers (32-bit layer/mask filtering: directional detects() + symmetric interact() +
               CollisionObject2D + a named-layer LayerRegistry), Godot collision_layer/collision_mask-style,
@@ -221,6 +225,8 @@ apps/
               (ui::hbox/vbox/grid/margin/center)
   choreo/    Tween choreography — five property-tween sequences (sequential/parallel/delay/loop/bounce)
               snapshotted at a fixed time, each dot placed by its anim::TweenPlayer through a bound setter
+  prefab/    Prefabs / instancing — one turret prefab (chassis>turret>barrel) instanced six times with
+              per-node overrides (body/turret colour, barrel length, body width) via scene::instantiate
   parallax/  Parallax backgrounds — the same five-layer scene in three strips at different camera scrolls;
               far layers barely move, near layers sweep, every layer mirror-tiled (game::layerOffset/
               firstTile/tileCount)
