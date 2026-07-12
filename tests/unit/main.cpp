@@ -7,6 +7,7 @@
 #include "maz/anim/AnimStateMachine.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
+#include "maz/anim/BlendTree.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
@@ -4473,6 +4474,146 @@ void testBlendSpace() {
     }
 }
 
+void testBlendTree() {
+    using anim::BlendTree;
+    using anim::JointPose;
+    using anim::Pose;
+
+    // External pose table: three single-joint poses at distinct translations.
+    Pose idle(1), walk(1), run(1);
+    idle[0].translation = math::vec3(0, 0, 0);
+    walk[0].translation = math::vec3(10, 0, 0);
+    run[0].translation = math::vec3(30, 0, 0);
+    std::vector<const Pose*> inputs{&idle, &walk, &run};
+
+    // Blend2: cross-fade idle(0) -> walk(1) by "speed".
+    {
+        BlendTree t;
+        const int i0 = t.addInput(0);
+        const int i1 = t.addInput(1);
+        const int b = t.addBlend2(i0, i1, "speed");
+        t.setRoot(b);
+
+        Pose out;
+        t.setParam("speed", 0.0f);
+        t.evaluate(inputs, out);
+        CHECK(out.size() == 1);
+        CHECK_NEAR(out[0].translation.x, 0.0f, 1e-4f); // all idle
+
+        t.setParam("speed", 1.0f);
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 10.0f, 1e-4f); // all walk
+
+        t.setParam("speed", 0.5f);
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 5.0f, 1e-4f); // halfway
+
+        // A param that was never set defaults to 0 -> all idle.
+        BlendTree t2;
+        t2.setRoot(t2.addBlend2(t2.addInput(0), t2.addInput(1), "unset"));
+        Pose o2;
+        t2.evaluate(inputs, o2);
+        CHECK_NEAR(o2[0].translation.x, 0.0f, 1e-4f);
+    }
+
+    // BlendSpace1 node over three child inputs, selected by "gait": a nested 1-D blend space.
+    {
+        BlendTree t;
+        const int ci = t.addInput(0); // idle at 0
+        const int cw = t.addInput(1); // walk at 10
+        const int cr = t.addInput(2); // run at 30
+        const int space = t.addBlendSpace1("gait");
+        t.addBlendPoint(space, 0.0f, ci);
+        t.addBlendPoint(space, 1.0f, cw);
+        t.addBlendPoint(space, 2.0f, cr);
+        t.setRoot(space);
+
+        Pose out;
+        t.setParam("gait", 0.0f);
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 0.0f, 1e-4f); // idle
+
+        t.setParam("gait", 1.0f);
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 10.0f, 1e-4f); // walk
+
+        t.setParam("gait", 1.5f); // halfway between walk(10) and run(30) -> 20
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 20.0f, 1e-4f);
+
+        t.setParam("gait", 5.0f); // beyond the top -> clamps to run
+        t.evaluate(inputs, out);
+        CHECK_NEAR(out[0].translation.x, 30.0f, 1e-4f);
+    }
+
+    // Add2: an additive delta layered on a base, scaled by "amount".
+    {
+        Pose base(1), delta(1);
+        base[0].translation = math::vec3(4, 0, 0);
+        delta[0].translation = math::vec3(0, 6, 0); // additive offset in Y
+        std::vector<const Pose*> in{&base, &delta};
+
+        BlendTree t;
+        const int nb = t.addInput(0);
+        const int nd = t.addInput(1);
+        const int add = t.addAdd2(nb, nd, "amount");
+        t.setRoot(add);
+
+        Pose out;
+        t.setParam("amount", 0.0f);
+        t.evaluate(in, out);
+        CHECK_NEAR(out[0].translation.x, 4.0f, 1e-4f);
+        CHECK_NEAR(out[0].translation.y, 0.0f, 1e-4f); // no additive contribution
+
+        t.setParam("amount", 1.0f);
+        t.evaluate(in, out);
+        CHECK_NEAR(out[0].translation.x, 4.0f, 1e-4f); // base X untouched
+        CHECK_NEAR(out[0].translation.y, 6.0f, 1e-4f); // full additive Y
+
+        t.setParam("amount", 0.5f);
+        t.evaluate(in, out);
+        CHECK_NEAR(out[0].translation.y, 3.0f, 1e-4f); // half additive Y
+    }
+
+    // Nested tree: a walk/run blend space cross-faded into a jump pose by an "air" parameter — the
+    // canonical AnimationTree shape (a sub-blend feeding a Blend2).
+    {
+        Pose jump(1);
+        jump[0].translation = math::vec3(0, 100, 0);
+        std::vector<const Pose*> in{&idle, &walk, &run, &jump};
+
+        BlendTree t;
+        const int space = t.addBlendSpace1("gait");
+        t.addBlendPoint(space, 0.0f, t.addInput(1)); // walk
+        t.addBlendPoint(space, 1.0f, t.addInput(2)); // run
+        const int jin = t.addInput(3);
+        const int mix = t.addBlend2(space, jin, "air");
+        t.setRoot(mix);
+
+        Pose out;
+        t.setParam("gait", 0.5f); // halfway walk(10)/run(30) -> 20 on the ground
+        t.setParam("air", 0.0f);
+        t.evaluate(in, out);
+        CHECK_NEAR(out[0].translation.x, 20.0f, 1e-4f);
+        CHECK_NEAR(out[0].translation.y, 0.0f, 1e-4f);
+
+        t.setParam("air", 1.0f); // fully airborne -> the jump pose
+        t.evaluate(in, out);
+        CHECK_NEAR(out[0].translation.y, 100.0f, 1e-4f);
+    }
+
+    // Degenerate cases: no root yields an empty pose; an out-of-range root too.
+    {
+        BlendTree t;
+        Pose out;
+        t.evaluate(inputs, out);
+        CHECK(out.empty());
+        t.setRoot(99);
+        t.evaluate(inputs, out);
+        CHECK(out.empty());
+    }
+}
+
 void testAnimStateMachine() {
     using anim::AnimStateMachine;
 
@@ -4956,6 +5097,7 @@ int main() {
     testGoap();
     testFlowField();
     testBlendSpace();
+    testBlendTree();
     testAnimStateMachine();
     testBehaviorTree();
     testBehaviorTreeExtras();

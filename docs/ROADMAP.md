@@ -380,6 +380,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (fade time + condition + `travel()`) whose `active()` weights sum to 1 like a blend space, so states
   compose with blend spaces — Godot AnimationNodeStateMachine; the `statemachine` demo cross-fades a
   locomotion machine over a scripted timeline; M105) — nested sub-state-machines / root-motion later
+- [x] **Animation blend tree** (`anim::BlendTree`: a node graph that NESTS the above — leaf `Input`
+  nodes + `Blend2` (cross-fade) / `Add2` (additive layer) / `BlendSpace1` (1-D blend space over child
+  nodes) interior nodes, each driven by a named blend parameter, evaluated recursively into one pose —
+  Godot AnimationNodeBlendTree; the `blendtree` demo drives a stick figure through a gait blend-space
+  layered with an additive wave and cross-faded into a jump; M117) — Add3/BlendN + a StateMachine node +
+  a live parameter editor later
 - [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
   select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
   arms solving toward targets; M97)
@@ -565,6 +571,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       their corners, and settle into a leaning pile via the oriented rigid-body solver (M91)
 - [x] **Animation blend space** (`apps/blendspace`) — a grid of stick-figure skeletons whose pose is
       blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
+- [x] **Animation blend tree** (`apps/blendtree`) — a stick figure driven by a nested node graph: a gait
+      blend-space, an additive wave layer, cross-faded into a jump; a grid sweeps gait × air
+      (`anim::BlendTree`) (M117)
 - [x] **Physics joints** (`apps/joints`) — a pin-jointed rope bridge sagging into a catenary + masses
       hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
 - [x] **Groove/slider joints** (`apps/groove`) — three boxes pinned to tilted rails, each sliding down

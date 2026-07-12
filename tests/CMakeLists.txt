@@ -573,6 +573,14 @@ set_tests_properties(area2d_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME blendtree_headless_smoke
+    COMMAND blendtree --headless --frames 30)
+
+set_tests_properties(blendtree_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

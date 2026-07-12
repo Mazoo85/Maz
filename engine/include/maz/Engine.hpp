@@ -6,6 +6,7 @@
 #include "maz/anim/AnimStateMachine.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
+#include "maz/anim/BlendTree.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"

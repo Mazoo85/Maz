@@ -1812,6 +1812,38 @@ a brand-new header (zero regression risk to the physics solver), and it reuses t
   (only zone-vs-body here), convex-polygon zones, per-area gravity/damping overrides (Godot's Area2D can
   also modify physics-space properties), or continuous sweep detection for fast movers — those remain gaps.
 
+### Iteration 78 — "Benchmarking against Godot: animation blend tree" (done)
+Rotating to animation (last animation milestone was M113's trigger tracks; M116 was physics-2D). The
+engine had the two *leaves* of Godot's AnimationTree — **blend spaces** (M92: mix a flat set of poses by
+a 1-D/2-D parameter) and a **flat state machine** (M105: cross-fade whole states) — but not the
+**AnimationNodeBlendTree**, the node graph that *nests* them. That tree is how real Godot characters are
+actually animated: you don't drive a rig with one blend space, you build a graph — a locomotion blend
+space, an additive upper-body layer, a cross-fade into jump/land, all reading blend parameters. It's the
+single highest-leverage animation gap, composes directly on the existing pose-blend primitives
+(`blendPoses` / `blendPosesWeighted` / `BlendSpace1D`), is a clean new header (zero regression risk), and
+is fully unit-testable as pure pose math.
+- [x] **M117 — animation blend tree (`anim::BlendTree`)**: a new `BlendTree.hpp`. A `BlendTree` owns a
+  vector of nodes and a named-parameter map; `Pose` is aliased to `std::vector<JointPose>`. Node types:
+  **Input** (leaf — outputs an external pose by index, so in a real rig those are sampled clips),
+  **Blend2** (cross-fade two child nodes by a named param in [0,1] — AnimationNodeBlend2), **Add2** (lay
+  an additive delta child on a base child scaled by a param — translation added, rotation slerped in from
+  identity, AnimationNodeAdd2), and **BlendSpace1** (a 1-D blend space over child *nodes*: `addBlendPoint`
+  places children on the axis, a param selects `BlendSpace1D::weights`, and the contributing children are
+  mixed by `blendPosesWeighted`). `evaluate()` walks the tree recursively from the root into one pose,
+  reading params by name (unset → 0) and pulling leaf poses from the caller's table. `testBlendTree`
+  pins each node type (Blend2 endpoints + midpoint + unset-param default; a 3-point BlendSpace1 including
+  a beyond-the-end clamp; Add2 at 0/0.5/1; a nested BlendSpace1→Blend2 "gait cross-faded into jump by air"
+  tree; and degenerate no-root / out-of-range-root → empty pose). Unit checks **4112 → 4131**. The new
+  `blendtree` demo builds exactly that canonical tree — `Blend2( Add2( BlendSpace1(gait), wave, "wave" ),
+  jump, "air" )` — and renders a 5×3 grid of a stick figure: columns sweep **gait** (idle → walk → run,
+  the nested blend space), rows sweep **air** (grounded → jump, the outer cross-fade), with the additive
+  wave arm held on so Add2 is visible on the grounded rows. Purely additive (new header + new app), so
+  every existing golden is byte-unchanged (confirmed by a serial golden run); the grid is static →
+  deterministic golden (RMSE 0, threshold 0.05). ctest **72/72 → 73/73**. Honest scope: the node set is
+  Input/Blend2/Add2/BlendSpace1 driven by scalar params; it does not yet include a 2-D blend-space node,
+  Add3/BlendN, a *StateMachine node* embeddable inside the tree (the flat M105 machine isn't yet a tree
+  node), time-scaling / one-shot / seek nodes, or a live visual parameter editor — those remain gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

@@ -595,6 +595,14 @@ available):
   new `area2d` demo streams 14 agents across a circular "aura" and a box "gate" sensor: each zone shows how
   many agents are inside now and how many enter/exit events fired, and every agent currently inside a zone
   is drawn lit with a ring in that zone's colour.
+- **M117** — an **animation blend tree** (`anim::BlendTree`), Godot's `AnimationNodeBlendTree`: the node
+  graph that *nests* the blend space (M92) and cross-fades of a state machine (M105). Leaf `Input` nodes
+  pull poses from an external table; interior `Blend2` (cross-fade), `Add2` (additive layer), and
+  `BlendSpace1` (1-D blend space over child nodes) nodes combine them, each reading a named blend
+  parameter — so "a walk/run blend space, layered with an additive wave, cross-faded into a jump by an
+  air parameter" is one evaluable tree. Pure pose math, unit-tested (each node type + a nested tree +
+  degenerate cases). The new `blendtree` demo drives a stick figure through exactly that tree on a grid:
+  columns sweep gait (idle → walk → run), rows sweep air (grounded → jump).
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

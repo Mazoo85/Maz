@@ -129,6 +129,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             AnimStateMachine — named states + cross-fading transitions (fade + condition + travel);
               active() returns weighted states (blend-space-shaped), so states compose with blend spaces,
               Godot AnimationNodeStateMachine-style;
+            BlendTree — a node graph nesting the above: Input leaves + Blend2 (cross-fade) / Add2
+              (additive layer) / BlendSpace1 interior nodes, each driven by a named blend parameter,
+              evaluated recursively into one pose, Godot AnimationNodeBlendTree-style;
             solveTwoBoneIK — 2-bone inverse kinematics (law-of-cosines elbow solve + bend select +
               straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style;
             solveFabrik — multi-bone FABRIK IK (backward/forward reaching over an N-joint chain, bone
@@ -205,6 +208,8 @@ apps/
               settle into a leaning pile (Body2D::enableRotation + the oriented PhysicsWorld2D solver)
   blendspace/ Animation blend space — a grid of stick-figure skeletons whose pose is blended across a
               2D parameter space from four corner poses (anim::BlendSpace2D + blendPosesWeighted)
+  blendtree/ Animation blend tree — a stick figure driven by a nested node graph (gait blend-space +
+              additive wave + cross-fade to jump); a grid sweeps gait x air (anim::BlendTree)
   joints/   Physics joints — a pin-jointed rope bridge sagging into a catenary + damped-spring-hung
               masses of increasing stiffness (game::Joint2D Pin + Spring)
   spatial2d/ Positional audio — a listener + sound sources with per-source distance attenuation + stereo
