@@ -333,6 +333,14 @@ set_tests_properties(noise_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME uilayout_headless_smoke
+    COMMAND uilayout --headless --frames 30)
+
+set_tests_properties(uilayout_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

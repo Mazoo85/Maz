@@ -326,7 +326,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
 - [ ] Dear ImGui integration for tools / debug overlays
 - [x] **Immediate-mode game-UI** (`ui::Context`: panel/label/button/toggle/slider with hot/active
-  tracking; the `menu` demo is an interactive settings screen; M60) — layout/anchoring/text input later
+  tracking; the `menu` demo is an interactive settings screen; M60)
+- [x] **Retained UI layout** (`ui::LayoutNode`: Godot-style anchors + margins + HBox/VBox/Center
+  containers with expand/spacing/padding; resolution-responsive computed rects; the `uilayout` demo
+  builds a top-bar + sidebar + content + modal UI with no hand-placed pixels; M86)
 - [ ] Text input, focus / navigation, controller UI nav
 - [ ] Nine-slice, fonts, localization-aware text
 

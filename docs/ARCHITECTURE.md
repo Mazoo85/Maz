@@ -56,7 +56,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
 ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay (FPS/draw stats),
-            Context (immediate-mode widgets: panel/label/button/toggle/slider, hot/active tracking)
+            Context (immediate-mode widgets: panel/label/button/toggle/slider, hot/active tracking),
+            LayoutNode (retained layout — Godot-style anchors/margins + HBox/VBox/Center containers,
+              computed rects, resolution-responsive), Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
             propagates world transforms parent-first (decomposed TRS); localToWorld   (header-only)
@@ -125,6 +127,8 @@ apps/
               token's rarity chosen by weighted(); a legend tallies the resulting distribution
   noise/    Procedural terrain — a heightmap texture generated from core::Noise fbm2, colored by a
               water/sand/grass/forest/rock/snow ramp with a slope hillshade; same seed, same continent
+  uilayout/ Retained UI layout — a responsive app UI (top bar + sidebar VBox of buttons + content panel
+              + centered modal) laid out entirely by ui::LayoutNode anchors + containers, no fixed pixels
 ```
 
 ## The frame loop (fixed timestep)

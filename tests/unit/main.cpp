@@ -33,6 +33,7 @@
 #include "maz/io/Json.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/ui/Layout.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -457,6 +458,138 @@ void testTween() {
     zero.duration = 0.0f;
     zero.update(0.016f);
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
+void testLayout() {
+    using ui::LayoutNode;
+    using ui::Rect;
+    const Rect screen{0, 0, 1000, 600};
+
+    // Anchor: fill with a margin insets the child on all sides.
+    {
+        LayoutNode root(LayoutNode::Mode::Anchor);
+        LayoutNode child;
+        child.fill(20.0f);
+        root.add(&child);
+        root.layout(screen);
+        CHECK_NEAR(child.rect.x, 20.0f, 1e-3f);
+        CHECK_NEAR(child.rect.y, 20.0f, 1e-3f);
+        CHECK_NEAR(child.rect.w, 960.0f, 1e-3f); // 1000 - 40
+        CHECK_NEAR(child.rect.h, 560.0f, 1e-3f); // 600 - 40
+    }
+
+    // Anchor: a fixed-size box pinned to the center via (0.5,0.5,0.5,0.5) anchors + offsets.
+    {
+        LayoutNode root(LayoutNode::Mode::Anchor);
+        LayoutNode box;
+        box.setAnchors(0.5f, 0.5f, 0.5f, 0.5f);
+        box.setOffsets(-100.0f, -50.0f, 100.0f, 50.0f); // 200x100 centered
+        root.add(&box);
+        root.layout(screen);
+        CHECK_NEAR(box.rect.w, 200.0f, 1e-3f);
+        CHECK_NEAR(box.rect.h, 100.0f, 1e-3f);
+        CHECK_NEAR(box.rect.centerX(), 500.0f, 1e-3f);
+        CHECK_NEAR(box.rect.centerY(), 300.0f, 1e-3f);
+    }
+
+    // Anchor: responsiveness — the SAME anchored top bar stretches to whatever width the root has.
+    {
+        LayoutNode root(LayoutNode::Mode::Anchor);
+        LayoutNode bar;
+        bar.anchorTop(48.0f);
+        root.add(&bar);
+        root.layout(Rect{0, 0, 1000, 600});
+        CHECK_NEAR(bar.rect.w, 1000.0f, 1e-3f);
+        CHECK_NEAR(bar.rect.h, 48.0f, 1e-3f);
+        root.layout(Rect{0, 0, 400, 300}); // shrink the window
+        CHECK_NEAR(bar.rect.w, 400.0f, 1e-3f); // still full width
+        CHECK_NEAR(bar.rect.h, 48.0f, 1e-3f);  // still fixed height
+    }
+
+    // HBox: two fixed 100-wide + one expander, spacing 10, in a 1000-wide row.
+    {
+        LayoutNode row(LayoutNode::Mode::HBox);
+        row.spacing = 10.0f;
+        LayoutNode a, b, c;
+        a.minW = 100.0f;
+        b.expand = true;
+        c.minW = 100.0f;
+        row.add(&a).add(&b).add(&c);
+        row.layout(Rect{0, 0, 1000, 80});
+        // leftover = 1000 - 20(spacing) - 200(fixed) = 780 -> to the single expander.
+        CHECK_NEAR(a.rect.x, 0.0f, 1e-3f);
+        CHECK_NEAR(a.rect.w, 100.0f, 1e-3f);
+        CHECK_NEAR(b.rect.x, 110.0f, 1e-3f); // 100 + 10 spacing
+        CHECK_NEAR(b.rect.w, 780.0f, 1e-3f);
+        CHECK_NEAR(c.rect.x, 900.0f, 1e-3f); // 110 + 780 + 10
+        CHECK_NEAR(c.rect.w, 100.0f, 1e-3f);
+        CHECK_NEAR(a.rect.h, 80.0f, 1e-3f); // fill cross axis
+    }
+
+    // VBox: two equal expanders share the height with spacing.
+    {
+        LayoutNode col(LayoutNode::Mode::VBox);
+        col.spacing = 20.0f;
+        LayoutNode a, b;
+        a.expand = true;
+        b.expand = true;
+        col.add(&a).add(&b);
+        col.layout(Rect{0, 0, 200, 500});
+        // leftover = 500 - 20 = 480, split -> 240 each.
+        CHECK_NEAR(a.rect.h, 240.0f, 1e-3f);
+        CHECK_NEAR(a.rect.y, 0.0f, 1e-3f);
+        CHECK_NEAR(b.rect.y, 260.0f, 1e-3f); // 240 + 20
+        CHECK_NEAR(b.rect.h, 240.0f, 1e-3f);
+        CHECK_NEAR(a.rect.w, 200.0f, 1e-3f); // fill cross axis
+    }
+
+    // Center: a fixed-size child is centered within the parent.
+    {
+        LayoutNode root(LayoutNode::Mode::Center);
+        LayoutNode dlg;
+        dlg.minW = 300.0f;
+        dlg.minH = 200.0f;
+        root.add(&dlg);
+        root.layout(Rect{0, 0, 1000, 600});
+        CHECK_NEAR(dlg.rect.x, 350.0f, 1e-3f); // (1000-300)/2
+        CHECK_NEAR(dlg.rect.y, 200.0f, 1e-3f); // (600-200)/2
+    }
+
+    // Padding on a container insets the arranged area.
+    {
+        LayoutNode row(LayoutNode::Mode::HBox);
+        row.pad = 15.0f;
+        LayoutNode a;
+        a.expand = true;
+        row.add(&a);
+        row.layout(Rect{0, 0, 200, 100});
+        CHECK_NEAR(a.rect.x, 15.0f, 1e-3f);
+        CHECK_NEAR(a.rect.w, 170.0f, 1e-3f); // 200 - 30
+        CHECK_NEAR(a.rect.y, 15.0f, 1e-3f);
+        CHECK_NEAR(a.rect.h, 70.0f, 1e-3f);  // 100 - 30
+    }
+
+    // Nesting: a VBox inside the expanding cell of an HBox lays its children out within that cell.
+    {
+        LayoutNode row(LayoutNode::Mode::HBox);
+        LayoutNode side;
+        side.minW = 200.0f;
+        LayoutNode content(LayoutNode::Mode::VBox);
+        content.expand = true;
+        content.spacing = 0.0f;
+        LayoutNode top, bottom;
+        top.expand = true;
+        bottom.expand = true;
+        content.add(&top).add(&bottom);
+        row.add(&side).add(&content);
+        row.layout(Rect{0, 0, 1000, 400});
+        // content cell = x[200..1000], the VBox splits its 400 height into two 200s.
+        CHECK_NEAR(content.rect.x, 200.0f, 1e-3f);
+        CHECK_NEAR(content.rect.w, 800.0f, 1e-3f);
+        CHECK_NEAR(top.rect.x, 200.0f, 1e-3f);   // inherits the content cell's x
+        CHECK_NEAR(top.rect.h, 200.0f, 1e-3f);
+        CHECK_NEAR(bottom.rect.y, 200.0f, 1e-3f);
+    }
 }
 
 void testUI() {
@@ -2484,6 +2617,7 @@ int main() {
     testResourceCache();
     testSceneStack();
     testTween();
+    testLayout();
     testUI();
     testSerialize();
     testJson();

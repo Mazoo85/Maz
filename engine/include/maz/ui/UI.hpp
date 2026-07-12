@@ -2,18 +2,11 @@
 
 #include "maz/render/Renderer.hpp"
 #include "maz/ui/Font.hpp"
+#include "maz/ui/Rect.hpp"
 
 #include <cstdint>
 
 namespace maz::ui {
-
-// Screen-space rectangle (pixel coordinates, origin top-left).
-struct Rect {
-    float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
-    bool contains(float px, float py) const {
-        return px >= x && py >= y && px < x + w && py < y + h;
-    }
-};
 
 // Map a horizontal pointer position within `track` to a value in [minV, maxV], clamped to the ends.
 inline float sliderValueFromX(const Rect& track, float pointerX, float minV, float maxV) {

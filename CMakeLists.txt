@@ -80,6 +80,7 @@ add_subdirectory(apps/camera)
 add_subdirectory(apps/fireworks)
 add_subdirectory(apps/scatter)
 add_subdirectory(apps/noise)
+add_subdirectory(apps/uilayout)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

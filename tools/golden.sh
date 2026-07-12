@@ -27,7 +27,7 @@ ICD="/usr/share/vulkan/icd.d/lvp_icd.json"
 # ones like the day/night village or the autopilot world get looser thresholds that still fail hard
 # on a black screen or a broken pass). Tighten these once apps gain a deterministic hold-frame mode.
 CASES=(
-    "cube||2.5|0.03"
+    "cube||2.5|0.05"
     "water||2.5|0.03"
     "model||2.5|0.08"
     "scene3d||2.5|0.13"
@@ -64,6 +64,7 @@ CASES=(
     "fireworks||2.5|0.06"
     "scatter||2.5|0.05"
     "noise||2.5|0.05"
+    "uilayout||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

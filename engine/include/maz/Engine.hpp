@@ -50,4 +50,5 @@
 #include "maz/scene/TransformGraph.hpp"
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"
+#include "maz/ui/Layout.hpp"
 #include "maz/ui/UI.hpp"

@@ -315,6 +315,14 @@ available):
   ~[-1,1], and deterministic per seed (permutation shuffled with `core::Random`). The new `noise` demo
   turns an `fbm2` field into a terrain heightmap — colored by a water → sand → grass → forest → rock →
   snow ramp with a slope-based hillshade — so the same seed always renders the same continent
+- **M86** — retained UI layout (`maz::ui::LayoutNode`), toward Godot's Control system: the engine had
+  only immediate-mode widgets with hand-typed pixel positions. This adds Godot's model — **anchors**
+  (each edge pinned to a fraction of the parent) + **margin offsets**, plus **container** modes
+  (`HBox`/`VBox`/`Center`) that arrange children automatically with spacing, padding, min-size, and an
+  `expand` flag that shares leftover space. `layout()` walks the tree from the framebuffer rect and
+  computes every node's rect, so the UI is **resolution-responsive** — no coordinate is hard-coded. The
+  new `uilayout` demo builds a real app shell (top bar + sidebar button list + content panel + a
+  center-pinned modal with its own stacked title/body/button-row) entirely from the layout tree
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -353,4 +361,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Fireworks** (scheduler): no controls — timers launch and explode fireworks; the whole show is scheduler-driven · Esc to quit
 - **Scatter** (procedural RNG): no controls — a seeded RNG scatters a token field with weighted rarity; same seed → same field · Esc to quit
 - **Noise** (procedural terrain): no controls — an fbm-noise heightmap rendered as a terrain map; same seed → same continent · Esc to quit
+- **UILayout** (retained UI): no controls — a responsive app UI (top bar + sidebar + content + modal) laid out by anchors and containers · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit
