@@ -1781,6 +1781,37 @@ regression risk), and it composes with M109's StyleBoxFlat for the row highlight
   scrolling when the row count exceeds the panel, multi-column rows, drag-reorder, or per-item editable
   cells — those remain UI gaps.
 
+### Iteration 77 — "Benchmarking against Godot: Area2D sensor / trigger regions" (done)
+Rotating to physics-2D / gameplay (the loop asked to prefer rendering-2D or physics-2D this round). Of
+Godot's core 2D nodes Maz still lacked, **Area2D** is the highest-leverage: it's the single most-used
+gameplay node in 2D Godot — every pickup, hurtbox/hitbox, checkpoint, kill-zone, proximity trigger, and
+"player entered the room" event is an Area2D. Maz had *physics* collisions (Physics2D resolves contacts
+with force) but no **sensor** primitive: a region that detects overlap and fires `body_entered` /
+`body_exited` without pushing anything. That's a different job — detection, not resolution — and it's the
+glue almost every 2D game is built from. It's a clean geometry-plus-set-diff problem (fully unit-testable),
+a brand-new header (zero regression risk to the physics solver), and it reuses the existing math types.
+- [x] **M116 — Area2D sensor / trigger (`game::Area2D`)**: a new `Area2D.hpp`. An `Area2D` is a
+  circle-or-box zone (`shape`, `pos`, `radius`/`half`) with `boundsMin/Max` + `containsPoint`. A free
+  `overlaps(a, b)` handles all three pairings: circle-circle (centre distance < r₁+r₂, **strict** so an
+  exact touch is *not* an overlap — matching Godot's non-inclusive contact), box-box (AABB interval
+  overlap, strict), and the mixed circle-box case (clamp the circle centre to the box → closest point →
+  distance < r). An `AreaMonitor` holds the sorted set of ids currently inside; each frame you pass it the
+  new overlapping set and it returns via `std::set_difference` exactly the ids that just **entered** and
+  just **exited** (deduping ids already inside), then adopts the new set — the enter/exit event core of
+  Godot's Area2D. `testArea2D` pins the geometry (circle/circle, circle/box, box/box, exact-touch =
+  false, corner cases, containsPoint) and the monitor (multi-frame enter/exit diffing across an
+  approach → inside → leave sequence, plus a no-op frame). Unit count **4086 → 4112**. The new `area2d`
+  demo steps a staggered stream of 14 agents (each itself a small circle Area2D) once at startup across a
+  circular "aura" sensor and a box "gate" sensor, feeding both `AreaMonitor`s each step; it draws the two
+  translucent zones, every agent's trail, each agent lit + ringed in a zone's colour when currently inside
+  it, and a per-zone readout (inside now / entered / exited). Purely additive (new header + new app), so
+  every existing golden is byte-unchanged (confirmed by a serial golden run); the whole sweep is
+  precomputed so the frame is static → deterministic golden (threshold 0.06). ctest **71/71 → 72/72**.
+  Honest scope: this is a *monitoring* Area2D — overlap detection + enter/exit — over circle/box shapes;
+  it does not yet do collision layers/masks (so *which* bodies a zone watches), body-vs-body sensor pairs
+  (only zone-vs-body here), convex-polygon zones, per-area gravity/damping overrides (Godot's Area2D can
+  also modify physics-space properties), or continuous sweep detection for fast movers — those remain gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

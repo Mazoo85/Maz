@@ -586,6 +586,15 @@ available):
   hides only below it; a leaf collapse is a no-op; empty tree yields nothing). The new `tree` demo shows a
   project file tree inside a rounded StyleBoxFlat panel (composed with M109) — folders and files indented
   by depth with fold arrows, two folders collapsed, and the selected row highlighted.
+- **M116** — **Area2D sensor / trigger regions** (`game::Area2D`), toward Godot's `Area2D`: a zone (circle
+  or box) that doesn't push anything — it just detects which bodies *overlap* it and fires **enter / exit**
+  events as they cross its boundary. `overlaps()` handles circle-circle, box-box (AABB), and the mixed
+  circle-box case (closest-point on the box); an `AreaMonitor` diffs each frame's overlapping set against
+  the last to emit exactly the agents that just entered and just exited (deduping repeats). Unit-tested on
+  the overlap geometry (including exact-touch = not overlapping) and on multi-frame enter/exit diffing. The
+  new `area2d` demo streams 14 agents across a circular "aura" and a box "gate" sensor: each zone shows how
+  many agents are inside now and how many enter/exit events fired, and every agent currently inside a zone
+  is drawn lit with a ring in that zone's colour.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

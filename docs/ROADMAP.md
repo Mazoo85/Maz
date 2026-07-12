@@ -325,6 +325,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   balance to stay square instead of rotating off — Box2D/Godot-style stable stacks; opt-in so existing
   rotating scenes keep their single-point numerics; the `stack` demo drops two identical towers, one
   stable, one toppling; M110) — cross-frame warm starting / a block solver later
+- [x] **2D sensor / trigger regions** (`game::Area2D`: a circle-or-box zone that detects overlap without
+  applying any force; `overlaps()` covers circle-circle, box-box (AABB), and mixed circle-box via
+  closest-point; an `AreaMonitor` diffs each frame's overlapping set to fire **enter / exit** events — a
+  monitoring `Area2D` in Godot terms; the `area2d` demo streams agents through a circular aura + a box gate,
+  showing live membership + enter/exit counts per zone; M116) — collision layers / masks + body-vs-body
+  sensor pairs later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
@@ -539,6 +545,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (`ui::StyleBoxFlat` + `ui::Theme`) (M109)
 - [x] **Tree widget** (`apps/tree`) — a project file tree in a StyleBoxFlat panel: indented rows, fold
       arrows, two collapsed folders, and a selected-row highlight (`ui::Tree`) (M115)
+- [x] **Area2D sensors** (`apps/area2d`) — agents stream through a circular aura + a box gate; each zone
+      shows live membership + enter/exit counts, agents inside a zone lit + ringed (`game::Area2D`) (M116)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
 - [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the

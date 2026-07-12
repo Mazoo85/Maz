@@ -109,7 +109,11 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             SoftShadow2D (area-light soft/penumbra shadows: diskSamples Vogel-spiral across the light +
             softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
-            tilemap autotiling — Godot TileMap terrains)
+            tilemap autotiling — Godot TileMap terrains),
+            Area2D + AreaMonitor (sensor / trigger regions: a circle-or-box zone that detects overlap
+              without applying force — overlaps() covers circle-circle, box-box AABB, and mixed circle-box
+              via closest-point; AreaMonitor diffs each frame's overlapping set to emit enter/exit events),
+              Godot Area2D-monitoring-style)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             Timeline — keyframe sequencer: named Tracks of Keyframes (time→value + per-segment easing) +
               a once/repeat/ping-pong playhead, Godot AnimationPlayer-style;
@@ -227,6 +231,8 @@ apps/
               sine tone shaped by it, so one tone becomes three different notes (audio::ADSR)
   tree/     Tree widget — a project file tree in a StyleBoxFlat panel: indented rows, fold arrows, two
               collapsed folders, and a selected-row highlight (ui::Tree)
+  area2d/   Area2D sensors — 14 agents stream through a circular aura + a box gate; each zone shows agents
+              inside now + enter/exit counts, agents inside a zone lit + ringed (game::Area2D)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not

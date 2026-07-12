@@ -565,6 +565,14 @@ set_tests_properties(tree_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME area2d_headless_smoke
+    COMMAND area2d --headless --frames 30)
+
+set_tests_properties(area2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

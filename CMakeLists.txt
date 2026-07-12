@@ -109,6 +109,7 @@ add_subdirectory(apps/flowfield)
 add_subdirectory(apps/sequencer)
 add_subdirectory(apps/envelope)
 add_subdirectory(apps/tree)
+add_subdirectory(apps/area2d)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

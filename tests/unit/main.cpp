@@ -27,6 +27,7 @@
 #include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/Area2D.hpp"
 #include "maz/game/AutoTile.hpp"
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
@@ -430,6 +431,100 @@ void testSoftShadow2D() {
         const float v = game::softVisibility(vec2{3, 20}, vec2{0, 0}, 30.0f, occ, 48);
         CHECK(v > 0.0f);
         CHECK(v < 1.0f);
+    }
+}
+
+void testArea2D() {
+    using game::Area2D;
+    using math::vec2;
+
+    // --- Overlap geometry. ---
+    {
+        Area2D c;
+        c.shape = Area2D::Circle;
+        c.pos = vec2(0.0f, 0.0f);
+        c.radius = 2.0f;
+
+        Area2D c2;
+        c2.shape = Area2D::Circle;
+        c2.radius = 1.0f;
+        c2.pos = vec2(2.5f, 0.0f); // centres 2.5 apart, radii sum 3 -> overlap
+        CHECK(game::overlaps(c, c2));
+        c2.pos = vec2(3.5f, 0.0f); // 3.5 > 3 -> no
+        CHECK(!game::overlaps(c, c2));
+        c2.pos = vec2(3.0f, 0.0f); // exactly touching -> not overlapping (strict)
+        CHECK(!game::overlaps(c, c2));
+
+        // Circle vs box.
+        Area2D b;
+        b.shape = Area2D::Box;
+        b.half = vec2(1.0f, 1.0f);
+        b.pos = vec2(2.5f, 0.0f); // box spans x[1.5,3.5]; circle reaches x=2 -> overlap
+        CHECK(game::overlaps(c, b));
+        b.pos = vec2(4.5f, 0.0f); // box spans x[3.5,5.5]; circle reaches 2 -> no
+        CHECK(!game::overlaps(c, b));
+        // Corner case: box just off the circle's corner.
+        b.pos = vec2(3.0f, 3.0f); // nearest corner (2,2), dist sqrt8 ~2.83 > 2 -> no
+        CHECK(!game::overlaps(c, b));
+        b.pos = vec2(2.2f, 2.2f); // nearest corner (1.2,1.2), dist ~1.70 < 2 -> yes
+        CHECK(game::overlaps(c, b));
+
+        // Box vs box (AABB).
+        Area2D b1, b2;
+        b1.shape = Area2D::Box;
+        b1.half = vec2(1.0f, 1.0f);
+        b1.pos = vec2(0.0f, 0.0f);
+        b2.shape = Area2D::Box;
+        b2.half = vec2(1.0f, 1.0f);
+        b2.pos = vec2(1.5f, 0.0f); // overlap in x by 0.5
+        CHECK(game::overlaps(b1, b2));
+        b2.pos = vec2(2.5f, 0.0f);
+        CHECK(!game::overlaps(b1, b2));
+    }
+
+    // --- containsPoint. ---
+    {
+        Area2D c;
+        c.shape = Area2D::Circle;
+        c.radius = 2.0f;
+        CHECK(c.containsPoint(vec2(1.0f, 1.0f)));   // dist sqrt2 < 2
+        CHECK(!c.containsPoint(vec2(2.0f, 2.0f)));  // dist sqrt8 > 2
+
+        Area2D b;
+        b.shape = Area2D::Box;
+        b.half = vec2(3.0f, 1.0f);
+        CHECK(b.containsPoint(vec2(2.9f, 0.9f)));
+        CHECK(!b.containsPoint(vec2(3.1f, 0.0f)));
+    }
+
+    // --- AreaMonitor enter/exit diffing across frames. ---
+    {
+        game::AreaMonitor mon;
+        std::vector<int> entered, exited;
+
+        mon.update({1, 2}, entered, exited); // first frame: 1,2 enter
+        CHECK(entered.size() == 2 && entered[0] == 1 && entered[1] == 2);
+        CHECK(exited.empty());
+        CHECK(mon.contains(1) && mon.contains(2) && !mon.contains(3));
+
+        mon.update({2, 3}, entered, exited); // 3 enters, 1 exits, 2 stays
+        CHECK(entered.size() == 1 && entered[0] == 3);
+        CHECK(exited.size() == 1 && exited[0] == 1);
+        CHECK(mon.members().size() == 2); // {2,3}
+        CHECK(mon.contains(2) && mon.contains(3) && !mon.contains(1));
+
+        mon.update({2, 3}, entered, exited); // no change
+        CHECK(entered.empty() && exited.empty());
+
+        mon.update({}, entered, exited); // everyone leaves
+        CHECK(entered.empty());
+        CHECK(exited.size() == 2 && exited[0] == 2 && exited[1] == 3);
+        CHECK(mon.members().empty());
+
+        // Duplicate ids in the input are de-duplicated.
+        mon.update({5, 5, 5}, entered, exited);
+        CHECK(entered.size() == 1 && entered[0] == 5);
+        CHECK(mon.members().size() == 1);
     }
 }
 
@@ -4842,6 +4937,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testArea2D();
     testAvoidance();
     testVisibility2D();
     testSoftShadow2D();

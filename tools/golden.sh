@@ -93,6 +93,7 @@ CASES=(
     "sequencer||2.0|0.05"
     "envelope||2.0|0.05"
     "tree||2.0|0.05"
+    "area2d||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

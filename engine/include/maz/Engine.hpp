@@ -32,6 +32,7 @@
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/Area2D.hpp"
 #include "maz/game/AutoTile.hpp"
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
