@@ -24,7 +24,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
 - [ ] clang-tidy config + CI lint gate
 - [ ] Address/UB sanitizer presets (Debug), leak checks
-- [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
+- [~] CI matrix (Linux/Windows/macOS) running the headless smoke test — **Linux CI landed**
+      (`.github/workflows/ci.yml`: installs the Vulkan SDK + glslang, builds under `-Werror`,
+      runs ctest headless). Windows/macOS still to add.
 - [ ] Config system (CVars / ini / json), persisted settings
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
@@ -72,7 +74,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] **2D:** tilemap renderer (chunked), sprite sorting / layers
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [ ] Mesh renderer (indexed draw), vertex layouts, instancing
-- [ ] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull
+- [~] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull — **perspective camera
+      landed** (`maz::scene::Camera`, Vulkan-correct view/projection, unit-tested). Depth buffer,
+      ortho, and back-face cull come with the mesh renderer.
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [ ] Lighting: directional / point / spot; forward+ or deferred path
 - [ ] Shadow maps, skybox / image-based lighting
