@@ -64,17 +64,21 @@ struct Bounds2D {
 };
 
 // A constraint tying two bodies together (or one body to a fixed world point) — Godot's PinJoint2D /
-// DampedSpringJoint2D. A Pin forces the two anchor points to coincide (a hinge / rope link); a Spring
-// pulls them toward `restLength` with a stiffness + damping (a soft, bouncy link). Anchors are given in
-// each body's local (rotated) frame; when `b < 0` the joint anchors body `a` to the fixed world point
-// `anchorB`. Solved with sequential impulses inside the oriented step, so joints and contacts compose.
+// DampedSpringJoint2D / GrooveJoint2D. A Pin forces the two anchor points to coincide (a hinge / rope
+// link); a Spring pulls them toward `restLength` with a stiffness + damping (a soft, bouncy link); a
+// Groove constrains body `b`'s anchor to a LINE (the groove) through body `a`'s anchor along `axis`,
+// free to slide along it but held on the line (a rail / slider). Anchors are given in each body's local
+// (rotated) frame; when `b < 0` a Pin/Spring anchors body `a` to the fixed world point `anchorB` (a
+// Groove needs both bodies — make body `a` static for a world-fixed rail). Solved with sequential
+// impulses inside the oriented step, so joints and contacts compose.
 struct Joint2D {
-    enum Type { Pin, Spring };
+    enum Type { Pin, Spring, Groove };
     int type = Pin;
-    int a = -1;               // first body index
+    int a = -1;               // first body index (the groove body for Groove)
     int b = -1;               // second body index, or < 0 to anchor to the fixed world point `anchorB`
-    math::vec2 localA{0.0f, 0.0f};   // anchor on body a, in a's local frame
+    math::vec2 localA{0.0f, 0.0f};   // anchor on body a, in a's local frame (a groove reference point)
     math::vec2 anchorB{0.0f, 0.0f};  // anchor on body b (local) if b >= 0, else a fixed world point
+    math::vec2 axis{1.0f, 0.0f};     // Groove: slide direction in a's local frame (need not be unit)
     float restLength = 0.0f;  // Spring: target separation
     float stiffness = 0.0f;   // Spring: restoring force per unit stretch
     float damping = 0.0f;     // Spring: velocity damping along the joint axis
@@ -526,6 +530,48 @@ inline void solveSpring(Body2D& a, Body2D* b, math::vec2 localA, math::vec2 loca
     }
 }
 
+// Groove (slider) constraint: hold slider `s`'s anchor on the LINE through groove-body `g`'s anchor
+// along `axisLocal`, free to slide along it (Godot GrooveJoint2D). A single perpendicular-impulse
+// solve + Baumgarte position bias removes only the off-line motion. Make `g` static for a world rail.
+inline void solveGroove(Body2D& g, Body2D& s, math::vec2 grooveAnchorLocal, math::vec2 axisLocal,
+                        math::vec2 sliderAnchorLocal, float dt) {
+    const math::vec2 refA = g.pos + rotate2(grooveAnchorLocal, g.angle);
+    math::vec2 axis = rotate2(axisLocal, g.angle);
+    const float al = std::sqrt(glm::dot(axis, axis));
+    if (al < 1e-6f) {
+        return;
+    }
+    axis /= al;
+    const math::vec2 perp(-axis.y, axis.x); // constraint acts along the groove normal
+    const math::vec2 rS = rotate2(sliderAnchorLocal, s.angle);
+    const math::vec2 worldS = s.pos + rS;
+    // Constraint point on the groove = projection of the slider anchor onto the line (correct arms).
+    const float along = glm::dot(worldS - refA, axis);
+    const math::vec2 proj = refA + axis * along;
+    const math::vec2 rA = proj - g.pos;
+    const math::vec2 rB = worldS - s.pos;
+    const float c = glm::dot(worldS - refA, perp); // signed off-line distance to drive to 0
+
+    const math::vec2 vA = g.vel + crossSV(g.angularVel, rA);
+    const math::vec2 vB = s.vel + crossSV(s.angularVel, rB);
+    const float cdot = glm::dot(vB - vA, perp);
+
+    const float raxp = cross2(rA, perp), rbxp = cross2(rB, perp);
+    const float k = g.invMass + s.invMass + g.invInertia * raxp * raxp + s.invInertia * rbxp * rbxp;
+    if (k < 1e-12f) {
+        return;
+    }
+    const float beta = 0.2f;
+    const float bias = (beta / dt) * c;
+    const float lambda = -(cdot + bias) / k;
+    const math::vec2 p = perp * lambda;
+
+    g.vel -= p * g.invMass;
+    g.angularVel -= g.invInertia * cross2(rA, p);
+    s.vel += p * s.invMass;
+    s.angularVel += s.invInertia * cross2(rB, p);
+}
+
 } // namespace detail
 
 class PhysicsWorld2D {
@@ -618,6 +664,10 @@ private:
                                 : nullptr;
                 if (jt.type == Joint2D::Pin) {
                     detail::solvePin(A, B, jt.localA, jt.anchorB, dt);
+                } else if (jt.type == Joint2D::Groove) {
+                    if (B != nullptr) {
+                        detail::solveGroove(A, *B, jt.localA, jt.axis, jt.anchorB, dt);
+                    }
                 } else {
                     detail::solveSpring(A, B, jt.localA, jt.anchorB, jt.restLength, jt.stiffness,
                                         jt.damping, dt);

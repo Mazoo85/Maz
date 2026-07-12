@@ -450,6 +450,14 @@ available):
   draws the same box+light twice — left a hard point light (crisp edge), right an area light (24 samples,
   composited as additive visibility fans) whose shadow feathers into a penumbra that widens with
   distance from the caster.
+- **M102** — a **groove / slider joint** (`Joint2D::Groove`), completing Godot's 2D joint set
+  (PinJoint2D, DampedSpringJoint2D, **GrooveJoint2D**): a body is pinned to a *line* (the groove) on
+  another body — free to slide along it but held on the line. Solved with a single perpendicular impulse
+  + Baumgarte bias inside the existing oriented step; purely additive, so the Pin/Spring paths (and
+  every existing physics golden) are byte-identical. Unit-tested (an off-line slider is pulled onto the
+  groove while its along-groove position stays free; a tilted groove holds the body on its line under
+  gravity while it slides down the incline). The new `groove` demo drops three boxes onto tilted rails —
+  each slides down its incline (not straight down) and settles against a stop block.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

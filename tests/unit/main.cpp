@@ -3014,6 +3014,86 @@ void testPhysics2DJoints() {
     }
 }
 
+void testPhysics2DGroove() {
+    using game::Body2D;
+    using game::Joint2D;
+
+    // A slider starting OFF a horizontal groove (y=0 line through the origin) is pulled onto the line,
+    // while its position ALONG the groove is left free (unchanged).
+    {
+        game::PhysicsWorld2D w; // no gravity
+
+        Body2D rail; // static groove body at the origin
+        rail.pos = math::vec2(0.0f, 0.0f);
+        rail.invMass = 0.0f;
+        const uint32_t rid = w.add(rail);
+
+        Body2D slider;
+        slider.shape = Body2D::Box;
+        slider.half = math::vec2(4.0f, 4.0f);
+        slider.pos = math::vec2(30.0f, 20.0f); // 20 above the groove line, x=30 along it
+        slider.invMass = 1.0f;
+        const uint32_t sid = w.add(slider);
+
+        Joint2D g;
+        g.type = Joint2D::Groove;
+        g.a = static_cast<int>(rid);
+        g.b = static_cast<int>(sid);
+        g.localA = math::vec2(0.0f, 0.0f); // groove passes through the rail's origin
+        g.axis = math::vec2(1.0f, 0.0f);   // horizontal groove
+        g.anchorB = math::vec2(0.0f, 0.0f); // slider anchored at its centre
+        w.addJoint(g);
+
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        CHECK(std::fabs(w.bodies[1].pos.y) < 0.2f);        // pulled onto the groove line
+        CHECK_NEAR(w.bodies[1].pos.x, 30.0f, 0.5f);        // free along the groove: x unchanged
+    }
+
+    // The groove holds the slider on a TILTED line under gravity: the along-axis component of gravity
+    // slides it, but the perpendicular offset from the line stays ~0 the whole time.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f); // +y down
+
+        Body2D rail;
+        rail.pos = math::vec2(0.0f, 0.0f);
+        rail.invMass = 0.0f;
+        const uint32_t rid = w.add(rail);
+
+        const math::vec2 axis = math::vec2(1.0f, 1.0f) / std::sqrt(2.0f);
+
+        Body2D slider;
+        slider.shape = Body2D::Box;
+        slider.half = math::vec2(4.0f, 4.0f);
+        slider.pos = axis * 20.0f; // start on the line, clear of the rail reference body
+        slider.invMass = 1.0f;
+        const uint32_t sid = w.add(slider);
+
+        // A 45-degree groove direction (need not be unit).
+        Joint2D g;
+        g.type = Joint2D::Groove;
+        g.a = static_cast<int>(rid);
+        g.b = static_cast<int>(sid);
+        g.localA = math::vec2(0.0f, 0.0f);
+        g.axis = math::vec2(1.0f, 1.0f); // down-right diagonal
+        g.anchorB = math::vec2(0.0f, 0.0f);
+        w.addJoint(g);
+
+        const math::vec2 perp(-axis.y, axis.x);
+        float maxOff = 0.0f, maxAlong = 0.0f;
+        for (int i = 0; i < 200; ++i) {
+            w.step(1.0f / 60.0f, 8);
+            const math::vec2 p = w.bodies[1].pos;
+            maxOff = std::max(maxOff, std::fabs(glm::dot(p, perp)));   // off-line drift
+            maxAlong = std::max(maxAlong, std::fabs(glm::dot(p, axis))); // travel along the rail
+        }
+        CHECK(maxOff < 1.0f);    // stayed on the groove line
+        CHECK(maxAlong > 40.0f); // and actually slid down the incline (started at along=20)
+    }
+}
+
 void testAudioDsp() {
     const float sr = 44100.0f;
 
@@ -3552,6 +3632,7 @@ int main() {
     testPhysics2D();
     testPhysics2DRotation();
     testPhysics2DJoints();
+    testPhysics2DGroove();
     testAudioDsp();
     testSpatial2D();
     testTwoBoneIK();

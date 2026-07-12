@@ -311,9 +311,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   linear/angular damping — Godot RigidBody2D-style angular dynamics; opt-in so non-rotating scenes are
   unchanged; the `tumble` demo drops tilted boxes that topple and settle; M91)
 - [x] **2D physics joints** (`game::Joint2D`: a **Pin** point-to-point constraint (2×2 effective mass +
-  Baumgarte) and a **damped Spring**, solved by sequential impulses in the oriented step; either end may
-  be a fixed world anchor — Godot PinJoint2D / DampedSpringJoint2D; the `joints` demo builds a pin-chain
-  rope bridge + spring-hung masses; M93) — 2-point stacks / warm starting later
+  Baumgarte), a **damped Spring**, and a **Groove**/slider (a body pinned to a line, free to slide along
+  it) — Godot PinJoint2D / DampedSpringJoint2D / GrooveJoint2D; solved by sequential impulses in the
+  oriented step; either end may be a fixed world anchor; the `joints` demo builds a pin-chain rope bridge
+  + spring-hung masses and the `groove` demo slides boxes down tilted rails; M93, M102) — 2-point stacks
+  / warm starting later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
@@ -488,6 +490,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
 - [x] **Physics joints** (`apps/joints`) — a pin-jointed rope bridge sagging into a catenary + masses
       hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
+- [x] **Groove/slider joints** (`apps/groove`) — three boxes pinned to tilted rails, each sliding down
+      its incline (not straight down) and settling against a stop (`game::Joint2D::Groove`) (M102)
 - [x] **Positional audio** (`apps/spatial2d`) — a listener + sound sources with per-source distance
       attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
 - [x] **Text input form** (`apps/form`) — an editable account-settings form: click/Tab to focus a

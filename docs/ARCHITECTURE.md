@@ -80,7 +80,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
             opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
             rotational impulses about the contact point, linear/angular damping; JOINTS: Joint2D
-            Pin (point constraint) + damped Spring, sequential-impulse solved with world anchors),
+            Pin (point constraint) + damped Spring + Groove/slider (a body pinned to a line, free to
+            slide along it), sequential-impulse solved — Godot PinJoint2D/DampedSpringJoint2D/GrooveJoint2D),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
@@ -187,6 +188,8 @@ apps/
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
+  groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not
+              straight down) and settling against a stop (game::Joint2D::Groove)
 ```
 
 ## The frame loop (fixed timestep)

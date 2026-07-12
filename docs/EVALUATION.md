@@ -1378,13 +1378,41 @@ geometry with a striking side-by-side golden, so it was the clear rendering pick
   additive fans; it is not a GPU shadow-map blur, and the lights are still flat-coloured (no
   normal-mapped / textured 2D lights) — those remain.
 
+### Iteration 63 — "Benchmarking against Godot: groove / slider joints" (done)
+Continuing the Godot benchmark; physics was the most overdue subsystem. Maz's Joint2D (M93) had a Pin
+and a damped Spring — but Godot ships a THIRD 2D joint, GrooveJoint2D: a body pinned to a *line* (a
+rail), free to slide along it but held on it. It's the exact missing piece to complete Godot's 2D joint
+set, and (unlike a box-stacking solver rewrite) it slots into the existing sequential-impulse step as a
+new constraint without touching the Pin/Spring paths — so it's a clean, low-risk, additive physics win
+with a crisp settling golden.
+- [x] **M102 — Groove / slider joint (`Joint2D::Groove`)**: a new joint type plus a `solveGroove`
+  constraint. Given a groove body `g`, a slider `s`, a groove anchor + `axis` (local to `g`), and the
+  slider's anchor, it projects the slider anchor onto the groove line (so the torque arms are correct),
+  then applies a single impulse along the groove *normal* (with a Baumgarte position bias) to cancel
+  off-line motion while leaving motion along the axis free — make `g` static for a world-fixed rail. The
+  only change to the existing solver is one added `else if` in the joint dispatch and two new
+  fields/enum value on `Joint2D`; the Pin and Spring paths are untouched, so **every existing physics
+  golden (physics, boxes, tumble, joints) is byte-identical** — confirmed RMSE 0 across the board.
+  `testPhysics2DGroove` checks it exactly: a slider started off a horizontal groove is pulled onto the
+  line (|y|<0.2) while its along-groove x is left free (unchanged); and on a 45° groove under gravity the
+  body's perpendicular drift stays <1 the whole time while it slides >40 units down the incline. Unit
+  count **3608 → 3612**. The new `groove` demo drops three boxes onto tilted rails at different angles —
+  each slides down its own incline (not straight down) and settles against a stop block, a static
+  equilibrium so the render is deterministic. On lavapipe all three boxes rest correctly at the low ends
+  of their rails. New `groove_headless_smoke` + golden (settled, RMSE 0, threshold 0.06). ctest
+  **58/58**. Honest scope: this completes the 2D joint TRIO (pin/spring/groove); it is not a full
+  constraint zoo (no motorized/limited slider, gear, or weld joints), and the broader box-stacking
+  stability work (2-point warm-started manifolds) is still open.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): normal-mapped / textured 2D lights (M101 gives soft shadows but
-lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the timeline
+Later (Godot-gap priorities + backlog): 2-point (warm-started) contact manifolds for stable box STACKS +
+motorized/limited slider + gear/weld joints (M102 completes the pin/spring/groove trio); normal-mapped /
+textured 2D lights (M101 gives soft shadows but lights are still flat-coloured); call-method/trigger
+tracks + a visual track editor on the timeline
 (M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer (per-voice
 bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA
 half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
@@ -1393,8 +1421,7 @@ integrated IK modifications (M97 gives closed-form 2-bone IK); 47-tile Wang auto
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
 TextEdit + UI themes/StyleBox + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
 audio + doppler + WAV/OGG loading (M94 gives 2D pan/attenuation); animation blend *trees* (state-machine
-over blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS
-+ more joint types (groove/slider) building on M93's pin/spring; 3D rigid-body physics; GPU particles;
+over blend spaces) + IK (M92 gives blend spaces); 3D rigid-body physics; GPU particles;
 navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation
 import, prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph,
 noise-driven tilemap/cave generation, localization / string tables, order-independent transparency,
