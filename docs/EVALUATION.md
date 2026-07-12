@@ -1024,16 +1024,38 @@ that prerequisite (also a Godot feature in its own right: `draw_colored_polygon`
   golden check then ctest run one at a time). ctest **45/45**. Unit count steady at **3389** (this is a
   render-path feature, exercised by the golden rather than the CPU unit suite).
 
+### Iteration 50 — "Benchmarking against Godot: 2D lights + shadows" (done)
+Continuing the Godot benchmark. With arbitrary polygon fill in hand (M88), the top-ranked closable gap —
+2D dynamic lights that cast shadows (Godot's `Light2D` + `LightOccluder2D`) — was finally buildable.
+- [x] **M89 — 2D lights + shadows (`game::Visibility2D` + `Renderer::drawPolygonFan`)**: a point light's
+  lit region is the polygon of everything it can see past a set of blocking segments. `game::Visibility2D`
+  computes it with the classic **angle-sweep**: add the four bounding-box edges as occluders, cast a ray
+  toward every occluder endpoint (nudged ±0.00015 rad to slip past corners), keep the nearest hit, and
+  return the hits in angular order — a star-shaped visibility polygon. The notches it carves out behind
+  occluders **are** the shadows: hard-edged and geometrically exact, not a blur. Rendering it needed one
+  new renderer primitive: `drawPolygonFan(PolyVertex*, count)` — a triangle fan where **each vertex
+  carries its own color**, so the light can be bright at the center and fade to zero alpha at the rim
+  (a finite-radius glow). It reuses the same batched sprite pipeline + 1×1 white texture as
+  `drawConvexPolygon`, so it costs no new pipeline and alpha-composites over the dark room. The geometry
+  is pure 2D math (no GPU), so it unit-tests directly: a `testVisibility2D` covers ray/segment
+  intersection, an empty room (every interior point lit), and a wall casting a shadow (point behind the
+  wall is *not* contained, point in front *is*). The new `lights2d` demo lights a near-black room with
+  three colored lights (warm / cool / magenta) and four solid boxes; on lavapipe the light pools and the
+  boxes' shadow wedges render exactly as intended (no validation errors). New `lights2d_headless_smoke`
+  + golden (RMSE 0, threshold 0.05). The renderer change is additive (a non-pure virtual with a no-op
+  default), so every existing 2D/3D golden is unchanged — confirmed by a serial golden run (strays
+  killed first; golden check then ctest one at a time). ctest **46/46**. Unit count **3389 → 3399**.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): **2D lights + shadows** (now unblocked by drawConvexPolygon —
-radial light polygons + occluder shadow geometry); 3D rigid-body physics + joints; audio buses/effects
-+ 3D spatial audio; animation blend trees / IK; UI text input + focus nav + themes; GPU particles;
-navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse) in Physics2D,
-parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints
-on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave
-generation, localization / string tables, order-independent transparency, material/uniform system,
-cross-platform CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): normal-mapped / textured 2D lights + soft (penumbra) shadows +
+additive blending for the 2D light path (M89 is hard-edged, alpha-blended, flat); 3D rigid-body physics
++ joints; audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text input + focus nav
++ themes; GPU particles; navmesh dynamic obstacles + agent avoidance; plus box rotation (angular impulse)
+in Physics2D, parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
+prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
+tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
+system, cross-platform CI, a deterministic hold-frame screenshot mode.

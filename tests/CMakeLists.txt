@@ -357,6 +357,14 @@ set_tests_properties(vectors_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME lights2d_headless_smoke
+    COMMAND lights2d --headless --frames 30)
+
+set_tests_properties(lights2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

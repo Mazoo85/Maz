@@ -42,6 +42,12 @@ struct Point2 {
     float x = 0.0f, y = 0.0f;
 };
 
+// A 2D polygon vertex carrying its own color (for gradient fills / light pools).
+struct PolyVertex {
+    float x = 0.0f, y = 0.0f;
+    Color color{1.0f, 1.0f, 1.0f, 1.0f};
+};
+
 // 2D camera. Defaults to pixel-space matching the framebuffer (origin top-left, y-down).
 struct Camera2D {
     float centerX = 0.0f, centerY = 0.0f; // world point at the viewport center (0 = use default)
@@ -136,6 +142,13 @@ public:
         (void)points;
         (void)count;
         (void)color;
+    }
+    // A triangle fan from verts[0] with PER-VERTEX color (interpolated) — for gradients: 2D light
+    // pools (bright center, faded rim), soft fills. verts[0] must "see" every other vertex (the shape
+    // is a fan / star around it). Alpha-blended. No-op when inactive.
+    virtual void drawPolygonFan(const PolyVertex* verts, uint32_t count) {
+        (void)verts;
+        (void)count;
     }
 
     // --- 3D meshes (Phase 3) ---

@@ -336,6 +336,14 @@ available):
   alpha-composite like everything else. The new `vectors` demo draws regular N-gons (triangle through
   octagon), a 64-sided "circle," and three overlapping translucent triangles. This also unblocks 2D
   lights/shadows (which need polygon light/occluder meshes) in a later loop
+- **M89** — 2D lights + shadows, toward Godot's `Light2D` / `LightOccluder2D`: `game::Visibility2D`
+  computes, from a point light, the polygon of everything it can see given a set of blocking segments
+  (the classic angle-sweep algorithm — cast a ray toward each occluder corner, keep the nearest hit).
+  A new per-vertex-color `Renderer::drawPolygonFan` renders that polygon as a gradient triangle fan:
+  bright at the light, faded to nothing at the rim. The notches the algorithm carves out behind
+  occluders **are** the shadows — hard-edged, geometrically exact. The new `lights2d` demo lights a
+  dark room with three colored lights and four solid boxes that cast real shadows. The visibility
+  geometry is pure 2D math, so it unit-tests without a GPU
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

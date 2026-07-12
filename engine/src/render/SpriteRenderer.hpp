@@ -38,6 +38,8 @@ public:
     void draw(TextureHandle tex, const SpriteDesc& s);
     // Fill a convex polygon (triangle fan from points[0]) with a flat color, using `whiteTex`.
     void fillPolygon(TextureHandle whiteTex, const Point2* points, uint32_t count, const Color& color);
+    // Fill a triangle fan from verts[0] with per-vertex (interpolated) color, using `whiteTex`.
+    void fillPolygonFan(TextureHandle whiteTex, const PolyVertex* verts, uint32_t count);
     void flush(VkCommandBuffer cmd, uint32_t frameIndex); // record the batched draws
 
 private:

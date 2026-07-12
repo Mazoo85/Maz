@@ -67,6 +67,7 @@ CASES=(
     "uilayout||2.5|0.05"
     "navmesh||2.5|0.05"
     "vectors||2.5|0.05"
+    "lights2d||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

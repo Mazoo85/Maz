@@ -29,6 +29,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
@@ -326,6 +327,43 @@ void testNavMesh() {
         nm.addPolygon(square(0, 0, 10, 10));
         nm.build();
         CHECK(nm.findPath(vec2{5, 5}, vec2{50, 50}).empty());
+    }
+}
+
+void testVisibility2D() {
+    using math::vec2;
+    const vec2 bmin{0, 0}, bmax{100, 100};
+
+    // raySegment: horizontal ray from the origin hits a vertical wall at x=5.
+    {
+        const float t = game::Visibility2D::raySegment(vec2{0, 0}, vec2{1, 0}, vec2{5, -5}, vec2{5, 5});
+        CHECK_NEAR(t, 5.0f, 1e-3f);
+        // A ray pointing away from the wall misses.
+        const float miss = game::Visibility2D::raySegment(vec2{0, 0}, vec2{-1, 0}, vec2{5, -5}, vec2{5, 5});
+        CHECK(miss < 0.0f);
+    }
+
+    // Empty room: the light sees the whole box, so any interior point is inside the polygon.
+    {
+        auto poly = game::Visibility2D::compute(vec2{50, 50}, {}, bmin, bmax);
+        CHECK(poly.size() >= 4);
+        CHECK(game::Visibility2D::contains(poly, vec2{10, 10}));
+        CHECK(game::Visibility2D::contains(poly, vec2{90, 90}));
+        CHECK(game::Visibility2D::contains(poly, vec2{50, 5}));
+        // A point outside the room is not lit.
+        CHECK(!game::Visibility2D::contains(poly, vec2{150, 50}));
+    }
+
+    // A wall casts a shadow: light on the left, a vertical occluder in the middle.
+    {
+        std::vector<game::Segment2> occ{game::Segment2{vec2{50, 40}, vec2{50, 60}}};
+        auto poly = game::Visibility2D::compute(vec2{10, 50}, occ, bmin, bmax);
+        // In front of the wall (between light and wall) is lit.
+        CHECK(game::Visibility2D::contains(poly, vec2{30, 50}));
+        // Directly behind the wall is in shadow.
+        CHECK(!game::Visibility2D::contains(poly, vec2{90, 50}));
+        // Above the wall's span, the light still reaches the far corner.
+        CHECK(game::Visibility2D::contains(poly, vec2{90, 90}));
     }
 }
 
@@ -2672,6 +2710,7 @@ int main() {
     testSpatialGrid();
     testNavGrid();
     testNavMesh();
+    testVisibility2D();
     testPhysics2D();
     testBehaviorTree();
     testSteering();

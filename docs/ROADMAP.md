@@ -213,7 +213,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   world-bounds clamp + shake offset + worldToScreen; the `camera` demo tracks an avatar in a large world; M82)
 - [x] **2D:** filled convex polygons (`Renderer::drawConvexPolygon`: triangle-fan flat shapes streamed
   through the sprite batch via a 1×1 white texture — Godot Polygon2D-style vector shapes; the `vectors`
-  demo draws N-gons + a disc + translucent overlaps; M88) — unblocks 2D lights/shadows next
+  demo draws N-gons + a disc + translucent overlaps; M88)
+- [x] **2D:** lights + shadows (`game::Visibility2D` angle-sweep visibility polygon + a per-vertex-color
+  gradient fan `Renderer::drawPolygonFan` — Godot Light2D / LightOccluder2D-style; occluder boxes carve
+  real hard-edged shadow notches out of each light pool; the `lights2d` demo lights a dark room with three
+  colored lights; M89)
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -433,6 +437,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       string-pulling (M87)
 - [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent
       overlapping triangles via `drawConvexPolygon` (M88)
+- [x] **2D lights + shadows** (`apps/lights2d`) — a dark room lit by three colored lights, each a
+      visibility polygon (`game::Visibility2D`) rendered as a gradient fan, with solid occluder boxes
+      casting real hard-edged shadows (M89)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

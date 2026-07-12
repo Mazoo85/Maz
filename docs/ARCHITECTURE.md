@@ -41,7 +41,8 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
                                optional ACES tonemap/exposure
               TextureStore   — shared texture registry (one descriptor layout, used by 2D + 3D)
               VulkanBuffer/Texture, SpriteRenderer — batched textured 2D sprites + convex-polygon fill
-                               (drawConvexPolygon: triangle-fan flat shapes via a 1×1 white texture)
+                               (drawConvexPolygon: triangle-fan flat shapes via a 1×1 white texture) +
+                               per-vertex-color gradient fans (drawPolygonFan: 2D light pools / shadows)
               MeshRenderer   — textured 3D meshes; ambient + shadow-mapped sun + 8 point/spot lights
                                + dynamic sky + distance fog + normal mapping + emissive + specular
                                (Material) + wireframe debug draw + instancing + transparency.
@@ -71,7 +72,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking),
-            CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake)
+            CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
+            Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
+            corners, keep nearest hits; point-in-polygon test)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
@@ -135,6 +138,8 @@ apps/
               a smooth path that hugs the pillar's corner (polygon nav, beyond grid A*)
   vectors/  Filled polygons — regular N-gons, a 64-gon "circle", and overlapping translucent triangles
               via Renderer::drawConvexPolygon (Godot Polygon2D-style vector shapes, alpha-composited)
+  lights2d/ 2D lights + shadows — a dark room lit by three colored lights, each a visibility polygon
+              (game::Visibility2D) rendered as a gradient fan, with solid boxes casting real shadows
 ```
 
 ## The frame loop (fixed timestep)

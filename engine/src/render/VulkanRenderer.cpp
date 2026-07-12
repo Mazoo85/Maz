@@ -41,6 +41,7 @@ public:
     void setCamera2D(const Camera2D& camera) override;
     void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
     void drawConvexPolygon(const Point2* points, uint32_t count, Color color) override;
+    void drawPolygonFan(const PolyVertex* verts, uint32_t count) override;
 
     MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
                           const uint32_t* indices, uint32_t indexCount) override;
@@ -407,6 +408,12 @@ void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite)
 void VulkanRenderer::drawConvexPolygon(const Point2* points, uint32_t count, Color color) {
     if (m_active) {
         m_sprites.fillPolygon(m_whiteTex, points, count, color);
+    }
+}
+
+void VulkanRenderer::drawPolygonFan(const PolyVertex* verts, uint32_t count) {
+    if (m_active) {
+        m_sprites.fillPolygonFan(m_whiteTex, verts, count);
     }
 }
 
