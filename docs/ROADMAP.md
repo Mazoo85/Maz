@@ -370,6 +370,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
   in `world`; M53)
+- [x] **2D physics-space queries** (`game::queryRay` / `querySegment` / `queryPoint` in `PhysicsQuery2D`:
+  cast a ray/segment against circle + **oriented-box** shapes and get the nearest `RayHit2D`
+  (t / point / normal / index / id), filtered by a 32-bit collision **mask**; `queryPoint` / `pointInShape`
+  answer which shapes contain a point — Godot `PhysicsDirectSpaceState2D.intersect_ray` / `intersect_point`,
+  the primitive behind hitscan, line-of-sight, ground probes, and mouse picking; pure geometry, no sim step;
+  the `rayquery` demo fans mask-filtered rays through a glass layer onto solids with contact normals + a
+  point-pick; M131) — convex/capsule shapes, `intersect_shape` / shape-casts, and a broadphase-accelerated
+  query later
 - [ ] Other collision shapes, sphere/capsule casts, triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [~] Continuous collision, **layers / masks** (`game::CollisionLayers`, M118), physics materials

@@ -47,6 +47,7 @@
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/Physics2D.hpp"
+#include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
@@ -4714,6 +4715,167 @@ void testPhysics2DGroove() {
     }
 }
 
+void testPhysicsQuery2D() {
+    using game::QueryShape2D;
+    using game::RayHit2D;
+
+    // Ray straight at a circle: hits the near surface, correct distance + outward normal.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.kind = QueryShape2D::Circle;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        c.id = 7;
+        shapes.push_back(c);
+
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 0.0f), shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.t, 4.0f, 1e-4f);
+        CHECK_NEAR(h.point.x, 4.0f, 1e-4f);
+        CHECK_NEAR(h.point.y, 0.0f, 1e-4f);
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-4f); // points back toward the ray origin
+        CHECK_NEAR(h.normal.y, 0.0f, 1e-4f);
+        CHECK(h.index == 0);
+        CHECK(h.id == 7);
+    }
+
+    // A ray that misses the circle entirely.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        shapes.push_back(c);
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(0.0f, 1.0f), shapes);
+        CHECK(!h.hit);
+    }
+
+    // A dir that need not be normalized still yields distance in world units.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        shapes.push_back(c);
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.t, 4.0f, 1e-4f);
+    }
+
+    // Ray at an axis-aligned box: enters the -X face.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(5.0f, 0.0f);
+        b.half = math::vec2(1.0f, 1.0f);
+        b.angle = 0.0f;
+        shapes.push_back(b);
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 0.0f), shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.t, 4.0f, 1e-4f);
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-4f);
+        CHECK_NEAR(h.normal.y, 0.0f, 1e-4f);
+    }
+
+    // A box rotated 45 degrees presents a corner toward the ray: the ray along +X hits the diamond at
+    // x = 5 - halfDiagonal (half=1 → diagonal reach sqrt(2) ~ 1.4142), with a normal pointing back -X-ish.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(5.0f, 0.0f);
+        b.half = math::vec2(1.0f, 1.0f);
+        b.angle = 3.14159265f / 4.0f;
+        shapes.push_back(b);
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 0.0f), shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.t, 5.0f - std::sqrt(2.0f), 1e-3f);
+        CHECK(h.normal.x < 0.0f); // a face whose outward normal has a -X component
+    }
+
+    // queryRay returns the NEAREST of several shapes.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D farC;
+        farC.pos = math::vec2(9.0f, 0.0f);
+        farC.radius = 1.0f;
+        farC.id = 1;
+        QueryShape2D nearC;
+        nearC.pos = math::vec2(4.0f, 0.0f);
+        nearC.radius = 1.0f;
+        nearC.id = 2;
+        shapes.push_back(farC);
+        shapes.push_back(nearC);
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 0.0f), shapes);
+        CHECK(h.hit);
+        CHECK(h.id == 2); // the closer one
+        CHECK_NEAR(h.t, 3.0f, 1e-4f);
+    }
+
+    // A bounded segment stops short: a shape beyond the segment end is not hit.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        shapes.push_back(c);
+        // Segment ends at x=3 (before the circle at x=4..6): no hit.
+        const RayHit2D miss = game::querySegment(math::vec2(0.0f, 0.0f), math::vec2(3.0f, 0.0f), shapes);
+        CHECK(!miss.hit);
+        // Segment reaching x=4.5 (into the circle) hits.
+        const RayHit2D hit = game::querySegment(math::vec2(0.0f, 0.0f), math::vec2(4.5f, 0.0f), shapes);
+        CHECK(hit.hit);
+    }
+
+    // Layer/mask filtering: a shape whose layer misses the query mask is skipped, so a farther shape on
+    // the matching layer is the reported hit.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D wall;
+        wall.pos = math::vec2(3.0f, 0.0f);
+        wall.radius = 0.5f;
+        wall.layer = 0x1; // "walls"
+        wall.id = 100;
+        QueryShape2D enemy;
+        enemy.pos = math::vec2(6.0f, 0.0f);
+        enemy.radius = 0.5f;
+        enemy.layer = 0x2; // "enemies"
+        enemy.id = 200;
+        shapes.push_back(wall);
+        shapes.push_back(enemy);
+        // Query only the enemy layer: the nearer wall is ignored.
+        const RayHit2D h = game::queryRay(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 0.0f), shapes, 1e30f,
+                                          0x2);
+        CHECK(h.hit);
+        CHECK(h.id == 200);
+    }
+
+    // pointInShape / queryPoint: mouse-pick semantics for a circle and a rotated box.
+    {
+        QueryShape2D c;
+        c.pos = math::vec2(0.0f, 0.0f);
+        c.radius = 2.0f;
+        CHECK(game::pointInShape(math::vec2(1.0f, 1.0f), c));   // inside
+        CHECK(!game::pointInShape(math::vec2(2.0f, 2.0f), c));  // outside (dist ~2.83 > 2)
+
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(0.0f, 0.0f);
+        b.half = math::vec2(2.0f, 1.0f);
+        b.angle = 3.14159265f / 2.0f; // 90-degree rotation swaps the effective extents
+        CHECK(game::pointInShape(math::vec2(0.0f, 1.8f), b));   // inside the rotated (now tall) box
+        CHECK(!game::pointInShape(math::vec2(1.8f, 0.0f), b));  // outside along the now-narrow axis
+
+        std::vector<QueryShape2D> shapes;
+        shapes.push_back(c);
+        shapes.push_back(b);
+        const std::vector<int> inside = game::queryPoint(math::vec2(0.0f, 0.0f), shapes);
+        CHECK(inside.size() == 2); // origin is inside both
+    }
+}
+
 void testManifold2() {
     using game::Body2D;
     namespace d = game::detail;
@@ -6321,6 +6483,7 @@ int main() {
     testPhysics2DRotation();
     testPhysics2DJoints();
     testPhysics2DGroove();
+    testPhysicsQuery2D();
     testManifold2();
     testNormalLight();
     testParallax();

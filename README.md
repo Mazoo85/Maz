@@ -700,6 +700,13 @@ available):
   `buildWireBox` emits the 12 edges of a placeable wireframe box. Pure geometry (colored line segments) drawn
   through the existing `drawLine` path — no shared shader change. The new `grid3d` demo draws the grid, gizmo,
   and a wire box under a fixed editor-style camera.
+- **M131** — **2D physics-space queries** (`game::queryRay` / `querySegment` / `queryPoint`), toward
+  Godot's `PhysicsDirectSpaceState2D`: Maz had rigid-body *dynamics* but no way to ask the collider set a
+  spatial question — the primitive behind hitscan weapons, line-of-sight, ground probes, and mouse
+  picking. `queryRay` returns the nearest hit (distance, point, normal, id) among circle + oriented-box
+  shapes filtered by a collision mask; `queryPoint` reports which shapes contain a point. The new
+  `rayquery` demo fans hitscan rays that pass through a "glass" layer and stop on "solid", with contact
+  normals drawn and a point-picked shape highlighted.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

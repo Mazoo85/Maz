@@ -124,6 +124,7 @@ add_subdirectory(apps/restext)
 add_subdirectory(apps/signals)
 add_subdirectory(apps/wav)
 add_subdirectory(apps/grid3d)
+add_subdirectory(apps/rayquery)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

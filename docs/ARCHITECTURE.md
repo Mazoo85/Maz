@@ -117,6 +117,10 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             slide along it), sequential-impulse solved — Godot PinJoint2D/DampedSpringJoint2D/GrooveJoint2D;
             opt-in TWO-point contact manifolds (reference/incident-face clipping, solveManifolds) for
             torque-balanced stable box stacks),
+            PhysicsQuery2D (2D physics-space queries — Godot PhysicsDirectSpaceState2D: queryRay/querySegment
+            return the nearest hit (t/point/normal/id) among circle+oriented-box shapes filtered by a
+            collision mask; queryPoint/pointInShape = intersect_point for mouse picking — pure geometry,
+            no sim step),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
@@ -246,6 +250,8 @@ apps/
               oscilloscope beside the parsed RIFF/WAVE header (audio::Wav)
   grid3d/    3D editor viewport reference — a fixed camera over an XZ ground grid + the RGB origin gizmo +
               a wireframe box on the floor, all built by render::buildGrid / buildWireBox and drawn via drawLine
+  rayquery/  2D physics queries — a muzzle fans hitscan rays that pass through a glass layer and stop on the
+              first solid circle/box (game::queryRay, mask-filtered), with contact normals + a point-picked shape
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

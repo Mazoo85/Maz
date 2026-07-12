@@ -2274,6 +2274,39 @@ unit-tests headlessly and draws through the existing debug-line path — **no sh
   picking — those need the shipping editor UI that this headless sandbox can't host. It gives the viewport
   its spatial frame of reference, not its mouse-driven tooling.
 
+### Iteration 92 — "Benchmarking against Godot: 2D physics-space queries" (done)
+Rotating to **2D physics** for breadth (last physics was M110/M111, ~20 rounds back) and closing a
+foundational gap: Maz had rigid-body *dynamics* (Physics2D — integration, contacts, joints) but **no way
+to ASK the collider set a spatial question without stepping the simulation**. Godot exposes this as
+`PhysicsDirectSpaceState2D` — `intersect_ray` / `intersect_point` — and it's the primitive behind an
+enormous amount of gameplay: hitscan weapons, line-of-sight/AI vision, ground and wall probes, and
+mouse picking. It's pure geometry against static shape descriptions, so it unit-tests exhaustively and
+renders a clean deterministic golden.
+- [x] **M131 — 2D physics-space queries (`game::queryRay` / `querySegment` / `queryPoint`)**: a new
+  `PhysicsQuery2D.hpp`. `QueryShape2D` describes a circle or an **oriented** box (center, radius/half,
+  angle) plus a 32-bit collision `layer` and a user `id`. `queryRay(origin, dir, shapes, maxDist, mask)`
+  returns the **nearest** `RayHit2D` (distance, world contact point, surface normal pointing back toward
+  the origin, shape index + id) among shapes whose `layer & mask` is non-zero — Godot collision-mask
+  semantics, so a caller can probe "only walls" and pass through everything else. Ray-vs-circle is the
+  standard quadratic (origin-inside → t=0); ray-vs-oriented-box rotates the ray into the box's local
+  frame, runs a slab test, and rotates the entry normal back to world. `querySegment(a, b, …)` is the
+  bounded-length wrapper; `pointInShape` / `queryPoint` implement `intersect_point` (which shapes contain
+  a point) for mouse picking. `testPhysicsQuery2D` pins: a circle hit's distance/point/normal/id; a clean
+  miss; a non-normalized direction still giving world-unit distance; an axis-aligned box face normal; a
+  **45°-rotated** box hit at `5 − √2` with a −X-facing normal; nearest-of-several selection; a segment
+  that stops short vs one that reaches; **layer-mask filtering** (a nearer wall on an unqueried layer is
+  skipped for the farther enemy); and point-in-circle / point-in-rotated-box + a two-shape `queryPoint`.
+  Unit checks **4537 → 4567**. The new `rayquery` demo fans 15 hitscan rays from a muzzle through a
+  translucent **glass** pane (a layer the ray mask ignores) into a field of solid circles + oriented
+  boxes, drawing each ray to its first solid hit with a red contact dot + normal stub, and highlighting a
+  point-picked circle in green. Static scene → deterministic golden (threshold 0.06). Purely additive
+  (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run);
+  ctest **86/86 → 87/87**. Honest scope: this is the ray/point/segment query set against circles and
+  boxes. It does **not** yet include convex-polygon or capsule shapes, a full `intersect_shape` /
+  shape-cast (sweep a moving shape and get the time-of-impact), a broadphase acceleration structure
+  (queries are linear over the shape list — fine for hundreds, not thousands), or motion-query
+  integration with the rigid-body solver (`move_and_collide`); those remain physics gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
