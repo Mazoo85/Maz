@@ -160,8 +160,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (`game/`) — Anchorage tile worldgen, item DB + themed loot tables, player needs/stats decay,
       melee + ranged combat, zombie AI + hordes, day/night + wave spawning, seeded-reproducible via
       `zb::Rng`. Runs headless (`apps/zomboid`) and is unit-tested in CI (`tests/zomboid_tests`),
-      no GPU required. **Next:** bridge the sim to the Vulkan sprite/tilemap renderer + SDL input
-      + audio so it's playable in a window. See `docs/ZOMBOID_PORT.md`.
+      no GPU required. A dependency-free **software reference rasterizer** (`zomboid/render/`) draws
+      the neon scene + a world-map overview to a CPU framebuffer and out to PNG (`--render`), so the
+      port is visually verifiable headless (and seeds Phase 12 golden-image tests). **Next:** bridge
+      the same draw intent to the Vulkan sprite/tilemap renderer + SDL input + audio so it's playable
+      in a window. See `docs/ZOMBOID_PORT.md`.
 
 ---
 

@@ -11,8 +11,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <string>
 
 #include "zomboid/Sim.hpp"
+#include "zomboid/render/SoftRenderer.hpp"
+
+#include "Png.hpp"
 
 namespace {
 
@@ -37,6 +41,10 @@ int main(int argc, char** argv) {
     int ticks = 1800; // 30 game-seconds at 60 Hz
     uint64_t seed = 1;
     bool quiet = false;
+    std::string renderPath;    // if set, write a PNG frame after the run
+    bool renderMap = false;    // whole-world overview instead of the game viewport
+    int imgW = 960, imgH = 720;
+    int tilePx = 16;
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--ticks") == 0 && i + 1 < argc) {
@@ -45,8 +53,20 @@ int main(int argc, char** argv) {
             seed = static_cast<uint64_t>(std::strtoull(argv[++i], nullptr, 10));
         } else if (std::strcmp(argv[i], "--quiet") == 0) {
             quiet = true;
+        } else if (std::strcmp(argv[i], "--render") == 0 && i + 1 < argc) {
+            renderPath = argv[++i];
+        } else if (std::strcmp(argv[i], "--map") == 0) {
+            renderMap = true;
+        } else if (std::strcmp(argv[i], "--width") == 0 && i + 1 < argc) {
+            imgW = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--height") == 0 && i + 1 < argc) {
+            imgH = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--tile") == 0 && i + 1 < argc) {
+            tilePx = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--help") == 0) {
-            std::printf("usage: zomboid [--ticks N] [--seed S] [--quiet]\n");
+            std::printf("usage: zomboid [--ticks N] [--seed S] [--quiet]\n"
+                        "               [--render out.png [--map] [--width W] [--height H] "
+                        "[--tile PX]]\n");
             return 0;
         }
     }
@@ -95,5 +115,22 @@ int main(int argc, char** argv) {
     std::printf("kills=%d  swings=%d  z_alive=%d  inv=%zu/%d  weapon=%s%s\n", sim.kills(),
                 meleeSwings, sim.aliveZombies(), p.inv.size(), p.slots, p.weapon.c_str(),
                 p.dead ? "  *** DEAD ***" : "");
+
+    if (!renderPath.empty()) {
+        zb::Framebuffer fb(imgW, imgH);
+        if (renderMap) {
+            zb::renderWorldMap(sim, fb);
+        } else {
+            zb::RenderOptions opts;
+            opts.tilePx = tilePx;
+            zb::renderScene(sim, fb, opts);
+        }
+        if (zbpng::write(renderPath, imgW, imgH, fb.pixels())) {
+            std::printf("wrote %dx%d frame -> %s\n", imgW, imgH, renderPath.c_str());
+        } else {
+            std::printf("ERROR: could not write %s\n", renderPath.c_str());
+            return 1;
+        }
+    }
     return 0;
 }

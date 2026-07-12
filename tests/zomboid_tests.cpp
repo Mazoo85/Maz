@@ -7,6 +7,7 @@
 
 #include "zomboid/Sim.hpp"
 #include "zomboid/World.hpp"
+#include "zomboid/render/SoftRenderer.hpp"
 
 namespace {
 
@@ -180,6 +181,45 @@ void testLoot() {
     CHECK(def.size() == 1u);
 }
 
+// ---- software renderer: produces a non-trivial, deterministic frame ----
+void testRender() {
+    std::printf("[render]\n");
+    zb::Sim s(7);
+    s.newGame();
+    zb::Input in;
+    in.aim = s.player().pos;
+    for (int i = 0; i < 120; i++) s.step(in);
+
+    zb::Framebuffer fb(320, 240);
+    zb::RenderOptions opts;
+    opts.tilePx = 16;
+    zb::renderScene(s, fb, opts);
+
+    // The frame must contain more than one colour (not a blank clear).
+    bool varied = false;
+    const auto& px = fb.pixels();
+    for (size_t i = 3; i < px.size(); i += 3) {
+        if (px[i] != px[0] || px[i + 1] != px[1] || px[i + 2] != px[2]) {
+            varied = true;
+            break;
+        }
+    }
+    CHECK(varied);
+
+    // Deterministic: rendering the same state twice yields identical bytes.
+    zb::Framebuffer fb2(320, 240);
+    zb::renderScene(s, fb2, opts);
+    CHECK(fb.pixels() == fb2.pixels());
+
+    // World-map overview also renders something.
+    zb::Framebuffer mapFb(200, 180);
+    zb::renderWorldMap(s, mapFb);
+    bool mapVaried = false;
+    for (size_t i = 3; i < mapFb.pixels().size(); i += 3)
+        if (mapFb.pixels()[i] != mapFb.pixels()[0]) mapVaried = true;
+    CHECK(mapVaried);
+}
+
 // ---- day/night: darkness peaks at night, zero at midday ----
 void testDayNight() {
     std::printf("[day-night]\n");
@@ -200,6 +240,7 @@ int main() {
     testConsumables();
     testCombat();
     testLoot();
+    testRender();
     testDayNight();
     std::printf("=== %d checks, %d failures ===\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

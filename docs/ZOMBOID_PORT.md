@@ -15,8 +15,12 @@ game/
     Items.hpp    ItemDef DB + themed loot tables + rollLoot()
     Sim.hpp      Player/Zombie/Bullet/Corpse + the deterministic Sim
   src/           World.cpp · Items.cpp · Sim.cpp
-apps/zomboid/    headless autopilot driver (proof-of-life; prints a run summary)
-tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot, day/night)
+    render/
+      Framebuffer.hpp  CPU RGB framebuffer (fill/blend/outline/circle/line)
+      SoftRenderer.hpp software reference rasterizer: renderScene() + renderWorldMap()
+  src/           World.cpp · Items.cpp · Sim.cpp · SoftRenderer.cpp
+apps/zomboid/    headless autopilot driver; --render writes a PNG (Png.hpp encoder)
+tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot, render, day/night)
 ```
 
 The `zomboid` library is **deliberately free of SDL3/Vulkan/GLM**: the whole simulation
@@ -51,10 +55,26 @@ post-fx) is intentionally excluded from the sim; it will live in the render laye
 - Zombie AI: sight/flashlight aggro, wander, knockback, contact damage + bite infection chance;
   sprinters. Day/night cycle drives denser/faster night waves up to a day-scaled cap.
 
+## Rendering
+
+A dependency-free **software reference rasterizer** (`zomboid/render/`) draws a `Sim` frame into a
+CPU `Framebuffer` using the neon palette — tiles + detailing, loot containers, corpses, zombies
+(with eyes/health bars), the player + facing line, bullets, and the night darkness overlay — plus
+a whole-world overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a
+tiny built-in PNG encoder (`apps/zomboid/Png.hpp`), so you can *see* the port with no GPU:
+
+```
+./build/bin/zomboid --seed 7 --render frame.png --tile 20 --width 900 --height 680
+./build/bin/zomboid --seed 7 --render map.png --map     # tactical overview
+```
+
+This is deterministic and unit-tested, and doubles as the seed for golden-image render tests
+(Phase 12). It also defines the exact draw intent the Vulkan sprite batch will reproduce on the GPU.
+
 ## What's next
 
-1. **Render bridge** — a `Camera2D` + sprite/tilemap batch on the Vulkan renderer (Phase 3),
-   drawing tiles, entities, and a HUD from `Sim` state.
+1. **Vulkan render bridge** — a `Camera2D` + sprite/tilemap batch on the Vulkan renderer (Phase 3)
+   reproducing the software rasterizer's draw intent on the GPU, plus a HUD and text rendering.
 2. **Input bridge** — map SDL keyboard/mouse (Phase 1 action-mapping) into `zb::Input`.
 3. **Audio** — chiptune SFX/music via the Phase 7 audio module.
 4. **Save/load** — serialize `Sim` state (Phase 10).
