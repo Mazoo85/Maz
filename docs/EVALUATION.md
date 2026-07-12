@@ -1517,6 +1517,33 @@ and with the same deterministic waveform-scope golden as M99, so it was the clea
   chorus/phaser/limiter/pitch-shift), and the *real-time* mixer still sums voices flatly — per-voice bus
   routing through the live SDL callback remains the deferred (headlessly-unverifiable) integration step.
 
+### Iteration 68 — "Benchmarking against Godot: multi-bone FABRIK IK" (done)
+Rotating off audio/anim-state and back to the skeleton: M97 gave a closed-form *two-bone* IK solver, but
+Godot's `SkeletonModification2DFABRIK` solves a whole *chain* of arbitrary length so a tentacle, tail, or
+multi-segment arm can reach a target while every bone keeps its length. FABRIK (Forward And Backward
+Reaching Inverse Kinematics) is the standard iterative algorithm for exactly that, it's pure math (fully
+unit-testable), and it slots additively into the existing `anim/IK.hpp`, so it was the clear
+highest-leverage closable gap this round.
+- [x] **M107 — Multi-bone FABRIK IK (`anim::solveFabrik`)**: added additively after `solveTwoBoneIK` in
+  `IK.hpp`. Takes a joint chain (`std::vector<vec2>`) and a target; captures each bone's rest length and
+  the fixed base position up front. If the target is farther than the chain's total reach, it straightens
+  the whole chain along the base→target ray (the best it can do). Otherwise it iterates: a **backward**
+  pass pins the tip to the target and drags each earlier joint inward to preserve bone length, then a
+  **forward** pass pins the base back to its anchor and pushes each later joint outward — repeating until
+  the tip is within tolerance of the target. A small `onLine` helper re-places a joint at the correct
+  distance along a direction. `testFabrik` checks it exactly: a reachable target is reached with every
+  bone length preserved and the base unmoved; a straight-up target is reached; an out-of-reach target
+  leaves the chain straightened collinearly with the tip at exactly the total reach along the target ray
+  (verified for two different unreachable targets); a single-bone chain and a degenerate <2-joint chain
+  are handled. Unit count **3719 → 3735**. The new `tentacle` demo anchors seven eight-bone chains along
+  a floor, each fanned toward its own target — the middle chains curl smoothly to reachable (green)
+  targets while the outer ones straighten toward out-of-reach (red) targets, all with visibly uniform
+  bone lengths — solved once at startup and drawn statically for a deterministic golden (RMSE 0, threshold
+  0.05). Purely additive (extended `IK.hpp` + new app), so all existing goldens — including the M97 `reach`
+  two-bone scene — are byte-unchanged, confirmed by a serial golden run (`reach` RMSE 0, `tentacle` RMSE
+  0). ctest **63/63**. Honest scope: this is position-based FABRIK; it does not yet do pole targets, per-
+  bone angle constraints, or a Skeleton2D-integrated modification stack — those remain Godot-side gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1533,8 +1560,9 @@ joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D 
 shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the
 timeline (M100 gives value tracks + per-segment easing);
 ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
-crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-
-integrated IK modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
+crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone angle
+constraints + a Skeleton2D-integrated IK modification stack (M107 gives multi-bone FABRIK chains; M97 gives
+closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
 TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
 audio + doppler + WAV/OGG loading (M94 gives 2D pan/attenuation); animation blend *trees* (state-machine

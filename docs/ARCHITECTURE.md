@@ -106,7 +106,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
               active() returns weighted states (blend-space-shaped), so states compose with blend spaces,
               Godot AnimationNodeStateMachine-style;
             solveTwoBoneIK — 2-bone inverse kinematics (law-of-cosines elbow solve + bend select +
-              straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style
+              straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style;
+            solveFabrik — multi-bone FABRIK IK (backward/forward reaching over an N-joint chain, bone
+              lengths preserved), Godot SkeletonModification2DFABRIK-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
@@ -193,6 +195,8 @@ apps/
               low-pass, high-pass, low-pass→delay bus) (audio::Biquad / audio::Delay / audio::Bus)
   reverb/   Reverb/distortion/compressor — one note (loud + quiet) scoped through a Schroeder reverb, a
               tanh distortion, and a compressor as stacked waveforms (audio::Reverb/Distortion/Compressor)
+  tentacle/ Multi-bone FABRIK IK — a row of 8-bone chains reaching for targets; reachable ones curl to
+              touch (green), out-of-reach ones straighten and point (red) (anim::solveFabrik)
   timeline/ Keyframe timeline — an arrow driven by keyed x/y/rotation/scale/colour tracks, shown as an
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24

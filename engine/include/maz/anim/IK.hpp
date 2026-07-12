@@ -3,6 +3,8 @@
 #include "maz/math/Math.hpp"
 
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 namespace maz::anim {
 
@@ -50,6 +52,66 @@ inline IKResult solveTwoBoneIK(math::vec2 root, float len1, float len2, math::ve
     r.mid = root + math::vec2(std::cos(upperAng), std::sin(upperAng)) * len1;
     r.end = target; // a 2-bone chain reaches the target exactly within its working range
     return r;
+}
+
+// Multi-bone FABRIK — Forward And Backward Reaching Inverse Kinematics (Godot's
+// SkeletonModification2DFABRIK). `joints` is the chain in order, joints[0] the fixed base; the solver
+// moves every joint so the last one reaches `target` while each bone keeps its original length. Each
+// iteration does two passes: BACKWARD pins the tip to the target and drags the chain back toward the
+// base (each joint re-placed on the line to its successor at the original bone length); FORWARD re-pins
+// the base and pushes the chain back out. It converges in a few iterations; a target beyond the chain's
+// total length is unreachable, so the chain simply straightens toward it (best effort). Pure 2D math —
+// no skeleton, no GPU — so it unit-tests headlessly and stays deterministic.
+inline void solveFabrik(std::vector<math::vec2>& joints, math::vec2 target, int iterations = 10,
+                        float tolerance = 1e-3f) {
+    const std::size_t n = joints.size();
+    if (n < 2) {
+        return;
+    }
+    // Capture original bone lengths (preserved) + the fixed base.
+    std::vector<float> len(n - 1);
+    float total = 0.0f;
+    for (std::size_t i = 0; i + 1 < n; ++i) {
+        const math::vec2 d = joints[i + 1] - joints[i];
+        len[i] = std::sqrt(glm::dot(d, d));
+        total += len[i];
+    }
+    const math::vec2 base = joints[0];
+
+    // Re-place `to` at distance `l` from `from`, along the from->to direction (keeps the bone length).
+    auto onLine = [](math::vec2 from, math::vec2 to, float l) {
+        math::vec2 d = to - from;
+        const float dl = std::sqrt(glm::dot(d, d));
+        return from + (dl > 1e-8f ? d / dl : math::vec2(1.0f, 0.0f)) * l;
+    };
+
+    const math::vec2 toT = target - base;
+    const float distT = std::sqrt(glm::dot(toT, toT));
+    if (distT > total) {
+        // Out of reach: straighten the whole chain toward the target.
+        const math::vec2 dir = distT > 1e-8f ? toT / distT : math::vec2(1.0f, 0.0f);
+        for (std::size_t i = 0; i + 1 < n; ++i) {
+            joints[i + 1] = joints[i] + dir * len[i];
+        }
+        return;
+    }
+
+    for (int it = 0; it < iterations; ++it) {
+        const math::vec2 err = joints[n - 1] - target;
+        if (std::sqrt(glm::dot(err, err)) < tolerance) {
+            break;
+        }
+        // Backward pass: tip -> target, drag the rest toward the base.
+        joints[n - 1] = target;
+        for (std::size_t i = n - 1; i-- > 0;) {
+            joints[i] = onLine(joints[i + 1], joints[i], len[i]);
+        }
+        // Forward pass: re-pin the base, push the chain back out.
+        joints[0] = base;
+        for (std::size_t i = 0; i + 1 < n; ++i) {
+            joints[i + 1] = onLine(joints[i], joints[i + 1], len[i]);
+        }
+    }
 }
 
 } // namespace maz::anim

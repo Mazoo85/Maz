@@ -495,6 +495,15 @@ available):
   on schedule). The new `reverb` demo scopes one source (a loud note + a quiet note) through each effect
   as stacked waveforms — the reverb tail rings past the notes, the distortion fattens/clips them, and the
   compressor pulls the loud note down toward the quiet one.
+- **M107** — multi-bone **FABRIK IK chains** (`anim::solveFabrik`), extending the closed-form 2-bone IK
+  (M97) toward Godot's `SkeletonModification2DFABRIK`: given a chain of joints (the first fixed) and a
+  target, Forward-And-Backward-Reaching IK iterates a backward pass (pin the tip to the target, drag the
+  chain toward the base) and a forward pass (re-pin the base, push back out), keeping every bone length,
+  until the tip reaches the target; a target past the chain's total length just straightens it. Pure 2D
+  math, unit-tested (reaches a reachable target with all bone lengths preserved and the base fixed;
+  straightens collinearly toward an unreachable target; single-bone + degenerate cases). The new
+  `tentacle` demo anchors a row of 8-bone chains along the floor, each reaching for its own target —
+  reachable ones curl to touch it (green), out-of-reach ones straighten and point (red).
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -3448,6 +3448,79 @@ void testTwoBoneIK() {
     }
 }
 
+void testFabrik() {
+    using math::vec2;
+
+    // Helper: are all bone lengths preserved vs the originals?
+    auto lengthsPreserved = [](const std::vector<vec2>& js, const std::vector<float>& orig) {
+        for (std::size_t i = 0; i + 1 < js.size(); ++i) {
+            const vec2 d = js[i + 1] - js[i];
+            const float l = std::sqrt(glm::dot(d, d));
+            if (std::fabs(l - orig[i]) > 1e-3f) return false;
+        }
+        return true;
+    };
+
+    // A 4-joint chain laid straight along +x (three unit bones, total reach 3).
+    const std::vector<float> lens = {1.0f, 1.0f, 1.0f};
+    auto fresh = [] {
+        return std::vector<vec2>{{0, 0}, {1, 0}, {2, 0}, {3, 0}};
+    };
+
+    // Reachable target: the tip lands on it, bone lengths preserved, base fixed.
+    {
+        std::vector<vec2> js = fresh();
+        anim::solveFabrik(js, vec2(2.0f, 1.5f), 20, 1e-4f);
+        const vec2 end = js.back();
+        CHECK_NEAR(end.x, 2.0f, 1e-2f);
+        CHECK_NEAR(end.y, 1.5f, 1e-2f);
+        CHECK(lengthsPreserved(js, lens));
+        CHECK_NEAR(js.front().x, 0.0f, 1e-4f); // base pinned
+        CHECK_NEAR(js.front().y, 0.0f, 1e-4f);
+    }
+
+    // A target straight up at distance 2 (< reach 3): reached exactly.
+    {
+        std::vector<vec2> js = fresh();
+        anim::solveFabrik(js, vec2(0.0f, 2.0f), 20, 1e-4f);
+        CHECK_NEAR(js.back().x, 0.0f, 1e-2f);
+        CHECK_NEAR(js.back().y, 2.0f, 1e-2f);
+        CHECK(lengthsPreserved(js, lens));
+    }
+
+    // Unreachable target (distance 5 > reach 3): the chain straightens toward it (collinear, full
+    // stretch), tip at exactly `total` from the base along the target direction.
+    {
+        std::vector<vec2> js = fresh();
+        anim::solveFabrik(js, vec2(5.0f, 0.0f), 20, 1e-4f);
+        CHECK_NEAR(js.back().x, 3.0f, 1e-3f); // straightened along +x to the full reach
+        CHECK_NEAR(js.back().y, 0.0f, 1e-3f);
+        CHECK(lengthsPreserved(js, lens));
+        // Diagonal unreachable target: tip lies on the ray to the target at distance `total`.
+        std::vector<vec2> js2 = fresh();
+        const vec2 t(6.0f, 8.0f); // distance 10 > 3
+        anim::solveFabrik(js2, t, 20, 1e-4f);
+        const vec2 dir = t / 10.0f;
+        CHECK_NEAR(js2.back().x, dir.x * 3.0f, 1e-3f);
+        CHECK_NEAR(js2.back().y, dir.y * 3.0f, 1e-3f);
+    }
+
+    // Single-bone chain (2 joints): rotates to point at a reachable target at the bone length.
+    {
+        std::vector<vec2> js{{0, 0}, {1, 0}};
+        anim::solveFabrik(js, vec2(0.0f, 1.0f), 20, 1e-4f);
+        CHECK_NEAR(js[1].x, 0.0f, 1e-3f);
+        CHECK_NEAR(js[1].y, 1.0f, 1e-3f);
+    }
+
+    // Degenerate: fewer than 2 joints is a no-op.
+    {
+        std::vector<vec2> js{{5, 5}};
+        anim::solveFabrik(js, vec2(0, 0));
+        CHECK_NEAR(js[0].x, 5.0f, 1e-6f);
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -4011,6 +4084,7 @@ int main() {
     testAudioEffects();
     testSpatial2D();
     testTwoBoneIK();
+    testFabrik();
     testBlendSpace();
     testAnimStateMachine();
     testBehaviorTree();

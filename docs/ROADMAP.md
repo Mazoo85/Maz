@@ -364,7 +364,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   locomotion machine over a scripted timeline; M105) — nested sub-state-machines / root-motion later
 - [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
   select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
-  arms solving toward targets; M97) — CCD / FABRIK multi-bone chains later
+  arms solving toward targets; M97)
+- [x] **Multi-bone FABRIK IK** (`anim::solveFabrik`: Forward-And-Backward-Reaching IK over an N-joint
+  chain — backward/forward passes preserve every bone length and reach the target, straighten when out
+  of reach — Godot SkeletonModification2DFABRIK; the `tentacle` demo curls/straightens 8-bone chains
+  toward targets; M107) — CCD + pole targets / bone constraints later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59)
 - [x] **Keyframe timeline / sequencer** (`anim::Timeline`: named `Track`s of `Keyframe`s (time→value +
@@ -532,6 +536,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (`anim::Timeline`) (M100)
 - [x] **Reverb/distortion/compressor** (`apps/reverb`) — one note scoped through a Schroeder reverb, a
       tanh distortion, and a compressor as stacked waveforms (`audio::Reverb/Distortion/Compressor`) (M106)
+- [x] **FABRIK IK chains** (`apps/tentacle`) — a row of 8-bone chains reaching for targets; reachable
+      ones curl to touch (green), out-of-reach ones straighten and point (red) (`anim::solveFabrik`) (M107)
 - [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
       vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
