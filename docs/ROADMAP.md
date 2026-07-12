@@ -174,6 +174,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] String interning / `StringId` (hashed), fixed strings
 - [x] **Event bus / signals** (`core::EventBus`: type-safe subscribe/emit/unsubscribe, per-type
   isolation, re-entrancy-safe snapshot dispatch; the `events` demo fans one event to 3 subscribers; M64)
+- [x] **Per-object named signals** (`core::Signal<Args...>`: each object owns typed named channels others
+  `connect` to — Godot signal/connect/emit; `connect`/`connectOnce`/`connectDeferred(Once)` +
+  `disconnect`/`isConnected`/`connectionCount`, immediate `emit`, snapshot-safe dispatch, and a deferred
+  queue drained by `flushDeferred`; the `signals` demo wires a Button→Player→died graph with an event log;
+  M128) — string-keyed emit-by-name + connect binds + object-lifetime auto-disconnect later
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
   headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)

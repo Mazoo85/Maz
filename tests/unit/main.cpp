@@ -28,6 +28,7 @@
 #include "maz/core/Resources.hpp"
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
+#include "maz/core/Signal.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -3721,6 +3722,112 @@ void testEventBus() {
     bus2.unsubscribe(core::EventBus::kInvalidToken);
 }
 
+void testSignal() {
+    using core::ConnectionId;
+
+    // Basic connect + emit passes the argument through; a second emit accumulates.
+    {
+        core::Signal<int> changed;
+        int sum = 0;
+        changed.connect([&](int v) { sum += v; });
+        changed.emit(5);
+        CHECK(sum == 5);
+        changed.emit(3);
+        CHECK(sum == 8);
+        CHECK(changed.connectionCount() == 1);
+    }
+
+    // Multiple handlers all fire, in connection order.
+    {
+        core::Signal<> pinged;
+        std::string order;
+        pinged.connect([&]() { order += "a"; });
+        pinged.connect([&]() { order += "b"; });
+        pinged.emit();
+        CHECK(order == "ab");
+        CHECK(pinged.connectionCount() == 2);
+    }
+
+    // Disconnect stops a handler; isConnected reflects it.
+    {
+        core::Signal<> s;
+        int n = 0;
+        const ConnectionId id = s.connect([&]() { ++n; });
+        CHECK(s.isConnected(id));
+        s.emit();
+        CHECK(n == 1);
+        CHECK(s.disconnect(id));
+        CHECK(!s.isConnected(id));
+        s.emit();
+        CHECK(n == 1); // no longer called
+        CHECK(!s.disconnect(id)); // already gone
+    }
+
+    // One-shot fires exactly once, then auto-disconnects.
+    {
+        core::Signal<> s;
+        int n = 0;
+        s.connectOnce([&]() { ++n; });
+        CHECK(s.connectionCount() == 1);
+        s.emit();
+        s.emit();
+        CHECK(n == 1);
+        CHECK(s.connectionCount() == 0);
+    }
+
+    // Deferred: the call is queued on emit and only runs at flushDeferred, with the emit args preserved.
+    {
+        core::Signal<int> s;
+        int got = -1;
+        s.connectDeferred([&](int v) { got = v; });
+        s.emit(7);
+        CHECK(got == -1);            // not called yet
+        CHECK(s.pendingDeferred() == 1);
+        s.flushDeferred();
+        CHECK(got == 7);             // args carried through
+        CHECK(s.pendingDeferred() == 0);
+    }
+
+    // Deferred + one-shot: queued once, runs once at flush, then gone.
+    {
+        core::Signal<> s;
+        int n = 0;
+        s.connectDeferredOnce([&]() { ++n; });
+        s.emit();
+        s.emit();                    // one-shot already disconnected → only one queued
+        CHECK(s.pendingDeferred() == 1);
+        s.flushDeferred();
+        CHECK(n == 1);
+        CHECK(s.connectionCount() == 0);
+    }
+
+    // A handler may disconnect itself during dispatch without corrupting the emit.
+    {
+        core::Signal<> s;
+        int n = 0;
+        ConnectionId self = core::kInvalidConnection;
+        self = s.connect([&]() {
+            ++n;
+            s.disconnect(self);
+        });
+        s.connect([&]() { ++n; }); // a second handler must still run this round
+        s.emit();
+        CHECK(n == 2);             // both ran on the first emit
+        s.emit();
+        CHECK(n == 3);             // only the survivor ran on the second
+    }
+
+    // disconnectAll clears everything.
+    {
+        core::Signal<> s;
+        s.connect([]() {});
+        s.connect([]() {});
+        CHECK(s.connectionCount() == 2);
+        s.disconnectAll();
+        CHECK(s.connectionCount() == 0);
+    }
+}
+
 void testJobs() {
     core::JobSystem js;
     CHECK(js.workerCount() >= 1);
@@ -6061,6 +6168,7 @@ int main() {
     testAnimClip();
     testAnimator();
     testEventBus();
+    testSignal();
     testJobs();
     testResourceCache();
     testSceneStack();

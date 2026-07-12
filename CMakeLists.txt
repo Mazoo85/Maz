@@ -121,6 +121,7 @@ add_subdirectory(apps/choreo)
 add_subdirectory(apps/prefab)
 add_subdirectory(apps/line2d)
 add_subdirectory(apps/restext)
+add_subdirectory(apps/signals)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

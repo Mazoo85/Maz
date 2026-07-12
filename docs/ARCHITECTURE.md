@@ -23,6 +23,8 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
             Random (deterministic PRNG: xoshiro256** — ranges/chance/weighted/shuffle/gaussian),
             Noise (seeded Perlin gradient noise2 + fractal-Brownian-motion fbm2 for procgen),
             EventBus (type-safe publish/subscribe for decoupled systems),
+            Signal (per-object named channels — Godot signal/connect/emit: typed Signal<Args...> with
+              connect/disconnect/isConnected, immediate emit, one-shot + deferred(+flushDeferred) connections),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
             SceneStack (game-state stack: push/pop/replace + overlay-aware update/render)
@@ -233,6 +235,8 @@ apps/
               snapshotted at a fixed time, each dot placed by its anim::TweenPlayer through a bound setter
   prefab/    Prefabs / instancing — one turret prefab (chassis>turret>barrel) instanced six times with
               per-node overrides (body/turret colour, barrel length, body width) via scene::instantiate
+  signals/   Named signals — a Button.pressed → Player.hpChanged → Player.died wiring graph (connectors via
+              render::buildPolyline) + an event log showing immediate/one-shot/deferred (core::Signal)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

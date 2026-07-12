@@ -680,6 +680,13 @@ available):
   sections with typed `key = TYPE value` lines and parses straight back into an identical tree. The new
   `restext` demo authors an "Enemy" prefab, renders its serialized text, and confirms the round-trip
   (parsed back, 3 nodes, re-serialize identical).
+- **M128** — **per-object named signals** (`core::Signal`), toward Godot's `signal`/`connect`/`emit`: the
+  `EventBus` (M64) is a *global by-type* bus; Godot signals are *per-object named channels* others connect
+  to. `Signal<Args...>` is a typed channel an object owns; `connect`/`disconnect`/`emit` do the obvious,
+  and it adds Godot's two staples — **one-shot** connections (fire once, auto-disconnect) and **deferred**
+  connections (queued on emit, run later at `flushDeferred`). The new `signals` demo wires a
+  Button→Player→died scenario, draws the connection graph, and logs a run showing immediate, one-shot, and
+  deferred behavior.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

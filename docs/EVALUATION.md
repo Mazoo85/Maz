@@ -2186,6 +2186,38 @@ gives a Maz prefab that same text round-trip.
   arrays/dictionaries, or string escaping), and it isn't wired to the ECS `SceneSerializer` — those remain
   io gaps.
 
+### Iteration 89 — "Benchmarking against Godot: per-object named signals" (done)
+Rotating to core for breadth, and closing a distinct architectural gap. Maz has had a global by-TYPE
+publish/subscribe bus since M64 (`core::EventBus`), but that is NOT what Godot's **signals** are: Godot
+signals are per-OBJECT *named channels* — "this button's `pressed`", "this health's `changed`" — that carry
+typed arguments and that other objects `connect` a callback to on a *specific* emitter. That granularity
+(plus the two flavours Godot leans on everywhere) is genuinely missing, and signals are arguably the single
+most-used communication primitive in Godot gameplay code. Pure logic → unit-tests headlessly.
+- [x] **M128 — per-object named signals (`core::Signal`)**: a new `Signal.hpp`. `Signal<Args...>` is a
+  typed channel an object owns as a member (`Signal<int> hpChanged;`). `connect(fn)` returns a
+  `ConnectionId`; `disconnect(id)` / `isConnected(id)` / `connectionCount()` manage it; `emit(args…)` calls
+  every connected handler in order, forwarding the args. On top of that it adds the two Godot flavours:
+  **`connectOnce`** (fires exactly once, then auto-disconnects) and **`connectDeferred`** (the call is
+  *queued* with a copy of the args on emit and only runs at the next **`flushDeferred()`** instead of
+  re-entrantly mid-emit) — plus `connectDeferredOnce`. `emit` takes a **snapshot** of the connection list
+  first, so a handler may safely connect/disconnect (including itself) during dispatch. `testSignal` pins
+  arg pass-through + accumulation, multi-handler order, disconnect + isConnected, one-shot firing exactly
+  once (connectionCount → 0), deferred queueing (not called until flush, args preserved), deferred-once,
+  self-disconnect during dispatch not corrupting the round, and disconnectAll. Unit checks **4468 → 4493**.
+  The new `signals` demo wires a scenario — `Button.pressed` → `Player.hpChanged(int)` → `Player.died` —
+  draws the connection graph (emitter boxes → handler boxes, connectors stroked with M126's
+  `render::buildPolyline`), and runs a fixed script (press 4× → HP 100→0), capturing an event log that
+  shows immediate handlers firing in order, the one-shot GAME OVER firing exactly once (a 5th `died.emit`
+  does nothing; `died` ends with 0 connections), and the deferred audit lines all firing together after
+  `flushDeferred`. Static → deterministic golden (threshold 0.06, text-dense). Purely additive (new header +
+  new app), so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **83/83 → 84/84**. (A first build tripped `-Werror` on an unqualified `kInvalidConnection` in the test —
+  caught by the compiler, fixed, rebuilt clean.) Honest scope: this is the per-object signal object
+  (connect/emit/one-shot/deferred); it has no string-keyed reflection (`emit_signal("name", …)` by name),
+  no argument *binds* on connect (Godot's `bind()`), no automatic disconnect when a connected object dies
+  (no object lifetime tracking), and a single shared flush point rather than a SceneTree idle frame — those
+  remain gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
