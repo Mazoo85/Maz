@@ -12,6 +12,7 @@ struct AppConfig {
     bool headless = false;   // --headless : no visible window, run then exit (CI/tests)
     bool vsync = true;       // --no-vsync to disable
     int frames = -1;         // --frames N : quit after N frames (<0 = run until closed)
+    const char* modelPath = nullptr; // --load-model PATH : load a glTF/GLB and log its stats
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

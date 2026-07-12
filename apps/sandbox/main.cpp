@@ -3,16 +3,36 @@
 // animated color, and shut down cleanly. Run with --headless (or --frames N) for CI.
 
 #include "maz/Engine.hpp"
+#include "maz/assets/Model.hpp"
 
 #include <SDL3/SDL_scancode.h>
 
 #include <cmath>
+#include <string>
 
 using namespace maz;
 
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
     MAZ_LOG_INFO("Maz Engine sandbox starting (headless=%d, frames=%d)", cfg.headless, cfg.frames);
+
+    // Blender pipeline demo: load a glTF/GLB exported from Blender and report it. The mesh
+    // can't be drawn yet (the mesh renderer is a later milestone), but this proves the
+    // asset path end to end. See docs/BLENDER_PIPELINE.md.
+    if (cfg.modelPath != nullptr) {
+        assets::Model model;
+        std::string err;
+        if (!assets::loadModel(cfg.modelPath, model, &err)) {
+            MAZ_LOG_ERROR("failed to load model '%s': %s", cfg.modelPath, err.c_str());
+            return 1;
+        }
+        MAZ_LOG_INFO("loaded model '%s': %zu mesh(es), %zu verts, %zu tris; bounds "
+                     "min=(%.3f, %.3f, %.3f) max=(%.3f, %.3f, %.3f)",
+                     cfg.modelPath, model.meshes.size(), model.vertexCount(),
+                     model.triangleCount(), model.bounds.min[0], model.bounds.min[1],
+                     model.bounds.min[2], model.bounds.max[0], model.bounds.max[1],
+                     model.bounds.max[2]);
+    }
 
     platform::Window window;
     platform::WindowConfig wc;
