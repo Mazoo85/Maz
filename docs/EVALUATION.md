@@ -1725,6 +1725,34 @@ header so it can't regress anything.
   actual method-dispatch/callback registry (the caller switches on the id) — and there is still no visual
   track *editor* for authoring them. Those remain animation gaps.
 
+### Iteration 75 — "Benchmarking against Godot: ADSR envelope generator" (done)
+Rotating to audio (last audio was M106). Maz's synth (M17/M94/M99/M106) can generate and effect tones, but
+every voice's amplitude is flat — a note switches on and off as a raw buzz with no *shape*. The single
+missing primitive that fixes that is the **ADSR envelope**: the attack/decay/sustain/release contour every
+synth multiplies its oscillator by, so a note swells in, holds, and fades instead of clicking. It's the
+foundational voice-shaping block, pure deterministic scalar math (fully unit-testable), composes with the
+existing DSP, and is a brand-new header so it can't regress anything.
+- [x] **M114 — ADSR envelope (`audio::ADSR`)**: a new `Envelope.hpp`. A tiny gated state machine
+  (Idle → Attack → Decay → Sustain → Release) with `attack`/`decay`/`release` times (seconds) and a
+  `sustain` level. `noteOn()` enters Attack (ramping from the *current* level, so a fast re-trigger doesn't
+  click to zero); `noteOff()` captures the current level and enters Release, so the tail scales from
+  wherever the envelope was — even mid-attack. `process(dt)` advances the linear segments and returns the
+  level; zero-length segments snap to the next stage, and `sustain == 1` makes decay a no-op. `testADSR`
+  pins the timings: attack is ~0.5 halfway up, decay settles exactly at the sustain level and holds there
+  indefinitely, release from sustain is ~0.25 halfway and reaches 0 (→ Idle) on time; a release begun
+  mid-attack scales from the reached level; a zero attack snaps to 1 in one step and a sustain-0 stab
+  decays to silence; sustain-1 keeps decay flat. Unit count **4041 → 4064**. The new `envelope` demo shows
+  three presets — a plucky blip (fast attack, low sustain, short release), a slow-swelling pad (long
+  attack, high sustain, long release), and a percussive stab (instant attack, zero sustain) — each drawn
+  as its ADSR *curve* (with the key-down gate shaded, the sustain line, and note-on/off ticks) and, below
+  it, a single sine tone *multiplied by that envelope*, so you can watch the same oscillator become three
+  very different notes. All precomputed → deterministic golden (RMSE 0, threshold 0.05). Purely additive
+  (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run).
+  ctest **69/69 → 70/70**. Honest scope: this is a linear-segment ADSR; it is not yet exponential/curved
+  segments, velocity-scaled levels, an LFO / modulation matrix, or actually wired into the live SDL voice
+  callback (the demo applies it offline) — and per-voice bus routing through the real-time mixer remains
+  the standing (headlessly-unverifiable) audio gap.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

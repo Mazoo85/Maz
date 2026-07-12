@@ -107,6 +107,7 @@ add_subdirectory(apps/stack)
 add_subdirectory(apps/normalmap)
 add_subdirectory(apps/flowfield)
 add_subdirectory(apps/sequencer)
+add_subdirectory(apps/envelope)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

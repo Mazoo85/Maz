@@ -549,6 +549,14 @@ set_tests_properties(sequencer_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME envelope_headless_smoke
+    COMMAND envelope --headless --frames 30)
+
+set_tests_properties(envelope_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

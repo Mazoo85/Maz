@@ -9,6 +9,7 @@
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/audio/Dsp.hpp"
+#include "maz/audio/Envelope.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
@@ -3756,6 +3757,111 @@ void testAudioEffects() {
     }
 }
 
+void testADSR() {
+    using audio::ADSR;
+
+    // A helper to run the envelope for `secs` seconds at 1 kHz, returning the final level.
+    auto run = [](ADSR& e, float secs) {
+        const float dt = 1.0f / 1000.0f;
+        const int n = static_cast<int>(secs * 1000.0f + 0.5f);
+        float lv = e.level;
+        for (int i = 0; i < n; ++i) {
+            lv = e.process(dt);
+        }
+        return lv;
+    };
+
+    // Full A/D/S/R contour with clear timings.
+    {
+        ADSR e;
+        e.attack = 0.1f;
+        e.decay = 0.2f;
+        e.sustain = 0.5f;
+        e.release = 0.3f;
+        CHECK(!e.active());
+
+        e.noteOn();
+        CHECK(e.active());
+        CHECK(e.stage == ADSR::Stage::Attack);
+
+        // Halfway through the attack the linear ramp is ~0.5.
+        run(e, 0.05f);
+        CHECK_NEAR(e.level, 0.5f, 0.03f);
+
+        // By the end of the attack it has hit 1.0 and moved into decay.
+        run(e, 0.06f); // total ~0.11s > attack
+        CHECK_NEAR(e.level, 1.0f, 0.05f);
+        CHECK(e.stage == ADSR::Stage::Decay || e.stage == ADSR::Stage::Sustain);
+
+        // After the decay completes it settles at the sustain level and HOLDS there.
+        run(e, 0.3f);
+        CHECK(e.stage == ADSR::Stage::Sustain);
+        CHECK_NEAR(e.level, 0.5f, 1e-3f);
+        run(e, 1.0f); // hold a long time
+        CHECK_NEAR(e.level, 0.5f, 1e-3f);
+        CHECK(e.active());
+
+        // Release: from sustain 0.5 down to 0 over 0.3s. Halfway (~0.15s) it's ~0.25.
+        e.noteOff();
+        CHECK(e.stage == ADSR::Stage::Release);
+        run(e, 0.15f);
+        CHECK_NEAR(e.level, 0.25f, 0.03f);
+        // After the full release it reaches 0 and goes Idle.
+        run(e, 0.2f);
+        CHECK_NEAR(e.level, 0.0f, 1e-3f);
+        CHECK(!e.active());
+        CHECK(e.stage == ADSR::Stage::Idle);
+    }
+
+    // Release can start mid-attack: the tail scales from the level reached, not from 1.
+    {
+        ADSR e;
+        e.attack = 0.2f;
+        e.decay = 0.1f;
+        e.sustain = 0.8f;
+        e.release = 0.2f;
+        e.noteOn();
+        run(e, 0.1f); // halfway up the attack -> ~0.5
+        CHECK_NEAR(e.level, 0.5f, 0.03f);
+        const float atRelease = e.level;
+        e.noteOff();
+        // Halfway through the release it's ~half of the release-start level.
+        run(e, 0.1f);
+        CHECK_NEAR(e.level, atRelease * 0.5f, 0.05f);
+        run(e, 0.15f);
+        CHECK_NEAR(e.level, 0.0f, 1e-3f);
+    }
+
+    // Zero attack snaps to 1 in a single step; zero decay/sustain 0 lands at 0 quickly (a stab).
+    {
+        ADSR e;
+        e.attack = 0.0f;
+        e.decay = 0.05f;
+        e.sustain = 0.0f;
+        e.release = 0.05f;
+        e.noteOn();
+        e.process(1.0f / 1000.0f);
+        CHECK_NEAR(e.level, 1.0f, 1e-4f); // instant attack
+        run(e, 0.06f);                    // decay to sustain 0
+        CHECK_NEAR(e.level, 0.0f, 1e-3f);
+        CHECK(e.stage == ADSR::Stage::Sustain);
+    }
+
+    // Sustain == 1: decay is a no-op, level stays at 1 while held.
+    {
+        ADSR e;
+        e.attack = 0.05f;
+        e.decay = 0.2f;
+        e.sustain = 1.0f;
+        e.release = 0.1f;
+        e.noteOn();
+        run(e, 0.1f);
+        CHECK_NEAR(e.level, 1.0f, 1e-3f);
+        run(e, 0.5f);
+        CHECK_NEAR(e.level, 1.0f, 1e-3f);
+    }
+}
+
 void testSpatial2D() {
     using math::vec2;
     audio::Listener2D lis;
@@ -4672,6 +4778,7 @@ int main() {
     testNormalLight();
     testAudioDsp();
     testAudioEffects();
+    testADSR();
     testSpatial2D();
     testTwoBoneIK();
     testFabrik();

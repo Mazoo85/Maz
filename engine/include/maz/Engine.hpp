@@ -14,6 +14,7 @@
 #include "maz/anim/Tween.hpp"
 #include "maz/audio/Audio.hpp"
 #include "maz/audio/Dsp.hpp"
+#include "maz/audio/Envelope.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/core/Assert.hpp"
 #include "maz/core/CVars.hpp"

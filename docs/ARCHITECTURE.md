@@ -143,7 +143,9 @@ audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, p
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
             Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo +
             Reverb Schroeder/Freeverb (comb+allpass) + Distortion tanh waveshaper + Compressor + Bus
-            ordered effect chain), Godot AudioEffectFilter/Delay/Reverb/Distortion/Compressor-style  (depends on: core, SDL3)
+            ordered effect chain), Godot AudioEffectFilter/Delay/Reverb/Distortion/Compressor-style;
+            Envelope — ADSR (attack/decay/sustain/release amplitude contour as a note-on/off gated state
+            machine, process(dt)→level), the shape every synth voice is multiplied by  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -218,6 +220,8 @@ apps/
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
   sequencer/ Trigger / method tracks — a four-lane drum machine whose kick/snare/hat/clap markers fire as
               one playhead sweeps the loop, with fire counts + a recent-fires strip (anim::MethodTimeline)
+  envelope/ ADSR envelope — pluck/pad/stab presets, each as an attack/decay/sustain/release curve + the
+              sine tone shaped by it, so one tone becomes three different notes (audio::ADSR)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not

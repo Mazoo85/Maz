@@ -568,6 +568,15 @@ available):
   zero-length clip is a safe no-op). The new `sequencer` demo is a four-lane drum machine (kick / snare /
   hat / clap) whose markers fire as one shared playhead sweeps the loop — markers behind the head glow
   ("just fired"), ahead stay dim ("pending"), with per-lane fire counts and a recent-fires strip.
+- **M114** — an **ADSR envelope generator** (`audio::ADSR`), the amplitude contour that shapes a synth
+  voice. On note-on the level ramps 0 → 1 over *attack*, falls to the *sustain* level over *decay*, and
+  holds while the key is down; on note-off it ramps to 0 over *release*. Multiplying a raw oscillator by
+  this level turns a flat buzz into a note with a shape. It's a tiny gated state machine advanced by
+  `process(dt)`, unit-tested (attack halfway is ~0.5, decay settles at sustain and holds, release scales
+  from the current level to 0 — including a release started mid-attack — and zero-length segments snap;
+  sustain=1 makes decay a no-op). The new `envelope` demo shows three presets — a plucky blip, a
+  slow-swelling pad, and a percussive stab — each as its ADSR curve and the tone shaped by it, so the same
+  sine becomes three different notes.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -349,7 +349,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Reverb + distortion + compressor** (`audio::Reverb` Schroeder/Freeverb (4 combs + 2 allpasses),
   `audio::Distortion` tanh waveshaper, `audio::Compressor` peak-envelope dynamics — Godot AudioEffect
   Reverb/Distortion/Compressor; drop into the `Bus`; the `reverb` demo scopes a note through each; M106)
-  — real-time per-voice bus routing in the live mixer later
+- [x] **ADSR envelope** (`audio::ADSR`: attack/decay/sustain/release amplitude contour as a note-on/off
+  gated state machine, `process(dt)`→level — the shape every synth voice is multiplied by; the `envelope`
+  demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing
+  in the live mixer + LFOs / mod matrix later
 - [ ] WAV/OGG loading, per-sound pitch, categories/ducking
 - [ ] 3D spatialization, doppler
 
@@ -575,6 +578,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (`anim::MethodTimeline`) (M113)
 - [x] **Reverb/distortion/compressor** (`apps/reverb`) — one note scoped through a Schroeder reverb, a
       tanh distortion, and a compressor as stacked waveforms (`audio::Reverb/Distortion/Compressor`) (M106)
+- [x] **ADSR envelope** (`apps/envelope`) — pluck/pad/stab presets, each as an attack/decay/sustain/release
+      curve + the sine tone shaped by it (`audio::ADSR`) (M114)
 - [x] **FABRIK IK chains** (`apps/tentacle`) — a row of 8-bone chains reaching for targets; reachable
       ones curl to touch (green), out-of-reach ones straighten and point (red) (`anim::solveFabrik`) (M107)
 - [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
