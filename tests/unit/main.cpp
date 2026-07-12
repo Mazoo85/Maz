@@ -33,6 +33,7 @@
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
+#include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
@@ -372,6 +373,54 @@ void testVisibility2D() {
         CHECK(!game::Visibility2D::contains(poly, vec2{90, 50}));
         // Above the wall's span, the light still reaches the far corner.
         CHECK(game::Visibility2D::contains(poly, vec2{90, 90}));
+    }
+}
+
+void testSoftShadow2D() {
+    using math::vec2;
+
+    // segmentsIntersect: a proper crossing is detected; a non-crossing pair is not.
+    CHECK(game::segmentsIntersect(vec2{-1, 0}, vec2{1, 0}, vec2{0, -1}, vec2{0, 1}));
+    CHECK(!game::segmentsIntersect(vec2{-1, 0}, vec2{1, 0}, vec2{-1, 1}, vec2{1, 1}));
+    // Shared-endpoint / graze does not count as a blocking crossing.
+    CHECK(!game::segmentsIntersect(vec2{0, 0}, vec2{1, 0}, vec2{1, 0}, vec2{1, 1}));
+
+    // diskSamples: count + all within radius + deterministic + degenerate cases.
+    {
+        auto pts = game::diskSamples(vec2{10, 5}, 4.0f, 24);
+        CHECK(pts.size() == 24);
+        for (const vec2& p : pts) {
+            const float dx = p.x - 10.0f, dy = p.y - 5.0f;
+            CHECK(std::sqrt(dx * dx + dy * dy) <= 4.0f + 1e-3f);
+        }
+        // Deterministic: same call gives the same first point.
+        auto pts2 = game::diskSamples(vec2{10, 5}, 4.0f, 24);
+        CHECK_NEAR(pts[0].x, pts2[0].x, 1e-6f);
+        CHECK_NEAR(pts[0].y, pts2[0].y, 1e-6f);
+        // Degenerate: 1 sample (or radius 0) is a single centre point (point light).
+        auto one = game::diskSamples(vec2{3, 7}, 4.0f, 1);
+        CHECK(one.size() == 1);
+        CHECK_NEAR(one[0].x, 3.0f, 1e-6f);
+        auto zeroR = game::diskSamples(vec2{3, 7}, 0.0f, 16);
+        CHECK(zeroR.size() == 1);
+    }
+
+    // softVisibility: no occluders -> fully lit.
+    CHECK_NEAR(game::softVisibility(vec2{0, 20}, vec2{0, 0}, 4.0f, {}, 16), 1.0f, 1e-6f);
+
+    // A wall spanning the whole width between the point and the light -> full umbra (0).
+    {
+        std::vector<game::Segment2> occ{game::Segment2{vec2{-50, 6}, vec2{50, 6}}};
+        const float v = game::softVisibility(vec2{0, 20}, vec2{0, 0}, 4.0f, occ, 24);
+        CHECK_NEAR(v, 0.0f, 1e-6f);
+    }
+
+    // A wall covering only one side of the light -> penumbra: strictly between 0 and 1.
+    {
+        std::vector<game::Segment2> occ{game::Segment2{vec2{0, 6}, vec2{60, 6}}};
+        const float v = game::softVisibility(vec2{3, 20}, vec2{0, 0}, 30.0f, occ, 48);
+        CHECK(v > 0.0f);
+        CHECK(v < 1.0f);
     }
 }
 
@@ -3499,6 +3548,7 @@ int main() {
     testAutoTile();
     testAvoidance();
     testVisibility2D();
+    testSoftShadow2D();
     testPhysics2D();
     testPhysics2DRotation();
     testPhysics2DJoints();

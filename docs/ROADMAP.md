@@ -222,6 +222,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   blend pipeline where src·alpha is ADDED to the destination, batched per blend mode — overlapping 2D
   lights brighten instead of averaging, matching Godot's Light2D compositing; also for glows/fire/energy;
   M90)
+- [x] **2D:** soft/penumbra shadows (`game::SoftShadow2D`: model a light as a disc, spread `diskSamples`
+  Vogel-spiral samples across it, `softVisibility` = fraction of the disc visible from a point — Godot
+  Light2D soft shadows; the `softshadow` demo contrasts a hard point light with an area light whose
+  shadow feathers into a penumbra; M101) — normal-mapped / textured 2D lights later
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -501,6 +505,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Keyframe timeline** (`apps/timeline`) — an arrow driven by keyed x/y/rotation/scale/colour
       tracks, shown as an onion-skin trail plus an editor track panel with keyframe dots + a playhead
       (`anim::Timeline`) (M100)
+- [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
+      vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

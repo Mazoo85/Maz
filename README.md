@@ -441,6 +441,15 @@ available):
   `timeline` demo drives one arrow from keyed x/y/rotation/scale/colour tracks, drawn as an onion-skin
   trail plus an editor-style track panel with keyframe dots and a playhead — all sampled at fixed times
   so the render is deterministic.
+- **M101** — soft (penumbra) **2D shadows**, toward Godot's `Light2D` soft shadows: a point light casts
+  a razor-sharp shadow, but a light with *size* has soft edges. `game::SoftShadow2D` models the light as
+  a disc, spreads deterministic sample points across it (`diskSamples`, a Vogel spiral), and its
+  `softVisibility(p, …)` returns the fraction of the light disc visible from a point — 1 fully lit, 0
+  umbra, in between a penumbra. Pure 2D math, unit-tested (segment-intersection LOS, sample count/within-
+  radius/determinism, no-occluder = 1, fully-blocked = 0, partial = penumbra). The new `softshadow` demo
+  draws the same box+light twice — left a hard point light (crisp edge), right an area light (24 samples,
+  composited as additive visibility fans) whose shadow feathers into a penumbra that widens with
+  distance from the caster.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

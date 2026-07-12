@@ -39,6 +39,7 @@
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
+#include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"

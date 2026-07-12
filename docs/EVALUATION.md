@@ -1349,24 +1349,53 @@ exactly-testable math and has a crisp editor-style golden, so it was the clear h
   Honest scope: this is a value-track timeline with per-segment easing; it does not yet include
   call-method/trigger tracks, a bezier-handle curve editor, or a visual track-editing UI — those remain.
 
+### Iteration 62 — "Benchmarking against Godot: soft 2D shadows" (done)
+Continuing the Godot benchmark; the rendering subsystem was the most overdue (last touched at M90's
+additive lights). Maz's 2D lights (M89/M90) cast razor-sharp shadows: the visibility polygon splits the
+world into "lit" or "not," with no in-between. Godot's Light2D softens shadow edges. The physically
+right way is an AREA light — a light with size casts a soft edge with an inner umbra (sees none of the
+light), an outer lit region, and a penumbra between (sees only part). That's pure, exactly-testable 2D
+geometry with a striking side-by-side golden, so it was the clear rendering pick.
+- [x] **M101 — Soft (penumbra) 2D shadows (`game::SoftShadow2D`)**: model the light as a disc and
+  sample it. `diskSamples` places `count` points across the disc on a Vogel/sunflower spiral (even areal
+  coverage, no RNG — deterministic, so goldens are stable), degenerating to a single centre point for
+  count≤1 or radius 0 (a plain point light). `segmentsIntersect` is a strict interior segment-crossing
+  test (shared endpoints/grazes don't count) and `lineBlocked` is the line-of-sight test over the
+  occluders. `softVisibility(p, lightCenter, lightRadius, occluders, samples)` returns the fraction of
+  the disc visible from p — 1 fully lit, 0 umbra, in between penumbra. `testSoftShadow2D` checks it
+  exactly: proper vs non-crossing vs shared-endpoint segments; sample count, all-within-radius,
+  determinism, and the count≤1/radius-0 degeneracies; no occluders → 1.0; a wall spanning the whole
+  light → 0.0; a wall covering only one side → strictly between 0 and 1. Unit count **3571 → 3608**. The
+  new `softshadow` demo draws the *same* box+light twice: left a hard point light (1 sample) with a
+  crisp shadow edge, right an area light (24 disc samples) rendered by compositing one faint
+  Visibility2D fan per sample additively — so regions reached by every sample are fully lit, regions
+  reached by none are umbra, and the boundary feathers into a penumbra that widens with distance from
+  the caster. On lavapipe the contrast is unmistakable: a hard-edged wedge on the left, a soft graded
+  penumbra on the right with the area-light disc visibly glowing. New `softshadow_headless_smoke` +
+  golden (static, RMSE 0, threshold 0.05). Purely additive (new header + new app), so all existing
+  goldens are unchanged — confirmed by a serial golden run (strays killed first; golden check then ctest
+  one at a time). ctest **57/57**. Honest scope: this is area-light-sampled soft shadows composited as N
+  additive fans; it is not a GPU shadow-map blur, and the lights are still flat-coloured (no
+  normal-mapped / textured 2D lights) — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): call-method/trigger tracks + a visual track editor on the
-timeline (M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer
-(per-voice bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA half-plane
-avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated crowd sim (M98
-gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK
-modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96
-gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
-controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial audio + doppler + WAV/OGG loading
-(M94 gives 2D pan/attenuation); animation blend *trees* (state-machine over blend spaces) + IK (M92
-gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS + more joint types (groove/
-slider) building on M93's pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights
-(M90 made lights additive but they're hard-edged and flat-colored); 3D rigid-body physics; GPU
-particles; navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF
-skin/animation import, prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to
-TransformGraph, noise-driven tilemap/cave generation, localization / string tables, order-independent
-transparency, material/uniform system, cross-platform CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): normal-mapped / textured 2D lights (M101 gives soft shadows but
+lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the timeline
+(M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer (per-voice
+bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA
+half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
+crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-
+integrated IK modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
+dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
+TextEdit + UI themes/StyleBox + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
+audio + doppler + WAV/OGG loading (M94 gives 2D pan/attenuation); animation blend *trees* (state-machine
+over blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS
++ more joint types (groove/slider) building on M93's pin/spring; 3D rigid-body physics; GPU particles;
+navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation
+import, prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph,
+noise-driven tilemap/cave generation, localization / string tables, order-independent transparency,
+material/uniform system, cross-platform CI, a deterministic hold-frame screenshot mode.

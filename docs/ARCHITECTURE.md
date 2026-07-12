@@ -84,6 +84,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
+            SoftShadow2D (area-light soft/penumbra shadows: diskSamples Vogel-spiral across the light +
+            softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
             tilemap autotiling — Godot TileMap terrains)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
@@ -183,6 +185,8 @@ apps/
               low-pass, high-pass, low-pass→delay bus) (audio::Biquad / audio::Delay / audio::Bus)
   timeline/ Keyframe timeline — an arrow driven by keyed x/y/rotation/scale/colour tracks, shown as an
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
+  softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
+              samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
 ```
 
 ## The frame loop (fixed timestep)

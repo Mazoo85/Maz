@@ -445,6 +445,14 @@ set_tests_properties(timeline_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME softshadow_headless_smoke
+    COMMAND softshadow --headless --frames 30)
+
+set_tests_properties(softshadow_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

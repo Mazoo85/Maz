@@ -78,6 +78,7 @@ CASES=(
     "avoid||2.0|0.05"
     "bus||2.0|0.05"
     "timeline||2.0|0.05"
+    "softshadow||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then
