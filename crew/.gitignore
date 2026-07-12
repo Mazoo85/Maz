@@ -1,0 +1,10 @@
+# Crew per-project session state
+.crew/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
