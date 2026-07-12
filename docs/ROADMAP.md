@@ -345,7 +345,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   the `behavior` demo runs a flee/chase/patrol priority tree; M71) — blackboard / parallel nodes later
 - [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
   heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
-  — navmesh later
+- [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
+  + Mononen funnel string-pulling into a smooth corner-hugging path — polygon navigation like Godot's
+  NavigationServer, beyond grid A*; the `navmesh` demo routes around a pillar; M87)
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
 - [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
 - [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)

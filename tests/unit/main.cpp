@@ -23,6 +23,7 @@
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/NavGrid.hpp"
+#include "maz/game/NavMesh.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SpatialGrid.hpp"
@@ -260,6 +261,72 @@ void testParticleAttractor() {
     ps.clearAttractor();
     ps.clear();
     CHECK(ps.alive() == 0);
+}
+
+void testNavMesh() {
+    using math::vec2;
+    auto square = [](float x0, float y0, float x1, float y1) {
+        return std::vector<vec2>{{x0, y0}, {x1, y0}, {x1, y1}, {x0, y1}}; // CCW
+    };
+
+    // Point location + same-cell path.
+    {
+        game::NavMesh nm;
+        nm.addPolygon(square(0, 0, 10, 10));
+        nm.build();
+        CHECK(nm.cellAt(vec2{5, 5}) == 0);
+        CHECK(nm.cellAt(vec2{50, 50}) == game::NavMesh::kNone);
+        auto p = nm.findPath(vec2{2, 2}, vec2{8, 8});
+        CHECK(p.size() == 2); // start + goal, no bends inside one convex cell
+        CHECK_NEAR(p.front().x, 2.0f, 1e-3f);
+        CHECK_NEAR(p.back().y, 8.0f, 1e-3f);
+    }
+
+    // Straight corridor: two side-by-side cells; a horizontal path needs no corner.
+    {
+        game::NavMesh nm;
+        nm.addPolygon(square(0, 0, 10, 10));
+        nm.addPolygon(square(10, 0, 20, 10)); // shares edge x=10
+        nm.build();
+        auto p = nm.findPath(vec2{2, 5}, vec2{18, 5});
+        CHECK(p.size() == 2); // straight across the portal, no bend
+        CHECK_NEAR(p.back().x, 18.0f, 1e-3f);
+    }
+
+    // L-shaped corridor: the path must hug the reflex corner at (10,10).
+    {
+        game::NavMesh nm;
+        nm.addPolygon(square(0, 0, 10, 10));    // cell 0 (bottom-left)
+        nm.addPolygon(square(0, 10, 10, 20));   // cell 1 (top-left)
+        nm.addPolygon(square(10, 10, 20, 20));  // cell 2 (top-right)
+        nm.build();
+        auto p = nm.findPath(vec2{5, 2}, vec2{18, 15});
+        CHECK(p.size() == 3); // start, corner, goal
+        CHECK_NEAR(p.front().x, 5.0f, 1e-3f);
+        CHECK_NEAR(p.front().y, 2.0f, 1e-3f);
+        CHECK_NEAR(p[1].x, 10.0f, 1e-3f); // hugs the inner corner
+        CHECK_NEAR(p[1].y, 10.0f, 1e-3f);
+        CHECK_NEAR(p.back().x, 18.0f, 1e-3f);
+        CHECK_NEAR(p.back().y, 15.0f, 1e-3f);
+    }
+
+    // Disconnected cells: no path.
+    {
+        game::NavMesh nm;
+        nm.addPolygon(square(0, 0, 10, 10));
+        nm.addPolygon(square(100, 100, 110, 110)); // isolated
+        nm.build();
+        auto p = nm.findPath(vec2{5, 5}, vec2{105, 105});
+        CHECK(p.empty());
+    }
+
+    // A point outside the mesh yields no path.
+    {
+        game::NavMesh nm;
+        nm.addPolygon(square(0, 0, 10, 10));
+        nm.build();
+        CHECK(nm.findPath(vec2{5, 5}, vec2{50, 50}).empty());
+    }
 }
 
 void testNavGrid() {
@@ -2604,6 +2671,7 @@ int main() {
     testRaycast();
     testSpatialGrid();
     testNavGrid();
+    testNavMesh();
     testPhysics2D();
     testBehaviorTree();
     testSteering();

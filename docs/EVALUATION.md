@@ -973,10 +973,41 @@ editor, scripting VMs, console/mobile/web export, GI, and a mature 3D physics en
 headless sandbox. The loop's honest goal is to keep closing the highest-leverage *closable* gaps; it
 should not, and will not, declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): 2D lights/shadows, 3D rigid-body physics + joints, navmesh
-pathfinding, audio buses/effects + 3D spatial audio, animation blend trees / IK, UI text input + focus
-nav + themes, GPU particles; plus box rotation (angular impulse) in Physics2D, parallel/decorator BT
-nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the scene
-serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation,
-localization / string tables, order-independent transparency, material/uniform system, cross-platform
-CI, a deterministic hold-frame screenshot mode.
+### Iteration 48 — "Benchmarking against Godot: navigation" (done)
+Continuing the Godot benchmark. With UI closed (M86), the ranked closable gaps were: navmesh
+pathfinding; 2D lights/shadows; 3D rigid-body physics; audio buses/spatial; animation blend spaces.
+2D lights need arbitrary-polygon fill the sprite renderer doesn't have yet (deferred behind a polygon-
+draw milestone). Navmesh was the clear, cleanly-buildable win — it needs no new renderer features and
+directly parallels Godot's NavigationServer, upgrading Maz's grid A* to polygon navigation.
+- [x] **M87 — Navigation mesh (`game::NavMesh`), toward Godot's NavigationServer**: the walkable area is
+  a set of **convex polygon cells**; `build()` matches shared edges to form the cell adjacency graph
+  (each shared edge is a portal). `findPath()` locates the start/goal cells, **A*-searches the cell
+  graph** for the corridor, then runs **Mikko Mononen's "simple stupid funnel"** over the corridor's
+  portals to string-pull a short, smooth path that hugs reflex corners — instead of the staircase a
+  uniform grid produces. The subtle part is portal orientation: each portal's endpoints must be labeled
+  left/right relative to the direction of travel, which I derived from the cross product of the
+  cell-to-cell travel vector with each endpoint (getting the handedness right took a hand-traced
+  L-corridor to pin down — the initial centroid-based sign was inverted). Header-only, 2D-math-only, so
+  it unit-tests without a GPU. Unit-tested to **3389 checks** total: point location + same-cell direct
+  path, a straight two-cell corridor producing no spurious bend, an **L-corridor whose 3-point path
+  hugs the reflex corner at (10,10)** (the funnel's whole purpose), disconnected cells yielding no path,
+  and an out-of-mesh point yielding no path. The new `navmesh` demo lays out a room around a central
+  pillar as eight convex cells and routes an agent from one corner to another; the funnel bends the
+  path tightly around the pillar's corner. Verified on lavapipe (the mesh cells, the pillar hole, and a
+  3-waypoint corner-hugging path render correctly; no validation errors); new `navmesh_headless_smoke`
+  + golden (RMSE 0, threshold 0.05) — golden capture/check and ctest run SERIALLY per the harness note
+  (concurrent Xvfb runs corrupt each other) → ctest **44/44**, every existing golden unchanged.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
+Later (Godot-gap priorities + backlog): arbitrary 2D polygon fill in the renderer → then 2D lights/
+shadows; 3D rigid-body physics + joints; audio buses/effects + 3D spatial audio; animation blend
+trees / IK; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles + agent
+avoidance; plus box rotation (angular impulse) in Physics2D, parallel/decorator BT nodes + a
+blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the scene serializer, an
+ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation, localization /
+string tables, order-independent transparency, material/uniform system, cross-platform CI, a
+deterministic hold-frame screenshot mode.

@@ -65,6 +65,7 @@ CASES=(
     "scatter||2.5|0.05"
     "noise||2.5|0.05"
     "uilayout||2.5|0.05"
+    "navmesh||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

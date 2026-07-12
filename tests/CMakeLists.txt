@@ -341,6 +341,14 @@ set_tests_properties(uilayout_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME navmesh_headless_smoke
+    COMMAND navmesh --headless --frames 30)
+
+set_tests_properties(navmesh_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

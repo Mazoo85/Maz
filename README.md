@@ -323,6 +323,12 @@ available):
   computes every node's rect, so the UI is **resolution-responsive** — no coordinate is hard-coded. The
   new `uilayout` demo builds a real app shell (top bar + sidebar button list + content panel + a
   center-pinned modal with its own stacked title/body/button-row) entirely from the layout tree
+- **M87** — navigation mesh (`maz::game::NavMesh`), toward Godot's NavigationServer: polygon-based
+  pathfinding, the step up from grid A*. The walkable area is a set of convex cells; `build()` finds
+  their shared edges (portals), and `findPath()` A*-searches the cell graph then runs the **funnel
+  algorithm** to string-pull the corridor into a short, smooth path that **hugs corners** instead of
+  zig-zagging through cell centers like a grid. The new `navmesh` demo routes an agent around a central
+  pillar, and the path bends tightly around its corner
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -362,4 +368,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Scatter** (procedural RNG): no controls — a seeded RNG scatters a token field with weighted rarity; same seed → same field · Esc to quit
 - **Noise** (procedural terrain): no controls — an fbm-noise heightmap rendered as a terrain map; same seed → same continent · Esc to quit
 - **UILayout** (retained UI): no controls — a responsive app UI (top bar + sidebar + content + modal) laid out by anchors and containers · Esc to quit
+- **NavMesh** (navigation mesh): no controls — an agent path routed around a pillar with A* + funnel string-pulling · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

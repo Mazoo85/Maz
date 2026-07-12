@@ -65,6 +65,7 @@ scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per n
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
+            NavMesh (convex-cell navigation mesh: A* over cells + funnel string-pull for smooth paths),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
@@ -129,6 +130,8 @@ apps/
               water/sand/grass/forest/rock/snow ramp with a slope hillshade; same seed, same continent
   uilayout/ Retained UI layout — a responsive app UI (top bar + sidebar VBox of buttons + content panel
               + centered modal) laid out entirely by ui::LayoutNode anchors + containers, no fixed pixels
+  navmesh/  Navigation mesh — a room with a pillar as convex cells; game::NavMesh A*+funnel string-pulls
+              a smooth path that hugs the pillar's corner (polygon nav, beyond grid A*)
 ```
 
 ## The frame loop (fixed timestep)
