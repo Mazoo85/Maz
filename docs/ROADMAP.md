@@ -391,7 +391,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;
   the `guard` demo runs patrol/chase/return AI; M62)
 - [x] **Behavior trees** (`game::bt`: reactive Sequence/Selector/Inverter + Action/Condition leaves;
-  the `behavior` demo runs a flee/chase/patrol priority tree; M71) — blackboard / parallel nodes later
+  the `behavior` demo runs a flee/chase/patrol priority tree; M71) + a **Blackboard** (typed shared
+  memory), a **Parallel** composite (RequireOne/RequireAll), and **Repeater/AlwaysSucceed/AlwaysFail/
+  Tap** decorators; the `blackboard` demo colours a sentry's tree by live per-node status as one flag
+  flips it between patrol and engage; M104) — utility AI / GOAP later
 - [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
   heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
 - [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
@@ -483,6 +486,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       anchors and containers (M86)
 - [x] **Nine-patch StyleBox** (`apps/stylebox`) — differently-sized themed panels + a button row from
       one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
+- [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
+      each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
 - [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel
       string-pulling (M87)
 - [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent

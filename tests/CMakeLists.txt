@@ -469,6 +469,14 @@ set_tests_properties(stylebox_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME blackboard_headless_smoke
+    COMMAND blackboard --headless --frames 30)
+
+set_tests_properties(blackboard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

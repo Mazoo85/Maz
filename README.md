@@ -466,6 +466,15 @@ available):
   stretch, the nine cells tile source and destination exactly, sub-border sizes clamp non-negative). The
   new `stylebox` demo themes four differently-sized panels + a button row from one style — gold corners
   stay fixed while blue edges stretch and the dark center fills.
+- **M104** — behavior-tree **blackboard + parallel/decorator nodes**, extending the reactive BT (M71)
+  toward a full Godot-style BT AI: a `bt::Blackboard` (typed shared working memory — set/get/getOr),
+  a `Parallel` composite (RequireOne/RequireAll, ticks every child), and `Repeater`/`AlwaysSucceed`/
+  `AlwaysFail`/`Tap` decorators. Purely additive — the existing Sequence/Selector/Inverter/Action/
+  Condition are untouched. Unit-tested (blackboard typing + safe fallback; parallel policies + all-
+  children-ticked; repeater count + failure abort; decorator status mapping; a blackboard flag driving a
+  reactive selector). The new `blackboard` demo draws a sentry's tree twice — with `visible` false
+  (PATROL) and true (ENGAGE) — each node box coloured by the *real* per-tick status, so you can watch
+  the selector switch branches from one blackboard flag and leave the unused branch un-ticked.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

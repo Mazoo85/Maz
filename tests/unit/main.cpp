@@ -3561,6 +3561,114 @@ void testBehaviorTree() {
     CHECK(std::string(acted) == "patrol"); // and back again
 }
 
+void testBehaviorTreeExtras() {
+    using namespace maz::game::bt;
+    auto ok = [] { return Status::Success; };
+    auto no = [] { return Status::Failure; };
+    auto run = [] { return Status::Running; };
+
+    // ---- Blackboard: typed shared memory ----
+    {
+        Blackboard bb;
+        CHECK(!bb.has("hp"));
+        bb.set<int>("hp", 42);
+        bb.set<float>("range", 3.5f);
+        bb.set<bool>("alert", true);
+        CHECK(bb.has("hp"));
+        CHECK(bb.get<int>("hp") == 42);
+        CHECK_NEAR(bb.get<float>("range"), 3.5f, 1e-6f);
+        CHECK(bb.get<bool>("alert") == true);
+        // getOr: missing key or wrong type -> fallback (never throws).
+        CHECK(bb.getOr<int>("missing", -1) == -1);
+        CHECK(bb.getOr<int>("range", 7) == 7); // "range" holds a float, not an int
+        // overwrite + erase + clear.
+        bb.set<int>("hp", 10);
+        CHECK(bb.get<int>("hp") == 10);
+        bb.erase("hp");
+        CHECK(!bb.has("hp"));
+        bb.clear();
+        CHECK(!bb.has("alert"));
+    }
+
+    // ---- Parallel ----
+    {
+        // RequireAll: succeeds only when all succeed; fails as soon as one fails; else Running.
+        CHECK(parallel(ParallelPolicy::RequireAll, action(ok), action(ok))->tick() == Status::Success);
+        CHECK(parallel(ParallelPolicy::RequireAll, action(ok), action(no))->tick() == Status::Failure);
+        CHECK(parallel(ParallelPolicy::RequireAll, action(ok), action(run))->tick() == Status::Running);
+        // RequireOne: succeeds as soon as one succeeds; fails only when all fail.
+        CHECK(parallel(ParallelPolicy::RequireOne, action(no), action(ok))->tick() == Status::Success);
+        CHECK(parallel(ParallelPolicy::RequireOne, action(no), action(no))->tick() == Status::Failure);
+        CHECK(parallel(ParallelPolicy::RequireOne, action(no), action(run))->tick() == Status::Running);
+
+        // Parallel ticks EVERY child each tick (unlike a Sequence/Selector short-circuit).
+        int a = 0, b = 0, c = 0;
+        auto p = parallel(ParallelPolicy::RequireAll, action([&] { ++a; return Status::Success; }),
+                          action([&] { ++b; return Status::Failure; }),
+                          action([&] { ++c; return Status::Running; }));
+        p->tick();
+        CHECK(a == 1 && b == 1 && c == 1);
+    }
+
+    // ---- Repeater ----
+    {
+        int ticks = 0;
+        auto rep = repeater(3, action([&] { ++ticks; return Status::Success; }));
+        CHECK(rep->tick() == Status::Running); // 1st success
+        CHECK(rep->tick() == Status::Running); // 2nd success
+        CHECK(rep->tick() == Status::Success); // 3rd success -> done
+        CHECK(ticks == 3);
+        // A child failure aborts the repeater immediately.
+        auto repFail = repeater(5, action(no));
+        CHECK(repFail->tick() == Status::Failure);
+    }
+
+    // ---- AlwaysSucceed / AlwaysFail ----
+    {
+        CHECK(alwaysSucceed(action(no))->tick() == Status::Success);
+        CHECK(alwaysSucceed(action(run))->tick() == Status::Running); // running passes through
+        CHECK(alwaysFail(action(ok))->tick() == Status::Failure);
+        CHECK(alwaysFail(action(run))->tick() == Status::Running);
+    }
+
+    // ---- Tap: records the child's status (0 Success / 1 Failure / 2 Running) ----
+    {
+        int probe = -1;
+        auto t = tap(&probe, action(no));
+        CHECK(t->tick() == Status::Failure);
+        CHECK(probe == static_cast<int>(Status::Failure));
+    }
+
+    // ---- Integration: a blackboard flag drives a reactive selector with a parallel patrol branch ----
+    {
+        Blackboard bb;
+        bb.set<bool>("visible", false);
+        int engageSt = -1, patrolSt = -1;
+        auto build = [&] {
+            engageSt = -1;
+            patrolSt = -1;
+            return BehaviorTree(selector(
+                tap(&engageSt, sequence(condition([&] { return bb.getOr<bool>("visible", false); }),
+                                        action(run))),
+                tap(&patrolSt, parallel(ParallelPolicy::RequireAll, repeater(0, action(run)),
+                                        action(run)))));
+        };
+        {
+            auto tree = build();
+            tree.tick();
+            CHECK(engageSt == static_cast<int>(Status::Failure)); // not visible -> engage fails
+            CHECK(patrolSt == static_cast<int>(Status::Running)); // fell through to patrol
+        }
+        {
+            bb.set<bool>("visible", true);
+            auto tree = build();
+            tree.tick();
+            CHECK(engageSt == static_cast<int>(Status::Running)); // visible -> engage runs
+            CHECK(patrolSt == -1);                                // selector short-circuits: patrol untouched
+        }
+    }
+}
+
 // A scene that logs its lifecycle + update calls into a shared vector for assertions.
 struct LogScene : core::Scene {
     std::vector<std::string>* log = nullptr;
@@ -3710,6 +3818,7 @@ int main() {
     testTwoBoneIK();
     testBlendSpace();
     testBehaviorTree();
+    testBehaviorTreeExtras();
     testSteering();
     testStateMachine();
     testSpriteAnim();

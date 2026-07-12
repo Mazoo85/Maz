@@ -1430,12 +1430,42 @@ and with a striking multi-size golden — so it was the clear UI pick.
   is not a full theme *server* (named styles per control class), a StyleBoxFlat with rounded corners /
   drop shadows, or texture-sampled patches — those remain.
 
+### Iteration 65 — "Benchmarking against Godot: behavior-tree blackboard + parallel/decorators" (done)
+Continuing the Godot benchmark; AI was the most overdue subsystem. Maz's behavior trees (M71) had the
+core reactive composites (Sequence/Selector/Inverter + Action/Condition) but were missing the two
+things that make a BT a real authoring tool: a BLACKBOARD (shared working memory that decouples leaves
+and lets data drive decisions) and the PARALLEL composite + common DECORATORS (repeat, force-result).
+Those slot straight into the existing tree as new node types without touching the composites already
+there — a clean, low-risk, exactly-testable additive win with a legible golden.
+- [x] **M104 — Behavior-tree blackboard + parallel/decorator nodes (`game::bt`)**: a `Blackboard`
+  (std::any-backed typed key-value store with `set`/`get`/`getOr`/`has`/`erase`/`clear`; `getOr` is the
+  safe read — missing key or wrong type returns the fallback, never throws); a `Parallel` composite that
+  ticks *every* child each tick and resolves by policy (RequireOne = OR, RequireAll = AND); and
+  `Repeater` (repeat a child N times, abort on failure), `AlwaysSucceed`/`AlwaysFail` (force the result,
+  pass Running through), and `Tap` (a transparent probe that records a node's status for visualization)
+  decorators, all with builder helpers. Purely additive — the existing Sequence/Selector/Inverter/
+  Action/Condition and the `behavior` demo are untouched (its golden stayed RMSE 0). `testBehaviorTreeExtras`
+  checks each exactly: blackboard typing + overwrite/erase/clear + wrong-type fallback; both parallel
+  policies + proof that all children are ticked (no short-circuit); the repeater returning Running until
+  its count then Success, and aborting on a child Failure; the force-result decorators; Tap recording;
+  and an integration where a blackboard flag drives a reactive selector (engage fails → patrol parallel
+  runs; flag flips → engage runs and the patrol branch is never ticked). Unit count **3654 → 3686**. The
+  new `blackboard` demo draws a sentry's tree as a node graph *twice* — `visible=false` (PATROL) and
+  `visible=true` (ENGAGE) — every box coloured by the REAL per-node tick status (green Success / red
+  Failure / amber Running / gray not-evaluated) via Tap. It makes the whole point visible: one
+  blackboard flag flips the selector between the SEQUENCE engage branch and the PARALLEL patrol+scan
+  branch (with a REPEAT decorator looping the route), and the unused branch is left gray/un-ticked. New
+  `blackboard_headless_smoke` + golden (static, RMSE 0, threshold 0.05). ctest **60/60**. Honest scope:
+  this rounds out the classic BT node set; it is not utility AI / GOAP, a HTN planner, or an event-
+  driven BT scheduler — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): a theme server (named styles per control class) + StyleBoxFlat
+Later (Godot-gap priorities + backlog): utility AI / GOAP / HTN planners on top of the BT (M104 rounds
+out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
 rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
 2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
 joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft

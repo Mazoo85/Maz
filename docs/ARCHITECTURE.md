@@ -78,7 +78,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             rvoVelocity (RVO local collision avoidance: reciprocal-velocity-obstacle candidate
               scoring on time-to-collision), Godot NavigationAgent2D-avoidance-style,
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
-            BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
+            BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves +
+              Blackboard shared memory + Parallel composite + Repeater/AlwaysSucceed/AlwaysFail/Tap decorators),
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
             opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
             rotational impulses about the contact point, linear/angular damping; JOINTS: Joint2D
@@ -194,6 +195,8 @@ apps/
               straight down) and settling against a stop (game::Joint2D::Groove)
   stylebox/ Nine-patch StyleBox — differently-sized themed panels + a button row from one style; fixed
               corners, stretching edges/center (ui::ninePatch)
+  blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
+              coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
 ```
 
 ## The frame loop (fixed timestep)
