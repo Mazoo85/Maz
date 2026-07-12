@@ -30,7 +30,10 @@ void Sim::newGame() {
     m_zombies.clear();
     m_bullets.clear();
     m_corpses.clear();
+    m_particles.clear();
+    m_floatTexts.clear();
     m_messages.clear();
+    m_shake = 0.0f;
 
     m_dayTime = 8 * 60;
     m_dayCount = 1;
@@ -159,7 +162,14 @@ bool Sim::tryInteract() {
         pushMsg("Empty...");
         return true;
     }
-    for (const auto& d : drops) addItem(d.id, d.qty);
+    for (const auto& d : drops) {
+        if (addItem(d.id, d.qty)) {
+            std::string label = "+";
+            if (d.qty > 1) label += std::to_string(d.qty) + " ";
+            label += itemDef(d.id).name;
+            addFloat(Vec2{m_player.pos.x, m_player.pos.y - 0.5f}, label, FloatKind::Loot);
+        }
+    }
     pushMsg("Looted " + best->name);
     return true;
 }
@@ -203,7 +213,11 @@ void Sim::attack() {
                 p.life = 0.28f;
                 m_bullets.push_back(p);
             }
+            kick(8.0f);
+        } else {
+            kick(4.0f);
         }
+        muzzleFlash();
         return;
     }
 
@@ -223,6 +237,7 @@ void Sim::attack() {
         }
     }
     if (hitAny) {
+        kick(2.0f);
         if (InvSlot* w = findSlot(m_player.weapon)) {
             if (w->hasDurab && base.durab != kInfiniteDurab) {
                 w->durab--;
@@ -241,6 +256,9 @@ void Sim::damageZombie(Zombie& z, float dmg, float ang) {
     z.knock = 0.25f;
     z.kx = std::cos(ang);
     z.ky = std::sin(ang);
+    spawnBlood(z.pos, 6);
+    addFloat(Vec2{z.pos.x, z.pos.y - 0.4f}, std::to_string(static_cast<int>(std::lround(dmg))),
+             FloatKind::Damage);
     if (z.health <= 0.0f) killZombie(z);
 }
 
@@ -248,6 +266,7 @@ void Sim::killZombie(Zombie& z) {
     z.dead = true;
     m_kills++;
     m_corpses.push_back(Corpse{z.pos, 0.0f});
+    spawnBlood(z.pos, 14);
 }
 
 // =====================================================================
@@ -338,6 +357,7 @@ void Sim::hurtPlayer(float dmg) {
     m_player.health -= dmg;
     m_player.hurtFlash = 0.25f;
     m_player.attackImmune = 0.5f;
+    kick(3.0f);
     if (m_rng.nextFloat() < 0.12f) { // chance of infection bite
         if (!m_player.infected) {
             m_player.infected = true;
@@ -476,6 +496,29 @@ void Sim::updateWorld(float dt) {
         m_corpses.erase(m_corpses.begin(),
                         m_corpses.begin() + static_cast<long>(m_corpses.size() - 120));
 
+    // Particles drift and fade; velocity damps each step (as in the reference).
+    for (auto& p : m_particles) {
+        p.pos.x += p.vx * dt;
+        p.pos.y += p.vy * dt;
+        p.life -= dt;
+        p.vx *= 0.9f;
+        p.vy *= 0.9f;
+    }
+    m_particles.erase(std::remove_if(m_particles.begin(), m_particles.end(),
+                                     [](const Particle& p) { return p.life <= 0.0f; }),
+                      m_particles.end());
+
+    // Float texts rise and fade.
+    for (auto& f : m_floatTexts) {
+        f.pos.y -= dt * 1.2f;
+        f.life -= dt;
+    }
+    m_floatTexts.erase(std::remove_if(m_floatTexts.begin(), m_floatTexts.end(),
+                                      [](const FloatText& f) { return f.life <= 0.0f; }),
+                       m_floatTexts.end());
+
+    m_shake *= 0.86f;
+
     for (auto& m : m_messages) m.life -= dt;
     m_messages.erase(std::remove_if(m_messages.begin(), m_messages.end(),
                                     [](const LogMessage& m) { return m.life <= 0.0f; }),
@@ -521,5 +564,42 @@ void Sim::pushMsg(const std::string& text) {
     m_messages.push_back(LogMessage{text, 6.0f});
     if (m_messages.size() > 30) m_messages.erase(m_messages.begin());
 }
+
+void Sim::spawnBlood(Vec2 at, int n) {
+    for (int i = 0; i < n; i++) {
+        const float a = m_rng.nextFloat() * kTwoPi;
+        const float s = m_rng.nextFloat() * 4.0f;
+        Particle p;
+        p.pos = at;
+        p.vx = std::cos(a) * s;
+        p.vy = std::sin(a) * s;
+        p.life = 0.3f + m_rng.nextFloat() * 0.3f;
+        p.r = 2.0f + m_rng.nextFloat() * 2.0f;
+        p.kind = ParticleKind::Blood;
+        m_particles.push_back(p);
+    }
+}
+
+void Sim::muzzleFlash() {
+    const Vec2 muzzle{m_player.pos.x + std::cos(m_player.dir) * 0.5f,
+                      m_player.pos.y + std::sin(m_player.dir) * 0.5f};
+    for (int i = 0; i < 6; i++) {
+        const float a = m_player.dir + (m_rng.nextFloat() - 0.5f) * 0.5f;
+        Particle p;
+        p.pos = muzzle;
+        p.vx = std::cos(a) * 6.0f;
+        p.vy = std::sin(a) * 6.0f;
+        p.life = 0.12f;
+        p.r = 3.0f;
+        p.kind = ParticleKind::Muzzle;
+        m_particles.push_back(p);
+    }
+}
+
+void Sim::addFloat(Vec2 at, const std::string& text, FloatKind kind) {
+    m_floatTexts.push_back(FloatText{at, text, 0.9f, kind});
+}
+
+void Sim::kick(float n) { m_shake = std::min(14.0f, m_shake + n); }
 
 } // namespace zb

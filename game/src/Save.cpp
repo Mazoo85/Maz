@@ -9,7 +9,7 @@ namespace zb {
 
 namespace {
 constexpr uint32_t kMagic = 0x5642535Au; // "ZBSV" little-endian
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;         // v2 adds particles / float texts / shake
 
 void writeInv(Writer& w, const std::vector<InvSlot>& inv) {
     w.u32(static_cast<uint32_t>(inv.size()));
@@ -99,6 +99,30 @@ std::vector<uint8_t> Sim::saveState() const {
         w.f32(c.pos.y);
         w.f32(c.t);
     }
+
+    // Particles.
+    w.u32(static_cast<uint32_t>(m_particles.size()));
+    for (const auto& pt : m_particles) {
+        w.f32(pt.pos.x);
+        w.f32(pt.pos.y);
+        w.f32(pt.vx);
+        w.f32(pt.vy);
+        w.f32(pt.life);
+        w.f32(pt.r);
+        w.u8(static_cast<uint8_t>(pt.kind));
+    }
+
+    // Float texts.
+    w.u32(static_cast<uint32_t>(m_floatTexts.size()));
+    for (const auto& f : m_floatTexts) {
+        w.f32(f.pos.x);
+        w.f32(f.pos.y);
+        w.str(f.text);
+        w.f32(f.life);
+        w.u8(static_cast<uint8_t>(f.kind));
+    }
+
+    w.f32(m_shake);
 
     // Opened flags for the (deterministically regenerated) containers.
     w.u32(static_cast<uint32_t>(m_world.containers.size()));
@@ -224,6 +248,42 @@ bool Sim::loadState(const std::vector<uint8_t>& data) {
         }
     }
 
+    std::vector<Particle> particles;
+    {
+        const uint32_t n = r.u32();
+        if (!r.ok() || n > 1000000) return false;
+        particles.reserve(n);
+        for (uint32_t i = 0; i < n && r.ok(); i++) {
+            Particle pt;
+            pt.pos.x = r.f32();
+            pt.pos.y = r.f32();
+            pt.vx = r.f32();
+            pt.vy = r.f32();
+            pt.life = r.f32();
+            pt.r = r.f32();
+            pt.kind = static_cast<ParticleKind>(r.u8());
+            particles.push_back(pt);
+        }
+    }
+
+    std::vector<FloatText> floats;
+    {
+        const uint32_t n = r.u32();
+        if (!r.ok() || n > 100000) return false;
+        floats.reserve(n);
+        for (uint32_t i = 0; i < n && r.ok(); i++) {
+            FloatText f;
+            f.pos.x = r.f32();
+            f.pos.y = r.f32();
+            f.text = r.str();
+            f.life = r.f32();
+            f.kind = static_cast<FloatKind>(r.u8());
+            floats.push_back(std::move(f));
+        }
+    }
+
+    const float shake = r.f32();
+
     {
         const uint32_t n = r.u32();
         // Must match the regenerated world exactly, or the save is incompatible.
@@ -253,6 +313,9 @@ bool Sim::loadState(const std::vector<uint8_t>& data) {
     m_zombies = std::move(zombies);
     m_bullets = std::move(bullets);
     m_corpses = std::move(corpses);
+    m_particles = std::move(particles);
+    m_floatTexts = std::move(floats);
+    m_shake = shake;
     m_messages = std::move(messages);
     m_dayTime = dayTime;
     m_dayCount = dayCount;

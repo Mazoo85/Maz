@@ -43,8 +43,10 @@ same `Sim` — gameplay code never touches the engine backend.
 | keyboard/mouse event handlers       | `zb::Input` (per-tick intent struct)              |
 | canvas rendering / WebAudio         | *(not in the sim — belongs to the render layer)*  |
 
-Purely-visual state from the reference (particles, float-texts, screen shake, CRT/scanline
-post-fx) is intentionally excluded from the sim; it will live in the render layer.
+The sim maintains the reference's gameplay-adjacent effect state too: blood/muzzle **particles**,
+floating **damage numbers** / loot pickups, and **screen shake** (`kick`) — fed from combat and
+looting and advanced in the update loop, so they save/load and stay deterministic. Only the
+frame-level post-fx (CRT/scanline/vignette) stays out of the sim as pure render decoration.
 
 ## What's done
 
@@ -62,7 +64,8 @@ post-fx) is intentionally excluded from the sim; it will live in the render laye
 
 A dependency-free **software reference rasterizer** (`zomboid/render/`) draws a `Sim` frame into a
 CPU `Framebuffer` using the neon palette — tiles + detailing, loot containers, corpses, zombies
-(with eyes/health bars), the player + facing line, bullets, the night darkness overlay, and a full
+(with eyes/health bars), the player + facing line, bullets, blood/muzzle particles, floating damage
+numbers, the night darkness overlay, and a full
 **HUD** (five stat bars with labels, the day/clock/kills/z-alive panel, equipped weapon, an 8-slot
 hotbar, and the message log) drawn with a built-in 5x7 bitmap font (`Font.hpp`) — plus a whole-world
 overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a tiny built-in

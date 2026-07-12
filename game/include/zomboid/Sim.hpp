@@ -84,6 +84,26 @@ struct Corpse {
     float t = 0.0f;
 };
 
+enum class ParticleKind : uint8_t { Blood, Muzzle };
+
+struct Particle {
+    Vec2 pos{0, 0};
+    float vx = 0.0f, vy = 0.0f;
+    float life = 0.0f;
+    float r = 2.0f;
+    ParticleKind kind = ParticleKind::Blood;
+};
+
+enum class FloatKind : uint8_t { Damage, Loot };
+
+// A short-lived world-space label (damage numbers, "+item" pickups).
+struct FloatText {
+    Vec2 pos{0, 0};
+    std::string text;
+    float life = 0.0f;
+    FloatKind kind = FloatKind::Damage;
+};
+
 struct LogMessage {
     std::string text;
     float life = 6.0f;
@@ -118,7 +138,10 @@ public:
     const std::vector<Zombie>& zombies() const { return m_zombies; }
     const std::vector<Bullet>& bullets() const { return m_bullets; }
     const std::vector<Corpse>& corpses() const { return m_corpses; }
+    const std::vector<Particle>& particles() const { return m_particles; }
+    const std::vector<FloatText>& floatTexts() const { return m_floatTexts; }
     const std::vector<LogMessage>& messages() const { return m_messages; }
+    float shake() const { return m_shake; }
 
     int kills() const { return m_kills; }
     int day() const { return m_dayCount; }
@@ -157,6 +180,10 @@ private:
     void removeOne(int idx);
     void pushMsg(const std::string& text);
     InvSlot* findSlot(const std::string& id);
+    void spawnBlood(Vec2 at, int n);
+    void muzzleFlash();
+    void addFloat(Vec2 at, const std::string& text, FloatKind kind);
+    void kick(float n);
 
     Rng m_rng;
     World m_world;
@@ -164,7 +191,10 @@ private:
     std::vector<Zombie> m_zombies;
     std::vector<Bullet> m_bullets;
     std::vector<Corpse> m_corpses;
+    std::vector<Particle> m_particles;
+    std::vector<FloatText> m_floatTexts;
     std::vector<LogMessage> m_messages;
+    float m_shake = 0.0f;
 
     float m_dayTime = 8 * 60; // minutes; start 08:00
     int m_dayCount = 1;

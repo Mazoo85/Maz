@@ -240,6 +240,14 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
         fb.blendRect(px - TILE / 2, py - TILE / 3, TILE, 2 * TILE / 3, rgb(0x5a1020), a);
     }
 
+    // --- Blood particles (under entities) ---
+    for (const auto& p : sim.particles()) {
+        if (p.kind != ParticleKind::Blood) continue;
+        const int px = sx(p.pos.x), py = sy(p.pos.y);
+        const int r = std::max(1, static_cast<int>(p.r));
+        fb.blendRect(px - r / 2, py - r / 2, r, r, neon::red, std::max(0.0f, p.life * 2.0f));
+    }
+
     // --- Zombies ---
     for (const auto& z : sim.zombies()) {
         if (z.dead) continue;
@@ -279,6 +287,22 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
         const Color line = wep.ranged ? neon::yellow : neon::cyan;
         fb.drawLine(px, py, px + static_cast<int>(std::cos(player.dir) * TILEf * 0.7f),
                     py + static_cast<int>(std::sin(player.dir) * TILEf * 0.7f), line, 3);
+    }
+
+    // --- Muzzle particles (over entities) ---
+    for (const auto& p : sim.particles()) {
+        if (p.kind != ParticleKind::Muzzle) continue;
+        const int px = sx(p.pos.x), py = sy(p.pos.y);
+        const int r = std::max(1, static_cast<int>(p.r));
+        fb.blendRect(px - r / 2, py - r / 2, r, r, neon::yellow, std::max(0.0f, p.life * 4.0f));
+    }
+
+    // --- Floating damage numbers / loot pickups ---
+    for (const auto& f : sim.floatTexts()) {
+        const int px = sx(f.pos.x) - textWidth(f.text.c_str(), 1) / 2;
+        const int py = sy(f.pos.y);
+        const Color col = f.kind == FloatKind::Damage ? neon::yellow : neon::green;
+        drawText(fb, px, py, f.text.c_str(), col, 1);
     }
 
     // --- Night darkness overlay ---
