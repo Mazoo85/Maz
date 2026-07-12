@@ -396,6 +396,14 @@ available):
   editing keys to whichever field owns focus. Both models are pure logic, unit-tested headlessly. The
   new `form` demo is an account-settings form of four fields — click or Tab to move focus (the focused
   field shows an accent border + caret), type to edit, one field length-capped
+- **M96** — procedural **cave generation + tilemap autotiling**, toward Godot's TileMap terrain sets:
+  `game::CellularCave` grows an organic cavern by cellular automata (seeded random fill, then smoothing
+  passes that keep a cell solid where its neighbours are mostly solid — the "4-5 rule", borders forced
+  solid), and `game::autotileMask4` computes each wall cell's 4-bit edge mask (which N/E/S/W neighbours
+  are also wall, out-of-bounds counted solid) — the value a terrain tileset keys on to pick a border
+  tile. Both are pure logic (only `core::Random`), deterministic under a seed, and unit-tested. The new
+  `cave` demo generates a seeded cave and renders each wall cell inset on the sides that face open floor
+  (driven by its mask), so the walls round off into smooth cave borders
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

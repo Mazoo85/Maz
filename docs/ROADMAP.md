@@ -383,7 +383,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] GPU-simulated particles, affectors/attractors
 - [x] **Procedural generation: noise** (`maz::core::Noise`: seeded Perlin `noise2` + fractal-Brownian
   `fbm2`; deterministic, 0 at lattice points, ~[-1,1]; the `noise` demo builds a terrain heightmap; M85)
-  — tilemap tools / cave carving later
+- [x] **Procedural caves + tilemap autotiling** (`game::CellularCave` seeded cellular-automata cavern +
+  `game::autotileMask4` 4-bit edge bitmask (out-of-bounds = solid) — Godot TileMap terrain sets; both
+  deterministic pure logic; the `cave` demo generates a cave + autotiles its wall borders; M96)
 - [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
 - [x] **Camera juice**: trauma-based screen shake (`maz::game::Shake`, deterministic; M39)
 - [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
@@ -472,6 +474,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
 - [x] **Text input form** (`apps/form`) — an editable account-settings form: click/Tab to focus a
       field (accent border + caret), type to edit (`ui::TextField` + `ui::FocusChain`) (M95)
+- [x] **Procedural cave** (`apps/cave`) — a seeded cellular-automata cavern with autotiled wall borders
+      (`game::CellularCave` + `game::autotileMask4`) (M96)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

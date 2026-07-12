@@ -73,6 +73,7 @@ CASES=(
     "joints||4.5|0.06"
     "spatial2d||2.0|0.05"
     "form||2.0|0.05"
+    "cave||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

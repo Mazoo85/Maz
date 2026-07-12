@@ -81,7 +81,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Pin (point constraint) + damped Spring, sequential-impulse solved with world anchors),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
-            corners, keep nearest hits; point-in-polygon test)
+            corners, keep nearest hits; point-in-polygon test),
+            CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
+            tilemap autotiling — Godot TileMap terrains)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
@@ -163,6 +165,8 @@ apps/
               pan visualized as gain halos + L/R bars + a master meter (audio::spatialize)
   form/     UI text input — an editable account-settings form: click/Tab to focus a field (accent
               border + caret), type to edit (ui::TextField + ui::FocusChain + Context::textField)
+  cave/     Procedural cave — a seeded cellular-automata cavern with autotiled wall borders (walls inset
+              per their edge bitmask) (game::CellularCave + game::autotileMask4)
 ```
 
 ## The frame loop (fixed timestep)

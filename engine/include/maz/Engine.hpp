@@ -26,6 +26,7 @@
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/AutoTile.hpp"
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"

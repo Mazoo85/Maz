@@ -21,6 +21,7 @@
 #include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
+#include "maz/game/AutoTile.hpp"
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
@@ -367,6 +368,64 @@ void testVisibility2D() {
         CHECK(!game::Visibility2D::contains(poly, vec2{90, 50}));
         // Above the wall's span, the light still reaches the far corner.
         CHECK(game::Visibility2D::contains(poly, vec2{90, 90}));
+    }
+}
+
+void testAutoTile() {
+    // Cellular cave generation is deterministic for a seed, enclosed by walls, and mixed (not uniform).
+    {
+        const int w = 48, h = 32;
+        auto a = game::CellularCave::generate(w, h, 12345);
+        auto b = game::CellularCave::generate(w, h, 12345);
+        auto c = game::CellularCave::generate(w, h, 99999);
+        CHECK(a == b);   // same seed -> identical cave (reproducible)
+        CHECK(!(a == c)); // different seed -> different cave
+
+        // The whole border is solid.
+        bool borderSolid = true;
+        for (int x = 0; x < w; ++x) {
+            if (a[game::CellularCave::idx(w, x, 0)] == 0) borderSolid = false;
+            if (a[game::CellularCave::idx(w, x, h - 1)] == 0) borderSolid = false;
+        }
+        for (int y = 0; y < h; ++y) {
+            if (a[game::CellularCave::idx(w, 0, y)] == 0) borderSolid = false;
+            if (a[game::CellularCave::idx(w, w - 1, y)] == 0) borderSolid = false;
+        }
+        CHECK(borderSolid);
+
+        // It carved SOME floor and kept SOME wall (a smoothed cave, not all one thing).
+        int walls = 0, floors = 0;
+        for (uint8_t v : a) {
+            (v ? walls : floors)++;
+        }
+        CHECK(walls > 0);
+        CHECK(floors > 0);
+    }
+
+    // autotileMask4: fully-surrounded -> 0x0F; isolated -> 0; open on one side clears that bit;
+    // out-of-bounds counts as solid.
+    {
+        const int w = 3, h = 3;
+        std::vector<uint8_t> g(9, 1); // all solid
+        CHECK(game::autotileMask4(g, w, h, 1, 1) == 0x0F);
+
+        std::vector<uint8_t> iso(9, 0);
+        iso[game::CellularCave::idx(w, 1, 1)] = 1; // a lone solid cell surrounded by floor
+        CHECK(game::autotileMask4(iso, w, h, 1, 1) == 0x00);
+
+        std::vector<uint8_t> openE(9, 1);
+        openE[game::CellularCave::idx(w, 2, 1)] = 0;      // east neighbour is floor
+        CHECK((game::autotileMask4(openE, w, h, 1, 1) & 0x2) == 0); // E bit cleared
+        CHECK((game::autotileMask4(openE, w, h, 1, 1) & 0x1) != 0); // N still set
+
+        // A corner cell: its off-map N and W sides read as solid (enclosed), only interior sides vary.
+        std::vector<uint8_t> gg(9, 1);
+        gg[game::CellularCave::idx(w, 1, 0)] = 0; // the cell to the east of corner (0,0) is floor...
+        // corner (0,0): N and W are out of bounds (solid), E=(1,0)=floor, S=(0,1)=solid
+        CHECK((game::autotileMask4(gg, w, h, 0, 0) & 0x2) == 0); // E open
+        CHECK((game::autotileMask4(gg, w, h, 0, 0) & 0x1) != 0); // N (out of bounds) solid
+        CHECK((game::autotileMask4(gg, w, h, 0, 0) & 0x8) != 0); // W (out of bounds) solid
+        CHECK(game::autotileIndex4(0x0F) == 15);
     }
 }
 
@@ -3130,6 +3189,7 @@ int main() {
     testSpatialGrid();
     testNavGrid();
     testNavMesh();
+    testAutoTile();
     testVisibility2D();
     testPhysics2D();
     testPhysics2DRotation();

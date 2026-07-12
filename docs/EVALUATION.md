@@ -1201,12 +1201,39 @@ interactive-UI gap, and its core (a text-edit model + a focus ring) is pure, det
   **51/51**. Honest scope: this is single-line editing + focus + click/Tab (Godot LineEdit); it has no
   text selection/clipboard, no multi-line TextEdit, and no theme resources yet — those remain.
 
+### Iteration 57 — "Benchmarking against Godot: procedural caves + tilemap autotiling" (done)
+Continuing the Godot benchmark, rotating to procedural generation / tilemaps for breadth. Maz had a
+tilemap (M76), Perlin/fBm noise (M85), and a seeded RNG (M84), but nothing that *generated* a level or
+picked tiles by their neighbourhood — while Godot ships TileMap terrain sets (autotiling) and procedural
+gen is one of its biggest use cases. Both halves are pure, deterministic logic, so they close a real gap
+with rigorous verification.
+- [x] **M96 — Procedural caves (`game::CellularCave`) + tilemap autotiling (`game::autotileMask4`)**:
+  `CellularCave::generate` grows an organic cavern by cellular automata — a seeded random fill, then N
+  smoothing passes where a cell becomes solid iff a majority of its 8 neighbours are solid (the classic
+  "4-5 rule"), with the border forced solid so the cave is enclosed. `autotileMask4` returns a wall
+  cell's 4-bit edge mask (bit per N/E/S/W neighbour that is also solid; out-of-bounds counts as solid so
+  map-edge walls don't grow spurious borders) — exactly the value a terrain tileset keys on to choose a
+  border tile — plus `autotileIndex4` for a 16-tile blob atlas. Pure logic on `core::Random`, so
+  `testAutoTile` checks it exactly: cave generation is reproducible for a seed (and differs across
+  seeds), the whole border is solid, the result is mixed (not uniform), and the mask is 0x0F when
+  fully-surrounded, 0 when isolated, clears the right bit when a side opens, and reads out-of-bounds as
+  solid at a corner. Unit count **3492 -> 3505**. The new `cave` demo generates a seeded cavern and
+  renders each wall cell **inset on the sides that face open floor** (driven by its mask), so the walls
+  round off into smooth terrain-tile borders, shaded slightly by how enclosed each cell is; on lavapipe
+  it reads as a proper cave with pillars, nooks, and winding passages. New `cave_headless_smoke` +
+  golden (static, RMSE 0, threshold 0.05). Purely additive (new header + a new app), so all existing
+  goldens are unchanged — confirmed by a serial golden run (strays killed first; golden check then ctest
+  one at a time). ctest **52/52**. Honest scope: this is bitmask (4-connected) autotiling + cellular
+  cave gen; it is not the full 47-tile Wang/blob terrain matcher, BSP/room-graph dungeon generation, or
+  a runtime TileMap terrain-painting API — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): text selection/clipboard + multi-line TextEdit + UI themes +
+Later (Godot-gap priorities + backlog): 47-tile Wang autotiling + BSP/room dungeon gen (M96 gives
+4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
 controller UI nav (M95 gives single-line LineEdit + focus); audio buses + DSP effects (reverb/filter) +
 3D spatial audio + doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh;
 animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point
