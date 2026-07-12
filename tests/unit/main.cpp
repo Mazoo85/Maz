@@ -31,6 +31,7 @@
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"
+#include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
@@ -4361,6 +4362,108 @@ void testStringId() {
     }
 }
 
+void testSlotMap() {
+    using core::SlotHandle;
+    using core::SlotMap;
+
+    // Insert returns a live handle; get returns the value; contains is true.
+    {
+        SlotMap<int> m;
+        const SlotHandle a = m.insert(10);
+        const SlotHandle b = m.insert(20);
+        CHECK(m.size() == 2);
+        CHECK(m.contains(a));
+        CHECK(m.contains(b));
+        CHECK(m.get(a) != nullptr);
+        CHECK(*m.get(a) == 10);
+        CHECK(*m.get(b) == 20);
+        CHECK(a != b);
+    }
+
+    // A default-constructed handle is never valid.
+    {
+        SlotMap<int> m;
+        m.insert(5);
+        CHECK(!m.contains(SlotHandle{}));
+        CHECK(m.get(SlotHandle{}) == nullptr);
+    }
+
+    // Erase invalidates the handle; size drops; double-erase is safe (returns false).
+    {
+        SlotMap<int> m;
+        const SlotHandle a = m.insert(7);
+        CHECK(m.erase(a));
+        CHECK(!m.contains(a));
+        CHECK(m.get(a) == nullptr);
+        CHECK(m.size() == 0);
+        CHECK(!m.erase(a)); // already gone
+    }
+
+    // THE generational property: erase then re-insert reuses the slot with a bumped generation, so the
+    // OLD handle is stale (get -> nullptr) while the NEW handle to the same slot is valid.
+    {
+        SlotMap<int> m;
+        const SlotHandle a = m.insert(100);
+        m.erase(a);
+        const SlotHandle b = m.insert(200); // reuses slot index a.index
+        CHECK(b.index == a.index);          // same physical slot
+        CHECK(b.generation != a.generation); // different generation
+        CHECK(!m.contains(a));              // stale old handle
+        CHECK(m.get(a) == nullptr);
+        CHECK(m.contains(b));               // fresh handle valid
+        CHECK(*m.get(b) == 200);
+    }
+
+    // Handles remain stable while OTHER slots are erased.
+    {
+        SlotMap<int> m;
+        const SlotHandle a = m.insert(1);
+        const SlotHandle b = m.insert(2);
+        const SlotHandle c = m.insert(3);
+        m.erase(b);
+        CHECK(m.contains(a));
+        CHECK(m.contains(c));
+        CHECK(*m.get(a) == 1);
+        CHECK(*m.get(c) == 3);
+        CHECK(m.size() == 2);
+    }
+
+    // forEach visits only live values.
+    {
+        SlotMap<int> m;
+        m.insert(10);
+        const SlotHandle b = m.insert(20);
+        m.insert(30);
+        m.erase(b);
+        int sum = 0, count = 0;
+        m.forEach([&](SlotHandle, int& v) {
+            sum += v;
+            ++count;
+        });
+        CHECK(count == 2);
+        CHECK(sum == 40); // 10 + 30
+    }
+
+    // clear empties everything.
+    {
+        SlotMap<int> m;
+        m.insert(1);
+        m.insert(2);
+        m.clear();
+        CHECK(m.empty());
+        CHECK(m.size() == 0);
+    }
+
+    // Freed slots are recycled (capacity doesn't grow on reuse).
+    {
+        SlotMap<int> m;
+        const SlotHandle a = m.insert(1);
+        m.erase(a);
+        m.insert(2);
+        CHECK(m.capacity() == 1); // reused the one slot rather than allocating a second
+    }
+}
+
 void testJobs() {
     core::JobSystem js;
     CHECK(js.workerCount() >= 1);
@@ -6976,6 +7079,7 @@ int main() {
     testEventBus();
     testSignal();
     testStringId();
+    testSlotMap();
     testJobs();
     testResourceCache();
     testSceneStack();

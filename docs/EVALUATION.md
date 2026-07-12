@@ -2454,6 +2454,36 @@ it unit-tests headlessly and renders a clean lit golden.
   unwrapping or seam control, tangents for normal mapping, or LOD ring/sector auto-selection; those remain
   mesh-generation follow-ups.
 
+### Iteration 98 — "Benchmarking against Godot: generational-handle slot-map" (done)
+Rotating to **core containers** for breadth (M132 was core StringId; this is a different, long-backlogged
+Phase-2 item — "handles / generational indices, object pools") and closing a foundational gap: a
+**generational slot-map**. Godot hands out `RID`s and entity-style ids that stay valid across storage
+reuse and safely detect a stale reference to a freed object — the classic dangling-handle / ABA problem.
+Maz had no such structure; subsystems kept objects in plain vectors and passed raw indices, which silently
+break when an element is removed and the slot is reused. It's a pure data structure, so it unit-tests
+exhaustively and renders a clean deterministic golden.
+- [x] **M137 — generational-handle slot-map (`core::SlotMap<T>` + `core::SlotHandle`)**: a new
+  `SlotMap.hpp`. `insert(value)` stores into a free slot (recycled via a free list) or grows the array and
+  returns a `SlotHandle{index, generation}`. `get(handle)` returns a `T*` or **nullptr** when the handle
+  is stale; `contains` checks in-range + occupied + generation-match; `erase(handle)` frees the slot,
+  **bumps its generation** (invalidating every handle minted before the free), recycles the index, and is
+  double-free safe (returns false on an already-stale handle). `size` / `capacity` / `clear` / `forEach`
+  round it out. Generations start at 1 so a default `SlotHandle{}` is always invalid. `testSlotMap` pins:
+  insert→live handle→value; default handle invalid; erase→stale + size drop + double-erase false; **THE
+  generational property** — erase then re-insert reuses the same slot index at a new generation, so the
+  old handle goes stale (`get`→nullptr) while the new handle is valid; handle stability across unrelated
+  erases; `forEach` visits only live values; `clear`; and free-slot recycling (capacity stays 1 across
+  erase+reinsert). Unit checks **4697 → 4727**. The new `slotmap` demo drives a real `SlotMap<char>`
+  through insert A,B,C → free B → insert D (which reuses B's slot with a bumped generation) and draws the
+  slot array (occupied/free + each slot's generation) beside the handle table — `hB` shown **STALE** (red)
+  because its slot was recycled, `hD` **LIVE** (green) on the same slot. Static → deterministic golden
+  (threshold 0.06). Purely additive (new header + new app), so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **92/92 → 93/93**. Honest scope: a single-type templated
+  slot-map with 32-bit index/generation. It is not a *typed-RID server* multiplexing many resource types
+  behind one opaque id (Godot's RID_Owner set), it doesn't recycle generations after 2³² reuses of one
+  slot, and the engine's existing handle-ish systems (texture/mesh handles, ECS ids) aren't retrofitted
+  onto it yet; those remain follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

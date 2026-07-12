@@ -114,6 +114,7 @@ CASES=(
     "textwrap||2.0|0.07"
     "addblend||2.0|0.06"
     "primitives||2.5|0.12"
+    "slotmap||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

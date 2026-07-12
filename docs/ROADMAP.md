@@ -169,7 +169,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Transform helpers, AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
-- [ ] Handles / generational indices, object pools
+- [x] **Handles / generational indices, object pools** (`core::SlotMap<T>` + `SlotHandle{index,
+  generation}`: insert into recycled free slots, `get`/`contains`/`erase` with stale-handle (ABA)
+  detection via a generation bump on free, double-free safe, `forEach` over live values — Godot's `RID` /
+  stable entity handles; the `slotmap` demo drives insert/free/reuse and flags live vs stale handles;
+  M137) — a typed multi-resource RID server + retrofitting texture/mesh/ECS handles onto it later
 - [ ] Containers: `small_vector`, sparse set, ring buffer
 - [x] **String interning / `StringId`** (`core::StringTable`: intern-or-find each unique name once →
   a stable 32-bit `StringId` handle so name equality is an int compare; `find` (non-inserting) / `str`

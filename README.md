@@ -736,6 +736,11 @@ available):
   these four add a barrel, a spike, a ring, and a rounded capsule as procedural solids with outward
   normals + UVs, dropping straight into the existing lit-mesh path (the original three are untouched). The
   new `primitives` demo renders all four as a lit gallery under a fixed camera.
+- **M137** — a **generational-handle slot-map** (`core::SlotMap<T>`), toward Godot's `RID` / stable
+  handles: an object pool that hands out `SlotHandle{index, generation}` ids, recycles freed slots, and
+  **detects a stale handle** whose slot was reused (the dangling-handle / ABA bug) by bumping the slot's
+  generation on free. `get` returns null for a stale handle. The new `slotmap` demo drives a real
+  `SlotMap` through insert/free/reuse and shows which handles are live vs stale.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

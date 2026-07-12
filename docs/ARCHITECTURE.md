@@ -27,6 +27,9 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
               connect/disconnect/isConnected, immediate emit, one-shot + deferred(+flushDeferred) connections),
             StringId (interned strings — Godot StringName: StringTable intern/find/str/hash dedups each
               unique name to a stable 32-bit id so name equality is an int compare; + FNV-1a-32 hash),
+            SlotMap (generational-handle object pool — Godot RID: insert->SlotHandle{index,generation},
+              get/contains/erase with stale-handle (ABA) detection via generation bump on free + free-list
+              slot reuse; forEach over live values),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
             SceneStack (game-state stack: push/pop/replace + overlay-aware update/render)
@@ -275,6 +278,8 @@ apps/
               five rising weights (anim::additiveBlend + Skeleton FK); shoulder held, only the elbow folds
   primitives/ Mesh primitives — a lit gallery of the four new procedural solids (cylinder/cone/torus/capsule
               from render::shapes::make*) under a fixed camera on the existing 3D mesh path
+  slotmap/   Generational handles — a live core::SlotMap<char> driven through insert/free/reuse; the slot
+              array (occupied/free + generation) beside the handle table showing which handles are live vs stale
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar
