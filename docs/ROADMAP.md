@@ -431,6 +431,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
   + Mononen funnel string-pulling into a smooth corner-hugging path — polygon navigation like Godot's
   NavigationServer, beyond grid A*; the `navmesh` demo routes around a pillar; M87)
+- [x] **Flow-field pathfinding** (`game::FlowField`: one Dijkstra outward from the goal → an integration
+  cost field, then a baked per-cell unit flow direction down the gradient, so a whole crowd routes to a
+  shared goal for the price of one search — the vector-field crowd technique Godot's per-agent
+  NavigationServer lacks; the `flowfield` demo streams 90 agents around two barriers with a cost heat map
+  + flow arrows; M112) — flow-field steering/avoidance blend + dynamic goal-move re-bake later
 - [x] **Local collision avoidance** (`game::rvoVelocity`: reciprocal-velocity-obstacle candidate
   sampling scored on time-to-collision using the shared relative velocity `2·c − vA − vB` — Godot
   NavigationAgent2D avoidance; the `avoid` demo crosses 14 agents through a crowded centre; M98) —
@@ -569,6 +574,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
 - [x] **Normal-mapped lighting** (`apps/normalmap`) — a field of dome bumps lit by three coloured point
       lights, each dome shaded on the side facing a light so it reads as 3D relief (`game::shadeSurface`) (M111)
+- [x] **Flow-field pathfinding** (`apps/flowfield`) — a cost heat map + baked flow arrows + 90 agents
+      streaming around two barriers to a shared goal from one Dijkstra (`game::FlowField`) (M112)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

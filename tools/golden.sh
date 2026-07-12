@@ -89,6 +89,7 @@ CASES=(
     "theme||2.0|0.05"
     "stack||2.0|0.06"
     "normalmap||2.5|0.05"
+    "flowfield||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

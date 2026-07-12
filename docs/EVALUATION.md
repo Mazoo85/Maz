@@ -1665,6 +1665,35 @@ unit-testable, deterministic, and a brand-new header so it can't regress anythin
   texture-projected light *cookie*, or specular/rim terms — those remain rendering gaps (and a true
   per-pixel shader path needs the Vulkan sprite pipeline, not just this math).
 
+### Iteration 73 — "Benchmarking against Godot: flow-field pathfinding" (done)
+Rotating to gameplay/AI (last AI was M108's GOAP). Maz already has grid A* (M57) and navmesh A* (M87),
+and Godot's NavigationServer is likewise per-agent A* — every unit runs its own search. For a large crowd
+converging on ONE goal that is wasteful and doesn't scale; the standard answer, which neither Godot nor
+Maz had, is a FLOW FIELD: search once from the goal and let every agent read a precomputed direction. It's
+a distinct, recognisable capability, pure grid math (deterministic, headless-testable), and a brand-new
+header so it can't regress anything — the clear highest-leverage crowd-AI pick.
+- [x] **M112 — Flow-field pathfinding (`game::FlowField`)**: a new header. `build(w,h,blocked,goalX,goalY)`
+  runs one 8-connected **Dijkstra outward from the goal** (diagonal cost √2, corner-cutting disallowed
+  like the existing NavGrid, stable ties by insertion sequence) to fill an **integration field** — the
+  least cost-to-goal for every cell — then **bakes the flow field**: each reachable walkable cell stores a
+  unit vector toward its lowest-cost eligible neighbour, i.e. straight down the cost gradient to the goal.
+  Any number of agents then path for free via `sampleFlow(worldPos, cellSize, origin)`, which maps a world
+  position to its cell's direction. `testFlowField` pins it down: in an open corridor the cost rises one
+  per cell and every cell flows toward the goal; on an open grid the far corner reaches the goal by a
+  straight diagonal (cost 4√2) and mid cells flow at it (dot > 0.5); a wall makes cells behind it cost more
+  than the straight-line distance and steer toward the gap rather than into the wall, and wall cells carry
+  zero flow; a boxed-off goal leaves outside cells unreachable; `sampleFlow` picks the right cell and
+  returns zero outside the grid. Unit count **3992 → 4020**. The new `flowfield` demo draws the whole
+  pipeline: the integration field as a heat map (warm near the goal, cold far), the baked flow as a grid
+  of arrows, two staggered wall barriers, and 90 agents released on the left that were streamed along the
+  field (once, at startup, fixed timestep) around both barriers to the goal — their trails tracing the
+  flow lines. Purely additive (new header + new app), so every existing golden is byte-unchanged (confirmed
+  by a serial golden run); precomputed → deterministic golden (RMSE 0, threshold 0.05). ctest **67/67 →
+  68/68**. Honest scope: this is a single static-goal flow field with per-cell (not sub-cell-interpolated)
+  sampling; it does not yet blend flow with local RVO avoidance (M98) for agent-agent separation, re-bake
+  incrementally when the goal moves, or do hierarchical/portal flow fields for huge maps — those remain
+  crowd-AI gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1685,8 +1714,9 @@ stacks; M102 completes the pin/spring/groove trio); a GPU fragment-shader sprite
 texture-projected light *cookie* + specular/rim terms (M111 gives CPU normal-mapped point lighting; M101
 gives soft shadows); call-method/trigger tracks + a visual track editor on the
 timeline (M100 gives value tracks + per-segment easing);
-ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
-crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone angle
+ORCA half-plane avoidance + blending flow fields with local RVO for agent separation + incremental
+goal-move re-bake + hierarchical/portal flow fields (M112 gives static-goal flow-field crowd pathfinding;
+M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone angle
 constraints + a Skeleton2D-integrated IK modification stack (M107 gives multi-bone FABRIK chains; M97 gives
 closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line

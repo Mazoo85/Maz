@@ -78,6 +78,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
             NavMesh (convex-cell navigation mesh: A* over cells + funnel string-pull for smooth paths),
+            FlowField (flow-field / vector-field pathfinding: one Dijkstra from the goal → an integration
+            cost field + a baked per-cell flow direction, so a whole crowd routes to a shared goal from a
+            single search — the crowd technique per-agent A* lacks),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             rvoVelocity (RVO local collision avoidance: reciprocal-velocity-obstacle candidate
               scoring on time-to-collision), Godot NavigationAgent2D-avoidance-style,
@@ -223,6 +226,8 @@ apps/
               keeps one square, off lets the other topple (PhysicsWorld2D::solveManifolds)
   normalmap/ Normal-mapped 2D lighting — a field of dome bumps lit by three coloured point lights, each
               dome shaded on the side facing a light so it reads as 3D relief (game::shadeSurface)
+  flowfield/ Flow-field pathfinding — a cost heat map + baked flow arrows + 90 agents streaming around two
+              barriers to a shared goal, all from one Dijkstra outward from the goal (game::FlowField)
   blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
   statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-

@@ -533,6 +533,14 @@ set_tests_properties(normalmap_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME flowfield_headless_smoke
+    COMMAND flowfield --headless --frames 30)
+
+set_tests_properties(flowfield_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

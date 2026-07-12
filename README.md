@@ -546,6 +546,17 @@ available):
   from going black and strong light clamps to white). The new `normalmap` demo lights a field of dome
   bumps with three coloured point lights — each dome catches its nearest light on the facing side, and
   the warm / cool / magenta pools overlap and mix.
+- **M112** — **flow-field (vector-field) pathfinding** (`game::FlowField`), the crowd-movement technique
+  the per-agent A* of Godot's NavigationServer (and Maz's own `NavGrid`) doesn't provide. When many
+  agents share one goal, you run a single Dijkstra *outward* from the goal to get an integration field
+  (least cost-to-goal per cell), then bake a flow field — each cell stores a unit direction down that
+  cost gradient. Every agent then navigates for free by reading the direction under its feet, so a whole
+  crowd routes around obstacles to the goal for the price of one search. 8-connected Dijkstra (diagonal
+  cost √2, no corner cutting), unit-tested (cost rises with distance and every cell flows toward the goal;
+  a wall forces cells to route around rather than into it; a walled-off region is unreachable with zero
+  flow; `sampleFlow` maps a world position to its cell). The new `flowfield` demo shows the integration
+  field as a heat map, the baked flow as a grid of arrows, and 90 agents released on the left that stream
+  around two staggered barriers to the goal, their trails tracing the flow lines.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

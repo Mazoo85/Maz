@@ -30,6 +30,7 @@
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
+#include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
@@ -3915,6 +3916,95 @@ void testGoap() {
     }
 }
 
+void testFlowField() {
+    using math::vec2;
+
+    // 6x1 open corridor, goal at the right end: cost rises leftward, every cell flows toward +x.
+    {
+        game::FlowField ff;
+        std::vector<std::uint8_t> blocked(6, 0);
+        ff.build(6, 1, blocked, 5, 0);
+        CHECK_NEAR(ff.costAt(5, 0), 0.0f, 1e-4f); // goal
+        CHECK_NEAR(ff.costAt(4, 0), 1.0f, 1e-4f);
+        CHECK_NEAR(ff.costAt(0, 0), 5.0f, 1e-4f);
+        for (int x = 0; x < 5; ++x) {
+            CHECK_NEAR(ff.flowAt(x, 0).x, 1.0f, 1e-4f); // points toward the goal
+            CHECK_NEAR(ff.flowAt(x, 0).y, 0.0f, 1e-4f);
+        }
+        CHECK(ff.reachable(0, 0));
+    }
+
+    // Open grid, goal at a corner: flow at each cell points (dot > 0) toward the goal, and a diagonal
+    // approach costs less than going around two sides.
+    {
+        game::FlowField ff;
+        std::vector<std::uint8_t> blocked(static_cast<std::size_t>(5 * 5), 0);
+        ff.build(5, 5, blocked, 0, 0); // goal at (0,0)
+        // The far corner (4,4) reaches the goal by a straight diagonal: cost = 4*sqrt2.
+        CHECK_NEAR(ff.costAt(4, 4), 4.0f * 1.41421356f, 1e-3f);
+        // Its flow heads back toward the goal (negative x and y).
+        CHECK(ff.flowAt(4, 4).x < 0.0f);
+        CHECK(ff.flowAt(4, 4).y < 0.0f);
+        // A mid cell's flow points generally at the goal.
+        const vec2 f = ff.flowAt(3, 1);
+        const vec2 toGoal = glm::normalize(vec2(0.0f, 0.0f) - vec2(3.0f, 1.0f));
+        CHECK(glm::dot(f, toGoal) > 0.5f);
+    }
+
+    // A wall forces a detour: cells behind it must route around, and a fully-walled-off cell is
+    // unreachable with zero flow.
+    {
+        // 5x5, a vertical wall at x=2 for y=0..3, leaving a gap at y=4. Goal on the right at (4,2).
+        const int w = 5, h = 5;
+        std::vector<std::uint8_t> blocked(static_cast<std::size_t>(w * h), 0);
+        for (int y = 0; y <= 3; ++y) {
+            blocked[static_cast<std::size_t>(y * w + 2)] = 1;
+        }
+        game::FlowField ff;
+        ff.build(w, h, blocked, 4, 2);
+
+        // A cell on the left of the wall is reachable only via the gap at the bottom: its cost is much
+        // more than the straight-line distance, and it must NOT flow straight into the wall (+x).
+        CHECK(ff.reachable(0, 2));
+        CHECK(ff.costAt(0, 2) > 4.0f); // detour is longer than the ~4 straight cells
+        const vec2 f = ff.flowAt(1, 2); // just left of the wall
+        // The neighbour at (2,2) is a wall, so flow cannot be purely +x with y≈0; it must steer toward
+        // the gap (downward).
+        CHECK(f.y > 0.2f);
+
+        // The wall cells themselves have zero flow.
+        CHECK_NEAR(ff.flowAt(2, 1).x, 0.0f, 1e-6f);
+        CHECK_NEAR(ff.flowAt(2, 1).y, 0.0f, 1e-6f);
+    }
+
+    // An isolated region (goal boxed off) leaves outside cells unreachable.
+    {
+        const int w = 5, h = 5;
+        std::vector<std::uint8_t> blocked(static_cast<std::size_t>(w * h), 0);
+        // Box the goal cell (2,2) in on all four sides.
+        blocked[static_cast<std::size_t>(1 * w + 2)] = 1;
+        blocked[static_cast<std::size_t>(3 * w + 2)] = 1;
+        blocked[static_cast<std::size_t>(2 * w + 1)] = 1;
+        blocked[static_cast<std::size_t>(2 * w + 3)] = 1;
+        game::FlowField ff;
+        ff.build(w, h, blocked, 2, 2);
+        CHECK(ff.reachable(2, 2));      // the goal itself
+        CHECK(!ff.reachable(0, 0));     // walled out (diagonals blocked by corner rule)
+        CHECK_NEAR(ff.costAt(0, 0), game::FlowField::kUnreachable, 1.0f);
+    }
+
+    // sampleFlow maps a world position through the cell size to the right cell.
+    {
+        game::FlowField ff;
+        std::vector<std::uint8_t> blocked(6, 0);
+        ff.build(6, 1, blocked, 5, 0);
+        const vec2 f = ff.sampleFlow(vec2(32.0f + 5.0f, 5.0f), 32.0f); // world x 37 -> cell 1
+        CHECK_NEAR(f.x, 1.0f, 1e-4f);
+        const vec2 out = ff.sampleFlow(vec2(-100.0f, 0.0f), 32.0f); // outside -> zero
+        CHECK_NEAR(out.x, 0.0f, 1e-6f);
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -4482,6 +4572,7 @@ int main() {
     testTwoBoneIK();
     testFabrik();
     testGoap();
+    testFlowField();
     testBlendSpace();
     testAnimStateMachine();
     testBehaviorTree();
