@@ -31,9 +31,9 @@ jobs:
             libvulkan-dev \
             vulkan-validationlayers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libxss-dev libxkbcommon-dev \
+            libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
             libwayland-dev wayland-protocols libegl1-mesa-dev libgl1-mesa-dev \
-            libasound2-dev libpulse-dev
+            libasound2-dev libpulse-dev libdbus-1-dev
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
