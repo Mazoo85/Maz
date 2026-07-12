@@ -29,6 +29,19 @@ The current milestone is **M0** — the walking skeleton: a window, a fixed-time
 Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
 it runs in CI.
 
+### Native ZOMBOID port (Phase 13, in progress)
+
+The deterministic **simulation core** of ZOMBOID: ANCHORAGE is ported to C++20 as the
+dependency-free `zomboid` library under `game/` — Anchorage worldgen, items + loot, player
+needs, combat, zombie hordes, day/night — seeded-reproducible and unit-tested headless (no GPU).
+A windowed renderer/input/audio bridge onto this same `Sim` is next. See
+**[`docs/ZOMBOID_PORT.md`](docs/ZOMBOID_PORT.md)**.
+
+```
+./build/bin/zomboid --ticks 3600 --seed 7   # headless autopilot, prints a run summary
+ctest --test-dir build -R zomboid            # sim unit tests
+```
+
 ---
 
 # ZOMBOID: ANCHORAGE

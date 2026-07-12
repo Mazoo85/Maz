@@ -46,7 +46,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
 - [ ] Transform helpers, AABB/OBB, ray, plane, frustum
-- [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
+- [~] Easing / interpolation, deterministic RNG (PCG/xoshiro) — PCG32 (`zb::Rng`) shipped with the
+      Zomboid sim; easing/interp still todo
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [ ] Handles / generational indices, object pools
 - [ ] Containers: `small_vector`, sparse set, ring buffer
@@ -153,9 +154,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
 - [ ] `sandbox`: textured sprite + rotating cube (proves 2D + 3D)
 - [ ] Sample scenes: pong, platformer, top-down shooter
-- [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
-      loot, hordes, audio — the flagship proof the engine ships a full game (the existing
-      `index.html` / `js/` browser version is the design reference)
+- [~] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — the flagship proof the engine ships a
+      full game (the existing `index.html` / `js/` browser version is the design reference).
+      **Done:** the deterministic simulation core is ported to C++20 as the `zomboid` library
+      (`game/`) — Anchorage tile worldgen, item DB + themed loot tables, player needs/stats decay,
+      melee + ranged combat, zombie AI + hordes, day/night + wave spawning, seeded-reproducible via
+      `zb::Rng`. Runs headless (`apps/zomboid`) and is unit-tested in CI (`tests/zomboid_tests`),
+      no GPU required. **Next:** bridge the sim to the Vulkan sprite/tilemap renderer + SDL input
+      + audio so it's playable in a window. See `docs/ZOMBOID_PORT.md`.
 
 ---
 

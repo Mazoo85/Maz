@@ -40,7 +40,9 @@ include(Dependencies)
 include(CompileShaders)
 
 add_subdirectory(engine)
+add_subdirectory(game)
 add_subdirectory(apps/sandbox)
+add_subdirectory(apps/zomboid)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
