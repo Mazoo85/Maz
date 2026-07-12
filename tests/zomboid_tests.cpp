@@ -259,6 +259,13 @@ void testRender() {
     zb::renderScene(s, fb2, opts);
     CHECK(fb.pixels() == fb2.pixels());
 
+    // The HUD changes the frame: same scene with hud off differs (bars/text drawn).
+    zb::RenderOptions noHud = opts;
+    noHud.hud = false;
+    zb::Framebuffer fb3(320, 240);
+    zb::renderScene(s, fb3, noHud);
+    CHECK(fb.pixels() != fb3.pixels());
+
     // World-map overview also renders something.
     zb::Framebuffer mapFb(200, 180);
     zb::renderWorldMap(s, mapFb);

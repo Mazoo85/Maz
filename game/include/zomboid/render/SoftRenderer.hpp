@@ -28,6 +28,7 @@ struct RenderOptions {
     int tilePx = 16;      // pixels per tile
     bool centerPlayer = true; // camera follows the player (else top-left origin)
     bool applyNight = true;   // apply the day/night darkness overlay
+    bool hud = true;          // draw the stat bars / clock / hotbar / messages
 };
 
 // Render the current game viewport (camera-follows-player) into fb.

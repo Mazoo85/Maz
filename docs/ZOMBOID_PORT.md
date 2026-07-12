@@ -18,6 +18,7 @@ game/
     Save.hpp     bounds-checked binary Writer/Reader (bit-exact floats)
     render/
       Framebuffer.hpp  CPU RGB framebuffer (fill/blend/outline/circle/line)
+      Font.hpp         5x7 bitmap font + drawText (HUD/labels)
       SoftRenderer.hpp software reference rasterizer: renderScene() + renderWorldMap()
   src/           World.cpp · Items.cpp · Sim.cpp · Save.cpp · SoftRenderer.cpp
 apps/zomboid/    headless autopilot driver; --render (PNG, Png.hpp) · --save/--load
@@ -61,9 +62,11 @@ post-fx) is intentionally excluded from the sim; it will live in the render laye
 
 A dependency-free **software reference rasterizer** (`zomboid/render/`) draws a `Sim` frame into a
 CPU `Framebuffer` using the neon palette — tiles + detailing, loot containers, corpses, zombies
-(with eyes/health bars), the player + facing line, bullets, and the night darkness overlay — plus
-a whole-world overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a
-tiny built-in PNG encoder (`apps/zomboid/Png.hpp`), so you can *see* the port with no GPU:
+(with eyes/health bars), the player + facing line, bullets, the night darkness overlay, and a full
+**HUD** (five stat bars with labels, the day/clock/kills/z-alive panel, equipped weapon, an 8-slot
+hotbar, and the message log) drawn with a built-in 5x7 bitmap font (`Font.hpp`) — plus a whole-world
+overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a tiny built-in
+PNG encoder (`apps/zomboid/Png.hpp`), so you can *see* the port with no GPU:
 
 ```
 ./build/bin/zomboid --seed 7 --render frame.png --tile 20 --width 900 --height 680

@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
+
+#include "zomboid/render/Font.hpp"
 
 namespace zb {
 
@@ -38,6 +42,120 @@ Color zombieColor(ZombieTint tint) {
 void blockSprite(Framebuffer& fb, int px, int py, int size, Color body, Color outline) {
     fb.fillRect(px - size / 2, py - size / 2, size, size, body);
     fb.outlineRect(px - size / 2, py - size / 2, size, size, outline);
+}
+
+// A labelled HUD stat bar (mirrors the reference bar()).
+void statBar(Framebuffer& fb, int x, int y, int w, int h, float val, Color col, const char* label) {
+    fb.fillRect(x - 1, y - 1, w + 2, h + 2, rgb(0x000000));
+    fb.fillRect(x, y, w, h, rgb(0x15151c));
+    const int fillw = static_cast<int>(static_cast<float>(w) * clampf(val / 100.0f, 0.0f, 1.0f));
+    fb.fillRect(x, y, fillw, h, col);
+    fb.outlineRect(x, y, w, h, col);
+    drawText(fb, x + 3, y + (h - kGlyphH) / 2, label, rgb(0xffffff), 1);
+}
+
+// A short uppercase item tag for the hotbar (first letters of the name).
+void shortLabel(const std::string& name, char* out, size_t cap) {
+    size_t j = 0;
+    for (char c : name) {
+        if (j + 1 >= cap) break;
+        if (c == ' ' || c == '\'' || c == '(' || c == ')') continue;
+        out[j++] = c;
+        if (j >= 4) break;
+    }
+    out[j] = '\0';
+}
+
+void renderHud(const Sim& sim, Framebuffer& fb) {
+    const Player& p = sim.player();
+    const int W = fb.width(), H = fb.height();
+
+    // --- Stat stack, top-left ---
+    const int bx = 8, bw = 150, bh = 11, gap = 5;
+    int by = 8;
+    statBar(fb, bx, by, bw, bh, p.health, p.hurtFlash > 0.0f ? rgb(0xffffff) : neon::green,
+            "HEALTH");
+    by += bh + gap;
+    statBar(fb, bx, by, bw, bh, 100.0f - p.hunger, neon::orange, "FED");
+    by += bh + gap;
+    statBar(fb, bx, by, bw, bh, 100.0f - p.thirst, neon::cyan, "HYDRO");
+    by += bh + gap;
+    statBar(fb, bx, by, bw, bh, 100.0f - p.fatigue, neon::purple, "ENERGY");
+    by += bh + gap;
+    statBar(fb, bx, by, bw, bh, p.mood, neon::pink, "MOOD");
+    by += bh + gap;
+    if (p.infected) {
+        statBar(fb, bx, by, bw, bh, p.infection, neon::red, "INFECTION");
+    }
+
+    // --- Clock / day / kills panel, top-right ---
+    char buf[64];
+    const int hh = static_cast<int>(sim.dayTime()) / 60;
+    const int mm = static_cast<int>(sim.dayTime()) % 60;
+    int py = 8;
+    std::snprintf(buf, sizeof(buf), "DAY %d", sim.day());
+    drawText(fb, W - textWidth(buf, 1) - 8, py, buf, neon::cyan, 1);
+    py += 12;
+    std::snprintf(buf, sizeof(buf), "%02d:%02d", hh, mm);
+    drawText(fb, W - textWidth(buf, 1) - 8, py, buf, neon::yellow, 1);
+    py += 12;
+    std::snprintf(buf, sizeof(buf), "KILLS %d", sim.kills());
+    drawText(fb, W - textWidth(buf, 1) - 8, py, buf, neon::pink, 1);
+    py += 12;
+    std::snprintf(buf, sizeof(buf), "Z ALIVE %d", sim.aliveZombies());
+    drawText(fb, W - textWidth(buf, 1) - 8, py, buf, neon::green, 1);
+
+    // --- Equipped weapon (+ ammo), bottom-center ---
+    const ItemDef& wep = itemDef(p.weapon);
+    char wtag[8];
+    shortLabel(wep.name, wtag, sizeof(wtag));
+    if (wep.ranged) {
+        int ammoQty = 0;
+        for (const auto& s : p.inv)
+            if (s.id == wep.ammo) ammoQty = s.qty;
+        std::snprintf(buf, sizeof(buf), "%s [%d]", wtag, ammoQty);
+    } else {
+        std::snprintf(buf, sizeof(buf), "%s", wtag);
+    }
+    drawText(fb, W / 2 - textWidth(buf, 2) / 2, H - 78, buf, neon::yellow, 2);
+
+    // --- Hotbar, bottom-center ---
+    const int n = p.slots;
+    const int slotW = 40, sgap = 4;
+    const int total = n * slotW + (n - 1) * sgap;
+    const int x0 = W / 2 - total / 2;
+    const int hy = H - 58;
+    for (int i = 0; i < n; i++) {
+        const int x = x0 + i * (slotW + sgap);
+        fb.fillRect(x, hy, slotW, slotW, rgb(0x0a0d14));
+        const bool has = i < static_cast<int>(p.inv.size());
+        const bool equipped = has && p.inv[static_cast<size_t>(i)].id == p.weapon;
+        fb.outlineRect(x, hy, slotW, slotW, equipped ? neon::yellow : rgb(0x2a6c74));
+        char idx[2] = {static_cast<char>('1' + i), '\0'};
+        drawText(fb, x + 2, hy + 2, idx, rgb(0x9999aa), 1);
+        if (has) {
+            const InvSlot& slot = p.inv[static_cast<size_t>(i)];
+            char tag[8];
+            shortLabel(itemDef(slot.id).name, tag, sizeof(tag));
+            drawText(fb, x + 3, hy + slotW / 2 - 3, tag, rgb(0xffffff), 1);
+            if (slot.qty > 1) {
+                std::snprintf(buf, sizeof(buf), "%d", slot.qty);
+                drawText(fb, x + slotW - textWidth(buf, 1) - 2, hy + slotW - 9, buf, neon::yellow,
+                         1);
+            }
+        }
+    }
+
+    // --- Message log, bottom-left ---
+    const auto& msgs = sim.messages();
+    int my = H - 20;
+    for (int i = static_cast<int>(msgs.size()) - 1;
+         i >= 0 && i >= static_cast<int>(msgs.size()) - 5; i--) {
+        char line[48];
+        std::snprintf(line, sizeof(line), "%s", msgs[static_cast<size_t>(i)].text.c_str());
+        drawText(fb, 8, my, line, rgb(0xd0d0e0), 1);
+        my -= 11;
+    }
 }
 
 } // namespace
@@ -168,6 +286,9 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
         const float d = sim.darknessAlpha();
         if (d > 0.01f) fb.overlay(rgb(0x020414), d);
     }
+
+    // --- HUD (drawn on top, unaffected by darkness) ---
+    if (opts.hud) renderHud(sim, fb);
 }
 
 void renderWorldMap(const Sim& sim, Framebuffer& fb) {
