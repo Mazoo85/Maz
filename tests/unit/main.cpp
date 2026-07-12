@@ -24,6 +24,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/SceneSerializer.hpp"
@@ -894,6 +895,105 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testActionMap() {
+    using input::Device;
+    input::ActionMap map;
+
+    // "Jump" bound to two sources (a key and a pad button) — down if EITHER is down.
+    map.bindButton("Jump", Device::Key, 44);       // e.g. space
+    map.bindButton("Jump", Device::PadButton, 0);  // e.g. pad A
+    // "Fire" bound to a mouse button.
+    map.bindButton("Fire", Device::MouseButton, 1);
+    // "MoveX" from an A/D key pair plus an analog pad axis 0.
+    map.bindAxisPair("MoveX", Device::Key, 4 /*A*/, Device::Key, 7 /*D*/);
+    map.bindAxisAnalog("MoveX", 0, 1.0f);
+    // "AimY" from an inverted analog axis only.
+    map.bindAxisAnalog("AimY", 1, -1.0f);
+
+    CHECK(map.hasButton("Jump"));
+    CHECK(map.hasAxis("MoveX"));
+    CHECK(!map.hasButton("Nope"));
+
+    // A tiny synthetic input state we can mutate between frames.
+    struct State {
+        bool key[256] = {};
+        bool pad[16] = {};
+        bool mouse[8] = {};
+        float axis[4] = {};
+    } st;
+    auto down = [&](Device d, int code) {
+        switch (d) {
+        case Device::Key: return st.key[code];
+        case Device::PadButton: return st.pad[code];
+        case Device::MouseButton: return st.mouse[code];
+        }
+        return false;
+    };
+    auto analog = [&](int ax) { return st.axis[ax]; };
+
+    // Frame 1: nothing down.
+    map.update(down, analog);
+    CHECK(!map.held("Jump"));
+    CHECK(!map.pressed("Jump"));
+    CHECK_NEAR(map.axis("MoveX"), 0.0f, 1e-6f);
+
+    // Frame 2: press space -> Jump held AND pressed (edge this frame).
+    st.key[44] = true;
+    map.update(down, analog);
+    CHECK(map.held("Jump"));
+    CHECK(map.pressed("Jump"));
+    CHECK(!map.released("Jump"));
+
+    // Frame 3: still held -> held true, pressed false (no new edge).
+    map.update(down, analog);
+    CHECK(map.held("Jump"));
+    CHECK(!map.pressed("Jump"));
+
+    // Frame 4: release space -> released edge, no longer held.
+    st.key[44] = false;
+    map.update(down, analog);
+    CHECK(!map.held("Jump"));
+    CHECK(map.released("Jump"));
+
+    // Alternate source: pad A alone drives Jump held.
+    st.pad[0] = true;
+    map.update(down, analog);
+    CHECK(map.held("Jump"));
+    CHECK(map.pressed("Jump")); // edge from up->down via the pad
+    st.pad[0] = false;
+
+    // Axis from keys: D -> +1, A -> -1, both -> 0.
+    st.key[7] = true; // D
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("MoveX"), 1.0f, 1e-6f);
+    st.key[4] = true; // A too
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("MoveX"), 0.0f, 1e-6f);
+    st.key[7] = false;
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("MoveX"), -1.0f, 1e-6f);
+    st.key[4] = false;
+
+    // Analog contribution adds to keys and clamps to [-1, 1].
+    st.axis[0] = 0.5f;
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("MoveX"), 0.5f, 1e-6f);
+    st.key[7] = true;          // D (+1) plus analog 0.5 -> clamp to 1.0
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("MoveX"), 1.0f, 1e-6f);
+    st.key[7] = false;
+    st.axis[0] = 0.0f;
+
+    // Inverted analog axis.
+    st.axis[1] = 0.8f;
+    map.update(down, analog);
+    CHECK_NEAR(map.axis("AimY"), -0.8f, 1e-6f);
+
+    // Unknown actions read as neutral.
+    CHECK(!map.held("Ghost"));
+    CHECK_NEAR(map.axis("Ghost"), 0.0f, 1e-6f);
 }
 
 void testSceneSerializer() {
@@ -1894,6 +1994,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testActionMap();
     testSceneSerializer();
     testEcs();
     testShake();

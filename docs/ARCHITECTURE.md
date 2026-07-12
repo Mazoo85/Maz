@@ -25,6 +25,9 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
             SceneStack (game-state stack: push/pop/replace + overlay-aware update/render)
               — zero dependencies beyond the standard library
 platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depends on: core, SDL3)
+input/      ActionMap — semantic action mapping: named button actions (any-of bound Key/MouseButton/
+            PadButton sources, pressed/held/released edges) + axis actions (key pairs + analog pad axes,
+            clamped -1..1); SDL-free (update() takes sampler callbacks)   (header-only)
 math/       maz::math = GLM re-export + helpers     (header-only)
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
@@ -104,6 +107,8 @@ apps/
               tree as an indented bar chart (inclusive vs self ms per nested zone)
   ecsave/   ECS save/load — builds an entity world, serializes it to JSON (io::SceneSerializer),
               reloads that JSON into a fresh world, and renders the reload (proves the round-trip)
+  actions/  Input action map — an avatar driven by named actions (MoveX/MoveY axes, Fire/Dash buttons)
+              bound to keyboard + gamepad; deterministic scripted self-play OR'd with real input
 ```
 
 ## The frame loop (fixed timestep)

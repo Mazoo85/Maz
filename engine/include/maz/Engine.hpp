@@ -31,6 +31,7 @@
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/game/Tilemap.hpp"
+#include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/SceneSerializer.hpp"

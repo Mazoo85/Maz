@@ -272,6 +272,13 @@ available):
   content backbone for save games, prefabs, and an editor. The new `ecsave` demo builds a world,
   serializes it, reloads the JSON into a *fresh* world, and renders that reload — so what you see is
   entirely reconstructed from serialized data
+- **M80** — input action mapping (`maz::input::ActionMap`): gameplay asks "is Jump pressed?" / "what's
+  MoveX?" instead of naming a scancode. Named button actions bind any number of keyboard/mouse/gamepad
+  sources (down if *any* is down; with pressed/held/released edges); axis actions combine negative/
+  positive key pairs with analog stick axes, clamped to −1..1 — so WASD and a thumbstick drive the same
+  action, and bindings can be rebound freely. It's SDL-free (update takes sampler callbacks), so it's
+  unit-tested with synthetic input. The new `actions` demo drives an avatar entirely through mapped
+  actions, with a scripted self-play OR'd with real input so it's both reproducible and playable
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -304,4 +311,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Config** (cvar / config demo): no controls — the scene is driven by cvars a JSON config sets; the cvar table is shown live · Esc to quit
 - **Profiler** (CPU profiler view): no controls — a sample frame's timing zones are drawn as an indented bar chart · Esc to quit
 - **Ecsave** (ECS save/load): no controls — a world is serialized to JSON, reloaded into a fresh world, and that reload is rendered · Esc to quit
+- **Actions** (input action map): WASD / arrows move · Space fires · Shift dashes (also plays itself via scripted input) · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

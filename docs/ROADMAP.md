@@ -154,7 +154,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
 - [ ] Focus / minimize / occlusion handling (pause when unfocused)
 - [x] **Gamepad / controller support** (SDL3, sticks/buttons/triggers + deadzone; M23) — haptics TODO
-- [ ] Action-mapping layer (bind abstract actions like "Jump" to keys/buttons/axes)
+- [x] **Action-mapping layer** (`maz::input::ActionMap`: named button actions with any-of
+  keyboard/mouse/gamepad sources + pressed/held/released edges, and axis actions from key pairs +
+  analog pad axes clamped to -1..1; SDL-free via sampler callbacks; the `actions` demo drives an
+  avatar by mapped actions; M80)
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
 - [ ] Filesystem abstraction, virtual paths, save-directory resolution
@@ -392,6 +395,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       the nested zone tree as an indented bar chart (inclusive vs self time per zone) (M78)
 - [x] **ECS save/load** (`apps/ecsave`) — builds an entity world, serializes it to JSON, reloads that
       JSON into a fresh world, and renders the reload — proving the round-trip (M79)
+- [x] **Input actions** (`apps/actions`) — an avatar driven by named actions (MoveX/MoveY axes,
+      Fire/Dash buttons) bound to keyboard + gamepad, with a live action-state HUD (M80)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

@@ -788,10 +788,35 @@ question was how to serialize arbitrary component types without a full reflectio
   `ecsave_headless_smoke` + golden (RMSE 0.0079, threshold 0.05) → ctest **36/36**, every existing
   golden unchanged.
 
+### Iteration 41 — "Actions, not scancodes" (done)
+Self-directed: the platform layer exposed raw device state (keyboard, mouse, gamepad) but every app
+that used input reached straight for scancodes — there was no *action-mapping* layer, the standard
+abstraction that lets gameplay ask about intents ("Jump", "MoveX") instead of physical keys, binds one
+action to several devices at once, and makes rebinding possible. That's a Phase-1 foundational gap.
+- [x] **M80 — Input action map (`input::ActionMap`)**: named button and axis actions over an
+  SDL-independent core. A **button action** binds any number of sources (`Key` / `MouseButton` /
+  `PadButton`) and is down if *any* is down, yielding `held` / `pressed` (edge down this frame) /
+  `released` (edge up) — so Space and pad-A both fire the same Jump. An **axis action** combines
+  negative/positive button pairs (each ±1) with analog pad axes (scaled, so an inverted-Y is just
+  scale −1), clamped to [−1, 1] — so WASD, the arrow keys, and a thumbstick all drive one MoveX.
+  `update()` takes sampler callbacks (`down(device, code)`, `analog(axis)`) rather than touching SDL,
+  which keeps it unit-testable and backend-agnostic; an app wires the samplers to `platform::Input`.
+  Unit-tested to **875 checks** total: edge detection across frames (press → held+pressed, hold →
+  held only, release → released edge), an alternate bound source (pad) driving the same action, axis
+  from a key pair (+1 / −1 / 0 when both), analog-plus-key combination clamping to 1.0, an inverted
+  analog axis, and unknown actions reading neutral. The new `actions` demo drives an avatar entirely
+  through mapped actions — MoveX/MoveY set velocity, Dash boosts speed, Fire spawns a flash — and feeds
+  a deterministic scripted input (a pure function of the fixed-step clock) OR'd with the real device,
+  so it self-plays for the golden yet stays fully playable (WASD/arrows/Space/Shift or a gamepad). A
+  HUD shows each action's live state (axis bars, button held-indicators, fire count). Verified on
+  lavapipe (MoveX/MoveY bars at +1.00, Fire/Dash indicators, "Fire count: 2", the avatar moved by the
+  mapped axes; no validation errors); new `actions_headless_smoke` + golden (RMSE 0, threshold 0.05) →
+  ctest **37/37**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
-scene serializer, id-preserving load for entity-referencing components, UI layout / text input,
-order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
-cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's ScopedZone into an
-app's real frame loop.
+scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
+via config, UI layout / text input, order-independent transparency, material/uniform system,
+GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode, wire
+the profiler's ScopedZone into an app's real frame loop.
