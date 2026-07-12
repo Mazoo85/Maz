@@ -11,6 +11,7 @@
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
+#include "maz/anim/Timeline.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
@@ -677,6 +678,106 @@ void testTween() {
     zero.duration = 0.0f;
     zero.update(0.016f);
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
+void testTimeline() {
+    using anim::Ease;
+
+    // ---- Track sampling ----
+    {
+        anim::Track tr;
+        tr.add(0.0f, 0.0f);
+        tr.add(1.0f, 10.0f);
+        tr.add(3.0f, 30.0f);
+        // Hold before the first key and after the last (no extrapolation).
+        CHECK_NEAR(tr.sample(-1.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(tr.sample(5.0f), 30.0f, 1e-5f);
+        // Exact keys.
+        CHECK_NEAR(tr.sample(0.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(tr.sample(1.0f), 10.0f, 1e-5f);
+        CHECK_NEAR(tr.sample(3.0f), 30.0f, 1e-5f);
+        // Linear midpoints inside each segment.
+        CHECK_NEAR(tr.sample(0.5f), 5.0f, 1e-5f);   // halfway 0->10
+        CHECK_NEAR(tr.sample(2.0f), 20.0f, 1e-5f);  // halfway 10->30 over [1,3]
+    }
+
+    // Out-of-order insertion stays sorted and samples correctly.
+    {
+        anim::Track tr;
+        tr.add(2.0f, 20.0f);
+        tr.add(0.0f, 0.0f);
+        tr.add(1.0f, 10.0f);
+        CHECK(tr.keys.size() == 3);
+        CHECK_NEAR(tr.keys[0].time, 0.0f, 1e-6f);
+        CHECK_NEAR(tr.keys[1].time, 1.0f, 1e-6f);
+        CHECK_NEAR(tr.keys[2].time, 2.0f, 1e-6f);
+        CHECK_NEAR(tr.sample(1.5f), 15.0f, 1e-5f);
+    }
+
+    // Per-segment easing: QuadIn on [0,1] gives ease(0.5)=0.25 -> value 2.5 for a 0..10 segment.
+    {
+        anim::Track tr;
+        tr.add(0.0f, 0.0f, Ease::QuadIn);
+        tr.add(1.0f, 10.0f);
+        CHECK_NEAR(tr.sample(0.5f), 2.5f, 1e-4f);
+    }
+
+    // ---- Timeline: multi-track, duration, playback ----
+    {
+        anim::Timeline tl;
+        tl.track("x").add(0.0f, 0.0f);
+        tl.track("x").add(2.0f, 100.0f);
+        tl.track("y").add(0.0f, 50.0f);
+        tl.track("y").add(2.0f, 50.0f); // constant track
+        // Auto length = longest track end.
+        CHECK_NEAR(tl.length(), 2.0f, 1e-5f);
+        // Tracks are independent.
+        CHECK_NEAR(tl.valueAt("x", 1.0f), 50.0f, 1e-5f);
+        CHECK_NEAR(tl.valueAt("y", 1.0f), 50.0f, 1e-5f);
+        // Unknown track -> 0.
+        CHECK_NEAR(tl.valueAt("nope", 1.0f), 0.0f, 1e-6f);
+
+        // Playhead advance + value() at the playhead.
+        tl.loop = anim::Loop::Once;
+        tl.update(0.5f);
+        CHECK_NEAR(tl.value("x"), 25.0f, 1e-5f);
+        tl.update(10.0f); // overshoot -> clamps + finishes
+        CHECK(tl.finished);
+        CHECK_NEAR(tl.value("x"), 100.0f, 1e-5f);
+    }
+
+    // Repeat wraps the playhead.
+    {
+        anim::Timeline tl;
+        tl.track("v").add(0.0f, 0.0f);
+        tl.track("v").add(1.0f, 10.0f);
+        tl.loop = anim::Loop::Repeat;
+        tl.update(1.5f);
+        CHECK(!tl.finished);
+        CHECK_NEAR(tl.playhead(), 0.5f, 1e-5f);
+        CHECK_NEAR(tl.value("v"), 5.0f, 1e-5f);
+    }
+
+    // PingPong reflects the query time on the way back.
+    {
+        anim::Timeline tl;
+        tl.track("v").add(0.0f, 0.0f);
+        tl.track("v").add(1.0f, 10.0f);
+        tl.loop = anim::Loop::PingPong;
+        tl.update(1.5f); // one cycle forward + half back -> playhead reflects to 0.5
+        CHECK(tl.reversing);
+        CHECK_NEAR(tl.playhead(), 0.5f, 1e-5f);
+        CHECK_NEAR(tl.value("v"), 5.0f, 1e-5f);
+    }
+
+    // Explicit duration overrides auto length.
+    {
+        anim::Timeline tl;
+        tl.track("v").add(0.0f, 0.0f);
+        tl.track("v").add(1.0f, 10.0f);
+        tl.duration = 4.0f;
+        CHECK_NEAR(tl.length(), 4.0f, 1e-5f);
+    }
 }
 
 void testLayout() {
@@ -3417,6 +3518,7 @@ int main() {
     testResourceCache();
     testSceneStack();
     testTween();
+    testTimeline();
     testLayout();
     testTextInput();
     testUI();

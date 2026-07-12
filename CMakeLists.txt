@@ -93,6 +93,7 @@ add_subdirectory(apps/cave)
 add_subdirectory(apps/reach)
 add_subdirectory(apps/avoid)
 add_subdirectory(apps/bus)
+add_subdirectory(apps/timeline)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

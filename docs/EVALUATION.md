@@ -1319,13 +1319,44 @@ offline waveform scope showing what each effect does.
   mixer still sums voices flatly — per-voice bus routing through the live SDL callback is the remaining
   integration step (and can't be verified headlessly here anyway, so it's deliberately deferred).
 
+### Iteration 61 — "Benchmarking against Godot: keyframe timeline" (done)
+Continuing the Godot benchmark; the animation subsystem had skeletons (M67), clips (M68), a controller
+(M70), blend spaces (M92), IK (M97), and scalar tweens (M59) — but every one of those either blends
+*poses* or animates a *single* value. Godot's `AnimationPlayer` — one of the most-used nodes in the
+whole engine — is different: it drives *many named property tracks* from keyframes over a shared
+timeline (cutscenes, UI transitions, property animation). Maz had no such thing. It's pure,
+exactly-testable math and has a crisp editor-style golden, so it was the clear highest-leverage pick.
+- [x] **M100 — Keyframe timeline / sequencer (`anim::Timeline`)**: a `Track` is a time-sorted list of
+  `Keyframe`s (time → value + the easing used to reach the *next* key); `sample(t)` holds the endpoints
+  (no extrapolation) and eases between the neighbouring keys inside the range. A `Timeline` is a set of
+  named tracks plus a playhead that advances over the clip length (auto = longest track, or explicit)
+  under the existing Once/Repeat/PingPong `Loop` policy, reusing `anim::Ease`/`ease`/`mix` so it shares
+  one easing vocabulary with `Tween`. `value(name)` samples at the playhead; `valueAt(name,t)` at an
+  explicit time. `testTimeline` checks it exactly: endpoint holding before/after the keys, exact key
+  values, linear midpoints, per-segment easing (QuadIn gives 2.5 at the half-point of a 0→10 segment),
+  out-of-order `add` staying sorted, independent multi-track sampling, unknown-track→0, Repeat wrapping
+  the playhead, and PingPong reflecting the query time on the way back. Unit count **3544 → 3571**. The
+  new `timeline` demo authors one animation with five tracks (x, y, rotation, scale, and r/g/b colour)
+  and renders it two ways at once: an *onion-skin trail* of a little arrow sampled at 13 even times
+  across the clip (so you see the whole motion — it arcs over the top, spins two full turns, pulses
+  bigger in the middle, and shifts red→green→magenta), and an *editor-style track panel* below with a
+  lane per track showing the value curve, its keyframe dots, and a playhead line at a fixed time with
+  the sampled point marked. Everything samples the timeline at fixed times, so the render is fully
+  deterministic. On lavapipe the eases are visibly correct — the scale lane shows its BackOut overshoot
+  bumps, the y lane its sine arc. New `timeline_headless_smoke` + golden (static, RMSE 0, threshold
+  0.05). Purely additive (new header + new app), so all existing goldens are unchanged — confirmed by a
+  serial golden run (strays killed first; golden check then ctest one at a time). ctest **56/56**.
+  Honest scope: this is a value-track timeline with per-segment easing; it does not yet include
+  call-method/trigger tracks, a bezier-handle curve editor, or a visual track-editing UI — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): wiring the DSP buses into the real-time mixer (per-voice bus
-routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA half-plane
+Later (Godot-gap priorities + backlog): call-method/trigger tracks + a visual track editor on the
+timeline (M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer
+(per-voice bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA half-plane
 avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated crowd sim (M98
 gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK
 modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96

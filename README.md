@@ -431,6 +431,16 @@ available):
   offline scope. The new `bus` demo plays one plucked-sawtooth note and draws four stacked waveform
   bands — the raw source, a low-pass (harmonics smoothed away), a high-pass (only the bright edges),
   and a low-pass→delay bus (filtered note + decaying echoes) — computed once at 44.1 kHz.
+- **M100** — animation **keyframe timeline / sequencer**, toward Godot's `AnimationPlayer`: `anim::Timeline`
+  is a set of named `Track`s, each a list of `Keyframe`s (time → value + per-segment easing) that
+  `sample()` interpolates (holding the endpoints, no extrapolation), plus a playhead that advances over
+  the clip length with a Once/Repeat/PingPong loop. Where a `Tween` animates one value A→B, a timeline
+  animates many named properties through arbitrary keyed poses at once — the backbone of cutscenes and
+  property animation. Pure math, unit-tested (endpoint hold, midpoint + eased interpolation, out-of-
+  order key insertion stays sorted, independent tracks, loop wrap, ping-pong reflection). The new
+  `timeline` demo drives one arrow from keyed x/y/rotation/scale/colour tracks, drawn as an onion-skin
+  trail plus an editor-style track panel with keyframe dots and a playhead — all sampled at fixed times
+  so the render is deterministic.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

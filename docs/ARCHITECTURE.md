@@ -87,6 +87,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
             tilemap autotiling — Godot TileMap terrains)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
+            Timeline — keyframe sequencer: named Tracks of Keyframes (time→value + per-segment easing) +
+              a once/repeat/ping-pong playhead, Godot AnimationPlayer-style;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
             AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses +
@@ -179,6 +181,8 @@ apps/
               around the crowded centre as reciprocal velocity obstacles route them apart (game::rvoVelocity)
   bus/      Audio DSP buses — one plucked-sawtooth note scoped as four stacked waveforms (source,
               low-pass, high-pass, low-pass→delay bus) (audio::Biquad / audio::Delay / audio::Bus)
+  timeline/ Keyframe timeline — an arrow driven by keyed x/y/rotation/scale/colour tracks, shown as an
+              onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
 ```
 
 ## The frame loop (fixed timestep)

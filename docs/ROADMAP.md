@@ -352,7 +352,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
   arms solving toward targets; M97) — CCD / FABRIK multi-bone chains later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
-  with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later
+  with generic `sample`; the `tween` demo compares curves side by side; M59)
+- [x] **Keyframe timeline / sequencer** (`anim::Timeline`: named `Track`s of `Keyframe`s (time→value +
+  per-segment easing) with endpoint-holding `sample`, plus a Once/Repeat/PingPong playhead — Godot
+  AnimationPlayer; the `timeline` demo animates an arrow from keyed x/y/rot/scale/colour tracks with an
+  editor-style track panel; M100) — call-method tracks + a track editor UI later
 
 ## Phase 9 — UI
 - [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
@@ -494,6 +498,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Audio DSP buses** (`apps/bus`) — one plucked-sawtooth note scoped as four stacked waveforms:
       source, low-pass, high-pass, and a low-pass→delay bus (filtered note + echoes) (`audio::Biquad`
       / `audio::Delay` / `audio::Bus`) (M99)
+- [x] **Keyframe timeline** (`apps/timeline`) — an arrow driven by keyed x/y/rotation/scale/colour
+      tracks, shown as an onion-skin trail plus an editor track panel with keyframe dots + a playhead
+      (`anim::Timeline`) (M100)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
