@@ -182,6 +182,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             PrefabText — savePrefabText/loadPrefabText: round-trip a scene::Prefab tree to Godot-.tscn-style
               text ([node name/parent] sections + typed key = TYPE value lines), diffable + version-control-
               friendly (Godot .tscn/.tres)
+            Localization — parseCsv (RFC-4180: quoted fields, embedded commas/newlines, "" escapes, CRLF/LF)
+              + TranslationTable (Godot Translation CSV: key + per-locale columns; setLocale + tr(key) with
+              empty-cell→source and unknown-key→key fallback)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
             Emitter — a particle emitter RESOURCE (Godot CPUParticles2D): emission shape (point/disk/
               ring/rect) + per-lifetime scale/alpha Curve + multi-stop colour Gradient + direction/spread/
@@ -256,6 +259,8 @@ apps/
               first solid circle/box (game::queryRay, mask-filtered), with contact normals + a point-picked shape
   strtable/  String interning — a stream of repeated tag references interned into a core::StringTable, shown as
               the reference stream (name -> #id) beside the deduplicated pool (id -> text -> FNV hash)
+  locale/    CSV localization — one translation CSV renders the same game menu in four languages side by side
+              (io::TranslationTable::tr per locale), with the empty German QUIT cell falling back to English
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

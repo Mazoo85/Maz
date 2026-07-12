@@ -713,6 +713,12 @@ available):
   hashing is trivial. `intern` dedups (same text → same id), `find` looks up without inserting, `str`
   reverses an id to its text, `hash` exposes the FNV-1a hash. The new `strtable` demo interns a stream of
   repeated tags and shows the reference stream (name → id) beside the deduplicated pool (id → text → hash).
+- **M133** — a **CSV parser + localization table** (`io::parseCsv` + `io::TranslationTable`), toward
+  Godot's `Translation` / CSV import: a shippable game needs its text in more than one language.
+  `parseCsv` is a robust RFC-4180 reader (quoted fields, embedded commas/newlines, `""` escapes,
+  CRLF/LF); `TranslationTable` loads a Godot-style translation CSV (key + one column per locale) and
+  answers `tr(key)` in the active locale with fallback (empty cell → source language, unknown key → the
+  key itself). The new `locale` demo renders one game menu in four languages from a single CSV.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

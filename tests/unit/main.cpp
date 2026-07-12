@@ -59,6 +59,7 @@
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
+#include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/Container.hpp"
@@ -3513,6 +3514,95 @@ void testPrefabText() {
     }
 }
 
+void testLocalization() {
+    // --- CSV parser ---
+    // Basic grid.
+    {
+        const auto rows = io::parseCsv("a,b,c\nd,e,f");
+        CHECK(rows.size() == 2);
+        CHECK(rows[0].size() == 3);
+        CHECK(rows[0][0] == "a" && rows[0][2] == "c");
+        CHECK(rows[1][1] == "e");
+    }
+    // Quoted field keeps an embedded delimiter.
+    {
+        const auto rows = io::parseCsv("\"x,y\",z");
+        CHECK(rows.size() == 1);
+        CHECK(rows[0].size() == 2);
+        CHECK(rows[0][0] == "x,y");
+        CHECK(rows[0][1] == "z");
+    }
+    // Escaped quotes ("" -> ").
+    {
+        const auto rows = io::parseCsv("\"she said \"\"hi\"\"\",z");
+        CHECK(rows[0][0] == "she said \"hi\"");
+        CHECK(rows[0][1] == "z");
+    }
+    // Empty fields are preserved.
+    {
+        const auto rows = io::parseCsv("a,,c");
+        CHECK(rows[0].size() == 3);
+        CHECK(rows[0][1].empty());
+    }
+    // CRLF endings + a trailing newline does not add a blank row.
+    {
+        const auto rows = io::parseCsv("a,b\r\nc,d\r\n");
+        CHECK(rows.size() == 2);
+        CHECK(rows[1][0] == "c" && rows[1][1] == "d");
+    }
+    // A quoted field may contain a newline.
+    {
+        const auto rows = io::parseCsv("\"line1\nline2\",z");
+        CHECK(rows.size() == 1);
+        CHECK(rows[0][0] == "line1\nline2");
+    }
+
+    // --- TranslationTable ---
+    {
+        const char* csv =
+            "keys,en,es,fr\n"
+            "GREET,Hello,Hola,Bonjour\n"
+            "BYE,Goodbye,Adios,\n"      // fr cell empty -> falls back to source (en)
+            "NEW_GAME,New Game,Nuevo Juego,Nouvelle Partie\n";
+        io::TranslationTable t;
+        CHECK(t.loadCsv(csv));
+        CHECK(t.count() == 3);
+        CHECK(t.locales().size() == 3);
+        CHECK(t.locales()[0] == "en");
+
+        // Default active locale is the first (en).
+        CHECK(t.locale() == "en");
+        CHECK(t.tr("GREET") == "Hello");
+
+        // Switch locale.
+        t.setLocale("es");
+        CHECK(t.locale() == "es");
+        CHECK(t.tr("GREET") == "Hola");
+        CHECK(t.tr("NEW_GAME") == "Nuevo Juego");
+
+        // Empty fr cell falls back to the source language (en).
+        CHECK(t.tr("BYE", "fr") == "Goodbye");
+        // A named-locale lookup independent of the active one.
+        CHECK(t.tr("GREET", "fr") == "Bonjour");
+
+        // Unknown key returns the key itself (visible missing-string marker).
+        CHECK(t.tr("MISSING") == "MISSING");
+        CHECK(!t.hasKey("MISSING"));
+        CHECK(t.hasKey("GREET"));
+
+        // Unknown locale keeps the current active locale.
+        t.setLocale("de");
+        CHECK(t.locale() == "es"); // unchanged
+    }
+
+    // loadCsv rejects a header without any locale column.
+    {
+        io::TranslationTable t;
+        CHECK(!t.loadCsv("keys\n"));
+        CHECK(!t.loadCsv(""));
+    }
+}
+
 void testActionMap() {
     using input::Device;
     input::ActionMap map;
@@ -6628,6 +6718,7 @@ int main() {
     testTransformGraph();
     testPrefab();
     testPrefabText();
+    testLocalization();
     testGrid3D();
     testPolyline();
     testActionMap();

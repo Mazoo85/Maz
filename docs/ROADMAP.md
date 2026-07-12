@@ -566,7 +566,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Deterministic RNG** (`maz::core::Random`: xoshiro256** + SplitMix64 seeding; nextU32/64,
   float/double, inclusive int range + float range, chance, weighted pick, Fisher-Yates shuffle,
   gaussian, angle; same seed → same stream; the `scatter` demo generates a seeded token field; M84)
-- [ ] Localization + string tables, deterministic time
+- [x] **Localization + string tables** (`io::parseCsv` — RFC-4180 CSV reader: quoted fields, embedded
+  commas/newlines, `""` escapes, CRLF/LF; + `io::TranslationTable` — a Godot-style translation CSV
+  (key + per-locale columns) with `setLocale` + `tr(key)` and empty-cell→source / unknown-key→key
+  fallback — Godot `Translation`; the `locale` demo renders one menu in four languages from one CSV;
+  M133) — plural forms / message contexts / `%s` argument interpolation + OS-locale detection + a global
+  auto-consulted TranslationServer later
+- [ ] Deterministic time / date utilities
 
 ## Phase 11 — Editor & tooling
 - [ ] Standalone editor app (engine + ImGui docking)

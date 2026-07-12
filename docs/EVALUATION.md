@@ -2337,6 +2337,36 @@ handle), so it unit-tests exhaustively and renders a clean deterministic golden.
   (core is single-threaded by convention — wrap externally if shared), and the subsystems that currently
   hand-hash names aren't retrofitted to use it yet; those remain follow-ups.
 
+### Iteration 94 — "Benchmarking against Godot: CSV localization" (done)
+Rotating to **IO / serialization** for breadth (last IO was M127's .tres; M132 was core) and closing a
+gap that any *shipping* game hits: **on-screen text in more than one language**. Godot ships translation
+support built on a CSV import — a table whose first column is a message KEY and whose remaining columns
+are one LOCALE each — plus a `TranslationServer` that answers `tr(key)` for the active language. Maz
+could read JSON and its own prefab/binary formats but had **no CSV reader and no translation lookup at
+all**. Both halves are pure text processing, so they unit-test exhaustively and render a clean
+deterministic golden.
+- [x] **M133 — CSV parser + localization (`io::parseCsv` + `io::TranslationTable`)**: a new
+  `Localization.hpp`. `parseCsv(text)` is a proper RFC-4180-style reader — it honors **quoted fields**
+  (an embedded `,` stays in the field), fields with **embedded newlines**, the `""`→`"` escape, and
+  **CRLF or LF** line endings, and it doesn't emit a spurious empty row for a trailing newline.
+  `TranslationTable::loadCsv` reads a Godot-style translation CSV (header = `keys,en,es,…`; each row = a
+  key + its per-locale text), `setLocale` picks the active column, and `tr(key)` returns the active
+  locale's text with **graceful fallback**: an empty cell falls back to the source (first) locale, and an
+  unknown key returns the key itself so a missing string shows up as a visible identifier rather than
+  blank. `tr(key, locale)`, `locales()`, `keys()`, `count()`, `hasKey` round it out. `testLocalization`
+  pins the CSV parser (grid, quoted-with-comma, `""` escape, empty fields, CRLF + no-trailing-blank-row,
+  quoted embedded newline) and the table (locale switch, per-locale lookup, empty-cell→source fallback,
+  unknown-key→key, unknown-locale keeps the active one, and header-without-locale rejection). Unit checks
+  **4595 → 4628**. The new `locale` demo renders the **same** game menu four times side by side (English
+  / Espanol / Francais / Deutsch), every label pulled through `tr(key)` after `setLocale(...)` — the
+  German QUIT cell is intentionally empty to show the fallback painting the English word in orange.
+  Static → deterministic golden (threshold 0.06). Purely additive (new header + new app), so every
+  existing golden is byte-unchanged (confirmed by a serial golden run); ctest **88/88 → 89/89**. Honest
+  scope: this is CSV-driven string translation with fallback — it is **not** the full gettext/PO
+  toolchain (no plural forms, no message contexts, no `%s`-style argument formatting/interpolation), it
+  doesn't auto-detect the OS locale, and it isn't wired into a global `TranslationServer` that the UI
+  widgets consult automatically (the app owns the table); those remain localization follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
