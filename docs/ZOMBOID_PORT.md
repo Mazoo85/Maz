@@ -15,12 +15,14 @@ game/
     Items.hpp    ItemDef DB + themed loot tables + rollLoot()
     Sim.hpp      Player/Zombie/Bullet/Corpse + the deterministic Sim
   src/           World.cpp · Items.cpp · Sim.cpp
+    Save.hpp     bounds-checked binary Writer/Reader (bit-exact floats)
     render/
       Framebuffer.hpp  CPU RGB framebuffer (fill/blend/outline/circle/line)
       SoftRenderer.hpp software reference rasterizer: renderScene() + renderWorldMap()
-  src/           World.cpp · Items.cpp · Sim.cpp · SoftRenderer.cpp
-apps/zomboid/    headless autopilot driver; --render writes a PNG (Png.hpp encoder)
-tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot, render, day/night)
+  src/           World.cpp · Items.cpp · Sim.cpp · Save.cpp · SoftRenderer.cpp
+apps/zomboid/    headless autopilot driver; --render (PNG, Png.hpp) · --save/--load
+tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot,
+                 save/load, render, day/night)
 ```
 
 The `zomboid` library is **deliberately free of SDL3/Vulkan/GLM**: the whole simulation
@@ -77,7 +79,20 @@ This is deterministic and unit-tested, and doubles as the seed for golden-image 
    reproducing the software rasterizer's draw intent on the GPU, plus a HUD and text rendering.
 2. **Input bridge** — map SDL keyboard/mouse (Phase 1 action-mapping) into `zb::Input`.
 3. **Audio** — chiptune SFX/music via the Phase 7 audio module.
-4. **Save/load** — serialize `Sim` state (Phase 10).
+
+## Save / load (done)
+
+`Sim::saveState()` serializes all mutable state — RNG stream, clock, player + inventory, zombies,
+bullets, corpses, and opened-container flags — to a versioned binary blob; `loadState()` regenerates
+the deterministic tile map and restores the rest, rejecting corrupt/truncated/mismatched data
+without mutating the sim. Floats are copied bit-exact, so a loaded game continues *identically* to
+one that was never saved (proven by the continuation test and via the CLI: a 600-tick run equals a
+400-tick run that is saved, reloaded, and continued 200 more).
+
+```
+./build/bin/zomboid --seed 5 --ticks 400 --save mid.sav
+./build/bin/zomboid --load mid.sav --ticks 200          # continues from the save
+```
 
 Run it now:
 

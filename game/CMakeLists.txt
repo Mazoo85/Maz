@@ -7,6 +7,7 @@ add_library(zomboid STATIC
     src/World.cpp
     src/Items.cpp
     src/Sim.cpp
+    src/Save.cpp
     src/SoftRenderer.cpp)
 
 target_include_directories(zomboid

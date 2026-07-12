@@ -12,11 +12,36 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include "zomboid/Sim.hpp"
 #include "zomboid/render/SoftRenderer.hpp"
 
 #include "Png.hpp"
+
+namespace {
+
+bool readFile(const std::string& path, std::vector<uint8_t>& out) {
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    std::fseek(f, 0, SEEK_END);
+    const long n = std::ftell(f);
+    std::fseek(f, 0, SEEK_SET);
+    out.resize(n > 0 ? static_cast<size_t>(n) : 0);
+    const size_t got = out.empty() ? 0 : std::fread(out.data(), 1, out.size(), f);
+    std::fclose(f);
+    return got == out.size();
+}
+
+bool writeFile(const std::string& path, const std::vector<uint8_t>& data) {
+    std::FILE* f = std::fopen(path.c_str(), "wb");
+    if (!f) return false;
+    const size_t wrote = data.empty() ? 0 : std::fwrite(data.data(), 1, data.size(), f);
+    std::fclose(f);
+    return wrote == data.size();
+}
+
+} // namespace
 
 namespace {
 
@@ -45,6 +70,8 @@ int main(int argc, char** argv) {
     bool renderMap = false;    // whole-world overview instead of the game viewport
     int imgW = 960, imgH = 720;
     int tilePx = 16;
+    std::string loadPath;      // restore a save before running
+    std::string savePath;      // write a save after running
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--ticks") == 0 && i + 1 < argc) {
@@ -63,8 +90,13 @@ int main(int argc, char** argv) {
             imgH = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--tile") == 0 && i + 1 < argc) {
             tilePx = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--load") == 0 && i + 1 < argc) {
+            loadPath = argv[++i];
+        } else if (std::strcmp(argv[i], "--save") == 0 && i + 1 < argc) {
+            savePath = argv[++i];
         } else if (std::strcmp(argv[i], "--help") == 0) {
             std::printf("usage: zomboid [--ticks N] [--seed S] [--quiet]\n"
+                        "               [--load in.sav] [--save out.sav]\n"
                         "               [--render out.png [--map] [--width W] [--height H] "
                         "[--tile PX]]\n");
             return 0;
@@ -73,6 +105,15 @@ int main(int argc, char** argv) {
 
     zb::Sim sim(seed);
     sim.newGame();
+
+    if (!loadPath.empty()) {
+        std::vector<uint8_t> blob;
+        if (!readFile(loadPath, blob) || !sim.loadState(blob)) {
+            std::printf("ERROR: could not load save %s\n", loadPath.c_str());
+            return 1;
+        }
+        if (!quiet) std::printf("loaded save %s\n", loadPath.c_str());
+    }
 
     if (!quiet) {
         std::printf("ZOMBOID: ANCHORAGE — headless sim (seed=%llu)\n",
@@ -115,6 +156,15 @@ int main(int argc, char** argv) {
     std::printf("kills=%d  swings=%d  z_alive=%d  inv=%zu/%d  weapon=%s%s\n", sim.kills(),
                 meleeSwings, sim.aliveZombies(), p.inv.size(), p.slots, p.weapon.c_str(),
                 p.dead ? "  *** DEAD ***" : "");
+
+    if (!savePath.empty()) {
+        if (writeFile(savePath, sim.saveState())) {
+            std::printf("saved -> %s\n", savePath.c_str());
+        } else {
+            std::printf("ERROR: could not write save %s\n", savePath.c_str());
+            return 1;
+        }
+    }
 
     if (!renderPath.empty()) {
         zb::Framebuffer fb(imgW, imgH);

@@ -35,6 +35,14 @@ public:
     // Uniform float in [lo, hi).
     float range(float lo, float hi) { return lo + (hi - lo) * nextFloat(); }
 
+    // Internal state accessors — for exact save/load of the RNG stream.
+    uint64_t state() const { return m_state; }
+    uint64_t inc() const { return m_inc; }
+    void setState(uint64_t s, uint64_t i) {
+        m_state = s;
+        m_inc = i;
+    }
+
     // Uniform int in [0, n).
     uint32_t below(uint32_t n) {
         // Debiased bounded generation.

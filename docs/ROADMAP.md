@@ -131,7 +131,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Pathfinding (A* / nav grid; navmesh later)
 - [ ] Particle system (CPU + GPU), emitters, affectors
 - [ ] Tilemap tools, procedural generation utilities
-- [ ] Save/load game state, checkpoints
+- [~] Save/load game state, checkpoints — versioned binary save/load shipped for the Zomboid sim
+      (`Sim::saveState`/`loadState`, bit-exact, continuation-deterministic); a generic engine
+      serializer is still todo
 - [ ] Localization + string tables, deterministic time / RNG
 
 ## Phase 11 — Editor & tooling
@@ -164,7 +166,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       the neon scene + a world-map overview to a CPU framebuffer and out to PNG (`--render`), so the
       port is visually verifiable headless (and seeds Phase 12 golden-image tests). **Next:** bridge
       the same draw intent to the Vulkan sprite/tilemap renderer + SDL input + audio so it's playable
-      in a window. See `docs/ZOMBOID_PORT.md`.
+      in a window. Versioned **save/load** (`Sim::saveState`/`loadState`) is also done — bit-exact and
+      continuation-deterministic (a loaded game continues identically to one never saved).
+      See `docs/ZOMBOID_PORT.md`.
 
 ---
 

@@ -181,6 +181,54 @@ void testLoot() {
     CHECK(def.size() == 1u);
 }
 
+// A fixed, deterministic input script so two sims can be driven identically.
+zb::Input scriptedInput(int i) {
+    zb::Input in;
+    in.moveX = (i % 2 == 0) ? 1.0f : -0.5f;
+    in.moveY = (i % 3 == 0) ? -1.0f : 0.3f;
+    in.attackHeld = (i % 4 != 0);
+    if (i % 130 == 0) in.interact = true;
+    return in;
+}
+
+// ---- save / load: round-trip + a loaded game continues bit-identically ----
+void testSaveLoad() {
+    std::printf("[save-load]\n");
+    zb::Sim a(99);
+    a.newGame();
+    for (int i = 0; i < 400; i++) a.step(scriptedInput(i));
+
+    // Snapshot mid-game.
+    const std::vector<uint8_t> snap = a.saveState();
+    CHECK(!snap.empty());
+
+    // Load into a fresh sim (different construction seed) and re-save: byte-identical.
+    zb::Sim b(12345);
+    b.newGame();
+    CHECK(b.loadState(snap));
+    CHECK(b.saveState() == snap);
+    CHECK(b.kills() == a.kills());
+    CHECK(b.day() == a.day());
+    CHECK(b.aliveZombies() == a.aliveZombies());
+
+    // Continue BOTH for the same 300 steps: final states must match exactly.
+    for (int i = 400; i < 700; i++) {
+        a.step(scriptedInput(i));
+        b.step(scriptedInput(i));
+    }
+    CHECK(a.saveState() == b.saveState()); // loaded game == never-saved game
+    CHECK(a.player().pos.x == b.player().pos.x);
+    CHECK(a.player().pos.y == b.player().pos.y);
+
+    // Corrupt / truncated / wrong-magic data is rejected without mutating the sim.
+    const int killsBefore = a.kills();
+    CHECK(!a.loadState({}));                       // empty
+    CHECK(!a.loadState({0, 1, 2, 3, 4, 5, 6, 7})); // bad magic
+    std::vector<uint8_t> truncated(snap.begin(), snap.begin() + 20);
+    CHECK(!a.loadState(truncated));
+    CHECK(a.kills() == killsBefore); // failed loads left the sim untouched
+}
+
 // ---- software renderer: produces a non-trivial, deterministic frame ----
 void testRender() {
     std::printf("[render]\n");
@@ -240,6 +288,7 @@ int main() {
     testConsumables();
     testCombat();
     testLoot();
+    testSaveLoad();
     testRender();
     testDayNight();
     std::printf("=== %d checks, %d failures ===\n", g_checks, g_failures);

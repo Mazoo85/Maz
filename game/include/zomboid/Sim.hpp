@@ -128,6 +128,14 @@ public:
     // 0 = full day, ~0.78 = deep night (drives the render darkness overlay).
     float darknessAlpha() const;
 
+    // --- save / load ---
+    // Serialize the full mutable game state (RNG stream, clock, player+inventory,
+    // zombies, bullets, corpses, opened containers) to a versioned byte blob.
+    std::vector<uint8_t> saveState() const;
+    // Restore from a blob produced by saveState(). Returns false (leaving the sim
+    // unchanged) if the data is corrupt, truncated, or a version/shape mismatch.
+    bool loadState(const std::vector<uint8_t>& data);
+
     // Actions (public so a UI or test can invoke them directly).
     bool addItem(const std::string& id, int qty);
     void useSlot(int idx);
