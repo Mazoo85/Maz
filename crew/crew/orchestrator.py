@@ -1,0 +1,202 @@
+"""The phased workflow that drives the crew.
+
+Flow: PLAN -> (checkpoint) -> CODE -> REVIEW -> (checkpoint) -> TEST -> repair loop
+-> (checkpoint) -> hand back to the human to commit.
+
+We keep a single ``ClaudeSDKClient`` session for the whole task so context carries
+across phases (the coder sees the plan, the tester sees the diff, etc.). Between
+phases we pause for human approval — that is what "checkpoints" means in practice.
+
+The SDK is imported lazily so the rest of the package imports without it installed.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+from typing import Awaitable, Callable
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+
+from . import session as session_mod
+from .agents import build_agents
+from .config import CrewConfig
+
+console = Console()
+
+# A checkpoint asks the human a yes/no question and returns their answer.
+Confirm = Callable[[str], bool]
+
+
+@dataclass
+class PhaseResult:
+    text: str
+    session_id: str | None
+
+
+def _extract_text(message) -> str:
+    """Pull human-readable text out of an SDK message, defensively.
+
+    Message/block classes differ across SDK versions, so we probe by attribute
+    rather than importing concrete types.
+    """
+    parts: list[str] = []
+    content = getattr(message, "content", None)
+    if isinstance(content, str):
+        return content
+    if content:
+        for block in content:
+            text = getattr(block, "text", None)
+            if isinstance(text, str):
+                parts.append(text)
+    return "".join(parts)
+
+
+async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
+    """Send one phase prompt, stream the response, return collected text + session id."""
+    console.print(Rule(f"[bold cyan]{title}[/bold cyan]"))
+    await client.query(prompt)
+
+    collected: list[str] = []
+    session_id: str | None = None
+    async for message in client.receive_response():
+        text = _extract_text(message)
+        if text:
+            console.print(text, end="")
+            collected.append(text)
+        # ResultMessage (end of turn) carries the session id.
+        sid = getattr(message, "session_id", None)
+        if sid:
+            session_id = sid
+    console.print()  # newline after streamed output
+    return PhaseResult(text="".join(collected), session_id=session_id)
+
+
+def _build_options(config: CrewConfig, resume: str | None):
+    from claude_agent_sdk import ClaudeAgentOptions
+
+    return ClaudeAgentOptions(
+        agents=build_agents(config),
+        allowed_tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"],
+        # Coder edits are auto-approved; planner/reviewer/tester are read-only by
+        # tool scoping, so they cannot edit regardless of this setting.
+        permission_mode="acceptEdits",
+        max_turns=config.max_turns,
+        resume=resume,
+    )
+
+
+async def run_task(
+    task: str,
+    config: CrewConfig,
+    *,
+    confirm: Confirm,
+    resume_session_id: str | None = None,
+) -> session_mod.SessionState:
+    """Drive a task through the crew with human checkpoints between phases."""
+    from claude_agent_sdk import ClaudeSDKClient
+
+    state = session_mod.SessionState(session_id=resume_session_id, task=task)
+    options = _build_options(config, resume_session_id)
+
+    async with ClaudeSDKClient(options=options) as client:
+
+        def checkpoint(result: PhaseResult, phase: str) -> bool:
+            if result.session_id:
+                state.session_id = result.session_id
+            state.phase = phase
+            session_mod.save(state, config)
+            return True
+
+        # 1. PLAN --------------------------------------------------------------
+        plan = await _run_phase(
+            client,
+            f"Use the planner agent to produce an implementation plan for this task:\n\n{task}",
+            title="1/4  PLAN",
+        )
+        checkpoint(plan, "plan")
+        if not confirm("Approve this plan and let the coder implement it?"):
+            console.print("[yellow]Stopped at the plan checkpoint. Nothing was changed.[/yellow]")
+            return state
+
+        # 2. CODE --------------------------------------------------------------
+        code = await _run_phase(
+            client,
+            "Use the coder agent to implement the approved plan exactly. "
+            "Do not commit or push.",
+            title="2/4  CODE",
+        )
+        checkpoint(code, "code")
+
+        # 3. REVIEW ------------------------------------------------------------
+        review = await _run_phase(
+            client,
+            "Use the reviewer agent to review the current working diff "
+            "(run `git diff`) for correctness and security issues.",
+            title="3/4  REVIEW",
+        )
+        checkpoint(review, "review")
+        if confirm("Reviewer done. Apply the reviewer's suggested fixes now?"):
+            fix = await _run_phase(
+                client,
+                "Use the coder agent to apply the reviewer's suggested fixes.",
+                title="3b/4  APPLY REVIEW FIXES",
+            )
+            checkpoint(fix, "review")
+
+        # 4. TEST + bounded repair loop ---------------------------------------
+        for attempt in range(1, config.max_fix_rounds + 1):
+            test = await _run_phase(
+                client,
+                "Use the tester agent to find and run the project's tests and "
+                "linters, then report pass/fail with the key failing output.",
+                title=f"4/4  TEST (round {attempt}/{config.max_fix_rounds})",
+            )
+            checkpoint(test, "test")
+            lowered = test.text.lower()
+            passed = ("fail" not in lowered and "error" not in lowered) or "0 failed" in lowered
+            if passed:
+                console.print("[green]Tests look green.[/green]")
+                break
+            if attempt == config.max_fix_rounds:
+                console.print(
+                    f"[yellow]Reached the {config.max_fix_rounds}-round fix limit; "
+                    "leaving the diff for you to inspect.[/yellow]"
+                )
+                break
+            if not confirm(f"Tests failing. Let the coder attempt fix round {attempt + 1}?"):
+                break
+            await _run_phase(
+                client,
+                "Use the coder agent to fix the failing tests the tester reported. "
+                "Change only what's needed to make them pass.",
+                title=f"4b/4  FIX (round {attempt})",
+            )
+
+        # 5. COMMIT is a human decision. We stop here on purpose.
+        state.phase = "done"
+        session_mod.save(state, config)
+        console.print(
+            Panel.fit(
+                "Crew finished. Review the diff with [bold]git diff[/bold], then commit when "
+                "you're happy.\nThe crew never commits or pushes on its own.",
+                title="Done",
+                border_style="green",
+            )
+        )
+    return state
+
+
+def run_task_sync(
+    task: str,
+    config: CrewConfig,
+    *,
+    confirm: Confirm,
+    resume_session_id: str | None = None,
+) -> session_mod.SessionState:
+    """Blocking wrapper around :func:`run_task` for the CLI."""
+    return asyncio.run(
+        run_task(task, config, confirm=confirm, resume_session_id=resume_session_id)
+    )
