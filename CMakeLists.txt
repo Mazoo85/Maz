@@ -129,6 +129,7 @@ add_subdirectory(apps/strtable)
 add_subdirectory(apps/locale)
 add_subdirectory(apps/textwrap)
 add_subdirectory(apps/addblend)
+add_subdirectory(apps/primitives)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

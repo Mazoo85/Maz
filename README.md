@@ -731,6 +731,11 @@ available):
   the additive clip doesn't move leaves the base untouched — the way you stack a "wave" or "aim" onto
   locomotion. The new `addblend` demo layers an elbow-bend onto a fixed arm pose at rising weights: the
   shoulder holds while only the elbow folds.
+- **M136** — **procedural mesh primitives** (`render::shapes::makeCylinder` / `makeCone` / `makeTorus` /
+  `makeCapsule`), toward Godot's CylinderMesh/CapsuleMesh/TorusMesh: Maz shipped only box/sphere/plane;
+  these four add a barrel, a spike, a ring, and a rounded capsule as procedural solids with outward
+  normals + UVs, dropping straight into the existing lit-mesh path (the original three are untouched). The
+  new `primitives` demo renders all four as a lit gallery under a fixed camera.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -75,6 +75,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
+#include "maz/render/Shapes3D.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
@@ -3340,6 +3341,106 @@ void testGrid3D() {
         CHECK_NEAR(mxx, 1.0f, 1e-4f);
         CHECK_NEAR(mny, 0.0f, 1e-4f);
         CHECK_NEAR(mxy, 3.0f, 1e-4f);
+    }
+}
+
+void testShapes3D() {
+    namespace sh = render::shapes;
+    const render::Color white{1, 1, 1, 1};
+
+    // Bounds helper over a MeshData's vertices.
+    auto bounds = [](const sh::MeshData& m, math::vec3& mn, math::vec3& mx) {
+        mn = math::vec3(1e9f);
+        mx = math::vec3(-1e9f);
+        for (const render::MeshVertex& v : m.vertices) {
+            mn.x = std::min(mn.x, v.px);
+            mn.y = std::min(mn.y, v.py);
+            mn.z = std::min(mn.z, v.pz);
+            mx.x = std::max(mx.x, v.px);
+            mx.y = std::max(mx.y, v.py);
+            mx.z = std::max(mx.z, v.pz);
+        }
+    };
+    // All normals unit length?
+    auto normalsUnit = [](const sh::MeshData& m) {
+        for (const render::MeshVertex& v : m.vertices) {
+            const float len = std::sqrt(v.nx * v.nx + v.ny * v.ny + v.nz * v.nz);
+            if (std::fabs(len - 1.0f) > 1e-3f) {
+                return false;
+            }
+        }
+        return true;
+    };
+    // Every index in range and triangle-count a multiple of 3?
+    auto indicesValid = [](const sh::MeshData& m) {
+        if (m.indices.size() % 3 != 0) {
+            return false;
+        }
+        const uint32_t n = static_cast<uint32_t>(m.vertices.size());
+        for (uint32_t idx : m.indices) {
+            if (idx >= n) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // Cylinder: radius 2, height 6 -> spans x,z in [-2,2], y in [-3,3].
+    {
+        const sh::MeshData m = sh::makeCylinder(2.0f, 6.0f, 24, white);
+        CHECK(!m.vertices.empty());
+        CHECK(indicesValid(m));
+        CHECK(normalsUnit(m));
+        math::vec3 mn, mx;
+        bounds(m, mn, mx);
+        CHECK_NEAR(mn.y, -3.0f, 1e-4f);
+        CHECK_NEAR(mx.y, 3.0f, 1e-4f);
+        CHECK_NEAR(mx.x, 2.0f, 1e-3f);
+        CHECK_NEAR(mn.x, -2.0f, 1e-3f);
+    }
+
+    // Cone: base radius 1.5, height 4 -> y in [-2,2], apex at +2 (a single highest vertex at x=z=0).
+    {
+        const sh::MeshData m = sh::makeCone(1.5f, 4.0f, 20, white);
+        CHECK(indicesValid(m));
+        CHECK(normalsUnit(m));
+        math::vec3 mn, mx;
+        bounds(m, mn, mx);
+        CHECK_NEAR(mx.y, 2.0f, 1e-4f);
+        CHECK_NEAR(mn.y, -2.0f, 1e-4f);
+        CHECK_NEAR(mx.x, 1.5f, 1e-3f);
+    }
+
+    // Torus: major 3, minor 1 -> outer radius 4, inner radius 2; y in [-1,1].
+    {
+        const sh::MeshData m = sh::makeTorus(3.0f, 1.0f, 24, 12, white);
+        CHECK(indicesValid(m));
+        CHECK(normalsUnit(m));
+        math::vec3 mn, mx;
+        bounds(m, mn, mx);
+        CHECK_NEAR(mx.x, 4.0f, 1e-3f);   // major + minor
+        CHECK_NEAR(mn.x, -4.0f, 1e-3f);
+        CHECK_NEAR(mx.y, 1.0f, 1e-3f);   // minor radius
+        CHECK_NEAR(mn.y, -1.0f, 1e-3f);
+    }
+
+    // Capsule: radius 1, cyl height 4 -> total height 6 (y in [-3,3]); x,z span the radius.
+    {
+        const sh::MeshData m = sh::makeCapsule(1.0f, 4.0f, 20, 6, white);
+        CHECK(indicesValid(m));
+        CHECK(normalsUnit(m));
+        math::vec3 mn, mx;
+        bounds(m, mn, mx);
+        CHECK_NEAR(mx.y, 3.0f, 1e-3f);   // cyl half (2) + hemisphere radius (1)
+        CHECK_NEAR(mn.y, -3.0f, 1e-3f);
+        CHECK_NEAR(mx.x, 1.0f, 1e-3f);
+    }
+
+    // Degenerate segment counts are clamped, not crashy.
+    {
+        const sh::MeshData m = sh::makeCylinder(1.0f, 1.0f, 1, white);
+        CHECK(m.vertices.size() > 0);
+        CHECK(indicesValid(m));
     }
 }
 
@@ -6904,6 +7005,7 @@ int main() {
     testPrefabText();
     testLocalization();
     testGrid3D();
+    testShapes3D();
     testPolyline();
     testActionMap();
     testSceneSerializer();

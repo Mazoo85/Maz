@@ -262,6 +262,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
 - [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
 - [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`
+- [x] **More procedural mesh primitives** (`render::shapes::makeCylinder` / `makeCone` / `makeTorus` /
+  `makeCapsule` in `Shapes3D.hpp`: outward-normal + UV solids added alongside the untouched box/sphere/
+  plane — Godot CylinderMesh/CapsuleMesh/TorusMesh + cone; the `primitives` demo renders a lit gallery;
+  M136) — prism/quad-sphere/heightmap variants + tangents + LOD auto-tessellation later
 - [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
 - [x] **Dynamic meshes** (`createDynamicMesh` + `updateMesh`, per-frame-in-flight vertex buffers;
   the `water` demo animates a summed-sine grid; M35)

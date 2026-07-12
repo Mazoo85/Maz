@@ -58,7 +58,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
                                after the opaque pass.
               Particles3D    — world-space camera-facing additive billboard particles
               DebugDraw      — world-space debug lines / AABBs (collider + gizmo visualization)
-              shapes         — procedural box / sphere / plane geometry
+              shapes         — procedural box / sphere / plane geometry, + Shapes3D (makeCylinder /
+                               makeCone / makeTorus / makeCapsule: outward-normal + UV solids toward
+                               Godot CylinderMesh/CapsuleMesh/TorusMesh; additive, box/sphere/plane untouched)
               buildPolyline  — 2D polyline stroking (Godot Line2D): thicken a point list to a ribbon of a
                                given width with Miter/Bevel/Round joints + None/Box/Round caps + closed
                                loops → a triangle soup for drawConvexPolygon (header-only, no GPU dep)
@@ -271,6 +273,8 @@ apps/
               via ui::layoutText measured with Font::textWidth, plus a \n-delimited quest log with hard breaks
   addblend/  Additive pose blending — a 3-joint arm layers an elbow-bend additive onto a fixed base pose at
               five rising weights (anim::additiveBlend + Skeleton FK); shoulder held, only the elbow folds
+  primitives/ Mesh primitives — a lit gallery of the four new procedural solids (cylinder/cone/torus/capsule
+              from render::shapes::make*) under a fixed camera on the existing 3D mesh path
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

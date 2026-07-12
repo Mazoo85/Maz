@@ -2425,6 +2425,35 @@ the joints the additive clip doesn't touch. Pure math on `JointPose` (TRS with a
   machine, or automatic reference-pose extraction from an imported clip; those remain animation
   follow-ups.
 
+### Iteration 97 — "Benchmarking against Godot: procedural mesh primitives" (done)
+Rotating to **3D rendering geometry** for breadth (the last render-geometry work was the original
+box/sphere/plane primitives long ago) and closing a very concrete gap: Maz shipped only **three**
+built-in meshes (box, sphere, plane), while Godot ships a whole family — CylinderMesh, CapsuleMesh,
+TorusMesh, and a cone (a cylinder with a zero top radius). Anything wanting a barrel, a spike, a ring, or
+a capsule collider proxy in Maz had to author a glTF. Each primitive is pure vertex/index generation, so
+it unit-tests headlessly and renders a clean lit golden.
+- [x] **M136 — procedural mesh primitives (`render::shapes::makeCylinder` / `makeCone` / `makeTorus` /
+  `makeCapsule`)**: a new `Shapes3D.hpp` that ADDS four inline builders alongside the existing (untouched)
+  box/sphere/plane. Each returns the same `shapes::MeshData` (position/normal/color/UV vertices + indices)
+  the renderer already consumes, with **outward unit normals** and UVs. `makeCylinder(radius, height,
+  sectors)` builds the curved side (per-sector radial normals) plus flat top/bottom caps;
+  `makeCone(radius, height, sectors)` builds the slanted side with the analytic radial+up normal and a
+  base cap; `makeTorus(major, minor, majorSegs, minorSegs)` sweeps a tube around +Y with proper toroidal
+  normals; `makeCapsule(radius, cylHeight, sectors, rings)` joins a cylinder body to two hemisphere caps
+  (total height `cylHeight + 2*radius`). `testShapes3D` pins each primitive's **bounding box** (cylinder
+  y∈[−3,3] / x∈[−2,2]; cone apex at +2 & base radius 1.5; torus outer radius major+minor & tube height
+  ±minor; capsule total height 6), that **every normal is unit length**, that **every index is in range**
+  and the count is a multiple of 3, and that degenerate segment counts are clamped rather than crashing.
+  Unit checks **4672 → 4697**. The new `primitives` demo uploads all four via `createMesh` and draws them
+  as a lit, tilted gallery (blue cylinder / orange cone / green torus / purple capsule) under a fixed
+  camera with 2D labels. Fixed camera → deterministic 3D golden (threshold 0.12, settle 2.5). Purely
+  additive (new header + new app; the existing box/sphere/plane `.cpp` is untouched), so every existing
+  golden — including all the 3D scenes — is byte-unchanged (confirmed by a serial golden run); ctest
+  **91/91 → 92/92**. Honest scope: these are the four common analytic solids with smooth normals and
+  simple UVs. It does not add prism/plane-subdivision/heightmap/quad-sphere variants, per-face UV
+  unwrapping or seam control, tangents for normal mapping, or LOD ring/sector auto-selection; those remain
+  mesh-generation follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
