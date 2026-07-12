@@ -1574,6 +1574,37 @@ unit-tests headlessly and to provable optimality.
   AI scorer, or an HTN task-network planner, and it caps the world at 64 facts — those remain as further
   planner work.
 
+### Iteration 70 — "Benchmarking against Godot: StyleBoxFlat + Theme server" (done)
+Rotating to UI (last UI was M103's nine-patch). M103 gave the *texture* half of Godot's theming
+(StyleBoxTexture); the far more-used half is **StyleBoxFlat** — the procedurally-drawn rounded-corner
+panel that is the look of nearly every default Godot control — plus the **Theme** resource that names
+styles per control class + state. It's the highest-leverage UI gap: a marquee Godot look Maz couldn't
+produce, purely additive (a brand-new header — zero regression risk), and mostly geometry so it
+unit-tests headlessly and the demo renders deterministically.
+- [x] **M109 — StyleBoxFlat + Theme (`ui::StyleBoxFlat` / `ui::Theme`)**: a new `ui/Theme.hpp`.
+  `roundedRectPolygon(rect, corners, seg)` traces the four corner arcs into a single convex outline
+  (per-corner radius, each clamped to half the shorter side; a zero-radius corner collapses to the sharp
+  point), so it drops straight into the existing `drawConvexPolygon`. `StyleBoxFlat` is the Godot value
+  type — bg fill, border colour + width, per-corner `Corners` radius, a soft drop shadow (colour + spread
+  + offset), and content margins with a `contentRect` helper — and `drawStyleBoxFlat` renders it by
+  layering shadow (an expanded, offset rounded rect) → border (the outer rounded rect) → fill (an inset
+  rounded rect, so a border ring shows). `Theme` is a small registry: named `StyleBoxFlat`s and `Color`s
+  keyed by string, with a default fallback and a `styleBox(type, state)` overload that falls back
+  "type/state" → "type/normal" → default, exactly Godot's resolution order. `testTheme` checks the
+  geometry (sharp corners give exactly four vertices in TL/TR/BR/BL order; a rounded box gives
+  `4·(seg+1)` vertices all inside the bounds with no vertex left in the sharp corner; a huge radius clamps
+  to a stadium), the content-margin insets, and the theme registry (exact hit, type/state fallback chain,
+  default fallback, colour fallback). Unit count **3761 → 3956**. The new `theme` demo builds one dark
+  theme and draws a button in each state (normal/hover/pressed/disabled) resolved *through* the theme —
+  visibly different fills, borders and shadows, the pressed one sunk in, the disabled one flat and dimmed
+  — plus a gallery of the individual features (sharp, rounded, thick border, soft drop shadow, a
+  max-radius pill, and a top-corners-only tab). All static → deterministic golden (RMSE 0, threshold
+  0.05). Purely additive (new header + new app), so every existing golden is byte-unchanged, confirmed by
+  a serial golden run. ctest **64/64 → 65/65**. Honest scope: this is the StyleBoxFlat feature set + a
+  flat named-style registry; it is not yet a full per-control-class theme *cascade* (inherited base types),
+  anti-aliased corner edges (the corners are polygon-faceted at `seg` segments), or theme overrides bound
+  live to the immediate-mode widget set — those remain UI gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1584,8 +1615,10 @@ routing) + chorus/phaser/limiter/pitch-shift effects + WAV/OGG file loading (M10
 AudioEffect set; M99 gives the bus core); nested sub-state-machines + root-motion on the animation state
 machine (M105 gives a flat cross-fading state machine); utility-AI scorers + HTN task-network planners +
 numeric/fuzzy world state on top of the planner (M108 gives boolean-fact STRIPS-style GOAP A* planning;
-M104 rounds out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
-rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
+M104 rounds out the classic BT node set + blackboard); a full per-control-class theme *cascade* (inherited
+base types) + anti-aliased StyleBoxFlat corners + theme overrides bound to the live widget set (M109 gives
+StyleBoxFlat rounded corners/border/shadow + a flat named-style Theme registry; M103 gives the nine-slice
+texture mapping);
 2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
 joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
 shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the

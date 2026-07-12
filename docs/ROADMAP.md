@@ -391,8 +391,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Nine-patch / StyleBox** (`ui::ninePatch`: slice a destination rect into a 3×3 grid by border
   insets — fixed corners, edges stretching one axis, center stretching both — mapping to matching source
   regions, so a themed panel scales without distorting its corner art; Godot StyleBoxTexture; the
-  `stylebox` demo themes differently-sized panels + a button row from one style; M103) — full theme
-  server / StyleBoxFlat rounded corners + localization-aware text later
+  `stylebox` demo themes differently-sized panels + a button row from one style; M103)
+- [x] **StyleBoxFlat + Theme server** (`ui::StyleBoxFlat`: procedural rounded-corner panel — fill +
+  border + per-corner radius + soft drop shadow, no texture; `roundedRectPolygon` builds the convex
+  outline and `drawStyleBoxFlat` layers shadow→border→fill — and `ui::Theme`: named styles/colours per
+  control class + state with "type/state"→"type/normal"→default fallback, Godot StyleBoxFlat/Theme; the
+  `theme` demo draws a button per state through one dark theme + a feature gallery; M109) — localization-
+  aware text + a full per-control-class theme cascade later
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
@@ -503,6 +508,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       anchors and containers (M86)
 - [x] **Nine-patch StyleBox** (`apps/stylebox`) — differently-sized themed panels + a button row from
       one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
+- [x] **StyleBoxFlat + Theme** (`apps/theme`) — a dark theme drawing a button in each state
+      (normal/hover/pressed/disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels
+      (`ui::StyleBoxFlat` + `ui::Theme`) (M109)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
 - [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the

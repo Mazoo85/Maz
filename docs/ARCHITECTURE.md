@@ -66,6 +66,10 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               (ordered focusable ids, Tab/Shift+Tab wraparound) — Godot LineEdit + Control focus,
             ninePatch (StyleBox nine-slice: slice a dest rect into a 3×3 grid by border insets —
               fixed corners, stretching edges/center — mapping to source regions), Godot StyleBoxTexture-style,
+            StyleBoxFlat + Theme (procedural rounded-corner panel — fill/border/per-corner radius/soft drop
+              shadow via roundedRectPolygon + drawStyleBoxFlat layering shadow→border→fill; Theme names
+              styles/colours per control class+state with type/state→type/normal→default fallback), Godot
+              StyleBoxFlat/Theme-style,
             Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
@@ -208,6 +212,8 @@ apps/
               straight down) and settling against a stop (game::Joint2D::Groove)
   stylebox/ Nine-patch StyleBox — differently-sized themed panels + a button row from one style; fixed
               corners, stretching edges/center (ui::ninePatch)
+  theme/    StyleBoxFlat + Theme — a dark theme drawing a button in each state (normal/hover/pressed/
+              disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels (ui::StyleBoxFlat + Theme)
   blackboard/ Behavior-tree blackboard — a sentry's tree drawn twice (patrol vs engage), each node
               coloured by live per-tick status as one blackboard flag flips the branch (game::bt)
   statemachine/ Animation state machine — a locomotion machine's active-state weights as stacked cross-

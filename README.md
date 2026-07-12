@@ -514,6 +514,17 @@ available):
   demo has a survival agent plan "make fire" from six actions; it draws the computed plan as a flow with
   the five world-facts turning green step-by-step until fire lights, and dims the pricey "scavenge wood"
   shortcut A* rejected.
+- **M109** — **StyleBoxFlat + a Theme server** (`ui::StyleBoxFlat` / `ui::Theme`), the other half of
+  Godot's theming (M103 gave the nine-patch `StyleBoxTexture`). A `StyleBoxFlat` is a procedurally-drawn
+  panel — background fill, border, per-corner radius, and a soft drop shadow — with no texture asset;
+  `roundedRectPolygon` builds the (convex) rounded-rect outline and `drawStyleBoxFlat` layers shadow →
+  border → fill through the 2D polygon renderer. A `Theme` names those styles per control class + state
+  ("Button/normal", "Button/hover", …) and resolves them with a fallback ("type/state" → "type/normal" →
+  default), like Godot's Theme resource. Pure geometry + a registry, unit-tested (sharp vs rounded vertex
+  layout, radius clamped to half the side, content-margin insets, and theme set/get/fallback). The new
+  `theme` demo builds one dark theme and draws a button in each state through it, plus a gallery of the
+  individual features — sharp, rounded, thick border, soft shadow, a max-radius pill, and a top-corners-
+  only tab.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

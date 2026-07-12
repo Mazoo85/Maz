@@ -48,6 +48,7 @@
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
+#include "maz/ui/Theme.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -1032,6 +1033,102 @@ void testStyleBox() {
             CHECK(q.dst.w >= 0.0f);
             CHECK(q.dst.h >= 0.0f);
         }
+    }
+}
+
+void testTheme() {
+    using ui::Corners;
+    using ui::Rect;
+
+    // roundedRectPolygon geometry.
+    {
+        const Rect box{10.0f, 20.0f, 200.0f, 100.0f};
+        // Zero radius -> the four sharp corners, exactly (one point per corner).
+        const auto sharp = ui::roundedRectPolygon(box, Corners{0.0f}, 6);
+        CHECK(sharp.size() == 4);
+        // Corner order: TL, TR, BR, BL.
+        CHECK_NEAR(sharp[0].x, 10.0f, 1e-4f);
+        CHECK_NEAR(sharp[0].y, 20.0f, 1e-4f);
+        CHECK_NEAR(sharp[1].x, 210.0f, 1e-4f);
+        CHECK_NEAR(sharp[1].y, 20.0f, 1e-4f);
+        CHECK_NEAR(sharp[2].x, 210.0f, 1e-4f);
+        CHECK_NEAR(sharp[2].y, 120.0f, 1e-4f);
+        CHECK_NEAR(sharp[3].x, 10.0f, 1e-4f);
+        CHECK_NEAR(sharp[3].y, 120.0f, 1e-4f);
+
+        // Rounded: seg segments per corner -> 4*(seg+1) vertices, all inside the box bounds.
+        const int seg = 6;
+        const auto round = ui::roundedRectPolygon(box, Corners{12.0f}, seg);
+        CHECK(round.size() == static_cast<std::size_t>(4 * (seg + 1)));
+        for (const auto& p : round) {
+            CHECK(p.x >= box.x - 1e-3f);
+            CHECK(p.x <= box.right() + 1e-3f);
+            CHECK(p.y >= box.y - 1e-3f);
+            CHECK(p.y <= box.bottom() + 1e-3f);
+        }
+        // With a 12px radius no vertex sits in the very corner (that area is rounded away): the
+        // top-left corner point (10,20) must not be present.
+        bool hasSharpTL = false;
+        for (const auto& p : round) {
+            if (std::fabs(p.x - 10.0f) < 1e-3f && std::fabs(p.y - 20.0f) < 1e-3f) hasSharpTL = true;
+        }
+        CHECK(!hasSharpTL);
+
+        // Radius clamps to half the shorter side (100/2 = 50): a huge radius yields a stadium, still
+        // within bounds, still 4*(seg+1) verts.
+        const auto clamped = ui::roundedRectPolygon(box, Corners{999.0f}, seg);
+        CHECK(clamped.size() == static_cast<std::size_t>(4 * (seg + 1)));
+        for (const auto& p : clamped) {
+            CHECK(p.y >= box.y - 1e-3f);
+            CHECK(p.y <= box.bottom() + 1e-3f);
+        }
+    }
+
+    // StyleBoxFlat content rect insets by the margins.
+    {
+        ui::StyleBoxFlat s;
+        s.contentMargin = ui::Border{8.0f, 6.0f, 8.0f, 10.0f};
+        const Rect c = s.contentRect(Rect{0.0f, 0.0f, 100.0f, 100.0f});
+        CHECK_NEAR(c.x, 8.0f, 1e-4f);
+        CHECK_NEAR(c.y, 6.0f, 1e-4f);
+        CHECK_NEAR(c.w, 100.0f - 16.0f, 1e-4f);
+        CHECK_NEAR(c.h, 100.0f - 16.0f, 1e-4f);
+    }
+
+    // Theme registry: set/get, has, default fallback, and type/state resolution.
+    {
+        ui::Theme theme;
+        ui::StyleBoxFlat normal;
+        normal.bg = render::Color{0.2f, 0.3f, 0.4f, 1.0f};
+        normal.radius = Corners{6.0f};
+        ui::StyleBoxFlat hover;
+        hover.bg = render::Color{0.4f, 0.5f, 0.6f, 1.0f};
+
+        theme.setStyleBox("Button/normal", normal);
+        theme.setStyleBox("Button/hover", hover);
+        CHECK(theme.styleCount() == 2);
+        CHECK(theme.hasStyleBox("Button/normal"));
+        CHECK(!theme.hasStyleBox("Button/pressed"));
+
+        // Exact key hit.
+        CHECK_NEAR(theme.styleBox("Button/hover").bg.g, 0.5f, 1e-4f);
+        // type/state resolution: pressed missing -> falls back to Button/normal.
+        CHECK_NEAR(theme.styleBox("Button", "pressed").bg.b, 0.4f, 1e-4f);
+        // type/state hit when present.
+        CHECK_NEAR(theme.styleBox("Button", "hover").bg.b, 0.6f, 1e-4f);
+
+        // Unknown type with no normal -> default style (the struct default bg).
+        ui::StyleBoxFlat dfl;
+        dfl.bg = render::Color{0.9f, 0.1f, 0.1f, 1.0f};
+        theme.setDefaultStyleBox(dfl);
+        CHECK_NEAR(theme.styleBox("Panel", "normal").bg.r, 0.9f, 1e-4f);
+        CHECK_NEAR(theme.styleBox("missing-key").bg.r, 0.9f, 1e-4f);
+
+        // Colors with fallback.
+        theme.setColor("Button/font", render::Color{1.0f, 1.0f, 1.0f, 1.0f});
+        CHECK(theme.hasColor("Button/font"));
+        CHECK_NEAR(theme.color("Button/font").r, 1.0f, 1e-4f);
+        CHECK_NEAR(theme.color("nope", render::Color{0.5f, 0.0f, 0.0f, 1.0f}).r, 0.5f, 1e-4f);
     }
 }
 
@@ -4193,6 +4290,7 @@ int main() {
     testTimeline();
     testLayout();
     testStyleBox();
+    testTheme();
     testTextInput();
     testUI();
     testSerialize();
