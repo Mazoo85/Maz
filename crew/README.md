@@ -48,6 +48,16 @@ crew status                                            # show saved session stat
 crew agents                                            # list the crew and their tools
 ```
 
+By default every checkpoint asks for your approval. To run unattended, pass
+`--yes` (auto-approve every checkpoint) and optionally tune the repair loop:
+
+```bash
+crew do "bump the version and update the changelog" --yes --max-fix-rounds 2
+```
+
+`--yes` still never commits or pushes — it only auto-approves the plan/review
+checkpoints. The commit remains yours to make.
+
 ## Configuration
 
 Everything tunable lives in `crew/config.py`, overridable via env vars:
