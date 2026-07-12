@@ -74,7 +74,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
             opt-in oriented-box ROTATION: orientation + spin + moment of inertia, SAT contacts,
-            rotational impulses about the contact point, linear/angular damping),
+            rotational impulses about the contact point, linear/angular damping; JOINTS: Joint2D
+            Pin (point constraint) + damped Spring, sequential-impulse solved with world anchors),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test)
@@ -151,6 +152,8 @@ apps/
               settle into a leaning pile (Body2D::enableRotation + the oriented PhysicsWorld2D solver)
   blendspace/ Animation blend space — a grid of stick-figure skeletons whose pose is blended across a
               2D parameter space from four corner poses (anim::BlendSpace2D + blendPosesWeighted)
+  joints/   Physics joints — a pin-jointed rope bridge sagging into a catenary + damped-spring-hung
+              masses of increasing stiffness (game::Joint2D Pin + Spring)
 ```
 
 ## The frame loop (fixed timestep)

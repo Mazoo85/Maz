@@ -63,6 +63,23 @@ struct Bounds2D {
     float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
 };
 
+// A constraint tying two bodies together (or one body to a fixed world point) — Godot's PinJoint2D /
+// DampedSpringJoint2D. A Pin forces the two anchor points to coincide (a hinge / rope link); a Spring
+// pulls them toward `restLength` with a stiffness + damping (a soft, bouncy link). Anchors are given in
+// each body's local (rotated) frame; when `b < 0` the joint anchors body `a` to the fixed world point
+// `anchorB`. Solved with sequential impulses inside the oriented step, so joints and contacts compose.
+struct Joint2D {
+    enum Type { Pin, Spring };
+    int type = Pin;
+    int a = -1;               // first body index
+    int b = -1;               // second body index, or < 0 to anchor to the fixed world point `anchorB`
+    math::vec2 localA{0.0f, 0.0f};   // anchor on body a, in a's local frame
+    math::vec2 anchorB{0.0f, 0.0f};  // anchor on body b (local) if b >= 0, else a fixed world point
+    float restLength = 0.0f;  // Spring: target separation
+    float stiffness = 0.0f;   // Spring: restoring force per unit stretch
+    float damping = 0.0f;     // Spring: velocity damping along the joint axis
+};
+
 // --- Contact generation: normal (pointing from a toward b) + penetration depth --------------------
 namespace detail {
 
@@ -430,6 +447,85 @@ inline void resolveRot(Body2D& a, Body2D& b, const Manifold& mf) {
     b.pos += corr * b.invMass;
 }
 
+// Rotate a local offset into world space by a body's orientation.
+inline math::vec2 rotate2(math::vec2 v, float angle) {
+    const float c = std::cos(angle), s = std::sin(angle);
+    return math::vec2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+// Point-to-point (pin) constraint: drive the two world anchors together. `b` may be null (anchor `a`
+// to the fixed world point `worldB`). Standard 2x2 effective-mass solve + Baumgarte position bias.
+inline void solvePin(Body2D& a, Body2D* b, math::vec2 localA, math::vec2 localBOrWorld, float dt) {
+    const math::vec2 rA = rotate2(localA, a.angle);
+    const math::vec2 worldA = a.pos + rA;
+    math::vec2 rB{0.0f, 0.0f}, worldB = localBOrWorld;
+    float bInvM = 0.0f, bInvI = 0.0f;
+    if (b != nullptr) {
+        rB = rotate2(localBOrWorld, b->angle);
+        worldB = b->pos + rB;
+        bInvM = b->invMass;
+        bInvI = b->invInertia;
+    }
+    const math::vec2 vA = a.vel + crossSV(a.angularVel, rA);
+    const math::vec2 vB = b ? (b->vel + crossSV(b->angularVel, rB)) : math::vec2(0.0f, 0.0f);
+    const math::vec2 cdot = vB - vA;
+
+    const float im = a.invMass + bInvM;
+    const float iA = a.invInertia, iB = bInvI;
+    const float k11 = im + iA * rA.y * rA.y + iB * rB.y * rB.y;
+    const float k12 = -iA * rA.x * rA.y - iB * rB.x * rB.y;
+    const float k22 = im + iA * rA.x * rA.x + iB * rB.x * rB.x;
+    const float det = k11 * k22 - k12 * k12;
+    if (std::fabs(det) < 1e-12f) {
+        return;
+    }
+    const float beta = 0.2f; // position drift correction
+    const math::vec2 bias = (worldB - worldA) * (beta / dt);
+    const math::vec2 rhs = -(cdot + bias);
+    const math::vec2 p((k22 * rhs.x - k12 * rhs.y) / det, (-k12 * rhs.x + k11 * rhs.y) / det);
+
+    a.vel -= p * a.invMass;
+    a.angularVel -= a.invInertia * cross2(rA, p);
+    if (b != nullptr) {
+        b->vel += p * bInvM;
+        b->angularVel += bInvI * cross2(rB, p);
+    }
+}
+
+// Damped spring: a soft restoring force along the joint axis toward `rest`. `b` may be null.
+inline void solveSpring(Body2D& a, Body2D* b, math::vec2 localA, math::vec2 localBOrWorld, float rest,
+                        float stiff, float damp, float dt) {
+    const math::vec2 rA = rotate2(localA, a.angle);
+    const math::vec2 worldA = a.pos + rA;
+    math::vec2 rB{0.0f, 0.0f}, worldB = localBOrWorld;
+    float bInvM = 0.0f, bInvI = 0.0f;
+    if (b != nullptr) {
+        rB = rotate2(localBOrWorld, b->angle);
+        worldB = b->pos + rB;
+        bInvM = b->invMass;
+        bInvI = b->invInertia;
+    }
+    math::vec2 d = worldB - worldA;
+    const float len = std::sqrt(glm::dot(d, d));
+    if (len < 1e-6f) {
+        return;
+    }
+    const math::vec2 n = d / len;
+    const float c = len - rest;
+    const math::vec2 vA = a.vel + crossSV(a.angularVel, rA);
+    const math::vec2 vB = b ? (b->vel + crossSV(b->angularVel, rB)) : math::vec2(0.0f, 0.0f);
+    const float vrel = glm::dot(vB - vA, n);
+    const float force = -stiff * c - damp * vrel; // along n (a -> b)
+    const math::vec2 p = n * (force * dt);
+
+    a.vel -= p * a.invMass;
+    a.angularVel -= a.invInertia * cross2(rA, p);
+    if (b != nullptr) {
+        b->vel += p * bInvM;
+        b->angularVel += bInvI * cross2(rB, p);
+    }
+}
+
 } // namespace detail
 
 class PhysicsWorld2D {
@@ -438,10 +534,16 @@ public:
     Bounds2D bounds{};
     bool hasBounds = false;
     std::vector<Body2D> bodies;
+    std::vector<Joint2D> joints;
 
     uint32_t add(const Body2D& b) {
         bodies.push_back(b);
         return static_cast<uint32_t>(bodies.size() - 1);
+    }
+
+    uint32_t addJoint(const Joint2D& j) {
+        joints.push_back(j);
+        return static_cast<uint32_t>(joints.size() - 1);
     }
 
     // Advance the simulation by dt: integrate gravity + motion, then resolve contacts for `iterations`
@@ -449,6 +551,10 @@ public:
     // If any body has rotation enabled (invInertia > 0) the oriented rigid-body solver runs; otherwise
     // the exact translation-only path below runs, keeping every non-rotating scene bit-identical.
     void step(float dt, int iterations = 4) {
+        if (!joints.empty()) {
+            stepRotational(dt, iterations);
+            return;
+        }
         for (const Body2D& b : bodies) {
             if (b.invInertia > 0.0f) {
                 stepRotational(dt, iterations);
@@ -500,6 +606,26 @@ private:
                     if (m.hit) {
                         detail::resolveRot(bodies[i], bodies[j], m);
                     }
+                }
+            }
+            for (const Joint2D& jt : joints) {
+                if (jt.a < 0 || jt.a >= static_cast<int>(bodies.size())) {
+                    continue;
+                }
+                Body2D& A = bodies[static_cast<size_t>(jt.a)];
+                Body2D* B = (jt.b >= 0 && jt.b < static_cast<int>(bodies.size()))
+                                ? &bodies[static_cast<size_t>(jt.b)]
+                                : nullptr;
+                if (jt.type == Joint2D::Pin) {
+                    detail::solvePin(A, B, jt.localA, jt.anchorB, dt);
+                } else {
+                    detail::solveSpring(A, B, jt.localA, jt.anchorB, jt.restLength, jt.stiffness,
+                                        jt.damping, dt);
+                }
+            }
+            if (hasBounds) {
+                for (Body2D& b : bodies) {
+                    collideBounds(b, bounds);
                 }
             }
         }

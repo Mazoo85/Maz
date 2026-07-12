@@ -370,6 +370,15 @@ available):
   (x,y) cell, so you watch a single skeleton's pose morph smoothly between four corner poses across
   the space — exactly how a Godot BlendSpace2D drives 8-way locomotion. Pure geometry, so the weights
   unit-test without a GPU
+- **M93** — 2D physics **joints**, toward Godot's `PinJoint2D` / `DampedSpringJoint2D`: the rigid-body
+  world could collide bodies but not *connect* them. `game::Joint2D` adds two constraints solved by
+  sequential impulses inside the oriented step: a **Pin** forces two anchor points together (a hinge /
+  rope link — a 2×2 effective-mass solve with Baumgarte drift correction), and a **Spring** pulls two
+  anchors toward a rest length with stiffness + damping. Either end can instead be a fixed world point.
+  The new `joints` demo builds a rope bridge — a chain of boxes pinned end-to-end between two posts
+  that sags into a catenary — and a row of masses hung from springs of increasing stiffness. Verified
+  by unit tests (a pin pendulum holds its arm length while it swings; a stretched spring returns to
+  rest) plus the golden
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

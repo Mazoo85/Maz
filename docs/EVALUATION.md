@@ -1121,18 +1121,44 @@ remaining animation gap.
   Purely additive (a new header + a new app), so all existing goldens are unchanged — confirmed by a
   serial golden run (strays killed first; golden check then ctest one at a time). ctest **48/48**.
 
+### Iteration 54 — "Benchmarking against Godot: 2D physics joints" (done)
+Continuing the Godot benchmark, building on the M91 rotational solver: the physics could collide bodies
+but had no way to *connect* them — no ropes, chains, hinges, or springs — while Godot ships PinJoint2D
+and DampedSpringJoint2D. That constraint layer was the clearest way to extend the physics momentum from
+M91, and it's deterministic + unit-testable + has a strong settled-state visual golden.
+- [x] **M93 — 2D physics joints (`game::Joint2D` Pin + Spring)**: a joint ties two bodies together (or
+  one body to a fixed world point) and is solved by sequential impulses inside the oriented step, so
+  joints and contacts compose. A **Pin** is a point-to-point constraint driving the two world anchors
+  together — the standard 2x2 effective-mass solve (`K = [[m+I·ry², -I·rx·ry],[…, m+I·rx²]]`) with a
+  Baumgarte position bias so drift is pulled out; a chain of pinned links behaves like a rope/hinge. A
+  **Spring** applies a soft restoring impulse `-(k·stretch + c·relVel)` along the joint axis (Godot's
+  DampedSpringJoint2D). Anchors are given in each body's local (rotated) frame; `b < 0` anchors to a
+  world point. `PhysicsWorld2D::step` now routes to the oriented solver when joints exist (as well as
+  when rotation is enabled), so a joints-only scene works; non-jointed non-rotating scenes still hit the
+  byte-identical old path. `testPhysics2DJoints` proves a pin pendulum holds its arm length (~100 units)
+  while it visibly swings, and a stretched damped spring returns to and rests at its rest length. Unit
+  count **3443 -> 3448**. The new `joints` demo pins 11 boxes end-to-end between two posts into a rope
+  bridge that sags into a clean catenary, and hangs four masses from springs of increasing stiffness
+  (each settling at a different stretch); verified on lavapipe (the catenary + spring rest states read
+  clearly, no validation errors). New `joints_headless_smoke` + golden (settle 4.5 s, threshold 0.06).
+  Additive change (joints default to none), so all existing goldens are unchanged — confirmed by a
+  serial golden run (strays killed first; golden check then ctest one at a time). ctest **49/49**.
+  Honest scope: Pin uses Baumgarte (not full position projection) and there's no warm-starting, so very
+  long/heavy chains are softer than Godot's solver; it's excellent for ropes, bridges, pendulums, and
+  springs.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): animation blend *trees* (state-machine over blend spaces) + IK
-(M92 gives blend spaces); audio buses/effects + 3D spatial audio (a whole subsystem where Maz is thin);
-agent avoidance (RVO) on the navmesh; 2-point (warm-started) manifolds for stable box STACKS + physics
-joints (pin/spring) on the 2D solver (M91 is single-contact); soft (penumbra) 2D shadows + normal-mapped
-/ textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored); 3D rigid-body
-physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles; parallel/
-decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the
-scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation,
-localization / string tables, order-independent transparency, material/uniform system, cross-platform
-CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): audio buses/effects + 2D/3D spatial audio (a whole subsystem
+where Maz is thin); agent avoidance (RVO) on the navmesh; animation blend *trees* (state-machine over
+blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS +
+more joint types (groove/slider) building on M93's pin/spring; soft (penumbra) 2D shadows + normal-
+mapped / textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored); 3D
+rigid-body physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles;
+parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints
+on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave
+generation, localization / string tables, order-independent transparency, material/uniform system,
+cross-platform CI, a deterministic hold-frame screenshot mode.

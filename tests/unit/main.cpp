@@ -2574,6 +2574,80 @@ void testPhysics2DRotation() {
     }
 }
 
+void testPhysics2DJoints() {
+    using game::Body2D;
+    using game::Joint2D;
+
+    // Pin joint as a pendulum: a body anchored (at an offset point) to a fixed world point orbits that
+    // point at a constant radius = the anchor offset, no matter how it swings.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 800.0f); // +y down
+
+        Body2D bob;
+        bob.shape = Body2D::Box;
+        bob.pos = math::vec2(0.0f, 100.0f); // 100 below the anchor
+        bob.half = math::vec2(8.0f, 8.0f);
+        bob.invMass = 1.0f;
+        bob.vel = math::vec2(200.0f, 0.0f); // shove sideways so it swings
+        bob.enableRotation();
+        const uint32_t id = w.add(bob);
+
+        Joint2D pin;
+        pin.type = Joint2D::Pin;
+        pin.a = static_cast<int>(id);
+        pin.b = -1;                            // anchor to a fixed world point
+        pin.localA = math::vec2(0.0f, -100.0f); // the point 100 "above" the body's centre
+        pin.anchorB = math::vec2(0.0f, 0.0f);   // world anchor
+        w.addJoint(pin);
+
+        float maxX = 0.0f;
+        bool radiusHeld = true;
+        for (int i = 0; i < 300; ++i) {
+            w.step(1.0f / 60.0f, 10);
+            const math::vec2 p = w.bodies[0].pos;
+            const float r = std::sqrt(p.x * p.x + p.y * p.y);
+            if (r < 88.0f || r > 112.0f) {
+                radiusHeld = false; // constraint kept the bob ~100 from the anchor
+            }
+            maxX = std::max(maxX, std::fabs(p.x));
+        }
+        CHECK(radiusHeld);     // the pin held the pendulum arm length throughout
+        CHECK(maxX > 30.0f);   // and it actually swung sideways
+    }
+
+    // Damped spring pulls a stretched body back to its rest length and settles there.
+    {
+        game::PhysicsWorld2D w; // no gravity
+
+        Body2D m;
+        m.shape = Body2D::Circle;
+        m.radius = 5.0f;
+        m.pos = math::vec2(0.0f, 80.0f); // stretched: 80 from the anchor, rest is 50
+        m.invMass = 1.0f;
+        const uint32_t id = w.add(m);
+
+        Joint2D spring;
+        spring.type = Joint2D::Spring;
+        spring.a = static_cast<int>(id);
+        spring.b = -1;
+        spring.localA = math::vec2(0.0f, 0.0f);
+        spring.anchorB = math::vec2(0.0f, 0.0f);
+        spring.restLength = 50.0f;
+        spring.stiffness = 30.0f;
+        spring.damping = 8.0f;
+        w.addJoint(spring);
+
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        // Settles at the rest length along the y axis (equilibrium at (0,50)).
+        CHECK_NEAR(w.bodies[0].pos.y, 50.0f, 4.0f);
+        CHECK(std::fabs(w.bodies[0].pos.x) < 4.0f);
+        CHECK(std::fabs(w.bodies[0].vel.y) < 5.0f); // and comes to rest
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -2908,6 +2982,7 @@ int main() {
     testVisibility2D();
     testPhysics2D();
     testPhysics2DRotation();
+    testPhysics2DJoints();
     testBlendSpace();
     testBehaviorTree();
     testSteering();

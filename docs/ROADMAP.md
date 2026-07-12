@@ -306,6 +306,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `Body2D::enableRotation()`; oriented-box SAT contacts + rotational impulses about the contact point +
   linear/angular damping — Godot RigidBody2D-style angular dynamics; opt-in so non-rotating scenes are
   unchanged; the `tumble` demo drops tilted boxes that topple and settle; M91)
+- [x] **2D physics joints** (`game::Joint2D`: a **Pin** point-to-point constraint (2×2 effective mass +
+  Baumgarte) and a **damped Spring**, solved by sequential impulses in the oriented step; either end may
+  be a fixed world anchor — Godot PinJoint2D / DampedSpringJoint2D; the `joints` demo builds a pin-chain
+  rope bridge + spring-hung masses; M93) — 2-point stacks / warm starting later
 - [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
 - [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
 - [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
@@ -455,6 +459,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       their corners, and settle into a leaning pile via the oriented rigid-body solver (M91)
 - [x] **Animation blend space** (`apps/blendspace`) — a grid of stick-figure skeletons whose pose is
       blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
+- [x] **Physics joints** (`apps/joints`) — a pin-jointed rope bridge sagging into a catenary + masses
+      hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
