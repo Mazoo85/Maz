@@ -110,6 +110,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             Timeline — keyframe sequencer: named Tracks of Keyframes (time→value + per-segment easing) +
               a once/repeat/ping-pong playhead, Godot AnimationPlayer-style;
+            TriggerTrack + MethodTimeline — call-method / trigger tracks: timed markers that FIRE as a
+              playhead sweeps (fire-once half-open, loop-wrap-safe), the event half of AnimationPlayer;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
             AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses +
@@ -214,6 +216,8 @@ apps/
               touch (green), out-of-reach ones straighten and point (red) (anim::solveFabrik)
   timeline/ Keyframe timeline — an arrow driven by keyed x/y/rotation/scale/colour tracks, shown as an
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
+  sequencer/ Trigger / method tracks — a four-lane drum machine whose kick/snare/hat/clap markers fire as
+              one playhead sweeps the loop, with fire counts + a recent-fires strip (anim::MethodTimeline)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not

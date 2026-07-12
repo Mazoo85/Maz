@@ -557,6 +557,17 @@ available):
   flow; `sampleFlow` maps a world position to its cell). The new `flowfield` demo shows the integration
   field as a heat map, the baked flow as a grid of arrows, and 90 agents released on the left that stream
   around two staggered barriers to the goal, their trails tracing the flow lines.
+- **M113** — **call-method / trigger tracks** (`anim::TriggerTrack` + `MethodTimeline`), the event half of
+  Godot's AnimationPlayer (M100's Timeline gave *value* tracks that interpolate a property; this gives
+  *method* tracks that **fire** at a keyframe time — the hook a clip uses to play a footstep on the plant
+  frame or spawn a muzzle flash on the shoot frame). A `TriggerTrack` is a sorted list of timed markers;
+  `MethodTimeline` plays one over a clip with a loop policy and reports which markers fired each `update`,
+  with fire-once half-open semantics and correct loop-wrap (no double-trigger at the seam). Unit-tested (a
+  forward sweep fires only the markers inside its interval; a marker exactly at the clip end fires on a
+  Once clip; a single big step crosses several in order; a Repeat clip fires each marker once per pass; a
+  zero-length clip is a safe no-op). The new `sequencer` demo is a four-lane drum machine (kick / snare /
+  hat / clap) whose markers fire as one shared playhead sweeps the loop — markers behind the head glow
+  ("just fired"), ahead stay dim ("pending"), with per-lane fire counts and a recent-fires strip.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

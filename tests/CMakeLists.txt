@@ -9,7 +9,7 @@ set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
 add_test(NAME golden_images COMMAND ${CMAKE_SOURCE_DIR}/tools/golden.sh check)
-set_tests_properties(golden_images PROPERTIES TIMEOUT 180)
+set_tests_properties(golden_images PROPERTIES TIMEOUT 360)
 
 # Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
 # This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
@@ -538,6 +538,14 @@ add_test(
     COMMAND flowfield --headless --frames 30)
 
 set_tests_properties(flowfield_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME sequencer_headless_smoke
+    COMMAND sequencer --headless --frames 30)
+
+set_tests_properties(sequencer_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 

@@ -10,6 +10,7 @@
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Timeline.hpp"
+#include "maz/anim/TriggerTrack.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/audio/Audio.hpp"
 #include "maz/audio/Dsp.hpp"

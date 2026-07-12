@@ -1694,6 +1694,37 @@ header so it can't regress anything — the clear highest-leverage crowd-AI pick
   incrementally when the goal moves, or do hierarchical/portal flow fields for huge maps — those remain
   crowd-AI gaps.
 
+### Iteration 74 — "Benchmarking against Godot: call-method / trigger tracks" (done)
+Rotating to animation (last anim was M107's FABRIK). M100 gave the Timeline's VALUE tracks — interpolating
+a property between keyframes — but Godot's AnimationPlayer has a second, equally-important track kind: the
+**method / call track**, which doesn't interpolate anything, it *fires* at a keyframe time. That's how a
+run clip plays a footstep on the plant frame, an attack clip spawns a hitbox on the swing frame, or a
+cutscene opens a door at a beat. It was the obvious missing half of the animation system, it extends a
+module I built (M100), and it's pure timing math — deterministic, fully unit-testable, and a brand-new
+header so it can't regress anything.
+- [x] **M113 — Call-method / trigger tracks (`anim::TriggerTrack` + `MethodTimeline`)**: a new header.
+  `TriggerTrack` is a sorted list of timed markers (`time`, caller-defined `id`); `collectRange(from, to,
+  includeTo, out)` appends the ids a **forward** sweep crossed, half-open `[from,to)` by default so a
+  marker on a segment boundary fires exactly once and never twice, with an `includeTo` option for the
+  terminal segment of a non-looping clip so an end-of-clip marker still fires. `MethodTimeline` plays a
+  track over a clip length with a `Loop` policy: `update(dt, out)` advances the playhead and appends every
+  fired id in order, correctly handling the Repeat **loop wrap** (fire the tail of the clip, wrap to 0,
+  keep going — a marker exactly at `length` is the next loop's 0 and is *not* double-fired) and Once
+  termination. `testTriggerTrack` pins it down: half-open vs inclusive ranges; two markers at the same
+  time both fire in insertion order; a Once clip fires each marker once including one exactly at the end
+  then goes quiet; a single large `dt` crosses several markers in order; a Repeat clip fires each marker
+  once per pass with no wrap double-trigger (a downbeat at t=0 fires 3× and a mid-marker 2× over 9 s of a
+  4 s loop); a zero-length clip is a safe no-op. Unit count **4020 → 4041**. The new `sequencer` demo is a
+  four-lane drum machine (kick / snare / hat / clap): each lane's markers fire as one shared playhead
+  sweeps the looping bar; markers behind the head glow ("just fired"), ahead stay dim ("pending"), with
+  per-lane fire counts (5 / 5 / 19 / 2 over the precomputed run, matching the timing by hand) and a strip
+  of the most recent fires in order. Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); precomputed → deterministic golden (RMSE 0, threshold
+  0.05). ctest **68/68 → 69/69**. Honest scope: this is a forward-playing method track (Once/Repeat); it
+  does not yet fire in *reverse* on a ping-pong clip, carry per-marker argument payloads, or bind to an
+  actual method-dispatch/callback registry (the caller switches on the id) — and there is still no visual
+  track *editor* for authoring them. Those remain animation gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -1712,8 +1743,9 @@ cross-frame warm starting + a block solver for very tall stacks + making two-poi
 motorized/limited slider + gear/weld joints (M110 gives opt-in two-point contact manifolds for stable
 stacks; M102 completes the pin/spring/groove trio); a GPU fragment-shader sprite-material path + a
 texture-projected light *cookie* + specular/rim terms (M111 gives CPU normal-mapped point lighting; M101
-gives soft shadows); call-method/trigger tracks + a visual track editor on the
-timeline (M100 gives value tracks + per-segment easing);
+gives soft shadows); reverse/ping-pong method-track firing + per-marker argument payloads + a
+callback-dispatch registry + a visual track editor on the timeline (M113 gives forward Once/Repeat
+call-method/trigger tracks; M100 gives value tracks + per-segment easing);
 ORCA half-plane avoidance + blending flow fields with local RVO for agent separation + incremental
 goal-move re-bake + hierarchical/portal flow fields (M112 gives static-goal flow-field crowd pathfinding;
 M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone angle

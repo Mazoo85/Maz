@@ -13,6 +13,7 @@
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Timeline.hpp"
+#include "maz/anim/TriggerTrack.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
@@ -733,6 +734,109 @@ void testTween() {
     zero.duration = 0.0f;
     zero.update(0.016f);
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
+void testTriggerTrack() {
+    // --- TriggerTrack.collectRange: half-open forward sweep, fire-once semantics. ---
+    {
+        anim::TriggerTrack tt;
+        tt.add(1.0f, 10);
+        tt.add(2.0f, 20);
+        tt.add(2.0f, 21); // two markers at the same time both fire, in insertion order
+        tt.add(3.0f, 30);
+        CHECK(tt.size() == 4);
+        CHECK_NEAR(tt.endTime(), 3.0f, 1e-6f);
+
+        std::vector<int> out;
+        tt.collectRange(0.0f, 2.0f, false, out); // [0,2): fires only the marker at 1.0
+        CHECK(out.size() == 1);
+        CHECK(out[0] == 10);
+
+        out.clear();
+        tt.collectRange(2.0f, 3.0f, false, out); // [2,3): both markers at 2.0, not the one at 3.0
+        CHECK(out.size() == 2);
+        CHECK(out[0] == 20);
+        CHECK(out[1] == 21);
+
+        out.clear();
+        tt.collectRange(2.0f, 3.0f, true, out); // inclusive end: also fires the marker at 3.0
+        CHECK(out.size() == 3);
+        CHECK(out[2] == 30);
+    }
+
+    // --- MethodTimeline (Once): each marker fires exactly once as the head sweeps, end marker included. ---
+    {
+        anim::MethodTimeline mt;
+        mt.length = 4.0f;
+        mt.loop = anim::Loop::Once;
+        mt.track.add(1.0f, 1);
+        mt.track.add(2.5f, 2);
+        mt.track.add(4.0f, 3); // exactly at the clip end
+
+        std::vector<int> fired;
+        // Step in small increments across the whole clip.
+        for (int i = 0; i < 100; ++i) {
+            mt.update(0.05f, fired); // 100 * 0.05 = 5s, past the 4s end
+        }
+        CHECK(mt.finished);
+        CHECK(fired.size() == 3);
+        CHECK(fired[0] == 1);
+        CHECK(fired[1] == 2);
+        CHECK(fired[2] == 3); // the end-of-clip marker fired (inclusive terminal segment)
+
+        // No further fires after finishing.
+        std::vector<int> more;
+        mt.update(1.0f, more);
+        CHECK(more.empty());
+    }
+
+    // --- A single big step across several markers fires them all, in order. ---
+    {
+        anim::MethodTimeline mt;
+        mt.length = 10.0f;
+        mt.loop = anim::Loop::Once;
+        mt.track.add(1.0f, 1);
+        mt.track.add(3.0f, 2);
+        mt.track.add(7.0f, 3);
+        std::vector<int> fired;
+        mt.update(8.0f, fired); // one jump from 0 to 8 crosses markers at 1,3,7
+        CHECK(fired.size() == 3);
+        CHECK(fired[0] == 1 && fired[1] == 2 && fired[2] == 3);
+    }
+
+    // --- MethodTimeline (Repeat): markers fire once per loop pass, wrap handled, no double-fire. ---
+    {
+        anim::MethodTimeline mt;
+        mt.length = 4.0f;
+        mt.loop = anim::Loop::Repeat;
+        mt.track.add(0.0f, 0); // downbeat at the loop start
+        mt.track.add(2.0f, 1);
+        // A marker exactly at length would be the next loop's 0 -> must not double-fire.
+
+        std::vector<int> fired;
+        // Run for 9 seconds = 2 full loops (8s) + 1s into the third.
+        for (int i = 0; i < 180; ++i) {
+            mt.update(0.05f, fired);
+        }
+        int c0 = 0, c1 = 0;
+        for (int id : fired) {
+            (id == 0 ? c0 : c1)++;
+        }
+        // Downbeat (t=0): loops start at 0,4,8 -> 3 times within [0,9). Marker at 2: 2,6 -> 2 times
+        // (next at 10 > 9). (The very first update fires t=0 as the head leaves 0.)
+        CHECK(c0 == 3);
+        CHECK(c1 == 2);
+    }
+
+    // --- Degenerate: zero-length clip fires nothing and never hangs. ---
+    {
+        anim::MethodTimeline mt;
+        mt.length = 0.0f; // and no markers -> endTime 0
+        std::vector<int> fired;
+        mt.update(1.0f, fired);
+        CHECK(fired.empty());
+        CHECK(!mt.finished); // len<=0 is a no-op, not a completion
+    }
 }
 
 void testTimeline() {
@@ -4589,6 +4693,7 @@ int main() {
     testSceneStack();
     testTween();
     testTimeline();
+    testTriggerTrack();
     testLayout();
     testStyleBox();
     testTheme();

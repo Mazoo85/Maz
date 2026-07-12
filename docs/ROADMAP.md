@@ -383,7 +383,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Keyframe timeline / sequencer** (`anim::Timeline`: named `Track`s of `Keyframe`s (time→value +
   per-segment easing) with endpoint-holding `sample`, plus a Once/Repeat/PingPong playhead — Godot
   AnimationPlayer; the `timeline` demo animates an arrow from keyed x/y/rot/scale/colour tracks with an
-  editor-style track panel; M100) — call-method tracks + a track editor UI later
+  editor-style track panel; M100)
+- [x] **Call-method / trigger tracks** (`anim::TriggerTrack` + `MethodTimeline`: timed markers that FIRE
+  as a playhead sweeps — the event half of Godot's AnimationPlayer, alongside M100's value tracks — with
+  fire-once half-open semantics and correct loop-wrap; the `sequencer` demo is a four-lane drum machine
+  firing kick/snare/hat/clap markers; M113) — a track editor UI later
 
 ## Phase 9 — UI
 - [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
@@ -566,6 +570,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Keyframe timeline** (`apps/timeline`) — an arrow driven by keyed x/y/rotation/scale/colour
       tracks, shown as an onion-skin trail plus an editor track panel with keyframe dots + a playhead
       (`anim::Timeline`) (M100)
+- [x] **Trigger / method tracks** (`apps/sequencer`) — a four-lane drum machine whose kick/snare/hat/clap
+      markers fire as one playhead sweeps the loop, with fire counts + a recent-fires strip
+      (`anim::MethodTimeline`) (M113)
 - [x] **Reverb/distortion/compressor** (`apps/reverb`) — one note scoped through a Schroeder reverb, a
       tanh distortion, and a compressor as stacked waveforms (`audio::Reverb/Distortion/Compressor`) (M106)
 - [x] **FABRIK IK chains** (`apps/tentacle`) — a row of 8-bone chains reaching for targets; reachable
