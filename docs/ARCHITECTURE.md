@@ -99,7 +99,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             SceneSerializer — reflection-lite ECS save/load: register per-component JSON converters,
             then saveWorld/loadWorld a live ecs::World to/from JSON (save games, prefabs, editor)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
-audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
+audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
+            Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
+            stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -154,6 +156,8 @@ apps/
               2D parameter space from four corner poses (anim::BlendSpace2D + blendPosesWeighted)
   joints/   Physics joints — a pin-jointed rope bridge sagging into a catenary + damped-spring-hung
               masses of increasing stiffness (game::Joint2D Pin + Spring)
+  spatial2d/ Positional audio — a listener + sound sources with per-source distance attenuation + stereo
+              pan visualized as gain halos + L/R bars + a master meter (audio::spatialize)
 ```
 
 ## The frame loop (fixed timestep)

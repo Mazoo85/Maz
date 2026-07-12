@@ -11,6 +11,10 @@ struct SoundDesc {
     float freqEnd = 0.0f;   // if > 0, glide to this frequency across the duration
     float duration = 0.15f; // seconds
     float volume = 0.30f;   // 0..1
+    // Per-channel gain for stereo panning (1,1 = centred/full). Feed audio::spatialize() here to place
+    // the sound in space; see maz/audio/Spatial2D.hpp.
+    float leftGain = 1.0f;
+    float rightGain = 1.0f;
 };
 
 // Real-time audio: opens an SDL audio device and mixes synthesized voices on the audio thread.

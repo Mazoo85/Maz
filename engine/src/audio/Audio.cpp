@@ -28,6 +28,8 @@ struct Audio::Impl {
         float freq = 440.0f;
         float freqEnd = 0.0f;
         float volume = 0.3f;
+        float leftGain = 1.0f;  // stereo pan (per-channel multiplier)
+        float rightGain = 1.0f;
         int total = 0;
         int left = 0;
         uint32_t noise = 0x2545f491u;
@@ -120,26 +122,32 @@ void SDLCALL Audio::Impl::feed(void* userdata, SDL_AudioStream* stream, int addi
         return;
     }
     Impl* self = static_cast<Impl*>(userdata);
-    const int frames = additional / static_cast<int>(sizeof(float));
-    std::vector<float> buffer(static_cast<size_t>(frames), 0.0f);
+    const int frames = additional / static_cast<int>(sizeof(float) * 2); // stereo interleaved L,R
+    std::vector<float> buffer(static_cast<size_t>(frames) * 2, 0.0f);
 
     {
         std::lock_guard<std::mutex> lock(self->mutex);
         for (int i = 0; i < frames; ++i) {
-            float mix = 0.0f;
+            float mixL = 0.0f, mixR = 0.0f;
             for (Voice& v : self->voices) {
                 if (v.active) {
-                    mix += self->renderVoice(v);
+                    const float s = self->renderVoice(v); // advances the voice exactly once per frame
+                    mixL += s * v.leftGain;
+                    mixR += s * v.rightGain;
                 }
             }
             if (self->musicOn) {
-                mix += self->renderMusic();
+                const float m = self->renderMusic();
+                mixL += m;
+                mixR += m;
             }
-            mix *= self->master;
-            buffer[static_cast<size_t>(i)] = std::min(1.0f, std::max(-1.0f, mix));
+            mixL *= self->master;
+            mixR *= self->master;
+            buffer[static_cast<size_t>(i) * 2] = std::min(1.0f, std::max(-1.0f, mixL));
+            buffer[static_cast<size_t>(i) * 2 + 1] = std::min(1.0f, std::max(-1.0f, mixR));
         }
     }
-    SDL_PutAudioStreamData(stream, buffer.data(), additional);
+    SDL_PutAudioStreamData(stream, buffer.data(), static_cast<int>(buffer.size() * sizeof(float)));
 }
 
 Audio::~Audio() { shutdown(); }
@@ -153,7 +161,7 @@ bool Audio::init() {
 
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_F32;
-    spec.channels = 1;
+    spec.channels = 2; // stereo, for positional panning
     spec.freq = kSampleRate;
 
     m_impl->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
@@ -206,6 +214,8 @@ void Audio::play(const SoundDesc& sound) {
     slot->freq = sound.freq;
     slot->freqEnd = sound.freqEnd;
     slot->volume = sound.volume;
+    slot->leftGain = sound.leftGain;
+    slot->rightGain = sound.rightGain;
     slot->total = std::max(1, static_cast<int>(sound.duration * kSampleRate));
     slot->left = slot->total;
 }

@@ -87,6 +87,7 @@ add_subdirectory(apps/lights2d)
 add_subdirectory(apps/tumble)
 add_subdirectory(apps/blendspace)
 add_subdirectory(apps/joints)
+add_subdirectory(apps/spatial2d)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

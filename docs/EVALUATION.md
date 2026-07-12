@@ -1147,18 +1147,45 @@ M91, and it's deterministic + unit-testable + has a strong settled-state visual 
   long/heavy chains are softer than Godot's solver; it's excellent for ropes, bridges, pendulums, and
   springs.
 
+### Iteration 55 — "Benchmarking against Godot: 2D positional audio" (done)
+Continuing the Godot benchmark, and finally diversifying into AUDIO — the subsystem where Maz was
+thinnest. The mixer synthesized voices with a master volume but was mono and non-spatial, while Godot's
+AudioStreamPlayer2D places sounds in the world: they fade with distance and pan across the stereo field
+by direction. Closing that is high-leverage and its core is pure, deterministic math.
+- [x] **M94 — 2D positional audio (`audio::spatialize` + a stereo pan mixer)**: `audio::spatialize`
+  takes a `Listener2D` (position + a "right" axis) and a source position and returns the source's
+  per-channel gain = a distance **attenuation** (Linear ramp, or InverseDistance = refDist/d, silent
+  past maxDistance) times a **constant-power stereo pan** (theta sweeps 0..pi/2 as the source moves
+  left..right along the listener's right axis, so left² + right² == gain²). Pure header math — no device
+  — so `testSpatial2D` checks it exactly: the attenuation curve (full inside ref, half at 2x ref for
+  inverse, 0 past max, linear midpoint), a centred source (equal L/R at 0.707), hard-left/hard-right
+  sources (all energy in one ear), silence past max range, and the constant-power invariant. Unit count
+  **3448 -> 3462**. The SDL mixer became **stereo**: each `Voice` carries a left/right gain
+  (`SoundDesc::leftGain`/`rightGain`, default 1,1 so existing SFX are unchanged), `feed()` now writes
+  interleaved L/R, and `renderVoice` is still advanced exactly once per frame then split across channels
+  — so on a real device a blip fed spatializer gains actually moves across the stereo image. The new
+  `spatial2d` demo visualizes the field on lavapipe: a listener with two range rings and five sources,
+  each drawn with a halo whose brightness scales with its gain and an L|R bar showing its pan, plus a
+  master stereo meter — the left sources skew blue (left), the right skew red (right), the close source
+  is loud, and the source past max range is faint. New `spatial2d_headless_smoke` + golden (static,
+  RMSE 0, threshold 0.05). The mixer change is default-centred, and the visual goldens don't sample
+  audio, so all existing goldens are unchanged — confirmed by a serial golden run (strays killed first;
+  golden check then ctest one at a time). ctest **50/50**. Honest scope: this is 2D pan + attenuation
+  (Godot AudioStreamPlayer2D); it is not a full bus graph with DSP effects, nor 3D spatialization with
+  doppler — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): audio buses/effects + 2D/3D spatial audio (a whole subsystem
-where Maz is thin); agent avoidance (RVO) on the navmesh; animation blend *trees* (state-machine over
-blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for stable box STACKS +
-more joint types (groove/slider) building on M93's pin/spring; soft (penumbra) 2D shadows + normal-
-mapped / textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored); 3D
-rigid-body physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles;
-parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints
-on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave
-generation, localization / string tables, order-independent transparency, material/uniform system,
-cross-platform CI, a deterministic hold-frame screenshot mode.
+Later (Godot-gap priorities + backlog): audio buses + DSP effects (reverb/filter) + 3D spatial audio +
+doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh; animation blend *trees*
+(state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point (warm-started) manifolds for
+stable box STACKS + more joint types (groove/slider) building on M93's pin/spring; soft (penumbra) 2D
+shadows + normal-mapped / textured 2D lights (M90 made lights additive but they're hard-edged and
+flat-colored); 3D rigid-body physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic
+obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
+prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
+tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
+system, cross-platform CI, a deterministic hold-frame screenshot mode.

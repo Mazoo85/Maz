@@ -9,6 +9,7 @@
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/audio/Audio.hpp"
+#include "maz/audio/Spatial2D.hpp"
 #include "maz/core/Assert.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Config.hpp"

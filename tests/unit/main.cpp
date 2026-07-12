@@ -6,6 +6,7 @@
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
+#include "maz/audio/Spatial2D.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
@@ -2648,6 +2649,52 @@ void testPhysics2DJoints() {
     }
 }
 
+void testSpatial2D() {
+    using math::vec2;
+    audio::Listener2D lis;
+    lis.pos = vec2(0.0f, 0.0f);
+    lis.right = vec2(1.0f, 0.0f); // +x is the listener's right
+
+    // Attenuation: full inside refDistance, zero past maxDistance, InverseDistance halves at 2x ref.
+    CHECK_NEAR(audio::attenuation(5.0f, 10.0f, 100.0f, audio::Attenuation::InverseDistance), 1.0f, 1e-5f);
+    CHECK_NEAR(audio::attenuation(20.0f, 10.0f, 100.0f, audio::Attenuation::InverseDistance), 0.5f, 1e-5f);
+    CHECK(audio::attenuation(200.0f, 10.0f, 100.0f, audio::Attenuation::InverseDistance) == 0.0f);
+    // Linear halfway between ref and max = 0.5.
+    CHECK_NEAR(audio::attenuation(50.0f, 0.0f, 100.0f, audio::Attenuation::Linear), 0.5f, 1e-5f);
+
+    // A source right at the listener: full attenuation, centred (equal L/R at constant power).
+    {
+        const auto g = audio::spatialize(lis, vec2(0, 0), 1.0f, 10.0f, 100.0f);
+        CHECK_NEAR(g.left, 0.70710678f, 1e-4f);
+        CHECK_NEAR(g.right, 0.70710678f, 1e-4f);
+    }
+    // Hard right: all energy in the right channel; hard left: all in the left.
+    {
+        const auto gr = audio::spatialize(lis, vec2(100, 0), 1.0f, 10.0f, 1000.0f);
+        CHECK(gr.right > gr.left);
+        CHECK_NEAR(gr.left, 0.0f, 1e-4f);
+        const float att = 10.0f / 100.0f; // inverse-distance at d=100, ref=10
+        CHECK_NEAR(gr.right, att, 1e-4f);
+
+        const auto gl = audio::spatialize(lis, vec2(-100, 0), 1.0f, 10.0f, 1000.0f);
+        CHECK(gl.left > gl.right);
+        CHECK_NEAR(gl.right, 0.0f, 1e-4f);
+    }
+    // Past max distance -> silent.
+    {
+        const auto g = audio::spatialize(lis, vec2(0, 500), 1.0f, 10.0f, 100.0f);
+        CHECK(g.left == 0.0f);
+        CHECK(g.right == 0.0f);
+    }
+    // Constant power: L^2 + R^2 == (baseVolume*attenuation)^2 for any pan.
+    {
+        const auto g = audio::spatialize(lis, vec2(40, 30), 0.8f, 10.0f, 1000.0f); // d=50
+        const float att = 10.0f / 50.0f;
+        const float expected = 0.8f * att;
+        CHECK_NEAR(std::sqrt(g.left * g.left + g.right * g.right), expected, 1e-4f);
+    }
+}
+
 void testBlendSpace() {
     using math::vec2;
 
@@ -2983,6 +3030,7 @@ int main() {
     testPhysics2D();
     testPhysics2DRotation();
     testPhysics2DJoints();
+    testSpatial2D();
     testBlendSpace();
     testBehaviorTree();
     testSteering();

@@ -389,6 +389,14 @@ set_tests_properties(joints_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME spatial2d_headless_smoke
+    COMMAND spatial2d --headless --frames 30)
+
+set_tests_properties(spatial2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

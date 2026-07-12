@@ -379,6 +379,15 @@ available):
   that sags into a catenary — and a row of masses hung from springs of increasing stiffness. Verified
   by unit tests (a pin pendulum holds its arm length while it swings; a stretched spring returns to
   rest) plus the golden
+- **M94** — 2D positional audio, toward Godot's `AudioStreamPlayer2D`: audio was a flat, non-spatial
+  mixer. `audio::spatialize` computes, from a listener (position + a "right" axis) and a source
+  position, the source's per-channel gain — a distance **attenuation** (linear or inverse-distance,
+  silent past a max range) times a **constant-power stereo pan** (a source off to one side is louder in
+  that ear). The SDL mixer is now stereo and applies a left/right gain per voice (`SoundDesc::leftGain`
+  / `rightGain`), so blips actually move across the stereo field on a real device. The new `spatial2d`
+  demo visualizes the field — each source's halo scales with its gain and a small L|R bar shows its pan,
+  with the listener's range rings and a master stereo meter. The spatializer is pure math, unit-tested
+  headlessly (attenuation curve, hard-left/right pan, silence past max range, constant-power invariant)
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

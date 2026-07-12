@@ -323,8 +323,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Audio device + real-time float mixer (SDL3, on the audio thread)
 - [x] Synthesized voices (sine/square/triangle/noise), envelope, frequency glide, master volume
 - [x] Looping arpeggio music bed; thread-safe `play`; graceful with no device
+- [x] **Stereo mixer + 2D positional audio** (`audio::spatialize`: listener/source distance attenuation
+  (linear / inverse-distance) + constant-power stereo pan; the mixer is stereo with per-voice L/R gain
+  (`SoundDesc::leftGain`/`rightGain`) — Godot AudioStreamPlayer2D; the `spatial2d` demo visualizes the
+  field; M94)
 - [ ] WAV/OGG loading, buses / categories, per-sound pitch
-- [ ] 2D panning + 3D spatialization, attenuation, doppler
+- [ ] 3D spatialization, doppler
 - [ ] DSP effects (reverb, filter), ducking
 
 ## Phase 8 — Animation
@@ -461,6 +465,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
 - [x] **Physics joints** (`apps/joints`) — a pin-jointed rope bridge sagging into a catenary + masses
       hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
+- [x] **Positional audio** (`apps/spatial2d`) — a listener + sound sources with per-source distance
+      attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
