@@ -158,6 +158,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
             AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses +
               blendPosesWeighted (N-way weighted pose mix);
+            additiveBlend — additive/layered pose blending (Godot AnimationNodeAdd2): makeAdditiveDelta
+              (additive vs reference: translation subtract / rotation inverse(ref)*add / scale ratio) +
+              applyAdditiveDelta (layer on a base at a weight; zero delta leaves the base untouched);
             Animator — named-clip library + timed cross-fade controller (play/update/pose);
             BlendSpace1D/2D — blend animations by a 1-D/2-D parameter (linear / barycentric-over-
               triangulation weights), Godot AnimationTree-style;
@@ -266,6 +269,8 @@ apps/
               (io::TranslationTable::tr per locale), with the empty German QUIT cell falling back to English
   textwrap/  Text layout — one prose paragraph fit into three fixed-width panels (left/center/right aligned)
               via ui::layoutText measured with Font::textWidth, plus a \n-delimited quest log with hard breaks
+  addblend/  Additive pose blending — a 3-joint arm layers an elbow-bend additive onto a fixed base pose at
+              five rising weights (anim::additiveBlend + Skeleton FK); shoulder held, only the elbow folds
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

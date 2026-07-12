@@ -717,6 +717,14 @@ set_tests_properties(textwrap_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME addblend_headless_smoke
+    COMMAND addblend --headless --frames 30)
+
+set_tests_properties(addblend_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

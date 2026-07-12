@@ -112,6 +112,7 @@ CASES=(
     "strtable||2.0|0.06"
     "locale||2.0|0.06"
     "textwrap||2.0|0.07"
+    "addblend||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

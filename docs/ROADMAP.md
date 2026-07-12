@@ -447,6 +447,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   Godot AnimationNodeBlendTree; the `blendtree` demo drives a stick figure through a gait blend-space
   layered with an additive wave and cross-faded into a jump; M117) — Add3/BlendN + a StateMachine node +
   a live parameter editor later
+- [x] **Additive/layered pose blending** (`anim::makeAdditiveDelta` + `applyAdditiveDelta` /
+  `additiveBlend`: compute a per-joint delta of an additive clip *relative to a reference pose*
+  (translation subtract / rotation `inverse(ref)*add` / scale ratio) and layer it on a base at a weight —
+  weight 0 returns the base, a zero delta leaves it untouched — Godot AnimationNodeAdd2 + the "additive"
+  import that produces the delta; complements M117's BlendTree Add2 which consumes an already-delta pose;
+  the `addblend` demo layers an elbow-bend onto a fixed arm at rising weights; M135) — per-bone-mask layers
+  + reference extraction from imported clips later
 - [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
   select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
   arms solving toward targets; M97)

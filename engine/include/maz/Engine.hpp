@@ -2,6 +2,7 @@
 
 // Umbrella header — pull in the whole Maz Engine public API.
 
+#include "maz/anim/AdditiveBlend.hpp"
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/AnimStateMachine.hpp"
 #include "maz/anim/Animator.hpp"

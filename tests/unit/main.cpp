@@ -3,6 +3,7 @@
 // if any check fails, so it plugs straight into ctest. Kept minimal to match the engine's no-extra-
 // dependency philosophy.
 
+#include "maz/anim/AdditiveBlend.hpp"
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/AnimStateMachine.hpp"
 #include "maz/anim/Animator.hpp"
@@ -4529,6 +4530,115 @@ void testAnimClip() {
     CHECK_NEAR(blended[0].translation.x, 10.0f, 1e-5f);
 }
 
+void testAdditiveBlend() {
+    using anim::JointPose;
+
+    // A zero delta (additive == reference) leaves the base untouched at ANY weight.
+    {
+        JointPose base;
+        base.translation = math::vec3(5.0f, 1.0f, -2.0f);
+        base.rotation = glm::normalize(glm::angleAxis(0.7f, math::vec3(0, 0, 1)));
+        base.scale = math::vec3(2.0f, 2.0f, 2.0f);
+        JointPose reference; // identity-ish
+        reference.translation = math::vec3(3.0f, 3.0f, 3.0f);
+        JointPose additive = reference; // no difference
+        const JointPose out = anim::additiveBlendJoint(base, additive, reference, 1.0f);
+        CHECK_NEAR(out.translation.x, base.translation.x, 1e-5f);
+        CHECK_NEAR(out.translation.y, base.translation.y, 1e-5f);
+        CHECK_NEAR(out.scale.x, base.scale.x, 1e-5f);
+        // Rotation unchanged (dot of quats ~ 1).
+        CHECK(std::fabs(glm::dot(out.rotation, base.rotation)) > 0.9999f);
+    }
+
+    // Weight 0 returns the base exactly even with a non-trivial delta.
+    {
+        JointPose base;
+        base.translation = math::vec3(1.0f, 0.0f, 0.0f);
+        JointPose reference; // zero translation
+        JointPose additive;
+        additive.translation = math::vec3(0.0f, 4.0f, 0.0f);
+        const JointPose out = anim::additiveBlendJoint(base, additive, reference, 0.0f);
+        CHECK_NEAR(out.translation.x, 1.0f, 1e-5f);
+        CHECK_NEAR(out.translation.y, 0.0f, 1e-5f);
+    }
+
+    // Translation delta adds on top of the base, scaled by weight.
+    {
+        JointPose base;
+        base.translation = math::vec3(1.0f, 0.0f, 0.0f);
+        JointPose reference; // 0
+        JointPose additive;
+        additive.translation = math::vec3(0.0f, 2.0f, 0.0f); // delta = (0,2,0)
+        const JointPose full = anim::additiveBlendJoint(base, additive, reference, 1.0f);
+        CHECK_NEAR(full.translation.x, 1.0f, 1e-5f);
+        CHECK_NEAR(full.translation.y, 2.0f, 1e-5f);
+        const JointPose half = anim::additiveBlendJoint(base, additive, reference, 0.5f);
+        CHECK_NEAR(half.translation.y, 1.0f, 1e-5f);
+    }
+
+    // Rotation delta: reference identity, additive = +90 deg about Z, base identity. At full weight the
+    // result rotates +X onto +Y; at half weight ~ +45 deg.
+    {
+        JointPose base; // identity rotation
+        JointPose reference; // identity
+        JointPose additive;
+        additive.rotation = glm::normalize(glm::angleAxis(glm::radians(90.0f), math::vec3(0, 0, 1)));
+        const JointPose full = anim::additiveBlendJoint(base, additive, reference, 1.0f);
+        const math::vec3 vFull = full.rotation * math::vec3(1, 0, 0);
+        CHECK_NEAR(vFull.x, 0.0f, 1e-4f);
+        CHECK_NEAR(vFull.y, 1.0f, 1e-4f);
+        const JointPose half = anim::additiveBlendJoint(base, additive, reference, 0.5f);
+        const math::vec3 vHalf = half.rotation * math::vec3(1, 0, 0);
+        CHECK_NEAR(vHalf.x, std::cos(glm::radians(45.0f)), 1e-3f);
+        CHECK_NEAR(vHalf.y, std::sin(glm::radians(45.0f)), 1e-3f);
+    }
+
+    // Scale delta is a RATIO applied multiplicatively: base 2, ref 1, additive 3 -> delta 3;
+    // full weight -> 2*3 = 6; half weight -> 2 * lerp(1,3,0.5) = 2*2 = 4.
+    {
+        JointPose base;
+        base.scale = math::vec3(2.0f, 2.0f, 2.0f);
+        JointPose reference;
+        reference.scale = math::vec3(1.0f, 1.0f, 1.0f);
+        JointPose additive;
+        additive.scale = math::vec3(3.0f, 3.0f, 3.0f);
+        const JointPose full = anim::additiveBlendJoint(base, additive, reference, 1.0f);
+        CHECK_NEAR(full.scale.x, 6.0f, 1e-4f);
+        const JointPose half = anim::additiveBlendJoint(base, additive, reference, 0.5f);
+        CHECK_NEAR(half.scale.x, 4.0f, 1e-4f);
+    }
+
+    // Rotation delta relative to a NON-identity reference: reference = +30 about Z, additive = +90 about
+    // Z, so the delta is +60. Applied to an identity base at full weight -> +60 rotation of +X.
+    {
+        JointPose base; // identity
+        JointPose reference;
+        reference.rotation = glm::normalize(glm::angleAxis(glm::radians(30.0f), math::vec3(0, 0, 1)));
+        JointPose additive;
+        additive.rotation = glm::normalize(glm::angleAxis(glm::radians(90.0f), math::vec3(0, 0, 1)));
+        const JointPose out = anim::additiveBlendJoint(base, additive, reference, 1.0f);
+        const math::vec3 v = out.rotation * math::vec3(1, 0, 0);
+        CHECK_NEAR(v.x, std::cos(glm::radians(60.0f)), 1e-3f);
+        CHECK_NEAR(v.y, std::sin(glm::radians(60.0f)), 1e-3f);
+    }
+
+    // Whole-pose additive: only the joint that differs in the additive clip changes; a joint equal to
+    // the reference is left at its base value.
+    {
+        std::vector<JointPose> base(2), reference(2), additive(2);
+        base[0].translation = math::vec3(0.0f, 0.0f, 0.0f);
+        base[1].translation = math::vec3(10.0f, 0.0f, 0.0f);
+        // reference: both zero-translation. additive: joint 0 moves, joint 1 identical to reference.
+        additive[0].translation = math::vec3(0.0f, 5.0f, 0.0f);
+        std::vector<JointPose> out;
+        anim::additiveBlend(base, additive, reference, 1.0f, out);
+        CHECK(out.size() == 2);
+        CHECK_NEAR(out[0].translation.y, 5.0f, 1e-5f); // joint 0 got the layer
+        CHECK_NEAR(out[1].translation.x, 10.0f, 1e-5f); // joint 1 untouched (base preserved)
+        CHECK_NEAR(out[1].translation.y, 0.0f, 1e-5f);
+    }
+}
+
 void testPhysics2D() {
     using game::Body2D;
 
@@ -6760,6 +6870,7 @@ int main() {
     testSpriteAnim();
     testSkeleton();
     testAnimClip();
+    testAdditiveBlend();
     testAnimator();
     testEventBus();
     testSignal();

@@ -2393,6 +2393,38 @@ subtitle needs; Godot's `Label` does it as autowrap + horizontal align. The layo
   — no BBCode), bidirectional/RTL or complex-script shaping, vertical alignment/justification, or
   ellipsis truncation; those remain text follow-ups.
 
+### Iteration 96 — "Benchmarking against Godot: additive/layered pose blending" (done)
+Rotating to **animation** for breadth (last was M124, the longest-idle subsystem) and closing a specific
+gap in the skeletal-animation stack: Maz had **cross-fade** blending (`blendPoses` / `blendPosesWeighted`,
+idle-to-walk), but not **additive** blending — Godot's `AnimationNodeAdd2` and the "additive" import mode.
+Cross-fading interpolates *whole* poses, so a walk pose fully replaces an idle one at weight 1. Additive
+blending instead layers a *difference* on top of a base: an additive clip is authored relative to a
+reference pose, its per-joint delta is computed, and that delta is applied on top of whatever base is
+playing — so you can layer a "wave", "breathe", "aim", or "recoil" onto any locomotion without disturbing
+the joints the additive clip doesn't touch. Pure math on `JointPose` (TRS with a quaternion).
+- [x] **M135 — additive/layered pose blending (`anim::additiveBlend` + `makeAdditiveDelta` /
+  `applyAdditiveDelta`)**: a new `AdditiveBlend.hpp`. `makeAdditiveDelta(additive, reference)` computes a
+  joint's delta — translation subtracts, rotation is the reference-to-additive rotation
+  (`inverse(ref) * add`), scale is the component ratio. `applyAdditiveDelta(base, delta, weight)` layers it
+  on: translation adds `weight*delta`, rotation applies `slerp(identity, delta, weight)` after the base,
+  scale multiplies by `mix(1, ratio, weight)` — so **weight 0 returns the base exactly** and a **zero
+  delta** (a joint that matches the reference) leaves the base untouched. `additiveBlendJoint` +
+  whole-pose `makeAdditivePose` / `applyAdditivePose` / `additiveBlend` wrap it. `testAdditiveBlend` pins:
+  zero-delta -> base preserved at any weight, weight-0 -> exact base, translation delta scaling
+  (full/half), a +90deg rotation delta rotating +X onto +Y (and ~+45deg at half weight), a **non-identity
+  reference** (ref +30deg / additive +90deg -> +60deg applied delta), scale-ratio multiplication (base 2 *
+  ratio 3 -> 6; half -> 4), and a whole-pose layer touching only the joint that differs. Unit checks
+  **4651 -> 4672**. The new `addblend` demo runs a 3-joint arm through `anim::additiveBlend` + real
+  `Skeleton` forward kinematics at five rising weights (0 / 0.25 / 0.5 / 0.75 / 1.0): the shoulder holds
+  its base lift (its additive delta is zero) while only the elbow folds progressively — the additive
+  layer visibly stacking on the preserved base. Static -> deterministic golden (threshold 0.06). Purely
+  additive (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial
+  golden run); ctest **90/90 -> 91/91**. Honest scope: this is the additive blend operator (Add2-style,
+  applied uniformly to a pose). It is **not** yet a per-bone-mask layer stack (Godot's blend-position
+  filter that limits an additive layer to selected bones), an AnimationTree node wired into the state
+  machine, or automatic reference-pose extraction from an imported clip; those remain animation
+  follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

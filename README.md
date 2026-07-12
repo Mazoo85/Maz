@@ -725,6 +725,12 @@ available):
   left/center/right, returning positioned lines the caller draws one-per-line. It's renderer-independent
   via an injected measure callback. The new `textwrap` demo wraps one paragraph three ways plus a
   hard-break quest log.
+- **M135** — **additive/layered pose blending** (`anim::additiveBlend`), toward Godot's
+  `AnimationNodeAdd2`: the existing blend cross-fades whole poses (idle↔walk); additive blending layers a
+  *difference* (an additive clip relative to a reference pose) on top of any base at a weight, so a joint
+  the additive clip doesn't move leaves the base untouched — the way you stack a "wave" or "aim" onto
+  locomotion. The new `addblend` demo layers an elbow-bend onto a fixed arm pose at rising weights: the
+  shoulder holds while only the elbow folds.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
