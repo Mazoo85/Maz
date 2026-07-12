@@ -79,6 +79,7 @@ add_subdirectory(apps/solar)
 add_subdirectory(apps/camera)
 add_subdirectory(apps/fireworks)
 add_subdirectory(apps/scatter)
+add_subdirectory(apps/noise)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

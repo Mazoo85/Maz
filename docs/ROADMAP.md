@@ -347,7 +347,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
 - [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)
 - [ ] GPU-simulated particles, affectors/attractors
-- [ ] Tilemap tools, procedural generation utilities
+- [x] **Procedural generation: noise** (`maz::core::Noise`: seeded Perlin `noise2` + fractal-Brownian
+  `fbm2`; deterministic, 0 at lattice points, ~[-1,1]; the `noise` demo builds a terrain heightmap; M85)
+  — tilemap tools / cave carving later
 - [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
 - [x] **Camera juice**: trauma-based screen shake (`maz::game::Shake`, deterministic; M39)
 - [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
@@ -415,6 +417,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       after a delay; the whole show is scheduler-driven (M83)
 - [x] **Procedural scatter** (`apps/scatter`) — a seeded RNG generates a token field with weighted
       rarity (Common/Uncommon/Rare/Epic) and a distribution legend; same seed → same field (M84)
+- [x] **Procedural terrain** (`apps/noise`) — a heightmap from fbm noise, colored by a terrain ramp
+      with hillshade; same seed → same continent (M85)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

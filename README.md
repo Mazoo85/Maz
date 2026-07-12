@@ -309,6 +309,12 @@ available):
   Gaussian, and an angle — replacing the ad-hoc xorshift each demo used to hand-roll, and stdlib-only so
   `core` keeps zero dependencies. The new `scatter` demo generates a 520-token field with weighted
   rarity from a fixed seed, tallying the resulting distribution in a legend
+- **M85** — procedural noise (`maz::core::Noise`): seeded Perlin gradient noise plus fractal Brownian
+  motion (`fbm2`) — the smooth, reproducible spatial randomness behind terrain, cloud/marble textures,
+  cave carving, and organic motion. It's 0 at integer lattice points, continuous everywhere, bounded to
+  ~[-1,1], and deterministic per seed (permutation shuffled with `core::Random`). The new `noise` demo
+  turns an `fbm2` field into a terrain heightmap — colored by a water → sand → grass → forest → rock →
+  snow ramp with a slope-based hillshade — so the same seed always renders the same continent
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -346,4 +352,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Camera** (2D follow camera): no controls — the camera tracks a moving avatar with deadzone + smoothing + world-bounds clamp · Esc to quit
 - **Fireworks** (scheduler): no controls — timers launch and explode fireworks; the whole show is scheduler-driven · Esc to quit
 - **Scatter** (procedural RNG): no controls — a seeded RNG scatters a token field with weighted rarity; same seed → same field · Esc to quit
+- **Noise** (procedural terrain): no controls — an fbm-noise heightmap rendered as a terrain map; same seed → same continent · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

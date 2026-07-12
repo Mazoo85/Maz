@@ -917,13 +917,34 @@ roadmap.
   field"; no validation errors); new `scatter_headless_smoke` + golden (RMSE 0, threshold 0.05) →
   ctest **41/41**, every existing golden unchanged.
 
+### Iteration 46 — "Noise shapes worlds" (done)
+Self-directed: M84 gave the engine a seeded RNG, but random *points* aren't enough for procedural
+content — terrain, textures, clouds, and cave systems need *smooth, spatially-coherent* randomness. The
+engine had none. Perlin/fbm noise is the canonical primitive, and it builds directly on the new RNG.
+- [x] **M85 — Procedural noise (`core::Noise`)**: classic Perlin gradient noise. A per-seed
+  permutation table (Fisher-Yates shuffled with `core::Random`, so the same seed always yields the same
+  field) feeds fade/lerp interpolation of lattice gradients, giving `noise2(x,y)` in ~[-1,1] that is
+  exactly 0 at integer lattice points and continuous everywhere. `fbm2` layers octaves (fractal
+  Brownian motion — rising frequency, falling amplitude) normalized back into [-1,1] for natural,
+  multi-scale detail. Header-only, on top of `core::Random`. Unit-tested to **3338 checks** total:
+  same-seed reproducibility vs. different-seed divergence, exact-zero at every integer lattice point in
+  a 7×7 block, output bounded to ≤1.0001 across a dense 400×200 scan while still varying (>0.4 peak),
+  continuity (a 0.01 input step never moves the output more than 0.1 — smooth, not white noise), fbm
+  bounded + reproducible, and fbm-at-1-octave equaling plain `noise2`. The new `noise` demo generates a
+  480×270 terrain heightmap once from an `fbm2` field (6 octaves), mapping height through a
+  water→shallow→sand→grass→forest→rock→snow color ramp with a cheap slope hillshade for relief, then
+  draws it full-screen. Verified on lavapipe (a natural continent — blue lakes, sandy shorelines, green
+  forested land with shaded relief; HUD "fbm noise, 6 octaves, seed 0xA11CE5EED — same seed, same
+  continent"; no validation errors); new `noise_headless_smoke` + golden (RMSE 0, threshold 0.05) →
+  ctest **42/42**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
 scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
 via config, an ECS Transform/Parent component wired to TransformGraph, dirty-flag caching for the
 scene graph, wire the camera controller's shake to game::Shake in a real game, cooldowns/ability
-timers on the scheduler, retrofit existing demos onto core::Random, localization / string tables, UI
-layout / text input, order-independent transparency, material/uniform system, GPU-driven / indirect
-instancing, cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's
-ScopedZone into an app's real frame loop.
+timers on the scheduler, noise-driven tilemap/cave generation, domain-warped + ridged noise variants,
+localization / string tables, UI layout / text input, order-independent transparency, material/uniform
+system, GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot
+mode, wire the profiler's ScopedZone into an app's real frame loop.

@@ -11,6 +11,7 @@
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
+#include "maz/core/Noise.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
@@ -899,6 +900,84 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testNoise() {
+    core::Noise n(1234);
+
+    // Determinism: same seed -> identical field; a different seed diverges somewhere.
+    {
+        core::Noise a(7), b(7), c(8);
+        bool sameAB = true, diffAC = false;
+        for (int i = 0; i < 50; ++i) {
+            const float x = static_cast<float>(i) * 0.37f, y = static_cast<float>(i) * 0.19f;
+            if (a.noise2(x, y) != b.noise2(x, y)) sameAB = false;
+            if (c.noise2(x, y) != a.noise2(x, y)) diffAC = true;
+        }
+        CHECK(sameAB);
+        CHECK(diffAC);
+    }
+
+    // Perlin noise is exactly 0 at integer lattice points.
+    for (int i = -3; i <= 3; ++i) {
+        for (int j = -3; j <= 3; ++j) {
+            CHECK_NEAR(n.noise2(static_cast<float>(i), static_cast<float>(j)), 0.0f, 1e-5f);
+        }
+    }
+
+    // Output stays bounded (~[-1,1]); scan a dense grid.
+    {
+        float maxAbs = 0.0f;
+        for (int i = 0; i < 400; ++i) {
+            const float x = static_cast<float>(i) * 0.113f;
+            for (int j = 0; j < 200; ++j) {
+                const float y = static_cast<float>(j) * 0.091f;
+                const float v = n.noise2(x, y);
+                const float a = v < 0.0f ? -v : v;
+                if (a > maxAbs) maxAbs = a;
+            }
+        }
+        CHECK(maxAbs <= 1.0001f);
+        CHECK(maxAbs > 0.4f); // it actually varies (not a flat zero field)
+    }
+
+    // Continuity: a tiny step in x changes the value only slightly (smooth, not white noise).
+    {
+        bool smooth = true;
+        for (int i = 0; i < 100; ++i) {
+            const float x = static_cast<float>(i) * 0.21f + 0.05f;
+            const float y = static_cast<float>(i) * 0.13f + 0.05f;
+            const float d = n.noise2(x + 0.01f, y) - n.noise2(x, y);
+            if ((d < 0.0f ? -d : d) > 0.1f) smooth = false; // small input step -> small output step
+        }
+        CHECK(smooth);
+    }
+
+    // fbm stays bounded and is reproducible.
+    {
+        core::Noise a(55), b(55);
+        float maxAbs = 0.0f;
+        bool same = true;
+        for (int i = 0; i < 300; ++i) {
+            const float x = static_cast<float>(i) * 0.07f, y = static_cast<float>(i) * 0.05f;
+            const float va = a.fbm2(x, y, 5);
+            const float vb = b.fbm2(x, y, 5);
+            if (va != vb) same = false;
+            const float ab = va < 0.0f ? -va : va;
+            if (ab > maxAbs) maxAbs = ab;
+        }
+        CHECK(same);
+        CHECK(maxAbs <= 1.0001f);
+    }
+
+    // fbm with a single octave equals plain noise2 (normalization is a no-op at 1 octave).
+    {
+        core::Noise a(3);
+        for (int i = 0; i < 20; ++i) {
+            const float x = static_cast<float>(i) * 0.3f + 0.1f, y = static_cast<float>(i) * 0.2f;
+            CHECK_NEAR(a.fbm2(x, y, 1), a.noise2(x, y), 1e-5f);
+        }
+    }
 }
 
 void testRandom() {
@@ -2410,6 +2489,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testNoise();
     testRandom();
     testScheduler();
     testSequence();
