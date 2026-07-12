@@ -158,6 +158,42 @@ void renderHud(const Sim& sim, Framebuffer& fb) {
     }
 }
 
+// CRT feel: 1px scanlines every 3rd row + a soft corner vignette.
+void applyPostFx(Framebuffer& fb) {
+    const int W = fb.width(), H = fb.height();
+    for (int y = 0; y < H; y += 3) fb.blendRect(0, y, W, 1, rgb(0x000000), 0.10f);
+
+    const float cx = static_cast<float>(W) * 0.5f, cy = static_cast<float>(H) * 0.5f;
+    const float maxd = length(cx, cy);
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+            const float d = length(static_cast<float>(x) - cx, static_cast<float>(y) - cy) / maxd;
+            if (d > 0.55f) {
+                const float a = clampf((d - 0.55f) / 0.45f, 0.0f, 1.0f) * 0.55f;
+                fb.blendPixel(x, y, rgb(0x000000), a);
+            }
+        }
+    }
+}
+
+// Centered text with a chunky multi-offset drop shadow (16-bit title look).
+void neonTitle(Framebuffer& fb, int cx, int y, const char* text, Color col, int scale) {
+    const int x = cx - textWidth(text, scale) / 2;
+    for (int o = 3 * scale; o > 0; o--) drawTextPlain(fb, x + o, y + o, text, rgb(0x0a0010), scale);
+    drawTextPlain(fb, x, y, text, col, scale);
+}
+
+void centerText(Framebuffer& fb, int cx, int y, const char* text, Color col, int scale) {
+    drawText(fb, cx - textWidth(text, scale) / 2, y, text, col, scale);
+}
+
+Color lerpColor(Color a, Color b, float t) {
+    return Color{static_cast<uint8_t>(lerpf(a.r, b.r, t)), static_cast<uint8_t>(lerpf(a.g, b.g, t)),
+                 static_cast<uint8_t>(lerpf(a.b, b.b, t))};
+}
+
+int titleScale(int h) { return std::max(2, h / 200); }
+
 } // namespace
 
 void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
@@ -172,6 +208,13 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
     if (opts.centerPlayer) {
         camX = player.pos.x * TILEf - static_cast<float>(W) / 2.0f;
         camY = player.pos.y * TILEf - static_cast<float>(H) / 2.0f;
+    }
+    // Screen shake: a deterministic jitter derived from state (so a given frame
+    // is reproducible) scaled by the sim's decaying shake magnitude.
+    const float sh = sim.shake();
+    if (sh > 0.01f) {
+        camX += sh * std::sin(sim.dayTime() * 12.9898f);
+        camY += sh * std::cos(sim.dayTime() * 7.8233f);
     }
 
     fb.clear(kBackground);
@@ -313,6 +356,12 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts) {
 
     // --- HUD (drawn on top, unaffected by darkness) ---
     if (opts.hud) renderHud(sim, fb);
+
+    // --- Game-over overlay ---
+    if (opts.deathOverlay && player.dead) renderDeathScreen(fb, sim.day(), sim.kills());
+
+    // --- CRT post-processing (scanlines + vignette) ---
+    if (opts.postFx) applyPostFx(fb);
 }
 
 void renderWorldMap(const Sim& sim, Framebuffer& fb) {
@@ -347,6 +396,78 @@ void renderWorldMap(const Sim& sim, Framebuffer& fb) {
     }
     const Player& p = sim.player();
     fb.fillCircle(static_cast<int>(p.pos.x * sxs), static_cast<int>(p.pos.y * sys), 3, neon::yellow);
+}
+
+void renderTitleScreen(Framebuffer& fb, float t) {
+    const int W = fb.width(), H = fb.height();
+    const float Hf = static_cast<float>(H);
+
+    // Synthwave gradient sky: purple up top, pink -> dark below the horizon.
+    const int horizon = H / 2;
+    for (int y = 0; y < H; y++) {
+        Color c;
+        if (y < horizon) {
+            c = lerpColor(rgb(0x10021f), rgb(0x3a0a4a),
+                          static_cast<float>(y) / static_cast<float>(horizon));
+        } else {
+            c = lerpColor(rgb(0xff2d95), rgb(0x05060a),
+                          static_cast<float>(y - horizon) / static_cast<float>(H - horizon));
+        }
+        fb.fillRect(0, y, W, 1, c);
+    }
+
+    // Neon sun with horizontal cutout bands in its lower half.
+    const int sunR = H / 6;
+    const int sunX = W / 2, sunY = static_cast<int>(Hf * 0.40f);
+    for (int yy = -sunR; yy <= sunR; yy++) {
+        for (int xx = -sunR; xx <= sunR; xx++) {
+            if (xx * xx + yy * yy > sunR * sunR) continue;
+            const Color c = lerpColor(neon::yellow, neon::orange,
+                                      static_cast<float>(yy + sunR) / static_cast<float>(2 * sunR));
+            fb.setPixel(sunX + xx, sunY + yy, c);
+        }
+    }
+    for (int i = 0; i < 7; i++) {
+        const int by = sunY + 6 + i * (i + 2);
+        fb.fillRect(sunX - sunR, by, 2 * sunR, 2 + i / 2, rgb(0x3a0a4a));
+    }
+
+    // Perspective grid below the horizon.
+    for (int i = -10; i <= 10; i++) {
+        fb.drawLine(W / 2 + i * (W / 40), horizon, W / 2 + i * (W / 3), H, rgb(0x05d9e8), 1);
+    }
+    const int scroll = static_cast<int>(t * 40.0f) % 40;
+    for (int i = 0; i < 12; i++) {
+        const int yy = horizon + (i * i) * (H - horizon) / 144 + scroll;
+        if (yy > horizon && yy < H) fb.blendRect(0, yy, W, 1, rgb(0x05d9e8), 0.4f);
+    }
+
+    // Title + prompt.
+    const int s = titleScale(H);
+    neonTitle(fb, W / 2, static_cast<int>(Hf * 0.24f), "ZOMBOID", neon::pink, s + 1);
+    centerText(fb, W / 2, static_cast<int>(Hf * 0.24f) + (s + 1) * 9, "ANCHORAGE", neon::cyan, s);
+    if (std::sin(t * 4.0f) > 0.0f)
+        centerText(fb, W / 2, static_cast<int>(Hf * 0.80f), "PRESS START", neon::yellow, s);
+    centerText(fb, W / 2, H - 24, "1994 NEON GENESIS ARCADE - 16-BIT SURVIVAL HORROR",
+               rgb(0x9999aa), 1);
+}
+
+void renderPauseScreen(Framebuffer& fb) {
+    const int W = fb.width(), H = fb.height();
+    fb.overlay(rgb(0x000000), 0.6f);
+    neonTitle(fb, W / 2, H / 2 - 24, "PAUSED", neon::cyan, titleScale(H));
+    centerText(fb, W / 2, H / 2 + 24, "PRESS P TO RESUME", rgb(0xffffff), 1);
+}
+
+void renderDeathScreen(Framebuffer& fb, int day, int kills) {
+    const int W = fb.width(), H = fb.height();
+    fb.overlay(rgb(0x280008), 0.7f);
+    neonTitle(fb, W / 2, H / 2 - 40, "YOU DIED", neon::red, titleScale(H) + 1);
+    char line[96];
+    std::snprintf(line, sizeof(line), "SURVIVED %d DAY%s - %d KILLS IN ANCHORAGE", day,
+                  day == 1 ? "" : "S", kills);
+    centerText(fb, W / 2, H / 2 + 24, line, neon::cyan, 1);
+    centerText(fb, W / 2, H / 2 + 44, "PRESS ENTER TO RETURN TO TITLE", rgb(0xffffff), 1);
 }
 
 } // namespace zb

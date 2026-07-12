@@ -45,8 +45,9 @@ same `Sim` — gameplay code never touches the engine backend.
 
 The sim maintains the reference's gameplay-adjacent effect state too: blood/muzzle **particles**,
 floating **damage numbers** / loot pickups, and **screen shake** (`kick`) — fed from combat and
-looting and advanced in the update loop, so they save/load and stay deterministic. Only the
-frame-level post-fx (CRT/scanline/vignette) stays out of the sim as pure render decoration.
+looting and advanced in the update loop, so they save/load and stay deterministic. The frame-level
+CRT/scanline/vignette post-fx and the menu screens are pure render decoration and live only in the
+render layer.
 
 ## What's done
 
@@ -67,8 +68,10 @@ CPU `Framebuffer` using the neon palette — tiles + detailing, loot containers,
 (with eyes/health bars), the player + facing line, bullets, blood/muzzle particles, floating damage
 numbers, the night darkness overlay, and a full
 **HUD** (five stat bars with labels, the day/clock/kills/z-alive panel, equipped weapon, an 8-slot
-hotbar, and the message log) drawn with a built-in 5x7 bitmap font (`Font.hpp`) — plus a whole-world
-overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a tiny built-in
+hotbar, and the message log) drawn with a built-in 5x7 bitmap font (`Font.hpp`), finished with a
+**CRT post-pass** (scanlines + vignette) and screen-shake camera jitter — plus the neon **title /
+pause / death screens** (`renderTitleScreen`/`renderPauseScreen`/`renderDeathScreen`) and a
+whole-world overview (`renderWorldMap`). The `zomboid` driver's `--render out.png` writes it via a tiny built-in
 PNG encoder (`apps/zomboid/Png.hpp`), so you can *see* the port with no GPU:
 
 ```

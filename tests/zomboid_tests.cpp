@@ -273,6 +273,29 @@ void testRender() {
     for (size_t i = 3; i < mapFb.pixels().size(); i += 3)
         if (mapFb.pixels()[i] != mapFb.pixels()[0]) mapVaried = true;
     CHECK(mapVaried);
+
+    // Post-FX changes the frame (scanlines + vignette darken pixels).
+    zb::RenderOptions noFx = opts;
+    noFx.postFx = false;
+    zb::Framebuffer fbNoFx(320, 240);
+    zb::renderScene(s, fbNoFx, noFx);
+    CHECK(fb.pixels() != fbNoFx.pixels());
+
+    // Menu screens render deterministic, non-trivial output.
+    zb::Framebuffer title(240, 200), title2(240, 200);
+    zb::renderTitleScreen(title, 0.4f);
+    zb::renderTitleScreen(title2, 0.4f);
+    CHECK(title.pixels() == title2.pixels());
+    bool titleVaried = false;
+    for (size_t i = 3; i < title.pixels().size(); i += 3)
+        if (title.pixels()[i] != title.pixels()[0]) titleVaried = true;
+    CHECK(titleVaried);
+    zb::Framebuffer death(240, 200);
+    zb::renderDeathScreen(death, 3, 9);
+    bool deathVaried = false;
+    for (size_t i = 3; i < death.pixels().size(); i += 3)
+        if (death.pixels()[i] != death.pixels()[0]) deathVaried = true;
+    CHECK(deathVaried);
 }
 
 // ---- day/night: darkness peaks at night, zero at midday ----

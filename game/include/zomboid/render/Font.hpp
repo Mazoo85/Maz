@@ -103,14 +103,19 @@ inline void drawChar(Framebuffer& fb, int x, int y, char c, Color col, int scale
 // Advance width of one character cell (glyph + 1px gap), in pixels.
 inline int textAdvance(int scale = 1) { return (kGlyphW + 1) * scale; }
 
-// Draw a left-aligned string with a 1px dark drop-shadow for legibility.
-inline void drawText(Framebuffer& fb, int x, int y, const char* s, Color col, int scale = 1) {
+// Draw a left-aligned string with no shadow.
+inline void drawTextPlain(Framebuffer& fb, int x, int y, const char* s, Color col, int scale = 1) {
     int cx = x;
     for (const char* p = s; *p; ++p) {
-        drawChar(fb, cx + 1, y + 1, *p, Color{0, 0, 0}, scale); // shadow
         drawChar(fb, cx, y, *p, col, scale);
         cx += textAdvance(scale);
     }
+}
+
+// Draw a left-aligned string with a 1px dark drop-shadow for legibility.
+inline void drawText(Framebuffer& fb, int x, int y, const char* s, Color col, int scale = 1) {
+    drawTextPlain(fb, x + 1, y + 1, s, Color{0, 0, 0}, scale); // shadow
+    drawTextPlain(fb, x, y, s, col, scale);
 }
 
 inline int textWidth(const char* s, int scale = 1) {

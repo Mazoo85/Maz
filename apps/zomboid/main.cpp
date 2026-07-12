@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
     int tilePx = 16;
     std::string loadPath;      // restore a save before running
     std::string savePath;      // write a save after running
+    std::string screen;        // title | pause | death — render a menu screen
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--ticks") == 0 && i + 1 < argc) {
@@ -94,6 +95,8 @@ int main(int argc, char** argv) {
             loadPath = argv[++i];
         } else if (std::strcmp(argv[i], "--save") == 0 && i + 1 < argc) {
             savePath = argv[++i];
+        } else if (std::strcmp(argv[i], "--screen") == 0 && i + 1 < argc) {
+            screen = argv[++i];
         } else if (std::strcmp(argv[i], "--help") == 0) {
             std::printf("usage: zomboid [--ticks N] [--seed S] [--quiet]\n"
                         "               [--load in.sav] [--save out.sav]\n"
@@ -168,7 +171,19 @@ int main(int argc, char** argv) {
 
     if (!renderPath.empty()) {
         zb::Framebuffer fb(imgW, imgH);
-        if (renderMap) {
+        if (screen == "title") {
+            zb::renderTitleScreen(fb, 0.4f); // phase where PRESS START is lit
+        } else if (screen == "pause") {
+            zb::RenderOptions opts;
+            opts.tilePx = tilePx;
+            zb::renderScene(sim, fb, opts);
+            zb::renderPauseScreen(fb);
+        } else if (screen == "death") {
+            zb::RenderOptions opts;
+            opts.tilePx = tilePx;
+            zb::renderScene(sim, fb, opts);
+            zb::renderDeathScreen(fb, sim.day(), sim.kills());
+        } else if (renderMap) {
             zb::renderWorldMap(sim, fb);
         } else {
             zb::RenderOptions opts;

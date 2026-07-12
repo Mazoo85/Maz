@@ -29,6 +29,8 @@ struct RenderOptions {
     bool centerPlayer = true; // camera follows the player (else top-left origin)
     bool applyNight = true;   // apply the day/night darkness overlay
     bool hud = true;          // draw the stat bars / clock / hotbar / messages
+    bool postFx = true;       // CRT scanlines + vignette
+    bool deathOverlay = true; // draw the "YOU DIED" overlay when the player is dead
 };
 
 // Render the current game viewport (camera-follows-player) into fb.
@@ -37,5 +39,14 @@ void renderScene(const Sim& sim, Framebuffer& fb, const RenderOptions& opts = {}
 // Render a whole-world overview (the "tactical map" look) into fb, scaling the
 // entire Anchorage grid to fit. Good for verifying worldgen at a glance.
 void renderWorldMap(const Sim& sim, Framebuffer& fb);
+
+// --- Menu / state screens (neon SEGA presentation) ---
+// The synthwave title screen ("ZOMBOID / ANCHORAGE" + PRESS START); t animates
+// the sun/grid/blink and may be any value (0 is fine for a static shot).
+void renderTitleScreen(Framebuffer& fb, float t = 0.0f);
+// Dim "PAUSED" overlay, drawn on top of an existing frame.
+void renderPauseScreen(Framebuffer& fb);
+// Red "YOU DIED" game-over with a survived-days / kills line.
+void renderDeathScreen(Framebuffer& fb, int day, int kills);
 
 } // namespace zb
