@@ -23,6 +23,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.width = static_cast<uint32_t>(std::atoi(argv[++i]));
         } else if (std::strcmp(arg, "--height") == 0 && i + 1 < argc) {
             cfg.height = static_cast<uint32_t>(std::atoi(argv[++i]));
+        } else if (std::strcmp(arg, "--load-model") == 0 && i + 1 < argc) {
+            cfg.modelPath = argv[++i];
         } else {
             MAZ_LOG_WARN("ignoring unknown argument: %s", arg);
         }

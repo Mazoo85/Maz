@@ -13,3 +13,7 @@ cmake-build-*/
 compile_commands.json
 CMakeUserPresets.json
 _deps/
+
+# Python
+__pycache__/
+*.pyc

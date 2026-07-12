@@ -91,7 +91,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
 - [ ] Image loading (stb_image), compressed textures (KTX2), mipmaps
-- [ ] Model import (glTF via cgltf/tinygltf; optional assimp)
+- [~] Model import (glTF via cgltf/tinygltf; optional assimp) — **Blender→glTF pipeline landed**:
+      `maz::assets::loadModel` (cgltf) loads meshes/normals/UVs + bounds; Blender export helper in
+      `tools/blender/`. See [`BLENDER_PIPELINE.md`](BLENDER_PIPELINE.md). Still to do: GPU upload +
+      draw (needs the Phase 3 mesh renderer), materials/textures, async loading via the asset manager.
 - [ ] Audio asset loading (wav / ogg), font import, shader assets
 - [ ] Asset cooking / packing pipeline, pak archives, streaming
 - [ ] Import settings + dependency graph + reimport
