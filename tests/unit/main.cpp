@@ -43,6 +43,7 @@
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/CollisionLayers.hpp"
+#include "maz/game/ConvexShape2D.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
@@ -5284,6 +5285,84 @@ void testPhysics2DGroove() {
     }
 }
 
+void testConvexShape2D() {
+    using game::ConvexPoly2D;
+    using game::SatHit2D;
+
+    // Two axis-aligned boxes overlapping in X by 1: A spans x[0,2], B spans x[1,3], both y[0,2].
+    // MTV should push along X with depth 1.
+    {
+        const ConvexPoly2D a = game::makeBoxPoly(math::vec2(1.0f, 1.0f), math::vec2(1.0f, 1.0f));
+        const ConvexPoly2D b = game::makeBoxPoly(math::vec2(2.0f, 1.0f), math::vec2(1.0f, 1.0f));
+        const SatHit2D h = game::satOverlap(a, b);
+        CHECK(h.overlap);
+        CHECK_NEAR(h.depth, 1.0f, 1e-4f);
+        CHECK_NEAR(std::fabs(h.axis.x), 1.0f, 1e-4f); // separating axis is X
+        CHECK_NEAR(h.axis.y, 0.0f, 1e-4f);
+        CHECK(h.axis.x > 0.0f); // points from A(center x=1) toward B(center x=2)
+    }
+
+    // Clearly separated boxes -> no overlap.
+    {
+        const ConvexPoly2D a = game::makeBoxPoly(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 1.0f));
+        const ConvexPoly2D b = game::makeBoxPoly(math::vec2(5.0f, 0.0f), math::vec2(1.0f, 1.0f));
+        CHECK(!game::satOverlap(a, b).overlap);
+    }
+
+    // Applying the MTV separates the shapes: translate B by axis*depth and they no longer overlap.
+    {
+        const ConvexPoly2D a = game::makeBoxPoly(math::vec2(1.0f, 1.0f), math::vec2(1.0f, 1.0f));
+        ConvexPoly2D b = game::makeBoxPoly(math::vec2(2.0f, 1.0f), math::vec2(1.0f, 1.0f));
+        const SatHit2D h = game::satOverlap(a, b);
+        CHECK(h.overlap);
+        for (math::vec2& p : b.points) {
+            p += h.axis * (h.depth + 1e-3f); // push a hair past contact
+        }
+        CHECK(!game::satOverlap(a, b).overlap);
+    }
+
+    // A triangle overlapping a box.
+    {
+        ConvexPoly2D tri;
+        tri.points = {math::vec2(0.0f, 0.0f), math::vec2(3.0f, 0.0f), math::vec2(1.5f, 3.0f)};
+        const ConvexPoly2D box = game::makeBoxPoly(math::vec2(1.5f, 1.0f), math::vec2(0.5f, 0.5f));
+        CHECK(game::satOverlap(tri, box).overlap);
+    }
+
+    // A rotated box vs an axis box: rotating a unit box 45deg extends its diagonal reach, so a box just
+    // outside the axis-aligned extent still overlaps the diamond.
+    {
+        const ConvexPoly2D diamond =
+            game::makeBoxPoly(math::vec2(0.0f, 0.0f), math::vec2(1.0f, 1.0f), 0.785398163f); // 45deg
+        const ConvexPoly2D box = game::makeBoxPoly(math::vec2(1.3f, 0.0f), math::vec2(0.2f, 0.2f));
+        CHECK(game::satOverlap(diamond, box).overlap); // diamond reaches ~1.414 along X
+    }
+
+    // polyContains: a point inside vs outside a pentagon.
+    {
+        const ConvexPoly2D pent = game::makeRegularPoly(math::vec2(0.0f, 0.0f), 2.0f, 5);
+        CHECK(game::polyContains(pent, math::vec2(0.0f, 0.0f)));   // center is inside
+        CHECK(!game::polyContains(pent, math::vec2(5.0f, 5.0f)));  // far outside
+    }
+
+    // makeRegularPoly builds the right vertex count at the right radius.
+    {
+        const ConvexPoly2D hex = game::makeRegularPoly(math::vec2(0.0f, 0.0f), 3.0f, 6);
+        CHECK(hex.points.size() == 6);
+        for (const math::vec2& p : hex.points) {
+            CHECK_NEAR(std::sqrt(p.x * p.x + p.y * p.y), 3.0f, 1e-4f);
+        }
+    }
+
+    // Degenerate (fewer than 3 points) never reports an overlap.
+    {
+        ConvexPoly2D line;
+        line.points = {math::vec2(0, 0), math::vec2(1, 0)};
+        const ConvexPoly2D box = game::makeBoxPoly(math::vec2(0.5f, 0.0f), math::vec2(1.0f, 1.0f));
+        CHECK(!game::satOverlap(line, box).overlap);
+    }
+}
+
 void testPhysicsQuery2D() {
     using game::QueryShape2D;
     using game::RayHit2D;
@@ -7053,6 +7132,7 @@ int main() {
     testPhysics2DJoints();
     testPhysics2DGroove();
     testPhysicsQuery2D();
+    testConvexShape2D();
     testManifold2();
     testNormalLight();
     testParallax();

@@ -131,6 +131,7 @@ add_subdirectory(apps/textwrap)
 add_subdirectory(apps/addblend)
 add_subdirectory(apps/primitives)
 add_subdirectory(apps/slotmap)
+add_subdirectory(apps/polycollide)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

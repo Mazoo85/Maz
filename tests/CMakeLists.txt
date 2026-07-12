@@ -741,6 +741,14 @@ set_tests_properties(slotmap_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME polycollide_headless_smoke
+    COMMAND polycollide --headless --frames 30)
+
+set_tests_properties(polycollide_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -131,6 +131,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             return the nearest hit (t/point/normal/id) among circle+oriented-box shapes filtered by a
             collision mask; queryPoint/pointInShape = intersect_point for mouse picking — pure geometry,
             no sim step),
+            ConvexShape2D (arbitrary convex-polygon collision via SAT — Godot ConvexPolygonShape2D:
+            satOverlap returns overlap + the minimum-translation vector (axis+depth), polyContains =
+            point-in-poly, makeRegularPoly/makeBoxPoly builders),
             CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake),
             Visibility2D (angle-sweep visibility polygon for 2D lights + shadows: cast rays to occluder
             corners, keep nearest hits; point-in-polygon test),
@@ -280,6 +283,8 @@ apps/
               from render::shapes::make*) under a fixed camera on the existing 3D mesh path
   slotmap/   Generational handles — a live core::SlotMap<char> driven through insert/free/reuse; the slot
               array (occupied/free + generation) beside the handle table showing which handles are live vs stale
+  polycollide/ Convex polygon collision — a probe pentagon tested (game::satOverlap) against a ring of convex
+              shapes; overlaps drawn red with the MTV push-arrow, clear shapes green
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

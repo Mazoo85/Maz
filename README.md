@@ -741,6 +741,12 @@ available):
   **detects a stale handle** whose slot was reused (the dangling-handle / ABA bug) by bumping the slot's
   generation on free. `get` returns null for a stale handle. The new `slotmap` demo drives a real
   `SlotMap` through insert/free/reuse and shows which handles are live vs stale.
+- **M138** — a **2D convex polygon collider** (`game::satOverlap` / `polyContains`), toward Godot's
+  `ConvexPolygonShape2D`: Physics2D collided circles + boxes; this adds arbitrary convex shapes
+  (triangle, pentagon, hull) via the Separating-Axis Theorem, returning overlap + the minimum-translation
+  vector (push direction + depth) to separate them, plus point-in-polygon. The new `polycollide` demo
+  tests a probe pentagon against a ring of shapes, drawing overlaps red with the MTV arrow and clear ones
+  green.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -2484,6 +2484,33 @@ exhaustively and renders a clean deterministic golden.
   slot, and the engine's existing handle-ish systems (texture/mesh handles, ECS ids) aren't retrofitted
   onto it yet; those remain follow-ups.
 
+### Iteration 99 — "Benchmarking against Godot: 2D convex polygon collision (SAT)" (done)
+Rotating to **2D physics** for breadth (last was M131's ray/point queries) and closing a genuine
+shape-class gap: Physics2D collides circles and (oriented) boxes — and it already uses SAT internally for
+the box-box case — but there was **no way to collide an ARBITRARY convex polygon**: a triangle, a
+pentagon, a hexagonal bumper, a hand-authored hull. Godot exposes exactly this as `ConvexPolygonShape2D` /
+`CollisionPolygon2D`. It's pure geometry (no simulation/renderer dependency), so it unit-tests headlessly
+and renders a clean deterministic golden.
+- [x] **M138 — 2D convex polygon collision (`game::satOverlap` + `polyContains` + `makeRegularPoly` /
+  `makeBoxPoly`)**: a new `ConvexShape2D.hpp`. A `ConvexPoly2D` is a vertex list; `satOverlap(a, b)` runs
+  the Separating-Axis Theorem over both polygons' edge normals — projecting each shape onto every candidate
+  axis, returning **no overlap** the instant a separating axis is found, otherwise reporting the
+  **minimum-translation vector** (`SatHit2D{axis, depth}`, the unit push direction oriented A→B plus the
+  penetration depth). `polyContains(poly, pt)` tests point-in-convex-polygon via a consistent cross-product
+  sign; `makeRegularPoly` / `makeBoxPoly` build n-gons and oriented boxes. `testConvexShape2D` pins: two
+  boxes overlapping in X by 1 → MTV axis ±X depth 1 oriented A→B; clearly separated → no overlap; **the MTV
+  actually separates** (translate B by `axis*depth` and they no longer overlap); a triangle-vs-box overlap;
+  a 45°-rotated box (diamond) whose diagonal reach catches a box outside the axis-aligned extent;
+  point-in-pentagon inside/outside; `makeRegularPoly` vertex count + radius; and a degenerate <3-point shape
+  never overlapping. Unit checks **4727 → 4747**. The new `polycollide` demo tests a central probe pentagon
+  against a ring of convex shapes (triangle / box / hexagon / diamond / pentagon), drawing overlaps **red**
+  with the yellow MTV push-arrow and clear shapes **green**. Static → deterministic golden (threshold 0.06).
+  Purely additive (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial
+  golden run); ctest **93/93 → 94/94**. Honest scope: this is the convex-convex overlap test + MTV and
+  point-in-poly. It does **not** yet integrate into the `PhysicsWorld2D` rigid-body solver as a dynamic
+  collider (contact manifold generation + impulse response for polygons), auto-decompose concave shapes
+  into convex pieces, or provide polygon-vs-circle / swept polygon casts; those remain physics follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
