@@ -100,6 +100,7 @@ CASES=(
     "emitter||2.0|0.06"
     "spatial3d||2.0|0.06"
     "containers||2.0|0.06"
+    "parallax||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

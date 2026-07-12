@@ -647,6 +647,13 @@ available):
   minimum-size helpers so nested containers size right. All pure rectangle math (`hbox`/`vbox`/`grid`/
   `margin`/`center`). The new `containers` demo lays out four labelled cards — every tile's rectangle is
   computed by the container, no hand-typed coordinates.
+- **M123** — **parallax scrolling backgrounds** (`game::Parallax`), toward Godot's `ParallaxBackground`:
+  several background layers that scroll at *different rates* relative to the camera so a flat 2D scene
+  reads as deep (distant mountains barely move, near trees race past), each layer **mirror-tiled** so a
+  small motif covers an unbounded scroll. `layerOffset` slides a layer by its `motionScale`; `firstTile` /
+  `tileCount` / `pmod` place the seamless tiles. The new `parallax` demo shows the same five-layer scene in
+  three strips at different scrolls — look down a column and the near layers sweep while the far ones
+  barely budge.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

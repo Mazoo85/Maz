@@ -211,6 +211,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D:** multi-camera passes (world-space + pixel-space HUD in one frame)
 - [x] **2D:** follow camera (`game::CameraController2D`: deadzone + frame-rate-independent smoothing +
   world-bounds clamp + shake offset + worldToScreen; the `camera` demo tracks an avatar in a large world; M82)
+- [x] **2D:** parallax scrolling backgrounds (`game::Parallax`: a `ParallaxLayer` scrolls by its
+  `motionScale` relative to the camera and mirror-tiles by a period — `layerOffset` computes the on-screen
+  offset, `firstTile`/`tileCount`/`pmod` place seamless tiles; the `parallax` demo shows one scene at three
+  scrolls so far layers barely move while near ones sweep — Godot ParallaxBackground/ParallaxLayer; M123) —
+  a texture-tiling draw call + CameraController2D integration later
 - [x] **2D:** filled convex polygons (`Renderer::drawConvexPolygon`: triangle-fan flat shapes streamed
   through the sprite batch via a 1×1 white texture — Godot Polygon2D-style vector shapes; the `vectors`
   demo draws N-gons + a disc + translucent overlaps; M88)

@@ -2027,6 +2027,38 @@ that leaves `LayoutNode` untouched → zero regression.
   ScrollContainer/TabContainer/FlowContainer, no RTL/text-direction handling, and no min-size *propagation*
   through a live retained tree (the helpers compute it, the app threads it) — those remain UI gaps.
 
+### Iteration 84 — "Benchmarking against Godot: parallax scrolling backgrounds" (done)
+Rotating to rendering-2D for breadth (last seven were UI/containers, audio/spatial3d, particles/emitter,
+tilemap/TileSet, physics-2D/layers, animation/blend-tree, physics-2D/Area2D — UI/audio/physics/animation
+are well-covered). Maz could draw sprites, tilemaps, shapes and lights, but it had **no notion of a
+scrolling background** — one of the most recognizable staples of 2D games, and a named Godot node pair
+(**ParallaxBackground + ParallaxLayer**). A parallax background is several layers that scroll at *different
+rates* relative to the camera (distant mountains barely move, near foliage races past) so a flat 2D scene
+reads as having depth, each layer **mirrored** (its motif tiles seamlessly) so a finite strip of art covers
+an unbounded scroll. That's a high-leverage, very *visible* rendering-2D gap; it's pure transform math
+(no renderer dependency) so it unit-tests headlessly, and it's a clean new header.
+- [x] **M123 — parallax scrolling backgrounds (`game::Parallax`)**: a new `Parallax.hpp`. A `ParallaxLayer`
+  carries a `motionScale` (the fraction of the camera scroll it follows — 1 = locked to the world /
+  foreground, 0 = pinned on screen / far backdrop), a `motionOffset` (a constant autoscroll base), and a
+  `mirroring` period per axis. `layerOffset(layer, cameraScroll)` returns the layer's on-screen offset
+  (`motionOffset − cameraScroll·motionScale`, so a smaller scale slides slower → the parallax). `pmod` is a
+  positive modulo; `firstTile(offset, period)` returns the first tile coordinate in `[−period, 0)` and
+  `tileCount(extent, period)` how many tiles cover a viewport, so a mirrored layer draws
+  `firstTile + k·period` across the width seamlessly. `testParallax` pins `layerOffset` (a scale-0.5 layer
+  offset −50 for scroll 100; a scale-0 backdrop unchanged across a huge scroll; a near layer shifting more
+  than a far one for the same camera move → the parallax property), `pmod` on negative inputs (−50 mod 40 =
+  30), `firstTile` landing in `[−period,0)` with the tiles bracketing `[0, extent]`, and the non-tiled
+  (period 0) path. Unit checks **4377 → 4395**. The new `parallax` demo shows the SAME five-layer scene
+  (sun + clouds + snow-capped mountains + hills + trees + ground) in three stacked strips at camera scrolls
+  0 / 460 / 920: reading down a column, the sun is pinned (scale 0), the mountains barely shift and the near
+  trees sweep a long way — the difference is the parallax — while every layer tiles across the full width
+  via the mirroring helpers. Fixed scrolls, drawn statically → deterministic golden (threshold 0.06,
+  layered-scene). Purely additive (new header + new app), so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **78/78 → 79/79**. Honest scope: this is the parallax *layout
+  math* + a snapshot; it does not own a texture-tiling draw call (the app draws motifs at the returned
+  positions), has no vertical infinite-scroll camera integration wired to `CameraController2D`, and no
+  per-layer z-ordering scene node — those remain rendering gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

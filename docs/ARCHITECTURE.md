@@ -111,6 +111,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             NormalLight2D (normal-mapped 2D lighting — PointLight2D shaded by a 3D N·L Lambert term with the
             light at a height above the plane + smooth distance falloff + ambient; shadeSurface sums lights,
             decodeNormal unpacks a normal-map texel), Godot Light2D normal-map-style,
+            Parallax (scrolling backgrounds — ParallaxLayer motionScale/motionOffset/mirroring; layerOffset
+            scrolls a layer by its motion scale, firstTile/tileCount/pmod tile a mirrored layer across the
+            viewport), Godot ParallaxBackground/ParallaxLayer-style,
             SoftShadow2D (area-light soft/penumbra shadows: diskSamples Vogel-spiral across the light +
             softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
@@ -213,6 +216,9 @@ apps/
   containers/ Auto-layout containers — four cards showing HBox (Fill/Expand stretch ratios), a 3-column
               Grid, a VBox (header/body-Expand/footer), and a MarginContainer framing a CenterContainer
               (ui::hbox/vbox/grid/margin/center)
+  parallax/  Parallax backgrounds — the same five-layer scene in three strips at different camera scrolls;
+              far layers barely move, near layers sweep, every layer mirror-tiled (game::layerOffset/
+              firstTile/tileCount)
   scatter/  Procedural RNG demo — a seeded core::Random scatters a token field (uniform-in-disc), each
               token's rarity chosen by weighted(); a legend tallies the resulting distribution
   noise/    Procedural terrain — a heightmap texture generated from core::Noise fbm2, colored by a

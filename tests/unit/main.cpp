@@ -42,6 +42,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
+#include "maz/game/Parallax.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/SoftShadow2D.hpp"
@@ -4306,6 +4307,65 @@ void testNormalLight() {
     }
 }
 
+void testParallax() {
+    using game::ParallaxLayer;
+    using math::vec2;
+
+    // layerOffset: a layer follows the camera by its motionScale (opposite sign — camera scrolls right,
+    // layer slides left), plus a constant motionOffset.
+    {
+        ParallaxLayer l;
+        l.motionScale = vec2(0.5f, 0.5f);
+        const vec2 o = game::layerOffset(l, vec2(100.0f, 40.0f));
+        CHECK_NEAR(o.x, -50.0f, 1e-4f);
+        CHECK_NEAR(o.y, -20.0f, 1e-4f);
+    }
+    // A far backdrop (motionScale 0) is fixed on screen no matter how far the camera scrolls.
+    {
+        ParallaxLayer sky;
+        sky.motionScale = vec2(0.0f, 0.0f);
+        sky.motionOffset = vec2(7.0f, 3.0f);
+        const vec2 a = game::layerOffset(sky, vec2(0.0f, 0.0f));
+        const vec2 b = game::layerOffset(sky, vec2(9999.0f, -1234.0f));
+        CHECK_NEAR(a.x, 7.0f, 1e-4f);
+        CHECK_NEAR(b.x, 7.0f, 1e-4f); // unchanged
+        CHECK_NEAR(b.y, 3.0f, 1e-4f);
+    }
+    // A near layer (scale > a far one) shifts MORE for the same camera move → the parallax effect.
+    {
+        ParallaxLayer far, near;
+        far.motionScale = vec2(0.2f, 1.0f);
+        near.motionScale = vec2(0.8f, 1.0f);
+        const float df = game::layerOffset(far, vec2(100.0f, 0.0f)).x;
+        const float dn = game::layerOffset(near, vec2(100.0f, 0.0f)).x;
+        CHECK(std::fabs(dn) > std::fabs(df));
+        CHECK_NEAR(df, -20.0f, 1e-4f);
+        CHECK_NEAR(dn, -80.0f, 1e-4f);
+    }
+    // pmod is a positive modulo: result in [0, period) even for negative inputs.
+    {
+        CHECK_NEAR(game::pmod(5.0f, 3.0f), 2.0f, 1e-4f);
+        CHECK_NEAR(game::pmod(6.0f, 3.0f), 0.0f, 1e-4f);
+        CHECK_NEAR(game::pmod(-1.0f, 3.0f), 2.0f, 1e-4f);
+        CHECK_NEAR(game::pmod(-50.0f, 40.0f), 30.0f, 1e-4f);
+    }
+    // firstTile lands in [-period, 0) so tiles drawn from it cover the left/top edge of the viewport.
+    {
+        const float ft = game::firstTile(-50.0f, 40.0f); // pmod(-50,40)=30 → 30-40 = -10
+        CHECK_NEAR(ft, -10.0f, 1e-4f);
+        CHECK(ft < 0.0f && ft >= -40.0f);
+        // The tiles firstTile + k*period must bracket [0, extent].
+        const int n = game::tileCount(200.0f, 40.0f); // ceil(5)+1 = 6
+        CHECK(n == 6);
+        CHECK(ft + static_cast<float>(n) * 40.0f >= 200.0f); // covers the right edge
+    }
+    // A non-tiled axis (period 0) returns the raw offset and a single tile.
+    {
+        CHECK_NEAR(game::firstTile(123.0f, 0.0f), 123.0f, 1e-4f);
+        CHECK(game::tileCount(500.0f, 0.0f) == 1);
+    }
+}
+
 void testAudioDsp() {
     const float sr = 44100.0f;
 
@@ -5648,6 +5708,7 @@ int main() {
     testPhysics2DGroove();
     testManifold2();
     testNormalLight();
+    testParallax();
     testAudioDsp();
     testAudioEffects();
     testADSR();
