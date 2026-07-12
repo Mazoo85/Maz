@@ -354,6 +354,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   lifecycle, modal + transparent-overlay support, deferred mutation; the `scenes` demo runs a
   menu→game→pause flow; M73)
 - [ ] Full game-state serialization + checkpoints
+- [x] **Time scheduler + sequences** (`maz::core::Scheduler`: after/every/cancel timers; `core::Sequence`:
+  ordered wait/call/span script with looping; deterministic on the fixed-step clock; the `fireworks`
+  demo spawns and explodes rockets on timers; M83)
 - [ ] Localization + string tables, deterministic time / RNG
 
 ## Phase 11 — Editor & tooling
@@ -405,6 +408,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       rotations are set and the scene graph sweeps the whole tree into place (M81)
 - [x] **Follow camera** (`apps/camera`) — a large world with a moving avatar the camera tracks with a
       deadzone, smoothing, and world-bounds clamp (M82)
+- [x] **Fireworks** (`apps/fireworks`) — timers spawn rockets that each explode into particle bursts
+      after a delay; the whole show is scheduler-driven (M83)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

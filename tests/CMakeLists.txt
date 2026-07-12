@@ -309,6 +309,14 @@ set_tests_properties(camera_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME fireworks_headless_smoke
+    COMMAND fireworks --headless --frames 30)
+
+set_tests_properties(fireworks_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

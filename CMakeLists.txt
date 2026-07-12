@@ -77,6 +77,7 @@ add_subdirectory(apps/ecsave)
 add_subdirectory(apps/actions)
 add_subdirectory(apps/solar)
 add_subdirectory(apps/camera)
+add_subdirectory(apps/fireworks)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

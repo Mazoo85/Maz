@@ -61,6 +61,7 @@ CASES=(
     "actions||2.5|0.05"
     "solar||2.5|0.05"
     "camera||2.5|0.10"
+    "fireworks||2.5|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

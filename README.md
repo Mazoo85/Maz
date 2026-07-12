@@ -294,6 +294,14 @@ available):
   reads `center()`/`zoom()` to fill a `Camera2D`). The new `camera` demo follows an avatar around a
   world far larger than the screen, drawing the scene through the follow camera and the HUD in a
   pixel-space pass
+- **M83** — time scheduler + sequences (`maz::core::Scheduler`, `maz::core::Sequence`): the "do this
+  later / on a beat / in order" primitive gameplay leans on constantly. `Scheduler` runs fire-and-forget
+  timers — `after(delay)` once, `every(interval, count)` repeatedly (finite or forever), `cancel()` by
+  handle — catching up if a big frame spans several intervals and staying safe when a callback schedules
+  more timers. `Sequence` plays an ordered script of `wait` / `call` / `span(duration, progress)` steps
+  with optional looping. Both run on the fixed-step clock, so they're deterministic. The new `fireworks`
+  demo is entirely timer-driven: a rocket launches every 0.4s, each schedules its own explosion into a
+  particle burst, and a finale volley fires every 2s
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -329,4 +337,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Actions** (input action map): WASD / arrows move · Space fires · Shift dashes (also plays itself via scripted input) · Esc to quit
 - **Solar** (transform hierarchy): no controls — a sun → planets → moons scene graph animates from pivot rotations alone · Esc to quit
 - **Camera** (2D follow camera): no controls — the camera tracks a moving avatar with deadzone + smoothing + world-bounds clamp · Esc to quit
+- **Fireworks** (scheduler): no controls — timers launch and explode fireworks; the whole show is scheduler-driven · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

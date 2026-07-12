@@ -866,12 +866,39 @@ level edge. Every app that wanted a following view had to hand-roll it. That's a
   errors); new `camera_headless_smoke` + golden (RMSE 0.023, threshold 0.10) → ctest **39/39**, every
   existing golden unchanged.
 
+### Iteration 44 — "Time, scheduled" (done)
+Self-directed: the engine had a fixed-step clock and tween cursors, but no way to say "do this in 3
+seconds", "spawn one every 2 seconds", or "wait, then act, then wait, then act". That delayed/repeating/
+sequenced-time primitive underpins spawn waves, cooldowns, delayed effects, and scripted moments — it
+was a genuine gap that every gameplay system would otherwise re-hand-roll.
+- [x] **M83 — Time scheduler + sequences (`core::Scheduler`, `core::Sequence`)**: two header-only
+  pieces on the fixed-step clock, so both are deterministic. `Scheduler` is fire-and-forget timers:
+  `after(delay)` runs a callback once, `every(interval, repeats)` runs it a finite count or forever,
+  `cancel(handle)` stops a pending one. `update(dt)` steps every timer and fires what came due —
+  **catching up** across multiple intervals if a big dt lands past several (a `while` drain), and
+  invoking callbacks *after* stepping so a callback may safely schedule or cancel timers without
+  corrupting the in-progress update (new timers wait for the next tick). `Sequence` plays an ordered
+  script — `wait(seconds)`, `call(fn)`, `span(duration, fn(progress 0..1))` — carrying leftover time
+  from one step into the next within a single update and optionally looping; the tricky exact-boundary
+  case (a `wait(1)` landing on a 1.0s step) still fires the following instantaneous `call` the same
+  frame, because Call steps run whenever reached regardless of remaining budget (a bug the tests caught
+  and the fix addressed). Unit-tested to **947 checks** total: one-shot timing (not before / exactly
+  at / never again), finite repeat counts, infinite repeat with big-dt catch-up, cancel, a callback
+  scheduling another timer mid-update deferring to the next tick, and for sequences the wait→call
+  ordering, span progress reaching exactly 1.0, leftover-time carry across steps, looping, and reset.
+  The new `fireworks` demo is entirely timer-driven: `every(0.4)` launches a rocket, each rocket's
+  `after(riseTime)` fires its explosion into a particle burst at the apex, `every(2.0)` fires a finale
+  volley of five, and a looping `Sequence` pulses the title glow via `span`. Verified on lavapipe
+  (rising colored rockets with trails, mid-air bursts, drifting particles under gravity, HUD "active:9
+  launched:10 bursts:3 particles:244"; no validation errors); new `fireworks_headless_smoke` + golden
+  (RMSE 0.014, threshold 0.06) → ctest **40/40**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
 scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
 via config, an ECS Transform/Parent component wired to TransformGraph, dirty-flag caching for the
-scene graph, wire the camera controller's shake to game::Shake in a real game, UI layout / text input,
-order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
-cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's ScopedZone into an
-app's real frame loop.
+scene graph, wire the camera controller's shake to game::Shake in a real game, cooldowns/ability
+timers on the scheduler, UI layout / text input, order-independent transparency, material/uniform
+system, GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot
+mode, wire the profiler's ScopedZone into an app's real frame loop.

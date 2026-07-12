@@ -19,6 +19,7 @@
 core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore (save/load),
             CVarRegistry (named typed tunables: bool/int/float/string + range clamp + string coercion),
             Profiler (hierarchical scoped CPU timing zones: inclusive + self time, EMA-smoothed),
+            Scheduler (time-based timers: after/every/cancel) + Sequence (ordered wait/call/span script),
             EventBus (type-safe publish/subscribe for decoupled systems),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
@@ -116,6 +117,8 @@ apps/
               only pivot rotations are set, update() sweeps planets around the sun and moons around planets
   camera/   2D follow camera — a large world + moving avatar; game::CameraController2D tracks it with a
               deadzone, smoothing, and world-bounds clamp (world-space pass + pixel-space HUD)
+  fireworks/Scheduler demo — core::Scheduler timers spawn rockets (every) that each explode after a
+              delay (after) into particle bursts; a looping core::Sequence pulses the title glow
 ```
 
 ## The frame loop (fixed timestep)

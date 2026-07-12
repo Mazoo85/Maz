@@ -13,6 +13,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Resources.hpp"
+#include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
@@ -897,6 +898,131 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testScheduler() {
+    // after(): fires exactly once, at (not before) the delay.
+    {
+        core::Scheduler s;
+        int fires = 0;
+        s.after(1.0, [&] { ++fires; });
+        s.update(0.5);
+        CHECK(fires == 0);       // not yet
+        s.update(0.4);
+        CHECK(fires == 0);       // 0.9 < 1.0
+        s.update(0.2);
+        CHECK(fires == 1);       // crossed 1.0
+        s.update(5.0);
+        CHECK(fires == 1);       // one-shot: never again
+        CHECK(s.count() == 0);
+    }
+
+    // every() with a finite repeat count fires exactly that many times.
+    {
+        core::Scheduler s;
+        int fires = 0;
+        s.every(1.0, [&] { ++fires; }, 3);
+        for (int i = 0; i < 10; ++i) s.update(1.0);
+        CHECK(fires == 3);
+        CHECK(s.count() == 0);
+    }
+
+    // every() forever keeps firing; a big dt catches up across multiple intervals.
+    {
+        core::Scheduler s;
+        int fires = 0;
+        s.every(0.5, [&] { ++fires; }, -1);
+        s.update(2.0); // spans four 0.5s intervals
+        CHECK(fires == 4);
+        CHECK(s.count() == 1); // still live
+    }
+
+    // cancel() stops a pending timer before it fires.
+    {
+        core::Scheduler s;
+        int fires = 0;
+        auto h = s.after(1.0, [&] { ++fires; });
+        CHECK(s.cancel(h));
+        s.update(2.0);
+        CHECK(fires == 0);
+        CHECK(!s.cancel(h)); // already gone
+    }
+
+    // Multiple timers fire; a callback may schedule another without disturbing the current update.
+    {
+        core::Scheduler s;
+        int a = 0, b = 0;
+        s.after(0.5, [&] {
+            ++a;
+            s.after(0.5, [&] { ++b; }); // scheduled mid-update; fires on a later tick
+        });
+        s.update(1.0);
+        CHECK(a == 1);
+        CHECK(b == 0); // the newly-added timer waits for the next update
+        s.update(0.6);
+        CHECK(b == 1);
+    }
+}
+
+void testSequence() {
+    // wait -> call: the call fires only after the wait elapses.
+    {
+        core::Sequence seq;
+        int calls = 0;
+        seq.wait(1.0).call([&] { ++calls; });
+        seq.update(0.5);
+        CHECK(calls == 0);
+        seq.update(0.6); // crosses 1.0, then the Call step runs immediately
+        CHECK(calls == 1);
+        CHECK(seq.done());
+    }
+
+    // span drives progress 0..1 and ends at exactly 1.0.
+    {
+        core::Sequence seq;
+        float last = -1.0f;
+        seq.span(2.0, [&](float p) { last = p; });
+        seq.update(0.5);
+        CHECK_NEAR(last, 0.25f, 1e-4f);
+        seq.update(0.5);
+        CHECK_NEAR(last, 0.5f, 1e-4f);
+        seq.update(2.0); // overshoot -> clamps to 1.0 and finishes
+        CHECK_NEAR(last, 1.0f, 1e-4f);
+        CHECK(seq.done());
+    }
+
+    // Leftover time carries from one step into the next within a single update.
+    {
+        core::Sequence seq;
+        int calls = 0;
+        seq.wait(1.0).call([&] { ++calls; }).wait(1.0).call([&] { ++calls; });
+        seq.update(2.5); // covers wait, call, wait, call all at once
+        CHECK(calls == 2);
+        CHECK(seq.done());
+    }
+
+    // loop() restarts after the last step.
+    {
+        core::Sequence seq;
+        int calls = 0;
+        seq.wait(1.0).call([&] { ++calls; }).loop();
+        for (int i = 0; i < 5; ++i) seq.update(1.0);
+        CHECK(calls >= 4);   // fires each loop
+        CHECK(!seq.done());  // a looping sequence never reports done
+    }
+
+    // reset() rewinds to the start.
+    {
+        core::Sequence seq;
+        int calls = 0;
+        seq.wait(1.0).call([&] { ++calls; });
+        seq.update(1.0);
+        CHECK(calls == 1 && seq.done());
+        seq.reset();
+        CHECK(!seq.done());
+        seq.update(1.0);
+        CHECK(calls == 2);
+    }
 }
 
 void testCameraController() {
@@ -2167,6 +2293,8 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testScheduler();
+    testSequence();
     testCameraController();
     testTransformGraph();
     testActionMap();
