@@ -577,6 +577,15 @@ available):
   sustain=1 makes decay a no-op). The new `envelope` demo shows three presets — a plucky blip, a
   slow-swelling pad, and a percussive stab — each as its ADSR curve and the tone shaped by it, so the same
   sine becomes three different notes.
+- **M115** — a **Tree / TreeItem widget** (`ui::Tree`), Godot's most-used control (its scene dock,
+  inspector, and FileSystem dock are all Trees). A `TreeItem` holds text, an id, a colour, a `collapsed`
+  flag, and children; `Tree::visibleRows()` flattens the currently-expanded items depth-first into rows,
+  each carrying its indent depth and whether it has children (so the view draws a fold arrow). Folding a
+  branch hides its whole subtree in one flag. Pointer-stable (heap-owned children), unit-tested (row
+  order/depth/hasChildren fully expanded; collapsing a branch drops exactly its subtree; a deep collapse
+  hides only below it; a leaf collapse is a no-op; empty tree yields nothing). The new `tree` demo shows a
+  project file tree inside a rounded StyleBoxFlat panel (composed with M109) — folders and files indented
+  by depth with fold arrows, two folders collapsed, and the selected row highlighted.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

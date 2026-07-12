@@ -53,6 +53,7 @@
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/Theme.hpp"
+#include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -1236,6 +1237,80 @@ void testTheme() {
         CHECK(theme.hasColor("Button/font"));
         CHECK_NEAR(theme.color("Button/font").r, 1.0f, 1e-4f);
         CHECK_NEAR(theme.color("nope", render::Color{0.5f, 0.0f, 0.0f, 1.0f}).r, 0.5f, 1e-4f);
+    }
+}
+
+void testTree() {
+    // Build: A (A1, A2), B, C (C1 (C1a)).
+    ui::Tree tree;
+    ui::TreeItem& a = tree.add("A", 1);
+    a.addChild("A1", 11);
+    a.addChild("A2", 12);
+    tree.add("B", 2);
+    ui::TreeItem& c = tree.add("C", 3);
+    ui::TreeItem& c1 = c.addChild("C1", 31);
+    c1.addChild("C1a", 311);
+
+    // Fully expanded: 7 rows depth-first with the right depths + hasChildren flags.
+    {
+        auto rows = tree.visibleRows();
+        CHECK(rows.size() == 7);
+        CHECK(tree.visibleCount() == 7);
+        CHECK(rows[0].item->text == "A" && rows[0].depth == 0 && rows[0].hasChildren);
+        CHECK(rows[1].item->text == "A1" && rows[1].depth == 1 && !rows[1].hasChildren);
+        CHECK(rows[2].item->text == "A2" && rows[2].depth == 1);
+        CHECK(rows[3].item->text == "B" && rows[3].depth == 0 && !rows[3].hasChildren);
+        CHECK(rows[4].item->text == "C" && rows[4].depth == 0 && rows[4].hasChildren);
+        CHECK(rows[5].item->text == "C1" && rows[5].depth == 1 && rows[5].hasChildren);
+        CHECK(rows[6].item->text == "C1a" && rows[6].depth == 2 && !rows[6].hasChildren);
+        // ids ride along on the items.
+        CHECK(rows[6].item->id == 311);
+    }
+
+    // Collapse A: its two children vanish; A stays and is flagged collapsed+hasChildren.
+    {
+        a.collapsed = true;
+        auto rows = tree.visibleRows();
+        CHECK(rows.size() == 5); // A, B, C, C1, C1a
+        CHECK(tree.visibleCount() == 5);
+        CHECK(rows[0].item->text == "A" && rows[0].collapsed && rows[0].hasChildren);
+        CHECK(rows[1].item->text == "B");
+        CHECK(rows[2].item->text == "C");
+        a.collapsed = false;
+    }
+
+    // Collapse a deeper branch (C1): hides only C1a, not C1 itself.
+    {
+        c1.collapsed = true;
+        auto rows = tree.visibleRows();
+        CHECK(rows.size() == 6); // A, A1, A2, B, C, C1
+        CHECK(rows.back().item->text == "C1" && rows.back().collapsed);
+        c1.collapsed = false;
+    }
+
+    // Collapsing a leaf (no children) changes nothing visible.
+    {
+        ui::TreeItem& a1ref = *a.children[0];
+        a1ref.collapsed = true;
+        CHECK(tree.visibleRows().size() == 7);
+        a1ref.collapsed = false;
+    }
+
+    // Collapsing the top folder C hides its whole subtree (C1 + C1a).
+    {
+        c.collapsed = true;
+        auto rows = tree.visibleRows();
+        // A(0) A1(1) A2(2) B(3) C(4) -> 5 rows; C present but its subtree (C1, C1a) hidden.
+        CHECK(rows.size() == 5);
+        CHECK(rows.back().item->text == "C" && rows.back().collapsed);
+        c.collapsed = false;
+    }
+
+    // Empty tree: no rows.
+    {
+        ui::Tree empty;
+        CHECK(empty.visibleRows().empty());
+        CHECK(empty.visibleCount() == 0);
     }
 }
 
@@ -4804,6 +4879,7 @@ int main() {
     testLayout();
     testStyleBox();
     testTheme();
+    testTree();
     testTextInput();
     testUI();
     testSerialize();

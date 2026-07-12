@@ -1753,6 +1753,34 @@ existing DSP, and is a brand-new header so it can't regress anything.
   callback (the demo applies it offline) — and per-voice bus routing through the real-time mixer remains
   the standing (headlessly-unverifiable) audio gap.
 
+### Iteration 76 — "Benchmarking against Godot: Tree / TreeItem widget" (done)
+Rotating to UI (last UI was M109's StyleBoxFlat/Theme). Of the standard Godot controls Maz still lacked,
+the **Tree** is the highest-leverage: it's the single most-used complex control in the whole editor — the
+scene dock, the inspector, and the FileSystem dock are *all* Trees — and it's the natural way any game
+shows a hierarchy (an inventory grouped by category, a skill tree, a dialogue branch, a save-file browser).
+It's a clean data-structure-plus-traversal problem (fully unit-testable), a brand-new header (zero
+regression risk), and it composes with M109's StyleBoxFlat for the row highlight.
+- [x] **M115 — Tree / TreeItem widget (`ui::Tree`)**: a new `Tree.hpp`. A `TreeItem` carries `text`, an
+  `id`, a `color`, a `collapsed` flag, and **heap-owned** children (`vector<unique_ptr<TreeItem>>`, so a
+  `TreeItem&`/`TreeItem*` stays valid across later sibling insertions — you can hold a folder reference
+  while adding more siblings without dangling). `addChild` appends and returns the stable reference. The
+  `Tree` owns an invisible `root`; `visibleRows()` walks it **depth-first**, emitting a `TreeRow` (item +
+  `depth` for indentation + `hasChildren` for the fold arrow + `collapsed`) for every item whose ancestors
+  are all expanded, so folding one branch drops its entire subtree; a matching `visibleCount()` counts the
+  same without allocating. `testTree` pins it down on an A(A1,A2)/B/C(C1(C1a)) tree: 7 rows in the right
+  order with correct depths and hasChildren flags when fully expanded; collapsing A drops exactly A1/A2;
+  collapsing the deep C1 hides only C1a (not C1); collapsing the top C hides its whole subtree; collapsing
+  a *leaf* changes nothing; an empty tree yields no rows. Unit count **4064 → 4086**. The new `tree` demo
+  draws a project file tree inside a rounded, shadowed StyleBoxFlat panel (M109): each visible row indented
+  by its depth, folders drawn with a fold arrow (▾ expanded / ▸ collapsed) + a warm filled icon, files with
+  a hollow icon, two folders (`enemies/`, `assets/`) starting collapsed so their contents are hidden, and
+  the selected row (`Player.scene`) highlighted with a rounded StyleBoxFlat. Purely additive (new header +
+  new app), so every existing golden is byte-unchanged (confirmed by a serial golden run); static tree →
+  deterministic golden (RMSE 0, threshold 0.05). ctest **70/70 → 71/71**. Honest scope: this is the tree
+  model + flatten + a static selection; it does not yet do live click-to-fold / keyboard navigation,
+  scrolling when the row count exceeds the panel, multi-column rows, drag-reorder, or per-item editable
+  cells — those remain UI gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

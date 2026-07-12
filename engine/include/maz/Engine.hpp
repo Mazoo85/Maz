@@ -70,4 +70,5 @@
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/Theme.hpp"
+#include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"

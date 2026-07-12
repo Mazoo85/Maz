@@ -412,8 +412,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   border + per-corner radius + soft drop shadow, no texture; `roundedRectPolygon` builds the convex
   outline and `drawStyleBoxFlat` layers shadow→border→fill — and `ui::Theme`: named styles/colours per
   control class + state with "type/state"→"type/normal"→default fallback, Godot StyleBoxFlat/Theme; the
-  `theme` demo draws a button per state through one dark theme + a feature gallery; M109) — localization-
-  aware text + a full per-control-class theme cascade later
+  `theme` demo draws a button per state through one dark theme + a feature gallery; M109)
+- [x] **Tree / TreeItem widget** (`ui::Tree`: hierarchical collapsible rows — a `TreeItem` holds
+  text/id/colour/`collapsed` + heap-owned children, `visibleRows()` flattens the expanded items
+  depth-first into rows carrying depth + hasChildren; folding hides a whole subtree — Godot's Tree control
+  (scene dock / inspector / file browser); the `tree` demo shows a project file tree in a StyleBoxFlat
+  panel with fold arrows + a selected-row highlight; M115) — scroll container / drag-reorder + a full
+  per-control-class theme cascade later
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
@@ -532,6 +537,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **StyleBoxFlat + Theme** (`apps/theme`) — a dark theme drawing a button in each state
       (normal/hover/pressed/disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels
       (`ui::StyleBoxFlat` + `ui::Theme`) (M109)
+- [x] **Tree widget** (`apps/tree`) — a project file tree in a StyleBoxFlat panel: indented rows, fold
+      arrows, two collapsed folders, and a selected-row highlight (`ui::Tree`) (M115)
 - [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
       each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
 - [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the

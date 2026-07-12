@@ -70,6 +70,9 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               shadow via roundedRectPolygon + drawStyleBoxFlat layering shadow→border→fill; Theme names
               styles/colours per control class+state with type/state→type/normal→default fallback), Godot
               StyleBoxFlat/Theme-style,
+            Tree + TreeItem (hierarchical collapsible rows: heap-owned children + a collapsed flag,
+              visibleRows() flattens expanded items depth-first into rows with depth + hasChildren), Godot
+              Tree-control-style (scene dock / inspector / file browser),
             Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
@@ -222,6 +225,8 @@ apps/
               one playhead sweeps the loop, with fire counts + a recent-fires strip (anim::MethodTimeline)
   envelope/ ADSR envelope — pluck/pad/stab presets, each as an attack/decay/sustain/release curve + the
               sine tone shaped by it, so one tone becomes three different notes (audio::ADSR)
+  tree/     Tree widget — a project file tree in a StyleBoxFlat panel: indented rows, fold arrows, two
+              collapsed folders, and a selected-row highlight (ui::Tree)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not
