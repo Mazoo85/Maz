@@ -302,6 +302,13 @@ available):
   with optional looping. Both run on the fixed-step clock, so they're deterministic. The new `fireworks`
   demo is entirely timer-driven: a rocket launches every 0.4s, each schedules its own explosion into a
   particle burst, and a finale volley fires every 2s
+- **M84** — deterministic RNG (`maz::core::Random`): one seeded, reproducible source of randomness for
+  gameplay and procedural generation, so a given seed always yields the same world/loot/spread (the
+  basis for replays, tests, and shareable seeds). It's xoshiro256** seeded through SplitMix64, with
+  floats in `[0,1)`, inclusive int ranges, `chance(p)`, weighted picks, Fisher-Yates `shuffle`, a
+  Gaussian, and an angle — replacing the ad-hoc xorshift each demo used to hand-roll, and stdlib-only so
+  `core` keeps zero dependencies. The new `scatter` demo generates a 520-token field with weighted
+  rarity from a fixed seed, tallying the resulting distribution in a legend
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -338,4 +345,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Solar** (transform hierarchy): no controls — a sun → planets → moons scene graph animates from pivot rotations alone · Esc to quit
 - **Camera** (2D follow camera): no controls — the camera tracks a moving avatar with deadzone + smoothing + world-bounds clamp · Esc to quit
 - **Fireworks** (scheduler): no controls — timers launch and explode fireworks; the whole show is scheduler-driven · Esc to quit
+- **Scatter** (procedural RNG): no controls — a seeded RNG scatters a token field with weighted rarity; same seed → same field · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

@@ -20,6 +20,7 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
             CVarRegistry (named typed tunables: bool/int/float/string + range clamp + string coercion),
             Profiler (hierarchical scoped CPU timing zones: inclusive + self time, EMA-smoothed),
             Scheduler (time-based timers: after/every/cancel) + Sequence (ordered wait/call/span script),
+            Random (deterministic PRNG: xoshiro256** — ranges/chance/weighted/shuffle/gaussian),
             EventBus (type-safe publish/subscribe for decoupled systems),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
@@ -119,6 +120,8 @@ apps/
               deadzone, smoothing, and world-bounds clamp (world-space pass + pixel-space HUD)
   fireworks/Scheduler demo — core::Scheduler timers spawn rockets (every) that each explode after a
               delay (after) into particle bursts; a looping core::Sequence pulses the title glow
+  scatter/  Procedural RNG demo — a seeded core::Random scatters a token field (uniform-in-disc), each
+              token's rarity chosen by weighted(); a legend tallies the resulting distribution
 ```
 
 ## The frame loop (fixed timestep)

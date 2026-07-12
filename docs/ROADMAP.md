@@ -357,7 +357,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Time scheduler + sequences** (`maz::core::Scheduler`: after/every/cancel timers; `core::Sequence`:
   ordered wait/call/span script with looping; deterministic on the fixed-step clock; the `fireworks`
   demo spawns and explodes rockets on timers; M83)
-- [ ] Localization + string tables, deterministic time / RNG
+- [x] **Deterministic RNG** (`maz::core::Random`: xoshiro256** + SplitMix64 seeding; nextU32/64,
+  float/double, inclusive int range + float range, chance, weighted pick, Fisher-Yates shuffle,
+  gaussian, angle; same seed → same stream; the `scatter` demo generates a seeded token field; M84)
+- [ ] Localization + string tables, deterministic time
 
 ## Phase 11 — Editor & tooling
 - [ ] Standalone editor app (engine + ImGui docking)
@@ -410,6 +413,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       deadzone, smoothing, and world-bounds clamp (M82)
 - [x] **Fireworks** (`apps/fireworks`) — timers spawn rockets that each explode into particle bursts
       after a delay; the whole show is scheduler-driven (M83)
+- [x] **Procedural scatter** (`apps/scatter`) — a seeded RNG generates a token field with weighted
+      rarity (Common/Uncommon/Rare/Epic) and a distribution legend; same seed → same field (M84)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

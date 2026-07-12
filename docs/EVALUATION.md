@@ -893,12 +893,37 @@ was a genuine gap that every gameplay system would otherwise re-hand-roll.
   launched:10 bursts:3 particles:244"; no validation errors); new `fireworks_headless_smoke` + golden
   (RMSE 0.014, threshold 0.06) → ctest **40/40**, every existing golden unchanged.
 
+### Iteration 45 — "One source of randomness" (done)
+Self-directed: several demos hand-rolled their own little xorshift RNG — a duplication smell and, worse,
+a foundational gap: the engine had no single, seeded, reproducible random source, which is what replays,
+procedural generation, and deterministic tests all require. "Deterministic RNG" was explicitly on the
+roadmap.
+- [x] **M84 — Deterministic RNG (`core::Random`)**: one seeded PRNG for the whole engine. The core is
+  **xoshiro256\*\*** (fast, statistically strong) seeded through **SplitMix64**, so even a small or zero
+  seed fills the 256-bit state well and every derived value traces back to one reproducible stream. On
+  top of `next()` it exposes floats/doubles in `[0,1)`, inclusive integer ranges (degenerate/reversed
+  ranges handled), float ranges, `chance(p)`, a weighted index pick (zero-weight entries excluded), a
+  uniform container `pick`, an in-place Fisher-Yates `shuffle`, a Box-Muller `gaussian` (with a cached
+  spare), and an angle. It is stdlib-only (no glm), so `core` keeps zero dependencies. Unit-tested to
+  **3262 checks** total: same-seed reproducibility vs. different-seed divergence, re-seed rewind, floats
+  bounded to `[0,1)`, inclusive int ranges that never escape and reach both endpoints, float-range
+  bounds, `chance` extremes, weighted picks excluding zero weights while a 9:1 weight dominates, a
+  shuffle that is both deterministic for a fixed seed and a true permutation (sum + presence), and
+  `pick` returning in-set elements. The new `scatter` demo generates a 520-token field from a fixed
+  seed — positions sampled uniformly in a disc (radius scaled by √u for even density), each token's
+  rarity from `weighted({70,20,8,2})` driving color and size — with a legend tallying the resulting
+  distribution. Verified on lavapipe (an even token disc, rarer tokens larger and on top, legend
+  reading Common 68% / Uncommon 23% / Rare 8% / Epic 2% — matching the weights; "same seed, same
+  field"; no validation errors); new `scatter_headless_smoke` + golden (RMSE 0, threshold 0.05) →
+  ctest **41/41**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
 scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
 via config, an ECS Transform/Parent component wired to TransformGraph, dirty-flag caching for the
 scene graph, wire the camera controller's shake to game::Shake in a real game, cooldowns/ability
-timers on the scheduler, UI layout / text input, order-independent transparency, material/uniform
-system, GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot
-mode, wire the profiler's ScopedZone into an app's real frame loop.
+timers on the scheduler, retrofit existing demos onto core::Random, localization / string tables, UI
+layout / text input, order-independent transparency, material/uniform system, GPU-driven / indirect
+instancing, cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's
+ScopedZone into an app's real frame loop.

@@ -317,6 +317,14 @@ set_tests_properties(fireworks_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME scatter_headless_smoke
+    COMMAND scatter --headless --frames 30)
+
+set_tests_properties(scatter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

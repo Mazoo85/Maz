@@ -12,6 +12,7 @@
 #include "maz/core/Events.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/Profiler.hpp"
+#include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
@@ -898,6 +899,122 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testRandom() {
+    // Reproducibility: the same seed yields the same stream; a different seed diverges.
+    {
+        core::Random a(12345), b(12345), c(99999);
+        bool sameAB = true, diffAC = false;
+        for (int i = 0; i < 32; ++i) {
+            const uint64_t va = a.nextU64();
+            if (va != b.nextU64()) sameAB = false;
+            if (va != c.nextU64()) diffAC = true;
+        }
+        CHECK(sameAB);
+        CHECK(diffAC);
+    }
+
+    // re-seed rewinds the stream.
+    {
+        core::Random r(7);
+        const uint64_t first = r.nextU64();
+        r.nextU64();
+        r.nextU64();
+        r.seed(7);
+        CHECK(r.nextU64() == first);
+    }
+
+    // nextFloat() stays in [0, 1).
+    {
+        core::Random r(1);
+        for (int i = 0; i < 1000; ++i) {
+            const float f = r.nextFloat();
+            CHECK(f >= 0.0f && f < 1.0f);
+        }
+    }
+
+    // Inclusive int range: never out of bounds, and both endpoints are reachable.
+    {
+        core::Random r(2);
+        bool hitLo = false, hitHi = false;
+        bool inBounds = true;
+        for (int i = 0; i < 5000; ++i) {
+            const int v = r.range(3, 7);
+            if (v < 3 || v > 7) inBounds = false;
+            if (v == 3) hitLo = true;
+            if (v == 7) hitHi = true;
+        }
+        CHECK(inBounds);
+        CHECK(hitLo);
+        CHECK(hitHi);
+        CHECK(r.range(5, 5) == 5);   // degenerate range
+        CHECK(r.range(9, 2) == 9);   // hi < lo -> lo
+    }
+
+    // Float range stays within [lo, hi).
+    {
+        core::Random r(3);
+        for (int i = 0; i < 1000; ++i) {
+            const float v = r.range(-2.0f, 5.0f);
+            CHECK(v >= -2.0f && v < 5.0f);
+        }
+    }
+
+    // chance() extremes are deterministic.
+    {
+        core::Random r(4);
+        for (int i = 0; i < 100; ++i) {
+            CHECK(!r.chance(0.0f));
+            CHECK(r.chance(1.0f));
+        }
+    }
+
+    // weighted(): zero-weight entries are never chosen; a heavy weight dominates.
+    {
+        core::Random r(5);
+        std::vector<float> w{0.0f, 1.0f, 9.0f};
+        int counts[3] = {0, 0, 0};
+        for (int i = 0; i < 10000; ++i) counts[r.weighted(w)]++;
+        CHECK(counts[0] == 0);            // zero weight never picked
+        CHECK(counts[2] > counts[1]);     // 9:1 -> index 2 dominates
+        CHECK(counts[1] > 0);             // but index 1 still appears
+    }
+
+    // shuffle(): the result is a permutation (same multiset) and deterministic for a fixed seed.
+    {
+        std::vector<int> base;
+        for (int i = 0; i < 50; ++i) base.push_back(i);
+        std::vector<int> a = base, b = base;
+        core::Random ra(42), rb(42);
+        ra.shuffle(a);
+        rb.shuffle(b);
+        CHECK(a == b); // deterministic
+        // permutation check: sum and presence.
+        long sum = 0;
+        std::vector<char> seen(50, 0);
+        for (int v : a) {
+            sum += v;
+            if (v >= 0 && v < 50) seen[static_cast<size_t>(v)] = 1;
+        }
+        CHECK(sum == 49 * 50 / 2);
+        bool all = true;
+        for (char s : seen)
+            if (!s) all = false;
+        CHECK(all);
+        // extremely likely to differ from the identity for 50 elements.
+        CHECK(a != base);
+    }
+
+    // pick() returns an element that is in the container.
+    {
+        core::Random r(6);
+        std::vector<int> v{10, 20, 30, 40};
+        for (int i = 0; i < 100; ++i) {
+            const int p = r.pick(v);
+            CHECK(p == 10 || p == 20 || p == 30 || p == 40);
+        }
+    }
 }
 
 void testScheduler() {
@@ -2293,6 +2410,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testRandom();
     testScheduler();
     testSequence();
     testCameraController();
