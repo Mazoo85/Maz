@@ -2218,13 +2218,41 @@ most-used communication primitive in Godot gameplay code. Pure logic → unit-te
   (no object lifetime tracking), and a single shared flush point rather than a SceneTree idle frame — those
   remain gaps.
 
+### Iteration 90 — "Benchmarking against Godot: WAV audio load/save" (done)
+Rotating to audio for breadth (last audio was M121, six rounds back) and closing a genuinely long-standing
+gap that's been on the backlog since the audio system landed: **every Maz sound was procedurally
+synthesized — there was no way to read (or write) an actual audio file**. Godot loads `.wav` assets via
+AudioStreamWAV; without file loading, an engine can't ship a game with authored sound. A RIFF/WAVE PCM
+codec is a self-contained byte parser (no device), so it unit-tests exhaustively and renders a clean
+deterministic waveform golden.
+- [x] **M129 — WAV audio load/save (`audio::decodeWav` / `audio::encodeWav`)**: a new `Wav.hpp`. `WavData`
+  holds `sampleRate` / `channels` / interleaved float `samples` (normalized to [−1,1]) with a
+  `frameCount()`. `decodeWav(bytes)` parses a RIFF/WAVE stream — validates the `RIFF`/`WAVE` tags, walks
+  the word-aligned chunk list, reads the `fmt ` chunk (rejecting non-PCM), and converts the `data` chunk
+  from **8-bit unsigned** (`(b−128)/128`) or **16-bit signed** (`v/32768`) PCM to floats — the two formats
+  that cover the vast majority of game sound assets. `encodeWav(WavData)` writes float samples back out as
+  a 16-bit PCM `.wav` byte stream (proper 44-byte header + clamped samples). `testWav` pins a 16-bit mono
+  round-trip (encode → valid RIFF/WAVE header → decode → samples back within quantization, incl. the
+  32767/32768 clamp), stereo interleave preservation, a **hand-built** 8-bit-unsigned stream decoding
+  (128→0, 255→+1, 0→−1 — a real byte buffer, not a re-encode), and clean failure on null/short/garbage
+  input. Unit checks **4493 → 4520**. The new `wav` demo synthesizes a decaying two-tone blip, encodes it
+  to `.wav` bytes, decodes those bytes back, and draws the reconstructed waveform as an oscilloscope
+  (stroked with M126's polyline) beside the parsed header fields (8000 Hz, mono, 4000 frames, 0.50 s, 8044
+  bytes, decode OK). Static synthesis → deterministic golden (threshold 0.06). Purely additive (new header +
+  new app), so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **84/84 → 85/85**. Honest scope: this is the PCM WAV codec (8/16-bit integer, mono/multi-channel); it
+  does not decode compressed formats (OGG Vorbis / MP3 — Godot's other stream types), 24-bit or float32
+  WAV, ADPCM, or streaming/looping metadata, and the decoded samples aren't yet auto-registered as a
+  playable voice in the SDL mixer (the app owns playback) — those remain audio gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
 Later (Godot-gap priorities + backlog): wiring the DSP buses into the real-time mixer (per-voice bus
-routing) + chorus/phaser/limiter/pitch-shift effects + WAV/OGG file loading (M106 completes the core
+routing) + chorus/phaser/limiter/pitch-shift effects + OGG/MP3 decode + registering decoded WAV as a
+playable mixer voice (M129 gives the WAV PCM codec — 8/16-bit load+save; M106 completes the core
 AudioEffect set; M99 gives the bus core); nested sub-state-machines + root-motion on the animation state
 machine (M105 gives a flat cross-fading state machine); utility-AI scorers + HTN task-network planners +
 numeric/fuzzy world state on top of the planner (M108 gives boolean-fact STRIPS-style GOAP A* planning;

@@ -178,6 +178,8 @@ fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
               ring/rect) + per-lifetime scale/alpha Curve + multi-stop colour Gradient + direction/spread/
               speed/gravity/explosiveness; simulate(seed,t) returns every live particle deterministically
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
+            Wav — RIFF/WAVE PCM codec: decodeWav (8-bit unsigned + 16-bit signed → float samples) +
+              encodeWav (float → 16-bit .wav bytes), byte-in/out, Godot AudioStreamWAV-style;
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
             Spatial3D — 3D positional audio math (Listener3D forward/up basis + Source3D; four
@@ -237,6 +239,8 @@ apps/
               per-node overrides (body/turret colour, barrel length, body width) via scene::instantiate
   signals/   Named signals — a Button.pressed → Player.hpChanged → Player.died wiring graph (connectors via
               render::buildPolyline) + an event log showing immediate/one-shot/deferred (core::Signal)
+  wav/       WAV load/save — synthesize → encodeWav → decodeWav → draw the reconstructed waveform as an
+              oscilloscope beside the parsed RIFF/WAVE header (audio::Wav)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

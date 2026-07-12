@@ -687,6 +687,12 @@ available):
   connections (queued on emit, run later at `flushDeferred`). The new `signals` demo wires a
   Button→Player→died scenario, draws the connection graph, and logs a run showing immediate, one-shot, and
   deferred behavior.
+- **M129** — **WAV audio load/save** (`audio::decodeWav` / `audio::encodeWav`), toward Godot's
+  `AudioStreamWAV`: every prior Maz sound was procedurally synthesized — this reads (and writes) the actual
+  bytes of a `.wav` file. `decodeWav` parses a RIFF/WAVE stream (8-bit unsigned + 16-bit signed PCM,
+  mono/multi-channel) into float samples; `encodeWav` writes them back out. The new `wav` demo synthesizes
+  a decaying tone, encodes it to `.wav` bytes, decodes them back, and draws the reconstructed waveform on
+  an oscilloscope beside the parsed header.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

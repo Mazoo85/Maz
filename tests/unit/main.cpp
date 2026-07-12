@@ -13,6 +13,7 @@
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
+#include "maz/audio/Wav.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Timeline.hpp"
@@ -548,6 +549,102 @@ void testSpatial3D() {
         SpatialMix far = computeSpatialMix(l, Source3D{vec3(20, 0, 0), vec3(0, 0, 0)}, cfg);
         CHECK(far.right < near.right); // farther -> quieter
         CHECK_NEAR(near.pitch, 1.0f, 1e-5f); // no motion -> no doppler
+    }
+}
+
+void testWav() {
+    using audio::WavData;
+
+    // 16-bit mono round-trips: encode float samples, decode, and get them back within quantization.
+    {
+        WavData in;
+        in.sampleRate = 8000;
+        in.channels = 1;
+        in.samples = {0.0f, 0.5f, -0.5f, 1.0f, -1.0f};
+        const std::vector<std::uint8_t> bytes = audio::encodeWav(in);
+        // A valid RIFF/WAVE header.
+        CHECK(bytes.size() >= 44);
+        CHECK(bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F');
+        CHECK(bytes[8] == 'W' && bytes[9] == 'A' && bytes[10] == 'V' && bytes[11] == 'E');
+
+        WavData out;
+        CHECK(audio::decodeWav(bytes, out));
+        CHECK(out.sampleRate == 8000);
+        CHECK(out.channels == 1);
+        CHECK(out.frameCount() == 5);
+        CHECK_NEAR(out.samples[0], 0.0f, 1e-4f);
+        CHECK_NEAR(out.samples[1], 0.5f, 1e-4f);
+        CHECK_NEAR(out.samples[2], -0.5f, 1e-4f);
+        CHECK_NEAR(out.samples[3], 1.0f, 1e-3f);  // 32767/32768
+        CHECK_NEAR(out.samples[4], -1.0f, 1e-4f);
+    }
+
+    // Stereo interleaving is preserved through a round-trip.
+    {
+        WavData in;
+        in.sampleRate = 44100;
+        in.channels = 2;
+        in.samples = {0.25f, -0.25f, 0.75f, -0.75f}; // 2 frames: (L,R),(L,R)
+        WavData out;
+        CHECK(audio::decodeWav(audio::encodeWav(in), out));
+        CHECK(out.channels == 2);
+        CHECK(out.frameCount() == 2);
+        CHECK_NEAR(out.samples[0], 0.25f, 1e-3f);
+        CHECK_NEAR(out.samples[1], -0.25f, 1e-3f);
+        CHECK_NEAR(out.samples[3], -0.75f, 1e-3f);
+    }
+
+    // A hand-built 8-bit unsigned PCM stream decodes (128 = silence, 255 = +1, 0 = -1).
+    {
+        std::vector<std::uint8_t> b;
+        auto tag = [&](const char* t) {
+            for (int i = 0; i < 4; ++i) {
+                b.push_back(static_cast<std::uint8_t>(t[i]));
+            }
+        };
+        auto u32 = [&](std::uint32_t v) {
+            for (int i = 0; i < 4; ++i) {
+                b.push_back(static_cast<std::uint8_t>((v >> (8 * i)) & 0xFF));
+            }
+        };
+        auto u16 = [&](std::uint16_t v) {
+            b.push_back(static_cast<std::uint8_t>(v & 0xFF));
+            b.push_back(static_cast<std::uint8_t>((v >> 8) & 0xFF));
+        };
+        const std::uint8_t pcm[3] = {128, 255, 0};
+        tag("RIFF");
+        u32(36u + 3u);
+        tag("WAVE");
+        tag("fmt ");
+        u32(16u);
+        u16(1u); // PCM
+        u16(1u); // mono
+        u32(22050u);
+        u32(22050u); // byteRate
+        u16(1u);     // blockAlign
+        u16(8u);     // bits
+        tag("data");
+        u32(3u);
+        for (std::uint8_t s : pcm) {
+            b.push_back(s);
+        }
+
+        WavData out;
+        CHECK(audio::decodeWav(b, out));
+        CHECK(out.sampleRate == 22050);
+        CHECK(out.channels == 1);
+        CHECK(out.frameCount() == 3);
+        CHECK_NEAR(out.samples[0], 0.0f, 1e-3f);   // 128 -> 0
+        CHECK_NEAR(out.samples[1], 0.9922f, 2e-3f); // 255 -> ~+1
+        CHECK_NEAR(out.samples[2], -1.0f, 1e-3f);   // 0 -> -1
+    }
+
+    // Malformed / too-short streams fail cleanly.
+    {
+        WavData out;
+        CHECK(!audio::decodeWav(nullptr, 0, out));
+        const std::vector<std::uint8_t> junk = {'N', 'O', 'P', 'E'};
+        CHECK(!audio::decodeWav(junk, out));
     }
 }
 
@@ -6134,6 +6231,7 @@ int main() {
     testNavMesh();
     testAutoTile();
     testSpatial3D();
+    testWav();
     testParticleEmitter();
     testTileSet();
     testCollisionLayers();

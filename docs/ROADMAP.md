@@ -324,7 +324,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Compressed textures (KTX2), anisotropic filtering
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
 - [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
-- [ ] Audio asset loading (wav / ogg), font import, shader assets
+- [x] Audio asset loading — **WAV** (`audio::decodeWav`/`encodeWav`, 8/16-bit PCM; M129); OGG/font-import/
+  shader-assets still pending
 - [ ] Asset cooking / packing pipeline, pak archives, streaming
 - [ ] Import settings + dependency graph + reimport
 
@@ -388,7 +389,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   gated state machine, `process(dt)`→level — the shape every synth voice is multiplied by; the `envelope`
   demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing
   in the live mixer + LFOs / mod matrix later
-- [ ] WAV/OGG loading, per-sound pitch, categories/ducking
+- [x] **WAV load/save** (`audio::decodeWav`/`encodeWav`: RIFF/WAVE PCM codec — parse 8-bit-unsigned +
+  16-bit-signed PCM into float samples and write them back as 16-bit `.wav` bytes, byte-in/out — Godot
+  AudioStreamWAV; the `wav` demo synthesizes → encodes → decodes → scopes the waveform; M129) — OGG/MP3
+  decode + registering a decoded clip as a playable mixer voice + per-sound pitch/categories/ducking later
 - [x] **3D spatialization + doppler** (`audio::Spatial3D`: a `Listener3D` (pos + forward/up basis +
   velocity) and `Source3D`; four Godot AudioStreamPlayer3D attenuation models (None / Linear / Inverse /
   InverseSquare via `attenuation3D`), a listener-*orientation*-relative stereo pan (`panPosition` projects

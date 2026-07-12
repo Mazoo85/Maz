@@ -106,6 +106,7 @@ CASES=(
     "line2d||2.0|0.06"
     "restext||2.0|0.06"
     "signals||2.0|0.06"
+    "wav||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
