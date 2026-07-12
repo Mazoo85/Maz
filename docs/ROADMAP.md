@@ -259,7 +259,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Scene graph, world-transform propagation, dirty flags
 - [ ] System scheduler (ordered + parallel execution)
 - [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
-- [ ] Native scene serialization (save/load), prefabs / blueprints
+- [x] **Native scene serialization (ECS save/load)** (`io::SceneSerializer`: register per-component
+  JSON converters, then `saveWorld`/`loadWorld` a live `ecs::World` to/from JSON — the reflection-lite
+  content backbone for save games, prefabs, and an editor; the `ecsave` demo round-trips a world; M79)
+  — prefabs / blueprints layered on this later
 - [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
 
@@ -387,6 +390,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       a scene whose orb count/speed/hue/brightness/grid are all cvar-driven, beside a live cvar table (M77)
 - [x] **CPU profiler** (`apps/profiler`) — feeds a fixed synthetic frame into `core::Profiler` and draws
       the nested zone tree as an indented bar chart (inclusive vs self time per zone) (M78)
+- [x] **ECS save/load** (`apps/ecsave`) — builds an entity world, serializes it to JSON, reloads that
+      JSON into a fresh world, and renders the reload — proving the round-trip (M79)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

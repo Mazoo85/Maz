@@ -277,6 +277,14 @@ set_tests_properties(profiler_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME ecsave_headless_smoke
+    COMMAND ecsave --headless --frames 30)
+
+set_tests_properties(ecsave_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -72,7 +72,9 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
             (readTextFile/writeTextFile, parseJsonFile/writeJsonFile)  (header-only;
             human-editable configs, data-driven scenes/levels/tuning);
             Config — the JSON<->CVarRegistry bridge (loadConfig/configToJson + file convenience), so
-            core stays zero-dependency while apps get "config.json drives the engine"
+            core stays zero-dependency while apps get "config.json drives the engine";
+            SceneSerializer — reflection-lite ECS save/load: register per-component JSON converters,
+            then saveWorld/loadWorld a live ecs::World to/from JSON (save games, prefabs, editor)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time synth mixer (SFX + music)  (depends on: core, SDL3)
 apps/
@@ -100,6 +102,8 @@ apps/
               cvar table
   profiler/ CPU profiler view — feeds a fixed synthetic frame into core::Profiler and draws the zone
               tree as an indented bar chart (inclusive vs self ms per nested zone)
+  ecsave/   ECS save/load — builds an entity world, serializes it to JSON (io::SceneSerializer),
+              reloads that JSON into a fresh world, and renders the reload (proves the round-trip)
 ```
 
 ## The frame loop (fixed timestep)

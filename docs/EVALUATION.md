@@ -761,9 +761,37 @@ optimization ("you can't fix what you can't measure"). That is foundational infr
   validation errors); new `profiler_headless_smoke` + golden (RMSE 0, threshold 0.05) → ctest
   **35/35**, every existing golden unchanged.
 
+### Iteration 40 — "Persist the world" (done)
+Self-directed: the engine could persist *bytes* (Serialize), *settings* (KeyValueStore, CVars), and
+*hand-authored* data (JSON levels), but not the one thing a running game most needs to save — its live
+**entity world**. That is the content backbone under save games, prefabs, and any future editor, and
+it was the largest remaining foundational gap. The ECS stores components in type-erased pools, so the
+question was how to serialize arbitrary component types without a full reflection system.
+- [x] **M79 — ECS scene serialization (`io::SceneSerializer`)**: the standard reflection-lite answer —
+  the app teaches the serializer each component type *once* by handing it a name plus to/from-JSON
+  converters; the serializer type-erases those into `(World&, Entity)` operations. `saveWorld` gathers
+  every entity carrying a registered component (via `each<T>`), emits them in **ascending-id order**
+  (so the document is deterministic and diff-friendly) as `{ "entities": [ { "id", "components": {
+  "Transform": {…}, … } } ] }`, and `loadWorld` rebuilds the world — creating an entity per record and
+  adding each recognized component, silently skipping component names it doesn't know (forward/back
+  compatible). Convenience `saveWorldFile`/`loadWorldFile` do the disk round-trip. It lives in the io
+  layer so `ecs` stays dependency-free. Unit-tested to **852 checks** total: a three-entity world with
+  mixed components saved and reloaded into a fresh world with every value verified (transform sum,
+  hp sum, tag string), a dump→parse→load text round-trip, a file save→load round-trip, and an unknown
+  component in a document being skipped while known ones still load. The new `ecsave` demo makes the
+  round-trip literal: it builds a *source* world (seven entities with Transform / Look / Spin
+  components), serializes it to JSON, loads that JSON into a **second, fresh** world, and renders the
+  second world — so every disc and spinning box on screen was reconstructed from serialized data (the
+  Spin component surviving proves behavior-driving data round-trips too). Verified on lavapipe (four
+  discs + three rotated boxes matching the source scene, HUD "built 7 entities → serialized to JSON →
+  reloaded 7"; the scene also written to the save dir; no validation errors); new
+  `ecsave_headless_smoke` + golden (RMSE 0.0079, threshold 0.05) → ctest **36/36**, every existing
+  golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
-TextureStore/mesh loading with the cache, parallelize a hot loop, reflection-driven ECS
-serialization, UI layout / text input, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode,
-wire the profiler's ScopedZone into an app's real frame loop.
+TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
+scene serializer, id-preserving load for entity-referencing components, UI layout / text input,
+order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
+cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's ScopedZone into an
+app's real frame loop.

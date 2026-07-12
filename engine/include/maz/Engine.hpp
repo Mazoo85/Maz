@@ -33,6 +33,7 @@
 #include "maz/game/Tilemap.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
+#include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/platform/Input.hpp"

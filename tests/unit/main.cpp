@@ -26,6 +26,7 @@
 #include "maz/game/Steering.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
+#include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
@@ -893,6 +894,116 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testSceneSerializer() {
+    struct Transform {
+        float x, y;
+    };
+    struct Health {
+        int hp;
+    };
+    struct Tag {
+        std::string name;
+    };
+
+    io::SceneSerializer s;
+    s.component<Transform>(
+        "Transform",
+        [](const Transform& t) {
+            io::JsonValue j;
+            j.set("x", t.x);
+            j.set("y", t.y);
+            return j;
+        },
+        [](const io::JsonValue& j) {
+            return Transform{j["x"].asFloat(), j["y"].asFloat()};
+        });
+    s.component<Health>(
+        "Health",
+        [](const Health& h) {
+            io::JsonValue j;
+            j.set("hp", h.hp);
+            return j;
+        },
+        [](const io::JsonValue& j) { return Health{j["hp"].asInt()}; });
+    s.component<Tag>(
+        "Tag",
+        [](const Tag& t) {
+            io::JsonValue j;
+            j.set("name", t.name);
+            return j;
+        },
+        [](const io::JsonValue& j) { return Tag{j["name"].asString()}; });
+
+    ecs::World w;
+    ecs::Entity a = w.create();
+    w.add<Transform>(a, {1.0f, 2.0f});
+    w.add<Health>(a, {100});
+    ecs::Entity b = w.create();
+    w.add<Transform>(b, {3.5f, -4.0f});
+    w.add<Tag>(b, {"boss"});
+    ecs::Entity c = w.create();
+    w.add<Health>(c, {50});
+
+    // Save the world; three entities carry registered components.
+    io::JsonValue doc = s.saveWorld(w);
+    CHECK(doc["entities"].size() == 3);
+    // Entities are emitted in ascending-id order.
+    CHECK(doc["entities"][0]["id"].asInt() < doc["entities"][1]["id"].asInt());
+
+    // Load into a fresh world; counts match.
+    ecs::World w2;
+    CHECK(s.loadWorld(doc, w2) == 3);
+    CHECK(w2.size() == 3);
+
+    // Component values survived the round-trip.
+    int transforms = 0, healths = 0, tags = 0, sumHp = 0;
+    float sumX = 0.0f;
+    std::string tagName;
+    w2.each<Transform>([&](ecs::Entity, Transform& t) {
+        ++transforms;
+        sumX += t.x;
+    });
+    w2.each<Health>([&](ecs::Entity, Health& h) {
+        ++healths;
+        sumHp += h.hp;
+    });
+    w2.each<Tag>([&](ecs::Entity, Tag& t) {
+        ++tags;
+        tagName = t.name;
+    });
+    CHECK(transforms == 2);
+    CHECK(healths == 2);
+    CHECK(tags == 1);
+    CHECK_NEAR(sumX, 4.5f, 1e-5f); // 1.0 + 3.5
+    CHECK(sumHp == 150);           // 100 + 50
+    CHECK(tagName == std::string("boss"));
+
+    // Round-trip through JSON text (dump -> parse -> load) is stable.
+    auto reparsed = io::parseJson(doc.dump());
+    CHECK(reparsed.ok);
+    ecs::World w3;
+    CHECK(s.loadWorld(reparsed.value, w3) == 3);
+    CHECK(w3.size() == 3);
+
+    // File round-trip.
+    const std::string path = "maz_scene_roundtrip_test.json";
+    CHECK(s.saveWorldFile(w, path));
+    ecs::World w4;
+    CHECK(s.loadWorldFile(path, w4) == 3);
+    std::remove(path.c_str());
+
+    // An unknown component type in the document is skipped on load (no crash); known ones still load.
+    const char* doc2 =
+        R"({ "entities": [ { "id": 1, "components": { "Unknown": {"z": 5}, "Health": {"hp": 7} } } ] })";
+    auto p2 = io::parseJson(doc2);
+    CHECK(p2.ok);
+    ecs::World w5;
+    CHECK(s.loadWorld(p2.value, w5) == 1);
+    int h5 = 0;
+    w5.each<Health>([&](ecs::Entity, Health& h) { h5 = h.hp; });
+    CHECK(h5 == 7);
 }
 
 void testStateMachine() {
@@ -1783,6 +1894,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testSceneSerializer();
     testEcs();
     testShake();
     testParticleAttractor();

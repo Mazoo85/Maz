@@ -57,6 +57,7 @@ CASES=(
     "level||2.5|0.05"
     "config||2.5|0.05"
     "profiler||2.5|0.05"
+    "ecsave||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

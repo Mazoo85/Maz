@@ -265,6 +265,13 @@ available):
   monotonic timestamp), so tests and deterministic demos feed synthetic times; real code uses a
   `ScopedZone` RAII over `steady_clock`. The new `profiler` demo renders a sample frame's zone tree as
   an indented bar chart
+- **M79** — ECS scene serialization (`maz::io::SceneSerializer`): save and load a live `ecs::World` as
+  JSON. Since the ECS stores arbitrary component types, the app registers each component once with its
+  to/from-JSON converters (reflection-lite); then `saveWorld` emits `{entities:[{id,components:{…}}]}`
+  (entities in ascending-id order, so output is stable) and `loadWorld` rebuilds the world — the
+  content backbone for save games, prefabs, and an editor. The new `ecsave` demo builds a world,
+  serializes it, reloads the JSON into a *fresh* world, and renders that reload — so what you see is
+  entirely reconstructed from serialized data
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -296,4 +303,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Level** (on-disk JSON level): no controls — the level is loaded from `assets/levels/arena.json`; edit that file to change it · Esc to quit
 - **Config** (cvar / config demo): no controls — the scene is driven by cvars a JSON config sets; the cvar table is shown live · Esc to quit
 - **Profiler** (CPU profiler view): no controls — a sample frame's timing zones are drawn as an indented bar chart · Esc to quit
+- **Ecsave** (ECS save/load): no controls — a world is serialized to JSON, reloaded into a fresh world, and that reload is rendered · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit
