@@ -376,7 +376,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   backspace/delete/arrows/home/end + max length; `ui::FocusChain`: ordered focusable ids with Tab/
   Shift+Tab wraparound; `Context::textField` widget draws box+text+caret + click-to-focus — Godot
   LineEdit + Control focus; the `form` demo is an editable account-settings form; M95) — controller UI nav later
-- [ ] Nine-slice, themes, localization-aware text
+- [x] **Nine-patch / StyleBox** (`ui::ninePatch`: slice a destination rect into a 3×3 grid by border
+  insets — fixed corners, edges stretching one axis, center stretching both — mapping to matching source
+  regions, so a themed panel scales without distorting its corner art; Godot StyleBoxTexture; the
+  `stylebox` demo themes differently-sized panels + a button row from one style; M103) — full theme
+  server / StyleBoxFlat rounded corners + localization-aware text later
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
@@ -477,6 +481,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       with hillshade; same seed → same continent (M85)
 - [x] **UI layout** (`apps/uilayout`) — a responsive app UI (top bar + sidebar + content + modal) from
       anchors and containers (M86)
+- [x] **Nine-patch StyleBox** (`apps/stylebox`) — differently-sized themed panels + a button row from
+      one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
 - [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel
       string-pulling (M87)
 - [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent

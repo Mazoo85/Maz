@@ -458,6 +458,14 @@ available):
   groove while its along-groove position stays free; a tilted groove holds the body on its line under
   gravity while it slides down the incline). The new `groove` demo drops three boxes onto tilted rails —
   each slides down its incline (not straight down) and settles against a stop block.
+- **M103** — **nine-patch / StyleBox** UI, toward Godot's `StyleBoxTexture` theming: `ui::ninePatch`
+  slices a destination rectangle into a 3×3 grid by fixed border insets and maps each cell to a matching
+  source region — the four corners keep their exact size, the four edges stretch along one axis, and the
+  center stretches both, so a bordered/rounded panel scales to any size without distorting its corner
+  art. Pure geometry, unit-tested (corner sizes fixed across destination sizes, edges/center absorb the
+  stretch, the nine cells tile source and destination exactly, sub-border sizes clamp non-negative). The
+  new `stylebox` demo themes four differently-sized panels + a button row from one style — gold corners
+  stay fixed while blue edges stretch and the dark center fills.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

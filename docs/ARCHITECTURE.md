@@ -64,6 +64,8 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               computed rects, resolution-responsive),
             TextField (single-line edit model: caret + insert/erase/move + max length) + FocusChain
               (ordered focusable ids, Tab/Shift+Tab wraparound) — Godot LineEdit + Control focus,
+            ninePatch (StyleBox nine-slice: slice a dest rect into a 3×3 grid by border insets —
+              fixed corners, stretching edges/center — mapping to source regions), Godot StyleBoxTexture-style,
             Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
@@ -190,6 +192,8 @@ apps/
               samples) so the shadow edge feathers into a penumbra (game::SoftShadow2D)
   groove/   Groove/slider joints — three boxes pinned to tilted rails, each sliding down its incline (not
               straight down) and settling against a stop (game::Joint2D::Groove)
+  stylebox/ Nine-patch StyleBox — differently-sized themed panels + a button row from one style; fixed
+              corners, stretching edges/center (ui::ninePatch)
 ```
 
 ## The frame loop (fixed timestep)

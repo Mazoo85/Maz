@@ -461,6 +461,14 @@ set_tests_properties(groove_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME stylebox_headless_smoke
+    COMMAND stylebox --headless --frames 30)
+
+set_tests_properties(stylebox_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

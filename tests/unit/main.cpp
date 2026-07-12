@@ -44,6 +44,7 @@
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/Layout.hpp"
+#include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
@@ -958,6 +959,77 @@ void testLayout() {
         CHECK_NEAR(top.rect.x, 200.0f, 1e-3f);   // inherits the content cell's x
         CHECK_NEAR(top.rect.h, 200.0f, 1e-3f);
         CHECK_NEAR(bottom.rect.y, 200.0f, 1e-3f);
+    }
+}
+
+void testStyleBox() {
+    using ui::Border;
+    using ui::Patch9;
+    using ui::Rect;
+
+    const Rect src{0, 0, 64, 64};
+    const Border border{16, 16, 16, 16};
+
+    // A 200x100 destination: nine cells laid out with fixed 16px corners + stretched middle.
+    {
+        const auto p = ui::ninePatch(Rect{10, 20, 200, 100}, border, src);
+        // 3x3 in reading order.
+        CHECK(p[0].cell == Patch9::TopLeft);
+        CHECK(p[4].cell == Patch9::Center);
+        CHECK(p[8].cell == Patch9::BottomRight);
+
+        // Corners are exactly the border size in the destination, pinned to the corners.
+        CHECK_NEAR(p[0].dst.x, 10.0f, 1e-4f);
+        CHECK_NEAR(p[0].dst.y, 20.0f, 1e-4f);
+        CHECK_NEAR(p[0].dst.w, 16.0f, 1e-4f);
+        CHECK_NEAR(p[0].dst.h, 16.0f, 1e-4f);
+        CHECK_NEAR(p[2].dst.x, 10.0f + 200.0f - 16.0f, 1e-4f); // top-right pinned to the right edge
+        CHECK_NEAR(p[8].dst.x, 10.0f + 200.0f - 16.0f, 1e-4f);
+        CHECK_NEAR(p[8].dst.y, 20.0f + 100.0f - 16.0f, 1e-4f);
+
+        // Center + edges absorb the stretch: center is (w-32) x (h-32).
+        CHECK_NEAR(p[4].dst.w, 200.0f - 32.0f, 1e-4f);
+        CHECK_NEAR(p[4].dst.h, 100.0f - 32.0f, 1e-4f);
+        CHECK_NEAR(p[1].dst.w, 200.0f - 32.0f, 1e-4f); // top edge stretches horizontally
+        CHECK_NEAR(p[1].dst.h, 16.0f, 1e-4f);          // but keeps the border height
+        CHECK_NEAR(p[3].dst.h, 100.0f - 32.0f, 1e-4f); // left edge stretches vertically
+        CHECK_NEAR(p[3].dst.w, 16.0f, 1e-4f);
+
+        // The nine dst cells tile the destination exactly (no gaps/overlap): sum of areas == dst area.
+        float area = 0.0f;
+        for (const auto& q : p) {
+            area += q.dst.w * q.dst.h;
+        }
+        CHECK_NEAR(area, 200.0f * 100.0f, 1e-2f);
+
+        // Source regions tile the source exactly too.
+        float sarea = 0.0f;
+        for (const auto& q : p) {
+            sarea += q.src.w * q.src.h;
+        }
+        CHECK_NEAR(sarea, 64.0f * 64.0f, 1e-2f);
+    }
+
+    // Corners keep their size no matter the destination size (the whole point of a nine-patch).
+    {
+        const auto small = ui::ninePatch(Rect{0, 0, 60, 40}, border, src);
+        const auto big = ui::ninePatch(Rect{0, 0, 500, 380}, border, src);
+        CHECK_NEAR(small[0].dst.w, big[0].dst.w, 1e-4f); // 16 in both
+        CHECK_NEAR(small[0].dst.h, big[0].dst.h, 1e-4f);
+        CHECK_NEAR(big[8].dst.w, 16.0f, 1e-4f);
+        // The center grows with the destination.
+        CHECK(big[4].dst.w > small[4].dst.w);
+    }
+
+    // Degenerate: a destination smaller than the borders clamps middles to zero (never negative).
+    {
+        const auto p = ui::ninePatch(Rect{0, 0, 20, 20}, border, src);
+        CHECK_NEAR(p[4].dst.w, 0.0f, 1e-4f); // center collapses
+        CHECK_NEAR(p[4].dst.h, 0.0f, 1e-4f);
+        for (const auto& q : p) {
+            CHECK(q.dst.w >= 0.0f);
+            CHECK(q.dst.h >= 0.0f);
+        }
     }
 }
 
@@ -3651,6 +3723,7 @@ int main() {
     testTween();
     testTimeline();
     testLayout();
+    testStyleBox();
     testTextInput();
     testUI();
     testSerialize();

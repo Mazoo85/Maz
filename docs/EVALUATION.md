@@ -1404,22 +1404,49 @@ with a crisp settling golden.
   constraint zoo (no motorized/limited slider, gear, or weld joints), and the broader box-stacking
   stability work (2-point warm-started manifolds) is still open.
 
+### Iteration 64 — "Benchmarking against Godot: nine-patch StyleBox" (done)
+Continuing the Godot benchmark; UI was the most overdue non-recently-touched subsystem. Maz had a
+retained layout system (M86) and text input (M95), but no THEMING — Godot draws every Panel and Button
+through a StyleBox, most powerfully a nine-patch (StyleBoxTexture) that scales a bordered/rounded skin to
+any size without distorting its corner art. That nine-slice mapping is pure geometry — exactly testable
+and with a striking multi-size golden — so it was the clear UI pick.
+- [x] **M103 — Nine-patch / StyleBox (`ui::ninePatch`)**: given a destination `Rect`, per-edge `Border`
+  insets, and a source `Rect`, it slices both into a 3×3 grid and returns nine `Patch`es (src region →
+  dst region + a cell tag). The four corners are the border size in *both* src and dst (never scaled),
+  the four edges stretch along one axis, and the center absorbs the rest — with all middle dimensions
+  clamped non-negative so a sub-border destination collapses gracefully instead of going inside-out.
+  Header-only geometry (reuses `ui::Rect`, no GPU). `testStyleBox` checks it exactly: corners pinned to
+  the four dst corners at the fixed border size; edges keeping their border thickness while stretching
+  the other axis; the center = (w−L−R)×(h−T−B); the nine dst cells tiling the destination area exactly
+  and the nine src cells tiling the source area exactly; corner sizes identical between a 60×40 and a
+  500×380 destination while the center grows; and a 20×20 destination clamping every middle to zero.
+  Unit count **3612 → 3654**. The new `stylebox` demo themes four differently-sized panels (small
+  square, wide bar, tall column, large box) plus a three-button row from one style — gold corners stay
+  fixed, blue edges stretch, the dark center fills — so the whole gallery reads as one consistent skin
+  at every size. On lavapipe the corner cells are visibly identical across all panel sizes while edges
+  and centers scale. New `stylebox_headless_smoke` + golden (static, RMSE 0, threshold 0.05). Purely
+  additive (new header + new app), so all existing goldens are unchanged — confirmed by a serial golden
+  run. ctest **59/59**. Honest scope: this is the nine-slice mapping + a flat-colour StyleBox draw; it
+  is not a full theme *server* (named styles per control class), a StyleBoxFlat with rounded corners /
+  drop shadows, or texture-sampled patches — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): 2-point (warm-started) contact manifolds for stable box STACKS +
-motorized/limited slider + gear/weld joints (M102 completes the pin/spring/groove trio); normal-mapped /
-textured 2D lights (M101 gives soft shadows but lights are still flat-coloured); call-method/trigger
-tracks + a visual track editor on the timeline
-(M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer (per-voice
-bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core); ORCA
-half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
+Later (Godot-gap priorities + backlog): a theme server (named styles per control class) + StyleBoxFlat
+rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
+2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
+joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
+shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the
+timeline (M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer
+(per-voice bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core);
+ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
 crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-
 integrated IK modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
-TextEdit + UI themes/StyleBox + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
+TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); 3D spatial
 audio + doppler + WAV/OGG loading (M94 gives 2D pan/attenuation); animation blend *trees* (state-machine
 over blend spaces) + IK (M92 gives blend spaces); 3D rigid-body physics; GPU particles;
 navmesh dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation
