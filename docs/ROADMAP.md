@@ -380,6 +380,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
   + Mononen funnel string-pulling into a smooth corner-hugging path — polygon navigation like Godot's
   NavigationServer, beyond grid A*; the `navmesh` demo routes around a pillar; M87)
+- [x] **Local collision avoidance** (`game::rvoVelocity`: reciprocal-velocity-obstacle candidate
+  sampling scored on time-to-collision using the shared relative velocity `2·c − vA − vB` — Godot
+  NavigationAgent2D avoidance; the `avoid` demo crosses 14 agents through a crowded centre; M98) —
+  static-obstacle ORCA half-planes later
 - [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
 - [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
 - [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)
@@ -481,6 +485,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (`game::CellularCave` + `game::autotileMask4`) (M96)
 - [x] **Inverse kinematics** (`apps/reach`) — a grid of 2-bone arms whose elbows are solved so each hand
       reaches its target, with out-of-reach targets shown extended (`anim::solveTwoBoneIK`) (M97)
+- [x] **RVO avoidance** (`apps/avoid`) — 14 agents crossing a circle to antipodal goals, their trails
+      bulging around the crowded centre as reciprocal velocity obstacles route them apart
+      (`game::rvoVelocity`) (M98)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

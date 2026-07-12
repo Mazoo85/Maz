@@ -411,6 +411,17 @@ available):
   unit-tested (the hand reaches the target with bone lengths preserved; the bend flips the elbow to the
   other side; overreach gives a straight arm). The new `reach` demo is a grid of arms each solving
   toward its own target — reachable targets ringed green, out-of-reach ones red with the arm extended
+- **M98** — RVO **local collision avoidance**, toward Godot's `NavigationAgent2D` avoidance: given an
+  agent's *preferred* velocity (usually "toward my goal") and its moving neighbours,
+  `game::rvoVelocity` returns a nearby velocity that won't run into them. It samples candidate
+  velocities (the preference, a full stop, and a fan of directions × speeds) and scores each on the
+  soonest collision it would cause — using the **reciprocal** relative velocity `2·c − vA − vB`, so
+  both agents share the dodge and a head-on pair peels apart instead of oscillating. Pure 2D math,
+  unit-tested (no neighbours returns the preference exactly; a blocker dead ahead forces a sideways
+  deviation; two agents on a head-on crossing both reach the far side without ever overlapping). The
+  new `avoid` demo is the classic circle test — 14 agents each heading for the point opposite, their
+  trails bulging outward around the crowded centre; the whole crossing is simulated once at startup so
+  the render is deterministic.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

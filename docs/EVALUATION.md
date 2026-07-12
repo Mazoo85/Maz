@@ -1252,21 +1252,55 @@ block, it's pure closed-form math, and it has a crisp visual golden — a strong
   one at a time). ctest **53/53**. Honest scope: this is closed-form 2-bone IK; it is not a multi-bone
   CCD/FABRIK chain solver, a full-body IK rig, or a Skeleton-integrated modification stack — those remain.
 
+### Iteration 59 — "Benchmarking against Godot: RVO local avoidance" (done)
+Continuing the Godot benchmark; the AI subsystem was due. Maz had *global* navigation — grid A* (M57),
+navmesh + funnel (M87), steering forces (M58) — but every agent planned in isolation, so a crowd
+sharing a space would walk straight through each other. Godot's `NavigationAgent2D` adds *local*
+avoidance (RVO/RVO2): each agent continuously adjusts its velocity to dodge nearby moving agents. It's
+the canonical missing piece on top of the existing navigation stack, it's pure deterministic 2D math
+(unit-testable, golden-stable), and it has a crisp visual golden — the classic antipodal circle test.
+- [x] **M98 — RVO local collision avoidance (`game::rvoVelocity`)**: given an agent's position,
+  current velocity, *preferred* velocity (toward its goal), radius, max speed, and a list of moving
+  neighbours, it returns a nearby velocity that avoids imminent collisions. It samples candidate
+  velocities — the preference, a full stop, and a fan of 16 directions × 4 speeds — and scores each by
+  the soonest collision it would produce against any neighbour. The collision test (`detail::timeToCollision`)
+  solves the quadratic for when two closing discs first touch, and the relative velocity fed in is the
+  **reciprocal** `2·c − vA − vB`, which is what makes the avoidance *shared*: both agents run the same
+  rule and each takes half the dodge, so a head-on pair peels apart smoothly rather than mirroring each
+  other into a deadlock. Cost = distance-from-preference + `maxSpeed`-weighted collision penalty, and
+  because both the preference and zero are always candidates, an agent with no threats returns its
+  preferred velocity *exactly*. Pure 2D math (no navmesh, no GPU), so `testAvoidance` checks it exactly:
+  no neighbours returns the preference bit-for-bit; a blocker sitting dead ahead forces a nonzero
+  sideways component; and a full 240-step head-on crossing of two agents keeps their gap above
+  `2·radius − 0.15` the whole way *and* both still reach the far side. Unit count **3523 → 3529**. The
+  new `avoid` demo is the textbook stress test — 14 agents evenly spaced on a circle, each heading for
+  the point directly opposite, so every path crosses the crowded centre; the whole crossing is simulated
+  once at startup (fixed step) and each agent's trail recorded, then drawn statically, so the render is
+  fully deterministic regardless of capture timing. On lavapipe the trails bulge outward into the
+  classic lens/almond shape around the middle — agents clearly routing around each other, never
+  overlapping, re-forming on the far side. New `avoid_headless_smoke` + golden (static, RMSE 0,
+  threshold 0.05). Purely additive (new header + new app), so all existing goldens are unchanged —
+  confirmed by a serial golden run (strays killed first; golden check then ctest one at a time). ctest
+  **54/54**. Honest scope: this is agent-vs-agent RVO with a velocity-sampling solver; it is not full
+  ORCA half-plane linear programming, it doesn't yet avoid *static* navmesh obstacles, and it isn't
+  wired into `NavMesh`/`Steering` as an integrated crowd simulation — those remain.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK
-modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96
-gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line TextEdit + UI themes +
-controller UI nav (M95 gives single-line LineEdit + focus); audio buses + DSP effects (reverb/filter) +
-3D spatial audio + doppler (M94 gives 2D pan/attenuation); agent avoidance (RVO) on the navmesh;
-animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend spaces); 2-point
-(warm-started) manifolds for stable box STACKS + more joint types (groove/slider) building on M93's
-pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights (M90 made lights additive
-but they're hard-edged and flat-colored); 3D rigid-body physics; GPU particles; navmesh dynamic
-obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
+Later (Godot-gap priorities + backlog): ORCA half-plane avoidance + static-obstacle avoidance + wiring
+RVO into NavMesh/Steering as an integrated crowd sim (M98 gives agent-vs-agent velocity-sampling RVO);
+multi-bone CCD/FABRIK IK chains + Skeleton-integrated IK modifications (M97 gives closed-form 2-bone
+IK); 47-tile Wang autotiling + BSP/room dungeon gen (M96 gives 4-bit autotiling + cellular caves); text
+selection/clipboard + multi-line TextEdit + UI themes + controller UI nav (M95 gives single-line
+LineEdit + focus); audio buses + DSP effects (reverb/filter) + 3D spatial audio + doppler (M94 gives 2D
+pan/attenuation); animation blend *trees* (state-machine over blend spaces) + IK (M92 gives blend
+spaces); 2-point (warm-started) manifolds for stable box STACKS + more joint types (groove/slider)
+building on M93's pin/spring; soft (penumbra) 2D shadows + normal-mapped / textured 2D lights (M90 made
+lights additive but they're hard-edged and flat-colored); 3D rigid-body physics; GPU particles; navmesh
+dynamic obstacles; parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import,
 prefabs/blueprints on the scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven
 tilemap/cave generation, localization / string tables, order-independent transparency, material/uniform
 system, cross-platform CI, a deterministic hold-frame screenshot mode.

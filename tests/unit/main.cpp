@@ -23,6 +23,7 @@
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/AutoTile.hpp"
+#include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
@@ -369,6 +370,55 @@ void testVisibility2D() {
         CHECK(!game::Visibility2D::contains(poly, vec2{90, 50}));
         // Above the wall's span, the light still reaches the far corner.
         CHECK(game::Visibility2D::contains(poly, vec2{90, 90}));
+    }
+}
+
+void testAvoidance() {
+    using math::vec2;
+    const float radius = 0.5f, maxSpeed = 2.0f;
+
+    // No neighbours -> the preferred velocity is returned exactly.
+    {
+        const vec2 pref(2.0f, 0.0f);
+        auto v = game::rvoVelocity(vec2(0, 0), vec2(0, 0), pref, radius, maxSpeed, {});
+        CHECK_NEAR(v.x, pref.x, 1e-4f);
+        CHECK_NEAR(v.y, pref.y, 1e-4f);
+    }
+
+    // A neighbour dead ahead on a head-on course: the chosen velocity must steer aside (nonzero lateral
+    // component) rather than drive straight into it.
+    {
+        std::vector<game::AvoidNeighbor> nb = {{vec2(4.0f, 0.0f), vec2(-2.0f, 0.0f), radius}};
+        const vec2 pref(2.0f, 0.0f); // straight at the neighbour
+        auto v = game::rvoVelocity(vec2(0, 0), vec2(2, 0), pref, radius, maxSpeed, nb);
+        CHECK(std::fabs(v.y) > 0.1f); // deviated sideways to avoid
+    }
+
+    // Two agents crossing head-on, both running RVO each step, never overlap and both make progress.
+    {
+        const float dt = 1.0f / 30.0f;
+        vec2 pa(0, 0), pb(10, 0);
+        vec2 va(0, 0), vb(0, 0);
+        const vec2 ga(10, 0), gb(0, 0);
+        float minGap = 1e9f;
+        for (int i = 0; i < 240; ++i) {
+            auto pref = [&](vec2 p, vec2 g) {
+                vec2 d = g - p;
+                float l = std::sqrt(d.x * d.x + d.y * d.y);
+                return l > 1e-4f ? d / l * std::min(maxSpeed, l / dt) : vec2(0, 0);
+            };
+            std::vector<game::AvoidNeighbor> na = {{pb, vb, radius}};
+            std::vector<game::AvoidNeighbor> nbr = {{pa, va, radius}};
+            va = game::rvoVelocity(pa, va, pref(pa, ga), radius, maxSpeed, na);
+            vb = game::rvoVelocity(pb, vb, pref(pb, gb), radius, maxSpeed, nbr);
+            pa += va * dt;
+            pb += vb * dt;
+            const vec2 d = pb - pa;
+            minGap = std::min(minGap, std::sqrt(d.x * d.x + d.y * d.y));
+        }
+        CHECK(minGap > 2.0f * radius - 0.15f); // never (meaningfully) overlapped
+        CHECK(pa.x > 7.0f);                    // A still crossed to the far side
+        CHECK(pb.x < 3.0f);                    // B likewise
     }
 }
 
@@ -3248,6 +3298,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testAvoidance();
     testVisibility2D();
     testPhysics2D();
     testPhysics2DRotation();

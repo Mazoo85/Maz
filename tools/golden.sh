@@ -75,6 +75,7 @@ CASES=(
     "form||2.0|0.05"
     "cave||2.0|0.05"
     "reach||2.0|0.05"
+    "avoid||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

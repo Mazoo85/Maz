@@ -73,6 +73,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             NavGrid (8-directional A* grid pathfinding for moving AI),
             NavMesh (convex-cell navigation mesh: A* over cells + funnel string-pull for smooth paths),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
+            rvoVelocity (RVO local collision avoidance: reciprocal-velocity-obstacle candidate
+              scoring on time-to-collision), Godot NavigationAgent2D-avoidance-style,
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
             Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking;
@@ -171,6 +173,8 @@ apps/
               per their edge bitmask) (game::CellularCave + game::autotileMask4)
   reach/    Inverse kinematics — a grid of 2-bone arms whose elbows are solved so each hand reaches its
               target (out-of-reach targets shown extended) (anim::solveTwoBoneIK)
+  avoid/    RVO local avoidance — 14 agents crossing a circle to antipodal goals, their trails bulging
+              around the crowded centre as reciprocal velocity obstacles route them apart (game::rvoVelocity)
 ```
 
 ## The frame loop (fixed timestep)

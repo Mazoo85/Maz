@@ -91,6 +91,7 @@ add_subdirectory(apps/spatial2d)
 add_subdirectory(apps/form)
 add_subdirectory(apps/cave)
 add_subdirectory(apps/reach)
+add_subdirectory(apps/avoid)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
