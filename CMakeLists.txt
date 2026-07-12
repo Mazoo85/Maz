@@ -75,6 +75,7 @@ add_subdirectory(apps/config)
 add_subdirectory(apps/profiler)
 add_subdirectory(apps/ecsave)
 add_subdirectory(apps/actions)
+add_subdirectory(apps/solar)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

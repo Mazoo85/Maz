@@ -279,6 +279,13 @@ available):
   action, and bindings can be rebound freely. It's SDL-free (update takes sampler callbacks), so it's
   unit-tested with synthetic input. The new `actions` demo drives an avatar entirely through mapped
   actions, with a scripted self-play OR'd with real input so it's both reproducible and playable
+- **M81** — 2D transform hierarchy / scene graph (`maz::scene::TransformGraph`): the structural
+  backbone for composite objects. Each node has a *local* transform (position, rotation, scale)
+  relative to its parent; `update()` propagates those into *world* transforms parent-first, so moving
+  or rotating a parent carries its whole subtree — a moon around a planet around the sun, a turret on
+  a tank, a health bar pinned to a unit. The new `solar` demo builds a sun → planets → moons tree and
+  only ever sets each pivot's rotation; the graph sweeps the planets around the sun and the moons
+  around the planets automatically
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -312,4 +319,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Profiler** (CPU profiler view): no controls — a sample frame's timing zones are drawn as an indented bar chart · Esc to quit
 - **Ecsave** (ECS save/load): no controls — a world is serialized to JSON, reloaded into a fresh world, and that reload is rendered · Esc to quit
 - **Actions** (input action map): WASD / arrows move · Space fires · Shift dashes (also plays itself via scripted input) · Esc to quit
+- **Solar** (transform hierarchy): no controls — a sun → planets → moons scene graph animates from pivot rotations alone · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

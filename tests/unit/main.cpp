@@ -31,6 +31,7 @@
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/scene/TransformGraph.hpp"
 
 #include <atomic>
 #include <cmath>
@@ -895,6 +896,71 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testTransformGraph() {
+    using scene::Transform2D;
+    using scene::TransformGraph;
+    const float PI = 3.14159265358979f;
+
+    TransformGraph g;
+
+    // Root at (100,100); child offset (10,0) in local space.
+    TransformGraph::Node root = g.create(TransformGraph::kInvalid, Transform2D{{100.0f, 100.0f}, 0.0f, {1, 1}});
+    TransformGraph::Node child = g.create(root, Transform2D{{10.0f, 0.0f}, 0.0f, {1, 1}});
+    g.update();
+    CHECK_NEAR(g.worldPosition(child).x, 110.0f, 1e-4f);
+    CHECK_NEAR(g.worldPosition(child).y, 100.0f, 1e-4f);
+
+    // Rotate the root 90 degrees: the child's offset sweeps to +Y.
+    g.local(root).rotation = PI * 0.5f;
+    g.update();
+    CHECK_NEAR(g.worldPosition(child).x, 100.0f, 1e-3f);
+    CHECK_NEAR(g.worldPosition(child).y, 110.0f, 1e-3f);
+    CHECK_NEAR(g.worldRotation(child), PI * 0.5f, 1e-4f); // rotation inherited (sum)
+
+    // Scale on the root scales the child's offset (2x -> offset 20).
+    g.local(root).rotation = 0.0f;
+    g.local(root).scale = {2.0f, 2.0f};
+    g.update();
+    CHECK_NEAR(g.worldPosition(child).x, 120.0f, 1e-4f);
+    CHECK_NEAR(g.worldScale(child).x, 2.0f, 1e-4f);
+    g.local(root).scale = {1.0f, 1.0f};
+
+    // Nested grandchild: root -> child (10,0) -> grand (5,0). Rotate child 90 -> grand offset sweeps.
+    TransformGraph::Node grand = g.create(child, Transform2D{{5.0f, 0.0f}, 0.0f, {1, 1}});
+    g.local(root).rotation = 0.0f;
+    g.local(child).rotation = PI * 0.5f;
+    g.update();
+    // child world pos = (110,100); grand = child + rotate((5,0), 90) = (110, 105).
+    CHECK_NEAR(g.worldPosition(grand).x, 110.0f, 1e-3f);
+    CHECK_NEAR(g.worldPosition(grand).y, 105.0f, 1e-3f);
+    g.local(child).rotation = 0.0f;
+
+    // localToWorld maps a point in a node's local space through its world transform.
+    g.update();
+    math::vec2 w = g.localToWorld(child, math::vec2{0.0f, 0.0f});
+    CHECK_NEAR(w.x, 110.0f, 1e-4f); // node origin == its world position
+    CHECK_NEAR(w.y, 100.0f, 1e-4f);
+    math::vec2 w2 = g.localToWorld(child, math::vec2{3.0f, 0.0f});
+    CHECK_NEAR(w2.x, 113.0f, 1e-4f);
+
+    // Reparent grand under root directly; its world position now derives from root only.
+    g.setParent(grand, root);
+    g.local(grand).position = {7.0f, 0.0f};
+    g.update();
+    CHECK_NEAR(g.worldPosition(grand).x, 107.0f, 1e-4f);
+
+    // Creation order independent of parent order: create parent AFTER child index-wise via reparent.
+    TransformGraph g2;
+    TransformGraph::Node a = g2.create(); // will be child
+    TransformGraph::Node b = g2.create(TransformGraph::kInvalid, Transform2D{{50.0f, 0.0f}, 0.0f, {1, 1}});
+    g2.setParent(a, b);
+    g2.local(a).position = {5.0f, 0.0f};
+    g2.update();
+    CHECK_NEAR(g2.worldPosition(a).x, 55.0f, 1e-4f); // resolved even though child has lower index
+
+    CHECK(g.size() == 3);
 }
 
 void testActionMap() {
@@ -1994,6 +2060,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testTransformGraph();
     testActionMap();
     testSceneSerializer();
     testEcs();

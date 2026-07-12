@@ -813,10 +813,37 @@ action to several devices at once, and makes rebinding possible. That's a Phase-
   mapped axes; no validation errors); new `actions_headless_smoke` + golden (RMSE 0, threshold 0.05) →
   ctest **37/37**, every existing golden unchanged.
 
+### Iteration 42 — "Parents and children" (done)
+Self-directed: the ECS was flat and the only hierarchy in the engine was the mesh-skinning joint tree
+— there was no *general* transform hierarchy, the scene-graph primitive every composite object needs
+(a weapon on a hand, a turret on a tank, a moon around a planet, a UI badge pinned to a unit). Without
+it, any "attached" object has to re-derive its parent's motion by hand. That's a Phase-4 foundational
+gap.
+- [x] **M81 — 2D transform hierarchy (`scene::TransformGraph`)**: nodes each hold a LOCAL transform
+  (position, rotation, scale) plus a parent; `update()` walks the tree and composes WORLD transforms
+  parent-first. Composition is the standard decomposed TRS — world rotation = parent + local, world
+  scale = parent · local (component-wise), world position = parent position + parent-rotated,
+  parent-scaled local position — which is exact for uniform scale and the pragmatic norm for 2D scene
+  graphs. Propagation is a **memoized recursion**, so children may be created (or reparented) in any
+  order relative to their parents and still resolve correctly, with a computed-flag guard so a stray
+  cycle terminates instead of hanging. `localToWorld` maps a point through a node's world transform
+  (for spawn points, muzzle positions, attach anchors). Unit-tested to **890 checks** total: a child
+  offset following a parent's 90° rotation to the right place, scale propagation, a nested grandchild
+  under a rotated middle node, `localToWorld` at the origin and an offset, reparenting changing the
+  derived world position, and a lower-index child resolving correctly under a higher-index parent
+  (creation-order independence). The new `solar` demo is the canonical proof: a sun → 4 planets →
+  moons tree (17 nodes) where the app sets *only* each orbit pivot's local rotation to speed·t; the
+  graph then sweeps every planet around the sun and every moon around its planet — the moon riding its
+  planet's motion for free, which is the entire point. Verified on lavapipe (sun centered, four faint
+  orbit rings, four planets each on its ring, a small moon beside each planet; HUD "sun → 4 planets →
+  moons (17 nodes; parents spin, children follow)"; no validation errors); new `solar_headless_smoke`
+  + golden (RMSE 0, threshold 0.05) → ctest **38/38**, every existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
 scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
-via config, UI layout / text input, order-independent transparency, material/uniform system,
+via config, an ECS Transform/Parent component wired to TransformGraph, dirty-flag caching for the
+scene graph, UI layout / text input, order-independent transparency, material/uniform system,
 GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode, wire
 the profiler's ScopedZone into an app's real frame loop.

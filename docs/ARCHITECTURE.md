@@ -55,6 +55,8 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
 ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay (FPS/draw stats),
             Context (immediate-mode widgets: panel/label/button/toggle/slider, hot/active tracking)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
+scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
+            propagates world transforms parent-first (decomposed TRS); localToWorld   (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             Shake (camera juice), SpatialGrid (uniform X/Z broadphase hash),
             NavGrid (8-directional A* grid pathfinding for moving AI),
@@ -109,6 +111,8 @@ apps/
               reloads that JSON into a fresh world, and renders the reload (proves the round-trip)
   actions/  Input action map — an avatar driven by named actions (MoveX/MoveY axes, Fire/Dash buttons)
               bound to keyboard + gamepad; deterministic scripted self-play OR'd with real input
+  solar/    Transform hierarchy — a solar system (sun -> planets -> moons) from a scene::TransformGraph;
+              only pivot rotations are set, update() sweeps planets around the sun and moons around planets
 ```
 
 ## The frame loop (fixed timestep)

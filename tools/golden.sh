@@ -59,6 +59,7 @@ CASES=(
     "profiler||2.5|0.05"
     "ecsave||2.5|0.05"
     "actions||2.5|0.05"
+    "solar||2.5|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

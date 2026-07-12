@@ -259,7 +259,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 4 — Scene & ECS
 - [x] Entity Component System (sparse-set pools, `each<T>` / `view<A,B>`) — `maz::ecs::World`
 - [ ] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
-- [ ] Scene graph, world-transform propagation, dirty flags
+- [x] **Scene graph / transform hierarchy** (`maz::scene::TransformGraph`: nodes with local
+  pos/rot/scale + parent; `update()` propagates world transforms parent-first via decomposed TRS;
+  `localToWorld`; the `solar` demo runs a sun→planets→moons hierarchy; M81) — dirty-flag caching later
 - [ ] System scheduler (ordered + parallel execution)
 - [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
 - [x] **Native scene serialization (ECS save/load)** (`io::SceneSerializer`: register per-component
@@ -397,6 +399,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       JSON into a fresh world, and renders the reload — proving the round-trip (M79)
 - [x] **Input actions** (`apps/actions`) — an avatar driven by named actions (MoveX/MoveY axes,
       Fire/Dash buttons) bound to keyboard + gamepad, with a live action-state HUD (M80)
+- [x] **Transform hierarchy** (`apps/solar`) — a solar system (sun → planets → moons) where only pivot
+      rotations are set and the scene graph sweeps the whole tree into place (M81)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
