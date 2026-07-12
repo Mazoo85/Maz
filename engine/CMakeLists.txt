@@ -16,7 +16,8 @@ add_library(maz STATIC
     src/platform/Input.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
-    src/render/VulkanRenderer.cpp)
+    src/render/VulkanRenderer.cpp
+    src/render/MeshRenderer.cpp)
 
 target_include_directories(maz
     PUBLIC

@@ -2,6 +2,7 @@
 
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
+#include "render/MeshRenderer.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
@@ -27,6 +28,8 @@ public:
     bool beginFrame() override;
     void setClearColor(const Color& color) override { m_clearColor = color; }
     void endFrame() override;
+    bool uploadModel(const assets::Model& model) override;
+    void drawModel(const math::mat4& mvp, const math::mat4& model) override;
     bool isActive() const override { return m_active; }
 
 private:
@@ -37,6 +40,7 @@ private:
 
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
+    MeshRenderer m_mesh;
     RendererConfig m_cfg;
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
@@ -83,10 +87,29 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         return false;
     }
 
+    // The mesh pipeline is optional: if shaders are missing the renderer still clears + presents.
+    if (!m_mesh.init(m_ctx, m_swapchain.renderPass())) {
+        MAZ_LOG_WARN("mesh renderer unavailable; running clear-only");
+    }
+
     m_active = true;
     MAZ_LOG_INFO("renderer active (%ux%u, vsync %s)", m_swapchain.extent().width,
                  m_swapchain.extent().height, cfg.vsync ? "on" : "off");
     return true;
+}
+
+bool VulkanRenderer::uploadModel(const assets::Model& model) {
+    if (!m_active || !m_mesh.ready()) {
+        return false;
+    }
+    return m_mesh.uploadModel(m_ctx, model);
+}
+
+void VulkanRenderer::drawModel(const math::mat4& mvp, const math::mat4& model) {
+    if (!m_active || !m_mesh.hasMesh()) {
+        return;
+    }
+    m_mesh.draw(m_commandBuffers[m_currentFrame], mvp, model, m_swapchain.extent());
 }
 
 bool VulkanRenderer::createCommands() {
@@ -183,19 +206,20 @@ bool VulkanRenderer::beginFrame() {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(cmd, &begin);
 
-    VkClearValue clear{};
-    clear.color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    std::array<VkClearValue, 2> clears{};
+    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    clears[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass = m_swapchain.renderPass();
     rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
     rp.renderArea.extent = m_swapchain.extent();
-    rp.clearValueCount = 1;
-    rp.pClearValues = &clear;
+    rp.clearValueCount = static_cast<uint32_t>(clears.size());
+    rp.pClearValues = clears.data();
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    // (Phase 3: bind pipelines and issue sprite/mesh draws here.)
+    // Mesh draws are recorded by drawModel(), called between beginFrame() and endFrame().
     return true;
 }
 
@@ -260,6 +284,7 @@ void VulkanRenderer::shutdown() {
         vkDeviceWaitIdle(m_ctx.device());
     }
     if (m_active) {
+        m_mesh.destroy(m_ctx);
         destroySync();
         if (m_commandPool) {
             vkDestroyCommandPool(m_ctx.device(), m_commandPool, nullptr);

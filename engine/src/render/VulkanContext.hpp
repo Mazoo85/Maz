@@ -30,6 +30,10 @@ public:
     uint32_t graphicsFamily() const { return m_graphicsFamily; }
     uint32_t presentFamily() const { return m_presentFamily; }
 
+    // Pick a memory type satisfying `typeFilter` (from VkMemoryRequirements::memoryTypeBits) and
+    // all `properties`. Returns UINT32_MAX if none match.
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+
 private:
     bool createInstance(platform::Window& window, bool wantSurface, bool enableValidation);
     bool pickPhysicalDevice(bool wantSurface);

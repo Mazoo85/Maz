@@ -1,5 +1,8 @@
 #pragma once
 
+#include "maz/assets/Model.hpp"
+#include "maz/math/Math.hpp"
+
 #include <cstdint>
 #include <memory>
 
@@ -38,6 +41,14 @@ public:
     virtual bool beginFrame() = 0;
     virtual void setClearColor(const Color& color) = 0;
     virtual void endFrame() = 0;
+
+    // Upload a model for drawing, replacing any previous one. Returns false if the renderer is
+    // inactive (headless/no-GPU) or the upload failed, in which case drawModel() is a no-op.
+    virtual bool uploadModel(const assets::Model& model) = 0;
+
+    // Draw the uploaded model. Call between beginFrame() and endFrame(). `mvp` is the full
+    // model-view-projection matrix; `model` is the model matrix alone (used for normals).
+    virtual void drawModel(const math::mat4& mvp, const math::mat4& model) = 0;
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;
