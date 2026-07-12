@@ -69,6 +69,7 @@ CASES=(
     "vectors||2.5|0.05"
     "lights2d||2.5|0.05"
     "tumble||4.5|0.06"
+    "blendspace||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

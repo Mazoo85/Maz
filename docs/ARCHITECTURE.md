@@ -81,8 +81,11 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
-            AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses;
-            Animator — named-clip library + timed cross-fade controller (play/update/pose)
+            AnimClip — per-joint TRS keyframe tracks: sample (lerp/slerp) + loop + blendPoses +
+              blendPosesWeighted (N-way weighted pose mix);
+            Animator — named-clip library + timed cross-fade controller (play/update/pose);
+            BlendSpace1D/2D — blend animations by a 1-D/2-D parameter (linear / barycentric-over-
+              triangulation weights), Godot AnimationTree-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
@@ -146,6 +149,8 @@ apps/
               solid boxes casting real shadows
   tumble/   2D rigid-body rotation — tilted rectangles dropped into a bin tumble on their corners and
               settle into a leaning pile (Body2D::enableRotation + the oriented PhysicsWorld2D solver)
+  blendspace/ Animation blend space — a grid of stick-figure skeletons whose pose is blended across a
+              2D parameter space from four corner poses (anim::BlendSpace2D + blendPosesWeighted)
 ```
 
 ## The frame loop (fixed timestep)

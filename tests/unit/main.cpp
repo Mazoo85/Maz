@@ -5,6 +5,7 @@
 
 #include "maz/anim/AnimClip.hpp"
 #include "maz/anim/Animator.hpp"
+#include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Tween.hpp"
@@ -2573,6 +2574,94 @@ void testPhysics2DRotation() {
     }
 }
 
+void testBlendSpace() {
+    using math::vec2;
+
+    // 1-D: three samples on a line; midpoints blend the neighbours, ends clamp.
+    {
+        anim::BlendSpace1D bs;
+        bs.addPoint(0.0f, 10);
+        bs.addPoint(2.0f, 20); // add out of order to exercise sorted insertion
+        bs.addPoint(1.0f, 15);
+        CHECK(bs.size() == 3);
+
+        auto mid = bs.weights(0.5f); // halfway between id 10 (0.0) and id 15 (1.0)
+        CHECK(mid.size() == 2);
+        CHECK(mid[0].id == 10);
+        CHECK(mid[1].id == 15);
+        CHECK_NEAR(mid[0].weight, 0.5f, 1e-5f);
+        CHECK_NEAR(mid[1].weight, 0.5f, 1e-5f);
+
+        auto q = bs.weights(1.25f); // between 15 (1.0) and 20 (2.0), 25% toward 20
+        CHECK(q.size() == 2);
+        CHECK(q[0].id == 15);
+        CHECK(q[1].id == 20);
+        CHECK_NEAR(q[1].weight, 0.25f, 1e-5f);
+
+        auto lo = bs.weights(-3.0f); // clamped to the low end
+        CHECK(lo.size() == 1);
+        CHECK(lo[0].id == 10);
+        CHECK_NEAR(lo[0].weight, 1.0f, 1e-5f);
+
+        auto hi = bs.weights(9.0f); // clamped to the high end
+        CHECK(hi.size() == 1);
+        CHECK(hi[0].id == 20);
+
+        auto exact = bs.weights(1.0f); // exactly on a sample -> that sample only
+        CHECK(exact.size() == 1);
+        CHECK(exact[0].id == 15);
+    }
+
+    // 2-D: a unit right triangle; barycentric weights, a vertex query, and an outside clamp.
+    {
+        anim::BlendSpace2D bs;
+        const int a = bs.addPoint(vec2{0, 0}, 100);
+        const int b = bs.addPoint(vec2{1, 0}, 200);
+        const int c = bs.addPoint(vec2{0, 1}, 300);
+        bs.addTriangle(a, b, c);
+
+        auto w = bs.weights(vec2{0.25f, 0.25f}); // u=0.5 (a), v=0.25 (b), w=0.25 (c)
+        CHECK(w.size() == 3);
+        CHECK(w[0].id == 100);
+        CHECK_NEAR(w[0].weight, 0.5f, 1e-5f);
+        CHECK_NEAR(w[1].weight, 0.25f, 1e-5f);
+        CHECK_NEAR(w[2].weight, 0.25f, 1e-5f);
+        float sum = w[0].weight + w[1].weight + w[2].weight;
+        CHECK_NEAR(sum, 1.0f, 1e-5f);
+
+        auto v = bs.weights(vec2{1, 0}); // exactly on vertex b -> weight concentrates there
+        CHECK_NEAR(v[1].weight, 1.0f, 1e-4f);
+        CHECK_NEAR(v[0].weight, 0.0f, 1e-4f);
+
+        auto out = bs.weights(vec2{2.0f, 2.0f}); // far outside -> clamped, still sums to 1, no negatives
+        float os = 0.0f;
+        for (const auto& e : out) {
+            CHECK(e.weight >= -1e-6f);
+            os += e.weight;
+        }
+        CHECK_NEAR(os, 1.0f, 1e-5f);
+    }
+
+    // blendPosesWeighted: N-way weighted blend reproduces a single pose and midpoint blends translation.
+    {
+        using anim::JointPose;
+        std::vector<JointPose> p0(1), p1(1), p2(1);
+        p0[0].translation = math::vec3(0, 0, 0);
+        p1[0].translation = math::vec3(10, 0, 0);
+        p2[0].translation = math::vec3(0, 10, 0);
+
+        std::vector<JointPose> out;
+        anim::blendPosesWeighted({&p0, &p1, &p2}, {0.5f, 0.25f, 0.25f}, out);
+        // Weighted average of translations: 0.5*(0,0)+0.25*(10,0)+0.25*(0,10) = (2.5, 2.5).
+        CHECK_NEAR(out[0].translation.x, 2.5f, 1e-4f);
+        CHECK_NEAR(out[0].translation.y, 2.5f, 1e-4f);
+
+        anim::blendPosesWeighted({&p0, &p1, &p2}, {1.0f, 0.0f, 0.0f}, out); // all weight on p0
+        CHECK_NEAR(out[0].translation.x, 0.0f, 1e-5f);
+        CHECK_NEAR(out[0].translation.y, 0.0f, 1e-5f);
+    }
+}
+
 void testAnimator() {
     // Two single-key (constant) clips with distinct joint translations.
     auto makeConst = [](math::vec3 t) {
@@ -2819,6 +2908,7 @@ int main() {
     testVisibility2D();
     testPhysics2D();
     testPhysics2DRotation();
+    testBlendSpace();
     testBehaviorTree();
     testSteering();
     testStateMachine();

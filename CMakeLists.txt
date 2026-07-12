@@ -85,6 +85,7 @@ add_subdirectory(apps/navmesh)
 add_subdirectory(apps/vectors)
 add_subdirectory(apps/lights2d)
 add_subdirectory(apps/tumble)
+add_subdirectory(apps/blendspace)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

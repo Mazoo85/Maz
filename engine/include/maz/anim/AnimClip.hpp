@@ -125,6 +125,30 @@ inline void blendPoses(const std::vector<JointPose>& a, const std::vector<JointP
     }
 }
 
+// Blend N weighted poses into one (translation/scale lerp, rotation via incremental normalized slerp).
+// Weights need not sum to 1 — they are normalized as they accumulate — so barycentric / blend-space
+// weights feed straight in. Poses that share the joint count of the first are combined; the result is
+// the `poses[0]` pose when only one is supplied. This is the N-way generalization of blendPoses and
+// the core of animation blend spaces (Godot's AnimationTree BlendSpace1D/2D).
+inline void blendPosesWeighted(const std::vector<const std::vector<JointPose>*>& poses,
+                               const std::vector<float>& weights, std::vector<JointPose>& out) {
+    if (poses.empty()) {
+        out.clear();
+        return;
+    }
+    out = *poses[0];
+    float accum = weights.empty() ? 1.0f : weights[0];
+    for (size_t i = 1; i < poses.size(); ++i) {
+        const float wi = i < weights.size() ? weights[i] : 0.0f;
+        const float total = accum + wi;
+        if (total <= 1e-8f) {
+            continue;
+        }
+        blendPoses(out, *poses[i], wi / total, out); // fold in pose i at its share of the running total
+        accum = total;
+    }
+}
+
 // Convenience: turn per-joint poses into the local matrices Skeleton::computeSkinning expects.
 inline void posesToLocals(const std::vector<JointPose>& poses, std::vector<math::mat4>& out) {
     out.resize(poses.size());

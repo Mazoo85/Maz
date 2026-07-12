@@ -334,6 +334,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   trees later
 - [x] **Animation controller** (`anim::Animator`: named clips + timed cross-fade transitions via
   play/update/pose; the `animator` demo cycles idle/wave/coil clips; M70) — full state graph / IK later
+- [x] **Blend spaces** (`anim::BlendSpace1D` linear-neighbour blend + `anim::BlendSpace2D` barycentric
+  blend over a triangulation + `blendPosesWeighted` N-way pose mix — Godot AnimationTree BlendSpace1D/2D;
+  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92) — blend trees / IK later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59) — timelines later
 
@@ -450,6 +453,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       casting real hard-edged shadows; lights composite additively so overlaps brighten (M89, M90)
 - [x] **2D rotation** (`apps/tumble`) — tilted rectangles dropped into a bin that fall, tumble on
       their corners, and settle into a leaning pile via the oriented rigid-body solver (M91)
+- [x] **Animation blend space** (`apps/blendspace`) — a grid of stick-figure skeletons whose pose is
+      blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

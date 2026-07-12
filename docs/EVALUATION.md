@@ -1097,16 +1097,41 @@ it outranked the lighting refinements.
   Honest scope: this is a single-contact-point solver with damping — great for tumbling and settling,
   but not as rock-solid for tall precise stacks as Godot's multi-point + warm-started solver.
 
+### Iteration 53 — "Benchmarking against Godot: animation blend spaces" (done)
+Continuing the Godot benchmark, and diversifying after physics (M91): the animation system had clip
+sampling (M68), 2-way pose crossfade, and a cross-fade controller (M70), but no way to blend
+animations by a *parameter* — Godot's `AnimationTree` BlendSpace1D/2D, the standard way to drive
+locomotion (blend idle/walk/run by speed, or 8-way movement by a 2-D direction). That was the clearest
+remaining animation gap.
+- [x] **M92 — Animation blend spaces (`anim::BlendSpace1D` / `BlendSpace2D` + `blendPosesWeighted`)**:
+  a blend space places animations (referenced by an integer id) at positions in a 1-D or 2-D parameter
+  space and, for a query point, returns the small set of animations to mix and each one's weight
+  (summing to 1). 1-D blends the two straddling samples linearly (clamping past the ends); 2-D returns
+  barycentric weights over a caller-supplied triangulation — the same triangle model Godot uses, made
+  explicit and therefore exactly testable — with an outside query clamped onto the nearest triangle.
+  A new `anim::blendPosesWeighted` folds N weighted poses into one (translation/scale lerp, rotation via
+  incremental normalized slerp), the N-way generalization of `blendPoses`. All pure geometry, so it
+  unit-tests headlessly: `testBlendSpace` covers 1-D neighbour/clamp/exact-sample cases, 2-D barycentric
+  weights + a vertex query + an outside clamp (weights stay >= 0 and sum to 1), and the weighted pose
+  mix (a 3-way average and a single-pose identity). Unit count **3410 -> 3443**. The new `blendspace`
+  demo builds an 11-joint stick-figure skeleton and four corner poses, then renders a 5x3 grid of
+  figures — one per sampled (x,y) cell — so a single skeleton's pose is seen morphing smoothly from
+  corner to corner across the space; verified on lavapipe (the interpolation reads clearly, no
+  validation errors). New `blendspace_headless_smoke` + golden (static scene, RMSE ~0, threshold 0.05).
+  Purely additive (a new header + a new app), so all existing goldens are unchanged — confirmed by a
+  serial golden run (strays killed first; golden check then ctest one at a time). ctest **48/48**.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): 2-point (warm-started) manifolds for stable box STACKS +
-physics joints (pin/spring) on the 2D solver (M91 is single-contact); soft (penumbra) 2D shadows +
-normal-mapped / textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored);
-3D rigid-body physics; audio buses/effects + 3D spatial audio; animation blend trees / IK; UI text
-input + focus nav + themes; GPU particles; navmesh dynamic obstacles + agent avoidance; parallel/
+Later (Godot-gap priorities + backlog): animation blend *trees* (state-machine over blend spaces) + IK
+(M92 gives blend spaces); audio buses/effects + 3D spatial audio (a whole subsystem where Maz is thin);
+agent avoidance (RVO) on the navmesh; 2-point (warm-started) manifolds for stable box STACKS + physics
+joints (pin/spring) on the 2D solver (M91 is single-contact); soft (penumbra) 2D shadows + normal-mapped
+/ textured 2D lights (M90 made lights additive but they're hard-edged and flat-colored); 3D rigid-body
+physics; UI text input + focus nav + themes; GPU particles; navmesh dynamic obstacles; parallel/
 decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, prefabs/blueprints on the
 scene serializer, an ECS Transform/Parent wired to TransformGraph, noise-driven tilemap/cave generation,
 localization / string tables, order-independent transparency, material/uniform system, cross-platform

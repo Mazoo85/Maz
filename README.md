@@ -361,6 +361,15 @@ available):
   The new `tumble` demo drops a stack of tilted rectangles into a bin; they fall, tumble on their
   corners, and settle into a leaning heap. Verified by unit tests (inertia values, free-spin
   integration, damping, a tilted box toppling flat) plus the golden
+- **M92** — animation **blend spaces**, toward Godot's `AnimationTree` BlendSpace1D/2D: the engine
+  had clip sampling and 2-way pose crossfade, but no way to blend animations by a *parameter*.
+  `anim::BlendSpace1D` blends the two neighbouring samples along a line; `anim::BlendSpace2D` places
+  samples in a plane and returns barycentric weights over a triangulation (the same model Godot uses,
+  where a query point picks its enclosing triangle). A new `anim::blendPosesWeighted` mixes N weighted
+  poses into one. The new `blendspace` demo renders a grid of stick-figure skeletons, one per sampled
+  (x,y) cell, so you watch a single skeleton's pose morph smoothly between four corner poses across
+  the space — exactly how a Godot BlendSpace2D drives 8-way locomotion. Pure geometry, so the weights
+  unit-test without a GPU
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
