@@ -1991,6 +1991,42 @@ clean new header (Spatial2D untouched → zero regression).
   HRTF/binaural filtering, no occlusion/reverb-zone modelling, and still no WAV/OGG file loading — those
   remain audio gaps.
 
+### Iteration 83 — "Benchmarking against Godot: auto-layout containers" (done)
+Rotating to UI for breadth (last six were audio/spatial3d, particles/emitter, tilemap/TileSet,
+physics-2D/layers, animation/blend-tree, physics-2D/Area2D — so audio/physics/animation are well-covered).
+M86 gave Maz a retained layout tree (`ui::LayoutNode`): anchors + a *simple* box mode where every `expand`
+child grabs an **equal** slice of the leftover and the cross axis always fills. Godot's real **Container**
+controls are richer, and that richness is exactly what building a resizable UI needs: per-axis **size
+flags** (a child independently picks Fill / Expand / Shrink-begin/center/end for its horizontal and its
+vertical axis), **stretch ratios** (two expanders at 1 and 3 split the leftover 1:3, not 50/50), a true
+**GridContainer** (N columns, column widths from the widest cell, expanding columns sharing leftover), and
+**bottom-up minimum size** so nested containers size correctly. That's the highest-leverage *closable* UI
+gap, it's pure rectangle math (unit-tests headlessly, deterministic golden), and it's a clean new header
+that leaves `LayoutNode` untouched → zero regression.
+- [x] **M122 — auto-layout containers (`ui::Container`)**: a new `Container.hpp`. A `Control` carries a
+  min size, an `hFlag`/`vFlag` (`SizeFlag` = Fill / Expand / ShrinkBegin / ShrinkCenter / ShrinkEnd), and a
+  `stretch` ratio. `hbox`/`vbox` distribute children along a main axis: only **Expand** children grow past
+  their min, splitting the leftover by stretch ratio; the cross axis is placed by each child's flag (Fill →
+  fill the extent, Shrink → keep min size anchored begin/center/end). `grid` flows children into N columns
+  (column width = widest child's minW, row height = tallest minH, columns/rows containing an Expand child
+  share the leftover), then places each child in its cell by its per-axis flags. `margin` insets by four
+  sides (Godot MarginContainer); `center` pins a child at its min size in the middle (CenterContainer).
+  `hboxMinSize`/`vboxMinSize`/`gridMinSize` compute a container's own min size from its children so a VBox
+  of HBoxes sizes bottom-up. `testUiContainer` pins exact rects: an HBox of Fill+Expand+Expand+Fill (the
+  two expanders splitting leftover 1:2), stretch-ratio distribution (1:3 → 50/150 of 200), cross-axis
+  ShrinkCenter (min-height child centred), a VBox header/body(Expand)/footer, a 2×2 Fill grid, a grid with
+  an expanding column absorbing the extra width, margin insets, centre placement, and all three min-size
+  helpers. Unit checks **4334 → 4377**. The new `containers` demo lays out four labelled cards — an
+  HBoxContainer (Fill | Expand×1 | Expand×2 | Fill, the orange expanders visibly 1:2), a 3-column
+  GridContainer of nine Expand tiles filling evenly, a VBoxContainer (fixed header + Expand body + fixed
+  footer), and a MarginContainer inset framing a CenterContainer's fixed box — every tile's rect computed
+  by the container, no hand-typed child coordinates. Computed once, drawn statically → deterministic golden
+  (threshold 0.06, text-dense). Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); ctest **77/77 → 78/78**. Honest scope: this is the
+  container *layout math* + a snapshot; it is not wired into `LayoutNode`'s tree as a node mode, has no
+  ScrollContainer/TabContainer/FlowContainer, no RTL/text-direction handling, and no min-size *propagation*
+  through a live retained tree (the helpers compute it, the app threads it) — those remain UI gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
@@ -2018,7 +2054,10 @@ M98 gives agent-vs-agent velocity-sampling RVO); FABRIK pole targets + per-bone 
 constraints + a Skeleton2D-integrated IK modification stack (M107 gives multi-bone FABRIK chains; M97 gives
 closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room
 dungeon gen (M96 gives 4-bit autotiling + cellular caves); text selection/clipboard + multi-line
-TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); wiring 3D spatial audio into the
+TextEdit + controller UI nav (M95 gives single-line LineEdit + focus); ScrollContainer/TabContainer/
+FlowContainer + wiring the container layout into LayoutNode's retained tree as a node mode with live
+min-size propagation (M122 gives the BoxContainer/GridContainer/MarginContainer/CenterContainer layout math
+with size flags + stretch ratios; M86 gives the anchor tree); wiring 3D spatial audio into the
 real-time mixer as a per-voice 3D bus + HRTF/binaural + occlusion/reverb zones + WAV/OGG loading (M121
 gives the 3D spatialization math — attenuation models/listener-relative pan/doppler; M94 gives 2D
 pan/attenuation); animation blend *trees* (state-machine

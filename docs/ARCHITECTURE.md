@@ -62,6 +62,9 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
             Context (immediate-mode widgets: panel/label/button/toggle/slider/textField, hot/active),
             LayoutNode (retained layout — Godot-style anchors/margins + HBox/VBox/Center containers,
               computed rects, resolution-responsive),
+            Container (auto-layout — Godot's BoxContainer/GridContainer/MarginContainer/CenterContainer:
+              per-axis SizeFlag Fill/Expand/ShrinkBegin/Center/End + stretch ratios; hbox/vbox/grid/margin/
+              center write child rects; hboxMinSize/vboxMinSize/gridMinSize for bottom-up sizing),
             TextField (single-line edit model: caret + insert/erase/move + max length) + FocusChain
               (ordered focusable ids, Tab/Shift+Tab wraparound) — Godot LineEdit + Control focus,
             ninePatch (StyleBox nine-slice: slice a dest rect into a 3×3 grid by border insets —
@@ -207,6 +210,9 @@ apps/
   spatial3d/ 3D positional audio — a top-down radar of six sources around one listener; each disc sized
               by distance attenuation, tinted by doppler pitch, with a velocity arrow + L/R stereo meter
               (audio::computeSpatialMix)
+  containers/ Auto-layout containers — four cards showing HBox (Fill/Expand stretch ratios), a 3-column
+              Grid, a VBox (header/body-Expand/footer), and a MarginContainer framing a CenterContainer
+              (ui::hbox/vbox/grid/margin/center)
   scatter/  Procedural RNG demo — a seeded core::Random scatters a token field (uniform-in-disc), each
               token's rarity chosen by weighted(); a legend tallies the resulting distribution
   noise/    Procedural terrain — a heightmap texture generated from core::Noise fbm2, colored by a

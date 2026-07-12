@@ -425,6 +425,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Retained UI layout** (`ui::LayoutNode`: Godot-style anchors + margins + HBox/VBox/Center
   containers with expand/spacing/padding; resolution-responsive computed rects; the `uilayout` demo
   builds a top-bar + sidebar + content + modal UI with no hand-placed pixels; M86)
+- [x] **Auto-layout containers** (`ui::Container`: Godot's BoxContainer/GridContainer/MarginContainer/
+  CenterContainer — per-axis `SizeFlag` (Fill/Expand/ShrinkBegin/Center/End) + stretch ratios;
+  `hbox`/`vbox` grow only Expand children and split leftover by ratio, `grid` sizes columns/rows from the
+  widest/tallest cell with expanding tracks sharing the surplus, `margin`/`center` handle single children,
+  and `hboxMinSize`/`vboxMinSize`/`gridMinSize` compute a container's own min size for bottom-up sizing;
+  the `containers` demo lays out four labelled cards; M122) — ScrollContainer/TabContainer + wiring into
+  the LayoutNode tree with live min-size propagation later
 - [x] **Text input + focus navigation** (`ui::TextField` single-line edit model: caret + insert/
   backspace/delete/arrows/home/end + max length; `ui::FocusChain`: ordered focusable ids with Tab/
   Shift+Tab wraparound; `Context::textField` widget draws box+text+caret + click-to-focus — Godot

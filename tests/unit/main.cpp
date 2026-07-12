@@ -55,6 +55,7 @@
 #include "maz/io/Json.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
@@ -1577,6 +1578,150 @@ void testLayout() {
         CHECK_NEAR(top.rect.x, 200.0f, 1e-3f);   // inherits the content cell's x
         CHECK_NEAR(top.rect.h, 200.0f, 1e-3f);
         CHECK_NEAR(bottom.rect.y, 200.0f, 1e-3f);
+    }
+}
+
+void testUiContainer() {
+    using ui::Control;
+    using ui::Rect;
+    using ui::SizeFlag;
+
+    // HBox: two fixed 40-wide (Fill) + one Expand, spacing 10, in a 200-wide area.
+    {
+        Control a, b, c;
+        a.minW = 40.0f;
+        b.minW = 40.0f;
+        b.hFlag = SizeFlag::Expand;
+        c.minW = 40.0f;
+        std::vector<Control*> kids{&a, &b, &c};
+        ui::hbox(Rect{0, 0, 200, 100}, kids, 10.0f);
+        // totalMin = 120 + 20 sep = 140, leftover 60 -> the single expander.
+        CHECK_NEAR(a.rect.x, 0.0f, 1e-3f);
+        CHECK_NEAR(a.rect.w, 40.0f, 1e-3f);
+        CHECK_NEAR(b.rect.x, 50.0f, 1e-3f); // 40 + 10
+        CHECK_NEAR(b.rect.w, 100.0f, 1e-3f); // 40 + 60 leftover
+        CHECK_NEAR(c.rect.x, 160.0f, 1e-3f); // 50 + 100 + 10
+        CHECK_NEAR(c.rect.w, 40.0f, 1e-3f);
+        CHECK_NEAR(a.rect.h, 100.0f, 1e-3f); // vertical Fill fills the area height
+    }
+
+    // HBox expand by STRETCH RATIO: two expanders 1:3 split the whole 200 (no min), sep 0.
+    {
+        Control a, b;
+        a.hFlag = SizeFlag::Expand;
+        a.stretch = 1.0f;
+        b.hFlag = SizeFlag::Expand;
+        b.stretch = 3.0f;
+        std::vector<Control*> kids{&a, &b};
+        ui::hbox(Rect{0, 0, 200, 50}, kids, 0.0f);
+        CHECK_NEAR(a.rect.w, 50.0f, 1e-3f);  // 200 * 1/4
+        CHECK_NEAR(b.rect.w, 150.0f, 1e-3f); // 200 * 3/4
+        CHECK_NEAR(b.rect.x, 50.0f, 1e-3f);
+    }
+
+    // Cross-axis ShrinkCenter: a child keeps its min height, centered vertically in the row.
+    {
+        Control a;
+        a.minW = 30.0f;
+        a.minH = 20.0f;
+        a.vFlag = SizeFlag::ShrinkCenter;
+        std::vector<Control*> kids{&a};
+        ui::hbox(Rect{0, 0, 100, 100}, kids, 0.0f);
+        CHECK_NEAR(a.rect.y, 40.0f, 1e-3f); // (100-20)/2
+        CHECK_NEAR(a.rect.h, 20.0f, 1e-3f);
+    }
+
+    // VBox: fixed header + expanding body + fixed footer, spacing 0, in a 300-tall column.
+    {
+        Control head, body, foot;
+        head.minH = 40.0f;
+        body.vFlag = SizeFlag::Expand;
+        foot.minH = 30.0f;
+        std::vector<Control*> kids{&head, &body, &foot};
+        ui::vbox(Rect{0, 0, 120, 300}, kids, 0.0f);
+        CHECK_NEAR(head.rect.y, 0.0f, 1e-3f);
+        CHECK_NEAR(head.rect.h, 40.0f, 1e-3f);
+        CHECK_NEAR(body.rect.y, 40.0f, 1e-3f);
+        CHECK_NEAR(body.rect.h, 230.0f, 1e-3f); // 300 - 40 - 30
+        CHECK_NEAR(foot.rect.y, 270.0f, 1e-3f);
+        CHECK_NEAR(body.rect.w, 120.0f, 1e-3f); // horizontal Fill
+    }
+
+    // Grid: 4 Fill children in 2 columns, each min 30x20, no sep, area exactly fits.
+    {
+        Control g[4];
+        std::vector<Control*> kids;
+        for (int i = 0; i < 4; ++i) {
+            g[i].minW = 30.0f;
+            g[i].minH = 20.0f;
+            kids.push_back(&g[i]);
+        }
+        ui::grid(Rect{0, 0, 60, 40}, kids, 2, 0.0f, 0.0f);
+        CHECK_NEAR(g[0].rect.x, 0.0f, 1e-3f);
+        CHECK_NEAR(g[0].rect.y, 0.0f, 1e-3f);
+        CHECK_NEAR(g[1].rect.x, 30.0f, 1e-3f);
+        CHECK_NEAR(g[1].rect.y, 0.0f, 1e-3f);
+        CHECK_NEAR(g[2].rect.x, 0.0f, 1e-3f);
+        CHECK_NEAR(g[2].rect.y, 20.0f, 1e-3f);
+        CHECK_NEAR(g[3].rect.x, 30.0f, 1e-3f);
+        CHECK_NEAR(g[3].rect.y, 20.0f, 1e-3f);
+        CHECK_NEAR(g[3].rect.w, 30.0f, 1e-3f);
+    }
+
+    // Grid with an expanding column: column 1 (holding an h-Expand child) absorbs the extra width.
+    {
+        Control g[2];
+        g[0].minW = 20.0f;
+        g[0].minH = 10.0f;
+        g[1].minW = 20.0f;
+        g[1].minH = 10.0f;
+        g[1].hFlag = SizeFlag::Expand;
+        std::vector<Control*> kids{&g[0], &g[1]};
+        ui::grid(Rect{0, 0, 100, 10}, kids, 2, 0.0f, 0.0f);
+        CHECK_NEAR(g[0].rect.w, 20.0f, 1e-3f);  // fixed column
+        CHECK_NEAR(g[1].rect.x, 20.0f, 1e-3f);
+        CHECK_NEAR(g[1].rect.w, 80.0f, 1e-3f);  // 20 + 60 leftover
+    }
+
+    // Margin: per-side insets; the child fills what remains.
+    {
+        Control child;
+        ui::margin(Rect{0, 0, 100, 100}, child, 10.0f, 20.0f, 30.0f, 40.0f);
+        CHECK_NEAR(child.rect.x, 10.0f, 1e-3f);
+        CHECK_NEAR(child.rect.y, 20.0f, 1e-3f);
+        CHECK_NEAR(child.rect.w, 60.0f, 1e-3f); // 100 - 10 - 30
+        CHECK_NEAR(child.rect.h, 40.0f, 1e-3f); // 100 - 20 - 40
+    }
+
+    // Center: the child sits at its min size in the middle of the area.
+    {
+        Control child;
+        child.minW = 20.0f;
+        child.minH = 10.0f;
+        ui::center(Rect{0, 0, 100, 100}, child);
+        CHECK_NEAR(child.rect.x, 40.0f, 1e-3f);
+        CHECK_NEAR(child.rect.y, 45.0f, 1e-3f);
+        CHECK_NEAR(child.rect.w, 20.0f, 1e-3f);
+    }
+
+    // Bottom-up min size: an HBox reports summed widths + separators, tallest height.
+    {
+        Control a, b;
+        a.minW = 40.0f;
+        a.minH = 20.0f;
+        b.minW = 60.0f;
+        b.minH = 30.0f;
+        std::vector<Control*> kids{&a, &b};
+        float w = 0.0f, h = 0.0f;
+        ui::hboxMinSize(kids, 10.0f, w, h);
+        CHECK_NEAR(w, 110.0f, 1e-3f); // 40 + 60 + 10 sep
+        CHECK_NEAR(h, 30.0f, 1e-3f);  // tallest
+        ui::vboxMinSize(kids, 10.0f, w, h);
+        CHECK_NEAR(w, 60.0f, 1e-3f);  // widest
+        CHECK_NEAR(h, 60.0f, 1e-3f);  // 20 + 30 + 10 sep
+        ui::gridMinSize(kids, 2, 5.0f, 5.0f, w, h);
+        CHECK_NEAR(w, 105.0f, 1e-3f); // 40 + 60 + 5 hsep (1 row)
+        CHECK_NEAR(h, 30.0f, 1e-3f);  // single row, tallest
     }
 }
 
@@ -5530,6 +5675,7 @@ int main() {
     testTimeline();
     testTriggerTrack();
     testLayout();
+    testUiContainer();
     testStyleBox();
     testTheme();
     testTree();

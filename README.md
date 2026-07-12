@@ -639,6 +639,14 @@ available):
   left/right gain + pitch. It's pure math (no device), so it unit-tests headlessly; the new `spatial3d`
   demo is a top-down **radar** — six sources around one listener, each a disc sized by loudness, tinted
   warm (approaching) or cool (receding), with a velocity arrow and an L/R stereo meter.
+- **M122** — **auto-layout containers** (`ui::Container`), toward Godot's `Container` nodes: M86 gave an
+  anchor tree with a *simple* box where every expander took an equal slice. Godot's real container model
+  is what you actually need for a resizable UI — per-axis **size flags** (each child picks Fill / Expand /
+  Shrink for its horizontal and vertical axis), **stretch ratios** (two expanders at 1 and 3 split leftover
+  1:3, not 50/50), a true **GridContainer**, plus `MarginContainer` / `CenterContainer`, and bottom-up
+  minimum-size helpers so nested containers size right. All pure rectangle math (`hbox`/`vbox`/`grid`/
+  `margin`/`center`). The new `containers` demo lays out four labelled cards — every tile's rectangle is
+  computed by the container, no hand-typed coordinates.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

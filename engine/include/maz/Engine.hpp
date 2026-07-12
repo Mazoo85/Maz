@@ -70,6 +70,7 @@
 #include "maz/render/Renderer.hpp"
 #include "maz/render/Shapes.hpp"
 #include "maz/scene/TransformGraph.hpp"
+#include "maz/ui/Container.hpp"
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"
 #include "maz/ui/Layout.hpp"
