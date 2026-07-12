@@ -112,6 +112,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
             tilemap autotiling — Godot TileMap terrains),
+            TileSet (per-tile resource: TileDef maps a tile id to an atlas source cell + a None/Full/Box
+              sub-cell collision; collectSolids/solidAt/dropY turn a Tilemap+TileSet into world collision
+              boxes, a point-solidity test, and a drop-to-ground helper), Godot TileMap/TileSet-style,
             Area2D + AreaMonitor (sensor / trigger regions: a circle-or-box zone that detects overlap
               without applying force — overlaps() covers circle-circle, box-box AABB, and mixed circle-box
               via closest-point; AreaMonitor diffs each frame's overlapping set to emit enter/exit events),
@@ -220,6 +223,8 @@ apps/
               border + caret), type to edit (ui::TextField + ui::FocusChain + Context::textField)
   cave/     Procedural cave — a seeded cellular-automata cavern with autotiled wall borders (walls inset
               per their edge bitmask) (game::CellularCave + game::autotileMask4)
+  tileset/  TileSet & per-tile collision — one grid mixing full ground/wall tiles with half-height ledges,
+              every tile's collision box drawn, probe balls resting on what they hit (game::TileSet)
   reach/    Inverse kinematics — a grid of 2-bone arms whose elbows are solved so each hand reaches its
               target (out-of-reach targets shown extended) (anim::solveTwoBoneIK)
   avoid/    RVO local avoidance — 14 agents crossing a circle to antipodal goals, their trails bulging

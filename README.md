@@ -612,6 +612,16 @@ available):
   with per-bit editing, and a named-layer registry — all unit-tested. The new `layers` demo streams
   three species (player/enemy/pickup) through a hurtbox that watches only enemies and a magnet that
   watches only pickups; matching agents light up, overlapping-but-ignored ones get a faint dashed ring.
+- **M119** — a **TileSet resource with per-tile collision** (`game::TileSet`), toward Godot's
+  `TileMap`/`TileSet`: a Tilemap is just a grid of numbers; a TileSet gives each number *meaning* — which
+  atlas cell to draw it with, and what collision it contributes. Godot's per-tile collision can be
+  *sub-cell* (a half-height platform, a shelf), which the Tilemap's single "solid" bit can't express, so
+  one grid can mix full walls with thin ledges. `TileDef` carries an atlas source cell + a None/Full/Box
+  collision; free queries turn a `(Tilemap, TileSet)` pair into world-space collision boxes
+  (`collectSolids`), a point-solidity test (`solidAt`), and a drop-to-ground helper (`dropY`). All pure
+  geometry, unit-tested. The new `tileset` demo builds one level mixing solid ground/wall tiles with
+  half-height ledges, draws every tile's collision box, and drops probe balls that rest exactly on
+  whatever they hit — the ones on ledges sitting mid-cell.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -1883,6 +1883,41 @@ a new header), and it composes directly on M116's Area2D sensors.
   filter, doesn't do per-collision-shape layers (one mask per object), and has no editor UI for the 32
   named layers — those remain gaps.
 
+### Iteration 80 — "Benchmarking against Godot: TileSet resource + per-tile collision" (done)
+Rotating to tilemap (last three were physics-2D/layers, animation/blend-tree, physics-2D/Area2D). Maz had
+a `Tilemap` (a dense grid of tile ids with a single per-id *solid* bit) and autotiling masks (M96), but
+not Godot's **TileSet** — the resource that gives each tile id its *meaning*: which atlas cell draws it and
+what **collision shape** it contributes. The gap that matters most is per-tile collision: Godot's tile
+collision can be **sub-cell** (a half-height platform, a shelf, a slope), which a single solid bit can't
+express — it's the difference between a tilemap that's a *picture* and one that's a *playable level* with
+ledges you can stand on. TileMap is the backbone of most 2D games, so this is the highest-leverage tilemap
+gap; it's a clean data-structure-plus-geometry problem (fully unit-testable), a new additive header (zero
+regression risk), and it builds directly on the existing `Tilemap`.
+- [x] **M119 — TileSet resource + per-tile collision (`game::TileSet`)**: a new `TileSet.hpp`. A `TileDef`
+  carries an **atlas source cell** (`atlasX/atlasY` — "which image cell draws this tile") and a
+  **collision**: `None` (walk-through), `Full` (whole cell), or `Box` (a sub-rect given as cell fractions
+  in [0,1], e.g. a bottom-half ledge). A `TileSet` maps `TileId → TileDef` (`define`/`get`/`isSolid`).
+  Three free queries turn a `(Tilemap, TileSet)` pair into gameplay: `collectSolids` returns every solid
+  tile's **world-space collision box** (`TileBox`; Full = whole cell, Box = sub-rect) to feed an AABB
+  collider; `solidAt(p)` tests whether a world point is inside a solid tile *respecting sub-cell shapes*
+  (a point in a ledge cell's empty top half reads as not-solid); `dropY(x, fromY)` drops down a column and
+  returns the first solid tile's **top surface** — mid-cell for a ledge, cell-top for a full tile — for
+  placing things on the ground. `testTileSet` pins a 4×3 map with a full-ground row + one bottom-half
+  ledge: lookups (incl. undefined ids → not solid), `collectSolids` count + the ledge's exact sub-cell box
+  (x[10,20] y[15,20]), `solidAt` inside ground / inside the ledge's solid half / in its empty half / empty
+  cell / out-of-bounds, and `dropY` resting on the ground (y=20) vs the ledge top (y=15, mid-cell) vs an
+  out-of-range column (→ maxY). Unit checks **4201 → 4223**. The new `tileset` demo builds one 22×13 level
+  mixing full ground/wall tiles with half-height ledges + a wall pillar, draws each tile in its atlas-cell
+  colour (ledges drawn only their solid bottom half so the sub-cell shape is visible), overlays every
+  tile's collision box from `collectSolids` in yellow, and drops probe balls down six columns with `dropY`
+  — each resting exactly on what it hit, the ones over ledges sitting mid-cell. Purely additive (new header
+  + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run); the level is
+  static → deterministic golden (RMSE 0, threshold 0.05). ctest **74/74 → 75/75**. Honest scope: collision
+  shapes are None/Full/axis-aligned-Box — no arbitrary collision polygons, slopes, or one-way
+  (platform-drop-through) tiles yet; the atlas source is an (x,y) cell index the demo maps to a colour, not
+  yet a bound atlas *texture* sampled by the sprite renderer; and terrain/peering autotile bitmasks
+  (M96) aren't yet wired to auto-pick a TileDef. Those remain gaps.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

@@ -53,6 +53,7 @@
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/game/Tilemap.hpp"
+#include "maz/game/TileSet.hpp"
 #include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"

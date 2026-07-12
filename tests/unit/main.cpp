@@ -46,6 +46,7 @@
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
 #include "maz/game/Steering.hpp"
+#include "maz/game/TileSet.hpp"
 #include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
@@ -434,6 +435,82 @@ void testSoftShadow2D() {
         CHECK(v > 0.0f);
         CHECK(v < 1.0f);
     }
+}
+
+void testTileSet() {
+    using game::collectSolids;
+    using game::dropY;
+    using game::solidAt;
+    using game::TileDef;
+    using game::Tilemap;
+    using game::TileSet;
+    using math::vec2;
+
+    // A 4x3 map, 10px tiles. Row 2 (bottom) = ground (id 1, Full). One ledge (id 2, Box bottom-half) at
+    // (1,1). Everything else empty (id 0, undefined in the set).
+    Tilemap map;
+    map.resize(4, 3, 0);
+    map.setTileSize(10.0f);
+    map.set(0, 2, 1);
+    map.set(1, 2, 1);
+    map.set(2, 2, 1);
+    map.set(3, 2, 1);
+    map.set(1, 1, 2); // a ledge floating one row above the ground
+
+    TileSet set;
+    TileDef ground;
+    ground.collision = TileDef::Full;
+    ground.atlasX = 0;
+    ground.atlasY = 1;
+    set.define(1, ground);
+    TileDef ledge;
+    ledge.collision = TileDef::Box;
+    ledge.boxMin = vec2(0.0f, 0.5f); // bottom half of the cell solid; its TOP surface is mid-cell
+    ledge.boxMax = vec2(1.0f, 1.0f);
+    ledge.atlasX = 2;
+    ledge.atlasY = 0;
+    set.define(2, ledge);
+
+    // Lookups.
+    CHECK(set.size() == 2);
+    CHECK(set.get(1) != nullptr);
+    CHECK(set.get(9) == nullptr);       // undefined id
+    CHECK(set.isSolid(1));
+    CHECK(set.isSolid(2));
+    CHECK(!set.isSolid(0));             // empty tile: not in the set -> not solid
+    CHECK(set.get(1)->atlasY == 1);    // atlas source carried through
+
+    // collectSolids: 4 ground + 1 ledge = 5 boxes; the ledge's box is the bottom half of its cell.
+    auto solids = collectSolids(map, set);
+    CHECK(solids.size() == 5);
+    const game::TileBox* lb = nullptr;
+    for (const auto& b : solids) {
+        if (b.id == 2) {
+            lb = &b;
+        }
+    }
+    CHECK(lb != nullptr);
+    // Cell (1,1) spans world x[10,20] y[10,20]; bottom-half box -> y[15,20], full x.
+    CHECK_NEAR(lb->min.x, 10.0f, 1e-4f);
+    CHECK_NEAR(lb->min.y, 15.0f, 1e-4f);
+    CHECK_NEAR(lb->max.x, 20.0f, 1e-4f);
+    CHECK_NEAR(lb->max.y, 20.0f, 1e-4f);
+
+    // solidAt: a full ground cell is solid anywhere inside; the ledge cell is solid only in its bottom
+    // half; empty cells and out-of-bounds read as not solid.
+    CHECK(solidAt(map, set, vec2(5.0f, 25.0f)));    // inside ground cell (0,2)
+    CHECK(solidAt(map, set, vec2(15.0f, 18.0f)));   // inside ledge's solid bottom half
+    CHECK(!solidAt(map, set, vec2(15.0f, 12.0f)));  // ledge cell but in its empty TOP half
+    CHECK(!solidAt(map, set, vec2(5.0f, 5.0f)));    // empty cell (0,0)
+    CHECK(!solidAt(map, set, vec2(-5.0f, 5.0f)));   // out of bounds
+
+    // dropY: a point falling down column x rests on the first solid top surface. Column 0 (only ground)
+    // rests on the ground top (y=20). Column 1 (ledge above ground) rests on the ledge top (y=15).
+    CHECK_NEAR(dropY(map, set, 5.0f, 0.0f, 999.0f), 20.0f, 1e-4f);   // ground top of cell (0,2)
+    CHECK_NEAR(dropY(map, set, 15.0f, 0.0f, 999.0f), 15.0f, 1e-4f);  // ledge top (mid-cell) at (1,1)
+    // A column with no solids below returns maxY (column 2 above the ground still hits ground at 20).
+    CHECK_NEAR(dropY(map, set, 25.0f, 0.0f, 999.0f), 20.0f, 1e-4f);  // column 2: only ground -> 20
+    CHECK_NEAR(dropY(map, set, 55.0f, 0.0f, 999.0f), 999.0f, 1e-4f); // x out of range -> maxY
 }
 
 void testCollisionLayers() {
@@ -5166,6 +5243,7 @@ int main() {
     testNavGrid();
     testNavMesh();
     testAutoTile();
+    testTileSet();
     testCollisionLayers();
     testArea2D();
     testAvoidance();

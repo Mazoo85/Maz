@@ -479,6 +479,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Procedural caves + tilemap autotiling** (`game::CellularCave` seeded cellular-automata cavern +
   `game::autotileMask4` 4-bit edge bitmask (out-of-bounds = solid) — Godot TileMap terrain sets; both
   deterministic pure logic; the `cave` demo generates a cave + autotiles its wall borders; M96)
+- [x] **TileSet resource + per-tile collision** (`game::TileSet`: `TileDef` maps a tile id to an atlas
+  source cell + a None/Full/**Box** (sub-cell) collision — Godot TileSet, where a single grid mixes full
+  walls with half-height ledges the Tilemap's binary solid bit can't express; `collectSolids` →
+  world-space collision boxes, `solidAt` point test, `dropY` drop-to-ground; the `tileset` demo drops
+  probe balls that rest on full tiles and mid-cell on ledges; M119) — slope/polygon tile shapes +
+  one-way platforms + a real atlas texture bind later
 - [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
 - [x] **Camera juice**: trauma-based screen shake (`maz::game::Shake`, deterministic; M39)
 - [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
@@ -595,6 +601,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       field (accent border + caret), type to edit (`ui::TextField` + `ui::FocusChain`) (M95)
 - [x] **Procedural cave** (`apps/cave`) — a seeded cellular-automata cavern with autotiled wall borders
       (`game::CellularCave` + `game::autotileMask4`) (M96)
+- [x] **TileSet & per-tile collision** (`apps/tileset`) — one grid mixing full ground/wall tiles with
+      half-height ledges, every tile's collision box drawn, and probe balls resting on what they hit
+      (`game::TileSet`) (M119)
 - [x] **Inverse kinematics** (`apps/reach`) — a grid of 2-bone arms whose elbows are solved so each hand
       reaches its target, with out-of-reach targets shown extended (`anim::solveTwoBoneIK`) (M97)
 - [x] **RVO avoidance** (`apps/avoid`) — 14 agents crossing a circle to antipodal goals, their trails

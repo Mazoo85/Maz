@@ -112,6 +112,7 @@ add_subdirectory(apps/envelope)
 add_subdirectory(apps/tree)
 add_subdirectory(apps/area2d)
 add_subdirectory(apps/layers)
+add_subdirectory(apps/tileset)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
