@@ -63,7 +63,8 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             StateMachine (generic FSM: enter/update/exit + guarded transitions),
             BehaviorTree (bt:: reactive Sequence/Selector/Inverter + Action/Condition leaves),
-            Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking)
+            Physics2D (circle + box rigid bodies: gravity + impulse/friction collisions + stacking),
+            CameraController2D (2D follow camera: deadzone + smoothing + world-bounds clamp + shake)
 anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) + generic sample;
             SpriteAnim — sprite-sheet flipbook playback (gridFrames + fps-timed loop/one-shot);
             Skeleton — joint hierarchy + bind/inverse-bind + skinning matrices for mesh deformation;
@@ -113,6 +114,8 @@ apps/
               bound to keyboard + gamepad; deterministic scripted self-play OR'd with real input
   solar/    Transform hierarchy — a solar system (sun -> planets -> moons) from a scene::TransformGraph;
               only pivot rotations are set, update() sweeps planets around the sun and moons around planets
+  camera/   2D follow camera — a large world + moving avatar; game::CameraController2D tracks it with a
+              deadzone, smoothing, and world-bounds clamp (world-space pass + pixel-space HUD)
 ```
 
 ## The frame loop (fixed timestep)

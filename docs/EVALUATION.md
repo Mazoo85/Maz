@@ -839,11 +839,39 @@ gap.
   moons (17 nodes; parents spin, children follow)"; no validation errors); new `solar_headless_smoke`
   + golden (RMSE 0, threshold 0.05) → ctest **38/38**, every existing golden unchanged.
 
+### Iteration 43 — "A camera that follows" (done)
+Self-directed: the engine had the *pieces* for a 2D game camera — a `Camera2D` data struct the sprite
+renderer honors, and a `Shake` — but no *controller* tying them into the behavior every scrolling 2D
+game actually ships: track a target smoothly, don't jitter on tiny motion, and never show past the
+level edge. Every app that wanted a following view had to hand-roll it. That's a foundational gap.
+- [x] **M82 — 2D follow camera (`game::CameraController2D`)**: three standard behaviors layered into
+  one controller. A **deadzone** box lets the target drift near the focus without scrolling (the camera
+  only moves to put the target back on the box edge), killing jitter. **Smoothing** eases the focus
+  toward its desired point with a frame-rate-independent exponential (`1 − e^(−k·dt)`), so scrolling
+  feels weighty rather than locked. **World-bounds** clamping keeps the visible rectangle inside the
+  level — the camera stops at the edge instead of revealing the void — and centers an axis whose world
+  span is smaller than the view. A shake offset rides on top of the final center without feeding back
+  into the follow position, and `worldToScreen` maps world points to pixels for HUD markers/culling.
+  It's math-only (no renderer dependency): the app reads `center()`/`zoom()` to fill a `Camera2D`.
+  Unit-tested to **918 checks** total: snap-to-target with no deadzone, a target held inside the
+  deadzone vs. pushed to the edge, smoothing that approaches monotonically without overshoot and
+  effectively arrives on a long step, bounds clamping at both corners and interior pass-through,
+  small-world axis centering, shake shifting `center()` but not `position()`, and `worldToScreen`
+  mapping the focus to the screen center with zoom-scaled offsets. The new `camera` demo tracks an
+  avatar on a deterministic path around a 2600×1800 world (far larger than the screen), drawing the
+  marker grid, world border, and deadzone box through the follow camera in a world-space pass and the
+  HUD in a pixel-space pass. Verified on lavapipe (grid scrolled to the camera's world position, green
+  deadzone box at the focus, avatar led out ahead as the view eases after it, the camera's view edge
+  clamped exactly at the world boundary; HUD "cam (1960,1130) avatar (2336,932)"; no validation
+  errors); new `camera_headless_smoke` + golden (RMSE 0.023, threshold 0.10) → ctest **39/39**, every
+  existing golden unchanged.
+
 Later: box rotation (angular impulse) in Physics2D,
 parallel/decorator BT nodes + a blackboard, GPU skinning, glTF skin/animation import, back
 TextureStore/mesh loading with the cache, parallelize a hot loop, prefabs/blueprints on top of the
 scene serializer, id-preserving load for entity-referencing components, action-map rebinding persisted
 via config, an ECS Transform/Parent component wired to TransformGraph, dirty-flag caching for the
-scene graph, UI layout / text input, order-independent transparency, material/uniform system,
-GPU-driven / indirect instancing, cross-platform CI, a deterministic hold-frame screenshot mode, wire
-the profiler's ScopedZone into an app's real frame loop.
+scene graph, wire the camera controller's shake to game::Shake in a real game, UI layout / text input,
+order-independent transparency, material/uniform system, GPU-driven / indirect instancing,
+cross-platform CI, a deterministic hold-frame screenshot mode, wire the profiler's ScopedZone into an
+app's real frame loop.

@@ -209,6 +209,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
 - [x] **2D:** tilemap rendering (view-culled, via atlas uv sub-rects)
 - [x] **2D:** multi-camera passes (world-space + pixel-space HUD in one frame)
+- [x] **2D:** follow camera (`game::CameraController2D`: deadzone + frame-rate-independent smoothing +
+  world-bounds clamp + shake offset + worldToScreen; the `camera` demo tracks an avatar in a large world; M82)
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
 - [ ] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers
 - [ ] SDF text for crisp scaling, text layout/wrapping
@@ -401,6 +403,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       Fire/Dash buttons) bound to keyboard + gamepad, with a live action-state HUD (M80)
 - [x] **Transform hierarchy** (`apps/solar`) — a solar system (sun → planets → moons) where only pivot
       rotations are set and the scene graph sweeps the whole tree into place (M81)
+- [x] **Follow camera** (`apps/camera`) — a large world with a moving avatar the camera tracks with a
+      deadzone, smoothing, and world-bounds clamp (M82)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
       the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /

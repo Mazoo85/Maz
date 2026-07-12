@@ -286,6 +286,14 @@ available):
   a tank, a health bar pinned to a unit. The new `solar` demo builds a sun → planets → moons tree and
   only ever sets each pivot's rotation; the graph sweeps the planets around the sun and the moons
   around the planets automatically
+- **M82** — 2D follow camera (`maz::game::CameraController2D`): the camera every 2D game needs. It
+  tracks a target with a **deadzone** (a box the target moves within without scrolling — kills
+  jitter), frame-rate-independent **smoothing** (the view eases toward its focus), and **world-bounds**
+  clamping (the visible rectangle never scrolls past the level edge; a too-small axis is centered),
+  with an optional shake offset layered on top and a `worldToScreen` helper. It's math-only (the app
+  reads `center()`/`zoom()` to fill a `Camera2D`). The new `camera` demo follows an avatar around a
+  world far larger than the screen, drawing the scene through the follow camera and the HUD in a
+  pixel-space pass
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
@@ -320,4 +328,5 @@ base64-embedded in one buffer, so there are no third-party model assets to licen
 - **Ecsave** (ECS save/load): no controls — a world is serialized to JSON, reloaded into a fresh world, and that reload is rendered · Esc to quit
 - **Actions** (input action map): WASD / arrows move · Space fires · Shift dashes (also plays itself via scripted input) · Esc to quit
 - **Solar** (transform hierarchy): no controls — a sun → planets → moons scene graph animates from pivot rotations alone · Esc to quit
+- **Camera** (2D follow camera): no controls — the camera tracks a moving avatar with deadzone + smoothing + world-bounds clamp · Esc to quit
 - **World** / **Village** (explore): WASD move · mouse look · Esc to quit

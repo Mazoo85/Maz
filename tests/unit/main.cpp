@@ -17,6 +17,7 @@
 #include "maz/ecs/World.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/BehaviorTree.hpp"
+#include "maz/game/CameraController2D.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/Physics2D.hpp"
@@ -896,6 +897,112 @@ void testProfiler() {
     safe.end(10); // no open zone
     safe.endFrame();
     CHECK(safe.zones().empty());
+}
+
+void testCameraController() {
+    using game::CameraController2D;
+
+    // No deadzone: snap() puts the focus exactly on the target.
+    {
+        CameraController2D cam;
+        cam.setSmoothing(0.0f);
+        cam.follow({100.0f, 50.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 100.0f, 1e-4f);
+        CHECK_NEAR(cam.position().y, 50.0f, 1e-4f);
+    }
+
+    // Deadzone: a target inside the box does NOT move the camera; outside moves it to the box edge.
+    {
+        CameraController2D cam;
+        cam.setDeadzone({40.0f, 30.0f});
+        // Start focused at origin; target 20 to the right is inside the 40 half-width box.
+        cam.follow({20.0f, 0.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 0.0f, 1e-4f); // unchanged
+        // Target 100 to the right is outside; camera moves so target sits on the +40 edge => center 60.
+        cam.follow({100.0f, 0.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 60.0f, 1e-4f);
+    }
+
+    // Smoothing eases toward the desired focus (frame-rate-independent), never overshooting.
+    {
+        CameraController2D cam;
+        cam.setSmoothing(10.0f);
+        cam.follow({100.0f, 0.0f});
+        float prev = 0.0f;
+        for (int i = 0; i < 5; ++i) {
+            cam.update(1.0f / 60.0f);
+            const float x = cam.position().x;
+            CHECK(x > prev);       // moving toward target
+            CHECK(x < 100.0f + 1e-3f); // never past it
+            prev = x;
+        }
+        // A very long step effectively arrives.
+        cam.update(100.0f);
+        CHECK_NEAR(cam.position().x, 100.0f, 1e-2f);
+    }
+
+    // World bounds clamp so the view rectangle stays inside the level.
+    {
+        CameraController2D cam;
+        cam.setViewport(320.0f, 180.0f, 1.0f); // viewHalf = (160, 90)
+        cam.setBounds({0.0f, 0.0f}, {1000.0f, 1000.0f});
+        cam.setSmoothing(0.0f);
+        // Target at the origin corner: center clamps to (160, 90).
+        cam.follow({0.0f, 0.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 160.0f, 1e-4f);
+        CHECK_NEAR(cam.position().y, 90.0f, 1e-4f);
+        // Far corner clamps to (1000-160, 1000-90) = (840, 910).
+        cam.follow({5000.0f, 5000.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 840.0f, 1e-4f);
+        CHECK_NEAR(cam.position().y, 910.0f, 1e-4f);
+        // Interior target passes through unclamped.
+        cam.follow({500.0f, 500.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 500.0f, 1e-4f);
+    }
+
+    // World smaller than the view on an axis: that axis is centered on the world.
+    {
+        CameraController2D cam;
+        cam.setViewport(320.0f, 180.0f, 1.0f); // viewHalf.x = 160
+        cam.setBounds({0.0f, 0.0f}, {100.0f, 2000.0f}); // world width 100 < view width 320
+        cam.setSmoothing(0.0f);
+        cam.follow({999.0f, 500.0f});
+        cam.snap();
+        CHECK_NEAR(cam.position().x, 50.0f, 1e-4f); // centered on [0,100]
+        CHECK_NEAR(cam.position().y, 500.0f, 1e-4f); // y large enough, clamped normally
+    }
+
+    // Shake offset shifts the reported center but not the follow position.
+    {
+        CameraController2D cam;
+        cam.setSmoothing(0.0f);
+        cam.follow({200.0f, 200.0f});
+        cam.snap();
+        cam.setShakeOffset({8.0f, -4.0f});
+        CHECK_NEAR(cam.position().x, 200.0f, 1e-4f); // follow center unaffected
+        CHECK_NEAR(cam.center().x, 208.0f, 1e-4f);   // camera center includes shake
+        CHECK_NEAR(cam.center().y, 196.0f, 1e-4f);
+    }
+
+    // worldToScreen: the camera center maps to the screen center; offsets scale by zoom.
+    {
+        CameraController2D cam;
+        cam.setViewport(800.0f, 600.0f, 2.0f);
+        cam.setSmoothing(0.0f);
+        cam.follow({100.0f, 100.0f});
+        cam.snap();
+        math::vec2 s = cam.worldToScreen({100.0f, 100.0f}, 800.0f, 600.0f);
+        CHECK_NEAR(s.x, 400.0f, 1e-3f);
+        CHECK_NEAR(s.y, 300.0f, 1e-3f);
+        math::vec2 s2 = cam.worldToScreen({110.0f, 100.0f}, 800.0f, 600.0f);
+        CHECK_NEAR(s2.x, 420.0f, 1e-3f); // +10 world * zoom 2 = +20 px
+    }
 }
 
 void testTransformGraph() {
@@ -2060,6 +2167,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testCameraController();
     testTransformGraph();
     testActionMap();
     testSceneSerializer();
