@@ -1488,20 +1488,50 @@ the clear animation pick.
   machine with cross-fades + condition/travel transitions; it is not nested sub-state-machines,
   root-motion extraction, or an animation-tree blend-graph editor — those remain.
 
+### Iteration 67 — "Benchmarking against Godot: reverb / distortion / compressor" (done)
+Continuing the Godot benchmark; audio was the most overdue subsystem. M99 gave the DSP core (biquad
+filter, feedback delay, a `Bus` effect chain), but Godot's `AudioEffect*` library also includes the
+three effects that make a mix sound finished — reverb (space), distortion (grit), and a compressor
+(dynamics). They're pure per-sample DSP that slots straight into the existing `Bus`, exactly testable,
+and with the same deterministic waveform-scope golden as M99, so it was the clear audio pick.
+- [x] **M106 — Reverb + distortion + compressor (`audio::Reverb` / `Distortion` / `Compressor`)**: added
+  additively to `Dsp.hpp`. `Reverb` is a Schroeder/Freeverb — four parallel `Comb` filters (each a delay
+  with a one-pole low-pass in its feedback path, the `damp` control, at mutually-detuned Freeverb delay
+  lengths scaled to the sample rate) summed, then two series `Allpass` filters for diffusion, mixed
+  wet/dry. `Distortion` is a `tanh` soft-clip waveshaper normalized so a full-scale input stays
+  full-scale. `Compressor` is a peak-envelope dynamics processor (fast-attack/slow-release follower;
+  above `threshold` it pulls the gain toward `ratio`:1). All three get `Effect` wrappers so they drop
+  into the `Bus`. `testAudioEffects` checks each exactly: the distortion is odd-symmetric, monotonic,
+  unity at full scale, and compresses dynamics (half-input keeps >half output); the compressor settles a
+  full-scale DC input to the predicted 0.625 gain while passing a sub-threshold input essentially
+  unchanged; the reverb is a bit-exact pass-through at wet 0 and rings out a decaying tail (energy well
+  past the input) otherwise; and a bare comb re-emits an impulse at exactly its delay length, decayed by
+  feedback. Unit count **3706 → 3719**. The new `reverb` demo scopes one source (a loud plucked note
+  then a quiet one) through each effect as stacked waveforms: the reverb fills the band with a dense
+  decaying tail past both notes, the distortion soft-clips them fatter/flatter, and the compressor
+  visibly pulls the loud note down toward the quiet one so the two even out. Precomputed at 44.1 kHz →
+  deterministic. New `reverb_headless_smoke` + golden (static, RMSE 0, threshold 0.05). Purely additive
+  (extended `Dsp.hpp` + new app), so all existing goldens — including the M99 `bus` scope — are
+  unchanged, confirmed by a serial golden run. ctest **62/62**. Honest scope: this completes the core
+  `AudioEffect` set (filter/delay/reverb/distortion/compressor); it is not the full Godot list (no
+  chorus/phaser/limiter/pitch-shift), and the *real-time* mixer still sums voices flatly — per-voice bus
+  routing through the live SDL callback remains the deferred (headlessly-unverifiable) integration step.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
 gaps and will not declare total superiority over Godot.
 
-Later (Godot-gap priorities + backlog): nested sub-state-machines + root-motion on the animation state
+Later (Godot-gap priorities + backlog): wiring the DSP buses into the real-time mixer (per-voice bus
+routing) + chorus/phaser/limiter/pitch-shift effects + WAV/OGG file loading (M106 completes the core
+AudioEffect set; M99 gives the bus core); nested sub-state-machines + root-motion on the animation state
 machine (M105 gives a flat cross-fading state machine); utility AI / GOAP / HTN planners on top of the BT
 (M104 rounds out the classic BT node set + blackboard); a theme server (named styles per control class) + StyleBoxFlat
 rounded corners/shadows + texture-sampled patches (M103 gives the nine-slice mapping + flat draw);
 2-point (warm-started) contact manifolds for stable box STACKS + motorized/limited slider + gear/weld
 joints (M102 completes the pin/spring/groove trio); normal-mapped / textured 2D lights (M101 gives soft
 shadows but lights are still flat-coloured); call-method/trigger tracks + a visual track editor on the
-timeline (M100 gives value tracks + per-segment easing); wiring the DSP buses into the real-time mixer
-(per-voice bus routing) + reverb/distortion/compressor effects (M99 gives the filter/delay/bus core);
+timeline (M100 gives value tracks + per-segment easing);
 ORCA half-plane avoidance + static-obstacle avoidance + wiring RVO into NavMesh/Steering as an integrated
 crowd sim (M98 gives agent-vs-agent velocity-sampling RVO); multi-bone CCD/FABRIK IK chains + Skeleton-
 integrated IK modifications (M97 gives closed-form 2-bone IK); 47-tile Wang autotiling + BSP/room

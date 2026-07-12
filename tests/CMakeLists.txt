@@ -485,6 +485,14 @@ set_tests_properties(statemachine_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME reverb_headless_smoke
+    COMMAND reverb --headless --frames 30)
+
+set_tests_properties(reverb_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

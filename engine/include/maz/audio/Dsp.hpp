@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -120,6 +121,144 @@ struct Delay {
     }
 };
 
+// ---- Reverb (Schroeder / Freeverb) -------------------------------------------------------------
+// A feedback COMB filter — the resonant building block of a Schroeder reverb. Outputs the delayed
+// sample and feeds it back through a one-pole low-pass (the `damp` control), so high frequencies decay
+// faster than lows, as in a real room.
+struct Comb {
+    std::vector<float> line;
+    std::size_t idx = 0;
+    float feedback = 0.84f;
+    float damp = 0.2f;
+    float store = 0.0f;
+
+    void configure(int delaySamples, float fb, float damping) {
+        line.assign(static_cast<std::size_t>(std::max(1, delaySamples)), 0.0f);
+        idx = 0;
+        feedback = fb;
+        damp = damping;
+        store = 0.0f;
+    }
+    void reset() {
+        std::fill(line.begin(), line.end(), 0.0f);
+        idx = 0;
+        store = 0.0f;
+    }
+    float process(float x) {
+        if (line.empty()) {
+            return x;
+        }
+        const float y = line[idx];
+        store = y * (1.0f - damp) + store * damp; // low-pass inside the feedback loop
+        line[idx] = x + store * feedback;
+        idx = idx + 1 >= line.size() ? 0 : idx + 1;
+        return y;
+    }
+};
+
+// A Schroeder ALLPASS filter — flat magnitude response but phase-smearing (diffusion), the second
+// stage of a Schroeder reverb that turns the comb resonances into a smooth tail.
+struct Allpass {
+    std::vector<float> line;
+    std::size_t idx = 0;
+    float feedback = 0.5f;
+
+    void configure(int delaySamples, float fb) {
+        line.assign(static_cast<std::size_t>(std::max(1, delaySamples)), 0.0f);
+        idx = 0;
+        feedback = fb;
+    }
+    void reset() {
+        std::fill(line.begin(), line.end(), 0.0f);
+        idx = 0;
+    }
+    float process(float x) {
+        if (line.empty()) {
+            return x;
+        }
+        const float buf = line[idx];
+        const float y = -x + buf;
+        line[idx] = x + buf * feedback;
+        idx = idx + 1 >= line.size() ? 0 : idx + 1;
+        return y;
+    }
+};
+
+// Schroeder / Freeverb-style reverb: four parallel comb filters (mutually-detuned delay lengths) summed,
+// then two series allpasses for diffusion, mixed against the dry signal — Godot's AudioEffectReverb.
+struct Reverb {
+    std::array<Comb, 4> combs;
+    std::array<Allpass, 2> allpasses;
+    float wet = 0.3f, dry = 0.7f;
+
+    void configure(float sampleRate, float roomSize = 0.84f, float damp = 0.2f, float wetMix = 0.3f) {
+        const int combLen[4] = {1557, 1617, 1491, 1422}; // Freeverb tunings (samples @ 44.1 kHz)
+        for (int i = 0; i < 4; ++i) {
+            combs[static_cast<std::size_t>(i)].configure(scale(combLen[i], sampleRate), roomSize, damp);
+        }
+        const int apLen[2] = {225, 341};
+        for (int i = 0; i < 2; ++i) {
+            allpasses[static_cast<std::size_t>(i)].configure(scale(apLen[i], sampleRate), 0.5f);
+        }
+        wet = wetMix;
+        dry = 1.0f - wetMix;
+    }
+    void reset() {
+        for (Comb& c : combs) c.reset();
+        for (Allpass& a : allpasses) a.reset();
+    }
+    float process(float x) {
+        float acc = 0.0f;
+        for (Comb& c : combs) {
+            acc += c.process(x);
+        }
+        acc *= 0.25f;
+        for (Allpass& a : allpasses) {
+            acc = a.process(acc);
+        }
+        return dry * x + wet * acc;
+    }
+    static int scale(int n, float sampleRate) {
+        return std::max(1, static_cast<int>(static_cast<float>(n) * sampleRate / 44100.0f));
+    }
+};
+
+// ---- Waveshaper distortion + dynamic-range compressor ------------------------------------------
+// Soft-clipping waveshaper (tanh): `drive` pushes the signal into the curve, adding harmonics and
+// rounding peaks. Normalized so a full-scale (±1) input stays full-scale — Godot's AudioEffectDistortion.
+struct Distortion {
+    float drive = 2.0f;
+
+    float process(float x) const {
+        const float d = drive < 1e-3f ? 1e-3f : drive;
+        return std::tanh(d * x) / std::tanh(d);
+    }
+    void reset() {}
+};
+
+// A peak-envelope compressor: follows the signal level (fast attack, slow release) and, above
+// `threshold`, reduces gain toward `ratio`:1 so loud peaks are tamed and the mix stays even — Godot's
+// AudioEffectCompressor. attack/release are per-sample smoothing coefficients in (0,1].
+struct Compressor {
+    float threshold = 0.5f;
+    float ratio = 4.0f;
+    float attack = 0.01f;
+    float release = 0.001f;
+    float env = 0.0f;
+
+    void reset() { env = 0.0f; }
+    float process(float x) {
+        const float a = std::fabs(x);
+        env += (a > env ? attack : release) * (a - env); // peak follower
+        float gain = 1.0f;
+        if (env > threshold && env > 1e-6f) {
+            const float compressed = threshold + (env - threshold) / ratio;
+            gain = compressed / env;
+        }
+        return x * gain;
+    }
+};
+
 // ---- Effect chain + bus ------------------------------------------------------------------------
 // A uniform interface so heterogeneous effects can be chained on a bus.
 struct Effect {
@@ -140,6 +279,27 @@ struct DelayEffect : Effect {
     explicit DelayEffect(const Delay& d) : delay(d) {}
     float process(float x) override { return delay.process(x); }
     void reset() override { delay.reset(); }
+};
+
+struct ReverbEffect : Effect {
+    Reverb reverb;
+    explicit ReverbEffect(const Reverb& r) : reverb(r) {}
+    float process(float x) override { return reverb.process(x); }
+    void reset() override { reverb.reset(); }
+};
+
+struct DistortionEffect : Effect {
+    Distortion dist;
+    explicit DistortionEffect(const Distortion& d) : dist(d) {}
+    float process(float x) override { return dist.process(x); }
+    void reset() override { dist.reset(); }
+};
+
+struct CompressorEffect : Effect {
+    Compressor comp;
+    explicit CompressorEffect(const Compressor& c) : comp(c) {}
+    float process(float x) override { return comp.process(x); }
+    void reset() override { comp.reset(); }
 };
 
 // A mix bus: an ordered effect chain plus an output gain, like a Godot audio bus. Feed one sample

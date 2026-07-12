@@ -485,6 +485,16 @@ available):
   demo steps a locomotion machine (idle/move/jump) over a scripted speed+jump timeline and draws the
   active-state weights as stacked colour bands — every cross-fade shows as one colour smoothly giving
   way to the next, and the `move` band is itself a walk→run blend space shaded by speed.
+- **M106** — audio **reverb / distortion / compressor** effects, extending the DSP core (M99) toward
+  Godot's `AudioEffectReverb`/`Distortion`/`Compressor`: `audio::Reverb` is a Schroeder/Freeverb (four
+  parallel damped comb filters + two series allpasses, wet/dry), `audio::Distortion` a tanh soft-clip
+  waveshaper (drive), and `audio::Compressor` a peak-envelope dynamic-range compressor (threshold/ratio/
+  attack/release) — all drop into the `Bus` as effects. Purely additive to the DSP module. Unit-tested
+  (distortion odd/monotonic/dynamics-compressing; compressor tames a loud signal while passing a quiet
+  one; reverb is a pass-through at wet 0 and rings out a decaying tail otherwise; comb feedback repeats
+  on schedule). The new `reverb` demo scopes one source (a loud note + a quiet note) through each effect
+  as stacked waveforms — the reverb tail rings past the notes, the distortion fattens/clips them, and the
+  compressor pulls the loud note down toward the quiet one.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

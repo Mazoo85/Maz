@@ -83,6 +83,7 @@ CASES=(
     "stylebox||2.0|0.05"
     "blackboard||2.0|0.05"
     "statemachine||2.0|0.05"
+    "reverb||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

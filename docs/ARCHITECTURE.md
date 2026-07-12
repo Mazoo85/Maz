@@ -122,8 +122,9 @@ fx/         ParticleSystem — pooled 2D particles   (on top of Renderer)
 audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, per-voice L/R pan);
             Spatial2D — 2D positional audio math (listener/source distance attenuation + constant-power
             stereo pan → per-channel gain), Godot AudioStreamPlayer2D-style;
-            Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo + Bus
-            ordered effect chain), Godot AudioEffectFilter/AudioEffectDelay-style  (depends on: core, SDL3)
+            Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo +
+            Reverb Schroeder/Freeverb (comb+allpass) + Distortion tanh waveshaper + Compressor + Bus
+            ordered effect chain), Godot AudioEffectFilter/Delay/Reverb/Distortion/Compressor-style  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -190,6 +191,8 @@ apps/
               around the crowded centre as reciprocal velocity obstacles route them apart (game::rvoVelocity)
   bus/      Audio DSP buses — one plucked-sawtooth note scoped as four stacked waveforms (source,
               low-pass, high-pass, low-pass→delay bus) (audio::Biquad / audio::Delay / audio::Bus)
+  reverb/   Reverb/distortion/compressor — one note (loud + quiet) scoped through a Schroeder reverb, a
+              tanh distortion, and a compressor as stacked waveforms (audio::Reverb/Distortion/Compressor)
   timeline/ Keyframe timeline — an arrow driven by keyed x/y/rotation/scale/colour tracks, shown as an
               onion-skin trail plus an editor track panel with keyframe dots + a playhead (anim::Timeline)
   softshadow/ Soft 2D shadows — the same box+light drawn hard (point light) vs soft (area light, 24

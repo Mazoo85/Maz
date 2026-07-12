@@ -3264,6 +3264,87 @@ void testAudioDsp() {
     }
 }
 
+void testAudioEffects() {
+    // ---- Distortion (tanh waveshaper) ----
+    {
+        audio::Distortion d;
+        d.drive = 3.0f;
+        // Odd symmetry: f(-x) == -f(x).
+        CHECK_NEAR(d.process(-0.4f), -d.process(0.4f), 1e-5f);
+        // Full-scale preserved: f(1) == 1 (and f(0) == 0).
+        CHECK_NEAR(d.process(1.0f), 1.0f, 1e-5f);
+        CHECK_NEAR(d.process(0.0f), 0.0f, 1e-6f);
+        // Monotonic increasing across the range.
+        float prev = d.process(-1.0f);
+        bool mono = true;
+        for (float x = -0.9f; x <= 1.0f; x += 0.1f) {
+            const float y = d.process(x);
+            if (y < prev - 1e-6f) mono = false;
+            prev = y;
+        }
+        CHECK(mono);
+        // Soft compression of dynamics: a half-amplitude input keeps MORE than half the output level.
+        CHECK(d.process(0.5f) / d.process(1.0f) > 0.5f);
+    }
+
+    // ---- Compressor ----
+    {
+        // A loud, sustained input (above threshold) is pulled DOWN toward the compressed level.
+        audio::Compressor c;
+        c.threshold = 0.5f;
+        c.ratio = 4.0f;
+        c.attack = 0.02f;
+        c.release = 0.002f;
+        float out = 0.0f;
+        for (int i = 0; i < 4000; ++i) {
+            out = c.process(1.0f); // DC at full scale so the envelope settles
+        }
+        // Steady-state gain = compressed/env with env->1: 0.5 + 0.5/4 = 0.625.
+        CHECK(out < 0.9f);
+        CHECK_NEAR(out, 0.625f, 0.03f);
+
+        // A quiet input (below threshold) passes essentially unchanged.
+        audio::Compressor c2;
+        c2.threshold = 0.5f;
+        float q = 0.0f;
+        for (int i = 0; i < 4000; ++i) {
+            q = c2.process(0.2f);
+        }
+        CHECK_NEAR(q, 0.2f, 1e-3f);
+    }
+
+    // ---- Reverb ----
+    {
+        const float sr = 44100.0f;
+        // wet = 0 -> the reverb is a pass-through (dry only).
+        audio::Reverb dryOnly;
+        dryOnly.configure(sr, 0.84f, 0.2f, 0.0f);
+        CHECK_NEAR(dryOnly.process(0.7f), 0.7f, 1e-5f);
+
+        // wet > 0 -> an impulse produces a decaying TAIL: energy after the impulse sample is nonzero.
+        audio::Reverb rev;
+        rev.configure(sr, 0.84f, 0.2f, 0.5f);
+        rev.process(1.0f); // the impulse
+        double tail = 0.0;
+        for (int i = 0; i < 8000; ++i) {
+            tail += std::fabs(static_cast<double>(rev.process(0.0f)));
+        }
+        CHECK(tail > 0.1); // the room rings out well past the input
+
+        // Comb feedback re-emits the impulse after its delay length.
+        audio::Comb comb;
+        comb.configure(20, 0.8f, 0.0f);
+        std::vector<float> out;
+        out.push_back(comb.process(1.0f));
+        for (int i = 1; i < 60; ++i) {
+            out.push_back(comb.process(0.0f));
+        }
+        CHECK_NEAR(out[20], 1.0f, 1e-4f);       // first repeat at the delay length
+        CHECK_NEAR(out[40], 0.8f, 1e-3f);       // second repeat, decayed by feedback
+        CHECK_NEAR(out[10], 0.0f, 1e-5f);       // silence between taps
+    }
+}
+
 void testSpatial2D() {
     using math::vec2;
     audio::Listener2D lis;
@@ -3927,6 +4008,7 @@ int main() {
     testPhysics2DJoints();
     testPhysics2DGroove();
     testAudioDsp();
+    testAudioEffects();
     testSpatial2D();
     testTwoBoneIK();
     testBlendSpace();

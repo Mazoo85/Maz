@@ -336,7 +336,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **DSP effects + mix buses** (`audio::Biquad` RBJ low/high/band-pass + `audio::Delay` feedback echo
   + `audio::Bus` ordered effect chain with output gain — Godot AudioEffectFilter/AudioEffectDelay + bus
   layout; pure per-sample math, the `bus` demo scopes source/low-pass/high-pass/low-pass→delay as
-  stacked waveforms; M99) — reverb, distortion, compressor, and real-time per-voice bus routing later
+  stacked waveforms; M99)
+- [x] **Reverb + distortion + compressor** (`audio::Reverb` Schroeder/Freeverb (4 combs + 2 allpasses),
+  `audio::Distortion` tanh waveshaper, `audio::Compressor` peak-envelope dynamics — Godot AudioEffect
+  Reverb/Distortion/Compressor; drop into the `Bus`; the `reverb` demo scopes a note through each; M106)
+  — real-time per-voice bus routing in the live mixer later
 - [ ] WAV/OGG loading, per-sound pitch, categories/ducking
 - [ ] 3D spatialization, doppler
 
@@ -526,6 +530,8 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Keyframe timeline** (`apps/timeline`) — an arrow driven by keyed x/y/rotation/scale/colour
       tracks, shown as an onion-skin trail plus an editor track panel with keyframe dots + a playhead
       (`anim::Timeline`) (M100)
+- [x] **Reverb/distortion/compressor** (`apps/reverb`) — one note scoped through a Schroeder reverb, a
+      tanh distortion, and a compressor as stacked waveforms (`audio::Reverb/Distortion/Compressor`) (M106)
 - [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
       vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
 - [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
