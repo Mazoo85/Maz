@@ -28,3 +28,10 @@ target_link_libraries(maz_unit_tests PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_camera COMMAND maz_unit_tests)
 set_tests_properties(unit_camera PROPERTIES TIMEOUT 30)
+
+# Unit tests: geometry primitives (AABB/Ray/Plane) and intersection helpers.
+add_executable(maz_unit_geometry unit_geometry.cpp)
+target_link_libraries(maz_unit_geometry PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_geometry COMMAND maz_unit_geometry)
+set_tests_properties(unit_geometry PROPERTIES TIMEOUT 30)
