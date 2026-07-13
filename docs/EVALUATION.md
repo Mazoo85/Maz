@@ -2927,6 +2927,35 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 123 — "Benchmarking against Godot: colour Gradient resource" (done)
+Rotating to **animation** for breadth (recent rounds were UI, math, 2D-physics, audio, input). Maz had
+`anim::Curve` (M155, a keyframed scalar function) but no colour **Gradient** — Godot's companion resource that
+maps a parameter to a *colour* rather than a scalar. Gradients drive particle colour-over-lifetime
+(CPUParticles), GradientTexture1D/2D, sky and depth ramps, and health/heat tints; the engine's particle
+systems and 2D lights had only fixed or hand-lerped colours. Pure data + interpolation, so it unit-tests
+exactly and drives a colourful golden.
+- [x] **M162 — colour Gradient (`anim::Gradient`)**: a new `Gradient.hpp` holding sorted `(offset, Color)`
+  stops with three interpolation modes matching Godot's `Gradient.InterpolationMode` — Constant (hard bands),
+  Linear (per-channel lerp), and Cubic (a Catmull-Rom spline through the neighbouring stops, clamped to [0,1]
+  so overshoot can't produce invalid colours). `sample(t)` clamps below the first / above the last stop
+  (Godot's clamped domain); a two-colour constructor gives the black→white default; `addStop` keeps stops
+  sorted, `setOffset` re-sorts, and `bake(N)` produces an N-colour ramp (Godot's GradientTexture1D). `testGradient`
+  pins the empty/single-stop cases, the black→white linear midpoint + domain clamp, a red/green/blue three-stop
+  quarter-point, sampling exactly at a stop returning that colour in any mode, Constant band-holding, Cubic
+  hitting the stops with channels staying in [0,1], `bake` endpoints/length/midpoint incl. bake(1)/bake(0),
+  and sorted insertion + setOffset re-sort. Unit checks **7112 → 7150**. The new `gradient` demo renders a
+  gallery of ramp bars — the same five-stop spectrum under Constant/Linear/Cubic side by side, fire / health /
+  ocean ramps, and the fire ramp baked to eight discrete swatches with stop ticks. 2D golden (threshold 0.05,
+  `gradient` RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden
+  run); ctest **117/117 → 118/118**. Honest scope: this is the colour-ramp core; it does **not** yet include a
+  selectable interpolation *colour space* (Godot's sRGB/OKLab `interpolation_color_space`), a GPU
+  GradientTexture upload, or wiring gradients into the existing particle colour track — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 122 — "Benchmarking against Godot: ItemList control" (done)
 Rotating to **UI / Control nodes** for breadth (recent rounds were math, 2D-physics, audio, input, 2D-render).
 Maz already had a broad Control set — `LayoutNode`/`Container` (anchors + auto-layout), `Range`/`ProgressBar`,

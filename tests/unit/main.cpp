@@ -10,6 +10,7 @@
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/BlendTree.hpp"
 #include "maz/anim/Curve.hpp"
+#include "maz/anim/Gradient.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/anim/RootMotion.hpp"
 #include "maz/audio/Dsp.hpp"
@@ -6616,6 +6617,117 @@ void testCurve() {
     }
 }
 
+void testGradient() {
+    using anim::Gradient;
+    using anim::GradientInterp;
+    using render::Color;
+
+    const Color black{0.0f, 0.0f, 0.0f, 1.0f};
+    const Color white{1.0f, 1.0f, 1.0f, 1.0f};
+    const Color red{1.0f, 0.0f, 0.0f, 1.0f};
+    const Color green{0.0f, 1.0f, 0.0f, 1.0f};
+    const Color blue{0.0f, 0.0f, 1.0f, 1.0f};
+
+    // Empty gradient -> opaque black; single stop -> that colour everywhere.
+    {
+        Gradient g;
+        const Color e = g.sample(0.5f);
+        CHECK_NEAR(e.r, 0.0f, 1e-5f);
+        CHECK_NEAR(e.a, 1.0f, 1e-5f);
+        g.addStop(0.3f, red);
+        CHECK_NEAR(g.sample(0.0f).r, 1.0f, 1e-5f);
+        CHECK_NEAR(g.sample(1.0f).r, 1.0f, 1e-5f);
+    }
+
+    // Two-stop constructor is black->white; linear midpoint is mid-grey; domain clamps.
+    {
+        Gradient g(black, white);
+        CHECK(g.stopCount() == 2);
+        CHECK_NEAR(g.sample(0.0f).r, 0.0f, 1e-5f);
+        CHECK_NEAR(g.sample(1.0f).r, 1.0f, 1e-5f);
+        const Color m = g.sample(0.5f);
+        CHECK_NEAR(m.r, 0.5f, 1e-4f);
+        CHECK_NEAR(m.g, 0.5f, 1e-4f);
+        CHECK_NEAR(m.b, 0.5f, 1e-4f);
+        CHECK_NEAR(g.sample(-1.0f).r, 0.0f, 1e-5f); // below -> first
+        CHECK_NEAR(g.sample(2.0f).r, 1.0f, 1e-5f);  // above -> last
+    }
+
+    // Three stops red@0, green@0.5, blue@1; linear quarter point is halfway red->green.
+    {
+        Gradient g;
+        g.interp = GradientInterp::Linear;
+        g.addStop(0.0f, red);
+        g.addStop(0.5f, green);
+        g.addStop(1.0f, blue);
+        const Color q = g.sample(0.25f);
+        CHECK_NEAR(q.r, 0.5f, 1e-4f);
+        CHECK_NEAR(q.g, 0.5f, 1e-4f);
+        CHECK_NEAR(q.b, 0.0f, 1e-4f);
+        // Sampling exactly at a stop returns that stop's colour (any mode).
+        const Color mid = g.sample(0.5f);
+        CHECK_NEAR(mid.g, 1.0f, 1e-4f);
+        CHECK_NEAR(mid.r, 0.0f, 1e-4f);
+    }
+
+    // Constant mode holds the lower stop's colour across the segment.
+    {
+        Gradient g;
+        g.interp = GradientInterp::Constant;
+        g.addStop(0.0f, red);
+        g.addStop(1.0f, blue);
+        CHECK_NEAR(g.sample(0.5f).r, 1.0f, 1e-5f);
+        CHECK_NEAR(g.sample(0.99f).r, 1.0f, 1e-5f);
+        CHECK_NEAR(g.sample(0.99f).b, 0.0f, 1e-5f);
+        CHECK_NEAR(g.sample(1.0f).b, 1.0f, 1e-5f); // at/after the last stop -> last colour
+    }
+
+    // Cubic passes through the stops and stays within [0,1] channels.
+    {
+        Gradient g;
+        g.interp = GradientInterp::Cubic;
+        g.addStop(0.0f, black);
+        g.addStop(0.5f, white);
+        g.addStop(1.0f, black);
+        CHECK_NEAR(g.sample(0.0f).r, 0.0f, 1e-4f);
+        CHECK_NEAR(g.sample(0.5f).r, 1.0f, 1e-4f); // hits the middle stop exactly
+        CHECK_NEAR(g.sample(1.0f).r, 0.0f, 1e-4f);
+        const Color s = g.sample(0.25f);
+        CHECK(s.r >= 0.0f && s.r <= 1.0f); // clamped even if the spline overshoots
+    }
+
+    // bake(N): first == first stop, last == last stop, correct length.
+    {
+        Gradient g;
+        g.addStop(0.0f, red);
+        g.addStop(1.0f, blue);
+        const auto ramp = g.bake(5);
+        CHECK(ramp.size() == 5);
+        CHECK_NEAR(ramp.front().r, 1.0f, 1e-5f);
+        CHECK_NEAR(ramp.back().b, 1.0f, 1e-5f);
+        CHECK_NEAR(ramp[2].r, 0.5f, 1e-4f); // middle sample is the linear midpoint
+        // bake(1) samples the centre; bake(0) is empty.
+        CHECK(g.bake(1).size() == 1);
+        CHECK(g.bake(0).empty());
+    }
+
+    // addStop keeps stops sorted; setOffset re-sorts.
+    {
+        Gradient g;
+        g.addStop(1.0f, blue);
+        g.addStop(0.0f, red);
+        g.addStop(0.5f, green);
+        CHECK(g.stopCount() == 3);
+        CHECK_NEAR(g.stop(0).offset, 0.0f, 1e-6f);
+        CHECK_NEAR(g.stop(1).offset, 0.5f, 1e-6f);
+        CHECK_NEAR(g.stop(2).offset, 1.0f, 1e-6f);
+        CHECK_NEAR(g.stop(0).color.r, 1.0f, 1e-6f); // red stayed at offset 0
+        g.setOffset(0, 2.0f);                       // move red to the end
+        CHECK_NEAR(g.stop(2).color.r, 1.0f, 1e-6f);
+        CHECK_NEAR(g.stop(2).offset, 2.0f, 1e-6f);
+    }
+}
+
 void testRootMotion() {
     using anim::RootMotionSample;
     using anim::RootMotionTrack;
@@ -9196,6 +9308,7 @@ int main() {
     testAnimClip();
     testAdditiveBlend();
     testCurve();
+    testGradient();
     testRootMotion();
     testAnimator();
     testEventBus();

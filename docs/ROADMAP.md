@@ -575,6 +575,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `[min,max]` range — Godot's `Curve` resource, distinct from the `Curve2D` Bézier path; `sample(x)` holds
   the end values outside the domain; the `floatcurve` demo plots a linear ramp, a cubic ease-in-out S-curve,
   an ease-out, and a particle-size-over-life profile; M155) — bake-to-LUT + editor handles later
+- [x] **Colour Gradient resource** (`anim::Gradient`: sorted `(offset, colour)` stops sampled over [0,1]
+  with Constant / Linear / Cubic (Catmull-Rom, clamped) modes, a two-colour constructor, `setOffset` re-sort,
+  and `bake(N)` → an N-colour ramp (GradientTexture1D) — Godot's `Gradient`, the colour analogue of `Curve`;
+  the `gradient` demo shows a spectrum under all three modes plus fire / health / ocean ramps and a baked
+  swatch strip; M162) — a selectable interpolation colour space (sRGB/OKLab), a GPU GradientTexture, and
+  wiring it into the particle colour track later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59)
 - [x] **Tween sequencer / property animator** (`anim::TweenPlayer`: chains Property/Interval/Callback

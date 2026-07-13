@@ -933,6 +933,14 @@ set_tests_properties(itemlist_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME gradient_headless_smoke
+    COMMAND gradient --headless --frames 30)
+
+set_tests_properties(gradient_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

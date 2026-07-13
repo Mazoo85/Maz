@@ -155,6 +155,7 @@ add_subdirectory(apps/randomizer)
 add_subdirectory(apps/kinematic)
 add_subdirectory(apps/geometry)
 add_subdirectory(apps/itemlist)
+add_subdirectory(apps/gradient)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

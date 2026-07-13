@@ -852,6 +852,11 @@ available):
   `ensureVisible`/`visibleRange`) and keyboard nav that skips disabled entries — the list behind file dialogs,
   inventories, and level-select menus. The new `itemlist` demo draws a scrolled single-select saved-games list
   with a scrollbar thumb and a multi-select loadout with checked rows.
+- **M162** — **colour Gradient resource** (`anim::Gradient`), toward Godot's `Gradient`: sorted colour stops
+  sampled over a 0..1 ramp with constant / linear / cubic (Catmull-Rom) interpolation, plus `bake(N)` for a
+  GradientTexture — the colour ramp behind particle colour-over-lifetime, sky ramps, and health/heat tints.
+  The new `gradient` demo shows a spectrum under all three modes plus fire / health / ocean ramps and a baked
+  swatch strip.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

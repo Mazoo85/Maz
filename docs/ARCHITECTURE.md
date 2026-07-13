@@ -232,6 +232,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             Curve — float-curve resource (Godot Curve): keyframed y=f(x) with per-point tangents +
               Constant/Linear/Cubic-Hermite modes + range clamp, sample(x) — particle size/alpha over life,
               fades, custom easing (distinct from math::Curve2D, a Bézier path);
+            Gradient — colour-ramp resource (Godot Gradient): sorted (offset, Color) stops sampled over [0,1]
+              with Constant/Linear/Cubic (Catmull-Rom, clamped) modes, setOffset re-sort, bake(N) → an
+              N-colour ramp (GradientTexture1D) — particle colour-over-life, sky/health/heat tints;
             RootMotionTrack — root motion (cumulative clip-local position+heading; delta with loop-seam sum;
               advance() applies a step to a world pose, rotating clip-local travel by the current facing so
               feet don't slide), Godot AnimationMixer root-motion-track-style
@@ -387,6 +390,8 @@ apps/
               output + a decode(encode(x))==x round-trip check
   floatcurve/ Float curves — four anim::Curve shapes plotted (linear / cubic ease-in-out / ease-out / a
               multi-point particle-size profile) with control points marked
+  gradient/  Colour gradients — a spectrum ramp under Constant/Linear/Cubic modes side by side, plus fire /
+              health / ocean ramps and the fire ramp baked to 8 swatches (anim::Gradient)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

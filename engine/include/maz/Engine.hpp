@@ -9,6 +9,7 @@
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/BlendTree.hpp"
 #include "maz/anim/Curve.hpp"
+#include "maz/anim/Gradient.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/anim/RootMotion.hpp"
 #include "maz/anim/Skeleton.hpp"
