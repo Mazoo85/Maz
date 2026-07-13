@@ -12,6 +12,7 @@ add_library(maz STATIC
     src/core/Config.cpp
     src/assets/Model.cpp
     src/scene/Camera.cpp
+    src/scene/Scene.cpp
     src/platform/Window.cpp
     src/platform/Input.cpp
     src/render/VulkanContext.cpp

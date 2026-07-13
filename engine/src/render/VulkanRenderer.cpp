@@ -28,8 +28,8 @@ public:
     bool beginFrame() override;
     void setClearColor(const Color& color) override { m_clearColor = color; }
     void endFrame() override;
-    bool uploadModel(const assets::Model& model) override;
-    void drawModel(const math::mat4& mvp, const math::mat4& model) override;
+    int uploadModel(const assets::Model& model) override;
+    void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) override;
     bool isActive() const override { return m_active; }
 
 private:
@@ -98,18 +98,18 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     return true;
 }
 
-bool VulkanRenderer::uploadModel(const assets::Model& model) {
+int VulkanRenderer::uploadModel(const assets::Model& model) {
     if (!m_active || !m_mesh.ready()) {
-        return false;
+        return -1;
     }
     return m_mesh.uploadModel(m_ctx, model);
 }
 
-void VulkanRenderer::drawModel(const math::mat4& mvp, const math::mat4& model) {
-    if (!m_active || !m_mesh.hasMesh()) {
+void VulkanRenderer::drawModel(int handle, const math::mat4& mvp, const math::mat4& model) {
+    if (!m_active || !m_mesh.hasModels()) {
         return;
     }
-    m_mesh.draw(m_commandBuffers[m_currentFrame], mvp, model, m_swapchain.extent());
+    m_mesh.draw(m_commandBuffers[m_currentFrame], handle, mvp, model, m_swapchain.extent());
 }
 
 bool VulkanRenderer::createCommands() {
