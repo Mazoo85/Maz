@@ -102,6 +102,7 @@
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
+#include "maz/render/AtlasPacker.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -280,6 +281,108 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testAtlasPacker() {
+    using render::AtlasPacker;
+    using render::PackSize;
+    using render::Placement;
+
+    // Helper: do two placed rects overlap?
+    auto overlap = [](const Placement& a, const Placement& b) {
+        return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    };
+
+    // --- single insert lands bottom-left; occupancy tracks area --------------------------------
+    {
+        AtlasPacker p(100, 100);
+        CHECK_NEAR(p.occupancy(), 0.0f, 1e-6f);
+        const Placement a = p.insert(40, 30);
+        CHECK(a.placed);
+        CHECK(a.x == 0 && a.y == 0 && a.w == 40 && a.h == 30);
+        CHECK_NEAR(p.occupancy(), 40.0f * 30.0f / (100.0f * 100.0f), 1e-5f);
+
+        // Next rect can't overlap the first.
+        const Placement b = p.insert(40, 30);
+        CHECK(b.placed);
+        CHECK(!overlap(a, b));
+    }
+
+    // --- rejects rects that cannot fit ----------------------------------------------------------
+    {
+        AtlasPacker p(64, 64);
+        CHECK(!p.insert(65, 10).placed);  // too wide
+        CHECK(!p.insert(10, 65).placed);  // too tall
+        CHECK(!p.insert(0, 10).placed);   // degenerate
+        CHECK(!p.insert(10, -5).placed);  // degenerate
+        // A valid one still packs after rejections (rejections leave the bin unchanged).
+        CHECK(p.insert(64, 64).placed);
+        CHECK_NEAR(p.occupancy(), 1.0f, 1e-6f); // exact fill
+        CHECK(!p.insert(1, 1).placed);          // now full
+    }
+
+    // --- exact tiling fills the bin with zero waste --------------------------------------------
+    {
+        AtlasPacker p(80, 80);
+        std::vector<PackSize> sizes;
+        for (int i = 0; i < 16; ++i) {
+            sizes.push_back(PackSize{20, 20}); // 4x4 grid of 20x20 exactly fills 80x80
+        }
+        const std::vector<Placement> out = p.pack(sizes);
+        int placed = 0;
+        for (const Placement& q : out) {
+            if (q.placed) {
+                ++placed;
+            }
+        }
+        CHECK(placed == 16);
+        CHECK_NEAR(p.occupancy(), 1.0f, 1e-6f);
+        // No two placed rects overlap, and all lie inside the bin.
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            CHECK(out[i].x >= 0 && out[i].y >= 0);
+            CHECK(out[i].x + out[i].w <= 80 && out[i].y + out[i].h <= 80);
+            for (std::size_t j = i + 1; j < out.size(); ++j) {
+                CHECK(!overlap(out[i], out[j]));
+            }
+        }
+    }
+
+    // --- a mixed batch packs without overlap; pack() returns input order -----------------------
+    {
+        AtlasPacker p(128, 128);
+        std::vector<PackSize> sizes = {{30, 60}, {50, 20}, {40, 40}, {20, 20},
+                                       {60, 30}, {25, 45}, {70, 15}, {35, 35}};
+        const std::vector<Placement> out = p.pack(sizes);
+        CHECK(out.size() == sizes.size());
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            // returned in original order: dimensions match the input at the same index.
+            CHECK(out[i].w == sizes[i].w && out[i].h == sizes[i].h);
+            if (out[i].placed) {
+                CHECK(out[i].x + out[i].w <= 128 && out[i].y + out[i].h <= 128);
+            }
+        }
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            if (!out[i].placed) {
+                continue;
+            }
+            for (std::size_t j = i + 1; j < out.size(); ++j) {
+                if (out[j].placed) {
+                    CHECK(!overlap(out[i], out[j]));
+                }
+            }
+        }
+        CHECK(p.occupancy() > 0.0f && p.occupancy() <= 1.0f);
+    }
+
+    // --- reset clears the bin -------------------------------------------------------------------
+    {
+        AtlasPacker p(32, 32);
+        CHECK(p.insert(32, 32).placed);
+        CHECK(!p.insert(1, 1).placed);
+        p.reset();
+        CHECK_NEAR(p.occupancy(), 0.0f, 1e-6f);
+        CHECK(p.insert(1, 1).placed); // room again
     }
 }
 
@@ -10169,6 +10272,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testAtlasPacker();
     testForceField2D();
     testExpression();
     testAStar2D();

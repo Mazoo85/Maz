@@ -149,6 +149,7 @@ CASES=(
     "astar||2.0|0.05"
     "expr||2.0|0.05"
     "forcefield||2.0|0.05"
+    "atlas||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

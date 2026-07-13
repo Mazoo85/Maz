@@ -165,6 +165,7 @@ add_subdirectory(apps/popupmenu)
 add_subdirectory(apps/astar)
 add_subdirectory(apps/expr)
 add_subdirectory(apps/forcefield)
+add_subdirectory(apps/atlas)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

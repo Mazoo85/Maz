@@ -2927,6 +2927,40 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 133 — "Benchmarking against Godot: texture-atlas rectangle packer" (done)
+Rotating to **resources / render tooling** for breadth (the last five rounds were particles, core-scripting,
+navigation, UI, and math). Re-surveying: Maz can load/decode textures, build meshes, save resource packs
+and text/binary scenes — but had **no rectangle bin packer**, the layout step behind Godot's atlas/
+sprite-sheet importer and its dynamic font glyph cache (which pack many small images into one texture to
+cut draw calls and memory). This is a self-contained, widely-reused algorithm (sprite sheets, glyph
+atlases, lightmap packing) that is pure integer geometry — so it unit-tests exactly and renders a
+golden-stable packed atlas.
+
+Ranked closable gaps considered this round (resource-weighted): **(1) rectangle bin packer for atlases —
+chosen**, the clearest missing resource-tooling primitive; (2) `Resource.duplicate(deep)` deep-copy;
+(3) a `ResourceUID`-style stable id registry; (4) an `XMLParser` (Godot ships one, e.g. for TMX);
+(5) multi-page/auto-grow atlas packing. (2)–(5) remain follow-ups; a GUI import dashboard is out of scope.
+
+- [x] **M172 — texture-atlas rectangle packer (`render::AtlasPacker`)**: a new `AtlasPacker.hpp` that
+  places rectangles into a fixed width×height bin using the **Skyline Bottom-Left** heuristic (track the
+  upper contour; drop each rect where its resulting top is lowest, ties to the left; then trim + merge the
+  skyline). `insert(w,h)` returns a `Placement{x,y,w,h,placed}` (placed=false, bin unchanged, if it does
+  not fit); `pack(sizes)` height-sorts a batch (the standard heuristic) but returns placements in the
+  caller's original order; plus `occupancy()`/`reset()`. Fully deterministic. `testAtlasPacker` pins
+  bottom-left placement + occupancy, rejection of oversized/degenerate rects (bin left unchanged), an
+  exact 4×4 tiling that fills to occupancy 1.0 with a verified no-overlap/in-bounds invariant across every
+  pair, a mixed 8-rect batch (original-order return + no overlap), and reset. Unit checks **7478 → 7687**.
+  The new `atlas` demo packs 80 deterministic rectangles into a single 600×560 bin, drawing each placed
+  rect in a distinct colour with the packed-count and occupancy in the header. 2D golden (threshold 0.05,
+  `atlas` RMSE 0). Purely additive, so every existing golden is byte-unchanged; ctest **127/127 →
+  128/128**. Honest scope: single-bin, axis-aligned, no rotation or inter-rect padding, no multi-page/
+  auto-grow, and not the MaxRects/guillotine variants — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 132 — "Benchmarking against Godot: particle force fields" (done)
 Rotating to **particles / VFX** for breadth (the last five rounds were core-scripting, navigation, UI,
 math, and audio). Re-surveying: Maz has a runtime particle pool (`fx::ParticleSystem`) with gravity,
