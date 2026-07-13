@@ -69,7 +69,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       type ids landed** (`maz::core::type_id<T>()`/`type_hash<T>()`/`type_name<T>()`/`type_info<T>()`:
       run-stable `StringId` type ids from the compiler-spelled name via `fnv1a64`, plus `TypeInfo`
       {id,name,size,alignment}; header-only, unit-tested); property/field registration still TODO
-- [ ] Serialization (binary + JSON), versioned schemas
+- [~] Serialization (binary + JSON), versioned schemas — **binary `ByteWriter`/`ByteReader` landed**
+      (`maz::core` endian-safe little-endian POD/string/StringId round-trip with a bounds- and
+      overflow-safe fail-safe reader; header-only, unit-tested + ASAN/UBSan-fuzzed); JSON +
+      versioned schemas still TODO
 - [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
       `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII
       steady_clock timer; header-only, unit-tested); frame markers + Tracy still TODO

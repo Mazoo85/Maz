@@ -126,3 +126,10 @@ target_link_libraries(maz_unit_typeid PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_typeid COMMAND maz_unit_typeid)
 set_tests_properties(unit_typeid PROPERTIES TIMEOUT 30)
+
+# Unit tests: binary serialization ByteWriter/ByteReader (LE layout, bounds/overflow-safe reads).
+add_executable(maz_unit_serialization unit_serialization.cpp)
+target_link_libraries(maz_unit_serialization PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_serialization COMMAND maz_unit_serialization)
+set_tests_properties(unit_serialization PROPERTIES TIMEOUT 30)
