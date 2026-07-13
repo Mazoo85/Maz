@@ -53,3 +53,14 @@ set_tests_properties(editor_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "Maz Editor shutting down")
+
+# Render probe: actually rasterize the cube off-screen (via a software Vulkan driver, lavapipe, in
+# CI) and verify the pixels — proof the mesh renderer draws, not just compiles. Requires a Vulkan
+# ICD; fails loudly if none is present so a missing driver is visible rather than silently skipped.
+add_test(
+    NAME render_probe
+    COMMAND render_probe ${CMAKE_SOURCE_DIR}/assets/models/cube.gltf)
+set_tests_properties(render_probe PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "render probe: PASS")
