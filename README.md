@@ -814,6 +814,10 @@ available):
   override: rectangular zones that change the gravity a body feels — directional (wind / updraft) or a point
   pull with inverse-square falloff — combined by priority with Replace/Add modes. The new `gravzones` demo
   drops balls through a wind field, an updraft, and an attractor, their trails bending accordingly.
+- **M153** — **orthographic 3D camera** (`math::orthographic` / `orthographicSize`), toward Godot's `Camera3D`
+  Orthogonal projection: a parallel projection with no perspective divide, so objects keep the same on-screen
+  size at every depth and parallel edges never converge — the isometric look. The new `ortho3d` demo renders
+  an iso field of lit cube columns.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

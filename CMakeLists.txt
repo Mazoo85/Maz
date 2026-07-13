@@ -146,6 +146,7 @@ add_subdirectory(apps/rects)
 add_subdirectory(apps/progress)
 add_subdirectory(apps/interp)
 add_subdirectory(apps/gravzones)
+add_subdirectory(apps/ortho3d)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

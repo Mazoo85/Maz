@@ -861,6 +861,14 @@ set_tests_properties(gravzones_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME ortho3d_headless_smoke
+    COMMAND ortho3d --headless --frames 30)
+
+set_tests_properties(ortho3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

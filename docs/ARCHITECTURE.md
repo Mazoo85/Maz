@@ -41,7 +41,8 @@ platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depe
 input/      ActionMap — semantic action mapping: named button actions (any-of bound Key/MouseButton/
             PadButton sources, pressed/held/released edges) + axis actions (key pairs + analog pad axes,
             clamped -1..1); SDL-free (update() takes sampler callbacks)   (header-only)
-math/       maz::math = GLM re-export + helpers     (header-only);
+math/       maz::math = GLM re-export + helpers (Vulkan-correct perspective + orthographic/orthographicSize
+              3D projections (parallel, isometric — Godot Camera3D Orthogonal) + ortho2D)  (header-only);
             Curve2D — cubic Bézier path (Godot Curve2D/Path2D): points with in/out handles, sample/tangent/
               length + arc-length bake -> sampleBaked(distance) for constant-speed travel;
             Rect2 — axis-aligned rectangle (Godot Rect2): position+size with hasPoint (min-incl/max-excl),
@@ -356,6 +357,8 @@ apps/
               ghost poses with the alpha-0.35 interpolated pose solid between (core::interpolate)
   gravzones/ Area gravity fields — six balls dropped through a wind field, an updraft, and a point attractor;
               their fixed-step trails drift/U-turn/orbit per game::gravityAt
+  ortho3d/   Orthographic camera — a 7x7 iso field of lit cube columns (a mound) via math::orthographicSize;
+              every column reads the same width regardless of depth (no vanishing point)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

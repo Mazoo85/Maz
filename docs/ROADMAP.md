@@ -294,7 +294,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   view matrix — Disabled / Enabled (full-facing) / YBillboard (yaws but stays upright) — Godot SpriteBase3D/
   GeometryInstance3D billboards; the `billboard` demo shows three rows of cards, one per mode; M144) — a
   Sprite3D/AnimatedSprite3D node (atlas+billboard+alpha) and velocity-aligned particle billboards later
-- [ ] Back-face cull toggle, ortho 3D camera
+- [x] **Orthographic 3D camera** (`math::orthographic` / `orthographicSize`: Vulkan-correct parallel
+  projection — no perspective divide, equal-size objects at every depth, parallel edges never converge —
+  Godot Camera3D Orthogonal; the `ortho3d` demo renders an isometric field of lit cube columns; M153) — a
+  runtime perspective↔ortho toggle on a camera object + an ortho frustum for culling later
+- [ ] Back-face cull toggle
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
   M42)

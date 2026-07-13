@@ -2883,6 +2883,29 @@ Pure geometry + vector math, so it unit-tests exactly and a fixed-step sim drive
   support non-rectangular (circle/polygon) zones, or the full set of Godot's five space-override modes; those
   remain the integration follow-ups.
 
+### Iteration 114 — "Benchmarking against Godot: orthographic 3D camera" (done)
+Rotating to **3D rendering** for breadth (recent rounds were 2D-physics, core, UI, math, scene/ECS,
+animation). Maz's 3D path only had a perspective projection (`math::perspective`); the ROADMAP listed "ortho
+3D camera" as an open item. Godot's `Camera3D` supports an Orthogonal projection — the parallel-projection
+look of isometric strategy games, CAD, and 2.5D — where objects keep the same on-screen size at every depth
+and parallel edges never converge. It's a pure projection matrix, so it unit-tests exactly and drives a 3D
+golden.
+- [x] **M153 — 3D orthographic projection (`math::orthographic` / `orthographicSize`)**: added to `Math.hpp` a
+  Vulkan-correct `orthographic(left, right, bottom, top, near, far)` (clip-space Y flipped like `perspective`,
+  depth 0..1) and an `orthographicSize(verticalSize, aspect, near, far)` convenience — Godot's Camera3D `size`
+  in Orthogonal mode. Extended `testMath` with the projection's invariants: the w-coordinate stays 1 (no
+  perspective divide), the edge points map to ±1, top maps to −1 (the engine's Vulkan y-flip), near/far map to
+  0/1, the explicit-bounds form maps its right edge to +1, and — the defining ortho property — a point's
+  screen-x is identical at two different depths (no convergence). Unit checks **5109 → 5120**. The new
+  `ortho3d` demo renders a 7×7 field of lit cube columns (a central mound, coloured low-blue → high-yellow)
+  from a fixed isometric angle through `orthographicSize`; every column reads the same width regardless of how
+  far back it sits and all vertical edges stay parallel — the unmistakable isometric look. 3D golden
+  (threshold 0.10, `ortho3d` RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed
+  by a serial golden run); ctest **108/108 → 109/109**. Honest scope: this adds the projection + a demo; it
+  does **not** yet add a `projection` toggle on a camera object that swaps perspective↔ortho at runtime, an
+  ortho frustum for culling, or a back-face-cull toggle (still an open ROADMAP item); those remain the
+  camera-object follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

@@ -145,6 +145,29 @@ void testMath() {
     const math::vec3 c = math::cross(math::vec3(1, 0, 0), math::vec3(0, 1, 0));
     CHECK_NEAR(c.z, 1.0f, 1e-6f);
     CHECK_NEAR(glm::length(math::normalize(math::vec3(3, 4, 0))), 1.0f, 1e-6f);
+
+    // 3D orthographic projection (parallel — no perspective divide, w stays 1).
+    {
+        // verticalSize 4, aspect 2 -> halfW 4, halfH 2.
+        const math::mat4 op = math::orthographicSize(4.0f, 2.0f, 0.1f, 100.0f);
+        auto pr = [&](float x, float y, float z) { return op * math::vec4(x, y, z, 1.0f); };
+        const math::vec4 mid = pr(0.0f, 0.0f, -10.0f);
+        CHECK_NEAR(mid.w, 1.0f, 1e-5f); // no perspective divide
+        CHECK_NEAR(mid.x, 0.0f, 1e-5f);
+        CHECK_NEAR(mid.y, 0.0f, 1e-5f);
+        CHECK_NEAR(pr(4.0f, 0.0f, -10.0f).x, 1.0f, 1e-4f);   // right edge -> +1
+        CHECK_NEAR(pr(-4.0f, 0.0f, -10.0f).x, -1.0f, 1e-4f); // left edge -> -1
+        CHECK_NEAR(pr(0.0f, 2.0f, -10.0f).y, -1.0f, 1e-4f);  // top -> -1 (Vulkan y-flip)
+        CHECK_NEAR(pr(0.0f, -2.0f, -10.0f).y, 1.0f, 1e-4f);
+        CHECK_NEAR(pr(0.0f, 0.0f, -0.1f).z, 0.0f, 1e-4f);   // near -> 0
+        CHECK_NEAR(pr(0.0f, 0.0f, -100.0f).z, 1.0f, 1e-4f); // far -> 1
+        // The defining ortho property: a point's screen x is the SAME at any depth (no convergence).
+        CHECK_NEAR(pr(4.0f, 0.0f, -10.0f).x, pr(4.0f, 0.0f, -90.0f).x, 1e-4f);
+
+        // Explicit-bounds form maps its right edge to +1 too.
+        const math::mat4 ob = math::orthographic(-8.0f, 8.0f, -4.0f, 4.0f, 0.1f, 100.0f);
+        CHECK_NEAR((ob * math::vec4(8.0f, 0.0f, -10.0f, 1.0f)).x, 1.0f, 1e-4f);
+    }
 }
 
 void testCurve2D() {

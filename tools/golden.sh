@@ -130,6 +130,7 @@ CASES=(
     "progress||2.0|0.07"
     "interp||2.0|0.06"
     "gravzones||2.0|0.06"
+    "ortho3d||2.5|0.10"
 )
 
 if [ ! -f "$ICD" ]; then
