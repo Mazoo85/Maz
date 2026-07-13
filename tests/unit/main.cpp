@@ -16,6 +16,7 @@
 #include "maz/audio/BusGraph.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
+#include "maz/audio/Oscillator.hpp"
 #include "maz/audio/Randomizer.hpp"
 #include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
@@ -9478,6 +9479,141 @@ void testAudioDsp() {
     }
 }
 
+void testOscillator() {
+    using audio::FMVoice;
+    using audio::Oscillator;
+    using audio::Waveform;
+    const float osr = 44100.0f;
+
+    // Sine at exactly a quarter of the sample rate hits 0, 1, 0, -1 at successive quarter phases.
+    {
+        Oscillator o;
+        o.sampleRate = osr;
+        o.freq = osr / 4.0f; // dt = 0.25
+        o.waveform = Waveform::Sine;
+        o.reset();
+        CHECK_NEAR(o.next(), 0.0f, 1e-5f);  // phase 0
+        CHECK_NEAR(o.next(), 1.0f, 1e-5f);  // phase 0.25
+        CHECK_NEAR(o.next(), 0.0f, 1e-4f);  // phase 0.5
+        CHECK_NEAR(o.next(), -1.0f, 1e-5f); // phase 0.75
+    }
+
+    // Triangle at the same rate is the exact piecewise ramp: -1, 0, 1, 0.
+    {
+        Oscillator o;
+        o.sampleRate = osr;
+        o.freq = osr / 4.0f;
+        o.waveform = Waveform::Triangle;
+        o.reset();
+        CHECK_NEAR(o.next(), -1.0f, 1e-5f);
+        CHECK_NEAR(o.next(), 0.0f, 1e-5f);
+        CHECK_NEAR(o.next(), 1.0f, 1e-5f);
+        CHECK_NEAR(o.next(), 0.0f, 1e-5f);
+    }
+
+    // Saw and square stay bounded and average to ~0 over a cycle; the band-limited saw's largest
+    // single-sample jump is softened BELOW the naive 2.0 step (PolyBLEP working).
+    {
+        Oscillator saw;
+        saw.sampleRate = osr;
+        saw.freq = 440.0f;
+        saw.waveform = Waveform::Saw;
+        saw.reset();
+        double sum = 0.0;
+        float prev = saw.next();
+        float maxJump = 0.0f, maxAbs = std::fabs(prev);
+        const int n = static_cast<int>(osr / 440.0f) * 4; // a few cycles
+        for (int i = 1; i < n; ++i) {
+            const float v = saw.next();
+            sum += v;
+            maxJump = std::max(maxJump, std::fabs(v - prev));
+            maxAbs = std::max(maxAbs, std::fabs(v));
+            prev = v;
+        }
+        CHECK(std::fabs(sum / static_cast<double>(n)) < 0.05); // ~zero mean
+        CHECK(maxAbs < 1.25f);                                 // bounded (blep overshoot small)
+        CHECK(maxJump < 2.0f);                                 // edge softened below the naive step
+    }
+    {
+        Oscillator sq;
+        sq.sampleRate = osr;
+        sq.freq = 440.0f;
+        sq.waveform = Waveform::Square;
+        sq.reset();
+        double sum = 0.0;
+        const int n = static_cast<int>(osr / 440.0f) * 4;
+        for (int i = 0; i < n; ++i) {
+            sum += sq.next();
+        }
+        CHECK(std::fabs(sum / static_cast<double>(n)) < 0.08); // 50% duty -> ~zero mean
+    }
+
+    // Noise is bounded in [-1, 1], deterministic after reset(seed), and different seeds differ.
+    {
+        Oscillator ns;
+        ns.sampleRate = osr;
+        ns.waveform = Waveform::Noise;
+        ns.reset(12345u);
+        float first[8];
+        bool bounded = true;
+        for (int i = 0; i < 8; ++i) {
+            first[i] = ns.next();
+            bounded = bounded && first[i] >= -1.0f && first[i] <= 1.0f;
+        }
+        CHECK(bounded);
+        ns.reset(12345u);
+        bool same = true;
+        for (int i = 0; i < 8; ++i) {
+            same = same && std::fabs(ns.next() - first[i]) < 1e-6f;
+        }
+        CHECK(same);
+        ns.reset(999u);
+        CHECK(std::fabs(ns.next() - first[0]) > 1e-6f); // a different seed diverges
+    }
+
+    // Detune shifts the pitch: a 2x detune advances phase twice as fast (double frequency).
+    {
+        Oscillator a;
+        a.sampleRate = osr;
+        a.freq = 100.0f;
+        a.detune = 2.0f;
+        a.reset();
+        a.next();
+        const float pA = a.phase(); // advanced by 200/44100
+        CHECK_NEAR(pA, 200.0f / osr, 1e-5f);
+    }
+
+    // FM voice: with a non-zero index the output differs from the bare carrier, and stays finite.
+    {
+        FMVoice fm;
+        fm.carrier.sampleRate = osr;
+        fm.carrier.freq = 220.0f;
+        fm.carrier.waveform = Waveform::Sine;
+        fm.modulator.sampleRate = osr;
+        fm.modulator.freq = 440.0f;
+        fm.modulator.waveform = Waveform::Sine;
+        fm.index = 0.5f;
+        fm.reset();
+
+        Oscillator bare;
+        bare.sampleRate = osr;
+        bare.freq = 220.0f;
+        bare.waveform = Waveform::Sine;
+        bare.reset();
+
+        bool differs = false, finite = true;
+        for (int i = 0; i < 64; ++i) {
+            const float y = fm.next();
+            finite = finite && std::isfinite(y);
+            if (std::fabs(y - bare.next()) > 1e-3f) {
+                differs = true;
+            }
+        }
+        CHECK(finite);
+        CHECK(differs);
+    }
+}
+
 void testStereo() {
     using audio::Panner;
     using audio::StereoEnhance;
@@ -11105,6 +11241,7 @@ int main() {
     testAudioDsp();
     testBusGraph();
     testStereo();
+    testOscillator();
     testModDsp();
     testAudioEffects();
     testADSR();

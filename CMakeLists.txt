@@ -174,6 +174,7 @@ add_subdirectory(apps/equalizer)
 add_subdirectory(apps/busmixer)
 add_subdirectory(apps/limiter)
 add_subdirectory(apps/stereo)
+add_subdirectory(apps/oscillator)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
