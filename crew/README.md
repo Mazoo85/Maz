@@ -58,7 +58,15 @@ crew do "bump the version and update the changelog" --yes --max-fix-rounds 2
 ```
 
 `--yes` still never commits or pushes — it only auto-approves the plan/review
-checkpoints. The commit remains yours to make.
+checkpoints. The commit remains yours to make, unless you opt in with `--commit`:
+
+```bash
+crew do "add a healthcheck endpoint" --commit -m "feat: healthcheck endpoint"
+```
+
+`--commit` stages and commits the working tree after a completed run (with a
+confirmation, or automatically under `--yes`). It **never pushes** — pushing stays
+a deliberate step you take yourself.
 
 When the SDK reports token cost, the crew tallies it per task, prints an approximate
 total when it finishes, and shows it in `crew status`.

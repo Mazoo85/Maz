@@ -45,16 +45,43 @@ def _resolve_config(max_fix_rounds: int | None):
     return config
 
 
-def _drive(task, config, confirm, resume_session_id=None) -> None:
+def _maybe_commit(task: str, message: str | None, confirm) -> None:
+    """Optionally stage + commit the working tree after a completed run."""
+    from pathlib import Path
+
+    from .gitutil import commit_all, has_changes, is_git_repo
+
+    root = Path.cwd()
+    if not is_git_repo(root):
+        console.print("[yellow]--commit: not a git repository; skipping.[/yellow]")
+        return
+    if not has_changes(root):
+        console.print("[dim]--commit: no changes to commit.[/dim]")
+        return
+    msg = message or f"crew: {task}"
+    if not confirm(f"Commit all changes with message {msg!r}?"):
+        console.print("[yellow]Commit skipped.[/yellow]")
+        return
+    ok, out = commit_all(msg, root)
+    if ok:
+        console.print(f"[green]Committed[/green] {out}. [dim](not pushed — that's your call)[/dim]")
+    else:
+        console.print(f"[red]Commit failed:[/red] {out}")
+
+
+def _drive(task, config, confirm, resume_session_id=None, commit=False, commit_message=None) -> None:
     """Run the crew, turning failures into clean, resumable messages.
 
     Progress is checkpointed to ``.crew/session.json`` after every completed
     phase, so any interruption or error can be picked up with ``crew resume``.
+    With ``commit=True``, a completed run offers to commit the working tree.
     """
     from .orchestrator import run_task_sync
 
     try:
-        run_task_sync(task, config, confirm=confirm, resume_session_id=resume_session_id)
+        state = run_task_sync(task, config, confirm=confirm, resume_session_id=resume_session_id)
+        if commit and getattr(state, "phase", None) == "done":
+            _maybe_commit(task, commit_message, confirm)
     except ModuleNotFoundError as exc:  # SDK not installed
         console.print(
             f"[red]Missing dependency:[/red] {exc}.\n"
@@ -87,6 +114,12 @@ _YES_OPT = typer.Option(
 _ROUNDS_OPT = typer.Option(
     None, "--max-fix-rounds", min=0, help="Override the coder<->tester repair-round limit."
 )
+_COMMIT_OPT = typer.Option(
+    False, "--commit", help="After a completed run, offer to commit the working tree (never pushes)."
+)
+_COMMIT_MSG_OPT = typer.Option(
+    None, "--commit-message", "-m", help="Commit message to use with --commit (default: 'crew: <task>')."
+)
 
 
 @app.command()
@@ -94,6 +127,8 @@ def do(
     task: str = typer.Argument(..., help="The task to hand to the crew, in plain English."),
     yes: bool = _YES_OPT,
     max_fix_rounds: int | None = _ROUNDS_OPT,
+    commit: bool = _COMMIT_OPT,
+    commit_message: str | None = _COMMIT_MSG_OPT,
 ) -> None:
     """Run TASK through the full crew: plan -> code -> review -> test, with checkpoints."""
     config = _resolve_config(max_fix_rounds)
@@ -101,13 +136,15 @@ def do(
     console.print(f"[bold]Task:[/bold] {task}\n")
     if yes:
         console.print("[yellow]Running unattended (--yes): all checkpoints auto-approved.[/yellow]\n")
-    _drive(task, config, confirm)
+    _drive(task, config, confirm, commit=commit, commit_message=commit_message)
 
 
 @app.command()
 def resume(
     yes: bool = _YES_OPT,
     max_fix_rounds: int | None = _ROUNDS_OPT,
+    commit: bool = _COMMIT_OPT,
+    commit_message: str | None = _COMMIT_MSG_OPT,
 ) -> None:
     """Continue the last task in this directory using its saved session."""
     config = _resolve_config(max_fix_rounds)
@@ -117,7 +154,14 @@ def resume(
         console.print("[yellow]No saved session found in this directory. Start one with `crew do`.[/yellow]")
         raise typer.Exit(code=1)
     console.print(f"[bold]Resuming:[/bold] {state.task}  (last phase: {state.phase})\n")
-    _drive(state.task, config, confirm, resume_session_id=state.session_id)
+    _drive(
+        state.task,
+        config,
+        confirm,
+        resume_session_id=state.session_id,
+        commit=commit,
+        commit_message=commit_message,
+    )
 
 
 @app.command()
