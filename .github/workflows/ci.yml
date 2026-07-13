@@ -30,6 +30,7 @@ jobs:
             glslang-tools \
             libvulkan-dev \
             vulkan-validationlayers \
+            mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
             libwayland-dev wayland-protocols libegl1-mesa-dev libgl1-mesa-dev \
