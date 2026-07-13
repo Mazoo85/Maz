@@ -16,10 +16,12 @@ keep the human in control at checkpoints. The task is whatever the user gave wit
 `/crew` (or the change under discussion). Run each phase by launching a subagent
 with the **Agent tool**, passing that role's brief (below) as its instructions.
 
-Use a **read-only** agent type (e.g. `Explore`) for the planner, reviewer, and
-tester; use a **general-purpose** agent for the coder (it needs to edit). Always
-restate the tool posture in the prompt ("read-only: do not edit files" / "you may
-edit files") since scoping here is prompt-enforced, not hard.
+Dispatch each phase with the Agent tool. For the planner, reviewer, and tester,
+prefer a **read-only** agent type **if one is available** (e.g. `Explore`); if it
+isn't (agent types vary by session), use `general-purpose` and put "read-only: do
+not edit files" in the prompt. Use `general-purpose` for the coder (it needs to
+edit). Scoping here is prompt-enforced, not hard, so always restate the tool
+posture in the prompt.
 
 ## The workflow
 
