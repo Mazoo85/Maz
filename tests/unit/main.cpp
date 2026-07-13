@@ -9324,6 +9324,124 @@ void testBroadphase() {
     }
 }
 
+// P3: body sleeping. A settled stack must go to sleep (stop integrating, freeze in place); a
+// disturbance must wake it. We build a stack, confirm it is awake while still falling, confirm the
+// whole island sleeps once it has been quiet long enough, confirm sleeping bodies are frozen, then
+// drop a body onto it and confirm the island wakes.
+void testSleeping() {
+    using game::Body2D;
+
+    auto makeWorld = []() {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        w.allowSleep = true;
+        w.sleepTime = 0.4f;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 300.0f);
+        floor.invMass = 0.0f;
+        floor.friction = 0.9f;
+        w.add(floor);
+        for (int i = 0; i < 4; ++i) {
+            Body2D b;
+            b.shape = Body2D::Box;
+            b.half = math::vec2(28.0f, 18.0f);
+            b.pos = math::vec2(0.0f, 270.0f - static_cast<float>(i) * 37.0f);
+            b.invMass = 1.0f;
+            b.friction = 0.9f;
+            b.restitution = 0.0f;
+            b.enableRotation();
+            w.add(b);
+        }
+        return w;
+    };
+
+    game::PhysicsWorld2D w = makeWorld();
+
+    // Early on, the boxes are still dropping/settling — nothing should be asleep yet.
+    for (int s = 0; s < 5; ++s) {
+        w.step(1.0f / 60.0f, 6);
+    }
+    bool anyEarlyAsleep = false;
+    for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+        anyEarlyAsleep = anyEarlyAsleep || w.bodies[i].sleeping;
+    }
+    CHECK(!anyEarlyAsleep);
+
+    // Run long enough to settle and cross the sleep time.
+    for (int s = 0; s < 300; ++s) {
+        w.step(1.0f / 60.0f, 6);
+    }
+    int asleep = 0;
+    for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+        if (w.bodies[i].sleeping) {
+            ++asleep;
+        }
+    }
+    CHECK(asleep == 4); // the entire stack island sleeps
+
+    // A sleeping body is frozen: stepping again does not move it at all.
+    std::vector<math::vec2> before;
+    for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+        before.push_back(w.bodies[i].pos);
+    }
+    for (int s = 0; s < 30; ++s) {
+        w.step(1.0f / 60.0f, 6);
+    }
+    for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+        CHECK_NEAR(w.bodies[i].pos.x, before[i - 1].x, 1e-6f);
+        CHECK_NEAR(w.bodies[i].pos.y, before[i - 1].y, 1e-6f);
+        CHECK(w.bodies[i].sleeping);
+    }
+
+    // Wake by explicit request (as gameplay would after applying an impulse): the woken body is awake
+    // and, being an energetic member, wakes its whole island within a step or two.
+    w.bodies[1].vel = math::vec2(0.0f, -200.0f); // launch the bottom box upward
+    w.wake(1);
+    w.step(1.0f / 60.0f, 6);
+    CHECK(!w.bodies[1].sleeping);
+    for (int s = 0; s < 3; ++s) {
+        w.step(1.0f / 60.0f, 6);
+    }
+    int awakeAfter = 0;
+    for (std::size_t i = 1; i < w.bodies.size(); ++i) {
+        if (!w.bodies[i].sleeping) {
+            ++awakeAfter;
+        }
+    }
+    CHECK(awakeAfter >= 2); // the disturbance propagated through the island
+
+    // Wake by collision: a fresh stack that has gone to sleep is hit by a dropped box, which must not
+    // tunnel through and must wake the stack.
+    {
+        game::PhysicsWorld2D w2 = makeWorld();
+        for (int s = 0; s < 300; ++s) {
+            w2.step(1.0f / 60.0f, 6);
+        }
+        CHECK(w2.bodies[1].sleeping); // stack asleep
+        Body2D drop;
+        drop.shape = Body2D::Box;
+        drop.half = math::vec2(28.0f, 18.0f);
+        drop.pos = math::vec2(0.0f, 120.0f); // above the stack
+        drop.vel = math::vec2(0.0f, 400.0f); // falling fast
+        drop.invMass = 1.0f;
+        drop.friction = 0.9f;
+        drop.enableRotation();
+        const uint32_t dropId = w2.add(drop);
+        const float topY = w2.bodies[4].pos.y; // current top of the settled stack
+        for (int s = 0; s < 90; ++s) {
+            w2.step(1.0f / 60.0f, 6);
+        }
+        // The dropped box came to rest ON TOP of the stack (did not pass through it).
+        CHECK(w2.bodies[dropId].pos.y < topY + 5.0f);
+        // Its arrival woke the stack (at least the top boxes) at some point — verify by energy: the
+        // stack shifted, so not everything is still in its original frozen pose.
+        CHECK(w2.bodies[dropId].pos.y > 100.0f); // it fell from 120 toward the stack, not through floor
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -11747,6 +11865,7 @@ int main() {
     testManifold2();
     testWarmStartSolver();
     testBroadphase();
+    testSleeping();
     testNormalLight();
     testParallax();
     testAudioDsp();

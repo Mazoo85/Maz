@@ -43,6 +43,14 @@ struct Body2D {
     float linearDamping = 0.0f;    // per-second velocity decay (0 => none), like Godot's linear_damp
     float angularDamping = 0.0f;   // per-second spin decay (0 => none), like Godot's angular_damp
 
+    // --- Sleeping (opt-in via PhysicsWorld2D::allowSleep) ------------------------------------------
+    // A body that stays below the world's sleep thresholds for long enough goes to sleep: it stops
+    // integrating and solving (zero CPU) until something touches or wakes it. Godot's can_sleep /
+    // sleeping. sleepTimer accumulates quiet time; sleeping is the current state. Untouched by the
+    // legacy solvers, so default behaviour is unchanged.
+    float sleepTimer = 0.0f;
+    bool sleeping = false;
+
     // Derive the inverse moment of inertia from the shape + mass so the body can rotate. A solid box of
     // mass m and size w×h has I = m(w²+h²)/12; a disc has I = ½mr². Static bodies (invMass 0) stay locked.
     void enableRotation() {
@@ -891,6 +899,14 @@ public:
     // force (candidate pairs are sorted by index), so results are bit-identical — just faster.
     bool broadphase = false;
     float broadphaseCellSize = 0.0f; // grid cell size; 0 => default (128 world units)
+    // Opt-in (warm-solver path only): bodies that stay quiet for `sleepTime` go to sleep and are
+    // skipped by integration + the solver until woken, saving CPU on settled piles (Godot can_sleep).
+    // Bodies connected by a contact or joint form an island that sleeps/wakes together, so a resting
+    // stack sleeps as a unit and a disturbance to any member wakes the whole thing.
+    bool allowSleep = false;
+    float sleepLinearThreshold = 14.0f;  // |velocity| below this counts as quiet (world units/sec)
+    float sleepAngularThreshold = 0.25f; // |spin| below this counts as quiet (rad/sec)
+    float sleepTime = 0.5f;              // seconds a whole island must stay quiet before it sleeps
     std::vector<Body2D> bodies;
     std::vector<Joint2D> joints;
 
@@ -902,6 +918,15 @@ public:
     uint32_t addJoint(const Joint2D& j) {
         joints.push_back(j);
         return static_cast<uint32_t>(joints.size() - 1);
+    }
+
+    // Wake a body (clear its sleep state + quiet timer). Call after teleporting a body or changing its
+    // velocity externally, so the sleep system re-evaluates it — Godot wakes bodies on such changes too.
+    void wake(uint32_t i) {
+        if (i < bodies.size()) {
+            bodies[i].sleeping = false;
+            bodies[i].sleepTimer = 0.0f;
+        }
     }
 
     // Advance the simulation by dt: integrate gravity + motion, then resolve contacts for `iterations`
@@ -1022,6 +1047,81 @@ private:
         return pairs;
     }
 
+    // Decide which bodies are asleep this step. Dynamic bodies connected by a contact (from last
+    // frame) or a joint form an island via union-find; an island sleeps only when its quietest member
+    // has been quiet for `sleepTime`, so a resting stack sleeps as a unit and any disturbed member
+    // keeps the whole island awake. A body that has just fallen asleep has its velocity zeroed.
+    void updateSleepStates() {
+        const int n = static_cast<int>(bodies.size());
+        std::vector<int> parent(static_cast<size_t>(n));
+        for (int i = 0; i < n; ++i) {
+            parent[static_cast<size_t>(i)] = i;
+        }
+        auto find = [&](int x) {
+            while (parent[static_cast<size_t>(x)] != x) {
+                parent[static_cast<size_t>(x)] =
+                    parent[static_cast<size_t>(parent[static_cast<size_t>(x)])];
+                x = parent[static_cast<size_t>(x)];
+            }
+            return x;
+        };
+        auto unite = [&](int a, int b) {
+            const int ra = find(a), rb = find(b);
+            if (ra != rb) {
+                parent[static_cast<size_t>(ra)] = rb;
+            }
+        };
+        auto dynamic = [&](int i) { return bodies[static_cast<size_t>(i)].invMass > 0.0f; };
+        for (const detail::ContactConstraint& c : m_prev) {
+            if (dynamic(c.a) && dynamic(c.b)) {
+                unite(c.a, c.b);
+            }
+        }
+        for (const Joint2D& jt : joints) {
+            if (jt.a >= 0 && jt.a < n && jt.b >= 0 && jt.b < n && dynamic(jt.a) && dynamic(jt.b)) {
+                unite(jt.a, jt.b);
+            }
+        }
+        std::unordered_map<int, float> islandMin;
+        for (int i = 0; i < n; ++i) {
+            if (!dynamic(i)) {
+                continue;
+            }
+            const int r = find(i);
+            const float t = bodies[static_cast<size_t>(i)].sleepTimer;
+            auto it = islandMin.find(r);
+            if (it == islandMin.end() || t < it->second) {
+                islandMin[r] = t;
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (!dynamic(i)) {
+                continue;
+            }
+            Body2D& b = bodies[static_cast<size_t>(i)];
+            const bool asleep = islandMin[find(i)] >= sleepTime;
+            if (asleep && !b.sleeping) {
+                b.vel = math::vec2(0.0f, 0.0f);
+                b.angularVel = 0.0f;
+            }
+            b.sleeping = asleep;
+        }
+    }
+
+    // After integration, grow each awake body's quiet timer while it stays below the sleep thresholds,
+    // and reset it the moment it moves. Sleeping bodies keep their (already-elapsed) timer.
+    void updateSleepTimers(float dt) {
+        const float linT2 = sleepLinearThreshold * sleepLinearThreshold;
+        for (Body2D& b : bodies) {
+            if (b.invMass <= 0.0f || b.sleeping) {
+                continue;
+            }
+            const bool quiet = glm::dot(b.vel, b.vel) <= linT2 &&
+                               std::fabs(b.angularVel) <= sleepAngularThreshold;
+            b.sleepTimer = quiet ? b.sleepTimer + dt : 0.0f;
+        }
+    }
+
     // Warm-started sequential-impulse step (opt-in via warmStarting). Integrate velocity, build fresh
     // two-point contact constraints, carry last frame's accumulated impulses into them (warm start),
     // run `iterations` velocity passes over contacts + joints, integrate position, then keep the
@@ -1029,6 +1129,25 @@ private:
     // are what make a tall stack stay rigid at a handful of iterations.
     void stepSolver(float dt, int iterations) {
         const float invDt = dt > 0.0f ? 1.0f / dt : 0.0f;
+        // Sleeping: a sleeping body is made temporarily immovable (invMass/invInertia 0) so it is
+        // skipped by integration and acts as static in the solve; its real mass is restored after the
+        // step. This reuses the entire solver unchanged. Disabled bodies are decided from last frame's
+        // islands, so a body newly touched by a mover wakes on the following step (no tunneling: the
+        // mover still collides with it as a static obstacle in between).
+        std::vector<size_t> sleptIdx;
+        std::vector<float> sleptM, sleptI;
+        if (allowSleep) {
+            updateSleepStates();
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                if (bodies[i].sleeping) {
+                    sleptIdx.push_back(i);
+                    sleptM.push_back(bodies[i].invMass);
+                    sleptI.push_back(bodies[i].invInertia);
+                    bodies[i].invMass = 0.0f;
+                    bodies[i].invInertia = 0.0f;
+                }
+            }
+        }
         for (Body2D& b : bodies) {
             if (b.invMass > 0.0f) {
                 b.vel += gravity * dt;
@@ -1114,6 +1233,13 @@ private:
             }
         }
         m_prev = std::move(contacts);
+        if (allowSleep) {
+            for (size_t k = 0; k < sleptIdx.size(); ++k) {
+                bodies[sleptIdx[k]].invMass = sleptM[k];
+                bodies[sleptIdx[k]].invInertia = sleptI[k];
+            }
+            updateSleepTimers(dt);
+        }
     }
 
     std::vector<detail::ContactConstraint> m_prev; // last frame's constraints, for warm starting

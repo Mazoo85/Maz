@@ -180,6 +180,7 @@ add_subdirectory(apps/pitch)
 add_subdirectory(apps/distort)
 add_subdirectory(apps/solver)
 add_subdirectory(apps/manybody)
+add_subdirectory(apps/sleep)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
