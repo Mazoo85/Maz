@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/game/CollisionLayers.hpp"
+#include "maz/game/ShapeCast2D.hpp"
 #include "maz/math/Math.hpp"
 
 #include <algorithm>
@@ -64,6 +65,12 @@ struct Body2D {
     // never touches these fields behaves exactly as before.
     LayerMask collisionLayer = ~0u;
     LayerMask collisionMask = ~0u;
+
+    // --- Continuous collision (Godot continuous_cd) -----------------------------------------------
+    // When true, a fast body is swept (as its bounding circle) against static box/circle obstacles each
+    // step so it cannot tunnel through a thin wall in one frame; on impact it stops at the surface and
+    // its into-surface velocity is removed. Opt-in per body (the sweep is only run when set).
+    bool continuous = false;
 
     // Derive the inverse moment of inertia from the shape + mass so the body can rotate. A solid box of
     // mass m and size w×h has I = m(w²+h²)/12; a disc has I = ½mr². Static bodies (invMass 0) stay locked.
@@ -1439,6 +1446,59 @@ private:
         }
     }
 
+    // Continuous collision sweep for bodies flagged `continuous`. Build the static box/circle obstacle
+    // set once, then for each fast body sweep its bounding circle from its pre-integration position to
+    // its new position; if it would cross a wall, snap it to the impact point (plus a skin) and remove
+    // the velocity heading into the surface. Uses ShapeCast2D's swept-circle cast + collision mask.
+    void applyContinuous(const std::vector<math::vec2>& prevPos) {
+        std::vector<QueryShape2D> obst;
+        for (const Body2D& b : bodies) {
+            if (b.invMass != 0.0f) {
+                continue; // only static obstacles
+            }
+            if (b.shape == Body2D::Box) {
+                QueryShape2D q;
+                q.kind = QueryShape2D::Box;
+                q.pos = b.pos;
+                q.half = b.half;
+                q.angle = b.angle;
+                q.layer = b.collisionLayer;
+                obst.push_back(q);
+            } else if (b.shape == Body2D::Circle) {
+                QueryShape2D q;
+                q.kind = QueryShape2D::Circle;
+                q.pos = b.pos;
+                q.radius = b.radius;
+                q.layer = b.collisionLayer;
+                obst.push_back(q);
+            }
+        }
+        if (obst.empty()) {
+            return;
+        }
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            Body2D& b = bodies[i];
+            if (!b.continuous || b.invMass <= 0.0f) {
+                continue;
+            }
+            const float rr = b.shape == Body2D::Box
+                                 ? std::sqrt(b.half.x * b.half.x + b.half.y * b.half.y)
+                                 : (b.shape == Body2D::Capsule ? b.half.y + b.radius : b.radius);
+            const math::vec2 motion = b.pos - prevPos[i];
+            if (glm::dot(motion, motion) < 1e-8f) {
+                continue;
+            }
+            ShapeCastHit2D hit = shapeCastCircle(prevPos[i], motion, rr, obst, b.collisionMask);
+            if (hit.hit && hit.fraction < 1.0f) {
+                b.pos = hit.safePos + hit.normal * 0.01f; // stop at the surface (+ skin)
+                const float vn = glm::dot(b.vel, hit.normal);
+                if (vn < 0.0f) {
+                    b.vel -= hit.normal * vn; // cancel velocity heading into the wall
+                }
+            }
+        }
+    }
+
     // Warm-started sequential-impulse step (opt-in via warmStarting). Integrate velocity, build fresh
     // two-point contact constraints, carry last frame's accumulated impulses into them (warm start),
     // run `iterations` velocity passes over contacts + joints, integrate position, then keep the
@@ -1545,9 +1605,29 @@ private:
                                   slop, invDt);
             }
         }
+        // Snapshot pre-integration positions for continuous bodies (needed by the CCD sweep below).
+        bool anyContinuous = false;
+        for (const Body2D& b : bodies) {
+            if (b.continuous && b.invMass > 0.0f) {
+                anyContinuous = true;
+                break;
+            }
+        }
+        std::vector<math::vec2> prevPos;
+        if (anyContinuous) {
+            prevPos.resize(bodies.size());
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                prevPos[i] = bodies[i].pos;
+            }
+        }
         for (size_t i = 0; i < bodies.size(); ++i) {
             bodies[i].pos += (bodies[i].vel + pv[i]) * dt;
             bodies[i].angle += (bodies[i].angularVel + pw[i]) * dt;
+        }
+        // Continuous collision: sweep each fast flagged body against static box/circle obstacles so it
+        // stops at the surface instead of tunnelling through a thin wall in one step (Godot continuous_cd).
+        if (anyContinuous) {
+            applyContinuous(prevPos);
         }
         if (hasBounds) {
             for (Body2D& b : bodies) {

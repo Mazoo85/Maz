@@ -9710,6 +9710,45 @@ void testContactEvents() {
     (void)sawPersistOrBegin;
 }
 
+// P8: continuous collision (Godot continuous_cd). A bullet moving fast enough to cross a thin wall in
+// one step tunnels through it with discrete collision, but stops at it when flagged continuous.
+void testCCD() {
+    using game::Body2D;
+
+    auto shoot = [](bool ccd) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 0.0f);
+        w.warmStarting = true;
+        Body2D wall;
+        wall.shape = Body2D::Box;
+        wall.half = math::vec2(4.0f, 120.0f); // an 8px-thin wall at x=0
+        wall.pos = math::vec2(0.0f, 0.0f);
+        wall.invMass = 0.0f;
+        wall.restitution = 0.0f;
+        w.add(wall);
+        Body2D bullet;
+        bullet.shape = Body2D::Circle;
+        bullet.radius = 3.0f;
+        bullet.pos = math::vec2(-100.0f, 0.0f);
+        bullet.vel = math::vec2(12000.0f, 0.0f); // 200px per 1/60s step — leaps clean over the wall
+        bullet.invMass = 1.0f;
+        bullet.restitution = 0.0f;
+        bullet.continuous = ccd;
+        w.add(bullet);
+        w.step(1.0f / 60.0f, 6);
+        return w.bodies[1].pos.x;
+    };
+
+    // Discrete: the bullet is already on the far side of the wall after one step (tunnelled).
+    const float tunneled = shoot(false);
+    CHECK(tunneled > 50.0f);
+
+    // Continuous: the sweep stops it at the near face of the wall (x well below 0).
+    const float stopped = shoot(true);
+    CHECK(stopped < 0.0f);
+    CHECK(stopped > -20.0f); // parked just in front of the wall (~ -7), not left behind at the start
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12138,6 +12177,7 @@ int main() {
     testCapsule();
     testWorldBoundary();
     testContactEvents();
+    testCCD();
     testNormalLight();
     testParallax();
     testAudioDsp();
