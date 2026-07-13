@@ -43,6 +43,7 @@
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
 #include "maz/ecs/World.hpp"
+#include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
@@ -279,6 +280,103 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testForceField2D() {
+    using fx::Attractor2D;
+    using fx::FieldParticle;
+    using fx::ForceField2D;
+    using math::vec2;
+
+    // --- a single attractor pulls toward it; a repulsor pushes away -----------------------------
+    {
+        ForceField2D f;
+        f.addAttractor(vec2(0, 0), 100.0f, 0.0f, Attractor2D::Constant);
+        // Particle to the right of the origin: acceleration should point left (-x), no y.
+        const vec2 a = f.accelAt(vec2(10, 0));
+        CHECK(a.x < 0.0f);
+        CHECK_NEAR(a.y, 0.0f, 1e-5f);
+        CHECK_NEAR(a.x, -100.0f, 1e-4f); // Constant falloff -> magnitude == strength
+
+        // Repulsor (negative strength) pushes the same particle right.
+        f.attractors[0].strength = -100.0f;
+        const vec2 r = f.accelAt(vec2(10, 0));
+        CHECK(r.x > 0.0f);
+        CHECK_NEAR(r.x, 100.0f, 1e-4f);
+    }
+
+    // --- inverse-square is stronger up close than far away --------------------------------------
+    {
+        ForceField2D f;
+        f.addAttractor(vec2(0, 0), 100.0f, 0.0f, Attractor2D::InverseSquare);
+        const float near = std::fabs(f.accelAt(vec2(2, 0)).x);
+        const float far = std::fabs(f.accelAt(vec2(8, 0)).x);
+        CHECK(near > far);
+        // 1/2^2 = 0.25 vs 1/8^2 ~ 0.0156 -> near ~16x far.
+        CHECK(near > far * 4.0f);
+    }
+
+    // --- radius cutoff: outside the influence radius the attractor contributes nothing ----------
+    {
+        ForceField2D f;
+        f.addAttractor(vec2(0, 0), 50.0f, 5.0f, Attractor2D::Constant);
+        CHECK(std::fabs(f.accelAt(vec2(3, 0)).x) > 0.0f);       // inside
+        CHECK_NEAR(f.accelAt(vec2(9, 0)).x, 0.0f, 1e-6f);       // outside radius
+        // Linear falloff: full strength at centre, ~0 at the edge.
+        f.attractors[0].falloff = Attractor2D::Linear;
+        const float mid = std::fabs(f.accelAt(vec2(2.5f, 0)).x); // halfway -> ~half strength
+        CHECK_NEAR(mid, 25.0f, 1.0f);
+    }
+
+    // --- uniform wind + drag --------------------------------------------------------------------
+    {
+        ForceField2D f;
+        f.wind = vec2(5.0f, -3.0f);
+        const vec2 a = f.accelAt(vec2(100, 100)); // wind is position-independent
+        CHECK_NEAR(a.x, 5.0f, 1e-5f);
+        CHECK_NEAR(a.y, -3.0f, 1e-5f);
+
+        // Drag alone bleeds off speed each step (no other forces).
+        ForceField2D d;
+        d.drag = 2.0f;
+        std::vector<FieldParticle> ps = {{vec2(0, 0), vec2(10, 0)}};
+        const float before = ps[0].vel.x;
+        d.step(ps, 0.1f);
+        CHECK(ps[0].vel.x < before);
+        CHECK(ps[0].vel.x > 0.0f); // damped, not reversed
+    }
+
+    // --- swirl adds a perpendicular (orbiting) component ----------------------------------------
+    {
+        ForceField2D f;
+        f.addAttractor(vec2(0, 0), 0.0f, 0.0f, Attractor2D::Constant, 20.0f); // pure swirl, no pull
+        // Particle on +x axis: dir toward centre is -x; perp (rotate +90) is (-(-0),-1)= (0,-1)... check sign.
+        const vec2 a = f.accelAt(vec2(10, 0));
+        CHECK_NEAR(a.x, 0.0f, 1e-4f);      // no radial component
+        CHECK(std::fabs(a.y) > 1.0f);       // purely tangential
+    }
+
+    // --- integration: a particle falls toward an attractor over steps ---------------------------
+    {
+        ForceField2D f;
+        f.addAttractor(vec2(0, 0), 200.0f, 0.0f, Attractor2D::Constant);
+        std::vector<FieldParticle> ps = {{vec2(10, 0), vec2(0, 0)}};
+        const float d0 = ps[0].pos.x;
+        for (int i = 0; i < 20; ++i) {
+            f.step(ps, 1.0f / 60.0f, 2);
+        }
+        CHECK(ps[0].pos.x < d0); // moved toward the origin
+        CHECK(ps[0].vel.x < 0.0f);
+
+        // Empty field / empty particle list are safe no-ops.
+        ForceField2D empty;
+        std::vector<FieldParticle> none;
+        empty.step(none, 0.016f);
+        CHECK(none.empty());
+        const vec2 z = empty.accelAt(vec2(1, 1));
+        CHECK_NEAR(z.x, 0.0f, 1e-6f);
+        CHECK_NEAR(z.y, 0.0f, 1e-6f);
     }
 }
 
@@ -10071,6 +10169,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testForceField2D();
     testExpression();
     testAStar2D();
     testGeometry2D();

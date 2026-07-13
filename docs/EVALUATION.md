@@ -2927,6 +2927,45 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 132 — "Benchmarking against Godot: particle force fields" (done)
+Rotating to **particles / VFX** for breadth (the last five rounds were core-scripting, navigation, UI,
+math, and audio). Re-surveying: Maz has a runtime particle pool (`fx::ParticleSystem`) with gravity,
+drag, and a *single* hard-wired attractor + swirl (M49), plus a `CPUParticles2D`-style emitter resource
+(`fx::Emitter`, M120) with emission shapes, per-lifetime curves, and a colour gradient. What it lacked
+was Godot's **attractor family** — `GPUParticlesAttractor2D` lets you place *multiple* attractors (each a
+signed strength with a falloff and radius) that pull or push particles, and pair them with wind and drag
+to sculpt swarms. That is a distinct, reusable force model (gravity wells, black holes, wind tunnels,
+orbiting rings) useful for gameplay too, not just the built-in pool. Pure math + a deterministic
+integrator, so it unit-tests exactly and renders a golden-stable swirl.
+
+Ranked closable gaps considered this round (particle-weighted): **(1) composable multi-attractor force
+field — chosen**, the clearest missing VFX primitive; (2) radial/tangential/orbit/angular per-lifetime
+acceleration on the emitter resource (Godot ParticleProcessMaterial); (3) sub-emitters (spawn particles
+from dying particles); (4) turbulence-noise fields; (5) particle trails/ribbons. (2)–(5) remain
+follow-ups; a GPU-baked vector-field attractor is out of scope on the CPU path.
+
+- [x] **M171 — composable 2D particle force field (`fx::ForceField2D`)**: a new `ForceField2D.hpp` holding
+  a set of `Attractor2D` (position, signed `strength`, influence `radius`, a `Falloff` of Constant /
+  Linear / InverseSquare, and an optional tangential `swirl` for vortices) on top of a uniform `wind`
+  acceleration and a global linear `drag`. It exposes the pure query `accelAt(pos, vel)` and a
+  deterministic semi-implicit-Euler `step(particles, dt, substeps)` integrator; the InverseSquare
+  denominator is clamped so a particle on the well doesn't launch to infinity, and out-of-radius
+  attractors contribute nothing. `testForceField2D` pins attract-vs-repel direction + magnitude, the
+  inverse-square distance ratio, radius cutoff and linear half-strength, position-independent wind,
+  drag bleeding off speed without reversing it, pure-swirl producing a perpendicular-only acceleration,
+  multi-step convergence toward a well, and the empty-field/empty-list no-ops. Unit checks **7457 →
+  7478**. The new `forcefield` demo seeds 800 particles (fixed RNG seed), pre-simulates a fixed 150
+  steps, and draws the settled swarm coloured by speed around a cyan swirling attractor and a red
+  repulsor (with its influence ring) under a leftward wind — fixed seed + fixed step count = golden
+  stable. 2D golden (threshold 0.05, `forcefield` RMSE 0). Purely additive, so every existing golden is
+  byte-unchanged; ctest **126/126 → 127/127**. Honest scope: CPU point/vector force model — no
+  GPU-baked vector-field attractors, 3D attractors, or turbulence-noise process yet.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 131 — "Benchmarking against Godot: runtime Expression evaluator" (done)
 Rotating to **core / scripting-adjacent** for breadth (the last five rounds were navigation, UI, math,
 audio, and IO). Re-surveying: Maz's `core` was broad — logging, config/CVars, events + named signals, a

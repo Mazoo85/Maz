@@ -164,6 +164,7 @@ add_subdirectory(apps/xform2d)
 add_subdirectory(apps/popupmenu)
 add_subdirectory(apps/astar)
 add_subdirectory(apps/expr)
+add_subdirectory(apps/forcefield)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

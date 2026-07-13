@@ -48,6 +48,7 @@
 #include "maz/core/StringId.hpp"
 #include "maz/core/Time.hpp"
 #include "maz/ecs/World.hpp"
+#include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
