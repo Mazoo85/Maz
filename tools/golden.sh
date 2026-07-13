@@ -123,6 +123,7 @@ CASES=(
     "multimesh||2.0|0.07"
     "billboard||2.5|0.12"
     "oneway||2.0|0.06"
+    "modfx||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

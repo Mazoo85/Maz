@@ -259,6 +259,185 @@ struct Compressor {
     }
 };
 
+// ---- Modulated-delay effects: chorus / flanger / phaser ----------------------------------------
+// The three "time-modulation" effects share one idea: a delay (or all-pass phase) whose amount is
+// swept by a slow sine oscillator (an LFO — well below audio rate). Godot ships them as
+// AudioEffectChorus and AudioEffectPhaser. They read a delay line at a FRACTIONAL, moving offset, so
+// each needs a linearly-interpolated tap. Pure per-sample math, deterministic — they unit-test exactly
+// and slot onto a Bus like every other effect.
+
+// A low-frequency sine oscillator: `next` returns the current sine in [-1,1] and advances one sample.
+struct Lfo {
+    float phase = 0.0f; // [0,1)
+    float inc = 0.0f;   // cycles advanced per sample
+
+    void setRate(float hz, float sampleRate) { inc = sampleRate > 0.0f ? hz / sampleRate : 0.0f; }
+    void reset() { phase = 0.0f; }
+    float next() {
+        const float v = std::sin(6.2831853f * phase);
+        phase += inc;
+        while (phase >= 1.0f) {
+            phase -= 1.0f;
+        }
+        return v;
+    }
+};
+
+// Read a delay line at a fractional sample offset behind write head `head`, linearly interpolated.
+inline float fracTap(const std::vector<float>& line, std::size_t head, float delaySamples) {
+    const float n = static_cast<float>(line.size());
+    float readPos = static_cast<float>(head) - delaySamples;
+    while (readPos < 0.0f) {
+        readPos += n;
+    }
+    const std::size_t i0 = static_cast<std::size_t>(readPos) % line.size();
+    const std::size_t i1 = i0 + 1 >= line.size() ? 0 : i0 + 1;
+    const float frac = readPos - std::floor(readPos);
+    return line[i0] * (1.0f - frac) + line[i1] * frac;
+}
+
+// CHORUS — Godot's AudioEffectChorus. Several detuned "voices", each a short delay (~15-35 ms) whose
+// read time wobbles with its own LFO, are summed and blended with the dry signal; the small timing/pitch
+// differences fatten one source into an ensemble. Up to 4 voices, phase-spread so they don't align.
+struct Chorus {
+    std::vector<float> line;
+    std::size_t idx = 0;
+    float sampleRate = 44100.0f;
+    int voices = 3;
+    float baseDelayMs = 22.0f;
+    float depthMs = 4.0f;
+    float wet = 0.5f;
+    std::array<Lfo, 4> lfo{};
+
+    void configure(float sr, int voiceCount, float baseMs, float depMs, float rateHz, float wetMix) {
+        sampleRate = sr > 0.0f ? sr : 44100.0f;
+        voices = voiceCount < 1 ? 1 : (voiceCount > 4 ? 4 : voiceCount);
+        baseDelayMs = baseMs;
+        depthMs = depMs;
+        wet = wetMix;
+        const int maxDelay = static_cast<int>((baseMs + depMs) * sampleRate / 1000.0f) + 4;
+        line.assign(static_cast<std::size_t>(maxDelay < 4 ? 4 : maxDelay), 0.0f);
+        idx = 0;
+        for (int v = 0; v < 4; ++v) {
+            Lfo& l = lfo[static_cast<std::size_t>(v)];
+            l.reset();
+            l.setRate(rateHz * (1.0f + 0.15f * static_cast<float>(v)), sampleRate); // slight detune
+            l.phase = static_cast<float>(v) / 4.0f;                                 // spread phases
+        }
+    }
+    void reset() {
+        std::fill(line.begin(), line.end(), 0.0f);
+        idx = 0;
+        for (Lfo& l : lfo) {
+            l.reset();
+        }
+    }
+    float process(float x) {
+        if (line.empty()) {
+            return x;
+        }
+        line[idx] = x;
+        float wetSum = 0.0f;
+        for (int v = 0; v < voices; ++v) {
+            const float mod = lfo[static_cast<std::size_t>(v)].next();
+            const float d = (baseDelayMs + depthMs * mod) * sampleRate / 1000.0f;
+            wetSum += fracTap(line, idx, d);
+        }
+        wetSum /= static_cast<float>(voices);
+        idx = idx + 1 >= line.size() ? 0 : idx + 1;
+        return x * (1.0f - wet) + wetSum * wet;
+    }
+};
+
+// FLANGER — a single very short delay (~1-5 ms) swept by an LFO and fed back into itself. The moving
+// comb notches sweep through the spectrum for the classic "jet" whoosh; more feedback = more resonant.
+struct Flanger {
+    std::vector<float> line;
+    std::size_t idx = 0;
+    float sampleRate = 44100.0f;
+    float baseDelayMs = 2.0f;
+    float depthMs = 2.0f;
+    float feedback = 0.5f;
+    float wet = 0.5f;
+    Lfo lfo{};
+
+    void configure(float sr, float baseMs, float depMs, float rateHz, float fb, float wetMix) {
+        sampleRate = sr > 0.0f ? sr : 44100.0f;
+        baseDelayMs = baseMs;
+        depthMs = depMs;
+        feedback = fb;
+        wet = wetMix;
+        const int maxDelay = static_cast<int>((baseMs + depMs) * sampleRate / 1000.0f) + 4;
+        line.assign(static_cast<std::size_t>(maxDelay < 4 ? 4 : maxDelay), 0.0f);
+        idx = 0;
+        lfo.reset();
+        lfo.setRate(rateHz, sampleRate);
+    }
+    void reset() {
+        std::fill(line.begin(), line.end(), 0.0f);
+        idx = 0;
+        lfo.reset();
+    }
+    float process(float x) {
+        if (line.empty()) {
+            return x;
+        }
+        const float mod = 0.5f * (lfo.next() + 1.0f); // unipolar [0,1]
+        const float d = (baseDelayMs + depthMs * mod) * sampleRate / 1000.0f;
+        const float delayed = fracTap(line, idx, d);
+        line[idx] = x + delayed * feedback;
+        idx = idx + 1 >= line.size() ? 0 : idx + 1;
+        return x * (1.0f - wet) + delayed * wet;
+    }
+};
+
+// PHASER — Godot's AudioEffectPhaser. A cascade of first-order ALL-PASS sections whose corner frequency
+// sweeps with an LFO; mixed back with the dry signal it makes a series of moving notches, and feedback
+// deepens them. Each stage is one all-pass (unit magnitude, sweeping phase), so it colours only phase.
+struct Phaser {
+    static constexpr int kStages = 4;
+    std::array<float, 4> state{};
+    float sampleRate = 44100.0f;
+    float minHz = 300.0f;
+    float maxHz = 1600.0f;
+    float feedback = 0.4f;
+    float wet = 0.5f;
+    float last = 0.0f;
+    Lfo lfo{};
+
+    void configure(float sr, float loHz, float hiHz, float rateHz, float fb, float wetMix) {
+        sampleRate = sr > 0.0f ? sr : 44100.0f;
+        minHz = loHz;
+        maxHz = hiHz;
+        feedback = fb;
+        wet = wetMix;
+        last = 0.0f;
+        state.fill(0.0f);
+        lfo.reset();
+        lfo.setRate(rateHz, sampleRate);
+    }
+    void reset() {
+        state.fill(0.0f);
+        last = 0.0f;
+        lfo.reset();
+    }
+    float process(float x) {
+        const float mod = 0.5f * (lfo.next() + 1.0f); // [0,1]
+        const float freq = minHz + (maxHz - minHz) * mod;
+        const float w = std::tan(3.14159265f * freq / sampleRate);
+        const float coef = (1.0f - w) / (1.0f + w); // first-order all-pass coefficient, |coef| < 1
+        float y = x + last * feedback;
+        for (int s = 0; s < kStages; ++s) {
+            const std::size_t si = static_cast<std::size_t>(s);
+            const float ap = coef * y + state[si]; // H(z) = (coef + z^-1) / (1 + coef z^-1)
+            state[si] = y - coef * ap;
+            y = ap;
+        }
+        last = y;
+        return x * (1.0f - wet) + y * wet;
+    }
+};
+
 // ---- Effect chain + bus ------------------------------------------------------------------------
 // A uniform interface so heterogeneous effects can be chained on a bus.
 struct Effect {
@@ -300,6 +479,27 @@ struct CompressorEffect : Effect {
     explicit CompressorEffect(const Compressor& c) : comp(c) {}
     float process(float x) override { return comp.process(x); }
     void reset() override { comp.reset(); }
+};
+
+struct ChorusEffect : Effect {
+    Chorus chorus;
+    explicit ChorusEffect(const Chorus& c) : chorus(c) {}
+    float process(float x) override { return chorus.process(x); }
+    void reset() override { chorus.reset(); }
+};
+
+struct FlangerEffect : Effect {
+    Flanger flanger;
+    explicit FlangerEffect(const Flanger& f) : flanger(f) {}
+    float process(float x) override { return flanger.process(x); }
+    void reset() override { flanger.reset(); }
+};
+
+struct PhaserEffect : Effect {
+    Phaser phaser;
+    explicit PhaserEffect(const Phaser& p) : phaser(p) {}
+    float process(float x) override { return phaser.process(x); }
+    void reset() override { phaser.reset(); }
 };
 
 // A mix bus: an ordered effect chain plus an output gain, like a Godot audio bus. Feed one sample

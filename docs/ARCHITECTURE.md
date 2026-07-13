@@ -236,7 +236,9 @@ audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, p
             doppler pitch → left/right/pitch SpatialMix), Godot AudioStreamPlayer3D-style;
             Dsp — DSP effects + mix buses (Biquad RBJ low/high/band-pass + Delay feedback echo +
             Reverb Schroeder/Freeverb (comb+allpass) + Distortion tanh waveshaper + Compressor + Bus
-            ordered effect chain), Godot AudioEffectFilter/Delay/Reverb/Distortion/Compressor-style;
+            ordered effect chain + Lfo/fracTap + Chorus (multi-voice detuned modulated delay) + Flanger
+            (swept feedback comb) + Phaser (swept all-pass cascade)), Godot
+            AudioEffectFilter/Delay/Reverb/Distortion/Compressor/Chorus/Phaser-style;
             Envelope — ADSR (attack/decay/sustain/release amplitude contour as a note-on/off gated state
             machine, process(dt)→level), the shape every synth voice is multiplied by  (depends on: core, SDL3)
 apps/
@@ -322,6 +324,8 @@ apps/
               under an elevated camera, so the full-facing / stays-upright / fixed modes differ visibly
   oneway/    One-way platforms — three balls drop onto solid-from-above ledges and rest on top while a fourth is
               launched up through one (its trail crosses the bar), via game::resolveOneWayPlatforms
+  modfx/     Chorus / flanger / phaser — one sustained note scoped through the three LFO-swept modulated-delay
+              effects as stacked waveforms (audio::Chorus/Flanger/Phaser)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

@@ -784,6 +784,11 @@ available):
   descending, and lets a body launched from below (or already under it) pass straight through.
   `resolveOneWayPlatforms` picks the topmost ledge a faller lands on. The new `oneway` demo drops three balls
   onto ledges while a fourth is launched up through one — its trail crosses the bar as the others rest on top.
+- **M146** — **chorus / flanger / phaser** (`audio::Chorus` / `Flanger` / `Phaser`), toward Godot's
+  `AudioEffectChorus` / `AudioEffectPhaser`: the three LFO-swept "time-modulation" effects — detuned delayed
+  copies that thicken a tone (chorus), a swept feedback comb (flanger), and a swept all-pass notch sweep
+  (phaser) — all slotting onto a `Bus` like the other DSP effects. The new `modfx` demo runs one sustained
+  note through each and draws the four waveforms side by side.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

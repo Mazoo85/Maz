@@ -6639,6 +6639,114 @@ void testAudioEffects() {
     }
 }
 
+void testModDsp() {
+    const float sr = 44100.0f;
+
+    // ---- LFO: reads the sine then advances; a rate that steps a quarter-cycle per sample gives the
+    // textbook 0, +1, 0, -1, 0 sequence and wraps cleanly.
+    {
+        audio::Lfo lfo;
+        lfo.setRate(1.0f, 4.0f); // period = 4 samples
+        CHECK_NEAR(lfo.next(), 0.0f, 1e-5f);  // sin(0)
+        CHECK_NEAR(lfo.next(), 1.0f, 1e-5f);  // sin(pi/2)
+        CHECK_NEAR(lfo.next(), 0.0f, 1e-5f);  // sin(pi)
+        CHECK_NEAR(lfo.next(), -1.0f, 1e-5f); // sin(3pi/2)
+        CHECK_NEAR(lfo.next(), 0.0f, 1e-5f);  // wrapped back to phase 0
+    }
+
+    // ---- fracTap: linear interpolation of a delay line read behind the write head.
+    {
+        const std::vector<float> line = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
+        CHECK_NEAR(audio::fracTap(line, 0, 1.0f), 7.0f, 1e-5f); // 0-1 wraps to index 7
+        CHECK_NEAR(audio::fracTap(line, 0, 1.5f), 6.5f, 1e-5f); // between line[6] and line[7]
+        CHECK_NEAR(audio::fracTap(line, 4, 2.0f), 2.0f, 1e-5f); // head 4, back 2 -> line[2]
+    }
+
+    // A helper: impulse response energy in a window [a,b) after processing one impulse then silence.
+    auto tailEnergy = [](auto& fx, int a, int b) {
+        double e = 0.0;
+        fx.process(1.0f); // the impulse at sample 0
+        for (int i = 1; i < b; ++i) {
+            const float y = fx.process(0.0f);
+            if (i >= a) {
+                e += std::fabs(static_cast<double>(y));
+            }
+        }
+        return e;
+    };
+
+    // ---- Chorus: wet=0 is an exact pass-through; wet>0 echoes the impulse near the base delay.
+    {
+        audio::Chorus dry;
+        dry.configure(sr, 3, 20.0f, 4.0f, 0.8f, 0.0f);
+        CHECK_NEAR(dry.process(0.5f), 0.5f, 1e-5f);
+        CHECK_NEAR(dry.process(-0.3f), -0.3f, 1e-5f);
+
+        audio::Chorus ch;
+        ch.configure(sr, 3, 20.0f, 4.0f, 0.8f, 1.0f); // fully wet
+        // base 20 ms ~= 882 samples; the wet voices carry the impulse into a window around there.
+        const double e = tailEnergy(ch, 600, 1300);
+        CHECK(e > 0.1); // the delayed copies show up well after the input
+        // voice count clamps to [1,4].
+        audio::Chorus clamp;
+        clamp.configure(sr, 9, 20.0f, 4.0f, 0.8f, 0.5f);
+        CHECK(clamp.voices == 4);
+    }
+
+    // ---- Flanger: wet=0 passes through; feedback makes the short delay re-emit repeatedly.
+    {
+        audio::Flanger dry;
+        dry.configure(sr, 2.0f, 2.0f, 0.25f, 0.6f, 0.0f);
+        CHECK_NEAR(dry.process(0.7f), 0.7f, 1e-5f);
+
+        audio::Flanger fl;
+        fl.configure(sr, 2.0f, 2.0f, 0.25f, 0.6f, 1.0f);
+        const double e = tailEnergy(fl, 40, 2000); // short delay (~88 samples) + feedback repeats
+        CHECK(e > 0.1);
+    }
+
+    // ---- Phaser: all-pass based, so wet=0 is a pass-through; wet>0 stays finite/stable (bounded IR).
+    {
+        audio::Phaser dry;
+        dry.configure(sr, 300.0f, 1600.0f, 0.5f, 0.4f, 0.0f);
+        CHECK_NEAR(dry.process(0.6f), 0.6f, 1e-5f);
+
+        audio::Phaser ph;
+        ph.configure(sr, 300.0f, 1600.0f, 0.5f, 0.4f, 0.6f);
+        double e = 0.0;
+        bool finite = true;
+        float y = ph.process(1.0f);
+        for (int i = 0; i < 4000; ++i) {
+            y = ph.process(0.0f);
+            if (!std::isfinite(y)) {
+                finite = false;
+            }
+            e += std::fabs(static_cast<double>(y));
+        }
+        CHECK(finite);   // the feedback all-pass cascade does not blow up
+        CHECK(e > 1e-4); // it does colour the signal (nonzero response)
+    }
+
+    // ---- The new effects slot onto a Bus like every other effect, and reset() clears their state.
+    {
+        audio::Chorus c;
+        c.configure(sr, 2, 18.0f, 3.0f, 1.0f, 0.5f);
+        audio::Bus bus;
+        bus.add(std::make_unique<audio::ChorusEffect>(c));
+        bus.add(std::make_unique<audio::PhaserEffect>(audio::Phaser{}));
+        const float y = bus.process(0.4f);
+        CHECK(std::isfinite(y));
+
+        audio::Flanger fl;
+        fl.configure(sr, 2.0f, 2.0f, 0.3f, 0.6f, 1.0f);
+        const float a = fl.process(1.0f);
+        fl.process(0.0f);
+        fl.reset();
+        const float b = fl.process(1.0f); // same first sample after reset
+        CHECK_NEAR(a, b, 1e-5f);
+    }
+}
+
 void testADSR() {
     using audio::ADSR;
 
@@ -7811,6 +7919,7 @@ int main() {
     testNormalLight();
     testParallax();
     testAudioDsp();
+    testModDsp();
     testAudioEffects();
     testADSR();
     testSpatial2D();

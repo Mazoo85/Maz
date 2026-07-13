@@ -139,6 +139,7 @@ add_subdirectory(apps/curve)
 add_subdirectory(apps/multimesh)
 add_subdirectory(apps/billboard)
 add_subdirectory(apps/oneway)
+add_subdirectory(apps/modfx)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -445,6 +445,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Reverb + distortion + compressor** (`audio::Reverb` Schroeder/Freeverb (4 combs + 2 allpasses),
   `audio::Distortion` tanh waveshaper, `audio::Compressor` peak-envelope dynamics — Godot AudioEffect
   Reverb/Distortion/Compressor; drop into the `Bus`; the `reverb` demo scopes a note through each; M106)
+- [x] **Chorus + flanger + phaser** (`audio::Chorus` multi-voice detuned modulated delay, `audio::Flanger`
+  swept feedback comb, `audio::Phaser` swept all-pass cascade — the three LFO-driven "time-modulation"
+  effects, built on a shared `Lfo` + `fracTap` interpolated delay read; all slot onto the `Bus` — Godot
+  AudioEffectChorus/AudioEffectPhaser; the `modfx` demo scopes one note through each; M146) — real-time
+  per-voice insertion into the mixer callback + stereo widening + tempo-synced LFO later
 - [x] **ADSR envelope** (`audio::ADSR`: attack/decay/sustain/release amplitude contour as a note-on/off
   gated state machine, `process(dt)`→level — the shape every synth voice is multiplied by; the `envelope`
   demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing

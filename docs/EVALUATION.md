@@ -2716,6 +2716,33 @@ headlessly and drives a deterministic 2D golden.
   down-press" input gesture, or support arbitrarily-angled one-way surfaces (Godot's flag carries a rotation);
   those remain the platformer-integration follow-ups.
 
+### Iteration 107 — "Benchmarking against Godot: chorus / flanger / phaser" (done)
+Rotating to **audio** for breadth (recent rounds were 2D-physics, 3D-render, 2D-render, math, UI, IO). Maz's
+DSP set had filters + delay + reverb/distortion/compressor (M99, M106) but none of the three "time-
+modulation" effects — the LFO-swept delays/all-passes that give a synth its width and movement. Godot ships
+them as `AudioEffectChorus` and `AudioEffectPhaser`. They're pure per-sample math, so they unit-test exactly
+and drive a deterministic offline-waveform golden.
+- [x] **M146 — Chorus / flanger / phaser modulated-delay effects (`audio::Chorus` / `Flanger` / `Phaser`)**:
+  added to `Dsp.hpp` a small `Lfo` (low-frequency sine oscillator), a `fracTap` linearly-interpolated
+  delay-line read, and the three effects. **Chorus** sums up to four detuned, phase-spread voices — each a
+  ~15-35 ms delay whose read time wobbles with its own LFO — and blends them with the dry signal to fatten
+  one source into an ensemble. **Flanger** sweeps a single very short (~1-5 ms) delay with feedback so a comb
+  of notches whooshes through the spectrum. **Phaser** cascades four first-order **all-pass** sections whose
+  corner frequency sweeps with an LFO, mixed back with the dry signal for moving notches; the all-pass
+  coefficient `(1-w)/(1+w)` stays in a stable range across the swept band. All three expose `Effect`
+  subclasses (`ChorusEffect` / `FlangerEffect` / `PhaserEffect`) so they slot onto a `Bus` beside every other
+  effect. `testModDsp` pins: the LFO's 0/+1/0/-1/0 quarter-cycle sequence and clean wrap; `fracTap`
+  interpolation incl. wrap-around; chorus/flanger pass through untouched at wet=0 and carry an impulse into a
+  delayed tail at wet>0; the voice count clamps to [1,4]; the phaser is an exact pass-through at wet=0 and its
+  feedback all-pass cascade stays finite/bounded while still colouring the signal; and `reset()` restores the
+  first-sample response. Unit checks **4941 → 4960**. The new `modfx` demo runs one sustained sawtooth note
+  through each effect and draws the four waveform bands — the clean saw, the chorus's thickened/smeared teeth,
+  the flanger's whooshy comb, and the phaser's phase-swirl — deterministically (computed once at 44.1 kHz then
+  decimated). 2D golden (threshold 0.06, `modfx` RMSE 0). Purely additive, so every existing golden is byte-
+  unchanged (confirmed by a serial golden run); ctest **101/101 → 102/102**. Honest scope: these are the
+  offline per-sample effects — they are **not** yet inserted per-voice into the real-time SDL mixer callback,
+  and there's no stereo/multi-tap widening or tempo-synced LFO; those remain the live-routing follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
