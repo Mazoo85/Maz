@@ -105,3 +105,10 @@ target_link_libraries(maz_unit_profiler PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_profiler COMMAND maz_unit_profiler)
 set_tests_properties(unit_profiler PROPERTIES TIMEOUT 30)
+
+# Unit tests: fixed-capacity bump-pointer arena (align/exhaustion/marker rewind).
+add_executable(maz_unit_linearalloc unit_linearalloc.cpp)
+target_link_libraries(maz_unit_linearalloc PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_linearalloc COMMAND maz_unit_linearalloc)
+set_tests_properties(unit_linearalloc PROPERTIES TIMEOUT 30)
