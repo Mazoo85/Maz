@@ -86,3 +86,30 @@ def test_no_cost_reported_stays_zero(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     state, _ = run(confirm=lambda q: True, cost=None)
     assert state.total_cost_usd == 0.0
+
+
+def test_state_persisted_when_a_phase_errors(monkeypatch, tmp_path):
+    """A mid-run failure must leave resumable state from the completed phases."""
+    monkeypatch.chdir(tmp_path)
+
+    def responder(prompt):
+        if classify(prompt) == "code":
+            raise RuntimeError("boom mid-run")
+        return "done."
+
+    client = FakeClient(responder)
+    with pytest.raises(RuntimeError):
+        asyncio.run(
+            run_task(
+                "demo task",
+                CrewConfig(),
+                confirm=lambda q: True,
+                client_factory=lambda c, r: client,
+            )
+        )
+
+    from crew import session as session_mod
+
+    saved = session_mod.load(CrewConfig())
+    assert saved.phase == "plan"        # last phase that completed before the error
+    assert saved.session_id == "sess-1"  # captured, so `crew resume` can continue
