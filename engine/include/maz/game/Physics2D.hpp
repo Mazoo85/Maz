@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace maz::game {
@@ -732,6 +733,138 @@ inline void solveGroove(Body2D& g, Body2D& s, math::vec2 grooveAnchorLocal, math
     s.angularVel += s.invInertia * cross2(rB, p);
 }
 
+// --- Warm-started sequential-impulse contact constraint (Box2D-style) ------------------------------
+// The resolvers above recompute a fresh impulse from scratch every iteration and every frame, so a
+// tall stack needs many iterations to stop sinking and jittering. A real engine (Box2D, and Godot's
+// GodotPhysics2D) instead keeps a persistent per-contact ACCUMULATED impulse that (a) is clamped as a
+// running total — the Coulomb friction cone bounds the accumulated tangent impulse against the
+// accumulated normal impulse, not a single iteration's — and (b) carries across frames as a "warm
+// start", so the first iteration each step already applies almost the right force. That is what lets
+// a stack stay rigid at a handful of iterations. Position error is removed by a Baumgarte bias folded
+// into the normal target and gated by a slop so a resting contact does not buzz. This whole path is
+// opt-in (PhysicsWorld2D::warmStarting) so every existing scene keeps its exact prior numerics.
+struct ContactConstraint {
+    int a = -1, b = -1;
+    math::vec2 n{0.0f, 0.0f}; // from a toward b
+    int count = 0;
+    math::vec2 rA[2]{}, rB[2]{}; // contact arms from each body's centre
+    float pen[2]{0.0f, 0.0f};
+    float massN[2]{0.0f, 0.0f};   // effective normal mass per point
+    float massT[2]{0.0f, 0.0f};   // effective tangent mass per point
+    float restBias[2]{0.0f, 0.0f}; // restitution target velocity per point
+    float jN[2]{0.0f, 0.0f};      // accumulated normal impulse (warm-started)
+    float jT[2]{0.0f, 0.0f};      // accumulated tangent impulse (warm-started)
+    float jBias[2]{0.0f, 0.0f};   // accumulated split-impulse position impulse (NOT warm-started)
+    float e = 0.0f, mu = 0.0f;
+    uint64_t key = 0; // (a,b) pair id for frame-to-frame warm-start matching
+};
+
+inline uint64_t pairKey(int a, int b) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(a)) << 32) | static_cast<uint32_t>(b);
+}
+
+// Precompute a constraint from a fresh manifold: effective masses, contact arms, and the restitution
+// target from the CURRENT approach velocity (so a fast impact bounces, a resting stack does not).
+inline ContactConstraint buildConstraint(int ia, const Body2D& a, int ib, const Body2D& b,
+                                         const Contact2& m, float restThreshold) {
+    ContactConstraint c;
+    c.a = ia;
+    c.b = ib;
+    c.n = m.n;
+    c.count = m.count;
+    c.key = pairKey(ia, ib);
+    c.e = a.restitution < b.restitution ? a.restitution : b.restitution;
+    c.mu = std::sqrt(a.friction * b.friction);
+    const math::vec2 t(-m.n.y, m.n.x);
+    for (int k = 0; k < m.count; ++k) {
+        const math::vec2 rA = m.point[k] - a.pos;
+        const math::vec2 rB = m.point[k] - b.pos;
+        c.rA[k] = rA;
+        c.rB[k] = rB;
+        c.pen[k] = m.pen[k];
+        const float rnA = cross2(rA, m.n), rnB = cross2(rB, m.n);
+        const float kN = a.invMass + b.invMass + a.invInertia * rnA * rnA + b.invInertia * rnB * rnB;
+        c.massN[k] = kN > 0.0f ? 1.0f / kN : 0.0f;
+        const float rtA = cross2(rA, t), rtB = cross2(rB, t);
+        const float kT = a.invMass + b.invMass + a.invInertia * rtA * rtA + b.invInertia * rtB * rtB;
+        c.massT[k] = kT > 0.0f ? 1.0f / kT : 0.0f;
+        const math::vec2 va = a.vel + crossSV(a.angularVel, rA);
+        const math::vec2 vb = b.vel + crossSV(b.angularVel, rB);
+        const float vn = glm::dot(vb - va, m.n);
+        c.restBias[k] = vn < -restThreshold ? -c.e * vn : 0.0f;
+    }
+    return c;
+}
+
+// Seed the solve by re-applying last frame's accumulated impulses (the warm start).
+inline void warmStart(Body2D& a, Body2D& b, const ContactConstraint& c) {
+    const math::vec2 t(-c.n.y, c.n.x);
+    for (int k = 0; k < c.count; ++k) {
+        const math::vec2 P = c.n * c.jN[k] + t * c.jT[k];
+        a.vel -= P * a.invMass;
+        a.angularVel -= a.invInertia * cross2(c.rA[k], P);
+        b.vel += P * b.invMass;
+        b.angularVel += b.invInertia * cross2(c.rB[k], P);
+    }
+}
+
+// One VELOCITY iteration: friction first (cone bounded by the accumulated normal impulse), then the
+// normal impulse toward the restitution target only. Position error is handled separately by
+// solveBias so it never injects energy into the real velocity (a resting stack truly comes to rest).
+inline void solveVelocity(Body2D& a, Body2D& b, ContactConstraint& c) {
+    const math::vec2 t(-c.n.y, c.n.x);
+    for (int k = 0; k < c.count; ++k) {
+        { // Friction.
+            const math::vec2 va = a.vel + crossSV(a.angularVel, c.rA[k]);
+            const math::vec2 vb = b.vel + crossSV(b.angularVel, c.rB[k]);
+            const float vt = glm::dot(vb - va, t);
+            const float maxT = c.mu * c.jN[k];
+            const float old = c.jT[k];
+            c.jT[k] = glm::clamp(old + c.massT[k] * (-vt), -maxT, maxT);
+            const math::vec2 P = t * (c.jT[k] - old);
+            a.vel -= P * a.invMass;
+            a.angularVel -= a.invInertia * cross2(c.rA[k], P);
+            b.vel += P * b.invMass;
+            b.angularVel += b.invInertia * cross2(c.rB[k], P);
+        }
+        { // Normal.
+            const math::vec2 va = a.vel + crossSV(a.angularVel, c.rA[k]);
+            const math::vec2 vb = b.vel + crossSV(b.angularVel, c.rB[k]);
+            const float vn = glm::dot(vb - va, c.n);
+            const float old = c.jN[k];
+            const float sum = old + c.massN[k] * (c.restBias[k] - vn);
+            c.jN[k] = sum > 0.0f ? sum : 0.0f;
+            const math::vec2 P = c.n * (c.jN[k] - old);
+            a.vel -= P * a.invMass;
+            a.angularVel -= a.invInertia * cross2(c.rA[k], P);
+            b.vel += P * b.invMass;
+            b.angularVel += b.invInertia * cross2(c.rB[k], P);
+        }
+    }
+}
+
+// One POSITION iteration (Bullet-style split impulse): solve a Baumgarte bias against a pair of
+// pseudo-velocities (pv/pw) that are integrated into position but never touch the real velocity, so
+// pushing bodies out of penetration adds no bounce energy. Slop leaves a small allowed overlap so a
+// resting contact does not buzz.
+inline void solveBias(const Body2D& a, math::vec2& pvA, float& pwA, const Body2D& b, math::vec2& pvB,
+                      float& pwB, ContactConstraint& c, float baumgarte, float slop, float invDt) {
+    for (int k = 0; k < c.count; ++k) {
+        const float bias = baumgarte * invDt * (c.pen[k] - slop > 0.0f ? c.pen[k] - slop : 0.0f);
+        const math::vec2 va = pvA + crossSV(pwA, c.rA[k]);
+        const math::vec2 vb = pvB + crossSV(pwB, c.rB[k]);
+        const float vn = glm::dot(vb - va, c.n);
+        const float old = c.jBias[k];
+        const float sum = old + c.massN[k] * (bias - vn);
+        c.jBias[k] = sum > 0.0f ? sum : 0.0f;
+        const math::vec2 P = c.n * (c.jBias[k] - old);
+        pvA -= P * a.invMass;
+        pwA -= a.invInertia * cross2(c.rA[k], P);
+        pvB += P * b.invMass;
+        pwB += b.invInertia * cross2(c.rB[k], P);
+    }
+}
+
 } // namespace detail
 
 class PhysicsWorld2D {
@@ -742,6 +875,14 @@ public:
     // Opt-in: resolve oriented box-box contacts with two-point clipped manifolds (stable stacks). Off by
     // default so every existing rotating scene keeps its exact single-point numerics.
     bool solveManifolds = false;
+    // Opt-in: Box2D-style warm-started accumulated-impulse solver (see detail::ContactConstraint). Off
+    // by default so every existing scene keeps its exact prior numerics; when on, a stack stays rigid
+    // at a handful of iterations where the from-scratch resolvers need many. Implies two-point
+    // manifolds internally. baumgarte/slop/restitutionThreshold tune the solve.
+    bool warmStarting = false;
+    float baumgarte = 0.2f;            // position-error correction gain
+    float slop = 0.005f;               // penetration tolerated before correction kicks in (anti-jitter)
+    float restitutionThreshold = 1.0f; // approach speed below which restitution is ignored (resting)
     std::vector<Body2D> bodies;
     std::vector<Joint2D> joints;
 
@@ -760,6 +901,10 @@ public:
     // If any body has rotation enabled (invInertia > 0) the oriented rigid-body solver runs; otherwise
     // the exact translation-only path below runs, keeping every non-rotating scene bit-identical.
     void step(float dt, int iterations = 4) {
+        if (warmStarting) {
+            stepSolver(dt, iterations);
+            return;
+        }
         if (!joints.empty()) {
             stepRotational(dt, iterations);
             return;
@@ -793,6 +938,104 @@ public:
     }
 
 private:
+    // Warm-started sequential-impulse step (opt-in via warmStarting). Integrate velocity, build fresh
+    // two-point contact constraints, carry last frame's accumulated impulses into them (warm start),
+    // run `iterations` velocity passes over contacts + joints, integrate position, then keep the
+    // constraints for next frame. This is the modern Box2D/Godot solve; accumulation + warm starting
+    // are what make a tall stack stay rigid at a handful of iterations.
+    void stepSolver(float dt, int iterations) {
+        const float invDt = dt > 0.0f ? 1.0f / dt : 0.0f;
+        for (Body2D& b : bodies) {
+            if (b.invMass > 0.0f) {
+                b.vel += gravity * dt;
+                b.vel *= 1.0f / (1.0f + b.linearDamping * dt);
+                b.angularVel *= 1.0f / (1.0f + b.angularDamping * dt);
+            }
+        }
+        // Broadphase + narrowphase -> fresh constraints (two-point manifolds for box pairs).
+        std::vector<detail::ContactConstraint> contacts;
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            for (size_t j = i + 1; j < bodies.size(); ++j) {
+                detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
+                if (m.hit) {
+                    contacts.push_back(detail::buildConstraint(static_cast<int>(i), bodies[i],
+                                                               static_cast<int>(j), bodies[j], m,
+                                                               restitutionThreshold));
+                }
+            }
+        }
+        // Warm start: inherit accumulated impulses from the matching pair last frame.
+        if (!m_prev.empty()) {
+            std::unordered_map<uint64_t, size_t> index;
+            index.reserve(m_prev.size() * 2);
+            for (size_t p = 0; p < m_prev.size(); ++p) {
+                index[m_prev[p].key] = p;
+            }
+            for (detail::ContactConstraint& c : contacts) {
+                auto it = index.find(c.key);
+                if (it != index.end()) {
+                    const detail::ContactConstraint& old = m_prev[it->second];
+                    for (int k = 0; k < c.count && k < old.count; ++k) {
+                        c.jN[k] = old.jN[k];
+                        c.jT[k] = old.jT[k];
+                    }
+                }
+            }
+        }
+        for (detail::ContactConstraint& c : contacts) {
+            detail::warmStart(bodies[static_cast<size_t>(c.a)], bodies[static_cast<size_t>(c.b)], c);
+        }
+        // Velocity iterations: contacts (restitution only), then joints.
+        for (int it = 0; it < iterations; ++it) {
+            for (detail::ContactConstraint& c : contacts) {
+                detail::solveVelocity(bodies[static_cast<size_t>(c.a)],
+                                      bodies[static_cast<size_t>(c.b)], c);
+            }
+            for (const Joint2D& jt : joints) {
+                if (jt.a < 0 || jt.a >= static_cast<int>(bodies.size())) {
+                    continue;
+                }
+                Body2D& A = bodies[static_cast<size_t>(jt.a)];
+                Body2D* B = (jt.b >= 0 && jt.b < static_cast<int>(bodies.size()))
+                                ? &bodies[static_cast<size_t>(jt.b)]
+                                : nullptr;
+                if (jt.type == Joint2D::Pin) {
+                    detail::solvePin(A, B, jt.localA, jt.anchorB, dt);
+                } else if (jt.type == Joint2D::Groove) {
+                    if (B != nullptr) {
+                        detail::solveGroove(A, *B, jt.localA, jt.axis, jt.anchorB, dt);
+                    }
+                } else {
+                    detail::solveSpring(A, B, jt.localA, jt.anchorB, jt.restLength, jt.stiffness,
+                                        jt.damping, dt);
+                }
+            }
+        }
+        // Position (split-impulse) iterations: push out of penetration via pseudo-velocities that add
+        // no bounce energy. pv/pw start at zero and are folded into the position integration below.
+        std::vector<math::vec2> pv(bodies.size(), math::vec2(0.0f, 0.0f));
+        std::vector<float> pw(bodies.size(), 0.0f);
+        for (int it = 0; it < iterations; ++it) {
+            for (detail::ContactConstraint& c : contacts) {
+                const size_t ia = static_cast<size_t>(c.a), ib = static_cast<size_t>(c.b);
+                detail::solveBias(bodies[ia], pv[ia], pw[ia], bodies[ib], pv[ib], pw[ib], c, baumgarte,
+                                  slop, invDt);
+            }
+        }
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            bodies[i].pos += (bodies[i].vel + pv[i]) * dt;
+            bodies[i].angle += (bodies[i].angularVel + pw[i]) * dt;
+        }
+        if (hasBounds) {
+            for (Body2D& b : bodies) {
+                collideBounds(b, bounds);
+            }
+        }
+        m_prev = std::move(contacts);
+    }
+
+    std::vector<detail::ContactConstraint> m_prev; // last frame's constraints, for warm starting
+
     // Oriented rigid-body integration: gravity + linear/angular damping, then advance position AND
     // orientation, then resolve oriented contacts with rotational impulses. Static walls are modelled
     // as static box bodies (invMass 0), so a box corner striking a wall imparts the right spin.

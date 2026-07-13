@@ -9090,6 +9090,162 @@ void testManifold2() {
     CHECK(tiltManifolds <= tiltSingle + 1e-4f);
 }
 
+// P1: the warm-started accumulated-impulse solver (PhysicsWorld2D::warmStarting). The claim to verify
+// is the real Box2D/Godot advantage — accumulation + frame-to-frame warm starting hold a tall stack
+// rigid at a HANDFUL of iterations, where the from-scratch two-point manifold resolver at the same
+// low iteration count lets the stack sink under its own weight. We build identical stacks, run both at
+// the SAME low iteration count, and compare how far the tower sank.
+void testWarmStartSolver() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    const float H = 18.0f;    // box half-height
+    const float floorTop = 290.0f;
+    const int N = 5;
+
+    // Ideal (zero-penetration) centre-y of box i counting up from the floor.
+    auto idealY = [&](int i) { return floorTop - H - static_cast<float>(i) * (2.0f * H); };
+
+    auto buildStack = [&](bool warm, int iters) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f); // +y down
+        if (warm) {
+            w.warmStarting = true;
+        } else {
+            w.solveManifolds = true;
+        }
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 10.0f);
+        floor.pos = math::vec2(0.0f, 300.0f); // top face at y=290
+        floor.invMass = 0.0f;
+        floor.friction = 0.9f;
+        w.add(floor);
+        for (int i = 0; i < N; ++i) {
+            Body2D box;
+            box.shape = Body2D::Box;
+            box.half = math::vec2(30.0f, H);
+            box.pos = math::vec2(0.0f, idealY(i));
+            box.invMass = 1.0f;
+            box.friction = 0.9f;
+            box.restitution = 0.0f;
+            box.enableRotation();
+            w.add(box);
+        }
+        for (int s = 0; s < 200; ++s) {
+            w.step(1.0f / 60.0f, iters);
+        }
+        return w;
+    };
+
+    // Total downward sink of the whole tower (sum over boxes of how far each fell below its ideal
+    // resting height). More sink = a mushier solver.
+    auto totalSink = [&](game::PhysicsWorld2D& w) {
+        float sink = 0.0f;
+        for (int i = 0; i < N; ++i) {
+            const float dy = w.bodies[static_cast<std::size_t>(i + 1)].pos.y - idealY(i);
+            sink += dy > 0.0f ? dy : 0.0f;
+        }
+        return sink;
+    };
+
+    const int lowIters = 4;
+    game::PhysicsWorld2D warm = buildStack(true, lowIters);
+    game::PhysicsWorld2D scratch = buildStack(false, lowIters);
+
+    // The warm-started tower settles tight: every box near its ideal height, tower upright, at rest.
+    float warmMaxTilt = 0.0f, warmMaxSpeed = 0.0f;
+    for (int i = 0; i < N; ++i) {
+        const Body2D& b = warm.bodies[static_cast<std::size_t>(i + 1)];
+        warmMaxTilt = std::max(warmMaxTilt, std::fabs(b.angle));
+        warmMaxSpeed = std::max(warmMaxSpeed, std::sqrt(glm::dot(b.vel, b.vel)));
+    }
+    CHECK(warmMaxTilt < 0.05f);          // stays square
+    CHECK(warmMaxSpeed < 12.0f);         // at rest — only residual contact micro-jitter (~0.2px/frame)
+    CHECK(totalSink(warm) < 3.0f);       // barely sank (sub-slop per contact)
+
+    // The headline comparison: at the SAME low iteration count (4), warm starting holds the tower
+    // essentially rigid while the from-scratch two-point-manifold resolver lets it pancake — an order
+    // of magnitude less sink. This is exactly the Box2D/Godot warm-start advantage.
+    CHECK(totalSink(warm) * 10.0f < totalSink(scratch));
+
+    // A single dynamic box resting on the floor settles with only slop-scale penetration and ~0 speed.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 10.0f);
+        floor.pos = math::vec2(0.0f, 300.0f);
+        floor.invMass = 0.0f;
+        floor.friction = 0.8f;
+        floor.restitution = 0.0f;
+        w.add(floor);
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(20.0f, 20.0f);
+        box.pos = math::vec2(0.0f, 200.0f); // dropped from above
+        box.invMass = 1.0f;
+        box.friction = 0.8f;
+        box.restitution = 0.0f;
+        box.enableRotation();
+        w.add(box);
+        for (int s = 0; s < 240; ++s) {
+            w.step(1.0f / 60.0f, 6);
+        }
+        d::Contact2 m = d::manifold2(w.bodies[0], w.bodies[1]);
+        CHECK(m.hit);
+        CHECK(m.pen[0] < 0.5f); // resting within a slop, not sinking through
+        CHECK(std::sqrt(glm::dot(w.bodies[1].vel, w.bodies[1].vel)) < 2.0f);
+        CHECK_NEAR(w.bodies[1].pos.y, 270.0f, 1.0f); // rests on the floor top (290) minus its half (20)
+    }
+
+    // Restitution still bounces under the warm solver: a bouncy circle dropped onto the floor reverses
+    // its velocity after impact (moves back up, -y).
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        w.restitutionThreshold = 0.5f;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 10.0f);
+        floor.pos = math::vec2(0.0f, 300.0f);
+        floor.invMass = 0.0f;
+        floor.restitution = 0.9f;
+        w.add(floor);
+        Body2D ball;
+        ball.shape = Body2D::Circle;
+        ball.radius = 10.0f;
+        ball.pos = math::vec2(0.0f, 250.0f);
+        ball.vel = math::vec2(0.0f, 200.0f); // heading down toward the floor
+        ball.invMass = 1.0f;
+        ball.restitution = 0.9f;
+        w.add(ball);
+        bool bounced = false;
+        for (int s = 0; s < 120; ++s) {
+            w.step(1.0f / 60.0f, 6);
+            if (w.bodies[1].vel.y < -50.0f) {
+                bounced = true; // rebounded upward
+                break;
+            }
+        }
+        CHECK(bounced);
+    }
+
+    // Determinism: identical setups produce identical results (fixed step, no RNG).
+    {
+        game::PhysicsWorld2D a = buildStack(true, 4);
+        game::PhysicsWorld2D b = buildStack(true, 4);
+        for (std::size_t i = 0; i < a.bodies.size(); ++i) {
+            CHECK_NEAR(a.bodies[i].pos.x, b.bodies[i].pos.x, 1e-6f);
+            CHECK_NEAR(a.bodies[i].pos.y, b.bodies[i].pos.y, 1e-6f);
+            CHECK_NEAR(a.bodies[i].angle, b.bodies[i].angle, 1e-6f);
+        }
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -11511,6 +11667,7 @@ int main() {
     testConvexShape2D();
     testOneWayPlatform();
     testManifold2();
+    testWarmStartSolver();
     testNormalLight();
     testParallax();
     testAudioDsp();
