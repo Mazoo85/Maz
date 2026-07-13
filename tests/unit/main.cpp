@@ -21,6 +21,7 @@
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
 #include "maz/audio/Spectrum.hpp"
+#include "maz/audio/Stereo.hpp"
 #include "maz/audio/Wav.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
@@ -9477,6 +9478,88 @@ void testAudioDsp() {
     }
 }
 
+void testStereo() {
+    using audio::Panner;
+    using audio::StereoEnhance;
+    using audio::StereoFrame;
+
+    // Width 0 collapses to mono: both channels become the mid (average).
+    {
+        StereoEnhance w;
+        w.configure(0.0f, 0.0f, 44100.0f);
+        const StereoFrame o = w.process(StereoFrame{0.8f, 0.2f});
+        CHECK_NEAR(o.left, 0.5f, 1e-5f);
+        CHECK_NEAR(o.right, 0.5f, 1e-5f);
+    }
+    // Width 1 is unchanged.
+    {
+        StereoEnhance w;
+        w.configure(1.0f, 0.0f, 44100.0f);
+        const StereoFrame o = w.process(StereoFrame{0.8f, 0.2f});
+        CHECK_NEAR(o.left, 0.8f, 1e-5f);
+        CHECK_NEAR(o.right, 0.2f, 1e-5f);
+    }
+    // Width 2 doubles the side (difference) signal: mid 0.5, side 0.3 -> side 0.6.
+    {
+        StereoEnhance w;
+        w.configure(2.0f, 0.0f, 44100.0f);
+        const StereoFrame o = w.process(StereoFrame{0.8f, 0.2f});
+        CHECK_NEAR(o.left, 1.1f, 1e-5f);   // mid + 2*side = 0.5 + 0.6
+        CHECK_NEAR(o.right, -0.1f, 1e-5f); // mid - 2*side = 0.5 - 0.6
+    }
+    // A truly mono input (L==R) has no side, so no width setting can widen it.
+    {
+        StereoEnhance w;
+        w.configure(3.0f, 0.0f, 44100.0f);
+        const StereoFrame o = w.process(StereoFrame{0.5f, 0.5f});
+        CHECK_NEAR(o.left, 0.5f, 1e-5f);
+        CHECK_NEAR(o.right, 0.5f, 1e-5f);
+    }
+    // Haas widener delays the right channel: first output right is the pre-fill (0), then it catches up.
+    {
+        StereoEnhance w;
+        w.configure(1.0f, 1.0f, 44100.0f); // ~44 samples of delay
+        const StereoFrame o0 = w.process(StereoFrame{1.0f, 1.0f});
+        // The right channel is delayed, so at the first frame it is still 0: the momentary pair is
+        // (L=1, R=0), which at width 1 reconstructs to {1, 0}. This is the Haas widening in action.
+        CHECK_NEAR(o0.left, 1.0f, 1e-4f);
+        CHECK_NEAR(o0.right, 0.0f, 1e-4f);
+    }
+
+    // Panner: centered pan leaves both channels alone.
+    {
+        Panner p;
+        p.pan = 0.0f;
+        const StereoFrame o = p.process(StereoFrame{0.7f, 0.3f});
+        CHECK_NEAR(o.left, 0.7f, 1e-6f);
+        CHECK_NEAR(o.right, 0.3f, 1e-6f);
+    }
+    // Hard pan right silences the left channel; the right passes.
+    {
+        Panner p;
+        p.pan = 1.0f;
+        const StereoFrame o = p.process(StereoFrame{0.7f, 0.5f});
+        CHECK_NEAR(o.left, 0.0f, 1e-5f);
+        CHECK_NEAR(o.right, 0.5f, 1e-6f);
+    }
+    // Hard pan left silences the right channel.
+    {
+        Panner p;
+        p.pan = -1.0f;
+        const StereoFrame o = p.process(StereoFrame{0.7f, 0.5f});
+        CHECK_NEAR(o.left, 0.7f, 1e-6f);
+        CHECK_NEAR(o.right, 0.0f, 1e-5f);
+    }
+    // Half pan right applies a constant-power (cosine) taper to the far (left) channel.
+    {
+        Panner p;
+        p.pan = 0.5f;
+        const StereoFrame o = p.process(StereoFrame{1.0f, 1.0f});
+        CHECK_NEAR(o.left, std::cos(0.5f * 1.5707963f), 1e-5f); // ~0.707
+        CHECK_NEAR(o.right, 1.0f, 1e-6f);
+    }
+}
+
 void testBusGraph() {
     using audio::BusGraph;
 
@@ -11021,6 +11104,7 @@ int main() {
     testParallax();
     testAudioDsp();
     testBusGraph();
+    testStereo();
     testModDsp();
     testAudioEffects();
     testADSR();

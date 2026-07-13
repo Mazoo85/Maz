@@ -157,6 +157,7 @@ CASES=(
     "equalizer||2.0|0.05"
     "busmixer||2.0|0.05"
     "limiter||2.0|0.05"
+    "stereo||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

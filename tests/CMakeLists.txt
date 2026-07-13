@@ -1077,6 +1077,14 @@ set_tests_properties(limiter_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME stereo_headless_smoke
+    COMMAND stereo --headless --frames 30)
+
+set_tests_properties(stereo_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

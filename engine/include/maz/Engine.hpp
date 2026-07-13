@@ -27,6 +27,7 @@
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
 #include "maz/audio/Spectrum.hpp"
+#include "maz/audio/Stereo.hpp"
 #include "maz/audio/Wav.hpp"
 #include "maz/core/Assert.hpp"
 #include "maz/core/CVars.hpp"
