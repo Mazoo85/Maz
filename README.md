@@ -830,6 +830,10 @@ available):
   triangulation tiles an arbitrary *simple* polygon — concave included — into triangles the convex-fill path
   can draw, where a triangle fan only works for convex shapes. The new `polyfill` demo fills a star, a block
   arrow, a plus/cross, and a thick C-ring, each with the triangle mesh + outline overlaid.
+- **M157** — **analog-stick deadzone** (`input::analogVector` / `input::applyDeadzone`), toward Godot's
+  `Input.get_vector`: a radial deadzone on the whole stick vector, magnitude rescaled so the deadzone edge is
+  0 and full tilt is 1, and clamped to the unit circle so diagonals aren't faster — killing rest-drift and the
+  faster-diagonal bug. The new `deadzone` demo shows a stick field + the 1-D response curve.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

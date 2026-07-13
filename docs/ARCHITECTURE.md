@@ -41,6 +41,9 @@ platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depe
 input/      ActionMap — semantic action mapping: named button actions (any-of bound Key/MouseButton/
             PadButton sources, pressed/held/released edges) + axis actions (key pairs + analog pad axes,
             clamped -1..1); SDL-free (update() takes sampler callbacks)   (header-only)
+            Analog    — stick conditioning (Godot Input.get_vector/get_axis): applyDeadzone (1 signed
+            axis, rescaled) + analogVector (2D radial deadzone + rescale + unit-circle clamp — no drift,
+            no faster diagonals); stateless, header-only
 math/       maz::math = GLM re-export + helpers (Vulkan-correct perspective + orthographic/orthographicSize
               3D projections (parallel, isometric — Godot Camera3D Orthogonal) + ortho2D)  (header-only);
             Curve2D — cubic Bézier path (Godot Curve2D/Path2D): points with in/out handles, sample/tangent/
@@ -373,6 +376,8 @@ apps/
               multi-point particle-size profile) with control points marked
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
+  deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +
+              the 1-D applyDeadzone response curve, showing the radial deadzone and unit-circle clamp
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

@@ -66,6 +66,7 @@
 #include "maz/game/TileSet.hpp"
 #include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
+#include "maz/input/Analog.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Base64.hpp"
 #include "maz/io/Json.hpp"
@@ -4993,6 +4994,62 @@ void testLocalization() {
     }
 }
 
+void testAnalog() {
+    using input::analogVector;
+    using input::applyDeadzone;
+    using math::vec2;
+
+    // --- applyDeadzone (one signed axis, rescaled) ---
+    CHECK_NEAR(applyDeadzone(0.0f, 0.2f), 0.0f, 1e-6f);
+    CHECK_NEAR(applyDeadzone(0.1f, 0.2f), 0.0f, 1e-6f);  // inside deadzone
+    CHECK_NEAR(applyDeadzone(0.2f, 0.2f), 0.0f, 1e-6f);  // exactly at edge -> 0
+    CHECK_NEAR(applyDeadzone(0.6f, 0.2f), 0.5f, 1e-5f);  // (0.6-0.2)/0.8
+    CHECK_NEAR(applyDeadzone(1.0f, 0.2f), 1.0f, 1e-5f);  // full tilt -> 1
+    CHECK_NEAR(applyDeadzone(-0.6f, 0.2f), -0.5f, 1e-5f); // sign preserved
+    CHECK_NEAR(applyDeadzone(1.5f, 0.2f), 1.0f, 1e-5f);  // over-range clamps to 1
+    CHECK_NEAR(applyDeadzone(0.5f, 0.0f), 0.5f, 1e-6f);  // no deadzone -> passthrough
+    // A pathological deadzone is sanitized rather than dividing by zero.
+    CHECK(std::isfinite(applyDeadzone(0.5f, 1.0f)));
+
+    auto len = [](vec2 v) { return std::sqrt(v.x * v.x + v.y * v.y); };
+
+    // --- analogVector (2D radial deadzone + unit clamp) ---
+    // Rest and jitter inside the deadzone collapse to zero.
+    CHECK(len(analogVector(vec2(0.0f, 0.0f), 0.2f)) < 1e-6f);
+    CHECK(len(analogVector(vec2(0.1f, 0.0f), 0.2f)) < 1e-6f);
+    CHECK(len(analogVector(vec2(-0.12f, 0.1f), 0.2f)) < 1e-6f); // magnitude 0.156 < 0.2
+
+    // On-axis tilt past the deadzone: direction kept, magnitude rescaled (0.6-0.2)/0.8 = 0.5.
+    {
+        const vec2 v = analogVector(vec2(0.6f, 0.0f), 0.2f);
+        CHECK_NEAR(v.x, 0.5f, 1e-5f);
+        CHECK_NEAR(v.y, 0.0f, 1e-6f);
+    }
+    // Full tilt on an axis -> unit magnitude.
+    CHECK_NEAR(len(analogVector(vec2(1.0f, 0.0f), 0.2f)), 1.0f, 1e-5f);
+    // Way past the rim -> clamped onto the unit circle, direction preserved.
+    {
+        const vec2 v = analogVector(vec2(3.0f, 0.0f), 0.2f);
+        CHECK_NEAR(v.x, 1.0f, 1e-5f);
+        CHECK_NEAR(v.y, 0.0f, 1e-6f);
+    }
+    // THE diagonal fix: a full (1,1) push has raw length √2, but the result is clamped to length 1 —
+    // so a diagonal is no faster than a cardinal. Direction (equal x,y) is preserved.
+    {
+        const vec2 v = analogVector(vec2(1.0f, 1.0f), 0.0f);
+        CHECK_NEAR(len(v), 1.0f, 1e-5f);
+        CHECK_NEAR(v.x, v.y, 1e-6f);
+        CHECK_NEAR(v.x, 0.70710678f, 1e-5f);
+    }
+    // A diagonal already inside the unit circle keeps its (rescaled) direction, parallel to the input.
+    {
+        const vec2 raw(0.5f, 0.3f);
+        const vec2 v = analogVector(raw, 0.1f);
+        CHECK(len(v) > 0.0f && len(v) <= 1.0f);
+        CHECK_NEAR(v.x * raw.y - v.y * raw.x, 0.0f, 1e-6f); // cross == 0 -> parallel
+    }
+}
+
 void testActionMap() {
     using input::Device;
     input::ActionMap map;
@@ -8770,6 +8827,7 @@ int main() {
     testShapes3D();
     testPolyline();
     testTriangulate();
+    testAnalog();
     testActionMap();
     testSceneSerializer();
     testEcs();

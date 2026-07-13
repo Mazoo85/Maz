@@ -134,6 +134,7 @@ CASES=(
     "base64||2.0|0.07"
     "floatcurve||2.0|0.06"
     "polyfill||2.0|0.06"
+    "deadzone||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

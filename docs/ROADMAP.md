@@ -158,6 +158,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   keyboard/mouse/gamepad sources + pressed/held/released edges, and axis actions from key pairs +
   analog pad axes clamped to -1..1; SDL-free via sampler callbacks; the `actions` demo drives an
   avatar by mapped actions; M80)
+- [x] **Analog-stick deadzone conditioning** (`input::analogVector` / `input::applyDeadzone`: Godot's
+  `Input.get_vector`/`get_axis` maths — a *radial* deadzone on the whole stick vector, magnitude rescaled so
+  the deadzone edge maps to 0 and full tilt to 1, and clamped to the unit circle so diagonals aren't faster;
+  stateless, pairs with any input source; the `deadzone` demo shows a stick field + the 1-D response curve;
+  M157) — a 2D get_vector convenience over ActionMap's four directional actions + per-action deadzone config
+  later
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
 - [ ] Filesystem abstraction, virtual paths, save-directory resolution

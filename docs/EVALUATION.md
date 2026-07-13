@@ -2927,6 +2927,36 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 118 — "Benchmarking against Godot: analog-stick deadzone" (done)
+Rotating to **input** for breadth (recent rounds were 2D-render, animation, IO, 3D-render, 2D-physics, core) —
+the most under-served module (only `ActionMap` lived there). Maz reads gamepad axes with a *per-axis* scalar
+deadzone, but lacked the 2D vector conditioning every character controller needs: Godot's `Input.get_vector`
+applies a **radial** deadzone (on the whole stick vector, not each axis), **rescales** the leftover magnitude
+so the deadzone edge maps to 0 and full tilt to 1 (no jump leaving the deadzone), and **clamps to the unit
+circle** so a diagonal push isn't ~40% faster than a cardinal one. Without it, naive movement creeps at rest
+and runs faster on the diagonals. Pure maths, so it unit-tests exactly and drives a 2D golden.
+- [x] **M157 — Analog deadzone (`input::analogVector` / `input::applyDeadzone`)**: a new `Analog.hpp` with
+  `applyDeadzone(value, dz)` (one signed axis: `|v|<=dz → 0`, else `sign·(|v|−dz)/(1−dz)` clamped to 1) and
+  `analogVector(raw, dz)` (2D: `len<=dz → (0,0)`, `len>1 → raw/len`, else `raw · ((len−dz)/(1−dz))/len`) —
+  matching Godot's `get_vector`/`get_axis` remap exactly, plus a `sanitizeDeadzone` guard so a pathological
+  `dz` can't divide by zero. `testAnalog` pins: axis remap (edge→0, 0.6→0.5, full→1, sign kept, over-range
+  clamp, no-deadzone passthrough, sanitized extreme); 2D rest/jitter collapse, on-axis rescale, full→unit,
+  past-rim clamp, and the two key invariants — a full `(1,1)` push resolves to length **1** (not √2, so no
+  faster diagonal) and the conditioned vector stays **parallel** to the raw input (cross-product 0). Unit
+  checks **5223 → 5245**. The new `deadzone` demo shows both faces: LEFT a stick field (unit circle +
+  deadzone ring + a grid of raw samples each arrowed to its conditioned dot — inner samples collapse to
+  centre, corners pull onto the rim), RIGHT the 1-D `applyDeadzone` response curve (flat through the deadzone
+  band, then linear to ±1). 2D golden (threshold 0.06, `deadzone` RMSE 0). Purely additive, so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); ctest **112/112 → 113/113**. Honest scope:
+  this is the stick-conditioning maths; it does **not** wire a 2D `get_vector` convenience onto `ActionMap`'s
+  four directional actions, add per-action deadzone config, or input buffering / echo — those remain the
+  wiring follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 117 — "Benchmarking against Godot: concave polygon fill" (done)
 Rotating to **2D rendering** for breadth (recent rounds were animation, IO, 3D-render, 2D-physics, core, UI).
 Maz could already fill a *convex* polygon (`drawConvexPolygon` fans from vertex 0), but a triangle fan is only
