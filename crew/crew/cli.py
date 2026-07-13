@@ -113,6 +113,24 @@ def status() -> None:
 
 
 @app.command()
+def init(
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing crew.json."),
+) -> None:
+    """Write a starter crew.json in the current directory."""
+    from .config import write_starter_config
+
+    written, path = write_starter_config(force=force)
+    if written:
+        console.print(
+            f"[green]Wrote {path}[/green] — edit it to set per-project models and loop bounds, "
+            "then run [bold]crew config[/bold] to confirm."
+        )
+    else:
+        console.print(f"[yellow]{path} already exists.[/yellow] Use --force to overwrite.")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def config() -> None:
     """Show the effective configuration (defaults + crew.json + env overrides)."""
     from pathlib import Path

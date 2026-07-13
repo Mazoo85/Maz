@@ -106,3 +106,20 @@ def load_config(root: Path | None = None) -> CrewConfig:
 def effective_values(config: CrewConfig) -> dict:
     """The user-facing config fields, for display by `crew config`."""
     return {f.name: getattr(config, f.name) for f in fields(config) if f.name in _FILE_FIELDS}
+
+
+def default_config_dict() -> dict:
+    """The settable fields at their defaults — the body of a starter crew.json."""
+    return effective_values(CrewConfig())
+
+
+def write_starter_config(root: Path | None = None, force: bool = False) -> tuple[bool, Path]:
+    """Write a starter ``crew.json`` at ``root``. Returns (written, path).
+
+    Won't clobber an existing file unless ``force`` is set.
+    """
+    p = (root or Path.cwd()) / CONFIG_FILENAME
+    if p.exists() and not force:
+        return (False, p)
+    p.write_text(json.dumps(default_config_dict(), indent=2) + "\n")
+    return (True, p)

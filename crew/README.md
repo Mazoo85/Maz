@@ -42,9 +42,11 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Use
 
 ```bash
+crew init                                              # scaffold a starter crew.json
 crew do "add retry with backoff to the http client"   # run a task end-to-end
 crew resume                                            # continue the last task here
 crew status                                            # show saved session state
+crew config                                            # show effective configuration
 crew agents                                            # list the crew and their tools
 ```
 
