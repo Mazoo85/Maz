@@ -217,7 +217,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
               advance() applies a step to a world pose, rotating clip-local travel by the current facing so
               feet don't slide), Godot AnimationMixer root-motion-track-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
-io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
+io/         Base64 — base64Encode/base64Decode (RFC 4648 raw<->text — Godot Marshalls; whitespace-tolerant,
+              validating decode) for embedding binary in JSON/.tres/URLs;
+            Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
             Json — JsonValue (null/bool/number/string/array/object, insertion-ordered) + never-throwing
             recursive-descent parseJson (line/col errors) + dump (compact/pretty) + file IO
@@ -359,6 +361,8 @@ apps/
               their fixed-step trails drift/U-turn/orbit per game::gravityAt
   ortho3d/   Orthographic camera — a 7x7 iso field of lit cube columns (a mound) via math::orthographicSize;
               every column reads the same width regardless of depth (no vanishing point)
+  base64/    Base64 — a text string, a UTF-8 string, and a byte buffer each shown with their io::base64Encode
+              output + a decode(encode(x))==x round-trip check
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

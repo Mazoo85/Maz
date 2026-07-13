@@ -2906,6 +2906,27 @@ golden.
   ortho frustum for culling, or a back-face-cull toggle (still an open ROADMAP item); those remain the
   camera-object follow-ups.
 
+### Iteration 115 — "Benchmarking against Godot: base64" (done)
+Rotating to **IO** for breadth (recent rounds were 3D-render, 2D-physics, core, UI, math, scene/ECS). Maz
+could read/write binary (Serialize, ResourcePack) and text (JSON, CSV, PrefabText) but had no way to carry
+BINARY data through a TEXT channel — embedding a texture, a save blob, or any byte buffer inside a JSON
+string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as `Marshalls.raw_to_base64` /
+`base64_to_raw`. Pure byte math, so it unit-tests exactly against the canonical vectors and drives a golden.
+- [x] **M154 — Base64 (`io::base64Encode` / `base64Decode`)**: a new `Base64.hpp` — RFC 4648 standard
+  alphabet, 3 bytes → 4 chars with `=` padding; encode overloads for a byte pointer+length, a `vector<uint8_t>`,
+  and a `std::string`; `base64Decode(text, out)` returns false on a stray non-alphabet char, tolerates embedded
+  whitespace/newlines (so line-wrapped blobs decode), and treats `=` as end-of-data; plus a convenience
+  `base64Decode(text)` returning a fresh vector. `testBase64` pins the canonical vectors (`""`→`""`,
+  `f`→`Zg==`, `fo`→`Zm8=`, `foo`→`Zm9v`, … `foobar`→`Zm9vYmFy`), a full 0..255 byte-value round-trip (0x00 and
+  0xFF included), odd-length padding round-trips, whitespace-skipping decode, and rejection of a stray
+  character. Unit checks **5120 → 5138**. The new `base64` demo is a static readout: a text string, a UTF-8
+  string, and a raw byte buffer (shown as hex) each with their live `base64Encode` output, plus a
+  `decode(encode(x)) == x` round-trip confirmation. 2D golden (threshold 0.07, `base64` RMSE 0). Purely
+  additive, so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest **109/109 →
+  110/110**. Honest scope: this is standard base64; it does **not** add the URL-safe (`-_`) variant, a
+  streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
+  follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

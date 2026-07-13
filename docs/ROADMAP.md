@@ -205,6 +205,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   + **JSON file IO** (`parseJsonFile`/`writeJsonFile`/`readTextFile`/`writeTextFile`); the `level`
   demo loads `assets/levels/arena.json` from disk into a tilemap + pickups and round-trips it back
   to the save directory — the editable-content pipeline end to end (M76)
+- [x] **Base64** (`io::base64Encode` / `base64Decode`: RFC 4648 raw↔text so binary rides through JSON/.tres/
+  URLs — encode overloads for bytes/vector/string; validating, whitespace-tolerant decode — Godot Marshalls;
+  the `base64` demo shows text + byte buffers with their encodings + a round-trip check; M154) — a URL-safe
+  variant, a streaming encoder, and Godot-style `var_to_bytes` variant marshalling later
 - [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
       via `Renderer::renderStats`; M29)
 - [x] **Profiling: scoped timers** (`maz::core::Profiler`: nestable begin/end timing zones with

@@ -131,6 +131,7 @@ CASES=(
     "interp||2.0|0.06"
     "gravzones||2.0|0.06"
     "ortho3d||2.5|0.10"
+    "base64||2.0|0.07"
 )
 
 if [ ! -f "$ICD" ]; then

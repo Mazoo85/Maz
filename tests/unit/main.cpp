@@ -66,6 +66,7 @@
 #include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
 #include "maz/io/Config.hpp"
+#include "maz/io/Base64.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
@@ -3104,6 +3105,68 @@ void testSerialize() {
     io::ByteReader tsr(ts);
     tsr.readString();
     CHECK(!tsr.ok());
+}
+
+void testBase64() {
+    using io::base64Decode;
+    using io::base64Encode;
+
+    // The canonical RFC 4648 test vectors.
+    CHECK(base64Encode(std::string("")) == "");
+    CHECK(base64Encode(std::string("f")) == "Zg==");
+    CHECK(base64Encode(std::string("fo")) == "Zm8=");
+    CHECK(base64Encode(std::string("foo")) == "Zm9v");
+    CHECK(base64Encode(std::string("foob")) == "Zm9vYg==");
+    CHECK(base64Encode(std::string("fooba")) == "Zm9vYmE=");
+    CHECK(base64Encode(std::string("foobar")) == "Zm9vYmFy");
+
+    // Decode round-trips back to the original bytes.
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(base64Decode("Zm9vYmFy", out));
+        const std::string s(out.begin(), out.end());
+        CHECK(s == "foobar");
+    }
+
+    // Every byte value round-trips (including 0x00 and 0xFF).
+    {
+        std::vector<std::uint8_t> data(256);
+        for (int i = 0; i < 256; ++i) {
+            data[static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(i);
+        }
+        const std::string enc = base64Encode(data);
+        const std::vector<std::uint8_t> dec = base64Decode(enc);
+        CHECK(dec.size() == 256);
+        bool same = dec.size() == data.size();
+        for (std::size_t i = 0; same && i < data.size(); ++i) {
+            same = dec[i] == data[i];
+        }
+        CHECK(same);
+    }
+
+    // Odd lengths (padding) round-trip.
+    {
+        const std::vector<std::uint8_t> one = {0xAB};
+        const std::vector<std::uint8_t> two = {0xAB, 0xCD};
+        CHECK(base64Encode(one) == "qw==");
+        CHECK(base64Encode(two) == "q80=");
+        CHECK(base64Decode(base64Encode(one)) == one);
+        CHECK(base64Decode(base64Encode(two)) == two);
+    }
+
+    // Decoder skips embedded whitespace/newlines (line-wrapped blobs still decode).
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(base64Decode("Zm9v\n  YmFy\n", out));
+        const std::string s(out.begin(), out.end());
+        CHECK(s == "foobar");
+    }
+
+    // A stray non-alphabet character is rejected.
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(!base64Decode("Zm9v$YmFy", out));
+    }
 }
 
 void testResourcePack() {
@@ -8500,6 +8563,7 @@ int main() {
     testTextInput();
     testUI();
     testSerialize();
+    testBase64();
     testResourcePack();
     testJson();
     testCVars();

@@ -818,6 +818,10 @@ available):
   Orthogonal projection: a parallel projection with no perspective divide, so objects keep the same on-screen
   size at every depth and parallel edges never converge — the isometric look. The new `ortho3d` demo renders
   an iso field of lit cube columns.
+- **M154** — **base64** (`io::base64Encode` / `base64Decode`), toward Godot's `Marshalls`: carry binary data
+  through text — embed a blob inside JSON, a `.tres` resource, or a URL — RFC 4648 encode/decode with
+  whitespace-tolerant, validating decode. The new `base64` demo shows text and byte buffers with their
+  encodings and a round-trip check.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

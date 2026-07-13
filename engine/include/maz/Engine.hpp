@@ -72,6 +72,7 @@
 #include "maz/game/TileSet.hpp"
 #include "maz/game/Visibility2D.hpp"
 #include "maz/input/ActionMap.hpp"
+#include "maz/io/Base64.hpp"
 #include "maz/io/Config.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
