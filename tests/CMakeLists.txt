@@ -91,3 +91,10 @@ target_link_libraries(maz_unit_sparseset PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_sparseset COMMAND maz_unit_sparseset)
 set_tests_properties(unit_sparseset PROPERTIES TIMEOUT 30)
+
+# Unit tests: named-signal event bus (subscribe/emit/disconnect, re-entrancy, generational safety).
+add_executable(maz_unit_eventbus unit_eventbus.cpp)
+target_link_libraries(maz_unit_eventbus PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_eventbus COMMAND maz_unit_eventbus)
+set_tests_properties(unit_eventbus PROPERTIES TIMEOUT 30)

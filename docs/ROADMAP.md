@@ -58,7 +58,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       dense/sparse key→value map with O(1) insert/remove/contains and packed iteration — the ECS
       component-storage structure; both header-only, unit-tested); `small_vector` still TODO
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested); interning/original-string storage + fixed strings TODO
-- [ ] Event bus / signals, delegates / typed callbacks
+- [~] Event bus / signals, delegates / typed callbacks — **`maz::core::EventBus<Event>` landed**
+      (Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks, generational
+      `Connection` tokens for safe disconnect, re-entrancy-safe emit; header-only, unit-tested);
+      standalone delegate/multicast wrapper still TODO
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [ ] Serialization (binary + JSON), versioned schemas
 - [ ] Profiling: scoped timers, frame markers, Tracy integration
