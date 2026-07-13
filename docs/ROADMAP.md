@@ -319,6 +319,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   projection — no perspective divide, equal-size objects at every depth, parallel edges never converge —
   Godot Camera3D Orthogonal; the `ortho3d` demo renders an isometric field of lit cube columns; M153) — a
   runtime perspective↔ortho toggle on a camera object + an ortho frustum for culling later
+- [x] **Camera3D projection** (`render::Camera3D`: view+projection+viewport → `worldToScreen` (unproject),
+  `screenToRay` (world pick ray), `screenToWorld`, and `frustum()`/`isPointVisible`/`isSphereVisible`
+  (Gribb-Hartmann six planes) — Godot's Camera3D `unproject_position`/`project_ray_*`/`project_position`/
+  `is_position_in_frustum` for mouse picking, world-space UI labels, aim rays; the `camera3d` demo projects a
+  grid + axes + wireframe cube to 2D, colours points by frustum containment, and unprojects a centre ray to
+  the ground; M163) — retrofitting the mesh renderer's private frustum onto it + near-plane segment clipping later
 - [ ] Back-face cull toggle
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;

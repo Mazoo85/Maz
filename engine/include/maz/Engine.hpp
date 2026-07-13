@@ -93,6 +93,7 @@
 #include "maz/platform/Paths.hpp"
 #include "maz/platform/Window.hpp"
 #include "maz/render/Billboard.hpp"
+#include "maz/render/Camera3D.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/Model.hpp"

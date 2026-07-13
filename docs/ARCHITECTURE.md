@@ -93,6 +93,10 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               buildGrid      — 3D editor reference geometry (Godot Node3D viewport): an XZ-plane ground grid
                                (buildGrid) + the X=red/Y=green/Z=blue origin gizmo, and buildWireBox (12 edges
                                of a placeable AABB) — colored Line3 lists drawn via DebugDraw/drawLine (no GPU dep)
+              Camera3D       — screen<->world projection (Godot Camera3D): view+proj+viewport -> worldToScreen
+                               (unproject_position), screenToRay (project_ray_origin/normal), screenToWorld
+                               (project_position), frustum()/isPointVisible/isSphereVisible (Gribb-Hartmann 6
+                               planes) — 3D mouse picking, world-space labels, aim rays (header-only, no GPU dep)
               loadGltf       — glTF 2.0 model import (cgltf) -> ModelData (mesh + base-color + normal map)
               loadGltfScene  — glTF 2.0 scene import -> SceneData (per-node mesh + transform + textures)
               Renderer       — beginFrame / drawSprite / drawMesh / endFrame
@@ -392,6 +396,8 @@ apps/
               multi-point particle-size profile) with control points marked
   gradient/  Colour gradients — a spectrum ramp under Constant/Linear/Cubic modes side by side, plus fire /
               health / ocean ramps and the fire ramp baked to 8 swatches (anim::Gradient)
+  camera3d/  Camera3D projection — a 3D scene (ground grid + RGB axes + wireframe cube) projected to 2D by
+              render::Camera3D, points coloured by frustum containment, a centre ray unprojected to the ground
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

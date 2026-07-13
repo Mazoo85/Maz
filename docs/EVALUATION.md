@@ -2927,6 +2927,40 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 124 — "Benchmarking against Godot: Camera3D projection" (done)
+Rotating to **3D rendering / math-for-3D** for breadth (recent rounds were animation, UI, math-2D, 2D-physics,
+audio). Maz could build view/projection matrices (`math::perspective`/`orthographic`) and cull meshes against
+a frustum inside the renderer, but exposed **no screen↔world projection** — Godot's Camera3D API of
+`unproject_position` (world→screen), `project_ray_origin`/`project_ray_normal` (screen→world ray),
+`project_position`, and `is_position_in_frustum`. Those underpin mouse picking in 3D, world-space UI labels /
+health bars floating over units, aim rays, and gameplay off-screen tests — none of which the engine could do.
+The frustum-plane extraction also lived privately in `MeshRenderer.cpp`; this promotes a reusable version.
+Pure matrix math, so it unit-tests exactly and drives a golden by projecting a 3D scene to 2D.
+- [x] **M163 — Camera3D projection (`render::Camera3D`)**: a new `Camera3D.hpp` holding a view + projection
+  matrix (from `lookAt` + `perspective`, or set directly) and a viewport, exposing `worldToScreen`
+  (→ `Projected{screen, depth, inFront}`, top-left pixel origin, matching the engine's Vulkan y-down / 0..1
+  clip), `screenToRay` (→ `Ray3{origin at the eye, normalized direction}`), `screenToWorld(screen, distance)`,
+  and `frustum()` / `isPointVisible` / `isSphereVisible` (Gribb-Hartmann six-plane extraction, inward normals,
+  near from row2 for 0..1 depth). `testCamera3D` pins the maths against a hand-computed 800×600 / fov-90 /
+  eye-at-(0,0,5) setup: the look-at target projects to the exact centre and is in-front; a unit +X offset lands
+  at pixel 480 and +Y projects above centre; nearer points have smaller clip depth; a point behind reports
+  `inFront=false`; the centre ray is (eye, −Z) and normalized; a projected point round-trips onto its own ray;
+  `screenToWorld` 5 units down the centre ray hits the origin; and frustum containment accepts the origin while
+  rejecting points behind / far to the side / beyond the far plane (plus a straddling-sphere case). Unit checks
+  **7150 → 7178**. The new `camera3d` demo uses the 2D renderer as the display: a perspective Camera3D projects
+  a ground grid, RGB world axes, and a wireframe cube to 2D lines (real perspective foreshortening), colours a
+  scatter of world points green/red by `isPointVisible`, and casts a centre-screen ray to the ground plane and
+  marks the unprojected hit. 2D golden (threshold 0.06, `camera3d` RMSE 0). Purely additive, so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); ctest **118/118 → 119/119**. Honest scope: this
+  is the projection/ray/frustum core; it does **not** yet retrofit the mesh renderer's private frustum onto it,
+  nor add near/far-plane polygon clipping of projected segments (the demo skips any line with an endpoint behind
+  the camera) — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 123 — "Benchmarking against Godot: colour Gradient resource" (done)
 Rotating to **animation** for breadth (recent rounds were UI, math, 2D-physics, audio, input). Maz had
 `anim::Curve` (M155, a keyframed scalar function) but no colour **Gradient** — Godot's companion resource that

@@ -857,6 +857,11 @@ available):
   GradientTexture — the colour ramp behind particle colour-over-lifetime, sky ramps, and health/heat tints.
   The new `gradient` demo shows a spectrum under all three modes plus fire / health / ocean ramps and a baked
   swatch strip.
+- **M163** — **Camera3D projection** (`render::Camera3D`), toward Godot's `Camera3D`: project a 3D world point
+  to screen pixels (unproject), cast a world-space pick ray from a screen pixel, and test points/spheres
+  against the view frustum — the maths behind 3D mouse picking, floating world-space labels, and aim rays. The
+  new `camera3d` demo projects a grid, axes, and wireframe cube to 2D, colours points by frustum containment,
+  and unprojects a centre-screen ray onto the ground.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

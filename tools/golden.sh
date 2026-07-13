@@ -140,6 +140,7 @@ CASES=(
     "geometry||2.0|0.06"
     "itemlist||2.0|0.05"
     "gradient||2.0|0.05"
+    "camera3d||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

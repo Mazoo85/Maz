@@ -941,6 +941,14 @@ set_tests_properties(gradient_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME camera3d_headless_smoke
+    COMMAND camera3d --headless --frames 30)
+
+set_tests_properties(camera3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

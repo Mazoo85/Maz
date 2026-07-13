@@ -95,6 +95,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Billboard.hpp"
+#include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/PolyTriangulate.hpp"
@@ -4793,6 +4794,100 @@ void testBillboard() {
     }
 }
 
+void testCamera3D() {
+    using math::vec2;
+    using math::vec3;
+    using render::Camera3D;
+
+    // Camera at (0,0,5) looking at the origin, up +Y, 90-degree vertical FOV, square 800x600 viewport.
+    Camera3D cam;
+    cam.viewportWidth = 800.0f;
+    cam.viewportHeight = 600.0f;
+    cam.lookAt(vec3(0, 0, 5), vec3(0, 0, 0), vec3(0, 1, 0));
+    cam.perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+
+    // The look-at target projects to the exact centre of the viewport and is in front.
+    {
+        const render::Projected p = cam.worldToScreen(vec3(0, 0, 0));
+        CHECK(p.inFront);
+        CHECK_NEAR(p.screen.x, 400.0f, 0.5f);
+        CHECK_NEAR(p.screen.y, 300.0f, 0.5f);
+        CHECK(p.depth >= 0.0f && p.depth <= 1.0f);
+    }
+
+    // A point to the right of the axis (world +X) projects right of centre; world +Y projects ABOVE centre
+    // (smaller pixel y — top-left origin). With fov 90 / aspect 1, a unit offset 5 units away sits at ndc 0.2.
+    {
+        const render::Projected right = cam.worldToScreen(vec3(1, 0, 0));
+        CHECK_NEAR(right.screen.x, 400.0f + 0.2f * 400.0f, 1.0f); // 480
+        CHECK_NEAR(right.screen.y, 300.0f, 1.0f);
+
+        const render::Projected up = cam.worldToScreen(vec3(0, 1, 0));
+        CHECK(up.screen.y < 300.0f); // above centre
+        CHECK_NEAR(up.screen.x, 400.0f, 1.0f);
+    }
+
+    // Nearer points have smaller clip depth than farther ones (both on the view axis).
+    {
+        const float dNear = cam.worldToScreen(vec3(0, 0, 2)).depth;  // 3 units from the eye
+        const float dFar = cam.worldToScreen(vec3(0, 0, -3)).depth;  // 8 units from the eye
+        CHECK(dNear < dFar);
+    }
+
+    // A point behind the camera reports inFront == false.
+    {
+        const render::Projected behind = cam.worldToScreen(vec3(0, 0, 10)); // further +Z than the eye
+        CHECK(!behind.inFront);
+    }
+
+    // screenToRay from the viewport centre points straight down the view axis (-Z), rooted at the eye.
+    {
+        const render::Ray3 r = cam.screenToRay(vec2(400, 300));
+        CHECK_NEAR(r.origin.x, 0.0f, 1e-3f);
+        CHECK_NEAR(r.origin.y, 0.0f, 1e-3f);
+        CHECK_NEAR(r.origin.z, 5.0f, 1e-3f);
+        CHECK_NEAR(r.direction.z, -1.0f, 1e-3f);
+        CHECK_NEAR(r.direction.x, 0.0f, 1e-3f);
+        CHECK_NEAR(r.direction.y, 0.0f, 1e-3f);
+        CHECK_NEAR(glm::length(r.direction), 1.0f, 1e-4f); // normalized
+    }
+
+    // A ray through a point right of centre tilts toward +X.
+    {
+        const render::Ray3 r = cam.screenToRay(vec2(600, 300));
+        CHECK(r.direction.x > 0.0f);
+    }
+
+    // worldToScreen and screenToRay are inverse: the ray through a projected point passes through it.
+    {
+        const vec3 target(0.6f, -0.4f, 0.0f);
+        const render::Projected p = cam.worldToScreen(target);
+        const render::Ray3 r = cam.screenToRay(p.screen);
+        // target lies on the ray: (target-origin) parallel to direction.
+        const vec3 to = glm::normalize(target - r.origin);
+        CHECK_NEAR(glm::dot(to, r.direction), 1.0f, 1e-3f);
+    }
+
+    // screenToWorld: 5 units down the centre ray lands on the origin (the look-at target).
+    {
+        const vec3 w = cam.screenToWorld(vec2(400, 300), 5.0f);
+        CHECK_NEAR(w.x, 0.0f, 1e-3f);
+        CHECK_NEAR(w.y, 0.0f, 1e-3f);
+        CHECK_NEAR(w.z, 0.0f, 1e-3f);
+    }
+
+    // Frustum containment: the origin is visible; a point behind the camera and one far to the side are not.
+    {
+        CHECK(cam.isPointVisible(vec3(0, 0, 0)));
+        CHECK(!cam.isPointVisible(vec3(0, 0, 10)));   // behind
+        CHECK(!cam.isPointVisible(vec3(100, 0, 0)));  // way off to the side
+        CHECK(!cam.isPointVisible(vec3(0, 0, -200))); // beyond the far plane
+        // A sphere straddling the near edge is still visible even if its centre is just behind the camera.
+        CHECK(cam.isSphereVisible(vec3(0, 0, 0), 1.0f));
+        CHECK(!cam.isSphereVisible(vec3(100, 0, 0), 1.0f));
+    }
+}
+
 void testShapes3D() {
     namespace sh = render::shapes;
     const render::Color white{1, 1, 1, 1};
@@ -9353,6 +9448,7 @@ int main() {
     testGrid3D();
     testMultiMesh2D();
     testBillboard();
+    testCamera3D();
     testShapes3D();
     testPolyline();
     testTriangulate();
