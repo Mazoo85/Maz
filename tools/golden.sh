@@ -154,6 +154,7 @@ CASES=(
     "xml||2.0|0.05"
     "normals||2.0|0.05"
     "filters||2.0|0.05"
+    "equalizer||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

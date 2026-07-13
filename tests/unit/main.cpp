@@ -9418,6 +9418,62 @@ void testAudioDsp() {
         chain.add(std::make_unique<audio::AmplifyEffect>(amp));
         CHECK_NEAR(chain.process(1.0f), 0.5f, 1e-3f);
     }
+
+    // ---- A2: multiband graphic EQ ---------------------------------------------------------------
+    // Whole-chain magnitude response of an Equalizer at frequency `hz` (compose each band's response).
+    auto eqMagAt = [&](const audio::Equalizer& eq, float hz) {
+        const float w = 2.0f * 3.14159265f * hz / sr;
+        float m = 1.0f;
+        for (std::size_t i = 0; i < eq.bands.size(); ++i) {
+            m *= magAt(eq.bands[i].filter, w);
+        }
+        return m;
+    };
+
+    // Band layouts match Godot's EQ6/10/21 counts.
+    CHECK(audio::Equalizer::eq6(sr).bandCount() == 6);
+    CHECK(audio::Equalizer::eq10(sr).bandCount() == 10);
+    CHECK(audio::Equalizer::eq21(sr).bandCount() == 21);
+
+    // All bands at 0 dB -> flat pass-through (unity at every probe frequency).
+    {
+        audio::Equalizer eq = audio::Equalizer::eq10(sr);
+        for (float hz : {60.0f, 250.0f, 1000.0f, 4000.0f, 12000.0f}) {
+            CHECK_NEAR(eqMagAt(eq, hz), 1.0f, 1e-3f);
+        }
+    }
+
+    // Boost one band: its center frequency lifts by ~the set gain; a distant band stays ~flat.
+    {
+        audio::Equalizer eq = audio::Equalizer::eq10(sr);
+        eq.setBandGain(5, 12.0f); // index 5 == 1000 Hz
+        CHECK_NEAR(eq.bandFreq(5), 1000.0f, 1e-3f);
+        CHECK_NEAR(audio::linearToDb(eqMagAt(eq, 1000.0f)), 12.0f, 1.0f);
+        CHECK_NEAR(audio::linearToDb(eqMagAt(eq, 62.5f)), 0.0f, 1.0f);   // far low band unaffected
+        CHECK(eq.bandGain(5) > 11.9f);
+    }
+
+    // A cut band drops its center below unity.
+    {
+        audio::Equalizer eq = audio::Equalizer::eq10(sr);
+        eq.setBandGain(2, -12.0f); // 125 Hz
+        CHECK(audio::linearToDb(eqMagAt(eq, 125.0f)) < -8.0f);
+    }
+
+    // EqualizerEffect runs inside a bus chain (a "smiley" curve boosts the extremes).
+    {
+        audio::Equalizer eq = audio::Equalizer::eq6(sr);
+        eq.setBandGain(0, 9.0f);           // 32 Hz up
+        eq.setBandGain(eq.bandCount() - 1, 9.0f); // 10 kHz up
+        audio::Bus chain;
+        chain.add(std::make_unique<audio::EqualizerEffect>(eq));
+        // Feeding a constant (DC) lands near the low shelf; just confirm the chain runs and responds.
+        float y = 0.0f;
+        for (int i = 0; i < 64; ++i) {
+            y = chain.process(1.0f);
+        }
+        CHECK(std::isfinite(y));
+    }
 }
 
 void testAudioEffects() {

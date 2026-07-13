@@ -1053,6 +1053,14 @@ set_tests_properties(filters_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME equalizer_headless_smoke
+    COMMAND equalizer --headless --frames 30)
+
+set_tests_properties(equalizer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

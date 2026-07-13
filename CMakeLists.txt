@@ -170,6 +170,7 @@ add_subdirectory(apps/shapecast)
 add_subdirectory(apps/xml)
 add_subdirectory(apps/normals)
 add_subdirectory(apps/filters)
+add_subdirectory(apps/equalizer)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

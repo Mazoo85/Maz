@@ -534,6 +534,79 @@ struct Phaser {
     }
 };
 
+// ---- Graphic equalizer -------------------------------------------------------------------------
+// A multiband graphic EQ — Godot's AudioEffectEQ / EQ6 / EQ10 / EQ21. A bank of peaking-EQ bands at
+// fixed center frequencies, each with an independent gain in dB; the signal runs through every band in
+// series so their boosts and cuts combine into one response. Build a standard bank via eq6()/eq10()/
+// eq21() (roughly ISO octave / half-octave / third-octave center frequencies), then dial each band with
+// setBandGain(). All gains at 0 dB is an exact flat pass-through. Pure biquad math — unit-tests exactly
+// against the composite magnitude response and drives a golden EQ-curve.
+struct Equalizer {
+    struct Band {
+        float freq = 1000.0f;
+        float q = 1.0f;
+        float gainDb = 0.0f;
+        Biquad filter;
+    };
+    std::vector<Band> bands;
+    float sampleRate = 44100.0f;
+
+    std::size_t bandCount() const { return bands.size(); }
+    float bandFreq(std::size_t i) const { return bands[i].freq; }
+    float bandGain(std::size_t i) const { return bands[i].gainDb; }
+
+    // Set a band's gain in dB and rebuild its peaking filter.
+    void setBandGain(std::size_t i, float gainDb) {
+        if (i < bands.size()) {
+            bands[i].gainDb = gainDb;
+            bands[i].filter = Biquad::peaking(bands[i].freq, bands[i].q, gainDb, sampleRate);
+        }
+    }
+
+    float process(float x) {
+        for (Band& b : bands) {
+            x = b.filter.process(x);
+        }
+        return x;
+    }
+    void reset() {
+        for (Band& b : bands) {
+            b.filter.reset();
+        }
+    }
+
+    static Equalizer fromFreqs(const std::vector<float>& freqs, float q, float sr) {
+        Equalizer eq;
+        eq.sampleRate = sr;
+        eq.bands.reserve(freqs.size());
+        for (float f : freqs) {
+            Band b;
+            b.freq = f;
+            b.q = q;
+            b.gainDb = 0.0f;
+            b.filter = Biquad::peaking(f, q, 0.0f, sr);
+            eq.bands.push_back(b);
+        }
+        return eq;
+    }
+
+    // Godot EQ6 / EQ10 / EQ21 band layouts (octave / half-octave / third-octave spacing).
+    static Equalizer eq6(float sr) {
+        return fromFreqs({32.0f, 100.0f, 320.0f, 1000.0f, 3200.0f, 10000.0f}, 1.0f, sr);
+    }
+    static Equalizer eq10(float sr) {
+        return fromFreqs({31.25f, 62.5f, 125.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 4000.0f, 8000.0f,
+                          16000.0f},
+                         1.4f, sr);
+    }
+    static Equalizer eq21(float sr) {
+        return fromFreqs({22.0f, 32.0f, 44.0f, 63.0f, 90.0f, 125.0f, 175.0f, 250.0f, 350.0f, 500.0f,
+                          700.0f, 1000.0f, 1400.0f, 2000.0f, 2800.0f, 4000.0f, 5600.0f, 8000.0f,
+                          11000.0f, 16000.0f, 20000.0f},
+                         2.1f, sr);
+    }
+};
+
 // ---- Effect chain + bus ------------------------------------------------------------------------
 // A uniform interface so heterogeneous effects can be chained on a bus.
 struct Effect {
@@ -602,6 +675,13 @@ struct AmplifyEffect : Effect {
     Amplify amp;
     explicit AmplifyEffect(const Amplify& a) : amp(a) {}
     float process(float x) override { return amp.process(x); }
+};
+
+struct EqualizerEffect : Effect {
+    Equalizer eq;
+    explicit EqualizerEffect(const Equalizer& e) : eq(e) {}
+    float process(float x) override { return eq.process(x); }
+    void reset() override { eq.reset(); }
 };
 
 // A mix bus: an ordered effect chain plus an output gain, like a Godot audio bus. Feed one sample
