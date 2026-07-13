@@ -838,6 +838,11 @@ available):
   a weighted clip pool with Random / Random-No-Repeat / Sequential pick modes plus per-trigger pitch and
   volume jitter, so repetitive one-shots stop sounding robotic. Seeded and deterministic. The new `randomizer`
   demo shows a pick histogram, a pitch×volume scatter, and a no-repeat tick strip.
+- **M159** — **2D kinematic character controller** (`game::moveAndSlide`), toward Godot's
+  `CharacterBody2D.move_and_slide`: sweeps a velocity-driven AABB against the static world so it never tunnels,
+  slides the leftover motion along contacts, and reports on-floor / on-wall / on-ceiling — the movement core
+  of every platformer. The new `kinematic` demo runs a character through an obstacle course, colouring its
+  path by contact state.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

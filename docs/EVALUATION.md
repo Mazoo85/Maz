@@ -2927,6 +2927,39 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 120 — "Benchmarking against Godot: kinematic character controller" (done)
+Rotating to **2D physics** for breadth (recent rounds were audio, input, 2D-render, animation, IO, 3D-render).
+Maz's 2D physics is impulse-based rigid bodies (`Physics2D`) plus a 3D discrete `slideMove`, but it had no
+**kinematic character controller** — the single most-used movement primitive in platformers and top-down
+games. Godot's `CharacterBody2D.move_and_slide` drives a body directly by a velocity, sweeps it so it never
+tunnels through geometry, and slides the leftover motion along contacts (rounding corners / running along
+walls in one call), classifying each contact as floor / wall / ceiling. Pure geometry, so it unit-tests
+exactly and drives a deterministic golden.
+- [x] **M159 — Kinematic move-and-slide (`game::moveAndSlide` + `sweptAabb`)**: a new `KinematicBody2D.hpp`
+  with an `Aabb2` box, a **swept AABB** test (Minkowski-expand the solid by the body's half-extents, cast the
+  body centre as a ray through it → earliest entry time + face normal), and `moveAndSlide` which advances the
+  body to the first contact, nudges out by a skin, classifies the normal against an `up` direction and
+  `floorMaxAngle` into floor/wall/ceiling, then slides the leftover motion (and the reported velocity) along
+  the surface, repeating for up to `maxSlides` iterations. Returns a `SlideResult { position, velocity,
+  onFloor/onWall/onCeiling, floorNormal, slides }`. `testKinematicBody2D` pins: sweptAabb entry-time/normal,
+  no-hit when moving away or not moving; and moveAndSlide's free move (exact), head-on wall stop (velocity.x
+  killed, wall flagged), fall-onto-floor (rests, floorNormal, velocity.y killed), rise-into-ceiling, and the
+  headline case — a diagonal push into a vertical wall where x is pinned but the body still **slides in y in
+  one call** with tangential velocity preserved. Unit checks **7002 → 7028**. The new `kinematic` demo runs
+  one character through a fixed obstacle course (~4 s) under gravity + a constant rightward drive and draws
+  its whole path coloured by contact state — BLUE airborne, GREEN on-floor, ORANGE on-wall — reading as a
+  cascade: fall onto a platform, run off the edge, arc into a floating wall and slide down it, drop off, run
+  along the ground. 2D golden (threshold 0.06, `kinematic` RMSE 0). Purely additive, so every existing golden
+  is byte-unchanged (confirmed by a serial golden run); ctest **114/114 → 115/115**. Honest scope: this is
+  AABB-vs-AABB swept collision against a static list; it does **not** yet handle rotated/oriented or circle
+  shapes, moving platforms, floor snapping / stair-stepping, or `move_and_collide`'s single-hit stop-and-
+  report; those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 119 — "Benchmarking against Godot: audio stream randomizer" (done)
 Rotating to **audio** for breadth (recent rounds were input, 2D-render, animation, IO, 3D-render, 2D-physics).
 Maz has a broad audio stack (mixer, DSP effects + buses, ADSR, WAV codec, 2D/3D positioning) but repetitive

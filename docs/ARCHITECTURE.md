@@ -144,6 +144,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             GravityArea2D + gravityAt (area gravity fields — Godot Area2D gravity override: a Rect2 zone that
               overrides gravity inside it, Directional (wind/updraft) or Point (inverse-square pull), combined
               by priority with Replace/Add modes),
+            KinematicBody2D (moveAndSlide + sweptAabb — Godot CharacterBody2D.move_and_slide: velocity-driven
+              AABB swept against static AABBs, slides along contacts over several iterations, floor/wall/ceiling
+              classification → SlideResult),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             rvoVelocity (RVO local collision avoidance: reciprocal-velocity-obstacle candidate
               scoring on time-to-collision), Godot NavigationAgent2D-avoidance-style,
@@ -383,6 +386,8 @@ apps/
               the 1-D applyDeadzone response curve, showing the radial deadzone and unit-circle clamp
   randomizer/ Audio stream randomizer — 300 triggers of a 5-clip weighted pool (audio::StreamRandomizer)
               as a pick histogram + pitch×volume scatter + a no-repeat tick strip
+  kinematic/ Kinematic character — one body run through an obstacle course by game::moveAndSlide, its path
+              coloured by contact state (blue airborne / green on-floor / orange on-wall)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

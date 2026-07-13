@@ -136,6 +136,7 @@ CASES=(
     "polyfill||2.0|0.06"
     "deadzone||2.0|0.06"
     "randomizer||2.0|0.07"
+    "kinematic||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

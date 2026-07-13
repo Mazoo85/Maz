@@ -43,6 +43,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/GravityField2D.hpp"
+#include "maz/game/KinematicBody2D.hpp"
 #include "maz/game/AutoTile.hpp"
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
@@ -1540,6 +1541,83 @@ void testArea2D() {
         mon.update({5, 5, 5}, entered, exited);
         CHECK(entered.size() == 1 && entered[0] == 5);
         CHECK(mon.members().size() == 1);
+    }
+}
+
+void testKinematicBody2D() {
+    using game::Aabb2;
+    using game::moveAndSlide;
+    using game::SlideResult;
+    using game::sweptAabb;
+    using game::SweptHit;
+    using math::vec2;
+
+    // --- sweptAabb ---
+    // A 2x2 body at origin moving +x into a solid whose near face (after Minkowski expand) is at x=4.
+    {
+        const Aabb2 wall{vec2(5, -1), vec2(7, 1)};
+        const SweptHit h = sweptAabb(vec2(0, 0), vec2(1, 1), vec2(10, 0), wall);
+        CHECK(h.hit);
+        CHECK_NEAR(h.t, 0.4f, 1e-4f); // (5-1-0)/10
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-5f);
+        CHECK_NEAR(h.normal.y, 0.0f, 1e-6f);
+    }
+    // Moving away from the solid -> no contact.
+    {
+        const Aabb2 wall{vec2(5, -1), vec2(7, 1)};
+        CHECK(!sweptAabb(vec2(0, 0), vec2(1, 1), vec2(-10, 0), wall).hit);
+    }
+    // Not moving -> no swept contact even if adjacent.
+    {
+        const Aabb2 wall{vec2(5, -1), vec2(7, 1)};
+        CHECK(!sweptAabb(vec2(0, 0), vec2(1, 1), vec2(0, 0), wall).hit);
+    }
+
+    // --- moveAndSlide ---
+    const vec2 half(1.0f, 1.0f);
+    // Free move with no solids: exact displacement, no contact flags.
+    {
+        const SlideResult r = moveAndSlide(vec2(0, 0), half, vec2(10, 5), 1.0f, {});
+        CHECK_NEAR(r.position.x, 10.0f, 1e-4f);
+        CHECK_NEAR(r.position.y, 5.0f, 1e-4f);
+        CHECK(!r.onFloor && !r.onWall && !r.onCeiling);
+        CHECK(r.slides == 0);
+    }
+    // Head-on into a wall on the right: stops before it, x-velocity killed, classified as wall.
+    {
+        const std::vector<Aabb2> solids = {Aabb2{vec2(5, -10), vec2(7, 10)}};
+        const SlideResult r = moveAndSlide(vec2(0, 0), half, vec2(10, 0), 1.0f, solids);
+        CHECK(r.onWall);
+        CHECK(!r.onFloor && !r.onCeiling);
+        CHECK(r.position.x <= 4.0f + 1e-2f); // stopped at the expanded face (x=4) + skin
+        CHECK_NEAR(r.velocity.x, 0.0f, 1e-4f);
+    }
+    // Falling onto a floor (up = (0,-1), so +y is down): lands, y-velocity killed, floor detected.
+    {
+        const std::vector<Aabb2> solids = {Aabb2{vec2(-100, 10), vec2(100, 12)}};
+        const SlideResult r = moveAndSlide(vec2(0, 0), half, vec2(0, 20), 1.0f, solids);
+        CHECK(r.onFloor);
+        CHECK(!r.onCeiling);
+        CHECK(r.position.y <= 9.0f + 1e-2f); // rests on the floor top (y=9) + skin
+        CHECK_NEAR(r.floorNormal.y, -1.0f, 1e-5f);
+        CHECK_NEAR(r.velocity.y, 0.0f, 1e-4f);
+    }
+    // Rising into a ceiling: classified as ceiling.
+    {
+        const std::vector<Aabb2> solids = {Aabb2{vec2(-100, -12), vec2(100, -10)}};
+        const SlideResult r = moveAndSlide(vec2(0, 0), half, vec2(0, -20), 1.0f, solids);
+        CHECK(r.onCeiling);
+        CHECK(!r.onFloor);
+    }
+    // Diagonal into a vertical wall: x blocked but the body still slides in y (one call, multi-slide).
+    {
+        const std::vector<Aabb2> solids = {Aabb2{vec2(5, -100), vec2(7, 100)}};
+        const SlideResult r = moveAndSlide(vec2(0, 0), half, vec2(10, 10), 1.0f, solids);
+        CHECK(r.onWall);
+        CHECK(r.position.x <= 4.0f + 1e-2f); // pinned to the wall face
+        CHECK(r.position.y >= 5.0f);         // but slid downward along it
+        CHECK_NEAR(r.velocity.x, 0.0f, 1e-4f);
+        CHECK_NEAR(r.velocity.y, 10.0f, 1e-4f); // tangential velocity preserved
     }
 }
 
@@ -8878,6 +8956,7 @@ int main() {
     testTileSet();
     testCollisionLayers();
     testArea2D();
+    testKinematicBody2D();
     testGravityField2D();
     testAvoidance();
     testVisibility2D();

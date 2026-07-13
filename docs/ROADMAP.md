@@ -406,6 +406,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D physics** (`game::PhysicsWorld2D`: circle + **box** rigid bodies, gravity, impulse +
   **Coulomb friction** + positional correction, static-box bounce; the `physics` demo stacks 45
   balls, `boxes` stacks mixed boxes/balls on ledges; M69, M72)
+- [x] **2D kinematic character controller** (`game::moveAndSlide` + `sweptAabb`: velocity-driven AABB body
+  swept against a static AABB list (Minkowski-expand + ray-slab), sliding the leftover motion along contacts
+  over several iterations, with floor / wall / ceiling classification against an `up` direction + max floor
+  angle → `SlideResult` with `onFloor`/`onWall`/`onCeiling` — Godot `CharacterBody2D.move_and_slide`; the
+  `kinematic` demo runs a character through an obstacle course, colouring its path by contact state; M159) —
+  rotated/circle shapes + moving platforms + floor snapping/stair-stepping + `move_and_collide` later
 - [x] **2D rigid-body rotation** (oriented boxes: orientation + spin + moment of inertia via
   `Body2D::enableRotation()`; oriented-box SAT contacts + rotational impulses about the contact point +
   linear/angular damping — Godot RigidBody2D-style angular dynamics; opt-in so non-rotating scenes are
