@@ -97,14 +97,23 @@ async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
 def _build_options(config: CrewConfig, resume: str | None):
     from claude_agent_sdk import ClaudeAgentOptions
 
+    from .integrations import GITHUB_TESTER_TOOLS, github_ci_enabled, github_mcp_servers
+
+    allowed_tools = ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
+    extra: dict = {}
+    if github_ci_enabled(config):
+        allowed_tools = allowed_tools + list(GITHUB_TESTER_TOOLS)
+        extra["mcp_servers"] = github_mcp_servers()
+
     return ClaudeAgentOptions(
         agents=build_agents(config),
-        allowed_tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"],
+        allowed_tools=allowed_tools,
         # Coder edits are auto-approved; planner/reviewer/tester are read-only by
         # tool scoping, so they cannot edit regardless of this setting.
         permission_mode="acceptEdits",
         max_turns=config.max_turns,
         resume=resume,
+        **extra,
     )
 
 

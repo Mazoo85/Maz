@@ -61,10 +61,22 @@ def _auto_confirm(question: str) -> bool:
     return True
 
 
-def _resolve_config(max_fix_rounds: int | None):
+def _resolve_config(max_fix_rounds: int | None, github_ci: bool = False):
     config = load_config()
     if max_fix_rounds is not None:
         config = replace(config, max_fix_rounds=max_fix_rounds)
+    if github_ci:
+        config = replace(config, github_ci=True)
+    # Warn (don't fail) if CI integration is requested but no token is available —
+    # the feature simply stays off in that case.
+    if config.github_ci:
+        from .integrations import github_token
+
+        if github_token() is None:
+            console.print(
+                "[yellow]github_ci is on but no GitHub token found[/yellow] "
+                "(set GITHUB_TOKEN); the tester will run without CI logs."
+            )
     return config
 
 
@@ -157,6 +169,9 @@ _COMMIT_OPT = typer.Option(
 _COMMIT_MSG_OPT = typer.Option(
     None, "--commit-message", "-m", help="Commit message to use with --commit (default: 'crew: <task>')."
 )
+_GITHUB_CI_OPT = typer.Option(
+    False, "--github-ci", help="Let the tester read GitHub Actions CI logs (needs GITHUB_TOKEN)."
+)
 
 
 @app.command()
@@ -166,12 +181,13 @@ def do(
     max_fix_rounds: int | None = _ROUNDS_OPT,
     commit: bool = _COMMIT_OPT,
     commit_message: str | None = _COMMIT_MSG_OPT,
+    github_ci: bool = _GITHUB_CI_OPT,
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Run only the planner and stop — preview the plan, change nothing."
     ),
 ) -> None:
     """Run TASK through the full crew: plan -> code -> review -> test, with checkpoints."""
-    config = _resolve_config(max_fix_rounds)
+    config = _resolve_config(max_fix_rounds, github_ci=github_ci)
     confirm = _auto_confirm if yes else _interactive_confirm
     console.print(f"[bold]Task:[/bold] {task}\n")
     if yes and not dry_run:
@@ -185,9 +201,10 @@ def resume(
     max_fix_rounds: int | None = _ROUNDS_OPT,
     commit: bool = _COMMIT_OPT,
     commit_message: str | None = _COMMIT_MSG_OPT,
+    github_ci: bool = _GITHUB_CI_OPT,
 ) -> None:
     """Continue the last task in this directory using its saved session."""
-    config = _resolve_config(max_fix_rounds)
+    config = _resolve_config(max_fix_rounds, github_ci=github_ci)
     confirm = _auto_confirm if yes else _interactive_confirm
     state = session_mod.load(config)
     if not state.session_id or not state.task:

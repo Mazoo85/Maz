@@ -62,4 +62,22 @@ def test_effective_values_shape(tmp_path):
         "tester_model",
         "max_fix_rounds",
         "max_turns",
+        "github_ci",
     }
+
+
+def test_github_ci_defaults_off(monkeypatch, tmp_path):
+    monkeypatch.delenv("CREW_GITHUB_CI", raising=False)
+    assert load_config(root=tmp_path).github_ci is False
+
+
+def test_github_ci_from_file_bool(tmp_path):
+    _write(tmp_path, {"github_ci": True})
+    assert load_config(root=tmp_path).github_ci is True
+
+
+def test_github_ci_env_coerces_truthy(monkeypatch, tmp_path):
+    monkeypatch.setenv("CREW_GITHUB_CI", "1")
+    assert load_config(root=tmp_path).github_ci is True
+    monkeypatch.setenv("CREW_GITHUB_CI", "false")
+    assert load_config(root=tmp_path).github_ci is False

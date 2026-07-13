@@ -27,6 +27,7 @@ _FILE_FIELDS = (
     "tester_model",
     "max_fix_rounds",
     "max_turns",
+    "github_ci",
 )
 
 # --- Model tiers -----------------------------------------------------------
@@ -55,6 +56,10 @@ class CrewConfig:
 
     # Total agent turns allowed per phase before the SDK stops on its own.
     max_turns: int = 40
+
+    # Opt-in: let the tester read GitHub Actions CI logs (needs a GitHub token in
+    # the environment). Off by default; see crew/integrations.py.
+    github_ci: bool = False
 
     # Directory where per-project session state is written (relative to cwd).
     state_dirname: str = ".crew"
@@ -85,8 +90,8 @@ def load_config(root: Path | None = None) -> CrewConfig:
     """Build a config from defaults, then ``crew.json``, then env overrides.
 
     Precedence (lowest to highest): dataclass defaults < ``crew.json`` < the
-    ``CREW_MAX_*`` env vars (so a committed file sets project defaults while env
-    vars stay handy for one-off runs).
+    ``CREW_*`` env vars (so a committed file sets project defaults while env vars
+    stay handy for one-off runs).
     """
     kwargs: dict = _read_config_file(root)
 
@@ -94,13 +99,24 @@ def load_config(root: Path | None = None) -> CrewConfig:
         kwargs["max_fix_rounds"] = v
     if v := os.environ.get("CREW_MAX_TURNS"):
         kwargs["max_turns"] = v
+    if (v := os.environ.get("CREW_GITHUB_CI")) is not None:
+        kwargs["github_ci"] = v
 
     # Coerce the numeric fields (JSON may already give ints; env gives strings).
     for key in ("max_fix_rounds", "max_turns"):
         if key in kwargs:
             kwargs[key] = int(kwargs[key])
+    # Coerce the boolean field (JSON may give a bool; env/strings via truthiness).
+    if "github_ci" in kwargs:
+        kwargs["github_ci"] = _as_bool(kwargs["github_ci"])
 
     return CrewConfig(**kwargs)
+
+
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
 def effective_values(config: CrewConfig) -> dict:

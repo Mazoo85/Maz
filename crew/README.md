@@ -110,6 +110,25 @@ every completed run saves a Markdown transcript (task + each phase's output) und
 `.crew/runs/` so you can review what the crew did afterwards. Add `.crew/` to your
 `.gitignore`.
 
+## GitHub Actions CI (opt-in)
+
+The tester normally runs your tests locally. With `github_ci` enabled, it can also
+read your project's **GitHub Actions CI logs** and fold them into its verdict — a red
+CI means `VERDICT: FAIL` even if local tests pass. Useful when CI runs jobs your dev
+box can't (e.g. a Vulkan build).
+
+It's off by default and needs a GitHub token in the environment:
+
+```bash
+export GITHUB_TOKEN=ghp_...
+crew do "fix the flaky retry test" --github-ci
+```
+
+Or turn it on for the project in `crew.json` (`"github_ci": true`) or via
+`CREW_GITHUB_CI=1`. If it's on but no token is found, the crew warns and simply runs
+without CI logs. Under the hood this attaches a GitHub MCP server and grants the tester
+read-only `mcp__github__*` tools.
+
 ## Development
 
 ```bash

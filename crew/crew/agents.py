@@ -122,11 +122,19 @@ def build_agents(config: CrewConfig) -> dict[str, Any]:
     """Construct the ``AgentDefinition`` map keyed by role name."""
     from claude_agent_sdk import AgentDefinition  # lazy import
 
+    from .integrations import augment_tester_prompt, augment_tester_tools
+
+    def tools_for(role: Role) -> list[str]:
+        return augment_tester_tools(role.tools, config) if role.name == "tester" else role.tools
+
+    def prompt_for(role: Role) -> str:
+        return augment_tester_prompt(role.prompt, config) if role.name == "tester" else role.prompt
+
     return {
         role.name: AgentDefinition(
             description=role.description,
-            prompt=role.prompt,
-            tools=role.tools,
+            prompt=prompt_for(role),
+            tools=tools_for(role),
             model=role.model(config),
         )
         for role in ROLES
