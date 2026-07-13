@@ -2813,6 +2813,28 @@ primitive. Pure math, so it unit-tests exactly and drives a deterministic 2D gol
   **104/104 → 105/105**. Honest scope: this is the float `Rect2` — it does **not** add an integer `Rect2i`, a
   3D `AABB` type, or retrofit the UI/culling code to use it; those remain the follow-ups.
 
+### Iteration 111 — "Benchmarking against Godot: Range / ProgressBar" (done)
+Rotating to **UI** for breadth (recent rounds were math, scene/ECS, animation, audio, 2D-physics, 3D-render).
+Maz's UI had an immediate-mode slider but no reusable value model and no progress bar — every fill indicator
+(health, XP, loading) had to be hand-rolled. Godot factors this into `Range`, the shared base of ProgressBar,
+HSlider/VSlider, ScrollBar, and SpinBox: a clamped, optionally-stepped value exposed as a 0..1 ratio. Pure
+logic, so it unit-tests exactly and drives a deterministic 2D golden.
+- [x] **M150 — Range + ProgressBar (`ui::Range` / `ui::ProgressBar`)**: a new `Range.hpp` with `Range` —
+  `minValue`/`maxValue`/`step`/`page`, `setValue` (snap-to-step anchored at min, then clamp), `value`,
+  `ratio` (value normalized over `[min, max-page]`), `setRatio`, and `step_` (nudge by whole steps);
+  `allowGreater`/`allowLesser` lift the clamp. `page` gives scrollbar-style ranges where a visible window of
+  size `page` caps the value at `max-page` while the ratio still spans 0..1. `ProgressBar` wraps a `Range` and
+  exposes `fillFraction` (the bar width) + `percent`. `testRange` pins ~22 checks: clamp both ends, ratio /
+  setRatio round-trips over a custom range, step snapping (23→20, 27→30), the `page` effective-max, allow-
+  greater, `step_` nudging, and the ProgressBar percent readout. Unit checks **5055 → 5077**. The new
+  `progress` demo renders six bars from the Range model: plain fills at 25/60/100%, a health bar tinted
+  red→green by its own ratio, a custom-range (0..50) mana bar at 60%, and a stepped bar set to 60 that snaps
+  to 50 — each with a `percent()` readout. 2D golden (threshold 0.07, `progress` RMSE 0). Purely additive, so
+  every existing golden is byte-unchanged (confirmed by a serial golden run); ctest **105/105 → 106/106**.
+  Honest scope: this is the Range value model + a ProgressBar; it does **not** yet make the existing slider a
+  Range subclass, add an interactive ScrollBar/SpinBox control, or a fill/under/over StyleBox skin for the bar;
+  those remain the follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

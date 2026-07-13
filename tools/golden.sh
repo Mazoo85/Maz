@@ -127,6 +127,7 @@ CASES=(
     "rootmotion||2.0|0.06"
     "groups||2.0|0.07"
     "rects||2.0|0.06"
+    "progress||2.0|0.07"
 )
 
 if [ ! -f "$ICD" ]; then

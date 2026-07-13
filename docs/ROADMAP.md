@@ -578,6 +578,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (scene dock / inspector / file browser); the `tree` demo shows a project file tree in a StyleBoxFlat
   panel with fold arrows + a selected-row highlight; M115) — scroll container / drag-reorder + a full
   per-control-class theme cascade later
+- [x] **Range + ProgressBar** (`ui::Range`: the clamped/stepped scalar value model behind Godot's
+  ProgressBar/HSlider/ScrollBar/SpinBox — min/max/step/page → a 0..1 `ratio`, `setRatio`/`step_` +
+  allow-greater/lesser; `ui::ProgressBar` wraps it with `fillFraction`/`percent`; the `progress` demo draws
+  six bars incl. a ratio-tinted health bar and a step-snapped bar; M150) — making the slider a Range subclass
+  + an interactive ScrollBar/SpinBox + a fill/under/over StyleBox skin later
 - [x] **BBCode rich text** (`ui::parseBBCode`: markup → resolved styled runs — `[b]`/`[i]`/`[u]`,
   `[color=…]` (hex `#rgb`/`#rrggbb`/`#rrggbbaa` + named), `[size=N]`, nested tags stacked, lenient
   (unclosed→to-end, stray-close ignored, `[lb]`/`[rb]` literal brackets, unknown tags/invalid colours pass

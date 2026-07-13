@@ -801,6 +801,10 @@ available):
   geometry set — `hasPoint`, `intersects`/`intersection` (clip), `merge` (union), `encloses`, `grow`,
   `expand`, `abs`. The new `rects` demo draws overlapping rectangles with their intersection, union bounds,
   grow halo, and point tests, all from `Rect2`.
+- **M150** — **Range / ProgressBar** (`ui::Range` / `ui::ProgressBar`), toward Godot's `Range` + `ProgressBar`:
+  the shared clamped/stepped value model (min/max/step/page → a 0..1 ratio) behind bars, sliders, and
+  scrollbars, plus a progress bar exposing `fillFraction`/`percent`. The new `progress` demo shows six bars —
+  plain fills, a ratio-tinted health bar, a custom-range mana bar, and a step-snapped bar.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

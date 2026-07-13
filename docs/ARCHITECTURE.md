@@ -101,6 +101,9 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               shadow via roundedRectPolygon + drawStyleBoxFlat layering shadow→border→fill; Theme names
               styles/colours per control class+state with type/state→type/normal→default fallback), Godot
               StyleBoxFlat/Theme-style,
+            Range + ProgressBar (clamped/stepped scalar value model — min/max/step/page → a 0..1 ratio,
+              setRatio/step_ + allow-greater/lesser; ProgressBar exposes fillFraction/percent), the Godot
+              Range base behind ProgressBar/HSlider/ScrollBar/SpinBox,
             Tree + TreeItem (hierarchical collapsible rows: heap-owned children + a collapsed flag,
               visibleRows() flattens expanded items depth-first into rows with depth + hasChildren), Godot
               Tree-control-style (scene dock / inspector / file browser),
@@ -341,6 +344,8 @@ apps/
               call("hazard", ...) stamps the other, with live group-size counts (scene::GroupRegistry)
   rects/     Rect2 geometry — overlapping rectangles with their intersection (clip) filled, the union (merge)
               outlined, a grow() halo, and hasPoint probe dots, all from math::Rect2
+  progress/  Range / ProgressBar — six bars (plain fills, a ratio-tinted health bar, a custom-range mana bar,
+              a step-snapped bar) drawn from ui::ProgressBar::fillFraction/percent
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

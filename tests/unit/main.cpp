@@ -75,6 +75,7 @@
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/TextLayout.hpp"
 #include "maz/ui/Theme.hpp"
+#include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/io/PrefabText.hpp"
@@ -2247,6 +2248,93 @@ void testUiContainer() {
         ui::gridMinSize(kids, 2, 5.0f, 5.0f, w, h);
         CHECK_NEAR(w, 105.0f, 1e-3f); // 40 + 60 + 5 hsep (1 row)
         CHECK_NEAR(h, 30.0f, 1e-3f);  // single row, tallest
+    }
+}
+
+void testRange() {
+    using ui::ProgressBar;
+    using ui::Range;
+
+    // Default 0..100: set/clamp/ratio.
+    {
+        Range r;
+        r.setValue(50.0);
+        CHECK_NEAR(r.value(), 50.0, 1e-9);
+        CHECK_NEAR(r.ratio(), 0.5, 1e-9);
+        r.setValue(150.0);
+        CHECK_NEAR(r.value(), 100.0, 1e-9); // clamped to max
+        r.setValue(-20.0);
+        CHECK_NEAR(r.value(), 0.0, 1e-9); // clamped to min
+        CHECK_NEAR(r.ratio(), 0.0, 1e-9);
+    }
+
+    // setRatio round-trips over a custom range.
+    {
+        Range r;
+        r.minValue = -50.0;
+        r.maxValue = 50.0;
+        r.setRatio(0.0);
+        CHECK_NEAR(r.value(), -50.0, 1e-9);
+        r.setRatio(1.0);
+        CHECK_NEAR(r.value(), 50.0, 1e-9);
+        r.setRatio(0.5);
+        CHECK_NEAR(r.value(), 0.0, 1e-9);
+        CHECK_NEAR(r.ratio(), 0.5, 1e-9);
+    }
+
+    // Step snapping (anchored at min), then clamp.
+    {
+        Range r;
+        r.step = 10.0;
+        r.setValue(23.0);
+        CHECK_NEAR(r.value(), 20.0, 1e-9);
+        r.setValue(27.0);
+        CHECK_NEAR(r.value(), 30.0, 1e-9);
+        r.setValue(999.0);
+        CHECK_NEAR(r.value(), 100.0, 1e-9);
+    }
+
+    // page: effective max = max - page, ratio spans 0..1 across that.
+    {
+        Range r;
+        r.maxValue = 100.0;
+        r.page = 20.0;
+        r.setValue(80.0);
+        CHECK_NEAR(r.value(), 80.0, 1e-9); // at effective max
+        CHECK_NEAR(r.ratio(), 1.0, 1e-9);
+        r.setValue(100.0);
+        CHECK_NEAR(r.value(), 80.0, 1e-9); // clamped down to max-page
+    }
+
+    // allowGreater lifts the upper clamp.
+    {
+        Range r;
+        r.allowGreater = true;
+        r.setValue(150.0);
+        CHECK_NEAR(r.value(), 150.0, 1e-9);
+    }
+
+    // step_ nudges by whole steps.
+    {
+        Range r;
+        r.step = 5.0;
+        r.setValue(10.0);
+        r.step_(2.0);
+        CHECK_NEAR(r.value(), 20.0, 1e-9);
+        r.step_(-1.0);
+        CHECK_NEAR(r.value(), 15.0, 1e-9);
+    }
+
+    // ProgressBar exposes the fill fraction + percent.
+    {
+        ProgressBar bar;
+        bar.setValue(60.0);
+        CHECK_NEAR(static_cast<double>(bar.fillFraction()), 0.6, 1e-6);
+        CHECK(bar.percent() == 60);
+        bar.setValue(0.0);
+        CHECK(bar.percent() == 0);
+        bar.setValue(100.0);
+        CHECK(bar.percent() == 100);
     }
 }
 
@@ -8212,6 +8300,7 @@ int main() {
     testTriggerTrack();
     testLayout();
     testUiContainer();
+    testRange();
     testStyleBox();
     testTheme();
     testTree();
