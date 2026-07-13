@@ -22,6 +22,7 @@ class SessionState:
     session_id: str | None = None
     task: str | None = None
     phase: str | None = None  # last completed phase: plan|code|review|test|done
+    total_cost_usd: float = 0.0  # accumulated API cost for this task, if reported
 
 
 def _path(config: CrewConfig, root: Path | None = None) -> Path:
@@ -34,10 +35,16 @@ def load(config: CrewConfig, root: Path | None = None) -> SessionState:
         return SessionState()
     try:
         data = json.loads(p.read_text())
-        return SessionState(**{k: data.get(k) for k in SessionState().__dict__})
-    except (json.JSONDecodeError, TypeError, ValueError):
+    except (json.JSONDecodeError, ValueError, OSError):
         # Corrupt state should never crash the tool — start fresh.
         return SessionState()
+    # Only override defaults with keys actually present (so new fields keep their
+    # defaults when loading a file written by an older version).
+    state = SessionState()
+    for key in state.__dict__:
+        if isinstance(data, dict) and data.get(key) is not None:
+            setattr(state, key, data[key])
+    return state
 
 
 def save(state: SessionState, config: CrewConfig, root: Path | None = None) -> Path:

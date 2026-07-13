@@ -14,3 +14,11 @@ Run them and report:
 - A one-line diagnosis of each failure so the coder can fix it.
 
 Do not edit code. If you cannot find any tests, say so and suggest what to add.
+
+End your report with a single final line, exactly one of:
+
+    VERDICT: PASS
+    VERDICT: FAIL
+
+Use PASS only if every test and linter you ran succeeded (or there were genuinely
+none to run). Use FAIL if anything failed.

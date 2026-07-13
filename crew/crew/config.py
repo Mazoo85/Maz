@@ -9,9 +9,26 @@ exact model IDs (e.g. "claude-opus-4-8") if you want reproducibility.
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+# A committable project config file (JSON so it works on every supported Python
+# with no extra dependency). Lives at the project root next to where you run
+# `crew`, unlike the gitignored `.crew/` session state.
+CONFIG_FILENAME = "crew.json"
+
+# Fields a project config file is allowed to set.
+_FILE_FIELDS = (
+    "planner_model",
+    "coder_model",
+    "reviewer_model",
+    "tester_model",
+    "max_fix_rounds",
+    "max_turns",
+    "github_ci",
+)
 
 # --- Model tiers -----------------------------------------------------------
 # Aliases are resolved by the SDK to the current model in each tier. Override
@@ -40,6 +57,10 @@ class CrewConfig:
     # Total agent turns allowed per phase before the SDK stops on its own.
     max_turns: int = 40
 
+    # Opt-in: let the tester read GitHub Actions CI logs (needs a GitHub token in
+    # the environment). Off by default; see crew/integrations.py.
+    github_ci: bool = False
+
     # Directory where per-project session state is written (relative to cwd).
     state_dirname: str = ".crew"
 
@@ -50,11 +71,71 @@ class CrewConfig:
         return (root or Path.cwd()) / self.state_dirname
 
 
-def load_config() -> CrewConfig:
-    """Build a config, honouring env overrides for the loop bounds."""
-    kwargs: dict = {}
+def _read_config_file(root: Path | None = None) -> dict:
+    """Read allowed fields from ``crew.json`` at ``root`` (cwd by default)."""
+    p = (root or Path.cwd()) / CONFIG_FILENAME
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text())
+    except (json.JSONDecodeError, ValueError, OSError):
+        # A broken config file should never crash the tool — ignore it.
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if k in _FILE_FIELDS and v is not None}
+
+
+def load_config(root: Path | None = None) -> CrewConfig:
+    """Build a config from defaults, then ``crew.json``, then env overrides.
+
+    Precedence (lowest to highest): dataclass defaults < ``crew.json`` < the
+    ``CREW_*`` env vars (so a committed file sets project defaults while env vars
+    stay handy for one-off runs).
+    """
+    kwargs: dict = _read_config_file(root)
+
     if v := os.environ.get("CREW_MAX_FIX_ROUNDS"):
-        kwargs["max_fix_rounds"] = int(v)
+        kwargs["max_fix_rounds"] = v
     if v := os.environ.get("CREW_MAX_TURNS"):
-        kwargs["max_turns"] = int(v)
+        kwargs["max_turns"] = v
+    if (v := os.environ.get("CREW_GITHUB_CI")) is not None:
+        kwargs["github_ci"] = v
+
+    # Coerce the numeric fields (JSON may already give ints; env gives strings).
+    for key in ("max_fix_rounds", "max_turns"):
+        if key in kwargs:
+            kwargs[key] = int(kwargs[key])
+    # Coerce the boolean field (JSON may give a bool; env/strings via truthiness).
+    if "github_ci" in kwargs:
+        kwargs["github_ci"] = _as_bool(kwargs["github_ci"])
+
     return CrewConfig(**kwargs)
+
+
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def effective_values(config: CrewConfig) -> dict:
+    """The user-facing config fields, for display by `crew config`."""
+    return {f.name: getattr(config, f.name) for f in fields(config) if f.name in _FILE_FIELDS}
+
+
+def default_config_dict() -> dict:
+    """The settable fields at their defaults — the body of a starter crew.json."""
+    return effective_values(CrewConfig())
+
+
+def write_starter_config(root: Path | None = None, force: bool = False) -> tuple[bool, Path]:
+    """Write a starter ``crew.json`` at ``root``. Returns (written, path).
+
+    Won't clobber an existing file unless ``force`` is set.
+    """
+    p = (root or Path.cwd()) / CONFIG_FILENAME
+    if p.exists() and not force:
+        return (False, p)
+    p.write_text(json.dumps(default_config_dict(), indent=2) + "\n")
+    return (True, p)

@@ -10,8 +10,17 @@ dependencies = [
     "rich>=13.0.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
 [project.scripts]
 crew = "crew.cli:app"
+
+[tool.pytest.ini_options]
+# Put the project root and the tests dir on the path so `pytest` works without
+# installing the package (tests import both `crew.*` and the shared `conftest`).
+pythonpath = [".", "tests"]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling"]
