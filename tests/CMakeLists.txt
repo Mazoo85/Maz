@@ -112,3 +112,10 @@ target_link_libraries(maz_unit_linearalloc PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_linearalloc COMMAND maz_unit_linearalloc)
 set_tests_properties(unit_linearalloc PROPERTIES TIMEOUT 30)
+
+# Unit tests: small-vector with inline storage that spills to heap (manual element lifetime).
+add_executable(maz_unit_smallvector unit_smallvector.cpp)
+target_link_libraries(maz_unit_smallvector PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_smallvector COMMAND maz_unit_smallvector)
+set_tests_properties(unit_smallvector PROPERTIES TIMEOUT 30)
