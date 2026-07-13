@@ -126,7 +126,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       queries — `signature.contains(mask)` filtering over the lead store, `fn(Entity, Ts&...)` by
       reference; header-only, unit-tested + ASAN/UBSan-clean). System scheduler still TODO
 - [ ] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
-- [ ] Scene graph, world-transform propagation, dirty flags
+- [~] Scene graph, world-transform propagation, dirty flags — **`maz::scene::SceneGraph` first slice landed**
+      (node hierarchy with local/cached-world `maz::math::Transform` per node; lazy `getWorld` =
+      parentWorld × local recompute; any `setLocal`/`setParent` marks the subtree dirty; `setParent`
+      reparent with an ancestor cycle-guard; header-only, unit-tested + ASAN/UBSan-clean incl. a
+      rotation-compose-order gate). Node destroy/recycle + ECS integration still TODO
 - [ ] System scheduler (ordered + parallel execution)
 - [ ] Scene serialization (save/load), prefabs / blueprints
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries

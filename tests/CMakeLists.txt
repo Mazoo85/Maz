@@ -161,3 +161,10 @@ target_link_libraries(maz_unit_ecs_world PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_ecs_world COMMAND maz_unit_ecs_world)
 set_tests_properties(unit_ecs_world PROPERTIES TIMEOUT 30)
+
+# Unit tests: scene graph / transform hierarchy (dirty-flag world-transform propagation, compose order, reparent).
+add_executable(maz_unit_scenegraph unit_scenegraph.cpp)
+target_link_libraries(maz_unit_scenegraph PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_scenegraph COMMAND maz_unit_scenegraph)
+set_tests_properties(unit_scenegraph PROPERTIES TIMEOUT 30)
