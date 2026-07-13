@@ -813,6 +813,14 @@ set_tests_properties(modfx_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME rootmotion_headless_smoke
+    COMMAND rootmotion --headless --frames 30)
+
+set_tests_properties(rootmotion_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

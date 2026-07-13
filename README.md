@@ -789,6 +789,10 @@ available):
   copies that thicken a tone (chorus), a swept feedback comb (flanger), and a swept all-pass notch sweep
   (phaser) — all slotting onto a `Bus` like the other DSP effects. The new `modfx` demo runs one sustained
   note through each and draws the four waveforms side by side.
+- **M147** — **root motion** (`anim::RootMotionTrack`), toward Godot's AnimationMixer root-motion track: a
+  locomotion clip drives the character's travel — `advance()` reads the root's per-step displacement out of
+  the clip and applies it in the character's facing direction (with a loop-seam-aware `delta`), so the feet
+  don't slide. The new `rootmotion` demo walks a character along a swept arc with footprints planted on it.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

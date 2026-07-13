@@ -10,6 +10,7 @@
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/BlendTree.hpp"
 #include "maz/anim/IK.hpp"
+#include "maz/anim/RootMotion.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/SampleMixer.hpp"
@@ -5451,6 +5452,93 @@ void testAdditiveBlend() {
     }
 }
 
+void testRootMotion() {
+    using anim::RootMotionSample;
+    using anim::RootMotionTrack;
+
+    // A straight "walk forward" clip: local +x travel over 1 s, no turn. Local forward = +x.
+    {
+        RootMotionTrack t;
+        t.addKey(0.0f, math::vec2(0.0f, 0.0f), 0.0f);
+        t.addKey(1.0f, math::vec2(2.0f, 0.0f), 0.0f); // 2 units forward across the clip
+        CHECK_NEAR(t.duration(), 1.0f, 1e-6f);
+
+        // sample() interpolates cumulative position linearly.
+        CHECK_NEAR(t.sample(0.5f).position.x, 1.0f, 1e-5f);
+        CHECK_NEAR(t.sample(0.5f).heading, 0.0f, 1e-6f);
+        // clamps outside the range.
+        CHECK_NEAR(t.sample(-3.0f).position.x, 0.0f, 1e-6f);
+        CHECK_NEAR(t.sample(9.0f).position.x, 2.0f, 1e-6f);
+
+        // delta over a sub-interval is the local displacement; no wrap.
+        const RootMotionSample d = t.delta(0.25f, 0.75f, false);
+        CHECK_NEAR(d.position.x, 1.0f, 1e-5f);
+        CHECK_NEAR(d.heading, 0.0f, 1e-6f);
+
+        // advance at heading 0 moves the world pose along +x.
+        math::vec2 pos(0.0f, 0.0f);
+        float head = 0.0f;
+        t.advance(pos, head, 0.0f, 1.0f, false);
+        CHECK_NEAR(pos.x, 2.0f, 1e-5f);
+        CHECK_NEAR(pos.y, 0.0f, 1e-5f);
+
+        // advance while FACING +y (heading = +90 deg) rotates the same local +x travel into +y.
+        math::vec2 pos2(0.0f, 0.0f);
+        float head2 = 1.5707963f;
+        t.advance(pos2, head2, 0.0f, 1.0f, false);
+        CHECK_NEAR(pos2.x, 0.0f, 1e-4f);
+        CHECK_NEAR(pos2.y, 2.0f, 1e-4f);
+    }
+
+    // Loop wrap: a step that crosses the loop seam sums the prev->end and start->cur arcs.
+    {
+        RootMotionTrack t;
+        t.addKey(0.0f, math::vec2(0.0f, 0.0f), 0.0f);
+        t.addKey(1.0f, math::vec2(10.0f, 0.0f), 0.6f); // 10 forward + 0.6 rad turn per loop
+        // step from t=0.9 to t=0.1 with loop: (end-0.9) = 1.0 fwd, (0.1-start) = 1.0 fwd -> 2.0 total.
+        const RootMotionSample d = t.delta(0.9f, 0.1f, true);
+        CHECK_NEAR(d.position.x, 2.0f, 1e-4f);
+        CHECK_NEAR(d.heading, 0.12f, 1e-4f); // 0.06 + 0.06
+        // without loop, a backward time step just reports the negative straight delta.
+        const RootMotionSample dn = t.delta(0.9f, 0.1f, false);
+        CHECK_NEAR(dn.position.x, -8.0f, 1e-4f);
+    }
+
+    // Heading accumulates unwrapped past +/-pi (a clip that turns a full circle), so no wrap fixups.
+    {
+        RootMotionTrack t;
+        t.addKey(0.0f, math::vec2(0.0f, 0.0f), 0.0f);
+        t.addKey(1.0f, math::vec2(0.0f, 0.0f), 6.2831853f); // one full turn baked into the clip
+        math::vec2 pos(0.0f, 0.0f);
+        float head = 0.0f;
+        t.advance(pos, head, 0.0f, 1.0f, false);
+        CHECK_NEAR(head, 6.2831853f, 1e-4f); // heading is cumulative, not wrapped to ~0
+    }
+
+    // Integration: a constant forward speed + constant turn rate traces a CIRCLE, so after the heading
+    // sweeps a full 2*pi the character returns to (near) its start — the root-motion "closes the loop".
+    {
+        RootMotionTrack t;
+        const float fwd = 4.0f;         // local +x units across the clip
+        const float turn = 6.2831853f;  // radians across the clip (one full turn)
+        t.addKey(0.0f, math::vec2(0.0f, 0.0f), 0.0f);
+        t.addKey(1.0f, math::vec2(fwd, 0.0f), turn);
+
+        math::vec2 start(3.0f, -1.0f);
+        math::vec2 pos = start;
+        float head = 0.4f; // arbitrary initial facing; the circle still closes
+        const int steps = 4000;
+        for (int i = 0; i < steps; ++i) {
+            const float a = static_cast<float>(i) / static_cast<float>(steps);
+            const float b = static_cast<float>(i + 1) / static_cast<float>(steps);
+            t.advance(pos, head, a, b, false);
+        }
+        CHECK_NEAR(head, 0.4f + turn, 1e-3f);      // swept exactly one turn
+        CHECK_NEAR(pos.x, start.x, 5e-2f);          // returned to start (fine-step circle)
+        CHECK_NEAR(pos.y, start.y, 5e-2f);
+    }
+}
+
 void testPhysics2D() {
     using game::Body2D;
 
@@ -7938,6 +8026,7 @@ int main() {
     testSkeleton();
     testAnimClip();
     testAdditiveBlend();
+    testRootMotion();
     testAnimator();
     testEventBus();
     testSignal();

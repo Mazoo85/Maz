@@ -196,7 +196,10 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
             solveTwoBoneIK — 2-bone inverse kinematics (law-of-cosines elbow solve + bend select +
               straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style;
             solveFabrik — multi-bone FABRIK IK (backward/forward reaching over an N-joint chain, bone
-              lengths preserved), Godot SkeletonModification2DFABRIK-style
+              lengths preserved), Godot SkeletonModification2DFABRIK-style;
+            RootMotionTrack — root motion (cumulative clip-local position+heading; delta with loop-seam sum;
+              advance() applies a step to a world pose, rotating clip-local travel by the current facing so
+              feet don't slide), Godot AnimationMixer root-motion-track-style
             (header-only; animate any float/vector/color, a sprite through frames, or a skinned mesh)
 io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned headers, bounds-checked)
             + file read/write   (header-only; save games, level files);
@@ -326,6 +329,8 @@ apps/
               launched up through one (its trail crosses the bar), via game::resolveOneWayPlatforms
   modfx/     Chorus / flanger / phaser — one sustained note scoped through the three LFO-swept modulated-delay
               effects as stacked waveforms (audio::Chorus/Flanger/Phaser)
+  rootmotion/ Root motion — a walk clip drives a character along a swept arc with left/right footprints planted
+              on the path (no foot sliding), via anim::RootMotionTrack::advance
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

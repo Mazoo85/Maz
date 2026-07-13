@@ -2743,6 +2743,32 @@ and drive a deterministic offline-waveform golden.
   offline per-sample effects — they are **not** yet inserted per-voice into the real-time SDL mixer callback,
   and there's no stereo/multi-tap widening or tempo-synced LFO; those remain the live-routing follow-ups.
 
+### Iteration 108 — "Benchmarking against Godot: root motion" (done)
+Rotating to **animation** for breadth (recent rounds were audio, 2D-physics, 3D-render, 2D-render, math, UI).
+Maz can sample and blend clips (M68) and drive a skeleton, but a locomotion clip that TRAVELS had no way to
+hand its travel to the character — you'd play a walk in place and move the body with a separate hand-tuned
+velocity, and the feet slide whenever the two disagree. Godot solves this with the AnimationMixer root-motion
+track (`get_root_motion_position` / `get_root_motion_rotation`), reading the root bone's displacement back
+out of the clip. It's pure planar math, so it unit-tests headless and drives a deterministic 2D golden.
+- [x] **M147 — Root motion (`anim::RootMotionTrack`)**: a new `RootMotion.hpp` storing the root's cumulative
+  clip-local **position** and **heading** over a clip. `sample(t)` interpolates the cumulative pose;
+  `delta(prevT, curT, loop)` returns how far the root moved this step, summing the prev→end and start→cur arcs
+  across a loop seam so a looping walk keeps travelling smoothly; `advance(worldPos, worldHeading, ...)`
+  applies a step to a world pose — **rotating the clip-local displacement by the character's current facing**
+  (so "walk forward" goes wherever the body points) and accumulating the turn. Heading is stored UNWRAPPED (a
+  cumulative path integral), so a clip may turn any amount and deltas never need angle-wrap fixups.
+  `testRootMotion` pins: linear cumulative sampling + clamping; local-displacement deltas; the loop-seam sum;
+  advancing at heading 0 vs facing +90° (the same local step rotates into world +x vs +y); unwrapped heading
+  past a full turn; and an **integration test** — a constant forward speed + constant turn rate traces a
+  circle, so after the heading sweeps a full 2π the character returns to (near) its start. Unit checks
+  **4960 → 4978**. The new `rootmotion` demo runs a fixed-step sim of a walk clip (forward + gentle turn) and
+  draws the swept arc with alternating left/right footprints planted along it and oriented to the heading —
+  visibly no foot sliding, the travel carried by the clip. 2D golden (threshold 0.06, `rootmotion` RMSE 0).
+  Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **102/102 → 103/103**. Honest scope: this is the planar (XZ + yaw) root-motion track and its accumulator —
+  it does **not** yet auto-extract the track from a glTF/`AnimClip` root joint, blend root motion across a
+  state-machine transition, or handle full 3D root translation with pitch/roll; those remain the follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

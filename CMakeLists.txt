@@ -140,6 +140,7 @@ add_subdirectory(apps/multimesh)
 add_subdirectory(apps/billboard)
 add_subdirectory(apps/oneway)
 add_subdirectory(apps/modfx)
+add_subdirectory(apps/rootmotion)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

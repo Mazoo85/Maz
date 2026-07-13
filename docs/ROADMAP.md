@@ -512,6 +512,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   chain — backward/forward passes preserve every bone length and reach the target, straighten when out
   of reach — Godot SkeletonModification2DFABRIK; the `tentacle` demo curls/straightens 8-bone chains
   toward targets; M107) — CCD + pole targets / bone constraints later
+- [x] **Root motion** (`anim::RootMotionTrack`: cumulative clip-local position + heading; `delta` reports the
+  root's per-step travel with a loop-seam sum; `advance` applies it to a world pose, rotating the clip-local
+  step by the character's current facing so the feet don't slide — Godot AnimationMixer root-motion track; the
+  `rootmotion` demo walks a character along a swept arc with footprints planted on it; M147) — auto-extract
+  from a glTF/AnimClip root joint + blend root motion across a state-machine transition + full 3D later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59)
 - [x] **Tween sequencer / property animator** (`anim::TweenPlayer`: chains Property/Interval/Callback
