@@ -23,9 +23,11 @@ namespace maz::game {
 
 struct Body2D {
     // A Capsule is a segment along the body's local Y (half-length half.y) swept by `radius` — Godot's
-    // CapsuleShape2D, the standard character shape. Capsule contacts flow through the oriented
-    // (manifold) solver, so a capsule body implies that path (like an inertia-bearing body does).
-    enum Shape { Circle, Box, Capsule };
+    // CapsuleShape2D, the standard character shape. A WorldBoundary is an infinite static half-plane
+    // (Godot WorldBoundaryShape2D): `half` holds the unit outward normal (toward free space) and
+    // `radius` the plane offset D, so the solid region is { p : dot(p, normal) <= D } — build one with
+    // makeWorldBoundary(). Capsule/WorldBoundary contacts flow through the oriented (manifold) solver.
+    enum Shape { Circle, Box, Capsule, WorldBoundary };
 
     math::vec2 pos{0.0f, 0.0f};
     math::vec2 vel{0.0f, 0.0f};
@@ -87,6 +89,23 @@ struct Body2D {
         invInertia = inertia > 0.0f ? 1.0f / inertia : 0.0f;
     }
 };
+
+// Build a static infinite half-plane collider (Godot WorldBoundaryShape2D). `normal` points toward the
+// FREE space (e.g. (0,-1) for a floor whose solid side is below); `pointOnPlane` is any point on the
+// line. The solid region is everything on the far side of the plane from `normal`.
+inline Body2D makeWorldBoundary(math::vec2 normal, math::vec2 pointOnPlane) {
+    Body2D b;
+    b.shape = Body2D::WorldBoundary;
+    const float len = std::sqrt(normal.x * normal.x + normal.y * normal.y);
+    if (len > 1e-6f) {
+        normal /= len;
+    }
+    b.half = normal;                          // unit outward normal (toward free space)
+    b.radius = glm::dot(pointOnPlane, normal); // plane offset D
+    b.invMass = 0.0f;                         // always static
+    b.invInertia = 0.0f;
+    return b;
+}
 
 struct Bounds2D {
     float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
@@ -301,6 +320,16 @@ struct Manifold {
     math::vec2 n{0.0f, 0.0f};
     float pen = 0.0f;
     math::vec2 point{0.0f, 0.0f};
+    bool hit = false;
+};
+
+// A up-to-two-point contact manifold (n from a toward b) — used for stable box/boundary resting and by
+// the warm solver. Defined here (early) so the capsule/boundary contact builders below can return it.
+struct Contact2 {
+    math::vec2 n{0.0f, 0.0f}; // from a toward b
+    int count = 0;
+    math::vec2 point[2]{};
+    float pen[2]{0.0f, 0.0f};
     bool hit = false;
 };
 
@@ -550,8 +579,82 @@ inline Manifold capsuleBox(const Body2D& a, const Body2D& b) {
     return m;
 }
 
+// Dynamic body a vs a static WorldBoundary half-plane b. Returns up to two contact points (both
+// bottom corners of a box, both caps of a capsule) so a body rests flat on the plane without rocking.
+// n points from a into the solid (a -> boundary); the solver then pushes a out along the plane normal.
+inline Contact2 boundaryContact(const Body2D& a, const Body2D& b) {
+    Contact2 m;
+    const math::vec2 N = b.half; // unit outward normal (toward free space)
+    const float D = b.radius;
+    // Collect candidate (world point, penetration) supports; keep the two deepest.
+    math::vec2 pts[4];
+    float pens[4];
+    int k = 0;
+    auto consider = [&](math::vec2 world, float supportDot, float r) {
+        const float pen = D - (supportDot - r); // support reaches r toward the solid
+        if (pen > 0.0f && k < 4) {
+            pts[k] = world;
+            pens[k] = pen;
+            ++k;
+        }
+    };
+    if (a.shape == Body2D::Circle) {
+        consider(a.pos - N * a.radius, glm::dot(a.pos, N), a.radius);
+    } else if (a.shape == Body2D::Capsule) {
+        math::vec2 p0, p1;
+        capsuleSegment(a, p0, p1);
+        consider(p0 - N * a.radius, glm::dot(p0, N), a.radius);
+        consider(p1 - N * a.radius, glm::dot(p1, N), a.radius);
+    } else { // Box
+        math::vec2 c[4];
+        boxCorners(a, c);
+        for (int i = 0; i < 4; ++i) {
+            consider(c[i], glm::dot(c[i], N), 0.0f);
+        }
+    }
+    if (k == 0) {
+        return m;
+    }
+    // Keep the two deepest contacts.
+    for (int i = 0; i < k; ++i) {
+        for (int j = i + 1; j < k; ++j) {
+            if (pens[j] > pens[i]) {
+                std::swap(pens[i], pens[j]);
+                std::swap(pts[i], pts[j]);
+            }
+        }
+    }
+    m.n = -N; // a -> solid
+    m.count = k < 2 ? k : 2;
+    for (int i = 0; i < m.count; ++i) {
+        m.point[i] = pts[i];
+        m.pen[i] = pens[i];
+    }
+    m.hit = true;
+    return m;
+}
+
 // Any oriented shape pair; n points from a toward b, with a world contact point.
 inline Manifold manifold(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::WorldBoundary || b.shape == Body2D::WorldBoundary) {
+        // Reduce to the single deepest point for the single-point solver.
+        Manifold m;
+        Contact2 c = (b.shape == Body2D::WorldBoundary) ? boundaryContact(a, b) : boundaryContact(b, a);
+        if (!c.hit) {
+            return m;
+        }
+        int deep = 0;
+        for (int i = 1; i < c.count; ++i) {
+            if (c.pen[i] > c.pen[deep]) {
+                deep = i;
+            }
+        }
+        m.n = (b.shape == Body2D::WorldBoundary) ? c.n : -c.n; // ensure a -> b
+        m.pen = c.pen[deep];
+        m.point = c.point[deep];
+        m.hit = true;
+        return m;
+    }
     if (a.shape == Body2D::Capsule || b.shape == Body2D::Capsule) {
         if (a.shape == Body2D::Capsule && b.shape == Body2D::Capsule) {
             return capsuleCapsule(a, b);
@@ -656,13 +759,6 @@ inline void resolveRot(Body2D& a, Body2D& b, const Manifold& mf) {
 // manifold along the shared face by reference/incident-face clipping, so both far ends of the contact
 // are held and the stack stays square. This is that clip. It is opt-in (PhysicsWorld2D::solveManifolds)
 // so every existing rotating scene keeps the exact single-point numerics; new scenes switch it on.
-struct Contact2 {
-    math::vec2 n{0.0f, 0.0f}; // from a toward b
-    int count = 0;
-    math::vec2 point[2]{};
-    float pen[2]{0.0f, 0.0f};
-    bool hit = false;
-};
 
 // Pick the edge of a CCW box (corners c0..c3) whose outward normal best matches `dir`; return its two
 // vertices in perimeter order. Outward normal of edge (p,q) on a CCW polygon is (e.y, -e.x).
@@ -781,6 +877,15 @@ inline Contact2 obbObbManifold(const Body2D& A, const Body2D& B) {
 // Any oriented pair as a Contact2. Box-box uses the two-point clip; other pairs reuse the single-point
 // manifold() (count 1), so the manifold solver handles mixed scenes uniformly.
 inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::WorldBoundary || b.shape == Body2D::WorldBoundary) {
+        // Two-point boundary manifold keeps a box/capsule resting flat on the plane; orient n as a->b.
+        if (b.shape == Body2D::WorldBoundary) {
+            return boundaryContact(a, b);
+        }
+        Contact2 m = boundaryContact(b, a);
+        m.n = -m.n;
+        return m;
+    }
     if (a.shape == Body2D::Box && b.shape == Body2D::Box) {
         return obbObbManifold(a, b);
     }
@@ -1129,7 +1234,8 @@ public:
             return;
         }
         for (const Body2D& b : bodies) {
-            if (b.invInertia > 0.0f || b.shape == Body2D::Capsule) {
+            if (b.invInertia > 0.0f || b.shape == Body2D::Capsule ||
+                b.shape == Body2D::WorldBoundary) {
                 stepRotational(dt, iterations);
                 return;
             }
@@ -1192,6 +1298,10 @@ private:
         std::unordered_map<uint64_t, std::vector<int>> grid;
         std::vector<int> large;
         for (int i = 0; i < n; ++i) {
+            if (bodies[i].shape == Body2D::WorldBoundary) {
+                large.push_back(i); // infinite plane: test against everything
+                continue;
+            }
             const float e = extent(bodies[i]);
             const int minX = static_cast<int>(std::floor((bodies[i].pos.x - e) * invCell));
             const int maxX = static_cast<int>(std::floor((bodies[i].pos.x + e) * invCell));

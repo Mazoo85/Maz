@@ -9582,6 +9582,71 @@ void testCapsule() {
     }
 }
 
+// P6: infinite WorldBoundary half-plane (Godot WorldBoundaryShape2D). A circle, a box and a capsule
+// each rest on an infinite floor line at the exact expected height; the box stays flat (two-point
+// boundary manifold, no rocking).
+void testWorldBoundary() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    // Direct contact: a circle whose lower half crosses the floor line at y=300.
+    {
+        Body2D floor = game::makeWorldBoundary(math::vec2(0.0f, -1.0f), math::vec2(0.0f, 300.0f));
+        Body2D circ;
+        circ.shape = Body2D::Circle;
+        circ.radius = 20.0f;
+        circ.pos = math::vec2(0.0f, 290.0f); // bottom at y=310, 10 below the floor
+        d::Contact2 m = d::manifold2(circ, floor);
+        CHECK(m.hit);
+        CHECK(m.count == 1);
+        CHECK_NEAR(m.n.x, 0.0f, 1e-3f);
+        CHECK_NEAR(m.n.y, 1.0f, 1e-3f); // circle -> solid (downward)
+        CHECK_NEAR(m.pen[0], 10.0f, 1e-3f);
+    }
+
+    auto restOn = [](int shape) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        w.add(game::makeWorldBoundary(math::vec2(0.0f, -1.0f), math::vec2(0.0f, 300.0f)));
+        Body2D b;
+        b.shape = shape;
+        b.radius = 20.0f;
+        b.half = (shape == Body2D::Box) ? math::vec2(30.0f, 20.0f) : math::vec2(0.0f, 20.0f);
+        b.pos = math::vec2(0.0f, 120.0f);
+        b.angle = (shape == Body2D::Box) ? 0.15f : 0.0f; // start a box slightly tilted
+        b.invMass = 1.0f;
+        b.friction = 0.8f;
+        b.restitution = 0.0f;
+        b.enableRotation();
+        w.add(b);
+        for (int s = 0; s < 320; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        return w.bodies[1];
+    };
+
+    // Circle rests with its bottom on the floor: centre.y = 300 - 20 = 280.
+    {
+        Body2D c = restOn(Body2D::Circle);
+        CHECK_NEAR(c.pos.y, 280.0f, 1.5f);
+        CHECK(std::sqrt(glm::dot(c.vel, c.vel)) < 5.0f);
+    }
+    // Box rests flat: bottom edge on the floor -> centre.y = 300 - 20 = 280, and it settled upright
+    // (two-point boundary manifold kills the initial tilt instead of letting it rock).
+    {
+        Body2D b = restOn(Body2D::Box);
+        CHECK_NEAR(b.pos.y, 280.0f, 2.0f);
+        CHECK(std::fabs(b.angle) < 0.05f);
+    }
+    // Vertical capsule rests on its lower cap: centre.y = 300 - half.y - radius = 300 - 20 - 20 = 260.
+    {
+        Body2D cap = restOn(Body2D::Capsule);
+        CHECK_NEAR(cap.pos.y, 260.0f, 2.0f);
+        CHECK(std::sqrt(glm::dot(cap.vel, cap.vel)) < 5.0f);
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12008,6 +12073,7 @@ int main() {
     testSleeping();
     testCollisionFiltering();
     testCapsule();
+    testWorldBoundary();
     testNormalLight();
     testParallax();
     testAudioDsp();
