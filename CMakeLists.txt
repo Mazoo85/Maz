@@ -171,6 +171,7 @@ add_subdirectory(apps/xml)
 add_subdirectory(apps/normals)
 add_subdirectory(apps/filters)
 add_subdirectory(apps/equalizer)
+add_subdirectory(apps/busmixer)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

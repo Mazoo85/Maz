@@ -13,6 +13,7 @@
 #include "maz/anim/Gradient.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/anim/RootMotion.hpp"
+#include "maz/audio/BusGraph.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/Randomizer.hpp"
@@ -9476,6 +9477,103 @@ void testAudioDsp() {
     }
 }
 
+void testBusGraph() {
+    using audio::BusGraph;
+
+    // Master exists at index 0; adding named buses returns fresh indices resolvable by name.
+    {
+        BusGraph g;
+        CHECK(g.busCount() == 1);
+        CHECK(g.busIndex("Master") == 0);
+        const int music = g.addBus("Music");
+        const int sfx = g.addBus("SFX");
+        CHECK(music == 1);
+        CHECK(sfx == 2);
+        CHECK(g.busIndex("SFX") == 2);
+        CHECK(g.busIndex("Nope") == -1);
+        CHECK(g.busName(1) == "Music");
+        CHECK(g.send(music) == 0); // defaults to Master
+    }
+
+    // A bus's dB volume scales its signal on the way to Master (−6.02 dB == half).
+    {
+        BusGraph g;
+        const int music = g.addBus("Music");
+        g.setVolumeDb(music, -6.0206f);
+        g.pushInput(music, 1.0f);
+        CHECK_NEAR(g.process(), 0.5f, 1e-3f);
+    }
+
+    // Muting a bus silences everything routed through it.
+    {
+        BusGraph g;
+        const int sfx = g.addBus("SFX");
+        g.setMute(sfx, true);
+        g.pushInput(sfx, 1.0f);
+        CHECK_NEAR(g.process(), 0.0f, 1e-6f);
+    }
+
+    // A send chain multiplies the gains: C -> B -> Master, each −6.02 dB, gives ×0.25.
+    {
+        BusGraph g;
+        const int b = g.addBus("B");                 // -> Master
+        const int c = g.addBus("C", b);              // -> B
+        g.setVolumeDb(b, -6.0206f);
+        g.setVolumeDb(c, -6.0206f);
+        g.pushInput(c, 1.0f);
+        CHECK_NEAR(g.process(), 0.25f, 2e-3f);
+    }
+
+    // Solo: only the soloed bus's path to Master is audible; unrelated buses are silenced.
+    {
+        BusGraph g;
+        const int a = g.addBus("A");
+        const int bmid = g.addBus("Bmid");
+        const int cleaf = g.addBus("Cleaf", bmid); // C -> Bmid -> Master
+        g.setSolo(cleaf, true);
+        g.pushInput(a, 1.0f);      // unrelated bus
+        g.pushInput(cleaf, 1.0f);  // soloed path
+        // Only C's signal survives (through Bmid, both 0 dB); A is muted by solo.
+        CHECK_NEAR(g.process(), 1.0f, 1e-3f);
+        (void)a;
+    }
+
+    // An effect on a bus is applied; bypass skips it.
+    {
+        BusGraph g;
+        const int m = g.addBus("Music");
+        audio::Amplify amp;
+        amp.gainDb = 6.0206f; // x2
+        g.addEffect(m, std::make_unique<audio::AmplifyEffect>(amp));
+        g.pushInput(m, 0.25f);
+        CHECK_NEAR(g.process(), 0.5f, 1e-3f); // effect doubled it
+        g.setBypass(m, true);
+        g.pushInput(m, 0.25f);
+        CHECK_NEAR(g.process(), 0.25f, 1e-3f); // effect skipped
+    }
+
+    // Per-bus level metering reflects the processed output.
+    {
+        BusGraph g;
+        const int m = g.addBus("Music");
+        g.setVolumeDb(m, -6.0206f);
+        g.pushInput(m, 1.0f);
+        g.process();
+        CHECK_NEAR(g.busLevel(m), 0.5f, 1e-3f);
+        CHECK_NEAR(g.busLevel(0), 0.5f, 1e-3f); // Master carries the summed output
+    }
+
+    // Two buses summing into Master mix additively.
+    {
+        BusGraph g;
+        const int a = g.addBus("A");
+        const int b = g.addBus("B");
+        g.pushInput(a, 0.3f);
+        g.pushInput(b, 0.4f);
+        CHECK_NEAR(g.process(), 0.7f, 1e-4f);
+    }
+}
+
 void testAudioEffects() {
     // ---- Distortion (tanh waveshaper) ----
     {
@@ -10849,6 +10947,7 @@ int main() {
     testNormalLight();
     testParallax();
     testAudioDsp();
+    testBusGraph();
     testModDsp();
     testAudioEffects();
     testADSR();
