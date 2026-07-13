@@ -9749,6 +9749,75 @@ void testCCD() {
     CHECK(stopped > -20.0f); // parked just in front of the wall (~ -7), not left behind at the start
 }
 
+// P9: pin-joint angular motor + limit (Godot PinJoint2D motor / angular_limit). A dynamic arm hinged to
+// a static anchor is spun up by the motor toward a target speed; an angular limit then caps how far it
+// can rotate. The two bodies are on non-interacting layers so only the joint acts.
+void testJointMotor() {
+    using game::Body2D;
+    using game::Joint2D;
+    using game::layerBit;
+
+    auto makeHinge = [](bool limit) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 0.0f);
+        w.warmStarting = true;
+        Body2D anchor; // static frame at origin
+        anchor.shape = Body2D::Circle;
+        anchor.radius = 4.0f;
+        anchor.pos = math::vec2(0.0f, 0.0f);
+        anchor.invMass = 0.0f;
+        anchor.collisionLayer = layerBit(0);
+        anchor.collisionMask = layerBit(0);
+        w.add(anchor);
+        Body2D arm;
+        arm.shape = Body2D::Box;
+        arm.half = math::vec2(40.0f, 6.0f);
+        arm.pos = math::vec2(0.0f, 0.0f); // pinned at its own centre -> free to spin
+        arm.invMass = 1.0f;
+        arm.collisionLayer = layerBit(1); // different layer -> no contact with the anchor
+        arm.collisionMask = layerBit(1);
+        arm.enableRotation();
+        w.add(arm);
+        Joint2D j;
+        j.type = Joint2D::Pin;
+        j.a = 0;
+        j.b = 1;
+        j.localA = math::vec2(0.0f, 0.0f);
+        j.anchorB = math::vec2(0.0f, 0.0f); // both anchors at the shared centre
+        j.motorEnabled = true;
+        j.motorSpeed = 4.0f;       // rad/s target
+        j.maxMotorTorque = 1e5f;   // strong enough to reach target quickly
+        if (limit) {
+            j.limitEnabled = true;
+            j.lowerAngle = -0.2f;
+            j.upperAngle = 1.0f; // cap the swing at ~1 rad
+        }
+        w.addJoint(j);
+        return w;
+    };
+
+    // Motor only: the arm reaches (roughly) the target angular velocity and keeps spinning.
+    {
+        game::PhysicsWorld2D w = makeHinge(false);
+        for (int s = 0; s < 60; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        CHECK_NEAR(w.bodies[1].angularVel, 4.0f, 0.5f); // driven to the motor target
+        CHECK(w.bodies[1].angle > 1.5f);                // it actually rotated a long way (no limit)
+    }
+
+    // Motor + limit: the arm is driven into the upper stop and parks there, not past it.
+    {
+        game::PhysicsWorld2D w = makeHinge(true);
+        for (int s = 0; s < 120; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        CHECK(w.bodies[1].angle <= 1.0f + 0.05f); // held at/under the upper limit
+        CHECK(w.bodies[1].angle > 0.8f);          // and it did reach the limit
+        CHECK(std::fabs(w.bodies[1].angularVel) < 1.0f); // motor stalled against the stop
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12178,6 +12247,7 @@ int main() {
     testWorldBoundary();
     testContactEvents();
     testCCD();
+    testJointMotor();
     testNormalLight();
     testParallax();
     testAudioDsp();

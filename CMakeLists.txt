@@ -186,6 +186,7 @@ add_subdirectory(apps/capsule)
 add_subdirectory(apps/boundary)
 add_subdirectory(apps/contacts)
 add_subdirectory(apps/ccd)
+add_subdirectory(apps/motor)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

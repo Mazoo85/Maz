@@ -149,6 +149,18 @@ struct Joint2D {
     float restLength = 0.0f;  // Spring: target separation
     float stiffness = 0.0f;   // Spring: restoring force per unit stretch
     float damping = 0.0f;     // Spring: velocity damping along the joint axis
+
+    // --- Pin (hinge) motor + angular limit (Godot PinJoint2D motor / angular_limit) ----------------
+    // Act on the RELATIVE angle/spin of the two bodies (b - a), measured from refAngle. The motor
+    // drives the relative spin toward motorSpeed (bounded by maxMotorTorque per step); the limit keeps
+    // the relative angle within [lowerAngle, upperAngle] like a hinge stop. Warm-solver path only.
+    bool motorEnabled = false;
+    float motorSpeed = 0.0f;     // target relative angular velocity (rad/s)
+    float maxMotorTorque = 0.0f; // clamp on the motor's per-step angular impulse
+    bool limitEnabled = false;
+    float lowerAngle = 0.0f;
+    float upperAngle = 0.0f;
+    float refAngle = 0.0f; // relative angle (b.angle - a.angle) treated as the limit's zero
 };
 
 // --- Contact generation: normal (pointing from a toward b) + penetration depth --------------------
@@ -1054,6 +1066,89 @@ inline void solveGroove(Body2D& g, Body2D& s, math::vec2 grooveAnchorLocal, math
     s.angularVel += s.invInertia * cross2(rB, p);
 }
 
+// Pin/hinge angular motor + limit (Godot PinJoint2D motor / angular_limit). Acts purely on the bodies'
+// angular DOF, on top of the pin's point constraint. `b` may be null (hinge to the fixed world frame).
+// Applied once per step. The motor drives the relative spin toward jt.motorSpeed (impulse bounded by
+// maxMotorTorque); the limit clamps the relative angle to [lowerAngle, upperAngle] and removes spin
+// heading further past the stop, distributing corrections by inverse inertia.
+inline void solveHingeMotorLimit(Body2D& a, Body2D* b, const Joint2D& jt, float dt) {
+    const float aI = a.invInertia;
+    const float bI = b ? b->invInertia : 0.0f;
+    const float sumI = aI + bI;
+    if (sumI <= 1e-12f) {
+        return;
+    }
+    const float invM = 1.0f / sumI;
+    const float bw = b ? b->angularVel : 0.0f;
+    if (jt.motorEnabled) {
+        const float cdot = (bw - a.angularVel) - jt.motorSpeed;
+        const float maxImp = jt.maxMotorTorque * dt;
+        const float impulse = glm::clamp(-invM * cdot, -maxImp, maxImp);
+        a.angularVel -= aI * impulse;
+        if (b) {
+            b->angularVel += bI * impulse;
+        }
+    }
+    if (jt.limitEnabled) {
+        const float relAngle = (b ? b->angle : 0.0f) - a.angle - jt.refAngle;
+        float C = 0.0f;
+        if (relAngle <= jt.lowerAngle) {
+            C = relAngle - jt.lowerAngle; // <= 0
+        } else if (relAngle >= jt.upperAngle) {
+            C = relAngle - jt.upperAngle; // >= 0
+        }
+        if (C != 0.0f) {
+            const float cdot = (b ? b->angularVel : 0.0f) - a.angularVel;
+            const bool atLower = C < 0.0f;
+            if ((atLower && cdot < 0.0f) || (!atLower && cdot > 0.0f)) {
+                const float impulse = -invM * cdot; // stop spin heading further past the stop
+                a.angularVel -= aI * impulse;
+                if (b) {
+                    b->angularVel += bI * impulse;
+                }
+            }
+            // (Position is clamped hard AFTER integration — see clampHingeLimit — so a strong motor
+            // cannot overshoot the stop by up to motorSpeed*dt within a single step.)
+        }
+    }
+}
+
+// Post-integration hard clamp of a hinge's relative angle to [lower, upper], distributing the
+// correction by inverse inertia and cancelling the relative spin heading past the stop. Guarantees the
+// limit holds exactly at step end regardless of motor strength.
+inline void clampHingeLimit(Body2D& a, Body2D* b, const Joint2D& jt) {
+    const float aI = a.invInertia;
+    const float bI = b ? b->invInertia : 0.0f;
+    const float sumI = aI + bI;
+    if (sumI <= 1e-12f) {
+        return;
+    }
+    const float invM = 1.0f / sumI;
+    const float relAngle = (b ? b->angle : 0.0f) - a.angle - jt.refAngle;
+    float C = 0.0f;
+    if (relAngle < jt.lowerAngle) {
+        C = relAngle - jt.lowerAngle; // < 0
+    } else if (relAngle > jt.upperAngle) {
+        C = relAngle - jt.upperAngle; // > 0
+    }
+    if (C == 0.0f) {
+        return;
+    }
+    a.angle += C * (aI * invM);
+    if (b) {
+        b->angle -= C * (bI * invM);
+    }
+    const float cdot = (b ? b->angularVel : 0.0f) - a.angularVel;
+    const bool atLower = C < 0.0f;
+    if ((atLower && cdot < 0.0f) || (!atLower && cdot > 0.0f)) {
+        const float impulse = -invM * cdot;
+        a.angularVel -= aI * impulse;
+        if (b) {
+            b->angularVel += bI * impulse;
+        }
+    }
+}
+
 // --- Warm-started sequential-impulse contact constraint (Box2D-style) ------------------------------
 // The resolvers above recompute a fresh impulse from scratch every iteration and every frame, so a
 // tall stack needs many iterations to stop sinking and jittering. A real engine (Box2D, and Godot's
@@ -1594,6 +1689,20 @@ private:
                 }
             }
         }
+        // Pin/hinge motors + angular limits, once per step (Godot PinJoint2D motor / angular_limit).
+        for (const Joint2D& jt : joints) {
+            if (jt.type != Joint2D::Pin || (!jt.motorEnabled && !jt.limitEnabled)) {
+                continue;
+            }
+            if (jt.a < 0 || jt.a >= static_cast<int>(bodies.size())) {
+                continue;
+            }
+            Body2D& A = bodies[static_cast<size_t>(jt.a)];
+            Body2D* B = (jt.b >= 0 && jt.b < static_cast<int>(bodies.size()))
+                            ? &bodies[static_cast<size_t>(jt.b)]
+                            : nullptr;
+            detail::solveHingeMotorLimit(A, B, jt, dt);
+        }
         // Position (split-impulse) iterations: push out of penetration via pseudo-velocities that add
         // no bounce energy. pv/pw start at zero and are folded into the position integration below.
         std::vector<math::vec2> pv(bodies.size(), math::vec2(0.0f, 0.0f));
@@ -1623,6 +1732,20 @@ private:
         for (size_t i = 0; i < bodies.size(); ++i) {
             bodies[i].pos += (bodies[i].vel + pv[i]) * dt;
             bodies[i].angle += (bodies[i].angularVel + pw[i]) * dt;
+        }
+        // Hard-clamp hinge angular limits after integration so a strong motor cannot overshoot a stop.
+        for (const Joint2D& jt : joints) {
+            if (jt.type != Joint2D::Pin || !jt.limitEnabled) {
+                continue;
+            }
+            if (jt.a < 0 || jt.a >= static_cast<int>(bodies.size())) {
+                continue;
+            }
+            Body2D& A = bodies[static_cast<size_t>(jt.a)];
+            Body2D* B = (jt.b >= 0 && jt.b < static_cast<int>(bodies.size()))
+                            ? &bodies[static_cast<size_t>(jt.b)]
+                            : nullptr;
+            detail::clampHingeLimit(A, B, jt);
         }
         // Continuous collision: sweep each fast flagged body against static box/circle obstacles so it
         // stops at the surface instead of tunnelling through a thin wall in one step (Godot continuous_cd).

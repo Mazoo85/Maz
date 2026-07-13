@@ -170,6 +170,7 @@ CASES=(
     "boundary||2.5|0.06"
     "contacts||2.5|0.06"
     "ccd||2.0|0.05"
+    "motor||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
