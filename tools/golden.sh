@@ -168,6 +168,7 @@ CASES=(
     "filter||2.0|0.05"
     "capsule||2.5|0.06"
     "boundary||2.5|0.06"
+    "contacts||2.5|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

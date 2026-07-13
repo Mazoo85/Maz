@@ -184,6 +184,7 @@ add_subdirectory(apps/sleep)
 add_subdirectory(apps/filter)
 add_subdirectory(apps/capsule)
 add_subdirectory(apps/boundary)
+add_subdirectory(apps/contacts)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

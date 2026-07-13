@@ -111,6 +111,18 @@ struct Bounds2D {
     float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
 };
 
+// A contact lifecycle event, reported by PhysicsWorld2D when trackContacts is on (Godot's
+// body_entered / body_exited + contact monitor). Begin = the pair started touching this step, Persist
+// = still touching, End = separated this step. `impulse` is the accumulated normal impulse applied.
+enum class ContactPhase { Begin, Persist, End };
+struct ContactEvent {
+    int a = -1, b = -1;
+    ContactPhase phase = ContactPhase::Begin;
+    math::vec2 point{0.0f, 0.0f};
+    math::vec2 normal{0.0f, 0.0f}; // from a toward b
+    float impulse = 0.0f;
+};
+
 // A constraint tying two bodies together (or one body to a fixed world point) — Godot's PinJoint2D /
 // DampedSpringJoint2D / GrooveJoint2D. A Pin forces the two anchor points to coincide (a hinge / rope
 // link); a Spring pulls them toward `restLength` with a stiffness + damping (a soft, bouncy link); a
@@ -1198,6 +1210,10 @@ public:
     float sleepLinearThreshold = 14.0f;  // |velocity| below this counts as quiet (world units/sec)
     float sleepAngularThreshold = 0.25f; // |spin| below this counts as quiet (rad/sec)
     float sleepTime = 0.5f;              // seconds a whole island must stay quiet before it sleeps
+    // Opt-in (warm-solver path only): record contact begin/persist/end events each step into
+    // contactEvents, for gameplay to react (Godot body_entered / body_exited). Off by default.
+    bool trackContacts = false;
+    std::vector<ContactEvent> contactEvents; // valid after step() when trackContacts is on
     std::vector<Body2D> bodies;
     std::vector<Joint2D> joints;
 
@@ -1536,6 +1552,38 @@ private:
         if (hasBounds) {
             for (Body2D& b : bodies) {
                 collideBounds(b, bounds);
+            }
+        }
+        // Contact events: diff this frame's contacts against last frame's (m_prev still holds it).
+        if (trackContacts) {
+            contactEvents.clear();
+            std::unordered_set<uint64_t> oldKeys;
+            for (const detail::ContactConstraint& pc : m_prev) {
+                oldKeys.insert(pc.key);
+            }
+            std::unordered_set<uint64_t> newKeys;
+            for (const detail::ContactConstraint& c : contacts) {
+                newKeys.insert(c.key);
+                ContactEvent e;
+                e.a = c.a;
+                e.b = c.b;
+                e.point = bodies[static_cast<size_t>(c.a)].pos + c.rA[0]; // world contact point
+                e.normal = c.n;
+                e.impulse = c.jN[0] + (c.count > 1 ? c.jN[1] : 0.0f);
+                e.phase = oldKeys.count(c.key) ? ContactPhase::Persist : ContactPhase::Begin;
+                contactEvents.push_back(e);
+            }
+            for (const detail::ContactConstraint& pc : m_prev) {
+                if (newKeys.count(pc.key) == 0) {
+                    ContactEvent e;
+                    e.a = pc.a;
+                    e.b = pc.b;
+                    e.point = bodies[static_cast<size_t>(pc.a)].pos + pc.rA[0];
+                    e.normal = pc.n;
+                    e.impulse = 0.0f;
+                    e.phase = ContactPhase::End;
+                    contactEvents.push_back(e);
+                }
             }
         }
         m_prev = std::move(contacts);

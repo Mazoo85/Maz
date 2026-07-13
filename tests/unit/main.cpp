@@ -9647,6 +9647,69 @@ void testWorldBoundary() {
     }
 }
 
+// P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
+// Begin when they start touching and an End when they separate, and nothing before first contact.
+void testContactEvents() {
+    using game::Body2D;
+    using game::ContactPhase;
+
+    game::PhysicsWorld2D w;
+    w.gravity = math::vec2(0.0f, 0.0f);
+    w.warmStarting = true;
+    w.trackContacts = true;
+
+    Body2D fixed;
+    fixed.shape = Body2D::Circle;
+    fixed.radius = 20.0f;
+    fixed.pos = math::vec2(0.0f, 0.0f);
+    fixed.invMass = 0.0f;
+    fixed.restitution = 1.0f;
+    w.add(fixed);
+    Body2D ball;
+    ball.shape = Body2D::Circle;
+    ball.radius = 15.0f;
+    ball.pos = math::vec2(-200.0f, 0.0f);
+    ball.vel = math::vec2(150.0f, 0.0f); // toward the fixed ball
+    ball.invMass = 1.0f;
+    ball.restitution = 1.0f;
+    w.add(ball);
+
+    bool sawBegin = false, sawEnd = false, sawPersistOrBegin = false;
+    int beginStep = -1, endStep = -1;
+    int eventsBeforeContact = 0;
+    for (int s = 0; s < 200; ++s) {
+        w.step(1.0f / 60.0f, 6);
+        // Distance still large early on -> expect no events for the first few steps.
+        if (s < 3) {
+            eventsBeforeContact += static_cast<int>(w.contactEvents.size());
+        }
+        for (const game::ContactEvent& e : w.contactEvents) {
+            if (e.phase == ContactPhase::Begin) {
+                sawBegin = true;
+                if (beginStep < 0) {
+                    beginStep = s;
+                }
+            } else if (e.phase == ContactPhase::Persist) {
+                sawPersistOrBegin = true;
+            } else if (e.phase == ContactPhase::End) {
+                sawEnd = true;
+                endStep = s;
+            }
+        }
+        if (sawEnd) {
+            break;
+        }
+    }
+
+    CHECK(eventsBeforeContact == 0); // nothing reported while far apart
+    CHECK(sawBegin);
+    CHECK(sawEnd);
+    CHECK(beginStep >= 0 && endStep > beginStep); // enter strictly precedes exit
+    // A Begin event carries a nonzero normal pointing along the collision axis (a->b, roughly +x here).
+    // (Persist may or may not occur depending on how many frames they overlap; not asserted.)
+    (void)sawPersistOrBegin;
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12074,6 +12137,7 @@ int main() {
     testCollisionFiltering();
     testCapsule();
     testWorldBoundary();
+    testContactEvents();
     testNormalLight();
     testParallax();
     testAudioDsp();

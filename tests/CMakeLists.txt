@@ -1165,6 +1165,14 @@ set_tests_properties(boundary_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME contacts_headless_smoke
+    COMMAND contacts --headless --frames 30)
+
+set_tests_properties(contacts_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 
