@@ -862,6 +862,10 @@ available):
   against the view frustum — the maths behind 3D mouse picking, floating world-space labels, and aim rays. The
   new `camera3d` demo projects a grid, axes, and wireframe cube to 2D, colours points by frustum containment,
   and unprojects a centre-screen ray onto the ground.
+- **M164** — **fixed-capacity RingBuffer** (`core::RingBuffer<T>`), toward Godot's `RingBuffer`: a circular
+  buffer that serves both a rolling window (overwrites the oldest once full) and a bounded FIFO queue — the
+  container behind frame-time graphs, input/replay buffers, and moving averages. The new `ring` demo plots a
+  96-slot frame-time history bar graph (with a budget line and rolling average) and an 8-slot input buffer.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

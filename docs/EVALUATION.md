@@ -2927,6 +2927,35 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 125 — "Benchmarking against Godot: fixed-capacity RingBuffer" (done)
+Rotating to **core / engine foundations** for breadth (recent rounds were 3D-render, animation, UI, math-2D,
+2D-physics). Maz's core had `SlotMap` (handles), `ResourceCache`, `EventBus`, `Signal`, `StringTable`,
+`Scheduler`, `Random`, `Noise`, `Profiler` — but no **ring / circular buffer**, the container behind rolling
+histories (frame-time / FPS graphs, moving averages), bounded input buffers (a fighting game's last-N presses,
+jump "coyote" windows), replay traces, and streaming audio/network queues. Every such use was hand-rolling
+index arithmetic. Godot keeps a `RingBuffer` for exactly these jobs. Pure container, so it unit-tests exactly
+and drives a golden (a scrolling history plot).
+- [x] **M164 — fixed-capacity RingBuffer (`core::RingBuffer<T>`)**: a new `RingBuffer.hpp` template backed by
+  a fixed vector with a head + count, serving two idioms from one structure — a ROLLING WINDOW (`push` always
+  succeeds; once full it overwrites the OLDEST element, returning whether it evicted) and a bounded FIFO QUEUE
+  (`pushBack` rejects when full, `popFront` drains oldest-first). Logical indexing (`at(0)` oldest,
+  `at(size-1)` newest) hides the physical wrap; `front`/`back`/`toVector`/`clear`/`reset`/`full`/`empty`
+  round it out. `testRingBuffer` pins fill-under-capacity FIFO order, the exact-fill boundary (the push that
+  reaches capacity evicts nothing; the next one does), rolling-window overwrite + slide, bounded-FIFO
+  reject-when-full + drain, head wrap-around after interleaved pops/pushes, clear vs reset, zero-capacity
+  no-op, and a float rolling-average. Unit checks **7178 → 7225**. The new `ring` demo drives two buffers: a
+  96-slot frame-time history fed 140 deterministic samples (oldest 44 evicted) plotted as a green/amber/red
+  bar graph against a 16.6 ms budget line with the rolling average across it, and an 8-slot input buffer fed a
+  longer press sequence, showing the last 8 as chips. 2D golden (threshold 0.05, `ring` RMSE 0). Purely
+  additive, so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **119/119 → 120/120**. Honest scope: this is a single-producer/single-consumer, non-thread-safe container;
+  it does **not** add a lock-free MPSC variant or a bit/byte stream view — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 124 — "Benchmarking against Godot: Camera3D projection" (done)
 Rotating to **3D rendering / math-for-3D** for breadth (recent rounds were animation, UI, math-2D, 2D-physics,
 audio). Maz could build view/projection matrices (`math::perspective`/`orthographic`) and cull meshes against

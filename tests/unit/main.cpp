@@ -34,6 +34,7 @@
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
 #include "maz/core/Interpolate.hpp"
+#include "maz/core/RingBuffer.hpp"
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"
@@ -6244,6 +6245,122 @@ void testSlotMap() {
     }
 }
 
+void testRingBuffer() {
+    using core::RingBuffer;
+
+    // Fill under capacity: FIFO order, size grows, front/back/at track logical order.
+    {
+        RingBuffer<int> rb(4);
+        CHECK(rb.capacity() == 4);
+        CHECK(rb.empty() && !rb.full() && rb.size() == 0);
+        CHECK(!rb.push(10)); // no eviction while filling
+        CHECK(!rb.push(20));
+        CHECK(!rb.push(30));
+        CHECK(rb.size() == 3 && !rb.full());
+        CHECK(rb.front() == 10 && rb.back() == 30);
+        CHECK(rb.at(0) == 10 && rb.at(1) == 20 && rb.at(2) == 30);
+        CHECK(!rb.push(40)); // fills the last slot; still no eviction (count reaches capacity exactly)
+        CHECK(rb.full() && rb.back() == 40);
+    }
+
+    // Rolling-window overwrite: once full, push evicts the oldest and the window slides.
+    {
+        RingBuffer<int> rb(3);
+        rb.push(1);
+        rb.push(2);
+        rb.push(3); // full: [1,2,3]
+        CHECK(rb.full() && rb.size() == 3);
+        CHECK(rb.push(4)); // evicts 1 -> [2,3,4]
+        CHECK(rb.size() == 3);
+        CHECK(rb.at(0) == 2 && rb.at(1) == 3 && rb.at(2) == 4);
+        CHECK(rb.front() == 2 && rb.back() == 4);
+        CHECK(rb.push(5)); // -> [3,4,5]
+        CHECK(rb.at(0) == 3 && rb.at(2) == 5);
+        const auto v = rb.toVector();
+        CHECK(v.size() == 3 && v[0] == 3 && v[1] == 4 && v[2] == 5);
+    }
+
+    // The "fills the 4th slot" case: the 4th push into a capacity-4 buffer does NOT evict.
+    {
+        RingBuffer<int> rb(4);
+        CHECK(!rb.push(1));
+        CHECK(!rb.push(2));
+        CHECK(!rb.push(3));
+        CHECK(!rb.push(4)); // now full, but nothing evicted on this push
+        CHECK(rb.full() && rb.size() == 4);
+        CHECK(rb.push(5)); // THIS one evicts 1 -> [2,3,4,5]
+        CHECK(rb.at(0) == 2 && rb.at(3) == 5);
+    }
+
+    // Bounded-FIFO mode: pushBack rejects when full; popFront drains oldest-first.
+    {
+        RingBuffer<int> q(2);
+        CHECK(q.pushBack(7));
+        CHECK(q.pushBack(8));
+        CHECK(!q.pushBack(9)); // full -> rejected, buffer unchanged
+        CHECK(q.size() == 2 && q.at(0) == 7 && q.at(1) == 8);
+        int out = -1;
+        CHECK(q.popFront(out) && out == 7);
+        CHECK(q.size() == 1 && q.front() == 8);
+        CHECK(q.pushBack(9)); // room again after popping
+        CHECK(q.at(0) == 8 && q.at(1) == 9);
+        CHECK(q.popFront(out) && out == 8);
+        CHECK(q.popFront(out) && out == 9);
+        CHECK(!q.popFront(out)); // empty
+        CHECK(q.empty());
+    }
+
+    // Wrap-around correctness: interleave popFront and push so the head wraps past the end.
+    {
+        RingBuffer<int> rb(3);
+        rb.push(1);
+        rb.push(2);
+        rb.push(3);         // [1,2,3], head at 0
+        int out = -1;
+        rb.popFront(out);   // remove 1 -> head at 1, [2,3]
+        rb.popFront(out);   // remove 2 -> head at 2, [3]
+        rb.push(4);         // [3,4]
+        rb.push(5);         // [3,4,5] wrapping physically
+        CHECK(rb.size() == 3);
+        CHECK(rb.at(0) == 3 && rb.at(1) == 4 && rb.at(2) == 5);
+        CHECK(rb.push(6));  // full -> evict 3 -> [4,5,6]
+        CHECK(rb.at(0) == 4 && rb.at(2) == 6);
+    }
+
+    // clear() empties without reallocating; reset() resizes.
+    {
+        RingBuffer<int> rb(3);
+        rb.push(1);
+        rb.push(2);
+        rb.clear();
+        CHECK(rb.empty() && rb.capacity() == 3);
+        rb.push(9);
+        CHECK(rb.size() == 1 && rb.front() == 9);
+        rb.reset(5);
+        CHECK(rb.empty() && rb.capacity() == 5);
+    }
+
+    // Zero capacity: push is a benign no-op.
+    {
+        RingBuffer<int> rb(0);
+        CHECK(!rb.push(1));
+        CHECK(rb.empty() && rb.capacity() == 0);
+    }
+
+    // Works with a non-trivial element type (rolling average over floats).
+    {
+        RingBuffer<float> rb(4);
+        for (int i = 1; i <= 6; ++i) {
+            rb.push(static_cast<float>(i)); // last 4 -> [3,4,5,6]
+        }
+        float sum = 0.0f;
+        for (std::size_t i = 0; i < rb.size(); ++i) {
+            sum += rb.at(i);
+        }
+        CHECK_NEAR(sum / static_cast<float>(rb.size()), 4.5f, 1e-4f);
+    }
+}
+
 void testJobs() {
     core::JobSystem js;
     CHECK(js.workerCount() >= 1);
@@ -9410,6 +9527,7 @@ int main() {
     testSignal();
     testStringId();
     testSlotMap();
+    testRingBuffer();
     testJobs();
     testResourceCache();
     testSceneStack();

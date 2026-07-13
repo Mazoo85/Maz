@@ -194,7 +194,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   detection via a generation bump on free, double-free safe, `forEach` over live values — Godot's `RID` /
   stable entity handles; the `slotmap` demo drives insert/free/reuse and flags live vs stale handles;
   M137) — a typed multi-resource RID server + retrofitting texture/mesh/ECS handles onto it later
-- [ ] Containers: `small_vector`, sparse set, ring buffer
+- [ ] Containers: `small_vector`, sparse set
+- [x] **Ring / circular buffer** (`core::RingBuffer<T>`: fixed-capacity, serving a rolling window
+  (`push` overwrites the oldest when full) and a bounded FIFO (`pushBack`/`popFront`); logical `at(0)`=oldest
+  indexing hides the wrap; `toVector`/`front`/`back`/`clear`/`reset` — Godot's `RingBuffer`, behind frame-time
+  graphs, input/replay buffers, moving averages; the `ring` demo plots a 96-slot frame-time history bar graph
+  + an 8-slot input buffer; M164) — a lock-free MPSC variant + a byte/bit stream view later
 - [x] **String interning / `StringId`** (`core::StringTable`: intern-or-find each unique name once →
   a stable 32-bit `StringId` handle so name equality is an int compare; `find` (non-inserting) / `str`
   (reverse) / `hash` (stored FNV-1a-32) / `contains` / `clear`; a `std::hash<StringId>` for unordered

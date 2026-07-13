@@ -38,6 +38,7 @@
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
+#include "maz/core/RingBuffer.hpp"
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"

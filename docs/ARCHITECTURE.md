@@ -34,6 +34,9 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
               get/contains/erase with stale-handle (ABA) detection via generation bump on free + free-list
               slot reuse; forEach over live values),
             JobSystem (worker thread pool: submit/parallelFor for data-parallel work),
+            RingBuffer<T> (fixed-capacity circular buffer — Godot RingBuffer: rolling window (push overwrites
+              oldest when full) or bounded FIFO (pushBack/popFront); logical at(0)=oldest indexing hides the
+              wrap; toVector/front/back/clear/reset — frame-time graphs, input/replay buffers, moving averages),
             ResourceCache (generic ref-counted, dedup-by-key asset cache),
             SceneStack (game-state stack: push/pop/replace + overlay-aware update/render)
               — zero dependencies beyond the standard library
@@ -398,6 +401,8 @@ apps/
               health / ocean ramps and the fire ramp baked to 8 swatches (anim::Gradient)
   camera3d/  Camera3D projection — a 3D scene (ground grid + RGB axes + wireframe cube) projected to 2D by
               render::Camera3D, points coloured by frustum containment, a centre ray unprojected to the ground
+  ring/      RingBuffer — a 96-slot frame-time history bar graph (green/amber/red vs a 16.6ms budget line +
+              rolling average) and an 8-slot input buffer showing the last 8 presses (core::RingBuffer)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

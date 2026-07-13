@@ -157,6 +157,7 @@ add_subdirectory(apps/geometry)
 add_subdirectory(apps/itemlist)
 add_subdirectory(apps/gradient)
 add_subdirectory(apps/camera3d)
+add_subdirectory(apps/ring)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
