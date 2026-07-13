@@ -2927,6 +2927,36 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 121 — "Benchmarking against Godot: 2D geometry helpers" (done)
+Rotating to **math** for breadth (recent rounds were 2D-physics, audio, input, 2D-render, animation, IO). The
+workhorse 2D computational-geometry queries — does this segment cross that one, what is the nearest point on
+this edge, is this point inside that polygon — underpin AI line-of-sight, mouse/hit picking, trigger zones,
+and path building. Maz had them scattered (triangle area in the triangulator, SAT in `ConvexShape2D`, ray/AABB
+in `Collision`) but no consolidated set matching Godot's `Geometry2D` static class. Pure math, so it
+unit-tests exactly and drives a 2D golden.
+- [x] **M160 — Geometry2D helpers (`math::Geometry2D`)**: a new `Geometry2D.hpp` with `segmentIntersect`
+  (segment×segment → `SegmentHit{point, t, u}` via the cross-product parameters, parallel/collinear → no hit),
+  `closestPointOnSegment` (projection clamped to the endpoints, degenerate-safe), `distanceToSegment`,
+  `pointInPolygon` (even-odd ray cast, convex or concave, either winding), and `segmentIntersectsCircle`
+  (distance-to-segment ≤ radius) — the segment/polygon/circle set Godot exposes as `Geometry2D`.
+  `testGeometry2D` pins: the classic X-cross intersection (point + both params 0.5), parallel non-hit, a
+  would-cross-if-extended non-hit, a T-junction endpoint touch; closest-point mid-segment / endpoint-clamp /
+  degenerate / distance; point-in-polygon for a square (in / out on all four sides) and a **concave dart**
+  where a point in the notch is correctly *outside*; and circle×segment hit/miss including the beyond-the-end
+  endpoint case. Unit checks **7028 → 7056**. The new `geometry` demo shows three panels — a web of segments
+  with every pairwise intersection dotted, a concave arrow polygon with a grid of test points coloured
+  inside/outside, and a query point projected to the closest point on each of several segments plus a
+  circle×segment test. 2D golden (threshold 0.06, `geometry` RMSE 0). Purely additive, so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); ctest **115/115 → 116/116**. Honest scope: this
+  is the segment/polygon/circle core; it does **not** yet include convex-hull, polygon boolean clipping
+  (Godot's `merge`/`clip`/`intersect_polygons` via Clipper), polygon offsetting, or Delaunay — those remain
+  follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 120 — "Benchmarking against Godot: kinematic character controller" (done)
 Rotating to **2D physics** for breadth (recent rounds were audio, input, 2D-render, animation, IO, 3D-render).
 Maz's 2D physics is impulse-based rigid bodies (`Physics2D`) plus a 3D discrete `slideMove`, but it had no

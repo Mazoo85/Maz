@@ -88,6 +88,7 @@
 #include "maz/io/PrefabText.hpp"
 #include "maz/io/ResourcePack.hpp"
 #include "maz/math/Curve2D.hpp"
+#include "maz/math/Geometry2D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
@@ -268,6 +269,80 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testGeometry2D() {
+    using math::closestPointOnSegment;
+    using math::distanceToSegment;
+    using math::pointInPolygon;
+    using math::SegmentHit;
+    using math::segmentIntersect;
+    using math::segmentIntersectsCircle;
+    using math::vec2;
+
+    // --- segmentIntersect ---
+    // The classic X: (0,0)-(10,10) crosses (0,10)-(10,0) at the centre.
+    {
+        const SegmentHit h = segmentIntersect(vec2(0, 0), vec2(10, 10), vec2(0, 10), vec2(10, 0));
+        CHECK(h.hit);
+        CHECK_NEAR(h.point.x, 5.0f, 1e-4f);
+        CHECK_NEAR(h.point.y, 5.0f, 1e-4f);
+        CHECK_NEAR(h.t, 0.5f, 1e-4f);
+        CHECK_NEAR(h.u, 0.5f, 1e-4f);
+    }
+    // Parallel segments never meet.
+    CHECK(!segmentIntersect(vec2(0, 0), vec2(10, 0), vec2(0, 5), vec2(10, 5)).hit);
+    // They would cross if extended, but the segments themselves fall short (u out of [0,1]).
+    CHECK(!segmentIntersect(vec2(0, 0), vec2(10, 0), vec2(5, 2), vec2(5, 1)).hit);
+    // A T-junction touch counts as a hit at the endpoint.
+    {
+        const SegmentHit h = segmentIntersect(vec2(0, 0), vec2(10, 0), vec2(5, 0), vec2(5, 5));
+        CHECK(h.hit);
+        CHECK_NEAR(h.point.x, 5.0f, 1e-4f);
+        CHECK_NEAR(h.point.y, 0.0f, 1e-4f);
+    }
+
+    // --- closestPointOnSegment ---
+    {
+        // Perpendicular foot lands mid-segment.
+        const vec2 c = closestPointOnSegment(vec2(5, 5), vec2(0, 0), vec2(10, 0));
+        CHECK_NEAR(c.x, 5.0f, 1e-4f);
+        CHECK_NEAR(c.y, 0.0f, 1e-4f);
+        // Beyond an end -> clamps to that endpoint.
+        const vec2 e = closestPointOnSegment(vec2(-5, 3), vec2(0, 0), vec2(10, 0));
+        CHECK_NEAR(e.x, 0.0f, 1e-4f);
+        CHECK_NEAR(e.y, 0.0f, 1e-4f);
+        // Degenerate segment -> the point itself.
+        const vec2 d = closestPointOnSegment(vec2(2, 7), vec2(3, 3), vec2(3, 3));
+        CHECK_NEAR(d.x, 3.0f, 1e-4f);
+        CHECK_NEAR(d.y, 3.0f, 1e-4f);
+        CHECK_NEAR(distanceToSegment(vec2(5, 4), vec2(0, 0), vec2(10, 0)), 4.0f, 1e-4f);
+    }
+
+    // --- pointInPolygon ---
+    {
+        const std::vector<vec2> square = {vec2(0, 0), vec2(4, 0), vec2(4, 4), vec2(0, 4)};
+        CHECK(pointInPolygon(vec2(2, 2), square));
+        CHECK(!pointInPolygon(vec2(5, 2), square));
+        CHECK(!pointInPolygon(vec2(-1, 2), square));
+        CHECK(!pointInPolygon(vec2(2, -1), square));
+        // A concave dart pointing right (tip at (6,3)), with the notch on the left (vertex (2,3)):
+        // a point in the notch is OUTSIDE even though it is within the bounding box.
+        const std::vector<vec2> dart = {vec2(0, 0), vec2(6, 3), vec2(0, 6), vec2(2, 3)};
+        CHECK(pointInPolygon(vec2(4, 3), dart));   // inside the body, near the tip
+        CHECK(!pointInPolygon(vec2(1, 3), dart));  // inside the concave notch -> outside the polygon
+        CHECK(!pointInPolygon(vec2(1, 3), {vec2(0, 0), vec2(1, 1)})); // <3 verts -> false
+    }
+
+    // --- segmentIntersectsCircle ---
+    {
+        // Segment along the x-axis; circle 3 above it.
+        CHECK(!segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(5, 3), 2.0f)); // 3 > 2 -> miss
+        CHECK(segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(5, 3), 4.0f));  // 3 <= 4 -> hit
+        // Circle beyond the segment end but within radius of the endpoint.
+        CHECK(segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-1, 0), 2.0f));
+        CHECK(!segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-5, 0), 2.0f));
     }
 }
 
@@ -8941,6 +9016,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testGeometry2D();
     testRect2();
     testCollision();
     testRaycast();

@@ -153,6 +153,7 @@ add_subdirectory(apps/polyfill)
 add_subdirectory(apps/deadzone)
 add_subdirectory(apps/randomizer)
 add_subdirectory(apps/kinematic)
+add_subdirectory(apps/geometry)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

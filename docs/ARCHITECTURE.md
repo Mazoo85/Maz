@@ -49,7 +49,10 @@ math/       maz::math = GLM re-export + helpers (Vulkan-correct perspective + or
             Curve2D — cubic Bézier path (Godot Curve2D/Path2D): points with in/out handles, sample/tangent/
               length + arc-length bake -> sampleBaked(distance) for constant-speed travel;
             Rect2 — axis-aligned rectangle (Godot Rect2): position+size with hasPoint (min-incl/max-excl),
-              intersects/intersection (clip), merge (union), encloses, grow/growIndividual, expand, abs
+              intersects/intersection (clip), merge (union), encloses, grow/growIndividual, expand, abs;
+            Geometry2D — 2D geometry queries (Godot Geometry2D): segmentIntersect (segment×segment→point+t/u),
+              closestPointOnSegment / distanceToSegment, pointInPolygon (even-odd, concave-safe),
+              segmentIntersectsCircle
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain + offscreen HDR scene pass (16-bit float, MSAA ≤4×
@@ -388,6 +391,8 @@ apps/
               as a pick histogram + pitch×volume scatter + a no-repeat tick strip
   kinematic/ Kinematic character — one body run through an obstacle course by game::moveAndSlide, its path
               coloured by contact state (blue airborne / green on-floor / orange on-wall)
+  geometry/  Geometry2D — three panels: a segment web with pairwise intersections, a concave polygon with an
+              inside/outside test grid, and closest-point projections + a circle×segment test
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

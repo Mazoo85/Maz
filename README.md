@@ -843,6 +843,10 @@ available):
   slides the leftover motion along contacts, and reports on-floor / on-wall / on-ceiling — the movement core
   of every platformer. The new `kinematic` demo runs a character through an obstacle course, colouring its
   path by contact state.
+- **M160** — **2D geometry helpers** (`math::Geometry2D`), toward Godot's `Geometry2D`: segment-vs-segment
+  intersection, closest point on a segment, point-in-polygon (concave-safe), and segment-vs-circle — the
+  workhorse queries behind AI line-of-sight, mouse picking, and trigger zones. The new `geometry` demo shows a
+  segment web with intersections, a point-in-polygon grid, and closest-point projections.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

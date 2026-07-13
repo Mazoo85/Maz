@@ -181,6 +181,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `intersects`/`intersection` (clip), `merge` (union), `encloses`, `grow`/`growIndividual`, `expand`, `abs` —
   Godot Rect2; the `rects` demo draws overlapping rects with their intersection, union bounds, grow halo, and
   point tests; M149) — an integer `Rect2i` + a 3D `AABB` type + retrofitting UI/culling to use it later
+- [x] **Geometry2D helpers** (`math::Geometry2D`: `segmentIntersect` (segment×segment → point + params),
+  `closestPointOnSegment` / `distanceToSegment`, `pointInPolygon` (even-odd, concave-safe), and
+  `segmentIntersectsCircle` — the workhorse queries behind line-of-sight, hit-picking, and trigger zones;
+  Godot's `Geometry2D`; the `geometry` demo shows segment intersections + a point-in-polygon grid + closest-
+  point projections; M160) — convex hull + polygon boolean clip/merge/offset (Clipper) + Delaunay later
 - [ ] Transform helpers, AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
