@@ -866,6 +866,10 @@ available):
   buffer that serves both a rolling window (overwrites the oldest once full) and a bounded FIFO queue — the
   container behind frame-time graphs, input/replay buffers, and moving averages. The new `ring` demo plots a
   96-slot frame-time history bar graph (with a budget line and rolling average) and an 8-slot input buffer.
+- **M165** — **INI ConfigFile** (`io::ConfigFile`), toward Godot's `ConfigFile`: an INI-style `[section]` +
+  `key=value` settings store with typed get/set, lenient parsing (comments, quotes, a global section) and a
+  stable round-tripping `encode()` — the hand-editable format behind project settings and options files. The
+  new `inifile` demo parses a settings.cfg into a table, edits it, and shows the re-encoded text.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

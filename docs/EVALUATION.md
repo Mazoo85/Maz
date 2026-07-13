@@ -2927,6 +2927,35 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 126 — "Benchmarking against Godot: INI ConfigFile" (done)
+Rotating to **IO / serialization** for breadth (recent rounds were core-containers, 3D-render, animation, UI,
+math-2D). Maz's io layer had JSON, a binary `ByteWriter`/`ByteReader`, base64, WAV, a resource pack, and a
+JSON↔cvar config *bridge* — but no **ConfigFile**, Godot's INI-style `[section]` + `key=value` store behind
+project settings, input maps, and hand-editable options/save files. Games and tools constantly need a
+human-readable, diff-friendly, line-oriented settings format that a player or modder can edit in a text
+editor; JSON is stricter and noisier for that. Pure text, so it unit-tests exactly and drives a golden.
+- [x] **M165 — INI ConfigFile (`io::ConfigFile`)**: a new `ConfigFile.hpp` holding ordered sections of ordered
+  `key=value` string pairs with typed accessors (`getBool`/`getInt`/`getFloat` coerce, incl. `true/1/yes/on`
+  bool synonyms; `setBool`/`setInt`/`setFloat` format), `getValue`/`setValue` with defaults,
+  `hasSection`/`hasSectionKey`/`eraseSectionKey`/`eraseSection`, and `sections()`/`sectionKeys()`. `parse()` is
+  lenient — blank lines and `;`/`#` comments skipped, whitespace trimmed, matching quotes stripped, keys before
+  any header land in the unnamed global section — and `encode()` emits stable, insertion-ordered,
+  diff-friendly text that round-trips. `testConfigFile` pins a full settings parse (global + video + audio,
+  comments, quotes), insertion-ordered sections/keys, typed reads incl. bool synonyms and quote-stripping,
+  missing-key defaults, structure queries, in-place overwrite (not append), key + section erase, an
+  encode→parse→encode idempotent round-trip, and the empty-input case. Unit checks **7225 → 7262**. The new
+  `inifile` demo parses a game `settings.cfg`, renders it as a grouped section/key/value table, then edits it
+  (bumps version, swaps resolution, mutes audio, adds a bind) and shows the re-encoded INI text beside it. 2D
+  golden (threshold 0.05, `inifile` RMSE 0). Purely additive, so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **120/120 → 121/121**. Honest scope: values are stored/returned as
+  strings (typed on read); it does **not** encode full Godot Variant literals (`Vector2(...)`, arrays,
+  dictionaries) in a value, nor read/write directly from disk paths here — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 125 — "Benchmarking against Godot: fixed-capacity RingBuffer" (done)
 Rotating to **core / engine foundations** for breadth (recent rounds were 3D-render, animation, UI, math-2D,
 2D-physics). Maz's core had `SlotMap` (handles), `ResourceCache`, `EventBus`, `Signal`, `StringTable`,

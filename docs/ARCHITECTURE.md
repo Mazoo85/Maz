@@ -256,6 +256,9 @@ io/         Base64 — base64Encode/base64Decode (RFC 4648 raw<->text — Godot 
             human-editable configs, data-driven scenes/levels/tuning);
             Config — the JSON<->CVarRegistry bridge (loadConfig/configToJson + file convenience), so
             core stays zero-dependency while apps get "config.json drives the engine";
+            ConfigFile — INI [section]+key=value store (Godot ConfigFile): ordered sections/keys, typed
+            get/set (bool synonyms/int/float/quote-stripped strings), lenient parse (comments/global section)
+            + stable insertion-ordered encode that round-trips (project settings, options/save files);
             SceneSerializer — reflection-lite ECS save/load: register per-component JSON converters,
             then saveWorld/loadWorld a live ecs::World to/from JSON (save games, prefabs, editor)
             PrefabText — savePrefabText/loadPrefabText: round-trip a scene::Prefab tree to Godot-.tscn-style
@@ -403,6 +406,8 @@ apps/
               render::Camera3D, points coloured by frustum containment, a centre ray unprojected to the ground
   ring/      RingBuffer — a 96-slot frame-time history bar graph (green/amber/red vs a 16.6ms budget line +
               rolling average) and an 8-slot input buffer showing the last 8 presses (core::RingBuffer)
+  inifile/   ConfigFile — a settings.cfg parsed into a grouped [section] key=value table, then edited and
+              shown re-encoded as INI text beside it (io::ConfigFile)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

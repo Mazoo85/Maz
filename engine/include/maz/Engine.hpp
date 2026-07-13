@@ -80,6 +80,7 @@
 #include "maz/input/Analog.hpp"
 #include "maz/io/Base64.hpp"
 #include "maz/io/Config.hpp"
+#include "maz/io/ConfigFile.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/PrefabText.hpp"

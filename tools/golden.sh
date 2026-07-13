@@ -142,6 +142,7 @@ CASES=(
     "gradient||2.0|0.05"
     "camera3d||2.0|0.06"
     "ring||2.0|0.05"
+    "inifile||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

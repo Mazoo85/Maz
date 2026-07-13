@@ -72,6 +72,7 @@
 #include "maz/input/ActionMap.hpp"
 #include "maz/input/Analog.hpp"
 #include "maz/io/Config.hpp"
+#include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
@@ -3584,6 +3585,110 @@ void testBase64() {
     {
         std::vector<std::uint8_t> out;
         CHECK(!base64Decode("Zm9v$YmFy", out));
+    }
+}
+
+void testConfigFile() {
+    using io::ConfigFile;
+
+    // Parse a settings file with a global section, comments, quotes, and typed values.
+    const std::string text =
+        "; game options\n"
+        "version = 3\n"
+        "\n"
+        "[video]\n"
+        "fullscreen = true\n"
+        "resolution = \"1920x1080\"\n"
+        "vsync=false\n"
+        "# a comment line\n"
+        "gamma = 2.2\n"
+        "\n"
+        "[audio]\n"
+        "master = 0.8\n"
+        "muted = no\n";
+
+    ConfigFile cfg;
+    const int n = cfg.parse(text);
+    CHECK(n == 7); // version + 4 video + 2 audio
+
+    // Sections in insertion order: the global "" section, then video, audio.
+    {
+        const auto secs = cfg.sections();
+        CHECK(secs.size() == 3);
+        CHECK(secs[0].empty());
+        CHECK(secs[1] == "video");
+        CHECK(secs[2] == "audio");
+    }
+
+    // Keys keep insertion order within a section.
+    {
+        const auto keys = cfg.sectionKeys("video");
+        CHECK(keys.size() == 4);
+        CHECK(keys[0] == "fullscreen" && keys[1] == "resolution" && keys[2] == "vsync" && keys[3] == "gamma");
+    }
+
+    // Typed reads: bool synonyms, int, float; quotes stripped from strings.
+    CHECK(cfg.getBool("video", "fullscreen"));
+    CHECK(!cfg.getBool("video", "vsync"));
+    CHECK(!cfg.getBool("audio", "muted"));          // "no" -> false
+    CHECK(cfg.getValue("video", "resolution") == "1920x1080"); // quotes stripped
+    CHECK(cfg.getInt("", "version") == 3);          // global section
+    CHECK_NEAR(cfg.getFloat("video", "gamma"), 2.2, 1e-6);
+    CHECK_NEAR(cfg.getFloat("audio", "master"), 0.8, 1e-6);
+
+    // Missing keys/sections return the supplied default.
+    CHECK(cfg.getValue("video", "nope", "fallback") == "fallback");
+    CHECK(cfg.getInt("nosuch", "x", 42) == 42);
+    CHECK(cfg.getBool("audio", "surround", true));
+
+    // Structure queries.
+    CHECK(cfg.hasSection("audio"));
+    CHECK(!cfg.hasSection("network"));
+    CHECK(cfg.hasSectionKey("video", "gamma"));
+    CHECK(!cfg.hasSectionKey("video", "gamut"));
+
+    // Set + overwrite + typed set.
+    cfg.setInt("audio", "channels", 6);
+    cfg.setFloat("audio", "master", 0.5);
+    cfg.setBool("video", "vsync", true);
+    CHECK(cfg.getInt("audio", "channels") == 6);
+    CHECK_NEAR(cfg.getFloat("audio", "master"), 0.5, 1e-6);
+    CHECK(cfg.getBool("video", "vsync"));
+    // Overwrite updates in place, not appends (still 4 video keys after re-setting vsync).
+    CHECK(cfg.sectionKeys("video").size() == 4);
+
+    // Erase a key and a whole section.
+    cfg.eraseSectionKey("video", "gamma");
+    CHECK(!cfg.hasSectionKey("video", "gamma"));
+    CHECK(cfg.sectionKeys("video").size() == 3);
+    cfg.eraseSection("audio");
+    CHECK(!cfg.hasSection("audio"));
+    CHECK(cfg.sections().size() == 2);
+
+    // encode() -> parse() round-trips into an equal store.
+    {
+        ConfigFile a;
+        a.setValue("", "name", "hero");
+        a.setInt("stats", "hp", 100);
+        a.setBool("stats", "boss", true);
+        a.setValue("stats", "title", "The Brave");
+        const std::string enc = a.encode();
+
+        ConfigFile b;
+        b.parse(enc);
+        CHECK(b.getValue("", "name") == "hero");
+        CHECK(b.getInt("stats", "hp") == 100);
+        CHECK(b.getBool("stats", "boss"));
+        CHECK(b.getValue("stats", "title") == "The Brave");
+        CHECK(b.sections() == a.sections());
+        CHECK(b.encode() == enc); // stable, idempotent
+    }
+
+    // Empty input parses to nothing.
+    {
+        ConfigFile e;
+        CHECK(e.parse("") == 0);
+        CHECK(e.sections().empty());
     }
 }
 
@@ -9548,6 +9653,7 @@ int main() {
     testUI();
     testSerialize();
     testBase64();
+    testConfigFile();
     testResourcePack();
     testJson();
     testCVars();

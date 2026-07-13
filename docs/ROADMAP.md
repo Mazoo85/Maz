@@ -143,6 +143,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   with descriptions + numeric range clamps + string coercion for CLI flags; the `io::Config` bridge
   loads/saves them as JSON so `config.json` drives the engine; the `config` demo runs a cvar-driven
   scene; M77)
+- [x] **INI ConfigFile** (`io::ConfigFile`: Godot's ConfigFile — ordered `[section]` + `key=value` store with
+  typed get/set (bool synonyms, int, float, quote-stripped strings), lenient `parse()` (comments, blank lines,
+  global section) and stable insertion-ordered `encode()` that round-trips; the `inifile` demo parses a
+  settings.cfg into a table, edits it, and shows the re-encoded text; M165) — full Variant-literal values +
+  direct file-path load/save later
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
 
