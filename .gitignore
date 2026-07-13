@@ -17,3 +17,6 @@ _deps/
 # Python
 __pycache__/
 *.pyc
+
+# Test scratch output
+unit_scene_*.mazscene

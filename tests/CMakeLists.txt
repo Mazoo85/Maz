@@ -43,3 +43,13 @@ set_tests_properties(scene_load_headless PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "loaded scene")
+
+# Editor: start headless, load a scene, run a few frames, exit cleanly. Verifies the editor app +
+# ImGui integration link and boot (the UI itself needs a GPU and is not exercised here).
+add_test(
+    NAME editor_headless_smoke
+    COMMAND editor --headless --frames 3 --scene ${CMAKE_SOURCE_DIR}/assets/scenes/demo.mazscene)
+set_tests_properties(editor_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "Maz Editor shutting down")

@@ -51,6 +51,14 @@ public:
     // handle is invalid or the renderer is inactive.
     virtual void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) = 0;
 
+    // --- Editor UI (Dear ImGui) overlay -------------------------------------------
+    // Optional: bring up an ImGui overlay drawn on top of the scene each frame. Base class is a
+    // no-op so the sandbox and headless runs ignore it. Returns false if unavailable (headless).
+    virtual bool initGui(platform::Window& window) { return false; }
+    // Begin an ImGui frame. Call once per rendered frame before issuing ImGui:: UI calls; the
+    // overlay is recorded automatically inside the render pass on endFrame().
+    virtual void guiNewFrame() {}
+
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;
 };
