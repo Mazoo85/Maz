@@ -28,6 +28,29 @@ app = typer.Typer(
 console = Console()
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from . import __version__
+
+        # Use typer.echo (not the rich Console) so output is captured under test
+        # runners and plain pipes.
+        typer.echo(f"crew {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the version and exit.",
+    ),
+) -> None:
+    """Orchestrate a team of AI coding agents (planner, coder, reviewer, tester)."""
+
+
 def _interactive_confirm(question: str) -> bool:
     return typer.confirm(question, default=True)
 
