@@ -98,3 +98,10 @@ target_link_libraries(maz_unit_eventbus PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_eventbus COMMAND maz_unit_eventbus)
 set_tests_properties(unit_eventbus PROPERTIES TIMEOUT 30)
+
+# Unit tests: CPU profiler + RAII scoped timer (scope aggregation, min-seeding, timing smoke).
+add_executable(maz_unit_profiler unit_profiler.cpp)
+target_link_libraries(maz_unit_profiler PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_profiler COMMAND maz_unit_profiler)
+set_tests_properties(unit_profiler PROPERTIES TIMEOUT 30)

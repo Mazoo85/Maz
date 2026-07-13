@@ -64,7 +64,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       standalone delegate/multicast wrapper still TODO
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [ ] Serialization (binary + JSON), versioned schemas
-- [ ] Profiling: scoped timers, frame markers, Tracy integration
+- [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
+      `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII
+      steady_clock timer; header-only, unit-tested); frame markers + Tracy still TODO
 - [ ] Unit-test framework wiring (doctest/Catch2)
 - [x] Non-GPU `maz_core` lib + `MAZ_CORE_ONLY` build so core is unit-testable without the Vulkan SDK
 
