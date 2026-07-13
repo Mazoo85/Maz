@@ -80,6 +80,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       scoped enum with unsigned underlying type; `| & ^ ~`/compound ops, `has`/`hasAny`/`hasAll`/
       `set`/`clear`/`toggle`, `MAZ_FLAGS_ENABLE` opt-in free operators; the typed answer to raw
       int/uint32 bitmasks; header-only, unit-tested incl. a uint8-underlying case)
+- [x] Fixed-size bitset — **`maz::core::Bitset<N>` landed** (word-backed uint64 array; set/clear/flip/
+      test, all/any/none/count, `& | ^ ~` + `contains` subset test for ECS signature matching, and
+      fast set-bit iteration `findFirstSet`/`findNextSet`/`forEachSetBit` via C++20 `<bit>` — the
+      value-add over `std::bitset`; unused tail bits held at zero; header-only, unit-tested +
+      UBSan/ASan-checked across N boundaries)
 - [ ] Unit-test framework wiring (doctest/Catch2)
 - [x] Non-GPU `maz_core` lib + `MAZ_CORE_ONLY` build so core is unit-testable without the Vulkan SDK
 

@@ -140,3 +140,10 @@ target_link_libraries(maz_unit_flags PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_flags COMMAND maz_unit_flags)
 set_tests_properties(unit_flags PROPERTIES TIMEOUT 30)
+
+# Unit tests: fixed-size Bitset<N> (word-backed ECS signature mask; tail masking when N%64!=0; fast set-bit iteration via <bit>).
+add_executable(maz_unit_bitset unit_bitset.cpp)
+target_link_libraries(maz_unit_bitset PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_bitset COMMAND maz_unit_bitset)
+set_tests_properties(unit_bitset PROPERTIES TIMEOUT 30)
