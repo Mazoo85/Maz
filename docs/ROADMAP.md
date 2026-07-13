@@ -48,7 +48,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
 - [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections + Frustum culling + affine Transform landed** (`maz::math::Geometry`/`Frustum`/`Transform`, unit-tested); OBB TODO
-- [~] Easing / interpolation, deterministic RNG (PCG/xoshiro) — **PCG32 RNG landed** (`maz::core::Rng`, canonical XSH-RR, unit-tested); easing/interpolation TODO
+- [x] Easing / interpolation, deterministic RNG (PCG/xoshiro) — PCG32 `maz::core::Rng` + `maz::math` interpolation/easing (lerp/inverseLerp/remap/smoothstep/moveToward/lerpAngle + Penner `Easing`), unit-tested
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [ ] Handles / generational indices, object pools
 - [ ] Containers: `small_vector`, sparse set, ring buffer

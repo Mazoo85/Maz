@@ -56,3 +56,10 @@ target_link_libraries(maz_unit_transform PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_transform COMMAND maz_unit_transform)
 set_tests_properties(unit_transform PROPERTIES TIMEOUT 30)
+
+# Unit tests: scalar interpolation, remapping, and easing helpers.
+add_executable(maz_unit_interp unit_interp.cpp)
+target_link_libraries(maz_unit_interp PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_interp COMMAND maz_unit_interp)
+set_tests_properties(unit_interp PROPERTIES TIMEOUT 30)
