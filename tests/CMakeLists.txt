@@ -154,3 +154,10 @@ target_link_libraries(maz_unit_delegate PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_delegate COMMAND maz_unit_delegate)
 set_tests_properties(unit_delegate PROPERTIES TIMEOUT 30)
+
+# Unit tests: minimal ECS World (entity registry + generational recycle, type-erased component stores, signature/store sync, each<T> iteration).
+add_executable(maz_unit_ecs_world unit_ecs_world.cpp)
+target_link_libraries(maz_unit_ecs_world PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_ecs_world COMMAND maz_unit_ecs_world)
+set_tests_properties(unit_ecs_world PROPERTIES TIMEOUT 30)
