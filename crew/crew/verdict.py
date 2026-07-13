@@ -28,6 +28,21 @@ _ALL_PASS = re.compile(
 )
 
 
+# The reviewer ends its report with REVIEW: CLEAN (nothing to change) or
+# REVIEW: ISSUES (problems listed above). Lenient like the test verdict marker.
+_REVIEW_MARKER = re.compile(r"REVIEW:\s*[*_`]{0,2}\s*(CLEAN|ISSUES?|CHANGES)\b", re.IGNORECASE)
+
+
+def review_is_clean(text: str) -> bool | None:
+    """True if the reviewer signalled no changes needed, False if issues, None if unknown."""
+    if not text:
+        return None
+    markers = _REVIEW_MARKER.findall(text)
+    if markers:
+        return markers[-1].upper().startswith("CLEAN")
+    return None
+
+
 def interpret_test_result(text: str) -> bool | None:
     """Return True (passed), False (failed), or None (can't tell) for a report.
 

@@ -13,18 +13,30 @@ from crew.orchestrator import run_task
 from conftest import FakeClient, classify
 
 
-def responder_for(tester_text: str):
+def responder_for(tester_text: str, review_text: str = "REVIEW: ISSUES"):
     def responder(prompt: str) -> str:
-        if classify(prompt) == "test":
+        kind = classify(prompt)
+        if kind == "test":
             return tester_text
+        if kind == "review":
+            return review_text
         return "done."
 
     return responder
 
 
-def run(confirm, tester_text="VERDICT: PASS", config=None, session_id="sess-1", cost=None):
+def run(
+    confirm,
+    tester_text="VERDICT: PASS",
+    config=None,
+    session_id="sess-1",
+    cost=None,
+    review_text="REVIEW: ISSUES",
+):
     """Run a task against a FakeClient and return (state, client)."""
-    client = FakeClient(responder_for(tester_text), session_id=session_id, cost=cost)
+    client = FakeClient(
+        responder_for(tester_text, review_text), session_id=session_id, cost=cost
+    )
     cfg = config or CrewConfig()
     state = asyncio.run(
         run_task(
@@ -48,6 +60,18 @@ def test_phase_order(monkeypatch, tmp_path):
     assert seq == ["plan", "code", "review", "test"]
     assert state.session_id == "sess-1"
     assert state.phase == "done"
+
+
+def test_clean_review_skips_fix_pass(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    _, client = run(confirm=lambda q: True, review_text="REVIEW: CLEAN")
+    assert "applyfix" not in tags(client)  # no fix pass when the reviewer is clean
+
+
+def test_review_with_issues_runs_fix_pass(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    _, client = run(confirm=lambda q: True, review_text="- bug\nREVIEW: ISSUES")
+    assert "applyfix" in tags(client)  # issues + approval -> fix pass runs
 
 
 def test_declining_plan_stops_before_coding(monkeypatch, tmp_path):

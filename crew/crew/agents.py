@@ -50,6 +50,10 @@ cannot edit files, only report. Review the current working diff for:
 Report findings as a short list ordered most-severe first, each with file:line and
 a one-line fix suggestion. If the change is clean, say so plainly. Do not nitpick
 style the formatter would handle.
+
+End your report with a single final line, exactly one of:
+  REVIEW: CLEAN    (nothing needs changing)
+  REVIEW: ISSUES   (you listed problems above that should be fixed)
 """
 
 TESTER_PROMPT = """\

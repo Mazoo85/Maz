@@ -39,3 +39,21 @@ from crew.verdict import interpret_test_result as f
 )
 def test_interpret(text, expected):
     assert f(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Looks good.\nREVIEW: CLEAN", True),
+        ("- bug at foo.py:3\nREVIEW: ISSUES", False),
+        ("**Review: CLEAN** — nothing to change", True),
+        ("REVIEW: CHANGES needed", False),
+        ("no marker here", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_review_is_clean(text, expected):
+    from crew.verdict import review_is_clean
+
+    assert review_is_clean(text) is expected

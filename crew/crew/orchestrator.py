@@ -25,7 +25,7 @@ from .agents import build_agents
 from .config import CrewConfig
 from .summary import format_run_summary
 from .transcript import format_transcript, write_transcript
-from .verdict import interpret_test_result
+from .verdict import interpret_test_result, review_is_clean
 
 # Builds the async-context-manager client for a run. Injectable so tests can
 # drive the workflow without the SDK or a live API key.
@@ -207,13 +207,16 @@ async def run_task(
         )
 
         # 3. REVIEW ------------------------------------------------------------
-        await phase(
+        review = await phase(
             "Use the reviewer agent to review the current working diff "
             "(run `git diff`) for correctness and security issues.",
             title="3/4  REVIEW",
             name="review",
         )
-        if confirm("Reviewer done. Apply the reviewer's suggested fixes now?"):
+        # Only run the (costly) fix pass when the reviewer actually flagged issues.
+        if review_is_clean(review.text):
+            console.print("[green]Reviewer found no issues — skipping the fix pass.[/green]")
+        elif confirm("Reviewer flagged issues. Apply the suggested fixes now?"):
             await phase(
                 "Use the coder agent to apply the reviewer's suggested fixes.",
                 title="3b/4  APPLY REVIEW FIXES",
