@@ -22,7 +22,10 @@ namespace maz::game {
 // the caller uses (the demos use screen pixels with +y pointing down).
 
 struct Body2D {
-    enum Shape { Circle, Box };
+    // A Capsule is a segment along the body's local Y (half-length half.y) swept by `radius` — Godot's
+    // CapsuleShape2D, the standard character shape. Capsule contacts flow through the oriented
+    // (manifold) solver, so a capsule body implies that path (like an inertia-bearing body does).
+    enum Shape { Circle, Box, Capsule };
 
     math::vec2 pos{0.0f, 0.0f};
     math::vec2 vel{0.0f, 0.0f};
@@ -72,6 +75,11 @@ struct Body2D {
         if (shape == Box) {
             const float w = half.x * 2.0f;
             const float h = half.y * 2.0f;
+            inertia = m * (w * w + h * h) / 12.0f;
+        } else if (shape == Capsule) {
+            // Approximate as a filled box bounding the capsule (width 2r, height 2*(half.y+r)).
+            const float w = radius * 2.0f;
+            const float h = (half.y + radius) * 2.0f;
             inertia = m * (w * w + h * h) / 12.0f;
         } else {
             inertia = 0.5f * m * radius * radius;
@@ -392,8 +400,177 @@ inline Manifold circleObb(const Body2D& c, const Body2D& x) {
     return m;
 }
 
+// --- Capsule support ------------------------------------------------------------------------------
+// World endpoints of a capsule's inner segment (local +Y, half-length half.y), swept by `radius`.
+inline void capsuleSegment(const Body2D& c, math::vec2& p0, math::vec2& p1) {
+    const float ct = std::cos(c.angle), st = std::sin(c.angle);
+    const math::vec2 axis(-st, ct); // local +Y rotated into world
+    p0 = c.pos - axis * c.half.y;
+    p1 = c.pos + axis * c.half.y;
+}
+
+inline math::vec2 closestOnSeg(math::vec2 p, math::vec2 a, math::vec2 b) {
+    const math::vec2 ab = b - a;
+    const float len2 = glm::dot(ab, ab);
+    if (len2 < 1e-12f) {
+        return a;
+    }
+    float t = glm::dot(p - a, ab) / len2;
+    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    return a + ab * t;
+}
+
+// Closest points c1,c2 between segments (p1,q1) and (p2,q2) — Ericson, Real-Time Collision Detection.
+inline void closestSegSeg(math::vec2 p1, math::vec2 q1, math::vec2 p2, math::vec2 q2, math::vec2& c1,
+                          math::vec2& c2) {
+    const math::vec2 d1 = q1 - p1, d2 = q2 - p2, r = p1 - p2;
+    const float a = glm::dot(d1, d1), e = glm::dot(d2, d2), f = glm::dot(d2, r);
+    float s, t;
+    if (a < 1e-12f && e < 1e-12f) {
+        c1 = p1;
+        c2 = p2;
+        return;
+    }
+    if (a < 1e-12f) {
+        s = 0.0f;
+        t = glm::clamp(f / e, 0.0f, 1.0f);
+    } else {
+        const float cc = glm::dot(d1, r);
+        if (e < 1e-12f) {
+            t = 0.0f;
+            s = glm::clamp(-cc / a, 0.0f, 1.0f);
+        } else {
+            const float bb = glm::dot(d1, d2);
+            const float denom = a * e - bb * bb;
+            s = denom > 1e-12f ? glm::clamp((bb * f - cc * e) / denom, 0.0f, 1.0f) : 0.0f;
+            t = (bb * s + f) / e;
+            if (t < 0.0f) {
+                t = 0.0f;
+                s = glm::clamp(-cc / a, 0.0f, 1.0f);
+            } else if (t > 1.0f) {
+                t = 1.0f;
+                s = glm::clamp((bb - cc) / a, 0.0f, 1.0f);
+            }
+        }
+    }
+    c1 = p1 + d1 * s;
+    c2 = p2 + d2 * t;
+}
+
+// Capsule a vs circle b: closest point on a's segment to b's centre, then circle-circle. n: a -> b.
+inline Manifold capsuleCircle(const Body2D& a, const Body2D& b) {
+    Manifold m;
+    math::vec2 p0, p1;
+    capsuleSegment(a, p0, p1);
+    const math::vec2 cp = closestOnSeg(b.pos, p0, p1);
+    const math::vec2 d = b.pos - cp;
+    const float dist2 = glm::dot(d, d);
+    const float r = a.radius + b.radius;
+    if (dist2 > r * r) {
+        return m;
+    }
+    const float dist = std::sqrt(dist2);
+    const math::vec2 n = dist > 1e-6f ? d / dist : math::vec2(0.0f, 1.0f);
+    m.n = n;
+    m.pen = r - dist;
+    m.point = cp + n * a.radius;
+    m.hit = true;
+    return m;
+}
+
+// Capsule a vs capsule b: closest points between the two segments, then circle-circle. n: a -> b.
+inline Manifold capsuleCapsule(const Body2D& a, const Body2D& b) {
+    Manifold m;
+    math::vec2 a0, a1, b0, b1;
+    capsuleSegment(a, a0, a1);
+    capsuleSegment(b, b0, b1);
+    math::vec2 ca, cb;
+    closestSegSeg(a0, a1, b0, b1, ca, cb);
+    const math::vec2 d = cb - ca;
+    const float dist2 = glm::dot(d, d);
+    const float r = a.radius + b.radius;
+    if (dist2 > r * r) {
+        return m;
+    }
+    const float dist = std::sqrt(dist2);
+    const math::vec2 n = dist > 1e-6f ? d / dist : math::vec2(0.0f, 1.0f);
+    m.n = n;
+    m.pen = r - dist;
+    m.point = ca + n * a.radius;
+    m.hit = true;
+    return m;
+}
+
+// Capsule a vs box b (OBB). The distance from a point to the box is convex and the segment is linear,
+// so the closest segment point is found by a ternary search on t; then it's a circle-vs-box contact.
+// n: a -> b (capsule toward box), point on the box surface. (If the segment point is DEEP inside the
+// box — penetration beyond the cap radius — the surface normal is ill-defined and this falls back to
+// +Y local; that only happens in gross overlap the solver pushes out of within a frame or two.)
+inline Manifold capsuleBox(const Body2D& a, const Body2D& b) {
+    Manifold m;
+    math::vec2 p0, p1;
+    capsuleSegment(a, p0, p1);
+    const float ct = std::cos(b.angle), st = std::sin(b.angle);
+    auto toLocal = [&](math::vec2 w) {
+        const math::vec2 d = w - b.pos;
+        return math::vec2(d.x * ct + d.y * st, -d.x * st + d.y * ct);
+    };
+    const math::vec2 l0 = toLocal(p0), l1 = toLocal(p1);
+    auto distAt = [&](float t) {
+        const math::vec2 lp = l0 + (l1 - l0) * t;
+        const math::vec2 cl(glm::clamp(lp.x, -b.half.x, b.half.x), glm::clamp(lp.y, -b.half.y, b.half.y));
+        const math::vec2 dd = lp - cl;
+        return glm::dot(dd, dd);
+    };
+    float lo = 0.0f, hi = 1.0f;
+    for (int i = 0; i < 40; ++i) {
+        const float m1 = lo + (hi - lo) / 3.0f, m2 = hi - (hi - lo) / 3.0f;
+        if (distAt(m1) < distAt(m2)) {
+            hi = m2;
+        } else {
+            lo = m1;
+        }
+    }
+    const float t = (lo + hi) * 0.5f;
+    const math::vec2 lp = l0 + (l1 - l0) * t;
+    const math::vec2 cl(glm::clamp(lp.x, -b.half.x, b.half.x), glm::clamp(lp.y, -b.half.y, b.half.y));
+    const math::vec2 diff = lp - cl; // box surface -> segment point (local)
+    const float dist2 = glm::dot(diff, diff);
+    if (dist2 > a.radius * a.radius) {
+        return m;
+    }
+    const float dist = std::sqrt(dist2);
+    const math::vec2 nLocal = dist > 1e-6f ? diff / dist : math::vec2(0.0f, 1.0f);
+    const math::vec2 pWorld(b.pos.x + cl.x * ct - cl.y * st, b.pos.y + cl.x * st + cl.y * ct);
+    const math::vec2 nWorld(nLocal.x * ct - nLocal.y * st, nLocal.x * st + nLocal.y * ct);
+    m.n = -nWorld; // box->capsule flipped to capsule(a)->box(b)
+    m.pen = a.radius - dist;
+    m.point = pWorld;
+    m.hit = true;
+    return m;
+}
+
 // Any oriented shape pair; n points from a toward b, with a world contact point.
 inline Manifold manifold(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::Capsule || b.shape == Body2D::Capsule) {
+        if (a.shape == Body2D::Capsule && b.shape == Body2D::Capsule) {
+            return capsuleCapsule(a, b);
+        }
+        if (a.shape == Body2D::Capsule && b.shape == Body2D::Circle) {
+            return capsuleCircle(a, b);
+        }
+        if (a.shape == Body2D::Circle && b.shape == Body2D::Capsule) {
+            Manifold m = capsuleCircle(b, a);
+            m.n = -m.n;
+            return m;
+        }
+        if (a.shape == Body2D::Capsule && b.shape == Body2D::Box) {
+            return capsuleBox(a, b);
+        }
+        Manifold m = capsuleBox(b, a); // a box, b capsule
+        m.n = -m.n;
+        return m;
+    }
     if (a.shape == Body2D::Box && b.shape == Body2D::Box) {
         return obbObb(a, b);
     }
@@ -952,7 +1129,7 @@ public:
             return;
         }
         for (const Body2D& b : bodies) {
-            if (b.invInertia > 0.0f) {
+            if (b.invInertia > 0.0f || b.shape == Body2D::Capsule) {
                 stepRotational(dt, iterations);
                 return;
             }
@@ -998,8 +1175,13 @@ private:
             return pairs;
         }
         auto extent = [](const Body2D& b) {
-            return b.shape == Body2D::Box ? std::sqrt(b.half.x * b.half.x + b.half.y * b.half.y)
-                                          : b.radius;
+            if (b.shape == Body2D::Box) {
+                return std::sqrt(b.half.x * b.half.x + b.half.y * b.half.y);
+            }
+            if (b.shape == Body2D::Capsule) {
+                return b.half.y + b.radius;
+            }
+            return b.radius;
         };
         const float cell = broadphaseCellSize > 0.0f ? broadphaseCellSize : 128.0f;
         const float invCell = 1.0f / cell;

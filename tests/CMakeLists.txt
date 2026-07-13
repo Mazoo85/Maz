@@ -1149,6 +1149,14 @@ set_tests_properties(filter_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME capsule_headless_smoke
+    COMMAND capsule --headless --frames 30)
+
+set_tests_properties(capsule_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

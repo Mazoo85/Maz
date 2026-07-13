@@ -9491,6 +9491,97 @@ void testCollisionFiltering() {
     CHECK(passedX > 40.0f);
 }
 
+// P5: capsule shape. Verify the new capsule contact functions (vs circle, capsule, box) and that a
+// capsule settles resting on a box floor under the warm solver. Mirrors Godot CapsuleShape2D.
+void testCapsule() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    // Capsule (vertical, segment y[-20,20], r=10) vs a circle just off its right side.
+    {
+        Body2D cap;
+        cap.shape = Body2D::Capsule;
+        cap.half = math::vec2(0.0f, 20.0f);
+        cap.radius = 10.0f;
+        cap.pos = math::vec2(0.0f, 0.0f);
+        Body2D circ;
+        circ.shape = Body2D::Circle;
+        circ.radius = 10.0f;
+        circ.pos = math::vec2(18.0f, 0.0f); // overlap: gap 18 < 20 = r+r
+        d::Manifold m = d::manifold(cap, circ);
+        CHECK(m.hit);
+        CHECK_NEAR(m.n.x, 1.0f, 1e-3f); // capsule -> circle, +x
+        CHECK_NEAR(m.n.y, 0.0f, 1e-3f);
+        CHECK_NEAR(m.pen, 2.0f, 1e-3f); // 20 - 18
+        // Contact point sits on the capsule's surface (x = cap radius).
+        CHECK_NEAR(m.point.x, 10.0f, 1e-3f);
+    }
+
+    // Capsule vs capsule, side by side.
+    {
+        Body2D a;
+        a.shape = Body2D::Capsule;
+        a.half = math::vec2(0.0f, 20.0f);
+        a.radius = 10.0f;
+        a.pos = math::vec2(0.0f, 0.0f);
+        Body2D b = a;
+        b.pos = math::vec2(15.0f, 3.0f); // segments overlap in y; centres 15 apart
+        d::Manifold m = d::manifold(a, b);
+        CHECK(m.hit);
+        CHECK(m.pen > 0.0f); // r+r = 20 > horizontal gap 15
+        CHECK(m.n.x > 0.5f); // roughly +x from a to b
+    }
+
+    // Capsule vs box: a capsule overlapping the top face of a static box.
+    {
+        Body2D cap;
+        cap.shape = Body2D::Capsule;
+        cap.half = math::vec2(0.0f, 20.0f);
+        cap.radius = 10.0f;
+        cap.pos = math::vec2(0.0f, -35.0f); // above the box (screen: -y is up)
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(40.0f, 10.0f);
+        box.pos = math::vec2(0.0f, 0.0f); // top face at y=-10
+        // Lower cap centre at y=-15 (above the box top -10); its radius 10 reaches to -5, 5 into the box.
+        d::Manifold m = d::manifold(cap, box);
+        CHECK(m.hit);
+        CHECK(m.n.y > 0.5f);      // capsule -> box points downward (+y)
+        CHECK_NEAR(m.pen, 5.0f, 0.5f);
+    }
+
+    // End to end: a capsule dropped onto a static box floor settles resting on it, at rest.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 312.0f); // top face at y=300
+        floor.invMass = 0.0f;
+        floor.friction = 0.8f;
+        w.add(floor);
+        Body2D cap;
+        cap.shape = Body2D::Capsule;
+        cap.half = math::vec2(0.0f, 20.0f);
+        cap.radius = 12.0f;
+        cap.pos = math::vec2(0.0f, 120.0f); // dropped from above
+        cap.invMass = 1.0f;
+        cap.friction = 0.8f;
+        cap.restitution = 0.0f;
+        cap.enableRotation();
+        w.add(cap);
+        for (int s = 0; s < 300; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        // Rests with its lower cap on the floor top: centre.y = 300 - half.y - radius = 268.
+        CHECK_NEAR(w.bodies[1].pos.y, 268.0f, 2.0f);
+        CHECK(std::sqrt(glm::dot(w.bodies[1].vel, w.bodies[1].vel)) < 5.0f); // at rest
+        CHECK(std::fabs(w.bodies[1].angle) < 0.1f); // stayed upright
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -11916,6 +12007,7 @@ int main() {
     testBroadphase();
     testSleeping();
     testCollisionFiltering();
+    testCapsule();
     testNormalLight();
     testParallax();
     testAudioDsp();

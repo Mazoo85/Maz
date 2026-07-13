@@ -182,6 +182,7 @@ add_subdirectory(apps/solver)
 add_subdirectory(apps/manybody)
 add_subdirectory(apps/sleep)
 add_subdirectory(apps/filter)
+add_subdirectory(apps/capsule)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
