@@ -77,3 +77,10 @@ target_link_libraries(maz_unit_pool PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_pool COMMAND maz_unit_pool)
 set_tests_properties(unit_pool PROPERTIES TIMEOUT 30)
+
+# Unit tests: fixed-capacity FIFO ring buffer (wrap-around correctness).
+add_executable(maz_unit_ringbuffer unit_ringbuffer.cpp)
+target_link_libraries(maz_unit_ringbuffer PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_ringbuffer COMMAND maz_unit_ringbuffer)
+set_tests_properties(unit_ringbuffer PROPERTIES TIMEOUT 30)
