@@ -965,6 +965,14 @@ set_tests_properties(inifile_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME spectrum_headless_smoke
+    COMMAND spectrum --headless --frames 30)
+
+set_tests_properties(spectrum_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

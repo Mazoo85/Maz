@@ -19,6 +19,7 @@
 #include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
+#include "maz/audio/Spectrum.hpp"
 #include "maz/audio/Wav.hpp"
 #include "maz/anim/Skeleton.hpp"
 #include "maz/anim/SpriteAnim.hpp"
@@ -855,6 +856,85 @@ void testSpatial3D() {
         SpatialMix far = computeSpatialMix(l, Source3D{vec3(20, 0, 0), vec3(0, 0, 0)}, cfg);
         CHECK(far.right < near.right); // farther -> quieter
         CHECK_NEAR(near.pitch, 1.0f, 1e-5f); // no motion -> no doppler
+    }
+}
+
+void testSpectrum() {
+    using audio::Cplx;
+    using audio::fft;
+    using audio::nextPow2;
+    using audio::SpectrumAnalyzer;
+    using audio::SpectrumWindow;
+
+    const float pi = 3.14159265358979323846f;
+
+    // nextPow2 rounds up (and is idempotent on exact powers).
+    CHECK(nextPow2(1) == 1);
+    CHECK(nextPow2(5) == 8);
+    CHECK(nextPow2(16) == 16);
+    CHECK(nextPow2(17) == 32);
+
+    // Forward then inverse FFT round-trips to the original samples.
+    {
+        std::vector<Cplx> a = {Cplx(1, 0), Cplx(2, 0), Cplx(3, 0), Cplx(4, 0),
+                               Cplx(4, 0), Cplx(3, 0), Cplx(2, 0), Cplx(1, 0)};
+        const std::vector<Cplx> orig = a;
+        fft(a, false);
+        fft(a, true);
+        for (std::size_t i = 0; i < a.size(); ++i) {
+            CHECK_NEAR(a[i].real(), orig[i].real(), 1e-4f);
+            CHECK_NEAR(a[i].imag(), 0.0f, 1e-4f);
+        }
+    }
+
+    // A pure cosine on an exact bin peaks on that bin (rectangular window). sr=64, N=64, tone at bin 8.
+    {
+        SpectrumAnalyzer sa(64.0f, 64, SpectrumWindow::None);
+        std::vector<float> sig(64);
+        for (std::size_t i = 0; i < sig.size(); ++i) {
+            sig[i] = std::cos(2.0f * pi * 8.0f * static_cast<float>(i) / 64.0f);
+        }
+        sa.analyze(sig);
+        CHECK(sa.peakBin() == 8);
+        CHECK_NEAR(sa.binFrequency(8), 8.0f, 1e-3f);          // 8 * 64/64 Hz
+        CHECK_NEAR(sa.magnitude(8), 1.0f, 0.02f);             // single-sided amplitude of a unit cosine
+        CHECK(sa.magnitude(20) < 0.02f);                       // other bins ~silent
+        CHECK(sa.magnitudeForRange(6.0f, 10.0f) > 0.9f);      // energy sits in this band
+        CHECK(sa.magnitudeForRange(20.0f, 30.0f) < 0.02f);    // not up here
+    }
+
+    // DC (constant) signal puts all energy in bin 0.
+    {
+        SpectrumAnalyzer sa(64.0f, 64, SpectrumWindow::None);
+        std::vector<float> dc(64, 1.0f);
+        sa.analyze(dc);
+        CHECK(sa.peakBin() == 0);
+        CHECK_NEAR(sa.magnitude(0), 1.0f, 1e-3f);
+        CHECK(sa.magnitude(1) < 1e-3f);
+    }
+
+    // Two tones -> two peaks; each band query finds its own tone, the gap between finds neither.
+    {
+        SpectrumAnalyzer sa(128.0f, 128, SpectrumWindow::None);
+        std::vector<float> sig(128);
+        for (std::size_t i = 0; i < sig.size(); ++i) {
+            const float t = static_cast<float>(i);
+            sig[i] = 0.7f * std::cos(2.0f * pi * 10.0f * t / 128.0f) +
+                     0.3f * std::cos(2.0f * pi * 40.0f * t / 128.0f);
+        }
+        sa.analyze(sig);
+        CHECK_NEAR(sa.magnitude(10), 0.7f, 0.03f);
+        CHECK_NEAR(sa.magnitude(40), 0.3f, 0.03f);
+        CHECK(sa.peakBin() == 10);                             // the louder tone
+        CHECK(sa.magnitudeForRange(24.0f, 30.0f) < 0.03f);    // between the two tones -> quiet
+    }
+
+    // binCount is N/2 + 1; out-of-range magnitude is 0.
+    {
+        SpectrumAnalyzer sa(48000.0f, 256);
+        CHECK(sa.fftSize() == 256);
+        CHECK(sa.binCount() == 129);
+        CHECK_NEAR(sa.magnitude(9999), 0.0f, 1e-6f);
     }
 }
 
@@ -9582,6 +9662,7 @@ int main() {
     testNavMesh();
     testAutoTile();
     testSpatial3D();
+    testSpectrum();
     testWav();
     testStreamRandomizer();
     testSampleMixer();

@@ -159,6 +159,7 @@ add_subdirectory(apps/gradient)
 add_subdirectory(apps/camera3d)
 add_subdirectory(apps/ring)
 add_subdirectory(apps/inifile)
+add_subdirectory(apps/spectrum)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

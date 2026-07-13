@@ -517,6 +517,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   gated state machine, `process(dt)`→level — the shape every synth voice is multiplied by; the `envelope`
   demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing
   in the live mixer + LFOs / mod matrix later
+- [x] **Spectrum analyzer / FFT** (`audio::SpectrumAnalyzer` + standalone radix-2 `fft`: window+FFT a sample
+  frame → single-sided per-bin magnitudes, `peakBin`, `binFrequency`, and `magnitudeForRange(lowHz,highHz)` —
+  Godot AudioEffectSpectrumAnalyzer's `get_magnitude_for_frequency_range` for rhythm games / VU + equalizer
+  visualizers / beat-reactive FX; the `spectrum` demo plots a chord's spectrum + bass/mid/treble band meters;
+  M166) — a live streaming analyzer in the mixer callback + mel/bark perceptual banding later
 - [x] **WAV load/save** (`audio::decodeWav`/`encodeWav`: RIFF/WAVE PCM codec — parse 8-bit-unsigned +
   16-bit-signed PCM into float samples and write them back as 16-bit `.wav` bytes, byte-in/out — Godot
   AudioStreamWAV; the `wav` demo synthesizes → encodes → decodes → scopes the waveform; M129) — OGG/MP3

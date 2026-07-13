@@ -2927,6 +2927,35 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 127 — "Benchmarking against Godot: audio spectrum analyzer (FFT)" (done)
+Rotating to **audio** for breadth (recent rounds were IO, core-containers, 3D-render, animation, UI). Maz's
+audio layer was rich on synthesis and DSP *effects* — filters, delay, reverb, distortion, compressor, chorus/
+flanger/phaser, ADSR, positional 2D/3D, a sample mixer — but had **no frequency analysis**: no FFT, no
+spectrum. That is exactly what Godot's `AudioEffectSpectrumAnalyzer` provides, and it is the backbone of
+audio-reactive gameplay (rhythm games, VU / equalizer visualizers, beat-reactive lights and particles,
+lip-sync). Pure DSP maths, so it unit-tests exactly (a pure tone peaks on its bin) and drives a golden.
+- [x] **M166 — spectrum analyzer / FFT (`audio::SpectrumAnalyzer`)**: a new `Spectrum.hpp` with a standalone
+  in-place iterative radix-2 Cooley-Tukey `fft(buffer, inverse)` (bit-reversal + butterflies; the inverse
+  round-trips) and `nextPow2`, plus a `SpectrumAnalyzer` that windows (Hann or rectangular) + zero-pads a
+  sample frame, runs the FFT, and exposes single-sided per-bin `magnitude(bin)`, `binFrequency(bin)`,
+  `peakBin()`, and `magnitudeForRange(lowHz, highHz)` — the exact query Godot's analyzer gives
+  (`get_magnitude_for_frequency_range`) for band energy. `testSpectrum` pins `nextPow2`, a forward→inverse FFT
+  round-trip, a unit cosine on an exact bin (correct peak bin + frequency + single-sided amplitude ≈ 1.0 +
+  silent neighbours + the band query finding it), a DC signal (all energy in bin 0), a two-tone mix (two peaks
+  at the right amplitudes, the louder as peakBin, silence in the gap), and binCount = N/2+1. Unit checks
+  **7262 → 7298**. The new `spectrum` demo synthesizes a chord (250/375/500 Hz + a faint 1000 Hz partial),
+  runs it through the Hann-windowed analyzer, and plots the magnitude spectrum as a frequency bar graph
+  (band-coloured, peak-labelled, axis-ticked) with three `magnitudeForRange` band meters (bass/mid/treble). 2D
+  golden (threshold 0.05, `spectrum` RMSE 0). Purely additive, so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **121/121 → 122/122**. Honest scope: this is an offline
+  block-analysis FFT; it does **not** yet run as a live streaming effect inside the SDL mixer callback, nor
+  add mel/bark perceptual banding — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 126 — "Benchmarking against Godot: INI ConfigFile" (done)
 Rotating to **IO / serialization** for breadth (recent rounds were core-containers, 3D-render, animation, UI,
 math-2D). Maz's io layer had JSON, a binary `ByteWriter`/`ByteReader`, base64, WAV, a resource pack, and a

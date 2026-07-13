@@ -296,7 +296,10 @@ audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, p
             machine, process(dt)→level), the shape every synth voice is multiplied by;
             Randomizer — StreamRandomizer: weighted clip pool + Random/RandomNoRepeat/Sequential pick
             modes + per-trigger pitch (log-symmetric) & volume (dB) jitter → RandomPick, seeded/
-            deterministic, Godot AudioStreamRandomizer-style  (depends on: core, SDL3)
+            deterministic, Godot AudioStreamRandomizer-style;
+            Spectrum — SpectrumAnalyzer + standalone radix-2 fft/nextPow2: window+FFT a sample frame →
+            single-sided per-bin magnitude/binFrequency/peakBin + magnitudeForRange(lowHz,highHz) band query,
+            Godot AudioEffectSpectrumAnalyzer-style (rhythm / VU / beat-reactive visualizers)  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -408,6 +411,8 @@ apps/
               rolling average) and an 8-slot input buffer showing the last 8 presses (core::RingBuffer)
   inifile/   ConfigFile — a settings.cfg parsed into a grouped [section] key=value table, then edited and
               shown re-encoded as INI text beside it (io::ConfigFile)
+  spectrum/  SpectrumAnalyzer — a chord's FFT magnitude spectrum as a band-coloured, peak-labelled frequency
+              bar graph + bass/mid/treble magnitudeForRange band meters (audio::SpectrumAnalyzer)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

@@ -870,6 +870,11 @@ available):
   `key=value` settings store with typed get/set, lenient parsing (comments, quotes, a global section) and a
   stable round-tripping `encode()` — the hand-editable format behind project settings and options files. The
   new `inifile` demo parses a settings.cfg into a table, edits it, and shows the re-encoded text.
+- **M166** — **audio spectrum analyzer / FFT** (`audio::SpectrumAnalyzer`), toward Godot's
+  `AudioEffectSpectrumAnalyzer`: a radix-2 FFT that turns audio samples into a frequency spectrum, with
+  per-bin magnitudes and a `magnitudeForRange` band query — the maths behind rhythm games, VU/equalizer
+  visualizers, and beat-reactive effects. The new `spectrum` demo plots a chord's spectrum as a frequency bar
+  graph with bass/mid/treble band meters.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
