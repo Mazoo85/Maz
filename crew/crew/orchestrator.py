@@ -23,6 +23,7 @@ from rich.rule import Rule
 from . import session as session_mod
 from .agents import build_agents
 from .config import CrewConfig
+from .summary import format_run_summary
 from .verdict import interpret_test_result
 
 # Builds the async-context-manager client for a run. Injectable so tests can
@@ -129,6 +130,9 @@ async def run_task(
     factory = client_factory or _default_client_factory
     state = session_mod.SessionState(session_id=resume_session_id, task=task)
 
+    # Per-phase (title, cost) records, in run order, for the end-of-run summary.
+    records: list[tuple[str, float | None]] = []
+
     async with factory(config, resume_session_id) as client:
 
         def checkpoint(result: PhaseResult, phase: str) -> bool:
@@ -143,51 +147,52 @@ async def run_task(
             session_mod.save(state, config)
             return True
 
+        async def phase(prompt: str, *, title: str, name: str) -> PhaseResult:
+            """Run one phase, checkpoint it, and record it for the summary."""
+            result = await _run_phase(client, prompt, title=title)
+            checkpoint(result, name)
+            records.append((title, result.cost_usd))
+            return result
+
         # 1. PLAN --------------------------------------------------------------
-        plan = await _run_phase(
-            client,
+        await phase(
             f"Use the planner agent to produce an implementation plan for this task:\n\n{task}",
             title="1/4  PLAN",
+            name="plan",
         )
-        checkpoint(plan, "plan")
         if not confirm("Approve this plan and let the coder implement it?"):
             console.print("[yellow]Stopped at the plan checkpoint. Nothing was changed.[/yellow]")
             return state
 
         # 2. CODE --------------------------------------------------------------
-        code = await _run_phase(
-            client,
-            "Use the coder agent to implement the approved plan exactly. "
-            "Do not commit or push.",
+        await phase(
+            "Use the coder agent to implement the approved plan exactly. Do not commit or push.",
             title="2/4  CODE",
+            name="code",
         )
-        checkpoint(code, "code")
 
         # 3. REVIEW ------------------------------------------------------------
-        review = await _run_phase(
-            client,
+        await phase(
             "Use the reviewer agent to review the current working diff "
             "(run `git diff`) for correctness and security issues.",
             title="3/4  REVIEW",
+            name="review",
         )
-        checkpoint(review, "review")
         if confirm("Reviewer done. Apply the reviewer's suggested fixes now?"):
-            fix = await _run_phase(
-                client,
+            await phase(
                 "Use the coder agent to apply the reviewer's suggested fixes.",
                 title="3b/4  APPLY REVIEW FIXES",
+                name="review",
             )
-            checkpoint(fix, "review")
 
         # 4. TEST + bounded repair loop ---------------------------------------
         for attempt in range(1, config.max_fix_rounds + 1):
-            test = await _run_phase(
-                client,
+            test = await phase(
                 "Use the tester agent to find and run the project's tests and "
                 "linters, then report pass/fail with the key failing output.",
                 title=f"4/4  TEST (round {attempt}/{config.max_fix_rounds})",
+                name="test",
             )
-            checkpoint(test, "test")
             verdict = interpret_test_result(test.text)
             if verdict is True:
                 console.print("[green]Tests look green.[/green]")
@@ -205,25 +210,21 @@ async def run_task(
                 break
             if not confirm(f"Tests failing. Let the coder attempt fix round {attempt + 1}?"):
                 break
-            await _run_phase(
-                client,
+            await phase(
                 "Use the coder agent to fix the failing tests the tester reported. "
                 "Change only what's needed to make them pass.",
                 title=f"4b/4  FIX (round {attempt})",
+                name="code",
             )
 
         # 5. COMMIT is a human decision. We stop here on purpose.
         state.phase = "done"
         session_mod.save(state, config)
-        cost_line = (
-            f"\n[dim]Approx. cost this task: ${state.total_cost_usd:.4f}[/dim]"
-            if state.total_cost_usd
-            else ""
-        )
+        console.print("\n" + format_run_summary(records, state.total_cost_usd))
         console.print(
             Panel.fit(
                 "Crew finished. Review the diff with [bold]git diff[/bold], then commit when "
-                "you're happy.\nThe crew never commits or pushes on its own." + cost_line,
+                "you're happy.\nThe crew never commits or pushes on its own.",
                 title="Done",
                 border_style="green",
             )

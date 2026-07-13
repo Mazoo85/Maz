@@ -88,6 +88,15 @@ def test_no_cost_reported_stays_zero(monkeypatch, tmp_path):
     assert state.total_cost_usd == 0.0
 
 
+def test_run_prints_phase_summary(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    run(confirm=lambda q: True, cost=0.01)
+    out = capsys.readouterr().out
+    assert "Run summary:" in out
+    assert "PLAN" in out and "TEST" in out
+    assert "Total" in out
+
+
 def test_state_persisted_when_a_phase_errors(monkeypatch, tmp_path):
     """A mid-run failure must leave resumable state from the completed phases."""
     monkeypatch.chdir(tmp_path)
