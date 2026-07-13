@@ -73,12 +73,25 @@ Everything tunable lives in `crew/config.py`, overridable via env vars:
 Session state for the current directory is written to `.crew/session.json` (add
 `.crew/` to your `.gitignore`).
 
+## Development
+
+```bash
+cd crew
+pip install -e '.[dev]'
+pytest            # fast, offline — no API key needed
+```
+
+The tests run the whole workflow against a fake client (`tests/conftest.py`), so
+the phase order, the plan checkpoint gate, the bounded repair loop, tool scoping,
+and the test-verdict parser are all covered without hitting the API.
+
 ## How it fits together
 
 - `cli.py` — the `crew` command (typer).
 - `orchestrator.py` — the phased workflow and checkpoints (one `ClaudeSDKClient`
   session per task, so context carries across phases).
-- `agents.py` — the four `AgentDefinition`s with scoped tools.
+- `agents.py` — the four roles as data (`ROLES`) + `build_agents` (scoped tools).
+- `verdict.py` — turns the tester's report into a pass/fail/unknown decision.
 - `session.py` — save/resume the SDK `session_id` per project.
 - `config.py` — models and loop bounds.
 

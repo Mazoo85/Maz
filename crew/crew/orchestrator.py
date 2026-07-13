@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from typing import AsyncContextManager, Callable
 
 from rich.console import Console
 from rich.panel import Panel
@@ -23,6 +23,11 @@ from rich.rule import Rule
 from . import session as session_mod
 from .agents import build_agents
 from .config import CrewConfig
+from .verdict import interpret_test_result
+
+# Builds the async-context-manager client for a run. Injectable so tests can
+# drive the workflow without the SDK or a live API key.
+ClientFactory = Callable[[CrewConfig, "str | None"], AsyncContextManager]
 
 console = Console()
 
@@ -88,20 +93,30 @@ def _build_options(config: CrewConfig, resume: str | None):
     )
 
 
+def _default_client_factory(config: CrewConfig, resume: str | None):
+    """Real SDK client. Imported lazily so the package works without the SDK."""
+    from claude_agent_sdk import ClaudeSDKClient
+
+    return ClaudeSDKClient(options=_build_options(config, resume))
+
+
 async def run_task(
     task: str,
     config: CrewConfig,
     *,
     confirm: Confirm,
     resume_session_id: str | None = None,
+    client_factory: ClientFactory | None = None,
 ) -> session_mod.SessionState:
-    """Drive a task through the crew with human checkpoints between phases."""
-    from claude_agent_sdk import ClaudeSDKClient
+    """Drive a task through the crew with human checkpoints between phases.
 
+    ``client_factory`` defaults to the real SDK client; tests inject a fake to
+    exercise the phase order, checkpoint gating, and repair loop offline.
+    """
+    factory = client_factory or _default_client_factory
     state = session_mod.SessionState(session_id=resume_session_id, task=task)
-    options = _build_options(config, resume_session_id)
 
-    async with ClaudeSDKClient(options=options) as client:
+    async with factory(config, resume_session_id) as client:
 
         def checkpoint(result: PhaseResult, phase: str) -> bool:
             if result.session_id:
@@ -155,11 +170,15 @@ async def run_task(
                 title=f"4/4  TEST (round {attempt}/{config.max_fix_rounds})",
             )
             checkpoint(test, "test")
-            lowered = test.text.lower()
-            passed = ("fail" not in lowered and "error" not in lowered) or "0 failed" in lowered
-            if passed:
+            verdict = interpret_test_result(test.text)
+            if verdict is True:
                 console.print("[green]Tests look green.[/green]")
                 break
+            if verdict is None:
+                console.print(
+                    "[yellow]Couldn't determine the test result from the tester's "
+                    "report; treating it as not-yet-green.[/yellow]"
+                )
             if attempt == config.max_fix_rounds:
                 console.print(
                     f"[yellow]Reached the {config.max_fix_rounds}-round fix limit; "
