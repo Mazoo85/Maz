@@ -2927,6 +2927,50 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 135 — "Benchmarking against Godot: XML pull parser" (done)
+Rotating to **IO / serialization** for breadth (the last five rounds were 2D-physics, resources/render
+tooling, particles, core-scripting, and navigation). Re-surveying the IO stack: Maz reads/writes JSON
+(`Json`), CSV + translation tables, INI (`ConfigFile`), .tres/.tscn-style text (`PrefabText`), base64,
+and binary (`Serialize` ByteWriter/ByteReader, `ResourcePack`) — but had **no XML parser at all**. XML is
+the on-disk format for a large body of game assets Godot itself can read via its `XMLParser` class: Tiled
+`.tmx`/`.tsx` tilemaps, SVG vector art, COLLADA `.dae` models, plist/config files, RSS/Atom. Without a
+reader, every one of those was opaque to Maz. A pull/streaming parser (walk the token stream, pull out
+what you need) is the right shape for foreign/large documents and is pure string scanning — so it
+unit-tests exactly and drives a golden.
+
+Ranked closable gaps considered this round (IO-weighted): **(1) XML pull parser — chosen**, the single
+most reusable missing reader (unlocks TMX/SVG/COLLADA/plist); (2) a variant `var_to_bytes` binary
+marshaller (noted as a base64 follow-up); (3) a gzip/deflate compressor for `FileAccess.open_compressed`;
+(4) an XML *writer* to complement the reader; (5) a JSON-Pointer/path query helper over `Json`. (2)–(5)
+remain follow-ups; a validating/DOM XML parser with DTD + namespaces is out of scope for a header-only
+module.
+
+- [x] **M174 — XML pull parser (`io::XmlParser`)**: a new `Xml.hpp` modelled on Godot's `XMLParser` —
+  `parse(text)` then `read()` advances one node at a time, with `nodeType()` returning
+  Element / ElementEnd / Text / Comment / CData / Declaration, plus `nodeName()`/`nodeData()`,
+  `isEmpty()` for self-closing tags, indexed + by-name attribute access
+  (`attributeCount/Name/Value`, `getAttribute`, `hasAttribute`), a `depth()` that reports each node's
+  nesting level (root element = 0, matching end tags report their start tag's depth), and
+  `hasError()`/`errorText()`. Attribute values and text runs are entity-decoded — the five predefined
+  entities plus numeric `&#NN;` / `&#xHH;` references, UTF-8 encoded — while CDATA is verbatim.
+  `testXml` pins a full document walk (elements, single/double-quoted attributes, nested text,
+  self-closing tag, end-tag depth), entity decoding in both text and attributes (named + decimal + hex),
+  distinct Comment/CDATA nodes (CDATA left raw), the `<?xml ?>` declaration node, increasing/​unwinding
+  depth across three nesting levels, and two malformed inputs (unquoted attribute value, unterminated
+  comment) that set the error flag. Unit checks **7728 → 7787**. The new `xml` demo feeds a small
+  level-style document through the parser and renders one line per node it returns — indented by the
+  parser's own `depth()`, with elements, attribute names, values, text, and comments each colour-coded,
+  and the `&amp;`/`&lt;` entities shown decoded. 2D golden (threshold 0.05, `xml` RMSE 0). Purely
+  additive, so every existing golden is byte-unchanged; ctest **129/129 → 130/130**. Honest scope: this
+  is a well-formed-input pull reader, not a validator — no tag-match checking, namespaces, DTD/custom
+  entities, or schema; malformed input stops with an error rather than recovering. An XML *writer* and a
+  DOM/validating parser remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 134 — "Benchmarking against Godot: swept circle-cast (continuous collision)" (done)
 Rotating to **2D physics** for breadth (the last five rounds were resources/render tooling, particles,
 core-scripting, navigation, and UI). Re-surveying the physics stack: Maz already has rigid-body dynamics

@@ -83,6 +83,7 @@
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/io/Xml.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/RichText.hpp"
@@ -4285,6 +4286,123 @@ void testBase64() {
     {
         std::vector<std::uint8_t> out;
         CHECK(!base64Decode("Zm9v$YmFy", out));
+    }
+}
+
+void testXml() {
+    using io::XmlParser;
+    using NT = io::XmlParser::NodeType;
+
+    // A small document exercises elements, attributes, nested text, self-closing tags, and depth.
+    {
+        XmlParser p;
+        CHECK(p.parse("<root a=\"1\" b='two'>hi<child/></root>"));
+
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Element);
+        CHECK(p.nodeName() == "root");
+        CHECK(!p.isEmpty());
+        CHECK(p.depth() == 0);
+        CHECK(p.attributeCount() == 2);
+        CHECK(p.attributeName(0) == "a");
+        CHECK(p.attributeValue(0) == "1");
+        CHECK(p.getAttribute("b") == "two");   // single-quoted value
+        CHECK(p.getAttribute("missing", "def") == "def");
+        CHECK(p.hasAttribute("a"));
+        CHECK(!p.hasAttribute("z"));
+
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Text);
+        CHECK(p.nodeData() == "hi");
+        CHECK(p.depth() == 1); // text sits inside root
+
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Element);
+        CHECK(p.nodeName() == "child");
+        CHECK(p.isEmpty()); // self-closing
+        CHECK(p.depth() == 1);
+        CHECK(p.attributeCount() == 0);
+
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::ElementEnd);
+        CHECK(p.nodeName() == "root");
+        CHECK(p.depth() == 0); // end tag matches its start tag's depth
+
+        CHECK(!p.read()); // end of document
+        CHECK(p.nodeType() == NT::None);
+        CHECK(!p.hasError());
+    }
+
+    // Entity decoding in both text and attribute values (named, decimal, and hex references).
+    {
+        XmlParser p;
+        p.parse("<t v=\"a&lt;b&amp;c&#65;&#x42;\">1 &gt; 0 &apos;q&apos;</t>");
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Element);
+        CHECK(p.getAttribute("v") == "a<b&cAB"); // &#65;=A, &#x42;=B
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Text);
+        CHECK(p.nodeData() == "1 > 0 'q'");
+    }
+
+    // Comments and CDATA are distinct node types; CDATA content is verbatim (no entity decode).
+    {
+        XmlParser p;
+        p.parse("<a><!-- note --><![CDATA[x < y & z]]></a>");
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Element);
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Comment);
+        CHECK(p.nodeData() == " note ");
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::CData);
+        CHECK(p.nodeData() == "x < y & z"); // verbatim
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::ElementEnd);
+    }
+
+    // The XML declaration / processing instruction is surfaced as a Declaration node.
+    {
+        XmlParser p;
+        p.parse("<?xml version=\"1.0\"?><r/>");
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Declaration);
+        CHECK(p.read());
+        CHECK(p.nodeType() == NT::Element);
+        CHECK(p.nodeName() == "r");
+        CHECK(p.isEmpty());
+    }
+
+    // Deeper nesting reports increasing depth, and matching end tags unwind it.
+    {
+        XmlParser p;
+        p.parse("<a><b><c>t</c></b></a>");
+        int seenC = -1, seenText = -1;
+        while (p.read()) {
+            if (p.nodeType() == NT::Element && p.nodeName() == "c") {
+                seenC = p.depth();
+            }
+            if (p.nodeType() == NT::Text) {
+                seenText = p.depth();
+            }
+        }
+        CHECK(seenC == 2);
+        CHECK(seenText == 3);
+        CHECK(!p.hasError());
+    }
+
+    // Malformed input sets the error flag and stops.
+    {
+        XmlParser p;
+        p.parse("<a href=unquoted>");
+        CHECK(!p.read()); // unquoted attribute value
+        CHECK(p.hasError());
+    }
+    {
+        XmlParser p;
+        p.parse("<!-- never closed");
+        CHECK(!p.read());
+        CHECK(p.hasError());
     }
 }
 
@@ -10543,6 +10661,7 @@ int main() {
     testUI();
     testSerialize();
     testBase64();
+    testXml();
     testConfigFile();
     testResourcePack();
     testJson();
