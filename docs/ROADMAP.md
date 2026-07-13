@@ -65,7 +65,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks, generational
       `Connection` tokens for safe disconnect, re-entrancy-safe emit; header-only, unit-tested);
       standalone delegate/multicast wrapper still TODO
-- [ ] Minimal reflection (type ids, property registration) for serialization + editor
+- [~] Minimal reflection (type ids, property registration) for serialization + editor — **compile-time
+      type ids landed** (`maz::core::type_id<T>()`/`type_hash<T>()`/`type_name<T>()`/`type_info<T>()`:
+      run-stable `StringId` type ids from the compiler-spelled name via `fnv1a64`, plus `TypeInfo`
+      {id,name,size,alignment}; header-only, unit-tested); property/field registration still TODO
 - [ ] Serialization (binary + JSON), versioned schemas
 - [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
       `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII

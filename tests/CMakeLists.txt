@@ -119,3 +119,10 @@ target_link_libraries(maz_unit_smallvector PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_smallvector COMMAND maz_unit_smallvector)
 set_tests_properties(unit_smallvector PROPERTIES TIMEOUT 30)
+
+# Unit tests: compile-time type identifiers + minimal reflection (type_name/hash/id, TypeInfo).
+add_executable(maz_unit_typeid unit_typeid.cpp)
+target_link_libraries(maz_unit_typeid PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_typeid COMMAND maz_unit_typeid)
+set_tests_properties(unit_typeid PROPERTIES TIMEOUT 30)
