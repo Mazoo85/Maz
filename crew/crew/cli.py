@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 from dataclasses import replace
@@ -44,6 +45,41 @@ def _resolve_config(max_fix_rounds: int | None):
     return config
 
 
+def _drive(task, config, confirm, resume_session_id=None) -> None:
+    """Run the crew, turning failures into clean, resumable messages.
+
+    Progress is checkpointed to ``.crew/session.json`` after every completed
+    phase, so any interruption or error can be picked up with ``crew resume``.
+    """
+    from .orchestrator import run_task_sync
+
+    try:
+        run_task_sync(task, config, confirm=confirm, resume_session_id=resume_session_id)
+    except ModuleNotFoundError as exc:  # SDK not installed
+        console.print(
+            f"[red]Missing dependency:[/red] {exc}.\n"
+            "Install with:  pip install -e .   (needs claude-agent-sdk)"
+        )
+        raise typer.Exit(code=1)
+    except KeyboardInterrupt:
+        console.print(
+            "\n[yellow]Interrupted.[/yellow] Progress was saved — run "
+            "[bold]crew resume[/bold] to continue."
+        )
+        raise typer.Exit(code=130)
+    except Exception as exc:  # noqa: BLE001 - surface a clean message, not a traceback
+        console.print(
+            Panel.fit(
+                f"[red]The crew hit an error:[/red] {exc}\n\n"
+                "Progress up to the last completed phase was saved. Fix the issue and run "
+                "[bold]crew resume[/bold] to continue.",
+                title="Error",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+
+
 # Shared option definitions so `do` and `resume` stay consistent.
 _YES_OPT = typer.Option(
     False, "--yes", "-y", help="Non-interactive: auto-approve every checkpoint. Use with care."
@@ -60,21 +96,12 @@ def do(
     max_fix_rounds: int | None = _ROUNDS_OPT,
 ) -> None:
     """Run TASK through the full crew: plan -> code -> review -> test, with checkpoints."""
-    from .orchestrator import run_task_sync
-
     config = _resolve_config(max_fix_rounds)
     confirm = _auto_confirm if yes else _interactive_confirm
     console.print(f"[bold]Task:[/bold] {task}\n")
     if yes:
         console.print("[yellow]Running unattended (--yes): all checkpoints auto-approved.[/yellow]\n")
-    try:
-        run_task_sync(task, config, confirm=confirm)
-    except ModuleNotFoundError as exc:  # SDK not installed
-        console.print(
-            f"[red]Missing dependency:[/red] {exc}.\n"
-            "Install with:  pip install -e .   (needs claude-agent-sdk)"
-        )
-        raise typer.Exit(code=1)
+    _drive(task, config, confirm)
 
 
 @app.command()
@@ -83,8 +110,6 @@ def resume(
     max_fix_rounds: int | None = _ROUNDS_OPT,
 ) -> None:
     """Continue the last task in this directory using its saved session."""
-    from .orchestrator import run_task_sync
-
     config = _resolve_config(max_fix_rounds)
     confirm = _auto_confirm if yes else _interactive_confirm
     state = session_mod.load(config)
@@ -92,7 +117,7 @@ def resume(
         console.print("[yellow]No saved session found in this directory. Start one with `crew do`.[/yellow]")
         raise typer.Exit(code=1)
     console.print(f"[bold]Resuming:[/bold] {state.task}  (last phase: {state.phase})\n")
-    run_task_sync(state.task, config, confirm=confirm, resume_session_id=state.session_id)
+    _drive(state.task, config, confirm, resume_session_id=state.session_id)
 
 
 @app.command()
