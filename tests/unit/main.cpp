@@ -10237,6 +10237,97 @@ void testModDsp() {
             CHECK(peak <= ceil + 1e-3f);
         }
     }
+
+    // ---- A9: multi-mode distortion (Clip / ATan / LoFi / Overdrive) ----
+    {
+        using audio::DistortionMode;
+        using audio::MultiDistortion;
+
+        // Clip: a large input saturates hard to exactly +/-1 (after drive).
+        {
+            MultiDistortion md;
+            md.mode = DistortionMode::Clip;
+            md.drive = 2.0f;
+            CHECK_NEAR(md.process(5.0f), 1.0f, 1e-6f);
+            CHECK_NEAR(md.process(-5.0f), -1.0f, 1e-6f);
+            CHECK_NEAR(md.process(0.1f), 0.2f, 1e-6f); // linear region: drive*x
+        }
+        // ATan: bounded below 1, monotonic, and softer than a hard clip where the clip would saturate.
+        {
+            MultiDistortion md;
+            md.mode = DistortionMode::ATan;
+            md.drive = 2.0f;
+            const float big = md.process(10.0f);
+            CHECK(big < 1.0f && big > 0.9f);              // approaches but never reaches 1
+            CHECK(md.process(0.5f) < md.process(0.9f));   // monotonic increasing
+            // At x=0.5, drive 2 -> clip would be 1.0; atan is (2/pi)atan(1)=0.5, i.e. softer.
+            CHECK_NEAR(md.process(0.5f), 0.5f, 1e-4f);
+        }
+        // LoFi: quantizes a smooth ramp to a small number of distinct output levels.
+        {
+            MultiDistortion md;
+            md.mode = DistortionMode::LoFi;
+            md.bits = 3;
+            md.rateHz = 44100.0f; // no sample-rate hold -> pure bit-crush staircase
+            md.sampleRate = 44100.0f;
+            md.drive = 1.0f;
+            std::vector<float> levels;
+            for (int i = 0; i <= 400; ++i) {
+                const float x = -1.0f + 2.0f * static_cast<float>(i) / 400.0f;
+                const float y = md.process(x);
+                bool seen = false;
+                for (float l : levels) {
+                    if (std::fabs(l - y) < 1e-4f) {
+                        seen = true;
+                    }
+                }
+                if (!seen) {
+                    levels.push_back(y);
+                }
+            }
+            CHECK(levels.size() > 2);  // it does quantize into steps
+            CHECK(levels.size() <= 18); // but only a few (bit-crushed), not ~400
+        }
+        // Overdrive: asymmetric — the positive and negative responses to the same magnitude differ.
+        {
+            MultiDistortion md;
+            md.mode = DistortionMode::Overdrive;
+            md.drive = 3.0f;
+            const float p = md.process(0.5f);
+            const float n = md.process(-0.5f);
+            CHECK(std::fabs(std::fabs(p) - std::fabs(n)) > 1e-3f); // not symmetric
+        }
+        // Every mode is bounded and finite across a wide input range; post-gain scales the output.
+        {
+            for (DistortionMode m : {DistortionMode::Tanh, DistortionMode::Clip, DistortionMode::ATan,
+                                     DistortionMode::LoFi, DistortionMode::Overdrive}) {
+                MultiDistortion md;
+                md.mode = m;
+                md.drive = 4.0f;
+                bool ok = true;
+                for (int i = -50; i <= 50; ++i) {
+                    const float y = md.process(static_cast<float>(i) * 0.1f);
+                    ok = ok && std::isfinite(y) && std::fabs(y) < 2.0f;
+                }
+                CHECK(ok);
+            }
+            MultiDistortion md;
+            md.mode = DistortionMode::ATan;
+            md.drive = 1.0f;
+            const float base = md.process(0.1f);
+            md.postGainDb = 6.0206f; // x2
+            CHECK_NEAR(md.process(0.1f), base * 2.0f, 1e-3f);
+        }
+        // Runs inside a bus chain via DistortionModeEffect.
+        {
+            MultiDistortion md;
+            md.mode = DistortionMode::Overdrive;
+            md.drive = 5.0f;
+            audio::Bus chain;
+            chain.add(std::make_unique<audio::DistortionModeEffect>(md));
+            CHECK(std::isfinite(chain.process(0.7f)));
+        }
+    }
 }
 
 void testADSR() {

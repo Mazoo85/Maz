@@ -332,6 +332,77 @@ struct Distortion {
     void reset() {}
 };
 
+// Multi-mode distortion — the full Godot AudioEffectDistortion.Mode set. One `drive` pushes the signal
+// into the chosen shaper, with optional pre/post gain in dB:
+//   Tanh      — smooth soft-clip (the existing waveshaper; Godot's "WaveShape").
+//   Clip      — hard clip at +/-1: an instant brick wall, buzzy and aggressive.
+//   ATan      — arctangent soft-clip, (2/pi)*atan(drive*x): bounded, gentler shoulder than a hard clip.
+//   LoFi      — bit-crush + sample-rate reduction: quantizes amplitude to `bits` levels and holds the
+//               value at `rateHz`, for a crunchy retro/8-bit character.
+//   Overdrive — asymmetric saturation: the positive half saturates faster than the negative, adding even
+//               harmonics like a driven tube/diode stage.
+// Pure per-sample math (LoFi carries a little sample-hold state), deterministic, so each mode's transfer
+// curve unit-tests exactly and drives a golden.
+enum class DistortionMode { Tanh, Clip, ATan, LoFi, Overdrive };
+
+struct MultiDistortion {
+    DistortionMode mode = DistortionMode::Tanh;
+    float drive = 4.0f;         // pre-shaper gain
+    float preGainDb = 0.0f;     // Godot pre_gain
+    float postGainDb = 0.0f;    // Godot post_gain
+    int bits = 6;               // LoFi amplitude resolution
+    float rateHz = 8000.0f;     // LoFi sample-rate reduction target
+    float sampleRate = 44100.0f;
+
+    float process(float x) {
+        const float in = x * dbToLinear(preGainDb);
+        const float d = drive < 1e-3f ? 1e-3f : drive;
+        float y = 0.0f;
+        switch (mode) {
+        case DistortionMode::Tanh:
+            y = std::tanh(d * in) / std::tanh(d);
+            break;
+        case DistortionMode::Clip: {
+            const float v = d * in;
+            y = v > 1.0f ? 1.0f : (v < -1.0f ? -1.0f : v);
+            break;
+        }
+        case DistortionMode::ATan:
+            y = (2.0f / 3.14159265358979f) * std::atan(d * in);
+            break;
+        case DistortionMode::LoFi: {
+            m_hold += rateHz / sampleRate;
+            if (m_hold >= 1.0f) {
+                m_hold -= 1.0f;
+                m_held = in;
+            }
+            const int b = bits < 1 ? 1 : bits;
+            const float levels = std::pow(2.0f, static_cast<float>(b)) * 0.5f;
+            float q = std::round(m_held * levels) / levels;
+            q = q > 1.0f ? 1.0f : (q < -1.0f ? -1.0f : q);
+            y = q;
+            break;
+        }
+        case DistortionMode::Overdrive: {
+            const float v = d * in;
+            // Asymmetric: positive half saturates at rate 1, negative half at rate 0.5 -> even harmonics.
+            y = v >= 0.0f ? (1.0f - std::exp(-v)) : (-1.0f + std::exp(v * 0.5f));
+            break;
+        }
+        }
+        return y * dbToLinear(postGainDb);
+    }
+
+    void reset() {
+        m_hold = 0.0f;
+        m_held = 0.0f;
+    }
+
+private:
+    float m_hold = 0.0f;
+    float m_held = 0.0f;
+};
+
 // A peak-envelope compressor: follows the signal level (fast attack, slow release) and, above
 // `threshold`, reduces gain toward `ratio`:1 so loud peaks are tamed and the mix stays even — Godot's
 // AudioEffectCompressor. attack/release are per-sample smoothing coefficients in (0,1].
@@ -731,6 +802,13 @@ struct ReverbEffect : Effect {
 struct DistortionEffect : Effect {
     Distortion dist;
     explicit DistortionEffect(const Distortion& d) : dist(d) {}
+    float process(float x) override { return dist.process(x); }
+    void reset() override { dist.reset(); }
+};
+
+struct DistortionModeEffect : Effect {
+    MultiDistortion dist;
+    explicit DistortionModeEffect(const MultiDistortion& d) : dist(d) {}
     float process(float x) override { return dist.process(x); }
     void reset() override { dist.reset(); }
 };

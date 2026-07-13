@@ -177,6 +177,7 @@ add_subdirectory(apps/stereo)
 add_subdirectory(apps/oscillator)
 add_subdirectory(apps/music)
 add_subdirectory(apps/pitch)
+add_subdirectory(apps/distort)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
