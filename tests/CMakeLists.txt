@@ -901,6 +901,14 @@ set_tests_properties(deadzone_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME randomizer_headless_smoke
+    COMMAND randomizer --headless --frames 30)
+
+set_tests_properties(randomizer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -270,7 +270,10 @@ audio/      Audio — SDL3 device + real-time STEREO synth mixer (SFX + music, p
             (swept feedback comb) + Phaser (swept all-pass cascade)), Godot
             AudioEffectFilter/Delay/Reverb/Distortion/Compressor/Chorus/Phaser-style;
             Envelope — ADSR (attack/decay/sustain/release amplitude contour as a note-on/off gated state
-            machine, process(dt)→level), the shape every synth voice is multiplied by  (depends on: core, SDL3)
+            machine, process(dt)→level), the shape every synth voice is multiplied by;
+            Randomizer — StreamRandomizer: weighted clip pool + Random/RandomNoRepeat/Sequential pick
+            modes + per-trigger pitch (log-symmetric) & volume (dB) jitter → RandomPick, seeded/
+            deterministic, Godot AudioStreamRandomizer-style  (depends on: core, SDL3)
 apps/
   sandbox/  Top-down tile-world demo
   orbs/     "ORB RUN" — a complete arcade game (states, HUD, audio, particles, save)
@@ -378,6 +381,8 @@ apps/
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +
               the 1-D applyDeadzone response curve, showing the radial deadzone and unit-circle clamp
+  randomizer/ Audio stream randomizer — 300 triggers of a 5-clip weighted pool (audio::StreamRandomizer)
+              as a pick histogram + pitch×volume scatter + a no-repeat tick strip
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

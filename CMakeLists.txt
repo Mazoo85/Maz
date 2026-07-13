@@ -151,6 +151,7 @@ add_subdirectory(apps/base64)
 add_subdirectory(apps/floatcurve)
 add_subdirectory(apps/polyfill)
 add_subdirectory(apps/deadzone)
+add_subdirectory(apps/randomizer)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -834,6 +834,10 @@ available):
   `Input.get_vector`: a radial deadzone on the whole stick vector, magnitude rescaled so the deadzone edge is
   0 and full tilt is 1, and clamped to the unit circle so diagonals aren't faster — killing rest-drift and the
   faster-diagonal bug. The new `deadzone` demo shows a stick field + the 1-D response curve.
+- **M158** — **audio stream randomizer** (`audio::StreamRandomizer`), toward Godot's `AudioStreamRandomizer`:
+  a weighted clip pool with Random / Random-No-Repeat / Sequential pick modes plus per-trigger pitch and
+  volume jitter, so repetitive one-shots stop sounding robotic. Seeded and deterministic. The new `randomizer`
+  demo shows a pick histogram, a pitch×volume scatter, and a no-repeat tick strip.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

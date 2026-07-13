@@ -14,6 +14,7 @@
 #include "maz/anim/RootMotion.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
+#include "maz/audio/Randomizer.hpp"
 #include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
 #include "maz/audio/Spatial3D.hpp"
@@ -869,6 +870,136 @@ void testWav() {
         CHECK(!audio::decodeWav(nullptr, 0, out));
         const std::vector<std::uint8_t> junk = {'N', 'O', 'P', 'E'};
         CHECK(!audio::decodeWav(junk, out));
+    }
+}
+
+void testStreamRandomizer() {
+    using audio::RandomizerMode;
+    using audio::RandomPick;
+    using audio::StreamRandomizer;
+
+    // Empty pool -> no pick.
+    {
+        StreamRandomizer r;
+        CHECK(r.next().index == -1);
+    }
+
+    // Sequential mode: strict round-robin regardless of seed.
+    {
+        StreamRandomizer r;
+        r.mode = RandomizerMode::Sequential;
+        r.addStream();
+        r.addStream();
+        r.addStream();
+        CHECK(r.next().index == 0);
+        CHECK(r.next().index == 1);
+        CHECK(r.next().index == 2);
+        CHECK(r.next().index == 0);
+        r.reset();
+        CHECK(r.next().index == 0);
+    }
+
+    // RandomNoRepeat: never two identical consecutive picks, and every index stays in range.
+    {
+        StreamRandomizer r;
+        r.mode = RandomizerMode::RandomNoRepeat;
+        for (int i = 0; i < 4; ++i) {
+            r.addStream();
+        }
+        r.setSeed(12345);
+        int prev = -1;
+        for (int i = 0; i < 500; ++i) {
+            const int idx = r.next().index;
+            CHECK(idx >= 0 && idx < 4);
+            CHECK(idx != prev);
+            prev = idx;
+        }
+    }
+
+    // A single stream in RandomNoRepeat always returns 0 (the no-repeat guard only fires with >1).
+    {
+        StreamRandomizer r;
+        r.mode = RandomizerMode::RandomNoRepeat;
+        r.addStream();
+        for (int i = 0; i < 20; ++i) {
+            CHECK(r.next().index == 0);
+        }
+    }
+
+    // Weighted Random: a heavily-favoured stream dominates the tally.
+    {
+        StreamRandomizer r;
+        r.mode = RandomizerMode::Random;
+        r.addStream(100.0f);
+        r.addStream(1.0f);
+        r.addStream(1.0f);
+        r.setSeed(777);
+        int hits0 = 0;
+        const int N = 1000;
+        for (int i = 0; i < N; ++i) {
+            if (r.next().index == 0) {
+                ++hits0;
+            }
+        }
+        CHECK(hits0 > N * 8 / 10); // ~100/102 expected; comfortably over 80%
+    }
+
+    // Pitch variance: randomPitch=1 -> exactly 1; randomPitch=2 -> within [0.5, 2].
+    {
+        StreamRandomizer r;
+        r.addStream();
+        r.addStream();
+        r.setSeed(9);
+        r.randomPitch = 1.0f;
+        for (int i = 0; i < 20; ++i) {
+            CHECK_NEAR(r.next().pitchScale, 1.0f, 1e-6f);
+        }
+        r.randomPitch = 2.0f;
+        for (int i = 0; i < 200; ++i) {
+            const float p = r.next().pitchScale;
+            CHECK(p >= 0.5f - 1e-4f && p <= 2.0f + 1e-4f);
+        }
+    }
+
+    // Volume variance: 0 -> no offset; 6 dB -> within [-6, 6].
+    {
+        StreamRandomizer r;
+        r.addStream();
+        r.addStream();
+        r.setSeed(3);
+        r.randomVolumeOffsetDb = 0.0f;
+        for (int i = 0; i < 10; ++i) {
+            CHECK_NEAR(r.next().volumeDb, 0.0f, 1e-6f);
+        }
+        r.randomVolumeOffsetDb = 6.0f;
+        for (int i = 0; i < 200; ++i) {
+            const float v = r.next().volumeDb;
+            CHECK(v >= -6.0f - 1e-4f && v <= 6.0f + 1e-4f);
+        }
+    }
+
+    // Determinism: same seed + config -> identical (index, pitch, volume) stream.
+    {
+        auto make = []() {
+            StreamRandomizer r;
+            r.mode = RandomizerMode::RandomNoRepeat;
+            r.randomPitch = 1.5f;
+            r.randomVolumeOffsetDb = 3.0f;
+            for (int i = 0; i < 5; ++i) {
+                r.addStream(static_cast<float>(i + 1));
+            }
+            r.setSeed(0xABCDEF);
+            return r;
+        };
+        StreamRandomizer a = make();
+        StreamRandomizer b = make();
+        for (int i = 0; i < 100; ++i) {
+            const RandomPick pa = a.next();
+            const RandomPick pb = b.next();
+            CHECK(pa.index == pb.index);
+            CHECK_NEAR(pa.pitchScale, pb.pitchScale, 1e-6f);
+            CHECK_NEAR(pa.volumeDb, pb.volumeDb, 1e-6f);
+        }
     }
 }
 
@@ -8741,6 +8872,7 @@ int main() {
     testAutoTile();
     testSpatial3D();
     testWav();
+    testStreamRandomizer();
     testSampleMixer();
     testParticleEmitter();
     testTileSet();

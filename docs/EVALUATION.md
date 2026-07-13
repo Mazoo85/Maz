@@ -2927,6 +2927,37 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 119 — "Benchmarking against Godot: audio stream randomizer" (done)
+Rotating to **audio** for breadth (recent rounds were input, 2D-render, animation, IO, 3D-render, 2D-physics).
+Maz has a broad audio stack (mixer, DSP effects + buses, ADSR, WAV codec, 2D/3D positioning) but repetitive
+one-shots still played the *identical* clip every trigger — footsteps, gunshots, and UI blips sound robotic
+without variation. Godot's `AudioStreamRandomizer` wraps a pool of interchangeable clips and, per trigger,
+picks one and jitters pitch + volume so the ear never hears a mechanical repeat. Pure selection maths, so it
+unit-tests exactly (seeded) and drives a 2D golden.
+- [x] **M158 — Stream randomizer (`audio::StreamRandomizer`)**: a new `Randomizer.hpp` holding a weighted
+  clip pool and three pick modes matching Godot — `Random` (weighted uniform), `RandomNoRepeat` (weighted but
+  never the clip that just played, Godot's default), and `Sequential` (round-robin). Each `next()` returns a
+  `RandomPick { index, pitchScale, volumeDb }`: the pitch scaled by a **log-symmetric** factor in
+  `[1/randomPitch, randomPitch]` and the volume offset drawn from `[-randomVolumeOffsetDb, +…]`. Deterministic
+  via a seeded `core::Random`, so runs are reproducible. `testStreamRandomizer` pins: empty pool → −1;
+  Sequential strict round-robin + `reset`; RandomNoRepeat never repeats over 500 draws (all in range); a lone
+  stream always returns 0; a 100:1:1 weighting dominates >80% of 1000 draws; pitch is exactly 1 when
+  `randomPitch=1` and within `[0.5,2]` when 2; volume 0 when disabled and within `±6 dB` when set; and full
+  determinism (two same-seed randomizers emit identical index/pitch/volume streams). Unit checks
+  **5245 → 7002** (the 500-draw no-repeat + pitch/volume/determinism loops each assert per draw). The new `randomizer` demo runs 300 triggers of a 5-clip weighted pool and shows a pick-count
+  histogram, a pitch×volume scatter, and the first 48 picks as a tick strip where no two neighbours share a
+  colour (the no-repeat rule, visible). 2D golden (threshold 0.07, `randomizer` RMSE 0). Purely additive, so
+  every existing golden is byte-unchanged (confirmed by a serial golden run); ctest **113/113 → 114/114**.
+  Honest scope: this is the selection + variance logic (which clip, what pitch/volume) — it returns a pick the
+  caller feeds to the mixer; it does **not** itself decode/stream audio, and does not yet auto-register the
+  chosen clip as a live `SampleMixer` voice or expose it as a `.tres` resource; those remain the wiring
+  follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 118 — "Benchmarking against Godot: analog-stick deadzone" (done)
 Rotating to **input** for breadth (recent rounds were 2D-render, animation, IO, 3D-render, 2D-physics, core) —
 the most under-served module (only `ActionMap` lived there). Maz reads gamepad axes with a *per-axis* scalar

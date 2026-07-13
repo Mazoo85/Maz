@@ -509,6 +509,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   left/right/pitch/distance/pan `SpatialMix`; the `spatial3d` demo is a top-down radar of six sources
   around one listener; M121) — real-time per-voice 3D bus wiring + HRTF/binaural + occlusion/reverb zones
   later
+- [x] **Stream randomizer** (`audio::StreamRandomizer`: a weighted clip pool with Random / RandomNoRepeat /
+  Sequential pick modes + per-trigger pitch (log-symmetric `[1/p, p]`) and volume (`±dB`) jitter — Godot's
+  `AudioStreamRandomizer` that breaks up repetitive one-shots; each `next()` returns a `{index, pitchScale,
+  volumeDb}` pick; deterministic via seeded `core::Random`; the `randomizer` demo shows a pick histogram +
+  pitch×volume scatter + a no-repeat tick strip; M158) — auto-registering the picked clip as a live
+  `SampleMixer` voice + a `.tres` resource wrapper later
 
 ## Phase 8 — Animation
 - [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot
