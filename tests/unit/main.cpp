@@ -45,6 +45,7 @@
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
+#include "maz/game/AStar2D.hpp"
 #include "maz/game/GravityField2D.hpp"
 #include "maz/game/KinematicBody2D.hpp"
 #include "maz/game/AutoTile.hpp"
@@ -277,6 +278,130 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testAStar2D() {
+    using game::AStar2D;
+    using math::vec2;
+
+    // --- point + connection bookkeeping ---------------------------------------------------------
+    {
+        AStar2D a;
+        CHECK(a.pointCount() == 0);
+        CHECK(!a.hasPoint(1));
+        CHECK(a.getClosestPoint(vec2(0, 0)) == AStar2D::kInvalidId);
+
+        a.addPoint(1, vec2(0, 0));
+        a.addPoint(2, vec2(10, 0), 2.0f);
+        CHECK(a.hasPoint(1) && a.hasPoint(2));
+        CHECK(a.pointCount() == 2);
+        CHECK_NEAR(a.getPointPosition(2).x, 10.0f, 1e-5f);
+        CHECK_NEAR(a.getPointWeightScale(2), 2.0f, 1e-5f);
+
+        a.setPointPosition(2, vec2(12, 0));
+        a.setPointWeightScale(2, 3.0f);
+        CHECK_NEAR(a.getPointPosition(2).x, 12.0f, 1e-5f);
+        CHECK_NEAR(a.getPointWeightScale(2), 3.0f, 1e-5f);
+        a.setPointWeightScale(2, -5.0f); // clamped to 0
+        CHECK_NEAR(a.getPointWeightScale(2), 0.0f, 1e-5f);
+        a.setPointWeightScale(2, 1.0f);
+
+        // ids come back ascending.
+        a.addPoint(5, vec2(5, 5));
+        const std::vector<int64_t> ids = a.getPointIds();
+        CHECK(ids.size() == 3 && ids[0] == 1 && ids[1] == 2 && ids[2] == 5);
+
+        // bidirectional connect adds both directions; one-way adds only one.
+        a.connectPoints(1, 2);
+        CHECK(a.arePointsConnected(1, 2) && a.arePointsConnected(2, 1));
+        a.connectPoints(1, 5, false);
+        CHECK(a.arePointsConnected(1, 5) && !a.arePointsConnected(5, 1));
+        a.connectPoints(1, 1); // self-loop ignored
+        CHECK(!a.arePointsConnected(1, 1));
+
+        const std::vector<int64_t> conn = a.getPointConnections(1);
+        CHECK(conn.size() == 2 && conn[0] == 2 && conn[1] == 5); // ascending
+
+        a.disconnectPoints(1, 2);
+        CHECK(!a.arePointsConnected(1, 2) && !a.arePointsConnected(2, 1));
+
+        // removing a point drops edges that referenced it.
+        a.connectPoints(2, 5);
+        a.removePoint(5);
+        CHECK(!a.hasPoint(5));
+        CHECK(!a.arePointsConnected(1, 5) && !a.arePointsConnected(2, 5));
+        CHECK(a.getPointConnections(1).empty());
+    }
+
+    // --- shortest path picks the cheaper of two routes -----------------------------------------
+    {
+        // 0 --3-- 1 --3-- 3   (top route, length 6)
+        // 0 --------------3   via 2 at (3,-4)/(6,0): 5 + 5 = 10 detour
+        AStar2D a;
+        a.addPoint(0, vec2(0, 0));
+        a.addPoint(1, vec2(3, 0));
+        a.addPoint(2, vec2(3, -4));
+        a.addPoint(3, vec2(6, 0));
+        a.connectPoints(0, 1);
+        a.connectPoints(1, 3);
+        a.connectPoints(0, 2);
+        a.connectPoints(2, 3);
+
+        const std::vector<int64_t> ids = a.getIdPath(0, 3);
+        CHECK(ids.size() == 3 && ids[0] == 0 && ids[1] == 1 && ids[2] == 3);
+
+        const std::vector<vec2> pts = a.getPointPath(0, 3);
+        CHECK(pts.size() == 3);
+        CHECK_NEAR(pts[1].x, 3.0f, 1e-5f);
+        CHECK_NEAR(pts[2].x, 6.0f, 1e-5f);
+
+        // A heavy weight on node 1 flips the choice to the geometric detour.
+        a.setPointWeightScale(1, 5.0f); // arriving at 1 now costs 3*5 = 15
+        const std::vector<int64_t> heavy = a.getIdPath(0, 3);
+        CHECK(heavy.size() == 3 && heavy[1] == 2);
+    }
+
+    // --- degenerate paths -----------------------------------------------------------------------
+    {
+        AStar2D a;
+        a.addPoint(7, vec2(0, 0));
+        a.addPoint(8, vec2(1, 0));
+        // same start/goal -> single node.
+        const std::vector<int64_t> same = a.getIdPath(7, 7);
+        CHECK(same.size() == 1 && same[0] == 7);
+        // disconnected -> empty.
+        CHECK(a.getIdPath(7, 8).empty());
+        // missing endpoint -> empty.
+        CHECK(a.getIdPath(7, 99).empty());
+    }
+
+    // --- one-way edges are respected ------------------------------------------------------------
+    {
+        AStar2D a;
+        a.addPoint(0, vec2(0, 0));
+        a.addPoint(1, vec2(1, 0));
+        a.connectPoints(0, 1, false); // 0 -> 1 only
+        CHECK(a.getIdPath(0, 1).size() == 2);
+        CHECK(a.getIdPath(1, 0).empty());
+    }
+
+    // --- closest queries ------------------------------------------------------------------------
+    {
+        AStar2D a;
+        a.addPoint(0, vec2(0, 0));
+        a.addPoint(1, vec2(10, 0));
+        a.connectPoints(0, 1);
+        CHECK(a.getClosestPoint(vec2(3, 1)) == 0);
+        CHECK(a.getClosestPoint(vec2(8, -2)) == 1);
+        // Position (4, 5) projects onto the 0->1 segment at (4, 0).
+        const vec2 seg = a.getClosestPositionInSegment(vec2(4, 5));
+        CHECK_NEAR(seg.x, 4.0f, 1e-4f);
+        CHECK_NEAR(seg.y, 0.0f, 1e-4f);
+        // Beyond the endpoint, it clamps to the endpoint.
+        const vec2 seg2 = a.getClosestPositionInSegment(vec2(20, 3));
+        CHECK_NEAR(seg2.x, 10.0f, 1e-4f);
+        CHECK_NEAR(seg2.y, 0.0f, 1e-4f);
     }
 }
 
@@ -9856,6 +9981,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testAStar2D();
     testGeometry2D();
     testTransform2D();
     testRect2();

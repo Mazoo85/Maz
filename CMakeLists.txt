@@ -162,6 +162,7 @@ add_subdirectory(apps/inifile)
 add_subdirectory(apps/spectrum)
 add_subdirectory(apps/xform2d)
 add_subdirectory(apps/popupmenu)
+add_subdirectory(apps/astar)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

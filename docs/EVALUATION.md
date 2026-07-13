@@ -2927,6 +2927,46 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 130 — "Benchmarking against Godot: AStar2D graph pathfinding" (done)
+Rotating to **navigation / pathfinding** for breadth (the last five rounds were UI, math, audio, IO, and
+core-containers). Re-surveying Godot's navigation stack against Maz: Maz already has grid A* (`NavGrid`),
+navmesh-cell A* with a string-pulling funnel (`NavMesh`), flow-field crowd steering (`FlowField`), RVO local
+avoidance (`rvoVelocity`), and steering behaviours — a broad set. But it had **no arbitrary-graph A***: Godot
+ships `AStar2D` (and `AStar3D`) as a first-class class where you place points at any position with any id,
+connect them freely (one- or two-way), give each point a `weight_scale`, and query the least-cost route. That
+is a genuinely different tool from a uniform grid or a convex-cell mesh — it is the primitive behind road/rail
+networks, waypoint webs, teleporter links, dialogue/skill graphs, and level-connection maps, none of which map
+cleanly onto a grid. Pure graph + geometry, so it unit-tests exactly and drives a golden.
+
+Ranked closable gaps considered this round (navigation-weighted): **(1) arbitrary weighted-graph A* (`AStar2D`)
+— chosen**, the clearest missing navigation primitive; (2) navmesh region stitching / off-mesh links across
+separate regions; (3) dynamic obstacle carving of a baked navmesh; (4) `AStarGrid2D` (a grid front-end over the
+same solver, with diagonal modes + partial paths); (5) navigation layers/masks on agents. (2)–(5) remain
+follow-ups.
+
+- [x] **M169 — AStar2D general weighted-graph pathfinding (`game::AStar2D`)**: a new `AStar2D.hpp` holding
+  points in an ordered map (id → position + `weightScale`) and each point's neighbours in an ordered set, so
+  identical graphs yield identical paths. API mirrors Godot: `addPoint`/`hasPoint`/`removePoint`/`getPointIds`,
+  `getPointPosition`/`setPointPosition`, `getPointWeightScale`/`setPointWeightScale`, `connectPoints`/
+  `disconnectPoints`/`arePointsConnected`/`getPointConnections` (one-way when `bidirectional=false`), `getIdPath`
+  and `getPointPath` (A* with a Euclidean heuristic; step cost = edge length × the destination point's weight),
+  plus `getClosestPoint` and `getClosestPositionInSegment` (snap an off-graph position onto the nearest edge).
+  `testAStar2D` pins point/edge bookkeeping (bidirectional vs one-way, ascending connection order, self-loop
+  rejection, edge cleanup on `removePoint`), the two-route choice and how a heavy `weightScale` flips it, the
+  degenerate paths (same start/goal → single node, disconnected → empty, missing endpoint → empty), one-way edge
+  respect, and both closest queries (on-segment projection + endpoint clamp). Unit checks **7372 → 7407**. The
+  new `astar` demo draws a road network of 11 junctions where START→GOAL routes AROUND a red weight-×6 "toll"
+  junction (chosen route as a thick amber ribbon), plus a right panel showing `getClosestPositionInSegment`
+  snapping a free query point onto the nearest edge. 2D golden (threshold 0.05, `astar` RMSE 0). Purely additive,
+  so every existing golden is byte-unchanged; ctest **124/124 → 125/125**. Honest scope: the cost model is fixed
+  to weighted Euclidean (no `_compute_cost`/`_estimate_cost` subclass override), and this is the 2D graph only —
+  `AStar3D` and a grid-front-end `AStarGrid2D` (with diagonal modes + partial paths) remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 129 — "Benchmarking against Godot: PopupMenu control" (done)
 Rotating to **UI / Control nodes** for breadth (recent rounds were math, audio, IO, core-containers,
 3D-render). Maz's Control set was broad — LayoutNode/Container, Range/ProgressBar, TextField, Tree, ItemList
