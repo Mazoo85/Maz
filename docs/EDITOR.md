@@ -22,9 +22,20 @@ scaling objects) instead of writing code. This is roadmap **Phase 12**, built in
 
   The camera slowly orbits an arrangement of cubes defined in `assets/scenes/demo.mazscene`.
 
-**Stage 2 — the editor window (next):** a Dear ImGui interface with a Scene Hierarchy panel (the
-list of objects), an Inspector panel (edit the selected object's transform), a live 3D viewport,
-and transform gizmos. This is written and compile-verified in CI, then run on a GPU machine.
+**Stage 2 — the editor window (done, compile-verified):** the `editor` app — a Dear ImGui window
+with a menu bar (New / Reload / Save / Add Cube), a **Hierarchy** panel (select / add / delete
+objects), and an **Inspector** panel (edit the selected object's name and drag its
+position / rotation / scale). The live 3D scene renders behind the panels. Run it on a machine with
+a GPU + display:
+
+```
+cmake -S . -B build -G Ninja && cmake --build build
+./build/bin/editor --scene assets/scenes/demo.mazscene
+```
+
+> CI verifies the editor **compiles** and boots headless; the interactive UI needs a real GPU and
+> is not exercised in CI. Transform gizmos, an asset browser, and a docked render-to-texture
+> viewport are still to come.
 
 ## The `.mazscene` file format
 

@@ -147,10 +147,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 11 — Editor & tooling
 - [ ] Standalone editor app (engine + ImGui docking)
 - [ ] Viewport with gizmos (translate/rotate/scale), grid, snapping
-- [~] Scene hierarchy panel, reflection-driven entity inspector, asset browser — **scene backbone
-      landed**: `maz::scene::Scene`/`Entity`/`Transform`, `.mazscene` save/load (`ctest unit_scene`),
-      and multi-entity rendering (`sandbox --scene`). The ImGui panels/viewport are the next stage.
-      See [`EDITOR.md`](EDITOR.md).
+- [~] Scene hierarchy panel, reflection-driven entity inspector, asset browser — **editor window
+      landed** (Dear ImGui): `maz::scene::Scene`/`Entity`/`Transform` + `.mazscene` save/load
+      (`ctest unit_scene`), multi-entity rendering (`sandbox --scene`), and the `editor` app with
+      Hierarchy + Inspector panels over a live 3D viewport. Still to do: transform gizmos, asset
+      browser, docked render-to-texture viewport. See [`EDITOR.md`](EDITOR.md).
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
