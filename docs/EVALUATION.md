@@ -2573,6 +2573,36 @@ unit-tests headlessly and renders a clean deterministic golden.
   reads of an on-disk archive without loading it whole, or a virtual-filesystem layer that redirects
   `io::readFile` through mounted packs; those remain the packaging follow-ups.
 
+### Iteration 102 — "Benchmarking against Godot: BBCode rich text" (done)
+Rotating to **UI / text** for breadth (last two rounds were IO and audio). Maz can draw a string (`ui::Font`)
+and word-wrap it (`ui::layoutText`, M134), but every character in a string shared ONE style — there was no way
+to bold a word, colour a phrase, or enlarge a heading *inside* a run of text. Godot does this with BBCode in
+`RichTextLabel` (`[b]bold[/b]`, `[i]/[u]`, `[color=…]`, `[size=…]`). That markup→styled-runs parse is pure
+string work (no renderer dependency), so it unit-tests headlessly and drives a legible deterministic golden.
+- [x] **M141 — BBCode rich-text parser (`ui::parseBBCode` + `ui::stripBBCode`)**: a new `RichText.hpp`.
+  `parseBBCode(src)` walks the string maintaining nested style state (bold/italic/underline counters, a colour
+  stack, a size stack) and emits a flat list of `RichSpan`s — each a substring plus its **resolved** style
+  (bold/italic/underline flags, an optional RGBA colour, an optional pixel size); adjacent runs with identical
+  style are coalesced so the list is minimal. It supports `[b]`/`[i]`/`[u]`, `[color=…]` (both `#rgb`/`#rrggbb`/
+  `#rrggbbaa` hex and named colours red/green/blue/white/black/yellow/cyan/magenta/orange/gray), and `[size=N]`.
+  Handling is lenient like Godot: nested tags stack, an unclosed tag runs to the end, a stray close tag is
+  ignored, `[lb]`/`[rb]` emit literal brackets, and an **unrecognized tag (or invalid colour) passes through as
+  literal text** rather than being dropped. `stripBBCode` returns the tags-removed plain text. `testRichText`
+  pins: plain text → one span; `[b]` splitting into plain/bold/plain; triple-nested b+i+u; `#ff0000` and short
+  `#0f0` hex + a named colour; `[size=32]` on the enclosed run; mismatched close popping the correct scope
+  (`x` bold+red, `y` red only); an unclosed tag running to the end; a stray close ignored; identical-style runs
+  coalescing across a tag boundary; `[lb]`/`[rb]` + unknown-tag passthrough; an invalid colour falling back to
+  literal; and `stripBBCode` round-trips. Unit checks **4809 → 4851**. The new `richtext` demo shows six BBCode
+  source strings each above its formatted result — bold, italic, underline, hex + named colours, three text
+  sizes, deep nesting, and literal/unknown-tag passthrough — rendered by mapping each span's colour and pixel
+  size onto the font (bold faked with a double-draw, underline with a bar). Static → deterministic golden
+  (threshold 0.07, text-dense). Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); ctest **96/96 → 97/97**. Honest scope: this is the parser
+  + a demo renderer, not a full `RichTextLabel` node — it does **not** yet do wrapped rich-text layout (mixing
+  M134's wrapping with per-span metrics), inline images/tables/`[url]` hitboxes, `[center]`/`[right]`
+  paragraph alignment tags, real bold/italic *font faces* (the demo fakes weight), or animated effects
+  (`[wave]`/`[shake]`); those remain the rich-text follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

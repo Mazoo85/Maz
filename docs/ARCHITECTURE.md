@@ -94,6 +94,9 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
             Tree + TreeItem (hierarchical collapsible rows: heap-owned children + a collapsed flag,
               visibleRows() flattens expanded items depth-first into rows with depth + hasChildren), Godot
               Tree-control-style (scene dock / inspector / file browser),
+            parseBBCode + RichSpan (BBCode rich text → resolved styled runs: [b]/[i]/[u], [color=hex|name],
+              [size=N], nested/lenient — unclosed-to-end, stray-close ignored, [lb]/[rb] literal, unknown-tag
+              passthrough; stripBBCode → plain text; renderer-independent), Godot RichTextLabel-style,
             Rect (shared screen rectangle)
 ecs/        World — entity-component system (sparse-set pools, each/view)   (header-only)
 scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per node + parent, update()
@@ -297,6 +300,8 @@ apps/
               voices panned L/R, mixed offline into one stereo buffer drawn as L/R oscilloscopes
   respack/   Resource pack — four resources (level JSON, text, a synthesized WAV, a raw blob) bundled into one
               io::ResourcePack archive, loaded back, and shown as a directory table + header hex + round-trip check
+  richtext/  BBCode rich text — six BBCode source strings (bold/italic/underline, hex+named colours, three
+              sizes, nesting, literal/unknown-tag passthrough) each shown above its ui::parseBBCode-formatted result
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

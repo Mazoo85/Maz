@@ -537,6 +537,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (scene dock / inspector / file browser); the `tree` demo shows a project file tree in a StyleBoxFlat
   panel with fold arrows + a selected-row highlight; M115) — scroll container / drag-reorder + a full
   per-control-class theme cascade later
+- [x] **BBCode rich text** (`ui::parseBBCode`: markup → resolved styled runs — `[b]`/`[i]`/`[u]`,
+  `[color=…]` (hex `#rgb`/`#rrggbb`/`#rrggbbaa` + named), `[size=N]`, nested tags stacked, lenient
+  (unclosed→to-end, stray-close ignored, `[lb]`/`[rb]` literal brackets, unknown tags/invalid colours pass
+  through); `ui::stripBBCode` returns plain text; Godot RichTextLabel; the `richtext` demo shows six BBCode
+  strings above their formatted results; M141) — wrapped rich layout, `[url]`/inline-image/table tags,
+  `[center]`/`[right]` alignment, real bold/italic faces, and `[wave]`/`[shake]` effects later
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample

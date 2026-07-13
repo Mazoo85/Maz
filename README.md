@@ -760,6 +760,12 @@ available):
   `(path, offset, size)` directory; `ResourcePack::load` reads them back by path with full bounds checking so
   a corrupt/foreign archive fails cleanly. The new `respack` demo packs four resources, loads the archive
   back, and draws its directory table, a header hex dump, and a per-resource round-trip check.
+- **M141** — a **BBCode rich-text parser** (`ui::parseBBCode` / `ui::stripBBCode`), toward Godot's
+  `RichTextLabel`: plain text has one style, but BBCode mixes styles within a string — `[b]bold[/b]`,
+  `[i]/[u]`, `[color=#ff0000]red[/color]`, `[size=32]big[/size]`. The parser turns markup into a flat list of
+  styled runs (resolved bold/italic/underline/colour/size), lenient like Godot (nested tags stack, unclosed
+  runs to the end, unknown tags pass through literally). The new `richtext` demo shows six BBCode strings each
+  above its formatted result.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

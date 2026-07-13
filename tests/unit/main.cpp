@@ -68,6 +68,7 @@
 #include "maz/io/Serialize.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
+#include "maz/ui/RichText.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/TextLayout.hpp"
@@ -2376,6 +2377,120 @@ void testTextLayout() {
         const TextLayout t = ui::layoutText("", 100.0f, measure, 10.0f);
         CHECK(t.lines.size() == 1);
         CHECK(t.lines[0].text.empty());
+    }
+}
+
+void testRichText() {
+    using ui::parseBBCode;
+    using ui::RichSpan;
+
+    // Plain text: one unstyled span.
+    {
+        const std::vector<RichSpan> s = parseBBCode("hello world");
+        CHECK(s.size() == 1);
+        CHECK(s[0].text == "hello world");
+        CHECK(!s[0].bold && !s[0].italic && !s[0].underline && !s[0].hasColor);
+        CHECK(s[0].sizePx == 0.0f);
+    }
+
+    // [b]...[/b] splits into plain / bold / plain runs.
+    {
+        const std::vector<RichSpan> s = parseBBCode("normal [b]bold[/b] end");
+        CHECK(s.size() == 3);
+        CHECK(s[0].text == "normal " && !s[0].bold);
+        CHECK(s[1].text == "bold" && s[1].bold);
+        CHECK(s[2].text == " end" && !s[2].bold);
+    }
+
+    // Nested tags stack.
+    {
+        const std::vector<RichSpan> s = parseBBCode("[b][i][u]x[/u][/i][/b]");
+        CHECK(s.size() == 1);
+        CHECK(s[0].bold && s[0].italic && s[0].underline);
+    }
+
+    // Hex colour (#rrggbb) and short hex (#rgb).
+    {
+        const std::vector<RichSpan> s = parseBBCode("[color=#ff0000]r[/color]");
+        CHECK(s.size() == 1);
+        CHECK(s[0].hasColor);
+        CHECK_NEAR(s[0].r, 1.0f, 1e-4f);
+        CHECK_NEAR(s[0].g, 0.0f, 1e-4f);
+        CHECK_NEAR(s[0].b, 0.0f, 1e-4f);
+    }
+    {
+        const std::vector<RichSpan> s = parseBBCode("[color=#0f0]g[/color]");
+        CHECK(s.size() == 1);
+        CHECK_NEAR(s[0].g, 1.0f, 1e-4f);
+        CHECK_NEAR(s[0].r, 0.0f, 1e-4f);
+    }
+
+    // Named colour.
+    {
+        const std::vector<RichSpan> s = parseBBCode("[color=blue]b[/color]");
+        CHECK(s.size() == 1);
+        CHECK(s[0].hasColor);
+        CHECK_NEAR(s[0].b, 1.0f, 1e-4f);
+        CHECK_NEAR(s[0].r, 0.0f, 1e-4f);
+    }
+
+    // [size=N] sets the pixel size on the enclosed run.
+    {
+        const std::vector<RichSpan> s = parseBBCode("small [size=32]big[/size]");
+        CHECK(s.size() == 2);
+        CHECK(s[0].sizePx == 0.0f);
+        CHECK_NEAR(s[1].sizePx, 32.0f, 1e-4f);
+    }
+
+    // Mismatched close pops the right scope: "x" is red+bold, "y" is red only.
+    {
+        const std::vector<RichSpan> s = parseBBCode("[color=red][b]x[/b]y[/color]");
+        CHECK(s.size() == 2);
+        CHECK(s[0].text == "x" && s[0].bold && s[0].hasColor);
+        CHECK(s[1].text == "y" && !s[1].bold && s[1].hasColor);
+    }
+
+    // An unclosed tag runs to the end of the string.
+    {
+        const std::vector<RichSpan> s = parseBBCode("a[b]rest");
+        CHECK(s.size() == 2);
+        CHECK(s[0].text == "a" && !s[0].bold);
+        CHECK(s[1].text == "rest" && s[1].bold);
+    }
+
+    // A stray close tag with nothing open is ignored (no crash, text kept plain).
+    {
+        const std::vector<RichSpan> s = parseBBCode("[/b]plain");
+        CHECK(s.size() == 1);
+        CHECK(s[0].text == "plain" && !s[0].bold);
+    }
+
+    // Adjacent identical-style runs coalesce across a tag boundary.
+    {
+        const std::vector<RichSpan> s = parseBBCode("[b]a[/b][b]b[/b]");
+        CHECK(s.size() == 1);
+        CHECK(s[0].text == "ab" && s[0].bold);
+    }
+
+    // [lb]/[rb] emit literal brackets; an unknown tag passes through verbatim.
+    {
+        const std::vector<RichSpan> s = parseBBCode("[lb]x[rb] [foo]bar[/foo]");
+        CHECK(s.size() == 1);
+        CHECK(s[0].text == "[x] [foo]bar[/foo]");
+    }
+
+    // An invalid colour value falls back to literal text (the tag is not consumed as styling).
+    {
+        const std::vector<RichSpan> s = parseBBCode("[color=notacolor]z[/color]");
+        CHECK(!s.empty());
+        CHECK(!s[0].hasColor);
+        CHECK(s[0].text.find("[color=notacolor]") != std::string::npos);
+    }
+
+    // stripBBCode returns the tags-removed plain text.
+    {
+        CHECK(ui::stripBBCode("[b]hi[/b] [color=red]there[/color]") == std::string("hi there"));
+        CHECK(ui::stripBBCode("plain") == std::string("plain"));
     }
 }
 
@@ -7408,6 +7523,7 @@ int main() {
     testTheme();
     testTree();
     testTextLayout();
+    testRichText();
     testTextInput();
     testUI();
     testSerialize();
