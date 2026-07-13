@@ -47,7 +47,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
-- [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections landed** (`maz::math::Geometry`, unit-tested); OBB, frustum, transform helpers TODO
+- [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections + Frustum culling landed** (`maz::math::Geometry`/`Frustum`, unit-tested); OBB and transform helpers TODO
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [ ] Handles / generational indices, object pools

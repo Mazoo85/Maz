@@ -35,3 +35,10 @@ target_link_libraries(maz_unit_geometry PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_geometry COMMAND maz_unit_geometry)
 set_tests_properties(unit_geometry PROPERTIES TIMEOUT 30)
+
+# Unit tests: view frustum plane extraction and culling tests.
+add_executable(maz_unit_frustum unit_frustum.cpp)
+target_link_libraries(maz_unit_frustum PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_frustum COMMAND maz_unit_frustum)
+set_tests_properties(unit_frustum PROPERTIES TIMEOUT 30)
