@@ -11,8 +11,20 @@
 #include "maz/scene/Camera.hpp"
 #include "maz/scene/Scene.hpp"
 
+// See note in VulkanRenderer.cpp: quiet third-party ImGui header warnings under -Werror.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include "imgui.h"
 #include "backends/imgui_impl_sdl3.h"
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #include <SDL3/SDL_events.h>
 

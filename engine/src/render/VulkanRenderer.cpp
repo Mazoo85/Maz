@@ -6,9 +6,22 @@
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
+// Dear ImGui headers contain inline code that trips the engine's strict warning flags
+// (-Wconversion etc.); silence those diagnostics just for these third-party includes.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include "imgui.h"
 #include "backends/imgui_impl_sdl3.h"
 #include "backends/imgui_impl_vulkan.h"
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #include <array>
 #include <cstdint>
