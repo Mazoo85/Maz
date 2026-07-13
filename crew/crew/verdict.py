@@ -10,8 +10,11 @@ from __future__ import annotations
 
 import re
 
-# Explicit marker the tester is asked to end its report with.
-_MARKER = re.compile(r"^\s*VERDICT:\s*(PASS|FAIL)\s*$", re.IGNORECASE | re.MULTILINE)
+# Explicit marker the tester is asked to end its report with. Kept deliberately
+# lenient because agents wrap it in Markdown and add trailing prose in practice —
+# e.g. "**Verdict: PASS** — full suite green". We match "VERDICT:" followed by
+# optional emphasis/space and PASS/FAIL anywhere on the line, and take the last one.
+_MARKER = re.compile(r"VERDICT:\s*[*_`]{0,2}\s*(PASS|FAIL)\b", re.IGNORECASE)
 
 # "<n> failed" / "<n> errors" style counts, e.g. pytest's "2 failed, 5 passed".
 _FAILED_COUNT = re.compile(r"\b(\d+)\s+(?:failed|failures?|errors?)\b", re.IGNORECASE)

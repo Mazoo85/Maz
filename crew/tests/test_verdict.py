@@ -12,6 +12,11 @@ from crew.verdict import interpret_test_result as f
         ("12 passed, 0 failed\nVERDICT: PASS", True),
         ("VERDICT: FAIL", False),
         ("verdict: pass", True),  # case-insensitive
+        # Real formats agents actually emit (found by running the crew live):
+        ("**Verdict: PASS** — full test suite green, no linters to run.", True),
+        ("**VERDICT: FAIL** (2 tests failing)", False),
+        ("Final result\n\n**Verdict: PASS**", True),
+        ("VERDICT: `FAIL`", False),
         # Marker wins even when the prose looks the other way...
         ("2 failed, 3 errors\n\nVERDICT: PASS", True),
         # ...and the LAST marker is the tester's final word.
