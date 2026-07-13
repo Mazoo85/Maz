@@ -53,9 +53,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [~] Handles / generational indices, object pools — **`maz::core::Handle` + `Pool<T>` landed**
       (generational stale-reference detection à la Godot's RID owner; header-only, unit-tested);
       linear/stack/frame arena allocators (above) still TODO
-- [~] Containers: `small_vector`, sparse set, ring buffer — **`maz::core::RingBuffer<T>` landed**
-      (fixed-capacity FIFO ring/circular queue à la Godot's `RingBuffer`; header-only, unit-tested);
-      `small_vector` + sparse set still TODO
+- [~] Containers: `small_vector`, sparse set, ring buffer — **`RingBuffer<T>` + `SparseSet<T>` landed**
+      (`maz::core::RingBuffer<T>` fixed-capacity FIFO à la Godot's `RingBuffer`; `maz::core::SparseSet<T>`
+      dense/sparse key→value map with O(1) insert/remove/contains and packed iteration — the ECS
+      component-storage structure; both header-only, unit-tested); `small_vector` still TODO
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested); interning/original-string storage + fixed strings TODO
 - [ ] Event bus / signals, delegates / typed callbacks
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor

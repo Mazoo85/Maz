@@ -84,3 +84,10 @@ target_link_libraries(maz_unit_ringbuffer PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_ringbuffer COMMAND maz_unit_ringbuffer)
 set_tests_properties(unit_ringbuffer PROPERTIES TIMEOUT 30)
+
+# Unit tests: sparse-set component map (swap-and-pop, dense-iteration parity).
+add_executable(maz_unit_sparseset unit_sparseset.cpp)
+target_link_libraries(maz_unit_sparseset PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_sparseset COMMAND maz_unit_sparseset)
+set_tests_properties(unit_sparseset PROPERTIES TIMEOUT 30)
