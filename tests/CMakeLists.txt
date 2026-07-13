@@ -70,3 +70,10 @@ target_link_libraries(maz_unit_stringid PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_stringid COMMAND maz_unit_stringid)
 set_tests_properties(unit_stringid PROPERTIES TIMEOUT 30)
+
+# Unit tests: generational Handle + object Pool (stale-reference detection).
+add_executable(maz_unit_pool unit_pool.cpp)
+target_link_libraries(maz_unit_pool PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_pool COMMAND maz_unit_pool)
+set_tests_properties(unit_pool PROPERTIES TIMEOUT 30)

@@ -50,7 +50,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections + Frustum culling + affine Transform landed** (`maz::math::Geometry`/`Frustum`/`Transform`, unit-tested); OBB TODO
 - [x] Easing / interpolation, deterministic RNG (PCG/xoshiro) — PCG32 `maz::core::Rng` + `maz::math` interpolation/easing (lerp/inverseLerp/remap/smoothstep/moveToward/lerpAngle + Penner `Easing`), unit-tested
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
-- [ ] Handles / generational indices, object pools
+- [~] Handles / generational indices, object pools — **`maz::core::Handle` + `Pool<T>` landed**
+      (generational stale-reference detection à la Godot's RID owner; header-only, unit-tested);
+      linear/stack/frame arena allocators (above) still TODO
 - [ ] Containers: `small_vector`, sparse set, ring buffer
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested); interning/original-string storage + fixed strings TODO
 - [ ] Event bus / signals, delegates / typed callbacks
