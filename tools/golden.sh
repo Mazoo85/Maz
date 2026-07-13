@@ -160,6 +160,7 @@ CASES=(
     "stereo||2.0|0.05"
     "oscillator||2.0|0.05"
     "music||2.0|0.05"
+    "pitch||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

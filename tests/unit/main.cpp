@@ -18,6 +18,7 @@
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/MusicSequencer.hpp"
 #include "maz/audio/Oscillator.hpp"
+#include "maz/audio/PitchShifter.hpp"
 #include "maz/audio/Randomizer.hpp"
 #include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
@@ -9480,6 +9481,110 @@ void testAudioDsp() {
     }
 }
 
+void testPitchShifter() {
+    using audio::PitchShifter;
+    const float psr = 44100.0f;
+    const float freq = 441.0f; // input period = 100 samples exactly
+
+    // Dominant period of a signal via autocorrelation over a plausible lag range.
+    auto dominantPeriod = [](const std::vector<float>& s, int lo, int hi) {
+        int best = lo;
+        double bestC = -1e18;
+        for (int lag = lo; lag <= hi; ++lag) {
+            double c = 0.0;
+            for (std::size_t i = 0; i + static_cast<std::size_t>(lag) < s.size(); ++i) {
+                c += static_cast<double>(s[i]) * static_cast<double>(s[i + static_cast<std::size_t>(lag)]);
+            }
+            if (c > bestC) {
+                bestC = c;
+                best = lag;
+            }
+        }
+        return best;
+    };
+
+    auto runShift = [&](float ratio) {
+        PitchShifter ps;
+        ps.configure(ratio, 1024);
+        std::vector<float> out;
+        out.reserve(9000);
+        for (int i = 0; i < 9000; ++i) {
+            const float x = std::sin(2.0f * 3.14159265f * freq * static_cast<float>(i) / psr);
+            const float y = ps.process(x);
+            if (i >= 2500) { // skip grain warmup
+                out.push_back(y);
+            }
+        }
+        return out;
+    };
+
+    // Unity ratio: output preserves the input (delayed), so its dominant period stays ~100 samples and it
+    // stays bounded and finite.
+    {
+        const std::vector<float> o = runShift(1.0f);
+        bool finite = true;
+        float maxAbs = 0.0f;
+        for (float v : o) {
+            finite = finite && std::isfinite(v);
+            maxAbs = std::max(maxAbs, std::fabs(v));
+        }
+        CHECK(finite);
+        CHECK(maxAbs < 1.5f);
+        CHECK(std::abs(dominantPeriod(o, 40, 260) - 100) <= 8);
+    }
+    // Up an octave: dominant period halves (~50 samples).
+    {
+        const std::vector<float> o = runShift(2.0f);
+        const int p = dominantPeriod(o, 30, 260);
+        CHECK(std::abs(p - 50) <= 8);
+    }
+    // Down an octave: dominant period doubles (~200 samples).
+    {
+        const std::vector<float> o = runShift(0.5f);
+        const int p = dominantPeriod(o, 120, 320);
+        CHECK(std::abs(p - 200) <= 16);
+    }
+
+    // Semitone helper: +12 semitones == x2 ratio.
+    {
+        PitchShifter ps;
+        ps.setSemitones(12.0f);
+        CHECK_NEAR(ps.pitchScale, 2.0f, 1e-4f);
+        ps.setSemitones(-12.0f);
+        CHECK_NEAR(ps.pitchScale, 0.5f, 1e-4f);
+    }
+
+    // Deterministic: same input -> same output after reset.
+    {
+        PitchShifter a;
+        a.configure(1.5f, 512);
+        PitchShifter b;
+        b.configure(1.5f, 512);
+        bool same = true;
+        for (int i = 0; i < 2000; ++i) {
+            const float x = std::sin(2.0f * 3.14159265f * 330.0f * static_cast<float>(i) / psr);
+            if (std::fabs(a.process(x) - b.process(x)) > 1e-6f) {
+                same = false;
+            }
+        }
+        CHECK(same);
+    }
+
+    // Works inside a bus chain via PitchShiftEffect, staying finite.
+    {
+        audio::PitchShifter ps;
+        ps.configure(1.5f, 512);
+        audio::Bus chain;
+        chain.add(std::make_unique<audio::PitchShiftEffect>(ps));
+        bool finite = true;
+        for (int i = 0; i < 1000; ++i) {
+            const float y = chain.process(std::sin(0.1f * static_cast<float>(i)));
+            finite = finite && std::isfinite(y);
+        }
+        CHECK(finite);
+    }
+}
+
 void testMusicSequencer() {
     using audio::MusicSequencer;
     using audio::TransitionMode;
@@ -11322,6 +11427,7 @@ int main() {
     testStereo();
     testOscillator();
     testMusicSequencer();
+    testPitchShifter();
     testModDsp();
     testAudioEffects();
     testADSR();

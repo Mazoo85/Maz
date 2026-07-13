@@ -24,6 +24,7 @@
 #include "maz/audio/Envelope.hpp"
 #include "maz/audio/MusicSequencer.hpp"
 #include "maz/audio/Oscillator.hpp"
+#include "maz/audio/PitchShifter.hpp"
 #include "maz/audio/Randomizer.hpp"
 #include "maz/audio/SampleMixer.hpp"
 #include "maz/audio/Spatial2D.hpp"
