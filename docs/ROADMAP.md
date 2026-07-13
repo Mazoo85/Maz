@@ -58,6 +58,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Serialization (binary + JSON), versioned schemas
 - [ ] Profiling: scoped timers, frame markers, Tracy integration
 - [ ] Unit-test framework wiring (doctest/Catch2)
+- [x] Non-GPU `maz_core` lib + `MAZ_CORE_ONLY` build so core is unit-testable without the Vulkan SDK
 
 ## Phase 3 — Rendering (Vulkan)
 - [x] Instance + validation layers (debug), debug messenger

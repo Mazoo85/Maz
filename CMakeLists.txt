@@ -25,6 +25,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(MAZ_WERROR "Treat warnings as errors" ON)
 option(MAZ_BUILD_TESTS "Build tests" ON)
+option(MAZ_CORE_ONLY "Build only the non-GPU core + unit tests (no Vulkan/SDL/sandbox)" OFF)
 
 # Shared warning flags applied to first-party targets only (not fetched deps).
 add_library(maz_warnings INTERFACE)
@@ -40,7 +41,9 @@ include(Dependencies)
 include(CompileShaders)
 
 add_subdirectory(engine)
-add_subdirectory(apps/sandbox)
+if(NOT MAZ_CORE_ONLY)
+    add_subdirectory(apps/sandbox)
+endif()
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
