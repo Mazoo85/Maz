@@ -21,18 +21,19 @@ public:
     // beside the executable. Returns false (and logs) on failure.
     bool init(VulkanContext& ctx, VkRenderPass renderPass);
 
-    // Upload a model's geometry to GPU buffers, replacing any previously uploaded model.
-    bool uploadModel(VulkanContext& ctx, const assets::Model& model);
+    // Upload a model's geometry to GPU buffers. Returns a handle (>= 0) used with draw(), or -1 on
+    // failure. Multiple models can be uploaded; a scene draws each entity by its model's handle.
+    int uploadModel(VulkanContext& ctx, const assets::Model& model);
 
-    // Record draw commands into `cmd` (must be inside a compatible render pass). `mvp` is the full
-    // model-view-projection; `model` is the model matrix alone (for transforming normals).
-    void draw(VkCommandBuffer cmd, const math::mat4& mvp, const math::mat4& model,
+    // Record draw commands for the model `handle` into `cmd` (must be inside a compatible render
+    // pass). `mvp` is the full model-view-projection; `model` is the model matrix alone (normals).
+    void draw(VkCommandBuffer cmd, int handle, const math::mat4& mvp, const math::mat4& model,
               VkExtent2D extent) const;
 
     void destroy(VulkanContext& ctx);
 
     bool ready() const { return m_pipeline != VK_NULL_HANDLE; }
-    bool hasMesh() const { return !m_meshes.empty(); }
+    bool hasModels() const { return !m_models.empty(); }
 
 private:
     struct GpuMesh {
@@ -42,12 +43,13 @@ private:
         VkDeviceMemory indexMemory = VK_NULL_HANDLE;
         uint32_t indexCount = 0;
     };
+    using GpuModel = std::vector<GpuMesh>; // one model = its list of mesh primitives
 
-    void destroyMeshes(VulkanContext& ctx);
+    void destroyModels(VulkanContext& ctx);
 
     VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
-    std::vector<GpuMesh> m_meshes;
+    std::vector<GpuModel> m_models;
 };
 
 } // namespace maz::render

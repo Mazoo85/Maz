@@ -42,13 +42,22 @@ public:
     virtual void setClearColor(const Color& color) = 0;
     virtual void endFrame() = 0;
 
-    // Upload a model for drawing, replacing any previous one. Returns false if the renderer is
-    // inactive (headless/no-GPU) or the upload failed, in which case drawModel() is a no-op.
-    virtual bool uploadModel(const assets::Model& model) = 0;
+    // Upload a model for drawing. Returns a handle (>= 0) for drawModel(), or -1 if the renderer
+    // is inactive (headless/no-GPU) or the upload failed. Multiple models may be uploaded.
+    virtual int uploadModel(const assets::Model& model) = 0;
 
-    // Draw the uploaded model. Call between beginFrame() and endFrame(). `mvp` is the full
-    // model-view-projection matrix; `model` is the model matrix alone (used for normals).
-    virtual void drawModel(const math::mat4& mvp, const math::mat4& model) = 0;
+    // Draw a previously uploaded model. Call between beginFrame() and endFrame(). `mvp` is the full
+    // model-view-projection; `model` is the model matrix alone (used for normals). No-op if the
+    // handle is invalid or the renderer is inactive.
+    virtual void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) = 0;
+
+    // --- Editor UI (Dear ImGui) overlay -------------------------------------------
+    // Optional: bring up an ImGui overlay drawn on top of the scene each frame. Base class is a
+    // no-op so the sandbox and headless runs ignore it. Returns false if unavailable (headless).
+    virtual bool initGui(platform::Window& window) { return false; }
+    // Begin an ImGui frame. Call once per rendered frame before issuing ImGui:: UI calls; the
+    // overlay is recorded automatically inside the render pass on endFrame().
+    virtual void guiNewFrame() {}
 
     // True when a real GPU + presentable surface are backing this renderer.
     virtual bool isActive() const = 0;

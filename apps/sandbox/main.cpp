@@ -5,11 +5,14 @@
 #include "maz/Engine.hpp"
 #include "maz/assets/Model.hpp"
 #include "maz/scene/Camera.hpp"
+#include "maz/scene/Scene.hpp"
 
 #include <SDL3/SDL_scancode.h>
 
 #include <cmath>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 using namespace maz;
 
@@ -17,23 +20,23 @@ int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
     MAZ_LOG_INFO("Maz Engine sandbox starting (headless=%d, frames=%d)", cfg.headless, cfg.frames);
 
-    // Blender pipeline: load a glTF/GLB exported from Blender. On a real GPU it's drawn below as
-    // a spinning, lit mesh; headless (CI/tests) we just report it. See docs/BLENDER_PIPELINE.md.
-    assets::Model model;
-    bool haveModel = false;
-    if (cfg.modelPath != nullptr) {
+    // Decide what to render. --scene loads a full scene (many entities); --load-model wraps a
+    // single glTF/GLB in a one-entity scene and spins it. Neither → the plain clear loop.
+    scene::Scene scn;
+    const bool spinSingle = (cfg.scenePath == nullptr && cfg.modelPath != nullptr);
+    if (cfg.scenePath != nullptr) {
         std::string err;
-        if (!assets::loadModel(cfg.modelPath, model, &err)) {
-            MAZ_LOG_ERROR("failed to load model '%s': %s", cfg.modelPath, err.c_str());
+        if (!scene::loadScene(cfg.scenePath, scn, &err)) {
+            MAZ_LOG_ERROR("failed to load scene '%s': %s", cfg.scenePath, err.c_str());
             return 1;
         }
-        haveModel = true;
-        MAZ_LOG_INFO("loaded model '%s': %zu mesh(es), %zu verts, %zu tris; bounds "
-                     "min=(%.3f, %.3f, %.3f) max=(%.3f, %.3f, %.3f)",
-                     cfg.modelPath, model.meshes.size(), model.vertexCount(),
-                     model.triangleCount(), model.bounds.min[0], model.bounds.min[1],
-                     model.bounds.min[2], model.bounds.max[0], model.bounds.max[1],
-                     model.bounds.max[2]);
+        MAZ_LOG_INFO("loaded scene '%s' (\"%s\"): %zu entities", cfg.scenePath, scn.name.c_str(),
+                     scn.entities.size());
+    } else if (cfg.modelPath != nullptr) {
+        scene::Entity e;
+        e.name = "model";
+        e.modelPath = cfg.modelPath;
+        scn.entities.push_back(e);
     }
 
     platform::Window window;
@@ -59,14 +62,38 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Hand the loaded model to the GPU. Returns false headless / with no mesh pipeline, in which
-    // case drawModel() below simply no-ops and we still run the clear loop.
-    const bool drawMesh = haveModel && renderer->uploadModel(model);
+    // Upload each unique model the scene references to the GPU, once, and remember its handle.
+    // Uploads return -1 when headless/no-GPU, so drawing simply no-ops there (CI/tests still run).
+    struct RenderItem {
+        int handle = -1;
+        scene::Transform transform;
+    };
+    std::vector<RenderItem> items;
+    std::unordered_map<std::string, int> handleByPath;
+    for (const scene::Entity& e : scn.entities) {
+        if (e.modelPath.empty()) {
+            continue;
+        }
+        auto found = handleByPath.find(e.modelPath);
+        int handle = -1;
+        if (found != handleByPath.end()) {
+            handle = found->second;
+        } else {
+            assets::Model model;
+            std::string err;
+            if (assets::loadModel(e.modelPath, model, &err)) {
+                handle = renderer->uploadModel(model);
+                MAZ_LOG_INFO("model '%s': %zu verts, %zu tris (handle %d)", e.modelPath.c_str(),
+                             model.vertexCount(), model.triangleCount(), handle);
+            } else {
+                MAZ_LOG_ERROR("scene references model '%s': %s", e.modelPath.c_str(), err.c_str());
+            }
+            handleByPath[e.modelPath] = handle;
+        }
+        items.push_back({handle, e.transform});
+    }
 
-    // Camera looking at the origin from slightly above and back.
     scene::Camera camera;
-    camera.setPosition({0.0f, 1.4f, 3.0f});
-    camera.setTarget({0.0f, 0.0f, 0.0f});
 
     platform::Input input;
     core::Clock clock(1.0 / 60.0);
@@ -99,11 +126,17 @@ int main(int argc, char** argv) {
         window.drawableSize(dw, dh);
         const float aspect = dh > 0 ? static_cast<float>(dw) / static_cast<float>(dh) : 1.0f;
         camera.setPerspective(glm::radians(60.0f), aspect, 0.1f, 100.0f);
+        camera.setTarget({0.0f, 0.0f, 0.0f});
+        if (spinSingle) {
+            camera.setPosition({0.0f, 1.4f, 3.0f}); // fixed view; the single model spins
+        } else {
+            const float a = hue * 0.25f;            // slowly orbit the scene
+            camera.setPosition({std::sin(a) * 6.0f, 3.0f, std::cos(a) * 6.0f});
+        }
 
-        // Spin the model about a tilted axis.
-        const math::mat4 modelMatrix =
+        // A tilted spin applied only in single-model mode.
+        const math::mat4 spinMatrix =
             glm::rotate(math::mat4(1.0f), spin, math::normalize(math::vec3(0.3f, 1.0f, 0.15f)));
-        const math::mat4 mvp = camera.viewProjection() * modelMatrix;
 
         render::Color clear;
         clear.r = 0.5f + 0.5f * std::sin(hue);
@@ -111,8 +144,13 @@ int main(int argc, char** argv) {
         clear.b = 0.5f + 0.5f * std::sin(hue + 4.188f); // +240 deg
         renderer->setClearColor(clear);
         if (renderer->beginFrame()) {
-            if (drawMesh) {
-                renderer->drawModel(mvp, modelMatrix);
+            for (const RenderItem& item : items) {
+                math::mat4 modelMatrix = item.transform.matrix();
+                if (spinSingle) {
+                    modelMatrix = spinMatrix * modelMatrix;
+                }
+                const math::mat4 mvp = camera.viewProjection() * modelMatrix;
+                renderer->drawModel(item.handle, mvp, modelMatrix);
             }
             renderer->endFrame();
         }

@@ -248,8 +248,8 @@ bool MeshRenderer::init(VulkanContext& ctx, VkRenderPass renderPass) {
     return true;
 }
 
-bool MeshRenderer::uploadModel(VulkanContext& ctx, const assets::Model& model) {
-    destroyMeshes(ctx);
+int MeshRenderer::uploadModel(VulkanContext& ctx, const assets::Model& model) {
+    GpuModel gpuModel;
     for (const assets::Mesh& mesh : model.meshes) {
         if (mesh.vertices.empty() || mesh.indices.empty()) {
             continue;
@@ -261,18 +261,25 @@ bool MeshRenderer::uploadModel(VulkanContext& ctx, const assets::Model& model) {
                                 gpu.vertexBuffer, gpu.vertexMemory) ||
             !createFilledBuffer(ctx, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mesh.indices.data(), ibytes,
                                 gpu.indexBuffer, gpu.indexMemory)) {
-            return false;
+            return -1;
         }
         gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
-        m_meshes.push_back(gpu);
+        gpuModel.push_back(gpu);
     }
-    MAZ_LOG_INFO("mesh renderer uploaded %zu mesh(es)", m_meshes.size());
-    return !m_meshes.empty();
+    if (gpuModel.empty()) {
+        return -1;
+    }
+    m_models.push_back(std::move(gpuModel));
+    const int handle = static_cast<int>(m_models.size()) - 1;
+    MAZ_LOG_INFO("mesh renderer uploaded model handle %d (%zu mesh(es))", handle,
+                 m_models[static_cast<size_t>(handle)].size());
+    return handle;
 }
 
-void MeshRenderer::draw(VkCommandBuffer cmd, const math::mat4& mvp, const math::mat4& model,
-                        VkExtent2D extent) const {
-    if (m_pipeline == VK_NULL_HANDLE || m_meshes.empty()) {
+void MeshRenderer::draw(VkCommandBuffer cmd, int handle, const math::mat4& mvp,
+                        const math::mat4& model, VkExtent2D extent) const {
+    if (m_pipeline == VK_NULL_HANDLE || handle < 0 ||
+        static_cast<size_t>(handle) >= m_models.size()) {
         return;
     }
 
@@ -297,7 +304,7 @@ void MeshRenderer::draw(VkCommandBuffer cmd, const math::mat4& mvp, const math::
     push.model = model;
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPush), &push);
 
-    for (const GpuMesh& gpu : m_meshes) {
+    for (const GpuMesh& gpu : m_models[static_cast<size_t>(handle)]) {
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &gpu.vertexBuffer, &offset);
         vkCmdBindIndexBuffer(cmd, gpu.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -305,19 +312,21 @@ void MeshRenderer::draw(VkCommandBuffer cmd, const math::mat4& mvp, const math::
     }
 }
 
-void MeshRenderer::destroyMeshes(VulkanContext& ctx) {
+void MeshRenderer::destroyModels(VulkanContext& ctx) {
     VkDevice device = ctx.device();
-    for (GpuMesh& gpu : m_meshes) {
-        if (gpu.vertexBuffer) vkDestroyBuffer(device, gpu.vertexBuffer, nullptr);
-        if (gpu.vertexMemory) vkFreeMemory(device, gpu.vertexMemory, nullptr);
-        if (gpu.indexBuffer) vkDestroyBuffer(device, gpu.indexBuffer, nullptr);
-        if (gpu.indexMemory) vkFreeMemory(device, gpu.indexMemory, nullptr);
+    for (GpuModel& gpuModel : m_models) {
+        for (GpuMesh& gpu : gpuModel) {
+            if (gpu.vertexBuffer) vkDestroyBuffer(device, gpu.vertexBuffer, nullptr);
+            if (gpu.vertexMemory) vkFreeMemory(device, gpu.vertexMemory, nullptr);
+            if (gpu.indexBuffer) vkDestroyBuffer(device, gpu.indexBuffer, nullptr);
+            if (gpu.indexMemory) vkFreeMemory(device, gpu.indexMemory, nullptr);
+        }
     }
-    m_meshes.clear();
+    m_models.clear();
 }
 
 void MeshRenderer::destroy(VulkanContext& ctx) {
-    destroyMeshes(ctx);
+    destroyModels(ctx);
     if (m_pipeline) {
         vkDestroyPipeline(ctx.device(), m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;

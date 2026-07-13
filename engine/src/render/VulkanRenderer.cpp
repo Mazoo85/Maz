@@ -6,6 +6,23 @@
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
+// Dear ImGui headers contain inline code that trips the engine's strict warning flags
+// (-Wconversion etc.); silence those diagnostics just for these third-party includes.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_vulkan.h"
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -28,8 +45,10 @@ public:
     bool beginFrame() override;
     void setClearColor(const Color& color) override { m_clearColor = color; }
     void endFrame() override;
-    bool uploadModel(const assets::Model& model) override;
-    void drawModel(const math::mat4& mvp, const math::mat4& model) override;
+    int uploadModel(const assets::Model& model) override;
+    void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) override;
+    bool initGui(platform::Window& window) override;
+    void guiNewFrame() override;
     bool isActive() const override { return m_active; }
 
 private:
@@ -54,6 +73,7 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_imageIndex = 0;
     bool m_active = false;
+    bool m_guiReady = false;
 };
 
 bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
@@ -98,18 +118,68 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     return true;
 }
 
-bool VulkanRenderer::uploadModel(const assets::Model& model) {
+int VulkanRenderer::uploadModel(const assets::Model& model) {
     if (!m_active || !m_mesh.ready()) {
-        return false;
+        return -1;
     }
     return m_mesh.uploadModel(m_ctx, model);
 }
 
-void VulkanRenderer::drawModel(const math::mat4& mvp, const math::mat4& model) {
-    if (!m_active || !m_mesh.hasMesh()) {
+void VulkanRenderer::drawModel(int handle, const math::mat4& mvp, const math::mat4& model) {
+    if (!m_active || !m_mesh.hasModels()) {
         return;
     }
-    m_mesh.draw(m_commandBuffers[m_currentFrame], mvp, model, m_swapchain.extent());
+    m_mesh.draw(m_commandBuffers[m_currentFrame], handle, mvp, model, m_swapchain.extent());
+}
+
+bool VulkanRenderer::initGui(platform::Window& window) {
+    if (!m_active) {
+        return false; // no render pass to draw the UI into
+    }
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // dockable editor panels
+    io.IniFilename = nullptr;                          // don't write imgui.ini in the cwd
+    ImGui::StyleColorsDark();
+
+    if (!ImGui_ImplSDL3_InitForVulkan(window.sdl())) {
+        MAZ_LOG_ERROR("ImGui_ImplSDL3_InitForVulkan failed");
+        ImGui::DestroyContext();
+        return false;
+    }
+
+    ImGui_ImplVulkan_InitInfo init{};
+    init.Instance = m_ctx.instance();
+    init.PhysicalDevice = m_ctx.physicalDevice();
+    init.Device = m_ctx.device();
+    init.QueueFamily = m_ctx.graphicsFamily();
+    init.Queue = m_ctx.graphicsQueue();
+    init.DescriptorPool = VK_NULL_HANDLE; // let the backend own an internal pool
+    init.DescriptorPoolSize = 16;
+    init.RenderPass = m_swapchain.renderPass();
+    init.MinImageCount = 2;
+    init.ImageCount = m_swapchain.imageCount();
+    init.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    if (!ImGui_ImplVulkan_Init(&init)) {
+        MAZ_LOG_ERROR("ImGui_ImplVulkan_Init failed");
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+        return false;
+    }
+
+    m_guiReady = true;
+    MAZ_LOG_INFO("editor UI (ImGui) initialized");
+    return true;
+}
+
+void VulkanRenderer::guiNewFrame() {
+    if (!m_guiReady) {
+        return;
+    }
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
 }
 
 bool VulkanRenderer::createCommands() {
@@ -228,6 +298,15 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+
+    // Record the ImGui overlay on top of the scene, still inside the render pass.
+    if (m_guiReady) {
+        ImGui::Render();
+        if (ImDrawData* drawData = ImGui::GetDrawData()) {
+            ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
+        }
+    }
+
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
 
@@ -282,6 +361,12 @@ void VulkanRenderer::destroySync() {
 void VulkanRenderer::shutdown() {
     if (m_ctx.valid()) {
         vkDeviceWaitIdle(m_ctx.device());
+    }
+    if (m_guiReady) {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+        m_guiReady = false;
     }
     if (m_active) {
         m_mesh.destroy(m_ctx);

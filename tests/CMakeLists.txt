@@ -26,3 +26,30 @@ target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
 
 add_test(NAME unit_camera COMMAND maz_unit_tests)
 set_tests_properties(unit_camera PROPERTIES TIMEOUT 30)
+
+# Unit tests: scene model + .mazscene save/load round-trip.
+add_executable(maz_scene_tests unit_scene.cpp)
+target_link_libraries(maz_scene_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_scene COMMAND maz_scene_tests)
+set_tests_properties(unit_scene PROPERTIES TIMEOUT 30)
+
+# Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
+# end to end (draws no-op with no GPU).
+add_test(
+    NAME scene_load_headless
+    COMMAND sandbox --headless --frames 1 --scene ${CMAKE_SOURCE_DIR}/assets/scenes/demo.mazscene)
+set_tests_properties(scene_load_headless PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "loaded scene")
+
+# Editor: start headless, load a scene, run a few frames, exit cleanly. Verifies the editor app +
+# ImGui integration link and boot (the UI itself needs a GPU and is not exercised here).
+add_test(
+    NAME editor_headless_smoke
+    COMMAND editor --headless --frames 3 --scene ${CMAKE_SOURCE_DIR}/assets/scenes/demo.mazscene)
+set_tests_properties(editor_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "Maz Editor shutting down")
