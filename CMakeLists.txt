@@ -168,6 +168,7 @@ add_subdirectory(apps/forcefield)
 add_subdirectory(apps/atlas)
 add_subdirectory(apps/shapecast)
 add_subdirectory(apps/xml)
+add_subdirectory(apps/normals)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

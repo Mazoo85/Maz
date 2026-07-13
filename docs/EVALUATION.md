@@ -2927,6 +2927,49 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 136 — "Benchmarking against Godot: smooth normal/tangent generation" (done)
+Rotating to **3D rendering / mesh tooling** for breadth (the last five rounds were IO, 2D-physics,
+resources/render tooling, particles, and core-scripting). Re-surveying the 3D path: Maz has textured/lit
+meshes with point/spot lights, shadow maps, MSAA, bloom, fog, normal mapping, frustum culling,
+instancing, glTF model/scene loading, and procedural primitives that bake their own normals — but had
+**no way to (re)generate per-vertex normals or tangents for arbitrary geometry**. A procedurally built
+heightfield, a decimated hull, or a glTF that shipped without a NORMAL/TANGENT stream would light
+flat/black. Godot exposes exactly this as `SurfaceTool.generate_normals()` / `generate_tangents()`. It is
+pure vector math, so it unit-tests exactly (a flat mesh yields the plane normal; a symmetric ridge yields
+the averaged up-normal) and drives a deterministic golden.
+
+Ranked closable gaps considered this round (3D-weighted): **(1) smooth normal + tangent generation —
+chosen**, the missing fundamental behind lighting any raw mesh; (2) a `math::Frustum` + AABB cull test as
+a reusable primitive (the mesh path culls inline but exposes no standalone helper); (3) mesh LOD
+selection by screen-space error; (4) a vertex weld/dedup + hard-edge split `SurfaceTool`; (5) a
+tri-planar / box-UV unwrap helper. (2)–(5) remain follow-ups; a full GI/lightmapper stays structurally
+out of scope for a headless sandbox.
+
+- [x] **M175 — smooth normal + tangent generation (`render::computeNormals` / `computeTangents`)**: a new
+  `MeshTools.hpp`. `computeNormals(positions, indices)` returns one unit normal per vertex by
+  **area-weighted** face accumulation — each triangle adds its un-normalized cross product (magnitude =
+  2×area) to its three vertices, then each is normalized — matching SurfaceTool's default and giving
+  smooth results on curved meshes (degenerate triangles and unreferenced vertices contribute nothing /
+  stay zero). `computeTangents(positions, normals, uvs, indices)` uses **Lengyel's method**: accumulate
+  per-triangle tangent/bitangent from the UV gradient, then Gram-Schmidt-orthonormalize against the
+  normal and store handedness in `.w` (so a shader rebuilds the bitangent as
+  `cross(n, t.xyz) * t.w`). `testMeshTools` pins a single-triangle plane normal, a flat quad (all +Z,
+  unit), a symmetric two-slope **ridge** (shared ridge vertices average to straight-up, feet keep their
+  slope tilt), an unreferenced vertex (zero normal), a UV-mapped quad's tangent (≈ +X, orthonormal,
+  handedness ±1), and a flipped-V quad (opposite `.w` sign). Unit checks **7787 → 7842**. The new
+  `normals` demo builds a procedural wavy heightfield grid from positions + indices only, runs
+  `computeNormals`, and draws — in a fixed deterministic 3D→2D projection — the wireframe plus a
+  direction-coloured "hair" along each vertex's generated normal, which fans smoothly with the surface
+  curvature. 2D golden (threshold 0.05, `normals` RMSE 0). Purely additive, so every existing golden is
+  byte-unchanged; ctest **130/130 → 131/131**. Honest scope: this smooths across every face sharing a
+  vertex index — it does not split vertices on hard edges/UV seams, weld by threshold, or triangulate
+  polygons; a full dedup/seam-aware `SurfaceTool` remains a follow-up.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 135 — "Benchmarking against Godot: XML pull parser" (done)
 Rotating to **IO / serialization** for breadth (the last five rounds were 2D-physics, resources/render
 tooling, particles, core-scripting, and navigation). Re-surveying the IO stack: Maz reads/writes JSON

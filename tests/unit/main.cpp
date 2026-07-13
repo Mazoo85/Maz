@@ -108,6 +108,7 @@
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
+#include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/Shapes3D.hpp"
@@ -6013,6 +6014,105 @@ void testPolyline() {
     }
 }
 
+void testMeshTools() {
+    using math::vec2;
+    using math::vec3;
+    using math::vec4;
+    using render::computeNormals;
+    using render::computeTangents;
+
+    // A single CCW triangle in the XY plane: all three vertices get the +Z plane normal.
+    {
+        const std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0)};
+        const std::vector<std::uint32_t> idx = {0, 1, 2};
+        const std::vector<vec3> nrm = computeNormals(pos, idx);
+        CHECK(nrm.size() == 3);
+        for (const vec3& v : nrm) {
+            CHECK_NEAR(v.x, 0.0f, 1e-5f);
+            CHECK_NEAR(v.y, 0.0f, 1e-5f);
+            CHECK_NEAR(v.z, 1.0f, 1e-5f);
+        }
+    }
+
+    // A flat quad (two triangles, four shared vertices) in the XY plane: every normal is +Z and unit.
+    {
+        const std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)};
+        const std::vector<std::uint32_t> idx = {0, 1, 2, 0, 2, 3};
+        const std::vector<vec3> nrm = computeNormals(pos, idx);
+        for (const vec3& v : nrm) {
+            CHECK_NEAR(v.z, 1.0f, 1e-5f);
+            CHECK_NEAR(std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z), 1.0f, 1e-5f);
+        }
+    }
+
+    // A symmetric "roof": two triangular slopes sharing one ridge edge. Each ridge vertex touches exactly
+    // one left and one right face, so by mirror symmetry its averaged normal points straight up (+Z) with
+    // no X tilt, while a foot vertex keeps its single slope's tilt.
+    {
+        const std::vector<vec3> pos = {
+            vec3(-1, 0.5f, 0), // 0 left foot
+            vec3(0, 0, 1),     // 1 ridge (far)
+            vec3(0, 1, 1),     // 2 ridge (near)
+            vec3(1, 0.5f, 0),  // 3 right foot
+        };
+        const std::vector<std::uint32_t> idx = {
+            0, 1, 2, // left slope (leans -X, faces up)
+            3, 2, 1, // right slope (leans +X, faces up)
+        };
+        const std::vector<vec3> nrm = computeNormals(pos, idx);
+        for (std::uint32_t ri : {1u, 2u}) {
+            const vec3& v = nrm[ri];
+            CHECK_NEAR(v.x, 0.0f, 1e-5f); // symmetric slopes cancel the X tilt
+            CHECK(v.z > 0.9f);            // points mostly up
+            CHECK_NEAR(std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z), 1.0f, 1e-5f);
+        }
+        CHECK(nrm[0].x < 0.0f); // left foot keeps the left slope's -X tilt
+        CHECK(nrm[3].x > 0.0f); // right foot keeps the right slope's +X tilt
+    }
+
+    // A vertex touched by no triangle gets a zero normal (nothing to average).
+    {
+        const std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(5, 5, 5)};
+        const std::vector<std::uint32_t> idx = {0, 1, 2};
+        const std::vector<vec3> nrm = computeNormals(pos, idx);
+        CHECK_NEAR(nrm[3].x, 0.0f, 1e-6f);
+        CHECK_NEAR(nrm[3].y, 0.0f, 1e-6f);
+        CHECK_NEAR(nrm[3].z, 0.0f, 1e-6f);
+    }
+
+    // Tangents on a UV-mapped quad in the XY plane: U runs along +X, V along +Y, normal +Z.
+    // Expect tangent ~ +X, orthogonal to the normal, unit length, right-handed.
+    {
+        const std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)};
+        const std::vector<vec3> nrm = {vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1)};
+        const std::vector<vec2> uv = {vec2(0, 0), vec2(1, 0), vec2(1, 1), vec2(0, 1)};
+        const std::vector<std::uint32_t> idx = {0, 1, 2, 0, 2, 3};
+        const std::vector<vec4> tan = computeTangents(pos, nrm, uv, idx);
+        CHECK(tan.size() == 4);
+        for (const vec4& t : tan) {
+            CHECK_NEAR(t.x, 1.0f, 1e-4f);
+            CHECK_NEAR(t.y, 0.0f, 1e-4f);
+            CHECK_NEAR(t.z, 0.0f, 1e-4f);
+            // Orthogonal to the +Z normal and unit length in xyz.
+            CHECK_NEAR(t.z, 0.0f, 1e-4f);
+            CHECK_NEAR(std::sqrt(t.x * t.x + t.y * t.y + t.z * t.z), 1.0f, 1e-4f);
+            CHECK(std::fabs(t.w) == 1.0f);
+        }
+    }
+
+    // Flipped V (U along +X, V along -Y) flips the handedness sign in .w.
+    {
+        const std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)};
+        const std::vector<vec3> nrm = {vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1)};
+        const std::vector<vec2> uvA = {vec2(0, 0), vec2(1, 0), vec2(1, 1), vec2(0, 1)};
+        const std::vector<vec2> uvB = {vec2(0, 1), vec2(1, 1), vec2(1, 0), vec2(0, 0)}; // V flipped
+        const std::vector<std::uint32_t> idx = {0, 1, 2, 0, 2, 3};
+        const vec4 a = computeTangents(pos, nrm, uvA, idx)[0];
+        const vec4 b = computeTangents(pos, nrm, uvB, idx)[0];
+        CHECK(a.w * b.w < 0.0f); // opposite handedness
+    }
+}
+
 void testTriangulate() {
     using math::vec2;
     using render::polygonArea;
@@ -10683,6 +10783,7 @@ int main() {
     testBillboard();
     testCamera3D();
     testShapes3D();
+    testMeshTools();
     testPolyline();
     testTriangulate();
     testAnalog();

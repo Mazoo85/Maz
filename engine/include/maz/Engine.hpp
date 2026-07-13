@@ -106,6 +106,7 @@
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
+#include "maz/render/MeshTools.hpp"
 #include "maz/render/Model.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/PolyTriangulate.hpp"

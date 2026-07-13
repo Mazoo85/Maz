@@ -152,6 +152,7 @@ CASES=(
     "atlas||2.0|0.05"
     "shapecast||2.0|0.05"
     "xml||2.0|0.05"
+    "normals||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then
