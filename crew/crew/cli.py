@@ -234,6 +234,25 @@ def config() -> None:
 
 
 @app.command()
+def runs() -> None:
+    """List saved run transcripts for this directory (most recent first)."""
+    from .transcript import list_runs
+
+    runs_dir = load_config().state_dir() / "runs"
+    entries = list_runs(runs_dir)
+    if not entries:
+        console.print("No saved runs in this directory yet.")
+        return
+    table = Table(title="Saved runs")
+    table.add_column("#", style="dim")
+    table.add_column("Task")
+    table.add_column("Transcript")
+    for i, (path, task) in enumerate(entries, 1):
+        table.add_row(str(i), task, str(path))
+    console.print(table)
+
+
+@app.command()
 def agents() -> None:
     """List the crew members and the tools each one is allowed to use."""
     # Static description so this works without the SDK installed.

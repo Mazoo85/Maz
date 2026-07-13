@@ -32,3 +32,26 @@ def write_transcript(runs_dir: Path, name: str, content: str) -> Path:
     path = runs_dir / f"{_safe_name(name)}.md"
     path.write_text(content)
     return path
+
+
+_TASK_PREFIX = "**Task:**"
+
+
+def parse_task(path: Path) -> str:
+    """Recover the task line from a transcript, or a placeholder if unreadable."""
+    try:
+        for line in path.read_text().splitlines():
+            if line.startswith(_TASK_PREFIX):
+                return line[len(_TASK_PREFIX):].strip()
+    except OSError:
+        pass
+    return "(unknown)"
+
+
+def list_runs(runs_dir: Path) -> list[tuple[Path, str]]:
+    """List saved transcripts as (path, task), most recently modified first."""
+    if not runs_dir.exists():
+        return []
+    files = [p for p in runs_dir.glob("*.md") if p.is_file()]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return [(p, parse_task(p)) for p in files]
