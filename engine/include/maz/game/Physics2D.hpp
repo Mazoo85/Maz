@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/game/CollisionLayers.hpp"
 #include "maz/math/Math.hpp"
 
 #include <algorithm>
@@ -50,6 +51,14 @@ struct Body2D {
     // legacy solvers, so default behaviour is unchanged.
     float sleepTimer = 0.0f;
     bool sleeping = false;
+
+    // --- Collision filtering (Godot collision_layer / collision_mask) ------------------------------
+    // `collisionLayer` = which layers this body lives in ("what I am"); `collisionMask` = which layers
+    // it reacts to ("what I hit"). Two bodies are pair-tested only if either scans the other's layer
+    // (game::interact). Both default to every bit set, i.e. collide-with-everything, so a body that
+    // never touches these fields behaves exactly as before.
+    LayerMask collisionLayer = ~0u;
+    LayerMask collisionMask = ~0u;
 
     // Derive the inverse moment of inertia from the shape + mass so the body can rotate. A solid box of
     // mass m and size w×h has I = m(w²+h²)/12; a disc has I = ½mr². Static bodies (invMass 0) stay locked.
@@ -1159,6 +1168,11 @@ private:
         std::vector<detail::ContactConstraint> contacts;
         for (const std::pair<int, int>& pr : collectPairs()) {
             const size_t i = static_cast<size_t>(pr.first), j = static_cast<size_t>(pr.second);
+            // Layer/mask filtering: skip pairs that should never interact (Godot collision_layer/mask).
+            if (!game::interact(bodies[i].collisionLayer, bodies[i].collisionMask,
+                                bodies[j].collisionLayer, bodies[j].collisionMask)) {
+                continue;
+            }
             detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
             if (m.hit) {
                 contacts.push_back(detail::buildConstraint(pr.first, bodies[i], pr.second, bodies[j], m,

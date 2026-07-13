@@ -9442,6 +9442,55 @@ void testSleeping() {
     }
 }
 
+// P4: collision layer/mask filtering. Two bodies whose layers/masks don't interact must pass straight
+// through each other; the same bodies with interacting masks must collide. Mirrors Godot
+// collision_layer / collision_mask.
+void testCollisionFiltering() {
+    using game::Body2D;
+    using game::layerBit;
+
+    auto run = [](bool filterApart) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 0.0f);
+        w.warmStarting = true;
+        Body2D wall;
+        wall.shape = Body2D::Box;
+        wall.half = math::vec2(10.0f, 100.0f);
+        wall.pos = math::vec2(0.0f, 0.0f);
+        wall.invMass = 0.0f;
+        wall.restitution = 0.0f;
+        if (filterApart) {
+            wall.collisionLayer = layerBit(1); // wall lives on layer 2
+            wall.collisionMask = layerBit(1);  // and only reacts to layer 2
+        }
+        w.add(wall);
+        Body2D mover;
+        mover.shape = Body2D::Circle;
+        mover.radius = 8.0f;
+        mover.pos = math::vec2(-80.0f, 0.0f);
+        mover.vel = math::vec2(120.0f, 0.0f); // heading right, into the wall
+        mover.invMass = 1.0f;
+        mover.restitution = 0.0f;
+        if (filterApart) {
+            mover.collisionLayer = layerBit(0); // mover on layer 1
+            mover.collisionMask = layerBit(0);  // reacts only to layer 1 -> ignores the wall
+        }
+        w.add(mover);
+        for (int s = 0; s < 120; ++s) {
+            w.step(1.0f / 60.0f, 6);
+        }
+        return w.bodies[1].pos.x;
+    };
+
+    // Default (all bits): the mover is stopped by the wall well before crossing it.
+    const float stoppedX = run(false);
+    CHECK(stoppedX < -8.0f); // parked at the wall's left face (x=-10) plus radius
+
+    // Filtered apart: the mover ignores the wall and sails right past x=0.
+    const float passedX = run(true);
+    CHECK(passedX > 40.0f);
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -11866,6 +11915,7 @@ int main() {
     testWarmStartSolver();
     testBroadphase();
     testSleeping();
+    testCollisionFiltering();
     testNormalLight();
     testParallax();
     testAudioDsp();

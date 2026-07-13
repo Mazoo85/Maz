@@ -165,6 +165,7 @@ CASES=(
     "solver||2.0|0.05"
     "manybody||2.5|0.06"
     "sleep||2.0|0.05"
+    "filter||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then
