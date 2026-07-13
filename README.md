@@ -847,6 +847,11 @@ available):
   intersection, closest point on a segment, point-in-polygon (concave-safe), and segment-vs-circle — the
   workhorse queries behind AI line-of-sight, mouse picking, and trigger zones. The new `geometry` demo shows a
   segment web with intersections, a point-in-polygon grid, and closest-point projections.
+- **M161** — **ItemList control** (`ui::ItemList`), toward Godot's `ItemList`: a scrollable box of selectable
+  rows with single (radio) or multi selection, disabled rows, fixed-row geometry (`itemRect`/`itemAtPoint`/
+  `ensureVisible`/`visibleRange`) and keyboard nav that skips disabled entries — the list behind file dialogs,
+  inventories, and level-select menus. The new `itemlist` demo draws a scrolled single-select saved-games list
+  with a scrollbar thumb and a multi-select loadout with checked rows.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

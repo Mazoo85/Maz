@@ -626,6 +626,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (scene dock / inspector / file browser); the `tree` demo shows a project file tree in a StyleBoxFlat
   panel with fold arrows + a selected-row highlight; M115) — scroll container / drag-reorder + a full
   per-control-class theme cascade later
+- [x] **ItemList control** (`ui::ItemList`: scrollable box of selectable rows — each row has text/id +
+  `selectable`/`disabled` flags; `Single` (radio) or `Multi` selection; fixed row height + separation +
+  clamped `scroll` give `itemRect(i)`, `itemAtPoint()` (rejecting separator gaps), `ensureVisible()`,
+  `visibleRange()`, and `selectNext`/`selectPrevious` keyboard nav that skips disabled rows — Godot's
+  ItemList (file lists / inventory / level-select); the `itemlist` demo draws a scrolled single-select
+  saved-games list with a scrollbar thumb + a multi-select loadout with checked rows; M161) — icon columns,
+  per-item widget colours, multi-column grid, and drag-reorder later
 - [x] **Range + ProgressBar** (`ui::Range`: the clamped/stepped scalar value model behind Godot's
   ProgressBar/HSlider/ScrollBar/SpinBox — min/max/step/page → a 0..1 `ratio`, `setRatio`/`step_` +
   allow-greater/lesser; `ui::ProgressBar` wraps it with `fillFraction`/`percent`; the `progress` demo draws

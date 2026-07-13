@@ -925,6 +925,14 @@ set_tests_properties(geometry_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME itemlist_headless_smoke
+    COMMAND itemlist --headless --frames 30)
+
+set_tests_properties(itemlist_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

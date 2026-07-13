@@ -120,6 +120,10 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
             Tree + TreeItem (hierarchical collapsible rows: heap-owned children + a collapsed flag,
               visibleRows() flattens expanded items depth-first into rows with depth + hasChildren), Godot
               Tree-control-style (scene dock / inspector / file browser),
+            ItemList (scrollable box of selectable rows: text/id + selectable/disabled flags, Single/Multi
+              select, fixed row height + separation + clamped scroll → itemRect/itemAtPoint (gap-aware) /
+              ensureVisible / visibleRange, selectNext/Previous keyboard nav skipping disabled), Godot
+              ItemList-style (file lists / inventory / level-select),
             parseBBCode + RichSpan (BBCode rich text → resolved styled runs: [b]/[i]/[u], [color=hex|name],
               [size=N], nested/lenient — unclosed-to-end, stray-close ignored, [lb]/[rb] literal, unknown-tag
               passthrough; stripBBCode → plain text; renderer-independent), Godot RichTextLabel-style,
@@ -393,6 +397,8 @@ apps/
               coloured by contact state (blue airborne / green on-floor / orange on-wall)
   geometry/  Geometry2D — three panels: a segment web with pairwise intersections, a concave polygon with an
               inside/outside test grid, and closest-point projections + a circle×segment test
+  itemlist/  ItemList — two lists in StyleBoxFlat panels: a scrolled single-select saved-games list (selected
+              row highlighted, disabled rows dimmed, scrollbar thumb) and a multi-select checked loadout (ui::ItemList)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

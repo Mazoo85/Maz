@@ -138,6 +138,7 @@ CASES=(
     "randomizer||2.0|0.07"
     "kinematic||2.0|0.06"
     "geometry||2.0|0.06"
+    "itemlist||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

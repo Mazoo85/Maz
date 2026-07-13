@@ -2927,6 +2927,37 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 122 — "Benchmarking against Godot: ItemList control" (done)
+Rotating to **UI / Control nodes** for breadth (recent rounds were math, 2D-physics, audio, input, 2D-render).
+Maz already had a broad Control set — `LayoutNode`/`Container` (anchors + auto-layout), `Range`/`ProgressBar`,
+`TextField`, `Tree`, `StyleBoxFlat`/`Theme`, rich text — but no **ItemList**, Godot's scrollable box of
+choosable rows. It backs Godot's FileDialog file list, the audio-bus and animation pickers, and countless game
+inventory / dialogue / level-select panels; the `Tree` control covers hierarchies but not the flat, fixed-row,
+single-or-multi-select list. Pure selection + geometry logic, so it unit-tests exactly and drives a UI golden.
+- [x] **M161 — ItemList control (`ui::ItemList`)**: a new `ItemList.hpp` holding rows (`text`, caller `id`,
+  `selectable`/`disabled` flags) with a `Single` (radio — selecting one clears the rest) or `Multi` (rows
+  toggle independently) selection mode, plus the fixed-row geometry a view needs: `rowStride`/`contentHeight`/
+  `maxScroll`, a clamped `scroll` offset, `itemRect(i)` for a row's pixel box, `itemAtPoint(px,py)` to hit-test
+  a click (rejecting the separator gaps and the area past the last row), `ensureVisible(i)` to scroll a row
+  into the box, and `visibleRange()` for the rows a renderer should draw. `selectNext`/`selectPrevious` walk
+  keyboard focus, skipping disabled / non-selectable rows and clamping (no wrap) at the ends. `testItemList`
+  pins the geometry against a hand-computed 100-px box (stride, content height, max-scroll, itemRect y, visible
+  range, hit-testing inside a row / outside the box / in a separator gap), the Single radio vs Multi accumulate
+  + toggle behaviour, disabled/non-selectable rejection and keyboard-nav hole-skipping, scroll clamping and
+  `ensureVisible`, and the empty-list edge (empty `visibleRange` with first > last). Unit checks **7056 → 7112**.
+  The new `itemlist` demo draws two lists in StyleBoxFlat panels — a single-select saved-games list scrolled so
+  the highlighted selection sits mid-box with two disabled (dimmed) rows and a scrollbar thumb sized to the
+  visible fraction, and a multi-select loadout list with three rows checked at once. UI golden (threshold 0.05,
+  `itemlist` RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden
+  run); ctest **116/116 → 117/117**. Honest scope: this is the core list model + geometry; it does **not** yet
+  include icon columns, per-item custom foreground/background colours in the widget, multi-column grid layout, or
+  drag-reorder — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 121 — "Benchmarking against Godot: 2D geometry helpers" (done)
 Rotating to **math** for breadth (recent rounds were 2D-physics, audio, input, 2D-render, animation, IO). The
 workhorse 2D computational-geometry queries — does this segment cross that one, what is the nearest point on

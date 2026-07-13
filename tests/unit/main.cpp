@@ -82,6 +82,7 @@
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/TextLayout.hpp"
 #include "maz/ui/Theme.hpp"
+#include "maz/ui/ItemList.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
@@ -2986,6 +2987,133 @@ void testTree() {
         ui::Tree empty;
         CHECK(empty.visibleRows().empty());
         CHECK(empty.visibleCount() == 0);
+    }
+}
+
+void testItemList() {
+    using ui::ItemList;
+    using ui::ItemSelectMode;
+
+    // A list with a fixed geometry we can reason about exactly.
+    ItemList list;
+    list.rect = ui::Rect{100.0f, 50.0f, 200.0f, 100.0f}; // 100px tall box
+    list.itemHeight = 20.0f;
+    list.separation = 0.0f;                              // stride 20 -> exactly 5 rows fit the box
+    for (int i = 0; i < 10; ++i) {
+        CHECK(list.addItem("row" + std::to_string(i), i) == static_cast<std::size_t>(i));
+    }
+    CHECK(list.count() == 10);
+    CHECK(list.item(3).id == 3);
+
+    // Geometry: stride, content height, max scroll.
+    CHECK_NEAR(list.rowStride(), 20.0f, 1e-4f);
+    CHECK_NEAR(list.contentHeight(), 200.0f, 1e-4f); // 10 * 20
+    CHECK_NEAR(list.maxScroll(), 100.0f, 1e-4f);     // 200 - 100
+
+    // itemRect at scroll 0: row 0 sits at the box top; row 3 is 60px down.
+    CHECK_NEAR(list.itemRect(0).y, 50.0f, 1e-4f);
+    CHECK_NEAR(list.itemRect(3).y, 110.0f, 1e-4f);
+    CHECK_NEAR(list.itemRect(0).h, 20.0f, 1e-4f);
+
+    // visibleRange at scroll 0: rows 0..5 intersect a 100px box (row 5 top at 100 == box bottom edge).
+    {
+        auto vr = list.visibleRange();
+        CHECK(vr.first == 0);
+        CHECK(vr.second == 5);
+    }
+
+    // Hit testing (scroll 0): a point inside row 2, a point outside the box, a point below the last row.
+    CHECK(list.itemAtPoint(150.0f, 95.0f) == 2);   // 95 - 50 = 45 -> row 2
+    CHECK(list.itemAtPoint(50.0f, 95.0f) == -1);   // left of the box
+    CHECK(list.itemAtPoint(150.0f, 40.0f) == -1);  // above the box
+
+    // Separator gap is dead space: give rows a gap and click into it.
+    {
+        ItemList g;
+        g.rect = ui::Rect{0.0f, 0.0f, 100.0f, 200.0f};
+        g.itemHeight = 20.0f;
+        g.separation = 10.0f; // stride 30; row 0 covers [0,20), gap [20,30)
+        g.addItem("a");
+        g.addItem("b");
+        CHECK(g.itemAtPoint(10.0f, 10.0f) == 0);  // inside row 0
+        CHECK(g.itemAtPoint(10.0f, 25.0f) == -1); // in the gap
+        CHECK(g.itemAtPoint(10.0f, 35.0f) == 1);  // inside row 1
+    }
+
+    // Single-select is a radio: selecting one clears the others; firstSelected tracks it.
+    list.selectMode = ItemSelectMode::Single;
+    list.select(2);
+    CHECK(list.isSelected(2));
+    CHECK(list.firstSelected() == 2);
+    CHECK(list.selectedItems().size() == 1);
+    list.select(5);
+    CHECK(!list.isSelected(2));
+    CHECK(list.isSelected(5));
+    CHECK(list.selectedItems().size() == 1);
+
+    // Multi-select accumulates; toggle removes.
+    list.selectMode = ItemSelectMode::Multi;
+    list.deselectAll();
+    list.select(1);
+    list.select(4);
+    list.select(7);
+    CHECK(list.selectedItems().size() == 3);
+    CHECK(list.firstSelected() == 1);
+    list.toggle(4); // remove
+    CHECK(!list.isSelected(4));
+    CHECK(list.selectedItems().size() == 2);
+    list.toggle(4); // add back
+    CHECK(list.isSelected(4));
+
+    // Disabled / non-selectable rows can't be selected and are skipped by keyboard nav.
+    {
+        ItemList k;
+        k.rect = ui::Rect{0.0f, 0.0f, 100.0f, 200.0f};
+        k.itemHeight = 20.0f;
+        k.separation = 0.0f;
+        k.selectMode = ItemSelectMode::Single;
+        for (int i = 0; i < 5; ++i) {
+            k.addItem("k" + std::to_string(i), i);
+        }
+        k.setDisabled(1, true);
+        k.setSelectable(2, false);
+        k.select(1); // disabled -> ignored
+        CHECK(k.firstSelected() == -1);
+
+        // selectNext from nothing lands on the first selectable row (0)...
+        CHECK(k.selectNext() == 0);
+        CHECK(k.isSelected(0));
+        // ...then skips the disabled (1) and non-selectable (2) rows to 3.
+        CHECK(k.selectNext() == 3);
+        CHECK(k.isSelected(3) && !k.isSelected(0));
+        CHECK(k.selectNext() == 4);
+        CHECK(k.selectNext() == 4); // clamped at the end (no wrap)
+        // Backwards skips the same holes down to 0.
+        CHECK(k.selectPrevious() == 3);
+        CHECK(k.selectPrevious() == 0);
+        CHECK(k.selectPrevious() == 0); // clamped at the start
+    }
+
+    // Scrolling: setScroll clamps to [0, maxScroll]; ensureVisible scrolls a row into the box.
+    list.setScroll(-40.0f);
+    CHECK_NEAR(list.scroll(), 0.0f, 1e-4f);
+    list.setScroll(1000.0f);
+    CHECK_NEAR(list.scroll(), list.maxScroll(), 1e-4f);
+    list.setScroll(0.0f);
+    list.ensureVisible(9);                       // last row: box shows [scroll, scroll+100]; row 9 top at 180
+    CHECK_NEAR(list.scroll(), 100.0f, 1e-4f);    // 180 + 20 - 100
+    list.ensureVisible(0);                       // scroll back up to the top
+    CHECK_NEAR(list.scroll(), 0.0f, 1e-4f);
+
+    // Empty list: benign geometry, empty visibleRange (first > last).
+    {
+        ItemList e;
+        CHECK(e.count() == 0);
+        CHECK_NEAR(e.contentHeight(), 0.0f, 1e-4f);
+        CHECK_NEAR(e.maxScroll(), 0.0f, 1e-4f);
+        CHECK(e.firstSelected() == -1);
+        auto vr = e.visibleRange();
+        CHECK(vr.first > vr.second);
     }
 }
 
@@ -9087,6 +9215,7 @@ int main() {
     testStyleBox();
     testTheme();
     testTree();
+    testItemList();
     testTextLayout();
     testRichText();
     testTextInput();
