@@ -9,9 +9,25 @@ exact model IDs (e.g. "claude-opus-4-8") if you want reproducibility.
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+# A committable project config file (JSON so it works on every supported Python
+# with no extra dependency). Lives at the project root next to where you run
+# `crew`, unlike the gitignored `.crew/` session state.
+CONFIG_FILENAME = "crew.json"
+
+# Fields a project config file is allowed to set.
+_FILE_FIELDS = (
+    "planner_model",
+    "coder_model",
+    "reviewer_model",
+    "tester_model",
+    "max_fix_rounds",
+    "max_turns",
+)
 
 # --- Model tiers -----------------------------------------------------------
 # Aliases are resolved by the SDK to the current model in each tier. Override
@@ -50,11 +66,43 @@ class CrewConfig:
         return (root or Path.cwd()) / self.state_dirname
 
 
-def load_config() -> CrewConfig:
-    """Build a config, honouring env overrides for the loop bounds."""
-    kwargs: dict = {}
+def _read_config_file(root: Path | None = None) -> dict:
+    """Read allowed fields from ``crew.json`` at ``root`` (cwd by default)."""
+    p = (root or Path.cwd()) / CONFIG_FILENAME
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text())
+    except (json.JSONDecodeError, ValueError, OSError):
+        # A broken config file should never crash the tool — ignore it.
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if k in _FILE_FIELDS and v is not None}
+
+
+def load_config(root: Path | None = None) -> CrewConfig:
+    """Build a config from defaults, then ``crew.json``, then env overrides.
+
+    Precedence (lowest to highest): dataclass defaults < ``crew.json`` < the
+    ``CREW_MAX_*`` env vars (so a committed file sets project defaults while env
+    vars stay handy for one-off runs).
+    """
+    kwargs: dict = _read_config_file(root)
+
     if v := os.environ.get("CREW_MAX_FIX_ROUNDS"):
-        kwargs["max_fix_rounds"] = int(v)
+        kwargs["max_fix_rounds"] = v
     if v := os.environ.get("CREW_MAX_TURNS"):
-        kwargs["max_turns"] = int(v)
+        kwargs["max_turns"] = v
+
+    # Coerce the numeric fields (JSON may already give ints; env gives strings).
+    for key in ("max_fix_rounds", "max_turns"):
+        if key in kwargs:
+            kwargs[key] = int(kwargs[key])
+
     return CrewConfig(**kwargs)
+
+
+def effective_values(config: CrewConfig) -> dict:
+    """The user-facing config fields, for display by `crew config`."""
+    return {f.name: getattr(config, f.name) for f in fields(config) if f.name in _FILE_FIELDS}

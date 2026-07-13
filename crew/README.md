@@ -73,6 +73,20 @@ Everything tunable lives in `crew/config.py`, overridable via env vars:
 | `CREW_MAX_FIX_ROUNDS`  | `3`      | Max coder↔tester repair rounds before stopping. |
 | `CREW_MAX_TURNS`       | `40`     | Max agent turns per phase. |
 
+For per-project settings you want to commit, drop a `crew.json` at the project root:
+
+```json
+{
+  "reviewer_model": "claude-opus-4-8",
+  "max_fix_rounds": 2,
+  "max_turns": 60
+}
+```
+
+Precedence is **defaults < `crew.json` < `CREW_MAX_*` env vars**, so the file sets
+project defaults while env vars stay handy for one-off runs. Run `crew config` to see
+the effective values and which file (if any) is in effect.
+
 Session state for the current directory is written to `.crew/session.json` (add
 `.crew/` to your `.gitignore`).
 

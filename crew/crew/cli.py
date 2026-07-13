@@ -18,7 +18,7 @@ from rich.table import Table
 from dataclasses import replace
 
 from . import session as session_mod
-from .config import load_config
+from .config import CONFIG_FILENAME, effective_values, load_config
 
 app = typer.Typer(
     add_completion=False,
@@ -110,6 +110,23 @@ def status() -> None:
     if state.total_cost_usd:
         table.add_row("Approx. cost", f"${state.total_cost_usd:.4f}")
     console.print(table)
+
+
+@app.command()
+def config() -> None:
+    """Show the effective configuration (defaults + crew.json + env overrides)."""
+    from pathlib import Path
+
+    cfg = load_config()
+    table = Table(title="Effective config")
+    table.add_column("Setting", style="bold cyan")
+    table.add_column("Value")
+    for key, value in effective_values(cfg).items():
+        table.add_row(key, str(value))
+    console.print(table)
+    found = Path.cwd() / CONFIG_FILENAME
+    where = str(found) if found.exists() else f"none ({CONFIG_FILENAME} not present)"
+    console.print(f"[dim]Project config file: {where}[/dim]")
 
 
 @app.command()
