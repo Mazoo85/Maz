@@ -2835,6 +2835,29 @@ logic, so it unit-tests exactly and drives a deterministic 2D golden.
   Range subclass, add an interactive ScrollBar/SpinBox control, or a fill/under/over StyleBox skin for the bar;
   those remain the follow-ups.
 
+### Iteration 112 — "Benchmarking against Godot: render interpolation" (done)
+Rotating to **core** for breadth (recent rounds were UI, math, scene/ECS, animation, audio, 2D-physics).
+Maz's `Clock` already exposes `interpolationAlpha()` — the leftover accumulator fraction between fixed
+steps — but nothing consumed it: physics state was drawn raw, so motion stutters whenever the display rate
+doesn't divide the fixed rate. Godot solves this with physics interpolation (keep previous + current, blend
+by the frame fraction). This is the missing consumer of that alpha. Pure math, so it unit-tests exactly and
+drives a deterministic 2D golden.
+- [x] **M151 — Render interpolation (`core::Interpolated<T>` + `core::interpolate`)**: a new `Interpolate.hpp`
+  with `Interpolated<T>` (a previous/current pair — `push` once per fixed step shifts current→previous,
+  `sample(alpha)` blends by the clamped render alpha so a frame never extrapolates past the current step),
+  component-wise `interpLerp` overloads (double/float/vec2/vec3, float-precise under `-Wconversion`), a
+  `lerpAngle` that blends along the **shortest arc** across the ±π seam, and a `Transform2DState`
+  (position/rotation/scale) with an `interpolate` that lerps position/scale and shortest-arcs rotation.
+  `testInterpolate` pins ~18 checks: push/shift, alpha clamping (no extrapolation), reset-seeds-both (no ghost
+  after a teleport), vec2 blending, the shortest-arc angle across the seam, and the composite transform blend.
+  Unit checks **5077 → 5095**. The new `interp` demo freezes alpha at 0.35 and, for four motions
+  (translate / rotate / scale / combined), ghosts the previous + current poses and draws the interpolated
+  pose solid between them. 2D golden (threshold 0.06, `interp` RMSE 0). Purely additive, so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); ctest **106/106 → 107/107**. Honest scope:
+  this is the interpolation state + helpers; it does **not** yet auto-wire into the ECS/TransformGraph so
+  every moving node interpolates for free, add 3D transform (quaternion) interpolation, or a global
+  physics-interpolation toggle on the scene; those remain the integration follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

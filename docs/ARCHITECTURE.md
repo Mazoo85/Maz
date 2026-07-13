@@ -21,6 +21,9 @@ core/       Log, Assert, Time (fixed-timestep clock), Config/args, KeyValueStore
             Profiler (hierarchical scoped CPU timing zones: inclusive + self time, EMA-smoothed),
             Scheduler (time-based timers: after/every/cancel) + Sequence (ordered wait/call/span script),
             Random (deterministic PRNG: xoshiro256** — ranges/chance/weighted/shuffle/gaussian),
+            Interpolated<T> + interpolate (render interpolation — Godot physics interpolation: a
+              previous/current pair blended by Clock::interpolationAlpha so motion stays smooth between
+              fixed steps; lerpAngle shortest-arc + a Transform2DState pose blend),
             Noise (seeded Perlin gradient noise2 + fractal-Brownian-motion fbm2 for procgen),
             EventBus (type-safe publish/subscribe for decoupled systems),
             Signal (per-object named channels — Godot signal/connect/emit: typed Signal<Args...> with
@@ -346,6 +349,8 @@ apps/
               outlined, a grow() halo, and hasPoint probe dots, all from math::Rect2
   progress/  Range / ProgressBar — six bars (plain fills, a ratio-tinted health bar, a custom-range mana bar,
               a step-snapped bar) drawn from ui::ProgressBar::fillFraction/percent
+  interp/    Render interpolation — four motions (translate/rotate/scale/combined) showing previous+current
+              ghost poses with the alpha-0.35 interpolated pose solid between (core::interpolate)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

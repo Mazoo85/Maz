@@ -674,6 +674,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE
   tolerance, ctest-integrated, self-skips without a GPU; M51)
 - [ ] CI gates / cross-platform build matrix
+- [x] **Render interpolation** (`core::Interpolated<T>`: a previous/current pair pushed once per fixed step
+  and blended by `Clock::interpolationAlpha()` each render frame, so motion stays smooth when the display
+  rate doesn't divide the fixed rate — the missing consumer of the clock's alpha; `lerpAngle` shortest-arc +
+  a `Transform2DState` pose blend — Godot physics interpolation; the `interp` demo ghosts previous+current
+  poses with the interpolated pose between for four motions; M151) — auto-wiring into the ECS/TransformGraph
+  so every moving node interpolates for free + 3D quaternion transform interpolation later
 - [ ] Deterministic fixed-step simulation, replay
 - [ ] Performance budgets + profiling dashboards
 - [ ] Docs site, API docs (Doxygen), tutorials / samples

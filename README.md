@@ -805,6 +805,11 @@ available):
   the shared clamped/stepped value model (min/max/step/page → a 0..1 ratio) behind bars, sliders, and
   scrollbars, plus a progress bar exposing `fillFraction`/`percent`. The new `progress` demo shows six bars —
   plain fills, a ratio-tinted health bar, a custom-range mana bar, and a step-snapped bar.
+- **M151** — **render interpolation** (`core::Interpolated<T>` + `core::interpolate`), toward Godot's physics
+  interpolation: keep a body's previous + current fixed-step pose and blend them by the frame's
+  `interpolationAlpha()` so motion stays smooth when the display rate doesn't divide the physics rate
+  (rotation blends the shortest arc). The new `interp` demo ghosts the endpoint poses with the interpolated
+  pose between them for four motions.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

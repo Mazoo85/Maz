@@ -30,6 +30,7 @@
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
+#include "maz/core/Interpolate.hpp"
 #include "maz/core/Scheduler.hpp"
 #include "maz/core/SceneStack.hpp"
 #include "maz/core/Signal.hpp"
@@ -3589,6 +3590,74 @@ void testRandom() {
             const int p = r.pick(v);
             CHECK(p == 10 || p == 20 || p == 30 || p == 40);
         }
+    }
+}
+
+void testInterpolate() {
+    using core::Interpolated;
+    using core::interpolate;
+    using core::lerpAngle;
+    using core::Transform2DState;
+    using math::vec2;
+
+    // Scalar Interpolated: push shifts current -> previous; sample blends by clamped alpha.
+    {
+        Interpolated<double> ip(0.0);
+        ip.push(10.0); // prev=0, cur=10
+        CHECK_NEAR(ip.previous(), 0.0, 1e-9);
+        CHECK_NEAR(ip.current(), 10.0, 1e-9);
+        CHECK_NEAR(ip.sample(0.0), 0.0, 1e-9);
+        CHECK_NEAR(ip.sample(1.0), 10.0, 1e-9);
+        CHECK_NEAR(ip.sample(0.5), 5.0, 1e-9);
+        CHECK_NEAR(ip.sample(-2.0), 0.0, 1e-9); // alpha clamps (no extrapolation)
+        CHECK_NEAR(ip.sample(3.0), 10.0, 1e-9);
+
+        ip.push(20.0); // prev=10, cur=20
+        CHECK_NEAR(ip.sample(0.5), 15.0, 1e-9);
+    }
+
+    // Vector Interpolated.
+    {
+        Interpolated<vec2> ip(vec2(0.0f, 0.0f));
+        ip.push(vec2(4.0f, 8.0f));
+        const vec2 m = ip.sample(0.25);
+        CHECK_NEAR(m.x, 1.0f, 1e-5f);
+        CHECK_NEAR(m.y, 2.0f, 1e-5f);
+    }
+
+    // reset seeds both prev and cur (no ghost blend on the first frame after a teleport).
+    {
+        Interpolated<double> ip(5.0);
+        ip.push(9.0);
+        ip.reset(100.0);
+        CHECK_NEAR(ip.sample(0.5), 100.0, 1e-9);
+    }
+
+    // lerpAngle takes the shortest arc across the +/-pi seam.
+    {
+        // 3.0 -> -3.0 rad: the short way is +0.283 (through pi), not -6.0.
+        const float a = lerpAngle(3.0f, -3.0f, 0.5);
+        CHECK(a > 3.0f); // moved forward through the seam, not backward
+        CHECK_NEAR(a, 3.14159265f, 2e-2f);
+        // A plain half-turn interpolates linearly.
+        CHECK_NEAR(lerpAngle(0.0f, 1.0f, 0.5), 0.5f, 1e-5f);
+    }
+
+    // Transform2DState interpolate: position/scale lerp, rotation shortest-arc.
+    {
+        Transform2DState a;
+        a.position = vec2(0.0f, 0.0f);
+        a.rotation = 0.0f;
+        a.scale = vec2(1.0f, 1.0f);
+        Transform2DState b;
+        b.position = vec2(10.0f, 20.0f);
+        b.rotation = 1.0f;
+        b.scale = vec2(3.0f, 3.0f);
+        const Transform2DState m = interpolate(a, b, 0.5);
+        CHECK_NEAR(m.position.x, 5.0f, 1e-5f);
+        CHECK_NEAR(m.position.y, 10.0f, 1e-5f);
+        CHECK_NEAR(m.rotation, 0.5f, 1e-5f);
+        CHECK_NEAR(m.scale.x, 2.0f, 1e-5f);
     }
 }
 
@@ -8315,6 +8384,7 @@ int main() {
     testProfiler();
     testNoise();
     testRandom();
+    testInterpolate();
     testScheduler();
     testSequence();
     testCameraController();
