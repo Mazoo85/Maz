@@ -76,6 +76,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
       `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII
       steady_clock timer; header-only, unit-tested); frame markers + Tracy still TODO
+- [x] Type-safe bit flags — **`maz::core::Flags<E>` landed** (zero-overhead constexpr wrapper over a
+      scoped enum with unsigned underlying type; `| & ^ ~`/compound ops, `has`/`hasAny`/`hasAll`/
+      `set`/`clear`/`toggle`, `MAZ_FLAGS_ENABLE` opt-in free operators; the typed answer to raw
+      int/uint32 bitmasks; header-only, unit-tested incl. a uint8-underlying case)
 - [ ] Unit-test framework wiring (doctest/Catch2)
 - [x] Non-GPU `maz_core` lib + `MAZ_CORE_ONLY` build so core is unit-testable without the Vulkan SDK
 

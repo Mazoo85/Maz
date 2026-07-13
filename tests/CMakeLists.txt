@@ -133,3 +133,10 @@ target_link_libraries(maz_unit_serialization PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_serialization COMMAND maz_unit_serialization)
 set_tests_properties(unit_serialization PROPERTIES TIMEOUT 30)
+
+# Unit tests: type-safe Flags<E> bitflags over scoped enums (composition, queries, mutators, zero-overhead sizeof, small-underlying -Wconversion path).
+add_executable(maz_unit_flags unit_flags.cpp)
+target_link_libraries(maz_unit_flags PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_flags COMMAND maz_unit_flags)
+set_tests_properties(unit_flags PROPERTIES TIMEOUT 30)
