@@ -49,3 +49,10 @@ target_link_libraries(maz_unit_random PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_random COMMAND maz_unit_random)
 set_tests_properties(unit_random PROPERTIES TIMEOUT 30)
+
+# Unit tests: affine Transform (basis+origin) compose/inverse/matrix round-trips.
+add_executable(maz_unit_transform unit_transform.cpp)
+target_link_libraries(maz_unit_transform PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_transform COMMAND maz_unit_transform)
+set_tests_properties(unit_transform PROPERTIES TIMEOUT 30)
