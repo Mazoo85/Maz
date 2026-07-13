@@ -42,3 +42,10 @@ target_link_libraries(maz_unit_frustum PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_frustum COMMAND maz_unit_frustum)
 set_tests_properties(unit_frustum PROPERTIES TIMEOUT 30)
+
+# Unit tests: deterministic PRNG (PCG32) canonical vectors and helper bounds.
+add_executable(maz_unit_random unit_random.cpp)
+target_link_libraries(maz_unit_random PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_random COMMAND maz_unit_random)
+set_tests_properties(unit_random PROPERTIES TIMEOUT 30)
