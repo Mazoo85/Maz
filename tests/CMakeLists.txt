@@ -147,3 +147,10 @@ target_link_libraries(maz_unit_bitset PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_bitset COMMAND maz_unit_bitset)
 set_tests_properties(unit_bitset PROPERTIES TIMEOUT 30)
+
+# Unit tests: single-target zero-heap Delegate<R(Args...)> (fast-delegate; free/member/const-member binds via C++20 auto NTTP, no heap).
+add_executable(maz_unit_delegate unit_delegate.cpp)
+target_link_libraries(maz_unit_delegate PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_delegate COMMAND maz_unit_delegate)
+set_tests_properties(unit_delegate PROPERTIES TIMEOUT 30)

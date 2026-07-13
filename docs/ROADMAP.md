@@ -61,10 +61,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       component-storage structure; `maz::core::SmallVector<T,N>` inline-storage vector à la Godot's
       `LocalVector` / llvm `SmallVector`, spilling to the heap only past N; all header-only, unit-tested)
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested); interning/original-string storage + fixed strings TODO
-- [~] Event bus / signals, delegates / typed callbacks — **`maz::core::EventBus<Event>` landed**
-      (Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks, generational
-      `Connection` tokens for safe disconnect, re-entrancy-safe emit; header-only, unit-tested);
-      standalone delegate/multicast wrapper still TODO
+- [x] Event bus / signals, delegates / typed callbacks — **`maz::core::EventBus<Event>` + `Delegate<R(Args...)>` landed**
+      (`EventBus`: Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks,
+      generational `Connection` tokens for safe disconnect, re-entrancy-safe emit — the multicast side;
+      `Delegate`: a single-target, ZERO-HEAP fast delegate à la Godot's `Callable`, binding free/member
+      functions via C++20 `auto` NTTP into two raw pointers; both header-only, unit-tested)
 - [~] Minimal reflection (type ids, property registration) for serialization + editor — **compile-time
       type ids landed** (`maz::core::type_id<T>()`/`type_hash<T>()`/`type_name<T>()`/`type_info<T>()`:
       run-stable `StringId` type ids from the compiler-spelled name via `fnv1a64`, plus `TypeInfo`
