@@ -119,11 +119,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] GPU profiling, keep validation-clean baseline
 
 ## Phase 4 — Scene & ECS
-- [~] Entity Component System (sparse-set or archetype), entity handles — **`maz::ecs::World` first slice landed**
+- [~] Entity Component System (sparse-set or archetype), entity handles — **`maz::ecs::World` landed**
       (generational `Entity` handles with recycle + stale-detection; type-erased per-component `SparseSet`
       storage; per-entity `Bitset<64>` signatures; `add`/`get`/`has`/`remove`, `destroy` that clears an
-      entity from all stores, and single-component `each<T>` iteration; header-only, unit-tested +
-      ASAN/UBSan-clean). Multi-component `view<Ts...>` queries + system scheduler still TODO
+      entity from all stores, single-component `each<T>` iteration, AND multi-component `view<Ts...>`
+      queries — `signature.contains(mask)` filtering over the lead store, `fn(Entity, Ts&...)` by
+      reference; header-only, unit-tested + ASAN/UBSan-clean). System scheduler still TODO
 - [ ] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
 - [ ] Scene graph, world-transform propagation, dirty flags
 - [ ] System scheduler (ordered + parallel execution)

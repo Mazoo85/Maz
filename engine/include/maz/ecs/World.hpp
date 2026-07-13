@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <utility>  // std::move
+#include <tuple>    // std::tuple, std::tuple_element_t (view<Ts...> lead-type extraction)
 
 #include "maz/core/SparseSet.hpp"
 #include "maz/core/Bitset.hpp"
@@ -14,9 +15,9 @@
 // analog). Entities are generational opaque handles; components are stored in
 // type-erased per-type SparseSets keyed by entity index (the Pool/SparseSet
 // density carried up a layer); per-entity Bitset<kMaxComponents> signatures
-// track which components an entity has. FIRST SLICE: single-component each<T>
-// iteration only — a multi-component view<Ts...> is a future refinement
-// (mentioned, not built here). NOT thread-safe.
+// track which components an entity has. Supports single-component each<T> and
+// multi-component view<Ts...> iteration; a system scheduler is a future
+// refinement. NOT thread-safe.
 
 namespace maz::ecs {
 
@@ -152,8 +153,37 @@ class World {
     // fn receives (Entity, T&). Iteration order is SparseSet dense order
     // (unspecified; swap-and-pop reorders on remove). Do NOT add/remove
     // components of type T during each<T> (iterator invalidation, like mutating
-    // a std::vector mid-loop). Only non-const each ships this slice;
-    // view<Ts...> is deferred.
+    // a std::vector mid-loop). See view<Ts...> below for multi-component queries.
+
+    // Multi-component query — visits every LIVE entity that has ALL of Ts...,
+    // calling fn(Entity, Ts&...) with each required component by reference.
+    // Iteration is driven by the FIRST type's store (the "lead"); each lead entity
+    // is admitted only if its signature is a superset of the required mask, so it
+    // holds every Ti. Mutating a component through the Ti& refs writes straight
+    // through to storage. Do NOT add/remove any Ti or destroy entities from inside
+    // fn (iterator invalidation on the lead store / the other stores, same rule as
+    // each<T>). Iteration order is the lead store's dense order (unspecified).
+    // Iterating the lead store is O(count of the first type); choosing the
+    // smallest store as lead is a future refinement (not built here).
+    template <class... Ts, class F>
+    void view(F&& fn) {
+        static_assert(sizeof...(Ts) >= 1, "view requires at least one component type");
+        // Required-component mask: one bit per Ti (C++17 fold-over-comma).
+        maz::core::Bitset<kMaxComponents> mask;
+        (mask.set(detail::componentTypeId<Ts>()), ...);
+        // Lead = the first of Ts...; it drives iteration.
+        using Lead = std::tuple_element_t<0, std::tuple<Ts...>>;
+        const std::size_t leadId = detail::componentTypeId<Lead>();
+        if (leadId >= m_stores.size() || !m_stores[leadId]) { return; }  // lead type never added -> nothing matches
+        auto& leadSet = static_cast<ComponentStore<Lead>&>(*m_stores[leadId]).set;
+        const std::vector<std::uint32_t>& keys = leadSet.keys();
+        for (std::size_t k = 0; k < keys.size(); ++k) {
+            const std::uint32_t idx = keys[k];
+            if (m_signatures[idx].contains(mask)) {
+                fn(Entity{idx, m_generations[idx]}, *rawGet<Ts>(idx)...);  // fold expands one Ti& per required type
+            }
+        }
+    }
 
   private:
     template <class T> ComponentStore<T>& storeFor() {
@@ -162,6 +192,18 @@ class World {
         if (id >= m_stores.size()) { m_stores.resize(id + 1); }
         if (!m_stores[id]) { m_stores[id] = std::make_unique<ComponentStore<T>>(); }
         return static_cast<ComponentStore<T>&>(*m_stores[id]);
+    }
+
+    // Unchecked component fetch for view(): returns the live T* for entityIndex.
+    // PRECONDITION: the T bit is set in m_signatures[entityIndex] — which view()
+    // guarantees via the contains(mask) gate before every call. That gate implies
+    // add<T> ran (so the store exists and id < m_stores.size()) and the key is
+    // present (so get() is non-null). Never call rawGet without that gate.
+    template <class T>
+    T* rawGet(std::uint32_t entityIndex) {
+        const std::size_t id = detail::componentTypeId<T>();
+        MAZ_ASSERT(id < m_stores.size() && m_stores[id], "World::rawGet on a type with no store (precondition violated)");
+        return static_cast<ComponentStore<T>*>(m_stores[id].get())->set.get(entityIndex);
     }
 
     std::vector<std::uint32_t> m_generations;                    // per index: current occupant's generation
