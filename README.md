@@ -775,6 +775,10 @@ available):
   convex shape plus a compact per-instance buffer (position, rotation, scale, colour) stamped many times.
   `transformedPolygon(i)` gives one instance's world polygon; `bakeTriangles()` flattens all instances into
   one triangle soup. The new `multimesh` demo stamps a single dart 540 times into a colour-swirled field.
+- **M144** — **3D billboard modes** (`render::buildBillboard`), toward Godot's `SpriteBase3D` /
+  `GeometryInstance3D` billboards: build the model matrix that turns a flat quad to face the camera —
+  `Enabled` (full-facing, for smoke/impostors), `YBillboard` (yaws but stays upright, for trees/characters),
+  or `Disabled`. The new `billboard` demo shows all three modes as rows of cards under an elevated camera.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -286,6 +286,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   the `water` demo animates a summed-sine grid; M35)
 - [x] **Instanced rendering** (`drawMeshInstanced`: per-instance model matrix via a second vertex
   binding, one `vkCmdDrawIndexed` for N copies; the `instances` demo draws 484 cubes in one call; M55)
+- [x] **Billboard modes** (`render::buildBillboard`: model matrix orienting a quad toward the camera from the
+  view matrix — Disabled / Enabled (full-facing) / YBillboard (yaws but stays upright) — Godot SpriteBase3D/
+  GeometryInstance3D billboards; the `billboard` demo shows three rows of cards, one per mode; M144) — a
+  Sprite3D/AnimatedSprite3D node (atlas+billboard+alpha) and velocity-aligned particle billboards later
 - [ ] Back-face cull toggle, ortho 3D camera
 - [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
   (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;

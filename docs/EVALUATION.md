@@ -2660,6 +2660,33 @@ math is pure (no GPU state), so it unit-tests headlessly and drives a dense dete
   support a shared texture/atlas per instance, per-instance custom-data channels, or a 3D `MultiMesh`; those
   remain the instancing follow-ups.
 
+### Iteration 105 — "Benchmarking against Godot: 3D billboard modes" (done)
+Rotating to **3D rendering** for breadth (recent rounds were 2D-render, math, UI, IO, audio). Maz's 3D
+particles billboard internally, but there was no reusable helper to make an arbitrary quad **face the
+camera** — the trick behind trees, grass, smoke, health bars, and distant-object impostors. Godot exposes it
+as the billboard modes on `SpriteBase3D` / `GeometryInstance3D`: full billboard (the quad squarely faces the
+camera) and Y-billboard (the quad yaws to face the camera but stays upright). It's a pure matrix function of
+the view matrix, so it unit-tests headlessly and drives a 3D golden.
+- [x] **M144 — Billboard model-matrix builder (`render::buildBillboard`)**: a new `Billboard.hpp` with a
+  `BillboardMode` enum (`Disabled` / `Enabled` / `YBillboard`) and `buildBillboard(position, scale, view,
+  mode)` returning the `translate * rotate * scale` model matrix. It reads the camera's world-space basis
+  straight out of the `view` matrix rows (no camera object needed): `Enabled` aligns the quad's right/up with
+  the camera's right/up so its plane squarely faces the camera; `YBillboard` keeps world-up as the quad's up
+  and only yaws (the quad normal flattened into the ground plane points back at the camera), with a guard for
+  the degenerate straight-down look; `Disabled` leaves the quad axis-aligned. `testBillboard` pins: a
+  front-on camera giving an `Enabled` normal of exactly +Z with screen-aligned right/up and the correct
+  translation; `Disabled` staying axis-aligned with scale/translation applied; a side camera turning the full
+  billboard's normal to +X; and an **elevated** camera where the `YBillboard` up axis stays exactly world-up
+  (normal in the ground plane) while the `Enabled` up axis tilts away from world-up — plus an orthonormal-
+  basis check. Unit checks **4906 → 4928**. The new `billboard` demo stands three rows of flat emissive cards
+  in a 3D scene under an elevated camera — back row **Enabled** (full-facing), middle **YBillboard** (upright),
+  front **Disabled** (fixed) — so the modes are visibly different in one frame. Deterministic (static camera)
+  → 3D golden (threshold 0.12). Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); ctest **99/99 → 100/100**. Honest scope: this is the
+  orientation-matrix helper — it does **not** add a `Sprite3D`/`AnimatedSprite3D` scene node that wires a
+  texture atlas + billboard + alpha onto a quad automatically, particle-aligned ("velocity") billboards, or
+  spherical-vs-cylindrical distinctions beyond the two Godot modes; those remain the 3D-sprite follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

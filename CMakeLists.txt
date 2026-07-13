@@ -137,6 +137,7 @@ add_subdirectory(apps/respack)
 add_subdirectory(apps/richtext)
 add_subdirectory(apps/curve)
 add_subdirectory(apps/multimesh)
+add_subdirectory(apps/billboard)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

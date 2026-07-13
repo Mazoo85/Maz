@@ -72,6 +72,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               MultiMesh2D    — 2D multi-mesh instancing (Godot MultiMeshInstance2D): one convex base polygon +
                                a per-instance buffer (Instance2D pos/rot/scale/colour); transformInstance TRS,
                                transformedPolygon(i) world polygon, bakeTriangles() one soup (header-only, no GPU dep)
+              buildBillboard — billboard model matrix (Godot SpriteBase3D/GeometryInstance3D): orient a quad
+                               toward the camera from the view matrix — Disabled/Enabled(full)/YBillboard(upright)
+                               (header-only, no GPU dep)
               buildGrid      — 3D editor reference geometry (Godot Node3D viewport): an XZ-plane ground grid
                                (buildGrid) + the X=red/Y=green/Z=blue origin gizmo, and buildWireBox (12 edges
                                of a placeable AABB) — colored Line3 lists drawn via DebugDraw/drawLine (no GPU dep)
@@ -311,6 +314,8 @@ apps/
               handles, arc-length-baked constant-speed dots (green), and a traveller with its tangent arrow
   multimesh/ 2D multi-mesh — one dart base shape stamped 540× through a render::MultiMesh2D as a colour-swirled
               spiral field (per-instance rotation/scale/colour), demonstrating one-shape-many-instances
+  billboard/ 3D billboard modes — three rows of flat cards (Enabled/YBillboard/Disabled via render::buildBillboard)
+              under an elevated camera, so the full-facing / stays-upright / fixed modes differ visibly
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

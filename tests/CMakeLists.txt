@@ -789,6 +789,14 @@ set_tests_properties(multimesh_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME billboard_headless_smoke
+    COMMAND billboard --headless --frames 30)
+
+set_tests_properties(billboard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

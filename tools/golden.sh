@@ -121,6 +121,7 @@ CASES=(
     "richtext||2.0|0.07"
     "curve||2.0|0.06"
     "multimesh||2.0|0.07"
+    "billboard||2.5|0.12"
 )
 
 if [ ! -f "$ICD" ]; then

@@ -80,6 +80,7 @@
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
+#include "maz/render/Billboard.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/Shapes3D.hpp"
@@ -3877,6 +3878,77 @@ void testMultiMesh2D() {
         mm.addInstance(Instance2D{});
         CHECK(mm.triangleCount() == 0);
         CHECK(mm.bakeTriangles().empty());
+    }
+}
+
+void testBillboard() {
+    using math::mat4;
+    using math::vec3;
+    using render::BillboardMode;
+    using render::buildBillboard;
+
+    auto col = [](const mat4& m, int i) { return vec3(m[i]); };
+
+    // Camera straight in front on +Z looking at the origin: a full billboard's normal (its local +Z, model
+    // column 2) points straight back at the camera (+Z), and its translation is the given position.
+    {
+        const mat4 view = glm::lookAt(vec3(0, 0, 5), vec3(0, 0, 0), vec3(0, 1, 0));
+        const mat4 m = buildBillboard(vec3(0, 0, 0), vec3(1, 1, 1), view, BillboardMode::Enabled);
+        const vec3 n = glm::normalize(col(m, 2));
+        CHECK_NEAR(n.z, 1.0f, 1e-3f);
+        CHECK_NEAR(col(m, 3).x, 0.0f, 1e-4f);
+        CHECK_NEAR(col(m, 3).y, 0.0f, 1e-4f);
+        CHECK_NEAR(col(m, 3).z, 0.0f, 1e-4f);
+
+        // Right/up align with the camera's right/up (screen-aligned).
+        CHECK_NEAR(glm::normalize(col(m, 0)).x, 1.0f, 1e-3f);
+        CHECK_NEAR(glm::normalize(col(m, 1)).y, 1.0f, 1e-3f);
+    }
+
+    // Disabled leaves the quad axis-aligned; translation + scale still apply.
+    {
+        const mat4 view = glm::lookAt(vec3(5, 0, 0), vec3(0, 0, 0), vec3(0, 1, 0));
+        const mat4 m = buildBillboard(vec3(3, 4, 5), vec3(2, 2, 2), view, BillboardMode::Disabled);
+        CHECK_NEAR(col(m, 0).x, 2.0f, 1e-4f);
+        CHECK_NEAR(col(m, 0).y, 0.0f, 1e-4f);
+        CHECK_NEAR(col(m, 1).y, 2.0f, 1e-4f);
+        CHECK_NEAR(col(m, 2).z, 2.0f, 1e-4f);
+        CHECK_NEAR(col(m, 3).x, 3.0f, 1e-4f);
+        CHECK_NEAR(col(m, 3).y, 4.0f, 1e-4f);
+        CHECK_NEAR(col(m, 3).z, 5.0f, 1e-4f);
+    }
+
+    // Camera off to the side (+X): a full billboard's normal turns to face it (points along +X).
+    {
+        const mat4 view = glm::lookAt(vec3(6, 0, 0), vec3(0, 0, 0), vec3(0, 1, 0));
+        const mat4 m = buildBillboard(vec3(0, 0, 0), vec3(1, 1, 1), view, BillboardMode::Enabled);
+        const vec3 n = glm::normalize(col(m, 2));
+        CHECK_NEAR(n.x, 1.0f, 1e-3f);
+    }
+
+    // Elevated camera looking down: a Y-billboard stays perfectly upright (its up axis is exactly world-up),
+    // while a full billboard tilts back to face the camera (its up axis is NOT world-up).
+    {
+        const mat4 view = glm::lookAt(vec3(0, 6, 6), vec3(0, 0, 0), vec3(0, 1, 0));
+        const mat4 y = buildBillboard(vec3(0, 0, 0), vec3(1, 1, 1), view, BillboardMode::YBillboard);
+        const vec3 yUp = glm::normalize(col(y, 1));
+        CHECK_NEAR(yUp.x, 0.0f, 1e-4f);
+        CHECK_NEAR(yUp.y, 1.0f, 1e-4f);
+        CHECK_NEAR(yUp.z, 0.0f, 1e-4f);
+        // Its normal lies in the ground plane (no vertical component).
+        CHECK_NEAR(glm::normalize(col(y, 2)).y, 0.0f, 1e-3f);
+
+        const mat4 e = buildBillboard(vec3(0, 0, 0), vec3(1, 1, 1), view, BillboardMode::Enabled);
+        const vec3 eUp = glm::normalize(col(e, 1));
+        CHECK(std::fabs(eUp.y - 1.0f) > 0.05f); // tilted, not world-up
+
+        // A full billboard's basis is orthonormal.
+        const vec3 x = glm::normalize(col(e, 0));
+        const vec3 u = glm::normalize(col(e, 1));
+        const vec3 n = glm::normalize(col(e, 2));
+        CHECK_NEAR(glm::dot(x, u), 0.0f, 1e-3f);
+        CHECK_NEAR(glm::dot(x, n), 0.0f, 1e-3f);
+        CHECK_NEAR(glm::dot(u, n), 0.0f, 1e-3f);
     }
 }
 
@@ -7728,6 +7800,7 @@ int main() {
     testLocalization();
     testGrid3D();
     testMultiMesh2D();
+    testBillboard();
     testShapes3D();
     testPolyline();
     testActionMap();
