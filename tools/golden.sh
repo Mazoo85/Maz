@@ -150,6 +150,7 @@ CASES=(
     "expr||2.0|0.05"
     "forcefield||2.0|0.05"
     "atlas||2.0|0.05"
+    "shapecast||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

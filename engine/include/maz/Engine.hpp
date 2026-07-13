@@ -73,6 +73,7 @@
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
+#include "maz/game/ShapeCast2D.hpp"
 #include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"

@@ -2927,6 +2927,54 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 134 — "Benchmarking against Godot: swept circle-cast (continuous collision)" (done)
+Rotating to **2D physics** for breadth (the last five rounds were resources/render tooling, particles,
+core-scripting, navigation, and UI). Re-surveying the physics stack: Maz already has rigid-body dynamics
+with rotation + friction + 2-point manifolds (`Physics2D`), joints (pin/spring/groove), collision
+layers/masks, one-way platforms, area sensors, a kinematic `move_and_slide`, and *zero-radius* space
+queries — ray/segment/point (`PhysicsQuery2D`). The missing primitive was the *finite-radius* query:
+**sweep a shape along a motion and find the first contact** (Godot's `ShapeCast2D` /
+`PhysicsDirectSpaceState2D.cast_motion`). Without it, a fast body checked only at its start and end
+positions **tunnels** straight through a wall thinner than its per-frame travel — the classic
+continuous-collision bug. This is pure Minkowski-sum geometry, so it unit-tests exactly (a hit leaves the
+caster exactly one radius from the surface) and renders a golden-stable probe fan.
+
+Ranked closable gaps considered this round (physics-weighted): **(1) swept circle-cast / cast_motion —
+chosen**, the clearest missing query primitive and the direct fix for tunnelling; (2) a full oriented-box
+/ convex shape-cast (any `CollisionShape2D`, not just a circle); (3) Godot's separate *safe*/*unsafe*
+motion fractions for a start-in-contact shape; (4) a persistent broadphase pair cache feeding the
+narrowphase; (5) continuous collision *inside* the rigid-body integrator (auto-substep fast bodies).
+(2)–(5) remain follow-ups; a Jolt-grade solver stays out of scope for a headless sandbox.
+
+- [x] **M173 — swept circle-cast / continuous collision (`game::shapeCastCircle`)**: a new
+  `ShapeCast2D.hpp` that sweeps a circle of radius `r` from `from` along `motion` through the existing
+  `QueryShape2D` obstacle set (circles + oriented boxes, with the same 32-bit collision **mask**) and
+  returns a `ShapeCastHit2D{hit, fraction, point, normal, safePos, index, id}` — the fraction of the
+  motion travelled before first contact, the world contact point, the outward surface normal, and the
+  caster centre at that instant (`safePos = from + motion*fraction`). The maths is the Minkowski sum: a
+  circle-vs-circle sweep is a ray against the target grown to `R+r` (reusing `detail::rayCircle`); a
+  circle-vs-box sweep tests the four r-offset faces plus four r-radius corner arcs and keeps the nearest
+  entry. A caster that already overlaps reports contact at fraction 0 with a push-out normal; a
+  zero-length motion degenerates to a start-overlap probe. `testShapeCast2D` pins a head-on circle stop
+  (fraction 0.3, contact + normal + `safePos` exactly a radius out), a wide miss (fraction 1), the
+  **thin-wall tunnelling case** (a wall entirely between start and end is still caught), an axis-aligned
+  box face, a 45°-rotated box **corner** path (stops a radius short of the diamond vertex), start-overlap
+  push-out, zero-motion probing, mask filtering, and nearest-of-many selection — with a distance-to-shape
+  invariant asserting every stop sits exactly `r` from the surface. Unit checks **7687 → 7728**. The new
+  `shapecast` demo fans ~50 swept probe circles from a source point through a field (two circles, an
+  upright pillar, a rotated slab, and a deliberately thin wall), drawing each blocked probe frozen at its
+  contact with its surface normal — so the stopped circles trace a rounded silhouette a radius outside
+  every obstacle and the thin wall cleanly blocks its lane (a ray field would leak through). 2D golden
+  (threshold 0.05, `shapecast` RMSE 0). Purely additive, so every existing golden is byte-unchanged;
+  ctest **128/128 → 129/129**. Honest scope: this casts a **circle** (the common character/projectile
+  probe); an arbitrary oriented-box/convex shape-cast, Godot's separate safe/unsafe fractions, and
+  auto-substepping fast rigid bodies remain the follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 133 — "Benchmarking against Godot: texture-atlas rectangle packer" (done)
 Rotating to **resources / render tooling** for breadth (the last five rounds were particles, core-scripting,
 navigation, UI, and math). Re-surveying: Maz can load/decode textures, build meshes, save resource packs

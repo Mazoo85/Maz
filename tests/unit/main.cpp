@@ -67,6 +67,7 @@
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
+#include "maz/game/ShapeCast2D.hpp"
 #include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
@@ -8575,6 +8576,188 @@ void testPhysicsQuery2D() {
     }
 }
 
+void testShapeCast2D() {
+    using game::QueryShape2D;
+    using game::ShapeCastHit2D;
+
+    // Signed-ish distance from a point to a shape's surface (>=0 outside), used to assert that a swept
+    // circle stops exactly `radius` from whatever it hit — the defining property of the cast.
+    auto distToShape = [](const math::vec2& p, const QueryShape2D& s) -> float {
+        if (s.kind == QueryShape2D::Circle) {
+            const math::vec2 d = p - s.pos;
+            return std::sqrt(d.x * d.x + d.y * d.y) - s.radius;
+        }
+        const float ca = std::cos(s.angle), sa = std::sin(s.angle);
+        const math::vec2 rel = p - s.pos;
+        const math::vec2 lo(rel.x * ca + rel.y * sa, -rel.x * sa + rel.y * ca);
+        const float dx = std::fabs(lo.x) - s.half.x;
+        const float dy = std::fabs(lo.y) - s.half.y;
+        const float ox = std::fmax(dx, 0.0f), oy = std::fmax(dy, 0.0f);
+        return std::sqrt(ox * ox + oy * oy); // exterior distance (0 if inside)
+    };
+
+    // Head-on sweep into a circle: stops with 2 units between centres (r + R), 0.3 of the way along.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.kind = QueryShape2D::Circle;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        c.id = 42;
+        shapes.push_back(c);
+
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 1.0f, shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.fraction, 0.3f, 1e-4f);
+        CHECK_NEAR(h.safePos.x, 3.0f, 1e-4f);
+        CHECK_NEAR(h.safePos.y, 0.0f, 1e-4f);
+        CHECK_NEAR(h.point.x, 4.0f, 1e-4f); // contact on the circle surface
+        CHECK_NEAR(h.point.y, 0.0f, 1e-4f);
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-4f); // points back toward the caster
+        CHECK_NEAR(h.normal.y, 0.0f, 1e-4f);
+        CHECK(h.index == 0);
+        CHECK(h.id == 42);
+        CHECK_NEAR(distToShape(h.safePos, shapes[0]), 1.0f, 1e-4f); // exactly radius away
+    }
+
+    // A sweep that passes wide of the circle: no hit, fraction 1, safePos at the motion end.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 5.0f);
+        c.radius = 0.5f;
+        shapes.push_back(c);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 0.5f, shapes);
+        CHECK(!h.hit);
+        CHECK_NEAR(h.fraction, 1.0f, 1e-6f);
+        CHECK_NEAR(h.safePos.x, 10.0f, 1e-4f);
+    }
+
+    // Continuous collision beats a discrete test: a thin wall entirely BETWEEN the start and end points
+    // is caught by the sweep (a point sample at start and end would tunnel straight through).
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(5.0f, 0.0f);
+        b.half = math::vec2(0.1f, 3.0f); // thin, tall wall
+        shapes.push_back(b);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 0.25f, shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.safePos.x, 5.0f - 0.1f - 0.25f, 1e-4f); // stops a radius before the -X face
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-4f);
+        CHECK_NEAR(distToShape(h.safePos, shapes[0]), 0.25f, 1e-4f);
+    }
+
+    // Head-on into an axis-aligned box face.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(5.0f, 0.0f);
+        b.half = math::vec2(1.0f, 1.0f);
+        shapes.push_back(b);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 0.5f, shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.safePos.x, 3.5f, 1e-4f); // 5 - half(1) - radius(0.5)
+        CHECK_NEAR(h.point.x, 4.0f, 1e-4f);
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-4f);
+        CHECK_NEAR(h.normal.y, 0.0f, 1e-4f);
+    }
+
+    // Corner path: a box rotated 45 degrees points a VERTEX at the incoming sweep. The nearest vertex of
+    // a half=1 box is sqrt(2) from centre; the caster stops a radius short of it, normal back along -X.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D b;
+        b.kind = QueryShape2D::Box;
+        b.pos = math::vec2(5.0f, 0.0f);
+        b.half = math::vec2(1.0f, 1.0f);
+        b.angle = 3.14159265358979f * 0.25f;
+        shapes.push_back(b);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 0.5f, shapes);
+        CHECK(h.hit);
+        const float vertexX = 5.0f - std::sqrt(2.0f);
+        CHECK_NEAR(h.safePos.x, vertexX - 0.5f, 1e-3f);
+        CHECK_NEAR(h.safePos.y, 0.0f, 1e-3f);
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-3f);
+        CHECK_NEAR(std::sqrt(h.normal.x * h.normal.x + h.normal.y * h.normal.y), 1.0f, 1e-4f);
+        CHECK_NEAR(distToShape(h.safePos, shapes[0]), 0.5f, 1e-3f);
+    }
+
+    // A caster that already overlaps its target reports contact at fraction 0 with a push-out normal.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        shapes.push_back(c);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(5.3f, 0.0f), math::vec2(4.0f, 0.0f), 1.0f, shapes);
+        CHECK(h.hit);
+        CHECK_NEAR(h.fraction, 0.0f, 1e-6f);
+        CHECK_NEAR(h.normal.x, 1.0f, 1e-4f); // pushed out along +X (caster is right of centre)
+    }
+
+    // Zero-length motion degenerates to a start-overlap probe.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        shapes.push_back(c);
+        const ShapeCastHit2D touching =
+            game::shapeCastCircle(math::vec2(5.0f, 1.5f), math::vec2(0.0f, 0.0f), 1.0f, shapes);
+        CHECK(touching.hit); // 1.5 apart <= r+R = 2
+        CHECK_NEAR(touching.fraction, 0.0f, 1e-6f);
+        const ShapeCastHit2D clear =
+            game::shapeCastCircle(math::vec2(5.0f, 3.0f), math::vec2(0.0f, 0.0f), 1.0f, shapes);
+        CHECK(!clear.hit); // 3 apart > 2
+    }
+
+    // The collision mask filters obstacles just like the ray queries.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D c;
+        c.pos = math::vec2(5.0f, 0.0f);
+        c.radius = 1.0f;
+        c.layer = 0b10u;
+        shapes.push_back(c);
+        const ShapeCastHit2D masked =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 1.0f, shapes, 0b01u);
+        CHECK(!masked.hit);
+        const ShapeCastHit2D matched =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(10.0f, 0.0f), 1.0f, shapes, 0b10u);
+        CHECK(matched.hit);
+    }
+
+    // With several obstacles the NEAREST contact wins.
+    {
+        std::vector<QueryShape2D> shapes;
+        QueryShape2D far;
+        far.pos = math::vec2(9.0f, 0.0f);
+        far.radius = 1.0f;
+        far.id = 1;
+        QueryShape2D near;
+        near.pos = math::vec2(5.0f, 0.0f);
+        near.radius = 1.0f;
+        near.id = 2;
+        shapes.push_back(far);
+        shapes.push_back(near);
+        const ShapeCastHit2D h =
+            game::shapeCastCircle(math::vec2(0.0f, 0.0f), math::vec2(20.0f, 0.0f), 1.0f, shapes);
+        CHECK(h.hit);
+        CHECK(h.index == 1); // the one at x=5
+        CHECK(h.id == 2);
+        CHECK_NEAR(h.safePos.x, 3.0f, 1e-4f);
+    }
+}
+
 void testManifold2() {
     using game::Body2D;
     namespace d = game::detail;
@@ -10304,6 +10487,7 @@ int main() {
     testPhysics2DJoints();
     testPhysics2DGroove();
     testPhysicsQuery2D();
+    testShapeCast2D();
     testConvexShape2D();
     testOneWayPlatform();
     testManifold2();
