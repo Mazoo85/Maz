@@ -134,6 +134,9 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             FlowField (flow-field / vector-field pathfinding: one Dijkstra from the goal → an integration
             cost field + a baked per-cell flow direction, so a whole crowd routes to a shared goal from a
             single search — the crowd technique per-agent A* lacks),
+            GravityArea2D + gravityAt (area gravity fields — Godot Area2D gravity override: a Rect2 zone that
+              overrides gravity inside it, Directional (wind/updraft) or Point (inverse-square pull), combined
+              by priority with Replace/Add modes),
             Steering (seek/flee/arrive/separation/path-follow forces + integrate),
             rvoVelocity (RVO local collision avoidance: reciprocal-velocity-obstacle candidate
               scoring on time-to-collision), Godot NavigationAgent2D-avoidance-style,
@@ -351,6 +354,8 @@ apps/
               a step-snapped bar) drawn from ui::ProgressBar::fillFraction/percent
   interp/    Render interpolation — four motions (translate/rotate/scale/combined) showing previous+current
               ghost poses with the alpha-0.35 interpolated pose solid between (core::interpolate)
+  gravzones/ Area gravity fields — six balls dropped through a wind field, an updraft, and a point attractor;
+              their fixed-step trails drift/U-turn/orbit per game::gravityAt
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

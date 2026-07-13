@@ -435,6 +435,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   the topmost landing — Godot `one_way_collision`; the `oneway` demo drops three balls onto ledges while a
   fourth is launched up through one; M145) — wiring the flag into the `Physics2D` rigid-body solver as a
   per-shape property, a down-press drop-through gesture, and arbitrarily-angled one-way surfaces later
+- [x] **Area gravity fields** (`game::GravityArea2D` + `gravityAt`: a `Rect2` zone overrides the gravity a
+  body feels inside it — Directional (wind/updraft) or Point (toward a centre with inverse-square falloff),
+  combined across overlapping zones by priority with Replace/Add modes over the world default — Godot Area2D
+  gravity_space_override; the `gravzones` demo drops balls through a wind field, an updraft, and an attractor
+  and their trails drift/U-turn/orbit; M152) — wiring it into the Physics2D integrator so bodies read it every
+  step + circle/polygon zones + the full five space-override modes later
 - [ ] Other collision shapes (sphere/capsule casts), triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [~] Continuous collision, **layers / masks** (`game::CollisionLayers`, M118), physics materials

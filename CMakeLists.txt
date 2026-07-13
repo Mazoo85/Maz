@@ -145,6 +145,7 @@ add_subdirectory(apps/groups)
 add_subdirectory(apps/rects)
 add_subdirectory(apps/progress)
 add_subdirectory(apps/interp)
+add_subdirectory(apps/gravzones)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

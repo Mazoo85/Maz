@@ -40,6 +40,7 @@
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
+#include "maz/game/GravityField2D.hpp"
 #include "maz/game/AutoTile.hpp"
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
@@ -1381,6 +1382,103 @@ void testArea2D() {
         mon.update({5, 5, 5}, entered, exited);
         CHECK(entered.size() == 1 && entered[0] == 5);
         CHECK(mon.members().size() == 1);
+    }
+}
+
+void testGravityField2D() {
+    using game::GravityArea2D;
+    using game::gravityAt;
+    using game::GravityMode;
+    using game::GravityType;
+    using math::Rect2;
+    using math::vec2;
+
+    const vec2 base(0.0f, 900.0f); // world default: gravity points +y (down)
+
+    // No zones -> the base gravity everywhere.
+    {
+        std::vector<GravityArea2D> areas;
+        const vec2 g = gravityAt(areas, vec2(100.0f, 100.0f), base);
+        CHECK_NEAR(g.x, 0.0f, 1e-4f);
+        CHECK_NEAR(g.y, 900.0f, 1e-4f);
+    }
+
+    // A directional REPLACE zone: inside it overrides the base; outside stays base.
+    {
+        GravityArea2D wind;
+        wind.region = Rect2(0.0f, 0.0f, 200.0f, 200.0f);
+        wind.type = GravityType::Directional;
+        wind.mode = GravityMode::Replace;
+        wind.direction = vec2(1.0f, 0.0f); // push +x, magnitude 700
+        wind.strength = 700.0f;
+        std::vector<GravityArea2D> areas = {wind};
+
+        const vec2 gin = gravityAt(areas, vec2(50.0f, 50.0f), base);
+        CHECK_NEAR(gin.x, 700.0f, 1e-3f);
+        CHECK_NEAR(gin.y, 0.0f, 1e-3f); // replaced -> no base down component
+
+        const vec2 gout = gravityAt(areas, vec2(500.0f, 50.0f), base);
+        CHECK_NEAR(gout.x, 0.0f, 1e-3f);
+        CHECK_NEAR(gout.y, 900.0f, 1e-3f);
+    }
+
+    // ADD mode accumulates on top of the base.
+    {
+        GravityArea2D add;
+        add.region = Rect2(0.0f, 0.0f, 200.0f, 200.0f);
+        add.type = GravityType::Directional;
+        add.mode = GravityMode::Add;
+        add.direction = vec2(-1.0f, 0.0f);
+        add.strength = 300.0f;
+        std::vector<GravityArea2D> areas = {add};
+        const vec2 g = gravityAt(areas, vec2(50.0f, 50.0f), base);
+        CHECK_NEAR(g.x, -300.0f, 1e-3f); // base.x 0 + (-300)
+        CHECK_NEAR(g.y, 900.0f, 1e-3f);  // base.y unchanged
+    }
+
+    // Overlapping REPLACE zones: the higher priority wins (applied last).
+    {
+        GravityArea2D lo;
+        lo.region = Rect2(0.0f, 0.0f, 200.0f, 200.0f);
+        lo.mode = GravityMode::Replace;
+        lo.direction = vec2(1.0f, 0.0f);
+        lo.strength = 100.0f;
+        lo.priority = 1;
+        GravityArea2D hi = lo;
+        hi.direction = vec2(0.0f, -1.0f);
+        hi.strength = 500.0f;
+        hi.priority = 5;
+        // Deliberately list high-priority FIRST to prove ordering is by priority, not input order.
+        std::vector<GravityArea2D> areas = {hi, lo};
+        const vec2 g = gravityAt(areas, vec2(50.0f, 50.0f), base);
+        CHECK_NEAR(g.x, 0.0f, 1e-3f);
+        CHECK_NEAR(g.y, -500.0f, 1e-3f); // high-priority up-field wins
+    }
+
+    // Point field: pulls toward the centre; inverse-square == strength at unitDistance, /4 at twice.
+    {
+        GravityArea2D planet;
+        planet.region = Rect2(-1000.0f, -1000.0f, 2000.0f, 2000.0f);
+        planet.type = GravityType::Point;
+        planet.mode = GravityMode::Replace;
+        planet.center = vec2(0.0f, 0.0f);
+        planet.strength = 400.0f;
+        planet.unitDistance = 100.0f;
+        std::vector<GravityArea2D> areas = {planet};
+
+        // A body at (100, 0): direction toward centre is -x, magnitude == strength (dist == unitDistance).
+        const vec2 g1 = gravityAt(areas, vec2(100.0f, 0.0f), vec2(0.0f, 0.0f));
+        CHECK_NEAR(g1.x, -400.0f, 1e-2f);
+        CHECK_NEAR(g1.y, 0.0f, 1e-2f);
+        // At (200, 0): twice the unit distance -> magnitude / 4 = 100, direction -x.
+        const vec2 g2 = gravityAt(areas, vec2(200.0f, 0.0f), vec2(0.0f, 0.0f));
+        CHECK_NEAR(g2.x, -100.0f, 1e-2f);
+
+        // Constant point field (unitDistance <= 0): magnitude == strength regardless of distance.
+        planet.unitDistance = 0.0f;
+        areas = {planet};
+        const vec2 g3 = gravityAt(areas, vec2(0.0f, 300.0f), vec2(0.0f, 0.0f));
+        CHECK_NEAR(g3.y, -400.0f, 1e-2f); // pulled up toward centre at full strength
     }
 }
 
@@ -8321,6 +8419,7 @@ int main() {
     testTileSet();
     testCollisionLayers();
     testArea2D();
+    testGravityField2D();
     testAvoidance();
     testVisibility2D();
     testSoftShadow2D();

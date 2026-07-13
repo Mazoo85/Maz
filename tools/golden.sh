@@ -129,6 +129,7 @@ CASES=(
     "rects||2.0|0.06"
     "progress||2.0|0.07"
     "interp||2.0|0.06"
+    "gravzones||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

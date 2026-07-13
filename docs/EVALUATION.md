@@ -2858,6 +2858,31 @@ drives a deterministic 2D golden.
   every moving node interpolates for free, add 3D transform (quaternion) interpolation, or a global
   physics-interpolation toggle on the scene; those remain the integration follow-ups.
 
+### Iteration 113 — "Benchmarking against Godot: area gravity fields" (done)
+Rotating to **2D physics** for breadth (recent rounds were core, UI, math, scene/ECS, animation, audio).
+Maz's `Area2D` (M116) detects bodies entering/leaving a region but couldn't change the gravity they feel —
+its own comment names "gravity zones" as a use case it didn't implement. Godot's Area2D can override gravity
+inside its shape: directional (wind, updraft, sideways force) or a point pull with inverse-square falloff.
+Pure geometry + vector math, so it unit-tests exactly and a fixed-step sim drives a golden.
+- [x] **M152 — Area gravity fields (`game::GravityArea2D` / `gravityAt`)**: a new `GravityField2D.hpp` — a
+  `GravityArea2D` carries a `math::Rect2` region (reusing M149's Rect2), a `GravityType` (Directional / Point),
+  a `GravityMode` (Replace / Add), and a `priority`. `zoneGravity` gives one zone's contribution at a point:
+  directional = `direction`-normalized × `strength`; point = toward `center` with inverse-square falloff that
+  equals `strength` at `unitDistance` (or a constant when `unitDistance ≤ 0`). `gravityAt(areas, p, base)`
+  starts from the world default and applies every zone containing `p` in ascending priority — REPLACE zones
+  overwrite the accumulated vector (highest priority wins), ADD zones sum onto it — Godot's Area2D
+  gravity_space_override. `testGravityField2D` pins ~14 checks: base-only outside zones, directional replace
+  (inside overrides, outside unaffected), add-mode accumulation, priority ordering independent of input order,
+  and the point-field direction + inverse-square magnitude (== strength at unitDistance, /4 at twice, constant
+  when unitDistance≤0). Unit checks **5095 → 5109**. The new `gravzones` demo drops six balls through three
+  zones — a WIND field (added rightward), an UPDRAFT (replacing gravity upward), and a point ATTRACTOR — and
+  their fixed-step trails visibly drift right, U-turn, and curl into orbits around the attractor centre. 2D
+  golden (threshold 0.06, `gravzones` RMSE 0). Purely additive, so every existing golden is byte-unchanged
+  (confirmed by a serial golden run); ctest **107/107 → 108/108**. Honest scope: this is the gravity-field
+  query; it does **not** yet auto-wire into `Physics2D`'s integrator so bodies read it every step for free,
+  support non-rectangular (circle/polygon) zones, or the full set of Godot's five space-override modes; those
+  remain the integration follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

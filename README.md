@@ -810,6 +810,10 @@ available):
   `interpolationAlpha()` so motion stays smooth when the display rate doesn't divide the physics rate
   (rotation blends the shortest arc). The new `interp` demo ghosts the endpoint poses with the interpolated
   pose between them for four motions.
+- **M152** — **area gravity fields** (`game::GravityArea2D` / `gravityAt`), toward Godot's Area2D gravity
+  override: rectangular zones that change the gravity a body feels — directional (wind / updraft) or a point
+  pull with inverse-square falloff — combined by priority with Replace/Add modes. The new `gravzones` demo
+  drops balls through a wind field, an updraft, and an attractor, their trails bending accordingly.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
