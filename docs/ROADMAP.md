@@ -242,6 +242,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `drawConvexPolygon` — Godot Line2D; the `line2d` demo strokes zig-zags per joint mode, bars per cap mode,
   a sampled sine curve, and a closed star; M126) — per-vertex gradient/width + texture-along-the-line + AA
   edges later
+- [x] **2D:** multi-mesh instancing (`render::MultiMesh2D`: one convex base polygon + a per-instance buffer
+  of `Instance2D{position, rotation, scale, colour}`; `transformInstance` applies scale→rotate→translate,
+  `transformedPolygon(i)` yields one instance's world polygon, `bakeTriangles()` flattens all instances to one
+  triangle soup — Godot MultiMesh/MultiMeshInstance2D; the `multimesh` demo stamps one dart 540× into a
+  colour-swirled spiral field; M143) — a real GPU instanced draw call, per-instance texture/atlas + custom-data
+  channels, and a 3D MultiMesh later
 - [x] **2D:** lights + shadows (`game::Visibility2D` angle-sweep visibility polygon + a per-vertex-color
   gradient fan `Renderer::drawPolygonFan` — Godot Light2D / LightOccluder2D-style; occluder boxes carve
   real hard-edged shadow notches out of each light pool; the `lights2d` demo lights a dark room with three

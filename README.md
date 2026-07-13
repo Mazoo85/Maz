@@ -771,6 +771,10 @@ available):
   it at constant speed no matter how it bends (`sampleBaked(distance)`). Also `sample`/`tangent`/`length`.
   The new `curve` demo draws the spline, its handles, the evenly-spaced baked points, and a traveller with
   its tangent arrow.
+- **M143** — a **2D multi-mesh** (`render::MultiMesh2D`), toward Godot's `MultiMeshInstance2D`: one base
+  convex shape plus a compact per-instance buffer (position, rotation, scale, colour) stamped many times.
+  `transformedPolygon(i)` gives one instance's world polygon; `bakeTriangles()` flattens all instances into
+  one triangle soup. The new `multimesh` demo stamps a single dart 540 times into a colour-swirled field.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

@@ -69,6 +69,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               buildPolyline  — 2D polyline stroking (Godot Line2D): thicken a point list to a ribbon of a
                                given width with Miter/Bevel/Round joints + None/Box/Round caps + closed
                                loops → a triangle soup for drawConvexPolygon (header-only, no GPU dep)
+              MultiMesh2D    — 2D multi-mesh instancing (Godot MultiMeshInstance2D): one convex base polygon +
+                               a per-instance buffer (Instance2D pos/rot/scale/colour); transformInstance TRS,
+                               transformedPolygon(i) world polygon, bakeTriangles() one soup (header-only, no GPU dep)
               buildGrid      — 3D editor reference geometry (Godot Node3D viewport): an XZ-plane ground grid
                                (buildGrid) + the X=red/Y=green/Z=blue origin gizmo, and buildWireBox (12 edges
                                of a placeable AABB) — colored Line3 lists drawn via DebugDraw/drawLine (no GPU dep)
@@ -306,6 +309,8 @@ apps/
               sizes, nesting, literal/unknown-tag passthrough) each shown above its ui::parseBBCode-formatted result
   curve/     Cubic Bézier path — a math::Curve2D wavy path drawn as a smooth spline with its control points +
               handles, arc-length-baked constant-speed dots (green), and a traveller with its tangent arrow
+  multimesh/ 2D multi-mesh — one dart base shape stamped 540× through a render::MultiMesh2D as a colour-swirled
+              spiral field (per-instance rotation/scale/colour), demonstrating one-shape-many-instances
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

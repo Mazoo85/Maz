@@ -781,6 +781,14 @@ set_tests_properties(curve_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME multimesh_headless_smoke
+    COMMAND multimesh --headless --frames 30)
+
+set_tests_properties(multimesh_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

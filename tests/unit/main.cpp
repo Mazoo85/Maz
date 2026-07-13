@@ -81,6 +81,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
+#include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
@@ -3788,6 +3789,94 @@ void testGrid3D() {
         CHECK_NEAR(mxx, 1.0f, 1e-4f);
         CHECK_NEAR(mny, 0.0f, 1e-4f);
         CHECK_NEAR(mxy, 3.0f, 1e-4f);
+    }
+}
+
+void testMultiMesh2D() {
+    using math::vec2;
+    using render::Instance2D;
+    using render::MultiMesh2D;
+    using render::transformInstance;
+
+    // transformInstance: TRS order (scale -> rotate -> translate).
+    {
+        Instance2D id; // identity: pos 0, rot 0, scale 1
+        CHECK_NEAR(transformInstance(id, vec2(3.0f, 4.0f)).x, 3.0f, 1e-5f);
+        CHECK_NEAR(transformInstance(id, vec2(3.0f, 4.0f)).y, 4.0f, 1e-5f);
+
+        Instance2D t;
+        t.position = vec2(10.0f, 20.0f);
+        CHECK_NEAR(transformInstance(t, vec2(0.0f, 0.0f)).x, 10.0f, 1e-5f);
+        CHECK_NEAR(transformInstance(t, vec2(0.0f, 0.0f)).y, 20.0f, 1e-5f);
+
+        Instance2D sc;
+        sc.scale = vec2(2.0f, 3.0f);
+        CHECK_NEAR(transformInstance(sc, vec2(1.0f, 1.0f)).x, 2.0f, 1e-5f);
+        CHECK_NEAR(transformInstance(sc, vec2(1.0f, 1.0f)).y, 3.0f, 1e-5f);
+
+        // 90° rotation sends local +X to +Y (y-down or y-up, the sin/cos convention is consistent).
+        Instance2D r;
+        r.rotation = 1.5707963f; // pi/2
+        const vec2 p = transformInstance(r, vec2(1.0f, 0.0f));
+        CHECK_NEAR(p.x, 0.0f, 1e-4f);
+        CHECK_NEAR(p.y, 1.0f, 1e-4f);
+
+        // Combined: scale (2,2) then rotate 90° then translate (5,5): local (1,0) -> (2,0) -> (0,2) -> (5,7).
+        Instance2D trs;
+        trs.scale = vec2(2.0f, 2.0f);
+        trs.rotation = 1.5707963f;
+        trs.position = vec2(5.0f, 5.0f);
+        const vec2 q = transformInstance(trs, vec2(1.0f, 0.0f));
+        CHECK_NEAR(q.x, 5.0f, 1e-3f);
+        CHECK_NEAR(q.y, 7.0f, 1e-3f);
+    }
+
+    // A MultiMesh of a unit triangle, stamped at three places.
+    {
+        MultiMesh2D mm;
+        mm.baseVertices = {vec2(0.0f, 0.0f), vec2(10.0f, 0.0f), vec2(0.0f, 10.0f)};
+        CHECK(mm.instanceCount() == 0);
+        mm.addInstance(Instance2D{vec2(100.0f, 0.0f), 0.0f, vec2(1, 1), {}});
+        mm.addInstance(Instance2D{vec2(0.0f, 100.0f), 0.0f, vec2(1, 1), {}});
+        mm.addInstance(Instance2D{vec2(50.0f, 50.0f), 0.0f, vec2(2, 2), {}});
+        CHECK(mm.instanceCount() == 3);
+
+        // transformedPolygon keeps the vertex count and applies the instance transform.
+        const std::vector<vec2> p0 = mm.transformedPolygon(0);
+        CHECK(p0.size() == 3);
+        CHECK_NEAR(p0[0].x, 100.0f, 1e-4f); // first vertex at the instance position
+        CHECK_NEAR(p0[1].x, 110.0f, 1e-4f); // +X vertex shifted by position
+
+        // The scaled instance doubles the triangle's reach.
+        const std::vector<vec2> p2 = mm.transformedPolygon(2);
+        CHECK_NEAR(p2[1].x, 70.0f, 1e-4f); // 50 + 10*2
+
+        // Baking: a triangle fans to 1 tri (3 verts) per instance -> 3*3 = 9 vertices.
+        CHECK(mm.triangleCount() == 3);
+        CHECK(mm.bakeTriangles().size() == 9);
+    }
+
+    // A convex quad (4 verts) fans to 2 triangles = 6 vertices per instance.
+    {
+        MultiMesh2D mm;
+        mm.baseVertices = {vec2(0, 0), vec2(1, 0), vec2(1, 1), vec2(0, 1)};
+        mm.addInstance(Instance2D{});
+        mm.addInstance(Instance2D{});
+        CHECK(mm.triangleCount() == 4);        // 2 tris * 2 instances
+        CHECK(mm.bakeTriangles().size() == 12); // 4 tris * 3 verts
+
+        mm.clear();
+        CHECK(mm.instanceCount() == 0);
+        CHECK(mm.bakeTriangles().empty());
+    }
+
+    // A degenerate base (<3 verts) bakes nothing.
+    {
+        MultiMesh2D mm;
+        mm.baseVertices = {vec2(0, 0), vec2(1, 1)};
+        mm.addInstance(Instance2D{});
+        CHECK(mm.triangleCount() == 0);
+        CHECK(mm.bakeTriangles().empty());
     }
 }
 
@@ -7638,6 +7727,7 @@ int main() {
     testPrefabText();
     testLocalization();
     testGrid3D();
+    testMultiMesh2D();
     testShapes3D();
     testPolyline();
     testActionMap();

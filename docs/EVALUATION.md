@@ -2634,6 +2634,32 @@ so it unit-tests headlessly and draws a clean deterministic golden.
   node that moves a transform along it each frame, closed loops, or an editor to drag handles; those remain
   the path follow-ups.
 
+### Iteration 104 — "Benchmarking against Godot: 2D multi-mesh instancing" (done)
+Rotating to **2D rendering** for breadth (recent rounds were math, UI, IO, audio). Maz already batches sprites
+and has 3D instanced meshes (M55), but had no **2D instancing abstraction** — a way to declare one base shape
+plus a compact per-instance buffer and stamp the shape hundreds of times. Godot exposes exactly this as
+`MultiMesh` / `MultiMeshInstance2D`: one mesh, one transform (+colour) array, drawn as a crowd. The transform
+math is pure (no GPU state), so it unit-tests headlessly and drives a dense deterministic golden.
+- [x] **M143 — 2D multi-mesh instancing (`render::MultiMesh2D`)**: a new `MultiMesh2D.hpp`. A `MultiMesh2D`
+  holds a convex base polygon (`baseVertices`, local space) plus a list of `Instance2D`s (position, rotation,
+  scale, colour). `transformInstance(inst, local)` applies the standard 2D **scale→rotate→translate** to one
+  vertex; `transformedPolygon(i)` returns one instance's world-space polygon (for a per-instance coloured
+  draw); `bakeTriangles()` fans **every** instance's polygon into one triangle soup (groups of 3) ready for a
+  single batched draw / vertex upload, and `triangleCount()` reports its size. `testMultiMesh2D` pins the TRS
+  math (identity / pure-translate / pure-scale / 90°-rotate sending +X to +Y / a combined scale-rotate-
+  translate landing where hand-computed), `transformedPolygon` preserving vertex count and applying the
+  transform (including a 2× instance doubling reach), triangle counts (triangle base → 1 tri/instance, quad →
+  2), `clear`, and a degenerate <3-vertex base baking nothing. Unit checks **4882 → 4906**. The new `multimesh`
+  demo stamps a single dart shape **540 times** (a 30×18 grid) through one MultiMesh2D — each instance rotated
+  along a spiral about the centre and tinted by its angle — so the whole field reads as one flowing swirl
+  drawn from one base shape + an instance buffer. Every instance value is a deterministic function of the grid
+  index → golden-stable (0.07). Purely additive (new header + new app), so every existing golden is
+  byte-unchanged (confirmed by a serial golden run); ctest **98/98 → 99/99**. Honest scope: this is the CPU
+  instance-buffer + transform/bake data structure — it does **not** yet upload the baked buffer to a real GPU
+  instanced draw call (the demo still issues one `drawConvexPolygon` per instance to get per-instance colour),
+  support a shared texture/atlas per instance, per-instance custom-data channels, or a 3D `MultiMesh`; those
+  remain the instancing follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

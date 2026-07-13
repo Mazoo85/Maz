@@ -83,6 +83,7 @@
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/Model.hpp"
+#include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/Renderer.hpp"
 #include "maz/render/Shapes.hpp"
 #include "maz/render/Shapes3D.hpp"
