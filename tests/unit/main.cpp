@@ -9337,6 +9337,87 @@ void testAudioDsp() {
         CHECK(early > 0.0);
         CHECK(echo > 0.0);
     }
+
+    // ---- A1: dB units, the completed biquad set, and Amplify ------------------------------------
+    // Exact magnitude response |H(e^jw)| of a biquad at angular frequency w (a1/a2 are already
+    // a0-normalized, so the denominator's constant term is 1).
+    auto magAt = [](const audio::Biquad& f, float w) {
+        const float c1 = std::cos(w), s1 = std::sin(w);
+        const float c2 = std::cos(2.0f * w), s2 = std::sin(2.0f * w);
+        const float numRe = f.b0 + f.b1 * c1 + f.b2 * c2;
+        const float numIm = -(f.b1 * s1 + f.b2 * s2);
+        const float denRe = 1.0f + f.a1 * c1 + f.a2 * c2;
+        const float denIm = -(f.a1 * s1 + f.a2 * s2);
+        const float num = std::sqrt(numRe * numRe + numIm * numIm);
+        const float den = std::sqrt(denRe * denRe + denIm * denIm);
+        return num / den;
+    };
+    auto wOf = [&](float hz) { return 2.0f * 3.14159265f * hz / sr; };
+
+    // dB <-> linear round-trips and known anchors.
+    CHECK_NEAR(audio::dbToLinear(0.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(audio::linearToDb(1.0f), 0.0f, 1e-5f);
+    CHECK_NEAR(audio::dbToLinear(6.0206f), 2.0f, 1e-3f);  // +6.02 dB == x2
+    CHECK_NEAR(audio::linearToDb(2.0f), 6.0206f, 1e-3f);
+    CHECK_NEAR(audio::dbToLinear(audio::linearToDb(0.37f)), 0.37f, 1e-4f);
+    CHECK(audio::linearToDb(0.0f) < -150.0f); // silence floors to a large finite negative dB
+
+    // Amplify applies its dB gain as a linear multiply.
+    {
+        audio::Amplify amp;
+        amp.gainDb = 6.0206f;
+        CHECK_NEAR(amp.process(0.5f), 1.0f, 1e-3f);
+        amp.gainDb = 0.0f;
+        CHECK_NEAR(amp.process(0.42f), 0.42f, 1e-6f);
+    }
+
+    // Peaking EQ at 0 dB is an exact pass-through (numerator == denominator -> y == x).
+    {
+        audio::Biquad p = audio::Biquad::peaking(1000.0f, 2.0f, 0.0f, sr);
+        for (float x : {0.3f, -0.7f, 0.15f, 0.9f}) {
+            CHECK_NEAR(p.process(x), x, 1e-5f);
+        }
+    }
+    // Peaking with +12 dB boosts its center frequency by ~12 dB and leaves DC/Nyquist untouched.
+    {
+        audio::Biquad p = audio::Biquad::peaking(1000.0f, 3.0f, 12.0f, sr);
+        CHECK_NEAR(audio::linearToDb(magAt(p, wOf(1000.0f))), 12.0f, 0.3f);
+        CHECK_NEAR(magAt(p, 0.0f), 1.0f, 1e-3f);          // DC unaffected
+        CHECK_NEAR(magAt(p, 3.14159265f), 1.0f, 1e-3f);   // Nyquist unaffected
+    }
+    // Notch: near-zero magnitude at the cutoff, unity at DC.
+    {
+        audio::Biquad n = audio::Biquad::notch(1000.0f, 5.0f, sr);
+        CHECK(magAt(n, wOf(1000.0f)) < 0.02f);
+        CHECK_NEAR(magAt(n, 0.0f), 1.0f, 1e-3f);
+    }
+    // Allpass: flat unity magnitude across the spectrum (only the phase changes).
+    {
+        audio::Biquad ap = audio::Biquad::allpass(1000.0f, 0.707f, sr);
+        for (float hz : {50.0f, 500.0f, 1000.0f, 5000.0f, 18000.0f}) {
+            CHECK_NEAR(magAt(ap, wOf(hz)), 1.0f, 1e-3f);
+        }
+    }
+    // Low shelf (+6 dB): boosts DC by 6 dB, leaves Nyquist ~unchanged.
+    {
+        audio::Biquad ls = audio::Biquad::lowShelf(1000.0f, 6.0f, sr);
+        CHECK_NEAR(audio::linearToDb(magAt(ls, 0.0f)), 6.0f, 0.05f);
+        CHECK_NEAR(audio::linearToDb(magAt(ls, 3.14159265f)), 0.0f, 0.2f);
+    }
+    // High shelf (-6 dB): cuts Nyquist by 6 dB, leaves DC ~unchanged.
+    {
+        audio::Biquad hs = audio::Biquad::highShelf(1000.0f, -6.0f, sr);
+        CHECK_NEAR(audio::linearToDb(magAt(hs, 3.14159265f)), -6.0f, 0.05f);
+        CHECK_NEAR(audio::linearToDb(magAt(hs, 0.0f)), 0.0f, 0.2f);
+    }
+    // AmplifyEffect works inside a bus chain.
+    {
+        audio::Bus chain;
+        audio::Amplify amp;
+        amp.gainDb = -6.0206f; // x0.5
+        chain.add(std::make_unique<audio::AmplifyEffect>(amp));
+        CHECK_NEAR(chain.process(1.0f), 0.5f, 1e-3f);
+    }
 }
 
 void testAudioEffects() {

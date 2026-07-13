@@ -16,6 +16,24 @@ namespace maz::audio {
 // it unit-tests exactly and drives a deterministic offline waveform golden, and a real-time mixer can
 // consume it unchanged (process one sample, or a whole buffer, through the chain).
 
+// ---- Decibel <-> linear amplitude --------------------------------------------------------------
+// Godot expresses every volume/gain in DECIBELS (a bus's volume_db, a player's volume_db). These convert
+// between that dB scale and the linear amplitude multiplier the DSP math actually uses: 0 dB = unity
+// (x1), +6 dB ~= x2, -inf dB = silence. linearToDb floors its input at a tiny positive value so silence
+// maps to a large finite negative dB instead of -inf.
+inline float dbToLinear(float db) { return std::pow(10.0f, db * 0.05f); }
+inline float linearToDb(float linear) {
+    const float a = linear < 1e-10f ? 1e-10f : linear;
+    return 20.0f * std::log10(a);
+}
+
+// A gain expressed in decibels — Godot's AudioEffectAmplify. 0 dB leaves the signal unchanged.
+struct Amplify {
+    float gainDb = 0.0f;
+    float process(float x) const { return x * dbToLinear(gainDb); }
+    void reset() {}
+};
+
 // Second-order IIR "biquad" — the standard filter behind Godot's AudioEffectFilter. Build one with a
 // cutoff + resonance (Q) via the factories, then stream samples through `process` (transposed direct
 // form II: one multiply-add per coefficient, and numerically well-behaved). Coefficients are stored
@@ -75,6 +93,84 @@ struct Biquad {
         f.b2 = -alpha / a0;
         f.a1 = (-2.0f * cw) / a0;
         f.a2 = (1.0f - alpha) / a0;
+        return f;
+    }
+
+    // Band-reject "notch": passes everything except a narrow null at the cutoff (unity at DC/Nyquist).
+    static Biquad notch(float cutoffHz, float q, float sampleRate) {
+        float cw, alpha;
+        commonTerms(cutoffHz, q, sampleRate, cw, alpha);
+        const float a0 = 1.0f + alpha;
+        Biquad f;
+        f.b0 = 1.0f / a0;
+        f.b1 = (-2.0f * cw) / a0;
+        f.b2 = 1.0f / a0;
+        f.a1 = (-2.0f * cw) / a0;
+        f.a2 = (1.0f - alpha) / a0;
+        return f;
+    }
+
+    // All-pass: flat unity magnitude at every frequency, but a frequency-dependent phase shift — the
+    // diffusion building block and Godot's AudioEffectFilter allpass mode.
+    static Biquad allpass(float cutoffHz, float q, float sampleRate) {
+        float cw, alpha;
+        commonTerms(cutoffHz, q, sampleRate, cw, alpha);
+        const float a0 = 1.0f + alpha;
+        Biquad f;
+        f.b0 = (1.0f - alpha) / a0;
+        f.b1 = (-2.0f * cw) / a0;
+        f.b2 = (1.0f + alpha) / a0;
+        f.a1 = (-2.0f * cw) / a0;
+        f.a2 = (1.0f - alpha) / a0;
+        return f;
+    }
+
+    // Peaking EQ: boost/cut a band by `gainDb` around the cutoff, unity far away — one band of a
+    // parametric/graphic equalizer. gainDb = 0 is an exact pass-through.
+    static Biquad peaking(float cutoffHz, float q, float gainDb, float sampleRate) {
+        float cw, alpha;
+        commonTerms(cutoffHz, q, sampleRate, cw, alpha);
+        const float A = std::pow(10.0f, gainDb / 40.0f);
+        const float a0 = 1.0f + alpha / A;
+        Biquad f;
+        f.b0 = (1.0f + alpha * A) / a0;
+        f.b1 = (-2.0f * cw) / a0;
+        f.b2 = (1.0f - alpha * A) / a0;
+        f.a1 = (-2.0f * cw) / a0;
+        f.a2 = (1.0f - alpha / A) / a0;
+        return f;
+    }
+
+    // Low shelf: boost/cut everything BELOW the cutoff by `gainDb`, unity above — Godot's low-shelf
+    // filter (tone controls, "bass" knob).
+    static Biquad lowShelf(float cutoffHz, float gainDb, float sampleRate, float q = 0.707f) {
+        float cw, alpha;
+        commonTerms(cutoffHz, q, sampleRate, cw, alpha);
+        const float A = std::pow(10.0f, gainDb / 40.0f);
+        const float beta = 2.0f * std::sqrt(A) * alpha;
+        const float a0 = (A + 1.0f) + (A - 1.0f) * cw + beta;
+        Biquad f;
+        f.b0 = A * ((A + 1.0f) - (A - 1.0f) * cw + beta) / a0;
+        f.b1 = 2.0f * A * ((A - 1.0f) - (A + 1.0f) * cw) / a0;
+        f.b2 = A * ((A + 1.0f) - (A - 1.0f) * cw - beta) / a0;
+        f.a1 = -2.0f * ((A - 1.0f) + (A + 1.0f) * cw) / a0;
+        f.a2 = ((A + 1.0f) + (A - 1.0f) * cw - beta) / a0;
+        return f;
+    }
+
+    // High shelf: boost/cut everything ABOVE the cutoff by `gainDb`, unity below ("treble" knob).
+    static Biquad highShelf(float cutoffHz, float gainDb, float sampleRate, float q = 0.707f) {
+        float cw, alpha;
+        commonTerms(cutoffHz, q, sampleRate, cw, alpha);
+        const float A = std::pow(10.0f, gainDb / 40.0f);
+        const float beta = 2.0f * std::sqrt(A) * alpha;
+        const float a0 = (A + 1.0f) - (A - 1.0f) * cw + beta;
+        Biquad f;
+        f.b0 = A * ((A + 1.0f) + (A - 1.0f) * cw + beta) / a0;
+        f.b1 = -2.0f * A * ((A - 1.0f) + (A + 1.0f) * cw) / a0;
+        f.b2 = A * ((A + 1.0f) + (A - 1.0f) * cw - beta) / a0;
+        f.a1 = 2.0f * ((A - 1.0f) - (A + 1.0f) * cw) / a0;
+        f.a2 = ((A + 1.0f) - (A - 1.0f) * cw - beta) / a0;
         return f;
     }
 
@@ -500,6 +596,12 @@ struct PhaserEffect : Effect {
     explicit PhaserEffect(const Phaser& p) : phaser(p) {}
     float process(float x) override { return phaser.process(x); }
     void reset() override { phaser.reset(); }
+};
+
+struct AmplifyEffect : Effect {
+    Amplify amp;
+    explicit AmplifyEffect(const Amplify& a) : amp(a) {}
+    float process(float x) override { return amp.process(x); }
 };
 
 // A mix bus: an ordered effect chain plus an output gain, like a Godot audio bus. Feed one sample
