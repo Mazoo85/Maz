@@ -73,13 +73,17 @@ def test_passing_tests_break_immediately(monkeypatch, tmp_path):
     assert t.count("fix") == 0
 
 
-def test_cost_accumulates_across_phases(monkeypatch, tmp_path):
+def test_cost_is_final_cumulative_not_sum(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    # Each turn's result reports the same per-turn cost; the task total is the
-    # sum over every phase that ran.
+    # The SDK reports total_cost_usd cumulatively; the fake adds 0.01 per turn, so
+    # the task total is the LAST cumulative value (0.01 * n), never the sum of the
+    # cumulative readings (which would be much larger — the bug we fixed).
     state, client = run(confirm=lambda q: True, cost=0.01)
-    assert state.total_cost_usd == pytest.approx(0.01 * len(client.prompts))
-    assert len(client.prompts) >= 4  # at least plan, code, review, test
+    n = len(client.prompts)
+    assert n >= 4  # at least plan, code, review, test
+    assert state.total_cost_usd == pytest.approx(0.01 * n)
+    naive_sum = 0.01 * n * (n + 1) / 2  # sum of 0.01, 0.02, ... 0.01n
+    assert state.total_cost_usd < naive_sum
 
 
 def test_no_cost_reported_stays_zero(monkeypatch, tmp_path):

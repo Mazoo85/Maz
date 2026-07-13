@@ -136,6 +136,9 @@ def build_agents(config: CrewConfig) -> dict[str, Any]:
             prompt=prompt_for(role),
             tools=tools_for(role),
             model=role.model(config),
+            # Run synchronously: the orchestrator drives phases in order and must
+            # not advance until a phase's agent has actually finished its work.
+            background=False,
         )
         for role in ROLES
     }

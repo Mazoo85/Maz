@@ -36,7 +36,8 @@ class FakeClient:
     def __init__(self, responder, session_id: str = "sess-1", cost: float | None = None) -> None:
         self.responder = responder
         self.session_id = session_id
-        self.cost = cost
+        self.cost = cost  # per-turn increment; the yielded value is CUMULATIVE
+        self._cum = 0.0
         self.prompts: list[str] = []
         self._pending = ""
 
@@ -52,7 +53,12 @@ class FakeClient:
 
     async def receive_response(self):
         yield FakeAssistant(self._pending)
-        yield FakeResult(self.session_id, self.cost)
+        if self.cost is None:
+            yield FakeResult(self.session_id, None)
+        else:
+            # Mirror the real SDK: total_cost_usd is cumulative across the session.
+            self._cum += self.cost
+            yield FakeResult(self.session_id, self._cum)
 
 
 def classify(prompt: str) -> str:

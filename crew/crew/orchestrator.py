@@ -36,6 +36,15 @@ console = Console()
 # A checkpoint asks the human a yes/no question and returns their answer.
 Confirm = Callable[[str], bool]
 
+# Appended to every phase prompt: the top-level agent must run the subagent to
+# completion this turn, not dispatch it to the background and return early (which
+# would let the orchestrator advance before the work is actually done).
+_SYNC_DIRECTIVE = (
+    " Invoke the agent and WAIT for it to finish within this turn — do not run it in the "
+    "background and do not say you will report back later. When it completes, output its "
+    "result directly so the next phase can proceed."
+)
+
 
 @dataclass
 class PhaseResult:
@@ -142,30 +151,36 @@ async def run_task(
     factory = client_factory or _default_client_factory
     state = session_mod.SessionState(session_id=resume_session_id, task=task)
 
-    # Per-phase records, in run order: (title, cost) for the summary and
+    # Per-phase records, in run order: (title, marginal cost) for the summary and
     # (title, text) for the saved transcript.
     records: list[tuple[str, float | None]] = []
     transcript: list[tuple[str, str]] = []
+    # ResultMessage.total_cost_usd is CUMULATIVE for the whole SDK session, so the
+    # running total is the latest value seen and each phase's own cost is the delta.
+    prev_cost = 0.0
 
     async with factory(config, resume_session_id) as client:
 
         def checkpoint(result: PhaseResult, phase: str) -> bool:
             if result.session_id:
                 state.session_id = result.session_id
-            # Per-turn costs sum to the task total. (SDK reports cost per query
-            # turn; if a future SDK reports it cumulatively this would need a max
-            # instead — revisit if the numbers look inflated.)
-            if result.cost_usd:
-                state.total_cost_usd += result.cost_usd
             state.phase = phase
             session_mod.save(state, config)
             return True
 
         async def phase(prompt: str, *, title: str, name: str) -> PhaseResult:
             """Run one phase, checkpoint it, and record it for the summary."""
-            result = await _run_phase(client, prompt, title=title)
+            nonlocal prev_cost
+            result = await _run_phase(client, prompt + _SYNC_DIRECTIVE, title=title)
             checkpoint(result, name)
-            records.append((title, result.cost_usd))
+            if result.cost_usd is not None:
+                marginal = max(0.0, result.cost_usd - prev_cost)
+                prev_cost = result.cost_usd
+                state.total_cost_usd = result.cost_usd  # latest cumulative = task total
+                session_mod.save(state, config)
+            else:
+                marginal = None
+            records.append((title, marginal))
             transcript.append((title, result.text))
             return result
 
