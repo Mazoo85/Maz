@@ -69,7 +69,15 @@ def _maybe_commit(task: str, message: str | None, confirm) -> None:
         console.print(f"[red]Commit failed:[/red] {out}")
 
 
-def _drive(task, config, confirm, resume_session_id=None, commit=False, commit_message=None) -> None:
+def _drive(
+    task,
+    config,
+    confirm,
+    resume_session_id=None,
+    commit=False,
+    commit_message=None,
+    dry_run=False,
+) -> None:
     """Run the crew, turning failures into clean, resumable messages.
 
     Progress is checkpointed to ``.crew/session.json`` after every completed
@@ -79,7 +87,13 @@ def _drive(task, config, confirm, resume_session_id=None, commit=False, commit_m
     from .orchestrator import run_task_sync
 
     try:
-        state = run_task_sync(task, config, confirm=confirm, resume_session_id=resume_session_id)
+        state = run_task_sync(
+            task,
+            config,
+            confirm=confirm,
+            resume_session_id=resume_session_id,
+            dry_run=dry_run,
+        )
         if commit and getattr(state, "phase", None) == "done":
             _maybe_commit(task, commit_message, confirm)
     except ModuleNotFoundError as exc:  # SDK not installed
@@ -129,14 +143,17 @@ def do(
     max_fix_rounds: int | None = _ROUNDS_OPT,
     commit: bool = _COMMIT_OPT,
     commit_message: str | None = _COMMIT_MSG_OPT,
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Run only the planner and stop — preview the plan, change nothing."
+    ),
 ) -> None:
     """Run TASK through the full crew: plan -> code -> review -> test, with checkpoints."""
     config = _resolve_config(max_fix_rounds)
     confirm = _auto_confirm if yes else _interactive_confirm
     console.print(f"[bold]Task:[/bold] {task}\n")
-    if yes:
+    if yes and not dry_run:
         console.print("[yellow]Running unattended (--yes): all checkpoints auto-approved.[/yellow]\n")
-    _drive(task, config, confirm, commit=commit, commit_message=commit_message)
+    _drive(task, config, confirm, commit=commit, commit_message=commit_message, dry_run=dry_run)
 
 
 @app.command()

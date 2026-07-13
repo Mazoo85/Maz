@@ -50,6 +50,12 @@ crew config                                            # show effective configur
 crew agents                                            # list the crew and their tools
 ```
 
+To preview just the plan without writing any code, use `--dry-run`:
+
+```bash
+crew do "migrate the config loader to pydantic" --dry-run
+```
+
 By default every checkpoint asks for your approval. To run unattended, pass
 `--yes` (auto-approve every checkpoint) and optionally tune the repair loop:
 

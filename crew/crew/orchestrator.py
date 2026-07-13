@@ -121,11 +121,13 @@ async def run_task(
     confirm: Confirm,
     resume_session_id: str | None = None,
     client_factory: ClientFactory | None = None,
+    dry_run: bool = False,
 ) -> session_mod.SessionState:
     """Drive a task through the crew with human checkpoints between phases.
 
     ``client_factory`` defaults to the real SDK client; tests inject a fake to
     exercise the phase order, checkpoint gating, and repair loop offline.
+    ``dry_run`` runs only the planner and stops — a preview with no changes.
     """
     factory = client_factory or _default_client_factory
     state = session_mod.SessionState(session_id=resume_session_id, task=task)
@@ -160,6 +162,11 @@ async def run_task(
             title="1/4  PLAN",
             name="plan",
         )
+        if dry_run:
+            console.print(
+                "[cyan]Dry run:[/cyan] planned only — no code was written and nothing was changed."
+            )
+            return state
         if not confirm("Approve this plan and let the coder implement it?"):
             console.print("[yellow]Stopped at the plan checkpoint. Nothing was changed.[/yellow]")
             return state
@@ -238,8 +245,15 @@ def run_task_sync(
     *,
     confirm: Confirm,
     resume_session_id: str | None = None,
+    dry_run: bool = False,
 ) -> session_mod.SessionState:
     """Blocking wrapper around :func:`run_task` for the CLI."""
     return asyncio.run(
-        run_task(task, config, confirm=confirm, resume_session_id=resume_session_id)
+        run_task(
+            task,
+            config,
+            confirm=confirm,
+            resume_session_id=resume_session_id,
+            dry_run=dry_run,
+        )
     )

@@ -88,6 +88,26 @@ def test_no_cost_reported_stays_zero(monkeypatch, tmp_path):
     assert state.total_cost_usd == 0.0
 
 
+def test_dry_run_plans_only(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    def no_confirm(q):
+        raise AssertionError("confirm must not be called during a dry run")
+
+    client = FakeClient(responder_for("VERDICT: PASS"))
+    state = asyncio.run(
+        run_task(
+            "demo task",
+            CrewConfig(),
+            confirm=no_confirm,
+            dry_run=True,
+            client_factory=lambda c, r: client,
+        )
+    )
+    assert [classify(p) for p in client.prompts] == ["plan"]  # only the planner ran
+    assert state.phase == "plan"
+
+
 def test_run_prints_phase_summary(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     run(confirm=lambda q: True, cost=0.01)
