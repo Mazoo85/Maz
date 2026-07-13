@@ -117,6 +117,17 @@ def test_run_prints_phase_summary(monkeypatch, tmp_path, capsys):
     assert "Total" in out
 
 
+def test_run_writes_transcript(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    run(confirm=lambda q: True)
+    path = tmp_path / ".crew" / "runs" / "sess-1.md"
+    assert path.exists()
+    content = path.read_text()
+    assert "# Crew run" in content
+    assert "**Task:** demo task" in content
+    assert "PLAN" in content and "TEST" in content
+
+
 def test_state_persisted_when_a_phase_errors(monkeypatch, tmp_path):
     """A mid-run failure must leave resumable state from the completed phases."""
     monkeypatch.chdir(tmp_path)

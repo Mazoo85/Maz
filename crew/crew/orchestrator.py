@@ -24,6 +24,7 @@ from . import session as session_mod
 from .agents import build_agents
 from .config import CrewConfig
 from .summary import format_run_summary
+from .transcript import format_transcript, write_transcript
 from .verdict import interpret_test_result
 
 # Builds the async-context-manager client for a run. Injectable so tests can
@@ -132,8 +133,10 @@ async def run_task(
     factory = client_factory or _default_client_factory
     state = session_mod.SessionState(session_id=resume_session_id, task=task)
 
-    # Per-phase (title, cost) records, in run order, for the end-of-run summary.
+    # Per-phase records, in run order: (title, cost) for the summary and
+    # (title, text) for the saved transcript.
     records: list[tuple[str, float | None]] = []
+    transcript: list[tuple[str, str]] = []
 
     async with factory(config, resume_session_id) as client:
 
@@ -154,6 +157,7 @@ async def run_task(
             result = await _run_phase(client, prompt, title=title)
             checkpoint(result, name)
             records.append((title, result.cost_usd))
+            transcript.append((title, result.text))
             return result
 
         # 1. PLAN --------------------------------------------------------------
@@ -227,7 +231,13 @@ async def run_task(
         # 5. COMMIT is a human decision. We stop here on purpose.
         state.phase = "done"
         session_mod.save(state, config)
+        transcript_path = write_transcript(
+            config.state_dir() / "runs",
+            state.session_id or "latest",
+            format_transcript(task, transcript),
+        )
         console.print("\n" + format_run_summary(records, state.total_cost_usd))
+        console.print(f"[dim]Transcript saved to {transcript_path}[/dim]")
         console.print(
             Panel.fit(
                 "Crew finished. Review the diff with [bold]git diff[/bold], then commit when "

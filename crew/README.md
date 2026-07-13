@@ -103,8 +103,10 @@ Precedence is **defaults < `crew.json` < `CREW_MAX_*` env vars**, so the file se
 project defaults while env vars stay handy for one-off runs. Run `crew config` to see
 the effective values and which file (if any) is in effect.
 
-Session state for the current directory is written to `.crew/session.json` (add
-`.crew/` to your `.gitignore`).
+Session state for the current directory is written to `.crew/session.json`, and
+every completed run saves a Markdown transcript (task + each phase's output) under
+`.crew/runs/` so you can review what the crew did afterwards. Add `.crew/` to your
+`.gitignore`.
 
 ## Development
 
