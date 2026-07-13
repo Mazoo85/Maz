@@ -2927,6 +2927,37 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 117 — "Benchmarking against Godot: concave polygon fill" (done)
+Rotating to **2D rendering** for breadth (recent rounds were animation, IO, 3D-render, 2D-physics, core, UI).
+Maz could already fill a *convex* polygon (`drawConvexPolygon` fans from vertex 0), but a triangle fan is only
+valid when every interior angle is < 180°. Feed it a **concave** outline — a star, an arrow, an L/C/comb shape
+— and the fan spills triangles outside the shape. Godot's `Polygon2D` fills arbitrary simple polygons; this
+was a real, high-leverage geometry gap (it also underlies 2D mesh generation, collision decomposition, and
+any authored filled shape). Pure geometry, so it unit-tests exactly and drives a 2D golden.
+- [x] **M156 — Ear-clipping triangulation (`render::triangulatePolygon`)**: a new `PolyTriangulate.hpp` —
+  the classic O(n²) ear-clipping algorithm over a **simple** polygon (no self-intersections, no holes). It
+  detects the winding via the shoelace signed area and normalises to CCW, then repeatedly snips a "convex ear"
+  (a vertex whose triangle with its neighbours points outward and contains no other vertex) until one triangle
+  remains, emitting vertex **indices** three-per-triangle. Every output triangle is convex, so the existing
+  convex-fill path draws it. Helpers `polygonSignedArea2` / `polygonArea` / `triSignedArea2` / `pointInTriangle`
+  are exposed too. `testTriangulate` pins: the primitive predicates, degenerate input (<3 verts → empty), a
+  lone triangle passthrough, a CCW square and the SAME square wound **clockwise** (winding normalised), a
+  concave **dart** (a fan over-counts area 8 vs the true 4; ear clipping tiles to exactly 4), and a 12-vertex
+  **plus/cross** (area 5, ten triangles) — the key invariant being *sum of triangle areas == polygon area*,
+  which only holds for a valid non-overlapping tiling. Unit checks **5162 → 5223**. The new `polyfill` demo
+  fills four shapes a fan cannot — a five-point star, a block arrow, a plus/cross, and a thick C-ring — each
+  with the triangle mesh overlaid (faint) and its outline (bright). 2D golden (threshold 0.06, `polyfill`
+  RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden run);
+  ctest **111/111 → 112/112**. Honest scope: this is single simple polygons; it does **not** yet handle
+  polygons **with holes** (Godot's `Geometry2D.triangulate_polygon` + polygon-with-holes / `Polygon2D`
+  `polygons`+`internal_vertices`), self-intersecting input, or per-vertex UV/colour interpolation for a
+  textured `Polygon2D`; those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 116 — "Benchmarking against Godot: float Curve resource" (done)
 Rotating to **animation** for breadth (recent rounds were IO, 3D-render, 2D-physics, core, UI, math). Maz has
 easing functions (Tween) and a Bézier *path* (`math::Curve2D`, M142), but no editable keyframed **float

@@ -91,6 +91,7 @@
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MultiMesh2D.hpp"
+#include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
@@ -4579,6 +4580,99 @@ void testPolyline() {
     }
 }
 
+void testTriangulate() {
+    using math::vec2;
+    using render::polygonArea;
+    using render::triangulatePolygon;
+    using render::triSignedArea2;
+
+    // Sum of absolute triangle areas — equals the polygon area iff the triangulation tiles it exactly
+    // (no overlap, no gap, nothing spilling outside). A naive fan on a concave shape fails this.
+    auto trisArea = [](const std::vector<vec2>& poly, const std::vector<std::uint32_t>& idx) {
+        float a = 0.0f;
+        for (std::size_t i = 0; i < idx.size(); i += 3) {
+            a += std::fabs(triSignedArea2(poly[idx[i]], poly[idx[i + 1]], poly[idx[i + 2]])) * 0.5f;
+        }
+        return a;
+    };
+    auto allCcw = [](const std::vector<vec2>& poly, const std::vector<std::uint32_t>& idx) {
+        for (std::size_t i = 0; i < idx.size(); i += 3) {
+            if (triSignedArea2(poly[idx[i]], poly[idx[i + 1]], poly[idx[i + 2]]) <= 0.0f) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // Primitive helpers.
+    CHECK(triSignedArea2(vec2(0, 0), vec2(1, 0), vec2(0, 1)) > 0.0f); // CCW turn
+    CHECK(triSignedArea2(vec2(0, 0), vec2(0, 1), vec2(1, 0)) < 0.0f); // CW turn
+    CHECK(render::pointInTriangle(vec2(0.2f, 0.2f), vec2(0, 0), vec2(1, 0), vec2(0, 1)));
+    CHECK(!render::pointInTriangle(vec2(0.9f, 0.9f), vec2(0, 0), vec2(1, 0), vec2(0, 1)));
+
+    // Degenerate input yields nothing.
+    CHECK(triangulatePolygon({}).empty());
+    CHECK(triangulatePolygon({vec2(0, 0), vec2(1, 0)}).empty());
+
+    // A lone triangle passes straight through as one triangle.
+    {
+        const std::vector<vec2> tri = {vec2(0, 0), vec2(4, 0), vec2(0, 3)};
+        const auto idx = triangulatePolygon(tri);
+        CHECK(idx.size() == 3);
+        CHECK_NEAR(trisArea(tri, idx), 6.0f, 1e-4f);
+        CHECK(allCcw(tri, idx));
+    }
+
+    // A CCW square -> 2 triangles that tile its area exactly.
+    {
+        const std::vector<vec2> sq = {vec2(0, 0), vec2(2, 0), vec2(2, 2), vec2(0, 2)};
+        const auto idx = triangulatePolygon(sq);
+        CHECK(idx.size() == 6); // n-2 triangles
+        CHECK_NEAR(polygonArea(sq), 4.0f, 1e-4f);
+        CHECK_NEAR(trisArea(sq, idx), 4.0f, 1e-4f);
+        CHECK(allCcw(sq, idx));
+        for (std::uint32_t v : idx) {
+            CHECK(v < 4);
+        }
+    }
+
+    // The SAME square wound clockwise: winding is detected and normalised, output still tiles it.
+    {
+        const std::vector<vec2> sq = {vec2(0, 0), vec2(0, 2), vec2(2, 2), vec2(2, 0)};
+        CHECK(render::polygonSignedArea2(sq) < 0.0f);
+        const auto idx = triangulatePolygon(sq);
+        CHECK(idx.size() == 6);
+        CHECK_NEAR(trisArea(sq, idx), 4.0f, 1e-4f);
+        CHECK(allCcw(sq, idx));
+    }
+
+    // A CONCAVE dart (vertex (1,2) is reflex). A fan from vertex 0 spills outside and over-counts area;
+    // ear clipping tiles exactly to the true area of 4.
+    {
+        const std::vector<vec2> dart = {vec2(0, 0), vec2(3, 2), vec2(0, 4), vec2(1, 2)};
+        CHECK_NEAR(polygonArea(dart), 4.0f, 1e-4f);
+        const auto idx = triangulatePolygon(dart);
+        CHECK(idx.size() == 6);
+        CHECK_NEAR(trisArea(dart, idx), 4.0f, 1e-4f);
+        CHECK(allCcw(dart, idx));
+    }
+
+    // A plus/cross — 12 vertices, four reflex corners, area 5. Exercises repeated ear removal.
+    {
+        const std::vector<vec2> plus = {vec2(1, 0), vec2(2, 0), vec2(2, 1), vec2(3, 1),
+                                        vec2(3, 2), vec2(2, 2), vec2(2, 3), vec2(1, 3),
+                                        vec2(1, 2), vec2(0, 2), vec2(0, 1), vec2(1, 1)};
+        CHECK_NEAR(polygonArea(plus), 5.0f, 1e-4f);
+        const auto idx = triangulatePolygon(plus);
+        CHECK(idx.size() == 30); // (12-2) triangles
+        CHECK_NEAR(trisArea(plus, idx), 5.0f, 1e-4f);
+        CHECK(allCcw(plus, idx));
+        for (std::uint32_t v : idx) {
+            CHECK(v < 12);
+        }
+    }
+}
+
 void testGroupRegistry() {
     using scene::GroupNode;
     using scene::GroupRegistry;
@@ -8675,6 +8769,7 @@ int main() {
     testBillboard();
     testShapes3D();
     testPolyline();
+    testTriangulate();
     testActionMap();
     testSceneSerializer();
     testEcs();

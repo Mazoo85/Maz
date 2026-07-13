@@ -885,6 +885,14 @@ set_tests_properties(floatcurve_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME polyfill_headless_smoke
+    COMMAND polyfill --headless --frames 30)
+
+set_tests_properties(polyfill_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

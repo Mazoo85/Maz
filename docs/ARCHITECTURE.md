@@ -78,6 +78,9 @@ render/     Renderer (interface) + Vulkan backend   (depends on: core, platform,
               MultiMesh2D    — 2D multi-mesh instancing (Godot MultiMeshInstance2D): one convex base polygon +
                                a per-instance buffer (Instance2D pos/rot/scale/colour); transformInstance TRS,
                                transformedPolygon(i) world polygon, bakeTriangles() one soup (header-only, no GPU dep)
+              triangulatePolygon — concave polygon fill via ear clipping (Godot Polygon2D): tiles an arbitrary
+                               simple polygon into triangles (vertex indices), winding-normalised; a fan is convex-
+                               only. polygonArea/triSignedArea2/pointInTriangle helpers (header-only, no GPU dep)
               buildBillboard — billboard model matrix (Godot SpriteBase3D/GeometryInstance3D): orient a quad
                                toward the camera from the view matrix — Disabled/Enabled(full)/YBillboard(upright)
                                (header-only, no GPU dep)
@@ -368,6 +371,8 @@ apps/
               output + a decode(encode(x))==x round-trip check
   floatcurve/ Float curves — four anim::Curve shapes plotted (linear / cubic ease-in-out / ease-out / a
               multi-point particle-size profile) with control points marked
+  polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
+              render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

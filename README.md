@@ -826,6 +826,10 @@ available):
   profile (Constant / Linear / Cubic-Hermite with per-point tangents, range-clamped) — the shape behind
   particle size/alpha over lifetime, audio fades, and custom easing. The new `floatcurve` demo plots a linear,
   an ease-in-out, an ease-out, and a multi-point particle-size curve.
+- **M156** — **concave polygon fill** (`render::triangulatePolygon`), toward Godot's `Polygon2D`: ear-clipping
+  triangulation tiles an arbitrary *simple* polygon — concave included — into triangles the convex-fill path
+  can draw, where a triangle fan only works for convex shapes. The new `polyfill` demo fills a star, a block
+  arrow, a plus/cross, and a thick C-ring, each with the triangle mesh + outline overlaid.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

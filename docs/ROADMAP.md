@@ -245,6 +245,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **2D:** filled convex polygons (`Renderer::drawConvexPolygon`: triangle-fan flat shapes streamed
   through the sprite batch via a 1×1 white texture — Godot Polygon2D-style vector shapes; the `vectors`
   demo draws N-gons + a disc + translucent overlaps; M88)
+- [x] **2D:** concave polygon fill via ear clipping (`render::triangulatePolygon`: the O(n²) ear-clipping
+  algorithm tiles an arbitrary *simple* polygon — concave included — into triangles, detecting winding via the
+  shoelace area and normalising to CCW, returning vertex indices three-per-triangle that the convex-fill path
+  draws; a triangle fan can only fill convex shapes — Godot Polygon2D; the `polyfill` demo fills a star, a
+  block arrow, a plus/cross, and a thick C-ring with the triangle mesh + outline overlaid; M156) — polygons
+  with holes + self-intersecting input + per-vertex UV/colour for a textured Polygon2D later
 - [x] **2D:** polyline stroking (`render::buildPolyline`: thicken a point path to a ribbon of a given width
   with Miter/Bevel/Round joints + None/Box/Round caps + closed loops → a triangle soup for
   `drawConvexPolygon` — Godot Line2D; the `line2d` demo strokes zig-zags per joint mode, bars per cap mode,
