@@ -154,6 +154,10 @@ game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ra
             Parallax (scrolling backgrounds — ParallaxLayer motionScale/motionOffset/mirroring; layerOffset
             scrolls a layer by its motion scale, firstTile/tileCount/pmod tile a mirrored layer across the
             viewport), Godot ParallaxBackground/ParallaxLayer-style,
+            OneWayPlatform2D + resolveOneWayPlatform(s) (one-way platforms — a ledge solid only from above;
+              a swept resolve lands a body that crosses the surface from above while descending and passes a
+              body launched from below straight through; resolveOneWayPlatforms picks the topmost landing),
+              Godot one_way_collision-style,
             SoftShadow2D (area-light soft/penumbra shadows: diskSamples Vogel-spiral across the light +
             softVisibility = fraction of the disc a point can see), Godot Light2D-soft-shadow-style,
             CellularCave + autotileMask4 (seeded cellular-automata cave generation + 4-bit edge-mask
@@ -316,6 +320,8 @@ apps/
               spiral field (per-instance rotation/scale/colour), demonstrating one-shape-many-instances
   billboard/ 3D billboard modes — three rows of flat cards (Enabled/YBillboard/Disabled via render::buildBillboard)
               under an elevated camera, so the full-facing / stays-upright / fixed modes differ visibly
+  oneway/    One-way platforms — three balls drop onto solid-from-above ledges and rest on top while a fourth is
+              launched up through one (its trail crosses the bar), via game::resolveOneWayPlatforms
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

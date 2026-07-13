@@ -797,6 +797,14 @@ set_tests_properties(billboard_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME oneway_headless_smoke
+    COMMAND oneway --headless --frames 30)
+
+set_tests_properties(oneway_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

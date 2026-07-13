@@ -56,6 +56,7 @@
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
+#include "maz/game/OneWayPlatform.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"

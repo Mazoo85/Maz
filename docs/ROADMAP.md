@@ -419,6 +419,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `makeRegularPoly`/`makeBoxPoly` builders — Godot `ConvexPolygonShape2D`/`CollisionPolygon2D`; the
   `polycollide` demo tests a probe against a ring of shapes with MTV arrows; M138) — rigid-body-solver
   integration (polygon contact manifolds), concave auto-decomposition, and polygon-vs-circle/shape-casts later
+- [x] **One-way platforms** (`game::resolveOneWayPlatform` / `resolveOneWayPlatforms`: a ledge solid only
+  from above — a swept test lands a body descending across the surface from above and passes a body launched
+  from below (or already under it) straight through, with a snap tolerance; the multi-platform form returns
+  the topmost landing — Godot `one_way_collision`; the `oneway` demo drops three balls onto ledges while a
+  fourth is launched up through one; M145) — wiring the flag into the `Physics2D` rigid-body solver as a
+  per-shape property, a down-press drop-through gesture, and arbitrarily-angled one-way surfaces later
 - [ ] Other collision shapes (sphere/capsule casts), triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [~] Continuous collision, **layers / masks** (`game::CollisionLayers`, M118), physics materials

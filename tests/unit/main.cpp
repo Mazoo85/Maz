@@ -45,6 +45,7 @@
 #include "maz/game/Collision.hpp"
 #include "maz/game/CollisionLayers.hpp"
 #include "maz/game/ConvexShape2D.hpp"
+#include "maz/game/OneWayPlatform.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
@@ -5891,6 +5892,70 @@ void testPhysics2DGroove() {
     }
 }
 
+void testOneWayPlatform() {
+    using game::OneWayPlatform2D;
+    using game::OneWayResult;
+    using game::resolveOneWayPlatform;
+    using game::resolveOneWayPlatforms;
+
+    const OneWayPlatform2D plat{100.0f, 0.0f, 200.0f}; // surface at y=100, x in [0,200]
+
+    // Falling onto the platform (bottom crosses y=100 from above, overlapping) -> lands, snaps to 100.
+    {
+        const OneWayResult r = resolveOneWayPlatform(90.0f, 110.0f, 40.0f, 60.0f, plat);
+        CHECK(r.landed);
+        CHECK_NEAR(r.y, 100.0f, 1e-4f);
+    }
+
+    // Jumping UP through it (bottom moves from below to above) -> passes through, no landing.
+    {
+        const OneWayResult r = resolveOneWayPlatform(120.0f, 80.0f, 40.0f, 60.0f, plat);
+        CHECK(!r.landed);
+        CHECK_NEAR(r.y, 80.0f, 1e-4f); // returns the uncorrected bottom
+    }
+
+    // Already well below the surface and still descending -> not crossing from above, passes through.
+    {
+        const OneWayResult r = resolveOneWayPlatform(140.0f, 160.0f, 40.0f, 60.0f, plat);
+        CHECK(!r.landed);
+    }
+
+    // No horizontal overlap (body entirely left of the platform) -> no landing even though it crosses y.
+    {
+        const OneWayResult r = resolveOneWayPlatform(90.0f, 110.0f, -50.0f, -10.0f, plat);
+        CHECK(!r.landed);
+    }
+
+    // Descending but not yet reaching the surface -> no landing.
+    {
+        const OneWayResult r = resolveOneWayPlatform(60.0f, 90.0f, 40.0f, 60.0f, plat);
+        CHECK(!r.landed);
+    }
+
+    // Multiple platforms: a fast fall crossing two surfaces lands on the TOPMOST (smallest y).
+    {
+        const std::vector<OneWayPlatform2D> plats = {{200.0f, 0.0f, 300.0f}, {100.0f, 0.0f, 300.0f}};
+        const OneWayResult r = resolveOneWayPlatforms(50.0f, 250.0f, 40.0f, 60.0f, plats);
+        CHECK(r.landed);
+        CHECK_NEAR(r.y, 100.0f, 1e-4f); // the higher platform, not the lower one at 200
+    }
+
+    // Landing on none (all platforms out of horizontal range) -> not landed, bottom unchanged.
+    {
+        const std::vector<OneWayPlatform2D> plats = {{100.0f, 500.0f, 600.0f}};
+        const OneWayResult r = resolveOneWayPlatforms(90.0f, 110.0f, 40.0f, 60.0f, plats);
+        CHECK(!r.landed);
+        CHECK_NEAR(r.y, 110.0f, 1e-4f);
+    }
+
+    // A body resting just below the surface (tiny overshoot) still counts as landed via snapTolerance.
+    {
+        const OneWayResult r = resolveOneWayPlatform(100.4f, 100.8f, 40.0f, 60.0f, plat, 1.0f);
+        CHECK(r.landed);
+        CHECK_NEAR(r.y, 100.0f, 1e-4f);
+    }
+}
+
 void testConvexShape2D() {
     using game::ConvexPoly2D;
     using game::SatHit2D;
@@ -7741,6 +7806,7 @@ int main() {
     testPhysics2DGroove();
     testPhysicsQuery2D();
     testConvexShape2D();
+    testOneWayPlatform();
     testManifold2();
     testNormalLight();
     testParallax();

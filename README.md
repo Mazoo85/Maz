@@ -779,6 +779,11 @@ available):
   `GeometryInstance3D` billboards: build the model matrix that turns a flat quad to face the camera —
   `Enabled` (full-facing, for smoke/impostors), `YBillboard` (yaws but stays upright, for trees/characters),
   or `Disabled`. The new `billboard` demo shows all three modes as rows of cards under an elevated camera.
+- **M145** — **one-way platforms** (`game::resolveOneWayPlatform`), toward Godot's `one_way_collision`: a
+  ledge that is solid only from above. A swept resolve lands a body that crosses the surface from above while
+  descending, and lets a body launched from below (or already under it) pass straight through.
+  `resolveOneWayPlatforms` picks the topmost ledge a faller lands on. The new `oneway` demo drops three balls
+  onto ledges while a fourth is launched up through one — its trail crosses the bar as the others rest on top.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

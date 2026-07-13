@@ -138,6 +138,7 @@ add_subdirectory(apps/richtext)
 add_subdirectory(apps/curve)
 add_subdirectory(apps/multimesh)
 add_subdirectory(apps/billboard)
+add_subdirectory(apps/oneway)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

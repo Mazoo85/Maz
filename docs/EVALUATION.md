@@ -2687,6 +2687,35 @@ the view matrix, so it unit-tests headlessly and drives a 3D golden.
   texture atlas + billboard + alpha onto a quad automatically, particle-aligned ("velocity") billboards, or
   spherical-vs-cylindrical distinctions beyond the two Godot modes; those remain the 3D-sprite follow-ups.
 
+### Iteration 106 — "Benchmarking against Godot: one-way platforms" (done)
+Rotating to **2D physics** for breadth (recent rounds were 3D-render, 2D-render, math, UI, IO, audio). Maz's
+`Physics2D` collides solid boxes from every side, but a platformer needs the opposite: a ledge that is solid
+only from **above** — you fall onto it and land, you jump up from below and pass straight through, and
+standing on it you can drop through. Godot ships this as the `one_way_collision` flag on collision shapes
+(`StaticBody2D` / `TileMap`). It's a swept-geometry test over a horizontal surface, so it unit-tests
+headlessly and drives a deterministic 2D golden.
+- [x] **M145 — One-way platforms (`game::resolveOneWayPlatform` / `resolveOneWayPlatforms`)**: a new
+  `OneWayPlatform.hpp` with an `OneWayPlatform2D` surface (`y`, `x0`, `x1`) and a swept resolver. Given a
+  body's vertical span this step (`prevBottom → curBottom`) and its horizontal extent, it lands the body only
+  when it is **descending** (or level), **crossed the surface from above** this step, and **horizontally
+  overlaps** the ledge — returning the snapped resting height. A body moving up, already below the surface, or
+  outside the ledge's x-range is never blocked, so it tunnels through exactly as a one-way platform should. A
+  `snapTolerance` lets a body resting a hair below the surface (numerical overshoot) still count as landed
+  rather than falling through. `resolveOneWayPlatforms` sweeps a list and returns the **topmost** surface a
+  falling body lands on this step. `testOneWayPlatform` pins eight cases: fall-and-land snaps the bottom to the
+  surface; a body launched upward passes through; a body already below passes; no horizontal overlap passes; a
+  descending body that hasn't reached the surface yet doesn't land; among stacked platforms a faller lands on
+  the topmost; a body over a gap lands on none; and the snap-tolerance case lands a body that overshot just
+  past the surface. Unit checks **4928 → 4941**. The new `oneway` demo runs a deterministic fixed-step sim:
+  three balls drop onto three ledges and come to rest on top, while a fourth is launched upward through the
+  low-left ledge — its trail visibly crosses the platform bar while the others sit on their surfaces.
+  Deterministic (fixed initial state + fixed step count) → 2D golden (threshold 0.06). Purely additive (new
+  header + new app), so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **100/100 → 101/101**. Honest scope: this is the swept solid-from-above resolve — it does **not** yet wire
+  the flag into `Physics2D`'s rigid-body solver as a per-shape collision property, add the "drop-through on
+  down-press" input gesture, or support arbitrarily-angled one-way surfaces (Godot's flag carries a rotation);
+  those remain the platformer-integration follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
