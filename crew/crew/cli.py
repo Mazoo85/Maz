@@ -301,19 +301,16 @@ def show(
 @app.command()
 def agents() -> None:
     """List the crew members and the tools each one is allowed to use."""
-    # Static description so this works without the SDK installed.
-    rows = [
-        ("planner", "Read, Glob, Grep", "Reads the codebase, writes the plan (read-only)"),
-        ("coder", "Read, Edit, Write, Bash, Grep", "Implements the plan (only agent that edits)"),
-        ("reviewer", "Read, Glob, Grep", "Reviews the diff for bugs/security (read-only)"),
-        ("tester", "Bash, Read, Grep, Glob", "Runs tests and linters (read-only on code)"),
-    ]
+    # Derive from ROLES (the single source of truth) so this can never drift from
+    # the actual agent definitions. ROLES is plain data — no SDK import needed.
+    from .agents import ROLES
+
     table = Table(title="The crew")
     table.add_column("Agent", style="bold cyan")
     table.add_column("Tools")
     table.add_column("Role")
-    for name, tools, role in rows:
-        table.add_row(name, tools, role)
+    for role in ROLES:
+        table.add_row(role.name, ", ".join(role.tools), role.description)
     console.print(table)
 
 
