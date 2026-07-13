@@ -132,6 +132,7 @@ CASES=(
     "gravzones||2.0|0.06"
     "ortho3d||2.5|0.10"
     "base64||2.0|0.07"
+    "floatcurve||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then

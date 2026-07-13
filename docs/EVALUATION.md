@@ -2927,6 +2927,28 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 116 — "Benchmarking against Godot: float Curve resource" (done)
+Rotating to **animation** for breadth (recent rounds were IO, 3D-render, 2D-physics, core, UI, math). Maz has
+easing functions (Tween) and a Bézier *path* (`math::Curve2D`, M142), but no editable keyframed **float
+curve** — the `y = f(x)` value profile that Godot's `Curve` resource provides and that drives particle
+size/alpha over lifetime, audio fades, difficulty ramps, and custom easing. Pure math, so it unit-tests
+exactly and drives a 2D golden.
+- [x] **M155 — Float Curve (`anim::Curve`)**: a new `Curve.hpp` — a sorted list of `CurvePoint`s
+  (`pos`, `value`, per-point `leftTangent`/`rightTangent`), a `CurveInterp` mode (Constant / Linear / Cubic),
+  and `[minValue, maxValue]` clamping. `addPoint` inserts sorted; `sample(x)` clamps the domain (below the
+  first point → first value, above the last → last value), finds the bracketing segment, and interpolates —
+  Constant holds the left value, Linear lerps, and **Cubic is a Hermite spline** using the endpoint tangents
+  (slopes scaled by the segment width), matching Godot's `Curve::interpolate`. `testCurve` pins: empty/single-
+  point, linear + domain clamp, constant, a cubic ease-in-out with flat tangents (symmetric midpoint 0.5,
+  eases in before / out after), a cubic whose tangents equal the chord slope reproducing the straight line,
+  value clamping to the range, and sorted insertion regardless of add order. Unit checks **5138 → 5162**. The
+  new `floatcurve` demo plots four curves side by side — a linear ramp, a cubic ease-in-out, a cubic ease-out,
+  and a multi-point "particle size over life" profile — each sampled densely with its control points marked,
+  all from `Curve::sample`. 2D golden (threshold 0.06, `floatcurve` RMSE 0). Purely additive, so every existing
+  golden is byte-unchanged (confirmed by a serial golden run); ctest **110/110 → 111/111**. Honest scope: this
+  is the curve resource + sampling; it does **not** yet auto-drive the `fx::Emitter` particle size/alpha from a
+  Curve, add a bake-to-LUT fast path, or a 2-channel `Curve` for gradients; those remain the wiring follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

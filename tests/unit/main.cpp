@@ -9,6 +9,7 @@
 #include "maz/anim/Animator.hpp"
 #include "maz/anim/BlendSpace.hpp"
 #include "maz/anim/BlendTree.hpp"
+#include "maz/anim/Curve.hpp"
 #include "maz/anim/IK.hpp"
 #include "maz/anim/RootMotion.hpp"
 #include "maz/audio/Dsp.hpp"
@@ -5963,6 +5964,95 @@ void testAdditiveBlend() {
     }
 }
 
+void testCurve() {
+    using anim::Curve;
+    using anim::CurveInterp;
+
+    // Empty curve -> clamped default; single point -> that value everywhere.
+    {
+        Curve c;
+        CHECK_NEAR(c.sample(0.5f), 0.0f, 1e-5f);
+        c.addPoint(0.3f, 0.7f);
+        CHECK_NEAR(c.sample(0.0f), 0.7f, 1e-5f);
+        CHECK_NEAR(c.sample(1.0f), 0.7f, 1e-5f);
+    }
+
+    // Linear interpolation + domain clamping.
+    {
+        Curve c;
+        c.interp = CurveInterp::Linear;
+        c.maxValue = 10.0f;
+        c.addPoint(0.0f, 0.0f);
+        c.addPoint(1.0f, 10.0f);
+        CHECK_NEAR(c.sample(0.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(c.sample(0.5f), 5.0f, 1e-4f);
+        CHECK_NEAR(c.sample(1.0f), 10.0f, 1e-5f);
+        CHECK_NEAR(c.sample(-1.0f), 0.0f, 1e-5f);  // below domain -> first value
+        CHECK_NEAR(c.sample(2.0f), 10.0f, 1e-5f);  // above domain -> last value
+    }
+
+    // Constant mode holds the segment's left value.
+    {
+        Curve c;
+        c.interp = CurveInterp::Constant;
+        c.addPoint(0.0f, 2.0f);
+        c.addPoint(1.0f, 9.0f);
+        c.maxValue = 100.0f;
+        CHECK_NEAR(c.sample(0.5f), 2.0f, 1e-5f);
+        CHECK_NEAR(c.sample(0.99f), 2.0f, 1e-5f);
+        CHECK_NEAR(c.sample(1.0f), 9.0f, 1e-5f);
+    }
+
+    // Cubic with flat endpoint tangents = a symmetric ease-in-out (smoothstep-like).
+    {
+        Curve c;
+        c.interp = CurveInterp::Cubic;
+        c.addPoint(0.0f, 0.0f, 0.0f, 0.0f);
+        c.addPoint(1.0f, 1.0f, 0.0f, 0.0f);
+        CHECK_NEAR(c.sample(0.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(c.sample(1.0f), 1.0f, 1e-5f);
+        CHECK_NEAR(c.sample(0.5f), 0.5f, 1e-4f);      // symmetric midpoint
+        CHECK(c.sample(0.25f) < 0.25f);               // eases in (slow start)
+        CHECK(c.sample(0.75f) > 0.75f);               // eases out (fast then settle)
+    }
+
+    // Cubic with tangents == the chord slope reproduces the straight line.
+    {
+        Curve c;
+        c.interp = CurveInterp::Cubic;
+        c.addPoint(0.0f, 0.0f, 2.0f, 2.0f); // slope 2 over a unit segment to (1,2)
+        c.addPoint(1.0f, 2.0f, 2.0f, 2.0f);
+        CHECK_NEAR(c.sample(0.5f), 1.0f, 1e-4f); // matches the linear midpoint
+    }
+
+    // Result clamps to [minValue, maxValue].
+    {
+        Curve c;
+        c.interp = CurveInterp::Linear;
+        c.minValue = 0.0f;
+        c.maxValue = 1.0f;
+        c.addPoint(0.0f, 0.0f);
+        c.addPoint(1.0f, 5.0f); // would exceed maxValue mid-segment
+        CHECK_NEAR(c.sample(1.0f), 1.0f, 1e-5f);
+        CHECK_NEAR(c.sample(0.5f), 1.0f, 1e-5f); // 2.5 clamped to 1.0
+    }
+
+    // addPoint keeps points sorted regardless of insertion order.
+    {
+        Curve c;
+        c.interp = CurveInterp::Linear;
+        c.maxValue = 10.0f;
+        c.addPoint(1.0f, 10.0f);
+        c.addPoint(0.0f, 0.0f);
+        c.addPoint(0.5f, 2.0f);
+        CHECK(c.pointCount() == 3);
+        CHECK_NEAR(c.point(0).pos, 0.0f, 1e-6f);
+        CHECK_NEAR(c.point(1).pos, 0.5f, 1e-6f);
+        CHECK_NEAR(c.point(2).pos, 1.0f, 1e-6f);
+        CHECK_NEAR(c.sample(0.25f), 1.0f, 1e-4f); // between (0,0) and (0.5,2)
+    }
+}
+
 void testRootMotion() {
     using anim::RootMotionSample;
     using anim::RootMotionTrack;
@@ -8539,6 +8629,7 @@ int main() {
     testSkeleton();
     testAnimClip();
     testAdditiveBlend();
+    testCurve();
     testRootMotion();
     testAnimator();
     testEventBus();

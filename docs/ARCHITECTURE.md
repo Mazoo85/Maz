@@ -213,6 +213,9 @@ anim/       Tween — easing curves (15) + time-cursor (once/repeat/ping-pong) +
               straight-arm overreach), Godot SkeletonModification2DTwoBoneIK-style;
             solveFabrik — multi-bone FABRIK IK (backward/forward reaching over an N-joint chain, bone
               lengths preserved), Godot SkeletonModification2DFABRIK-style;
+            Curve — float-curve resource (Godot Curve): keyframed y=f(x) with per-point tangents +
+              Constant/Linear/Cubic-Hermite modes + range clamp, sample(x) — particle size/alpha over life,
+              fades, custom easing (distinct from math::Curve2D, a Bézier path);
             RootMotionTrack — root motion (cumulative clip-local position+heading; delta with loop-seam sum;
               advance() applies a step to a world pose, rotating clip-local travel by the current facing so
               feet don't slide), Godot AnimationMixer root-motion-track-style
@@ -363,6 +366,8 @@ apps/
               every column reads the same width regardless of depth (no vanishing point)
   base64/    Base64 — a text string, a UTF-8 string, and a byte buffer each shown with their io::base64Encode
               output + a decode(encode(x))==x round-trip check
+  floatcurve/ Float curves — four anim::Curve shapes plotted (linear / cubic ease-in-out / ease-out / a
+              multi-point particle-size profile) with control points marked
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

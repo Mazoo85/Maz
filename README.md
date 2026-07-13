@@ -822,6 +822,10 @@ available):
   through text — embed a blob inside JSON, a `.tres` resource, or a URL — RFC 4648 encode/decode with
   whitespace-tolerant, validating decode. The new `base64` demo shows text and byte buffers with their
   encodings and a round-trip check.
+- **M155** — **float Curve** (`anim::Curve`), toward Godot's `Curve` resource: a keyframed `y = f(x)` value
+  profile (Constant / Linear / Cubic-Hermite with per-point tangents, range-clamped) — the shape behind
+  particle size/alpha over lifetime, audio fades, and custom easing. The new `floatcurve` demo plots a linear,
+  an ease-in-out, an ease-out, and a multi-point particle-size curve.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

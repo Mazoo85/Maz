@@ -541,6 +541,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   step by the character's current facing so the feet don't slide — Godot AnimationMixer root-motion track; the
   `rootmotion` demo walks a character along a swept arc with footprints planted on it; M147) — auto-extract
   from a glTF/AnimClip root joint + blend root motion across a state-machine transition + full 3D later
+- [x] **Float Curve resource** (`anim::Curve`: an editable `y=f(x)` curve of sorted control points with
+  Constant / Linear / Cubic-Hermite interpolation, per-point left/right tangents, and value clamping to a
+  `[min,max]` range — Godot's `Curve` resource, distinct from the `Curve2D` Bézier path; `sample(x)` holds
+  the end values outside the domain; the `floatcurve` demo plots a linear ramp, a cubic ease-in-out S-curve,
+  an ease-out, and a particle-size-over-life profile; M155) — bake-to-LUT + editor handles later
 - [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
   with generic `sample`; the `tween` demo compares curves side by side; M59)
 - [x] **Tween sequencer / property animator** (`anim::TweenPlayer`: chains Property/Interval/Callback
