@@ -79,6 +79,7 @@
 #include "maz/io/Serialize.hpp"
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/math/Rect2.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/platform/Paths.hpp"
 #include "maz/platform/Window.hpp"

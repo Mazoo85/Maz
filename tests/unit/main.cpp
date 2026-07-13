@@ -80,6 +80,7 @@
 #include "maz/io/PrefabText.hpp"
 #include "maz/io/ResourcePack.hpp"
 #include "maz/math/Curve2D.hpp"
+#include "maz/math/Rect2.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Billboard.hpp"
@@ -236,6 +237,86 @@ void testCurve2D() {
         c.clear();
         CHECK(c.pointCount() == 0);
     }
+}
+
+void testRect2() {
+    using math::Rect2;
+    using math::vec2;
+
+    const Rect2 r(10.0f, 20.0f, 100.0f, 60.0f); // x[10,110), y[20,80)
+
+    // Basic accessors.
+    CHECK_NEAR(r.right(), 110.0f, 1e-5f);
+    CHECK_NEAR(r.bottom(), 80.0f, 1e-5f);
+    CHECK_NEAR(r.center().x, 60.0f, 1e-5f);
+    CHECK_NEAR(r.center().y, 50.0f, 1e-5f);
+    CHECK_NEAR(r.area(), 6000.0f, 1e-3f);
+    CHECK(r.hasArea());
+    CHECK(!Rect2(0.0f, 0.0f, 0.0f, 5.0f).hasArea());
+
+    // hasPoint — min-inclusive, max-exclusive.
+    CHECK(r.hasPoint(vec2(10.0f, 20.0f)));   // top-left corner included
+    CHECK(r.hasPoint(vec2(60.0f, 50.0f)));   // interior
+    CHECK(!r.hasPoint(vec2(110.0f, 50.0f))); // right edge excluded
+    CHECK(!r.hasPoint(vec2(60.0f, 80.0f)));  // bottom edge excluded
+    CHECK(!r.hasPoint(vec2(5.0f, 50.0f)));   // left of rect
+
+    // intersects / intersection.
+    const Rect2 a(0.0f, 0.0f, 50.0f, 50.0f);
+    const Rect2 b(30.0f, 30.0f, 50.0f, 50.0f);
+    CHECK(a.intersects(b));
+    const Rect2 ix = a.intersection(b);
+    CHECK_NEAR(ix.position.x, 30.0f, 1e-5f);
+    CHECK_NEAR(ix.position.y, 30.0f, 1e-5f);
+    CHECK_NEAR(ix.size.x, 20.0f, 1e-5f);
+    CHECK_NEAR(ix.size.y, 20.0f, 1e-5f);
+
+    // Disjoint rects: no intersection, zero-area clip.
+    const Rect2 c(200.0f, 200.0f, 10.0f, 10.0f);
+    CHECK(!a.intersects(c));
+    CHECK(!a.intersection(c).hasArea());
+
+    // Edge-touching: excluded by default, included with includeBorders.
+    const Rect2 d(50.0f, 0.0f, 20.0f, 50.0f); // shares the x=50 edge with `a`
+    CHECK(!a.intersects(d));
+    CHECK(a.intersects(d, true));
+
+    // merge = smallest rect containing both.
+    const Rect2 m = a.merge(b);
+    CHECK_NEAR(m.position.x, 0.0f, 1e-5f);
+    CHECK_NEAR(m.position.y, 0.0f, 1e-5f);
+    CHECK_NEAR(m.size.x, 80.0f, 1e-5f);
+    CHECK_NEAR(m.size.y, 80.0f, 1e-5f);
+
+    // encloses.
+    CHECK(a.encloses(Rect2(10.0f, 10.0f, 20.0f, 20.0f)));
+    CHECK(a.encloses(a));
+    CHECK(!a.encloses(b));
+
+    // grow / growIndividual.
+    const Rect2 g = a.grow(10.0f);
+    CHECK_NEAR(g.position.x, -10.0f, 1e-5f);
+    CHECK_NEAR(g.size.x, 70.0f, 1e-5f); // 50 + 2*10
+    const Rect2 gi = a.growIndividual(5.0f, 0.0f, 0.0f, 15.0f);
+    CHECK_NEAR(gi.position.x, -5.0f, 1e-5f);
+    CHECK_NEAR(gi.position.y, 0.0f, 1e-5f);
+    CHECK_NEAR(gi.size.x, 55.0f, 1e-5f);
+    CHECK_NEAR(gi.size.y, 65.0f, 1e-5f);
+
+    // expand to include an outside point.
+    const Rect2 e = a.expand(vec2(80.0f, -20.0f));
+    CHECK_NEAR(e.position.x, 0.0f, 1e-5f);
+    CHECK_NEAR(e.position.y, -20.0f, 1e-5f);
+    CHECK_NEAR(e.right(), 80.0f, 1e-5f);
+    CHECK_NEAR(e.bottom(), 50.0f, 1e-5f);
+
+    // abs normalizes a negative-size rect.
+    const Rect2 neg(100.0f, 100.0f, -40.0f, -30.0f);
+    const Rect2 an = neg.abs();
+    CHECK_NEAR(an.position.x, 60.0f, 1e-5f);
+    CHECK_NEAR(an.position.y, 70.0f, 1e-5f);
+    CHECK_NEAR(an.size.x, 40.0f, 1e-5f);
+    CHECK_NEAR(an.size.y, 30.0f, 1e-5f);
 }
 
 void testCollision() {
@@ -8069,6 +8150,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testRect2();
     testCollision();
     testRaycast();
     testSpatialGrid();

@@ -797,6 +797,10 @@ available):
   named groups and ask the registry for "everything in group X" (`nodesInGroup`) or broadcast to them
   (`call`), instead of keeping per-system lists. The new `groups` demo tags a grid of nodes and drives two
   live group queries — ringing one set and stamping a warning on another.
+- **M149** — **Rect2** (`math::Rect2`), toward Godot's `Rect2`: an axis-aligned rectangle with the full
+  geometry set — `hasPoint`, `intersects`/`intersection` (clip), `merge` (union), `encloses`, `grow`,
+  `expand`, `abs`. The new `rects` demo draws overlapping rectangles with their intersection, union bounds,
+  grow halo, and point tests, all from `Rect2`.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

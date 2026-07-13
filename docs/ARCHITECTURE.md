@@ -40,7 +40,9 @@ input/      ActionMap — semantic action mapping: named button actions (any-of 
             clamped -1..1); SDL-free (update() takes sampler callbacks)   (header-only)
 math/       maz::math = GLM re-export + helpers     (header-only);
             Curve2D — cubic Bézier path (Godot Curve2D/Path2D): points with in/out handles, sample/tangent/
-              length + arc-length bake -> sampleBaked(distance) for constant-speed travel
+              length + arc-length bake -> sampleBaked(distance) for constant-speed travel;
+            Rect2 — axis-aligned rectangle (Godot Rect2): position+size with hasPoint (min-incl/max-excl),
+              intersects/intersection (clip), merge (union), encloses, grow/growIndividual, expand, abs
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain + offscreen HDR scene pass (16-bit float, MSAA ≤4×
@@ -337,6 +339,8 @@ apps/
               on the path (no foot sliding), via anim::RootMotionTrack::advance
   groups/    Node groups — a 6x6 grid of tagged nodes; nodesInGroup("vip") rings one diagonal and
               call("hazard", ...) stamps the other, with live group-size counts (scene::GroupRegistry)
+  rects/     Rect2 geometry — overlapping rectangles with their intersection (clip) filled, the union (merge)
+              outlined, a grow() halo, and hasPoint probe dots, all from math::Rect2
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

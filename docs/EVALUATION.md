@@ -2793,6 +2793,26 @@ pickups, save-points, etc. Godot's SceneTree groups (`add_to_group` / `get_nodes
   auto-wired into a SceneTree so nodes join/leave groups on enter/exit, nor into scene (de)serialization;
   those remain the integration follow-ups.
 
+### Iteration 110 — "Benchmarking against Godot: Rect2" (done)
+Rotating to **math** for breadth (recent rounds were scene/ECS, animation, audio, 2D-physics, 3D-render,
+2D-render). Maz had only a minimal UI-local `ui::Rect` (x/y/w/h + contains) — no general geometric rectangle
+with the operations culling, camera bounds, tilemap regions, and broadphase all need. Godot's `Rect2` is that
+primitive. Pure math, so it unit-tests exactly and drives a deterministic 2D golden.
+- [x] **M149 — Rect2 (`math::Rect2`)**: a new `Rect2.hpp` — an axis-aligned rectangle by `position` (min
+  corner) + `size` with the full Godot operation set: `hasPoint` (min-inclusive / max-exclusive, Godot
+  convention), `intersects` (optional include-borders), `intersection` (clip → the overlap, zero-area when
+  disjoint), `merge` (union → smallest enclosing rect), `encloses`, `grow` / `growIndividual` (expand/shrink
+  sides), `expand` (grow to include a point), and `abs` (normalize a negative-size rect), plus
+  left/top/right/bottom/end/center/area/hasArea accessors. `testRect2` pins ~40 checks across every operation,
+  including the inclusive-min/exclusive-max point convention, edge-touching with/without borders, disjoint
+  clip giving zero area, and negative-size normalization. Unit checks **5013 → 5055**. The new `rects` demo is
+  a static gallery: two overlapping rects show their `intersection` filled bright, a third joins them and the
+  set's `merge` union is outlined in cyan, one rect's `grow(26)` is a faint halo, and two probe points are
+  coloured by `hasPoint` — every value drawn straight from `Rect2`. 2D golden (threshold 0.06, `rects` RMSE
+  0). Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **104/104 → 105/105**. Honest scope: this is the float `Rect2` — it does **not** add an integer `Rect2i`, a
+  3D `AABB` type, or retrofit the UI/culling code to use it; those remain the follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

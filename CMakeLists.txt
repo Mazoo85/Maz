@@ -142,6 +142,7 @@ add_subdirectory(apps/oneway)
 add_subdirectory(apps/modfx)
 add_subdirectory(apps/rootmotion)
 add_subdirectory(apps/groups)
+add_subdirectory(apps/rects)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

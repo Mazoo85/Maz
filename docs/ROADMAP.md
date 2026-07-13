@@ -171,6 +171,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   points and `sampleBaked(distance)` moves at uniform speed regardless of curvature; Godot Curve2D/Path2D; the
   `curve` demo draws the spline + handles + baked dots + a traveller with its tangent; M142) — a 3D `Curve3D`,
   per-point tilt, and a Path2D/PathFollow2D scene node that advances a transform along it later
+- [x] **Rect2** (`math::Rect2`: axis-aligned rectangle by position+size with `hasPoint` (min-incl/max-excl),
+  `intersects`/`intersection` (clip), `merge` (union), `encloses`, `grow`/`growIndividual`, `expand`, `abs` —
+  Godot Rect2; the `rects` demo draws overlapping rects with their intersection, union bounds, grow halo, and
+  point tests; M149) — an integer `Rect2i` + a 3D `AABB` type + retrofitting UI/culling to use it later
 - [ ] Transform helpers, AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas

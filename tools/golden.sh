@@ -126,6 +126,7 @@ CASES=(
     "modfx||2.0|0.06"
     "rootmotion||2.0|0.06"
     "groups||2.0|0.07"
+    "rects||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
