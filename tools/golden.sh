@@ -145,6 +145,7 @@ CASES=(
     "inifile||2.0|0.05"
     "spectrum||2.0|0.05"
     "xform2d||2.0|0.05"
+    "popupmenu||2.0|0.05"
 )
 
 if [ ! -f "$ICD" ]; then

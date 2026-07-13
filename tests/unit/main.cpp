@@ -87,6 +87,7 @@
 #include "maz/ui/TextLayout.hpp"
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/ItemList.hpp"
+#include "maz/ui/PopupMenu.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
@@ -3319,6 +3320,87 @@ void testItemList() {
         CHECK(e.firstSelected() == -1);
         auto vr = e.visibleRange();
         CHECK(vr.first > vr.second);
+    }
+}
+
+void testPopupMenu() {
+    using ui::MenuCheck;
+    using ui::PopupMenu;
+
+    PopupMenu m;
+    m.position = math::vec2(100, 50);
+    m.itemHeight = 20.0f;
+    m.separatorHeight = 10.0f;
+    m.width = 200.0f;
+
+    const std::size_t iNew = m.addItem("New", 1);
+    const std::size_t iOpen = m.addItem("Open", 2);
+    m.addSeparator();                                     // index 2
+    const std::size_t iWrap = m.addCheckItem("Word Wrap", 3);
+    m.addSeparator();                                     // index 4
+    const std::size_t iLight = m.addRadioItem("Light", 10);
+    const std::size_t iDark = m.addRadioItem("Dark", 11);
+    const std::size_t iSystem = m.addRadioItem("System", 12);
+    const std::size_t iPrint = m.addItem("Print", 4);
+    m.setDisabled(iPrint, true);
+    (void)iNew;
+    (void)iSystem;
+
+    CHECK(m.count() == 9);
+
+    // Geometry: rows stack; separators are thinner; total height = 6*20 + 2*10 + ... wait recount.
+    // items: New(20) Open(20) sep(10) Wrap(20) sep(10) Light(20) Dark(20) System(20) Print(20)
+    //  = 7 rows*20 + 2 seps*10 = 140 + 20 = 160.
+    CHECK_NEAR(m.totalHeight(), 160.0f, 1e-4f);
+    CHECK_NEAR(m.rect().h, 160.0f, 1e-4f);
+    CHECK_NEAR(m.itemRect(iOpen).y, 70.0f, 1e-4f); // 50 + 20
+    CHECK_NEAR(m.itemRect(iWrap).y, 100.0f, 1e-4f); // 50 + 20 + 20 + 10(sep)
+
+    // Hit testing: a point inside "New", a point on the first separator (-> -1), a point outside (-> -1).
+    CHECK(m.itemAtPoint(150, 55) == static_cast<long>(iNew));   // row 0 spans y[50,70)
+    CHECK(m.itemAtPoint(150, 92) == -1);                        // first separator y[90,100)
+    CHECK(m.itemAtPoint(150, 45) == -1);                        // above the menu
+    CHECK(m.itemAtPoint(400, 55) == -1);                        // right of the menu
+
+    // Hover navigation skips separators and disabled items, and wraps.
+    m.clearHover();
+    CHECK(m.hoverNext() == static_cast<long>(iNew));  // from nothing -> first selectable (New)
+    CHECK(m.hoverNext() == static_cast<long>(iOpen)); // Open
+    CHECK(m.hoverNext() == static_cast<long>(iWrap)); // skips the separator to Word Wrap
+    CHECK(m.hoverNext() == static_cast<long>(iLight)); // skips the second separator to Light
+    // From Light -> Dark -> System, then Print is disabled so it wraps back to New.
+    CHECK(m.hoverNext() == static_cast<long>(iDark));
+    CHECK(m.hoverNext() == static_cast<long>(iSystem));
+    CHECK(m.hoverNext() == static_cast<long>(iNew));  // Print disabled -> wrap to New
+    CHECK(m.hoverPrev() == static_cast<long>(iSystem)); // backwards also skips Print
+
+    // Activating a checkbox toggles it and returns its id.
+    m.setHovered(static_cast<long>(iWrap));
+    CHECK(!m.isChecked(iWrap));
+    CHECK(m.activate() == 3);
+    CHECK(m.isChecked(iWrap));
+    CHECK(m.activate() == 3); // toggles back
+    CHECK(!m.isChecked(iWrap));
+
+    // Radio activation is single-choice: picking Dark unchecks Light/System.
+    m.checkRadio(iLight);
+    CHECK(m.isChecked(iLight) && !m.isChecked(iDark) && !m.isChecked(iSystem));
+    m.setHovered(static_cast<long>(iDark));
+    CHECK(m.activate() == 11);
+    CHECK(m.isChecked(iDark) && !m.isChecked(iLight) && !m.isChecked(iSystem));
+
+    // Activating a disabled item fires nothing.
+    m.setHovered(static_cast<long>(iPrint));
+    CHECK(m.activate() == -1);
+
+    // Empty menu: benign navigation.
+    {
+        PopupMenu e;
+        CHECK(e.count() == 0);
+        CHECK_NEAR(e.totalHeight(), 0.0f, 1e-5f);
+        CHECK(e.itemAtPoint(0, 0) == -1);
+        CHECK(e.hoverNext() == -1);
+        CHECK(e.activate() == -1);
     }
 }
 
@@ -9850,6 +9932,7 @@ int main() {
     testTheme();
     testTree();
     testItemList();
+    testPopupMenu();
     testTextLayout();
     testRichText();
     testTextInput();

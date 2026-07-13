@@ -2927,6 +2927,37 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 129 — "Benchmarking against Godot: PopupMenu control" (done)
+Rotating to **UI / Control nodes** for breadth (recent rounds were math, audio, IO, core-containers,
+3D-render). Maz's Control set was broad — LayoutNode/Container, Range/ProgressBar, TextField, Tree, ItemList
+(M161), StyleBoxFlat/Theme, rich text — but had **no PopupMenu**, Godot's vertical item list behind right-click
+context menus, OptionButton dropdowns and menu bars. That is a distinct control from ItemList (a flat scrolling
+list): a menu adds checkbox/radio item states, separators, disabled rows, accelerator hints, and submenu
+arrows, and its interaction is hover + activate rather than multi-select. Pure logic + geometry, so it
+unit-tests exactly and drives a UI golden.
+- [x] **M168 — PopupMenu control (`ui::PopupMenu`)**: a new `PopupMenu.hpp` holding items (label + id +
+  optional `MenuCheck` checkbox/radio state, `disabled`, `separator`, `submenu`, and an accelerator `shortcut`
+  hint), built via `addItem`/`addCheckItem`/`addRadioItem`/`addSubmenuItem`/`addSeparator`. It stacks rows from
+  a `position` at a fixed height (thin separators), exposing `rect()`/`itemRect(i)`/`totalHeight()` for drawing,
+  `itemAtPoint()` to hit-test (rejecting separators + outside points), `hoverNext`/`hoverPrev` keyboard nav that
+  skips separators + disabled rows and wraps, `checkRadio(i)` (single-choice group — checks one, unchecks the
+  rest), and `activate()` (toggles a checkbox, switches a radio group, returns the hovered item's id). `testPopupMenu`
+  pins the row geometry against a hand-computed layout (total height, item y with separators, itemRect), hit-testing
+  inside a row / on a separator / above / beside the menu, hover nav skipping both a separator and a disabled row
+  and wrapping (forwards + backwards), checkbox toggle-on-activate, radio single-choice exclusivity, a disabled
+  item firing nothing, and the empty-menu edges. Unit checks **7341 → 7372**. The new `popupmenu` demo draws an
+  open context menu in a StyleBoxFlat panel — a hovered accent row, a checked "Word Wrap" tick, a Dark radio dot,
+  a dimmed disabled "Paste", right-aligned Ctrl-shortcuts, separators, and an "Export As" submenu arrow. 2D golden
+  (threshold 0.05, `popupmenu` RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed by a
+  serial golden run); ctest **123/123 → 124/124**. Honest scope: this is the single-level menu model + geometry;
+  it does **not** yet open nested submenu popups, auto-size its width to the widest label/shortcut via the theme
+  font, or wire an OptionButton wrapper around it — those remain follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 128 — "Benchmarking against Godot: 2D affine Transform2D" (done)
 Rotating to **math** for breadth (recent rounds were audio, IO, core-containers, 3D-render, animation). Maz
 had `scene::TransformGraph` (a hierarchy of *decomposed* TRS nodes) and a `Transform2DState` pose-blend in

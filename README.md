@@ -879,6 +879,10 @@ available):
   matrix behind every Node2D — place/rotate/scale/skew, convert points between local and world space
   (`xform`/`xformInv`), compose parent×child, and read back rotation/scale/skew. The new `xform2d` demo draws
   one arrow under a gallery of transforms (rotate / scale / skew / mirror) with basis-vector gizmos.
+- **M168** — **PopupMenu control** (`ui::PopupMenu`), toward Godot's `PopupMenu`: the item list behind
+  right-click context menus and dropdowns — checkbox/radio items, disabled rows, separators, submenu arrows,
+  accelerator hints, hover navigation, and activation (toggle/switch/return id). The new `popupmenu` demo
+  draws an open context menu with a hovered row, a checked item, a radio dot, and a submenu arrow.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

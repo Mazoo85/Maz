@@ -665,6 +665,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   ItemList (file lists / inventory / level-select); the `itemlist` demo draws a scrolled single-select
   saved-games list with a scrollbar thumb + a multi-select loadout with checked rows; M161) — icon columns,
   per-item widget colours, multi-column grid, and drag-reorder later
+- [x] **PopupMenu control** (`ui::PopupMenu`: vertical item list behind context menus / OptionButton dropdowns
+  / menu bars — items with checkbox/radio state, disabled, separator, submenu-arrow, and accelerator hints;
+  `itemRect`/`itemAtPoint` geometry, `hoverNext`/`hoverPrev` nav skipping separators+disabled, `checkRadio`
+  single-choice groups, and `activate()` (toggle check / switch radio / return id) — Godot's PopupMenu; the
+  `popupmenu` demo draws an open context menu with a hovered row, a checked item, a radio dot, a disabled row,
+  separators, shortcuts and a submenu arrow; M168) — nested submenu popups + theme-font auto-width + an
+  OptionButton wrapper later
 - [x] **Range + ProgressBar** (`ui::Range`: the clamped/stepped scalar value model behind Godot's
   ProgressBar/HSlider/ScrollBar/SpinBox — min/max/step/page → a 0..1 `ratio`, `setRatio`/`step_` +
   allow-greater/lesser; `ui::ProgressBar` wraps it with `fillFraction`/`percent`; the `progress` demo draws

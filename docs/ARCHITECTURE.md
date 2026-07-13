@@ -135,6 +135,10 @@ ui/         Font (TTF atlas: drawText/drawTextCentered/textWidth), DebugOverlay 
               select, fixed row height + separation + clamped scroll → itemRect/itemAtPoint (gap-aware) /
               ensureVisible / visibleRange, selectNext/Previous keyboard nav skipping disabled), Godot
               ItemList-style (file lists / inventory / level-select),
+            PopupMenu (context-menu / dropdown item list: label+id + checkbox/radio state + disabled +
+              separator + submenu + shortcut hint; itemRect/itemAtPoint, hoverNext/Prev nav skipping
+              separators+disabled, checkRadio single-choice groups, activate → toggle/switch/id), Godot
+              PopupMenu-style (right-click / OptionButton / menu bars),
             parseBBCode + RichSpan (BBCode rich text → resolved styled runs: [b]/[i]/[u], [color=hex|name],
               [size=N], nested/lenient — unclosed-to-end, stray-close ignored, [lb]/[rb] literal, unknown-tag
               passthrough; stripBBCode → plain text; renderer-independent), Godot RichTextLabel-style,
@@ -419,6 +423,8 @@ apps/
               bar graph + bass/mid/treble magnitudeForRange band meters (audio::SpectrumAnalyzer)
   xform2d/   Transform2D — one asymmetric arrow drawn under identity/rotate/scale/rotate+scale/skew/mirror
               transforms, each over a ghost original with the matrix's basis columns as a red/green gizmo (math::Transform2D)
+  popupmenu/ PopupMenu — an open context menu in a StyleBoxFlat panel: a hovered accent row, a checked item,
+              a radio dot, a dimmed disabled row, separators, right-aligned shortcuts, a submenu arrow (ui::PopupMenu)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

@@ -114,6 +114,7 @@
 #include "maz/ui/Font.hpp"
 #include "maz/ui/ItemList.hpp"
 #include "maz/ui/Layout.hpp"
+#include "maz/ui/PopupMenu.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/RichText.hpp"
 #include "maz/ui/StyleBox.hpp"
