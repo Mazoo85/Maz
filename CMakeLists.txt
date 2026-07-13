@@ -141,6 +141,7 @@ add_subdirectory(apps/billboard)
 add_subdirectory(apps/oneway)
 add_subdirectory(apps/modfx)
 add_subdirectory(apps/rootmotion)
+add_subdirectory(apps/groups)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

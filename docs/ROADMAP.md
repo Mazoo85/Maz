@@ -344,6 +344,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `PropBag` (Float/Int/Bool/Vec2/Color/Text `PropValue`s); `instantiate(prefab, overrides)` deep-copies the
   template and applies per-node-path property overrides → an independent instance — Godot PackedScene; the
   `prefab` demo instances one turret template six times with per-instance overrides; M125)
+- [x] **Node groups** (`scene::GroupRegistry`: tag any integer node id into named groups (unique, insertion-
+  ordered) with a reverse node→groups index; `add`/`remove`/`removeNode`/`isInGroup`/`nodesInGroup`/`groupsOf`/
+  `groupSize` + `call(group, fn)` broadcasting over a snapshot so the callback may add/free members mid-walk —
+  Godot SceneTree add_to_group/get_nodes_in_group/call_group; the `groups` demo tags a 6×6 grid and drives a
+  `nodesInGroup` query + a `call` broadcast; M148) — auto-join/leave on SceneTree enter/exit + group
+  persistence in scene (de)serialization later
 - [x] **Text resource save/load** (`io::savePrefabText` / `io::loadPrefabText`: round-trip a `scene::Prefab`
   to Godot-`.tscn`-style text — `[node name/parent]` sections + typed `key = TYPE value` lines — diffable,
   version-control-friendly, idempotent; the `restext` demo serializes an Enemy prefab + confirms the

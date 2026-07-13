@@ -111,7 +111,11 @@ scene/      TransformGraph — 2D transform hierarchy: local pos/rot/scale per n
             propagates world transforms parent-first (decomposed TRS); localToWorld;
             Prefab — prefabs / instancing (Godot PackedScene): a PrefabNode tree of named nodes with an
             exported PropBag (PropValue tagged union: Float/Int/Bool/Vec2/Color/Text); instantiate(prefab,
-            overrides) deep-copies the tree and applies per-node-path overrides → an independent instance
+            overrides) deep-copies the tree and applies per-node-path overrides → an independent instance;
+            GroupRegistry — node groups (Godot SceneTree add_to_group/get_nodes_in_group/call_group): tag any
+              integer node id into named groups (unique, insertion-ordered) with a reverse node→groups index;
+              nodesInGroup/isInGroup/groupsOf/removeNode + call(group, fn) broadcasting over a snapshot so the
+              callback may add/free members mid-walk
             (header-only)
 game/       Tilemap, FlyCamera (first-person camera), Collision (AABB slide + ray/AABB queries),
             CollisionLayers (32-bit layer/mask filtering: directional detects() + symmetric interact() +
@@ -331,6 +335,8 @@ apps/
               effects as stacked waveforms (audio::Chorus/Flanger/Phaser)
   rootmotion/ Root motion — a walk clip drives a character along a swept arc with left/right footprints planted
               on the path (no foot sliding), via anim::RootMotionTrack::advance
+  groups/    Node groups — a 6x6 grid of tagged nodes; nodesInGroup("vip") rings one diagonal and
+              call("hazard", ...) stamps the other, with live group-size counts (scene::GroupRegistry)
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

@@ -86,6 +86,7 @@
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/Shapes3D.hpp"
+#include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
@@ -4155,6 +4156,94 @@ void testPolyline() {
     }
 }
 
+void testGroupRegistry() {
+    using scene::GroupNode;
+    using scene::GroupRegistry;
+
+    // Add / duplicate / membership / size.
+    {
+        GroupRegistry g;
+        CHECK(g.add(1, "enemies"));
+        CHECK(g.add(2, "enemies"));
+        CHECK(!g.add(1, "enemies")); // duplicate -> no-op, returns false
+        CHECK(g.groupSize("enemies") == 2);
+        CHECK(g.isInGroup(1, "enemies"));
+        CHECK(!g.isInGroup(3, "enemies"));
+        CHECK(!g.isInGroup(1, "pickups")); // unknown group
+        CHECK(g.hasGroup("enemies"));
+        CHECK(!g.hasGroup("pickups"));
+
+        // Insertion order is preserved for deterministic queries.
+        const std::vector<GroupNode> members = g.nodesInGroup("enemies");
+        CHECK(members.size() == 2);
+        CHECK(members[0] == 1u);
+        CHECK(members[1] == 2u);
+        CHECK(g.nodesInGroup("nope").empty());
+    }
+
+    // A node in several groups; groupsOf reports them; removing from one leaves the others.
+    {
+        GroupRegistry g;
+        g.add(7, "enemies");
+        g.add(7, "flying");
+        g.add(7, "boss");
+        const std::vector<std::string> gs = g.groupsOf(7);
+        CHECK(gs.size() == 3);
+        CHECK(gs[0] == "enemies");
+        CHECK(gs[2] == "boss");
+        CHECK(g.groupCount() == 3);
+
+        CHECK(g.remove(7, "flying"));
+        CHECK(!g.remove(7, "flying")); // already gone
+        CHECK(!g.isInGroup(7, "flying"));
+        CHECK(!g.hasGroup("flying")); // empty group dropped
+        CHECK(g.isInGroup(7, "enemies"));
+        CHECK(g.groupsOf(7).size() == 2);
+        CHECK(g.groupCount() == 2);
+    }
+
+    // removeNode clears the node from every group at once (node destruction).
+    {
+        GroupRegistry g;
+        g.add(5, "a");
+        g.add(5, "b");
+        g.add(6, "a");
+        g.removeNode(5);
+        CHECK(!g.isInGroup(5, "a"));
+        CHECK(!g.isInGroup(5, "b"));
+        CHECK(g.groupsOf(5).empty());
+        CHECK(!g.hasGroup("b"));         // b had only node 5
+        CHECK(g.isInGroup(6, "a"));      // a survives via node 6
+        CHECK(g.groupSize("a") == 1);
+    }
+
+    // call() visits every member, and is safe when fn mutates the registry (snapshot iteration).
+    {
+        GroupRegistry g;
+        for (GroupNode n = 0; n < 5; ++n) {
+            g.add(n, "actors");
+        }
+        int visited = 0;
+        GroupNode sum = 0;
+        g.call("actors", [&](GroupNode n) {
+            ++visited;
+            sum += n;
+        });
+        CHECK(visited == 5);
+        CHECK(sum == 0u + 1u + 2u + 3u + 4u);
+
+        // During the broadcast, remove each visited node — snapshot keeps the walk intact.
+        int freed = 0;
+        g.call("actors", [&](GroupNode n) {
+            g.removeNode(n);
+            ++freed;
+        });
+        CHECK(freed == 5);
+        CHECK(!g.hasGroup("actors")); // all members removed
+        CHECK(g.groupCount() == 0);
+    }
+}
+
 void testPrefab() {
     using scene::Prefab;
     using scene::PrefabNode;
@@ -8059,6 +8148,7 @@ int main() {
     testSequence();
     testCameraController();
     testTransformGraph();
+    testGroupRegistry();
     testPrefab();
     testPrefabText();
     testLocalization();

@@ -2769,6 +2769,30 @@ out of the clip. It's pure planar math, so it unit-tests headless and drives a d
   it does **not** yet auto-extract the track from a glTF/`AnimClip` root joint, blend root motion across a
   state-machine transition, or handle full 3D root translation with pitch/roll; those remain the follow-ups.
 
+### Iteration 109 — "Benchmarking against Godot: node groups" (done)
+Rotating to **scene/ECS** for breadth (recent rounds were animation, audio, 2D-physics, 3D-render, 2D-render,
+math). Maz has an ECS (`ecs::World`) and a transform graph, but no way to TAG nodes into named sets and ask
+"give me everything tagged X" — so gameplay code had to keep and hand-maintain its own lists of enemies,
+pickups, save-points, etc. Godot's SceneTree groups (`add_to_group` / `get_nodes_in_group` / `call_group` /
+`is_in_group`) are that primitive. Pure container logic, so it unit-tests exactly and drives a 2D golden.
+- [x] **M148 — Node groups (`scene::GroupRegistry`)**: a new `GroupRegistry.hpp` mapping a named group to its
+  member node ids (unique, kept in insertion order for determinism), with a reverse index (node → its groups)
+  so "which groups is this in?" and whole-node removal are cheap. `add` / `remove` / `removeNode` (drop a node
+  from every group on destruction, and drop groups that go empty) / `isInGroup` / `nodesInGroup` / `groupSize`
+  / `groupsOf` / `hasGroup` / `groupCount`, plus `call(group, fn)` — Godot's `call_group`, which iterates a
+  SNAPSHOT so the callback may freely add or free members mid-broadcast. Ids are plain integers, so it layers
+  over `ecs::World` entities, `TransformGraph` nodes, or an app's own handles. `testGroupRegistry` pins:
+  add/duplicate/size/insertion order; multi-group membership + `groupsOf`; removing from one group leaving the
+  others (and empty groups dropped); `removeNode` clearing a node everywhere at once; and `call` visiting every
+  member and staying safe when the callback removes nodes during iteration. Unit checks **4978 → 5013**. The
+  new `groups` demo tags a 6×6 grid of 36 nodes (species by colour + cross-cutting `vip` and `hazard` tags),
+  then drives two live queries: `nodesInGroup("vip")` rings one diagonal and `call("hazard", ...)` stamps a
+  warning on the other, with a footer of `groupSize` counts — no per-app lists. 2D golden (threshold 0.07,
+  `groups` RMSE 0). Purely additive, so every existing golden is byte-unchanged (confirmed by a serial golden
+  run); ctest **103/103 → 104/104**. Honest scope: this is the group registry itself — it is **not** yet
+  auto-wired into a SceneTree so nodes join/leave groups on enter/exit, nor into scene (de)serialization;
+  those remain the integration follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

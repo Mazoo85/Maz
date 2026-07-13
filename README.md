@@ -793,6 +793,10 @@ available):
   locomotion clip drives the character's travel — `advance()` reads the root's per-step displacement out of
   the clip and applies it in the character's facing direction (with a loop-seam-aware `delta`), so the feet
   don't slide. The new `rootmotion` demo walks a character along a swept arc with footprints planted on it.
+- **M148** — **node groups** (`scene::GroupRegistry`), toward Godot's SceneTree groups: tag any node into
+  named groups and ask the registry for "everything in group X" (`nodesInGroup`) or broadcast to them
+  (`call`), instead of keeping per-system lists. The new `groups` demo tags a grid of nodes and drives two
+  live group queries — ringing one set and stamping a warning on another.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.
