@@ -973,6 +973,14 @@ set_tests_properties(spectrum_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME xform2d_headless_smoke
+    COMMAND xform2d --headless --frames 30)
+
+set_tests_properties(xform2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

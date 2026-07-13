@@ -95,6 +95,7 @@
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Rect2.hpp"
+#include "maz/math/Transform2D.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Billboard.hpp"
@@ -349,6 +350,126 @@ void testGeometry2D() {
         // Circle beyond the segment end but within radius of the endpoint.
         CHECK(segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-1, 0), 2.0f));
         CHECK(!segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-5, 0), 2.0f));
+    }
+}
+
+void testTransform2D() {
+    using math::Transform2D;
+    using math::vec2;
+
+    const float pi = 3.14159265358979323846f;
+
+    // Identity leaves points untouched.
+    {
+        const Transform2D id = Transform2D::identity();
+        const vec2 p = id.xform(vec2(3, 4));
+        CHECK_NEAR(p.x, 3.0f, 1e-5f);
+        CHECK_NEAR(p.y, 4.0f, 1e-5f);
+        CHECK_NEAR(id.determinant(), 1.0f, 1e-5f);
+    }
+
+    // Translation moves points; basisXform ignores it.
+    {
+        const Transform2D t = Transform2D::translation(vec2(5, -2));
+        const vec2 p = t.xform(vec2(1, 1));
+        CHECK_NEAR(p.x, 6.0f, 1e-5f);
+        CHECK_NEAR(p.y, -1.0f, 1e-5f);
+        const vec2 v = t.basisXform(vec2(1, 1)); // direction: unaffected by translation
+        CHECK_NEAR(v.x, 1.0f, 1e-5f);
+        CHECK_NEAR(v.y, 1.0f, 1e-5f);
+    }
+
+    // Rotation by +90 degrees sends +X to +Y.
+    {
+        const Transform2D r = Transform2D::rotation(pi * 0.5f);
+        const vec2 p = r.xform(vec2(1, 0));
+        CHECK_NEAR(p.x, 0.0f, 1e-4f);
+        CHECK_NEAR(p.y, 1.0f, 1e-4f);
+        CHECK_NEAR(r.determinant(), 1.0f, 1e-5f);
+        CHECK_NEAR(r.getRotation(), pi * 0.5f, 1e-4f);
+    }
+
+    // Scale stretches each axis; determinant is the area factor.
+    {
+        const Transform2D s = Transform2D::scaling(vec2(2, 3));
+        const vec2 p = s.xform(vec2(1, 1));
+        CHECK_NEAR(p.x, 2.0f, 1e-5f);
+        CHECK_NEAR(p.y, 3.0f, 1e-5f);
+        CHECK_NEAR(s.determinant(), 6.0f, 1e-5f);
+        const vec2 sc = s.getScale();
+        CHECK_NEAR(sc.x, 2.0f, 1e-5f);
+        CHECK_NEAR(sc.y, 3.0f, 1e-5f);
+    }
+
+    // Composition applies right-to-left: (translate * rotate).xform(p) rotates first, then translates.
+    {
+        const Transform2D t = Transform2D::translation(vec2(5, 0)) * Transform2D::rotation(pi * 0.5f);
+        const vec2 p = t.xform(vec2(1, 0)); // rotate (1,0)->(0,1), then +（5,0)
+        CHECK_NEAR(p.x, 5.0f, 1e-4f);
+        CHECK_NEAR(p.y, 1.0f, 1e-4f);
+        // Equivalent to applying the two transforms in sequence.
+        const vec2 seq = Transform2D::translation(vec2(5, 0)).xform(Transform2D::rotation(pi * 0.5f).xform(vec2(1, 0)));
+        CHECK_NEAR(p.x, seq.x, 1e-4f);
+        CHECK_NEAR(p.y, seq.y, 1e-4f);
+    }
+
+    // affineInverse undoes the transform even when scaled + rotated + translated.
+    {
+        const Transform2D m = Transform2D::compose(0.6f, vec2(2.0f, 0.5f), vec2(3, -4));
+        const Transform2D inv = m.affineInverse();
+        const vec2 p(1.5f, 2.5f);
+        const vec2 back = inv.xform(m.xform(p));
+        CHECK_NEAR(back.x, 1.5f, 1e-3f);
+        CHECK_NEAR(back.y, 2.5f, 1e-3f);
+        // xformInv is the same round-trip.
+        const vec2 back2 = m.xformInv(m.xform(p));
+        CHECK_NEAR(back2.x, 1.5f, 1e-3f);
+        CHECK_NEAR(back2.y, 2.5f, 1e-3f);
+        // m * m.affineInverse() is the identity.
+        const Transform2D idm = m * inv;
+        CHECK_NEAR(idm.x.x, 1.0f, 1e-3f);
+        CHECK_NEAR(idm.y.y, 1.0f, 1e-3f);
+        CHECK_NEAR(idm.origin.x, 0.0f, 1e-3f);
+        CHECK_NEAR(idm.origin.y, 0.0f, 1e-3f);
+    }
+
+    // compose(rotation, scale, position) round-trips through the decomposition accessors.
+    {
+        const Transform2D m = Transform2D::compose(0.7f, vec2(1.5f, 2.5f), vec2(4, 5));
+        CHECK_NEAR(m.getRotation(), 0.7f, 1e-4f);
+        const vec2 sc = m.getScale();
+        CHECK_NEAR(sc.x, 1.5f, 1e-4f);
+        CHECK_NEAR(sc.y, 2.5f, 1e-4f);
+        CHECK_NEAR(m.origin.x, 4.0f, 1e-5f);
+        CHECK_NEAR(m.origin.y, 5.0f, 1e-5f);
+    }
+
+    // A mirrored basis reports a negative scale component.
+    {
+        const Transform2D flip = Transform2D::scaling(vec2(1, -1));
+        CHECK(flip.determinant() < 0.0f);
+        CHECK(flip.getScale().y < 0.0f);
+    }
+
+    // orthonormalized() strips scale/skew but keeps rotation + origin.
+    {
+        const Transform2D m = Transform2D::compose(0.4f, vec2(3.0f, 0.2f), vec2(2, 2));
+        const Transform2D o = m.orthonormalized();
+        CHECK_NEAR(std::sqrt(o.x.x * o.x.x + o.x.y * o.x.y), 1.0f, 1e-4f); // unit x
+        CHECK_NEAR(std::sqrt(o.y.x * o.y.x + o.y.y * o.y.y), 1.0f, 1e-4f); // unit y
+        CHECK_NEAR(o.x.x * o.y.x + o.x.y * o.y.y, 0.0f, 1e-4f);           // perpendicular
+        CHECK_NEAR(o.getRotation(), 0.4f, 1e-4f);
+        CHECK_NEAR(o.origin.x, 2.0f, 1e-5f);
+    }
+
+    // interpolateWith blends position + rotation + scale.
+    {
+        const Transform2D a = Transform2D::identity();
+        const Transform2D b = Transform2D::compose(pi * 0.5f, vec2(3, 3), vec2(10, 0));
+        const Transform2D mid = a.interpolateWith(b, 0.5f);
+        CHECK_NEAR(mid.origin.x, 5.0f, 1e-4f);          // halfway across
+        CHECK_NEAR(mid.getRotation(), pi * 0.25f, 1e-3f); // 45 degrees
+        CHECK_NEAR(mid.getScale().x, 2.0f, 1e-3f);       // (1+3)/2
     }
 }
 
@@ -9654,6 +9775,7 @@ int main() {
     testMath();
     testCurve2D();
     testGeometry2D();
+    testTransform2D();
     testRect2();
     testCollision();
     testRaycast();

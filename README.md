@@ -875,6 +875,10 @@ available):
   per-bin magnitudes and a `magnitudeForRange` band query — the maths behind rhythm games, VU/equalizer
   visualizers, and beat-reactive effects. The new `spectrum` demo plots a chord's spectrum as a frequency bar
   graph with bass/mid/treble band meters.
+- **M167** — **2D affine Transform2D** (`math::Transform2D`), toward Godot's `Transform2D`: the 2×3 affine
+  matrix behind every Node2D — place/rotate/scale/skew, convert points between local and world space
+  (`xform`/`xformInv`), compose parent×child, and read back rotation/scale/skew. The new `xform2d` demo draws
+  one arrow under a gallery of transforms (rotate / scale / skew / mirror) with basis-vector gizmos.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

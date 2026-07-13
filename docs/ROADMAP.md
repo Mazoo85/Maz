@@ -191,7 +191,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `segmentIntersectsCircle` — the workhorse queries behind line-of-sight, hit-picking, and trigger zones;
   Godot's `Geometry2D`; the `geometry` demo shows segment intersections + a point-in-polygon grid + closest-
   point projections; M160) — convex hull + polygon boolean clip/merge/offset (Clipper) + Delaunay later
-- [ ] Transform helpers, AABB/OBB, ray, plane, frustum
+- [x] **Transform2D** (`math::Transform2D`: Godot's 2×3 affine — two basis columns + origin; builders
+  (identity/rotation/scaling/translation + the `compose(rot,scale,pos,skew)` node constructor), `xform`/
+  `basisXform`/`xformInv`, `operator*` (parent×child), `affineInverse`, `getRotation`/`getScale`/`getSkew`,
+  `orthonormalized`, `determinant`, `interpolateWith`; the `xform2d` demo draws an arrow under rotate/scale/
+  skew/mirror with basis gizmos; M167) — a 3D `Transform3D`/`Basis` sibling + retrofitting sprites/TransformGraph later
+- [ ] AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [x] **Handles / generational indices, object pools** (`core::SlotMap<T>` + `SlotHandle{index,

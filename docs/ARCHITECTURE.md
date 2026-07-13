@@ -55,7 +55,11 @@ math/       maz::math = GLM re-export + helpers (Vulkan-correct perspective + or
               intersects/intersection (clip), merge (union), encloses, grow/growIndividual, expand, abs;
             Geometry2D — 2D geometry queries (Godot Geometry2D): segmentIntersect (segment×segment→point+t/u),
               closestPointOnSegment / distanceToSegment, pointInPolygon (even-odd, concave-safe),
-              segmentIntersectsCircle
+              segmentIntersectsCircle;
+            Transform2D — 2×3 affine (Godot Transform2D, behind every Node2D): basis columns + origin;
+              identity/rotation/scaling/translation + compose(rot,scale,pos,skew), xform/basisXform/xformInv,
+              operator* (parent×child), affineInverse, getRotation/getScale/getSkew, orthonormalized,
+              determinant, interpolateWith
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain + offscreen HDR scene pass (16-bit float, MSAA ≤4×
@@ -413,6 +417,8 @@ apps/
               shown re-encoded as INI text beside it (io::ConfigFile)
   spectrum/  SpectrumAnalyzer — a chord's FFT magnitude spectrum as a band-coloured, peak-labelled frequency
               bar graph + bass/mid/treble magnitudeForRange band meters (audio::SpectrumAnalyzer)
+  xform2d/   Transform2D — one asymmetric arrow drawn under identity/rotate/scale/rotate+scale/skew/mirror
+              transforms, each over a ghost original with the matrix's basis columns as a red/green gizmo (math::Transform2D)
   polyfill/  Polygon fill — four concave shapes (star / block arrow / plus / thick C-ring) ear-clipped by
               render::triangulatePolygon and filled, with the triangle mesh + outline overlaid
   deadzone/  Analog deadzone — a stick field (raw samples arrowed to their input::analogVector result) +

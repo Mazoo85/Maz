@@ -92,6 +92,7 @@
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/math/Rect2.hpp"
+#include "maz/math/Transform2D.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/platform/Paths.hpp"
 #include "maz/platform/Window.hpp"

@@ -2927,6 +2927,37 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 128 — "Benchmarking against Godot: 2D affine Transform2D" (done)
+Rotating to **math** for breadth (recent rounds were audio, IO, core-containers, 3D-render, animation). Maz
+had `scene::TransformGraph` (a hierarchy of *decomposed* TRS nodes) and a `Transform2DState` pose-blend in
+`core::Interpolate`, but no first-class **Transform2D** value type — Godot's 2×3 affine matrix, the primitive
+behind *every* Node2D. Without it there was no single object to compose a parent's placement with a child's,
+to convert a point between local and world/screen space, or to read a node's rotation/scale/skew back from
+its matrix; those were done ad hoc. Pure math, so it unit-tests exactly and drives a golden.
+- [x] **M167 — 2D affine Transform2D (`math::Transform2D`)**: a new `Transform2D.hpp` storing two basis
+  columns + an origin (Godot's layout) with builders (`identity`/`rotation`/`scaling`/`translation` and the
+  `compose(rotation, scale, position, skew)` node constructor), point/vector application (`xform`,
+  `basisXform`, `xformInv`), composition (`operator*`, parent×child), `affineInverse` (full inverse, correct
+  under scale/skew), decomposition (`getRotation`/`getScale`/`getSkew`, signed scale for a mirrored basis),
+  `orthonormalized` (Gram-Schmidt), `determinant`, and `interpolateWith` (decompose → lerp pos/scale +
+  shortest-arc rotation → recompose). `testTransform2D` pins identity, translation vs basis-only vector
+  transform, a +90° rotation sending +X→+Y, non-uniform scale + area determinant, right-to-left composition
+  equalling sequential application, an affine-inverse round-trip (scaled+rotated+translated) incl. `xformInv`
+  and `m*inverse=identity`, compose→decompose round-trips, a negative scale from a mirror, orthonormalization
+  (unit + perpendicular + preserved rotation/origin), and a midpoint `interpolateWith`. Unit checks
+  **7298 → 7341**. The new `xform2d` demo draws one asymmetric arrow under a gallery of transforms (identity /
+  rotate / non-uniform scale / rotate+scale / skew / mirror), each over a ghost of the original with the
+  matrix's basis columns drawn as a red/green gizmo. 2D golden (threshold 0.05, `xform2d` RMSE 0). Purely
+  additive, so every existing golden is byte-unchanged (confirmed by a serial golden run); ctest
+  **122/122 → 123/123**. Honest scope: this is the value type + operations; it does **not** yet retrofit
+  `TransformGraph`/sprites onto it as their storage, nor add a 3D `Transform3D`/`Basis` sibling — those remain
+  follow-ups.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 127 — "Benchmarking against Godot: audio spectrum analyzer (FFT)" (done)
 Rotating to **audio** for breadth (recent rounds were IO, core-containers, 3D-render, animation, UI). Maz's
 audio layer was rich on synthesis and DSP *effects* — filters, delay, reverb, distortion, compressor, chorus/
