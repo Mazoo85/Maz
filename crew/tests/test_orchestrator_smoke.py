@@ -5,6 +5,8 @@ Covers phase order, the plan checkpoint gate, and the bounded repair loop.
 
 import asyncio
 
+import pytest
+
 from crew.config import CrewConfig
 from crew.orchestrator import run_task
 
@@ -20,9 +22,9 @@ def responder_for(tester_text: str):
     return responder
 
 
-def run(confirm, tester_text="VERDICT: PASS", config=None, session_id="sess-1"):
+def run(confirm, tester_text="VERDICT: PASS", config=None, session_id="sess-1", cost=None):
     """Run a task against a FakeClient and return (state, client)."""
-    client = FakeClient(responder_for(tester_text), session_id=session_id)
+    client = FakeClient(responder_for(tester_text), session_id=session_id, cost=cost)
     cfg = config or CrewConfig()
     state = asyncio.run(
         run_task(
@@ -69,3 +71,18 @@ def test_passing_tests_break_immediately(monkeypatch, tmp_path):
     t = tags(client)
     assert t.count("test") == 1
     assert t.count("fix") == 0
+
+
+def test_cost_accumulates_across_phases(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    # Each turn's result reports the same per-turn cost; the task total is the
+    # sum over every phase that ran.
+    state, client = run(confirm=lambda q: True, cost=0.01)
+    assert state.total_cost_usd == pytest.approx(0.01 * len(client.prompts))
+    assert len(client.prompts) >= 4  # at least plan, code, review, test
+
+
+def test_no_cost_reported_stays_zero(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    state, _ = run(confirm=lambda q: True, cost=None)
+    assert state.total_cost_usd == 0.0

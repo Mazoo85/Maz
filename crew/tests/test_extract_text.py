@@ -1,6 +1,6 @@
-"""_extract_text pulls readable text out of duck-typed SDK messages."""
+"""_extract_text / _extract_cost pull data out of duck-typed SDK messages."""
 
-from crew.orchestrator import _extract_text
+from crew.orchestrator import _extract_cost, _extract_text
 
 from conftest import FakeAssistant, FakeBlock, FakeResult
 
@@ -37,3 +37,12 @@ def test_non_text_blocks_ignored():
         content = [NoTextBlock(), FakeBlock("kept")]
 
     assert _extract_text(Msg()) == "kept"
+
+
+def test_extract_cost_present():
+    assert _extract_cost(FakeResult("s", cost=0.0123)) == 0.0123
+
+
+def test_extract_cost_absent():
+    assert _extract_cost(FakeResult("s")) is None
+    assert _extract_cost(FakeAssistant("hi")) is None

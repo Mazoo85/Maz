@@ -16,23 +16,27 @@ class FakeAssistant:
 
 
 class FakeResult:
-    """Mimics the terminal result message that carries the session id."""
+    """Mimics the terminal result message that carries the session id and cost."""
 
-    def __init__(self, session_id: str) -> None:
+    def __init__(self, session_id: str, cost: float | None = None) -> None:
         self.content = None
         self.session_id = session_id
+        if cost is not None:
+            self.total_cost_usd = cost
 
 
 class FakeClient:
     """Async-context-manager stand-in for ``ClaudeSDKClient``.
 
     Records every prompt it receives and replies with scripted text produced by
-    ``responder(prompt)``, followed by a result message carrying ``session_id``.
+    ``responder(prompt)``, followed by a result message carrying ``session_id``
+    (and ``cost`` per turn, when set).
     """
 
-    def __init__(self, responder, session_id: str = "sess-1") -> None:
+    def __init__(self, responder, session_id: str = "sess-1", cost: float | None = None) -> None:
         self.responder = responder
         self.session_id = session_id
+        self.cost = cost
         self.prompts: list[str] = []
         self._pending = ""
 
@@ -48,7 +52,7 @@ class FakeClient:
 
     async def receive_response(self):
         yield FakeAssistant(self._pending)
-        yield FakeResult(self.session_id)
+        yield FakeResult(self.session_id, self.cost)
 
 
 def classify(prompt: str) -> str:

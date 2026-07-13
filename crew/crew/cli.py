@@ -107,6 +107,8 @@ def status() -> None:
     table.add_row("Task", state.task or "-")
     table.add_row("Last phase", state.phase or "-")
     table.add_row("Session id", state.session_id)
+    if state.total_cost_usd:
+        table.add_row("Approx. cost", f"${state.total_cost_usd:.4f}")
     console.print(table)
 
 

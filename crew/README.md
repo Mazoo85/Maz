@@ -58,6 +58,9 @@ crew do "bump the version and update the changelog" --yes --max-fix-rounds 2
 `--yes` still never commits or pushes — it only auto-approves the plan/review
 checkpoints. The commit remains yours to make.
 
+When the SDK reports token cost, the crew tallies it per task, prints an approximate
+total when it finishes, and shows it in `crew status`.
+
 ## Configuration
 
 Everything tunable lives in `crew/config.py`, overridable via env vars:

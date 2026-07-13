@@ -39,6 +39,15 @@ Confirm = Callable[[str], bool]
 class PhaseResult:
     text: str
     session_id: str | None
+    cost_usd: float | None = None
+
+
+def _extract_cost(message) -> float | None:
+    """Pull the per-turn cost off a result message, if the SDK reports one."""
+    cost = getattr(message, "total_cost_usd", None)
+    if isinstance(cost, (int, float)):
+        return float(cost)
+    return None
 
 
 def _extract_text(message) -> str:
@@ -66,17 +75,21 @@ async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
 
     collected: list[str] = []
     session_id: str | None = None
+    cost: float | None = None
     async for message in client.receive_response():
         text = _extract_text(message)
         if text:
             console.print(text, end="")
             collected.append(text)
-        # ResultMessage (end of turn) carries the session id.
+        # ResultMessage (end of turn) carries the session id and cost.
         sid = getattr(message, "session_id", None)
         if sid:
             session_id = sid
+        c = _extract_cost(message)
+        if c is not None:
+            cost = c
     console.print()  # newline after streamed output
-    return PhaseResult(text="".join(collected), session_id=session_id)
+    return PhaseResult(text="".join(collected), session_id=session_id, cost_usd=cost)
 
 
 def _build_options(config: CrewConfig, resume: str | None):
@@ -121,6 +134,11 @@ async def run_task(
         def checkpoint(result: PhaseResult, phase: str) -> bool:
             if result.session_id:
                 state.session_id = result.session_id
+            # Per-turn costs sum to the task total. (SDK reports cost per query
+            # turn; if a future SDK reports it cumulatively this would need a max
+            # instead — revisit if the numbers look inflated.)
+            if result.cost_usd:
+                state.total_cost_usd += result.cost_usd
             state.phase = phase
             session_mod.save(state, config)
             return True
@@ -197,10 +215,15 @@ async def run_task(
         # 5. COMMIT is a human decision. We stop here on purpose.
         state.phase = "done"
         session_mod.save(state, config)
+        cost_line = (
+            f"\n[dim]Approx. cost this task: ${state.total_cost_usd:.4f}[/dim]"
+            if state.total_cost_usd
+            else ""
+        )
         console.print(
             Panel.fit(
                 "Crew finished. Review the diff with [bold]git diff[/bold], then commit when "
-                "you're happy.\nThe crew never commits or pushes on its own.",
+                "you're happy.\nThe crew never commits or pushes on its own." + cost_line,
                 title="Done",
                 border_style="green",
             )
