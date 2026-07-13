@@ -63,3 +63,10 @@ target_link_libraries(maz_unit_interp PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_interp COMMAND maz_unit_interp)
 set_tests_properties(unit_interp PROPERTIES TIMEOUT 30)
+
+# Unit tests: hashed string identifiers (FNV-1a 64) and the _sid literal.
+add_executable(maz_unit_stringid unit_stringid.cpp)
+target_link_libraries(maz_unit_stringid PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_stringid COMMAND maz_unit_stringid)
+set_tests_properties(unit_stringid PROPERTIES TIMEOUT 30)

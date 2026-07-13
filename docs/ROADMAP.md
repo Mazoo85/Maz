@@ -52,7 +52,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Memory: linear / stack / pool / frame allocators, arenas
 - [ ] Handles / generational indices, object pools
 - [ ] Containers: `small_vector`, sparse set, ring buffer
-- [ ] String interning / `StringId` (hashed), fixed strings
+- [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested); interning/original-string storage + fixed strings TODO
 - [ ] Event bus / signals, delegates / typed callbacks
 - [ ] Minimal reflection (type ids, property registration) for serialization + editor
 - [ ] Serialization (binary + JSON), versioned schemas
