@@ -2544,6 +2544,35 @@ byte-deterministically yet emits exactly the interleaved-float format a real dev
   (M99/M106 buses/effects remain offline), or streaming decode of long OGG/MP3 assets; those remain the audio
   follow-ups.
 
+### Iteration 101 — "Benchmarking against Godot: resource-pack archive" (done)
+Rotating to **IO / asset packaging** for breadth (last IO milestone was M133's CSV/localization). Maz could
+serialize a single blob (`io::Serialize`) and read/write one file at a time, but there was **no way to bundle
+many named resources into ONE archive** and pull them back out by path — which is exactly what a shipped game
+loads from: Godot's `.pck` / `PackedData`, a single file holding every texture, level, sound, and script
+instead of a loose file tree. That gap is pure byte-container work (no renderer/sim dependency), so it
+unit-tests headlessly and renders a clean deterministic golden.
+- [x] **M140 — Resource-pack archive (`io::packResources` + `io::ResourcePack`)**: a new `ResourcePack.hpp`
+  built on the existing `ByteWriter`/`ByteReader`. `packResources(entries)` writes a magic (`'MZP1'`) +
+  version header, an entry count, a **directory** of `(path, offset, size)` records (offsets relative to the
+  data section, so the archive is position-independent), then the concatenated blob bytes. `ResourcePack::load`
+  parses that back with full bounds checking — a foreign magic, a truncated directory, or a data section that
+  claims more bytes than present all fail cleanly (return `false`, pack left empty) instead of over-reading;
+  `contains` / `get` (→ bytes or `nullptr`) / `getString` / `paths()` (pack order, deduped) / `count()` expose
+  the contents. Duplicate paths follow filesystem-overwrite semantics (last wins). `testResourcePack` pins:
+  three mixed blobs (JSON / text / binary-with-embedded-zeros) packed and each fetched back byte-identical;
+  offset math verified on the 2nd/3rd entries (not just the one at offset 0); a zero-length blob round-tripping
+  as present-but-empty; an empty archive reporting zero; duplicate-path last-wins with a deduped count/order;
+  and wrong-magic / too-short / truncated-payload streams all rejected with the pack staying empty. Unit checks
+  **4776 → 4809**. The new `respack` demo packs four real resources — a level's JSON, a readme string, a
+  synthesized `.wav`, and a raw palette blob — into one archive, loads it back, and draws the directory table
+  (path / size / offset), the archive byte total, a hex dump of the header, and a per-resource round-trip check.
+  Static data → deterministic golden (threshold 0.07, text-dense). Purely additive (new header + new app), so
+  every existing golden is byte-unchanged (confirmed by a serial golden run); ctest **95/95 → 96/96**. Honest
+  scope: this is an uncompressed store-only archive (like a `.pck` / an uncompressed zip) — it does **not** yet
+  add DEFLATE/gzip compression, per-file encryption or checksums (Godot stores an MD5 per file), streaming
+  reads of an on-disk archive without loading it whole, or a virtual-filesystem layer that redirects
+  `io::readFile` through mounted packs; those remain the packaging follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

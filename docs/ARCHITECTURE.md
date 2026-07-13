@@ -198,7 +198,11 @@ io/         Serialize — ByteWriter/ByteReader (POD/string/vector, versioned he
               friendly (Godot .tscn/.tres)
             Localization — parseCsv (RFC-4180: quoted fields, embedded commas/newlines, "" escapes, CRLF/LF)
               + TranslationTable (Godot Translation CSV: key + per-locale columns; setLocale + tr(key) with
-              empty-cell→source and unknown-key→key fallback)
+              empty-cell→source and unknown-key→key fallback);
+            ResourcePack — a .pck-style archive (Godot PackedData): packResources bundles named blobs into one
+              byte stream (magic+version header, (path, offset, size) directory, concatenated data);
+              ResourcePack::load reads them back by path (contains/get/getString/paths/count) with bounds-
+              checked, fail-clean parsing (store-only, no compression yet)
 fx/         ParticleSystem — pooled 2D particles   (on top of Renderer);
             Emitter — a particle emitter RESOURCE (Godot CPUParticles2D): emission shape (point/disk/
               ring/rect) + per-lifetime scale/alpha Curve + multi-stop colour Gradient + direction/spread/
@@ -291,6 +295,8 @@ apps/
               shapes; overlaps drawn red with the MTV push-arrow, clear shapes green
   sampler/   Sample-playback mixer — two decoded WAV clips (a tone + a noise blip) played as audio::SampleMixer
               voices panned L/R, mixed offline into one stereo buffer drawn as L/R oscilloscopes
+  respack/   Resource pack — four resources (level JSON, text, a synthesized WAV, a raw blob) bundled into one
+              io::ResourcePack archive, loaded back, and shown as a directory table + header hex + round-trip check
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

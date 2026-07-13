@@ -347,7 +347,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
 - [x] Audio asset loading — **WAV** (`audio::decodeWav`/`encodeWav`, 8/16-bit PCM; M129); OGG/font-import/
   shader-assets still pending
-- [ ] Asset cooking / packing pipeline, pak archives, streaming
+- [~] Asset cooking / packing pipeline, **pak archives** (`io::packResources` + `io::ResourcePack`: bundle
+  named blobs into one `.pck`-style archive — magic+version header, `(path, offset, size)` directory,
+  concatenated data — and read them back by path with bounds-checked loading; Godot `.pck`/`PackedData`; the
+  `respack` demo packs level JSON + text + a synthesized WAV + a raw blob and draws the directory + hex header
+  + round-trip check; M140) — DEFLATE/gzip compression, per-file checksums/encryption, streaming reads, and a
+  mount-pack virtual filesystem still pending
 - [ ] Import settings + dependency graph + reimport
 
 ## Phase 6 — Physics & collision

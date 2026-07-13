@@ -75,6 +75,7 @@
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
 #include "maz/io/PrefabText.hpp"
+#include "maz/io/ResourcePack.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -2596,6 +2597,94 @@ void testSerialize() {
     io::ByteReader tsr(ts);
     tsr.readString();
     CHECK(!tsr.ok());
+}
+
+void testResourcePack() {
+    using io::PackEntry;
+    using io::ResourcePack;
+
+    // Pack three named blobs, unpack, and get each back byte-for-byte.
+    {
+        std::vector<PackEntry> entries = {
+            {"levels/forest.json", {'{', '"', 'x', '"', ':', '1', '}'}},
+            {"readme.txt", {'h', 'i'}},
+            {"data.bin", {0x00, 0xFF, 0x7F, 0x00, 0x42}}, // embedded zeros must survive
+        };
+        const std::vector<std::uint8_t> archive = io::packResources(entries);
+
+        ResourcePack pack;
+        CHECK(pack.load(archive));
+        CHECK(pack.count() == 3);
+        CHECK(pack.contains("levels/forest.json"));
+        CHECK(pack.contains("readme.txt"));
+        CHECK(pack.contains("data.bin"));
+        CHECK(!pack.contains("missing"));
+
+        const std::vector<std::uint8_t>* forest = pack.get("levels/forest.json");
+        CHECK(forest != nullptr);
+        CHECK(*forest == entries[0].data);
+        CHECK(pack.getString("readme.txt") == std::string("hi"));
+
+        // The second/third blobs prove the directory offset math (not just the first at offset 0).
+        const std::vector<std::uint8_t>* bin = pack.get("data.bin");
+        CHECK(bin != nullptr);
+        CHECK(bin->size() == 5);
+        CHECK((*bin)[1] == 0xFF && (*bin)[2] == 0x7F && (*bin)[4] == 0x42);
+
+        CHECK(pack.get("missing") == nullptr);
+
+        // paths() preserves pack order.
+        CHECK(pack.paths().size() == 3);
+        CHECK(pack.paths()[0] == "levels/forest.json");
+        CHECK(pack.paths()[2] == "data.bin");
+    }
+
+    // A zero-length blob round-trips (present, empty).
+    {
+        std::vector<PackEntry> entries = {{"empty", {}}, {"after", {'Z'}}};
+        ResourcePack pack;
+        CHECK(pack.load(io::packResources(entries)));
+        const std::vector<std::uint8_t>* e = pack.get("empty");
+        CHECK(e != nullptr);
+        CHECK(e->empty());
+        CHECK(pack.getString("after") == std::string("Z"));
+    }
+
+    // An empty archive (no entries) loads and reports zero.
+    {
+        ResourcePack pack;
+        CHECK(pack.load(io::packResources({})));
+        CHECK(pack.count() == 0);
+        CHECK(pack.paths().empty());
+        CHECK(!pack.contains("anything"));
+    }
+
+    // Duplicate path: last write wins (filesystem-overwrite semantics), deduped in count/order.
+    {
+        std::vector<PackEntry> entries = {{"dup", {'a'}}, {"dup", {'b', 'c'}}};
+        ResourcePack pack;
+        CHECK(pack.load(io::packResources(entries)));
+        CHECK(pack.count() == 1);
+        CHECK(pack.paths().size() == 1);
+        CHECK(pack.getString("dup") == std::string("bc"));
+    }
+
+    // Foreign / short / corrupt streams fail cleanly and leave the pack empty.
+    {
+        ResourcePack pack;
+        const std::vector<std::uint8_t> junk = {'N', 'O', 'P', 'E', 0, 0, 0, 0};
+        CHECK(!pack.load(junk)); // wrong magic
+        CHECK(pack.count() == 0);
+
+        std::vector<std::uint8_t> tooShort = {'M'};
+        CHECK(!pack.load(tooShort));
+
+        // Valid header but a truncated data section (claims more bytes than present).
+        std::vector<std::uint8_t> archive = io::packResources({{"a", {1, 2, 3, 4}}});
+        archive.resize(archive.size() - 2); // chop 2 payload bytes
+        CHECK(!pack.load(archive));
+        CHECK(pack.count() == 0);
+    }
 }
 
 void testJson() {
@@ -7322,6 +7411,7 @@ int main() {
     testTextInput();
     testUI();
     testSerialize();
+    testResourcePack();
     testJson();
     testCVars();
     testProfiler();

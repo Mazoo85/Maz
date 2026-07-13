@@ -72,6 +72,7 @@
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/PrefabText.hpp"
+#include "maz/io/ResourcePack.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
 #include "maz/math/Math.hpp"

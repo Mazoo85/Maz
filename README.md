@@ -754,6 +754,12 @@ available):
   non-looping voices auto-stop at the end and looping ones wrap. The new `sampler` demo plays two decoded
   clips (a tone panned left, a noise blip panned right), mixes them, and draws the resulting L/R
   oscilloscopes.
+- **M140** — a **binary resource-pack archive** (`io::packResources` / `io::ResourcePack`), toward Godot's
+  `.pck` / `PackedData`: a game ships one archive, not a loose file tree. `packResources` bundles named blobs
+  (level JSON, sounds, prefab text, raw data) into a single byte stream with a magic header and a
+  `(path, offset, size)` directory; `ResourcePack::load` reads them back by path with full bounds checking so
+  a corrupt/foreign archive fails cleanly. The new `respack` demo packs four resources, loads the archive
+  back, and draws its directory table, a header hex dump, and a per-resource round-trip check.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

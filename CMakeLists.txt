@@ -133,6 +133,7 @@ add_subdirectory(apps/primitives)
 add_subdirectory(apps/slotmap)
 add_subdirectory(apps/polycollide)
 add_subdirectory(apps/sampler)
+add_subdirectory(apps/respack)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

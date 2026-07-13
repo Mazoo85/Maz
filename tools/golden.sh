@@ -117,6 +117,7 @@ CASES=(
     "slotmap||2.0|0.06"
     "polycollide||2.0|0.06"
     "sampler||2.0|0.06"
+    "respack||2.0|0.07"
 )
 
 if [ ! -f "$ICD" ]; then
