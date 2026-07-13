@@ -1069,6 +1069,14 @@ set_tests_properties(busmixer_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME limiter_headless_smoke
+    COMMAND limiter --headless --frames 30)
+
+set_tests_properties(limiter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -172,6 +172,7 @@ add_subdirectory(apps/normals)
 add_subdirectory(apps/filters)
 add_subdirectory(apps/equalizer)
 add_subdirectory(apps/busmixer)
+add_subdirectory(apps/limiter)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

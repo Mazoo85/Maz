@@ -9761,6 +9761,79 @@ void testModDsp() {
         const float b = fl.process(1.0f); // same first sample after reset
         CHECK_NEAR(a, b, 1e-5f);
     }
+
+    // ---- A4: brickwall lookahead limiter ----
+    {
+        const float ceilDb = -0.3f;
+        const float ceil = audio::dbToLinear(ceilDb);
+
+        // A loud tone driven far above the ceiling comes out AT or below the ceiling (true brickwall).
+        {
+            audio::Limiter lim;
+            lim.configure(ceilDb, 100.0f, 2.0f, sr);
+            float peak = 0.0f;
+            const int look = lim.lookaheadSamples();
+            for (int i = 0; i < 4000; ++i) {
+                const float x = 1.8f * std::sin(2.0f * 3.14159265f * 220.0f * static_cast<float>(i) / sr);
+                const float y = lim.process(x);
+                if (i > look + 200) { // skip the fill + settle
+                    peak = std::max(peak, std::fabs(y));
+                }
+            }
+            CHECK(peak <= ceil + 1e-3f); // never exceeds the ceiling
+            CHECK(peak > ceil - 0.05f);  // and actually reaches up to it (it is limiting, not silencing)
+        }
+
+        // A quiet signal (below the ceiling) passes through untouched, just delayed by the lookahead.
+        {
+            audio::Limiter lim;
+            lim.configure(ceilDb, 100.0f, 2.0f, sr);
+            const int look = lim.lookaheadSamples();
+            std::vector<float> in, out;
+            for (int i = 0; i < 400; ++i) {
+                const float x = 0.2f * std::sin(2.0f * 3.14159265f * 440.0f * static_cast<float>(i) / sr);
+                in.push_back(x);
+                out.push_back(lim.process(x));
+            }
+            // out[n] should equal in[n - look] at unity gain.
+            bool matched = true;
+            for (int i = look + 5; i < 300; ++i) {
+                if (std::fabs(out[static_cast<std::size_t>(i)] -
+                              in[static_cast<std::size_t>(i - look)]) > 1e-4f) {
+                    matched = false;
+                    break;
+                }
+            }
+            CHECK(matched);
+            CHECK_NEAR(lim.gainReduction(), 1.0f, 1e-4f); // no reduction on a quiet signal
+        }
+
+        // gainReduction drops below unity while limiting a hot signal.
+        {
+            audio::Limiter lim;
+            lim.configure(ceilDb, 100.0f, 2.0f, sr);
+            for (int i = 0; i < 500; ++i) {
+                lim.process(1.5f);
+            }
+            CHECK(lim.gainReduction() < 0.95f);
+        }
+
+        // Works inside a bus chain via LimiterEffect.
+        {
+            audio::Limiter lim;
+            lim.configure(ceilDb, 100.0f, 1.0f, sr);
+            audio::Bus chain;
+            chain.add(std::make_unique<audio::LimiterEffect>(lim));
+            float peak = 0.0f;
+            for (int i = 0; i < 1000; ++i) {
+                const float y = chain.process(1.6f);
+                if (i > 200) {
+                    peak = std::max(peak, std::fabs(y));
+                }
+            }
+            CHECK(peak <= ceil + 1e-3f);
+        }
+    }
 }
 
 void testADSR() {

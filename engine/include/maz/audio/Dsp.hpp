@@ -355,6 +355,98 @@ struct Compressor {
     }
 };
 
+// Brickwall lookahead limiter — Godot's AudioEffectHardLimiter / Limiter. Where the compressor gently
+// leans on loud passages, a limiter is an absolute ceiling: the output NEVER exceeds `ceilingDb`, so a
+// master bus can be pushed hard without clipping the device. The trick is LOOKAHEAD — the audio is
+// delayed by a couple of milliseconds while a peak detector scans that same window, so the gain is
+// already pulled down by the time a transient reaches the output (no overshoot, no audible "spit"). We
+// apply the minimum required gain across the lookahead window (a true brickwall: |out| <= ceiling), then
+// let the gain recover over `releaseMs` so it doesn't pump. Pure per-sample math, deterministic — it
+// unit-tests exactly (a signal driven far above the ceiling comes out at the ceiling; a quiet signal
+// passes untouched) and drives a golden input-vs-limited waveform + gain-reduction view.
+struct Limiter {
+    float ceilingDb = -0.3f;   // output ceiling (Godot HardLimiter default)
+    float releaseMs = 120.0f;  // how fast the gain returns to unity after a peak
+    float lookaheadMs = 2.0f;  // detection/delay window
+    float sampleRate = 44100.0f;
+
+    void configure(float ceiling_db, float release_ms, float lookahead_ms, float sr) {
+        ceilingDb = ceiling_db;
+        releaseMs = release_ms;
+        lookaheadMs = lookahead_ms;
+        sampleRate = sr;
+        rebuild();
+    }
+
+    void rebuild() {
+        m_ceiling = dbToLinear(ceilingDb);
+        int L = static_cast<int>(lookaheadMs * sampleRate / 1000.0f + 0.5f);
+        if (L < 1) {
+            L = 1;
+        }
+        m_len = L;
+        m_sample.assign(static_cast<std::size_t>(L), 0.0f);
+        m_raw.assign(static_cast<std::size_t>(L), 1.0f);
+        m_widx = 0;
+        const float relSamples = std::max(1.0f, releaseMs * 0.001f * sampleRate);
+        m_relCoef = std::exp(-1.0f / relSamples);
+        m_gain = 1.0f;
+    }
+
+    float process(float x) {
+        if (m_sample.empty()) {
+            rebuild();
+        }
+        // Read the oldest sample in the window (the one being output this step) BEFORE overwriting it,
+        // so the delay is exactly the lookahead length and its own raw gain stays in the window below.
+        const float delayed = m_sample[static_cast<std::size_t>(m_widx)];
+
+        // Minimum required gain across the current lookahead window (guarantees |out| <= ceiling for the
+        // output sample, and pre-ducks for any louder sample still ahead of it in the window).
+        float wmin = 1.0f;
+        for (int k = 0; k < m_len; ++k) {
+            wmin = std::min(wmin, m_raw[static_cast<std::size_t>(k)]);
+        }
+        // Instant attack (clamp down now), exponential release back toward unity.
+        if (wmin < m_gain) {
+            m_gain = wmin;
+        } else {
+            m_gain = wmin + (m_gain - wmin) * m_relCoef;
+        }
+
+        // Now push the incoming sample into the window.
+        const float ax = x < 0.0f ? -x : x;
+        const float raw = (ax > m_ceiling) ? m_ceiling / ax : 1.0f;
+        m_sample[static_cast<std::size_t>(m_widx)] = x;
+        m_raw[static_cast<std::size_t>(m_widx)] = raw;
+        m_widx = (m_widx + 1) % m_len;
+
+        m_lastGain = m_gain;
+        return delayed * m_gain;
+    }
+
+    float gainReduction() const { return m_lastGain; } // 1 = no reduction; < 1 = limiting
+    int lookaheadSamples() const { return m_len; }
+
+    void reset() {
+        std::fill(m_sample.begin(), m_sample.end(), 0.0f);
+        std::fill(m_raw.begin(), m_raw.end(), 1.0f);
+        m_widx = 0;
+        m_gain = 1.0f;
+        m_lastGain = 1.0f;
+    }
+
+private:
+    float m_ceiling = 1.0f;
+    float m_relCoef = 0.99f;
+    float m_gain = 1.0f;
+    float m_lastGain = 1.0f;
+    int m_len = 1;
+    int m_widx = 0;
+    std::vector<float> m_sample;
+    std::vector<float> m_raw;
+};
+
 // ---- Modulated-delay effects: chorus / flanger / phaser ----------------------------------------
 // The three "time-modulation" effects share one idea: a delay (or all-pass phase) whose amount is
 // swept by a slow sine oscillator (an LFO — well below audio rate). Godot ships them as
@@ -648,6 +740,13 @@ struct CompressorEffect : Effect {
     explicit CompressorEffect(const Compressor& c) : comp(c) {}
     float process(float x) override { return comp.process(x); }
     void reset() override { comp.reset(); }
+};
+
+struct LimiterEffect : Effect {
+    Limiter limiter;
+    explicit LimiterEffect(const Limiter& l) : limiter(l) {}
+    float process(float x) override { return limiter.process(x); }
+    void reset() override { limiter.reset(); }
 };
 
 struct ChorusEffect : Effect {
