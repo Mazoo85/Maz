@@ -31,6 +31,7 @@
 #include "maz/core/CVars.hpp"
 #include "maz/core/Config.hpp"
 #include "maz/core/Events.hpp"
+#include "maz/core/Expression.hpp"
 #include "maz/core/Interpolate.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/KeyValueStore.hpp"

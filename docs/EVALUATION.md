@@ -2927,6 +2927,48 @@ string, a .tres/.tscn resource, a URL, or a config value. Godot exposes that as 
   streaming/chunked encoder, or Godot's higher-level `var_to_bytes`/variant marshalling; those remain the
   follow-ups.
 
+### Iteration 131 — "Benchmarking against Godot: runtime Expression evaluator" (done)
+Rotating to **core / scripting-adjacent** for breadth (the last five rounds were navigation, UI, math,
+audio, and IO). Re-surveying: Maz's `core` was broad — logging, config/CVars, events + named signals, a
+job system, a scheduler, RNG, noise, a profiler, string interning, slot-maps, ring buffers, resource
+caches — but had **no runtime formula evaluator**. Godot ships an `Expression` class: parse a math string
+at runtime, then execute it repeatedly with named variables. It is the closest thing to "scripting" that
+is actually buildable in this headless sandbox (a full GDScript/C# VM is out — noted honestly), and it is
+what powers data-driven design: damage/difficulty/economy formulas edited in a config or by a designer,
+procedural-parameter curves, spawn weights, tool sliders — none of which should require a recompile. Pure
+lexer + recursive-descent parser + evaluator, so it unit-tests exactly and drives a function-plot golden.
+
+Ranked closable gaps considered this round (core-weighted): **(1) runtime math Expression evaluator —
+chosen**, the highest-leverage missing core primitive; (2) a `Variant`-style dynamic value type; (3) a
+generic property/reflection registry for objects; (4) a `Callable`/bind wrapper over the existing Signal;
+(5) `PackedByteArray`-style typed buffers. (2)–(5) remain follow-ups. A genuine scripting VM
+(GDScript/C#) stays structurally out of scope.
+
+- [x] **M170 — runtime Expression evaluator (`core::Expression`)**: a new `Expression.hpp` that lexes a
+  formula string, parses it with recursive descent into a flat, copyable AST node pool, and evaluates it.
+  API mirrors Godot: `parse(text, varNames)` (returns false + `errorText()` on any lexical/syntax/semantic
+  error), then `execute(inputs)` indexed by the declared variable order — parse once, evaluate many. Full
+  precedence with `^` right-associative and binding tighter than unary minus (so `-2^2 == -4`, `2^3^2 ==
+  512`), `+ - * / % ^`, parentheses, the constants `pi`/`tau`/`e`, and functions `sin cos tan asin acos
+  atan exp log log2 sqrt abs floor ceil round sign frac` (1-arg), `pow atan2 min max mod` (2-arg), `clamp
+  lerp` (3-arg). Divide/mod-by-zero are guarded to 0; missing inputs read 0. `testExpression` pins
+  precedence + associativity + constants, variable binding with tree reuse across inputs, every multi-arg
+  function, the zero guards, and eight distinct error cases (dangling operator, unbalanced parens, empty
+  operand, unknown function, wrong arity, unknown identifier, trailing tokens, bad character) plus
+  error-recovery on a subsequent good parse. Unit checks **7407 → 7457**. The new `expr` demo plots three
+  curves each PARSED FROM TEXT (a sine, a damped sine `sin(x*tau*4)*exp(-x*3)`, a clipped
+  `clamp(sin(x*tau)+0.4,-1,1)`) by sampling f(x) across the panel, plus a data-driven "damage rule" card
+  `base*(1+rate*lvl)` evaluated with named variables to a concrete number + bar. 2D golden (threshold
+  0.05, `expr` RMSE 0). Purely additive, so every existing golden is byte-unchanged; ctest **125/125 →
+  126/126**. Honest scope: this is the numeric subset (doubles in, one double out) — no Variant/string/
+  boolean/comparison operators, array/dictionary literals, or method calls on a base object, and it is
+  not a general scripting VM.
+
+Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
+editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
+engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*
+gaps and will not declare total superiority over Godot.
+
 ### Iteration 130 — "Benchmarking against Godot: AStar2D graph pathfinding" (done)
 Rotating to **navigation / pathfinding** for breadth (the last five rounds were UI, math, audio, IO, and
 core-containers). Re-surveying Godot's navigation stack against Maz: Maz already has grid A* (`NavGrid`),

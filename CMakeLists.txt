@@ -163,6 +163,7 @@ add_subdirectory(apps/spectrum)
 add_subdirectory(apps/xform2d)
 add_subdirectory(apps/popupmenu)
 add_subdirectory(apps/astar)
+add_subdirectory(apps/expr)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

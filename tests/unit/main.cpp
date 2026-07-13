@@ -29,6 +29,7 @@
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
+#include "maz/core/Expression.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Profiler.hpp"
@@ -278,6 +279,95 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testExpression() {
+    using core::Expression;
+
+    // --- constants, precedence, associativity ---------------------------------------------------
+    {
+        Expression e;
+        CHECK(e.parse("1 + 2 * 3"));
+        CHECK(!e.hasError());
+        CHECK_NEAR(e.execute(), 7.0, 1e-9);
+
+        CHECK(e.parse("(1 + 2) * 3"));
+        CHECK_NEAR(e.execute(), 9.0, 1e-9);
+
+        // '^' right-associative, binds tighter than unary minus: -2^2 == -(2^2) == -4.
+        CHECK(e.parse("-2^2"));
+        CHECK_NEAR(e.execute(), -4.0, 1e-9);
+        CHECK(e.parse("2^3^2")); // 2^(3^2) = 2^9 = 512
+        CHECK_NEAR(e.execute(), 512.0, 1e-9);
+        CHECK(e.parse("2^-2")); // 0.25
+        CHECK_NEAR(e.execute(), 0.25, 1e-9);
+
+        // modulo + integer-ish arithmetic.
+        CHECK(e.parse("10 % 3"));
+        CHECK_NEAR(e.execute(), 1.0, 1e-9);
+
+        // pi constant.
+        CHECK(e.parse("cos(pi)"));
+        CHECK_NEAR(e.execute(), -1.0, 1e-9);
+        CHECK(e.parse("tau / pi"));
+        CHECK_NEAR(e.execute(), 2.0, 1e-9);
+    }
+
+    // --- variables + functions ------------------------------------------------------------------
+    {
+        Expression e;
+        CHECK(e.parse("amp * sin(x) + off", {"x", "amp", "off"}));
+        CHECK(!e.hasError());
+        // x=pi/2 -> sin=1; amp=2, off=0.5 -> 2.5
+        CHECK_NEAR(e.execute({1.5707963267948966, 2.0, 0.5}), 2.5, 1e-6);
+        // different inputs reuse the same parsed tree.
+        CHECK_NEAR(e.execute({0.0, 2.0, 0.5}), 0.5, 1e-9);
+
+        // multi-arg functions.
+        CHECK(e.parse("clamp(x, 0, 1)", {"x"}));
+        CHECK_NEAR(e.execute({-3.0}), 0.0, 1e-9);
+        CHECK_NEAR(e.execute({0.4}), 0.4, 1e-9);
+        CHECK_NEAR(e.execute({5.0}), 1.0, 1e-9);
+
+        CHECK(e.parse("lerp(10, 20, t)", {"t"}));
+        CHECK_NEAR(e.execute({0.25}), 12.5, 1e-9);
+
+        CHECK(e.parse("max(min(x, 5), 2)", {"x"}));
+        CHECK_NEAR(e.execute({9.0}), 5.0, 1e-9);
+        CHECK_NEAR(e.execute({1.0}), 2.0, 1e-9);
+
+        CHECK(e.parse("floor(x) + frac(x)", {"x"}));
+        CHECK_NEAR(e.execute({3.75}), 3.75, 1e-9);
+    }
+
+    // --- missing input reads 0; divide/mod by zero guarded to 0 ---------------------------------
+    {
+        Expression e;
+        CHECK(e.parse("a + b", {"a", "b"}));
+        CHECK_NEAR(e.execute({5.0}), 5.0, 1e-9); // b missing -> 0
+        CHECK(e.parse("1 / 0"));
+        CHECK_NEAR(e.execute(), 0.0, 1e-9);
+        CHECK(e.parse("5 % 0"));
+        CHECK_NEAR(e.execute(), 0.0, 1e-9);
+    }
+
+    // --- error handling -------------------------------------------------------------------------
+    {
+        Expression e;
+        CHECK(!e.parse("1 +"));            // dangling operator
+        CHECK(e.hasError());
+        CHECK(!e.parse("(1 + 2"));         // unbalanced paren
+        CHECK(!e.parse("2 * (3 + )"));     // empty operand
+        CHECK(!e.parse("nope(1)"));        // unknown function
+        CHECK(!e.parse("sin(1, 2)"));      // wrong arity
+        CHECK(!e.parse("x + 1"));          // unknown identifier (no vars declared)
+        CHECK(!e.parse("1 2"));            // trailing tokens
+        CHECK(!e.parse("1 @ 2"));          // bad character
+        // recovering with a good parse clears the error.
+        CHECK(e.parse("42"));
+        CHECK(!e.hasError());
+        CHECK_NEAR(e.execute(), 42.0, 1e-9);
     }
 }
 
@@ -9981,6 +10071,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testExpression();
     testAStar2D();
     testGeometry2D();
     testTransform2D();
