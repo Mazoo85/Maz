@@ -166,6 +166,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
+- [x] **Cubic Bézier path** (`math::Curve2D`: points with in/out handles joined by cubic Béziers; `sample`/
+  `sampleSegment`/`tangent`/`length`, plus **arc-length baking** — `bake(interval)` lays down constant-speed
+  points and `sampleBaked(distance)` moves at uniform speed regardless of curvature; Godot Curve2D/Path2D; the
+  `curve` demo draws the spline + handles + baked dots + a traveller with its tangent; M142) — a 3D `Curve3D`,
+  per-point tilt, and a Path2D/PathFollow2D scene node that advances a transform along it later
 - [ ] Transform helpers, AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [ ] Memory: linear / stack / pool / frame allocators, arenas

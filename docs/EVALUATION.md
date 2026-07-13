@@ -2603,6 +2603,37 @@ string work (no renderer dependency), so it unit-tests headlessly and drives a l
   paragraph alignment tags, real bold/italic *font faces* (the demo fakes weight), or animated effects
   (`[wave]`/`[shake]`); those remain the rich-text follow-ups.
 
+### Iteration 103 — "Benchmarking against Godot: cubic Bézier path" (done)
+Rotating to **math / geometry** for breadth (last three rounds were UI, IO, audio). Maz had scalar easing
+curves (`anim`) for interpolating a value over time, but no *spatial* path: an authored smooth curve through
+points that something can travel along. Godot exposes this as `Curve2D` (held by a `Path2D`, walked by a
+`PathFollow2D`) — a cubic Bézier spline with per-point in/out handles plus **arc-length baking** so a follower
+moves at constant speed regardless of how the curve bends. That is pure geometry (no renderer/sim dependency),
+so it unit-tests headlessly and draws a clean deterministic golden.
+- [x] **M142 — Cubic Bézier path (`math::Curve2D`)**: a new `Curve2D.hpp`. A `CurvePoint2D` holds a position
+  plus `in`/`out` control-handle offsets (exactly like Godot's Curve2D); consecutive points are joined by a
+  cubic Bézier (`P0=pos_i`, `P1=pos_i+out_i`, `P2=pos_{i+1}+in_{i+1}`, `P3=pos_{i+1}`). `sampleSegment(seg,t)`
+  and `sample(fofs)` (fractional point offset across segments) evaluate the geometric curve; `tangent(fofs)`
+  gives the unit direction via a central finite difference (well-defined even where the analytic Bézier
+  derivative degenerates, e.g. a straight segment with no handles); `length()` sums a fine subdivision.
+  `bake(interval)` walks a dense polyline of the whole curve accumulating arc length, then **resamples at
+  uniform arc-length intervals** into constant-speed baked points; `sampleBaked(distance)` returns the
+  position at a given arc-length distance (auto-bakes on first use), and `bakedLength()`/`bakedPoints()`
+  expose the result. `testCurve2D` pins: a straight segment's exact endpoints/midpoint/chord-length/tangent;
+  a bowed curve being longer than its chord with endpoints still exact and the middle bulging; `sample(fofs)`
+  landing on interior points + clamping past the ends; baking matching `length()`, the ends mapping to the
+  endpoints, and the half-distance sample hitting the geometric middle; a **constant-speed** check on a curved
+  path (equal arc-distance steps cover chord lengths within ~15% of each other, which naive Bézier `t` would
+  not); and degenerate empty/single-point curves not crashing. Unit checks **4851 → 4882**. The new `curve`
+  demo authors a wavy 4-point path with handles and draws the smooth spline, the control points + their
+  handle lines, the green **arc-length-baked** dots (visibly evenly spaced even through the bends), and a
+  yellow traveller at a fixed baked distance with its tangent arrow. Static → deterministic golden (0.06).
+  Purely additive (new header + new app), so every existing golden is byte-unchanged (confirmed by a serial
+  golden run); ctest **97/97 → 98/98**. Honest scope: this is a 2D cubic-Bézier `Curve2D` — it does **not**
+  yet add a 3D `Curve3D`, per-point tilt/up-vector for 3D path orientation, a `Path2D`/`PathFollow2D` scene
+  node that moves a transform along it each frame, closed loops, or an editor to drag handles; those remain
+  the path follow-ups.
+
 Standing note (Godot benchmark): literal parity "in every way" remains unreachable here — a shipping
 editor, GDScript/C# VMs, console/mobile/web export, global illumination, and a Jolt-grade 3D physics
 engine can't be built in a headless sandbox. The loop keeps closing the highest-leverage *closable*

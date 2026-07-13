@@ -77,6 +77,7 @@
 #include "maz/ui/UI.hpp"
 #include "maz/io/PrefabText.hpp"
 #include "maz/io/ResourcePack.hpp"
+#include "maz/math/Curve2D.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -135,6 +136,101 @@ void testMath() {
     const math::vec3 c = math::cross(math::vec3(1, 0, 0), math::vec3(0, 1, 0));
     CHECK_NEAR(c.z, 1.0f, 1e-6f);
     CHECK_NEAR(glm::length(math::normalize(math::vec3(3, 4, 0))), 1.0f, 1e-6f);
+}
+
+void testCurve2D() {
+    using math::Curve2D;
+    using math::vec2;
+
+    // A single straight segment (no handles): endpoints exact, midpoint is the geometric middle, length is
+    // the chord, tangent points along the line.
+    {
+        Curve2D c;
+        c.addPoint(vec2(0.0f, 0.0f));
+        c.addPoint(vec2(100.0f, 0.0f));
+        CHECK(c.pointCount() == 2);
+        CHECK_NEAR(c.sampleSegment(0, 0.0f).x, 0.0f, 1e-4f);
+        CHECK_NEAR(c.sampleSegment(0, 1.0f).x, 100.0f, 1e-4f);
+        CHECK_NEAR(c.sampleSegment(0, 0.5f).x, 50.0f, 1e-4f);
+        CHECK_NEAR(c.sampleSegment(0, 0.5f).y, 0.0f, 1e-4f);
+        CHECK_NEAR(c.length(), 100.0f, 0.5f);
+        const vec2 t = c.tangent(0.5f);
+        CHECK_NEAR(t.x, 1.0f, 1e-3f);
+        CHECK_NEAR(t.y, 0.0f, 1e-3f);
+    }
+
+    // A bowed curve (handles pull the middle upward) is longer than the straight chord, and its endpoints
+    // still land exactly on the points.
+    {
+        Curve2D c;
+        c.addPoint(vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, -80.0f));
+        c.addPoint(vec2(100.0f, 0.0f), vec2(0.0f, -80.0f), vec2(0.0f, 0.0f));
+        CHECK_NEAR(c.sample(0.0f).x, 0.0f, 1e-4f);
+        CHECK_NEAR(c.sample(1.0f).x, 100.0f, 1e-4f);
+        CHECK(c.length() > 100.0f);          // bowed, so longer than the chord
+        CHECK(c.sampleSegment(0, 0.5f).y < -1.0f); // the middle bulges up (negative y)
+    }
+
+    // sample(fofs) walks segments: with 3 points, fofs=1 lands exactly on the middle point.
+    {
+        Curve2D c;
+        c.addPoint(vec2(0.0f, 0.0f));
+        c.addPoint(vec2(50.0f, 50.0f));
+        c.addPoint(vec2(100.0f, 0.0f));
+        CHECK(c.pointCount() == 3);
+        CHECK_NEAR(c.sample(1.0f).x, 50.0f, 1e-3f);
+        CHECK_NEAR(c.sample(1.0f).y, 50.0f, 1e-3f);
+        // Clamping: fofs below 0 / above max returns the endpoints.
+        CHECK_NEAR(c.sample(-5.0f).x, 0.0f, 1e-4f);
+        CHECK_NEAR(c.sample(99.0f).x, 100.0f, 1e-4f);
+    }
+
+    // Arc-length baking: bakedLength matches length(), the ends map to the endpoints, and the half-distance
+    // sample lands near the geometric arc midpoint (constant-speed property).
+    {
+        Curve2D c;
+        c.addPoint(vec2(0.0f, 0.0f));
+        c.addPoint(vec2(200.0f, 0.0f));
+        c.bake(10.0f);
+        CHECK(c.bakedPoints().size() > 1);
+        CHECK_NEAR(c.bakedLength(), 200.0f, 1.0f);
+        CHECK_NEAR(c.sampleBaked(0.0f).x, 0.0f, 1e-3f);
+        CHECK_NEAR(c.sampleBaked(c.bakedLength()).x, 200.0f, 0.5f);
+        CHECK_NEAR(c.sampleBaked(100.0f).x, 100.0f, 1.0f); // half the arc -> geometric middle of the line
+        // Distances beyond the ends clamp.
+        CHECK_NEAR(c.sampleBaked(-10.0f).x, 0.0f, 1e-3f);
+        CHECK_NEAR(c.sampleBaked(1000.0f).x, 200.0f, 0.5f);
+    }
+
+    // Constant-speed check on a curved path: two equal arc-distance steps cover equal ground even though the
+    // curve bends (naive Bézier t would not).
+    {
+        Curve2D c;
+        c.addPoint(vec2(0.0f, 0.0f), vec2(0.0f), vec2(120.0f, 0.0f));
+        c.addPoint(vec2(200.0f, 200.0f), vec2(0.0f, -120.0f), vec2(0.0f));
+        c.bake(4.0f);
+        const float L = c.bakedLength();
+        const vec2 a = c.sampleBaked(L * 0.25f);
+        const vec2 b = c.sampleBaked(L * 0.50f);
+        const vec2 d = c.sampleBaked(L * 0.75f);
+        const float d1 = glm::length(b - a);
+        const float d2 = glm::length(d - b);
+        // Equal arc-length steps -> chord lengths within ~15% of each other.
+        CHECK(d1 > 0.0f && d2 > 0.0f);
+        CHECK(std::abs(d1 - d2) < 0.15f * std::max(d1, d2));
+    }
+
+    // Degenerate cases don't crash.
+    {
+        Curve2D c;
+        CHECK_NEAR(c.length(), 0.0f, 1e-6f);
+        CHECK_NEAR(c.sample(0.5f).x, 0.0f, 1e-6f); // empty -> origin
+        c.addPoint(vec2(7.0f, 9.0f));
+        CHECK_NEAR(c.sample(0.5f).x, 7.0f, 1e-6f); // single point -> that point
+        CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
+        c.clear();
+        CHECK(c.pointCount() == 0);
+    }
 }
 
 void testCollision() {
@@ -7461,6 +7557,7 @@ void testSceneStack() {
 int main() {
     std::printf("maz unit tests\n");
     testMath();
+    testCurve2D();
     testCollision();
     testRaycast();
     testSpatialGrid();

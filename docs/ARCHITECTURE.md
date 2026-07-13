@@ -38,7 +38,9 @@ platform/   Window, Input (keyboard/mouse/gamepad), event pump, prefPath   (depe
 input/      ActionMap — semantic action mapping: named button actions (any-of bound Key/MouseButton/
             PadButton sources, pressed/held/released edges) + axis actions (key pairs + analog pad axes,
             clamped -1..1); SDL-free (update() takes sampler callbacks)   (header-only)
-math/       maz::math = GLM re-export + helpers     (header-only)
+math/       maz::math = GLM re-export + helpers     (header-only);
+            Curve2D — cubic Bézier path (Godot Curve2D/Path2D): points with in/out handles, sample/tangent/
+              length + arc-length bake -> sampleBaked(distance) for constant-speed travel
 render/     Renderer (interface) + Vulkan backend   (depends on: core, platform, math, Vulkan)
               VulkanContext  — instance, device, queues, debug messenger
               VulkanSwapchain— swapchain + offscreen HDR scene pass (16-bit float, MSAA ≤4×
@@ -302,6 +304,8 @@ apps/
               io::ResourcePack archive, loaded back, and shown as a directory table + header hex + round-trip check
   richtext/  BBCode rich text — six BBCode source strings (bold/italic/underline, hex+named colours, three
               sizes, nesting, literal/unknown-tag passthrough) each shown above its ui::parseBBCode-formatted result
+  curve/     Cubic Bézier path — a math::Curve2D wavy path drawn as a smooth spline with its control points +
+              handles, arc-length-baked constant-speed dots (green), and a traveller with its tangent arrow
   restext/   Text resources — a prefab serialized to Godot-.tscn-style text (io::savePrefabText), rendered,
               then parsed back (io::loadPrefabText) with a live round-trip readout
   line2d/    2D polylines — a gallery of strokes: the same zig-zag under miter/bevel/round joints, a bar

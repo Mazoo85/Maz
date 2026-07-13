@@ -766,6 +766,11 @@ available):
   styled runs (resolved bold/italic/underline/colour/size), lenient like Godot (nested tags stack, unclosed
   runs to the end, unknown tags pass through literally). The new `richtext` demo shows six BBCode strings each
   above its formatted result.
+- **M142** — a **cubic Bézier path** (`math::Curve2D`), toward Godot's `Curve2D` / `Path2D`: an authored
+  smooth curve through points with in/out control handles, plus **arc-length baking** so a follower travels
+  it at constant speed no matter how it bends (`sampleBaked(distance)`). Also `sample`/`tangent`/`length`.
+  The new `curve` demo draws the spline, its handles, the evenly-spaced baked points, and a traveller with
+  its tangent arrow.
 
 The engine degrades gracefully with no GPU / display / audio device, so `--headless` still runs
 in CI.

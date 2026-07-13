@@ -135,6 +135,7 @@ add_subdirectory(apps/polycollide)
 add_subdirectory(apps/sampler)
 add_subdirectory(apps/respack)
 add_subdirectory(apps/richtext)
+add_subdirectory(apps/curve)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

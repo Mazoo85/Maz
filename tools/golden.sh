@@ -119,6 +119,7 @@ CASES=(
     "sampler||2.0|0.06"
     "respack||2.0|0.07"
     "richtext||2.0|0.07"
+    "curve||2.0|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
