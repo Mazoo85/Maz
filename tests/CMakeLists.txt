@@ -1125,6 +1125,14 @@ set_tests_properties(solver_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME manybody_headless_smoke
+    COMMAND manybody --headless --frames 30)
+
+set_tests_properties(manybody_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

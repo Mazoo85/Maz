@@ -2,9 +2,12 @@
 
 #include "maz/math/Math.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace maz::game {
@@ -883,6 +886,11 @@ public:
     float baumgarte = 0.2f;            // position-error correction gain
     float slop = 0.005f;               // penetration tolerated before correction kicks in (anti-jitter)
     float restitutionThreshold = 1.0f; // approach speed below which restitution is ignored (resting)
+    // Opt-in (warm-solver path only): a uniform spatial-hash broadphase replaces the O(n²) all-pairs
+    // scan, so scenes with many bodies scale. It yields the SAME contacts in the SAME order as brute
+    // force (candidate pairs are sorted by index), so results are bit-identical — just faster.
+    bool broadphase = false;
+    float broadphaseCellSize = 0.0f; // grid cell size; 0 => default (128 world units)
     std::vector<Body2D> bodies;
     std::vector<Joint2D> joints;
 
@@ -938,6 +946,82 @@ public:
     }
 
 private:
+    // Candidate body-pair list for the warm solver. Without broadphase this is the full O(n²) set;
+    // with it, a uniform spatial hash returns only pairs whose (rotation-conservative) AABBs share a
+    // cell. Either way the list is sorted ascending by (i,j) so the downstream contact resolution order
+    // — and hence the result — is identical to brute force; broadphase only skips pairs that could not
+    // possibly touch. Bodies far larger than a cell go in a "large" list tested against everything, so
+    // a big static floor never floods the grid.
+    std::vector<std::pair<int, int>> collectPairs() const {
+        const int n = static_cast<int>(bodies.size());
+        std::vector<std::pair<int, int>> pairs;
+        if (!broadphase) {
+            for (int i = 0; i < n; ++i) {
+                for (int j = i + 1; j < n; ++j) {
+                    pairs.emplace_back(i, j);
+                }
+            }
+            return pairs;
+        }
+        auto extent = [](const Body2D& b) {
+            return b.shape == Body2D::Box ? std::sqrt(b.half.x * b.half.x + b.half.y * b.half.y)
+                                          : b.radius;
+        };
+        const float cell = broadphaseCellSize > 0.0f ? broadphaseCellSize : 128.0f;
+        const float invCell = 1.0f / cell;
+        auto cellKey = [](int cx, int cy) {
+            return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 32) |
+                   static_cast<uint32_t>(cy);
+        };
+        std::unordered_map<uint64_t, std::vector<int>> grid;
+        std::vector<int> large;
+        for (int i = 0; i < n; ++i) {
+            const float e = extent(bodies[i]);
+            const int minX = static_cast<int>(std::floor((bodies[i].pos.x - e) * invCell));
+            const int maxX = static_cast<int>(std::floor((bodies[i].pos.x + e) * invCell));
+            const int minY = static_cast<int>(std::floor((bodies[i].pos.y - e) * invCell));
+            const int maxY = static_cast<int>(std::floor((bodies[i].pos.y + e) * invCell));
+            const long span = static_cast<long>(maxX - minX + 1) * static_cast<long>(maxY - minY + 1);
+            if (span > 256) {
+                large.push_back(i);
+                continue;
+            }
+            for (int cx = minX; cx <= maxX; ++cx) {
+                for (int cy = minY; cy <= maxY; ++cy) {
+                    grid[cellKey(cx, cy)].push_back(i);
+                }
+            }
+        }
+        std::unordered_set<uint64_t> seen;
+        auto add = [&](int a, int b) {
+            if (a > b) {
+                std::swap(a, b);
+            }
+            const uint64_t k =
+                (static_cast<uint64_t>(static_cast<uint32_t>(a)) << 32) | static_cast<uint32_t>(b);
+            if (seen.insert(k).second) {
+                pairs.emplace_back(a, b);
+            }
+        };
+        for (const auto& kv : grid) {
+            const std::vector<int>& v = kv.second;
+            for (size_t i = 0; i < v.size(); ++i) {
+                for (size_t j = i + 1; j < v.size(); ++j) {
+                    add(v[i], v[j]);
+                }
+            }
+        }
+        for (int li : large) {
+            for (int k = 0; k < n; ++k) {
+                if (k != li) {
+                    add(li, k);
+                }
+            }
+        }
+        std::sort(pairs.begin(), pairs.end());
+        return pairs;
+    }
+
     // Warm-started sequential-impulse step (opt-in via warmStarting). Integrate velocity, build fresh
     // two-point contact constraints, carry last frame's accumulated impulses into them (warm start),
     // run `iterations` velocity passes over contacts + joints, integrate position, then keep the
@@ -954,14 +1038,12 @@ private:
         }
         // Broadphase + narrowphase -> fresh constraints (two-point manifolds for box pairs).
         std::vector<detail::ContactConstraint> contacts;
-        for (size_t i = 0; i < bodies.size(); ++i) {
-            for (size_t j = i + 1; j < bodies.size(); ++j) {
-                detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
-                if (m.hit) {
-                    contacts.push_back(detail::buildConstraint(static_cast<int>(i), bodies[i],
-                                                               static_cast<int>(j), bodies[j], m,
-                                                               restitutionThreshold));
-                }
+        for (const std::pair<int, int>& pr : collectPairs()) {
+            const size_t i = static_cast<size_t>(pr.first), j = static_cast<size_t>(pr.second);
+            detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
+            if (m.hit) {
+                contacts.push_back(detail::buildConstraint(pr.first, bodies[i], pr.second, bodies[j], m,
+                                                           restitutionThreshold));
             }
         }
         // Warm start: inherit accumulated impulses from the matching pair last frame.

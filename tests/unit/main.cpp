@@ -9246,6 +9246,84 @@ void testWarmStartSolver() {
     }
 }
 
+// P2: the integrated spatial-hash broadphase. The claim is that it changes performance, not results:
+// it must return the SAME contacts in the SAME order as the O(n²) scan, so a many-body pile settles
+// bit-identically whether broadphase is on or off. We drop a grid of bodies into a walled box under
+// both modes and compare every body's final pose exactly.
+void testBroadphase() {
+    using game::Body2D;
+
+    auto buildPile = [](bool bp) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 700.0f);
+        w.warmStarting = true;
+        w.broadphase = bp;
+        w.broadphaseCellSize = 60.0f;
+        // A floor plus two side walls (thin static boxes) make a bin.
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(300.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 400.0f);
+        floor.invMass = 0.0f;
+        floor.friction = 0.6f;
+        w.add(floor);
+        Body2D left;
+        left.shape = Body2D::Box;
+        left.half = math::vec2(12.0f, 240.0f);
+        left.pos = math::vec2(-290.0f, 180.0f);
+        left.invMass = 0.0f;
+        left.friction = 0.6f;
+        w.add(left);
+        Body2D right = left;
+        right.pos = math::vec2(290.0f, 180.0f);
+        w.add(right);
+        // A 10x8 grid of small circles + boxes raining into the bin.
+        for (int gy = 0; gy < 8; ++gy) {
+            for (int gx = 0; gx < 10; ++gx) {
+                Body2D b;
+                const bool box = ((gx + gy) & 1) != 0;
+                b.shape = box ? Body2D::Box : Body2D::Circle;
+                b.radius = 14.0f;
+                b.half = math::vec2(14.0f, 14.0f);
+                b.pos = math::vec2(-230.0f + static_cast<float>(gx) * 50.0f,
+                                   -220.0f + static_cast<float>(gy) * 42.0f);
+                b.invMass = 1.0f;
+                b.friction = 0.5f;
+                b.restitution = 0.1f;
+                if (box) {
+                    b.enableRotation();
+                }
+                w.add(b);
+            }
+        }
+        for (int s = 0; s < 240; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        return w;
+    };
+
+    game::PhysicsWorld2D brute = buildPile(false);
+    game::PhysicsWorld2D hashed = buildPile(true);
+    CHECK(brute.bodies.size() == hashed.bodies.size());
+    CHECK(brute.bodies.size() == 83u); // 3 static + 80 dynamic
+    float maxPosDiff = 0.0f, maxAngDiff = 0.0f;
+    for (std::size_t i = 0; i < brute.bodies.size(); ++i) {
+        maxPosDiff = std::max(maxPosDiff, std::fabs(brute.bodies[i].pos.x - hashed.bodies[i].pos.x));
+        maxPosDiff = std::max(maxPosDiff, std::fabs(brute.bodies[i].pos.y - hashed.bodies[i].pos.y));
+        maxAngDiff = std::max(maxAngDiff, std::fabs(brute.bodies[i].angle - hashed.bodies[i].angle));
+    }
+    // Bit-identical: broadphase only skips pairs that cannot touch, and sorts candidates by index so
+    // the resolution order matches the O(n²) scan exactly.
+    CHECK(maxPosDiff < 1e-4f);
+    CHECK(maxAngDiff < 1e-4f);
+
+    // Sanity: the pile actually settled inside the bin (no explosion / tunneling out).
+    for (std::size_t i = 3; i < hashed.bodies.size(); ++i) {
+        CHECK(hashed.bodies[i].pos.x > -320.0f && hashed.bodies[i].pos.x < 320.0f);
+        CHECK(hashed.bodies[i].pos.y < 420.0f);
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -11668,6 +11746,7 @@ int main() {
     testOneWayPlatform();
     testManifold2();
     testWarmStartSolver();
+    testBroadphase();
     testNormalLight();
     testParallax();
     testAudioDsp();

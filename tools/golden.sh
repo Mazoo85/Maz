@@ -163,6 +163,7 @@ CASES=(
     "pitch||2.0|0.05"
     "distort||2.0|0.05"
     "solver||2.0|0.05"
+    "manybody||2.5|0.06"
 )
 
 if [ ! -f "$ICD" ]; then
