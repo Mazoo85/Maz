@@ -16,6 +16,7 @@
 #include "maz/audio/BusGraph.hpp"
 #include "maz/audio/Dsp.hpp"
 #include "maz/audio/Envelope.hpp"
+#include "maz/audio/MusicSequencer.hpp"
 #include "maz/audio/Oscillator.hpp"
 #include "maz/audio/Randomizer.hpp"
 #include "maz/audio/SampleMixer.hpp"
@@ -9479,6 +9480,84 @@ void testAudioDsp() {
     }
 }
 
+void testMusicSequencer() {
+    using audio::MusicSequencer;
+    using audio::TransitionMode;
+    const float msr = 44100.0f;
+
+    // Bar/beat math: 120 BPM, 4/4 -> beat = 0.5 s, bar = 2.0 s.
+    {
+        MusicSequencer seq(msr);
+        const int a = seq.addSegment("A", 120.0f, 4);
+        CHECK_NEAR(seq.beatLengthSamples(a), 0.5 * msr, 1e-3);
+        CHECK_NEAR(seq.barLengthSamples(a), 2.0 * msr, 1e-3);
+    }
+
+    // AtNextBar transition fires exactly at the 2.0 s bar boundary.
+    {
+        MusicSequencer seq(msr);
+        const int a = seq.addSegment("A", 120.0f, 4);
+        const int b = seq.addSegment("B", 120.0f, 4);
+        seq.play(a);
+        seq.advance(0.3 * msr); // 0.3 s in
+        seq.transitionTo(b, TransitionMode::AtNextBar, 0.0f);
+        CHECK_NEAR(seq.samplesToNextBar(), 1.7 * msr, 1.0); // 2.0 - 0.3
+        seq.advance(1.6 * msr); // now at 1.9 s -> still A
+        CHECK(seq.current() == a);
+        seq.advance(0.2 * msr); // now at 2.1 s -> switched to B at 2.0
+        CHECK(seq.current() == b);
+    }
+
+    // AtNextBeat fires at the next 0.5 s beat.
+    {
+        MusicSequencer seq(msr);
+        const int a = seq.addSegment("A", 120.0f, 4);
+        const int b = seq.addSegment("B", 120.0f, 4);
+        seq.play(a);
+        seq.advance(0.1 * msr);
+        seq.transitionTo(b, TransitionMode::AtNextBeat, 0.0f);
+        seq.advance(0.35 * msr); // 0.45 s -> still A
+        CHECK(seq.current() == a);
+        seq.advance(0.1 * msr); // 0.55 s -> switched at 0.5
+        CHECK(seq.current() == b);
+    }
+
+    // Immediate switches on the spot.
+    {
+        MusicSequencer seq(msr);
+        const int a = seq.addSegment("A", 100.0f, 4);
+        const int b = seq.addSegment("B", 100.0f, 4);
+        seq.play(a);
+        seq.advance(1234.0);
+        seq.transitionTo(b, TransitionMode::Immediate, 0.0f);
+        seq.advance(1.0);
+        CHECK(seq.current() == b);
+    }
+
+    // Crossfade: both segments audible during the fade, with equal-power gains that sum in quadrature to ~1.
+    {
+        MusicSequencer seq(msr);
+        const int a = seq.addSegment("A", 120.0f, 4);
+        const int b = seq.addSegment("B", 120.0f, 4);
+        seq.play(a);
+        seq.advance(0.5 * msr);
+        seq.transitionTo(b, TransitionMode::Crossfade, 1.0f); // 1.0 s fade starting now
+        seq.advance(0.5 * msr);                               // halfway through the fade
+        const audio::MusicMix m = seq.mix();
+        CHECK(seq.crossfading());
+        CHECK(m.a == a);
+        CHECK(m.b == b);
+        CHECK_NEAR(m.aGain * m.aGain + m.bGain * m.bGain, 1.0f, 1e-3f); // equal power
+        CHECK_NEAR(m.aGain, m.bGain, 1e-3f);                           // equal at the midpoint
+        seq.advance(0.6 * msr); // past the fade end -> B only
+        CHECK(!seq.crossfading());
+        CHECK(seq.current() == b);
+        const audio::MusicMix done = seq.mix();
+        CHECK(done.a == b);
+        CHECK_NEAR(done.aGain, 1.0f, 1e-4f);
+    }
+}
+
 void testOscillator() {
     using audio::FMVoice;
     using audio::Oscillator;
@@ -11242,6 +11321,7 @@ int main() {
     testBusGraph();
     testStereo();
     testOscillator();
+    testMusicSequencer();
     testModDsp();
     testAudioEffects();
     testADSR();
