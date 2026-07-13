@@ -55,3 +55,21 @@ def list_runs(runs_dir: Path) -> list[tuple[Path, str]]:
     files = [p for p in runs_dir.glob("*.md") if p.is_file()]
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return [(p, parse_task(p)) for p in files]
+
+
+def resolve_run(entries: list[tuple[Path, str]], target: str | None) -> Path | None:
+    """Pick a run from ``list_runs`` output by 1-based index or name/session id.
+
+    ``None`` target selects the most recent run. Returns ``None`` if nothing matches.
+    """
+    if not entries:
+        return None
+    if target is None:
+        return entries[0][0]
+    if target.isdigit():
+        idx = int(target)
+        return entries[idx - 1][0] if 1 <= idx <= len(entries) else None
+    for path, _ in entries:
+        if path.stem == target:
+            return path
+    return None

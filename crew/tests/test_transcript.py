@@ -61,3 +61,35 @@ def test_parse_task_unknown_when_missing(tmp_path):
     p = tmp_path / "x.md"
     p.write_text("# Crew run\n\nno task line here\n")
     assert parse_task(p) == "(unknown)"
+
+
+def _entries():
+    from pathlib import Path
+
+    return [(Path("/runs/newest.md"), "b"), (Path("/runs/older.md"), "a")]
+
+
+def test_resolve_default_is_most_recent():
+    from crew.transcript import resolve_run
+
+    assert resolve_run(_entries(), None).name == "newest.md"
+
+
+def test_resolve_by_index():
+    from crew.transcript import resolve_run
+
+    assert resolve_run(_entries(), "2").name == "older.md"
+
+
+def test_resolve_by_name():
+    from crew.transcript import resolve_run
+
+    assert resolve_run(_entries(), "older").name == "older.md"
+
+
+def test_resolve_out_of_range_and_empty():
+    from crew.transcript import resolve_run
+
+    assert resolve_run(_entries(), "9") is None
+    assert resolve_run(_entries(), "nope") is None
+    assert resolve_run([], None) is None

@@ -253,6 +253,29 @@ def runs() -> None:
 
 
 @app.command()
+def show(
+    target: str | None = typer.Argument(
+        None, help="Run index (from `crew runs`) or session id. Defaults to the most recent."
+    ),
+) -> None:
+    """Print a saved run transcript, rendered as Markdown."""
+    from rich.markdown import Markdown
+
+    from .transcript import list_runs, resolve_run
+
+    runs_dir = load_config().state_dir() / "runs"
+    entries = list_runs(runs_dir)
+    if not entries:
+        console.print("No saved runs in this directory yet.")
+        raise typer.Exit(code=1)
+    path = resolve_run(entries, target)
+    if path is None:
+        console.print(f"[yellow]No run matches {target!r}.[/yellow] Try [bold]crew runs[/bold].")
+        raise typer.Exit(code=1)
+    console.print(Markdown(path.read_text()))
+
+
+@app.command()
 def agents() -> None:
     """List the crew members and the tools each one is allowed to use."""
     # Static description so this works without the SDK installed.
