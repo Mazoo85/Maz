@@ -238,3 +238,10 @@ target_link_libraries(maz_unit_state_machine PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_state_machine COMMAND maz_unit_state_machine)
 set_tests_properties(unit_state_machine PROPERTIES TIMEOUT 30)
+
+# Unit tests: classic game-AI behavior tree (unique_ptr node tree ticked top-down; Sequence AND short-circuit, Selector OR first-success, Inverter/Succeeder/Repeater decorators, Action leaves returning Success/Failure/Running; composites remember a Running child and resume there next tick, reset() restarts from the top, BehaviorTree wrapper delegates to a nested root).
+add_executable(maz_unit_behavior_tree unit_behavior_tree.cpp)
+target_link_libraries(maz_unit_behavior_tree PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_behavior_tree COMMAND maz_unit_behavior_tree)
+set_tests_properties(unit_behavior_tree PROPERTIES TIMEOUT 30)
