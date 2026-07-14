@@ -175,3 +175,10 @@ target_link_libraries(maz_unit_ecs_scheduler PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_ecs_scheduler COMMAND maz_unit_ecs_scheduler)
 set_tests_properties(unit_ecs_scheduler PROPERTIES TIMEOUT 30)
+
+# Unit tests: sparse uniform spatial hash grid (broad+narrow phase queries, multi-cell dedup, negative-coord floor cell math, insert/remove/update/clear).
+add_executable(maz_unit_spatial unit_spatial.cpp)
+target_link_libraries(maz_unit_spatial PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_spatial COMMAND maz_unit_spatial)
+set_tests_properties(unit_spatial PROPERTIES TIMEOUT 30)

@@ -138,7 +138,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       flagship movement-system end-to-end over `view<Position,Velocity>` + ASAN/UBSan-clean).
       Parallel/staged execution + before/after dependencies still TODO
 - [ ] Scene serialization (save/load), prefabs / blueprints
-- [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries
+- [~] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries —
+      **`maz::spatial::SpatialHashGrid` landed** (sparse uniform hash grid: items are
+      (id, `maz::math::Aabb`) rasterized into every integer cell they overlap, keyed
+      by cell coordinate in a hash map so negative/unbounded coords need no preallocated
+      volume; `std::floor` cell math for correct negative-coordinate binning; broad-phase
+      cell candidate gather with multi-cell dedup + narrow-phase Aabb overlap;
+      insert/remove/update/queryRegion/queryPoint/clear with empty-bucket pruning;
+      header-only, unit-tested). Quadtree/octree/BVH + World/SceneGraph culling
+      integration still TODO
 
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
