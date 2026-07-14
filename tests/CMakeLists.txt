@@ -57,6 +57,13 @@ target_link_libraries(maz_unit_transform PRIVATE maz_core maz_warnings)
 add_test(NAME unit_transform COMMAND maz_unit_transform)
 set_tests_properties(unit_transform PROPERTIES TIMEOUT 30)
 
+# Unit tests: 2D affine Transform2D (2x2 basis+origin) identity/translation/rotation(CCW)/scale factories, compose order + non-commutativity, inverse round-trips.
+add_executable(maz_unit_transform2d unit_transform2d.cpp)
+target_link_libraries(maz_unit_transform2d PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_transform2d COMMAND maz_unit_transform2d)
+set_tests_properties(unit_transform2d PROPERTIES TIMEOUT 30)
+
 # Unit tests: scalar interpolation, remapping, and easing helpers.
 add_executable(maz_unit_interp unit_interp.cpp)
 target_link_libraries(maz_unit_interp PRIVATE maz_core maz_warnings)
