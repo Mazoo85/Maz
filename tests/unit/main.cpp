@@ -10059,6 +10059,73 @@ void testPhysics3DWarmStack() {
     }
 }
 
+// D5: 3D capsule shape (Godot CapsuleShape3D). Capsules rest on the ground (upright on a cap, flat on
+// two points), catch spheres, and lean against boxes.
+void testPhysics3DCapsule() {
+    using game::Body3D;
+    namespace d = game::detail;
+
+    // Direct sphere-capsule: a sphere overlapping an upright capsule's side. n points sphere -> capsule.
+    {
+        Body3D cap = game::makeCapsule(math::vec3(0, 0, 0), 0.5f, 1.0f); // upright, radius .5, half-h 1
+        Body3D s = game::makeSphere(math::vec3(0.8f, 0.0f, 0.0f), 0.5f); // beside it, overlap 0.2
+        d::Contact3 c = d::sphereCapsule(1, s, 0, cap);
+        CHECK(c.hit);
+        CHECK_NEAR(c.n.x, -1.0f, 1e-3f); // n: sphere(+x) -> capsule(origin) points in -x
+        CHECK_NEAR(c.pen, 0.2f, 1e-3f);
+    }
+
+    // An upright capsule dropped on the ground rests on its lower cap: bottom sphere touches y=0, so
+    // centre.y = halfHeight + radius.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D cap = game::makeCapsule(math::vec3(0, 4, 0), 0.5f, 1.0f, 1.0f);
+        cap.friction = 0.6f;
+        cap.enableRotation();
+        int id = w.add(cap);
+        for (int i = 0; i < 360; ++i) {
+            w.step(1.0f / 60.0f, 10);
+        }
+        const Body3D& r = w.bodies[static_cast<size_t>(id)];
+        CHECK_NEAR(r.pos.y, 1.5f, 0.06f); // halfHeight(1) + radius(0.5)
+        CHECK(std::sqrt(glm::dot(r.vel, r.vel)) < 0.2f);
+    }
+
+    // A horizontal capsule dropped on the ground rests flat on both caps: centre.y = radius.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D cap = game::makeCapsule(math::vec3(0, 3, 0), 0.5f, 1.0f, 1.0f);
+        // Rotate the local +Y segment onto the world X axis so it lies horizontal.
+        cap.orientation = glm::normalize(math::quat(math::vec3(0.0f, 0.0f, 1.5708f)));
+        cap.friction = 0.6f;
+        cap.enableRotation();
+        int id = w.add(cap);
+        for (int i = 0; i < 420; ++i) {
+            w.step(1.0f / 60.0f, 12);
+        }
+        const Body3D& r = w.bodies[static_cast<size_t>(id)];
+        CHECK_NEAR(r.pos.y, 0.5f, 0.06f); // resting on its side -> centre at radius
+        CHECK(std::sqrt(glm::dot(r.vel, r.vel)) < 0.3f);
+    }
+
+    // A sphere dropped onto a static horizontal capsule lands on top of it (capsule-sphere resolution).
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D cap = game::makeCapsule(math::vec3(0, 1.0f, 0), 0.5f, 1.5f, 0.0f); // static, horizontal
+        cap.orientation = glm::normalize(math::quat(math::vec3(0.0f, 0.0f, 1.5708f)));
+        w.add(cap);
+        int s = w.add(game::makeSphere(math::vec3(0.0f, 4.0f, 0.0f), 0.4f));
+        for (int i = 0; i < 360; ++i) {
+            w.step(1.0f / 60.0f, 10);
+        }
+        // Capsule axis at y=1, radius 0.5 -> top at y=1.5; sphere rests at 1.5 + 0.4 = 1.9.
+        CHECK_NEAR(w.bodies[static_cast<size_t>(s)].pos.y, 1.9f, 0.08f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12813,6 +12880,7 @@ int main() {
     testPhysics3DBoxes();
     testPhysics3DStacking();
     testPhysics3DWarmStack();
+    testPhysics3DCapsule();
     testNormalLight();
     testParallax();
     testAudioDsp();

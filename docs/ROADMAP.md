@@ -529,8 +529,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   ids + contact-point proximity). This is the modern Box2D/Godot solve — a six-high box tower stays
   dead vertical at a handful of iterations, where the non-warm-started solver leaned and jittered.
   The `physics3d` demo settles a six-cube and a four-cube tower plus a tumbling box and a pile of
-  balls (golden-verified). Capsules, broadphase, sleeping, queries and a character controller land in
-  later milestones.
+  balls (golden-verified).
+  **D5 — capsule shape** — the **Capsule** (Godot CapsuleShape3D): a segment along local Y swept by
+  `radius`, with a cylinder-approximated inertia tensor (`makeCapsule`). Contacts: capsule-vs-plane
+  (both caps → a horizontal capsule rests flat on two points), sphere-capsule, capsule-capsule
+  (closest-segment), and capsule-box (segment/box closest point → sphere-box), all flowing through the
+  warm solver. The `physics3d` demo adds two capsules that fall and rest flat on the ground.
+  Broadphase, sleeping, queries and a character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

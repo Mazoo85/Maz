@@ -30,11 +30,13 @@ namespace maz::game {
 
 struct Body3D {
     // A Sphere is a point + `radius`. A Box is an oriented box (Godot BoxShape3D) with per-axis
-    // half-extents `half`, rotated by `orientation`. A Plane is an infinite static half-space (Godot
+    // half-extents `half`, rotated by `orientation`. A Capsule is a segment along the body's LOCAL Y
+    // axis (half-length `half.y`) swept by `radius` (Godot CapsuleShape3D), rotated by `orientation` —
+    // the standard character/prop shape. A Plane is an infinite static half-space (Godot
     // WorldBoundaryShape3D): `normal` is the unit outward normal (toward the free space where bodies
     // live) and `planeD` the plane offset, so the solid region is { p : dot(p, normal) < planeD };
     // build one with makeGroundPlane().
-    enum Shape { Sphere, Box, Plane };
+    enum Shape { Sphere, Box, Plane, Capsule };
 
     math::vec3 pos{0.0f, 0.0f, 0.0f};
     math::vec3 vel{0.0f, 0.0f, 0.0f};
@@ -80,6 +82,16 @@ struct Body3D {
             invInertiaLocal[0][0] = ix > 0.0f ? 1.0f / ix : 0.0f;
             invInertiaLocal[1][1] = iy > 0.0f ? 1.0f / iy : 0.0f;
             invInertiaLocal[2][2] = iz > 0.0f ? 1.0f / iz : 0.0f;
+        } else if (shape == Capsule) {
+            // Approximated as a cylinder about the local Y axis (radius r, length L = 2*half.y): exact
+            // enough for gameplay; the caps add a little inertia we fold into the cylinder terms.
+            const float r = radius;
+            const float L = 2.0f * half.y;
+            const float iaxis = 0.5f * m * r * r;                     // about Y (the long axis)
+            const float iperp = (1.0f / 12.0f) * m * (3.0f * r * r + L * L); // about X and Z
+            invInertiaLocal[0][0] = iperp > 0.0f ? 1.0f / iperp : 0.0f;
+            invInertiaLocal[1][1] = iaxis > 0.0f ? 1.0f / iaxis : 0.0f;
+            invInertiaLocal[2][2] = iperp > 0.0f ? 1.0f / iperp : 0.0f;
         }
     }
 
@@ -104,6 +116,18 @@ inline Body3D makeBox(math::vec3 pos, math::vec3 half, float mass = 1.0f) {
     b.shape = Body3D::Box;
     b.pos = pos;
     b.half = half;
+    b.invMass = mass > 0.0f ? 1.0f / mass : 0.0f;
+    return b;
+}
+
+// Build a dynamic capsule at `pos`: a segment along local Y of half-length `halfHeight` swept by
+// `radius` (Godot CapsuleShape3D), with the given mass (mass <= 0 => static).
+inline Body3D makeCapsule(math::vec3 pos, float radius, float halfHeight, float mass = 1.0f) {
+    Body3D b;
+    b.shape = Body3D::Capsule;
+    b.pos = pos;
+    b.radius = radius;
+    b.half = math::vec3(radius, halfHeight, radius);
     b.invMass = mass > 0.0f ? 1.0f / mass : 0.0f;
     return b;
 }
@@ -300,6 +324,127 @@ inline std::vector<math::vec3> clipPoly3(const std::vector<math::vec3>& poly, co
         }
     }
     return out;
+}
+
+// --- Capsule support ------------------------------------------------------------------------------
+// World endpoints of a capsule's inner segment (local +Y axis, half-length half.y), swept by radius.
+inline void capsuleSegment3(const Body3D& c, math::vec3& p0, math::vec3& p1) {
+    const math::vec3 axis = glm::mat3_cast(c.orientation) * math::vec3(0.0f, 1.0f, 0.0f);
+    p0 = c.pos - axis * c.half.y;
+    p1 = c.pos + axis * c.half.y;
+}
+
+inline math::vec3 closestOnSeg3(const math::vec3& p, const math::vec3& a, const math::vec3& b) {
+    const math::vec3 ab = b - a;
+    const float len2 = glm::dot(ab, ab);
+    if (len2 < 1e-12f) {
+        return a;
+    }
+    return a + ab * glm::clamp(glm::dot(p - a, ab) / len2, 0.0f, 1.0f);
+}
+
+// Capsule `cap` vs static plane `p`: both caps are spheres tested against the plane, so a horizontal
+// capsule rests flat on two points. n from cap -> plane (-plane.normal). Appends to `out`.
+inline void capsulePlane(int icap, const Body3D& cap, int ip, const Body3D& p,
+                         std::vector<Contact3>& out) {
+    math::vec3 e0, e1;
+    capsuleSegment3(cap, e0, e1);
+    const math::vec3 ends[2] = {e0, e1};
+    for (const math::vec3& e : ends) {
+        const float sd = glm::dot(e, p.normal) - p.planeD;
+        const float pen = cap.radius - sd;
+        if (pen > 0.0f) {
+            Contact3 c;
+            c.a = icap;
+            c.b = ip;
+            c.n = -p.normal;
+            c.pen = pen;
+            c.point = e - p.normal * cap.radius;
+            c.hit = true;
+            out.push_back(c);
+        }
+    }
+}
+
+// Sphere `s` vs capsule `cap`: closest point on the capsule segment to the sphere centre, then a
+// sphere-sphere test. n from s -> cap.
+inline Contact3 sphereCapsule(int is, const Body3D& s, int ic, const Body3D& cap) {
+    Contact3 c;
+    math::vec3 p0, p1;
+    capsuleSegment3(cap, p0, p1);
+    const math::vec3 cp = closestOnSeg3(s.pos, p0, p1);
+    const math::vec3 d = cp - s.pos;
+    const float dist2 = glm::dot(d, d);
+    const float r = s.radius + cap.radius;
+    if (dist2 >= r * r) {
+        return c;
+    }
+    const float dist = std::sqrt(dist2);
+    const math::vec3 n = dist > 1e-6f ? d / dist : math::vec3(0.0f, 1.0f, 0.0f);
+    c.a = is;
+    c.b = ic;
+    c.n = n;
+    c.pen = r - dist;
+    c.point = s.pos + n * s.radius;
+    c.hit = true;
+    return c;
+}
+
+// Capsule a vs capsule b: closest points between the two segments, then sphere-sphere. n from a -> b.
+inline Contact3 capsuleCapsule(int ia, const Body3D& a, int ib, const Body3D& b) {
+    Contact3 c;
+    math::vec3 a0, a1, b0, b1;
+    capsuleSegment3(a, a0, a1);
+    capsuleSegment3(b, b0, b1);
+    math::vec3 ca, cb;
+    closestSegSeg3(a0, a1, b0, b1, ca, cb);
+    const math::vec3 d = cb - ca;
+    const float dist2 = glm::dot(d, d);
+    const float r = a.radius + b.radius;
+    if (dist2 >= r * r) {
+        return c;
+    }
+    const float dist = std::sqrt(dist2);
+    const math::vec3 n = dist > 1e-6f ? d / dist : math::vec3(0.0f, 1.0f, 0.0f);
+    c.a = ia;
+    c.b = ib;
+    c.n = n;
+    c.pen = r - dist;
+    c.point = ca + n * a.radius;
+    c.hit = true;
+    return c;
+}
+
+// Capsule `cap` vs oriented box `box`: ternary-search the segment point closest to the box, then treat
+// it as a sphere-vs-box contact. n from cap -> box. Single point (good enough for resting/leaning).
+inline Contact3 capsuleBox(int icap, const Body3D& cap, int ib, const Body3D& box) {
+    math::vec3 p0, p1;
+    capsuleSegment3(cap, p0, p1);
+    const math::mat3 R = glm::mat3_cast(box.orientation);
+    const math::mat3 Rt = glm::transpose(R);
+    auto distToBox = [&](float t) {
+        const math::vec3 w = p0 + (p1 - p0) * t;
+        const math::vec3 l = Rt * (w - box.pos);
+        const math::vec3 q(glm::clamp(l.x, -box.half.x, box.half.x),
+                           glm::clamp(l.y, -box.half.y, box.half.y),
+                           glm::clamp(l.z, -box.half.z, box.half.z));
+        return glm::dot(l - q, l - q);
+    };
+    float lo = 0.0f, hi = 1.0f;
+    for (int i = 0; i < 40; ++i) {
+        const float m1 = lo + (hi - lo) / 3.0f, m2 = hi - (hi - lo) / 3.0f;
+        if (distToBox(m1) < distToBox(m2)) {
+            hi = m2;
+        } else {
+            lo = m1;
+        }
+    }
+    const float t = (lo + hi) * 0.5f;
+    Body3D probe;
+    probe.shape = Body3D::Sphere;
+    probe.pos = p0 + (p1 - p0) * t;
+    probe.radius = cap.radius;
+    return sphereBox(icap, probe, ib, box); // n: probe(cap) -> box
 }
 
 // Oriented box A vs oriented box B via the Separating-Axis Theorem over 15 axes (3 face normals each +
@@ -632,6 +777,32 @@ private:
             }
         } else if (a.shape == Body3D::Box && b.shape == Body3D::Box) {
             detail::boxBox(i, a, j, b, out);
+        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Plane) {
+            detail::capsulePlane(i, a, j, b, out);
+        } else if (a.shape == Body3D::Plane && b.shape == Body3D::Capsule) {
+            std::vector<detail::Contact3> tmp;
+            detail::capsulePlane(j, b, i, a, tmp);
+            for (detail::Contact3 c : tmp) {
+                std::swap(c.a, c.b);
+                c.n = -c.n;
+                out.push_back(c);
+            }
+        } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Capsule) {
+            push(detail::sphereCapsule(i, a, j, b));
+        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Sphere) {
+            detail::Contact3 c = detail::sphereCapsule(j, b, i, a);
+            std::swap(c.a, c.b);
+            c.n = -c.n;
+            push(c);
+        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Capsule) {
+            push(detail::capsuleCapsule(i, a, j, b));
+        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Box) {
+            push(detail::capsuleBox(i, a, j, b));
+        } else if (a.shape == Body3D::Box && b.shape == Body3D::Capsule) {
+            detail::Contact3 c = detail::capsuleBox(j, b, i, a);
+            std::swap(c.a, c.b);
+            c.n = -c.n;
+            push(c);
         }
     }
 

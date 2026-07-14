@@ -8,6 +8,7 @@
 // statically, so the captured frame is golden-stable.
 
 #include "maz/Engine.hpp"
+#include "maz/render/Shapes3D.hpp"
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_scancode.h>
@@ -94,6 +95,25 @@ int main(int argc, char** argv) {
         b.friction = 0.6f;
         ballIds.push_back(world.add(b));
     }
+
+    // Two capsules dropped horizontally in front; they land and rest flat on the ground on both caps.
+    struct CapSpawn {
+        float x, y, z, r, hh;
+        math::vec3 rot;
+    };
+    const CapSpawn capSpawns[] = {
+        {-1.0f, 4.0f, 2.4f, 0.4f, 0.9f, math::vec3(0.0f, 0.0f, 1.5708f)}, // lies along X
+        {1.2f, 5.2f, 2.7f, 0.4f, 0.8f, math::vec3(1.5708f, 0.0f, 0.0f)},  // lies along Z
+    };
+    std::vector<int> capIds;
+    for (const CapSpawn& s : capSpawns) {
+        game::Body3D b = game::makeCapsule(math::vec3(s.x, s.y, s.z), s.r, s.hh, 1.0f);
+        b.orientation = glm::normalize(math::quat(s.rot));
+        b.restitution = 0.05f;
+        b.friction = 0.8f;
+        b.enableRotation();
+        capIds.push_back(world.add(b));
+    }
     for (int step = 0; step < 720; ++step) {
         world.step(1.0f / 60.0f, 12); // warm starting keeps the six-high tower rigid at few iterations
     }
@@ -129,6 +149,12 @@ int main(int argc, char** argv) {
     for (std::size_t i = 0; i < ballIds.size(); ++i) {
         const float r = world.bodies[static_cast<size_t>(ballIds[i])].radius;
         ballMesh.push_back(upload(*renderer, render::shapes::makeSphere(r, 18, 26, palette(i))));
+    }
+    std::vector<render::MeshHandle> capMesh;
+    for (std::size_t i = 0; i < capIds.size(); ++i) {
+        const game::Body3D& b = world.bodies[static_cast<size_t>(capIds[i])];
+        capMesh.push_back(upload(
+            *renderer, render::shapes::makeCapsule(b.radius, 2.0f * b.half.y, 20, 8, palette(i + 2))));
     }
     render::MeshHandle ground =
         upload(*renderer, render::shapes::makePlane(10.0f, render::Color{0.30f, 0.33f, 0.38f, 1}));
@@ -184,6 +210,14 @@ int main(int argc, char** argv) {
                 const glm::mat4 model =
                     glm::translate(glm::mat4(1.0f), glm::vec3(b.pos.x, b.pos.y, b.pos.z));
                 renderer->drawMesh(ballMesh[i], glm::value_ptr(model), whiteTex);
+            }
+
+            for (std::size_t i = 0; i < capIds.size(); ++i) {
+                const game::Body3D& b = world.bodies[static_cast<size_t>(capIds[i])];
+                const glm::quat q(b.orientation.w, b.orientation.x, b.orientation.y, b.orientation.z);
+                glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(b.pos.x, b.pos.y, b.pos.z));
+                model *= glm::mat4_cast(q);
+                renderer->drawMesh(capMesh[i], glm::value_ptr(model), whiteTex);
             }
 
             render::Camera2D ui;
