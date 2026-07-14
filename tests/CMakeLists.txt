@@ -378,3 +378,10 @@ target_link_libraries(maz_unit_halffloat PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_halffloat COMMAND maz_unit_halffloat)
 set_tests_properties(unit_halffloat PROPERTIES TIMEOUT 30)
+
+# Unit tests: 2D convex hull via Andrew's monotone chain (maz::math::convexHull2D; sorts+dedupes a by-value copy then sweeps a lower+upper hull returning CCW vertices with collinear edge points excluded (minimal hull) and no repeated closing vertex, deterministic start at the lexicographically-smallest point; square/triangle/collinear-degenerate-to-segment, edge-midpoints+interior excluded so a square stays 4 corners, duplicate removal, <3-unique-point point/segment passthrough, exact CCW sequence, pentagon-of-extremes with interior points excluded; integer-valued vec2 for exact float compares).
+add_executable(maz_unit_convexhull unit_convexhull.cpp)
+target_link_libraries(maz_unit_convexhull PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_convexhull COMMAND maz_unit_convexhull)
+set_tests_properties(unit_convexhull PROPERTIES TIMEOUT 30)
