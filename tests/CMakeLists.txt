@@ -245,3 +245,10 @@ target_link_libraries(maz_unit_behavior_tree PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_behavior_tree COMMAND maz_unit_behavior_tree)
 set_tests_properties(unit_behavior_tree PROPERTIES TIMEOUT 30)
+
+# Unit tests: classic Reynolds steering behaviors (seek/flee/arrive/pursue/evade returning a maxForce-truncated steering force; arrive ramps speed down inside slowRadius; pursue/evade seek/flee the linearly-predicted future position; safeNormalize/truncate guard zero-length vectors so no NaN escapes; exact-representable axis-aligned/3-4-5 inputs).
+add_executable(maz_unit_steering unit_steering.cpp)
+target_link_libraries(maz_unit_steering PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_steering COMMAND maz_unit_steering)
+set_tests_properties(unit_steering PROPERTIES TIMEOUT 30)
