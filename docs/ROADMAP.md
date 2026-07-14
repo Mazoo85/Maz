@@ -80,8 +80,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       {id,name,size,alignment}; header-only, unit-tested); property/field registration still TODO
 - [~] Serialization (binary + JSON), versioned schemas — **binary `ByteWriter`/`ByteReader` landed**
       (`maz::core` endian-safe little-endian POD/string/StringId round-trip with a bounds- and
-      overflow-safe fail-safe reader; header-only, unit-tested + ASAN/UBSan-fuzzed); JSON +
-      versioned schemas still TODO
+      overflow-safe fail-safe reader; header-only, unit-tested + ASAN/UBSan-fuzzed); plus
+      `maz::core` base64 (RFC 4648 standard alphabet, '=' padding) + hex binary-to-text codecs
+      (the Godot Marshalls analog, for embedding binary blobs in text config/scene files;
+      encode->string, decode replaces out + fail-safe on malformed input; header-only,
+      unit-tested); JSON + versioned schemas still TODO
 - [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
       `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII
       steady_clock timer; header-only, unit-tested); frame markers + Tracy still TODO

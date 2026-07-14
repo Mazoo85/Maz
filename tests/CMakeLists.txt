@@ -322,3 +322,10 @@ target_link_libraries(maz_unit_rotation PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_rotation COMMAND maz_unit_rotation)
 set_tests_properties(unit_rotation PROPERTIES TIMEOUT 30)
+
+# Unit tests: base64 + hex binary-to-text codecs (maz::core; RFC 4648 standard-alphabet base64 with '=' padding — exact canonical vectors, decode round-trip incl. all bytes 0..255 with no signed-char corruption, invalid-length/char/misplaced-padding rejection leaving out cleared, empty-input decodes to nothing; hex encode/decode with case handling, odd-length/non-hex-char rejection).
+add_executable(maz_unit_base64 unit_base64.cpp)
+target_link_libraries(maz_unit_base64 PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_base64 COMMAND maz_unit_base64)
+set_tests_properties(unit_base64 PROPERTIES TIMEOUT 30)
