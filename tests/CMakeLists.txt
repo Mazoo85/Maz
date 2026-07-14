@@ -308,3 +308,10 @@ target_link_libraries(maz_unit_stringutil PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_stringutil COMMAND maz_unit_stringutil)
 set_tests_properties(unit_stringutil PROPERTIES TIMEOUT 30)
+
+# Unit tests: random sampling helpers over the iter4 Rng (Fisher-Yates shuffle permutation+seed determinism, weightedIndex loot-table draw proportional to non-negative weights incl. RNG-independent single-non-zero-weight and zero-weight-never-picked, sampleWithoutReplacement k distinct indices / k==n full permutation / k==0 empty / determinism, Box-Muller gaussian seed-determinism+finite+stddev-0-returns-mean).
+add_executable(maz_unit_sampling unit_sampling.cpp)
+target_link_libraries(maz_unit_sampling PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_sampling COMMAND maz_unit_sampling)
+set_tests_properties(unit_sampling PROPERTIES TIMEOUT 30)
