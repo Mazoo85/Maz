@@ -406,3 +406,10 @@ target_link_libraries(maz_unit_bezier PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_bezier COMMAND maz_unit_bezier)
 set_tests_properties(unit_bezier PROPERTIES TIMEOUT 30)
+
+# Unit tests: 2D axis-aligned rectangle (maz::math::Rect2; position (min corner) + size, the Godot Rect2 analog / 2D counterpart to iter2's 3D Aabb; min/max/center/area/hasArea getters, HALF-OPEN contains (inclusive min edge, exclusive max edge — has_point convention), intersects with EXCLUSIVE borders (edge-touching rects do NOT overlap), intersection (overlap rect, zero-size when disjoint), merge/expand bounding rect over another rect / a point, grow inflating all four sides, fromMinMax convenience; integer-valued vec2 coords for exact compares; header-only).
+add_executable(maz_unit_rect2 unit_rect2.cpp)
+target_link_libraries(maz_unit_rect2 PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_rect2 COMMAND maz_unit_rect2)
+set_tests_properties(unit_rect2 PROPERTIES TIMEOUT 30)
