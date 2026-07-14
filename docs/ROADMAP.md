@@ -226,7 +226,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (incl. multi-cycle) is handled and a zero duration is div-by-zero-guarded; composes iter6
       `maz::math::Easing`/`ease`/`lerp`; header-only, unit-tested. `maz::math::CatmullRomSpline` landed:
       uniform Catmull-Rom through control points (evaluate/tangent/sample), Godot Curve3D/Path3D analog
-      for camera/motion paths. A generic `Tween<T>` (vec3/color),
+      for camera/motion paths. `maz::math::CubicBezier` landed: handle-based cubic Bezier
+      (evaluate/tangent/sample, four control points through the endpoints toward the handles), Godot
+      Curve/path-handle analog complementing the interpolating Catmull-Rom. A generic `Tween<T>` (vec3/color),
       sequences/timelines, start delay, speed scale, and per-frame-event tracks still TODO
 
 ## Phase 9 — UI

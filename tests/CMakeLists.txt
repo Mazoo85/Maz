@@ -392,3 +392,10 @@ target_link_libraries(maz_unit_collision2d PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_collision2d COMMAND maz_unit_collision2d)
 set_tests_properties(unit_collision2d PROPERTIES TIMEOUT 30)
+
+# Unit tests: handle-based cubic Bezier curve (maz::math::CubicBezier + free cubicBezier/cubicBezierTangent; four control points where the curve passes through the endpoints p0/p3 and is pulled toward the handles p1/p2 which it does NOT interpolate; evaluate(t) Bernstein polynomial hitting p0 at t=0 and p3 at t=1 exactly and extrapolating outside [0,1], tangent(t) analytic derivative == 3*(p1-p0) at t=0 / 3*(p3-p2) at t=1, sample(steps) first==p0/last==p3 render polyline; evenly-spaced collinear controls reproduce a straight line with constant (3,0,0) tangent, symmetric-arc midpoint, free-function==method parity, exact-representable integer/half/quarter inputs; complements iter35's interpolating Catmull-Rom).
+add_executable(maz_unit_bezier unit_bezier.cpp)
+target_link_libraries(maz_unit_bezier PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_bezier COMMAND maz_unit_bezier)
+set_tests_properties(unit_bezier PROPERTIES TIMEOUT 30)
