@@ -259,3 +259,10 @@ target_link_libraries(maz_unit_spline PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_spline COMMAND maz_unit_spline)
 set_tests_properties(unit_spline PROPERTIES TIMEOUT 30)
+
+# Unit tests: sphere primitive + sphere/ray-sphere intersection helpers complementing Geometry (Sphere::contains; sphereSphere/sphereAabb/spherePlane inclusive overlap via squared-distance/closest-point; closestPointOnAabb per-component clamp; raySphere earliest t>=0 with inside-origin exit-root fallback, behind-ray rejection, and unnormalized-dir t in ray-dir units).
+add_executable(maz_unit_collision unit_collision.cpp)
+target_link_libraries(maz_unit_collision PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_collision COMMAND maz_unit_collision)
+set_tests_properties(unit_collision PROPERTIES TIMEOUT 30)
