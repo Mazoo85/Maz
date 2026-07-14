@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -60,6 +61,13 @@ struct Body3D {
     math::quat orientation{1.0f, 0.0f, 0.0f, 0.0f}; // w,x,y,z
     math::vec3 angularVel{0.0f, 0.0f, 0.0f};
     math::mat3 invInertiaLocal{0.0f}; // zero => rotation locked
+
+    // --- Sleeping (opt-in via PhysicsWorld3D::allowSleep) ------------------------------------------
+    // A body quiet (below the world's linear + angular thresholds) for long enough goes to sleep: it
+    // stops integrating and solving and acts as a static obstacle until an island-mate wakes it (Godot
+    // can_sleep / sleeping). sleepTimer accumulates quiet time; sleeping is the current state.
+    float sleepTimer = 0.0f;
+    bool sleeping = false;
 
     // Give the body a finite moment of inertia derived from its shape + mass, letting it spin.
     void enableRotation() {
@@ -665,6 +673,13 @@ struct PhysicsWorld3D {
     // candidate set (in the same (i,j) order) as the brute-force O(n^2) test, so results are identical;
     // it only skips pairs whose AABBs are disjoint. Infinite planes are tested against every body.
     bool broadphase = true;
+    // Sleeping (Godot can_sleep). Bodies connected by contacts form an island; an island sleeps only
+    // once every dynamic member has stayed below both thresholds for `sleepTime`. Off by default so
+    // existing scenes are unchanged.
+    bool allowSleep = false;
+    float sleepLinearThreshold = 0.05f;
+    float sleepAngularThreshold = 0.05f;
+    float sleepTime = 0.5f;
 
     int add(const Body3D& b) {
         bodies.push_back(b);
@@ -673,6 +688,27 @@ struct PhysicsWorld3D {
 
     void step(float dt, int iterations = 8) {
         const int n = static_cast<int>(bodies.size());
+
+        // Sleeping: decide (from last frame's islands) which bodies are asleep, then make each sleeper
+        // temporarily immovable so it is skipped by integration and acts as static in the solve. Its
+        // real mass/inertia are restored after the step, so the whole solver is reused unchanged.
+        std::vector<size_t> sleptIdx;
+        std::vector<float> sleptInvMass;
+        std::vector<math::mat3> sleptInvInertia;
+        if (allowSleep) {
+            updateSleepStates();
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                if (bodies[i].sleeping) {
+                    sleptIdx.push_back(i);
+                    sleptInvMass.push_back(bodies[i].invMass);
+                    sleptInvInertia.push_back(bodies[i].invInertiaLocal);
+                    bodies[i].invMass = 0.0f;
+                    bodies[i].invInertiaLocal = math::mat3(0.0f);
+                    bodies[i].vel = math::vec3(0.0f);
+                    bodies[i].angularVel = math::vec3(0.0f);
+                }
+            }
+        }
 
         // Integrate velocity (gravity + damping) for dynamic bodies.
         for (Body3D& b : bodies) {
@@ -739,10 +775,70 @@ struct PhysicsWorld3D {
                 b.orientation = glm::normalize(b.orientation + 0.5f * dt * (wq * b.orientation));
             }
         }
+
+        // Restore the sleepers' real mass/inertia, then update quiet timers from this step's result.
+        for (size_t k = 0; k < sleptIdx.size(); ++k) {
+            bodies[sleptIdx[k]].invMass = sleptInvMass[k];
+            bodies[sleptIdx[k]].invInertiaLocal = sleptInvInertia[k];
+        }
+        if (allowSleep) {
+            updateSleepTimers(dt);
+        }
     }
 
 private:
     std::vector<math::mat3> m_invIw; // world-space inverse inertia per body, refreshed each step
+
+    // Decide sleep state per island. Bodies connected by last frame's contacts form islands (union-
+    // find); an island sleeps only once every dynamic member has been quiet for `sleepTime`. A body
+    // touched this frame by a still-awake mover wakes on the following step (islands lag one frame),
+    // and it still collides as a static obstacle in between, so nothing tunnels.
+    void updateSleepStates() {
+        const int n = static_cast<int>(bodies.size());
+        std::vector<int> parent(static_cast<size_t>(n));
+        for (int i = 0; i < n; ++i) {
+            parent[static_cast<size_t>(i)] = i;
+        }
+        std::function<int(int)> find = [&](int x) {
+            while (parent[static_cast<size_t>(x)] != x) {
+                parent[static_cast<size_t>(x)] = parent[static_cast<size_t>(parent[static_cast<size_t>(x)])];
+                x = parent[static_cast<size_t>(x)];
+            }
+            return x;
+        };
+        auto unite = [&](int a, int b) { parent[static_cast<size_t>(find(a))] = find(b); };
+        for (const detail::Constraint3& c : m_prev) {
+            unite(c.a, c.b);
+        }
+        // An island is "quiet" iff every dynamic member has stayed below threshold long enough.
+        std::unordered_map<int, bool> quiet;
+        for (int i = 0; i < n; ++i) {
+            if (bodies[static_cast<size_t>(i)].invMass > 0.0f) {
+                const int r = find(i);
+                const bool q = bodies[static_cast<size_t>(i)].sleepTimer >= sleepTime;
+                auto it = quiet.find(r);
+                quiet[r] = (it == quiet.end()) ? q : (it->second && q);
+            }
+        }
+        for (int i = 0; i < n; ++i) {
+            if (bodies[static_cast<size_t>(i)].invMass > 0.0f) {
+                bodies[static_cast<size_t>(i)].sleeping = quiet[find(i)];
+            }
+        }
+    }
+
+    // Accumulate quiet time for bodies below both thresholds; reset the moment one moves.
+    void updateSleepTimers(float dt) {
+        for (Body3D& b : bodies) {
+            if (b.invMass <= 0.0f) {
+                continue;
+            }
+            const bool slow = glm::dot(b.vel, b.vel) < sleepLinearThreshold * sleepLinearThreshold &&
+                              glm::dot(b.angularVel, b.angularVel) <
+                                  sleepAngularThreshold * sleepAngularThreshold;
+            b.sleepTimer = slow ? b.sleepTimer + dt : 0.0f;
+        }
+    }
 
     // World-space AABB of a body. `infinite` is set for planes (no finite bounds).
     void bodyAabb(const Body3D& b, math::vec3& mn, math::vec3& mx, bool& infinite) const {

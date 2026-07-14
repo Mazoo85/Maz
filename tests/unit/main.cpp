@@ -10164,6 +10164,55 @@ void testPhysics3DBroadphase() {
     }
 }
 
+// D7: body sleeping / islands. A settled stack goes to sleep (stops moving), and a body dropped onto it
+// wakes it back up.
+void testPhysics3DSleep() {
+    using game::Body3D;
+
+    game::PhysicsWorld3D w;
+    w.allowSleep = true;
+    w.sleepTime = 0.4f;
+    w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+    Body3D a = game::makeBox(math::vec3(0, 0.5f, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+    a.friction = 0.8f;
+    a.enableRotation();
+    int ai = w.add(a);
+    Body3D b = game::makeBox(math::vec3(0.02f, 1.55f, 0.0f), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+    b.friction = 0.8f;
+    b.enableRotation();
+    int bi = w.add(b);
+
+    // Let the stack settle and fall asleep.
+    for (int i = 0; i < 240; ++i) {
+        w.step(1.0f / 60.0f, 10);
+    }
+    CHECK(w.bodies[static_cast<size_t>(ai)].sleeping);
+    CHECK(w.bodies[static_cast<size_t>(bi)].sleeping);
+    const float restY = w.bodies[static_cast<size_t>(bi)].pos.y;
+
+    // Drop a third box onto the sleeping stack: within a few steps the island wakes.
+    Body3D c = game::makeBox(math::vec3(0.0f, 3.5f, 0.0f), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+    c.friction = 0.8f;
+    c.enableRotation();
+    int ci = w.add(c);
+    bool woke = false;
+    for (int i = 0; i < 120; ++i) {
+        w.step(1.0f / 60.0f, 10);
+        if (!w.bodies[static_cast<size_t>(ai)].sleeping && !w.bodies[static_cast<size_t>(bi)].sleeping) {
+            woke = true;
+            break;
+        }
+    }
+    CHECK(woke);
+    CHECK(w.bodies[static_cast<size_t>(ci)].pos.y < 3.5f); // the newcomer fell and landed
+    // Let it all settle again; the whole three-box stack ends near its expected heights.
+    for (int i = 0; i < 300; ++i) {
+        w.step(1.0f / 60.0f, 10);
+    }
+    CHECK_NEAR(w.bodies[static_cast<size_t>(ai)].pos.y, 0.5f, 0.1f);
+    CHECK(std::fabs(w.bodies[static_cast<size_t>(bi)].pos.y - restY) < 0.2f);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12920,6 +12969,7 @@ int main() {
     testPhysics3DWarmStack();
     testPhysics3DCapsule();
     testPhysics3DBroadphase();
+    testPhysics3DSleep();
     testNormalLight();
     testParallax();
     testAudioDsp();

@@ -540,7 +540,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (i,j) order as brute force so the simulation is bit-identical — it only skips pairs whose AABBs are
   disjoint, cutting the O(n^2) narrow-phase down for spread-out scenes. Toggle via `broadphase`
   (default on). Verified by a test that runs a scene with it on and off to identical results.
-  Sleeping, queries and a character controller land in later milestones.
+  **D7 — body sleeping / islands** — opt-in via `allowSleep`: bodies connected by contacts form
+  islands (union-find over last frame's constraints); an island sleeps once every dynamic member has
+  stayed below the linear + angular thresholds for `sleepTime`. A sleeping body is made temporarily
+  immovable so it's skipped by integration and acts as a static obstacle in the solve (zero CPU),
+  and an island-mate touched by a mover wakes on the next step with no tunneling (Godot can_sleep).
+  Verified by a test where a settled stack falls asleep and a dropped box wakes it.
+  Queries and a character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
