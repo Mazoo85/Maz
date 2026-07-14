@@ -535,7 +535,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (both caps → a horizontal capsule rests flat on two points), sphere-capsule, capsule-capsule
   (closest-segment), and capsule-box (segment/box closest point → sphere-box), all flowing through the
   warm solver. The `physics3d` demo adds two capsules that fall and rest flat on the ground.
-  Broadphase, sleeping, queries and a character controller land in later milestones.
+  **D6 — broadphase (sweep-and-prune)** — candidate pairs come from a sweep-and-prune over world-space
+  AABBs (spheres/boxes/capsules bounded; infinite planes tested against all), sorted to the same
+  (i,j) order as brute force so the simulation is bit-identical — it only skips pairs whose AABBs are
+  disjoint, cutting the O(n^2) narrow-phase down for spread-out scenes. Toggle via `broadphase`
+  (default on). Verified by a test that runs a scene with it on and off to identical results.
+  Sleeping, queries and a character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

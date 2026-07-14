@@ -10126,6 +10126,44 @@ void testPhysics3DCapsule() {
     }
 }
 
+// D6: 3D broadphase (sweep-and-prune). Culling non-touching pairs must not change the result: the same
+// scene simulated with broadphase on and off ends bit-identical.
+void testPhysics3DBroadphase() {
+    using game::Body3D;
+
+    auto build = [](bool bp) {
+        game::PhysicsWorld3D w;
+        w.broadphase = bp;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        // A spread-out scene where most pairs are far apart (so broadphase actually prunes).
+        for (int i = 0; i < 6; ++i) {
+            const float x = static_cast<float>(i) * 3.0f - 7.5f;
+            Body3D s = game::makeSphere(math::vec3(x, 1.0f + static_cast<float>(i) * 0.5f, 0.0f), 0.5f);
+            s.enableRotation();
+            w.add(s);
+            Body3D b = game::makeBox(math::vec3(x + 0.2f, 3.0f, 0.5f), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+            b.enableRotation();
+            w.add(b);
+        }
+        for (int step = 0; step < 200; ++step) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        return w;
+    };
+
+    game::PhysicsWorld3D withBp = build(true);
+    game::PhysicsWorld3D noBp = build(false);
+    CHECK(withBp.bodies.size() == noBp.bodies.size());
+    for (size_t i = 0; i < withBp.bodies.size(); ++i) {
+        const math::vec3 d = withBp.bodies[i].pos - noBp.bodies[i].pos;
+        CHECK(std::sqrt(glm::dot(d, d)) < 1e-4f); // identical trajectories
+    }
+    // Also: everything settled above the ground (nothing tunneled through).
+    for (size_t i = 1; i < withBp.bodies.size(); ++i) {
+        CHECK(withBp.bodies[i].pos.y > 0.2f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12881,6 +12919,7 @@ int main() {
     testPhysics3DStacking();
     testPhysics3DWarmStack();
     testPhysics3DCapsule();
+    testPhysics3DBroadphase();
     testNormalLight();
     testParallax();
     testAudioDsp();

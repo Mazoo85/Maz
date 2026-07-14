@@ -661,6 +661,10 @@ struct PhysicsWorld3D {
     // Warm starting: carry each contact's accumulated impulses to the next frame (matched by body pair
     // + contact-point proximity). This is what makes tall stacks stay rigid at a few iterations.
     bool warmStarting = true;
+    // Broadphase: sweep-and-prune over world AABBs to cull pairs that cannot touch. It yields the same
+    // candidate set (in the same (i,j) order) as the brute-force O(n^2) test, so results are identical;
+    // it only skips pairs whose AABBs are disjoint. Infinite planes are tested against every body.
+    bool broadphase = true;
 
     int add(const Body3D& b) {
         bodies.push_back(b);
@@ -687,22 +691,21 @@ struct PhysicsWorld3D {
             m_invIw[static_cast<size_t>(i)] = R * b.invInertiaLocal * glm::transpose(R);
         }
 
-        // Detect contacts (brute-force pairs in D2; broadphase arrives in a later milestone).
+        // Narrow-phase over candidate pairs (broadphase-culled or the full O(n^2) set).
         std::vector<detail::Contact3> contacts;
-        for (int i = 0; i < n; ++i) {
-            for (int j = i + 1; j < n; ++j) {
-                if (bodies[static_cast<size_t>(i)].invMass == 0.0f &&
-                    bodies[static_cast<size_t>(j)].invMass == 0.0f) {
-                    continue; // two static bodies never interact
-                }
-                if (!interact(bodies[static_cast<size_t>(i)].collisionLayer,
-                              bodies[static_cast<size_t>(i)].collisionMask,
-                              bodies[static_cast<size_t>(j)].collisionLayer,
-                              bodies[static_cast<size_t>(j)].collisionMask)) {
-                    continue;
-                }
-                collide(i, j, contacts);
+        for (const std::pair<int, int>& pr : collectPairs3()) {
+            const int i = pr.first, j = pr.second;
+            if (bodies[static_cast<size_t>(i)].invMass == 0.0f &&
+                bodies[static_cast<size_t>(j)].invMass == 0.0f) {
+                continue; // two static bodies never interact
             }
+            if (!interact(bodies[static_cast<size_t>(i)].collisionLayer,
+                          bodies[static_cast<size_t>(i)].collisionMask,
+                          bodies[static_cast<size_t>(j)].collisionLayer,
+                          bodies[static_cast<size_t>(j)].collisionMask)) {
+                continue;
+            }
+            collide(i, j, contacts);
         }
 
         // Build solver constraints from the contacts and warm-start them from last frame.
@@ -740,6 +743,100 @@ struct PhysicsWorld3D {
 
 private:
     std::vector<math::mat3> m_invIw; // world-space inverse inertia per body, refreshed each step
+
+    // World-space AABB of a body. `infinite` is set for planes (no finite bounds).
+    void bodyAabb(const Body3D& b, math::vec3& mn, math::vec3& mx, bool& infinite) const {
+        infinite = false;
+        if (b.shape == Body3D::Plane) {
+            infinite = true;
+            return;
+        }
+        if (b.shape == Body3D::Sphere) {
+            const math::vec3 r(b.radius);
+            mn = b.pos - r;
+            mx = b.pos + r;
+        } else if (b.shape == Body3D::Box) {
+            const math::mat3 R = glm::mat3_cast(b.orientation);
+            math::vec3 ext;
+            for (int a = 0; a < 3; ++a) {
+                ext[a] = std::fabs(R[0][a]) * b.half.x + std::fabs(R[1][a]) * b.half.y +
+                         std::fabs(R[2][a]) * b.half.z;
+            }
+            mn = b.pos - ext;
+            mx = b.pos + ext;
+        } else { // Capsule
+            math::vec3 e0, e1;
+            detail::capsuleSegment3(b, e0, e1);
+            const math::vec3 r(b.radius);
+            mn = glm::min(e0, e1) - r;
+            mx = glm::max(e0, e1) + r;
+        }
+    }
+
+    // Candidate collision pairs. With broadphase off this is the full O(n^2) set; with it on, a
+    // sweep-and-prune over world AABBs (planes tested against all). Either way the returned list is
+    // sorted ascending by (i,j) so the narrow-phase + solve order — and the result — is identical.
+    std::vector<std::pair<int, int>> collectPairs3() const {
+        const int n = static_cast<int>(bodies.size());
+        std::vector<std::pair<int, int>> pairs;
+        if (!broadphase) {
+            for (int i = 0; i < n; ++i) {
+                for (int j = i + 1; j < n; ++j) {
+                    pairs.emplace_back(i, j);
+                }
+            }
+            return pairs;
+        }
+        struct Entry {
+            math::vec3 mn, mx;
+            int idx;
+        };
+        std::vector<Entry> fin;
+        std::vector<int> planes;
+        fin.reserve(static_cast<size_t>(n));
+        for (int i = 0; i < n; ++i) {
+            math::vec3 mn, mx;
+            bool inf = false;
+            bodyAabb(bodies[static_cast<size_t>(i)], mn, mx, inf);
+            if (inf) {
+                planes.push_back(i);
+            } else {
+                fin.push_back(Entry{mn, mx, i});
+            }
+        }
+        std::sort(fin.begin(), fin.end(),
+                  [](const Entry& a, const Entry& b) { return a.mn.x < b.mn.x; });
+        auto add = [&](int a, int b) {
+            if (a > b) {
+                std::swap(a, b);
+            }
+            pairs.emplace_back(a, b);
+        };
+        // Sweep along x; for each body test following bodies until their min.x passes this max.x.
+        for (size_t a = 0; a < fin.size(); ++a) {
+            for (size_t b = a + 1; b < fin.size(); ++b) {
+                if (fin[b].mn.x > fin[a].mx.x) {
+                    break;
+                }
+                const bool overlap = fin[a].mn.y <= fin[b].mx.y && fin[a].mx.y >= fin[b].mn.y &&
+                                     fin[a].mn.z <= fin[b].mx.z && fin[a].mx.z >= fin[b].mn.z;
+                if (overlap) {
+                    add(fin[a].idx, fin[b].idx);
+                }
+            }
+        }
+        // Infinite planes are tested against every other body.
+        for (int p : planes) {
+            for (int k = 0; k < n; ++k) {
+                if (k != p) {
+                    add(p, k);
+                }
+            }
+        }
+        std::sort(pairs.begin(), pairs.end());
+        pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+        return pairs;
+    }
 
     void collide(int i, int j, std::vector<detail::Contact3>& out) const {
         const Body3D& a = bodies[static_cast<size_t>(i)];
