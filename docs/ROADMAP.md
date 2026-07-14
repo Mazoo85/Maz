@@ -221,7 +221,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
 - [ ] Script hot-reload, sandboxing
 - [ ] Gameplay: state machines, behavior trees, AI steering
-- [ ] Pathfinding (A* / nav grid; navmesh later)
+- [~] Pathfinding (A* / nav grid; navmesh later) — **`maz::ai` A* grid pathfinding landed** (`GridMap` + `findPath` with integer 10/14 costs, admissible Manhattan/octile heuristic, corner-cutting-forbidden diagonals, deterministic (f,h,index) tie-break, cost-optimal reconstruction; header-only, unit-tested); navmesh, weighted terrain, JPS still TODO
 - [ ] Particle system (CPU + GPU), emitters, affectors
 - [ ] Tilemap tools, procedural generation utilities
 - [ ] Save/load game state, checkpoints

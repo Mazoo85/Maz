@@ -224,3 +224,10 @@ target_link_libraries(maz_unit_tween PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_tween COMMAND maz_unit_tween)
 set_tests_properties(unit_tween PROPERTIES TIMEOUT 30)
+
+# Unit tests: 2D grid A* pathfinder (GridMap + findPath; integer 10/14 costs, Manhattan/octile heuristic, corner-cutting-forbidden diagonals, deterministic tie-break; straight/detour/unreachable/diagonal/corner-cut/optimality via cost+validity assertions).
+add_executable(maz_unit_astar unit_astar.cpp)
+target_link_libraries(maz_unit_astar PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_astar COMMAND maz_unit_astar)
+set_tests_properties(unit_astar PROPERTIES TIMEOUT 30)
