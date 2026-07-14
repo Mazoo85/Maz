@@ -10213,6 +10213,70 @@ void testPhysics3DSleep() {
     CHECK(std::fabs(w.bodies[static_cast<size_t>(bi)].pos.y - restY) < 0.2f);
 }
 
+// D8: 3D physics-space ray queries. Cast rays against spheres, boxes, capsules and the ground plane;
+// get the nearest hit with distance, point, normal, and body index, filtered by layer mask.
+void testPhysics3DRay() {
+    using game::Body3D;
+
+    game::PhysicsWorld3D w;
+    const int plane = w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+    const int sphere = w.add(game::makeSphere(math::vec3(0, 5, 0), 1.0f, 0.0f));
+    const int box = w.add(game::makeBox(math::vec3(5, 5, 0), math::vec3(1, 1, 1), 0.0f));
+
+    // Straight down from above the sphere: hits the sphere top at y=6, normal up, before the ground.
+    {
+        game::RayHit3 h = w.queryRay(math::vec3(0, 10, 0), math::vec3(0, -1, 0));
+        CHECK(h.hit);
+        CHECK(h.index == sphere);
+        CHECK_NEAR(h.t, 4.0f, 1e-3f);       // 10 -> 6
+        CHECK_NEAR(h.point.y, 6.0f, 1e-3f);
+        CHECK_NEAR(h.normal.y, 1.0f, 1e-3f);
+    }
+    // Down past the box's side (x=5): hits the box top face at y=6, normal up.
+    {
+        game::RayHit3 h = w.queryRay(math::vec3(5, 10, 0), math::vec3(0, -1, 0));
+        CHECK(h.hit);
+        CHECK(h.index == box);
+        CHECK_NEAR(h.point.y, 6.0f, 1e-3f);
+        CHECK_NEAR(h.normal.y, 1.0f, 1e-3f);
+    }
+    // Down through empty space hits the infinite ground plane at y=0.
+    {
+        game::RayHit3 h = w.queryRay(math::vec3(-5, 10, 0), math::vec3(0, -1, 0));
+        CHECK(h.hit);
+        CHECK(h.index == plane);
+        CHECK_NEAR(h.point.y, 0.0f, 1e-3f);
+    }
+    // Pointing away from everything: miss.
+    {
+        game::RayHit3 h = w.queryRay(math::vec3(0, 10, 0), math::vec3(0, 1, 0));
+        CHECK(!h.hit);
+    }
+    // maxDist too short to reach the sphere: miss.
+    {
+        game::RayHit3 h = w.queryRay(math::vec3(0, 10, 0), math::vec3(0, -1, 0), 2.0f);
+        CHECK(!h.hit);
+    }
+    // Layer mask that excludes the sphere's layer skips it and finds the ground beyond.
+    {
+        w.bodies[static_cast<size_t>(sphere)].collisionLayer = 0x2u;
+        game::RayHit3 h = w.queryRay(math::vec3(0, 10, 0), math::vec3(0, -1, 0), 1e30f, 0x1u);
+        CHECK(h.hit);
+        CHECK(h.index == plane); // sphere filtered out
+        w.bodies[static_cast<size_t>(sphere)].collisionLayer = ~0u;
+    }
+    // Ray across the world hitting a capsule from the side.
+    {
+        game::PhysicsWorld3D cw;
+        int cap = cw.add(game::makeCapsule(math::vec3(0, 2, 0), 0.5f, 1.0f, 0.0f)); // upright at origin
+        game::RayHit3 h = cw.queryRay(math::vec3(-5, 2, 0), math::vec3(1, 0, 0));
+        CHECK(h.hit);
+        CHECK(h.index == cap);
+        CHECK_NEAR(h.point.x, -0.5f, 1e-2f); // near side of the capsule (radius 0.5)
+        CHECK_NEAR(h.normal.x, -1.0f, 1e-2f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12970,6 +13034,7 @@ int main() {
     testPhysics3DCapsule();
     testPhysics3DBroadphase();
     testPhysics3DSleep();
+    testPhysics3DRay();
     testNormalLight();
     testParallax();
     testAudioDsp();

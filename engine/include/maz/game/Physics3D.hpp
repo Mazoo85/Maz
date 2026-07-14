@@ -653,7 +653,157 @@ inline void makeBasis3(const math::vec3& n, math::vec3& t1, math::vec3& t2) {
     t2 = glm::cross(n, t1);
 }
 
+// --- Ray casts against individual shapes (o = origin, d = unit direction) --------------------------
+// Each returns whether the ray enters the shape within [0, maxDist], writing the entry distance and
+// the outward surface normal at the hit.
+inline bool raySphere(const math::vec3& o, const math::vec3& d, const math::vec3& c, float r,
+                      float maxDist, float& tOut, math::vec3& nOut) {
+    const math::vec3 m = o - c;
+    const float b = glm::dot(m, d);
+    const float cc = glm::dot(m, m) - r * r;
+    if (cc > 0.0f && b > 0.0f) {
+        return false; // origin outside and pointing away
+    }
+    const float disc = b * b - cc;
+    if (disc < 0.0f) {
+        return false;
+    }
+    float t = -b - std::sqrt(disc);
+    if (t < 0.0f) {
+        t = 0.0f; // origin inside
+    }
+    if (t > maxDist) {
+        return false;
+    }
+    tOut = t;
+    const math::vec3 p = o + d * t;
+    nOut = r > 1e-6f ? (p - c) / r : math::vec3(0.0f, 1.0f, 0.0f);
+    return true;
+}
+
+inline bool rayPlane(const math::vec3& o, const math::vec3& d, const math::vec3& N, float D,
+                     float maxDist, float& tOut, math::vec3& nOut) {
+    const float denom = glm::dot(d, N);
+    if (std::fabs(denom) < 1e-8f) {
+        return false; // parallel to the plane
+    }
+    const float t = (D - glm::dot(o, N)) / denom;
+    if (t < 0.0f || t > maxDist) {
+        return false;
+    }
+    tOut = t;
+    nOut = N; // outward normal of the half-space
+    return true;
+}
+
+inline bool rayBox(const math::vec3& o, const math::vec3& d, const Body3D& box, float maxDist,
+                   float& tOut, math::vec3& nOut) {
+    const math::mat3 R = glm::mat3_cast(box.orientation);
+    const math::mat3 Rt = glm::transpose(R);
+    const math::vec3 lo = Rt * (o - box.pos);
+    const math::vec3 ld = Rt * d;
+    float tmin = 0.0f, tmax = maxDist;
+    math::vec3 nLocal(0.0f);
+    for (int a = 0; a < 3; ++a) {
+        const float h = box.half[a];
+        if (std::fabs(ld[a]) < 1e-8f) {
+            if (lo[a] < -h || lo[a] > h) {
+                return false; // parallel to this slab and outside it
+            }
+            continue;
+        }
+        const float inv = 1.0f / ld[a];
+        float tNear = (-h - lo[a]) * inv, tFar = (h - lo[a]) * inv;
+        float s = -1.0f;
+        if (tNear > tFar) {
+            std::swap(tNear, tFar);
+            s = 1.0f;
+        }
+        if (tNear > tmin) {
+            tmin = tNear;
+            nLocal = math::vec3(0.0f);
+            nLocal[a] = s;
+        }
+        if (tFar < tmax) {
+            tmax = tFar;
+        }
+        if (tmin > tmax) {
+            return false;
+        }
+    }
+    tOut = tmin;
+    nOut = R * nLocal;
+    return true;
+}
+
+inline bool rayCapsule(const math::vec3& o, const math::vec3& d, const Body3D& cap, float maxDist,
+                       float& tOut, math::vec3& nOut) {
+    math::vec3 p0, p1;
+    capsuleSegment3(cap, p0, p1);
+    const float r = cap.radius;
+    float best = maxDist;
+    bool found = false;
+    float t;
+    math::vec3 nrm;
+    // The two hemispherical caps.
+    if (raySphere(o, d, p0, r, best, t, nrm)) {
+        best = t;
+        nOut = nrm;
+        found = true;
+    }
+    if (raySphere(o, d, p1, r, best, t, nrm)) {
+        best = t;
+        nOut = nrm;
+        found = true;
+    }
+    // The cylindrical side.
+    const math::vec3 axis = p1 - p0;
+    const float len = std::sqrt(glm::dot(axis, axis));
+    if (len > 1e-6f) {
+        const math::vec3 va = axis / len;
+        const math::vec3 dp = o - p0;
+        const math::vec3 A = d - va * glm::dot(d, va);
+        const math::vec3 B = dp - va * glm::dot(dp, va);
+        const float ca = glm::dot(A, A);
+        if (ca > 1e-8f) {
+            const float cb = 2.0f * glm::dot(A, B);
+            const float cc = glm::dot(B, B) - r * r;
+            const float disc = cb * cb - 4.0f * ca * cc;
+            if (disc >= 0.0f) {
+                const float sq = std::sqrt(disc);
+                const float roots[2] = {(-cb - sq) / (2.0f * ca), (-cb + sq) / (2.0f * ca)};
+                for (float tc : roots) {
+                    if (tc < 0.0f || tc >= best) {
+                        continue;
+                    }
+                    const math::vec3 p = o + d * tc;
+                    const float s = glm::dot(p - p0, va);
+                    if (s >= 0.0f && s <= len) {
+                        best = tc;
+                        nOut = glm::normalize(p - (p0 + va * s));
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (found) {
+        tOut = best;
+    }
+    return found;
+}
+
 } // namespace detail
+
+// Result of a ray query against the physics world (Godot PhysicsDirectSpaceState3D.intersect_ray).
+struct RayHit3 {
+    bool hit = false;
+    float t = 0.0f;         // distance along the ray to the entry point
+    math::vec3 point{0.0f}; // world hit point (origin + dir * t)
+    math::vec3 normal{0.0f};
+    int index = -1; // struck body index
+};
 
 // A world of 3D rigid bodies resolved with sequential impulses under a fixed timestep.
 struct PhysicsWorld3D {
@@ -684,6 +834,45 @@ struct PhysicsWorld3D {
     int add(const Body3D& b) {
         bodies.push_back(b);
         return static_cast<int>(bodies.size()) - 1;
+    }
+
+    // Cast a ray and return the nearest body it enters within `maxDist` (Godot intersect_ray). Only
+    // bodies whose collisionLayer intersects `mask` are considered. Pure geometry — no simulation step.
+    RayHit3 queryRay(const math::vec3& origin, const math::vec3& dir, float maxDist = 1e30f,
+                     LayerMask mask = ~0u) const {
+        const float dl = std::sqrt(glm::dot(dir, dir));
+        RayHit3 best;
+        if (dl < 1e-9f) {
+            return best;
+        }
+        const math::vec3 d = dir / dl;
+        best.t = maxDist;
+        for (int i = 0; i < static_cast<int>(bodies.size()); ++i) {
+            const Body3D& b = bodies[static_cast<size_t>(i)];
+            if ((b.collisionLayer & mask) == 0u) {
+                continue;
+            }
+            float t = 0.0f;
+            math::vec3 nrm(0.0f);
+            bool hit = false;
+            if (b.shape == Body3D::Sphere) {
+                hit = detail::raySphere(origin, d, b.pos, b.radius, best.t, t, nrm);
+            } else if (b.shape == Body3D::Box) {
+                hit = detail::rayBox(origin, d, b, best.t, t, nrm);
+            } else if (b.shape == Body3D::Capsule) {
+                hit = detail::rayCapsule(origin, d, b, best.t, t, nrm);
+            } else { // Plane
+                hit = detail::rayPlane(origin, d, b.normal, b.planeD, best.t, t, nrm);
+            }
+            if (hit && t <= best.t) {
+                best.hit = true;
+                best.t = t;
+                best.point = origin + d * t;
+                best.normal = nrm;
+                best.index = i;
+            }
+        }
+        return best;
     }
 
     void step(float dt, int iterations = 8) {

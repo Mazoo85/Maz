@@ -546,7 +546,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   immovable so it's skipped by integration and acts as a static obstacle in the solve (zero CPU),
   and an island-mate touched by a mover wakes on the next step with no tunneling (Godot can_sleep).
   Verified by a test where a settled stack falls asleep and a dropped box wakes it.
-  Queries and a character controller land in later milestones.
+  **D8 — physics ray queries** (`PhysicsWorld3D::queryRay`, Godot
+  `PhysicsDirectSpaceState3D.intersect_ray`): cast a ray and get the nearest body it enters within a
+  max distance — `RayHit3{t, point, normal, index}` — with analytic ray-vs-sphere / oriented-box /
+  capsule / half-plane intersections and 32-bit collision-**mask** filtering; pure geometry, no sim
+  step. The primitive behind hitscan weapons, line-of-sight, ground probes and mouse picking.
+  A character controller lands in a later milestone.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
