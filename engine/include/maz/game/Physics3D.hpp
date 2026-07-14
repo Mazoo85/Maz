@@ -654,6 +654,11 @@ inline void makeBasis3(const math::vec3& n, math::vec3& t1, math::vec3& t2) {
     t2 = glm::cross(n, t1);
 }
 
+// Skew-symmetric matrix S(v) such that S(v) * w == cross(v, w). (glm mat3 is column-major.)
+inline math::mat3 skew(const math::vec3& v) {
+    return math::mat3(0.0f, v.z, -v.y, -v.z, 0.0f, v.x, v.y, -v.x, 0.0f);
+}
+
 // --- Ray casts against individual shapes (o = origin, d = unit direction) --------------------------
 // Each returns whether the ray enters the shape within [0, maxDist], writing the entry distance and
 // the outward surface normal at the hit.
@@ -853,6 +858,27 @@ inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
 
 } // namespace detail
 
+// A point-to-point (ball / pin) joint holding two bodies' local anchor points together — Godot
+// PinJoint3D / a Generic6DOF locked in translation. Build with makePinJoint3. Either body may be
+// static (invMass 0), e.g. a pendulum pinned to the world. `beta` is the position-correction stiffness.
+struct Joint3D {
+    int a = -1, b = -1;
+    math::vec3 localA{0.0f}; // anchor in a's local frame (relative to a.pos, before rotation)
+    math::vec3 localB{0.0f}; // anchor in b's local frame
+    float beta = 0.2f;
+};
+
+// Pin two bodies together at a shared world-space anchor point (their local anchors are derived so the
+// point currently coincides on both). Indices are into PhysicsWorld3D::bodies.
+inline Joint3D makePinJoint3(int ia, const Body3D& a, int ib, const Body3D& b, math::vec3 worldAnchor) {
+    Joint3D j;
+    j.a = ia;
+    j.b = ib;
+    j.localA = glm::transpose(glm::mat3_cast(a.orientation)) * (worldAnchor - a.pos);
+    j.localB = glm::transpose(glm::mat3_cast(b.orientation)) * (worldAnchor - b.pos);
+    return j;
+}
+
 // Result of a ray query against the physics world (Godot PhysicsDirectSpaceState3D.intersect_ray).
 struct RayHit3 {
     bool hit = false;
@@ -865,6 +891,7 @@ struct RayHit3 {
 // A world of 3D rigid bodies resolved with sequential impulses under a fixed timestep.
 struct PhysicsWorld3D {
     std::vector<Body3D> bodies;
+    std::vector<Joint3D> joints;
     math::vec3 gravity{0.0f, -9.81f, 0.0f};
 
     // Positional correction (Baumgarte): push overlapping bodies apart by `correctionPercent` of the
@@ -1006,10 +1033,13 @@ struct PhysicsWorld3D {
         if (warmStarting) {
             warmStart(cons);
         }
-        // Velocity iterations: normal then friction impulses, accumulated + clamped.
+        // Velocity iterations: contacts (normal then friction), then joints.
         for (int it = 0; it < iterations; ++it) {
             for (detail::Constraint3& c : cons) {
                 solveConstraint(c);
+            }
+            for (Joint3D& j : joints) {
+                solveJoint3(j, dt);
             }
         }
         // Positional correction (split from velocity so it never injects energy).
@@ -1060,6 +1090,11 @@ private:
         auto unite = [&](int a, int b) { parent[static_cast<size_t>(find(a))] = find(b); };
         for (const detail::Constraint3& c : m_prev) {
             unite(c.a, c.b);
+        }
+        for (const Joint3D& j : joints) {
+            if (j.a >= 0 && j.b >= 0) {
+                unite(j.a, j.b); // jointed bodies share an island so a chain sleeps/wakes together
+            }
         }
         // An island is "quiet" iff every dynamic member has stayed below threshold long enough.
         std::unordered_map<int, bool> quiet;
@@ -1304,6 +1339,35 @@ private:
             c.jt2 = n2;
             applyImpulse(c, P);
         }
+    }
+
+    // Point-to-point (pin) joint: drive the two world anchors together with a 3-DOF impulse plus a
+    // Baumgarte position bias. K is the standard point-constraint effective-mass matrix.
+    void solveJoint3(Joint3D& j, float dt) {
+        if (j.a < 0 || j.b < 0) {
+            return;
+        }
+        Body3D& a = bodies[static_cast<size_t>(j.a)];
+        Body3D& b = bodies[static_cast<size_t>(j.b)];
+        if (a.invMass + b.invMass <= 0.0f) {
+            return; // both static
+        }
+        const math::mat3& invIA = m_invIw[static_cast<size_t>(j.a)];
+        const math::mat3& invIB = m_invIw[static_cast<size_t>(j.b)];
+        const math::vec3 rA = glm::mat3_cast(a.orientation) * j.localA;
+        const math::vec3 rB = glm::mat3_cast(b.orientation) * j.localB;
+        const math::vec3 C = (b.pos + rB) - (a.pos + rA); // position error (want 0)
+        const math::vec3 vrel =
+            (b.vel + glm::cross(b.angularVel, rB)) - (a.vel + glm::cross(a.angularVel, rA));
+        const math::mat3 sA = detail::skew(rA);
+        const math::mat3 sB = detail::skew(rB);
+        math::mat3 K = math::mat3(a.invMass + b.invMass) - sA * invIA * sA - sB * invIB * sB;
+        const float bias = dt > 0.0f ? (j.beta / dt) : 0.0f;
+        const math::vec3 P = glm::inverse(K) * (-(vrel + C * bias));
+        a.vel -= P * a.invMass;
+        a.angularVel -= invIA * glm::cross(rA, P);
+        b.vel += P * b.invMass;
+        b.angularVel += invIB * glm::cross(rB, P);
     }
 
     void correctPosition(const detail::Constraint3& c) {

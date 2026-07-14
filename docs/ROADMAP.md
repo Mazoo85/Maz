@@ -565,8 +565,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (GeometricMean / Average / Multiply / Min / Max) select how two bodies' scalars combine into the
   effective pair value; defaults (geometric-mean friction, min restitution) reproduce the prior
   hardcoded behaviour exactly. Verified by a test where Max-restitution makes a ball bounce far
-  higher than Min. This brings the 3D deep-dive (D1–D10) to a complete rigid-body core; 3D joints,
-  convex/trimesh shapes and full shape-vs-shape CCD remain as honestly-noted extras.
+  higher than Min. This brings the 3D deep-dive (D1–D10) to a complete rigid-body core.
+  **D11 — pin joints** (`game::Joint3D` + `makePinJoint3`, Godot PinJoint3D): a point-to-point (ball)
+  constraint holding two bodies' local anchor points together, solved in the velocity loop as a 3-DOF
+  effective-mass impulse (`K = ΣinvMass·I − S(rA)·invIA·S(rA) − S(rB)·invIB·S(rB)`) with a Baumgarte
+  position bias; either body may be static (a pendulum pinned to the world), and jointed bodies share
+  a sleep island. Verified by a swinging pendulum that preserves its rod length and a two-link chain
+  that hangs vertical. Convex/trimesh colliders and full shape-vs-shape CCD remain honestly-noted
+  extras.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

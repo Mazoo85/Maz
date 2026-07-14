@@ -10360,6 +10360,67 @@ void testPhysics3DMaterial() {
     CHECK(maxPeak > minPeak + 0.3f);
 }
 
+// D11: 3D pin joints (Joint3D). A ball pinned to a static anchor swings but stays at a fixed distance;
+// a two-link chain hangs to its full length under gravity.
+void testPhysics3DJoint() {
+    using game::Body3D;
+
+    // Pendulum: static anchor at the pivot (0,5,0); a ball started off to the side, pinned to the pivot
+    // by a point on the ball. It swings down under gravity while its centre stays a fixed distance from
+    // the pivot (the joint pins ball_local_point -> pivot, so |centre - pivot| == |offset| is constant).
+    {
+        const math::vec3 pivot(0, 5, 0);
+        game::PhysicsWorld3D w;
+        const int ai = w.add(game::makeSphere(pivot, 0.1f, 0.0f)); // static anchor at the pivot
+        Body3D ball = game::makeSphere(math::vec3(1.5f, 3.0f, 0.0f), 0.3f, 1.0f);
+        ball.enableRotation();
+        const int bi = w.add(ball);
+        const float rod =
+            std::sqrt(glm::dot(math::vec3(1.5f, 3.0f, 0.0f) - pivot,
+                               math::vec3(1.5f, 3.0f, 0.0f) - pivot)); // = 2.5
+        w.joints.push_back(game::makePinJoint3(ai, w.bodies[static_cast<size_t>(ai)], bi,
+                                               w.bodies[static_cast<size_t>(bi)], pivot));
+        float minLen = 1e9f, maxLen = -1e9f, minY = 1e9f;
+        for (int i = 0; i < 300; ++i) {
+            w.step(1.0f / 60.0f, 12);
+            const math::vec3 d = w.bodies[static_cast<size_t>(bi)].pos - pivot;
+            const float len = std::sqrt(glm::dot(d, d));
+            minLen = std::min(minLen, len);
+            maxLen = std::max(maxLen, len);
+            minY = std::min(minY, w.bodies[static_cast<size_t>(bi)].pos.y);
+        }
+        CHECK_NEAR(minLen, rod, 0.1f); // rod length preserved throughout the swing
+        CHECK_NEAR(maxLen, rod, 0.1f);
+        CHECK(minY < 2.9f); // swung down from y=3 toward the bottom of the arc (pivot.y - rod = 2.5)
+    }
+
+    // Two-link chain hanging from a static anchor settles vertical at its full length.
+    {
+        game::PhysicsWorld3D w;
+        const int anchor = w.add(game::makeSphere(math::vec3(0, 6, 0), 0.1f, 0.0f)); // static
+        Body3D l1 = game::makeSphere(math::vec3(0, 5, 0), 0.3f, 1.0f);
+        l1.enableRotation();
+        const int i1 = w.add(l1);
+        Body3D l2 = game::makeSphere(math::vec3(0, 4, 0), 0.3f, 1.0f);
+        l2.enableRotation();
+        const int i2 = w.add(l2);
+        w.joints.push_back(game::makePinJoint3(anchor, w.bodies[static_cast<size_t>(anchor)], i1,
+                                               w.bodies[static_cast<size_t>(i1)], math::vec3(0, 5.5f, 0)));
+        w.joints.push_back(game::makePinJoint3(i1, w.bodies[static_cast<size_t>(i1)], i2,
+                                               w.bodies[static_cast<size_t>(i2)], math::vec3(0, 4.5f, 0)));
+        for (int i = 0; i < 600; ++i) {
+            w.step(1.0f / 60.0f, 16);
+        }
+        // Hanging vertical: both links stay on the y-axis, link 2 below link 1, near their rest gaps.
+        CHECK(std::fabs(w.bodies[static_cast<size_t>(i1)].pos.x) < 0.1f);
+        CHECK(std::fabs(w.bodies[static_cast<size_t>(i2)].pos.x) < 0.1f);
+        CHECK(w.bodies[static_cast<size_t>(i2)].pos.y < w.bodies[static_cast<size_t>(i1)].pos.y);
+        // Joint separations preserved (~1 each from the anchor chain spacing).
+        const float gap = w.bodies[static_cast<size_t>(i1)].pos.y - w.bodies[static_cast<size_t>(i2)].pos.y;
+        CHECK_NEAR(gap, 1.0f, 0.15f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13120,6 +13181,7 @@ int main() {
     testPhysics3DRay();
     testPhysics3DMoveSlide();
     testPhysics3DMaterial();
+    testPhysics3DJoint();
     testNormalLight();
     testParallax();
     testAudioDsp();
