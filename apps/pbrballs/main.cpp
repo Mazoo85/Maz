@@ -90,14 +90,16 @@ int main(int argc, char** argv) {
     light.points[0].color[1] = 0.65f;
     light.points[0].color[2] = 1.0f;
     light.points[0].intensity = 2.4f;
-    light.skyZenith[0] = 0.05f;
-    light.skyZenith[1] = 0.06f;
-    light.skyZenith[2] = 0.10f;
-    light.skyHorizon[0] = 0.12f;
-    light.skyHorizon[1] = 0.13f;
-    light.skyHorizon[2] = 0.18f;
-    light.skyGround[0] = 0.04f;
-    light.skyGround[1] = 0.04f;
+    // A studio-like environment gradient: deep-blue zenith, bright warm horizon band, dark floor.
+    // Metals now mirror this (analytic IBL), so the gradient reads as a reflection across each ball.
+    light.skyZenith[0] = 0.10f;
+    light.skyZenith[1] = 0.16f;
+    light.skyZenith[2] = 0.34f;
+    light.skyHorizon[0] = 0.78f;
+    light.skyHorizon[1] = 0.80f;
+    light.skyHorizon[2] = 0.86f;
+    light.skyGround[0] = 0.06f;
+    light.skyGround[1] = 0.05f;
     light.skyGround[2] = 0.05f;
     renderer->setLighting(light);
 

@@ -355,9 +355,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `Renderer::Material` and packed to the shader (`material1.z`); the Cook-Torrance BRDF now applies to
   the point/spot lights too (not just the sun), diffuse is energy-conserving (metals lose their diffuse
   term), and a flat ambient-reflection stand-in keeps metals from going pure black before IBL. The new
-  `pbrballs` demo renders the classic 6×6 sphere grid (glossy→rough across, dielectric→metal up). The
-  `cube`/`primitives`/`glass`/`instances`/`ortho3d` goldens were re-baselined. Image-based lighting
-  (IBL, R3) and an ACES filmic tonemap (R4) land in later R-milestones.
+  `pbrballs` demo renders the classic 6×6 sphere grid (glossy→rough across, dielectric→metal up).
+  **R3 — analytic image-based lighting** — the sky gradient is mirrored into the mesh Scene UBO, and
+  PBR materials now draw their ambient from it: diffuse uses a hemispheric sky irradiance and specular
+  reflects the sky in the mirror direction (blurred toward the irradiance as roughness rises), weighted
+  by Karis' analytic environment BRDF. Metals now reflect the environment instead of relying on a flat
+  stand-in, and `pbrballs` shows the sky gradient curving across each chrome ball. Matte materials are
+  untouched (IBL is gated on `specular`); the six PBR goldens were re-baselined. An ACES filmic tonemap
+  (R4) lands next.
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

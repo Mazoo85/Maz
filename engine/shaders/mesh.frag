@@ -32,6 +32,9 @@ layout(set = 2, binding = 0) uniform Scene {
     vec4 sunDir;   // xyz = direction toward the sun
     vec4 sunColor; // rgb = directional color
     vec4 fog;      // rgb = fog color, w = density (0 disables fog)
+    vec4 skyZenith;  // sky gradient (mirrors the sky pass) for analytic image-based lighting
+    vec4 skyHorizon;
+    vec4 skyGround;
     PointLight points[8];
 } L;
 
@@ -95,6 +98,29 @@ vec3 cookTorrance(vec3 N, vec3 V, vec3 Ldir, float rough, vec3 F0) {
     return (D * G) * F / max(4.0 * NdV * NdL, 1e-4);      // Cook-Torrance
 }
 
+// The analytic sky gradient, matching the skybox pass so reflections agree with the drawn sky.
+vec3 skyColor(vec3 dir) {
+    return dir.y >= 0.0 ? mix(L.skyHorizon.rgb, L.skyZenith.rgb, pow(dir.y, 0.55))
+                        : mix(L.skyHorizon.rgb, L.skyGround.rgb, clamp(-dir.y * 3.0, 0.0, 1.0));
+}
+
+// Diffuse irradiance from the sky: a hemispheric average biased toward the sky in the normal's
+// direction — cheap stand-in for a convolved irradiance map. Returns the ambient radiance for N.
+vec3 skyIrradiance(vec3 N) {
+    vec3 avg = (L.skyZenith.rgb + L.skyHorizon.rgb + L.skyGround.rgb) * (1.0 / 3.0);
+    return mix(avg, skyColor(N), 0.5);
+}
+
+// Karis' analytic environment-BRDF approximation (mobile) — the split-sum scale+bias for F0
+// without a precomputed LUT. x scales F0, y is the additive bias.
+vec2 envBRDFApprox(float NdV, float rough) {
+    const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+    const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+    vec4 r = rough * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * NdV)) * r.x + r.y;
+    return vec2(-1.04, 1.04) * a004 + r.zw;
+}
+
 void main() {
     vec3 N = perturbNormal(normalize(vNormal), vWorldPos, vUV);
     vec3 albedo = texture(uTexture, vUV).rgb * vColor;
@@ -116,12 +142,20 @@ void main() {
     vec3 sunDir = normalize(L.sunDir.xyz);
     float ndl = max(dot(N, sunDir), 0.0);
     float sunShadow = shadowFactor();
-    vec3 color = kd * L.ambient.rgb;                          // ambient acts on the diffuse albedo
+    // Ambient diffuse: matte materials keep the flat scene ambient; PBR materials draw their
+    // ambient from the sky (analytic image-based lighting) so surfaces pick up the environment color.
+    vec3 ambientDiffuse = pbr ? skyIrradiance(N) : L.ambient.rgb;
+    vec3 color = kd * ambientDiffuse;
     if (pbr) {
-        // Flat ambient reflection: a cheap stand-in for image-based lighting (arrives in a later
-        // milestone). Without it, metals — which have no diffuse — render pure black except at the
-        // direct highlights. F0 tints the reflected ambient so chrome/gold read correctly.
-        color += F0 * L.ambient.rgb;
+        // Specular image-based lighting: reflect the view about N, sample the sky in that direction
+        // (blurred toward the diffuse irradiance as roughness rises — a stand-in for a prefiltered
+        // environment), and weight by the analytic environment BRDF. This is what lets metals mirror
+        // the sky instead of rendering black.
+        vec3 Refl = reflect(-V, N);
+        float NdVamb = max(dot(N, V), 1e-4);
+        vec3 envSpec = mix(skyColor(Refl), skyIrradiance(N), rough);
+        vec2 ab = envBRDFApprox(NdVamb, rough);
+        color += envSpec * (F0 * ab.x + ab.y);
     }
     color += kd * L.sunColor.rgb * ndl * sunShadow;
     if (pbr) {

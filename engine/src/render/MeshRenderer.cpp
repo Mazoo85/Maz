@@ -38,6 +38,11 @@ struct GpuLights {
     float sunDir[4];   // xyz direction toward the sun
     float sunColor[4]; // rgb directional color
     float fog[4];      // rgb fog color, w = density (0 disables)
+    // Sky gradient colors, mirrored from the sky pass so PBR materials can do analytic image-based
+    // lighting (ambient irradiance + environment reflections) from the same sky the skybox draws.
+    float skyZenith[4];
+    float skyHorizon[4];
+    float skyGround[4];
     GpuPointLight points[SceneLighting::kMaxPointLights];
 };
 
@@ -662,6 +667,9 @@ void MeshRenderer::setLighting(VulkanContext& ctx, const SceneLighting& lighting
         m_skyZenith[i] = lighting.skyZenith[i];
         m_skyHorizon[i] = lighting.skyHorizon[i];
         m_skyGround[i] = lighting.skyGround[i];
+        g.skyZenith[i] = lighting.skyZenith[i];
+        g.skyHorizon[i] = lighting.skyHorizon[i];
+        g.skyGround[i] = lighting.skyGround[i];
     }
     g.ambient[3] = static_cast<float>(count);
     g.fog[0] = lighting.fogColor[0];
