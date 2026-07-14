@@ -1270,9 +1270,154 @@ inline Contact2 polyManifold(const std::vector<math::vec2>& A, const std::vector
     return m;
 }
 
+// Fill a Contact2 from a single-point Manifold.
+inline Contact2 toContact1(const Manifold& s) {
+    Contact2 c;
+    if (s.hit) {
+        c.n = s.n;
+        c.count = 1;
+        c.point[0] = s.point;
+        c.pen[0] = s.pen;
+        c.hit = true;
+    }
+    return c;
+}
+
+// Two-point capsule-vs-box manifold: when the capsule's segment lies parallel to a box face it rests
+// on TWO points (no rocking); otherwise it reduces to the single-point contact. n from capsule to box.
+inline Contact2 capsuleBoxManifold(const Body2D& cap, const Body2D& box) {
+    const Manifold s = capsuleBox(cap, box);
+    if (!s.hit) {
+        return Contact2{};
+    }
+    const math::vec2 n = s.n; // capsule -> box
+    math::vec2 bc[4];
+    boxCorners(box, bc);
+    math::vec2 refN(0.0f, 0.0f), rv0(0.0f, 0.0f), rv1(0.0f, 0.0f);
+    float bestDot = -1e30f;
+    for (int i = 0; i < 4; ++i) {
+        const math::vec2 p0 = bc[i], p1 = bc[(i + 1) & 3];
+        const math::vec2 e = p1 - p0;
+        math::vec2 nrm(e.y, -e.x);
+        const float L = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+        if (L < 1e-9f) {
+            continue;
+        }
+        nrm /= L;
+        if (glm::dot(nrm, p0 - box.pos) < 0.0f) {
+            nrm = -nrm; // outward
+        }
+        const float d = glm::dot(nrm, -n); // box face facing the capsule
+        if (d > bestDot) {
+            bestDot = d;
+            refN = nrm;
+            rv0 = p0;
+            rv1 = p1;
+        }
+    }
+    math::vec2 p0, p1;
+    capsuleSegment(cap, p0, p1);
+    math::vec2 tangent = rv1 - rv0;
+    const float tl = std::sqrt(glm::dot(tangent, tangent));
+    if (tl < 1e-9f) {
+        return toContact1(s);
+    }
+    tangent /= tl;
+    math::vec2 seg[2] = {p0, p1};
+    math::vec2 tmp[2];
+    if (clipSegment(tmp, seg, -tangent, -glm::dot(tangent, rv0)) < 2) {
+        return toContact1(s);
+    }
+    math::vec2 clipped[2];
+    if (clipSegment(clipped, tmp, tangent, glm::dot(tangent, rv1)) < 2) {
+        return toContact1(s);
+    }
+    Contact2 out;
+    const float faceOffset = glm::dot(refN, rv0);
+    for (int k = 0; k < 2; ++k) {
+        const float dist = glm::dot(refN, clipped[k]) - faceOffset; // face plane -> segment point
+        const float pen = cap.radius - dist;
+        if (pen > 0.0f && out.count < 2) {
+            out.point[out.count] = clipped[k] - refN * dist; // project onto the box face
+            out.pen[out.count] = pen;
+            ++out.count;
+        }
+    }
+    if (out.count < 2) {
+        return toContact1(s); // corner/end contact -> single point is correct
+    }
+    out.n = -refN; // capsule -> box
+    out.hit = true;
+    return out;
+}
+
+// Two-point capsule-vs-capsule manifold for near-parallel segments; else single point.
+inline Contact2 capsuleCapsuleManifold(const Body2D& A, const Body2D& B) {
+    const Manifold s = capsuleCapsule(A, B);
+    if (!s.hit) {
+        return Contact2{};
+    }
+    math::vec2 a0, a1, b0, b1;
+    capsuleSegment(A, a0, a1);
+    capsuleSegment(B, b0, b1);
+    math::vec2 da = a1 - a0;
+    const float la = std::sqrt(glm::dot(da, da));
+    math::vec2 db = b1 - b0;
+    const float lb = std::sqrt(glm::dot(db, db));
+    if (la < 1e-6f || lb < 1e-6f) {
+        return toContact1(s);
+    }
+    da /= la;
+    db /= lb;
+    if (std::fabs(cross2(da, db)) > 0.12f) {
+        return toContact1(s); // not parallel -> single contact point
+    }
+    // Clip B's segment to A's extent along da; each surviving point pairs with its projection on A.
+    math::vec2 seg[2] = {b0, b1};
+    math::vec2 tmp[2];
+    if (clipSegment(tmp, seg, -da, -glm::dot(da, a0)) < 2) {
+        return toContact1(s);
+    }
+    math::vec2 clipped[2];
+    if (clipSegment(clipped, tmp, da, glm::dot(da, a1)) < 2) {
+        return toContact1(s);
+    }
+    Contact2 out;
+    const float r = A.radius + B.radius;
+    for (int k = 0; k < 2; ++k) {
+        const math::vec2 ca = closestOnSeg(clipped[k], a0, a1);
+        const math::vec2 d = clipped[k] - ca;
+        const float dist = std::sqrt(glm::dot(d, d));
+        const float pen = r - dist;
+        if (pen > 0.0f && out.count < 2) {
+            out.point[out.count] = ca + s.n * A.radius;
+            out.pen[out.count] = pen;
+            ++out.count;
+        }
+    }
+    if (out.count < 2) {
+        return toContact1(s);
+    }
+    out.n = s.n;
+    out.hit = true;
+    return out;
+}
+
 // Any oriented pair as a Contact2. Box-box uses the two-point clip; other pairs reuse the single-point
 // manifold() (count 1), so the manifold solver handles mixed scenes uniformly.
 inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
+    // Capsule pairs: two-point manifolds where the geometry supports it (stable resting, no rocking).
+    if (a.shape == Body2D::Capsule && b.shape == Body2D::Box) {
+        return capsuleBoxManifold(a, b);
+    }
+    if (a.shape == Body2D::Box && b.shape == Body2D::Capsule) {
+        Contact2 c = capsuleBoxManifold(b, a);
+        c.n = -c.n;
+        return c;
+    }
+    if (a.shape == Body2D::Capsule && b.shape == Body2D::Capsule) {
+        return capsuleCapsuleManifold(a, b);
+    }
     if ((a.shape == Body2D::Convex || b.shape == Body2D::Convex) &&
         a.shape != Body2D::WorldBoundary && b.shape != Body2D::WorldBoundary) {
         const bool aPoly = (a.shape == Body2D::Convex || a.shape == Body2D::Box);

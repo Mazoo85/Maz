@@ -9580,6 +9580,54 @@ void testCapsule() {
         CHECK(std::sqrt(glm::dot(w.bodies[1].vel, w.bodies[1].vel)) < 5.0f); // at rest
         CHECK(std::fabs(w.bodies[1].angle) < 0.1f); // stayed upright
     }
+
+    // P11: a horizontal capsule resting on a box top yields a TWO-point manifold (no rocking).
+    {
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(100.0f, 10.0f);
+        box.pos = math::vec2(0.0f, 0.0f); // top face at y=-10
+        Body2D cap;
+        cap.shape = Body2D::Capsule;
+        cap.half = math::vec2(0.0f, 30.0f); // segment half-length 30
+        cap.radius = 10.0f;
+        cap.angle = 1.57079633f;          // horizontal (local +Y -> world +X)
+        cap.pos = math::vec2(0.0f, -15.0f); // bottom at y=-5, 5 into the box top
+        d::Contact2 m = d::manifold2(cap, box);
+        CHECK(m.hit);
+        CHECK(m.count == 2);             // flat capsule -> two contact points
+        CHECK_NEAR(m.n.y, 1.0f, 1e-2f);  // capsule (above) -> box points down (+y) into the box
+        CHECK(std::fabs(m.point[0].x - m.point[1].x) > 20.0f); // points spread along the segment
+
+        // End to end: a horizontal capsule dropped on a box floor settles flat (stays horizontal).
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 312.0f);
+        floor.invMass = 0.0f;
+        floor.friction = 0.8f;
+        w.add(floor);
+        Body2D roll;
+        roll.shape = Body2D::Capsule;
+        roll.half = math::vec2(0.0f, 40.0f);
+        roll.radius = 14.0f;
+        roll.angle = 1.57079633f; // horizontal
+        roll.pos = math::vec2(0.0f, 150.0f);
+        roll.invMass = 1.0f;
+        roll.friction = 0.8f;
+        roll.restitution = 0.0f;
+        roll.enableRotation();
+        w.add(roll);
+        for (int s = 0; s < 300; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        // Still horizontal (angle near pi/2), came to rest — the two-point contact stopped it rocking.
+        CHECK_NEAR(w.bodies[1].angle, 1.57079633f, 0.1f);
+        CHECK(std::fabs(w.bodies[1].angularVel) < 1.0f);
+    }
 }
 
 // P6: infinite WorldBoundary half-plane (Godot WorldBoundaryShape2D). A circle, a box and a capsule
