@@ -231,3 +231,10 @@ target_link_libraries(maz_unit_astar PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_astar COMMAND maz_unit_astar)
 set_tests_properties(unit_astar PROPERTIES TIMEOUT 30)
+
+# Unit tests: event-driven finite state machine (StringId states/events, onEnter/onUpdate/onExit callbacks; start/fire/update/reset; transition ordering exitOld->enterNew, self-transition fires both, unmatched event no-ops, update ticks only current, reset+restart re-enters initial, callback-less states safe).
+add_executable(maz_unit_state_machine unit_state_machine.cpp)
+target_link_libraries(maz_unit_state_machine PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_state_machine COMMAND maz_unit_state_machine)
+set_tests_properties(unit_state_machine PROPERTIES TIMEOUT 30)

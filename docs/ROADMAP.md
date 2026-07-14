@@ -220,7 +220,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 10 — Scripting & gameplay framework
 - [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
 - [ ] Script hot-reload, sandboxing
-- [ ] Gameplay: state machines, behavior trees, AI steering
+- [~] Gameplay: state machines, behavior trees, AI steering — **`maz::ai::StateMachine` landed**: event-driven FSM with onEnter/onUpdate(dt)/onExit callbacks + StringId states/events + start/fire/update/reset (transition fires onExit old -> onEnter new; self-transition fires both; unmatched event no-ops); header-only, unit-tested. Behavior trees + AI steering still TODO
 - [~] Pathfinding (A* / nav grid; navmesh later) — **`maz::ai` A* grid pathfinding landed** (`GridMap` + `findPath` with integer 10/14 costs, admissible Manhattan/octile heuristic, corner-cutting-forbidden diagonals, deterministic (f,h,index) tie-break, cost-optimal reconstruction; header-only, unit-tested); navmesh, weighted terrain, JPS still TODO
 - [ ] Particle system (CPU + GPU), emitters, affectors
 - [ ] Tilemap tools, procedural generation utilities
