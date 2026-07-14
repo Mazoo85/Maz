@@ -146,7 +146,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       setEnabled/isEnabled/has/size/clear keyed by `StringId`; header-only, unit-tested incl. a
       flagship movement-system end-to-end over `view<Position,Velocity>` + ASAN/UBSan-clean).
       Parallel/staged execution + before/after dependencies still TODO
-- [ ] Scene serialization (save/load), prefabs / blueprints
+- [~] Scene serialization (save/load), prefabs / blueprints — **`maz::scene::SceneSerializer` first slice landed**
+      (registration-based, component-agnostic ECS scene (de)serializer over `World`: component TYPES opt in via
+      `registerComponent<T>(tag, writeFn, readFn)`; `save` walks the union of registered-type `each<T>`, assigns
+      deterministic ordinals (index-sorted, deduped) and emits per-entity tag + length-prefixed bodies; `load`
+      re-creates entities and replays bodies. Entity-reference fields round-trip through `EntityRemap` ordinals so
+      a `Parent` survives index/generation reassignment; unknown tags are SKIPPED via the length prefix
+      (forward-compat); load is FAIL-SAFE (bad magic/version, bogus count, over-long body → returns false, no
+      throw/OOB, huge-`n` alloc guard); composes iter16 `ByteWriter`/`ByteReader`; header-only, unit-tested +
+      ASAN/UBSan-clean). Prefabs/blueprints, versioned migration, and a JSON/text format still TODO
 - [~] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries —
       **`maz::spatial::SpatialHashGrid` landed** (sparse uniform hash grid: items are
       (id, `maz::math::Aabb`) rasterized into every integer cell they overlap, keyed

@@ -196,3 +196,10 @@ target_link_libraries(maz_unit_ecs_components PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_ecs_components COMMAND maz_unit_ecs_components)
 set_tests_properties(unit_ecs_components PROPERTIES TIMEOUT 30)
+
+# Unit tests: registration-based ECS scene (de)serializer (Name/Tag/LocalTransform round-trip, Parent entity-reference remap via EntityRemap, unknown-tag forward-compat skip, fail-safe load on corrupt/truncated/bad-magic/bad-version, empty-world round-trip, byte-for-byte determinism).
+add_executable(maz_unit_scene_serializer unit_scene_serializer.cpp)
+target_link_libraries(maz_unit_scene_serializer PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_scene_serializer COMMAND maz_unit_scene_serializer)
+set_tests_properties(unit_scene_serializer PROPERTIES TIMEOUT 30)
