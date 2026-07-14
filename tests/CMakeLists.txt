@@ -280,3 +280,10 @@ target_link_libraries(maz_unit_blackboard PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_blackboard COMMAND maz_unit_blackboard)
 set_tests_properties(unit_blackboard PROPERTIES TIMEOUT 30)
+
+# Unit tests: update(dt)-advanced timer/callback scheduler (TimerManager; one-shot after(delay)/repeating every(interval) firing std::function callbacks, catch-up firing N times over a large dt with remainder carry, cancel deactivate-not-erase; re-entrancy — a callback may cancel any timer incl. itself and schedule new timers that are DEFERRED to the next tick, registration-order firing within a tick, clear).
+add_executable(maz_unit_timer unit_timer.cpp)
+target_link_libraries(maz_unit_timer PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_timer COMMAND maz_unit_timer)
+set_tests_properties(unit_timer PROPERTIES TIMEOUT 30)
