@@ -39,7 +39,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
 - [ ] Focus / minimize / occlusion handling (pause when unfocused)
 - [ ] Gamepad / controller support + haptics (rumble)
-- [ ] Action-mapping layer (bind abstract actions like "Jump" to keys/buttons/axes)
+- [x] Action-mapping layer (bind abstract actions like "Jump" to keys/buttons/axes) — **`maz::input::ActionMap` landed**
+      (device-neutral `InputId`; OR-combined digital buttons + digital/analog axis contributions summed then
+      clamped to [-1,1]; press/release edge detection; templated `update(Sampler)` so it builds/tests under
+      MAZ_CORE_ONLY, decoupled from `maz::platform::Input`; header-only, unit-tested); action contexts/layers,
+      analog deadzone/response curves, and binding serialization still TODO
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
 - [ ] Filesystem abstraction, virtual paths, save-directory resolution

@@ -182,3 +182,10 @@ target_link_libraries(maz_unit_spatial PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_spatial COMMAND maz_unit_spatial)
 set_tests_properties(unit_spatial PROPERTIES TIMEOUT 30)
+
+# Unit tests: device-neutral action-mapping layer (bind abstract actions to buttons/axes; OR-combined buttons, digital+analog axes summed then clamped, edge detection, unknown-action safety).
+add_executable(maz_unit_action_map unit_action_map.cpp)
+target_link_libraries(maz_unit_action_map PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_action_map COMMAND maz_unit_action_map)
+set_tests_properties(unit_action_map PROPERTIES TIMEOUT 30)
