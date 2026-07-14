@@ -518,9 +518,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   impulses applied at the contact point (lever arms). Adds the **Box** (OBB) shape (Godot
   BoxShape3D) with `enableRotation()`, sphere-box contacts, and multi-corner box-vs-plane contacts,
   so a tilted box tumbles and settles flat and a ball landing off-centre imparts spin.
-  The `physics3d` demo drops tilted boxes that tumble to rest flat plus balls that pile up and land
-  on the box tops (golden-verified). Box-vs-box (3D SAT), capsules, warm-started stacking,
-  broadphase, sleeping, queries and a character controller land in later milestones.
+  **D3 — box-vs-box (3D SAT) + stacking** — oriented-box vs oriented-box via the Separating-Axis
+  Theorem over 15 axes (3+3 face normals + 9 edge-edge cross products, faces preferred by a small
+  tolerance); a face contact produces up to four points by clipping the incident face against the
+  reference face's side planes (Sutherland-Hodgman), an edge contact a single closest-approach point,
+  so boxes stack squarely (Godot BoxShape3D). The `physics3d` demo now settles two towers of stacked
+  cubes plus a tumbling box and a pile of balls (golden-verified).
+  Capsules, warm-started stacking (rock-solid tall towers), broadphase, sleeping, queries and a
+  character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

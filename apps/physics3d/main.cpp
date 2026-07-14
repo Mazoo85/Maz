@@ -47,35 +47,42 @@ int main(int argc, char** argv) {
     world.gravity = math::vec3(0.0f, -9.81f, 0.0f);
     world.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
 
-    // Three boxes, well separated (box-vs-box lands in a later milestone), each dropped tilted so they
-    // tumble and settle flat on the ground.
+    // Two towers of boxes dropped stacked (box-vs-box now resolves) so they settle into squared stacks,
+    // plus one tilted box off to the side that tumbles flat.
     struct BoxSpawn {
         float x, y, z, h;
         math::vec3 tilt;
     };
     const BoxSpawn boxSpawns[] = {
-        {-3.2f, 3.0f, -0.2f, 0.6f, math::vec3(0.5f, 0.2f, 0.3f)},
-        {0.0f, 4.2f, 0.3f, 0.7f, math::vec3(0.2f, 0.4f, 0.6f)},
-        {3.2f, 3.4f, -0.3f, 0.55f, math::vec3(0.6f, 0.1f, 0.2f)},
+        // Tower A (x=-2.4): four cubes dropped in a column.
+        {-2.4f, 0.6f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 1.85f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 3.1f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 4.35f, 0.0f, 0.5f, math::vec3(0.0f)},
+        // Tower B (x=2.4): three cubes.
+        {2.4f, 0.6f, 0.2f, 0.5f, math::vec3(0.0f)},
+        {2.4f, 1.85f, 0.2f, 0.5f, math::vec3(0.0f)},
+        {2.4f, 3.1f, 0.2f, 0.5f, math::vec3(0.0f)},
+        // A lone tilted box that tumbles flat.
+        {0.0f, 3.0f, -2.6f, 0.6f, math::vec3(0.6f, 0.3f, 0.4f)},
     };
     std::vector<int> boxIds;
     for (const BoxSpawn& s : boxSpawns) {
         game::Body3D b = game::makeBox(math::vec3(s.x, s.y, s.z), math::vec3(s.h, s.h, s.h), 1.0f);
         b.orientation = glm::normalize(math::quat(s.tilt));
-        b.restitution = 0.1f;
-        b.friction = 0.7f;
+        b.restitution = 0.05f;
+        b.friction = 0.8f;
         b.enableRotation();
         boxIds.push_back(world.add(b));
     }
 
-    // A cluster of balls dropped down the middle; they pile up and some land on the boxes.
+    // A few balls dropped down the middle; they pile on the ground and roll against the towers.
     struct BallSpawn {
         float x, y, z, r;
     };
     const BallSpawn ballSpawns[] = {
-        {-3.1f, 5.0f, -0.1f, 0.4f},  {0.1f, 6.4f, 0.2f, 0.45f},  {3.1f, 5.4f, -0.2f, 0.4f},
-        {-0.6f, 7.6f, -0.4f, 0.42f}, {0.6f, 8.8f, 0.35f, 0.5f},  {-1.5f, 10.0f, 0.1f, 0.44f},
-        {1.4f, 11.2f, -0.2f, 0.46f}, {0.0f, 12.4f, 0.4f, 0.48f}, {-0.3f, 13.6f, -0.3f, 0.43f},
+        {0.0f, 5.0f, 0.6f, 0.45f}, {-0.5f, 6.4f, 0.9f, 0.42f}, {0.6f, 7.6f, 1.2f, 0.48f},
+        {0.1f, 9.0f, 0.4f, 0.44f}, {-0.3f, 10.2f, 1.4f, 0.46f},
     };
     std::vector<int> ballIds;
     for (const BallSpawn& s : ballSpawns) {
@@ -85,7 +92,7 @@ int main(int argc, char** argv) {
         ballIds.push_back(world.add(b));
     }
     for (int step = 0; step < 720; ++step) {
-        world.step(1.0f / 60.0f, 14);
+        world.step(1.0f / 60.0f, 16);
     }
 
     // --- Render the settled scene ------------------------------------------------------------------
@@ -183,10 +190,10 @@ int main(int argc, char** argv) {
                           "MAZ ENGINE  -  3D PHYSICS (rigid-body dynamics, toward RigidBody3D)",
                           render::Color{1, 1, 1, 1}, 0.6f);
             font.drawText(*renderer, 16.0f, 50.0f,
-                          "tilted boxes tumbled and settled flat; balls fell into a pile",
+                          "boxes stacked into towers (box-vs-box SAT); a tilted box tumbled flat; balls piled",
                           render::Color{0.8f, 0.86f, 0.95f, 1}, 0.4f);
             font.drawText(*renderer, 16.0f, 678.0f,
-                          "PhysicsWorld3D: spheres + oriented boxes, inertia tensors, angular impulses",
+                          "PhysicsWorld3D: spheres + oriented boxes, SAT manifolds, inertia + angular impulses",
                           render::Color{0.7f, 0.8f, 0.9f, 1}, 0.32f);
 
             renderer->endFrame();

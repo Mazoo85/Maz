@@ -9964,6 +9964,63 @@ void testPhysics3DBoxes() {
     }
 }
 
+// D3: box-vs-box collision (3D SAT + clipped face manifolds). Boxes rest and stack squarely.
+void testPhysics3DStacking() {
+    using game::Body3D;
+    namespace d = game::detail;
+
+    // Direct box-box overlap: B sits 0.2 into A's +Y face. n points A -> B (up), pen ~0.2, and the
+    // face clip yields multiple contact points (a stable manifold, not a single point).
+    {
+        Body3D a = game::makeBox(math::vec3(0, 0, 0), math::vec3(1, 1, 1), 1.0f);
+        Body3D b = game::makeBox(math::vec3(0, 1.8f, 0), math::vec3(1, 1, 1), 1.0f);
+        std::vector<d::Contact3> cs;
+        d::boxBox(0, a, 1, b, cs);
+        CHECK(!cs.empty());
+        CHECK(cs.size() >= 2); // clipped face contact, not a single point
+        bool anyDeep = false;
+        for (const d::Contact3& c : cs) {
+            CHECK_NEAR(c.n.y, 1.0f, 1e-2f);
+            if (std::fabs(c.pen - 0.2f) < 0.05f) {
+                anyDeep = true;
+            }
+        }
+        CHECK(anyDeep);
+    }
+    // Separated boxes: no contact.
+    {
+        Body3D a = game::makeBox(math::vec3(0, 0, 0), math::vec3(1, 1, 1), 1.0f);
+        Body3D b = game::makeBox(math::vec3(0, 5, 0), math::vec3(1, 1, 1), 1.0f);
+        std::vector<d::Contact3> cs;
+        d::boxBox(0, a, 1, b, cs);
+        CHECK(cs.empty());
+    }
+
+    // Stacking: a box dropped directly onto a box resting on the ground settles squarely on top.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D bottom = game::makeBox(math::vec3(0, 0.5f, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        bottom.friction = 0.7f;
+        bottom.enableRotation();
+        int bi = w.add(bottom);
+        Body3D top = game::makeBox(math::vec3(0.0f, 2.2f, 0.0f), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        top.friction = 0.7f;
+        top.enableRotation();
+        int ti = w.add(top);
+        for (int i = 0; i < 600; ++i) {
+            w.step(1.0f / 60.0f, 16);
+        }
+        const Body3D& rb = w.bodies[static_cast<size_t>(bi)];
+        const Body3D& rt = w.bodies[static_cast<size_t>(ti)];
+        CHECK_NEAR(rb.pos.y, 0.5f, 0.06f); // bottom still on the ground
+        CHECK_NEAR(rt.pos.y, 1.5f, 0.10f); // top rests one box-height up
+        const math::vec3 up = glm::mat3_cast(rt.orientation) * math::vec3(0, 1, 0);
+        CHECK(up.y > 0.9f); // stayed square, didn't topple
+        CHECK(std::sqrt(glm::dot(rt.angularVel, rt.angularVel)) < 0.6f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12716,6 +12773,7 @@ int main() {
     testPolylineCollider();
     testPhysics3D();
     testPhysics3DBoxes();
+    testPhysics3DStacking();
     testNormalLight();
     testParallax();
     testAudioDsp();

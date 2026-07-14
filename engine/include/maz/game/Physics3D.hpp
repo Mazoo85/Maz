@@ -243,6 +243,233 @@ inline void boxPlane(int ibox, const Body3D& box, int ip, const Body3D& p,
     }
 }
 
+// Closest points c1,c2 between 3D segments (p1,q1) and (p2,q2) — Ericson, Real-Time Collision Detection.
+inline void closestSegSeg3(const math::vec3& p1, const math::vec3& q1, const math::vec3& p2,
+                           const math::vec3& q2, math::vec3& c1, math::vec3& c2) {
+    const math::vec3 d1 = q1 - p1, d2 = q2 - p2, r = p1 - p2;
+    const float a = glm::dot(d1, d1), e = glm::dot(d2, d2), f = glm::dot(d2, r);
+    float s, t;
+    if (a < 1e-9f && e < 1e-9f) {
+        c1 = p1;
+        c2 = p2;
+        return;
+    }
+    if (a < 1e-9f) {
+        s = 0.0f;
+        t = glm::clamp(f / e, 0.0f, 1.0f);
+    } else {
+        const float c = glm::dot(d1, r);
+        if (e < 1e-9f) {
+            t = 0.0f;
+            s = glm::clamp(-c / a, 0.0f, 1.0f);
+        } else {
+            const float b = glm::dot(d1, d2);
+            const float denom = a * e - b * b;
+            s = denom > 1e-9f ? glm::clamp((b * f - c * e) / denom, 0.0f, 1.0f) : 0.0f;
+            t = (b * s + f) / e;
+            if (t < 0.0f) {
+                t = 0.0f;
+                s = glm::clamp(-c / a, 0.0f, 1.0f);
+            } else if (t > 1.0f) {
+                t = 1.0f;
+                s = glm::clamp((b - c) / a, 0.0f, 1.0f);
+            }
+        }
+    }
+    c1 = p1 + d1 * s;
+    c2 = p2 + d2 * t;
+}
+
+// Clip a convex polygon against the half-space { p : dot(planeN, p) <= offset } (Sutherland-Hodgman).
+inline std::vector<math::vec3> clipPoly3(const std::vector<math::vec3>& poly, const math::vec3& planeN,
+                                         float offset) {
+    std::vector<math::vec3> out;
+    const int n = static_cast<int>(poly.size());
+    for (int i = 0; i < n; ++i) {
+        const math::vec3& cur = poly[static_cast<size_t>(i)];
+        const math::vec3& nxt = poly[static_cast<size_t>((i + 1) % n)];
+        const float dc = glm::dot(planeN, cur) - offset;
+        const float dn = glm::dot(planeN, nxt) - offset;
+        if (dc <= 0.0f) {
+            out.push_back(cur);
+        }
+        if ((dc < 0.0f) != (dn < 0.0f)) {
+            const float tt = dc / (dc - dn);
+            out.push_back(cur + (nxt - cur) * tt);
+        }
+    }
+    return out;
+}
+
+// Oriented box A vs oriented box B via the Separating-Axis Theorem over 15 axes (3 face normals each +
+// 9 edge-edge cross products). A face-contact produces up to four contact points by clipping the
+// incident face against the reference face's side planes (Godot BoxShape3D stacking); an edge-contact
+// produces a single point at the closest approach of the two edges. n is oriented A -> B. Appends to
+// `out`. Face axes are preferred over edge axes by a small tolerance to avoid normal flip-flop.
+inline void boxBox(int ia, const Body3D& A, int ib, const Body3D& B, std::vector<Contact3>& out) {
+    const math::mat3 RA = glm::mat3_cast(A.orientation);
+    const math::mat3 RB = glm::mat3_cast(B.orientation);
+    const math::vec3 Aax[3] = {RA[0], RA[1], RA[2]};
+    const math::vec3 Bax[3] = {RB[0], RB[1], RB[2]};
+    const math::vec3 d = B.pos - A.pos;
+
+    auto projRadius = [](const math::vec3& L, const math::vec3 ax[3], const math::vec3& half) {
+        return std::fabs(glm::dot(L, ax[0])) * half.x + std::fabs(glm::dot(L, ax[1])) * half.y +
+               std::fabs(glm::dot(L, ax[2])) * half.z;
+    };
+    // Face query: separation along each of `ax`'s 3 axes; returns max separation + its face index.
+    auto queryFaces = [&](const math::vec3 ax[3], const math::vec3& half, const math::vec3 oax[3],
+                          const math::vec3& ohalf, int& faceIdx) {
+        float best = -1e30f;
+        faceIdx = 0;
+        for (int i = 0; i < 3; ++i) {
+            const float rSelf = half[i];
+            const float rOther = projRadius(ax[i], oax, ohalf);
+            const float sep = std::fabs(glm::dot(ax[i], d)) - (rSelf + rOther);
+            if (sep > best) {
+                best = sep;
+                faceIdx = i;
+            }
+        }
+        return best;
+    };
+    int fa = 0, fb = 0;
+    const float sepA = queryFaces(Aax, A.half, Bax, B.half, fa);
+    if (sepA > 0.0f) {
+        return;
+    }
+    const float sepB = queryFaces(Bax, B.half, Aax, A.half, fb);
+    if (sepB > 0.0f) {
+        return;
+    }
+    // Edge query: 9 cross-product axes.
+    float sepE = -1e30f;
+    int ea = 0, eb = 0;
+    math::vec3 edgeAxis(0.0f);
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            math::vec3 L = glm::cross(Aax[i], Bax[j]);
+            const float l2 = glm::dot(L, L);
+            if (l2 < 1e-8f) {
+                continue; // parallel edges: degenerate axis
+            }
+            L /= std::sqrt(l2);
+            if (glm::dot(L, d) < 0.0f) {
+                L = -L; // orient A -> B
+            }
+            const float sep = glm::dot(L, d) - (projRadius(L, Aax, A.half) + projRadius(L, Bax, B.half));
+            if (sep > sepE) {
+                sepE = sep;
+                ea = i;
+                eb = j;
+                edgeAxis = L;
+            }
+        }
+    }
+    if (sepE > 0.0f) {
+        return;
+    }
+
+    // Choose the contact type. Faces are preferred unless an edge axis penetrates clearly less.
+    const float absTol = 0.002f;
+    const float faceSep = std::max(sepA, sepB);
+    if (sepE > faceSep + absTol) {
+        // Edge-edge: single contact at the closest approach of the two supporting edges.
+        auto supportEdge = [](const Body3D& box, const math::vec3 ax[3], int edgeDir,
+                              const math::vec3& toward, math::vec3& p0, math::vec3& p1) {
+            math::vec3 c = box.pos;
+            for (int k = 0; k < 3; ++k) {
+                if (k == edgeDir) {
+                    continue;
+                }
+                const float s = glm::dot(toward, ax[k]) >= 0.0f ? 1.0f : -1.0f;
+                c += ax[k] * (s * box.half[k]);
+            }
+            p0 = c - ax[edgeDir] * box.half[edgeDir];
+            p1 = c + ax[edgeDir] * box.half[edgeDir];
+        };
+        math::vec3 a0, a1, b0, b1;
+        supportEdge(A, Aax, ea, edgeAxis, a0, a1);   // A edge toward +axis
+        supportEdge(B, Bax, eb, -edgeAxis, b0, b1);  // B edge toward -axis
+        math::vec3 c1, c2;
+        closestSegSeg3(a0, a1, b0, b1, c1, c2);
+        Contact3 c;
+        c.a = ia;
+        c.b = ib;
+        c.n = edgeAxis;
+        c.pen = -sepE;
+        c.point = (c1 + c2) * 0.5f;
+        c.hit = true;
+        out.push_back(c);
+        return;
+    }
+
+    // Face contact. Reference = the box with the larger (less negative) face separation.
+    const bool refIsA = sepA >= sepB - absTol;
+    const math::vec3* refAx = refIsA ? Aax : Bax;
+    const math::vec3* incAx = refIsA ? Bax : Aax;
+    const Body3D& refBody = refIsA ? A : B;
+    const Body3D& incBody = refIsA ? B : A;
+    const int rf = refIsA ? fa : fb;
+
+    math::vec3 n = refAx[rf];
+    const math::vec3 refToInc = incBody.pos - refBody.pos;
+    if (glm::dot(n, refToInc) < 0.0f) {
+        n = -n; // outward from the reference box toward the incident box
+    }
+    const math::vec3 refCenter = refBody.pos + n * refBody.half[rf];
+    const int rt1 = (rf + 1) % 3, rt2 = (rf + 2) % 3;
+
+    // Incident face: the incident box face whose normal is most anti-parallel to n.
+    int ida = 0;
+    float bestDot = 1e30f;
+    float isign = 1.0f;
+    for (int k = 0; k < 3; ++k) {
+        const float dp = glm::dot(incAx[k], n);
+        if (dp < bestDot) { // most negative => most anti-parallel with +axis
+            bestDot = dp;
+            ida = k;
+            isign = 1.0f;
+        }
+        if (-dp < bestDot) {
+            bestDot = -dp;
+            ida = k;
+            isign = -1.0f;
+        }
+    }
+    const math::vec3 incN = incAx[ida] * isign;
+    const math::vec3 incCenter = incBody.pos + incN * incBody.half[ida];
+    const int it1 = (ida + 1) % 3, it2 = (ida + 2) % 3;
+    const math::vec3 u = incAx[it1] * incBody.half[it1];
+    const math::vec3 v = incAx[it2] * incBody.half[it2];
+    std::vector<math::vec3> poly = {incCenter - u - v, incCenter + u - v, incCenter + u + v,
+                                    incCenter - u + v};
+
+    // Clip against the reference face's four side planes.
+    const math::vec3 t1 = refAx[rt1];
+    const math::vec3 t2 = refAx[rt2];
+    poly = clipPoly3(poly, t1, glm::dot(t1, refCenter) + refBody.half[rt1]);
+    poly = clipPoly3(poly, -t1, -glm::dot(t1, refCenter) + refBody.half[rt1]);
+    poly = clipPoly3(poly, t2, glm::dot(t2, refCenter) + refBody.half[rt2]);
+    poly = clipPoly3(poly, -t2, -glm::dot(t2, refCenter) + refBody.half[rt2]);
+
+    // Keep points below the reference face plane; each is a contact. n reported A -> B.
+    const math::vec3 nAB = refIsA ? n : -n;
+    for (const math::vec3& p : poly) {
+        const float sd = glm::dot(p - refCenter, n); // <0 => penetrating into the reference box
+        if (sd < 0.0f) {
+            Contact3 c;
+            c.a = ia;
+            c.b = ib;
+            c.n = nAB;
+            c.pen = -sd;
+            c.point = p - n * (sd * 0.5f);
+            c.hit = true;
+            out.push_back(c);
+        }
+    }
+}
+
 } // namespace detail
 
 // A world of 3D rigid bodies resolved with sequential impulses under a fixed timestep.
@@ -362,8 +589,9 @@ private:
                 c.n = -c.n;
                 out.push_back(c);
             }
+        } else if (a.shape == Body3D::Box && b.shape == Body3D::Box) {
+            detail::boxBox(i, a, j, b, out);
         }
-        // Box-vs-box (3D SAT) arrives in a later milestone.
     }
 
     void resolveVelocity(const detail::Contact3& c) {
