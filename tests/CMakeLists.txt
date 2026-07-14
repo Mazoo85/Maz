@@ -217,3 +217,10 @@ target_link_libraries(maz_unit_cvar PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_cvar COMMAND maz_unit_cvar)
 set_tests_properties(unit_cvar PROPERTIES TIMEOUT 30)
+
+# Unit tests: single-value float eased tween (from->to over duration via iter6 Easing/ease/lerp; Once end-clamp + onComplete fire-once, Loop/PingPong fmod phase wrap incl. multi-cycle dt, zero-duration div-by-zero guard, reset/restart).
+add_executable(maz_unit_tween unit_tween.cpp)
+target_link_libraries(maz_unit_tween PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_tween COMMAND maz_unit_tween)
+set_tests_properties(unit_tween PROPERTIES TIMEOUT 30)

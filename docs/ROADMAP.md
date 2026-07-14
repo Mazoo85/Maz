@@ -204,7 +204,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Sprite / flipbook animation, frame events
 - [ ] Skeletal animation (glTF skins), GPU skinning, blend trees
 - [ ] Animation state machine, transitions, IK (later)
-- [ ] Tween / timeline system, curves
+- [~] Tween / timeline system, curves — **`maz::anim::Tween` landed**: single-value float eased animation
+      (from->to over duration, advanced by `update(dt)`) with Once/Loop/PingPong loop modes + `onComplete`
+      (fires once on the Once-mode finish transition), Loop/PingPong driven by fmod phase math so any dt
+      (incl. multi-cycle) is handled and a zero duration is div-by-zero-guarded; composes iter6
+      `maz::math::Easing`/`ease`/`lerp`; header-only, unit-tested. A generic `Tween<T>` (vec3/color),
+      sequences/timelines, start delay, speed scale, and per-frame-event tracks still TODO
 
 ## Phase 9 — UI
 - [ ] Dear ImGui integration for tools / debug overlays
