@@ -371,3 +371,10 @@ target_link_libraries(maz_unit_interner PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_interner COMMAND maz_unit_interner)
 set_tests_properties(unit_interner PROPERTIES TIMEOUT 30)
+
+# Unit tests: IEEE 754 binary16 half-float conversion (maz::math HalfFloat.hpp; floatToHalf f32->f16 round-to-nearest-even with overflow-to-Inf, subnormal-half, NaN/Inf passthrough, and halfToFloat exact f16->f32 decode — canonical bit-pattern encode/decode vectors, exact round-trips of half-representable magnitudes, overflow saturation, Inf/NaN passthrough, smallest-subnormal 2^-24 decode/encode, and hand-verified round-to-nearest-even boundaries; std::bit_cast, header-only).
+add_executable(maz_unit_halffloat unit_halffloat.cpp)
+target_link_libraries(maz_unit_halffloat PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_halffloat COMMAND maz_unit_halffloat)
+set_tests_properties(unit_halffloat PROPERTIES TIMEOUT 30)
