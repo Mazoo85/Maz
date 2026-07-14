@@ -551,7 +551,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   max distance — `RayHit3{t, point, normal, index}` — with analytic ray-vs-sphere / oriented-box /
   capsule / half-plane intersections and 32-bit collision-**mask** filtering; pure geometry, no sim
   step. The primitive behind hitscan weapons, line-of-sight, ground probes and mouse picking.
-  A character controller lands in a later milestone.
+  **D9 — kinematic character controller** (`game::moveAndSlide3`, Godot
+  `CharacterBody3D.move_and_slide`): advance a kinematic mover (sphere/box/capsule) by a velocity,
+  then collide-and-slide against static colliders — push out of penetrations and strip the
+  into-surface velocity component so the body slides along walls instead of stopping dead — returning
+  a `MoveResult3{position, velocity, onFloor, onWall, onCeiling, floorNormal}` with floor/wall/ceiling
+  classified against an up vector. The shape-vs-shape dispatch is shared with the world's narrow-phase.
+  Verified by a test where a capsule lands on a floor (on_floor) and slides along a wall while still
+  advancing sideways.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

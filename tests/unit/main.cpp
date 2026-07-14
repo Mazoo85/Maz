@@ -10277,6 +10277,46 @@ void testPhysics3DRay() {
     }
 }
 
+// D9: 3D kinematic character controller (moveAndSlide3). A capsule mover lands on a floor, slides
+// along a wall instead of stopping dead, and reports floor/wall state.
+void testPhysics3DMoveSlide() {
+    using game::Body3D;
+
+    // A big static box floor with its top at y=0.
+    std::vector<Body3D> world;
+    world.push_back(game::makeBox(math::vec3(0, -1.0f, 0), math::vec3(10, 1, 10), 0.0f));
+
+    // A capsule mover (radius 0.4, half-height 0.6) starting above the floor, moving down.
+    Body3D mover = game::makeCapsule(math::vec3(0, 3.0f, 0), 0.4f, 0.6f, 1.0f);
+
+    // Drive it downward for a while; it should land and stop on the floor with onFloor set.
+    game::MoveResult3 r;
+    for (int i = 0; i < 200; ++i) {
+        r = game::moveAndSlide3(mover, world, math::vec3(0, -5.0f, 0), 1.0f / 60.0f);
+        mover.pos = r.position;
+    }
+    CHECK(r.onFloor);
+    // Capsule rests with its lower cap on the floor: bottom = pos.y - halfHeight - radius = 0.
+    CHECK_NEAR(mover.pos.y, 1.0f, 0.05f); // 0 + halfHeight(0.6) + radius(0.4)
+    CHECK(!r.onCeiling);
+
+    // Now push it horizontally into a wall (a box whose face is at x=1); it should slide, not stop, and
+    // its x stays on the near side of the wall.
+    std::vector<Body3D> walled;
+    walled.push_back(game::makeBox(math::vec3(0, -1.0f, 0), math::vec3(10, 1, 10), 0.0f)); // floor
+    walled.push_back(game::makeBox(math::vec3(2.0f, 1.0f, 0), math::vec3(1, 2, 10), 0.0f)); // wall x>=1
+    Body3D m2 = game::makeCapsule(math::vec3(0.0f, 1.0f, 0.0f), 0.4f, 0.6f, 1.0f);
+    game::MoveResult3 r2;
+    for (int i = 0; i < 120; ++i) {
+        // Move diagonally into the wall and forward along z.
+        r2 = game::moveAndSlide3(m2, walled, math::vec3(3.0f, 0.0f, 2.0f), 1.0f / 60.0f);
+        m2.pos = r2.position;
+    }
+    CHECK(r2.onWall);
+    CHECK(m2.pos.x < 0.65f);  // stopped at the wall face (x=1) minus capsule radius 0.4
+    CHECK(m2.pos.z > 1.0f);   // but kept sliding along z (wasn't halted by the wall)
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13035,6 +13075,7 @@ int main() {
     testPhysics3DBroadphase();
     testPhysics3DSleep();
     testPhysics3DRay();
+    testPhysics3DMoveSlide();
     testNormalLight();
     testParallax();
     testAudioDsp();

@@ -794,6 +794,62 @@ inline bool rayCapsule(const math::vec3& o, const math::vec3& d, const Body3D& c
     return found;
 }
 
+// Generate contacts between any two bodies (a as index ia, b as index ib), appended to `out` with n
+// oriented a -> b. This is the shared shape dispatch used by both the world's narrow-phase and the
+// kinematic character controller.
+inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
+                        std::vector<Contact3>& out) {
+    auto push = [&](Contact3 c) {
+        if (c.hit) {
+            out.push_back(c);
+        }
+    };
+    auto flipped = [&](Contact3 c) {
+        std::swap(c.a, c.b);
+        c.n = -c.n;
+        return c;
+    };
+    if (a.shape == Body3D::Sphere && b.shape == Body3D::Sphere) {
+        push(sphereSphere(ia, a, ib, b));
+    } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Plane) {
+        push(spherePlane(ia, a, ib, b));
+    } else if (a.shape == Body3D::Plane && b.shape == Body3D::Sphere) {
+        push(flipped(spherePlane(ib, b, ia, a)));
+    } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Box) {
+        push(sphereBox(ia, a, ib, b));
+    } else if (a.shape == Body3D::Box && b.shape == Body3D::Sphere) {
+        push(flipped(sphereBox(ib, b, ia, a)));
+    } else if (a.shape == Body3D::Box && b.shape == Body3D::Plane) {
+        boxPlane(ia, a, ib, b, out);
+    } else if (a.shape == Body3D::Plane && b.shape == Body3D::Box) {
+        std::vector<Contact3> tmp;
+        boxPlane(ib, b, ia, a, tmp);
+        for (const Contact3& c : tmp) {
+            out.push_back(flipped(c));
+        }
+    } else if (a.shape == Body3D::Box && b.shape == Body3D::Box) {
+        boxBox(ia, a, ib, b, out);
+    } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Plane) {
+        capsulePlane(ia, a, ib, b, out);
+    } else if (a.shape == Body3D::Plane && b.shape == Body3D::Capsule) {
+        std::vector<Contact3> tmp;
+        capsulePlane(ib, b, ia, a, tmp);
+        for (const Contact3& c : tmp) {
+            out.push_back(flipped(c));
+        }
+    } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Capsule) {
+        push(sphereCapsule(ia, a, ib, b));
+    } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Sphere) {
+        push(flipped(sphereCapsule(ib, b, ia, a)));
+    } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Capsule) {
+        push(capsuleCapsule(ia, a, ib, b));
+    } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Box) {
+        push(capsuleBox(ia, a, ib, b));
+    } else if (a.shape == Body3D::Box && b.shape == Body3D::Capsule) {
+        push(flipped(capsuleBox(ib, b, ia, a)));
+    }
+}
+
 } // namespace detail
 
 // Result of a ray query against the physics world (Godot PhysicsDirectSpaceState3D.intersect_ray).
@@ -1124,68 +1180,7 @@ private:
     }
 
     void collide(int i, int j, std::vector<detail::Contact3>& out) const {
-        const Body3D& a = bodies[static_cast<size_t>(i)];
-        const Body3D& b = bodies[static_cast<size_t>(j)];
-        auto push = [&](detail::Contact3 c) {
-            if (c.hit) {
-                out.push_back(c);
-            }
-        };
-        if (a.shape == Body3D::Sphere && b.shape == Body3D::Sphere) {
-            push(detail::sphereSphere(i, a, j, b));
-        } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Plane) {
-            push(detail::spherePlane(i, a, j, b));
-        } else if (a.shape == Body3D::Plane && b.shape == Body3D::Sphere) {
-            detail::Contact3 c = detail::spherePlane(j, b, i, a);
-            std::swap(c.a, c.b);
-            c.n = -c.n;
-            push(c);
-        } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Box) {
-            push(detail::sphereBox(i, a, j, b));
-        } else if (a.shape == Body3D::Box && b.shape == Body3D::Sphere) {
-            detail::Contact3 c = detail::sphereBox(j, b, i, a);
-            std::swap(c.a, c.b);
-            c.n = -c.n;
-            push(c);
-        } else if (a.shape == Body3D::Box && b.shape == Body3D::Plane) {
-            detail::boxPlane(i, a, j, b, out);
-        } else if (a.shape == Body3D::Plane && b.shape == Body3D::Box) {
-            std::vector<detail::Contact3> tmp;
-            detail::boxPlane(j, b, i, a, tmp);
-            for (detail::Contact3 c : tmp) {
-                std::swap(c.a, c.b);
-                c.n = -c.n;
-                out.push_back(c);
-            }
-        } else if (a.shape == Body3D::Box && b.shape == Body3D::Box) {
-            detail::boxBox(i, a, j, b, out);
-        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Plane) {
-            detail::capsulePlane(i, a, j, b, out);
-        } else if (a.shape == Body3D::Plane && b.shape == Body3D::Capsule) {
-            std::vector<detail::Contact3> tmp;
-            detail::capsulePlane(j, b, i, a, tmp);
-            for (detail::Contact3 c : tmp) {
-                std::swap(c.a, c.b);
-                c.n = -c.n;
-                out.push_back(c);
-            }
-        } else if (a.shape == Body3D::Sphere && b.shape == Body3D::Capsule) {
-            push(detail::sphereCapsule(i, a, j, b));
-        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Sphere) {
-            detail::Contact3 c = detail::sphereCapsule(j, b, i, a);
-            std::swap(c.a, c.b);
-            c.n = -c.n;
-            push(c);
-        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Capsule) {
-            push(detail::capsuleCapsule(i, a, j, b));
-        } else if (a.shape == Body3D::Capsule && b.shape == Body3D::Box) {
-            push(detail::capsuleBox(i, a, j, b));
-        } else if (a.shape == Body3D::Box && b.shape == Body3D::Capsule) {
-            detail::Contact3 c = detail::capsuleBox(j, b, i, a);
-            std::swap(c.a, c.b);
-            c.n = -c.n;
-            push(c);
-        }
+        detail::collidePair(i, bodies[static_cast<size_t>(i)], j, bodies[static_cast<size_t>(j)], out);
     }
 
     // Effective mass along direction d for a contact with lever arms rA, rB.
@@ -1318,5 +1313,63 @@ private:
 
     std::vector<detail::Constraint3> m_prev; // last frame's constraints, for warm starting
 };
+
+// Result of a kinematic move (Godot CharacterBody3D.move_and_slide).
+struct MoveResult3 {
+    math::vec3 position{0.0f};   // resolved position after sliding
+    math::vec3 velocity{0.0f};   // velocity with into-surface components removed
+    bool onFloor = false;        // stood on a surface facing mostly up
+    bool onWall = false;         // touched a mostly-vertical surface
+    bool onCeiling = false;      // hit a surface facing mostly down
+    math::vec3 floorNormal{0.0f};
+};
+
+// Kinematic character move: advance `mover` by `velocity * dt`, then collide-and-slide against the
+// static `colliders` (which must NOT include the mover), pushing out of penetrations and removing the
+// velocity component into each surface — Godot CharacterBody3D.move_and_slide. Surfaces steeper toward
+// `up` than `floorMaxCos` count as floor; near-vertical as wall; facing down as ceiling. `mover.pos`
+// is the start position; the shape (sphere/box/capsule) and orientation come from `mover`.
+inline MoveResult3 moveAndSlide3(Body3D mover, const std::vector<Body3D>& colliders,
+                                 math::vec3 velocity, float dt, math::vec3 up = math::vec3(0, 1, 0),
+                                 int maxSlides = 4, float floorMaxCos = 0.7f) {
+    MoveResult3 res;
+    res.velocity = velocity;
+    mover.pos += velocity * dt;
+    const float upLen = std::sqrt(glm::dot(up, up));
+    const math::vec3 u = upLen > 1e-9f ? up / upLen : math::vec3(0, 1, 0);
+    for (int iter = 0; iter < maxSlides; ++iter) {
+        bool any = false;
+        for (const Body3D& obstacle : colliders) {
+            std::vector<detail::Contact3> cs;
+            detail::collidePair(0, mover, 1, obstacle, cs); // n: mover -> obstacle
+            for (const detail::Contact3& c : cs) {
+                if (!c.hit || c.pen <= 0.0f) {
+                    continue;
+                }
+                mover.pos -= c.n * c.pen; // push out along mover<-obstacle
+                const float vn = glm::dot(res.velocity, c.n);
+                if (vn > 0.0f) {
+                    res.velocity -= c.n * vn; // remove motion into the surface (slide)
+                }
+                const math::vec3 sn = -c.n; // surface normal pointing back at the mover
+                const float d = glm::dot(sn, u);
+                if (d > floorMaxCos) {
+                    res.onFloor = true;
+                    res.floorNormal = sn;
+                } else if (d < -floorMaxCos) {
+                    res.onCeiling = true;
+                } else {
+                    res.onWall = true;
+                }
+                any = true;
+            }
+        }
+        if (!any) {
+            break;
+        }
+    }
+    res.position = mover.pos;
+    return res;
+}
 
 } // namespace maz::game
