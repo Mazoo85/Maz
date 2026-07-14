@@ -10469,6 +10469,38 @@ void testPhysics3DDistanceJoint() {
     }
 }
 
+// D13: 3D hinge (revolute) joint. A box hinged to a static anchor along the world Z axis swings down
+// under gravity but rotates ONLY about that axis (no tumbling), and the hinge point stays fixed.
+void testPhysics3DHinge() {
+    using game::Body3D;
+
+    const math::vec3 pivot(0, 5, 0);
+    game::PhysicsWorld3D w;
+    const int anchor = w.add(game::makeSphere(pivot, 0.1f, 0.0f)); // static
+    Body3D box = game::makeBox(math::vec3(1, 5, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+    box.friction = 0.0f;
+    box.enableRotation();
+    const int bi = w.add(box);
+    w.joints.push_back(game::makeHingeJoint3(anchor, w.bodies[static_cast<size_t>(anchor)], bi,
+                                             w.bodies[static_cast<size_t>(bi)], pivot,
+                                             math::vec3(0, 0, 1)));
+    float minY = 1e9f, worstAxis = 1.0f, worstAnchor = 0.0f;
+    for (int i = 0; i < 300; ++i) {
+        w.step(1.0f / 60.0f, 16);
+        const Body3D& b = w.bodies[static_cast<size_t>(bi)];
+        const math::mat3 R = glm::mat3_cast(b.orientation);
+        // The box's local Z axis must stay aligned with world Z (rotation only about the hinge).
+        worstAxis = std::min(worstAxis, glm::dot(R * math::vec3(0, 0, 1), math::vec3(0, 0, 1)));
+        // The hinge point (box local anchor -> world) must stay at the pivot.
+        const math::vec3 hinge = b.pos + R * (math::vec3(-1, 0, 0));
+        worstAnchor = std::max(worstAnchor, std::sqrt(glm::dot(hinge - pivot, hinge - pivot)));
+        minY = std::min(minY, b.pos.y);
+    }
+    CHECK(worstAxis > 0.99f);   // never tumbled off the hinge axis
+    CHECK(worstAnchor < 0.06f); // hinge point stayed pinned
+    CHECK(minY < 4.8f);         // swung down (toward hanging at pivot.y - 1 = 4)
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13231,6 +13263,7 @@ int main() {
     testPhysics3DMaterial();
     testPhysics3DJoint();
     testPhysics3DDistanceJoint();
+    testPhysics3DHinge();
     testNormalLight();
     testParallax();
     testAudioDsp();

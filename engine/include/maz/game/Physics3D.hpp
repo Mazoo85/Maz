@@ -864,12 +864,14 @@ inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
 // makeDistanceJoint3. Either body may be static (invMass 0). `beta` is the position-correction
 // stiffness.
 struct Joint3D {
-    enum Kind { Pin, Distance };
+    enum Kind { Pin, Distance, Hinge };
     int a = -1, b = -1;
     int kind = Pin;
     math::vec3 localA{0.0f}; // anchor in a's local frame (relative to a.pos, before rotation)
     math::vec3 localB{0.0f}; // anchor in b's local frame
-    float restLength = 0.0f; // used when kind == Distance
+    math::vec3 axisLocalA{0, 0, 1}; // hinge axis in a's local frame (Kind::Hinge)
+    math::vec3 axisLocalB{0, 0, 1}; // hinge axis in b's local frame (equal in world at build time)
+    float restLength = 0.0f;        // used when kind == Distance
     float beta = 0.2f;
 };
 
@@ -898,6 +900,25 @@ inline Joint3D makeDistanceJoint3(int ia, const Body3D& a, int ib, const Body3D&
     j.localB = glm::transpose(glm::mat3_cast(b.orientation)) * (worldAnchorB - b.pos);
     const math::vec3 d = worldAnchorB - worldAnchorA;
     j.restLength = restLength >= 0.0f ? restLength : std::sqrt(glm::dot(d, d));
+    return j;
+}
+
+// Hinge (revolute) joint: pin the bodies at a shared world anchor AND allow relative rotation only
+// about `worldAxis` (Godot HingeJoint3D) — doors, wheels, elbows.
+inline Joint3D makeHingeJoint3(int ia, const Body3D& a, int ib, const Body3D& b,
+                               math::vec3 worldAnchor, math::vec3 worldAxis) {
+    Joint3D j;
+    j.a = ia;
+    j.b = ib;
+    j.kind = Joint3D::Hinge;
+    const math::mat3 RtA = glm::transpose(glm::mat3_cast(a.orientation));
+    const math::mat3 RtB = glm::transpose(glm::mat3_cast(b.orientation));
+    j.localA = RtA * (worldAnchor - a.pos);
+    j.localB = RtB * (worldAnchor - b.pos);
+    const float al = std::sqrt(glm::dot(worldAxis, worldAxis));
+    const math::vec3 axis = al > 1e-9f ? worldAxis / al : math::vec3(0, 0, 1);
+    j.axisLocalA = RtA * axis;
+    j.axisLocalB = RtB * axis;
     return j;
 }
 
@@ -1407,7 +1428,7 @@ private:
             return;
         }
 
-        // Pin (point-to-point): 3-DOF, drive the two world anchors coincident.
+        // Pin + Hinge share the point-to-point linear part: 3-DOF, drive the anchors coincident.
         const math::vec3 C = (b.pos + rB) - (a.pos + rA); // position error (want 0)
         const math::mat3 sA = detail::skew(rA);
         const math::mat3 sB = detail::skew(rB);
@@ -1417,6 +1438,33 @@ private:
         a.angularVel -= invIA * glm::cross(rA, P);
         b.vel += P * b.invMass;
         b.angularVel += invIB * glm::cross(rB, P);
+
+        if (j.kind == Joint3D::Hinge) {
+            // Lock the two rotational DOF perpendicular to the hinge axis: the relative angular velocity
+            // may only be along the axis. Bias realigns the two bodies' axes (cross product = drift).
+            const math::vec3 axisA = glm::mat3_cast(a.orientation) * j.axisLocalA;
+            const math::vec3 axisB = glm::mat3_cast(b.orientation) * j.axisLocalB;
+            const float axl = std::sqrt(glm::dot(axisA, axisA));
+            if (axl < 1e-9f) {
+                return;
+            }
+            math::vec3 t1, t2;
+            detail::makeBasis3(axisA / axl, t1, t2);
+            const math::vec3 alignErr = glm::cross(axisA, axisB); // ~0 when the axes coincide
+            const math::mat3 invISum = invIA + invIB;
+            const math::vec3 tang[2] = {t1, t2};
+            for (const math::vec3& t : tang) {
+                const float k = glm::dot(t, invISum * t);
+                if (k <= 0.0f) {
+                    continue;
+                }
+                const float cv = glm::dot(b.angularVel - a.angularVel, t) + bias * glm::dot(alignErr, t);
+                const float L = -cv / k;
+                const math::vec3 Lw = t * L; // angular impulse
+                a.angularVel -= invIA * Lw;
+                b.angularVel += invIB * Lw;
+            }
+        }
     }
 
     void correctPosition(const detail::Constraint3& c) {

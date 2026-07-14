@@ -576,8 +576,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   holding two anchor points a fixed `restLength` apart along the line between them (rigid rods, rope
   links, ragdoll bones — Godot Generic6DOF distance), solved along the contact axis with a Baumgarte
   bias in the same joint loop. Verified by a ball on a rod hanging at exactly the rod length and a rod
-  keeping two free-falling balls a fixed distance apart every step. Convex/trimesh colliders, a hinge
-  (revolute) joint, and full shape-vs-shape CCD remain honestly-noted extras.
+  keeping two free-falling balls a fixed distance apart every step.
+  **D13 — hinge (revolute) joint** (`Joint3D::Hinge` + `makeHingeJoint3`, Godot HingeJoint3D): the
+  point-to-point linear constraint plus a 2-DOF angular lock so the bodies may only rotate relative to
+  each other about the hinge axis, with a cross-product axis-realignment Baumgarte bias — doors,
+  wheels, elbows/knees. Verified by a box hinged along world Z that swings down under gravity while its
+  local Z axis never leaves the hinge axis and the hinge point stays pinned. Convex/trimesh colliders
+  and full shape-vs-shape CCD remain honestly-noted extras.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
