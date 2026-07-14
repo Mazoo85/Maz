@@ -131,7 +131,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       parentWorld × local recompute; any `setLocal`/`setParent` marks the subtree dirty; `setParent`
       reparent with an ancestor cycle-guard; header-only, unit-tested + ASAN/UBSan-clean incl. a
       rotation-compose-order gate). Node destroy/recycle + ECS integration still TODO
-- [ ] System scheduler (ordered + parallel execution)
+- [~] System scheduler (ordered + parallel execution) — **`maz::ecs::SystemScheduler` landed**
+      (register named systems — `std::function<void(World&)>`, so a lambda / free fn / member fn /
+      `Delegate` all bind in — run every enabled system in registration order each tick; add/remove/
+      setEnabled/isEnabled/has/size/clear keyed by `StringId`; header-only, unit-tested incl. a
+      flagship movement-system end-to-end over `view<Position,Velocity>` + ASAN/UBSan-clean).
+      Parallel/staged execution + before/after dependencies still TODO
 - [ ] Scene serialization (save/load), prefabs / blueprints
 - [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries
 

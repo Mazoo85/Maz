@@ -168,3 +168,10 @@ target_link_libraries(maz_unit_scenegraph PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_scenegraph COMMAND maz_unit_scenegraph)
 set_tests_properties(unit_scenegraph PROPERTIES TIMEOUT 30)
+
+# Unit tests: ECS system scheduler (ordered systems over World; registration-order run, enable/remove, movement-system end-to-end).
+add_executable(maz_unit_ecs_scheduler unit_ecs_scheduler.cpp)
+target_link_libraries(maz_unit_ecs_scheduler PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_ecs_scheduler COMMAND maz_unit_ecs_scheduler)
+set_tests_properties(unit_ecs_scheduler PROPERTIES TIMEOUT 30)
