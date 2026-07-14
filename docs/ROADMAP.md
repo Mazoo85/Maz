@@ -55,7 +55,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
-- [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections + Frustum culling + affine Transform landed** (`maz::math::Geometry`/`Frustum`/`Transform`, unit-tested); OBB TODO
+- [~] Transform helpers, AABB/OBB, ray, plane, frustum — **Aabb + Ray + Plane + intersections + Frustum culling + affine Transform landed** (`maz::math::Geometry`/`Frustum`/`Transform`, unit-tested); **`maz::math` quaternion rotation helpers landed** (`Rotation.hpp`: `fromAxisAngle`/`fromEuler` (documented YXZ, Godot-default)/`rotate`/`angleBetween` (unsigned, double-cover-safe)/`slerp` (shortest-path)/`rotateTowards` (angle-clamped step)/`lookRotation` (local -Z→forward, camera convention), header-only, unit-tested); OBB TODO
 - [x] Easing / interpolation, deterministic RNG (PCG/xoshiro) — PCG32 `maz::core::Rng` + `maz::math` interpolation/easing (lerp/inverseLerp/remap/smoothstep/moveToward/lerpAngle + Penner `Easing`), unit-tested; **`maz::core` sampling utilities landed** (`Sampling.hpp`: `shuffle` in-place Fisher-Yates, `weightedIndex` loot-table draw proportional to non-negative weights, `sampleWithoutReplacement` k distinct indices via partial Fisher-Yates, `gaussian` Box-Muller normal sample — all built on `Rng`, deterministic per seed, header-only, unit-tested)
 - [~] Memory: linear / stack / pool / frame allocators, arenas — **`maz::core::LinearAllocator` landed**
       (fixed-capacity bump-pointer arena: aligned `allocate`, `reset`, stack-style `marker`/`rewindTo`;

@@ -315,3 +315,10 @@ target_link_libraries(maz_unit_sampling PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_sampling COMMAND maz_unit_sampling)
 set_tests_properties(unit_sampling PROPERTIES TIMEOUT 30)
+
+# Unit tests: quaternion rotation helpers over glm (maz::math::Rotation; fromAxisAngle normalizing a non-unit axis, rotate(q,v), fromEuler documented YXZ/Godot-default single-axis == fromAxisAngle, angleBetween unsigned + double-cover-safe via abs(dot)+acos-domain clamp, shortest-path slerp endpoints/midpoint-arc, rotateTowards angle-clamped step + reach/coincident short-circuit, lookRotation local -Z maps to forward with +Y-near-up camera-convention basis; right-hand-rule/handedness hand-verified expecteds).
+add_executable(maz_unit_rotation unit_rotation.cpp)
+target_link_libraries(maz_unit_rotation PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_rotation COMMAND maz_unit_rotation)
+set_tests_properties(unit_rotation PROPERTIES TIMEOUT 30)
