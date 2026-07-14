@@ -71,6 +71,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       — plus **`maz::core::LruCache<K,V>` landed** (bounded least-recently-used cache à la Godot's
       resource cache; MRU-ordered intrusive list + key→node map, O(1) put/get/peek/erase with
       evict-after-insert LRU eviction over capacity; header-only, unit-tested)
+      — plus **`maz::core::Trie` landed** (byte-oriented prefix tree over a `unique_ptr` child-node
+      map: idempotent `insert`, `contains` exact-word membership vs `startsWith` any-word-with-prefix,
+      `collect(prefix)` returning all matching words sorted for autocomplete — the console/asset-path
+      companion to the iter29 CVars; header-only, unit-tested)
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested) + **`maz::core::str` string utilities landed** (ASCII/locale-independent split/join, borrowing trim, startsWith/endsWith/contains, toLower/toUpper/equalsIgnoreCase, replaceAll, from_chars parseInt/parseFloat; header-only, unit-tested) + **`maz::core::StringInterner` landed** (the interning / original-string-storage companion to hash-only `StringId`, à la Godot's `StringName`: `intern(s)` hashes via `StringId::fromBytes` AND stores the source text so `resolve(id)` recovers it, de-duplicating repeats; header-only, unit-tested); fixed strings TODO
 - [x] Event bus / signals, delegates / typed callbacks — **`maz::core::EventBus<Event>` + `Delegate<R(Args...)>` landed**
       (`EventBus`: Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks,

@@ -413,3 +413,10 @@ target_link_libraries(maz_unit_rect2 PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_rect2 COMMAND maz_unit_rect2)
 set_tests_properties(unit_rect2 PROPERTIES TIMEOUT 30)
+
+# Unit tests: byte-oriented prefix tree (maz::core::Trie; unique_ptr child-node tree, insert with idempotent distinct-word count, contains exact-word membership vs startsWith any-word-with-prefix distinction, collect(prefix) returning ALL matching words sorted lexicographically incl. collect("") == every word and the prefix-node-is-itself-a-word case, empty/clear bookkeeping, the empty-string-word edge, branching over shared prefixes; the console/asset-path autocomplete companion to the iter29 CVars).
+add_executable(maz_unit_trie unit_trie.cpp)
+target_link_libraries(maz_unit_trie PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_trie COMMAND maz_unit_trie)
+set_tests_properties(unit_trie PROPERTIES TIMEOUT 30)
