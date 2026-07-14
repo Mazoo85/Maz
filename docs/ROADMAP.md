@@ -559,6 +559,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   classified against an up vector. The shape-vs-shape dispatch is shared with the world's narrow-phase.
   Verified by a test where a capsule lands on a floor (on_floor) and slides along a wall while still
   advancing sideways.
+  **D10 — physics materials** — friction and restitution combine modes (`CombineMode` +
+  `combineValue`, extracted into a shared header so the 2D and 3D solvers use identical material
+  semantics — Godot PhysicsMaterial): `PhysicsWorld3D::frictionCombine` / `restitutionCombine`
+  (GeometricMean / Average / Multiply / Min / Max) select how two bodies' scalars combine into the
+  effective pair value; defaults (geometric-mean friction, min restitution) reproduce the prior
+  hardcoded behaviour exactly. Verified by a test where Max-restitution makes a ball bounce far
+  higher than Min. This brings the 3D deep-dive (D1–D10) to a complete rigid-body core; 3D joints,
+  convex/trimesh shapes and full shape-vs-shape CCD remain as honestly-noted extras.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

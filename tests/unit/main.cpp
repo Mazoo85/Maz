@@ -10317,6 +10317,49 @@ void testPhysics3DMoveSlide() {
     CHECK(m2.pos.z > 1.0f);   // but kept sliding along z (wasn't halted by the wall)
 }
 
+// D10: 3D physics materials. combineValue is shared with the 2D solver; the 3D world's default combine
+// modes reproduce the old hardcoded behaviour, and Max restitution makes a pair bounce higher than Min.
+void testPhysics3DMaterial() {
+    using game::Body3D;
+    using game::CombineMode;
+
+    // Shared combine helper sanity (same as the 2D solver uses).
+    CHECK_NEAR(game::combineValue(CombineMode::Min, 0.2f, 0.8f), 0.2f, 1e-6f);
+    CHECK_NEAR(game::combineValue(CombineMode::Max, 0.2f, 0.8f), 0.8f, 1e-6f);
+    CHECK_NEAR(game::combineValue(CombineMode::Average, 0.2f, 0.8f), 0.5f, 1e-6f);
+    CHECK_NEAR(game::combineValue(CombineMode::Multiply, 0.5f, 0.5f), 0.25f, 1e-6f);
+    CHECK_NEAR(game::combineValue(CombineMode::GeometricMean, 0.25f, 0.64f), 0.4f, 1e-6f);
+
+    // Drop a ball (restitution 0.9) onto a floor (restitution 0.1) and measure the peak rebound height
+    // under Min vs Max restitution combine. Max should bounce noticeably higher than Min.
+    auto peakAfterBounce = [](CombineMode mode) {
+        game::PhysicsWorld3D w;
+        w.restitutionCombine = mode;
+        Body3D floor = game::makeBox(math::vec3(0, -1, 0), math::vec3(10, 1, 10), 0.0f);
+        floor.restitution = 0.1f;
+        w.add(floor);
+        Body3D ball = game::makeSphere(math::vec3(0, 3, 0), 0.5f);
+        ball.restitution = 0.9f;
+        const int b = w.add(ball);
+        bool landed = false;
+        float peak = 0.0f;
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 8);
+            const float y = w.bodies[static_cast<size_t>(b)].pos.y;
+            if (y < 0.7f) {
+                landed = true;
+            }
+            if (landed) {
+                peak = std::max(peak, y);
+            }
+        }
+        return peak;
+    };
+    const float minPeak = peakAfterBounce(CombineMode::Min);   // e = min(0.9,0.1) = 0.1 -> low bounce
+    const float maxPeak = peakAfterBounce(CombineMode::Max);   // e = max(0.9,0.1) = 0.9 -> high bounce
+    CHECK(maxPeak > minPeak + 0.3f);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13076,6 +13119,7 @@ int main() {
     testPhysics3DSleep();
     testPhysics3DRay();
     testPhysics3DMoveSlide();
+    testPhysics3DMaterial();
     testNormalLight();
     testParallax();
     testAudioDsp();

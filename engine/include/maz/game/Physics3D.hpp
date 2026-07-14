@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/game/CollisionLayers.hpp"
+#include "maz/game/CombineMode.hpp"
 #include "maz/math/Math.hpp"
 
 #include <glm/gtc/quaternion.hpp>
@@ -886,6 +887,11 @@ struct PhysicsWorld3D {
     float sleepLinearThreshold = 0.05f;
     float sleepAngularThreshold = 0.05f;
     float sleepTime = 0.5f;
+    // How two bodies' per-body friction / restitution combine into the effective pair value (Godot
+    // PhysicsMaterial). Defaults reproduce the previous hardcoded behaviour exactly (geometric-mean
+    // friction, min restitution), so existing scenes are unchanged.
+    CombineMode frictionCombine = CombineMode::GeometricMean;
+    CombineMode restitutionCombine = CombineMode::Min;
 
     int add(const Body3D& b) {
         bodies.push_back(b);
@@ -1212,11 +1218,13 @@ private:
         k.massN = mN > 0.0f ? 1.0f / mN : 0.0f;
         k.massT1 = mT1 > 0.0f ? 1.0f / mT1 : 0.0f;
         k.massT2 = mT2 > 0.0f ? 1.0f / mT2 : 0.0f;
-        k.mu = std::sqrt(a.friction * b.friction);
+        k.mu = combineValue(frictionCombine, a.friction, b.friction);
         const math::vec3 rv =
             (b.vel + glm::cross(b.angularVel, k.rB)) - (a.vel + glm::cross(a.angularVel, k.rA));
         const float vn = glm::dot(rv, k.n);
-        const float e = (-vn > restitutionThreshold) ? std::min(a.restitution, b.restitution) : 0.0f;
+        const float e =
+            (-vn > restitutionThreshold) ? combineValue(restitutionCombine, a.restitution, b.restitution)
+                                         : 0.0f;
         k.restitutionBias = -e * vn; // target closing speed to reverse on bounce
         k.key = (static_cast<uint64_t>(static_cast<uint32_t>(c.a)) << 32) |
                 static_cast<uint32_t>(c.b);

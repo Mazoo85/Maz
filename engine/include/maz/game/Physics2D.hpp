@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/game/CollisionLayers.hpp"
+#include "maz/game/CombineMode.hpp"
 #include "maz/game/ShapeCast2D.hpp"
 #include "maz/math/Math.hpp"
 
@@ -166,26 +167,8 @@ struct Bounds2D {
 // A contact lifecycle event, reported by PhysicsWorld2D when trackContacts is on (Godot's
 // body_entered / body_exited + contact monitor). Begin = the pair started touching this step, Persist
 // = still touching, End = separated this step. `impulse` is the accumulated normal impulse applied.
-// How two bodies' per-body friction / restitution scalars combine into the effective pair value
-// (Godot PhysicsMaterial / Box2D). GeometricMean = sqrt(a*b) is the physically-standard friction
-// combine and the engine's historical default; Max is the usual restitution choice.
-enum class CombineMode { GeometricMean, Average, Multiply, Min, Max };
-
-inline float combineValue(CombineMode mode, float a, float b) {
-    switch (mode) {
-    case CombineMode::Average:
-        return 0.5f * (a + b);
-    case CombineMode::Multiply:
-        return a * b;
-    case CombineMode::Min:
-        return a < b ? a : b;
-    case CombineMode::Max:
-        return a > b ? a : b;
-    case CombineMode::GeometricMean:
-    default:
-        return std::sqrt((a < 0.0f ? 0.0f : a) * (b < 0.0f ? 0.0f : b));
-    }
-}
+// CombineMode / combineValue (how per-body friction+restitution combine into the pair value — Godot
+// PhysicsMaterial / Box2D) now live in the shared CombineMode.hpp, reused by the 2D and 3D solvers.
 
 enum class ContactPhase { Begin, Persist, End };
 struct ContactEvent {
