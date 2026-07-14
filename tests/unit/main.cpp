@@ -10021,6 +10021,44 @@ void testPhysics3DStacking() {
     }
 }
 
+// D4: warm-started solver. A tall stack of boxes stays rigid and vertical at a modest iteration count,
+// which the non-warm-started solver could not hold. Each box settles one box-height above the last.
+void testPhysics3DWarmStack() {
+    using game::Body3D;
+
+    game::PhysicsWorld3D w;
+    w.warmStarting = true;
+    w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+    const int N = 5;
+    const float h = 0.5f;
+    std::vector<int> ids;
+    for (int i = 0; i < N; ++i) {
+        // Start each box a touch above its resting slot so the stack settles from a small drop.
+        Body3D box = game::makeBox(math::vec3(0.0f, h + static_cast<float>(i) * (2.0f * h) + 0.05f, 0.0f),
+                                   math::vec3(h, h, h), 1.0f);
+        box.friction = 0.8f;
+        box.restitution = 0.0f;
+        box.enableRotation();
+        ids.push_back(w.add(box));
+    }
+    for (int s = 0; s < 400; ++s) {
+        w.step(1.0f / 60.0f, 8); // only 8 iterations — warm starting is what keeps this rigid
+    }
+    for (int i = 0; i < N; ++i) {
+        const Body3D& r = w.bodies[static_cast<size_t>(ids[static_cast<size_t>(i)])];
+        const float expectedY = h + static_cast<float>(i) * (2.0f * h);
+        CHECK_NEAR(r.pos.y, expectedY, 0.12f);          // stayed stacked, didn't sink or explode
+        CHECK(std::fabs(r.pos.x) < 0.2f);               // didn't drift sideways
+        const math::vec3 up = glm::mat3_cast(r.orientation) * math::vec3(0, 1, 0);
+        CHECK(up.y > 0.95f);                            // stayed square
+    }
+    // The whole stack has come to rest.
+    for (int i = 0; i < N; ++i) {
+        const Body3D& r = w.bodies[static_cast<size_t>(ids[static_cast<size_t>(i)])];
+        CHECK(std::sqrt(glm::dot(r.vel, r.vel)) < 0.3f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12774,6 +12812,7 @@ int main() {
     testPhysics3D();
     testPhysics3DBoxes();
     testPhysics3DStacking();
+    testPhysics3DWarmStack();
     testNormalLight();
     testParallax();
     testAudioDsp();

@@ -522,10 +522,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   Theorem over 15 axes (3+3 face normals + 9 edge-edge cross products, faces preferred by a small
   tolerance); a face contact produces up to four points by clipping the incident face against the
   reference face's side planes (Sutherland-Hodgman), an edge contact a single closest-approach point,
-  so boxes stack squarely (Godot BoxShape3D). The `physics3d` demo now settles two towers of stacked
-  cubes plus a tumbling box and a pile of balls (golden-verified).
-  Capsules, warm-started stacking (rock-solid tall towers), broadphase, sleeping, queries and a
-  character controller land in later milestones.
+  so boxes stack squarely (Godot BoxShape3D).
+  **D4 — warm-started accumulated-impulse solver** — the velocity solve is now constraint-based: each
+  contact carries a normal + two-tangent frame, accumulated normal/friction impulses clamped inside
+  the Coulomb cone, and is warm-started from the previous frame's matching contact (paired by body
+  ids + contact-point proximity). This is the modern Box2D/Godot solve — a six-high box tower stays
+  dead vertical at a handful of iterations, where the non-warm-started solver leaned and jittered.
+  The `physics3d` demo settles a six-cube and a four-cube tower plus a tumbling box and a pile of
+  balls (golden-verified). Capsules, broadphase, sleeping, queries and a character controller land in
+  later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

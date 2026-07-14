@@ -54,15 +54,18 @@ int main(int argc, char** argv) {
         math::vec3 tilt;
     };
     const BoxSpawn boxSpawns[] = {
-        // Tower A (x=-2.4): four cubes dropped in a column.
-        {-2.4f, 0.6f, 0.0f, 0.5f, math::vec3(0.0f)},
-        {-2.4f, 1.85f, 0.0f, 0.5f, math::vec3(0.0f)},
-        {-2.4f, 3.1f, 0.0f, 0.5f, math::vec3(0.0f)},
-        {-2.4f, 4.35f, 0.0f, 0.5f, math::vec3(0.0f)},
-        // Tower B (x=2.4): three cubes.
-        {2.4f, 0.6f, 0.2f, 0.5f, math::vec3(0.0f)},
-        {2.4f, 1.85f, 0.2f, 0.5f, math::vec3(0.0f)},
-        {2.4f, 3.1f, 0.2f, 0.5f, math::vec3(0.0f)},
+        // Tower A (x=-2.4): a six-cube column — warm starting keeps it rigid and vertical.
+        {-2.4f, 0.55f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 1.57f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 2.59f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 3.61f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 4.63f, 0.0f, 0.5f, math::vec3(0.0f)},
+        {-2.4f, 5.65f, 0.0f, 0.5f, math::vec3(0.0f)},
+        // Tower B (x=2.4): four cubes.
+        {2.4f, 0.55f, 0.2f, 0.5f, math::vec3(0.0f)},
+        {2.4f, 1.57f, 0.2f, 0.5f, math::vec3(0.0f)},
+        {2.4f, 2.59f, 0.2f, 0.5f, math::vec3(0.0f)},
+        {2.4f, 3.61f, 0.2f, 0.5f, math::vec3(0.0f)},
         // A lone tilted box that tumbles flat.
         {0.0f, 3.0f, -2.6f, 0.6f, math::vec3(0.6f, 0.3f, 0.4f)},
     };
@@ -92,7 +95,7 @@ int main(int argc, char** argv) {
         ballIds.push_back(world.add(b));
     }
     for (int step = 0; step < 720; ++step) {
-        world.step(1.0f / 60.0f, 16);
+        world.step(1.0f / 60.0f, 12); // warm starting keeps the six-high tower rigid at few iterations
     }
 
     // --- Render the settled scene ------------------------------------------------------------------
@@ -190,10 +193,10 @@ int main(int argc, char** argv) {
                           "MAZ ENGINE  -  3D PHYSICS (rigid-body dynamics, toward RigidBody3D)",
                           render::Color{1, 1, 1, 1}, 0.6f);
             font.drawText(*renderer, 16.0f, 50.0f,
-                          "boxes stacked into towers (box-vs-box SAT); a tilted box tumbled flat; balls piled",
+                          "warm-started solver holds tall box towers rigid; a tilted box tumbled flat; balls piled",
                           render::Color{0.8f, 0.86f, 0.95f, 1}, 0.4f);
             font.drawText(*renderer, 16.0f, 678.0f,
-                          "PhysicsWorld3D: spheres + oriented boxes, SAT manifolds, inertia + angular impulses",
+                          "PhysicsWorld3D: warm-started accumulated impulses, SAT manifolds, angular dynamics",
                           render::Color{0.7f, 0.8f, 0.9f, 1}, 0.32f);
 
             renderer->endFrame();

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace maz::game {
@@ -470,6 +471,35 @@ inline void boxBox(int ia, const Body3D& A, int ib, const Body3D& B, std::vector
     }
 }
 
+// A solver constraint built from a contact: precomputed lever arms, a contact frame (normal + two
+// tangents), effective masses, a restitution target, and the accumulated impulses that are warm-started
+// from the previous frame's matching contact. Accumulation + warm starting are what make a tall stack
+// stay rigid at a handful of iterations (the same technique as the 2D warm solver).
+struct Constraint3 {
+    int a = -1, b = -1;
+    math::vec3 rA{0.0f}, rB{0.0f};
+    math::vec3 n{0.0f}, t1{0.0f}, t2{0.0f};
+    float massN = 0.0f, massT1 = 0.0f, massT2 = 0.0f;
+    float restitutionBias = 0.0f;
+    float pen = 0.0f;
+    math::vec3 point{0.0f};
+    float mu = 0.0f;
+    float an = 0.0f, jt1 = 0.0f, jt2 = 0.0f; // accumulated normal + friction impulses
+    uint64_t key = 0;
+};
+
+// Build an orthonormal tangent basis (t1,t2) spanning the plane perpendicular to unit `n`. Chosen
+// deterministically from `n` so a stable contact normal yields a stable basis frame to frame (which is
+// what lets the accumulated friction impulses warm-start correctly).
+inline void makeBasis3(const math::vec3& n, math::vec3& t1, math::vec3& t2) {
+    if (std::fabs(n.x) >= 0.577f) {
+        t1 = glm::normalize(math::vec3(n.y, -n.x, 0.0f));
+    } else {
+        t1 = glm::normalize(math::vec3(0.0f, n.z, -n.y));
+    }
+    t2 = glm::cross(n, t1);
+}
+
 } // namespace detail
 
 // A world of 3D rigid bodies resolved with sequential impulses under a fixed timestep.
@@ -483,6 +513,9 @@ struct PhysicsWorld3D {
     float correctionPercent = 0.2f;
     // Relative normal speed below which restitution is suppressed, so resting bodies don't buzz.
     float restitutionThreshold = 1.0f;
+    // Warm starting: carry each contact's accumulated impulses to the next frame (matched by body pair
+    // + contact-point proximity). This is what makes tall stacks stay rigid at a few iterations.
+    bool warmStarting = true;
 
     int add(const Body3D& b) {
         bodies.push_back(b);
@@ -527,20 +560,28 @@ struct PhysicsWorld3D {
             }
         }
 
-        // Velocity resolution: several sequential-impulse passes over all contacts.
+        // Build solver constraints from the contacts and warm-start them from last frame.
+        std::vector<detail::Constraint3> cons;
+        cons.reserve(contacts.size());
+        for (const detail::Contact3& c : contacts) {
+            if (c.hit) {
+                cons.push_back(buildConstraint(c));
+            }
+        }
+        if (warmStarting) {
+            warmStart(cons);
+        }
+        // Velocity iterations: normal then friction impulses, accumulated + clamped.
         for (int it = 0; it < iterations; ++it) {
-            for (const detail::Contact3& c : contacts) {
-                if (c.hit) {
-                    resolveVelocity(c);
-                }
+            for (detail::Constraint3& c : cons) {
+                solveConstraint(c);
             }
         }
         // Positional correction (split from velocity so it never injects energy).
-        for (const detail::Contact3& c : contacts) {
-            if (c.hit) {
-                correctPosition(c);
-            }
+        for (const detail::Constraint3& c : cons) {
+            correctPosition(c);
         }
+        m_prev = std::move(cons); // keep for next frame's warm start
 
         // Integrate position + orientation.
         for (Body3D& b : bodies) {
@@ -594,67 +635,122 @@ private:
         }
     }
 
-    void resolveVelocity(const detail::Contact3& c) {
+    // Effective mass along direction d for a contact with lever arms rA, rB.
+    float effMass(int ia, int ib, const math::vec3& rA, const math::vec3& rB,
+                  const math::vec3& d) const {
+        const Body3D& a = bodies[static_cast<size_t>(ia)];
+        const Body3D& b = bodies[static_cast<size_t>(ib)];
+        const math::vec3 raxd = glm::cross(rA, d);
+        const math::vec3 rbxd = glm::cross(rB, d);
+        return a.invMass + b.invMass + glm::dot(raxd, m_invIw[static_cast<size_t>(ia)] * raxd) +
+               glm::dot(rbxd, m_invIw[static_cast<size_t>(ib)] * rbxd);
+    }
+
+    detail::Constraint3 buildConstraint(const detail::Contact3& c) const {
+        const Body3D& a = bodies[static_cast<size_t>(c.a)];
+        const Body3D& b = bodies[static_cast<size_t>(c.b)];
+        detail::Constraint3 k;
+        k.a = c.a;
+        k.b = c.b;
+        k.n = c.n;
+        detail::makeBasis3(c.n, k.t1, k.t2);
+        k.rA = c.point - a.pos;
+        k.rB = c.point - b.pos;
+        k.point = c.point;
+        k.pen = c.pen;
+        const float mN = effMass(c.a, c.b, k.rA, k.rB, k.n);
+        const float mT1 = effMass(c.a, c.b, k.rA, k.rB, k.t1);
+        const float mT2 = effMass(c.a, c.b, k.rA, k.rB, k.t2);
+        k.massN = mN > 0.0f ? 1.0f / mN : 0.0f;
+        k.massT1 = mT1 > 0.0f ? 1.0f / mT1 : 0.0f;
+        k.massT2 = mT2 > 0.0f ? 1.0f / mT2 : 0.0f;
+        k.mu = std::sqrt(a.friction * b.friction);
+        const math::vec3 rv =
+            (b.vel + glm::cross(b.angularVel, k.rB)) - (a.vel + glm::cross(a.angularVel, k.rA));
+        const float vn = glm::dot(rv, k.n);
+        const float e = (-vn > restitutionThreshold) ? std::min(a.restitution, b.restitution) : 0.0f;
+        k.restitutionBias = -e * vn; // target closing speed to reverse on bounce
+        k.key = (static_cast<uint64_t>(static_cast<uint32_t>(c.a)) << 32) |
+                static_cast<uint32_t>(c.b);
+        return k;
+    }
+
+    void applyImpulse(detail::Constraint3& c, const math::vec3& P) {
         Body3D& a = bodies[static_cast<size_t>(c.a)];
         Body3D& b = bodies[static_cast<size_t>(c.b)];
-        const float invSum = a.invMass + b.invMass;
-        if (invSum <= 0.0f) {
-            return;
-        }
-        const math::mat3& invIA = m_invIw[static_cast<size_t>(c.a)];
-        const math::mat3& invIB = m_invIw[static_cast<size_t>(c.b)];
-        const math::vec3 rA = c.point - a.pos;
-        const math::vec3 rB = c.point - b.pos;
-
-        auto relVel = [&]() {
-            return (b.vel + glm::cross(b.angularVel, rB)) - (a.vel + glm::cross(a.angularVel, rA));
-        };
-
-        // Effective mass along a direction d at the contact point.
-        auto effMass = [&](const math::vec3& d) {
-            const math::vec3 raxd = glm::cross(rA, d);
-            const math::vec3 rbxd = glm::cross(rB, d);
-            return invSum + glm::dot(raxd, invIA * raxd) + glm::dot(rbxd, invIB * rbxd);
-        };
-
-        const math::vec3 rv = relVel();
-        const float vn = glm::dot(rv, c.n);
-        if (vn > 0.0f) {
-            return; // separating already
-        }
-        const float kn = effMass(c.n);
-        if (kn <= 0.0f) {
-            return;
-        }
-        const float e = (-vn > restitutionThreshold) ? std::min(a.restitution, b.restitution) : 0.0f;
-        const float jn = -(1.0f + e) * vn / kn;
-        const math::vec3 P = c.n * jn;
         a.vel -= P * a.invMass;
-        a.angularVel -= invIA * glm::cross(rA, P);
+        a.angularVel -= m_invIw[static_cast<size_t>(c.a)] * glm::cross(c.rA, P);
         b.vel += P * b.invMass;
-        b.angularVel += invIB * glm::cross(rB, P);
+        b.angularVel += m_invIw[static_cast<size_t>(c.b)] * glm::cross(c.rB, P);
+    }
 
-        // Coulomb friction along the tangent of the (post-normal) relative velocity.
-        const math::vec3 rv2 = relVel();
-        math::vec3 t = rv2 - c.n * glm::dot(rv2, c.n);
-        const float tl = std::sqrt(glm::dot(t, t));
-        if (tl > 1e-6f) {
-            t /= tl;
-            const float kt = effMass(t);
-            if (kt > 0.0f) {
-                const float jt = -glm::dot(rv2, t) / kt;
-                const float mu = std::sqrt(a.friction * b.friction);
-                const float jtc = std::clamp(jt, -jn * mu, jn * mu);
-                const math::vec3 Pt = t * jtc;
-                a.vel -= Pt * a.invMass;
-                a.angularVel -= invIA * glm::cross(rA, Pt);
-                b.vel += Pt * b.invMass;
-                b.angularVel += invIB * glm::cross(rB, Pt);
+    // Seed each constraint's accumulators from the matching contact last frame (same pair + nearest
+    // point) and apply the inherited impulse, so the solver starts near the converged answer.
+    void warmStart(std::vector<detail::Constraint3>& cons) {
+        std::unordered_multimap<uint64_t, size_t> index;
+        index.reserve(m_prev.size() * 2);
+        for (size_t p = 0; p < m_prev.size(); ++p) {
+            index.emplace(m_prev[p].key, p);
+        }
+        for (detail::Constraint3& c : cons) {
+            auto range = index.equal_range(c.key);
+            float bestD2 = 0.04f * 0.04f; // match tolerance (~4cm) squared
+            const detail::Constraint3* best = nullptr;
+            for (auto it = range.first; it != range.second; ++it) {
+                const detail::Constraint3& pc = m_prev[it->second];
+                const math::vec3 d = pc.point - c.point;
+                const float d2 = glm::dot(d, d);
+                if (d2 < bestD2) {
+                    bestD2 = d2;
+                    best = &pc;
+                }
+            }
+            if (best != nullptr) {
+                c.an = best->an;
+                c.jt1 = best->jt1;
+                c.jt2 = best->jt2;
+                applyImpulse(c, c.n * c.an + c.t1 * c.jt1 + c.t2 * c.jt2);
             }
         }
     }
 
-    void correctPosition(const detail::Contact3& c) {
+    void solveConstraint(detail::Constraint3& c) {
+        const Body3D& a = bodies[static_cast<size_t>(c.a)];
+        const Body3D& b = bodies[static_cast<size_t>(c.b)];
+        auto relVel = [&]() {
+            return (b.vel + glm::cross(b.angularVel, c.rB)) - (a.vel + glm::cross(a.angularVel, c.rA));
+        };
+        // Normal impulse (accumulated, clamped >= 0), targeting the restitution bias velocity.
+        {
+            const float vn = glm::dot(relVel(), c.n);
+            const float dl = c.massN * (c.restitutionBias - vn);
+            const float newAn = std::max(c.an + dl, 0.0f);
+            const float applied = newAn - c.an;
+            c.an = newAn;
+            applyImpulse(c, c.n * applied);
+        }
+        // Friction impulse in the tangent plane, clamped inside the Coulomb cone (|jt| <= mu*an).
+        {
+            const math::vec3 rv = relVel();
+            const float dvt1 = -c.massT1 * glm::dot(rv, c.t1);
+            const float dvt2 = -c.massT2 * glm::dot(rv, c.t2);
+            float n1 = c.jt1 + dvt1;
+            float n2 = c.jt2 + dvt2;
+            const float maxF = c.mu * c.an;
+            const float m2 = n1 * n1 + n2 * n2;
+            if (m2 > maxF * maxF && m2 > 1e-12f) {
+                const float s = maxF / std::sqrt(m2);
+                n1 *= s;
+                n2 *= s;
+            }
+            const math::vec3 P = c.t1 * (n1 - c.jt1) + c.t2 * (n2 - c.jt2);
+            c.jt1 = n1;
+            c.jt2 = n2;
+            applyImpulse(c, P);
+        }
+    }
+
+    void correctPosition(const detail::Constraint3& c) {
         Body3D& a = bodies[static_cast<size_t>(c.a)];
         Body3D& b = bodies[static_cast<size_t>(c.b)];
         const float invSum = a.invMass + b.invMass;
@@ -666,6 +762,8 @@ private:
         a.pos -= correction * a.invMass;
         b.pos += correction * b.invMass;
     }
+
+    std::vector<detail::Constraint3> m_prev; // last frame's constraints, for warm starting
 };
 
 } // namespace maz::game
