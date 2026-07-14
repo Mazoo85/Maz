@@ -129,7 +129,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       entity from all stores, single-component `each<T>` iteration, AND multi-component `view<Ts...>`
       queries — `signature.contains(mask)` filtering over the lead store, `fn(Entity, Ts&...)` by
       reference; header-only, unit-tested + ASAN/UBSan-clean). System scheduler still TODO
-- [ ] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
+- [x] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag` — **`maz::ecs::Components` landed**
+      (built-in component structs `LocalTransform`/`WorldTransform` wrapping iter5 `maz::math::Transform`,
+      `Name` + `Tag` as hashed `StringId`, and a `Parent` entity link; free-function helpers
+      `findByName`/`setParent` (upsert, no dup on reparent)/`parentOf`/`childrenOf` over `World`;
+      header-only, unit-tested + ASAN/UBSan-clean). A transform-propagation SYSTEM
+      (`LocalTransform`+`Parent`→`WorldTransform`) and a name→entity index are future refinements
 - [~] Scene graph, world-transform propagation, dirty flags — **`maz::scene::SceneGraph` first slice landed**
       (node hierarchy with local/cached-world `maz::math::Transform` per node; lazy `getWorld` =
       parentWorld × local recompute; any `setLocal`/`setParent` marks the subtree dirty; `setParent`

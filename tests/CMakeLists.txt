@@ -189,3 +189,10 @@ target_link_libraries(maz_unit_action_map PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_action_map COMMAND maz_unit_action_map)
 set_tests_properties(unit_action_map PROPERTIES TIMEOUT 30)
+
+# Unit tests: ECS core components (LocalTransform/WorldTransform/Name/Tag/Parent + findByName/setParent/parentOf/childrenOf helpers over World).
+add_executable(maz_unit_ecs_components unit_ecs_components.cpp)
+target_link_libraries(maz_unit_ecs_components PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_ecs_components COMMAND maz_unit_ecs_components)
+set_tests_properties(unit_ecs_components PROPERTIES TIMEOUT 30)
