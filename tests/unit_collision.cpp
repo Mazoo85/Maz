@@ -138,6 +138,104 @@ int main() {
         check(approx(t, 2.0f), "raySphere t in ray-dir length units == 2");
     }
 
+    // Ray-triangle (Moeller-Trumbore). Triangle in the z=0 plane, CCW winding -> +z
+    // normal. Barycentrics: u toward v1, v toward v2, 1-u-v toward v0.
+    const vec3 tv0(0.0f, 0.0f, 0.0f);
+    const vec3 tv1(1.0f, 0.0f, 0.0f);
+    const vec3 tv2(0.0f, 1.0f, 0.0f);
+
+    // --- 11. rayTriangle hit inside, straight-down ray ------------------------
+    // Hit point (0.25,0.25,0) = v0 + 0.25*(1,0,0) + 0.25*(0,1,0) -> u=0.25, v=0.25,
+    // travels 1 unit down (z: 1 -> 0) so t=1.
+    {
+        Ray r{vec3(0.25f, 0.25f, 1.0f), vec3(0.0f, 0.0f, -1.0f)};
+        float t = -1.0f, u = -1.0f, v = -1.0f;
+        check(rayTriangle(r, tv0, tv1, tv2, t, u, v), "rayTriangle hit inside");
+        check(approx(t, 1.0f), "rayTriangle inside t == 1");
+        check(approx(u, 0.25f), "rayTriangle inside u == 0.25");
+        check(approx(v, 0.25f), "rayTriangle inside v == 0.25");
+    }
+
+    // --- 12. rayTriangle hit at a vertex --------------------------------------
+    // Straight down onto v0 -> u=0, v=0, t=1.
+    {
+        Ray r{vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f)};
+        float t = -1.0f, u = -1.0f, v = -1.0f;
+        check(rayTriangle(r, tv0, tv1, tv2, t, u, v), "rayTriangle hit at vertex v0");
+        check(approx(t, 1.0f), "rayTriangle vertex t == 1");
+        check(approx(u, 0.0f), "rayTriangle vertex u == 0");
+        check(approx(v, 0.0f), "rayTriangle vertex v == 0");
+    }
+
+    // --- 13. rayTriangle miss (outside triangle) ------------------------------
+    // (2,2) projects to u=2 (>1) -> rejected -> false. Do not read outputs.
+    {
+        Ray r{vec3(2.0f, 2.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f)};
+        float t = -1.0f;
+        check(!rayTriangle(r, tv0, tv1, tv2, t), "rayTriangle miss (u+v>1, outside)");
+    }
+
+    // --- 14. rayTriangle miss (u<0 side) --------------------------------------
+    // (-0.5,0.25) -> u<0 -> false.
+    {
+        Ray r{vec3(-0.5f, 0.25f, 1.0f), vec3(0.0f, 0.0f, -1.0f)};
+        float t = -1.0f;
+        check(!rayTriangle(r, tv0, tv1, tv2, t), "rayTriangle miss (u<0)");
+    }
+
+    // --- 15. rayTriangle parallel to plane ------------------------------------
+    // dir (1,0,0) lies in a plane parallel to z=0 -> det ~= 0 -> false.
+    {
+        Ray r{vec3(0.25f, 0.25f, 1.0f), vec3(1.0f, 0.0f, 0.0f)};
+        float t = -1.0f;
+        check(!rayTriangle(r, tv0, tv1, tv2, t), "rayTriangle parallel to plane");
+    }
+
+    // --- 16. rayTriangle behind the ray ---------------------------------------
+    // dir +z points away from the z=0 triangle -> t<0 -> false.
+    {
+        Ray r{vec3(0.25f, 0.25f, 1.0f), vec3(0.0f, 0.0f, 1.0f)};
+        float t = -1.0f;
+        check(!rayTriangle(r, tv0, tv1, tv2, t), "rayTriangle behind ray (t<0)");
+    }
+
+    // --- 17. rayTriangle backface cull ----------------------------------------
+    // Ray comes up through the back face (origin below, dir +z). Hits at t=1 without
+    // cull; rejected with cullBackface=true (det-sign test).
+    {
+        Ray r{vec3(0.25f, 0.25f, -1.0f), vec3(0.0f, 0.0f, 1.0f)};
+        float t = -1.0f;
+        check(rayTriangle(r, tv0, tv1, tv2, t, /*cullBackface=*/false),
+              "rayTriangle backface hit without cull");
+        check(approx(t, 1.0f), "rayTriangle backface no-cull t == 1");
+        float t2 = -1.0f;
+        check(!rayTriangle(r, tv0, tv1, tv2, t2, /*cullBackface=*/true),
+              "rayTriangle backface rejected with cull");
+    }
+
+    // --- 18. rayTriangle unnormalized dir -------------------------------------
+    // dir length 2 (0,0,-2): origin z=2, hit z=0 at t=1 (2 + 1*(-2) = 0). t in
+    // dir-length units.
+    {
+        Ray r{vec3(0.25f, 0.25f, 2.0f), vec3(0.0f, 0.0f, -2.0f)};
+        float t = -1.0f, u = -1.0f, v = -1.0f;
+        check(rayTriangle(r, tv0, tv1, tv2, t, u, v), "rayTriangle hit with unnormalized dir");
+        check(approx(t, 1.0f), "rayTriangle unnormalized t == 1 (dir-length units)");
+        check(approx(u, 0.25f), "rayTriangle unnormalized u == 0.25");
+        check(approx(v, 0.25f), "rayTriangle unnormalized v == 0.25");
+    }
+
+    // --- 19. rayTriangle barycentric on an edge -------------------------------
+    // Midpoint of edge v0-v1: (0.5,0,0) -> u=0.5, v=0 (asymmetric: catches a u/v swap).
+    {
+        Ray r{vec3(0.5f, 0.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f)};
+        float t = -1.0f, u = -1.0f, v = -1.0f;
+        check(rayTriangle(r, tv0, tv1, tv2, t, u, v), "rayTriangle hit on edge v0-v1");
+        check(approx(t, 1.0f), "rayTriangle edge t == 1");
+        check(approx(u, 0.5f), "rayTriangle edge u == 0.5");
+        check(approx(v, 0.0f), "rayTriangle edge v == 0");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

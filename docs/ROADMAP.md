@@ -188,7 +188,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 6 — Physics & collision
 - [ ] 2D: AABB / circle, broadphase (grid / sweep-and-prune), resolution
 - [ ] 2D physics integration (custom or Box2D)
-- [~] 3D collision shapes, raycasts / queries, triggers / overlaps — **Sphere primitive + sphere/ray-sphere intersection tests landed** (`maz::math::Collision`: `Sphere` + `sphereSphere`/`sphereAabb`/`spherePlane`/`raySphere`/`closestPointOnAabb`, complementing iter2 Geometry Aabb/Ray/Plane; unit-tested); full collision shapes/queries/triggers TODO
+- [~] 3D collision shapes, raycasts / queries, triggers / overlaps — **Sphere primitive + sphere/ray-sphere + ray-triangle intersection tests landed** (`maz::math::Collision`: `Sphere` + `sphereSphere`/`sphereAabb`/`spherePlane`/`raySphere`/`closestPointOnAabb`, plus `rayTriangle` (Möller–Trumbore, barycentrics + optional backface cull) for mesh picking / raycasting, complementing iter2 Geometry Aabb/Ray/Plane; unit-tested); full collision shapes/queries/triggers TODO
 - [ ] 3D physics integration (Jolt or Bullet), character controller
 - [ ] Continuous collision, layers / masks, physics materials
 - [ ] Collider / contact debug visualization

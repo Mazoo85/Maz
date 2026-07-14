@@ -4,13 +4,17 @@
 // Geometry.hpp's Aabb/Ray/Plane tests: sphere-sphere and sphere-AABB overlap
 // (squared-distance / closest-point, no sqrt on the boolean paths), sphere-plane
 // straddle, closest-point-on-AABB, and ray-sphere (earliest t>=0, ray origin may
-// be inside). The Godot collision/broadphase analog; composes iter2-era Geometry.
+// be inside). Also ray-triangle (Moeller-Trumbore, earliest t>=0, optional
+// backface cull) — the basis for mesh picking / raycasting. The Godot
+// collision/broadphase analog; composes iter2-era Geometry.
 //
 // Conventions:
 //   - Ray: dir need NOT be normalized. Intersection parameters (t) are expressed
 //     in dir-length units (matching Geometry's Ray/rayAabb), i.e. the hit point is
 //     origin + t*dir.
 //   - Overlap tests are inclusive: touching == overlapping.
+//   - Ray-triangle barycentrics (u,v): u is the weight toward v1, v toward v2, and
+//     1-u-v toward v0, so the hit point is v0 + u*(v1-v0) + v*(v2-v0).
 //   - NOT a full physics solver — contact manifolds, GJK/EPA, and swept tests are
 //     future refinements.
 
@@ -85,6 +89,44 @@ inline bool raySphere(const Ray& r, const Sphere& s, float& tOut) {
     }
     tOut = t;
     return true;
+}
+
+// Ray vs triangle (v0,v1,v2), Moeller-Trumbore. Returns the earliest t >= 0 hit; writes
+// t plus barycentric coords (u,v) of the hit — the point is v0 + u*(v1-v0) + v*(v2-v0)
+// (u is the weight toward v1, v toward v2, and 1-u-v toward v0). dir need NOT be
+// normalized (t is in dir-length units, matching Ray/rayAabb/raySphere). When
+// cullBackface is true, a hit on the triangle's back face (ray hitting the side
+// opposite the winding normal) is rejected. Only writes outputs when returning true.
+inline bool rayTriangle(const Ray& r, vec3 v0, vec3 v1, vec3 v2,
+                        float& tOut, float& uOut, float& vOut,
+                        bool cullBackface = false) {
+    const float eps = 1e-6f;
+    const vec3 edge1 = v1 - v0;
+    const vec3 edge2 = v2 - v0;
+    const vec3 pvec = cross(r.dir, edge2);
+    const float det = dot(edge1, pvec);
+    if (cullBackface) {
+        if (det < eps) return false;            // back-facing or parallel
+    } else {
+        if (det > -eps && det < eps) return false; // parallel to the triangle plane
+    }
+    const float invDet = 1.0f / det;
+    const vec3 tvec = r.origin - v0;
+    const float u = dot(tvec, pvec) * invDet;
+    if (u < 0.0f || u > 1.0f) return false;
+    const vec3 qvec = cross(tvec, edge1);
+    const float v = dot(r.dir, qvec) * invDet;
+    if (v < 0.0f || u + v > 1.0f) return false;
+    const float t = dot(edge2, qvec) * invDet;
+    if (t < 0.0f) return false;                 // intersection is behind the ray origin
+    tOut = t; uOut = u; vOut = v;
+    return true;
+}
+
+// Convenience overload without the barycentric out-params (delegates, discarding u,v).
+inline bool rayTriangle(const Ray& r, vec3 v0, vec3 v1, vec3 v2, float& tOut, bool cullBackface = false) {
+    float u = 0.0f, v = 0.0f;
+    return rayTriangle(r, v0, v1, v2, tOut, u, v, cullBackface);
 }
 
 } // namespace maz::math
