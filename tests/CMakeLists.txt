@@ -420,3 +420,10 @@ target_link_libraries(maz_unit_trie PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_trie COMMAND maz_unit_trie)
 set_tests_properties(unit_trie PROPERTIES TIMEOUT 30)
+
+# Unit tests: critically-damped spring smoother (maz::math::smoothDamp; exact Unity Mathf.SmoothDamp transcription incl. the e^-x exponential approximation and overshoot guard, moving current->target while tracking an in/out velocity, reaching target in ~smoothTime seconds without overshoot; property-based — converges toward target with velocity settling to ~0, monotonic no-overshoot approach stays in [0,target], single step moves partway with correct-sign velocity, already-at-target stationarity, maxSpeed bounds per-step change, internally-clamped smoothTime=0 near-snaps without div-by-zero/NaN, downward-direction mirror, vec3 per-component independence).
+add_executable(maz_unit_smoothdamp unit_smoothdamp.cpp)
+target_link_libraries(maz_unit_smoothdamp PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_smoothdamp COMMAND maz_unit_smoothdamp)
+set_tests_properties(unit_smoothdamp PROPERTIES TIMEOUT 30)

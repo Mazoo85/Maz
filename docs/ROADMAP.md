@@ -232,7 +232,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       uniform Catmull-Rom through control points (evaluate/tangent/sample), Godot Curve3D/Path3D analog
       for camera/motion paths. `maz::math::CubicBezier` landed: handle-based cubic Bezier
       (evaluate/tangent/sample, four control points through the endpoints toward the handles), Godot
-      Curve/path-handle analog complementing the interpolating Catmull-Rom. A generic `Tween<T>` (vec3/color),
+      Curve/path-handle analog complementing the interpolating Catmull-Rom. `maz::math::smoothDamp` landed:
+      critically-damped spring follow (exact Unity Mathf.SmoothDamp transcription incl. the e^-x approximation
+      and overshoot guard) — moves current->target tracking an in/out velocity, reaching target in ~smoothTime
+      seconds without overshoot, with a maxSpeed cap and a per-axis vec3 overload; the stateful springy
+      target-follow complement to the fixed-duration Tween, for camera/value follow; header-only, unit-tested.
+      A generic `Tween<T>` (vec3/color),
       sequences/timelines, start delay, speed scale, and per-frame-event tracks still TODO
 
 ## Phase 9 — UI
