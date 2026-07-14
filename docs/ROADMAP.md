@@ -493,9 +493,24 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   gravity_space_override; the `gravzones` demo drops balls through a wind field, an updraft, and an attractor
   and their trails drift/U-turn/orbit; M152) — wiring it into the Physics2D integrator so bodies read it every
   step + circle/polygon zones + the full five space-override modes later
+- [x] **Full 2D rigid-body-solver shape story** (a 2D physics deep-dive, P1–P13, targeting Box2D/Godot
+  parity in `game::Physics2D`): a warm-started accumulated-impulse solver with split-impulse position
+  correction (P1); an integrated spatial-hash broadphase (P2); body sleeping / islands (P3); collision
+  **layer/mask** filtering in the world (P4); **capsule** (P5, Godot `CapsuleShape2D`), infinite
+  **world-boundary** half-plane (P6, `WorldBoundaryShape2D`) and **convex-polygon** (P10,
+  `ConvexPolygonShape2D`) shapes as first-class solver bodies with two-point clipped manifolds; contact
+  **begin/persist/end** events (P7, `body_entered`/`body_exited`); integrated **continuous collision**
+  for fast bodies (P8, `continuous_cd`); pin-joint **motor + angular limit** (P9); two-point capsule
+  manifolds that kill resting micro-rock (P11); **physics-material combine modes** (P12, Godot
+  `PhysicsMaterial` friction/restitution combine); and a static **polyline / chain terrain collider**
+  (P13, Godot `ConcavePolygonShape2D` / a `SegmentShape2D` chain — `game::makePolyline(points, thickness)`;
+  each segment is a swept-capsule collider, contact points pooled across segments and reduced to the
+  widest-base pair so a box straddling a joint rests flat; the `polyline` demo drops circles/boxes/capsules
+  onto rolling terrain and they settle on hills, slopes and in the valley)
 - [ ] Other collision shapes (sphere/capsule casts), triggers / overlaps
 - [ ] 3D physics integration (Jolt or Bullet), character controller
-- [~] Continuous collision, **layers / masks** (`game::CollisionLayers`, M118), physics materials
+- [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
+  materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
 
 ## Phase 7 — Audio

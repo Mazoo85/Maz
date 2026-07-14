@@ -9695,6 +9695,106 @@ void testWorldBoundary() {
     }
 }
 
+// P13: polyline / chain static collider (Godot ConcavePolygonShape2D / SegmentShape2D chain). A chain
+// is a static open run of connected segments used for level terrain; dynamic bodies rest on it.
+void testPolylineCollider() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    // makePolyline stores points relative to their centroid, so pos is the centroid.
+    {
+        std::vector<math::vec2> pts = {math::vec2(-100.0f, 300.0f), math::vec2(100.0f, 300.0f)};
+        Body2D chain = game::makePolyline(pts, 4.0f);
+        CHECK(chain.shape == Body2D::Polyline);
+        CHECK_NEAR(chain.pos.x, 0.0f, 1e-3f);
+        CHECK_NEAR(chain.pos.y, 300.0f, 1e-3f);
+        CHECK(chain.verts.size() == 2);
+        CHECK_NEAR(chain.radius, 4.0f, 1e-3f);
+        CHECK(chain.invMass == 0.0f); // static
+    }
+
+    // Direct manifold: a box overlapping a horizontal chain segment from above. n points chain -> box
+    // (upward, -y), with a positive penetration.
+    {
+        std::vector<math::vec2> pts = {math::vec2(-100.0f, 300.0f), math::vec2(100.0f, 300.0f)};
+        Body2D chain = game::makePolyline(pts, 4.0f);
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(30.0f, 20.0f);
+        box.pos = math::vec2(0.0f, 278.0f); // bottom at y=298, chain top surface at y=296 -> pen 2
+        box.invMass = 1.0f;
+        d::Contact2 m = d::manifold2(chain, box);
+        CHECK(m.hit);
+        CHECK_NEAR(m.n.x, 0.0f, 1e-2f);
+        CHECK_NEAR(m.n.y, -1.0f, 1e-2f); // chain -> box, upward
+        CHECK(m.count >= 1);
+        CHECK_NEAR(m.pen[0], 2.0f, 0.6f);
+        // The reverse order flips the normal to box -> chain (downward, +y).
+        d::Contact2 m2 = d::manifold2(box, chain);
+        CHECK(m2.hit);
+        CHECK_NEAR(m2.n.y, 1.0f, 1e-2f);
+    }
+
+    // A separated body reports no contact.
+    {
+        std::vector<math::vec2> pts = {math::vec2(-100.0f, 300.0f), math::vec2(100.0f, 300.0f)};
+        Body2D chain = game::makePolyline(pts, 4.0f);
+        Body2D box;
+        box.shape = Body2D::Box;
+        box.half = math::vec2(30.0f, 20.0f);
+        box.pos = math::vec2(0.0f, 100.0f); // far above
+        box.invMass = 1.0f;
+        d::Contact2 m = d::manifold2(chain, box);
+        CHECK(!m.hit);
+    }
+
+    // Rest test: a body dropped onto a 3-point horizontal chain (spanning a joint) settles on top.
+    auto restOn = [](int shape) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        std::vector<math::vec2> pts = {math::vec2(-200.0f, 300.0f), math::vec2(0.0f, 300.0f),
+                                       math::vec2(200.0f, 300.0f)};
+        w.add(game::makePolyline(pts, 4.0f));
+        Body2D b;
+        b.shape = shape;
+        b.radius = 20.0f;
+        b.half = (shape == Body2D::Box) ? math::vec2(30.0f, 20.0f) : math::vec2(0.0f, 20.0f);
+        b.pos = math::vec2(0.0f, 120.0f);
+        b.angle = (shape == Body2D::Box) ? 0.15f : 0.0f;
+        b.invMass = 1.0f;
+        b.friction = 0.8f;
+        b.restitution = 0.0f;
+        b.enableRotation();
+        w.add(b);
+        for (int s = 0; s < 320; ++s) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        return w.bodies[1];
+    };
+
+    // Box rests flat on the chain: chain top surface y = 300 - thickness(4) = 296, box half.y = 20 ->
+    // centre.y = 276, upright (the two-point per-segment manifold kills the initial tilt).
+    {
+        Body2D b = restOn(Body2D::Box);
+        CHECK_NEAR(b.pos.y, 276.0f, 2.5f);
+        CHECK(std::fabs(b.angle) < 0.06f);
+        CHECK(std::sqrt(glm::dot(b.vel, b.vel)) < 6.0f);
+    }
+    // Circle rests on the chain: centre.y = 296 - 20 = 276.
+    {
+        Body2D c = restOn(Body2D::Circle);
+        CHECK_NEAR(c.pos.y, 276.0f, 2.5f);
+        CHECK(std::sqrt(glm::dot(c.vel, c.vel)) < 6.0f);
+    }
+    // Capsule rests on its lower cap: centre.y = 296 - half.y(20) - radius(20) = 256.
+    {
+        Body2D cap = restOn(Body2D::Capsule);
+        CHECK_NEAR(cap.pos.y, 256.0f, 3.0f);
+        CHECK(std::sqrt(glm::dot(cap.vel, cap.vel)) < 6.0f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12444,6 +12544,7 @@ int main() {
     testJointMotor();
     testConvex();
     testPhysicsMaterial();
+    testPolylineCollider();
     testNormalLight();
     testParallax();
     testAudioDsp();

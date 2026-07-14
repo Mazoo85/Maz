@@ -1197,6 +1197,14 @@ set_tests_properties(convex_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME polyline_headless_smoke
+    COMMAND polyline --headless --frames 30)
+
+set_tests_properties(polyline_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

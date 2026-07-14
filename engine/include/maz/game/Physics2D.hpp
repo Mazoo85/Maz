@@ -29,9 +29,11 @@ struct Body2D {
     // `radius` the plane offset D, so the solid region is { p : dot(p, normal) <= D } — build one with
     // makeWorldBoundary(). A Convex is an arbitrary convex polygon (Godot ConvexPolygonShape2D): its
     // hull is `verts`, given in the body's LOCAL frame relative to the centre (pos); world vertices are
-    // those rotated by `angle` + pos. Capsule/WorldBoundary/Convex contacts flow through the oriented
-    // (manifold) solver.
-    enum Shape { Circle, Box, Capsule, WorldBoundary, Convex };
+    // those rotated by `angle` + pos. A Polyline is a static open chain of connected segments (Godot
+    // ConcavePolygonShape2D / a SegmentShape2D chain) for level terrain: its points are `verts` (local),
+    // and `radius` is an optional thickness. Capsule/WorldBoundary/Convex/Polyline contacts flow through
+    // the oriented (manifold) solver.
+    enum Shape { Circle, Box, Capsule, WorldBoundary, Convex, Polyline };
 
     math::vec2 pos{0.0f, 0.0f};
     math::vec2 vel{0.0f, 0.0f};
@@ -126,6 +128,33 @@ inline Body2D makeWorldBoundary(math::vec2 normal, math::vec2 pointOnPlane) {
     b.half = normal;                          // unit outward normal (toward free space)
     b.radius = glm::dot(pointOnPlane, normal); // plane offset D
     b.invMass = 0.0f;                         // always static
+    b.invInertia = 0.0f;
+    return b;
+}
+
+// Build a static polyline (chain) collider from world-space points (Godot ConcavePolygonShape2D). The
+// points are stored relative to their average so the body's pos is their centroid. `thickness` gives
+// the chain a radius (0 = a thin line; a small thickness helps boxes rest without corner degeneracy).
+// Friction defaults to 1.0 (grippy terrain, matching Godot's default static-body friction) so bodies
+// come to rest on slopes instead of sliding forever; override b.friction afterwards for an icy chain.
+inline Body2D makePolyline(const std::vector<math::vec2>& points, float thickness = 0.0f) {
+    Body2D b;
+    b.shape = Body2D::Polyline;
+    math::vec2 c(0.0f, 0.0f);
+    for (const math::vec2& p : points) {
+        c += p;
+    }
+    if (!points.empty()) {
+        c /= static_cast<float>(points.size());
+    }
+    b.pos = c;
+    b.verts.reserve(points.size());
+    for (const math::vec2& p : points) {
+        b.verts.push_back(p - c);
+    }
+    b.radius = thickness;
+    b.friction = 1.0f;
+    b.invMass = 0.0f;
     b.invInertia = 0.0f;
     return b;
 }
@@ -647,7 +676,25 @@ inline Manifold capsuleBox(const Body2D& a, const Body2D& b) {
     return m;
 }
 
+// Build a temporary static capsule that exactly covers a world-space segment (p0..p1), swept by
+// `thickness`. Used to reuse every capsule-vs-shape contact for polyline segments. The angle is chosen
+// so capsuleSegment(cap) reproduces p0..p1 (its local +Y axis maps to the segment direction).
+inline Body2D segmentCapsule(math::vec2 p0, math::vec2 p1, float thickness) {
+    Body2D cap;
+    cap.shape = Body2D::Capsule;
+    cap.pos = (p0 + p1) * 0.5f;
+    const math::vec2 d = p1 - p0;
+    const float len = std::sqrt(glm::dot(d, d));
+    cap.half = math::vec2(0.0f, len * 0.5f);
+    cap.angle = std::atan2(-d.x, d.y); // axis (-sin,cos) == normalized d
+    cap.radius = thickness;
+    cap.invMass = 0.0f;
+    cap.invInertia = 0.0f;
+    return cap;
+}
+
 inline void bodyWorldVerts(const Body2D& b, std::vector<math::vec2>& out); // defined below
+inline Contact2 polylineContact(const Body2D& poly, const Body2D& other); // defined below (needs manifold2)
 
 // Dynamic body a vs a static WorldBoundary half-plane b. Returns up to two contact points (both
 // bottom corners of a box, both caps of a capsule) so a body rests flat on the plane without rocking.
@@ -909,6 +956,29 @@ inline Manifold convexCapsule(const std::vector<math::vec2>& A, const Body2D& ca
 
 // Any oriented shape pair; n points from a toward b, with a world contact point.
 inline Manifold manifold(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::Polyline || b.shape == Body2D::Polyline) {
+        // Reduce the best polyline segment's Contact2 to the single deepest point; orient n as a -> b.
+        Manifold m;
+        if (a.shape == Body2D::Polyline && b.shape == Body2D::Polyline) {
+            return m; // two static chains never collide
+        }
+        const bool aPoly = (a.shape == Body2D::Polyline);
+        Contact2 c = aPoly ? polylineContact(a, b) : polylineContact(b, a); // n: poly -> other
+        if (!c.hit) {
+            return m;
+        }
+        int deep = 0;
+        for (int i = 1; i < c.count; ++i) {
+            if (c.pen[i] > c.pen[deep]) {
+                deep = i;
+            }
+        }
+        m.n = aPoly ? c.n : -c.n; // ensure a -> b
+        m.pen = c.pen[deep];
+        m.point = c.point[deep];
+        m.hit = true;
+        return m;
+    }
     if ((a.shape == Body2D::Convex || b.shape == Body2D::Convex) &&
         a.shape != Body2D::WorldBoundary && b.shape != Body2D::WorldBoundary) {
         // Convex vs {convex, box} -> poly-poly; vs circle/capsule -> dedicated; orient n as a->b.
@@ -1427,6 +1497,17 @@ inline Contact2 capsuleCapsuleManifold(const Body2D& A, const Body2D& B) {
 // Any oriented pair as a Contact2. Box-box uses the two-point clip; other pairs reuse the single-point
 // manifold() (count 1), so the manifold solver handles mixed scenes uniformly.
 inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
+    if (a.shape == Body2D::Polyline || b.shape == Body2D::Polyline) {
+        if (a.shape == Body2D::Polyline && b.shape == Body2D::Polyline) {
+            return Contact2{}; // two static chains never collide
+        }
+        if (a.shape == Body2D::Polyline) {
+            return polylineContact(a, b); // n already poly(a) -> other(b)
+        }
+        Contact2 c = polylineContact(b, a);
+        c.n = -c.n; // flip poly(b) -> a into a -> b
+        return c;
+    }
     // Capsule pairs: two-point manifolds where the geometry supports it (stable resting, no rocking).
     if (a.shape == Body2D::Capsule && b.shape == Body2D::Box) {
         return capsuleBoxManifold(a, b);
@@ -1483,6 +1564,86 @@ inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
         m.hit = true;
     }
     return m;
+}
+
+// Static polyline (chain) `poly` vs a dynamic body `other`. Each chain segment is treated as a static
+// capsule proxy (swept by the chain thickness) and run through manifold2, reusing every capsule-vs-shape
+// contact so a box/circle/capsule/convex rests on level terrain built from connected segments. The
+// per-segment contact points are pooled, the deepest defines the manifold normal, and the two aligned
+// points spanning the WIDEST base are kept (n oriented poly -> other). Pooling across segments is what
+// lets a box straddling a joint rest flat: it takes one support point from each adjacent segment, so
+// there is no tipping torque. Points on a differently-facing segment (e.g. the far side of a sharp
+// crest) are dropped so the two-point normal stays consistent. A chain with < 2 points never collides.
+inline Contact2 polylineContact(const Body2D& poly, const Body2D& other) {
+    const float ca = std::cos(poly.angle), sa = std::sin(poly.angle);
+    auto world = [&](const math::vec2& v) {
+        return math::vec2(poly.pos.x + v.x * ca - v.y * sa, poly.pos.y + v.x * sa + v.y * ca);
+    };
+    struct Cand {
+        math::vec2 point;
+        float pen;
+        math::vec2 n;
+    };
+    std::vector<Cand> cands;
+    const int n = static_cast<int>(poly.verts.size());
+    for (int i = 0; i + 1 < n; ++i) {
+        const math::vec2 w0 = world(poly.verts[static_cast<size_t>(i)]);
+        const math::vec2 w1 = world(poly.verts[static_cast<size_t>(i + 1)]);
+        const Body2D cap = segmentCapsule(w0, w1, poly.radius);
+        const Contact2 c = manifold2(cap, other); // n: cap(poly) -> other
+        if (!c.hit) {
+            continue;
+        }
+        for (int k = 0; k < c.count; ++k) {
+            cands.push_back(Cand{c.point[k], c.pen[k], c.n});
+        }
+    }
+    if (cands.empty()) {
+        return Contact2{};
+    }
+    // The deepest candidate defines the manifold normal; keep only same-facing points with it.
+    size_t deep = 0;
+    for (size_t i = 1; i < cands.size(); ++i) {
+        if (cands[i].pen > cands[deep].pen) {
+            deep = i;
+        }
+    }
+    const math::vec2 nn = cands[deep].n;
+    std::vector<size_t> aligned;
+    for (size_t i = 0; i < cands.size(); ++i) {
+        if (glm::dot(cands[i].n, nn) > 0.9f) {
+            aligned.push_back(i);
+        }
+    }
+    // Pick the two aligned points spanning the widest base (a wide base = no tipping torque).
+    size_t bi = aligned[0], bj = aligned[0];
+    float bestSpan = -1.0f;
+    for (size_t x = 0; x < aligned.size(); ++x) {
+        for (size_t y = x + 1; y < aligned.size(); ++y) {
+            const math::vec2 d = cands[aligned[x]].point - cands[aligned[y]].point;
+            const float s = glm::dot(d, d);
+            if (s > bestSpan) {
+                bestSpan = s;
+                bi = aligned[x];
+                bj = aligned[y];
+            }
+        }
+    }
+    Contact2 out;
+    out.n = nn;
+    out.hit = true;
+    if (bestSpan < 1.0f) { // all points coincident -> single deepest contact
+        out.count = 1;
+        out.point[0] = cands[deep].point;
+        out.pen[0] = cands[deep].pen;
+        return out;
+    }
+    out.count = 2;
+    out.point[0] = cands[bi].point;
+    out.pen[0] = cands[bi].pen;
+    out.point[1] = cands[bj].point;
+    out.pen[1] = cands[bj].pen;
+    return out;
 }
 
 // Resolve a multi-point manifold by applying the (tested) single-point rotational solve at each contact
@@ -1913,7 +2074,8 @@ public:
         }
         for (const Body2D& b : bodies) {
             if (b.invInertia > 0.0f || b.shape == Body2D::Capsule ||
-                b.shape == Body2D::WorldBoundary || b.shape == Body2D::Convex) {
+                b.shape == Body2D::WorldBoundary || b.shape == Body2D::Convex ||
+                b.shape == Body2D::Polyline) {
                 stepRotational(dt, iterations);
                 return;
             }
@@ -1965,12 +2127,12 @@ private:
             if (b.shape == Body2D::Capsule) {
                 return b.half.y + b.radius;
             }
-            if (b.shape == Body2D::Convex) {
+            if (b.shape == Body2D::Convex || b.shape == Body2D::Polyline) {
                 float r2 = 0.0f;
                 for (const math::vec2& v : b.verts) {
                     r2 = std::max(r2, glm::dot(v, v));
                 }
-                return std::sqrt(r2);
+                return std::sqrt(r2) + b.radius; // a long chain lands in the "large" list, tested vs all
             }
             return b.radius;
         };

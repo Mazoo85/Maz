@@ -188,6 +188,7 @@ add_subdirectory(apps/contacts)
 add_subdirectory(apps/ccd)
 add_subdirectory(apps/motor)
 add_subdirectory(apps/convex)
+add_subdirectory(apps/polyline)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()
