@@ -9818,6 +9818,105 @@ void testJointMotor() {
     }
 }
 
+// P10: arbitrary convex polygon dynamic shape (Godot ConvexPolygonShape2D). Verify convex-convex
+// manifolds (normal/penetration/two points), convex-vs-circle, and a convex hull settling at rest on a
+// box floor via the warm solver.
+void testConvex() {
+    using game::Body2D;
+    namespace d = game::detail;
+
+    auto square = [](float cx, float cy, float h) {
+        Body2D b;
+        b.shape = Body2D::Convex;
+        b.pos = math::vec2(cx, cy);
+        b.verts = {math::vec2(-h, -h), math::vec2(h, -h), math::vec2(h, h), math::vec2(-h, h)};
+        return b;
+    };
+
+    // Two axis-aligned convex squares overlapping along x -> two-point manifold, normal +x, pen 10.
+    {
+        Body2D a = square(0.0f, 0.0f, 20.0f);
+        Body2D b = square(30.0f, 0.0f, 20.0f); // overlap = 40 - 30 = 10
+        std::vector<math::vec2> va, vb;
+        d::bodyWorldVerts(a, va);
+        d::bodyWorldVerts(b, vb);
+        d::Contact2 m = d::polyManifold(va, vb);
+        CHECK(m.hit);
+        CHECK(m.count == 2);
+        CHECK_NEAR(m.n.x, 1.0f, 1e-3f);
+        CHECK_NEAR(m.n.y, 0.0f, 1e-3f);
+        CHECK_NEAR(m.pen[0], 10.0f, 1e-3f);
+        CHECK_NEAR(m.pen[1], 10.0f, 1e-3f);
+    }
+
+    // Separated convex squares: no contact.
+    {
+        Body2D a = square(0.0f, 0.0f, 20.0f);
+        Body2D b = square(100.0f, 0.0f, 20.0f);
+        std::vector<math::vec2> va, vb;
+        d::bodyWorldVerts(a, va);
+        d::bodyWorldVerts(b, vb);
+        CHECK(!d::polyManifold(va, vb).hit);
+    }
+
+    // Convex vs circle: circle just off the square's right edge.
+    {
+        Body2D a = square(0.0f, 0.0f, 20.0f);
+        std::vector<math::vec2> va;
+        d::bodyWorldVerts(a, va);
+        Body2D c;
+        c.shape = Body2D::Circle;
+        c.radius = 10.0f;
+        c.pos = math::vec2(25.0f, 0.0f); // 5 into the +x edge (square edge at x=20)
+        d::Manifold m = d::convexCircle(va, c);
+        CHECK(m.hit);
+        CHECK_NEAR(m.n.x, 1.0f, 1e-3f); // square -> circle, +x
+        CHECK_NEAR(m.pen, 5.0f, 1e-3f); // radius 10, centre 5 outside edge
+    }
+
+    // End to end: a hexagon convex hull dropped onto a static box floor settles at rest on it.
+    {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 312.0f); // top face at y=300
+        floor.invMass = 0.0f;
+        floor.friction = 0.9f;
+        w.add(floor);
+        Body2D hex;
+        hex.shape = Body2D::Convex;
+        hex.pos = math::vec2(0.0f, 120.0f);
+        const float R = 30.0f;
+        for (int i = 0; i < 6; ++i) {
+            // Offset 0 -> a flat horizontal bottom edge (vertices at 60 deg and 120 deg), so it rests
+            // on a stable two-point edge contact rather than balancing on a single vertex.
+            const float a = 3.14159265f / 3.0f * static_cast<float>(i);
+            hex.verts.push_back(math::vec2(std::cos(a) * R, std::sin(a) * R));
+        }
+        hex.invMass = 1.0f;
+        hex.friction = 0.9f;
+        hex.restitution = 0.0f;
+        hex.enableRotation();
+        CHECK(hex.invInertia > 0.0f); // polygon inertia computed
+        w.add(hex);
+        for (int s = 0; s < 300; ++s) {
+            w.step(1.0f / 60.0f, 10);
+        }
+        // Lowest world vertex sits on the floor top (y=300); the hull came to rest.
+        const Body2D& b = w.bodies[1];
+        const float ca = std::cos(b.angle), sa = std::sin(b.angle);
+        float lowest = -1e30f;
+        for (const math::vec2& v : b.verts) {
+            lowest = std::max(lowest, b.pos.y + v.x * sa + v.y * ca);
+        }
+        CHECK_NEAR(lowest, 300.0f, 3.0f);
+        CHECK(std::sqrt(glm::dot(b.vel, b.vel)) < 6.0f);
+    }
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12248,6 +12347,7 @@ int main() {
     testContactEvents();
     testCCD();
     testJointMotor();
+    testConvex();
     testNormalLight();
     testParallax();
     testAudioDsp();

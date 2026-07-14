@@ -27,14 +27,18 @@ struct Body2D {
     // CapsuleShape2D, the standard character shape. A WorldBoundary is an infinite static half-plane
     // (Godot WorldBoundaryShape2D): `half` holds the unit outward normal (toward free space) and
     // `radius` the plane offset D, so the solid region is { p : dot(p, normal) <= D } — build one with
-    // makeWorldBoundary(). Capsule/WorldBoundary contacts flow through the oriented (manifold) solver.
-    enum Shape { Circle, Box, Capsule, WorldBoundary };
+    // makeWorldBoundary(). A Convex is an arbitrary convex polygon (Godot ConvexPolygonShape2D): its
+    // hull is `verts`, given in the body's LOCAL frame relative to the centre (pos); world vertices are
+    // those rotated by `angle` + pos. Capsule/WorldBoundary/Convex contacts flow through the oriented
+    // (manifold) solver.
+    enum Shape { Circle, Box, Capsule, WorldBoundary, Convex };
 
     math::vec2 pos{0.0f, 0.0f};
     math::vec2 vel{0.0f, 0.0f};
     int shape = Circle;
     float radius = 0.5f;        // used when shape == Circle
     math::vec2 half{0.5f, 0.5f}; // half-extents when shape == Box
+    std::vector<math::vec2> verts; // convex hull in local frame (relative to centre) when shape == Convex
     float invMass = 1.0f;       // 0 => static (infinite mass, never moves)
     float restitution = 0.4f;   // 0 = inelastic, 1 = perfectly bouncy
     float friction = 0.0f;      // Coulomb coefficient (0 = frictionless; default keeps circle demos as-is)
@@ -90,6 +94,18 @@ struct Body2D {
             const float w = radius * 2.0f;
             const float h = (half.y + radius) * 2.0f;
             inertia = m * (w * w + h * h) / 12.0f;
+        } else if (shape == Convex && verts.size() >= 3) {
+            // Polygon moment of inertia about the centroid (verts are centroid-relative), from the
+            // standard cross-product formula: I = (m/6) * Σ|cross(pi,pi+1)|(|pi|²+pi·pi+1+|pi+1|²) / Σ|cross|.
+            float num = 0.0f, den = 0.0f;
+            const std::size_t nv = verts.size();
+            for (std::size_t i = 0; i < nv; ++i) {
+                const math::vec2 p0 = verts[i], p1 = verts[(i + 1) % nv];
+                const float cr = std::fabs(p0.x * p1.y - p0.y * p1.x);
+                num += cr * (glm::dot(p0, p0) + glm::dot(p0, p1) + glm::dot(p1, p1));
+                den += cr;
+            }
+            inertia = den > 0.0f ? m * num / (6.0f * den) : 0.5f * m * radius * radius;
         } else {
             inertia = 0.5f * m * radius * radius;
         }
@@ -610,6 +626,8 @@ inline Manifold capsuleBox(const Body2D& a, const Body2D& b) {
     return m;
 }
 
+inline void bodyWorldVerts(const Body2D& b, std::vector<math::vec2>& out); // defined below
+
 // Dynamic body a vs a static WorldBoundary half-plane b. Returns up to two contact points (both
 // bottom corners of a box, both caps of a capsule) so a body rests flat on the plane without rocking.
 // n points from a into the solid (a -> boundary); the solver then pushes a out along the plane normal.
@@ -636,6 +654,12 @@ inline Contact2 boundaryContact(const Body2D& a, const Body2D& b) {
         capsuleSegment(a, p0, p1);
         consider(p0 - N * a.radius, glm::dot(p0, N), a.radius);
         consider(p1 - N * a.radius, glm::dot(p1, N), a.radius);
+    } else if (a.shape == Body2D::Convex) {
+        std::vector<math::vec2> vw;
+        bodyWorldVerts(a, vw);
+        for (const math::vec2& v : vw) {
+            consider(v, glm::dot(v, N), 0.0f);
+        }
     } else { // Box
         math::vec2 c[4];
         boxCorners(a, c);
@@ -665,8 +689,242 @@ inline Contact2 boundaryContact(const Body2D& a, const Body2D& b) {
     return m;
 }
 
+// --- Convex polygon support -----------------------------------------------------------------------
+// World-space vertices of a Box (4 corners) or Convex (local hull rotated by angle + pos).
+inline void bodyWorldVerts(const Body2D& b, std::vector<math::vec2>& out) {
+    out.clear();
+    if (b.shape == Body2D::Box) {
+        math::vec2 c[4];
+        boxCorners(b, c);
+        out.assign(c, c + 4);
+    } else { // Convex
+        const float ca = std::cos(b.angle), sa = std::sin(b.angle);
+        out.reserve(b.verts.size());
+        for (const math::vec2& v : b.verts) {
+            out.push_back(math::vec2(b.pos.x + v.x * ca - v.y * sa, b.pos.y + v.x * sa + v.y * ca));
+        }
+    }
+}
+
+// Max separation of `ref` polygon's faces against `inc` polygon's vertices. Returns the separation
+// (negative = penetrating), and writes the reference face's outward unit normal and first vertex.
+inline float maxSeparationV(const std::vector<math::vec2>& ref, const std::vector<math::vec2>& inc,
+                            math::vec2& normalOut, math::vec2& faceV0) {
+    math::vec2 c(0.0f, 0.0f);
+    for (const math::vec2& v : ref) {
+        c += v;
+    }
+    c /= static_cast<float>(ref.size());
+    float best = -1e30f;
+    const int n = static_cast<int>(ref.size());
+    for (int i = 0; i < n; ++i) {
+        const math::vec2 p0 = ref[static_cast<size_t>(i)], p1 = ref[static_cast<size_t>((i + 1) % n)];
+        const math::vec2 e = p1 - p0;
+        math::vec2 nrm(e.y, -e.x);
+        const float L = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+        if (L < 1e-9f) {
+            continue;
+        }
+        nrm /= L;
+        if (glm::dot(nrm, p0 - c) < 0.0f) {
+            nrm = -nrm; // orient outward
+        }
+        float sep = 1e30f;
+        for (const math::vec2& v : inc) {
+            const float d = glm::dot(nrm, v - p0);
+            if (d < sep) {
+                sep = d;
+            }
+        }
+        if (sep > best) {
+            best = sep;
+            normalOut = nrm;
+            faceV0 = p0;
+        }
+    }
+    return best;
+}
+
+// Single-point convex-convex manifold (deepest incident vertex), n from A toward B. Used by the
+// single-point solver path; manifold2 uses the two-point clipped polyManifold below.
+inline Manifold polyManifold1(const std::vector<math::vec2>& A, const std::vector<math::vec2>& B) {
+    Manifold m;
+    if (A.size() < 3 || B.size() < 3) {
+        return m;
+    }
+    math::vec2 na, nb, va, vb;
+    const float sa = maxSeparationV(A, B, na, va);
+    if (sa > 0.0f) {
+        return m;
+    }
+    const float sb = maxSeparationV(B, A, nb, vb);
+    if (sb > 0.0f) {
+        return m;
+    }
+    if (sa >= sb) { // reference A, normal na already A->B
+        m.n = na;
+        m.pen = -sa;
+        float best = 1e30f;
+        math::vec2 pt = B[0];
+        for (const math::vec2& v : B) {
+            const float d = glm::dot(na, v - va);
+            if (d < best) {
+                best = d;
+                pt = v;
+            }
+        }
+        m.point = pt;
+    } else { // reference B, normal nb is B->A -> flip
+        m.n = -nb;
+        m.pen = -sb;
+        float best = 1e30f;
+        math::vec2 pt = A[0];
+        for (const math::vec2& v : A) {
+            const float d = glm::dot(nb, v - vb);
+            if (d < best) {
+                best = d;
+                pt = v;
+            }
+        }
+        m.point = pt;
+    }
+    m.hit = true;
+    return m;
+}
+
+// Convex polygon `A` (world verts) vs circle `circ`; n from polygon toward circle.
+inline Manifold convexCircle(const std::vector<math::vec2>& A, const Body2D& circ) {
+    Manifold m;
+    if (A.size() < 3) {
+        return m;
+    }
+    math::vec2 ctr(0.0f, 0.0f);
+    for (const math::vec2& v : A) {
+        ctr += v;
+    }
+    ctr /= static_cast<float>(A.size());
+    const math::vec2 c = circ.pos;
+    const int n = static_cast<int>(A.size());
+    float maxSep = -1e30f;
+    math::vec2 bestN(0.0f, 1.0f);
+    float closestD2 = 1e30f;
+    math::vec2 closest = A[0];
+    for (int i = 0; i < n; ++i) {
+        const math::vec2 p0 = A[static_cast<size_t>(i)], p1 = A[static_cast<size_t>((i + 1) % n)];
+        const math::vec2 e = p1 - p0;
+        math::vec2 nrm(e.y, -e.x);
+        const float L = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+        if (L < 1e-9f) {
+            continue;
+        }
+        nrm /= L;
+        if (glm::dot(nrm, p0 - ctr) < 0.0f) {
+            nrm = -nrm;
+        }
+        const float sep = glm::dot(nrm, c - p0);
+        if (sep > maxSep) {
+            maxSep = sep;
+            bestN = nrm;
+        }
+        const math::vec2 cp = closestOnSeg(c, p0, p1);
+        const math::vec2 d = c - cp;
+        const float d2 = glm::dot(d, d);
+        if (d2 < closestD2) {
+            closestD2 = d2;
+            closest = cp;
+        }
+    }
+    if (maxSep > circ.radius) {
+        return m; // separated
+    }
+    if (maxSep < 0.0f) { // circle centre inside the polygon
+        m.n = bestN; // polygon -> circle (push out along least-penetrating face)
+        m.pen = circ.radius - maxSep;
+        m.point = c - bestN * circ.radius;
+    } else {
+        const float dist = std::sqrt(closestD2);
+        m.n = dist > 1e-6f ? (c - closest) / dist : bestN;
+        m.pen = circ.radius - dist;
+        m.point = closest;
+    }
+    m.hit = true;
+    return m;
+}
+
+// Convex polygon `A` (world verts) vs capsule `cap`; single-point, n from polygon toward capsule.
+inline Manifold convexCapsule(const std::vector<math::vec2>& A, const Body2D& cap) {
+    Manifold m;
+    if (A.size() < 3) {
+        return m;
+    }
+    math::vec2 s0, s1;
+    capsuleSegment(cap, s0, s1);
+    const int n = static_cast<int>(A.size());
+    float bestD2 = 1e30f;
+    math::vec2 bestOnPoly = A[0], bestOnSeg = s0;
+    for (int i = 0; i < n; ++i) {
+        const math::vec2 p0 = A[static_cast<size_t>(i)], p1 = A[static_cast<size_t>((i + 1) % n)];
+        math::vec2 cp, cs;
+        closestSegSeg(p0, p1, s0, s1, cp, cs);
+        const math::vec2 d = cs - cp;
+        const float d2 = glm::dot(d, d);
+        if (d2 < bestD2) {
+            bestD2 = d2;
+            bestOnPoly = cp;
+            bestOnSeg = cs;
+        }
+    }
+    const float dist = std::sqrt(bestD2);
+    if (dist > cap.radius) {
+        return m; // separated (does not handle a segment passing through the polygon interior)
+    }
+    const math::vec2 n2 = dist > 1e-6f ? (bestOnSeg - bestOnPoly) / dist : math::vec2(0.0f, 1.0f);
+    m.n = n2; // polygon -> capsule
+    m.pen = cap.radius - dist;
+    m.point = bestOnPoly;
+    m.hit = true;
+    return m;
+}
+
 // Any oriented shape pair; n points from a toward b, with a world contact point.
 inline Manifold manifold(const Body2D& a, const Body2D& b) {
+    if ((a.shape == Body2D::Convex || b.shape == Body2D::Convex) &&
+        a.shape != Body2D::WorldBoundary && b.shape != Body2D::WorldBoundary) {
+        // Convex vs {convex, box} -> poly-poly; vs circle/capsule -> dedicated; orient n as a->b.
+        const bool aPoly = (a.shape == Body2D::Convex || a.shape == Body2D::Box);
+        const bool bPoly = (b.shape == Body2D::Convex || b.shape == Body2D::Box);
+        if (aPoly && bPoly) {
+            std::vector<math::vec2> va, vb;
+            bodyWorldVerts(a, va);
+            bodyWorldVerts(b, vb);
+            return polyManifold1(va, vb);
+        }
+        if (a.shape == Body2D::Convex && b.shape == Body2D::Circle) {
+            std::vector<math::vec2> va;
+            bodyWorldVerts(a, va);
+            return convexCircle(va, b);
+        }
+        if (a.shape == Body2D::Circle && b.shape == Body2D::Convex) {
+            std::vector<math::vec2> vb;
+            bodyWorldVerts(b, vb);
+            Manifold m = convexCircle(vb, a);
+            m.n = -m.n;
+            return m;
+        }
+        if (a.shape == Body2D::Convex && b.shape == Body2D::Capsule) {
+            std::vector<math::vec2> va;
+            bodyWorldVerts(a, va);
+            return convexCapsule(va, b);
+        }
+        if (a.shape == Body2D::Capsule && b.shape == Body2D::Convex) {
+            std::vector<math::vec2> vb;
+            bodyWorldVerts(b, vb);
+            Manifold m = convexCapsule(vb, a);
+            m.n = -m.n;
+            return m;
+        }
+        return Manifold{}; // convex vs boundary handled by the boundary path
+    }
     if (a.shape == Body2D::WorldBoundary || b.shape == Body2D::WorldBoundary) {
         // Reduce to the single deepest point for the single-point solver.
         Manifold m;
@@ -905,9 +1163,138 @@ inline Contact2 obbObbManifold(const Body2D& A, const Body2D& B) {
     return m;
 }
 
+// General two-point manifold between two arbitrary convex polygons (world verts), via SAT +
+// reference/incident-face clipping — the same algorithm as obbObbManifold but for any vertex count, so
+// convex hulls stack as stably as boxes. n points from A toward B. Falls back to the single-point
+// result if clipping degenerates.
+inline Contact2 polyManifold(const std::vector<math::vec2>& A, const std::vector<math::vec2>& B) {
+    Contact2 m;
+    if (A.size() < 3 || B.size() < 3) {
+        return m;
+    }
+    math::vec2 na, nb, va, vb;
+    const float sa = maxSeparationV(A, B, na, va);
+    if (sa > 0.0f) {
+        return m;
+    }
+    const float sb = maxSeparationV(B, A, nb, vb);
+    if (sb > 0.0f) {
+        return m;
+    }
+    const std::vector<math::vec2>* refP;
+    const std::vector<math::vec2>* incP;
+    math::vec2 refN;
+    bool flip;
+    if (sb > sa + 0.001f) {
+        refP = &B;
+        incP = &A;
+        refN = nb; // outward from B toward A
+        flip = true;
+    } else {
+        refP = &A;
+        incP = &B;
+        refN = na; // outward from A toward B
+        flip = false;
+    }
+    // Reference face: the ref polygon edge whose outward normal best matches refN.
+    auto centroid = [](const std::vector<math::vec2>& p) {
+        math::vec2 c(0.0f, 0.0f);
+        for (const math::vec2& v : p) {
+            c += v;
+        }
+        return c / static_cast<float>(p.size());
+    };
+    auto bestFaceGen = [&](const std::vector<math::vec2>& poly, math::vec2 dir, math::vec2& v0,
+                           math::vec2& v1) {
+        const math::vec2 c = centroid(poly);
+        const int n = static_cast<int>(poly.size());
+        float best = -1e30f;
+        for (int i = 0; i < n; ++i) {
+            const math::vec2 p0 = poly[static_cast<size_t>(i)];
+            const math::vec2 p1 = poly[static_cast<size_t>((i + 1) % n)];
+            const math::vec2 e = p1 - p0;
+            math::vec2 nrm(e.y, -e.x);
+            const float L = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+            if (L < 1e-9f) {
+                continue;
+            }
+            nrm /= L;
+            if (glm::dot(nrm, p0 - c) < 0.0f) {
+                nrm = -nrm;
+            }
+            const float d = glm::dot(nrm, dir);
+            if (d > best) {
+                best = d;
+                v0 = p0;
+                v1 = p1;
+            }
+        }
+    };
+    math::vec2 rv0, rv1, iv0, iv1;
+    bestFaceGen(*refP, refN, rv0, rv1);
+    bestFaceGen(*incP, -refN, iv0, iv1);
+    math::vec2 tangent = rv1 - rv0;
+    const float tl = std::sqrt(glm::dot(tangent, tangent));
+    if (tl < 1e-9f) {
+        const Manifold s = polyManifold1(A, B); // degenerate face -> single point
+        if (s.hit) {
+            m.n = s.n;
+            m.count = 1;
+            m.point[0] = s.point;
+            m.pen[0] = s.pen;
+            m.hit = true;
+        }
+        return m;
+    }
+    tangent /= tl;
+    math::vec2 seg[2] = {iv0, iv1};
+    math::vec2 tmp[2];
+    if (clipSegment(tmp, seg, -tangent, -glm::dot(tangent, rv0)) < 2) {
+        return m;
+    }
+    math::vec2 clipped[2];
+    if (clipSegment(clipped, tmp, tangent, glm::dot(tangent, rv1)) < 2) {
+        return m;
+    }
+    const float refOffset = glm::dot(refN, rv0);
+    for (int k = 0; k < 2; ++k) {
+        const float sep = glm::dot(refN, clipped[k]) - refOffset;
+        if (sep <= 0.0f && m.count < 2) {
+            m.point[m.count] = clipped[k];
+            m.pen[m.count] = -sep;
+            ++m.count;
+        }
+    }
+    m.n = flip ? -refN : refN;
+    m.hit = m.count > 0;
+    return m;
+}
+
 // Any oriented pair as a Contact2. Box-box uses the two-point clip; other pairs reuse the single-point
 // manifold() (count 1), so the manifold solver handles mixed scenes uniformly.
 inline Contact2 manifold2(const Body2D& a, const Body2D& b) {
+    if ((a.shape == Body2D::Convex || b.shape == Body2D::Convex) &&
+        a.shape != Body2D::WorldBoundary && b.shape != Body2D::WorldBoundary) {
+        const bool aPoly = (a.shape == Body2D::Convex || a.shape == Body2D::Box);
+        const bool bPoly = (b.shape == Body2D::Convex || b.shape == Body2D::Box);
+        if (aPoly && bPoly) {
+            std::vector<math::vec2> va, vb;
+            bodyWorldVerts(a, va);
+            bodyWorldVerts(b, vb);
+            return polyManifold(va, vb);
+        }
+        // Convex vs circle/capsule/boundary -> single-point via manifold().
+        Contact2 c;
+        const Manifold s = manifold(a, b);
+        if (s.hit) {
+            c.n = s.n;
+            c.count = 1;
+            c.point[0] = s.point;
+            c.pen[0] = s.pen;
+            c.hit = true;
+        }
+        return c;
+    }
     if (a.shape == Body2D::WorldBoundary || b.shape == Body2D::WorldBoundary) {
         // Two-point boundary manifold keeps a box/capsule resting flat on the plane; orient n as a->b.
         if (b.shape == Body2D::WorldBoundary) {
@@ -1353,7 +1740,7 @@ public:
         }
         for (const Body2D& b : bodies) {
             if (b.invInertia > 0.0f || b.shape == Body2D::Capsule ||
-                b.shape == Body2D::WorldBoundary) {
+                b.shape == Body2D::WorldBoundary || b.shape == Body2D::Convex) {
                 stepRotational(dt, iterations);
                 return;
             }
@@ -1404,6 +1791,13 @@ private:
             }
             if (b.shape == Body2D::Capsule) {
                 return b.half.y + b.radius;
+            }
+            if (b.shape == Body2D::Convex) {
+                float r2 = 0.0f;
+                for (const math::vec2& v : b.verts) {
+                    r2 = std::max(r2, glm::dot(v, v));
+                }
+                return std::sqrt(r2);
             }
             return b.radius;
         };
