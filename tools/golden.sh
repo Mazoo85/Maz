@@ -173,6 +173,7 @@ CASES=(
     "motor||2.0|0.06"
     "convex||2.5|0.06"
     "polyline||2.5|0.06"
+    "physics3d||2.5|0.10"
 )
 
 if [ ! -f "$ICD" ]; then

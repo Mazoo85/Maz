@@ -76,6 +76,7 @@
 #include "maz/game/OneWayPlatform.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/Physics2D.hpp"
+#include "maz/game/Physics3D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/ShapeCast2D.hpp"

@@ -1205,6 +1205,14 @@ set_tests_properties(polyline_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME physics3d_headless_smoke
+    COMMAND physics3d --headless --frames 30)
+
+set_tests_properties(physics3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

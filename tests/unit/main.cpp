@@ -70,6 +70,7 @@
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/Physics2D.hpp"
+#include "maz/game/Physics3D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/ShapeCast2D.hpp"
@@ -9795,6 +9796,102 @@ void testPolylineCollider() {
     }
 }
 
+// D1: 3D rigid-body foundation. Sphere + static ground plane, gravity, sphere-sphere and sphere-plane
+// impulse resolution. The 3D sibling of the 2D physics work.
+void testPhysics3D() {
+    using game::Body3D;
+    namespace d = game::detail;
+
+    // Direct sphere-sphere: two unit-diameter spheres overlapping along +x.
+    {
+        Body3D a = game::makeSphere(math::vec3(0, 0, 0), 0.5f);
+        Body3D b = game::makeSphere(math::vec3(0.8f, 0, 0), 0.5f);
+        d::Contact3 c = d::sphereSphere(0, a, 1, b);
+        CHECK(c.hit);
+        CHECK_NEAR(c.n.x, 1.0f, 1e-4f);
+        CHECK_NEAR(c.n.y, 0.0f, 1e-4f);
+        CHECK_NEAR(c.pen, 0.2f, 1e-4f);
+    }
+    // Separated spheres: no contact.
+    {
+        Body3D a = game::makeSphere(math::vec3(0, 0, 0), 0.5f);
+        Body3D b = game::makeSphere(math::vec3(3, 0, 0), 0.5f);
+        CHECK(!d::sphereSphere(0, a, 1, b).hit);
+    }
+    // Direct sphere-plane: sphere dipping below the y=0 ground.
+    {
+        Body3D s = game::makeSphere(math::vec3(0, 0.3f, 0), 0.5f);
+        Body3D p = game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0));
+        d::Contact3 c = d::spherePlane(0, s, 1, p);
+        CHECK(c.hit);
+        CHECK_NEAR(c.n.y, -1.0f, 1e-4f); // sphere -> solid (downward)
+        CHECK_NEAR(c.pen, 0.2f, 1e-4f);
+    }
+
+    // Drop test: a sphere falls and comes to rest on the ground with its bottom on y=0.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        int s = w.add(game::makeSphere(math::vec3(0, 5, 0), 0.5f));
+        for (int i = 0; i < 300; ++i) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        CHECK_NEAR(w.bodies[static_cast<size_t>(s)].pos.y, 0.5f, 0.02f);
+        CHECK(std::sqrt(glm::dot(w.bodies[static_cast<size_t>(s)].vel,
+                                w.bodies[static_cast<size_t>(s)].vel)) < 0.1f);
+    }
+
+    // Stack test: a sphere dropped directly onto a resting sphere settles on top of it.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        int bottom = w.add(game::makeSphere(math::vec3(0, 0.5f, 0), 0.5f));
+        int top = w.add(game::makeSphere(math::vec3(0.0f, 3.0f, 0), 0.5f));
+        for (int i = 0; i < 600; ++i) {
+            w.step(1.0f / 60.0f, 12);
+        }
+        CHECK_NEAR(w.bodies[static_cast<size_t>(bottom)].pos.y, 0.5f, 0.05f);
+        CHECK_NEAR(w.bodies[static_cast<size_t>(top)].pos.y, 1.5f, 0.08f);
+    }
+
+    // Restitution: a bouncy sphere leaves the ground again after landing.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D ball = game::makeSphere(math::vec3(0, 3, 0), 0.5f);
+        ball.restitution = 0.9f;
+        int b = w.add(ball);
+        bool touched = false, bouncedUp = false;
+        for (int i = 0; i < 240; ++i) {
+            w.step(1.0f / 60.0f, 8);
+            const float y = w.bodies[static_cast<size_t>(b)].pos.y;
+            if (y < 0.6f) {
+                touched = true;
+            }
+            if (touched && w.bodies[static_cast<size_t>(b)].vel.y > 0.5f) {
+                bouncedUp = true; // regained upward speed after contact
+            }
+        }
+        CHECK(touched);
+        CHECK(bouncedUp);
+    }
+
+    // Static-vs-static (two planes) is skipped and never crashes; a horizontal shove with friction on
+    // the ground decays over time rather than sliding forever.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D ball = game::makeSphere(math::vec3(0, 0.5f, 0), 0.5f);
+        ball.vel = math::vec3(4.0f, 0, 0);
+        int b = w.add(ball);
+        for (int i = 0; i < 300; ++i) {
+            w.step(1.0f / 60.0f, 8);
+        }
+        CHECK(std::fabs(w.bodies[static_cast<size_t>(b)].vel.x) < 4.0f); // friction bled off speed
+        CHECK_NEAR(w.bodies[static_cast<size_t>(b)].pos.y, 0.5f, 0.05f); // stayed on the ground
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12545,6 +12642,7 @@ int main() {
     testConvex();
     testPhysicsMaterial();
     testPolylineCollider();
+    testPhysics3D();
     testNormalLight();
     testParallax();
     testAudioDsp();

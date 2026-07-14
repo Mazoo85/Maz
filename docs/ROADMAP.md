@@ -508,7 +508,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   widest-base pair so a box straddling a joint rests flat; the `polyline` demo drops circles/boxes/capsules
   onto rolling terrain and they settle on hills, slopes and in the valley)
 - [ ] Other collision shapes (sphere/capsule casts), triggers / overlaps
-- [ ] 3D physics integration (Jolt or Bullet), character controller
+- [~] **3D physics** (a from-scratch 3D deep-dive in `game::Physics3D`, sibling of the 2D solver):
+  **D1 — rigid-body foundation** — `PhysicsWorld3D` with dynamic **Spheres** + an infinite static
+  ground **Plane** (Godot WorldBoundaryShape3D), semi-implicit-Euler gravity integration, and
+  sphere-sphere + sphere-plane **impulse resolution** (restitution + Coulomb friction + split
+  positional correction); orientation/inertia fields carried but locked, ready for angular dynamics.
+  The `physics3d` demo drops a cluster of balls that fall and settle into a heap (golden-verified).
+  Boxes/capsules, angular dynamics, contact manifolds, warm-started stacking, broadphase, sleeping,
+  queries and a character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
