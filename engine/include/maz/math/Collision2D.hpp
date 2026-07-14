@@ -10,7 +10,10 @@
 // pairs with iter54 convexHull2D (hull a point cloud, then test overlap).
 // O(na*nb)-ish (na+nb axes, each projecting na+nb vertices). NOT a full physics
 // contact solver — the minimum-translation vector and swept tests are future
-// refinements.
+// refinements. Also provides pointInPolygon: a crossing-number (even-odd) point
+// containment test that — unlike convexPolygonsOverlap — works for ANY simple
+// polygon (convex OR concave, any winding); a point exactly on the boundary
+// (edge/vertex) has an unspecified result.
 
 #include "maz/math/Math.hpp"
 #include "maz/core/Assert.hpp"
@@ -66,6 +69,29 @@ inline bool convexPolygonsOverlap(const std::vector<vec2>& a, const std::vector<
     };
 
     return !(checkAxes(a, a, b) || checkAxes(b, a, b));
+}
+
+// Point-in-polygon test via the crossing-number (even-odd) ray-casting rule: cast a ray
+// in +x from `point` and count how many polygon edges it crosses — an odd count means the
+// point is inside. Works for ANY simple polygon (convex OR concave, any winding). A point
+// exactly on an edge or vertex is on the boundary and its result is not guaranteed (a
+// documented ambiguity of the crossing-number rule). O(n).
+inline bool pointInPolygon(vec2 point, const std::vector<vec2>& poly) {
+    MAZ_ASSERT(poly.size() >= 3, "pointInPolygon: polygon needs >= 3 vertices");
+    bool inside = false;
+    const std::size_t n = poly.size();
+    for (std::size_t i = 0, j = n - 1; i < n; j = i++) {
+        const vec2& a = poly[i];
+        const vec2& b = poly[j];
+        // Edge (a,b) straddles the horizontal line y == point.y, AND the crossing x is to
+        // the right of point.x. The straddle test guarantees b.y != a.y, so the division is
+        // safe (no divide-by-zero).
+        if (((a.y > point.y) != (b.y > point.y)) &&
+            (point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)) {
+            inside = !inside;
+        }
+    }
+    return inside;
 }
 
 } // namespace maz::math
