@@ -343,3 +343,10 @@ target_link_libraries(maz_unit_lru PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_lru COMMAND maz_unit_lru)
 set_tests_properties(unit_lru PROPERTIES TIMEOUT 30)
+
+# Unit tests: command-pattern undo/redo history (maz::core::UndoStack; push(redo,undo) records a reversible command and by default applies redo immediately, execute=false records without applying, undo/redo walk a cursor over captured-prior-value commands, pushing after an undo truncates the orphaned redo branch, canUndo/canRedo/undoCount/redoCount bookkeeping, clear/empty, optional capacity bound drops the oldest undo step when exceeded).
+add_executable(maz_unit_undo unit_undo.cpp)
+target_link_libraries(maz_unit_undo PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_undo COMMAND maz_unit_undo)
+set_tests_properties(unit_undo PROPERTIES TIMEOUT 30)

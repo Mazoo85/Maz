@@ -249,7 +249,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Standalone editor app (engine + ImGui docking)
 - [ ] Viewport with gizmos (translate/rotate/scale), grid, snapping
 - [ ] Scene hierarchy panel, reflection-driven entity inspector, asset browser
-- [ ] Play-in-editor, undo/redo (command stack), multi-select
+- [ ] Play-in-editor, undo/redo (command stack), multi-select — **command-stack core landed:
+      `maz::core::UndoStack` (header-only command-pattern undo/redo history; push(redo,undo),
+      undo/redo cursor, redo-branch truncation, optional capacity bound). Editor wiring pending.**
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
 
