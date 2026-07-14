@@ -210,3 +210,10 @@ target_link_libraries(maz_unit_transform_system PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_transform_system COMMAND maz_unit_transform_system)
 set_tests_properties(unit_transform_system PROPERTIES TIMEOUT 30)
+
+# Unit tests: typed runtime console-variable / settings registry (register bool/int/float/string with defaults+descriptions; type-checked get/set with wrong-type/missing fallbacks; setFromString parsing incl. parse-fail-leaves-unchanged; reset-to-default; change callbacks firing only on actual value change; typeOf; clear).
+add_executable(maz_unit_cvar unit_cvar.cpp)
+target_link_libraries(maz_unit_cvar PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_cvar COMMAND maz_unit_cvar)
+set_tests_properties(unit_cvar PROPERTIES TIMEOUT 30)

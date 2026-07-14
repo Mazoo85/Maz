@@ -27,7 +27,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [~] CI matrix (Linux/Windows/macOS) running the headless smoke test — **Linux CI landed**
       (`.github/workflows/ci.yml`: installs the Vulkan SDK + glslang, builds under `-Werror`,
       runs ctest headless). Windows/macOS still to add.
-- [ ] Config system (CVars / ini / json), persisted settings
+- [~] Config system (CVars / ini / json), persisted settings — **`maz::core::CVarRegistry` landed**
+      (typed bool/int/float/string console variables with defaults + descriptions; type-checked get/set
+      where a wrong-type/missing name yields a fallback/false and never throws; `setFromString` parsing
+      for console/config text; `reset` to default; change callbacks firing only on an actual value
+      change; `StringId`-keyed; header-only, unit-tested); ini/json file load/save + persistence still TODO
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
 - [ ] Semantic-version header, `CHANGELOG.md`
 
