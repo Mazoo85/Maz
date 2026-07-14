@@ -364,3 +364,10 @@ target_link_libraries(maz_unit_endian PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_endian COMMAND maz_unit_endian)
 set_tests_properties(unit_endian PROPERTIES TIMEOUT 30)
+
+# Unit tests: string interning table (maz::core::StringInterner; intern(s) hashes via iter7 StringId::fromBytes AND stores the original text so resolve(id) recovers the source string — the original-string storage companion to hash-only StringId, à la Godot's StringName; intern+resolve roundtrip, same-string de-dup returning the same id/stored once, interned id == plain StringId::fromBytes == _sid UDL, un-interned id resolves to an empty view / contains false, both contains overloads (id and string), multiple distinct strings, empty-string edge (valid non-zero id, empty view, contained), clear).
+add_executable(maz_unit_interner unit_interner.cpp)
+target_link_libraries(maz_unit_interner PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_interner COMMAND maz_unit_interner)
+set_tests_properties(unit_interner PROPERTIES TIMEOUT 30)
