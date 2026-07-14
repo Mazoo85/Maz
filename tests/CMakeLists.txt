@@ -301,3 +301,10 @@ target_link_libraries(maz_unit_octree PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_octree COMMAND maz_unit_octree)
 set_tests_properties(unit_octree PROPERTIES TIMEOUT 30)
+
+# Unit tests: ASCII locale-independent string helpers (maz::core::str; startsWith/endsWith/contains, borrowing trim/trimLeft/trimRight views, split keepEmpty vs skipEmpty incl. empty-input single-empty-piece vs empty-vector semantics, join with split round-trip, toLower/toUpper/equalsIgnoreCase ASCII case-fold, non-overlapping replaceAll incl. empty-'to', whole-string parseInt/parseFloat via from_chars with no whitespace leniency and out-untouched-on-failure).
+add_executable(maz_unit_stringutil unit_stringutil.cpp)
+target_link_libraries(maz_unit_stringutil PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_stringutil COMMAND maz_unit_stringutil)
+set_tests_properties(unit_stringutil PROPERTIES TIMEOUT 30)
