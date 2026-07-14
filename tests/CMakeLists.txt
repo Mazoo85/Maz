@@ -294,3 +294,10 @@ target_link_libraries(maz_unit_tilemap PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_tilemap COMMAND maz_unit_tilemap)
 set_tests_properties(unit_tilemap PROPERTIES TIMEOUT 30)
+
+# Unit tests: hierarchical adaptive point octree (Octree<T>; leaves subdivide into 8 octants once they exceed maxPerNode, bounded by maxDepth so coincident points beyond capacity pile up in the deepest leaf; octantOf/childBounds agree so redistribution loses no point; queryAabb/querySphere descend only into octants overlapping the query — Aabb-intersection / iter36 sphereAabb pruning — then narrow-test each candidate point; insert/size/empty/clear, append-not-clear query contract).
+add_executable(maz_unit_octree unit_octree.cpp)
+target_link_libraries(maz_unit_octree PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_octree COMMAND maz_unit_octree)
+set_tests_properties(unit_octree PROPERTIES TIMEOUT 30)

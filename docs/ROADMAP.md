@@ -171,8 +171,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       volume; `std::floor` cell math for correct negative-coordinate binning; broad-phase
       cell candidate gather with multi-cell dedup + narrow-phase Aabb overlap;
       insert/remove/update/queryRegion/queryPoint/clear with empty-bucket pruning;
-      header-only, unit-tested). Quadtree/octree/BVH + World/SceneGraph culling
-      integration still TODO
+      header-only, unit-tested). **`maz::spatial::Octree<T>` landed** (adaptive
+      hierarchical point partition: leaves subdivide into 8 octants past maxPerNode,
+      bounded by maxDepth; AABB/sphere queries prune to overlapping octants then
+      narrow-test each point — complements the uniform hash grid). Quadtree/BVH +
+      World/SceneGraph culling integration still TODO
 
 ## Phase 5 — Asset pipeline
 - [ ] Asset manager: async load, ref counting, GUIDs, hot reload
