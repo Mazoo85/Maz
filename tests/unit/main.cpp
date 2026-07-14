@@ -9965,6 +9965,53 @@ void testConvex() {
     }
 }
 
+// P12: physics material combine modes (Godot PhysicsMaterial). A bouncy ball on a non-bouncy floor
+// rebounds high when restitution combines by Max and barely when it combines by Min.
+void testPhysicsMaterial() {
+    using game::Body2D;
+    using game::CombineMode;
+
+    auto drop = [](CombineMode restCombine) {
+        game::PhysicsWorld2D w;
+        w.gravity = math::vec2(0.0f, 600.0f);
+        w.warmStarting = true;
+        w.restitutionCombine = restCombine;
+        Body2D floor;
+        floor.shape = Body2D::Box;
+        floor.half = math::vec2(200.0f, 12.0f);
+        floor.pos = math::vec2(0.0f, 312.0f);
+        floor.invMass = 0.0f;
+        floor.restitution = 0.1f; // barely bouncy floor
+        w.add(floor);
+        Body2D ball;
+        ball.shape = Body2D::Circle;
+        ball.radius = 12.0f;
+        ball.pos = math::vec2(0.0f, 200.0f);
+        ball.invMass = 1.0f;
+        ball.restitution = 0.9f; // very bouncy ball
+        w.add(ball);
+        float fastestUp = 0.0f; // most negative vel.y seen (rebound)
+        for (int s = 0; s < 120; ++s) {
+            w.step(1.0f / 60.0f, 6);
+            fastestUp = std::min(fastestUp, w.bodies[1].vel.y);
+        }
+        return -fastestUp; // rebound speed (positive)
+    };
+
+    const float reboundMin = drop(CombineMode::Min); // e = min(0.1,0.9) = 0.1
+    const float reboundMax = drop(CombineMode::Max); // e = max(0.1,0.9) = 0.9
+    CHECK(reboundMax > reboundMin * 3.0f); // Max restitution bounces far higher
+    CHECK(reboundMin < 120.0f);            // Min: weak bounce
+    CHECK(reboundMax > 150.0f);            // Max: strong bounce
+
+    // Combine helper values are correct.
+    CHECK_NEAR(game::combineValue(CombineMode::Average, 0.2f, 0.8f), 0.5f, 1e-5f);
+    CHECK_NEAR(game::combineValue(CombineMode::Multiply, 0.5f, 0.4f), 0.2f, 1e-5f);
+    CHECK_NEAR(game::combineValue(CombineMode::Min, 0.3f, 0.7f), 0.3f, 1e-5f);
+    CHECK_NEAR(game::combineValue(CombineMode::Max, 0.3f, 0.7f), 0.7f, 1e-5f);
+    CHECK_NEAR(game::combineValue(CombineMode::GeometricMean, 0.25f, 0.64f), 0.4f, 1e-5f);
+}
+
 void testNormalLight() {
     using game::PointLight2D;
     using math::vec2;
@@ -12396,6 +12443,7 @@ int main() {
     testCCD();
     testJointMotor();
     testConvex();
+    testPhysicsMaterial();
     testNormalLight();
     testParallax();
     testAudioDsp();

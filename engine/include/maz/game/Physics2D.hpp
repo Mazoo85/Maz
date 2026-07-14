@@ -137,6 +137,27 @@ struct Bounds2D {
 // A contact lifecycle event, reported by PhysicsWorld2D when trackContacts is on (Godot's
 // body_entered / body_exited + contact monitor). Begin = the pair started touching this step, Persist
 // = still touching, End = separated this step. `impulse` is the accumulated normal impulse applied.
+// How two bodies' per-body friction / restitution scalars combine into the effective pair value
+// (Godot PhysicsMaterial / Box2D). GeometricMean = sqrt(a*b) is the physically-standard friction
+// combine and the engine's historical default; Max is the usual restitution choice.
+enum class CombineMode { GeometricMean, Average, Multiply, Min, Max };
+
+inline float combineValue(CombineMode mode, float a, float b) {
+    switch (mode) {
+    case CombineMode::Average:
+        return 0.5f * (a + b);
+    case CombineMode::Multiply:
+        return a * b;
+    case CombineMode::Min:
+        return a < b ? a : b;
+    case CombineMode::Max:
+        return a > b ? a : b;
+    case CombineMode::GeometricMean:
+    default:
+        return std::sqrt((a < 0.0f ? 0.0f : a) * (b < 0.0f ? 0.0f : b));
+    }
+}
+
 enum class ContactPhase { Begin, Persist, End };
 struct ContactEvent {
     int a = -1, b = -1;
@@ -1714,15 +1735,17 @@ inline uint64_t pairKey(int a, int b) {
 // Precompute a constraint from a fresh manifold: effective masses, contact arms, and the restitution
 // target from the CURRENT approach velocity (so a fast impact bounces, a resting stack does not).
 inline ContactConstraint buildConstraint(int ia, const Body2D& a, int ib, const Body2D& b,
-                                         const Contact2& m, float restThreshold) {
+                                         const Contact2& m, float restThreshold,
+                                         CombineMode frictionCombine = CombineMode::GeometricMean,
+                                         CombineMode restitutionCombine = CombineMode::Min) {
     ContactConstraint c;
     c.a = ia;
     c.b = ib;
     c.n = m.n;
     c.count = m.count;
     c.key = pairKey(ia, ib);
-    c.e = a.restitution < b.restitution ? a.restitution : b.restitution;
-    c.mu = std::sqrt(a.friction * b.friction);
+    c.e = combineValue(restitutionCombine, a.restitution, b.restitution);
+    c.mu = combineValue(frictionCombine, a.friction, b.friction);
     const math::vec2 t(-m.n.y, m.n.x);
     for (int k = 0; k < m.count; ++k) {
         const math::vec2 rA = m.point[k] - a.pos;
@@ -1831,6 +1854,11 @@ public:
     float baumgarte = 0.2f;            // position-error correction gain
     float slop = 0.005f;               // penetration tolerated before correction kicks in (anti-jitter)
     float restitutionThreshold = 1.0f; // approach speed below which restitution is ignored (resting)
+    // How the two bodies' per-body friction / restitution combine into the effective pair value in the
+    // warm solver (Godot PhysicsMaterial). Defaults reproduce the engine's historical behaviour
+    // (geometric-mean friction, min restitution), so existing scenes are unchanged.
+    CombineMode frictionCombine = CombineMode::GeometricMean;
+    CombineMode restitutionCombine = CombineMode::Min;
     // Opt-in (warm-solver path only): a uniform spatial-hash broadphase replaces the O(n²) all-pairs
     // scan, so scenes with many bodies scale. It yields the SAME contacts in the SAME order as brute
     // force (candidate pairs are sorted by index), so results are bit-identical — just faster.
@@ -2178,7 +2206,8 @@ private:
             detail::Contact2 m = detail::manifold2(bodies[i], bodies[j]);
             if (m.hit) {
                 contacts.push_back(detail::buildConstraint(pr.first, bodies[i], pr.second, bodies[j], m,
-                                                           restitutionThreshold));
+                                                           restitutionThreshold, frictionCombine,
+                                                           restitutionCombine));
             }
         }
         // Warm start: inherit accumulated impulses from the matching pair last frame.
