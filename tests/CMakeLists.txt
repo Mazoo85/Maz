@@ -350,3 +350,10 @@ target_link_libraries(maz_unit_undo PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_undo COMMAND maz_unit_undo)
 set_tests_properties(unit_undo PROPERTIES TIMEOUT 30)
+
+# Unit tests: orbit + fly camera rigs (maz::scene::OrbitCamera/FlyCamera; OrbitCamera spherical position() from focus/yaw/pitch/distance with pitch clamped away from the pole and zoom-clamped distance, FlyCamera -Z forward()/world-up right()/moveLocal along its own axes, both applyTo(Camera) setting position+target; clean 0/±1 trig targets, +X right() handedness hand-verified).
+add_executable(maz_unit_camera_controller unit_camera_controller.cpp)
+target_link_libraries(maz_unit_camera_controller PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_camera_controller COMMAND maz_unit_camera_controller)
+set_tests_properties(unit_camera_controller PROPERTIES TIMEOUT 30)

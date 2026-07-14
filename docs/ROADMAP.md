@@ -124,7 +124,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       Instancing + staging-buffer uploads (currently host-visible) still to do.
 - [~] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull — **perspective camera +
       depth buffer landed** (`maz::scene::Camera`; swapchain has a D32 depth attachment, pipeline
-      depth-tests). Ortho + back-face cull (currently cull-none) still to do.
+      depth-tests); **`maz::scene::OrbitCamera`/`FlyCamera` camera controllers landed** (header-only
+      rigs driving a `Camera` from yaw/pitch: OrbitCamera orbits a focus at a clamped distance,
+      FlyCamera free-flies looking along -Z, both `applyTo(Camera)`, unit-tested). Ortho + back-face
+      cull (currently cull-none) still to do.
 - [ ] Materials + PBR groundwork, texture sampling / mipmaps
 - [ ] Lighting: directional / point / spot; forward+ or deferred path
 - [ ] Shadow maps, skybox / image-based lighting
