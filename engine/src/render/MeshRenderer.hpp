@@ -51,19 +51,19 @@ public:
     void begin();
     void draw(MeshHandle mesh, const float* model16, TextureHandle texture,
               TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
-              float roughness = 1.0f, float specular = 0.0f);
+              float roughness = 1.0f, float specular = 0.0f, float metallic = 0.0f);
     // Draw `count` copies of one mesh in a single instanced draw call, one model matrix per instance
     // (models is count contiguous column-major mat4s). All instances share the material/textures.
     // Instanced meshes receive shadows but do not cast them (v1); no per-instance frustum culling.
     void drawInstanced(MeshHandle mesh, const float* models16, uint32_t count, TextureHandle texture,
                        TextureHandle normal = kInvalidTexture, const float emissive3[3] = nullptr,
-                       float roughness = 1.0f, float specular = 0.0f);
+                       float roughness = 1.0f, float specular = 0.0f, float metallic = 0.0f);
     // Queue a translucent mesh (opacity in [0,1]). Transparent draws are collected separately,
     // sorted back-to-front by camera distance, and drawn after all opaque geometry with alpha
     // blending and depth-write disabled so overlapping surfaces composite correctly.
     void drawTransparent(MeshHandle mesh, const float* model16, TextureHandle texture,
                          TextureHandle normal, const float emissive3[3], float roughness,
-                         float specular, float opacity);
+                         float specular, float opacity, float metallic = 0.0f);
     uint32_t instanceCount() const { return m_instancesLastFrame; }
 
     bool hasDraws() const { return !m_cmds.empty(); }
@@ -98,6 +98,7 @@ private:
         float emissive[3] = {0, 0, 0};
         float roughness = 1.0f;
         float specular = 0.0f;
+        float metallic = 0.0f;
         float alpha = 1.0f; // opacity; < 1 routes the draw through the transparent pass
     };
 
@@ -118,6 +119,7 @@ private:
         float emissive[3];
         float roughness;
         float specular;
+        float metallic = 0.0f;
     };
 
     TextureStore* m_store = nullptr; // shared texture registry (not owned)

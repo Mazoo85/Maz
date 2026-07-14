@@ -540,7 +540,7 @@ void VulkanRenderer::drawMeshEmissive(MeshHandle mesh, const float* model16, Tex
 void VulkanRenderer::drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) {
     if (m_active) {
         m_meshes.draw(mesh, model16, mat.albedo, mat.normal, mat.emissive, mat.roughness,
-                      mat.specular);
+                      mat.specular, mat.metallic);
     }
 }
 
@@ -548,7 +548,7 @@ void VulkanRenderer::drawMeshInstanced(MeshHandle mesh, const float* models16, u
                                        const Material& mat) {
     if (m_active) {
         m_meshes.drawInstanced(mesh, models16, count, mat.albedo, mat.normal, mat.emissive,
-                               mat.roughness, mat.specular);
+                               mat.roughness, mat.specular, mat.metallic);
     }
 }
 
@@ -556,7 +556,7 @@ void VulkanRenderer::drawMeshTransparent(MeshHandle mesh, const float* model16, 
                                          float opacity) {
     if (m_active) {
         m_meshes.drawTransparent(mesh, model16, mat.albedo, mat.normal, mat.emissive, mat.roughness,
-                                 mat.specular, opacity);
+                                 mat.specular, opacity, mat.metallic);
     }
 }
 

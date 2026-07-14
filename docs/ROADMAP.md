@@ -348,13 +348,16 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Transparency** (`drawMeshTransparent`: alpha-blended, depth-tested/no-write, back-to-front
   sorted; the `glass` demo layers 3 panes over opaque pillars; M56)
 - [~] **Physically-based rendering** (a 3D-rendering deep-dive, R-milestones): **R1 — Cook-Torrance
-  GGX specular** — the mesh shader's sun specular is now an energy-correct microfacet BRDF (GGX normal
+  GGX specular** — the mesh shader's sun specular is an energy-correct microfacet BRDF (GGX normal
   distribution + Schlick-GGX geometry + Fresnel-Schlick), driven by the metallic/roughness workflow
-  (`F0 = mix(0.04, albedo, metallic)`; metallic wired via `material1.z`, dielectric by default). It
-  replaces the old Blinn-Phong lobe for materials that opt into `specular`; the `cube`/`primitives`/
-  `glass`/`instances`/`ortho3d` goldens were re-baselined to the PBR look. Metallic through the C++
-  material API, point/spot-light PBR + energy-conserving diffuse, image-based lighting (IBL), and an
-  ACES tonemap land in later R-milestones.
+  (`F0 = mix(0.04, albedo, metallic)`; dielectric by default), replacing the old Blinn-Phong lobe for
+  materials that opt into `specular`. **R2 — full metallic/roughness PBR** — `metallic` is exposed on
+  `Renderer::Material` and packed to the shader (`material1.z`); the Cook-Torrance BRDF now applies to
+  the point/spot lights too (not just the sun), diffuse is energy-conserving (metals lose their diffuse
+  term), and a flat ambient-reflection stand-in keeps metals from going pure black before IBL. The new
+  `pbrballs` demo renders the classic 6×6 sphere grid (glossy→rough across, dielectric→metal up). The
+  `cube`/`primitives`/`glass`/`instances`/`ortho3d` goldens were re-baselined. Image-based lighting
+  (IBL, R3) and an ACES filmic tonemap (R4) land in later R-milestones.
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

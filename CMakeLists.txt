@@ -190,6 +190,7 @@ add_subdirectory(apps/motor)
 add_subdirectory(apps/convex)
 add_subdirectory(apps/polyline)
 add_subdirectory(apps/physics3d)
+add_subdirectory(apps/pbrballs)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

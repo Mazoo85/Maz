@@ -242,7 +242,8 @@ public:
         TextureHandle normal = kInvalidTexture;
         float emissive[3] = {0.0f, 0.0f, 0.0f};
         float roughness = 1.0f;
-        float specular = 0.0f; // specular strength (0 = matte)
+        float specular = 0.0f;  // specular strength (0 = matte; > 0 enables the PBR BRDF)
+        float metallic = 0.0f;  // 0 = dielectric, 1 = metal (Fresnel F0 tints toward albedo)
     };
     // Draw a mesh with a full material (albedo + normal map + emissive + specular/roughness). The
     // specular highlight comes from the sun. No-op when inactive.

@@ -10,7 +10,7 @@ layout(location = 4) in vec3 vWorldPos;
 layout(push_constant) uniform Push {
     mat4 model;
     vec4 material0; // rgb = emissive (self-illumination, feeds bloom), w = roughness
-    vec4 material1; // x = specular strength, y = opacity (1 = opaque)
+    vec4 material1; // x = specular strength, y = opacity (1 = opaque), z = metallic (0 = dielectric)
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
@@ -74,16 +74,62 @@ vec3 perturbNormal(vec3 N, vec3 worldPos, vec2 uv) {
     return normalize(TBN * tsn);
 }
 
+// Cook-Torrance microfacet specular for one light direction Ldir, view V, normal N.
+// GGX normal distribution (D), Schlick-GGX geometry (G), Fresnel-Schlick (F). rough shapes the
+// highlight; F0 is the reflectance at normal incidence (0.04 dielectric, albedo for metals).
+vec3 cookTorrance(vec3 N, vec3 V, vec3 Ldir, float rough, vec3 F0) {
+    vec3 H = normalize(Ldir + V);
+    float NdV = max(dot(N, V), 1e-4);
+    float NdL = max(dot(N, Ldir), 0.0);
+    float NdH = max(dot(N, H), 0.0);
+    float VdH = max(dot(V, H), 0.0);
+    float a = rough * rough;
+    float a2 = a * a;
+    float dGGX = (NdH * NdH) * (a2 - 1.0) + 1.0;
+    float D = a2 / (3.14159265 * dGGX * dGGX);            // GGX normal distribution
+    float k = (rough + 1.0) * (rough + 1.0) / 8.0;        // Schlick-GGX geometry
+    float gv = NdV / (NdV * (1.0 - k) + k);
+    float gl = NdL / (NdL * (1.0 - k) + k);
+    float G = gv * gl;
+    vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);       // Fresnel-Schlick
+    return (D * G) * F / max(4.0 * NdV * NdL, 1e-4);      // Cook-Torrance
+}
+
 void main() {
     vec3 N = perturbNormal(normalize(vNormal), vWorldPos, vUV);
     vec3 albedo = texture(uTexture, vUV).rgb * vColor;
 
-    // Ambient + shadow-mapped directional sun.
-    vec3 lit = L.ambient.rgb;
-    float ndl = max(dot(N, normalize(L.sunDir.xyz)), 0.0);
-    lit += L.sunColor.rgb * ndl * shadowFactor();
+    // Metallic/roughness PBR parameters. When the material opts into specular (material1.x > 0) we
+    // run the full metallic/roughness workflow: metals lose their diffuse albedo (energy is spent on
+    // the reflection) and the Fresnel F0 tints toward the albedo. specStrength 0 (matte) leaves the
+    // classic Lambert diffuse untouched, so existing scenes are unchanged.
+    float specStrength = pc.material1.x;
+    bool pbr = specStrength > 0.0;
+    float rough = clamp(pc.material0.w, 0.045, 1.0);
+    float metallic = clamp(pc.material1.z, 0.0, 1.0);
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 V = normalize(L.camPos.xyz - vWorldPos);
+    // Energy conservation: metals have (almost) no diffuse. Only applied on PBR materials.
+    vec3 kd = pbr ? albedo * (1.0 - metallic) : albedo;
 
-    // Point lights: distance attenuation with a smooth range cutoff.
+    // Ambient + shadow-mapped directional sun (diffuse + PBR specular).
+    vec3 sunDir = normalize(L.sunDir.xyz);
+    float ndl = max(dot(N, sunDir), 0.0);
+    float sunShadow = shadowFactor();
+    vec3 color = kd * L.ambient.rgb;                          // ambient acts on the diffuse albedo
+    if (pbr) {
+        // Flat ambient reflection: a cheap stand-in for image-based lighting (arrives in a later
+        // milestone). Without it, metals — which have no diffuse — render pure black except at the
+        // direct highlights. F0 tints the reflected ambient so chrome/gold read correctly.
+        color += F0 * L.ambient.rgb;
+    }
+    color += kd * L.sunColor.rgb * ndl * sunShadow;
+    if (pbr) {
+        color += L.sunColor.rgb * cookTorrance(N, V, sunDir, rough, F0)
+                 * specStrength * ndl * sunShadow;
+    }
+
+    // Point / spot lights: distance attenuation with a smooth range cutoff, diffuse + PBR specular.
     int count = int(L.ambient.w + 0.5);
     for (int i = 0; i < count; ++i) {
         vec3 toL = L.points[i].posRange.xyz - vWorldPos;
@@ -100,39 +146,14 @@ void main() {
             float cosA = dot(-Ldir, normalize(L.points[i].spot.xyz));
             cone = smoothstep(L.points[i].spot.w, L.points[i].color.w, cosA);
         }
-        lit += L.points[i].color.rgb * ndl2 * atten * cone;
+        vec3 radiance = L.points[i].color.rgb * atten * cone;
+        color += kd * radiance * ndl2;
+        if (pbr) {
+            color += radiance * cookTorrance(N, V, Ldir, rough, F0) * specStrength * ndl2;
+        }
     }
 
-    vec3 color = albedo * lit + pc.material0.rgb; // self-illumination (feeds bloom)
-
-    // Physically-based (Cook-Torrance GGX) specular from the sun, gated by the material's specular
-    // strength (material1.x). Uses the metallic/roughness workflow: roughness (material0.w) shapes the
-    // GGX highlight and metallic (material1.z, 0 = dielectric) tints the Fresnel reflectance F0 toward
-    // the albedo. specStrength 0 (default) leaves matte meshes unchanged.
-    float specStrength = pc.material1.x;
-    if (specStrength > 0.0) {
-        float rough = clamp(pc.material0.w, 0.045, 1.0);
-        float metallic = clamp(pc.material1.z, 0.0, 1.0);
-        vec3 V = normalize(L.camPos.xyz - vWorldPos);
-        vec3 Lsun = normalize(L.sunDir.xyz);
-        vec3 H = normalize(Lsun + V);
-        float NdV = max(dot(N, V), 1e-4);
-        float NdL = max(dot(N, Lsun), 0.0);
-        float NdH = max(dot(N, H), 0.0);
-        float VdH = max(dot(V, H), 0.0);
-        vec3 F0 = mix(vec3(0.04), albedo, metallic);           // dielectric 4% vs metal albedo
-        float a = rough * rough;
-        float a2 = a * a;
-        float dGGX = (NdH * NdH) * (a2 - 1.0) + 1.0;
-        float D = a2 / (3.14159265 * dGGX * dGGX);             // GGX normal distribution
-        float k = (rough + 1.0) * (rough + 1.0) / 8.0;         // Schlick-GGX geometry
-        float gv = NdV / (NdV * (1.0 - k) + k);
-        float gl = NdL / (NdL * (1.0 - k) + k);
-        float G = gv * gl;
-        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);        // Fresnel-Schlick
-        vec3 spec = (D * G) * F / max(4.0 * NdV * NdL, 1e-4);  // Cook-Torrance
-        color += L.sunColor.rgb * spec * specStrength * NdL * shadowFactor();
-    }
+    color += pc.material0.rgb; // self-illumination (feeds bloom)
 
     // Exponential distance fog: blend toward the fog color with camera distance.
     if (L.fog.w > 0.0) {

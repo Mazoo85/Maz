@@ -965,7 +965,8 @@ bool MeshRenderer::createInstanceBuffers(VulkanContext& ctx) {
 
 void MeshRenderer::drawInstanced(MeshHandle mesh, const float* models16, uint32_t count,
                                  TextureHandle texture, TextureHandle normal,
-                                 const float emissive3[3], float roughness, float specular) {
+                                 const float emissive3[3], float roughness, float specular,
+                                 float metallic) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size() || count == 0) {
         return;
     }
@@ -987,13 +988,14 @@ void MeshRenderer::drawInstanced(MeshHandle mesh, const float* models16, uint32_
     c.emissive[2] = emissive3 ? emissive3[2] : 0.0f;
     c.roughness = roughness;
     c.specular = specular;
+    c.metallic = metallic;
     m_instCmds.push_back(c);
     m_instStaging.insert(m_instStaging.end(), models16, models16 + static_cast<size_t>(count) * 16);
 }
 
 void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle texture,
                         TextureHandle normal, const float emissive3[3], float roughness,
-                        float specular) {
+                        float specular, float metallic) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
@@ -1009,12 +1011,13 @@ void MeshRenderer::draw(MeshHandle mesh, const float* model16, TextureHandle tex
     }
     cmd.roughness = roughness;
     cmd.specular = specular;
+    cmd.metallic = metallic;
     m_cmds.push_back(cmd);
 }
 
 void MeshRenderer::drawTransparent(MeshHandle mesh, const float* model16, TextureHandle texture,
                                    TextureHandle normal, const float emissive3[3], float roughness,
-                                   float specular, float opacity) {
+                                   float specular, float opacity, float metallic) {
     if (mesh == kInvalidMesh || mesh >= m_meshes.size()) {
         return;
     }
@@ -1030,6 +1033,7 @@ void MeshRenderer::drawTransparent(MeshHandle mesh, const float* model16, Textur
     }
     cmd.roughness = roughness;
     cmd.specular = specular;
+    cmd.metallic = metallic;
     cmd.alpha = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity);
     m_transCmds.push_back(cmd);
 }
@@ -1136,7 +1140,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         push[19] = dc.roughness;   // material0.w = roughness
         push[20] = dc.specular;    // material1.x = specular strength (0 => matte)
         push[21] = 1.0f;           // material1.y = opacity (opaque)
-        push[22] = 0.0f;
+        push[22] = dc.metallic;    // material1.z = metallic (0 => dielectric)
         push[23] = 0.0f;
         vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, sizeof(push), push);
@@ -1180,6 +1184,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
             idPush[19] = ic.roughness;
             idPush[20] = ic.specular;
             idPush[21] = 1.0f; // opacity (opaque)
+            idPush[22] = ic.metallic; // material1.z = metallic
             vkCmdPushConstants(cmd, m_layout,
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                sizeof(idPush), idPush);
@@ -1228,7 +1233,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
             push[19] = dc.roughness;
             push[20] = dc.specular;
             push[21] = dc.alpha; // material1.y = opacity
-            push[22] = 0.0f;
+            push[22] = dc.metallic; // material1.z = metallic
             push[23] = 0.0f;
             vkCmdPushConstants(cmd, m_layout,
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
