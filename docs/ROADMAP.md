@@ -68,6 +68,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       dense/sparse key→value map with O(1) insert/remove/contains and packed iteration — the ECS
       component-storage structure; `maz::core::SmallVector<T,N>` inline-storage vector à la Godot's
       `LocalVector` / llvm `SmallVector`, spilling to the heap only past N; all header-only, unit-tested)
+      — plus **`maz::core::LruCache<K,V>` landed** (bounded least-recently-used cache à la Godot's
+      resource cache; MRU-ordered intrusive list + key→node map, O(1) put/get/peek/erase with
+      evict-after-insert LRU eviction over capacity; header-only, unit-tested)
 - [~] String interning / `StringId` (hashed), fixed strings — **`maz::core::StringId` landed** (constexpr FNV-1a 64, `_sid` UDL, unit-tested) + **`maz::core::str` string utilities landed** (ASCII/locale-independent split/join, borrowing trim, startsWith/endsWith/contains, toLower/toUpper/equalsIgnoreCase, replaceAll, from_chars parseInt/parseFloat; header-only, unit-tested); interning/original-string storage + fixed strings TODO
 - [x] Event bus / signals, delegates / typed callbacks — **`maz::core::EventBus<Event>` + `Delegate<R(Args...)>` landed**
       (`EventBus`: Godot-signal-style named channels keyed by `StringId`, `std::function` callbacks,

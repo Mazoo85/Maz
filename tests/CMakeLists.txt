@@ -336,3 +336,10 @@ target_link_libraries(maz_unit_base64 PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_base64 COMMAND maz_unit_base64)
 set_tests_properties(unit_base64 PROPERTIES TIMEOUT 30)
+
+# Unit tests: bounded least-recently-used cache (maz::core::LruCache<K,V>; MRU-ordered intrusive list + key->node map, put insert/update+promote with evict-after-insert LRU eviction over capacity, get promotes to MRU while peek/contains do not — opposite eviction victims prove the promotion semantics, live/mutable get pointer into storage, erase/clear/empty/size bookkeeping, capacity-1 edge).
+add_executable(maz_unit_lru unit_lru.cpp)
+target_link_libraries(maz_unit_lru PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_lru COMMAND maz_unit_lru)
+set_tests_properties(unit_lru PROPERTIES TIMEOUT 30)
