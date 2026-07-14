@@ -208,7 +208,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (from->to over duration, advanced by `update(dt)`) with Once/Loop/PingPong loop modes + `onComplete`
       (fires once on the Once-mode finish transition), Loop/PingPong driven by fmod phase math so any dt
       (incl. multi-cycle) is handled and a zero duration is div-by-zero-guarded; composes iter6
-      `maz::math::Easing`/`ease`/`lerp`; header-only, unit-tested. A generic `Tween<T>` (vec3/color),
+      `maz::math::Easing`/`ease`/`lerp`; header-only, unit-tested. `maz::math::CatmullRomSpline` landed:
+      uniform Catmull-Rom through control points (evaluate/tangent/sample), Godot Curve3D/Path3D analog
+      for camera/motion paths. A generic `Tween<T>` (vec3/color),
       sequences/timelines, start delay, speed scale, and per-frame-event tracks still TODO
 
 ## Phase 9 — UI

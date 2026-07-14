@@ -252,3 +252,10 @@ target_link_libraries(maz_unit_steering PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_steering COMMAND maz_unit_steering)
 set_tests_properties(unit_steering PROPERTIES TIMEOUT 30)
+
+# Unit tests: uniform Catmull-Rom spline through control points (CatmullRomSpline; evaluate(u) over global u in [0,segmentCount] interpolating position and passing through every control point exactly with endpoint clamping, tangent(u) unnormalized travel direction, sample(n) boundary-sharing render polyline; interior collinear equally-spaced segments reproduce the straight line, out-of-range u clamps to the endpoints, exact-representable integer/half inputs).
+add_executable(maz_unit_spline unit_spline.cpp)
+target_link_libraries(maz_unit_spline PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_spline COMMAND maz_unit_spline)
+set_tests_properties(unit_spline PROPERTIES TIMEOUT 30)
