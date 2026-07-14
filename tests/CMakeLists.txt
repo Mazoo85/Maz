@@ -273,3 +273,10 @@ target_link_libraries(maz_unit_noise PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_noise COMMAND maz_unit_noise)
 set_tests_properties(unit_noise PROPERTIES TIMEOUT 30)
+
+# Unit tests: typed StringId-keyed shared-memory blackboard (Blackboard; std::any-backed set/get roundtrip across int/float/bool/StringId/vec3, type-checked has<T>, always-safe getOr<T> fallback on absent OR wrong type, last-write-wins overwrite incl. changing a key's stored type, erase/clear/empty/size bookkeeping, fresh empty blackboard).
+add_executable(maz_unit_blackboard unit_blackboard.cpp)
+target_link_libraries(maz_unit_blackboard PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_blackboard COMMAND maz_unit_blackboard)
+set_tests_properties(unit_blackboard PROPERTIES TIMEOUT 30)
