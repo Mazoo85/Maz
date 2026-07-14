@@ -357,3 +357,10 @@ target_link_libraries(maz_unit_camera_controller PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_camera_controller COMMAND maz_unit_camera_controller)
 set_tests_properties(unit_camera_controller PROPERTIES TIMEOUT 30)
+
+# Unit tests: cross-platform byte-order helpers (maz::core Endian.hpp; byteSwap16/32/64 exact values + involution, explicit-endianness pack/unpack writeU32LE/BE exact byte layout, write/read round-trips across 16/32/64 both endiannesses, reads from known bytes, host<->little/big conversions with hostIsLittleEndian()-computed native-identity, cross-endianness LE-written-read-as-BE == byteSwap consistency; host-independent).
+add_executable(maz_unit_endian unit_endian.cpp)
+target_link_libraries(maz_unit_endian PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_endian COMMAND maz_unit_endian)
+set_tests_properties(unit_endian PROPERTIES TIMEOUT 30)

@@ -87,6 +87,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       `maz::core` base64 (RFC 4648 standard alphabet, '=' padding) + hex binary-to-text codecs
       (the Godot Marshalls analog, for embedding binary blobs in text config/scene files;
       encode->string, decode replaces out + fail-safe on malformed input; header-only,
+      unit-tested); plus `maz::core` endian/byte-order helpers (`Endian.hpp`:
+      byteSwap16/32/64, host-independent explicit-endianness pack/unpack
+      writeU32LE/readU32BE/..., and host<->little/big scalar conversions via
+      `std::endian::native`; complements iter16 `ByteWriter`/`ByteReader`; header-only,
       unit-tested); JSON + versioned schemas still TODO
 - [~] Profiling: scoped timers, frame markers, Tracy integration — **`maz::core::Profiler` +
       `ScopedTimer` landed** (StringId-named scopes aggregating count/total/min/max ns, RAII
