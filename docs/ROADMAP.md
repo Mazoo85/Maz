@@ -347,7 +347,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Texture mipmaps** (blit-generated chain, trilinear min sampling, NEAREST mag; M52)
 - [x] **Transparency** (`drawMeshTransparent`: alpha-blended, depth-tested/no-write, back-to-front
   sorted; the `glass` demo layers 3 panes over opaque pillars; M56)
-- [ ] Full PBR (energy-conserving metallic/roughness, IBL)
+- [~] **Physically-based rendering** (a 3D-rendering deep-dive, R-milestones): **R1 — Cook-Torrance
+  GGX specular** — the mesh shader's sun specular is now an energy-correct microfacet BRDF (GGX normal
+  distribution + Schlick-GGX geometry + Fresnel-Schlick), driven by the metallic/roughness workflow
+  (`F0 = mix(0.04, albedo, metallic)`; metallic wired via `material1.z`, dielectric by default). It
+  replaces the old Blinn-Phong lobe for materials that opt into `specular`; the `cube`/`primitives`/
+  `glass`/`instances`/`ortho3d` goldens were re-baselined to the PBR look. Metallic through the C++
+  material API, point/spot-light PBR + energy-conserving diffuse, image-based lighting (IBL), and an
+  ACES tonemap land in later R-milestones.
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

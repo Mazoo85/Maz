@@ -105,17 +105,33 @@ void main() {
 
     vec3 color = albedo * lit + pc.material0.rgb; // self-illumination (feeds bloom)
 
-    // Blinn-Phong specular from the sun, gated by the material's specular strength (material1.x) and
-    // roughness (material0.w). specStrength 0 (default) leaves matte meshes unchanged.
+    // Physically-based (Cook-Torrance GGX) specular from the sun, gated by the material's specular
+    // strength (material1.x). Uses the metallic/roughness workflow: roughness (material0.w) shapes the
+    // GGX highlight and metallic (material1.z, 0 = dielectric) tints the Fresnel reflectance F0 toward
+    // the albedo. specStrength 0 (default) leaves matte meshes unchanged.
     float specStrength = pc.material1.x;
     if (specStrength > 0.0) {
-        float roughness = clamp(pc.material0.w, 0.02, 1.0);
-        float shininess = mix(4.0, 128.0, 1.0 - roughness);
+        float rough = clamp(pc.material0.w, 0.045, 1.0);
+        float metallic = clamp(pc.material1.z, 0.0, 1.0);
         vec3 V = normalize(L.camPos.xyz - vWorldPos);
         vec3 Lsun = normalize(L.sunDir.xyz);
         vec3 H = normalize(Lsun + V);
-        float spec = pow(max(dot(N, H), 0.0), shininess);
-        color += L.sunColor.rgb * spec * specStrength * ndl * shadowFactor();
+        float NdV = max(dot(N, V), 1e-4);
+        float NdL = max(dot(N, Lsun), 0.0);
+        float NdH = max(dot(N, H), 0.0);
+        float VdH = max(dot(V, H), 0.0);
+        vec3 F0 = mix(vec3(0.04), albedo, metallic);           // dielectric 4% vs metal albedo
+        float a = rough * rough;
+        float a2 = a * a;
+        float dGGX = (NdH * NdH) * (a2 - 1.0) + 1.0;
+        float D = a2 / (3.14159265 * dGGX * dGGX);             // GGX normal distribution
+        float k = (rough + 1.0) * (rough + 1.0) / 8.0;         // Schlick-GGX geometry
+        float gv = NdV / (NdV * (1.0 - k) + k);
+        float gl = NdL / (NdL * (1.0 - k) + k);
+        float G = gv * gl;
+        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdH, 5.0);        // Fresnel-Schlick
+        vec3 spec = (D * G) * F / max(4.0 * NdV * NdL, 1e-4);  // Cook-Torrance
+        color += L.sunColor.rgb * spec * specStrength * NdL * shadowFactor();
     }
 
     // Exponential distance fog: blend toward the fog color with camera distance.
