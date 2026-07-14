@@ -513,9 +513,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   ground **Plane** (Godot WorldBoundaryShape3D), semi-implicit-Euler gravity integration, and
   sphere-sphere + sphere-plane **impulse resolution** (restitution + Coulomb friction + split
   positional correction); orientation/inertia fields carried but locked, ready for angular dynamics.
-  The `physics3d` demo drops a cluster of balls that fall and settle into a heap (golden-verified).
-  Boxes/capsules, angular dynamics, contact manifolds, warm-started stacking, broadphase, sleeping,
-  queries and a character controller land in later milestones.
+  **D2 — boxes + angular dynamics** — the solver is now rotation-aware: a per-body inverse-inertia
+  tensor (rotated into world space each step), quaternion orientation integration, and contact
+  impulses applied at the contact point (lever arms). Adds the **Box** (OBB) shape (Godot
+  BoxShape3D) with `enableRotation()`, sphere-box contacts, and multi-corner box-vs-plane contacts,
+  so a tilted box tumbles and settles flat and a ball landing off-centre imparts spin.
+  The `physics3d` demo drops tilted boxes that tumble to rest flat plus balls that pile up and land
+  on the box tops (golden-verified). Box-vs-box (3D SAT), capsules, warm-started stacking,
+  broadphase, sleeping, queries and a character controller land in later milestones.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

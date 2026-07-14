@@ -9892,6 +9892,78 @@ void testPhysics3D() {
     }
 }
 
+// D2: 3D box (OBB) shapes + angular dynamics. Boxes tumble and settle flat on the ground; a sphere
+// landing on a box registers a contact; a spinning body's spin decays.
+void testPhysics3DBoxes() {
+    using game::Body3D;
+    namespace d = game::detail;
+
+    // Direct sphere-box: a sphere resting just above a box's +Y face. n points sphere -> box (down).
+    {
+        Body3D box = game::makeBox(math::vec3(0, 0, 0), math::vec3(1, 1, 1), 0.0f);
+        Body3D s = game::makeSphere(math::vec3(0, 1.3f, 0), 0.5f);
+        d::Contact3 c = d::sphereBox(1, s, 0, box);
+        CHECK(c.hit);
+        CHECK_NEAR(c.n.y, -1.0f, 1e-3f);
+        CHECK_NEAR(c.pen, 0.2f, 1e-3f);
+    }
+    // Separated sphere/box: no contact.
+    {
+        Body3D box = game::makeBox(math::vec3(0, 0, 0), math::vec3(1, 1, 1), 0.0f);
+        Body3D s = game::makeSphere(math::vec3(0, 5, 0), 0.5f);
+        CHECK(!d::sphereBox(1, s, 0, box).hit);
+    }
+
+    // A cube dropped flat settles resting on a face: centre at half-height, upright, at rest.
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D box = game::makeBox(math::vec3(0, 4, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        box.friction = 0.6f;
+        box.enableRotation();
+        int id = w.add(box);
+        for (int i = 0; i < 480; ++i) {
+            w.step(1.0f / 60.0f, 12);
+        }
+        const Body3D& r = w.bodies[static_cast<size_t>(id)];
+        CHECK_NEAR(r.pos.y, 0.5f, 0.05f);
+        CHECK(std::sqrt(glm::dot(r.angularVel, r.angularVel)) < 0.5f);
+        // Its local +Y axis is still world-up (never toppled off its face).
+        const math::vec3 up = glm::mat3_cast(r.orientation) * math::vec3(0, 1, 0);
+        CHECK(up.y > 0.9f);
+    }
+
+    // A cube dropped with a tilt tumbles and still comes to rest flat on a face (centre at half-height).
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        Body3D box = game::makeBox(math::vec3(0, 4, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        box.friction = 0.6f;
+        box.orientation = glm::normalize(math::quat(math::vec3(0.4f, 0.2f, 0.5f))); // tilted
+        box.enableRotation();
+        int id = w.add(box);
+        for (int i = 0; i < 900; ++i) {
+            w.step(1.0f / 60.0f, 14);
+        }
+        const Body3D& r = w.bodies[static_cast<size_t>(id)];
+        CHECK_NEAR(r.pos.y, 0.5f, 0.08f); // resting on a face, not balanced on an edge/corner
+        CHECK(std::sqrt(glm::dot(r.angularVel, r.angularVel)) < 0.6f);
+    }
+
+    // A sphere dropped onto a static box lands on top of it (sphere-box resolution + friction).
+    {
+        game::PhysicsWorld3D w;
+        w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        w.add(game::makeBox(math::vec3(0, 0.5f, 0), math::vec3(1.0f, 0.5f, 1.0f), 0.0f)); // static slab
+        int s = w.add(game::makeSphere(math::vec3(0.0f, 4.0f, 0.0f), 0.4f));
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 10);
+        }
+        // Slab top is at y=1; sphere rests at y = 1 + radius = 1.4.
+        CHECK_NEAR(w.bodies[static_cast<size_t>(s)].pos.y, 1.4f, 0.06f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -12643,6 +12715,7 @@ int main() {
     testPhysicsMaterial();
     testPolylineCollider();
     testPhysics3D();
+    testPhysics3DBoxes();
     testNormalLight();
     testParallax();
     testAudioDsp();
