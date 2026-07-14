@@ -5,6 +5,7 @@
 
 #include "maz/math/Collision2D.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
@@ -24,6 +25,11 @@ void check(bool cond, const char* msg) {
 // A CCW axis-aligned square with lower-left corner (x, y) and side length s.
 std::vector<vec2> square(float x, float y, float s) {
     return {vec2(x, y), vec2(x + s, y), vec2(x + s, y + s), vec2(x, y + s)};
+}
+
+// Approximate vec2 equality within tol (default 1e-5f) for intersection-point checks.
+bool vapprox(vec2 p, float x, float y, float tol = 1e-5f) {
+    return std::fabs(p.x - x) <= tol && std::fabs(p.y - y) <= tol;
 }
 
 } // namespace
@@ -176,6 +182,73 @@ int main() {
         const bool r1 = pointInPolygon(vec2(5, 5), sq);
         const bool r2 = pointInPolygon(vec2(5, 5), sq);
         check(r1 == r2, "point-in-polygon determinism -> repeated calls identical");
+    }
+
+    // --- 15. SEGMENT INTERSECTION: X crossing --------------------------------
+    {
+        // a0(0,0)->a1(4,4) crosses b0(0,4)->b1(4,0) at the midpoint (2,2); t=u=0.5.
+        vec2 pt;
+        check(segmentIntersection(vec2(0, 0), vec2(4, 4), vec2(0, 4), vec2(4, 0), pt),
+              "X crossing -> true");
+        check(vapprox(pt, 2, 2), "X crossing -> point (2,2)");
+    }
+
+    // --- 16. SEGMENT INTERSECTION: T-junction --------------------------------
+    {
+        // Horizontal a0(0,0)->a1(4,0) met at its middle by vertical b0(2,-2)->b1(2,2).
+        vec2 pt;
+        check(segmentIntersection(vec2(0, 0), vec2(4, 0), vec2(2, -2), vec2(2, 2), pt),
+              "T-junction -> true");
+        check(vapprox(pt, 2, 0), "T-junction -> point (2,0)");
+    }
+
+    // --- 17. SEGMENT INTERSECTION: shared endpoint (inclusive) ---------------
+    {
+        // a0(0,0)->a1(2,0) and b0(2,0)->b1(2,2) share the endpoint (2,0); t=1, u=0.
+        vec2 pt;
+        check(segmentIntersection(vec2(0, 0), vec2(2, 0), vec2(2, 0), vec2(2, 2), pt),
+              "shared endpoint -> true (inclusive)");
+        check(vapprox(pt, 2, 0), "shared endpoint -> point (2,0)");
+    }
+
+    // --- 18. SEGMENT INTERSECTION: parallel -> false -------------------------
+    {
+        vec2 pt;
+        check(!segmentIntersection(vec2(0, 0), vec2(4, 0), vec2(0, 1), vec2(4, 1), pt),
+              "parallel horizontals -> false");
+    }
+
+    // --- 19. SEGMENT INTERSECTION: collinear overlapping -> false ------------
+    {
+        // Same line, overlapping spans: collinear overlap has no single point (denom==0).
+        vec2 pt;
+        check(!segmentIntersection(vec2(0, 0), vec2(2, 0), vec2(1, 0), vec2(3, 0), pt),
+              "collinear overlap -> false");
+    }
+
+    // --- 20. SEGMENT INTERSECTION: disjoint, infinite lines cross -> false ----
+    {
+        // The infinite lines cross at (2,0) but that is beyond segment A's end (t=2 > 1),
+        // so within the [0,1] spans there is no intersection.
+        vec2 pt;
+        check(!segmentIntersection(vec2(0, 0), vec2(1, 0), vec2(2, -1), vec2(2, 1), pt),
+              "disjoint but lines cross -> false (span check)");
+    }
+
+    // --- 21. SEGMENT INTERSECTION: no crossing at all -> false ---------------
+    {
+        vec2 pt;
+        check(!segmentIntersection(vec2(0, 0), vec2(1, 1), vec2(3, 0), vec2(4, 1), pt),
+              "disjoint diagonals -> false");
+    }
+
+    // --- 22. SEGMENT INTERSECTION: out-param untouched on false --------------
+    {
+        // Sentinel must survive a false return: outPoint is only written on true.
+        vec2 pt(-99, -99);
+        check(!segmentIntersection(vec2(0, 0), vec2(4, 0), vec2(0, 1), vec2(4, 1), pt),
+              "out-param false case -> false");
+        check(vapprox(pt, -99, -99), "out-param unchanged on false (sentinel intact)");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

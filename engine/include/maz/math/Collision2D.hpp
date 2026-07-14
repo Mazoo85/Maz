@@ -13,7 +13,10 @@
 // refinements. Also provides pointInPolygon: a crossing-number (even-odd) point
 // containment test that — unlike convexPolygonsOverlap — works for ANY simple
 // polygon (convex OR concave, any winding); a point exactly on the boundary
-// (edge/vertex) has an unspecified result.
+// (edge/vertex) has an unspecified result. Also provides segmentIntersection: a
+// segment-segment single-point intersection test — returns the crossing point when
+// two segments cross at one point, and returns false for parallel, collinear (even
+// overlapping), or out-of-span pairs; endpoints are inclusive.
 
 #include "maz/math/Math.hpp"
 #include "maz/core/Assert.hpp"
@@ -92,6 +95,31 @@ inline bool pointInPolygon(vec2 point, const std::vector<vec2>& poly) {
         }
     }
     return inside;
+}
+
+// Segment A (a0->a1) vs segment B (b0->b1) intersection. If the two segments cross at a
+// single point, writes that point to outPoint and returns true; returns false if they are
+// parallel, collinear (even if overlapping — a collinear overlap has no single point and is
+// NOT reported), or simply don't meet within both segments' [0,1] spans. Endpoints are
+// inclusive (a shared endpoint or a T-junction counts as an intersection). outPoint is only
+// written when returning true.
+inline bool segmentIntersection(vec2 a0, vec2 a1, vec2 b0, vec2 b1, vec2& outPoint) {
+    const vec2 d1 = a1 - a0;
+    const vec2 d2 = b1 - b0;
+    // 2D scalar cross product.
+    const float denom = d1.x * d2.y - d1.y * d2.x;
+    // Parallel or collinear -> no single intersection point.
+    if (denom < 1e-9f && denom > -1e-9f) {
+        return false;
+    }
+    const vec2 r = b0 - a0;
+    const float t = (r.x * d2.y - r.y * d2.x) / denom;   // param along A  (cross(r, d2)/denom)
+    const float u = (r.x * d1.y - r.y * d1.x) / denom;   // param along B  (cross(r, d1)/denom)
+    if (t < 0.0f || t > 1.0f || u < 0.0f || u > 1.0f) {
+        return false;  // intersection of the infinite lines lies outside one/both segments
+    }
+    outPoint = a0 + t * d1;
+    return true;
 }
 
 } // namespace maz::math
