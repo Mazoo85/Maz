@@ -266,3 +266,10 @@ target_link_libraries(maz_unit_collision PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_collision COMMAND maz_unit_collision)
 set_tests_properties(unit_collision PROPERTIES TIMEOUT 30)
+
+# Unit tests: Ken Perlin improved gradient noise (PerlinNoise; noise2D/noise3D exactly 0 at integer lattice coords, seed-determined permutation via Rng so same seed reproduces bit-identical fields and different seeds differ, output bounded ~[-1,1] and actually varies, noise2D == z=0 slice of noise3D, fbm2D octaves==1 reproduces noise2D + multi-octave finite/bounded/deterministic).
+add_executable(maz_unit_noise unit_noise.cpp)
+target_link_libraries(maz_unit_noise PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_noise COMMAND maz_unit_noise)
+set_tests_properties(unit_noise PROPERTIES TIMEOUT 30)
