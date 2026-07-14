@@ -287,3 +287,10 @@ target_link_libraries(maz_unit_timer PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_timer COMMAND maz_unit_timer)
 set_tests_properties(unit_timer PROPERTIES TIMEOUT 30)
+
+# Unit tests: 2D multi-layer tile grid (TileMap; row-major-within-layer flat index over stacked layers, set/at roundtrip, out-of-bounds x/y reads as empty while writes assert in-bounds, per-layer independence, whole-layer fill, inclusive+clamped+reversed-coord-normalizing fillRegion, clear across all layers, four-corner index math with no cross-layer aliasing).
+add_executable(maz_unit_tilemap unit_tilemap.cpp)
+target_link_libraries(maz_unit_tilemap PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_tilemap COMMAND maz_unit_tilemap)
+set_tests_properties(unit_tilemap PROPERTIES TIMEOUT 30)
