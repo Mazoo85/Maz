@@ -571,8 +571,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   effective-mass impulse (`K = ΣinvMass·I − S(rA)·invIA·S(rA) − S(rB)·invIB·S(rB)`) with a Baumgarte
   position bias; either body may be static (a pendulum pinned to the world), and jointed bodies share
   a sleep island. Verified by a swinging pendulum that preserves its rod length and a two-link chain
-  that hangs vertical. Convex/trimesh colliders and full shape-vs-shape CCD remain honestly-noted
-  extras.
+  that hangs vertical.
+  **D12 — distance / rod joints** (`Joint3D::Distance` + `makeDistanceJoint3`): a 1-DOF constraint
+  holding two anchor points a fixed `restLength` apart along the line between them (rigid rods, rope
+  links, ragdoll bones — Godot Generic6DOF distance), solved along the contact axis with a Baumgarte
+  bias in the same joint loop. Verified by a ball on a rod hanging at exactly the rod length and a rod
+  keeping two free-falling balls a fixed distance apart every step. Convex/trimesh colliders, a hinge
+  (revolute) joint, and full shape-vs-shape CCD remain honestly-noted extras.
 - [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
   materials (P12) — all landed by the P1–P13 deep-dive
 - [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)

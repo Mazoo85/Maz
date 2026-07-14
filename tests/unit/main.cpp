@@ -10421,6 +10421,54 @@ void testPhysics3DJoint() {
     }
 }
 
+// D12: 3D distance / rod joints. A ball on a rod from a static anchor hangs at exactly the rod length;
+// a rod between two free-falling balls keeps their separation fixed.
+void testPhysics3DDistanceJoint() {
+    using game::Body3D;
+
+    // Rope/rod: static anchor at (0,6,0); ball dropped from (0,5,0) on a rod of rest length 2. It
+    // should fall until the rod goes taut at distance 2 below the anchor, i.e. settle at y ~= 4.
+    {
+        game::PhysicsWorld3D w;
+        const int anchor = w.add(game::makeSphere(math::vec3(0, 6, 0), 0.1f, 0.0f));
+        Body3D ball = game::makeSphere(math::vec3(0, 5, 0), 0.3f, 1.0f);
+        ball.enableRotation();
+        const int bi = w.add(ball);
+        w.joints.push_back(game::makeDistanceJoint3(anchor, w.bodies[static_cast<size_t>(anchor)], bi,
+                                                    w.bodies[static_cast<size_t>(bi)],
+                                                    math::vec3(0, 6, 0), math::vec3(0, 5, 0), 2.0f));
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 16);
+        }
+        const math::vec3 d = w.bodies[static_cast<size_t>(bi)].pos - math::vec3(0, 6, 0);
+        const float len = std::sqrt(glm::dot(d, d));
+        CHECK_NEAR(len, 2.0f, 0.05f);                       // rod taut at rest length
+        CHECK_NEAR(w.bodies[static_cast<size_t>(bi)].pos.y, 4.0f, 0.1f); // hanging straight down
+    }
+
+    // A rod between two free-falling balls keeps their separation fixed even as both accelerate.
+    {
+        game::PhysicsWorld3D w;
+        Body3D b1 = game::makeSphere(math::vec3(-1, 5, 0), 0.3f, 1.0f);
+        b1.enableRotation();
+        const int i1 = w.add(b1);
+        Body3D b2 = game::makeSphere(math::vec3(1, 5, 0), 0.3f, 1.0f);
+        b2.enableRotation();
+        const int i2 = w.add(b2);
+        w.joints.push_back(game::makeDistanceJoint3(i1, w.bodies[static_cast<size_t>(i1)], i2,
+                                                    w.bodies[static_cast<size_t>(i2)],
+                                                    math::vec3(-1, 5, 0), math::vec3(1, 5, 0)));
+        for (int i = 0; i < 120; ++i) {
+            w.step(1.0f / 60.0f, 12);
+            const math::vec3 d = w.bodies[static_cast<size_t>(i2)].pos - w.bodies[static_cast<size_t>(i1)].pos;
+            CHECK_NEAR(std::sqrt(glm::dot(d, d)), 2.0f, 0.08f); // separation held every step
+        }
+        // Both fell under gravity (the rod doesn't hold them up, only apart).
+        CHECK(w.bodies[static_cast<size_t>(i1)].pos.y < 4.0f);
+        CHECK(w.bodies[static_cast<size_t>(i2)].pos.y < 4.0f);
+    }
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13182,6 +13230,7 @@ int main() {
     testPhysics3DMoveSlide();
     testPhysics3DMaterial();
     testPhysics3DJoint();
+    testPhysics3DDistanceJoint();
     testNormalLight();
     testParallax();
     testAudioDsp();

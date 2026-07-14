@@ -858,13 +858,18 @@ inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
 
 } // namespace detail
 
-// A point-to-point (ball / pin) joint holding two bodies' local anchor points together — Godot
-// PinJoint3D / a Generic6DOF locked in translation. Build with makePinJoint3. Either body may be
-// static (invMass 0), e.g. a pendulum pinned to the world. `beta` is the position-correction stiffness.
+// A joint between two bodies' local anchor points. Kind::Pin holds the two anchors coincident (a
+// ball/pin joint — Godot PinJoint3D); Kind::Distance holds them a fixed `restLength` apart along the
+// line between them (a rigid rod / rope link — Godot Generic6DOF distance). Build with makePinJoint3 /
+// makeDistanceJoint3. Either body may be static (invMass 0). `beta` is the position-correction
+// stiffness.
 struct Joint3D {
+    enum Kind { Pin, Distance };
     int a = -1, b = -1;
+    int kind = Pin;
     math::vec3 localA{0.0f}; // anchor in a's local frame (relative to a.pos, before rotation)
     math::vec3 localB{0.0f}; // anchor in b's local frame
+    float restLength = 0.0f; // used when kind == Distance
     float beta = 0.2f;
 };
 
@@ -874,8 +879,25 @@ inline Joint3D makePinJoint3(int ia, const Body3D& a, int ib, const Body3D& b, m
     Joint3D j;
     j.a = ia;
     j.b = ib;
+    j.kind = Joint3D::Pin;
     j.localA = glm::transpose(glm::mat3_cast(a.orientation)) * (worldAnchor - a.pos);
     j.localB = glm::transpose(glm::mat3_cast(b.orientation)) * (worldAnchor - b.pos);
+    return j;
+}
+
+// Link two bodies with a rigid rod between anchor points on each: the anchors are held a fixed distance
+// apart (the current separation of the two world anchors, unless `restLength` is overridden >= 0).
+inline Joint3D makeDistanceJoint3(int ia, const Body3D& a, int ib, const Body3D& b,
+                                  math::vec3 worldAnchorA, math::vec3 worldAnchorB,
+                                  float restLength = -1.0f) {
+    Joint3D j;
+    j.a = ia;
+    j.b = ib;
+    j.kind = Joint3D::Distance;
+    j.localA = glm::transpose(glm::mat3_cast(a.orientation)) * (worldAnchorA - a.pos);
+    j.localB = glm::transpose(glm::mat3_cast(b.orientation)) * (worldAnchorB - b.pos);
+    const math::vec3 d = worldAnchorB - worldAnchorA;
+    j.restLength = restLength >= 0.0f ? restLength : std::sqrt(glm::dot(d, d));
     return j;
 }
 
@@ -1356,13 +1378,40 @@ private:
         const math::mat3& invIB = m_invIw[static_cast<size_t>(j.b)];
         const math::vec3 rA = glm::mat3_cast(a.orientation) * j.localA;
         const math::vec3 rB = glm::mat3_cast(b.orientation) * j.localB;
-        const math::vec3 C = (b.pos + rB) - (a.pos + rA); // position error (want 0)
         const math::vec3 vrel =
             (b.vel + glm::cross(b.angularVel, rB)) - (a.vel + glm::cross(a.angularVel, rA));
+        const float bias = dt > 0.0f ? (j.beta / dt) : 0.0f;
+
+        if (j.kind == Joint3D::Distance) {
+            // 1-DOF: hold the two anchors `restLength` apart along the line between them.
+            const math::vec3 d = (b.pos + rB) - (a.pos + rA);
+            const float len = std::sqrt(glm::dot(d, d));
+            if (len < 1e-6f) {
+                return; // degenerate; direction undefined this step
+            }
+            const math::vec3 n = d / len;
+            const math::vec3 raxn = glm::cross(rA, n);
+            const math::vec3 rbxn = glm::cross(rB, n);
+            const float kn = a.invMass + b.invMass + glm::dot(raxn, invIA * raxn) +
+                             glm::dot(rbxn, invIB * rbxn);
+            if (kn <= 0.0f) {
+                return;
+            }
+            const float Cd = len - j.restLength;
+            const float lambda = -(glm::dot(vrel, n) + bias * Cd) / kn;
+            const math::vec3 P = n * lambda;
+            a.vel -= P * a.invMass;
+            a.angularVel -= invIA * glm::cross(rA, P);
+            b.vel += P * b.invMass;
+            b.angularVel += invIB * glm::cross(rB, P);
+            return;
+        }
+
+        // Pin (point-to-point): 3-DOF, drive the two world anchors coincident.
+        const math::vec3 C = (b.pos + rB) - (a.pos + rA); // position error (want 0)
         const math::mat3 sA = detail::skew(rA);
         const math::mat3 sB = detail::skew(rB);
         math::mat3 K = math::mat3(a.invMass + b.invMass) - sA * invIA * sA - sB * invIB * sB;
-        const float bias = dt > 0.0f ? (j.beta / dt) : 0.0f;
         const math::vec3 P = glm::inverse(K) * (-(vrel + C * bias));
         a.vel -= P * a.invMass;
         a.angularVel -= invIA * glm::cross(rA, P);
