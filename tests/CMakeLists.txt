@@ -203,3 +203,10 @@ target_link_libraries(maz_unit_scene_serializer PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_scene_serializer COMMAND maz_unit_scene_serializer)
 set_tests_properties(unit_scene_serializer PROPERTIES TIMEOUT 30)
+
+# Unit tests: ECS transform-propagation system (LocalTransform+Parent->WorldTransform up the parent chain; per-pass memoized recursion so parents resolve before children in any dense-iteration order, parentWorld*local compose order, transform-less/dead parent treated as root, idempotent, cycle-safe, end-to-end via SystemScheduler).
+add_executable(maz_unit_transform_system unit_transform_system.cpp)
+target_link_libraries(maz_unit_transform_system PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_transform_system COMMAND maz_unit_transform_system)
+set_tests_properties(unit_transform_system PROPERTIES TIMEOUT 30)

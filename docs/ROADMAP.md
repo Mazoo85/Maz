@@ -133,8 +133,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       (built-in component structs `LocalTransform`/`WorldTransform` wrapping iter5 `maz::math::Transform`,
       `Name` + `Tag` as hashed `StringId`, and a `Parent` entity link; free-function helpers
       `findByName`/`setParent` (upsert, no dup on reparent)/`parentOf`/`childrenOf` over `World`;
-      header-only, unit-tested + ASAN/UBSan-clean). A transform-propagation SYSTEM
-      (`LocalTransform`+`Parent`→`WorldTransform`) and a name→entity index are future refinements
+      header-only, unit-tested + ASAN/UBSan-clean). The transform-propagation SYSTEM
+      (`LocalTransform`+`Parent`→`WorldTransform`) LANDED as **`maz::ecs::propagateTransforms`**
+      (recursion up the parent chain with per-pass memoization so parents resolve before children in
+      ANY dense-iteration order; `world = parentWorld × local` compose order; a null/dead/transform-less
+      parent is treated as a root; idempotent; recursion-stack cycle guard so a constructed Parent cycle
+      terminates; binds directly as a `SystemScheduler` `SystemFn`; header-only, unit-tested). A
+      name→entity index is still a future refinement
 - [~] Scene graph, world-transform propagation, dirty flags — **`maz::scene::SceneGraph` first slice landed**
       (node hierarchy with local/cached-world `maz::math::Transform` per node; lazy `getWorld` =
       parentWorld × local recompute; any `setLocal`/`setParent` marks the subtree dirty; `setParent`
