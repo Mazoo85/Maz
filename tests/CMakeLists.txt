@@ -232,6 +232,13 @@ target_link_libraries(maz_unit_astar PRIVATE maz_core maz_warnings)
 add_test(NAME unit_astar COMMAND maz_unit_astar)
 set_tests_properties(unit_astar PROPERTIES TIMEOUT 30)
 
+# Unit tests: general weighted-graph A*/Dijkstra shortest-path finder (AStarGraph; nodes with 3D positions + non-negative weighted directed/bidirectional edges, Euclidean heuristic scaled by heuristicScale where 0 == pure Dijkstra, deterministic (f,h,id) tie-break, cost-optimal reconstruction; linear/diamond/start==goal/unreachable/directed/admissible-A*==Dijkstra/determinism via cost+endpoint assertions).
+add_executable(maz_unit_astar_graph unit_astar_graph.cpp)
+target_link_libraries(maz_unit_astar_graph PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_astar_graph COMMAND maz_unit_astar_graph)
+set_tests_properties(unit_astar_graph PROPERTIES TIMEOUT 30)
+
 # Unit tests: event-driven finite state machine (StringId states/events, onEnter/onUpdate/onExit callbacks; start/fire/update/reset; transition ordering exitOld->enterNew, self-transition fires both, unmatched event no-ops, update ticks only current, reset+restart re-enters initial, callback-less states safe).
 add_executable(maz_unit_state_machine unit_state_machine.cpp)
 target_link_libraries(maz_unit_state_machine PRIVATE maz_core maz_warnings)
