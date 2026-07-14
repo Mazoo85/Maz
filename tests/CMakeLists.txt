@@ -385,3 +385,10 @@ target_link_libraries(maz_unit_convexhull PRIVATE maz_core maz_warnings)
 
 add_test(NAME unit_convexhull COMMAND maz_unit_convexhull)
 set_tests_properties(unit_convexhull PROPERTIES TIMEOUT 30)
+
+# Unit tests: 2D convex-polygon overlap via the Separating Axis Theorem (maz::math::convexPolygonsOverlap; projects both CONVEX polygons onto every edge normal of both, reporting overlap unless some axis's [min,max] projection intervals are STRICTLY disjoint so touching/shared-edge counts as overlap (inclusive), axes unnormalized/scale-invariant, any winding; overlapping/separated/edge-touching/containment/triangle-vs-square, the diagonal-separation SAT anchor where AABBs overlap but the hypotenuse normal separates, symmetry+determinism, CW==CCW winding independence; integer-valued vec2 for exact projection compares).
+add_executable(maz_unit_collision2d unit_collision2d.cpp)
+target_link_libraries(maz_unit_collision2d PRIVATE maz_core maz_warnings)
+
+add_test(NAME unit_collision2d COMMAND maz_unit_collision2d)
+set_tests_properties(unit_collision2d PROPERTIES TIMEOUT 30)
