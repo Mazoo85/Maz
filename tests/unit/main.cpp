@@ -49,6 +49,7 @@
 #include "maz/core/StringId.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/editor/Scene.hpp"
+#include "maz/script/Script.hpp"
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -10786,6 +10787,96 @@ void testEditorMultiSelect() {
     CHECK(sc.selected == 1); // primary 3 was invalid, fell back to a surviving selected node
 }
 
+// SC1: the maz::script tree-walking interpreter — arithmetic, control flow, functions, host natives.
+void testScript() {
+    using namespace maz;
+
+    // Arithmetic + operator precedence + print output.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print 1 + 2 * 3;")); // 7, not 9
+        CHECK(vm.output == "7\n");
+    }
+    // Variables, assignment, string concatenation.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var a = 10; a = a + 5; print \"a=\" + a;"));
+        CHECK(vm.output == "a=15\n");
+    }
+    // Comparison + logical short-circuit + if/else.
+    {
+        script::Vm vm;
+        CHECK(vm.run("if (3 < 5 and 2 != 2 or 1 == 1) { print \"yes\"; } else { print \"no\"; }"));
+        CHECK(vm.output == "yes\n");
+    }
+    // while loop accumulation.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var s = 0; var i = 1; while (i <= 5) { s = s + i; i = i + 1; } print s;"));
+        CHECK(vm.output == "15\n"); // 1+2+3+4+5
+    }
+    // C-style for loop.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var t = 0; for (var i = 0; i < 4; i = i + 1) { t = t + i; } print t;"));
+        CHECK(vm.output == "6\n"); // 0+1+2+3
+    }
+    // Functions, recursion (fibonacci), return.
+    {
+        script::Vm vm;
+        const char* src =
+            "func fib(n) { if (n < 2) { return n; } return fib(n - 1) + fib(n - 2); } print fib(10);";
+        CHECK(vm.run(src));
+        CHECK(vm.output == "55\n");
+    }
+    // Native host function callable from script.
+    {
+        script::Vm vm;
+        int captured = 0;
+        vm.registerNative("record", [&captured](std::vector<script::Value>& a) {
+            captured = a.empty() ? 0 : static_cast<int>(a[0].number);
+            return script::Value::fromNum(a[0].number * 2.0);
+        });
+        CHECK(vm.run("var r = record(21); print r;"));
+        CHECK(captured == 21);
+        CHECK(vm.output == "42\n");
+    }
+    // Built-in stdlib (min/max/abs/sqrt/floor).
+    {
+        script::Vm vm;
+        CHECK(vm.run("print max(3, 7) + min(2, 9) + abs(0 - 4) + floor(3.9);"));
+        CHECK(vm.output == "16\n"); // 7 + 2 + 4 + 3
+    }
+    // Host sets a global; script reads it; C++ calls a script function and reads the result.
+    {
+        script::Vm vm;
+        vm.setGlobal("health", script::Value::fromNum(100.0));
+        CHECK(vm.run("func hurt(dmg) { return health - dmg; }"));
+        const script::Value r = vm.call("hurt", {script::Value::fromNum(30.0)});
+        CHECK(r.type == script::Value::Type::Num);
+        CHECK(r.number == 70.0);
+    }
+    // Errors are reported (not crashes): undefined variable, with a line number.
+    {
+        script::Vm vm;
+        CHECK(!vm.run("print 1;\nprint missing;"));
+        CHECK(!vm.error().empty());
+        CHECK(vm.errorLine() == 2);
+    }
+    // Parse error is caught cleanly.
+    {
+        script::Vm vm;
+        CHECK(!vm.run("var = 5;")); // missing name
+        CHECK(!vm.error().empty());
+    }
+    // Division by zero is a catchable runtime error, not UB.
+    {
+        script::Vm vm;
+        CHECK(!vm.run("print 1 / 0;"));
+        CHECK(!vm.error().empty());
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13598,6 +13689,7 @@ int main() {
     testEditorMultiSelect();
     testEditorPackage();
     testEditorWorldToScreen();
+    testScript();
     testNormalLight();
     testParallax();
     testAudioDsp();

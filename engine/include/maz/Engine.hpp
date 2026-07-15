@@ -123,6 +123,7 @@
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
+#include "maz/script/Script.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"

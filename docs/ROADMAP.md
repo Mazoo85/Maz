@@ -805,8 +805,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
-- [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
-- [ ] Script hot-reload, sandboxing
+- [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
+  sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
+  reproducible for lockstep/replay). **SC1 shipped**: lexer / recursive-descent parser / interpreter
+  with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
+  assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
+  functions (`registerNative` / `setGlobal` / `call`), a small stdlib, and line-numbered error
+  reporting — all unit-tested. Roadmap SC2–SC11 (collections, closures, classes, engine-object
+  binding, signals, hot-reload, gradual typing) in `docs/SCRIPTING.md`.
+- [ ] Script hot-reload (SC9), engine-object binding (SC6), signals/await (SC7) — see SCRIPTING.md
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;
