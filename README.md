@@ -1,7 +1,12 @@
 # Maz Engine
 
+[![CI](https://github.com/Mazoo85/Maz/actions/workflows/ci.yml/badge.svg)](https://github.com/Mazoo85/Maz/actions/workflows/ci.yml)
+
 A native **C++20 + Vulkan + SDL3** game engine — 2D-complete with a working 3D path (a
 pluggable renderer, 2D and 3D cameras, a depth buffer, and lit meshes alongside batched sprites).
+
+Continuous integration builds the engine and runs the full test suite (8900+ checks) on
+**Linux, macOS, and Windows** on every push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.

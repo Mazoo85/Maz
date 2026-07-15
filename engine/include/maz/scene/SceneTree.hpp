@@ -24,7 +24,7 @@ class SceneTree; // forward
 // A node in the scene tree. Owns its children. Its transform (position/rotation/scale/name/visible)
 // lives in a shared script::Node2D so an attached script can read and write it directly.
 class SceneNode {
-public:
+  public:
     explicit SceneNode(std::string name) { m_xform->name = std::move(name); }
 
     const std::string& name() const { return m_xform->name; }
@@ -38,7 +38,10 @@ public:
     double x() const { return m_xform->x; }
     double y() const { return m_xform->y; }
     double rotation() const { return m_xform->rotation; }
-    void setPosition(double x, double y) { m_xform->x = x; m_xform->y = y; }
+    void setPosition(double x, double y) {
+        m_xform->x = x;
+        m_xform->y = y;
+    }
     void setRotation(double r) { m_xform->rotation = r; }
 
     SceneNode* parent() const { return m_parent; }
@@ -69,24 +72,35 @@ public:
         ox = px + (lx * c - ly * s);
         oy = py + (lx * s + ly * c);
     }
-    double worldX() const { double x, y; worldPosition(x, y); return x; }
-    double worldY() const { double x, y; worldPosition(x, y); return y; }
+    double worldX() const {
+        double x, y;
+        worldPosition(x, y);
+        return x;
+    }
+    double worldY() const {
+        double x, y;
+        worldPosition(x, y);
+        return y;
+    }
 
     bool visibleInTree() const {
-        if (!m_xform->visible) return false;
+        if (!m_xform->visible)
+            return false;
         return m_parent ? m_parent->visibleInTree() : true;
     }
 
     // ---- groups (tags for broadcast / queries) ----
     void addToGroup(const std::string& g) {
         for (const auto& x : m_groups) {
-            if (x == g) return;
+            if (x == g)
+                return;
         }
         m_groups.push_back(g);
     }
     bool inGroup(const std::string& g) const {
         for (const auto& x : m_groups) {
-            if (x == g) return true;
+            if (x == g)
+                return true;
         }
         return false;
     }
@@ -96,7 +110,7 @@ public:
     const script::Value& script() const { return m_script; }
     const std::string& scriptClass() const { return m_scriptClass; }
 
-private:
+  private:
     friend class SceneTree;
     std::shared_ptr<script::Node2D> m_xform = std::make_shared<script::Node2D>();
     SceneNode* m_parent = nullptr;
@@ -107,7 +121,7 @@ private:
 };
 
 class SceneTree {
-public:
+  public:
     SceneTree() : m_root(std::make_unique<SceneNode>("root")) {}
 
     SceneNode& root() { return *m_root; }
@@ -125,7 +139,8 @@ public:
         return raw;
     }
 
-    // Attach a script class to a node: binds the node's LOCAL transform to the script and runs _ready.
+    // Attach a script class to a node: binds the node's LOCAL transform to the script and runs
+    // _ready.
     bool attachScript(SceneNode& node, const std::string& className) {
         script::Value self = m_scripts.attach(className, node.m_xform);
         if (self.type != script::Value::Type::Object) {
@@ -142,7 +157,8 @@ public:
 
     // Find a node by slash path from the root, e.g. "Player/Weapon" ("" or "root" -> the root).
     SceneNode* findNode(const std::string& path) {
-        if (path.empty() || path == "root") return m_root.get();
+        if (path.empty() || path == "root")
+            return m_root.get();
         SceneNode* cur = m_root.get();
         size_t start = 0;
         while (start <= path.size()) {
@@ -151,11 +167,16 @@ public:
                 path.substr(start, slash == std::string::npos ? std::string::npos : slash - start);
             SceneNode* next = nullptr;
             for (const auto& c : cur->m_children) {
-                if (c->name() == part) { next = c.get(); break; }
+                if (c->name() == part) {
+                    next = c.get();
+                    break;
+                }
             }
-            if (!next) return nullptr;
+            if (!next)
+                return nullptr;
             cur = next;
-            if (slash == std::string::npos) break;
+            if (slash == std::string::npos)
+                break;
             start = slash + 1;
         }
         return cur;
@@ -183,7 +204,7 @@ public:
     // Total node count (including the root).
     size_t nodeCount() const { return count(*m_root); }
 
-private:
+  private:
     void dispatch(SceneNode& node, const std::string& method, double dt) {
         if (node.m_script.type == script::Value::Type::Object &&
             m_scripts.vm().objectHasMethod(node.m_script, method)) {
@@ -194,8 +215,10 @@ private:
             dispatch(*c, method, dt);
         }
     }
-    static void collectGroup(SceneNode& node, const std::string& group, std::vector<SceneNode*>& out) {
-        if (node.inGroup(group)) out.push_back(&node);
+    static void collectGroup(SceneNode& node, const std::string& group,
+                             std::vector<SceneNode*>& out) {
+        if (node.inGroup(group))
+            out.push_back(&node);
         for (const auto& c : node.children()) {
             collectGroup(*c, group, out);
         }

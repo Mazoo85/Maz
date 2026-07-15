@@ -14,14 +14,15 @@
 // script-attached-to-node model as Godot, but sandboxed and deterministic.
 //
 //   ScriptSystem sys;
-//   sys.registerScript("Spinner", "func _process(dt) { self.node.rotation = self.node.rotation + dt; }");
-//   auto node = sys.spawn("Spinner");   // returns a Node2D the host can read/move
+//   sys.registerScript("Spinner", "func _process(dt) { self.node.rotation = self.node.rotation +
+//   dt; }"); auto node = sys.spawn("Spinner");   // returns a Node2D the host can read/move
 //   sys.process(0.016);                 // drives every attached _process(dt)
 //   float r = node->rotation;           // the script moved it
 namespace maz::script {
 
 // The transform state of a scripted node. Plain fields (no GPU/glm coupling) so the system stays
-// header-only and unit-testable; a host is free to copy these into its own ecs::Transform each frame.
+// header-only and unit-testable; a host is free to copy these into its own ecs::Transform each
+// frame.
 struct Node2D {
     double x = 0.0;
     double y = 0.0;
@@ -40,7 +41,7 @@ struct ScriptInstance {
 };
 
 class ScriptSystem {
-public:
+  public:
     ScriptSystem() {
         // Bind the Node2D host type once: script code reads/writes self.node.x, .rotation, etc.
         // (SC6 property binding over the raw Node2D*).
@@ -52,7 +53,8 @@ public:
                 "y", [](void* n) { return Value::fromNum(static_cast<Node2D*>(n)->y); },
                 [](void* n, const Value& v) { static_cast<Node2D*>(n)->y = v.number; })
             .property(
-                "rotation", [](void* n) { return Value::fromNum(static_cast<Node2D*>(n)->rotation); },
+                "rotation",
+                [](void* n) { return Value::fromNum(static_cast<Node2D*>(n)->rotation); },
                 [](void* n, const Value& v) { static_cast<Node2D*>(n)->rotation = v.number; })
             .property(
                 "scale_x", [](void* n) { return Value::fromNum(static_cast<Node2D*>(n)->scaleX); },
@@ -61,7 +63,8 @@ public:
                 "scale_y", [](void* n) { return Value::fromNum(static_cast<Node2D*>(n)->scaleY); },
                 [](void* n, const Value& v) { static_cast<Node2D*>(n)->scaleY = v.number; })
             .property(
-                "visible", [](void* n) { return Value::fromBool(static_cast<Node2D*>(n)->visible); },
+                "visible",
+                [](void* n) { return Value::fromBool(static_cast<Node2D*>(n)->visible); },
                 [](void* n, const Value& v) { static_cast<Node2D*>(n)->visible = v.isTruthy(); })
             .property(
                 "name", [](void* n) { return Value::fromStr(static_cast<Node2D*>(n)->name); },
@@ -81,15 +84,16 @@ public:
     // they can call each other and share globals. Returns false + sets error on parse failure.
     bool loadSource(const std::string& source) { return m_vm.run(source); }
 
-    // Convenience: define (or extend) the program with a single named script class inline. Accumulates
-    // across calls so you can register several scripts, then spawn any of them.
+    // Convenience: define (or extend) the program with a single named script class inline.
+    // Accumulates across calls so you can register several scripts, then spawn any of them.
     bool registerScript(const std::string& className, const std::string& body) {
         m_program += "class " + className + " {\n" + body + "\n}\n";
         return m_vm.run(m_program);
     }
 
     // Spawn an instance of a script class, bind a fresh Node2D to its `node` field, and run _ready.
-    // Returns the node so the host/renderer can read (and the physics system can write) its transform.
+    // Returns the node so the host/renderer can read (and the physics system can write) its
+    // transform.
     std::shared_ptr<Node2D> spawn(const std::string& className, std::vector<Value> initArgs = {}) {
         auto node = std::make_shared<Node2D>();
         if (attach(className, node, std::move(initArgs)).type != Value::Type::Object) {
@@ -99,13 +103,14 @@ public:
     }
 
     // Attach a script class to an EXISTING node (used by the SceneTree, where the node's transform
-    // already lives in the hierarchy). Binds self.node, runs _ready, and returns the script instance
-    // (Type::Object), or nil on failure.
+    // already lives in the hierarchy). Binds self.node, runs _ready, and returns the script
+    // instance (Type::Object), or nil on failure.
     Value attach(const std::string& className, std::shared_ptr<Node2D> node,
                  std::vector<Value> initArgs = {}) {
         Value self = m_vm.instantiate(className, std::move(initArgs));
         if (self.type != Value::Type::Object) {
-            m_lastError = "ScriptSystem: cannot spawn unknown or invalid script class '" + className + "'";
+            m_lastError =
+                "ScriptSystem: cannot spawn unknown or invalid script class '" + className + "'";
             return Value::nil();
         }
         Value nodeVal = m_vm.makeNativeObject("Node2D", node);
@@ -139,7 +144,7 @@ public:
     // Remove all live instances (e.g. on scene change). The script program stays loaded.
     void clearInstances() { m_instances.clear(); }
 
-private:
+  private:
     void dispatch(const std::string& method, double dt) {
         for (auto& inst : m_instances) {
             if (m_vm.objectHasMethod(inst.self, method)) {
@@ -161,8 +166,8 @@ private:
     }
 
     Vm m_vm;
-    std::string m_program;                    // accumulated script source (for registerScript)
-    std::vector<ScriptInstance> m_instances;  // live script-attached nodes
+    std::string m_program;                   // accumulated script source (for registerScript)
+    std::vector<ScriptInstance> m_instances; // live script-attached nodes
     std::string m_lastError;
 };
 

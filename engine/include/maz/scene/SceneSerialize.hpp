@@ -9,10 +9,10 @@
 
 #include "maz/scene/SceneTree.hpp"
 
-// maz::scene text (de)serialization — Maz's answer to Godot's `.tscn` scene files. A whole node tree
-// (structure + per-node transform, visibility, groups, and script class reference) round-trips to a
-// small, human-readable, line-based text format. Scripts live in the script program (load them with
-// SceneTree::loadScripts before loadTree); the scene only references classes by name.
+// maz::scene text (de)serialization — Maz's answer to Godot's `.tscn` scene files. A whole node
+// tree (structure + per-node transform, visibility, groups, and script class reference) round-trips
+// to a small, human-readable, line-based text format. Scripts live in the script program (load them
+// with SceneTree::loadScripts before loadTree); the scene only references classes by name.
 //
 //   std::string text = scene::saveTree(tree);
 //   SceneTree other;
@@ -42,18 +42,21 @@ inline std::string pathOf(const SceneNode& node) {
     }
     std::string p;
     for (size_t i = parts.size(); i-- > 0;) {
-        if (!p.empty()) p += "/";
+        if (!p.empty())
+            p += "/";
         p += parts[i];
     }
     return p;
 }
 
 // Extract a field value from a serialized line. Every key is space-prefixed (" key=") so "x" won't
-// match inside "sx". Quoted values return the text between quotes; bare values run to the next space.
+// match inside "sx". Quoted values return the text between quotes; bare values run to the next
+// space.
 inline std::string field(const std::string& line, const std::string& key) {
     const std::string k = " " + key + "=";
     size_t p = line.find(k);
-    if (p == std::string::npos) return "";
+    if (p == std::string::npos)
+        return "";
     p += k.size();
     if (p < line.size() && line[p] == '"') {
         const size_t end = line.find('"', p + 1);
@@ -67,7 +70,8 @@ inline std::string writeNode(const SceneNode& node) {
     const script::Node2D& t = node.local();
     std::string groups;
     for (const auto& g : node.groups()) {
-        if (!groups.empty()) groups += ";";
+        if (!groups.empty())
+            groups += ";";
         groups += g;
     }
     std::string out = "node path=\"" + pathOf(node) + "\"";
@@ -105,27 +109,32 @@ inline bool loadTree(SceneTree& tree, const std::string& text) {
         const size_t nl = text.find('\n', pos);
         std::string line = text.substr(pos, nl == std::string::npos ? std::string::npos : nl - pos);
         pos = (nl == std::string::npos) ? text.size() : nl + 1;
-        if (line.empty()) continue;
+        if (line.empty())
+            continue;
         if (!sawHeader) {
-            if (line.rfind("maz_scene", 0) != 0) return false;
+            if (line.rfind("maz_scene", 0) != 0)
+                return false;
             sawHeader = true;
             continue;
         }
-        if (line.rfind("node ", 0) != 0) continue;
+        if (line.rfind("node ", 0) != 0)
+            continue;
 
         const std::string path = detail::field(line, "path");
         const std::string name = detail::field(line, "name");
         SceneNode* node = nullptr;
         if (path.empty()) {
             node = &tree.root(); // the root line sets the root's own transform
-            if (!name.empty()) node->setName(name);
+            if (!name.empty())
+                node->setName(name);
         } else {
             const size_t slash = path.rfind('/');
             const std::string parentPath = slash == std::string::npos ? "" : path.substr(0, slash);
             SceneNode* parent = tree.findNode(parentPath);
-            if (!parent) continue; // malformed / out-of-order; skip
-            const std::string leaf = name.empty() ? path.substr(slash == std::string::npos ? 0 : slash + 1)
-                                                  : name;
+            if (!parent)
+                continue; // malformed / out-of-order; skip
+            const std::string leaf =
+                name.empty() ? path.substr(slash == std::string::npos ? 0 : slash + 1) : name;
             node = tree.createChild(*parent, leaf);
         }
 
@@ -144,9 +153,12 @@ inline bool loadTree(SceneTree& tree, const std::string& text) {
         size_t gp = 0;
         while (gp < groups.size()) {
             const size_t sep = groups.find(';', gp);
-            std::string g = groups.substr(gp, sep == std::string::npos ? std::string::npos : sep - gp);
-            if (!g.empty()) node->addToGroup(g);
-            if (sep == std::string::npos) break;
+            std::string g =
+                groups.substr(gp, sep == std::string::npos ? std::string::npos : sep - gp);
+            if (!g.empty())
+                node->addToGroup(g);
+            if (sep == std::string::npos)
+                break;
             gp = sep + 1;
         }
 
