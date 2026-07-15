@@ -62,10 +62,30 @@ int main(int argc, char** argv) {
                                     m.indices.data(), static_cast<uint32_t>(m.indices.size()));
     };
     const std::vector<render::MeshHandle> meshes = {
-        upload(sh::makeBox(1.0f, render::Color{1, 1, 1, 1})),
-        upload(sh::makeSphere(0.5f, 32, 40, render::Color{1, 1, 1, 1})),
+        upload(sh::makeBox(1.0f, render::Color{1, 1, 1, 1})),                    // 0 box
+        upload(sh::makeSphere(0.5f, 32, 40, render::Color{1, 1, 1, 1})),         // 1 sphere
+        upload(sh::makeCylinder(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),     // 2 cylinder
+        upload(sh::makeCone(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),         // 3 cone
+        upload(sh::makeTorus(0.5f, 0.2f, 32, 20, render::Color{1, 1, 1, 1})),    // 4 torus
+        upload(sh::makeCapsule(0.35f, 0.6f, 24, 8, render::Color{1, 1, 1, 1})),  // 5 capsule
     };
     const render::MeshHandle ground = upload(sh::makePlane(9.0f, render::Color{1, 1, 1, 1}));
+
+    // The asset browser's catalog: instantiable primitives, each with the mesh index and the local
+    // AABB used for click-picking (matching the geometry's real extents).
+    struct Asset {
+        const char* name;
+        uint32_t mesh;
+        math::vec3 lmin, lmax;
+    };
+    const std::vector<Asset> assets = {
+        {"Box", 0, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Sphere", 1, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Cylinder", 2, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Cone", 3, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Torus", 4, math::vec3(-0.7f, -0.2f, -0.7f), math::vec3(0.7f, 0.2f, 0.7f)},
+        {"Capsule", 5, math::vec3(-0.35f, -0.65f, -0.35f), math::vec3(0.35f, 0.65f, 0.35f)},
+    };
 
     // A small material swatch palette (1x1 albedo textures the nodes index by colorIndex).
     const std::vector<render::TextureHandle> swatches = {
@@ -175,16 +195,23 @@ int main(int argc, char** argv) {
             history.pending = scene.nodes;
         }
     };
-    auto addPrimitive = [&](uint32_t mesh) {
+    // Instantiate a catalog asset: a fresh node with the asset's mesh + pick-AABB, resting on the
+    // ground (bottom at y=0), a rotating swatch colour, selected and committed as one undo step.
+    auto addAsset = [&](size_t a) {
+        if (a >= assets.size()) {
+            return;
+        }
         std::vector<editor::Node> before = scene.nodes;
         editor::Node n;
-        n.name = std::string(mesh == 1 ? "Sphere" : "Box") + std::to_string(scene.nodes.size());
-        n.meshId = mesh;
-        n.position = math::vec3(0.0f, 0.5f, 0.0f);
+        n.name = std::string(assets[a].name) + std::to_string(scene.nodes.size());
+        n.meshId = assets[a].mesh;
+        n.localMin = assets[a].lmin;
+        n.localMax = assets[a].lmax;
+        n.position = math::vec3(0.0f, -assets[a].lmin.y, 0.0f); // sit on the floor
         n.colorIndex = static_cast<int>(scene.nodes.size()) % static_cast<int>(swatches.size());
         n.roughness = 0.6f;
         n.specular = 1.0f;
-        scene.nodes.push_back(n); // default local AABB ±0.5 suits both box and sphere
+        scene.nodes.push_back(n);
         scene.selectOnly(static_cast<int>(scene.nodes.size()) - 1);
         commitEdit(before);
     };
@@ -301,8 +328,9 @@ int main(int argc, char** argv) {
 
         // Viewport click-to-pick + translate gizmo: a left click in the 3D viewport (not over a
         // panel) casts a ray; it selects the nearest node it hits and begins a ground-plane drag.
-        const float treeW = 240.0f, inspW = 288.0f;
-        const bool inViewport = mx > treeW + 8.0f && mx < fw - inspW - 8.0f;
+        const float treeW = 240.0f, inspW = 288.0f, dockH = 92.0f;
+        const bool inViewport =
+            mx > treeW + 8.0f && mx < fw - inspW - 8.0f && my < fh - dockH; // exclude the ASSETS dock
         const glm::mat4 invVP = glm::inverse(viewProj);
         if (input.mousePressed(0) && inViewport) {
             math::vec3 ro, rd;
@@ -519,23 +547,16 @@ int main(int argc, char** argv) {
             const float panelW = 240.0f;
             gui.panel(ui::Rect{0, 0, panelW, fh}, gui.colBg);
             font.drawText(*renderer, 16.0f, 14.0f, "SCENE", render::Color{1, 1, 1, 1}, 0.55f);
-            // Toolbar: add a box / sphere, duplicate or delete the selected node.
+            // Node-op toolbar: duplicate or delete the selected node(s). (Adding new nodes lives in the
+            // ASSETS browser docked along the bottom.)
             {
-                const float bwid = 52.0f, gap = 4.0f, by = 42.0f, bhgt = 26.0f;
+                const float bwid = 108.0f, gap = 4.0f, by = 42.0f, bhgt = 26.0f;
                 float bx = 10.0f;
-                if (gui.button(70u, ui::Rect{bx, by, bwid, bhgt}, "+Box", 0.34f)) {
-                    addPrimitive(0);
-                }
-                bx += bwid + gap;
-                if (gui.button(71u, ui::Rect{bx, by, bwid, bhgt}, "+Sph", 0.34f)) {
-                    addPrimitive(1);
-                }
-                bx += bwid + gap;
-                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Dup", 0.34f)) {
+                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Duplicate", 0.34f)) {
                     duplicateSelected();
                 }
                 bx += bwid + gap;
-                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Del", 0.34f)) {
+                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Delete", 0.34f)) {
                     deleteSelected();
                 }
             }
@@ -573,10 +594,6 @@ int main(int argc, char** argv) {
                 }
                 ty += 36.0f;
             }
-
-            // Viewport options at the foot of the SCENE panel: reference grid + snap-to-grid.
-            gui.toggle(74u, ui::Rect{14.0f, fh - 104.0f, 22.0f, 22.0f}, "Grid", gridOn, 0.34f);
-            gui.toggle(75u, ui::Rect{14.0f, fh - 72.0f, 22.0f, 22.0f}, "Snap", snapOn, 0.34f);
 
             // Inspector panel on the right: live-edit the selected node.
             if (editor::Node* sel = scene.selectedNode()) {
@@ -638,9 +655,39 @@ int main(int argc, char** argv) {
                            0.34f);
             }
 
-            font.drawText(*renderer, 16.0f, fh - 30.0f,
-                          "MAZ ENGINE  -  EDITOR   (1/2/3 = Move/Rotate/Scale; Shift+click multi-select; +Box/+Sph/Dup/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
-                          render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
+            // ---- ASSETS dock along the bottom: view toggles + a clickable palette of primitives ----
+            {
+                const float y0 = fh - dockH;
+                gui.panel(ui::Rect{0, y0, fw, dockH}, gui.colBg);
+
+                // View options (grid + snap) on the left.
+                font.drawText(*renderer, 14.0f, y0 + 8.0f, "VIEW", gui.colAccent, 0.30f);
+                gui.toggle(74u, ui::Rect{14.0f, y0 + 34.0f, 22.0f, 22.0f}, "Grid", gridOn, 0.30f);
+                gui.toggle(75u, ui::Rect{92.0f, y0 + 34.0f, 22.0f, 22.0f}, "Snap", snapOn, 0.30f);
+
+                // Asset palette: each tile is a colour chip above a click-to-spawn button.
+                font.drawText(*renderer, 200.0f, y0 + 8.0f, "ASSETS", gui.colAccent, 0.30f);
+                static const render::Color chip[6] = {
+                    {0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1}, {0.47f, 0.78f, 0.47f, 1},
+                    {0.88f, 0.78f, 0.43f, 1}, {0.72f, 0.55f, 0.85f, 1}, {0.82f, 0.82f, 0.84f, 1}};
+                const float tw = 70.0f, gap = 6.0f;
+                float bx = 200.0f;
+                for (size_t i = 0; i < assets.size(); ++i) {
+                    gui.panel(ui::Rect{bx, y0 + 30.0f, tw, 20.0f}, chip[i % 6]);
+                    if (gui.button(static_cast<uint32_t>(90 + i),
+                                   ui::Rect{bx, y0 + 52.0f, tw, 24.0f}, assets[i].name, 0.30f)) {
+                        addAsset(i);
+                    }
+                    bx += tw + gap;
+                }
+
+                // A compact controls hint on the right (if the window is wide enough to fit it).
+                if (bx < fw - 300.0f) {
+                    font.drawText(*renderer, bx + 20.0f, y0 + 34.0f,
+                                  "1/2/3 Move/Rotate/Scale   Shift+click multi-select   Ctrl+Z undo   Ctrl+S/O save",
+                                  render::Color{0.62f, 0.67f, 0.78f, 1}, 0.28f);
+                }
+            }
             gui.end();
 
             renderer->endFrame();

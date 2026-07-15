@@ -906,7 +906,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   cursor sweeps around the object's on-screen centre (a ring widget; 15° snap), Scale multiplies size
   by the cursor's distance ratio (0.25 snap). Built on `editor::worldToScreen` (the inverse of the
   pick unproject, unit-tested by round-trip). All three act on the whole multi-selection.
-- [ ] Asset browser; play-in-editor
+  **E11** — **asset browser**: a bottom dock with a clickable palette of primitives (Box, Sphere,
+  Cylinder, Cone, Torus, Capsule — each a data-driven catalog entry carrying its mesh + pick-AABB)
+  that spawns a node resting on the floor as one undo step; the Grid/Snap view toggles moved into the
+  dock. Extends the editor's mesh set to all six `render::shapes` primitives.
+- [ ] Play-in-editor
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
 
