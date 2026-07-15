@@ -910,7 +910,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
   lifecycle, modal + transparent-overlay support, deferred mutation; the `scenes` demo runs a
   menu→game→pause flow; M73)
-- [ ] Full game-state serialization + checkpoints
+- [x] **Game-state checkpoints** (`core::Checkpoints`): named save slots — `save("chapter2", bytes)`
+  / `load(...)` over opaque serialized state (from `io::Serialize`, `io::SceneSerializer`, script
+  fields, anything) — plus a versioned, little-endian whole-**save-file** round-trip of all slots in
+  one call. On top of that, a fixed-capacity **rewind ring**: `autosave(frame, bytes)` keeps the last
+  N snapshots and `rewind(k)` / `rewindToFrame(f)` restore a recent past state — the backbone of
+  rewind mechanics, rollback netcode, and sandbox undo (which Godot has no built-in equivalent for).
+  Serialization-scheme-agnostic (opaque bytes); verified: slot save/overwrite/erase, byte-stable
+  file round-trip + corruption rejection, and capacity-bounded rewind by steps and by frame (M180)
 - [x] **Time scheduler + sequences** (`maz::core::Scheduler`: after/every/cancel timers; `core::Sequence`:
   ordered wait/call/span script with looping; deterministic on the fixed-step clock; the `fireworks`
   demo spawns and explodes rockets on timers; M83)

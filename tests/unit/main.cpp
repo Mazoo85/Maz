@@ -34,6 +34,7 @@
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
+#include "maz/core/Checkpoints.hpp"
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
 #include "maz/platform/CrashHandler.hpp"
@@ -7880,6 +7881,79 @@ void testReplay() {
     CHECK(none2.empty());
 }
 
+// Checkpoints: named save slots (+ whole-file round-trip) and the rolling rewind ring.
+void testCheckpoints() {
+    core::Checkpoints cp;
+    auto blob = [](std::initializer_list<uint8_t> b) { return std::vector<uint8_t>(b); };
+
+    // Named slots: save, overwrite, load, erase.
+    CHECK(cp.slotCount() == 0);
+    cp.save("start", blob({1, 2, 3}), 0);
+    cp.save("boss", blob({9, 9}), 500);
+    CHECK(cp.slotCount() == 2);
+    CHECK(cp.has("boss"));
+    const core::Snapshot* boss = cp.load("boss");
+    CHECK(boss != nullptr);
+    CHECK(boss->frame == 500);
+    CHECK(boss->data == blob({9, 9}));
+    cp.save("boss", blob({7}), 600); // overwrite
+    CHECK(cp.load("boss")->data == blob({7}));
+    CHECK(cp.load("missing") == nullptr);
+    CHECK(cp.erase("start"));
+    CHECK(!cp.erase("start")); // already gone
+    CHECK(cp.slotCount() == 1);
+
+    // Whole save-file round-trip: serialize all slots, load into a fresh instance, identical.
+    cp.save("start", blob({1, 2, 3}), 10);
+    cp.save("mid", blob({4, 5, 6, 7}), 250);
+    const std::vector<uint8_t> file = cp.serialize();
+    core::Checkpoints loaded;
+    CHECK(loaded.loadFile(file));
+    CHECK(loaded.slotCount() == cp.slotCount());
+    CHECK(loaded.load("mid")->data == blob({4, 5, 6, 7}));
+    CHECK(loaded.load("mid")->frame == 250);
+    CHECK(loaded.load("start")->data == blob({1, 2, 3}));
+    // Re-serializing yields a file that reloads to the same slots (stable).
+    core::Checkpoints again;
+    CHECK(again.loadFile(loaded.serialize()));
+    CHECK(again.slotCount() == cp.slotCount());
+    // Corruption rejected.
+    std::vector<uint8_t> bad = file;
+    bad[1] = 'X';
+    core::Checkpoints broken;
+    CHECK(!broken.loadFile(bad));
+    CHECK(broken.slotCount() == 0);
+
+    // Rewind ring: capacity-bounded, keeps the most recent snapshots.
+    core::Checkpoints rw;
+    rw.setRewindCapacity(3);
+    CHECK(rw.rewindCapacity() == 3);
+    for (uint64_t f = 1; f <= 5; ++f) {
+        rw.autosave(f * 10, blob({static_cast<uint8_t>(f)})); // frames 10,20,30,40,50
+    }
+    CHECK(rw.rewindCount() == 3);                 // only the last 3 survive (30,40,50)
+    CHECK(rw.rewind(0)->frame == 50);             // newest
+    CHECK(rw.rewind(1)->frame == 40);             // one step back
+    CHECK(rw.rewind(2)->frame == 30);             // oldest kept
+    CHECK(rw.rewind(3) == nullptr);               // fell off the ring
+    CHECK(rw.rewindByteSize() == 3);              // three 1-byte snapshots
+
+    // rewindToFrame: newest snapshot at or before a target frame.
+    CHECK(rw.rewindToFrame(45)->frame == 40);     // 40 is newest <= 45
+    CHECK(rw.rewindToFrame(50)->frame == 50);
+    CHECK(rw.rewindToFrame(25) == nullptr);       // everything kept is newer than 25
+
+    // Autosave is a no-op when the ring is disabled (capacity 0).
+    core::Checkpoints off;
+    off.autosave(1, blob({1}));
+    CHECK(off.rewindCount() == 0);
+
+    // Shrinking capacity drops the oldest immediately.
+    rw.setRewindCapacity(1);
+    CHECK(rw.rewindCount() == 1);
+    CHECK(rw.rewind(0)->frame == 50);
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -15239,6 +15313,7 @@ int main() {
     testCrashHandler();
     testTelemetry();
     testReplay();
+    testCheckpoints();
     testSceneStack();
     testTween();
     testTweenPlayer();

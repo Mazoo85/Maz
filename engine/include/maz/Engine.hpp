@@ -35,6 +35,7 @@
 #include "maz/core/Assert.hpp"
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
+#include "maz/core/Checkpoints.hpp"
 #include "maz/core/Config.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
