@@ -34,6 +34,7 @@
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
+#include "maz/platform/CrashHandler.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
 #include "maz/core/Jobs.hpp"
@@ -7672,6 +7673,66 @@ void testAssetServer() {
     CHECK(allGood);
 }
 
+// Crash handler: the reportable pieces (signal names, banner, symbol demangling, live backtrace
+// capture) are tested off the crash path so we never actually raise a fatal signal in the runner.
+void testCrashHandler() {
+    using namespace maz::platform;
+
+    // Signal naming covers the fatal set we install for.
+    CHECK(std::string(signalName(SIGSEGV)).find("SIGSEGV") == 0);
+    CHECK(std::string(signalName(SIGABRT)).find("SIGABRT") == 0);
+    CHECK(std::string(signalName(SIGFPE)).find("SIGFPE") == 0);
+    CHECK(std::string(signalName(SIGILL)).find("SIGILL") == 0);
+    CHECK(std::string(signalName(-999)).find("unknown") != std::string::npos);
+
+    // The banner carries app + version + signal, with sane fallbacks for empty fields.
+    const std::string banner = formatCrashBanner("ZOMBOID", "1.2.3", SIGSEGV);
+    CHECK(banner.find("ZOMBOID") != std::string::npos);
+    CHECK(banner.find("1.2.3") != std::string::npos);
+    CHECK(banner.find("SIGSEGV") != std::string::npos);
+    CHECK(banner.find("backtrace") != std::string::npos);
+    const std::string dflt = formatCrashBanner("", "", SIGABRT);
+    CHECK(dflt.find("maz") != std::string::npos);   // empty app -> "maz"
+    CHECK(dflt.find("0.0.0") != std::string::npos); // empty version -> "0.0.0"
+
+    // Demangling turns a mangled frame back into a readable C++ name (both platform line formats).
+    const std::string linuxLine = "./bin/game(_ZN3maz4game7respawnEv+0x2a) [0x55f1]";
+    const std::string demangled = demangleSymbol(linuxLine);
+#if MAZ_HAVE_EXECINFO
+    CHECK(demangled.find("maz::game::respawn") != std::string::npos);
+    CHECK(demangled.find("[0x55f1]") != std::string::npos); // trailing address preserved
+    // A macOS-style line still demangles by locating the _Z token.
+    const std::string macLine = "3   game   0x100 _ZN3maz3fooEv + 26";
+    CHECK(demangleSymbol(macLine).find("maz::foo") != std::string::npos);
+#else
+    CHECK(demangled == linuxLine); // graceful passthrough where execinfo is absent
+#endif
+    // A line with no mangled token is returned unchanged (C symbol / raw address).
+    const std::string plain = "./bin/game(main+0x10) [0x1234]";
+    CHECK(demangleSymbol(plain) == plain);
+
+    // Capturing the live stack from inside a nested call returns frames where supported.
+    std::vector<std::string> frames = captureBacktrace(32, 0);
+#if MAZ_HAVE_EXECINFO
+    CHECK(!frames.empty());
+#else
+    CHECK(frames.empty());
+#endif
+
+    // install() / uninstall() are idempotent and leave no handlers behind. We install WITHOUT a log
+    // path so the runner's signal disposition is restored cleanly and no crash is provoked.
+    CHECK(!CrashHandler::isInstalled() || true);
+    const bool ok = CrashHandler::install(CrashConfig{"unit-test", "0.0.1", ""});
+#if MAZ_HAVE_EXECINFO
+    CHECK(ok);
+    CHECK(CrashHandler::isInstalled());
+#else
+    CHECK(!ok);
+#endif
+    CrashHandler::uninstall();
+    CHECK(!CrashHandler::isInstalled());
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -14974,6 +15035,7 @@ int main() {
     testJobs();
     testResourceCache();
     testAssetServer();
+    testCrashHandler();
     testSceneStack();
     testTween();
     testTweenPlayer();

@@ -34,6 +34,11 @@ else()
     target_compile_options(maz_warnings INTERFACE
         -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-unused-parameter
         $<$<BOOL:${MAZ_WERROR}>:-Werror>)
+    # Export symbols in the dynamic table so platform::CrashHandler's backtraces resolve function
+    # names (GNU/Clang -rdynamic). Harmless where unsupported.
+    if(NOT APPLE)
+        target_link_options(maz_warnings INTERFACE -rdynamic)
+    endif()
 endif()
 
 include(Dependencies)

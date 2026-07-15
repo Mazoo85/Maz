@@ -64,6 +64,10 @@ bool fieldBool(const scene::SceneNode* n, const char* name) {
 } // namespace
 
 int main(int argc, char** argv) {
+    // Install the crash reporter first thing: any fatal signal now dumps a labelled backtrace to
+    // stderr and to zomboid.crash.log, so a crash on a player's machine leaves a diagnosable trace.
+    platform::CrashHandler::install(platform::CrashConfig{"ZOMBOID", "1.0.0", "zomboid.crash.log"});
+
     core::AppConfig cfg = core::parseArgs(argc, argv);
     const bool autopilot = cfg.demo;
     MAZ_LOG_INFO("ZOMBOID (Maz Engine) headless=%d frames=%d autopilot=%d", cfg.headless,

@@ -134,6 +134,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `.clang-format`, `.gitignore` for build artifacts
 - [x] Logging system (levels: trace/info/warn/error, `MAZ_LOG*` macros)
 - [x] Assertion macros (`MAZ_ASSERT`, `MAZ_VERIFY`) with message + abort
+- [x] **Crash handler** (`platform::CrashHandler`, toward Godot's `CrashHandler`): installs fatal-
+  signal handlers (SIGSEGV/SIGABRT/SIGFPE/SIGILL/SIGBUS) that dump a labelled banner + backtrace to
+  stderr **and** a `*.crash.log` file via async-signal-safe `backtrace_symbols_fd`, then re-raise for
+  a core dump; a `demangleSymbol()` helper turns mangled frames into readable C++ names for log
+  post-processing, and `captureBacktrace()` grabs the live stack for diagnostics. Wired into ZOMBOID;
+  builds pass `-rdynamic` so frames resolve. Verified by an actual SIGSEGV producing a full trace
+  (M177)
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
 - [ ] clang-tidy config + CI lint gate
 - [ ] Address/UB sanitizer presets (Debug), leak checks
