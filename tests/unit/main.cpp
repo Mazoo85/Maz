@@ -57,6 +57,8 @@
 #include "maz/core/Signal.hpp"
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
+#include "maz/ecs/Components.hpp"
+#include "maz/ecs/Scheduler.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/editor/Scene.hpp"
 #include "maz/script/Script.hpp"
@@ -8147,6 +8149,90 @@ void testContainers() {
     CHECK(!big.contains(0) && !big.contains(998));
 }
 
+// ECS core components + hierarchy propagation, and the system Scheduler (order + parallel).
+void testEcsComponents() {
+    using namespace maz::ecs;
+    World w;
+
+    // Build a hierarchy: root -> child -> grandchild, each translated +10 on x.
+    Entity root = w.create();
+    Entity child = w.create();
+    Entity grand = w.create();
+    w.add<Transform>(root, Transform{math::vec3(10, 0, 0), math::quat(1, 0, 0, 0), math::vec3(1)});
+    w.add<Transform>(child, Transform{math::vec3(10, 0, 0), math::quat(1, 0, 0, 0), math::vec3(1)});
+    w.add<Transform>(grand, Transform{math::vec3(10, 0, 0), math::quat(1, 0, 0, 0), math::vec3(1)});
+    w.add<Parent>(child, Parent{root});
+    w.add<Parent>(grand, Parent{child});
+    w.add<Name>(root, Name{"root"});
+    w.add<Tag>(root, Tag{});
+    w.get<Tag>(root)->set(3);
+    CHECK(w.get<Tag>(root)->has(3));
+    CHECK(!w.get<Tag>(root)->has(2));
+    CHECK(w.get<Tag>(root)->anyOf(0b1000));
+    CHECK(w.get<Name>(root)->value == "root");
+
+    // Deliberately register a child before its parent is resolved — the pass must still order it.
+    propagateTransforms(w);
+    CHECK_NEAR(w.get<WorldTransform>(root)->position().x, 10.0f, 1e-4f);
+    CHECK_NEAR(w.get<WorldTransform>(child)->position().x, 20.0f, 1e-4f);
+    CHECK_NEAR(w.get<WorldTransform>(grand)->position().x, 30.0f, 1e-4f);
+
+    // Re-parent grand directly under root -> world x becomes 20; re-run.
+    w.get<Parent>(grand)->parent = root;
+    propagateTransforms(w);
+    CHECK_NEAR(w.get<WorldTransform>(grand)->position().x, 20.0f, 1e-4f);
+
+    // A self-parent cycle must not hang; the entity falls back to its local transform.
+    Entity loop = w.create();
+    w.add<Transform>(loop, Transform{math::vec3(5, 0, 0), math::quat(1, 0, 0, 0), math::vec3(1)});
+    w.add<Parent>(loop, Parent{loop});
+    propagateTransforms(w);
+    CHECK_NEAR(w.get<WorldTransform>(loop)->position().x, 5.0f, 1e-4f);
+
+    // --- Scheduler: deterministic phase/order, then parallel-in-phase ---
+    Scheduler sched;
+    std::vector<std::string> log;
+    sched.add(
+        "late", [&](World&) { log.push_back("late"); }, /*phase*/ 2, /*order*/ 0);
+    sched.add(
+        "input", [&](World&) { log.push_back("input"); }, 0, 0);
+    sched.add(
+        "sim_b", [&](World&) { log.push_back("sim_b"); }, 1, 5);
+    sched.add(
+        "sim_a", [&](World&) { log.push_back("sim_a"); }, 1, 1);
+    const std::vector<std::string> order = sched.runOrder();
+    CHECK(order.size() == 4);
+    CHECK(order[0] == "input");
+    CHECK(order[1] == "sim_a"); // order 1 before order 5 within phase 1
+    CHECK(order[2] == "sim_b");
+    CHECK(order[3] == "late");
+    sched.run(w);
+    CHECK(log.size() == 4 && log[0] == "input" && log[3] == "late");
+
+    // Parallel run: many parallelSafe systems each bump a disjoint counter; phase barrier holds.
+    Scheduler par;
+    std::atomic<int> counter{0};
+    std::vector<int> results(8, 0);
+    for (int i = 0; i < 8; ++i) {
+        par.add(
+            "w" + std::to_string(i),
+            [&results, i, &counter](World&) {
+                results[static_cast<size_t>(i)] = i * i;
+                counter.fetch_add(1, std::memory_order_relaxed);
+            },
+            /*phase*/ 0, /*order*/ i, /*parallelSafe*/ true);
+    }
+    bool ranAfter = false;
+    par.add(
+        "finalize", [&](World&) { ranAfter = (counter.load() == 8); }, /*phase*/ 1, 0,
+        /*parallelSafe*/ false);
+    core::JobSystem jobs(4);
+    par.runParallel(w, jobs);
+    CHECK(counter.load() == 8);
+    CHECK(results[5] == 25);
+    CHECK(ranAfter); // phase-1 finalize saw all phase-0 work complete (barrier held)
+}
+
 // Geometry3D: Plane / Aabb3 / Obb value types and their intersection tests.
 void testGeometry3D() {
     using maz::math::Aabb3;
@@ -16094,6 +16180,7 @@ int main() {
     testCheckpoints();
     testMemory();
     testQuadtree();
+    testEcsComponents();
     testGeometry3D();
     testBvh();
     testOctree();

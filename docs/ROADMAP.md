@@ -454,11 +454,19 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 4 — Scene & ECS
 - [x] Entity Component System (sparse-set pools, `each<T>` / `view<A,B>`) — `maz::ecs::World`
-- [ ] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
+- [x] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag` (M194 —
+  `maz::ecs::Components`: a `Transform` (TRS + `matrix()`), a cached `WorldTransform`, a `Parent`
+  link, a `Name`, and a 64-bit `Tag` bitmask (`has`/`set`/`anyOf`/`allOf`), plus
+  `propagateTransforms(World&)` — the hierarchy system that computes world matrices parent-first in
+  cycle-safe passes regardless of entity order. Godot Node3D/name/groups as plain ECS data. Unit-tested.)
 - [x] **Scene graph / transform hierarchy** (`maz::scene::TransformGraph`: nodes with local
   pos/rot/scale + parent; `update()` propagates world transforms parent-first via decomposed TRS;
   `localToWorld`; the `solar` demo runs a sun→planets→moons hierarchy; M81) — dirty-flag caching later
-- [ ] System scheduler (ordered + parallel execution)
+- [x] System scheduler (ordered + parallel execution) (M194 — `maz::ecs::Scheduler`: systems
+  register into ordered PHASES with an intra-phase order; `run()` executes them deterministically
+  phase-by-phase, and `runParallel(World&, JobSystem&)` runs `parallelSafe` systems concurrently
+  within a phase on the thread pool with a hard barrier between phases. Deterministic cross-phase
+  ordering WITH opt-in in-phase parallelism — beyond Godot's single-threaded `_process`. Unit-tested.)
 - [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
 - [x] **Native scene serialization (ECS save/load)** (`io::SceneSerializer`: register per-component
   JSON converters, then `saveWorld`/`loadWorld` a live `ecs::World` to/from JSON — the reflection-lite
