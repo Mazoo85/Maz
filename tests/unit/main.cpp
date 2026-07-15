@@ -32,6 +32,7 @@
 #include "maz/anim/TriggerTrack.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/anim/TweenPlayer.hpp"
+#include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -7538,6 +7539,139 @@ void testResourceCache() {
     CHECK(pool.size() == 0);
 }
 
+// Async asset loading (Godot ResourceLoader parity): threaded decode, status/progress, dedup,
+// reimport/hot-reload. A decoded "asset" here is just an int (the byte count) so it runs GPU-free.
+void testAssetServer() {
+    core::JobSystem jobs(2);
+
+    // A virtual filesystem: path -> (contents, mtime). Lets us simulate a file changing on disk
+    // without touching the real filesystem, so reimport is deterministic.
+    struct File {
+        std::string data;
+        uint64_t mtime;
+    };
+    std::unordered_map<std::string, File> vfs = {
+        {"a.tex", {"hello", 1}},
+        {"b.tex", {"world!!", 1}},
+        {"c.tex", {"x", 1}},
+    };
+    std::atomic<int> decodeCalls{0};
+
+    auto loader = [&](const std::string& path) -> int {
+        ++decodeCalls;
+        auto it = vfs.find(path);
+        if (it == vfs.end()) {
+            throw std::runtime_error("missing: " + path); // -> Failed
+        }
+        return static_cast<int>(it->second.data.size()); // "decoded" size
+    };
+    auto stampOf = [&](const std::string& path) -> uint64_t {
+        auto it = vfs.find(path);
+        return it == vfs.end() ? 0u : it->second.mtime;
+    };
+
+    core::AssetServer<int> server(jobs, loader, stampOf);
+    int loadedCallbacks = 0;
+    server.setOnLoaded([&](core::AssetId, const std::string&, int&) { ++loadedCallbacks; });
+
+    // Request three assets; they start Loading immediately (non-blocking).
+    core::AssetId a = server.request("a.tex");
+    core::AssetId b = server.request("b.tex");
+    core::AssetId c = server.request("c.tex");
+    CHECK(a.valid() && b.valid() && c.valid());
+
+    // Dedup: requesting the same path returns the same id and bumps the ref count, no extra decode.
+    core::AssetId aAgain = server.request("a.tex");
+    CHECK(aAgain == a);
+    CHECK(server.refCount(a) == 2);
+
+    // Drive all jobs to completion on the "game thread".
+    int guard = 0;
+    while (!server.allLoaded() && guard++ < 10000) {
+        server.poll();
+    }
+    CHECK(server.allLoaded());
+    CHECK(server.status(a) == core::AssetStatus::Loaded);
+    CHECK(*server.tryGet(a) == 5); // "hello"
+    CHECK(*server.tryGet(b) == 7); // "world!!"
+    CHECK(*server.tryGet(c) == 1); // "x"
+    CHECK(decodeCalls.load() == 3); // three unique paths decoded once each
+    CHECK(loadedCallbacks == 3);
+    CHECK(server.version(a) == 1);
+
+    core::AssetServer<int>::Progress pr = server.progress();
+    CHECK(pr.total == 3 && pr.loaded == 3);
+
+    // A missing file fails cleanly rather than throwing to the caller.
+    core::AssetId missing = server.request("nope.tex");
+    guard = 0;
+    while (server.status(missing) == core::AssetStatus::Loading && guard++ < 10000) {
+        server.poll();
+    }
+    CHECK(server.status(missing) == core::AssetStatus::Failed);
+    CHECK(server.tryGet(missing) == nullptr);
+
+    // Reimport: nothing changed yet, so no reloads are scheduled.
+    CHECK(server.reimportChanged() == 0);
+
+    // Edit "a.tex" on disk (new contents + bumped mtime). reimportChanged detects the stamp move,
+    // re-decodes in the background, and the new bytes land on the next poll with a bumped version.
+    vfs["a.tex"] = File{"hello, world", 2};
+    const int before = decodeCalls.load();
+    CHECK(server.reimportChanged() == 1);
+    guard = 0;
+    while (server.status(a) == core::AssetStatus::Loading && guard++ < 10000) {
+        server.poll();
+    }
+    CHECK(*server.tryGet(a) == 12); // "hello, world"
+    CHECK(server.version(a) == 2);  // consumer sees version change -> re-upload
+    CHECK(decodeCalls.load() == before + 1);
+    CHECK(server.refCount(a) == 2); // reimport preserves references
+
+    // Forced reimport of one asset (editor "Reimport" button) even without a stamp change.
+    const int before2 = decodeCalls.load();
+    CHECK(server.reimport(b));
+    guard = 0;
+    while (server.status(b) == core::AssetStatus::Loading && guard++ < 10000) {
+        server.poll();
+    }
+    CHECK(server.version(b) == 2);
+    CHECK(decodeCalls.load() == before2 + 1);
+
+    // Reference counting: release once (a had 2 refs) keeps it; release again evicts it.
+    CHECK(!server.release(a));
+    CHECK(server.refCount(a) == 1);
+    CHECK(server.release(a));
+    CHECK(server.refCount(a) == 0);
+    CHECK(server.status(a) == core::AssetStatus::Failed); // evicted -> invalid
+    CHECK(server.tryGet(a) == nullptr);
+
+    // blockingGet: request + drive to done in one call, for startup/tests.
+    const int* got = server.blockingGet("c.tex"); // already loaded -> dedup, returns cached
+    CHECK(got != nullptr && *got == 1);
+
+    // A concurrency stress: many distinct requests all resolve without loss.
+    core::AssetServer<int> many(jobs, [](const std::string& p) { return static_cast<int>(p.size()); });
+    std::vector<core::AssetId> ids;
+    for (int i = 0; i < 64; ++i) {
+        ids.push_back(many.request("asset_" + std::to_string(i)));
+    }
+    guard = 0;
+    while (!many.allLoaded() && guard++ < 100000) {
+        many.poll();
+    }
+    CHECK(many.allLoaded());
+    CHECK(many.liveCount() == 64);
+    bool allGood = true;
+    for (size_t i = 0; i < ids.size(); ++i) {
+        const int* v = many.tryGet(ids[i]);
+        if (!v || *v != static_cast<int>(("asset_" + std::to_string(i)).size())) {
+            allGood = false;
+        }
+    }
+    CHECK(allGood);
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -14839,6 +14973,7 @@ int main() {
     testRingBuffer();
     testJobs();
     testResourceCache();
+    testAssetServer();
     testSceneStack();
     testTween();
     testTweenPlayer();

@@ -33,6 +33,7 @@
 #include "maz/audio/Stereo.hpp"
 #include "maz/audio/Wav.hpp"
 #include "maz/core/Assert.hpp"
+#include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Config.hpp"
 #include "maz/core/Events.hpp"

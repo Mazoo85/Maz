@@ -440,8 +440,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 5 — Asset pipeline
 - [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +
-  evict callback + stats; the `assetcache` demo dedups 240 tiles to 8 textures; M66) — async load /
-  GUIDs / hot reload later
+  evict callback + stats; the `assetcache` demo dedups 240 tiles to 8 textures; M66)
+- [x] **Async streaming loader** (`core::AssetServer<T>`, toward Godot's `ResourceLoader`
+  threaded API): `request(path)` enqueues a decode job on the `JobSystem` and returns immediately;
+  `poll()` finalizes finished jobs on the game thread (where GPU upload belongs); `status()` /
+  `progress()` drive a loading screen; identical paths **dedupe** to one ref-counted entry. The
+  `streaming` demo streams 24 assets in on background threads and fills a progress bar to
+  `READY 24/24` (M176)
 - [x] Image loading (stb_image PNG/JPEG) + **blit-generated mipmaps** (M52)
 - [ ] Compressed textures (KTX2), anisotropic filtering
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
@@ -454,7 +459,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `respack` demo packs level JSON + text + a synthesized WAV + a raw blob and draws the directory + hex header
   + round-trip check; M140) — DEFLATE/gzip compression, per-file checksums/encryption, streaming reads, and a
   mount-pack virtual filesystem still pending
-- [ ] Import settings + dependency graph + reimport
+- [x] **Reimport / hot reload** (`AssetServer::reimportChanged()` re-decodes every asset whose
+  source *stamp* — an mtime or content hash — moved, and `version()` bumps so a renderer knows to
+  re-upload; `reimport(id)` forces one, the editor "Reimport" button. The runtime half of Godot's
+  `.import` reimport; M176) — import-settings sidecar files + full dependency graph still pending
 
 ## Phase 6 — Physics & collision
 - [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
