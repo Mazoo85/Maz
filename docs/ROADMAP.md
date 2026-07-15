@@ -989,7 +989,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   a `Transform2DState` pose blend — Godot physics interpolation; the `interp` demo ghosts previous+current
   poses with the interpolated pose between for four motions; M151) — auto-wiring into the ECS/TransformGraph
   so every moving node interpolates for free + 3D quaternion transform interpolation later
-- [ ] Deterministic fixed-step simulation, replay
+- [x] **Deterministic replay** (`core::Replay<T>`, toward Godot's reproducible fixed-step sim):
+  records one small input snapshot per fixed step and replays them bit-for-bit — the basis of
+  replays, ghosts, netcode rollback, and automated play-tests (works with the seeded `core::Random`
+  + fixed timestep, no wall-clock reads). `serialize()` writes a versioned, little-endian, **RLE-
+  compressed** blob (identical consecutive frames fold to one run — an idle minute costs a few
+  bytes), `load()` restores it and rejects a wrong tag/version/frame-size. Verified: 100 frames →
+  3 runs, byte-stable round-trip, and the same stream fed through a seeded integrator twice yields
+  identical results (M179)
 - [ ] Performance budgets + profiling dashboards
 - [~] **API docs** — `tools/gen_api_docs.py` harvests every header's module doc-comment + public
   types/functions into **[`docs/API.md`](API.md)** (144 headers, 16 subsystems, 307 types), a

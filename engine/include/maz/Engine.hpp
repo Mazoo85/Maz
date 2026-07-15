@@ -45,6 +45,7 @@
 #include "maz/core/Noise.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
+#include "maz/core/Replay.hpp"
 #include "maz/core/Resources.hpp"
 #include "maz/core/RingBuffer.hpp"
 #include "maz/core/Scheduler.hpp"

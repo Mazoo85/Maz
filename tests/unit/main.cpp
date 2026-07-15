@@ -34,6 +34,7 @@
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
+#include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/core/Events.hpp"
@@ -7803,6 +7804,82 @@ void testTelemetry() {
     CHECK(tel.flush().empty());
 }
 
+// Deterministic replay: record per-frame input, serialize (RLE) + reload byte-for-byte, and prove
+// replaying the same stream through a deterministic sim reproduces the exact result.
+void testReplay() {
+    struct Input {
+        uint8_t buttons = 0;
+        int8_t moveX = 0;
+        int8_t moveY = 0;
+    };
+
+    core::Replay<Input> rec;
+    // 100 frames: idle, then a held-right run, then idle again — lots of repeats for RLE to fold.
+    for (int i = 0; i < 40; ++i) rec.record(Input{0, 0, 0});
+    for (int i = 0; i < 30; ++i) rec.record(Input{1, 1, 0}); // holding right + button
+    for (int i = 0; i < 30; ++i) rec.record(Input{0, 0, 0});
+    CHECK(rec.size() == 100);
+
+    // frame() reads back what was recorded; reading past the end holds the last frame.
+    CHECK(rec.frame(0).buttons == 0);
+    CHECK(rec.frame(45).moveX == 1);
+    CHECK(rec.frame(99).buttons == 0);
+    CHECK(rec.frame(1000).buttons == 0); // clamps to last
+
+    // Serialize: RLE folds 100 frames into 3 runs, so the blob is far smaller than 100*sizeof.
+    std::vector<uint8_t> bytes = rec.serialize();
+    const size_t raw = 100 * sizeof(Input);
+    CHECK(bytes.size() < raw);            // compression actually happened
+    CHECK(bytes.size() == 20u + 3u * (4u + sizeof(Input))); // header + 3 runs
+
+    // Reload is byte-for-byte identical frames.
+    core::Replay<Input> play;
+    CHECK(play.load(bytes));
+    CHECK(play.size() == 100);
+    bool identical = true;
+    for (size_t i = 0; i < 100; ++i) {
+        if (play.frame(i).buttons != rec.frame(i).buttons ||
+            play.frame(i).moveX != rec.frame(i).moveX || play.frame(i).moveY != rec.frame(i).moveY) {
+            identical = false;
+        }
+    }
+    CHECK(identical);
+    // Re-serializing the reloaded replay yields the exact same bytes (stable round-trip).
+    CHECK(play.serialize() == bytes);
+
+    // Determinism payoff: feed the replayed input through a simple integrator twice; identical out.
+    auto simulate = [](const core::Replay<Input>& r) {
+        int x = 0, y = 0;
+        core::Random rng(1234); // seeded -> deterministic
+        long checksum = 0;
+        for (size_t i = 0; i < r.size(); ++i) {
+            const Input& in = r.frame(i);
+            x += in.moveX;
+            y += in.moveY;
+            checksum += x * 7 + y * 13 + static_cast<int>(rng.range(0, 3));
+        }
+        return checksum;
+    };
+    CHECK(simulate(rec) == simulate(play)); // same stream + same seed -> same result
+
+    // Corruption is rejected, not misread: a wrong magic and a mismatched frame size both fail.
+    std::vector<uint8_t> bad = bytes;
+    bad[0] = 'X';
+    core::Replay<Input> broken;
+    CHECK(!broken.load(bad));
+    CHECK(broken.empty());
+    // A replay authored for a differently-sized input struct is refused.
+    core::Replay<int> wrongType;
+    CHECK(!wrongType.load(bytes)); // sizeof(int) != sizeof(Input)
+
+    // Empty replay serializes + reloads cleanly.
+    core::Replay<Input> none;
+    CHECK(none.serialize().size() == 20); // header only, zero runs
+    core::Replay<Input> none2;
+    CHECK(none2.load(none.serialize()));
+    CHECK(none2.empty());
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -15161,6 +15238,7 @@ int main() {
     testAssetServer();
     testCrashHandler();
     testTelemetry();
+    testReplay();
     testSceneStack();
     testTween();
     testTweenPlayer();
