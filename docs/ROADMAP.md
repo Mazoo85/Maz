@@ -805,9 +805,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 10 — Scripting & gameplay framework
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
-- [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
+- [x] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC10 shipped (through gradual typing)**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC11 shipped — the full scripting roadmap is complete**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
   functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
@@ -827,9 +827,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   live instance state; a parse failure keeps the previous version live), plus **gradual typing**
   (type hints `var x: int` / `func f(a: int) -> T` / `Array[int]` + inference `:=`, a static
   type-checker over literals via `typeErrors()`, and opt-in `setStrictTypes()` enforcement; untyped
-  code stays fully dynamic) — all unit-tested. Roadmap SC11 (modules + debugger hooks) plus a
-  coroutine `await` and a typed fast-path in the VM-core pass in `docs/SCRIPTING.md`.
-- [ ] Modules + `preload` + debugger hooks (SC11), coroutine `await`, typed fast-path — see SCRIPTING.md
+  code stays fully dynamic), plus **modules & tooling** (`import "name"` over a host module registry
+  with transitive + cycle-safe loading; introspection `has_method`/`call`/`get_property`/`set_property`/
+  `class_name`; and debugger hooks `onStep` + breakpoints) — **the full SC1–SC11 roadmap, all
+  unit-tested.** The only deferred edges are a true coroutine `await` and a typed fast-path, both
+  needing a bytecode/fiber VM (a future VM-core rewrite); see `docs/SCRIPTING.md`.
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;

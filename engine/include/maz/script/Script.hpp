@@ -55,6 +55,11 @@
 //        (var x := ...); a static type-checker flags literal-level mismatches (typeErrors()); and
 //        setStrictTypes() promotes them to run() failures + enforces typed declarations at runtime.
 //        Untyped code stays fully dynamic. (Typed fast-path optimization is deferred.)
+//   SC11: modules & tooling — import "name" pulls a host-registered module's funcs/classes into
+//        scope (registerModule; transitive + cycle-safe, no filesystem access); introspection
+//        (has_method / call-by-name / get_property / set_property / has_property / class_name);
+//        and debugger hooks (onStep per statement + addBreakpoint/onBreakpoint). The SC1–SC11
+//        roadmap is complete; a true coroutine `await` and a typed fast-path await a VM-core pass.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -221,7 +226,7 @@ struct Value {
 // ---------------------------------------------------------------------------------------------------
 enum class Tok {
     Number, String, Ident, True, False, Nil,
-    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends, Signal,
+    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends, Signal, Import,
     Plus, Minus, Star, Slash, Percent, Bang,
     Eq, EqEq, NotEq, Less, LessEq, Greater, GreaterEq,
     LParen, RParen, LBrace, RBrace, LBracket, RBracket, Comma, Semicolon, Colon, Dot, Arrow,
@@ -329,7 +334,7 @@ inline std::vector<Token> lex(const std::string& src, ScriptError& err) {
                 {"true", Tok::True},       {"false", Tok::False},   {"nil", Tok::Nil},
                 {"print", Tok::Print},     {"in", Tok::In},         {"break", Tok::Break},
                 {"continue", Tok::Continue}, {"class", Tok::Class},  {"extends", Tok::Extends},
-                {"signal", Tok::Signal}};
+                {"signal", Tok::Signal},     {"import", Tok::Import}};
             const auto it = kw.find(word);
             if (it != kw.end()) {
                 push(it->second, word);
@@ -400,9 +405,9 @@ struct Expr {
 };
 
 struct Stmt {
-    enum class K { Expr, Var, Block, If, While, For, ForIn, Func, Return, Print, Break, Continue, Class };
+    enum class K { Expr, Var, Block, If, While, For, ForIn, Func, Return, Print, Break, Continue, Class, Import };
     K kind;
-    std::string name;                       // Var name / Func name / ForIn loop var / Class name
+    std::string name;                       // Var name / Func name / ForIn loop var / Class name / Import module
     std::string superName;                  // Class: superclass name ("" if none)
     std::unique_ptr<Expr> expr;             // Expr / Var init / If+While+For cond / ForIn iterable / Return / Print
     std::unique_ptr<Expr> forInit, forPost; // C-style For only
@@ -603,6 +608,14 @@ private:
         }
         if (match(Tok::Class)) {
             return classDecl();
+        }
+        if (match(Tok::Import)) {
+            auto s = std::make_unique<Stmt>();
+            s->kind = Stmt::K::Import;
+            s->line = previous().line;
+            s->name = expect(Tok::String, "expected module name string after 'import'").text;
+            expect(Tok::Semicolon, "expected ';' after import");
+            return s;
         }
         return statement();
     }
@@ -1255,6 +1268,81 @@ public:
         registerNative("Signal", [](std::vector<Value>& a) {
             return Value::newSignal(a.empty() ? "" : a[0].toString());
         });
+        // SC11: introspection — has_method / call (by name) / get / set / class_name / has_property.
+        registerNative("has_method", [](std::vector<Value>& a) {
+            if (a.size() < 2) return Value::fromBool(false);
+            const std::string n = a[1].toString();
+            if (a[0].type == Value::Type::Object && a[0].instance && a[0].instance->klass) {
+                return Value::fromBool(a[0].instance->klass->findMethod(n) != nullptr);
+            }
+            if (a[0].type == Value::Type::NativeObject && a[0].nobj && a[0].nobj->cls) {
+                return Value::fromBool(a[0].nobj->cls->findMethod(n) != nullptr);
+            }
+            return Value::fromBool(false);
+        });
+        registerNative("call", [this](std::vector<Value>& a) {
+            if (a.size() < 2) return Value::nil();
+            Value obj = a[0];
+            const std::string n = a[1].toString();
+            std::vector<Value> callArgs(a.begin() + 2, a.end());
+            return callMethod(obj, n, callArgs, 0);
+        });
+        registerNative("get_property", [this](std::vector<Value>& a) {
+            if (a.size() < 2) return Value::nil();
+            const std::string n = a[1].toString();
+            if (a[0].type == Value::Type::Object && a[0].instance) {
+                if (Value* f = a[0].instance->findField(n)) return *f;
+            } else if (a[0].type == Value::Type::NativeObject && a[0].nobj && a[0].nobj->cls) {
+                if (auto sp = a[0].nobj->handle.lock()) {
+                    if (const auto* p = a[0].nobj->cls->findProperty(n)) return p->get(sp.get());
+                }
+            } else if (a[0].type == Value::Type::Dict && a[0].dict) {
+                return dictGet(*a[0].dict, Value::fromStr(n));
+            }
+            return Value::nil();
+        });
+        registerNative("set_property", [this](std::vector<Value>& a) {
+            if (a.size() < 3) return Value::nil();
+            const std::string n = a[1].toString();
+            if (a[0].type == Value::Type::Object && a[0].instance) {
+                if (Value* f = a[0].instance->findField(n)) { *f = a[2]; }
+                else { a[0].instance->fields.emplace_back(n, a[2]); }
+            } else if (a[0].type == Value::Type::NativeObject && a[0].nobj && a[0].nobj->cls) {
+                if (auto sp = a[0].nobj->handle.lock()) {
+                    if (const auto* p = a[0].nobj->cls->findProperty(n)) {
+                        if (p->set) p->set(sp.get(), a[2]);
+                    }
+                }
+            } else if (a[0].type == Value::Type::Dict && a[0].dict) {
+                dictSet(*a[0].dict, Value::fromStr(n), a[2]);
+            }
+            return Value::nil();
+        });
+        registerNative("has_property", [](std::vector<Value>& a) {
+            if (a.size() < 2) return Value::fromBool(false);
+            const std::string n = a[1].toString();
+            if (a[0].type == Value::Type::Object && a[0].instance) {
+                return Value::fromBool(a[0].instance->findField(n) != nullptr);
+            }
+            if (a[0].type == Value::Type::NativeObject && a[0].nobj && a[0].nobj->cls) {
+                return Value::fromBool(a[0].nobj->cls->findProperty(n) != nullptr);
+            }
+            if (a[0].type == Value::Type::Dict && a[0].dict) {
+                for (const auto& kv : *a[0].dict) {
+                    if (kv.first.type == Value::Type::Str && kv.first.str == n) return Value::fromBool(true);
+                }
+            }
+            return Value::fromBool(false);
+        });
+        registerNative("class_name", [](std::vector<Value>& a) {
+            if (!a.empty() && a[0].type == Value::Type::Object && a[0].instance && a[0].instance->klass) {
+                return Value::fromStr(a[0].instance->klass->name);
+            }
+            if (!a.empty() && a[0].type == Value::Type::NativeObject && a[0].nobj && a[0].nobj->cls) {
+                return Value::fromStr(a[0].nobj->cls->name);
+            }
+            return Value::fromStr("");
+        });
     }
 
     void registerNative(const std::string& name, std::function<Value(std::vector<Value>&)> fn) {
@@ -1293,6 +1381,20 @@ public:
     // default so existing dynamic code is unaffected. Typed declarations are also checked at runtime.
     void setStrictTypes(bool enabled) { m_strictTypes = enabled; }
 
+    // ---- SC11: modules & tooling -----------------------------------------------------------------
+
+    // Register a named module's source. Scripts pull it in with `import "name";`, which runs the
+    // module once and exposes its top-level functions and classes. Modules come from this host
+    // registry, not the filesystem — deterministic and sandboxed (no ambient file access). [BETTER.]
+    void registerModule(const std::string& name, const std::string& source) { m_modules[name] = source; }
+
+    // Debugger hooks. onStep fires before every statement with (line, functionName); a tree-walker
+    // makes this trivial to expose. onBreakpoint fires when a statement's line matches a breakpoint.
+    std::function<void(int line, const std::string& fn)> onStep;
+    std::function<void(int line)> onBreakpoint;
+    void addBreakpoint(int line) { m_breakpoints.push_back(line); }
+    void clearBreakpoints() { m_breakpoints.clear(); }
+
     bool run(const std::string& source) {
         m_error = {};
         m_trace.clear();
@@ -1303,6 +1405,8 @@ public:
         m_funcDefs.clear();
         m_classes.clear();
         m_deferred.clear();
+        m_loadedModules.clear();
+        m_importing.clear();
         m_steps = 0;
         m_depth = 0;
         ScriptError lexErr;
@@ -1320,10 +1424,11 @@ public:
                 m_error = {m_typeErrors.front(), 0};
                 return false;
             }
+            importModules(m_program);   // SC11: resolve `import` before the main program's own decls
             hoistFunctions(m_program, *m_global);
             hoistClasses(m_program, *m_global);
             for (const auto& s : m_program) {
-                if (s->kind != Stmt::K::Func && s->kind != Stmt::K::Class) {
+                if (s->kind != Stmt::K::Func && s->kind != Stmt::K::Class && s->kind != Stmt::K::Import) {
                     exec(*s, *m_global);
                 }
             }
@@ -1503,6 +1608,11 @@ private:
     std::vector<std::string> m_typeErrors;  // static type-check findings from the last parse
     bool m_strictTypes = false;             // when true, type errors make run() fail
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::string>> m_sigs; // fn signatures
+    // SC11 — modules & tooling.
+    std::unordered_map<std::string, std::string> m_modules;   // host-registered module name -> source
+    std::vector<std::string> m_importing;                     // import stack (cycle detection)
+    std::vector<std::string> m_loadedModules;                 // modules already imported this run
+    std::vector<int> m_breakpoints;                           // line breakpoints for the debugger
     size_t m_stepBudget = 0;                // 0 = unlimited
     size_t m_steps = 0;                     // steps taken this run/call
     size_t m_maxDepth = 1000;               // recursion cap
@@ -1802,6 +1912,46 @@ private:
         }
     }
 
+    // SC11 — process every top-level `import` in a program, loading each named module once.
+    void importModules(const std::vector<std::unique_ptr<Stmt>>& program) {
+        for (const auto& s : program) {
+            if (s->kind == Stmt::K::Import) loadModule(s->name, s->line);
+        }
+    }
+    // Load one module: parse its source, recursively load ITS imports, then hoist its functions and
+    // classes into the global scope and run its top-level setup. Idempotent; cycle-safe.
+    void loadModule(const std::string& name, int line) {
+        for (const auto& n : m_loadedModules) {
+            if (n == name) return; // already imported
+        }
+        for (const auto& n : m_importing) {
+            if (n == name) return; // in-progress (import cycle) — break the loop
+        }
+        const auto it = m_modules.find(name);
+        if (it == m_modules.end()) {
+            fail("unknown module '" + name + "' (register it with vm.registerModule)", line);
+        }
+        ScriptError lexErr;
+        std::vector<Token> toks = lex(it->second, lexErr);
+        if (!lexErr.message.empty()) {
+            fail("module '" + name + "': " + lexErr.message, lexErr.line);
+        }
+        Parser parser(std::move(toks));
+        std::vector<std::unique_ptr<Stmt>> modProg = parser.parse(); // ScriptError propagates
+        m_importing.push_back(name);
+        importModules(modProg); // nested imports resolve first
+        hoistFunctions(modProg, *m_global);
+        hoistClasses(modProg, *m_global);
+        for (const auto& st : modProg) {
+            if (st->kind != Stmt::K::Func && st->kind != Stmt::K::Class && st->kind != Stmt::K::Import) {
+                exec(*st, *m_global);
+            }
+        }
+        m_importing.pop_back();
+        m_loadedModules.push_back(name);
+        m_retained.push_back(std::move(modProg)); // keep the module AST alive
+    }
+
     // SC9 — reconcile classes on hot reload. A class that still exists keeps the SAME ClassInfo
     // object (so live instances stay bound to it) but has its body repopulated with new method
     // bodies; a brand-new class is created and registered fresh. Removed classes are left in place
@@ -1931,6 +2081,15 @@ private:
 
     void exec(const Stmt& s, Environment& env) {
         bump(s.line); // SC8: count a step (enforces the execution budget)
+        // SC11: debugger hooks — a tree-walker exposes stepping/breakpoints for free.
+        if (onStep) {
+            onStep(s.line, m_callStack.empty() ? std::string("<main>") : m_callStack.back());
+        }
+        if (onBreakpoint && !m_breakpoints.empty()) {
+            for (int bp : m_breakpoints) {
+                if (bp == s.line) { onBreakpoint(s.line); break; }
+            }
+        }
         switch (s.kind) {
         case Stmt::K::Expr:
             eval(*s.expr, env);
@@ -2025,6 +2184,8 @@ private:
             break; // hoisted
         case Stmt::K::Class:
             break; // hoisted (see hoistClasses)
+        case Stmt::K::Import:
+            break; // resolved before execution (see importModules)
         case Stmt::K::Return:
             throw ReturnSignal{s.expr ? eval(*s.expr, env) : Value::nil()};
         case Stmt::K::Break:

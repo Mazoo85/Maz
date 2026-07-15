@@ -11522,6 +11522,79 @@ void testScriptTyping() {
     }
 }
 
+// SC11: modules, introspection, and debugger hooks.
+void testScriptTooling() {
+    using maz::script::Vm;
+    using maz::script::Value;
+
+    // Modules: a registered module's functions/classes become available via `import`.
+    {
+        Vm vm;
+        vm.registerModule("mathx", "func square(n) { return n * n; } "
+                                   "class Vec2 { var x = 0; var y = 0; func _init(a, b) { self.x = a; self.y = b; } } "
+                                   "var PIISH = 3;");
+        CHECK(vm.run("import \"mathx\"; print square(7); var v = Vec2.new(3, 4); print v.x + v.y; print PIISH;"));
+        CHECK(vm.output == "49\n7\n3\n");
+    }
+    // Importing an unknown module is a clean catchable error.
+    {
+        Vm vm;
+        CHECK(!vm.run("import \"nope\";"));
+        CHECK(vm.error().find("nope") != std::string::npos);
+    }
+    // A module can itself import another (transitive), loaded once.
+    {
+        Vm vm;
+        vm.registerModule("base", "func base_val() { return 10; }");
+        vm.registerModule("mid", "import \"base\"; func mid_val() { return base_val() + 5; }");
+        CHECK(vm.run("import \"mid\"; print mid_val(); print base_val();"));
+        CHECK(vm.output == "15\n10\n");
+    }
+    // Introspection: has_method / call by name / class_name.
+    {
+        Vm vm;
+        CHECK(vm.run("class Robot { var hp = 3; func ping() { return \"pong\"; } "
+                     "func hit(n) { self.hp = self.hp - n; return self.hp; } } "
+                     "var r = Robot.new(); "
+                     "print has_method(r, \"ping\"); print has_method(r, \"fly\"); "
+                     "print call(r, \"ping\"); print call(r, \"hit\", 1); print class_name(r);"));
+        CHECK(vm.output == "true\nfalse\npong\n2\nRobot\n");
+    }
+    // Introspection: get_property / set_property / has_property on a script object.
+    {
+        Vm vm;
+        CHECK(vm.run("class Cell { var value = 5; } var c = Cell.new(); "
+                     "print get_property(c, \"value\"); set_property(c, \"value\", 42); "
+                     "print get_property(c, \"value\"); print has_property(c, \"value\"); "
+                     "print has_property(c, \"missing\");"));
+        CHECK(vm.output == "5\n42\ntrue\nfalse\n");
+    }
+    // Debugger: onStep fires per statement with the current line and function name.
+    {
+        Vm vm;
+        int steps = 0;
+        std::string lastFn;
+        vm.onStep = [&](int, const std::string& fn) { steps++; lastFn = fn; };
+        CHECK(vm.run("func work() { var a = 1; var b = 2; return a + b; } print work();"));
+        CHECK(steps > 0);          // statements were stepped
+        CHECK(lastFn == "work");   // last stepped statement was inside work()
+    }
+    // Debugger: a breakpoint fires onBreakpoint when execution reaches its line.
+    {
+        Vm vm;
+        std::vector<int> hits;
+        vm.onBreakpoint = [&](int line) { hits.push_back(line); };
+        vm.addBreakpoint(2);
+        // Line 1: var x; line 2: var y (breakpoint); line 3: print.
+        CHECK(vm.run("var x = 1;\nvar y = 2;\nprint x + y;"));
+        bool hitLine2 = false;
+        for (int h : hits) {
+            if (h == 2) hitLine2 = true;
+        }
+        CHECK(hitLine2);
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14344,6 +14417,7 @@ int main() {
     testScriptSafety();
     testScriptHotReload();
     testScriptTyping();
+    testScriptTooling();
     testNormalLight();
     testParallax();
     testAudioDsp();
