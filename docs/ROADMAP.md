@@ -916,8 +916,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   transform each frame. Editing is disabled while playing, and Stop restores the authored snapshot so
   runtime motion is discarded (Godot's play/stop semantics). **The editor now covers the core Godot
   loop: build a scene, arrange it with gizmos, and press Play to watch it run.**
+  **E13** — **profiler + output panels**: the bottom dock is now a tabbed panel (Godot's bottom
+  panel) — **Assets** (the palette), **Profiler** (live FPS / frame-time readout plus a rolling
+  frame-time bar graph), and **Output** (a live log view). A new engine log sink
+  (`core::setLogSink`) mirrors every emitted line into the editor's Output tab.
+- [x] Profiler + log panels — **E13** above.
 - [ ] Content-pipeline UI, build / package button
-- [ ] Profiler + log panels
 
 ## Phase 12 — Cross-cutting quality
 - [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE

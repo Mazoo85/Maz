@@ -176,6 +176,22 @@ int main(int argc, char** argv) {
     std::vector<int> bodyNode;             // dynamic body index -> node index (world.bodies[0] = ground)
     std::vector<math::quat> liveQuat;      // per-node live orientation while playing (else identity)
 
+    // Bottom-dock tabs (Godot's bottom panel): Assets browser, Profiler, and Output/Log.
+    enum class DockTab { Assets, Profiler, Log };
+    DockTab dockTab = DockTab::Assets;
+    std::vector<std::pair<int, std::string>> logLines; // (level, formatted text), capped ring
+    std::vector<float> frameMs(120, 0.0f);             // rolling frame-time history for the profiler graph
+    size_t frameMsPos = 0;
+
+    // Mirror engine log output into the editor's Output panel (capped so it can't grow unbounded).
+    core::setLogSink([&logLines](core::LogLevel lvl, const char* msg) {
+        logLines.emplace_back(static_cast<int>(lvl), msg);
+        if (logLines.size() > 200) {
+            logLines.erase(logLines.begin());
+        }
+    });
+    MAZ_LOG_INFO("editor ready — %zu nodes; PLAY to simulate", scene.nodes.size());
+
     // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
     std::string scenePath;
     {
@@ -222,6 +238,7 @@ int main(int argc, char** argv) {
         scene.nodes.push_back(n);
         scene.selectOnly(static_cast<int>(scene.nodes.size()) - 1);
         commitEdit(before);
+        MAZ_LOG_INFO("added %s (%zu nodes)", assets[a].name, scene.nodes.size());
     };
     // Duplicate every selected node (offset copies), then select the new copies.
     auto duplicateSelected = [&]() {
@@ -302,10 +319,12 @@ int main(int argc, char** argv) {
                 bodyNode.push_back(static_cast<int>(i));
             }
             playing = true;
+            MAZ_LOG_INFO("play started — simulating %zu bodies", bodyNode.size());
         } else {
             scene.nodes = savedScene;
             scene.sanitizeSelection();
             playing = false;
+            MAZ_LOG_INFO("play stopped — scene restored");
         }
     };
 
@@ -321,6 +340,8 @@ int main(int argc, char** argv) {
         const float aspect = bh > 0 ? fw / fh : 16.0f / 9.0f;
 
         clock.beginFrame();
+        frameMs[frameMsPos] = static_cast<float>(clock.frameDelta() * 1000.0); // for the profiler graph
+        frameMsPos = (frameMsPos + 1) % frameMs.size();
         while (clock.consumeFixedStep()) {
             if (playing) {
                 world.step(1.0f / 60.0f, 8);
@@ -402,7 +423,7 @@ int main(int argc, char** argv) {
 
         // Viewport click-to-pick + translate gizmo: a left click in the 3D viewport (not over a
         // panel) casts a ray; it selects the nearest node it hits and begins a ground-plane drag.
-        const float treeW = 240.0f, inspW = 288.0f, dockH = 92.0f;
+        const float treeW = 240.0f, inspW = 288.0f, dockH = 112.0f;
         const bool inViewport =
             mx > treeW + 8.0f && mx < fw - inspW - 8.0f && my < fh - dockH; // exclude the ASSETS dock
         const glm::mat4 invVP = glm::inverse(viewProj);
@@ -752,38 +773,103 @@ int main(int argc, char** argv) {
                            0.34f);
             }
 
-            // ---- ASSETS dock along the bottom: view toggles + a clickable palette of primitives ----
+            // ---- Bottom dock (Godot-style tabbed panel): Assets browser / Profiler / Output log ----
             {
                 const float y0 = fh - dockH;
                 gui.panel(ui::Rect{0, y0, fw, dockH}, gui.colBg);
 
-                // View options (grid + snap) on the left.
-                font.drawText(*renderer, 14.0f, y0 + 8.0f, "VIEW", gui.colAccent, 0.30f);
-                gui.toggle(74u, ui::Rect{14.0f, y0 + 34.0f, 22.0f, 22.0f}, "Grid", gridOn, 0.30f);
-                gui.toggle(75u, ui::Rect{92.0f, y0 + 34.0f, 22.0f, 22.0f}, "Snap", snapOn, 0.30f);
-
-                // Asset palette: each tile is a colour chip above a click-to-spawn button.
-                font.drawText(*renderer, 200.0f, y0 + 8.0f, "ASSETS", gui.colAccent, 0.30f);
-                static const render::Color chip[6] = {
-                    {0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1}, {0.47f, 0.78f, 0.47f, 1},
-                    {0.88f, 0.78f, 0.43f, 1}, {0.72f, 0.55f, 0.85f, 1}, {0.82f, 0.82f, 0.84f, 1}};
-                const float tw = 70.0f, gap = 6.0f;
-                float bx = 200.0f;
-                for (size_t i = 0; i < assets.size(); ++i) {
-                    gui.panel(ui::Rect{bx, y0 + 30.0f, tw, 20.0f}, chip[i % 6]);
-                    if (gui.button(static_cast<uint32_t>(90 + i),
-                                   ui::Rect{bx, y0 + 52.0f, tw, 24.0f}, assets[i].name, 0.30f) &&
-                        !playing) {
-                        addAsset(i);
+                // Tab bar selecting what the dock shows.
+                const char* tabNames[3] = {"Assets", "Profiler", "Output"};
+                const DockTab tabs[3] = {DockTab::Assets, DockTab::Profiler, DockTab::Log};
+                float tx = 10.0f;
+                for (int t = 0; t < 3; ++t) {
+                    const ui::Rect r{tx, y0 + 4.0f, 84.0f, 20.0f};
+                    if (dockTab == tabs[t]) {
+                        gui.panel(r, gui.colActive);
                     }
-                    bx += tw + gap;
+                    if (gui.button(static_cast<uint32_t>(96 + t), r, tabNames[t], 0.30f)) {
+                        dockTab = tabs[t];
+                    }
+                    tx += 88.0f;
                 }
+                const float cy = y0 + 32.0f; // content top
 
-                // A compact controls hint on the right (if the window is wide enough to fit it).
-                if (bx < fw - 300.0f) {
-                    font.drawText(*renderer, bx + 20.0f, y0 + 34.0f,
-                                  "1/2/3 Move/Rotate/Scale   Shift+click multi-select   Ctrl+Z undo   Ctrl+S/O save",
-                                  render::Color{0.62f, 0.67f, 0.78f, 1}, 0.28f);
+                if (dockTab == DockTab::Assets) {
+                    font.drawText(*renderer, 14.0f, cy - 2.0f, "VIEW", gui.colAccent, 0.26f);
+                    gui.toggle(74u, ui::Rect{14.0f, cy + 20.0f, 20.0f, 20.0f}, "Grid", gridOn, 0.28f);
+                    gui.toggle(75u, ui::Rect{92.0f, cy + 20.0f, 20.0f, 20.0f}, "Snap", snapOn, 0.28f);
+                    static const render::Color chip[6] = {
+                        {0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1}, {0.47f, 0.78f, 0.47f, 1},
+                        {0.88f, 0.78f, 0.43f, 1}, {0.72f, 0.55f, 0.85f, 1}, {0.82f, 0.82f, 0.84f, 1}};
+                    const float tw = 70.0f, gap = 6.0f;
+                    float bx = 200.0f;
+                    for (size_t i = 0; i < assets.size(); ++i) {
+                        gui.panel(ui::Rect{bx, cy, tw, 20.0f}, chip[i % 6]);
+                        if (gui.button(static_cast<uint32_t>(90 + i),
+                                       ui::Rect{bx, cy + 22.0f, tw, 24.0f}, assets[i].name, 0.30f) &&
+                            !playing) {
+                            addAsset(i);
+                        }
+                        bx += tw + gap;
+                    }
+                    if (bx < fw - 300.0f) {
+                        font.drawText(*renderer, bx + 20.0f, cy + 20.0f,
+                                      "1/2/3 Move/Rotate/Scale   Shift+click multi-select   Ctrl+Z undo   Ctrl+S/O save",
+                                      render::Color{0.62f, 0.67f, 0.78f, 1}, 0.26f);
+                    }
+                } else if (dockTab == DockTab::Profiler) {
+                    // Frame timing summary + a rolling frame-time bar graph.
+                    const size_t N = frameMs.size();
+                    const float lastMs = frameMs[(frameMsPos + N - 1) % N];
+                    float sum = 0.0f;
+                    for (float m : frameMs) {
+                        sum += m;
+                    }
+                    const float avg = N ? sum / static_cast<float>(N) : 0.0f;
+                    const float fps = avg > 0.0001f ? 1000.0f / avg : 0.0f;
+                    char buf[128];
+                    std::snprintf(buf, sizeof(buf),
+                                  "FPS %.0f     frame %.2f ms (avg %.2f)     nodes %zu     %s",
+                                  static_cast<double>(fps), static_cast<double>(lastMs),
+                                  static_cast<double>(avg), scene.nodes.size(),
+                                  playing ? "PLAYING" : "editing");
+                    font.drawText(*renderer, 14.0f, cy - 2.0f, buf, gui.colText, 0.30f);
+                    const float gx = 14.0f, gy = cy + 24.0f, gw = 520.0f;
+                    const float gh = dockH - (gy - y0) - 8.0f;
+                    gui.panel(ui::Rect{gx, gy, gw, gh}, render::Color{0.15f, 0.16f, 0.20f, 1});
+                    const float barW = gw / static_cast<float>(N);
+                    for (size_t k = 0; k < N; ++k) {
+                        const float m = frameMs[(frameMsPos + k) % N];
+                        const float h = glm::clamp(m / 33.3f, 0.0f, 1.0f) * gh; // 33ms (30 FPS) = full height
+                        const render::Color c = m > 20.0f ? render::Color{0.88f, 0.5f, 0.3f, 1}
+                                                          : render::Color{0.4f, 0.8f, 0.55f, 1};
+                        gui.panel(
+                            ui::Rect{gx + static_cast<float>(k) * barW, gy + gh - h, barW + 0.6f, h},
+                            c);
+                    }
+                    font.drawText(*renderer, gx + gw + 12.0f, gy, "33ms",
+                                  render::Color{0.5f, 0.55f, 0.62f, 1}, 0.24f);
+                    font.drawText(*renderer, gx + gw + 12.0f, gy + gh - 12.0f, "0ms",
+                                  render::Color{0.5f, 0.55f, 0.62f, 1}, 0.24f);
+                } else { // Output / Log
+                    if (logLines.empty()) {
+                        font.drawText(*renderer, 14.0f, cy, "(no output yet)",
+                                      render::Color{0.5f, 0.55f, 0.62f, 1}, 0.28f);
+                    } else {
+                        const int maxLines = 5;
+                        const int start = std::max(0, static_cast<int>(logLines.size()) - maxLines);
+                        float ly = cy - 4.0f;
+                        for (int i = start; i < static_cast<int>(logLines.size()); ++i) {
+                            const int lvl = logLines[static_cast<size_t>(i)].first;
+                            const render::Color c =
+                                lvl >= 3 ? render::Color{0.90f, 0.42f, 0.36f, 1}
+                                         : lvl == 2 ? render::Color{0.90f, 0.80f, 0.42f, 1}
+                                                    : render::Color{0.70f, 0.74f, 0.82f, 1};
+                            font.drawText(*renderer, 14.0f, ly,
+                                          logLines[static_cast<size_t>(i)].second.c_str(), c, 0.26f);
+                            ly += 15.0f;
+                        }
+                    }
                 }
             }
             gui.end();
@@ -797,6 +883,7 @@ int main(int argc, char** argv) {
     }
 
     MAZ_LOG_INFO("EDITOR shutting down (renderer %s)", renderer->isActive() ? "active" : "inactive");
+    core::setLogSink({}); // detach before the captured logLines goes out of scope
     renderer->shutdown();
     window.shutdown();
     return 0;
