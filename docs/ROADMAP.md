@@ -895,7 +895,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   **E7** — **node operations**: a SCENE-panel toolbar (+Box / +Sph / Dup / Del) and keyboard
   shortcuts (Ctrl+D duplicate, Delete remove) add, copy, and erase nodes; each is one undo step via
   `History::commit(before, after)` (unit-tested), re-basing any open gesture so it isn't double-counted.
-- [ ] Rotate/scale gizmo handles, grid snapping, multi-select; asset browser; play-in-editor
+  **E8** — **reference grid + snap**: a Grid toggle draws a floor grid (baked into a tiling ground
+  texture, so objects occlude it correctly — the debug-line path draws over geometry) and a Snap
+  toggle rounds drag / arrow-nudge translation to a 0.5-unit grid (`snap1`/`snapToGrid`, unit-tested).
+- [ ] Rotate/scale gizmo handles, multi-select; asset browser; play-in-editor
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels

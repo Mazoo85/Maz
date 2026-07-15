@@ -73,6 +73,25 @@ int main(int argc, char** argv) {
         renderer->createTexture(2, 2, solidRGBA(210, 210, 215).data()), // white
     };
     const render::TextureHandle groundTex = renderer->createTexture(2, 2, solidRGBA(150, 150, 155).data());
+    // A tiling grid texture for the ground. The plane maps UV 0..6 across its 18 units, so one texture
+    // tile spans 3 world units; six cells per tile makes each grid cell 0.5 units (= the snap step).
+    render::TextureHandle gridTex;
+    {
+        const int size = 192, cells = 6, step = size / cells; // 32px per 0.5-unit cell
+        std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4);
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                const bool line = (x % step < 2) || (y % step < 2); // 2px lines on cell edges
+                const uint8_t r = line ? 188 : 150, g = line ? 191 : 150, b = line ? 198 : 155;
+                const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+                px[i] = r;
+                px[i + 1] = g;
+                px[i + 2] = b;
+                px[i + 3] = 255;
+            }
+        }
+        gridTex = renderer->createTexture(size, size, px.data());
+    }
 
     ui::Font font;
     {
@@ -116,6 +135,9 @@ int main(int argc, char** argv) {
     bool dragging = false;         // translate-gizmo drag in progress
     math::vec3 dragOffset{0, 0, 0}; // node pos minus ground-plane hit at grab time
     editor::History history;        // undo/redo snapshots
+    bool gridOn = true;            // show the ground reference grid
+    bool snapOn = false;           // snap translation to the grid
+    const float snapStep = 0.5f;   // grid cell size in world units
 
     // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
     std::string scenePath;
@@ -284,19 +306,34 @@ int main(int argc, char** argv) {
                 if (editor::rayPlaneY(ro, rd, s->position.y, planeHit)) {
                     s->position.x = planeHit.x + dragOffset.x;
                     s->position.z = planeHit.z + dragOffset.z;
+                    if (snapOn) { // land on tidy grid coordinates
+                        s->position.x = editor::snap1(s->position.x, snapStep);
+                        s->position.z = editor::snap1(s->position.z, snapStep);
+                    }
                 }
             }
         }
         if (!input.mouseDown(0)) {
             dragging = false;
         }
-        // Keyboard nudge of the selected node: arrows move on the ground plane, Q/E rotate.
+        // Keyboard nudge of the selected node: arrows move on the ground plane, Q/E rotate. With snap
+        // on, each arrow *press* steps one grid cell (and re-aligns to the grid); otherwise arrows
+        // glide smoothly while held.
         if (editor::Node* s = scene.selectedNode()) {
-            const float step = 0.06f;
-            if (input.keyDown(SDL_SCANCODE_LEFT)) s->position.x -= step;
-            if (input.keyDown(SDL_SCANCODE_RIGHT)) s->position.x += step;
-            if (input.keyDown(SDL_SCANCODE_UP)) s->position.z -= step;
-            if (input.keyDown(SDL_SCANCODE_DOWN)) s->position.z += step;
+            if (snapOn) {
+                if (input.keyPressed(SDL_SCANCODE_LEFT)) s->position.x -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_RIGHT)) s->position.x += snapStep;
+                if (input.keyPressed(SDL_SCANCODE_UP)) s->position.z -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_DOWN)) s->position.z += snapStep;
+                s->position.x = editor::snap1(s->position.x, snapStep);
+                s->position.z = editor::snap1(s->position.z, snapStep);
+            } else {
+                const float step = 0.06f;
+                if (input.keyDown(SDL_SCANCODE_LEFT)) s->position.x -= step;
+                if (input.keyDown(SDL_SCANCODE_RIGHT)) s->position.x += step;
+                if (input.keyDown(SDL_SCANCODE_UP)) s->position.z -= step;
+                if (input.keyDown(SDL_SCANCODE_DOWN)) s->position.z += step;
+            }
             if (input.keyDown(SDL_SCANCODE_Q)) s->euler.y -= 2.0f;
             if (input.keyDown(SDL_SCANCODE_E)) s->euler.y += 2.0f;
         }
@@ -306,10 +343,10 @@ int main(int argc, char** argv) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->setCameraPosition(glm::value_ptr(eye));
 
-            // Ground.
+            // Ground — the grid is baked into a tiling texture so objects occlude it correctly.
             {
                 render::Renderer::Material gm;
-                gm.albedo = groundTex;
+                gm.albedo = gridOn ? gridTex : groundTex;
                 gm.roughness = 0.9f;
                 const glm::mat4 m = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
                 renderer->drawMeshMaterial(ground, glm::value_ptr(m), gm);
@@ -393,6 +430,10 @@ int main(int argc, char** argv) {
                 }
                 ty += 36.0f;
             }
+
+            // Viewport options at the foot of the SCENE panel: reference grid + snap-to-grid.
+            gui.toggle(74u, ui::Rect{14.0f, fh - 104.0f, 22.0f, 22.0f}, "Grid", gridOn, 0.34f);
+            gui.toggle(75u, ui::Rect{14.0f, fh - 72.0f, 22.0f, 22.0f}, "Snap", snapOn, 0.34f);
 
             // Inspector panel on the right: live-edit the selected node.
             if (editor::Node* sel = scene.selectedNode()) {
