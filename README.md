@@ -11,6 +11,12 @@ Continuous integration builds the engine and runs the full test suite (8900+ che
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.
 
+**API reference:** **[`docs/API.md`](docs/API.md)** is a browsable index of every module, type, and
+free function, generated from the header doc-comments by `python3 tools/gen_api_docs.py` (no external
+tools). For full HTML docs, contributors with Doxygen installed can run `doxygen Doxyfile`
+(→ `docs/api-html/index.html`). See also **[`docs/SCRIPTING.md`](docs/SCRIPTING.md)** for the
+`maz::script` language guide.
+
 ## Building
 
 Requires a C++20 compiler, CMake ≥ 3.24, the **Vulkan SDK** (loader + `glslangValidator`), and

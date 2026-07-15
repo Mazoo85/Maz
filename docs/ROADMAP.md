@@ -991,7 +991,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   so every moving node interpolates for free + 3D quaternion transform interpolation later
 - [ ] Deterministic fixed-step simulation, replay
 - [ ] Performance budgets + profiling dashboards
-- [ ] Docs site, API docs (Doxygen), tutorials / samples
+- [~] **API docs** — `tools/gen_api_docs.py` harvests every header's module doc-comment + public
+  types/functions into **[`docs/API.md`](API.md)** (144 headers, 16 subsystems, 307 types), a
+  browsable reference with no external tools that a CI test keeps runnable; a committed `Doxyfile`
+  gives contributors full HTML docs (`doxygen Doxyfile`). Hosted docs site + tutorials/samples still
+  pending
 - [~] **Packaging / export** (`tools/package.sh`, toward Godot's "Export Project"): bundles one
   built app into a self-contained, redistributable folder — the executable, its SDL3 runtime
   (`lib/` with the SONAME symlink chain), compiled shaders, runtime assets, a `run-<app>.sh`

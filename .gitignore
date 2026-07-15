@@ -10,6 +10,9 @@ cmake-build-*/
 
 # Packaged game bundles (tools/package.sh output)
 dist/
+
+# Doxygen HTML output (docs/API.md is the committed, tool-free reference)
+docs/api-html/
 *.o
 *.obj
 *.spv

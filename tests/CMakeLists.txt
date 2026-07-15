@@ -13,6 +13,14 @@ set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 add_test(NAME golden_images COMMAND ${CMAKE_SOURCE_DIR}/tools/golden.sh check)
 set_tests_properties(golden_images PROPERTIES TIMEOUT 360)
 
+# API-docs generator stays runnable: regenerate docs/API.md from the headers and require exit 0.
+# Self-skips when python3 is unavailable so it never breaks a minimal CI.
+find_program(MAZ_PYTHON3 python3)
+if(MAZ_PYTHON3)
+    add_test(NAME api_docs_gen COMMAND ${MAZ_PYTHON3} ${CMAKE_SOURCE_DIR}/tools/gen_api_docs.py)
+    set_tests_properties(api_docs_gen PROPERTIES TIMEOUT 60)
+endif()
+
 # Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
 # This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
 add_test(
