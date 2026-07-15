@@ -242,7 +242,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `disconnect`/`isConnected`/`connectionCount`, immediate `emit`, snapshot-safe dispatch, and a deferred
   queue drained by `flushDeferred`; the `signals` demo wires a Button→Player→died graph with an event log;
   M128) — string-keyed emit-by-name + connect binds + object-lifetime auto-disconnect later
-- [ ] Minimal reflection (type ids, property registration) for serialization + editor
+- [x] **Minimal reflection** (`core::TypeDesc<T>`, the useful slice of Godot's ClassDB/property
+  system): register a struct's fields once **by member pointer** (`prop("hp", &Enemy::hp)`, type
+  deduced + compile-time checked, no byte-offset UB) — then read/write them generically by name
+  (`get`/`set` via a tagged `PropValue`), enumerate them for an editor inspector (`properties()`/
+  `read()`), and **`serialize()`/`deserialize()`** every field to a compact text blob (the runtime
+  of reflection-driven save/load; unknown keys skipped for forward-compat). Supports bool / integral
+  / floating / string fields with type coercion. Verified: typed get/set, full round-trip incl.
+  escaped newlines, forward-compat skips, and float→int coercion (M185)
 - [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
   headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)
 - [x] **JSON / text format** (`maz::io::JsonValue` + never-throwing recursive-descent `parseJson`

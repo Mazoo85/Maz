@@ -37,6 +37,7 @@
 #include "maz/core/Checkpoints.hpp"
 #include "maz/core/Containers.hpp"
 #include "maz/core/Memory.hpp"
+#include "maz/core/Reflect.hpp"
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
 #include "maz/platform/CrashHandler.hpp"
@@ -8204,6 +8205,67 @@ void testOctree() {
     CHECK(o2.size() == 0 && o2.query(0, 0, 0, 100, 100, 100).empty());
 }
 
+// Reflection: register fields by member pointer, then get/set by name and round-trip through
+// serialize/deserialize (reflection-driven save + editor inspector).
+void testReflect() {
+    struct Enemy {
+        int hp = 100;
+        float speed = 3.5f;
+        bool boss = false;
+        std::string name = "grunt";
+    };
+
+    core::TypeDesc<Enemy> desc;
+    desc.prop("hp", &Enemy::hp)
+        .prop("speed", &Enemy::speed)
+        .prop("boss", &Enemy::boss)
+        .prop("name", &Enemy::name);
+    CHECK(desc.propertyCount() == 4);
+
+    Enemy e;
+    // get by name, correctly typed.
+    core::PropValue v;
+    CHECK(desc.get(e, "hp", v) && v.type == core::PropType::Int && v.i == 100);
+    CHECK(desc.get(e, "speed", v) && v.type == core::PropType::Float);
+    CHECK(desc.get(e, "boss", v) && v.type == core::PropType::Bool && v.b == false);
+    CHECK(desc.get(e, "name", v) && v.type == core::PropType::String && v.s == "grunt");
+    CHECK(!desc.get(e, "missing", v)); // unknown name
+
+    // set by name writes through to the real field.
+    CHECK(desc.set(e, "hp", core::PropValue::makeInt(250)));
+    CHECK(desc.set(e, "boss", core::PropValue::makeBool(true)));
+    CHECK(desc.set(e, "name", core::PropValue::makeString("warlord")));
+    CHECK(!desc.set(e, "missing", core::PropValue::makeInt(0)));
+    CHECK(e.hp == 250 && e.boss == true && e.name == "warlord");
+
+    // read() yields every field (the inspector/serializer walk).
+    auto all = desc.read(e);
+    CHECK(all.size() == 4);
+    CHECK(all[0].first == "hp" && all[0].second.i == 250);
+
+    // serialize -> deserialize onto a fresh object reproduces every field (incl. an escaped newline).
+    e.name = "line1\nline2";
+    e.speed = 9.25f;
+    const std::string blob = desc.serialize(e);
+    Enemy loaded;
+    const int applied = desc.deserialize(loaded, blob);
+    CHECK(applied == 4);
+    CHECK(loaded.hp == 250);
+    CHECK(loaded.boss == true);
+    CHECK(loaded.name == "line1\nline2"); // newline survived escaping
+    CHECK(std::fabs(loaded.speed - 9.25f) < 1e-6f);
+
+    // Forward-compatible: an unknown property line is skipped, known ones still apply.
+    Enemy partial;
+    const int n = desc.deserialize(partial, "hp=i:42\nunknown=i:7\nboss=b:1\n");
+    CHECK(n == 2); // only hp + boss are known
+    CHECK(partial.hp == 42 && partial.boss == true);
+
+    // Type coercion: setting an int field from a float value truncates cleanly.
+    CHECK(desc.set(e, "hp", core::PropValue::makeFloat(17.9)));
+    CHECK(e.hp == 17);
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15661,6 +15723,7 @@ int main() {
     testQuadtree();
     testOctree();
     testContainers();
+    testReflect();
     testSceneStack();
     testTween();
     testTweenPlayer();
