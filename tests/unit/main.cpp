@@ -66,6 +66,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
+#include "maz/game/Octree.hpp"
 #include "maz/game/Quadtree.hpp"
 #include "maz/game/GravityField2D.hpp"
 #include "maz/game/KinematicBody2D.hpp"
@@ -8140,6 +8141,69 @@ void testContainers() {
     CHECK(!big.contains(0) && !big.contains(998));
 }
 
+// Octree: 3D spatial range queries match brute-force overlap exactly, with subdivision on clusters.
+void testOctree() {
+    using maz::game::Octree;
+    struct Box {
+        uint32_t id;
+        float x, y, z, w, h, d;
+    };
+    std::vector<Box> boxes;
+    core::Random rng(77);
+    for (int i = 0; i < 150; ++i) {
+        boxes.push_back({static_cast<uint32_t>(i), static_cast<float>(rng.range(0, 490)),
+                         static_cast<float>(rng.range(0, 490)), static_cast<float>(rng.range(0, 490)),
+                         static_cast<float>(rng.range(1, 8)), static_cast<float>(rng.range(1, 8)),
+                         static_cast<float>(rng.range(1, 8))});
+    }
+    // A tight cluster in one octant to force deep subdivision.
+    for (int i = 0; i < 40; ++i) {
+        boxes.push_back({static_cast<uint32_t>(150 + i), static_cast<float>(rng.range(0, 20)),
+                         static_cast<float>(rng.range(0, 20)), static_cast<float>(rng.range(0, 20)),
+                         2.0f, 2.0f, 2.0f});
+    }
+
+    Octree oc(0, 0, 0, 500, 500, 500, 8, 4);
+    for (const Box& b : boxes) oc.insert(b.id, b.x, b.y, b.z, b.w, b.h, b.d);
+    CHECK(oc.size() == boxes.size());
+    CHECK(oc.nodeCount() > 1); // cluster forced subdivision
+
+    auto brute = [&](float qx, float qy, float qz, float qw, float qh, float qd) {
+        std::set<uint32_t> s;
+        for (const Box& b : boxes) {
+            if (maz::game::aabb3Overlap(b.x, b.y, b.z, b.w, b.h, b.d, qx, qy, qz, qw, qh, qd)) {
+                s.insert(b.id);
+            }
+        }
+        return s;
+    };
+    auto treeSet = [&](std::vector<uint32_t> v) { return std::set<uint32_t>(v.begin(), v.end()); };
+
+    struct Q {
+        float x, y, z, w, h, d;
+    };
+    const Q queries[] = {
+        {0, 0, 0, 30, 30, 30}, {240, 240, 240, 20, 20, 20}, {0, 0, 0, 500, 20, 500}, {100, 100, 100, 5, 5, 5}};
+    for (const Q& q : queries) {
+        CHECK(treeSet(oc.query(q.x, q.y, q.z, q.w, q.h, q.d)) ==
+              brute(q.x, q.y, q.z, q.w, q.h, q.d));
+    }
+
+    // Whole-volume query returns everything; an outside query returns nothing.
+    CHECK(oc.query(-10, -10, -10, 520, 520, 520).size() == boxes.size());
+    CHECK(oc.query(9000, 9000, 9000, 10, 10, 10).empty());
+
+    // querySphere bounding-box prefilter surfaces a nearby box only.
+    Octree o2(0, 0, 0, 100, 100, 100, 6, 2);
+    o2.insert(1, 48, 48, 48, 4, 4, 4);
+    o2.insert(2, 90, 90, 90, 4, 4, 4);
+    CHECK(treeSet(o2.querySphere(50, 50, 50, 10)) == std::set<uint32_t>{1});
+
+    // clear() empties it.
+    o2.clear();
+    CHECK(o2.size() == 0 && o2.query(0, 0, 0, 100, 100, 100).empty());
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15595,6 +15659,7 @@ int main() {
     testCheckpoints();
     testMemory();
     testQuadtree();
+    testOctree();
     testContainers();
     testSceneStack();
     testTween();

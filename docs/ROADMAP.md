@@ -460,8 +460,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   spread objects, plus a **quadtree** (`game::Quadtree`, M182) that adapts to CLUSTERED scenes: dense
   regions subdivide deep, empty space stays one node, so a range query only visits cells that could
   overlap. Exact overlap results (verified against brute force over 250 boxes incl. a tight cluster),
-  with `query`/`queryPoint`/`queryCircle` for culling, picking, and neighbour finding. octree / BVH
-  (3D) still pending
+  with `query`/`queryPoint`/`queryCircle` for culling, picking, and neighbour finding. The 3D
+  counterpart, an **octree** (`game::Octree`, M184), applies the same adaptive 8-way subdivision to
+  3D AABBs for 3D frustum/box culling, physics broadphase, and 3D neighbour/AoE queries
+  (`query`/`queryPoint`/`querySphere`, exact overlap verified against brute force). BVH still pending
 
 ## Phase 5 — Asset pipeline
 - [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +
