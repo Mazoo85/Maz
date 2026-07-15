@@ -261,6 +261,23 @@ inline void screenRay(const math::mat4& invViewProj, float px, float py, float w
     outDir = glm::normalize(f - n);
 }
 
+// Project a world-space point to pixel coordinates (top-left origin), the inverse of screenRay's
+// unproject and matching its y-down convention. Returns false when the point is at or behind the
+// camera plane (w <= 0), where a 2D projection is meaningless. Used by the rotate / scale gizmos to
+// measure the cursor's angle and distance around the selected object's on-screen centre.
+inline bool worldToScreen(const math::mat4& viewProj, const math::vec3& world, float w, float h,
+                          math::vec2& outPx) {
+    const math::vec4 clip = viewProj * math::vec4(world, 1.0f);
+    if (clip.w <= 1e-6f) {
+        return false;
+    }
+    const float ndcX = clip.x / clip.w;
+    const float ndcY = clip.y / clip.w;
+    outPx.x = (ndcX * 0.5f + 0.5f) * w;
+    outPx.y = (ndcY * 0.5f + 0.5f) * h;
+    return true;
+}
+
 // ---- Serialization: a scene <-> JSON round-trip (human-readable, diff-friendly) ----
 
 inline io::JsonValue toJson(const Scene& s) {

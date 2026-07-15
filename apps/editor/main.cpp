@@ -14,6 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
@@ -134,8 +135,14 @@ int main(int argc, char** argv) {
     scene.nodes.back().scale = math::vec3(0.7f);
     scene.selectOnly(0);
 
-    bool dragging = false;         // translate-gizmo drag in progress
-    math::vec3 dragOffset{0, 0, 0}; // node pos minus ground-plane hit at grab time
+    enum class Gizmo { Move, Rotate, Scale };
+    Gizmo gizmo = Gizmo::Move;     // active transform tool (keys 1/2/3 or the SCENE toolbar)
+    bool dragging = false;         // a gizmo drag is in progress
+    math::vec3 dragOffset{0, 0, 0}; // Move: node pos minus ground-plane hit at grab time
+    float grabAngle = 0.0f;        // Rotate: cursor angle around the object's screen centre at grab
+    float grabDist = 1.0f;         // Scale: cursor distance from the object's screen centre at grab
+    std::vector<float> grabYaw;    // Rotate: each selected node's yaw at grab (parallel to selection)
+    std::vector<float> grabScale;  // Scale: each selected node's uniform scale at grab
     editor::History history;        // undo/redo snapshots
     bool gridOn = true;            // show the ground reference grid
     bool snapOn = false;           // snap translation to the grid
@@ -245,6 +252,10 @@ int main(int argc, char** argv) {
             input.keyDown(SDL_SCANCODE_LCTRL) || input.keyDown(SDL_SCANCODE_RCTRL);
         const bool shift =
             input.keyDown(SDL_SCANCODE_LSHIFT) || input.keyDown(SDL_SCANCODE_RSHIFT);
+        // Transform-tool selector: 1 = Move, 2 = Rotate, 3 = Scale.
+        if (input.keyPressed(SDL_SCANCODE_1)) gizmo = Gizmo::Move;
+        if (input.keyPressed(SDL_SCANCODE_2)) gizmo = Gizmo::Rotate;
+        if (input.keyPressed(SDL_SCANCODE_3)) gizmo = Gizmo::Scale;
         if (ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
             history.undo(scene.nodes);
         }
@@ -309,12 +320,36 @@ int main(int argc, char** argv) {
                     } else {
                         scene.selected = hit;
                     }
+                    // Begin a gizmo drag; snapshot the grab reference for the active tool.
                     if (editor::Node* p = scene.selectedNode()) {
-                        math::vec3 planeHit;
-                        if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
-                            dragging = true;
-                            dragOffset =
-                                math::vec3(p->position.x - planeHit.x, 0.0f, p->position.z - planeHit.z);
+                        dragging = true;
+                        if (gizmo == Gizmo::Move) {
+                            math::vec3 planeHit;
+                            if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                                dragOffset = math::vec3(p->position.x - planeHit.x, 0.0f,
+                                                        p->position.z - planeHit.z);
+                            } else {
+                                dragging = false;
+                            }
+                        } else {
+                            math::vec2 c;
+                            if (editor::worldToScreen(viewProj, p->position, fw, fh, c)) {
+                                if (gizmo == Gizmo::Rotate) {
+                                    grabAngle = std::atan2(my - c.y, mx - c.x);
+                                    grabYaw.clear();
+                                    for (int i : scene.selection) {
+                                        grabYaw.push_back(scene.nodes[static_cast<size_t>(i)].euler.y);
+                                    }
+                                } else { // Scale
+                                    grabDist = std::max(std::hypot(mx - c.x, my - c.y), 1e-3f);
+                                    grabScale.clear();
+                                    for (int i : scene.selection) {
+                                        grabScale.push_back(scene.nodes[static_cast<size_t>(i)].scale.x);
+                                    }
+                                }
+                            } else {
+                                dragging = false;
+                            }
                         }
                     }
                 }
@@ -322,22 +357,49 @@ int main(int argc, char** argv) {
                 scene.clearSelection(); // click empty space to deselect (shift keeps the selection)
             }
         }
-        // Continue dragging: move the whole selection by the delta that keeps the primary node's grab
-        // point under the cursor on its ground plane.
+        // Continue a gizmo drag. Move slides the whole selection on the ground plane; Rotate spins each
+        // selected node's yaw by the angle the cursor has swept around the primary's screen centre;
+        // Scale multiplies each node's size by the cursor's distance ratio from that centre.
         if (dragging && input.mouseDown(0)) {
             if (editor::Node* p = scene.selectedNode()) {
-                math::vec3 ro, rd, planeHit;
-                editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
-                if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
-                    float nx = planeHit.x + dragOffset.x, nz = planeHit.z + dragOffset.z;
-                    if (snapOn) { // land on tidy grid coordinates
-                        nx = editor::snap1(nx, snapStep);
-                        nz = editor::snap1(nz, snapStep);
+                if (gizmo == Gizmo::Move) {
+                    math::vec3 ro, rd, planeHit;
+                    editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
+                    if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                        float nx = planeHit.x + dragOffset.x, nz = planeHit.z + dragOffset.z;
+                        if (snapOn) { // land on tidy grid coordinates
+                            nx = editor::snap1(nx, snapStep);
+                            nz = editor::snap1(nz, snapStep);
+                        }
+                        const float dx = nx - p->position.x, dz = nz - p->position.z;
+                        for (int i : scene.selection) {
+                            scene.nodes[static_cast<size_t>(i)].position.x += dx;
+                            scene.nodes[static_cast<size_t>(i)].position.z += dz;
+                        }
                     }
-                    const float dx = nx - p->position.x, dz = nz - p->position.z;
-                    for (int i : scene.selection) {
-                        scene.nodes[static_cast<size_t>(i)].position.x += dx;
-                        scene.nodes[static_cast<size_t>(i)].position.z += dz;
+                } else {
+                    math::vec2 c;
+                    if (editor::worldToScreen(viewProj, p->position, fw, fh, c)) {
+                        if (gizmo == Gizmo::Rotate) {
+                            const float ddeg = glm::degrees(std::atan2(my - c.y, mx - c.x) - grabAngle);
+                            for (size_t k = 0; k < scene.selection.size() && k < grabYaw.size(); ++k) {
+                                float y = grabYaw[k] + ddeg;
+                                if (snapOn) { // 15-degree detents
+                                    y = editor::snap1(y, 15.0f);
+                                }
+                                scene.nodes[static_cast<size_t>(scene.selection[k])].euler.y = y;
+                            }
+                        } else { // Scale
+                            const float ratio = std::hypot(mx - c.x, my - c.y) / grabDist;
+                            for (size_t k = 0; k < scene.selection.size() && k < grabScale.size(); ++k) {
+                                float s = grabScale[k] * ratio;
+                                if (snapOn) {
+                                    s = editor::snap1(s, 0.25f);
+                                }
+                                s = glm::clamp(s, 0.05f, 10.0f);
+                                scene.nodes[static_cast<size_t>(scene.selection[k])].scale = math::vec3(s);
+                            }
+                        }
                     }
                 }
             }
@@ -416,18 +478,35 @@ int main(int argc, char** argv) {
                                       primary ? 1.0f : 0.7f};
                 renderer->drawAabb(glm::value_ptr(mn), glm::value_ptr(mxb), col);
             }
-            // RGB translate-gizmo axes from the primary node's origin (X red, Y green, Z blue).
+            // Gizmo widget on the primary node: Move/Scale show RGB axes; Rotate shows a yaw ring.
             if (editor::Node* sel = scene.selectedNode()) {
                 const glm::vec3 c = sel->position;
-                const float L = 1.4f;
-                const float rx[4] = {1.0f, 0.3f, 0.25f, 1.0f};
-                const float gy[4] = {0.35f, 1.0f, 0.35f, 1.0f};
-                const float bz[4] = {0.35f, 0.55f, 1.0f, 1.0f};
-                const glm::vec3 ax = c + glm::vec3(L, 0, 0), ay = c + glm::vec3(0, L, 0),
-                                az = c + glm::vec3(0, 0, L);
-                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ax), rx);
-                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ay), gy);
-                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(az), bz);
+                if (gizmo == Gizmo::Rotate) {
+                    // A ring on the XZ plane sized to the node's horizontal footprint (Y-axis yaw).
+                    math::vec3 mn, mxb;
+                    sel->worldAabb(mn, mxb);
+                    const float r =
+                        std::max(0.6f, 0.5f * std::max(mxb.x - mn.x, mxb.z - mn.z) + 0.35f);
+                    const float col[4] = {0.4f, 0.85f, 1.0f, 1.0f};
+                    const int seg = 48;
+                    glm::vec3 prev = c + glm::vec3(r, 0.0f, 0.0f);
+                    for (int i = 1; i <= seg; ++i) {
+                        const float a = static_cast<float>(i) / static_cast<float>(seg) * 6.2831853f;
+                        const glm::vec3 cur = c + glm::vec3(r * std::cos(a), 0.0f, r * std::sin(a));
+                        renderer->drawLine(glm::value_ptr(prev), glm::value_ptr(cur), col);
+                        prev = cur;
+                    }
+                } else {
+                    const float L = gizmo == Gizmo::Scale ? 1.1f : 1.4f;
+                    const float rx[4] = {1.0f, 0.3f, 0.25f, 1.0f};
+                    const float gy[4] = {0.35f, 1.0f, 0.35f, 1.0f};
+                    const float bz[4] = {0.35f, 0.55f, 1.0f, 1.0f};
+                    const glm::vec3 ax = c + glm::vec3(L, 0, 0), ay = c + glm::vec3(0, L, 0),
+                                    az = c + glm::vec3(0, 0, L);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ax), rx);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ay), gy);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(az), bz);
+                }
             }
 
             // ---- 2D editor UI (pixel space) ----
@@ -460,7 +539,24 @@ int main(int argc, char** argv) {
                     deleteSelected();
                 }
             }
-            float ty = 82.0f;
+            // Transform-tool selector row (Move / Rotate / Scale); the active tool is highlighted.
+            {
+                const float bwid = 70.0f, gap = 5.0f, by = 74.0f, bhgt = 24.0f;
+                const char* labels[3] = {"Move", "Rot", "Scale"};
+                const Gizmo modes[3] = {Gizmo::Move, Gizmo::Rotate, Gizmo::Scale};
+                float bx = 10.0f;
+                for (int m = 0; m < 3; ++m) {
+                    const ui::Rect r{bx, by, bwid, bhgt};
+                    if (gizmo == modes[m]) {
+                        gui.panel(r, gui.colActive);
+                    }
+                    if (gui.button(static_cast<uint32_t>(80 + m), r, labels[m], 0.32f)) {
+                        gizmo = modes[m];
+                    }
+                    bx += bwid + gap;
+                }
+            }
+            float ty = 112.0f;
             for (size_t i = 0; i < scene.nodes.size(); ++i) {
                 const ui::Rect row{10.0f, ty, panelW - 20.0f, 30.0f};
                 if (scene.isSelected(static_cast<int>(i))) {
@@ -543,7 +639,7 @@ int main(int argc, char** argv) {
             }
 
             font.drawText(*renderer, 16.0f, fh - 30.0f,
-                          "MAZ ENGINE  -  EDITOR   (Shift+click multi-select; drag/arrows move; +Box/+Sph/Dup/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
+                          "MAZ ENGINE  -  EDITOR   (1/2/3 = Move/Rotate/Scale; Shift+click multi-select; +Box/+Sph/Dup/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
                           render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
             gui.end();
 

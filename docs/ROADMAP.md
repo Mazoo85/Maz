@@ -901,7 +901,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   **E9** — **multi-select**: shift-click (viewport or tree) toggles nodes in a `Scene::selection`
   set (set-ops unit-tested, including index re-fixing after a delete/undo); a plain drag or arrow-
   nudge moves the whole group by one delta, and Delete / Duplicate act on the entire selection.
-- [ ] Rotate/scale gizmo handles; asset browser; play-in-editor
+  **E10** — **rotate / scale gizmo**: a Move / Rotate / Scale tool selector (keys 1/2/3 or the SCENE
+  toolbar) switches what a drag does — Move slides on the ground, Rotate spins yaw by the angle the
+  cursor sweeps around the object's on-screen centre (a ring widget; 15° snap), Scale multiplies size
+  by the cursor's distance ratio (0.25 snap). Built on `editor::worldToScreen` (the inverse of the
+  pick unproject, unit-tested by round-trip). All three act on the whole multi-selection.
+- [ ] Asset browser; play-in-editor
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
 

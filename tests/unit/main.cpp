@@ -10578,6 +10578,33 @@ void testEditorPickRay() {
     CHECK(editor::pickNode(s, ro, rd) == -1);
 }
 
+void testEditorWorldToScreen() {
+    // worldToScreen is the inverse of screenRay's unproject: projecting the camera's look target must
+    // land near screen centre, and projecting then unprojecting must yield a ray back through the point.
+    const float w = 1280.0f, h = 720.0f;
+    const math::mat4 proj = math::perspective(glm::radians(46.0f), w / h, 0.1f, 100.0f);
+    const math::mat4 view =
+        glm::lookAt(math::vec3(3.6f, 3.4f, 6.4f), math::vec3(0.2f, 0.3f, 0.0f), math::vec3(0, 1, 0));
+    const math::mat4 viewProj = proj * view;
+
+    const math::vec3 target(0.2f, 0.3f, 0.0f);
+    math::vec2 px;
+    CHECK(editor::worldToScreen(viewProj, target, w, h, px));
+    CHECK_NEAR(px.x, w * 0.5f, 1.5f); // look target projects to screen centre
+    CHECK_NEAR(px.y, h * 0.5f, 1.5f);
+
+    // Round-trip: unproject that pixel and confirm the ray points at the world point.
+    math::vec3 ro, rd;
+    editor::screenRay(glm::inverse(viewProj), px.x, px.y, w, h, ro, rd);
+    const math::vec3 toTarget = glm::normalize(target - ro);
+    CHECK(glm::dot(rd, toTarget) > 0.999f);
+
+    // A point off to the side projects off-centre in the expected direction.
+    math::vec2 pr;
+    CHECK(editor::worldToScreen(viewProj, math::vec3(2.0f, 0.3f, 0.0f), w, h, pr));
+    CHECK(pr.x > px.x); // +x world moves right on screen for this camera
+}
+
 void testEditorGizmoDrag() {
     // A ray from above pointing down at an angle hits the ground plane at a predictable point.
     math::vec3 hit;
@@ -13529,6 +13556,7 @@ int main() {
     testEditorSerialize();
     testEditorNodeOps();
     testEditorMultiSelect();
+    testEditorWorldToScreen();
     testNormalLight();
     testParallax();
     testAudioDsp();
