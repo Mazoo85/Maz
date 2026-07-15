@@ -881,9 +881,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   unit-tested model (nodes carry a transform, a local AABB, a mesh id, and PBR material params;
   `modelMatrix`/`worldAabb`/`pickNode`/`screenRay` are pure logic). The app renders the scene, a
   **scene-tree panel** listing the nodes (click a row to select), and outlines the selection with a
-  wire AABB. Inspector (E2) and viewport click-picking (E3) follow.
-- [ ] Viewport with gizmos (translate/rotate/scale), grid, snapping
-- [ ] Reflection-driven entity inspector, asset browser
+  wire AABB. **E2** — an **inspector panel** live-edits the selected node: transform (position /
+  rotation / scale sliders) and PBR material (roughness / metallic / emissive sliders, colour
+  swatches, a visibility toggle), all writing straight into the node each frame. **E3** — **viewport
+  click-to-pick**: a left click in the 3D viewport unprojects a ray (`screenRay` via the inverse
+  view-projection) and selects the nearest node its AABB hits (unit-tested against the live camera to
+  pin the Vulkan NDC-y sign); arrow keys / Q / E nudge the selection.
+- [ ] Viewport translate/rotate/scale gizmos, grid, snapping; undo/redo; asset browser
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels

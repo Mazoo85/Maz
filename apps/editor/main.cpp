@@ -144,6 +144,30 @@ int main(int argc, char** argv) {
         const float mx = input.mouseX(), my = input.mouseY();
         const bool down = input.mouseDown(0);
 
+        // Viewport click-to-pick: a left click in the 3D viewport (not over a panel) casts a ray
+        // through the scene and selects the nearest node it hits.
+        const float treeW = 240.0f, inspW = 288.0f;
+        const bool inViewport = mx > treeW + 8.0f && mx < fw - inspW - 8.0f;
+        if (input.mousePressed(0) && inViewport) {
+            const glm::mat4 inv = glm::inverse(viewProj);
+            math::vec3 ro, rd;
+            editor::screenRay(inv, mx, my, fw, fh, ro, rd);
+            const int hit = editor::pickNode(scene, ro, rd);
+            if (hit >= 0) {
+                scene.selected = hit;
+            }
+        }
+        // Keyboard nudge of the selected node: arrows move on the ground plane, Q/E rotate.
+        if (editor::Node* s = scene.selectedNode()) {
+            const float step = 0.06f;
+            if (input.keyDown(SDL_SCANCODE_LEFT)) s->position.x -= step;
+            if (input.keyDown(SDL_SCANCODE_RIGHT)) s->position.x += step;
+            if (input.keyDown(SDL_SCANCODE_UP)) s->position.z -= step;
+            if (input.keyDown(SDL_SCANCODE_DOWN)) s->position.z += step;
+            if (input.keyDown(SDL_SCANCODE_Q)) s->euler.y -= 2.0f;
+            if (input.keyDown(SDL_SCANCODE_E)) s->euler.y += 2.0f;
+        }
+
         renderer->setClearColor(render::Color{0.10f, 0.11f, 0.14f, 1.0f});
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
@@ -206,7 +230,68 @@ int main(int argc, char** argv) {
                 ty += 36.0f;
             }
 
-            font.drawText(*renderer, 16.0f, fh - 30.0f, "MAZ ENGINE  -  EDITOR",
+            // Inspector panel on the right: live-edit the selected node.
+            if (editor::Node* sel = scene.selectedNode()) {
+                const float iw = 288.0f;
+                const float ix = fw - iw;
+                gui.panel(ui::Rect{ix, 0, iw, fh}, gui.colBg);
+                font.drawText(*renderer, ix + 16.0f, 14.0f, "INSPECTOR",
+                              render::Color{1, 1, 1, 1}, 0.55f);
+                font.drawText(*renderer, ix + 16.0f, 46.0f, sel->name.c_str(), gui.colAccent, 0.42f);
+
+                float y = 84.0f;
+                uint32_t id = 200;
+                auto row = [&](const char* label, float& value, float lo, float hi) {
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "%s: %.2f", label, static_cast<double>(value));
+                    font.drawText(*renderer, ix + 14.0f, y, buf, gui.colText, 0.34f);
+                    gui.slider(id++, ui::Rect{ix + 14.0f, y + 20.0f, iw - 28.0f, 16.0f}, value, lo,
+                               hi);
+                    y += 46.0f;
+                };
+                font.drawText(*renderer, ix + 14.0f, y, "TRANSFORM", gui.colAccent, 0.32f);
+                y += 24.0f;
+                row("Pos X", sel->position.x, -4.0f, 4.0f);
+                row("Pos Y", sel->position.y, 0.0f, 4.0f);
+                row("Pos Z", sel->position.z, -4.0f, 4.0f);
+                row("Rot Y", sel->euler.y, 0.0f, 360.0f);
+                float uniform = sel->scale.x;
+                row("Scale", uniform, 0.2f, 2.5f);
+                sel->scale = math::vec3(uniform);
+
+                y += 6.0f;
+                font.drawText(*renderer, ix + 14.0f, y, "MATERIAL", gui.colAccent, 0.32f);
+                y += 24.0f;
+                row("Rough", sel->roughness, 0.05f, 1.0f);
+                row("Metal", sel->metallic, 0.0f, 1.0f);
+                float glow = sel->emissive.x;
+                row("Glow", glow, 0.0f, 3.0f);
+                sel->emissive = math::vec3(glow);
+
+                // Color swatches: click one to recolor the node.
+                font.drawText(*renderer, ix + 14.0f, y, "COLOR", gui.colText, 0.32f);
+                for (int c = 0; c < static_cast<int>(swatches.size()); ++c) {
+                    const ui::Rect sw{ix + 74.0f + static_cast<float>(c) * 38.0f, y - 4.0f, 30.0f,
+                                      24.0f};
+                    // Draw the swatch using its palette color (approximate the 1x1 texture color).
+                    static const render::Color pal[5] = {{0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1},
+                                                         {0.47f, 0.78f, 0.47f, 1}, {0.88f, 0.78f, 0.43f, 1},
+                                                         {0.82f, 0.82f, 0.84f, 1}};
+                    gui.panel(sw, pal[c]);
+                    if (sel->colorIndex == c) { // outline the active swatch
+                        gui.panel(ui::Rect{sw.x - 2.0f, sw.y - 2.0f, sw.w + 4.0f, 2.0f}, gui.colAccent);
+                    }
+                    if (input.mousePressed(0) && sw.contains(mx, my)) {
+                        sel->colorIndex = c;
+                    }
+                }
+                y += 40.0f;
+                gui.toggle(500u, ui::Rect{ix + 14.0f, y, 22.0f, 22.0f}, "Visible", sel->visible,
+                           0.34f);
+            }
+
+            font.drawText(*renderer, 16.0f, fh - 30.0f,
+                          "MAZ ENGINE  -  EDITOR    (click a shape to select; arrows/Q/E move it)",
                           render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
             gui.end();
 

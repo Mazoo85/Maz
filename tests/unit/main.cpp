@@ -10554,6 +10554,30 @@ void testEditorScene() {
     CHECK(s.selectedNode() == nullptr);
 }
 
+void testEditorPickRay() {
+    // Mirror the editor's camera and confirm the centre-screen ray hits a node at the look target.
+    // This guards the NDC-y sign in screenRay (a Vulkan clip-space gotcha that's invisible by eye).
+    const float w = 1280.0f, h = 720.0f;
+    const math::mat4 proj = math::perspective(glm::radians(46.0f), w / h, 0.1f, 100.0f);
+    const math::mat4 view =
+        glm::lookAt(math::vec3(3.6f, 3.4f, 6.4f), math::vec3(0.2f, 0.3f, 0.0f), math::vec3(0, 1, 0));
+    const math::mat4 inv = glm::inverse(proj * view);
+
+    editor::Scene s;
+    editor::Node n;
+    n.name = "target";
+    n.position = math::vec3(0.2f, 0.3f, 0.0f);
+    s.nodes.push_back(n);
+
+    math::vec3 ro, rd;
+    editor::screenRay(inv, w * 0.5f, h * 0.5f, w, h, ro, rd);
+    CHECK(editor::pickNode(s, ro, rd) == 0); // the centre ray hits the node under the crosshair
+
+    // A ray toward a screen corner (far from the single centred node) should miss.
+    editor::screenRay(inv, w * 0.05f, h * 0.05f, w, h, ro, rd);
+    CHECK(editor::pickNode(s, ro, rd) == -1);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13318,6 +13342,7 @@ int main() {
     testPhysics3DDistanceJoint();
     testPhysics3DHinge();
     testEditorScene();
+    testEditorPickRay();
     testNormalLight();
     testParallax();
     testAudioDsp();
