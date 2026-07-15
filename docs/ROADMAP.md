@@ -910,7 +910,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   Cylinder, Cone, Torus, Capsule — each a data-driven catalog entry carrying its mesh + pick-AABB)
   that spawns a node resting on the floor as one undo step; the Grid/Snap view toggles moved into the
   dock. Extends the editor's mesh set to all six `render::shapes` primitives.
-- [ ] Play-in-editor
+  **E12** — **play-in-editor**: a Play/Stop control (button or Space) simulates the scene with
+  `game::PhysicsWorld3D` — each node becomes a rigid body (sphere / capsule / box from its mesh +
+  scale) on a ground plane under gravity; simulated position + orientation feed a live per-node
+  transform each frame. Editing is disabled while playing, and Stop restores the authored snapshot so
+  runtime motion is discarded (Godot's play/stop semantics). **The editor now covers the core Godot
+  loop: build a scene, arrange it with gizmos, and press Play to watch it run.**
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
 

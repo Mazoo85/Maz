@@ -168,6 +168,14 @@ int main(int argc, char** argv) {
     bool snapOn = false;           // snap translation to the grid
     const float snapStep = 0.5f;   // grid cell size in world units
 
+    // Play-in-editor: pressing Play simulates the scene as 3D rigid bodies falling onto the ground;
+    // Stop restores the scene exactly as it was authored (runtime motion is discarded, like Godot).
+    bool playing = false;
+    std::vector<editor::Node> savedScene;  // snapshot captured at Play, restored on Stop
+    game::PhysicsWorld3D world;            // physics world rebuilt each Play
+    std::vector<int> bodyNode;             // dynamic body index -> node index (world.bodies[0] = ground)
+    std::vector<math::quat> liveQuat;      // per-node live orientation while playing (else identity)
+
     // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
     std::string scenePath;
     {
@@ -251,6 +259,56 @@ int main(int argc, char** argv) {
         commitEdit(before);
     };
 
+    // Node Euler (degrees, Y then X then Z — matching Node::modelMatrix) as a quaternion, so a playing
+    // body starts at the authored orientation.
+    auto eulerToQuat = [](const math::vec3& deg) {
+        return glm::angleAxis(glm::radians(deg.y), math::vec3(0, 1, 0)) *
+               glm::angleAxis(glm::radians(deg.x), math::vec3(1, 0, 0)) *
+               glm::angleAxis(glm::radians(deg.z), math::vec3(0, 0, 1));
+    };
+    // Enter or leave play mode. Entering snapshots the scene and builds a physics world from the nodes;
+    // leaving restores the snapshot so all simulated motion is discarded (Godot's play/stop semantics).
+    auto togglePlay = [&]() {
+        if (!playing) {
+            savedScene = scene.nodes;
+            world = game::PhysicsWorld3D{};
+            world.allowSleep = true;
+            world.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+            bodyNode.clear();
+            liveQuat.assign(scene.nodes.size(), math::quat(1, 0, 0, 0));
+            for (size_t i = 0; i < scene.nodes.size(); ++i) {
+                const editor::Node& n = scene.nodes[i];
+                if (!n.visible) {
+                    continue;
+                }
+                const math::vec3 s = n.scale;
+                game::Body3D b;
+                if (n.meshId == 1) { // sphere
+                    b = game::makeSphere(n.position, 0.5f * s.x, 1.0f);
+                } else if (n.meshId == 5) { // capsule: radius 0.35, cyl half-height 0.30
+                    b = game::makeCapsule(n.position, 0.35f * s.x, 0.30f * s.y, 1.0f);
+                } else { // box / cylinder / cone / torus -> box from the scaled local AABB
+                    const math::vec3 half((n.localMax.x - n.localMin.x) * 0.5f * s.x,
+                                          (n.localMax.y - n.localMin.y) * 0.5f * s.y,
+                                          (n.localMax.z - n.localMin.z) * 0.5f * s.z);
+                    b = game::makeBox(n.position, half, 1.0f);
+                }
+                b.orientation = eulerToQuat(n.euler);
+                b.restitution = 0.25f;
+                b.friction = 0.6f;
+                b.enableRotation();
+                liveQuat[i] = b.orientation;
+                world.add(b);
+                bodyNode.push_back(static_cast<int>(i));
+            }
+            playing = true;
+        } else {
+            scene.nodes = savedScene;
+            scene.sanitizeSelection();
+            playing = false;
+        }
+    };
+
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -264,6 +322,18 @@ int main(int argc, char** argv) {
 
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
+            if (playing) {
+                world.step(1.0f / 60.0f, 8);
+            }
+        }
+        // Mirror the simulated bodies back into the nodes (position + live orientation) for rendering.
+        if (playing) {
+            for (size_t k = 0; k < bodyNode.size(); ++k) {
+                const game::Body3D& b = world.bodies[k + 1]; // +1: world.bodies[0] is the ground
+                const int ni = bodyNode[k];
+                scene.nodes[static_cast<size_t>(ni)].position = b.pos;
+                liveQuat[static_cast<size_t>(ni)] = b.orientation;
+            }
         }
 
         const glm::vec3 eye(3.6f, 3.4f, 6.4f);
@@ -279,30 +349,34 @@ int main(int argc, char** argv) {
             input.keyDown(SDL_SCANCODE_LCTRL) || input.keyDown(SDL_SCANCODE_RCTRL);
         const bool shift =
             input.keyDown(SDL_SCANCODE_LSHIFT) || input.keyDown(SDL_SCANCODE_RSHIFT);
+        // Space toggles play/stop at any time; the rest of the editing keys are inert while playing.
+        if (input.keyPressed(SDL_SCANCODE_SPACE)) {
+            togglePlay();
+        }
         // Transform-tool selector: 1 = Move, 2 = Rotate, 3 = Scale.
         if (input.keyPressed(SDL_SCANCODE_1)) gizmo = Gizmo::Move;
         if (input.keyPressed(SDL_SCANCODE_2)) gizmo = Gizmo::Rotate;
         if (input.keyPressed(SDL_SCANCODE_3)) gizmo = Gizmo::Scale;
-        if (ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
             history.undo(scene.nodes);
         }
-        if (ctrl && input.keyPressed(SDL_SCANCODE_Y)) {
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_Y)) {
             history.redo(scene.nodes);
         }
         // Node ops via keyboard: Ctrl+D duplicates the selection, Delete removes it.
-        if (ctrl && input.keyPressed(SDL_SCANCODE_D)) {
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_D)) {
             duplicateSelected();
         }
-        if (input.keyPressed(SDL_SCANCODE_DELETE)) {
+        if (!playing && input.keyPressed(SDL_SCANCODE_DELETE)) {
             deleteSelected();
         }
         scene.sanitizeSelection(); // drop stale indices after undo/redo/delete
         // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON.
-        if (ctrl && input.keyPressed(SDL_SCANCODE_S)) {
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_S)) {
             io::writeTextFile(scenePath, editor::toJson(scene).dump(2));
             MAZ_LOG_INFO("saved scene -> %s", scenePath.c_str());
         }
-        if (ctrl && input.keyPressed(SDL_SCANCODE_O)) {
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_O)) {
             std::string txt;
             const io::JsonParseResult pr =
                 io::readTextFile(scenePath, txt) ? io::parseJson(txt) : io::JsonParseResult{};
@@ -319,7 +393,7 @@ int main(int argc, char** argv) {
             (input.keyDown(SDL_SCANCODE_LEFT) || input.keyDown(SDL_SCANCODE_RIGHT) ||
              input.keyDown(SDL_SCANCODE_UP) || input.keyDown(SDL_SCANCODE_DOWN) ||
              input.keyDown(SDL_SCANCODE_Q) || input.keyDown(SDL_SCANCODE_E));
-        const bool gestureActive = down || nudgeHeld;
+        const bool gestureActive = !playing && (down || nudgeHeld);
         if (gestureActive && !history.inGesture) {
             history.begin(scene.nodes);
         } else if (!gestureActive && history.inGesture) {
@@ -332,7 +406,7 @@ int main(int argc, char** argv) {
         const bool inViewport =
             mx > treeW + 8.0f && mx < fw - inspW - 8.0f && my < fh - dockH; // exclude the ASSETS dock
         const glm::mat4 invVP = glm::inverse(viewProj);
-        if (input.mousePressed(0) && inViewport) {
+        if (!playing && input.mousePressed(0) && inViewport) {
             math::vec3 ro, rd;
             editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
             const int hit = editor::pickNode(scene, ro, rd);
@@ -438,7 +512,7 @@ int main(int argc, char** argv) {
         // Keyboard nudge of the whole selection: arrows move on the ground plane, Q/E rotate each node
         // about its own origin. With snap on, each arrow *press* steps one grid cell (and re-aligns to
         // the grid); otherwise arrows glide smoothly while held.
-        if (!scene.selection.empty()) {
+        if (!playing && !scene.selection.empty()) {
             float dx = 0.0f, dz = 0.0f, dyaw = 0.0f;
             if (snapOn) {
                 if (input.keyPressed(SDL_SCANCODE_LEFT)) dx -= snapStep;
@@ -479,8 +553,10 @@ int main(int argc, char** argv) {
                 const glm::mat4 m = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
                 renderer->drawMeshMaterial(ground, glm::value_ptr(m), gm);
             }
-            // Scene nodes.
-            for (const editor::Node& n : scene.nodes) {
+            // Scene nodes. While playing, orientation comes from the physics body (liveQuat); otherwise
+            // from the node's authored Euler angles.
+            for (size_t i = 0; i < scene.nodes.size(); ++i) {
+                const editor::Node& n = scene.nodes[i];
                 if (!n.visible) {
                     continue;
                 }
@@ -492,12 +568,23 @@ int main(int argc, char** argv) {
                 mat.emissive[0] = n.emissive.x;
                 mat.emissive[1] = n.emissive.y;
                 mat.emissive[2] = n.emissive.z;
-                const glm::mat4 model = n.modelMatrix();
+                glm::mat4 model;
+                if (playing) {
+                    model = glm::translate(glm::mat4(1.0f), glm::vec3(n.position)) *
+                            glm::mat4_cast(liveQuat[i]);
+                    model = glm::scale(model, glm::vec3(n.scale));
+                } else {
+                    model = n.modelMatrix();
+                }
                 renderer->drawMeshMaterial(meshes[n.meshId % meshes.size()], glm::value_ptr(model),
                                            mat);
             }
             // Selection outline: a wire AABB around every selected node (the primary glows brighter).
+            // Hidden while playing (the simulated transforms don't match the authored AABB gizmo).
             for (int i : scene.selection) {
+                if (playing) {
+                    break;
+                }
                 editor::Node& n = scene.nodes[static_cast<size_t>(i)];
                 math::vec3 mn, mxb;
                 n.worldAabb(mn, mxb);
@@ -507,7 +594,7 @@ int main(int argc, char** argv) {
                 renderer->drawAabb(glm::value_ptr(mn), glm::value_ptr(mxb), col);
             }
             // Gizmo widget on the primary node: Move/Scale show RGB axes; Rotate shows a yaw ring.
-            if (editor::Node* sel = scene.selectedNode()) {
+            if (editor::Node* sel = scene.selectedNode(); sel && !playing) {
                 const glm::vec3 c = sel->position;
                 if (gizmo == Gizmo::Rotate) {
                     // A ring on the XZ plane sized to the node's horizontal footprint (Y-axis yaw).
@@ -543,6 +630,16 @@ int main(int argc, char** argv) {
             renderer->setCamera2D(uicam);
             gui.begin(mx, my, down);
 
+            // Play / Stop control floating at the top of the viewport (Space also toggles it).
+            {
+                const ui::Rect pr{treeW + 16.0f, 12.0f, 104.0f, 30.0f};
+                gui.panel(pr, playing ? render::Color{0.72f, 0.30f, 0.28f, 1}
+                                      : render::Color{0.28f, 0.55f, 0.34f, 1});
+                if (gui.button(60u, pr, playing ? "> STOP" : "> PLAY", 0.40f)) {
+                    togglePlay();
+                }
+            }
+
             // Scene-tree panel on the left.
             const float panelW = 240.0f;
             gui.panel(ui::Rect{0, 0, panelW, fh}, gui.colBg);
@@ -552,11 +649,11 @@ int main(int argc, char** argv) {
             {
                 const float bwid = 108.0f, gap = 4.0f, by = 42.0f, bhgt = 26.0f;
                 float bx = 10.0f;
-                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Duplicate", 0.34f)) {
+                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Duplicate", 0.34f) && !playing) {
                     duplicateSelected();
                 }
                 bx += bwid + gap;
-                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Delete", 0.34f)) {
+                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Delete", 0.34f) && !playing) {
                     deleteSelected();
                 }
             }
@@ -675,7 +772,8 @@ int main(int argc, char** argv) {
                 for (size_t i = 0; i < assets.size(); ++i) {
                     gui.panel(ui::Rect{bx, y0 + 30.0f, tw, 20.0f}, chip[i % 6]);
                     if (gui.button(static_cast<uint32_t>(90 + i),
-                                   ui::Rect{bx, y0 + 52.0f, tw, 24.0f}, assets[i].name, 0.30f)) {
+                                   ui::Rect{bx, y0 + 52.0f, tw, 24.0f}, assets[i].name, 0.30f) &&
+                        !playing) {
                         addAsset(i);
                     }
                     bx += tw + gap;
