@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC9 shipped (through the 1.0 production tier: safety + hot reload; `await` deferred) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC10 shipped (through gradual typing; `await` + typed fast-path deferred) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -166,12 +166,23 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 - *Note:* top-level statements are intentionally **not** re-run on reload (that would
   reset global state); newly-added global `var`s therefore need an explicit re-run.
 
-## SC10 — Static Typing (Optional / Gradual)
+## SC10 — Static Typing (Optional / Gradual) ✅ *(shipped)*
 
-- Type hints `var x: int`, `func f(a: int) -> String:`, typed arrays/dicts,
-  inference `var x := 5`, a type-checker pass; untyped code stays dynamic. [GD]
-- [BETTER] — typed regions can take a faster execution path (skip dynamic tag
-  checks).
+- Type hints on variables, parameters, and return types: `var hp: int = 100`,
+  `func add(a: int, b: int) -> int { ... }`, typed containers `Array[int]` /
+  `Dictionary`, and inference `var x := 0.5`. [GD]
+- A **static type-checker pass** flags provable literal-level mismatches — a wrong
+  literal assigned to a typed var, returned from a typed function, or passed to a
+  typed parameter (including `int` narrowing like `var i: int = 3.5`). Findings are
+  reported via `vm.typeErrors()`. [GD]
+- `vm.setStrictTypes(true)` promotes type errors to `run()`/`reload()` failures and
+  additionally enforces typed declarations **at runtime** (a computed value of the
+  wrong category fails at the declaration). Off by default. [GD]
+- **Untyped code stays fully dynamic** — the gradual guarantee: a program with no
+  annotations produces zero type errors and behaves exactly as before.
+- *Not yet:* the [BETTER] fast execution path for typed regions (skipping dynamic
+  tag checks) — that's a VM-core optimization tracked with the coroutine `await`
+  rewrite. Current typing is checking-only, not a speed win.
 
 ## SC11 — Modules, Tooling & Polish
 
@@ -186,7 +197,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
 - **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7 ✅ (signals; `await` deferred to the VM-core pass).
 - **1.0 (production):** SC8 ✅ → SC9 ✅  **— complete**.
-- **1.x (edge over Godot):** SC10–SC11.
+- **1.x (edge over Godot):** SC10 ✅ → SC11.
 
 **Front-loaded risks:** the host-binding template API (SC6) is the engine's real
 scripting interface — design it before it has many call sites; coroutines /

@@ -51,6 +51,10 @@
 //        and class method bodies IN PLACE so live instances keep their field state while gaining the
 //        new behavior. A lex/parse failure leaves the previous version fully live. Old ASTs are
 //        retained so still-referenced closures stay valid. (Top-level statements are not re-run.)
+//   SC10: gradual typing — type hints (var x: int, func f(a: int) -> T, Array[int]) + inference
+//        (var x := ...); a static type-checker flags literal-level mismatches (typeErrors()); and
+//        setStrictTypes() promotes them to run() failures + enforces typed declarations at runtime.
+//        Untyped code stays fully dynamic. (Typed fast-path optimization is deferred.)
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -220,7 +224,7 @@ enum class Tok {
     Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends, Signal,
     Plus, Minus, Star, Slash, Percent, Bang,
     Eq, EqEq, NotEq, Less, LessEq, Greater, GreaterEq,
-    LParen, RParen, LBrace, RBrace, LBracket, RBracket, Comma, Semicolon, Colon, Dot,
+    LParen, RParen, LBrace, RBrace, LBracket, RBracket, Comma, Semicolon, Colon, Dot, Arrow,
     End
 };
 
@@ -339,6 +343,7 @@ inline std::vector<Token> lex(const std::string& src, ScriptError& err) {
         if (two('!', '=')) { push(Tok::NotEq); i += 2; continue; }
         if (two('<', '=')) { push(Tok::LessEq); i += 2; continue; }
         if (two('>', '=')) { push(Tok::GreaterEq); i += 2; continue; }
+        if (two('-', '>')) { push(Tok::Arrow); i += 2; continue; } // SC10: return-type arrow
         switch (c) {
         case '+': push(Tok::Plus); break;
         case '-': push(Tok::Minus); break;
@@ -404,6 +409,10 @@ struct Stmt {
     std::vector<std::unique_ptr<Stmt>> body;
     std::vector<std::unique_ptr<Stmt>> elseBody; // If else, or For's desugared `var` init
     std::vector<std::string> params;             // Func parameters
+    // SC10 — optional type annotations ("" = untyped/Variant; "@infer" = infer from initializer).
+    std::string declType;                        // Var: declared type
+    std::string returnType;                      // Func: return type
+    std::vector<std::string> paramTypes;         // Func: per-parameter types (parallel to params)
     int line = 0;
 };
 
@@ -639,11 +648,31 @@ private:
         s->kind = Stmt::K::Var;
         s->line = peek().line;
         s->name = expect(Tok::Ident, "expected variable name").text;
+        // SC10: optional type annotation — `var x: int = ...`, or inference `var x := ...`.
+        if (match(Tok::Colon)) {
+            if (check(Tok::Eq)) {
+                s->declType = "@infer"; // `:=` — infer the type from the initializer
+            } else {
+                s->declType = parseTypeName();
+            }
+        }
         if (match(Tok::Eq)) {
             s->expr = expression();
         }
         expect(Tok::Semicolon, "expected ';' after variable declaration");
         return s;
+    }
+
+    // A type name: an identifier, optionally a container element type like `Array[int]` (parsed and
+    // recorded as e.g. "Array[int]"; the checker treats the outer type as the primary constraint).
+    std::string parseTypeName() {
+        std::string t = expect(Tok::Ident, "expected type name").text;
+        if (match(Tok::LBracket)) {
+            std::string inner = parseTypeName();
+            expect(Tok::RBracket, "expected ']' after element type");
+            t += "[" + inner + "]";
+        }
+        return t;
     }
 
     std::unique_ptr<Stmt> funcDecl() {
@@ -655,9 +684,13 @@ private:
         if (!check(Tok::RParen)) {
             do {
                 s->params.push_back(expect(Tok::Ident, "expected parameter name").text);
+                s->paramTypes.push_back(match(Tok::Colon) ? parseTypeName() : ""); // SC10: param type
             } while (match(Tok::Comma));
         }
         expect(Tok::RParen, "expected ')' after parameters");
+        if (match(Tok::Arrow)) {
+            s->returnType = parseTypeName(); // SC10: return type
+        }
         expect(Tok::LBrace, "expected '{' before function body");
         s->body = block();
         return s;
@@ -992,9 +1025,11 @@ private:
             if (!check(Tok::RParen)) {
                 do {
                     e->params.push_back(expect(Tok::Ident, "expected parameter name").text);
+                    if (match(Tok::Colon)) parseTypeName(); // SC10: accept (and ignore) lambda param types
                 } while (match(Tok::Comma));
             }
             expect(Tok::RParen, "expected ')' after lambda parameters");
+            if (match(Tok::Arrow)) parseTypeName(); // SC10: accept lambda return type
             expect(Tok::LBrace, "expected '{' before lambda body");
             e->body = block();
             return e;
@@ -1250,10 +1285,19 @@ public:
     // Non-fatal diagnostics collected during the last run()'s parse (shadowing, unreachable code).
     const std::vector<std::string>& warnings() const { return m_warnings; }
 
+    // SC10 — gradual typing. Static type-check findings from the last parse (literal-level: a wrong
+    // literal assigned to a typed var, a wrong literal returned from a typed function, or a wrong
+    // literal argument to a typed parameter). Untyped code produces none.
+    const std::vector<std::string>& typeErrors() const { return m_typeErrors; }
+    // When enabled, any static type error makes run()/reload() fail (opt-in strictness); off by
+    // default so existing dynamic code is unaffected. Typed declarations are also checked at runtime.
+    void setStrictTypes(bool enabled) { m_strictTypes = enabled; }
+
     bool run(const std::string& source) {
         m_error = {};
         m_trace.clear();
         m_warnings.clear();
+        m_typeErrors.clear();
         m_program.clear();
         m_retained.clear();
         m_funcDefs.clear();
@@ -1271,6 +1315,11 @@ public:
             Parser parser(std::move(toks));
             m_program = parser.parse();
             analyzeWarnings(m_program); // SC8: static diagnostics (shadowing, unreachable code)
+            checkTypes(m_program);      // SC10: static type-check pass over annotations
+            if (m_strictTypes && !m_typeErrors.empty()) {
+                m_error = {m_typeErrors.front(), 0};
+                return false;
+            }
             hoistFunctions(m_program, *m_global);
             hoistClasses(m_program, *m_global);
             for (const auto& s : m_program) {
@@ -1450,6 +1499,10 @@ private:
     std::string m_trace;                    // call stack captured at the last error
     std::vector<std::string> m_warnings;    // non-fatal diagnostics from the last parse
     std::vector<std::string> m_callStack;   // live call stack (function names), for trace capture
+    // SC10 — gradual typing.
+    std::vector<std::string> m_typeErrors;  // static type-check findings from the last parse
+    bool m_strictTypes = false;             // when true, type errors make run() fail
+    std::unordered_map<std::string, std::pair<std::vector<std::string>, std::string>> m_sigs; // fn signatures
     size_t m_stepBudget = 0;                // 0 = unlimited
     size_t m_steps = 0;                     // steps taken this run/call
     size_t m_maxDepth = 1000;               // recursion cap
@@ -1548,6 +1601,169 @@ private:
             break;
         default:
             break;
+        }
+    }
+
+    // ---- SC10: static type checker ---------------------------------------------------------------
+
+    // Canonicalize a type name: fold synonyms, strip a container element (Array[int] -> "array").
+    static std::string normalizeType(std::string t) {
+        const size_t b = t.find('[');
+        if (b != std::string::npos) t = t.substr(0, b);
+        if (t == "String" || t == "str" || t == "string") return "string";
+        if (t == "int") return "int";
+        if (t == "float") return "float";
+        if (t == "number" || t == "Number") return "number";
+        if (t == "bool" || t == "Bool") return "bool";
+        if (t == "Array" || t == "array") return "array";
+        if (t == "Dictionary" || t == "dict" || t == "Dict") return "dict";
+        if (t == "Variant" || t == "any" || t == "Any" || t.empty()) return "variant";
+        return t; // a class name or unknown type — treated as an object constraint
+    }
+    // The category of a literal expression, or "" when it isn't a compile-time-known literal.
+    static std::string literalCategory(const Expr& e) {
+        switch (e.kind) {
+        case Expr::K::Number: return (e.number == std::floor(e.number)) ? "int" : "float";
+        case Expr::K::String: return "string";
+        case Expr::K::Bool: return "bool";
+        case Expr::K::Nil: return "nil";
+        case Expr::K::ArrayLit: return "array";
+        case Expr::K::DictLit: return "dict";
+        default: return "";
+        }
+    }
+    // Is a literal of `cat` assignable to a declared type? Unknown (non-literal) is always allowed
+    // — the point of gradual typing is that only provable mismatches are flagged.
+    static bool categoryAccepted(const std::string& declTypeRaw, const std::string& cat) {
+        if (cat.empty() || cat == "nil") return true; // non-literal, or null (assignable to anything)
+        const std::string t = normalizeType(declTypeRaw);
+        if (t == "variant") return true;
+        if (t == "int") return cat == "int";
+        if (t == "float" || t == "number") return cat == "int" || cat == "float";
+        if (t == "string") return cat == "string";
+        if (t == "bool") return cat == "bool";
+        if (t == "array") return cat == "array";
+        if (t == "dict") return cat == "dict";
+        return false; // class/object type — a primitive literal cannot satisfy it
+    }
+    void addTypeError(const std::string& msg, int line) {
+        m_typeErrors.push_back("type error: " + msg + " (line " + std::to_string(line) + ")");
+    }
+
+    void checkTypes(const std::vector<std::unique_ptr<Stmt>>& program) {
+        m_sigs.clear();
+        for (const auto& s : program) {
+            if (s->kind == Stmt::K::Func) m_sigs[s->name] = {s->paramTypes, s->returnType};
+        }
+        for (const auto& s : program) checkStmt(*s, "");
+    }
+    void checkStmtList(const std::vector<std::unique_ptr<Stmt>>& stmts, const std::string& retType) {
+        for (const auto& s : stmts) checkStmt(*s, retType);
+    }
+    // `retType` is the enclosing function's declared return type (or "" at top level).
+    void checkStmt(const Stmt& s, const std::string& retType) {
+        switch (s.kind) {
+        case Stmt::K::Var:
+            if (s.expr) checkExpr(*s.expr);
+            if (!s.declType.empty() && s.declType != "@infer" && s.expr) {
+                const std::string cat = literalCategory(*s.expr);
+                if (!categoryAccepted(s.declType, cat)) {
+                    addTypeError("cannot assign " + cat + " to '" + s.name + "' of type " + s.declType,
+                                 s.line);
+                }
+            }
+            break;
+        case Stmt::K::Return:
+            if (s.expr) checkExpr(*s.expr);
+            if (!retType.empty() && s.expr) {
+                const std::string cat = literalCategory(*s.expr);
+                if (!categoryAccepted(retType, cat)) {
+                    addTypeError("returning " + cat + " from a function typed -> " + retType, s.line);
+                }
+            }
+            break;
+        case Stmt::K::Expr:
+        case Stmt::K::Print:
+            if (s.expr) checkExpr(*s.expr);
+            break;
+        case Stmt::K::Block:
+            checkStmtList(s.body, retType);
+            break;
+        case Stmt::K::If:
+            if (s.expr) checkExpr(*s.expr);
+            if (!s.body.empty()) checkStmt(*s.body[0], retType);
+            if (!s.elseBody.empty()) checkStmt(*s.elseBody[0], retType);
+            break;
+        case Stmt::K::While:
+            if (s.expr) checkExpr(*s.expr);
+            if (!s.body.empty()) checkStmt(*s.body[0], retType);
+            break;
+        case Stmt::K::For:
+            if (s.expr) checkExpr(*s.expr);
+            if (!s.body.empty()) checkStmt(*s.body[0], retType);
+            break;
+        case Stmt::K::ForIn:
+            if (s.expr) checkExpr(*s.expr);
+            if (!s.body.empty()) checkStmt(*s.body[0], retType);
+            break;
+        case Stmt::K::Func:
+            checkStmtList(s.body, s.returnType);
+            break;
+        case Stmt::K::Class:
+            for (const auto& m : s.body) {
+                if (m->kind == Stmt::K::Func) checkStmt(*m, "");
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    void checkExpr(const Expr& e) {
+        // Check literal arguments to a top-level typed function.
+        if (e.kind == Expr::K::Call && e.callee && e.callee->kind == Expr::K::Var) {
+            const auto it = m_sigs.find(e.callee->str);
+            if (it != m_sigs.end()) {
+                const auto& paramTypes = it->second.first;
+                for (size_t i = 0; i < e.args.size() && i < paramTypes.size(); ++i) {
+                    if (paramTypes[i].empty()) continue;
+                    const std::string cat = literalCategory(*e.args[i]);
+                    if (!categoryAccepted(paramTypes[i], cat)) {
+                        addTypeError("argument " + std::to_string(i + 1) + " to '" + e.callee->str +
+                                         "' expects " + paramTypes[i] + ", got " + cat,
+                                     e.line);
+                    }
+                }
+            }
+        }
+        // Recurse into sub-expressions.
+        if (e.lhs) checkExpr(*e.lhs);
+        if (e.rhs) checkExpr(*e.rhs);
+        if (e.callee) checkExpr(*e.callee);
+        for (const auto& a : e.args) checkExpr(*a);
+        for (const auto& k : e.keys) checkExpr(*k);
+    }
+
+    // SC10 runtime check: does a value satisfy a declared type? Used to enforce typed `var`
+    // declarations under strict mode. int/float granularity isn't enforced at runtime (all numbers
+    // are doubles); category mismatches (string vs number, etc.) are.
+    bool runtimeTypeAccepted(const Value& v, const std::string& declTypeRaw) {
+        const std::string t = normalizeType(declTypeRaw);
+        if (t == "variant") return true;
+        switch (v.type) {
+        case Value::Type::Nil: return true;
+        case Value::Type::Num: return t == "int" || t == "float" || t == "number";
+        case Value::Type::Str: return t == "string";
+        case Value::Type::Bool: return t == "bool";
+        case Value::Type::Array: return t == "array";
+        case Value::Type::Dict: return t == "dict";
+        case Value::Type::Object:
+            for (const ClassInfo* c = v.instance ? v.instance->klass.get() : nullptr; c;
+                 c = c->super.get()) {
+                if (c->name == t) return true;
+            }
+            return false;
+        default:
+            return true; // functions / natives / signals — not enforced
         }
     }
 
@@ -1729,9 +1945,17 @@ private:
             }
             break;
         }
-        case Stmt::K::Var:
-            env.vars[s.name] = s.expr ? eval(*s.expr, env) : Value::nil();
+        case Stmt::K::Var: {
+            Value v = s.expr ? eval(*s.expr, env) : Value::nil();
+            // SC10: enforce a typed declaration at runtime under strict mode.
+            if (m_strictTypes && !s.declType.empty() && s.declType != "@infer" &&
+                !runtimeTypeAccepted(v, s.declType)) {
+                fail("value assigned to '" + s.name + "' does not match declared type " + s.declType,
+                     s.line);
+            }
+            env.vars[s.name] = std::move(v);
             break;
+        }
         case Stmt::K::Block: {
             // Hoist nested function declarations, then run in a fresh child scope.
             auto local = std::make_shared<Environment>();

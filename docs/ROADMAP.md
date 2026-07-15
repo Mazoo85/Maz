@@ -807,7 +807,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC9 shipped (through the 1.0 production tier)**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC10 shipped (through gradual typing)**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
   functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
@@ -824,10 +824,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   **safety & diagnostics** (call-stack traces on error, an execution step budget + recursion limit
   that turn a modder's infinite loop into a catchable error, and a warnings pass for shadowing /
   unreachable code), plus **hot reload** (`reload()` swaps function/method bodies in place, keeping
-  live instance state; a parse failure keeps the previous version live) — all unit-tested. Roadmap
-  SC10–SC11 (gradual typing, modules/tooling) plus a coroutine `await` in the VM-core pass in
-  `docs/SCRIPTING.md`.
-- [ ] Gradual typing (SC10), modules + debugger hooks (SC11), coroutine `await` — see SCRIPTING.md
+  live instance state; a parse failure keeps the previous version live), plus **gradual typing**
+  (type hints `var x: int` / `func f(a: int) -> T` / `Array[int]` + inference `:=`, a static
+  type-checker over literals via `typeErrors()`, and opt-in `setStrictTypes()` enforcement; untyped
+  code stays fully dynamic) — all unit-tested. Roadmap SC11 (modules + debugger hooks) plus a
+  coroutine `await` and a typed fast-path in the VM-core pass in `docs/SCRIPTING.md`.
+- [ ] Modules + `preload` + debugger hooks (SC11), coroutine `await`, typed fast-path — see SCRIPTING.md
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;

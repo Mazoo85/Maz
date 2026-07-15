@@ -11435,6 +11435,93 @@ void testScriptHotReload() {
     }
 }
 
+// SC10: gradual typing — annotations parse + run; a static checker flags literal mismatches; strict
+// mode enforces. Untyped code stays fully dynamic.
+void testScriptTyping() {
+    using maz::script::Vm;
+
+    // Typed declarations, typed function signature, and inference all parse and run normally.
+    {
+        Vm vm;
+        CHECK(vm.run("var hp: int = 100; var name: String = \"hero\"; var ratio := 0.5; "
+                     "func add(a: int, b: int) -> int { return a + b; } "
+                     "print hp; print name; print add(2, 3);"));
+        CHECK(vm.output == "100\nhero\n5\n");
+        CHECK(vm.typeErrors().empty()); // everything type-checks
+    }
+    // Typed arrays/dicts parse (Array[int], Dictionary).
+    {
+        Vm vm;
+        CHECK(vm.run("var nums: Array[int] = [1, 2, 3]; var m: Dictionary = {\"a\": 1}; "
+                     "print nums.size(); print m.size();"));
+        CHECK(vm.output == "3\n1\n");
+        CHECK(vm.typeErrors().empty());
+    }
+    // Static checker flags a wrong literal assigned to a typed var.
+    {
+        Vm vm;
+        CHECK(vm.run("var count: int = \"oops\";")); // runs (non-strict), but flags a type error
+        bool flagged = false;
+        for (const auto& e : vm.typeErrors()) {
+            if (e.find("count") != std::string::npos && e.find("int") != std::string::npos) flagged = true;
+        }
+        CHECK(flagged);
+    }
+    // Static checker flags a wrong literal return from a typed function.
+    {
+        Vm vm;
+        CHECK(vm.run("func label() -> String { return 42; }"));
+        bool flagged = false;
+        for (const auto& e : vm.typeErrors()) {
+            if (e.find("String") != std::string::npos) flagged = true;
+        }
+        CHECK(flagged);
+    }
+    // Static checker flags a wrong literal argument to a typed parameter.
+    {
+        Vm vm;
+        CHECK(vm.run("func takesInt(n: int) -> int { return n; } takesInt(\"nope\");"));
+        bool flagged = false;
+        for (const auto& e : vm.typeErrors()) {
+            if (e.find("takesInt") != std::string::npos) flagged = true;
+        }
+        CHECK(flagged);
+    }
+    // Fractional literal to an int-typed var is a narrowing mismatch.
+    {
+        Vm vm;
+        CHECK(vm.run("var i: int = 3.5;"));
+        CHECK(!vm.typeErrors().empty());
+    }
+    // Strict mode promotes a type error to a run() failure.
+    {
+        Vm vm;
+        vm.setStrictTypes(true);
+        CHECK(!vm.run("var x: int = \"bad\";")); // strict → run fails
+        CHECK(!vm.error().empty());
+        // Well-typed code still runs under strict mode.
+        Vm vm2;
+        vm2.setStrictTypes(true);
+        CHECK(vm2.run("var x: int = 5; func dbl(n: int) -> int { return n * 2; } print dbl(x);"));
+        CHECK(vm2.output == "10\n");
+    }
+    // Strict-mode runtime enforcement: a computed value of the wrong type fails at the declaration.
+    {
+        Vm vm;
+        vm.setStrictTypes(true);
+        CHECK(!vm.run("func makeStr() { return \"s\"; } var n: int = makeStr();"));
+        CHECK(vm.error().find("declared type") != std::string::npos);
+    }
+    // Untyped/dynamic code is completely unaffected — no type errors ever.
+    {
+        Vm vm;
+        vm.setStrictTypes(true);
+        CHECK(vm.run("var x = 5; var y = \"str\"; var z = [1, 2]; func f(a, b) { return a; } print f(x, y);"));
+        CHECK(vm.output == "5\n");
+        CHECK(vm.typeErrors().empty());
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14256,6 +14343,7 @@ int main() {
     testScriptSignals();
     testScriptSafety();
     testScriptHotReload();
+    testScriptTyping();
     testNormalLight();
     testParallax();
     testAudioDsp();
