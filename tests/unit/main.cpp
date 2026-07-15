@@ -10688,6 +10688,40 @@ void testEditorSerialize() {
     CHECK(loaded.nodes[0].visible == false);
 }
 
+void testEditorNodeOps() {
+    // Grid snapping rounds to the nearest step; step <= 0 is a passthrough.
+    CHECK_NEAR(editor::snap1(1.24f, 0.5f), 1.0f, 1e-4f);
+    CHECK_NEAR(editor::snap1(1.30f, 0.5f), 1.5f, 1e-4f);
+    CHECK_NEAR(editor::snap1(-0.9f, 0.5f), -1.0f, 1e-4f);
+    CHECK_NEAR(editor::snap1(3.7f, 0.0f), 3.7f, 1e-4f); // disabled
+    const math::vec3 s = editor::snapToGrid(math::vec3(0.24f, 0.76f, -1.1f), 0.5f);
+    CHECK_NEAR(s.x, 0.0f, 1e-4f);
+    CHECK_NEAR(s.y, 1.0f, 1e-4f);
+    CHECK_NEAR(s.z, -1.0f, 1e-4f);
+
+    // Discrete-edit undo: deleting a node is one undo step, restored by undo().
+    editor::Scene sc;
+    editor::Node a;
+    a.name = "A";
+    editor::Node b;
+    b.name = "B";
+    sc.nodes = {a, b};
+    editor::History h;
+    std::vector<editor::Node> before = sc.nodes;
+    sc.nodes.erase(sc.nodes.begin()); // delete "A"
+    h.commit(before, sc.nodes);
+    CHECK(sc.nodes.size() == 1 && sc.nodes[0].name == "B");
+    CHECK(h.canUndo());
+    CHECK(h.undo(sc.nodes));
+    CHECK(sc.nodes.size() == 2 && sc.nodes[0].name == "A");
+
+    // The undo above left a redo entry; a no-op commit (before == after) must not disturb it.
+    CHECK(h.canRedo());
+    before = sc.nodes;
+    h.commit(before, sc.nodes);
+    CHECK(h.canRedo());
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13456,6 +13490,7 @@ int main() {
     testEditorGizmoDrag();
     testEditorHistory();
     testEditorSerialize();
+    testEditorNodeOps();
     testNormalLight();
     testParallax();
     testAudioDsp();

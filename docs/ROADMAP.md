@@ -892,6 +892,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   bracketed step; Ctrl+Z / Ctrl+Y walk the snapshot stack (unit-tested incl. redo-branch discard).
   **E6** — **scene save/load**: `toJson`/`fromJson` round-trip the scene to human-readable JSON
   (unit-tested round-trip via `Node::operator==`), wired to Ctrl+S / Ctrl+O on a per-user file.
+  **E7** — **node operations**: a SCENE-panel toolbar (+Box / +Sph / Dup / Del) and keyboard
+  shortcuts (Ctrl+D duplicate, Delete remove) add, copy, and erase nodes; each is one undo step via
+  `History::commit(before, after)` (unit-tested), re-basing any open gesture so it isn't double-counted.
 - [ ] Rotate/scale gizmo handles, grid snapping, multi-select; asset browser; play-in-editor
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button

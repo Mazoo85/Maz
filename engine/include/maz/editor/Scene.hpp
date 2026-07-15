@@ -115,6 +115,17 @@ struct History {
             redoStack.clear();
         }
     }
+    // Record a discrete edit (add / delete / duplicate) that happens in one step rather than over a
+    // held gesture: pushes `before` onto the undo stack when it differs from `after`.
+    void commit(const std::vector<Node>& before, const std::vector<Node>& after) {
+        if (before != after) {
+            undoStack.push_back(before);
+            if (undoStack.size() > capacity) {
+                undoStack.erase(undoStack.begin());
+            }
+            redoStack.clear();
+        }
+    }
     bool canUndo() const { return !undoStack.empty(); }
     bool canRedo() const { return !redoStack.empty(); }
     bool undo(std::vector<Node>& current) {
@@ -157,6 +168,15 @@ inline int pickNode(const Scene& scene, const math::vec3& origin, const math::ve
         }
     }
     return best;
+}
+
+// Snap a scalar / vector to the nearest multiple of `step` (0 or less disables, returning the input).
+// Used by the editor's grid snapping so dragged objects land on tidy coordinates.
+inline float snap1(float v, float step) {
+    return step > 0.0f ? std::round(v / step) * step : v;
+}
+inline math::vec3 snapToGrid(const math::vec3& v, float step) {
+    return step > 0.0f ? math::vec3(snap1(v.x, step), snap1(v.y, step), snap1(v.z, step)) : v;
 }
 
 // Intersect a ray with the horizontal plane y = planeY. Returns false if the ray is parallel to the

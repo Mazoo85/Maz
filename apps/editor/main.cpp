@@ -135,6 +135,54 @@ int main(int argc, char** argv) {
     light.sunColor[0] = light.sunColor[1] = light.sunColor[2] = 0.85f;
     renderer->setLighting(light);
 
+    // Discrete scene edits (add / duplicate / delete) commit one undo step immediately. commitEdit
+    // pushes the before-state and, if a mouse gesture happens to be open, re-bases its pending
+    // snapshot so the gesture's own end() doesn't record the same change a second time.
+    auto commitEdit = [&](const std::vector<editor::Node>& before) {
+        history.commit(before, scene.nodes);
+        if (history.inGesture) {
+            history.pending = scene.nodes;
+        }
+    };
+    auto addPrimitive = [&](uint32_t mesh) {
+        std::vector<editor::Node> before = scene.nodes;
+        editor::Node n;
+        n.name = std::string(mesh == 1 ? "Sphere" : "Box") + std::to_string(scene.nodes.size());
+        n.meshId = mesh;
+        n.position = math::vec3(0.0f, 0.5f, 0.0f);
+        n.colorIndex = static_cast<int>(scene.nodes.size()) % static_cast<int>(swatches.size());
+        n.roughness = 0.6f;
+        n.specular = 1.0f;
+        scene.nodes.push_back(n); // default local AABB ±0.5 suits both box and sphere
+        scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        commitEdit(before);
+    };
+    auto duplicateSelected = [&]() {
+        editor::Node* s = scene.selectedNode();
+        if (!s) {
+            return;
+        }
+        std::vector<editor::Node> before = scene.nodes;
+        editor::Node copy = *s;
+        copy.name += " copy";
+        copy.position.x += 0.6f;
+        copy.position.z += 0.6f;
+        scene.nodes.push_back(copy);
+        scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        commitEdit(before);
+    };
+    auto deleteSelected = [&]() {
+        if (scene.selected < 0 || scene.selected >= static_cast<int>(scene.nodes.size())) {
+            return;
+        }
+        std::vector<editor::Node> before = scene.nodes;
+        scene.nodes.erase(scene.nodes.begin() + scene.selected);
+        if (scene.selected >= static_cast<int>(scene.nodes.size())) {
+            scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        }
+        commitEdit(before);
+    };
+
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -166,6 +214,13 @@ int main(int argc, char** argv) {
         }
         if (ctrl && input.keyPressed(SDL_SCANCODE_Y)) {
             history.redo(scene.nodes);
+        }
+        // Node ops via keyboard: Ctrl+D duplicates the selection, Delete removes it.
+        if (ctrl && input.keyPressed(SDL_SCANCODE_D)) {
+            duplicateSelected();
+        }
+        if (input.keyPressed(SDL_SCANCODE_DELETE)) {
+            deleteSelected();
         }
         if (scene.selected >= static_cast<int>(scene.nodes.size())) {
             scene.selected = -1;
@@ -305,7 +360,27 @@ int main(int argc, char** argv) {
             const float panelW = 240.0f;
             gui.panel(ui::Rect{0, 0, panelW, fh}, gui.colBg);
             font.drawText(*renderer, 16.0f, 14.0f, "SCENE", render::Color{1, 1, 1, 1}, 0.55f);
-            float ty = 56.0f;
+            // Toolbar: add a box / sphere, duplicate or delete the selected node.
+            {
+                const float bwid = 52.0f, gap = 4.0f, by = 42.0f, bhgt = 26.0f;
+                float bx = 10.0f;
+                if (gui.button(70u, ui::Rect{bx, by, bwid, bhgt}, "+Box", 0.34f)) {
+                    addPrimitive(0);
+                }
+                bx += bwid + gap;
+                if (gui.button(71u, ui::Rect{bx, by, bwid, bhgt}, "+Sph", 0.34f)) {
+                    addPrimitive(1);
+                }
+                bx += bwid + gap;
+                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Dup", 0.34f)) {
+                    duplicateSelected();
+                }
+                bx += bwid + gap;
+                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Del", 0.34f)) {
+                    deleteSelected();
+                }
+            }
+            float ty = 82.0f;
             for (size_t i = 0; i < scene.nodes.size(); ++i) {
                 const ui::Rect row{10.0f, ty, panelW - 20.0f, 30.0f};
                 const bool isSel = static_cast<int>(i) == scene.selected;
@@ -380,7 +455,7 @@ int main(int argc, char** argv) {
             }
 
             font.drawText(*renderer, 16.0f, fh - 30.0f,
-                          "MAZ ENGINE  -  EDITOR   (drag/arrows move; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
+                          "MAZ ENGINE  -  EDITOR   (drag/arrows move; +Box/+Sph/Dup/Del or Ctrl+D/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
                           render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
             gui.end();
 
