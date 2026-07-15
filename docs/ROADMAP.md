@@ -1213,7 +1213,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       hit harder at night** (a 1.7× aggression multiplier) and darkens the world; the HUD shows DAY /
       NIGHT, rations, and loot collected. Forage by day, survive the night — verified headless (loot
       pickup + night-vs-day horde speed) and shown rendering the arc through to "YOU DIED".
-- [~] More sample scenes: pong, platformer, top-down adventure
+- [x] More sample scenes: pong, platformer, top-down adventure (M190–M192)
     - [x] **PONG** (M190) — a complete classic two-paddle game built from the 2D primitives
       (polygon renderer, pixel-space camera, font HUD, fixed-timestep loop): a player paddle (W/S or
       arrows) versus a tracking-AI paddle, a ball that bounces off walls and paddles, speeds up 1.04×
@@ -1227,6 +1227,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       level. Loaded from a little ASCII tile map. `--demo` runs a deterministic autopilot (run right,
       auto-jump at walls/ledges) that freezes after a fixed number of steps so the offscreen capture
       is pixel-identical; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested
+      (deterministic, RMSE 0).
+    - [x] **GROTTO** (M192) — a complete top-down **action-adventure** built from the 2D primitives:
+      a hero that walks freely in four directions (WASD/arrows) with per-axis wall collision (slides
+      along walls), a **follow camera** through a walled dungeon larger than the screen, gems
+      collected on touch, patrolling "wisp" enemies that bounce off walls and cost a heart (and warp
+      the hero back to start) on contact, and a locked **exit rune** that only opens once every gem
+      is gathered. Loaded from a little ASCII dungeon map. `--demo` runs a deterministic autopilot
+      (greedy walk toward the nearest gem) that freezes after a fixed number of steps for a
+      pixel-identical capture; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested
       (deterministic, RMSE 0).
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.

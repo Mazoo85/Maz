@@ -1287,6 +1287,14 @@ set_tests_properties(platformer_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME adventure_headless_smoke
+    COMMAND adventure --headless --frames 30)
+
+set_tests_properties(adventure_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 
