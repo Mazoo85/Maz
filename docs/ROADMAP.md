@@ -178,7 +178,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   later
 - [ ] Text input / IME, clipboard, drag-and-drop
 - [ ] vsync toggle, frame pacing, present-mode selection
-- [ ] Filesystem abstraction, virtual paths, save-directory resolution
+- [x] **Virtual filesystem / scheme paths** (`io::VirtualFileSystem`, toward Godot's `res://` /
+  `user://`): mount a scheme to a real directory (`mount("res", installDir)` / `mount("user",
+  saveDir)`) and `resolve("res://textures/hero.png")` to a real path — so game code never hard-codes
+  OS paths and the same build runs from a dev tree, an installed bundle, or a mod mount. Pure,
+  testable path core: `normalizePath` collapses `.`/`..`/`//`, plus `joinPath`/`fileName`/`extension`/
+  `fileStem`/`parentPath`, and a **traversal guard** that refuses any `..` escaping the mount root
+  (`res://../../etc/passwd` → rejected, not followed). Verified: normalization edges, all helpers,
+  scheme parse, resolution, re-mount/unmount, and the escape guard (M187)
 - [x] **Thread pool + job system** (`core::JobSystem`: worker pool, `submit`/`parallelFor`/
   `parallelRanges`; the `jobs` demo shows a ~3.8x fractal speedup; M65) — lock-free queues later
 

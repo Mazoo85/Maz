@@ -109,6 +109,7 @@
 #include "maz/io/ResourcePack.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/io/VirtualFileSystem.hpp"
 #include "maz/io/Xml.hpp"
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Geometry2D.hpp"

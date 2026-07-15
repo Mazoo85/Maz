@@ -106,6 +106,7 @@
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/io/VirtualFileSystem.hpp"
 #include "maz/io/Xml.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
@@ -8339,6 +8340,71 @@ void testDateTime() {
     CHECK(day.timeOfDay01() < 0.05); // just past midnight of day 2
 }
 
+// Virtual filesystem: pure path helpers, scheme mounting/resolution, and the traversal-escape guard.
+void testVfs() {
+    using namespace maz::io;
+
+    // normalizePath collapses '.', '..', and duplicate slashes; preserves absolute/relative.
+    CHECK(normalizePath("a/b/../c") == "a/c");
+    CHECK(normalizePath("a//b/./c/") == "a/b/c");
+    CHECK(normalizePath("/a/b/../../c") == "/c");
+    CHECK(normalizePath("/a/../../c") == "/c");     // can't escape above root when absolute
+    CHECK(normalizePath("../a/b") == "../a/b");      // relative may keep leading ..
+    CHECK(normalizePath("a/../..") == "..");         // net one level up
+    CHECK(normalizePath("") == ".");
+    CHECK(normalizePath("/") == "/");
+    CHECK(normalizePath("./x") == "x");
+
+    // Path component helpers.
+    CHECK(joinPath("a/b", "c/d") == "a/b/c/d");
+    CHECK(joinPath("a/b/", "c") == "a/b/c");
+    CHECK(joinPath("a", "/abs") == "/abs"); // absolute b replaces a
+    CHECK(fileName("a/b/c.png") == "c.png");
+    CHECK(fileName("noslash") == "noslash");
+    CHECK(extension("a/b/c.tar.png") == "png");
+    CHECK(extension("a/b/noext") == "");
+    CHECK(extension("/.gitignore") == ""); // leading-dot file has no extension
+    CHECK(fileStem("a/b/c.png") == "c");
+    CHECK(fileStem("archive.tar.gz") == "archive.tar");
+    CHECK(parentPath("a/b/c.png") == "a/b");
+    CHECK(parentPath("/root") == "/");
+    CHECK(parentPath("bare") == "");
+
+    // Scheme parse.
+    std::string scheme, rest;
+    CHECK(VirtualFileSystem::parse("res://textures/hero.png", scheme, rest));
+    CHECK(scheme == "res" && rest == "textures/hero.png");
+    CHECK(!VirtualFileSystem::parse("no-scheme/here", scheme, rest));
+
+    // Mount + resolve maps scheme paths to real dirs.
+    VirtualFileSystem vfs;
+    vfs.mount("res", "/game/assets");
+    vfs.mount("user", "/home/player/.local/share/mygame");
+    CHECK(vfs.isMounted("res") && vfs.isMounted("user"));
+    CHECK(vfs.resolve("res://textures/hero.png") == "/game/assets/textures/hero.png");
+    CHECK(vfs.resolve("user://save1.dat") == "/home/player/.local/share/mygame/save1.dat");
+    CHECK(vfs.resolve("res://a/./b/../c.txt") == "/game/assets/a/c.txt"); // normalized
+
+    // Unmounted scheme or missing scheme -> empty.
+    CHECK(vfs.resolve("mod://thing").empty());
+    CHECK(vfs.resolve("/absolute/path").empty());
+
+    // TRAVERSAL GUARD: a '..' that escapes the mount root is refused, not followed.
+    CHECK(vfs.resolve("res://../../etc/passwd").empty());
+    CHECK(vfs.resolve("res://..").empty());
+    CHECK(!vfs.canResolve("res://../secret"));
+    // A '..' that stays inside the mount is fine.
+    CHECK(vfs.resolve("res://a/b/../c.png") == "/game/assets/a/c.png");
+    CHECK(vfs.canResolve("res://a/b/../c.png"));
+
+    // Re-mounting replaces the base; unmount removes it.
+    vfs.mount("res", "/other/root");
+    CHECK(vfs.resolve("res://x.png") == "/other/root/x.png");
+    vfs.unmount("res");
+    CHECK(!vfs.isMounted("res"));
+    CHECK(vfs.resolve("res://x.png").empty());
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15798,6 +15864,7 @@ int main() {
     testContainers();
     testReflect();
     testDateTime();
+    testVfs();
     testSceneStack();
     testTween();
     testTweenPlayer();
