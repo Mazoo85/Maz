@@ -10601,6 +10601,93 @@ void testEditorGizmoDrag() {
     CHECK_NEAR(moved.z, 0.5f, 1e-4f);
 }
 
+void testEditorHistory() {
+    using editor::History;
+    using editor::Node;
+
+    std::vector<Node> scene(1);
+    scene[0].name = "n";
+    scene[0].position = math::vec3(0, 0, 0);
+    History h;
+    CHECK(!h.canUndo() && !h.canRedo());
+
+    // Gesture 1: move to x=5.
+    h.begin(scene);
+    scene[0].position.x = 5.0f;
+    h.end(scene);
+    CHECK(h.canUndo());
+
+    // Gesture 2: move to x=9.
+    h.begin(scene);
+    scene[0].position.x = 9.0f;
+    h.end(scene);
+
+    // Undo -> back to 5, undo again -> back to 0.
+    CHECK(h.undo(scene));
+    CHECK_NEAR(scene[0].position.x, 5.0f, 1e-4f);
+    CHECK(h.undo(scene));
+    CHECK_NEAR(scene[0].position.x, 0.0f, 1e-4f);
+    CHECK(!h.canUndo());
+
+    // Redo twice returns to 9.
+    CHECK(h.redo(scene));
+    CHECK_NEAR(scene[0].position.x, 5.0f, 1e-4f);
+    CHECK(h.redo(scene));
+    CHECK_NEAR(scene[0].position.x, 9.0f, 1e-4f);
+    CHECK(!h.canRedo());
+
+    // A no-op gesture (no change) records nothing.
+    h.begin(scene);
+    h.end(scene);
+    CHECK(!h.canRedo());
+    CHECK(h.canUndo()); // still the two real edits
+
+    // A fresh edit after an undo clears the redo branch.
+    CHECK(h.undo(scene)); // back to 5
+    CHECK(h.canRedo());
+    h.begin(scene);
+    scene[0].position.x = -3.0f;
+    h.end(scene);
+    CHECK(!h.canRedo()); // the redo-to-9 branch was discarded
+}
+
+void testEditorSerialize() {
+    editor::Scene s;
+    editor::Node a;
+    a.name = "Crate";
+    a.meshId = 0;
+    a.colorIndex = 3;
+    a.position = math::vec3(1.5f, 0.5f, -2.0f);
+    a.euler = math::vec3(0, 45, 0);
+    a.scale = math::vec3(2, 2, 2);
+    a.roughness = 0.3f;
+    a.metallic = 1.0f;
+    a.specular = 1.0f;
+    a.emissive = math::vec3(0.2f, 0.0f, 0.0f);
+    a.visible = false;
+    editor::Node b;
+    b.name = "Ball";
+    b.meshId = 1;
+    b.position = math::vec3(-1, 0.5f, 0);
+    s.nodes.push_back(a);
+    s.nodes.push_back(b);
+    s.selected = 1;
+
+    // Round-trip through JSON text and confirm the scene comes back identical.
+    const std::string text = editor::toJson(s).dump(2);
+    const io::JsonParseResult pr = io::parseJson(text);
+    CHECK(pr.ok);
+    editor::Scene loaded;
+    CHECK(editor::fromJson(pr.value, loaded));
+    CHECK(loaded.nodes.size() == 2);
+    CHECK(loaded.selected == 1);
+    CHECK(loaded.nodes[0] == s.nodes[0]); // Node::operator== over every field
+    CHECK(loaded.nodes[1] == s.nodes[1]);
+    CHECK(loaded.nodes[0].name == "Crate");
+    CHECK_NEAR(loaded.nodes[0].euler.y, 45.0f, 1e-4f);
+    CHECK(loaded.nodes[0].visible == false);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13367,6 +13454,8 @@ int main() {
     testEditorScene();
     testEditorPickRay();
     testEditorGizmoDrag();
+    testEditorHistory();
+    testEditorSerialize();
     testNormalLight();
     testParallax();
     testAudioDsp();

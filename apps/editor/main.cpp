@@ -115,6 +115,17 @@ int main(int argc, char** argv) {
 
     bool dragging = false;         // translate-gizmo drag in progress
     math::vec3 dragOffset{0, 0, 0}; // node pos minus ground-plane hit at grab time
+    editor::History history;        // undo/redo snapshots
+
+    // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
+    std::string scenePath;
+    {
+        char* pref = SDL_GetPrefPath("MazEngine", "editor");
+        scenePath = (pref ? std::string(pref) : std::string()) + "scene.json";
+        if (pref) {
+            SDL_free(pref);
+        }
+    }
 
     render::SceneLighting light;
     light.ambient[0] = light.ambient[1] = light.ambient[2] = 0.30f;
@@ -146,6 +157,49 @@ int main(int argc, char** argv) {
 
         const float mx = input.mouseX(), my = input.mouseY();
         const bool down = input.mouseDown(0);
+
+        // Undo / redo (Ctrl+Z / Ctrl+Y). Handled outside gesture bracketing below.
+        const bool ctrl =
+            input.keyDown(SDL_SCANCODE_LCTRL) || input.keyDown(SDL_SCANCODE_RCTRL);
+        if (ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
+            history.undo(scene.nodes);
+        }
+        if (ctrl && input.keyPressed(SDL_SCANCODE_Y)) {
+            history.redo(scene.nodes);
+        }
+        if (scene.selected >= static_cast<int>(scene.nodes.size())) {
+            scene.selected = -1;
+        }
+        // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON.
+        if (ctrl && input.keyPressed(SDL_SCANCODE_S)) {
+            io::writeTextFile(scenePath, editor::toJson(scene).dump(2));
+            MAZ_LOG_INFO("saved scene -> %s", scenePath.c_str());
+        }
+        if (ctrl && input.keyPressed(SDL_SCANCODE_O)) {
+            std::string txt;
+            const io::JsonParseResult pr =
+                io::readTextFile(scenePath, txt) ? io::parseJson(txt) : io::JsonParseResult{};
+            if (pr.ok) {
+                editor::fromJson(pr.value, scene);
+                if (scene.selected >= static_cast<int>(scene.nodes.size())) {
+                    scene.selected = -1;
+                }
+            }
+        }
+
+        // Undo bracketing: a drag / keyboard-nudge / slider grab is one undo step. Snapshot the scene
+        // when such a gesture starts and commit it (if anything changed) when the gesture ends.
+        const bool nudgeHeld =
+            scene.selectedNode() != nullptr &&
+            (input.keyDown(SDL_SCANCODE_LEFT) || input.keyDown(SDL_SCANCODE_RIGHT) ||
+             input.keyDown(SDL_SCANCODE_UP) || input.keyDown(SDL_SCANCODE_DOWN) ||
+             input.keyDown(SDL_SCANCODE_Q) || input.keyDown(SDL_SCANCODE_E));
+        const bool gestureActive = down || nudgeHeld;
+        if (gestureActive && !history.inGesture) {
+            history.begin(scene.nodes);
+        } else if (!gestureActive && history.inGesture) {
+            history.end(scene.nodes);
+        }
 
         // Viewport click-to-pick + translate gizmo: a left click in the 3D viewport (not over a
         // panel) casts a ray; it selects the nearest node it hits and begins a ground-plane drag.
@@ -326,7 +380,7 @@ int main(int argc, char** argv) {
             }
 
             font.drawText(*renderer, 16.0f, fh - 30.0f,
-                          "MAZ ENGINE  -  EDITOR    (click a shape to select; arrows/Q/E move it)",
+                          "MAZ ENGINE  -  EDITOR   (drag/arrows move; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
                           render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
             gui.end();
 

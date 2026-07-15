@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/game/Collision.hpp"
+#include "maz/io/Json.hpp"
 #include "maz/math/Math.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -42,6 +43,15 @@ struct Node {
         return m;
     }
 
+    // Value equality over every editable field — used by the undo history to detect real changes.
+    bool operator==(const Node& o) const {
+        return name == o.name && position == o.position && euler == o.euler && scale == o.scale &&
+               localMin == o.localMin && localMax == o.localMax && meshId == o.meshId &&
+               colorIndex == o.colorIndex && roughness == o.roughness && metallic == o.metallic &&
+               specular == o.specular && emissive == o.emissive && visible == o.visible;
+    }
+    bool operator!=(const Node& o) const { return !(*this == o); }
+
     // World-space AABB enclosing the transformed local box (transform all 8 corners, take extremes).
     void worldAabb(math::vec3& outMin, math::vec3& outMax) const {
         const math::mat4 m = modelMatrix();
@@ -70,6 +80,60 @@ struct Scene {
     Node* selectedNode() {
         return (selected >= 0 && selected < static_cast<int>(nodes.size())) ? &nodes[static_cast<size_t>(selected)]
                                                                             : nullptr;
+    }
+};
+
+// Snapshot-based undo/redo for the editor. A "gesture" (a drag, a keyboard nudge, a slider grab)
+// brackets a set of edits: begin() captures the node list before the gesture, end() compares it to
+// the result and, if anything actually changed, pushes the before-state onto the undo stack. undo()
+// swaps the current state with the top of the undo stack (moving it to redo), and redo() reverses
+// that. Storing whole-scene snapshots keeps it simple and correct at editor scene sizes.
+struct History {
+    std::vector<std::vector<Node>> undoStack;
+    std::vector<std::vector<Node>> redoStack;
+    std::vector<Node> pending; // state captured at gesture start
+    bool inGesture = false;
+    size_t capacity = 64;
+
+    void begin(const std::vector<Node>& state) {
+        if (!inGesture) {
+            pending = state;
+            inGesture = true;
+        }
+    }
+    // Close a gesture; commit an undo entry only if the state actually changed.
+    void end(const std::vector<Node>& state) {
+        if (!inGesture) {
+            return;
+        }
+        inGesture = false;
+        if (state != pending) {
+            undoStack.push_back(pending);
+            if (undoStack.size() > capacity) {
+                undoStack.erase(undoStack.begin());
+            }
+            redoStack.clear();
+        }
+    }
+    bool canUndo() const { return !undoStack.empty(); }
+    bool canRedo() const { return !redoStack.empty(); }
+    bool undo(std::vector<Node>& current) {
+        if (undoStack.empty()) {
+            return false;
+        }
+        redoStack.push_back(current);
+        current = undoStack.back();
+        undoStack.pop_back();
+        return true;
+    }
+    bool redo(std::vector<Node>& current) {
+        if (redoStack.empty()) {
+            return false;
+        }
+        undoStack.push_back(current);
+        current = redoStack.back();
+        redoStack.pop_back();
+        return true;
     }
 };
 
@@ -125,6 +189,84 @@ inline void screenRay(const math::mat4& invViewProj, float px, float py, float w
     const math::vec3 f(farP / farP.w);
     outOrigin = n;
     outDir = glm::normalize(f - n);
+}
+
+// ---- Serialization: a scene <-> JSON round-trip (human-readable, diff-friendly) ----
+
+inline io::JsonValue toJson(const Scene& s) {
+    auto v3 = [](const math::vec3& v) {
+        io::JsonValue a = io::JsonValue::array();
+        a.push_back(v.x);
+        a.push_back(v.y);
+        a.push_back(v.z);
+        return a;
+    };
+    io::JsonValue nodes = io::JsonValue::array();
+    for (const Node& n : s.nodes) {
+        io::JsonValue o = io::JsonValue::object();
+        o.fields()["name"] = n.name;
+        o.fields()["mesh"] = static_cast<int>(n.meshId);
+        o.fields()["color"] = n.colorIndex;
+        o.fields()["pos"] = v3(n.position);
+        o.fields()["rot"] = v3(n.euler);
+        o.fields()["scale"] = v3(n.scale);
+        o.fields()["lmin"] = v3(n.localMin);
+        o.fields()["lmax"] = v3(n.localMax);
+        o.fields()["rough"] = n.roughness;
+        o.fields()["metal"] = n.metallic;
+        o.fields()["spec"] = n.specular;
+        o.fields()["emissive"] = v3(n.emissive);
+        o.fields()["visible"] = n.visible;
+        nodes.push_back(std::move(o));
+    }
+    io::JsonValue root = io::JsonValue::object();
+    root.fields()["nodes"] = std::move(nodes);
+    root.fields()["selected"] = s.selected;
+    return root;
+}
+
+inline bool fromJson(const io::JsonValue& root, Scene& out) {
+    if (!root.isObject()) {
+        return false;
+    }
+    const io::JsonValue* nodesV = root.fields().find("nodes");
+    if (!nodesV || !nodesV->isArray()) {
+        return false;
+    }
+    auto v3 = [](const io::JsonValue* a) -> math::vec3 {
+        if (!a || !a->isArray() || a->items().size() < 3) {
+            return math::vec3(0.0f);
+        }
+        return math::vec3(a->items()[0].asFloat(), a->items()[1].asFloat(),
+                          a->items()[2].asFloat());
+    };
+    Scene s;
+    for (const io::JsonValue& o : nodesV->items()) {
+        if (!o.isObject()) {
+            continue;
+        }
+        const io::JsonValue::Object& f = o.fields();
+        Node n;
+        if (const io::JsonValue* p = f.find("name")) n.name = p->asString();
+        n.meshId = static_cast<uint32_t>(f.find("mesh") ? f.find("mesh")->asInt() : 0);
+        n.colorIndex = f.find("color") ? f.find("color")->asInt() : 0;
+        n.position = v3(f.find("pos"));
+        n.euler = v3(f.find("rot"));
+        n.scale = v3(f.find("scale"));
+        n.localMin = v3(f.find("lmin"));
+        n.localMax = v3(f.find("lmax"));
+        n.roughness = f.find("rough") ? f.find("rough")->asFloat() : 1.0f;
+        n.metallic = f.find("metal") ? f.find("metal")->asFloat() : 0.0f;
+        n.specular = f.find("spec") ? f.find("spec")->asFloat() : 0.0f;
+        n.emissive = v3(f.find("emissive"));
+        n.visible = f.find("visible") ? f.find("visible")->asBool() : true;
+        s.nodes.push_back(std::move(n));
+    }
+    if (const io::JsonValue* sel = root.fields().find("selected")) {
+        s.selected = sel->asInt(-1);
+    }
+    out = std::move(s);
+    return true;
 }
 
 } // namespace maz::editor

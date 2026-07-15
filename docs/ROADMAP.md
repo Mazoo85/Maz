@@ -886,8 +886,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   swatches, a visibility toggle), all writing straight into the node each frame. **E3** — **viewport
   click-to-pick**: a left click in the 3D viewport unprojects a ray (`screenRay` via the inverse
   view-projection) and selects the nearest node its AABB hits (unit-tested against the live camera to
-  pin the Vulkan NDC-y sign); arrow keys / Q / E nudge the selection.
-- [ ] Viewport translate/rotate/scale gizmos, grid, snapping; undo/redo; asset browser
+  pin the Vulkan NDC-y sign); arrow keys / Q / E nudge the selection. **E4** — a **translate gizmo**:
+  press-and-drag a node to slide it across the ground (`rayPlaneY` ray-vs-plane), with RGB axis lines
+  from its origin. **E5** — **undo/redo** (`editor::History`): a drag / nudge / slider grab is one
+  bracketed step; Ctrl+Z / Ctrl+Y walk the snapshot stack (unit-tested incl. redo-branch discard).
+  **E6** — **scene save/load**: `toJson`/`fromJson` round-trip the scene to human-readable JSON
+  (unit-tested round-trip via `Node::operator==`), wired to Ctrl+S / Ctrl+O on a per-user file.
+- [ ] Rotate/scale gizmo handles, grid snapping, multi-select; asset browser; play-in-editor
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
