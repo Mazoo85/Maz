@@ -12237,6 +12237,60 @@ void testZomboidSim() {
         for (int i = 0; i < 400; ++i) tree.process(0.1);
         CHECK(!alive());
     }
+
+    // Loot pickup: walking the survivor onto a loot node collects it (food + loot_collected up,
+    // the loot marks itself taken). Cross-object gameplay entirely in script.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* loot0 = tree.findNode("Loot0");
+        CHECK(loot0 != nullptr);
+        auto food = [&] { return survivor->script().instance->findField("food")->number; };
+        auto collected = [&] {
+            return survivor->script().instance->findField("loot_collected")->number;
+        };
+        auto taken = [&] { return loot0->script().instance->findField("taken")->boolean; };
+        const double food0 = food();
+        CHECK(!taken());
+        // Teleport the survivor onto Loot0's tile and tick once so its _process sees the overlap.
+        survivor->setPosition(loot0->x(), loot0->y());
+        tree.process(0.016);
+        CHECK(taken());                 // the pickup consumed itself
+        CHECK(food() == food0 + 1);     // granted a ration
+        CHECK(collected() >= 1.0);      // counter bumped
+        // A second tick does not double-collect (already taken).
+        tree.process(0.016);
+        CHECK(food() == food0 + 1);
+    }
+
+    // Day/night: the shared clock advances and flips to night at the half-cycle, and the horde is
+    // faster at night than by day over the same elapsed time.
+    {
+        // Daytime run: measure how far Zombie0 travels toward the origin in 1s at t~0 (day).
+        SceneTree dayTree;
+        zomboid::buildScene(dayTree);
+        SceneNode* zDay = dayTree.findNode("Zombie0");
+        const double dayStart = std::sqrt(zDay->x() * zDay->x() + zDay->y() * zDay->y());
+        for (int i = 0; i < 10; ++i) dayTree.process(0.1); // 1s during day
+        const double dayMoved = dayStart - std::sqrt(zDay->x() * zDay->x() + zDay->y() * zDay->y());
+
+        // Night run: advance a fresh world to just past the half-cycle (night), then measure 1s.
+        SceneTree nightTree;
+        SceneNode* survivor = zomboid::buildScene(nightTree);
+        // Freeze the survivor far away so it isn't killed, and let only the clock advance it.
+        survivor->setPosition(10000.0, 10000.0);
+        // is_night() flips at g_day_len/2 == 30s. Advance ~31s of clock.
+        for (int i = 0; i < 310; ++i) nightTree.process(0.1);
+        SceneNode* zNight = nightTree.findNode("Zombie1"); // a fresh zombie, far out on the ring
+        const double nStart = std::sqrt((zNight->x() - 10000.0) * (zNight->x() - 10000.0) +
+                                        (zNight->y() - 10000.0) * (zNight->y() - 10000.0));
+        for (int i = 0; i < 10; ++i) nightTree.process(0.1); // 1s during night
+        const double nEnd = std::sqrt((zNight->x() - 10000.0) * (zNight->x() - 10000.0) +
+                                      (zNight->y() - 10000.0) * (zNight->y() - 10000.0));
+        const double nightMoved = nStart - nEnd;
+        // Night aggression (1.7x) makes the horde close distance faster than by day.
+        CHECK(nightMoved > dayMoved);
+    }
 }
 
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.

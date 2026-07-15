@@ -171,7 +171,17 @@ int main(int argc, char** argv) {
         cam.centerY = survivor ? static_cast<float>(survivor->y()) : 0.0f;
         renderer->setCamera2D(cam);
 
-        renderer->setClearColor(render::Color{0.05f, 0.06f, 0.07f, 1.0f});
+        // Day/night: read the shared clock the survivor script advances (g_phase over g_day_len)
+        // and darken the world toward night, so the tension of the night ramp is visible.
+        float nightT = 0.0f; // 0 = day, 1 = deep night
+        if (const auto* phase = tree.scripts().vm().getGlobal("g_phase")) {
+            const auto* len = tree.scripts().vm().getGlobal("g_day_len");
+            const double dayLen = (len && len->number > 0.0) ? len->number : 60.0;
+            const double frac = phase->number / dayLen;              // 0..1 through the cycle
+            nightT = static_cast<float>(frac < 0.5 ? 0.0 : (frac - 0.5) * 2.0); // night half ramps
+        }
+        const float lum = 1.0f - 0.75f * nightT;
+        renderer->setClearColor(render::Color{0.05f * lum, 0.06f * lum, 0.10f * lum, 1.0f});
         if (renderer->beginFrame()) {
             // Draw every scene node as a sprite by its group.
             auto drawNode = [&](scene::SceneNode* n, render::TextureHandle tex, float size) {
@@ -235,8 +245,16 @@ int main(int argc, char** argv) {
             rect(bx, hy, bw2 * (hunger / 100.0f), bhh, render::Color{0.85f, 0.35f, 0.30f, 1});
 
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "RATIONS %d", food);
+            const int looted = static_cast<int>(field(survivor, "loot_collected"));
+            std::snprintf(buf, sizeof(buf), "RATIONS %d   LOOTED %d", food, looted);
             font.drawText(*renderer, bx + bw2 + 16.0f, by - 4.0f, buf, kWhite, 0.55f);
+
+            // Day/night readout, top-right.
+            const bool night = nightT > 0.001f;
+            font.drawText(*renderer, static_cast<float>(bw) - 180.0f, 16.0f,
+                          night ? "NIGHT - HORDE ENRAGED" : "DAY",
+                          night ? render::Color{0.95f, 0.5f, 0.45f, 1} : render::Color{0.9f, 0.9f, 0.6f, 1},
+                          0.5f);
             if (!alive) {
                 font.drawText(*renderer, static_cast<float>(bw) * 0.5f - 90.0f, sh * 0.5f - 20.0f,
                               "YOU DIED", render::Color{0.95f, 0.25f, 0.25f, 1}, 1.2f);

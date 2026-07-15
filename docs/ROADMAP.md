@@ -1141,7 +1141,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       in CI** by the unit suite (scene builds, hunger/health pressure, eating, horde AI, lethal combat);
       `apps/zomboid/main.cpp` is a thin presentation layer that walks the same tree and draws a sprite per
       node plus a health/hunger/rations HUD. This is the proof the engine's scripting + scene stack ship a
-      real game end to end.
+      real game end to end. **A full gameplay loop**: the survivor **collects loot** by walking over it
+      (a script-only pickup that grants rations and marks itself taken), while a shared **day/night
+      cycle** — one clock the survivor advances, read by every zombie — makes the **horde faster and
+      hit harder at night** (a 1.7× aggression multiplier) and darkens the world; the HUD shows DAY /
+      NIGHT, rations, and loot collected. Forage by day, survive the night — verified headless (loot
+      pickup + night-vs-day horde speed) and shown rendering the arc through to "YOU DIED".
 - [ ] More sample scenes: pong, platformer, top-down adventure
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.

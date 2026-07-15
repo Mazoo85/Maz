@@ -20,17 +20,38 @@ inline const char* scripts() {
 # The survivor the player controls. Hunger rises over time; at max hunger, health drains.
 var g_player = nil;
 
+# Day/night cycle. g_phase runs 0..g_day_len and wraps; the back half is night, when the horde
+# hunts faster and bites harder. Advanced once per frame by the survivor so the whole world shares
+# one clock. is_night()/danger() are read by every zombie — a global, script-only game rule.
+var g_phase = 0;
+var g_day_len = 60;   # seconds per full day/night cycle
+
+func is_night() {
+    return g_phase >= (g_day_len / 2);
+}
+
+# Aggression multiplier: 1.0 by day, ramps to ~1.7 at deep night, so dusk gets tense.
+func danger() {
+    if (is_night() == false) { return 1.0; }
+    return 1.7;
+}
+
 class Survivor {
     var health = 100;
     var hunger = 0;
     var alive = true;
-    var food = 3;      # ration count
+    var food = 3;          # ration count
     var kills = 0;
+    var loot_collected = 0;
 
     func _ready() { g_player = self; }
 
     func _process(dt) {
         if (self.alive == false) { return; }
+        # Advance the shared world clock (survivor owns it).
+        g_phase = g_phase + dt;
+        if (g_phase >= g_day_len) { g_phase = g_phase - g_day_len; }
+
         self.hunger = self.hunger + dt * 3;
         if (self.hunger > 100) { self.hunger = 100; }
         if (self.hunger >= 100) { self.health = self.health - dt * 4; }
@@ -46,13 +67,20 @@ class Survivor {
         }
     }
 
+    # Called by a Loot pickup when the survivor collects it.
+    func collect(kind) {
+        self.food = self.food + 1;
+        self.loot_collected = self.loot_collected + 1;
+    }
+
     func take_damage(dmg) {
         self.health = self.health - dmg;
         if (self.health <= 0) { self.health = 0; self.alive = false; }
     }
 }
 
-# A zombie: walks straight at the survivor and bites when in range (on a cooldown).
+# A zombie: walks straight at the survivor and bites when in range (on a cooldown). At night it
+# moves and hits harder via the shared danger() multiplier.
 class Zombie {
     var speed = 15;
     var damage = 6;
@@ -62,25 +90,41 @@ class Zombie {
     func _process(dt) {
         if (g_player == nil) { return; }
         if (g_player.alive == false) { return; }
+        var aggro = danger();
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
         if (dist > self.attack_range) {
-            self.node.x = self.node.x + (dx / dist) * self.speed * dt;
-            self.node.y = self.node.y + (dy / dist) * self.speed * dt;
+            self.node.x = self.node.x + (dx / dist) * self.speed * aggro * dt;
+            self.node.y = self.node.y + (dy / dist) * self.speed * aggro * dt;
         }
         self.cooldown = self.cooldown - dt;
         if (dist <= self.attack_range and self.cooldown <= 0) {
-            g_player.take_damage(self.damage);
+            g_player.take_damage(self.damage * aggro);
             self.cooldown = 1.0;
         }
     }
 }
 
-# A pickup the survivor can collect for food.
+# A pickup the survivor can collect for food. When the survivor walks over it (and it isn't already
+# taken), it grants a ration and marks itself gone — cross-object gameplay, script-only.
 class Loot {
     var kind = "ration";
     var taken = false;
+    var pickup_range = 2.5;
+
+    func _process(dt) {
+        if (self.taken) { return; }
+        if (g_player == nil) { return; }
+        if (g_player.alive == false) { return; }
+        var dx = g_player.node.x - self.node.x;
+        var dy = g_player.node.y - self.node.y;
+        var dist = sqrt(dx * dx + dy * dy);
+        if (dist <= self.pickup_range) {
+            self.taken = true;
+            g_player.collect(self.kind);
+        }
+    }
 }
 )MAZ";
 }
