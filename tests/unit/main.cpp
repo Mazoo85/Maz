@@ -34,6 +34,7 @@
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
+#include "maz/core/Telemetry.hpp"
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -7733,6 +7734,75 @@ void testCrashHandler() {
     CHECK(!CrashHandler::isInstalled());
 }
 
+// Opt-in telemetry: the privacy contract (off by default, drops while disabled), deterministic
+// JSONL, counters, sink delivery, and consent revocation.
+void testTelemetry() {
+    core::Telemetry tel;
+    tel.configure("sess-123", "ZOMBOID", "1.0.0");
+
+    // OFF BY DEFAULT: events are dropped, nothing buffered.
+    CHECK(!tel.enabled());
+    tel.event("boot");
+    tel.count("wave_started");
+    tel.timing("load_ms", 42.0);
+    CHECK(tel.pending() == 0);
+    CHECK(tel.recorded() == 0);
+    CHECK(tel.dropped() == 3); // all three withheld while off
+    CHECK(tel.flush().empty());
+
+    // Opt in -> events now record.
+    tel.enable(true);
+    CHECK(tel.enabled());
+    tel.event("level_complete", {{"level", "arena"}}, {{"score", 1500.0}});
+    tel.count("zombie_killed", 3.0);
+    tel.timing("frame_ms", 16.5);
+    CHECK(tel.pending() == 3);
+    CHECK(tel.recorded() == 3);
+    CHECK(tel.dropped() == 3); // unchanged
+
+    // flush() serializes deterministic JSONL (sequence numbers, not wall-clock), delivers to the
+    // sink, and clears the buffer.
+    std::string delivered;
+    tel.setSink([&](const std::string& jsonl) { delivered += jsonl; });
+    const std::string batch = tel.flush();
+    CHECK(batch == delivered);
+    CHECK(tel.pending() == 0);
+
+    // Three lines, one per event, each self-describing with the session/app header.
+    int lines = 0;
+    for (char c : batch) {
+        if (c == '\n') ++lines;
+    }
+    CHECK(lines == 3);
+    CHECK(batch.find("\"session\":\"sess-123\"") != std::string::npos);
+    CHECK(batch.find("\"app\":\"ZOMBOID\"") != std::string::npos);
+    CHECK(batch.find("\"name\":\"level_complete\"") != std::string::npos);
+    CHECK(batch.find("\"level\":\"arena\"") != std::string::npos);
+    CHECK(batch.find("\"score\":1500") != std::string::npos);   // integer-valued -> no decimals
+    CHECK(batch.find("\"value\":3") != std::string::npos);      // count() field
+    CHECK(batch.find("\"ms\":16.5") != std::string::npos);      // timing() field
+    CHECK(batch.find("\"seq\":0") != std::string::npos);        // deterministic sequence
+    CHECK(batch.find("\"seq\":2") != std::string::npos);
+
+    // JSON string escaping: quotes/newlines in a field don't break the line.
+    tel.event("note", {{"text", "he said \"hi\"\nbye"}});
+    const std::string esc = tel.flush();
+    CHECK(esc.find("\\\"hi\\\"") != std::string::npos);
+    CHECK(esc.find("\\n") != std::string::npos);
+
+    // Consent revocation mid-session: disable stops new events; clear() drops the buffer.
+    tel.enable(true);
+    tel.event("a");
+    tel.event("b");
+    CHECK(tel.pending() == 2);
+    tel.enable(false);
+    tel.event("c"); // dropped
+    CHECK(tel.pending() == 2);
+    tel.clear();
+    CHECK(tel.pending() == 0);
+    CHECK(tel.flush().empty());
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -15036,6 +15106,7 @@ int main() {
     testResourceCache();
     testAssetServer();
     testCrashHandler();
+    testTelemetry();
     testSceneStack();
     testTween();
     testTweenPlayer();

@@ -1003,7 +1003,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `dist/<app>-<ver>-<os>-<arch>.tar.gz` and **verifies** it by launching the packaged game headless
   from a scratch dir (proving self-containment). Verified end-to-end on ZOMBOID (6.6 MiB bundle,
   clean self-contained launch); Windows/macOS bundling + installers + code signing still pending
-- [ ] Opt-in telemetry / crash reporting
+- [x] **Opt-in telemetry** (`core::Telemetry`, toward Godot's opt-in usage reporting): **off by
+  default** — nothing is recorded until `enable(true)` with explicit consent, and events while
+  disabled are dropped and counted. Events (name + small string/number fields) buffer locally and
+  serialize to deterministic **JSONL**; there is **no built-in network transport** — `flush()` hands
+  the batch to a sink callback the game installs (write a file, upload, or drop it), so the engine
+  never phones home on its own. No PII (opaque caller-supplied session id), JSON-escaped, sequence-
+  numbered for byte-stable output. Verified by the privacy contract, escaping, and consent-revocation
+  tests (M178)
 
 ## Phase 13 — Demos & a first complete sample game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
