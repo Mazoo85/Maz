@@ -202,6 +202,7 @@ add_subdirectory(apps/editor)
 add_subdirectory(apps/zomboid)
 add_subdirectory(apps/streaming)
 add_subdirectory(apps/pong)
+add_subdirectory(apps/platformer)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

@@ -1279,6 +1279,14 @@ set_tests_properties(pong_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME platformer_headless_smoke
+    COMMAND platformer --headless --frames 30)
+
+set_tests_properties(platformer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

@@ -1220,6 +1220,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       per hit and takes "english" off the paddle it strikes, wall-to-wall scoring with a dashed
       center net and score HUD. `--demo` drives both paddles by AI for a deterministic offscreen
       capture; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested.
+    - [x] **SKIP** (M191) — a complete side-scrolling **platformer** built from the 2D primitives: a
+      gravity-driven character (A/D or arrows to run, Space/W/Up to jump) with per-axis AABB tile
+      collision and resolution, a **follow camera** (`Camera2D` center + world scroll) that tracks it
+      through a level wider than the screen, coins collected on touch, and a goal flag that wins the
+      level. Loaded from a little ASCII tile map. `--demo` runs a deterministic autopilot (run right,
+      auto-jump at walls/ledges) that freezes after a fixed number of steps so the offscreen capture
+      is pixel-identical; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested
+      (deterministic, RMSE 0).
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
 > The *ZOMBOID* sample above is an **original, engine-native** survival game written in `maz::script`
