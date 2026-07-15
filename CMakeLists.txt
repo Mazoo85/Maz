@@ -25,6 +25,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(MAZ_WERROR "Treat warnings as errors" ON)
 option(MAZ_BUILD_TESTS "Build tests" ON)
+# Sanitizer preset: -DMAZ_SANITIZE=address,undefined (or "thread") instruments first-party targets
+# only (fetched deps stay clean) with the matching -fsanitize flags at compile AND link time. A Debug
+# build with address,undefined is the recommended local/CI pre-merge check; ASan includes leak
+# detection (LeakSanitizer) by default on Linux. Empty (the default) = no instrumentation.
+set(MAZ_SANITIZE "" CACHE STRING "Sanitizers for first-party targets (e.g. address,undefined; thread)")
 
 # Shared warning flags applied to first-party targets only (not fetched deps).
 add_library(maz_warnings INTERFACE)
@@ -39,6 +44,19 @@ else()
     if(NOT APPLE)
         target_link_options(maz_warnings INTERFACE -rdynamic)
     endif()
+endif()
+
+# Sanitizer instrumentation (compile + link), gated on MAZ_SANITIZE. Keep full frames + line info so
+# reports are readable, and no-omit-frame-pointer so stacks are accurate.
+if(MAZ_SANITIZE AND NOT MSVC)
+    message(STATUS "Maz sanitizers enabled: ${MAZ_SANITIZE}")
+    target_compile_options(maz_warnings INTERFACE
+        -fsanitize=${MAZ_SANITIZE} -fno-omit-frame-pointer -g)
+    target_link_options(maz_warnings INTERFACE -fsanitize=${MAZ_SANITIZE})
+elseif(MAZ_SANITIZE AND MSVC)
+    # MSVC supports AddressSanitizer via /fsanitize=address.
+    message(STATUS "Maz sanitizers enabled (MSVC): ${MAZ_SANITIZE}")
+    target_compile_options(maz_warnings INTERFACE /fsanitize=${MAZ_SANITIZE})
 endif()
 
 include(Dependencies)

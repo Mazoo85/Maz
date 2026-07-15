@@ -1591,7 +1591,31 @@ public:
     }
     size_t deferredCount() const { return m_deferred.size(); }
 
+    // Break shared_ptr reference cycles at teardown. Top-level functions and class methods capture
+    // the global scope (their `closure`), while the global scope holds those same function/class
+    // Values — a cycle that keeps both sides alive forever (LeakSanitizer flags it). Clearing the
+    // class method tables and the global bindings drops the back-references so the interpreter's heap
+    // is fully reclaimed at destruction. Functionally a no-op during the VM's life. Movable-preserving
+    // defaults are declared alongside so ScriptSystem can still hold a Vm by value.
+    ~Vm() { releaseCycles(); }
+    Vm(Vm&&) = default;
+    Vm& operator=(Vm&&) = default;
+
 private:
+    void releaseCycles() {
+        for (auto& c : m_classes) {
+            if (c) {
+                c->methods.clear();
+                c->super.reset();
+                c->fieldInits.clear();
+            }
+        }
+        for (Environment* e = m_global.get(); e; e = e->parent.get()) {
+            e->vars.clear();
+        }
+        m_deferred.clear();
+    }
+
     std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::vector<std::unique_ptr<Stmt>>> m_retained; // old ASTs kept alive across hot reloads (SC9)

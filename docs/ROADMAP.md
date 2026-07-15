@@ -143,7 +143,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (M177)
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
 - [ ] clang-tidy config + CI lint gate
-- [ ] Address/UB sanitizer presets (Debug), leak checks
+- [x] Address/UB sanitizer presets (Debug), leak checks (M196 — `-DMAZ_SANITIZE=address,undefined`
+  instruments first-party targets only, compile + link, keeping fetched deps clean; ASan bundles
+  LeakSanitizer on Linux. Verified by building + running the full unit suite under
+  ASan+UBSan+LSan: no memory-safety or UB findings, and **leak-clean** after fixing a pre-existing
+  shared_ptr reference cycle in the script VM — top-level functions and class methods capture the
+  global scope which holds them back, so a `~Vm()` now breaks those cycles at teardown.)
 - [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
 - [x] Persistent key-value store (ini-style, user-data path) — `maz::core::KeyValueStore`
 - [x] **CVars / config system** (`maz::core::CVarRegistry`: named typed tunables — bool/int/float/string
