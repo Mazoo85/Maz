@@ -482,7 +482,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   with `query`/`queryPoint`/`queryCircle` for culling, picking, and neighbour finding. The 3D
   counterpart, an **octree** (`game::Octree`, M184), applies the same adaptive 8-way subdivision to
   3D AABBs for 3D frustum/box culling, physics broadphase, and 3D neighbour/AoE queries
-  (`query`/`queryPoint`/`querySphere`, exact overlap verified against brute force). BVH still pending
+  (`query`/`queryPoint`/`querySphere`, exact overlap verified against brute force). A **BVH**
+  (`game::Bvh`, M189) completes the set — a bounding-volume hierarchy that partitions the OBJECTS
+  (not space) by longest-axis centroid median, purpose-built for **ray casting**: `raycast` returns
+  every AABB a ray enters (slab test, tMax-bounded) and `raycastNearest` the closest hit (id +
+  distance), plus `queryBox`. That's what makes bullet / line-of-sight / mouse-pick against a whole
+  level sublinear. Verified: box + ray queries vs brute force, nearest-hit distance, tMax bounds, and
+  empty-tree safety
 
 ## Phase 5 — Asset pipeline
 - [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +

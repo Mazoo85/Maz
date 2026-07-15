@@ -69,6 +69,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
+#include "maz/game/Bvh.hpp"
 #include "maz/game/Octree.hpp"
 #include "maz/game/Quadtree.hpp"
 #include "maz/game/GravityField2D.hpp"
@@ -8145,6 +8146,94 @@ void testContainers() {
     CHECK(!big.contains(0) && !big.contains(998));
 }
 
+// BVH: box queries + ray casts match brute force, and raycastNearest returns the closest hit.
+void testBvh() {
+    using maz::game::Bvh;
+    struct Box {
+        uint32_t id;
+        float mn[3], mx[3];
+    };
+    std::vector<Box> boxes;
+    std::vector<Bvh::Item> items;
+    core::Random rng(555);
+    for (int i = 0; i < 200; ++i) {
+        float x = static_cast<float>(rng.range(0, 480));
+        float y = static_cast<float>(rng.range(0, 480));
+        float z = static_cast<float>(rng.range(0, 480));
+        float s = static_cast<float>(rng.range(2, 12));
+        Box b{static_cast<uint32_t>(i), {x, y, z}, {x + s, y + s, z + s}};
+        boxes.push_back(b);
+        Bvh::Item it;
+        it.id = b.id;
+        for (int a = 0; a < 3; ++a) {
+            it.min[a] = b.mn[a];
+            it.max[a] = b.mx[a];
+        }
+        items.push_back(it);
+    }
+
+    Bvh bvh;
+    bvh.build(items, 4);
+    CHECK(bvh.size() == 200);
+    CHECK(bvh.nodeCount() > 1); // it actually subdivided
+
+    auto treeSet = [](std::vector<uint32_t> v) { return std::set<uint32_t>(v.begin(), v.end()); };
+
+    // Box query matches brute-force overlap.
+    const float qmin[3] = {100, 100, 100};
+    const float qmax[3] = {200, 200, 200};
+    std::set<uint32_t> brute;
+    for (const Box& b : boxes) {
+        if (Bvh::overlap(b.mn, b.mx, qmin, qmax)) brute.insert(b.id);
+    }
+    CHECK(treeSet(bvh.queryBox(qmin, qmax)) == brute);
+
+    // Whole-volume box query returns everything; a far box returns nothing.
+    const float allMin[3] = {-10, -10, -10}, allMax[3] = {600, 600, 600};
+    CHECK(bvh.queryBox(allMin, allMax).size() == 200);
+    const float farMin[3] = {5000, 5000, 5000}, farMax[3] = {5010, 5010, 5010};
+    CHECK(bvh.queryBox(farMin, farMax).empty());
+
+    // Ray cast matches the brute-force slab test over all boxes.
+    const float o[3] = {-50, 240, 240};
+    const float d[3] = {1, 0, 0}; // shoot along +x through the middle slab
+    std::set<uint32_t> bruteRay;
+    for (const Box& b : boxes) {
+        float t;
+        if (Bvh::rayAabb(o, d, b.mn, b.mx, std::numeric_limits<float>::infinity(), t)) {
+            bruteRay.insert(b.id);
+        }
+    }
+    CHECK(treeSet(bvh.raycast(o, d)) == bruteRay);
+
+    // A controlled scene: two boxes on the +x ray; nearest is the closer one.
+    std::vector<Bvh::Item> two;
+    two.push_back(Bvh::fromCenter(10, 30.f, 0.f, 0.f, 2.f, 2.f, 2.f)); // near, center x=30
+    two.push_back(Bvh::fromCenter(20, 80.f, 0.f, 0.f, 2.f, 2.f, 2.f)); // far,  center x=80
+    two.push_back(Bvh::fromCenter(30, 0.f, 100.f, 0.f, 2.f, 2.f, 2.f)); // off the ray
+    Bvh line;
+    line.build(two, 1);
+    const float ro[3] = {0, 0, 0}, rd[3] = {1, 0, 0};
+    CHECK(treeSet(line.raycast(ro, rd)) == (std::set<uint32_t>{10, 20}));
+    uint32_t hit = 0;
+    float ht = 0;
+    CHECK(line.raycastNearest(ro, rd, hit, ht));
+    CHECK(hit == 10);              // the near box
+    CHECK(std::fabs(ht - 28.f) < 1e-3f); // enters at x=28 (center 30, half-extent 2)
+
+    // tMax bounds the ray: with a short reach only the near box is hit.
+    CHECK(treeSet(line.raycast(ro, rd, 40.f)) == (std::set<uint32_t>{10}));
+    // A ray pointing away hits nothing.
+    const float back[3] = {-1, 0, 0};
+    CHECK(!line.raycastNearest(ro, back, hit, ht));
+
+    // Empty BVH is safe.
+    Bvh empty;
+    empty.build({});
+    CHECK(empty.size() == 0 && empty.queryBox(allMin, allMax).empty());
+    CHECK(!empty.raycastNearest(ro, rd, hit, ht));
+}
+
 // Octree: 3D spatial range queries match brute-force overlap exactly, with subdivision on clusters.
 void testOctree() {
     using maz::game::Octree;
@@ -15908,6 +15997,7 @@ int main() {
     testCheckpoints();
     testMemory();
     testQuadtree();
+    testBvh();
     testOctree();
     testContainers();
     testReflect();
