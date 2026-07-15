@@ -177,6 +177,7 @@ CASES=(
     "pbrballs||2.5|0.10"
     "tonemap||2.5|0.10"
     "ssao||2.5|0.10"
+    "editor||2.5|0.10"
 )
 
 if [ ! -f "$ICD" ]; then

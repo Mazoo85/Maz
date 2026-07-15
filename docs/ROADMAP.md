@@ -876,9 +876,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Deterministic time / date utilities
 
 ## Phase 11 — Editor & tooling
-- [ ] Standalone editor app (engine + ImGui docking)
+- [~] **In-engine editor** (`editor` app on a new `maz::editor` module): a 3D viewport plus editor
+  panels built from the existing immediate-mode UI. **E1** — `editor::Scene` is a renderer-agnostic,
+  unit-tested model (nodes carry a transform, a local AABB, a mesh id, and PBR material params;
+  `modelMatrix`/`worldAabb`/`pickNode`/`screenRay` are pure logic). The app renders the scene, a
+  **scene-tree panel** listing the nodes (click a row to select), and outlines the selection with a
+  wire AABB. Inspector (E2) and viewport click-picking (E3) follow.
 - [ ] Viewport with gizmos (translate/rotate/scale), grid, snapping
-- [ ] Scene hierarchy panel, reflection-driven entity inspector, asset browser
+- [ ] Reflection-driven entity inspector, asset browser
 - [ ] Play-in-editor, undo/redo (command stack), multi-select
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels

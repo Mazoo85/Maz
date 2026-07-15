@@ -48,6 +48,7 @@
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
 #include "maz/ecs/World.hpp"
+#include "maz/editor/Scene.hpp"
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -10501,6 +10502,58 @@ void testPhysics3DHinge() {
     CHECK(minY < 4.8f);         // swung down (toward hanging at pivot.y - 1 = 4)
 }
 
+void testEditorScene() {
+    using editor::Node;
+    using editor::Scene;
+
+    // A translated + scaled unit box: its world AABB must recentre and grow accordingly.
+    Node n;
+    n.position = math::vec3(3, 1, -2);
+    n.scale = math::vec3(2, 2, 2); // local [-0.5,0.5] -> world half-extent 1
+    math::vec3 mn, mx;
+    n.worldAabb(mn, mx);
+    CHECK_NEAR(mn.x, 2.0f, 1e-4f);
+    CHECK_NEAR(mx.x, 4.0f, 1e-4f);
+    CHECK_NEAR(mn.y, 0.0f, 1e-4f);
+    CHECK_NEAR(mx.y, 2.0f, 1e-4f);
+    CHECK_NEAR((n.position - math::vec3(3, 1, -2)).x, 0.0f, 1e-6f);
+
+    // A 90-degree Y rotation of a 2x1x1 box swaps the x/z extents in world space.
+    Node r;
+    r.localMin = math::vec3(-1, -0.5f, -0.5f);
+    r.localMax = math::vec3(1, 0.5f, 0.5f);
+    r.euler = math::vec3(0, 90, 0);
+    r.worldAabb(mn, mx);
+    CHECK_NEAR(mx.x, 0.5f, 1e-4f); // the long axis is now along z
+    CHECK_NEAR(mx.z, 1.0f, 1e-4f);
+
+    // Picking: two boxes on the x axis; a ray down -x from far +x must hit the nearer (right) one.
+    Scene s;
+    Node a;
+    a.name = "left";
+    a.position = math::vec3(-3, 0, 0);
+    Node b;
+    b.name = "right";
+    b.position = math::vec3(3, 0, 0);
+    s.nodes.push_back(a);
+    s.nodes.push_back(b);
+    int hit = editor::pickNode(s, math::vec3(10, 0, 0), math::vec3(-1, 0, 0));
+    CHECK(hit == 1); // the right box is nearer to the ray origin
+    // A ray that misses both (way above) returns -1.
+    int miss = editor::pickNode(s, math::vec3(10, 50, 0), math::vec3(-1, 0, 0));
+    CHECK(miss == -1);
+    // Hidden nodes are not pickable.
+    s.nodes[1].visible = false;
+    int hit2 = editor::pickNode(s, math::vec3(10, 0, 0), math::vec3(-1, 0, 0));
+    CHECK(hit2 == 0); // now it falls through to the left box
+
+    // selectedNode() maps the index safely.
+    s.selected = 0;
+    CHECK(s.selectedNode() != nullptr && s.selectedNode()->name == "left");
+    s.selected = -1;
+    CHECK(s.selectedNode() == nullptr);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13264,6 +13317,7 @@ int main() {
     testPhysics3DJoint();
     testPhysics3DDistanceJoint();
     testPhysics3DHinge();
+    testEditorScene();
     testNormalLight();
     testParallax();
     testAudioDsp();
