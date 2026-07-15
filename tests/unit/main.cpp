@@ -11229,6 +11229,77 @@ void testScriptBinding() {
     }
 }
 
+// SC7: signals — declare / connect / emit, one-shot, deferred dispatch, introspection.
+void testScriptSignals() {
+    using namespace maz;
+
+    // Standalone signal via the Signal() builtin: connect a handler, emit, handler runs.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var hits = 0; var s = Signal(\"ping\"); "
+                     "s.connect(func() { hits = hits + 1; }); "
+                     "s.emit(); s.emit(); print hits; print s.get_name();"));
+        CHECK(vm.output == "2\nping\n");
+    }
+    // Emit passes arguments through to handlers.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var total = 0; var s = Signal(); "
+                     "s.connect(func(n) { total = total + n; }); "
+                     "s.emit(10); s.emit(5); print total;"));
+        CHECK(vm.output == "15\n");
+    }
+    // Multiple handlers fire in connection order; connection_count reflects the list.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var log = []; var s = Signal(); "
+                     "s.connect(func() { log.append(\"a\"); }); "
+                     "s.connect(func() { log.append(\"b\"); }); "
+                     "print s.connection_count(); s.emit(); print log.join(\",\");"));
+        CHECK(vm.output == "2\na,b\n");
+    }
+    // One-shot connection auto-removes after the first emit.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var hits = 0; var s = Signal(); "
+                     "s.connect(func() { hits = hits + 1; }, true); "
+                     "s.emit(); s.emit(); s.emit(); print hits; print s.connection_count();"));
+        CHECK(vm.output == "1\n0\n"); // fired once, then disconnected
+    }
+    // disconnect + is_connected.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var hits = 0; var s = Signal(); var h = func() { hits = hits + 1; }; "
+                     "s.connect(h); print s.is_connected(h); s.disconnect(h); "
+                     "print s.is_connected(h); s.emit(); print hits;"));
+        CHECK(vm.output == "true\nfalse\n0\n");
+    }
+    // Class-level `signal` declaration wired through a method emit (GDScript-style).
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Button { signal pressed; var count = 0; "
+                     "func click() { self.pressed.emit(); } } "
+                     "var total = 0; var b = Button.new(); "
+                     "b.pressed.connect(func() { total = total + 1; }); "
+                     "b.click(); b.click(); print total;"));
+        CHECK(vm.output == "2\n");
+    }
+    // Deferred emit: queued, not dispatched until the host flushes (netcode-friendly ordering).
+    {
+        script::Vm vm;
+        CHECK(vm.run("var fired = false; var s = Signal(); "
+                     "s.connect(func() { fired = true; }); "
+                     "s.emit_deferred(); "
+                     "func getfired() { return fired; }"));
+        CHECK(vm.call("getfired", {}).boolean == false); // queued, not yet dispatched
+        CHECK(vm.deferredCount() == 1);
+        const size_t n = vm.flushDeferred(); // host drains the queue at a safe point
+        CHECK(n == 1);
+        CHECK(vm.deferredCount() == 0);
+        CHECK(vm.call("getfired", {}).boolean == true); // handler ran during the flush
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14047,6 +14118,7 @@ int main() {
     testScriptClosures();
     testScriptClasses();
     testScriptBinding();
+    testScriptSignals();
     testNormalLight();
     testParallax();
     testAudioDsp();

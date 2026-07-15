@@ -39,6 +39,10 @@
 //        makeNativeObject wraps a live host object behind a weak handle (touching a freed object is
 //        a catchable error, not a crash). instantiate()/objectHasMethod()/callOn() let the engine
 //        drive script instances' _ready / _process(dt) / _physics_process(dt) lifecycle hooks.
+//   SC7: signals — class-level `signal name;` fields + a standalone Signal() builtin;
+//        connect / disconnect / is_connected / emit / connection_count, one-shot connections, and
+//        sync-vs-deferred dispatch (emit_deferred queues; the host drains it via flushDeferred()
+//        for deterministic netcode ordering). Coroutine `await` is deferred to a VM-core pass.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -53,12 +57,13 @@ struct ClassInfo;   // forward: a runtime class (SC5) — methods + field initia
 struct Instance;    // forward: a runtime object (SC5) — a class + its per-instance fields
 struct NativeClass; // forward: a host-registered C++ type binding (SC6)
 struct NativeObjectData; // forward: a live handle to a host C++ object (SC6)
+struct SignalData;  // forward: a named event with connected callables (SC7)
 struct Value;
 using ArrayData = std::vector<Value>;
 using DictData = std::vector<std::pair<Value, Value>>; // insertion-ordered, any-typed keys (like GDScript)
 
 struct Value {
-    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict, Class, Object, NativeObject };
+    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict, Class, Object, NativeObject, Signal };
     Type type = Type::Nil;
     bool boolean = false;
     double number = 0.0;
@@ -71,6 +76,7 @@ struct Value {
     std::shared_ptr<ClassInfo> klass;                      // when Type::Class (SC5)
     std::shared_ptr<Instance> instance;                    // when Type::Object (SC5, reference semantics)
     std::shared_ptr<NativeObjectData> nobj;                // when Type::NativeObject (SC6, host handle)
+    std::shared_ptr<SignalData> sig;                       // when Type::Signal (SC7, shared/reference)
 
     Value() = default;
     static Value nil() { return Value{}; }
@@ -110,6 +116,7 @@ struct Value {
         v.dict = std::make_shared<DictData>();
         return v;
     }
+    static Value newSignal(std::string name = ""); // defined after SignalData (needs the complete type)
 
     bool isTruthy() const {
         switch (type) {
@@ -138,6 +145,7 @@ struct Value {
         case Type::Class: return klass == o.klass;
         case Type::Object: return instance == o.instance; // reference identity
         case Type::NativeObject: return nobj == o.nobj;   // handle identity
+        case Type::Signal: return sig == o.sig;           // signal identity
         default: return false; // natives compare unequal
         }
     }
@@ -162,6 +170,7 @@ struct Value {
         case Type::Class: return "<class>";   // detailed name handled by the Vm (needs ClassInfo)
         case Type::Object: return "<object>"; // detailed form handled by the Vm (needs Instance)
         case Type::NativeObject: return "<native object>"; // detailed form handled by the Vm
+        case Type::Signal: return "<signal>"; // detailed form handled by the Vm
         case Type::Array: {
             std::string s = "[";
             if (array) {
@@ -200,7 +209,7 @@ struct Value {
 // ---------------------------------------------------------------------------------------------------
 enum class Tok {
     Number, String, Ident, True, False, Nil,
-    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends,
+    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends, Signal,
     Plus, Minus, Star, Slash, Percent, Bang,
     Eq, EqEq, NotEq, Less, LessEq, Greater, GreaterEq,
     LParen, RParen, LBrace, RBrace, LBracket, RBracket, Comma, Semicolon, Colon, Dot,
@@ -307,7 +316,8 @@ inline std::vector<Token> lex(const std::string& src, ScriptError& err) {
                 {"return", Tok::Return},   {"and", Tok::And},       {"or", Tok::Or},
                 {"true", Tok::True},       {"false", Tok::False},   {"nil", Tok::Nil},
                 {"print", Tok::Print},     {"in", Tok::In},         {"break", Tok::Break},
-                {"continue", Tok::Continue}, {"class", Tok::Class},  {"extends", Tok::Extends}};
+                {"continue", Tok::Continue}, {"class", Tok::Class},  {"extends", Tok::Extends},
+                {"signal", Tok::Signal}};
             const auto it = kw.find(word);
             if (it != kw.end()) {
                 push(it->second, word);
@@ -359,7 +369,7 @@ struct Stmt; // forward: Expr's Lambda kind owns a body of statements
 struct Expr {
     enum class K {
         Number, String, Bool, Nil, Var, Assign, Unary, Binary, Logical, Call,
-        ArrayLit, DictLit, Index, Get, Lambda
+        ArrayLit, DictLit, Index, Get, Lambda, SignalLit
     };
     K kind;
     double number = 0.0;
@@ -484,6 +494,46 @@ struct NativeObjectData {
     const NativeClass* cls = nullptr;
 };
 
+// SC7 — a named event with a list of connected callables. `connect` subscribes a callable, `emit`
+// invokes them all in connection order; one-shot connections auto-remove after firing. Emit can be
+// immediate (synchronous, deterministic) or deferred (queued, drained by the host at a safe point —
+// the basis for netcode lockstep ordering). Signals have reference semantics (shared_ptr).
+struct SignalData {
+    struct Connection {
+        Value callable;
+        bool oneshot = false;
+    };
+    std::string name;
+    std::vector<Connection> connections;
+
+    void connect(const Value& callable, bool oneshot) {
+        connections.push_back({callable, oneshot});
+    }
+    bool isConnected(const Value& callable) const {
+        for (const auto& c : connections) {
+            if (c.callable.equals(callable)) return true;
+        }
+        return false;
+    }
+    bool disconnect(const Value& callable) {
+        for (size_t i = 0; i < connections.size(); ++i) {
+            if (connections[i].callable.equals(callable)) {
+                connections.erase(connections.begin() + static_cast<long>(i));
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+inline Value Value::newSignal(std::string name) {
+    Value v;
+    v.type = Type::Signal;
+    v.sig = std::make_shared<SignalData>();
+    v.sig->name = std::move(name);
+    return v;
+}
+
 // ---------------------------------------------------------------------------------------------------
 // Parser (recursive descent)
 // ---------------------------------------------------------------------------------------------------
@@ -555,8 +605,21 @@ private:
                 s->body.push_back(varDecl()); // a field declaration
             } else if (match(Tok::Func)) {
                 s->body.push_back(funcDecl()); // a method
+            } else if (match(Tok::Signal)) {
+                // `signal name;` — sugar for a field initialized to a fresh Signal.
+                auto field = std::make_unique<Stmt>();
+                field->kind = Stmt::K::Var;
+                field->line = peek().line;
+                field->name = expect(Tok::Ident, "expected signal name").text;
+                auto lit = std::make_unique<Expr>();
+                lit->kind = Expr::K::SignalLit;
+                lit->str = field->name; // carry the signal's name for introspection
+                lit->line = field->line;
+                field->expr = std::move(lit);
+                expect(Tok::Semicolon, "expected ';' after signal declaration");
+                s->body.push_back(std::move(field));
             } else {
-                error("expected 'var' field or 'func' method in class body");
+                error("expected 'var' field, 'func' method, or 'signal' in class body");
             }
         }
         expect(Tok::RBrace, "expected '}' after class body");
@@ -1145,6 +1208,10 @@ public:
             }
             return Value::fromNum(lo + std::floor(rngFloat() * (hi - lo + 1.0)));
         });
+        // SC7: a standalone signal (for objects/logic without a class-level `signal` declaration).
+        registerNative("Signal", [](std::vector<Value>& a) {
+            return Value::newSignal(a.empty() ? "" : a[0].toString());
+        });
     }
 
     void registerNative(const std::string& name, std::function<Value(std::vector<Value>&)> fn) {
@@ -1168,6 +1235,7 @@ public:
         m_program.clear();
         m_funcDefs.clear();
         m_classes.clear();
+        m_deferred.clear();
         ScriptError lexErr;
         std::vector<Token> toks = lex(source, lexErr);
         if (!lexErr.message.empty()) {
@@ -1279,12 +1347,36 @@ public:
         }
     }
 
+    // ---- SC7: deferred signal dispatch -----------------------------------------------------------
+
+    // Dispatch all queued (emit_deferred) signals in FIFO order and clear the queue. The host calls
+    // this at a controlled point in the frame (e.g. end of the physics step) so deferred handlers run
+    // deterministically — the foundation for netcode lockstep. Returns the number of emits dispatched.
+    size_t flushDeferred() {
+        size_t n = 0;
+        // A handler may itself emit_deferred; process a snapshot so newly-queued emits wait for the
+        // next flush (bounded, deterministic) rather than growing the queue mid-iteration.
+        std::vector<std::pair<std::shared_ptr<SignalData>, std::vector<Value>>> batch;
+        batch.swap(m_deferred);
+        for (auto& e : batch) {
+            try {
+                emitSignal(*e.first, e.second, 0);
+                ++n;
+            } catch (const ScriptError& err) {
+                m_error = err; // capture but keep draining the rest
+            }
+        }
+        return n;
+    }
+    size_t deferredCount() const { return m_deferred.size(); }
+
 private:
     std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
     std::vector<std::shared_ptr<ClassInfo>> m_classes; // keep runtime classes alive (SC5)
     std::vector<std::unique_ptr<NativeClass>> m_nativeClasses; // host type bindings (SC6, stable ptrs)
+    std::vector<std::pair<std::shared_ptr<SignalData>, std::vector<Value>>> m_deferred; // queued emits (SC7)
     ScriptError m_error;
     uint64_t m_rngState = 0x9E3779B97F4A7C15ULL; // deterministic RNG stream (seedable via seed())
 
@@ -1572,8 +1664,59 @@ private:
         fail("attempt to call a non-function value", line);
     }
 
+    // SC7 — fire a signal now: invoke every connected callable in order, then drop one-shot ones.
+    // Connections are snapshotted so a handler that connects/disconnects doesn't disturb this emit.
+    void emitSignal(SignalData& s, std::vector<Value>& args, int line) {
+        const auto snapshot = s.connections;
+        for (const auto& c : snapshot) {
+            Value callable = c.callable;
+            std::vector<Value> callArgs = args;
+            invoke(callable, callArgs, line);
+        }
+        // Remove one-shot connections that were present at emit time.
+        for (const auto& c : snapshot) {
+            if (c.oneshot) {
+                s.disconnect(c.callable);
+            }
+        }
+    }
+
     // Built-in methods on arrays / dicts / strings (arr.append(x), dict.keys(), str.length(), ...).
     Value callMethod(Value& obj, const std::string& name, std::vector<Value>& args, int line) {
+        if (obj.type == Value::Type::Signal) {
+            auto& s = *obj.sig;
+            if (name == "connect") {
+                if (args.empty()) fail("connect expects a callable", line);
+                const bool oneshot = args.size() > 1 && args[1].isTruthy();
+                s.connect(args[0], oneshot);
+                return Value::nil();
+            }
+            if (name == "disconnect") {
+                return Value::fromBool(!args.empty() && s.disconnect(args[0]));
+            }
+            if (name == "is_connected") {
+                return Value::fromBool(!args.empty() && s.isConnected(args[0]));
+            }
+            if (name == "emit") {
+                emitSignal(s, args, line);
+                return Value::nil();
+            }
+            if (name == "emit_deferred") {
+                m_deferred.emplace_back(obj.sig, args); // queue for flushDeferred()
+                return Value::nil();
+            }
+            if (name == "connection_count") {
+                return Value::fromNum(static_cast<double>(s.connections.size()));
+            }
+            if (name == "disconnect_all") {
+                s.connections.clear();
+                return Value::nil();
+            }
+            if (name == "get_name") {
+                return Value::fromStr(s.name);
+            }
+            fail("signal has no method '" + name + "'", line);
+        }
         if (obj.type == Value::Type::Object) {
             std::shared_ptr<const ClassInfo> owner;
             if (const Value* m = obj.instance->klass->findMethod(name, &owner)) {
@@ -1857,6 +2000,8 @@ private:
             v.closure = env.shared_from_this(); // capture the defining scope (real closure)
             return v;
         }
+        case Expr::K::SignalLit:
+            return Value::newSignal(e.str); // fresh per-instance signal (from `signal name;`)
         case Expr::K::Call: {
             // Method call:  obj.method(args)
             if (e.callee->kind == Expr::K::Get) {

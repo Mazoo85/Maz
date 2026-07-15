@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC6 shipped (Alpha + closures + classes + host binding) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC7 shipped (Beta complete: closures, classes, host binding, signals; `await` deferred) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -118,12 +118,23 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 - *Not yet:* templated auto-binding of whole C++ types (the current API is
   explicit per-member); property/method access is the sandbox boundary.
 
-## SC7 — Signals & Callbacks
+## SC7 — Signals & Callbacks ✅ *(signals shipped; `await` deferred — see note)*
 
-- `signal died(score)`, `connect` / `emit`, one-shot / deferred flags. [GD]
-- `await` on signals via interpreter suspension (coroutines). [GD]
-- Introspectable/serializable signal graph; sync vs. queued dispatch for netcode.
-  [BETTER].
+- Class-level `signal pressed;` declarations (per-instance signal fields) and a
+  standalone `Signal("name")` builtin. [GD]
+- `sig.connect(callable [, oneshot])`, `sig.disconnect`, `sig.is_connected`,
+  `sig.emit(args...)`, `sig.connection_count()`, `sig.disconnect_all()`,
+  `sig.get_name()`. One-shot connections auto-remove after firing. [GD]
+- **Sync vs. queued dispatch**: `sig.emit(...)` fires immediately (deterministic);
+  `sig.emit_deferred(...)` queues, and the host drains it with `vm.flushDeferred()`
+  at a controlled point in the frame — the foundation for netcode lockstep
+  ordering. [BETTER].
+- **`await` is intentionally deferred.** True `await`-on-signal needs interpreter
+  suspension (capturing and resuming a mid-evaluation call stack), which a
+  recursive tree-walker can't do without a bytecode/fiber rewrite. Rather than
+  ship a fake `await`, we cover async flows with `connect` + one-shot connections
+  (the same effect, explicit). A real coroutine `await` is tracked for the VM-core
+  pass alongside SC8's execution budgets.
 
 ## SC8 — Error Handling, Diagnostics & Safety
 
@@ -158,7 +169,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 ## Milestone Grouping
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
-- **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7.
+- **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7 ✅ (signals; `await` deferred to the VM-core pass).
 - **1.0 (production):** SC8–SC9.
 - **1.x (edge over Godot):** SC10–SC11.
 
