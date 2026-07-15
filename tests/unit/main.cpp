@@ -46,6 +46,7 @@
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
 #include "maz/core/Jobs.hpp"
+#include "maz/core/LogSinks.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
@@ -149,6 +150,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -7686,6 +7688,74 @@ void testAssetServer() {
         }
     }
     CHECK(allGood);
+}
+
+// Log sinks: FileLogSink writes structured lines to disk; MultiSink fans out to several sinks.
+void testLogSinks() {
+    using maz::core::FileLogSink;
+    using maz::core::LogLevel;
+    using maz::core::LogSink;
+    using maz::core::MultiSink;
+
+    CHECK(std::string(maz::core::levelName(LogLevel::Warn)) == "WARN");
+    CHECK(std::string(maz::core::levelName(LogLevel::Error)) == "ERROR");
+
+    // FileLogSink writes "[LEVEL] message" lines; read them back.
+    const std::string path = "maz_logsink_test.log";
+    {
+        FileLogSink sink(path);
+        CHECK(sink.isOpen());
+        sink.write(LogLevel::Info, "hello world");
+        sink.write(LogLevel::Error, "boom 42");
+        CHECK(sink.lineCount() == 2);
+    } // closed on scope exit
+
+    {
+        std::ifstream in(path);
+        CHECK(in.good());
+        std::string l1, l2;
+        std::getline(in, l1);
+        std::getline(in, l2);
+        CHECK(l1 == "[INFO] hello world");
+        CHECK(l2 == "[ERROR] boom 42");
+    }
+    std::remove(path.c_str());
+
+    // A bad path fails to open but write() is a safe no-op (no crash).
+    {
+        FileLogSink bad("/definitely/not/a/dir/nope.log");
+        CHECK(!bad.isOpen());
+        bad.write(LogLevel::Info, "ignored"); // must not crash
+        CHECK(bad.lineCount() == 0);
+    }
+
+    // MultiSink fans one line out to every registered sink, in order.
+    {
+        int aCount = 0, bCount = 0;
+        std::string lastA;
+        LogSink a = [&](LogLevel, const char* m) {
+            ++aCount;
+            lastA = m ? m : "";
+        };
+        LogSink b = [&](LogLevel, const char*) { ++bCount; };
+        MultiSink multi{a, b};
+        CHECK(multi.size() == 2);
+        multi(LogLevel::Info, "fan");
+        multi(LogLevel::Warn, "out");
+        CHECK(aCount == 2);
+        CHECK(bCount == 2);
+        CHECK(lastA == "out");
+
+        // A file sink combined with a capturing sink (file + panel scenario).
+        auto file = std::make_shared<FileLogSink>(std::string("maz_logsink_multi.log"));
+        int panel = 0;
+        MultiSink combo{maz::core::makeSink(file), [&](LogLevel, const char*) { ++panel; }};
+        combo(LogLevel::Trace, "both");
+        CHECK(panel == 1);
+        CHECK(file->lineCount() == 1);
+        file->close();
+        std::remove("maz_logsink_multi.log");
+    }
 }
 
 // Crash handler: the reportable pieces (signal names, banner, symbol demangling, live backtrace
@@ -16174,6 +16244,7 @@ int main() {
     testJobs();
     testResourceCache();
     testAssetServer();
+    testLogSinks();
     testCrashHandler();
     testTelemetry();
     testReplay();

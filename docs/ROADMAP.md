@@ -155,7 +155,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   global section) and stable insertion-ordered `encode()` that round-trips; the `inifile` demo parses a
   settings.cfg into a table, edits it, and shows the re-encoded text; M165) — full Variant-literal values +
   direct file-path load/save later
-- [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
+- [x] Crash handler / stack-trace dump, structured log sinks (file, console) (crash handler =
+  `platform::CrashHandler`, M177; structured sinks = `core::LogSinks`, M195: a thread-safe
+  `FileLogSink` that appends `"[LEVEL] message"` lines to a log file (optional timestamp / append /
+  flush-each-line, safe no-op on a bad path — Godot's `user://logs/godot.log`, engine-native), plus a
+  `MultiSink` that fans one log stream out to several sinks so a file sink and the editor Output panel
+  both receive it (the base `setLogSink` holds only one). Console output is always on; these are
+  additive. Unit-tested.)
 - [x] **Semantic version + CHANGELOG** — `core::Version` (a parse/compare semver type with
   `MAZ_VERSION_*` macros, `engineVersion()`, `atLeast()` for "requires engine ≥ X" gates, and a
   monotonic `number()`), plus a root `CHANGELOG.md` (Keep-a-Changelog format). Games stamp saves/crash
