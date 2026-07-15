@@ -188,11 +188,15 @@ public:
     // Enable/adjust post-process bloom. strength 0 (default) is a faithful passthrough, so 2D and
     // 3D apps look identical; > 0 adds a soft glow to areas brighter than `threshold` (0..1).
     virtual void setBloom(float strength, float threshold) = 0;
-    // Enable ACES filmic tonemapping of the HDR scene with an exposure multiplier (1 = neutral).
-    // The scene renders to a float target, so emissive/bloom can exceed 1 and the tonemap rolls the
-    // highlights off smoothly. Off by default (a faithful passthrough); enable per app. No-op when
-    // inactive.
-    virtual void setTonemap(float exposure, bool enabled) = 0;
+    // Filmic tonemap operators (mirrors Godot's tonemapper choices). ACES is the cheap Narkowicz
+    // curve fit (the historical default); ACESFitted is Stephen Hill's accurate RRT+ODT fit; AgX is
+    // Godot 4.2+'s default, which desaturates highlights gracefully and avoids ACES' hue shifts.
+    enum class TonemapOp { ACES, ACESFitted, AgX };
+    // Enable filmic tonemapping of the HDR scene with an exposure multiplier (1 = neutral) and a
+    // choice of operator. The scene renders to a float target, so emissive/bloom can exceed 1 and the
+    // tonemap rolls the highlights off smoothly. Off by default (a faithful passthrough); enable per
+    // app. No-op when inactive. The default operator keeps existing callers on the ACES curve.
+    virtual void setTonemap(float exposure, bool enabled, TonemapOp op = TonemapOp::ACES) = 0;
     // Enable a filmic color grade on the composited image: `vignette` darkens the corners (0..1),
     // `saturation` scales chroma (1 = neutral), `contrast` scales about mid-grey (1 = neutral). Off
     // by default (a faithful passthrough). No-op when inactive.

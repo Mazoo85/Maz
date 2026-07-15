@@ -53,7 +53,7 @@ public:
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
     void setBloom(float strength, float threshold) override;
-    void setTonemap(float exposure, bool enabled) override;
+    void setTonemap(float exposure, bool enabled, TonemapOp op = TonemapOp::ACES) override;
     void setColorGrade(float vignette, float saturation, float contrast, bool enabled) override;
     void setChromaticAberration(float strength) override;
     void setFilmGrain(float strength, float time) override;
@@ -492,9 +492,9 @@ void VulkanRenderer::setWireframe(bool enabled) {
     }
 }
 
-void VulkanRenderer::setTonemap(float exposure, bool enabled) {
+void VulkanRenderer::setTonemap(float exposure, bool enabled, TonemapOp op) {
     if (m_active) {
-        m_post.setTonemap(exposure, enabled);
+        m_post.setTonemap(exposure, enabled, static_cast<int>(op));
     }
 }
 

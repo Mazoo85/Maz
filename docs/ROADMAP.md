@@ -361,8 +361,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   reflects the sky in the mirror direction (blurred toward the irradiance as roughness rises), weighted
   by Karis' analytic environment BRDF. Metals now reflect the environment instead of relying on a flat
   stand-in, and `pbrballs` shows the sky gradient curving across each chrome ball. Matte materials are
-  untouched (IBL is gated on `specular`); the six PBR goldens were re-baselined. An ACES filmic tonemap
-  (R4) lands next.
+  untouched (IBL is gated on `specular`); the six PBR goldens were re-baselined. **R4 — selectable
+  filmic tonemap operators** — the composite pass now offers the three operators Godot exposes: ACES
+  (Narkowicz curve, the historical default), ACES fitted (Stephen Hill's accurate RRT+ODT with proper
+  color matrices), and **AgX** (Godot 4.2+'s default — log-encode, sigmoid contrast, outset matrix;
+  desaturates highlights gracefully and avoids ACES' hue twists). `setTonemap` gains an operator arg
+  (defaulting to ACES so existing scenes are byte-identical); the new `tonemap` demo renders a hot HDR
+  scene selectable with `--op N` for side-by-side comparison. This closes the core 3D render-look gap
+  with Godot; screen-space/ray-traced reflections and a full IBL prefilter remain honest structural
+  gaps beyond a from-scratch analytic engine.
 - [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
 - [x] Lighting: directional (Lambert) + ambient in the mesh shader
 - [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)

@@ -27,9 +27,10 @@ public:
     }
     // Enable ACES tonemapping of the HDR scene with the given exposure. Off by default so apps that
     // don't opt in are a faithful passthrough (values already in [0,1] are written unchanged).
-    void setTonemap(float exposure, bool enabled) {
+    void setTonemap(float exposure, bool enabled, int op = 0) {
         m_exposure = exposure;
         m_tonemap = enabled;
+        m_tonemapOp = op;
     }
     // Enable a color grade: vignette strength (0..1 corner darkening), saturation (1 = neutral),
     // contrast (1 = neutral). Off by default so apps that don't opt in are unchanged.
@@ -66,6 +67,7 @@ private:
     float m_threshold = 0.75f; // brightness above which pixels bloom
     float m_exposure = 1.0f;   // HDR exposure multiplier before tonemapping
     bool m_tonemap = false;    // false => no tonemap (passthrough of [0,1] values)
+    int m_tonemapOp = 0;       // 0 = ACES Narkowicz, 1 = ACES fitted, 2 = AgX
     float m_vignette = 0.0f;   // corner darkening amount
     float m_saturation = 1.0f; // 1 = neutral
     float m_contrast = 1.0f;   // 1 = neutral

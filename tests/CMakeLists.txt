@@ -1221,6 +1221,14 @@ set_tests_properties(pbrballs_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+add_test(
+    NAME tonemap_headless_smoke
+    COMMAND tonemap --headless --frames 30)
+
+set_tests_properties(tonemap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 
 
 

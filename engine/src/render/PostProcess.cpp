@@ -257,6 +257,7 @@ void PostProcess::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExten
     pc.extra[0] = m_chromatic;
     pc.extra[1] = m_grain;
     pc.extra[2] = m_grainTime;
+    pc.extra[3] = static_cast<float>(m_tonemapOp);
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
