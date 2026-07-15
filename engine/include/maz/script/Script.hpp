@@ -31,6 +31,10 @@
 //        scope they were defined in, and higher-order array methods (map/filter/reduce/any/all/
 //        sort/sort_custom). Environments are heap-allocated (make_shared) so a returned closure keeps
 //        its captured scope alive after the enclosing call returns.
+//   SC5: classes — `class Foo { var fields; func methods }` with `self`, the `_init` constructor,
+//        `Foo.new(...)` / `Foo(...)` construction, single inheritance (`extends`) and `super`
+//        dispatch. Instances have reference semantics; methods read off an instance are bound
+//        callables. Classes are top-level, hoisted like functions.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -41,12 +45,14 @@ namespace maz::script {
 // ---------------------------------------------------------------------------------------------------
 struct FuncDef;     // forward: a user function definition (AST-owned)
 struct Environment; // forward: a runtime scope (heap-allocated so closures can capture it)
+struct ClassInfo;   // forward: a runtime class (SC5) — methods + field initializers + superclass
+struct Instance;    // forward: a runtime object (SC5) — a class + its per-instance fields
 struct Value;
 using ArrayData = std::vector<Value>;
 using DictData = std::vector<std::pair<Value, Value>>; // insertion-ordered, any-typed keys (like GDScript)
 
 struct Value {
-    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict };
+    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict, Class, Object };
     Type type = Type::Nil;
     bool boolean = false;
     double number = 0.0;
@@ -56,6 +62,8 @@ struct Value {
     std::shared_ptr<Environment> closure;              // when Type::Func: the scope captured at definition
     std::shared_ptr<ArrayData> array;                      // when Type::Array (shared/reference semantics)
     std::shared_ptr<DictData> dict;                        // when Type::Dict
+    std::shared_ptr<ClassInfo> klass;                      // when Type::Class (SC5)
+    std::shared_ptr<Instance> instance;                    // when Type::Object (SC5, reference semantics)
 
     Value() = default;
     static Value nil() { return Value{}; }
@@ -120,6 +128,8 @@ struct Value {
         case Type::Func: return func == o.func;
         case Type::Array: return array == o.array; // reference identity
         case Type::Dict: return dict == o.dict;
+        case Type::Class: return klass == o.klass;
+        case Type::Object: return instance == o.instance; // reference identity
         default: return false; // natives compare unequal
         }
     }
@@ -141,6 +151,8 @@ struct Value {
         }
         case Type::Native: return "<native fn>";
         case Type::Func: return "<fn>";
+        case Type::Class: return "<class>";   // detailed name handled by the Vm (needs ClassInfo)
+        case Type::Object: return "<object>"; // detailed form handled by the Vm (needs Instance)
         case Type::Array: {
             std::string s = "[";
             if (array) {
@@ -179,7 +191,7 @@ struct Value {
 // ---------------------------------------------------------------------------------------------------
 enum class Tok {
     Number, String, Ident, True, False, Nil,
-    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue,
+    Var, If, Else, While, For, Func, Return, And, Or, Print, In, Break, Continue, Class, Extends,
     Plus, Minus, Star, Slash, Percent, Bang,
     Eq, EqEq, NotEq, Less, LessEq, Greater, GreaterEq,
     LParen, RParen, LBrace, RBrace, LBracket, RBracket, Comma, Semicolon, Colon, Dot,
@@ -286,7 +298,7 @@ inline std::vector<Token> lex(const std::string& src, ScriptError& err) {
                 {"return", Tok::Return},   {"and", Tok::And},       {"or", Tok::Or},
                 {"true", Tok::True},       {"false", Tok::False},   {"nil", Tok::Nil},
                 {"print", Tok::Print},     {"in", Tok::In},         {"break", Tok::Break},
-                {"continue", Tok::Continue}};
+                {"continue", Tok::Continue}, {"class", Tok::Class},  {"extends", Tok::Extends}};
             const auto it = kw.find(word);
             if (it != kw.end()) {
                 push(it->second, word);
@@ -356,9 +368,10 @@ struct Expr {
 };
 
 struct Stmt {
-    enum class K { Expr, Var, Block, If, While, For, ForIn, Func, Return, Print, Break, Continue };
+    enum class K { Expr, Var, Block, If, While, For, ForIn, Func, Return, Print, Break, Continue, Class };
     K kind;
-    std::string name;                       // Var name / Func name / ForIn loop var
+    std::string name;                       // Var name / Func name / ForIn loop var / Class name
+    std::string superName;                  // Class: superclass name ("" if none)
     std::unique_ptr<Expr> expr;             // Expr / Var init / If+While+For cond / ForIn iterable / Return / Print
     std::unique_ptr<Expr> forInit, forPost; // C-style For only
     std::vector<std::unique_ptr<Stmt>> body;
@@ -371,6 +384,49 @@ struct FuncDef {
     std::string name;
     std::vector<std::string> params;
     const std::vector<std::unique_ptr<Stmt>>* body = nullptr;
+};
+
+// SC5 — a runtime class: its own methods + field initializers, and an optional superclass. Method
+// resolution walks the super chain (findMethod reports the *defining* class so `super` can start one
+// level up). Field initializers run base-first at construction so a subclass can override defaults.
+struct ClassInfo : std::enable_shared_from_this<ClassInfo> {
+    std::string name;
+    std::shared_ptr<ClassInfo> super;                        // base class, or nullptr
+    std::vector<std::pair<std::string, Value>> methods;      // name -> Type::Func Value (ordered)
+    std::vector<const Stmt*> fieldInits;                     // this class's own `var` field decls
+
+    // Find a method, walking the super chain. Reports the *defining* class (owner) so `super` can
+    // resume resolution one level above it.
+    const Value* findMethod(const std::string& n, std::shared_ptr<const ClassInfo>* owner = nullptr) const {
+        for (const auto& m : methods) {
+            if (m.first == n) {
+                if (owner) *owner = shared_from_this();
+                return &m.second;
+            }
+        }
+        return super ? super->findMethod(n, owner) : nullptr;
+    }
+
+    bool isSubclassOf(const ClassInfo* other) const {
+        for (const ClassInfo* c = this; c; c = c->super.get()) {
+            if (c == other) return true;
+        }
+        return false;
+    }
+};
+
+// SC5 — a runtime object (instance). Reference semantics (shared_ptr), like arrays/dicts: assigning
+// an object aliases it. Fields are insertion-ordered for deterministic printing.
+struct Instance {
+    std::shared_ptr<ClassInfo> klass;
+    std::vector<std::pair<std::string, Value>> fields;
+
+    Value* findField(const std::string& n) {
+        for (auto& f : fields) {
+            if (f.first == n) return &f.second;
+        }
+        return nullptr;
+    }
 };
 
 // ---------------------------------------------------------------------------------------------------
@@ -423,7 +479,33 @@ private:
         if (match(Tok::Func)) {
             return funcDecl();
         }
+        if (match(Tok::Class)) {
+            return classDecl();
+        }
         return statement();
+    }
+
+    // class Name [extends Base] { var field = expr;  func method(...) { ... }  ... }
+    std::unique_ptr<Stmt> classDecl() {
+        auto s = std::make_unique<Stmt>();
+        s->kind = Stmt::K::Class;
+        s->line = peek().line;
+        s->name = expect(Tok::Ident, "expected class name").text;
+        if (match(Tok::Extends)) {
+            s->superName = expect(Tok::Ident, "expected superclass name after 'extends'").text;
+        }
+        expect(Tok::LBrace, "expected '{' before class body");
+        while (!check(Tok::RBrace) && !isAtEnd()) {
+            if (match(Tok::Var)) {
+                s->body.push_back(varDecl()); // a field declaration
+            } else if (match(Tok::Func)) {
+                s->body.push_back(funcDecl()); // a method
+            } else {
+                error("expected 'var' field or 'func' method in class body");
+            }
+        }
+        expect(Tok::RBrace, "expected '}' after class body");
+        return s;
     }
 
     std::unique_ptr<Stmt> varDecl() {
@@ -1030,6 +1112,7 @@ public:
         m_error = {};
         m_program.clear();
         m_funcDefs.clear();
+        m_classes.clear();
         ScriptError lexErr;
         std::vector<Token> toks = lex(source, lexErr);
         if (!lexErr.message.empty()) {
@@ -1040,8 +1123,9 @@ public:
             Parser parser(std::move(toks));
             m_program = parser.parse();
             hoistFunctions(m_program, *m_global);
+            hoistClasses(m_program, *m_global);
             for (const auto& s : m_program) {
-                if (s->kind != Stmt::K::Func) {
+                if (s->kind != Stmt::K::Func && s->kind != Stmt::K::Class) {
                     exec(*s, *m_global);
                 }
             }
@@ -1073,6 +1157,7 @@ private:
     std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
+    std::vector<std::shared_ptr<ClassInfo>> m_classes; // keep runtime classes alive (SC5)
     ScriptError m_error;
     uint64_t m_rngState = 0x9E3779B97F4A7C15ULL; // deterministic RNG stream (seedable via seed())
 
@@ -1105,6 +1190,80 @@ private:
                 m_funcDefs.push_back(std::move(def));
             }
         }
+    }
+
+    // SC5 — build a runtime ClassInfo for each top-level `class` and register it as a global Value.
+    // Classes are processed in source order so `extends Base` can resolve a class declared above.
+    void hoistClasses(const std::vector<std::unique_ptr<Stmt>>& stmts, Environment& env) {
+        for (const auto& s : stmts) {
+            if (s->kind != Stmt::K::Class) {
+                continue;
+            }
+            auto info = std::make_shared<ClassInfo>();
+            info->name = s->name;
+            if (!s->superName.empty()) {
+                const Value* base = env.get(s->superName);
+                if (!base || base->type != Value::Type::Class) {
+                    fail("unknown superclass '" + s->superName + "' for class '" + s->name + "'", s->line);
+                }
+                info->super = base->klass;
+            }
+            for (const auto& member : s->body) {
+                if (member->kind == Stmt::K::Func) {
+                    auto def = std::make_unique<FuncDef>();
+                    def->name = member->name;
+                    def->params = member->params;
+                    def->body = &member->body;
+                    Value fn;
+                    fn.type = Value::Type::Func;
+                    fn.func = def.get();
+                    fn.closure = m_global; // methods see globals (+ self/params bound at call time)
+                    info->methods.emplace_back(member->name, fn);
+                    m_funcDefs.push_back(std::move(def));
+                } else if (member->kind == Stmt::K::Var) {
+                    info->fieldInits.push_back(member.get());
+                }
+            }
+            Value cls;
+            cls.type = Value::Type::Class;
+            cls.klass = info;
+            env.vars[s->name] = cls;
+            m_classes.push_back(std::move(info));
+        }
+    }
+
+    // Collect a class's field initializers base-first, so a subclass field overrides a base default.
+    void applyFieldInits(const ClassInfo* info, Instance& inst) {
+        if (!info) {
+            return;
+        }
+        applyFieldInits(info->super.get(), inst);
+        for (const Stmt* f : info->fieldInits) {
+            Value v = f->expr ? eval(*f->expr, *m_global) : Value::nil();
+            if (Value* existing = inst.findField(f->name)) {
+                *existing = v; // subclass overrides a base default
+            } else {
+                inst.fields.emplace_back(f->name, v);
+            }
+        }
+    }
+
+    // SC5 — construct an instance of `cls`: allocate, run field initializers, then call `_init` (if any).
+    Value construct(const Value& cls, std::vector<Value>& args, int line) {
+        auto inst = std::make_shared<Instance>();
+        inst->klass = cls.klass;
+        applyFieldInits(cls.klass.get(), *inst);
+        Value self;
+        self.type = Value::Type::Object;
+        self.instance = inst;
+        std::shared_ptr<const ClassInfo> owner;
+        if (const Value* init = cls.klass->findMethod("_init", &owner)) {
+            Value defCls;
+            defCls.type = Value::Type::Class;
+            defCls.klass = std::const_pointer_cast<ClassInfo>(owner);
+            invoke(*init, args, line, &self, &defCls);
+        }
+        return self;
     }
 
     [[noreturn]] void fail(const std::string& msg, int line) { throw ScriptError{msg, line}; }
@@ -1200,6 +1359,8 @@ private:
         }
         case Stmt::K::Func:
             break; // hoisted
+        case Stmt::K::Class:
+            break; // hoisted (see hoistClasses)
         case Stmt::K::Return:
             throw ReturnSignal{s.expr ? eval(*s.expr, env) : Value::nil()};
         case Stmt::K::Break:
@@ -1236,15 +1397,39 @@ private:
         return out;
     }
 
-    Value invoke(const Value& callee, std::vector<Value>& args, int line) {
+    // A method read off an instance (obj.method, without calling) becomes a Callable that remembers
+    // its receiver — so it can be stored, passed around, and called later like any other function.
+    Value makeBoundMethod(Value self, Value method, std::shared_ptr<const ClassInfo> owner) {
+        Value defCls;
+        defCls.type = Value::Type::Class;
+        defCls.klass = std::const_pointer_cast<ClassInfo>(owner);
+        Value bound;
+        bound.type = Value::Type::Native;
+        bound.native = [this, self, method, defCls](std::vector<Value>& a) -> Value {
+            return invoke(method, a, 0, &self, &defCls);
+        };
+        return bound;
+    }
+
+    Value invoke(const Value& callee, std::vector<Value>& args, int line,
+                 const Value* selfBind = nullptr, const Value* defClassBind = nullptr) {
         if (callee.type == Value::Type::Native) {
             return callee.native(args);
+        }
+        if (callee.type == Value::Type::Class) {
+            return construct(callee, args, line); // Foo(args) constructs, like Foo.new(args)
         }
         if (callee.type == Value::Type::Func) {
             const FuncDef* def = callee.func;
             auto framePtr = std::make_shared<Environment>();
             framePtr->parent = callee.closure ? callee.closure : m_global; // closure scope (globals for named fns)
             Environment& frame = *framePtr;
+            if (selfBind) {
+                frame.vars["self"] = *selfBind; // SC5: bind the receiver inside a method
+            }
+            if (defClassBind) {
+                frame.vars["__defclass__"] = *defClassBind; // SC5: where `super` resumes lookup
+            }
             for (size_t i = 0; i < def->params.size(); ++i) {
                 frame.vars[def->params[i]] = i < args.size() ? args[i] : Value::nil();
             }
@@ -1262,6 +1447,29 @@ private:
 
     // Built-in methods on arrays / dicts / strings (arr.append(x), dict.keys(), str.length(), ...).
     Value callMethod(Value& obj, const std::string& name, std::vector<Value>& args, int line) {
+        if (obj.type == Value::Type::Object) {
+            std::shared_ptr<const ClassInfo> owner;
+            if (const Value* m = obj.instance->klass->findMethod(name, &owner)) {
+                Value defCls;
+                defCls.type = Value::Type::Class;
+                defCls.klass = std::const_pointer_cast<ClassInfo>(owner);
+                return invoke(*m, args, line, &obj, &defCls);
+            }
+            // Fall back to a callable stored in a field (e.g. obj.on_hit = func(){...}; obj.on_hit()).
+            if (Value* f = obj.instance->findField(name)) {
+                if (f->type == Value::Type::Func || f->type == Value::Type::Native ||
+                    f->type == Value::Type::Class) {
+                    return invoke(*f, args, line);
+                }
+            }
+            fail("object of class '" + obj.instance->klass->name + "' has no method '" + name + "'", line);
+        }
+        if (obj.type == Value::Type::Class) {
+            if (name == "new") {
+                return construct(obj, args, line);
+            }
+            fail("class '" + obj.klass->name + "' has no static method '" + name + "'", line);
+        }
         if (obj.type == Value::Type::Array) {
             auto& a = *obj.array;
             if (name == "size" || name == "length") return Value::fromNum(static_cast<double>(a.size()));
@@ -1440,6 +1648,25 @@ private:
             if (obj.type == Value::Type::Dict) {
                 return dictGet(*obj.dict, Value::fromStr(e.str));
             }
+            if (obj.type == Value::Type::Object) {
+                if (Value* f = obj.instance->findField(e.str)) {
+                    return *f;
+                }
+                // A method read (without calling) yields a bound callable capturing `self`.
+                std::shared_ptr<const ClassInfo> owner;
+                if (const Value* m = obj.instance->klass->findMethod(e.str, &owner)) {
+                    return makeBoundMethod(obj, *m, owner);
+                }
+                fail("object of class '" + obj.instance->klass->name + "' has no property '" + e.str + "'", e.line);
+            }
+            if (obj.type == Value::Type::Class) {
+                // Class-level access: a method reference (e.g. for passing around) or `new` sentinel.
+                std::shared_ptr<const ClassInfo> owner;
+                if (const Value* m = obj.klass->findMethod(e.str, &owner)) {
+                    return *m;
+                }
+                fail("class '" + obj.klass->name + "' has no static member '" + e.str + "'", e.line);
+            }
             fail("cannot read property '" + e.str + "' of this value", e.line);
         }
         case Expr::K::Assign:
@@ -1479,6 +1706,32 @@ private:
         case Expr::K::Call: {
             // Method call:  obj.method(args)
             if (e.callee->kind == Expr::K::Get) {
+                // super.method(args) — dispatch starting one level above the defining class (SC5).
+                if (e.callee->lhs->kind == Expr::K::Var && e.callee->lhs->str == "super") {
+                    const Value* selfV = env.get("self");
+                    const Value* defV = env.get("__defclass__");
+                    if (!selfV || !defV || defV->type != Value::Type::Class) {
+                        fail("'super' can only be used inside a method", e.line);
+                    }
+                    const std::shared_ptr<ClassInfo>& defC = defV->klass;
+                    if (!defC || !defC->super) {
+                        fail("'super' has no base class in '" + (defC ? defC->name : std::string()) + "'", e.line);
+                    }
+                    std::vector<Value> args;
+                    args.reserve(e.args.size());
+                    for (const auto& a : e.args) {
+                        args.push_back(eval(*a, env));
+                    }
+                    std::shared_ptr<const ClassInfo> owner;
+                    const Value* m = defC->super->findMethod(e.callee->str, &owner);
+                    if (!m) {
+                        fail("superclass has no method '" + e.callee->str + "'", e.line);
+                    }
+                    Value newDef;
+                    newDef.type = Value::Type::Class;
+                    newDef.klass = std::const_pointer_cast<ClassInfo>(owner);
+                    return invoke(*m, args, e.line, selfV, &newDef);
+                }
                 Value obj = eval(*e.callee->lhs, env);
                 std::vector<Value> args;
                 args.reserve(e.args.size());
@@ -1576,6 +1829,14 @@ private:
             Value obj = eval(*target.lhs, env);
             if (obj.type == Value::Type::Dict) {
                 dictSet(*obj.dict, Value::fromStr(target.str), v);
+                return v;
+            }
+            if (obj.type == Value::Type::Object) {
+                if (Value* f = obj.instance->findField(target.str)) {
+                    *f = v;
+                } else {
+                    obj.instance->fields.emplace_back(target.str, v); // allow dynamic field creation
+                }
                 return v;
             }
             fail("cannot set property on this value", e.line);

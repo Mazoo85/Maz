@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC4 shipped (Alpha tier complete + closures) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC5 shipped (Alpha complete + closures + classes) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -90,11 +90,17 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 - Higher-order array methods: `map`, `filter`, `reduce`, `any`, `all`, `sort` (natural),
   `sort_custom` (comparator), plus `reverse` / `slice`. [GD]
 
-## SC5 — Classes / Struct-like Objects
+## SC5 — Classes / Struct-like Objects ✅ *(shipped)*
 
-- `class Foo:` with fields + methods, `self`, `_init`, `Foo.new(...)`,
-  `extends` / `super`, `const`, `enum`, `static`, `is`/`as`. [GD]
-- **Opt-in value types** (copy semantics, no heap) for hot data. [BETTER].
+- `class Foo { ... }` with `var` fields (defaulted) + `func` methods, `self`,
+  the `_init` constructor, `Foo.new(...)` **and** `Foo(...)` construction. [GD]
+- `extends Base` single inheritance; `super.method(...)` / `super._init(...)`
+  resolving from the defining class up the chain (verified 3 levels deep). [GD]
+- **Reference semantics** for instances (like arrays/dicts): assigning an object
+  aliases it. Methods are first-class — `var f = obj.method` yields a bound
+  callable that remembers its receiver. [GD]
+- *Not yet:* `const` / `enum` / `static` members, `is` / `as`, and opt-in value
+  types (tracked for a later pass).
 
 ## SC6 — Engine-Object Binding (Host Integration)
 
@@ -145,7 +151,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 ## Milestone Grouping
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
-- **Beta (game structure):** SC4 ✅ → SC5–SC7.
+- **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6–SC7.
 - **1.0 (production):** SC8–SC9.
 - **1.x (edge over Godot):** SC10–SC11.
 

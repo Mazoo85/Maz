@@ -11071,6 +11071,91 @@ void testScriptClosures() {
     }
 }
 
+// SC5: classes — fields, methods, self, _init, .new(), extends/super, reference semantics.
+void testScriptClasses() {
+    using namespace maz;
+    // Basic class: field default + method reading self.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Point { var x = 0; var y = 0; "
+                     "func sum() { return self.x + self.y; } } "
+                     "var p = Point.new(); p.x = 3; p.y = 4; print p.sum();"));
+        CHECK(vm.output == "7\n");
+    }
+    // _init constructor with arguments.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Vec { var x = 0; var y = 0; "
+                     "func _init(a, b) { self.x = a; self.y = b; } "
+                     "func len2() { return self.x * self.x + self.y * self.y; } } "
+                     "var v = Vec.new(3, 4); print v.len2();"));
+        CHECK(vm.output == "25\n");
+    }
+    // Construction via Foo(args) shorthand (no .new).
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Box { var w = 1; func _init(n) { self.w = n; } func area() { return self.w * self.w; } } "
+                     "var b = Box(5); print b.area();"));
+        CHECK(vm.output == "25\n");
+    }
+    // Inheritance: subclass inherits base method; extends + inherited fields.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Animal { var name = \"?\"; func speak() { return \"...\"; } } "
+                     "class Dog extends Animal { func speak() { return \"woof\"; } } "
+                     "var d = Dog.new(); d.name = \"Rex\"; print d.name; print d.speak();"));
+        CHECK(vm.output == "Rex\nwoof\n");
+    }
+    // super: subclass method calls the base implementation.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class A { func greet() { return \"A\"; } } "
+                     "class B extends A { func greet() { return super.greet() + \"B\"; } } "
+                     "var b = B.new(); print b.greet();"));
+        CHECK(vm.output == "AB\n");
+    }
+    // super._init chains base constructor.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Base { var hp = 0; func _init(h) { self.hp = h; } } "
+                     "class Hero extends Base { var name = \"\"; "
+                     "func _init(n, h) { super._init(h); self.name = n; } } "
+                     "var hero = Hero.new(\"Ann\", 100); print hero.name; print hero.hp;"));
+        CHECK(vm.output == "Ann\n100\n");
+    }
+    // Reference semantics: two names to one object share mutations.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class C { var v = 1; } var a = C.new(); var b = a; b.v = 99; print a.v;"));
+        CHECK(vm.output == "99\n");
+    }
+    // Methods calling other methods on self; object stored in an array.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Counter { var n = 0; func inc() { self.n = self.n + 1; } func get() { return self.n; } } "
+                     "var arr = [Counter.new(), Counter.new()]; "
+                     "arr[0].inc(); arr[0].inc(); arr[1].inc(); "
+                     "print arr[0].get(); print arr[1].get();"));
+        CHECK(vm.output == "2\n1\n");
+    }
+    // Bound method read off an instance, stored and called later.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Greeter { var who = \"world\"; func hi() { return \"hi \" + self.who; } } "
+                     "var g = Greeter.new(); var f = g.hi; print f();"));
+        CHECK(vm.output == "hi world\n");
+    }
+    // Three-level inheritance chain with super all the way up.
+    {
+        script::Vm vm;
+        CHECK(vm.run("class L1 { func tag() { return \"1\"; } } "
+                     "class L2 extends L1 { func tag() { return super.tag() + \"2\"; } } "
+                     "class L3 extends L2 { func tag() { return super.tag() + \"3\"; } } "
+                     "print L3.new().tag();"));
+        CHECK(vm.output == "123\n");
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13887,6 +13972,7 @@ int main() {
     testScriptCollections();
     testScriptStdlib();
     testScriptClosures();
+    testScriptClasses();
     testNormalLight();
     testParallax();
     testAudioDsp();
