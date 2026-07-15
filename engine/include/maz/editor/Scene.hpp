@@ -75,11 +75,61 @@ struct Node {
 
 struct Scene {
     std::vector<Node> nodes;
-    int selected = -1; // index of the selected node, or -1
+    int selected = -1;             // the PRIMARY (last-clicked) selected node, or -1; the inspector edits it
+    std::vector<int> selection;    // all selected node indices (includes `selected`); for multi-select
 
     Node* selectedNode() {
         return (selected >= 0 && selected < static_cast<int>(nodes.size())) ? &nodes[static_cast<size_t>(selected)]
                                                                             : nullptr;
+    }
+    bool isSelected(int i) const {
+        for (int s : selection) {
+            if (s == i) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // Replace the whole selection with a single node (a plain click).
+    void selectOnly(int i) {
+        selection.clear();
+        if (i >= 0) {
+            selection.push_back(i);
+        }
+        selected = i;
+    }
+    // Add / remove a node from the selection (a shift-click); the toggled node becomes primary when added.
+    void toggleSelect(int i) {
+        if (i < 0) {
+            return;
+        }
+        for (size_t k = 0; k < selection.size(); ++k) {
+            if (selection[k] == i) {
+                selection.erase(selection.begin() + static_cast<long>(k));
+                selected = selection.empty() ? -1 : selection.back();
+                return;
+            }
+        }
+        selection.push_back(i);
+        selected = i;
+    }
+    void clearSelection() {
+        selection.clear();
+        selected = -1;
+    }
+    // Drop any selection indices that no longer address a node (after a delete / undo) and re-fix primary.
+    void sanitizeSelection() {
+        const int n = static_cast<int>(nodes.size());
+        std::vector<int> keep;
+        for (int s : selection) {
+            if (s >= 0 && s < n) {
+                keep.push_back(s);
+            }
+        }
+        selection = std::move(keep);
+        if (selected >= n || (selected >= 0 && !isSelected(selected))) {
+            selected = selection.empty() ? -1 : selection.back();
+        }
     }
 };
 
@@ -284,6 +334,13 @@ inline bool fromJson(const io::JsonValue& root, Scene& out) {
     }
     if (const io::JsonValue* sel = root.fields().find("selected")) {
         s.selected = sel->asInt(-1);
+    }
+    // Multi-selection is transient editing state and isn't persisted; seed it from the primary.
+    s.selection.clear();
+    if (s.selected >= 0 && s.selected < static_cast<int>(s.nodes.size())) {
+        s.selection.push_back(s.selected);
+    } else {
+        s.selected = -1;
     }
     out = std::move(s);
     return true;

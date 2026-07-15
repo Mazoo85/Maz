@@ -10722,6 +10722,43 @@ void testEditorNodeOps() {
     CHECK(h.canRedo());
 }
 
+// E9: multi-select set operations on editor::Scene.
+void testEditorMultiSelect() {
+    editor::Scene sc;
+    sc.nodes.resize(4); // four nodes at indices 0..3
+
+    // A plain click selects exactly one and makes it primary.
+    sc.selectOnly(2);
+    CHECK(sc.selected == 2);
+    CHECK(sc.selection.size() == 1 && sc.isSelected(2));
+    CHECK(!sc.isSelected(0));
+
+    // Shift-click adds a node; the newly added one becomes primary.
+    sc.toggleSelect(0);
+    CHECK(sc.selection.size() == 2);
+    CHECK(sc.isSelected(0) && sc.isSelected(2));
+    CHECK(sc.selected == 0);
+
+    // Shift-clicking a selected node removes it; primary falls back to the remaining node.
+    sc.toggleSelect(0);
+    CHECK(sc.selection.size() == 1 && sc.isSelected(2));
+    CHECK(sc.selected == 2);
+
+    // toggleSelect(-1) is a no-op; clearSelection empties everything.
+    sc.toggleSelect(-1);
+    CHECK(sc.selection.size() == 1);
+    sc.clearSelection();
+    CHECK(sc.selection.empty() && sc.selected == -1);
+
+    // sanitizeSelection drops out-of-range indices after a delete and re-fixes primary.
+    sc.selection = {1, 3};
+    sc.selected = 3;
+    sc.nodes.resize(2); // now only indices 0..1 are valid; 3 is gone, 1 survives
+    sc.sanitizeSelection();
+    CHECK(sc.selection.size() == 1 && sc.isSelected(1));
+    CHECK(sc.selected == 1); // primary 3 was invalid, fell back to a surviving selected node
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13491,6 +13528,7 @@ int main() {
     testEditorHistory();
     testEditorSerialize();
     testEditorNodeOps();
+    testEditorMultiSelect();
     testNormalLight();
     testParallax();
     testAudioDsp();

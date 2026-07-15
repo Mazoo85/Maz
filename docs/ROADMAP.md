@@ -898,8 +898,10 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   **E8** — **reference grid + snap**: a Grid toggle draws a floor grid (baked into a tiling ground
   texture, so objects occlude it correctly — the debug-line path draws over geometry) and a Snap
   toggle rounds drag / arrow-nudge translation to a 0.5-unit grid (`snap1`/`snapToGrid`, unit-tested).
-- [ ] Rotate/scale gizmo handles, multi-select; asset browser; play-in-editor
-- [ ] Play-in-editor, undo/redo (command stack), multi-select
+  **E9** — **multi-select**: shift-click (viewport or tree) toggles nodes in a `Scene::selection`
+  set (set-ops unit-tested, including index re-fixing after a delete/undo); a plain drag or arrow-
+  nudge moves the whole group by one delta, and Delete / Duplicate act on the entire selection.
+- [ ] Rotate/scale gizmo handles; asset browser; play-in-editor
 - [ ] Content-pipeline UI, build / package button
 - [ ] Profiler + log panels
 

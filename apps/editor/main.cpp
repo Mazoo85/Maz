@@ -13,8 +13,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -130,7 +132,7 @@ int main(int argc, char** argv) {
     addNode("Sphere2", 1, math::vec3(1.7f, 0.5f, 0.4f), 2, 0.5f, 0.0f);
     addNode("SmallCube", 0, math::vec3(1.1f, 0.35f, 1.4f), 4, 0.3f, 0.0f);
     scene.nodes.back().scale = math::vec3(0.7f);
-    scene.selected = 0;
+    scene.selectOnly(0);
 
     bool dragging = false;         // translate-gizmo drag in progress
     math::vec3 dragOffset{0, 0, 0}; // node pos minus ground-plane hit at grab time
@@ -176,32 +178,42 @@ int main(int argc, char** argv) {
         n.roughness = 0.6f;
         n.specular = 1.0f;
         scene.nodes.push_back(n); // default local AABB ±0.5 suits both box and sphere
-        scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        scene.selectOnly(static_cast<int>(scene.nodes.size()) - 1);
         commitEdit(before);
     };
+    // Duplicate every selected node (offset copies), then select the new copies.
     auto duplicateSelected = [&]() {
-        editor::Node* s = scene.selectedNode();
-        if (!s) {
+        if (scene.selection.empty()) {
             return;
         }
         std::vector<editor::Node> before = scene.nodes;
-        editor::Node copy = *s;
-        copy.name += " copy";
-        copy.position.x += 0.6f;
-        copy.position.z += 0.6f;
-        scene.nodes.push_back(copy);
-        scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        std::vector<int> src = scene.selection; // copy: we mutate scene.selection below
+        scene.clearSelection();
+        for (int idx : src) {
+            editor::Node copy = before[static_cast<size_t>(idx)];
+            copy.name += " copy";
+            copy.position.x += 0.6f;
+            copy.position.z += 0.6f;
+            scene.nodes.push_back(copy);
+            scene.selection.push_back(static_cast<int>(scene.nodes.size()) - 1);
+        }
+        scene.selected = scene.selection.empty() ? -1 : scene.selection.back();
         commitEdit(before);
     };
+    // Delete every selected node (erase high indices first so lower ones stay valid).
     auto deleteSelected = [&]() {
-        if (scene.selected < 0 || scene.selected >= static_cast<int>(scene.nodes.size())) {
+        if (scene.selection.empty()) {
             return;
         }
         std::vector<editor::Node> before = scene.nodes;
-        scene.nodes.erase(scene.nodes.begin() + scene.selected);
-        if (scene.selected >= static_cast<int>(scene.nodes.size())) {
-            scene.selected = static_cast<int>(scene.nodes.size()) - 1;
+        std::vector<int> idx = scene.selection;
+        std::sort(idx.begin(), idx.end(), std::greater<int>());
+        for (int i : idx) {
+            if (i >= 0 && i < static_cast<int>(scene.nodes.size())) {
+                scene.nodes.erase(scene.nodes.begin() + i);
+            }
         }
+        scene.clearSelection();
         commitEdit(before);
     };
 
@@ -231,6 +243,8 @@ int main(int argc, char** argv) {
         // Undo / redo (Ctrl+Z / Ctrl+Y). Handled outside gesture bracketing below.
         const bool ctrl =
             input.keyDown(SDL_SCANCODE_LCTRL) || input.keyDown(SDL_SCANCODE_RCTRL);
+        const bool shift =
+            input.keyDown(SDL_SCANCODE_LSHIFT) || input.keyDown(SDL_SCANCODE_RSHIFT);
         if (ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
             history.undo(scene.nodes);
         }
@@ -244,9 +258,7 @@ int main(int argc, char** argv) {
         if (input.keyPressed(SDL_SCANCODE_DELETE)) {
             deleteSelected();
         }
-        if (scene.selected >= static_cast<int>(scene.nodes.size())) {
-            scene.selected = -1;
-        }
+        scene.sanitizeSelection(); // drop stale indices after undo/redo/delete
         // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON.
         if (ctrl && input.keyPressed(SDL_SCANCODE_S)) {
             io::writeTextFile(scenePath, editor::toJson(scene).dump(2));
@@ -258,9 +270,7 @@ int main(int argc, char** argv) {
                 io::readTextFile(scenePath, txt) ? io::parseJson(txt) : io::JsonParseResult{};
             if (pr.ok) {
                 editor::fromJson(pr.value, scene);
-                if (scene.selected >= static_cast<int>(scene.nodes.size())) {
-                    scene.selected = -1;
-                }
+                scene.sanitizeSelection();
             }
         }
 
@@ -288,27 +298,46 @@ int main(int argc, char** argv) {
             editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
             const int hit = editor::pickNode(scene, ro, rd);
             if (hit >= 0) {
-                scene.selected = hit;
-                math::vec3 planeHit;
-                if (editor::rayPlaneY(ro, rd, scene.nodes[static_cast<size_t>(hit)].position.y,
-                                      planeHit)) {
-                    dragging = true;
-                    const math::vec3& p = scene.nodes[static_cast<size_t>(hit)].position;
-                    dragOffset = math::vec3(p.x - planeHit.x, 0.0f, p.z - planeHit.z);
+                // Shift-click toggles a node in the selection; a plain click on an unselected node
+                // selects just it; clicking an already-selected node keeps the group and re-primes it,
+                // then starts a group drag anchored on the primary node's ground plane.
+                if (shift) {
+                    scene.toggleSelect(hit);
+                } else {
+                    if (!scene.isSelected(hit)) {
+                        scene.selectOnly(hit);
+                    } else {
+                        scene.selected = hit;
+                    }
+                    if (editor::Node* p = scene.selectedNode()) {
+                        math::vec3 planeHit;
+                        if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                            dragging = true;
+                            dragOffset =
+                                math::vec3(p->position.x - planeHit.x, 0.0f, p->position.z - planeHit.z);
+                        }
+                    }
                 }
+            } else if (!shift) {
+                scene.clearSelection(); // click empty space to deselect (shift keeps the selection)
             }
         }
-        // Continue dragging: move the selected node so its grab point tracks the cursor on its plane.
+        // Continue dragging: move the whole selection by the delta that keeps the primary node's grab
+        // point under the cursor on its ground plane.
         if (dragging && input.mouseDown(0)) {
-            if (editor::Node* s = scene.selectedNode()) {
+            if (editor::Node* p = scene.selectedNode()) {
                 math::vec3 ro, rd, planeHit;
                 editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
-                if (editor::rayPlaneY(ro, rd, s->position.y, planeHit)) {
-                    s->position.x = planeHit.x + dragOffset.x;
-                    s->position.z = planeHit.z + dragOffset.z;
+                if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                    float nx = planeHit.x + dragOffset.x, nz = planeHit.z + dragOffset.z;
                     if (snapOn) { // land on tidy grid coordinates
-                        s->position.x = editor::snap1(s->position.x, snapStep);
-                        s->position.z = editor::snap1(s->position.z, snapStep);
+                        nx = editor::snap1(nx, snapStep);
+                        nz = editor::snap1(nz, snapStep);
+                    }
+                    const float dx = nx - p->position.x, dz = nz - p->position.z;
+                    for (int i : scene.selection) {
+                        scene.nodes[static_cast<size_t>(i)].position.x += dx;
+                        scene.nodes[static_cast<size_t>(i)].position.z += dz;
                     }
                 }
             }
@@ -316,26 +345,35 @@ int main(int argc, char** argv) {
         if (!input.mouseDown(0)) {
             dragging = false;
         }
-        // Keyboard nudge of the selected node: arrows move on the ground plane, Q/E rotate. With snap
-        // on, each arrow *press* steps one grid cell (and re-aligns to the grid); otherwise arrows
-        // glide smoothly while held.
-        if (editor::Node* s = scene.selectedNode()) {
+        // Keyboard nudge of the whole selection: arrows move on the ground plane, Q/E rotate each node
+        // about its own origin. With snap on, each arrow *press* steps one grid cell (and re-aligns to
+        // the grid); otherwise arrows glide smoothly while held.
+        if (!scene.selection.empty()) {
+            float dx = 0.0f, dz = 0.0f, dyaw = 0.0f;
             if (snapOn) {
-                if (input.keyPressed(SDL_SCANCODE_LEFT)) s->position.x -= snapStep;
-                if (input.keyPressed(SDL_SCANCODE_RIGHT)) s->position.x += snapStep;
-                if (input.keyPressed(SDL_SCANCODE_UP)) s->position.z -= snapStep;
-                if (input.keyPressed(SDL_SCANCODE_DOWN)) s->position.z += snapStep;
-                s->position.x = editor::snap1(s->position.x, snapStep);
-                s->position.z = editor::snap1(s->position.z, snapStep);
+                if (input.keyPressed(SDL_SCANCODE_LEFT)) dx -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_RIGHT)) dx += snapStep;
+                if (input.keyPressed(SDL_SCANCODE_UP)) dz -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_DOWN)) dz += snapStep;
             } else {
                 const float step = 0.06f;
-                if (input.keyDown(SDL_SCANCODE_LEFT)) s->position.x -= step;
-                if (input.keyDown(SDL_SCANCODE_RIGHT)) s->position.x += step;
-                if (input.keyDown(SDL_SCANCODE_UP)) s->position.z -= step;
-                if (input.keyDown(SDL_SCANCODE_DOWN)) s->position.z += step;
+                if (input.keyDown(SDL_SCANCODE_LEFT)) dx -= step;
+                if (input.keyDown(SDL_SCANCODE_RIGHT)) dx += step;
+                if (input.keyDown(SDL_SCANCODE_UP)) dz -= step;
+                if (input.keyDown(SDL_SCANCODE_DOWN)) dz += step;
             }
-            if (input.keyDown(SDL_SCANCODE_Q)) s->euler.y -= 2.0f;
-            if (input.keyDown(SDL_SCANCODE_E)) s->euler.y += 2.0f;
+            if (input.keyDown(SDL_SCANCODE_Q)) dyaw -= 2.0f;
+            if (input.keyDown(SDL_SCANCODE_E)) dyaw += 2.0f;
+            for (int i : scene.selection) {
+                editor::Node& n = scene.nodes[static_cast<size_t>(i)];
+                n.position.x += dx;
+                n.position.z += dz;
+                n.euler.y += dyaw;
+                if (snapOn) {
+                    n.position.x = editor::snap1(n.position.x, snapStep);
+                    n.position.z = editor::snap1(n.position.z, snapStep);
+                }
+            }
         }
 
         renderer->setClearColor(render::Color{0.10f, 0.11f, 0.14f, 1.0f});
@@ -368,13 +406,18 @@ int main(int argc, char** argv) {
                 renderer->drawMeshMaterial(meshes[n.meshId % meshes.size()], glm::value_ptr(model),
                                            mat);
             }
-            // Selection outline: a yellow wire AABB around the selected node.
-            if (editor::Node* sel = scene.selectedNode()) {
+            // Selection outline: a wire AABB around every selected node (the primary glows brighter).
+            for (int i : scene.selection) {
+                editor::Node& n = scene.nodes[static_cast<size_t>(i)];
                 math::vec3 mn, mxb;
-                sel->worldAabb(mn, mxb);
-                const float col[4] = {1.0f, 0.85f, 0.2f, 1.0f};
+                n.worldAabb(mn, mxb);
+                const bool primary = (i == scene.selected);
+                const float col[4] = {1.0f, primary ? 0.85f : 0.6f, primary ? 0.2f : 0.15f,
+                                      primary ? 1.0f : 0.7f};
                 renderer->drawAabb(glm::value_ptr(mn), glm::value_ptr(mxb), col);
-                // RGB translate-gizmo axes from the node's origin (X red, Y green, Z blue).
+            }
+            // RGB translate-gizmo axes from the primary node's origin (X red, Y green, Z blue).
+            if (editor::Node* sel = scene.selectedNode()) {
                 const glm::vec3 c = sel->position;
                 const float L = 1.4f;
                 const float rx[4] = {1.0f, 0.3f, 0.25f, 1.0f};
@@ -420,13 +463,17 @@ int main(int argc, char** argv) {
             float ty = 82.0f;
             for (size_t i = 0; i < scene.nodes.size(); ++i) {
                 const ui::Rect row{10.0f, ty, panelW - 20.0f, 30.0f};
-                const bool isSel = static_cast<int>(i) == scene.selected;
-                if (isSel) {
+                if (scene.isSelected(static_cast<int>(i))) {
                     gui.panel(row, gui.colActive);
                 }
                 if (gui.button(static_cast<uint32_t>(100 + i), row, scene.nodes[i].name.c_str(),
                                0.42f)) {
-                    scene.selected = static_cast<int>(i);
+                    // Shift-click a tree row to toggle it in the selection; a plain click selects only it.
+                    if (shift) {
+                        scene.toggleSelect(static_cast<int>(i));
+                    } else {
+                        scene.selectOnly(static_cast<int>(i));
+                    }
                 }
                 ty += 36.0f;
             }
@@ -496,7 +543,7 @@ int main(int argc, char** argv) {
             }
 
             font.drawText(*renderer, 16.0f, fh - 30.0f,
-                          "MAZ ENGINE  -  EDITOR   (drag/arrows move; +Box/+Sph/Dup/Del or Ctrl+D/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
+                          "MAZ ENGINE  -  EDITOR   (Shift+click multi-select; drag/arrows move; +Box/+Sph/Dup/Del; Ctrl+Z/Y undo; Ctrl+S/O save/load)",
                           render::Color{0.7f, 0.75f, 0.85f, 1}, 0.34f);
             gui.end();
 
