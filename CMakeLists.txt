@@ -192,6 +192,7 @@ add_subdirectory(apps/polyline)
 add_subdirectory(apps/physics3d)
 add_subdirectory(apps/pbrballs)
 add_subdirectory(apps/tonemap)
+add_subdirectory(apps/ssao)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

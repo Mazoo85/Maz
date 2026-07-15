@@ -7,12 +7,14 @@ layout(location = 0) in vec2 vUv;
 
 layout(set = 0, binding = 0) uniform sampler2D uScene;
 layout(set = 0, binding = 1) uniform sampler2D uBloom;
+layout(set = 0, binding = 2) uniform sampler2D uAO;
 
 layout(push_constant) uniform Push {
     vec4 params; // x = bloom strength, y = threshold (unused here), z = exposure, w = tonemap (>0.5)
     vec4 grade;  // x = vignette strength, y = saturation, z = contrast, w = grade enable (>0.5)
     vec4 extra;  // x = chromatic aberration, y = film-grain strength, z = grain time seed,
                  // w = tonemap operator (0 = ACES Narkowicz, 1 = ACES fitted, 2 = AgX)
+    vec4 ssao;   // x = SSAO strength (0 = off); the AO texture darkens the scene by this amount
 } pc;
 
 layout(location = 0) out vec4 outColor;
@@ -84,6 +86,11 @@ void main() {
     } else {
         scene = texture(uScene, vUv).rgb;
     }
+    // Screen-space ambient occlusion: darken the scene by the (blurred) AO factor before adding
+    // bloom, so occluded creases go dark but bright bloom still blooms. Strength 0 leaves it untouched.
+    float ao = texture(uAO, vUv).r;
+    scene *= mix(1.0, ao, pc.ssao.x);
+
     vec3 bloom = texture(uBloom, vUv).rgb;
     vec3 color = scene + bloom * pc.params.x;
 

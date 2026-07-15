@@ -70,6 +70,19 @@ public:
     uint32_t drawCount() const { return m_drawnLastFrame; }   // meshes actually drawn (post-cull)
     uint32_t culledCount() const { return m_culledLastFrame; } // meshes skipped by frustum culling
     void renderShadow(VkCommandBuffer cmd); // depth-only pass into the shadow map (own render pass)
+    // Camera depth prepass: re-draw the queued meshes depth-only into a full-res, single-sample,
+    // *sampleable* depth image (reusing the shadow depth pass/pipeline with the camera's
+    // view-projection). Enabled only when SSAO wants it. Consumed by the SSAO pass. No-op otherwise.
+    void setDepthPrepass(bool on) { m_prepassEnabled = on; }
+    // Eagerly (re)create the prepass depth target at a given size, so its view exists for the SSAO
+    // pass's descriptor before the first frame. Safe to call again on resize.
+    bool createPrepass(VulkanContext& ctx, uint32_t w, uint32_t h) {
+        return ensurePrepassResources(ctx, w, h);
+    }
+    void renderDepthPrepass(VulkanContext& ctx, VkCommandBuffer cmd);
+    VkImageView depthPrepassView() const { return m_prepassView; }
+    VkSampler depthPrepassSampler() const { return m_prepassSampler; }
+    void destroyPrepassResources(VulkanContext& ctx);
     void renderSky(VkCommandBuffer cmd);    // gradient sky background (call at main-pass start)
     void flush(VkCommandBuffer cmd);        // main color pass (call inside the main render pass)
 
@@ -157,6 +170,17 @@ private:
     VkDescriptorSetLayout m_shadowSetLayout = VK_NULL_HANDLE;
     VkDescriptorPool m_shadowPool = VK_NULL_HANDLE;
     VkDescriptorSet m_shadowSet = VK_NULL_HANDLE;
+
+    // Camera depth prepass: full-res single-sample sampleable depth (reuses m_shadowPass/Pipeline).
+    bool m_prepassEnabled = false;
+    VkImage m_prepassImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_prepassMemory = VK_NULL_HANDLE;
+    VkImageView m_prepassView = VK_NULL_HANDLE;
+    VkSampler m_prepassSampler = VK_NULL_HANDLE;
+    VkFramebuffer m_prepassFbo = VK_NULL_HANDLE;
+    uint32_t m_prepassW = 0;
+    uint32_t m_prepassH = 0;
+    bool ensurePrepassResources(VulkanContext& ctx, uint32_t w, uint32_t h);
 
     // set = 2 : scene lighting (ambient + sun + point lights), a host-visible UBO.
     VulkanBuffer m_lightUbo;

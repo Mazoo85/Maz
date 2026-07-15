@@ -1086,6 +1086,138 @@ void MeshRenderer::renderShadow(VkCommandBuffer cmd) {
     vkCmdEndRenderPass(cmd);
 }
 
+void MeshRenderer::destroyPrepassResources(VulkanContext& ctx) {
+    if (m_prepassFbo) vkDestroyFramebuffer(ctx.device(), m_prepassFbo, nullptr);
+    if (m_prepassSampler) vkDestroySampler(ctx.device(), m_prepassSampler, nullptr);
+    if (m_prepassView) vkDestroyImageView(ctx.device(), m_prepassView, nullptr);
+    if (m_prepassImage) vkDestroyImage(ctx.device(), m_prepassImage, nullptr);
+    if (m_prepassMemory) vkFreeMemory(ctx.device(), m_prepassMemory, nullptr);
+    m_prepassFbo = VK_NULL_HANDLE;
+    m_prepassSampler = VK_NULL_HANDLE;
+    m_prepassView = VK_NULL_HANDLE;
+    m_prepassImage = VK_NULL_HANDLE;
+    m_prepassMemory = VK_NULL_HANDLE;
+    m_prepassW = m_prepassH = 0;
+}
+
+bool MeshRenderer::ensurePrepassResources(VulkanContext& ctx, uint32_t w, uint32_t h) {
+    if (w == 0 || h == 0) {
+        return false;
+    }
+    if (m_prepassImage != VK_NULL_HANDLE && m_prepassW == w && m_prepassH == h) {
+        return true; // still the right size
+    }
+    destroyPrepassResources(ctx);
+
+    VkImageCreateInfo ii{};
+    ii.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ii.imageType = VK_IMAGE_TYPE_2D;
+    ii.format = VK_FORMAT_D32_SFLOAT;
+    ii.extent = {w, h, 1};
+    ii.mipLevels = 1;
+    ii.arrayLayers = 1;
+    ii.samples = VK_SAMPLE_COUNT_1_BIT;
+    ii.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ii.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(ctx.device(), &ii, nullptr, &m_prepassImage) != VK_SUCCESS) {
+        return false;
+    }
+    VkMemoryRequirements req{};
+    vkGetImageMemoryRequirements(ctx.device(), m_prepassImage, &req);
+    VkMemoryAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    ai.allocationSize = req.size;
+    ai.memoryTypeIndex =
+        findMemoryType(ctx, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (ai.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(ctx.device(), &ai, nullptr, &m_prepassMemory) != VK_SUCCESS) {
+        return false;
+    }
+    vkBindImageMemory(ctx.device(), m_prepassImage, m_prepassMemory, 0);
+
+    VkImageViewCreateInfo vi{};
+    vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vi.image = m_prepassImage;
+    vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vi.format = VK_FORMAT_D32_SFLOAT;
+    vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    vi.subresourceRange.levelCount = 1;
+    vi.subresourceRange.layerCount = 1;
+    if (vkCreateImageView(ctx.device(), &vi, nullptr, &m_prepassView) != VK_SUCCESS) {
+        return false;
+    }
+    VkSamplerCreateInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    si.magFilter = VK_FILTER_NEAREST;
+    si.minFilter = VK_FILTER_NEAREST;
+    si.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    si.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    si.maxLod = 0.0f;
+    if (vkCreateSampler(ctx.device(), &si, nullptr, &m_prepassSampler) != VK_SUCCESS) {
+        return false;
+    }
+    // Reuse the shadow depth pass (depth-only D32, ends SHADER_READ_ONLY) for the full-res fbo.
+    VkFramebufferCreateInfo fb{};
+    fb.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fb.renderPass = m_shadowPass;
+    fb.attachmentCount = 1;
+    fb.pAttachments = &m_prepassView;
+    fb.width = w;
+    fb.height = h;
+    fb.layers = 1;
+    if (vkCreateFramebuffer(ctx.device(), &fb, nullptr, &m_prepassFbo) != VK_SUCCESS) {
+        return false;
+    }
+    m_prepassW = w;
+    m_prepassH = h;
+    return true;
+}
+
+void MeshRenderer::renderDepthPrepass(VulkanContext& ctx, VkCommandBuffer cmd) {
+    if (!m_prepassEnabled || m_cmds.empty() || m_shadowPipeline == VK_NULL_HANDLE) {
+        return;
+    }
+    if (!ensurePrepassResources(ctx, m_viewportW, m_viewportH)) {
+        return;
+    }
+    VkClearValue clear{};
+    clear.depthStencil = {1.0f, 0};
+    VkRenderPassBeginInfo rp{};
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = m_shadowPass;
+    rp.framebuffer = m_prepassFbo;
+    rp.renderArea.extent = {m_prepassW, m_prepassH};
+    rp.clearValueCount = 1;
+    rp.pClearValues = &clear;
+    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport{};
+    viewport.width = static_cast<float>(m_prepassW);
+    viewport.height = static_cast<float>(m_prepassH);
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    VkRect2D scissor{};
+    scissor.extent = {m_prepassW, m_prepassH};
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowPipeline);
+    const glm::mat4 camVP = glm::make_mat4(m_viewProj);
+    for (const DrawCmd& dc : m_cmds) {
+        const Mesh& mesh = m_meshes[dc.mesh];
+        const glm::mat4 mvp = camVP * glm::make_mat4(dc.model);
+        vkCmdPushConstants(cmd, m_shadowLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 16,
+                           glm::value_ptr(mvp));
+        VkDeviceSize offset = 0;
+        VkBuffer vbuf = mesh.vboFor(m_frameIndex);
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
+        vkCmdBindIndexBuffer(cmd, mesh.ibo.handle(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+    }
+    vkCmdEndRenderPass(cmd);
+}
+
 void MeshRenderer::flush(VkCommandBuffer cmd) {
     if ((m_cmds.empty() && m_instCmds.empty() && m_transCmds.empty()) ||
         m_pipeline == VK_NULL_HANDLE) {
@@ -1266,6 +1398,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
 
 void MeshRenderer::shutdown(VulkanContext& ctx) {
     VkDevice d = ctx.device();
+    destroyPrepassResources(ctx);
     for (Mesh& mesh : m_meshes) {
         mesh.vbo.destroy(ctx);
         mesh.ibo.destroy(ctx);

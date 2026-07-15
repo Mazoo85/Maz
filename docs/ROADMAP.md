@@ -387,7 +387,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] **Color grade** (composite vignette + saturation + contrast, `setColorGrade`; M45)
 - [x] **Chromatic aberration** (composite radial RGB split, `setChromaticAberration`; M46)
 - [x] **Film grain** (composite animated hashed noise, `setFilmGrain`; M48)
-- [ ] FXAA/TAA, lens dirt / bloom-dirt mask
+- [x] **Screen-space ambient occlusion** (`setSsao`) — a camera depth prepass (reusing the shadow
+  depth pass/pipeline at full res) feeds a world-space `SsaoPass`: it reconstructs position + a
+  camera-facing face normal from depth, samples a 16-point hemisphere with a per-pixel rotation and a
+  range check, and 4×4-blurs the result; the composite multiplies the blurred AO into the scene so
+  contact creases and corners darken. Off by default (byte-identical passthrough — verified); the
+  `ssao` demo (`--noao` to compare) shows objects grounded in their contact shading. Applied in the
+  composite (darkens the whole scene, not the ambient term alone) — a pragmatic approximation until a
+  deferred/G-buffer path exists.
+- [ ] FXAA/TAA, lens dirt / bloom-dirt mask; ambient-only AO once a deferred path lands
 - [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
 - [x] Render-to-texture (offscreen scene color target for post-processing; M27)
 - [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)

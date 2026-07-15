@@ -188,6 +188,12 @@ public:
     // Enable/adjust post-process bloom. strength 0 (default) is a faithful passthrough, so 2D and
     // 3D apps look identical; > 0 adds a soft glow to areas brighter than `threshold` (0..1).
     virtual void setBloom(float strength, float threshold) = 0;
+    // Enable screen-space ambient occlusion (3D). Off by default. When on, a camera depth prepass
+    // feeds an SSAO pass whose blurred occlusion darkens the composited scene by `strength` (0..1);
+    // `radius` is the sampling radius in world units. Occluded creases (contacts, corners) go dark,
+    // grounding objects. No-op when inactive. Note: applied in the composite, so it darkens the whole
+    // scene, not the ambient term alone — a pragmatic approximation until a deferred path exists.
+    virtual void setSsao(bool enabled, float radius, float strength) = 0;
     // Filmic tonemap operators (mirrors Godot's tonemapper choices). ACES is the cheap Narkowicz
     // curve fit (the historical default); ACESFitted is Stephen Hill's accurate RRT+ODT fit; AgX is
     // Godot 4.2+'s default, which desaturates highlights gracefully and avoids ACES' hue shifts.

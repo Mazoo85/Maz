@@ -176,6 +176,7 @@ CASES=(
     "physics3d||2.5|0.10"
     "pbrballs||2.5|0.10"
     "tonemap||2.5|0.10"
+    "ssao||2.5|0.10"
 )
 
 if [ ! -f "$ICD" ]; then

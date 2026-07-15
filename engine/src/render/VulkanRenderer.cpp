@@ -6,11 +6,15 @@
 #include "render/DebugDraw.hpp"
 #include "render/Particles3D.hpp"
 #include "render/BloomChain.hpp"
+#include "render/SsaoPass.hpp"
 #include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
+
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/mat4x4.hpp>
 
 #include <array>
 #include <cstdint>
@@ -53,6 +57,7 @@ public:
     void setCameraPosition(const float* pos3) override;
     void setLighting(const SceneLighting& lighting) override;
     void setBloom(float strength, float threshold) override;
+    void setSsao(bool enabled, float radius, float strength) override;
     void setTonemap(float exposure, bool enabled, TonemapOp op = TonemapOp::ACES) override;
     void setColorGrade(float vignette, float saturation, float contrast, bool enabled) override;
     void setChromaticAberration(float strength) override;
@@ -93,10 +98,12 @@ private:
     DebugDraw m_debug;
     PostProcess m_post;
     BloomChain m_bloom;
+    SsaoPass m_ssao;
     RendererConfig m_cfg;
 
     float m_viewProj3D[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     float m_camRight[3] = {1, 0, 0};
+    float m_camPos3[3] = {0, 0, 0}; // cached for the SSAO pass
     float m_camUp[3] = {0, 1, 0};
     RenderStats m_stats{};
 
@@ -172,8 +179,20 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         MAZ_LOG_ERROR("bloom chain init failed");
         return false;
     }
+    // SSAO needs a sampleable camera depth: create the prepass target eagerly, then init the SSAO
+    // pass against it. The prepass is only *rendered* when an app enables SSAO.
+    if (!m_meshes.createPrepass(m_ctx, m_swapchain.extent().width, m_swapchain.extent().height)) {
+        MAZ_LOG_ERROR("depth prepass target init failed");
+        return false;
+    }
+    if (!m_ssao.init(m_ctx, m_swapchain.extent(), m_meshes.depthPrepassView(),
+                     m_meshes.depthPrepassSampler())) {
+        MAZ_LOG_ERROR("ssao pass init failed");
+        return false;
+    }
     if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
-                     m_swapchain.sceneSampler(), m_bloom.bloomView(), m_bloom.sampler())) {
+                     m_swapchain.sceneSampler(), m_bloom.bloomView(), m_bloom.sampler(),
+                     m_ssao.aoView(), m_ssao.sampler())) {
         MAZ_LOG_ERROR("post-process init failed");
         return false;
     }
@@ -246,8 +265,12 @@ void VulkanRenderer::recreateSwapchain(uint32_t width, uint32_t height) {
     // The scene color image changed; rebuild the bloom targets and re-point both samplers.
     m_bloom.resize(m_ctx, m_swapchain.extent(), m_swapchain.sceneColorView(),
                    m_swapchain.sceneSampler());
+    // Rebuild the SSAO depth prepass target + AO targets at the new size.
+    m_meshes.createPrepass(m_ctx, m_swapchain.extent().width, m_swapchain.extent().height);
+    m_ssao.resize(m_ctx, m_swapchain.extent(), m_meshes.depthPrepassView(),
+                  m_meshes.depthPrepassSampler());
     m_post.updateSource(m_ctx, m_swapchain.sceneColorView(), m_swapchain.sceneSampler(),
-                        m_bloom.bloomView(), m_bloom.sampler());
+                        m_bloom.bloomView(), m_bloom.sampler(), m_ssao.aoView(), m_ssao.sampler());
     m_imagesInFlight.assign(m_swapchain.imageCount(), VK_NULL_HANDLE);
 }
 
@@ -320,6 +343,14 @@ void VulkanRenderer::endFrame() {
 
     // 1) Shadow pass — depth-only, into the mesh renderer's shadow map (skipped if no meshes).
     m_meshes.renderShadow(cmd);
+
+    // 1b) SSAO — a camera depth prepass then the AO passes (both no-op unless an app enabled SSAO).
+    if (m_ssao.enabled()) {
+        m_meshes.renderDepthPrepass(m_ctx, cmd);
+        const glm::mat4 vp = glm::make_mat4(m_viewProj3D);
+        const glm::mat4 inv = glm::inverse(vp);
+        m_ssao.record(m_ctx, cmd, m_viewProj3D, glm::value_ptr(inv), m_camPos3);
+    }
 
     // 2) Scene pass — renders sky/3D/2D into the offscreen sceneColor.
     VkClearValue clears[2]{};
@@ -475,8 +506,20 @@ void VulkanRenderer::drawAabb(const float min3[3], const float max3[3], const fl
 }
 
 void VulkanRenderer::setCameraPosition(const float* pos3) {
+    m_camPos3[0] = pos3[0];
+    m_camPos3[1] = pos3[1];
+    m_camPos3[2] = pos3[2];
     if (m_active) {
         m_meshes.setCameraPosition(pos3);
+    }
+}
+
+void VulkanRenderer::setSsao(bool enabled, float radius, float strength) {
+    if (m_active) {
+        m_ssao.setEnabled(enabled);
+        m_ssao.setParams(radius, 1.0f, 0.025f, 1.5f); // AO strength lives in the composite multiply
+        m_meshes.setDepthPrepass(enabled);
+        m_post.setSsaoStrength(enabled ? strength : 0.0f);
     }
 }
 
@@ -583,6 +626,7 @@ void VulkanRenderer::shutdown() {
     }
     if (m_active) {
         m_post.shutdown(m_ctx);
+        m_ssao.shutdown(m_ctx);
         m_bloom.shutdown(m_ctx);
         m_debug.shutdown(m_ctx);
         m_particles.shutdown(m_ctx);

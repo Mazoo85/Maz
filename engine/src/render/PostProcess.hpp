@@ -14,12 +14,16 @@ class VulkanContext;
 class PostProcess {
 public:
     bool init(VulkanContext& ctx, VkRenderPass compositePass, VkImageView sceneView,
-              VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler);
+              VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler,
+              VkImageView aoView, VkSampler aoSampler);
     void shutdown(VulkanContext& ctx);
 
-    // Re-point the sampled scene color + bloom after a swapchain rebuild (resize).
+    // Re-point the sampled scene color + bloom + AO after a swapchain rebuild (resize).
     void updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
-                      VkImageView bloomView, VkSampler bloomSampler);
+                      VkImageView bloomView, VkSampler bloomSampler, VkImageView aoView,
+                      VkSampler aoSampler);
+    // SSAO darkening strength applied to the scene (0 = off). The AO texture comes from SsaoPass.
+    void setSsaoStrength(float s) { m_ssaoStrength = s; }
 
     void setBloom(float strength, float threshold) {
         m_strength = strength;
@@ -54,7 +58,8 @@ public:
 private:
     bool createPipeline(VulkanContext& ctx, VkRenderPass compositePass);
     void writeDescriptor(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
-                         VkImageView bloomView, VkSampler bloomSampler);
+                         VkImageView bloomView, VkSampler bloomSampler, VkImageView aoView,
+                         VkSampler aoSampler);
 
     VkRenderPass m_compositePass = VK_NULL_HANDLE; // not owned
     VkDescriptorSetLayout m_setLayout = VK_NULL_HANDLE;
@@ -75,6 +80,7 @@ private:
     float m_chromatic = 0.0f;  // radial RGB split; 0 => off
     float m_grain = 0.0f;      // film-grain amplitude; 0 => off
     float m_grainTime = 0.0f;  // grain animation seed
+    float m_ssaoStrength = 0.0f; // SSAO darkening (0 = off)
 };
 
 } // namespace maz::render

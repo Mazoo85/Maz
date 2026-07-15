@@ -50,16 +50,18 @@ std::string assetBase() {
 struct PushParams {
     float params[4]; // x = bloom strength, y = threshold, z = exposure, w = tonemap enable
     float grade[4];  // x = vignette, y = saturation, z = contrast, w = color-grade enable
-    float extra[4];  // x = chromatic aberration, y = film-grain strength, z = grain time seed
+    float extra[4];  // x = chromatic aberration, y = film-grain strength, z = grain time seed, w = op
+    float ssao[4];   // x = SSAO strength (0 = off)
 };
 
 } // namespace
 
 bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageView sceneView,
-                       VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler) {
-    // Descriptor set: combined image samplers for the scene color (0) and the bloom texture (1).
-    VkDescriptorSetLayoutBinding bindings[2]{};
-    for (uint32_t i = 0; i < 2; ++i) {
+                       VkSampler sceneSampler, VkImageView bloomView, VkSampler bloomSampler,
+                       VkImageView aoView, VkSampler aoSampler) {
+    // Descriptor set: combined image samplers for the scene color (0), bloom (1), and SSAO (2).
+    VkDescriptorSetLayoutBinding bindings[3]{};
+    for (uint32_t i = 0; i < 3; ++i) {
         bindings[i].binding = i;
         bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         bindings[i].descriptorCount = 1;
@@ -67,7 +69,7 @@ bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageVi
     }
     VkDescriptorSetLayoutCreateInfo li{};
     li.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    li.bindingCount = 2;
+    li.bindingCount = 3;
     li.pBindings = bindings;
     if (vkCreateDescriptorSetLayout(ctx.device(), &li, nullptr, &m_setLayout) != VK_SUCCESS) {
         MAZ_LOG_ERROR("composite set layout failed");
@@ -75,7 +77,7 @@ bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageVi
     }
     VkDescriptorPoolSize ps{};
     ps.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    ps.descriptorCount = 2;
+    ps.descriptorCount = 3;
     VkDescriptorPoolCreateInfo pi{};
     pi.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pi.maxSets = 1;
@@ -94,22 +96,26 @@ bool PostProcess::init(VulkanContext& ctx, VkRenderPass compositePass, VkImageVi
         MAZ_LOG_ERROR("composite set alloc failed");
         return false;
     }
-    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler);
+    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler, aoView, aoSampler);
     m_compositePass = compositePass;
     return createPipeline(ctx, compositePass);
 }
 
 void PostProcess::writeDescriptor(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
-                                  VkImageView bloomView, VkSampler bloomSampler) {
-    VkDescriptorImageInfo imgs[2]{};
+                                  VkImageView bloomView, VkSampler bloomSampler, VkImageView aoView,
+                                  VkSampler aoSampler) {
+    VkDescriptorImageInfo imgs[3]{};
     imgs[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imgs[0].imageView = sceneView;
     imgs[0].sampler = sceneSampler;
     imgs[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imgs[1].imageView = bloomView;
     imgs[1].sampler = bloomSampler;
-    VkWriteDescriptorSet writes[2]{};
-    for (uint32_t i = 0; i < 2; ++i) {
+    imgs[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgs[2].imageView = aoView;
+    imgs[2].sampler = aoSampler;
+    VkWriteDescriptorSet writes[3]{};
+    for (uint32_t i = 0; i < 3; ++i) {
         writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[i].dstSet = m_set;
         writes[i].dstBinding = i;
@@ -117,12 +123,13 @@ void PostProcess::writeDescriptor(VulkanContext& ctx, VkImageView sceneView, VkS
         writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writes[i].pImageInfo = &imgs[i];
     }
-    vkUpdateDescriptorSets(ctx.device(), 2, writes, 0, nullptr);
+    vkUpdateDescriptorSets(ctx.device(), 3, writes, 0, nullptr);
 }
 
 void PostProcess::updateSource(VulkanContext& ctx, VkImageView sceneView, VkSampler sceneSampler,
-                               VkImageView bloomView, VkSampler bloomSampler) {
-    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler);
+                               VkImageView bloomView, VkSampler bloomSampler, VkImageView aoView,
+                               VkSampler aoSampler) {
+    writeDescriptor(ctx, sceneView, sceneSampler, bloomView, bloomSampler, aoView, aoSampler);
 }
 
 bool PostProcess::createPipeline(VulkanContext& ctx, VkRenderPass compositePass) {
@@ -258,6 +265,7 @@ void PostProcess::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExten
     pc.extra[1] = m_grain;
     pc.extra[2] = m_grainTime;
     pc.extra[3] = static_cast<float>(m_tonemapOp);
+    pc.ssao[0] = m_ssaoStrength;
     vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
