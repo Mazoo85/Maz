@@ -10877,6 +10877,80 @@ void testScript() {
     }
 }
 
+// SC2: collections & iteration — arrays, dicts, for-in, indexing, methods, break/continue, `in`.
+void testScriptCollections() {
+    using namespace maz;
+    // Array literal, indexing, index assignment, .append / .size.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var a = [10, 20, 30]; a[1] = 99; a.append(40); print a[1] + a[3] + a.size();"));
+        CHECK(vm.output == "143\n"); // 99 + 40 + 4
+    }
+    // for-in over an array accumulates.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var s = 0; for (x in [1, 2, 3, 4]) { s = s + x; } print s;"));
+        CHECK(vm.output == "10\n");
+    }
+    // range() + for-in with `var`.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var s = 0; for (var i in range(5)) { s = s + i; } print s;"));
+        CHECK(vm.output == "10\n"); // 0+1+2+3+4
+    }
+    // break / continue.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var s = 0; for (i in range(10)) { if (i == 5) { break; } if (i % 2 == 0) { "
+                     "continue; } s = s + i; } print s;"));
+        CHECK(vm.output == "4\n"); // odd i<5: 1+3
+    }
+    // Dictionaries: literal, [key] and .key read/write, .has / .keys / .size.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var d = {\"hp\": 100, \"mp\": 30}; d[\"hp\"] = d.hp - 25; d.gold = 5; "
+                     "print d.hp + d[\"mp\"] + d.gold + d.size();"));
+        CHECK(vm.output == "113\n"); // 75 + 30 + 5 + 3
+    }
+    // `in` membership on arrays, dicts, strings.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print (2 in [1, 2, 3]) and (\"k\" in {\"k\": 1}) and (\"ell\" in \"hello\");"));
+        CHECK(vm.output == "true\n");
+    }
+    // Nested collections + array concatenation.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var m = [[1, 2], [3, 4]]; var f = [0] + m[1]; print m[1][0] + f[2];"));
+        CHECK(vm.output == "7\n"); // 3 + 4
+    }
+    // Reference semantics: a function mutating an array is visible to the caller.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func fill(arr) { arr.append(7); } var a = [1]; fill(a); print a.size() + a[1];"));
+        CHECK(vm.output == "9\n"); // size 2 + a[1]=7
+    }
+    // for-in over dict keys.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var d = {\"a\": 1, \"b\": 2, \"c\": 3}; var t = 0; for (k in d) { t = t + d[k]; "
+                     "} print t;"));
+        CHECK(vm.output == "6\n");
+    }
+    // Out-of-range index is a catchable error, not UB.
+    {
+        script::Vm vm;
+        CHECK(!vm.run("var a = [1, 2]; print a[5];"));
+        CHECK(!vm.error().empty());
+    }
+    // String methods + char indexing.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var s = \"Hi\"; print s.to_upper() + s[1] + s.length();"));
+        CHECK(vm.output == "HIi2\n");
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13690,6 +13764,7 @@ int main() {
     testEditorPackage();
     testEditorWorldToScreen();
     testScript();
+    testScriptCollections();
     testNormalLight();
     testParallax();
     testAudioDsp();

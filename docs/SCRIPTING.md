@@ -4,12 +4,12 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1 shipped — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC2 shipped — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
 built-in stdlib (`abs`/`min`/`max`/`floor`/`sqrt`/`str`), and clean error
-reporting with line numbers (unit-tested in `tests/unit`).
+reporting with line numbers; plus arrays, dictionaries, `for..in`/`range`, indexing (`a[i]` / `d[k]` / `d.k`, read + write), method calls (`arr.append`, `dict.keys`, ...), `break`/`continue`, and the `in` operator (all unit-tested in `tests/unit`).
 
 Legend:
 - **[GD]** — corresponds to a Godot GDScript feature.
@@ -62,7 +62,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 
 ---
 
-## SC2 — Iteration, Collections, Indexing
+## SC2 — Iteration, Collections, Indexing ✅ *(shipped)*
 
 - `for i in <iterable>:` and `range(n)` / `range(a,b)` / `range(a,b,step)`. [GD]
 - **Arrays** `[1,2,3]`, index `a[i]`, nested. [GD]
