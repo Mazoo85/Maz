@@ -957,7 +957,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   fallback — Godot `Translation`; the `locale` demo renders one menu in four languages from one CSV;
   M133) — plural forms / message contexts / `%s` argument interpolation + OS-locale detection + a global
   auto-consulted TranslationServer later
-- [ ] Deterministic time / date utilities
+- [x] **Deterministic time/date** (`core::DateTime` + `core::GameClock`, toward Godot's Time
+  singleton): `fromUnix`/`toUnix` convert between an epoch value and UTC calendar fields via the
+  standard proleptic-Gregorian civil↔days algorithm (correct for any year, leap years, pre-epoch
+  negatives), plus `formatIso` and `daysInMonth`/`isLeapYear`. **Nothing reads the system clock** —
+  the caller supplies the epoch or advances a `GameClock` by the fixed-step dt (with a time-scale for
+  fast-forward/slow-mo), so in-game clocks, day counters, and save timestamps stay bit-reproducible
+  across a replay and across machines. Verified: known-date round-trips, leap-year edges, Feb-29-2000,
+  negative timestamps, and GameClock day/hour/time-of-day + scaling (M186)
 
 ## Phase 11 — Editor & tooling
 - [x] **In-engine editor** (`editor` app on a new `maz::editor` module): a 3D viewport plus editor

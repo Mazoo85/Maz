@@ -37,6 +37,7 @@
 #include "maz/core/CVars.hpp"
 #include "maz/core/Checkpoints.hpp"
 #include "maz/core/Containers.hpp"
+#include "maz/core/DateTime.hpp"
 #include "maz/core/Config.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"

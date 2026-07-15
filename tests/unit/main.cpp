@@ -36,6 +36,7 @@
 #include "maz/core/CVars.hpp"
 #include "maz/core/Checkpoints.hpp"
 #include "maz/core/Containers.hpp"
+#include "maz/core/DateTime.hpp"
 #include "maz/core/Memory.hpp"
 #include "maz/core/Reflect.hpp"
 #include "maz/core/Replay.hpp"
@@ -8266,6 +8267,78 @@ void testReflect() {
     CHECK(e.hp == 17);
 }
 
+// DateTime: deterministic epoch<->calendar conversion + the in-game GameClock.
+void testDateTime() {
+    // The epoch itself: 0 seconds == 1970-01-01T00:00:00Z, a Thursday.
+    core::DateTime e = core::fromUnix(0);
+    CHECK(e.year == 1970 && e.month == 1 && e.day == 1);
+    CHECK(e.hour == 0 && e.minute == 0 && e.second == 0);
+    CHECK(e.weekday == 4); // Thursday
+    CHECK(core::formatIso(e) == "1970-01-01T00:00:00Z");
+
+    // A known modern timestamp: 1700000000 == 2023-11-14T22:13:20Z (a Tuesday).
+    core::DateTime d = core::fromUnix(1700000000);
+    CHECK(d.year == 2023 && d.month == 11 && d.day == 14);
+    CHECK(d.hour == 22 && d.minute == 13 && d.second == 20);
+    CHECK(d.weekday == 2); // Tuesday
+    CHECK(core::formatIso(d) == "2023-11-14T22:13:20Z");
+
+    // Round-trip a spread of timestamps exactly.
+    const int64_t stamps[] = {0, 1, 86399, 86400, 951782400 /*2000-02-29*/, 1700000000, 4102444800};
+    for (int64_t s : stamps) {
+        CHECK(core::toUnix(core::fromUnix(s)) == s);
+    }
+
+    // Leap-year handling: 2000 is leap (÷400), 1900 is not (÷100), 2024 is (÷4).
+    CHECK(core::isLeapYear(2000));
+    CHECK(!core::isLeapYear(1900));
+    CHECK(core::isLeapYear(2024));
+    CHECK(core::daysInMonth(2024, 2) == 29);
+    CHECK(core::daysInMonth(2023, 2) == 28);
+    CHECK(core::daysInMonth(2023, 4) == 30);
+
+    // Feb 29 2000 exists and round-trips.
+    core::DateTime leap = core::fromUnix(951782400);
+    CHECK(leap.year == 2000 && leap.month == 2 && leap.day == 29);
+
+    // Pre-epoch (negative) timestamps floor correctly: -1s == 1969-12-31T23:59:59Z.
+    core::DateTime pre = core::fromUnix(-1);
+    CHECK(pre.year == 1969 && pre.month == 12 && pre.day == 31);
+    CHECK(pre.hour == 23 && pre.minute == 59 && pre.second == 59);
+    CHECK(core::toUnix(pre) == -1);
+
+    // toUnix from assembled fields.
+    core::DateTime made;
+    made.year = 2023;
+    made.month = 11;
+    made.day = 14;
+    made.hour = 22;
+    made.minute = 13;
+    made.second = 20;
+    CHECK(core::toUnix(made) == 1700000000);
+
+    // ---- GameClock (deterministic in-game time) ----
+    core::GameClock clock;
+    CHECK(clock.totalSeconds() == 0.0);
+    for (int i = 0; i < 3600; ++i) clock.advance(1.0); // 1 in-game hour
+    CHECK(clock.hourOfDay() == 1);
+    CHECK(clock.minuteOfHour() == 0);
+    CHECK(std::fabs(clock.timeOfDay01() - (3600.0 / 86400.0)) < 1e-9);
+
+    // Time scale fast-forwards: 2x means 100 real seconds -> 200 game seconds.
+    core::GameClock fast;
+    fast.setTimeScale(2.0);
+    for (int i = 0; i < 100; ++i) fast.advance(1.0);
+    CHECK(std::fabs(fast.totalSeconds() - 200.0) < 1e-9);
+
+    // Rolling past a day boundary rolls totalDays and wraps time-of-day.
+    core::GameClock day;
+    day.reset(90000.0); // 25 hours -> day 1, hour 1
+    CHECK(day.totalDays() == 1);
+    CHECK(day.hourOfDay() == 1);
+    CHECK(day.timeOfDay01() < 0.05); // just past midnight of day 2
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15724,6 +15797,7 @@ int main() {
     testOctree();
     testContainers();
     testReflect();
+    testDateTime();
     testSceneStack();
     testTween();
     testTweenPlayer();
