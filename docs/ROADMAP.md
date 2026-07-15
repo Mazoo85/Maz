@@ -215,7 +215,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `basisXform`/`xformInv`, `operator*` (parent×child), `affineInverse`, `getRotation`/`getScale`/`getSkew`,
   `orthonormalized`, `determinant`, `interpolateWith`; the `xform2d` demo draws an arrow under rotate/scale/
   skew/mirror with basis gizmos; M167) — a 3D `Transform3D`/`Basis` sibling + retrofitting sprites/TransformGraph later
-- [ ] AABB/OBB, ray, plane, frustum
+- [x] AABB/OBB, ray, plane, frustum (M193 — `math::Geometry3D`: first-class `Plane` (unit-normal,
+  `distanceTo`/`project`/`isPointOver`, ray/segment intersection, three-plane corner), `Ray3`,
+  `Aabb3` (contains/intersects/merge/support + slab ray test), and `Obb` (15-axis SAT box-vs-box,
+  point containment, world-AABB) — the Godot `Plane`/`AABB` vocabulary plus a proper oriented box;
+  frustum planes already live in `render::Camera3D` (`FrustumPlanes`/`isSphereVisible`). Unit-tested.)
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
 - [x] **Memory allocators** (`core::LinearArena` + `core::PoolAllocator`): the bump/frame arena and
   fixed-size pool an engine uses to avoid per-object malloc/free churn (fragmentation + frame-time

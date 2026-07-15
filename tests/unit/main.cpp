@@ -126,6 +126,7 @@
 #include "maz/io/ResourcePack.hpp"
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Geometry2D.hpp"
+#include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Math.hpp"
@@ -8146,6 +8147,102 @@ void testContainers() {
     CHECK(!big.contains(0) && !big.contains(998));
 }
 
+// Geometry3D: Plane / Aabb3 / Obb value types and their intersection tests.
+void testGeometry3D() {
+    using maz::math::Aabb3;
+    using maz::math::Obb;
+    using maz::math::Plane;
+    using maz::math::vec3;
+
+    // --- Plane ---
+    Plane pl(vec3(0, 1, 0), vec3(0, 5, 0)); // y = 5, normal +y
+    CHECK_NEAR(pl.d, 5.0f, 1e-5f);
+    CHECK_NEAR(pl.distanceTo(vec3(3, 8, -2)), 3.0f, 1e-5f);   // 3 above
+    CHECK_NEAR(pl.distanceTo(vec3(0, 1, 0)), -4.0f, 1e-5f);   // 4 below
+    CHECK(pl.isPointOver(vec3(0, 6, 0)));
+    CHECK(!pl.isPointOver(vec3(0, 4, 0)));
+    {
+        const vec3 proj = pl.project(vec3(2, 9, 3));
+        CHECK_NEAR(proj.y, 5.0f, 1e-5f);
+        CHECK_NEAR(proj.x, 2.0f, 1e-5f);
+    }
+    {
+        // Ray straight down from above hits at t=5.
+        auto t = pl.intersectRay(vec3(0, 10, 0), vec3(0, -1, 0));
+        CHECK(t.has_value());
+        CHECK_NEAR(*t, 5.0f, 1e-5f);
+        // Parallel ray misses.
+        CHECK(!pl.intersectRay(vec3(0, 10, 0), vec3(1, 0, 0)).has_value());
+        // Segment crossing the plane.
+        auto hit = pl.intersectSegment(vec3(0, 10, 0), vec3(0, 0, 0));
+        CHECK(hit.has_value());
+        CHECK_NEAR(hit->y, 5.0f, 1e-5f);
+        // Segment fully above does not cross.
+        CHECK(!pl.intersectSegment(vec3(0, 10, 0), vec3(0, 6, 0)).has_value());
+    }
+    {
+        // fromPoints normal + 3-plane intersection at the origin corner.
+        Plane px(vec3(1, 0, 0), vec3(0, 0, 0));
+        Plane py(vec3(0, 1, 0), vec3(0, 0, 0));
+        Plane pz(vec3(0, 0, 1), vec3(0, 0, 0));
+        auto corner = Plane::intersect3(px, py, pz);
+        CHECK(corner.has_value());
+        CHECK_NEAR(glm::length(*corner), 0.0f, 1e-5f);
+        // Two parallel planes -> no unique point.
+        CHECK(!Plane::intersect3(px, px, pz).has_value());
+    }
+
+    // --- Aabb3 ---
+    Aabb3 box(vec3(-1, -1, -1), vec3(1, 1, 1));
+    CHECK(box.contains(vec3(0, 0, 0)));
+    CHECK(!box.contains(vec3(2, 0, 0)));
+    CHECK_NEAR(box.volume(), 8.0f, 1e-5f);
+    CHECK(box.intersects(Aabb3(vec3(0.5f, 0, 0), vec3(3, 3, 3))));
+    CHECK(!box.intersects(Aabb3(vec3(2, 2, 2), vec3(3, 3, 3))));
+    {
+        Aabb3 e = Aabb3::empty();
+        e.enclosePoint(vec3(1, 2, 3));
+        e.enclosePoint(vec3(-4, 0, 5));
+        CHECK_NEAR(e.min.x, -4.0f, 1e-5f);
+        CHECK_NEAR(e.max.z, 5.0f, 1e-5f);
+        // Support corner along +x-y+z.
+        const vec3 s = box.support(vec3(1, -1, 1));
+        CHECK_NEAR(s.x, 1.0f, 1e-5f);
+        CHECK_NEAR(s.y, -1.0f, 1e-5f);
+        CHECK_NEAR(s.z, 1.0f, 1e-5f);
+    }
+    {
+        // Ray from -x toward the box enters its near face at t=4 (box min.x = -1, origin x = -5).
+        auto t = box.intersectRay(vec3(-5, 0, 0), vec3(1, 0, 0));
+        CHECK(t.has_value());
+        CHECK_NEAR(*t, 4.0f, 1e-5f);
+        CHECK(!box.intersectRay(vec3(-5, 5, 0), vec3(1, 0, 0)).has_value()); // above the box
+    }
+
+    // --- Obb SAT ---
+    Obb a; // unit axes, half 0.5, at origin
+    Obb b;
+    b.center = vec3(0.8f, 0, 0);
+    CHECK(a.intersects(b));  // overlapping along x
+    b.center = vec3(1.2f, 0, 0);
+    CHECK(!a.intersects(b)); // separated (0.5 + 0.5 < 1.2)
+    {
+        // Rotate b 45° about z and slip it into the gap: a rotated box's corner still separates.
+        Obb c;
+        c.center = vec3(1.05f, 0, 0);
+        const float s = std::sin(0.785398f), co = std::cos(0.785398f);
+        c.axes = maz::math::mat3(vec3(co, s, 0), vec3(-s, co, 0), vec3(0, 0, 1));
+        // Half-diagonal of a unit box is ~0.707; centers 1.05 apart along x -> rotated box reaches in.
+        CHECK(a.intersects(c));
+        // Its world AABB must enclose its center and be larger than the local box on x.
+        Aabb3 wb = c.aabb();
+        CHECK(wb.contains(c.center));
+        CHECK(wb.size().x > 0.9f); // 0.5*(|cos|+|sin|)*2 ≈ 1.414
+    }
+    CHECK(a.contains(vec3(0.4f, 0.4f, 0.4f)));
+    CHECK(!a.contains(vec3(0.6f, 0, 0)));
+}
+
 // BVH: box queries + ray casts match brute force, and raycastNearest returns the closest hit.
 void testBvh() {
     using maz::game::Bvh;
@@ -15997,6 +16094,7 @@ int main() {
     testCheckpoints();
     testMemory();
     testQuadtree();
+    testGeometry3D();
     testBvh();
     testOctree();
     testContainers();
