@@ -807,12 +807,15 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC3 shipped (Alpha tier)**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC4 shipped (Alpha tier + closures)**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
-  functions (`registerNative` / `setGlobal` / `call`), a small stdlib, line-numbered error
-  reporting, plus arrays / dictionaries / `for..in` / `range` / indexing / methods / `break` / `continue` /
-  the `in` operator — all unit-tested. Roadmap SC2–SC11 (collections, closures, classes, engine-object
+  functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
+  seedable RNG / `assert`), line-numbered error reporting, arrays / dictionaries / `for..in` /
+  `range` / indexing / methods / `break` / `continue` / the `in` operator, plus **first-class
+  functions**: lambdas (`func(x){...}`), real closures that capture and mutate their defining
+  scope, and higher-order array methods (`map` / `filter` / `reduce` / `any` / `all` / `sort` /
+  `sort_custom`) — all unit-tested. Roadmap SC5–SC11 (classes, engine-object
   binding, signals, hot-reload, gradual typing) in `docs/SCRIPTING.md`.
 - [ ] Script hot-reload (SC9), engine-object binding (SC6), signals/await (SC7) — see SCRIPTING.md
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the

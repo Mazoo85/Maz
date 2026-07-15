@@ -26,16 +26,21 @@
 //   SC2: arrays [..] and dictionaries {k: v} (reference semantics), indexing a[i] / d[k] / d.k with
 //        read + write, for-in over arrays / dict keys / ranges / string chars, break / continue, the
 //        `in` / membership operator, method calls (arr.append(x), dict.keys(), ...), len()/range().
+//   SC3: string / math / conversion stdlib + a seedable deterministic RNG + assert.
+//   SC4: first-class functions — lambdas (func(x){...}), real closures capturing (and mutating) the
+//        scope they were defined in, and higher-order array methods (map/filter/reduce/any/all/
+//        sort/sort_custom). Environments are heap-allocated (make_shared) so a returned closure keeps
+//        its captured scope alive after the enclosing call returns.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
-// of a loaded program; runtime environments are stack-allocated during evaluation (functions are not
-// closures — they see globals + their own parameters/locals — so nothing escapes the call).
+// of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
 namespace maz::script {
 
 // ---------------------------------------------------------------------------------------------------
 // Values
 // ---------------------------------------------------------------------------------------------------
-struct FuncDef; // forward: a user function definition (AST-owned)
+struct FuncDef;     // forward: a user function definition (AST-owned)
+struct Environment; // forward: a runtime scope (heap-allocated so closures can capture it)
 struct Value;
 using ArrayData = std::vector<Value>;
 using DictData = std::vector<std::pair<Value, Value>>; // insertion-ordered, any-typed keys (like GDScript)
@@ -48,6 +53,7 @@ struct Value {
     std::string str;
     std::function<Value(std::vector<Value>&)> native; // when Type::Native
     const FuncDef* func = nullptr;                     // when Type::Func (AST-owned)
+    std::shared_ptr<Environment> closure;              // when Type::Func: the scope captured at definition
     std::shared_ptr<ArrayData> array;                      // when Type::Array (shared/reference semantics)
     std::shared_ptr<DictData> dict;                        // when Type::Dict
 
@@ -327,10 +333,12 @@ inline std::vector<Token> lex(const std::string& src, ScriptError& err) {
 // ---------------------------------------------------------------------------------------------------
 // AST
 // ---------------------------------------------------------------------------------------------------
+struct Stmt; // forward: Expr's Lambda kind owns a body of statements
+
 struct Expr {
     enum class K {
         Number, String, Bool, Nil, Var, Assign, Unary, Binary, Logical, Call,
-        ArrayLit, DictLit, Index, Get
+        ArrayLit, DictLit, Index, Get, Lambda
     };
     K kind;
     double number = 0.0;
@@ -341,6 +349,9 @@ struct Expr {
     std::unique_ptr<Expr> callee;            // Call target (Var or Get)
     std::vector<std::unique_ptr<Expr>> args; // Call args / ArrayLit elems / DictLit values
     std::vector<std::unique_ptr<Expr>> keys; // DictLit keys (parallel to args)
+    std::vector<std::string> params;         // Lambda parameters
+    std::vector<std::unique_ptr<Stmt>> body; // Lambda body
+    mutable std::shared_ptr<FuncDef> cachedDef; // Lambda: FuncDef built once, reused
     int line = 0;
 };
 
@@ -767,6 +778,19 @@ private:
             e->str = previous().text;
             return e;
         }
+        if (match(Tok::Func)) { // lambda / anonymous function expression
+            e->kind = Expr::K::Lambda;
+            expect(Tok::LParen, "expected '(' after 'func'");
+            if (!check(Tok::RParen)) {
+                do {
+                    e->params.push_back(expect(Tok::Ident, "expected parameter name").text);
+                } while (match(Tok::Comma));
+            }
+            expect(Tok::RParen, "expected ')' after lambda parameters");
+            expect(Tok::LBrace, "expected '{' before lambda body");
+            e->body = block();
+            return e;
+        }
         if (match(Tok::LBracket)) { // array literal
             e->kind = Expr::K::ArrayLit;
             if (!check(Tok::RBracket)) {
@@ -807,12 +831,15 @@ private:
 // ---------------------------------------------------------------------------------------------------
 // Interpreter
 // ---------------------------------------------------------------------------------------------------
-struct Environment {
+// A runtime scope. Heap-allocated (always via make_shared) so a closure can capture the scope it was
+// defined in and keep it alive after the enclosing block returns. enable_shared_from_this lets the
+// interpreter obtain a shared_ptr to the current scope when building a lambda value.
+struct Environment : std::enable_shared_from_this<Environment> {
     std::unordered_map<std::string, Value> vars;
-    Environment* parent = nullptr;
+    std::shared_ptr<Environment> parent;
 
     bool assign(const std::string& name, const Value& v) {
-        for (Environment* e = this; e; e = e->parent) {
+        for (Environment* e = this; e; e = e->parent.get()) {
             const auto it = e->vars.find(name);
             if (it != e->vars.end()) {
                 it->second = v;
@@ -822,7 +849,7 @@ struct Environment {
         return false;
     }
     const Value* get(const std::string& name) const {
-        for (const Environment* e = this; e; e = e->parent) {
+        for (const Environment* e = this; e; e = e->parent.get()) {
             const auto it = e->vars.find(name);
             if (it != e->vars.end()) {
                 return &it->second;
@@ -987,11 +1014,11 @@ public:
         Value v;
         v.type = Value::Type::Native;
         v.native = std::move(fn);
-        m_global.vars[name] = std::move(v);
+        m_global->vars[name] = std::move(v);
     }
 
-    void setGlobal(const std::string& name, const Value& v) { m_global.vars[name] = v; }
-    const Value* getGlobal(const std::string& name) const { return m_global.get(name); }
+    void setGlobal(const std::string& name, const Value& v) { m_global->vars[name] = v; }
+    const Value* getGlobal(const std::string& name) const { return m_global->get(name); }
 
     std::function<void(const std::string&)> onPrint;
     std::string output;
@@ -1012,10 +1039,10 @@ public:
         try {
             Parser parser(std::move(toks));
             m_program = parser.parse();
-            hoistFunctions(m_program, m_global);
+            hoistFunctions(m_program, *m_global);
             for (const auto& s : m_program) {
                 if (s->kind != Stmt::K::Func) {
-                    exec(*s, m_global);
+                    exec(*s, *m_global);
                 }
             }
         } catch (const ScriptError& e) {
@@ -1029,7 +1056,7 @@ public:
     }
 
     Value call(const std::string& name, std::vector<Value> args) {
-        const Value* fn = m_global.get(name);
+        const Value* fn = m_global->get(name);
         if (!fn) {
             m_error = {"undefined function '" + name + "'", 0};
             return Value::nil();
@@ -1043,7 +1070,7 @@ public:
     }
 
 private:
-    Environment m_global;
+    std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
     ScriptError m_error;
@@ -1073,6 +1100,7 @@ private:
                 Value v;
                 v.type = Value::Type::Func;
                 v.func = def.get();
+                v.closure = m_global; // named functions capture globals (non-closure, as before)
                 env.vars[s->name] = v;
                 m_funcDefs.push_back(std::move(def));
             }
@@ -1106,9 +1134,11 @@ private:
             env.vars[s.name] = s.expr ? eval(*s.expr, env) : Value::nil();
             break;
         case Stmt::K::Block: {
-            Environment local;
-            local.parent = &env;
-            execBlock(s.body, local);
+            // Hoist nested function declarations, then run in a fresh child scope.
+            auto local = std::make_shared<Environment>();
+            local->parent = env.shared_from_this();
+            hoistFunctions(s.body, *local);
+            execBlock(s.body, *local);
             break;
         }
         case Stmt::K::If:
@@ -1129,8 +1159,9 @@ private:
             }
             break;
         case Stmt::K::For: {
-            Environment loop;
-            loop.parent = &env;
+            auto loopPtr = std::make_shared<Environment>();
+            loopPtr->parent = env.shared_from_this();
+            Environment& loop = *loopPtr;
             if (!s.elseBody.empty()) {
                 const Stmt& init = *s.elseBody[0];
                 loop.vars[init.name] = init.expr ? eval(*init.expr, loop) : Value::nil();
@@ -1153,8 +1184,9 @@ private:
         case Stmt::K::ForIn: {
             Value seq = eval(*s.expr, env);
             std::vector<Value> items = iterate(seq, s.line);
-            Environment loop;
-            loop.parent = &env;
+            auto loopPtr = std::make_shared<Environment>();
+            loopPtr->parent = env.shared_from_this();
+            Environment& loop = *loopPtr;
             for (Value& item : items) {
                 loop.vars[s.name] = item;
                 try {
@@ -1210,8 +1242,9 @@ private:
         }
         if (callee.type == Value::Type::Func) {
             const FuncDef* def = callee.func;
-            Environment frame;
-            frame.parent = &m_global;
+            auto framePtr = std::make_shared<Environment>();
+            framePtr->parent = callee.closure ? callee.closure : m_global; // closure scope (globals for named fns)
+            Environment& frame = *framePtr;
             for (size_t i = 0; i < def->params.size(); ++i) {
                 frame.vars[def->params[i]] = i < args.size() ? args[i] : Value::nil();
             }
@@ -1238,6 +1271,78 @@ private:
             if (name == "has") { for (const Value& e : a) if (e.equals(args.empty() ? Value::nil() : args[0])) return Value::fromBool(true); return Value::fromBool(false); }
             if (name == "find") { for (size_t i = 0; i < a.size(); ++i) if (a[i].equals(args.empty() ? Value::nil() : args[0])) return Value::fromNum(static_cast<double>(i)); return Value::fromNum(-1.0); }
             if (name == "join") { std::string sep = args.empty() ? "" : args[0].toString(); std::string s; for (size_t i = 0; i < a.size(); ++i) { if (i) s += sep; s += a[i].toString(); } return Value::fromStr(s); }
+            if (name == "reverse") { std::reverse(a.begin(), a.end()); return Value::nil(); }
+            if (name == "slice") {
+                long from = args.size() > 0 ? static_cast<long>(args[0].number) : 0;
+                long to = args.size() > 1 ? static_cast<long>(args[1].number) : static_cast<long>(a.size());
+                const long n = static_cast<long>(a.size());
+                if (from < 0) from += n;
+                if (to < 0) to += n;
+                from = std::max<long>(0, std::min(from, n)); to = std::max<long>(0, std::min(to, n));
+                Value r = Value::newArray();
+                for (long i = from; i < to; ++i) r.array->push_back(a[static_cast<size_t>(i)]);
+                return r;
+            }
+            // ---- higher-order (SC4): each takes a callable (script func / lambda / native) ----
+            if (name == "map") {
+                if (args.empty()) fail("map expects a function", line);
+                Value r = Value::newArray();
+                for (Value& e : a) { std::vector<Value> ca{e}; r.array->push_back(invoke(args[0], ca, line)); }
+                return r;
+            }
+            if (name == "filter") {
+                if (args.empty()) fail("filter expects a function", line);
+                Value r = Value::newArray();
+                for (Value& e : a) { std::vector<Value> ca{e}; if (invoke(args[0], ca, line).isTruthy()) r.array->push_back(e); }
+                return r;
+            }
+            if (name == "reduce") {
+                if (args.empty()) fail("reduce expects a function", line);
+                Value acc = args.size() > 1 ? args[1] : (a.empty() ? Value::nil() : a[0]);
+                size_t start = args.size() > 1 ? 0 : 1;
+                for (size_t i = start; i < a.size(); ++i) { std::vector<Value> ca{acc, a[i]}; acc = invoke(args[0], ca, line); }
+                return acc;
+            }
+            if (name == "any") {
+                if (args.empty()) fail("any expects a function", line);
+                for (Value& e : a) { std::vector<Value> ca{e}; if (invoke(args[0], ca, line).isTruthy()) return Value::fromBool(true); }
+                return Value::fromBool(false);
+            }
+            if (name == "all") {
+                if (args.empty()) fail("all expects a function", line);
+                for (Value& e : a) { std::vector<Value> ca{e}; if (!invoke(args[0], ca, line).isTruthy()) return Value::fromBool(false); }
+                return Value::fromBool(true);
+            }
+            if (name == "sort") {
+                // Stable sort by natural order: numbers ascending, then strings, then everything
+                // else grouped by type tag. No comparator (use sort_custom for that).
+                std::stable_sort(a.begin(), a.end(), [](const Value& x, const Value& y) {
+                    if (x.type != y.type) return static_cast<int>(x.type) < static_cast<int>(y.type);
+                    if (x.type == Value::Type::Num) return x.number < y.number;
+                    if (x.type == Value::Type::Str) return x.str < y.str;
+                    if (x.type == Value::Type::Bool) return !x.boolean && y.boolean;
+                    return false;
+                });
+                return Value::nil();
+            }
+            if (name == "sort_custom") {
+                if (args.empty()) fail("sort_custom expects a comparator", line);
+                Value cmp = args[0];
+                // Comparator returns truthy when x should come before y. Insertion sort keeps it
+                // stable and calls the (interpreted) comparator a bounded number of times.
+                for (size_t i = 1; i < a.size(); ++i) {
+                    Value key = a[i];
+                    long j = static_cast<long>(i) - 1;
+                    while (j >= 0) {
+                        std::vector<Value> ca{key, a[static_cast<size_t>(j)]};
+                        if (!invoke(cmp, ca, line).isTruthy()) break;
+                        a[static_cast<size_t>(j + 1)] = a[static_cast<size_t>(j)];
+                        --j;
+                    }
+                    a[static_cast<size_t>(j + 1)] = key;
+                }
+                return Value::nil();
+            }
             fail("array has no method '" + name + "'", line);
         }
         if (obj.type == Value::Type::Dict) {
@@ -1354,6 +1459,23 @@ private:
             return l.isTruthy() ? eval(*e.rhs, env) : l;
         }
         case Expr::K::Binary: return binary(e, env);
+        case Expr::K::Lambda: {
+            // Anonymous function expression. Build its FuncDef once (cached on the AST node so a
+            // lambda inside a loop doesn't leak a new def per iteration), then capture the current
+            // scope so the closure sees the surrounding locals.
+            if (!e.cachedDef) {
+                auto def = std::make_shared<FuncDef>();
+                def->name = "<lambda>";
+                def->params = e.params;
+                def->body = &e.body;
+                e.cachedDef = def; // stays alive as long as the AST node does
+            }
+            Value v;
+            v.type = Value::Type::Func;
+            v.func = e.cachedDef.get();
+            v.closure = env.shared_from_this(); // capture the defining scope (real closure)
+            return v;
+        }
         case Expr::K::Call: {
             // Method call:  obj.method(args)
             if (e.callee->kind == Expr::K::Get) {

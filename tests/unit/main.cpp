@@ -11009,6 +11009,68 @@ void testScriptStdlib() {
     }
 }
 
+// SC4: closures, lambdas, and higher-order array methods (map/filter/reduce/sort/sort_custom).
+void testScriptClosures() {
+    using namespace maz;
+    // A lambda assigned to a var and called.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var dbl = func(x) { return x * 2; }; print dbl(21);"));
+        CHECK(vm.output == "42\n");
+    }
+    // Real closure: the returned function captures `n` from its defining scope.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func adder(n) { return func(x) { return x + n; }; } "
+                     "var add10 = adder(10); print add10(5); print add10(90);"));
+        CHECK(vm.output == "15\n100\n");
+    }
+    // Closure over mutable state: a counter that keeps incrementing across calls.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func makeCounter() { var c = 0; return func() { c = c + 1; return c; }; } "
+                     "var next = makeCounter(); print next(); print next(); print next();"));
+        CHECK(vm.output == "1\n2\n3\n");
+    }
+    // Two counters are independent (each closure has its own captured scope).
+    {
+        script::Vm vm;
+        CHECK(vm.run("func makeCounter() { var c = 0; return func() { c = c + 1; return c; }; } "
+                     "var a = makeCounter(); var b = makeCounter(); print a(); print a(); print b();"));
+        CHECK(vm.output == "1\n2\n1\n");
+    }
+    // map / filter / reduce with lambdas.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var xs = [1, 2, 3, 4, 5]; "
+                     "print xs.map(func(x) { return x * x; }); "
+                     "print xs.filter(func(x) { return x % 2 == 0; }); "
+                     "print xs.reduce(func(a, b) { return a + b; }, 0);"));
+        CHECK(vm.output == "[1, 4, 9, 16, 25]\n[2, 4]\n15\n");
+    }
+    // Passing a lambda as a first-class argument to a user function.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func apply(f, v) { return f(v); } "
+                     "print apply(func(x) { return x + 100; }, 23);"));
+        CHECK(vm.output == "123\n");
+    }
+    // sort (natural) and sort_custom (comparator returns true when a<b for descending flip).
+    {
+        script::Vm vm;
+        CHECK(vm.run("var a = [3, 1, 4, 1, 5, 9, 2, 6]; a.sort(); print a; "
+                     "var b = [3, 1, 4, 1, 5]; b.sort_custom(func(x, y) { return x > y; }); print b;"));
+        CHECK(vm.output == "[1, 1, 2, 3, 4, 5, 6, 9]\n[5, 4, 3, 1, 1]\n");
+    }
+    // any / all.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var xs = [2, 4, 6]; print xs.all(func(x) { return x % 2 == 0; }); "
+                     "print xs.any(func(x) { return x > 5; }); print xs.any(func(x) { return x > 10; });"));
+        CHECK(vm.output == "true\ntrue\nfalse\n"); // all even; some >5; none >10
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13824,6 +13886,7 @@ int main() {
     testScript();
     testScriptCollections();
     testScriptStdlib();
+    testScriptClosures();
     testNormalLight();
     testParallax();
     testAudioDsp();

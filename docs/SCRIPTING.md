@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC3 shipped (Alpha tier complete) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC4 shipped (Alpha tier complete + closures) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -80,10 +80,15 @@ front-end could be layered later if GDScript source compatibility is ever wanted
   reproducible stream for lockstep/replay].
 - `assert`, `push_error`, `push_warning`. [GD]
 
-## SC4 — Closures, Lambdas, Higher-Order
+## SC4 — Closures, Lambdas, Higher-Order ✅ *(shipped)*
 
-- Lambdas `func(a): return a*2` as expressions; closures capturing upvalues. [GD]
-- Callables as first-class args/returns; `map`/`filter`/`reduce`/`sort_custom`. [GD]
+- Lambdas `func(a) { return a*2; }` as expressions. [GD]
+- **Real closures** capturing upvalues — heap-allocated environments kept alive by the
+  capturing function, so a returned closure can read *and mutate* the locals of its defining
+  scope (independent counters, memoizers, etc.). [GD]
+- Callables as first-class values: passed as args, returned, stored in vars/arrays/dicts. [GD]
+- Higher-order array methods: `map`, `filter`, `reduce`, `any`, `all`, `sort` (natural),
+  `sort_custom` (comparator), plus `reverse` / `slice`. [GD]
 
 ## SC5 — Classes / Struct-like Objects
 
@@ -140,7 +145,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 ## Milestone Grouping
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
-- **Beta (game structure):** SC4–SC7.
+- **Beta (game structure):** SC4 ✅ → SC5–SC7.
 - **1.0 (production):** SC8–SC9.
 - **1.x (edge over Godot):** SC10–SC11.
 
