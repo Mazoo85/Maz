@@ -888,6 +888,99 @@ public:
             }
             return arr;
         });
+
+        // ---- SC3: math library ----
+        auto num1 = [](std::vector<Value>& a) { return a.empty() ? 0.0 : a[0].number; };
+        registerNative("ceil", [num1](std::vector<Value>& a) { return Value::fromNum(std::ceil(num1(a))); });
+        registerNative("round", [num1](std::vector<Value>& a) { return Value::fromNum(std::round(num1(a))); });
+        registerNative("sin", [num1](std::vector<Value>& a) { return Value::fromNum(std::sin(num1(a))); });
+        registerNative("cos", [num1](std::vector<Value>& a) { return Value::fromNum(std::cos(num1(a))); });
+        registerNative("tan", [num1](std::vector<Value>& a) { return Value::fromNum(std::tan(num1(a))); });
+        registerNative("pow", [](std::vector<Value>& a) {
+            return Value::fromNum(std::pow(a.size() > 0 ? a[0].number : 0.0, a.size() > 1 ? a[1].number : 0.0));
+        });
+        registerNative("fmod", [](std::vector<Value>& a) {
+            const double d = a.size() > 1 ? a[1].number : 1.0;
+            return Value::fromNum(d == 0.0 ? 0.0 : std::fmod(a.empty() ? 0.0 : a[0].number, d));
+        });
+        registerNative("sign", [num1](std::vector<Value>& a) {
+            const double x = num1(a);
+            return Value::fromNum(x > 0.0 ? 1.0 : (x < 0.0 ? -1.0 : 0.0));
+        });
+        registerNative("clamp", [](std::vector<Value>& a) {
+            const double x = a.size() > 0 ? a[0].number : 0.0, lo = a.size() > 1 ? a[1].number : 0.0,
+                         hi = a.size() > 2 ? a[2].number : 0.0;
+            return Value::fromNum(x < lo ? lo : (x > hi ? hi : x));
+        });
+        registerNative("lerp", [](std::vector<Value>& a) {
+            const double x = a.size() > 0 ? a[0].number : 0.0, y = a.size() > 1 ? a[1].number : 0.0,
+                         t = a.size() > 2 ? a[2].number : 0.0;
+            return Value::fromNum(x + (y - x) * t);
+        });
+        setGlobal("PI", Value::fromNum(3.14159265358979323846));
+        setGlobal("TAU", Value::fromNum(6.28318530717958647692));
+
+        // ---- SC3: conversions + type introspection ----
+        registerNative("int", [](std::vector<Value>& a) {
+            if (a.empty()) return Value::fromNum(0.0);
+            const Value& v = a[0];
+            if (v.type == Value::Type::Str) return Value::fromNum(std::trunc(std::strtod(v.str.c_str(), nullptr)));
+            if (v.type == Value::Type::Bool) return Value::fromNum(v.boolean ? 1.0 : 0.0);
+            return Value::fromNum(std::trunc(v.number));
+        });
+        registerNative("float", [](std::vector<Value>& a) {
+            if (a.empty()) return Value::fromNum(0.0);
+            const Value& v = a[0];
+            if (v.type == Value::Type::Str) return Value::fromNum(std::strtod(v.str.c_str(), nullptr));
+            if (v.type == Value::Type::Bool) return Value::fromNum(v.boolean ? 1.0 : 0.0);
+            return Value::fromNum(v.number);
+        });
+        registerNative("bool", [](std::vector<Value>& a) {
+            return Value::fromBool(!a.empty() && a[0].isTruthy());
+        });
+        registerNative("typeof", [](std::vector<Value>& a) {
+            if (a.empty()) return Value::fromStr("nil");
+            switch (a[0].type) {
+            case Value::Type::Nil: return Value::fromStr("nil");
+            case Value::Type::Bool: return Value::fromStr("bool");
+            case Value::Type::Num: return Value::fromStr("number");
+            case Value::Type::Str: return Value::fromStr("string");
+            case Value::Type::Array: return Value::fromStr("array");
+            case Value::Type::Dict: return Value::fromStr("dictionary");
+            default: return Value::fromStr("function");
+            }
+        });
+        registerNative("assert", [](std::vector<Value>& a) -> Value {
+            if (a.empty() || !a[0].isTruthy()) {
+                throw ScriptError{a.size() > 1 ? a[1].toString() : "assertion failed", 0};
+            }
+            return Value::nil();
+        });
+
+        // ---- SC3: seedable, deterministic RNG (xorshift64) — reproducible for lockstep/replay ----
+        registerNative("seed", [this](std::vector<Value>& a) {
+            m_rngState = a.empty() ? 0x9E3779B97F4A7C15ULL
+                                   : static_cast<uint64_t>(static_cast<int64_t>(a[0].number));
+            if (m_rngState == 0) {
+                m_rngState = 1;
+            }
+            return Value::nil();
+        });
+        registerNative("randf", [this](std::vector<Value>&) { return Value::fromNum(rngFloat()); });
+        registerNative("randi", [this](std::vector<Value>&) {
+            return Value::fromNum(static_cast<double>(rngNext() >> 33));
+        });
+        registerNative("randf_range", [this](std::vector<Value>& a) {
+            const double lo = a.size() > 0 ? a[0].number : 0.0, hi = a.size() > 1 ? a[1].number : 1.0;
+            return Value::fromNum(lo + rngFloat() * (hi - lo));
+        });
+        registerNative("randi_range", [this](std::vector<Value>& a) {
+            double lo = a.size() > 0 ? a[0].number : 0.0, hi = a.size() > 1 ? a[1].number : 0.0;
+            if (hi < lo) {
+                std::swap(lo, hi);
+            }
+            return Value::fromNum(lo + std::floor(rngFloat() * (hi - lo + 1.0)));
+        });
     }
 
     void registerNative(const std::string& name, std::function<Value(std::vector<Value>&)> fn) {
@@ -954,6 +1047,15 @@ private:
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
     ScriptError m_error;
+    uint64_t m_rngState = 0x9E3779B97F4A7C15ULL; // deterministic RNG stream (seedable via seed())
+
+    uint64_t rngNext() {
+        m_rngState ^= m_rngState << 13;
+        m_rngState ^= m_rngState >> 7;
+        m_rngState ^= m_rngState << 17;
+        return m_rngState;
+    }
+    double rngFloat() { return static_cast<double>(rngNext() >> 11) / 9007199254740992.0; } // [0,1)
 
     struct ReturnSignal {
         Value value;
@@ -1135,6 +1237,7 @@ private:
             if (name == "clear") { a.clear(); return Value::nil(); }
             if (name == "has") { for (const Value& e : a) if (e.equals(args.empty() ? Value::nil() : args[0])) return Value::fromBool(true); return Value::fromBool(false); }
             if (name == "find") { for (size_t i = 0; i < a.size(); ++i) if (a[i].equals(args.empty() ? Value::nil() : args[0])) return Value::fromNum(static_cast<double>(i)); return Value::fromNum(-1.0); }
+            if (name == "join") { std::string sep = args.empty() ? "" : args[0].toString(); std::string s; for (size_t i = 0; i < a.size(); ++i) { if (i) s += sep; s += a[i].toString(); } return Value::fromStr(s); }
             fail("array has no method '" + name + "'", line);
         }
         if (obj.type == Value::Type::Dict) {
@@ -1152,6 +1255,41 @@ private:
             if (name == "length" || name == "size") return Value::fromNum(static_cast<double>(obj.str.size()));
             if (name == "to_upper") { std::string s = obj.str; for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c))); return Value::fromStr(s); }
             if (name == "to_lower") { std::string s = obj.str; for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return Value::fromStr(s); }
+            if (name == "substr") {
+                long from = args.size() > 0 ? static_cast<long>(args[0].number) : 0;
+                const long slen = args.size() > 1 ? static_cast<long>(args[1].number) : -1;
+                if (from < 0) from = 0;
+                if (from > static_cast<long>(obj.str.size())) from = static_cast<long>(obj.str.size());
+                return Value::fromStr(slen < 0 ? obj.str.substr(static_cast<size_t>(from))
+                                               : obj.str.substr(static_cast<size_t>(from), static_cast<size_t>(slen)));
+            }
+            if (name == "find") { const std::string p = args.empty() ? "" : args[0].toString(); const size_t pos = obj.str.find(p); return Value::fromNum(pos == std::string::npos ? -1.0 : static_cast<double>(pos)); }
+            if (name == "begins_with") { const std::string p = args.empty() ? "" : args[0].toString(); return Value::fromBool(obj.str.rfind(p, 0) == 0); }
+            if (name == "ends_with") { const std::string p = args.empty() ? "" : args[0].toString(); return Value::fromBool(p.size() <= obj.str.size() && obj.str.compare(obj.str.size() - p.size(), p.size(), p) == 0); }
+            if (name == "replace") {
+                const std::string from = args.size() > 0 ? args[0].toString() : "";
+                const std::string to = args.size() > 1 ? args[1].toString() : "";
+                if (from.empty()) return obj;
+                std::string s = obj.str;
+                size_t pos = 0;
+                while ((pos = s.find(from, pos)) != std::string::npos) { s.replace(pos, from.size(), to); pos += to.size(); }
+                return Value::fromStr(s);
+            }
+            if (name == "split") {
+                const std::string sep = args.empty() ? " " : args[0].toString();
+                Value r = Value::newArray();
+                if (sep.empty()) { for (char c : obj.str) r.array->push_back(Value::fromStr(std::string(1, c))); return r; }
+                size_t prev = 0, pos;
+                while ((pos = obj.str.find(sep, prev)) != std::string::npos) { r.array->push_back(Value::fromStr(obj.str.substr(prev, pos - prev))); prev = pos + sep.size(); }
+                r.array->push_back(Value::fromStr(obj.str.substr(prev)));
+                return r;
+            }
+            if (name == "strip" || name == "strip_edges") {
+                const size_t a0 = obj.str.find_first_not_of(" \t\r\n");
+                if (a0 == std::string::npos) return Value::fromStr("");
+                const size_t b0 = obj.str.find_last_not_of(" \t\r\n");
+                return Value::fromStr(obj.str.substr(a0, b0 - a0 + 1));
+            }
             fail("string has no method '" + name + "'", line);
         }
         fail("value has no methods", line);

@@ -807,7 +807,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC2 shipped**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC3 shipped (Alpha tier)**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
   functions (`registerNative` / `setGlobal` / `call`), a small stdlib, line-numbered error

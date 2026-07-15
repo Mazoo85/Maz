@@ -10951,6 +10951,64 @@ void testScriptCollections() {
     }
 }
 
+// SC3: strings / math / conversions / seedable RNG stdlib.
+void testScriptStdlib() {
+    using namespace maz;
+    // Math library.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print ceil(2.1) + round(2.4) + pow(2, 3) + sign(0 - 5) + clamp(15, 0, 10);"));
+        CHECK(vm.output == "22\n"); // 3 + 2 + 8 + (-1) + 10
+    }
+    // lerp + PI constant.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print lerp(0, 100, 0.25); print floor(PI * 100);"));
+        CHECK(vm.output == "25\n314\n");
+    }
+    // Conversions + typeof.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print int(\"42\") + float(\"1.5\"); print typeof([1]); print typeof({\"a\": 1});"));
+        CHECK(vm.output == "43.5\narray\ndictionary\n");
+    }
+    // String methods: split / join round-trip, replace, substr, begins_with.
+    {
+        script::Vm vm;
+        CHECK(vm.run("var parts = \"a,b,c\".split(\",\"); print parts.join(\"-\"); "
+                     "print \"hello world\".replace(\"world\", \"maz\"); "
+                     "print \"abcdef\".substr(2, 3); print \"maz\".begins_with(\"ma\");"));
+        CHECK(vm.output == "a-b-c\nhello maz\ncde\ntrue\n");
+    }
+    // strip + find.
+    {
+        script::Vm vm;
+        CHECK(vm.run("print \"  hi  \".strip(); print \"needle\".find(\"dle\");"));
+        CHECK(vm.output == "hi\n3\n");
+    }
+    // Seedable RNG is deterministic: same seed -> same sequence.
+    {
+        script::Vm a, b;
+        CHECK(a.run("seed(1234); print randi_range(1, 6); print randi_range(1, 6); print randi_range(1, 6);"));
+        CHECK(b.run("seed(1234); print randi_range(1, 6); print randi_range(1, 6); print randi_range(1, 6);"));
+        CHECK(a.output == b.output);
+        // Values are in-range.
+        script::Vm c;
+        CHECK(c.run("seed(7); var ok = true; for (i in range(50)) { var r = randi_range(1, 6); "
+                    "if (r < 1 or r > 6) { ok = false; } } print ok;"));
+        CHECK(c.output == "true\n");
+    }
+    // assert: passing is a no-op, failing is a catchable error carrying the message.
+    {
+        script::Vm vm;
+        CHECK(vm.run("assert(1 == 1); print \"ok\";"));
+        CHECK(vm.output == "ok\n");
+        script::Vm vm2;
+        CHECK(!vm2.run("assert(1 == 2, \"nope\");"));
+        CHECK(vm2.error() == "nope");
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13765,6 +13823,7 @@ int main() {
     testEditorWorldToScreen();
     testScript();
     testScriptCollections();
+    testScriptStdlib();
     testNormalLight();
     testParallax();
     testAudioDsp();
