@@ -65,6 +65,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
+#include "maz/game/Quadtree.hpp"
 #include "maz/game/GravityField2D.hpp"
 #include "maz/game/KinematicBody2D.hpp"
 #include "maz/game/AutoTile.hpp"
@@ -7957,6 +7958,79 @@ void testCheckpoints() {
 
 // Memory allocators: the linear/frame arena (bump + alignment + reset + stack markers) and the
 // fixed-size pool (O(1) alloc/free, slot reuse, exhaustion).
+// Quadtree: spatial range queries match brute-force overlap exactly, with subdivision on clusters.
+void testQuadtree() {
+    using maz::game::Quadtree;
+
+    // A deterministic scatter of 200 small boxes across a 1000x1000 world, plus a tight cluster of
+    // 50 in one corner (to force deep subdivision there).
+    struct Box {
+        uint32_t id;
+        float x, y, w, h;
+    };
+    std::vector<Box> boxes;
+    core::Random rng(2024);
+    for (int i = 0; i < 200; ++i) {
+        boxes.push_back({static_cast<uint32_t>(i), static_cast<float>(rng.range(0, 990)),
+                         static_cast<float>(rng.range(0, 990)), static_cast<float>(rng.range(1, 10)),
+                         static_cast<float>(rng.range(1, 10))});
+    }
+    for (int i = 0; i < 50; ++i) {
+        boxes.push_back({static_cast<uint32_t>(200 + i), static_cast<float>(rng.range(0, 40)),
+                         static_cast<float>(rng.range(0, 40)), 2.0f, 2.0f});
+    }
+
+    Quadtree qt(0, 0, 1000, 1000, 8, 4);
+    for (const Box& b : boxes) {
+        qt.insert(b.id, b.x, b.y, b.w, b.h);
+    }
+    CHECK(qt.size() == boxes.size());
+    CHECK(qt.nodeCount() > 1); // the cluster forced at least one subdivision
+
+    auto brute = [&](float qx, float qy, float qw, float qh) {
+        std::set<uint32_t> s;
+        for (const Box& b : boxes) {
+            if (maz::game::aabbOverlap(b.x, b.y, b.w, b.h, qx, qy, qw, qh)) {
+                s.insert(b.id);
+            }
+        }
+        return s;
+    };
+    auto treeSet = [&](std::vector<uint32_t> v) { return std::set<uint32_t>(v.begin(), v.end()); };
+
+    // Several query regions: the dense corner, an empty middle strip, a wide sweep, and a point.
+    struct Q {
+        float x, y, w, h;
+    };
+    const Q queries[] = {{0, 0, 50, 50}, {450, 450, 20, 20}, {0, 500, 1000, 30}, {700, 200, 5, 5}};
+    for (const Q& q : queries) {
+        CHECK(treeSet(qt.query(q.x, q.y, q.w, q.h)) == brute(q.x, q.y, q.w, q.h));
+    }
+
+    // A query fully covering the world returns every item.
+    CHECK(qt.query(-10, -10, 1020, 1020).size() == boxes.size());
+    // A query entirely outside the world returns nothing.
+    CHECK(qt.query(5000, 5000, 10, 10).empty());
+
+    // queryCircle bounding-box prefilter includes a box the circle's bbox touches.
+    Quadtree q2(0, 0, 100, 100, 6, 2);
+    q2.insert(1, 48, 48, 4, 4); // centred near (50,50)
+    q2.insert(2, 90, 90, 4, 4); // far corner
+    CHECK(treeSet(q2.queryCircle(50, 50, 10)) == std::set<uint32_t>{1});
+
+    // clear() empties it.
+    q2.clear();
+    CHECK(q2.size() == 0);
+    CHECK(q2.query(0, 0, 100, 100).empty());
+
+    // A boundary-straddling item still surfaces from both sides.
+    Quadtree q3(0, 0, 100, 100, 6, 1);
+    q3.insert(7, 45, 45, 10, 10); // straddles the central cross
+    q3.insert(8, 5, 5, 2, 2);
+    q3.insert(9, 80, 80, 2, 2); // force subdivision
+    CHECK(treeSet(q3.query(46, 46, 2, 2)) == std::set<uint32_t>{7});
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15411,6 +15485,7 @@ int main() {
     testReplay();
     testCheckpoints();
     testMemory();
+    testQuadtree();
     testSceneStack();
     testTween();
     testTweenPlayer();

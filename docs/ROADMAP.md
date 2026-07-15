@@ -449,7 +449,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   parse-back; M127) — full `.tscn` parsing (ExtResource/SubResource refs, arrays) + SceneSerializer bridge
   later
 - [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
-- [ ] Spatial partitioning (grid / quadtree / octree / BVH) for broadphase culling + queries
+- [~] **Spatial partitioning** — the uniform **spatial grid** (`game::SpatialGrid`, M40) for evenly-
+  spread objects, plus a **quadtree** (`game::Quadtree`, M182) that adapts to CLUSTERED scenes: dense
+  regions subdivide deep, empty space stays one node, so a range query only visits cells that could
+  overlap. Exact overlap results (verified against brute force over 250 boxes incl. a tight cluster),
+  with `query`/`queryPoint`/`queryCircle` for culling, picking, and neighbour finding. octree / BVH
+  (3D) still pending
 
 ## Phase 5 — Asset pipeline
 - [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +
