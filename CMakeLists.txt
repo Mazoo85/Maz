@@ -201,6 +201,7 @@ add_subdirectory(apps/ssao)
 add_subdirectory(apps/editor)
 add_subdirectory(apps/zomboid)
 add_subdirectory(apps/streaming)
+add_subdirectory(apps/pong)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

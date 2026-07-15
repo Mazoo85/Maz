@@ -180,6 +180,7 @@ CASES=(
     "editor||2.5|0.10"
     "zomboid|--demo|2.5|0.22"
     "streaming||3.0|0.06"
+    "pong|--demo|2.5|0.14"
 )
 
 if [ ! -f "$ICD" ]; then

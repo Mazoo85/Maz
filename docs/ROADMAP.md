@@ -1213,7 +1213,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       hit harder at night** (a 1.7× aggression multiplier) and darkens the world; the HUD shows DAY /
       NIGHT, rations, and loot collected. Forage by day, survive the night — verified headless (loot
       pickup + night-vs-day horde speed) and shown rendering the arc through to "YOU DIED".
-- [ ] More sample scenes: pong, platformer, top-down adventure
+- [~] More sample scenes: pong, platformer, top-down adventure
+    - [x] **PONG** (M190) — a complete classic two-paddle game built from the 2D primitives
+      (polygon renderer, pixel-space camera, font HUD, fixed-timestep loop): a player paddle (W/S or
+      arrows) versus a tracking-AI paddle, a ball that bounces off walls and paddles, speeds up 1.04×
+      per hit and takes "english" off the paddle it strikes, wall-to-wall scoring with a dashed
+      center net and score HUD. `--demo` drives both paddles by AI for a deterministic offscreen
+      capture; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested.
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
 > The *ZOMBOID* sample above is an **original, engine-native** survival game written in `maz::script`
