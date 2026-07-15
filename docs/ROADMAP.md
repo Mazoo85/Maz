@@ -992,7 +992,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Deterministic fixed-step simulation, replay
 - [ ] Performance budgets + profiling dashboards
 - [ ] Docs site, API docs (Doxygen), tutorials / samples
-- [ ] Packaging / installers per platform, asset signing
+- [~] **Packaging / export** (`tools/package.sh`, toward Godot's "Export Project"): bundles one
+  built app into a self-contained, redistributable folder — the executable, its SDL3 runtime
+  (`lib/` with the SONAME symlink chain), compiled shaders, runtime assets, a `run-<app>.sh`
+  launcher that sets `LD_LIBRARY_PATH`, a player README, and a size MANIFEST — then tars it to
+  `dist/<app>-<ver>-<os>-<arch>.tar.gz` and **verifies** it by launching the packaged game headless
+  from a scratch dir (proving self-containment). Verified end-to-end on ZOMBOID (6.6 MiB bundle,
+  clean self-contained launch); Windows/macOS bundling + installers + code signing still pending
 - [ ] Opt-in telemetry / crash reporting
 
 ## Phase 13 — Demos & a first complete sample game

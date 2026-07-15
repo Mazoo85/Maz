@@ -7,6 +7,9 @@ build/
 build-*/
 out/
 cmake-build-*/
+
+# Packaged game bundles (tools/package.sh output)
+dist/
 *.o
 *.obj
 *.spv
