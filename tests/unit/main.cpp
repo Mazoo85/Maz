@@ -51,6 +51,7 @@
 #include "maz/editor/Scene.hpp"
 #include "maz/script/Script.hpp"
 #include "maz/script/ScriptSystem.hpp"
+#include "maz/scene/SceneTree.hpp"
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -11694,6 +11695,124 @@ void testScriptSystem() {
     }
 }
 
+// Scene unification: the SceneTree node hierarchy — transform propagation, scripts, groups, paths.
+void testSceneTree() {
+    using maz::scene::SceneTree;
+    using maz::scene::SceneNode;
+    namespace mscript = maz::script;
+
+    const double kEps = 1e-9;
+
+    // Transform hierarchy: a child's world position composes with its parent's translation.
+    {
+        SceneTree tree;
+        SceneNode* parent = tree.createChild(tree.root(), "Parent");
+        SceneNode* child = tree.createChild(*parent, "Child");
+        parent->setPosition(10, 5);
+        child->setPosition(3, 0); // local offset from parent
+        CHECK(std::fabs(child->worldX() - 13.0) < kEps);
+        CHECK(std::fabs(child->worldY() - 5.0) < kEps);
+    }
+    // Parent rotation rotates the child's world offset.
+    {
+        SceneTree tree;
+        SceneNode* parent = tree.createChild(tree.root(), "P");
+        SceneNode* child = tree.createChild(*parent, "C");
+        parent->setRotation(3.14159265358979 / 2.0); // 90 degrees
+        child->setPosition(1, 0);                     // local +x
+        // Rotated 90 deg, local +x becomes world +y.
+        CHECK(std::fabs(child->worldX() - 0.0) < 1e-6);
+        CHECK(std::fabs(child->worldY() - 1.0) < 1e-6);
+    }
+    // Parent scale scales the child's local offset in world space.
+    {
+        SceneTree tree;
+        SceneNode* parent = tree.createChild(tree.root(), "P");
+        SceneNode* child = tree.createChild(*parent, "C");
+        parent->local().scaleX = 2.0;
+        parent->local().scaleY = 3.0;
+        child->setPosition(4, 2);
+        CHECK(std::fabs(child->worldX() - 8.0) < kEps);
+        CHECK(std::fabs(child->worldY() - 6.0) < kEps);
+    }
+    // Path lookup finds a nested node; a bad path returns null.
+    {
+        SceneTree tree;
+        SceneNode* player = tree.createChild(tree.root(), "Player");
+        SceneNode* weapon = tree.createChild(*player, "Weapon");
+        CHECK(tree.findNode("Player") == player);
+        CHECK(tree.findNode("Player/Weapon") == weapon);
+        CHECK(tree.findNode("Player/Missing") == nullptr);
+        CHECK(tree.findNode("root") == &tree.root());
+    }
+    // A script attached to a node drives that node's local transform via _process.
+    {
+        SceneTree tree;
+        CHECK(tree.loadScripts("class Orbit { func _process(dt) { "
+                               "self.node.rotation = self.node.rotation + dt; } }"));
+        SceneNode* n = tree.createChild(tree.root(), "Sat");
+        CHECK(tree.attachScript(*n, "Orbit"));
+        tree.process(0.5);
+        tree.process(0.5);
+        CHECK(std::fabs(n->rotation() - 1.0) < kEps);
+    }
+    // Lifecycle propagates depth-first: a parent script and a child script both run.
+    {
+        SceneTree tree;
+        CHECK(tree.loadScripts("class Tick { func _process(dt) { self.node.x = self.node.x + 1; } }"));
+        SceneNode* a = tree.createChild(tree.root(), "A");
+        SceneNode* b = tree.createChild(*a, "B");
+        CHECK(tree.attachScript(*a, "Tick"));
+        CHECK(tree.attachScript(*b, "Tick"));
+        tree.process(0.0);
+        CHECK(a->x() == 1.0);
+        CHECK(b->x() == 1.0); // both ran
+    }
+    // Groups: tag nodes, query them, and broadcast a method to the group.
+    {
+        SceneTree tree;
+        CHECK(tree.loadScripts("class Enemy { var alerted = 0; func alert() { self.alerted = self.alerted + 1; } }"));
+        SceneNode* e1 = tree.createChild(tree.root(), "E1");
+        SceneNode* e2 = tree.createChild(tree.root(), "E2");
+        SceneNode* prop = tree.createChild(tree.root(), "Barrel");
+        e1->addToGroup("enemies");
+        e2->addToGroup("enemies");
+        prop->addToGroup("props");
+        CHECK(tree.attachScript(*e1, "Enemy"));
+        CHECK(tree.attachScript(*e2, "Enemy"));
+        CHECK(tree.nodesInGroup("enemies").size() == 2);
+        CHECK(tree.nodesInGroup("props").size() == 1);
+        tree.callGroup("enemies", "alert"); // only enemies get alerted
+        int total = 0;
+        for (SceneNode* n : tree.nodesInGroup("enemies")) {
+            if (n->script().instance) {
+                if (const mscript::Value* f =
+                        const_cast<mscript::Instance*>(n->script().instance.get())->findField("alerted")) {
+                    total += static_cast<int>(f->number);
+                }
+            }
+        }
+        CHECK(total == 2);
+    }
+    // visibleInTree: hiding a parent hides the subtree.
+    {
+        SceneTree tree;
+        SceneNode* p = tree.createChild(tree.root(), "P");
+        SceneNode* c = tree.createChild(*p, "C");
+        CHECK(c->visibleInTree());
+        p->local().visible = false;
+        CHECK(!c->visibleInTree()); // parent hidden -> child hidden
+    }
+    // nodeCount reflects the whole tree.
+    {
+        SceneTree tree;
+        SceneNode* a = tree.createChild(tree.root(), "A");
+        tree.createChild(*a, "B");
+        tree.createChild(tree.root(), "C");
+        CHECK(tree.nodeCount() == 4); // root + A + B + C
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14518,6 +14637,7 @@ int main() {
     testScriptTyping();
     testScriptTooling();
     testScriptSystem();
+    testSceneTree();
     testNormalLight();
     testParallax();
     testAudioDsp();

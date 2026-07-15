@@ -92,19 +92,29 @@ public:
     // Returns the node so the host/renderer can read (and the physics system can write) its transform.
     std::shared_ptr<Node2D> spawn(const std::string& className, std::vector<Value> initArgs = {}) {
         auto node = std::make_shared<Node2D>();
+        if (attach(className, node, std::move(initArgs)).type != Value::Type::Object) {
+            return nullptr;
+        }
+        return node;
+    }
+
+    // Attach a script class to an EXISTING node (used by the SceneTree, where the node's transform
+    // already lives in the hierarchy). Binds self.node, runs _ready, and returns the script instance
+    // (Type::Object), or nil on failure.
+    Value attach(const std::string& className, std::shared_ptr<Node2D> node,
+                 std::vector<Value> initArgs = {}) {
         Value self = m_vm.instantiate(className, std::move(initArgs));
         if (self.type != Value::Type::Object) {
             m_lastError = "ScriptSystem: cannot spawn unknown or invalid script class '" + className + "'";
-            return nullptr;
+            return Value::nil();
         }
-        // Expose the node to the script as self.node (a bound Node2D host object).
         Value nodeVal = m_vm.makeNativeObject("Node2D", node);
         setSelfField(self, "node", nodeVal);
         m_instances.push_back(ScriptInstance{node, self, className});
         if (m_vm.objectHasMethod(self, "_ready")) {
             m_vm.callOn(self, "_ready", {});
         }
-        return node;
+        return self;
     }
 
     // Drive every live instance's _process(dt) hook (frame update).
