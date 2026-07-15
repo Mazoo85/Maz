@@ -41,6 +41,7 @@
 #include "maz/core/Reflect.hpp"
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
+#include "maz/core/Version.hpp"
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -8405,6 +8406,53 @@ void testVfs() {
     CHECK(vfs.resolve("res://x.png").empty());
 }
 
+// Version: semver parse, compare, and the engine build stamp.
+void testVersion() {
+    using maz::Version;
+
+    // The engine's own version matches the macros.
+    Version ev = maz::engineVersion();
+    CHECK(ev.major == MAZ_VERSION_MAJOR && ev.minor == MAZ_VERSION_MINOR &&
+          ev.patch == MAZ_VERSION_PATCH);
+    CHECK(ev.toString() == MAZ_VERSION_STRING);
+    CHECK(ev.number() == MAZ_VERSION_NUMBER);
+
+    // Parse the standard form, plus leniencies (leading v, partials, pre-release/build suffix).
+    Version v;
+    CHECK(Version::parse("1.2.3", v) && v.major == 1 && v.minor == 2 && v.patch == 3);
+    CHECK(Version::parse("v2.0.0", v) && v.major == 2 && v.minor == 0 && v.patch == 0);
+    CHECK(Version::parse("1", v) && v.major == 1 && v.minor == 0 && v.patch == 0);
+    CHECK(Version::parse("1.5", v) && v.major == 1 && v.minor == 5 && v.patch == 0);
+    CHECK(Version::parse("1.2.3-rc1", v) && v.patch == 3); // pre-release trimmed
+    CHECK(Version::parse("1.2.3+build.7", v) && v.patch == 3); // build metadata trimmed
+
+    // Malformed input is rejected.
+    CHECK(!Version::parse("", v));
+    CHECK(!Version::parse("abc", v));
+    CHECK(!Version::parse("1..2", v));
+    CHECK(!Version::parse("1.x.3", v));
+
+    // Ordering follows semver precedence.
+    auto V = [](int a, int b, int c) { return Version{a, b, c}; };
+    CHECK(V(1, 0, 0) < V(1, 0, 1));
+    CHECK(V(1, 0, 9) < V(1, 1, 0));
+    CHECK(V(1, 9, 9) < V(2, 0, 0));
+    CHECK(V(2, 0, 0) > V(1, 9, 9));
+    CHECK(V(1, 2, 3) == V(1, 2, 3));
+    CHECK(V(1, 2, 3) != V(1, 2, 4));
+    CHECK(V(1, 2, 3) <= V(1, 2, 3));
+    CHECK(V(1, 2, 3) >= V(1, 2, 3));
+
+    // atLeast() — the "requires engine >= X" gate.
+    CHECK(V(1, 4, 0).atLeast(V(1, 2, 0)));
+    CHECK(!V(1, 1, 0).atLeast(V(1, 2, 0)));
+    CHECK(V(1, 2, 0).atLeast(V(1, 2, 0)));
+
+    // number() sorts consistently with the operators.
+    CHECK(V(1, 0, 0).number() < V(1, 0, 1).number());
+    CHECK(V(2, 0, 0).number() > V(1, 99, 99).number());
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15865,6 +15913,7 @@ int main() {
     testReflect();
     testDateTime();
     testVfs();
+    testVersion();
     testSceneStack();
     testTween();
     testTweenPlayer();

@@ -156,7 +156,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   settings.cfg into a table, edits it, and shows the re-encoded text; M165) — full Variant-literal values +
   direct file-path load/save later
 - [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
-- [ ] Semantic-version header, `CHANGELOG.md`
+- [x] **Semantic version + CHANGELOG** — `core::Version` (a parse/compare semver type with
+  `MAZ_VERSION_*` macros, `engineVersion()`, `atLeast()` for "requires engine ≥ X" gates, and a
+  monotonic `number()`), plus a root `CHANGELOG.md` (Keep-a-Changelog format). Games stamp saves/crash
+  reports with the exact build and compare a save's authoring version against the running one.
+  Verified: parse leniencies (leading `v`, partials, `-pre`/`+build` suffixes), rejection of malformed
+  input, and semver ordering (M188)
 
 ## Phase 1 — Platform layer
 - [x] Window creation, resize, close (SDL3)
