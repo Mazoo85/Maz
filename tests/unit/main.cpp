@@ -35,6 +35,7 @@
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Checkpoints.hpp"
+#include "maz/core/Memory.hpp"
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
 #include "maz/platform/CrashHandler.hpp"
@@ -7954,6 +7955,101 @@ void testCheckpoints() {
     CHECK(rw.rewind(0)->frame == 50);
 }
 
+// Memory allocators: the linear/frame arena (bump + alignment + reset + stack markers) and the
+// fixed-size pool (O(1) alloc/free, slot reuse, exhaustion).
+void testMemory() {
+    // ---- LinearArena ----
+    core::LinearArena arena(1024);
+    CHECK(arena.capacity() == 1024);
+    CHECK(arena.used() == 0);
+    CHECK(arena.remaining() == 1024);
+
+    void* a = arena.allocate(100, 1);
+    CHECK(a != nullptr);
+    CHECK(arena.used() == 100);
+
+    // Alignment: the next 16-aligned allocation starts on a 16-byte boundary (offset padded up).
+    void* b = arena.allocate(8, 16);
+    CHECK(b != nullptr);
+    CHECK(reinterpret_cast<uintptr_t>(b) % 16 == 0);
+    CHECK(arena.used() > 100); // padding was inserted before b
+
+    // Typed helper is correctly aligned for the type.
+    struct alignas(8) Thing {
+        double x;
+        int y;
+    };
+    Thing* t = arena.alloc<Thing>(3);
+    CHECK(t != nullptr);
+    CHECK(reinterpret_cast<uintptr_t>(t) % alignof(Thing) == 0);
+
+    // OOM returns nullptr and leaves the arena usable.
+    CHECK(arena.allocate(100000) == nullptr);
+    const size_t before = arena.used();
+    CHECK(arena.allocate(4) != nullptr);
+    CHECK(arena.used() > before);
+
+    // Stack markers: allocate inside a scope, rewind releases exactly that. (align 1 so the offset
+    // advances by exactly 200 with no alignment padding.)
+    const size_t m = arena.marker();
+    arena.allocate(200, 1);
+    CHECK(arena.used() == m + 200);
+    arena.rewind(m);
+    CHECK(arena.used() == m);
+    arena.rewind(m + 999999); // rewinding forward is ignored
+    CHECK(arena.used() == m);
+
+    // reset() frees everything at once (the frame reset).
+    arena.reset();
+    CHECK(arena.used() == 0);
+    CHECK(arena.remaining() == 1024);
+
+    // A bad (non-power-of-two) alignment is rejected.
+    CHECK(arena.allocate(8, 3) == nullptr);
+
+    // ---- PoolAllocator ----
+    core::PoolAllocator pool(24, 4); // 4 blocks of >=24 bytes
+    CHECK(pool.capacity() == 4);
+    CHECK(pool.inUse() == 0);
+    CHECK(pool.available() == 4);
+    CHECK(pool.blockSize() >= 24);
+
+    void* p0 = pool.allocate();
+    void* p1 = pool.allocate();
+    void* p2 = pool.allocate();
+    void* p3 = pool.allocate();
+    CHECK(p0 && p1 && p2 && p3);
+    CHECK(pool.inUse() == 4);
+    CHECK(pool.available() == 0);
+    CHECK(pool.owns(p0));
+    CHECK(!pool.owns(&pool)); // a foreign pointer isn't owned
+
+    // Exhausted -> nullptr, no crash.
+    CHECK(pool.allocate() == nullptr);
+
+    // Distinct blocks don't overlap (spot-check p0 vs p1 by block stride).
+    CHECK(p0 != p1 && p1 != p2 && p2 != p3);
+
+    // free() returns a slot; the next allocate() reuses it (O(1), no fragmentation).
+    pool.free(p2);
+    CHECK(pool.inUse() == 3);
+    void* reused = pool.allocate();
+    CHECK(reused == p2); // LIFO free list hands the same slot back
+    CHECK(pool.inUse() == 4);
+
+    // reset() reclaims all blocks at once.
+    pool.reset();
+    CHECK(pool.inUse() == 0);
+    CHECK(pool.available() == 4);
+
+    // A tiny requested block size is bumped up to hold the free-list pointer.
+    core::PoolAllocator tiny(1, 2);
+    CHECK(tiny.blockSize() >= sizeof(void*));
+    void* q = tiny.allocate();
+    CHECK(q != nullptr);
+    tiny.free(q);
+}
+
 void testSkeleton() {
     // Two joints: root at origin, child one unit up (local translate (0,1,0)).
     std::vector<anim::Joint> joints(2);
@@ -15314,6 +15410,7 @@ int main() {
     testTelemetry();
     testReplay();
     testCheckpoints();
+    testMemory();
     testSceneStack();
     testTween();
     testTweenPlayer();

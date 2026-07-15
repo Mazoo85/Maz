@@ -43,6 +43,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/KeyValueStore.hpp"
 #include "maz/core/Log.hpp"
+#include "maz/core/Memory.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"

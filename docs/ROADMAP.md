@@ -205,7 +205,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   skew/mirror with basis gizmos; M167) — a 3D `Transform3D`/`Basis` sibling + retrofitting sprites/TransformGraph later
 - [ ] AABB/OBB, ray, plane, frustum
 - [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
-- [ ] Memory: linear / stack / pool / frame allocators, arenas
+- [x] **Memory allocators** (`core::LinearArena` + `core::PoolAllocator`): the bump/frame arena and
+  fixed-size pool an engine uses to avoid per-object malloc/free churn (fragmentation + frame-time
+  spikes). `LinearArena` is an O(1) bump allocator with correct alignment — `reset()` frees a whole
+  frame's scratch at once, and `marker()`/`rewind()` give stack-scoped release. `PoolAllocator` is an
+  O(1) free-list of fixed-size blocks that reuses the same slots (particles/bullets/entities never
+  fragment the heap) and returns nullptr on exhaustion. Verified: alignment correctness, OOM, marker
+  rewind, frame reset, LIFO slot reuse, and `owns()` bounds (M181)
 - [x] **Handles / generational indices, object pools** (`core::SlotMap<T>` + `SlotHandle{index,
   generation}`: insert into recycled free slots, `get`/`contains`/`erase` with stale-handle (ABA)
   detection via a generation bump on free, double-free safe, `forEach` over live values — Godot's `RID` /
