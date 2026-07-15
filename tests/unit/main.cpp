@@ -10786,6 +10786,46 @@ void testEditorMultiSelect() {
     CHECK(sc.selected == 1); // primary 3 was invalid, fell back to a surviving selected node
 }
 
+// E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
+void testEditorPackage() {
+    editor::Scene sc;
+    editor::Node a;
+    a.name = "Alpha";
+    a.position = math::vec3(1.0f, 2.0f, 3.0f);
+    a.meshId = 2;
+    editor::Node b;
+    b.name = "Beta";
+    b.euler = math::vec3(10.0f, 20.0f, 30.0f);
+    b.colorIndex = 3;
+    sc.nodes = {a, b};
+
+    const std::string json = editor::toJson(sc).dump(2);
+    std::vector<io::PackEntry> entries;
+    entries.push_back({"scene.json", std::vector<uint8_t>(json.begin(), json.end())});
+    entries.push_back({"manifest.txt", std::vector<uint8_t>{'x', 'y'}});
+    const std::vector<uint8_t> bytes = io::packResources(entries);
+
+    io::ResourcePack pack;
+    CHECK(pack.load(bytes));
+    CHECK(pack.count() == 2);
+    CHECK(pack.contains("scene.json") && pack.contains("manifest.txt"));
+
+    const std::vector<uint8_t>* blob = pack.get("scene.json");
+    CHECK(blob != nullptr);
+    const std::string back(blob->begin(), blob->end());
+    const io::JsonParseResult pr = io::parseJson(back);
+    CHECK(pr.ok);
+    editor::Scene out;
+    CHECK(editor::fromJson(pr.value, out));
+    CHECK(out.nodes.size() == 2);
+    CHECK(out.nodes[0] == sc.nodes[0]); // Node::operator== compares every field
+    CHECK(out.nodes[1] == sc.nodes[1]);
+
+    // A truncated archive must fail to load cleanly rather than read out of bounds.
+    io::ResourcePack bad;
+    CHECK(!bad.load(bytes.data(), bytes.size() / 2));
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13556,6 +13596,7 @@ int main() {
     testEditorSerialize();
     testEditorNodeOps();
     testEditorMultiSelect();
+    testEditorPackage();
     testEditorWorldToScreen();
     testNormalLight();
     testParallax();

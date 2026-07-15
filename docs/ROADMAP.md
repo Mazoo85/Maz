@@ -876,7 +876,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Deterministic time / date utilities
 
 ## Phase 11 — Editor & tooling
-- [~] **In-engine editor** (`editor` app on a new `maz::editor` module): a 3D viewport plus editor
+- [x] **In-engine editor** (`editor` app on a new `maz::editor` module): a 3D viewport plus editor
   panels built from the existing immediate-mode UI. **E1** — `editor::Scene` is a renderer-agnostic,
   unit-tested model (nodes carry a transform, a local AABB, a mesh id, and PBR material params;
   `modelMatrix`/`worldAabb`/`pickNode`/`screenRay` are pure logic). The app renders the scene, a
@@ -920,8 +920,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   panel) — **Assets** (the palette), **Profiler** (live FPS / frame-time readout plus a rolling
   frame-time bar graph), and **Output** (a live log view). A new engine log sink
   (`core::setLogSink`) mirrors every emitted line into the editor's Output tab.
+  **E14** — **content pipeline / package**: a **Package** button (or Ctrl+B) exports the scene into a
+  single distributable resource pack — a `.mazpack` (`io::ResourcePack`, Maz's `.pck` equivalent)
+  holding the scene JSON plus a manifest (engine tag, node count, per-primitive counts) — that a
+  shipped runtime could mount and load from; the pack round-trip (scene → JSON → pack → scene) is
+  unit-tested, including clean rejection of a truncated archive. **This closes Phase 11: the editor
+  now runs the full Godot loop — author, arrange, inspect, save/load, Play, and package to ship.**
 - [x] Profiler + log panels — **E13** above.
-- [ ] Content-pipeline UI, build / package button
+- [x] Content-pipeline UI, build / package button — **E14** above.
 
 ## Phase 12 — Cross-cutting quality
 - [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE

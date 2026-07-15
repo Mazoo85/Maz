@@ -193,10 +193,12 @@ int main(int argc, char** argv) {
     MAZ_LOG_INFO("editor ready — %zu nodes; PLAY to simulate", scene.nodes.size());
 
     // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
-    std::string scenePath;
+    std::string scenePath, packPath;
     {
         char* pref = SDL_GetPrefPath("MazEngine", "editor");
-        scenePath = (pref ? std::string(pref) : std::string()) + "scene.json";
+        const std::string dir = pref ? std::string(pref) : std::string();
+        scenePath = dir + "scene.json";
+        packPath = dir + "scene.mazpack"; // Package output (a distributable resource pack)
         if (pref) {
             SDL_free(pref);
         }
@@ -328,6 +330,33 @@ int main(int argc, char** argv) {
         }
     };
 
+    // Content pipeline: package the scene (+ a manifest) into a single distributable resource pack
+    // (io::ResourcePack — Maz's .pck equivalent) that a shipped runtime could mount and load from.
+    auto packageScene = [&]() {
+        const std::string json = editor::toJson(scene).dump(2);
+        std::string manifest = "engine=Maz\nformat=mazpack1\nnodes=" +
+                               std::to_string(scene.nodes.size()) + "\n";
+        for (const Asset& a : assets) {
+            size_t n = 0;
+            for (const editor::Node& node : scene.nodes) {
+                if (node.meshId == a.mesh) {
+                    ++n;
+                }
+            }
+            manifest += std::string("count.") + a.name + "=" + std::to_string(n) + "\n";
+        }
+        std::vector<io::PackEntry> entries;
+        entries.push_back({"scene.json", std::vector<uint8_t>(json.begin(), json.end())});
+        entries.push_back({"manifest.txt", std::vector<uint8_t>(manifest.begin(), manifest.end())});
+        const std::vector<uint8_t> bytes = io::packResources(entries);
+        if (io::writeFile(packPath, bytes)) {
+            MAZ_LOG_INFO("packaged %zu nodes -> %s (%zu bytes)", scene.nodes.size(), packPath.c_str(),
+                         bytes.size());
+        } else {
+            MAZ_LOG_ERROR("package failed: could not write %s", packPath.c_str());
+        }
+    };
+
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -405,6 +434,11 @@ int main(int argc, char** argv) {
                 editor::fromJson(pr.value, scene);
                 scene.sanitizeSelection();
             }
+        }
+        // Package the scene into a distributable resource pack (Ctrl+B).
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_B)) {
+            packageScene();
+            dockTab = DockTab::Log;
         }
 
         // Undo bracketing: a drag / keyboard-nudge / slider grab is one undo step. Snapshot the scene
@@ -658,6 +692,12 @@ int main(int argc, char** argv) {
                                       : render::Color{0.28f, 0.55f, 0.34f, 1});
                 if (gui.button(60u, pr, playing ? "> STOP" : "> PLAY", 0.40f)) {
                     togglePlay();
+                }
+                // Package button: export the scene to a distributable resource pack (Ctrl+B also).
+                const ui::Rect kr{treeW + 128.0f, 12.0f, 128.0f, 30.0f};
+                if (gui.button(61u, kr, "Package", 0.36f) && !playing) {
+                    packageScene();
+                    dockTab = DockTab::Log; // show the result in the Output panel
                 }
             }
 
