@@ -43,6 +43,10 @@
 //        connect / disconnect / is_connected / emit / connection_count, one-shot connections, and
 //        sync-vs-deferred dispatch (emit_deferred queues; the host drains it via flushDeferred()
 //        for deterministic netcode ordering). Coroutine `await` is deferred to a VM-core pass.
+//   SC8: safety & diagnostics — stack traces on error (stackTrace()); an execution step budget
+//        (setStepBudget) and recursion limit (setRecursionLimit) that turn a runaway loop/recursion
+//        into a catchable error instead of a hang/crash; and a static warnings pass (warnings())
+//        for variable shadowing and unreachable code.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -1230,12 +1234,28 @@ public:
     const std::string& error() const { return m_error.message; }
     int errorLine() const { return m_error.line; }
 
+    // ---- SC8: safety & diagnostics ---------------------------------------------------------------
+
+    // Cap total interpreter steps per run()/call() — a runaway `while(true){}` in a mod becomes a
+    // catchable error instead of a frozen game. 0 = unlimited (the default). [BETTER over GDScript.]
+    void setStepBudget(size_t maxSteps) { m_stepBudget = maxSteps; }
+    // Cap call nesting to catch runaway recursion before it can exhaust the native stack.
+    void setRecursionLimit(size_t maxDepth) { m_maxDepth = maxDepth; }
+    // The call stack captured at the most recent error, formatted innermost-first (one frame/line).
+    const std::string& stackTrace() const { return m_trace; }
+    // Non-fatal diagnostics collected during the last run()'s parse (shadowing, unreachable code).
+    const std::vector<std::string>& warnings() const { return m_warnings; }
+
     bool run(const std::string& source) {
         m_error = {};
+        m_trace.clear();
+        m_warnings.clear();
         m_program.clear();
         m_funcDefs.clear();
         m_classes.clear();
         m_deferred.clear();
+        m_steps = 0;
+        m_depth = 0;
         ScriptError lexErr;
         std::vector<Token> toks = lex(source, lexErr);
         if (!lexErr.message.empty()) {
@@ -1245,6 +1265,7 @@ public:
         try {
             Parser parser(std::move(toks));
             m_program = parser.parse();
+            analyzeWarnings(m_program); // SC8: static diagnostics (shadowing, unreachable code)
             hoistFunctions(m_program, *m_global);
             hoistClasses(m_program, *m_global);
             for (const auto& s : m_program) {
@@ -1268,6 +1289,8 @@ public:
             m_error = {"undefined function '" + name + "'", 0};
             return Value::nil();
         }
+        m_steps = 0; // SC8: each host-driven call gets a fresh step budget
+        m_depth = 0;
         try {
             return invoke(*fn, args, 0);
         } catch (const ScriptError& e) {
@@ -1378,6 +1401,14 @@ private:
     std::vector<std::unique_ptr<NativeClass>> m_nativeClasses; // host type bindings (SC6, stable ptrs)
     std::vector<std::pair<std::shared_ptr<SignalData>, std::vector<Value>>> m_deferred; // queued emits (SC7)
     ScriptError m_error;
+    // SC8 — safety & diagnostics.
+    std::string m_trace;                    // call stack captured at the last error
+    std::vector<std::string> m_warnings;    // non-fatal diagnostics from the last parse
+    std::vector<std::string> m_callStack;   // live call stack (function names), for trace capture
+    size_t m_stepBudget = 0;                // 0 = unlimited
+    size_t m_steps = 0;                     // steps taken this run/call
+    size_t m_maxDepth = 1000;               // recursion cap
+    size_t m_depth = 0;                     // current call depth
     uint64_t m_rngState = 0x9E3779B97F4A7C15ULL; // deterministic RNG stream (seedable via seed())
 
     uint64_t rngNext() {
@@ -1393,6 +1424,87 @@ private:
     };
     struct BreakSignal {};
     struct ContinueSignal {};
+
+    // SC8 — a lightweight static-analysis pass over the parsed AST. Collects non-fatal warnings
+    // (variable shadowing, unreachable code after return/break/continue) without stopping execution.
+    void analyzeWarnings(const std::vector<std::unique_ptr<Stmt>>& program) {
+        std::vector<std::vector<std::string>> scopes(1); // one scope per lexical level
+        analyzeStmtList(program, scopes);
+    }
+    static bool declaredInScopes(const std::vector<std::vector<std::string>>& scopes,
+                                 const std::string& n) {
+        for (const auto& s : scopes) {
+            for (const auto& d : s) {
+                if (d == n) return true;
+            }
+        }
+        return false;
+    }
+    void analyzeStmtList(const std::vector<std::unique_ptr<Stmt>>& stmts,
+                         std::vector<std::vector<std::string>>& scopes) {
+        bool terminated = false;
+        for (const auto& sp : stmts) {
+            const Stmt& s = *sp;
+            if (terminated) {
+                m_warnings.push_back("unreachable code (line " + std::to_string(s.line) +
+                                     ") after return/break/continue");
+                break; // one warning per dead tail is enough
+            }
+            analyzeStmt(s, scopes);
+            if (s.kind == Stmt::K::Return || s.kind == Stmt::K::Break ||
+                s.kind == Stmt::K::Continue) {
+                terminated = true;
+            }
+        }
+    }
+    void analyzeStmt(const Stmt& s, std::vector<std::vector<std::string>>& scopes) {
+        switch (s.kind) {
+        case Stmt::K::Var:
+            if (declaredInScopes(scopes, s.name)) {
+                m_warnings.push_back("variable '" + s.name + "' (line " + std::to_string(s.line) +
+                                     ") shadows an earlier declaration");
+            }
+            scopes.back().push_back(s.name);
+            break;
+        case Stmt::K::Block:
+            scopes.emplace_back();
+            analyzeStmtList(s.body, scopes);
+            scopes.pop_back();
+            break;
+        case Stmt::K::If:
+            if (!s.body.empty()) analyzeStmt(*s.body[0], scopes);
+            if (!s.elseBody.empty()) analyzeStmt(*s.elseBody[0], scopes);
+            break;
+        case Stmt::K::While:
+            if (!s.body.empty()) analyzeStmt(*s.body[0], scopes);
+            break;
+        case Stmt::K::For:
+            scopes.emplace_back();
+            if (!s.elseBody.empty()) scopes.back().push_back(s.elseBody[0]->name); // loop var
+            if (!s.body.empty()) analyzeStmt(*s.body[0], scopes);
+            scopes.pop_back();
+            break;
+        case Stmt::K::ForIn:
+            scopes.emplace_back();
+            scopes.back().push_back(s.name);
+            if (!s.body.empty()) analyzeStmt(*s.body[0], scopes);
+            scopes.pop_back();
+            break;
+        case Stmt::K::Func:
+            scopes.emplace_back();
+            for (const auto& p : s.params) scopes.back().push_back(p);
+            analyzeStmtList(s.body, scopes);
+            scopes.pop_back();
+            break;
+        case Stmt::K::Class:
+            for (const auto& m : s.body) {
+                if (m->kind == Stmt::K::Func) analyzeStmt(*m, scopes);
+            }
+            break;
+        default:
+            break;
+        }
+    }
 
     void hoistFunctions(const std::vector<std::unique_ptr<Stmt>>& stmts, Environment& env) {
         for (const auto& s : stmts) {
@@ -1485,7 +1597,32 @@ private:
         return self;
     }
 
-    [[noreturn]] void fail(const std::string& msg, int line) { throw ScriptError{msg, line}; }
+    [[noreturn]] void fail(const std::string& msg, int line) {
+        captureTrace(line);
+        throw ScriptError{msg, line};
+    }
+
+    // SC8 — snapshot the live call stack (innermost first) at the moment of an error, before the
+    // C++ exception unwinds the RAII frame guards. GDScript's errors are terse; ours name the chain.
+    void captureTrace(int line) {
+        std::string t;
+        char at[32];
+        std::snprintf(at, sizeof(at), "line %d", line);
+        t += std::string("  at ") + at;
+        for (auto it = m_callStack.rbegin(); it != m_callStack.rend(); ++it) {
+            t += "\n  in " + *it + "()";
+        }
+        m_trace = t;
+    }
+
+    // SC8 — one interpreter step. Enforces the step budget so a runaway loop is a catchable error.
+    void bump(int line) {
+        if (m_stepBudget && ++m_steps > m_stepBudget) {
+            fail("execution budget exceeded (" + std::to_string(m_stepBudget) +
+                     " steps) — possible infinite loop",
+                 line);
+        }
+    }
 
     void execBlock(const std::vector<std::unique_ptr<Stmt>>& stmts, Environment& env) {
         for (const auto& s : stmts) {
@@ -1494,6 +1631,7 @@ private:
     }
 
     void exec(const Stmt& s, Environment& env) {
+        bump(s.line); // SC8: count a step (enforces the execution budget)
         switch (s.kind) {
         case Stmt::K::Expr:
             eval(*s.expr, env);
@@ -1640,6 +1778,19 @@ private:
         }
         if (callee.type == Value::Type::Func) {
             const FuncDef* def = callee.func;
+            // SC8: guard against runaway recursion before it can exhaust the native stack.
+            if (++m_depth > m_maxDepth) {
+                --m_depth;
+                fail("recursion limit exceeded (" + std::to_string(m_maxDepth) + " frames)", line);
+            }
+            m_callStack.push_back(def->name.empty() ? "<lambda>" : def->name);
+            struct FrameGuard {
+                Vm* vm;
+                ~FrameGuard() {
+                    --vm->m_depth;
+                    if (!vm->m_callStack.empty()) vm->m_callStack.pop_back();
+                }
+            } guard{this};
             auto framePtr = std::make_shared<Environment>();
             framePtr->parent = callee.closure ? callee.closure : m_global; // closure scope (globals for named fns)
             Environment& frame = *framePtr;

@@ -11300,6 +11300,88 @@ void testScriptSignals() {
     }
 }
 
+// SC8: safety & diagnostics — execution budget, recursion limit, stack traces, warnings.
+void testScriptSafety() {
+    using namespace maz;
+
+    // Execution budget kills a runaway infinite loop as a catchable error (not a hang).
+    {
+        script::Vm vm;
+        vm.setStepBudget(10000);
+        CHECK(!vm.run("while (true) { var x = 1; }"));
+        CHECK(vm.error().find("budget") != std::string::npos);
+    }
+    // Empty-bodied infinite loop is caught too (each iteration counts a step).
+    {
+        script::Vm vm;
+        vm.setStepBudget(5000);
+        CHECK(!vm.run("var i = 0; while (i >= 0) { i = i + 1; if (i > 999999999) { i = 0; } }"));
+        CHECK(vm.error().find("budget") != std::string::npos);
+    }
+    // A normal bounded program stays well under budget and runs fine.
+    {
+        script::Vm vm;
+        vm.setStepBudget(100000);
+        CHECK(vm.run("var sum = 0; for (i in range(100)) { sum = sum + i; } print sum;"));
+        CHECK(vm.output == "4950\n");
+    }
+    // Runaway recursion is caught by the recursion limit instead of crashing the stack.
+    {
+        script::Vm vm;
+        vm.setRecursionLimit(200);
+        CHECK(!vm.run("func boom(n) { return boom(n + 1); } boom(0);"));
+        CHECK(vm.error().find("recursion") != std::string::npos);
+    }
+    // Bounded recursion within the limit works (factorial).
+    {
+        script::Vm vm;
+        vm.setRecursionLimit(200);
+        CHECK(vm.run("func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); } print fact(6);"));
+        CHECK(vm.output == "720\n");
+    }
+    // A runtime error inside nested calls yields a stack trace naming the chain.
+    {
+        script::Vm vm;
+        CHECK(!vm.run("func a() { return b(); } func b() { return c(); } "
+                      "func c() { return 1 / 0; } a();"));
+        const std::string& trace = vm.stackTrace();
+        CHECK(trace.find("in c()") != std::string::npos);
+        CHECK(trace.find("in b()") != std::string::npos);
+        CHECK(trace.find("in a()") != std::string::npos);
+    }
+    // Warnings: variable shadowing is reported (non-fatal — the program still runs).
+    {
+        script::Vm vm;
+        CHECK(vm.run("var x = 1; func f() { var x = 2; return x; } print f();"));
+        CHECK(vm.output == "2\n");
+        bool sawShadow = false;
+        for (const auto& w : vm.warnings()) {
+            if (w.find("shadows") != std::string::npos && w.find("'x'") != std::string::npos) {
+                sawShadow = true;
+            }
+        }
+        CHECK(sawShadow);
+    }
+    // Warnings: unreachable code after a return is reported.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func f() { return 1; var dead = 2; } print f();"));
+        CHECK(vm.output == "1\n");
+        bool sawUnreachable = false;
+        for (const auto& w : vm.warnings()) {
+            if (w.find("unreachable") != std::string::npos) sawUnreachable = true;
+        }
+        CHECK(sawUnreachable);
+    }
+    // Clean code produces no warnings.
+    {
+        script::Vm vm;
+        CHECK(vm.run("func add(a, b) { return a + b; } print add(2, 3);"));
+        CHECK(vm.output == "5\n");
+        CHECK(vm.warnings().empty());
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14119,6 +14201,7 @@ int main() {
     testScriptClasses();
     testScriptBinding();
     testScriptSignals();
+    testScriptSafety();
     testNormalLight();
     testParallax();
     testAudioDsp();

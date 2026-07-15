@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC7 shipped (Beta complete: closures, classes, host binding, signals; `await` deferred) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC8 shipped (Beta complete + safety: stack traces, execution budgets, warnings; `await` deferred) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -136,13 +136,21 @@ front-end could be layered later if GDScript source compatibility is ever wanted
   (the same effect, explicit). A real coroutine `await` is tracked for the VM-core
   pass alongside SC8's execution budgets.
 
-## SC8 — Error Handling, Diagnostics & Safety
+## SC8 — Error Handling, Diagnostics & Safety ✅ *(shipped)*
 
-- Full script stack traces + source snippets. [BETTER over GDScript's terse
-  errors]. Structured error propagation to the host.
-- **Execution budgets** (max steps / recursion / allocation) to kill runaway
-  scripts. [BETTER — a modder's infinite loop can't hang the game].
-- Warnings pass (unused var, unreachable, shadowing). [GD].
+- **Stack traces**: every runtime error captures the call chain (innermost-first,
+  with the failing line), exposed via `vm.stackTrace()`. [BETTER over GDScript's
+  terse errors]. Errors propagate to the host as `error()` / `errorLine()`, never
+  as a crash.
+- **Execution budget**: `vm.setStepBudget(n)` caps interpreter steps per
+  `run()`/`call()`, so a runaway `while(true){}` in a mod becomes a catchable
+  "execution budget exceeded" error instead of a frozen game. [BETTER — a modder's
+  infinite loop can't hang the game].
+- **Recursion limit**: `vm.setRecursionLimit(n)` catches runaway recursion before
+  it can exhaust the native stack.
+- **Warnings pass**: a static analysis over the parsed AST reports variable
+  shadowing and unreachable code (after return/break/continue), surfaced via
+  `vm.warnings()` — non-fatal, execution still proceeds. [GD].
 
 ## SC9 — Hot Reload
 
@@ -170,7 +178,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
 - **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7 ✅ (signals; `await` deferred to the VM-core pass).
-- **1.0 (production):** SC8–SC9.
+- **1.0 (production):** SC8 ✅ → SC9.
 - **1.x (edge over Godot):** SC10–SC11.
 
 **Front-loaded risks:** the host-binding template API (SC6) is the engine's real

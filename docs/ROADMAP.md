@@ -807,7 +807,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC7 shipped (Alpha + closures + classes + host binding + signals)**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC8 shipped (through production-safety tier)**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
   functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
@@ -820,10 +820,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   **host binding** (`bindClass().property().method()`, live C++ objects via safe weak handles,
   and `_ready`/`_process(dt)`/`_physics_process(dt)` lifecycle hooks driven from the engine), plus
   **signals** (class-level `signal` decls + standalone `Signal()`, `connect`/`emit`/one-shot,
-  and sync-vs-deferred dispatch via `emit_deferred` + `flushDeferred` for netcode ordering) — all
-  unit-tested. Roadmap SC8–SC11 (error/execution budgets, hot-reload, gradual typing, tooling)
-  plus a coroutine `await` in the VM-core pass in `docs/SCRIPTING.md`.
-- [ ] Script hot-reload (SC9), coroutine `await`, execution budgets (SC8) — see SCRIPTING.md
+  and sync-vs-deferred dispatch via `emit_deferred` + `flushDeferred` for netcode ordering), plus
+  **safety & diagnostics** (call-stack traces on error, an execution step budget + recursion limit
+  that turn a modder's infinite loop into a catchable error, and a warnings pass for shadowing /
+  unreachable code) — all unit-tested. Roadmap SC9–SC11 (hot-reload, gradual typing, tooling) plus
+  a coroutine `await` in the VM-core pass in `docs/SCRIPTING.md`.
+- [ ] Script hot-reload (SC9), coroutine `await`, gradual typing (SC10) — see SCRIPTING.md
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;
