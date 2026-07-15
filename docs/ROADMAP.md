@@ -837,6 +837,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   hooks each frame while exposing the node's transform (x / y / rotation / scale / visible / name +
   `translate()`) to the script through a bound `Node2D` host type. The Godot "script-on-node" model,
   sandboxed and deterministic; `spawn()` / `process()` / `broadcast()` all unit-tested.
+- [x] **Scene serialization** (`scene::saveTree` / `scene::loadTree`) — a whole `SceneTree`
+  (structure + per-node transform / visibility / groups / script-class reference) round-trips to a
+  compact, human-readable text format, Maz's `.tscn` analog. Load rebuilds the identical hierarchy
+  and re-attaches scripts by class name; re-saving a loaded scene reproduces byte-identical text.
+  Round-trip, group/transform fidelity, script re-attach, and malformed-input handling unit-tested.
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;

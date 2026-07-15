@@ -52,6 +52,7 @@
 #include "maz/script/Script.hpp"
 #include "maz/script/ScriptSystem.hpp"
 #include "maz/scene/SceneTree.hpp"
+#include "maz/scene/SceneSerialize.hpp"
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -11813,6 +11814,87 @@ void testSceneTree() {
     }
 }
 
+// SceneTree serialization: a whole node tree round-trips to text and back (Godot .tscn analog).
+void testSceneSerialize() {
+    using maz::scene::SceneTree;
+    using maz::scene::SceneNode;
+
+    const std::string prog =
+        "class Hero { func _process(dt) { self.node.x = self.node.x + dt; } }\n"
+        "class Foe { }";
+
+    // Build a scene, serialize it, rebuild into a fresh tree, and verify structure + transforms.
+    std::string text;
+    {
+        SceneTree tree;
+        tree.loadScripts(prog);
+        SceneNode* player = tree.createChild(tree.root(), "Player");
+        player->setPosition(10, 5);
+        player->setRotation(1.5);
+        player->local().scaleX = 2.0;
+        player->addToGroup("actors");
+        tree.attachScript(*player, "Hero");
+        SceneNode* weapon = tree.createChild(*player, "Weapon");
+        weapon->setPosition(3, 0);
+        SceneNode* enemy = tree.createChild(tree.root(), "Enemy");
+        enemy->setPosition(-4, 8);
+        enemy->local().visible = false;
+        enemy->addToGroup("actors");
+        enemy->addToGroup("hostiles");
+        tree.attachScript(*enemy, "Foe");
+        text = maz::scene::saveTree(tree);
+        CHECK(text.rfind("maz_scene", 0) == 0);
+    }
+
+    // Rebuild.
+    {
+        SceneTree tree;
+        tree.loadScripts(prog);
+        CHECK(maz::scene::loadTree(tree, text));
+        CHECK(tree.nodeCount() == 4); // root + Player + Weapon + Enemy
+
+        SceneNode* player = tree.findNode("Player");
+        CHECK(player != nullptr);
+        CHECK(player->x() == 10.0);
+        CHECK(player->y() == 5.0);
+        CHECK(player->rotation() == 1.5);
+        CHECK(player->local().scaleX == 2.0);
+        CHECK(player->inGroup("actors"));
+        CHECK(player->scriptClass() == "Hero");
+
+        SceneNode* weapon = tree.findNode("Player/Weapon");
+        CHECK(weapon != nullptr);
+        CHECK(weapon->x() == 3.0);
+
+        SceneNode* enemy = tree.findNode("Enemy");
+        CHECK(enemy != nullptr);
+        CHECK(enemy->x() == -4.0);
+        CHECK(enemy->y() == 8.0);
+        CHECK(!enemy->local().visible);
+        CHECK(enemy->inGroup("actors"));
+        CHECK(enemy->inGroup("hostiles"));
+
+        // The re-attached script still drives the node.
+        tree.process(1.0);
+        CHECK(player->x() == 11.0); // Hero._process moved it (+1)
+    }
+
+    // Missing header -> load fails cleanly.
+    {
+        SceneTree tree;
+        CHECK(!maz::scene::loadTree(tree, "not a scene\nnode path=\"X\""));
+    }
+
+    // Round-trip is stable: re-saving a loaded tree reproduces the same text.
+    {
+        SceneTree a;
+        a.loadScripts(prog);
+        maz::scene::loadTree(a, text);
+        const std::string again = maz::scene::saveTree(a);
+        CHECK(again == text);
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14638,6 +14720,7 @@ int main() {
     testScriptTooling();
     testScriptSystem();
     testSceneTree();
+    testSceneSerialize();
     testNormalLight();
     testParallax();
     testAudioDsp();

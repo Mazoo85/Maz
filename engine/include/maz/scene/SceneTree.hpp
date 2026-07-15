@@ -90,6 +90,7 @@ public:
         }
         return false;
     }
+    const std::vector<std::string>& groups() const { return m_groups; }
 
     // The attached script instance (Type::Object), or Nil if none.
     const script::Value& script() const { return m_script; }

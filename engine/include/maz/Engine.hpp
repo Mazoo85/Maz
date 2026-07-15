@@ -122,6 +122,7 @@
 #include "maz/render/Shapes3D.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
+#include "maz/scene/SceneSerialize.hpp"
 #include "maz/scene/SceneTree.hpp"
 #include "maz/scene/TransformGraph.hpp"
 #include "maz/script/Script.hpp"
