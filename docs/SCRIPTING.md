@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC5 shipped (Alpha complete + closures + classes) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC6 shipped (Alpha + closures + classes + host binding) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -102,14 +102,21 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 - *Not yet:* `const` / `enum` / `static` members, `is` / `as`, and opt-in value
   types (tracked for a later pass).
 
-## SC6 — Engine-Object Binding (Host Integration)
+## SC6 — Engine-Object Binding (Host Integration) ✅ *(shipped)*
 
-- Register C++ types, methods, and properties; call C++ methods and read/write
-  properties from script; `bind<Transform>().method(...).prop(...)`. [GD]
-- Script instances attachable to engine entities with `_ready` / `_process(dt)` /
-  `_physics_process(dt)` lifecycle hooks. [GD]
-- Safe handles to C++ objects (accessing a dead handle is a clean catchable
-  error). [BETTER — avoids GDScript freed-object footguns].
+- Register C++ types with a fluent API — `vm.bindClass("Sprite").property("x",
+  get, set).method("move", fn)` — then read/write properties and call methods on
+  live host objects from script. [GD]
+- Script instances driven from the host: `vm.instantiate("Player")` builds an
+  instance, `vm.objectHasMethod(o, "_process")` probes for a hook, and
+  `vm.callOn(o, "_process", {dt})` invokes `_ready` / `_process(dt)` /
+  `_physics_process(dt)` (or any method) safely — errors are captured, never
+  thrown into the game loop. [GD]
+- **Safe handles**: host objects are held weakly; touching a freed object is a
+  clean catchable error (`"...freed 'Sprite' object"`), not a dangling-pointer
+  crash. [BETTER — avoids GDScript freed-object footguns].
+- *Not yet:* templated auto-binding of whole C++ types (the current API is
+  explicit per-member); property/method access is the sandbox boundary.
 
 ## SC7 — Signals & Callbacks
 
@@ -151,7 +158,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 ## Milestone Grouping
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
-- **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6–SC7.
+- **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7.
 - **1.0 (production):** SC8–SC9.
 - **1.x (edge over Godot):** SC10–SC11.
 

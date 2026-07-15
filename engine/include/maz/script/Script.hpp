@@ -35,6 +35,10 @@
 //        `Foo.new(...)` / `Foo(...)` construction, single inheritance (`extends`) and `super`
 //        dispatch. Instances have reference semantics; methods read off an instance are bound
 //        callables. Classes are top-level, hoisted like functions.
+//   SC6: host-object binding — bindClass("T").property(get,set).method(fn) exposes a C++ type;
+//        makeNativeObject wraps a live host object behind a weak handle (touching a freed object is
+//        a catchable error, not a crash). instantiate()/objectHasMethod()/callOn() let the engine
+//        drive script instances' _ready / _process(dt) / _physics_process(dt) lifecycle hooks.
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -47,12 +51,14 @@ struct FuncDef;     // forward: a user function definition (AST-owned)
 struct Environment; // forward: a runtime scope (heap-allocated so closures can capture it)
 struct ClassInfo;   // forward: a runtime class (SC5) — methods + field initializers + superclass
 struct Instance;    // forward: a runtime object (SC5) — a class + its per-instance fields
+struct NativeClass; // forward: a host-registered C++ type binding (SC6)
+struct NativeObjectData; // forward: a live handle to a host C++ object (SC6)
 struct Value;
 using ArrayData = std::vector<Value>;
 using DictData = std::vector<std::pair<Value, Value>>; // insertion-ordered, any-typed keys (like GDScript)
 
 struct Value {
-    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict, Class, Object };
+    enum class Type { Nil, Bool, Num, Str, Native, Func, Array, Dict, Class, Object, NativeObject };
     Type type = Type::Nil;
     bool boolean = false;
     double number = 0.0;
@@ -64,6 +70,7 @@ struct Value {
     std::shared_ptr<DictData> dict;                        // when Type::Dict
     std::shared_ptr<ClassInfo> klass;                      // when Type::Class (SC5)
     std::shared_ptr<Instance> instance;                    // when Type::Object (SC5, reference semantics)
+    std::shared_ptr<NativeObjectData> nobj;                // when Type::NativeObject (SC6, host handle)
 
     Value() = default;
     static Value nil() { return Value{}; }
@@ -130,6 +137,7 @@ struct Value {
         case Type::Dict: return dict == o.dict;
         case Type::Class: return klass == o.klass;
         case Type::Object: return instance == o.instance; // reference identity
+        case Type::NativeObject: return nobj == o.nobj;   // handle identity
         default: return false; // natives compare unequal
         }
     }
@@ -153,6 +161,7 @@ struct Value {
         case Type::Func: return "<fn>";
         case Type::Class: return "<class>";   // detailed name handled by the Vm (needs ClassInfo)
         case Type::Object: return "<object>"; // detailed form handled by the Vm (needs Instance)
+        case Type::NativeObject: return "<native object>"; // detailed form handled by the Vm
         case Type::Array: {
             std::string s = "[";
             if (array) {
@@ -427,6 +436,52 @@ struct Instance {
         }
         return nullptr;
     }
+};
+
+// SC6 — a host C++ type exposed to scripts. Register properties (get/set closures over the raw
+// object pointer) and methods (closures taking the object pointer + script args). Build it fluently:
+//   vm.bindClass("Sprite").property("x", getX, setX).method("move", moveFn);
+// This is the sandboxing boundary: a script can only touch host state through what is registered here.
+struct NativeClass {
+    struct Property {
+        std::function<Value(void*)> get;              // required
+        std::function<void(void*, const Value&)> set; // null => read-only
+    };
+    using MethodFn = std::function<Value(void*, std::vector<Value>&)>;
+
+    std::string name;
+    std::vector<std::pair<std::string, Property>> properties; // ordered
+    std::vector<std::pair<std::string, MethodFn>> methods;    // ordered
+
+    NativeClass& property(const std::string& n, std::function<Value(void*)> get,
+                          std::function<void(void*, const Value&)> set = nullptr) {
+        properties.emplace_back(n, Property{std::move(get), std::move(set)});
+        return *this;
+    }
+    NativeClass& method(const std::string& n, MethodFn fn) {
+        methods.emplace_back(n, std::move(fn));
+        return *this;
+    }
+    const Property* findProperty(const std::string& n) const {
+        for (const auto& p : properties) {
+            if (p.first == n) return &p.second;
+        }
+        return nullptr;
+    }
+    const MethodFn* findMethod(const std::string& n) const {
+        for (const auto& m : methods) {
+            if (m.first == n) return &m.second;
+        }
+        return nullptr;
+    }
+};
+
+// SC6 — a script-visible handle to a live host object. The host object is held weakly, so if the
+// host destroys it the script sees a clean, catchable error instead of a dangling-pointer crash
+// (a deliberate edge over GDScript's freed-object footguns).
+struct NativeObjectData {
+    std::weak_ptr<void> handle;      // the host object; expired() => freed
+    const NativeClass* cls = nullptr;
 };
 
 // ---------------------------------------------------------------------------------------------------
@@ -1153,11 +1208,83 @@ public:
         }
     }
 
+    // ---- SC6: host-object binding ----------------------------------------------------------------
+
+    // Register (or fetch) a host C++ type. Chain .property()/.method() on the returned reference:
+    //   vm.bindClass("Sprite").property("x", ...).method("move", ...);
+    NativeClass& bindClass(const std::string& name) {
+        for (auto& c : m_nativeClasses) {
+            if (c->name == name) return *c;
+        }
+        auto c = std::make_unique<NativeClass>();
+        c->name = name;
+        NativeClass& ref = *c;
+        m_nativeClasses.push_back(std::move(c));
+        return ref;
+    }
+
+    // Wrap a live host object as a script value. The object is held weakly: when the host drops its
+    // shared_ptr, scripts touching the handle get a clean catchable error (see NativeObjectData).
+    Value makeNativeObject(const std::string& className, std::shared_ptr<void> obj) {
+        const NativeClass* cls = nullptr;
+        for (auto& c : m_nativeClasses) {
+            if (c->name == className) { cls = c.get(); break; }
+        }
+        if (!cls) {
+            m_error = {"makeNativeObject: unregistered class '" + className + "'", 0};
+            return Value::nil();
+        }
+        Value v;
+        v.type = Value::Type::NativeObject;
+        v.nobj = std::make_shared<NativeObjectData>();
+        v.nobj->handle = obj;
+        v.nobj->cls = cls;
+        return v;
+    }
+
+    // ---- SC6: lifecycle driving (host -> script) -------------------------------------------------
+
+    // Construct a script class instance by name (like `ClassName.new(args)` from C++). Used to attach
+    // a script to an engine entity. Returns nil (and sets error) if the class is unknown.
+    Value instantiate(const std::string& className, std::vector<Value> args = {}) {
+        const Value* cls = m_global->get(className);
+        if (!cls || cls->type != Value::Type::Class) {
+            m_error = {"instantiate: unknown script class '" + className + "'", 0};
+            return Value::nil();
+        }
+        try {
+            return construct(*cls, args, 0);
+        } catch (const ScriptError& e) {
+            m_error = e;
+            return Value::nil();
+        }
+    }
+
+    // Does a script object define (or inherit) this method? Lets the host skip absent hooks cheaply.
+    bool objectHasMethod(const Value& obj, const std::string& method) const {
+        if (obj.type != Value::Type::Object || !obj.instance || !obj.instance->klass) {
+            return false;
+        }
+        return obj.instance->klass->findMethod(method) != nullptr;
+    }
+
+    // Invoke a method on a script object from C++ (e.g. _ready / _process(dt) / _physics_process(dt)).
+    // Errors are captured into error()/errorLine() rather than thrown, so the host game loop is safe.
+    Value callOn(Value& obj, const std::string& method, std::vector<Value> args) {
+        try {
+            return callMethod(obj, method, args, 0);
+        } catch (const ScriptError& e) {
+            m_error = e;
+            return Value::nil();
+        }
+    }
+
 private:
     std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
     std::vector<std::shared_ptr<ClassInfo>> m_classes; // keep runtime classes alive (SC5)
+    std::vector<std::unique_ptr<NativeClass>> m_nativeClasses; // host type bindings (SC6, stable ptrs)
     ScriptError m_error;
     uint64_t m_rngState = 0x9E3779B97F4A7C15ULL; // deterministic RNG stream (seedable via seed())
 
@@ -1470,6 +1597,23 @@ private:
             }
             fail("class '" + obj.klass->name + "' has no static method '" + name + "'", line);
         }
+        if (obj.type == Value::Type::NativeObject) {
+            auto sp = obj.nobj->handle.lock();
+            if (!sp) {
+                fail("called method '" + name + "' on a freed '" + obj.nobj->cls->name + "' object", line);
+            }
+            if (const auto* m = obj.nobj->cls->findMethod(name)) {
+                return (*m)(sp.get(), args);
+            }
+            // A registered property may hold a callable value.
+            if (const auto* p = obj.nobj->cls->findProperty(name)) {
+                Value fn = p->get(sp.get());
+                if (fn.type == Value::Type::Func || fn.type == Value::Type::Native) {
+                    return invoke(fn, args, line);
+                }
+            }
+            fail("native '" + obj.nobj->cls->name + "' has no method '" + name + "'", line);
+        }
         if (obj.type == Value::Type::Array) {
             auto& a = *obj.array;
             if (name == "size" || name == "length") return Value::fromNum(static_cast<double>(a.size()));
@@ -1667,6 +1811,16 @@ private:
                 }
                 fail("class '" + obj.klass->name + "' has no static member '" + e.str + "'", e.line);
             }
+            if (obj.type == Value::Type::NativeObject) {
+                auto sp = obj.nobj->handle.lock();
+                if (!sp) {
+                    fail("read property '" + e.str + "' on a freed '" + obj.nobj->cls->name + "' object", e.line);
+                }
+                if (const auto* p = obj.nobj->cls->findProperty(e.str)) {
+                    return p->get(sp.get());
+                }
+                fail("native '" + obj.nobj->cls->name + "' has no property '" + e.str + "'", e.line);
+            }
             fail("cannot read property '" + e.str + "' of this value", e.line);
         }
         case Expr::K::Assign:
@@ -1837,6 +1991,21 @@ private:
                 } else {
                     obj.instance->fields.emplace_back(target.str, v); // allow dynamic field creation
                 }
+                return v;
+            }
+            if (obj.type == Value::Type::NativeObject) {
+                auto sp = obj.nobj->handle.lock();
+                if (!sp) {
+                    fail("set property '" + target.str + "' on a freed '" + obj.nobj->cls->name + "' object", e.line);
+                }
+                const auto* p = obj.nobj->cls->findProperty(target.str);
+                if (!p) {
+                    fail("native '" + obj.nobj->cls->name + "' has no property '" + target.str + "'", e.line);
+                }
+                if (!p->set) {
+                    fail("property '" + target.str + "' of '" + obj.nobj->cls->name + "' is read-only", e.line);
+                }
+                p->set(sp.get(), v);
                 return v;
             }
             fail("cannot set property on this value", e.line);

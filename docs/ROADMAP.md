@@ -807,7 +807,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
 - [~] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
   sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
-  reproducible for lockstep/replay). **SC1–SC5 shipped (Alpha + closures + classes)**: lexer / recursive-descent parser / interpreter
+  reproducible for lockstep/replay). **SC1–SC6 shipped (Alpha + closures + classes + host binding)**: lexer / recursive-descent parser / interpreter
   with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
   assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
   functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
@@ -816,10 +816,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   functions**: lambdas (`func(x){...}`), real closures that capture and mutate their defining
   scope, and higher-order array methods (`map` / `filter` / `reduce` / `any` / `all` / `sort` /
   `sort_custom`), plus **classes** (`class Foo { var fields; func methods }`, `self`, `_init`,
-  `Foo.new(...)` / `Foo(...)`, `extends` + `super`, reference semantics, bound methods) — all
-  unit-tested. Roadmap SC6–SC11 (engine-object binding, signals, hot-reload, gradual typing) in
+  `Foo.new(...)` / `Foo(...)`, `extends` + `super`, reference semantics, bound methods), plus
+  **host binding** (`bindClass().property().method()`, live C++ objects via safe weak handles,
+  and `_ready`/`_process(dt)`/`_physics_process(dt)` lifecycle hooks driven from the engine) — all
+  unit-tested. Roadmap SC7–SC11 (signals/await, error budgets, hot-reload, gradual typing) in
   `docs/SCRIPTING.md`.
-- [ ] Script hot-reload (SC9), engine-object binding (SC6), signals/await (SC7) — see SCRIPTING.md
+- [ ] Script hot-reload (SC9), signals/await (SC7) — see SCRIPTING.md
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;

@@ -11156,6 +11156,79 @@ void testScriptClasses() {
     }
 }
 
+// SC6: engine-object binding — bind a C++ type, drive script lifecycle hooks, safe handles.
+namespace {
+struct HostSprite {
+    double x = 0, y = 0;
+    int moves = 0;
+};
+} // namespace
+
+void testScriptBinding() {
+    using namespace maz;
+
+    // Register a host C++ type with two properties and a method, then drive it from script.
+    {
+        script::Vm vm;
+        vm.bindClass("Sprite")
+            .property(
+                "x", [](void* s) { return script::Value::fromNum(static_cast<HostSprite*>(s)->x); },
+                [](void* s, const script::Value& v) { static_cast<HostSprite*>(s)->x = v.number; })
+            .property(
+                "y", [](void* s) { return script::Value::fromNum(static_cast<HostSprite*>(s)->y); },
+                [](void* s, const script::Value& v) { static_cast<HostSprite*>(s)->y = v.number; })
+            .method("move", [](void* s, std::vector<script::Value>& a) {
+                auto* sp = static_cast<HostSprite*>(s);
+                sp->x += a.size() > 0 ? a[0].number : 0;
+                sp->y += a.size() > 1 ? a[1].number : 0;
+                sp->moves++;
+                return script::Value::nil();
+            });
+
+        auto sprite = std::make_shared<HostSprite>();
+        vm.setGlobal("sprite", vm.makeNativeObject("Sprite", sprite));
+        CHECK(vm.run("sprite.x = 10; sprite.move(5, 3); print sprite.x; print sprite.y;"));
+        CHECK(vm.output == "15\n3\n");   // 10 + 5, 0 + 3
+        CHECK(sprite->x == 15.0);        // host object actually mutated
+        CHECK(sprite->y == 3.0);
+        CHECK(sprite->moves == 1);
+    }
+
+    // Safe handle: after the host frees the object, script access is a clean catchable error.
+    {
+        script::Vm vm;
+        vm.bindClass("Sprite").property("x", [](void* s) {
+            return script::Value::fromNum(static_cast<HostSprite*>(s)->x);
+        });
+        auto sprite = std::make_shared<HostSprite>();
+        vm.setGlobal("sprite", vm.makeNativeObject("Sprite", sprite));
+        sprite.reset(); // host destroys the object
+        CHECK(!vm.run("print sprite.x;"));
+        CHECK(vm.error().find("freed") != std::string::npos);
+    }
+
+    // Lifecycle: instantiate a script class from C++ and drive _ready / _process(dt) hooks — exactly
+    // how the engine will run gameplay scripts. Define the class + reader helpers in one program (a
+    // reload would invalidate a live instance's methods, which is by design and exercised in SC9).
+    {
+        script::Vm vm;
+        CHECK(vm.run("class Mover { var pos = 0; var ready = false; "
+                     "func _ready() { self.ready = true; } "
+                     "func _process(dt) { self.pos = self.pos + dt; } } "
+                     "func getpos(o) { return o.pos; } func getready(o) { return o.ready; }"));
+        script::Value m = vm.instantiate("Mover");
+        CHECK(m.type == script::Value::Type::Object);
+        CHECK(vm.objectHasMethod(m, "_ready"));
+        CHECK(vm.objectHasMethod(m, "_process"));
+        CHECK(!vm.objectHasMethod(m, "_physics_process")); // absent hook — host can skip it
+        vm.callOn(m, "_ready", {});
+        vm.callOn(m, "_process", {script::Value::fromNum(0.5)});
+        vm.callOn(m, "_process", {script::Value::fromNum(0.25)});
+        CHECK(vm.call("getpos", {m}).number == 0.75); // 0.5 + 0.25 accumulated in the instance
+        CHECK(vm.call("getready", {m}).boolean == true);
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -13973,6 +14046,7 @@ int main() {
     testScriptStdlib();
     testScriptClosures();
     testScriptClasses();
+    testScriptBinding();
     testNormalLight();
     testParallax();
     testAudioDsp();
