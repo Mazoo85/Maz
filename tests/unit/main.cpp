@@ -11382,6 +11382,59 @@ void testScriptSafety() {
     }
 }
 
+// SC9: hot reload — swap code while keeping live instance state; parse failure keeps old version.
+void testScriptHotReload() {
+    using maz::script::Vm;
+    using maz::script::Value;
+
+    // Reload a global function body — the new implementation takes effect immediately.
+    {
+        Vm vm;
+        CHECK(vm.run("func greet() { return \"hi\"; }"));
+        CHECK(vm.call("greet", {}).str == "hi");
+        CHECK(vm.reload("func greet() { return \"hello\"; }"));
+        CHECK(vm.call("greet", {}).str == "hello");
+    }
+    // State preservation: an instance built before reload keeps its fields, gains new method bodies.
+    {
+        Vm vm;
+        CHECK(vm.run("class Counter { var n = 0; func step() { self.n = self.n + 1; } "
+                     "func get() { return self.n; } } func getn(o) { return o.get(); }"));
+        Value c = vm.instantiate("Counter");
+        vm.callOn(c, "step", {});
+        vm.callOn(c, "step", {}); // n = 2
+        CHECK(vm.call("getn", {c}).number == 2);
+        // Reload: step now adds 10. The instance's n stays 2, then +10 with the new code.
+        CHECK(vm.reload("class Counter { var n = 0; func step() { self.n = self.n + 10; } "
+                        "func get() { return self.n; } } func getn(o) { return o.get(); }"));
+        vm.callOn(c, "step", {});
+        CHECK(vm.call("getn", {c}).number == 12); // 2 preserved + 10 new behavior
+    }
+    // A parse error during reload leaves the previous good version fully live.
+    {
+        Vm vm;
+        CHECK(vm.run("func f() { return 1; }"));
+        CHECK(vm.call("f", {}).number == 1);
+        CHECK(vm.reload("func f() { return 2; }"));
+        CHECK(vm.call("f", {}).number == 2);
+        CHECK(!vm.reload("func f() { return @@@ garbage")); // fails to parse
+        CHECK(!vm.error().empty());
+        CHECK(vm.call("f", {}).number == 2); // still the last good version (returns 2, not broken)
+    }
+    // Reload can add a brand-new class alongside preserved ones.
+    {
+        Vm vm;
+        CHECK(vm.run("class A { func who() { return \"a\"; } }"));
+        Value a = vm.instantiate("A");
+        CHECK(vm.reload("class A { func who() { return \"a\"; } } "
+                        "class B { func who() { return \"b\"; } }"));
+        Value b = vm.instantiate("B");
+        CHECK(b.type == Value::Type::Object);
+        CHECK(vm.callOn(b, "who", {}).str == "b");
+        CHECK(vm.callOn(a, "who", {}).str == "a"); // the pre-existing instance still works
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14202,6 +14255,7 @@ int main() {
     testScriptBinding();
     testScriptSignals();
     testScriptSafety();
+    testScriptHotReload();
     testNormalLight();
     testParallax();
     testAudioDsp();

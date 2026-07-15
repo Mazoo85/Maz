@@ -47,6 +47,10 @@
 //        (setStepBudget) and recursion limit (setRecursionLimit) that turn a runaway loop/recursion
 //        into a catchable error instead of a hang/crash; and a static warnings pass (warnings())
 //        for variable shadowing and unreachable code.
+//   SC9: hot reload — reload(source) swaps in new code without a restart, updating global functions
+//        and class method bodies IN PLACE so live instances keep their field state while gaining the
+//        new behavior. A lex/parse failure leaves the previous version fully live. Old ASTs are
+//        retained so still-referenced closures stay valid. (Top-level statements are not re-run.)
 //
 // Everything is header-only to match the rest of maz::. The AST is owned by the Vm for the lifetime
 // of a loaded program; runtime environments are reference-counted (shared_ptr) so closures capture.
@@ -1251,6 +1255,7 @@ public:
         m_trace.clear();
         m_warnings.clear();
         m_program.clear();
+        m_retained.clear();
         m_funcDefs.clear();
         m_classes.clear();
         m_deferred.clear();
@@ -1297,6 +1302,45 @@ public:
             m_error = e;
             return Value::nil();
         }
+    }
+
+    // ---- SC9: hot reload -------------------------------------------------------------------------
+
+    // Swap in new source WITHOUT restarting: re-hoist global functions and update every existing
+    // class's method bodies IN PLACE, so live instances keep their field values (state) while gaining
+    // the new behavior. Top-level statements are NOT re-run (that would reset global state). If the
+    // new source fails to lex/parse, nothing changes — the old version stays live and error() is set.
+    // A pure tree-walker makes this near-instant: reparse the AST, rebind, keep state. [BETTER.]
+    bool reload(const std::string& source) {
+        ScriptError lexErr;
+        std::vector<Token> toks = lex(source, lexErr);
+        if (!lexErr.message.empty()) {
+            m_error = lexErr; // keep the old program & all live state
+            return false;
+        }
+        std::vector<std::unique_ptr<Stmt>> newProg;
+        try {
+            Parser parser(std::move(toks));
+            newProg = parser.parse();
+        } catch (const ScriptError& e) {
+            m_error = e; // parse failed — old version stays live
+            return false;
+        }
+        m_error = {};
+        m_warnings.clear();
+        try {
+            analyzeWarnings(newProg);
+            // Retire the current AST but keep it alive (old FuncDef/closure bodies may still be
+            // referenced by live instances or captured lambdas until they're replaced).
+            m_retained.push_back(std::move(m_program));
+            m_program = std::move(newProg);
+            hoistFunctions(m_program, *m_global); // new global-function bodies (overwrite old Values)
+            reloadClasses(m_program);              // update classes in place; add any new ones
+        } catch (const ScriptError& e) {
+            m_error = e;
+            return false;
+        }
+        return true;
     }
 
     // ---- SC6: host-object binding ----------------------------------------------------------------
@@ -1396,6 +1440,7 @@ public:
 private:
     std::shared_ptr<Environment> m_global = std::make_shared<Environment>();
     std::vector<std::unique_ptr<Stmt>> m_program;
+    std::vector<std::vector<std::unique_ptr<Stmt>>> m_retained; // old ASTs kept alive across hot reloads (SC9)
     std::vector<std::unique_ptr<FuncDef>> m_funcDefs;
     std::vector<std::shared_ptr<ClassInfo>> m_classes; // keep runtime classes alive (SC5)
     std::vector<std::unique_ptr<NativeClass>> m_nativeClasses; // host type bindings (SC6, stable ptrs)
@@ -1532,34 +1577,72 @@ private:
             }
             auto info = std::make_shared<ClassInfo>();
             info->name = s->name;
-            if (!s->superName.empty()) {
-                const Value* base = env.get(s->superName);
-                if (!base || base->type != Value::Type::Class) {
-                    fail("unknown superclass '" + s->superName + "' for class '" + s->name + "'", s->line);
-                }
-                info->super = base->klass;
-            }
-            for (const auto& member : s->body) {
-                if (member->kind == Stmt::K::Func) {
-                    auto def = std::make_unique<FuncDef>();
-                    def->name = member->name;
-                    def->params = member->params;
-                    def->body = &member->body;
-                    Value fn;
-                    fn.type = Value::Type::Func;
-                    fn.func = def.get();
-                    fn.closure = m_global; // methods see globals (+ self/params bound at call time)
-                    info->methods.emplace_back(member->name, fn);
-                    m_funcDefs.push_back(std::move(def));
-                } else if (member->kind == Stmt::K::Var) {
-                    info->fieldInits.push_back(member.get());
-                }
-            }
+            populateClassBody(*s, *info, env);
             Value cls;
             cls.type = Value::Type::Class;
             cls.klass = info;
             env.vars[s->name] = cls;
             m_classes.push_back(std::move(info));
+        }
+    }
+
+    // SC9 — reconcile classes on hot reload. A class that still exists keeps the SAME ClassInfo
+    // object (so live instances stay bound to it) but has its body repopulated with new method
+    // bodies; a brand-new class is created and registered fresh. Removed classes are left in place
+    // (harmless — any surviving instances keep working with their last-known methods).
+    void reloadClasses(const std::vector<std::unique_ptr<Stmt>>& stmts) {
+        for (const auto& s : stmts) {
+            if (s->kind != Stmt::K::Class) {
+                continue;
+            }
+            std::shared_ptr<ClassInfo> existing;
+            for (const auto& c : m_classes) {
+                if (c->name == s->name) { existing = c; break; }
+            }
+            if (existing) {
+                populateClassBody(*s, *existing, *m_global); // in place → live instances keep state
+            } else {
+                auto info = std::make_shared<ClassInfo>();
+                info->name = s->name;
+                populateClassBody(*s, *info, *m_global);
+                Value cls;
+                cls.type = Value::Type::Class;
+                cls.klass = info;
+                m_global->vars[s->name] = cls;
+                m_classes.push_back(std::move(info));
+            }
+        }
+    }
+
+    // Fill a ClassInfo's methods / field-inits / super from a `class` AST node. Used for a fresh
+    // hoist (SC5) and for in-place hot reload (SC9), where reusing the same ClassInfo object keeps
+    // every live instance's identity — they gain the new method bodies but keep their field values.
+    void populateClassBody(const Stmt& s, ClassInfo& info, Environment& env) {
+        info.super.reset();
+        info.methods.clear();
+        info.fieldInits.clear();
+        if (!s.superName.empty()) {
+            const Value* base = env.get(s.superName);
+            if (!base || base->type != Value::Type::Class) {
+                fail("unknown superclass '" + s.superName + "' for class '" + s.name + "'", s.line);
+            }
+            info.super = base->klass;
+        }
+        for (const auto& member : s.body) {
+            if (member->kind == Stmt::K::Func) {
+                auto def = std::make_unique<FuncDef>();
+                def->name = member->name;
+                def->params = member->params;
+                def->body = &member->body;
+                Value fn;
+                fn.type = Value::Type::Func;
+                fn.func = def.get();
+                fn.closure = m_global; // methods see globals (+ self/params bound at call time)
+                info.methods.emplace_back(member->name, fn);
+                m_funcDefs.push_back(std::move(def));
+            } else if (member->kind == Stmt::K::Var) {
+                info.fieldInits.push_back(member.get());
+            }
         }
     }
 

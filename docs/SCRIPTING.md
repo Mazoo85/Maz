@@ -4,7 +4,7 @@ A build plan for `maz::script`: a dynamically-typed, tree-walking scripting
 language with a C++20 host-binding API, targeting **≥ GDScript** for real game
 use. Header-only, under `engine/include/maz/script/`, namespace `maz::script`.
 
-**Status:** SC1–SC8 shipped (Beta complete + safety: stack traces, execution budgets, warnings; `await` deferred) — lexer / recursive-descent parser / tree-walking
+**Status:** SC1–SC9 shipped (through the 1.0 production tier: safety + hot reload; `await` deferred) — lexer / recursive-descent parser / tree-walking
 interpreter with numbers, strings, bools, nil, the full arithmetic + comparison
 + logical operator set, `var` / assignment, `if` / `else`, `while`, C-style
 `for`, user `func`s with parameters + `return`, native host functions, a small
@@ -152,12 +152,19 @@ front-end could be layered later if GDScript source compatibility is ever wanted
   shadowing and unreachable code (after return/break/continue), surfaced via
   `vm.warnings()` — non-fatal, execution still proceeds. [GD].
 
-## SC9 — Hot Reload
+## SC9 — Hot Reload ✅ *(shipped)*
 
-- Reload changed scripts without restart; preserve live instance state where field
-  shapes match. [GD]. Keep old version live if new source fails to parse.
-- [BETTER] — a pure tree-walker reloads near-instantly (recompile AST, swap, keep
-  state) with no compile/link step.
+- `vm.reload(source)` swaps in new code **without a restart**: global functions are
+  re-hoisted and every existing class has its method bodies updated **in place**, so
+  live instances keep their field values (state) while running the new behavior. [GD]
+- **Parse-failure safety**: if the new source fails to lex/parse, nothing changes —
+  the previous good version stays fully live and `error()` is set. [GD]
+- Reload can also introduce brand-new classes/functions alongside preserved ones.
+- **[BETTER]** — a pure tree-walker reloads near-instantly: reparse the AST, rebind
+  class/function bodies, keep state; no compile/link step. Old ASTs are retained so
+  any still-referenced closures stay valid.
+- *Note:* top-level statements are intentionally **not** re-run on reload (that would
+  reset global state); newly-added global `var`s therefore need an explicit re-run.
 
 ## SC10 — Static Typing (Optional / Gradual)
 
@@ -178,7 +185,7 @@ front-end could be layered later if GDScript source compatibility is ever wanted
 
 - **Alpha (playable scripting):** SC1 ✅ → SC2 ✅ → SC3 ✅  **— complete**.
 - **Beta (game structure):** SC4 ✅ → SC5 ✅ → SC6 ✅ → SC7 ✅ (signals; `await` deferred to the VM-core pass).
-- **1.0 (production):** SC8 ✅ → SC9.
+- **1.0 (production):** SC8 ✅ → SC9 ✅  **— complete**.
 - **1.x (edge over Godot):** SC10–SC11.
 
 **Front-loaded risks:** the host-binding template API (SC6) is the engine's real
