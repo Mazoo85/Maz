@@ -10578,6 +10578,29 @@ void testEditorPickRay() {
     CHECK(editor::pickNode(s, ro, rd) == -1);
 }
 
+void testEditorGizmoDrag() {
+    // A ray from above pointing down at an angle hits the ground plane at a predictable point.
+    math::vec3 hit;
+    CHECK(editor::rayPlaneY(math::vec3(0, 4, 0), math::vec3(1, -1, 0), 0.0f, hit));
+    CHECK_NEAR(hit.x, 4.0f, 1e-4f); // travel 4 down => 4 along x
+    CHECK_NEAR(hit.y, 0.0f, 1e-4f);
+
+    // A ray parallel to the plane never hits it.
+    CHECK(!editor::rayPlaneY(math::vec3(0, 2, 0), math::vec3(1, 0, 0), 0.0f, hit));
+    // A ray pointing away from the plane (upward, plane below) misses (t < 0).
+    CHECK(!editor::rayPlaneY(math::vec3(0, 2, 0), math::vec3(0, 1, 0), 0.0f, hit));
+
+    // The drag keeps the grabbed point under the cursor: offset = pos - grabHit, then
+    // newPos = cursorHit + offset preserves the object's relative position.
+    const math::vec3 pos(3, 0.5f, -1);
+    const math::vec3 grabHit(2.5f, 0.5f, -1.2f);
+    const math::vec3 offset = math::vec3(pos.x - grabHit.x, 0, pos.z - grabHit.z);
+    const math::vec3 cursorHit(5.0f, 0.5f, 0.3f);
+    const math::vec3 moved(cursorHit.x + offset.x, pos.y, cursorHit.z + offset.z);
+    CHECK_NEAR(moved.x, 5.5f, 1e-4f);
+    CHECK_NEAR(moved.z, 0.5f, 1e-4f);
+}
+
 // P7: contact events. A moving ball strikes a fixed ball and bounces away; the world must report a
 // Begin when they start touching and an End when they separate, and nothing before first contact.
 void testContactEvents() {
@@ -13343,6 +13366,7 @@ int main() {
     testPhysics3DHinge();
     testEditorScene();
     testEditorPickRay();
+    testEditorGizmoDrag();
     testNormalLight();
     testParallax();
     testAudioDsp();

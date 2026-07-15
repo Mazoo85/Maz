@@ -113,6 +113,9 @@ int main(int argc, char** argv) {
     scene.nodes.back().scale = math::vec3(0.7f);
     scene.selected = 0;
 
+    bool dragging = false;         // translate-gizmo drag in progress
+    math::vec3 dragOffset{0, 0, 0}; // node pos minus ground-plane hit at grab time
+
     render::SceneLighting light;
     light.ambient[0] = light.ambient[1] = light.ambient[2] = 0.30f;
     light.sunDir[0] = 0.35f;
@@ -144,18 +147,39 @@ int main(int argc, char** argv) {
         const float mx = input.mouseX(), my = input.mouseY();
         const bool down = input.mouseDown(0);
 
-        // Viewport click-to-pick: a left click in the 3D viewport (not over a panel) casts a ray
-        // through the scene and selects the nearest node it hits.
+        // Viewport click-to-pick + translate gizmo: a left click in the 3D viewport (not over a
+        // panel) casts a ray; it selects the nearest node it hits and begins a ground-plane drag.
         const float treeW = 240.0f, inspW = 288.0f;
         const bool inViewport = mx > treeW + 8.0f && mx < fw - inspW - 8.0f;
+        const glm::mat4 invVP = glm::inverse(viewProj);
         if (input.mousePressed(0) && inViewport) {
-            const glm::mat4 inv = glm::inverse(viewProj);
             math::vec3 ro, rd;
-            editor::screenRay(inv, mx, my, fw, fh, ro, rd);
+            editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
             const int hit = editor::pickNode(scene, ro, rd);
             if (hit >= 0) {
                 scene.selected = hit;
+                math::vec3 planeHit;
+                if (editor::rayPlaneY(ro, rd, scene.nodes[static_cast<size_t>(hit)].position.y,
+                                      planeHit)) {
+                    dragging = true;
+                    const math::vec3& p = scene.nodes[static_cast<size_t>(hit)].position;
+                    dragOffset = math::vec3(p.x - planeHit.x, 0.0f, p.z - planeHit.z);
+                }
             }
+        }
+        // Continue dragging: move the selected node so its grab point tracks the cursor on its plane.
+        if (dragging && input.mouseDown(0)) {
+            if (editor::Node* s = scene.selectedNode()) {
+                math::vec3 ro, rd, planeHit;
+                editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
+                if (editor::rayPlaneY(ro, rd, s->position.y, planeHit)) {
+                    s->position.x = planeHit.x + dragOffset.x;
+                    s->position.z = planeHit.z + dragOffset.z;
+                }
+            }
+        }
+        if (!input.mouseDown(0)) {
+            dragging = false;
         }
         // Keyboard nudge of the selected node: arrows move on the ground plane, Q/E rotate.
         if (editor::Node* s = scene.selectedNode()) {
@@ -204,6 +228,17 @@ int main(int argc, char** argv) {
                 sel->worldAabb(mn, mxb);
                 const float col[4] = {1.0f, 0.85f, 0.2f, 1.0f};
                 renderer->drawAabb(glm::value_ptr(mn), glm::value_ptr(mxb), col);
+                // RGB translate-gizmo axes from the node's origin (X red, Y green, Z blue).
+                const glm::vec3 c = sel->position;
+                const float L = 1.4f;
+                const float rx[4] = {1.0f, 0.3f, 0.25f, 1.0f};
+                const float gy[4] = {0.35f, 1.0f, 0.35f, 1.0f};
+                const float bz[4] = {0.35f, 0.55f, 1.0f, 1.0f};
+                const glm::vec3 ax = c + glm::vec3(L, 0, 0), ay = c + glm::vec3(0, L, 0),
+                                az = c + glm::vec3(0, 0, L);
+                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ax), rx);
+                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ay), gy);
+                renderer->drawLine(glm::value_ptr(c), glm::value_ptr(az), bz);
             }
 
             // ---- 2D editor UI (pixel space) ----

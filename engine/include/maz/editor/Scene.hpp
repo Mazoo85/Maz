@@ -5,6 +5,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -92,6 +93,22 @@ inline int pickNode(const Scene& scene, const math::vec3& origin, const math::ve
         }
     }
     return best;
+}
+
+// Intersect a ray with the horizontal plane y = planeY. Returns false if the ray is parallel to the
+// plane or the hit is behind the origin; otherwise writes the world-space hit point. Used by the
+// editor's translate gizmo to drag the selected node across the ground.
+inline bool rayPlaneY(const math::vec3& origin, const math::vec3& dir, float planeY,
+                      math::vec3& outHit) {
+    if (std::abs(dir.y) < 1e-6f) {
+        return false;
+    }
+    const float t = (planeY - origin.y) / dir.y;
+    if (t < 0.0f) {
+        return false;
+    }
+    outHit = origin + dir * t;
+    return true;
 }
 
 // Build a world-space ray from a pixel on screen through the camera, using the inverse of the
