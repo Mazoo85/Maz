@@ -50,6 +50,7 @@
 #include "maz/ecs/World.hpp"
 #include "maz/editor/Scene.hpp"
 #include "maz/script/Script.hpp"
+#include "maz/script/ScriptSystem.hpp"
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -11595,6 +11596,104 @@ void testScriptTooling() {
     }
 }
 
+// Script↔engine bridge: a script class attached to a node drives its transform via lifecycle hooks.
+void testScriptSystem() {
+    using maz::script::ScriptSystem;
+    using maz::script::Value;
+
+    // A _process(dt) script moves its node's transform each frame.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Spinner { func _process(dt) { "
+                             "self.node.rotation = self.node.rotation + dt; } }"));
+        auto node = sys.spawn("Spinner");
+        CHECK(node != nullptr);
+        sys.process(0.5);
+        sys.process(0.25);
+        CHECK(node->rotation == 0.75); // driven by the script over two frames
+    }
+    // _ready runs once on spawn; _process accumulates; the host reads the transform back.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Walker { var speed = 0; "
+                             "func _ready() { self.speed = 100; } "
+                             "func _process(dt) { self.node.x = self.node.x + self.speed * dt; } }"));
+        auto node = sys.spawn("Walker");
+        CHECK(node != nullptr);
+        CHECK(node->x == 0.0);
+        sys.process(0.1); // x += 100 * 0.1 = 10
+        sys.process(0.1); // x += 10 => 20
+        CHECK(node->x == 20.0);
+    }
+    // Node2D methods and multiple properties: translate() + name.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Mob { func _ready() { self.node.name = \"zombie\"; } "
+                             "func _process(dt) { self.node.translate(dt * 2, dt); } }"));
+        auto node = sys.spawn("Mob");
+        CHECK(node != nullptr);
+        CHECK(node->name == "zombie");
+        sys.process(1.0);
+        CHECK(node->x == 2.0);
+        CHECK(node->y == 1.0);
+    }
+    // Multiple independent instances each drive their own node.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Drifter { func _process(dt) { self.node.x = self.node.x + dt; } }"));
+        auto a = sys.spawn("Drifter");
+        auto b = sys.spawn("Drifter");
+        CHECK(sys.instanceCount() == 2);
+        sys.process(1.0);
+        a->x = 5.0; // externally nudge a
+        sys.process(1.0);
+        CHECK(a->x == 6.0); // 5 + 1
+        CHECK(b->x == 2.0); // 1 + 1, independent
+    }
+    // registerScript accumulation + broadcast to a named method.
+    {
+        ScriptSystem sys;
+        CHECK(sys.registerScript("Bell", "var rings = 0;\nfunc on_alarm() { self.rings = self.rings + 1; }"));
+        auto n1 = sys.spawn("Bell");
+        auto n2 = sys.spawn("Bell");
+        (void)n1;
+        (void)n2;
+        sys.broadcast("on_alarm");
+        sys.broadcast("on_alarm");
+        // Read rings back via the vm (getter over the instances).
+        CHECK(sys.instanceCount() == 2);
+        // Verify through a helper: each instance's `rings` field should be 2.
+        int total = 0;
+        for (const auto& inst : sys.instances()) {
+            if (inst.self.instance) {
+                if (const Value* f = const_cast<maz::script::Instance*>(inst.self.instance.get())->findField("rings")) {
+                    total += static_cast<int>(f->number);
+                }
+            }
+        }
+        CHECK(total == 4); // 2 instances x 2 alarms
+    }
+    // physics_process is a separate hook.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Body { func _physics_process(dt) { self.node.y = self.node.y - dt; } }"));
+        auto node = sys.spawn("Body");
+        CHECK(node != nullptr);
+        sys.process(1.0);        // _process absent — no change
+        CHECK(node->y == 0.0);
+        sys.physicsProcess(0.5); // drives _physics_process
+        CHECK(node->y == -0.5);
+    }
+    // Spawning an unknown class fails cleanly.
+    {
+        ScriptSystem sys;
+        CHECK(sys.loadSource("class Real { }"));
+        auto node = sys.spawn("Ghost");
+        CHECK(node == nullptr);
+        CHECK(!sys.error().empty());
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14418,6 +14517,7 @@ int main() {
     testScriptHotReload();
     testScriptTyping();
     testScriptTooling();
+    testScriptSystem();
     testNormalLight();
     testParallax();
     testAudioDsp();

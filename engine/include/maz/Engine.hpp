@@ -124,6 +124,7 @@
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 #include "maz/script/Script.hpp"
+#include "maz/script/ScriptSystem.hpp"
 #include "maz/ui/Container.hpp"
 #include "maz/ui/DebugOverlay.hpp"
 #include "maz/ui/Font.hpp"

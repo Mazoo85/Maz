@@ -832,6 +832,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `class_name`; and debugger hooks `onStep` + breakpoints) — **the full SC1–SC11 roadmap, all
   unit-tested.** The only deferred edges are a true coroutine `await` and a typed fast-path, both
   needing a bytecode/fiber VM (a future VM-core rewrite); see `docs/SCRIPTING.md`.
+- [x] **Script ↔ engine bridge** (`script::ScriptSystem` + `script::Node2D`) — attach a script
+  class to a game node, and the system drives its `_ready` / `_process(dt)` / `_physics_process(dt)`
+  hooks each frame while exposing the node's transform (x / y / rotation / scale / visible / name +
+  `translate()`) to the script through a bound `Node2D` host type. The Godot "script-on-node" model,
+  sandboxed and deterministic; `spawn()` / `process()` / `broadcast()` all unit-tested.
 - [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
   `crowd` demo flocks 14 agents through the maze; M58)
 - [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;
