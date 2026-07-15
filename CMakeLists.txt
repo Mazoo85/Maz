@@ -194,6 +194,7 @@ add_subdirectory(apps/pbrballs)
 add_subdirectory(apps/tonemap)
 add_subdirectory(apps/ssao)
 add_subdirectory(apps/editor)
+add_subdirectory(apps/zomboid)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

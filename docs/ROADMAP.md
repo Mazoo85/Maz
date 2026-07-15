@@ -1100,12 +1100,23 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
       hazards), the pooled particle system, screen-shake juice, and a high score persisted across
       runs via the KeyValueStore — with a deterministic attract-mode AI so the golden is stable (M74)
+- [x] **ZOMBOID** (`apps/zomboid`) — the flagship: a top-down zombie-survival game whose **entire
+      simulation is written in `maz::script`** (the engine's own from-scratch language) and driven on a
+      `scene::SceneTree`, exactly the way you author a game in Godot. A `Survivor` class runs hunger →
+      health needs and eats rations; a `Zombie` class chases the player and bites on a cooldown; loot
+      nodes sit in the world — with cross-object gameplay (every zombie reads the shared player through a
+      script global, zero host coupling). Logic lives in `apps/zomboid/game.hpp` and is verified **headless
+      in CI** by the unit suite (scene builds, hunger/health pressure, eating, horde AI, lethal combat);
+      `apps/zomboid/main.cpp` is a thin presentation layer that walks the same tree and draws a sprite per
+      node plus a health/hunger/rations HUD. This is the proof the engine's scripting + scene stack ship a
+      real game end to end.
 - [ ] More sample scenes: pong, platformer, top-down adventure
 
 > Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
-> The unrelated *ZOMBOID: ANCHORAGE* browser game that also lives in this repo is **not** an
-> engine target or dependency. Sample games built to exercise the engine are original and
-> genre-neutral.
+> The *ZOMBOID* sample above is an **original, engine-native** survival game written in `maz::script`
+> to exercise the scripting VM and scene tree; it shares only a name/theme with the unrelated
+> *ZOMBOID: ANCHORAGE* browser game in this repo, and does not use that game's code or assets. Sample
+> games built to exercise the engine are original and genre-neutral.
 
 ---
 

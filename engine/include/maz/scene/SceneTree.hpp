@@ -122,7 +122,18 @@ class SceneNode {
 
 class SceneTree {
   public:
-    SceneTree() : m_root(std::make_unique<SceneNode>("root")) {}
+    SceneTree() : m_root(std::make_unique<SceneNode>("root")) {
+        // Give scripts scene access, Godot-style: `get_node("Player")` returns that node's Node2D
+        // (so one script can read/move another node), and `has_node` probes for existence.
+        m_scripts.vm().registerNative("get_node", [this](std::vector<script::Value>& a) {
+            SceneNode* n = a.empty() ? nullptr : findNode(a[0].toString());
+            if (!n) return script::Value::nil();
+            return m_scripts.vm().makeNativeObject("Node2D", n->transformPtr());
+        });
+        m_scripts.vm().registerNative("has_node", [this](std::vector<script::Value>& a) {
+            return script::Value::fromBool(!a.empty() && findNode(a[0].toString()) != nullptr);
+        });
+    }
 
     SceneNode& root() { return *m_root; }
     script::ScriptSystem& scripts() { return m_scripts; }

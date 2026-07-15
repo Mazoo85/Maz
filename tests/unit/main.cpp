@@ -53,6 +53,7 @@
 #include "maz/script/ScriptSystem.hpp"
 #include "maz/scene/SceneTree.hpp"
 #include "maz/scene/SceneSerialize.hpp"
+#include "game.hpp" // apps/zomboid — the flagship game's logic
 #include "maz/fx/ForceField2D.hpp"
 #include "maz/fx/ParticleEmitter.hpp"
 #include "maz/fx/Particles.hpp"
@@ -11895,6 +11896,84 @@ void testSceneSerialize() {
     }
 }
 
+// The flagship: ZOMBOID's whole simulation runs headless on the SceneTree + scripting.
+void testZomboidSim() {
+    using maz::scene::SceneTree;
+    using maz::scene::SceneNode;
+
+    // The scene builds cleanly: a survivor, a ring of zombies, and loot.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        CHECK(survivor != nullptr);
+        CHECK(tree.scripts().vm().error().empty()); // program parsed & ran
+        CHECK(tree.nodesInGroup("zombies").size() == 6);
+        CHECK(tree.nodesInGroup("loot").size() == 3);
+    }
+
+    // Survival pressure: hunger rises over time, then health drains once starving.
+    // Isolate the survivor (no horde) so we measure starvation, not zombie bites.
+    {
+        SceneTree tree;
+        tree.loadScripts(zomboid::scripts());
+        SceneNode* survivor = tree.createChild(tree.root(), "Survivor");
+        tree.attachScript(*survivor, "Survivor");
+        auto hunger = [&] { return survivor->script().instance->findField("hunger")->number; };
+        auto health = [&] { return survivor->script().instance->findField("health")->number; };
+        CHECK(hunger() == 0.0);
+        for (int i = 0; i < 5; ++i) tree.process(1.0); // 5 seconds
+        CHECK(hunger() > 0.0);        // got hungrier
+        CHECK(health() == 100.0);     // not starving yet
+        for (int i = 0; i < 40; ++i) tree.process(1.0); // starve out
+        CHECK(hunger() >= 100.0);
+        CHECK(health() < 100.0);      // health drained while starving
+    }
+
+    // Eating restores hunger and consumes a ration.
+    {
+        SceneTree tree;
+        tree.loadScripts(zomboid::scripts());
+        SceneNode* survivor = tree.createChild(tree.root(), "Survivor");
+        tree.attachScript(*survivor, "Survivor");
+        for (int i = 0; i < 20; ++i) tree.process(1.0); // build up hunger
+        auto* inst = survivor->script().instance.get();
+        const double before = inst->findField("hunger")->number;
+        const double food0 = inst->findField("food")->number;
+        std::vector<maz::script::Value> none;
+        maz::script::Value self = survivor->script(); // copy shares the same instance (shared_ptr)
+        tree.scripts().vm().callOn(self, "eat", none);
+        CHECK(inst->findField("hunger")->number < before); // hunger dropped
+        CHECK(inst->findField("food")->number == food0 - 1); // used a ration
+    }
+
+    // Zombie AI: the horde closes in on the survivor over time.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* z0 = tree.findNode("Zombie0");
+        CHECK(z0 != nullptr);
+        double startDist = std::sqrt(z0->x() * z0->x() + z0->y() * z0->y());
+        for (int i = 0; i < 10; ++i) tree.process(0.1); // 1 second
+        double nowDist = std::sqrt(z0->x() * z0->x() + z0->y() * z0->y());
+        CHECK(nowDist < startDist); // zombie moved toward the survivor at origin
+    }
+
+    // Combat: once the horde reaches the survivor, it takes damage (and can die).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto health = [&] { return survivor->script().instance->findField("health")->number; };
+        auto alive = [&] { return survivor->script().instance->findField("alive")->boolean; };
+        CHECK(health() == 100.0);
+        // Simulate long enough for zombies to arrive and bite repeatedly.
+        for (int i = 0; i < 400; ++i) tree.process(0.1); // 40 seconds
+        CHECK(health() < 100.0); // the horde drew blood
+        // With 6 zombies biting plus starvation, the survivor should eventually fall.
+        for (int i = 0; i < 400; ++i) tree.process(0.1);
+        CHECK(!alive());
+    }
+}
+
 // E14: the editor's "Package" export — scene -> JSON -> resource pack -> back to an identical scene.
 void testEditorPackage() {
     editor::Scene sc;
@@ -14721,6 +14800,7 @@ int main() {
     testScriptSystem();
     testSceneTree();
     testSceneSerialize();
+    testZomboidSim();
     testNormalLight();
     testParallax();
     testAudioDsp();

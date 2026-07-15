@@ -2,6 +2,8 @@
 # No GPU/window needed — fast, deterministic, and the first line of defence against logic bugs.
 add_executable(maz_unit_tests unit/main.cpp)
 target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
+# The ZOMBOID game logic (scripts + scene builder) is shared between its app and these tests.
+target_include_directories(maz_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
 add_test(NAME unit_tests COMMAND maz_unit_tests)
 set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 
@@ -1242,6 +1244,14 @@ add_test(
     COMMAND editor --headless --frames 30)
 
 set_tests_properties(editor_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME zomboid_headless_smoke
+    COMMAND zomboid --headless --frames 30)
+
+set_tests_properties(zomboid_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
