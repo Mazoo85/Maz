@@ -217,7 +217,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   detection via a generation bump on free, double-free safe, `forEach` over live values — Godot's `RID` /
   stable entity handles; the `slotmap` demo drives insert/free/reuse and flags live vs stale handles;
   M137) — a typed multi-resource RID server + retrofitting texture/mesh/ECS handles onto it later
-- [ ] Containers: `small_vector`, sparse set
+- [x] **Containers** (`core::SmallVector<T,N>` + `core::SparseSet<T>`): the two structures an engine
+  needs that the STL omits. `SmallVector` keeps its first N elements **inline** (no heap) and only
+  spills past N — killing the malloc/free per short-lived list (node children, contacts, query hits),
+  with full std::vector-style API and correct move/copy (inline-move + heap-steal). `SparseSet` maps
+  integer keys to values with **O(1) insert/remove/lookup** and a densely-packed, hole-free value
+  array to iterate (swap-erase removal) — the backbone of an archetype-free ECS component store.
+  Verified: inline→heap spill preserving elements, move/copy of a non-trivial element type, and a
+  1000-key sparse-set insert/remove stress (M183)
 - [x] **Ring / circular buffer** (`core::RingBuffer<T>`: fixed-capacity, serving a rolling window
   (`push` overwrites the oldest when full) and a bounded FIFO (`pushBack`/`popFront`); logical `at(0)`=oldest
   indexing hides the wrap; `toVector`/`front`/`back`/`clear`/`reset` — Godot's `RingBuffer`, behind frame-time

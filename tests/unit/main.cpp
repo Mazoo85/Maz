@@ -35,6 +35,7 @@
 #include "maz/core/AssetServer.hpp"
 #include "maz/core/CVars.hpp"
 #include "maz/core/Checkpoints.hpp"
+#include "maz/core/Containers.hpp"
 #include "maz/core/Memory.hpp"
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
@@ -8031,6 +8032,114 @@ void testQuadtree() {
     CHECK(treeSet(q3.query(46, 46, 2, 2)) == std::set<uint32_t>{7});
 }
 
+// Containers: SmallVector (inline until N, spills to heap, correct move/copy) and SparseSet (O(1)
+// insert/remove/lookup with a dense, hole-free value array).
+void testContainers() {
+    // ---- SmallVector ----
+    core::SmallVector<int, 4> v;
+    CHECK(v.empty());
+    CHECK(v.capacity() == 4);
+    CHECK(v.isInline());
+    v.push_back(1);
+    v.push_back(2);
+    v.push_back(3);
+    v.push_back(4);
+    CHECK(v.size() == 4);
+    CHECK(v.isInline()); // still within inline capacity
+    CHECK(v[0] == 1 && v[3] == 4);
+    CHECK(v.back() == 4 && v.front() == 1);
+
+    v.push_back(5); // spill to heap
+    CHECK(v.size() == 5);
+    CHECK(!v.isInline());
+    CHECK(v.capacity() >= 5);
+    CHECK(v[4] == 5);
+    CHECK(v[0] == 1); // elements preserved across the spill
+
+    // range-for sums correctly.
+    int sum = 0;
+    for (int x : v) sum += x;
+    CHECK(sum == 15);
+
+    v.pop_back();
+    CHECK(v.size() == 4 && v.back() == 4);
+    v.clear();
+    CHECK(v.empty());
+
+    // Copy + move keep contents and don't double-free (exercised with a non-trivial element).
+    core::SmallVector<std::string, 2> s;
+    s.push_back("a");
+    s.push_back("b");
+    s.push_back("c"); // spills
+    core::SmallVector<std::string, 2> copy = s;
+    CHECK(copy.size() == 3);
+    CHECK(copy[2] == "c");
+    core::SmallVector<std::string, 2> moved = std::move(s);
+    CHECK(moved.size() == 3);
+    CHECK(moved[0] == "a");
+    CHECK(copy[0] == "a"); // the copy is independent of the moved-from source
+
+    // Inline-only move (source never spilled) still transfers elements.
+    core::SmallVector<std::string, 4> inl;
+    inl.push_back("x");
+    inl.push_back("y");
+    core::SmallVector<std::string, 4> inlMoved = std::move(inl);
+    CHECK(inlMoved.size() == 2 && inlMoved[1] == "y");
+
+    // emplace_back constructs in place.
+    core::SmallVector<std::pair<int, int>, 2> pairs;
+    pairs.emplace_back(3, 4);
+    CHECK(pairs[0].first == 3 && pairs[0].second == 4);
+
+    // ---- SparseSet ----
+    core::SparseSet<std::string> set;
+    CHECK(set.empty());
+    set.insert(5, "five");
+    set.insert(2, "two");
+    set.insert(9, "nine");
+    CHECK(set.size() == 3);
+    CHECK(set.contains(5) && set.contains(2) && set.contains(9));
+    CHECK(!set.contains(0) && !set.contains(100));
+    CHECK(*set.get(5) == "five");
+    CHECK(set.get(100) == nullptr);
+
+    // Overwrite an existing key updates in place (no size change).
+    set.insert(2, "TWO");
+    CHECK(set.size() == 3 && *set.get(2) == "TWO");
+
+    // Dense arrays stay packed and parallel.
+    CHECK(set.keys().size() == 3 && set.values().size() == 3);
+
+    // Swap-erase removal: removing the middle key keeps the set packed and lookups correct.
+    CHECK(set.remove(2));
+    CHECK(!set.contains(2));
+    CHECK(set.size() == 2);
+    CHECK(set.contains(5) && set.contains(9));
+    CHECK(*set.get(9) == "nine"); // the moved-in element is still findable
+    CHECK(!set.remove(2));        // already gone
+
+    // Iterating dense values hits exactly the live entries.
+    std::set<std::string> seen(set.values().begin(), set.values().end());
+    CHECK(seen == (std::set<std::string>{"five", "nine"}));
+
+    set.clear();
+    CHECK(set.empty() && !set.contains(5));
+
+    // Stress: insert 1000, remove evens, survivors all present with correct values.
+    core::SparseSet<int> big;
+    for (uint32_t i = 0; i < 1000; ++i) big.insert(i, static_cast<int>(i * 3));
+    CHECK(big.size() == 1000);
+    for (uint32_t i = 0; i < 1000; i += 2) big.remove(i);
+    CHECK(big.size() == 500);
+    bool ok = true;
+    for (uint32_t i = 1; i < 1000; i += 2) {
+        const int* p = big.get(i);
+        if (!p || *p != static_cast<int>(i * 3)) ok = false;
+    }
+    CHECK(ok);
+    CHECK(!big.contains(0) && !big.contains(998));
+}
+
 void testMemory() {
     // ---- LinearArena ----
     core::LinearArena arena(1024);
@@ -15486,6 +15595,7 @@ int main() {
     testCheckpoints();
     testMemory();
     testQuadtree();
+    testContainers();
     testSceneStack();
     testTween();
     testTweenPlayer();
