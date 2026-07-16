@@ -19,6 +19,14 @@ tools). For full HTML docs, contributors with Doxygen installed can run `doxygen
 
 ## Building
 
+**New to this / no coding experience?** Start with **[`docs/EDITOR_GUIDE.md`](docs/EDITOR_GUIDE.md)** —
+a plain-language, step-by-step guide to turning the source into the **Editor program** (a Godot-style
+tool: place objects, tweak them, press Play). It uses the one-command helpers
+`tools/build_editor.sh` (macOS/Linux) and `tools/build_editor.bat` (Windows), which check your tools
+and build the Editor for you.
+
+For the manual path:
+
 Requires a C++20 compiler, CMake ≥ 3.24, the **Vulkan SDK** (loader + `glslangValidator`), and
 on Linux the X11 dev packages. SDL3 and GLM are fetched automatically.
 
