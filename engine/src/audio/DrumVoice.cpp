@@ -80,7 +80,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             phase_ -= std::floor(phase_);
         }
 
-        out[i] += s * gain_;
+        out[i] += s * gain_ * level_;
         t_ += dt;
     }
 

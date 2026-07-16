@@ -48,6 +48,15 @@ public:
     const std::string& channelName(int channel) const { return names_[static_cast<size_t>(channel)]; }
     DrumVoice& channelVoice(int channel) { return channels_[static_cast<size_t>(channel)]; }
 
+    // Per-channel mixer strip: volume (linear), mute, and solo. When any channel is soloed, only
+    // soloed channels are heard.
+    void setChannelVolume(int c, float v);
+    void setChannelMute(int c, bool m);
+    void setChannelSolo(int c, bool s);
+    float channelVolume(int c) const;
+    bool channelMute(int c) const;
+    bool channelSolo(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
@@ -97,6 +106,9 @@ private:
 
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;
+    std::vector<float> chanVolume_; // per-channel linear level
+    std::vector<uint8_t> chanMute_;
+    std::vector<uint8_t> chanSolo_;
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode

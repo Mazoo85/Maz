@@ -28,7 +28,35 @@ Sequencer::Sequencer() {
         channels_[static_cast<size_t>(c)].setGain(kKit[c].gain);
         names_[static_cast<size_t>(c)] = kKit[c].name;
     }
+    chanVolume_.assign(static_cast<size_t>(channelCount), 1.0f);
+    chanMute_.assign(static_cast<size_t>(channelCount), 0);
+    chanSolo_.assign(static_cast<size_t>(channelCount), 0);
     addPattern(); // start with one empty pattern
+}
+
+void Sequencer::setChannelVolume(int c, float v) {
+    if (c >= 0 && c < numChannels()) {
+        chanVolume_[static_cast<size_t>(c)] = v;
+    }
+}
+void Sequencer::setChannelMute(int c, bool m) {
+    if (c >= 0 && c < numChannels()) {
+        chanMute_[static_cast<size_t>(c)] = m ? 1u : 0u;
+    }
+}
+void Sequencer::setChannelSolo(int c, bool s) {
+    if (c >= 0 && c < numChannels()) {
+        chanSolo_[static_cast<size_t>(c)] = s ? 1u : 0u;
+    }
+}
+float Sequencer::channelVolume(int c) const {
+    return (c >= 0 && c < numChannels()) ? chanVolume_[static_cast<size_t>(c)] : 1.0f;
+}
+bool Sequencer::channelMute(int c) const {
+    return c >= 0 && c < numChannels() && chanMute_[static_cast<size_t>(c)] != 0;
+}
+bool Sequencer::channelSolo(int c) const {
+    return c >= 0 && c < numChannels() && chanSolo_[static_cast<size_t>(c)] != 0;
 }
 
 int Sequencer::addPattern() {
@@ -159,8 +187,19 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
         // (near-linear at low level) while stacked voices no longer sum past full scale and clip.
         mixScratch_.assign(static_cast<size_t>(chunk), 0.0f);
         synthScratch_.assign(static_cast<size_t>(chunk), 0.0f);
-        for (DrumVoice& voice : channels_) {
-            voice.render(mixScratch_.data(), chunk, sampleRate);
+        bool anySolo = false;
+        for (uint8_t s : chanSolo_) {
+            anySolo = anySolo || s != 0;
+        }
+        for (int c = 0; c < numChannels(); ++c) {
+            const bool audible =
+                chanMute_[static_cast<size_t>(c)] == 0 &&
+                (!anySolo || chanSolo_[static_cast<size_t>(c)] != 0);
+            if (!audible) {
+                continue; // muted, or another channel is soloed
+            }
+            channels_[static_cast<size_t>(c)].setLevel(chanVolume_[static_cast<size_t>(c)]);
+            channels_[static_cast<size_t>(c)].render(mixScratch_.data(), chunk, sampleRate);
         }
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);

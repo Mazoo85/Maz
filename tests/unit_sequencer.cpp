@@ -122,6 +122,50 @@ int main() {
     const std::vector<float> nothing = renderMono(silent, 6000, sampleRate);
     check(rms(nothing) == 0.0, "an empty pattern renders silence");
 
+    // --- Per-channel mixer: volume / mute / solo ----------------------------
+    {
+        audio::Sequencer mix;
+        mix.setBpm(120.0);
+        mix.setStep(0, 0, true); // kick
+        mix.setStep(1, 0, true); // snare, same step
+        mix.play();
+        const double full = rms(renderMono(mix, 6000, sampleRate));
+        check(full > 0.0, "two channels produce sound");
+
+        // Mute the kick → quieter than both.
+        audio::Sequencer m2;
+        m2.setBpm(120.0);
+        m2.setStep(0, 0, true);
+        m2.setStep(1, 0, true);
+        m2.setChannelMute(0, true);
+        m2.play();
+        const double muted = rms(renderMono(m2, 6000, sampleRate));
+        check(muted > 0.0 && muted < full, "muting a channel reduces the mix");
+
+        // Mute both → silence.
+        m2.setChannelMute(1, true);
+        m2.play();
+        check(rms(renderMono(m2, 6000, sampleRate)) == 0.0, "muting all channels is silent");
+
+        // Solo the snare (kick also active) → only the snare sounds.
+        audio::Sequencer s2;
+        s2.setBpm(120.0);
+        s2.setStep(0, 0, true);
+        s2.setStep(1, 0, true);
+        s2.setChannelSolo(1, true);
+        s2.play();
+        const double soloed = rms(renderMono(s2, 6000, sampleRate));
+        check(soloed > 0.0 && soloed < full, "solo isolates one channel");
+
+        // Volume 0 on the only active channel → silence.
+        audio::Sequencer v2;
+        v2.setBpm(120.0);
+        v2.setStep(0, 0, true);
+        v2.setChannelVolume(0, 0.0f);
+        v2.play();
+        check(rms(renderMono(v2, 6000, sampleRate)) == 0.0, "channel volume 0 is silent");
+    }
+
     // --- Arrangement: patterns + playlist -----------------------------------
     audio::Sequencer arr;
     check(arr.patternCount() == 1, "starts with one pattern");

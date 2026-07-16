@@ -294,8 +294,24 @@ void buildRackUI(audio::Sequencer& seq) {
     const int channels = seq.numChannels();
     const float cell = 26.0f;
     for (int c = 0; c < channels; ++c) {
-        ImGui::Text("%-11s", seq.channelName(c).c_str());
-        ImGui::SameLine(120.0f);
+        ImGui::PushID(c);
+        ImGui::Text("%-9s", seq.channelName(c).c_str());
+        ImGui::SameLine(96.0f);
+        // Mute / Solo / volume strip.
+        const bool mute = seq.channelMute(c);
+        if (mute) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.80f, 0.20f, 0.20f, 1.0f));
+        if (ImGui::Button("M", ImVec2(20, 20))) seq.setChannelMute(c, !mute);
+        if (mute) ImGui::PopStyleColor();
+        ImGui::SameLine();
+        const bool solo = seq.channelSolo(c);
+        if (solo) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.70f, 0.20f, 1.0f));
+        if (ImGui::Button("S", ImVec2(20, 20))) seq.setChannelSolo(c, !solo);
+        if (solo) ImGui::PopStyleColor();
+        ImGui::SameLine();
+        float vol = seq.channelVolume(c);
+        ImGui::SetNextItemWidth(64.0f);
+        if (ImGui::SliderFloat("##vol", &vol, 0.0f, 1.5f, "%.1f")) seq.setChannelVolume(c, vol);
+        ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);
             const bool on = seq.step(c, s);
@@ -321,6 +337,7 @@ void buildRackUI(audio::Sequencer& seq) {
             }
             ImGui::PopID();
         }
+        ImGui::PopID(); // channel row
     }
 
     ImGui::End();

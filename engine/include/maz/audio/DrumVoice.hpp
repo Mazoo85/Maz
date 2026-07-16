@@ -19,6 +19,10 @@ public:
     void setGain(float gain) { gain_ = gain; }
     float gain() const { return gain_; }
 
+    // Per-channel mixer level (separate from the kit's base gain), driven by the mixer UI.
+    void setLevel(float level) { level_ = level; }
+    float level() const { return level_; }
+
     // Strike the drum: reset the envelope/phase and start sounding.
     void trigger();
 
@@ -35,6 +39,7 @@ private:
 
     Drum type_ = Drum::Kick;
     float gain_ = 0.8f;
+    float level_ = 1.0f;
     bool active_ = false;
     double t_ = 0.0;      // seconds since trigger()
     double phase_ = 0.0;  // tonal-component phase in [0, 1)

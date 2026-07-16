@@ -44,6 +44,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
+    for (int c = 0; c < seq.numChannels(); ++c) {
+        f << "chan " << c << " " << seq.channelVolume(c) << " " << (seq.channelMute(c) ? 1 : 0)
+          << " " << (seq.channelSolo(c) ? 1 : 0) << "\n";
+    }
+
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
     const int savedCurrent = seq.currentPattern();
     f << "patterns " << seq.patternCount() << "\n";
@@ -157,6 +162,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 seq.sampler().load(sp, &se); // best-effort; a missing file just leaves it unloaded
             }
             seq.setUseSampler(use != 0);
+        } else if (tag == "chan") {
+            int c = -1;
+            float vol = 1.0f;
+            int mute = 0;
+            int solo = 0;
+            ls >> c >> vol >> mute >> solo;
+            seq.setChannelVolume(c, vol);
+            seq.setChannelMute(c, mute != 0);
+            seq.setChannelSolo(c, solo != 0);
         } else if (tag == "patterns") {
             int count = 1;
             ls >> count;
