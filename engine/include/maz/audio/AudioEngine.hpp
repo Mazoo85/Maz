@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/audio/Mixer.hpp"
 #include "maz/audio/Oscillator.hpp"
 #include "maz/audio/Sequencer.hpp"
 
@@ -46,6 +47,9 @@ public:
     // The built-in step sequencer, mixed into the output alongside the oscillator voice.
     Sequencer& sequencer() { return sequencer_; }
 
+    // The master bus mixer (effect chain + master gain) applied to the final stereo output.
+    Mixer& mixer() { return mixer_; }
+
     // Convenience passthrough to the single voice.
     void noteOn(float freqHz) { voice_.noteOn(freqHz); }
     void noteOff() { voice_.noteOff(); }
@@ -65,6 +69,7 @@ private:
     AudioConfig cfg_{};
     Oscillator voice_{};
     Sequencer sequencer_{};
+    Mixer mixer_{};
     SDL_AudioStream* stream_ = nullptr; // non-null only in real-time mode
     uint64_t framesRendered_ = 0;
     std::vector<float> scratch_; // reused mono render buffer for mixing

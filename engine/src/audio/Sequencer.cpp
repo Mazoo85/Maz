@@ -113,16 +113,19 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             chunk = std::min(chunk, toNext);
         }
 
-        // Sum the (active) channel voices into a scratch buffer, then soft-limit the bus with
-        // tanh before adding to the output. This keeps single hits punchy (near-linear at low
-        // level) while several simultaneous drums no longer sum past full scale and clip.
+        // Sum the drums and the synth on their own buses (each with its own gain), combine, then
+        // soft-limit with tanh before adding to the output. This keeps single hits punchy
+        // (near-linear at low level) while stacked voices no longer sum past full scale and clip.
         mixScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+        synthScratch_.assign(static_cast<size_t>(chunk), 0.0f);
         for (DrumVoice& voice : channels_) {
             voice.render(mixScratch_.data(), chunk, sampleRate);
         }
-        synth_.render(mixScratch_.data(), chunk, sampleRate);
+        synth_.render(synthScratch_.data(), chunk, sampleRate);
         for (int i = 0; i < chunk; ++i) {
-            out[done + i] += static_cast<float>(std::tanh(static_cast<double>(mixScratch_[static_cast<size_t>(i)])));
+            const float mixed = mixScratch_[static_cast<size_t>(i)] * drumGain_ +
+                                synthScratch_[static_cast<size_t>(i)] * synthGain_;
+            out[done + i] += static_cast<float>(std::tanh(static_cast<double>(mixed)));
         }
 
         if (playing_) {

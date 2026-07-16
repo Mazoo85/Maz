@@ -1,0 +1,219 @@
+#include "maz/audio/Effects.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+namespace maz::audio {
+
+namespace {
+float dbToLin(float db) {
+    return std::pow(10.0f, db / 20.0f);
+}
+float linToDb(float lin) {
+    return 20.0f * std::log10(std::max(lin, 1e-9f));
+}
+} // namespace
+
+// ---- Delay ------------------------------------------------------------------
+
+void Delay::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    write_ = 0;
+}
+
+void Delay::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // Size the delay line for up to 2 s; the tap moves within it as timeMs_ changes.
+    const int maxSize = sampleRate * 2;
+    if (size_ != maxSize) {
+        size_ = maxSize;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        write_ = 0;
+    }
+    int tap = static_cast<int>(timeMs_ * 0.001f * static_cast<float>(sampleRate));
+    tap = std::clamp(tap, 1, size_ - 1);
+    const float fb = std::clamp(feedback_, 0.0f, 0.95f);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+
+    for (int i = 0; i < frames; ++i) {
+        const int r = (write_ - tap + size_) % size_;
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        const float wetL = bufL_[static_cast<size_t>(r)];
+        const float wetR = bufR_[static_cast<size_t>(r)];
+        bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
+        bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+        write_ = (write_ + 1) % size_;
+    }
+}
+
+// ---- LowPass ----------------------------------------------------------------
+
+void LowPass::reset() {
+    yL_ = 0.0f;
+    yR_ = 0.0f;
+}
+
+void LowPass::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    const float a =
+        1.0f - std::exp(-kTwoPi * std::clamp(cutoff_, 20.0f, static_cast<float>(sampleRate) * 0.49f) /
+                        static_cast<float>(sampleRate));
+    for (int i = 0; i < frames; ++i) {
+        yL_ += a * (stereo[2 * i] - yL_);
+        yR_ += a * (stereo[2 * i + 1] - yR_);
+        stereo[2 * i] = yL_;
+        stereo[2 * i + 1] = yR_;
+    }
+}
+
+// ---- Compressor -------------------------------------------------------------
+
+void Compressor::reset() {
+    env_ = 0.0f;
+}
+
+void Compressor::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    const float atkCoef = std::exp(-1.0f / (std::max(attackMs_, 0.01f) * 0.001f * sr));
+    const float relCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
+    const float makeup = dbToLin(makeupDb_);
+    const float ratio = std::max(ratio_, 1.0f);
+
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float peak = std::max(std::fabs(l), std::fabs(r));
+
+        // Peak-following envelope (fast attack, slow release).
+        const float coef = peak > env_ ? atkCoef : relCoef;
+        env_ = coef * env_ + (1.0f - coef) * peak;
+
+        // Static gain computer in dB, above the threshold only.
+        float gain = 1.0f;
+        const float envDb = linToDb(env_);
+        if (envDb > thresholdDb_) {
+            const float targetDb = thresholdDb_ + (envDb - thresholdDb_) / ratio;
+            gain = dbToLin(targetDb - envDb);
+        }
+        gain *= makeup;
+        stereo[2 * i] = l * gain;
+        stereo[2 * i + 1] = r * gain;
+    }
+}
+
+// ---- Reverb -----------------------------------------------------------------
+
+void Reverb::Comb::setSize(int n) {
+    buf.assign(static_cast<size_t>(std::max(1, n)), 0.0f);
+    idx = 0;
+    store = 0.0f;
+}
+
+float Reverb::Comb::process(float in, float feedback, float damp) {
+    const float y = buf[static_cast<size_t>(idx)];
+    store = y * (1.0f - damp) + store * damp;
+    buf[static_cast<size_t>(idx)] = in + store * feedback;
+    if (++idx >= static_cast<int>(buf.size())) {
+        idx = 0;
+    }
+    return y;
+}
+
+void Reverb::Allpass::setSize(int n) {
+    buf.assign(static_cast<size_t>(std::max(1, n)), 0.0f);
+    idx = 0;
+}
+
+float Reverb::Allpass::process(float in, float feedback) {
+    const float b = buf[static_cast<size_t>(idx)];
+    const float y = -in + b;
+    buf[static_cast<size_t>(idx)] = in + b * feedback;
+    if (++idx >= static_cast<int>(buf.size())) {
+        idx = 0;
+    }
+    return y;
+}
+
+void Reverb::ensureSized(int sampleRate) {
+    if (sizedFor_ == sampleRate) {
+        return;
+    }
+    sizedFor_ = sampleRate;
+    // Freeverb tunings (samples @ 44.1 kHz), scaled to the actual rate. The right channel is offset
+    // by a "stereo spread" so the two sides decorrelate.
+    const int combTune[kCombs] = {1116, 1188, 1277, 1356};
+    const int apTune[kAllpass] = {556, 441};
+    const int spread = 23;
+    const double scale = static_cast<double>(sampleRate) / 44100.0;
+    for (int i = 0; i < kCombs; ++i) {
+        combsL_[static_cast<size_t>(i)].setSize(static_cast<int>(combTune[i] * scale));
+        combsR_[static_cast<size_t>(i)].setSize(static_cast<int>((combTune[i] + spread) * scale));
+    }
+    for (int i = 0; i < kAllpass; ++i) {
+        apsL_[static_cast<size_t>(i)].setSize(static_cast<int>(apTune[i] * scale));
+        apsR_[static_cast<size_t>(i)].setSize(static_cast<int>((apTune[i] + spread) * scale));
+    }
+}
+
+void Reverb::reset() {
+    for (Comb& c : combsL_) {
+        std::fill(c.buf.begin(), c.buf.end(), 0.0f);
+        c.store = 0.0f;
+    }
+    for (Comb& c : combsR_) {
+        std::fill(c.buf.begin(), c.buf.end(), 0.0f);
+        c.store = 0.0f;
+    }
+    for (Allpass& a : apsL_) {
+        std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    }
+    for (Allpass& a : apsR_) {
+        std::fill(a.buf.begin(), a.buf.end(), 0.0f);
+    }
+}
+
+void Reverb::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    ensureSized(sampleRate);
+    const float feedback = 0.7f + 0.28f * std::clamp(roomSize_, 0.0f, 1.0f);
+    const float damp = std::clamp(damping_, 0.0f, 1.0f) * 0.4f;
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    constexpr float kInputGain = 0.15f;
+
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        const float in = (dryL + dryR) * kInputGain;
+
+        float wetL = 0.0f;
+        float wetR = 0.0f;
+        for (int c = 0; c < kCombs; ++c) {
+            wetL += combsL_[static_cast<size_t>(c)].process(in, feedback, damp);
+            wetR += combsR_[static_cast<size_t>(c)].process(in, feedback, damp);
+        }
+        for (int a = 0; a < kAllpass; ++a) {
+            wetL = apsL_[static_cast<size_t>(a)].process(wetL, 0.5f);
+            wetR = apsR_[static_cast<size_t>(a)].process(wetR, 0.5f);
+        }
+
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+    }
+}
+
+} // namespace maz::audio

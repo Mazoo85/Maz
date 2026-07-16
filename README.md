@@ -35,12 +35,12 @@ it runs in CI.
 aimed at FL Studio–level capability over time. It has a real audio pipeline (`maz::audio`) and an
 FL-style **step sequencer**: a channel rack of drum voices you program on a 16-step grid and loop.
 
-The current milestone is **A2 — piano roll**. `maz::audio` provides an oscillator, a synthesized
+The current milestone is **A3 — mixer + effects**. `maz::audio` provides an oscillator, a synthesized
 drum kit (`DrumVoice`), a polyphonic ADSR synth (`SynthInstrument`), a `PianoRoll` note model, a
-`Sequencer` (drum grid + piano roll on one play/stop/BPM transport, sample-accurate stepping, soft-
-limited bus), an `AudioEngine` that drives an SDL3 device *or* renders offline, and a WAV writer.
-See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — the mixer + effects
-are next.
+`Sequencer` (drum grid + piano roll on one play/stop/BPM transport), a `Mixer` (bus gains + a master
+effect chain: low-pass EQ, compressor, delay, reverb), an `AudioEngine` that drives an SDL3 device
+*or* renders offline, and a WAV writer. See the **CJC Music Station track** in
+[`docs/ROADMAP.md`](docs/ROADMAP.md) — more instruments, automation, and project save/load are next.
 
 ```
 cmake --build build                                    # builds the `daw` app too

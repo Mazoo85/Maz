@@ -1,12 +1,13 @@
 // CJC Music Station — a native DAW built on the Maz engine.
 //
-// Milestone A2: an FL-style step sequencer ("channel rack") + a piano roll on top of the A0 audio
-// pipeline.
+// Milestone A3: an FL-style step sequencer ("channel rack") + piano roll + a mixer with a master
+// effect chain, on top of the A0 audio pipeline.
 //   - Headless (--headless): render an offline oscillator tone, or --beat / --melody to render the
-//     demo drum pattern and/or piano-roll melody. Optionally writes a WAV (--wav) and logs stats.
-//     No GPU/display/audio device needed, so CI verifies the synth + sequencer output.
-//   - Windowed: a transport (Play/Stop + BPM), a clickable channel-rack grid, and a piano-roll grid
-//     driving a live device — program a beat and a melody and hear them loop. Plus a test-tone panel.
+//     demo drum pattern and/or piano-roll melody (through a demo mixer: compressor + reverb).
+//     Optionally writes a WAV (--wav) and logs stats. No GPU/display/audio device needed, so CI
+//     verifies the synth + sequencer + effects output.
+//   - Windowed: a transport (Play/Stop + BPM), a channel-rack grid, a piano-roll grid, and a mixer
+//     (bus faders + master effect chain) driving a live device. Plus a test-tone panel.
 
 #include "maz/Engine.hpp"
 #include "maz/audio/Pitch.hpp"
@@ -99,6 +100,18 @@ void applyDemoMelody(audio::Sequencer& seq) {
     }
 }
 
+// A tasteful default mixer for the demos: gentle bus compression + a touch of reverb.
+void applyDemoMixer(audio::AudioEngine& engine) {
+    audio::Mixer& mx = engine.mixer();
+    mx.compressor().setEnabled(true);
+    mx.compressor().setThresholdDb(-16.0f);
+    mx.compressor().setRatio(3.0f);
+    mx.compressor().setMakeupDb(3.0f);
+    mx.reverb().setEnabled(true);
+    mx.reverb().setRoomSize(0.6f);
+    mx.reverb().setMix(0.18f);
+}
+
 // Headless: render a tone (default), the demo beat (--beat), and/or the demo melody (--melody)
 // offline, log stats, and optionally write a WAV. Returns non-zero if a sequenced render came out
 // silent (a real failure).
@@ -115,6 +128,7 @@ int runHeadless(const core::AppConfig& cfg) {
         if (cfg.melody) {
             applyDemoMelody(engine.sequencer());
         }
+        applyDemoMixer(engine);
         engine.sequencer().play();
     } else {
         engine.voice().setWaveform(audio::Waveform::Sine);
@@ -266,7 +280,63 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     ImGui::End();
 }
 
-// Windowed: real-time device + the channel rack, piano roll, and a test-tone panel.
+// Draw the mixer: master + bus faders and the master effect chain (enable + a key knob each).
+void buildMixerUI(audio::AudioEngine& engine) {
+    audio::Mixer& mx = engine.mixer();
+    audio::Sequencer& seq = engine.sequencer();
+    ImGui::Begin("CJC Music Station — Mixer");
+
+    float master = mx.masterGain();
+    if (ImGui::SliderFloat("Master", &master, 0.0f, 1.5f, "%.2f")) {
+        mx.setMasterGain(master);
+    }
+    float drums = seq.drumGain();
+    if (ImGui::SliderFloat("Drums", &drums, 0.0f, 2.0f, "%.2f")) {
+        seq.setDrumGain(drums);
+    }
+    float synth = seq.synthGain();
+    if (ImGui::SliderFloat("Synth", &synth, 0.0f, 2.0f, "%.2f")) {
+        seq.setSynthGain(synth);
+    }
+
+    ImGui::SeparatorText("Master FX");
+    {
+        bool en = mx.eq().enabled();
+        if (ImGui::Checkbox("Low-Pass EQ", &en)) mx.eq().setEnabled(en);
+        float cutoff = mx.eq().cutoff();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Hz##eq", &cutoff, 200.0f, 18000.0f, "%.0f")) mx.eq().setCutoff(cutoff);
+    }
+    {
+        bool en = mx.compressor().enabled();
+        if (ImGui::Checkbox("Compressor", &en)) mx.compressor().setEnabled(en);
+        float thr = mx.compressor().thresholdDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("dB##cmp", &thr, -48.0f, 0.0f, "%.0f")) mx.compressor().setThresholdDb(thr);
+    }
+    {
+        bool en = mx.delay().enabled();
+        if (ImGui::Checkbox("Delay", &en)) mx.delay().setEnabled(en);
+        float wet = mx.delay().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("mix##dly", &wet, 0.0f, 1.0f, "%.2f")) mx.delay().setMix(wet);
+    }
+    {
+        bool en = mx.reverb().enabled();
+        if (ImGui::Checkbox("Reverb", &en)) mx.reverb().setEnabled(en);
+        float wet = mx.reverb().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("mix##rev", &wet, 0.0f, 1.0f, "%.2f")) mx.reverb().setMix(wet);
+    }
+
+    ImGui::End();
+}
+
+// Windowed: real-time device + the channel rack, piano roll, mixer, and a test-tone panel.
 int runWindowed(const core::AppConfig& cfg) {
     platform::Window window;
     platform::WindowConfig wc;
@@ -302,6 +372,7 @@ int runWindowed(const core::AppConfig& cfg) {
     engine.sequencer().setBpm(cfg.bpm);
     applyDemoBeat(engine.sequencer());
     applyDemoMelody(engine.sequencer());
+    applyDemoMixer(engine);
 
     bool toneOn = false;
     float freq = cfg.toneHz;
@@ -331,6 +402,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 renderer->guiNewFrame();
                 buildRackUI(engine.sequencer());
                 buildPianoRollUI(engine.sequencer());
+                buildMixerUI(engine);
 
                 ImGui::Begin("Test Tone");
                 if (ImGui::Button(toneOn ? "  Stop  " : "  Play  ")) {

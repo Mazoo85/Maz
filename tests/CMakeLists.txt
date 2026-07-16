@@ -55,6 +55,13 @@ target_link_libraries(maz_synth_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_synth COMMAND maz_synth_tests)
 set_tests_properties(unit_synth PROPERTIES TIMEOUT 30)
 
+# Unit tests: A3 mixer + effects — delay tap, low-pass, compressor, reverb tail, master gain.
+add_executable(maz_effects_tests unit_effects.cpp)
+target_link_libraries(maz_effects_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_effects COMMAND maz_effects_tests)
+set_tests_properties(unit_effects PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(

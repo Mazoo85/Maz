@@ -93,6 +93,11 @@ void AudioEngine::render(float* out, int frames) {
         }
     }
 
+    // Master bus: run the mixer's effect chain + master gain over the finished stereo output.
+    if (ch == 2) {
+        mixer_.process(out, frames, cfg_.sampleRate);
+    }
+
     framesRendered_ += static_cast<uint64_t>(frames);
 }
 

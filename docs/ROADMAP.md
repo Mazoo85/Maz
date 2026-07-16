@@ -194,8 +194,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       transport — note-on/off scheduled sample-accurately at step boundaries. The `daw` window adds a
       clickable piano-roll grid; `daw --melody` (and `--beat --melody` for a full song) render
       headless (CI-verified). MIDI pitch helpers in `Pitch.hpp`.
-- [ ] A3 — multi-track mixer + effects (gain/pan, EQ, delay, reverb, compressor) — *next*
-- [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load
+- [x] **A3 — mixer + effects.** A `Mixer` master bus with per-bus gains (drums/synth) and an
+      ordered effect chain — `LowPass` EQ, `Compressor` (dB gain computer), stereo `Delay`, and a
+      Freeverb-style `Reverb` — each individually enable-able, applied to the stereo output. The
+      `daw` window adds a mixer strip; the demo render runs through compressor + reverb. (Per-channel
+      pan is deferred to a later pass.)
+- [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load — *next*
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 
 ### How to pick the next task

@@ -44,6 +44,12 @@ public:
     SynthInstrument& synth() { return synth_; }
     PianoRoll& roll() { return roll_; }
 
+    // Bus levels: relative gain of the drum kit vs. the melodic synth before the soft-limited sum.
+    void setDrumGain(float g) { drumGain_ = g; }
+    void setSynthGain(float g) { synthGain_ = g; }
+    float drumGain() const { return drumGain_; }
+    float synthGain() const { return synthGain_; }
+
     // --- Pattern grid --------------------------------------------------------
     bool step(int channel, int step) const;
     void setStep(int channel, int step, bool on);
@@ -62,10 +68,13 @@ private:
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;
     std::vector<uint8_t> grid_; // channel-major: grid_[channel * numSteps_ + step]
-    std::vector<float> mixScratch_; // per-block channel sum, soft-limited before it hits the bus
+    std::vector<float> mixScratch_;   // per-block drum sum
+    std::vector<float> synthScratch_; // per-block synth sum
 
     SynthInstrument synth_{}; // melodic instrument playing the piano roll
     PianoRoll roll_{};
+    float drumGain_ = 1.0f;
+    float synthGain_ = 1.0f;
 
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;
