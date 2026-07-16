@@ -86,6 +86,7 @@
 #include "maz/game/CollisionLayers.hpp"
 #include "maz/game/ConvexShape2D.hpp"
 #include "maz/game/OneWayPlatform.hpp"
+#include "maz/game/Overlap3D.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/NavGrid.hpp"
@@ -8403,6 +8404,62 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// Overlap3D: exact sphere overlap queries + conservative swept-sphere cast against AABBs.
+void testOverlap3D() {
+    using maz::game::Aabb;
+    using maz::math::vec3;
+    namespace g = maz::game;
+
+    const Aabb box{vec3(-1, -1, -1), vec3(1, 1, 1)}; // unit cube at origin
+
+    // --- exact sphere-vs-AABB via closest point ---
+    CHECK(g::sphereVsAabb(vec3(3, 0, 0), 2.5f, box));  // reaches x=0.5 -> overlaps face
+    CHECK(!g::sphereVsAabb(vec3(3, 0, 0), 1.9f, box)); // stops at x=1.1, misses
+    // Corner distance: nearest point (1,1,1), center at (2,2,2) -> dist sqrt(3)~1.732.
+    CHECK(g::sphereVsAabb(vec3(2, 2, 2), 1.8f, box));
+    CHECK(!g::sphereVsAabb(vec3(2, 2, 2), 1.7f, box));
+    CHECK(g::sphereVsSphere(vec3(0, 0, 0), 1.0f, vec3(1.5f, 0, 0), 0.6f)); // 1.6 reach > 1.5
+    CHECK(!g::sphereVsSphere(vec3(0, 0, 0), 1.0f, vec3(1.5f, 0, 0), 0.4f));
+
+    // --- overlapSphere: indices of every touched box ---
+    std::vector<Aabb> boxes = {
+        Aabb::fromCenterSize(vec3(0, 0, 0), vec3(2, 2, 2)),   // 0
+        Aabb::fromCenterSize(vec3(10, 0, 0), vec3(2, 2, 2)),  // 1 (far)
+        Aabb::fromCenterSize(vec3(3, 0, 0), vec3(2, 2, 2)),   // 2 (near, spans x2..4)
+    };
+    const auto hitIdx = g::overlapSphere(vec3(1.5f, 0, 0), 1.0f, boxes);
+    // sphere at x=1.5 r=1 reaches [0.5, 2.5]: touches box0 (max x=1) and box2 (min x=2), not box1.
+    CHECK(hitIdx.size() == 2);
+    CHECK(std::find(hitIdx.begin(), hitIdx.end(), 0u) != hitIdx.end());
+    CHECK(std::find(hitIdx.begin(), hitIdx.end(), 2u) != hitIdx.end());
+    CHECK(std::find(hitIdx.begin(), hitIdx.end(), 1u) == hitIdx.end());
+
+    // --- sphereCast: a ball of r=0.5 fired down +x from x=-10 hits box0's grown face at x=-1.5 ---
+    {
+        std::vector<Aabb> one = {box};
+        const auto hit = g::sphereCast(vec3(-10, 0, 0), vec3(1, 0, 0), 0.5f, one);
+        CHECK(hit.hit);
+        CHECK(hit.index == 0);
+        // grown box min.x = -1.5; origin x=-10, dir length 1 -> t = 8.5.
+        CHECK_NEAR(hit.t, 8.5f, 1e-3f);
+    }
+    // A shot that passes clearly beside the box (in a face-aligned lane) misses.
+    {
+        std::vector<Aabb> one = {box};
+        const auto miss = g::sphereCast(vec3(-10, 5, 0), vec3(1, 0, 0), 0.5f, one);
+        CHECK(!miss.hit);
+    }
+    // Nearest of several boxes is returned.
+    {
+        std::vector<Aabb> two = {Aabb::fromCenterSize(vec3(20, 0, 0), vec3(2, 2, 2)),
+                                 Aabb::fromCenterSize(vec3(5, 0, 0), vec3(2, 2, 2))};
+        const auto hit = g::sphereCast(vec3(0, 0, 0), vec3(1, 0, 0), 0.25f, two);
+        CHECK(hit.hit);
+        CHECK(hit.index == 1);              // the closer box (x~4 grown face) wins
+        CHECK_NEAR(hit.t, 3.75f, 1e-3f);    // 5 - 1 - 0.25
+    }
+}
+
 // ChunkStreamer: resident set + load/unload deltas track a moving focus.
 void testChunkStreamer() {
     using maz::game::ChunkCoord;
@@ -16430,6 +16487,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testOverlap3D();
     testChunkStreamer();
     testSpriteOrder();
     testSweepPrune2D();

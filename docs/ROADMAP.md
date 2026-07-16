@@ -642,7 +642,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   each segment is a swept-capsule collider, contact points pooled across segments and reduced to the
   widest-base pair so a box straddling a joint rests flat; the `polyline` demo drops circles/boxes/capsules
   onto rolling terrain and they settle on hills, slopes and in the valley)
-- [ ] Other collision shapes (sphere/capsule casts), triggers / overlaps
+- [~] Other collision shapes (sphere/capsule casts), triggers / overlaps (M201 — `game::Overlap3D`:
+  **exact** sphere overlap queries (`sphereVsAabb` via closest-point, `sphereVsSphere`, and
+  `overlapSphere` returning every AABB a sphere touches — Godot's `intersect_shape` for a
+  SphereShape3D, the trigger/overlap query), plus a **conservative** swept-sphere `sphereCast`
+  against AABBs (each box grown by the radius and ray-tested — exact on faces, square-not-rounded at
+  corners, so no false negatives; the standard safe first-pass character/projectile sweep). Complements
+  the existing ray queries in `game::Collision` (M53). Unit-tested. Capsule casts and corner-exact
+  sphere sweeps still pending.)
 - [~] **3D physics** (a from-scratch 3D deep-dive in `game::Physics3D`, sibling of the 2D solver):
   **D1 — rigid-body foundation** — `PhysicsWorld3D` with dynamic **Spheres** + an infinite static
   ground **Plane** (Godot WorldBoundaryShape3D), semi-implicit-Euler gravity integration, and
