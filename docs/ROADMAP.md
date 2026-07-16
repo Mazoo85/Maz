@@ -388,7 +388,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   hard-break log; M134) — SDF text for crisp scaling, mid-word/hyphenation breaks, rich-text spans, and
   RTL/complex-script shaping later
 - [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
-- [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
+- [~] Text rendering (bitmap + SDF fonts, glyph atlas, layout) (bitmap fonts + glyph atlas =
+  `ui::Font` (stb_truetype, M12); layout = `ui::layoutText` word-wrap/align (M134); **SDF generation**
+  = new `ui::Sdf` (M203): `generateSdf` turns a rasterized glyph's coverage into a signed distance
+  field via **dead reckoning** (O(n) two-pass, accurate to <0.7 texel vs a brute-force exact
+  transform), and `packSdf` lays it out as bytes with 0.5 on the edge — the bake step for
+  scale-independent crisp text (Godot's SDF/MSDF font mode). Unit-tested against the exact transform.
+  The SDF *sampling shader* (thresholding the distance at draw time) is a GPU step, not yet wired into
+  the Vulkan text path.)
 - [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
 - [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
 - [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`

@@ -120,6 +120,7 @@
 #include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/RichText.hpp"
+#include "maz/ui/Sdf.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/TextLayout.hpp"
@@ -8405,6 +8406,78 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
+void testSdf() {
+    const int W = 24, H = 24;
+    std::vector<uint8_t> cov(static_cast<size_t>(W * H), 0);
+    // A filled disc of radius 7 centered at (12,12).
+    const float cx = 12.0f, cy = 12.0f, rad = 7.0f;
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            const float dx = static_cast<float>(x) - cx, dy = static_cast<float>(y) - cy;
+            cov[static_cast<size_t>(y * W + x)] =
+                (std::sqrt(dx * dx + dy * dy) <= rad) ? 255 : 0;
+        }
+    }
+
+    const std::vector<float> sdf = maz::ui::generateSdf(cov.data(), W, H);
+    CHECK(sdf.size() == static_cast<size_t>(W * H));
+
+    // Brute-force exact signed distance to the nearest boundary texel, for comparison.
+    std::vector<std::pair<int, int>> boundary;
+    auto insideAt = [&](int x, int y) {
+        if (x < 0 || y < 0 || x >= W || y >= H) return false;
+        return cov[static_cast<size_t>(y * W + x)] >= 128;
+    };
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+            const bool c = insideAt(x, y);
+            if (insideAt(x - 1, y) != c || insideAt(x + 1, y) != c || insideAt(x, y - 1) != c ||
+                insideAt(x, y + 1) != c)
+                boundary.emplace_back(x, y);
+        }
+    CHECK(!boundary.empty());
+
+    float maxErr = 0.0f;
+    int signMismatch = 0;
+    for (int y = 0; y < H; ++y) {
+        for (int x = 0; x < W; ++x) {
+            float best = 1e9f;
+            for (const auto& b : boundary) {
+                const float dx = static_cast<float>(x - b.first), dy = static_cast<float>(y - b.second);
+                best = std::min(best, std::sqrt(dx * dx + dy * dy));
+            }
+            const float exact = insideAt(x, y) ? best : -best;
+            const float got = sdf[static_cast<size_t>(y * W + x)];
+            maxErr = std::max(maxErr, std::fabs(got - exact));
+            if ((got > 0) != (exact > 0) && std::fabs(exact) > 0.01f) ++signMismatch;
+        }
+    }
+    // Dead reckoning is accurate to well under a texel vs the exact transform.
+    CHECK(maxErr < 0.7f);
+    CHECK(signMismatch == 0);
+
+    // Sign sanity: center is deep inside (positive, ~rad), a far corner is outside (negative).
+    CHECK(sdf[static_cast<size_t>(12 * W + 12)] > 5.0f);
+    CHECK(sdf[0] < 0.0f);
+
+    // packSdf: edge maps to ~0.5 (127/128), interior center saturates to 255 with a small spread.
+    const std::vector<uint8_t> packed = maz::ui::packSdf(sdf, 4.0f);
+    CHECK(packed.size() == sdf.size());
+    CHECK(packed[static_cast<size_t>(12 * W + 12)] == 255); // deep inside -> 1.0
+    CHECK(packed[0] == 0);                                   // far outside -> 0.0
+    // A near-edge texel lands near the mid byte.
+    // Find a texel whose exact distance is ~0 and check it's ~127-128.
+    bool checkedEdge = false;
+    for (const auto& b : boundary) {
+        const uint8_t p = packed[static_cast<size_t>(b.second * W + b.first)];
+        CHECK(p >= 100 && p <= 160);
+        checkedEdge = true;
+        break;
+    }
+    CHECK(checkedEdge);
+}
+
 // Pcg32: reproduces PCG's canonical reference test vector; helpers are bounded + deterministic.
 void testPcg32() {
     using maz::core::Pcg32;
@@ -16524,6 +16597,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testSdf();
     testPcg32();
     testOverlap3D();
     testChunkStreamer();
