@@ -10,9 +10,19 @@
 
 namespace maz::audio {
 
+// One pattern's musical content: the drum step grid plus the piano-roll notes. Instruments (the
+// drum kit, synth, sampler) are shared across patterns; only this content changes per pattern.
+struct Pattern {
+    std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
+    PianoRoll roll;
+};
+
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
 // (play/stop + BPM), and a set of built-in drum voices — one per channel. When playing, it walks
 // the step grid in sample-accurate time and strikes each channel whose step is switched on.
+//
+// It holds multiple patterns and a playlist: in song mode the transport chains the playlist's
+// patterns back-to-back into a full arrangement; otherwise it loops the selected pattern.
 //
 // render() ADDS the mixed channel output into the caller's buffer and internally splits the block
 // at step boundaries so triggers land on the sample, not the block edge. Voices keep ringing after
@@ -44,7 +54,21 @@ public:
     // The melodic side: a pitched synth (or the sampler) playing the piano-roll pattern.
     SynthInstrument& synth() { return synth_; }
     Sampler& sampler() { return sampler_; }
-    PianoRoll& roll() { return roll_; }
+    PianoRoll& roll() { return patterns_[static_cast<size_t>(current_)].roll; }
+
+    // --- Patterns & arrangement ---------------------------------------------
+    int patternCount() const { return static_cast<int>(patterns_.size()); }
+    int currentPattern() const { return current_; }
+    void selectPattern(int i);
+    int addPattern(); // append an empty pattern; returns its index
+    void clearArrangement(); // reset to a single empty pattern, empty playlist, pattern mode
+
+    void setSongMode(bool on) { songMode_ = on; }
+    bool songMode() const { return songMode_; }
+    const std::vector<int>& playlist() const { return playlist_; }
+    void setPlaylist(std::vector<int> seq) { playlist_ = std::move(seq); }
+    void clearPlaylist() { playlist_.clear(); }
+    void appendToPlaylist(int patternIndex) { playlist_.push_back(patternIndex); }
 
     // Route the piano roll to the sampler instead of the synth (when a sample is loaded).
     void setUseSampler(bool on) { useSampler_ = on; }
@@ -73,13 +97,17 @@ private:
 
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;
-    std::vector<uint8_t> grid_; // channel-major: grid_[channel * numSteps_ + step]
+    std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
+    int current_ = 0;
+    std::vector<int> playlist_;     // ordered pattern indices for song mode
+    bool songMode_ = false;
+    int playlistPos_ = 0;
+
     std::vector<float> mixScratch_;   // per-block drum sum
     std::vector<float> synthScratch_; // per-block synth sum
 
     SynthInstrument synth_{}; // melodic instrument playing the piano roll
     Sampler sampler_{};       // alternative melodic instrument (sample playback)
-    PianoRoll roll_{};
     bool useSampler_ = false;
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;

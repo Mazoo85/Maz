@@ -52,6 +52,14 @@ int main() {
     seq.synth().setFmIndex(6.0f);
     seq.sampler().setBasePitch(48);
     seq.setUseSampler(true);
+    // A second pattern + a playlist arrangement.
+    const int p1 = seq.addPattern();
+    seq.selectPattern(p1);
+    seq.setStep(2, 5, true);
+    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f});
+    seq.selectPattern(0);
+    seq.setPlaylist({0, 1, 0});
+    seq.setSongMode(true);
 
     mixer.setMasterGain(0.75f);
     mixer.eq().setEnabled(true);
@@ -89,9 +97,19 @@ int main() {
     check(near(static_cast<float>(seq2.bpm()), 137.0f), "bpm round-trips");
     check(near(seq2.drumGain(), 0.8f) && near(seq2.synthGain(), 1.2f), "bus gains round-trip");
 
-    // Drum grid.
+    // Drum grid (pattern 0).
     check(seq2.step(0, 0) && seq2.step(1, 4) && seq2.step(2, 7), "active steps round-trip");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
+
+    // Arrangement: patterns, per-pattern content, playlist, song mode.
+    check(seq2.patternCount() == 2, "pattern count round-trips");
+    check(seq2.songMode(), "song mode round-trips");
+    check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
+              seq2.playlist()[2] == 0,
+          "playlist round-trips");
+    seq2.selectPattern(1);
+    check(seq2.step(2, 5) && seq2.roll().notes().size() == 1, "second pattern content round-trips");
+    seq2.selectPattern(0);
 
     // Piano-roll notes.
     check(seq2.roll().notes().size() == 2, "note count round-trips");

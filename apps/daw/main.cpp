@@ -110,6 +110,29 @@ void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
     }
 }
 
+// A multi-pattern demo arrangement: pattern 0 is the main groove, pattern 1 is a busier fill, and
+// the playlist chains them into a short song (three bars of groove, one of fill, looped).
+void applyDemoSong(audio::Sequencer& seq, bool fm) {
+    seq.clearArrangement();
+    seq.selectPattern(0);
+    applyDemoBeat(seq);
+    applyDemoMelody(seq, fm);
+
+    const int fill = seq.addPattern();
+    seq.selectPattern(fill);
+    for (int s = 0; s < seq.numSteps(); ++s) {
+        seq.setStep(1, s, true); // snare roll across the bar
+    }
+    for (int s : {0, 4, 8, 12}) {
+        seq.setStep(0, s, true); // kick on the beat
+    }
+    applyDemoMelody(seq, fm);
+
+    seq.selectPattern(0);
+    seq.setPlaylist({0, 0, 0, fill});
+    seq.setSongMode(true);
+}
+
 // A tasteful default mixer for the demos: gentle bus compression + a touch of reverb.
 void applyDemoMixer(audio::AudioEngine& engine) {
     audio::Mixer& mx = engine.mixer();
@@ -141,7 +164,8 @@ int runHeadless(const core::AppConfig& cfg) {
     engine.initOffline();
 
     const bool loading = cfg.projectLoadPath != nullptr;
-    const bool sequencing = cfg.beat || cfg.melody || loading || cfg.projectSavePath != nullptr;
+    const bool sequencing =
+        cfg.beat || cfg.melody || cfg.song || loading || cfg.projectSavePath != nullptr;
     bool appliedBeat = false;
     bool appliedMelody = false;
 
@@ -156,15 +180,21 @@ int runHeadless(const core::AppConfig& cfg) {
             }
             MAZ_LOG_INFO("project: loaded %s", cfg.projectLoadPath);
         } else {
-            // No explicit pattern flags (e.g. bare --save) → save the full demo (beat + melody).
-            const bool anyPattern = cfg.beat || cfg.melody;
-            if (cfg.beat || !anyPattern) {
-                applyDemoBeat(engine.sequencer());
+            if (cfg.song) {
+                applyDemoSong(engine.sequencer(), cfg.fm);
                 appliedBeat = true;
-            }
-            if (cfg.melody || !anyPattern) {
-                applyDemoMelody(engine.sequencer(), cfg.fm);
                 appliedMelody = true;
+            } else {
+                // No explicit pattern flags (e.g. bare --save) → the full demo (beat + melody).
+                const bool anyPattern = cfg.beat || cfg.melody;
+                if (cfg.beat || !anyPattern) {
+                    applyDemoBeat(engine.sequencer());
+                    appliedBeat = true;
+                }
+                if (cfg.melody || !anyPattern) {
+                    applyDemoMelody(engine.sequencer(), cfg.fm);
+                    appliedMelody = true;
+                }
             }
             applyDemoMixer(engine);
             if (cfg.automate) {
@@ -519,7 +549,51 @@ void buildAutomationUI(audio::Automation& automation) {
     ImGui::End();
 }
 
-// Windowed: real-time device + the channel rack, piano roll, mixer, automation, and a test tone.
+// Draw the arrangement panel: pattern selector, add-pattern, song-mode toggle, and the playlist.
+void buildArrangementUI(audio::Sequencer& seq) {
+    ImGui::Begin("CJC Music Station — Arrangement");
+
+    ImGui::Text("Pattern:");
+    for (int i = 0; i < seq.patternCount(); ++i) {
+        ImGui::SameLine();
+        char label[16];
+        std::snprintf(label, sizeof(label), "P%d", i + 1);
+        if (ImGui::RadioButton(label, seq.currentPattern() == i)) {
+            seq.selectPattern(i);
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("+ Add")) {
+        seq.selectPattern(seq.addPattern());
+    }
+
+    bool song = seq.songMode();
+    if (ImGui::Checkbox("Song mode (play the playlist)", &song)) {
+        seq.setSongMode(song);
+    }
+
+    ImGui::Text("Playlist:");
+    ImGui::SameLine();
+    if (seq.playlist().empty()) {
+        ImGui::TextDisabled("(empty)");
+    } else {
+        for (int idx : seq.playlist()) {
+            ImGui::SameLine();
+            ImGui::Text("P%d", idx + 1);
+        }
+    }
+    if (ImGui::Button("Append current")) {
+        seq.appendToPlaylist(seq.currentPattern());
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear playlist")) {
+        seq.clearPlaylist();
+    }
+
+    ImGui::End();
+}
+
+// Windowed: real-time device + the channel rack, piano roll, mixer, automation, arrangement, tone.
 int runWindowed(const core::AppConfig& cfg) {
     platform::Window window;
     platform::WindowConfig wc;
@@ -591,6 +665,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 buildSynthUI(engine.sequencer());
                 buildMixerUI(engine);
                 buildAutomationUI(engine.automation());
+                buildArrangementUI(engine.sequencer());
 
                 ImGui::Begin("Test Tone");
                 if (ImGui::Button(toneOn ? "  Stop  " : "  Play  ")) {

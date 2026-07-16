@@ -215,7 +215,15 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
         WAV pitch-shifted per note (linear-interpolated resampling, base-note relative). The piano
         roll can drive the sampler instead of the synth; `daw --sample file.wav` plays the melody
         through it, and the sampler state is saved in the `.cjc` project.
-- [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
+- [x] **A5 — song arrangement + bounce.** The `Sequencer` holds multiple `Pattern`s (each with its
+      own drum grid + piano-roll notes) and a **playlist**; in song mode the transport chains the
+      playlist's patterns bar-by-bar into a full arrangement. Patterns + playlist persist in the
+      `.cjc` project. The `daw` window adds an Arrangement panel; `daw --song` builds a demo
+      arrangement (groove × 3 + a fill). Offline **bounce** = rendering the arrangement to WAV via
+      `--wav` (headless, CI-verified).
+- [ ] A6 — live audio recording + plugin (VST3/CLAP) hosting (heavy; likely a long-term stretch)
+
+### How to pick the next task
 
 ### How to pick the next task
 1. Finish **Phase 3** rendering (VMA → pipeline → sprite batch) — it unblocks everything visual.

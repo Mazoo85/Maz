@@ -122,6 +122,30 @@ int main() {
     const std::vector<float> nothing = renderMono(silent, 6000, sampleRate);
     check(rms(nothing) == 0.0, "an empty pattern renders silence");
 
+    // --- Arrangement: patterns + playlist -----------------------------------
+    audio::Sequencer arr;
+    check(arr.patternCount() == 1, "starts with one pattern");
+    arr.setStep(0, 0, true); // kick on step 0 of pattern 0
+    const int p1 = arr.addPattern();
+    check(p1 == 1 && arr.patternCount() == 2, "addPattern appends");
+    arr.selectPattern(p1);
+    check(!arr.step(0, 0), "a fresh pattern is empty (independent grid)");
+    arr.setStep(1, 0, true); // snare on step 0 of pattern 1
+    arr.selectPattern(0);
+    check(arr.step(0, 0) && !arr.step(1, 0), "patterns keep independent grids");
+
+    // Song mode: playlist [0,1] should switch the current pattern at each bar boundary.
+    arr.setBpm(120.0); // 6000 samples/step → 96000 samples/bar (16 steps)
+    arr.setPlaylist({0, 1});
+    arr.setSongMode(true);
+    arr.play();
+    check(arr.currentPattern() == 0, "song mode starts on the first playlist pattern");
+    // Render one full bar (16 steps × 6000).
+    (void)renderMono(arr, 16 * 6000, sampleRate);
+    check(arr.currentPattern() == 1, "advances to the next playlist pattern after a bar");
+    (void)renderMono(arr, 16 * 6000, sampleRate);
+    check(arr.currentPattern() == 0, "playlist wraps back to the start");
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

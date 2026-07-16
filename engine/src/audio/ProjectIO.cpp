@@ -44,17 +44,30 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
-    for (int c = 0; c < seq.numChannels(); ++c) {
-        for (int s = 0; s < seq.numSteps(); ++s) {
-            if (seq.step(c, s)) {
-                f << "step " << c << " " << s << "\n";
+    // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
+    const int savedCurrent = seq.currentPattern();
+    f << "patterns " << seq.patternCount() << "\n";
+    f << "songmode " << (seq.songMode() ? 1 : 0) << "\n";
+    f << "playlist " << seq.playlist().size();
+    for (int idx : seq.playlist()) {
+        f << " " << idx;
+    }
+    f << "\n";
+    for (int p = 0; p < seq.patternCount(); ++p) {
+        seq.selectPattern(p);
+        for (int c = 0; c < seq.numChannels(); ++c) {
+            for (int s = 0; s < seq.numSteps(); ++s) {
+                if (seq.step(c, s)) {
+                    f << "step " << p << " " << c << " " << s << "\n";
+                }
             }
         }
+        for (const Note& n : seq.roll().notes()) {
+            f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
+              << n.velocity << "\n";
+        }
     }
-    for (const Note& n : seq.roll().notes()) {
-        f << "note " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " " << n.velocity
-          << "\n";
-    }
+    seq.selectPattern(savedCurrent);
 
     f << "master " << mixer.masterGain() << "\n";
     f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
@@ -94,8 +107,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     }
 
     // Reset the destination to a clean slate so the file fully defines the project.
-    seq.clear();
-    seq.roll().clear();
+    seq.clearArrangement();
 
     std::string line;
     bool sawHeader = false;
@@ -145,14 +157,39 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 seq.sampler().load(sp, &se); // best-effort; a missing file just leaves it unloaded
             }
             seq.setUseSampler(use != 0);
+        } else if (tag == "patterns") {
+            int count = 1;
+            ls >> count;
+            while (seq.patternCount() < count) {
+                seq.addPattern();
+            }
+        } else if (tag == "songmode") {
+            int on = 0;
+            ls >> on;
+            seq.setSongMode(on != 0);
+        } else if (tag == "playlist") {
+            int count = 0;
+            ls >> count;
+            std::vector<int> seqList;
+            for (int k = 0; k < count; ++k) {
+                int idx = 0;
+                if (ls >> idx) {
+                    seqList.push_back(idx);
+                }
+            }
+            seq.setPlaylist(seqList);
         } else if (tag == "step") {
+            int p = 0;
             int c = 0;
             int s = 0;
-            ls >> c >> s;
+            ls >> p >> c >> s;
+            seq.selectPattern(p);
             seq.setStep(c, s, true);
         } else if (tag == "note") {
+            int p = 0;
             Note n;
-            ls >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            ls >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "master") {
             float g = 0.9f;
@@ -206,6 +243,8 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         }
         // Unknown tags are ignored for forward compatibility.
     }
+
+    seq.selectPattern(0); // leave the first pattern selected after a load
 
     if (!sawHeader) {
         if (err != nullptr) {
