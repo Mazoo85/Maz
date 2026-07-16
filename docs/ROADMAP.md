@@ -367,12 +367,16 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   normal maps; the `normalmap` demo lights a field of dome bumps with three coloured point lights; M111)
   — texture-projected light cookies + a CanvasItem material/shader hook later
 - [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
-- [~] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers (line/shape
-  debug draw = `render::DebugDraw` (M36); **sprite sorting / layers** = new `render::SpriteOrder`
-  (M199): back-to-front draw ordering by canvas **layer**, then per-item **z-index**, then optional
-  **Y-sort** (larger world-Y draws in front, for top-down depth), with a stable insertion tie-break —
-  Godot's CanvasLayer.layer + Node2D.z_index + Y-Sort as a pure algorithm (`sortedIndices` /
-  in-place `sort`), unit-tested. Chunked tilemap streaming still pending.)
+- [x] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers (line/shape
+  debug draw = `render::DebugDraw` (M36); **sprite sorting / layers** = `render::SpriteOrder` (M199):
+  back-to-front draw ordering by canvas **layer**, then per-item **z-index**, then optional **Y-sort**
+  (larger world-Y draws in front, for top-down depth), with a stable insertion tie-break — Godot's
+  CanvasLayer.layer + Node2D.z_index + Y-Sort as a pure algorithm; **chunked tilemap streaming** =
+  `game::ChunkStreamer` (M200): cuts a huge world into fixed-size square chunks and, as the focus
+  point moves, reports which chunks to LOAD (entered range) and UNLOAD (left range) so a giant map
+  pages in/out around the camera — square or circular window, floor-division chunk coords, `clear()`
+  for teleports; the load/unload delta feeds the asset loader/renderer. Something Godot's TileMap
+  doesn't provide. All three unit-tested.)
 - [x] **Text layout / wrapping** (`ui::layoutText` + `ui::TextLayout`: greedy word-wrap to a max width
   via an injected measure callback + `\n` hard breaks + L/C/R alignment → positioned `TextLine` list;
   renderer-independent — Godot `Label` autowrap; the `textwrap` demo fits one paragraph three ways + a

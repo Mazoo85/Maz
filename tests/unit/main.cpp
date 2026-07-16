@@ -81,6 +81,7 @@
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
 #include "maz/game/CameraController2D.hpp"
+#include "maz/game/ChunkStreamer.hpp"
 #include "maz/game/Collision.hpp"
 #include "maz/game/CollisionLayers.hpp"
 #include "maz/game/ConvexShape2D.hpp"
@@ -8402,6 +8403,69 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// ChunkStreamer: resident set + load/unload deltas track a moving focus.
+void testChunkStreamer() {
+    using maz::game::ChunkCoord;
+    using maz::game::ChunkStreamer;
+
+    // 64-unit chunks, radius 1 (a 3x3 window = 9 chunks).
+    ChunkStreamer s(64.0f, 1);
+    CHECK(s.chunkAt(0.0f, 0.0f) == (ChunkCoord{0, 0}));
+    CHECK(s.chunkAt(63.9f, 0.0f) == (ChunkCoord{0, 0}));
+    CHECK(s.chunkAt(64.0f, 0.0f) == (ChunkCoord{1, 0}));
+    CHECK(s.chunkAt(-1.0f, 0.0f) == (ChunkCoord{-1, 0})); // floor division for negatives
+
+    // First update at origin loads the full 3x3 and unloads nothing.
+    auto d0 = s.update(32.0f, 32.0f); // inside chunk (0,0)
+    CHECK(d0.toLoad.size() == 9);
+    CHECK(d0.toUnload.empty());
+    CHECK(s.residentCount() == 9);
+    CHECK(s.isResident({0, 0}));
+    CHECK(s.isResident({1, 1}));
+    CHECK(s.isResident({-1, -1}));
+    CHECK(!s.isResident({2, 0}));
+
+    // Staying within the same chunk => no change.
+    auto d1 = s.update(40.0f, 40.0f);
+    CHECK(d1.toLoad.empty() && d1.toUnload.empty());
+    CHECK(s.residentCount() == 9);
+
+    // Step focus one chunk to the right (into chunk (1,0)): the window shifts, loading the new
+    // right column (x=2) and unloading the old left column (x=-1) — 3 each.
+    auto d2 = s.update(64.0f + 32.0f, 32.0f);
+    CHECK(d2.toLoad.size() == 3);
+    CHECK(d2.toUnload.size() == 3);
+    for (const auto& c : d2.toLoad) CHECK(c.x == 2);
+    for (const auto& c : d2.toUnload) CHECK(c.x == -1);
+    CHECK(s.residentCount() == 9);
+    // Deterministic delta ordering (sorted by y then x).
+    CHECK(d2.toLoad[0].y <= d2.toLoad[1].y);
+
+    // A big jump replaces the whole window (no overlap): 9 load, 9 unload.
+    auto d3 = s.update(1000.0f, 1000.0f);
+    CHECK(d3.toLoad.size() == 9);
+    CHECK(d3.toUnload.size() == 9);
+    CHECK(s.residentCount() == 9);
+
+    // clear() drops residency; next update reloads from scratch.
+    s.clear();
+    CHECK(s.residentCount() == 0);
+    auto d4 = s.update(1000.0f, 1000.0f);
+    CHECK(d4.toLoad.size() == 9);
+    CHECK(d4.toUnload.empty());
+
+    // Circular window (radius 2, disc: keep dx^2+dy^2 <= 4) is a plus-ish shape, far smaller than the
+    // 5x5 square (25). Included offsets: center(1) + the 4 axis-1s + 4 diagonals(dist 2) + 4 axis-2s
+    // (dist 4) = 13; everything with dist^2 in {5,8} is dropped.
+    ChunkStreamer disc(50.0f, 2, /*circular*/ true);
+    auto dc = disc.update(0.0f, 0.0f);
+    CHECK(dc.toLoad.size() == 13);
+    CHECK(!disc.isResident({2, 2})); // corner (dist^2=8) excluded
+    CHECK(!disc.isResident({2, 1})); // dist^2=5 excluded
+    CHECK(disc.isResident({2, 0}));  // dist^2=4 included
+    CHECK(disc.isResident({1, 1}));  // dist^2=2 included
+}
+
 // SpriteOrder: draw ordering by layer, then z-index, then y-sort, stable on ties.
 void testSpriteOrder() {
     using maz::render::DrawItem;
@@ -16366,6 +16430,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testChunkStreamer();
     testSpriteOrder();
     testSweepPrune2D();
     testBvh();
