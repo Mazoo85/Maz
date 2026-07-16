@@ -2,6 +2,7 @@
 
 // Umbrella header — pull in the whole Maz Engine public API.
 
+#include "maz/audio/AudioEngine.hpp"
 #include "maz/core/Assert.hpp"
 #include "maz/core/Config.hpp"
 #include "maz/core/Log.hpp"

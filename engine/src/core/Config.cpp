@@ -27,6 +27,12 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.modelPath = argv[++i];
         } else if (std::strcmp(arg, "--scene") == 0 && i + 1 < argc) {
             cfg.scenePath = argv[++i];
+        } else if (std::strcmp(arg, "--freq") == 0 && i + 1 < argc) {
+            cfg.toneHz = static_cast<float>(std::atof(argv[++i]));
+        } else if (std::strcmp(arg, "--seconds") == 0 && i + 1 < argc) {
+            cfg.seconds = std::atof(argv[++i]);
+        } else if (std::strcmp(arg, "--wav") == 0 && i + 1 < argc) {
+            cfg.wavPath = argv[++i];
         } else {
             MAZ_LOG_WARN("ignoring unknown argument: %s", arg);
         }

@@ -174,6 +174,23 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ---
 
+## Maz DAW — the music-software track
+
+A separate product built **on top of** the engine's platform/audio/UI layers: a native DAW aimed at
+FL Studio–level capability. The audio subsystem (`maz::audio`) and the `daw` app are the seed.
+
+- [x] **A0 — "hello sound".** `maz::audio`: an `Oscillator` (sine/square/saw/triangle, click-free
+      envelope), an `AudioEngine` (SDL3 real-time device + offline render + a master sample clock),
+      and a WAV writer. The `daw` app renders a tone offline to WAV headless (CI-verified) and, in a
+      window, exposes a Play/Stop + frequency + waveform panel over a live device.
+- [ ] **A1 — step sequencer / patterns** (FL's signature): a pattern grid of steps → scheduled
+      note events serviced off `AudioEngine::framesRendered()`, transport (play/stop/BPM), a drum
+      sampler voice. *This is the next milestone.*
+- [ ] A2 — piano roll (note entry, length/velocity, per-channel patterns)
+- [ ] A3 — multi-track mixer + effects (gain/pan, EQ, delay, reverb, compressor)
+- [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load
+- [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
+
 ### How to pick the next task
 1. Finish **Phase 3** rendering (VMA → pipeline → sprite batch) — it unblocks everything visual.
 2. In parallel, stand up **Phase 4 ECS** — it unblocks scenes and gameplay.

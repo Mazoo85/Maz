@@ -34,6 +34,23 @@ target_link_libraries(maz_scene_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_scene COMMAND maz_scene_tests)
 set_tests_properties(unit_scene PROPERTIES TIMEOUT 30)
 
+# Unit tests: audio DSP. Oscillator waveform/frequency/envelope + offline engine render. No device.
+add_executable(maz_audio_tests unit_audio.cpp)
+target_link_libraries(maz_audio_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_audio COMMAND maz_audio_tests)
+set_tests_properties(unit_audio PROPERTIES TIMEOUT 30)
+
+# DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
+# Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
+add_test(
+    NAME daw_headless_smoke
+    COMMAND daw --headless --seconds 1 --freq 440 --wav ${CMAKE_BINARY_DIR}/tone.wav)
+set_tests_properties(daw_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "audio: rendered 48000")
+
 # Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
 # end to end (draws no-op with no GPU).
 add_test(

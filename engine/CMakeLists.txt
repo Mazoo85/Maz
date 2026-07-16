@@ -26,6 +26,9 @@ add_library(maz STATIC
     src/core/Log.cpp
     src/core/Time.cpp
     src/core/Config.cpp
+    src/audio/Oscillator.cpp
+    src/audio/AudioEngine.cpp
+    src/audio/WavWriter.cpp
     src/assets/Model.cpp
     src/scene/Camera.cpp
     src/scene/Scene.cpp

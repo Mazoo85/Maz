@@ -20,6 +20,7 @@ __pycache__/
 
 # Test scratch output
 unit_scene_*.mazscene
+/tone.wav
 
 # maz-scrape run state + default output directory
 .scraper/

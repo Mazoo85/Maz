@@ -29,6 +29,23 @@ The current milestone is **M0** — the walking skeleton: a window, a fixed-time
 Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
 it runs in CI.
 
+## Maz DAW
+
+A native music-production app (a DAW) built on the engine's audio/UI layers, aimed at FL Studio–level
+capability over time. The current milestone is **A0 — "hello sound"**: the `maz::audio` subsystem
+(an oscillator with a click-free envelope, an `AudioEngine` that drives an SDL3 device *or* renders
+offline, and a WAV writer) plus the `daw` app. See the **Maz DAW track** in
+[`docs/ROADMAP.md`](docs/ROADMAP.md) — the step sequencer / patterns is next.
+
+```
+cmake --build build                                 # builds the `daw` app too
+./build/bin/daw                                     # window: Play/Stop + frequency + waveform → audible tone
+./build/bin/daw --headless --seconds 1 --freq 440 --wav tone.wav   # offline render to a WAV (no device needed)
+```
+
+Flags: `--freq HZ` (oscillator pitch), `--seconds N` (offline length), `--wav PATH` (write the render).
+Headless mode makes no sound and needs no audio device, so CI verifies the synth output.
+
 ---
 
 # ZOMBOID: ANCHORAGE
