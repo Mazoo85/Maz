@@ -316,8 +316,12 @@ void buildRackUI(audio::Sequencer& seq) {
         if (solo) ImGui::PopStyleColor();
         ImGui::SameLine();
         float vol = seq.channelVolume(c);
-        ImGui::SetNextItemWidth(64.0f);
+        ImGui::SetNextItemWidth(58.0f);
         if (ImGui::SliderFloat("##vol", &vol, 0.0f, 1.5f, "%.1f")) seq.setChannelVolume(c, vol);
+        ImGui::SameLine();
+        float pan = seq.channelPan(c);
+        ImGui::SetNextItemWidth(58.0f);
+        if (ImGui::SliderFloat("##pan", &pan, -1.0f, 1.0f, "%.1f")) seq.setChannelPan(c, pan);
         ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);

@@ -33,11 +33,25 @@ double rms(const std::vector<float>& buf) {
     return std::sqrt(sum / static_cast<double>(buf.size()));
 }
 
-// Render `frames` of the sequencer into a fresh mono buffer.
+// Render `frames` of the sequencer into a fresh interleaved-stereo buffer (2*frames floats).
 std::vector<float> renderMono(audio::Sequencer& seq, int frames, int sampleRate) {
-    std::vector<float> buf(static_cast<size_t>(frames), 0.0f);
+    std::vector<float> buf(static_cast<size_t>(frames) * 2, 0.0f);
     seq.render(buf.data(), frames, sampleRate);
     return buf;
+}
+
+// Left/right RMS of an interleaved-stereo buffer.
+double rmsChannel(const std::vector<float>& buf, int ch) {
+    const size_t n = buf.size() / 2;
+    if (n == 0) {
+        return 0.0;
+    }
+    double sum = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        const double v = static_cast<double>(buf[i * 2 + static_cast<size_t>(ch)]);
+        sum += v * v;
+    }
+    return std::sqrt(sum / static_cast<double>(n));
 }
 
 } // namespace
@@ -188,6 +202,24 @@ int main() {
         v2.setChannelVolume(0, 0.0f);
         v2.play();
         check(rms(renderMono(v2, 6000, sampleRate)) == 0.0, "channel volume 0 is silent");
+
+        // Pan: a hard-left channel is much louder on the left than the right.
+        audio::Sequencer pan;
+        pan.setBpm(120.0);
+        pan.setStep(0, 0, true);
+        pan.setChannelPan(0, -1.0f);
+        pan.play();
+        const std::vector<float> panned = renderMono(pan, 6000, sampleRate);
+        check(rmsChannel(panned, 0) > rmsChannel(panned, 1) * 4.0, "hard-left pan favors the left");
+
+        // Center pan is balanced.
+        audio::Sequencer cen;
+        cen.setBpm(120.0);
+        cen.setStep(0, 0, true);
+        cen.play();
+        const std::vector<float> centered = renderMono(cen, 6000, sampleRate);
+        check(std::fabs(rmsChannel(centered, 0) - rmsChannel(centered, 1)) < 1e-4,
+              "center pan is balanced L/R");
     }
 
     // --- Arrangement: patterns + playlist -----------------------------------

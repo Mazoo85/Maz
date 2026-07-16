@@ -158,14 +158,14 @@ int main() {
     seq.synth().setEnvelope(0.002f, 0.02f, 0.8f, 0.05f);
     seq.play();
 
-    std::vector<float> firstStep(6000, 0.0f);
+    std::vector<float> firstStep(6000 * 2, 0.0f); // interleaved stereo
     seq.render(firstStep.data(), 6000, sampleRate);
     check(rms(firstStep) > 0.0, "a scheduled note sounds on its start step");
 
     // An empty roll with no drums stays silent.
     audio::Sequencer quiet;
     quiet.play();
-    std::vector<float> nothing(6000, 0.0f);
+    std::vector<float> nothing(6000 * 2, 0.0f);
     quiet.render(nothing.data(), 6000, sampleRate);
     check(rms(nothing) == 0.0, "empty pattern renders silence");
 

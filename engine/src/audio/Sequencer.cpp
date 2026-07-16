@@ -31,6 +31,7 @@ Sequencer::Sequencer() {
     chanVolume_.assign(static_cast<size_t>(channelCount), 1.0f);
     chanMute_.assign(static_cast<size_t>(channelCount), 0);
     chanSolo_.assign(static_cast<size_t>(channelCount), 0);
+    chanPan_.assign(static_cast<size_t>(channelCount), 0.0f);
     addPattern(); // start with one empty pattern
 }
 
@@ -57,6 +58,14 @@ bool Sequencer::channelMute(int c) const {
 }
 bool Sequencer::channelSolo(int c) const {
     return c >= 0 && c < numChannels() && chanSolo_[static_cast<size_t>(c)] != 0;
+}
+void Sequencer::setChannelPan(int c, float p) {
+    if (c >= 0 && c < numChannels()) {
+        chanPan_[static_cast<size_t>(c)] = std::clamp(p, -1.0f, 1.0f);
+    }
+}
+float Sequencer::channelPan(int c) const {
+    return (c >= 0 && c < numChannels()) ? chanPan_[static_cast<size_t>(c)] : 0.0f;
 }
 
 int Sequencer::addPattern() {
@@ -190,15 +199,17 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             chunk = std::min(chunk, toNext);
         }
 
-        // Sum the drums and the synth on their own buses (each with its own gain), combine, then
-        // soft-limit with tanh before adding to the output. This keeps single hits punchy
-        // (near-linear at low level) while stacked voices no longer sum past full scale and clip.
-        mixScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+        // Render each drum channel on its own so it can be panned into the stereo field, plus the
+        // synth/sampler at center, into L/R accumulators. Then soft-limit each side with tanh
+        // before adding to the output — punchy at low level, no clipping when voices stack.
         synthScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+        lBuf_.assign(static_cast<size_t>(chunk), 0.0f);
+        rBuf_.assign(static_cast<size_t>(chunk), 0.0f);
         bool anySolo = false;
         for (uint8_t s : chanSolo_) {
             anySolo = anySolo || s != 0;
         }
+        constexpr float kHalfPi = 1.57079632679f;
         for (int c = 0; c < numChannels(); ++c) {
             const bool audible =
                 chanMute_[static_cast<size_t>(c)] == 0 &&
@@ -206,15 +217,32 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             if (!audible) {
                 continue; // muted, or another channel is soloed
             }
+            mixScratch_.assign(static_cast<size_t>(chunk), 0.0f);
             channels_[static_cast<size_t>(c)].setLevel(chanVolume_[static_cast<size_t>(c)]);
             channels_[static_cast<size_t>(c)].render(mixScratch_.data(), chunk, sampleRate);
+            // Equal-power pan: angle 0..pi/2 as pan goes -1..+1.
+            const float angle = (chanPan_[static_cast<size_t>(c)] + 1.0f) * 0.5f * kHalfPi;
+            const float lg = std::cos(angle) * drumGain_;
+            const float rg = std::sin(angle) * drumGain_;
+            for (int i = 0; i < chunk; ++i) {
+                const float s = mixScratch_[static_cast<size_t>(i)];
+                lBuf_[static_cast<size_t>(i)] += s * lg;
+                rBuf_[static_cast<size_t>(i)] += s * rg;
+            }
         }
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
+        constexpr float kCenter = 0.70710678f; // equal-power center gain
         for (int i = 0; i < chunk; ++i) {
-            const float mixed = mixScratch_[static_cast<size_t>(i)] * drumGain_ +
-                                synthScratch_[static_cast<size_t>(i)] * synthGain_;
-            out[done + i] += static_cast<float>(std::tanh(static_cast<double>(mixed)));
+            const float s = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter;
+            lBuf_[static_cast<size_t>(i)] += s;
+            rBuf_[static_cast<size_t>(i)] += s;
+        }
+        for (int i = 0; i < chunk; ++i) {
+            out[2 * (done + i)] +=
+                static_cast<float>(std::tanh(static_cast<double>(lBuf_[static_cast<size_t>(i)])));
+            out[2 * (done + i) + 1] +=
+                static_cast<float>(std::tanh(static_cast<double>(rBuf_[static_cast<size_t>(i)])));
         }
 
         if (playing_) {

@@ -58,9 +58,11 @@ public:
     void setChannelVolume(int c, float v);
     void setChannelMute(int c, bool m);
     void setChannelSolo(int c, bool s);
+    void setChannelPan(int c, float p); // -1 = hard left, 0 = center, +1 = hard right
     float channelVolume(int c) const;
     bool channelMute(int c) const;
     bool channelSolo(int c) const;
+    float channelPan(int c) const;
 
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
@@ -100,8 +102,8 @@ public:
     void toggle(int channel, int step);
     void clear(); // switch every step off
 
-    // Render `frames` mono samples, ADDING the channel mix into out. Advances the transport when
-    // playing. `sampleRate` is in Hz.
+    // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
+    // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
 
 private:
@@ -115,14 +117,17 @@ private:
     std::vector<float> chanVolume_; // per-channel linear level
     std::vector<uint8_t> chanMute_;
     std::vector<uint8_t> chanSolo_;
+    std::vector<float> chanPan_; // per-channel pan (-1..1)
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode
     bool songMode_ = false;
     int playlistPos_ = 0;
 
-    std::vector<float> mixScratch_;   // per-block drum sum
+    std::vector<float> mixScratch_;   // per-block, per-channel drum render
     std::vector<float> synthScratch_; // per-block synth sum
+    std::vector<float> lBuf_;         // per-block stereo accumulators (pre-limit)
+    std::vector<float> rBuf_;
 
     SynthInstrument synth_{}; // melodic instrument playing the piano roll
     Sampler sampler_{};       // alternative melodic instrument (sample playback)

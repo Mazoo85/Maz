@@ -221,11 +221,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       `.cjc` project. The `daw` window adds an Arrangement panel; `daw --song` builds a demo
       arrangement (groove × 3 + a fill). Offline **bounce** = rendering the arrangement to WAV via
       `--wav` (headless, CI-verified).
-- [x] **A6 — per-channel mixer + swing.** Each drum channel has its own volume, mute, and solo
-      (solo isolates the soloed channels; mute/volume scale via a per-voice level). Plus a **swing**
-      control that pushes off-beat (odd) steps later for a shuffled groove while preserving tempo.
-      Both are persisted in the `.cjc` project; the channel-rack row has M/S buttons + a volume
-      slider, and the transport has a swing slider (`daw --swing N`).
+- [x] **A6 — per-channel mixer, stereo pan, swing.** Each drum channel has its own volume, mute,
+      solo, and **stereo pan** (the sequencer now renders true stereo with equal-power panning; the
+      synth sits at center). A master **soft-knee limiter** on the mixer keeps the output from
+      clipping. Plus a **swing** control that pushes off-beat (odd) steps later for a shuffled groove
+      while preserving tempo. All persisted in the `.cjc` project; the channel-rack row has M/S +
+      volume + pan, and the transport has a swing slider (`daw --swing N`).
 - [ ] A7 — live audio recording + plugin (VST3/CLAP) hosting (heavy; a long-term stretch, and not
       exercisable in the headless CI sandbox)
 

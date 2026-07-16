@@ -90,20 +90,26 @@ void AudioEngine::render(float* out, int frames) {
     const size_t total = static_cast<size_t>(frames) * static_cast<size_t>(ch);
     std::fill(out, out + total, 0.0f);
 
-    // Render the oscillator voice + the step sequencer as mono, then fan out across the channels.
-    scratch_.assign(static_cast<size_t>(frames), 0.0f);
-    voice_.render(scratch_.data(), frames, cfg_.sampleRate);
-    sequencer_.render(scratch_.data(), frames, cfg_.sampleRate);
-    for (int i = 0; i < frames; ++i) {
-        const float s = scratch_[static_cast<size_t>(i)];
-        for (int c = 0; c < ch; ++c) {
-            out[static_cast<size_t>(i) * static_cast<size_t>(ch) + static_cast<size_t>(c)] = s;
-        }
-    }
-
-    // Master bus: run the mixer's effect chain + master gain over the finished stereo output.
     if (ch == 2) {
+        // Stereo path: the oscillator sits at center; the sequencer adds its own panned stereo mix.
+        constexpr float kCenter = 0.70710678f;
+        scratch_.assign(static_cast<size_t>(frames), 0.0f);
+        voice_.render(scratch_.data(), frames, cfg_.sampleRate);
+        for (int i = 0; i < frames; ++i) {
+            const float s = scratch_[static_cast<size_t>(i)] * kCenter;
+            out[2 * i] += s;
+            out[2 * i + 1] += s;
+        }
+        sequencer_.render(out, frames, cfg_.sampleRate);
+        // Master bus: the mixer's effect chain + master gain + limiter over the stereo output.
         mixer_.process(out, frames, cfg_.sampleRate);
+    } else {
+        // Fallback mono path: sum the oscillator only (the sequencer targets stereo).
+        scratch_.assign(static_cast<size_t>(frames), 0.0f);
+        voice_.render(scratch_.data(), frames, cfg_.sampleRate);
+        for (int i = 0; i < frames; ++i) {
+            out[static_cast<size_t>(i)] += scratch_[static_cast<size_t>(i)];
+        }
     }
 
     framesRendered_ += static_cast<uint64_t>(frames);
