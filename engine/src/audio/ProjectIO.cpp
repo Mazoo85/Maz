@@ -34,6 +34,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     f << "cjc 1\n";
     f << "bpm " << seq.bpm() << "\n";
+    f << "swing " << seq.swing() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
 
     const SynthInstrument& syn = seq.synth();
@@ -128,6 +129,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             double bpm = 120.0;
             ls >> bpm;
             seq.setBpm(bpm);
+        } else if (tag == "swing") {
+            float sw = 0.0f;
+            ls >> sw;
+            seq.setSwing(sw);
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;

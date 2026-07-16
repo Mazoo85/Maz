@@ -171,6 +171,7 @@ int runHeadless(const core::AppConfig& cfg) {
 
     if (sequencing) {
         engine.sequencer().setBpm(cfg.bpm);
+        engine.sequencer().setSwing(static_cast<float>(cfg.swing));
         if (loading) {
             std::string lerr;
             if (!audio::loadProject(cfg.projectLoadPath, engine.sequencer(), engine.mixer(),
@@ -282,6 +283,12 @@ void buildRackUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(160.0f);
     if (ImGui::SliderFloat("BPM", &bpm, 40.0f, 240.0f, "%.0f")) {
         seq.setBpm(static_cast<double>(bpm));
+    }
+    ImGui::SameLine();
+    float swing = seq.swing();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Swing", &swing, 0.0f, 0.75f, "%.2f")) {
+        seq.setSwing(swing);
     }
     ImGui::SameLine();
     if (ImGui::Button("Clear")) {

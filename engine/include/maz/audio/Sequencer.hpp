@@ -42,6 +42,11 @@ public:
     void setBpm(double bpm) { bpm_ = bpm > 1.0 ? bpm : 1.0; }
     double bpm() const { return bpm_; }
 
+    // Swing/groove: 0 = straight; higher values push the off-beat (odd) steps later for a shuffled
+    // feel, while keeping each pair of steps the same total length (tempo preserved). Range 0..0.9.
+    void setSwing(float s);
+    float swing() const { return swing_; }
+
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
     int numChannels() const { return static_cast<int>(channels_.size()); }
@@ -100,8 +105,9 @@ public:
     void render(float* out, int frames, int sampleRate);
 
 private:
-    // Frames per step at the current tempo. stepsPerBeat_ 16th-notes → 4 steps per beat.
-    double samplesPerStep(int sampleRate) const;
+    // Frames for a given step at the current tempo. stepsPerBeat_ 16th-notes → 4 steps per beat.
+    // Swing lengthens even steps and shortens odd ones, so `step`'s parity matters.
+    double samplesPerStep(int sampleRate, int step) const;
     void triggerStep(int step);
 
     std::vector<DrumVoice> channels_;
@@ -127,6 +133,7 @@ private:
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;
     double bpm_ = 120.0;
+    float swing_ = 0.0f;
 
     bool playing_ = false;
     int currentStep_ = 0;

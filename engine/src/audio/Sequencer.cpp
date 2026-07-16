@@ -81,10 +81,18 @@ void Sequencer::clearArrangement() {
     addPattern();
 }
 
-double Sequencer::samplesPerStep(int sampleRate) const {
+void Sequencer::setSwing(float s) {
+    swing_ = std::clamp(s, 0.0f, 0.9f);
+}
+
+double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
     const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
-    return static_cast<double>(sampleRate) / stepsPerSec;
+    const double base = static_cast<double>(sampleRate) / stepsPerSec;
+    // Swing: even steps get (1 + swing), odd steps (1 - swing) — a pair still sums to 2·base.
+    const double factor = (step % 2 == 0) ? (1.0 + static_cast<double>(swing_))
+                                          : (1.0 - static_cast<double>(swing_));
+    return base * factor;
 }
 
 bool Sequencer::step(int channel, int step) const {
@@ -174,7 +182,7 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
 
         // While playing, never render past the next step boundary so triggers stay sample-accurate.
         if (playing_) {
-            const double sps = samplesPerStep(sampleRate);
+            const double sps = samplesPerStep(sampleRate, currentStep_);
             int toNext = static_cast<int>(std::ceil(sps - samplesIntoStep_));
             if (toNext < 1) {
                 toNext = 1;
@@ -211,7 +219,7 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
 
         if (playing_) {
             samplesIntoStep_ += static_cast<double>(chunk);
-            const double sps = samplesPerStep(sampleRate);
+            const double sps = samplesPerStep(sampleRate, currentStep_);
             if (samplesIntoStep_ + 0.5 >= sps) {
                 samplesIntoStep_ -= sps;
                 currentStep_ = (currentStep_ + 1) % numSteps_;

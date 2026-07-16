@@ -122,6 +122,30 @@ int main() {
     const std::vector<float> nothing = renderMono(silent, 6000, sampleRate);
     check(rms(nothing) == 0.0, "an empty pattern renders silence");
 
+    // --- Swing / groove ------------------------------------------------------
+    {
+        // At 120 BPM @ 48 kHz a straight step is 6000 samples. Swing 0.5 makes step 0 last
+        // 9000 (1.5×) and step 1 last 3000 (0.5×), pushing the off-beat later while the pair still
+        // sums to 12000.
+        audio::Sequencer sw;
+        sw.setBpm(120.0);
+        sw.setSwing(0.5f);
+        sw.play();
+        (void)renderMono(sw, 6000, sampleRate);
+        check(sw.currentStep() == 0, "swing lengthens the on-beat step (still step 0 at 6000)");
+        (void)renderMono(sw, 3000, sampleRate); // total 9000
+        check(sw.currentStep() == 1, "off-beat starts late (step 1 at 9000)");
+        (void)renderMono(sw, 3000, sampleRate); // total 12000 → the short off-beat completed
+        check(sw.currentStep() == 2, "the off-beat step is short (step 2 by 12000)");
+
+        // Straight (swing 0) advances every 6000 samples.
+        audio::Sequencer straight;
+        straight.setBpm(120.0);
+        straight.play();
+        (void)renderMono(straight, 6000, sampleRate);
+        check(straight.currentStep() == 1, "straight timing advances every 6000 samples");
+    }
+
     // --- Per-channel mixer: volume / mute / solo ----------------------------
     {
         audio::Sequencer mix;

@@ -47,6 +47,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.song = true;
         } else if (std::strcmp(arg, "--bpm") == 0 && i + 1 < argc) {
             cfg.bpm = std::atof(argv[++i]);
+        } else if (std::strcmp(arg, "--swing") == 0 && i + 1 < argc) {
+            cfg.swing = std::atof(argv[++i]);
         } else if (std::strcmp(arg, "--save") == 0 && i + 1 < argc) {
             cfg.projectSavePath = argv[++i];
         } else if (std::strcmp(arg, "--load") == 0 && i + 1 < argc) {

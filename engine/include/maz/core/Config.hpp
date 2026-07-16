@@ -26,6 +26,7 @@ struct AppConfig {
     const char* samplePath = nullptr; // --sample PATH : load a WAV into the sampler for the melody
     bool song = false;              // --song : build a multi-pattern arrangement (playlist) demo
     double bpm = 120.0;             // --bpm N : sequencer tempo
+    double swing = 0.0;             // --swing N : swing/groove amount (0..0.75)
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it
 };
