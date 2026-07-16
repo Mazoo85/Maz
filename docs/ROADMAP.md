@@ -548,7 +548,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 6 — Physics & collision
 - [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
-- [ ] 2D: circle, broadphase (grid / sweep-and-prune), general resolution
+- [x] 2D: circle, broadphase (grid / sweep-and-prune), general resolution (circle + box collision
+  and warm-started impulse resolution live in `game::PhysicsWorld2D` (M69/P1); the grid broadphase is
+  `game::SpatialGrid` (M40) and integrated into the physics world (P2); the **sweep-and-prune**
+  broadphase is new — `game::SweepPrune2D` (M198): sorts AABBs on the higher-variance axis and sweeps
+  a moving window, returning the exact overlapping-pair set (sort-axis prune + other-axis confirm, no
+  false positives) plus a single-probe `query()`. Adapts to varied object sizes / unbounded worlds
+  where a fixed grid cell can't. Unit-tested against brute force.)
 - [x] **2D physics** (`game::PhysicsWorld2D`: circle + **box** rigid bodies, gravity, impulse +
   **Coulomb friction** + positional correction, static-box bounce; the `physics` demo stacks 45
   balls, `boxes` stacks mixed boxes/balls on ledges; M69, M72)

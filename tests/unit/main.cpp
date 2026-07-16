@@ -99,6 +99,7 @@
 #include "maz/game/SoftShadow2D.hpp"
 #include "maz/game/SpatialGrid.hpp"
 #include "maz/game/StateMachine.hpp"
+#include "maz/game/SweepPrune2D.hpp"
 #include "maz/game/Steering.hpp"
 #include "maz/game/TileSet.hpp"
 #include "maz/game/Visibility2D.hpp"
@@ -152,6 +153,7 @@
 #include <cstdio>
 #include <fstream>
 #include <numeric>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -8399,6 +8401,66 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// SweepPrune2D: the SAP broadphase returns exactly the overlapping AABB pairs brute force finds.
+void testSweepPrune2D() {
+    using maz::game::SweepPrune2D;
+
+    auto norm = [](uint32_t a, uint32_t b) {
+        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
+    };
+
+    // Deterministic random boxes; compare SAP pairs against the O(n^2) brute-force overlap set.
+    core::Random rng(99);
+    std::vector<SweepPrune2D::Box> boxes;
+    for (uint32_t i = 0; i < 120; ++i) {
+        const float x = static_cast<float>(rng.range(0, 400));
+        const float y = static_cast<float>(rng.range(0, 400));
+        const float w = static_cast<float>(rng.range(2, 30));
+        const float h = static_cast<float>(rng.range(2, 30));
+        boxes.push_back(SweepPrune2D::fromRect(i, x, y, w, h));
+    }
+
+    // Brute-force truth set.
+    std::set<std::pair<uint32_t, uint32_t>> truth;
+    for (size_t i = 0; i < boxes.size(); ++i) {
+        for (size_t j = i + 1; j < boxes.size(); ++j) {
+            const auto& a = boxes[i];
+            const auto& b = boxes[j];
+            const bool overlap = a.min[0] <= b.max[0] && a.max[0] >= b.min[0] &&
+                                 a.min[1] <= b.max[1] && a.max[1] >= b.min[1];
+            if (overlap) truth.insert(norm(a.id, b.id));
+        }
+    }
+
+    SweepPrune2D sap;
+    sap.build(boxes);
+    CHECK(sap.size() == boxes.size());
+    std::set<std::pair<uint32_t, uint32_t>> got;
+    for (const auto& p : sap.overlappingPairs()) got.insert(norm(p.first, p.second));
+
+    // Exact match: no false positives, no misses.
+    CHECK(got == truth);
+    CHECK(!truth.empty()); // the scene actually has overlaps (guards a vacuous pass)
+
+    // Single-probe query matches a manual scan.
+    const float qmin[2] = {100.0f, 100.0f};
+    const float qmax[2] = {140.0f, 140.0f};
+    std::set<uint32_t> qtruth;
+    for (const auto& b : boxes) {
+        if (b.min[0] <= qmax[0] && b.max[0] >= qmin[0] && b.min[1] <= qmax[1] && b.max[1] >= qmin[1])
+            qtruth.insert(b.id);
+    }
+    std::set<uint32_t> qgot;
+    for (uint32_t id : sap.query(qmin, qmax)) qgot.insert(id);
+    CHECK(qgot == qtruth);
+
+    // Empty build is well-defined.
+    SweepPrune2D empty;
+    empty.build({});
+    CHECK(empty.size() == 0);
+    CHECK(empty.overlappingPairs().empty());
+}
+
 // BVH: box queries + ray casts match brute force, and raycastNearest returns the closest hit.
 void testBvh() {
     using maz::game::Bvh;
@@ -16253,6 +16315,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testSweepPrune2D();
     testBvh();
     testOctree();
     testContainers();
