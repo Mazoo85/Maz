@@ -39,8 +39,14 @@ The current milestone is **A3 — mixer + effects**. `maz::audio` provides an os
 drum kit (`DrumVoice`), a polyphonic ADSR synth (`SynthInstrument`), a `PianoRoll` note model, a
 `Sequencer` (drum grid + piano roll on one play/stop/BPM transport), a `Mixer` (bus gains + a master
 effect chain: low-pass EQ, compressor, delay, reverb), an `AudioEngine` that drives an SDL3 device
-*or* renders offline, and a WAV writer. See the **CJC Music Station track** in
-[`docs/ROADMAP.md`](docs/ROADMAP.md) — more instruments, automation, and project save/load are next.
+*or* renders offline, a WAV writer, and **project save/load** (a `.cjc` file capturing tempo, the
+drum grid, piano-roll notes, bus gains, and every effect setting). See the **CJC Music Station
+track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — more instruments and automation are next.
+
+```
+./build/bin/daw --headless --save song.cjc      # save the demo project to a .cjc file
+./build/bin/daw --headless --load song.cjc --wav out.wav   # load a project and render it
+```
 
 ```
 cmake --build build                                    # builds the `daw` app too

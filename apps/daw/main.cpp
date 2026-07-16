@@ -11,6 +11,7 @@
 
 #include "maz/Engine.hpp"
 #include "maz/audio/Pitch.hpp"
+#include "maz/audio/ProjectIO.hpp"
 #include "maz/audio/WavWriter.hpp"
 
 // See note in apps/editor/main.cpp: quiet third-party ImGui header warnings under -Werror.
@@ -112,23 +113,51 @@ void applyDemoMixer(audio::AudioEngine& engine) {
     mx.reverb().setMix(0.18f);
 }
 
-// Headless: render a tone (default), the demo beat (--beat), and/or the demo melody (--melody)
-// offline, log stats, and optionally write a WAV. Returns non-zero if a sequenced render came out
-// silent (a real failure).
+// Headless: render a tone (default), a demo beat/melody, or a loaded .cjc project offline, log
+// stats, optionally write a WAV (--wav) and/or save the project (--save). Returns non-zero on a
+// silent sequenced render or a failed load/save (real failures).
 int runHeadless(const core::AppConfig& cfg) {
     audio::AudioEngine engine;
     engine.initOffline();
 
-    const bool sequencing = cfg.beat || cfg.melody;
+    const bool loading = cfg.projectLoadPath != nullptr;
+    const bool sequencing = cfg.beat || cfg.melody || loading || cfg.projectSavePath != nullptr;
+    bool appliedBeat = false;
+    bool appliedMelody = false;
+
     if (sequencing) {
         engine.sequencer().setBpm(cfg.bpm);
-        if (cfg.beat) {
-            applyDemoBeat(engine.sequencer());
+        if (loading) {
+            std::string lerr;
+            if (!audio::loadProject(cfg.projectLoadPath, engine.sequencer(), engine.mixer(), &lerr)) {
+                MAZ_LOG_ERROR("project load failed: %s", lerr.c_str());
+                return 1;
+            }
+            MAZ_LOG_INFO("project: loaded %s", cfg.projectLoadPath);
+        } else {
+            // No explicit pattern flags (e.g. bare --save) → save the full demo (beat + melody).
+            const bool anyPattern = cfg.beat || cfg.melody;
+            if (cfg.beat || !anyPattern) {
+                applyDemoBeat(engine.sequencer());
+                appliedBeat = true;
+            }
+            if (cfg.melody || !anyPattern) {
+                applyDemoMelody(engine.sequencer());
+                appliedMelody = true;
+            }
+            applyDemoMixer(engine);
         }
-        if (cfg.melody) {
-            applyDemoMelody(engine.sequencer());
+
+        if (cfg.projectSavePath != nullptr) {
+            std::string serr;
+            if (audio::saveProject(cfg.projectSavePath, engine.sequencer(), engine.mixer(), &serr)) {
+                MAZ_LOG_INFO("project: saved %s", cfg.projectSavePath);
+            } else {
+                MAZ_LOG_ERROR("project save failed: %s", serr.c_str());
+                return 1;
+            }
         }
-        applyDemoMixer(engine);
+
         engine.sequencer().play();
     } else {
         engine.voice().setWaveform(audio::Waveform::Sine);
@@ -155,9 +184,12 @@ int runHeadless(const core::AppConfig& cfg) {
             MAZ_LOG_ERROR("sequencer rendered silence — no sound was produced");
             return 1;
         }
-        const char* label = (cfg.beat && cfg.melody) ? "song" : (cfg.beat ? "beat" : "melody");
+        const char* label = loading ? "project"
+                            : (appliedBeat && appliedMelody) ? "song"
+                            : appliedBeat                    ? "beat"
+                                                             : "melody";
         MAZ_LOG_INFO("audio: rendered %d frames @%dHz, peak %.2f, %s @%.0f BPM", frames,
-                     acfg.sampleRate, static_cast<double>(peak), label, cfg.bpm);
+                     acfg.sampleRate, static_cast<double>(peak), label, engine.sequencer().bpm());
     } else {
         const double estHz = estimateHz(buf, channels, acfg.sampleRate);
         MAZ_LOG_INFO("audio: rendered %d frames @%dHz, peak %.2f, est %.0f Hz", frames,
@@ -285,6 +317,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
     audio::Mixer& mx = engine.mixer();
     audio::Sequencer& seq = engine.sequencer();
     ImGui::Begin("CJC Music Station — Mixer");
+
+    // Project file I/O to a fixed path next to the app.
+    static const char* kProjectPath = "project.cjc";
+    if (ImGui::Button("Save Project")) {
+        std::string serr;
+        if (audio::saveProject(kProjectPath, seq, mx, &serr)) {
+            MAZ_LOG_INFO("project: saved %s", kProjectPath);
+        } else {
+            MAZ_LOG_ERROR("project save failed: %s", serr.c_str());
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load Project")) {
+        std::string lerr;
+        if (audio::loadProject(kProjectPath, seq, mx, &lerr)) {
+            MAZ_LOG_INFO("project: loaded %s", kProjectPath);
+        } else {
+            MAZ_LOG_ERROR("project load failed: %s", lerr.c_str());
+        }
+    }
+    ImGui::Separator();
 
     float master = mx.masterGain();
     if (ImGui::SliderFloat("Master", &master, 0.0f, 1.5f, "%.2f")) {

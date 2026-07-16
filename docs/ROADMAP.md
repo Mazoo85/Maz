@@ -199,7 +199,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       Freeverb-style `Reverb` — each individually enable-able, applied to the stereo output. The
       `daw` window adds a mixer strip; the demo render runs through compressor + reverb. (Per-channel
       pan is deferred to a later pass.)
-- [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load — *next*
+- [~] **A4 — instruments, automation, project files.** In progress:
+  - [x] **Project save/load** — a line-based `.cjc` format capturing tempo, the drum grid, the
+        piano-roll notes, bus gains, and every mixer effect parameter (`ProjectIO`), with an exact
+        round-trip. The `daw` window has Save/Load buttons; `daw --save/--load` work headless.
+  - [ ] FM / additional synth engines and a multisampler — *next*
+  - [ ] Parameter automation (envelopes/LFOs on mixer + synth params)
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 
 ### How to pick the next task

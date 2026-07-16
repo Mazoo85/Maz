@@ -62,6 +62,13 @@ target_link_libraries(maz_effects_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_effects COMMAND maz_effects_tests)
 set_tests_properties(unit_effects PROPERTIES TIMEOUT 30)
 
+# Unit tests: A4 project save/load — full .cjc round-trip (grid, notes, bus gains, mixer, effects).
+add_executable(maz_project_tests unit_project.cpp)
+target_link_libraries(maz_project_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_project COMMAND maz_project_tests)
+set_tests_properties(unit_project PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(
@@ -90,6 +97,26 @@ set_tests_properties(daw_melody_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "audio: rendered 96000 frames.*melody @120 BPM")
+
+# DAW: save the demo project to a .cjc file (fixture), then load it back and render it. The load
+# test requires the save test to have run first (FIXTURES), proving end-to-end project persistence.
+add_test(
+    NAME daw_project_save
+    COMMAND daw --headless --save ${CMAKE_BINARY_DIR}/demo.cjc --seconds 1)
+set_tests_properties(daw_project_save PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "project: saved"
+    FIXTURES_SETUP cjc_project)
+
+add_test(
+    NAME daw_project_load
+    COMMAND daw --headless --load ${CMAKE_BINARY_DIR}/demo.cjc --seconds 1)
+set_tests_properties(daw_project_load PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "audio: rendered 48000 frames.*project @"
+    FIXTURES_REQUIRED cjc_project)
 
 # Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
 # end to end (draws no-op with no GPU).

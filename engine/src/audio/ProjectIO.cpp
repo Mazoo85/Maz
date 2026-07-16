@@ -1,0 +1,161 @@
+#include "maz/audio/ProjectIO.hpp"
+
+#include "maz/audio/Mixer.hpp"
+#include "maz/audio/Sequencer.hpp"
+
+#include <fstream>
+#include <sstream>
+#include <string>
+
+namespace maz::audio {
+
+// File format (line-based text, ".cjc"):
+//   cjc 1
+//   bpm <double>
+//   busgain <drum> <synth>
+//   step <channel> <step>                 (repeated, one per active drum step)
+//   note <start> <len> <pitch> <velocity> (repeated, one per piano-roll note)
+//   master <gain>
+//   fx eq <enabled> <cutoff>
+//   fx comp <enabled> <thrDb> <ratio> <atkMs> <relMs> <makeupDb>
+//   fx delay <enabled> <timeMs> <feedback> <mix>
+//   fx reverb <enabled> <roomSize> <damping> <mix>
+
+bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::string* err) {
+    std::ofstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for writing";
+        }
+        return false;
+    }
+
+    f << "cjc 1\n";
+    f << "bpm " << seq.bpm() << "\n";
+    f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
+
+    for (int c = 0; c < seq.numChannels(); ++c) {
+        for (int s = 0; s < seq.numSteps(); ++s) {
+            if (seq.step(c, s)) {
+                f << "step " << c << " " << s << "\n";
+            }
+        }
+    }
+    for (const Note& n : seq.roll().notes()) {
+        f << "note " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " " << n.velocity
+          << "\n";
+    }
+
+    f << "master " << mixer.masterGain() << "\n";
+    f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
+    f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
+      << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
+      << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
+      << mixer.compressor().makeupDb() << "\n";
+    f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
+      << mixer.delay().feedback() << " " << mixer.delay().mix() << "\n";
+    f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
+      << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << "\n";
+
+    if (!f) {
+        if (err != nullptr) {
+            *err = "write to '" + path + "' failed";
+        }
+        return false;
+    }
+    return true;
+}
+
+bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::string* err) {
+    std::ifstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for reading";
+        }
+        return false;
+    }
+
+    // Reset the destination to a clean slate so the file fully defines the project.
+    seq.clear();
+    seq.roll().clear();
+
+    std::string line;
+    bool sawHeader = false;
+    while (std::getline(f, line)) {
+        std::istringstream ls(line);
+        std::string tag;
+        if (!(ls >> tag) || tag.empty() || tag[0] == '#') {
+            continue;
+        }
+        if (tag == "cjc") {
+            sawHeader = true;
+        } else if (tag == "bpm") {
+            double bpm = 120.0;
+            ls >> bpm;
+            seq.setBpm(bpm);
+        } else if (tag == "busgain") {
+            float d = 1.0f;
+            float s = 1.0f;
+            ls >> d >> s;
+            seq.setDrumGain(d);
+            seq.setSynthGain(s);
+        } else if (tag == "step") {
+            int c = 0;
+            int s = 0;
+            ls >> c >> s;
+            seq.setStep(c, s, true);
+        } else if (tag == "note") {
+            Note n;
+            ls >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            seq.roll().addNote(n);
+        } else if (tag == "master") {
+            float g = 0.9f;
+            ls >> g;
+            mixer.setMasterGain(g);
+        } else if (tag == "fx") {
+            std::string which;
+            int en = 0;
+            ls >> which >> en;
+            if (which == "eq") {
+                float cutoff = 8000.0f;
+                ls >> cutoff;
+                mixer.eq().setEnabled(en != 0);
+                mixer.eq().setCutoff(cutoff);
+            } else if (which == "comp") {
+                float thr = -18.0f, ratio = 4.0f, atk = 8.0f, rel = 120.0f, mk = 0.0f;
+                ls >> thr >> ratio >> atk >> rel >> mk;
+                mixer.compressor().setEnabled(en != 0);
+                mixer.compressor().setThresholdDb(thr);
+                mixer.compressor().setRatio(ratio);
+                mixer.compressor().setAttackMs(atk);
+                mixer.compressor().setReleaseMs(rel);
+                mixer.compressor().setMakeupDb(mk);
+            } else if (which == "delay") {
+                float t = 300.0f, fb = 0.35f, mix = 0.3f;
+                ls >> t >> fb >> mix;
+                mixer.delay().setEnabled(en != 0);
+                mixer.delay().setTime(t);
+                mixer.delay().setFeedback(fb);
+                mixer.delay().setMix(mix);
+            } else if (which == "reverb") {
+                float room = 0.7f, damp = 0.35f, mix = 0.25f;
+                ls >> room >> damp >> mix;
+                mixer.reverb().setEnabled(en != 0);
+                mixer.reverb().setRoomSize(room);
+                mixer.reverb().setDamping(damp);
+                mixer.reverb().setMix(mix);
+            }
+        }
+        // Unknown tags are ignored for forward compatibility.
+    }
+
+    if (!sawHeader) {
+        if (err != nullptr) {
+            *err = "'" + path + "' is not a .cjc project (missing header)";
+        }
+        return false;
+    }
+    return true;
+}
+
+} // namespace maz::audio

@@ -60,6 +60,8 @@ public:
     void setMakeupDb(float db) { makeupDb_ = db; }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
+    float attackMs() const { return attackMs_; }
+    float releaseMs() const { return releaseMs_; }
     float makeupDb() const { return makeupDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;

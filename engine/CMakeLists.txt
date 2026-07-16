@@ -33,6 +33,7 @@ add_library(maz STATIC
     src/audio/Sequencer.cpp
     src/audio/Effects.cpp
     src/audio/Mixer.cpp
+    src/audio/ProjectIO.cpp
     src/audio/AudioEngine.cpp
     src/audio/WavWriter.cpp
     src/assets/Model.cpp
