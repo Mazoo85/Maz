@@ -207,8 +207,11 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
         with ratio/index) alongside subtractive, for bell/electric-piano timbres. Synth settings
         (engine, waveform, ADSR, FM params) are persisted in the `.cjc` project and editable in a
         Synth panel; `daw --fm` plays the demo melody through it.
+  - [x] **Parameter automation** — an `LFO` (reusing the waveforms) + an `Automation` bank of lanes
+        that sweep targets (filter cutoff, FM index, reverb mix, master gain) between bounds, applied
+        per block against the transport clock and persisted in the `.cjc` project. The `daw` window
+        has an Automation panel; `daw --auto` sweeps the master filter (a classic wobble).
   - [ ] Multisampler (load + pitch WAV samples) — *next*
-  - [ ] Parameter automation (envelopes/LFOs on mixer + synth params)
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 
 ### How to pick the next task

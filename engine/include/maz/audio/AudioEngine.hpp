@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/audio/Automation.hpp"
 #include "maz/audio/Mixer.hpp"
 #include "maz/audio/Oscillator.hpp"
 #include "maz/audio/Sequencer.hpp"
@@ -50,6 +51,9 @@ public:
     // The master bus mixer (effect chain + master gain) applied to the final stereo output.
     Mixer& mixer() { return mixer_; }
 
+    // Parameter automation (LFO lanes) evaluated each block against the transport clock.
+    Automation& automation() { return automation_; }
+
     // Convenience passthrough to the single voice.
     void noteOn(float freqHz) { voice_.noteOn(freqHz); }
     void noteOff() { voice_.noteOff(); }
@@ -70,6 +74,7 @@ private:
     Oscillator voice_{};
     Sequencer sequencer_{};
     Mixer mixer_{};
+    Automation automation_{};
     SDL_AudioStream* stream_ = nullptr; // non-null only in real-time mode
     uint64_t framesRendered_ = 0;
     std::vector<float> scratch_; // reused mono render buffer for mixing

@@ -122,6 +122,17 @@ void applyDemoMixer(audio::AudioEngine& engine) {
     mx.reverb().setMix(0.18f);
 }
 
+// A demo automation: a slow triangle LFO sweeping the master low-pass cutoff — a classic filter
+// "wobble" over the loop.
+void applyDemoAuto(audio::AudioEngine& engine) {
+    audio::AutoLane& lane = engine.automation().lane(audio::AutoTarget::FilterCutoff);
+    lane.enabled = true;
+    lane.lfo.shape = audio::Waveform::Triangle;
+    lane.lfo.rateHz = 0.5f; // one sweep every two seconds
+    lane.lo = 500.0f;
+    lane.hi = 7000.0f;
+}
+
 // Headless: render a tone (default), a demo beat/melody, or a loaded .cjc project offline, log
 // stats, optionally write a WAV (--wav) and/or save the project (--save). Returns non-zero on a
 // silent sequenced render or a failed load/save (real failures).
@@ -138,7 +149,8 @@ int runHeadless(const core::AppConfig& cfg) {
         engine.sequencer().setBpm(cfg.bpm);
         if (loading) {
             std::string lerr;
-            if (!audio::loadProject(cfg.projectLoadPath, engine.sequencer(), engine.mixer(), &lerr)) {
+            if (!audio::loadProject(cfg.projectLoadPath, engine.sequencer(), engine.mixer(),
+                                    engine.automation(), &lerr)) {
                 MAZ_LOG_ERROR("project load failed: %s", lerr.c_str());
                 return 1;
             }
@@ -155,11 +167,15 @@ int runHeadless(const core::AppConfig& cfg) {
                 appliedMelody = true;
             }
             applyDemoMixer(engine);
+            if (cfg.automate) {
+                applyDemoAuto(engine);
+            }
         }
 
         if (cfg.projectSavePath != nullptr) {
             std::string serr;
-            if (audio::saveProject(cfg.projectSavePath, engine.sequencer(), engine.mixer(), &serr)) {
+            if (audio::saveProject(cfg.projectSavePath, engine.sequencer(), engine.mixer(),
+                                   engine.automation(), &serr)) {
                 MAZ_LOG_INFO("project: saved %s", cfg.projectSavePath);
             } else {
                 MAZ_LOG_ERROR("project save failed: %s", serr.c_str());
@@ -370,7 +386,7 @@ void buildMixerUI(audio::AudioEngine& engine) {
     static const char* kProjectPath = "project.cjc";
     if (ImGui::Button("Save Project")) {
         std::string serr;
-        if (audio::saveProject(kProjectPath, seq, mx, &serr)) {
+        if (audio::saveProject(kProjectPath, seq, mx, engine.automation(), &serr)) {
             MAZ_LOG_INFO("project: saved %s", kProjectPath);
         } else {
             MAZ_LOG_ERROR("project save failed: %s", serr.c_str());
@@ -379,7 +395,7 @@ void buildMixerUI(audio::AudioEngine& engine) {
     ImGui::SameLine();
     if (ImGui::Button("Load Project")) {
         std::string lerr;
-        if (audio::loadProject(kProjectPath, seq, mx, &lerr)) {
+        if (audio::loadProject(kProjectPath, seq, mx, engine.automation(), &lerr)) {
             MAZ_LOG_INFO("project: loaded %s", kProjectPath);
         } else {
             MAZ_LOG_ERROR("project load failed: %s", lerr.c_str());
@@ -437,7 +453,34 @@ void buildMixerUI(audio::AudioEngine& engine) {
     ImGui::End();
 }
 
-// Windowed: real-time device + the channel rack, piano roll, mixer, and a test-tone panel.
+// Draw the automation panel: one row per target with an enable, LFO shape, rate, and lo/hi range.
+void buildAutomationUI(audio::Automation& automation) {
+    ImGui::Begin("CJC Music Station — Automation");
+    ImGui::TextDisabled("LFOs sweep a parameter over time, synced to the transport.");
+    for (int i = 0; i < audio::Automation::count(); ++i) {
+        audio::AutoLane& lane = automation.lane(i);
+        ImGui::PushID(i);
+        ImGui::Checkbox(audio::Automation::targetName(static_cast<audio::AutoTarget>(i)),
+                        &lane.enabled);
+        int shape = static_cast<int>(lane.lfo.shape);
+        const char* shapes[] = {"Sine", "Square", "Saw", "Triangle"};
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::Combo("shape", &shape, shapes, 4)) {
+            lane.lfo.shape = static_cast<audio::Waveform>(shape);
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        ImGui::SliderFloat("rate", &lane.lfo.rateHz, 0.05f, 8.0f, "%.2f Hz");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(160.0f);
+        ImGui::DragFloatRange2("range", &lane.lo, &lane.hi, 1.0f);
+        ImGui::PopID();
+        ImGui::Separator();
+    }
+    ImGui::End();
+}
+
+// Windowed: real-time device + the channel rack, piano roll, mixer, automation, and a test tone.
 int runWindowed(const core::AppConfig& cfg) {
     platform::Window window;
     platform::WindowConfig wc;
@@ -474,6 +517,9 @@ int runWindowed(const core::AppConfig& cfg) {
     applyDemoBeat(engine.sequencer());
     applyDemoMelody(engine.sequencer(), cfg.fm);
     applyDemoMixer(engine);
+    if (cfg.automate) {
+        applyDemoAuto(engine);
+    }
 
     bool toneOn = false;
     float freq = cfg.toneHz;
@@ -505,6 +551,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 buildPianoRollUI(engine.sequencer());
                 buildSynthUI(engine.sequencer().synth());
                 buildMixerUI(engine);
+                buildAutomationUI(engine.automation());
 
                 ImGui::Begin("Test Tone");
                 if (ImGui::Button(toneOn ? "  Stop  " : "  Play  ")) {

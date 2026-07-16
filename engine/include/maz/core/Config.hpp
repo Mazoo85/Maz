@@ -22,6 +22,7 @@ struct AppConfig {
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
     bool melody = false;            // --melody : render the demo piano-roll melody
     bool fm = false;                // --fm : use the FM synth engine for the demo melody
+    bool automate = false;          // --auto : enable a demo auto-filter sweep
     double bpm = 120.0;             // --bpm N : sequencer tempo
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it

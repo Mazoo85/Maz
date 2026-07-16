@@ -1,5 +1,6 @@
 #include "maz/audio/ProjectIO.hpp"
 
+#include "maz/audio/Automation.hpp"
 #include "maz/audio/Mixer.hpp"
 #include "maz/audio/Sequencer.hpp"
 
@@ -21,7 +22,8 @@ namespace maz::audio {
 //   fx delay <enabled> <timeMs> <feedback> <mix>
 //   fx reverb <enabled> <roomSize> <damping> <mix>
 
-bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::string* err) {
+bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
+                 std::string* err) {
     std::ofstream f(path);
     if (!f) {
         if (err != nullptr) {
@@ -62,6 +64,13 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::str
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << "\n";
 
+    for (int i = 0; i < Automation::count(); ++i) {
+        const AutoLane& lane = automation.lane(i);
+        f << "auto " << i << " " << (lane.enabled ? 1 : 0) << " "
+          << static_cast<int>(lane.lfo.shape) << " " << lane.lfo.rateHz << " " << lane.lo << " "
+          << lane.hi << "\n";
+    }
+
     if (!f) {
         if (err != nullptr) {
             *err = "write to '" + path + "' failed";
@@ -71,7 +80,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::str
     return true;
 }
 
-bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::string* err) {
+bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
+                 std::string* err) {
     std::ifstream f(path);
     if (!f) {
         if (err != nullptr) {
@@ -161,6 +171,18 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::str
                 mixer.reverb().setRoomSize(room);
                 mixer.reverb().setDamping(damp);
                 mixer.reverb().setMix(mix);
+            }
+        } else if (tag == "auto") {
+            int idx = -1, en = 0, shape = 0;
+            float rate = 0.5f, lo = 0.0f, hi = 1.0f;
+            ls >> idx >> en >> shape >> rate >> lo >> hi;
+            if (idx >= 0 && idx < Automation::count()) {
+                AutoLane& lane = automation.lane(idx);
+                lane.enabled = en != 0;
+                lane.lfo.shape = static_cast<Waveform>(shape < 0 || shape > 3 ? 0 : shape);
+                lane.lfo.rateHz = rate;
+                lane.lo = lo;
+                lane.hi = hi;
             }
         }
         // Unknown tags are ignored for forward compatibility.

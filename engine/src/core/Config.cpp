@@ -39,6 +39,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.melody = true;
         } else if (std::strcmp(arg, "--fm") == 0) {
             cfg.fm = true;
+        } else if (std::strcmp(arg, "--auto") == 0) {
+            cfg.automate = true;
         } else if (std::strcmp(arg, "--bpm") == 0 && i + 1 < argc) {
             cfg.bpm = std::atof(argv[++i]);
         } else if (std::strcmp(arg, "--save") == 0 && i + 1 < argc) {

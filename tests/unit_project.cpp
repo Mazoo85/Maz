@@ -2,6 +2,7 @@
 // file, with no audio device. Proves loadProject(saveProject(x)) == x for tempo, the drum grid, the
 // piano-roll notes, bus gains, and every mixer effect parameter.
 
+#include "maz/audio/Automation.hpp"
 #include "maz/audio/Mixer.hpp"
 #include "maz/audio/ProjectIO.hpp"
 #include "maz/audio/Sequencer.hpp"
@@ -32,6 +33,7 @@ int main() {
     // Build a project with distinctive, non-default state everywhere.
     audio::Sequencer seq;
     audio::Mixer mixer;
+    audio::Automation automation;
 
     seq.setBpm(137.0);
     seq.setDrumGain(0.8f);
@@ -63,15 +65,23 @@ int main() {
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
 
+    audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
+    lane.enabled = true;
+    lane.lfo.shape = audio::Waveform::Saw;
+    lane.lfo.rateHz = 1.75f;
+    lane.lo = 300.0f;
+    lane.hi = 5500.0f;
+
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
-    check(audio::saveProject(path, seq, mixer, &err), "saveProject succeeds");
+    check(audio::saveProject(path, seq, mixer, automation, &err), "saveProject succeeds");
 
     // Load into fresh, differently-initialised objects.
     audio::Sequencer seq2;
     audio::Mixer mixer2;
+    audio::Automation automation2;
     seq2.setBpm(90.0); // will be overwritten
-    check(audio::loadProject(path, seq2, mixer2, &err), "loadProject succeeds");
+    check(audio::loadProject(path, seq2, mixer2, automation2, &err), "loadProject succeeds");
 
     // Transport + bus.
     check(near(static_cast<float>(seq2.bpm()), 137.0f), "bpm round-trips");
@@ -113,10 +123,17 @@ int main() {
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");
 
+    // Automation lane.
+    const audio::AutoLane& lane2 = automation2.lane(audio::AutoTarget::FilterCutoff);
+    check(lane2.enabled && lane2.lfo.shape == audio::Waveform::Saw &&
+              near(lane2.lfo.rateHz, 1.75f) && near(lane2.lo, 300.0f) && near(lane2.hi, 5500.0f),
+          "automation lane round-trips");
+
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
     audio::Mixer mixer3;
-    check(!audio::loadProject("/nonexistent/definitely_missing.cjc", seq3, mixer3, &err),
+    audio::Automation automation3;
+    check(!audio::loadProject("/nonexistent/definitely_missing.cjc", seq3, mixer3, automation3, &err),
           "loading a missing file fails cleanly");
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

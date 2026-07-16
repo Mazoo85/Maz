@@ -69,6 +69,13 @@ target_link_libraries(maz_project_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_project COMMAND maz_project_tests)
 set_tests_properties(unit_project PROPERTIES TIMEOUT 30)
 
+# Unit tests: A4 automation — LFO shapes/rate and the automation bank driving an engine parameter.
+add_executable(maz_automation_tests unit_automation.cpp)
+target_link_libraries(maz_automation_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_automation COMMAND maz_automation_tests)
+set_tests_properties(unit_automation PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(
