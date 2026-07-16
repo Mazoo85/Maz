@@ -142,6 +142,7 @@
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/PolyTriangulate.hpp"
+#include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
@@ -8401,6 +8402,56 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// SpriteOrder: draw ordering by layer, then z-index, then y-sort, stable on ties.
+void testSpriteOrder() {
+    using maz::render::DrawItem;
+
+    // id, layer, zIndex, ySort, useYSort
+    std::vector<DrawItem> items = {
+        {10, 0, 0, 0.0f, false},   // world, z0
+        {11, 1, 0, 0.0f, false},   // HUD layer (above everything in layer 0)
+        {12, 0, 5, 0.0f, false},   // world, z5 (in front of z0)
+        {13, 0, 0, 200.0f, true},  // world, z0, y-sorted low on screen -> front
+        {14, 0, 0, 50.0f, true},   // world, z0, y-sorted higher -> behind 13
+        {15, -1, 0, 0.0f, false},  // background layer (behind world)
+    };
+
+    const auto order = maz::render::sortedIndices(items);
+    // Map back to ids in draw order.
+    std::vector<uint32_t> ids;
+    for (uint32_t i : order) ids.push_back(items[i].id);
+
+    // Expected back-to-front:
+    //  layer -1 (bg): 15
+    //  layer 0, z0: y-sorted 14 (y=50) then 13 (y=200); the non-y-sorted 10 sorts by insertion
+    //     among z0 — insertion index of 10 is 0, of 13 is 3, of 14 is 4, so 10 comes first.
+    //  layer 0, z5: 12
+    //  layer 1: 11
+    CHECK(ids.size() == 6);
+    CHECK(ids.front() == 15);                       // background first
+    CHECK(ids.back() == 11);                         // HUD last (on top)
+    // z5 (12) draws after all z0 items in layer 0 but before the HUD layer.
+    auto pos = [&](uint32_t id) {
+        return std::find(ids.begin(), ids.end(), id) - ids.begin();
+    };
+    CHECK(pos(15) < pos(10));   // bg before world
+    CHECK(pos(14) < pos(13));   // y-sort: higher-on-screen behind lower-on-screen
+    CHECK(pos(13) < pos(12));   // z0 group before z5 within the layer
+    CHECK(pos(12) < pos(11));   // world layer before HUD layer
+
+    // In-place sort matches the index order.
+    std::vector<DrawItem> copy = items;
+    maz::render::sort(copy);
+    for (size_t i = 0; i < copy.size(); ++i) {
+        CHECK(copy[i].id == ids[i]);
+    }
+
+    // Stability: equal keys keep submission order.
+    std::vector<DrawItem> tie = {{1, 0, 0, 0, false}, {2, 0, 0, 0, false}, {3, 0, 0, 0, false}};
+    const auto to = maz::render::sortedIndices(tie);
+    CHECK(to[0] == 0 && to[1] == 1 && to[2] == 2);
+}
+
 // SweepPrune2D: the SAP broadphase returns exactly the overlapping AABB pairs brute force finds.
 void testSweepPrune2D() {
     using maz::game::SweepPrune2D;
@@ -16315,6 +16366,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testSpriteOrder();
     testSweepPrune2D();
     testBvh();
     testOctree();
