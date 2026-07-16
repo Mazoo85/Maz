@@ -6,7 +6,6 @@
 namespace maz::audio {
 
 namespace {
-constexpr double kTwoPi = 6.283185307179586;
 // Attack/release length in seconds — a few milliseconds, long enough to kill clicks, short enough
 // to feel instant.
 constexpr float kRampSeconds = 0.005f;
@@ -37,21 +36,7 @@ void Oscillator::render(float* out, int frames, int sampleRate) {
             env_ = std::max(target, env_ - envStep);
         }
 
-        float s = 0.0f;
-        switch (waveform_) {
-        case Waveform::Sine:
-            s = static_cast<float>(std::sin(phase_ * kTwoPi));
-            break;
-        case Waveform::Square:
-            s = (phase_ < 0.5) ? 1.0f : -1.0f;
-            break;
-        case Waveform::Saw:
-            s = static_cast<float>(2.0 * phase_ - 1.0);
-            break;
-        case Waveform::Triangle:
-            s = static_cast<float>(4.0 * std::fabs(phase_ - 0.5) - 1.0);
-            break;
-        }
+        const float s = waveSample(waveform_, phase_);
 
         out[i] += s * amplitude_ * env_;
 

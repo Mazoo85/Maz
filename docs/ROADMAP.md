@@ -189,8 +189,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       time and strikes a synthesized drum kit (`DrumVoice`: kick/snare/closed+open hat/clap) on each
       active step, soft-limited on the bus. The `daw` window exposes a clickable grid; `daw --beat`
       renders a demo groove headless (CI-verified).
-- [ ] A2 — piano roll (note entry, length/velocity, per-channel patterns) — *next*
-- [ ] A3 — multi-track mixer + effects (gain/pan, EQ, delay, reverb, compressor)
+- [x] **A2 — piano roll.** A polyphonic `SynthInstrument` (voice pool + ADSR, selectable waveform)
+      and a `PianoRoll` note model (pitch/start/length/velocity) played on the sequencer's shared
+      transport — note-on/off scheduled sample-accurately at step boundaries. The `daw` window adds a
+      clickable piano-roll grid; `daw --melody` (and `--beat --melody` for a full song) render
+      headless (CI-verified). MIDI pitch helpers in `Pitch.hpp`.
+- [ ] A3 — multi-track mixer + effects (gain/pan, EQ, delay, reverb, compressor) — *next*
 - [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 

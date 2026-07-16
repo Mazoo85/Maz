@@ -1,13 +1,15 @@
 // CJC Music Station — a native DAW built on the Maz engine.
 //
-// Milestone A1: an FL-style step sequencer ("channel rack") on top of the A0 audio pipeline.
-//   - Headless (--headless): render an offline oscillator tone, or --beat to render the demo drum
-//     pattern. Optionally writes a WAV (--wav) and logs stats. No GPU/display/audio device needed,
-//     so CI verifies the synth + sequencer output.
-//   - Windowed: a transport (Play/Stop + BPM) and a clickable channel-rack grid driving a live
-//     device — program a beat and hear it loop. A collapsible test-tone panel keeps the A0 synth.
+// Milestone A2: an FL-style step sequencer ("channel rack") + a piano roll on top of the A0 audio
+// pipeline.
+//   - Headless (--headless): render an offline oscillator tone, or --beat / --melody to render the
+//     demo drum pattern and/or piano-roll melody. Optionally writes a WAV (--wav) and logs stats.
+//     No GPU/display/audio device needed, so CI verifies the synth + sequencer output.
+//   - Windowed: a transport (Play/Stop + BPM), a clickable channel-rack grid, and a piano-roll grid
+//     driving a live device — program a beat and a melody and hear them loop. Plus a test-tone panel.
 
 #include "maz/Engine.hpp"
+#include "maz/audio/Pitch.hpp"
 #include "maz/audio/WavWriter.hpp"
 
 // See note in apps/editor/main.cpp: quiet third-party ImGui header warnings under -Werror.
@@ -81,15 +83,38 @@ void applyDemoBeat(audio::Sequencer& seq) {
     for (int s : clap) seq.setStep(4, s, true);
 }
 
-// Headless: render either a tone (default) or the demo beat (--beat) offline, log stats, and
-// optionally write a WAV. Returns non-zero if a beat render came out silent (a real failure).
+// A simple C-major arpeggio riff on the piano roll (MIDI: C4=60). Each note is two 16th-steps long.
+void applyDemoMelody(audio::Sequencer& seq) {
+    seq.roll().clear();
+    seq.synth().setWaveform(audio::Waveform::Saw);
+    seq.synth().setEnvelope(0.005f, 0.09f, 0.55f, 0.14f);
+    const int pitches[] = {60, 64, 67, 72, 71, 67, 64, 60}; // C E G C  B G E C
+    for (int i = 0; i < 8; ++i) {
+        audio::Note n;
+        n.startStep = i * 2;
+        n.lengthSteps = 2;
+        n.pitch = pitches[i];
+        n.velocity = 0.9f;
+        seq.roll().addNote(n);
+    }
+}
+
+// Headless: render a tone (default), the demo beat (--beat), and/or the demo melody (--melody)
+// offline, log stats, and optionally write a WAV. Returns non-zero if a sequenced render came out
+// silent (a real failure).
 int runHeadless(const core::AppConfig& cfg) {
     audio::AudioEngine engine;
     engine.initOffline();
 
-    if (cfg.beat) {
+    const bool sequencing = cfg.beat || cfg.melody;
+    if (sequencing) {
         engine.sequencer().setBpm(cfg.bpm);
-        applyDemoBeat(engine.sequencer());
+        if (cfg.beat) {
+            applyDemoBeat(engine.sequencer());
+        }
+        if (cfg.melody) {
+            applyDemoMelody(engine.sequencer());
+        }
         engine.sequencer().play();
     } else {
         engine.voice().setWaveform(audio::Waveform::Sine);
@@ -111,13 +136,14 @@ int runHeadless(const core::AppConfig& cfg) {
         }
     }
 
-    if (cfg.beat) {
+    if (sequencing) {
         if (peak < 1e-4f) {
-            MAZ_LOG_ERROR("beat: rendered silence — the sequencer produced no sound");
+            MAZ_LOG_ERROR("sequencer rendered silence — no sound was produced");
             return 1;
         }
-        MAZ_LOG_INFO("audio: rendered %d frames @%dHz, peak %.2f, beat @%.0f BPM", frames,
-                     acfg.sampleRate, static_cast<double>(peak), cfg.bpm);
+        const char* label = (cfg.beat && cfg.melody) ? "song" : (cfg.beat ? "beat" : "melody");
+        MAZ_LOG_INFO("audio: rendered %d frames @%dHz, peak %.2f, %s @%.0f BPM", frames,
+                     acfg.sampleRate, static_cast<double>(peak), label, cfg.bpm);
     } else {
         const double estHz = estimateHz(buf, channels, acfg.sampleRate);
         MAZ_LOG_INFO("audio: rendered %d frames @%dHz, peak %.2f, est %.0f Hz", frames,
@@ -187,7 +213,60 @@ void buildRackUI(audio::Sequencer& seq) {
     ImGui::End();
 }
 
-// Windowed: real-time device + the channel rack + a collapsible test-tone panel.
+// Draw the piano-roll UI: pitch rows (high at top) × steps. Clicking a cell toggles a note.
+void buildPianoRollUI(audio::Sequencer& seq) {
+    audio::PianoRoll& roll = seq.roll();
+    ImGui::Begin("CJC Music Station — Piano Roll");
+    ImGui::TextDisabled("Click cells to place notes. The synth plays them on the shared transport.");
+
+    const int steps = roll.numSteps();
+    const int rows = roll.numPitches();
+    const int low = roll.lowPitch();
+    const float cell = 20.0f;
+
+    ImGui::BeginChild("roll_grid", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    for (int r = 0; r < rows; ++r) {
+        const int pitch = low + (rows - 1 - r); // top row = highest pitch
+        const bool black = [&] {
+            switch (pitch % 12) {
+            case 1: case 3: case 6: case 8: case 10:
+                return true;
+            default:
+                return false;
+            }
+        }();
+        ImGui::Text("%-3s%d", audio::pitchClassName(pitch), audio::midiOctave(pitch));
+        ImGui::SameLine(52.0f);
+        for (int s = 0; s < steps; ++s) {
+            ImGui::PushID(pitch * 1000 + s);
+            const bool on = roll.hasNote(pitch, s);
+            const bool onBeat = (s % 4) == 0;
+            const bool playhead = seq.playing() && s == seq.currentStep();
+
+            ImVec4 col = on ? ImVec4(0.30f, 0.60f, 0.95f, 1.0f)
+                            : ImVec4(black ? 0.16f : 0.24f, black ? 0.17f : 0.25f,
+                                     onBeat ? 0.34f : (black ? 0.20f : 0.30f), 1.0f);
+            if (playhead && !on) {
+                col.z = std::min(1.0f, col.z + 0.20f);
+            }
+            ImGui::PushStyleColor(ImGuiCol_Button, col);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(col.x + 0.1f, col.y + 0.1f, col.z + 0.1f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, col);
+            if (ImGui::Button("##cell", ImVec2(cell, cell))) {
+                roll.toggle(pitch, s);
+            }
+            ImGui::PopStyleColor(3);
+            if (s + 1 < steps) {
+                ImGui::SameLine();
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::EndChild();
+    ImGui::End();
+}
+
+// Windowed: real-time device + the channel rack, piano roll, and a test-tone panel.
 int runWindowed(const core::AppConfig& cfg) {
     platform::Window window;
     platform::WindowConfig wc;
@@ -222,6 +301,7 @@ int runWindowed(const core::AppConfig& cfg) {
     }
     engine.sequencer().setBpm(cfg.bpm);
     applyDemoBeat(engine.sequencer());
+    applyDemoMelody(engine.sequencer());
 
     bool toneOn = false;
     float freq = cfg.toneHz;
@@ -250,6 +330,7 @@ int runWindowed(const core::AppConfig& cfg) {
             if (gui) {
                 renderer->guiNewFrame();
                 buildRackUI(engine.sequencer());
+                buildPianoRollUI(engine.sequencer());
 
                 ImGui::Begin("Test Tone");
                 if (ImGui::Button(toneOn ? "  Stop  " : "  Play  ")) {

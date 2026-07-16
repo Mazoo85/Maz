@@ -28,6 +28,8 @@ add_library(maz STATIC
     src/core/Config.cpp
     src/audio/Oscillator.cpp
     src/audio/DrumVoice.cpp
+    src/audio/SynthInstrument.cpp
+    src/audio/PianoRoll.cpp
     src/audio/Sequencer.cpp
     src/audio/AudioEngine.cpp
     src/audio/WavWriter.cpp

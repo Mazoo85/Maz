@@ -1,6 +1,8 @@
 #pragma once
 
 #include "maz/audio/DrumVoice.hpp"
+#include "maz/audio/PianoRoll.hpp"
+#include "maz/audio/SynthInstrument.hpp"
 
 #include <string>
 #include <vector>
@@ -38,6 +40,10 @@ public:
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
+    // The melodic side: a pitched synth playing the piano-roll pattern, on the same transport.
+    SynthInstrument& synth() { return synth_; }
+    PianoRoll& roll() { return roll_; }
+
     // --- Pattern grid --------------------------------------------------------
     bool step(int channel, int step) const;
     void setStep(int channel, int step, bool on);
@@ -57,6 +63,9 @@ private:
     std::vector<std::string> names_;
     std::vector<uint8_t> grid_; // channel-major: grid_[channel * numSteps_ + step]
     std::vector<float> mixScratch_; // per-block channel sum, soft-limited before it hits the bus
+
+    SynthInstrument synth_{}; // melodic instrument playing the piano roll
+    PianoRoll roll_{};
 
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;

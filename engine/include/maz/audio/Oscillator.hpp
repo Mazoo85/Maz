@@ -1,10 +1,29 @@
 #pragma once
 
+#include <cmath>
+
 namespace maz::audio {
 
 // The available oscillator waveforms. Sine is the default; the rest are cheap analogue-style
-// shapes (naive, not band-limited — good enough for the "hello sound" milestone).
+// shapes (naive, not band-limited — good enough for the current milestones).
 enum class Waveform { Sine, Square, Saw, Triangle };
+
+// Evaluate a waveform at a phase in [0, 1). Shared by the Oscillator and the poly synth so there is
+// a single source of truth for each shape.
+inline float waveSample(Waveform w, double phase) {
+    constexpr double kTwoPi = 6.283185307179586;
+    switch (w) {
+    case Waveform::Sine:
+        return static_cast<float>(std::sin(phase * kTwoPi));
+    case Waveform::Square:
+        return (phase < 0.5) ? 1.0f : -1.0f;
+    case Waveform::Saw:
+        return static_cast<float>(2.0 * phase - 1.0);
+    case Waveform::Triangle:
+        return static_cast<float>(4.0 * std::fabs(phase - 0.5) - 1.0);
+    }
+    return 0.0f;
+}
 
 // A single monophonic oscillator voice with a short click-free amplitude envelope.
 //

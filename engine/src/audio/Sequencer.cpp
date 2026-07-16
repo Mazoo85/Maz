@@ -62,9 +62,23 @@ void Sequencer::clear() {
 }
 
 void Sequencer::triggerStep(int step) {
+    // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
             channels_[static_cast<size_t>(c)].trigger();
+        }
+    }
+    // Melody: note-offs first (so a note ending where another begins doesn't cut the new one),
+    // then note-ons for notes starting on this step. Note ends wrap within the bar.
+    for (const Note& n : roll_.notes()) {
+        const int endStep = (n.startStep + n.lengthSteps) % numSteps_;
+        if (endStep == step) {
+            synth_.noteOff(n.pitch);
+        }
+    }
+    for (const Note& n : roll_.notes()) {
+        if (n.startStep == step) {
+            synth_.noteOn(n.pitch, n.velocity);
         }
     }
 }
@@ -78,6 +92,7 @@ void Sequencer::play() {
 
 void Sequencer::stop() {
     playing_ = false;
+    synth_.allNotesOff(); // let held notes release rather than hang
 }
 
 void Sequencer::render(float* out, int frames, int sampleRate) {
@@ -105,6 +120,7 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
         for (DrumVoice& voice : channels_) {
             voice.render(mixScratch_.data(), chunk, sampleRate);
         }
+        synth_.render(mixScratch_.data(), chunk, sampleRate);
         for (int i = 0; i < chunk; ++i) {
             out[done + i] += static_cast<float>(std::tanh(static_cast<double>(mixScratch_[static_cast<size_t>(i)])));
         }

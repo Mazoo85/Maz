@@ -20,6 +20,7 @@ struct AppConfig {
     double seconds = 1.0;           // --seconds N : length of an offline render
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
+    bool melody = false;            // --melody : render the demo piano-roll melody
     double bpm = 120.0;             // --bpm N : sequencer tempo
 };
 

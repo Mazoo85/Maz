@@ -35,22 +35,24 @@ it runs in CI.
 aimed at FL Studio–level capability over time. It has a real audio pipeline (`maz::audio`) and an
 FL-style **step sequencer**: a channel rack of drum voices you program on a 16-step grid and loop.
 
-The current milestone is **A1 — step sequencer / patterns**. `maz::audio` provides an oscillator, a
-synthesized drum kit (`DrumVoice`), a `Sequencer` (pattern grid + play/stop/BPM transport, sample-
-accurate stepping, soft-limited bus), an `AudioEngine` that drives an SDL3 device *or* renders
-offline, and a WAV writer. See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md)
-— the piano roll is next.
+The current milestone is **A2 — piano roll**. `maz::audio` provides an oscillator, a synthesized
+drum kit (`DrumVoice`), a polyphonic ADSR synth (`SynthInstrument`), a `PianoRoll` note model, a
+`Sequencer` (drum grid + piano roll on one play/stop/BPM transport, sample-accurate stepping, soft-
+limited bus), an `AudioEngine` that drives an SDL3 device *or* renders offline, and a WAV writer.
+See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — the mixer + effects
+are next.
 
 ```
 cmake --build build                                    # builds the `daw` app too
-./build/bin/daw                                        # window: channel rack (Play/BPM + step grid) + test tone
-./build/bin/daw --headless --beat --seconds 2 --wav beat.wav    # render the demo drum groove to a WAV
-./build/bin/daw --headless --seconds 1 --freq 440 --wav tone.wav  # render a single oscillator tone
+./build/bin/daw                                        # window: channel rack + piano roll + test tone
+./build/bin/daw --headless --beat --melody --seconds 4 --wav song.wav   # drums + melody to a WAV
+./build/bin/daw --headless --beat --seconds 2 --wav beat.wav            # just the demo drum groove
+./build/bin/daw --headless --seconds 1 --freq 440 --wav tone.wav        # a single oscillator tone
 ```
 
-Flags: `--beat` (render the demo pattern instead of a tone), `--bpm N` (tempo), `--freq HZ`
-(oscillator pitch), `--seconds N` (offline length), `--wav PATH` (write the render). Headless mode
-needs no audio device, so CI verifies both the synth and the sequencer output.
+Flags: `--beat` (demo drum pattern), `--melody` (demo piano-roll melody), `--bpm N` (tempo),
+`--freq HZ` (oscillator pitch), `--seconds N` (offline length), `--wav PATH` (write the render).
+Headless mode needs no audio device, so CI verifies the synth, drums, and melodic sequencing.
 
 ---
 

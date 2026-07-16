@@ -48,6 +48,13 @@ target_link_libraries(maz_sequencer_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_sequencer COMMAND maz_sequencer_tests)
 set_tests_properties(unit_sequencer PROPERTIES TIMEOUT 30)
 
+# Unit tests: A2 melodic path — pitch math, poly synth (ADSR), piano roll, melodic scheduling.
+add_executable(maz_synth_tests unit_synth.cpp)
+target_link_libraries(maz_synth_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_synth COMMAND maz_synth_tests)
+set_tests_properties(unit_synth PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(
@@ -67,6 +74,15 @@ set_tests_properties(daw_beat_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "audio: rendered 96000 frames.*beat @120 BPM")
+
+# DAW: render two seconds of the demo piano-roll melody offline (synth -> Sequencer -> AudioEngine).
+add_test(
+    NAME daw_melody_smoke
+    COMMAND daw --headless --melody --seconds 2 --bpm 120 --wav ${CMAKE_BINARY_DIR}/melody.wav)
+set_tests_properties(daw_melody_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "audio: rendered 96000 frames.*melody @120 BPM")
 
 # Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
 # end to end (draws no-op with no GPU).
