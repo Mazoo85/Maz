@@ -48,6 +48,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/LogSinks.hpp"
 #include "maz/core/Noise.hpp"
+#include "maz/core/Pcg32.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
@@ -8404,6 +8405,42 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+// Pcg32: reproduces PCG's canonical reference test vector; helpers are bounded + deterministic.
+void testPcg32() {
+    using maz::core::Pcg32;
+
+    // Canonical pcg32 vector: seed(state=42, seq=54) -> these first six 32-bit outputs (from the
+    // reference pcg-c-basic demo). Exact reproduction proves the port is bit-correct.
+    Pcg32 rng(42u, 54u);
+    const uint32_t expected[6] = {0xa15c02b7u, 0x7b47f409u, 0xba1d3330u,
+                                  0x83d2f293u, 0xbfa4784bu, 0xcbed606eu};
+    for (uint32_t e : expected) {
+        CHECK(rng.next() == e);
+    }
+
+    // Same seed -> identical stream (determinism); a different stream selector diverges.
+    Pcg32 a(7u, 1u), b(7u, 1u), c(7u, 2u);
+    CHECK(a.next() == b.next());
+    Pcg32 a2(7u, 1u), c2(7u, 2u);
+    CHECK(a2.next() != c2.next());
+
+    // nextBounded is in range and unbiased-by-construction; range() is inclusive.
+    Pcg32 r(12345u, 6789u);
+    bool sawLo = false, sawHi = false;
+    for (int i = 0; i < 20000; ++i) {
+        const uint32_t v = r.nextBounded(6); // a die
+        CHECK(v < 6);
+        const int d = r.range(1, 6);
+        CHECK(d >= 1 && d <= 6);
+        if (d == 1) sawLo = true;
+        if (d == 6) sawHi = true;
+    }
+    CHECK(sawLo && sawHi);           // both ends of the inclusive range occur
+    CHECK(r.nextBounded(0) == 0);    // degenerate bound
+    const float f = r.nextFloat();
+    CHECK(f >= 0.0f && f < 1.0f);
+}
+
 // Overlap3D: exact sphere overlap queries + conservative swept-sphere cast against AABBs.
 void testOverlap3D() {
     using maz::game::Aabb;
@@ -16487,6 +16524,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testPcg32();
     testOverlap3D();
     testChunkStreamer();
     testSpriteOrder();

@@ -238,7 +238,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `Aabb3` (contains/intersects/merge/support + slab ray test), and `Obb` (15-axis SAT box-vs-box,
   point containment, world-AABB) — the Godot `Plane`/`AABB` vocabulary plus a proper oriented box;
   frustum planes already live in `render::Camera3D` (`FrustumPlanes`/`isSphereVisible`). Unit-tested.)
-- [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
+- [x] Easing / interpolation, deterministic RNG (PCG/xoshiro) (easing = `anim`'s 15 easing curves
+  (M59) + `math` lerp / `core::Interpolated` (M151); deterministic RNG = **both** named generators:
+  `core::Random` is xoshiro256** seeded through SplitMix64 (M84), and **`core::Pcg32` (M202)** is a
+  bit-exact port of O'Neill's pcg32 (64-bit LCG + xorshift-rotate output permutation) with
+  independent streams, unbiased `nextBounded`, inclusive `range`, and `nextFloat` — verified against
+  PCG's canonical reference test vector.)
 - [x] **Memory allocators** (`core::LinearArena` + `core::PoolAllocator`): the bump/frame arena and
   fixed-size pool an engine uses to avoid per-object malloc/free churn (fragmentation + frame-time
   spikes). `LinearArena` is an O(1) bump allocator with correct alignment — `reset()` frees a whole
