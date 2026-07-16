@@ -32,15 +32,24 @@ if %ERRORLEVEL%==0 (
 )
 
 REM A C++ compiler comes with "Visual Studio" (the free Community edition is fine).
+REM We detect Visual Studio using its own locator tool, "vswhere", so this works even
+REM from a normal Command Prompt or a double-click (no special developer prompt needed).
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set VSFOUND=0
+if exist "%VSWHERE%" (
+  for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do set VSFOUND=1
+)
+REM Also accept the case where a compiler is already on PATH (developer prompt).
 where cl >nul 2>nul
-if %ERRORLEVEL%==0 (
-  echo [ok] Visual C++ compiler found
+if %ERRORLEVEL%==0 set VSFOUND=1
+
+if "%VSFOUND%"=="1" (
+  echo [ok] Visual Studio C++ tools found
 ) else (
-  echo [!] No Visual C++ compiler found.
-  echo     Install "Visual Studio Community" (free) and pick the
-  echo     "Desktop development with C++" option during setup:
+  echo [!] Visual Studio with C++ tools was NOT found.
+  echo     Install "Visual Studio Community" (free) and, in the installer, check
+  echo     the "Desktop development with C++" box:
   echo     https://visualstudio.microsoft.com/downloads/
-  echo     Then run this from the "Developer Command Prompt for VS".
   set MISSING=1
 )
 
