@@ -21,6 +21,7 @@ struct AppConfig {
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
     bool melody = false;            // --melody : render the demo piano-roll melody
+    bool fm = false;                // --fm : use the FM synth engine for the demo melody
     double bpm = 120.0;             // --bpm N : sequencer tempo
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it

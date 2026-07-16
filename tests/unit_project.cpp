@@ -43,6 +43,11 @@ int main() {
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
     seq.roll().addNote(n2);
+    seq.synth().setMode(audio::SynthMode::FM);
+    seq.synth().setWaveform(audio::Waveform::Triangle);
+    seq.synth().setEnvelope(0.01f, 0.2f, 0.4f, 0.5f);
+    seq.synth().setFmRatio(3.5f);
+    seq.synth().setFmIndex(6.0f);
 
     mixer.setMasterGain(0.75f);
     mixer.eq().setEnabled(true);
@@ -86,6 +91,14 @@ int main() {
                   b.startStep == 8 && b.lengthSteps == 2 && b.pitch == 67 && near(b.velocity, 0.7f);
     }
     check(notesOk, "note fields round-trip");
+
+    // Synth engine settings.
+    check(seq2.synth().mode() == audio::SynthMode::FM, "synth mode round-trips");
+    check(seq2.synth().waveform() == audio::Waveform::Triangle, "synth waveform round-trips");
+    check(near(seq2.synth().sustain(), 0.4f) && near(seq2.synth().release(), 0.5f),
+          "synth envelope round-trips");
+    check(near(seq2.synth().fmRatio(), 3.5f) && near(seq2.synth().fmIndex(), 6.0f),
+          "FM params round-trip");
 
     // Mixer + effects.
     check(near(mixer2.masterGain(), 0.75f), "master gain round-trips");

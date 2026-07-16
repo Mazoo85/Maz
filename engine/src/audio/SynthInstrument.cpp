@@ -31,6 +31,7 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.stage = Stage::Attack;
     v.midi = midi;
     v.phase = 0.0;
+    v.modPhase = 0.0;
     v.freq = midiToFreq(midi);
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
@@ -104,7 +105,21 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 break;
             }
 
-            out[i] += waveSample(waveform_, v.phase) * v.env * v.velocity * gain_;
+            float osc;
+            if (mode_ == SynthMode::FM) {
+                // 2-operator FM: a sine modulator at ratio×carrier phase-modulates a sine carrier.
+                constexpr double kTwoPi = 6.283185307179586;
+                const double mod = std::sin(v.modPhase * kTwoPi) * static_cast<double>(fmIndex_);
+                osc = static_cast<float>(std::sin(v.phase * kTwoPi + mod));
+                v.modPhase += phaseInc * static_cast<double>(fmRatio_);
+                if (v.modPhase >= 1.0) {
+                    v.modPhase -= std::floor(v.modPhase);
+                }
+            } else {
+                osc = waveSample(waveform_, v.phase);
+            }
+
+            out[i] += osc * v.env * v.velocity * gain_;
 
             v.phase += phaseInc;
             if (v.phase >= 1.0) {

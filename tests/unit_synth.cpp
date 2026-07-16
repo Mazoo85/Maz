@@ -95,6 +95,49 @@ int main() {
     check(!synth.active(), "synth goes idle after note release");
     check(std::fabs(release.back()) < 1e-4f, "released note decays to silence");
 
+    // --- FM engine -----------------------------------------------------------
+    // FM keeps the carrier's fundamental pitch but produces a different (brighter) waveform, so its
+    // output differs from the subtractive engine for the same note.
+    audio::SynthInstrument sub;
+    sub.setMode(audio::SynthMode::Subtractive);
+    sub.setWaveform(audio::Waveform::Sine);
+    sub.setEnvelope(0.002f, 0.02f, 0.9f, 0.05f);
+    sub.noteOn(69, 1.0f);
+    const std::vector<float> subOut = render(sub, sampleRate / 4, sampleRate);
+
+    audio::SynthInstrument fm;
+    fm.setMode(audio::SynthMode::FM);
+    fm.setFmRatio(2.0f);
+    fm.setFmIndex(5.0f);
+    fm.setEnvelope(0.002f, 0.02f, 0.9f, 0.05f);
+    fm.noteOn(69, 1.0f);
+    const std::vector<float> fmOut = render(fm, sampleRate / 4, sampleRate);
+
+    check(rms(fmOut) > 0.0, "FM engine produces sound");
+    // FM adds harmonics, so zero-crossings overcount; verify the fundamental via autocorrelation
+    // (the lag of peak self-similarity is the period). Expected ~109 samples (48000/440).
+    {
+        int bestLag = 0;
+        double best = -1.0;
+        for (int lag = 60; lag < 300; ++lag) {
+            double acc = 0.0;
+            for (size_t i = 0; i + static_cast<size_t>(lag) < fmOut.size(); ++i) {
+                acc += static_cast<double>(fmOut[i]) * static_cast<double>(fmOut[i + static_cast<size_t>(lag)]);
+            }
+            if (acc > best) {
+                best = acc;
+                bestLag = lag;
+            }
+        }
+        const double f = static_cast<double>(sampleRate) / bestLag;
+        check(std::fabs(f - 440.0) < 12.0, "FM keeps the carrier pitch (autocorrelation)");
+    }
+    double diff = 0.0;
+    for (size_t i = 0; i < fmOut.size(); ++i) {
+        diff += std::fabs(static_cast<double>(fmOut[i] - subOut[i]));
+    }
+    check(diff > 1.0, "FM output differs from subtractive for the same note");
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

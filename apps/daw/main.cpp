@@ -86,10 +86,19 @@ void applyDemoBeat(audio::Sequencer& seq) {
 }
 
 // A simple C-major arpeggio riff on the piano roll (MIDI: C4=60). Each note is two 16th-steps long.
-void applyDemoMelody(audio::Sequencer& seq) {
+// `fm` switches the synth to its FM engine with a bell/electric-piano voicing.
+void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
     seq.roll().clear();
-    seq.synth().setWaveform(audio::Waveform::Saw);
-    seq.synth().setEnvelope(0.005f, 0.09f, 0.55f, 0.14f);
+    if (fm) {
+        seq.synth().setMode(audio::SynthMode::FM);
+        seq.synth().setFmRatio(2.0f);
+        seq.synth().setFmIndex(4.0f);
+        seq.synth().setEnvelope(0.002f, 0.35f, 0.25f, 0.30f);
+    } else {
+        seq.synth().setMode(audio::SynthMode::Subtractive);
+        seq.synth().setWaveform(audio::Waveform::Saw);
+        seq.synth().setEnvelope(0.005f, 0.09f, 0.55f, 0.14f);
+    }
     const int pitches[] = {60, 64, 67, 72, 71, 67, 64, 60}; // C E G C  B G E C
     for (int i = 0; i < 8; ++i) {
         audio::Note n;
@@ -142,7 +151,7 @@ int runHeadless(const core::AppConfig& cfg) {
                 appliedBeat = true;
             }
             if (cfg.melody || !anyPattern) {
-                applyDemoMelody(engine.sequencer());
+                applyDemoMelody(engine.sequencer(), cfg.fm);
                 appliedMelody = true;
             }
             applyDemoMixer(engine);
@@ -312,6 +321,45 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     ImGui::End();
 }
 
+// Draw the synth panel: engine (subtractive/FM), waveform or FM params, and the ADSR envelope.
+void buildSynthUI(audio::SynthInstrument& syn) {
+    ImGui::Begin("CJC Music Station — Synth");
+
+    int mode = static_cast<int>(syn.mode());
+    const char* modes[] = {"Subtractive", "FM"};
+    if (ImGui::Combo("Engine", &mode, modes, 2)) {
+        syn.setMode(static_cast<audio::SynthMode>(mode));
+    }
+    if (syn.mode() == audio::SynthMode::Subtractive) {
+        int w = static_cast<int>(syn.waveform());
+        const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
+        if (ImGui::Combo("Waveform", &w, waves, 4)) {
+            syn.setWaveform(static_cast<audio::Waveform>(w));
+        }
+    } else {
+        float ratio = syn.fmRatio();
+        if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);
+        float index = syn.fmIndex();
+        if (ImGui::SliderFloat("FM Index", &index, 0.0f, 10.0f, "%.2f")) syn.setFmIndex(index);
+    }
+
+    ImGui::SeparatorText("Envelope");
+    float a = syn.attack();
+    float d = syn.decay();
+    float s = syn.sustain();
+    float r = syn.release();
+    bool changed = false;
+    changed |= ImGui::SliderFloat("Attack", &a, 0.001f, 1.0f, "%.3f s");
+    changed |= ImGui::SliderFloat("Decay", &d, 0.001f, 1.0f, "%.3f s");
+    changed |= ImGui::SliderFloat("Sustain", &s, 0.0f, 1.0f, "%.2f");
+    changed |= ImGui::SliderFloat("Release", &r, 0.001f, 2.0f, "%.3f s");
+    if (changed) {
+        syn.setEnvelope(a, d, s, r);
+    }
+
+    ImGui::End();
+}
+
 // Draw the mixer: master + bus faders and the master effect chain (enable + a key knob each).
 void buildMixerUI(audio::AudioEngine& engine) {
     audio::Mixer& mx = engine.mixer();
@@ -424,7 +472,7 @@ int runWindowed(const core::AppConfig& cfg) {
     }
     engine.sequencer().setBpm(cfg.bpm);
     applyDemoBeat(engine.sequencer());
-    applyDemoMelody(engine.sequencer());
+    applyDemoMelody(engine.sequencer(), cfg.fm);
     applyDemoMixer(engine);
 
     bool toneOn = false;
@@ -455,6 +503,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 renderer->guiNewFrame();
                 buildRackUI(engine.sequencer());
                 buildPianoRollUI(engine.sequencer());
+                buildSynthUI(engine.sequencer().synth());
                 buildMixerUI(engine);
 
                 ImGui::Begin("Test Tone");

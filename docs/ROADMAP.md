@@ -203,7 +203,11 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
   - [x] **Project save/load** — a line-based `.cjc` format capturing tempo, the drum grid, the
         piano-roll notes, bus gains, and every mixer effect parameter (`ProjectIO`), with an exact
         round-trip. The `daw` window has Save/Load buttons; `daw --save/--load` work headless.
-  - [ ] FM / additional synth engines and a multisampler — *next*
+  - [x] **FM synth engine** — the `SynthInstrument` gains a 2-operator FM mode (carrier + modulator
+        with ratio/index) alongside subtractive, for bell/electric-piano timbres. Synth settings
+        (engine, waveform, ADSR, FM params) are persisted in the `.cjc` project and editable in a
+        Synth panel; `daw --fm` plays the demo melody through it.
+  - [ ] Multisampler (load + pitch WAV samples) — *next*
   - [ ] Parameter automation (envelopes/LFOs on mixer + synth params)
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 

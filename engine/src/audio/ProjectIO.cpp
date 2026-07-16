@@ -34,6 +34,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::str
     f << "bpm " << seq.bpm() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
 
+    const SynthInstrument& syn = seq.synth();
+    f << "synth " << static_cast<int>(syn.mode()) << " " << static_cast<int>(syn.waveform()) << " "
+      << syn.attack() << " " << syn.decay() << " " << syn.sustain() << " " << syn.release() << " "
+      << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << "\n";
+
     for (int c = 0; c < seq.numChannels(); ++c) {
         for (int s = 0; s < seq.numSteps(); ++s) {
             if (seq.step(c, s)) {
@@ -99,6 +104,18 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, std::str
             ls >> d >> s;
             seq.setDrumGain(d);
             seq.setSynthGain(s);
+        } else if (tag == "synth") {
+            int mode = 0, wave = 0;
+            float atk = 0.005f, dec = 0.08f, sus = 0.6f, rel = 0.12f, ratio = 2.0f, index = 3.0f,
+                  gain = 0.28f;
+            ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
+            SynthInstrument& syn = seq.synth();
+            syn.setMode(mode == 1 ? SynthMode::FM : SynthMode::Subtractive);
+            syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 3 ? 0 : wave));
+            syn.setEnvelope(atk, dec, sus, rel);
+            syn.setFmRatio(ratio);
+            syn.setFmIndex(index);
+            syn.setGain(gain);
         } else if (tag == "step") {
             int c = 0;
             int s = 0;
