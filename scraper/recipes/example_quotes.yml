@@ -1,0 +1,40 @@
+# Example recipe: scrape https://quotes.toscrape.com — a public scraping sandbox
+# designed for exactly this. Run it with:
+#
+#     scrape run recipes/example_quotes.yml
+#
+# It crawls the paginated quote listing, extracts each quote, and writes the
+# results to scraped/quotes.{jsonl,csv,db}. Politeness (robots.txt + a per-host
+# rate limit) is on by default via the run config.
+
+name: quotes
+
+start_urls:
+  - "https://quotes.toscrape.com/page/1/"
+
+# Each quote sits in its own <div class="quote"> — one record per match.
+record_selector: "div.quote"
+
+fields:
+  text:
+    selector: "span.text"
+  author:
+    selector: "small.author"
+  # The per-author page link, made absolute so it's usable on its own.
+  author_url:
+    selector: "a"
+    attr: "href"
+    absolute: true
+
+follow:
+  # Follow the "Next →" pagination link to walk every page.
+  next_page: "li.next > a"
+
+limits:
+  max_depth: 15
+  max_pages: 20
+
+output:
+  formats: ["jsonl", "csv", "sqlite"]
+  # Dedup on the quote text so re-runs stay incremental.
+  dedup_key: "text"

@@ -130,3 +130,10 @@ js/game.js        # engine: states, input, sim, combat, rendering, HUD
 > A note on "exact replica": this is an affectionate, playable homage built from
 > scratch — original code and art, with Anchorage's real geography and place
 > names recreated as a game world. It is not Project Zomboid's code or assets.
+
+## Tools
+
+- [`scraper/`](scraper) — **maz-scrape**, a general-purpose, recipe-driven scraper
+  for static HTML pages. Point it at a YAML recipe (field → CSS selector); it
+  crawls (following pagination/links), extracts records, and writes JSONL/CSV/SQLite,
+  politely by default. See [scraper/README.md](scraper/README.md).
