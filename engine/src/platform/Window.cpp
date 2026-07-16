@@ -7,8 +7,6 @@
 
 namespace maz::platform {
 
-using core::LogLevel;
-
 Window::~Window() { shutdown(); }
 
 bool Window::init(const WindowConfig& cfg) {
@@ -70,8 +68,6 @@ void Window::pumpEvents(Input& input) {
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
         case SDL_EVENT_QUIT:
-            m_shouldClose = true;
-            break;
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             m_shouldClose = true;
             break;

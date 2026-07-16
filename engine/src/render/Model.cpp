@@ -136,7 +136,7 @@ bool decodeImage(const cgltf_image* image, const char* gltfPath, std::vector<uin
     }
     outW = static_cast<uint32_t>(w);
     outH = static_cast<uint32_t>(h);
-    outPx.assign(pixels, pixels + static_cast<size_t>(w) * h * 4);
+    outPx.assign(pixels, pixels + static_cast<size_t>(w) * static_cast<size_t>(h) * 4);
     stbi_image_free(pixels);
     return true;
 }

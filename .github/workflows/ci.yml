@@ -40,6 +40,60 @@ jobs:
         # test in CMake), so no display is needed.
         run: ctest --test-dir build --output-on-failure
 
+  # ---- clang-tidy lint gate (first-party engine sources) ------------------------------------------
+  tidy:
+    name: clang-tidy (lint gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build clang-tidy \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure (exports compile_commands.json)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - name: Build fetched deps only
+        # clang-tidy needs the generated/fetched headers present; build the engine lib once so all
+        # dependency headers exist under build/_deps before analysis.
+        run: cmake --build build --target maz --parallel
+      - name: Run clang-tidy over first-party engine sources
+        # .clang-tidy sets WarningsAsErrors '*', so any diagnostic in maz's own code fails the gate.
+        run: |
+          files=$(find engine/src -name '*.cpp')
+          echo "Linting:"; echo "$files"
+          clang-tidy -p build $files
+
+  # ---- Sanitizers: unit suite under ASan + UBSan + LeakSanitizer ----------------------------------
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure with sanitizers
+        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAZ_SANITIZE=address,undefined
+      - name: Build unit tests
+        run: cmake --build build-san --target maz_unit_tests --parallel
+      - name: Run unit tests under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build-san --output-on-failure -R unit_tests
+
   # ---- macOS / Windows: build + GPU-free unit tests (cross-platform compile coverage) -------------
   crossbuild:
     name: ${{ matrix.os }} (build + unit tests)

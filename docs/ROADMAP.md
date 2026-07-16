@@ -142,7 +142,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   builds pass `-rdynamic` so frames resolve. Verified by an actual SIGSEGV producing a full trace
   (M177)
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
-- [ ] clang-tidy config + CI lint gate
+- [x] clang-tidy config + CI lint gate (M197 — a `.clang-tidy` with a focused, high-signal check
+  set (bugprone/performance/portability/misc + a curated readability/modernize slice), scoped to
+  first-party headers via HeaderFilterRegex and strict in CI (`WarningsAsErrors '*'`). A new CI
+  `tidy` job runs it over every `engine/src/**/*.cpp` on push/PR; a companion `sanitizers` job builds
+  the unit suite with `-DMAZ_SANITIZE=address,undefined` and runs it under ASan+UBSan+LeakSanitizer.
+  Verified locally: clang-tidy reports **zero diagnostics** across all engine sources after fixing
+  the genuine finds it surfaced — dead `using`, a cloned switch branch, a misplaced-const handle, an
+  int→size_t sign conversion, and a redundant boolean return.)
 - [x] Address/UB sanitizer presets (Debug), leak checks (M196 — `-DMAZ_SANITIZE=address,undefined`
   instruments first-party targets only, compile + link, keeping fetched deps clean; ASan bundles
   LeakSanitizer on Linux. Verified by building + running the full unit suite under

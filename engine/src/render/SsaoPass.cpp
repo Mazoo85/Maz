@@ -280,10 +280,7 @@ bool SsaoPass::createDescriptors(VulkanContext& ctx) {
         return false;
     }
     dai.pSetLayouts = &m_blurSetLayout;
-    if (vkAllocateDescriptorSets(ctx.device(), &dai, &m_blurSet) != VK_SUCCESS) {
-        return false;
-    }
-    return true;
+    return vkAllocateDescriptorSets(ctx.device(), &dai, &m_blurSet) == VK_SUCCESS;
 }
 
 void SsaoPass::writeSsaoSet(VulkanContext& ctx, VkImageView depthView) {

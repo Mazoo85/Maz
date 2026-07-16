@@ -1223,8 +1223,7 @@ void MeshRenderer::flush(VkCommandBuffer cmd) {
         m_pipeline == VK_NULL_HANDLE) {
         return;
     }
-    const VkPipeline pipeline =
-        (m_wireframe && m_wireframePipeline) ? m_wireframePipeline : m_pipeline;
+    VkPipeline pipeline = (m_wireframe && m_wireframePipeline) ? m_wireframePipeline : m_pipeline;
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
     VkViewport viewport{};
