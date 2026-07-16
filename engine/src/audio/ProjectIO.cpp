@@ -41,6 +41,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << syn.attack() << " " << syn.decay() << " " << syn.sustain() << " " << syn.release() << " "
       << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << "\n";
 
+    f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
+      << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
+
     for (int c = 0; c < seq.numChannels(); ++c) {
         for (int s = 0; s < seq.numSteps(); ++s) {
             if (seq.step(c, s)) {
@@ -126,6 +129,22 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             syn.setFmRatio(ratio);
             syn.setFmIndex(index);
             syn.setGain(gain);
+        } else if (tag == "sampler") {
+            int use = 0;
+            int base = 60;
+            float g = 0.9f;
+            ls >> use >> base >> g;
+            std::string sp;
+            std::getline(ls, sp);
+            const size_t nb = sp.find_first_not_of(' ');
+            sp = (nb == std::string::npos) ? std::string() : sp.substr(nb);
+            seq.sampler().setBasePitch(base);
+            seq.sampler().setGain(g);
+            if (!sp.empty()) {
+                std::string se;
+                seq.sampler().load(sp, &se); // best-effort; a missing file just leaves it unloaded
+            }
+            seq.setUseSampler(use != 0);
         } else if (tag == "step") {
             int c = 0;
             int s = 0;

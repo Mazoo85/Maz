@@ -199,7 +199,7 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       Freeverb-style `Reverb` — each individually enable-able, applied to the stereo output. The
       `daw` window adds a mixer strip; the demo render runs through compressor + reverb. (Per-channel
       pan is deferred to a later pass.)
-- [~] **A4 — instruments, automation, project files.** In progress:
+- [x] **A4 — instruments, automation, project files.**
   - [x] **Project save/load** — a line-based `.cjc` format capturing tempo, the drum grid, the
         piano-roll notes, bus gains, and every mixer effect parameter (`ProjectIO`), with an exact
         round-trip. The `daw` window has Save/Load buttons; `daw --save/--load` work headless.
@@ -211,7 +211,10 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
         that sweep targets (filter cutoff, FM index, reverb mix, master gain) between bounds, applied
         per block against the transport clock and persisted in the `.cjc` project. The `daw` window
         has an Automation panel; `daw --auto` sweeps the master filter (a classic wobble).
-  - [ ] Multisampler (load + pitch WAV samples) — *next*
+  - [x] **Multisampler** — a `WavReader` (16-bit PCM) + a polyphonic `Sampler` that plays a loaded
+        WAV pitch-shifted per note (linear-interpolated resampling, base-note relative). The piano
+        roll can drive the sampler instead of the synth; `daw --sample file.wav` plays the melody
+        through it, and the sampler state is saved in the `.cjc` project.
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
 
 ### How to pick the next task

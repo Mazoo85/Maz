@@ -50,6 +50,8 @@ int main() {
     seq.synth().setEnvelope(0.01f, 0.2f, 0.4f, 0.5f);
     seq.synth().setFmRatio(3.5f);
     seq.synth().setFmIndex(6.0f);
+    seq.sampler().setBasePitch(48);
+    seq.setUseSampler(true);
 
     mixer.setMasterGain(0.75f);
     mixer.eq().setEnabled(true);
@@ -109,6 +111,8 @@ int main() {
           "synth envelope round-trips");
     check(near(seq2.synth().fmRatio(), 3.5f) && near(seq2.synth().fmIndex(), 6.0f),
           "FM params round-trip");
+    check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48,
+          "sampler settings round-trip");
 
     // Mixer + effects.
     check(near(mixer2.masterGain(), 0.75f), "master gain round-trips");

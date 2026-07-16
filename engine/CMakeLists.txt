@@ -29,6 +29,8 @@ add_library(maz STATIC
     src/audio/Oscillator.cpp
     src/audio/DrumVoice.cpp
     src/audio/SynthInstrument.cpp
+    src/audio/Sampler.cpp
+    src/audio/WavReader.cpp
     src/audio/PianoRoll.cpp
     src/audio/Sequencer.cpp
     src/audio/Effects.cpp

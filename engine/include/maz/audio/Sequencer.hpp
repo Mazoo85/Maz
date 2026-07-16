@@ -2,6 +2,7 @@
 
 #include "maz/audio/DrumVoice.hpp"
 #include "maz/audio/PianoRoll.hpp"
+#include "maz/audio/Sampler.hpp"
 #include "maz/audio/SynthInstrument.hpp"
 
 #include <string>
@@ -40,9 +41,14 @@ public:
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
-    // The melodic side: a pitched synth playing the piano-roll pattern, on the same transport.
+    // The melodic side: a pitched synth (or the sampler) playing the piano-roll pattern.
     SynthInstrument& synth() { return synth_; }
+    Sampler& sampler() { return sampler_; }
     PianoRoll& roll() { return roll_; }
+
+    // Route the piano roll to the sampler instead of the synth (when a sample is loaded).
+    void setUseSampler(bool on) { useSampler_ = on; }
+    bool useSampler() const { return useSampler_; }
 
     // Bus levels: relative gain of the drum kit vs. the melodic synth before the soft-limited sum.
     void setDrumGain(float g) { drumGain_ = g; }
@@ -72,7 +78,9 @@ private:
     std::vector<float> synthScratch_; // per-block synth sum
 
     SynthInstrument synth_{}; // melodic instrument playing the piano roll
+    Sampler sampler_{};       // alternative melodic instrument (sample playback)
     PianoRoll roll_{};
+    bool useSampler_ = false;
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
 

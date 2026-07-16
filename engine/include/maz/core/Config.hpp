@@ -23,6 +23,7 @@ struct AppConfig {
     bool melody = false;            // --melody : render the demo piano-roll melody
     bool fm = false;                // --fm : use the FM synth engine for the demo melody
     bool automate = false;          // --auto : enable a demo auto-filter sweep
+    const char* samplePath = nullptr; // --sample PATH : load a WAV into the sampler for the melody
     double bpm = 120.0;             // --bpm N : sequencer tempo
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it

@@ -35,16 +35,19 @@ it runs in CI.
 aimed at FL Studio–level capability over time. It has a real audio pipeline (`maz::audio`) and an
 FL-style **step sequencer**: a channel rack of drum voices you program on a 16-step grid and loop.
 
-The current milestone is **A3 — mixer + effects**. `maz::audio` provides an oscillator, a synthesized
-drum kit (`DrumVoice`), a polyphonic ADSR synth (`SynthInstrument`), a `PianoRoll` note model, a
-`Sequencer` (drum grid + piano roll on one play/stop/BPM transport), a `Mixer` (bus gains + a master
-effect chain: low-pass EQ, compressor, delay, reverb), an `AudioEngine` that drives an SDL3 device
-*or* renders offline, a WAV writer, and **project save/load** (a `.cjc` file capturing tempo, the
-drum grid, piano-roll notes, bus gains, and every effect setting). See the **CJC Music Station
-track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — more instruments and automation are next.
+The current milestone is **A4 — instruments, automation & project files**. `maz::audio` provides an
+oscillator, a synthesized drum kit (`DrumVoice`), a polyphonic synth with subtractive **and FM**
+engines (`SynthInstrument`), a **`Sampler`** (WAV playback, pitch-shifted per note), a `PianoRoll`,
+a `Sequencer` (drum grid + piano roll on one transport), a `Mixer` (bus gains + master effect chain:
+EQ, compressor, delay, reverb), **LFO parameter automation**, an `AudioEngine` that drives an SDL3
+device *or* renders offline, and **project save/load** (a `.cjc` file capturing everything above).
+See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) — audio recording/bounce
+is next.
 
 ```
-./build/bin/daw --headless --save song.cjc      # save the demo project to a .cjc file
+./build/bin/daw --headless --beat --melody --fm --auto --seconds 8 --wav song.wav  # full demo
+./build/bin/daw --headless --beat --melody --sample pluck.wav --wav sampled.wav     # melody via sampler
+./build/bin/daw --headless --save song.cjc         # save the demo project to a .cjc file
 ./build/bin/daw --headless --load song.cjc --wav out.wav   # load a project and render it
 ```
 

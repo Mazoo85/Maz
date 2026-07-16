@@ -69,16 +69,26 @@ void Sequencer::triggerStep(int step) {
         }
     }
     // Melody: note-offs first (so a note ending where another begins doesn't cut the new one),
-    // then note-ons for notes starting on this step. Note ends wrap within the bar.
+    // then note-ons for notes starting on this step. Note ends wrap within the bar. The piano roll
+    // drives the sampler when it's engaged (and loaded), otherwise the synth.
+    const bool toSampler = useSampler_ && sampler_.loaded();
     for (const Note& n : roll_.notes()) {
         const int endStep = (n.startStep + n.lengthSteps) % numSteps_;
         if (endStep == step) {
-            synth_.noteOff(n.pitch);
+            if (toSampler) {
+                sampler_.noteOff(n.pitch);
+            } else {
+                synth_.noteOff(n.pitch);
+            }
         }
     }
     for (const Note& n : roll_.notes()) {
         if (n.startStep == step) {
-            synth_.noteOn(n.pitch, n.velocity);
+            if (toSampler) {
+                sampler_.noteOn(n.pitch, n.velocity);
+            } else {
+                synth_.noteOn(n.pitch, n.velocity);
+            }
         }
     }
 }
@@ -93,6 +103,7 @@ void Sequencer::play() {
 void Sequencer::stop() {
     playing_ = false;
     synth_.allNotesOff(); // let held notes release rather than hang
+    sampler_.allNotesOff();
 }
 
 void Sequencer::render(float* out, int frames, int sampleRate) {
@@ -122,6 +133,7 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             voice.render(mixScratch_.data(), chunk, sampleRate);
         }
         synth_.render(synthScratch_.data(), chunk, sampleRate);
+        sampler_.render(synthScratch_.data(), chunk, sampleRate);
         for (int i = 0; i < chunk; ++i) {
             const float mixed = mixScratch_[static_cast<size_t>(i)] * drumGain_ +
                                 synthScratch_[static_cast<size_t>(i)] * synthGain_;

@@ -170,6 +170,18 @@ int runHeadless(const core::AppConfig& cfg) {
             if (cfg.automate) {
                 applyDemoAuto(engine);
             }
+            if (cfg.samplePath != nullptr) {
+                std::string se;
+                if (engine.sequencer().sampler().load(cfg.samplePath, &se)) {
+                    engine.sequencer().sampler().setBasePitch(60);
+                    engine.sequencer().sampler().setGain(0.7f);
+                    engine.sequencer().setUseSampler(true);
+                    MAZ_LOG_INFO("sampler: loaded %s", cfg.samplePath);
+                } else {
+                    MAZ_LOG_ERROR("sampler load failed: %s", se.c_str());
+                    return 1;
+                }
+            }
         }
 
         if (cfg.projectSavePath != nullptr) {
@@ -337,8 +349,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     ImGui::End();
 }
 
-// Draw the synth panel: engine (subtractive/FM), waveform or FM params, and the ADSR envelope.
-void buildSynthUI(audio::SynthInstrument& syn) {
+// Draw the synth panel: engine (subtractive/FM), waveform or FM params, the ADSR envelope, and the
+// sampler (load a WAV, use it for the melody).
+void buildSynthUI(audio::Sequencer& seq) {
+    audio::SynthInstrument& syn = seq.synth();
     ImGui::Begin("CJC Music Station — Synth");
 
     int mode = static_cast<int>(syn.mode());
@@ -371,6 +385,31 @@ void buildSynthUI(audio::SynthInstrument& syn) {
     changed |= ImGui::SliderFloat("Release", &r, 0.001f, 2.0f, "%.3f s");
     if (changed) {
         syn.setEnvelope(a, d, s, r);
+    }
+
+    ImGui::SeparatorText("Sampler");
+    bool useSampler = seq.useSampler();
+    if (ImGui::Checkbox("Use sampler for melody", &useSampler)) {
+        seq.setUseSampler(useSampler);
+    }
+    ImGui::Text("loaded: %s",
+                seq.sampler().loaded() ? seq.sampler().path().c_str() : "(none)");
+    static char pathBuf[256] = "";
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::InputText("wav path", pathBuf, sizeof(pathBuf));
+    ImGui::SameLine();
+    if (ImGui::Button("Load WAV")) {
+        std::string se;
+        if (seq.sampler().load(pathBuf, &se)) {
+            seq.setUseSampler(true);
+            MAZ_LOG_INFO("sampler: loaded %s", pathBuf);
+        } else {
+            MAZ_LOG_ERROR("sampler load failed: %s", se.c_str());
+        }
+    }
+    int base = seq.sampler().basePitch();
+    if (ImGui::SliderInt("Base note", &base, 24, 96)) {
+        seq.sampler().setBasePitch(base);
     }
 
     ImGui::End();
@@ -549,7 +588,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 renderer->guiNewFrame();
                 buildRackUI(engine.sequencer());
                 buildPianoRollUI(engine.sequencer());
-                buildSynthUI(engine.sequencer().synth());
+                buildSynthUI(engine.sequencer());
                 buildMixerUI(engine);
                 buildAutomationUI(engine.automation());
 

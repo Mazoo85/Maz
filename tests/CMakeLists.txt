@@ -76,6 +76,13 @@ target_link_libraries(maz_automation_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_automation COMMAND maz_automation_tests)
 set_tests_properties(unit_automation PROPERTIES TIMEOUT 30)
 
+# Unit tests: A4 multisampler — WAV read/write round-trip + pitch-shifted sample playback.
+add_executable(maz_sampler_tests unit_sampler.cpp)
+target_link_libraries(maz_sampler_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_sampler COMMAND maz_sampler_tests)
+set_tests_properties(unit_sampler PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(
