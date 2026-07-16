@@ -39,9 +39,10 @@ inline size_t alignUp(size_t n, size_t align) {
 class LinearArena {
   public:
     explicit LinearArena(size_t bytes)
-        : m_buffer(new(std::align_val_t(kMaxAlign)) uint8_t[bytes]), m_capacity(bytes) {}
+        : m_buffer(static_cast<uint8_t*>(::operator new(bytes, std::align_val_t(kMaxAlign)))),
+          m_capacity(bytes) {}
 
-    ~LinearArena() { operator delete[](m_buffer, std::align_val_t(kMaxAlign)); }
+    ~LinearArena() { ::operator delete(m_buffer, std::align_val_t(kMaxAlign)); }
 
     LinearArena(const LinearArena&) = delete;
     LinearArena& operator=(const LinearArena&) = delete;
