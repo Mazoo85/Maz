@@ -34,7 +34,9 @@ jobs:
           cache: true
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        # MAZ_WERROR=OFF so MSVC's cosmetic warnings (unknown GCC pragmas, cgltf's use of
+        # fopen/strcpy) don't fail this download build — they're harmless and Linux-silent.
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMAZ_WERROR=OFF
 
       - name: Build the editor
         run: cmake --build build --config Release --target editor --parallel
