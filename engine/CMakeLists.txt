@@ -27,6 +27,8 @@ add_library(maz STATIC
     src/core/Time.cpp
     src/core/Config.cpp
     src/audio/Oscillator.cpp
+    src/audio/DrumVoice.cpp
+    src/audio/Sequencer.cpp
     src/audio/AudioEngine.cpp
     src/audio/WavWriter.cpp
     src/assets/Model.cpp

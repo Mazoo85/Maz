@@ -82,9 +82,10 @@ void AudioEngine::render(float* out, int frames) {
     const size_t total = static_cast<size_t>(frames) * static_cast<size_t>(ch);
     std::fill(out, out + total, 0.0f);
 
-    // Render the voice as mono, then fan it out across the interleaved channels.
+    // Render the oscillator voice + the step sequencer as mono, then fan out across the channels.
     scratch_.assign(static_cast<size_t>(frames), 0.0f);
     voice_.render(scratch_.data(), frames, cfg_.sampleRate);
+    sequencer_.render(scratch_.data(), frames, cfg_.sampleRate);
     for (int i = 0; i < frames; ++i) {
         const float s = scratch_[static_cast<size_t>(i)];
         for (int c = 0; c < ch; ++c) {

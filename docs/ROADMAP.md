@@ -184,10 +184,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       envelope), an `AudioEngine` (SDL3 real-time device + offline render + a master sample clock),
       and a WAV writer. The `daw` app renders a tone offline to WAV headless (CI-verified) and, in a
       window, exposes a Play/Stop + frequency + waveform panel over a live device.
-- [ ] **A1 — step sequencer / patterns** (FL's signature): a pattern grid of steps → scheduled
-      note events serviced off `AudioEngine::framesRendered()`, transport (play/stop/BPM), a drum
-      sampler voice. *This is the next milestone.*
-- [ ] A2 — piano roll (note entry, length/velocity, per-channel patterns)
+- [x] **A1 — step sequencer / patterns** (FL's signature): a `Sequencer` channel rack (grid of
+      channels × 16 steps) with a play/stop + BPM transport that walks the grid in sample-accurate
+      time and strikes a synthesized drum kit (`DrumVoice`: kick/snare/closed+open hat/clap) on each
+      active step, soft-limited on the bus. The `daw` window exposes a clickable grid; `daw --beat`
+      renders a demo groove headless (CI-verified).
+- [ ] A2 — piano roll (note entry, length/velocity, per-channel patterns) — *next*
 - [ ] A3 — multi-track mixer + effects (gain/pan, EQ, delay, reverb, compressor)
 - [ ] A4 — more instruments (subtractive/FM synth, multisampler), automation, project save/load
 - [ ] A5 — audio recording, plugin (VST3/CLAP) hosting
