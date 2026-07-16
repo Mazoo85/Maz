@@ -49,6 +49,7 @@
 #include "maz/core/LogSinks.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Pcg32.hpp"
+#include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
 #include "maz/core/Resources.hpp"
@@ -4874,6 +4875,57 @@ void testCVars() {
     CHECK(loaded == 2);
     CHECK(reg3.getInt("scene.count") == 10);
     std::remove(path.c_str());
+}
+
+// PerfBudget: flags per-zone + whole-frame overages against measured profiler times.
+void testPerfBudget() {
+    core::Profiler prof(0.5);
+    // Feed a deterministic frame with explicit microsecond timestamps (no real clock):
+    //   frame span 0..15000us with two top-level zones: physics 0..5000 (5ms), render 5000..15000
+    //   (10ms). Total frame = 15ms.
+    prof.beginFrame();
+    prof.begin("physics", 0);
+    prof.end(5000);
+    prof.begin("render", 5000);
+    prof.end(15000);
+    prof.endFrame();
+
+    core::PerfBudget budget;
+    budget.setBudget("physics", 4.0); // 5ms actual > 4ms budget -> over
+    budget.setBudget("render", 12.0); // 10ms actual < 12ms budget -> ok
+    budget.setFrameBudget(16.6);      // 15ms < 16.6ms -> frame ok
+
+    const auto r = budget.check(prof);
+    CHECK(r.zones.size() == 1);
+    CHECK(r.zones[0].name == "physics");
+    CHECK_NEAR(r.zones[0].budgetMs, 4.0, 1e-6);
+    CHECK_NEAR(r.zones[0].actualMs, 5.0, 1e-6);
+    CHECK_NEAR(r.zones[0].overMs, 1.0, 1e-6);
+    CHECK(!r.frameOverBudget);
+    CHECK_NEAR(r.frameMs, 15.0, 1e-6);
+    CHECK(r.anyOverage()); // the physics zone is over
+
+    // Tighten the frame budget below 15ms -> frame overage reported too.
+    budget.setFrameBudget(12.0);
+    const auto r2 = budget.check(prof);
+    CHECK(r2.frameOverBudget);
+    CHECK_NEAR(r2.frameOverMs, 3.0, 1e-6);
+
+    // A budget on a zone that didn't run this frame is silently skipped (no false overage).
+    core::PerfBudget b2;
+    b2.setBudget("ai", 1.0);
+    const auto r3 = b2.check(prof);
+    CHECK(r3.zones.empty());
+    CHECK(!r3.anyOverage());
+
+    // Everything within budget -> clean report.
+    core::PerfBudget b3;
+    b3.setBudget("physics", 10.0);
+    b3.setBudget("render", 20.0);
+    b3.setFrameBudget(20.0);
+    const auto r4 = b3.check(prof);
+    CHECK(!r4.anyOverage());
+    CHECK(r4.zones.empty());
 }
 
 void testProfiler() {
@@ -16635,6 +16687,7 @@ int main() {
     testJson();
     testCVars();
     testProfiler();
+    testPerfBudget();
     testNoise();
     testRandom();
     testInterpolate();

@@ -156,7 +156,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   ASan+UBSan+LSan: no memory-safety or UB findings, and **leak-clean** after fixing a pre-existing
   shared_ptr reference cycle in the script VM — top-level functions and class methods capture the
   global scope which holds them back, so a `~Vm()` now breaks those cycles at teardown.)
-- [ ] CI matrix (Linux/Windows/macOS) running the headless smoke test
+- [x] CI matrix (Linux/Windows/macOS) running the headless smoke test (`.github/workflows/ci.yml`,
+  M274 + extended M197: a Linux job builds with warnings-as-errors and runs the **full ctest suite**
+  including the headless render smokes on software Vulkan/lavapipe; a macOS + Windows matrix builds
+  the engine and runs the GPU-free unit tests for genuine cross-platform compile coverage; plus
+  `tidy` (clang-tidy gate) and `sanitizers` (ASan+UBSan+LSan) jobs.)
 - [x] Persistent key-value store (ini-style, user-data path) — `maz::core::KeyValueStore`
 - [x] **CVars / config system** (`maz::core::CVarRegistry`: named typed tunables — bool/int/float/string
   with descriptions + numeric range clamps + string coercion for CLI flags; the `io::Config` bridge
@@ -1105,7 +1109,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 ## Phase 12 — Cross-cutting quality
 - [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE
   tolerance, ctest-integrated, self-skips without a GPU; M51)
-- [ ] CI gates / cross-platform build matrix
+- [x] CI gates / cross-platform build matrix (`.github/workflows/ci.yml`, M274 + M197: Linux full
+  build+ctest, macOS/Windows build+unit-tests, clang-tidy lint gate, ASan/UBSan sanitizer job — all
+  required on push/PR)
 - [x] **Render interpolation** (`core::Interpolated<T>`: a previous/current pair pushed once per fixed step
   and blended by `Clock::interpolationAlpha()` each render frame, so motion stays smooth when the display
   rate doesn't divide the fixed rate — the missing consumer of the clock's alpha; `lerpAngle` shortest-arc +
@@ -1120,7 +1126,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   bytes), `load()` restores it and rejects a wrong tag/version/frame-size. Verified: 100 frames →
   3 runs, byte-stable round-trip, and the same stream fed through a seeded integrator twice yields
   identical results (M179)
-- [ ] Performance budgets + profiling dashboards
+- [~] Performance budgets + profiling dashboards (**budgets** = new `core::PerfBudget` (M204): set a
+  per-section time budget and a whole-frame budget over the hierarchical `core::Profiler`, then
+  `check()` reports every OVERAGE — which section blew its budget and by how much — judging on this
+  frame's inclusive time (spikes) or the profiler's smoothed EMA (sustained regressions); assert it
+  in tests / log it in CI / flash it on the debug overlay. Beyond Godot, which has no formal budget
+  layer. Unit-tested with synthetic frame timings. The visual profiling **dashboard** UI (a live
+  on-screen flame graph) is a GPU/overlay step; the profiler already feeds the M29 debug overlay.)
 - [~] **API docs** — `tools/gen_api_docs.py` harvests every header's module doc-comment + public
   types/functions into **[`docs/API.md`](API.md)** (144 headers, 16 subsystems, 307 types), a
   browsable reference with no external tools that a CI test keeps runnable; a committed `Doxyfile`
