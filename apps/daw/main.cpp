@@ -1,4 +1,4 @@
-// Maz DAW — "hello sound" (milestone A0).
+// CJC Music Station — "hello sound" (milestone A0).
 //
 // The first, genuinely-working slice of the DAW: a native audio pipeline that makes sound.
 //   - Headless (--headless): render an offline tone, optionally write it to a WAV (--wav), and log
@@ -94,7 +94,7 @@ int runHeadless(const core::AppConfig& cfg) {
 int runWindowed(const core::AppConfig& cfg) {
     platform::Window window;
     platform::WindowConfig wc;
-    wc.title = "Maz DAW";
+    wc.title = "CJC Music Station";
     wc.width = cfg.width;
     wc.height = cfg.height;
     wc.headless = false;
@@ -150,7 +150,7 @@ int runWindowed(const core::AppConfig& cfg) {
         if (renderer->beginFrame()) {
             if (gui) {
                 renderer->guiNewFrame();
-                ImGui::Begin("Maz DAW — Transport");
+                ImGui::Begin("CJC Music Station — Transport");
                 if (ImGui::Button(playing ? "  Stop  " : "  Play  ")) {
                     playing = !playing;
                     if (playing) {
@@ -182,7 +182,7 @@ int runWindowed(const core::AppConfig& cfg) {
     }
 
     engine.shutdown();
-    MAZ_LOG_INFO("Maz DAW shutting down after %d frames", rendered);
+    MAZ_LOG_INFO("CJC Music Station shutting down after %d frames", rendered);
     renderer->shutdown();
     window.shutdown();
     return 0;
@@ -192,7 +192,7 @@ int runWindowed(const core::AppConfig& cfg) {
 
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
-    MAZ_LOG_INFO("Maz DAW starting (headless=%d, freq=%.0f Hz)", cfg.headless,
+    MAZ_LOG_INFO("CJC Music Station starting (headless=%d, freq=%.0f Hz)", cfg.headless,
                  static_cast<double>(cfg.toneHz));
     return cfg.headless ? runHeadless(cfg) : runWindowed(cfg);
 }

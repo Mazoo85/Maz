@@ -174,10 +174,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ---
 
-## Maz DAW — the music-software track
+## CJC Music Station — the music-software track
 
-A separate product built **on top of** the engine's platform/audio/UI layers: a native DAW aimed at
-FL Studio–level capability. The audio subsystem (`maz::audio`) and the `daw` app are the seed.
+**CJC Music Station** is a separate product built **on top of** the engine's platform/audio/UI
+layers: a native DAW aimed at FL Studio–level capability. The audio subsystem (`maz::audio`) and the
+`daw` app are the seed.
 
 - [x] **A0 — "hello sound".** `maz::audio`: an `Oscillator` (sine/square/saw/triangle, click-free
       envelope), an `AudioEngine` (SDL3 real-time device + offline render + a master sample clock),

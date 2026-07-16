@@ -29,13 +29,13 @@ The current milestone is **M0** — the walking skeleton: a window, a fixed-time
 Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
 it runs in CI.
 
-## Maz DAW
+## CJC Music Station
 
-A native music-production app (a DAW) built on the engine's audio/UI layers, aimed at FL Studio–level
-capability over time. The current milestone is **A0 — "hello sound"**: the `maz::audio` subsystem
-(an oscillator with a click-free envelope, an `AudioEngine` that drives an SDL3 device *or* renders
-offline, and a WAV writer) plus the `daw` app. See the **Maz DAW track** in
-[`docs/ROADMAP.md`](docs/ROADMAP.md) — the step sequencer / patterns is next.
+**CJC Music Station** is a native music-production app (a DAW) built on the engine's audio/UI layers,
+aimed at FL Studio–level capability over time. The current milestone is **A0 — "hello sound"**: the
+`maz::audio` subsystem (an oscillator with a click-free envelope, an `AudioEngine` that drives an SDL3
+device *or* renders offline, and a WAV writer) plus the `daw` app. See the **CJC Music Station track**
+in [`docs/ROADMAP.md`](docs/ROADMAP.md) — the step sequencer / patterns is next.
 
 ```
 cmake --build build                                 # builds the `daw` app too
