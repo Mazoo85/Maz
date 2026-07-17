@@ -471,6 +471,32 @@ void TapeSaturation::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- AutoPan ----------------------------------------------------------------
+
+void AutoPan::reset() {
+    phase_ = 0.0;
+}
+
+void AutoPan::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    constexpr float kQuarterPi = 0.78539816f;
+    const double inc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    for (int i = 0; i < frames; ++i) {
+        // Pan position in [-1, 1] from the LFO, scaled by depth.
+        const float pos = depth_ * static_cast<float>(std::sin(phase_ * kTwoPi));
+        const float theta = (pos + 1.0f) * kQuarterPi; // 0..pi/2
+        stereo[2 * i] *= std::cos(theta);
+        stereo[2 * i + 1] *= std::sin(theta);
+        phase_ += inc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

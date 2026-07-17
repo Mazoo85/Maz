@@ -316,6 +316,26 @@ private:
     float lpR_ = 0.0f;
 };
 
+// An auto-panner: an internal LFO sweeps the stereo position at `rate` Hz, `depth` 0..1 (0 = none,
+// 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
+class AutoPan : public Effect {
+public:
+    AutoPan() { enabled_ = false; }
+    const char* name() const override { return "Auto-Pan"; }
+    void setRate(float hz) { rateHz_ = hz < 0.01f ? 0.01f : (hz > 20.0f ? 20.0f : hz); }
+    void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float rate() const { return rateHz_; }
+    float depth() const { return depth_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 1.0f;
+    float depth_ = 0.5f;
+    double phase_ = 0.0; // LFO phase in [0, 1)
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

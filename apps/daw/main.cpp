@@ -959,6 +959,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("width##wide", &w, 0.0f, 2.0f, "%.2f")) mx.widener().setWidth(w);
     }
+    {
+        bool en = mx.autopan().enabled();
+        if (ImGui::Checkbox("Auto-Pan", &en)) mx.autopan().setEnabled(en);
+        float rate = mx.autopan().rate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("rate##apan", &rate, 0.05f, 12.0f, "%.2f Hz")) mx.autopan().setRate(rate);
+        float depth = mx.autopan().depth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("depth##apan", &depth, 0.0f, 1.0f, "%.2f")) mx.autopan().setDepth(depth);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

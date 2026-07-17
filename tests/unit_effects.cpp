@@ -437,6 +437,47 @@ int main() {
         check(same, "a disabled tape saturation is transparent");
     }
 
+    // --- Auto-pan: the LFO sweeps energy between L and R --------------------
+    {
+        // A steady mono tone through a 1 Hz full-depth auto-pan: over one second, the first quarter
+        // leans one way and the third quarter the other (the LFO crosses zero at the halves).
+        audio::AutoPan ap;
+        ap.setEnabled(true);
+        ap.setRate(1.0f);
+        ap.setDepth(1.0f);
+        std::vector<float> buf = sineStereo(sr, 220.0, 0.5, sr); // 1 s mono-in (L==R)
+        ap.process(buf.data(), sr, sr);
+        auto chanEnergy = [&](int start, int len, int ch) {
+            double e = 0.0;
+            for (int i = start; i < start + len; ++i) {
+                const float v = buf[static_cast<size_t>(i) * 2 + static_cast<size_t>(ch)];
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return e;
+        };
+        // Quarter-second windows centered on the LFO peaks (t≈0.25 s → +1, t≈0.75 s → -1).
+        const double q1R = chanEnergy(9000, 6000, 1);  // ~t=0.19-0.31 s: panned right
+        const double q1L = chanEnergy(9000, 6000, 0);
+        const double q3L = chanEnergy(33000, 6000, 0); // ~t=0.69-0.81 s: panned left
+        const double q3R = chanEnergy(33000, 6000, 1);
+        check(q1R > q1L * 4.0, "auto-pan leans right at the LFO's positive peak");
+        check(q3L > q3R * 4.0, "auto-pan leans left at the LFO's negative peak");
+
+        // Depth 0 → no movement (equal L/R throughout).
+        audio::AutoPan flat;
+        flat.setEnabled(true);
+        flat.setDepth(0.0f);
+        std::vector<float> b2 = sineStereo(sr / 2, 220.0, 0.5, sr);
+        flat.process(b2.data(), sr / 2, sr);
+        double eL = 0.0, eR = 0.0;
+        for (size_t i = 0; i + 1 < b2.size(); i += 2) {
+            eL += static_cast<double>(b2[i]) * static_cast<double>(b2[i]);
+            eR += static_cast<double>(b2[i + 1]) * static_cast<double>(b2[i + 1]);
+        }
+        check(std::fabs(eL - eR) < eL * 1e-3 + 1e-9,
+              "auto-pan at depth 0 leaves the balance centered");
+    }
+
     // --- Stereo widener: width controls L/R decorrelation -------------------
     {
         // Build a stereo signal with distinct L and R content (some side energy).
