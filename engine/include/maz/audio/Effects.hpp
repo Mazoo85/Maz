@@ -284,11 +284,15 @@ public:
     void setAttackMs(float ms) { attackMs_ = ms; }
     void setReleaseMs(float ms) { releaseMs_ = ms; }
     void setMakeupDb(float db) { makeupDb_ = db; }
+    // Knee width in dB: 0 = hard knee (abrupt at the threshold); wider = a gradual onset of
+    // compression that starts below the threshold for a smoother, more transparent sound.
+    void setKneeDb(float db) { kneeDb_ = db < 0.0f ? 0.0f : (db > 24.0f ? 24.0f : db); }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float attackMs() const { return attackMs_; }
     float releaseMs() const { return releaseMs_; }
     float makeupDb() const { return makeupDb_; }
+    float kneeDb() const { return kneeDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -299,6 +303,7 @@ private:
     float attackMs_ = 8.0f;
     float releaseMs_ = 120.0f;
     float makeupDb_ = 0.0f;
+    float kneeDb_ = 0.0f; // 0 = hard knee
     float env_ = 0.0f; // linear peak-envelope follower
 };
 

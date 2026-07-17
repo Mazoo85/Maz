@@ -1009,6 +1009,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("dB##cmp", &thr, -48.0f, 0.0f, "%.0f")) mx.compressor().setThresholdDb(thr);
+        float knee = mx.compressor().kneeDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("knee##cmp", &knee, 0.0f, 24.0f, "%.0f")) mx.compressor().setKneeDb(knee);
     }
     {
         bool en = mx.chorus().enabled();

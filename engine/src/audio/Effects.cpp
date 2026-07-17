@@ -476,14 +476,18 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
         const float coef = peak > env_ ? atkCoef : relCoef;
         env_ = coef * env_ + (1.0f - coef) * peak;
 
-        // Static gain computer in dB, above the threshold only.
-        float gain = 1.0f;
+        // Static gain computer in dB, with an optional soft knee around the threshold.
         const float envDb = linToDb(env_);
-        if (envDb > thresholdDb_) {
-            const float targetDb = thresholdDb_ + (envDb - thresholdDb_) / ratio;
-            gain = dbToLin(targetDb - envDb);
+        const float over = envDb - thresholdDb_;
+        float reductionDb = 0.0f; // output − input, in dB (≤ 0)
+        if (kneeDb_ > 0.0f && 2.0f * std::fabs(over) <= kneeDb_) {
+            // Within the knee: quadratic interpolation into full-ratio compression.
+            const float x = over + kneeDb_ * 0.5f;
+            reductionDb = (1.0f / ratio - 1.0f) * x * x / (2.0f * kneeDb_);
+        } else if (over > 0.0f) {
+            reductionDb = (1.0f / ratio - 1.0f) * over; // = targetDb − envDb
         }
-        gain *= makeup;
+        const float gain = dbToLin(reductionDb) * makeup;
         stereo[2 * i] = l * gain;
         stereo[2 * i + 1] = r * gain;
     }

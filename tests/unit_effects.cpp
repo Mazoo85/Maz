@@ -141,6 +141,27 @@ int main() {
         check(outPeak > 0.0f, "compressor still passes signal");
     }
 
+    // --- Compressor knee: a soft knee compresses just below the threshold ----
+    {
+        // A signal a few dB below the threshold: a hard knee leaves it alone; a wide soft knee
+        // already applies some gain reduction (softer, earlier onset).
+        auto outPeakAt = [&](float knee) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-12.0f);
+            c.setRatio(4.0f);
+            c.setKneeDb(knee);
+            // 0.2 linear ≈ -14 dB: below the -12 dB threshold but inside a 12 dB knee (-18..-6 dB).
+            std::vector<float> b = sineStereo(sr, 220.0, 0.2, sr);
+            c.process(b.data(), sr, sr);
+            return peakRange(b, sr / 2, sr);
+        };
+        const float hard = outPeakAt(0.0f);   // hard knee → untouched (~0.2)
+        const float soft = outPeakAt(12.0f);   // soft knee → already reduced a touch
+        check(hard > 0.19f, "hard knee leaves a sub-threshold signal untouched");
+        check(soft < hard * 0.98f, "a soft knee compresses just below the threshold");
+    }
+
     // --- Reverb: an impulse leaves a decaying tail ---------------------------
     {
         audio::Reverb rev;

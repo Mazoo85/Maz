@@ -158,7 +158,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
-      << mixer.compressor().makeupDb() << "\n";
+      << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << "\n";
@@ -478,6 +478,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.compressor().setAttackMs(atk);
                 mixer.compressor().setReleaseMs(rel);
                 mixer.compressor().setMakeupDb(mk);
+                float knee = 0.0f; // knee optional (older files omit it)
+                if (ls >> knee) {
+                    mixer.compressor().setKneeDb(knee);
+                }
             } else if (which == "delay") {
                 float t = 300.0f, fb = 0.35f, mix = 0.3f;
                 ls >> t >> fb >> mix;
