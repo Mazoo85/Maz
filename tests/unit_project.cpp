@@ -52,6 +52,7 @@ int main() {
     seq.setChannelChokeGroup(0, 2);
     seq.setChannelTune(0, -5.0f);
     seq.setChannelDecay(0, 2.5f);
+    seq.setChannelDrive(0, 0.65f);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -213,6 +214,7 @@ int main() {
     check(seq2.channelChokeGroup(0) == 2, "channel choke group round-trips");
     check(near(seq2.channelTune(0), -5.0f), "channel tune round-trips");
     check(near(seq2.channelDecay(0), 2.5f), "channel decay round-trips");
+    check(near(seq2.channelDrive(0), 0.65f), "channel drive round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.

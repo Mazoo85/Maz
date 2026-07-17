@@ -677,6 +677,37 @@ int main() {
         check(d.channelTune(0) == 0.0f, "channels default to 0 tune");
     }
 
+    // --- Drum drive: saturation adds harmonics -------------------------------
+    {
+        auto renderKick = [&](float drive) {
+            audio::DrumVoice k;
+            k.setType(audio::Drum::Kick);
+            k.setDrive(drive);
+            k.trigger(1.0f);
+            std::vector<float> buf(4800, 0.0f);
+            k.render(buf.data(), 4800, sampleRate);
+            return buf;
+        };
+        // Level-independent brightness: HF (first-difference) energy over total energy.
+        auto brightness = [](const std::vector<float>& b) {
+            double hf = 0.0, en = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                hf += d * d;
+                en += static_cast<double>(b[i]) * b[i];
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        const std::vector<float> clean = renderKick(0.0f);
+        const std::vector<float> driven = renderKick(0.9f);
+        check(brightness(driven) > brightness(clean) * 1.2, "drum drive adds harmonics (brighter)");
+
+        audio::DrumVoice dv;
+        check(dv.drive() == 0.0f, "drum drive defaults to 0 (clean)");
+        audio::Sequencer d;
+        check(d.channelDrive(0) == 0.0f, "channel drive defaults to 0");
+    }
+
     // --- Choke: a voice can be silenced mid-ring -----------------------------
     {
         audio::DrumVoice oh;

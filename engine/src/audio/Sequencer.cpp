@@ -119,6 +119,19 @@ float Sequencer::channelDecay(int c) const {
     return 1.0f;
 }
 
+void Sequencer::setChannelDrive(int c, float drive) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setDrive(drive);
+    }
+}
+
+float Sequencer::channelDrive(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].drive();
+    }
+    return 0.0f;
+}
+
 void Sequencer::setChannelVolume(int c, float v) {
     if (c >= 0 && c < numChannels()) {
         chanVolume_[static_cast<size_t>(c)] = v;

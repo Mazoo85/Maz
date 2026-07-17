@@ -494,6 +494,11 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("##decay", &decay, 0.25f, 4.0f, "d%.2f"))
             seq.setChannelDecay(c, decay);
         ImGui::SameLine();
+        float drive = seq.channelDrive(c);
+        ImGui::SetNextItemWidth(58.0f);
+        if (ImGui::SliderFloat("##drive", &drive, 0.0f, 1.0f, "dr%.2f"))
+            seq.setChannelDrive(c, drive);
+        ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);
             const bool on = seq.step(c, s);

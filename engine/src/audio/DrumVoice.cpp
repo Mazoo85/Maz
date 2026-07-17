@@ -90,6 +90,13 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             phase_ -= std::floor(phase_);
         }
 
+        // Drive: push the hit through a tanh soft-clipper (normalised so full-scale stays ~unity) to
+        // add harmonics and grit. Skipped entirely at 0 so the clean drum is bit-identical.
+        if (drive_ > 0.0f) {
+            const float k = 1.0f + drive_ * 8.0f;
+            s = std::tanh(s * k) / std::tanh(k);
+        }
+
         // Choke fade: ~4 ms ramp to silence, then the voice deactivates.
         if (choking_) {
             chokeGain_ -= static_cast<float>(dt) / 0.004f;

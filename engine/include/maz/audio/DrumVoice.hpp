@@ -33,6 +33,11 @@ public:
     void setLevel(float level) { level_ = level; }
     float level() const { return level_; }
 
+    // Drive / saturation (0..1): 0 is clean (bit-transparent); higher values push the hit through a
+    // tanh soft-clipper that adds harmonics and grit — punchier, more aggressive drums.
+    void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float drive() const { return drive_; }
+
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
     // hit's loudness for per-step accents.
     void trigger(float velocity = 1.0f);
@@ -57,6 +62,8 @@ private:
     float level_ = 1.0f;
     float tuneSemitones_ = 0.0f;
     float decayMul_ = 1.0f;
+    float drive_ = 0.0f; // tanh saturation amount; 0 = clean
+
     float velocity_ = 1.0f;
     bool active_ = false;
     bool choking_ = false;   // ramping to silence after a choke()

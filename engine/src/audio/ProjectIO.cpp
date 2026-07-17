@@ -147,7 +147,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         f << "chan " << c << " " << seq.channelVolume(c) << " " << (seq.channelMute(c) ? 1 : 0)
           << " " << (seq.channelSolo(c) ? 1 : 0) << " " << seq.channelPan(c) << " "
           << seq.channelChokeGroup(c) << " " << seq.channelTune(c) << " " << seq.channelDecay(c)
-          << "\n";
+          << " " << seq.channelDrive(c) << "\n";
     }
 
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
@@ -424,6 +424,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float decay = 1.0f; // decay optional (older files omit it)
             if (ls >> decay) {
                 seq.setChannelDecay(c, decay);
+            }
+            float drive = 0.0f; // drive optional (older files omit it)
+            if (ls >> drive) {
+                seq.setChannelDrive(c, drive);
             }
         } else if (tag == "patterns") {
             int count = 1;
