@@ -172,6 +172,11 @@ void applyDemoMixer(audio::AudioEngine& engine) {
     mx.reverb().setRoomSize(0.6f);
     mx.reverb().setMix(0.18f);
     engine.sequencer().setSidechain(true, 0.55f, 180.0f); // subtle pump on the melodic bus
+    // Per-bus insert strip: glue-compress just the drum bus (exercises the mixer-track path).
+    mx.track(audio::MixerBus::Drums).compressor().setEnabled(true);
+    mx.track(audio::MixerBus::Drums).compressor().setThresholdDb(-14.0f);
+    mx.track(audio::MixerBus::Drums).compressor().setRatio(4.0f);
+    mx.track(audio::MixerBus::Drums).compressor().setMakeupDb(2.0f);
 }
 
 // A demo automation: a slow triangle LFO sweeping the master low-pass cutoff — a classic filter
@@ -832,6 +837,33 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("ms##dsend", &dTime, 10.0f, 1000.0f, "%.0f"))
             mx.delayReturn().setTime(dTime);
+    }
+
+    ImGui::SeparatorText("Insert Strips (per bus)");
+    {
+        const char* busNames[] = {"Drums", "Lead", "Bass"};
+        for (int t = 0; t < audio::Mixer::trackCount(); ++t) {
+            audio::MixerTrack& tr = mx.track(t);
+            ImGui::PushID(t);
+            ImGui::TextUnformatted(busNames[t]);
+            ImGui::SameLine();
+            bool muted = tr.muted();
+            if (ImGui::Checkbox("Mute##trk", &muted)) tr.setMuted(muted);
+            ImGui::SameLine();
+            float g = tr.gain();
+            ImGui::SetNextItemWidth(100.0f);
+            if (ImGui::SliderFloat("gain##trk", &g, 0.0f, 2.0f, "%.2f")) tr.setGain(g);
+
+            bool eqEn = tr.eq().enabled();
+            if (ImGui::Checkbox("EQ##trk", &eqEn)) tr.eq().setEnabled(eqEn);
+            ImGui::SameLine();
+            bool distEn = tr.distortion().enabled();
+            if (ImGui::Checkbox("Drive##trk", &distEn)) tr.distortion().setEnabled(distEn);
+            ImGui::SameLine();
+            bool compEn = tr.compressor().enabled();
+            if (ImGui::Checkbox("Comp##trk", &compEn)) tr.compressor().setEnabled(compEn);
+            ImGui::PopID();
+        }
     }
 
     ImGui::End();

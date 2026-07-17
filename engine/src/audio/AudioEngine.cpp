@@ -8,6 +8,7 @@
 #include <SDL3/SDL_init.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 
 namespace maz::audio {
@@ -105,7 +106,27 @@ void AudioEngine::render(float* out, int frames) {
             out[2 * i] += s;
             out[2 * i + 1] += s;
         }
-        sequencer_.render(out, frames, cfg_.sampleRate);
+        if (mixer_.anyTrackActive()) {
+            // Per-track path: render the three buses separately, run each through its insert strip,
+            // then sum with the tanh bus soft-limit (matching Sequencer::render's summation).
+            const size_t n2 = static_cast<size_t>(frames) * 2;
+            stemDrums_.assign(n2, 0.0f);
+            stemLead_.assign(n2, 0.0f);
+            stemBass_.assign(n2, 0.0f);
+            sequencer_.renderStems(stemDrums_.data(), stemLead_.data(), stemBass_.data(), frames,
+                                   cfg_.sampleRate);
+            mixer_.track(MixerBus::Drums).process(stemDrums_.data(), frames, cfg_.sampleRate);
+            mixer_.track(MixerBus::Lead).process(stemLead_.data(), frames, cfg_.sampleRate);
+            mixer_.track(MixerBus::Bass).process(stemBass_.data(), frames, cfg_.sampleRate);
+            for (size_t i = 0; i < n2; ++i) {
+                const double s = static_cast<double>(stemDrums_[i]) +
+                                 static_cast<double>(stemLead_[i]) +
+                                 static_cast<double>(stemBass_[i]);
+                out[i] += static_cast<float>(std::tanh(s));
+            }
+        } else {
+            sequencer_.render(out, frames, cfg_.sampleRate);
+        }
         // Master bus: the mixer's effect chain + master gain + limiter over the stereo output.
         mixer_.process(out, frames, cfg_.sampleRate);
     } else {

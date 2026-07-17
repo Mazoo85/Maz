@@ -93,6 +93,7 @@ private:
     SDL_AudioStream* captureStream_ = nullptr; // non-null while capturing input
     uint64_t framesRendered_ = 0;
     std::vector<float> scratch_; // reused mono render buffer for mixing
+    std::vector<float> stemDrums_, stemLead_, stemBass_; // per-bus stems for the mixer-track path
     std::vector<float> recordBuffer_;
     bool recording_ = false;
 };

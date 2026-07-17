@@ -44,6 +44,15 @@ Mixer::Mixer() {
     delayReturn_.setMix(1.0f);
 }
 
+bool Mixer::anyTrackActive() const {
+    for (const MixerTrack& t : tracks_) {
+        if (t.active()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Mixer::process(float* stereo, int frames, int sampleRate) {
     if (frames <= 0 || sampleRate <= 0) {
         return;

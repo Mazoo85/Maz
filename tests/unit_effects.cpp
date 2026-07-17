@@ -257,6 +257,51 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- MixerTrack: per-bus insert strip -----------------------------------
+    {
+        audio::MixerTrack track; // all inserts off, unity gain
+        check(!track.active(), "a fresh mixer track is transparent (inactive)");
+        std::vector<float> sig = sineStereo(1000, 440.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        track.process(sig.data(), 1000, sr);
+        bool unchanged = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                unchanged = false;
+                break;
+            }
+        }
+        check(unchanged, "an inactive track passes the signal through untouched");
+
+        // Track gain scales the bus.
+        audio::MixerTrack gained;
+        gained.setGain(0.5f);
+        check(gained.active(), "a non-unity gain makes the track active");
+        std::vector<float> g = ref;
+        gained.process(g.data(), 1000, sr);
+        check(std::fabs(g[10] - ref[10] * 0.5f) < 1e-5f, "track gain scales the bus");
+
+        // Mute silences the bus.
+        audio::MixerTrack muted;
+        muted.setMuted(true);
+        std::vector<float> m = ref;
+        muted.process(m.data(), 1000, sr);
+        check(rms(m) == 0.0, "a muted track outputs silence");
+
+        // An insert on the track alters the signal and reports active.
+        audio::MixerTrack driven;
+        driven.distortion().setEnabled(true);
+        driven.distortion().setDrive(10.0f);
+        check(driven.active(), "an enabled insert makes the track active");
+        std::vector<float> d = ref;
+        driven.process(d.data(), 1000, sr);
+        double delta = 0.0;
+        for (size_t i = 0; i < d.size(); ++i) {
+            delta += std::fabs(static_cast<double>(d[i] - ref[i]));
+        }
+        check(delta > 0.0, "a track insert (distortion) alters the bus");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

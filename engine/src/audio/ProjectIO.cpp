@@ -152,6 +152,17 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "send delay " << mixer.delaySend() << " " << mixer.delayReturn().time() << " "
       << mixer.delayReturn().feedback() << "\n";
 
+    // Per-bus mixer-track insert strips (0 = drums, 1 = lead, 2 = bass).
+    for (int t = 0; t < Mixer::trackCount(); ++t) {
+        MixerTrack& tr = mixer.track(t);
+        f << "track " << t << " " << tr.gain() << " " << (tr.muted() ? 1 : 0) << " "
+          << (tr.eq().enabled() ? 1 : 0) << " " << tr.eq().lowGain() << " " << tr.eq().midFreq()
+          << " " << tr.eq().midQ() << " " << tr.eq().midGain() << " " << tr.eq().highGain() << " "
+          << (tr.distortion().enabled() ? 1 : 0) << " " << tr.distortion().drive() << " "
+          << (tr.compressor().enabled() ? 1 : 0) << " " << tr.compressor().thresholdDb() << " "
+          << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << "\n";
+    }
+
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
 
     for (int i = 0; i < Automation::count(); ++i) {
@@ -399,6 +410,27 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.setDelaySend(lvl);
                 mixer.delayReturn().setTime(t);
                 mixer.delayReturn().setFeedback(fb);
+            }
+        } else if (tag == "track") {
+            int t = -1, muted = 0, eqEn = 0, distEn = 0, compEn = 0;
+            float gain = 1.0f, low = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, high = 0.0f;
+            float drive = 1.0f, thr = -18.0f, ratio = 4.0f, mk = 0.0f;
+            ls >> t >> gain >> muted >> eqEn >> low >> midF >> midQ >> midDb >> high >> distEn >>
+                drive >> compEn >> thr >> ratio >> mk;
+            if (t >= 0 && t < Mixer::trackCount()) {
+                MixerTrack& tr = mixer.track(t);
+                tr.setGain(gain);
+                tr.setMuted(muted != 0);
+                tr.eq().setEnabled(eqEn != 0);
+                tr.eq().setLowGain(low);
+                tr.eq().setMid(midF, midQ, midDb);
+                tr.eq().setHighGain(high);
+                tr.distortion().setEnabled(distEn != 0);
+                tr.distortion().setDrive(drive);
+                tr.compressor().setEnabled(compEn != 0);
+                tr.compressor().setThresholdDb(thr);
+                tr.compressor().setRatio(ratio);
+                tr.compressor().setMakeupDb(mk);
             }
         } else if (tag == "plugin") {
             int en = 0;

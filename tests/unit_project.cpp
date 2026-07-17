@@ -86,6 +86,13 @@ int main() {
     mixer.reverbReturn().setRoomSize(0.6f);
     mixer.setDelaySend(0.3f);
     mixer.delayReturn().setTime(180.0f);
+    // Per-bus mixer-track inserts.
+    mixer.track(audio::MixerBus::Drums).setGain(0.8f);
+    mixer.track(audio::MixerBus::Drums).distortion().setEnabled(true);
+    mixer.track(audio::MixerBus::Drums).distortion().setDrive(6.0f);
+    mixer.track(audio::MixerBus::Lead).setMuted(true);
+    mixer.track(audio::MixerBus::Bass).eq().setEnabled(true);
+    mixer.track(audio::MixerBus::Bass).eq().setLowGain(4.5f);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -170,6 +177,13 @@ int main() {
     check(near(mixer2.reverbSend(), 0.45f) && near(mixer2.reverbReturn().roomSize(), 0.6f) &&
               near(mixer2.delaySend(), 0.3f) && near(mixer2.delayReturn().time(), 180.0f),
           "aux send/return buses round-trip");
+    check(near(mixer2.track(audio::MixerBus::Drums).gain(), 0.8f) &&
+              mixer2.track(audio::MixerBus::Drums).distortion().enabled() &&
+              near(mixer2.track(audio::MixerBus::Drums).distortion().drive(), 6.0f) &&
+              mixer2.track(audio::MixerBus::Lead).muted() &&
+              mixer2.track(audio::MixerBus::Bass).eq().enabled() &&
+              near(mixer2.track(audio::MixerBus::Bass).eq().lowGain(), 4.5f),
+          "per-bus mixer-track insert strips round-trip");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");

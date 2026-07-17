@@ -139,6 +139,12 @@ public:
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
 
+    // Render the three mixer buses separately into their own interleaved-stereo buffers (each
+    // 2*frames floats, ADDED into). This is the per-track path: a caller can run each bus through
+    // its own insert chain before summing. Advances the transport exactly like render(). Bus order
+    // matches MixerBus: 0 = drums, 1 = lead, 2 = bass.
+    void renderStems(float* drums, float* lead, float* bass, int frames, int sampleRate);
+
 private:
     // Frames for a given step at the current tempo. stepsPerBeat_ 16th-notes → 4 steps per beat.
     // Swing lengthens even steps and shortens odd ones, so `step`'s parity matters.
@@ -162,6 +168,9 @@ private:
     std::vector<float> bassScratch_;  // per-block bass (synth2) sum
     std::vector<float> lBuf_;         // per-block stereo accumulators (pre-limit)
     std::vector<float> rBuf_;
+    std::vector<float> stemDrums_;    // render()'s temporaries: the three buses before summing
+    std::vector<float> stemLead_;
+    std::vector<float> stemBass_;
 
     SynthInstrument synth_{};  // lead instrument playing roll
     SynthInstrument synth2_{}; // bass instrument playing roll2

@@ -2,8 +2,10 @@
 
 #include "maz/audio/ClapHost.hpp"
 #include "maz/audio/Effects.hpp"
+#include "maz/audio/MixerTrack.hpp"
 #include "maz/audio/PluginHost.hpp"
 
+#include <array>
 #include <vector>
 
 namespace maz::audio {
@@ -49,6 +51,14 @@ public:
     int effectCount() const { return static_cast<int>(chain_.size()); }
     Effect& effect(int i) { return *chain_[static_cast<size_t>(i)]; }
 
+    // Per-bus insert strips (drums / lead / bass). A caller with separated stems processes each bus
+    // through its track before summing to the master. `anyTrackActive()` lets the engine skip the
+    // per-bus path entirely when every track is transparent.
+    MixerTrack& track(MixerBus b) { return tracks_[static_cast<size_t>(b)]; }
+    MixerTrack& track(int i) { return tracks_[static_cast<size_t>(i)]; }
+    static constexpr int trackCount() { return static_cast<int>(MixerBus::Count); }
+    bool anyTrackActive() const;
+
     // Process `frames` of interleaved stereo in place: run each enabled effect, then master gain.
     void process(float* stereo, int frames, int sampleRate);
 
@@ -75,6 +85,8 @@ private:
     Delay delayReturn_{};
     float delaySend_ = 0.0f;
     std::vector<float> sendScratch_; // scratch for the send-tapped copy
+
+    std::array<MixerTrack, static_cast<size_t>(MixerBus::Count)> tracks_{}; // per-bus insert strips
 };
 
 } // namespace maz::audio

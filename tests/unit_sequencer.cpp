@@ -5,6 +5,7 @@
 #include "maz/audio/DrumVoice.hpp"
 #include "maz/audio/Sequencer.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -354,6 +355,46 @@ int main() {
     check(arr.currentPattern() == 1, "advances to the next playlist pattern after a bar");
     (void)renderMono(arr, 16 * 6000, sampleRate);
     check(arr.currentPattern() == 0, "playlist wraps back to the start");
+
+    // --- Per-bus stems sum back to the mixed render (behaviour preservation) ---
+    {
+        // One sequencer renders the mixed output; an identically-programmed one renders the three
+        // stems, and tanh(drums + lead + bass) must match the mixed render sample-for-sample.
+        auto program = [&](audio::Sequencer& s) {
+            s.setBpm(128.0);
+            s.setStep(0, 0, true);
+            s.setStep(2, 2, true);
+            s.roll().addNote(audio::Note{0, 4, 60, 0.9f});
+            s.roll2().addNote(audio::Note{0, 8, 40, 0.8f});
+            s.synth().setEnvelope(0.002f, 0.05f, 0.7f, 0.1f);
+            s.synth2().setEnvelope(0.002f, 0.05f, 0.7f, 0.1f);
+            s.play();
+        };
+        const int frames = 12000;
+        audio::Sequencer mixed;
+        program(mixed);
+        std::vector<float> mixOut(static_cast<size_t>(frames) * 2, 0.0f);
+        mixed.render(mixOut.data(), frames, sampleRate);
+
+        audio::Sequencer stems;
+        program(stems);
+        std::vector<float> d(static_cast<size_t>(frames) * 2, 0.0f);
+        std::vector<float> l(static_cast<size_t>(frames) * 2, 0.0f);
+        std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+        stems.renderStems(d.data(), l.data(), b.data(), frames, sampleRate);
+
+        double maxDiff = 0.0;
+        for (size_t i = 0; i < mixOut.size(); ++i) {
+            const float summed =
+                static_cast<float>(std::tanh(static_cast<double>(d[i]) + static_cast<double>(l[i]) +
+                                             static_cast<double>(b[i])));
+            maxDiff = std::max(maxDiff, std::fabs(static_cast<double>(mixOut[i] - summed)));
+        }
+        check(maxDiff < 1e-6, "tanh(drums+lead+bass) stems equal the mixed render");
+
+        // The stems are genuinely separate: drums carry energy, lead carries energy.
+        check(rms(d) > 0.0 && rms(l) > 0.0, "drums and lead stems each carry sound");
+    }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;

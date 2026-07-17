@@ -294,6 +294,25 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
     if (frames <= 0 || sampleRate <= 0) {
         return;
     }
+    // Render the three buses separately, then sum them with the tanh bus soft-limit — punchy at low
+    // level, no hard clipping when voices stack. Summing pre-limit stems reproduces the original
+    // single-buffer behaviour exactly (tanh over drums + lead + bass).
+    const size_t n = static_cast<size_t>(frames) * 2;
+    stemDrums_.assign(n, 0.0f);
+    stemLead_.assign(n, 0.0f);
+    stemBass_.assign(n, 0.0f);
+    renderStems(stemDrums_.data(), stemLead_.data(), stemBass_.data(), frames, sampleRate);
+    for (size_t i = 0; i < n; ++i) {
+        const double s = static_cast<double>(stemDrums_[i]) + static_cast<double>(stemLead_[i]) +
+                         static_cast<double>(stemBass_[i]);
+        out[i] += static_cast<float>(std::tanh(s));
+    }
+}
+
+void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, int sampleRate) {
+    if (frames <= 0 || sampleRate <= 0) {
+        return;
+    }
     int done = 0;
     while (done < frames) {
         int chunk = frames - done;
@@ -308,12 +327,9 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             chunk = std::min(chunk, toNext);
         }
 
-        // Render each drum channel on its own so it can be panned into the stereo field, plus the
-        // synth/sampler at center, into L/R accumulators. Then soft-limit each side with tanh
-        // before adding to the output — punchy at low level, no clipping when voices stack.
+        // Render each drum channel on its own so it can be panned into the stereo field, into the
+        // drums bus; the lead (synth + sampler) and bass (synth2) buses render at center.
         synthScratch_.assign(static_cast<size_t>(chunk), 0.0f);
-        lBuf_.assign(static_cast<size_t>(chunk), 0.0f);
-        rBuf_.assign(static_cast<size_t>(chunk), 0.0f);
         bool anySolo = false;
         for (uint8_t s : chanSolo_) {
             anySolo = anySolo || s != 0;
@@ -335,8 +351,8 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             const float rg = std::sin(angle) * drumGain_;
             for (int i = 0; i < chunk; ++i) {
                 const float s = mixScratch_[static_cast<size_t>(i)];
-                lBuf_[static_cast<size_t>(i)] += s * lg;
-                rBuf_[static_cast<size_t>(i)] += s * rg;
+                drums[2 * (done + i)] += s * lg;
+                drums[2 * (done + i) + 1] += s * rg;
             }
         }
         // Lead bus = synth + sampler; bass bus = synth2. Each has its own gain.
@@ -348,20 +364,15 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
         const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
         for (int i = 0; i < chunk; ++i) {
             const float duck = sidechainOn_ ? scEnv_ : 1.0f;
-            const float melodic = synthScratch_[static_cast<size_t>(i)] * synthGain_ +
-                                  bassScratch_[static_cast<size_t>(i)] * bassGain_;
-            const float s = melodic * kCenter * duck;
-            lBuf_[static_cast<size_t>(i)] += s;
-            rBuf_[static_cast<size_t>(i)] += s;
+            const float leadS = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter * duck;
+            const float bassS = bassScratch_[static_cast<size_t>(i)] * bassGain_ * kCenter * duck;
+            lead[2 * (done + i)] += leadS;
+            lead[2 * (done + i) + 1] += leadS;
+            bass[2 * (done + i)] += bassS;
+            bass[2 * (done + i) + 1] += bassS;
             if (sidechainOn_ && scEnv_ < 1.0f) {
                 scEnv_ = std::min(1.0f, scEnv_ + scStep);
             }
-        }
-        for (int i = 0; i < chunk; ++i) {
-            out[2 * (done + i)] +=
-                static_cast<float>(std::tanh(static_cast<double>(lBuf_[static_cast<size_t>(i)])));
-            out[2 * (done + i) + 1] +=
-                static_cast<float>(std::tanh(static_cast<double>(rBuf_[static_cast<size_t>(i)])));
         }
 
         if (playing_) {
