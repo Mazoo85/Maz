@@ -50,6 +50,7 @@ public:
     StereoWidener& widener() { return widener_; }
     AutoPan& autopan() { return autopan_; }
     AutoWah& autowah() { return autowah_; }
+    CombResonator& comb() { return comb_; }
     MonoBass& monobass() { return monobass_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
@@ -106,6 +107,7 @@ private:
     StereoWidener widener_{};
     AutoPan autopan_{};
     AutoWah autowah_{};
+    CombResonator comb_{};
     MonoBass monobass_{};
     PluginHost plugin_{};
     ClapHost clap_{};

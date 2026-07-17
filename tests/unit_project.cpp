@@ -140,6 +140,10 @@ int main() {
     mixer.autowah().setResonance(6.0f);
     mixer.autowah().setAttackMs(3.0f);
     mixer.autowah().setReleaseMs(120.0f);
+    mixer.comb().setEnabled(true);
+    mixer.comb().setFrequency(330.0f);
+    mixer.comb().setFeedback(0.72f);
+    mixer.comb().setMix(0.45f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -321,6 +325,9 @@ int main() {
               near(mixer2.autowah().resonance(), 6.0f) && near(mixer2.autowah().attackMs(), 3.0f) &&
               near(mixer2.autowah().releaseMs(), 120.0f),
           "auto-wah round-trips");
+    check(mixer2.comb().enabled() && near(mixer2.comb().frequency(), 330.0f) &&
+              near(mixer2.comb().feedback(), 0.72f) && near(mixer2.comb().mix(), 0.45f),
+          "comb resonator round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&

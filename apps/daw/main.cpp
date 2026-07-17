@@ -1241,6 +1241,21 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("reso##wah", &reso, 0.5f, 20.0f, "%.1f")) mx.autowah().setResonance(reso);
     }
+    {
+        bool en = mx.comb().enabled();
+        if (ImGui::Checkbox("Comb Resonator", &en)) mx.comb().setEnabled(en);
+        float freq = mx.comb().frequency();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("Hz##comb", &freq, 20.0f, 2000.0f, "%.0f")) mx.comb().setFrequency(freq);
+        float fb = mx.comb().feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("ring##comb", &fb, 0.0f, 0.98f, "%.2f")) mx.comb().setFeedback(fb);
+        float mix = mx.comb().mix();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##comb", &mix, 0.0f, 1.0f, "%.2f")) mx.comb().setMix(mix);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

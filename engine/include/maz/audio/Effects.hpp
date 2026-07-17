@@ -513,6 +513,33 @@ private:
     StateVariableFilter lpR_{};
 };
 
+// A tuned feedback comb resonator: it feeds a delayed, scaled copy of its own output back in, so the
+// delay length `frequency` (Hz → delay = sampleRate/freq) rings at that pitch and its harmonics.
+// `feedback` (0..0.98) sets the resonance/ring time; `mix` blends the resonated signal with the dry.
+// Turns any input into a pitched, metallic/plucked resonance — the classic comb/Karplus tone.
+class CombResonator : public Effect {
+public:
+    CombResonator() { enabled_ = false; }
+    const char* name() const override { return "Comb Resonator"; }
+    void setFrequency(float hz) { freq_ = hz < 20.0f ? 20.0f : (hz > 5000.0f ? 5000.0f : hz); }
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.98f ? 0.98f : f); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float frequency() const { return freq_; }
+    float feedback() const { return feedback_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float freq_ = 220.0f;
+    float feedback_ = 0.8f;
+    float mix_ = 0.5f;
+    std::vector<float> bufL_; // circular delay lines (sized on first process)
+    std::vector<float> bufR_;
+    int writePos_ = 0;
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

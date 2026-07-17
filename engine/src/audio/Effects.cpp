@@ -770,6 +770,52 @@ void AutoWah::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- CombResonator ----------------------------------------------------------
+
+void CombResonator::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    writePos_ = 0;
+}
+
+void CombResonator::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // Delay-line length covers the lowest tunable pitch (20 Hz); (re)allocate on rate change.
+    const int maxD = sampleRate / 20 + 4;
+    if (static_cast<int>(bufL_.size()) != maxD) {
+        bufL_.assign(static_cast<size_t>(maxD), 0.0f);
+        bufR_.assign(static_cast<size_t>(maxD), 0.0f);
+        writePos_ = 0;
+    }
+    int d = static_cast<int>(static_cast<float>(sampleRate) / freq_ + 0.5f);
+    if (d < 1) {
+        d = 1;
+    }
+    if (d >= maxD) {
+        d = maxD - 1;
+    }
+    for (int i = 0; i < frames; ++i) {
+        int readPos = writePos_ - d;
+        if (readPos < 0) {
+            readPos += maxD;
+        }
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Feedback comb: output = input + feedback · (delayed output), stored back into the line.
+        const float wl = l + feedback_ * bufL_[static_cast<size_t>(readPos)];
+        const float wr = r + feedback_ * bufR_[static_cast<size_t>(readPos)];
+        bufL_[static_cast<size_t>(writePos_)] = wl;
+        bufR_[static_cast<size_t>(writePos_)] = wr;
+        stereo[2 * i] = l * (1.0f - mix_) + wl * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wr * mix_;
+        if (++writePos_ >= maxD) {
+            writePos_ = 0;
+        }
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

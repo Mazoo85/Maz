@@ -230,6 +230,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
       << mixer.autowah().releaseMs() << "\n";
+    f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
+      << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
@@ -589,6 +591,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> x;
                 mixer.monobass().setEnabled(en != 0);
                 mixer.monobass().setCrossover(x);
+            } else if (which == "comb") {
+                float freq = 220.0f, fb = 0.8f, mix = 0.5f;
+                ls >> freq >> fb >> mix;
+                mixer.comb().setEnabled(en != 0);
+                mixer.comb().setFrequency(freq);
+                mixer.comb().setFeedback(fb);
+                mixer.comb().setMix(mix);
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;

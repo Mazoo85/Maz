@@ -648,6 +648,38 @@ int main() {
         check(same, "a disabled auto-wah is transparent");
     }
 
+    // --- Comb resonator: feedback echoes at the tuned delay -----------------
+    {
+        // A 100 Hz tuning at 48 kHz is an exactly-480-sample delay, so the impulse response has clean
+        // echoes at 480, 960, … scaled by feedback^n — deterministic to check.
+        audio::CombResonator comb;
+        comb.setEnabled(true);
+        comb.setFrequency(100.0f);  // delay = 48000/100 = 480 samples
+        comb.setFeedback(0.8f);
+        comb.setMix(1.0f);          // fully wet, so the output is the raw comb response
+        std::vector<float> imp(3000 * 2, 0.0f);
+        imp[0] = 1.0f; // unit impulse in both channels
+        imp[1] = 1.0f;
+        comb.process(imp.data(), 3000, sr);
+        check(std::fabs(imp[0] - 1.0f) < 1e-4f, "comb passes the initial impulse");
+        check(std::fabs(imp[2 * 480] - 0.8f) < 1e-3f, "comb echoes at the tuned delay, scaled by feedback");
+        check(std::fabs(imp[2 * 960] - 0.64f) < 1e-3f, "comb's second echo is feedback squared");
+
+        // Disabled → transparent.
+        audio::CombResonator off;
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled comb resonator is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;
