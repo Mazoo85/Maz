@@ -60,6 +60,7 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     // Glide: start at the previous note's pitch and slide to the target; otherwise start on pitch.
     v.freq = (glideSeconds_ > 0.0f && lastFreq_ > 0.0f) ? lastFreq_ : v.targetFreq;
     lastFreq_ = v.targetFreq;
+    v.pitchEnv = pitchEnvAmt_; // seed the pitch envelope (decays to 0 in render)
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
     v.filter.reset();
@@ -101,6 +102,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     // Vibrato LFO (shared across voices): a per-block start phase so every voice wavers together.
     constexpr double kTwoPiVib = 6.283185307179586;
     const double vibInc = static_cast<double>(vibRate_) / static_cast<double>(sampleRate);
+    // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
+    const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
 
     for (Voice& v : voices_) {
         if (v.stage == Stage::Off) {
@@ -118,8 +121,17 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 vibMul = std::pow(2.0, static_cast<double>(vibDepth_) *
                                            std::sin(vp * kTwoPiVib) / 1200.0);
             }
+            // Pitch envelope: apply the current offset, then decay it toward 0.
+            double pitchMul = 1.0;
+            if (v.pitchEnv != 0.0f) {
+                pitchMul = std::pow(2.0, static_cast<double>(v.pitchEnv) / 12.0);
+                v.pitchEnv *= pitchEnvCoef;
+                if (std::fabs(v.pitchEnv) < 1e-4f) {
+                    v.pitchEnv = 0.0f;
+                }
+            }
             const double phaseInc =
-                static_cast<double>(v.freq) * vibMul / static_cast<double>(sampleRate);
+                static_cast<double>(v.freq) * vibMul * pitchMul / static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 v.env += attackStep;

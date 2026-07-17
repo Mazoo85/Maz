@@ -332,6 +332,35 @@ int main() {
         check(def.unisonVoices() == 1, "unison defaults to a single voice");
     }
 
+    // --- Pitch envelope ------------------------------------------------------
+    {
+        // A note with a +12-semitone pitch env starting fast-decaying: the onset reads about an
+        // octave sharp, the settled tail reads the written pitch.
+        audio::SynthInstrument pe;
+        pe.setWaveform(audio::Waveform::Saw);
+        pe.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        pe.setFilter(20000.0f, 0.7f, 0.0f);
+        pe.setPitchEnv(12.0f, 0.03f); // +1 octave, ~30 ms decay
+        pe.noteOn(57, 1.0f);          // A3 = 220 Hz target
+        const std::vector<float> out = render(pe, sampleRate, sampleRate);
+        auto hzIn = [&](int start, int len) {
+            int c = 0;
+            for (int i = start + 1; i < start + len; ++i) {
+                if (out[static_cast<size_t>(i - 1)] <= 0.0f && out[static_cast<size_t>(i)] > 0.0f) {
+                    ++c;
+                }
+            }
+            return static_cast<double>(c) * sampleRate / len;
+        };
+        const double onset = hzIn(0, 600);        // first ~12 ms → sharp
+        const double settled = hzIn(20000, 6000); // after the env has decayed → written pitch
+        check(onset > settled * 1.4, "pitch env starts the note sharp");
+        check(std::fabs(settled - 220.0) < 8.0, "pitch env settles to the written pitch");
+
+        audio::SynthInstrument d;
+        check(d.pitchEnvAmount() == 0.0f, "pitch env defaults to off");
+    }
+
     // --- Vibrato (pitch LFO) -------------------------------------------------
     {
         // A slow, deep vibrato: measure the pitch in a window near the LFO's positive peak vs. its

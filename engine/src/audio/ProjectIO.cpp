@@ -46,6 +46,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> vibRate >> vibDepth) {
         syn.setVibrato(vibRate, vibDepth);
     }
+    float peAmt = 0.0f, peTime = 0.05f; // pitch envelope optional for old files
+    if (ls >> peAmt >> peTime) {
+        syn.setPitchEnv(peAmt, peTime);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -112,7 +116,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.wavetableMorph() << " " << s.glide() << " " << static_cast<int>(s.wavetableFrame(0))
           << " " << static_cast<int>(s.wavetableFrame(1)) << " "
           << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
-          << " " << s.vibratoRate() << " " << s.vibratoDepth() << "\n";
+          << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
+          << s.pitchEnvTime() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << "\n";

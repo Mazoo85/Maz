@@ -763,6 +763,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (vch) {
         syn.setVibrato(vibRate, vibDepth);
     }
+    float peAmt = syn.pitchEnvAmount();
+    float peTime = syn.pitchEnvTime();
+    bool pech = ImGui::SliderFloat("Pitch env", &peAmt, -24.0f, 24.0f, "%.0f st");
+    pech |= ImGui::SliderFloat("Pitch env time", &peTime, 0.001f, 0.5f, "%.3f s");
+    if (pech) {
+        syn.setPitchEnv(peAmt, peTime);
+    }
 
     ImGui::SeparatorText("Filter (resonant low-pass)");
     float cutoff = syn.filterCutoff();

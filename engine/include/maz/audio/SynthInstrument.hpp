@@ -38,6 +38,15 @@ public:
     int unisonVoices() const { return unisonVoices_; }
     float unisonDetune() const { return unisonDetune_; }
 
+    // Pitch envelope: each note starts `amountSemitones` away from its pitch and decays back over
+    // `timeSeconds` — classic for zaps, laser stabs, and pitched-attack drums. amount 0 = off.
+    void setPitchEnv(float amountSemitones, float timeSeconds) {
+        pitchEnvAmt_ = amountSemitones < -48.0f ? -48.0f : (amountSemitones > 48.0f ? 48.0f : amountSemitones);
+        pitchEnvTime_ = timeSeconds < 0.001f ? 0.001f : timeSeconds;
+    }
+    float pitchEnvAmount() const { return pitchEnvAmt_; }
+    float pitchEnvTime() const { return pitchEnvTime_; }
+
     // Vibrato: a pitch LFO at `rateHz` modulating ±`depthCents`. depth 0 = off. Applies to all
     // voices for expressive, wavering pitch.
     void setVibrato(float rateHz, float depthCents) {
@@ -128,6 +137,7 @@ private:
         float noiseLp = 0.0f;       // one-pole state for the noise tone control
         float freq = 0.0f;       // current (possibly gliding) frequency
         float targetFreq = 0.0f; // note's destination frequency
+        float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;
         float env = 0.0f;
         StateVariableFilter filter{};
@@ -144,6 +154,8 @@ private:
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
+    float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off
+    float pitchEnvTime_ = 0.05f; // pitch-envelope decay time (seconds)
     double vibPhase_ = 0.0;     // vibrato LFO phase (shared across voices)
     int unisonVoices_ = 1;      // 1 = off
     float unisonDetune_ = 12.0f; // cents of spread when unison is on
