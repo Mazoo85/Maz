@@ -49,7 +49,7 @@ void Sampler::noteOn(int midi, float velocity) {
     v.active = true;
     v.releasing = false;
     v.midi = midi;
-    v.pos = 0.0;
+    v.pos = reverse_ ? static_cast<double>(sample_.size() - 1) : 0.0;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
 }
@@ -108,16 +108,38 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 v.env = std::min(1.0f, v.env + attackStep);
             }
 
-            const size_t i0 = static_cast<size_t>(v.pos);
+            // Bounds / looping, direction-aware: forward stops (or wraps) at the end, reverse at
+            // the start.
+            const double dlast = static_cast<double>(last);
+            if (!reverse_) {
+                if (v.pos >= dlast) {
+                    if (loop_) {
+                        v.pos -= dlast;
+                    } else {
+                        v.active = false;
+                        break;
+                    }
+                }
+            } else {
+                if (v.pos < 0.0) {
+                    if (loop_) {
+                        v.pos += dlast;
+                    } else {
+                        v.active = false;
+                        break;
+                    }
+                }
+            }
+
+            size_t i0 = static_cast<size_t>(v.pos);
             if (i0 >= last) {
-                v.active = false; // reached the end of the one-shot
-                break;
+                i0 = last - 1; // keep i0+1 in range for interpolation
             }
             const float frac = static_cast<float>(v.pos - static_cast<double>(i0));
             const float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
             out[i] += s * v.env * v.velocity * gain_;
 
-            v.pos += rate;
+            v.pos += reverse_ ? -rate : rate;
         }
     }
 }

@@ -42,7 +42,7 @@ the project, and bounce to WAV.
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator + sub +
   noise + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
   single-cycle table scanned by an envelope-sweepable position) engines; and a **`Sampler`** (WAV
-  playback, pitch-shifted per note).
+  playback, pitch-shifted per note, with **reverse** and **loop** modes).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), **two** `PianoRoll`
   lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
   an **arpeggiator**, and **sidechain** ducking.

@@ -85,6 +85,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());
 
+    f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
+      << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -274,6 +276,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 seq.sampler().load(sp, &se); // best-effort; a missing file just leaves it unloaded
             }
             seq.setUseSampler(use != 0);
+        } else if (tag == "samplercfg") {
+            int rev = 0, loop = 0;
+            ls >> rev >> loop;
+            seq.sampler().setReverse(rev != 0);
+            seq.sampler().setLoop(loop != 0);
         } else if (tag == "chan") {
             int c = -1;
             float vol = 1.0f;

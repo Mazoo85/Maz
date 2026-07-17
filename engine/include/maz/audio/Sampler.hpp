@@ -28,6 +28,14 @@ public:
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
+    // Reverse: play the sample backwards (from the end). Loop: instead of stopping at the end (or
+    // start, when reversed), wrap around and keep sounding until noteOff — turning a one-shot into a
+    // sustained/looped instrument.
+    void setReverse(bool on) { reverse_ = on; }
+    bool reverse() const { return reverse_; }
+    void setLoop(bool on) { loop_ = on; }
+    bool loop() const { return loop_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
@@ -50,6 +58,8 @@ private:
     int sampleSr_ = 48000;
     int basePitch_ = 60;
     float gain_ = 0.9f;
+    bool reverse_ = false;
+    bool loop_ = false;
     std::string path_;
     std::array<Voice, kMaxVoices> voices_{};
 };

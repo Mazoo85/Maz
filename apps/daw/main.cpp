@@ -623,6 +623,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     ImGui::Text("loaded: %s",
                 seq.sampler().loaded() ? seq.sampler().path().c_str() : "(none)");
+    bool rev = seq.sampler().reverse();
+    if (ImGui::Checkbox("Reverse", &rev)) seq.sampler().setReverse(rev);
+    ImGui::SameLine();
+    bool lp = seq.sampler().loop();
+    if (ImGui::Checkbox("Loop", &lp)) seq.sampler().setLoop(lp);
     static char pathBuf[256] = "";
     ImGui::SetNextItemWidth(200.0f);
     ImGui::InputText("wav path", pathBuf, sizeof(pathBuf));

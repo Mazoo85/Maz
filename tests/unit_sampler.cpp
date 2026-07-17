@@ -95,6 +95,51 @@ int main() {
     sampler3.noteOn(57, 1.0f);
     check(estimateHz(renderMono(sampler3, sr / 5, sr), sr) > 100.0, "injected sample plays");
 
+    // Reverse playback: a ramp sample read backwards starts near the end value and descends.
+    {
+        std::vector<float> ramp(1000);
+        for (int i = 0; i < 1000; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / 1000.0f; // 0 → ~1
+        }
+        audio::Sampler fwd;
+        fwd.setSampleMono(ramp, sr);
+        fwd.setBasePitch(60);
+        fwd.noteOn(60, 1.0f); // play at base pitch → 1 sample/frame
+        const std::vector<float> f = renderMono(fwd, 200, sr);
+
+        audio::Sampler rev;
+        rev.setSampleMono(ramp, sr);
+        rev.setBasePitch(60);
+        rev.setReverse(true);
+        rev.noteOn(60, 1.0f);
+        const std::vector<float> r = renderMono(rev, 200, sr);
+        // Forward starts low (near 0); reverse starts high (near 1, the end of the ramp).
+        check(r[100] > f[100] + 0.5f, "reverse playback reads the sample backwards (starts high)");
+    }
+
+    // Looping: a one-shot that would end still sounds well past its length when looped.
+    {
+        std::vector<float> sh = sine; // ~short sample
+        audio::Sampler once;
+        once.setSampleMono(sh, sr);
+        once.noteOn(57, 1.0f);
+        const int longRender = static_cast<int>(sh.size()) * 3;
+        const std::vector<float> o = renderMono(once, longRender, sr);
+        check(!once.active(), "a non-looped one-shot ends after the sample");
+
+        audio::Sampler looped;
+        looped.setSampleMono(sh, sr);
+        looped.setLoop(true);
+        looped.noteOn(57, 1.0f);
+        const std::vector<float> lp = renderMono(looped, longRender, sr);
+        check(looped.active(), "a looped sample keeps sounding past its length");
+        double secondPassEnergy = 0.0;
+        for (size_t i = sh.size() + 100; i < lp.size(); ++i) {
+            secondPassEnergy += static_cast<double>(lp[i]) * static_cast<double>(lp[i]);
+        }
+        check(secondPassEnergy > 0.0, "looped sample produces sound in the second pass");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");
