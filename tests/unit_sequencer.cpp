@@ -373,6 +373,31 @@ int main() {
     (void)renderMono(arr, 16 * 6000, sampleRate);
     check(arr.currentPattern() == 0, "playlist wraps back to the start");
 
+    // Play-once: with song loop off, the transport stops at the end of the playlist.
+    {
+        audio::Sequencer once;
+        once.setBpm(120.0);
+        once.setPlaylist({0, 1});
+        once.setSongMode(true);
+        once.setSongLoop(false);
+        check(!once.songLoop(), "song loop is settable off");
+        once.play();
+        (void)renderMono(once, 16 * 6000, sampleRate); // bar 1 → entry 1
+        check(once.playing(), "play-once still playing during the arrangement");
+        (void)renderMono(once, 16 * 6000, sampleRate); // bar 2 ends → would wrap → stop
+        check(!once.playing(), "play-once stops at the end of the playlist");
+
+        // With loop on (default), it keeps playing past the end.
+        audio::Sequencer looped;
+        looped.setBpm(120.0);
+        looped.setPlaylist({0, 1});
+        looped.setSongMode(true);
+        looped.play();
+        (void)renderMono(looped, 3 * 16 * 6000, sampleRate); // three bars
+        check(looped.playing(), "a looping song keeps playing past the playlist end");
+        check(looped.songLoop(), "song loop defaults to on");
+    }
+
     // --- Metronome: accented clicks on each beat ------------------------------
     {
         // Empty pattern → silent except for the metronome. At 120 BPM a beat is 0.5 s = 24000

@@ -123,6 +123,10 @@ public:
 
     void setSongMode(bool on) { songMode_ = on; }
     bool songMode() const { return songMode_; }
+    // Whether the playlist loops (default) or plays once and stops at the end — the latter for
+    // bouncing a finite arrangement without a trailing repeat.
+    void setSongLoop(bool on) { songLoop_ = on; }
+    bool songLoop() const { return songLoop_; }
     const std::vector<int>& playlist() const { return playlist_; }
     void setPlaylist(std::vector<int> seq) { playlist_ = std::move(seq); }
     void clearPlaylist() { playlist_.clear(); }
@@ -222,6 +226,7 @@ private:
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode
     bool songMode_ = false;
+    bool songLoop_ = true;
     int playlistPos_ = 0;
 
     std::vector<float> mixScratch_;   // per-block, per-channel drum render

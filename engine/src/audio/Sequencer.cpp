@@ -662,10 +662,26 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 currentStep_ = (currentStep_ + 1) % numSteps_;
                 // At the top of each bar, in song mode, advance to the next playlist pattern.
                 if (currentStep_ == 0 && songMode_ && !playlist_.empty()) {
-                    playlistPos_ = (playlistPos_ + 1) % static_cast<int>(playlist_.size());
-                    selectPattern(playlist_[static_cast<size_t>(playlistPos_)]);
+                    const int next = playlistPos_ + 1;
+                    if (next >= static_cast<int>(playlist_.size())) {
+                        if (songLoop_) {
+                            playlistPos_ = 0;
+                            selectPattern(playlist_[0]);
+                        } else {
+                            // Play-once: stop cleanly at the end of the arrangement.
+                            playing_ = false;
+                            synth_.allNotesOff();
+                            synth2_.allNotesOff();
+                            sampler_.allNotesOff();
+                        }
+                    } else {
+                        playlistPos_ = next;
+                        selectPattern(playlist_[static_cast<size_t>(next)]);
+                    }
                 }
-                triggerStep(currentStep_);
+                if (playing_) {
+                    triggerStep(currentStep_);
+                }
             }
         }
 

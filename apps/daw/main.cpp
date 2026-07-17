@@ -1211,6 +1211,11 @@ void buildArrangementUI(audio::Sequencer& seq) {
     if (ImGui::Checkbox("Song mode (play the playlist)", &song)) {
         seq.setSongMode(song);
     }
+    ImGui::SameLine();
+    bool songLoop = seq.songLoop();
+    if (ImGui::Checkbox("Loop song", &songLoop)) {
+        seq.setSongLoop(songLoop);
+    }
 
     ImGui::Text("Playlist:");
     ImGui::SameLine();

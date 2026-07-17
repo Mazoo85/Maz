@@ -122,7 +122,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
     const int savedCurrent = seq.currentPattern();
     f << "patterns " << seq.patternCount() << "\n";
-    f << "songmode " << (seq.songMode() ? 1 : 0) << "\n";
+    f << "songmode " << (seq.songMode() ? 1 : 0) << " " << (seq.songLoop() ? 1 : 0) << "\n";
     f << "playlist " << seq.playlist().size();
     for (int idx : seq.playlist()) {
         f << " " << idx;
@@ -396,6 +396,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int on = 0;
             ls >> on;
             seq.setSongMode(on != 0);
+            int loop = 1; // song loop optional (older files omit it → loop)
+            if (ls >> loop) {
+                seq.setSongLoop(loop != 0);
+            }
         } else if (tag == "playlist") {
             int count = 0;
             ls >> count;

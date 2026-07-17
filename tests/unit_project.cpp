@@ -86,6 +86,7 @@ int main() {
     seq.selectPattern(0);
     seq.setPlaylist({0, 1, 0});
     seq.setSongMode(true);
+    seq.setSongLoop(false);
 
     mixer.setMasterGain(0.75f);
     mixer.setLimiterCeiling(0.9f);
@@ -189,7 +190,7 @@ int main() {
     check(seq2.patternCount() == 2, "pattern count round-trips");
     check(seq2.patternName(1) == "Chorus Fill", "pattern name round-trips");
     check(seq2.patternName(0) == "Pattern 1", "default pattern name is preserved");
-    check(seq2.songMode(), "song mode round-trips");
+    check(seq2.songMode() && !seq2.songLoop(), "song mode + play-once flag round-trip");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");
