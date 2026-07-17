@@ -118,6 +118,9 @@ int main() {
     mixer.monobass().setCrossover(90.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
+    mixer.ringmod().setEnabled(true);
+    mixer.ringmod().setFreq(440.0f);
+    mixer.ringmod().setMix(0.7f);
     mixer.flanger().setEnabled(true);
     mixer.flanger().setRate(0.4f);
     mixer.flanger().setFeedback(0.6f);
@@ -271,6 +274,9 @@ int main() {
           "mono-bass round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
+    check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
+              near(mixer2.ringmod().mix(), 0.7f),
+          "ring-mod round-trips");
     check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&
               near(mixer2.flanger().feedback(), 0.6f),
           "flanger round-trips");

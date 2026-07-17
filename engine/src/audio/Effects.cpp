@@ -69,6 +69,30 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- RingMod ----------------------------------------------------------------
+
+void RingMod::reset() {
+    phase_ = 0.0;
+}
+
+void RingMod::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double inc = static_cast<double>(freqHz_) / static_cast<double>(sampleRate);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    for (int i = 0; i < frames; ++i) {
+        const float carrier = static_cast<float>(std::sin(phase_ * kTwoPi));
+        stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + stereo[2 * i] * carrier * mix;
+        stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + stereo[2 * i + 1] * carrier * mix;
+        phase_ += inc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- Distortion -------------------------------------------------------------
 
 void Distortion::process(float* stereo, int frames, int sampleRate) {

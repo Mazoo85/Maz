@@ -227,6 +227,42 @@ int main() {
         check(withPre < noPre * 0.2, "pre-delay pushes the reverb tail past the early window");
     }
 
+    // --- Ring modulator: multiplies by an internal carrier ------------------
+    {
+        // A constant (DC) input × a 300 Hz carrier → a pure 300 Hz tone at the output.
+        audio::RingMod rm;
+        rm.setEnabled(true);
+        rm.setFreq(300.0f);
+        rm.setMix(1.0f);
+        std::vector<float> dc(static_cast<size_t>(sr) * 2, 0.5f); // 1 s of DC 0.5, both channels
+        rm.process(dc.data(), sr, sr);
+        // Estimate the output frequency from left-channel rising zero-crossings.
+        int crossings = 0;
+        for (int i = 1; i < sr; ++i) {
+            if (dc[static_cast<size_t>(i - 1) * 2] <= 0.0f && dc[static_cast<size_t>(i) * 2] > 0.0f) {
+                ++crossings;
+            }
+        }
+        check(std::abs(crossings - 300) < 5, "ring-mod of DC yields a tone at the carrier frequency");
+
+        // Mix 0 → transparent.
+        audio::RingMod off;
+        off.setFreq(300.0f);
+        off.setMix(0.0f);
+        off.setEnabled(true);
+        std::vector<float> sig = sineStereo(1000, 220.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "ring-mod at mix 0 is transparent");
+    }
+
     // --- Distortion: adds harmonics to a sine (raises high-frequency content) ------
     {
         audio::Distortion dist;

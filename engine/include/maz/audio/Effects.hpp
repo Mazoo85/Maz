@@ -74,6 +74,26 @@ private:
     int write_ = 0;
 };
 
+// A ring modulator: multiplies the signal by an internal sine carrier at `freq` Hz, producing
+// metallic, inharmonic sidebands (the classic robot/bell timbre). `mix` blends dry/wet.
+class RingMod : public Effect {
+public:
+    RingMod() { enabled_ = false; }
+    const char* name() const override { return "Ring Mod"; }
+    void setFreq(float hz) { freqHz_ = hz < 1.0f ? 1.0f : (hz > 8000.0f ? 8000.0f : hz); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float freq() const { return freqHz_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float freqHz_ = 200.0f;
+    float mix_ = 1.0f;
+    double phase_ = 0.0;
+};
+
 // A waveshaping distortion/overdrive. `drive` sets how hard the signal is pushed into a tanh
 // saturator (more harmonics), `mix` blends dry/wet. Output is level-normalized so drive doesn't
 // just get louder.

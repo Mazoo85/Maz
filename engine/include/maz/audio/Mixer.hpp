@@ -35,6 +35,7 @@ public:
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     TapeSaturation& tape() { return tape_; }
+    RingMod& ringmod() { return ringmod_; }
     Bitcrusher& bitcrusher() { return crush_; }
     Gate& gate() { return gate_; }
     HighPass& highpass() { return hp_; }
@@ -87,6 +88,7 @@ private:
     LowPass eq_{};
     Distortion dist_{};
     TapeSaturation tape_{};
+    RingMod ringmod_{};
     Bitcrusher crush_{};
     Gate gate_{};
     HighPass hp_{};

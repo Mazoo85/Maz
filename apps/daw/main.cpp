@@ -987,6 +987,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("warmth##tape", &warmth, 0.0f, 1.0f, "%.2f")) mx.tape().setWarmth(warmth);
     }
     {
+        bool en = mx.ringmod().enabled();
+        if (ImGui::Checkbox("Ring Mod", &en)) mx.ringmod().setEnabled(en);
+        float freq = mx.ringmod().freq();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("Hz##ring", &freq, 1.0f, 4000.0f, "%.0f")) mx.ringmod().setFreq(freq);
+        float wet = mx.ringmod().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##ring", &wet, 0.0f, 1.0f, "%.2f")) mx.ringmod().setMix(wet);
+    }
+    {
         bool en = mx.bitcrusher().enabled();
         if (ImGui::Checkbox("Bitcrusher", &en)) mx.bitcrusher().setEnabled(en);
         float bits = mx.bitcrusher().bits();

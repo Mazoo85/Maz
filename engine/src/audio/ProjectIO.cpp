@@ -193,6 +193,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
+    f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
+      << mixer.ringmod().mix() << "\n";
 
     // Aux send/return buses: send level + the return effect's params.
     f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
@@ -533,6 +535,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.tape().setDrive(drive);
                 mixer.tape().setWarmth(warmth);
                 mixer.tape().setMix(mix);
+            } else if (which == "ringmod") {
+                float freq = 200.0f, mix = 1.0f;
+                ls >> freq >> mix;
+                mixer.ringmod().setEnabled(en != 0);
+                mixer.ringmod().setFreq(freq);
+                mixer.ringmod().setMix(mix);
             } else if (which == "reverb") {
                 float room = 0.7f, damp = 0.35f, mix = 0.25f;
                 ls >> room >> damp >> mix;
