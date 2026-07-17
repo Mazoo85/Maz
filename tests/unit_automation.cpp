@@ -92,6 +92,33 @@ int main() {
         check(std::fabs(looped.sourceUnipolar(0.5) - 0.5f) < 1e-4f, "looped clip midpoint interpolates");
     }
 
+    // --- Extended targets: delay mix + distortion drive ----------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& dl = autom.lane(audio::AutoTarget::DelayMix);
+        dl.enabled = true;
+        dl.lfo.shape = audio::Waveform::Sine;
+        dl.lfo.rateHz = 1.0f;
+        dl.lo = 0.0f;
+        dl.hi = 0.5f;
+        audio::AutoLane& dd = autom.lane(audio::AutoTarget::DistDrive);
+        dd.enabled = true;
+        dd.lfo.shape = audio::Waveform::Sine;
+        dd.lfo.rateHz = 1.0f;
+        dd.lo = 2.0f;
+        dd.hi = 8.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bounds
+        check(eng.mixer().delay().enabled() && eng.mixer().delay().mix() > 0.45f,
+              "automating delay mix drives (and enables) the delay");
+        check(eng.mixer().distortion().enabled() && eng.mixer().distortion().drive() > 7.5f,
+              "automating distortion drive drives (and enables) the distortion");
+        autom.apply(eng, 0.75); // trough → lo bounds
+        check(eng.mixer().delay().mix() < 0.05f, "delay-mix automation reaches its low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

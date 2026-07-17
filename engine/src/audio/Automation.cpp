@@ -45,6 +45,10 @@ Automation::Automation() {
     lane(AutoTarget::ReverbMix).hi = 0.5f;
     lane(AutoTarget::MasterGain).lo = 0.4f;
     lane(AutoTarget::MasterGain).hi = 1.0f;
+    lane(AutoTarget::DelayMix).lo = 0.0f;
+    lane(AutoTarget::DelayMix).hi = 0.6f;
+    lane(AutoTarget::DistDrive).lo = 1.0f;
+    lane(AutoTarget::DistDrive).hi = 10.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -61,6 +65,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Reverb Mix";
     case AutoTarget::MasterGain:
         return "Master Gain";
+    case AutoTarget::DelayMix:
+        return "Delay Mix";
+    case AutoTarget::DistDrive:
+        return "Distortion Drive";
     case AutoTarget::Count:
         break;
     }
@@ -98,6 +106,14 @@ void Automation::apply(AudioEngine& engine, double timeSeconds) {
             break;
         case AutoTarget::MasterGain:
             engine.mixer().setMasterGain(v);
+            break;
+        case AutoTarget::DelayMix:
+            engine.mixer().delay().setEnabled(true);
+            engine.mixer().delay().setMix(v);
+            break;
+        case AutoTarget::DistDrive:
+            engine.mixer().distortion().setEnabled(true);
+            engine.mixer().distortion().setDrive(v);
             break;
         case AutoTarget::Count:
             break;

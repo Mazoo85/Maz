@@ -52,7 +52,7 @@ the project, and bounce to WAV.
   compressor, chorus, flanger, phaser, delay (with ping-pong), reverb (with pre-delay), mid/side stereo
   widener, auto-pan),
   parallel **aux send/return buses** (reverb + delay), and a master **limiter** with an adjustable ceiling.
-- **Modulation** — automation of filter/FM/reverb/master, synced to the transport, from either an
+- **Modulation** — automation of filter/FM/reverb/master/delay-mix/distortion-drive, synced to the transport, from either an
   **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
   (`.cjc`), WAV **bounce**, **stem export**, **MIDI export + import** (`.mid` in and out), session **recording** (output + SDL
