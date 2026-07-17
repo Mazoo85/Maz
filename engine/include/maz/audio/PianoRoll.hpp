@@ -62,6 +62,12 @@ public:
     // snaps down. Notes already in the scale are untouched. Returns the number of notes moved.
     int snapToScale(int rootPitch, Scale scale);
 
+    // Strum: for every stack of notes that share a start step, stagger their starts so the chord
+    // rolls — ordered low pitch to high, the j-th note is delayed by `stepOffset · j` steps (a
+    // negative offset rolls from the top instead; starts are clamped at 0). The lowest note of each
+    // stack stays put. Returns the number of notes moved.
+    int strum(int stepOffset);
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 

@@ -566,6 +566,28 @@ int main() {
         check(pr.notes()[0].pitch == 72, "B snaps up to C in C-major pentatonic (nearest degree)");
     }
 
+    // --- Strum ---------------------------------------------------------------
+    {
+        // A C-major triad stacked on one step, plus a lone note elsewhere.
+        audio::PianoRoll sr;
+        sr.addChord(4, 2, 60, audio::Chord::Major); // 60, 64, 67 all at step 4
+        sr.addNote(audio::Note{10, 1, 72, 1.0f});   // a single note at step 10 (untouched)
+        const int moved = sr.strum(1);
+        check(moved == 2, "strum staggers all but the lowest note of each stack");
+        // The triad now rolls: C stays at 4, E at 5, G at 6 (low→high).
+        check(sr.hasNote(60, 4) && sr.hasNote(64, 5) && sr.hasNote(67, 6),
+              "strum rolls the chord low-to-high by the step offset");
+        // The lone note is unaffected (not part of a stack).
+        check(sr.hasNote(72, 10), "strum leaves single notes in place");
+
+        // A negative offset rolls from the top and clamps starts at 0.
+        audio::PianoRoll dn;
+        dn.addChord(0, 1, 60, audio::Chord::Major); // 60, 64, 67 at step 0
+        dn.strum(-1);
+        check(dn.hasNote(60, 0) && dn.hasNote(64, 0) && dn.hasNote(67, 0),
+              "a negative strum clamps note starts at 0");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

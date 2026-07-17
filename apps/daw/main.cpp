@@ -605,6 +605,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Snap to scale")) {
         roll.snapToScale(scaleRoot, static_cast<audio::Scale>(scaleType));
     }
+    ImGui::SameLine();
+    static int strumStep = 1;
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("##strumstep", &strumStep);
+    ImGui::SameLine();
+    if (ImGui::Button("Strum")) {
+        roll.strum(strumStep);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

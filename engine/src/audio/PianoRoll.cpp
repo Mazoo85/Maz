@@ -1,5 +1,7 @@
 #include "maz/audio/PianoRoll.hpp"
 
+#include <algorithm>
+
 namespace maz::audio {
 
 bool PianoRoll::hasNote(int pitch, int step) const {
@@ -158,6 +160,48 @@ int PianoRoll::snapToScale(int rootPitch, Scale scale) {
                 ++moved;
                 break;
             }
+        }
+    }
+    return moved;
+}
+
+int PianoRoll::strum(int stepOffset) {
+    if (stepOffset == 0 || notes_.empty()) {
+        return 0;
+    }
+    // Snapshot each note's original start so grouping is unaffected by the shifts we apply.
+    std::vector<int> orig(notes_.size());
+    for (size_t i = 0; i < notes_.size(); ++i) {
+        orig[i] = notes_[i].startStep;
+    }
+    // The distinct original start steps (each stack is processed once).
+    std::vector<int> starts;
+    for (int s : orig) {
+        if (std::find(starts.begin(), starts.end(), s) == starts.end()) {
+            starts.push_back(s);
+        }
+    }
+    int moved = 0;
+    for (int s : starts) {
+        std::vector<size_t> idx;
+        for (size_t i = 0; i < notes_.size(); ++i) {
+            if (orig[i] == s) {
+                idx.push_back(i);
+            }
+        }
+        if (idx.size() < 2) {
+            continue; // a single note is not a chord to roll
+        }
+        // Order the stack low → high, then delay each successive note a little more.
+        std::sort(idx.begin(), idx.end(),
+                  [&](size_t a, size_t b) { return notes_[a].pitch < notes_[b].pitch; });
+        for (size_t j = 1; j < idx.size(); ++j) {
+            int ns = s + stepOffset * static_cast<int>(j);
+            if (ns < 0) {
+                ns = 0;
+            }
+            notes_[idx[j]].startStep = ns;
+            ++moved;
         }
     }
     return moved;
