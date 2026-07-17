@@ -1037,6 +1037,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("dB##gate", &thr, -80.0f, 0.0f, "%.0f")) mx.gate().setThresholdDb(thr);
+        float hold = mx.gate().holdMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("hold##gate", &hold, 0.0f, 500.0f, "%.0f ms")) mx.gate().setHoldMs(hold);
     }
     {
         bool en = mx.compressor().enabled();

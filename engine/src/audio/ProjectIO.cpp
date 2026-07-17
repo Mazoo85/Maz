@@ -194,7 +194,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
       << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
-      << " " << mixer.gate().releaseMs() << "\n";
+      << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << "\n";
     f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width()
       << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
@@ -526,6 +526,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.gate().setRangeDb(range);
                 mixer.gate().setAttackMs(atk);
                 mixer.gate().setReleaseMs(rel);
+                float hold = 0.0f; // hold optional (older files omit it)
+                if (ls >> hold) {
+                    mixer.gate().setHoldMs(hold);
+                }
             } else if (which == "width") {
                 float w = 1.0f;
                 ls >> w;

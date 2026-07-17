@@ -522,6 +522,7 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
 void Gate::reset() {
     env_ = 0.0f;
     gain_ = 1.0f;
+    holdCounter_ = 0;
 }
 
 void Gate::process(float* stereo, int frames, int sampleRate) {
@@ -535,6 +536,7 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
     const float closeCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
     const float ratio = std::max(ratio_, 1.0f);
     const float floorLin = dbToLin(rangeDb_);
+    const int holdSamples = static_cast<int>(holdMs_ * 0.001f * sr);
 
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
@@ -545,9 +547,13 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
         env_ = detCoef * env_ + (1.0f - detCoef) * peak;
         const float envDb = linToDb(env_);
 
-        // Below threshold → downward expansion toward the floor; above → unity.
+        // Above threshold → unity + re-arm the hold; below → hold open, then expand to the floor.
         float target = 1.0f;
-        if (envDb < thresholdDb_) {
+        if (envDb >= thresholdDb_) {
+            holdCounter_ = holdSamples;
+        } else if (holdCounter_ > 0) {
+            --holdCounter_; // still within the hold window: keep the gate open
+        } else {
             const float reductionDb = (thresholdDb_ - envDb) * (ratio - 1.0f);
             target = dbToLin(-reductionDb);
             if (target < floorLin) {

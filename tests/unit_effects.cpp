@@ -810,6 +810,36 @@ int main() {
             }
         }
         check(same, "a disabled gate is transparent");
+
+        // Hold: after a loud burst drops to a quiet tail, hold keeps the gate open longer.
+        auto tailLevel = [&](float holdMs) {
+            audio::Gate g;
+            g.setEnabled(true);
+            g.setThresholdDb(-24.0f);
+            g.setRatio(6.0f);
+            g.setAttackMs(1.0f);
+            g.setReleaseMs(10.0f);
+            g.setHoldMs(holdMs);
+            // 0.1 s loud (0.6, above threshold) then a quiet tail (0.03, below threshold).
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            for (int i = 0; i < sr; ++i) {
+                const double t = static_cast<double>(i) / sr;
+                const float amp = i < sr / 10 ? 0.6f : 0.03f;
+                const float v = amp * static_cast<float>(std::sin(2.0 * 3.14159265 * 220.0 * t));
+                b[static_cast<size_t>(i) * 2] = v;
+                b[static_cast<size_t>(i) * 2 + 1] = v;
+            }
+            g.process(b.data(), sr, sr);
+            // Level in the tail window ~50–120 ms after the drop (frames 7000–10000).
+            double e = 0.0;
+            for (int i = 7000; i < 10000; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(b[static_cast<size_t>(i) * 2]);
+            }
+            return e;
+        };
+        check(tailLevel(150.0f) > tailLevel(0.0f) * 3.0,
+              "gate hold keeps a quiet tail open after a loud burst");
     }
 
     // --- MixerTrack: per-bus insert strip -----------------------------------

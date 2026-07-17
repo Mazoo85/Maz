@@ -48,7 +48,7 @@ the project, and bounce to WAV.
   an **arpeggiator** (up/down/up-down, 1–4 octave range), a **global transpose**, a **metronome** with **count-in**, and **sidechain** ducking.
 - **Mixing** — per-channel volume/mute/solo/**pan**, **pan for the lead & bass buses**, true **stereo**, **per-bus insert strips**
   (drums / lead / bass, each with its own EQ + distortion + compressor + gain/mute), a master effect
-  chain (parametric EQ, tilt EQ, low-pass, high-pass, distortion with selectable curves (soft/hard/fold/sine), tape saturation, ring modulator, bitcrusher, noise gate,
+  chain (parametric EQ, tilt EQ, low-pass, high-pass, distortion with selectable curves (soft/hard/fold/sine), tape saturation, ring modulator, bitcrusher, noise gate (with hold),
   compressor (soft-knee), chorus, flanger, phaser, delay (with ping-pong + damping), reverb (with pre-delay + width), mid/side stereo
   widener, mono-bass maker, auto-pan),
   parallel **aux send/return buses** (reverb + delay), and a master **limiter** with an adjustable ceiling.

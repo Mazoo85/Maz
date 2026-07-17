@@ -131,6 +131,7 @@ int main() {
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
     mixer.gate().setRangeDb(-55.0f);
+    mixer.gate().setHoldMs(50.0f);
     mixer.widener().setEnabled(true);
     mixer.widener().setWidth(1.6f);
     mixer.tape().setEnabled(true);
@@ -288,8 +289,9 @@ int main() {
               near(mixer2.flanger().feedback(), 0.6f),
           "flanger round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
-              near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
-          "gate round-trips");
+              near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&
+              near(mixer2.gate().holdMs(), 50.0f),
+          "gate round-trips (incl. hold)");
     check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f),
           "stereo widener round-trips");
     check(mixer2.tape().enabled() && near(mixer2.tape().drive(), 4.5f) &&

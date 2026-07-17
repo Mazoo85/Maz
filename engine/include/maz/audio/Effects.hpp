@@ -340,11 +340,15 @@ public:
     void setRangeDb(float db) { rangeDb_ = db; }
     void setAttackMs(float ms) { attackMs_ = ms; }
     void setReleaseMs(float ms) { releaseMs_ = ms; }
+    // Hold time (ms): once opened, keep the gate open at least this long after the signal drops
+    // below the threshold — prevents chatter and stops short tails from being clipped.
+    void setHoldMs(float ms) { holdMs_ = ms < 0.0f ? 0.0f : (ms > 2000.0f ? 2000.0f : ms); }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float rangeDb() const { return rangeDb_; }
     float attackMs() const { return attackMs_; }
     float releaseMs() const { return releaseMs_; }
+    float holdMs() const { return holdMs_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -355,6 +359,8 @@ private:
     float rangeDb_ = -60.0f; // maximum attenuation floor
     float attackMs_ = 2.0f;
     float releaseMs_ = 80.0f;
+    float holdMs_ = 0.0f;
+    int holdCounter_ = 0; // samples remaining that the gate is held open
     float env_ = 0.0f;   // peak-envelope follower
     float gain_ = 1.0f;  // smoothed gate gain
 };
