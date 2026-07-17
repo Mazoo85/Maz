@@ -588,6 +588,30 @@ int main() {
               "a negative strum clamps note starts at 0");
     }
 
+    // --- Legato --------------------------------------------------------------
+    {
+        audio::PianoRoll lr;
+        lr.addNote(audio::Note{0, 1, 60, 1.0f}); // → next start 4 → len 4
+        lr.addNote(audio::Note{4, 1, 62, 1.0f}); // → next start 8 → len 4
+        lr.addNote(audio::Note{8, 2, 64, 1.0f}); // last note → unchanged (len 2)
+        const int changed = lr.legato();
+        check(changed == 2, "legato extends every note that has a successor");
+        check(lr.notes()[0].lengthSteps == 4 && lr.notes()[1].lengthSteps == 4,
+              "legato stretches each note up to the next note's start");
+        check(lr.notes()[2].lengthSteps == 2, "the final note keeps its length");
+
+        // A chord: both notes on a stack extend to the next distinct start.
+        audio::PianoRoll cr;
+        cr.addChord(0, 1, 60, audio::Chord::Major); // 60, 64, 67 at step 0
+        cr.addNote(audio::Note{6, 1, 72, 1.0f});    // next start 6
+        cr.legato();
+        for (const audio::Note& n : cr.notes()) {
+            if (n.startStep == 0) {
+                check(n.lengthSteps == 6, "every note of a chord stretches to the next start");
+            }
+        }
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

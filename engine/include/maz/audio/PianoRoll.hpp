@@ -68,6 +68,11 @@ public:
     // stack stays put. Returns the number of notes moved.
     int strum(int stepOffset);
 
+    // Legato: extend every note so it lasts right up to the next note's start (the nearest start step
+    // greater than its own), gluing the line together with no gaps. Notes with nothing after them
+    // keep their length. Returns the number of notes whose length changed.
+    int legato();
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 

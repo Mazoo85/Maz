@@ -618,6 +618,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Strum")) {
         roll.strum(strumStep);
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Legato")) {
+        roll.legato();
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

@@ -207,6 +207,28 @@ int PianoRoll::strum(int stepOffset) {
     return moved;
 }
 
+int PianoRoll::legato() {
+    int changed = 0;
+    for (Note& n : notes_) {
+        // The nearest start step strictly after this note's start.
+        int nextStart = -1;
+        for (const Note& other : notes_) {
+            if (other.startStep > n.startStep && (nextStart < 0 || other.startStep < nextStart)) {
+                nextStart = other.startStep;
+            }
+        }
+        if (nextStart < 0) {
+            continue; // nothing follows → leave the last note(s) as they are
+        }
+        const int newLen = nextStart - n.startStep; // ≥ 1 since nextStart > startStep
+        if (newLen != n.lengthSteps) {
+            n.lengthSteps = newLen;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {
