@@ -813,6 +813,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##rev", &wet, 0.0f, 1.0f, "%.2f")) mx.reverb().setMix(wet);
     }
 
+    ImGui::SeparatorText("Send / Return Buses");
+    {
+        float rSend = mx.reverbSend();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Reverb send", &rSend, 0.0f, 1.0f, "%.2f")) mx.setReverbSend(rSend);
+        float rRoom = mx.reverbReturn().roomSize();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("room##rsend", &rRoom, 0.0f, 1.0f, "%.2f"))
+            mx.reverbReturn().setRoomSize(rRoom);
+
+        float dSend = mx.delaySend();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Delay send", &dSend, 0.0f, 1.0f, "%.2f")) mx.setDelaySend(dSend);
+        float dTime = mx.delayReturn().time();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("ms##dsend", &dTime, 10.0f, 1000.0f, "%.0f"))
+            mx.delayReturn().setTime(dTime);
+    }
+
     ImGui::End();
 }
 

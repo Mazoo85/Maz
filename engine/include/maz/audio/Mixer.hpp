@@ -34,6 +34,17 @@ public:
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
 
+    // Aux send/return buses (FL-style parallel routing). Unlike the inline inserts above, a send
+    // taps a scaled copy of the signal into a dedicated return effect (processed 100% wet) and sums
+    // it back — so reverb/delay can sit on a shared parallel bus. Send level 0 → the bus is silent
+    // (transparent). These are separate from, and additive to, the inline reverb_/delay_ inserts.
+    Reverb& reverbReturn() { return reverbReturn_; }
+    float reverbSend() const { return reverbSend_; }
+    void setReverbSend(float s) { reverbSend_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    Delay& delayReturn() { return delayReturn_; }
+    float delaySend() const { return delaySend_; }
+    void setDelaySend(float s) { delaySend_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+
     // Generic iteration over the chain (for a mixer strip that lists every effect).
     int effectCount() const { return static_cast<int>(chain_.size()); }
     Effect& effect(int i) { return *chain_[static_cast<size_t>(i)]; }
@@ -57,6 +68,13 @@ private:
     PluginHost plugin_{};
     ClapHost clap_{};
     std::vector<Effect*> chain_; // processing order; points at the members above
+
+    // Parallel send/return buses.
+    Reverb reverbReturn_{};
+    float reverbSend_ = 0.0f;
+    Delay delayReturn_{};
+    float delaySend_ = 0.0f;
+    std::vector<float> sendScratch_; // scratch for the send-tapped copy
 };
 
 } // namespace maz::audio

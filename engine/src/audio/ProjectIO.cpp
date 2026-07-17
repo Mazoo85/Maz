@@ -146,6 +146,12 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
 
+    // Aux send/return buses: send level + the return effect's params.
+    f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
+      << mixer.reverbReturn().damping() << "\n";
+    f << "send delay " << mixer.delaySend() << " " << mixer.delayReturn().time() << " "
+      << mixer.delayReturn().feedback() << "\n";
+
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
 
     for (int i = 0; i < Automation::count(); ++i) {
@@ -377,6 +383,22 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.peq().setLowGain(lowDb);
                 mixer.peq().setMid(midF, midQ, midDb);
                 mixer.peq().setHighGain(highDb);
+            }
+        } else if (tag == "send") {
+            std::string which;
+            ls >> which;
+            if (which == "reverb") {
+                float lvl = 0.0f, room = 0.7f, damp = 0.35f;
+                ls >> lvl >> room >> damp;
+                mixer.setReverbSend(lvl);
+                mixer.reverbReturn().setRoomSize(room);
+                mixer.reverbReturn().setDamping(damp);
+            } else if (which == "delay") {
+                float lvl = 0.0f, t = 300.0f, fb = 0.35f;
+                ls >> lvl >> t >> fb;
+                mixer.setDelaySend(lvl);
+                mixer.delayReturn().setTime(t);
+                mixer.delayReturn().setFeedback(fb);
             }
         } else if (tag == "plugin") {
             int en = 0;

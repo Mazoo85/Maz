@@ -226,6 +226,37 @@ int main() {
         check(halved, "master gain scales the bus and effects are transparent when disabled");
     }
 
+    // --- Aux send/return buses: parallel reverb send ------------------------
+    {
+        // A single stereo impulse.
+        std::vector<float> impulse(2000 * 2, 0.0f);
+        impulse[0] = 1.0f;
+        impulse[1] = 1.0f;
+        auto tailEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 400 * 2; i < b.size(); ++i) {
+                e += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return e;
+        };
+
+        // Send at 0 → the return bus is silent, so no tail past the impulse.
+        audio::Mixer mixer;
+        mixer.setMasterGain(1.0f);
+        std::vector<float> a = impulse;
+        mixer.process(a.data(), 2000, sr);
+        check(tailEnergy(a) < 1e-6, "reverb send at 0 adds no tail (transparent)");
+
+        // Send > 0 → a reverb tail appears after the impulse on the parallel return.
+        audio::Mixer wet;
+        wet.setMasterGain(1.0f);
+        wet.reverbReturn().setRoomSize(0.85f);
+        wet.setReverbSend(0.9f);
+        std::vector<float> b = impulse;
+        wet.process(b.data(), 2000, sr);
+        check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

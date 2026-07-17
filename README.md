@@ -46,9 +46,9 @@ the project, and bounce to WAV.
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), **two** `PianoRoll`
   lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
   an **arpeggiator**, and **sidechain** ducking.
-- **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, and a master effect chain
-  (parametric EQ, low-pass, distortion, bitcrusher, compressor, chorus, phaser, delay, reverb) plus
-  a master **limiter**.
+- **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, a master effect chain
+  (parametric EQ, low-pass, distortion, bitcrusher, compressor, chorus, phaser, delay, reverb),
+  parallel **aux send/return buses** (reverb + delay), and a master **limiter**.
 - **Modulation** — automation of filter/FM/reverb/master, synced to the transport, from either an
   **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**

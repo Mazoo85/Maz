@@ -81,6 +81,11 @@ int main() {
     mixer.reverb().setEnabled(true);
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
+    // Aux send/return buses.
+    mixer.setReverbSend(0.45f);
+    mixer.reverbReturn().setRoomSize(0.6f);
+    mixer.setDelaySend(0.3f);
+    mixer.delayReturn().setTime(180.0f);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -162,6 +167,9 @@ int main() {
     check(mixer2.delay().enabled() && near(mixer2.delay().time(), 250.0f) &&
               near(mixer2.delay().mix(), 0.4f),
           "delay round-trips");
+    check(near(mixer2.reverbSend(), 0.45f) && near(mixer2.reverbReturn().roomSize(), 0.6f) &&
+              near(mixer2.delaySend(), 0.3f) && near(mixer2.delayReturn().time(), 180.0f),
+          "aux send/return buses round-trip");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");

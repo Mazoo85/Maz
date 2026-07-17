@@ -35,6 +35,13 @@ Mixer::Mixer() {
     // Signal order: EQ → tone → drive → crush → dynamics → modulation → time effects → plugins.
     chain_ = {&peq_,    &eq_,     &dist_,  &crush_,   &comp_,
               &chorus_, &phaser_, &delay_, &reverb_,  &plugin_, &clap_};
+
+    // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
+    // much signal reaches them, so a fresh mixer stays transparent.
+    reverbReturn_.setEnabled(true);
+    reverbReturn_.setMix(1.0f);
+    delayReturn_.setEnabled(true);
+    delayReturn_.setMix(1.0f);
 }
 
 void Mixer::process(float* stereo, int frames, int sampleRate) {
@@ -45,6 +52,25 @@ void Mixer::process(float* stereo, int frames, int sampleRate) {
         fx->process(stereo, frames, sampleRate); // each no-ops when disabled
     }
     const int n = frames * 2;
+
+    // Parallel send/return buses: tap a scaled copy of the post-insert signal into each return's
+    // wet-only effect, then sum it back. Skipped entirely when the send level is 0.
+    auto runSend = [&](Effect& ret, float send) {
+        if (send <= 0.0f) {
+            return;
+        }
+        sendScratch_.assign(static_cast<size_t>(n), 0.0f);
+        for (int i = 0; i < n; ++i) {
+            sendScratch_[static_cast<size_t>(i)] = stereo[i] * send;
+        }
+        ret.process(sendScratch_.data(), frames, sampleRate);
+        for (int i = 0; i < n; ++i) {
+            stereo[i] += sendScratch_[static_cast<size_t>(i)];
+        }
+    };
+    runSend(reverbReturn_, reverbSend_);
+    runSend(delayReturn_, delaySend_);
+
     for (int i = 0; i < n; ++i) {
         stereo[i] = limit(stereo[i] * masterGain_);
     }
@@ -54,6 +80,8 @@ void Mixer::reset() {
     for (Effect* fx : chain_) {
         fx->reset();
     }
+    reverbReturn_.reset();
+    delayReturn_.reset();
 }
 
 } // namespace maz::audio
