@@ -100,6 +100,12 @@ void Sequencer::setSidechain(bool on, float amount, float releaseMs) {
     scReleaseMs_ = std::max(releaseMs, 1.0f);
 }
 
+void Sequencer::setArp(bool on, int mode) {
+    arpOn_ = on;
+    arpMode_ = (mode < 0 || mode > 2) ? 0 : mode;
+    arpCounter_ = 0;
+}
+
 double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
     const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
@@ -168,11 +174,54 @@ void Sequencer::triggerStep(int step) {
     if (sidechainOn_ && this->step(0, step)) {
         scEnv_ = 1.0f - scAmount_;
     }
+    const bool toSampler = useSampler_ && sampler_.loaded();
+    const PianoRoll& roll = patterns_[static_cast<size_t>(current_)].roll;
+
+    // Arpeggiator: instead of playing the roll notes directly, play one note per step from the set
+    // of pitches held at this step, cycling through them per the mode.
+    if (arpOn_) {
+        std::vector<int> held;
+        for (const Note& n : roll.notes()) {
+            if (step >= n.startStep && step < n.startStep + n.lengthSteps) {
+                held.push_back(n.pitch);
+            }
+        }
+        if (arpCurrentPitch_ >= 0) {
+            if (toSampler) {
+                sampler_.noteOff(arpCurrentPitch_);
+            } else {
+                synth_.noteOff(arpCurrentPitch_);
+            }
+            arpCurrentPitch_ = -1;
+        }
+        if (!held.empty()) {
+            std::sort(held.begin(), held.end());
+            const int n = static_cast<int>(held.size());
+            int index = 0;
+            if (arpMode_ == 1) { // down
+                index = (n - 1) - (arpCounter_ % n);
+            } else if (arpMode_ == 2 && n > 1) { // up-down
+                const int period = 2 * n - 2;
+                const int pos = arpCounter_ % period;
+                index = pos < n ? pos : period - pos;
+            } else { // up
+                index = arpCounter_ % n;
+            }
+            const int pitch = held[static_cast<size_t>(index)];
+            if (toSampler) {
+                sampler_.noteOn(pitch, 0.9f);
+            } else {
+                synth_.noteOn(pitch, 0.9f);
+            }
+            arpCurrentPitch_ = pitch;
+            ++arpCounter_;
+        }
+        return; // arp replaces the normal note scheduling below
+    }
+
     // Melody: note-offs first (so a note ending where another begins doesn't cut the new one),
     // then note-ons for notes starting on this step. Note ends wrap within the bar. The piano roll
     // drives the sampler when it's engaged (and loaded), otherwise the synth.
-    const bool toSampler = useSampler_ && sampler_.loaded();
-    const PianoRoll& roll = patterns_[static_cast<size_t>(current_)].roll;
     for (const Note& n : roll.notes()) {
         const int endStep = (n.startStep + n.lengthSteps) % numSteps_;
         if (endStep == step) {
@@ -199,6 +248,8 @@ void Sequencer::play() {
     currentStep_ = 0;
     samplesIntoStep_ = 0.0;
     playlistPos_ = 0;
+    arpCounter_ = 0;
+    arpCurrentPitch_ = -1;
     if (songMode_ && !playlist_.empty()) {
         selectPattern(playlist_[0]); // start the arrangement at the first playlist entry
     }

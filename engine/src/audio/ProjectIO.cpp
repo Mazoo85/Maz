@@ -37,6 +37,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
       << seq.sidechainReleaseMs() << "\n";
+    f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
 
     const SynthInstrument& syn = seq.synth();
@@ -153,6 +154,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float amount = 0.7f, rel = 200.0f;
             ls >> on >> amount >> rel;
             seq.setSidechain(on != 0, amount, rel);
+        } else if (tag == "arp") {
+            int on = 0, mode = 0;
+            ls >> on >> mode;
+            seq.setArp(on != 0, mode);
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;

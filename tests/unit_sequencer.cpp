@@ -240,6 +240,36 @@ int main() {
               "center pan is balanced L/R");
     }
 
+    // --- Arpeggiator ---------------------------------------------------------
+    {
+        // A held C-major triad (C E G, MIDI 60/64/67) across the bar, arp mode "up", should cycle
+        // 60 → 64 → 67 → 60 … one pitch per step.
+        audio::Sequencer arp;
+        arp.setBpm(120.0);
+        arp.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        arp.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        arp.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        arp.setArp(true, 0); // up
+        arp.play();          // strikes step 0
+        check(arp.arpCurrentPitch() == 60, "arp step 0 plays the lowest held note");
+        (void)renderMono(arp, 6000, sampleRate);
+        check(arp.arpCurrentPitch() == 64, "arp advances up to the 2nd note");
+        (void)renderMono(arp, 6000, sampleRate);
+        check(arp.arpCurrentPitch() == 67, "arp advances up to the 3rd note");
+        (void)renderMono(arp, 6000, sampleRate);
+        check(arp.arpCurrentPitch() == 60, "arp wraps back to the lowest note");
+
+        // Down mode reverses the order from the top.
+        audio::Sequencer down;
+        down.setBpm(120.0);
+        down.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        down.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        down.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        down.setArp(true, 1);
+        down.play();
+        check(down.arpCurrentPitch() == 67, "arp-down starts from the highest note");
+    }
+
     // --- Sidechain ducking ---------------------------------------------------
     {
         // A kick on step 0 (muted so only the ducking is heard) ducks a sustained synth note; the

@@ -424,6 +424,19 @@ void buildSynthUI(audio::Sequencer& seq) {
     audio::SynthInstrument& syn = seq.synth();
     ImGui::Begin("CJC Music Station — Synth");
 
+    // Arpeggiator (drives the piano roll).
+    bool arp = seq.arpOn();
+    int arpMode = seq.arpMode();
+    bool arpCh = ImGui::Checkbox("Arpeggiator", &arp);
+    ImGui::SameLine();
+    const char* arpModes[] = {"Up", "Down", "Up-Down"};
+    ImGui::SetNextItemWidth(120.0f);
+    arpCh |= ImGui::Combo("##arpmode", &arpMode, arpModes, 3);
+    if (arpCh) {
+        seq.setArp(arp, arpMode);
+    }
+    ImGui::Separator();
+
     int mode = static_cast<int>(syn.mode());
     const char* modes[] = {"Subtractive", "FM"};
     if (ImGui::Combo("Engine", &mode, modes, 2)) {

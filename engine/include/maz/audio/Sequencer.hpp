@@ -97,6 +97,14 @@ public:
     void setUseSampler(bool on) { useSampler_ = on; }
     bool useSampler() const { return useSampler_; }
 
+    // Arpeggiator: when on, held piano-roll chords are played one note per step, cycling through the
+    // held pitches. Mode 0 = up, 1 = down, 2 = up-down. `arpCurrentPitch` reflects the last note it
+    // played (-1 if silent) — useful for the UI and tests.
+    void setArp(bool on, int mode);
+    bool arpOn() const { return arpOn_; }
+    int arpMode() const { return arpMode_; }
+    int arpCurrentPitch() const { return arpCurrentPitch_; }
+
     // Bus levels: relative gain of the drum kit vs. the melodic synth before the soft-limited sum.
     void setDrumGain(float g) { drumGain_ = g; }
     void setSynthGain(float g) { synthGain_ = g; }
@@ -143,6 +151,10 @@ private:
     SynthInstrument synth_{}; // melodic instrument playing the piano roll
     Sampler sampler_{};       // alternative melodic instrument (sample playback)
     bool useSampler_ = false;
+    bool arpOn_ = false;
+    int arpMode_ = 0;
+    int arpCounter_ = 0;
+    int arpCurrentPitch_ = -1;
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
 
