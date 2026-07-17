@@ -98,7 +98,8 @@ void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
         seq.synth().setMode(audio::SynthMode::Subtractive);
         seq.synth().setWaveform(audio::Waveform::Saw);
         seq.synth().setEnvelope(0.005f, 0.09f, 0.55f, 0.14f);
-        seq.synth().setFilter(1200.0f, 5.0f, 3500.0f); // resonant sweep for a classic pluck
+        seq.synth().setFilter(1200.0f, 5.0f, 3500.0f);       // resonant sweep for a classic pluck
+        seq.synth().setOscillators(18.0f, 0.7f, 0.4f, 0.0f); // detuned + sub for a fat lead
     }
     const int pitches[] = {60, 64, 67, 72, 71, 67, 64, 60}; // C E G C  B G E C
     for (int i = 0; i < 8; ++i) {
