@@ -47,6 +47,13 @@ public:
     void setSwing(float s);
     float swing() const { return swing_; }
 
+    // Sidechain ducking: when the kick (channel 0) fires, the melodic bus is ducked and recovers
+    // over `releaseMs` — the classic pumping effect. `amount` 0..1 is the depth.
+    void setSidechain(bool on, float amount, float releaseMs);
+    bool sidechainOn() const { return sidechainOn_; }
+    float sidechainAmount() const { return scAmount_; }
+    float sidechainReleaseMs() const { return scReleaseMs_; }
+
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
     int numChannels() const { return static_cast<int>(channels_.size()); }
@@ -139,6 +146,10 @@ private:
     int stepsPerBeat_ = 4;
     double bpm_ = 120.0;
     float swing_ = 0.0f;
+    bool sidechainOn_ = false;
+    float scAmount_ = 0.7f;
+    float scReleaseMs_ = 200.0f;
+    float scEnv_ = 1.0f; // current ducking gain (1 = open)
 
     bool playing_ = false;
     int currentStep_ = 0;

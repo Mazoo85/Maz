@@ -35,6 +35,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "cjc 1\n";
     f << "bpm " << seq.bpm() << "\n";
     f << "swing " << seq.swing() << "\n";
+    f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
+      << seq.sidechainReleaseMs() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
 
     const SynthInstrument& syn = seq.synth();
@@ -138,6 +140,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float sw = 0.0f;
             ls >> sw;
             seq.setSwing(sw);
+        } else if (tag == "sidechain") {
+            int on = 0;
+            float amount = 0.7f, rel = 200.0f;
+            ls >> on >> amount >> rel;
+            seq.setSidechain(on != 0, amount, rel);
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;

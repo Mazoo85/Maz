@@ -222,6 +222,34 @@ int main() {
               "center pan is balanced L/R");
     }
 
+    // --- Sidechain ducking ---------------------------------------------------
+    {
+        // A kick on step 0 (muted so only the ducking is heard) ducks a sustained synth note; the
+        // synth is quiet right after the kick and recovers over the release.
+        audio::Sequencer sc;
+        sc.setBpm(120.0);
+        sc.setStep(0, 0, true);       // kick step (drives the sidechain)
+        sc.setChannelMute(0, true);   // silence the kick itself
+        sc.roll().addNote(audio::Note{0, 16, 60, 1.0f}); // sustained synth note across the bar
+        sc.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        sc.setSidechain(true, 0.9f, 250.0f);
+        sc.play();
+        const std::vector<float> out = renderMono(sc, 16 * 6000, sampleRate);
+        // Compare the synth level just after the kick vs. later in the bar.
+        auto windowRms = [&](int fromFrame, int toFrame) {
+            double s = 0.0;
+            for (int i = fromFrame; i < toFrame; ++i) {
+                const double v = static_cast<double>(out[static_cast<size_t>(i) * 2]);
+                s += v * v;
+            }
+            return std::sqrt(s / static_cast<double>(toFrame - fromFrame));
+        };
+        const double early = windowRms(200, 1500);   // ducked
+        const double late = windowRms(20000, 25000);  // recovered
+        check(early < late * 0.7, "sidechain ducks the synth right after the kick");
+        check(late > 0.0, "synth recovers after the duck");
+    }
+
     // --- Arrangement: patterns + playlist -----------------------------------
     audio::Sequencer arr;
     check(arr.patternCount() == 1, "starts with one pattern");

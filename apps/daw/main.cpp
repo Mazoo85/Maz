@@ -144,6 +144,7 @@ void applyDemoMixer(audio::AudioEngine& engine) {
     mx.reverb().setEnabled(true);
     mx.reverb().setRoomSize(0.6f);
     mx.reverb().setMix(0.18f);
+    engine.sequencer().setSidechain(true, 0.55f, 180.0f); // subtle pump on the melodic bus
 }
 
 // A demo automation: a slow triangle LFO sweeping the master low-pass cutoff — a classic filter
@@ -524,6 +525,21 @@ void buildMixerUI(audio::AudioEngine& engine) {
     float synth = seq.synthGain();
     if (ImGui::SliderFloat("Synth", &synth, 0.0f, 2.0f, "%.2f")) {
         seq.setSynthGain(synth);
+    }
+
+    // Sidechain (kick ducks the synth bus).
+    bool sc = seq.sidechainOn();
+    float scAmt = seq.sidechainAmount();
+    float scRel = seq.sidechainReleaseMs();
+    bool scChanged = ImGui::Checkbox("Sidechain", &sc);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    scChanged |= ImGui::SliderFloat("amt##sc", &scAmt, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.0f);
+    scChanged |= ImGui::SliderFloat("rel ms##sc", &scRel, 20.0f, 500.0f, "%.0f");
+    if (scChanged) {
+        seq.setSidechain(sc, scAmt, scRel);
     }
 
     ImGui::SeparatorText("Master FX");

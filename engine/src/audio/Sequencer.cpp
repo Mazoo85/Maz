@@ -94,6 +94,12 @@ void Sequencer::setSwing(float s) {
     swing_ = std::clamp(s, 0.0f, 0.9f);
 }
 
+void Sequencer::setSidechain(bool on, float amount, float releaseMs) {
+    sidechainOn_ = on;
+    scAmount_ = std::clamp(amount, 0.0f, 1.0f);
+    scReleaseMs_ = std::max(releaseMs, 1.0f);
+}
+
 double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
     const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
@@ -137,6 +143,10 @@ void Sequencer::triggerStep(int step) {
         if (this->step(c, step)) {
             channels_[static_cast<size_t>(c)].trigger();
         }
+    }
+    // Sidechain: a kick (channel 0) hit ducks the melodic bus.
+    if (sidechainOn_ && this->step(0, step)) {
+        scEnv_ = 1.0f - scAmount_;
     }
     // Melody: note-offs first (so a note ending where another begins doesn't cut the new one),
     // then note-ons for notes starting on this step. Note ends wrap within the bar. The piano roll
@@ -233,10 +243,15 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
         constexpr float kCenter = 0.70710678f; // equal-power center gain
+        const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
         for (int i = 0; i < chunk; ++i) {
-            const float s = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter;
+            const float duck = sidechainOn_ ? scEnv_ : 1.0f;
+            const float s = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter * duck;
             lBuf_[static_cast<size_t>(i)] += s;
             rBuf_[static_cast<size_t>(i)] += s;
+            if (sidechainOn_ && scEnv_ < 1.0f) {
+                scEnv_ = std::min(1.0f, scEnv_ + scStep);
+            }
         }
         for (int i = 0; i < chunk; ++i) {
             out[2 * (done + i)] +=
