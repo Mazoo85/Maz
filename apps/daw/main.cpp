@@ -828,6 +828,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         }
     }
     {
+        bool en = mx.tilt().enabled();
+        if (ImGui::Checkbox("Tilt EQ", &en)) mx.tilt().setEnabled(en);
+        float t = mx.tilt().tilt();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("dark<>bright##tilt", &t, -12.0f, 12.0f, "%.1f dB")) mx.tilt().setTilt(t);
+    }
+    {
         bool en = mx.eq().enabled();
         if (ImGui::Checkbox("Low-Pass EQ", &en)) mx.eq().setEnabled(en);
         float cutoff = mx.eq().cutoff();

@@ -300,6 +300,37 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- Tilt EQ: one knob pivots low vs. high ------------------------------
+    {
+        // Positive tilt brightens: a low tone loses level, a high tone gains it.
+        auto level = [&](double hz, float tiltDb) {
+            audio::TiltEQ t;
+            t.setEnabled(true);
+            t.setTilt(tiltDb);
+            std::vector<float> b = sineStereo(sr, hz, 0.5, sr);
+            const double in = rms(b);
+            t.process(b.data(), sr, sr);
+            return rms(b) / in; // gain ratio
+        };
+        check(level(80.0, 10.0f) < 0.85, "positive tilt cuts the low end");
+        check(level(9000.0, 10.0f) > 1.15, "positive tilt boosts the high end");
+        check(level(80.0, -10.0f) > 1.15, "negative tilt boosts the low end");
+
+        // Disabled → transparent.
+        audio::TiltEQ off;
+        std::vector<float> sig = sineStereo(1000, 500.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled tilt EQ is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

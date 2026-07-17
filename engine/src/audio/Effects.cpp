@@ -187,6 +187,39 @@ void ParametricEQ::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- TiltEQ -----------------------------------------------------------------
+
+void TiltEQ::reset() {
+    lowL_.reset();
+    highL_.reset();
+    lowR_.reset();
+    highR_.reset();
+}
+
+void TiltEQ::recompute(int sampleRate) {
+    // Pivot around ~650 Hz: low shelf and high shelf move by ±tilt/2 in opposite directions.
+    const float half = tilt_ * 0.5f;
+    lowL_.setShelf(650.0f, -half, sampleRate, false);
+    lowR_.setShelf(650.0f, -half, sampleRate, false);
+    highL_.setShelf(650.0f, half, sampleRate, true);
+    highR_.setShelf(650.0f, half, sampleRate, true);
+    sr_ = sampleRate;
+    dirty_ = false;
+}
+
+void TiltEQ::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    if (dirty_ || sr_ != sampleRate) {
+        recompute(sampleRate);
+    }
+    for (int i = 0; i < frames; ++i) {
+        stereo[2 * i] = highL_.process(lowL_.process(stereo[2 * i]));
+        stereo[2 * i + 1] = highR_.process(lowR_.process(stereo[2 * i + 1]));
+    }
+}
+
 // ---- Bitcrusher -------------------------------------------------------------
 
 void Bitcrusher::reset() {

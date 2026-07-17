@@ -152,6 +152,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << "\n";
+    f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
@@ -488,6 +489,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.peq().setLowGain(lowDb);
                 mixer.peq().setMid(midF, midQ, midDb);
                 mixer.peq().setHighGain(highDb);
+            } else if (which == "tilt") {
+                float t = 0.0f;
+                ls >> t;
+                mixer.tilt().setEnabled(en != 0);
+                mixer.tilt().setTilt(t);
             }
         } else if (tag == "send") {
             std::string which;

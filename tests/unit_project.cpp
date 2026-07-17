@@ -93,6 +93,8 @@ int main() {
     mixer.reverb().setPreDelayMs(35.0f);
     mixer.highpass().setEnabled(true);
     mixer.highpass().setCutoff(45.0f);
+    mixer.tilt().setEnabled(true);
+    mixer.tilt().setTilt(-6.0f);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -219,6 +221,7 @@ int main() {
           "per-bus mixer-track insert strips round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
+    check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f), "tilt EQ round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
           "gate round-trips");

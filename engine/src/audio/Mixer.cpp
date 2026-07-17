@@ -22,6 +22,7 @@ float limit(float x) {
 Mixer::Mixer() {
     // Effects off by default: a fresh mixer is transparent until something enables them.
     peq_.setEnabled(false);
+    tilt_.setEnabled(false);
     eq_.setEnabled(false);
     dist_.setEnabled(false);
     tape_.setEnabled(false);
@@ -37,10 +38,10 @@ Mixer::Mixer() {
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
     vst3_.setEnabled(false);
-    // Signal order: gate → high-pass → EQ → tone → drive → tape → crush → dynamics → modulation →
-    // time fx → width → plugins.
-    chain_ = {&gate_,  &hp_,     &peq_,    &eq_,     &dist_,    &tape_,   &crush_,  &comp_,
-              &chorus_, &phaser_, &delay_, &reverb_, &widener_, &plugin_, &clap_,   &vst3_};
+    // Signal order: gate → high-pass → EQ → tilt → tone → drive → tape → crush → dynamics →
+    // modulation → time fx → width → plugins.
+    chain_ = {&gate_, &hp_,     &peq_,    &tilt_,   &eq_,      &dist_,   &tape_,  &crush_,
+              &comp_, &chorus_, &phaser_, &delay_,  &reverb_,  &widener_, &plugin_, &clap_, &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
     // much signal reaches them, so a fresh mixer stays transparent.

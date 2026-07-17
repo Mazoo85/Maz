@@ -176,6 +176,26 @@ private:
     std::array<Allpass1, kStages> apR_{};
 };
 
+// A one-knob "tilt" EQ (mastering tone control): a single `tilt` in dB pivots the spectrum around a
+// centre frequency — positive brightens (low shelf down, high shelf up by tilt/2), negative darkens.
+class TiltEQ : public Effect {
+public:
+    TiltEQ() { enabled_ = false; }
+    const char* name() const override { return "Tilt EQ"; }
+    void setTilt(float db) { tilt_ = db < -12.0f ? -12.0f : (db > 12.0f ? 12.0f : db); dirty_ = true; }
+    float tilt() const { return tilt_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    void recompute(int sampleRate);
+    float tilt_ = 0.0f;
+    int sr_ = 0;
+    bool dirty_ = true;
+    Biquad lowL_{}, highL_{}, lowR_{}, highR_{};
+};
+
 // A one-pole low-pass "tone" control — a simple EQ that rolls off highs above `cutoff` Hz.
 class LowPass : public Effect {
 public:
