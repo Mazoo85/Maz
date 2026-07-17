@@ -54,6 +54,19 @@ int Sequencer::channelChokeGroup(int c) const {
     return 0;
 }
 
+void Sequencer::setChannelTune(int c, float semitones) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setTune(semitones);
+    }
+}
+
+float Sequencer::channelTune(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].tune();
+    }
+    return 0.0f;
+}
+
 void Sequencer::setChannelVolume(int c, float v) {
     if (c >= 0 && c < numChannels()) {
         chanVolume_[static_cast<size_t>(c)] = v;

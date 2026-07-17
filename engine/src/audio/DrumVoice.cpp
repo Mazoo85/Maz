@@ -55,6 +55,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
     }
     const double dt = 1.0 / static_cast<double>(sampleRate);
     const double tau = decayTau(type_);
+    const double pitchMul = std::pow(2.0, static_cast<double>(tuneSemitones_) / 12.0);
 
     for (int i = 0; i < frames; ++i) {
         const double env = std::exp(-t_ / tau);
@@ -63,7 +64,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         switch (type_) {
         case Drum::Kick: {
             // Pitch sweeps from ~120 Hz down to ~45 Hz over the first few ms — the classic thump.
-            const double freq = 45.0 + 75.0 * std::exp(-t_ / 0.03);
+            const double freq = (45.0 + 75.0 * std::exp(-t_ / 0.03)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
             break;
@@ -72,7 +73,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double tone = std::sin(phase_ * kTwoPi);
             const float n = noise();
             s = static_cast<float>((0.4 * tone + 0.9 * static_cast<double>(n)) * env);
-            phase_ += 180.0 * dt;
+            phase_ += 180.0 * pitchMul * dt;
             break;
         }
         case Drum::ClosedHat:

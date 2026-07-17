@@ -19,6 +19,11 @@ public:
     void setGain(float gain) { gain_ = gain; }
     float gain() const { return gain_; }
 
+    // Tune the drum's pitch in semitones (±). Scales the tonal components (kick sweep, snare body) by
+    // 2^(semitones/12); noise-only voices (hats/clap) are unaffected.
+    void setTune(float semitones) { tuneSemitones_ = semitones; }
+    float tune() const { return tuneSemitones_; }
+
     // Per-channel mixer level (separate from the kit's base gain), driven by the mixer UI.
     void setLevel(float level) { level_ = level; }
     float level() const { return level_; }
@@ -45,6 +50,7 @@ private:
     Drum type_ = Drum::Kick;
     float gain_ = 0.8f;
     float level_ = 1.0f;
+    float tuneSemitones_ = 0.0f;
     float velocity_ = 1.0f;
     bool active_ = false;
     bool choking_ = false;   // ramping to silence after a choke()

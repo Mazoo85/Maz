@@ -85,6 +85,10 @@ public:
     void setChannelChokeGroup(int c, int group);
     int channelChokeGroup(int c) const;
 
+    // Per-channel drum tuning in semitones (pitches the kick/snare up or down).
+    void setChannelTune(int c, float semitones);
+    float channelTune(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 

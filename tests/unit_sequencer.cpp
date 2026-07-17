@@ -402,6 +402,34 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Drum tuning: a tuned kick shifts pitch ------------------------------
+    {
+        // A kick's fundamental rises when tuned up. Estimate its pitch from the sustained tail.
+        auto kickHz = [&](float semis) {
+            audio::DrumVoice k;
+            k.setType(audio::Drum::Kick);
+            k.setTune(semis);
+            k.trigger(1.0f);
+            std::vector<float> buf(4800, 0.0f);
+            k.render(buf.data(), 4800, sampleRate);
+            // Zero-crossing rate over the body (skip the initial pitch sweep).
+            int crossings = 0;
+            for (int i = 1201; i < 4800; ++i) {
+                if (buf[static_cast<size_t>(i - 1)] <= 0.0f && buf[static_cast<size_t>(i)] > 0.0f) {
+                    ++crossings;
+                }
+            }
+            return static_cast<double>(crossings) * sampleRate / (4800 - 1200);
+        };
+        const double base = kickHz(0.0f);
+        const double up = kickHz(12.0f); // +1 octave
+        check(base > 0.0, "kick has a measurable pitch");
+        check(up > base * 1.6, "tuning the kick up an octave raises its pitch");
+
+        audio::Sequencer d;
+        check(d.channelTune(0) == 0.0f, "channels default to 0 tune");
+    }
+
     // --- Choke: a voice can be silenced mid-ring -----------------------------
     {
         audio::DrumVoice oh;
