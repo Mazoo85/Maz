@@ -35,6 +35,7 @@ public:
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
+    StereoWidener& widener() { return widener_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
     Vst3Host& vst3() { return vst3_; }       // a loaded VST3-format plugin
@@ -79,6 +80,7 @@ private:
     Phaser phaser_{};
     Delay delay_{};
     Reverb reverb_{};
+    StereoWidener widener_{};
     PluginHost plugin_{};
     ClapHost clap_{};
     Vst3Host vst3_{};

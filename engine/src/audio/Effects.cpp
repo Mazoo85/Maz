@@ -370,6 +370,22 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- StereoWidener ----------------------------------------------------------
+
+void StereoWidener::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float mid = 0.5f * (l + r);
+        const float side = 0.5f * (l - r) * width_;
+        stereo[2 * i] = mid + side;
+        stereo[2 * i + 1] = mid - side;
+    }
+}
+
 // ---- Reverb -----------------------------------------------------------------
 
 void Reverb::Comb::setSize(int n) {

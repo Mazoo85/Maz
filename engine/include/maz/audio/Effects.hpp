@@ -247,6 +247,22 @@ private:
     float gain_ = 1.0f;  // smoothed gate gain
 };
 
+// A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
+// `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
+// A cheap, transparent way to control stereo spread on a bus.
+class StereoWidener : public Effect {
+public:
+    StereoWidener() { enabled_ = false; }
+    const char* name() const override { return "Stereo Widener"; }
+    void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
+    float width() const { return width_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+
+private:
+    float width_ = 1.0f;
+};
+
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
 // length (0..~0.95), `damping` how fast highs decay, `mix` the dry/wet blend.
 class Reverb : public Effect {

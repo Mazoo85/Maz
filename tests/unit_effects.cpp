@@ -257,6 +257,58 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- Stereo widener: width controls L/R decorrelation -------------------
+    {
+        // Build a stereo signal with distinct L and R content (some side energy).
+        auto makeStereo = [&](int frames) {
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                const double t = static_cast<double>(i) / sr;
+                b[static_cast<size_t>(i) * 2] = static_cast<float>(0.5 * std::sin(2.0 * 3.14159265 * 200.0 * t));
+                b[static_cast<size_t>(i) * 2 + 1] = static_cast<float>(0.5 * std::sin(2.0 * 3.14159265 * 205.0 * t));
+            }
+            return b;
+        };
+        auto sideEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 0; i + 1 < b.size(); i += 2) {
+                const double s = 0.5 * (static_cast<double>(b[i]) - static_cast<double>(b[i + 1]));
+                e += s * s;
+            }
+            return e;
+        };
+        const std::vector<float> base = makeStereo(sr / 4);
+        const double baseSide = sideEnergy(base);
+
+        audio::StereoWidener mono;
+        mono.setEnabled(true);
+        mono.setWidth(0.0f);
+        std::vector<float> m = base;
+        mono.process(m.data(), sr / 4, sr);
+        check(sideEnergy(m) < baseSide * 0.01, "width 0 collapses the image to mono (no side)");
+
+        audio::StereoWidener wide;
+        wide.setEnabled(true);
+        wide.setWidth(2.0f);
+        std::vector<float> w = base;
+        wide.process(w.data(), sr / 4, sr);
+        check(sideEnergy(w) > baseSide * 3.0, "width 2 doubles the side energy (wider image)");
+
+        audio::StereoWidener unity;
+        unity.setEnabled(true);
+        unity.setWidth(1.0f);
+        std::vector<float> u = base;
+        unity.process(u.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < u.size(); ++i) {
+            if (std::fabs(u[i] - base[i]) > 1e-5f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "width 1 leaves the signal unchanged");
+    }
+
     // --- Gate: passes loud signal, attenuates quiet signal ------------------
     {
         // A loud tone (above threshold) passes ~unchanged.

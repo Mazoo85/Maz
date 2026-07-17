@@ -85,6 +85,8 @@ int main() {
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
     mixer.gate().setRangeDb(-55.0f);
+    mixer.widener().setEnabled(true);
+    mixer.widener().setWidth(1.6f);
     // Aux send/return buses.
     mixer.setReverbSend(0.45f);
     mixer.reverbReturn().setRoomSize(0.6f);
@@ -191,6 +193,8 @@ int main() {
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
           "gate round-trips");
+    check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f),
+          "stereo widener round-trips");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");

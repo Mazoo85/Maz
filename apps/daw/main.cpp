@@ -836,6 +836,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("mix##rev", &wet, 0.0f, 1.0f, "%.2f")) mx.reverb().setMix(wet);
     }
+    {
+        bool en = mx.widener().enabled();
+        if (ImGui::Checkbox("Stereo Widener", &en)) mx.widener().setEnabled(en);
+        float w = mx.widener().width();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("width##wide", &w, 0.0f, 2.0f, "%.2f")) mx.widener().setWidth(w);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

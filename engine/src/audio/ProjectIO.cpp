@@ -148,6 +148,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
       << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
       << " " << mixer.gate().releaseMs() << "\n";
+    f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width()
+      << "\n";
 
     // Aux send/return buses: send level + the return effect's params.
     f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
@@ -364,6 +366,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.gate().setRangeDb(range);
                 mixer.gate().setAttackMs(atk);
                 mixer.gate().setReleaseMs(rel);
+            } else if (which == "width") {
+                float w = 1.0f;
+                ls >> w;
+                mixer.widener().setEnabled(en != 0);
+                mixer.widener().setWidth(w);
             } else if (which == "reverb") {
                 float room = 0.7f, damp = 0.35f, mix = 0.25f;
                 ls >> room >> damp >> mix;
