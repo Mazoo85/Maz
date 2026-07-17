@@ -490,6 +490,37 @@ int main() {
         check(d7.hasNote(70, 0), "dominant 7th adds the flat seventh (Bb above C)");
     }
 
+    // --- Scale snap ----------------------------------------------------------
+    {
+        // C major degrees (pitch classes): 0 2 4 5 7 9 11. Off-scale notes should snap to the
+        // nearest degree; in-scale notes stay put.
+        audio::PianoRoll sr;
+        sr.addNote(audio::Note{0, 1, 61, 1.0f}); // C#4 → nearest is C4 (60, down) or D4 (62, up); tie → down
+        sr.addNote(audio::Note{1, 1, 66, 1.0f}); // F#4 → G4 (67, up) is nearer than F4 (65)? both dist 1 → down = F4 65
+        sr.addNote(audio::Note{2, 1, 64, 1.0f}); // E4 already in C major → unchanged
+        const int moved = sr.snapToScale(60, audio::Scale::Major);
+        check(moved == 2, "scale snap moves only the off-scale notes");
+        // Every note now belongs to C major.
+        const int major[] = {0, 2, 4, 5, 7, 9, 11};
+        for (const audio::Note& note : sr.notes()) {
+            const int pc = ((note.pitch - 60) % 12 + 12) % 12;
+            bool ok = false;
+            for (int d : major) {
+                if (d == pc) ok = true;
+            }
+            check(ok, "every snapped note is a C-major scale degree");
+        }
+        check(sr.notes()[0].pitch == 60, "C# snaps down to C on a tie");
+        check(sr.notes()[1].pitch == 65, "F# snaps down to F on a tie");
+        check(sr.notes()[2].pitch == 64, "an already in-scale note is untouched");
+
+        // A pentatonic scale is sparser: B4 (71) is not in C major pentatonic (0 2 4 7 9) → snaps.
+        audio::PianoRoll pr;
+        pr.addNote(audio::Note{0, 1, 71, 1.0f}); // B4, pc 11 → nearest penta degree is 9 (A, down 2) or 0/12 (C5, up 1)
+        pr.snapToScale(60, audio::Scale::PentatonicMajor);
+        check(pr.notes()[0].pitch == 72, "B snaps up to C in C-major pentatonic (nearest degree)");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

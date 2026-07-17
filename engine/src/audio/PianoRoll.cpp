@@ -89,6 +89,80 @@ int PianoRoll::quantize(int division) {
     return moved;
 }
 
+int PianoRoll::snapToScale(int rootPitch, Scale scale) {
+    // Semitone degrees (0..11) each scale allows above the root pitch class.
+    std::vector<int> degrees;
+    switch (scale) {
+    case Scale::Major:
+        degrees = {0, 2, 4, 5, 7, 9, 11};
+        break;
+    case Scale::Minor:
+        degrees = {0, 2, 3, 5, 7, 8, 10};
+        break;
+    case Scale::Dorian:
+        degrees = {0, 2, 3, 5, 7, 9, 10};
+        break;
+    case Scale::Phrygian:
+        degrees = {0, 1, 3, 5, 7, 8, 10};
+        break;
+    case Scale::Lydian:
+        degrees = {0, 2, 4, 6, 7, 9, 11};
+        break;
+    case Scale::Mixolydian:
+        degrees = {0, 2, 4, 5, 7, 9, 10};
+        break;
+    case Scale::Locrian:
+        degrees = {0, 1, 3, 5, 6, 8, 10};
+        break;
+    case Scale::HarmonicMinor:
+        degrees = {0, 2, 3, 5, 7, 8, 11};
+        break;
+    case Scale::MelodicMinor:
+        degrees = {0, 2, 3, 5, 7, 9, 11};
+        break;
+    case Scale::PentatonicMajor:
+        degrees = {0, 2, 4, 7, 9};
+        break;
+    case Scale::PentatonicMinor:
+        degrees = {0, 3, 5, 7, 10};
+        break;
+    case Scale::Blues:
+        degrees = {0, 3, 5, 6, 7, 10};
+        break;
+    }
+    // Membership test for a pitch class relative to the root.
+    auto inScale = [&](int pitch) {
+        const int pc = ((pitch - rootPitch) % 12 + 12) % 12;
+        for (int d : degrees) {
+            if (d == pc) {
+                return true;
+            }
+        }
+        return false;
+    };
+    int moved = 0;
+    for (Note& n : notes_) {
+        if (inScale(n.pitch)) {
+            continue;
+        }
+        // Search outward for the nearest in-scale pitch: distance 1 down, 1 up, 2 down, 2 up, …
+        // (down first, so exact ties resolve downward). A degree is always within 6 semitones.
+        for (int k = 1; k <= 6; ++k) {
+            if (inScale(n.pitch - k)) {
+                n.pitch -= k;
+                ++moved;
+                break;
+            }
+            if (inScale(n.pitch + k)) {
+                n.pitch += k;
+                ++moved;
+                break;
+            }
+        }
+    }
+    return moved;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

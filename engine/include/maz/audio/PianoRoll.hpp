@@ -17,6 +17,23 @@ struct Note {
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
 enum class Chord { Major, Minor, Dom7, Maj7, Min7, Dim, Aug, Sus2, Sus4 };
 
+// Musical scales for the scale-snap tool. Each maps to the set of semitone degrees (0..11) it allows
+// above the root pitch class.
+enum class Scale {
+    Major,
+    Minor, // natural minor (Aeolian)
+    Dorian,
+    Phrygian,
+    Lydian,
+    Mixolydian,
+    Locrian,
+    HarmonicMinor,
+    MelodicMinor,
+    PentatonicMajor,
+    PentatonicMinor,
+    Blues
+};
+
 // The melodic pattern the piano roll edits and the sequencer plays: a set of notes over a step
 // timeline, addressed by a visible pitch window (a contiguous range of MIDI notes shown as rows).
 // Step entry uses length-1 notes; the model supports longer notes for later editing.
@@ -39,6 +56,11 @@ public:
     // Quantize: snap every note's start to the nearest multiple of `division` steps (1 = no-op,
     // 4 = to the beat at 16ths). Returns the number of notes moved.
     int quantize(int division);
+
+    // Scale-snap: move every off-scale note to the nearest pitch that belongs to `scale` rooted at
+    // pitch class `rootPitch` (only the root's pitch class matters, any octave). On a tie the note
+    // snaps down. Notes already in the scale are untouched. Returns the number of notes moved.
+    int snapToScale(int rootPitch, Scale scale);
 
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;

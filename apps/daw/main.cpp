@@ -589,6 +589,22 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Quantize")) {
         roll.quantize(quantDiv);
     }
+    ImGui::SameLine();
+    static int scaleRoot = 60; // C
+    static int scaleType = 0;
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("root##scale", &scaleRoot);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(130.0f);
+    const char* scaleNames[] = {"Major",       "Minor",         "Dorian",
+                                "Phrygian",    "Lydian",        "Mixolydian",
+                                "Locrian",     "Harm. Minor",   "Mel. Minor",
+                                "Penta. Major", "Penta. Minor", "Blues"};
+    ImGui::Combo("##scaletype", &scaleType, scaleNames, IM_ARRAYSIZE(scaleNames));
+    ImGui::SameLine();
+    if (ImGui::Button("Snap to scale")) {
+        roll.snapToScale(scaleRoot, static_cast<audio::Scale>(scaleType));
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();
