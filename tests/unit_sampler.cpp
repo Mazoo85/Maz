@@ -169,6 +169,34 @@ int main() {
         check(def.startOffset() == 0.0f, "start offset defaults to 0");
     }
 
+    // Amp envelope: a longer release makes the note-off tail ring longer before going silent.
+    {
+        std::vector<float> tone(sr, 0.5f); // 1 s of a constant DC-ish level (steady amplitude)
+        auto tailLen = [&](float rel) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setLoop(true); // keep the source sounding so only the env governs the tail
+            s.setAmpEnv(0.001f, rel);
+            s.noteOn(60, 1.0f);
+            (void)renderMono(s, 4800, sr); // let attack finish
+            s.noteOff(60);
+            // Render and find how many frames until the voice goes inactive.
+            int frames = 0;
+            while (s.active() && frames < sr) {
+                std::vector<float> b(64, 0.0f);
+                s.render(b.data(), 64, sr);
+                frames += 64;
+            }
+            return frames;
+        };
+        const int shortT = tailLen(0.01f);
+        const int longT = tailLen(0.2f);
+        check(longT > shortT * 3, "a longer sampler release rings out longer");
+
+        audio::Sampler def;
+        check(std::fabs(def.release() - 0.012f) < 1e-4f, "sampler release has a sane default");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

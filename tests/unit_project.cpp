@@ -65,6 +65,7 @@ int main() {
     seq.setArpOctaves(3);
     seq.sampler().setBasePitch(48);
     seq.sampler().setStartOffset(0.25f);
+    seq.sampler().setAmpEnv(0.02f, 0.3f);
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -221,7 +222,8 @@ int main() {
           "unison round-trips");
     check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
-              near(seq2.sampler().startOffset(), 0.25f),
+              near(seq2.sampler().startOffset(), 0.25f) && near(seq2.sampler().attack(), 0.02f) &&
+              near(seq2.sampler().release(), 0.3f),
           "sampler settings round-trip");
 
     // Mixer + effects.

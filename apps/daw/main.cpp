@@ -743,6 +743,17 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))
         seq.sampler().setStartOffset(startOff);
+    float smpAtk = seq.sampler().attack();
+    float smpRel = seq.sampler().release();
+    bool smpEnvCh = false;
+    ImGui::SetNextItemWidth(110.0f);
+    smpEnvCh |= ImGui::SliderFloat("Atk##smp", &smpAtk, 0.001f, 0.5f, "%.3f s");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.0f);
+    smpEnvCh |= ImGui::SliderFloat("Rel##smp", &smpRel, 0.001f, 1.0f, "%.3f s");
+    if (smpEnvCh) {
+        seq.sampler().setAmpEnv(smpAtk, smpRel);
+    }
     static char pathBuf[256] = "";
     ImGui::SetNextItemWidth(200.0f);
     ImGui::InputText("wav path", pathBuf, sizeof(pathBuf));

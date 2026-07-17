@@ -7,10 +7,10 @@
 
 namespace maz::audio {
 
-namespace {
-constexpr float kAttack = 0.001f;  // seconds
-constexpr float kRelease = 0.012f; // seconds
-} // namespace
+void Sampler::setAmpEnv(float attackSec, float releaseSec) {
+    attack_ = attackSec < 0.0001f ? 0.0001f : attackSec;
+    release_ = releaseSec < 0.0001f ? 0.0001f : releaseSec;
+}
 
 bool Sampler::load(const std::string& path, std::string* err) {
     WavData wav;
@@ -87,8 +87,8 @@ void Sampler::render(float* out, int frames, int sampleRate) {
         return;
     }
     const double srCorrect = static_cast<double>(sampleSr_) / static_cast<double>(sampleRate);
-    const float attackStep = 1.0f / (kAttack * static_cast<float>(sampleRate));
-    const float releaseStep = 1.0f / (kRelease * static_cast<float>(sampleRate));
+    const float attackStep = 1.0f / (attack_ * static_cast<float>(sampleRate));
+    const float releaseStep = 1.0f / (release_ * static_cast<float>(sampleRate));
     const double baseFreq = static_cast<double>(midiToFreq(basePitch_));
     const size_t last = sample_.size() - 1;
 

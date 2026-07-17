@@ -42,6 +42,12 @@ public:
     void setStartOffset(float frac) { startOffset_ = frac < 0.0f ? 0.0f : (frac > 0.999f ? 0.999f : frac); }
     float startOffset() const { return startOffset_; }
 
+    // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
+    // noteOff. Longer release lets sustained/looped samples fade out smoothly.
+    void setAmpEnv(float attackSec, float releaseSec);
+    float attack() const { return attack_; }
+    float release() const { return release_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
@@ -67,6 +73,8 @@ private:
     bool reverse_ = false;
     bool loop_ = false;
     float startOffset_ = 0.0f;
+    float attack_ = 0.001f;  // seconds
+    float release_ = 0.012f; // seconds
     std::string path_;
     std::array<Voice, kMaxVoices> voices_{};
 };
