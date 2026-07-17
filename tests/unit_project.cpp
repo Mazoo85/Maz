@@ -81,6 +81,10 @@ int main() {
     mixer.reverb().setEnabled(true);
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
+    mixer.gate().setEnabled(true);
+    mixer.gate().setThresholdDb(-38.0f);
+    mixer.gate().setRatio(5.0f);
+    mixer.gate().setRangeDb(-55.0f);
     // Aux send/return buses.
     mixer.setReverbSend(0.45f);
     mixer.reverbReturn().setRoomSize(0.6f);
@@ -184,6 +188,9 @@ int main() {
               mixer2.track(audio::MixerBus::Bass).eq().enabled() &&
               near(mixer2.track(audio::MixerBus::Bass).eq().lowGain(), 4.5f),
           "per-bus mixer-track insert strips round-trip");
+    check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
+              near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
+          "gate round-trips");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");

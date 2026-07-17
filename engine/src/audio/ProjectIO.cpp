@@ -145,6 +145,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
+    f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
+      << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
+      << " " << mixer.gate().releaseMs() << "\n";
 
     // Aux send/return buses: send level + the return effect's params.
     f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
@@ -352,6 +355,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.delay().setTime(t);
                 mixer.delay().setFeedback(fb);
                 mixer.delay().setMix(mix);
+            } else if (which == "gate") {
+                float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;
+                ls >> thr >> ratio >> range >> atk >> rel;
+                mixer.gate().setEnabled(en != 0);
+                mixer.gate().setThresholdDb(thr);
+                mixer.gate().setRatio(ratio);
+                mixer.gate().setRangeDb(range);
+                mixer.gate().setAttackMs(atk);
+                mixer.gate().setReleaseMs(rel);
             } else if (which == "reverb") {
                 float room = 0.7f, damp = 0.35f, mix = 0.25f;
                 ls >> room >> damp >> mix;

@@ -215,6 +215,38 @@ private:
     float env_ = 0.0f; // linear peak-envelope follower
 };
 
+// A stereo-linked noise gate / downward expander. Below `threshold` dB the signal is attenuated:
+// for each dB under the threshold the output drops by `ratio`:1, down to a floor of `range` dB.
+// `attack`/`release` (ms) smooth the gate opening/closing so it does not click. Above the threshold
+// the signal passes untouched — the classic tool for silencing hiss between notes.
+class Gate : public Effect {
+public:
+    Gate() { enabled_ = false; }
+    const char* name() const override { return "Gate"; }
+    void setThresholdDb(float db) { thresholdDb_ = db; }
+    void setRatio(float r) { ratio_ = r; }
+    void setRangeDb(float db) { rangeDb_ = db; }
+    void setAttackMs(float ms) { attackMs_ = ms; }
+    void setReleaseMs(float ms) { releaseMs_ = ms; }
+    float thresholdDb() const { return thresholdDb_; }
+    float ratio() const { return ratio_; }
+    float rangeDb() const { return rangeDb_; }
+    float attackMs() const { return attackMs_; }
+    float releaseMs() const { return releaseMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float thresholdDb_ = -40.0f;
+    float ratio_ = 4.0f;
+    float rangeDb_ = -60.0f; // maximum attenuation floor
+    float attackMs_ = 2.0f;
+    float releaseMs_ = 80.0f;
+    float env_ = 0.0f;   // peak-envelope follower
+    float gain_ = 1.0f;  // smoothed gate gain
+};
+
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
 // length (0..~0.95), `damping` how fast highs decay, `mix` the dry/wet blend.
 class Reverb : public Effect {

@@ -789,6 +789,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("bits##crush", &bits, 1.0f, 16.0f, "%.0f")) mx.bitcrusher().setBits(bits);
     }
     {
+        bool en = mx.gate().enabled();
+        if (ImGui::Checkbox("Gate", &en)) mx.gate().setEnabled(en);
+        float thr = mx.gate().thresholdDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("dB##gate", &thr, -80.0f, 0.0f, "%.0f")) mx.gate().setThresholdDb(thr);
+    }
+    {
         bool en = mx.compressor().enabled();
         if (ImGui::Checkbox("Compressor", &en)) mx.compressor().setEnabled(en);
         float thr = mx.compressor().thresholdDb();

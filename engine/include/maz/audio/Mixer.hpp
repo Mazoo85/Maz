@@ -29,6 +29,7 @@ public:
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     Bitcrusher& bitcrusher() { return crush_; }
+    Gate& gate() { return gate_; }
     Compressor& compressor() { return comp_; }
     Chorus& chorus() { return chorus_; }
     Phaser& phaser() { return phaser_; }
@@ -72,6 +73,7 @@ private:
     LowPass eq_{};
     Distortion dist_{};
     Bitcrusher crush_{};
+    Gate gate_{};
     Compressor comp_{};
     Chorus chorus_{};
     Phaser phaser_{};

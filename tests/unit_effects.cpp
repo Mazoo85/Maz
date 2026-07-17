@@ -257,6 +257,49 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- Gate: passes loud signal, attenuates quiet signal ------------------
+    {
+        // A loud tone (above threshold) passes ~unchanged.
+        audio::Gate gate;
+        gate.setEnabled(true);
+        gate.setThresholdDb(-24.0f);
+        gate.setRatio(6.0f);
+        gate.setAttackMs(1.0f);
+        gate.setReleaseMs(20.0f);
+        std::vector<float> loud = sineStereo(sr, 220.0, 0.6, sr); // ~-4 dB, above -24 dB
+        const double loudIn = rms(loud);
+        gate.process(loud.data(), sr, sr);
+        // Skip the first 50 ms (gate opening ramp) when measuring the passed level.
+        std::vector<float> loudTail(loud.begin() + 2400 * 2, loud.end());
+        check(rms(loudTail) > loudIn * 0.7, "gate passes signal above the threshold");
+
+        // A quiet tone (below threshold) is pushed down toward the floor.
+        audio::Gate gate2;
+        gate2.setEnabled(true);
+        gate2.setThresholdDb(-24.0f);
+        gate2.setRatio(6.0f);
+        gate2.setReleaseMs(20.0f);
+        std::vector<float> quiet = sineStereo(sr, 220.0, 0.02, sr); // ~-34 dB, below -24 dB
+        const double quietIn = rms(quiet);
+        gate2.process(quiet.data(), sr, sr);
+        std::vector<float> quietTail(quiet.begin() + 2400 * 2, quiet.end());
+        check(rms(quietTail) < quietIn * 0.5, "gate attenuates signal below the threshold");
+
+        // Disabled → transparent.
+        audio::Gate off;
+        std::vector<float> sig = sineStereo(1000, 100.0, 0.01, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled gate is transparent");
+    }
+
     // --- MixerTrack: per-bus insert strip -----------------------------------
     {
         audio::MixerTrack track; // all inserts off, unity gain

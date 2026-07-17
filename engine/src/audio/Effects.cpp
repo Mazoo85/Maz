@@ -323,6 +323,53 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Gate -------------------------------------------------------------------
+
+void Gate::reset() {
+    env_ = 0.0f;
+    gain_ = 1.0f;
+}
+
+void Gate::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // Fast detector attack, moderate detector release, plus gain-smoothing coefs for the gate.
+    const float detCoef = std::exp(-1.0f / (0.001f * sr));                                // ~1 ms
+    const float openCoef = std::exp(-1.0f / (std::max(attackMs_, 0.01f) * 0.001f * sr));
+    const float closeCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
+    const float ratio = std::max(ratio_, 1.0f);
+    const float floorLin = dbToLin(rangeDb_);
+
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float peak = std::max(std::fabs(l), std::fabs(r));
+
+        // Peak-following detector (fast).
+        env_ = detCoef * env_ + (1.0f - detCoef) * peak;
+        const float envDb = linToDb(env_);
+
+        // Below threshold → downward expansion toward the floor; above → unity.
+        float target = 1.0f;
+        if (envDb < thresholdDb_) {
+            const float reductionDb = (thresholdDb_ - envDb) * (ratio - 1.0f);
+            target = dbToLin(-reductionDb);
+            if (target < floorLin) {
+                target = floorLin;
+            }
+        }
+
+        // Smooth the gate gain (open faster, close slower).
+        const float coef = target > gain_ ? openCoef : closeCoef;
+        gain_ = coef * gain_ + (1.0f - coef) * target;
+
+        stereo[2 * i] = l * gain_;
+        stereo[2 * i + 1] = r * gain_;
+    }
+}
+
 // ---- Reverb -----------------------------------------------------------------
 
 void Reverb::Comb::setSize(int n) {
