@@ -106,6 +106,19 @@ float Sequencer::channelTune(int c) const {
     return 0.0f;
 }
 
+void Sequencer::setChannelDecay(int c, float mul) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setDecay(mul);
+    }
+}
+
+float Sequencer::channelDecay(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].decay();
+    }
+    return 1.0f;
+}
+
 void Sequencer::setChannelVolume(int c, float v) {
     if (c >= 0 && c < numChannels()) {
         chanVolume_[static_cast<size_t>(c)] = v;

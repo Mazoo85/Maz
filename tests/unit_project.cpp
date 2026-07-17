@@ -51,6 +51,7 @@ int main() {
     seq.setStepRatchet(2, 7, 3);
     seq.setChannelChokeGroup(0, 2);
     seq.setChannelTune(0, -5.0f);
+    seq.setChannelDecay(0, 2.5f);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -190,6 +191,7 @@ int main() {
           "per-step ratchet round-trips");
     check(seq2.channelChokeGroup(0) == 2, "channel choke group round-trips");
     check(near(seq2.channelTune(0), -5.0f), "channel tune round-trips");
+    check(near(seq2.channelDecay(0), 2.5f), "channel decay round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.

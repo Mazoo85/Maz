@@ -625,6 +625,30 @@ int main() {
         check(t.currentStep() == 0, "32-step pattern wraps after its full length");
     }
 
+    // --- Drum decay: the tail length scales ----------------------------------
+    {
+        // Count how long a kick stays active for a short vs long decay multiplier.
+        auto activeFrames = [&](float mul) {
+            audio::DrumVoice k;
+            k.setType(audio::Drum::Kick);
+            k.setDecay(mul);
+            k.trigger(1.0f);
+            int frames = 0;
+            while (k.active() && frames < sampleRate) {
+                std::vector<float> b(64, 0.0f);
+                k.render(b.data(), 64, sampleRate);
+                frames += 64;
+            }
+            return frames;
+        };
+        const int shortT = activeFrames(0.5f);
+        const int longT = activeFrames(3.0f);
+        check(longT > shortT * 2, "a longer decay multiplier lengthens the drum tail");
+
+        audio::Sequencer d;
+        check(d.channelDecay(0) == 1.0f, "channel decay defaults to 1");
+    }
+
     // --- Drum tuning: a tuned kick shifts pitch ------------------------------
     {
         // A kick's fundamental rises when tuned up. Estimate its pitch from the sustained tail.

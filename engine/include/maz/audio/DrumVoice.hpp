@@ -24,6 +24,11 @@ public:
     void setTune(float semitones) { tuneSemitones_ = semitones; }
     float tune() const { return tuneSemitones_; }
 
+    // Decay multiplier (0.25–4): scales the drum's envelope length — shorter (tight) or longer
+    // (boomy) tails. 1 = the voice's natural decay.
+    void setDecay(float mul) { decayMul_ = mul < 0.25f ? 0.25f : (mul > 4.0f ? 4.0f : mul); }
+    float decay() const { return decayMul_; }
+
     // Per-channel mixer level (separate from the kit's base gain), driven by the mixer UI.
     void setLevel(float level) { level_ = level; }
     float level() const { return level_; }
@@ -51,6 +56,7 @@ private:
     float gain_ = 0.8f;
     float level_ = 1.0f;
     float tuneSemitones_ = 0.0f;
+    float decayMul_ = 1.0f;
     float velocity_ = 1.0f;
     bool active_ = false;
     bool choking_ = false;   // ramping to silence after a choke()

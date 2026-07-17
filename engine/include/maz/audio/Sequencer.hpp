@@ -97,6 +97,10 @@ public:
     void setChannelTune(int c, float semitones);
     float channelTune(int c) const;
 
+    // Per-channel drum decay-length multiplier (0.25–4).
+    void setChannelDecay(int c, float mul);
+    float channelDecay(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 

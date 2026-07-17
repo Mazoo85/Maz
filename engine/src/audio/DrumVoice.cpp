@@ -54,7 +54,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         return;
     }
     const double dt = 1.0 / static_cast<double>(sampleRate);
-    const double tau = decayTau(type_);
+    const double tau = decayTau(type_) * static_cast<double>(decayMul_);
     const double pitchMul = std::pow(2.0, static_cast<double>(tuneSemitones_) / 12.0);
 
     for (int i = 0; i < frames; ++i) {
