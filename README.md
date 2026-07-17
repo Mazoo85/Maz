@@ -51,8 +51,11 @@ the project, and bounce to WAV.
 - **Modulation** — **LFO automation** of filter/FM/reverb/master, synced to the transport.
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
   (`.cjc`), WAV **bounce**, **stem export**, **MIDI export**, session **recording** (output + SDL
-  mic/line input capture), and **native plugin hosting** (dlopen a `.so` implementing the
-  [`PluginApi.h`](engine/include/maz/audio/PluginApi.h) ABI — see `plugins/example_tremolo`).
+  mic/line input capture), and **plugin hosting**: a native `.so` ABI
+  ([`PluginApi.h`](engine/include/maz/audio/PluginApi.h), see `plugins/example_tremolo`) **and the
+  open [CLAP](https://cleveraudio.org) format** (`ClapHost`, see `plugins/example_clap`).
+- **GUI** — a Dear ImGui interface (channel rack, piano roll, synth, bass, mixer, automation,
+  arrangement, transport) rendered via Vulkan; a CI test drives it under software Vulkan.
 
 See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). The remaining gaps vs.
 FL Studio are the pieces this headless build can't exercise: live audio-input recording and VST3/CLAP
