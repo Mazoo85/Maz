@@ -347,6 +347,20 @@ int main() {
     roll.toggle(60, 0);
     check(!roll.hasNote(60, 0) && roll.notes().empty(), "toggling again removes it");
 
+    // Quantize: snap note starts to the nearest multiple of the division.
+    {
+        audio::PianoRoll qr;
+        qr.addNote(audio::Note{3, 2, 60, 1.0f});  // → nearest 4 = 4
+        qr.addNote(audio::Note{5, 2, 62, 1.0f});  // → nearest 4 = 4
+        qr.addNote(audio::Note{8, 2, 64, 1.0f});  // already on grid → unchanged
+        const int moved = qr.quantize(4);
+        check(moved == 2, "quantize moves the off-grid notes only");
+        check(qr.notes()[0].startStep == 4 && qr.notes()[1].startStep == 4 &&
+                  qr.notes()[2].startStep == 8,
+              "quantize snaps starts to the nearest division");
+        check(qr.quantize(1) == 0, "quantize to 1 is a no-op");
+    }
+
     // --- Chord tool ----------------------------------------------------------
     {
         audio::PianoRoll cr;

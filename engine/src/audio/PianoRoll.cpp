@@ -74,6 +74,21 @@ float PianoRoll::noteProbability(int pitch, int step) const {
     return 1.0f;
 }
 
+int PianoRoll::quantize(int division) {
+    if (division < 2) {
+        return 0; // 1 (or less) → already on the grid
+    }
+    int moved = 0;
+    for (Note& n : notes_) {
+        const int snapped = ((n.startStep + division / 2) / division) * division;
+        if (snapped != n.startStep) {
+            n.startStep = snapped;
+            ++moved;
+        }
+    }
+    return moved;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

@@ -576,6 +576,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Add chord")) {
         roll.addChord(chordStep, chordLen, chordRoot, static_cast<audio::Chord>(chordType));
     }
+    ImGui::SameLine();
+    static int quantDiv = 4;
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("##quantdiv", &quantDiv);
+    ImGui::SameLine();
+    if (ImGui::Button("Quantize")) {
+        roll.quantize(quantDiv);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

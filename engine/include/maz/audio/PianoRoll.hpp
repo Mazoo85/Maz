@@ -36,6 +36,10 @@ public:
     // `startStep` for `lengthSteps`. Returns the number of notes added.
     int addChord(int startStep, int lengthSteps, int rootPitch, Chord chord, float velocity = 0.9f);
 
+    // Quantize: snap every note's start to the nearest multiple of `division` steps (1 = no-op,
+    // 4 = to the beat at 16ths). Returns the number of notes moved.
+    int quantize(int division);
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 
