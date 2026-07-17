@@ -279,6 +279,35 @@ int runHeadless(const core::AppConfig& cfg) {
         }
     }
 
+    // Stem export: bounce drums / lead / bass to separate WAVs by isolating each bus.
+    if (cfg.stemsPrefix != nullptr && sequencing) {
+        audio::Sequencer& seq = engine.sequencer();
+        struct Stem {
+            const char* name;
+            float drum, lead, bass;
+        };
+        const Stem stems[] = {{"drums", 1.0f, 0.0f, 0.0f},
+                              {"lead", 0.0f, 1.0f, 0.0f},
+                              {"bass", 0.0f, 0.0f, 1.0f}};
+        for (const Stem& st : stems) {
+            seq.setDrumGain(st.drum);
+            seq.setSynthGain(st.lead);
+            seq.setBassGain(st.bass);
+            seq.stop();
+            engine.mixer().reset();
+            seq.play();
+            const std::vector<float> stemBuf = engine.renderOffline(cfg.seconds);
+            const std::string p = std::string(cfg.stemsPrefix) + "_" + st.name + ".wav";
+            std::string serr;
+            if (audio::writeWav16(p, stemBuf.data(), static_cast<int>(stemBuf.size()) / channels,
+                                  channels, acfg.sampleRate, &serr)) {
+                MAZ_LOG_INFO("stems: wrote %s", p.c_str());
+            } else {
+                MAZ_LOG_ERROR("stems: WAV write failed: %s", serr.c_str());
+            }
+        }
+    }
+
     if (sequencing) {
         if (peak < 1e-4f) {
             MAZ_LOG_ERROR("sequencer rendered silence — no sound was produced");
@@ -634,8 +663,12 @@ void buildMixerUI(audio::AudioEngine& engine) {
         seq.setDrumGain(drums);
     }
     float synth = seq.synthGain();
-    if (ImGui::SliderFloat("Synth", &synth, 0.0f, 2.0f, "%.2f")) {
+    if (ImGui::SliderFloat("Lead", &synth, 0.0f, 2.0f, "%.2f")) {
         seq.setSynthGain(synth);
+    }
+    float bass = seq.bassGain();
+    if (ImGui::SliderFloat("Bass", &bass, 0.0f, 2.0f, "%.2f")) {
+        seq.setBassGain(bass);
     }
 
     // Sidechain (kick ducks the synth bus).

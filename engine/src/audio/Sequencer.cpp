@@ -339,14 +339,18 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
                 rBuf_[static_cast<size_t>(i)] += s * rg;
             }
         }
+        // Lead bus = synth + sampler; bass bus = synth2. Each has its own gain.
         synth_.render(synthScratch_.data(), chunk, sampleRate);
-        synth2_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
+        bassScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+        synth2_.render(bassScratch_.data(), chunk, sampleRate);
         constexpr float kCenter = 0.70710678f; // equal-power center gain
         const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
         for (int i = 0; i < chunk; ++i) {
             const float duck = sidechainOn_ ? scEnv_ : 1.0f;
-            const float s = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter * duck;
+            const float melodic = synthScratch_[static_cast<size_t>(i)] * synthGain_ +
+                                  bassScratch_[static_cast<size_t>(i)] * bassGain_;
+            const float s = melodic * kCenter * duck;
             lBuf_[static_cast<size_t>(i)] += s;
             rBuf_[static_cast<size_t>(i)] += s;
             if (sidechainOn_ && scEnv_ < 1.0f) {

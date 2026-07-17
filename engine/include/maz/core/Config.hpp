@@ -30,6 +30,7 @@ struct AppConfig {
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it
     const char* midiPath = nullptr;        // --midi PATH : export the pattern as a .mid file
+    const char* stemsPrefix = nullptr;     // --stems PREFIX : bounce drums/lead/bass to separate WAVs
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

@@ -110,6 +110,15 @@ set_tests_properties(daw_beat_smoke PROPERTIES
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "audio: rendered 96000 frames.*beat @120 BPM")
 
+# DAW: export stems — bounce drums/lead/bass to separate WAVs by isolating each bus.
+add_test(
+    NAME daw_stems_smoke
+    COMMAND daw --headless --song --stems ${CMAKE_BINARY_DIR}/stem --seconds 1)
+set_tests_properties(daw_stems_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "stems: wrote.*_bass.wav")
+
 # DAW: render two seconds of the demo piano-roll melody offline (synth -> Sequencer -> AudioEngine).
 add_test(
     NAME daw_melody_smoke

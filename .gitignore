@@ -31,3 +31,4 @@ unit_project_roundtrip.cjc
 # Test scratch (MIDI export)
 unit_midi_out.mid
 /song.mid
+/stem_*.wav

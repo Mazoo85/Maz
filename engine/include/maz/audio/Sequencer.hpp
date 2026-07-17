@@ -116,11 +116,14 @@ public:
     int arpMode() const { return arpMode_; }
     int arpCurrentPitch() const { return arpCurrentPitch_; }
 
-    // Bus levels: relative gain of the drum kit vs. the melodic synth before the soft-limited sum.
+    // Bus levels: relative gain of the drum kit, the lead synth, and the bass synth before the
+    // soft-limited sum. (synthGain is the lead level; bassGain the second instrument.)
     void setDrumGain(float g) { drumGain_ = g; }
     void setSynthGain(float g) { synthGain_ = g; }
+    void setBassGain(float g) { bassGain_ = g; }
     float drumGain() const { return drumGain_; }
     float synthGain() const { return synthGain_; }
+    float bassGain() const { return bassGain_; }
 
     // --- Pattern grid --------------------------------------------------------
     bool step(int channel, int step) const;
@@ -155,7 +158,8 @@ private:
     int playlistPos_ = 0;
 
     std::vector<float> mixScratch_;   // per-block, per-channel drum render
-    std::vector<float> synthScratch_; // per-block synth sum
+    std::vector<float> synthScratch_; // per-block lead (synth + sampler) sum
+    std::vector<float> bassScratch_;  // per-block bass (synth2) sum
     std::vector<float> lBuf_;         // per-block stereo accumulators (pre-limit)
     std::vector<float> rBuf_;
 
@@ -169,6 +173,7 @@ private:
     int arpCurrentPitch_ = -1;
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
+    float bassGain_ = 1.0f;
 
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;

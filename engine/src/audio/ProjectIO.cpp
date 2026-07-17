@@ -65,7 +65,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sidechainReleaseMs() << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << "\n";
     f << "humanize " << seq.humanize() << "\n";
-    f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
+    f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << "\n";
 
     auto writeSynth = [&](const char* tag, const char* oscTag, const SynthInstrument& s) {
         f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
@@ -202,9 +202,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;
+            float bassG = 1.0f;
             ls >> d >> s;
             seq.setDrumGain(d);
             seq.setSynthGain(s);
+            if (ls >> bassG) { // bass gain optional (older files omit it)
+                seq.setBassGain(bassG);
+            }
         } else if (tag == "synth") {
             parseSynthLine(ls, seq.synth());
         } else if (tag == "synth2") {
