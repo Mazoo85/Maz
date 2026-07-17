@@ -134,11 +134,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         }
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << "\n";
+              << n.velocity << " " << n.probability << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << "\n";
+              << n.velocity << " " << n.probability << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -401,12 +401,20 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int p = 0;
             Note n;
             ls >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            float prob = 1.0f; // optional (older files omit it → keep the default 1.0)
+            if (ls >> prob) {
+                n.probability = prob;
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
             int p = 0;
             Note n;
             ls >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            float prob = 1.0f;
+            if (ls >> prob) {
+                n.probability = prob;
+            }
             seq.selectPattern(p);
             seq.roll2().addNote(n);
         } else if (tag == "master") {

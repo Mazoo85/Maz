@@ -402,6 +402,41 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Per-note probability -------------------------------------------------
+    {
+        // Count how many of N loops a lead note actually sounds at a given probability.
+        auto soundedLoops = [&](float prob, int loops) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            audio::Note n{0, 2, 60, 1.0f, prob};
+            s.roll().addNote(n);
+            s.synth().setEnvelope(0.001f, 0.01f, 0.9f, 0.02f);
+            s.play();
+            int sounded = 0;
+            const int loopFrames = 16 * 6000; // one 16-step bar @120 BPM
+            for (int l = 0; l < loops; ++l) {
+                const std::vector<float> out = renderMono(s, loopFrames, sampleRate);
+                double e = 0.0;
+                for (int i = 0; i < 3000; ++i) {
+                    e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                         static_cast<double>(out[static_cast<size_t>(i) * 2]);
+                }
+                if (e > 1e-4) {
+                    ++sounded;
+                }
+            }
+            return sounded;
+        };
+
+        check(soundedLoops(1.0f, 8) == 8, "a note at probability 1.0 always sounds");
+        check(soundedLoops(0.0f, 8) == 0, "a note at probability 0.0 never sounds");
+        const int half = soundedLoops(0.5f, 32);
+        check(half > 4 && half < 28, "a note at probability 0.5 sounds some loops but not all");
+
+        audio::Note def;
+        check(def.probability == 1.0f, "notes default to probability 1.0");
+    }
+
     // --- Clone pattern: an independent copy ----------------------------------
     {
         audio::Sequencer s;

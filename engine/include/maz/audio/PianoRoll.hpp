@@ -11,6 +11,7 @@ struct Note {
     int lengthSteps = 1;
     int pitch = 60; // middle C
     float velocity = 0.9f;
+    float probability = 1.0f; // chance in [0,1] the note fires each loop (1 = always)
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -40,6 +41,11 @@ public:
 
     // Toggle a length-1 note at (pitch, step): remove it if present, otherwise add it.
     void toggle(int pitch, int step, float velocity = 0.9f);
+
+    // Set the trigger probability of the note starting at (pitch, step), if one exists. Returns its
+    // new probability (or 1.0 if there's no note there).
+    float setNoteProbability(int pitch, int step, float probability);
+    float noteProbability(int pitch, int step) const;
 
 private:
     int numSteps_ = 16;

@@ -427,8 +427,19 @@ void Sequencer::triggerStep(int step) {
             }
         }
     }
+    // Per-note probability: skip a note this loop when its odds fail (deterministic per-transport).
+    auto noteFires = [this](const Note& n) {
+        if (n.probability >= 1.0f) {
+            return true;
+        }
+        probRng_ ^= probRng_ << 13;
+        probRng_ ^= probRng_ >> 17;
+        probRng_ ^= probRng_ << 5;
+        const float r = static_cast<float>(probRng_ & 0xFFFFFFu) / 16777216.0f;
+        return r < n.probability;
+    };
     for (const Note& n : roll.notes()) {
-        if (n.startStep == step) {
+        if (n.startStep == step && noteFires(n)) {
             if (toSampler) {
                 sampler_.noteOn(n.pitch, n.velocity);
             } else {
@@ -445,7 +456,7 @@ void Sequencer::triggerStep(int step) {
         }
     }
     for (const Note& n : roll2.notes()) {
-        if (n.startStep == step) {
+        if (n.startStep == step && noteFires(n)) {
             synth2_.noteOn(n.pitch, n.velocity);
         }
     }

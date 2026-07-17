@@ -54,6 +54,26 @@ int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord cho
     return static_cast<int>(offsets.size());
 }
 
+float PianoRoll::setNoteProbability(int pitch, int step, float probability) {
+    const float p = probability < 0.0f ? 0.0f : (probability > 1.0f ? 1.0f : probability);
+    for (Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            n.probability = p;
+            return p;
+        }
+    }
+    return 1.0f;
+}
+
+float PianoRoll::noteProbability(int pitch, int step) const {
+    for (const Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            return n.probability;
+        }
+    }
+    return 1.0f;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

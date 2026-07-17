@@ -607,6 +607,17 @@ void buildPianoRollUI(audio::Sequencer& seq) {
             if (ImGui::Button("##cell", ImVec2(cell, cell))) {
                 roll.toggle(pitch, s);
             }
+            // Scroll over a placed note to set its trigger probability; tooltip shows it when < 100%.
+            if (on && ImGui::IsItemHovered()) {
+                const float wheel = ImGui::GetIO().MouseWheel;
+                if (wheel != 0.0f) {
+                    roll.setNoteProbability(pitch, s, roll.noteProbability(pitch, s) + wheel * 0.1f);
+                }
+                const float pr = roll.noteProbability(pitch, s);
+                if (pr < 0.999f) {
+                    ImGui::SetTooltip("prob %.0f%%", pr * 100.0f);
+                }
+            }
             ImGui::PopStyleColor(3);
             if (s + 1 < steps) {
                 ImGui::SameLine();
