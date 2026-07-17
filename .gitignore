@@ -32,3 +32,4 @@ unit_project_roundtrip.cjc
 unit_midi_out.mid
 /song.mid
 /stem_*.wav
+/unit_recording_out.wav

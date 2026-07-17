@@ -90,6 +90,13 @@ target_link_libraries(maz_midi_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_midi COMMAND maz_midi_tests)
 set_tests_properties(unit_midi PROPERTIES TIMEOUT 30)
 
+# Unit tests: session recording — capture the rendered output and save it to a WAV.
+add_executable(maz_recording_tests unit_recording.cpp)
+target_link_libraries(maz_recording_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_recording COMMAND maz_recording_tests)
+set_tests_properties(unit_recording PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(

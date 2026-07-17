@@ -1,5 +1,6 @@
 #include "maz/audio/AudioEngine.hpp"
 
+#include "maz/audio/WavWriter.hpp"
 #include "maz/core/Log.hpp"
 
 #include <SDL3/SDL_audio.h>
@@ -72,6 +73,10 @@ void AudioEngine::shutdown() {
         SDL_DestroyAudioStream(stream_);
         stream_ = nullptr;
     }
+    if (captureStream_ != nullptr) {
+        SDL_DestroyAudioStream(captureStream_);
+        captureStream_ = nullptr;
+    }
 }
 
 void AudioEngine::render(float* out, int frames) {
@@ -112,7 +117,57 @@ void AudioEngine::render(float* out, int frames) {
         }
     }
 
+    // Capture the finished output if recording is armed.
+    if (recording_) {
+        recordBuffer_.insert(recordBuffer_.end(), out, out + total);
+    }
+
     framesRendered_ += static_cast<uint64_t>(frames);
+}
+
+void AudioEngine::armRecording() {
+    recordBuffer_.clear();
+    recording_ = true;
+}
+
+void AudioEngine::stopRecording() {
+    recording_ = false;
+}
+
+bool AudioEngine::saveRecording(const std::string& path, std::string* err) const {
+    const int ch = cfg_.channels > 0 ? cfg_.channels : 2;
+    const int frames = static_cast<int>(recordBuffer_.size()) / ch;
+    return writeWav16(path, recordBuffer_.data(), frames, ch, cfg_.sampleRate, err);
+}
+
+bool AudioEngine::startInputCapture(const AudioConfig& cfg) {
+    cfg_ = cfg;
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        MAZ_LOG_ERROR("audio: SDL_InitSubSystem(AUDIO) failed: %s", SDL_GetError());
+        return false;
+    }
+    SDL_AudioSpec spec{};
+    spec.freq = cfg_.sampleRate;
+    spec.format = SDL_AUDIO_F32;
+    spec.channels = cfg_.channels;
+    captureStream_ =
+        SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &spec, nullptr, nullptr);
+    if (captureStream_ == nullptr) {
+        MAZ_LOG_ERROR("audio: input capture open failed: %s", SDL_GetError());
+        return false;
+    }
+    SDL_ResumeAudioStreamDevice(captureStream_);
+    armRecording();
+    MAZ_LOG_INFO("audio: input capture open (%d Hz, %d ch)", cfg_.sampleRate, cfg_.channels);
+    return true;
+}
+
+void AudioEngine::stopInputCapture() {
+    stopRecording();
+    if (captureStream_ != nullptr) {
+        SDL_DestroyAudioStream(captureStream_);
+        captureStream_ = nullptr;
+    }
 }
 
 std::vector<float> AudioEngine::renderOffline(double seconds) {

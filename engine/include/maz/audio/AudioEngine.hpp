@@ -61,6 +61,20 @@ public:
     // Total per-channel frames rendered since init — the master sample clock.
     uint64_t framesRendered() const { return framesRendered_; }
 
+    // --- Recording -----------------------------------------------------------
+    // Capture the rendered master output into an internal buffer (a "record" of the session), which
+    // can then be written to a WAV. Works in both real-time and offline modes.
+    void armRecording();
+    void stopRecording();
+    bool recording() const { return recording_; }
+    const std::vector<float>& recordedAudio() const { return recordBuffer_; }
+    bool saveRecording(const std::string& path, std::string* err = nullptr) const;
+
+    // Open a real-time audio *input* (microphone/line) capture device and record it to the same
+    // buffer. Returns false on failure; under SDL_AUDIODRIVER=dummy it opens a silent input.
+    bool startInputCapture(const AudioConfig& cfg = {});
+    void stopInputCapture();
+
     // Render `frames` interleaved samples (frames * channels floats) into out, mixing all active
     // voices and advancing the sample clock. Called by both the device callback and renderOffline.
     void render(float* out, int frames);
@@ -75,9 +89,12 @@ private:
     Sequencer sequencer_{};
     Mixer mixer_{};
     Automation automation_{};
-    SDL_AudioStream* stream_ = nullptr; // non-null only in real-time mode
+    SDL_AudioStream* stream_ = nullptr;        // non-null only in real-time mode
+    SDL_AudioStream* captureStream_ = nullptr; // non-null while capturing input
     uint64_t framesRendered_ = 0;
     std::vector<float> scratch_; // reused mono render buffer for mixing
+    std::vector<float> recordBuffer_;
+    bool recording_ = false;
 };
 
 } // namespace maz::audio
