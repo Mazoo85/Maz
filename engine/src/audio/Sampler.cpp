@@ -53,6 +53,7 @@ void Sampler::noteOn(int midi, float velocity) {
     const double last = static_cast<double>(sample_.size() - 1);
     const double offset = static_cast<double>(startOffset_) * last;
     v.pos = reverse_ ? (last - offset) : offset;
+    v.dir = reverse_ ? -1 : 1;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
 }
@@ -111,10 +112,25 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 v.env = std::min(1.0f, v.env + attackStep);
             }
 
-            // Bounds / looping, direction-aware: forward stops (or wraps) at the end, reverse at
-            // the start.
+            // Bounds / looping, direction-aware. Ping-pong reflects off each end (flipping the
+            // direction); a plain loop wraps; a one-shot stops. Forward voices watch the end, reverse
+            // voices the start.
             const double dlast = static_cast<double>(last);
-            if (!reverse_) {
+            if (pingPong_ && loop_) {
+                if (v.pos >= dlast) {
+                    v.pos = dlast - (v.pos - dlast); // reflect back inside
+                    if (v.pos < 0.0) {
+                        v.pos = 0.0;
+                    }
+                    v.dir = -1;
+                } else if (v.pos <= 0.0) {
+                    v.pos = -v.pos;
+                    if (v.pos > dlast) {
+                        v.pos = dlast;
+                    }
+                    v.dir = 1;
+                }
+            } else if (v.dir > 0) {
                 if (v.pos >= dlast) {
                     if (loop_) {
                         v.pos -= dlast;
@@ -142,7 +158,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             const float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
             out[i] += s * v.env * v.velocity * gain_;
 
-            v.pos += reverse_ ? -rate : rate;
+            v.pos += static_cast<double>(v.dir) * rate;
         }
     }
 }

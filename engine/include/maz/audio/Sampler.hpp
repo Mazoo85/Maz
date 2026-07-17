@@ -35,6 +35,11 @@ public:
     bool reverse() const { return reverse_; }
     void setLoop(bool on) { loop_ = on; }
     bool loop() const { return loop_; }
+    // Ping-pong loop: instead of wrapping at the loop boundary, playback reverses direction and
+    // bounces back and forth between the sample ends — a seamless, discontinuity-free sustain.
+    // Only has an effect when loop is on. `reverse` sets the initial direction.
+    void setPingPong(bool on) { pingPong_ = on; }
+    bool pingPong() const { return pingPong_; }
 
     // Start offset: where each note begins reading, as a fraction [0,1) of the sample length — skip
     // leading silence or play from a slice point. (In reverse mode this is where playback starts
@@ -62,6 +67,7 @@ private:
         bool releasing = false;
         int midi = -1;
         double pos = 0.0; // fractional read index into sample_
+        int dir = 1;      // playback direction: +1 forward, -1 backward (flips on ping-pong bounce)
         float velocity = 0.0f;
         float env = 0.0f;
     };
@@ -72,6 +78,7 @@ private:
     float gain_ = 0.9f;
     bool reverse_ = false;
     bool loop_ = false;
+    bool pingPong_ = false;
     float startOffset_ = 0.0f;
     float attack_ = 0.001f;  // seconds
     float release_ = 0.012f; // seconds

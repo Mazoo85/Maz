@@ -140,6 +140,44 @@ int main() {
         check(secondPassEnergy > 0.0, "looped sample produces sound in the second pass");
     }
 
+    // Ping-pong loop: playback bounces off the ends instead of wrapping, so it traverses the sample
+    // both ways with no wrap discontinuity (unlike a plain loop).
+    {
+        std::vector<float> ramp(100);
+        for (int i = 0; i < 100; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / 100.0f; // 0 → 0.99
+        }
+        auto analyze = [&](bool pingpong, float& maxJump, float& lo, float& hi) {
+            audio::Sampler s;
+            s.setSampleMono(ramp, sr);
+            s.setBasePitch(60);
+            s.setGain(1.0f);
+            s.setLoop(true);
+            s.setPingPong(pingpong);
+            s.setAmpEnv(0.0001f, 0.1f); // env settles in ~5 frames
+            s.noteOn(60, 1.0f);         // play at base pitch → 1 sample/frame
+            const std::vector<float> out = renderMono(s, 300, sr);
+            maxJump = 0.0f;
+            lo = 1e9f;
+            hi = -1e9f;
+            for (size_t i = 11; i < out.size(); ++i) { // skip the attack ramp
+                const float j = std::fabs(out[i] - out[i - 1]);
+                if (j > maxJump) maxJump = j;
+                if (out[i] < lo) lo = out[i];
+                if (out[i] > hi) hi = out[i];
+            }
+        };
+        float ppJump = 0.0f, ppLo = 0.0f, ppHi = 0.0f;
+        analyze(true, ppJump, ppLo, ppHi);
+        float plJump = 0.0f, plLo = 0.0f, plHi = 0.0f;
+        analyze(false, plJump, plLo, plHi);
+        check(ppHi > 0.9f && ppLo < 0.3f, "ping-pong traverses the full sample both ways");
+        check(ppJump < 0.05f, "ping-pong loop bounces smoothly (no wrap discontinuity)");
+        check(plJump > 0.5f, "a plain loop wraps with a discontinuity (contrast)");
+        audio::Sampler dp;
+        check(!dp.pingPong(), "ping-pong defaults off");
+    }
+
     // Start offset: playback begins partway into the sample (skips the leading part).
     {
         // A ramp 0→1: reading from offset 0.5 starts near value 0.5, not 0.

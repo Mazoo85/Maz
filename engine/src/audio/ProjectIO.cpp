@@ -139,7 +139,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
       << " " << seq.sampler().startOffset() << " " << seq.sampler().attack() << " "
-      << seq.sampler().release() << "\n";
+      << seq.sampler().release() << " " << (seq.sampler().pingPong() ? 1 : 0) << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -397,6 +397,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float atk = 0.0f, rel = 0.0f; // amp env optional (older files omit it)
             if (ls >> atk >> rel) {
                 seq.sampler().setAmpEnv(atk, rel);
+            }
+            int pingpong = 0; // ping-pong optional (older files omit it)
+            if (ls >> pingpong) {
+                seq.sampler().setPingPong(pingpong != 0);
             }
         } else if (tag == "chan") {
             int c = -1;
