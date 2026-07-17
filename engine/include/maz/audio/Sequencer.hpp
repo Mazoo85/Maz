@@ -14,7 +14,8 @@ namespace maz::audio {
 // drum kit, synth, sampler) are shared across patterns; only this content changes per pattern.
 struct Pattern {
     std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
-    PianoRoll roll;
+    PianoRoll roll;            // lead instrument
+    PianoRoll roll2;           // second (bass) instrument
 };
 
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
@@ -85,6 +86,10 @@ public:
     Sampler& sampler() { return sampler_; }
     PianoRoll& roll() { return patterns_[static_cast<size_t>(current_)].roll; }
 
+    // The second (bass) instrument: its own synth and piano-roll lane.
+    SynthInstrument& synth2() { return synth2_; }
+    PianoRoll& roll2() { return patterns_[static_cast<size_t>(current_)].roll2; }
+
     // --- Patterns & arrangement ---------------------------------------------
     int patternCount() const { return static_cast<int>(patterns_.size()); }
     int currentPattern() const { return current_; }
@@ -154,8 +159,9 @@ private:
     std::vector<float> lBuf_;         // per-block stereo accumulators (pre-limit)
     std::vector<float> rBuf_;
 
-    SynthInstrument synth_{}; // melodic instrument playing the piano roll
-    Sampler sampler_{};       // alternative melodic instrument (sample playback)
+    SynthInstrument synth_{};  // lead instrument playing roll
+    SynthInstrument synth2_{}; // bass instrument playing roll2
+    Sampler sampler_{};        // alternative lead instrument (sample playback)
     bool useSampler_ = false;
     bool arpOn_ = false;
     int arpMode_ = 0;

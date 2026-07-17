@@ -102,6 +102,24 @@ void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
         seq.synth().setFilter(1200.0f, 5.0f, 3500.0f);       // resonant sweep for a classic pluck
         seq.synth().setOscillators(18.0f, 0.7f, 0.4f, 0.0f); // detuned + sub for a fat lead
     }
+
+    // Bass on the second instrument (roll2 / synth2).
+    seq.synth2().setMode(audio::SynthMode::Subtractive);
+    seq.synth2().setWaveform(audio::Waveform::Saw);
+    seq.synth2().setEnvelope(0.005f, 0.15f, 0.7f, 0.10f);
+    seq.synth2().setFilter(600.0f, 3.0f, 700.0f);
+    seq.synth2().setOscillators(0.0f, 0.0f, 0.5f, 0.0f); // sub for weight
+    seq.synth2().setGain(0.32f);
+    seq.roll2().clear();
+    const int bass[] = {36, 36, 43, 41}; // C2 C2 G2 F2 roots
+    for (int i = 0; i < 4; ++i) {
+        audio::Note n;
+        n.startStep = i * 4;
+        n.lengthSteps = 4;
+        n.pitch = bass[i];
+        n.velocity = 0.9f;
+        seq.roll2().addNote(n);
+    }
     const int pitches[] = {60, 64, 67, 72, 71, 67, 64, 60}; // C E G C  B G E C
     for (int i = 0; i < 8; ++i) {
         audio::Note n;
@@ -384,9 +402,16 @@ void buildRackUI(audio::Sequencer& seq) {
 
 // Draw the piano-roll UI: pitch rows (high at top) × steps. Clicking a cell toggles a note.
 void buildPianoRollUI(audio::Sequencer& seq) {
-    audio::PianoRoll& roll = seq.roll();
     ImGui::Begin("CJC Music Station — Piano Roll");
-    ImGui::TextDisabled("Click cells to place notes. The synth plays them on the shared transport.");
+    // Lane selector: edit the lead instrument (roll) or the bass (roll2).
+    static int lane = 0;
+    ImGui::TextUnformatted("Lane:");
+    ImGui::SameLine();
+    ImGui::RadioButton("Lead", &lane, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Bass", &lane, 1);
+    audio::PianoRoll& roll = (lane == 1) ? seq.roll2() : seq.roll();
+    ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();
@@ -535,6 +560,41 @@ void buildSynthUI(audio::Sequencer& seq) {
         seq.sampler().setBasePitch(base);
     }
 
+    ImGui::End();
+}
+
+// Draw a compact panel for the second (bass) instrument.
+void buildBassUI(audio::SynthInstrument& syn) {
+    ImGui::Begin("CJC Music Station — Bass Synth");
+    int w = static_cast<int>(syn.waveform());
+    const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
+    if (ImGui::Combo("Waveform##bass", &w, waves, 4)) {
+        syn.setWaveform(static_cast<audio::Waveform>(w));
+    }
+    float a = syn.attack(), d = syn.decay(), s = syn.sustain(), r = syn.release();
+    bool ech = false;
+    ech |= ImGui::SliderFloat("Attack##bass", &a, 0.001f, 1.0f, "%.3f s");
+    ech |= ImGui::SliderFloat("Decay##bass", &d, 0.001f, 1.0f, "%.3f s");
+    ech |= ImGui::SliderFloat("Sustain##bass", &s, 0.0f, 1.0f, "%.2f");
+    ech |= ImGui::SliderFloat("Release##bass", &r, 0.001f, 2.0f, "%.3f s");
+    if (ech) {
+        syn.setEnvelope(a, d, s, r);
+    }
+    float cutoff = syn.filterCutoff(), reso = syn.filterResonance(), env = syn.filterEnvAmount();
+    bool fch = false;
+    fch |= ImGui::SliderFloat("Cutoff##bass", &cutoff, 20.0f, 20000.0f, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
+    fch |= ImGui::SliderFloat("Resonance##bass", &reso, 0.5f, 20.0f, "%.1f");
+    if (fch) {
+        syn.setFilter(cutoff, reso, env);
+    }
+    float sub = syn.subLevel();
+    if (ImGui::SliderFloat("Sub##bass", &sub, 0.0f, 1.0f, "%.2f")) {
+        syn.setOscillators(syn.detuneCents(), syn.osc2Level(), sub, syn.noiseLevel());
+    }
+    float gain = syn.gain();
+    if (ImGui::SliderFloat("Level##bass", &gain, 0.0f, 1.0f, "%.2f")) {
+        syn.setGain(gain);
+    }
     ImGui::End();
 }
 
@@ -828,6 +888,7 @@ int runWindowed(const core::AppConfig& cfg) {
                 buildRackUI(engine.sequencer());
                 buildPianoRollUI(engine.sequencer());
                 buildSynthUI(engine.sequencer());
+                buildBassUI(engine.sequencer().synth2());
                 buildMixerUI(engine);
                 buildAutomationUI(engine.automation());
                 buildArrangementUI(engine.sequencer());

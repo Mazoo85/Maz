@@ -52,6 +52,10 @@ int main() {
     seq.synth().setFmIndex(6.0f);
     seq.sampler().setBasePitch(48);
     seq.setUseSampler(true);
+    // Second instrument: a bass note on roll2 + a distinct synth2 patch.
+    seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
+    seq.synth2().setWaveform(audio::Waveform::Square);
+    seq.synth2().setFilter(700.0f, 4.0f, 900.0f);
     // A second pattern + a playlist arrangement.
     const int p1 = seq.addPattern();
     seq.selectPattern(p1);
@@ -110,6 +114,11 @@ int main() {
     seq2.selectPattern(1);
     check(seq2.step(2, 5) && seq2.roll().notes().size() == 1, "second pattern content round-trips");
     seq2.selectPattern(0);
+
+    // Second instrument round-trips (roll2 note + synth2 patch).
+    check(seq2.roll2().notes().size() == 1 && seq2.roll2().notes()[0].pitch == 40,
+          "second-instrument (bass) notes round-trip");
+    check(seq2.synth2().waveform() == audio::Waveform::Square, "synth2 patch round-trips");
 
     // Piano-roll notes.
     check(seq2.roll().notes().size() == 2, "note count round-trips");

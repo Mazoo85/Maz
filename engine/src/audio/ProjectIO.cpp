@@ -10,6 +10,32 @@
 
 namespace maz::audio {
 
+namespace {
+// Parse a `synth`/`synth2` line into a SynthInstrument (filter fields optional for old files).
+void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
+    int mode = 0, wave = 0;
+    float atk = 0.005f, dec = 0.08f, sus = 0.6f, rel = 0.12f, ratio = 2.0f, index = 3.0f,
+          gain = 0.28f;
+    ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
+    syn.setMode(mode == 1 ? SynthMode::FM : SynthMode::Subtractive);
+    syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 3 ? 0 : wave));
+    syn.setEnvelope(atk, dec, sus, rel);
+    syn.setFmRatio(ratio);
+    syn.setFmIndex(index);
+    syn.setGain(gain);
+    float cutoff = 20000.0f, reso = 0.7f, envAmt = 0.0f;
+    if (ls >> cutoff >> reso >> envAmt) {
+        syn.setFilter(cutoff, reso, envAmt);
+    }
+}
+// Parse a `synthosc`/`synthosc2` line.
+void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
+    float detune = 0.0f, osc2 = 0.0f, sub = 0.0f, noise = 0.0f;
+    ls >> detune >> osc2 >> sub >> noise;
+    syn.setOscillators(detune, osc2, sub, noise);
+}
+} // namespace
+
 // File format (line-based text, ".cjc"):
 //   cjc 1
 //   bpm <double>
@@ -41,13 +67,16 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "humanize " << seq.humanize() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << "\n";
 
-    const SynthInstrument& syn = seq.synth();
-    f << "synth " << static_cast<int>(syn.mode()) << " " << static_cast<int>(syn.waveform()) << " "
-      << syn.attack() << " " << syn.decay() << " " << syn.sustain() << " " << syn.release() << " "
-      << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << " " << syn.filterCutoff()
-      << " " << syn.filterResonance() << " " << syn.filterEnvAmount() << "\n";
-    f << "synthosc " << syn.detuneCents() << " " << syn.osc2Level() << " " << syn.subLevel() << " "
-      << syn.noiseLevel() << "\n";
+    auto writeSynth = [&](const char* tag, const char* oscTag, const SynthInstrument& s) {
+        f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
+          << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
+          << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
+          << s.filterResonance() << " " << s.filterEnvAmount() << "\n";
+        f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
+          << s.noiseLevel() << "\n";
+    };
+    writeSynth("synth", "synthosc", seq.synth());
+    writeSynth("synth2", "synthosc2", seq.synth2());
 
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
@@ -75,6 +104,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     f << "step " << p << " " << c << " " << s << " " << vel << "\n";
                 }
             }
+        }
+        for (const Note& n : seq.roll2().notes()) {
+            f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
+              << n.velocity << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
@@ -173,26 +206,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             seq.setDrumGain(d);
             seq.setSynthGain(s);
         } else if (tag == "synth") {
-            int mode = 0, wave = 0;
-            float atk = 0.005f, dec = 0.08f, sus = 0.6f, rel = 0.12f, ratio = 2.0f, index = 3.0f,
-                  gain = 0.28f;
-            ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
-            SynthInstrument& syn = seq.synth();
-            syn.setMode(mode == 1 ? SynthMode::FM : SynthMode::Subtractive);
-            syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 3 ? 0 : wave));
-            syn.setEnvelope(atk, dec, sus, rel);
-            syn.setFmRatio(ratio);
-            syn.setFmIndex(index);
-            syn.setGain(gain);
-            // Filter fields are optional (older projects omit them → leave the filter open).
-            float cutoff = 20000.0f, reso = 0.7f, envAmt = 0.0f;
-            if (ls >> cutoff >> reso >> envAmt) {
-                syn.setFilter(cutoff, reso, envAmt);
-            }
+            parseSynthLine(ls, seq.synth());
+        } else if (tag == "synth2") {
+            parseSynthLine(ls, seq.synth2());
         } else if (tag == "synthosc") {
-            float detune = 0.0f, osc2 = 0.0f, sub = 0.0f, noise = 0.0f;
-            ls >> detune >> osc2 >> sub >> noise;
-            seq.synth().setOscillators(detune, osc2, sub, noise);
+            parseOscLine(ls, seq.synth());
+        } else if (tag == "synthosc2") {
+            parseOscLine(ls, seq.synth2());
         } else if (tag == "sampler") {
             int use = 0;
             int base = 60;
@@ -259,6 +279,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             ls >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
             seq.selectPattern(p);
             seq.roll().addNote(n);
+        } else if (tag == "note2") {
+            int p = 0;
+            Note n;
+            ls >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            seq.selectPattern(p);
+            seq.roll2().addNote(n);
         } else if (tag == "master") {
             float g = 0.9f;
             ls >> g;

@@ -231,6 +231,16 @@ int main() {
     seq.render(firstStep.data(), 6000, sampleRate);
     check(rms(firstStep) > 0.0, "a scheduled note sounds on its start step");
 
+    // The second (bass) instrument: roll2 notes play through synth2.
+    audio::Sequencer bass;
+    bass.setBpm(120.0);
+    bass.roll2().addNote(audio::Note{0, 8, 40, 1.0f});
+    bass.synth2().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+    bass.play();
+    std::vector<float> bassOut(6000 * 2, 0.0f);
+    bass.render(bassOut.data(), 6000, sampleRate);
+    check(rms(bassOut) > 0.0, "second instrument (roll2/synth2) produces sound");
+
     // An empty roll with no drums stays silent.
     audio::Sequencer quiet;
     quiet.play();

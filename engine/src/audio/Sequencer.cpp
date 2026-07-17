@@ -254,6 +254,19 @@ void Sequencer::triggerStep(int step) {
             }
         }
     }
+
+    // Second (bass) lane → synth2 (offs before ons).
+    const PianoRoll& roll2 = patterns_[static_cast<size_t>(current_)].roll2;
+    for (const Note& n : roll2.notes()) {
+        if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
+            synth2_.noteOff(n.pitch);
+        }
+    }
+    for (const Note& n : roll2.notes()) {
+        if (n.startStep == step) {
+            synth2_.noteOn(n.pitch, n.velocity);
+        }
+    }
 }
 
 void Sequencer::play() {
@@ -273,6 +286,7 @@ void Sequencer::play() {
 void Sequencer::stop() {
     playing_ = false;
     synth_.allNotesOff(); // let held notes release rather than hang
+    synth2_.allNotesOff();
     sampler_.allNotesOff();
 }
 
@@ -326,6 +340,7 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
             }
         }
         synth_.render(synthScratch_.data(), chunk, sampleRate);
+        synth2_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
         constexpr float kCenter = 0.70710678f; // equal-power center gain
         const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
