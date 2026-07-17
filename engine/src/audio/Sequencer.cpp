@@ -125,7 +125,27 @@ void Sequencer::setStep(int channel, int step, bool on) {
     }
     patterns_[static_cast<size_t>(current_)]
         .grid[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
-              static_cast<size_t>(step)] = on ? 1u : 0u;
+              static_cast<size_t>(step)] = on ? 255u : 0u;
+}
+
+float Sequencer::stepVelocity(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 0.0f;
+    }
+    return static_cast<float>(patterns_[static_cast<size_t>(current_)]
+                                  .grid[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+                                        static_cast<size_t>(step)]) /
+           255.0f;
+}
+
+void Sequencer::setStepVelocity(int channel, int step, float velocity) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    const float v = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
+    patterns_[static_cast<size_t>(current_)]
+        .grid[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+              static_cast<size_t>(step)] = static_cast<uint8_t>(v * 255.0f + 0.5f);
 }
 
 void Sequencer::toggle(int channel, int step) {
@@ -141,7 +161,7 @@ void Sequencer::triggerStep(int step) {
     // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
-            channels_[static_cast<size_t>(c)].trigger();
+            channels_[static_cast<size_t>(c)].trigger(stepVelocity(c, step));
         }
     }
     // Sidechain: a kick (channel 0) hit ducks the melodic bus.

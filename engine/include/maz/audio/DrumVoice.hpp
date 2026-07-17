@@ -23,8 +23,9 @@ public:
     void setLevel(float level) { level_ = level; }
     float level() const { return level_; }
 
-    // Strike the drum: reset the envelope/phase and start sounding.
-    void trigger();
+    // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
+    // hit's loudness for per-step accents.
+    void trigger(float velocity = 1.0f);
 
     // True while the hit is still ringing.
     bool active() const { return active_; }
@@ -40,6 +41,7 @@ private:
     Drum type_ = Drum::Kick;
     float gain_ = 0.8f;
     float level_ = 1.0f;
+    float velocity_ = 1.0f;
     bool active_ = false;
     double t_ = 0.0;      // seconds since trigger()
     double phase_ = 0.0;  // tonal-component phase in [0, 1)

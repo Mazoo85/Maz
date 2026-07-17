@@ -94,6 +94,24 @@ int main() {
     seq.setStep(0, 3, true);
     seq.clear();
     check(!seq.step(0, 3), "clear switches every step off");
+
+    // Per-step velocity: a soft accent step is quieter than a full-velocity step.
+    {
+        audio::Sequencer full;
+        full.setBpm(120.0);
+        full.setStep(0, 0, true); // velocity 1.0
+        full.play();
+        const double loud = rms(renderMono(full, 6000, sampleRate));
+
+        audio::Sequencer soft;
+        soft.setBpm(120.0);
+        soft.setStepVelocity(0, 0, 0.3f);
+        soft.play();
+        const double softRms = rms(renderMono(soft, 6000, sampleRate));
+        check(softRms > 0.0 && softRms < loud, "a lower step velocity plays a softer hit");
+        check(soft.stepVelocity(0, 0) > 0.25f && soft.stepVelocity(0, 0) < 0.35f,
+              "step velocity round-trips through the grid");
+    }
     // Out-of-range access is safe and reads false.
     check(!seq.step(-1, 0) && !seq.step(0, 999), "out-of-range steps read false");
 

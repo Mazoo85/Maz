@@ -328,10 +328,13 @@ void buildRackUI(audio::Sequencer& seq) {
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);
             const bool on = seq.step(c, s);
+            const float vel = seq.stepVelocity(c, s);
             const bool onBeat = (s % 4) == 0;
             const bool playhead = seq.playing() && s == seq.currentStep();
 
-            ImVec4 col = on ? ImVec4(0.20f, 0.80f, 0.45f, 1.0f)
+            // On steps are green, brightness scaled by velocity (right-click cycles the accent).
+            const float g = 0.35f + 0.45f * vel;
+            ImVec4 col = on ? ImVec4(0.15f, g, 0.30f + 0.15f * vel, 1.0f)
                             : ImVec4(onBeat ? 0.32f : 0.22f, 0.23f, 0.28f, 1.0f);
             if (playhead) {
                 col.x = std::min(1.0f, col.x + 0.25f);
@@ -343,6 +346,11 @@ void buildRackUI(audio::Sequencer& seq) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, col);
             if (ImGui::Button("##step", ImVec2(cell, cell))) {
                 seq.toggle(c, s);
+            }
+            // Right-click an active step to cycle its accent: full → medium → soft → full.
+            if (on && ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                const float next = vel > 0.8f ? 0.6f : (vel > 0.45f ? 0.3f : 1.0f);
+                seq.setStepVelocity(c, s, next);
             }
             ImGui::PopStyleColor(3);
             if (s + 1 < steps) {

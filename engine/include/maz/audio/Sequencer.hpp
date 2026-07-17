@@ -109,6 +109,10 @@ public:
     void toggle(int channel, int step);
     void clear(); // switch every step off
 
+    // Per-step velocity/accent in [0, 1] (0 = off). setStep uses full velocity.
+    float stepVelocity(int channel, int step) const;
+    void setStepVelocity(int channel, int step, float velocity);
+
     // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);

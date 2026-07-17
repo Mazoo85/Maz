@@ -26,10 +26,11 @@ double decayTau(Drum type) {
 }
 } // namespace
 
-void DrumVoice::trigger() {
+void DrumVoice::trigger(float velocity) {
     active_ = true;
     t_ = 0.0;
     phase_ = 0.0;
+    velocity_ = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
 }
 
 float DrumVoice::noise() {
@@ -80,7 +81,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             phase_ -= std::floor(phase_);
         }
 
-        out[i] += s * gain_ * level_;
+        out[i] += s * gain_ * level_ * velocity_;
         t_ += dt;
     }
 

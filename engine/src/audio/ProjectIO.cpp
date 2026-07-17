@@ -67,7 +67,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         for (int c = 0; c < seq.numChannels(); ++c) {
             for (int s = 0; s < seq.numSteps(); ++s) {
                 if (seq.step(c, s)) {
-                    f << "step " << p << " " << c << " " << s << "\n";
+                    const int vel = static_cast<int>(seq.stepVelocity(c, s) * 255.0f + 0.5f);
+                    f << "step " << p << " " << c << " " << s << " " << vel << "\n";
                 }
             }
         }
@@ -222,7 +223,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int s = 0;
             ls >> p >> c >> s;
             seq.selectPattern(p);
-            seq.setStep(c, s, true);
+            int vel = 255;
+            if (ls >> vel) {
+                seq.setStepVelocity(c, s, static_cast<float>(vel) / 255.0f);
+            } else {
+                seq.setStep(c, s, true);
+            }
         } else if (tag == "note") {
             int p = 0;
             Note n;
