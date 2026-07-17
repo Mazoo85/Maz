@@ -35,6 +35,7 @@ add_library(maz STATIC
     src/audio/Sequencer.cpp
     src/audio/Effects.cpp
     src/audio/Mixer.cpp
+    src/audio/PluginHost.cpp
     src/audio/Automation.cpp
     src/audio/ProjectIO.cpp
     src/audio/AudioEngine.cpp
@@ -65,7 +66,8 @@ target_link_libraries(maz
     PRIVATE
         maz_cgltf
         maz_imgui
-        maz_warnings)
+        maz_warnings
+        ${CMAKE_DL_LIBS})
 
 # Enable validation-layer plumbing in debug builds.
 target_compile_definitions(maz PUBLIC $<$<CONFIG:Debug>:MAZ_DEBUG=1>)

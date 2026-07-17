@@ -31,6 +31,7 @@ struct AppConfig {
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it
     const char* midiPath = nullptr;        // --midi PATH : export the pattern as a .mid file
     const char* stemsPrefix = nullptr;     // --stems PREFIX : bounce drums/lead/bass to separate WAVs
+    const char* pluginPath = nullptr;      // --plugin PATH : load a native audio plugin (.so)
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

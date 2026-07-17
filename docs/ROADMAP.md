@@ -242,9 +242,17 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
   - [x] **Second melodic instrument** — a bass synth + its own piano-roll lane, so a track can be
         drums + bass + lead. Both persist in the project.
   - [x] **MIDI export** — the pattern exports to a Standard MIDI File (notes + GM drums).
-- [ ] A8 — live audio-input recording + plugin (VST3/CLAP) hosting. The remaining FL features that a
-      headless CI sandbox genuinely can't build-and-verify (no audio device, no plugin SDKs, no GPU
-      UI). Everything else above is implemented and tested offline.
+- [x] **A8 — recording + native plugin hosting.**
+  - [x] **Session/output recording** — `AudioEngine::armRecording()` captures the master output to a
+        buffer, saved to WAV (offline or real-time); plus a real SDL audio **input-capture** path
+        (`startInputCapture`, `SDL_AUDIO_DEVICE_DEFAULT_RECORDING`) for mic/line recording.
+  - [x] **Native plugin hosting** — a stable C plugin ABI (`PluginApi.h`) + a `PluginHost` that
+        `dlopen`s a plugin `.so`, checks its ABI, and runs it as a mixer effect. Ships an example
+        tremolo plugin (`plugins/example_tremolo`); `daw --plugin file.so` loads it. (A VST3/CLAP
+        shim to this ABI is future work; the host mechanism is real and tested.)
+- [ ] Remaining vs. FL: a full **GPU-rendered GUI** (the ImGui interface is written but needs a
+      display to run) and **VST3/CLAP format** wrappers (the plugin host exists; the specific vendor
+      formats need their SDKs). These can't be exercised in a headless sandbox.
 
 ### How to pick the next task
 

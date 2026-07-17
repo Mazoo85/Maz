@@ -97,6 +97,15 @@ target_link_libraries(maz_recording_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_recording COMMAND maz_recording_tests)
 set_tests_properties(unit_recording PROPERTIES TIMEOUT 30)
 
+# Unit tests: native plugin hosting — load the example tremolo plugin (.so) via dlopen and run it.
+add_executable(maz_plugin_tests unit_plugin.cpp)
+target_link_libraries(maz_plugin_tests PRIVATE maz::maz maz_warnings)
+add_dependencies(maz_plugin_tests maz_example_tremolo)
+target_compile_definitions(maz_plugin_tests PRIVATE MAZ_TEST_PLUGIN="$<TARGET_FILE:maz_example_tremolo>")
+
+add_test(NAME unit_plugin COMMAND maz_plugin_tests)
+set_tests_properties(unit_plugin PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(

@@ -248,6 +248,17 @@ int runHeadless(const core::AppConfig& cfg) {
             }
         }
 
+        if (cfg.pluginPath != nullptr) {
+            std::string perr;
+            if (engine.mixer().plugin().load(cfg.pluginPath, engine.config().sampleRate, &perr)) {
+                engine.mixer().plugin().setEnabled(true);
+                MAZ_LOG_INFO("plugin: loaded %s", cfg.pluginPath);
+            } else {
+                MAZ_LOG_ERROR("plugin load failed: %s", perr.c_str());
+                return 1;
+            }
+        }
+
         if (cfg.midiPath != nullptr) {
             std::string merr;
             if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr)) {

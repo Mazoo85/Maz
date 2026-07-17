@@ -139,6 +139,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
 
+    f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
+
     for (int i = 0; i < Automation::count(); ++i) {
         const AutoLane& lane = automation.lane(i);
         f << "auto " << i << " " << (lane.enabled ? 1 : 0) << " "
@@ -360,6 +362,19 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.peq().setLowGain(lowDb);
                 mixer.peq().setMid(midF, midQ, midDb);
                 mixer.peq().setHighGain(highDb);
+            }
+        } else if (tag == "plugin") {
+            int en = 0;
+            ls >> en;
+            std::string pp;
+            std::getline(ls, pp);
+            const size_t nb = pp.find_first_not_of(' ');
+            pp = (nb == std::string::npos) ? std::string() : pp.substr(nb);
+            if (!pp.empty()) {
+                std::string pe;
+                if (mixer.plugin().load(pp, 48000, &pe)) {
+                    mixer.plugin().setEnabled(en != 0);
+                }
             }
         } else if (tag == "auto") {
             int idx = -1, en = 0, shape = 0;

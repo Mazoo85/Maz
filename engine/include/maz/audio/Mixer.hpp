@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/audio/Effects.hpp"
+#include "maz/audio/PluginHost.hpp"
 
 #include <vector>
 
@@ -29,6 +30,7 @@ public:
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
+    PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
 
     // Generic iteration over the chain (for a mixer strip that lists every effect).
     int effectCount() const { return static_cast<int>(chain_.size()); }
@@ -50,6 +52,7 @@ private:
     Phaser phaser_{};
     Delay delay_{};
     Reverb reverb_{};
+    PluginHost plugin_{};
     std::vector<Effect*> chain_; // processing order; points at the members above
 };
 
