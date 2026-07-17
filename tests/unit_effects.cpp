@@ -276,6 +276,41 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- HighPass: low frequencies attenuated, highs pass -------------------
+    {
+        audio::HighPass hp;
+        hp.setEnabled(true);
+        hp.setCutoff(500.0f);
+        // A 60 Hz tone (well below cutoff) is strongly attenuated.
+        std::vector<float> low = sineStereo(sr, 60.0, 0.8, sr);
+        const double lowIn = rms(low);
+        hp.process(low.data(), sr, sr);
+        check(rms(low) < lowIn * 0.3, "high-pass attenuates a 60 Hz tone below the cutoff");
+
+        // A 5 kHz tone (well above cutoff) passes ~unchanged.
+        audio::HighPass hp2;
+        hp2.setEnabled(true);
+        hp2.setCutoff(500.0f);
+        std::vector<float> high = sineStereo(sr, 5000.0, 0.8, sr);
+        const double highIn = rms(high);
+        hp2.process(high.data(), sr, sr);
+        check(rms(high) > highIn * 0.8, "high-pass passes a 5 kHz tone above the cutoff");
+
+        // Disabled → transparent.
+        audio::HighPass off;
+        std::vector<float> sig = sineStereo(1000, 100.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled high-pass is transparent");
+    }
+
     // --- Tape saturation: adds harmonics, transparent when bypassed ---------
     {
         auto hf = [](const std::vector<float>& b) {

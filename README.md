@@ -48,8 +48,8 @@ the project, and bounce to WAV.
   an **arpeggiator**, a **metronome** with **count-in**, and **sidechain** ducking.
 - **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, **per-bus insert strips**
   (drums / lead / bass, each with its own EQ + distortion + compressor + gain/mute), a master effect
-  chain (parametric EQ, low-pass, distortion, tape saturation, bitcrusher, noise gate, compressor,
-  chorus, phaser, delay (with ping-pong), reverb, mid/side stereo widener),
+  chain (parametric EQ, low-pass, high-pass, distortion, tape saturation, bitcrusher, noise gate,
+  compressor, chorus, phaser, delay (with ping-pong), reverb, mid/side stereo widener),
   parallel **aux send/return buses** (reverb + delay), and a master **limiter**.
 - **Modulation** — automation of filter/FM/reverb/master, synced to the transport, from either an
   **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).

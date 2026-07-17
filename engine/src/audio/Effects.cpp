@@ -292,6 +292,33 @@ void LowPass::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- HighPass ---------------------------------------------------------------
+
+void HighPass::reset() {
+    xL_ = yL_ = 0.0f;
+    xR_ = yR_ = 0.0f;
+}
+
+void HighPass::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    // One-pole high-pass: y[n] = a*(y[n-1] + x[n] - x[n-1]), a = 1/(1 + 2π·fc/sr).
+    const float fc = std::clamp(cutoff_, 5.0f, static_cast<float>(sampleRate) * 0.49f);
+    const float a = 1.0f / (1.0f + kTwoPi * fc / static_cast<float>(sampleRate));
+    for (int i = 0; i < frames; ++i) {
+        const float xl = stereo[2 * i];
+        const float xr = stereo[2 * i + 1];
+        yL_ = a * (yL_ + xl - xL_);
+        yR_ = a * (yR_ + xr - xR_);
+        xL_ = xl;
+        xR_ = xr;
+        stereo[2 * i] = yL_;
+        stereo[2 * i + 1] = yR_;
+    }
+}
+
 // ---- Compressor -------------------------------------------------------------
 
 void Compressor::reset() {

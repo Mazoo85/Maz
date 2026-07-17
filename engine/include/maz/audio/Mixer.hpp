@@ -31,6 +31,7 @@ public:
     TapeSaturation& tape() { return tape_; }
     Bitcrusher& bitcrusher() { return crush_; }
     Gate& gate() { return gate_; }
+    HighPass& highpass() { return hp_; }
     Compressor& compressor() { return comp_; }
     Chorus& chorus() { return chorus_; }
     Phaser& phaser() { return phaser_; }
@@ -77,6 +78,7 @@ private:
     TapeSaturation tape_{};
     Bitcrusher crush_{};
     Gate gate_{};
+    HighPass hp_{};
     Compressor comp_{};
     Chorus chorus_{};
     Phaser phaser_{};

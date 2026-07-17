@@ -133,6 +133,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     f << "master " << mixer.masterGain() << "\n";
     f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
+    f << "fx hp " << (mixer.highpass().enabled() ? 1 : 0) << " " << mixer.highpass().cutoff() << "\n";
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
@@ -365,6 +366,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> cutoff;
                 mixer.eq().setEnabled(en != 0);
                 mixer.eq().setCutoff(cutoff);
+            } else if (which == "hp") {
+                float cutoff = 30.0f;
+                ls >> cutoff;
+                mixer.highpass().setEnabled(en != 0);
+                mixer.highpass().setCutoff(cutoff);
             } else if (which == "comp") {
                 float thr = -18.0f, ratio = 4.0f, atk = 8.0f, rel = 120.0f, mk = 0.0f;
                 ls >> thr >> ratio >> atk >> rel >> mk;

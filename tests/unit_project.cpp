@@ -83,6 +83,8 @@ int main() {
     mixer.reverb().setEnabled(true);
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
+    mixer.highpass().setEnabled(true);
+    mixer.highpass().setCutoff(45.0f);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -197,6 +199,8 @@ int main() {
               mixer2.track(audio::MixerBus::Bass).eq().enabled() &&
               near(mixer2.track(audio::MixerBus::Bass).eq().lowGain(), 4.5f),
           "per-bus mixer-track insert strips round-trip");
+    check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
+          "high-pass round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
           "gate round-trips");

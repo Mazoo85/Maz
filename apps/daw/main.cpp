@@ -793,6 +793,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("Hz##eq", &cutoff, 200.0f, 18000.0f, "%.0f")) mx.eq().setCutoff(cutoff);
     }
     {
+        bool en = mx.highpass().enabled();
+        if (ImGui::Checkbox("High-Pass", &en)) mx.highpass().setEnabled(en);
+        float cutoff = mx.highpass().cutoff();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Hz##hp", &cutoff, 10.0f, 2000.0f, "%.0f")) mx.highpass().setCutoff(cutoff);
+    }
+    {
         bool en = mx.distortion().enabled();
         if (ImGui::Checkbox("Distortion", &en)) mx.distortion().setEnabled(en);
         float drive = mx.distortion().drive();

@@ -192,6 +192,24 @@ private:
     float yR_ = 0.0f;
 };
 
+// A one-pole high-pass filter — rolls off lows below `cutoff` Hz. The go-to tool for removing
+// rumble / DC and cleaning up the low end of a bus.
+class HighPass : public Effect {
+public:
+    HighPass() { enabled_ = false; }
+    const char* name() const override { return "High-Pass"; }
+    void setCutoff(float hz) { cutoff_ = hz; }
+    float cutoff() const { return cutoff_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float cutoff_ = 30.0f;
+    float xL_ = 0.0f, yL_ = 0.0f; // previous input/output per channel
+    float xR_ = 0.0f, yR_ = 0.0f;
+};
+
 // A stereo-linked peak compressor. Tames dynamics: above `threshold` dB the signal is reduced by
 // `ratio`:1, with `attack`/`release` in ms and `makeup` dB applied after.
 class Compressor : public Effect {
