@@ -17,7 +17,8 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     float atk = 0.005f, dec = 0.08f, sus = 0.6f, rel = 0.12f, ratio = 2.0f, index = 3.0f,
           gain = 0.28f;
     ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
-    syn.setMode(mode == 1 ? SynthMode::FM : SynthMode::Subtractive);
+    syn.setMode(mode == 1 ? SynthMode::FM
+                          : (mode == 2 ? SynthMode::Wavetable : SynthMode::Subtractive));
     syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 3 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);
@@ -26,6 +27,11 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     float cutoff = 20000.0f, reso = 0.7f, envAmt = 0.0f;
     if (ls >> cutoff >> reso >> envAmt) {
         syn.setFilter(cutoff, reso, envAmt);
+    }
+    float wtPos = 0.0f, wtMorph = 0.0f; // wavetable fields optional for old files
+    if (ls >> wtPos >> wtMorph) {
+        syn.setWavetablePosition(wtPos);
+        syn.setWavetableMorph(wtMorph);
     }
 }
 // Parse a `synthosc`/`synthosc2` line.
@@ -71,7 +77,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
           << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
           << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
-          << s.filterResonance() << " " << s.filterEnvAmount() << "\n";
+          << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
+          << s.wavetableMorph() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << "\n";
     };

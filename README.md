@@ -40,8 +40,9 @@ the project, and bounce to WAV.
 
 - **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity); **two** polyphonic
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator + sub +
-  noise + a resonant state-variable **filter** with envelope) and **FM** engines; and a **`Sampler`**
-  (WAV playback, pitch-shifted per note).
+  noise + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
+  single-cycle table scanned by an envelope-sweepable position) engines; and a **`Sampler`** (WAV
+  playback, pitch-shifted per note).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), **two** `PianoRoll`
   lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
   an **arpeggiator**, and **sidechain** ducking.
@@ -76,8 +77,9 @@ cmake --build build                                    # builds the `daw` app to
 ./build/bin/daw --headless --seconds 1 --freq 440 --wav tone.wav        # a single oscillator tone
 ```
 
-Flags: `--beat` (demo drum pattern), `--melody` (demo piano-roll melody), `--bpm N` (tempo),
-`--freq HZ` (oscillator pitch), `--seconds N` (offline length), `--wav PATH` (write the render).
+Flags: `--beat` (demo drum pattern), `--melody` (demo piano-roll melody), `--fm` / `--wt` (FM or
+wavetable lead engine), `--bpm N` (tempo), `--freq HZ` (oscillator pitch), `--seconds N` (offline
+length), `--wav PATH` (write the render).
 Headless mode needs no audio device, so CI verifies the synth, drums, and melodic sequencing.
 
 ---

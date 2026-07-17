@@ -22,6 +22,7 @@ struct AppConfig {
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
     bool melody = false;            // --melody : render the demo piano-roll melody
     bool fm = false;                // --fm : use the FM synth engine for the demo melody
+    bool wavetable = false;         // --wt : use the wavetable synth engine for the demo melody
     bool automate = false;          // --auto : enable a demo auto-filter sweep
     const char* samplePath = nullptr; // --sample PATH : load a WAV into the sampler for the melody
     bool song = false;              // --song : build a multi-pattern arrangement (playlist) demo

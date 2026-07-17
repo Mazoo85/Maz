@@ -207,6 +207,49 @@ int main() {
         check(rms(closedOut) > 0.0, "filtered synth still produces sound");
     }
 
+    // --- Wavetable synthesis -------------------------------------------------
+    {
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                s += d * d;
+            }
+            return std::sqrt(s / static_cast<double>(b.size()));
+        };
+
+        // Position 0 is the pure-sine frame; position 1 is the square frame. Scanning the table
+        // toward 1 must add high-frequency (harmonic) energy — the defining wavetable behaviour.
+        audio::SynthInstrument dark;
+        dark.setMode(audio::SynthMode::Wavetable);
+        dark.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        dark.setFilter(20000.0f, 0.7f, 0.0f); // keep the filter out of the way
+        dark.setWavetablePosition(0.0f);
+        dark.noteOn(57, 1.0f);
+        const std::vector<float> darkOut = render(dark, sampleRate / 4, sampleRate);
+
+        audio::SynthInstrument bright;
+        bright.setMode(audio::SynthMode::Wavetable);
+        bright.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        bright.setFilter(20000.0f, 0.7f, 0.0f);
+        bright.setWavetablePosition(1.0f);
+        bright.noteOn(57, 1.0f);
+        const std::vector<float> brightOut = render(bright, sampleRate / 4, sampleRate);
+
+        check(rms(darkOut) > 0.0, "wavetable synth produces sound");
+        check(hf(brightOut) > hf(darkOut) * 2.0,
+              "scanning the wavetable toward the square frame adds harmonics");
+
+        // Position 0 (sine frame) should track the note pitch cleanly.
+        check(std::fabs(estimateHz(darkOut, sampleRate) - audio::midiToFreq(57)) < 5.0,
+              "wavetable sine frame holds the note pitch");
+
+        // Direct table sanity: the default table's first frame is a sine (zero at phase 0).
+        audio::Wavetable wt;
+        check(std::fabs(wt.sample(0.0f, 0.0)) < 1e-3f, "wavetable frame 0 phase 0 ~= 0 (sine)");
+        check(wt.sample(0.0f, 0.25) > 0.9f, "wavetable frame 0 quarter-phase ~= +1 (sine peak)");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

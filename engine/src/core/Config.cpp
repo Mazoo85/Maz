@@ -39,6 +39,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.melody = true;
         } else if (std::strcmp(arg, "--fm") == 0) {
             cfg.fm = true;
+        } else if (std::strcmp(arg, "--wt") == 0) {
+            cfg.wavetable = true;
         } else if (std::strcmp(arg, "--auto") == 0) {
             cfg.automate = true;
         } else if (std::strcmp(arg, "--sample") == 0 && i + 1 < argc) {

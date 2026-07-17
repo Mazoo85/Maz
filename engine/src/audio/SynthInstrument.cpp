@@ -132,6 +132,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 if (v.modPhase >= 1.0) {
                     v.modPhase -= std::floor(v.modPhase);
                 }
+            } else if (mode_ == SynthMode::Wavetable) {
+                // Scan the morphing table; the amp envelope can sweep the position for movement.
+                const float pos = wtPosition_ + wtMorphEnv_ * v.env;
+                osc = wavetable_.sample(pos, v.phase);
             } else {
                 osc = waveSample(waveform_, v.phase);
                 if (osc2Level_ > 0.0f) {

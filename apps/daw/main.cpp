@@ -87,10 +87,17 @@ void applyDemoBeat(audio::Sequencer& seq) {
 }
 
 // A simple C-major arpeggio riff on the piano roll (MIDI: C4=60). Each note is two 16th-steps long.
-// `fm` switches the synth to its FM engine with a bell/electric-piano voicing.
-void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
+// `fm` switches the synth to its FM engine with a bell/electric-piano voicing; `wt` switches it to
+// the wavetable engine with an envelope-swept scan for an evolving pluck.
+void applyDemoMelody(audio::Sequencer& seq, bool fm = false, bool wt = false) {
     seq.roll().clear();
-    if (fm) {
+    if (wt) {
+        seq.synth().setMode(audio::SynthMode::Wavetable);
+        seq.synth().setWavetablePosition(0.15f);
+        seq.synth().setWavetableMorph(0.7f); // envelope sweeps the table for movement
+        seq.synth().setEnvelope(0.004f, 0.20f, 0.45f, 0.20f);
+        seq.synth().setFilter(6000.0f, 2.0f, 4000.0f);
+    } else if (fm) {
         seq.synth().setMode(audio::SynthMode::FM);
         seq.synth().setFmRatio(2.0f);
         seq.synth().setFmIndex(4.0f);
@@ -133,11 +140,11 @@ void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
 
 // A multi-pattern demo arrangement: pattern 0 is the main groove, pattern 1 is a busier fill, and
 // the playlist chains them into a short song (three bars of groove, one of fill, looped).
-void applyDemoSong(audio::Sequencer& seq, bool fm) {
+void applyDemoSong(audio::Sequencer& seq, bool fm, bool wt = false) {
     seq.clearArrangement();
     seq.selectPattern(0);
     applyDemoBeat(seq);
-    applyDemoMelody(seq, fm);
+    applyDemoMelody(seq, fm, wt);
 
     const int fill = seq.addPattern();
     seq.selectPattern(fill);
@@ -147,7 +154,7 @@ void applyDemoSong(audio::Sequencer& seq, bool fm) {
     for (int s : {0, 4, 8, 12}) {
         seq.setStep(0, s, true); // kick on the beat
     }
-    applyDemoMelody(seq, fm);
+    applyDemoMelody(seq, fm, wt);
 
     seq.selectPattern(0);
     seq.setPlaylist({0, 0, 0, fill});
@@ -204,7 +211,7 @@ int runHeadless(const core::AppConfig& cfg) {
             MAZ_LOG_INFO("project: loaded %s", cfg.projectLoadPath);
         } else {
             if (cfg.song) {
-                applyDemoSong(engine.sequencer(), cfg.fm);
+                applyDemoSong(engine.sequencer(), cfg.fm, cfg.wavetable);
                 appliedBeat = true;
                 appliedMelody = true;
             } else {
@@ -215,7 +222,7 @@ int runHeadless(const core::AppConfig& cfg) {
                     appliedBeat = true;
                 }
                 if (cfg.melody || !anyPattern) {
-                    applyDemoMelody(engine.sequencer(), cfg.fm);
+                    applyDemoMelody(engine.sequencer(), cfg.fm, cfg.wavetable);
                     appliedMelody = true;
                 }
             }
@@ -531,8 +538,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::Separator();
 
     int mode = static_cast<int>(syn.mode());
-    const char* modes[] = {"Subtractive", "FM"};
-    if (ImGui::Combo("Engine", &mode, modes, 2)) {
+    const char* modes[] = {"Subtractive", "FM", "Wavetable"};
+    if (ImGui::Combo("Engine", &mode, modes, 3)) {
         syn.setMode(static_cast<audio::SynthMode>(mode));
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
@@ -553,11 +560,18 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (och) {
             syn.setOscillators(detune, osc2, sub, noise);
         }
-    } else {
+    } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);
         float index = syn.fmIndex();
         if (ImGui::SliderFloat("FM Index", &index, 0.0f, 10.0f, "%.2f")) syn.setFmIndex(index);
+    } else {
+        float pos = syn.wavetablePosition();
+        if (ImGui::SliderFloat("WT Position", &pos, 0.0f, 1.0f, "%.2f"))
+            syn.setWavetablePosition(pos);
+        float morph = syn.wavetableMorph();
+        if (ImGui::SliderFloat("WT Env Morph", &morph, 0.0f, 1.0f, "%.2f"))
+            syn.setWavetableMorph(morph);
     }
 
     ImGui::SeparatorText("Envelope");
@@ -908,7 +922,7 @@ int runWindowed(const core::AppConfig& cfg) {
     }
     engine.sequencer().setBpm(cfg.bpm);
     applyDemoBeat(engine.sequencer());
-    applyDemoMelody(engine.sequencer(), cfg.fm);
+    applyDemoMelody(engine.sequencer(), cfg.fm, cfg.wavetable);
     applyDemoMixer(engine);
     if (cfg.automate) {
         applyDemoAuto(engine);

@@ -2,15 +2,17 @@
 
 #include "maz/audio/Filter.hpp"
 #include "maz/audio/Oscillator.hpp" // Waveform + waveSample
+#include "maz/audio/Wavetable.hpp"
 
 #include <array>
 #include <cstdint>
 
 namespace maz::audio {
 
-// The synth's sound-generation engine: classic subtractive (an oscillator waveform) or 2-operator
-// FM (a modulator oscillator bends a sine carrier for metallic/bell/electric-piano timbres).
-enum class SynthMode { Subtractive, FM };
+// The synth's sound-generation engine: classic subtractive (an oscillator waveform), 2-operator FM
+// (a modulator oscillator bends a sine carrier for metallic/bell/electric-piano timbres), or
+// Wavetable (a morphing single-cycle table scanned by a position that the envelope can sweep).
+enum class SynthMode { Subtractive, FM, Wavetable };
 
 // A small polyphonic synth: a fixed pool of voices, each with an ADSR amplitude envelope, keyed by
 // MIDI note number. noteOn/noteOff drive it like a keyboard; render() ADDS the summed voices into
@@ -34,6 +36,15 @@ public:
     void setFmIndex(float i) { fmIndex_ = i; }
     float fmRatio() const { return fmRatio_; }
     float fmIndex() const { return fmIndex_; }
+
+    // Wavetable: `position` [0,1] scans the morphing table (dark→bright); `envAmt` sweeps that
+    // position with the amp envelope for evolving timbres. Access the table to reprogram its frames.
+    void setWavetablePosition(float position) { wtPosition_ = position; }
+    void setWavetableMorph(float envAmt) { wtMorphEnv_ = envAmt; }
+    float wavetablePosition() const { return wtPosition_; }
+    float wavetableMorph() const { return wtMorphEnv_; }
+    Wavetable& wavetable() { return wavetable_; }
+    const Wavetable& wavetable() const { return wavetable_; }
 
     // Oscillator section (subtractive mode): a detuned 2nd oscillator (cents + level) for width, a
     // sub-oscillator one octave down, and a noise layer. All 0 → a single clean oscillator.
@@ -88,6 +99,9 @@ private:
     float gain_ = 0.28f;
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;
+    float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
+    float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
+    Wavetable wavetable_{};
     float attack_ = 0.005f;
     float decay_ = 0.08f;
     float sustain_ = 0.6f;

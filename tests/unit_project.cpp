@@ -56,6 +56,9 @@ int main() {
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
     seq.synth2().setWaveform(audio::Waveform::Square);
     seq.synth2().setFilter(700.0f, 4.0f, 900.0f);
+    seq.synth2().setMode(audio::SynthMode::Wavetable);
+    seq.synth2().setWavetablePosition(0.65f);
+    seq.synth2().setWavetableMorph(0.4f);
     // A second pattern + a playlist arrangement.
     const int p1 = seq.addPattern();
     seq.selectPattern(p1);
@@ -119,6 +122,10 @@ int main() {
     check(seq2.roll2().notes().size() == 1 && seq2.roll2().notes()[0].pitch == 40,
           "second-instrument (bass) notes round-trip");
     check(seq2.synth2().waveform() == audio::Waveform::Square, "synth2 patch round-trips");
+    check(seq2.synth2().mode() == audio::SynthMode::Wavetable &&
+              near(seq2.synth2().wavetablePosition(), 0.65f) &&
+              near(seq2.synth2().wavetableMorph(), 0.4f),
+          "synth2 wavetable mode + position/morph round-trip");
 
     // Piano-roll notes.
     check(seq2.roll().notes().size() == 2, "note count round-trips");
