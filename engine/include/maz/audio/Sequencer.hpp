@@ -64,6 +64,9 @@ public:
 
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
+    // Resize the pattern length (1–64 steps). Every pattern's grids are re-laid-out, preserving the
+    // steps that still fit. Lets patterns run shorter/longer than a bar (odd meters, 2-bar loops…).
+    void setNumSteps(int steps);
     int stepsPerBeat() const { return stepsPerBeat_; }
     int numChannels() const { return static_cast<int>(channels_.size()); }
     const std::string& channelName(int channel) const { return names_[static_cast<size_t>(channel)]; }

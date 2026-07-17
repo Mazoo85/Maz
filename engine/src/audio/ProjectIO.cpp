@@ -70,6 +70,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     f << "cjc 1\n";
     f << "bpm " << seq.bpm() << "\n";
+    f << "steps " << seq.numSteps() << "\n";
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
       << seq.sidechainReleaseMs() << "\n";
@@ -237,6 +238,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             double bpm = 120.0;
             ls >> bpm;
             seq.setBpm(bpm);
+        } else if (tag == "steps") {
+            int st = 16;
+            ls >> st;
+            seq.setNumSteps(st); // resize before any step/pattern content is read
         } else if (tag == "swing") {
             float sw = 0.0f;
             ls >> sw;

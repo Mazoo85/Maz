@@ -54,6 +54,45 @@ int Sequencer::channelChokeGroup(int c) const {
     return 0;
 }
 
+void Sequencer::setNumSteps(int steps) {
+    const int n = steps < 1 ? 1 : (steps > 64 ? 64 : steps);
+    if (n == numSteps_) {
+        return;
+    }
+    const int chans = numChannels();
+    const int copy = std::min(n, numSteps_);
+    // Re-lay-out every pattern's channel-major grids to the new step stride, keeping what fits.
+    for (Pattern& p : patterns_) {
+        std::vector<uint8_t> g(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
+        std::vector<uint8_t> pr(static_cast<size_t>(chans) * static_cast<size_t>(n), 255);
+        std::vector<uint8_t> rt(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
+        for (int c = 0; c < chans; ++c) {
+            for (int s = 0; s < copy; ++s) {
+                const size_t src = static_cast<size_t>(c) * static_cast<size_t>(numSteps_) +
+                                   static_cast<size_t>(s);
+                const size_t dst =
+                    static_cast<size_t>(c) * static_cast<size_t>(n) + static_cast<size_t>(s);
+                if (src < p.grid.size()) {
+                    g[dst] = p.grid[src];
+                }
+                if (src < p.prob.size()) {
+                    pr[dst] = p.prob[src];
+                }
+                if (src < p.ratchet.size()) {
+                    rt[dst] = p.ratchet[src];
+                }
+            }
+        }
+        p.grid = std::move(g);
+        p.prob = std::move(pr);
+        p.ratchet = std::move(rt);
+    }
+    numSteps_ = n;
+    if (currentStep_ >= numSteps_) {
+        currentStep_ = 0;
+    }
+}
+
 void Sequencer::setChannelTune(int c, float semitones) {
     if (c >= 0 && c < numChannels()) {
         channels_[static_cast<size_t>(c)].setTune(semitones);

@@ -391,6 +391,16 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setBpm(static_cast<double>(bpm));
     }
     ImGui::SameLine();
+    int lengths[] = {8, 16, 24, 32, 48, 64};
+    int lenIdx = 1;
+    for (int i = 0; i < 6; ++i) {
+        if (lengths[i] == seq.numSteps()) lenIdx = i;
+    }
+    ImGui::SetNextItemWidth(80.0f);
+    if (ImGui::Combo("Length", &lenIdx, "8\0" "16\0" "24\0" "32\0" "48\0" "64\0\0")) {
+        seq.setNumSteps(lengths[lenIdx]);
+    }
+    ImGui::SameLine();
     float swing = seq.swing();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Swing", &swing, 0.0f, 0.75f, "%.2f")) {

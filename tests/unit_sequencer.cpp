@@ -402,6 +402,39 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Pattern length: resizable step count --------------------------------
+    {
+        audio::Sequencer s;
+        check(s.numSteps() == 16, "default pattern length is 16");
+        s.setStep(0, 4, true);
+        s.setStep(1, 12, true);
+        s.setStepVelocity(2, 3, 0.5f);
+
+        s.setNumSteps(32);
+        check(s.numSteps() == 32, "pattern grows to 32 steps");
+        check(s.step(0, 4) && s.step(1, 12), "existing steps survive a grow");
+        check(!s.step(0, 20), "new steps start empty");
+        s.setStep(0, 24, true); // a step only reachable at the longer length
+        check(s.step(0, 24), "steps in the extended range are usable");
+
+        s.setNumSteps(8);
+        check(s.numSteps() == 8, "pattern shrinks to 8 steps");
+        check(s.step(0, 4), "steps within the new length survive a shrink");
+        s.setNumSteps(16);
+        check(!s.step(1, 12), "steps beyond a shrink are gone (not restored)");
+
+        // A 32-step pattern loops over its full length: at 120 BPM a step is 6000 frames, so 32
+        // steps advance the transport through step 31 and wrap to 0.
+        audio::Sequencer t;
+        t.setNumSteps(32);
+        t.setBpm(120.0);
+        t.play();
+        (void)renderMono(t, 31 * 6000, sampleRate);
+        check(t.currentStep() == 31, "32-step pattern reaches step 31");
+        (void)renderMono(t, 6000, sampleRate);
+        check(t.currentStep() == 0, "32-step pattern wraps after its full length");
+    }
+
     // --- Drum tuning: a tuned kick shifts pitch ------------------------------
     {
         // A kick's fundamental rises when tuned up. Estimate its pitch from the sustained tail.

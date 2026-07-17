@@ -38,9 +38,11 @@ int main() {
     seq.setBpm(137.0);
     seq.setDrumGain(0.8f);
     seq.setSynthGain(1.2f);
+    seq.setNumSteps(32);
     seq.setStep(0, 0, true);
     seq.setStep(1, 4, true);
     seq.setStep(2, 7, true);
+    seq.setStep(0, 24, true); // a step only present at the longer length
     seq.setStepProbability(1, 4, 0.5f);
     seq.setStepRatchet(2, 7, 3);
     seq.setChannelChokeGroup(0, 2);
@@ -141,7 +143,9 @@ int main() {
     check(near(seq2.drumGain(), 0.8f) && near(seq2.synthGain(), 1.2f), "bus gains round-trip");
 
     // Drum grid (pattern 0).
-    check(seq2.step(0, 0) && seq2.step(1, 4) && seq2.step(2, 7), "active steps round-trip");
+    check(seq2.numSteps() == 32, "pattern length round-trips");
+    check(seq2.step(0, 0) && seq2.step(1, 4) && seq2.step(2, 7) && seq2.step(0, 24),
+          "active steps round-trip (incl. the extended range)");
     check(std::fabs(seq2.stepProbability(1, 4) - 0.5f) < 0.01f &&
               seq2.stepProbability(0, 0) == 1.0f,
           "per-step probability round-trips");
