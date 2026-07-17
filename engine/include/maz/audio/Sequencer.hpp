@@ -15,6 +15,7 @@ namespace maz::audio {
 struct Pattern {
     std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
     std::vector<uint8_t> prob; // per-step trigger probability, 0..255 (255 = always). Parallel to grid.
+    std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
 };
@@ -152,6 +153,11 @@ public:
     float stepProbability(int channel, int step) const;
     void setStepProbability(int channel, int step, float probability);
 
+    // Per-step ratchet count (1–4): a step > 1 retriggers that many evenly-spaced hits within its
+    // slot — drum rolls, stutters, hi-hat rushes.
+    int stepRatchet(int channel, int step) const;
+    void setStepRatchet(int channel, int step, int count);
+
     // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
@@ -221,6 +227,14 @@ private:
     bool countingIn_ = false; // currently playing the count-in
     int countInStepsRemaining_ = 0;
     uint32_t probRng_ = 0x9E3779B9u; // deterministic RNG for per-step probability
+
+    int sampleRate_ = 48000; // last render rate, used to schedule ratchet sub-hits
+    struct RatchetHit {
+        int channel;
+        float velocity;
+        int framesUntil;
+    };
+    std::vector<RatchetHit> ratchets_; // pending ratchet retriggers
 
     bool playing_ = false;
     int currentStep_ = 0;

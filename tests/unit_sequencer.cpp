@@ -402,6 +402,50 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Per-step ratchet -----------------------------------------------------
+    {
+        // A step slot is 6000 frames @120 BPM. A ratchet of R places hits at 0, 6000/R, 2·6000/R…
+        // Render one slot and measure energy in a short window at each expected hit position.
+        auto render1 = [&](int ratchet) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setStep(2, 0, true); // closed hat — short, decays fast between ratchet hits
+            s.setStepRatchet(2, 0, ratchet);
+            s.play();
+            return renderMono(s, 6000, sampleRate);
+        };
+        auto energyAt = [](const std::vector<float>& out, int start, int len) {
+            double e = 0.0;
+            for (int i = start; i < start + len && i < 6000; ++i) {
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            return e;
+        };
+
+        const std::vector<float> one = render1(1);
+        const std::vector<float> four = render1(4);
+        const std::vector<float> two = render1(2);
+        const double ref = energyAt(one, 0, 500); // a single hat hit's onset energy
+
+        check(ref > 1e-4, "non-ratcheted step hits at the start of the slot");
+        // The single hat has decayed away well before the quarter points.
+        check(energyAt(one, 1500, 500) < ref * 0.2 && energyAt(one, 3000, 500) < ref * 0.2,
+              "a single hat has no extra hits mid-slot");
+
+        // 4× ratchet: a fresh hat at each quarter (0, 1500, 3000, 4500).
+        check(energyAt(four, 1500, 500) > ref * 0.3 && energyAt(four, 3000, 500) > ref * 0.3 &&
+                  energyAt(four, 4500, 500) > ref * 0.3,
+              "4x ratchet fires fresh hits at each quarter of the step");
+
+        // 2× ratchet: a fresh hat at the half-way point (3000), but not at the 1500 quarter.
+        check(energyAt(two, 3000, 500) > ref * 0.3 && energyAt(two, 1500, 500) < ref * 0.2,
+              "2x ratchet fires at the half, not the quarter, of the step");
+
+        audio::Sequencer d;
+        check(d.stepRatchet(0, 0) == 1, "steps default to ratchet 1");
+    }
+
     // --- Per-step probability -------------------------------------------------
     {
         // Count how many times a kick on step 0 fires over N bars at a given probability.

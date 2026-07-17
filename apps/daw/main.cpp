@@ -473,15 +473,21 @@ void buildRackUI(audio::Sequencer& seq) {
                 const float next = vel > 0.8f ? 0.6f : (vel > 0.45f ? 0.3f : 1.0f);
                 seq.setStepVelocity(c, s, next);
             }
-            // Scroll over an active step to set its trigger probability; tooltip shows it when < 100%.
+            // Scroll over an active step to set its trigger probability; Shift+scroll sets its
+            // ratchet (1–4). A tooltip shows both when they differ from the default.
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    seq.setStepProbability(c, s, seq.stepProbability(c, s) + wheel * 0.1f);
+                    if (ImGui::GetIO().KeyShift) {
+                        seq.setStepRatchet(c, s, seq.stepRatchet(c, s) + (wheel > 0.0f ? 1 : -1));
+                    } else {
+                        seq.setStepProbability(c, s, seq.stepProbability(c, s) + wheel * 0.1f);
+                    }
                 }
                 const float pr = seq.stepProbability(c, s);
-                if (pr < 0.999f) {
-                    ImGui::SetTooltip("prob %.0f%%", pr * 100.0f);
+                const int rt = seq.stepRatchet(c, s);
+                if (pr < 0.999f || rt > 1) {
+                    ImGui::SetTooltip("prob %.0f%%  ratchet x%d", pr * 100.0f, rt);
                 }
             }
             ImGui::PopStyleColor(3);

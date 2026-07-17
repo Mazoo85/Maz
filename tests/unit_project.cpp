@@ -42,6 +42,7 @@ int main() {
     seq.setStep(1, 4, true);
     seq.setStep(2, 7, true);
     seq.setStepProbability(1, 4, 0.5f);
+    seq.setStepRatchet(2, 7, 3);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -142,6 +143,8 @@ int main() {
     check(std::fabs(seq2.stepProbability(1, 4) - 0.5f) < 0.01f &&
               seq2.stepProbability(0, 0) == 1.0f,
           "per-step probability round-trips");
+    check(seq2.stepRatchet(2, 7) == 3 && seq2.stepRatchet(0, 0) == 1,
+          "per-step ratchet round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.

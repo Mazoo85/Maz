@@ -43,7 +43,7 @@ the project, and bounce to WAV.
   noise + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
   single-cycle table scanned by an envelope-sweepable position) engines, plus **portamento/glide**;
   and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse** and **loop** modes).
-- **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity and **probability**), **two** `PianoRoll`
+- **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity, **probability**, and **ratcheting**), **two** `PianoRoll`
   lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
   an **arpeggiator**, a **metronome** with **count-in**, and **sidechain** ducking.
 - **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, **per-bus insert strips**

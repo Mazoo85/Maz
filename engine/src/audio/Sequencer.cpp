@@ -73,6 +73,7 @@ int Sequencer::addPattern() {
     const size_t cells = static_cast<size_t>(numChannels()) * static_cast<size_t>(numSteps_);
     p.grid.assign(cells, 0);
     p.prob.assign(cells, 255); // every step defaults to "always fire"
+    p.ratchet.assign(cells, 1); // one hit per step by default
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
 }
@@ -186,6 +187,32 @@ void Sequencer::setStepProbability(int channel, int step, float probability) {
             static_cast<size_t>(step)] = static_cast<uint8_t>(v * 255.0f + 0.5f);
 }
 
+int Sequencer::stepRatchet(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 1;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.ratchet.size() || p.ratchet[idx] < 1) {
+        return 1; // patterns loaded before ratchets existed → single hit
+    }
+    return static_cast<int>(p.ratchet[idx]);
+}
+
+void Sequencer::setStepRatchet(int channel, int step, int count) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.ratchet.size() != p.grid.size()) {
+        p.ratchet.assign(p.grid.size(), 1);
+    }
+    const int cnt = count < 1 ? 1 : (count > 4 ? 4 : count);
+    p.ratchet[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+               static_cast<size_t>(step)] = static_cast<uint8_t>(cnt);
+}
+
 void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
@@ -220,6 +247,16 @@ void Sequencer::triggerStep(int step) {
                 ++humanizeCounter_;
             }
             channels_[static_cast<size_t>(c)].trigger(vel);
+
+            // Ratchet: schedule extra evenly-spaced retriggers within this step's slot.
+            const int r = stepRatchet(c, step);
+            if (r > 1) {
+                const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
+                const int interval = stepSamples / r;
+                for (int k = 1; k < r; ++k) {
+                    ratchets_.push_back(RatchetHit{c, vel, interval * k});
+                }
+            }
         }
     }
     // Sidechain: a kick (channel 0) hit ducks the melodic bus.
@@ -319,6 +356,7 @@ void Sequencer::play() {
     metroLastStep_ = -1;
     metroEnv_ = 0.0f;
     probRng_ = 0x9E3779B9u; // reseed so probability is reproducible per play()
+    ratchets_.clear();
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
     if (songMode_ && !playlist_.empty()) {
@@ -359,6 +397,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
     if (frames <= 0 || sampleRate <= 0) {
         return;
     }
+    sampleRate_ = sampleRate; // used by triggerStep to schedule ratchet sub-hits
     int done = 0;
     while (done < frames) {
         int chunk = frames - done;
@@ -371,6 +410,18 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 toNext = 1;
             }
             chunk = std::min(chunk, toNext);
+        }
+
+        // Ratchet sub-hits: fire any due now, and never render past the next pending one so it stays
+        // sample-accurate.
+        for (size_t ri = 0; ri < ratchets_.size();) {
+            if (ratchets_[ri].framesUntil <= 0) {
+                channels_[static_cast<size_t>(ratchets_[ri].channel)].trigger(ratchets_[ri].velocity);
+                ratchets_.erase(ratchets_.begin() + static_cast<long>(ri));
+            } else {
+                chunk = std::min(chunk, ratchets_[ri].framesUntil);
+                ++ri;
+            }
         }
 
         // Metronome / count-in: fire an accented click when a new beat step begins (downbeat is
@@ -468,6 +519,14 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             if (sidechainOn_ && scEnv_ < 1.0f) {
                 scEnv_ = std::min(1.0f, scEnv_ + scStep);
             }
+        }
+
+        // Advance the pending ratchets that existed during this chunk by the frames just rendered.
+        // (New hits pushed by triggerStep below are timed from the upcoming boundary, so exclude
+        // them here.)
+        const size_t ratchetsThisChunk = ratchets_.size();
+        for (size_t i = 0; i < ratchetsThisChunk; ++i) {
+            ratchets_[i].framesUntil -= chunk;
         }
 
         if (playing_) {
