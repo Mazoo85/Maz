@@ -29,6 +29,7 @@ struct AppConfig {
     double swing = 0.0;             // --swing N : swing/groove amount (0..0.75)
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it
+    const char* midiPath = nullptr;        // --midi PATH : export the pattern as a .mid file
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

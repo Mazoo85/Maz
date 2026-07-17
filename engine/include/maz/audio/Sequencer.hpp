@@ -61,6 +61,7 @@ public:
 
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
+    int stepsPerBeat() const { return stepsPerBeat_; }
     int numChannels() const { return static_cast<int>(channels_.size()); }
     const std::string& channelName(int channel) const { return names_[static_cast<size_t>(channel)]; }
     DrumVoice& channelVoice(int channel) { return channels_[static_cast<size_t>(channel)]; }

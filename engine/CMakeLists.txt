@@ -39,6 +39,7 @@ add_library(maz STATIC
     src/audio/ProjectIO.cpp
     src/audio/AudioEngine.cpp
     src/audio/WavWriter.cpp
+    src/audio/MidiWriter.cpp
     src/assets/Model.cpp
     src/scene/Camera.cpp
     src/scene/Scene.cpp

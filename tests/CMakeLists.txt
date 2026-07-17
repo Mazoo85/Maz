@@ -83,6 +83,13 @@ target_link_libraries(maz_sampler_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_sampler COMMAND maz_sampler_tests)
 set_tests_properties(unit_sampler PROPERTIES TIMEOUT 30)
 
+# Unit tests: MIDI export — a valid Standard MIDI File with note events for a known pattern.
+add_executable(maz_midi_tests unit_midi.cpp)
+target_link_libraries(maz_midi_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_midi COMMAND maz_midi_tests)
+set_tests_properties(unit_midi PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(

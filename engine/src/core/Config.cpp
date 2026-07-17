@@ -53,6 +53,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.projectSavePath = argv[++i];
         } else if (std::strcmp(arg, "--load") == 0 && i + 1 < argc) {
             cfg.projectLoadPath = argv[++i];
+        } else if (std::strcmp(arg, "--midi") == 0 && i + 1 < argc) {
+            cfg.midiPath = argv[++i];
         } else {
             MAZ_LOG_WARN("ignoring unknown argument: %s", arg);
         }

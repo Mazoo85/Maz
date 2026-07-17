@@ -10,6 +10,7 @@
 //     (bus faders + master effect chain) driving a live device. Plus a test-tone panel.
 
 #include "maz/Engine.hpp"
+#include "maz/audio/MidiWriter.hpp"
 #include "maz/audio/Pitch.hpp"
 #include "maz/audio/ProjectIO.hpp"
 #include "maz/audio/WavWriter.hpp"
@@ -225,6 +226,16 @@ int runHeadless(const core::AppConfig& cfg) {
                 MAZ_LOG_INFO("project: saved %s", cfg.projectSavePath);
             } else {
                 MAZ_LOG_ERROR("project save failed: %s", serr.c_str());
+                return 1;
+            }
+        }
+
+        if (cfg.midiPath != nullptr) {
+            std::string merr;
+            if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr)) {
+                MAZ_LOG_INFO("midi: exported %s", cfg.midiPath);
+            } else {
+                MAZ_LOG_ERROR("midi export failed: %s", merr.c_str());
                 return 1;
             }
         }
