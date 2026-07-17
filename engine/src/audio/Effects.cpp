@@ -67,12 +67,40 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
         return;
     }
     const float drive = std::max(drive_, 1.0f);
-    const float norm = 1.0f / std::tanh(drive); // keep unity-ish level across drive
+    const float tanhNorm = 1.0f / std::tanh(drive); // keep unity-ish level across drive
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    constexpr float kPi = 3.14159265f;
     const int n = frames * 2;
     for (int i = 0; i < n; ++i) {
         const float dry = stereo[i];
-        const float wet = std::tanh(dry * drive) * norm;
+        const float x = dry * drive;
+        float wet = 0.0f;
+        switch (curve_) {
+        case Curve::Soft:
+            wet = std::tanh(x) * tanhNorm;
+            break;
+        case Curve::Hard:
+            wet = std::clamp(x, -1.0f, 1.0f);
+            break;
+        case Curve::Fold: {
+            // Triangle wavefolder: reflect the signal back whenever it exceeds ±1.
+            float f = x;
+            for (int k = 0; k < 4; ++k) {
+                if (f > 1.0f) {
+                    f = 2.0f - f;
+                } else if (f < -1.0f) {
+                    f = -2.0f - f;
+                } else {
+                    break;
+                }
+            }
+            wet = f;
+            break;
+        }
+        case Curve::SineFold:
+            wet = std::sin(x * kPi * 0.5f);
+            break;
+        }
         stereo[i] = dry * (1.0f - mix) + wet * mix;
     }
 }

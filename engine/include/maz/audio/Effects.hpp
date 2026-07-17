@@ -74,17 +74,24 @@ private:
 // just get louder.
 class Distortion : public Effect {
 public:
+    // Waveshaper curve: Soft = tanh overdrive, Hard = digital clip, Fold = wavefolding, SineFold =
+    // sine wrap. Each gives a distinct harmonic character for the same drive.
+    enum class Curve { Soft, Hard, Fold, SineFold };
+
     const char* name() const override { return "Distortion"; }
     void setDrive(float d) { drive_ = d; }
     void setMix(float m) { mix_ = m; }
+    void setCurve(Curve c) { curve_ = c; }
     float drive() const { return drive_; }
     float mix() const { return mix_; }
+    Curve curve() const { return curve_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
 
 private:
     float drive_ = 2.0f;
     float mix_ = 0.5f;
+    Curve curve_ = Curve::Soft;
 };
 
 // A stereo chorus: two LFO-modulated delay lines (left/right in quadrature) widen and thicken the

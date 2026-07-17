@@ -156,7 +156,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.peq().highGain() << "\n";
     f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
-      << " " << mixer.distortion().mix() << "\n";
+      << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve())
+      << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
@@ -489,6 +490,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.distortion().setEnabled(en != 0);
                 mixer.distortion().setDrive(drive);
                 mixer.distortion().setMix(mix);
+                int curve = 0; // curve type optional (older files omit it)
+                if (ls >> curve) {
+                    mixer.distortion().setCurve(static_cast<Distortion::Curve>(
+                        curve < 0 || curve > 3 ? 0 : curve));
+                }
             } else if (which == "chorus") {
                 float rate = 0.8f, depth = 3.0f, mix = 0.4f;
                 ls >> rate >> depth >> mix;

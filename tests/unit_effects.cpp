@@ -180,6 +180,32 @@ int main() {
         check(hf(sine) > before, "distortion adds high-frequency harmonics");
     }
 
+    // --- Distortion curves: each mode shapes differently --------------------
+    {
+        auto shape = [&](audio::Distortion::Curve c, float x) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(2.0f);
+            d.setMix(1.0f);
+            d.setCurve(c);
+            std::vector<float> b(2, x); // one stereo frame at level x
+            d.process(b.data(), 1, sr);
+            return b[0];
+        };
+        using C = audio::Distortion::Curve;
+        // Hard clip caps at ±1: a hot input (x*drive = 1.6) clamps exactly to 1.
+        check(std::fabs(shape(C::Hard, 0.8f) - 1.0f) < 1e-5f, "hard-clip caps at +1");
+        // Soft (tanh) stays below the hard-clip ceiling for the same input.
+        check(shape(C::Soft, 0.8f) < shape(C::Hard, 0.8f), "soft curve is gentler than hard clip");
+        // Wavefolder reflects past ±1: at x*drive = 1.6 → 2 - 1.6 = 0.4 (not clipped high).
+        check(std::fabs(shape(C::Fold, 0.8f) - 0.4f) < 1e-4f, "wavefolder reflects past the rails");
+        // Sine-fold wraps: at x*drive = 1.6, sin(1.6*pi/2) is well below 1.
+        check(shape(C::SineFold, 0.8f) < 0.85f, "sine-fold wraps the waveform");
+        // The three shaping curves give distinct outputs for the same input.
+        check(std::fabs(shape(C::Hard, 0.8f) - shape(C::Fold, 0.8f)) > 0.1f,
+              "hard and fold curves differ");
+    }
+
     // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------
     {
         audio::Chorus chorus;

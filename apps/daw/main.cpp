@@ -904,6 +904,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("drive##dist", &drive, 1.0f, 20.0f, "%.1f")) mx.distortion().setDrive(drive);
+        int curve = static_cast<int>(mx.distortion().curve());
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::Combo("##distcurve", &curve, "Soft\0Hard\0Fold\0SineFold\0\0"))
+            mx.distortion().setCurve(static_cast<audio::Distortion::Curve>(curve));
     }
     {
         bool en = mx.tape().enabled();
