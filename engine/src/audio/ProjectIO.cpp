@@ -150,6 +150,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.gate().releaseMs() << "\n";
     f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width()
       << "\n";
+    f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
+      << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
 
     // Aux send/return buses: send level + the return effect's params.
     f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
@@ -371,6 +373,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> w;
                 mixer.widener().setEnabled(en != 0);
                 mixer.widener().setWidth(w);
+            } else if (which == "tape") {
+                float drive = 2.0f, warmth = 0.3f, mix = 1.0f;
+                ls >> drive >> warmth >> mix;
+                mixer.tape().setEnabled(en != 0);
+                mixer.tape().setDrive(drive);
+                mixer.tape().setWarmth(warmth);
+                mixer.tape().setMix(mix);
             } else if (which == "reverb") {
                 float room = 0.7f, damp = 0.35f, mix = 0.25f;
                 ls >> room >> damp >> mix;

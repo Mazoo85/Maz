@@ -781,6 +781,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("drive##dist", &drive, 1.0f, 20.0f, "%.1f")) mx.distortion().setDrive(drive);
     }
     {
+        bool en = mx.tape().enabled();
+        if (ImGui::Checkbox("Tape Sat", &en)) mx.tape().setEnabled(en);
+        float drive = mx.tape().drive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("drive##tape", &drive, 1.0f, 12.0f, "%.1f")) mx.tape().setDrive(drive);
+        float warmth = mx.tape().warmth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("warmth##tape", &warmth, 0.0f, 1.0f, "%.2f")) mx.tape().setWarmth(warmth);
+    }
+    {
         bool en = mx.bitcrusher().enabled();
         if (ImGui::Checkbox("Bitcrusher", &en)) mx.bitcrusher().setEnabled(en);
         float bits = mx.bitcrusher().bits();

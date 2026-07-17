@@ -24,6 +24,7 @@ Mixer::Mixer() {
     peq_.setEnabled(false);
     eq_.setEnabled(false);
     dist_.setEnabled(false);
+    tape_.setEnabled(false);
     crush_.setEnabled(false);
     gate_.setEnabled(false);
     comp_.setEnabled(false);
@@ -35,10 +36,10 @@ Mixer::Mixer() {
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
     vst3_.setEnabled(false);
-    // Signal order: gate → EQ → tone → drive → crush → dynamics → modulation → time fx → width →
-    // plugins.
-    chain_ = {&gate_,   &peq_,    &eq_,     &dist_,     &crush_,  &comp_,  &chorus_,
-              &phaser_, &delay_,  &reverb_, &widener_,  &plugin_, &clap_,  &vst3_};
+    // Signal order: gate → EQ → tone → drive → tape → crush → dynamics → modulation → time fx →
+    // width → plugins.
+    chain_ = {&gate_,  &peq_,    &eq_,     &dist_,   &tape_,    &crush_,  &comp_,
+              &chorus_, &phaser_, &delay_, &reverb_, &widener_, &plugin_, &clap_, &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
     // much signal reaches them, so a fresh mixer stays transparent.

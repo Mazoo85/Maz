@@ -247,6 +247,32 @@ private:
     float gain_ = 1.0f;  // smoothed gate gain
 };
 
+// Analogue-style tape saturation. Drives the signal into a tanh soft-knee (adding harmonics), with
+// a touch of asymmetry for even-harmonic "warmth" and a gentle one-pole high-frequency roll-off that
+// emulates tape's top-end loss. `drive` sets how hard it is pushed (1 = subtle, up ~ crunchy),
+// `warmth` (0..1) sets the high-cut amount, `mix` blends dry/wet.
+class TapeSaturation : public Effect {
+public:
+    TapeSaturation() { enabled_ = false; }
+    const char* name() const override { return "Tape Saturation"; }
+    void setDrive(float d) { drive_ = d < 1.0f ? 1.0f : (d > 12.0f ? 12.0f : d); }
+    void setWarmth(float w) { warmth_ = w < 0.0f ? 0.0f : (w > 1.0f ? 1.0f : w); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float drive() const { return drive_; }
+    float warmth() const { return warmth_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float drive_ = 2.0f;
+    float warmth_ = 0.3f;
+    float mix_ = 1.0f;
+    float lpL_ = 0.0f; // one-pole high-cut state per channel
+    float lpR_ = 0.0f;
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

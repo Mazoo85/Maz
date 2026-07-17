@@ -257,6 +257,53 @@ int main() {
         check(tailEnergy(b) > 1e-4, "reverb send bus produces a wet tail after the impulse");
     }
 
+    // --- Tape saturation: adds harmonics, transparent when bypassed ---------
+    {
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                s += d * d;
+            }
+            return s;
+        };
+        // A pure sine driven hard should gain harmonic (high-frequency) energy.
+        std::vector<float> clean = sineStereo(sr, 300.0, 0.8, sr);
+        const double cleanHf = hf(clean);
+        audio::TapeSaturation tape;
+        tape.setEnabled(true);
+        tape.setDrive(8.0f);
+        tape.setWarmth(0.0f); // no high-cut, so harmonics survive for the measurement
+        tape.setMix(1.0f);
+        std::vector<float> driven = clean;
+        tape.process(driven.data(), sr, sr);
+        check(hf(driven) > cleanHf * 1.2, "tape saturation adds harmonics to a driven sine");
+        check(rms(driven) > 0.0, "tape saturation still passes signal");
+
+        // Warmth (high-cut) should reduce high-frequency energy vs. no warmth.
+        audio::TapeSaturation warm;
+        warm.setEnabled(true);
+        warm.setDrive(8.0f);
+        warm.setWarmth(1.0f);
+        std::vector<float> warmed = clean;
+        warm.process(warmed.data(), sr, sr);
+        check(hf(warmed) < hf(driven), "warmth rolls off the high end");
+
+        // Disabled → transparent.
+        audio::TapeSaturation off;
+        std::vector<float> sig = sineStereo(1000, 200.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled tape saturation is transparent");
+    }
+
     // --- Stereo widener: width controls L/R decorrelation -------------------
     {
         // Build a stereo signal with distinct L and R content (some side energy).

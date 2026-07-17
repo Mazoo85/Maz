@@ -370,6 +370,40 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- TapeSaturation ---------------------------------------------------------
+
+void TapeSaturation::reset() {
+    lpL_ = 0.0f;
+    lpR_ = 0.0f;
+}
+
+void TapeSaturation::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // Compensate for the tanh gain so the wet level stays close to the input.
+    const float norm = 1.0f / std::tanh(drive_);
+    // One-pole high-cut coefficient: warmth 0 → open (~18 kHz), warmth 1 → ~3 kHz.
+    const float cutHz = 18000.0f - warmth_ * 15000.0f;
+    const float x = std::exp(-2.0f * 3.14159265f * cutHz / static_cast<float>(sampleRate));
+    const float bias = 0.05f * warmth_;
+    const float biasOut = std::tanh(bias) * norm; // steady-state DC from the asymmetry, removed below
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Asymmetric drive (small bias → even harmonics), tanh soft-knee, gain-compensated, DC-free.
+        float wl = std::tanh(drive_ * l + bias) * norm - biasOut;
+        float wr = std::tanh(drive_ * r + bias) * norm - biasOut;
+        // Gentle high-frequency roll-off (tape top-end loss).
+        lpL_ = (1.0f - x) * wl + x * lpL_;
+        lpR_ = (1.0f - x) * wr + x * lpR_;
+        wl = lpL_;
+        wr = lpR_;
+        stereo[2 * i] = l + (wl - l) * mix_;
+        stereo[2 * i + 1] = r + (wr - r) * mix_;
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

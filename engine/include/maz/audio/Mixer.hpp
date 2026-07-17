@@ -28,6 +28,7 @@ public:
     ParametricEQ& peq() { return peq_; }
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
+    TapeSaturation& tape() { return tape_; }
     Bitcrusher& bitcrusher() { return crush_; }
     Gate& gate() { return gate_; }
     Compressor& compressor() { return comp_; }
@@ -73,6 +74,7 @@ private:
     ParametricEQ peq_{};
     LowPass eq_{};
     Distortion dist_{};
+    TapeSaturation tape_{};
     Bitcrusher crush_{};
     Gate gate_{};
     Compressor comp_{};
