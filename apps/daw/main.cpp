@@ -603,6 +603,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (changed) {
         syn.setEnvelope(a, d, s, r);
     }
+    float glide = syn.glide();
+    if (ImGui::SliderFloat("Glide (portamento)", &glide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(glide);
 
     ImGui::SeparatorText("Filter (resonant low-pass)");
     float cutoff = syn.filterCutoff();
@@ -666,6 +668,8 @@ void buildBassUI(audio::SynthInstrument& syn) {
     if (ech) {
         syn.setEnvelope(a, d, s, r);
     }
+    float bglide = syn.glide();
+    if (ImGui::SliderFloat("Glide##bass", &bglide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(bglide);
     float cutoff = syn.filterCutoff(), reso = syn.filterResonance(), env = syn.filterEnvAmount();
     bool fch = false;
     fch |= ImGui::SliderFloat("Cutoff##bass", &cutoff, 20.0f, 20000.0f, "%.0f Hz", ImGuiSliderFlags_Logarithmic);

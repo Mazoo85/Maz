@@ -48,7 +48,10 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.phase2 = 0.0;
     v.subPhase = 0.0;
     v.modPhase = 0.0;
-    v.freq = midiToFreq(midi);
+    v.targetFreq = midiToFreq(midi);
+    // Glide: start at the previous note's pitch and slide to the target; otherwise start on pitch.
+    v.freq = (glideSeconds_ > 0.0f && lastFreq_ > 0.0f) ? lastFreq_ : v.targetFreq;
+    lastFreq_ = v.targetFreq;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
     v.filter.reset();
@@ -92,8 +95,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
         if (v.stage == Stage::Off) {
             continue;
         }
-        const double phaseInc = static_cast<double>(v.freq) / static_cast<double>(sampleRate);
+        // One-pole glide coefficient toward the target pitch (0 → instant when glide is off).
+        const float glideCoef =
+            glideSeconds_ > 0.0f ? (1.0f - std::exp(-1.0f / (glideSeconds_ * sr))) : 1.0f;
         for (int i = 0; i < frames; ++i) {
+            // Portamento: slide the current frequency toward the note's target each sample.
+            v.freq += (v.targetFreq - v.freq) * glideCoef;
+            const double phaseInc = static_cast<double>(v.freq) / static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 v.env += attackStep;

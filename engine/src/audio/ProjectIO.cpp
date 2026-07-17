@@ -33,6 +33,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
         syn.setWavetablePosition(wtPos);
         syn.setWavetableMorph(wtMorph);
     }
+    float glide = 0.0f; // glide optional for old files
+    if (ls >> glide) {
+        syn.setGlide(glide);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -78,7 +82,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
           << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
           << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
-          << s.wavetableMorph() << "\n";
+          << s.wavetableMorph() << " " << s.glide() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << "\n";
     };

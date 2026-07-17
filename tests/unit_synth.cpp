@@ -250,6 +250,43 @@ int main() {
         check(wt.sample(0.0f, 0.25) > 0.9f, "wavetable frame 0 quarter-phase ~= +1 (sine peak)");
     }
 
+    // --- Portamento / glide --------------------------------------------------
+    {
+        // Play a low note, release, then a high note with glide on. Early in the second note the
+        // pitch should still be well below its 880 Hz target; later it should have arrived.
+        audio::SynthInstrument glider;
+        glider.setWaveform(audio::Waveform::Saw);
+        glider.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        glider.setGlide(0.20f); // 200 ms glide
+        glider.noteOn(57, 1.0f); // A3 = 220 Hz — establishes lastFreq
+        (void)render(glider, sampleRate / 20, sampleRate);
+        glider.noteOff(57);
+        (void)render(glider, sampleRate / 20, sampleRate);
+
+        glider.noteOn(81, 1.0f); // A5 = 880 Hz target, glides up from ~220
+        const std::vector<float> early = render(glider, sampleRate / 100, sampleRate); // first 10 ms
+        (void)render(glider, sampleRate, sampleRate); // let the one-pole glide settle (~1 s >> 200 ms)
+        const std::vector<float> late = render(glider, sampleRate / 10, sampleRate); // steady 100 ms
+        const double earlyHz = estimateHz(early, sampleRate);
+        const double lateHz = estimateHz(late, sampleRate);
+        check(earlyHz < 700.0, "glide starts the note below its target pitch");
+        check(lateHz > 840.0, "glide arrives near the target pitch after settling");
+        check(lateHz > earlyHz + 100.0, "glide sweeps the pitch upward over time");
+
+        // With glide off, the note is on-pitch immediately.
+        audio::SynthInstrument instant;
+        instant.setWaveform(audio::Waveform::Saw);
+        instant.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        instant.noteOn(57, 1.0f);
+        (void)render(instant, sampleRate / 20, sampleRate);
+        instant.noteOff(57);
+        (void)render(instant, sampleRate / 20, sampleRate);
+        instant.noteOn(81, 1.0f);
+        const std::vector<float> imm = render(instant, sampleRate / 20, sampleRate);
+        check(std::fabs(estimateHz(imm, sampleRate) - 880.0) < 30.0,
+              "with glide off the note plays its pitch immediately");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

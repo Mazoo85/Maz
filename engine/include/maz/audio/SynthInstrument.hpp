@@ -31,6 +31,11 @@ public:
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
+    // Portamento / glide: when > 0, a new note slides from the previously played pitch to its own
+    // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
+    void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
+    float glide() const { return glideSeconds_; }
+
     // FM: modulator frequency = carrier * ratio; index sets the modulation depth (brightness).
     void setFmRatio(float r) { fmRatio_ = r; }
     void setFmIndex(float i) { fmIndex_ = i; }
@@ -88,7 +93,8 @@ private:
         double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
         uint32_t rng = 0x2545F491u; // per-voice noise state
-        float freq = 0.0f;
+        float freq = 0.0f;       // current (possibly gliding) frequency
+        float targetFreq = 0.0f; // note's destination frequency
         float velocity = 0.0f;
         float env = 0.0f;
         StateVariableFilter filter{};
@@ -101,6 +107,8 @@ private:
     float fmIndex_ = 3.0f;
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
+    float glideSeconds_ = 0.0f; // portamento time; 0 = off
+    float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     Wavetable wavetable_{};
     float attack_ = 0.005f;
     float decay_ = 0.08f;
