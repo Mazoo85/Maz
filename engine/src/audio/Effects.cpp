@@ -274,6 +274,61 @@ void Exciter::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- TransientShaper --------------------------------------------------------
+
+void TransientShaper::reset() {
+    envAttFast_ = 0.0f;
+    envAttSlow_ = 0.0f;
+    envRelFast_ = 0.0f;
+    envRelSlow_ = 0.0f;
+}
+
+void TransientShaper::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // One-pole smoothing coefficient for a given time constant in ms.
+    auto coef = [sr](float ms) { return 1.0f - std::exp(-1.0f / (0.001f * ms * sr)); };
+    // Attack detector: a very fast follower vs a slower one — the fast one leads on an onset.
+    const float aFast = coef(0.5f);
+    const float aSlow = coef(15.0f);
+    // Sustain detector: same fast attack, but fast vs slow release so the slow one lags on the tail.
+    const float rFast = coef(40.0f);
+    const float rSlow = coef(300.0f);
+    const float attackAtk = coef(1.0f); // shared quick attack for the release-difference pair
+    constexpr float kEps = 1e-6f;
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float mag = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+
+        // Attack pair: both rise on an onset, the fast one faster → (fast − slow) marks the attack.
+        envAttFast_ += aFast * (mag - envAttFast_);
+        envAttSlow_ += aSlow * (mag - envAttSlow_);
+        const float attTrans = envAttFast_ - envAttSlow_; // >0 during an onset
+        const float attRatio = attTrans > 0.0f ? attTrans / (envAttSlow_ + kEps) : 0.0f;
+
+        // Sustain pair: quick attack, then fast vs slow release → (slow − fast) marks the body/tail.
+        const float cUpF = mag > envRelFast_ ? attackAtk : rFast;
+        const float cUpS = mag > envRelSlow_ ? attackAtk : rSlow;
+        envRelFast_ += cUpF * (mag - envRelFast_);
+        envRelSlow_ += cUpS * (mag - envRelSlow_);
+        const float susTrans = envRelSlow_ - envRelFast_; // >0 during the decay/body
+        const float susRatio = susTrans > 0.0f ? susTrans / (envRelSlow_ + kEps) : 0.0f;
+
+        // Combine into a single gain. attack_/sustain_ in [-1,1]; ratios are ~[0,1]. At 0/0 → gain 1.
+        float gain = 1.0f + attack_ * attRatio + sustain_ * susRatio;
+        if (gain < 0.05f) {
+            gain = 0.05f; // never invert or fully mute
+        } else if (gain > 8.0f) {
+            gain = 8.0f;
+        }
+        stereo[2 * i] = l * gain;
+        stereo[2 * i + 1] = r * gain;
+    }
+}
+
 // ---- TiltEQ -----------------------------------------------------------------
 
 void TiltEQ::reset() {

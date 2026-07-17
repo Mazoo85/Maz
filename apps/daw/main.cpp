@@ -1078,6 +1078,20 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("knee##cmp", &knee, 0.0f, 24.0f, "%.0f")) mx.compressor().setKneeDb(knee);
     }
     {
+        bool en = mx.transient().enabled();
+        if (ImGui::Checkbox("Transient", &en)) mx.transient().setEnabled(en);
+        float atk = mx.transient().attack();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("attack##trans", &atk, -1.0f, 1.0f, "%.2f"))
+            mx.transient().setAttack(atk);
+        float sus = mx.transient().sustain();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("sustain##trans", &sus, -1.0f, 1.0f, "%.2f"))
+            mx.transient().setSustain(sus);
+    }
+    {
         bool en = mx.chorus().enabled();
         if (ImGui::Checkbox("Chorus", &en)) mx.chorus().setEnabled(en);
         float wet = mx.chorus().mix();

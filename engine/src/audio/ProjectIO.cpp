@@ -81,6 +81,7 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
 //   master <gain>
 //   fx eq <enabled> <cutoff>
 //   fx comp <enabled> <thrDb> <ratio> <atkMs> <relMs> <makeupDb>
+//   fx transient <enabled> <attack> <sustain>
 //   fx delay <enabled> <timeMs> <feedback> <mix>
 //   fx reverb <enabled> <roomSize> <damping> <mix>
 
@@ -178,6 +179,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
       << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << "\n";
+    f << "fx transient " << (mixer.transient().enabled() ? 1 : 0) << " "
+      << mixer.transient().attack() << " " << mixer.transient().sustain() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << "\n";
@@ -513,6 +516,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> knee) {
                     mixer.compressor().setKneeDb(knee);
                 }
+            } else if (which == "transient") {
+                float atk = 0.0f, sus = 0.0f;
+                ls >> atk >> sus;
+                mixer.transient().setEnabled(en != 0);
+                mixer.transient().setAttack(atk);
+                mixer.transient().setSustain(sus);
             } else if (which == "delay") {
                 float t = 300.0f, fb = 0.35f, mix = 0.3f;
                 ls >> t >> fb >> mix;

@@ -517,6 +517,80 @@ int main() {
         check(same, "a disabled exciter is transparent");
     }
 
+    // --- Transient shaper: reshape attack/sustain independent of level ------
+    {
+        // A percussive burst: a sharp onset then an exponential decay tail (mono → stereo).
+        auto burst = [&]() {
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f); // 1 s stereo
+            for (int i = 0; i < sr; ++i) {
+                const double t = static_cast<double>(i) / sr;
+                const double env = std::exp(-t * 12.0); // ~decays over the second
+                const double s = env * std::sin(2.0 * 3.14159265358979 * 180.0 * t);
+                b[static_cast<size_t>(2 * i)] = static_cast<float>(s);
+                b[static_cast<size_t>(2 * i + 1)] = static_cast<float>(s);
+            }
+            return b;
+        };
+        // Crest factor (peak / RMS): a proxy for "punchiness" — attack boost raises it.
+        auto crest = [&](const std::vector<float>& b) {
+            double pk = 0.0, sum = 0.0;
+            for (float v : b) {
+                const double a = std::fabs(v);
+                if (a > pk) pk = a;
+                sum += static_cast<double>(v) * v;
+            }
+            const double r = std::sqrt(sum / static_cast<double>(b.size()));
+            return r > 0.0 ? pk / r : 0.0;
+        };
+
+        const std::vector<float> dry = burst();
+        const double dryCrest = crest(dry);
+        const double dryRms = rms(dry);
+
+        // Attack boost: sharpen the onset → higher crest factor than the dry burst.
+        audio::TransientShaper punch;
+        punch.setEnabled(true);
+        punch.setAttack(1.0f);
+        std::vector<float> pb = burst();
+        punch.process(pb.data(), sr, sr);
+        check(crest(pb) > dryCrest * 1.05, "attack boost increases the crest factor (punch)");
+
+        // Sustain cut: tighten the body/tail → less total energy than the dry burst.
+        audio::TransientShaper tighten;
+        tighten.setEnabled(true);
+        tighten.setSustain(-1.0f);
+        std::vector<float> tb = burst();
+        tighten.process(tb.data(), sr, sr);
+        check(rms(tb) < dryRms * 0.95, "sustain cut reduces the tail energy");
+
+        // Neutral (0/0) and disabled → bit-transparent.
+        audio::TransientShaper neutral;
+        neutral.setEnabled(true); // attack=0, sustain=0
+        std::vector<float> nb = burst();
+        neutral.process(nb.data(), sr, sr);
+        bool sameNeutral = true;
+        for (size_t i = 0; i < nb.size(); ++i) {
+            if (std::fabs(nb[i] - dry[i]) > 1e-6f) {
+                sameNeutral = false;
+                break;
+            }
+        }
+        check(sameNeutral, "a neutral (0/0) transient shaper is transparent");
+
+        audio::TransientShaper off;
+        off.setAttack(1.0f); // would shape, but it is disabled
+        std::vector<float> ob = burst();
+        off.process(ob.data(), sr, sr);
+        bool sameOff = true;
+        for (size_t i = 0; i < ob.size(); ++i) {
+            if (std::fabs(ob[i] - dry[i]) > 1e-6f) {
+                sameOff = false;
+                break;
+            }
+        }
+        check(sameOff, "a disabled transient shaper is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

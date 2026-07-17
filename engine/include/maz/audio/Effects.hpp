@@ -261,6 +261,33 @@ private:
     float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state (high band = input − low)
 };
 
+// A transient shaper (attack/sustain designer): reshapes a sound's dynamic envelope independently of
+// its level. `attack` (-1..1) boosts (+) or softens (−) the initial punch of each onset; `sustain`
+// (-1..1) lengthens (+) or tightens (−) the body/tail. Detection is level-relative (ratios against a
+// slow envelope) so the shaping tracks dynamics, not absolute loudness. At attack=0, sustain=0 the
+// gain is exactly unity, so a fresh/neutral instance is bit-transparent.
+class TransientShaper : public Effect {
+public:
+    TransientShaper() { enabled_ = false; }
+    const char* name() const override { return "Transient Shaper"; }
+    void setAttack(float a) { attack_ = a < -1.0f ? -1.0f : (a > 1.0f ? 1.0f : a); }
+    void setSustain(float s) { sustain_ = s < -1.0f ? -1.0f : (s > 1.0f ? 1.0f : s); }
+    float attack() const { return attack_; }
+    float sustain() const { return sustain_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float attack_ = 0.0f;
+    float sustain_ = 0.0f;
+    // Envelope followers on the stereo-summed magnitude. Attack detection compares a fast-attack vs a
+    // slow-attack follower (onset = fast rises ahead of slow); sustain detection compares a
+    // fast-release vs a slow-release follower (body = slow lags behind fast on the way down).
+    float envAttFast_ = 0.0f, envAttSlow_ = 0.0f;
+    float envRelFast_ = 0.0f, envRelSlow_ = 0.0f;
+};
+
 // A one-knob "tilt" EQ (mastering tone control): a single `tilt` in dB pivots the spectrum around a
 // centre frequency — positive brightens (low shelf down, high shelf up by tilt/2), negative darkens.
 class TiltEQ : public Effect {

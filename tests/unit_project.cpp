@@ -119,6 +119,9 @@ int main() {
     mixer.exciter().setEnabled(true);
     mixer.exciter().setCrossover(6500.0f);
     mixer.exciter().setAmount(0.42f);
+    mixer.transient().setEnabled(true);
+    mixer.transient().setAttack(0.6f);
+    mixer.transient().setSustain(-0.3f);
     mixer.autopan().setEnabled(true);
     mixer.autopan().setRate(2.5f);
     mixer.autopan().setDepth(0.8f);
@@ -286,6 +289,9 @@ int main() {
     check(mixer2.exciter().enabled() && near(mixer2.exciter().crossover(), 6500.0f) &&
               near(mixer2.exciter().amount(), 0.42f),
           "exciter round-trips");
+    check(mixer2.transient().enabled() && near(mixer2.transient().attack(), 0.6f) &&
+              near(mixer2.transient().sustain(), -0.3f),
+          "transient shaper round-trips");
     check(mixer2.autopan().enabled() && near(mixer2.autopan().rate(), 2.5f) &&
               near(mixer2.autopan().depth(), 0.8f),
           "auto-pan round-trips");

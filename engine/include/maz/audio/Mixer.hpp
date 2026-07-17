@@ -41,6 +41,7 @@ public:
     Gate& gate() { return gate_; }
     HighPass& highpass() { return hp_; }
     Compressor& compressor() { return comp_; }
+    TransientShaper& transient() { return transient_; }
     Chorus& chorus() { return chorus_; }
     Flanger& flanger() { return flanger_; }
     Phaser& phaser() { return phaser_; }
@@ -95,6 +96,7 @@ private:
     Gate gate_{};
     HighPass hp_{};
     Compressor comp_{};
+    TransientShaper transient_{};
     Chorus chorus_{};
     Flanger flanger_{};
     Phaser phaser_{};
