@@ -100,7 +100,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     writeSynth("synth2", "synthosc2", seq.synth2());
 
     f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
-      << "\n";
+      << " " << seq.sampler().startOffset() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -330,6 +330,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             ls >> rev >> loop;
             seq.sampler().setReverse(rev != 0);
             seq.sampler().setLoop(loop != 0);
+            float off = 0.0f; // start offset optional (older files omit it)
+            if (ls >> off) {
+                seq.sampler().setStartOffset(off);
+            }
         } else if (tag == "chan") {
             int c = -1;
             float vol = 1.0f;

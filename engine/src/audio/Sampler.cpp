@@ -49,7 +49,10 @@ void Sampler::noteOn(int midi, float velocity) {
     v.active = true;
     v.releasing = false;
     v.midi = midi;
-    v.pos = reverse_ ? static_cast<double>(sample_.size() - 1) : 0.0;
+    // Start reading from the offset; in reverse, from the end minus the offset.
+    const double last = static_cast<double>(sample_.size() - 1);
+    const double offset = static_cast<double>(startOffset_) * last;
+    v.pos = reverse_ ? (last - offset) : offset;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
 }

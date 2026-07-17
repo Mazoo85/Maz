@@ -62,6 +62,7 @@ int main() {
     seq.synth().setGlide(0.15f);
     seq.synth().setUnison(5, 18.0f);
     seq.sampler().setBasePitch(48);
+    seq.sampler().setStartOffset(0.25f);
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -216,7 +217,8 @@ int main() {
     check(near(seq2.synth().glide(), 0.15f), "glide time round-trips");
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");
-    check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48,
+    check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
+              near(seq2.sampler().startOffset(), 0.25f),
           "sampler settings round-trip");
 
     // Mixer + effects.

@@ -36,6 +36,12 @@ public:
     void setLoop(bool on) { loop_ = on; }
     bool loop() const { return loop_; }
 
+    // Start offset: where each note begins reading, as a fraction [0,1) of the sample length — skip
+    // leading silence or play from a slice point. (In reverse mode this is where playback starts
+    // before running backwards.)
+    void setStartOffset(float frac) { startOffset_ = frac < 0.0f ? 0.0f : (frac > 0.999f ? 0.999f : frac); }
+    float startOffset() const { return startOffset_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
@@ -60,6 +66,7 @@ private:
     float gain_ = 0.9f;
     bool reverse_ = false;
     bool loop_ = false;
+    float startOffset_ = 0.0f;
     std::string path_;
     std::array<Voice, kMaxVoices> voices_{};
 };

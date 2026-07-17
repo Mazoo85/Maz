@@ -732,6 +732,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SameLine();
     bool lp = seq.sampler().loop();
     if (ImGui::Checkbox("Loop", &lp)) seq.sampler().setLoop(lp);
+    ImGui::SameLine();
+    float startOff = seq.sampler().startOffset();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))
+        seq.sampler().setStartOffset(startOff);
     static char pathBuf[256] = "";
     ImGui::SetNextItemWidth(200.0f);
     ImGui::InputText("wav path", pathBuf, sizeof(pathBuf));

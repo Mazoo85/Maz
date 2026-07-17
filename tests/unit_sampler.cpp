@@ -140,6 +140,35 @@ int main() {
         check(secondPassEnergy > 0.0, "looped sample produces sound in the second pass");
     }
 
+    // Start offset: playback begins partway into the sample (skips the leading part).
+    {
+        // A ramp 0→1: reading from offset 0.5 starts near value 0.5, not 0.
+        std::vector<float> ramp(1000);
+        for (int i = 0; i < 1000; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / 1000.0f;
+        }
+        audio::Sampler s0;
+        s0.setSampleMono(ramp, sr);
+        s0.setBasePitch(60);
+        s0.setGain(1.0f);
+        s0.noteOn(60, 1.0f); // 1 sample/frame
+        const std::vector<float> from0 = renderMono(s0, 100, sr);
+
+        audio::Sampler sHalf;
+        sHalf.setSampleMono(ramp, sr);
+        sHalf.setBasePitch(60);
+        sHalf.setGain(1.0f);
+        sHalf.setStartOffset(0.5f);
+        sHalf.noteOn(60, 1.0f);
+        const std::vector<float> fromHalf = renderMono(sHalf, 100, sr);
+        // Compare at frame 60 (past the ~1 ms attack, so the envelope is ~open).
+        check(fromHalf[60] > from0[60] + 0.4f, "start offset begins playback partway into the sample");
+        check(fromHalf[60] > 0.5f && fromHalf[60] < 0.62f, "offset 0.5 starts near the sample midpoint");
+
+        audio::Sampler def;
+        check(def.startOffset() == 0.0f, "start offset defaults to 0");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");
