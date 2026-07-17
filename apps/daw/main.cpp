@@ -259,6 +259,17 @@ int runHeadless(const core::AppConfig& cfg) {
             }
         }
 
+        if (cfg.clapPath != nullptr) {
+            std::string cerr;
+            if (engine.mixer().clap().load(cfg.clapPath, engine.config().sampleRate, 4096, &cerr)) {
+                engine.mixer().clap().setEnabled(true);
+                MAZ_LOG_INFO("clap: loaded %s", cfg.clapPath);
+            } else {
+                MAZ_LOG_ERROR("clap load failed: %s", cerr.c_str());
+                return 1;
+            }
+        }
+
         if (cfg.midiPath != nullptr) {
             std::string merr;
             if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr)) {

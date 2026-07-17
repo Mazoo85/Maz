@@ -255,9 +255,13 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
         under the software Vulkan driver (lavapipe) + SDL's offscreen video driver. The
         `daw_gui_smoke` CI test drives several frames of the real GUI — proof it renders, not just
         links.
-- [ ] Remaining vs. FL: **VST3/CLAP format** wrappers specifically. The native plugin host exists
-      and is tested; wrapping the exact VST3/CLAP formats onto its ABI needs those vendor SDKs, which
-      aren't present in this sandbox. (On real hardware the GUI runs on the actual GPU.)
+  - [x] **CLAP plugin format hosting** — the CLAP SDK is vendored
+        (`engine/third_party/clap`, MIT) and `ClapHost` loads a real `.clap`, queries its factory,
+        activates the plugin, and runs it on the master bus. Ships an example CLAP plugin
+        (`plugins/example_clap`); `daw --clap file.clap` loads it. Verified end-to-end.
+- [ ] Remaining vs. FL: **VST3** format specifically (Steinberg's C++ SDK isn't available in this
+      sandbox; the plugin-host architecture — native + CLAP — is in place for it to plug into). The
+      full GUI runs on the real GPU on actual hardware (verified here on software Vulkan).
 
 ### How to pick the next task
 

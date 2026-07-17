@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/audio/ClapHost.hpp"
 #include "maz/audio/Effects.hpp"
 #include "maz/audio/PluginHost.hpp"
 
@@ -31,6 +32,7 @@ public:
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
+    ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
 
     // Generic iteration over the chain (for a mixer strip that lists every effect).
     int effectCount() const { return static_cast<int>(chain_.size()); }
@@ -53,6 +55,7 @@ private:
     Delay delay_{};
     Reverb reverb_{};
     PluginHost plugin_{};
+    ClapHost clap_{};
     std::vector<Effect*> chain_; // processing order; points at the members above
 };
 

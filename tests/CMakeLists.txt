@@ -106,6 +106,15 @@ target_compile_definitions(maz_plugin_tests PRIVATE MAZ_TEST_PLUGIN="$<TARGET_FI
 add_test(NAME unit_plugin COMMAND maz_plugin_tests)
 set_tests_properties(unit_plugin PROPERTIES TIMEOUT 30)
 
+# Unit tests: CLAP plugin hosting — load a real .clap built from plugins/example_clap.
+add_executable(maz_clap_tests unit_clap.cpp)
+target_link_libraries(maz_clap_tests PRIVATE maz::maz maz_warnings)
+add_dependencies(maz_clap_tests maz_example_clap)
+target_compile_definitions(maz_clap_tests PRIVATE MAZ_TEST_CLAP="$<TARGET_FILE:maz_example_clap>")
+
+add_test(NAME unit_clap COMMAND maz_clap_tests)
+set_tests_properties(unit_clap PROPERTIES TIMEOUT 30)
+
 # DAW: render one second of a 440 Hz tone offline to a WAV and require a clean exit + the stats log.
 # Exercises the whole audio path (Oscillator -> AudioEngine -> WavWriter) with no audio device.
 add_test(

@@ -36,6 +36,7 @@ add_library(maz STATIC
     src/audio/Effects.cpp
     src/audio/Mixer.cpp
     src/audio/PluginHost.cpp
+    src/audio/ClapHost.cpp
     src/audio/Automation.cpp
     src/audio/ProjectIO.cpp
     src/audio/AudioEngine.cpp
@@ -56,7 +57,8 @@ target_include_directories(maz
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/clap/include)
 
 target_link_libraries(maz
     PUBLIC
