@@ -763,6 +763,12 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
             wetR = apsR_[static_cast<size_t>(a)].process(wetR, 0.5f);
         }
 
+        // Mid/side width on the wet tail (width 1 = unchanged).
+        const float mid = 0.5f * (wetL + wetR);
+        const float side = 0.5f * (wetL - wetR) * width_;
+        wetL = mid + side;
+        wetR = mid - side;
+
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
     }

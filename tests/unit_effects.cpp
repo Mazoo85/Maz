@@ -179,6 +179,30 @@ int main() {
         check(tail > 0.0, "reverb produces a tail after the impulse");
     }
 
+    // --- Reverb width: narrow the wet tail to mono --------------------------
+    {
+        auto sideEnergy = [&](float width) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.8f);
+            rev.setMix(1.0f); // fully wet
+            rev.setWidth(width);
+            std::vector<float> buf(static_cast<size_t>(sr) / 2 * 2, 0.0f);
+            buf[0] = 1.0f;
+            buf[1] = 1.0f;
+            rev.process(buf.data(), sr / 2, sr);
+            double e = 0.0;
+            for (size_t i = 0; i + 1 < buf.size(); i += 2) {
+                const double s = 0.5 * (static_cast<double>(buf[i]) - static_cast<double>(buf[i + 1]));
+                e += s * s;
+            }
+            return e;
+        };
+        const double natural = sideEnergy(1.0f);
+        check(natural > 0.0, "the natural reverb tail is stereo (has side energy)");
+        check(sideEnergy(0.0f) < natural * 0.01, "width 0 collapses the reverb tail to mono");
+    }
+
     // --- Reverb pre-delay: the tail onset is pushed back --------------------
     {
         auto earlyEnergy = [&](float preMs) {

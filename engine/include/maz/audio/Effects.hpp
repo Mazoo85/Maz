@@ -429,10 +429,13 @@ public:
     // Pre-delay (ms): a gap before the reverb tail begins, so the dry hit stays clear and the space
     // reads as larger. 0 = none (up to ~250 ms).
     void setPreDelayMs(float ms) { preDelayMs_ = ms < 0.0f ? 0.0f : (ms > 250.0f ? 250.0f : ms); }
+    // Stereo width of the wet tail (0 = mono, 1 = natural, 2 = extra-wide).
+    void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
     float roomSize() const { return roomSize_; }
     float damping() const { return damping_; }
     float mix() const { return mix_; }
     float preDelayMs() const { return preDelayMs_; }
+    float width() const { return width_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -461,6 +464,7 @@ private:
     float damping_ = 0.35f;
     float mix_ = 0.25f;
     float preDelayMs_ = 0.0f;
+    float width_ = 1.0f;
     std::vector<float> preBuf_; // pre-delay line (mono input)
     int preWrite_ = 0;
     int sizedFor_ = 0; // sampleRate the buffers were built for (0 = unsized)

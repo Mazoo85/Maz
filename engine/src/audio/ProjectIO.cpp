@@ -164,7 +164,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
-      << mixer.reverb().preDelayMs() << "\n";
+      << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << "\n";
@@ -543,6 +543,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float pre = 0.0f; // pre-delay optional for old files
                 if (ls >> pre) {
                     mixer.reverb().setPreDelayMs(pre);
+                }
+                float width = 1.0f; // width optional for old files
+                if (ls >> width) {
+                    mixer.reverb().setWidth(width);
                 }
             } else if (which == "dist") {
                 float drive = 2.0f, mix = 0.5f;
