@@ -57,6 +57,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.projectLoadPath = argv[++i];
         } else if (std::strcmp(arg, "--midi") == 0 && i + 1 < argc) {
             cfg.midiPath = argv[++i];
+        } else if (std::strcmp(arg, "--importmidi") == 0 && i + 1 < argc) {
+            cfg.midiInPath = argv[++i];
         } else if (std::strcmp(arg, "--stems") == 0 && i + 1 < argc) {
             cfg.stemsPrefix = argv[++i];
         } else if (std::strcmp(arg, "--plugin") == 0 && i + 1 < argc) {

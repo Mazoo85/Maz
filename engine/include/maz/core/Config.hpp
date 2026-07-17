@@ -31,6 +31,7 @@ struct AppConfig {
     const char* projectSavePath = nullptr; // --save PATH : write the project to a .cjc file
     const char* projectLoadPath = nullptr; // --load PATH : load a .cjc project and render it
     const char* midiPath = nullptr;        // --midi PATH : export the pattern as a .mid file
+    const char* midiInPath = nullptr;      // --importmidi PATH : import a .mid into the pattern
     const char* stemsPrefix = nullptr;     // --stems PREFIX : bounce drums/lead/bass to separate WAVs
     const char* pluginPath = nullptr;      // --plugin PATH : load a native audio plugin (.so)
     const char* clapPath = nullptr;        // --clap PATH : load a CLAP-format plugin (.clap)

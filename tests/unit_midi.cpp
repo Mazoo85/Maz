@@ -1,6 +1,7 @@
 // Unit test for MIDI export — write a Standard MIDI File for a known pattern and verify the header,
 // track chunk, and that note-on events are present. No audio device.
 
+#include "maz/audio/MidiReader.hpp"
 #include "maz/audio/MidiWriter.hpp"
 #include "maz/audio/Sequencer.hpp"
 
@@ -63,6 +64,30 @@ int main() {
     }
     check(hasNoteOn, "contains note-on events");
     check(hasEot, "ends with an end-of-track meta event");
+
+    // --- Import round-trip: read the file we just wrote back into a fresh sequencer ---------------
+    audio::Sequencer in;
+    check(audio::readMidi(path, in, &err), "readMidi succeeds");
+    // The two melodic notes come back onto the lead roll with their pitches, timing, and velocity.
+    const auto& notes = in.roll().notes();
+    check(notes.size() == 2, "both melodic notes import");
+    bool gotC = false, gotG = false;
+    for (const audio::Note& n : notes) {
+        if (n.pitch == 60 && n.startStep == 0 && n.lengthSteps == 4) {
+            gotC = true;
+        }
+        if (n.pitch == 67 && n.startStep == 8 && n.lengthSteps == 4) {
+            gotG = true;
+        }
+    }
+    check(gotC && gotG, "imported notes keep pitch, start, and length");
+    // The two drum hits come back on the grid.
+    check(in.step(0, 0) && in.step(1, 4), "imported drum hits land on the grid");
+    check(!in.step(0, 1), "unset drum steps stay off after import");
+
+    // A non-MIDI file fails cleanly.
+    audio::Sequencer bad;
+    check(!audio::readMidi("/nonexistent/missing.mid", bad, &err), "reading a missing file fails");
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;

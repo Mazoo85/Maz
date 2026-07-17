@@ -10,6 +10,7 @@
 //     (bus faders + master effect chain) driving a live device. Plus a test-tone panel.
 
 #include "maz/Engine.hpp"
+#include "maz/audio/MidiReader.hpp"
 #include "maz/audio/MidiWriter.hpp"
 #include "maz/audio/Pitch.hpp"
 #include "maz/audio/ProjectIO.hpp"
@@ -198,8 +199,8 @@ int runHeadless(const core::AppConfig& cfg) {
     engine.initOffline();
 
     const bool loading = cfg.projectLoadPath != nullptr;
-    const bool sequencing =
-        cfg.beat || cfg.melody || cfg.song || loading || cfg.projectSavePath != nullptr;
+    const bool sequencing = cfg.beat || cfg.melody || cfg.song || loading ||
+                            cfg.projectSavePath != nullptr || cfg.midiInPath != nullptr;
     bool appliedBeat = false;
     bool appliedMelody = false;
 
@@ -234,6 +235,16 @@ int runHeadless(const core::AppConfig& cfg) {
             applyDemoMixer(engine);
             if (cfg.automate) {
                 applyDemoAuto(engine);
+            }
+        }
+        if (cfg.midiInPath != nullptr) {
+            std::string ierr;
+            if (audio::readMidi(cfg.midiInPath, engine.sequencer(), &ierr)) {
+                MAZ_LOG_INFO("midi: imported %s", cfg.midiInPath);
+                appliedMelody = true;
+            } else {
+                MAZ_LOG_ERROR("midi import failed: %s", ierr.c_str());
+                return 1;
             }
             if (cfg.samplePath != nullptr) {
                 std::string se;
