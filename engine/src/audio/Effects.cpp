@@ -737,6 +737,39 @@ void AutoPan::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- AutoWah ----------------------------------------------------------------
+
+void AutoWah::reset() {
+    env_ = 0.0f;
+    lpL_.reset();
+    lpR_.reset();
+}
+
+void AutoWah::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // Envelope-follower coefficients from the attack/release times.
+    const float aAtk = 1.0f - std::exp(-1.0f / (0.001f * attackMs_ * sr));
+    const float aRel = 1.0f - std::exp(-1.0f / (0.001f * releaseMs_ * sr));
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Track the peak of the stereo-summed magnitude (fast up, slow down).
+        const float mag = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+        const float coef = mag > env_ ? aAtk : aRel;
+        env_ += coef * (mag - env_);
+        // Map the envelope (clamped to unity) to a cutoff between base and base+range.
+        const float e = env_ > 1.0f ? 1.0f : env_;
+        const float cutoff = baseHz_ + sensitivity_ * e * rangeHz_;
+        stereo[2 * i] =
+            lpL_.process(l, cutoff, resonance_, sampleRate, StateVariableFilter::Mode::LowPass);
+        stereo[2 * i + 1] =
+            lpR_.process(r, cutoff, resonance_, sampleRate, StateVariableFilter::Mode::LowPass);
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

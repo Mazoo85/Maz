@@ -476,6 +476,43 @@ private:
     double phase_ = 0.0; // LFO phase in [0, 1)
 };
 
+// An envelope filter / auto-wah: a resonant low-pass whose cutoff rides the input's own amplitude
+// envelope. Louder input pushes the cutoff up from `baseHz` toward `baseHz + sensitivity·rangeHz`,
+// so each note opens and closes the filter like a wah pedal driven by playing dynamics. `resonance`
+// sharpens the peak; `attackMs`/`releaseMs` set how fast the envelope follower tracks. Off by
+// default.
+class AutoWah : public Effect {
+public:
+    AutoWah() { enabled_ = false; }
+    const char* name() const override { return "Auto-Wah"; }
+    void setBaseHz(float hz) { baseHz_ = hz < 40.0f ? 40.0f : (hz > 8000.0f ? 8000.0f : hz); }
+    void setRangeHz(float hz) { rangeHz_ = hz < 0.0f ? 0.0f : (hz > 12000.0f ? 12000.0f : hz); }
+    void setSensitivity(float s) { sensitivity_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    void setResonance(float r) { resonance_ = r < 0.5f ? 0.5f : (r > 20.0f ? 20.0f : r); }
+    void setAttackMs(float ms) { attackMs_ = ms < 0.1f ? 0.1f : ms; }
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : ms; }
+    float baseHz() const { return baseHz_; }
+    float rangeHz() const { return rangeHz_; }
+    float sensitivity() const { return sensitivity_; }
+    float resonance() const { return resonance_; }
+    float attackMs() const { return attackMs_; }
+    float releaseMs() const { return releaseMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float baseHz_ = 300.0f;
+    float rangeHz_ = 3000.0f;
+    float sensitivity_ = 0.7f;
+    float resonance_ = 4.0f;
+    float attackMs_ = 5.0f;
+    float releaseMs_ = 80.0f;
+    float env_ = 0.0f; // amplitude-envelope follower
+    StateVariableFilter lpL_{};
+    StateVariableFilter lpR_{};
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

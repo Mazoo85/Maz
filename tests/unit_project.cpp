@@ -130,6 +130,13 @@ int main() {
     mixer.autopan().setDepth(0.8f);
     mixer.monobass().setEnabled(true);
     mixer.monobass().setCrossover(90.0f);
+    mixer.autowah().setEnabled(true);
+    mixer.autowah().setBaseHz(250.0f);
+    mixer.autowah().setRangeHz(2500.0f);
+    mixer.autowah().setSensitivity(0.65f);
+    mixer.autowah().setResonance(6.0f);
+    mixer.autowah().setAttackMs(3.0f);
+    mixer.autowah().setReleaseMs(120.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -303,6 +310,12 @@ int main() {
           "auto-pan round-trips");
     check(mixer2.monobass().enabled() && near(mixer2.monobass().crossover(), 90.0f),
           "mono-bass round-trips");
+    check(mixer2.autowah().enabled() && near(mixer2.autowah().baseHz(), 250.0f) &&
+              near(mixer2.autowah().rangeHz(), 2500.0f) &&
+              near(mixer2.autowah().sensitivity(), 0.65f) &&
+              near(mixer2.autowah().resonance(), 6.0f) && near(mixer2.autowah().attackMs(), 3.0f) &&
+              near(mixer2.autowah().releaseMs(), 120.0f),
+          "auto-wah round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&

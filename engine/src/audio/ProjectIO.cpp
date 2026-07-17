@@ -226,6 +226,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autopan().depth() << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
       << "\n";
+    f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
+      << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
+      << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
+      << mixer.autowah().releaseMs() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
@@ -577,6 +581,17 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> x;
                 mixer.monobass().setEnabled(en != 0);
                 mixer.monobass().setCrossover(x);
+            } else if (which == "autowah") {
+                float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
+                      rel = 80.0f;
+                ls >> base >> range >> sens >> reso >> atk >> rel;
+                mixer.autowah().setEnabled(en != 0);
+                mixer.autowah().setBaseHz(base);
+                mixer.autowah().setRangeHz(range);
+                mixer.autowah().setSensitivity(sens);
+                mixer.autowah().setResonance(reso);
+                mixer.autowah().setAttackMs(atk);
+                mixer.autowah().setReleaseMs(rel);
             } else if (which == "tape") {
                 float drive = 2.0f, warmth = 0.3f, mix = 1.0f;
                 ls >> drive >> warmth >> mix;

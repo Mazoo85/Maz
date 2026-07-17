@@ -1204,6 +1204,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("Hz##mono", &x, 20.0f, 500.0f, "%.0f")) mx.monobass().setCrossover(x);
     }
+    {
+        bool en = mx.autowah().enabled();
+        if (ImGui::Checkbox("Auto-Wah", &en)) mx.autowah().setEnabled(en);
+        float base = mx.autowah().baseHz();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("base Hz##wah", &base, 40.0f, 2000.0f, "%.0f"))
+            mx.autowah().setBaseHz(base);
+        float range = mx.autowah().rangeHz();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("range##wah", &range, 0.0f, 8000.0f, "%.0f"))
+            mx.autowah().setRangeHz(range);
+        float sens = mx.autowah().sensitivity();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("sens##wah", &sens, 0.0f, 1.0f, "%.2f")) mx.autowah().setSensitivity(sens);
+        float reso = mx.autowah().resonance();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("reso##wah", &reso, 0.5f, 20.0f, "%.1f")) mx.autowah().setResonance(reso);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

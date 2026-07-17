@@ -591,6 +591,63 @@ int main() {
         check(sameOff, "a disabled transient shaper is transparent");
     }
 
+    // --- Auto-wah: louder input opens the filter (brighter output) ----------
+    {
+        // A bright saw at `freq`, amplitude `amp`, as interleaved stereo.
+        auto sawStereo = [&](double freq, double amp, int frames) {
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            double ph = 0.0;
+            const double inc = freq / sr;
+            for (int i = 0; i < frames; ++i) {
+                const float s = static_cast<float>(amp * (2.0 * ph - 1.0));
+                b[static_cast<size_t>(2 * i)] = s;
+                b[static_cast<size_t>(2 * i + 1)] = s;
+                ph += inc;
+                if (ph >= 1.0) ph -= 1.0;
+            }
+            return b;
+        };
+        // Level-independent brightness: HF (first-difference) energy over total energy.
+        auto brightness = [](const std::vector<float>& b) {
+            double hf = 0.0, en = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                hf += d * d;
+                en += static_cast<double>(b[i]) * b[i];
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        auto wahOut = [&](double amp) {
+            audio::AutoWah w;
+            w.setEnabled(true);
+            w.setBaseHz(300.0f);
+            w.setRangeHz(3000.0f);
+            w.setSensitivity(1.0f);
+            w.setResonance(3.0f);
+            std::vector<float> b = sawStereo(300.0, amp, sr / 2); // 0.5 s
+            w.process(b.data(), sr / 2, sr);
+            // Measure the settled second half (after the envelope follower has tracked).
+            return std::vector<float>(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+        };
+        // A loud note pushes the cutoff up → more harmonics survive → brighter than a quiet note.
+        check(brightness(wahOut(0.9)) > brightness(wahOut(0.05)) * 1.3,
+              "auto-wah opens the filter for louder input");
+
+        // Disabled → transparent.
+        audio::AutoWah off;
+        std::vector<float> sig = sawStereo(300.0, 0.5, 1000);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled auto-wah is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;
