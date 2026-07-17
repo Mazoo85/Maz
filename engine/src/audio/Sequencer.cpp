@@ -378,7 +378,10 @@ void Sequencer::triggerStep(int step) {
         std::vector<int> held;
         for (const Note& n : roll.notes()) {
             if (step >= n.startStep && step < n.startStep + n.lengthSteps) {
-                held.push_back(n.pitch);
+                // Replicate each held pitch across the octave range so the arp spans wider.
+                for (int o = 0; o < arpOctaves_; ++o) {
+                    held.push_back(n.pitch + 12 * o);
+                }
             }
         }
         if (arpCurrentPitch_ >= 0) {

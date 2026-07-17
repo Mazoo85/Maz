@@ -61,6 +61,8 @@ int main() {
     seq.synth().setFmIndex(6.0f);
     seq.synth().setGlide(0.15f);
     seq.synth().setUnison(5, 18.0f);
+    seq.setArp(true, 2);
+    seq.setArpOctaves(3);
     seq.sampler().setBasePitch(48);
     seq.sampler().setStartOffset(0.25f);
     seq.setUseSampler(true);
@@ -217,6 +219,7 @@ int main() {
     check(near(seq2.synth().glide(), 0.15f), "glide time round-trips");
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");
+    check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
               near(seq2.sampler().startOffset(), 0.25f),
           "sampler settings round-trip");

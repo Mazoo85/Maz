@@ -302,6 +302,23 @@ int main() {
         down.setArp(true, 1);
         down.play();
         check(down.arpCurrentPitch() == 67, "arp-down starts from the highest note");
+
+        // Octave range: one held C4 with a 2-octave arp cycles C4 → C5 → C4.
+        audio::Sequencer oct;
+        oct.setBpm(120.0);
+        oct.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        oct.setArp(true, 0);
+        oct.setArpOctaves(2);
+        check(oct.arpOctaves() == 2, "arp octave range is settable");
+        oct.play();
+        check(oct.arpCurrentPitch() == 60, "octave arp starts at the root");
+        (void)renderMono(oct, 6000, sampleRate);
+        check(oct.arpCurrentPitch() == 72, "octave arp climbs an octave (C4 → C5)");
+        (void)renderMono(oct, 6000, sampleRate);
+        check(oct.arpCurrentPitch() == 60, "octave arp wraps back to the root");
+
+        audio::Sequencer def;
+        check(def.arpOctaves() == 1, "arp octave range defaults to 1");
     }
 
     // --- Sidechain ducking ---------------------------------------------------

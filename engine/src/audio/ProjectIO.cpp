@@ -80,7 +80,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
       << seq.sidechainReleaseMs() << "\n";
-    f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << "\n";
+    f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << "\n";
     f << "humanize " << seq.humanize() << "\n";
     f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
     f << "countin " << seq.countInBars() << "\n";
@@ -274,6 +274,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int on = 0, mode = 0;
             ls >> on >> mode;
             seq.setArp(on != 0, mode);
+            int oct = 1; // octave range optional (older files omit it)
+            if (ls >> oct) {
+                seq.setArpOctaves(oct);
+            }
         } else if (tag == "humanize") {
             float h = 0.0f;
             ls >> h;

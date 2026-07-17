@@ -139,6 +139,10 @@ public:
     bool arpOn() const { return arpOn_; }
     int arpMode() const { return arpMode_; }
     int arpCurrentPitch() const { return arpCurrentPitch_; }
+    // Octave range (1..4): the arp cycles through the held pitches replicated across this many
+    // octaves, so it climbs/descends over a wider range.
+    void setArpOctaves(int octaves) { arpOctaves_ = octaves < 1 ? 1 : (octaves > 4 ? 4 : octaves); }
+    int arpOctaves() const { return arpOctaves_; }
 
     // Bus levels: relative gain of the drum kit, the lead synth, and the bass synth before the
     // soft-limited sum. (synthGain is the lead level; bassGain the second instrument.)
@@ -230,6 +234,7 @@ private:
     bool useSampler_ = false;
     bool arpOn_ = false;
     int arpMode_ = 0;
+    int arpOctaves_ = 1;
     int arpCounter_ = 0;
     int arpCurrentPitch_ = -1;
     float drumGain_ = 1.0f;
