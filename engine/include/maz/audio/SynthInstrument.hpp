@@ -55,6 +55,14 @@ public:
     void setWavetableMorph(float envAmt) { wtMorphEnv_ = envAmt; }
     float wavetablePosition() const { return wtPosition_; }
     float wavetableMorph() const { return wtMorphEnv_; }
+    // Choose the four waveforms the wavetable morphs between (frame 0 → 3 as the position sweeps).
+    void setWavetableFrames(Waveform a, Waveform b, Waveform c, Waveform d) {
+        wtFrames_ = {a, b, c, d};
+        wavetable_.setMorph(a, b, c, d);
+    }
+    Waveform wavetableFrame(int i) const {
+        return wtFrames_[static_cast<size_t>(i < 0 ? 0 : (i > 3 ? 3 : i))];
+    }
     Wavetable& wavetable() { return wavetable_; }
     const Wavetable& wavetable() const { return wavetable_; }
 
@@ -119,6 +127,8 @@ private:
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     int unisonVoices_ = 1;      // 1 = off
     float unisonDetune_ = 12.0f; // cents of spread when unison is on
+    std::array<Waveform, 4> wtFrames_ = {Waveform::Sine, Waveform::Triangle, Waveform::Saw,
+                                         Waveform::Square};
     Wavetable wavetable_{};
     float attack_ = 0.005f;
     float decay_ = 0.08f;

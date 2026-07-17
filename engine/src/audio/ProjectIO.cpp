@@ -37,6 +37,11 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> glide) {
         syn.setGlide(glide);
     }
+    int f0 = 0, f1 = 1, f2 = 2, f3 = 3; // wavetable frames optional for old files
+    if (ls >> f0 >> f1 >> f2 >> f3) {
+        auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 3 ? 0 : v); };
+        syn.setWavetableFrames(wf(f0), wf(f1), wf(f2), wf(f3));
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -92,7 +97,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
           << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
           << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
-          << s.wavetableMorph() << " " << s.glide() << "\n";
+          << s.wavetableMorph() << " " << s.glide() << " " << static_cast<int>(s.wavetableFrame(0))
+          << " " << static_cast<int>(s.wavetableFrame(1)) << " "
+          << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
+          << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << "\n";
     };

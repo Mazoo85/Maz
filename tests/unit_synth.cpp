@@ -248,6 +248,21 @@ int main() {
         audio::Wavetable wt;
         check(std::fabs(wt.sample(0.0f, 0.0)) < 1e-3f, "wavetable frame 0 phase 0 ~= 0 (sine)");
         check(wt.sample(0.0f, 0.25) > 0.9f, "wavetable frame 0 quarter-phase ~= +1 (sine peak)");
+
+        // Custom frames: making frame 0 a square (instead of the default sine) makes position 0
+        // bright rather than dark — more high-frequency energy at the same scan position.
+        audio::SynthInstrument custom;
+        custom.setMode(audio::SynthMode::Wavetable);
+        custom.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        custom.setFilter(20000.0f, 0.7f, 0.0f);
+        custom.setWavetablePosition(0.0f);
+        custom.setWavetableFrames(audio::Waveform::Square, audio::Waveform::Square,
+                                  audio::Waveform::Square, audio::Waveform::Square);
+        custom.noteOn(57, 1.0f);
+        const std::vector<float> squareFrame = render(custom, sampleRate / 4, sampleRate);
+        check(hf(squareFrame) > hf(darkOut) * 2.0,
+              "a square first frame makes position 0 brighter than the default sine");
+        check(custom.wavetableFrame(0) == audio::Waveform::Square, "custom wavetable frame is stored");
     }
 
     // --- Unison (supersaw) ---------------------------------------------------

@@ -702,6 +702,24 @@ void buildSynthUI(audio::Sequencer& seq) {
         float morph = syn.wavetableMorph();
         if (ImGui::SliderFloat("WT Env Morph", &morph, 0.0f, 1.0f, "%.2f"))
             syn.setWavetableMorph(morph);
+        // Four morph-frame selectors (frame 0 → 3 as the position sweeps).
+        const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
+        int fr[4];
+        bool frCh = false;
+        for (int k = 0; k < 4; ++k) {
+            fr[k] = static_cast<int>(syn.wavetableFrame(k));
+            ImGui::PushID(k);
+            ImGui::SetNextItemWidth(90.0f);
+            frCh |= ImGui::Combo("##wtframe", &fr[k], waves, 4);
+            ImGui::PopID();
+            if (k < 3) ImGui::SameLine();
+        }
+        if (frCh) {
+            syn.setWavetableFrames(static_cast<audio::Waveform>(fr[0]),
+                                   static_cast<audio::Waveform>(fr[1]),
+                                   static_cast<audio::Waveform>(fr[2]),
+                                   static_cast<audio::Waveform>(fr[3]));
+        }
     }
 
     ImGui::SeparatorText("Envelope");
