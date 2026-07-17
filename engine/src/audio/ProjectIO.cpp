@@ -44,6 +44,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << syn.attack() << " " << syn.decay() << " " << syn.sustain() << " " << syn.release() << " "
       << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << " " << syn.filterCutoff()
       << " " << syn.filterResonance() << " " << syn.filterEnvAmount() << "\n";
+    f << "synthosc " << syn.detuneCents() << " " << syn.osc2Level() << " " << syn.subLevel() << " "
+      << syn.noiseLevel() << "\n";
 
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
@@ -169,6 +171,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> cutoff >> reso >> envAmt) {
                 syn.setFilter(cutoff, reso, envAmt);
             }
+        } else if (tag == "synthosc") {
+            float detune = 0.0f, osc2 = 0.0f, sub = 0.0f, noise = 0.0f;
+            ls >> detune >> osc2 >> sub >> noise;
+            seq.synth().setOscillators(detune, osc2, sub, noise);
         } else if (tag == "sampler") {
             int use = 0;
             int base = 60;

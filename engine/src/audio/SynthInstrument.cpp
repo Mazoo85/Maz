@@ -19,6 +19,14 @@ void SynthInstrument::setFilter(float cutoffHz, float resonance, float envAmt) {
     filterEnvAmt_ = envAmt;
 }
 
+void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float subLevel,
+                                     float noiseLevel) {
+    detuneCents_ = std::clamp(detuneCents, 0.0f, 100.0f);
+    osc2Level_ = std::clamp(osc2Level, 0.0f, 1.0f);
+    subLevel_ = std::clamp(subLevel, 0.0f, 1.0f);
+    noiseLevel_ = std::clamp(noiseLevel, 0.0f, 1.0f);
+}
+
 void SynthInstrument::noteOn(int midi, float velocity) {
     // Prefer a free voice; otherwise steal the quietest one so a new note always sounds.
     int chosen = -1;
@@ -37,6 +45,8 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.stage = Stage::Attack;
     v.midi = midi;
     v.phase = 0.0;
+    v.phase2 = 0.0;
+    v.subPhase = 0.0;
     v.modPhase = 0.0;
     v.freq = midiToFreq(midi);
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
@@ -124,6 +134,28 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             } else {
                 osc = waveSample(waveform_, v.phase);
+                if (osc2Level_ > 0.0f) {
+                    osc += waveSample(waveform_, v.phase2) * osc2Level_;
+                    const double detune = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
+                    v.phase2 += phaseInc * detune;
+                    if (v.phase2 >= 1.0) {
+                        v.phase2 -= std::floor(v.phase2);
+                    }
+                }
+                if (subLevel_ > 0.0f) {
+                    constexpr double kTwoPi = 6.283185307179586;
+                    osc += static_cast<float>(std::sin(v.subPhase * kTwoPi)) * subLevel_;
+                    v.subPhase += phaseInc * 0.5; // one octave down
+                    if (v.subPhase >= 1.0) {
+                        v.subPhase -= std::floor(v.subPhase);
+                    }
+                }
+                if (noiseLevel_ > 0.0f) {
+                    v.rng ^= v.rng << 13;
+                    v.rng ^= v.rng >> 17;
+                    v.rng ^= v.rng << 5;
+                    osc += (static_cast<float>(v.rng) / 2147483648.0f - 1.0f) * noiseLevel_;
+                }
             }
 
             // Resonant low-pass (subtractive character), with the amp envelope opening the cutoff.

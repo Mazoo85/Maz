@@ -138,6 +138,45 @@ int main() {
     }
     check(diff > 1.0, "FM output differs from subtractive for the same note");
 
+    // --- Oscillator section: detune / sub / noise ----------------------------
+    {
+        audio::SynthInstrument single;
+        single.setWaveform(audio::Waveform::Saw);
+        single.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        single.noteOn(57, 1.0f); // A3 = 220 Hz
+        const std::vector<float> singleOut = render(single, sampleRate / 4, sampleRate);
+
+        // A detuned 2nd oscillator makes the output differ (beating/width).
+        audio::SynthInstrument fat;
+        fat.setWaveform(audio::Waveform::Saw);
+        fat.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        fat.setOscillators(20.0f, 0.8f, 0.0f, 0.0f);
+        fat.noteOn(57, 1.0f);
+        const std::vector<float> fatOut = render(fat, sampleRate / 4, sampleRate);
+        double oscDiff = 0.0;
+        for (size_t i = 0; i < fatOut.size(); ++i) {
+            oscDiff += std::fabs(static_cast<double>(fatOut[i] - singleOut[i]));
+        }
+        check(oscDiff > 1.0, "a detuned 2nd oscillator changes the sound");
+
+        // Noise adds broadband (high-frequency) energy.
+        audio::SynthInstrument noisy;
+        noisy.setWaveform(audio::Waveform::Sine);
+        noisy.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        noisy.setOscillators(0.0f, 0.0f, 0.0f, 0.6f);
+        noisy.noteOn(57, 1.0f);
+        const std::vector<float> noisyOut = render(noisy, sampleRate / 4, sampleRate);
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                s += d * d;
+            }
+            return s;
+        };
+        check(hf(noisyOut) > hf(singleOut), "noise layer adds high-frequency energy");
+    }
+
     // --- Resonant filter -----------------------------------------------------
     {
         // A saw through a low cutoff loses most of its high-harmonic energy vs. an open filter.

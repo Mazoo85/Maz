@@ -4,6 +4,7 @@
 #include "maz/audio/Oscillator.hpp" // Waveform + waveSample
 
 #include <array>
+#include <cstdint>
 
 namespace maz::audio {
 
@@ -33,6 +34,14 @@ public:
     void setFmIndex(float i) { fmIndex_ = i; }
     float fmRatio() const { return fmRatio_; }
     float fmIndex() const { return fmIndex_; }
+
+    // Oscillator section (subtractive mode): a detuned 2nd oscillator (cents + level) for width, a
+    // sub-oscillator one octave down, and a noise layer. All 0 → a single clean oscillator.
+    void setOscillators(float detuneCents, float osc2Level, float subLevel, float noiseLevel);
+    float detuneCents() const { return detuneCents_; }
+    float osc2Level() const { return osc2Level_; }
+    float subLevel() const { return subLevel_; }
+    float noiseLevel() const { return noiseLevel_; }
 
     // ADSR times in seconds and sustain level in [0, 1].
     void setEnvelope(float attack, float decay, float sustain, float release);
@@ -64,7 +73,10 @@ private:
         Stage stage = Stage::Off;
         int midi = -1;
         double phase = 0.0;    // carrier phase
+        double phase2 = 0.0;   // detuned 2nd oscillator
+        double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
+        uint32_t rng = 0x2545F491u; // per-voice noise state
         float freq = 0.0f;
         float velocity = 0.0f;
         float env = 0.0f;
@@ -83,6 +95,10 @@ private:
     float filterCutoff_ = 20000.0f; // effectively open (bypassed) by default
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
+    float detuneCents_ = 0.0f;
+    float osc2Level_ = 0.0f;
+    float subLevel_ = 0.0f;
+    float noiseLevel_ = 0.0f;
     std::array<Voice, kMaxVoices> voices_{};
 };
 

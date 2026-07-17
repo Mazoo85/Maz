@@ -434,6 +434,18 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (ImGui::Combo("Waveform", &w, waves, 4)) {
             syn.setWaveform(static_cast<audio::Waveform>(w));
         }
+        float detune = syn.detuneCents();
+        float osc2 = syn.osc2Level();
+        float sub = syn.subLevel();
+        float noise = syn.noiseLevel();
+        bool och = false;
+        och |= ImGui::SliderFloat("Detune (cents)", &detune, 0.0f, 50.0f, "%.1f");
+        och |= ImGui::SliderFloat("Osc 2", &osc2, 0.0f, 1.0f, "%.2f");
+        och |= ImGui::SliderFloat("Sub", &sub, 0.0f, 1.0f, "%.2f");
+        och |= ImGui::SliderFloat("Noise", &noise, 0.0f, 1.0f, "%.2f");
+        if (och) {
+            syn.setOscillators(detune, osc2, sub, noise);
+        }
     } else {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);
