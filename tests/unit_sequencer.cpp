@@ -402,6 +402,31 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Count-in: a bar of clicks before the pattern starts ------------------
+    {
+        // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks
+        // only) for the first bar, then the kick sounds. At 120 BPM a 16-step bar is 96000 frames.
+        audio::Sequencer ci;
+        ci.setBpm(120.0);
+        for (int s = 0; s < ci.numSteps(); ++s) {
+            ci.setStep(0, s, true); // kick on every step
+        }
+        ci.setCountInBars(1);
+        ci.play();
+        check(ci.countingIn(), "count-in is active right after play()");
+
+        const int bar = 96000;
+        const std::vector<float> firstBar = renderMono(ci, bar, sampleRate);
+        check(!ci.countingIn(), "count-in ends after one bar");
+        const std::vector<float> secondBar = renderMono(ci, bar, sampleRate);
+
+        // Both bars have sound, but bar 2 (kicks + clicks) is far louder than bar 1 (clicks only).
+        const double e1 = rms(firstBar);
+        const double e2 = rms(secondBar);
+        check(e1 > 0.0, "count-in bar plays clicks");
+        check(e2 > e1 * 3.0, "the pattern (kicks) only sounds after the count-in");
+    }
+
     // --- Per-bus stems sum back to the mixed render (behaviour preservation) ---
     {
         // One sequencer renders the mixed output; an identically-programmed one renders the three

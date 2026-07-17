@@ -130,6 +130,12 @@ public:
     void setMetronome(bool on) { metronome_ = on; }
     bool metronome() const { return metronome_; }
 
+    // Count-in: play this many bars of clicks before the pattern starts (0 = none). While counting
+    // in, only the metronome sounds; the pattern begins when the count-in finishes.
+    void setCountInBars(int bars) { countInBars_ = bars < 0 ? 0 : bars; }
+    int countInBars() const { return countInBars_; }
+    bool countingIn() const { return countingIn_; }
+
     // --- Pattern grid --------------------------------------------------------
     bool step(int channel, int step) const;
     void setStep(int channel, int step, bool on);
@@ -205,6 +211,9 @@ private:
     double metroPhase_ = 0.0; // click oscillator phase
     float metroEnv_ = 0.0f;   // click amplitude envelope
     float metroFreq_ = 0.0f;  // current click pitch (accented on the downbeat)
+    int countInBars_ = 0;     // bars of count-in before the pattern starts
+    bool countingIn_ = false; // currently playing the count-in
+    int countInStepsRemaining_ = 0;
 
     bool playing_ = false;
     int currentStep_ = 0;

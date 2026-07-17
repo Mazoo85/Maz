@@ -408,6 +408,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setMetronome(metro);
     }
     ImGui::SameLine();
+    int countIn = seq.countInBars();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderInt("Count-in", &countIn, 0, 4, "%d bars")) {
+        seq.setCountInBars(countIn);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }

@@ -279,10 +279,14 @@ void Sequencer::play() {
     humanizeCounter_ = 0;
     metroLastStep_ = -1;
     metroEnv_ = 0.0f;
+    countingIn_ = countInBars_ > 0;
+    countInStepsRemaining_ = countInBars_ * numSteps_;
     if (songMode_ && !playlist_.empty()) {
         selectPattern(playlist_[0]); // start the arrangement at the first playlist entry
     }
-    triggerStep(0);
+    if (!countingIn_) {
+        triggerStep(0); // when counting in, the pattern's first step fires after the count-in
+    }
 }
 
 void Sequencer::stop() {
@@ -329,15 +333,17 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             chunk = std::min(chunk, toNext);
         }
 
-        // Metronome: fire an accented click when a new beat step begins (downbeat = brighter).
-        if (playing_ && metronome_ && currentStep_ != metroLastStep_ &&
+        // Metronome / count-in: fire an accented click when a new beat step begins (downbeat is
+        // brighter). Count-in forces clicks regardless of the metronome toggle.
+        const bool click = metronome_ || countingIn_;
+        if (playing_ && click && currentStep_ != metroLastStep_ &&
             (currentStep_ % stepsPerBeat_) == 0) {
             metroLastStep_ = currentStep_;
             metroEnv_ = 1.0f;
             metroFreq_ = (currentStep_ == 0) ? 1600.0f : 1000.0f;
             metroPhase_ = 0.0;
         }
-        if (metronome_ && metroEnv_ > 0.0f) {
+        if (click && metroEnv_ > 0.0f) {
             constexpr double kTwoPi = 6.283185307179586;
             const double inc = static_cast<double>(metroFreq_) / static_cast<double>(sampleRate);
             const float decay = 1.0f / (0.04f * static_cast<float>(sampleRate)); // ~40 ms click
@@ -354,6 +360,26 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     metroEnv_ = 0.0f;
                 }
             }
+        }
+
+        // Count-in: the click above is the only sound. Advance the count-in transport (no pattern
+        // steps trigger) and, when the last count-in step passes, start the pattern at step 0.
+        if (countingIn_) {
+            samplesIntoStep_ += static_cast<double>(chunk);
+            const double sps = samplesPerStep(sampleRate, currentStep_);
+            if (samplesIntoStep_ + 0.5 >= sps) {
+                samplesIntoStep_ -= sps;
+                currentStep_ = (currentStep_ + 1) % numSteps_;
+                if (--countInStepsRemaining_ <= 0) {
+                    countingIn_ = false;
+                    currentStep_ = 0;
+                    samplesIntoStep_ = 0.0;
+                    metroLastStep_ = -1;
+                    triggerStep(0);
+                }
+            }
+            done += chunk;
+            continue; // no pattern/instrument rendering during the count-in
         }
 
         // Render each drum channel on its own so it can be panned into the stereo field, into the
