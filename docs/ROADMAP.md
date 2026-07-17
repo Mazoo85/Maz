@@ -250,9 +250,14 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
         `dlopen`s a plugin `.so`, checks its ABI, and runs it as a mixer effect. Ships an example
         tremolo plugin (`plugins/example_tremolo`); `daw --plugin file.so` loads it. (A VST3/CLAP
         shim to this ABI is future work; the host mechanism is real and tested.)
-- [ ] Remaining vs. FL: a full **GPU-rendered GUI** (the ImGui interface is written but needs a
-      display to run) and **VST3/CLAP format** wrappers (the plugin host exists; the specific vendor
-      formats need their SDKs). These can't be exercised in a headless sandbox.
+  - [x] **GUI renders (verified)** — the full windowed interface (window + Vulkan + ImGui: channel
+        rack, piano roll, synth, bass, mixer, automation, arrangement, transport) boots and renders
+        under the software Vulkan driver (lavapipe) + SDL's offscreen video driver. The
+        `daw_gui_smoke` CI test drives several frames of the real GUI — proof it renders, not just
+        links.
+- [ ] Remaining vs. FL: **VST3/CLAP format** wrappers specifically. The native plugin host exists
+      and is tested; wrapping the exact VST3/CLAP formats onto its ABI needs those vendor SDKs, which
+      aren't present in this sandbox. (On real hardware the GUI runs on the actual GPU.)
 
 ### How to pick the next task
 

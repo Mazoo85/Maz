@@ -126,6 +126,18 @@ set_tests_properties(daw_beat_smoke PROPERTIES
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "audio: rendered 96000 frames.*beat @120 BPM")
 
+# DAW: boot the FULL windowed GUI (window + Vulkan + ImGui: channel rack, piano roll, synth, bass,
+# mixer, automation, arrangement panels) and render a few frames under the software Vulkan driver
+# (lavapipe) + SDL's offscreen video driver — proof the interface actually renders, not just links.
+# Requires a Vulkan ICD, like render_probe.
+add_test(
+    NAME daw_gui_smoke
+    COMMAND daw --frames 4 --no-vsync)
+set_tests_properties(daw_gui_smoke PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "ImGui.* initialized")
+
 # DAW: export stems — bounce drums/lead/bass to separate WAVs by isolating each bus.
 add_test(
     NAME daw_stems_smoke
