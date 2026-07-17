@@ -145,8 +145,23 @@ int Sequencer::addPattern() {
     p.grid.assign(cells, 0);
     p.prob.assign(cells, 255); // every step defaults to "always fire"
     p.ratchet.assign(cells, 1); // one hit per step by default
+    p.name = "Pattern " + std::to_string(patterns_.size() + 1);
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
+}
+
+void Sequencer::setPatternName(int i, const std::string& name) {
+    if (i >= 0 && i < patternCount()) {
+        patterns_[static_cast<size_t>(i)].name = name;
+    }
+}
+
+const std::string& Sequencer::patternName(int i) const {
+    static const std::string kEmpty;
+    if (i >= 0 && i < patternCount()) {
+        return patterns_[static_cast<size_t>(i)].name;
+    }
+    return kEmpty;
 }
 
 void Sequencer::selectPattern(int i) {

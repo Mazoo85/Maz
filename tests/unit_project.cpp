@@ -72,6 +72,7 @@ int main() {
     seq.selectPattern(p1);
     seq.setStep(2, 5, true);
     seq.roll().addNote(audio::Note{4, 1, 72, 0.5f});
+    seq.setPatternName(p1, "Chorus Fill");
     seq.selectPattern(0);
     seq.setPlaylist({0, 1, 0});
     seq.setSongMode(true);
@@ -162,6 +163,8 @@ int main() {
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.
     check(seq2.patternCount() == 2, "pattern count round-trips");
+    check(seq2.patternName(1) == "Chorus Fill", "pattern name round-trips");
+    check(seq2.patternName(0) == "Pattern 1", "default pattern name is preserved");
     check(seq2.songMode(), "song mode round-trips");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,

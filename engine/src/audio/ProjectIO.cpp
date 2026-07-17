@@ -115,6 +115,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "\n";
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
+        f << "patname " << p << " " << seq.patternName(p) << "\n";
         for (int c = 0; c < seq.numChannels(); ++c) {
             for (int s = 0; s < seq.numSteps(); ++s) {
                 if (seq.step(c, s)) {
@@ -336,6 +337,16 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             ls >> count;
             while (seq.patternCount() < count) {
                 seq.addPattern();
+            }
+        } else if (tag == "patname") {
+            int p = 0;
+            ls >> p;
+            std::string nm;
+            std::getline(ls, nm); // rest of the line is the name (may contain spaces)
+            const size_t nb = nm.find_first_not_of(' ');
+            nm = (nb == std::string::npos) ? std::string() : nm.substr(nb);
+            if (!nm.empty()) {
+                seq.setPatternName(p, nm);
             }
         } else if (tag == "songmode") {
             int on = 0;

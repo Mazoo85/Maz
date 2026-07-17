@@ -13,6 +13,7 @@ namespace maz::audio {
 // One pattern's musical content: the drum step grid plus the piano-roll notes. Instruments (the
 // drum kit, synth, sampler) are shared across patterns; only this content changes per pattern.
 struct Pattern {
+    std::string name;          // human-readable label for the arrangement/playlist
     std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
     std::vector<uint8_t> prob; // per-step trigger probability, 0..255 (255 = always). Parallel to grid.
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
@@ -114,6 +115,10 @@ public:
     void selectPattern(int i);
     int addPattern(); // append an empty pattern; returns its index
     void clearArrangement(); // reset to a single empty pattern, empty playlist, pattern mode
+
+    // Human-readable pattern name (defaults to "Pattern N"), shown in the arrangement UI.
+    void setPatternName(int i, const std::string& name);
+    const std::string& patternName(int i) const;
 
     void setSongMode(bool on) { songMode_ = on; }
     bool songMode() const { return songMode_; }

@@ -1044,6 +1044,14 @@ void buildArrangementUI(audio::Sequencer& seq) {
         seq.selectPattern(seq.addPattern());
     }
 
+    // Edit the current pattern's name.
+    char nameBuf[64];
+    std::snprintf(nameBuf, sizeof(nameBuf), "%s", seq.patternName(seq.currentPattern()).c_str());
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
+        seq.setPatternName(seq.currentPattern(), nameBuf);
+    }
+
     bool song = seq.songMode();
     if (ImGui::Checkbox("Song mode (play the playlist)", &song)) {
         seq.setSongMode(song);
