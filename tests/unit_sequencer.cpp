@@ -402,6 +402,33 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Clone pattern: an independent copy ----------------------------------
+    {
+        audio::Sequencer s;
+        s.setStep(0, 0, true);
+        s.setStep(1, 4, true);
+        s.setStepProbability(1, 4, 0.5f);
+        s.setStepRatchet(0, 0, 3);
+        s.roll().addNote(audio::Note{2, 4, 64, 0.7f});
+        s.setPatternName(0, "Verse");
+
+        const int c = s.clonePattern(0);
+        check(s.patternCount() == 2 && c == 1, "clone appends a new pattern");
+        check(s.patternName(1) == "Verse copy", "clone names itself '<src> copy'");
+
+        s.selectPattern(1);
+        check(s.step(0, 0) && s.step(1, 4), "clone copies the drum steps");
+        check(std::fabs(s.stepProbability(1, 4) - 0.5f) < 0.01f && s.stepRatchet(0, 0) == 3,
+              "clone copies per-step probability and ratchet");
+        check(s.roll().notes().size() == 1 && s.roll().notes()[0].pitch == 64,
+              "clone copies the piano-roll notes");
+
+        // Editing the clone does not touch the original.
+        s.setStep(3, 8, true);
+        s.selectPattern(0);
+        check(!s.step(3, 8), "editing the clone leaves the original untouched");
+    }
+
     // --- Melodic bus pan: place the lead in the stereo field -----------------
     {
         auto leadLR = [&](float pan) {

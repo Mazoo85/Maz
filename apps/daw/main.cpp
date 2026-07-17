@@ -1078,6 +1078,10 @@ void buildArrangementUI(audio::Sequencer& seq) {
     if (ImGui::Button("+ Add")) {
         seq.selectPattern(seq.addPattern());
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Clone")) {
+        seq.selectPattern(seq.clonePattern(seq.currentPattern()));
+    }
 
     // Edit the current pattern's name.
     char nameBuf[64];

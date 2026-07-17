@@ -150,6 +150,16 @@ int Sequencer::addPattern() {
     return static_cast<int>(patterns_.size()) - 1;
 }
 
+int Sequencer::clonePattern(int src) {
+    if (src < 0 || src >= patternCount()) {
+        return addPattern();
+    }
+    Pattern copy = patterns_[static_cast<size_t>(src)]; // deep copy (grids + both rolls + name)
+    copy.name = patterns_[static_cast<size_t>(src)].name + " copy";
+    patterns_.push_back(std::move(copy));
+    return static_cast<int>(patterns_.size()) - 1;
+}
+
 void Sequencer::setPatternName(int i, const std::string& name) {
     if (i >= 0 && i < patternCount()) {
         patterns_[static_cast<size_t>(i)].name = name;

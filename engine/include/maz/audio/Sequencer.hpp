@@ -114,6 +114,7 @@ public:
     int currentPattern() const { return current_; }
     void selectPattern(int i);
     int addPattern(); // append an empty pattern; returns its index
+    int clonePattern(int src); // append a full copy of pattern `src` (name + " copy"); returns index
     void clearArrangement(); // reset to a single empty pattern, empty playlist, pattern mode
 
     // Human-readable pattern name (defaults to "Pattern N"), shown in the arrangement UI.
