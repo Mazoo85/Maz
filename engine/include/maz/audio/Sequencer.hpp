@@ -47,6 +47,11 @@ public:
     void setSwing(float s);
     float swing() const { return swing_; }
 
+    // Humanize: randomize each drum hit's velocity slightly (0 = off, 1 = max) for a less
+    // machine-like feel. Deterministic, so renders are reproducible.
+    void setHumanize(float amount);
+    float humanize() const { return humanize_; }
+
     // Sidechain ducking: when the kick (channel 0) fires, the melodic bus is ducked and recovers
     // over `releaseMs` — the classic pumping effect. `amount` 0..1 is the depth.
     void setSidechain(bool on, float amount, float releaseMs);
@@ -162,6 +167,8 @@ private:
     int stepsPerBeat_ = 4;
     double bpm_ = 120.0;
     float swing_ = 0.0f;
+    float humanize_ = 0.0f;
+    uint32_t humanizeCounter_ = 0;
     bool sidechainOn_ = false;
     float scAmount_ = 0.7f;
     float scReleaseMs_ = 200.0f;

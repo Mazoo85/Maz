@@ -240,6 +240,39 @@ int main() {
               "center pan is balanced L/R");
     }
 
+    // --- Humanize ------------------------------------------------------------
+    {
+        // Four identical kicks on the beats: without humanize their per-beat peaks are equal; with
+        // humanize they vary. Deterministic, so the same render is reproducible.
+        auto beatPeaks = [&](float amount) {
+            audio::Sequencer h;
+            h.setBpm(120.0);
+            for (int s : {0, 4, 8, 12}) {
+                h.setStep(0, s, true);
+            }
+            h.setHumanize(amount);
+            h.play();
+            const std::vector<float> out = renderMono(h, 16 * 6000, sampleRate);
+            std::vector<float> peaks;
+            for (int b = 0; b < 4; ++b) {
+                float p = 0.0f;
+                for (int i = b * 4 * 6000; i < b * 4 * 6000 + 6000; ++i) {
+                    p = std::max(p, std::fabs(out[static_cast<size_t>(i) * 2]));
+                }
+                peaks.push_back(p);
+            }
+            return peaks;
+        };
+        const std::vector<float> flat = beatPeaks(0.0f);
+        check(std::fabs(flat[0] - flat[1]) < 1e-4f && std::fabs(flat[0] - flat[3]) < 1e-4f,
+              "without humanize, identical hits are equal");
+        const std::vector<float> human = beatPeaks(0.9f);
+        const bool varies = std::fabs(human[0] - human[1]) > 1e-3f ||
+                            std::fabs(human[1] - human[2]) > 1e-3f ||
+                            std::fabs(human[2] - human[3]) > 1e-3f;
+        check(varies, "humanize makes identical hits vary in level");
+    }
+
     // --- Arpeggiator ---------------------------------------------------------
     {
         // A held C-major triad (C E G, MIDI 60/64/67) across the bar, arp mode "up", should cycle

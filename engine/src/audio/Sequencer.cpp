@@ -106,6 +106,10 @@ void Sequencer::setArp(bool on, int mode) {
     arpCounter_ = 0;
 }
 
+void Sequencer::setHumanize(float amount) {
+    humanize_ = std::clamp(amount, 0.0f, 1.0f);
+}
+
 double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
     const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
@@ -167,7 +171,16 @@ void Sequencer::triggerStep(int step) {
     // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
-            channels_[static_cast<size_t>(c)].trigger(stepVelocity(c, step));
+            float vel = stepVelocity(c, step);
+            if (humanize_ > 0.0f) {
+                // Deterministic per-hit jitter: reduce velocity by up to 60% of the humanize amount.
+                uint32_t h = humanizeCounter_ * 2654435761u + static_cast<uint32_t>(c) * 40503u;
+                h ^= h >> 15;
+                const float r = static_cast<float>(h & 0xFFFFu) / 65536.0f;
+                vel *= 1.0f - humanize_ * r * 0.6f;
+                ++humanizeCounter_;
+            }
+            channels_[static_cast<size_t>(c)].trigger(vel);
         }
     }
     // Sidechain: a kick (channel 0) hit ducks the melodic bus.
@@ -250,6 +263,7 @@ void Sequencer::play() {
     playlistPos_ = 0;
     arpCounter_ = 0;
     arpCurrentPitch_ = -1;
+    humanizeCounter_ = 0;
     if (songMode_ && !playlist_.empty()) {
         selectPattern(playlist_[0]); // start the arrangement at the first playlist entry
     }

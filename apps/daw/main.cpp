@@ -294,6 +294,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setSwing(swing);
     }
     ImGui::SameLine();
+    float humanize = seq.humanize();
+    ImGui::SetNextItemWidth(110.0f);
+    if (ImGui::SliderFloat("Humanize", &humanize, 0.0f, 1.0f, "%.2f")) {
+        seq.setHumanize(humanize);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }
