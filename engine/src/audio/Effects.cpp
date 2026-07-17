@@ -20,6 +20,8 @@ void Delay::reset() {
     std::fill(bufL_.begin(), bufL_.end(), 0.0f);
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     write_ = 0;
+    dampL_ = 0.0f;
+    dampR_ = 0.0f;
 }
 
 void Delay::process(float* stereo, int frames, int sampleRate) {
@@ -38,6 +40,8 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
     tap = std::clamp(tap, 1, size_ - 1);
     const float fb = std::clamp(feedback_, 0.0f, 0.95f);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    // Damping: a one-pole high-cut on the feedback (damping 0 = off/bright, 1 = heavy darkening).
+    const float dampCoef = std::clamp(damping_, 0.0f, 1.0f);
 
     for (int i = 0; i < frames; ++i) {
         const int r = (write_ - tap + size_) % size_;
@@ -45,14 +49,19 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
         const float dryR = stereo[2 * i + 1];
         const float wetL = bufL_[static_cast<size_t>(r)];
         const float wetR = bufR_[static_cast<size_t>(r)];
+        // Low-pass the fed-back signal so successive repeats lose their highs.
+        dampL_ += (1.0f - dampCoef) * (wetL - dampL_);
+        dampR_ += (1.0f - dampCoef) * (wetR - dampR_);
+        const float fbL = dampL_ * fb;
+        const float fbR = dampR_ * fb;
         if (pingPong_) {
             // Cross-feed: each channel's echo re-enters the *other* channel's line, so repeats
             // alternate L→R→L across the stereo field.
-            bufL_[static_cast<size_t>(write_)] = dryL + wetR * fb;
-            bufR_[static_cast<size_t>(write_)] = dryR + wetL * fb;
+            bufL_[static_cast<size_t>(write_)] = dryL + fbR;
+            bufR_[static_cast<size_t>(write_)] = dryR + fbL;
         } else {
-            bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
-            bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
+            bufL_[static_cast<size_t>(write_)] = dryL + fbL;
+            bufR_[static_cast<size_t>(write_)] = dryR + fbR;
         }
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;

@@ -1048,6 +1048,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         bool pp = mx.delay().pingPong();
         if (ImGui::Checkbox("Ping-pong", &pp)) mx.delay().setPingPong(pp);
+        float damp = mx.delay().damping();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("damp##dly", &damp, 0.0f, 1.0f, "%.2f")) mx.delay().setDamping(damp);
     }
     {
         bool en = mx.reverb().enabled();

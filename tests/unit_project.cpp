@@ -99,6 +99,7 @@ int main() {
     mixer.delay().setTime(250.0f);
     mixer.delay().setMix(0.4f);
     mixer.delay().setPingPong(true);
+    mixer.delay().setDamping(0.4f);
     mixer.reverb().setEnabled(true);
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
@@ -243,8 +244,9 @@ int main() {
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");
     check(mixer2.delay().enabled() && near(mixer2.delay().time(), 250.0f) &&
-              near(mixer2.delay().mix(), 0.4f) && mixer2.delay().pingPong(),
-          "delay round-trips (incl. ping-pong)");
+              near(mixer2.delay().mix(), 0.4f) && mixer2.delay().pingPong() &&
+              near(mixer2.delay().damping(), 0.4f),
+          "delay round-trips (incl. ping-pong + damping)");
     check(near(mixer2.reverbSend(), 0.45f) && near(mixer2.reverbReturn().roomSize(), 0.6f) &&
               near(mixer2.delaySend(), 0.3f) && near(mixer2.delayReturn().time(), 180.0f),
           "aux send/return buses round-trip");

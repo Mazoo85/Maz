@@ -74,6 +74,28 @@ int main() {
         check(std::fabs(buf[static_cast<size_t>(4800) * 2]) > 0.5f, "echo appears at the delay time");
     }
 
+    // --- Delay damping: repeats lose their high end -------------------------
+    {
+        // Feed a bright buzzy tone; with damping the wet echoes carry less high-frequency energy.
+        auto wetHF = [&](float damp) {
+            audio::Delay d;
+            d.setEnabled(true);
+            d.setTime(50.0f);
+            d.setFeedback(0.7f);
+            d.setMix(1.0f); // fully wet: measure only the (filtered) echoes
+            d.setDamping(damp);
+            std::vector<float> b = sineStereo(sr / 2, 3000.0, 0.5, sr); // 3 kHz, 0.5 s
+            d.process(b.data(), sr / 2, sr);
+            double s = 0.0; // first-difference energy ~ high-frequency content
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double diff = static_cast<double>(b[i] - b[i - 2]);
+                s += diff * diff;
+            }
+            return s;
+        };
+        check(wetHF(0.7f) < wetHF(0.0f) * 0.7, "delay damping rolls off the echoes' high end");
+    }
+
     // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
     {
         audio::Delay pp;

@@ -161,7 +161,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.compressor().makeupDb() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
-      << (mixer.delay().pingPong() ? 1 : 0) << "\n";
+      << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
       << mixer.reverb().preDelayMs() << "\n";
@@ -488,6 +488,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 int pp = 0; // ping-pong flag optional for old files
                 if (ls >> pp) {
                     mixer.delay().setPingPong(pp != 0);
+                }
+                float damp = 0.0f; // damping optional for old files
+                if (ls >> damp) {
+                    mixer.delay().setDamping(damp);
                 }
             } else if (which == "gate") {
                 float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;

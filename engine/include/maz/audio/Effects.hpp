@@ -50,10 +50,13 @@ public:
     // Ping-pong: feed each channel's echo into the *other* channel's delay line, so repeats bounce
     // left↔right across the stereo field.
     void setPingPong(bool on) { pingPong_ = on; }
+    // Damping (0..1): high-cut on the feedback path so each repeat gets darker — analog-style echo.
+    void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float time() const { return timeMs_; }
     float feedback() const { return feedback_; }
     float mix() const { return mix_; }
     bool pingPong() const { return pingPong_; }
+    float damping() const { return damping_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -63,6 +66,8 @@ private:
     float feedback_ = 0.35f;
     float mix_ = 0.30f;
     bool pingPong_ = false;
+    float damping_ = 0.0f;
+    float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut state per channel
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;
