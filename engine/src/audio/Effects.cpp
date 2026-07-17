@@ -130,6 +130,56 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- ParametricEQ -----------------------------------------------------------
+
+void ParametricEQ::setLowGain(float db) {
+    lowDb_ = db;
+    dirty_ = true;
+}
+void ParametricEQ::setMid(float freq, float q, float db) {
+    midFreq_ = freq;
+    midQ_ = q;
+    midDb_ = db;
+    dirty_ = true;
+}
+void ParametricEQ::setHighGain(float db) {
+    highDb_ = db;
+    dirty_ = true;
+}
+
+void ParametricEQ::reset() {
+    lowL_.reset();
+    midL_.reset();
+    highL_.reset();
+    lowR_.reset();
+    midR_.reset();
+    highR_.reset();
+}
+
+void ParametricEQ::recompute(int sampleRate) {
+    lowL_.setShelf(120.0f, lowDb_, sampleRate, false);
+    lowR_.setShelf(120.0f, lowDb_, sampleRate, false);
+    midL_.setPeaking(midFreq_, midQ_, midDb_, sampleRate);
+    midR_.setPeaking(midFreq_, midQ_, midDb_, sampleRate);
+    highL_.setShelf(6000.0f, highDb_, sampleRate, true);
+    highR_.setShelf(6000.0f, highDb_, sampleRate, true);
+    sr_ = sampleRate;
+    dirty_ = false;
+}
+
+void ParametricEQ::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    if (dirty_ || sr_ != sampleRate) {
+        recompute(sampleRate);
+    }
+    for (int i = 0; i < frames; ++i) {
+        stereo[2 * i] = highL_.process(midL_.process(lowL_.process(stereo[2 * i])));
+        stereo[2 * i + 1] = highR_.process(midR_.process(lowR_.process(stereo[2 * i + 1])));
+    }
+}
+
 // ---- Bitcrusher -------------------------------------------------------------
 
 void Bitcrusher::reset() {

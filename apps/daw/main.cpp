@@ -565,6 +565,31 @@ void buildMixerUI(audio::AudioEngine& engine) {
 
     ImGui::SeparatorText("Master FX");
     {
+        bool en = mx.peq().enabled();
+        if (ImGui::Checkbox("Parametric EQ", &en)) mx.peq().setEnabled(en);
+        float lowDb = mx.peq().lowGain();
+        float midDb = mx.peq().midGain();
+        float midF = mx.peq().midFreq();
+        float midQ = mx.peq().midQ();
+        float highDb = mx.peq().highGain();
+        bool ch = false;
+        ImGui::SetNextItemWidth(90.0f);
+        ch |= ImGui::SliderFloat("Low dB##peq", &lowDb, -18.0f, 18.0f, "%.1f");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        ch |= ImGui::SliderFloat("High dB##peq", &highDb, -18.0f, 18.0f, "%.1f");
+        ImGui::SetNextItemWidth(90.0f);
+        ch |= ImGui::SliderFloat("Mid dB##peq", &midDb, -18.0f, 18.0f, "%.1f");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        ch |= ImGui::SliderFloat("Mid Hz##peq", &midF, 200.0f, 8000.0f, "%.0f");
+        if (ch) {
+            mx.peq().setLowGain(lowDb);
+            mx.peq().setMid(midF, midQ, midDb);
+            mx.peq().setHighGain(highDb);
+        }
+    }
+    {
         bool en = mx.eq().enabled();
         if (ImGui::Checkbox("Low-Pass EQ", &en)) mx.eq().setEnabled(en);
         float cutoff = mx.eq().cutoff();

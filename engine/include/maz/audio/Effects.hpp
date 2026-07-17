@@ -1,11 +1,43 @@
 #pragma once
 
 #include "maz/audio/Effect.hpp"
+#include "maz/audio/Filter.hpp" // Biquad
 
 #include <array>
 #include <vector>
 
 namespace maz::audio {
+
+// A 3-band parametric EQ: a low shelf (120 Hz), a sweepable mid peak, and a high shelf (6 kHz),
+// each with a gain in dB. Real biquad filters — the "pro mixing" EQ.
+class ParametricEQ : public Effect {
+public:
+    const char* name() const override { return "Parametric EQ"; }
+    void setLowGain(float db);
+    void setMid(float freq, float q, float db);
+    void setHighGain(float db);
+    float lowGain() const { return lowDb_; }
+    float midFreq() const { return midFreq_; }
+    float midQ() const { return midQ_; }
+    float midGain() const { return midDb_; }
+    float highGain() const { return highDb_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    void recompute(int sampleRate);
+
+    float lowDb_ = 0.0f;
+    float midFreq_ = 1000.0f;
+    float midQ_ = 1.0f;
+    float midDb_ = 0.0f;
+    float highDb_ = 0.0f;
+    int sr_ = 0;
+    bool dirty_ = true;
+    Biquad lowL_{}, midL_{}, highL_{};
+    Biquad lowR_{}, midR_{}, highR_{};
+};
 
 // A stereo feedback delay (echo). `time` sets the tap in ms, `feedback` how much of the wet signal
 // re-enters (0..~0.95), `mix` the dry/wet blend (0..1).

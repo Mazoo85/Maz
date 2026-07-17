@@ -20,6 +20,7 @@ public:
     float masterGain() const { return masterGain_; }
 
     // Typed access for the UI / demos.
+    ParametricEQ& peq() { return peq_; }
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     Bitcrusher& bitcrusher() { return crush_; }
@@ -39,6 +40,7 @@ public:
 
 private:
     float masterGain_ = 0.9f;
+    ParametricEQ peq_{};
     LowPass eq_{};
     Distortion dist_{};
     Bitcrusher crush_{};

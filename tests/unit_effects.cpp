@@ -154,6 +154,27 @@ int main() {
         check(rms(sig) > 0.0, "chorus still passes signal");
     }
 
+    // --- Parametric EQ: shelves boost/cut their band -------------------------
+    {
+        // A +12 dB low shelf makes a low (80 Hz) tone louder; a -12 dB cut makes it quieter.
+        std::vector<float> lowTone = sineStereo(sr, 80.0, 0.3, sr);
+        const double flat = rms(lowTone);
+
+        audio::ParametricEQ boost;
+        boost.setEnabled(true);
+        boost.setLowGain(12.0f);
+        std::vector<float> up = sineStereo(sr, 80.0, 0.3, sr);
+        boost.process(up.data(), sr, sr);
+        check(rms(up) > flat * 1.5, "low-shelf boost raises low-end level");
+
+        audio::ParametricEQ cut;
+        cut.setEnabled(true);
+        cut.setLowGain(-12.0f);
+        std::vector<float> down = sineStereo(sr, 80.0, 0.3, sr);
+        cut.process(down.data(), sr, sr);
+        check(rms(down) < flat * 0.7, "low-shelf cut lowers low-end level");
+    }
+
     // --- Bitcrusher: quantization changes the signal but keeps energy --------
     {
         audio::Bitcrusher crush;

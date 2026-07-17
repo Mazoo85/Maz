@@ -91,6 +91,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.delay().feedback() << " " << mixer.delay().mix() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << "\n";
+    f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
+      << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
+      << mixer.peq().highGain() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
@@ -299,6 +302,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.bitcrusher().setBits(bits);
                 mixer.bitcrusher().setDownsample(ds);
                 mixer.bitcrusher().setMix(mix);
+            } else if (which == "peq") {
+                float lowDb = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, highDb = 0.0f;
+                ls >> lowDb >> midF >> midQ >> midDb >> highDb;
+                mixer.peq().setEnabled(en != 0);
+                mixer.peq().setLowGain(lowDb);
+                mixer.peq().setMid(midF, midQ, midDb);
+                mixer.peq().setHighGain(highDb);
             }
         } else if (tag == "auto") {
             int idx = -1, en = 0, shape = 0;
