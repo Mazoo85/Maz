@@ -11,6 +11,49 @@ bool PianoRoll::hasNote(int pitch, int step) const {
     return false;
 }
 
+int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord chord, float velocity) {
+    // Semitone offsets from the root for each chord quality.
+    std::vector<int> offsets;
+    switch (chord) {
+    case Chord::Major:
+        offsets = {0, 4, 7};
+        break;
+    case Chord::Minor:
+        offsets = {0, 3, 7};
+        break;
+    case Chord::Dom7:
+        offsets = {0, 4, 7, 10};
+        break;
+    case Chord::Maj7:
+        offsets = {0, 4, 7, 11};
+        break;
+    case Chord::Min7:
+        offsets = {0, 3, 7, 10};
+        break;
+    case Chord::Dim:
+        offsets = {0, 3, 6};
+        break;
+    case Chord::Aug:
+        offsets = {0, 4, 8};
+        break;
+    case Chord::Sus2:
+        offsets = {0, 2, 7};
+        break;
+    case Chord::Sus4:
+        offsets = {0, 5, 7};
+        break;
+    }
+    for (int off : offsets) {
+        Note n;
+        n.startStep = startStep;
+        n.lengthSteps = lengthSteps < 1 ? 1 : lengthSteps;
+        n.pitch = rootPitch + off;
+        n.velocity = velocity;
+        notes_.push_back(n);
+    }
+    return static_cast<int>(offsets.size());
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

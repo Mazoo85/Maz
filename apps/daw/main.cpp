@@ -552,6 +552,25 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     audio::PianoRoll& roll = (lane == 1) ? seq.roll2() : seq.roll();
     ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 
+    // Chord tool: drop a whole chord (root + quality) at a chosen step/length.
+    static int chordRoot = 60, chordStep = 0, chordLen = 4, chordType = 0;
+    const char* chordNames[] = {"Maj", "Min", "Dom7", "Maj7", "Min7", "Dim", "Aug", "Sus2", "Sus4"};
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("root##chord", &chordRoot);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    ImGui::Combo("##chordtype", &chordType, chordNames, 9);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("@##chordstep", &chordStep);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("len##chord", &chordLen);
+    ImGui::SameLine();
+    if (ImGui::Button("Add chord")) {
+        roll.addChord(chordStep, chordLen, chordRoot, static_cast<audio::Chord>(chordType));
+    }
+
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();
     const int low = roll.lowPitch();

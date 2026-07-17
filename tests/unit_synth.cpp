@@ -295,6 +295,28 @@ int main() {
     roll.toggle(60, 0);
     check(!roll.hasNote(60, 0) && roll.notes().empty(), "toggling again removes it");
 
+    // --- Chord tool ----------------------------------------------------------
+    {
+        audio::PianoRoll cr;
+        // C major at C4 (60) → C E G = 60, 64, 67, all starting at step 2 for 4 steps.
+        const int added = cr.addChord(2, 4, 60, audio::Chord::Major, 0.8f);
+        check(added == 3 && cr.notes().size() == 3, "major chord adds three notes");
+        check(cr.hasNote(60, 2) && cr.hasNote(64, 2) && cr.hasNote(67, 2),
+              "major chord has root, major third, and fifth");
+        for (const audio::Note& n : cr.notes()) {
+            check(n.lengthSteps == 4 && std::fabs(n.velocity - 0.8f) < 1e-4f,
+                  "chord notes share the given length and velocity");
+        }
+
+        // Minor uses a flat third; a dominant 7th adds a fourth note.
+        audio::PianoRoll mr;
+        mr.addChord(0, 1, 57, audio::Chord::Minor); // A minor: A C E = 57, 60, 64
+        check(mr.hasNote(57, 0) && mr.hasNote(60, 0) && mr.hasNote(64, 0), "minor chord uses a flat third");
+        audio::PianoRoll d7;
+        check(d7.addChord(0, 1, 60, audio::Chord::Dom7) == 4, "a dominant 7th is four notes");
+        check(d7.hasNote(70, 0), "dominant 7th adds the flat seventh (Bb above C)");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz
