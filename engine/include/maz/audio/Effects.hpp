@@ -32,6 +32,50 @@ private:
     int write_ = 0;
 };
 
+// A waveshaping distortion/overdrive. `drive` sets how hard the signal is pushed into a tanh
+// saturator (more harmonics), `mix` blends dry/wet. Output is level-normalized so drive doesn't
+// just get louder.
+class Distortion : public Effect {
+public:
+    const char* name() const override { return "Distortion"; }
+    void setDrive(float d) { drive_ = d; }
+    void setMix(float m) { mix_ = m; }
+    float drive() const { return drive_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+
+private:
+    float drive_ = 2.0f;
+    float mix_ = 0.5f;
+};
+
+// A stereo chorus: two LFO-modulated delay lines (left/right in quadrature) widen and thicken the
+// sound. `rate` in Hz, `depth` in ms, `mix` dry/wet.
+class Chorus : public Effect {
+public:
+    const char* name() const override { return "Chorus"; }
+    void setRate(float hz) { rateHz_ = hz; }
+    void setDepth(float ms) { depthMs_ = ms; }
+    void setMix(float m) { mix_ = m; }
+    float rate() const { return rateHz_; }
+    float depth() const { return depthMs_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 0.8f;
+    float depthMs_ = 3.0f;
+    float mix_ = 0.4f;
+    std::vector<float> bufL_;
+    std::vector<float> bufR_;
+    int size_ = 0;
+    int write_ = 0;
+    double phase_ = 0.0;
+};
+
 // A one-pole low-pass "tone" control — a simple EQ that rolls off highs above `cutoff` Hz.
 class LowPass : public Effect {
 public:

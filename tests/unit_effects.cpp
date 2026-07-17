@@ -117,6 +117,43 @@ int main() {
         check(tail > 0.0, "reverb produces a tail after the impulse");
     }
 
+    // --- Distortion: adds harmonics to a sine (raises high-frequency content) ------
+    {
+        audio::Distortion dist;
+        dist.setEnabled(true);
+        dist.setDrive(8.0f);
+        dist.setMix(1.0f);
+        std::vector<float> sine = sineStereo(sr, 200.0, 0.5, sr);
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double d = static_cast<double>(b[i] - b[i - 2]);
+                s += d * d;
+            }
+            return s;
+        };
+        const double before = hf(sine);
+        dist.process(sine.data(), sr, sr);
+        check(hf(sine) > before, "distortion adds high-frequency harmonics");
+    }
+
+    // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------
+    {
+        audio::Chorus chorus;
+        chorus.setEnabled(true);
+        chorus.setMix(0.5f);
+        std::vector<float> sig = sineStereo(sr, 440.0, 0.5, sr);
+        chorus.process(sig.data(), sr, sr);
+        // After the modulated delay, left and right differ (quadrature LFO widens the image).
+        double diff = 0.0;
+        for (int i = sr / 2; i < sr; ++i) {
+            diff += std::fabs(static_cast<double>(sig[static_cast<size_t>(i) * 2] -
+                                                  sig[static_cast<size_t>(i) * 2 + 1]));
+        }
+        check(diff > 0.0, "chorus decorrelates the stereo image");
+        check(rms(sig) > 0.0, "chorus still passes signal");
+    }
+
     // --- Mixer: master gain scales; disabled chain is transparent ------------
     {
         audio::Mixer mixer; // all effects disabled by default

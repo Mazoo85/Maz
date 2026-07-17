@@ -21,7 +21,9 @@ public:
 
     // Typed access for the UI / demos.
     LowPass& eq() { return eq_; }
+    Distortion& distortion() { return dist_; }
     Compressor& compressor() { return comp_; }
+    Chorus& chorus() { return chorus_; }
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
 
@@ -37,7 +39,9 @@ public:
 private:
     float masterGain_ = 0.9f;
     LowPass eq_{};
+    Distortion dist_{};
     Compressor comp_{};
+    Chorus chorus_{};
     Delay delay_{};
     Reverb reverb_{};
     std::vector<Effect*> chain_; // processing order; points at the members above

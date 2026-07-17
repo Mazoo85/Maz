@@ -86,6 +86,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.delay().feedback() << " " << mixer.delay().mix() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << "\n";
+    f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
+      << " " << mixer.distortion().mix() << "\n";
+    f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
+      << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
 
     for (int i = 0; i < Automation::count(); ++i) {
         const AutoLane& lane = automation.lane(i);
@@ -254,6 +258,19 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.reverb().setRoomSize(room);
                 mixer.reverb().setDamping(damp);
                 mixer.reverb().setMix(mix);
+            } else if (which == "dist") {
+                float drive = 2.0f, mix = 0.5f;
+                ls >> drive >> mix;
+                mixer.distortion().setEnabled(en != 0);
+                mixer.distortion().setDrive(drive);
+                mixer.distortion().setMix(mix);
+            } else if (which == "chorus") {
+                float rate = 0.8f, depth = 3.0f, mix = 0.4f;
+                ls >> rate >> depth >> mix;
+                mixer.chorus().setEnabled(en != 0);
+                mixer.chorus().setRate(rate);
+                mixer.chorus().setDepth(depth);
+                mixer.chorus().setMix(mix);
             }
         } else if (tag == "auto") {
             int idx = -1, en = 0, shape = 0;

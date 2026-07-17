@@ -536,12 +536,28 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("Hz##eq", &cutoff, 200.0f, 18000.0f, "%.0f")) mx.eq().setCutoff(cutoff);
     }
     {
+        bool en = mx.distortion().enabled();
+        if (ImGui::Checkbox("Distortion", &en)) mx.distortion().setEnabled(en);
+        float drive = mx.distortion().drive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("drive##dist", &drive, 1.0f, 20.0f, "%.1f")) mx.distortion().setDrive(drive);
+    }
+    {
         bool en = mx.compressor().enabled();
         if (ImGui::Checkbox("Compressor", &en)) mx.compressor().setEnabled(en);
         float thr = mx.compressor().thresholdDb();
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("dB##cmp", &thr, -48.0f, 0.0f, "%.0f")) mx.compressor().setThresholdDb(thr);
+    }
+    {
+        bool en = mx.chorus().enabled();
+        if (ImGui::Checkbox("Chorus", &en)) mx.chorus().setEnabled(en);
+        float wet = mx.chorus().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("mix##cho", &wet, 0.0f, 1.0f, "%.2f")) mx.chorus().setMix(wet);
     }
     {
         bool en = mx.delay().enabled();

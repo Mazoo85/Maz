@@ -53,6 +53,83 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Distortion -------------------------------------------------------------
+
+void Distortion::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float drive = std::max(drive_, 1.0f);
+    const float norm = 1.0f / std::tanh(drive); // keep unity-ish level across drive
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    const int n = frames * 2;
+    for (int i = 0; i < n; ++i) {
+        const float dry = stereo[i];
+        const float wet = std::tanh(dry * drive) * norm;
+        stereo[i] = dry * (1.0f - mix) + wet * mix;
+    }
+}
+
+// ---- Chorus -----------------------------------------------------------------
+
+void Chorus::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    write_ = 0;
+    phase_ = 0.0;
+}
+
+void Chorus::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxSize = sampleRate / 20; // up to 50 ms of delay line
+    if (size_ != maxSize) {
+        size_ = maxSize;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        write_ = 0;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double phaseInc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    const float baseMs = 12.0f;
+    const float baseSamp = baseMs * 0.001f * static_cast<float>(sampleRate);
+    const float depthSamp = std::clamp(depthMs_, 0.0f, 20.0f) * 0.001f * static_cast<float>(sampleRate);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+
+    auto readAt = [&](const std::vector<float>& buf, float delay) {
+        float rp = static_cast<float>(write_) - delay;
+        while (rp < 0.0f) {
+            rp += static_cast<float>(size_);
+        }
+        const int i0 = static_cast<int>(rp) % size_;
+        const int i1 = (i0 + 1) % size_;
+        const float frac = rp - std::floor(rp);
+        return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
+    };
+
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        bufL_[static_cast<size_t>(write_)] = dryL;
+        bufR_[static_cast<size_t>(write_)] = dryR;
+
+        const float modL = static_cast<float>(std::sin(phase_ * kTwoPi));
+        const float modR = static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi)); // quadrature
+        const float wetL = readAt(bufL_, baseSamp + depthSamp * modL);
+        const float wetR = readAt(bufR_, baseSamp + depthSamp * modR);
+
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+
+        write_ = (write_ + 1) % size_;
+        phase_ += phaseInc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- LowPass ----------------------------------------------------------------
 
 void LowPass::reset() {
