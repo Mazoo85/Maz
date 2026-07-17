@@ -979,6 +979,20 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("dark<>bright##tilt", &t, -12.0f, 12.0f, "%.1f dB")) mx.tilt().setTilt(t);
     }
     {
+        bool en = mx.exciter().enabled();
+        if (ImGui::Checkbox("Exciter", &en)) mx.exciter().setEnabled(en);
+        float xover = mx.exciter().crossover();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("Hz##exciter", &xover, 1000.0f, 12000.0f, "%.0f"))
+            mx.exciter().setCrossover(xover);
+        float amt = mx.exciter().amount();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("amount##exciter", &amt, 0.0f, 1.0f, "%.2f"))
+            mx.exciter().setAmount(amt);
+    }
+    {
         bool en = mx.eq().enabled();
         if (ImGui::Checkbox("Low-Pass EQ", &en)) mx.eq().setEnabled(en);
         float cutoff = mx.eq().cutoff();

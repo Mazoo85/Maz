@@ -484,6 +484,39 @@ int main() {
         check(same, "a disabled tilt EQ is transparent");
     }
 
+    // --- Exciter: adds high-band harmonics, leaves the low body alone -------
+    {
+        // Gain ratio through the exciter for a pure tone at `hz`.
+        auto ratio = [&](double hz) {
+            audio::Exciter ex;
+            ex.setEnabled(true);
+            ex.setCrossover(4000.0f);
+            ex.setAmount(0.5f);
+            std::vector<float> b = sineStereo(sr, hz, 0.5, sr);
+            const double in = rms(b);
+            ex.process(b.data(), sr, sr);
+            return rms(b) / in;
+        };
+        // A tone above the crossover sits in the excited band → harmonics add energy.
+        check(ratio(6000.0) > 1.1, "exciter adds energy to a tone above the crossover");
+        // A tone well below the crossover is barely touched (high band ≈ 0).
+        check(ratio(200.0) < 1.02, "exciter leaves a low tone below the crossover almost untouched");
+
+        // Disabled → bit-transparent.
+        audio::Exciter off;
+        std::vector<float> sig = sineStereo(1000, 6000.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled exciter is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

@@ -248,6 +248,32 @@ void ParametricEQ::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Exciter ----------------------------------------------------------------
+
+void Exciter::reset() {
+    lpL_ = 0.0f;
+    lpR_ = 0.0f;
+}
+
+void Exciter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    const float a = 1.0f - std::exp(-kTwoPi * crossover_ / static_cast<float>(sampleRate));
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        lpL_ += a * (l - lpL_);
+        lpR_ += a * (r - lpR_);
+        // Harmonics from the high band only, added back on top of the full signal.
+        const float excL = std::tanh((l - lpL_) * 3.0f) * amount_;
+        const float excR = std::tanh((r - lpR_) * 3.0f) * amount_;
+        stereo[2 * i] = l + excL;
+        stereo[2 * i + 1] = r + excR;
+    }
+}
+
 // ---- TiltEQ -----------------------------------------------------------------
 
 void TiltEQ::reset() {

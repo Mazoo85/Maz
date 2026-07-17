@@ -32,6 +32,7 @@ public:
     // Typed access for the UI / demos.
     ParametricEQ& peq() { return peq_; }
     TiltEQ& tilt() { return tilt_; }
+    Exciter& exciter() { return exciter_; }
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     TapeSaturation& tape() { return tape_; }
@@ -85,6 +86,7 @@ private:
     float limiterCeiling_ = 1.0f;
     ParametricEQ peq_{};
     TiltEQ tilt_{};
+    Exciter exciter_{};
     LowPass eq_{};
     Distortion dist_{};
     TapeSaturation tape_{};

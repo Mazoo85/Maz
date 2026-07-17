@@ -116,6 +116,9 @@ int main() {
     mixer.highpass().setCutoff(45.0f);
     mixer.tilt().setEnabled(true);
     mixer.tilt().setTilt(-6.0f);
+    mixer.exciter().setEnabled(true);
+    mixer.exciter().setCrossover(6500.0f);
+    mixer.exciter().setAmount(0.42f);
     mixer.autopan().setEnabled(true);
     mixer.autopan().setRate(2.5f);
     mixer.autopan().setDepth(0.8f);
@@ -280,6 +283,9 @@ int main() {
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
     check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f), "tilt EQ round-trips");
+    check(mixer2.exciter().enabled() && near(mixer2.exciter().crossover(), 6500.0f) &&
+              near(mixer2.exciter().amount(), 0.42f),
+          "exciter round-trips");
     check(mixer2.autopan().enabled() && near(mixer2.autopan().rate(), 2.5f) &&
               near(mixer2.autopan().depth(), 0.8f),
           "auto-pan round-trips");

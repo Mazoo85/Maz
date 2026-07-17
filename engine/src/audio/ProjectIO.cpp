@@ -188,6 +188,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << "\n";
     f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << "\n";
+    f << "fx exciter " << (mixer.exciter().enabled() ? 1 : 0) << " " << mixer.exciter().crossover()
+      << " " << mixer.exciter().amount() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve())
       << "\n";
@@ -636,6 +638,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> t;
                 mixer.tilt().setEnabled(en != 0);
                 mixer.tilt().setTilt(t);
+            } else if (which == "exciter") {
+                float xover = 4000.0f, amt = 0.3f;
+                ls >> xover >> amt;
+                mixer.exciter().setEnabled(en != 0);
+                mixer.exciter().setCrossover(xover);
+                mixer.exciter().setAmount(amt);
             }
         } else if (tag == "send") {
             std::string which;

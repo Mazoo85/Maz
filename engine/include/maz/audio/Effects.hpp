@@ -240,6 +240,27 @@ private:
     std::array<Allpass1, kStages> apR_{};
 };
 
+// An aural exciter / high-frequency enhancer: high-passes at `crossover` Hz, generates harmonics
+// from that band with a soft saturator, and mixes them back at `amount` for added air/sparkle
+// without touching the body of the sound.
+class Exciter : public Effect {
+public:
+    Exciter() { enabled_ = false; }
+    const char* name() const override { return "Exciter"; }
+    void setCrossover(float hz) { crossover_ = hz < 1000.0f ? 1000.0f : (hz > 12000.0f ? 12000.0f : hz); }
+    void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    float crossover() const { return crossover_; }
+    float amount() const { return amount_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossover_ = 4000.0f;
+    float amount_ = 0.3f;
+    float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state (high band = input − low)
+};
+
 // A one-knob "tilt" EQ (mastering tone control): a single `tilt` in dB pivots the spectrum around a
 // centre frequency — positive brightens (low shelf down, high shelf up by tilt/2), negative darkens.
 class TiltEQ : public Effect {
