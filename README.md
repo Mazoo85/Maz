@@ -49,7 +49,8 @@ the project, and bounce to WAV.
 - **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, and a master effect chain
   (parametric EQ, low-pass, distortion, bitcrusher, compressor, chorus, phaser, delay, reverb) plus
   a master **limiter**.
-- **Modulation** — **LFO automation** of filter/FM/reverb/master, synced to the transport.
+- **Modulation** — automation of filter/FM/reverb/master, synced to the transport, from either an
+  **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
   (`.cjc`), WAV **bounce**, **stem export**, **MIDI export**, session **recording** (output + SDL
   mic/line input capture), and **plugin hosting**: a native `.so` ABI

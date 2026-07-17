@@ -67,6 +67,31 @@ int main() {
     check(cutoffLo < 600.0f, "trough sweep reaches the low bound");
     check(engine.mixer().eq().enabled(), "an active cutoff lane switches the EQ on");
 
+    // --- Automation clips (breakpoint envelopes) ------------------------------
+    {
+        // A clip ramps 0 → 1 over 0 → 2 s, then holds. It must interpolate linearly and take
+        // priority over the LFO on the same lane.
+        audio::AutoLane clipLane;
+        clipLane.lfo.shape = audio::Waveform::Sine; // would give 0.5 at t=0 if it were used
+        clipLane.clip = {{0.0, 0.0f}, {2.0, 1.0f}};
+        clipLane.clipLength = 0.0; // hold past the last point
+
+        check(std::fabs(clipLane.sourceUnipolar(0.0) - 0.0f) < 1e-4f, "clip holds first value at t=0");
+        check(std::fabs(clipLane.sourceUnipolar(1.0) - 0.5f) < 1e-4f, "clip interpolates to midpoint");
+        check(std::fabs(clipLane.sourceUnipolar(2.0) - 1.0f) < 1e-4f, "clip reaches last value");
+        check(std::fabs(clipLane.sourceUnipolar(5.0) - 1.0f) < 1e-4f,
+              "clip holds the last value past its end");
+
+        // With a loop length, time wraps: at t = clipLength it is back to the start value.
+        audio::AutoLane looped;
+        looped.clip = {{0.0, 0.2f}, {1.0, 0.8f}};
+        looped.clipLength = 2.0;
+        check(std::fabs(looped.sourceUnipolar(0.0) - 0.2f) < 1e-4f, "looped clip starts at 0.2");
+        check(std::fabs(looped.sourceUnipolar(2.0) - 0.2f) < 1e-4f,
+              "looped clip wraps back to the start after clipLength");
+        check(std::fabs(looped.sourceUnipolar(0.5) - 0.5f) < 1e-4f, "looped clip midpoint interpolates");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

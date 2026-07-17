@@ -88,6 +88,11 @@ int main() {
     lane.lfo.rateHz = 1.75f;
     lane.lo = 300.0f;
     lane.hi = 5500.0f;
+    // A breakpoint automation clip on a second lane.
+    audio::AutoLane& reverbLane = automation.lane(audio::AutoTarget::ReverbMix);
+    reverbLane.enabled = true;
+    reverbLane.clip = {{0.0, 0.1f}, {1.5, 0.9f}, {3.0, 0.3f}};
+    reverbLane.clipLength = 4.0;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -166,6 +171,11 @@ int main() {
     check(lane2.enabled && lane2.lfo.shape == audio::Waveform::Saw &&
               near(lane2.lfo.rateHz, 1.75f) && near(lane2.lo, 300.0f) && near(lane2.hi, 5500.0f),
           "automation lane round-trips");
+    const audio::AutoLane& clipLane2 = automation2.lane(audio::AutoTarget::ReverbMix);
+    check(clipLane2.clip.size() == 3 && near(static_cast<float>(clipLane2.clipLength), 4.0f) &&
+              near(static_cast<float>(clipLane2.clip[1].time), 1.5f) &&
+              near(clipLane2.clip[1].value, 0.9f),
+          "automation clip (breakpoints) round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

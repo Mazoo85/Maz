@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <vector>
 
 namespace maz::audio {
 
@@ -12,12 +13,28 @@ class AudioEngine;
 // Parameters an automation lane can drive. Each maps to one knob elsewhere in the engine.
 enum class AutoTarget { FilterCutoff, FmIndex, ReverbMix, MasterGain, Count };
 
-// One automation lane: an LFO sweeping a target parameter between [lo, hi]. Disabled by default.
+// One breakpoint in an automation clip: a unipolar value in [0, 1] at a time in seconds.
+struct AutoPoint {
+    double time = 0.0;
+    float value = 0.0f;
+};
+
+// One automation lane driving a target parameter between [lo, hi]. It has two sources: an LFO
+// (periodic) and an optional **automation clip** — a list of user-drawn breakpoints (FL-style),
+// linearly interpolated and looped over `clipLength`. If the clip has points it takes priority over
+// the LFO; otherwise the LFO drives the lane. Disabled by default.
 struct AutoLane {
     bool enabled = false;
     LFO lfo{};
     float lo = 0.0f;
     float hi = 1.0f;
+
+    std::vector<AutoPoint> clip{};  // breakpoints, ascending in time; empty → use the LFO
+    double clipLength = 0.0;        // loop length in seconds; <=0 → hold the last point past its time
+
+    // Evaluate the lane's *unipolar* [0,1] source value at time t (before the lo/hi remap). Uses the
+    // clip if it has points, otherwise the LFO.
+    float sourceUnipolar(double t) const;
 };
 
 // A small fixed bank of automation lanes — one per target. Each block, apply() evaluates every

@@ -153,6 +153,14 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         f << "auto " << i << " " << (lane.enabled ? 1 : 0) << " "
           << static_cast<int>(lane.lfo.shape) << " " << lane.lfo.rateHz << " " << lane.lo << " "
           << lane.hi << "\n";
+        // Automation clip (breakpoints): only written when the lane has one.
+        if (!lane.clip.empty()) {
+            f << "autoclip " << i << " " << lane.clipLength << " " << lane.clip.size();
+            for (const AutoPoint& p : lane.clip) {
+                f << " " << p.time << " " << p.value;
+            }
+            f << "\n";
+        }
     }
 
     if (!f) {
@@ -394,6 +402,21 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 lane.lfo.rateHz = rate;
                 lane.lo = lo;
                 lane.hi = hi;
+            }
+        } else if (tag == "autoclip") {
+            int idx = -1, n = 0;
+            double len = 0.0;
+            ls >> idx >> len >> n;
+            if (idx >= 0 && idx < Automation::count() && n >= 0) {
+                AutoLane& lane = automation.lane(idx);
+                lane.clipLength = len;
+                lane.clip.clear();
+                for (int k = 0; k < n; ++k) {
+                    AutoPoint p;
+                    if (ls >> p.time >> p.value) {
+                        lane.clip.push_back(p);
+                    }
+                }
             }
         }
         // Unknown tags are ignored for forward compatibility.

@@ -2,7 +2,38 @@
 
 #include "maz/audio/AudioEngine.hpp"
 
+#include <algorithm>
+
 namespace maz::audio {
+
+float AutoLane::sourceUnipolar(double t) const {
+    if (clip.empty()) {
+        return lfo.valueUnipolar(t);
+    }
+    // Loop the clip time if a positive length is set, otherwise clamp/hold past the last point.
+    double ct = t;
+    if (clipLength > 0.0) {
+        ct = t - clipLength * std::floor(t / clipLength);
+    }
+    // Before the first point → hold the first value; after the last → hold the last value.
+    if (ct <= clip.front().time) {
+        return clip.front().value;
+    }
+    if (ct >= clip.back().time) {
+        return clip.back().value;
+    }
+    // Find the segment [a, b) containing ct and interpolate linearly.
+    for (size_t i = 1; i < clip.size(); ++i) {
+        if (ct < clip[i].time) {
+            const AutoPoint& a = clip[i - 1];
+            const AutoPoint& b = clip[i];
+            const double span = b.time - a.time;
+            const float frac = span > 0.0 ? static_cast<float>((ct - a.time) / span) : 0.0f;
+            return a.value + (b.value - a.value) * frac;
+        }
+    }
+    return clip.back().value;
+}
 
 Automation::Automation() {
     // Sensible default sweep ranges per target (used once a lane is enabled).
@@ -51,7 +82,7 @@ void Automation::apply(AudioEngine& engine, double timeSeconds) {
         if (!l.enabled) {
             continue;
         }
-        const float u = l.lfo.valueUnipolar(timeSeconds);
+        const float u = l.sourceUnipolar(timeSeconds);
         const float v = l.lo + u * (l.hi - l.lo);
         switch (static_cast<AutoTarget>(i)) {
         case AutoTarget::FilterCutoff:
