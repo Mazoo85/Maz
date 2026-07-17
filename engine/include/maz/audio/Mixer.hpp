@@ -22,6 +22,7 @@ public:
     // Typed access for the UI / demos.
     LowPass& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
+    Bitcrusher& bitcrusher() { return crush_; }
     Compressor& compressor() { return comp_; }
     Chorus& chorus() { return chorus_; }
     Delay& delay() { return delay_; }
@@ -40,6 +41,7 @@ private:
     float masterGain_ = 0.9f;
     LowPass eq_{};
     Distortion dist_{};
+    Bitcrusher crush_{};
     Compressor comp_{};
     Chorus chorus_{};
     Delay delay_{};

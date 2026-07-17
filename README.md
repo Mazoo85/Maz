@@ -32,17 +32,27 @@ it runs in CI.
 ## CJC Music Station
 
 **CJC Music Station** is a native music-production app (a DAW) built on the engine's audio/UI layers,
-aimed at FL Studio–level capability over time. It has a real audio pipeline (`maz::audio`) and an
-FL-style **step sequencer**: a channel rack of drum voices you program on a 16-step grid and loop.
+aimed at FL Studio–level capability. It's a full groovebox/DAW: program patterns, arrange them into a
+song, play them with real synths and samples, mix and process with effects, automate parameters, save
+the project, and bounce to WAV.
 
-The current milestone is **A5 — song arrangement**. `maz::audio` provides an oscillator, a
-synthesized drum kit (`DrumVoice`), a polyphonic synth with subtractive **and FM** engines
-(`SynthInstrument`), a **`Sampler`** (WAV playback, pitch-shifted per note), a `PianoRoll`, a
-`Sequencer` with **multiple patterns + a playlist** (chain them into a song), a `Mixer` (bus gains +
-master effect chain: EQ, compressor, delay, reverb), **LFO parameter automation**, an `AudioEngine`
-that drives an SDL3 device *or* renders offline, and **project save/load** (a `.cjc` file capturing
-everything above). See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md) —
-live recording + plugin hosting are the remaining stretch items.
+`maz::audio` provides:
+
+- **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity); a polyphonic synth
+  (`SynthInstrument`) with **subtractive** (dual detuned oscillator + sub + noise + a resonant
+  state-variable **filter** with envelope) and **FM** engines; and a **`Sampler`** (WAV playback,
+  pitch-shifted per note).
+- **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), a `PianoRoll`,
+  **multiple patterns + a playlist** to build songs, **swing**, and **sidechain** ducking.
+- **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, and a master effect chain
+  (low-pass EQ, distortion, bitcrusher, compressor, chorus, delay, reverb) plus a master **limiter**.
+- **Modulation** — **LFO automation** of filter/FM/reverb/master, synced to the transport.
+- **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, and **project
+  save/load** (`.cjc`) capturing everything above.
+
+See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). The remaining gaps vs.
+FL Studio are the pieces this headless build can't exercise: live audio-input recording and VST3/CLAP
+plugin hosting.
 
 ```
 ./build/bin/daw --headless --song --fm --auto --seconds 8 --wav song.wav   # full arrangement (bounce)

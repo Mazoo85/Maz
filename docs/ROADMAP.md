@@ -227,8 +227,17 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
       clipping. Plus a **swing** control that pushes off-beat (odd) steps later for a shuffled groove
       while preserving tempo. All persisted in the `.cjc` project; the channel-rack row has M/S +
       volume + pan, and the transport has a swing slider (`daw --swing N`).
-- [ ] A7 — live audio recording + plugin (VST3/CLAP) hosting (heavy; a long-term stretch, and not
-      exercisable in the headless CI sandbox)
+- [x] **A7 — sound-design & effects depth (toward FL parity).**
+  - [x] **Resonant filter** — a TPT state-variable filter per synth voice (`Filter.hpp`), with a
+        filter envelope: true subtractive character.
+  - [x] **Fat oscillator section** — detuned 2nd oscillator + sub-oscillator + noise layer.
+  - [x] **More master effects** — distortion (waveshaper), chorus (quadrature modulated delay), and
+        a bitcrusher, joining the existing EQ/compressor/delay/reverb/limiter chain.
+  - [x] **Sidechain ducking** — the kick ducks the melodic bus (the EDM "pump").
+  - [x] **Per-step velocity / accents** — each drum step carries its own velocity.
+- [ ] A8 — live audio-input recording + plugin (VST3/CLAP) hosting. The remaining FL features that a
+      headless CI sandbox genuinely can't build-and-verify (no audio device, no plugin SDKs, no GPU
+      UI). Everything else above is implemented and tested offline.
 
 ### How to pick the next task
 

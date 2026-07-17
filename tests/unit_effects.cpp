@@ -154,6 +154,24 @@ int main() {
         check(rms(sig) > 0.0, "chorus still passes signal");
     }
 
+    // --- Bitcrusher: quantization changes the signal but keeps energy --------
+    {
+        audio::Bitcrusher crush;
+        crush.setEnabled(true);
+        crush.setBits(3.0f);
+        crush.setDownsample(8.0f);
+        crush.setMix(1.0f);
+        std::vector<float> sig = sineStereo(sr / 10, 440.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        crush.process(sig.data(), sr / 10, sr);
+        double changed = 0.0;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            changed += std::fabs(static_cast<double>(sig[i] - ref[i]));
+        }
+        check(changed > 0.0, "bitcrusher alters the signal");
+        check(rms(sig) > 0.0, "bitcrusher still passes signal");
+    }
+
     // --- Mixer: master gain scales; disabled chain is transparent ------------
     {
         audio::Mixer mixer; // all effects disabled by default

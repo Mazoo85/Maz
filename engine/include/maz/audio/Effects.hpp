@@ -76,6 +76,31 @@ private:
     double phase_ = 0.0;
 };
 
+// A lo-fi bitcrusher: reduces bit depth (quantization) and sample rate (sample-and-hold) for a
+// crunchy, digital/retro character. `bits` 1..16, `downsample` 1..64 (how many input samples share
+// one output), `mix` dry/wet.
+class Bitcrusher : public Effect {
+public:
+    const char* name() const override { return "Bitcrusher"; }
+    void setBits(float b) { bits_ = b; }
+    void setDownsample(float d) { downsample_ = d; }
+    void setMix(float m) { mix_ = m; }
+    float bits() const { return bits_; }
+    float downsample() const { return downsample_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float bits_ = 8.0f;
+    float downsample_ = 4.0f;
+    float mix_ = 0.5f;
+    float holdL_ = 0.0f;
+    float holdR_ = 0.0f;
+    int counter_ = 0;
+};
+
 // A one-pole low-pass "tone" control — a simple EQ that rolls off highs above `cutoff` Hz.
 class LowPass : public Effect {
 public:

@@ -23,12 +23,13 @@ Mixer::Mixer() {
     // Effects off by default: a fresh mixer is transparent until something enables them.
     eq_.setEnabled(false);
     dist_.setEnabled(false);
+    crush_.setEnabled(false);
     comp_.setEnabled(false);
     chorus_.setEnabled(false);
     delay_.setEnabled(false);
     reverb_.setEnabled(false);
-    // Signal order: tone → drive → dynamics → width/time effects.
-    chain_ = {&eq_, &dist_, &comp_, &chorus_, &delay_, &reverb_};
+    // Signal order: tone → drive → crush → dynamics → width/time effects.
+    chain_ = {&eq_, &dist_, &crush_, &comp_, &chorus_, &delay_, &reverb_};
 }
 
 void Mixer::process(float* stereo, int frames, int sampleRate) {

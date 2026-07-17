@@ -95,6 +95,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.distortion().mix() << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
+    f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
+      << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
 
     for (int i = 0; i < Automation::count(); ++i) {
         const AutoLane& lane = automation.lane(i);
@@ -290,6 +292,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.chorus().setRate(rate);
                 mixer.chorus().setDepth(depth);
                 mixer.chorus().setMix(mix);
+            } else if (which == "crush") {
+                float bits = 8.0f, ds = 4.0f, mix = 0.5f;
+                ls >> bits >> ds >> mix;
+                mixer.bitcrusher().setEnabled(en != 0);
+                mixer.bitcrusher().setBits(bits);
+                mixer.bitcrusher().setDownsample(ds);
+                mixer.bitcrusher().setMix(mix);
             }
         } else if (tag == "auto") {
             int idx = -1, en = 0, shape = 0;

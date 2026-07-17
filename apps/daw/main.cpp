@@ -581,6 +581,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("drive##dist", &drive, 1.0f, 20.0f, "%.1f")) mx.distortion().setDrive(drive);
     }
     {
+        bool en = mx.bitcrusher().enabled();
+        if (ImGui::Checkbox("Bitcrusher", &en)) mx.bitcrusher().setEnabled(en);
+        float bits = mx.bitcrusher().bits();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("bits##crush", &bits, 1.0f, 16.0f, "%.0f")) mx.bitcrusher().setBits(bits);
+    }
+    {
         bool en = mx.compressor().enabled();
         if (ImGui::Checkbox("Compressor", &en)) mx.compressor().setEnabled(en);
         float thr = mx.compressor().thresholdDb();

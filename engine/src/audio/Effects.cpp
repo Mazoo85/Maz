@@ -130,6 +130,37 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Bitcrusher -------------------------------------------------------------
+
+void Bitcrusher::reset() {
+    holdL_ = 0.0f;
+    holdR_ = 0.0f;
+    counter_ = 0;
+}
+
+void Bitcrusher::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float bits = std::clamp(bits_, 1.0f, 16.0f);
+    const int step = std::max(1, static_cast<int>(downsample_));
+    const float levels = std::pow(2.0f, bits);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    auto crush = [levels](float x) {
+        return std::round(x * levels) / levels; // quantize to `bits` bits
+    };
+    for (int i = 0; i < frames; ++i) {
+        if (counter_ <= 0) {
+            holdL_ = crush(stereo[2 * i]);
+            holdR_ = crush(stereo[2 * i + 1]);
+            counter_ = step;
+        }
+        --counter_;
+        stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + holdL_ * mix;
+        stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + holdR_ * mix;
+    }
+}
+
 // ---- LowPass ----------------------------------------------------------------
 
 void LowPass::reset() {
