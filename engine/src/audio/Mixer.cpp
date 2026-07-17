@@ -32,9 +32,10 @@ Mixer::Mixer() {
     reverb_.setEnabled(false);
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
+    vst3_.setEnabled(false);
     // Signal order: EQ → tone → drive → crush → dynamics → modulation → time effects → plugins.
-    chain_ = {&peq_,    &eq_,     &dist_,  &crush_,   &comp_,
-              &chorus_, &phaser_, &delay_, &reverb_,  &plugin_, &clap_};
+    chain_ = {&peq_,    &eq_,     &dist_,  &crush_,   &comp_,   &chorus_,
+              &phaser_, &delay_,  &reverb_, &plugin_, &clap_,   &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
     // much signal reaches them, so a fresh mixer stays transparent.

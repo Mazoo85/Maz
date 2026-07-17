@@ -4,6 +4,7 @@
 #include "maz/audio/Effects.hpp"
 #include "maz/audio/MixerTrack.hpp"
 #include "maz/audio/PluginHost.hpp"
+#include "maz/audio/Vst3Host.hpp"
 
 #include <array>
 #include <vector>
@@ -35,6 +36,7 @@ public:
     Reverb& reverb() { return reverb_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
+    Vst3Host& vst3() { return vst3_; }       // a loaded VST3-format plugin
 
     // Aux send/return buses (FL-style parallel routing). Unlike the inline inserts above, a send
     // taps a scaled copy of the signal into a dedicated return effect (processed 100% wet) and sums
@@ -77,6 +79,7 @@ private:
     Reverb reverb_{};
     PluginHost plugin_{};
     ClapHost clap_{};
+    Vst3Host vst3_{};
     std::vector<Effect*> chain_; // processing order; points at the members above
 
     // Parallel send/return buses.

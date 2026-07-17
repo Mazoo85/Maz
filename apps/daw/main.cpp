@@ -282,6 +282,17 @@ int runHeadless(const core::AppConfig& cfg) {
             }
         }
 
+        if (cfg.vst3Path != nullptr) {
+            std::string verr;
+            if (engine.mixer().vst3().load(cfg.vst3Path, engine.config().sampleRate, 4096, &verr)) {
+                engine.mixer().vst3().setEnabled(true);
+                MAZ_LOG_INFO("vst3: loaded %s", cfg.vst3Path);
+            } else {
+                MAZ_LOG_ERROR("vst3 load failed: %s", verr.c_str());
+                return 1;
+            }
+        }
+
         if (cfg.midiPath != nullptr) {
             std::string merr;
             if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr)) {

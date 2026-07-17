@@ -46,6 +46,7 @@ add_subdirectory(apps/daw)
 add_subdirectory(apps/render_probe)
 add_subdirectory(plugins/example_tremolo)
 add_subdirectory(plugins/example_clap)
+add_subdirectory(plugins/example_vst3)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

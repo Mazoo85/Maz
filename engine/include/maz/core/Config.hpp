@@ -34,6 +34,7 @@ struct AppConfig {
     const char* stemsPrefix = nullptr;     // --stems PREFIX : bounce drums/lead/bass to separate WAVs
     const char* pluginPath = nullptr;      // --plugin PATH : load a native audio plugin (.so)
     const char* clapPath = nullptr;        // --clap PATH : load a CLAP-format plugin (.clap)
+    const char* vst3Path = nullptr;        // --vst3 PATH : load a VST3-format plugin (.vst3)
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

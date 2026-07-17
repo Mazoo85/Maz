@@ -55,14 +55,16 @@ the project, and bounce to WAV.
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
   (`.cjc`), WAV **bounce**, **stem export**, **MIDI export**, session **recording** (output + SDL
   mic/line input capture), and **plugin hosting**: a native `.so` ABI
-  ([`PluginApi.h`](engine/include/maz/audio/PluginApi.h), see `plugins/example_tremolo`) **and the
-  open [CLAP](https://cleveraudio.org) format** (`ClapHost`, see `plugins/example_clap`).
+  ([`PluginApi.h`](engine/include/maz/audio/PluginApi.h), see `plugins/example_tremolo`), the
+  open [CLAP](https://cleveraudio.org) format (`ClapHost`, see `plugins/example_clap`), **and
+  [VST3](https://steinbergmedia.github.io/vst3_doc/)** (`Vst3Host`, see `plugins/example_vst3`) —
+  hosted against Steinberg's **MIT-licensed** `pluginterfaces` headers only (no GPL `public.sdk`).
 - **GUI** — a Dear ImGui interface (channel rack, piano roll, synth, bass, mixer, automation,
   arrangement, transport) rendered via Vulkan; a CI test drives it under software Vulkan.
 
-See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). The remaining gaps vs.
-FL Studio are the pieces this headless build can't exercise: live audio-input recording and VST3/CLAP
-plugin hosting.
+See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). All three plugin formats
+(native ABI, CLAP, VST3) and live audio-input recording are implemented and, except for touching a
+real audio device, exercised by the headless CI tests.
 
 ```
 ./build/bin/daw --headless --song --fm --auto --seconds 8 --wav song.wav   # full arrangement (bounce)
