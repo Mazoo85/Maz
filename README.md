@@ -50,7 +50,9 @@ the project, and bounce to WAV.
   a master **limiter**.
 - **Modulation** — **LFO automation** of filter/FM/reverb/master, synced to the transport.
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
-  (`.cjc`), WAV **bounce**, and **MIDI export**.
+  (`.cjc`), WAV **bounce**, **stem export**, **MIDI export**, session **recording** (output + SDL
+  mic/line input capture), and **native plugin hosting** (dlopen a `.so` implementing the
+  [`PluginApi.h`](engine/include/maz/audio/PluginApi.h) ABI — see `plugins/example_tremolo`).
 
 See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). The remaining gaps vs.
 FL Studio are the pieces this headless build can't exercise: live audio-input recording and VST3/CLAP
