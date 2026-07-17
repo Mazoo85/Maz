@@ -100,6 +100,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.distortion().mix() << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
+    f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
+      << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
+      << "\n";
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
 
@@ -312,6 +315,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.bitcrusher().setBits(bits);
                 mixer.bitcrusher().setDownsample(ds);
                 mixer.bitcrusher().setMix(mix);
+            } else if (which == "phaser") {
+                float rate = 0.5f, depth = 0.7f, fb = 0.3f, mix = 0.5f;
+                ls >> rate >> depth >> fb >> mix;
+                mixer.phaser().setEnabled(en != 0);
+                mixer.phaser().setRate(rate);
+                mixer.phaser().setDepth(depth);
+                mixer.phaser().setFeedback(fb);
+                mixer.phaser().setMix(mix);
             } else if (which == "peq") {
                 float lowDb = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, highDb = 0.0f;
                 ls >> lowDb >> midF >> midQ >> midDb >> highDb;

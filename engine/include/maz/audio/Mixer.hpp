@@ -26,6 +26,7 @@ public:
     Bitcrusher& bitcrusher() { return crush_; }
     Compressor& compressor() { return comp_; }
     Chorus& chorus() { return chorus_; }
+    Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
 
@@ -46,6 +47,7 @@ private:
     Bitcrusher crush_{};
     Compressor comp_{};
     Chorus chorus_{};
+    Phaser phaser_{};
     Delay delay_{};
     Reverb reverb_{};
     std::vector<Effect*> chain_; // processing order; points at the members above

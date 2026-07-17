@@ -133,6 +133,44 @@ private:
     int counter_ = 0;
 };
 
+// A phaser: a chain of LFO-modulated all-pass stages (with feedback) mixed with the dry signal,
+// creating sweeping notches. `rate` Hz, `depth` 0..1, `feedback` 0..0.9, `mix` dry/wet.
+class Phaser : public Effect {
+public:
+    const char* name() const override { return "Phaser"; }
+    void setRate(float hz) { rateHz_ = hz; }
+    void setDepth(float d) { depth_ = d; }
+    void setFeedback(float f) { feedback_ = f; }
+    void setMix(float m) { mix_ = m; }
+    float rate() const { return rateHz_; }
+    float depth() const { return depth_; }
+    float feedback() const { return feedback_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    static constexpr int kStages = 4;
+    struct Allpass1 {
+        float z = 0.0f;
+        float process(float x, float a) {
+            const float y = -a * x + z;
+            z = x + a * y;
+            return y;
+        }
+    };
+    float rateHz_ = 0.5f;
+    float depth_ = 0.7f;
+    float feedback_ = 0.3f;
+    float mix_ = 0.5f;
+    double phase_ = 0.0;
+    float fbL_ = 0.0f;
+    float fbR_ = 0.0f;
+    std::array<Allpass1, kStages> apL_{};
+    std::array<Allpass1, kStages> apR_{};
+};
+
 // A one-pole low-pass "tone" control — a simple EQ that rolls off highs above `cutoff` Hz.
 class LowPass : public Effect {
 public:

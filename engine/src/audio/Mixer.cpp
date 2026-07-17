@@ -27,10 +27,11 @@ Mixer::Mixer() {
     crush_.setEnabled(false);
     comp_.setEnabled(false);
     chorus_.setEnabled(false);
+    phaser_.setEnabled(false);
     delay_.setEnabled(false);
     reverb_.setEnabled(false);
-    // Signal order: EQ → tone → drive → crush → dynamics → width/time effects.
-    chain_ = {&peq_, &eq_, &dist_, &crush_, &comp_, &chorus_, &delay_, &reverb_};
+    // Signal order: EQ → tone → drive → crush → dynamics → modulation → time effects.
+    chain_ = {&peq_, &eq_, &dist_, &crush_, &comp_, &chorus_, &phaser_, &delay_, &reverb_};
 }
 
 void Mixer::process(float* stereo, int frames, int sampleRate) {

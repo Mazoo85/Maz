@@ -193,6 +193,22 @@ int main() {
         check(rms(sig) > 0.0, "bitcrusher still passes signal");
     }
 
+    // --- Phaser: sweeping all-pass notches change the signal over time -------
+    {
+        audio::Phaser ph;
+        ph.setEnabled(true);
+        ph.setMix(0.7f);
+        std::vector<float> sig = sineStereo(sr, 600.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        ph.process(sig.data(), sr, sr);
+        double changed = 0.0;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            changed += std::fabs(static_cast<double>(sig[i] - ref[i]));
+        }
+        check(changed > 0.0, "phaser alters the signal");
+        check(rms(sig) > 0.0, "phaser still passes signal");
+    }
+
     // --- Mixer: master gain scales; disabled chain is transparent ------------
     {
         audio::Mixer mixer; // all effects disabled by default

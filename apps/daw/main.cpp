@@ -660,6 +660,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##cho", &wet, 0.0f, 1.0f, "%.2f")) mx.chorus().setMix(wet);
     }
     {
+        bool en = mx.phaser().enabled();
+        if (ImGui::Checkbox("Phaser", &en)) mx.phaser().setEnabled(en);
+        float wet = mx.phaser().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("mix##phs", &wet, 0.0f, 1.0f, "%.2f")) mx.phaser().setMix(wet);
+    }
+    {
         bool en = mx.delay().enabled();
         if (ImGui::Checkbox("Delay", &en)) mx.delay().setEnabled(en);
         float wet = mx.delay().mix();

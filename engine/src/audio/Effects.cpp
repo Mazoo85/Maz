@@ -211,6 +211,57 @@ void Bitcrusher::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Phaser -----------------------------------------------------------------
+
+void Phaser::reset() {
+    fbL_ = 0.0f;
+    fbR_ = 0.0f;
+    phase_ = 0.0;
+    for (Allpass1& a : apL_) {
+        a.z = 0.0f;
+    }
+    for (Allpass1& a : apR_) {
+        a.z = 0.0f;
+    }
+}
+
+void Phaser::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double phaseInc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    const float depth = std::clamp(depth_, 0.0f, 1.0f);
+    const float fb = std::clamp(feedback_, 0.0f, 0.9f);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+
+    for (int i = 0; i < frames; ++i) {
+        const float lfo = static_cast<float>(std::sin(phase_ * kTwoPi));
+        // Sweep the all-pass coefficient across the audio band.
+        const float a = 0.5f + 0.45f * depth * lfo;
+
+        float xL = stereo[2 * i] + fbL_ * fb;
+        for (Allpass1& stage : apL_) {
+            xL = stage.process(xL, a);
+        }
+        fbL_ = xL;
+
+        float xR = stereo[2 * i + 1] + fbR_ * fb;
+        for (Allpass1& stage : apR_) {
+            xR = stage.process(xR, a);
+        }
+        fbR_ = xR;
+
+        stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + xL * mix;
+        stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + xR * mix;
+
+        phase_ += phaseInc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- LowPass ----------------------------------------------------------------
 
 void LowPass::reset() {
