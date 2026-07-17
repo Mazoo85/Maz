@@ -660,6 +660,13 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (och) {
             syn.setOscillators(detune, osc2, sub, noise);
         }
+        int uni = syn.unisonVoices();
+        float uniDet = syn.unisonDetune();
+        bool uch = ImGui::SliderInt("Unison", &uni, 1, 7);
+        uch |= ImGui::SliderFloat("Uni detune", &uniDet, 0.0f, 50.0f, "%.1f");
+        if (uch) {
+            syn.setUnison(uni, uniDet);
+        }
     } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);

@@ -43,6 +43,11 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     float detune = 0.0f, osc2 = 0.0f, sub = 0.0f, noise = 0.0f;
     ls >> detune >> osc2 >> sub >> noise;
     syn.setOscillators(detune, osc2, sub, noise);
+    int uni = 1;
+    float uniDet = 12.0f; // unison optional for old files
+    if (ls >> uni >> uniDet) {
+        syn.setUnison(uni, uniDet);
+    }
 }
 } // namespace
 
@@ -89,7 +94,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
           << s.wavetableMorph() << " " << s.glide() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
-          << s.noiseLevel() << "\n";
+          << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

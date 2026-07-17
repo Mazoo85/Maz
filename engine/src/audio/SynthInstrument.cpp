@@ -19,6 +19,11 @@ void SynthInstrument::setFilter(float cutoffHz, float resonance, float envAmt) {
     filterEnvAmt_ = envAmt;
 }
 
+void SynthInstrument::setUnison(int voices, float detuneCents) {
+    unisonVoices_ = voices < 1 ? 1 : (voices > kMaxUnison ? kMaxUnison : voices);
+    unisonDetune_ = detuneCents < 0.0f ? 0.0f : (detuneCents > 100.0f ? 100.0f : detuneCents);
+}
+
 void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float subLevel,
                                      float noiseLevel) {
     detuneCents_ = std::clamp(detuneCents, 0.0f, 100.0f);
@@ -45,6 +50,9 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.stage = Stage::Attack;
     v.midi = midi;
     v.phase = 0.0;
+    for (int u = 0; u < kMaxUnison; ++u) {
+        v.uniPhase[static_cast<size_t>(u)] = static_cast<double>(u) / kMaxUnison; // decorrelate
+    }
     v.phase2 = 0.0;
     v.subPhase = 0.0;
     v.modPhase = 0.0;
@@ -145,7 +153,26 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 const float pos = wtPosition_ + wtMorphEnv_ * v.env;
                 osc = wavetable_.sample(pos, v.phase);
             } else {
-                osc = waveSample(waveform_, v.phase);
+                if (unisonVoices_ > 1) {
+                    // Supersaw: sum detuned copies spread ±unisonDetune_ cents, equal-power scaled.
+                    float acc = 0.0f;
+                    const int uv = unisonVoices_;
+                    const float uniGain = 1.0f / std::sqrt(static_cast<float>(uv));
+                    for (int u = 0; u < uv; ++u) {
+                        const double spread = static_cast<double>(u) / (uv - 1) - 0.5; // -0.5..0.5
+                        const double mul =
+                            std::pow(2.0, spread * 2.0 * static_cast<double>(unisonDetune_) / 1200.0);
+                        acc += waveSample(waveform_, v.uniPhase[static_cast<size_t>(u)]);
+                        v.uniPhase[static_cast<size_t>(u)] += phaseInc * mul;
+                        if (v.uniPhase[static_cast<size_t>(u)] >= 1.0) {
+                            v.uniPhase[static_cast<size_t>(u)] -=
+                                std::floor(v.uniPhase[static_cast<size_t>(u)]);
+                        }
+                    }
+                    osc = acc * uniGain;
+                } else {
+                    osc = waveSample(waveform_, v.phase);
+                }
                 if (osc2Level_ > 0.0f) {
                     osc += waveSample(waveform_, v.phase2) * osc2Level_;
                     const double detune = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);

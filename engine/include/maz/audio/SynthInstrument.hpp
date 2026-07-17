@@ -21,6 +21,7 @@ enum class SynthMode { Subtractive, FM, Wavetable };
 class SynthInstrument {
 public:
     static constexpr int kMaxVoices = 16;
+    static constexpr int kMaxUnison = 7;
 
     void setMode(SynthMode m) { mode_ = m; }
     SynthMode mode() const { return mode_; }
@@ -30,6 +31,12 @@ public:
 
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
+
+    // Unison: stack `voices` (1..kMaxUnison) detuned copies of the primary oscillator, spread ±
+    // `detuneCents`, for a thick supersaw. 1 = off (a single oscillator). Subtractive mode only.
+    void setUnison(int voices, float detuneCents);
+    int unisonVoices() const { return unisonVoices_; }
+    float unisonDetune() const { return unisonDetune_; }
 
     // Portamento / glide: when > 0, a new note slides from the previously played pitch to its own
     // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
@@ -89,6 +96,7 @@ private:
         Stage stage = Stage::Off;
         int midi = -1;
         double phase = 0.0;    // carrier phase
+        std::array<double, kMaxUnison> uniPhase{}; // unison stack phases
         double phase2 = 0.0;   // detuned 2nd oscillator
         double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
@@ -109,6 +117,8 @@ private:
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
     float glideSeconds_ = 0.0f; // portamento time; 0 = off
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
+    int unisonVoices_ = 1;      // 1 = off
+    float unisonDetune_ = 12.0f; // cents of spread when unison is on
     Wavetable wavetable_{};
     float attack_ = 0.005f;
     float decay_ = 0.08f;

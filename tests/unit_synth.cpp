@@ -250,6 +250,43 @@ int main() {
         check(wt.sample(0.0f, 0.25) > 0.9f, "wavetable frame 0 quarter-phase ~= +1 (sine peak)");
     }
 
+    // --- Unison (supersaw) ---------------------------------------------------
+    {
+        // Ratio of loudest to quietest short-window RMS across the render: detuned unison voices
+        // beat against each other, so the amplitude swells and dips; a single voice is steady.
+        auto beating = [&](int voices, float detune) {
+            audio::SynthInstrument syn;
+            syn.setWaveform(audio::Waveform::Saw);
+            syn.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            syn.setFilter(20000.0f, 0.7f, 0.0f); // bypass filter
+            syn.setUnison(voices, detune);
+            syn.noteOn(57, 1.0f);
+            const std::vector<float> out = render(syn, sampleRate, sampleRate); // 1 s
+            const int win = 2000;
+            double lo = 1e9, hi = 0.0;
+            for (size_t base = 0; base + static_cast<size_t>(win) < out.size();
+                 base += static_cast<size_t>(win)) {
+                double e = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    const double v = static_cast<double>(out[base + static_cast<size_t>(i)]);
+                    e += v * v;
+                }
+                e = std::sqrt(e / win);
+                lo = std::min(lo, e);
+                hi = std::max(hi, e);
+            }
+            return lo > 1e-9 ? hi / lo : 1.0;
+        };
+
+        const double single = beating(1, 0.0f);
+        const double superSaw = beating(7, 25.0f);
+        check(superSaw > single * 1.5, "unison detuning produces amplitude beating (supersaw)");
+        check(std::abs(single - 1.0) < 0.3, "a single voice is comparatively steady");
+
+        audio::SynthInstrument def;
+        check(def.unisonVoices() == 1, "unison defaults to a single voice");
+    }
+
     // --- Portamento / glide --------------------------------------------------
     {
         // Play a low note, release, then a high note with glide on. Early in the second note the

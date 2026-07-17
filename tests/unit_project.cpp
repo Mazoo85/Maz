@@ -60,6 +60,7 @@ int main() {
     seq.synth().setFmRatio(3.5f);
     seq.synth().setFmIndex(6.0f);
     seq.synth().setGlide(0.15f);
+    seq.synth().setUnison(5, 18.0f);
     seq.sampler().setBasePitch(48);
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
@@ -209,6 +210,8 @@ int main() {
     check(near(seq2.synth().fmRatio(), 3.5f) && near(seq2.synth().fmIndex(), 6.0f),
           "FM params round-trip");
     check(near(seq2.synth().glide(), 0.15f), "glide time round-trips");
+    check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
+          "unison round-trips");
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48,
           "sampler settings round-trip");
 
