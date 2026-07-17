@@ -40,7 +40,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     const SynthInstrument& syn = seq.synth();
     f << "synth " << static_cast<int>(syn.mode()) << " " << static_cast<int>(syn.waveform()) << " "
       << syn.attack() << " " << syn.decay() << " " << syn.sustain() << " " << syn.release() << " "
-      << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << "\n";
+      << syn.fmRatio() << " " << syn.fmIndex() << " " << syn.gain() << " " << syn.filterCutoff()
+      << " " << syn.filterResonance() << " " << syn.filterEnvAmount() << "\n";
 
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
@@ -151,6 +152,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             syn.setFmRatio(ratio);
             syn.setFmIndex(index);
             syn.setGain(gain);
+            // Filter fields are optional (older projects omit them → leave the filter open).
+            float cutoff = 20000.0f, reso = 0.7f, envAmt = 0.0f;
+            if (ls >> cutoff >> reso >> envAmt) {
+                syn.setFilter(cutoff, reso, envAmt);
+            }
         } else if (tag == "sampler") {
             int use = 0;
             int base = 60;

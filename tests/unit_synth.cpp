@@ -138,6 +138,36 @@ int main() {
     }
     check(diff > 1.0, "FM output differs from subtractive for the same note");
 
+    // --- Resonant filter -----------------------------------------------------
+    {
+        // A saw through a low cutoff loses most of its high-harmonic energy vs. an open filter.
+        audio::SynthInstrument open;
+        open.setWaveform(audio::Waveform::Saw);
+        open.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        open.setFilter(20000.0f, 0.7f, 0.0f); // bypassed
+        open.noteOn(60, 1.0f);
+        const std::vector<float> openOut = render(open, sampleRate / 4, sampleRate);
+
+        audio::SynthInstrument closed;
+        closed.setWaveform(audio::Waveform::Saw);
+        closed.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        closed.setFilter(300.0f, 0.7f, 0.0f); // low cutoff
+        closed.noteOn(60, 1.0f);
+        const std::vector<float> closedOut = render(closed, sampleRate / 4, sampleRate);
+
+        // "Brightness" ~ high-frequency energy via first-difference RMS.
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                s += d * d;
+            }
+            return std::sqrt(s / static_cast<double>(b.size()));
+        };
+        check(hf(closedOut) < hf(openOut) * 0.5, "low cutoff removes high-frequency energy");
+        check(rms(closedOut) > 0.0, "filtered synth still produces sound");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

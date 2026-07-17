@@ -13,6 +13,12 @@ void SynthInstrument::setEnvelope(float attack, float decay, float sustain, floa
     release_ = std::max(release, 0.0001f);
 }
 
+void SynthInstrument::setFilter(float cutoffHz, float resonance, float envAmt) {
+    filterCutoff_ = std::clamp(cutoffHz, 20.0f, 20000.0f);
+    filterReso_ = std::clamp(resonance, 0.5f, 20.0f);
+    filterEnvAmt_ = envAmt;
+}
+
 void SynthInstrument::noteOn(int midi, float velocity) {
     // Prefer a free voice; otherwise steal the quietest one so a new note always sounds.
     int chosen = -1;
@@ -35,6 +41,7 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.freq = midiToFreq(midi);
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
+    v.filter.reset();
 }
 
 void SynthInstrument::noteOff(int midi) {
@@ -117,6 +124,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             } else {
                 osc = waveSample(waveform_, v.phase);
+            }
+
+            // Resonant low-pass (subtractive character), with the amp envelope opening the cutoff.
+            if (filterCutoff_ < 19000.0f) {
+                const float cutoff = filterCutoff_ + filterEnvAmt_ * v.env;
+                osc = v.filter.process(osc, cutoff, filterReso_, sampleRate,
+                                       StateVariableFilter::Mode::LowPass);
             }
 
             out[i] += osc * v.env * v.velocity * gain_;

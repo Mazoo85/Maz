@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/audio/Filter.hpp"
 #include "maz/audio/Oscillator.hpp" // Waveform + waveSample
 
 #include <array>
@@ -40,6 +41,14 @@ public:
     float sustain() const { return sustain_; }
     float release() const { return release_; }
 
+    // Resonant low-pass filter driven per voice. `cutoff` is the base cutoff in Hz, `resonance`
+    // sharpens the peak, and `envAmt` (Hz) opens the cutoff with the amp envelope for a classic
+    // subtractive filter sweep. Set cutoff high (e.g. 20000) to bypass.
+    void setFilter(float cutoffHz, float resonance, float envAmt);
+    float filterCutoff() const { return filterCutoff_; }
+    float filterResonance() const { return filterReso_; }
+    float filterEnvAmount() const { return filterEnvAmt_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
@@ -59,6 +68,7 @@ private:
         float freq = 0.0f;
         float velocity = 0.0f;
         float env = 0.0f;
+        StateVariableFilter filter{};
     };
 
     SynthMode mode_ = SynthMode::Subtractive;
@@ -70,6 +80,9 @@ private:
     float decay_ = 0.08f;
     float sustain_ = 0.6f;
     float release_ = 0.12f;
+    float filterCutoff_ = 20000.0f; // effectively open (bypassed) by default
+    float filterReso_ = 0.7f;
+    float filterEnvAmt_ = 0.0f;
     std::array<Voice, kMaxVoices> voices_{};
 };
 

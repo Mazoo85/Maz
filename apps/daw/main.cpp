@@ -98,6 +98,7 @@ void applyDemoMelody(audio::Sequencer& seq, bool fm = false) {
         seq.synth().setMode(audio::SynthMode::Subtractive);
         seq.synth().setWaveform(audio::Waveform::Saw);
         seq.synth().setEnvelope(0.005f, 0.09f, 0.55f, 0.14f);
+        seq.synth().setFilter(1200.0f, 5.0f, 3500.0f); // resonant sweep for a classic pluck
     }
     const int pitches[] = {60, 64, 67, 72, 71, 67, 64, 60}; // C E G C  B G E C
     for (int i = 0; i < 8; ++i) {
@@ -443,6 +444,18 @@ void buildSynthUI(audio::Sequencer& seq) {
     changed |= ImGui::SliderFloat("Release", &r, 0.001f, 2.0f, "%.3f s");
     if (changed) {
         syn.setEnvelope(a, d, s, r);
+    }
+
+    ImGui::SeparatorText("Filter (resonant low-pass)");
+    float cutoff = syn.filterCutoff();
+    float reso = syn.filterResonance();
+    float envAmt = syn.filterEnvAmount();
+    bool fch = false;
+    fch |= ImGui::SliderFloat("Cutoff", &cutoff, 20.0f, 20000.0f, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
+    fch |= ImGui::SliderFloat("Resonance", &reso, 0.5f, 20.0f, "%.1f");
+    fch |= ImGui::SliderFloat("Env->Cutoff", &envAmt, 0.0f, 10000.0f, "%.0f Hz");
+    if (fch) {
+        syn.setFilter(cutoff, reso, envAmt);
     }
 
     ImGui::SeparatorText("Sampler");
