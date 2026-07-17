@@ -190,6 +190,21 @@ int main() {
               "a square sub-oscillator adds harmonics vs a sine sub");
         audio::SynthInstrument dsub;
         check(dsub.subWaveform() == audio::Waveform::Sine, "sub waveform defaults to sine");
+
+        // Noise color: darkening the noise removes high-frequency energy.
+        auto noiseRender = [&](float color) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.0f, 0.0f, 0.8f); // noise-heavy
+            s.setNoiseColor(color);
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        check(hf(noiseRender(1.0f)) < hf(noiseRender(0.0f)) * 0.6,
+              "darkening the noise color removes high-frequency energy");
+        audio::SynthInstrument dn;
+        check(dn.noiseColor() == 0.0f, "noise color defaults to white (0)");
     }
 
     // --- Resonant filter -----------------------------------------------------

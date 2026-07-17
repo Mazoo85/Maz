@@ -202,7 +202,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.rng ^= v.rng << 13;
                     v.rng ^= v.rng >> 17;
                     v.rng ^= v.rng << 5;
-                    osc += (static_cast<float>(v.rng) / 2147483648.0f - 1.0f) * noiseLevel_;
+                    const float white = static_cast<float>(v.rng) / 2147483648.0f - 1.0f;
+                    // Tone control: blend white with a one-pole low-passed (darker) copy.
+                    v.noiseLp += 0.15f * (white - v.noiseLp);
+                    const float shaped = white * (1.0f - noiseColor_) + v.noiseLp * noiseColor_;
+                    osc += shaped * noiseLevel_;
                 }
             }
 

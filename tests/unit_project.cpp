@@ -65,6 +65,7 @@ int main() {
     seq.synth().setUnison(5, 18.0f);
     seq.synth().setSubWaveform(audio::Waveform::Square);
     seq.synth().setVibrato(6.0f, 25.0f);
+    seq.synth().setNoiseColor(0.7f);
     seq.setArp(true, 2);
     seq.setArpOctaves(3);
     seq.sampler().setBasePitch(48);
@@ -244,6 +245,7 @@ int main() {
     check(seq2.synth().subWaveform() == audio::Waveform::Square, "sub waveform round-trips");
     check(near(seq2.synth().vibratoRate(), 6.0f) && near(seq2.synth().vibratoDepth(), 25.0f),
           "vibrato round-trips");
+    check(near(seq2.synth().noiseColor(), 0.7f), "noise color round-trips");
     check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
               near(seq2.sampler().startOffset(), 0.25f) && near(seq2.sampler().attack(), 0.02f) &&

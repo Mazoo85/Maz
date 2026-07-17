@@ -82,6 +82,9 @@ public:
     // (buzzy, more harmonics). Only matters when subLevel > 0.
     void setSubWaveform(Waveform w) { subWave_ = w; }
     Waveform subWaveform() const { return subWave_; }
+    // Noise color (0 = bright white, 1 = dark/low-passed): a tone control on the noise layer.
+    void setNoiseColor(float c) { noiseColor_ = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c); }
+    float noiseColor() const { return noiseColor_; }
     float detuneCents() const { return detuneCents_; }
     float osc2Level() const { return osc2Level_; }
     float subLevel() const { return subLevel_; }
@@ -122,6 +125,7 @@ private:
         double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
         uint32_t rng = 0x2545F491u; // per-voice noise state
+        float noiseLp = 0.0f;       // one-pole state for the noise tone control
         float freq = 0.0f;       // current (possibly gliding) frequency
         float targetFreq = 0.0f; // note's destination frequency
         float velocity = 0.0f;
@@ -154,6 +158,7 @@ private:
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
     Waveform subWave_ = Waveform::Sine;
+    float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;

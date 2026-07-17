@@ -61,6 +61,10 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> subW) {
         syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 3 ? 0 : subW));
     }
+    float noiseCol = 0.0f; // noise color optional for old files
+    if (ls >> noiseCol) {
+        syn.setNoiseColor(noiseCol);
+    }
 }
 } // namespace
 
@@ -111,7 +115,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << s.vibratoRate() << " " << s.vibratoDepth() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
-          << static_cast<int>(s.subWaveform()) << "\n";
+          << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());
