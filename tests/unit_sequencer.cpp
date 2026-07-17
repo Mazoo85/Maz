@@ -402,6 +402,35 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Steps per beat: grid subdivision ------------------------------------
+    {
+        // At 120 BPM a beat is 0.5 s. With 4 steps/beat a step is 6000 frames; with 8 steps/beat a
+        // step is 3000 frames. Advancing one step's worth of frames should land on step 1 either way.
+        audio::Sequencer a;
+        a.setBpm(120.0);
+        check(a.stepsPerBeat() == 4, "default is 4 steps per beat");
+        a.play();
+        (void)renderMono(a, 6000, sampleRate);
+        check(a.currentStep() == 1, "at 4 steps/beat one step is 6000 frames @120 BPM");
+
+        audio::Sequencer b;
+        b.setBpm(120.0);
+        b.setStepsPerBeat(8);
+        check(b.stepsPerBeat() == 8, "steps-per-beat is settable");
+        b.play();
+        (void)renderMono(b, 3000, sampleRate);
+        check(b.currentStep() == 1, "at 8 steps/beat one step is 3000 frames @120 BPM");
+        (void)renderMono(b, 3000, sampleRate);
+        check(b.currentStep() == 2, "the finer grid keeps advancing evenly");
+
+        // Clamped to 1–8.
+        audio::Sequencer c;
+        c.setStepsPerBeat(99);
+        check(c.stepsPerBeat() == 8, "steps-per-beat clamps to 8");
+        c.setStepsPerBeat(0);
+        check(c.stepsPerBeat() == 1, "steps-per-beat clamps to 1");
+    }
+
     // --- Pattern length: resizable step count --------------------------------
     {
         audio::Sequencer s;

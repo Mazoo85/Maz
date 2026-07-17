@@ -39,6 +39,7 @@ int main() {
     seq.setDrumGain(0.8f);
     seq.setSynthGain(1.2f);
     seq.setNumSteps(32);
+    seq.setStepsPerBeat(3);
     seq.setStep(0, 0, true);
     seq.setStep(1, 4, true);
     seq.setStep(2, 7, true);
@@ -144,6 +145,7 @@ int main() {
 
     // Drum grid (pattern 0).
     check(seq2.numSteps() == 32, "pattern length round-trips");
+    check(seq2.stepsPerBeat() == 3, "steps-per-beat round-trips");
     check(seq2.step(0, 0) && seq2.step(1, 4) && seq2.step(2, 7) && seq2.step(0, 24),
           "active steps round-trip (incl. the extended range)");
     check(std::fabs(seq2.stepProbability(1, 4) - 0.5f) < 0.01f &&

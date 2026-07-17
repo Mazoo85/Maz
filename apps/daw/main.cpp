@@ -401,6 +401,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setNumSteps(lengths[lenIdx]);
     }
     ImGui::SameLine();
+    int spb = seq.stepsPerBeat();
+    ImGui::SetNextItemWidth(80.0f);
+    if (ImGui::SliderInt("/beat", &spb, 1, 8)) {
+        seq.setStepsPerBeat(spb);
+    }
+    ImGui::SameLine();
     float swing = seq.swing();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Swing", &swing, 0.0f, 0.75f, "%.2f")) {

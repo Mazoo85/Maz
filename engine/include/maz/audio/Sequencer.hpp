@@ -68,6 +68,10 @@ public:
     // steps that still fit. Lets patterns run shorter/longer than a bar (odd meters, 2-bar loops…).
     void setNumSteps(int steps);
     int stepsPerBeat() const { return stepsPerBeat_; }
+    // Steps per beat (grid subdivision): 4 = 16th notes (default), 3 = 8th triplets, 6 = 16th
+    // triplets, 8 = 32nds. A beat's duration stays tied to the BPM; this changes how finely it is
+    // divided into steps. Clamped to 1–8.
+    void setStepsPerBeat(int steps) { stepsPerBeat_ = steps < 1 ? 1 : (steps > 8 ? 8 : steps); }
     int numChannels() const { return static_cast<int>(channels_.size()); }
     const std::string& channelName(int channel) const { return names_[static_cast<size_t>(channel)]; }
     DrumVoice& channelVoice(int channel) { return channels_[static_cast<size_t>(channel)]; }
