@@ -520,6 +520,59 @@ int main() {
         check(same, "a disabled tape saturation is transparent");
     }
 
+    // --- Mono bass: low band collapses to mono, highs stay stereo -----------
+    {
+        auto sideEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 0; i + 1 < b.size(); i += 2) {
+                const double s = 0.5 * (static_cast<double>(b[i]) - static_cast<double>(b[i + 1]));
+                e += s * s;
+            }
+            return e;
+        };
+        auto panned = [&](double hz) {
+            // A tone only in the left channel → strong side energy until mono-maker acts on it.
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            for (int i = 0; i < sr; ++i) {
+                const double t = static_cast<double>(i) / sr;
+                b[static_cast<size_t>(i) * 2] = static_cast<float>(0.6 * std::sin(2.0 * 3.14159265 * hz * t));
+            }
+            return b;
+        };
+
+        // A 60 Hz left-only tone (below the 120 Hz crossover) is summed to mono → side collapses.
+        audio::MonoBass mb;
+        mb.setEnabled(true);
+        mb.setCrossover(120.0f);
+        std::vector<float> low = panned(60.0);
+        const double lowBefore = sideEnergy(low);
+        mb.process(low.data(), sr, sr);
+        check(sideEnergy(low) < lowBefore * 0.2, "mono-bass collapses the low band's stereo width");
+
+        // A 4 kHz left-only tone (well above the crossover) keeps its stereo side energy.
+        audio::MonoBass mb2;
+        mb2.setEnabled(true);
+        mb2.setCrossover(120.0f);
+        std::vector<float> high = panned(4000.0);
+        const double highBefore = sideEnergy(high);
+        mb2.process(high.data(), sr, sr);
+        check(sideEnergy(high) > highBefore * 0.7, "mono-bass leaves the high band stereo");
+
+        // Disabled → transparent.
+        audio::MonoBass off;
+        std::vector<float> sig = panned(200.0);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), sr, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled mono-bass is transparent");
+    }
+
     // --- Auto-pan: the LFO sweeps energy between L and R --------------------
     {
         // A steady mono tone through a 1 Hz full-depth auto-pan: over one second, the first quarter

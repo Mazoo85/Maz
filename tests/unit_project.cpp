@@ -107,6 +107,8 @@ int main() {
     mixer.autopan().setEnabled(true);
     mixer.autopan().setRate(2.5f);
     mixer.autopan().setDepth(0.8f);
+    mixer.monobass().setEnabled(true);
+    mixer.monobass().setCrossover(90.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.flanger().setEnabled(true);
@@ -252,6 +254,8 @@ int main() {
     check(mixer2.autopan().enabled() && near(mixer2.autopan().rate(), 2.5f) &&
               near(mixer2.autopan().depth(), 0.8f),
           "auto-pan round-trips");
+    check(mixer2.monobass().enabled() && near(mixer2.monobass().crossover(), 90.0f),
+          "mono-bass round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
     check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&

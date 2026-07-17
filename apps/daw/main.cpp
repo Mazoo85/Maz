@@ -1058,6 +1058,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("depth##apan", &depth, 0.0f, 1.0f, "%.2f")) mx.autopan().setDepth(depth);
     }
+    {
+        bool en = mx.monobass().enabled();
+        if (ImGui::Checkbox("Mono Bass", &en)) mx.monobass().setEnabled(en);
+        float x = mx.monobass().crossover();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Hz##mono", &x, 20.0f, 500.0f, "%.0f")) mx.monobass().setCrossover(x);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

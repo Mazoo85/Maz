@@ -181,6 +181,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
       << mixer.autopan().depth() << "\n";
+    f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
+      << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
 
@@ -495,6 +497,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.autopan().setEnabled(en != 0);
                 mixer.autopan().setRate(rate);
                 mixer.autopan().setDepth(depth);
+            } else if (which == "monobass") {
+                float x = 120.0f;
+                ls >> x;
+                mixer.monobass().setEnabled(en != 0);
+                mixer.monobass().setCrossover(x);
             } else if (which == "tape") {
                 float drive = 2.0f, warmth = 0.3f, mix = 1.0f;
                 ls >> drive >> warmth >> mix;

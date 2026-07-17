@@ -561,6 +561,32 @@ void TapeSaturation::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- MonoBass ---------------------------------------------------------------
+
+void MonoBass::reset() {
+    lpL_ = 0.0f;
+    lpR_ = 0.0f;
+}
+
+void MonoBass::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    const float a = 1.0f - std::exp(-kTwoPi * crossover_ / static_cast<float>(sampleRate));
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // One-pole low bands.
+        lpL_ += a * (l - lpL_);
+        lpR_ += a * (r - lpR_);
+        const float monoLow = 0.5f * (lpL_ + lpR_);
+        // Recombine mono low + stereo high (high = input − its own low band).
+        stereo[2 * i] = monoLow + (l - lpL_);
+        stereo[2 * i + 1] = monoLow + (r - lpR_);
+    }
+}
+
 // ---- AutoPan ----------------------------------------------------------------
 
 void AutoPan::reset() {

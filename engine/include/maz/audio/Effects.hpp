@@ -355,6 +355,23 @@ private:
     float lpR_ = 0.0f;
 };
 
+// A bass mono-maker: sums everything below `crossover` Hz to mono (tight, centered low end) while
+// leaving the high band stereo — the standard fix for wandering/phasey bass. `crossover` 20–500 Hz.
+class MonoBass : public Effect {
+public:
+    MonoBass() { enabled_ = false; }
+    const char* name() const override { return "Mono Bass"; }
+    void setCrossover(float hz) { crossover_ = hz < 20.0f ? 20.0f : (hz > 500.0f ? 500.0f : hz); }
+    float crossover() const { return crossover_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossover_ = 120.0f;
+    float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state per channel
+};
+
 // An auto-panner: an internal LFO sweeps the stereo position at `rate` Hz, `depth` 0..1 (0 = none,
 // 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
 class AutoPan : public Effect {
