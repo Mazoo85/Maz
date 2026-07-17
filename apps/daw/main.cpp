@@ -785,9 +785,21 @@ void buildMixerUI(audio::AudioEngine& engine) {
     if (ImGui::SliderFloat("Lead", &synth, 0.0f, 2.0f, "%.2f")) {
         seq.setSynthGain(synth);
     }
+    ImGui::SameLine();
+    float leadPan = seq.leadPan();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderFloat("pan##lead", &leadPan, -1.0f, 1.0f, "%.2f")) {
+        seq.setLeadPan(leadPan);
+    }
     float bass = seq.bassGain();
     if (ImGui::SliderFloat("Bass", &bass, 0.0f, 2.0f, "%.2f")) {
         seq.setBassGain(bass);
+    }
+    ImGui::SameLine();
+    float bassPan = seq.bassPan();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderFloat("pan##bass", &bassPan, -1.0f, 1.0f, "%.2f")) {
+        seq.setBassPan(bassPan);
     }
 
     // Sidechain (kick ducks the synth bus).

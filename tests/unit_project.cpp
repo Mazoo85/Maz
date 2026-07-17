@@ -38,6 +38,8 @@ int main() {
     seq.setBpm(137.0);
     seq.setDrumGain(0.8f);
     seq.setSynthGain(1.2f);
+    seq.setLeadPan(-0.5f);
+    seq.setBassPan(0.3f);
     seq.setNumSteps(32);
     seq.setStepsPerBeat(3);
     seq.setStep(0, 0, true);
@@ -146,6 +148,7 @@ int main() {
     // Transport + bus.
     check(near(static_cast<float>(seq2.bpm()), 137.0f), "bpm round-trips");
     check(near(seq2.drumGain(), 0.8f) && near(seq2.synthGain(), 1.2f), "bus gains round-trip");
+    check(near(seq2.leadPan(), -0.5f) && near(seq2.bassPan(), 0.3f), "melodic bus pans round-trip");
 
     // Drum grid (pattern 0).
     check(seq2.numSteps() == 32, "pattern length round-trips");

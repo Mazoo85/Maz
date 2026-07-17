@@ -602,16 +602,21 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
         bassScratch_.assign(static_cast<size_t>(chunk), 0.0f);
         synth2_.render(bassScratch_.data(), chunk, sampleRate);
-        constexpr float kCenter = 0.70710678f; // equal-power center gain
+        // Equal-power pan per melodic bus (pan 0 → both gains 0.707, matching the old center mix).
+        constexpr float kQuarterPi = 0.78539816f;
+        const float leadTheta = (leadPan_ + 1.0f) * kQuarterPi; // 0..pi/2
+        const float bassTheta = (bassPan_ + 1.0f) * kQuarterPi;
+        const float leadL = std::cos(leadTheta), leadR = std::sin(leadTheta);
+        const float bassL = std::cos(bassTheta), bassR = std::sin(bassTheta);
         const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
         for (int i = 0; i < chunk; ++i) {
             const float duck = sidechainOn_ ? scEnv_ : 1.0f;
-            const float leadS = synthScratch_[static_cast<size_t>(i)] * synthGain_ * kCenter * duck;
-            const float bassS = bassScratch_[static_cast<size_t>(i)] * bassGain_ * kCenter * duck;
-            lead[2 * (done + i)] += leadS;
-            lead[2 * (done + i) + 1] += leadS;
-            bass[2 * (done + i)] += bassS;
-            bass[2 * (done + i) + 1] += bassS;
+            const float leadS = synthScratch_[static_cast<size_t>(i)] * synthGain_ * duck;
+            const float bassS = bassScratch_[static_cast<size_t>(i)] * bassGain_ * duck;
+            lead[2 * (done + i)] += leadS * leadL;
+            lead[2 * (done + i) + 1] += leadS * leadR;
+            bass[2 * (done + i)] += bassS * bassL;
+            bass[2 * (done + i) + 1] += bassS * bassR;
             if (sidechainOn_ && scEnv_ < 1.0f) {
                 scEnv_ = std::min(1.0f, scEnv_ + scStep);
             }

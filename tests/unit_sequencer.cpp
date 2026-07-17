@@ -402,6 +402,33 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Melodic bus pan: place the lead in the stereo field -----------------
+    {
+        auto leadLR = [&](float pan) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.roll().addNote(audio::Note{0, 16, 60, 1.0f}); // a sustained lead note
+            s.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setLeadPan(pan);
+            s.play();
+            const std::vector<float> out = renderMono(s, 6000, sampleRate);
+            return std::make_pair(rmsChannel(out, 0), rmsChannel(out, 1));
+        };
+
+        const auto center = leadLR(0.0f);
+        check(std::fabs(center.first - center.second) < 1e-4, "lead pan 0 is centered (L == R)");
+
+        const auto left = leadLR(-1.0f);
+        check(left.first > left.second * 5.0, "lead pan -1 sends the lead to the left channel");
+
+        const auto right = leadLR(1.0f);
+        check(right.second > right.first * 5.0, "lead pan +1 sends the lead to the right channel");
+
+        // Bass pan is independent and defaults to center.
+        audio::Sequencer d;
+        check(d.leadPan() == 0.0f && d.bassPan() == 0.0f, "melodic buses default to center");
+    }
+
     // --- Steps per beat: grid subdivision ------------------------------------
     {
         // At 120 BPM a beat is 0.5 s. With 4 steps/beat a step is 6000 frames; with 8 steps/beat a

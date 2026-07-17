@@ -148,6 +148,12 @@ public:
     float synthGain() const { return synthGain_; }
     float bassGain() const { return bassGain_; }
 
+    // Stereo pan for the melodic buses (-1 = hard left, 0 = center, +1 = hard right), equal-power.
+    void setLeadPan(float p) { leadPan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
+    void setBassPan(float p) { bassPan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
+    float leadPan() const { return leadPan_; }
+    float bassPan() const { return bassPan_; }
+
     // Metronome: an accented click on each beat while playing (a brighter click on the downbeat,
     // step 0 of the bar). A monitoring aid, mixed into the output.
     void setMetronome(bool on) { metronome_ = on; }
@@ -228,6 +234,8 @@ private:
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
     float bassGain_ = 1.0f;
+    float leadPan_ = 0.0f;
+    float bassPan_ = 0.0f;
 
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;
