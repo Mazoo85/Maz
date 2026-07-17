@@ -38,17 +38,19 @@ the project, and bounce to WAV.
 
 `maz::audio` provides:
 
-- **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity); a polyphonic synth
-  (`SynthInstrument`) with **subtractive** (dual detuned oscillator + sub + noise + a resonant
-  state-variable **filter** with envelope) and **FM** engines; and a **`Sampler`** (WAV playback,
-  pitch-shifted per note).
-- **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), a `PianoRoll`,
-  **multiple patterns + a playlist** to build songs, **swing**, and **sidechain** ducking.
+- **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity); **two** polyphonic
+  synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator + sub +
+  noise + a resonant state-variable **filter** with envelope) and **FM** engines; and a **`Sampler`**
+  (WAV playback, pitch-shifted per note).
+- **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), **two** `PianoRoll`
+  lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
+  an **arpeggiator**, and **sidechain** ducking.
 - **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, and a master effect chain
-  (low-pass EQ, distortion, bitcrusher, compressor, chorus, delay, reverb) plus a master **limiter**.
+  (parametric EQ, low-pass, distortion, bitcrusher, compressor, chorus, phaser, delay, reverb) plus
+  a master **limiter**.
 - **Modulation** — **LFO automation** of filter/FM/reverb/master, synced to the transport.
-- **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, and **project
-  save/load** (`.cjc`) capturing everything above.
+- **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
+  (`.cjc`), WAV **bounce**, and **MIDI export**.
 
 See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). The remaining gaps vs.
 FL Studio are the pieces this headless build can't exercise: live audio-input recording and VST3/CLAP

@@ -236,8 +236,12 @@ layers: a native DAW aimed at FL Studio–level capability. The audio subsystem 
   - [x] **Sidechain ducking** — the kick ducks the melodic bus (the EDM "pump").
   - [x] **Per-step velocity / accents** — each drum step carries its own velocity.
   - [x] **Parametric EQ** — a 3-band biquad EQ (low shelf / sweepable mid peak / high shelf).
+  - [x] **Phaser** — LFO-modulated all-pass stages with feedback (sweeping notches).
   - [x] **Arpeggiator** — held piano-roll chords played as up/down/up-down arps.
   - [x] **Humanize** — deterministic per-hit velocity variation for a human feel.
+  - [x] **Second melodic instrument** — a bass synth + its own piano-roll lane, so a track can be
+        drums + bass + lead. Both persist in the project.
+  - [x] **MIDI export** — the pattern exports to a Standard MIDI File (notes + GM drums).
 - [ ] A8 — live audio-input recording + plugin (VST3/CLAP) hosting. The remaining FL features that a
       headless CI sandbox genuinely can't build-and-verify (no audio device, no plugin SDKs, no GPU
       UI). Everything else above is implemented and tested offline.
