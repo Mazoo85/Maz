@@ -506,6 +506,9 @@ void Reverb::ensureSized(int sampleRate) {
         apsL_[static_cast<size_t>(i)].setSize(static_cast<int>(apTune[i] * scale));
         apsR_[static_cast<size_t>(i)].setSize(static_cast<int>((apTune[i] + spread) * scale));
     }
+    // Pre-delay line: up to 250 ms.
+    preBuf_.assign(static_cast<size_t>(sampleRate) / 4 + 1, 0.0f);
+    preWrite_ = 0;
 }
 
 void Reverb::reset() {
@@ -523,6 +526,8 @@ void Reverb::reset() {
     for (Allpass& a : apsR_) {
         std::fill(a.buf.begin(), a.buf.end(), 0.0f);
     }
+    std::fill(preBuf_.begin(), preBuf_.end(), 0.0f);
+    preWrite_ = 0;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -535,10 +540,29 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     constexpr float kInputGain = 0.15f;
 
+    // Pre-delay tap: how far back in the pre-delay line the reverb network reads its input.
+    const int preSize = static_cast<int>(preBuf_.size());
+    int preTap = static_cast<int>(preDelayMs_ * 0.001f * static_cast<float>(sampleRate));
+    if (preTap > preSize - 1) {
+        preTap = preSize - 1;
+    }
+    if (preTap < 0) {
+        preTap = 0;
+    }
+
     for (int i = 0; i < frames; ++i) {
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
-        const float in = (dryL + dryR) * kInputGain;
+        const float rawIn = (dryL + dryR) * kInputGain;
+
+        // Feed the reverb from the pre-delayed input so the tail starts `preDelayMs` after the hit.
+        float in = rawIn;
+        if (preSize > 0) {
+            preBuf_[static_cast<size_t>(preWrite_)] = rawIn;
+            const int rd = (preWrite_ - preTap + preSize) % preSize;
+            in = preBuf_[static_cast<size_t>(rd)];
+            preWrite_ = (preWrite_ + 1) % preSize;
+        }
 
         float wetL = 0.0f;
         float wetR = 0.0f;

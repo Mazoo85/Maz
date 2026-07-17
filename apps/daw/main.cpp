@@ -876,8 +876,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::Checkbox("Reverb", &en)) mx.reverb().setEnabled(en);
         float wet = mx.reverb().mix();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##rev", &wet, 0.0f, 1.0f, "%.2f")) mx.reverb().setMix(wet);
+        float pre = mx.reverb().preDelayMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("pre-delay##rev", &pre, 0.0f, 250.0f, "%.0f ms"))
+            mx.reverb().setPreDelayMs(pre);
     }
     {
         bool en = mx.widener().enabled();

@@ -136,6 +136,30 @@ int main() {
         check(tail > 0.0, "reverb produces a tail after the impulse");
     }
 
+    // --- Reverb pre-delay: the tail onset is pushed back --------------------
+    {
+        auto earlyEnergy = [&](float preMs) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.8f);
+            rev.setMix(1.0f);
+            rev.setPreDelayMs(preMs);
+            std::vector<float> buf(static_cast<size_t>(sr) / 2 * 2, 0.0f);
+            buf[0] = 1.0f;
+            buf[1] = 1.0f;
+            rev.process(buf.data(), sr / 2, sr);
+            // Energy in the first 40 ms — a long pre-delay should leave this window near-silent.
+            double e = 0.0;
+            for (int i = 0; i < sr / 25; ++i) {
+                e += std::fabs(static_cast<double>(buf[static_cast<size_t>(i) * 2]));
+            }
+            return e;
+        };
+        const double noPre = earlyEnergy(0.0f);
+        const double withPre = earlyEnergy(120.0f); // 120 ms pre-delay
+        check(withPre < noPre * 0.2, "pre-delay pushes the reverb tail past the early window");
+    }
+
     // --- Distortion: adds harmonics to a sine (raises high-frequency content) ------
     {
         audio::Distortion dist;
