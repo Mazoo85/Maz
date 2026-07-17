@@ -14,6 +14,7 @@ namespace maz::audio {
 // drum kit, synth, sampler) are shared across patterns; only this content changes per pattern.
 struct Pattern {
     std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
+    std::vector<uint8_t> prob; // per-step trigger probability, 0..255 (255 = always). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
 };
@@ -146,6 +147,11 @@ public:
     float stepVelocity(int channel, int step) const;
     void setStepVelocity(int channel, int step, float velocity);
 
+    // Per-step trigger probability in [0, 1] (1 = always fire). A step below 1.0 fires only some of
+    // the time, driven by a deterministic per-transport RNG — humanizing/generative grooves.
+    float stepProbability(int channel, int step) const;
+    void setStepProbability(int channel, int step, float probability);
+
     // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
@@ -214,6 +220,7 @@ private:
     int countInBars_ = 0;     // bars of count-in before the pattern starts
     bool countingIn_ = false; // currently playing the count-in
     int countInStepsRemaining_ = 0;
+    uint32_t probRng_ = 0x9E3779B9u; // deterministic RNG for per-step probability
 
     bool playing_ = false;
     int currentStep_ = 0;

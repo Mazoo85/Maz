@@ -402,6 +402,42 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Per-step probability -------------------------------------------------
+    {
+        // Count how many times a kick on step 0 fires over N bars at a given probability.
+        auto countHits = [&](float prob, int bars) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setStep(0, 0, true);
+            s.setStepProbability(0, 0, prob);
+            s.play();
+            int hits = 0;
+            const int barFrames = 16 * 6000; // 16 steps × 6000 frames @120 BPM
+            for (int b = 0; b < bars; ++b) {
+                const std::vector<float> out = renderMono(s, barFrames, sampleRate);
+                // The kick sits at the start of the bar; energy in the first 3000 frames = a hit.
+                double e = 0.0;
+                for (int i = 0; i < 3000; ++i) {
+                    e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                         static_cast<double>(out[static_cast<size_t>(i) * 2]);
+                }
+                if (e > 1e-4) {
+                    ++hits;
+                }
+            }
+            return hits;
+        };
+
+        check(countHits(1.0f, 8) == 8, "probability 1.0 fires every bar");
+        check(countHits(0.0f, 8) == 0, "probability 0.0 never fires");
+        const int half = countHits(0.5f, 32);
+        check(half > 4 && half < 28, "probability 0.5 fires some bars but not all");
+
+        // Default probability is 1.0 (always).
+        audio::Sequencer d;
+        check(d.stepProbability(0, 0) == 1.0f, "steps default to probability 1.0");
+    }
+
     // --- Count-in: a bar of clicks before the pattern starts ------------------
     {
         // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks

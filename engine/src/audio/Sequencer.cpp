@@ -70,7 +70,9 @@ float Sequencer::channelPan(int c) const {
 
 int Sequencer::addPattern() {
     Pattern p;
-    p.grid.assign(static_cast<size_t>(numChannels()) * static_cast<size_t>(numSteps_), 0);
+    const size_t cells = static_cast<size_t>(numChannels()) * static_cast<size_t>(numSteps_);
+    p.grid.assign(cells, 0);
+    p.prob.assign(cells, 255); // every step defaults to "always fire"
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
 }
@@ -158,6 +160,32 @@ void Sequencer::setStepVelocity(int channel, int step, float velocity) {
               static_cast<size_t>(step)] = static_cast<uint8_t>(v * 255.0f + 0.5f);
 }
 
+float Sequencer::stepProbability(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 1.0f;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.prob.size()) {
+        return 1.0f; // patterns loaded before probability existed default to "always"
+    }
+    return static_cast<float>(p.prob[idx]) / 255.0f;
+}
+
+void Sequencer::setStepProbability(int channel, int step, float probability) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.prob.size() != p.grid.size()) {
+        p.prob.assign(p.grid.size(), 255);
+    }
+    const float v = probability < 0.0f ? 0.0f : (probability > 1.0f ? 1.0f : probability);
+    p.prob[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+            static_cast<size_t>(step)] = static_cast<uint8_t>(v * 255.0f + 0.5f);
+}
+
 void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
@@ -171,6 +199,17 @@ void Sequencer::triggerStep(int step) {
     // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
+            // Per-step probability: roll a deterministic RNG and skip the hit when it fails.
+            const float pr = stepProbability(c, step);
+            if (pr < 1.0f) {
+                probRng_ ^= probRng_ << 13;
+                probRng_ ^= probRng_ >> 17;
+                probRng_ ^= probRng_ << 5;
+                const float roll = static_cast<float>(probRng_ & 0xFFFFFFu) / 16777216.0f;
+                if (roll >= pr) {
+                    continue; // this hit is skipped this time
+                }
+            }
             float vel = stepVelocity(c, step);
             if (humanize_ > 0.0f) {
                 // Deterministic per-hit jitter: reduce velocity by up to 60% of the humanize amount.
@@ -279,6 +318,7 @@ void Sequencer::play() {
     humanizeCounter_ = 0;
     metroLastStep_ = -1;
     metroEnv_ = 0.0f;
+    probRng_ = 0x9E3779B9u; // reseed so probability is reproducible per play()
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
     if (songMode_ && !playlist_.empty()) {

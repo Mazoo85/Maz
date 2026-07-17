@@ -473,6 +473,17 @@ void buildRackUI(audio::Sequencer& seq) {
                 const float next = vel > 0.8f ? 0.6f : (vel > 0.45f ? 0.3f : 1.0f);
                 seq.setStepVelocity(c, s, next);
             }
+            // Scroll over an active step to set its trigger probability; tooltip shows it when < 100%.
+            if (on && ImGui::IsItemHovered()) {
+                const float wheel = ImGui::GetIO().MouseWheel;
+                if (wheel != 0.0f) {
+                    seq.setStepProbability(c, s, seq.stepProbability(c, s) + wheel * 0.1f);
+                }
+                const float pr = seq.stepProbability(c, s);
+                if (pr < 0.999f) {
+                    ImGui::SetTooltip("prob %.0f%%", pr * 100.0f);
+                }
+            }
             ImGui::PopStyleColor(3);
             if (s + 1 < steps) {
                 ImGui::SameLine();
