@@ -25,6 +25,17 @@ inline float waveSample(Waveform w, double phase) {
     return 0.0f;
 }
 
+// Variable-pulse-width variant: for a Square wave, `pulseWidth` (0..1) sets the duty cycle — the
+// fraction of each cycle spent high — so 0.5 is the plain square and other values give a pulse with
+// a different harmonic balance (classic PWM tone). Every other waveform ignores pulseWidth and
+// matches the plain waveSample above, so this is a drop-in for the square path.
+inline float waveSample(Waveform w, double phase, float pulseWidth) {
+    if (w == Waveform::Square) {
+        return (phase < static_cast<double>(pulseWidth)) ? 1.0f : -1.0f;
+    }
+    return waveSample(w, phase);
+}
+
 // A single monophonic oscillator voice with a short click-free amplitude envelope.
 //
 // Pure DSP: it touches no SDL, no device, and no global state, so it can be unit-tested on its own

@@ -732,6 +732,8 @@ void buildSynthUI(audio::Sequencer& seq) {
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("Sync ratio", &syncRatio, 1.0f, 8.0f, "%.2f"))
             syn.setSyncRatio(syncRatio);
+        float pw = syn.pulseWidth();
+        if (ImGui::SliderFloat("Pulse width", &pw, 0.02f, 0.98f, "%.2f")) syn.setPulseWidth(pw);
     } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);

@@ -101,6 +101,11 @@ public:
     bool hardSync() const { return hardSync_; }
     void setSyncRatio(float ratio) { syncRatio_ = ratio < 1.0f ? 1.0f : (ratio > 8.0f ? 8.0f : ratio); }
     float syncRatio() const { return syncRatio_; }
+
+    // Pulse width / duty cycle (0.02..0.98) of the Square waveform: 0.5 is a plain square, narrower
+    // values thin it toward a bright nasal pulse. Only affects the Square waveform.
+    void setPulseWidth(float w) { pulseWidth_ = w < 0.02f ? 0.02f : (w > 0.98f ? 0.98f : w); }
+    float pulseWidth() const { return pulseWidth_; }
     // Noise color (0 = bright white, 1 = dark/low-passed): a tone control on the noise layer.
     void setNoiseColor(float c) { noiseColor_ = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c); }
     float noiseColor() const { return noiseColor_; }
@@ -182,6 +187,7 @@ private:
     Waveform subWave_ = Waveform::Sine;
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true
     float syncRatio_ = 1.5f;    // slave frequency = note freq × this (when hard sync is on)
+    float pulseWidth_ = 0.5f;   // square duty cycle; 0.5 = plain square
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Level_ = 0.0f;

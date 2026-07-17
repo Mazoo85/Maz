@@ -184,7 +184,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                         const double spread = static_cast<double>(u) / (uv - 1) - 0.5; // -0.5..0.5
                         const double mul =
                             std::pow(2.0, spread * 2.0 * static_cast<double>(unisonDetune_) / 1200.0);
-                        acc += waveSample(waveform_, v.uniPhase[static_cast<size_t>(u)]);
+                        acc += waveSample(waveform_, v.uniPhase[static_cast<size_t>(u)], pulseWidth_);
                         v.uniPhase[static_cast<size_t>(u)] += phaseInc * mul;
                         if (v.uniPhase[static_cast<size_t>(u)] >= 1.0) {
                             v.uniPhase[static_cast<size_t>(u)] -=
@@ -193,10 +193,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     }
                     osc = acc * uniGain;
                 } else {
-                    osc = waveSample(waveform_, v.phase);
+                    osc = waveSample(waveform_, v.phase, pulseWidth_);
                 }
                 if (osc2Level_ > 0.0f) {
-                    osc += waveSample(waveform_, v.phase2) * osc2Level_;
+                    osc += waveSample(waveform_, v.phase2, pulseWidth_) * osc2Level_;
                     // Hard sync: the slave runs at the sync ratio (reset on master wrap below);
                     // otherwise it is a plain detuned oscillator.
                     const double mul = hardSync_ ? static_cast<double>(syncRatio_)

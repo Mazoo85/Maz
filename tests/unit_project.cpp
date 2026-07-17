@@ -68,6 +68,7 @@ int main() {
     seq.synth().setNoiseColor(0.7f);
     seq.synth().setHardSync(true);
     seq.synth().setSyncRatio(3.25f);
+    seq.synth().setPulseWidth(0.3f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 2);
     seq.setArpOctaves(3);
@@ -257,6 +258,7 @@ int main() {
     check(near(seq2.synth().noiseColor(), 0.7f), "noise color round-trips");
     check(seq2.synth().hardSync() && near(seq2.synth().syncRatio(), 3.25f),
           "hard sync round-trips");
+    check(near(seq2.synth().pulseWidth(), 0.3f), "pulse width round-trips");
     check(near(seq2.synth().pitchEnvAmount(), -7.0f) && near(seq2.synth().pitchEnvTime(), 0.08f),
           "pitch envelope round-trips");
     check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");

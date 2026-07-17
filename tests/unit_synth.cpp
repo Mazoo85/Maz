@@ -228,6 +228,28 @@ int main() {
         check(syncDiff > 1.0, "hard sync changes the sound");
         audio::SynthInstrument dsync;
         check(!dsync.hardSync(), "hard sync defaults off");
+
+        // Pulse width: the fraction of a square oscillator's samples spent high equals the duty cycle.
+        auto positiveFraction = [&](float pulseWidth) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Square);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.0f, 0.0f, 0.0f); // primary square only
+            s.setPulseWidth(pulseWidth);
+            s.noteOn(57, 1.0f); // A3 = 220 Hz
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            size_t pos = 0, total = 0;
+            // Skip the first few ms (attack ramp) so we measure the steady pulse.
+            for (size_t i = static_cast<size_t>(sampleRate) / 100; i < out.size(); ++i) {
+                if (out[i] > 0.0f) ++pos;
+                ++total;
+            }
+            return static_cast<double>(pos) / static_cast<double>(total);
+        };
+        check(std::fabs(positiveFraction(0.5f) - 0.5) < 0.05, "a 0.5 pulse width is a 50% duty square");
+        check(std::fabs(positiveFraction(0.25f) - 0.25) < 0.05, "a 0.25 pulse width narrows the duty to 25%");
+        audio::SynthInstrument dpw;
+        check(std::fabs(dpw.pulseWidth() - 0.5f) < 1e-6f, "pulse width defaults to 0.5 (square)");
     }
 
     // --- Resonant filter -----------------------------------------------------
