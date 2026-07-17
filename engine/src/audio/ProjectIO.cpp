@@ -98,7 +98,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     for (int c = 0; c < seq.numChannels(); ++c) {
         f << "chan " << c << " " << seq.channelVolume(c) << " " << (seq.channelMute(c) ? 1 : 0)
-          << " " << (seq.channelSolo(c) ? 1 : 0) << " " << seq.channelPan(c) << "\n";
+          << " " << (seq.channelSolo(c) ? 1 : 0) << " " << seq.channelPan(c) << " "
+          << seq.channelChokeGroup(c) << "\n";
     }
 
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
@@ -311,6 +312,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             seq.setChannelMute(c, mute != 0);
             seq.setChannelSolo(c, solo != 0);
             seq.setChannelPan(c, pan);
+            int choke = 0; // choke group optional (older files omit it)
+            if (ls >> choke) {
+                seq.setChannelChokeGroup(c, choke);
+            }
         } else if (tag == "patterns") {
             int count = 1;
             ls >> count;

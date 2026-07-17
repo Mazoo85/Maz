@@ -28,9 +28,17 @@ double decayTau(Drum type) {
 
 void DrumVoice::trigger(float velocity) {
     active_ = true;
+    choking_ = false;
+    chokeGain_ = 1.0f;
     t_ = 0.0;
     phase_ = 0.0;
     velocity_ = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
+}
+
+void DrumVoice::choke() {
+    if (active_) {
+        choking_ = true; // render() ramps chokeGain_ to 0 and deactivates
+    }
 }
 
 float DrumVoice::noise() {
@@ -81,8 +89,22 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             phase_ -= std::floor(phase_);
         }
 
+        // Choke fade: ~4 ms ramp to silence, then the voice deactivates.
+        if (choking_) {
+            chokeGain_ -= static_cast<float>(dt) / 0.004f;
+            if (chokeGain_ <= 0.0f) {
+                chokeGain_ = 0.0f;
+                active_ = false;
+            }
+            s *= chokeGain_;
+        }
+
         out[i] += s * gain_ * level_ * velocity_;
         t_ += dt;
+
+        if (!active_) {
+            break; // choked out mid-block
+        }
     }
 
     // Deactivate once the envelope has effectively reached silence (~5 time-constants).

@@ -32,7 +32,26 @@ Sequencer::Sequencer() {
     chanMute_.assign(static_cast<size_t>(channelCount), 0);
     chanSolo_.assign(static_cast<size_t>(channelCount), 0);
     chanPan_.assign(static_cast<size_t>(channelCount), 0.0f);
+    chanChoke_.assign(static_cast<size_t>(channelCount), 0);
+    // Default: the closed hat (2) and open hat (3) choke each other, like a real hi-hat.
+    if (channelCount > 3) {
+        chanChoke_[2] = 1;
+        chanChoke_[3] = 1;
+    }
     addPattern(); // start with one empty pattern
+}
+
+void Sequencer::setChannelChokeGroup(int c, int group) {
+    if (c >= 0 && c < numChannels()) {
+        chanChoke_[static_cast<size_t>(c)] = group < 0 ? 0 : group;
+    }
+}
+
+int Sequencer::channelChokeGroup(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return chanChoke_[static_cast<size_t>(c)];
+    }
+    return 0;
 }
 
 void Sequencer::setChannelVolume(int c, float v) {
@@ -246,6 +265,16 @@ void Sequencer::triggerStep(int step) {
                 vel *= 1.0f - humanize_ * r * 0.6f;
                 ++humanizeCounter_;
             }
+            // Choke group: silence every other channel sharing this channel's group before striking.
+            const int grp = chanChoke_[static_cast<size_t>(c)];
+            if (grp != 0) {
+                for (int other = 0; other < numChannels(); ++other) {
+                    if (other != c && chanChoke_[static_cast<size_t>(other)] == grp) {
+                        channels_[static_cast<size_t>(other)].choke();
+                    }
+                }
+            }
+
             channels_[static_cast<size_t>(c)].trigger(vel);
 
             // Ratchet: schedule extra evenly-spaced retriggers within this step's slot.

@@ -80,6 +80,11 @@ public:
     bool channelSolo(int c) const;
     float channelPan(int c) const;
 
+    // Choke group (0 = none): when a channel triggers, it chokes every other channel in the same
+    // group — the classic open-hat/closed-hat cutoff.
+    void setChannelChokeGroup(int c, int group);
+    int channelChokeGroup(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
@@ -180,6 +185,7 @@ private:
     std::vector<uint8_t> chanMute_;
     std::vector<uint8_t> chanSolo_;
     std::vector<float> chanPan_; // per-channel pan (-1..1)
+    std::vector<int> chanChoke_; // per-channel choke group (0 = none)
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode

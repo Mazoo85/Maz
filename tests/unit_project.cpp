@@ -43,6 +43,7 @@ int main() {
     seq.setStep(2, 7, true);
     seq.setStepProbability(1, 4, 0.5f);
     seq.setStepRatchet(2, 7, 3);
+    seq.setChannelChokeGroup(0, 2);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -145,6 +146,7 @@ int main() {
           "per-step probability round-trips");
     check(seq2.stepRatchet(2, 7) == 3 && seq2.stepRatchet(0, 0) == 1,
           "per-step ratchet round-trips");
+    check(seq2.channelChokeGroup(0) == 2, "channel choke group round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.

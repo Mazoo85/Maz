@@ -446,6 +446,11 @@ void buildRackUI(audio::Sequencer& seq) {
         ImGui::SetNextItemWidth(58.0f);
         if (ImGui::SliderFloat("##pan", &pan, -1.0f, 1.0f, "%.1f")) seq.setChannelPan(c, pan);
         ImGui::SameLine();
+        int choke = seq.channelChokeGroup(c);
+        ImGui::SetNextItemWidth(52.0f);
+        if (ImGui::SliderInt("##choke", &choke, 0, 4, choke == 0 ? "choke -" : "choke %d"))
+            seq.setChannelChokeGroup(c, choke);
+        ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);
             const bool on = seq.step(c, s);

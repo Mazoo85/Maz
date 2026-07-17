@@ -402,6 +402,49 @@ int main() {
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
     }
 
+    // --- Choke: a voice can be silenced mid-ring -----------------------------
+    {
+        audio::DrumVoice oh;
+        oh.setType(audio::Drum::OpenHat); // long tail (~0.28 s)
+        oh.trigger(1.0f);
+        std::vector<float> a(480, 0.0f);
+        oh.render(a.data(), 480, sampleRate); // 10 ms
+        check(oh.active() && rms(a) > 0.0, "open hat rings after trigger");
+        oh.choke();
+        std::vector<float> b(960, 0.0f);
+        oh.render(b.data(), 960, sampleRate); // 20 ms — the ~4 ms choke fade completes
+        check(!oh.active(), "a choked voice goes silent");
+    }
+
+    // --- Choke groups: closed hat cuts off open hat --------------------------
+    {
+        auto tailEnergy = [&](bool chokeOn) {
+            audio::Sequencer s;
+            s.setBpm(120.0);           // step = 6000 frames
+            s.setStep(3, 0, true);     // open hat on step 0 (long tail)
+            s.setStep(2, 1, true);     // closed hat on step 1
+            s.setChannelChokeGroup(3, chokeOn ? 1 : 0);
+            s.setChannelChokeGroup(2, chokeOn ? 1 : 0);
+            s.play();
+            const std::vector<float> out = renderMono(s, 12000, sampleRate);
+            // Energy in the open-hat tail AFTER the closed hat hits (well past step 1's onset).
+            double e = 0.0;
+            for (int i = 7200; i < 12000; ++i) {
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            return e;
+        };
+        const double choked = tailEnergy(true);
+        const double open = tailEnergy(false);
+        check(choked < open * 0.5, "a choke group cuts the open-hat tail when the closed hat hits");
+
+        // Default kit already puts the two hats in a choke group.
+        audio::Sequencer d;
+        check(d.channelChokeGroup(2) == d.channelChokeGroup(3) && d.channelChokeGroup(2) != 0,
+              "default kit chokes the closed and open hats together");
+    }
+
     // --- Per-step ratchet -----------------------------------------------------
     {
         // A step slot is 6000 frames @120 BPM. A ratchet of R places hits at 0, 6000/R, 2·6000/R…

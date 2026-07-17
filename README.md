@@ -38,7 +38,7 @@ the project, and bounce to WAV.
 
 `maz::audio` provides:
 
-- **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity); **two** polyphonic
+- **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity, **choke groups**); **two** polyphonic
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator + sub +
   noise + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
   single-cycle table scanned by an envelope-sweepable position) engines, plus **portamento/glide**;

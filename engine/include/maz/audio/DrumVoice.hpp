@@ -27,6 +27,10 @@ public:
     // hit's loudness for per-step accents.
     void trigger(float velocity = 1.0f);
 
+    // Choke this voice: ramp it to silence over a few ms (click-free), used by choke groups so one
+    // drum cuts off another (e.g. a closed hat chokes an open hat).
+    void choke();
+
     // True while the hit is still ringing.
     bool active() const { return active_; }
 
@@ -43,6 +47,8 @@ private:
     float level_ = 1.0f;
     float velocity_ = 1.0f;
     bool active_ = false;
+    bool choking_ = false;   // ramping to silence after a choke()
+    float chokeGain_ = 1.0f; // current choke fade level
     double t_ = 0.0;      // seconds since trigger()
     double phase_ = 0.0;  // tonal-component phase in [0, 1)
     uint32_t rng_ = 0x1234567u;
