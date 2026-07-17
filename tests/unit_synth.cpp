@@ -205,6 +205,29 @@ int main() {
               "darkening the noise color removes high-frequency energy");
         audio::SynthInstrument dn;
         check(dn.noiseColor() == 0.0f, "noise color defaults to white (0)");
+
+        // Hard sync: the 2nd oscillator (a sine, same pitch when unsynced) resets every master cycle
+        // when synced, injecting harmonics → much more high-frequency energy.
+        auto syncRender = [&](bool on) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 1.0f, 0.0f, 0.0f); // osc2 fully up, no detune
+            s.setHardSync(on);
+            s.setSyncRatio(4.0f);
+            s.noteOn(60, 1.0f); // C4
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        const std::vector<float> syncOff = syncRender(false);
+        const std::vector<float> syncOn = syncRender(true);
+        check(hf(syncOn) > hf(syncOff) * 2.0, "hard sync injects high-frequency harmonics");
+        double syncDiff = 0.0;
+        for (size_t i = 0; i < syncOn.size(); ++i) {
+            syncDiff += std::fabs(static_cast<double>(syncOn[i] - syncOff[i]));
+        }
+        check(syncDiff > 1.0, "hard sync changes the sound");
+        audio::SynthInstrument dsync;
+        check(!dsync.hardSync(), "hard sync defaults off");
     }
 
     // --- Resonant filter -----------------------------------------------------

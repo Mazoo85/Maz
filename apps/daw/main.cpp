@@ -725,6 +725,13 @@ void buildSynthUI(audio::Sequencer& seq) {
             syn.setSubWaveform(static_cast<audio::Waveform>(subw));
         float ncol = syn.noiseColor();
         if (ImGui::SliderFloat("Noise color", &ncol, 0.0f, 1.0f, "%.2f")) syn.setNoiseColor(ncol);
+        bool sync = syn.hardSync();
+        if (ImGui::Checkbox("Hard sync", &sync)) syn.setHardSync(sync);
+        float syncRatio = syn.syncRatio();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("Sync ratio", &syncRatio, 1.0f, 8.0f, "%.2f"))
+            syn.setSyncRatio(syncRatio);
     } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);

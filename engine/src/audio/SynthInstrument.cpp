@@ -197,8 +197,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 if (osc2Level_ > 0.0f) {
                     osc += waveSample(waveform_, v.phase2) * osc2Level_;
-                    const double detune = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
-                    v.phase2 += phaseInc * detune;
+                    // Hard sync: the slave runs at the sync ratio (reset on master wrap below);
+                    // otherwise it is a plain detuned oscillator.
+                    const double mul = hardSync_ ? static_cast<double>(syncRatio_)
+                                                 : std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
+                    v.phase2 += phaseInc * mul;
                     if (v.phase2 >= 1.0) {
                         v.phase2 -= std::floor(v.phase2);
                     }
@@ -234,6 +237,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             v.phase += phaseInc;
             if (v.phase >= 1.0) {
                 v.phase -= 1.0;
+                if (hardSync_) {
+                    v.phase2 = 0.0; // slave restarts every master cycle → the sync timbre
+                }
             }
 
             if (v.stage == Stage::Off) {

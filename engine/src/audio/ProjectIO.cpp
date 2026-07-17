@@ -69,6 +69,12 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> noiseCol) {
         syn.setNoiseColor(noiseCol);
     }
+    int hardSync = 0; // hard sync optional for old files
+    float syncRatio = 1.5f;
+    if (ls >> hardSync >> syncRatio) {
+        syn.setHardSync(hardSync != 0);
+        syn.setSyncRatio(syncRatio);
+    }
 }
 } // namespace
 
@@ -121,7 +127,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.pitchEnvTime() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
-          << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << "\n";
+          << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
+          << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());
