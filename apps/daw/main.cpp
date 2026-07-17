@@ -749,6 +749,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     float glide = syn.glide();
     if (ImGui::SliderFloat("Glide (portamento)", &glide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(glide);
+    float vibRate = syn.vibratoRate();
+    float vibDepth = syn.vibratoDepth();
+    bool vch = ImGui::SliderFloat("Vibrato rate", &vibRate, 0.0f, 12.0f, "%.1f Hz");
+    vch |= ImGui::SliderFloat("Vibrato depth", &vibDepth, 0.0f, 100.0f, "%.0f cents");
+    if (vch) {
+        syn.setVibrato(vibRate, vibDepth);
+    }
 
     ImGui::SeparatorText("Filter (resonant low-pass)");
     float cutoff = syn.filterCutoff();

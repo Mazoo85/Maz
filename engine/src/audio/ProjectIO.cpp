@@ -42,6 +42,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
         auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 3 ? 0 : v); };
         syn.setWavetableFrames(wf(f0), wf(f1), wf(f2), wf(f3));
     }
+    float vibRate = 5.0f, vibDepth = 0.0f; // vibrato optional for old files
+    if (ls >> vibRate >> vibDepth) {
+        syn.setVibrato(vibRate, vibDepth);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -104,7 +108,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.wavetableMorph() << " " << s.glide() << " " << static_cast<int>(s.wavetableFrame(0))
           << " " << static_cast<int>(s.wavetableFrame(1)) << " "
           << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
-          << "\n";
+          << " " << s.vibratoRate() << " " << s.vibratoDepth() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << "\n";

@@ -38,6 +38,15 @@ public:
     int unisonVoices() const { return unisonVoices_; }
     float unisonDetune() const { return unisonDetune_; }
 
+    // Vibrato: a pitch LFO at `rateHz` modulating ±`depthCents`. depth 0 = off. Applies to all
+    // voices for expressive, wavering pitch.
+    void setVibrato(float rateHz, float depthCents) {
+        vibRate_ = rateHz < 0.0f ? 0.0f : (rateHz > 20.0f ? 20.0f : rateHz);
+        vibDepth_ = depthCents < 0.0f ? 0.0f : (depthCents > 100.0f ? 100.0f : depthCents);
+    }
+    float vibratoRate() const { return vibRate_; }
+    float vibratoDepth() const { return vibDepth_; }
+
     // Portamento / glide: when > 0, a new note slides from the previously played pitch to its own
     // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
     void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
@@ -129,6 +138,9 @@ private:
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
     float glideSeconds_ = 0.0f; // portamento time; 0 = off
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
+    float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
+    float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
+    double vibPhase_ = 0.0;     // vibrato LFO phase (shared across voices)
     int unisonVoices_ = 1;      // 1 = off
     float unisonDetune_ = 12.0f; // cents of spread when unison is on
     std::array<Waveform, 4> wtFrames_ = {Waveform::Sine, Waveform::Triangle, Waveform::Saw,

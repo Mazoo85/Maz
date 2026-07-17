@@ -98,6 +98,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const float attackStep = 1.0f / (attack_ * sr);
     const float decayStep = (1.0f - sustain_) / (decay_ * sr);
     const float releaseStep = sustain_ > 0.0f ? sustain_ / (release_ * sr) : 1.0f / (release_ * sr);
+    // Vibrato LFO (shared across voices): a per-block start phase so every voice wavers together.
+    constexpr double kTwoPiVib = 6.283185307179586;
+    const double vibInc = static_cast<double>(vibRate_) / static_cast<double>(sampleRate);
 
     for (Voice& v : voices_) {
         if (v.stage == Stage::Off) {
@@ -109,7 +112,14 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
         for (int i = 0; i < frames; ++i) {
             // Portamento: slide the current frequency toward the note's target each sample.
             v.freq += (v.targetFreq - v.freq) * glideCoef;
-            const double phaseInc = static_cast<double>(v.freq) / static_cast<double>(sampleRate);
+            double vibMul = 1.0;
+            if (vibDepth_ > 0.0f) {
+                const double vp = vibPhase_ + static_cast<double>(i) * vibInc;
+                vibMul = std::pow(2.0, static_cast<double>(vibDepth_) *
+                                           std::sin(vp * kTwoPiVib) / 1200.0);
+            }
+            const double phaseInc =
+                static_cast<double>(v.freq) * vibMul / static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 v.env += attackStep;
@@ -214,6 +224,12 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 break; // voice finished mid-block; rest of its samples are silence
             }
         }
+    }
+
+    // Advance the shared vibrato phase by one block so it stays continuous across render calls.
+    vibPhase_ += vibInc * static_cast<double>(frames);
+    if (vibPhase_ >= 1.0) {
+        vibPhase_ -= std::floor(vibPhase_);
     }
 }
 

@@ -317,6 +317,54 @@ int main() {
         check(def.unisonVoices() == 1, "unison defaults to a single voice");
     }
 
+    // --- Vibrato (pitch LFO) -------------------------------------------------
+    {
+        // A slow, deep vibrato: measure the pitch in a window near the LFO's positive peak vs. its
+        // negative peak — the peak window should read sharp (higher) and the trough flat (lower).
+        audio::SynthInstrument vib;
+        vib.setWaveform(audio::Waveform::Saw);
+        vib.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        vib.setFilter(20000.0f, 0.7f, 0.0f);
+        vib.setVibrato(2.0f, 80.0f); // 2 Hz, ±80 cents
+        vib.noteOn(69, 1.0f);        // A4 = 440 Hz
+        const std::vector<float> out = render(vib, sampleRate, sampleRate); // 1 s
+        auto hzIn = [&](int start, int len) {
+            int crossings = 0;
+            for (int i = start + 1; i < start + len; ++i) {
+                if (out[static_cast<size_t>(i - 1)] <= 0.0f && out[static_cast<size_t>(i)] > 0.0f) {
+                    ++crossings;
+                }
+            }
+            return static_cast<double>(crossings) * sampleRate / len;
+        };
+        // LFO period = 0.5 s (24000 frames). Peak of sin near t=0.125 s (frame 6000), trough near
+        // t=0.375 s (frame 18000). Measure short windows there.
+        const double sharp = hzIn(4000, 4000);  // around the +peak → higher pitch
+        const double flat = hzIn(16000, 4000);   // around the −peak → lower pitch
+        check(sharp > flat + 5.0, "vibrato wavers the pitch (sharp at the LFO peak, flat at trough)");
+
+        // No vibrato → steady pitch across the same windows.
+        audio::SynthInstrument steady;
+        steady.setWaveform(audio::Waveform::Saw);
+        steady.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        steady.setFilter(20000.0f, 0.7f, 0.0f);
+        steady.noteOn(69, 1.0f);
+        const std::vector<float> so = render(steady, sampleRate, sampleRate);
+        auto hzIn2 = [&](int start, int len) {
+            int c = 0;
+            for (int i = start + 1; i < start + len; ++i) {
+                if (so[static_cast<size_t>(i - 1)] <= 0.0f && so[static_cast<size_t>(i)] > 0.0f) {
+                    ++c;
+                }
+            }
+            return static_cast<double>(c) * sampleRate / len;
+        };
+        check(std::fabs(hzIn2(4000, 4000) - hzIn2(16000, 4000)) < 4.0,
+              "without vibrato the pitch is steady");
+        audio::SynthInstrument dv;
+        check(dv.vibratoDepth() == 0.0f, "vibrato depth defaults to 0 (off)");
+    }
+
     // --- Portamento / glide --------------------------------------------------
     {
         // Play a low note, release, then a high note with glide on. Early in the second note the
