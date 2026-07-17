@@ -47,9 +47,13 @@ public:
     void setTime(float ms) { timeMs_ = ms; }
     void setFeedback(float f) { feedback_ = f; }
     void setMix(float m) { mix_ = m; }
+    // Ping-pong: feed each channel's echo into the *other* channel's delay line, so repeats bounce
+    // left↔right across the stereo field.
+    void setPingPong(bool on) { pingPong_ = on; }
     float time() const { return timeMs_; }
     float feedback() const { return feedback_; }
     float mix() const { return mix_; }
+    bool pingPong() const { return pingPong_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -58,6 +62,7 @@ private:
     float timeMs_ = 300.0f;
     float feedback_ = 0.35f;
     float mix_ = 0.30f;
+    bool pingPong_ = false;
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;

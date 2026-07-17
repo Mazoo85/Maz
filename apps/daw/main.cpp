@@ -842,8 +842,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::Checkbox("Delay", &en)) mx.delay().setEnabled(en);
         float wet = mx.delay().mix();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("mix##dly", &wet, 0.0f, 1.0f, "%.2f")) mx.delay().setMix(wet);
+        ImGui::SameLine();
+        bool pp = mx.delay().pingPong();
+        if (ImGui::Checkbox("Ping-pong", &pp)) mx.delay().setPingPong(pp);
     }
     {
         bool en = mx.reverb().enabled();

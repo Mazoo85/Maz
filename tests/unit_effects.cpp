@@ -74,6 +74,25 @@ int main() {
         check(std::fabs(buf[static_cast<size_t>(4800) * 2]) > 0.5f, "echo appears at the delay time");
     }
 
+    // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
+    {
+        audio::Delay pp;
+        pp.setEnabled(true);
+        pp.setTime(100.0f); // 4800 frames per echo
+        pp.setFeedback(0.6f);
+        pp.setMix(1.0f);
+        pp.setPingPong(true);
+        std::vector<float> buf(static_cast<size_t>(sr) / 2 * 2, 0.0f);
+        buf[0] = 1.0f; // left channel only
+        pp.process(buf.data(), sr / 2, sr);
+        const float e1L = std::fabs(buf[static_cast<size_t>(4800) * 2]);
+        const float e1R = std::fabs(buf[static_cast<size_t>(4800) * 2 + 1]);
+        const float e2L = std::fabs(buf[static_cast<size_t>(9600) * 2]);
+        const float e2R = std::fabs(buf[static_cast<size_t>(9600) * 2 + 1]);
+        check(e1L > 0.5f && e1R < 0.05f, "ping-pong: first echo stays on the source (left) channel");
+        check(e2R > 0.3f && e2L < 0.05f, "ping-pong: second echo bounces to the right channel");
+    }
+
     // --- LowPass: high frequencies are attenuated ----------------------------
     {
         audio::LowPass lp;

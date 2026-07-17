@@ -45,8 +45,15 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
         const float dryR = stereo[2 * i + 1];
         const float wetL = bufL_[static_cast<size_t>(r)];
         const float wetR = bufR_[static_cast<size_t>(r)];
-        bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
-        bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
+        if (pingPong_) {
+            // Cross-feed: each channel's echo re-enters the *other* channel's line, so repeats
+            // alternate L→R→L across the stereo field.
+            bufL_[static_cast<size_t>(write_)] = dryL + wetR * fb;
+            bufR_[static_cast<size_t>(write_)] = dryR + wetL * fb;
+        } else {
+            bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
+            bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
+        }
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
         write_ = (write_ + 1) % size_;

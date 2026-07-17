@@ -132,7 +132,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
       << mixer.compressor().makeupDb() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
-      << mixer.delay().feedback() << " " << mixer.delay().mix() << "\n";
+      << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
+      << (mixer.delay().pingPong() ? 1 : 0) << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
@@ -366,6 +367,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.delay().setTime(t);
                 mixer.delay().setFeedback(fb);
                 mixer.delay().setMix(mix);
+                int pp = 0; // ping-pong flag optional for old files
+                if (ls >> pp) {
+                    mixer.delay().setPingPong(pp != 0);
+                }
             } else if (which == "gate") {
                 float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;
                 ls >> thr >> ratio >> range >> atk >> rel;
