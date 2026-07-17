@@ -973,6 +973,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##cho", &wet, 0.0f, 1.0f, "%.2f")) mx.chorus().setMix(wet);
     }
     {
+        bool en = mx.flanger().enabled();
+        if (ImGui::Checkbox("Flanger", &en)) mx.flanger().setEnabled(en);
+        float wet = mx.flanger().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mix##fla", &wet, 0.0f, 1.0f, "%.2f")) mx.flanger().setMix(wet);
+        float fb = mx.flanger().feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("fb##fla", &fb, 0.0f, 0.95f, "%.2f")) mx.flanger().setFeedback(fb);
+    }
+    {
         bool en = mx.phaser().enabled();
         if (ImGui::Checkbox("Phaser", &en)) mx.phaser().setEnabled(en);
         float wet = mx.phaser().mix();

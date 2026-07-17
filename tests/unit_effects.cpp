@@ -416,6 +416,63 @@ int main() {
         check(same, "a disabled high-pass is transparent");
     }
 
+    // --- Flanger: swept comb with feedback ----------------------------------
+    {
+        // A static flanger (rate 0) is a short delay with feedback: an impulse produces a delayed
+        // copy at ~ (1ms floor + depth*mod) and decaying feedback repeats after it.
+        audio::Flanger fl;
+        fl.setEnabled(true);
+        fl.setRate(0.0f);      // hold the sweep still
+        fl.setDepth(4.0f);     // + the ~1 ms floor → tap near (1 + 4*0.5)=3 ms at phase 0
+        fl.setFeedback(0.7f);
+        fl.setMix(1.0f);       // fully wet
+        std::vector<float> buf(static_cast<size_t>(sr) / 5 * 2, 0.0f); // 0.2 s
+        buf[0] = 1.0f;
+        buf[1] = 1.0f;
+        fl.process(buf.data(), sr / 5, sr);
+        // The dry impulse is gone (fully wet), and there is delayed energy downstream.
+        check(std::fabs(buf[0]) < 0.01f, "fully-wet flanger removes the dry impulse");
+        double tail = 0.0;
+        for (int i = 20; i < sr / 5; ++i) {
+            tail += std::fabs(static_cast<double>(buf[static_cast<size_t>(i) * 2]));
+        }
+        check(tail > 0.1, "flanger produces delayed/feedback energy");
+
+        // More feedback → a longer-ringing comb (more total tail energy).
+        auto tailEnergy = [&](float fb) {
+            audio::Flanger f2;
+            f2.setEnabled(true);
+            f2.setRate(0.0f);
+            f2.setDepth(4.0f);
+            f2.setFeedback(fb);
+            f2.setMix(1.0f);
+            std::vector<float> b(static_cast<size_t>(sr) / 5 * 2, 0.0f);
+            b[0] = 1.0f;
+            b[1] = 1.0f;
+            f2.process(b.data(), sr / 5, sr);
+            double e = 0.0;
+            for (size_t i = 40; i < b.size(); ++i) {
+                e += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return e;
+        };
+        check(tailEnergy(0.85f) > tailEnergy(0.2f) * 1.5, "more feedback rings longer");
+
+        // Disabled → transparent.
+        audio::Flanger off;
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled flanger is transparent");
+    }
+
     // --- Tape saturation: adds harmonics, transparent when bypassed ---------
     {
         auto hf = [](const std::vector<float>& b) {

@@ -40,6 +40,7 @@ public:
     HighPass& highpass() { return hp_; }
     Compressor& compressor() { return comp_; }
     Chorus& chorus() { return chorus_; }
+    Flanger& flanger() { return flanger_; }
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
@@ -90,6 +91,7 @@ private:
     HighPass hp_{};
     Compressor comp_{};
     Chorus chorus_{};
+    Flanger flanger_{};
     Phaser phaser_{};
     Delay delay_{};
     Reverb reverb_{};

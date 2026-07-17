@@ -248,6 +248,68 @@ void TiltEQ::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Flanger ----------------------------------------------------------------
+
+void Flanger::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    write_ = 0;
+    phase_ = 0.0;
+}
+
+void Flanger::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxSize = sampleRate / 50; // up to 20 ms of delay line
+    if (size_ != maxSize) {
+        size_ = maxSize;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        write_ = 0;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double phaseInc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    const float baseSamp = 1.0f * 0.001f * static_cast<float>(sampleRate); // ~1 ms floor
+    const float depthSamp = depthMs_ * 0.001f * static_cast<float>(sampleRate);
+    const float fb = feedback_;
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+
+    auto readAt = [&](const std::vector<float>& buf, float delay) {
+        float rp = static_cast<float>(write_) - delay;
+        while (rp < 0.0f) {
+            rp += static_cast<float>(size_);
+        }
+        const int i0 = static_cast<int>(rp) % size_;
+        const int i1 = (i0 + 1) % size_;
+        const float frac = rp - std::floor(rp);
+        return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
+    };
+
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+
+        const float modL = 0.5f * (1.0f + static_cast<float>(std::sin(phase_ * kTwoPi)));
+        const float modR = 0.5f * (1.0f + static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi)));
+        const float wetL = readAt(bufL_, baseSamp + depthSamp * modL);
+        const float wetR = readAt(bufR_, baseSamp + depthSamp * modR);
+
+        // Feed the delayed signal back into the line for the resonant comb.
+        bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
+        bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
+
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+
+        write_ = (write_ + 1) % size_;
+        phase_ += phaseInc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- Bitcrusher -------------------------------------------------------------
 
 void Bitcrusher::reset() {

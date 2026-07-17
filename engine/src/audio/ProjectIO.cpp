@@ -165,6 +165,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
+    f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
+      << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
+      << "\n";
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
       << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
       << "\n";
@@ -515,6 +518,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.chorus().setRate(rate);
                 mixer.chorus().setDepth(depth);
                 mixer.chorus().setMix(mix);
+            } else if (which == "flanger") {
+                float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
+                ls >> rate >> depth >> fb >> mix;
+                mixer.flanger().setEnabled(en != 0);
+                mixer.flanger().setRate(rate);
+                mixer.flanger().setDepth(depth);
+                mixer.flanger().setFeedback(fb);
+                mixer.flanger().setMix(mix);
             } else if (which == "crush") {
                 float bits = 8.0f, ds = 4.0f, mix = 0.5f;
                 ls >> bits >> ds >> mix;

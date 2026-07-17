@@ -120,6 +120,38 @@ private:
     double phase_ = 0.0;
 };
 
+// A flanger: a very short LFO-swept delay (≈0.5–8 ms) fed back on itself, so the moving comb notches
+// sweep through the spectrum for the classic "jet plane" whoosh. `rate` Hz, `depth` ms (sweep
+// range), `feedback` (0..0.95, resonance), `mix` dry/wet. Distinct from the chorus by its feedback
+// and shorter delay.
+class Flanger : public Effect {
+public:
+    Flanger() { enabled_ = false; }
+    const char* name() const override { return "Flanger"; }
+    void setRate(float hz) { rateHz_ = hz < 0.0f ? 0.0f : (hz > 10.0f ? 10.0f : hz); }
+    void setDepth(float ms) { depthMs_ = ms < 0.1f ? 0.1f : (ms > 8.0f ? 8.0f : ms); }
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float rate() const { return rateHz_; }
+    float depth() const { return depthMs_; }
+    float feedback() const { return feedback_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 0.3f;
+    float depthMs_ = 2.0f;
+    float feedback_ = 0.5f;
+    float mix_ = 0.5f;
+    std::vector<float> bufL_;
+    std::vector<float> bufR_;
+    int size_ = 0;
+    int write_ = 0;
+    double phase_ = 0.0;
+};
+
 // A lo-fi bitcrusher: reduces bit depth (quantization) and sample rate (sample-and-hold) for a
 // crunchy, digital/retro character. `bits` 1..16, `downsample` 1..64 (how many input samples share
 // one output), `mix` dry/wet.

@@ -105,6 +105,9 @@ int main() {
     mixer.autopan().setDepth(0.8f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
+    mixer.flanger().setEnabled(true);
+    mixer.flanger().setRate(0.4f);
+    mixer.flanger().setFeedback(0.6f);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -244,6 +247,9 @@ int main() {
           "auto-pan round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
+    check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&
+              near(mixer2.flanger().feedback(), 0.6f),
+          "flanger round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f),
           "gate round-trips");
