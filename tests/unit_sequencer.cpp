@@ -356,6 +356,52 @@ int main() {
     (void)renderMono(arr, 16 * 6000, sampleRate);
     check(arr.currentPattern() == 0, "playlist wraps back to the start");
 
+    // --- Metronome: accented clicks on each beat ------------------------------
+    {
+        // Empty pattern → silent except for the metronome. At 120 BPM a beat is 0.5 s = 24000
+        // frames; over 2 s we expect 4 beats (4 clicks).
+        audio::Sequencer metro;
+        metro.setBpm(120.0);
+        metro.clear();
+        metro.roll().clear();
+        metro.setMetronome(true);
+        metro.play();
+        const int frames = sampleRate * 2; // 2 seconds
+        const std::vector<float> out = renderMono(metro, frames, sampleRate);
+        check(rms(out) > 0.0, "metronome produces sound on an empty pattern");
+
+        // Count click onsets: windows (per 24000-frame beat) that contain energy.
+        int clicks = 0;
+        const int beatFrames = 24000;
+        for (int b = 0; b < 4; ++b) {
+            double e = 0.0;
+            // The click sits at the start of each beat window (~first 40 ms).
+            for (int i = b * beatFrames; i < b * beatFrames + 3000 && i < frames; ++i) {
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            if (e > 1e-4) {
+                ++clicks;
+            }
+        }
+        check(clicks == 4, "metronome clicks once per beat (4 beats in 2 s @120 BPM)");
+
+        // Between clicks (e.g. mid-beat) it is silent.
+        double midEnergy = 0.0;
+        for (int i = 12000; i < 20000; ++i) {
+            midEnergy += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                         static_cast<double>(out[static_cast<size_t>(i) * 2]);
+        }
+        check(midEnergy < 1e-6, "metronome is silent between clicks");
+
+        // Disabled → silence on an empty pattern.
+        audio::Sequencer off;
+        off.setMetronome(false);
+        off.play();
+        const std::vector<float> q = renderMono(off, sampleRate, sampleRate);
+        check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
+    }
+
     // --- Per-bus stems sum back to the mixed render (behaviour preservation) ---
     {
         // One sequencer renders the mixed output; an identically-programmed one renders the three

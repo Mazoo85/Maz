@@ -45,7 +45,7 @@ the project, and bounce to WAV.
   and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse** and **loop** modes).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity), **two** `PianoRoll`
   lanes (lead + bass), **multiple patterns + a playlist** to build songs, **swing**, **humanize**,
-  an **arpeggiator**, and **sidechain** ducking.
+  an **arpeggiator**, a **metronome**, and **sidechain** ducking.
 - **Mixing** — per-channel volume/mute/solo/**pan**, true **stereo**, **per-bus insert strips**
   (drums / lead / bass, each with its own EQ + distortion + compressor + gain/mute), a master effect
   chain (parametric EQ, low-pass, distortion, tape saturation, bitcrusher, noise gate, compressor,

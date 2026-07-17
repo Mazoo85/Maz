@@ -403,6 +403,11 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setHumanize(humanize);
     }
     ImGui::SameLine();
+    bool metro = seq.metronome();
+    if (ImGui::Checkbox("Metronome", &metro)) {
+        seq.setMetronome(metro);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }

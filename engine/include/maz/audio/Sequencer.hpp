@@ -125,6 +125,11 @@ public:
     float synthGain() const { return synthGain_; }
     float bassGain() const { return bassGain_; }
 
+    // Metronome: an accented click on each beat while playing (a brighter click on the downbeat,
+    // step 0 of the bar). A monitoring aid, mixed into the output.
+    void setMetronome(bool on) { metronome_ = on; }
+    bool metronome() const { return metronome_; }
+
     // --- Pattern grid --------------------------------------------------------
     bool step(int channel, int step) const;
     void setStep(int channel, int step, bool on);
@@ -194,6 +199,12 @@ private:
     float scAmount_ = 0.7f;
     float scReleaseMs_ = 200.0f;
     float scEnv_ = 1.0f; // current ducking gain (1 = open)
+
+    bool metronome_ = false;
+    int metroLastStep_ = -1;  // last step a click fired on (avoids double-triggering)
+    double metroPhase_ = 0.0; // click oscillator phase
+    float metroEnv_ = 0.0f;   // click amplitude envelope
+    float metroFreq_ = 0.0f;  // current click pitch (accented on the downbeat)
 
     bool playing_ = false;
     int currentStep_ = 0;

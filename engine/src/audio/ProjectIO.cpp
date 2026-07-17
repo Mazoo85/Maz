@@ -75,6 +75,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sidechainReleaseMs() << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << "\n";
     f << "humanize " << seq.humanize() << "\n";
+    f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << "\n";
 
     auto writeSynth = [&](const char* tag, const char* oscTag, const SynthInstrument& s) {
@@ -247,6 +248,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float h = 0.0f;
             ls >> h;
             seq.setHumanize(h);
+        } else if (tag == "metronome") {
+            int m = 0;
+            ls >> m;
+            seq.setMetronome(m != 0);
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;

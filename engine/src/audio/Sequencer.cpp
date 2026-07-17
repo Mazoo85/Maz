@@ -277,6 +277,8 @@ void Sequencer::play() {
     arpCounter_ = 0;
     arpCurrentPitch_ = -1;
     humanizeCounter_ = 0;
+    metroLastStep_ = -1;
+    metroEnv_ = 0.0f;
     if (songMode_ && !playlist_.empty()) {
         selectPattern(playlist_[0]); // start the arrangement at the first playlist entry
     }
@@ -325,6 +327,33 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 toNext = 1;
             }
             chunk = std::min(chunk, toNext);
+        }
+
+        // Metronome: fire an accented click when a new beat step begins (downbeat = brighter).
+        if (playing_ && metronome_ && currentStep_ != metroLastStep_ &&
+            (currentStep_ % stepsPerBeat_) == 0) {
+            metroLastStep_ = currentStep_;
+            metroEnv_ = 1.0f;
+            metroFreq_ = (currentStep_ == 0) ? 1600.0f : 1000.0f;
+            metroPhase_ = 0.0;
+        }
+        if (metronome_ && metroEnv_ > 0.0f) {
+            constexpr double kTwoPi = 6.283185307179586;
+            const double inc = static_cast<double>(metroFreq_) / static_cast<double>(sampleRate);
+            const float decay = 1.0f / (0.04f * static_cast<float>(sampleRate)); // ~40 ms click
+            for (int i = 0; i < chunk && metroEnv_ > 0.0f; ++i) {
+                const float s = static_cast<float>(std::sin(metroPhase_ * kTwoPi)) * metroEnv_ * 0.5f;
+                drums[2 * (done + i)] += s;
+                drums[2 * (done + i) + 1] += s;
+                metroPhase_ += inc;
+                if (metroPhase_ >= 1.0) {
+                    metroPhase_ -= 1.0;
+                }
+                metroEnv_ -= decay;
+                if (metroEnv_ < 0.0f) {
+                    metroEnv_ = 0.0f;
+                }
+            }
         }
 
         // Render each drum channel on its own so it can be panned into the stereo field, into the
