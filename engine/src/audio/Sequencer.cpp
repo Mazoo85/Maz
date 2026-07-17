@@ -405,7 +405,7 @@ void Sequencer::triggerStep(int step) {
             } else { // up
                 index = arpCounter_ % n;
             }
-            const int pitch = held[static_cast<size_t>(index)];
+            const int pitch = held[static_cast<size_t>(index)] + transpose_;
             if (toSampler) {
                 sampler_.noteOn(pitch, 0.9f);
             } else {
@@ -424,9 +424,9 @@ void Sequencer::triggerStep(int step) {
         const int endStep = (n.startStep + n.lengthSteps) % numSteps_;
         if (endStep == step) {
             if (toSampler) {
-                sampler_.noteOff(n.pitch);
+                sampler_.noteOff(n.pitch + transpose_);
             } else {
-                synth_.noteOff(n.pitch);
+                synth_.noteOff(n.pitch + transpose_);
             }
         }
     }
@@ -444,9 +444,9 @@ void Sequencer::triggerStep(int step) {
     for (const Note& n : roll.notes()) {
         if (n.startStep == step && noteFires(n)) {
             if (toSampler) {
-                sampler_.noteOn(n.pitch, n.velocity);
+                sampler_.noteOn(n.pitch + transpose_, n.velocity);
             } else {
-                synth_.noteOn(n.pitch, n.velocity);
+                synth_.noteOn(n.pitch + transpose_, n.velocity);
             }
         }
     }
@@ -455,12 +455,12 @@ void Sequencer::triggerStep(int step) {
     const PianoRoll& roll2 = patterns_[static_cast<size_t>(current_)].roll2;
     for (const Note& n : roll2.notes()) {
         if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
-            synth2_.noteOff(n.pitch);
+            synth2_.noteOff(n.pitch + transpose_);
         }
     }
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
-            synth2_.noteOn(n.pitch, n.velocity);
+            synth2_.noteOn(n.pitch + transpose_, n.velocity);
         }
     }
 }

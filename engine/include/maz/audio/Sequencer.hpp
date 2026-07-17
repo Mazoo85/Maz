@@ -149,6 +149,11 @@ public:
     void setDrumGain(float g) { drumGain_ = g; }
     void setSynthGain(float g) { synthGain_ = g; }
     void setBassGain(float g) { bassGain_ = g; }
+
+    // Global transpose in semitones (±48): shifts every melodic note (lead, bass, arp, sampler) at
+    // playback without editing the notes — change key on the fly.
+    void setTranspose(int semis) { transpose_ = semis < -48 ? -48 : (semis > 48 ? 48 : semis); }
+    int transpose() const { return transpose_; }
     float drumGain() const { return drumGain_; }
     float synthGain() const { return synthGain_; }
     float bassGain() const { return bassGain_; }
@@ -242,6 +247,7 @@ private:
     float bassGain_ = 1.0f;
     float leadPan_ = 0.0f;
     float bassPan_ = 0.0f;
+    int transpose_ = 0;
 
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;

@@ -441,6 +441,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setCountInBars(countIn);
     }
     ImGui::SameLine();
+    int transpose = seq.transpose();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderInt("Transpose", &transpose, -24, 24, "%d st")) {
+        seq.setTranspose(transpose);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }

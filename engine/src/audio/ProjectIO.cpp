@@ -85,7 +85,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
     f << "countin " << seq.countInBars() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << " "
-      << seq.leadPan() << " " << seq.bassPan() << "\n";
+      << seq.leadPan() << " " << seq.bassPan() << " " << seq.transpose() << "\n";
 
     auto writeSynth = [&](const char* tag, const char* oscTag, const SynthInstrument& s) {
         f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
@@ -307,6 +307,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> lp >> bp) {
                 seq.setLeadPan(lp);
                 seq.setBassPan(bp);
+            }
+            int tr = 0; // transpose optional
+            if (ls >> tr) {
+                seq.setTranspose(tr);
             }
         } else if (tag == "synth") {
             parseSynthLine(ls, seq.synth());

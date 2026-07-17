@@ -454,6 +454,36 @@ int main() {
         check(def.probability == 1.0f, "notes default to probability 1.0");
     }
 
+    // --- Global transpose ----------------------------------------------------
+    {
+        // A held A3 (220 Hz) note; transposing up an octave should render ~440 Hz.
+        auto pitchHz = [&](int transpose) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.roll().addNote(audio::Note{0, 16, 57, 1.0f}); // A3 = 220 Hz
+            s.synth().setWaveform(audio::Waveform::Saw);
+            s.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.synth().setFilter(20000.0f, 0.7f, 0.0f);
+            s.setTranspose(transpose);
+            s.play();
+            const std::vector<float> out = renderMono(s, 6000, sampleRate);
+            // Rising zero-crossings on the left channel → fundamental frequency.
+            int crossings = 0;
+            for (size_t i = 1; i < 6000; ++i) {
+                if (out[(i - 1) * 2] <= 0.0f && out[i * 2] > 0.0f) {
+                    ++crossings;
+                }
+            }
+            return static_cast<double>(crossings) * sampleRate / 6000.0;
+        };
+        check(std::fabs(pitchHz(0) - 220.0) < 6.0, "no transpose plays the written pitch");
+        check(std::fabs(pitchHz(12) - 440.0) < 12.0, "transpose +12 raises the note an octave");
+        check(std::fabs(pitchHz(-12) - 110.0) < 6.0, "transpose -12 lowers the note an octave");
+
+        audio::Sequencer def;
+        check(def.transpose() == 0, "transpose defaults to 0");
+    }
+
     // --- Clone pattern: an independent copy ----------------------------------
     {
         audio::Sequencer s;
