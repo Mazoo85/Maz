@@ -77,6 +77,7 @@ int main() {
     seq.setSongMode(true);
 
     mixer.setMasterGain(0.75f);
+    mixer.setLimiterCeiling(0.9f);
     mixer.eq().setEnabled(true);
     mixer.eq().setCutoff(3200.0f);
     mixer.compressor().setEnabled(true);
@@ -202,6 +203,7 @@ int main() {
 
     // Mixer + effects.
     check(near(mixer2.masterGain(), 0.75f), "master gain round-trips");
+    check(near(mixer2.limiterCeiling(), 0.9f), "limiter ceiling round-trips");
     check(mixer2.eq().enabled() && near(mixer2.eq().cutoff(), 3200.0f), "EQ round-trips");
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),

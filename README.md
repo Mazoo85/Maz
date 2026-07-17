@@ -51,7 +51,7 @@ the project, and bounce to WAV.
   chain (parametric EQ, tilt EQ, low-pass, high-pass, distortion, tape saturation, bitcrusher, noise gate,
   compressor, chorus, phaser, delay (with ping-pong), reverb (with pre-delay), mid/side stereo
   widener),
-  parallel **aux send/return buses** (reverb + delay), and a master **limiter**.
+  parallel **aux send/return buses** (reverb + delay), and a master **limiter** with an adjustable ceiling.
 - **Modulation** — automation of filter/FM/reverb/master, synced to the transport, from either an
   **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**

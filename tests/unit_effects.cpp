@@ -269,6 +269,30 @@ int main() {
         check(halved, "master gain scales the bus and effects are transparent when disabled");
     }
 
+    // --- Limiter ceiling: caps the master peak ------------------------------
+    {
+        auto peakOut = [&](float ceiling) {
+            audio::Mixer mixer;
+            mixer.setMasterGain(1.0f);
+            mixer.setLimiterCeiling(ceiling);
+            // A hot signal well above the ceiling.
+            std::vector<float> buf(2000, 0.0f);
+            for (size_t i = 0; i < buf.size(); i += 2) {
+                buf[i] = 1.8f;
+                buf[i + 1] = -1.8f;
+            }
+            mixer.process(buf.data(), 1000, sr);
+            float pk = 0.0f;
+            for (float v : buf) {
+                pk = std::max(pk, std::fabs(v));
+            }
+            return pk;
+        };
+        check(peakOut(1.0f) <= 1.001f, "default ceiling keeps the master within ±1");
+        const float low = peakOut(0.5f);
+        check(low <= 0.51f && low > 0.4f, "a 0.5 ceiling caps the master near 0.5");
+    }
+
     // --- Aux send/return buses: parallel reverb send ------------------------
     {
         // A single stereo impulse.

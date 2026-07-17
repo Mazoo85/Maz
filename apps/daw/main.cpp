@@ -773,6 +773,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
     if (ImGui::SliderFloat("Master", &master, 0.0f, 1.5f, "%.2f")) {
         mx.setMasterGain(master);
     }
+    float ceiling = mx.limiterCeiling();
+    if (ImGui::SliderFloat("Ceiling", &ceiling, 0.1f, 1.0f, "%.2f")) {
+        mx.setLimiterCeiling(ceiling);
+    }
     float drums = seq.drumGain();
     if (ImGui::SliderFloat("Drums", &drums, 0.0f, 2.0f, "%.2f")) {
         seq.setDrumGain(drums);

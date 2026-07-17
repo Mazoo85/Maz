@@ -5,16 +5,19 @@
 namespace maz::audio {
 
 namespace {
-// Master limiter: transparent below the knee, soft-clips above it toward ±1 so the master never
-// clips hard. knee = 0.8 → linear up to 0.8, asymptotes to ~1.0 beyond.
-float limit(float x) {
-    constexpr float knee = 0.8f;
+// Master limiter: transparent below the knee, soft-clips above it toward the ceiling so the master
+// never clips hard. The knee sits at 80% of the ceiling; output asymptotes to ±ceiling.
+float limit(float x, float ceiling) {
+    const float knee = 0.8f * ceiling;
     const float a = std::fabs(x);
     if (a <= knee) {
         return x;
     }
-    const float over = a - knee;
-    const float shaped = knee + (1.0f - knee) * std::tanh(over / (1.0f - knee));
+    const float span = ceiling - knee;
+    if (span <= 0.0f) {
+        return x < 0.0f ? -ceiling : ceiling;
+    }
+    const float shaped = knee + span * std::tanh((a - knee) / span);
     return x < 0.0f ? -shaped : shaped;
 }
 } // namespace
@@ -88,7 +91,7 @@ void Mixer::process(float* stereo, int frames, int sampleRate) {
     runSend(delayReturn_, delaySend_);
 
     for (int i = 0; i < n; ++i) {
-        stereo[i] = limit(stereo[i] * masterGain_);
+        stereo[i] = limit(stereo[i] * masterGain_, limiterCeiling_);
     }
 }
 

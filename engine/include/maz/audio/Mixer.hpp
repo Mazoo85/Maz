@@ -24,6 +24,11 @@ public:
     void setMasterGain(float g) { masterGain_ = g; }
     float masterGain() const { return masterGain_; }
 
+    // Master limiter output ceiling (0.1–1.0): the peak the soft-limiter asymptotes to. Lower it for
+    // headroom (e.g. 0.89 ≈ -1 dBFS true-peak margin).
+    void setLimiterCeiling(float c) { limiterCeiling_ = c < 0.1f ? 0.1f : (c > 1.0f ? 1.0f : c); }
+    float limiterCeiling() const { return limiterCeiling_; }
+
     // Typed access for the UI / demos.
     ParametricEQ& peq() { return peq_; }
     TiltEQ& tilt() { return tilt_; }
@@ -73,6 +78,7 @@ public:
 
 private:
     float masterGain_ = 0.9f;
+    float limiterCeiling_ = 1.0f;
     ParametricEQ peq_{};
     TiltEQ tilt_{};
     LowPass eq_{};
