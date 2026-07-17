@@ -40,7 +40,7 @@ the project, and bounce to WAV.
 
 - **Instruments** — a synthesized drum kit (`DrumVoice`, per-hit velocity, **choke groups**, per-channel **tuning**); **two** polyphonic
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator + sub +
-  noise + **unison** supersaw stack + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
+  noise + a selectable-waveform **sub** + **unison** supersaw stack + a resonant state-variable **filter** with envelope), **FM**, and **wavetable** (a morphing
   single-cycle table with **selectable frames**, scanned by an envelope-sweepable position) engines, plus **portamento/glide**;
   and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse**, **loop**, **start-offset**, and an **amp envelope**).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity, **probability**, and **ratcheting**), **two** `PianoRoll`

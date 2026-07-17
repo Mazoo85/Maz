@@ -69,6 +69,10 @@ public:
     // Oscillator section (subtractive mode): a detuned 2nd oscillator (cents + level) for width, a
     // sub-oscillator one octave down, and a noise layer. All 0 → a single clean oscillator.
     void setOscillators(float detuneCents, float osc2Level, float subLevel, float noiseLevel);
+    // Sub-oscillator waveform (one octave below the note): Sine (default, pure weight) or Square
+    // (buzzy, more harmonics). Only matters when subLevel > 0.
+    void setSubWaveform(Waveform w) { subWave_ = w; }
+    Waveform subWaveform() const { return subWave_; }
     float detuneCents() const { return detuneCents_; }
     float osc2Level() const { return osc2Level_; }
     float subLevel() const { return subLevel_; }
@@ -137,6 +141,7 @@ private:
     float filterCutoff_ = 20000.0f; // effectively open (bypassed) by default
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
+    Waveform subWave_ = Waveform::Sine;
     float detuneCents_ = 0.0f;
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;

@@ -182,8 +182,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     }
                 }
                 if (subLevel_ > 0.0f) {
-                    constexpr double kTwoPi = 6.283185307179586;
-                    osc += static_cast<float>(std::sin(v.subPhase * kTwoPi)) * subLevel_;
+                    osc += waveSample(subWave_, v.subPhase) * subLevel_;
                     v.subPhase += phaseInc * 0.5; // one octave down
                     if (v.subPhase >= 1.0) {
                         v.subPhase -= std::floor(v.subPhase);

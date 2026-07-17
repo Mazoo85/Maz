@@ -53,6 +53,10 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> uni >> uniDet) {
         syn.setUnison(uni, uniDet);
     }
+    int subW = 0; // sub waveform optional for old files
+    if (ls >> subW) {
+        syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 3 ? 0 : subW));
+    }
 }
 } // namespace
 
@@ -102,7 +106,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
           << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
-          << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << "\n";
+          << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
+          << static_cast<int>(s.subWaveform()) << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

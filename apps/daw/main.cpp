@@ -698,6 +698,10 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (uch) {
             syn.setUnison(uni, uniDet);
         }
+        int subw = static_cast<int>(syn.subWaveform());
+        const char* subWaves[] = {"Sine", "Square", "Saw", "Triangle"};
+        if (ImGui::Combo("Sub wave", &subw, subWaves, 4))
+            syn.setSubWaveform(static_cast<audio::Waveform>(subw));
     } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);

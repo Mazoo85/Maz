@@ -175,6 +175,21 @@ int main() {
             return s;
         };
         check(hf(noisyOut) > hf(singleOut), "noise layer adds high-frequency energy");
+
+        // Sub-oscillator waveform: a square sub adds harmonics vs the default sine sub.
+        auto subRender = [&](audio::Waveform sw) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.0f, 0.8f, 0.0f); // sub only (plus the sine carrier)
+            s.setSubWaveform(sw);
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        check(hf(subRender(audio::Waveform::Square)) > hf(subRender(audio::Waveform::Sine)),
+              "a square sub-oscillator adds harmonics vs a sine sub");
+        audio::SynthInstrument dsub;
+        check(dsub.subWaveform() == audio::Waveform::Sine, "sub waveform defaults to sine");
     }
 
     // --- Resonant filter -----------------------------------------------------
