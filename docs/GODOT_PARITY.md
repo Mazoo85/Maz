@@ -42,6 +42,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   so orientations authored in Godot import identically; M306 adds Godot's shortest-arc two-vector
   constructor Quaternion(v0,v1) — the rotation taking one direction onto another — plus get_axis /
   get_angle, verified by rotating the source onto the target and by axis-angle round-trip),
+  **Euler-order conversion** (M307, `math::basisFromEuler` / `basisGetEuler` with `EulerOrder` —
+  Godot's Basis.from_euler / get_euler across ALL SIX rotation orders XYZ/XZY/YXZ/YZX/ZXY/ZYX
+  (Godot's Node3D.rotation_order), so non-default rotation orders import/export identically; each
+  order builds R as the ordered product of elementary rotations and get_euler inverts it with a
+  gimbal-lock branch. Verified by round-tripping all six orders including gimbal lock, single-axis
+  identities, and cross-checking YXZ against Quaternion::fromEuler),
   **Projection** (M292, `math::Projection` —
   Godot's 4x4 projection-matrix type: perspective/orthographic/frustum constructors (RH, depth 0..1)
   plus the near/far/fov/aspect/is-orthogonal queries recovered from the matrix, xform/project,

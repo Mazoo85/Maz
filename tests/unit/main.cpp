@@ -202,6 +202,7 @@
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Projection.hpp"
 #include "maz/math/Transform3D.hpp"
+#include "maz/math/EulerOrder.hpp"
 #include "maz/math/Quaternion.hpp"
 #include "maz/math/Vector4.hpp"
 #include "maz/math/VectorInt.hpp"
@@ -13418,6 +13419,56 @@ void testQuaternion() {
     CHECK_NEAR(Q::identity().getAngle(), 0.0f, 1e-4f);
 }
 
+// M307: Basis euler conversion across all six rotation orders (Godot EulerOrder / rotation_order).
+void testEulerOrder() {
+    using namespace maz::math;
+    auto nm = [](const mat3& a, const mat3& b, float e) {
+        for (int c = 0; c < 3; ++c)
+            for (int r = 0; r < 3; ++r)
+                if (std::fabs(a[c][r] - b[c][r]) > e) return false;
+        return true;
+    };
+    auto nv3 = [](const vec3& a, const vec3& b, float e) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
+    };
+    const EulerOrder orders[] = {EulerOrder::XYZ, EulerOrder::XZY, EulerOrder::YXZ,
+                                 EulerOrder::YZX, EulerOrder::ZXY, EulerOrder::ZYX};
+    const float kHalfPi = 1.57079632679489662f;
+    const vec3 samples[] = {{0.3f, 0.5f, -0.2f}, {-0.7f, 0.1f, 0.9f},  {1.1f, -0.4f, 0.6f},
+                            {0.05f, 1.0f, -1.2f}, {-0.9f, -0.3f, 0.2f}, {0.2f, 0.2f, 0.2f}};
+    // get(from(e)) == e for non-singular triples; the re-encoded matrix also matches.
+    for (EulerOrder o : orders) {
+        for (const vec3& e : samples) {
+            const mat3 b = basisFromEuler(e, o);
+            const vec3 r = basisGetEuler(b, o);
+            CHECK(nv3(r, e, 2e-3f));
+            CHECK(nm(basisFromEuler(r, o), b, 2e-3f));
+        }
+    }
+    // Gimbal lock (middle axis at +/-90 deg): a valid decomposition still reconstructs the matrix.
+    const vec3 locks[] = {{0.4f, kHalfPi, 0.7f}, {0.4f, -kHalfPi, 0.7f}, {kHalfPi, 0.3f, 0.6f},
+                          {-kHalfPi, 0.3f, 0.6f}, {0.5f, 0.2f, kHalfPi}, {0.5f, 0.2f, -kHalfPi}};
+    for (EulerOrder o : orders) {
+        for (const vec3& e : locks) {
+            const mat3 b = basisFromEuler(e, o);
+            CHECK(nm(basisFromEuler(basisGetEuler(b, o), o), b, 2e-3f));
+        }
+    }
+    // Single-axis rotations match the elementary rotation regardless of order.
+    for (EulerOrder o : orders) {
+        CHECK(nm(basisFromEuler(vec3(0.6f, 0, 0), o),
+                 glm::mat3_cast(glm::angleAxis(0.6f, vec3(1, 0, 0))), 1e-4f));
+        CHECK(nm(basisFromEuler(vec3(0, 0.6f, 0), o),
+                 glm::mat3_cast(glm::angleAxis(0.6f, vec3(0, 1, 0))), 1e-4f));
+        CHECK(nm(basisFromEuler(vec3(0, 0, 0.6f), o),
+                 glm::mat3_cast(glm::angleAxis(0.6f, vec3(0, 0, 1))), 1e-4f));
+    }
+    // YXZ order must match the existing Quaternion YXZ convention (Godot's default).
+    for (const vec3& e : samples) {
+        CHECK(nm(basisFromEuler(e, EulerOrder::YXZ), Quaternion::fromEuler(e).toMat3(), 1e-4f));
+    }
+}
+
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
 void testSdf() {
     const int W = 24, H = 24;
@@ -22447,6 +22498,7 @@ int main() {
     testTransform3D();
     testProjection();
     testQuaternion();
+    testEulerOrder();
     testVectorInt();
     testVector4();
     testHash();
