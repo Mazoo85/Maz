@@ -66,6 +66,7 @@
 #include "maz/core/LogSinks.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Pcg32.hpp"
+#include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
 #include "maz/core/Random.hpp"
@@ -11832,6 +11833,55 @@ void testPcg32() {
     CHECK(f >= 0.0f && f < 1.0f);
 }
 
+void testPoissonDisk() {
+    using core::poissonDiskSample;
+    using math::vec2;
+
+    const vec2 lo(0, 0), hi(100, 100);
+    const float radius = 8.0f;
+
+    auto pts = poissonDiskSample(lo, hi, radius, 12345);
+    CHECK(pts.size() > 20); // dense coverage
+
+    // Every point in bounds; no two closer than the radius.
+    for (std::size_t i = 0; i < pts.size(); ++i) {
+        CHECK((pts[i].x >= lo.x && pts[i].x < hi.x && pts[i].y >= lo.y && pts[i].y < hi.y));
+        for (std::size_t j = i + 1; j < pts.size(); ++j) {
+            const float dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            CHECK(std::sqrt(dx * dx + dy * dy) >= radius - 1e-3f);
+        }
+    }
+
+    // Deterministic for a fixed seed.
+    auto pts2 = poissonDiskSample(lo, hi, radius, 12345);
+    CHECK(pts2.size() == pts.size());
+    bool identical = pts2.size() == pts.size();
+    for (std::size_t i = 0; i < pts.size() && identical; ++i) {
+        identical = (pts[i].x == pts2[i].x && pts[i].y == pts2[i].y);
+    }
+    CHECK(identical);
+
+    // A different seed changes the layout.
+    auto pts3 = poissonDiskSample(lo, hi, radius, 999);
+    bool differs = pts3.size() != pts.size();
+    for (std::size_t i = 0; i < pts.size() && !differs; ++i) {
+        differs = (pts[i].x != pts3[i].x || pts[i].y != pts3[i].y);
+    }
+    CHECK(differs);
+
+    // Count is under the hexagonal packing upper bound.
+    const double maxPack = (100.0 * 100.0) / (0.5 * std::sqrt(3.0) * radius * radius);
+    CHECK(static_cast<double>(pts.size()) <= maxPack + 1.0);
+
+    // Degenerate inputs -> empty.
+    CHECK(poissonDiskSample(lo, lo, radius, 1).empty());
+    CHECK(poissonDiskSample(lo, hi, 0.0f, 1).empty());
+    CHECK(poissonDiskSample(lo, hi, -5.0f, 1).empty());
+
+    // Radius larger than the whole box -> just the seed point.
+    CHECK(poissonDiskSample(vec2(0, 0), vec2(5, 5), 100.0f, 7).size() == 1);
+}
+
 // Overlap3D: exact sphere overlap queries + conservative swept-sphere cast against AABBs.
 void testOverlap3D() {
     using maz::game::Aabb;
@@ -20367,6 +20417,7 @@ int main() {
     testGlyphCache();
     testGraphEdit();
     testPcg32();
+    testPoissonDisk();
     testOverlap3D();
     testChunkStreamer();
     testSpriteOrder();

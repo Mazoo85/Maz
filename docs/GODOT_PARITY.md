@@ -33,7 +33,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `Geometry2D.triangulate_delaunay`: empty-circumcircle-verified, robust double-precision predicate),
   **Voronoi cells** (M258, `math::voronoiCells` — the Delaunay dual, beyond Godot which has none;
   half-plane intersection clipped to a box, verified to partition the box and place each grid point in
-  its nearest site's cell).
+  its nearest site's cell), **Poisson-disk (blue-noise) sampling** (M259, `core::poissonDiskSample` —
+  Bridson's algorithm, beyond Godot; deterministic min-distance scatter for natural object placement,
+  verified min-distance + in-bounds + packing-bound + seed-determinism).
 - **3D rendering (CPU-verifiable parts):** PBR (Cook-Torrance GGX, metallic/roughness), analytic
   IBL, tonemap operators incl. **AgX**, bloom, SSAO, MSAA, fog, shadow mapping w/ PCF, frustum
   culling, instancing, billboards, procedural primitives, glTF scenes.
