@@ -259,6 +259,31 @@ int main() {
         check(!dd.sync(), "delay tempo sync defaults to off");
     }
 
+    // --- Tempo-synced tremolo (trance gate): rate tracks the transport -------
+    {
+        audio::Tremolo t;
+        t.setSync(true);
+        // At 120 BPM (2 beats/s): 1/4 = 2 Hz, 1/8 = 4 Hz, 1/16 = 8 Hz.
+        t.setSyncDivision(2); // 1/4
+        t.updateTempo(120.0);
+        check(std::fabs(t.rate() - 2.0f) < 0.01f, "synced tremolo runs at 2 Hz for 1/4 @120 BPM");
+        t.setSyncDivision(3); // 1/8
+        t.updateTempo(120.0);
+        check(std::fabs(t.rate() - 4.0f) < 0.01f, "1/8 division doubles the gate rate");
+        t.setSyncDivision(5); // 1/16
+        t.updateTempo(140.0);
+        check(std::fabs(t.rate() - (140.0f / 60.0f * 4.0f)) < 0.01f,
+              "the synced rate follows the BPM and division");
+
+        audio::Tremolo m;
+        m.setRate(7.0f);
+        m.updateTempo(120.0);
+        check(std::fabs(m.rate() - 7.0f) < 1e-3f, "tremolo updateTempo is a no-op when sync is off");
+
+        audio::Tremolo dd;
+        check(!dd.sync(), "tremolo tempo sync defaults to off");
+    }
+
     // --- De-esser: ducks the high band, leaves the low band alone ------------
     {
         // A loud high-frequency tone (well above the crossover) should be attenuated; a low tone

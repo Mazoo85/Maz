@@ -308,7 +308,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
       << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
-      << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << "\n";
+      << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << " "
+      << (mixer.tremolo().sync() ? 1 : 0) << " " << mixer.tremolo().syncDivision() << "\n";
     f << "fx stereodelay " << (mixer.stereoDelay().enabled() ? 1 : 0) << " "
       << mixer.stereoDelay().leftMs() << " " << mixer.stereoDelay().rightMs() << " "
       << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << "\n";
@@ -758,6 +759,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.tremolo().setRate(rate);
                 mixer.tremolo().setDepth(depth);
                 mixer.tremolo().setShape(shape == 1 ? Tremolo::Shape::Square : Tremolo::Shape::Sine);
+                int sync = 0, div = 3; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.tremolo().setSync(sync != 0);
+                    mixer.tremolo().setSyncDivision(div);
+                }
             } else if (which == "stereodelay") {
                 float lms = 250.0f, rms = 375.0f, fb = 0.4f, mix = 0.3f;
                 ls >> lms >> rms >> fb >> mix;

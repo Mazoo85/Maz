@@ -898,6 +898,36 @@ void Tremolo::reset() {
     phase_ = 0.0;
 }
 
+namespace {
+// Each tremolo sync division as LFO cycles per beat (a quarter note = 1 cycle per beat).
+constexpr float kTremCyclesPerBeat[Tremolo::kSyncDivisions] = {
+    0.25f, // 1/1
+    0.5f,  // 1/2
+    1.0f,  // 1/4
+    2.0f,  // 1/8
+    3.0f,  // 1/8T
+    4.0f,  // 1/16
+};
+constexpr const char* kTremDivName[Tremolo::kSyncDivisions] = {
+    "1/1", "1/2", "1/4", "1/8", "1/8T", "1/16",
+};
+} // namespace
+
+const char* Tremolo::syncDivisionName(int div) {
+    if (div < 0 || div >= kSyncDivisions) {
+        return "?";
+    }
+    return kTremDivName[div];
+}
+
+void Tremolo::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    // rate (Hz) = beats/second × cycles-per-beat.
+    rateHz_ = static_cast<float>(bpm / 60.0 * static_cast<double>(kTremCyclesPerBeat[syncDiv_]));
+}
+
 void Tremolo::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;

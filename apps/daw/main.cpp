@@ -1516,6 +1516,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(140.0f);
         if (ImGui::Combo("shape##trem", &shape, shapes, 2))
             mx.tremolo().setShape(static_cast<audio::Tremolo::Shape>(shape));
+        bool tsync = mx.tremolo().sync();
+        if (ImGui::Checkbox("Sync##trem", &tsync)) mx.tremolo().setSync(tsync);
+        ImGui::SameLine();
+        int tdiv = mx.tremolo().syncDivision();
+        const char* tdivNames[audio::Tremolo::kSyncDivisions];
+        for (int d = 0; d < audio::Tremolo::kSyncDivisions; ++d)
+            tdivNames[d] = audio::Tremolo::syncDivisionName(d);
+        ImGui::SetNextItemWidth(80.0f);
+        if (ImGui::Combo("div##trem", &tdiv, tdivNames, audio::Tremolo::kSyncDivisions))
+            mx.tremolo().setSyncDivision(tdiv);
     }
     {
         bool en = mx.stereoDelay().enabled();

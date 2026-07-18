@@ -599,6 +599,15 @@ public:
     void setRate(float hz) { rateHz_ = hz < 0.05f ? 0.05f : (hz > 30.0f ? 30.0f : hz); }
     void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     void setShape(Shape s) { shape_ = s; }
+    // Tempo sync: when on, the LFO rate tracks the transport tempo at the chosen note division
+    // (a synced trance gate). Call updateTempo() each block with the current BPM to recompute the rate.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int div) { syncDiv_ = div < 0 ? 0 : (div >= kSyncDivisions ? kSyncDivisions - 1 : div); }
+    void updateTempo(double bpm); // recompute rateHz_ from bpm + division when sync is on
+    static constexpr int kSyncDivisions = 6;
+    static const char* syncDivisionName(int div);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
     float rate() const { return rateHz_; }
     float depth() const { return depth_; }
     Shape shape() const { return shape_; }
@@ -610,6 +619,8 @@ private:
     float rateHz_ = 5.0f;
     float depth_ = 0.5f;
     Shape shape_ = Shape::Sine;
+    bool sync_ = false; // tempo-sync the LFO rate
+    int syncDiv_ = 3;   // note-division index (default 1/8)
     double phase_ = 0.0; // LFO phase in [0, 1)
 };
 
