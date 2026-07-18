@@ -895,6 +895,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     float velCut = syn.velToCutoff();
     if (ImGui::SliderFloat("Vel->Cutoff", &velCut, 0.0f, 15000.0f, "%.0f Hz"))
         syn.setVelToCutoff(velCut);
+    float keyTrack = syn.filterKeyTrack();
+    if (ImGui::SliderFloat("Key track", &keyTrack, 0.0f, 1.0f, "%.2f"))
+        syn.setFilterKeyTrack(keyTrack);
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();

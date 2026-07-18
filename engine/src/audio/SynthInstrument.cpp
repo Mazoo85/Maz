@@ -254,8 +254,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             // Resonant low-pass (subtractive character): the amp envelope and the note's velocity
             // both open the cutoff (velocity sensitivity → harder hits sound brighter).
             if (filterCutoff_ < 19000.0f) {
-                const float cutoff =
-                    filterCutoff_ + filterEnvAmt_ * v.env + velCutoff_ * v.velocity;
+                float cutoff = filterCutoff_ + filterEnvAmt_ * v.env + velCutoff_ * v.velocity;
+                // Keyboard tracking: raise the cutoff with the note's pitch (relative to middle C) so
+                // high notes stay bright. At amount 1 the cutoff tracks pitch fully (an octave up
+                // doubles it); 0 = fixed cutoff.
+                if (filterKeyTrack_ > 0.0f) {
+                    cutoff *= std::pow(2.0f, filterKeyTrack_ * static_cast<float>(v.midi - 60) / 12.0f);
+                }
                 osc = v.filter.process(osc, cutoff, filterReso_, sampleRate,
                                        StateVariableFilter::Mode::LowPass);
             }

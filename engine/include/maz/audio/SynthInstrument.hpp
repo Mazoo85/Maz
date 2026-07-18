@@ -170,6 +170,14 @@ public:
     void setVelToCutoff(float hz) { velCutoff_ = hz < 0.0f ? 0.0f : (hz > 15000.0f ? 15000.0f : hz); }
     float velToCutoff() const { return velCutoff_; }
 
+    // Filter keyboard tracking (0..1): how much the cutoff follows the note's pitch (relative to
+    // middle C). 1 = full tracking (an octave up doubles the cutoff, so high notes stay bright);
+    // 0 = fixed cutoff. Only has an effect when the filter is engaged.
+    void setFilterKeyTrack(float amount) {
+        filterKeyTrack_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+    }
+    float filterKeyTrack() const { return filterKeyTrack_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
@@ -232,6 +240,7 @@ private:
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
+    float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
     Waveform subWave_ = Waveform::Sine;
     int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true

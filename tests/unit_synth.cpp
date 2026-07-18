@@ -453,6 +453,29 @@ int main() {
               "velocity opens the filter (harder notes are brighter)");
         audio::SynthInstrument dvc;
         check(dvc.velToCutoff() == 0.0f, "velocity→cutoff defaults to 0");
+
+        // Filter key tracking: for a high note, tracking raises the cutoff → brighter than no
+        // tracking (measured on the same note, so only the tracking differs).
+        auto keyBright = [&](float track) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(600.0f, 0.7f, 0.0f); // low fixed cutoff
+            s.setFilterKeyTrack(track);
+            s.noteOn(84, 1.0f); // C6, two octaves above middle C
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(keyBright(1.0f) > keyBright(0.0f) * 1.3,
+              "filter key tracking opens the cutoff for high notes");
+        audio::SynthInstrument dkt;
+        check(dkt.filterKeyTrack() == 0.0f, "filter key tracking defaults to 0");
     }
 
     // --- Wavetable synthesis -------------------------------------------------
