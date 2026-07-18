@@ -32,6 +32,11 @@ public:
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
+    // Per-instrument octave shift (-2..+2): transposes the whole synth by whole octaves, on top of
+    // the notes it is played. 0 = no shift.
+    void setOctave(int oct) { octave_ = oct < -2 ? -2 : (oct > 2 ? 2 : oct); }
+    int octave() const { return octave_; }
+
     // Velocity → amplitude sensitivity (0..1): how much a note's velocity affects its loudness. 1
     // (default) = velocity fully sets the level (as before); 0 = every note plays at full level
     // regardless of velocity.
@@ -211,6 +216,7 @@ private:
     SynthMode mode_ = SynthMode::Subtractive;
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
+    int octave_ = 0;       // per-instrument octave shift (-2..+2)
     float velSens_ = 1.0f; // velocity → amplitude depth; 1 = full (default)
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;

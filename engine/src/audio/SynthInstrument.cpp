@@ -106,6 +106,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const double wtLfoInc = static_cast<double>(wtLfoRate_) / static_cast<double>(sampleRate);
     // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
     const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
+    // Per-instrument octave shift as a frequency multiplier (2^octave).
+    const double octMul = std::pow(2.0, static_cast<double>(octave_));
 
     for (Voice& v : voices_) {
         if (v.stage == Stage::Off) {
@@ -132,8 +134,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.pitchEnv = 0.0f;
                 }
             }
-            const double phaseInc =
-                static_cast<double>(v.freq) * vibMul * pitchMul / static_cast<double>(sampleRate);
+            const double phaseInc = static_cast<double>(v.freq) * vibMul * pitchMul * octMul /
+                                    static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 v.env += attackStep;

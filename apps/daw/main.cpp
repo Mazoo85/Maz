@@ -849,6 +849,9 @@ void buildSynthUI(audio::Sequencer& seq) {
         }
     }
 
+    int octave = syn.octave();
+    if (ImGui::SliderInt("Octave", &octave, -2, 2)) syn.setOctave(octave);
+
     ImGui::SeparatorText("Envelope");
     float a = syn.attack();
     float d = syn.decay();

@@ -210,6 +210,29 @@ int main() {
         check(dv.velSensitivity() == 1.0f, "velocity sensitivity defaults to 1 (full)");
     }
 
+    // --- Per-instrument octave shift -----------------------------------------
+    {
+        auto crossings = [&](int octave) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOctave(octave);
+            s.noteOn(57, 1.0f); // A3 = 220 Hz
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            int c = 0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                if (out[i - 1] <= 0.0f && out[i] > 0.0f) ++c;
+            }
+            return c;
+        };
+        const int base = crossings(0);
+        const int up = crossings(1);
+        check(base > 0, "synth sounds at the played octave");
+        check(up > base * 1.7, "an octave-up shift roughly doubles the pitch");
+        audio::SynthInstrument doct;
+        check(doct.octave() == 0, "octave shift defaults to 0");
+    }
+
     // --- Wavetable scan LFO --------------------------------------------------
     {
         // Default frames run dark→bright (Sine→…→Square). With the LFO scanning the position, a
