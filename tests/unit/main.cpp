@@ -167,6 +167,7 @@
 #include "maz/ui/PopupMenu.hpp"
 #include "maz/ui/ColorPicker.hpp"
 #include "maz/ui/Controls.hpp"
+#include "maz/ui/FileDialog.hpp"
 #include "maz/ui/TabContainer.hpp"
 #include "maz/ui/DragAndDrop.hpp"
 #include "maz/ui/Range.hpp"
@@ -3824,6 +3825,122 @@ void testColorPicker() {
         CHECK(c7.recent().size() == 3);
         CHECK_NEAR(c7.recent().front().r, 0.3f, 1e-4f);
     }
+}
+
+void testFileDialog() {
+    using ui::FileDialog;
+    using ui::FileDialogMode;
+    using ui::FileEntry;
+
+    // In-memory tree captured by the lister lambda.
+    std::map<std::string, std::vector<FileEntry>> fs = {
+        {"/", {{"home", true}, {"etc", true}, {"readme.txt", false}}},
+        {"/home",
+         {{"docs", true},
+          {"photo.png", false},
+          {"photo.jpg", false},
+          {"notes.txt", false},
+          {".secret", false},
+          {"archive.PNG", false}}},
+        {"/home/docs", {{"report.pdf", false}, {"cv.txt", false}}},
+    };
+    auto lister = [fs](const std::string& dir) -> std::vector<FileEntry> {
+        auto it = fs.find(dir);
+        return it != fs.end() ? it->second : std::vector<FileEntry>{};
+    };
+    auto has = [](const FileDialog& fd, const std::string& name) {
+        for (const auto& e : fd.entries()) {
+            if (e.name == name) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    FileDialog fd(lister, "/");
+    CHECK(fd.currentDir() == "/");
+    CHECK(fd.entries().size() == 3);
+    CHECK((fd.entries()[0].isDir && fd.entries()[1].isDir));   // dirs first
+    CHECK((fd.entries()[0].name == "etc" && fd.entries()[1].name == "home"));
+    CHECK(fd.entries()[2].name == "readme.txt");
+
+    // Navigate + hidden-file toggle.
+    CHECK(fd.enterDir("home"));
+    CHECK(fd.currentDir() == "/home");
+    CHECK(!has(fd, ".secret"));
+    fd.setShowHidden(true);
+    CHECK(has(fd, ".secret"));
+    fd.setShowHidden(false);
+    CHECK(!has(fd, ".secret"));
+    CHECK(!fd.enterDir("photo.png")); // not a dir
+    CHECK(!fd.enterDir("nope"));
+
+    // Case-insensitive extension filter; dirs always shown.
+    fd.addFilter("*.png", "PNG images");
+    CHECK(fd.filterCount() == 1);
+    CHECK(fd.currentFilter() == 0);
+    CHECK(has(fd, "photo.png"));
+    CHECK(has(fd, "archive.PNG"));
+    CHECK(!has(fd, "photo.jpg"));
+    CHECK(!has(fd, "notes.txt"));
+    CHECK(has(fd, "docs"));
+
+    // Multi-pattern filter and "all files".
+    fd.addFilter("*.jpg,*.txt", "JPG or text");
+    fd.setCurrentFilter(1);
+    CHECK(has(fd, "photo.jpg"));
+    CHECK(has(fd, "notes.txt"));
+    CHECK(!has(fd, "photo.png"));
+    fd.setCurrentFilter(-1);
+    CHECK((has(fd, "photo.png") && has(fd, "photo.jpg") && has(fd, "notes.txt")));
+
+    std::vector<std::string> out;
+
+    // OpenFile needs a real visible file.
+    fd.setMode(FileDialogMode::OpenFile);
+    CHECK(!fd.confirm(out));
+    CHECK(!fd.selectFile("nope.png"));
+    CHECK(fd.selectFile("photo.png"));
+    CHECK(fd.confirm(out));
+    CHECK((out.size() == 1 && out[0] == "/home/photo.png"));
+
+    // OpenDir returns the current dir.
+    fd.setMode(FileDialogMode::OpenDir);
+    CHECK(fd.confirm(out));
+    CHECK((out.size() == 1 && out[0] == "/home"));
+
+    // OpenFiles multi-select toggle.
+    fd.setMode(FileDialogMode::OpenFiles);
+    CHECK(!fd.confirm(out));
+    CHECK(fd.toggleSelect("photo.png"));
+    CHECK(fd.toggleSelect("photo.jpg"));
+    CHECK(fd.selectedFiles().size() == 2);
+    CHECK(fd.confirm(out));
+    CHECK(out.size() == 2);
+    CHECK(!fd.toggleSelect("photo.png")); // toggles off
+    CHECK(fd.selectedFiles().size() == 1);
+
+    // SaveFile: default extension appended from the active filter.
+    fd.setMode(FileDialogMode::SaveFile);
+    fd.setCurrentFilter(0); // *.png
+    fd.setCurrentFile("newimage");
+    CHECK(fd.confirm(out));
+    CHECK((out.size() == 1 && out[0] == "/home/newimage.png"));
+    fd.setCurrentFile("explicit.dat");
+    CHECK(fd.confirm(out));
+    CHECK(out[0] == "/home/explicit.dat");
+    fd.setCurrentFile("");
+    CHECK(!fd.confirm(out));
+
+    // Navigation up + path normalization.
+    fd.setCurrentFilter(-1);
+    fd.setCurrentDir("/home/docs");
+    CHECK(fd.entries().size() == 2);
+    CHECK((fd.goUp() && fd.currentDir() == "/home"));
+    CHECK((fd.goUp() && fd.currentDir() == "/"));
+    CHECK(!fd.goUp());
+    fd.setCurrentDir("/home//docs/");
+    CHECK(fd.currentDir() == "/home/docs");
 }
 
 void testTabContainer() {
@@ -19895,6 +20012,7 @@ int main() {
     testDragAndDrop();
     testColorPicker();
     testTabContainer();
+    testFileDialog();
     testStyleBox();
     testTheme();
     testTree();

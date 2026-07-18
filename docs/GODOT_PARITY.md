@@ -161,7 +161,7 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
 ### 8. UI (Control) library  [CPU mostly]
 Maz has a strong slice (LayoutNode, containers, Tree, ItemList, PopupMenu, TextField, StyleBox,
 Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
-- [~] **[CPU]** TabContainer, GraphEdit/GraphNode, RichTextLabel effects, FileDialog, ColorPicker,
+- [x] **[CPU]** TabContainer, GraphEdit/GraphNode, RichTextLabel effects, FileDialog, ColorPicker,
   SpinBox, OptionButton, Tree editing, drag-and-drop between controls
   — **GraphEdit/GraphNode done** (M241): `ui::GraphEdit` — the node-graph model behind visual
   scripting / the shader graph / blend trees. Nodes with named input/output ports + canvas position;
@@ -191,7 +191,16 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   exactly one *selectable* tab current (or -1), supports disabled tabs (shown-but-greyed) and hidden
   tabs (dropped from the strip), and re-points `current` to a selectable neighbour whenever a tab is
   disabled/hidden/removed. Verified across disable/hide/remove, navigation skipping, and clamp edge
-  cases. The FileDialog *widget* remains.
+  cases. **FileDialog done** (M253): `ui::FileDialog` — Godot's FileDialog model. To stay pure and
+  disk-free it takes a directory-lister callback (dir → entries), so the widget/platform layer supplies
+  the real filesystem and tests inject an in-memory tree. Handles current-directory navigation
+  (enterDir/goUp with path normalisation), name filters (`*.png`, comma-separated `*.jpg,*.txt`,
+  case-insensitive extension match, dirs always shown, all-files fallback), hidden-file toggle,
+  dirs-before-files sorting, single/multi selection, and mode-specific confirmation for the four Godot
+  file modes (OpenFile / OpenFiles / OpenDir / SaveFile, with SaveFile appending the active filter's
+  extension when the typed name has none). Verified end-to-end over an in-memory tree. **This closes
+  the UI-widgets parity item** — every listed control (TabContainer, GraphEdit, FileDialog,
+  ColorPicker, SpinBox, OptionButton, drag-and-drop, Tree editing) now has a CPU model.
 - [x] **[CPU]** Full theme system (per-control theme overrides, theme types)
   (M250): extended `ui::Theme` with **theme type variations** (Godot's `theme_type_variation` /
   theme type inheritance) — `setTypeVariation(type, base)` chains a variation onto a base type, and
