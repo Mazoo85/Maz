@@ -51,6 +51,25 @@ inline T cubicInterpolate(const T& from, const T& to, const T& pre, const T& pos
            0.5f;
 }
 
+// Time-parametrised Catmull-Rom — Godot's @GlobalScope.cubic_interpolate_in_time /
+// Vector*.cubic_interpolate_in_time. Same four samples as cubicInterpolate, but each neighbour sits
+// at its own time (preT < 0 < toT < postT, with `from` anchored at t=0) rather than being evenly
+// spaced. This is the Barry-Goldman pyramid of nested lerps, and it reproduces Godot's non-uniform
+// animation-keyframe interpolation. When the times are uniform (preT=-1, toT=1, postT=2) it collapses
+// back onto the ordinary cubicInterpolate.
+template <typename T>
+inline T cubicInterpolateInTime(const T& from, const T& to, const T& pre, const T& post, float w,
+                                float toT, float preT, float postT) {
+    auto lerpT = [](const T& a, const T& b, float t) { return a + (b - a) * t; };
+    const float t = toT * w; // lerp(0, toT, w)
+    const T a1 = lerpT(pre, from, preT == 0.0f ? 0.0f : (t - preT) / -preT);
+    const T a2 = lerpT(from, to, toT == 0.0f ? 0.5f : t / toT);
+    const T a3 = lerpT(to, post, (postT - toT) == 0.0f ? 1.0f : (t - toT) / (postT - toT));
+    const T b1 = lerpT(a1, a2, (toT - preT) == 0.0f ? 0.0f : (t - preT) / (toT - preT));
+    const T b2 = lerpT(a2, a3, postT == 0.0f ? 1.0f : t / postT);
+    return lerpT(b1, b2, toT == 0.0f ? 0.5f : t / toT);
+}
+
 // Cubic Bézier interpolation with two control points — Godot's Vector2.bezier_interpolate.
 template <typename T>
 inline T bezierInterpolate(const T& start, const T& c1, const T& c2, const T& end, float t) {

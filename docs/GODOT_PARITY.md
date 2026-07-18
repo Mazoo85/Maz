@@ -30,7 +30,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::octahedronEncode` / `octahedronDecode`, Godot's Vector3.octahedron_encode/decode: pack a unit
   normal into a vec2 for G-buffers / compressed vertex data, round-trips to ~1e-3), plus **cubic/bezier interpolation** (M279 —
   cubicInterpolate Catmull-Rom, bezierInterpolate, bezierDerivative for scalars + vec2/vec3, matching
-  Godot's Vector2/3.cubic_interpolate / bezier_interpolate / bezier_derivative), semantics verified
+  Godot's Vector2/3.cubic_interpolate / bezier_interpolate / bezier_derivative; M320 adds
+  cubicInterpolateInTime — the time-parametrised (non-uniform) Catmull-Rom via the Barry-Goldman
+  pyramid, Godot's cubic_interpolate_in_time, verified to collapse onto the uniform cubicInterpolate
+  when the sample times are evenly spaced), semantics verified
   against Godot's own source so GDScript-ported logic behaves identically), Transform2D (incl. **apply-relative methods** M278 —
   translated/rotated/scaled with global & _local variants matching Godot's Transform2D), **Transform3D** (M268,
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with

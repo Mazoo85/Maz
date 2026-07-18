@@ -13090,6 +13090,25 @@ void testVectorOps() {
     CHECK(near2(math::cubicInterpolate(vec2(0, 0), vec2(2, 2), vec2(-2, -2), vec2(4, 4), 1.0f), vec2(2, 2)));
     CHECK(near3(math::bezierInterpolate(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 0, 2), vec3(0, 0, 3), 0.5f),
                 vec3(0, 0, 1.5f)));
+
+    // --- M320: time-parametrised cubic (Barry-Goldman) ---
+    // Endpoints exact for any time layout.
+    CHECK_NEAR(math::cubicInterpolateInTime(2.0f, 9.0f, -3.0f, 20.0f, 0.0f, 1.0f, -0.5f, 2.5f), 2.0f, 1e-4f);
+    CHECK_NEAR(math::cubicInterpolateInTime(2.0f, 9.0f, -3.0f, 20.0f, 1.0f, 1.0f, -0.5f, 2.5f), 9.0f, 1e-4f);
+    // Uniform time layout collapses onto the ordinary cubicInterpolate.
+    for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.1f) {
+        CHECK_NEAR(math::cubicInterpolateInTime(1.5f, 4.0f, 0.0f, 7.0f, w, 1.0f, -1.0f, 2.0f),
+                   math::cubicInterpolate(1.5f, 4.0f, 0.0f, 7.0f, w), 1e-4f);
+    }
+    // Vector overload matches the uniform version and hits endpoints.
+    CHECK(near2(math::cubicInterpolateInTime(vec2(0, 0), vec2(2, 4), vec2(-1, -1), vec2(3, 9), 0.5f,
+                                             1.0f, -1.0f, 2.0f),
+                math::cubicInterpolate(vec2(0, 0), vec2(2, 4), vec2(-1, -1), vec2(3, 9), 0.5f)));
+    CHECK(near2(math::cubicInterpolateInTime(vec2(0, 0), vec2(2, 4), vec2(-1, -1), vec2(3, 9), 1.0f,
+                                             1.0f, -1.0f, 2.0f),
+                vec2(2, 4)));
+    // Degenerate (all-zero) times take the guarded fallbacks without dividing by zero.
+    CHECK(std::isfinite(math::cubicInterpolateInTime(1.0f, 5.0f, 1.0f, 5.0f, 0.5f, 0.0f, 0.0f, 0.0f)));
 }
 
 // Transform3D: Godot's Basis+origin spatial transform — xform/xformInv, compose, affine/rigid
