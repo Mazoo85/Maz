@@ -20,6 +20,7 @@ enum class AutoTarget {
     DelayMix,
     DistDrive,
     StereoWidth,
+    SynthCutoff,
     Count
 };
 

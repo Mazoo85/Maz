@@ -138,6 +138,29 @@ int main() {
         check(eng.mixer().widener().width() < 0.1f, "stereo-width automation reaches its low bound");
     }
 
+    // --- Synth-cutoff target: sweeps the lead synth's own resonant filter ----
+    {
+        audio::Automation autom;
+        audio::AutoLane& sc = autom.lane(audio::AutoTarget::SynthCutoff);
+        sc.enabled = true;
+        sc.lfo.shape = audio::Waveform::Sine;
+        sc.lfo.rateHz = 1.0f;
+        sc.lo = 300.0f;
+        sc.hi = 7000.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        eng.sequencer().synth().setFilter(1000.0f, 5.0f, 0.0f); // known resonance to preserve
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.sequencer().synth().filterCutoff() > 6800.0f,
+              "automating synth cutoff sweeps the lead filter to the high bound");
+        check(std::fabs(eng.sequencer().synth().filterResonance() - 5.0f) < 1e-3f,
+              "synth-cutoff automation preserves the filter resonance");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.sequencer().synth().filterCutoff() < 400.0f,
+              "synth-cutoff automation reaches its low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

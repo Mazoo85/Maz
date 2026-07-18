@@ -51,6 +51,8 @@ Automation::Automation() {
     lane(AutoTarget::DistDrive).hi = 10.0f;
     lane(AutoTarget::StereoWidth).lo = 0.0f;
     lane(AutoTarget::StereoWidth).hi = 2.0f;
+    lane(AutoTarget::SynthCutoff).lo = 200.0f;
+    lane(AutoTarget::SynthCutoff).hi = 8000.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -73,6 +75,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Distortion Drive";
     case AutoTarget::StereoWidth:
         return "Stereo Width";
+    case AutoTarget::SynthCutoff:
+        return "Synth Cutoff";
     case AutoTarget::Count:
         break;
     }
@@ -123,6 +127,13 @@ void Automation::apply(AudioEngine& engine, double timeSeconds) {
             engine.mixer().widener().setEnabled(true);
             engine.mixer().widener().setWidth(v);
             break;
+        case AutoTarget::SynthCutoff: {
+            // Sweep the lead synth's own resonant filter cutoff (the classic lead filter automation),
+            // preserving its resonance and envelope amount.
+            SynthInstrument& syn = engine.sequencer().synth();
+            syn.setFilter(v, syn.filterResonance(), syn.filterEnvAmount());
+            break;
+        }
         case AutoTarget::Count:
             break;
         }
