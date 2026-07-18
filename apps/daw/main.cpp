@@ -703,6 +703,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Vel ramp")) {
         roll.velocityRamp(rampFrom, rampTo);
     }
+    ImGui::SameLine();
+    static int chopPieces = 4;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputInt("##choppieces", &chopPieces, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Chop")) {
+        roll.chop(chopPieces);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

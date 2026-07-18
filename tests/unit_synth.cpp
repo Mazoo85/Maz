@@ -1079,6 +1079,37 @@ int main() {
         check(vr.velocityRamp(0.5f, 0.5f) >= 0, "a flat ramp is well-defined");
     }
 
+    // --- Chop ----------------------------------------------------------------
+    {
+        // An 8-step note chopped into 4 becomes four 2-step notes at 0,2,4,6, same pitch/velocity.
+        audio::PianoRoll cr;
+        cr.addNote(audio::Note{0, 8, 60, 0.8f});
+        const int chopped = cr.chop(4);
+        check(chopped == 1 && cr.notes().size() == 4, "chop splits a note into the requested pieces");
+        auto& ns = cr.notes();
+        bool spacing = true, sameData = true;
+        for (int p = 0; p < 4; ++p) {
+            if (ns[static_cast<size_t>(p)].startStep != p * 2 ||
+                ns[static_cast<size_t>(p)].lengthSteps != 2) {
+                spacing = false;
+            }
+            if (ns[static_cast<size_t>(p)].pitch != 60 ||
+                std::fabs(ns[static_cast<size_t>(p)].velocity - 0.8f) > 1e-6f) {
+                sameData = false;
+            }
+        }
+        check(spacing, "chopped pieces are evenly spaced and equal length");
+        check(sameData, "chopped pieces keep the source pitch and velocity");
+
+        // A note too short to split into whole-step pieces is left untouched; pieces < 2 is a no-op.
+        audio::PianoRoll sr2;
+        sr2.addNote(audio::Note{0, 3, 62, 1.0f});
+        check(sr2.chop(4) == 0 && sr2.notes().size() == 1, "a note shorter than pieces is not chopped");
+        audio::PianoRoll np;
+        np.addNote(audio::Note{0, 8, 64, 1.0f});
+        check(np.chop(1) == 0 && np.notes().size() == 1, "chop with <2 pieces is a no-op");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

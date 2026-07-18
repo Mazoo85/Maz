@@ -361,6 +361,31 @@ int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::chop(int pieces) {
+    if (pieces < 2) {
+        return 0;
+    }
+    std::vector<Note> out;
+    out.reserve(notes_.size());
+    int chopped = 0;
+    for (const Note& n : notes_) {
+        if (n.lengthSteps >= pieces) {
+            const int pieceLen = n.lengthSteps / pieces; // ≥ 1 since lengthSteps ≥ pieces
+            for (int p = 0; p < pieces; ++p) {
+                Note c = n;
+                c.startStep = n.startStep + p * pieceLen;
+                c.lengthSteps = pieceLen;
+                out.push_back(c);
+            }
+            ++chopped;
+        } else {
+            out.push_back(n); // too short to split into whole-step pieces
+        }
+    }
+    notes_ = std::move(out);
+    return chopped;
+}
+
 int PianoRoll::velocityRamp(float fromVel, float toVel) {
     if (notes_.empty()) {
         return 0;

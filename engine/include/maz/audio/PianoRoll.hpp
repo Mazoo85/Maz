@@ -118,6 +118,12 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Chop: split each note into `pieces` (2..) equal, evenly-spaced shorter notes of the same pitch
+    // and velocity — the classic note-repeat / stutter / roll from a held note. A note is only chopped
+    // if it is at least `pieces` steps long (so every piece is ≥ 1 step); shorter notes are left as-is.
+    // pieces < 2 is a no-op. Returns the number of notes that were chopped.
+    int chop(int pieces);
+
     // Velocity ramp: set a linear velocity gradient across the phrase in time — the first-starting
     // note gets `fromVel`, the last-starting note `toVel`, everything in between interpolated by its
     // start position (so a crescendo `0.2 → 1.0` swells over the bar, or the reverse fades out). Notes
