@@ -50,7 +50,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   distortion modes, compressor, limiter), spatial 2D/3D, synth/oscillator, spectrum/FFT, WAV.
 - **Animation:** skeletons + GPU-ready skinning, clips, blend spaces/trees, state machines,
   timelines, IK (2-bone, FABRIK), root motion, tweening.
-- **AI/nav:** A* grid + AStar2D, navmesh, steering, flow fields, RVO avoidance, behavior trees +
+- **AI/nav:** A* grid + AStar2D + AStar3D (M261, `game::AStar3D` — 3D weighted-graph twin of AStar2D:
+  ids/positions, weights, one-/two-way links, id/point paths, closest-point / closest-in-segment),
+  navmesh, steering, flow fields, RVO avoidance, behavior trees +
   blackboard, GOAP planner.
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).

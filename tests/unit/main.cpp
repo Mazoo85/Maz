@@ -94,6 +94,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
+#include "maz/game/AStar3D.hpp"
 #include "maz/game/Bvh.hpp"
 #include "maz/game/Octree.hpp"
 #include "maz/game/Quadtree.hpp"
@@ -1092,6 +1093,86 @@ void testAStar2D() {
         CHECK_NEAR(seg2.x, 10.0f, 1e-4f);
         CHECK_NEAR(seg2.y, 0.0f, 1e-4f);
     }
+}
+
+void testAStar3D() {
+    using game::AStar3D;
+    using math::vec3;
+
+    AStar3D a;
+    a.addPoint(1, vec3(0, 0, 0));
+    a.addPoint(2, vec3(10, 0, 0));
+    a.addPoint(3, vec3(10, 10, 0));
+    a.addPoint(4, vec3(0, 10, 0));
+    CHECK(a.pointCount() == 4);
+    CHECK((a.hasPoint(1) && !a.hasPoint(99)));
+
+    a.connectPoints(1, 2);
+    a.connectPoints(2, 3);
+    a.connectPoints(3, 4);
+    a.connectPoints(4, 1);
+    CHECK((a.arePointsConnected(1, 2) && a.arePointsConnected(2, 1)));
+    CHECK(!a.arePointsConnected(1, 3));
+
+    // 1->3 around the loop: 3 ids, correct endpoints.
+    auto path = a.getIdPath(1, 3);
+    CHECK(path.size() == 3);
+    CHECK((path.front() == 1 && path.back() == 3));
+    auto pp = a.getPointPath(1, 3);
+    CHECK(pp.size() == 3);
+    CHECK_NEAR(pp[2].x, 10.0f, 1e-4f);
+    CHECK_NEAR(pp[2].y, 10.0f, 1e-4f);
+
+    // Diagonal shortcut wins on cost.
+    a.addPoint(5, vec3(5, 5, 0));
+    a.connectPoints(1, 5);
+    a.connectPoints(5, 3);
+    auto path2 = a.getIdPath(1, 3);
+    CHECK((path2.size() == 3 && path2[1] == 5));
+
+    // Expensive weight reroutes away from 5.
+    a.setPointWeightScale(5, 100.0f);
+    CHECK(a.getIdPath(1, 3)[1] != 5);
+    a.setPointWeightScale(5, 1.0f);
+
+    // One-way edge reachability.
+    a.addPoint(10, vec3(-5, 0, 0));
+    a.connectPoints(10, 1, false);
+    CHECK((a.arePointsConnected(10, 1) && !a.arePointsConnected(1, 10)));
+    CHECK(!a.getIdPath(10, 3).empty());
+    CHECK(a.getIdPath(3, 10).empty());
+
+    // 3D closest-point uses z.
+    {
+        AStar3D b;
+        b.addPoint(1, vec3(0, 0, 0));
+        b.addPoint(2, vec3(0, 0, 10));
+        b.addPoint(3, vec3(0, 0, 5));
+        CHECK(b.getClosestPoint(vec3(0, 0, 4)) == 3);
+        CHECK(b.getClosestPoint(vec3(0, 0, 9)) == 2);
+    }
+
+    // Closest position on a 3D segment.
+    {
+        AStar3D b;
+        b.addPoint(1, vec3(0, 0, 0));
+        b.addPoint(2, vec3(10, 0, 0));
+        b.connectPoints(1, 2);
+        auto p = b.getClosestPositionInSegment(vec3(5, 3, 0));
+        CHECK_NEAR(p.x, 5.0f, 1e-4f);
+        CHECK_NEAR(p.y, 0.0f, 1e-4f);
+        CHECK_NEAR(p.z, 0.0f, 1e-4f);
+    }
+
+    // Missing endpoint / self path.
+    CHECK(a.getIdPath(1, 999).empty());
+    auto self = a.getIdPath(2, 2);
+    CHECK((self.size() == 1 && self[0] == 2));
+
+    // removePoint sweeps incoming edges.
+    a.removePoint(5);
+    CHECK(!a.hasPoint(5));
+    CHECK(!a.arePointsConnected(1, 5));
 }
 
 void testGeometry2D() {
@@ -20363,6 +20444,7 @@ int main() {
     testForceField2D();
     testExpression();
     testAStar2D();
+    testAStar3D();
     testGeometry2D();
     testTransform2D();
     testRemoteTransform2D();
