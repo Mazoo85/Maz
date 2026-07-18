@@ -339,6 +339,38 @@ void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
 
+void Sequencer::rotateChannel(int channel, int offset) {
+    if (channel < 0 || channel >= numChannels() || numSteps_ <= 0) {
+        return;
+    }
+    const int n = numSteps_;
+    int off = offset % n;
+    if (off < 0) {
+        off += n;
+    }
+    if (off == 0) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t base = static_cast<size_t>(channel) * static_cast<size_t>(n);
+    // Rotate one channel's slice of a parallel row (grid / prob / ratchet), if it is allocated.
+    auto rotateRow = [&](std::vector<uint8_t>& v) {
+        if (v.size() != p.grid.size()) {
+            return; // prob/ratchet may be unallocated (all-default) → nothing to move
+        }
+        std::vector<uint8_t> row(static_cast<size_t>(n));
+        for (int s = 0; s < n; ++s) {
+            row[static_cast<size_t>((s + off) % n)] = v[base + static_cast<size_t>(s)];
+        }
+        for (int s = 0; s < n; ++s) {
+            v[base + static_cast<size_t>(s)] = row[static_cast<size_t>(s)];
+        }
+    };
+    rotateRow(p.grid);
+    rotateRow(p.prob);
+    rotateRow(p.ratchet);
+}
+
 void Sequencer::clear() {
     Pattern& p = patterns_[static_cast<size_t>(current_)];
     std::fill(p.grid.begin(), p.grid.end(), static_cast<uint8_t>(0));

@@ -499,6 +499,12 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("##drive", &drive, 0.0f, 1.0f, "dr%.2f"))
             seq.setChannelDrive(c, drive);
         ImGui::SameLine();
+        ImGui::PushID(c * 7 + 5);
+        if (ImGui::SmallButton("<")) seq.rotateChannel(c, -1);
+        ImGui::SameLine();
+        if (ImGui::SmallButton(">")) seq.rotateChannel(c, 1);
+        ImGui::PopID();
+        ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
             ImGui::PushID(c * 1000 + s);
             const bool on = seq.step(c, s);

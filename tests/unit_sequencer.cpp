@@ -708,6 +708,37 @@ int main() {
         check(d.channelDrive(0) == 0.0f, "channel drive defaults to 0");
     }
 
+    // --- Channel rotate: shift a step row around the bar ---------------------
+    {
+        audio::Sequencer s;
+        s.setStep(0, 0, true);
+        s.setStep(0, 1, true);
+        s.setStepRatchet(0, 0, 3); // travels with step 0
+        s.rotateChannel(0, 2);     // shift later by 2
+        check(!s.step(0, 0) && !s.step(0, 1) && s.step(0, 2) && s.step(0, 3),
+              "rotate shifts the step row later");
+        check(s.stepRatchet(0, 2) == 3, "rotate carries the per-step ratchet with its step");
+
+        // Wraparound: the last step rolls to the front.
+        audio::Sequencer w;
+        const int last = w.numSteps() - 1;
+        w.setStep(0, last, true);
+        w.rotateChannel(0, 1);
+        check(w.step(0, 0) && !w.step(0, last), "rotate wraps around the pattern length");
+
+        // Negative offset shifts earlier.
+        audio::Sequencer nb;
+        nb.setStep(0, 2, true);
+        nb.rotateChannel(0, -2);
+        check(nb.step(0, 0) && !nb.step(0, 2), "a negative rotate shifts the row earlier");
+
+        // A full-length rotate is a no-op.
+        audio::Sequencer fr;
+        fr.setStep(0, 5, true);
+        fr.rotateChannel(0, fr.numSteps());
+        check(fr.step(0, 5), "rotating by the full length leaves the row unchanged");
+    }
+
     // --- Choke: a voice can be silenced mid-ring -----------------------------
     {
         audio::DrumVoice oh;

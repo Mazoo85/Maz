@@ -207,6 +207,11 @@ public:
     int stepRatchet(int channel, int step) const;
     void setStepRatchet(int channel, int step, int count);
 
+    // Rotate a channel's whole step row by `offset` steps with wraparound (positive = later, negative
+    // = earlier), carrying each step's velocity, probability, and ratchet along with it. A quick way
+    // to shift a groove around the bar.
+    void rotateChannel(int channel, int offset);
+
     // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
