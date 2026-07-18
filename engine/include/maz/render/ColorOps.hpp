@@ -243,4 +243,76 @@ inline Color color8(int r, int g, int b, int a = 255) {
                  static_cast<float>(b) / 255.0f, static_cast<float>(a) / 255.0f};
 }
 
+// ---- OKLab / OKLCh perceptual colour space (M304) --------------------------------------------
+//
+// OKLab (Björn Ottosson, 2020) is the perceptually-uniform colour space that underpins Godot 4's
+// OKHSL colour picker (Color.from_ok_hsl) and CSS Color 4's oklab()/oklch(). Equal steps in OKLab
+// look like equal perceptual steps, so it is the correct space for lightening/darkening, generating
+// palettes, and blending two colours without the muddy grey mid-point that linear- or sRGB-space
+// mixing produces. render::Color here is LINEAR RGBA, which is exactly the input the OKLab matrices
+// expect, so no sRGB decode happens inside these functions — feed a linear colour, get OKLab back.
+//
+// L is lightness (0 = black, ~1 = reference white); a is green(-)/red(+); b is blue(-)/yellow(+).
+// OKLCh is the polar form of OKLab: the same L, plus chroma C (colourfulness, >= 0) and hue h in
+// RADIANS. The transforms are exact inverses (round-trip to floating-point precision).
+
+struct Oklab {
+    float L = 0.0f; // lightness  [0, ~1]
+    float a = 0.0f; // green(-) .. red(+)
+    float b = 0.0f; // blue(-) .. yellow(+)
+    float alpha = 1.0f;
+};
+
+struct Oklch {
+    float L = 0.0f;     // lightness  [0, ~1]
+    float C = 0.0f;     // chroma (colourfulness), >= 0
+    float h = 0.0f;     // hue in radians, atan2(b, a)
+    float alpha = 1.0f;
+};
+
+// Linear RGBA -> OKLab (Ottosson's M1 cone response + non-linearity + M2 matrix).
+inline Oklab linearToOklab(const Color& c) {
+    const float l = 0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b;
+    const float m = 0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b;
+    const float s = 0.0883024619f * c.r + 0.2817188376f * c.g + 0.6299787005f * c.b;
+    const float l_ = std::cbrt(l);
+    const float m_ = std::cbrt(m);
+    const float s_ = std::cbrt(s);
+    return Oklab{0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
+                 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
+                 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_, c.a};
+}
+
+// OKLab -> linear RGBA (exact inverse of linearToOklab). May land slightly outside [0,1] for
+// out-of-gamut OKLab values; clamp afterwards if a displayable colour is required.
+inline Color oklabToLinear(const Oklab& c) {
+    const float l_ = c.L + 0.3963377774f * c.a + 0.2158037573f * c.b;
+    const float m_ = c.L - 0.1055613458f * c.a - 0.0638541728f * c.b;
+    const float s_ = c.L - 0.0894841775f * c.a - 1.2914855480f * c.b;
+    const float l = l_ * l_ * l_;
+    const float m = m_ * m_ * m_;
+    const float s = s_ * s_ * s_;
+    return Color{4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+                 -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+                 -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s, c.alpha};
+}
+
+// OKLab <-> OKLCh (Cartesian <-> polar in the a/b plane). Hue is in radians.
+inline Oklch oklabToOklch(const Oklab& c) {
+    return Oklch{c.L, std::sqrt(c.a * c.a + c.b * c.b), std::atan2(c.b, c.a), c.alpha};
+}
+inline Oklab oklchToOklab(const Oklch& c) {
+    return Oklab{c.L, c.C * std::cos(c.h), c.C * std::sin(c.h), c.alpha};
+}
+
+// Perceptually-uniform blend of two linear colours: mix in OKLab, not in RGB. t=0 -> a, t=1 -> b.
+// This is what gives smooth, natural-looking gradients (the reason Godot 4 offers OKLab gradient
+// interpolation). Result is a linear Color; clamp if you need it strictly in gamut.
+inline Color oklabMix(const Color& a, const Color& b, float t) {
+    const Oklab la = linearToOklab(a);
+    const Oklab lb = linearToOklab(b);
+    return oklabToLinear(Oklab{la.L + (lb.L - la.L) * t, la.a + (lb.a - la.a) * t,
+                               la.b + (lb.b - la.b) * t, la.alpha + (lb.alpha - la.alpha) * t});
+}
+
 } // namespace maz::render

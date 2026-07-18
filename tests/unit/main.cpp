@@ -885,6 +885,58 @@ void testColorOps() {
     CHECK(render::isEqualApprox(render::colorFromString("#ff0000", fb),
                                render::color8(255, 0, 0), 1e-3f));
     CHECK(render::isEqualApprox(render::colorFromString("bogus!!", fb), fb, 1e-6f));
+
+    // --- OKLab / OKLCh perceptual space (M304) ---
+    // Linear white -> OKLab L~1, a~0, b~0 (space anchored so D65 white is L=1); black -> all zero.
+    {
+        const render::Oklab w = render::linearToOklab(Color{1, 1, 1, 1});
+        CHECK_NEAR(w.L, 1.0f, 1e-3f);
+        CHECK_NEAR(w.a, 0.0f, 1e-3f);
+        CHECK_NEAR(w.b, 0.0f, 1e-3f);
+        const render::Oklab k = render::linearToOklab(Color{0, 0, 0, 1});
+        CHECK_NEAR(k.L, 0.0f, 1e-4f);
+        CHECK_NEAR(k.a, 0.0f, 1e-4f);
+        CHECK_NEAR(k.b, 0.0f, 1e-4f);
+    }
+    // Lightness is monotonic: black < mid-grey < white.
+    CHECK(render::linearToOklab(Color{0, 0, 0, 1}).L <
+          render::linearToOklab(Color{0.5f, 0.5f, 0.5f, 1}).L);
+    CHECK(render::linearToOklab(Color{0.5f, 0.5f, 0.5f, 1}).L <
+          render::linearToOklab(Color{1, 1, 1, 1}).L);
+    // Opponent-axis signs: red is +a, green is -a, blue is -b.
+    CHECK(render::linearToOklab(Color{1, 0, 0, 1}).a > 0.0f);
+    CHECK(render::linearToOklab(Color{0, 1, 0, 1}).a < 0.0f);
+    CHECK(render::linearToOklab(Color{0, 0, 1, 1}).b < 0.0f);
+    // Round-trip linear -> OKLab -> linear for a spread of colours.
+    {
+        const Color okSamples[] = {{0.2f, 0.7f, 0.4f, 1.0f}, {0.9f, 0.1f, 0.3f, 0.5f},
+                                   {0.05f, 0.05f, 0.8f, 1.0f}, {0.6f, 0.6f, 0.2f, 0.25f}};
+        for (const Color& s : okSamples) {
+            const Color okRt = render::oklabToLinear(render::linearToOklab(s));
+            CHECK(render::isEqualApprox(okRt, s, 2e-3f));
+        }
+    }
+    // OKLCh round-trip through OKLab; grey has ~zero chroma.
+    {
+        const Color s{0.3f, 0.6f, 0.9f, 0.8f};
+        const render::Oklab lab = render::linearToOklab(s);
+        const render::Oklch lch = render::oklabToOklch(lab);
+        CHECK(lch.C >= 0.0f);
+        CHECK_NEAR(lch.C, std::sqrt(lab.a * lab.a + lab.b * lab.b), 1e-5f);
+        const Color okRt = render::oklabToLinear(render::oklchToOklab(lch));
+        CHECK(render::isEqualApprox(okRt, s, 2e-3f));
+        CHECK(render::oklabToOklch(render::linearToOklab(Color{0.4f, 0.4f, 0.4f, 1})).C < 1e-3f);
+    }
+    // oklabMix: endpoints exact, midpoint lightness between the two.
+    {
+        const Color a{0.9f, 0.1f, 0.1f, 1}, b{0.1f, 0.1f, 0.9f, 1};
+        CHECK(render::isEqualApprox(render::oklabMix(a, b, 0.0f), a, 2e-3f));
+        CHECK(render::isEqualApprox(render::oklabMix(a, b, 1.0f), b, 2e-3f));
+        const float lmid = render::linearToOklab(render::oklabMix(a, b, 0.5f)).L;
+        const float la = render::linearToOklab(a).L, lb = render::linearToOklab(b).L;
+        CHECK(lmid > std::min(la, lb) - 1e-3f);
+        CHECK(lmid < std::max(la, lb) + 1e-3f);
+    }
 }
 
 void testAtlasPacker() {

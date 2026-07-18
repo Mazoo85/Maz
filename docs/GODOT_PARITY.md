@@ -302,7 +302,12 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   cleanup on node removal, and a Kahn `topologicalOrder` (empty on cycle). Verified across all of those.
   **ColorPicker colour math done** (M242): `render::ColorOps` — HSV<->RGB, hex `#rrggbb`/`#rrggbbaa`
   (+shorthand) parse/format, lighten/darken/lerp/invert, Rec.709 luminance, and sRGB<->linear transfer
-  functions, all verified against known colour identities. **SpinBox / OptionButton / TabBar done**
+  functions, all verified against known colour identities. **OKLab / OKLCh perceptual space done**
+  (M304): `render::linearToOklab`/`oklabToLinear`, `oklabToOklch`/`oklchToOklab`, and `oklabMix` — the
+  Björn Ottosson OKLab space that underpins Godot 4's OKHSL colour picker (`Color.from_ok_hsl`) and CSS
+  Color 4's `oklab()`/`oklch()`. Verified white→L≈1/a≈0/b≈0, black→0, monotonic lightness, opponent-axis
+  signs (red +a, green −a, blue −b), exact linear↔OKLab↔OKLCh round-trips, grey→zero chroma, and
+  perceptual `oklabMix` endpoints/midpoint lightness. (Full OKHSL gamut mapping is a planned follow-up.) **SpinBox / OptionButton / TabBar done**
   (M244): `ui::SpinBox` (a Range with step buttons + prefix/suffix text format/parse), `ui::OptionButton`
   (drop-down list with selected item, id lookup, disabled rejection, auto-select-first), and `ui::TabBar`
   (ordered tab strip with current tracking, disabled-skipping next/previous nav, removal that clamps
