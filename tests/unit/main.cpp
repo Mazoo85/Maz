@@ -114,6 +114,7 @@
 #include "maz/game/Parallax.hpp"
 #include "maz/game/ConvexHull3D.hpp"
 #include "maz/game/Csg.hpp"
+#include "maz/render/SurfaceNets.hpp"
 #include "maz/game/GridMap.hpp"
 #include "maz/game/HeightField3D.hpp"
 #include "maz/game/PathFollow2D.hpp"
@@ -6692,6 +6693,66 @@ void testCsg() {
     CHECK_NEAR(n.y, 0.0f, 1e-2f);
     math::vec3 n2 = game::sdfNormal(sph, math::vec3(0, 0, 1));
     CHECK_NEAR(n2.z, 1.0f, 1e-2f);
+}
+
+void testSurfaceNets() {
+    // Mesh a unit sphere SDF; every vertex must lie on the isosurface and the ring radius ~1.
+    game::Sdf sphere = game::sdSphere(math::vec3(0, 0, 0), 1.0f);
+    render::SdfMesh m = render::surfaceNets(sphere, math::vec3(-1.5f, -1.5f, -1.5f),
+                                            math::vec3(1.5f, 1.5f, 1.5f), 24);
+    CHECK(!m.empty());
+    CHECK(m.indices.size() % 3 == 0);
+    CHECK(m.normals.size() == m.positions.size());
+
+    const float cellSize = 3.0f / 24.0f;
+    float maxAbs = 0.0f, minR = 1e9f, maxR = 0.0f, minDot = 1e9f;
+    math::vec3 centroid(0.0f);
+    for (std::size_t i = 0; i < m.positions.size(); ++i) {
+        const math::vec3& p = m.positions[i];
+        maxAbs = std::max(maxAbs, std::fabs(sphere(p)));
+        const float r = std::sqrt(glm::dot(p, p));
+        minR = std::min(minR, r);
+        maxR = std::max(maxR, r);
+        centroid += p;
+        minDot = std::min(minDot, glm::dot(m.normals[i], glm::normalize(p)));
+    }
+    centroid /= static_cast<float>(m.positions.size());
+    CHECK(maxAbs < cellSize);            // every vertex sits on the surface within a cell
+    CHECK((minR > 0.9f && maxR < 1.1f)); // ring radius ~ 1
+    CHECK(std::fabs(centroid.x) < 0.05f);
+    CHECK(std::fabs(centroid.y) < 0.05f);
+    CHECK(std::fabs(centroid.z) < 0.05f);
+    CHECK(minDot > 0.9f); // normals point radially outward
+
+    // No orphan vertices (every vertex is referenced by a triangle).
+    std::vector<int> used(m.positions.size(), 0);
+    for (uint32_t idx : m.indices) {
+        used[static_cast<std::size_t>(idx)] = 1;
+    }
+    int orphans = 0;
+    for (int u : used) {
+        if (!u) {
+            ++orphans;
+        }
+    }
+    CHECK(orphans == 0);
+
+    // A CSG result (sphere minus box) meshes into one connected surface on the field.
+    game::Sdf carved =
+        game::opSubtract(game::sdSphere(math::vec3(0, 0, 0), 1.0f),
+                         game::sdBox(math::vec3(1, 0, 0), math::vec3(0.6f, 0.6f, 0.6f)));
+    render::SdfMesh m2 = render::surfaceNets(carved, math::vec3(-1.5f, -1.5f, -1.5f),
+                                             math::vec3(1.5f, 1.5f, 1.5f), 24);
+    CHECK(!m2.empty());
+    float maxAbs2 = 0.0f;
+    for (const math::vec3& p : m2.positions) {
+        maxAbs2 = std::max(maxAbs2, std::fabs(carved(p)));
+    }
+    CHECK(maxAbs2 < cellSize * 1.5f);
+
+    // A field that never crosses zero in the box, and res<1, both give an empty mesh.
+    CHECK(render::surfaceNets(sphere, math::vec3(5, 5, 5), math::vec3(6, 6, 6), 8).empty());
+    CHECK(render::surfaceNets(sphere, math::vec3(-1.5f), math::vec3(1.5f), 0).empty());
 }
 
 void testHeightField3D() {
@@ -18897,6 +18958,7 @@ int main() {
     testHdr();
     testConvexHull3D();
     testCsg();
+    testSurfaceNets();
     testHeightField3D();
     testTriMesh3D();
     testNoise();

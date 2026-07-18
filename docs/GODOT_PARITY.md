@@ -131,14 +131,18 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
 - [~] **[CPU]** GridMap (3D tile map) — **data model done** (M224): `game::GridMap` sparse cell→
   (tileId, orientation) store, set/clear/has/query, occupied-bounds, world↔cell floor-div mapping,
   packed signed 64-bit keys. [GPU] mesh-library instancing render deferred until there's a display.
-- [~] **[CPU]** CSG (constructive solid geometry) mesh ops — *pure mesh boolean math is [CPU]*
+- [x] **[CPU]** CSG (constructive solid geometry) mesh ops — *pure mesh boolean math is [CPU]*
   — **boolean core done** (M238): `game::Csg` — signed-distance-field CSG (Godot's CSGCombiner3D
   union/intersection/subtraction semantics). Primitives (sphere, box, rounded box, plane half-space,
   cylinder), the three booleans (union=min, intersect=max, subtract=max(a,-b)) plus smooth/rounded
   variants, translate/scale transforms, `inside()` containment, and `sdfNormal()` gradient normals.
   Exactly unit-tested by sampling distances (analytic sphere/box distances, shell subtraction,
-  fillet dip, radial normals). The triangle-mesh *output* (marching-cubes mesher over this field, i.e.
-  Godot's actual CSG mesh) remains.
+  fillet dip, radial normals). **Mesh output done** (M239): `render::surfaceNets` (Naive Surface Nets)
+  turns any CSG field into a watertight triangle mesh with per-vertex normals — one vertex per
+  surface-crossing cell, quads across sign-flipping edges. Verified: every meshed vertex lies on the
+  isosurface (within a cell), correct ring radius/centroid, outward normals, no orphan vertices, and a
+  sphere-minus-box CSG meshing into one connected surface. [GPU] upload of the resulting buffers is the
+  usual mesh path.
 - [ ] **[CPU]** MultiplayerSpawner/Synchronizer scene nodes (needs networking, below)
 
 ### 8. UI (Control) library  [CPU mostly]
