@@ -137,6 +137,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   heuristics (Euclidean/Manhattan/Octile/Chebyshev)),
   navmesh, steering, flow fields, RVO avoidance, behavior trees +
   blackboard, GOAP planner.
+- **Core value types:** a `core::Variant` (M293) — Godot's tagged any-value holding
+  Nil/Bool/Int/Float/String/Vector2/Vector3 with Godot-style coercion (asInt/asFloat), truthiness
+  (booleanize), value equality (numeric types compare across Bool/Int/Float) and stringify.
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).
 - **Tooling:** in-engine editor (viewport, gizmos, inspector, undo/redo, save/load, asset browser,

@@ -82,6 +82,7 @@
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
 #include "maz/core/StringUtils.hpp"
+#include "maz/core/Variant.hpp"
 #include "maz/ecs/Components.hpp"
 #include "maz/ecs/Scheduler.hpp"
 #include "maz/ecs/World.hpp"
@@ -10881,6 +10882,61 @@ void testStringId() {
         CHECK(t.size() == 0);
         CHECK(!t.contains("one"));
     }
+}
+
+// Variant: Godot's tagged any-value (M293) — type tag, coercion, truthiness, equality, stringify.
+void testVariant() {
+    using maz::core::Variant;
+    using maz::core::VariantType;
+    using maz::math::vec2;
+    using maz::math::vec3;
+
+    CHECK(Variant().type() == VariantType::Nil);
+    CHECK(Variant().isNil());
+    CHECK(Variant(true).type() == VariantType::Bool);
+    CHECK(Variant(42).type() == VariantType::Int);
+    CHECK(Variant(3.5).type() == VariantType::Float);
+    CHECK(Variant("hi").type() == VariantType::String);
+    CHECK(Variant(vec2(1, 2)).type() == VariantType::Vector2);
+    CHECK(Variant(vec3(1, 2, 3)).type() == VariantType::Vector3);
+
+    // coercion
+    CHECK(Variant(3.9).asInt() == 3);
+    CHECK(Variant("42").asInt() == 42);
+    CHECK(Variant(true).asInt() == 1);
+    CHECK(Variant(7).asFloat() == 7.0);
+    CHECK(Variant("2.5").asFloat() == 2.5);
+    CHECK(Variant("").asFloat() == 0.0);
+    CHECK(Variant(vec2(3, 4)).asVector2() == vec2(3, 4));
+    CHECK(Variant(vec3(1, 2, 3)).asVector3() == vec3(1, 2, 3));
+
+    // truthiness
+    CHECK(!Variant().booleanize());
+    CHECK((Variant(1).booleanize() && !Variant(0).booleanize()));
+    CHECK((Variant(0.1).booleanize() && !Variant(0.0).booleanize()));
+    CHECK((Variant("x").booleanize() && !Variant("").booleanize()));
+    CHECK((Variant(vec2(0, 1)).booleanize() && !Variant(vec2(0, 0)).booleanize()));
+    CHECK(!Variant(vec3(0, 0, 0)).booleanize());
+
+    // stringify
+    CHECK(Variant().stringify() == "null");
+    CHECK(Variant(true).stringify() == "true");
+    CHECK(Variant(42).stringify() == "42");
+    CHECK(Variant(3.5).stringify() == "3.5");
+    CHECK(Variant(2.0).stringify() == "2");
+    CHECK(Variant("hey").stringify() == "hey");
+    CHECK(Variant(vec2(1.5f, 2.0f)).stringify() == "(1.5, 2)");
+    CHECK(Variant(vec3(1.0f, 2.0f, 3.5f)).stringify() == "(1, 2, 3.5)");
+
+    // equality
+    CHECK(Variant(1) == Variant(1.0));    // numeric cross-type
+    CHECK(Variant(true) == Variant(1));
+    CHECK(Variant(2) != Variant(3));
+    CHECK((Variant("a") == Variant("a") && Variant("a") != Variant("b")));
+    CHECK(Variant() == Variant());
+    CHECK(Variant("1") != Variant(1));    // string vs number
+    CHECK(Variant(vec2(1, 2)) == Variant(vec2(1, 2)));
+    CHECK(Variant(vec3(1, 2, 3)) != Variant(vec3(1, 2, 4)));
 }
 
 void testStringUtils() {
@@ -21971,6 +22027,7 @@ int main() {
     testSignal();
     testStringId();
     testStringUtils();
+    testVariant();
     testSlotMap();
     testRingBuffer();
     testJobs();
