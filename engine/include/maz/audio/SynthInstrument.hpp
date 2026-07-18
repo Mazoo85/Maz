@@ -117,6 +117,10 @@ public:
     // (buzzy, more harmonics). Only matters when subLevel > 0.
     void setSubWaveform(Waveform w) { subWave_ = w; }
     Waveform subWaveform() const { return subWave_; }
+    // Sub-oscillator octave: how many octaves below the note the sub sits — 1 (default) or 2 (deeper,
+    // for sub-bass weight). Only matters when subLevel > 0.
+    void setSubOctave(int octavesDown) { subOctave_ = octavesDown >= 2 ? 2 : 1; }
+    int subOctave() const { return subOctave_; }
 
     // Hard sync: the 2nd oscillator becomes a "slave" running at `syncRatio` × the note frequency,
     // its phase force-reset to 0 every time the primary (master) oscillator completes a cycle. The
@@ -222,6 +226,7 @@ private:
     float filterEnvAmt_ = 0.0f;
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     Waveform subWave_ = Waveform::Sine;
+    int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true
     float syncRatio_ = 1.5f;    // slave frequency = note freq × this (when hard sync is on)
     float pulseWidth_ = 0.5f;   // square duty cycle; 0.5 = plain square

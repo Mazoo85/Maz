@@ -99,6 +99,10 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> osc2semi) {
         syn.setOsc2Semitones(osc2semi);
     }
+    int subOct = 1; // sub octave optional for old files
+    if (ls >> subOct) {
+        syn.setSubOctave(subOct);
+    }
 }
 } // namespace
 
@@ -154,7 +158,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
           << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << " "
-          << s.osc2Semitones() << "\n";
+          << s.osc2Semitones() << " " << s.subOctave() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

@@ -272,6 +272,34 @@ int main() {
               "a square sub-oscillator adds harmonics vs a sine sub");
         audio::SynthInstrument dsub;
         check(dsub.subWaveform() == audio::Waveform::Sine, "sub waveform defaults to sine");
+        check(dsub.subOctave() == 1, "sub octave defaults to 1");
+
+        // Sub octave: a two-octave-down sub makes the signal repeat at a longer period than a
+        // one-octave-down sub. Find the fundamental period via autocorrelation.
+        auto subPeriod = [&](int octave) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.0f, 0.9f, 0.0f); // strong sub (plus the sine carrier)
+            s.setSubOctave(octave);
+            s.noteOn(69, 1.0f); // A4 = 440 Hz → sub 220 (oct1) or 110 (oct2)
+            const std::vector<float> b = render(s, sampleRate / 2, sampleRate);
+            int bestLag = 0;
+            double best = -1.0;
+            for (int lag = 150; lag < 700; ++lag) { // skip the 440 Hz carrier period (~109)
+                double acc = 0.0;
+                for (size_t i = 0; i + static_cast<size_t>(lag) < b.size(); ++i) {
+                    acc += static_cast<double>(b[i]) * static_cast<double>(b[i + static_cast<size_t>(lag)]);
+                }
+                if (acc > best) {
+                    best = acc;
+                    bestLag = lag;
+                }
+            }
+            return bestLag;
+        };
+        check(subPeriod(2) > subPeriod(1) * 1.5,
+              "a two-octave-down sub repeats at a longer period than a one-octave sub");
 
         // Noise color: darkening the noise removes high-frequency energy.
         auto noiseRender = [&](float color) {

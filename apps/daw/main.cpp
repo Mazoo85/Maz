@@ -784,6 +784,11 @@ void buildSynthUI(audio::Sequencer& seq) {
         const char* subWaves[] = {"Sine", "Square", "Saw", "Triangle"};
         if (ImGui::Combo("Sub wave", &subw, subWaves, 4))
             syn.setSubWaveform(static_cast<audio::Waveform>(subw));
+        int subOct = syn.subOctave();
+        const char* subOcts[] = {"-1 oct", "-2 oct"};
+        int subOctIdx = subOct == 2 ? 1 : 0;
+        if (ImGui::Combo("Sub octave", &subOctIdx, subOcts, 2))
+            syn.setSubOctave(subOctIdx == 1 ? 2 : 1);
         float ncol = syn.noiseColor();
         if (ImGui::SliderFloat("Noise color", &ncol, 0.0f, 1.0f, "%.2f")) syn.setNoiseColor(ncol);
         bool sync = syn.hardSync();

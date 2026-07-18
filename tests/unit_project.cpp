@@ -66,6 +66,7 @@ int main() {
     seq.synth().setGlide(0.15f);
     seq.synth().setUnison(5, 18.0f);
     seq.synth().setSubWaveform(audio::Waveform::Square);
+    seq.synth().setSubOctave(2);
     seq.synth().setVibrato(6.0f, 25.0f);
     seq.synth().setNoiseColor(0.7f);
     seq.synth().setHardSync(true);
@@ -289,6 +290,7 @@ int main() {
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");
     check(seq2.synth().subWaveform() == audio::Waveform::Square, "sub waveform round-trips");
+    check(seq2.synth().subOctave() == 2, "sub octave round-trips");
     check(near(seq2.synth().vibratoRate(), 6.0f) && near(seq2.synth().vibratoDepth(), 25.0f),
           "vibrato round-trips");
     check(near(seq2.synth().noiseColor(), 0.7f), "noise color round-trips");

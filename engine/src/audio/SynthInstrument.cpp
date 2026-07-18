@@ -233,7 +233,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 if (subLevel_ > 0.0f) {
                     osc += waveSample(subWave_, v.subPhase) * subLevel_;
-                    v.subPhase += phaseInc * 0.5; // one octave down
+                    const double subMul = subOctave_ == 2 ? 0.25 : 0.5; // one or two octaves down
+                    v.subPhase += phaseInc * subMul;
                     if (v.subPhase >= 1.0) {
                         v.subPhase -= std::floor(v.subPhase);
                     }
