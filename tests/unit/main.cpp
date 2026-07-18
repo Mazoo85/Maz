@@ -48,6 +48,7 @@
 #include "maz/platform/Displays.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/net/BitStream.hpp"
+#include "maz/net/Reliability.hpp"
 #include "maz/render/CascadeSplits.hpp"
 #include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
@@ -5329,6 +5330,72 @@ void testBitStream() {
     w4.align();
     CHECK(w4.bitCount() == 8);
     CHECK(w4.byteCount() == 1);
+}
+
+void testReliability() {
+    using net::AckReceiver;
+    using net::AckSender;
+    using net::seqGreaterThan;
+
+    // Sequence wraparound comparator.
+    CHECK(seqGreaterThan(1, 0));
+    CHECK(!seqGreaterThan(0, 1));
+    CHECK(seqGreaterThan(0, 65535));      // wrapped forward
+    CHECK(!seqGreaterThan(65535, 0));
+    CHECK(seqGreaterThan(200, 100));
+
+    // Receiver in order: 0,1,2 -> ack=2, bit0=seq1, bit1=seq0.
+    AckReceiver rx;
+    rx.onReceived(0);
+    rx.onReceived(1);
+    rx.onReceived(2);
+    CHECK(rx.ack() == 2);
+    CHECK(rx.wasReceived(0));
+    CHECK(rx.wasReceived(1));
+    CHECK(rx.wasReceived(2));
+    CHECK(!rx.wasReceived(3));
+    CHECK((rx.ackBits() & 1u) != 0u);        // seq1
+    CHECK((rx.ackBits() & 2u) != 0u);        // seq0
+
+    // Out-of-order + a gap: receive 5 then 3 (4 is lost).
+    AckReceiver rx2;
+    rx2.onReceived(5);
+    rx2.onReceived(3);
+    CHECK(rx2.ack() == 5);
+    CHECK(rx2.wasReceived(5));
+    CHECK(rx2.wasReceived(3));
+    CHECK(!rx2.wasReceived(4)); // genuinely lost
+
+    // Sender: allocate 0,1,2; a peer that got 0 and 2 (not 1) acks two, leaves 1 in flight.
+    AckSender tx;
+    CHECK(tx.next() == 0);
+    CHECK(tx.next() == 1);
+    CHECK(tx.next() == 2);
+    CHECK(tx.inFlightCount() == 3);
+    AckReceiver peer;
+    peer.onReceived(0);
+    peer.onReceived(2); // 1 never arrived
+    const auto acked = tx.onAck(peer.ack(), peer.ackBits());
+    CHECK(acked.size() == 2);       // 0 and 2
+    CHECK(tx.inFlightCount() == 1); // 1 still unacked
+    CHECK(tx.inFlight(1));
+    CHECK(!tx.inFlight(0));
+    CHECK(!tx.inFlight(2));
+
+    // Full round-trip: everything received -> everything acked.
+    AckSender tx2;
+    AckReceiver peer2;
+    for (int i = 0; i < 10; ++i) {
+        peer2.onReceived(tx2.next());
+    }
+    const auto all = tx2.onAck(peer2.ack(), peer2.ackBits());
+    // ack + up to 32 bits covers all 10; the last 33 are resolvable.
+    CHECK(tx2.inFlightCount() == 0);
+    CHECK(all.size() == 10);
+
+    // Re-acking already-acked sequences yields nothing new.
+    const auto again = tx2.onAck(peer2.ack(), peer2.ackBits());
+    CHECK(again.empty());
 }
 
 void testProfiler() {
@@ -17099,6 +17166,7 @@ int main() {
     testInputTextAndDrop();
     testCascadeSplits();
     testBitStream();
+    testReliability();
     testNoise();
     testRandom();
     testInterpolate();

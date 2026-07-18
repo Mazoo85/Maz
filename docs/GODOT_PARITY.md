@@ -130,7 +130,10 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
 - [x] **[CPU]** Wire format: `net::BitStream` (BitWriter/BitReader) — bit-packed packet
   serialization (N-bit ints, quantizable floats, signed sign-extension, byte arrays, align,
   underflow-safe). M212. The compact encoding replication/RPC ride on.
-- [ ] **[CPU]** Reliable/unreliable transport abstraction (UDP + ENet-style ordering)
+- [x] **[CPU]** Reliability/ack layer: `net::Reliability` (seqGreaterThan wraparound comparator,
+  AckReceiver producing ack + 32-bit ack-bitfield, AckSender resolving in-flight → newly-acked).
+  M213. The reliable-over-UDP core (Fiedler/ENet model) — RTT + resend basis.
+- [ ] **[CPU]** UDP transport binding (SDL_net or BSD sockets) wiring the above to real packets
 - [ ] **[CPU]** Snapshot/delta replication, interpolation, client-side prediction + reconciliation
 - [ ] **[CPU]** RPC layer + scene-replication nodes
 - [ ] **[CPU]** WebSocket + WebRTC data channels
