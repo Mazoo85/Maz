@@ -209,4 +209,43 @@ inline vec3 snapped(const vec3& v, const vec3& step) {
     return vec3(snappedf(v.x, step.x), snappedf(v.y, step.y), snappedf(v.z, step.z));
 }
 
+// Spherical interpolation of `a` toward `to` by t — Godot's Vector2.slerp: rotates along the arc
+// between the two directions while linearly interpolating length. Falls back to a straight lerp when
+// either vector has zero length (a direction can't be defined).
+inline vec2 slerp(const vec2& a, const vec2& to, float t) {
+    const float startLenSq = dot(a, a);
+    const float endLenSq = dot(to, to);
+    if (startLenSq == 0.0f || endLenSq == 0.0f) {
+        return a + (to - a) * t;
+    }
+    const float startLen = std::sqrt(startLenSq);
+    const float resultLen = startLen + (std::sqrt(endLenSq) - startLen) * t;
+    const float ang = angleTo(a, to);
+    return rotated(a, ang * t) * (resultLen / startLen);
+}
+
+// Spherical interpolation of `a` toward `to` by t — Godot's Vector3.slerp. Rotates about the axis
+// perpendicular to both vectors (Rodrigues) while lerping length. Falls back to a straight lerp when
+// either vector is zero-length or the two are colinear (no rotation axis).
+inline vec3 slerp(const vec3& a, const vec3& to, float t) {
+    const float startLenSq = dot(a, a);
+    const float endLenSq = dot(to, to);
+    if (startLenSq == 0.0f || endLenSq == 0.0f) {
+        return a + (to - a) * t;
+    }
+    vec3 axis = cross(a, to);
+    const float axisLenSq = dot(axis, axis);
+    if (axisLenSq == 0.0f) {
+        return a + (to - a) * t; // colinear -> no rotation axis
+    }
+    axis /= std::sqrt(axisLenSq);
+    const float startLen = std::sqrt(startLenSq);
+    const float resultLen = startLen + (std::sqrt(endLenSq) - startLen) * t;
+    const float ang = angleTo(a, to) * t;
+    // Rodrigues' rotation of `a` about the unit `axis` by `ang`.
+    const float c = std::cos(ang), s = std::sin(ang);
+    const vec3 rotatedA = a * c + cross(axis, a) * s + axis * (dot(axis, a) * (1.0f - c));
+    return rotatedA * (resultLen / startLen);
+}
+
 } // namespace maz::math

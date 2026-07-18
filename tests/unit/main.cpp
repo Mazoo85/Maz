@@ -12611,6 +12611,28 @@ void testVectorOps() {
     CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
 
+    // --- vector slerp (M301): arc-interpolate direction, lerp length ---
+    {
+        const float inv2 = 0.70710678f;
+        // vec2: +X -> +Y halfway is 45 deg, unit length preserved.
+        const vec2 m = math::slerp(vec2(1, 0), vec2(0, 1), 0.5f);
+        CHECK(near2(m, vec2(inv2, inv2)));
+        CHECK_NEAR(length(m), 1.0f, 1e-3f);
+        CHECK(near2(math::slerp(vec2(1, 0), vec2(0, 1), 0.0f), vec2(1, 0)));
+        CHECK(near2(math::slerp(vec2(1, 0), vec2(0, 1), 1.0f), vec2(0, 1)));
+        // length lerps linearly (1 -> 3 halfway = 2).
+        CHECK_NEAR(length(math::slerp(vec2(1, 0), vec2(0, 3), 0.5f)), 2.0f, 1e-3f);
+        // zero-length -> lerp fallback.
+        CHECK(near2(math::slerp(vec2(0, 0), vec2(4, 0), 0.5f), vec2(2, 0)));
+        // vec3: +X -> +Y halfway 45 deg in XY, unit length.
+        const vec3 m3 = math::slerp(vec3(1, 0, 0), vec3(0, 1, 0), 0.5f);
+        CHECK(near3(m3, vec3(inv2, inv2, 0)));
+        CHECK_NEAR(length(m3), 1.0f, 1e-3f);
+        // colinear -> lerp fallback; length lerp on a rotated pair.
+        CHECK(near3(math::slerp(vec3(2, 0, 0), vec3(6, 0, 0), 0.5f), vec3(4, 0, 0)));
+        CHECK_NEAR(length(math::slerp(vec3(1, 0, 0), vec3(0, 3, 0), 0.5f)), 2.0f, 1e-3f);
+    }
+
     // --- cubic / bezier interpolation (M279) ---
     // bezier: endpoints exact; straight-line control points give the linear midpoint.
     CHECK_NEAR(math::bezierInterpolate(0.0f, 1.0f, 2.0f, 3.0f, 0.0f), 0.0f, 1e-4f);
