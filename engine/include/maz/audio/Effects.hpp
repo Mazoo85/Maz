@@ -540,6 +540,32 @@ private:
     int writePos_ = 0;
 };
 
+// A tremolo / trance-gate: an amplitude LFO that dips the level rhythmically. `rate` sets the LFO
+// speed (Hz), `depth` how deep the dips go (0 = none, 1 = down to silence), and `shape` picks a Sine
+// LFO (smooth tremolo) or Square LFO (a hard on/off trance gate). Both channels are modulated
+// together, so the stereo image is untouched. Off by default.
+class Tremolo : public Effect {
+public:
+    enum class Shape { Sine, Square };
+    Tremolo() { enabled_ = false; }
+    const char* name() const override { return "Tremolo"; }
+    void setRate(float hz) { rateHz_ = hz < 0.05f ? 0.05f : (hz > 30.0f ? 30.0f : hz); }
+    void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setShape(Shape s) { shape_ = s; }
+    float rate() const { return rateHz_; }
+    float depth() const { return depth_; }
+    Shape shape() const { return shape_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 5.0f;
+    float depth_ = 0.5f;
+    Shape shape_ = Shape::Sine;
+    double phase_ = 0.0; // LFO phase in [0, 1)
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

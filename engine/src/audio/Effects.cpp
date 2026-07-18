@@ -816,6 +816,33 @@ void CombResonator::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Tremolo ----------------------------------------------------------------
+
+void Tremolo::reset() {
+    phase_ = 0.0;
+}
+
+void Tremolo::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double inc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    for (int i = 0; i < frames; ++i) {
+        // Unipolar LFO in [0,1]: 1 = full level, 0 = fully dipped.
+        const float lfo = shape_ == Shape::Square
+                              ? (phase_ < 0.5 ? 1.0f : 0.0f)
+                              : 0.5f + 0.5f * static_cast<float>(std::sin(phase_ * kTwoPi));
+        const float gain = (1.0f - depth_) + depth_ * lfo; // depth 0 → unity (transparent)
+        stereo[2 * i] *= gain;
+        stereo[2 * i + 1] *= gain;
+        phase_ += inc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

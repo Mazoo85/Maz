@@ -680,6 +680,65 @@ int main() {
         check(same, "a disabled comb resonator is transparent");
     }
 
+    // --- Tremolo / trance-gate: rhythmic amplitude modulation ---------------
+    {
+        // A square-shaped tremolo at full depth gates a steady tone on and off, so windowed levels
+        // swing between ~full and ~silent.
+        audio::Tremolo trem;
+        trem.setEnabled(true);
+        trem.setRate(8.0f);
+        trem.setDepth(1.0f);
+        trem.setShape(audio::Tremolo::Shape::Square);
+        std::vector<float> b = sineStereo(sr, 300.0, 0.5, sr); // 1 s
+        trem.process(b.data(), sr, sr);
+        // Windowed RMS over 512-frame blocks: find the loudest and quietest window.
+        double loud = 0.0, quiet = 1e9;
+        const int win = 512;
+        for (int start = 0; start + win <= sr; start += win) {
+            double e = 0.0;
+            for (int i = 0; i < win; ++i) {
+                const float l = b[static_cast<size_t>((start + i) * 2)];
+                e += static_cast<double>(l) * l;
+            }
+            const double r = std::sqrt(e / win);
+            if (r > loud) loud = r;
+            if (r < quiet) quiet = r;
+        }
+        check(loud > 0.2, "trance-gate passes the signal at the LFO peak");
+        check(quiet < 0.02, "trance-gate silences the signal at the LFO trough");
+
+        // Depth 0 is unity gain (transparent) even while enabled.
+        audio::Tremolo flat;
+        flat.setEnabled(true);
+        flat.setDepth(0.0f);
+        std::vector<float> f = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> fref = f;
+        flat.process(f.data(), 1000, sr);
+        bool flatSame = true;
+        for (size_t i = 0; i < f.size(); ++i) {
+            if (std::fabs(f[i] - fref[i]) > 1e-6f) {
+                flatSame = false;
+                break;
+            }
+        }
+        check(flatSame, "a zero-depth tremolo is transparent");
+
+        // Disabled → transparent.
+        audio::Tremolo off;
+        off.setDepth(1.0f);
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled tremolo is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

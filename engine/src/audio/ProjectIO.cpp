@@ -241,6 +241,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autowah().releaseMs() << "\n";
     f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
       << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
+    f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
+      << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
@@ -607,6 +609,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.comb().setFrequency(freq);
                 mixer.comb().setFeedback(fb);
                 mixer.comb().setMix(mix);
+            } else if (which == "tremolo") {
+                float rate = 5.0f, depth = 0.5f;
+                int shape = 0;
+                ls >> rate >> depth >> shape;
+                mixer.tremolo().setEnabled(en != 0);
+                mixer.tremolo().setRate(rate);
+                mixer.tremolo().setDepth(depth);
+                mixer.tremolo().setShape(shape == 1 ? Tremolo::Shape::Square : Tremolo::Shape::Sine);
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;

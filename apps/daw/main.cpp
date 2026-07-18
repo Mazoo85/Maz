@@ -1280,6 +1280,23 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##comb", &mix, 0.0f, 1.0f, "%.2f")) mx.comb().setMix(mix);
     }
+    {
+        bool en = mx.tremolo().enabled();
+        if (ImGui::Checkbox("Tremolo", &en)) mx.tremolo().setEnabled(en);
+        float rate = mx.tremolo().rate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("Hz##trem", &rate, 0.05f, 30.0f, "%.2f")) mx.tremolo().setRate(rate);
+        float depth = mx.tremolo().depth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("depth##trem", &depth, 0.0f, 1.0f, "%.2f")) mx.tremolo().setDepth(depth);
+        int shape = static_cast<int>(mx.tremolo().shape());
+        const char* shapes[] = {"Sine", "Square (gate)"};
+        ImGui::SetNextItemWidth(140.0f);
+        if (ImGui::Combo("shape##trem", &shape, shapes, 2))
+            mx.tremolo().setShape(static_cast<audio::Tremolo::Shape>(shape));
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {
