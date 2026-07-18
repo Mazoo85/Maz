@@ -190,6 +190,7 @@
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Transform2D.hpp"
+#include "maz/math/Transform3D.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
@@ -11981,6 +11982,73 @@ void testVectorOps() {
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
 }
 
+// Transform3D: Godot's Basis+origin spatial transform — xform/xformInv, compose, affine/rigid
+// inverse, translated/rotated/scaled (global + local), lookingAt, interpolateWith, mat4 interop.
+void testTransform3D() {
+    using math::vec3;
+    using T = math::Transform3D;
+    const float kPi = 3.14159265358979f;
+    auto near3 = [](vec3 a, vec3 b, float e = 1e-4f) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
+    };
+
+    // Identity and translation.
+    CHECK(near3(T().xform(vec3(1, 2, 3)), vec3(1, 2, 3)));
+    CHECK(near3(T::translation(vec3(5, 0, 0)).xform(vec3(1, 2, 3)), vec3(6, 2, 3)));
+
+    // Rotation 90 deg about +Y sends +X to -Z (right-handed).
+    CHECK(near3(T::rotation(vec3(0, 1, 0), kPi / 2).xform(vec3(1, 0, 0)), vec3(0, 0, -1)));
+
+    // xform_inv (orthonormal) and rigid inverse both undo the transform.
+    {
+        const T t = T::rotation(vec3(0, 1, 0), 0.7f).translated(vec3(3, -2, 5));
+        CHECK(near3(t.xformInv(t.xform(vec3(1, 2, 3))), vec3(1, 2, 3)));
+        const T ti = t.inverse();
+        CHECK(near3((t * ti).xform(vec3(4, 5, 6)), vec3(4, 5, 6)));
+    }
+    // affine_inverse handles scale.
+    {
+        const T t = T::scaling(vec3(2, 3, 4)).translated(vec3(1, 1, 1));
+        CHECK(near3(t.affineInverse().xform(t.xform(vec3(2, 2, 2))), vec3(2, 2, 2)));
+    }
+    // Composition applies the right operand first: (A*B) point = A(B(point)).
+    {
+        const T ab = T::translation(vec3(10, 0, 0)) * T::rotation(vec3(0, 0, 1), kPi / 2);
+        CHECK(near3(ab.xform(vec3(1, 0, 0)), vec3(10, 1, 0)));
+    }
+    // Global vs local translate after a 90-deg Y rotation (local +X == world -Z).
+    {
+        const T t = T::rotation(vec3(0, 1, 0), kPi / 2);
+        CHECK(near3(t.translatedLocal(vec3(1, 0, 0)).origin, vec3(0, 0, -1)));
+        CHECK(near3(t.translated(vec3(1, 0, 0)).origin, vec3(1, 0, 0)));
+    }
+    // Scale and getScale (recovered even through a rotation).
+    CHECK(near3(T::scaling(vec3(2, 3, 4)).getScale(), vec3(2, 3, 4)));
+    CHECK(near3((T::rotation(vec3(0, 1, 0), 0.6f) * T::scaling(vec3(2, 3, 4))).getScale(),
+                vec3(2, 3, 4), 1e-3f));
+    // orthonormalized strips scale (columns become unit length).
+    CHECK_NEAR(length(T::scaling(vec3(2, 2, 2)).orthonormalized().basis[0]), 1.0f, 1e-4f);
+
+    // lookingAt aims -Z at the target.
+    CHECK(near3(normalize(T().lookingAt(vec3(5, 0, 0)).basisXform(vec3(0, 0, -1))), vec3(1, 0, 0)));
+
+    // interpolateWith: endpoints exact, midpoint origin halfway, rotation stays unit-length.
+    {
+        const T a;
+        const T b = T::rotation(vec3(0, 1, 0), kPi / 2).translated(vec3(10, 0, 0));
+        CHECK(near3(a.interpolateWith(b, 0.0f).xform(vec3(1, 0, 0)), a.xform(vec3(1, 0, 0))));
+        CHECK(near3(a.interpolateWith(b, 1.0f).xform(vec3(1, 0, 0)), b.xform(vec3(1, 0, 0)), 1e-3f));
+        const T ih = a.interpolateWith(b, 0.5f);
+        CHECK(near3(ih.origin, vec3(5, 0, 0)));
+        CHECK_NEAR(length(ih.basisXform(vec3(1, 0, 0))), 1.0f, 1e-3f);
+    }
+    // mat4 interop round-trips.
+    {
+        const T t = T::rotation(vec3(0, 1, 0), 0.9f).translated(vec3(1, 2, 3));
+        CHECK(near3(T::fromMat4(t.toMat4()).xform(vec3(2, 3, 4)), t.xform(vec3(2, 3, 4))));
+    }
+}
+
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
 void testSdf() {
     const int W = 24, H = 24;
@@ -20959,6 +21027,7 @@ int main() {
     testGeometry3D();
     testGeometry3DHelpers();
     testVectorOps();
+    testTransform3D();
     testSdf();
     testGlyphCache();
     testGraphEdit();
