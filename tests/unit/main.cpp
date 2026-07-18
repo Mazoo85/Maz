@@ -11642,6 +11642,68 @@ void testGeometry3D() {
     CHECK(!a.contains(vec3(0.6f, 0, 0)));
 }
 
+void testGeometry3DHelpers() {
+    using math::vec3;
+
+    auto nearV = [](vec3 a, vec3 b, float e = 1e-3f) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
+    };
+
+    // closestPointToSegment: project in the middle, clamp at the ends.
+    CHECK(nearV(math::closestPointToSegment(vec3(5, 3, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(5, 0, 0)));
+    CHECK(nearV(math::closestPointToSegment(vec3(-5, 0, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(0, 0, 0)));
+    CHECK(nearV(math::closestPointToSegment(vec3(15, 0, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(10, 0, 0)));
+
+    // closestPointsBetweenSegments: skew segments (gap of 4 along z).
+    {
+        vec3 c1, c2;
+        math::closestPointsBetweenSegments(vec3(0, 0, 0), vec3(10, 0, 0), vec3(5, -5, 4),
+                                           vec3(5, 5, 4), c1, c2);
+        CHECK(nearV(c1, vec3(5, 0, 0)));
+        CHECK(nearV(c2, vec3(5, 0, 4)));
+        CHECK_NEAR(length(c2 - c1), 4.0f, 1e-3f);
+    }
+    // Parallel segments.
+    {
+        vec3 c1, c2;
+        math::closestPointsBetweenSegments(vec3(0, 0, 0), vec3(10, 0, 0), vec3(0, 2, 0),
+                                           vec3(10, 2, 0), c1, c2);
+        CHECK_NEAR(length(c2 - c1), 2.0f, 1e-3f);
+    }
+
+    const vec3 ta(-1, -1, 0), tb(3, -1, 0), tc(-1, 3, 0); // triangle in z=0 covering the origin
+
+    // rayIntersectsTriangle: hit, wrong-direction miss, outside miss.
+    {
+        auto hit = math::rayIntersectsTriangle(vec3(0, 0, 5), vec3(0, 0, -1), ta, tb, tc);
+        CHECK((hit.has_value() && nearV(*hit, vec3(0, 0, 0))));
+        CHECK(!math::rayIntersectsTriangle(vec3(0, 0, 5), vec3(0, 0, 1), ta, tb, tc).has_value());
+        CHECK(!math::rayIntersectsTriangle(vec3(5, 5, 5), vec3(0, 0, -1), ta, tb, tc).has_value());
+    }
+
+    // segmentIntersectsTriangle: crossing hit vs stopping short.
+    {
+        auto hit = math::segmentIntersectsTriangle(vec3(0, 0, 5), vec3(0, 0, -5), ta, tb, tc);
+        CHECK((hit.has_value() && nearV(*hit, vec3(0, 0, 0))));
+        CHECK(!math::segmentIntersectsTriangle(vec3(0, 0, 5), vec3(0, 0, 1), ta, tb, tc).has_value());
+    }
+
+    // segmentIntersectsSphere: near-surface entry, from-inside exit, miss, too-short.
+    {
+        const vec3 center(0, 0, 0);
+        const float r = 2.0f;
+        auto hit = math::segmentIntersectsSphere(vec3(-5, 0, 0), vec3(5, 0, 0), center, r);
+        CHECK((hit.has_value() && nearV(*hit, vec3(-2, 0, 0))));
+        auto inside = math::segmentIntersectsSphere(vec3(0, 0, 0), vec3(5, 0, 0), center, r);
+        CHECK((inside.has_value() && nearV(*inside, vec3(2, 0, 0))));
+        CHECK(!math::segmentIntersectsSphere(vec3(-5, 5, 0), vec3(5, 5, 0), center, r).has_value());
+        CHECK(!math::segmentIntersectsSphere(vec3(-5, 0, 0), vec3(-4, 0, 0), center, r).has_value());
+    }
+}
+
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
 void testSdf() {
     const int W = 24, H = 24;
@@ -20581,6 +20643,7 @@ int main() {
     testQuadtree();
     testEcsComponents();
     testGeometry3D();
+    testGeometry3DHelpers();
     testSdf();
     testGlyphCache();
     testGraphEdit();

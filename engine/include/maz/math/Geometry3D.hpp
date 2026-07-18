@@ -239,4 +239,138 @@ struct Obb {
     }
 };
 
+// ---- Free helpers mirroring Godot's Geometry3D static methods. ---------------------------------
+// These are the closed-form segment / triangle / sphere primitives level queries, picking, and
+// LOS/ballistics checks lean on, kept as free functions (like Godot's Geometry3D.*).
+
+// Closest point on segment [a,b] to point p.
+inline vec3 closestPointToSegment(const vec3& p, const vec3& a, const vec3& b) {
+    const vec3 ab = b - a;
+    const float len2 = dot(ab, ab);
+    if (len2 < 1e-12f) {
+        return a;
+    }
+    float t = dot(p - a, ab) / len2;
+    t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    return a + ab * t;
+}
+
+// The pair of closest points between segments [p1,p2] and [q1,q2] (out c1 on the first, c2 on the
+// second). Follows the standard clamped-parametric solution (Ericson, Real-Time Collision Detection).
+inline void closestPointsBetweenSegments(const vec3& p1, const vec3& p2, const vec3& q1,
+                                         const vec3& q2, vec3& c1, vec3& c2) {
+    const vec3 d1 = p2 - p1; // direction of segment 1
+    const vec3 d2 = q2 - q1; // direction of segment 2
+    const vec3 r = p1 - q1;
+    const float a = dot(d1, d1);
+    const float e = dot(d2, d2);
+    const float f = dot(d2, r);
+    float s = 0.0f, t = 0.0f;
+    const float eps = 1e-12f;
+    if (a <= eps && e <= eps) {
+        c1 = p1;
+        c2 = q1;
+        return;
+    }
+    if (a <= eps) {
+        s = 0.0f;
+        t = std::clamp(f / e, 0.0f, 1.0f);
+    } else {
+        const float c = dot(d1, r);
+        if (e <= eps) {
+            t = 0.0f;
+            s = std::clamp(-c / a, 0.0f, 1.0f);
+        } else {
+            const float b = dot(d1, d2);
+            const float denom = a * e - b * b;
+            s = denom > eps ? std::clamp((b * f - c * e) / denom, 0.0f, 1.0f) : 0.0f;
+            t = (b * s + f) / e;
+            if (t < 0.0f) {
+                t = 0.0f;
+                s = std::clamp(-c / a, 0.0f, 1.0f);
+            } else if (t > 1.0f) {
+                t = 1.0f;
+                s = std::clamp((b - c) / a, 0.0f, 1.0f);
+            }
+        }
+    }
+    c1 = p1 + d1 * s;
+    c2 = q1 + d2 * t;
+}
+
+// Möller-Trumbore ray/triangle intersection: ray origin + t*dir (t >= 0). Returns the hit point.
+inline std::optional<vec3> rayIntersectsTriangle(const vec3& from, const vec3& dir, const vec3& a,
+                                                 const vec3& b, const vec3& c) {
+    const vec3 e1 = b - a;
+    const vec3 e2 = c - a;
+    const vec3 h = cross(dir, e2);
+    const float det = dot(e1, h);
+    if (det > -1e-9f && det < 1e-9f) {
+        return std::nullopt; // parallel
+    }
+    const float inv = 1.0f / det;
+    const vec3 s = from - a;
+    const float u = dot(s, h) * inv;
+    if (u < 0.0f || u > 1.0f) {
+        return std::nullopt;
+    }
+    const vec3 q = cross(s, e1);
+    const float v = dot(dir, q) * inv;
+    if (v < 0.0f || u + v > 1.0f) {
+        return std::nullopt;
+    }
+    const float t = dot(e2, q) * inv;
+    if (t < 0.0f) {
+        return std::nullopt;
+    }
+    return from + dir * t;
+}
+
+// Segment/triangle intersection: [from,to] crossing triangle (a,b,c).
+inline std::optional<vec3> segmentIntersectsTriangle(const vec3& from, const vec3& to, const vec3& a,
+                                                     const vec3& b, const vec3& c) {
+    const vec3 dir = to - from;
+    const float len = length(dir);
+    if (len < 1e-9f) {
+        return std::nullopt;
+    }
+    const vec3 nd = dir / len;
+    auto hit = rayIntersectsTriangle(from, nd, a, b, c);
+    if (!hit) {
+        return std::nullopt;
+    }
+    // Reject hits past the segment end.
+    if (dot(*hit - from, nd) > len + 1e-4f) {
+        return std::nullopt;
+    }
+    return hit;
+}
+
+// Segment/sphere intersection: returns the first entry point of [from,to] into the sphere.
+inline std::optional<vec3> segmentIntersectsSphere(const vec3& from, const vec3& to,
+                                                   const vec3& center, float radius) {
+    const vec3 d = to - from;
+    const float len2 = dot(d, d);
+    if (len2 < 1e-12f) {
+        return (length(from - center) <= radius) ? std::optional<vec3>(from) : std::nullopt;
+    }
+    const vec3 m = from - center;
+    const float aa = len2;
+    const float bb = 2.0f * dot(m, d);
+    const float cc = dot(m, m) - radius * radius;
+    const float disc = bb * bb - 4.0f * aa * cc;
+    if (disc < 0.0f) {
+        return std::nullopt;
+    }
+    const float sq = std::sqrt(disc);
+    float t = (-bb - sq) / (2.0f * aa); // nearest root
+    if (t < 0.0f) {
+        t = (-bb + sq) / (2.0f * aa); // segment may start inside the sphere
+    }
+    if (t < 0.0f || t > 1.0f) {
+        return std::nullopt;
+    }
+    return from + d * t;
+}
+
 } // namespace maz::math
