@@ -121,7 +121,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or
   full datetime with T/space separator + optional Z, validates field ranges incl. leap-year days,
-  round-trip + weekday verified).
+  round-trip + weekday verified),
+  plus **Time string helpers** (M310, `core::formatDate` / `formatTime` / `formatDateTime(useSpace)` /
+  `offsetString` — Godot Time's `get_date_string_from_unix_time` / `get_time_string_from_unix_time` /
+  `get_datetime_string_from_unix_time(use_space)` / `get_offset_string_from_offset_minutes`:
+  "YYYY-MM-DD", "HH:MM:SS", space- or T-separated datetime, and "+HH:MM" timezone offsets).
 - **2D:** sprites/atlas/tilemaps, **isometric tile math** (M283, `game::IsoGrid` — diamond
   tile↔pixel conversion + neighbours toward Godot TileMap's Isometric layout, round-trip verified),
   **hex-grid math** (M280, `game::HexGrid` — axial coordinates:

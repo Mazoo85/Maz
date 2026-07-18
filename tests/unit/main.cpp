@@ -14536,6 +14536,30 @@ void testDateTime() {
         CHECK(u == 86400);
         CHECK(!core::unixFromIso("nope", u));
     }
+
+    // --- M310: Time string helpers (date/time/datetime/offset) ---
+    {
+        core::DateTime t;
+        t.year = 2026; t.month = 7; t.day = 18; t.hour = 9; t.minute = 30; t.second = 5;
+        CHECK(core::formatDate(t) == "2026-07-18");
+        CHECK(core::formatTime(t) == "09:30:05");
+        CHECK(core::formatDateTime(t) == "2026-07-18 09:30:05");
+        CHECK(core::formatDateTime(t, false) == "2026-07-18T09:30:05");
+        // Single-digit zero-padding.
+        core::DateTime z;
+        z.year = 5; z.month = 1; z.day = 2; z.hour = 3; z.minute = 4; z.second = 6;
+        CHECK(core::formatDate(z) == "0005-01-02");
+        CHECK(core::formatTime(z) == "03:04:06");
+        // Offset strings.
+        CHECK(core::offsetString(0) == "+00:00");
+        CHECK(core::offsetString(330) == "+05:30");
+        CHECK(core::offsetString(-480) == "-08:00");
+        CHECK(core::offsetString(90) == "+01:30");
+        // Space form round-trips through parseIso.
+        core::DateTime back;
+        CHECK(core::parseIso(core::formatDateTime(t, false), back));
+        CHECK(back.year == t.year && back.hour == t.hour && back.second == t.second);
+    }
 }
 
 // Virtual filesystem: pure path helpers, scheme mounting/resolution, and the traversal-escape guard.

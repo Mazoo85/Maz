@@ -100,6 +100,38 @@ inline std::string formatIso(const DateTime& dt) {
     return buf;
 }
 
+// "YYYY-MM-DD" (Godot's Time.get_date_string_from_unix_time / get_date_string_from_datetime_dict).
+inline std::string formatDate(const DateTime& dt) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", dt.year, dt.month, dt.day);
+    return buf;
+}
+
+// "HH:MM:SS" (Godot's Time.get_time_string_from_unix_time).
+inline std::string formatTime(const DateTime& dt) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", dt.hour, dt.minute, dt.second);
+    return buf;
+}
+
+// "YYYY-MM-DD HH:MM:SS" (useSpace=true) or "...T..." (useSpace=false), no trailing 'Z' — Godot's
+// Time.get_datetime_string_from_unix_time(use_space). (formatIso is the always-'T', 'Z'-suffixed form.)
+inline std::string formatDateTime(const DateTime& dt, bool useSpace = true) {
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d%c%02d:%02d:%02d", dt.year, dt.month, dt.day,
+                  useSpace ? ' ' : 'T', dt.hour, dt.minute, dt.second);
+    return buf;
+}
+
+// Timezone offset in minutes -> "+HH:MM" / "-HH:MM" (Godot's Time.get_offset_string_from_offset_minutes).
+inline std::string offsetString(int offsetMinutes) {
+    const char sign = offsetMinutes < 0 ? '-' : '+';
+    const int mag = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%c%02d:%02d", sign, mag / 60, mag % 60);
+    return buf;
+}
+
 // Parse an ISO-8601 UTC string into `out` (the inverse of formatIso; Godot's
 // Time.get_datetime_dict_from_datetime_string). Accepts a date-only "YYYY-MM-DD" (time = 00:00:00),
 // or a full datetime with a 'T' or ' ' separator and an optional trailing 'Z' — e.g.
