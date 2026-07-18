@@ -54,6 +54,7 @@ int main() {
     seq.setChannelDecay(0, 2.5f);
     seq.setChannelDrive(0, 0.65f);
     seq.setChannelFlam(1, 18.0f);
+    seq.setChannelType(1, audio::Drum::Tom);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -252,6 +253,7 @@ int main() {
     check(near(seq2.channelDecay(0), 2.5f), "channel decay round-trips");
     check(near(seq2.channelDrive(0), 0.65f), "channel drive round-trips");
     check(near(seq2.channelFlam(1), 18.0f), "channel flam round-trips");
+    check(seq2.channelType(1) == audio::Drum::Tom, "per-channel drum type round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.

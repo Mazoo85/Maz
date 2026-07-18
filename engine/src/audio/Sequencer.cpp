@@ -146,6 +146,19 @@ float Sequencer::channelFlam(int c) const {
     return 0.0f;
 }
 
+void Sequencer::setChannelType(int c, Drum type) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setType(type);
+    }
+}
+
+Drum Sequencer::channelType(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].type();
+    }
+    return Drum::Kick;
+}
+
 void Sequencer::setChannelVolume(int c, float v) {
     if (c >= 0 && c < numChannels()) {
         chanVolume_[static_cast<size_t>(c)] = v;

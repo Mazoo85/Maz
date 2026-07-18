@@ -187,7 +187,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         f << "chan " << c << " " << seq.channelVolume(c) << " " << (seq.channelMute(c) ? 1 : 0)
           << " " << (seq.channelSolo(c) ? 1 : 0) << " " << seq.channelPan(c) << " "
           << seq.channelChokeGroup(c) << " " << seq.channelTune(c) << " " << seq.channelDecay(c)
-          << " " << seq.channelDrive(c) << " " << seq.channelFlam(c) << "\n";
+          << " " << seq.channelDrive(c) << " " << seq.channelFlam(c) << " "
+          << static_cast<int>(seq.channelType(c)) << "\n";
     }
 
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
@@ -494,6 +495,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float flam = 0.0f; // flam optional (older files omit it)
             if (ls >> flam) {
                 seq.setChannelFlam(c, flam);
+            }
+            int dtype = -1; // per-channel drum type optional (older files omit it)
+            if (ls >> dtype && dtype >= 0 && dtype <= static_cast<int>(Drum::Tom)) {
+                seq.setChannelType(c, static_cast<Drum>(dtype));
             }
         } else if (tag == "patterns") {
             int count = 1;

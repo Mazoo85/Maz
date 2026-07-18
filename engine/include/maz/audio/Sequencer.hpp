@@ -114,6 +114,11 @@ public:
     void setChannelFlam(int c, float ms);
     float channelFlam(int c) const;
 
+    // Per-channel drum sound: which synthesized voice (kick/snare/hat/…/tom) the channel plays, so
+    // any row can be reassigned (e.g. two kicks, or a tom).
+    void setChannelType(int c, Drum type);
+    Drum channelType(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 

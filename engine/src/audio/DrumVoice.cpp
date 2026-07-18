@@ -21,6 +21,8 @@ double decayTau(Drum type) {
         return 0.28;
     case Drum::Clap:
         return 0.14;
+    case Drum::Tom:
+        return 0.20;
     }
     return 0.1;
 }
@@ -84,6 +86,13 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             // A slightly grittier noise burst.
             s = static_cast<float>(static_cast<double>(noise()) * env * env);
             break;
+        case Drum::Tom: {
+            // A tuned membrane: a sine with a gentle downward pitch sweep (200 → 100 Hz).
+            const double freq = (100.0 + 100.0 * std::exp(-t_ / 0.06)) * pitchMul;
+            s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
+            phase_ += freq * dt;
+            break;
+        }
         }
 
         if (phase_ >= 1.0) {

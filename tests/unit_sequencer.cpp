@@ -762,6 +762,31 @@ int main() {
         check(dd.channelFlam(0) == 0.0f, "channel flam defaults to 0 (off)");
     }
 
+    // --- Tom voice + per-channel drum type -----------------------------------
+    {
+        audio::DrumVoice tom;
+        tom.setType(audio::Drum::Tom);
+        tom.trigger(1.0f);
+        std::vector<float> buf(4800, 0.0f);
+        tom.render(buf.data(), 4800, sampleRate);
+        check(rms(buf) > 0.0, "tom produces sound");
+        // Tom is tonal — count zero crossings over the sustained body (skip the initial sweep).
+        int crossings = 0;
+        for (int i = 1201; i < 4800; ++i) {
+            if (buf[static_cast<size_t>(i - 1)] <= 0.0f && buf[static_cast<size_t>(i)] > 0.0f) {
+                ++crossings;
+            }
+        }
+        check(crossings > 0, "tom has a measurable pitch");
+
+        // Per-channel type selection: any row can be reassigned to any drum voice.
+        audio::Sequencer s;
+        s.setChannelType(0, audio::Drum::Tom);
+        check(s.channelType(0) == audio::Drum::Tom, "a channel's drum type can be reassigned");
+        audio::Sequencer d;
+        check(d.channelType(0) == audio::Drum::Kick, "channel 0 defaults to the kick");
+    }
+
     // --- Channel rotate: shift a step row around the bar ---------------------
     {
         audio::Sequencer s;

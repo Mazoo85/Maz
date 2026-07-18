@@ -460,6 +460,14 @@ void buildRackUI(audio::Sequencer& seq) {
         ImGui::PushID(c);
         ImGui::Text("%-9s", seq.channelName(c).c_str());
         ImGui::SameLine(96.0f);
+        {
+            const char* drumNames[] = {"Kick", "Snare", "ClosedHat", "OpenHat", "Clap", "Tom"};
+            int dt = static_cast<int>(seq.channelType(c));
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::Combo("##drumtype", &dt, drumNames, IM_ARRAYSIZE(drumNames)))
+                seq.setChannelType(c, static_cast<audio::Drum>(dt));
+        }
+        ImGui::SameLine();
         // Mute / Solo / volume strip.
         const bool mute = seq.channelMute(c);
         if (mute) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.80f, 0.20f, 0.20f, 1.0f));
