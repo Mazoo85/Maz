@@ -30,6 +30,7 @@
 #include "maz/anim/SpriteAnim.hpp"
 #include "maz/anim/Timeline.hpp"
 #include "maz/anim/TriggerTrack.hpp"
+#include "maz/anim/Transition.hpp"
 #include "maz/anim/Tween.hpp"
 #include "maz/anim/TweenPlayer.hpp"
 #include "maz/core/AssetServer.hpp"
@@ -3428,6 +3429,75 @@ void testTween() {
     zero.duration = 0.0f;
     zero.update(0.016f);
     CHECK_NEAR(zero.progress(), 1.0f, 1e-6f);
+}
+
+void testTransition() {
+    using anim::applyTransition;
+    using anim::EaseType;
+    using anim::TransitionType;
+    using anim::tweenInterpolate;
+
+    const TransitionType types[] = {
+        TransitionType::Linear, TransitionType::Sine,  TransitionType::Quint,
+        TransitionType::Quart,  TransitionType::Quad,  TransitionType::Expo,
+        TransitionType::Elastic, TransitionType::Cubic, TransitionType::Circ,
+        TransitionType::Bounce, TransitionType::Back,  TransitionType::Spring};
+    const EaseType eases[] = {EaseType::In, EaseType::Out, EaseType::InOut, EaseType::OutIn};
+
+    // Every (type, ease) maps 0->0 and 1->1, and InOut/OutIn cross 0.5 at the midpoint.
+    for (TransitionType ty : types) {
+        for (EaseType ea : eases) {
+            CHECK_NEAR(applyTransition(ty, ea, 0.0f), 0.0f, 1e-3f);
+            CHECK_NEAR(applyTransition(ty, ea, 1.0f), 1.0f, 1e-3f);
+        }
+        CHECK_NEAR(applyTransition(ty, EaseType::InOut, 0.5f), 0.5f, 1e-3f);
+        CHECK_NEAR(applyTransition(ty, EaseType::OutIn, 0.5f), 0.5f, 1e-3f);
+    }
+
+    // Linear identity; known polynomial values; out = 1 - in(1-t).
+    for (float t = 0.0f; t <= 1.0f; t += 0.1f) {
+        CHECK_NEAR(applyTransition(TransitionType::Linear, EaseType::In, t), t, 1e-5f);
+    }
+    CHECK_NEAR(applyTransition(TransitionType::Quad, EaseType::In, 0.5f), 0.25f, 1e-5f);
+    CHECK_NEAR(applyTransition(TransitionType::Cubic, EaseType::In, 0.5f), 0.125f, 1e-5f);
+    CHECK_NEAR(applyTransition(TransitionType::Quart, EaseType::In, 0.5f), 0.0625f, 1e-5f);
+    CHECK_NEAR(applyTransition(TransitionType::Quint, EaseType::In, 0.5f), 0.03125f, 1e-5f);
+    CHECK_NEAR(applyTransition(TransitionType::Quad, EaseType::Out, 0.5f), 0.75f, 1e-5f);
+
+    // Non-overshoot In curves increase monotonically.
+    const TransitionType mono[] = {TransitionType::Quad,  TransitionType::Cubic, TransitionType::Quart,
+                                   TransitionType::Quint, TransitionType::Sine,  TransitionType::Expo,
+                                   TransitionType::Circ};
+    for (TransitionType ty : mono) {
+        float prev = -1.0f;
+        for (float t = 0.0f; t <= 1.0001f; t += 0.05f) {
+            const float v = applyTransition(ty, EaseType::In, t);
+            CHECK(v >= prev - 1e-4f);
+            prev = v;
+        }
+    }
+
+    // Back/Elastic overshoot their range.
+    {
+        bool dips = false, over = false;
+        for (float t = 0.0f; t <= 1.0f; t += 0.01f) {
+            if (applyTransition(TransitionType::Back, EaseType::In, t) < -1e-3f) {
+                dips = true;
+            }
+            if (applyTransition(TransitionType::Elastic, EaseType::Out, t) > 1.0f + 1e-3f) {
+                over = true;
+            }
+        }
+        CHECK(dips);
+        CHECK(over);
+    }
+
+    // tweenInterpolate maps the value range and clamps time / zero duration.
+    CHECK_NEAR(tweenInterpolate(10, 20, 0, 2, TransitionType::Linear, EaseType::In), 10.0f, 1e-4f);
+    CHECK_NEAR(tweenInterpolate(10, 20, 1, 2, TransitionType::Linear, EaseType::In), 15.0f, 1e-4f);
+    CHECK_NEAR(tweenInterpolate(10, 20, 2, 2, TransitionType::Linear, EaseType::In), 20.0f, 1e-4f);
+    CHECK_NEAR(tweenInterpolate(10, 20, 5, 2, TransitionType::Linear, EaseType::In), 20.0f, 1e-4f);
+    CHECK_NEAR(tweenInterpolate(10, 20, 1, 0, TransitionType::Linear, EaseType::In), 20.0f, 1e-4f);
 }
 
 void testTweenPlayer() {
@@ -20750,6 +20820,7 @@ int main() {
     testVersion();
     testSceneStack();
     testTween();
+    testTransition();
     testTweenPlayer();
     testTimeline();
     testTriggerTrack();
