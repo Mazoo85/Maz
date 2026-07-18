@@ -193,6 +193,9 @@ int main() {
     mixer.deEsser().setFrequency(7000.0f);
     mixer.deEsser().setAmount(0.65f);
     mixer.deEsser().setReleaseMs(45.0f);
+    mixer.stereoEnhancer().setEnabled(true);
+    mixer.stereoEnhancer().setDelayMs(18.0f);
+    mixer.stereoEnhancer().setAmount(0.55f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -429,6 +432,9 @@ int main() {
               near(mixer2.deEsser().frequency(), 7000.0f) && near(mixer2.deEsser().amount(), 0.65f) &&
               near(mixer2.deEsser().releaseMs(), 45.0f),
           "de-esser round-trips");
+    check(mixer2.stereoEnhancer().enabled() && near(mixer2.stereoEnhancer().delayMs(), 18.0f) &&
+              near(mixer2.stereoEnhancer().amount(), 0.55f),
+          "stereo enhancer round-trips");
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&

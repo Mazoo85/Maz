@@ -48,6 +48,7 @@ public:
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
     StereoWidener& widener() { return widener_; }
+    StereoEnhancer& stereoEnhancer() { return stereoEnhancer_; }
     Utility& utility() { return utility_; }
     Limiter& limiter() { return limiter_; }
     DeEsser& deEsser() { return deEsser_; }
@@ -111,6 +112,7 @@ private:
     Delay delay_{};
     Reverb reverb_{};
     StereoWidener widener_{};
+    StereoEnhancer stereoEnhancer_{};
     Utility utility_{};
     Limiter limiter_{};
     DeEsser deEsser_{};

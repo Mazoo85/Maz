@@ -1083,6 +1083,44 @@ void Limiter::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Stereo Enhancer --------------------------------------------------------
+
+void StereoEnhancer::reset() {
+    std::fill(buf_.begin(), buf_.end(), 0.0f);
+    widx_ = 0;
+}
+
+void StereoEnhancer::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxDelay = static_cast<int>(0.040f * static_cast<float>(sampleRate)) + 2;
+    if (static_cast<int>(buf_.size()) != maxDelay) {
+        buf_.assign(static_cast<size_t>(maxDelay), 0.0f);
+        widx_ = 0;
+    }
+    int delay = static_cast<int>(delayMs_ * 0.001f * static_cast<float>(sampleRate));
+    if (delay < 1) {
+        delay = 1;
+    }
+    if (delay >= maxDelay) {
+        delay = maxDelay - 1;
+    }
+    for (int i = 0; i < frames; ++i) {
+        const float r = stereo[2 * i + 1];
+        // Read the right channel delayed by `delay` samples, then advance the ring.
+        int ridx = widx_ - delay;
+        if (ridx < 0) {
+            ridx += maxDelay;
+        }
+        const float delayed = buf_[static_cast<size_t>(ridx)];
+        buf_[static_cast<size_t>(widx_)] = r;
+        widx_ = (widx_ + 1) % maxDelay;
+        // Blend the delayed copy into the right channel to decorrelate it from the left (width).
+        stereo[2 * i + 1] = (1.0f - amount_) * r + amount_ * delayed;
+    }
+}
+
 // ---- Reverb -----------------------------------------------------------------
 
 void Reverb::Comb::setSize(int n) {

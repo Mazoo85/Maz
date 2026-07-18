@@ -265,6 +265,35 @@ int main() {
               "de-esser defaults to off at a 6 kHz crossover");
     }
 
+    // --- Stereo enhancer: widens a mono source ------------------------------
+    {
+        // A mono input (L == R) comes out decorrelated: the right channel is delayed, so L and R
+        // differ (stereo width) while the left channel itself is untouched.
+        std::vector<float> orig = sineStereo(sr / 4, 300.0, 0.7, sr);
+        std::vector<float> buf = orig;
+        audio::StereoEnhancer se;
+        se.setEnabled(true);
+        se.setDelayMs(7.0f); // not an integer number of periods → the delayed copy is decorrelated
+        se.setAmount(1.0f);
+        se.process(buf.data(), sr / 4, sr);
+        double lDiff = 0.0, lr = 0.0;
+        for (int i = 2000; i < sr / 4; ++i) {
+            lDiff += std::fabs(buf[static_cast<size_t>(i) * 2] - orig[static_cast<size_t>(i) * 2]);
+            lr += std::fabs(buf[static_cast<size_t>(i) * 2] - buf[static_cast<size_t>(i) * 2 + 1]);
+        }
+        check(lDiff < 1e-4, "stereo enhancer leaves the left channel untouched");
+        check(lr > 50.0, "stereo enhancer decorrelates a mono source into a wide image");
+
+        std::vector<float> q = orig;
+        audio::StereoEnhancer off;
+        off.process(q.data(), sr / 4, sr);
+        check(q == orig, "a disabled stereo enhancer is transparent");
+
+        audio::StereoEnhancer dd;
+        check(!dd.enabled() && std::fabs(dd.delayMs() - 12.0f) < 1e-3f,
+              "stereo enhancer defaults to off at a 12 ms offset");
+    }
+
     // --- Reverb: an impulse leaves a decaying tail ---------------------------
     {
         audio::Reverb rev;

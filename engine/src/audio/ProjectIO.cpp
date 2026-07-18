@@ -285,6 +285,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << "\n";
     f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width()
       << "\n";
+    f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
+      << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
       << mixer.autopan().depth() << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
@@ -693,6 +695,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> w;
                 mixer.widener().setEnabled(en != 0);
                 mixer.widener().setWidth(w);
+            } else if (which == "stereoenh") {
+                float ms = 12.0f, amt = 0.7f;
+                ls >> ms >> amt;
+                mixer.stereoEnhancer().setEnabled(en != 0);
+                mixer.stereoEnhancer().setDelayMs(ms);
+                mixer.stereoEnhancer().setAmount(amt);
             } else if (which == "autopan") {
                 float rate = 1.0f, depth = 0.5f;
                 ls >> rate >> depth;

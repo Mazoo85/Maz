@@ -1423,6 +1423,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("width##wide", &w, 0.0f, 2.0f, "%.2f")) mx.widener().setWidth(w);
     }
     {
+        bool en = mx.stereoEnhancer().enabled();
+        if (ImGui::Checkbox("Stereo Enhancer", &en)) mx.stereoEnhancer().setEnabled(en);
+        float ms = mx.stereoEnhancer().delayMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("ms##senh", &ms, 0.0f, 40.0f, "%.1f")) mx.stereoEnhancer().setDelayMs(ms);
+        float amt = mx.stereoEnhancer().amount();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("amt##senh", &amt, 0.0f, 1.0f, "%.2f")) mx.stereoEnhancer().setAmount(amt);
+    }
+    {
         bool en = mx.autopan().enabled();
         if (ImGui::Checkbox("Auto-Pan", &en)) mx.autopan().setEnabled(en);
         float rate = mx.autopan().rate();

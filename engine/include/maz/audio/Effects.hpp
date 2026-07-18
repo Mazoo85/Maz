@@ -668,6 +668,29 @@ private:
     float width_ = 1.0f;
 };
 
+// A Haas stereo enhancer: delays one channel by a few milliseconds so the signal is decorrelated
+// across the ears, widening the image via the Haas/precedence effect — and unlike a mid/side widener
+// it broadens even a mono source. `delayMs` (0..40) sets the offset and `amount` (0..1) blends the
+// delayed channel in. A `mono` sum for compatibility checking is left to the Utility effect.
+class StereoEnhancer : public Effect {
+public:
+    StereoEnhancer() { enabled_ = false; }
+    const char* name() const override { return "Stereo Enhancer"; }
+    void setDelayMs(float ms) { delayMs_ = ms < 0.0f ? 0.0f : (ms > 40.0f ? 40.0f : ms); }
+    void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    float delayMs() const { return delayMs_; }
+    float amount() const { return amount_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float delayMs_ = 12.0f;
+    float amount_ = 0.7f;
+    std::vector<float> buf_; // delay line for the right channel
+    int widx_ = 0;
+};
+
 // A utility / output-stage tool: a gain trim in dB, independent left/right phase (polarity) invert,
 // and a mono-sum toggle — the standard mixing fixes for polarity issues, level trims, and mono
 // checks. Transparent at 0 dB with no inverts and mono off.
