@@ -78,6 +78,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> octave) {
         syn.setOctave(octave);
     }
+    int mono = 0; // monophonic mode optional for old files
+    if (ls >> mono) {
+        syn.setMono(mono != 0);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -166,7 +170,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
           << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
           << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
-          << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << "\n";
+          << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
+          << (s.mono() ? 1 : 0) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

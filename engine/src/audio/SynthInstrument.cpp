@@ -33,17 +33,26 @@ void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float s
 }
 
 void SynthInstrument::noteOn(int midi, float velocity) {
-    // Prefer a free voice; otherwise steal the quietest one so a new note always sounds.
-    int chosen = -1;
-    float lowest = 2.0f;
-    for (int i = 0; i < kMaxVoices; ++i) {
-        if (voices_[static_cast<size_t>(i)].stage == Stage::Off) {
-            chosen = i;
-            break;
+    int chosen = 0;
+    if (mono_) {
+        // Monophonic: always the one voice (voice 0); release any others still ringing.
+        for (int i = 1; i < kMaxVoices; ++i) {
+            if (voices_[static_cast<size_t>(i)].stage != Stage::Off) {
+                voices_[static_cast<size_t>(i)].stage = Stage::Release;
+            }
         }
-        if (voices_[static_cast<size_t>(i)].env < lowest) {
-            lowest = voices_[static_cast<size_t>(i)].env;
-            chosen = i;
+    } else {
+        // Prefer a free voice; otherwise steal the quietest one so a new note always sounds.
+        float lowest = 2.0f;
+        for (int i = 0; i < kMaxVoices; ++i) {
+            if (voices_[static_cast<size_t>(i)].stage == Stage::Off) {
+                chosen = i;
+                break;
+            }
+            if (voices_[static_cast<size_t>(i)].env < lowest) {
+                lowest = voices_[static_cast<size_t>(i)].env;
+                chosen = i;
+            }
         }
     }
     Voice& v = voices_[static_cast<size_t>(chosen)];
@@ -89,6 +98,16 @@ bool SynthInstrument::active() const {
         }
     }
     return false;
+}
+
+int SynthInstrument::activeVoices() const {
+    int n = 0;
+    for (const Voice& v : voices_) {
+        if (v.stage != Stage::Off) {
+            ++n;
+        }
+    }
+    return n;
 }
 
 void SynthInstrument::render(float* out, int frames, int sampleRate) {

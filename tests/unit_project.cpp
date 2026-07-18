@@ -81,6 +81,7 @@ int main() {
     seq.synth().setVelSensitivity(0.4f);
     seq.synth().setFilterKeyTrack(0.75f);
     seq.synth().setOctave(-1);
+    seq.synth().setMono(true);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 2);
     seq.setArpOctaves(3);
@@ -322,6 +323,7 @@ int main() {
     check(near(seq2.synth().velSensitivity(), 0.4f), "velocity→amp sensitivity round-trips");
     check(near(seq2.synth().filterKeyTrack(), 0.75f), "filter key tracking round-trips");
     check(seq2.synth().octave() == -1, "per-instrument octave round-trips");
+    check(seq2.synth().mono(), "monophonic mode round-trips");
     check(near(seq2.synth().pitchEnvAmount(), -7.0f) && near(seq2.synth().pitchEnvTime(), 0.08f),
           "pitch envelope round-trips");
     check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");

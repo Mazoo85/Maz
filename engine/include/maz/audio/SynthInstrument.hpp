@@ -37,6 +37,11 @@ public:
     void setOctave(int oct) { octave_ = oct < -2 ? -2 : (oct > 2 ? 2 : oct); }
     int octave() const { return octave_; }
 
+    // Monophonic mode: play a single voice with last-note priority (for tight mono leads/bass with
+    // glide) instead of the default polyphony.
+    void setMono(bool on) { mono_ = on; }
+    bool mono() const { return mono_; }
+
     // Velocity → amplitude sensitivity (0..1): how much a note's velocity affects its loudness. 1
     // (default) = velocity fully sets the level (as before); 0 = every note plays at full level
     // regardless of velocity.
@@ -188,6 +193,7 @@ public:
     void allNotesOff(); // release every held voice
 
     bool active() const;
+    int activeVoices() const; // number of voices currently sounding (for the UI / tests)
 
     // Render `frames` mono samples, ADDING into out[0..frames). `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);
@@ -217,6 +223,7 @@ private:
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)
+    bool mono_ = false;    // monophonic (single-voice) mode
     float velSens_ = 1.0f; // velocity → amplitude depth; 1 = full (default)
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;

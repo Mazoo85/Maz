@@ -233,6 +233,24 @@ int main() {
         check(doct.octave() == 0, "octave shift defaults to 0");
     }
 
+    // --- Monophonic mode -----------------------------------------------------
+    {
+        audio::SynthInstrument polySyn;
+        polySyn.setEnvelope(0.001f, 0.01f, 1.0f, 0.5f);
+        polySyn.noteOn(60, 1.0f);
+        polySyn.noteOn(64, 1.0f);
+        check(polySyn.activeVoices() == 2, "poly mode holds two overlapping notes");
+
+        audio::SynthInstrument monoSyn;
+        monoSyn.setMono(true);
+        monoSyn.setEnvelope(0.001f, 0.01f, 1.0f, 0.5f);
+        monoSyn.noteOn(60, 1.0f);
+        monoSyn.noteOn(64, 1.0f); // steals the single voice
+        check(monoSyn.activeVoices() == 1, "mono mode holds a single voice");
+        audio::SynthInstrument dm;
+        check(!dm.mono(), "mono mode defaults off (polyphonic)");
+    }
+
     // --- Wavetable scan LFO --------------------------------------------------
     {
         // Default frames run dark→bright (Sine→…→Square). With the LFO scanning the position, a
