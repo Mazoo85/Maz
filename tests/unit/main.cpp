@@ -10920,6 +10920,22 @@ void testStringUtils() {
     CHECK(su::toCamelCase("move_local_x") == "moveLocalX");
     CHECK(su::toCamelCase("PascalCase") == "pascalCase");
     CHECK(su::toCamelCase("hello world foo") == "helloWorldFoo");
+
+    // Markup / URI escaping (M289): xml_escape / xml_unescape / uri_encode / uri_decode.
+    CHECK(su::xmlEscape("a<b>&c") == "a&lt;b&gt;&amp;c");
+    CHECK(su::xmlEscape("q\"'") == "q\"'");                 // quotes off by default
+    CHECK(su::xmlEscape("q\"'", true) == "q&quot;&apos;");  // quotes on
+    CHECK(su::xmlUnescape("a&lt;b&gt;&amp;c") == "a<b>&c");
+    CHECK(su::xmlUnescape("A&#66;C") == "ABC");             // decimal ref
+    CHECK(su::xmlUnescape("A&#x42;C") == "ABC");            // hex ref
+    CHECK(su::xmlUnescape("bad &notreal; kept") == "bad &notreal; kept");
+    CHECK(su::xmlUnescape(su::xmlEscape("<t a=\"v\">x & 'z'</t>", true)) == "<t a=\"v\">x & 'z'</t>");
+    CHECK(su::uriEncode("a b/c?d=e&f") == "a%20b%2Fc%3Fd%3De%26f");
+    CHECK(su::uriEncode("safe-_.~AZ09") == "safe-_.~AZ09");
+    CHECK(su::uriDecode("a%20b%2Fc") == "a b/c");
+    CHECK(su::uriDecode("plus+kept") == "plus+kept");       // '+' preserved (Godot behavior)
+    CHECK(su::uriDecode("bad%zzhex") == "bad%zzhex");       // malformed kept verbatim
+    CHECK(su::uriDecode(su::uriEncode("Hello, World! /p?q=1&r=2#f")) == "Hello, World! /p?q=1&r=2#f");
 }
 
 void testSlotMap() {

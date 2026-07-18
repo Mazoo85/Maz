@@ -481,4 +481,126 @@ inline std::string toCamelCase(const std::string& s) {
     return out;
 }
 
+// ---- markup / URI escaping (Godot String's xml_escape / xml_unescape / uri_encode / uri_decode)
+// (M289) -------------------------------------------------------------------------------------------
+
+// Escape the XML/HTML metacharacters & < > (and, when escapeQuotes, " ') — Godot's String.xml_escape.
+inline std::string xmlEscape(const std::string& s, bool escapeQuotes = false) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+        switch (c) {
+        case '&': out += "&amp;"; break;
+        case '<': out += "&lt;"; break;
+        case '>': out += "&gt;"; break;
+        case '"': out += escapeQuotes ? "&quot;" : "\""; break;
+        case '\'': out += escapeQuotes ? "&apos;" : "'"; break;
+        default: out.push_back(c); break;
+        }
+    }
+    return out;
+}
+
+// Reverse xmlEscape: resolve the named entities &amp;/&lt;/&gt;/&quot;/&apos; and numeric character
+// references &#DDD; and &#xHHH; (Godot's String.xml_unescape). ASCII code points only; an
+// unrecognized or malformed '&...' sequence is left verbatim.
+inline std::string xmlUnescape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    std::size_t i = 0;
+    while (i < s.size()) {
+        if (s[i] != '&') {
+            out.push_back(s[i++]);
+            continue;
+        }
+        const std::size_t semi = s.find(';', i);
+        if (semi == std::string::npos) {
+            out.push_back(s[i++]);
+            continue;
+        }
+        const std::string ent = s.substr(i + 1, semi - i - 1);
+        bool handled = true;
+        if (ent == "amp") {
+            out.push_back('&');
+        } else if (ent == "lt") {
+            out.push_back('<');
+        } else if (ent == "gt") {
+            out.push_back('>');
+        } else if (ent == "quot") {
+            out.push_back('"');
+        } else if (ent == "apos") {
+            out.push_back('\'');
+        } else if (ent.size() >= 2 && ent[0] == '#') {
+            long code = -1;
+            if (ent[1] == 'x' || ent[1] == 'X') {
+                code = std::strtol(ent.c_str() + 2, nullptr, 16);
+            } else {
+                code = std::strtol(ent.c_str() + 1, nullptr, 10);
+            }
+            if (code >= 0 && code <= 0x10FFFF) {
+                out.push_back(static_cast<char>(code & 0xFF));
+            } else {
+                handled = false;
+            }
+        } else {
+            handled = false;
+        }
+        if (handled) {
+            i = semi + 1;
+        } else {
+            out.push_back(s[i++]);
+        }
+    }
+    return out;
+}
+
+// Percent-encode every byte except the RFC 3986 unreserved set (A-Za-z0-9 and - _ . ~) — Godot's
+// String.uri_encode. Bytes are emitted as uppercase %XX.
+inline std::string uriEncode(const std::string& s) {
+    static const char* hexd = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(s.size() * 3);
+    for (char ch : s) {
+        const unsigned char c = static_cast<unsigned char>(ch);
+        const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                                (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ||
+                                c == '~';
+        if (unreserved) {
+            out.push_back(static_cast<char>(c));
+        } else {
+            out.push_back('%');
+            out.push_back(hexd[(c >> 4) & 0xF]);
+            out.push_back(hexd[c & 0xF]);
+        }
+    }
+    return out;
+}
+
+// Decode %XX escapes back to bytes — Godot's String.uri_decode. A '+' is left as-is (Godot does not
+// treat it as a space), and a malformed '%' with fewer than two hex digits after it is kept verbatim.
+inline std::string uriDecode(const std::string& s) {
+    auto hv = [](char ch) -> int {
+        if (ch >= '0' && ch <= '9') return ch - '0';
+        if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+        if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+        return -1;
+    };
+    std::string out;
+    out.reserve(s.size());
+    std::size_t i = 0;
+    while (i < s.size()) {
+        if (s[i] == '%' && i + 2 < s.size()) {
+            const int a = hv(s[i + 1]);
+            const int b = hv(s[i + 2]);
+            if (a >= 0 && b >= 0) {
+                out.push_back(static_cast<char>(a * 16 + b));
+                i += 3;
+                continue;
+            }
+        }
+        out.push_back(s[i++]);
+    }
+    return out;
+}
+
 } // namespace maz::core

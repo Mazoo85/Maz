@@ -76,7 +76,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
   String's capitalize/to_snake_case/to_camel_case/to_pascal_case (Godot-style word splitting: breaks
-  on separators and camelCase/acronym boundaries, acronyms normalized e.g. HTTPServer→HttpServer)),
+  on separators and camelCase/acronym boundaries, acronyms normalized e.g. HTTPServer→HttpServer),
+  plus **markup/URI escaping** M289 — xmlEscape/xmlUnescape (named + numeric char refs) and
+  uriEncode/uriDecode (RFC 3986 unreserved set, '+' preserved) matching Godot String's
+  xml_escape/xml_unescape/uri_encode/uri_decode),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or
