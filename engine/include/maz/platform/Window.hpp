@@ -17,6 +17,8 @@ struct WindowConfig {
     uint32_t height = 720;
     bool headless = false;   // use SDL's dummy video driver; no visible window
     bool resizable = true;
+    bool fullscreen = false; // start in borderless-desktop fullscreen
+    bool highDpi = true;     // request a HiDPI-aware pixel-dense surface where available
 };
 
 // Owns the SDL window + event pump. Vulkan-ready (created with SDL_WINDOW_VULKAN).
@@ -60,6 +62,17 @@ public:
     // (Input::mouseDX/DY) — the basis for first-person mouse-look.
     void setRelativeMouse(bool enabled);
 
+    // Borderless-desktop fullscreen toggle (SDL3). No-op headless. isFullscreen() reflects the
+    // last requested state; toggleFullscreen() flips it.
+    void setFullscreen(bool enabled);
+    void toggleFullscreen() { setFullscreen(!m_fullscreen); }
+    bool isFullscreen() const { return m_fullscreen; }
+
+    // The display's content scale (HiDPI factor): 1.0 on a standard display, 2.0 on Retina, etc.
+    // Feed into platform::logicalToPixels / scaledSize for resolution-independent UI. Returns 1.0
+    // headless or before the window exists.
+    float contentScale() const;
+
     SDL_Window* sdl() const { return m_window; }
 
 private:
@@ -73,6 +86,7 @@ private:
     bool m_vulkanCapable = false;
     bool m_focused = true;    // updated by SDL focus gained/lost events
     bool m_minimized = false; // updated by SDL minimize/restore events
+    bool m_fullscreen = false; // last requested fullscreen state
 };
 
 } // namespace maz::platform

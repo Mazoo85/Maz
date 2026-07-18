@@ -190,7 +190,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Event pump; quit/resize handling
 - [x] Keyboard + mouse state, just-pressed / just-released edge detection
 - [x] Fixed-timestep clock (accumulator) + frame delta
-- [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
+- [~] Fullscreen / borderless, multi-monitor, DPI / content scaling (M207 — `platform::Window` now
+  supports borderless-desktop fullscreen (`WindowConfig::fullscreen`, `setFullscreen`/
+  `toggleFullscreen`/`isFullscreen` via SDL3), requests a HiDPI pixel-dense surface
+  (`WindowConfig::highDpi` → `SDL_WINDOW_HIGH_PIXEL_DENSITY`), and reports the live display content
+  scale (`contentScale()` via `SDL_GetWindowDisplayScale`). `platform::DisplayScale` is the pure,
+  unit-tested HiDPI math — `logicalToPixels`/`pixelsToLogical`/`scaledSize` for resolution-
+  independent UI (Godot's `content_scale_factor`). Multi-monitor enumeration / per-monitor moves
+  remain.)
 - [x] Focus / minimize / occlusion handling (pause when unfocused) (M205 — `platform::Window` now
   tracks keyboard focus and minimized state from SDL window events (`activation()`/`isFocused()`/
   `isMinimized()`), and `platform::AppFocus` provides a pure `decideFrame(activation, FocusPolicy)`

@@ -44,6 +44,7 @@
 #include "maz/core/Version.hpp"
 #include "maz/platform/AppFocus.hpp"
 #include "maz/platform/CrashHandler.hpp"
+#include "maz/platform/DisplayScale.hpp"
 #include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -5037,6 +5038,34 @@ void testPresentMode() {
 
     CHECK(render::supportsMode(all, PresentMode::Mailbox));
     CHECK(!render::supportsMode({PresentMode::Fifo}, PresentMode::Mailbox));
+}
+
+void testDisplayScale() {
+    using namespace maz::platform;
+
+    // scale 1.0 = identity.
+    CHECK(logicalToPixels(200.0f, 1.0f) == 200);
+    CHECK_NEAR(pixelsToLogical(200, 1.0f), 200.0f, 1e-4f);
+
+    // 2.0 (Retina): logical points double into pixels; pixels halve back to points.
+    CHECK(logicalToPixels(200.0f, 2.0f) == 400);
+    CHECK_NEAR(pixelsToLogical(400, 2.0f), 200.0f, 1e-4f);
+
+    // 1.5 (common Windows scale): rounds to the nearest whole pixel.
+    CHECK(logicalToPixels(100.0f, 1.5f) == 150);
+    CHECK(logicalToPixels(101.0f, 1.5f) == 152); // 151.5 -> 152 (round half up)
+
+    // scaledSize scales both dimensions.
+    const PixelSize ps = scaledSize(1280, 720, 2.0f);
+    CHECK(ps.width == 2560);
+    CHECK(ps.height == 1440);
+
+    // Defensive: non-positive / non-finite scale is treated as 1.0 (no scaling, no divide-by-zero).
+    CHECK(logicalToPixels(200.0f, 0.0f) == 200);
+    CHECK(logicalToPixels(200.0f, -3.0f) == 200);
+    CHECK_NEAR(pixelsToLogical(200, 0.0f), 200.0f, 1e-4f);
+    CHECK_NEAR(sanitizeScale(2.5f), 2.5f, 1e-6f);
+    CHECK_NEAR(sanitizeScale(0.0f), 1.0f, 1e-6f);
 }
 
 void testProfiler() {
@@ -16801,6 +16830,7 @@ int main() {
     testPerfBudget();
     testAppFocus();
     testPresentMode();
+    testDisplayScale();
     testNoise();
     testRandom();
     testInterpolate();

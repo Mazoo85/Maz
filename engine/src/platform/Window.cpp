@@ -29,6 +29,12 @@ bool Window::init(const WindowConfig& cfg) {
     if (cfg.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+    if (cfg.highDpi && !cfg.headless) {
+        flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY; // pixel-dense surface on HiDPI displays
+    }
+    if (cfg.fullscreen && !cfg.headless) {
+        flags |= SDL_WINDOW_FULLSCREEN; // borderless-desktop fullscreen
+    }
 
     m_window = SDL_CreateWindow(cfg.title, static_cast<int>(cfg.width),
                                 static_cast<int>(cfg.height), flags);
@@ -41,6 +47,7 @@ bool Window::init(const WindowConfig& cfg) {
     m_width = cfg.width;
     m_height = cfg.height;
     m_vulkanCapable = (flags & SDL_WINDOW_VULKAN) != 0;
+    m_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
     MAZ_LOG_INFO("window created %ux%u (driver: %s%s)", m_width, m_height,
                  SDL_GetCurrentVideoDriver(), cfg.headless ? ", headless" : "");
     return true;
@@ -153,6 +160,23 @@ void Window::setRelativeMouse(bool enabled) {
     if (m_window) {
         SDL_SetWindowRelativeMouseMode(m_window, enabled);
     }
+}
+
+void Window::setFullscreen(bool enabled) {
+    m_fullscreen = enabled;
+    if (m_window && m_vulkanCapable) { // dummy/headless windows can't go fullscreen
+        SDL_SetWindowFullscreen(m_window, enabled);
+    }
+}
+
+float Window::contentScale() const {
+    if (m_window) {
+        const float s = SDL_GetWindowDisplayScale(m_window);
+        if (s > 0.0f) {
+            return s;
+        }
+    }
+    return 1.0f;
 }
 
 void Window::drawableSize(uint32_t& w, uint32_t& h) const {
