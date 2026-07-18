@@ -852,6 +852,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     ImGui::Text("loaded: %s",
                 seq.sampler().loaded() ? seq.sampler().path().c_str() : "(none)");
+    if (seq.sampler().loaded()) {
+        ImGui::Text("peak: %.3f", seq.sampler().samplePeak());
+        ImGui::SameLine();
+        if (ImGui::Button("Normalize")) seq.sampler().normalize();
+    }
     bool rev = seq.sampler().reverse();
     if (ImGui::Checkbox("Reverse", &rev)) seq.sampler().setReverse(rev);
     ImGui::SameLine();

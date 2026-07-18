@@ -178,6 +178,27 @@ int main() {
         check(!dp.pingPong(), "ping-pong defaults off");
     }
 
+    // Normalize: bring a quiet sample's peak up to full scale, preserving its shape.
+    {
+        std::vector<float> quiet(200);
+        for (int i = 0; i < 200; ++i) {
+            quiet[static_cast<size_t>(i)] =
+                static_cast<float>(0.2 * std::sin(2.0 * 3.14159265358979 * i / 200.0)); // peak 0.2
+        }
+        audio::Sampler s;
+        s.setSampleMono(quiet, sr);
+        check(std::fabs(s.samplePeak() - 0.2f) < 0.01f, "sample peak is reported before normalize");
+        s.normalize();
+        check(std::fabs(s.samplePeak() - 1.0f) < 1e-4f, "normalize brings the peak to full scale");
+
+        // A silent sample is left alone (no divide-by-zero).
+        audio::Sampler z;
+        std::vector<float> silent(50, 0.0f);
+        z.setSampleMono(silent, sr);
+        z.normalize();
+        check(z.samplePeak() == 0.0f, "normalizing a silent sample is a no-op");
+    }
+
     // Start offset: playback begins partway into the sample (skips the leading part).
     {
         // A ramp 0→1: reading from offset 0.5 starts near value 0.5, not 0.

@@ -23,6 +23,12 @@ public:
     bool loaded() const { return !sample_.empty(); }
     const std::string& path() const { return path_; }
 
+    // Peak absolute amplitude of the loaded sample (0 if empty/silent) — a level readout for the UI.
+    float samplePeak() const;
+    // Normalize the loaded sample so its peak reaches full scale (±1.0), preserving its shape. No-op
+    // on an empty or silent sample. A one-shot edit of the in-memory sample (like Edison's Normalize).
+    void normalize();
+
     void setBasePitch(int midi) { basePitch_ = midi; }
     int basePitch() const { return basePitch_; }
     void setGain(float g) { gain_ = g; }

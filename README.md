@@ -42,7 +42,7 @@ the project, and bounce to WAV.
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator with a **coarse-tunable** 2nd osc + sub +
   noise + a selectable-waveform **sub** + **unison** supersaw stack + a resonant state-variable **filter** with envelope + **velocity sensitivity**), **FM**, and **wavetable** (a morphing
   single-cycle table with **selectable frames**, scanned by an envelope-sweepable position) engines, plus **portamento/glide**, **vibrato**, a **pitch envelope**, **oscillator hard sync**, and **pulse width (PWM)**;
-  and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse**, **loop** (incl. **ping-pong** bounce), **start-offset**, and an **amp envelope**).
+  and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse**, **loop** (incl. **ping-pong** bounce), **start-offset**, an **amp envelope**, and **normalize**).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity, **probability**, and **ratcheting**), **two** `PianoRoll`
   lanes (lead + bass) with a **chord tool** (maj/min/7ths/sus), **per-note probability**, **quantize**, **scale-snap** (snap notes to major/minor/modes/pentatonic/blues), **strum** (roll stacked chords), **legato** (glue notes to the next), and **invert** (mirror the melody around a pivot), per-channel **step-row rotate** (shift a groove around the bar), a **resizable pattern length** (8–64 steps) with adjustable **steps-per-beat** (16ths, triplets, 32nds), **multiple named + clonable patterns + a playlist** (looping or play-once) to build songs, **swing**, **humanize**,
   an **arpeggiator** (up/down/up-down, 1–4 octave range), a **global transpose**, a **metronome** with **count-in**, and **sidechain** ducking.

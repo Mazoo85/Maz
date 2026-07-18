@@ -4,6 +4,7 @@
 #include "maz/audio/WavReader.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace maz::audio {
 
@@ -27,6 +28,28 @@ void Sampler::setSampleMono(std::vector<float> mono, int sampleRate) {
     sample_ = std::move(mono);
     sampleSr_ = sampleRate > 0 ? sampleRate : 48000;
     path_.clear();
+}
+
+float Sampler::samplePeak() const {
+    float peak = 0.0f;
+    for (float s : sample_) {
+        const float a = std::fabs(s);
+        if (a > peak) {
+            peak = a;
+        }
+    }
+    return peak;
+}
+
+void Sampler::normalize() {
+    const float peak = samplePeak();
+    if (peak <= 0.0f) {
+        return; // empty or silent → nothing to scale
+    }
+    const float g = 1.0f / peak;
+    for (float& s : sample_) {
+        s *= g;
+    }
 }
 
 void Sampler::noteOn(int midi, float velocity) {
