@@ -62,7 +62,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   a unit rotation to/from its axis*angle rotation vector and form the basis of quaternion spline
   interpolation. Verified as mathematical identities: slerpni endpoints and short-arc agreement with
   slerp, exp(log(q)) == q on unit quaternions, log of a 1-rad rotation == the pure axis quaternion,
-  and exp of the zero vector == identity),
+  and exp of the zero vector == identity; M336 adds the validation predicates is_finite /
+  is_equal_approx / is_normalized plus length_squared — Godot's Quaternion.is_finite/is_equal_approx/
+  is_normalized: guard interpolation and physics state against NaN/inf orientations, compare
+  orientations up to float rounding, and confirm a quaternion is a valid unit rotation (squared
+  length within Godot's absolute UNIT_EPSILON = 0.001) before it is used as one, all verified),
   **Euler-order conversion** (M307, `math::basisFromEuler` / `basisGetEuler` with `EulerOrder` —
   Godot's Basis.from_euler / get_euler across ALL SIX rotation orders XYZ/XZY/YXZ/YZX/ZXY/ZYX
   (Godot's Node3D.rotation_order), so non-default rotation orders import/export identically; each

@@ -14005,6 +14005,22 @@ void testQuaternion() {
     CHECK(near3(Q().xform(vec3(1, 2, 3)), vec3(1, 2, 3)));
     CHECK(near3(Q::fromAxisAngle(vec3(0, 1, 0), kPi / 2).xform(vec3(1, 0, 0)), vec3(0, 0, -1)));
 
+    // M336: validation predicates (Godot Quaternion.is_finite/is_equal_approx/is_normalized +
+    // length_squared). Built rotations are unit; a raw scaled quat is not; NaN/inf fail is_finite.
+    {
+        const Q rot = Q::fromAxisAngle(vec3(0, 1, 0), 1.2f);
+        const Q big(2.0f, 0.0f, 0.0f, 0.0f);
+        CHECK((Q().isNormalized() && rot.isNormalized()));
+        CHECK((!big.isNormalized() && big.normalized().isNormalized()));
+        CHECK_NEAR(Q().lengthSquared(), 1.0f, 1e-5f);
+        CHECK_NEAR(big.lengthSquared(), 4.0f, 1e-5f);
+        CHECK(rot.isEqualApprox(Q(rot.x() + 1e-7f, rot.y(), rot.z(), rot.w())));
+        CHECK(!rot.isEqualApprox(Q()));
+        CHECK(rot.isFinite());
+        CHECK(!Q(std::nanf(""), 0.0f, 0.0f, 1.0f).isFinite());
+        CHECK(!Q(0.0f, std::numeric_limits<float>::infinity(), 0.0f, 1.0f).isFinite());
+    }
+
     // Euler round-trips (Godot YXZ), including a pure-X rotation.
     CHECK(near3(Q::fromEuler(vec3(0.3f, 0.5f, -0.2f)).getEuler(), vec3(0.3f, 0.5f, -0.2f)));
     CHECK(near3(Q::fromEuler(vec3(-0.7f, 0.1f, 0.9f)).getEuler(), vec3(-0.7f, 0.1f, 0.9f)));

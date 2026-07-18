@@ -1,6 +1,7 @@
 #pragma once
 
-#include "maz/math/Math.hpp" // vec3, mat3, quat, dot, normalize
+#include "maz/math/Math.hpp"      // vec3, mat3, quat, dot, normalize
+#include "maz/math/MathFuncs.hpp" // isEqualApproxf
 
 #include <glm/gtc/quaternion.hpp> // angleAxis, mat3_cast, quat_cast, slerp
 
@@ -117,7 +118,21 @@ struct Quaternion {
     Quaternion normalized() const { return Quaternion(glm::normalize(q)); }
     Quaternion inverse() const { return Quaternion(glm::inverse(q)); }
     float length() const { return glm::length(q); }
+    float lengthSquared() const { return glm::dot(q, q); } // Godot's length_squared
     float dot(const Quaternion& o) const { return glm::dot(q, o.q); }
+
+    // Validation predicates — Godot's Quaternion.is_finite / is_equal_approx / is_normalized.
+    // Guard interpolation and physics state against NaN/inf orientations, compare orientations up to
+    // float rounding, and confirm a quaternion is a valid (unit) rotation before it is used as one.
+    bool isFinite() const {
+        return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w);
+    }
+    bool isEqualApprox(const Quaternion& o) const {
+        return isEqualApproxf(q.x, o.q.x) && isEqualApproxf(q.y, o.q.y) &&
+               isEqualApproxf(q.z, o.q.z) && isEqualApproxf(q.w, o.q.w);
+    }
+    // Squared length within Godot's looser absolute UNIT_EPSILON (0.001), matching Godot exactly.
+    bool isNormalized() const { return std::abs(lengthSquared() - 1.0f) < 0.001f; }
 
     // Shortest-arc unsigned angle between the two orientations, in radians — Godot's angle_to.
     float angleTo(const Quaternion& o) const {
