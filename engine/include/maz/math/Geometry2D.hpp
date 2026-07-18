@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace maz::math {
@@ -313,6 +314,47 @@ inline std::vector<vec2> clipPolygonConvex(const std::vector<vec2>& subject,
         }
     }
     return output;
+}
+
+// Clip a segment [a,b] to the axis-aligned rectangle [rmin, rmax] (Liang–Barsky). Returns the clipped
+// sub-segment, or nullopt when the segment lies entirely outside the rect. The portion inside the
+// rectangle is what's kept — the standard viewport/bounds clip for lines, laser sights and debug rays.
+// (M303, toward Godot's Geometry2D/Rect2 segment clipping.)
+inline std::optional<std::pair<vec2, vec2>> clipSegmentToRect(const vec2& a, const vec2& b,
+                                                             const vec2& rmin, const vec2& rmax) {
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
+    float t0 = 0.0f, t1 = 1.0f;
+    // Each edge: p*t <= q. Accept-only test that shrinks [t0,t1].
+    const float p[4] = {-dx, dx, -dy, dy};
+    const float q[4] = {a.x - rmin.x, rmax.x - a.x, a.y - rmin.y, rmax.y - a.y};
+    for (int i = 0; i < 4; ++i) {
+        if (std::fabs(p[i]) < 1e-12f) {
+            if (q[i] < 0.0f) {
+                return std::nullopt; // parallel and outside this boundary
+            }
+            continue;
+        }
+        const float r = q[i] / p[i];
+        if (p[i] < 0.0f) {
+            if (r > t1) {
+                return std::nullopt;
+            }
+            if (r > t0) {
+                t0 = r;
+            }
+        } else {
+            if (r < t0) {
+                return std::nullopt;
+            }
+            if (r < t1) {
+                t1 = r;
+            }
+        }
+    }
+    const vec2 c0(a.x + t0 * dx, a.y + t0 * dy);
+    const vec2 c1(a.x + t1 * dx, a.y + t1 * dy);
+    return std::make_pair(c0, c1);
 }
 
 } // namespace maz::math

@@ -1510,6 +1510,41 @@ void testGeometry2D() {
         CHECK_NEAR(distanceToSegment(vec2(5, 4), vec2(0, 0), vec2(10, 0)), 4.0f, 1e-4f);
     }
 
+    // --- clipSegmentToRect (M303): Liang–Barsky clip to [ (0,0), (10,10) ] ---
+    {
+        const vec2 lo(0, 0), hi(10, 10);
+        auto near2 = [](vec2 a, vec2 b) { return std::fabs(a.x - b.x) < 1e-3f && std::fabs(a.y - b.y) < 1e-3f; };
+        // Crosses left-to-right at y=5 -> clipped to x in [0,10].
+        {
+            auto r = math::clipSegmentToRect(vec2(-5, 5), vec2(15, 5), lo, hi);
+            CHECK(r.has_value());
+            CHECK((near2(r->first, vec2(0, 5)) && near2(r->second, vec2(10, 5))));
+        }
+        // Fully inside -> unchanged.
+        {
+            auto r = math::clipSegmentToRect(vec2(2, 2), vec2(8, 6), lo, hi);
+            CHECK((r.has_value() && near2(r->first, vec2(2, 2)) && near2(r->second, vec2(8, 6))));
+        }
+        // Fully outside -> nullopt.
+        CHECK(!math::clipSegmentToRect(vec2(-5, 20), vec2(15, 20), lo, hi).has_value());
+        CHECK(!math::clipSegmentToRect(vec2(-5, 2), vec2(-1, 8), lo, hi).has_value());
+        // Diagonal into a corner: (-2,-2)->(5,5) clips to (0,0)->(5,5).
+        {
+            auto r = math::clipSegmentToRect(vec2(-2, -2), vec2(5, 5), lo, hi);
+            CHECK((r.has_value() && near2(r->first, vec2(0, 0)) && near2(r->second, vec2(5, 5))));
+        }
+        // One end inside: (5,5)->(20,5) clips to (5,5)->(10,5).
+        {
+            auto r = math::clipSegmentToRect(vec2(5, 5), vec2(20, 5), lo, hi);
+            CHECK((r.has_value() && near2(r->first, vec2(5, 5)) && near2(r->second, vec2(10, 5))));
+        }
+        // Vertical through the box.
+        {
+            auto r = math::clipSegmentToRect(vec2(3, -4), vec2(3, 14), lo, hi);
+            CHECK((r.has_value() && near2(r->first, vec2(3, 0)) && near2(r->second, vec2(3, 10))));
+        }
+    }
+
     // --- pointInPolygon ---
     {
         const std::vector<vec2> square = {vec2(0, 0), vec2(4, 0), vec2(4, 4), vec2(0, 4)};
