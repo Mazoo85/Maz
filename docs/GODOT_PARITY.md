@@ -204,7 +204,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot's Geometry3D.build_box_planes / segment_intersects_convex: represent a convex volume as its
   outward-facing half-space planes and find where a segment first enters it (frustum / convex-region
   clipping and picking). Verified with straight-through, diagonal-corner, off-centre, miss,
-  starts-inside (no entry, matching Godot) and stops-short cases), **Curve3D + Path3D/PathFollow3D** (M263, `math::Curve3D` +
+  starts-inside (no entry, matching Godot) and stops-short cases; M332 adds
+  closestPointToSegmentUncapped — Godot's Geometry3D.get_closest_point_to_segment_uncapped
+  (projection onto the infinite line, no clamping) — plus Plane completeness has_point / get_center /
+  normalized), **Curve3D + Path3D/PathFollow3D** (M263, `math::Curve3D` +
   `game::PathFollow3D` — 3D cubic-Bezier path with arc-length baking (Godot Curve3D) and constant-speed
   traversal with loop/clamp + forward tangent (Godot Path3D/PathFollow3D; rotation-mode/up-vector
   banking left to the caller); M315 adds `Curve2D::closestPoint` / `closestOffset` — Godot's

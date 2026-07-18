@@ -40,6 +40,23 @@ struct Plane {
     float distanceTo(const vec3& p) const { return dot(normal, p) - d; }
     bool isPointOver(const vec3& p) const { return distanceTo(p) > 0.0f; }
 
+    // True when `p` lies on the plane within `tolerance` — Godot's Plane.has_point.
+    bool hasPoint(const vec3& p, float tolerance = 1e-5f) const {
+        return std::fabs(distanceTo(p)) <= tolerance;
+    }
+
+    // The point on the plane closest to the origin (normal * d) — Godot's Plane.get_center.
+    vec3 center() const { return normal * d; }
+
+    // A copy with a unit normal, rescaling `d` to keep the same plane — Godot's Plane.normalized.
+    Plane normalized() const {
+        const float len = length(normal);
+        if (len < 1e-9f) {
+            return *this;
+        }
+        return Plane(normal / len, d / len);
+    }
+
     // Closest point on the plane to `p`.
     vec3 project(const vec3& p) const { return p - normal * distanceTo(p); }
 
@@ -366,6 +383,17 @@ inline vec3 closestPointToSegment(const vec3& p, const vec3& a, const vec3& b) {
     float t = dot(p - a, ab) / len2;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
     return a + ab * t;
+}
+
+// Closest point on the INFINITE line through a,b to point p (projection, not clamped to the
+// segment) — Godot's Geometry3D.get_closest_point_to_segment_uncapped.
+inline vec3 closestPointToSegmentUncapped(const vec3& p, const vec3& a, const vec3& b) {
+    const vec3 ab = b - a;
+    const float len2 = dot(ab, ab);
+    if (len2 < 1e-12f) {
+        return a;
+    }
+    return a + ab * (dot(p - a, ab) / len2);
 }
 
 // The pair of closest points between segments [p1,p2] and [q1,q2] (out c1 on the first, c2 on the

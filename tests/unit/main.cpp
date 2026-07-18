@@ -12933,6 +12933,22 @@ void testGeometry3D() {
         CHECK_NEAR(proj.y, 5.0f, 1e-5f);
         CHECK_NEAR(proj.x, 2.0f, 1e-5f);
     }
+    // M332: Plane has_point / center / normalized.
+    CHECK(pl.hasPoint(vec3(7, 5, -1)));     // on y=5
+    CHECK(!pl.hasPoint(vec3(7, 5.1f, -1))); // off it
+    CHECK_NEAR(pl.center().x, 0.0f, 1e-5f);
+    CHECK_NEAR(pl.center().y, 5.0f, 1e-5f); // normal * d, on the plane, closest to origin
+    CHECK(pl.hasPoint(pl.center()));
+    {
+        const Plane raw(vec3(0, 3, 0), 15.0f); // 3y - 15 = 0 -> y = 5, same surface
+        const Plane nrm = raw.normalized();
+        // Unit +Y normal: components x,z ~ 0 and y ~ 1 (so the normal has length 1).
+        CHECK_NEAR(nrm.normal.x, 0.0f, 1e-5f);
+        CHECK_NEAR(nrm.normal.y, 1.0f, 1e-5f);
+        CHECK_NEAR(nrm.normal.z, 0.0f, 1e-5f);
+        CHECK_NEAR(nrm.d, 5.0f, 1e-5f);
+        CHECK(nrm.hasPoint(vec3(2, 5, 3)));
+    }
     {
         // Ray straight down from above hits at t=5.
         auto t = pl.intersectRay(vec3(0, 10, 0), vec3(0, -1, 0));
@@ -13091,6 +13107,16 @@ void testGeometry3DHelpers() {
                 vec3(0, 0, 0)));
     CHECK(nearV(math::closestPointToSegment(vec3(15, 0, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
                 vec3(10, 0, 0)));
+
+    // M332: closestPointToSegmentUncapped projects onto the infinite line (no clamping).
+    CHECK(nearV(math::closestPointToSegmentUncapped(vec3(5, 3, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(5, 0, 0)));
+    CHECK(nearV(math::closestPointToSegmentUncapped(vec3(15, 2, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(15, 0, 0))); // capped would clamp to (10,0,0)
+    CHECK(nearV(math::closestPointToSegmentUncapped(vec3(-4, -1, 0), vec3(0, 0, 0), vec3(10, 0, 0)),
+                vec3(-4, 0, 0)));
+    CHECK(nearV(math::closestPointToSegmentUncapped(vec3(1, 2, 3), vec3(0, 0, 0), vec3(0, 0, 0)),
+                vec3(0, 0, 0))); // degenerate segment -> a
 
     // closestPointsBetweenSegments: skew segments (gap of 4 along z).
     {
