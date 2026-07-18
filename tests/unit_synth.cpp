@@ -1318,6 +1318,24 @@ int main() {
         check(np2.arpeggiate(0, 0) == 0 && np2.notes().size() == 2, "arpeggiate with len<1 is a no-op");
     }
 
+    // --- Transpose -----------------------------------------------------------
+    {
+        audio::PianoRoll tr;
+        tr.addNote(audio::Note{0, 1, 60, 1.0f});
+        tr.addNote(audio::Note{2, 1, 64, 1.0f});
+        const int changed = tr.transpose(12);
+        check(changed == 2, "transpose shifts every note");
+        check(tr.notes()[0].pitch == 72 && tr.notes()[1].pitch == 76,
+              "transpose moves pitches by the given semitones");
+        check(tr.transpose(0) == 0, "a zero transpose is a no-op");
+
+        // Pitches clamp to the MIDI range.
+        audio::PianoRoll cl;
+        cl.addNote(audio::Note{0, 1, 5, 1.0f});
+        cl.transpose(-100);
+        check(cl.notes()[0].pitch == 0, "transpose clamps at the low end of the MIDI range");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

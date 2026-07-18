@@ -119,6 +119,11 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Transpose: shift every note's pitch by `semitones` (±), baking the shift into the notes
+    // (distinct from the non-destructive playback transpose). Pitches are clamped to the MIDI range
+    // [0, 127]. Returns the number of notes whose pitch changed.
+    int transpose(int semitones);
+
     // Arpeggiate: bake each chord (a stack of notes sharing a start step) into a printed arpeggio —
     // a run of single `noteLenSteps`-long notes stepping across the chord's duration, cycling through
     // the chord's pitches. `mode` 0 = up, 1 = down, 2 = up-down. Unlike the live arpeggiator this

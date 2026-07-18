@@ -381,6 +381,22 @@ int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::transpose(int semitones) {
+    if (semitones == 0) {
+        return 0;
+    }
+    int changed = 0;
+    for (Note& n : notes_) {
+        int p = n.pitch + semitones;
+        p = p < 0 ? 0 : (p > 127 ? 127 : p);
+        if (p != n.pitch) {
+            n.pitch = p;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 int PianoRoll::arpeggiate(int noteLenSteps, int mode) {
     if (noteLenSteps < 1 || notes_.empty()) {
         return 0;

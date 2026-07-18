@@ -724,6 +724,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Arp notes")) {
         roll.arpeggiate(arpLen, arpBakeMode);
     }
+    ImGui::SameLine();
+    static int transposeSemis = 12;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputInt("##transposesemis", &transposeSemis, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Transpose")) {
+        roll.transpose(transposeSemis);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();
