@@ -88,6 +88,7 @@
 #include "maz/core/StringUtils.hpp"
 #include "maz/core/Variant.hpp"
 #include "maz/core/VariantText.hpp"
+#include "maz/core/VariantContainerText.hpp"
 #include "maz/core/VariantContainers.hpp"
 #include "maz/ecs/Components.hpp"
 #include "maz/ecs/Scheduler.hpp"
@@ -11236,6 +11237,58 @@ void testVariantContainers() {
     v.set("b", 2);
     const auto vals = v.values();
     CHECK((vals.size() == 2 && vals[0] == Variant(1) && vals[1] == Variant(2)));
+
+    // --- M316: Array/Dictionary text serialization (var_to_str/str_to_var for containers) ---
+    using maz::core::arrayToStr;
+    using maz::core::strToArray;
+    using maz::core::dictToStr;
+    using maz::core::strToDict;
+    using maz::math::vec2;
+    CHECK(arrayToStr(Array{Variant(std::int64_t(1)), Variant(2.0), Variant(std::string("three"))}) ==
+          "[1, 2.0, \"three\"]");
+    CHECK(arrayToStr(Array{}) == "[]");
+    {
+        Dictionary md;
+        md.set("hp", Variant(std::int64_t(100)));
+        md.set("name", Variant(std::string("orc")));
+        CHECK(dictToStr(md) == "{ \"hp\": 100, \"name\": \"orc\" }");
+        CHECK(dictToStr(Dictionary{}) == "{}");
+    }
+    // Array round-trip with commas hiding inside a string and a Vector2.
+    {
+        Array ma{Variant(std::int64_t(-5)), Variant(std::string("a, b")), Variant(vec2(3, 4)),
+                Variant(true), Variant()};
+        auto rt = strToArray(arrayToStr(ma));
+        CHECK(rt.has_value() && rt->size() == ma.size());
+        for (std::size_t i = 0; i < ma.size(); ++i) {
+            CHECK((*rt)[i] == ma[i]);
+        }
+    }
+    CHECK(strToArray("[]")->size() == 0);
+    CHECK(strToArray("[ 1, 2, 3 ]")->size() == 3);
+    // A string element containing brackets survives the split.
+    {
+        Array ma{Variant(std::string("[not, array]"))};
+        auto rt = strToArray(arrayToStr(ma));
+        CHECK(rt.has_value() && rt->size() == 1 && (*rt)[0] == ma[0]);
+    }
+    // Dictionary round-trip with a Vector2 value and a value string containing ':' and ','.
+    {
+        Dictionary md;
+        md.set("pos", Variant(vec2(1, 2)));
+        md.set("label", Variant(std::string("x: 1, y: 2")));
+        auto rt = strToDict(dictToStr(md));
+        CHECK(rt.has_value() && rt->size() == 2);
+        CHECK(rt->get("pos") == Variant(vec2(1, 2)));
+        CHECK(rt->get("label") == Variant(std::string("x: 1, y: 2")));
+        CHECK(rt->keys().size() == 2 && rt->keys()[0] == "pos" && rt->keys()[1] == "label");
+    }
+    CHECK(strToDict("{}")->size() == 0);
+    // Malformed rejected.
+    CHECK(!strToArray("nope").has_value());
+    CHECK(!strToArray("[1, ]").has_value());
+    CHECK(!strToDict("{ \"a\" 1 }").has_value()); // missing colon
+    CHECK(!strToDict("{ 5: 1 }").has_value());    // non-string key
 }
 
 // M312: UTF-8 <-> code-point conversion (Godot String code-point semantics).
