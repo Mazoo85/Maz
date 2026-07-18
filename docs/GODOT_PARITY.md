@@ -53,7 +53,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   plus the near/far/fov/aspect/is-orthogonal queries recovered from the matrix, xform/project,
   compose and inverse), **scalar math helpers** (M295, `math::MathFuncs` — Godot's @GlobalScope
   numeric utilities: degToRad/radToDeg, lerpf/inverseLerp/remap, wrapf/wrapi, smoothstep, ease,
-  moveTowardf, lerpAngle (shortest-arc), pingpong, snappedi, nearestPo2, isEqualApproxf), **Vector2i/Vector3i** (M270,
+  moveTowardf, lerpAngle (shortest-arc), pingpong, snappedi, nearestPo2, isEqualApproxf; M311 adds
+  angleDifference and rotateToward — Godot 4.2's @GlobalScope.angle_difference / rotate_toward for
+  shortest-arc angle deltas and overshoot-free angular steering, verified across the +/-pi seam),
+  **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
   lengthSquared, length/distance, aspect, and float-vec conversion), **Vector4/Vector4i** (M286,

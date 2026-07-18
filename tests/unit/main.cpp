@@ -307,6 +307,19 @@ void testMathFuncs() {
     CHECK(isEqualApproxf(1.0f, 1.0f + 1e-7f));
     CHECK(!isEqualApproxf(1.0f, 1.1f));
     CHECK((isZeroApproxf(1e-7f) && !isZeroApproxf(0.1f)));
+
+    // M311: angleDifference / rotateToward (Godot 4.2+ @GlobalScope).
+    CHECK_NEAR(angleDifference(0.0f, kPi * 0.5f), kPi * 0.5f, 1e-4f);
+    CHECK_NEAR(angleDifference(0.0f, -kPi * 0.5f), -kPi * 0.5f, 1e-4f);
+    CHECK_NEAR(angleDifference(0.0f, 1.5f * kPi), -kPi * 0.5f, 1e-4f); // wraps to short way
+    CHECK_NEAR(angleDifference(1.2f, 1.2f), 0.0f, 1e-4f);
+    CHECK_NEAR(angleDifference(0.5f, 0.5f + kTau), 0.0f, 1e-4f);       // full-turn multiple
+    CHECK_NEAR(rotateToward(0.0f, kPi * 0.5f, 0.1f), 0.1f, 1e-4f);    // step toward
+    CHECK_NEAR(rotateToward(0.0f, kPi * 0.5f, 10.0f), kPi * 0.5f, 1e-4f);   // no overshoot
+    CHECK_NEAR(rotateToward(0.0f, -kPi * 0.5f, 10.0f), -kPi * 0.5f, 1e-4f);
+    CHECK_NEAR(rotateToward(0.7f, 0.7f, 0.3f), 0.7f, 1e-4f);          // already there
+    CHECK(rotateToward(0.1f, kTau - 0.1f, 0.05f) < 0.1f);            // short way is clockwise
+    CHECK(rotateToward(0.0f, kPi * 0.5f, -0.1f) < 0.0f);            // negative delta -> away
 }
 
 void testMath() {

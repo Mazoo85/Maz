@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -137,5 +138,21 @@ inline bool isEqualApproxf(float a, float b, float eps = 1e-5f) {
     return std::abs(a - b) < tol;
 }
 inline bool isZeroApproxf(float a, float eps = 1e-5f) { return std::abs(a) < eps; }
+
+// Shortest signed angular distance from `from` to `to`, in radians, wrapped to (-pi, pi] — Godot's
+// @GlobalScope.angle_difference (4.2+). Positive means `to` is counter-clockwise of `from`.
+inline float angleDifference(float from, float to) {
+    const float diff = std::fmod(to - from, kTau);
+    return std::fmod(2.0f * diff, kTau) - diff;
+}
+
+// Rotate angle `from` toward `to` by at most `delta` radians, taking the short way and never
+// overshooting — Godot's @GlobalScope.rotate_toward (4.2+). A negative `delta` rotates away from
+// `to` (down to the opposite angle); the result is not wrapped (matches Godot).
+inline float rotateToward(float from, float to, float delta) {
+    const float diff = angleDifference(from, to);
+    const float absDiff = std::abs(diff);
+    return from + std::clamp(delta, absDiff - kPi, absDiff) * (diff >= 0.0f ? 1.0f : -1.0f);
+}
 
 } // namespace maz::math
