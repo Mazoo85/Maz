@@ -76,7 +76,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   remain out of scope); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
   clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
-  Godot's AABB); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
+  Godot's AABB; M318 adds the axis-vector forms `longestAxis`/`shortestAxis` (Godot get_longest_axis /
+  get_shortest_axis, ties to the earliest axis) and `endpoint(i)` for the 8 corners
+  (get_endpoint), verified against known corners and containment); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
   `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`; plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color

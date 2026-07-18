@@ -206,6 +206,33 @@ struct Aabb3 {
         return std::min(s.x, std::min(s.y, s.z));
     }
 
+    // Unit axis (Vector3) of the longest / shortest side — Godot's AABB.get_longest_axis /
+    // get_shortest_axis. Ties resolve to the earliest axis (x, then y), matching Godot.
+    vec3 longestAxis() const {
+        const vec3 s = size();
+        vec3 ax(1.0f, 0.0f, 0.0f);
+        float m = s.x;
+        if (s.y > m) { ax = vec3(0.0f, 1.0f, 0.0f); m = s.y; }
+        if (s.z > m) { ax = vec3(0.0f, 0.0f, 1.0f); }
+        return ax;
+    }
+    vec3 shortestAxis() const {
+        const vec3 s = size();
+        vec3 ax(1.0f, 0.0f, 0.0f);
+        float m = s.x;
+        if (s.y < m) { ax = vec3(0.0f, 1.0f, 0.0f); m = s.y; }
+        if (s.z < m) { ax = vec3(0.0f, 0.0f, 1.0f); }
+        return ax;
+    }
+
+    // The idx-th of the 8 corners (idx in [0,7]; bit 2 = +x, bit 1 = +y, bit 0 = +z) — Godot's
+    // AABB.get_endpoint.
+    vec3 endpoint(int idx) const {
+        const vec3 s = size();
+        return vec3(min.x + ((idx & 4) ? s.x : 0.0f), min.y + ((idx & 2) ? s.y : 0.0f),
+                    min.z + ((idx & 1) ? s.z : 0.0f));
+    }
+
     // Segment-vs-box overlap test (slab clip over the segment's [0,1] parameter). Godot's
     // AABB.intersects_segment (boolean form).
     bool intersectsSegment(const vec3& a, const vec3& b) const {

@@ -12855,6 +12855,23 @@ void testGeometry3D() {
         CHECK(rect.shortestAxisIndex() == 0);
         CHECK_NEAR(rect.shortestAxisSize(), 2.0f, 1e-5f);
 
+        // M318: axis vectors + endpoints (Godot get_longest_axis / get_shortest_axis / get_endpoint).
+        CHECK((rect.longestAxis() == vec3(0, 1, 0)));
+        CHECK((rect.shortestAxis() == vec3(1, 0, 0)));
+        const Aabb3 cube(vec3(1, 1, 1), vec3(3, 3, 3));
+        CHECK((cube.longestAxis() == vec3(1, 0, 0)));  // ties -> earliest axis
+        CHECK((cube.shortestAxis() == vec3(1, 0, 0)));
+        const Aabb3 e(vec3(0, 0, 0), vec3(2, 5, 1));
+        CHECK((e.endpoint(0) == vec3(0, 0, 0)));
+        CHECK((e.endpoint(1) == vec3(0, 0, 1)));
+        CHECK((e.endpoint(2) == vec3(0, 5, 0)));
+        CHECK((e.endpoint(4) == vec3(2, 0, 0)));
+        CHECK((e.endpoint(7) == vec3(2, 5, 1)));
+        CHECK((e.endpoint(0) == e.min && e.endpoint(7) == e.max));
+        for (int k = 0; k < 8; ++k) {
+            CHECK(e.contains(e.endpoint(k)));
+        }
+
         // segment overlap.
         const Aabb3 c(vec3(0, 0, 0), vec3(2, 2, 2));
         CHECK(c.intersectsSegment(vec3(-1, 1, 1), vec3(3, 1, 1)));
