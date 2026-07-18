@@ -123,7 +123,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "spb " << seq.stepsPerBeat() << "\n";
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
-      << seq.sidechainReleaseMs() << "\n";
+      << seq.sidechainReleaseMs() << " " << seq.sidechainSource() << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << "\n";
     f << "humanize " << seq.humanize() << "\n";
     f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
@@ -342,6 +342,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float amount = 0.7f, rel = 200.0f;
             ls >> on >> amount >> rel;
             seq.setSidechain(on != 0, amount, rel);
+            int src = 0; // sidechain source channel optional (older files omit it)
+            if (ls >> src) {
+                seq.setSidechainSource(src);
+            }
         } else if (tag == "arp") {
             int on = 0, mode = 0;
             ls >> on >> mode;

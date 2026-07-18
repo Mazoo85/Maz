@@ -1046,6 +1046,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
     if (scChanged) {
         seq.setSidechain(sc, scAmt, scRel);
     }
+    ImGui::SameLine();
+    int scSrc = seq.sidechainSource();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderInt("src##sc", &scSrc, 0, seq.numChannels() - 1,
+                         seq.channelName(scSrc < seq.numChannels() ? scSrc : 0).c_str())) {
+        seq.setSidechainSource(scSrc);
+    }
 
     ImGui::SeparatorText("Master FX");
     {

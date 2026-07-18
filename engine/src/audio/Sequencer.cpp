@@ -467,7 +467,7 @@ void Sequencer::triggerStep(int step) {
         }
     }
     // Sidechain: a kick (channel 0) hit ducks the melodic bus.
-    if (sidechainOn_ && this->step(0, step)) {
+    if (sidechainOn_ && this->step(sidechainSource_, step)) {
         scEnv_ = 1.0f - scAmount_;
     }
     const bool toSampler = useSampler_ && sampler_.loaded();

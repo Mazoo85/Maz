@@ -62,6 +62,10 @@ public:
     bool sidechainOn() const { return sidechainOn_; }
     float sidechainAmount() const { return scAmount_; }
     float sidechainReleaseMs() const { return scReleaseMs_; }
+    // Which drum channel's hits duck the melodic bus (default 0 = kick). Lets any channel — a snare,
+    // a clap — be the sidechain trigger, FL-style.
+    void setSidechainSource(int channel) { sidechainSource_ = channel < 0 ? 0 : channel; }
+    int sidechainSource() const { return sidechainSource_; }
 
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
@@ -287,6 +291,7 @@ private:
     bool sidechainOn_ = false;
     float scAmount_ = 0.7f;
     float scReleaseMs_ = 200.0f;
+    int sidechainSource_ = 0; // drum channel that triggers the duck (0 = kick)
     float scEnv_ = 1.0f; // current ducking gain (1 = open)
 
     bool metronome_ = false;

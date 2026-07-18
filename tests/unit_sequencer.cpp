@@ -347,6 +347,30 @@ int main() {
         const double late = windowRms(20000, 25000);  // recovered
         check(early < late * 0.7, "sidechain ducks the synth right after the kick");
         check(late > 0.0, "synth recovers after the duck");
+
+        // Routable source: with the source set to the snare (channel 1), a hit on channel 1 — and
+        // NOT the kick — drives the duck.
+        audio::Sequencer sc2;
+        sc2.setBpm(120.0);
+        sc2.setStep(1, 0, true);     // snare step on channel 1
+        sc2.setChannelMute(1, true); // silence the snare itself
+        sc2.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        sc2.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        sc2.setSidechain(true, 0.9f, 250.0f);
+        sc2.setSidechainSource(1); // duck from the snare, not the kick
+        check(sc2.sidechainSource() == 1, "sidechain source is settable");
+        sc2.play();
+        const std::vector<float> out2 = renderMono(sc2, 16 * 6000, sampleRate);
+        auto win2 = [&](int a, int b) {
+            double s = 0.0;
+            for (int i = a; i < b; ++i) {
+                const double v = static_cast<double>(out2[static_cast<size_t>(i) * 2]);
+                s += v * v;
+            }
+            return std::sqrt(s / static_cast<double>(b - a));
+        };
+        check(win2(200, 1500) < win2(20000, 25000) * 0.7,
+              "the routed (snare) channel drives the sidechain duck");
     }
 
     // --- Arrangement: patterns + playlist -----------------------------------
