@@ -26,7 +26,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance
-  budgets** (a formal alert layer Godot lacks), job system.
+  budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
+  `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
+  contains/to_lower-upper/repeat/count).
 - **2D:** sprites/atlas/tilemaps, cameras, parallax, polygons (convex + concave ear-clip),
   polylines, multimesh, 2D lights + hard/soft/normal-mapped shadows, additive blending,
   **Delaunay triangulation** (M257, `math::triangulateDelaunay` — Bowyer-Watson, Godot's

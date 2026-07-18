@@ -80,6 +80,7 @@
 #include "maz/core/Signal.hpp"
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
+#include "maz/core/StringUtils.hpp"
 #include "maz/ecs/Components.hpp"
 #include "maz/ecs/Scheduler.hpp"
 #include "maz/ecs/World.hpp"
@@ -10591,6 +10592,57 @@ void testStringId() {
     }
 }
 
+void testStringUtils() {
+    namespace su = maz::core;
+
+    // split / join.
+    {
+        auto p = su::split("a,b,c", ",");
+        CHECK((p.size() == 3 && p[0] == "a" && p[2] == "c"));
+        auto e = su::split("a,,c", ",");
+        CHECK((e.size() == 3 && e[1].empty()));
+        auto ne = su::split("a,,c", ",", false);
+        CHECK((ne.size() == 2 && ne[0] == "a" && ne[1] == "c"));
+        CHECK(su::split("", ",").size() == 1);
+        auto whole = su::split("abc", "");
+        CHECK((whole.size() == 1 && whole[0] == "abc"));
+        CHECK((su::join({"a", "b", "c"}, "-") == "a-b-c"));
+        CHECK(su::join({}, "-").empty());
+        CHECK((su::join(su::split("x/y/z", "/"), "/") == "x/y/z"));
+    }
+    // prefix / suffix / contains.
+    CHECK(su::beginsWith("hello.txt", "hello"));
+    CHECK(!su::beginsWith("hi", "hello"));
+    CHECK(su::endsWith("hello.txt", ".txt"));
+    CHECK(!su::endsWith("a", "ab"));
+    CHECK(su::contains("abcdef", "cde"));
+    CHECK(!su::contains("abc", "z"));
+    // strip.
+    CHECK((su::strip("  hi \t\n") == "hi"));
+    CHECK((su::lstrip("  hi") == "hi"));
+    CHECK((su::rstrip("hi  ") == "hi"));
+    CHECK(su::strip("   ").empty());
+    // pad.
+    CHECK((su::padLeft("42", 5, '0') == "00042"));
+    CHECK((su::padRight("42", 5) == "42   "));
+    CHECK((su::padLeft("toolong", 3) == "toolong"));
+    // replaceAll.
+    CHECK((su::replaceAll("a.b.c", ".", "/") == "a/b/c"));
+    CHECK((su::replaceAll("aaa", "a", "bb") == "bbbbbb"));
+    CHECK((su::replaceAll("abc", "", "x") == "abc"));
+    CHECK((su::replaceAll("hello", "z", "y") == "hello"));
+    // case.
+    CHECK((su::toLower("HeLLo123") == "hello123"));
+    CHECK((su::toUpper("HeLLo123") == "HELLO123"));
+    // repeat / count.
+    CHECK((su::repeat("ab", 3) == "ababab"));
+    CHECK(su::repeat("x", 0).empty());
+    CHECK(su::count("banana", "a") == 3);
+    CHECK(su::count("aaaa", "aa") == 2);
+    CHECK(su::count("abc", "z") == 0);
+    CHECK(su::count("abc", "") == 0);
+}
+
 void testSlotMap() {
     using core::SlotHandle;
     using core::SlotMap;
@@ -20786,6 +20838,7 @@ int main() {
     testEventBus();
     testSignal();
     testStringId();
+    testStringUtils();
     testSlotMap();
     testRingBuffer();
     testJobs();
