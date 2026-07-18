@@ -653,6 +653,24 @@ int main() {
         }
     }
 
+    // --- Invert (melodic inversion) ------------------------------------------
+    {
+        audio::PianoRoll ir;
+        ir.addNote(audio::Note{0, 1, 60, 1.0f}); // on the pivot → unchanged
+        ir.addNote(audio::Note{1, 1, 64, 1.0f}); // +4 above → +4 below = 56
+        ir.addNote(audio::Note{2, 1, 55, 1.0f}); // -5 below → -5 above = 65
+        const int changed = ir.invert(60);
+        check(changed == 2, "invert mirrors every note off the pivot");
+        check(ir.notes()[0].pitch == 60, "a note on the pivot is unchanged");
+        check(ir.notes()[1].pitch == 56, "a note above the pivot mirrors below it");
+        check(ir.notes()[2].pitch == 65, "a note below the pivot mirrors above it");
+
+        // Inverting twice around the same pivot restores the original pitches.
+        ir.invert(60);
+        check(ir.notes()[1].pitch == 64 && ir.notes()[2].pitch == 55,
+              "inverting twice around the same pivot is a round trip");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

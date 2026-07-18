@@ -229,6 +229,23 @@ int PianoRoll::legato() {
     return changed;
 }
 
+int PianoRoll::invert(int pivotPitch) {
+    int changed = 0;
+    for (Note& n : notes_) {
+        int mirrored = 2 * pivotPitch - n.pitch;
+        if (mirrored < 0) {
+            mirrored = 0;
+        } else if (mirrored > 127) {
+            mirrored = 127;
+        }
+        if (mirrored != n.pitch) {
+            n.pitch = mirrored;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

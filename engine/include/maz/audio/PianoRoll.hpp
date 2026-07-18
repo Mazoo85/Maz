@@ -73,6 +73,11 @@ public:
     // keep their length. Returns the number of notes whose length changed.
     int legato();
 
+    // Invert: mirror every note's pitch around `pivotPitch` (newPitch = 2·pivot − pitch), the
+    // classic melodic inversion — intervals flip direction while their sizes are preserved. Pitches
+    // are clamped to the MIDI range. Returns the number of notes whose pitch changed.
+    int invert(int pivotPitch);
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 

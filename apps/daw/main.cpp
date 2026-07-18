@@ -628,6 +628,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Legato")) {
         roll.legato();
     }
+    ImGui::SameLine();
+    static int invertPivot = 60; // middle C
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("##invpivot", &invertPivot);
+    ImGui::SameLine();
+    if (ImGui::Button("Invert")) {
+        roll.invert(invertPivot);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();
