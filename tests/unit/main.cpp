@@ -83,6 +83,7 @@
 #include "maz/core/StringId.hpp"
 #include "maz/core/StringUtils.hpp"
 #include "maz/core/Variant.hpp"
+#include "maz/core/VariantContainers.hpp"
 #include "maz/ecs/Components.hpp"
 #include "maz/ecs/Scheduler.hpp"
 #include "maz/ecs/World.hpp"
@@ -10937,6 +10938,74 @@ void testVariant() {
     CHECK(Variant("1") != Variant(1));    // string vs number
     CHECK(Variant(vec2(1, 2)) == Variant(vec2(1, 2)));
     CHECK(Variant(vec3(1, 2, 3)) != Variant(vec3(1, 2, 4)));
+}
+
+// Array / Dictionary: Godot container Variants (M294) — ordered list + ordered string->Variant map.
+void testVariantContainers() {
+    using maz::core::Array;
+    using maz::core::Dictionary;
+    using maz::core::Variant;
+
+    // Array: append / index / insert / find / remove / pop / slice / reverse.
+    Array a;
+    CHECK(a.isEmpty());
+    a.append(1);
+    a.append("two");
+    a.append(3.0);
+    CHECK(a.size() == 3);
+    CHECK((a[0] == Variant(1) && a[1] == Variant("two")));
+    a.pushFront(0);
+    CHECK((a[0] == Variant(0) && a.size() == 4));
+    a.insert(2, 99);
+    CHECK((a[2] == Variant(99) && a.find(Variant(99)) == 2));
+    CHECK(a.has(Variant("two")));
+    CHECK(a.find(Variant("nope")) == -1);
+    a.removeAt(2);
+    CHECK((a.find(Variant(99)) == -1 && a.size() == 4));
+    CHECK((a.popBack() == Variant(3.0) && a.size() == 3));
+    CHECK((a.front() == Variant(0) && a.back() == Variant("two")));
+
+    Array b{1, 2, 3, 4};
+    Array s = b.slice(1, 3);
+    CHECK((s.size() == 2 && s[0] == Variant(2) && s[1] == Variant(3)));
+    CHECK(b.slice(3, 1).isEmpty());
+    b.reverse();
+    CHECK((b[0] == Variant(4) && b[3] == Variant(1)));
+
+    // Dictionary: set/get/[], order, overwrite, erase, merge, values.
+    Dictionary d;
+    d.set("hp", 100);
+    d.set("name", "hero");
+    d["level"] = 5;
+    CHECK(d.size() == 3);
+    CHECK((d.has("hp") && !d.has("mana")));
+    CHECK(d.get("hp") == Variant(100));
+    CHECK(d.get("mana", Variant(-1)) == Variant(-1));
+    CHECK(d["level"] == Variant(5));
+    {
+        const auto ks = d.keys();
+        CHECK((ks.size() == 3 && ks[0] == "hp" && ks[1] == "name" && ks[2] == "level"));
+    }
+    d.set("hp", 80); // overwrite keeps position
+    CHECK((d.get("hp") == Variant(80) && d.keys()[0] == "hp" && d.size() == 3));
+    CHECK((d.erase("name") && !d.has("name") && d.size() == 2));
+    CHECK(!d.erase("name"));
+
+    Dictionary e;
+    e.set("hp", 999);
+    e.set("gold", 50);
+    Dictionary d2 = d;
+    d2.merge(e, false); // keep existing
+    CHECK((d2.get("hp") == Variant(80) && d2.get("gold") == Variant(50)));
+    Dictionary d3 = d;
+    d3.merge(e, true); // overwrite
+    CHECK(d3.get("hp") == Variant(999));
+
+    Dictionary v;
+    v.set("a", 1);
+    v.set("b", 2);
+    const auto vals = v.values();
+    CHECK((vals.size() == 2 && vals[0] == Variant(1) && vals[1] == Variant(2)));
 }
 
 void testStringUtils() {
@@ -22028,6 +22097,7 @@ int main() {
     testStringId();
     testStringUtils();
     testVariant();
+    testVariantContainers();
     testSlotMap();
     testRingBuffer();
     testJobs();
