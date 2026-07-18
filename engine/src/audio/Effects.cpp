@@ -843,6 +843,60 @@ void Tremolo::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- StereoDelay ------------------------------------------------------------
+
+void StereoDelay::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    writePos_ = 0;
+}
+
+void StereoDelay::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxD = sampleRate * 2 + 4; // up to 2 s per channel
+    if (static_cast<int>(bufL_.size()) != maxD) {
+        bufL_.assign(static_cast<size_t>(maxD), 0.0f);
+        bufR_.assign(static_cast<size_t>(maxD), 0.0f);
+        writePos_ = 0;
+    }
+    auto delaySamples = [&](float ms) {
+        int d = static_cast<int>(ms * 0.001f * static_cast<float>(sampleRate) + 0.5f);
+        if (d < 1) {
+            d = 1;
+        }
+        if (d >= maxD) {
+            d = maxD - 1;
+        }
+        return d;
+    };
+    const int dl = delaySamples(leftMs_);
+    const int dr = delaySamples(rightMs_);
+    for (int i = 0; i < frames; ++i) {
+        int rl = writePos_ - dl;
+        if (rl < 0) {
+            rl += maxD;
+        }
+        int rr = writePos_ - dr;
+        if (rr < 0) {
+            rr += maxD;
+        }
+        const float inL = stereo[2 * i];
+        const float inR = stereo[2 * i + 1];
+        const float echoL = bufL_[static_cast<size_t>(rl)];
+        const float echoR = bufR_[static_cast<size_t>(rr)];
+        // Each channel feeds its own echo back into its own line at its own time.
+        bufL_[static_cast<size_t>(writePos_)] = inL + echoL * feedback_;
+        bufR_[static_cast<size_t>(writePos_)] = inR + echoR * feedback_;
+        stereo[2 * i] = inL * (1.0f - mix_) + echoL * mix_;
+        stereo[2 * i + 1] = inR * (1.0f - mix_) + echoR * mix_;
+        if (++writePos_ >= maxD) {
+            writePos_ = 0;
+        }
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

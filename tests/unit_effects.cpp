@@ -739,6 +739,41 @@ int main() {
         check(same, "a disabled tremolo is transparent");
     }
 
+    // --- Stereo delay: independent left/right echo times --------------------
+    {
+        // 10 ms left = 480 samples, 20 ms right = 960 samples at 48 kHz — exact for a clean check.
+        audio::StereoDelay sd;
+        sd.setEnabled(true);
+        sd.setLeftMs(10.0f);
+        sd.setRightMs(20.0f);
+        sd.setFeedback(0.5f);
+        sd.setMix(1.0f); // fully wet → the output is the echo train
+        std::vector<float> imp(3000 * 2, 0.0f);
+        imp[0] = 1.0f; // impulse on the left only
+        imp[1] = 1.0f; // impulse on the right only
+        sd.process(imp.data(), 3000, sr);
+        // Left echoes at 480, 960 (×feedback each step); right echoes at 960, 1920.
+        check(std::fabs(imp[2 * 480] - 1.0f) < 1e-3f, "left channel echoes at its own delay time");
+        check(std::fabs(imp[2 * 960] - 0.5f) < 1e-3f, "left echo repeats scaled by feedback");
+        check(std::fabs(imp[2 * 960 + 1] - 1.0f) < 1e-3f, "right channel echoes at its own (longer) time");
+        // The right channel has NOT echoed yet at the left's first tap (times are independent).
+        check(std::fabs(imp[2 * 480 + 1]) < 1e-3f, "right channel is silent at the left echo time");
+
+        // Disabled → transparent.
+        audio::StereoDelay off;
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled stereo delay is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

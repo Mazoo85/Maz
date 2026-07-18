@@ -1324,6 +1324,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::Combo("shape##trem", &shape, shapes, 2))
             mx.tremolo().setShape(static_cast<audio::Tremolo::Shape>(shape));
     }
+    {
+        bool en = mx.stereoDelay().enabled();
+        if (ImGui::Checkbox("Stereo Delay", &en)) mx.stereoDelay().setEnabled(en);
+        float lms = mx.stereoDelay().leftMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("L ms##sd", &lms, 1.0f, 1000.0f, "%.0f"))
+            mx.stereoDelay().setLeftMs(lms);
+        float rms = mx.stereoDelay().rightMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("R ms##sd", &rms, 1.0f, 1000.0f, "%.0f"))
+            mx.stereoDelay().setRightMs(rms);
+        float fb = mx.stereoDelay().feedback();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("fb##sd", &fb, 0.0f, 0.95f, "%.2f")) mx.stereoDelay().setFeedback(fb);
+        float mix = mx.stereoDelay().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mix##sd", &mix, 0.0f, 1.0f, "%.2f")) mx.stereoDelay().setMix(mix);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

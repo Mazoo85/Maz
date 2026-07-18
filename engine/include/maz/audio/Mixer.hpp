@@ -52,6 +52,7 @@ public:
     AutoWah& autowah() { return autowah_; }
     CombResonator& comb() { return comb_; }
     Tremolo& tremolo() { return tremolo_; }
+    StereoDelay& stereoDelay() { return stereoDelay_; }
     MonoBass& monobass() { return monobass_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
@@ -110,6 +111,7 @@ private:
     AutoWah autowah_{};
     CombResonator comb_{};
     Tremolo tremolo_{};
+    StereoDelay stereoDelay_{};
     MonoBass monobass_{};
     PluginHost plugin_{};
     ClapHost clap_{};

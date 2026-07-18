@@ -566,6 +566,35 @@ private:
     double phase_ = 0.0; // LFO phase in [0, 1)
 };
 
+// A stereo (dual) delay: each channel has its own independent delay time, so the left and right
+// echoes fall at different intervals — wide, dubby, cross-rhythmic stereo echoes the single-time
+// Delay can't make. `feedback` sets the repeat tail; `mix` the dry/wet blend.
+class StereoDelay : public Effect {
+public:
+    StereoDelay() { enabled_ = false; }
+    const char* name() const override { return "Stereo Delay"; }
+    void setLeftMs(float ms) { leftMs_ = ms < 1.0f ? 1.0f : (ms > 2000.0f ? 2000.0f : ms); }
+    void setRightMs(float ms) { rightMs_ = ms < 1.0f ? 1.0f : (ms > 2000.0f ? 2000.0f : ms); }
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float leftMs() const { return leftMs_; }
+    float rightMs() const { return rightMs_; }
+    float feedback() const { return feedback_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float leftMs_ = 250.0f;
+    float rightMs_ = 375.0f;
+    float feedback_ = 0.4f;
+    float mix_ = 0.3f;
+    std::vector<float> bufL_; // circular delay lines (sized on first process)
+    std::vector<float> bufR_;
+    int writePos_ = 0;
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

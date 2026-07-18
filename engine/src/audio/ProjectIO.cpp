@@ -247,6 +247,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
       << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << "\n";
+    f << "fx stereodelay " << (mixer.stereoDelay().enabled() ? 1 : 0) << " "
+      << mixer.stereoDelay().leftMs() << " " << mixer.stereoDelay().rightMs() << " "
+      << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
@@ -621,6 +624,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.tremolo().setRate(rate);
                 mixer.tremolo().setDepth(depth);
                 mixer.tremolo().setShape(shape == 1 ? Tremolo::Shape::Square : Tremolo::Shape::Sine);
+            } else if (which == "stereodelay") {
+                float lms = 250.0f, rms = 375.0f, fb = 0.4f, mix = 0.3f;
+                ls >> lms >> rms >> fb >> mix;
+                mixer.stereoDelay().setEnabled(en != 0);
+                mixer.stereoDelay().setLeftMs(lms);
+                mixer.stereoDelay().setRightMs(rms);
+                mixer.stereoDelay().setFeedback(fb);
+                mixer.stereoDelay().setMix(mix);
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;

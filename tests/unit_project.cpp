@@ -151,6 +151,11 @@ int main() {
     mixer.tremolo().setRate(7.5f);
     mixer.tremolo().setDepth(0.85f);
     mixer.tremolo().setShape(audio::Tremolo::Shape::Square);
+    mixer.stereoDelay().setEnabled(true);
+    mixer.stereoDelay().setLeftMs(180.0f);
+    mixer.stereoDelay().setRightMs(270.0f);
+    mixer.stereoDelay().setFeedback(0.55f);
+    mixer.stereoDelay().setMix(0.35f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -342,6 +347,11 @@ int main() {
               near(mixer2.tremolo().depth(), 0.85f) &&
               mixer2.tremolo().shape() == audio::Tremolo::Shape::Square,
           "tremolo round-trips");
+    check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
+              near(mixer2.stereoDelay().rightMs(), 270.0f) &&
+              near(mixer2.stereoDelay().feedback(), 0.55f) &&
+              near(mixer2.stereoDelay().mix(), 0.35f),
+          "stereo delay round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
