@@ -51,6 +51,7 @@
 #include "maz/net/Interpolation.hpp"
 #include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
+#include "maz/net/Rpc.hpp"
 #include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
 #include "maz/render/Ktx2.hpp"
@@ -5551,6 +5552,74 @@ void testPrediction() {
     s = pb2.reconcile(9, St{0.0f}, step);
     CHECK(pb2.pendingCount() == 2);
     CHECK_NEAR(s.pos, 4.0f, 1e-4f);
+}
+
+void testRpc() {
+    using net::BitReader;
+    using net::BitWriter;
+    using net::RpcDispatcher;
+    using net::RpcMode;
+
+    net::RpcDispatcher d;
+    int gotDamage = 0;
+    float gotAmount = 0.0f;
+    int spawnCount = 0;
+    int32_t spawnX = 0;
+    int32_t spawnY = 0;
+
+    d.bindNamed("take_damage", [&](BitReader& r) {
+        gotDamage = static_cast<int>(r.readBits(8));
+        gotAmount = r.readFloat();
+    });
+    d.bindNamed("spawn", [&](BitReader& r) {
+        ++spawnCount;
+        spawnX = r.readInt(16);
+        spawnY = r.readInt(16);
+    });
+    CHECK(d.handlerCount() == 2);
+
+    // Name hash is deterministic and (for these names) distinct.
+    CHECK(net::rpcHash("take_damage") == net::rpcHash("take_damage"));
+    CHECK(net::rpcHash("take_damage") != net::rpcHash("spawn"));
+    CHECK(d.bound(net::rpcHash("spawn")));
+
+    // Encode + dispatch take_damage(37, 2.5) as an unreliable call.
+    BitWriter w;
+    RpcDispatcher::writeHeaderNamed(w, "take_damage", RpcMode::Unreliable);
+    w.writeBits(37, 8);
+    w.writeFloat(2.5f);
+    BitReader r(w.bytes());
+    CHECK(d.dispatch(r));
+    CHECK(gotDamage == 37);
+    CHECK_NEAR(gotAmount, 2.5f, 1e-6f);
+    CHECK(d.lastMode() == RpcMode::Unreliable);
+    CHECK(d.lastMethod() == net::rpcHash("take_damage"));
+
+    // Encode + dispatch spawn(-100, 200) (default reliable).
+    BitWriter w2;
+    RpcDispatcher::writeHeaderNamed(w2, "spawn");
+    w2.writeInt(-100, 16);
+    w2.writeInt(200, 16);
+    BitReader r2(w2.bytes());
+    CHECK(d.dispatch(r2));
+    CHECK(spawnCount == 1);
+    CHECK(spawnX == -100);
+    CHECK(spawnY == 200);
+    CHECK(d.lastMode() == RpcMode::Reliable);
+
+    // Unknown method -> false, counted.
+    BitWriter w3;
+    RpcDispatcher::writeHeaderNamed(w3, "nonexistent");
+    BitReader r3(w3.bytes());
+    CHECK(!d.dispatch(r3));
+    CHECK(d.unknownCalls() == 1);
+
+    // Truncated header (8 bits, needs 18) -> malformed, counted.
+    BitWriter w4;
+    w4.writeBits(5, 8);
+    BitReader r4(w4.bytes());
+    CHECK(!d.dispatch(r4));
+    CHECK(d.malformedCalls() == 1);
 }
 
 void testProfiler() {
@@ -17325,6 +17394,7 @@ int main() {
     testSnapshot();
     testNetInterpolation();
     testPrediction();
+    testRpc();
     testNoise();
     testRandom();
     testInterpolate();
