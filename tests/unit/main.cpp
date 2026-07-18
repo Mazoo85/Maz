@@ -206,6 +206,7 @@
 #include "maz/math/VectorInt.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/math/MathFuncs.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
 #include "maz/render/ColorNames.hpp"
@@ -263,6 +264,47 @@ void reportFail(const char* expr, const char* file, int line) {
     } while (0)
 
 using namespace maz;
+
+// MathFuncs: Godot @GlobalScope scalar helpers (M295) — wrap/remap/smoothstep/ease/lerp_angle/etc.
+void testMathFuncs() {
+    using namespace maz::math;
+    CHECK_NEAR(degToRad(180.0f), kPi, 1e-4f);
+    CHECK_NEAR(radToDeg(kPi), 180.0f, 1e-4f);
+    CHECK((signf(-3.0f) == -1.0f && signf(0.0f) == 0.0f && signf(2.0f) == 1.0f));
+    CHECK((signi(-5) == -1 && signi(0) == 0 && signi(9) == 1));
+
+    CHECK_NEAR(lerpf(0, 10, 0.25f), 2.5f, 1e-4f);
+    CHECK_NEAR(inverseLerp(0, 10, 2.5f), 0.25f, 1e-4f);
+    CHECK_NEAR(remap(5, 0, 10, 100, 200), 150.0f, 1e-4f);
+
+    CHECK_NEAR(wrapf(370.0f, 0.0f, 360.0f), 10.0f, 1e-3f);
+    CHECK_NEAR(wrapf(-10.0f, 0.0f, 360.0f), 350.0f, 1e-3f);
+    CHECK((wrapi(7, 0, 5) == 2 && wrapi(-1, 0, 5) == 4 && wrapi(3, 0, 5) == 3));
+
+    CHECK_NEAR(smoothstep(0, 1, 0.0f), 0.0f, 1e-4f);
+    CHECK_NEAR(smoothstep(0, 1, 1.0f), 1.0f, 1e-4f);
+    CHECK_NEAR(smoothstep(0, 1, 0.5f), 0.5f, 1e-4f);
+    CHECK(smoothstep(0, 1, 0.25f) < 0.25f);
+
+    CHECK_NEAR(ease(0.5f, 1.0f), 0.5f, 1e-4f); // c==1 linear
+    CHECK((ease(0.5f, 2.0f) < 0.5f));          // ease-in
+    CHECK_NEAR(moveTowardf(0, 10, 3), 3.0f, 1e-4f);
+    CHECK_NEAR(moveTowardf(0, 10, 100), 10.0f, 1e-4f); // no overshoot
+    CHECK_NEAR(lerpAngle(0.1f, kTau - 0.1f, 0.5f), 0.0f, 1e-3f); // shortest arc
+
+    CHECK_NEAR(pingpong(0.0f, 1.0f), 0.0f, 1e-4f);
+    CHECK_NEAR(pingpong(1.0f, 1.0f), 1.0f, 1e-4f);
+    CHECK_NEAR(pingpong(2.0f, 1.0f), 0.0f, 1e-4f);
+    CHECK_NEAR(pingpong(1.5f, 1.0f), 0.5f, 1e-4f);
+
+    CHECK((snappedi(7.0, 5) == 5 && snappedi(8.0, 5) == 10 && snappedi(-8.0, 5) == -10));
+    CHECK((nearestPo2(1) == 1u && nearestPo2(5) == 8u && nearestPo2(16) == 16u));
+    CHECK((nearestPo2(17) == 32u && nearestPo2(0) == 0u && nearestPo2(-3) == 0u));
+
+    CHECK(isEqualApproxf(1.0f, 1.0f + 1e-7f));
+    CHECK(!isEqualApproxf(1.0f, 1.1f));
+    CHECK((isZeroApproxf(1e-7f) && !isZeroApproxf(0.1f)));
+}
 
 void testMath() {
     // Vulkan-correct perspective flips clip-space Y (proj[1][1] < 0).
@@ -21961,6 +22003,7 @@ void testSceneStack() {
 int main() {
     std::printf("maz unit tests\n");
     testMath();
+    testMathFuncs();
     testCurve2D();
     testCurve3D();
     testDelaunay();

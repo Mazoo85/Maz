@@ -38,7 +38,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   so orientations authored in Godot import identically), **Projection** (M292, `math::Projection` —
   Godot's 4x4 projection-matrix type: perspective/orthographic/frustum constructors (RH, depth 0..1)
   plus the near/far/fov/aspect/is-orthogonal queries recovered from the matrix, xform/project,
-  compose and inverse), **Vector2i/Vector3i** (M270,
+  compose and inverse), **scalar math helpers** (M295, `math::MathFuncs` — Godot's @GlobalScope
+  numeric utilities: degToRad/radToDeg, lerpf/inverseLerp/remap, wrapf/wrapi, smoothstep, ease,
+  moveTowardf, lerpAngle (shortest-arc), pingpong, snappedi, nearestPo2, isEqualApproxf), **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
   lengthSquared, length/distance, aspect, and float-vec conversion), **Vector4/Vector4i** (M286,
