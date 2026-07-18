@@ -220,6 +220,48 @@ int main() {
               "filter-resonance automation reaches its low bound");
     }
 
+    // --- Lead-bus targets: volume + pan on the lead mixer strip -------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& lv = autom.lane(audio::AutoTarget::LeadVolume);
+        lv.enabled = true;
+        lv.lfo.shape = audio::Waveform::Sine;
+        lv.lfo.rateHz = 1.0f;
+        lv.lo = 0.0f;
+        lv.hi = 1.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.0); // sine=0 → unipolar 0.5 → midpoint (non-unity gain)
+        check(std::fabs(eng.mixer().track(audio::MixerBus::Lead).gain() - 0.5f) < 0.02f,
+              "automating lead volume lands the lead strip gain at its midpoint");
+        check(eng.mixer().track(audio::MixerBus::Lead).active(),
+              "a non-unity lead-volume lane makes the lead strip active (engages the stem path)");
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().track(audio::MixerBus::Lead).gain() > 0.95f,
+              "automating lead volume drives the lead strip gain to its high bound");
+        autom.apply(eng, 0.75); // trough → lo bound (silence the lead)
+        check(eng.mixer().track(audio::MixerBus::Lead).gain() < 0.05f,
+              "lead-volume automation reaches its low bound");
+
+        // Pan sweeps the lead strip's stereo balance from hard-left to hard-right.
+        audio::Automation apan;
+        audio::AutoLane& lp = apan.lane(audio::AutoTarget::LeadPan);
+        lp.enabled = true;
+        lp.lfo.shape = audio::Waveform::Sine;
+        lp.lfo.rateHz = 1.0f;
+        lp.lo = -1.0f;
+        lp.hi = 1.0f;
+        audio::AudioEngine eng3;
+        eng3.initOffline();
+        apan.apply(eng3, 0.25); // peak → hi bound (+1 = hard right)
+        check(eng3.mixer().track(audio::MixerBus::Lead).pan() > 0.95f,
+              "automating lead pan drives the balance hard right at the high bound");
+        apan.apply(eng3, 0.75); // trough → lo bound (-1 = hard left)
+        check(eng3.mixer().track(audio::MixerBus::Lead).pan() < -0.95f,
+              "lead-pan automation reaches hard left at the low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

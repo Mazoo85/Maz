@@ -55,6 +55,10 @@ Automation::Automation() {
     lane(AutoTarget::SynthCutoff).hi = 8000.0f;
     lane(AutoTarget::FilterResonance).lo = 0.7f;
     lane(AutoTarget::FilterResonance).hi = 12.0f;
+    lane(AutoTarget::LeadVolume).lo = 0.0f;
+    lane(AutoTarget::LeadVolume).hi = 1.0f;
+    lane(AutoTarget::LeadPan).lo = -1.0f;
+    lane(AutoTarget::LeadPan).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -81,6 +85,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Synth Cutoff";
     case AutoTarget::FilterResonance:
         return "Filter Reso";
+    case AutoTarget::LeadVolume:
+        return "Lead Volume";
+    case AutoTarget::LeadPan:
+        return "Lead Pan";
     case AutoTarget::Count:
         break;
     }
@@ -179,6 +187,15 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             syn.setFilter(syn.filterCutoff(), v, syn.filterEnvAmount());
             break;
         }
+        case AutoTarget::LeadVolume:
+            // Sweep the lead mixer strip's gain (bus-level tremolo / volume rides). Touching the
+            // track makes it active, so the per-bus stem path engages automatically.
+            engine.mixer().track(MixerBus::Lead).setGain(v);
+            break;
+        case AutoTarget::LeadPan:
+            // Sweep the lead mixer strip's stereo balance (auto-pan on the lead bus only).
+            engine.mixer().track(MixerBus::Lead).setPan(v);
+            break;
         case AutoTarget::Count:
             break;
         }

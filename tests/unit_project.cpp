@@ -266,6 +266,13 @@ int main() {
     reverbLane.enabled = true;
     reverbLane.clip = {{0.0, 0.1f}, {1.5, 0.9f}, {3.0, 0.3f}};
     reverbLane.clipLength = 4.0;
+    // A lead-bus volume lane (a later-appended target) — checks new lanes persist by index.
+    audio::AutoLane& leadVolLane = automation.lane(audio::AutoTarget::LeadVolume);
+    leadVolLane.enabled = true;
+    leadVolLane.lfo.shape = audio::Waveform::Triangle;
+    leadVolLane.lfo.rateHz = 0.8f;
+    leadVolLane.lo = 0.2f;
+    leadVolLane.hi = 0.95f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -518,6 +525,10 @@ int main() {
               near(static_cast<float>(clipLane2.clip[1].time), 1.5f) &&
               near(clipLane2.clip[1].value, 0.9f),
           "automation clip (breakpoints) round-trips");
+    const audio::AutoLane& leadVol2 = automation2.lane(audio::AutoTarget::LeadVolume);
+    check(leadVol2.enabled && leadVol2.lfo.shape == audio::Waveform::Triangle &&
+              near(leadVol2.lfo.rateHz, 0.8f) && near(leadVol2.lo, 0.2f) && near(leadVol2.hi, 0.95f),
+          "lead-volume automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

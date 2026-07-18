@@ -22,6 +22,8 @@ enum class AutoTarget {
     StereoWidth,
     SynthCutoff,
     FilterResonance,
+    LeadVolume,
+    LeadPan,
     Count
 };
 
