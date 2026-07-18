@@ -1684,6 +1684,22 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(90.0f);
         if (ImGui::SliderFloat("look##lim", &look, 0.1f, 10.0f, "%.1f")) mx.limiter().setLookaheadMs(look);
     }
+    {
+        bool en = mx.clipper().enabled();
+        if (ImGui::Checkbox("Clipper", &en)) mx.clipper().setEnabled(en);
+        float drive = mx.clipper().driveDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("drive##clip", &drive, 0.0f, 36.0f, "%.1f")) mx.clipper().setDriveDb(drive);
+        float ceil = mx.clipper().ceiling();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("ceil##clip", &ceil, 0.05f, 1.0f, "%.2f")) mx.clipper().setCeiling(ceil);
+        float hard = mx.clipper().hardness();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("hard##clip", &hard, 0.0f, 1.0f, "%.2f")) mx.clipper().setHardness(hard);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

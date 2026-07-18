@@ -50,6 +50,7 @@ public:
     StereoWidener& widener() { return widener_; }
     StereoEnhancer& stereoEnhancer() { return stereoEnhancer_; }
     Utility& utility() { return utility_; }
+    Clipper& clipper() { return clipper_; }
     Limiter& limiter() { return limiter_; }
     DeEsser& deEsser() { return deEsser_; }
     AutoPan& autopan() { return autopan_; }
@@ -114,6 +115,7 @@ private:
     StereoWidener widener_{};
     StereoEnhancer stereoEnhancer_{};
     Utility utility_{};
+    Clipper clipper_{};
     Limiter limiter_{};
     DeEsser deEsser_{};
     AutoPan autopan_{};

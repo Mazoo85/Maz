@@ -785,6 +785,31 @@ private:
     bool mono_ = false;
 };
 
+// A soft/hard clipper (a Fruity-Soft-Clipper-style loudness tool). Unlike the drive-based Distortion
+// (a tanh waveshaper with its own dry/wet) and the look-ahead Limiter (with attack/release), this is
+// an *instantaneous*, zero-latency ceiling: an input `drive` (dB) pushes the signal into a `ceiling`
+// and every sample is shaped so it can never exceed it. `hardness` morphs the knee from a smooth tanh
+// saturation (0 — gentle harmonics, peaks rounded) to a hard clamp (1 — peaks flat-topped, the classic
+// "clip for loudness" sound). Off by default (transparent). Stateless (no reset needed).
+class Clipper : public Effect {
+public:
+    Clipper() { enabled_ = false; }
+    const char* name() const override { return "Clipper"; }
+    void setDriveDb(float db) { driveDb_ = db < 0.0f ? 0.0f : (db > 36.0f ? 36.0f : db); }
+    void setCeiling(float c) { ceiling_ = c < 0.05f ? 0.05f : (c > 1.0f ? 1.0f : c); }
+    void setHardness(float h) { hardness_ = h < 0.0f ? 0.0f : (h > 1.0f ? 1.0f : h); }
+    float driveDb() const { return driveDb_; }
+    float ceiling() const { return ceiling_; }
+    float hardness() const { return hardness_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+
+private:
+    float driveDb_ = 0.0f;
+    float ceiling_ = 0.9f;
+    float hardness_ = 1.0f; // 1 = hard clamp, 0 = soft tanh knee
+};
+
 // A brickwall look-ahead limiter (a Fruity-Limiter-style maximizer). An `inputGain` (dB) pushes the
 // signal harder for loudness; a short `lookahead` window lets the gain drop *before* a transient
 // arrives, so the output is guaranteed never to exceed the `ceiling` (dB, ≤ 0) with no audible

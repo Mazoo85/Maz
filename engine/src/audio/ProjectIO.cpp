@@ -319,6 +319,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx limiter " << (mixer.limiter().enabled() ? 1 : 0) << " " << mixer.limiter().inputGainDb()
       << " " << mixer.limiter().ceilingDb() << " " << mixer.limiter().releaseMs() << " "
       << mixer.limiter().lookaheadMs() << "\n";
+    f << "fx clipper " << (mixer.clipper().enabled() ? 1 : 0) << " " << mixer.clipper().driveDb() << " "
+      << mixer.clipper().ceiling() << " " << mixer.clipper().hardness() << "\n";
     f << "fx deesser " << (mixer.deEsser().enabled() ? 1 : 0) << " " << mixer.deEsser().thresholdDb()
       << " " << mixer.deEsser().frequency() << " " << mixer.deEsser().amount() << " "
       << mixer.deEsser().releaseMs() << "\n";
@@ -771,6 +773,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.limiter().setCeilingDb(ceil);
                 mixer.limiter().setReleaseMs(rel);
                 mixer.limiter().setLookaheadMs(look);
+            } else if (which == "clipper") {
+                float drive = 0.0f, ceil = 0.9f, hard = 1.0f;
+                ls >> drive >> ceil >> hard;
+                mixer.clipper().setEnabled(en != 0);
+                mixer.clipper().setDriveDb(drive);
+                mixer.clipper().setCeiling(ceil);
+                mixer.clipper().setHardness(hard);
             } else if (which == "deesser") {
                 float thr = -24.0f, freq = 6000.0f, amt = 0.8f, rel = 60.0f;
                 ls >> thr >> freq >> amt >> rel;

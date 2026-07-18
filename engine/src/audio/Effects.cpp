@@ -1135,6 +1135,24 @@ void Utility::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Clipper ----------------------------------------------------------------
+
+void Clipper::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float g = dbToLin(driveDb_);
+    const float c = ceiling_;
+    const float h = hardness_;
+    const int n = frames * 2;
+    for (int i = 0; i < n; ++i) {
+        const float s = stereo[i] * g;
+        const float hard = s < -c ? -c : (s > c ? c : s); // instantaneous flat-top clamp
+        const float soft = c * std::tanh(s / c);          // smooth saturation, asymptotic to ±c
+        stereo[i] = h * hard + (1.0f - h) * soft;         // both bounded by ±c → ceiling guaranteed
+    }
+}
+
 // ---- Limiter ----------------------------------------------------------------
 
 void Limiter::reset() {

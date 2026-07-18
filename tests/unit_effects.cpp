@@ -233,6 +233,66 @@ int main() {
               "limiter defaults to off with a −0.3 dB ceiling");
     }
 
+    // --- Clipper: an instantaneous soft/hard ceiling -------------------------
+    {
+        // Hard clip (hardness 1): a signal driven well past the ceiling is flat-topped exactly at it.
+        audio::Clipper clip;
+        clip.setEnabled(true);
+        clip.setDriveDb(6.0f);   // ×~2 → pushes a 0.95 sine to ~1.9
+        clip.setCeiling(0.5f);
+        clip.setHardness(1.0f);
+        std::vector<float> hot = sineStereo(sr / 4, 200.0, 0.95, sr);
+        clip.process(hot.data(), sr / 4, sr);
+        float pk = 0.0f;
+        for (float v : hot) {
+            pk = std::max(pk, std::fabs(v));
+        }
+        check(pk <= 0.5f * 1.001f, "hard clipper keeps every sample at or under the ceiling");
+        check(pk > 0.5f * 0.99f, "hard clipper drives the loud signal up to the ceiling");
+
+        // Soft clip (hardness 0): a tanh knee also respects the ceiling but rounds rather than flat-tops
+        // (its peak asymptotes just below the ceiling).
+        audio::Clipper soft;
+        soft.setEnabled(true);
+        soft.setDriveDb(6.0f);
+        soft.setCeiling(0.5f);
+        soft.setHardness(0.0f);
+        std::vector<float> hot2 = sineStereo(sr / 4, 200.0, 0.95, sr);
+        soft.process(hot2.data(), sr / 4, sr);
+        float pk2 = 0.0f;
+        for (float v : hot2) {
+            pk2 = std::max(pk2, std::fabs(v));
+        }
+        check(pk2 < 0.5f, "soft clipper's tanh knee stays under the ceiling (no flat-top)");
+
+        // A sub-ceiling signal with no drive passes through untouched (hard knee never engages).
+        audio::Clipper clean;
+        clean.setEnabled(true);
+        clean.setDriveDb(0.0f);
+        clean.setCeiling(0.9f);
+        clean.setHardness(1.0f);
+        std::vector<float> quiet = sineStereo(sr / 4, 200.0, 0.2, sr);
+        const double before = rms(quiet);
+        clean.process(quiet.data(), sr / 4, sr);
+        check(std::fabs(rms(quiet) - before) < before * 1e-4, "clipper leaves a sub-ceiling signal alone");
+
+        // Drive boosts level before the ceiling engages (a quiet signal gets louder, un-clipped).
+        audio::Clipper drv;
+        drv.setEnabled(true);
+        drv.setDriveDb(12.0f); // ×~3.98
+        drv.setCeiling(0.9f);
+        drv.setHardness(1.0f);
+        std::vector<float> low = sineStereo(sr / 4, 200.0, 0.1, sr);
+        const double lowBefore = rms(low);
+        drv.process(low.data(), sr / 4, sr);
+        check(rms(low) > lowBefore * 3.5, "clipper drive boosts a quiet signal's level");
+
+        audio::Clipper dc;
+        check(!dc.enabled() && std::fabs(dc.ceiling() - 0.9f) < 1e-4f &&
+                  std::fabs(dc.hardness() - 1.0f) < 1e-4f,
+              "clipper defaults to off with a 0.9 ceiling and a hard knee");
+    }
+
     // --- Tempo-synced delay: time tracks the transport --------------------
     {
         audio::Delay d;
