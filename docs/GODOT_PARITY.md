@@ -113,6 +113,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   xml_escape/xml_unescape/uri_encode/uri_decode, plus **fuzzy matching** M290 — bigrams + similarity
   (Sørensen–Dice bigram coefficient, matching Godot String's similarity) and a Levenshtein
   edit-distance utility (beyond Godot's String API),
+  plus **wildcard glob matching** M317 — matchGlob (Godot String.match / matchn): `*` any run, `?`
+  any single char except '.', case-sensitive or -insensitive, replicating Godot's exact recursion
+  and quirks (empty pattern/subject -> false; `?` never matches a dot), verified across literal,
+  star, question, extension-style, empty-guard and case cases,
   plus **number formatting** M305 — numToString/padDecimals/padZeros/humanizeSize matching Godot
   String's num/pad_decimals/pad_zeros and String.humanize_size, reproducing Godot's exact quirks
   (pad_decimals/pad_zeros are string surgery that truncate rather than round; humanize_size uses a

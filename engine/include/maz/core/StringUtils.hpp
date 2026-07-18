@@ -759,6 +759,40 @@ inline std::string humanizeSize(std::uint64_t bytes) {
     return numToString(value, digits) + prefixes[idx];
 }
 
+// ---- Wildcard glob matching (M317) — Godot String.match / matchn ------------------------------
+//
+// Case-sensitive (match) and case-insensitive (matchn) shell-style wildcard matching, replicating
+// Godot's exact _wildcard_match semantics: `*` matches any run (including empty), `?` matches any
+// single character EXCEPT '.', every other character matches literally. Two Godot quirks are kept
+// faithfully: (1) an empty pattern OR an empty subject always returns false, and (2) `?` deliberately
+// won't match a dot (handy for extension-aware globs). Used for file filters and name patterns.
+namespace detail {
+inline char lowerAscii(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c; }
+inline bool wildcardMatch(const char* pat, const char* str, bool caseSensitive) {
+    switch (*pat) {
+    case '\0':
+        return *str == '\0';
+    case '*':
+        return wildcardMatch(pat + 1, str, caseSensitive) ||
+               (*str != '\0' && wildcardMatch(pat, str + 1, caseSensitive));
+    case '?':
+        return *str != '\0' && *str != '.' && wildcardMatch(pat + 1, str + 1, caseSensitive);
+    default:
+        return (caseSensitive ? (*str == *pat) : (lowerAscii(*str) == lowerAscii(*pat))) &&
+               wildcardMatch(pat + 1, str + 1, caseSensitive);
+    }
+}
+} // namespace detail
+
+// Godot's String.match (case-sensitive) / matchn (matchGlob with caseSensitive=false). Empty
+// pattern or empty subject -> false (Godot's guard).
+inline bool matchGlob(const std::string& s, const std::string& pattern, bool caseSensitive = true) {
+    if (pattern.empty() || s.empty()) {
+        return false;
+    }
+    return detail::wildcardMatch(pattern.c_str(), s.c_str(), caseSensitive);
+}
+
 // ---- C-string escaping (M308) — Godot String.c_escape / c_unescape ----------------------------
 //
 // The escaping Godot uses when it writes a string into a text resource (.tscn/.tres) or any

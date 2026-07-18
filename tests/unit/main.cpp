@@ -11602,6 +11602,27 @@ void testStringUtils() {
     CHECK(su::humanizeSize(1048577) == "1.00 MiB");
     CHECK(su::humanizeSize(1073741825ULL) == "1.00 GiB");
 
+    // --- Wildcard glob (M317): match / matchn ---
+    CHECK(su::matchGlob("abc", "abc"));
+    CHECK(!su::matchGlob("abc", "abd"));
+    CHECK(su::matchGlob("abc", "a?c"));
+    CHECK(!su::matchGlob("a.c", "a?c"));       // '?' won't match '.' (Godot quirk)
+    CHECK(su::matchGlob("abc", "a*"));
+    CHECK(su::matchGlob("abc", "*c"));
+    CHECK(su::matchGlob("abc", "*b*"));
+    CHECK(su::matchGlob("abcdef", "a*f"));
+    CHECK(!su::matchGlob("abcdef", "a*x"));
+    CHECK(su::matchGlob("file.txt", "*.txt"));
+    CHECK(!su::matchGlob("file.txt", "*.png"));
+    CHECK(!su::matchGlob("", ""));             // empty guard
+    CHECK(!su::matchGlob("abc", ""));
+    CHECK(!su::matchGlob("", "*"));
+    CHECK(!su::matchGlob("ABC", "abc"));       // case-sensitive
+    CHECK(su::matchGlob("ABC", "abc", false)); // matchn
+    CHECK(su::matchGlob("File.TXT", "*.txt", false));
+    CHECK(su::matchGlob("xayybz", "x*y*z"));
+    CHECK(!su::matchGlob("abc", "????"));
+
     // --- C-string escaping (M308): c_escape / c_unescape ---
     CHECK(su::cEscape("a\nb\tc") == "a\\nb\\tc");
     CHECK(su::cEscape("quote\"and'apos") == "quote\\\"and\\'apos");
