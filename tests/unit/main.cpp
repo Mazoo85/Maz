@@ -49,6 +49,7 @@
 #include "maz/platform/Input.hpp"
 #include "maz/net/BitStream.hpp"
 #include "maz/net/Reliability.hpp"
+#include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
 #include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
@@ -5396,6 +5397,54 @@ void testReliability() {
     // Re-acking already-acked sequences yields nothing new.
     const auto again = tx2.onAck(peer2.ack(), peer2.ackBits());
     CHECK(again.empty());
+}
+
+void testSnapshot() {
+    using net::BitReader;
+    using net::BitWriter;
+    using net::FieldSpec;
+
+    // Schema: health(8), tileId(10), flag(1), score(16).
+    const std::vector<FieldSpec> schema = {{8}, {10}, {1}, {16}};
+    const std::vector<uint32_t> base = {100u, 500u, 1u, 42u};
+    const std::vector<uint32_t> cur = {100u, 512u, 0u, 42u}; // fields 1 and 2 changed
+
+    CHECK(net::countChanged(base, cur) == 2);
+
+    // Delta: 4 changed-bits + field1 (10 bits) + field2 (1 bit) = 15 bits.
+    BitWriter dw;
+    net::writeSnapshotDelta(dw, schema, base, cur);
+    CHECK(dw.bitCount() == 15);
+    BitReader dr(dw.bytes());
+    const auto decoded = net::readSnapshotDelta(dr, schema, base);
+    CHECK(decoded == cur);
+    CHECK(dr.ok());
+
+    // No change -> delta is just the 4 mask bits, decode reproduces base.
+    BitWriter dw2;
+    net::writeSnapshotDelta(dw2, schema, base, base);
+    CHECK(dw2.bitCount() == 4);
+    BitReader dr2(dw2.bytes());
+    CHECK(net::readSnapshotDelta(dr2, schema, base) == base);
+
+    // All changed (flag flips 1 -> 0 so every field differs from base).
+    const std::vector<uint32_t> cur3 = {1u, 2u, 0u, 3u};
+    BitWriter dw3;
+    net::writeSnapshotDelta(dw3, schema, base, cur3);
+    // 4 mask + 8 + 10 + 1 + 16 = 39 bits.
+    CHECK(dw3.bitCount() == 39);
+    BitReader dr3(dw3.bytes());
+    CHECK(net::readSnapshotDelta(dr3, schema, base) == cur3);
+
+    // Full snapshot round-trip: 8+10+1+16 = 35 bits regardless of change.
+    BitWriter fw;
+    net::writeSnapshotFull(fw, schema, cur);
+    CHECK(fw.bitCount() == 35);
+    BitReader fr(fw.bytes());
+    CHECK(net::readSnapshotFull(fr, schema) == cur);
+
+    // Bandwidth win: a 2-field delta (15 bits) is far smaller than a full snapshot (35 bits).
+    CHECK(dw.bitCount() < fw.bitCount());
 }
 
 void testProfiler() {
@@ -17167,6 +17216,7 @@ int main() {
     testCascadeSplits();
     testBitStream();
     testReliability();
+    testSnapshot();
     testNoise();
     testRandom();
     testInterpolate();

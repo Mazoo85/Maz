@@ -134,7 +134,9 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
   AckReceiver producing ack + 32-bit ack-bitfield, AckSender resolving in-flight → newly-acked).
   M213. The reliable-over-UDP core (Fiedler/ENet model) — RTT + resend basis.
 - [ ] **[CPU]** UDP transport binding (SDL_net or BSD sockets) wiring the above to real packets
-- [ ] **[CPU]** Snapshot/delta replication, interpolation, client-side prediction + reconciliation
+- [x] **[CPU]** Snapshot/delta replication: `net::Snapshot` (per-field-bit-width schema; full +
+  changed-mask delta encode/decode over net::BitStream). M214. Only changed fields cross the wire.
+- [ ] **[CPU]** Interpolation buffer, client-side prediction + reconciliation
 - [ ] **[CPU]** RPC layer + scene-replication nodes
 - [ ] **[CPU]** WebSocket + WebRTC data channels
 
