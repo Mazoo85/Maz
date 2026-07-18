@@ -58,6 +58,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> fmFb) {
         syn.setFmFeedback(fmFb);
     }
+    float ring = 0.0f; // ring mod optional for old files
+    if (ls >> ring) {
+        syn.setRingMod(ring);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -140,7 +144,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << static_cast<int>(s.wavetableFrame(1)) << " "
           << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
           << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
-          << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << "\n";
+          << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
+          << s.ringMod() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

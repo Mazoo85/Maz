@@ -91,6 +91,12 @@ public:
     // Oscillator section (subtractive mode): a detuned 2nd oscillator (cents + level) for width, a
     // sub-oscillator one octave down, and a noise layer. All 0 → a single clean oscillator.
     void setOscillators(float detuneCents, float osc2Level, float subLevel, float noiseLevel);
+    // Oscillator ring modulation (0..1): mixes in the product of oscillator 1 and oscillator 2 for
+    // metallic, clangorous, inharmonic timbres. Independent of osc2Level (the ring path uses osc2
+    // even when its level is 0). 0 = off.
+    void setRingMod(float amount) { ringMod_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
+    float ringMod() const { return ringMod_; }
+
     // Coarse tune for the 2nd oscillator in semitones (-24..+24): stacks it a fixed musical interval
     // (octave, fifth, …) above/below the note for fat two-oscillator sounds. Combines with the fine
     // `detuneCents`. Ignored while hard sync is on (there the slave pitch is the sync ratio).
@@ -211,6 +217,7 @@ private:
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)
+    float ringMod_ = 0.0f;       // osc1×osc2 ring-modulation amount; 0 = off
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;
     float noiseLevel_ = 0.0f;

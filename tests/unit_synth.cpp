@@ -162,6 +162,32 @@ int main() {
         check(dfb.fmFeedback() == 0.0f, "FM feedback defaults to 0");
     }
 
+    // --- Oscillator ring modulation ------------------------------------------
+    {
+        auto ringBright = [&](float amt) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            // osc2 level 0 (ring is the only osc2 use) but detuned a fifth, so the o1×o2 product is
+            // a genuine sum/difference partial (no DC artifact from squaring an identical sine).
+            s.setOscillators(700.0f, 0.0f, 0.0f, 0.0f);
+            s.setRingMod(amt);
+            s.noteOn(57, 1.0f); // A3
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        // Ring-modulating two detuned oscillators injects a higher sum-frequency partial → brighter.
+        check(ringBright(1.0f) > ringBright(0.0f) * 1.3, "ring mod adds inharmonic/high-frequency content");
+        audio::SynthInstrument dr;
+        check(dr.ringMod() == 0.0f, "ring mod defaults to 0");
+    }
+
     // --- Oscillator section: detune / sub / noise ----------------------------
     {
         audio::SynthInstrument single;

@@ -74,6 +74,7 @@ int main() {
     seq.synth().setOsc2Semitones(7.0f);
     seq.synth().setVelToCutoff(4200.0f);
     seq.synth().setFmFeedback(0.55f);
+    seq.synth().setRingMod(0.6f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 2);
     seq.setArpOctaves(3);
@@ -293,6 +294,7 @@ int main() {
     check(near(seq2.synth().osc2Semitones(), 7.0f), "osc2 coarse tune round-trips");
     check(near(seq2.synth().velToCutoff(), 4200.0f), "velocity→cutoff round-trips");
     check(near(seq2.synth().fmFeedback(), 0.55f), "FM feedback round-trips");
+    check(near(seq2.synth().ringMod(), 0.6f), "ring mod round-trips");
     check(near(seq2.synth().pitchEnvAmount(), -7.0f) && near(seq2.synth().pitchEnvTime(), 0.08f),
           "pitch envelope round-trips");
     check(seq2.arpOn() && seq2.arpMode() == 2 && seq2.arpOctaves() == 3, "arp settings round-trip");

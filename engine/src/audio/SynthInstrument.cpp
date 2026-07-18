@@ -201,8 +201,15 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 } else {
                     osc = waveSample(waveform_, v.phase, pulseWidth_);
                 }
-                if (osc2Level_ > 0.0f) {
-                    osc += waveSample(waveform_, v.phase2, pulseWidth_) * osc2Level_;
+                if (osc2Level_ > 0.0f || ringMod_ > 0.0f) {
+                    const float o1 = osc; // the primary oscillator, before osc2 is mixed in
+                    const float o2 = waveSample(waveform_, v.phase2, pulseWidth_);
+                    osc += o2 * osc2Level_;
+                    // Ring modulation: add the product of the two oscillators for metallic,
+                    // inharmonic (sum/difference) partials. 0 = off.
+                    if (ringMod_ > 0.0f) {
+                        osc += ringMod_ * o1 * o2;
+                    }
                     // Hard sync: the slave runs at the sync ratio (reset on master wrap below);
                     // otherwise it is a plain detuned oscillator (coarse semitones + fine cents).
                     const double mul =

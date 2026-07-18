@@ -766,6 +766,8 @@ void buildSynthUI(audio::Sequencer& seq) {
         float osc2semi = syn.osc2Semitones();
         if (ImGui::SliderFloat("Osc 2 coarse", &osc2semi, -24.0f, 24.0f, "%.0f st"))
             syn.setOsc2Semitones(osc2semi);
+        float ring = syn.ringMod();
+        if (ImGui::SliderFloat("Ring mod", &ring, 0.0f, 1.0f, "%.2f")) syn.setRingMod(ring);
         och |= ImGui::SliderFloat("Sub", &sub, 0.0f, 1.0f, "%.2f");
         och |= ImGui::SliderFloat("Noise", &noise, 0.0f, 1.0f, "%.2f");
         if (och) {
