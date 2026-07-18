@@ -179,6 +179,11 @@ int main() {
     mixer.utility().setGainDb(-3.0f);
     mixer.utility().setInvertR(true);
     mixer.utility().setMono(true);
+    mixer.limiter().setEnabled(true);
+    mixer.limiter().setInputGainDb(6.0f);
+    mixer.limiter().setCeilingDb(-1.5f);
+    mixer.limiter().setReleaseMs(200.0f);
+    mixer.limiter().setLookaheadMs(3.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -401,6 +406,10 @@ int main() {
     check(mixer2.utility().enabled() && near(mixer2.utility().gainDb(), -3.0f) &&
               !mixer2.utility().invertL() && mixer2.utility().invertR() && mixer2.utility().mono(),
           "utility round-trips");
+    check(mixer2.limiter().enabled() && near(mixer2.limiter().inputGainDb(), 6.0f) &&
+              near(mixer2.limiter().ceilingDb(), -1.5f) && near(mixer2.limiter().releaseMs(), 200.0f) &&
+              near(mixer2.limiter().lookaheadMs(), 3.0f),
+          "limiter round-trips");
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&

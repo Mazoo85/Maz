@@ -184,6 +184,55 @@ int main() {
         check(std::fabs(dc.mix() - 1.0f) < 1e-6f, "compressor mix defaults to 1 (fully wet)");
     }
 
+    // --- Limiter: a brickwall that guarantees the ceiling --------------------
+    {
+        // A signal well above the ceiling must come out capped at (or under) the ceiling — including
+        // the very first transient, which the look-ahead catches before it reaches the output.
+        audio::Limiter lim;
+        lim.setEnabled(true);
+        lim.setCeilingDb(-6.0f); // ≈ 0.501 linear
+        lim.setLookaheadMs(2.0f);
+        lim.setReleaseMs(50.0f);
+        const float ceilLin = std::pow(10.0f, -6.0f / 20.0f);
+        std::vector<float> hot = sineStereo(sr / 2, 200.0, 0.95, sr); // loud, above the ceiling
+        lim.process(hot.data(), sr / 2, sr);
+        float pk = 0.0f;
+        for (float v : hot) {
+            pk = std::max(pk, std::fabs(v));
+        }
+        check(pk <= ceilLin * 1.001f, "limiter keeps the whole signal at or under the ceiling");
+        check(pk > ceilLin * 0.9f, "limiter pushes the loud signal up to the ceiling");
+
+        // The first sample of a hard transient does not overshoot (look-ahead does its job).
+        audio::Limiter lim2;
+        lim2.setEnabled(true);
+        lim2.setCeilingDb(-6.0f);
+        lim2.setLookaheadMs(1.5f);
+        std::vector<float> step(400 * 2, 0.0f);
+        for (size_t i = 0; i < step.size(); ++i) {
+            step[i] = 0.9f; // an instant full-scale-ish DC step
+        }
+        lim2.process(step.data(), 400, sr);
+        float stepPk = 0.0f;
+        for (float v : step) {
+            stepPk = std::max(stepPk, std::fabs(v));
+        }
+        check(stepPk <= ceilLin * 1.001f, "limiter's look-ahead catches the first transient");
+
+        // A quiet signal below the ceiling passes essentially untouched (just delayed).
+        audio::Limiter lim3;
+        lim3.setEnabled(true);
+        lim3.setCeilingDb(-6.0f);
+        std::vector<float> quiet = sineStereo(sr / 4, 200.0, 0.2, sr);
+        const double before = rms(quiet);
+        lim3.process(quiet.data(), sr / 4, sr);
+        check(std::fabs(rms(quiet) - before) < before * 0.05, "limiter leaves a sub-ceiling signal alone");
+
+        audio::Limiter dl;
+        check(!dl.enabled() && std::fabs(dl.ceilingDb() + 0.3f) < 1e-4f,
+              "limiter defaults to off with a −0.3 dB ceiling");
+    }
+
     // --- Reverb: an impulse leaves a decaying tail ---------------------------
     {
         audio::Reverb rev;

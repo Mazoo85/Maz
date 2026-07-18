@@ -49,6 +49,7 @@ public:
     Reverb& reverb() { return reverb_; }
     StereoWidener& widener() { return widener_; }
     Utility& utility() { return utility_; }
+    Limiter& limiter() { return limiter_; }
     AutoPan& autopan() { return autopan_; }
     AutoWah& autowah() { return autowah_; }
     CombResonator& comb() { return comb_; }
@@ -110,6 +111,7 @@ private:
     Reverb reverb_{};
     StereoWidener widener_{};
     Utility utility_{};
+    Limiter limiter_{};
     AutoPan autopan_{};
     AutoWah autowah_{};
     CombResonator comb_{};

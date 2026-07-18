@@ -973,6 +973,75 @@ void Utility::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Limiter ----------------------------------------------------------------
+
+void Limiter::reset() {
+    std::fill(dL_.begin(), dL_.end(), 0.0f);
+    std::fill(dR_.begin(), dR_.end(), 0.0f);
+    std::fill(dPeak_.begin(), dPeak_.end(), 0.0f);
+    widx_ = 0;
+    gain_ = 1.0f;
+}
+
+void Limiter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // (Re)size the look-ahead delay lines if the window changed.
+    const int want = std::max(1, static_cast<int>(lookaheadMs_ * 0.001f * sr));
+    if (want != bufLen_) {
+        bufLen_ = want;
+        dL_.assign(static_cast<size_t>(bufLen_), 0.0f);
+        dR_.assign(static_cast<size_t>(bufLen_), 0.0f);
+        dPeak_.assign(static_cast<size_t>(bufLen_), 0.0f);
+        widx_ = 0;
+        gain_ = 1.0f;
+    }
+    const float inGain = dbToLin(inputGainDb_);
+    const float ceiling = dbToLin(ceilingDb_);
+    const float relCoef = std::exp(-1.0f / (releaseMs_ * 0.001f * sr));
+
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i] * inGain;
+        const float r = stereo[2 * i + 1] * inGain;
+        const float peak = std::max(std::fabs(l), std::fabs(r));
+
+        // The sample about to leave the delay line (delayed by the look-ahead window). Its own peak is
+        // still in the buffer, so the window-max target below always accounts for it.
+        const size_t oi = static_cast<size_t>(widx_);
+        const float outL = dL_[oi];
+        const float outR = dR_[oi];
+
+        // Loudest peak now in flight: the outgoing sample (still in the buffer) plus every sample
+        // between it and now (the buffer) plus the incoming one. Computed BEFORE overwriting the
+        // oldest slot, so the outgoing sample's own peak is included — that is what makes the ceiling
+        // a guarantee.
+        float wmax = peak;
+        for (float p : dPeak_) {
+            if (p > wmax) {
+                wmax = p;
+            }
+        }
+        // Overwrite the oldest slot with the incoming sample and advance the ring.
+        dL_[oi] = l;
+        dR_[oi] = r;
+        dPeak_[oi] = peak;
+        widx_ = (widx_ + 1) % bufLen_;
+
+        // Target gain that keeps the loudest buffered sample at or under the ceiling. Attack is
+        // instant (the min snaps down); between transients the gain releases smoothly back toward the
+        // target as wmax falls. gain_ never exceeds the target, so the output cannot exceed the
+        // ceiling: |outL| ≤ wmax and gain_ ≤ ceiling / wmax.
+        const float target = wmax > ceiling ? ceiling / wmax : 1.0f;
+        const float released = gain_ + (1.0f - gain_) * relCoef;
+        gain_ = std::min(released, target);
+
+        stereo[2 * i] = outL * gain_;
+        stereo[2 * i + 1] = outR * gain_;
+    }
+}
+
 // ---- Reverb -----------------------------------------------------------------
 
 void Reverb::Comb::setSize(int n) {

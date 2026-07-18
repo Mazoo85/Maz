@@ -663,6 +663,38 @@ private:
     bool mono_ = false;
 };
 
+// A brickwall look-ahead limiter (a Fruity-Limiter-style maximizer). An `inputGain` (dB) pushes the
+// signal harder for loudness; a short `lookahead` window lets the gain drop *before* a transient
+// arrives, so the output is guaranteed never to exceed the `ceiling` (dB, ≤ 0) with no audible
+// attack distortion. Gain recovers over `release` ms. The look-ahead adds that many samples of
+// latency. Off by default (transparent).
+class Limiter : public Effect {
+public:
+    Limiter() { enabled_ = false; }
+    const char* name() const override { return "Limiter"; }
+    void setInputGainDb(float db) { inputGainDb_ = db < 0.0f ? 0.0f : (db > 36.0f ? 36.0f : db); }
+    void setCeilingDb(float db) { ceilingDb_ = db < -24.0f ? -24.0f : (db > 0.0f ? 0.0f : db); }
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    void setLookaheadMs(float ms) { lookaheadMs_ = ms < 0.1f ? 0.1f : (ms > 10.0f ? 10.0f : ms); }
+    float inputGainDb() const { return inputGainDb_; }
+    float ceilingDb() const { return ceilingDb_; }
+    float releaseMs() const { return releaseMs_; }
+    float lookaheadMs() const { return lookaheadMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float inputGainDb_ = 0.0f;
+    float ceilingDb_ = -0.3f;
+    float releaseMs_ = 100.0f;
+    float lookaheadMs_ = 2.0f;
+    std::vector<float> dL_, dR_, dPeak_; // look-ahead delay lines (L, R, per-sample peak)
+    int bufLen_ = 0;   // current look-ahead length in samples
+    int widx_ = 0;     // write/oldest index into the ring
+    float gain_ = 1.0f; // smoothed gain reduction (≤ 1)
+};
+
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
 // length (0..~0.95), `damping` how fast highs decay, `mix` the dry/wet blend.
 class Reverb : public Effect {

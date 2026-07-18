@@ -1487,6 +1487,26 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         if (ImGui::Checkbox("mono##util", &mono)) mx.utility().setMono(mono);
     }
+    {
+        bool en = mx.limiter().enabled();
+        if (ImGui::Checkbox("Limiter", &en)) mx.limiter().setEnabled(en);
+        float gain = mx.limiter().inputGainDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("gain##lim", &gain, 0.0f, 36.0f, "%.1f")) mx.limiter().setInputGainDb(gain);
+        float ceil = mx.limiter().ceilingDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("ceil##lim", &ceil, -24.0f, 0.0f, "%.1f")) mx.limiter().setCeilingDb(ceil);
+        float rel = mx.limiter().releaseMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("rel##lim", &rel, 1.0f, 1000.0f, "%.0f")) mx.limiter().setReleaseMs(rel);
+        float look = mx.limiter().lookaheadMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("look##lim", &look, 0.1f, 10.0f, "%.1f")) mx.limiter().setLookaheadMs(look);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

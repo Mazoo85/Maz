@@ -282,6 +282,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
       << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
       << (mixer.utility().mono() ? 1 : 0) << "\n";
+    f << "fx limiter " << (mixer.limiter().enabled() ? 1 : 0) << " " << mixer.limiter().inputGainDb()
+      << " " << mixer.limiter().ceilingDb() << " " << mixer.limiter().releaseMs() << " "
+      << mixer.limiter().lookaheadMs() << "\n";
     f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
@@ -689,6 +692,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.utility().setInvertL(invL != 0);
                 mixer.utility().setInvertR(invR != 0);
                 mixer.utility().setMono(mono != 0);
+            } else if (which == "limiter") {
+                float inGain = 0.0f, ceil = -0.3f, rel = 100.0f, look = 2.0f;
+                ls >> inGain >> ceil >> rel >> look;
+                mixer.limiter().setEnabled(en != 0);
+                mixer.limiter().setInputGainDb(inGain);
+                mixer.limiter().setCeilingDb(ceil);
+                mixer.limiter().setReleaseMs(rel);
+                mixer.limiter().setLookaheadMs(look);
             } else if (which == "comb") {
                 float freq = 220.0f, fb = 0.8f, mix = 0.5f;
                 ls >> freq >> fb >> mix;
