@@ -160,6 +160,77 @@ struct Aabb3 {
         }
         return tmin;
     }
+
+    // ---- Godot AABB method completeness (M272) ----
+    // True when this box fully contains `o` (Godot's AABB.encloses).
+    bool encloses(const Aabb3& o) const {
+        return min.x <= o.min.x && min.y <= o.min.y && min.z <= o.min.z && max.x >= o.max.x &&
+               max.y >= o.max.y && max.z >= o.max.z;
+    }
+    // Overlap box of the two AABBs, clamped to non-negative size (Godot's AABB.intersection). When the
+    // boxes are disjoint the result is degenerate (zero size) at the clamped corner.
+    Aabb3 intersection(const Aabb3& o) const {
+        const vec3 lo = glm::max(min, o.min);
+        const vec3 hi = glm::min(max, o.max);
+        return Aabb3(lo, glm::max(lo, hi));
+    }
+    // Uniformly expand (positive) or shrink (negative) by `margin` on every side (Godot's AABB.grow).
+    Aabb3 grow(float margin) const { return Aabb3(min - vec3(margin), max + vec3(margin)); }
+    // Copy grown to include `p` (the const form of enclosePoint; Godot's AABB.expand).
+    Aabb3 expand(const vec3& p) const { return Aabb3(glm::min(min, p), glm::max(max, p)); }
+    // Normalise a box that may have min > max on some axis (Godot's AABB.abs).
+    Aabb3 abs() const { return Aabb3(glm::min(min, max), glm::max(min, max)); }
+
+    int longestAxisIndex() const {
+        const vec3 s = size();
+        int ax = 0;
+        float m = s.x;
+        if (s.y > m) { m = s.y; ax = 1; }
+        if (s.z > m) { ax = 2; }
+        return ax;
+    }
+    float longestAxisSize() const {
+        const vec3 s = size();
+        return std::max(s.x, std::max(s.y, s.z));
+    }
+    int shortestAxisIndex() const {
+        const vec3 s = size();
+        int ax = 0;
+        float m = s.x;
+        if (s.y < m) { m = s.y; ax = 1; }
+        if (s.z < m) { ax = 2; }
+        return ax;
+    }
+    float shortestAxisSize() const {
+        const vec3 s = size();
+        return std::min(s.x, std::min(s.y, s.z));
+    }
+
+    // Segment-vs-box overlap test (slab clip over the segment's [0,1] parameter). Godot's
+    // AABB.intersects_segment (boolean form).
+    bool intersectsSegment(const vec3& a, const vec3& b) const {
+        float tmin = 0.0f, tmax = 1.0f;
+        const vec3 d = b - a;
+        for (int i = 0; i < 3; ++i) {
+            if (std::fabs(d[i]) < 1e-9f) {
+                if (a[i] < min[i] || a[i] > max[i]) {
+                    return false;
+                }
+            } else {
+                const float inv = 1.0f / d[i];
+                float t1 = (min[i] - a[i]) * inv, t2 = (max[i] - a[i]) * inv;
+                if (t1 > t2) {
+                    std::swap(t1, t2);
+                }
+                tmin = std::max(tmin, t1);
+                tmax = std::min(tmax, t2);
+                if (tmin > tmax) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 };
 
 // ---- Obb: an oriented box — center, half-extents, and an orthonormal rotation (columns are the

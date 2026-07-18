@@ -11830,6 +11830,43 @@ void testGeometry3D() {
         CHECK(!box.intersectRay(vec3(-5, 5, 0), vec3(1, 0, 0)).has_value()); // above the box
     }
 
+    // --- Aabb3 Godot-method completeness (M272) ---
+    {
+        const Aabb3 outer(vec3(0, 0, 0), vec3(10, 10, 10));
+        const Aabb3 inner(vec3(2, 2, 2), vec3(4, 4, 4));
+        CHECK(outer.encloses(inner));
+        CHECK(!inner.encloses(outer));
+        CHECK(outer.encloses(outer));
+
+        // intersection: overlap box, and degenerate when disjoint.
+        const Aabb3 i = Aabb3(vec3(0, 0, 0), vec3(5, 5, 5)).intersection(Aabb3(vec3(3, 3, 3), vec3(10, 10, 10)));
+        CHECK((i.min == vec3(3, 3, 3)));
+        CHECK((i.max == vec3(5, 5, 5)));
+        CHECK(Aabb3(vec3(0, 0, 0), vec3(1, 1, 1)).intersection(Aabb3(vec3(5, 5, 5), vec3(6, 6, 6))).volume() <= 1e-4f);
+
+        // grow / shrink / expand / abs.
+        CHECK((inner.grow(1.0f).min == vec3(1, 1, 1)));
+        CHECK((outer.grow(-1.0f).max == vec3(9, 9, 9)));
+        CHECK((inner.expand(vec3(20, 0, 3)).max == vec3(20, 4, 4)));
+        const Aabb3 ab = Aabb3(vec3(5, 1, 9), vec3(0, 4, 2)).abs();
+        CHECK((ab.min == vec3(0, 1, 2)));
+        CHECK((ab.max == vec3(5, 4, 9)));
+
+        // longest / shortest axis.
+        const Aabb3 rect(vec3(0, 0, 0), vec3(2, 7, 3));
+        CHECK(rect.longestAxisIndex() == 1);
+        CHECK_NEAR(rect.longestAxisSize(), 7.0f, 1e-5f);
+        CHECK(rect.shortestAxisIndex() == 0);
+        CHECK_NEAR(rect.shortestAxisSize(), 2.0f, 1e-5f);
+
+        // segment overlap.
+        const Aabb3 c(vec3(0, 0, 0), vec3(2, 2, 2));
+        CHECK(c.intersectsSegment(vec3(-1, 1, 1), vec3(3, 1, 1)));
+        CHECK(c.intersectsSegment(vec3(1, 1, 1), vec3(5, 5, 5)));
+        CHECK(!c.intersectsSegment(vec3(-5, 5, 5), vec3(-3, 5, 5)));
+        CHECK(!c.intersectsSegment(vec3(-5, 1, 1), vec3(-1, 1, 1)));
+    }
+
     // --- Obb SAT ---
     Obb a; // unit axes, half 0.5, at origin
     Obb b;
