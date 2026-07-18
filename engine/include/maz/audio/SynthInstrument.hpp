@@ -234,6 +234,12 @@ public:
     float filterLfoRate() const { return filterLfoRate_; }
     float filterLfoDepth() const { return filterLfoDepth_; }
 
+    // Filter drive (0..1): overdrive the signal into the filter with a tanh saturation before it is
+    // filtered, adding harmonics and analog grit (the classic driven-filter growl). 0 = clean
+    // (bit-transparent). Only has an effect when the filter is engaged (cutoff below ~19 kHz).
+    void setFilterDrive(float d) { filterDrive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float filterDrive() const { return filterDrive_; }
+
     // Filter keyboard tracking (0..1): how much the cutoff follows the note's pitch (relative to
     // middle C). 1 = full tracking (an octave up doubles the cutoff, so high notes stay bright);
     // 0 = fixed cutoff. Only has an effect when the filter is engaged.
@@ -319,6 +325,7 @@ private:
     float filterEnvDepth_ = 0.0f; // dedicated filter-envelope depth in Hz (±); 0 = off
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
+    float filterDrive_ = 0.0f;    // pre-filter tanh overdrive amount [0,1]; 0 = clean
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
     float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)

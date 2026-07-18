@@ -189,6 +189,48 @@ int main() {
         check(dr.ringMod() == 0.0f, "ring mod defaults to 0");
     }
 
+    // --- Filter drive (pre-filter saturation) --------------------------------
+    {
+        auto driveBright = [&](float amt) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine); // near-zero harmonics until driven
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(12000.0f, 0.7f, 0.0f); // engaged (cutoff < 19 kHz) but open enough to pass harmonics
+            s.setFilterDrive(amt);
+            s.noteOn(57, 1.0f); // A3
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        // Overdriving a pure sine into the filter (tanh) generates odd harmonics → brighter output.
+        check(driveBright(1.0f) > driveBright(0.0f) * 1.3,
+              "filter drive adds harmonics (drives the pure sine brighter)");
+        audio::SynthInstrument dd;
+        check(dd.filterDrive() == 0.0f, "filter drive defaults to 0 (clean)");
+        // With the filter bypassed (cutoff open) drive is inert — a clean sine stays a clean sine.
+        audio::SynthInstrument bypass;
+        bypass.setWaveform(audio::Waveform::Sine);
+        bypass.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        bypass.setFilter(20000.0f, 0.7f, 0.0f); // open → filter (and its drive) disengaged
+        bypass.setFilterDrive(1.0f);
+        bypass.noteOn(57, 1.0f);
+        const std::vector<float> clean = render(bypass, sampleRate / 4, sampleRate);
+        double h = 0.0, en = 0.0;
+        for (size_t i = 1; i < clean.size(); ++i) {
+            const double d = static_cast<double>(clean[i] - clean[i - 1]);
+            h += d * d;
+            en += static_cast<double>(clean[i]) * clean[i];
+        }
+        const double bypassBright = en > 0.0 ? h / en : 0.0;
+        check(bypassBright < driveBright(1.0f),
+              "filter drive is inert when the filter is bypassed (cutoff open)");
+    }
+
     // --- Velocity → amplitude sensitivity ------------------------------------
     {
         auto renderVel = [&](float velSens, float vel) {

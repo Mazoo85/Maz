@@ -104,6 +104,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
         syn.setFilterEnvelope(fa, fd, fs, fr);
         syn.setFilterEnvDepth(fdepth);
     }
+    float fdrive = 0.0f; // filter drive optional for old files (0 = clean)
+    if (ls >> fdrive) {
+        syn.setFilterDrive(fdrive);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -204,7 +208,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
           << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
           << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
-          << s.filterEnvDepth() << "\n";
+          << s.filterEnvDepth() << " " << s.filterDrive() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

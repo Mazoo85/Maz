@@ -365,6 +365,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                                                  static_cast<float>(std::sin(fp * kTwoPiVib)));
                 }
                 cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
+                // Filter drive: overdrive the signal into the filter (tanh) for harmonics/grit before
+                // it is filtered — the classic analog driven-filter growl. 0 = clean (unchanged).
+                if (filterDrive_ > 0.0f) {
+                    osc = std::tanh(osc * (1.0f + filterDrive_ * 5.0f));
+                }
                 osc = v.filter.process(osc, cutoff, filterReso_, sampleRate, filterMode_);
             }
 

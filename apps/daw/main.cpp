@@ -1002,6 +1002,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     float keyTrack = syn.filterKeyTrack();
     if (ImGui::SliderFloat("Key track", &keyTrack, 0.0f, 1.0f, "%.2f"))
         syn.setFilterKeyTrack(keyTrack);
+    float fDrive = syn.filterDrive();
+    if (ImGui::SliderFloat("Filter drive", &fDrive, 0.0f, 1.0f, "%.2f"))
+        syn.setFilterDrive(fDrive);
     float fLfoRate = syn.filterLfoRate();
     float fLfoDepth = syn.filterLfoDepth();
     bool flch = ImGui::SliderFloat("Cutoff LFO Hz", &fLfoRate, 0.0f, 20.0f, "%.2f");
