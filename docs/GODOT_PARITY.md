@@ -198,9 +198,17 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   case-insensitive extension match, dirs always shown, all-files fallback), hidden-file toggle,
   dirs-before-files sorting, single/multi selection, and mode-specific confirmation for the four Godot
   file modes (OpenFile / OpenFiles / OpenDir / SaveFile, with SaveFile appending the active filter's
-  extension when the typed name has none). Verified end-to-end over an in-memory tree. **This closes
-  the UI-widgets parity item** — every listed control (TabContainer, GraphEdit, FileDialog,
-  ColorPicker, SpinBox, OptionButton, drag-and-drop, Tree editing) now has a CPU model.
+  extension when the typed name has none). Verified end-to-end over an in-memory tree.
+  **RichTextLabel effects done** (M254): `ui::RichTextEffects` — the per-glyph animation maths behind
+  Godot's RichTextLabel BBCode effects. Pure deterministic functions of (charIndex, time, params) that
+  return a `CharFx` (positional offset + colour multiplier) or alpha: `rtWave` (vertical sine, phase
+  per glyph), `rtTornado` (circular orbit), `rtShake` (hash-based bounded jitter that resteps at a
+  given rate — no global RNG, fully reproducible), `rtRainbow` (hue cycle via the HSV math), `rtFadeAlpha`
+  (linear fade across N chars), and `rtPulse` (breathing alpha). The BBCode parser (M141) tags which
+  glyphs each effect covers; the widget layer calls these per glyph per frame. Verified across bounds,
+  determinism, cycle-wrap, and ramp edge cases. **This closes the UI-widgets parity item** — every
+  listed control (TabContainer, GraphEdit, RichTextLabel effects, FileDialog, ColorPicker, SpinBox,
+  OptionButton, drag-and-drop, Tree editing) now has a CPU model.
 - [x] **[CPU]** Full theme system (per-control theme overrides, theme types)
   (M250): extended `ui::Theme` with **theme type variations** (Godot's `theme_type_variation` /
   theme type inheritance) — `setTypeVariation(type, base)` chains a variation onto a base type, and

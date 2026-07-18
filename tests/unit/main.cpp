@@ -168,6 +168,7 @@
 #include "maz/ui/ColorPicker.hpp"
 #include "maz/ui/Controls.hpp"
 #include "maz/ui/FileDialog.hpp"
+#include "maz/ui/RichTextEffects.hpp"
 #include "maz/ui/TabContainer.hpp"
 #include "maz/ui/DragAndDrop.hpp"
 #include "maz/ui/Range.hpp"
@@ -3824,6 +3825,73 @@ void testColorPicker() {
         c7.addRecent(Color{0.3f, 0, 0, 1}); // existing -> to front
         CHECK(c7.recent().size() == 3);
         CHECK_NEAR(c7.recent().front().r, 0.3f, 1e-4f);
+    }
+}
+
+void testRichTextEffects() {
+    using ui::CharFx;
+
+    // wave: vertical only, bounded by amp, adjacent glyphs phase-shifted.
+    for (int i = 0; i < 12; ++i) {
+        for (int k = 0; k < 12; ++k) {
+            CharFx fx = ui::rtWave(i, static_cast<float>(k) * 0.13f, 10.0f, 5.0f);
+            CHECK(std::fabs(fx.offset.y) <= 10.0f + 1e-3f);
+            CHECK_NEAR(fx.offset.x, 0.0f, 1e-5f);
+        }
+    }
+    CHECK(std::fabs(ui::rtWave(0, 0.3f).offset.y - ui::rtWave(1, 0.3f).offset.y) > 1e-4f);
+
+    // tornado: circular, magnitude ~ radius.
+    for (int i = 0; i < 8; ++i) {
+        CharFx fx = ui::rtTornado(i, 0.37f, 8.0f, 2.0f);
+        const float mag = std::sqrt(fx.offset.x * fx.offset.x + fx.offset.y * fx.offset.y);
+        CHECK_NEAR(mag, 8.0f, 1e-3f);
+    }
+
+    // shake: deterministic, bounded, resteps at rate.
+    {
+        CharFx a = ui::rtShake(3, 1.0f, 20.0f, 5.0f);
+        CharFx b = ui::rtShake(3, 1.0f, 20.0f, 5.0f);
+        CHECK((std::fabs(a.offset.x - b.offset.x) < 1e-6f)); // deterministic
+        CHECK((std::fabs(a.offset.x) <= 5.0f && std::fabs(a.offset.y) <= 5.0f));
+        CharFx same = ui::rtShake(3, 1.0f + 0.5f / 20.0f, 20.0f, 5.0f);
+        CHECK_NEAR(a.offset.x, same.offset.x, 1e-6f); // same step -> held
+        CharFx next = ui::rtShake(3, 1.0f + 1.5f / 20.0f, 20.0f, 5.0f);
+        CHECK(!(std::fabs(a.offset.x - next.offset.x) < 1e-6f &&
+                std::fabs(a.offset.y - next.offset.y) < 1e-6f)); // next step -> changed
+    }
+
+    // rainbow: valid opaque colour, advances with time, wraps over a full cycle.
+    {
+        render::Color c0 = ui::rtRainbow(0, 0.0f, 1.0f);
+        render::Color c1 = ui::rtRainbow(0, 0.25f, 1.0f);
+        CHECK_NEAR(c0.a, 1.0f, 1e-5f);
+        CHECK(!(std::fabs(c0.r - c1.r) < 1e-4f && std::fabs(c0.g - c1.g) < 1e-4f &&
+                std::fabs(c0.b - c1.b) < 1e-4f));
+        render::Color cw = ui::rtRainbow(0, 1.0f, 1.0f);
+        CHECK_NEAR(c0.r, cw.r, 1e-3f);
+        CHECK_NEAR(c0.g, cw.g, 1e-3f);
+        CHECK_NEAR(c0.b, cw.b, 1e-3f);
+    }
+
+    // fade: visible before start, linear ramp across length, invisible after.
+    CHECK_NEAR(ui::rtFadeAlpha(2, 5, 4), 1.0f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(5, 5, 4), 1.0f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(7, 5, 4), 0.5f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(9, 5, 4), 0.0f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(20, 5, 4), 0.0f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(6, 5, 0), 0.0f, 1e-5f);
+    CHECK_NEAR(ui::rtFadeAlpha(4, 5, 0), 1.0f, 1e-5f);
+
+    // pulse: base colour preserved, alpha within [base.a*(1-ease), base.a].
+    {
+        render::Color base{0.2f, 0.4f, 0.8f, 1.0f};
+        for (int k = 0; k < 40; ++k) {
+            render::Color c = ui::rtPulse(0, static_cast<float>(k) * 0.05f, base, 2.0f, 0.5f);
+            CHECK_NEAR(c.r, base.r, 1e-5f);
+            CHECK_NEAR(c.g, base.g, 1e-5f);
+            CHECK((c.a <= base.a + 1e-4f && c.a >= base.a * 0.5f - 1e-4f));
+        }
     }
 }
 
@@ -20013,6 +20081,7 @@ int main() {
     testColorPicker();
     testTabContainer();
     testFileDialog();
+    testRichTextEffects();
     testStyleBox();
     testTheme();
     testTree();
