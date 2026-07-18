@@ -973,6 +973,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (fch) {
         syn.setFilter(cutoff, reso, envAmt);
     }
+    int fmode = static_cast<int>(syn.filterMode());
+    const char* fmodes[] = {"Low-pass", "High-pass", "Band-pass"};
+    if (ImGui::Combo("Filter type", &fmode, fmodes, 3))
+        syn.setFilterMode(static_cast<audio::StateVariableFilter::Mode>(fmode));
     float velCut = syn.velToCutoff();
     if (ImGui::SliderFloat("Vel->Cutoff", &velCut, 0.0f, 15000.0f, "%.0f Hz"))
         syn.setVelToCutoff(velCut);

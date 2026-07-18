@@ -909,6 +909,36 @@ int main() {
         check(d.osc3Level() == 0.0f, "osc3 defaults to off");
     }
 
+    // --- Filter type (LP / HP / BP) ------------------------------------------
+    {
+        // A saw through the filter at a mid cutoff: low-pass keeps the lows (low HF ratio), high-pass
+        // removes them (much higher HF ratio).
+        auto hfRatio = [&](audio::StateVariableFilter::Mode m) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+            s.setFilter(600.0f, 1.0f, 0.0f);
+            s.setFilterMode(m);
+            s.noteOn(57, 1.0f); // A3 = 220 Hz
+            const std::vector<float> b = render(s, 8000, sampleRate);
+            double hf = 0.0, en = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double dd = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                hf += dd * dd;
+                en += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        const double lp = hfRatio(audio::StateVariableFilter::Mode::LowPass);
+        const double hp = hfRatio(audio::StateVariableFilter::Mode::HighPass);
+        check(lp > 0.0, "low-pass filter produces sound");
+        check(hp > lp * 2.0, "high-pass keeps highs and removes lows (higher HF ratio than low-pass)");
+
+        audio::SynthInstrument df;
+        check(df.filterMode() == audio::StateVariableFilter::Mode::LowPass,
+              "filter type defaults to low-pass");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

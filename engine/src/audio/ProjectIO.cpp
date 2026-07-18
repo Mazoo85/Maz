@@ -94,6 +94,11 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> drift) {
         syn.setDrift(drift);
     }
+    int fmode = 0; // filter mode optional for old files (0 = low-pass)
+    if (ls >> fmode) {
+        fmode = fmode < 0 || fmode > 2 ? 0 : fmode;
+        syn.setFilterMode(static_cast<StateVariableFilter::Mode>(fmode));
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -190,7 +195,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
           << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
           << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << " "
-          << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << "\n";
+          << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
+          << static_cast<int>(s.filterMode()) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

@@ -314,8 +314,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                                                  static_cast<float>(std::sin(fp * kTwoPiVib)));
                 }
                 cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
-                osc = v.filter.process(osc, cutoff, filterReso_, sampleRate,
-                                       StateVariableFilter::Mode::LowPass);
+                osc = v.filter.process(osc, cutoff, filterReso_, sampleRate, filterMode_);
             }
 
             // Velocity → amplitude, scaled by sensitivity: at 1 the velocity fully sets loudness, at

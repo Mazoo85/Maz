@@ -200,6 +200,11 @@ public:
     float filterResonance() const { return filterReso_; }
     float filterEnvAmount() const { return filterEnvAmt_; }
 
+    // Filter type: low-pass (default, dark below cutoff), high-pass (thin, removes lows), or band-pass
+    // (keeps a band around the cutoff). Uses the per-voice state-variable filter's mode.
+    void setFilterMode(StateVariableFilter::Mode m) { filterMode_ = m; }
+    StateVariableFilter::Mode filterMode() const { return filterMode_; }
+
     // Velocity → filter cutoff (Hz added at full velocity): makes harder-played notes brighter, the
     // classic velocity-sensitive filter. 0 = off. Only has an effect when the filter is engaged.
     void setVelToCutoff(float hz) { velCutoff_ = hz < 0.0f ? 0.0f : (hz > 15000.0f ? 15000.0f : hz); }
@@ -293,6 +298,7 @@ private:
     float filterCutoff_ = 20000.0f; // effectively open (bypassed) by default
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
+    StateVariableFilter::Mode filterMode_ = StateVariableFilter::Mode::LowPass;
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
