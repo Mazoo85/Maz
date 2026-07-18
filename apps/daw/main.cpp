@@ -1684,6 +1684,14 @@ void buildAutomationUI(audio::Automation& automation) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(160.0f);
         ImGui::DragFloatRange2("range", &lane.lo, &lane.hi, 1.0f);
+        ImGui::SameLine();
+        ImGui::Checkbox("sync", &lane.sync);
+        ImGui::SameLine();
+        const char* adivNames[audio::Automation::kSyncDivisions];
+        for (int d = 0; d < audio::Automation::kSyncDivisions; ++d)
+            adivNames[d] = audio::Automation::syncDivisionName(d);
+        ImGui::SetNextItemWidth(90.0f);
+        ImGui::Combo("div##auto", &lane.syncDiv, adivNames, audio::Automation::kSyncDivisions);
         ImGui::PopID();
         ImGui::Separator();
     }

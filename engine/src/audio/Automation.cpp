@@ -83,6 +83,35 @@ const char* Automation::targetName(AutoTarget t) {
     return "?";
 }
 
+namespace {
+// Each automation sync division as LFO cycles per beat (a quarter note = 1 cycle per beat).
+constexpr float kAutoCyclesPerBeat[Automation::kSyncDivisions] = {
+    1.0f / 16.0f, // 4 bars
+    1.0f / 8.0f,  // 2 bars
+    1.0f / 4.0f,  // 1 bar
+    0.5f,         // 1/2
+    1.0f,         // 1/4
+    2.0f,         // 1/8
+};
+constexpr const char* kAutoDivName[Automation::kSyncDivisions] = {
+    "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8",
+};
+} // namespace
+
+const char* Automation::syncDivisionName(int div) {
+    if (div < 0 || div >= kSyncDivisions) {
+        return "?";
+    }
+    return kAutoDivName[div];
+}
+
+float Automation::syncRateHz(int div, double bpm) {
+    if (div < 0 || div >= kSyncDivisions || bpm <= 0.0) {
+        return 1.0f;
+    }
+    return static_cast<float>(bpm / 60.0 * static_cast<double>(kAutoCyclesPerBeat[div]));
+}
+
 bool Automation::anyEnabled() const {
     for (const AutoLane& l : lanes_) {
         if (l.enabled) {
@@ -92,11 +121,16 @@ bool Automation::anyEnabled() const {
     return false;
 }
 
-void Automation::apply(AudioEngine& engine, double timeSeconds) {
+void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
     for (int i = 0; i < count(); ++i) {
-        const AutoLane& l = lane(i);
+        AutoLane& l = lane(i);
         if (!l.enabled) {
             continue;
+        }
+        // Tempo sync: lock the LFO rate to the transport (only when the lane uses its LFO, i.e. no
+        // drawn clip is overriding it).
+        if (l.sync && bpm > 0.0 && l.clip.empty()) {
+            l.lfo.rateHz = syncRateHz(l.syncDiv, bpm);
         }
         const float u = l.sourceUnipolar(timeSeconds);
         const float v = l.lo + u * (l.hi - l.lo);

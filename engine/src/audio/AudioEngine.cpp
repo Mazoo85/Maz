@@ -89,8 +89,9 @@ void AudioEngine::render(float* out, int frames) {
     // Control-rate automation: evaluate the LFO lanes once for this block at the current transport
     // time and write the swept values onto their target parameters before rendering.
     if (automation_.anyEnabled() && cfg_.sampleRate > 0) {
-        automation_.apply(*this, static_cast<double>(framesRendered_) /
-                                     static_cast<double>(cfg_.sampleRate));
+        automation_.apply(*this,
+                          static_cast<double>(framesRendered_) / static_cast<double>(cfg_.sampleRate),
+                          sequencer_.bpm());
     }
 
     const size_t total = static_cast<size_t>(frames) * static_cast<size_t>(ch);

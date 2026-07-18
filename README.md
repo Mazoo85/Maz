@@ -53,7 +53,7 @@ the project, and bounce to WAV.
   widener, mono-bass maker, auto-pan, envelope filter / auto-wah, comb resonator, tremolo / trance-gate (with **tempo sync** to note divisions), formant (vowel) filter, mid/side stereo widener, Haas stereo enhancer (widens even a mono source), utility (gain/phase-invert/mono), brickwall look-ahead limiter/maximizer (input gain + ceiling + release, guaranteed-ceiling output)),
   parallel **aux send/return buses** (reverb + delay), and a master **limiter** with an adjustable ceiling.
 - **Modulation** — automation of master-EQ-cutoff/FM/reverb/master/delay-mix/distortion-drive/stereo-width/**synth-filter-cutoff** (the classic lead sweep), synced to the transport, from either an
-  **LFO** or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
+  **LFO** (optionally **tempo-synced** to note divisions from 4 bars down to 1/8) or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
   (`.cjc`), WAV **bounce**, **stem export**, **MIDI export + import** (`.mid` in and out), session **recording** (output + SDL
   mic/line input capture), and **plugin hosting**: a native `.so` ABI

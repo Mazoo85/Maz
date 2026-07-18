@@ -161,6 +161,42 @@ int main() {
               "synth-cutoff automation reaches its low bound");
     }
 
+    // --- Tempo-synced automation LFO ----------------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& sc = autom.lane(audio::AutoTarget::SynthCutoff);
+        sc.enabled = true;
+        sc.sync = true;
+        sc.syncDiv = 4; // 1/4 → 1 cycle per beat
+        sc.lo = 200.0f;
+        sc.hi = 2000.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.0, 120.0); // 120 BPM → 1/4 = 2 Hz
+        check(std::fabs(autom.lane(audio::AutoTarget::SynthCutoff).lfo.rateHz - 2.0f) < 0.01f,
+              "a synced lane locks its LFO rate to the tempo (1/4 @120 = 2 Hz)");
+        autom.lane(audio::AutoTarget::SynthCutoff).syncDiv = 5; // 1/8 → 2 cycles/beat
+        autom.apply(eng, 0.0, 120.0);
+        check(std::fabs(autom.lane(audio::AutoTarget::SynthCutoff).lfo.rateHz - 4.0f) < 0.01f,
+              "a finer division doubles the synced LFO rate");
+
+        // Off → the manual rate is left alone.
+        audio::Automation manual;
+        audio::AutoLane& ml = manual.lane(audio::AutoTarget::ReverbMix);
+        ml.enabled = true;
+        ml.sync = false;
+        ml.lfo.rateHz = 1.5f;
+        audio::AudioEngine eng2;
+        eng2.initOffline();
+        manual.apply(eng2, 0.0, 120.0);
+        check(std::fabs(manual.lane(audio::AutoTarget::ReverbMix).lfo.rateHz - 1.5f) < 1e-3f,
+              "an unsynced lane keeps its manual LFO rate");
+
+        check(std::fabs(audio::Automation::syncRateHz(2, 120.0) - 0.5f) < 0.01f,
+              "1 bar at 120 BPM is 0.5 Hz");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;
