@@ -11527,6 +11527,20 @@ void testStringUtils() {
     CHECK((su::padLeft("42", 5, '0') == "00042"));
     CHECK((su::padRight("42", 5) == "42   "));
     CHECK((su::padLeft("toolong", 3) == "toolong"));
+    // M333: left / right with Godot negative-index semantics.
+    CHECK((su::left("hello", 3) == "hel"));
+    CHECK(su::left("hello", 0).empty());
+    CHECK((su::left("hello", 99) == "hello"));
+    CHECK((su::left("hello", -2) == "hel")); // drop last 2
+    CHECK(su::left("hello", -5).empty());
+    CHECK((su::right("hello", 2) == "lo"));
+    CHECK(su::right("hello", 0).empty());
+    CHECK((su::right("hello", 99) == "hello"));
+    CHECK((su::right("hello", -1) == "ello")); // drop first 1
+    CHECK((su::right("hello", -3) == "lo"));
+    CHECK(su::right("", 3).empty());
+    // left(k) + right(len-k) recombine to the whole string at every split.
+    CHECK((su::left("abcdef", 2) + su::right("abcdef", 4) == "abcdef"));
     // replaceAll.
     CHECK((su::replaceAll("a.b.c", ".", "/") == "a/b/c"));
     CHECK((su::replaceAll("aaa", "a", "bb") == "bbbbbb"));

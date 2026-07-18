@@ -101,6 +101,38 @@ inline std::string rstrip(const std::string& s, const std::string& chars) {
     return s.substr(0, e);
 }
 
+// First `n` characters — Godot's String.left. A negative `n` counts from the end (drops the last
+// -n characters); n <= 0 gives "", n >= length gives the whole string.
+inline std::string left(const std::string& s, int n) {
+    const int len = static_cast<int>(s.size());
+    if (n < 0) {
+        n = len + n;
+    }
+    if (n <= 0) {
+        return "";
+    }
+    if (n >= len) {
+        return s;
+    }
+    return s.substr(0, static_cast<std::size_t>(n));
+}
+
+// Last `n` characters — Godot's String.right. A negative `n` counts from the start (drops the first
+// -n characters); n <= 0 gives "", n >= length gives the whole string.
+inline std::string right(const std::string& s, int n) {
+    const int len = static_cast<int>(s.size());
+    if (n < 0) {
+        n = len + n;
+    }
+    if (n <= 0) {
+        return "";
+    }
+    if (n >= len) {
+        return s;
+    }
+    return s.substr(static_cast<std::size_t>(len - n));
+}
+
 // Left/right pad to `width` with `fill` (Godot lpad/rpad). No-op if already at least `width` long.
 inline std::string padLeft(const std::string& s, std::size_t width, char fill = ' ') {
     if (s.size() >= width) {

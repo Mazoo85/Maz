@@ -132,7 +132,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
   contains/to_lower-upper/repeat/count (M329 adds character-set lstrip(chars)/rstrip(chars) overloads
-  — Godot String.lstrip/rstrip taking the exact set of characters to strip from each end), plus **number parsing** M274 — toInt/isValidInt/toFloat/
+  — Godot String.lstrip/rstrip taking the exact set of characters to strip from each end; M333 adds
+  left(n)/right(n) — Godot String.left/right with negative-index semantics (a negative count drops
+  that many characters from the far end), verified including recombination at every split point),
+  plus **number parsing** M274 — toInt/isValidInt/toFloat/
   isValidFloat/hexToInt matching Godot String's to_int/is_valid_int/to_float/is_valid_float/hex_to_int
   (M327 adds binToInt — Godot String.bin_to_int: binary parse with optional 0b prefix + sign, halting
   at the first non-binary digit, verified against powers of two and edge cases),
