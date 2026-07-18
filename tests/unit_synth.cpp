@@ -298,6 +298,29 @@ int main() {
         };
         check(hf(closedOut) < hf(openOut) * 0.5, "low cutoff removes high-frequency energy");
         check(rms(closedOut) > 0.0, "filtered synth still produces sound");
+
+        // Velocity → cutoff: a hard note opens the filter further than a soft one, so it is brighter
+        // (independent of loudness — brightness is measured as HF energy over total energy).
+        auto velBright = [&](float velocity) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(300.0f, 0.7f, 0.0f); // low base cutoff so the mod is audible
+            s.setVelToCutoff(6000.0f);
+            s.noteOn(57, velocity);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(velBright(1.0f) > velBright(0.3f) * 1.3,
+              "velocity opens the filter (harder notes are brighter)");
+        audio::SynthInstrument dvc;
+        check(dvc.velToCutoff() == 0.0f, "velocity→cutoff defaults to 0");
     }
 
     // --- Wavetable synthesis -------------------------------------------------

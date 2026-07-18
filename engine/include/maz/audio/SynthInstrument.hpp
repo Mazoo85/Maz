@@ -137,6 +137,11 @@ public:
     float filterResonance() const { return filterReso_; }
     float filterEnvAmount() const { return filterEnvAmt_; }
 
+    // Velocity → filter cutoff (Hz added at full velocity): makes harder-played notes brighter, the
+    // classic velocity-sensitive filter. 0 = off. Only has an effect when the filter is engaged.
+    void setVelToCutoff(float hz) { velCutoff_ = hz < 0.0f ? 0.0f : (hz > 15000.0f ? 15000.0f : hz); }
+    float velToCutoff() const { return velCutoff_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
@@ -192,6 +197,7 @@ private:
     float filterCutoff_ = 20000.0f; // effectively open (bypassed) by default
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
+    float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     Waveform subWave_ = Waveform::Sine;
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true
     float syncRatio_ = 1.5f;    // slave frequency = note freq × this (when hard sync is on)

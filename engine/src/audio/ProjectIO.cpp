@@ -50,6 +50,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> peAmt >> peTime) {
         syn.setPitchEnv(peAmt, peTime);
     }
+    float velCut = 0.0f; // velocity→cutoff optional for old files
+    if (ls >> velCut) {
+        syn.setVelToCutoff(velCut);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -132,7 +136,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << static_cast<int>(s.wavetableFrame(1)) << " "
           << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
           << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
-          << s.pitchEnvTime() << "\n";
+          << s.pitchEnvTime() << " " << s.velToCutoff() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

@@ -229,9 +229,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             }
 
-            // Resonant low-pass (subtractive character), with the amp envelope opening the cutoff.
+            // Resonant low-pass (subtractive character): the amp envelope and the note's velocity
+            // both open the cutoff (velocity sensitivity → harder hits sound brighter).
             if (filterCutoff_ < 19000.0f) {
-                const float cutoff = filterCutoff_ + filterEnvAmt_ * v.env;
+                const float cutoff =
+                    filterCutoff_ + filterEnvAmt_ * v.env + velCutoff_ * v.velocity;
                 osc = v.filter.process(osc, cutoff, filterReso_, sampleRate,
                                        StateVariableFilter::Mode::LowPass);
             }
