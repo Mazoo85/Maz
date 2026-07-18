@@ -212,6 +212,11 @@ public:
     // to shift a groove around the bar.
     void rotateChannel(int channel, int offset);
 
+    // Euclidean fill: replace a channel's row with `pulses` hits distributed as evenly as possible
+    // across the pattern length (the classic Euclidean rhythm). pulses is clamped to [0, numSteps];
+    // 0 clears the row. Returns the number of hits placed.
+    int euclidFill(int channel, int pulses);
+
     // Render `frames` of interleaved STEREO samples, ADDING the panned channel mix into out
     // (out has 2*frames floats). Advances the transport when playing. `sampleRate` is in Hz.
     void render(float* out, int frames, int sampleRate);

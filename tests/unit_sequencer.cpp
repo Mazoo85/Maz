@@ -739,6 +739,33 @@ int main() {
         check(fr.step(0, 5), "rotating by the full length leaves the row unchanged");
     }
 
+    // --- Euclidean fill: evenly distributed pulses ---------------------------
+    {
+        audio::Sequencer s; // default 16 steps
+        // 4 pulses over 16 steps → a hit every 4 steps (0, 4, 8, 12).
+        const int placed = s.euclidFill(0, 4);
+        check(placed == 4, "euclid places exactly the requested pulse count");
+        check(s.step(0, 0) && s.step(0, 4) && s.step(0, 8) && s.step(0, 12),
+              "4 pulses over 16 steps land on the quarter beats");
+        check(!s.step(0, 1) && !s.step(0, 5), "off-grid steps stay empty");
+
+        // The hit count always matches the requested pulses (even for uneven divisions).
+        bool countsMatch = true;
+        for (int k = 0; k <= 16; ++k) {
+            audio::Sequencer e;
+            if (e.euclidFill(0, k) != k) {
+                countsMatch = false;
+            }
+        }
+        check(countsMatch, "euclid hit count matches the requested pulses for every k in 0..16");
+
+        // A previous pattern is replaced, and 0 pulses clears the row.
+        audio::Sequencer c;
+        c.setStep(0, 3, true);
+        c.euclidFill(0, 0);
+        check(!c.step(0, 3), "a zero-pulse euclid fill clears the row");
+    }
+
     // --- Choke: a voice can be silenced mid-ring -----------------------------
     {
         audio::DrumVoice oh;

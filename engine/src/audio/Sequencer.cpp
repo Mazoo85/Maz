@@ -339,6 +339,25 @@ void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
 
+int Sequencer::euclidFill(int channel, int pulses) {
+    if (channel < 0 || channel >= numChannels() || numSteps_ <= 0) {
+        return 0;
+    }
+    const int n = numSteps_;
+    int k = pulses < 0 ? 0 : (pulses > n ? n : pulses);
+    int placed = 0;
+    // Bresenham-style even distribution: step i is a hit when (i·k) mod n < k. This lands exactly k
+    // hits spread as evenly as possible — the Euclidean rhythm.
+    for (int i = 0; i < n; ++i) {
+        const bool on = k > 0 && (i * k) % n < k;
+        setStep(channel, i, on);
+        if (on) {
+            ++placed;
+        }
+    }
+    return placed;
+}
+
 void Sequencer::rotateChannel(int channel, int offset) {
     if (channel < 0 || channel >= numChannels() || numSteps_ <= 0) {
         return;

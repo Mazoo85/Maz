@@ -503,6 +503,13 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SmallButton("<")) seq.rotateChannel(c, -1);
         ImGui::SameLine();
         if (ImGui::SmallButton(">")) seq.rotateChannel(c, 1);
+        ImGui::SameLine();
+        static int euclidPulses[64] = {0};
+        int& ep = euclidPulses[c < 64 ? c : 0];
+        ImGui::SetNextItemWidth(40.0f);
+        ImGui::InputInt("##eucn", &ep, 0, 0);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Eu")) seq.euclidFill(c, ep);
         ImGui::PopID();
         ImGui::SameLine();
         for (int s = 0; s < steps; ++s) {
