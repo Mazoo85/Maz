@@ -87,6 +87,7 @@
 #include "maz/core/StringFormat.hpp"
 #include "maz/core/StringUtils.hpp"
 #include "maz/core/Variant.hpp"
+#include "maz/core/VariantText.hpp"
 #include "maz/core/VariantContainers.hpp"
 #include "maz/ecs/Components.hpp"
 #include "maz/ecs/Scheduler.hpp"
@@ -11085,6 +11086,36 @@ void testVariant() {
     CHECK(Variant("1") != Variant(1));    // string vs number
     CHECK(Variant(vec2(1, 2)) == Variant(vec2(1, 2)));
     CHECK(Variant(vec3(1, 2, 3)) != Variant(vec3(1, 2, 4)));
+
+    // --- M314: var_to_str / str_to_var round-trippable text encoding ---
+    using maz::core::varToStr;
+    using maz::core::strToVar;
+    CHECK(varToStr(Variant()) == "null");
+    CHECK(varToStr(Variant(true)) == "true");
+    CHECK(varToStr(Variant(std::int64_t(42))) == "42");
+    CHECK(varToStr(Variant(1.5)) == "1.5");
+    CHECK(varToStr(Variant(2.0)) == "2.0");            // forced float marker
+    CHECK(varToStr(Variant(std::string("a\nb"))) == "\"a\\nb\"");
+    CHECK(varToStr(Variant(vec2(1, 2))) == "Vector2(1, 2)");
+    CHECK(varToStr(Variant(vec3(1, 2, 3))) == "Vector3(1, 2, 3)");
+    CHECK(strToVar("1.0")->type() == VariantType::Float); // decimal reads back as float, not int
+    CHECK(strToVar("42")->type() == VariantType::Int);
+    CHECK(strToVar("Vector2(3, 4)")->asVector2() == vec2(3, 4));
+    CHECK(!strToVar("").has_value());
+    CHECK(!strToVar("\"unterminated").has_value());
+    CHECK(!strToVar("Vector3(1, 2)").has_value());
+    CHECK(!strToVar("notanumber").has_value());
+    {
+        const Variant vals[] = {
+            Variant(), Variant(true), Variant(false), Variant(std::int64_t(-123456789)),
+            Variant(3.14159), Variant(0.1), Variant(-2.25), Variant(std::string("")),
+            Variant(std::string("quotes \" \\ \n\t")), Variant(vec2(-1.5f, 2.25f)),
+            Variant(vec3(0.0f, -7.5f, 100.0f))};
+        for (const Variant& v : vals) {
+            auto rt = strToVar(varToStr(v));
+            CHECK(rt.has_value() && *rt == v);
+        }
+    }
 }
 
 // StringFormat: Godot's String.format (M297) — {i} positional (Array) + {key} named (Dictionary).

@@ -178,7 +178,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   blackboard, GOAP planner.
 - **Core value types:** a `core::Variant` (M293) — Godot's tagged any-value holding
   Nil/Bool/Int/Float/String/Vector2/Vector3 with Godot-style coercion (asInt/asFloat), truthiness
-  (booleanize), value equality (numeric types compare across Bool/Int/Float) and stringify; plus the
+  (booleanize), value equality (numeric types compare across Bool/Int/Float) and stringify; with
+  `core::varToStr` / `strToVar` (M314) — Godot's var_to_str / str_to_var round-trippable text encoding
+  (the form written into .tres/.tscn): quoted+escaped strings, decimal-marked floats (so they never
+  read back as ints), and `Vector2(x, y)` / `Vector3(x, y, z)` constructor syntax, with a parser that
+  rejects malformed input; verified by known encodings and strToVar(varToStr(v)) == v round-trips; plus the
   container Variants `core::Array` and `core::Dictionary` (M294) — Godot's ordered list
   (append/insert/find/slice/reverse) and ordered string->Variant map (has/get/set/erase/keys/values/
   merge, insertion order preserved); plus `core::formatWith` (M297) — Godot's String.format:
