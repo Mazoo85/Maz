@@ -77,7 +77,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `Geometry2D.triangulate_delaunay`: empty-circumcircle-verified, robust double-precision predicate),
   **Voronoi cells** (M258, `math::voronoiCells` — the Delaunay dual, beyond Godot which has none;
   half-plane intersection clipped to a box, verified to partition the box and place each grid point in
-  its nearest site's cell), **Poisson-disk (blue-noise) sampling** (M259, `core::poissonDiskSample` —
+  its nearest site's cell), **hex A* pathfinding** (M282, `game::hexFindPath` — shortest path across a
+  hex grid with a blocked-cell predicate, admissible hex-distance heuristic, built on the M280 hex
+  algebra; Godot's AStar2D needs every node/edge registered by hand, so this is a ready-made hex
+  pathfinder), **Poisson-disk (blue-noise) sampling** (M259, `core::poissonDiskSample` —
   Bridson's algorithm, beyond Godot; deterministic min-distance scatter for natural object placement,
   verified min-distance + in-bounds + packing-bound + seed-determinism), **2D k-d tree** (M260,
   `core::KdTree2D` — balanced point index for nearest / k-nearest / radius queries, the standard

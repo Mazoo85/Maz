@@ -117,6 +117,7 @@
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
 #include "maz/game/HexGrid.hpp"
+#include "maz/game/HexPath.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
@@ -12483,6 +12484,58 @@ void testHexGrid() {
             CHECK(hexDistance(g[i - 1], g[i]) == 1);
         }
     }
+
+    // --- hex A* pathfinding (M282) ---
+    using maz::game::hexFindPath;
+    auto connected = [](const std::vector<Hex>& p) {
+        for (std::size_t i = 1; i < p.size(); ++i) {
+            if (hexDistance(p[i - 1], p[i]) != 1) return false;
+        }
+        return true;
+    };
+    const auto openBlk = [](const Hex&) { return false; };
+    // Open grid: shortest path length == distance + 1, connected, correct ends.
+    {
+        const auto p = hexFindPath(Hex(0, 0), Hex(3, 0), openBlk);
+        CHECK(p.size() == 4);
+        CHECK((p.front() == Hex(0, 0) && p.back() == Hex(3, 0)));
+        CHECK(connected(p));
+        const auto d = hexFindPath(Hex(0, 0), Hex(2, -3), openBlk);
+        CHECK(static_cast<int>(d.size()) == hexDistance(Hex(0, 0), Hex(2, -3)) + 1);
+    }
+    // start == goal.
+    {
+        const auto p = hexFindPath(Hex(2, 2), Hex(2, 2), openBlk);
+        CHECK((p.size() == 1 && p[0] == Hex(2, 2)));
+    }
+    // Wall detour: block the straight line; path must route around, stay connected, avoid walls.
+    {
+        auto blk = [](const Hex& h) {
+            return (h == Hex(1, 0)) || (h == Hex(2, 0)) || (h == Hex(3, 0));
+        };
+        const auto p = hexFindPath(Hex(0, 0), Hex(4, 0), blk);
+        CHECK(!p.empty());
+        CHECK((p.front() == Hex(0, 0) && p.back() == Hex(4, 0)));
+        CHECK(connected(p));
+        CHECK(p.size() >= 5); // longer than the blocked straight line
+        for (const auto& h : p) {
+            CHECK(!blk(h));
+        }
+    }
+    // Unreachable: surround the goal with walls.
+    {
+        const Hex goal(5, 5);
+        const auto ring = hexNeighbors(goal);
+        auto blk = [&](const Hex& h) {
+            for (const auto& w : ring) {
+                if (w == h) return true;
+            }
+            return false;
+        };
+        CHECK(hexFindPath(Hex(0, 0), goal, blk).empty());
+    }
+    // Blocked start returns empty.
+    CHECK(hexFindPath(Hex(0, 0), Hex(2, 0), [](const Hex& h) { return h == Hex(0, 0); }).empty());
 }
 
 // Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
