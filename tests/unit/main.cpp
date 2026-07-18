@@ -81,6 +81,7 @@
 #include "maz/core/Signal.hpp"
 #include "maz/core/SlotMap.hpp"
 #include "maz/core/StringId.hpp"
+#include "maz/core/StringFormat.hpp"
 #include "maz/core/StringUtils.hpp"
 #include "maz/core/Variant.hpp"
 #include "maz/core/VariantContainers.hpp"
@@ -10980,6 +10981,32 @@ void testVariant() {
     CHECK(Variant("1") != Variant(1));    // string vs number
     CHECK(Variant(vec2(1, 2)) == Variant(vec2(1, 2)));
     CHECK(Variant(vec3(1, 2, 3)) != Variant(vec3(1, 2, 4)));
+}
+
+// StringFormat: Godot's String.format (M297) — {i} positional (Array) + {key} named (Dictionary).
+void testStringFormat() {
+    using maz::core::Array;
+    using maz::core::Dictionary;
+    using maz::core::formatWith;
+
+    Array a{"hero", 42};
+    CHECK(formatWith("Hi {0}, you have {1} gold", a) == "Hi hero, you have 42 gold");
+    CHECK(formatWith("{0}{0}{1}", a) == "herohero42");
+    CHECK(formatWith("no placeholders", a) == "no placeholders");
+    CHECK(formatWith("{5} out of range", a) == "{5} out of range");
+    CHECK(formatWith("{x} not index", a) == "{x} not index");
+    Array typed{true, 3.5, 7};
+    CHECK(formatWith("{0} {1} {2}", typed) == "true 3.5 7");
+    CHECK(formatWith("start {0} then {unclosed", Array{"x"}) == "start x then {unclosed");
+
+    Dictionary d;
+    d.set("name", "hero");
+    d.set("hp", 100);
+    d.set("pos", maz::math::vec2(1.5f, 2.0f));
+    CHECK(formatWith("{name} has {hp} HP", d) == "hero has 100 HP");
+    CHECK(formatWith("at {pos}", d) == "at (1.5, 2)");
+    CHECK(formatWith("{missing} key", d) == "{missing} key");
+    CHECK(formatWith("{name}{name}", d) == "herohero");
 }
 
 // Array / Dictionary: Godot container Variants (M294) — ordered list + ordered string->Variant map.
@@ -22173,6 +22200,7 @@ int main() {
     testStringUtils();
     testVariant();
     testVariantContainers();
+    testStringFormat();
     testSlotMap();
     testRingBuffer();
     testJobs();

@@ -147,7 +147,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (booleanize), value equality (numeric types compare across Bool/Int/Float) and stringify; plus the
   container Variants `core::Array` and `core::Dictionary` (M294) — Godot's ordered list
   (append/insert/find/slice/reverse) and ordered string->Variant map (has/get/set/erase/keys/values/
-  merge, insertion order preserved).
+  merge, insertion order preserved); plus `core::formatWith` (M297) — Godot's String.format:
+  `{0}`/`{1}` positional substitution from an Array and `{key}` named substitution from a Dictionary
+  (values stringified via Variant; unknown placeholders left verbatim).
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).
 - **Tooling:** in-engine editor (viewport, gizmos, inspector, undo/redo, save/load, asset browser,
