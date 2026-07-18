@@ -29,7 +29,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with
   `*`, affine + rigid inverse, translated/rotated/scaled with global & _local variants, orthonormalized,
   looking_at (-Z forward), interpolate_with (translation lerp + rotation slerp + scale lerp), and
-  mat4 interop; semantics matched to Godot's Transform3D/Basis source), Rect2, Geometry2D/3D,
+  mat4 interop; semantics matched to Godot's Transform3D/Basis source), **Quaternion** (M269,
+  `math::Quaternion` — Godot's rotation quaternion: axis-angle + Euler build/read in Godot's exact
+  YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
+  so orientations authored in Godot import identically), Rect2, Geometry2D/3D,
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance

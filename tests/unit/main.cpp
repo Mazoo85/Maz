@@ -191,6 +191,7 @@
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Transform3D.hpp"
+#include "maz/math/Quaternion.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
@@ -12049,6 +12050,62 @@ void testTransform3D() {
     }
 }
 
+// Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
+// inverse, slerp, angleTo, and mat3 interop. Euler convention matched to Godot's from_euler/get_euler.
+void testQuaternion() {
+    using math::vec3;
+    using Q = math::Quaternion;
+    const float kPi = 3.14159265358979f;
+    auto near3 = [](vec3 a, vec3 b, float e = 1e-4f) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
+    };
+
+    // Identity and axis-angle (90 deg about +Y sends +X to -Z).
+    CHECK(near3(Q().xform(vec3(1, 2, 3)), vec3(1, 2, 3)));
+    CHECK(near3(Q::fromAxisAngle(vec3(0, 1, 0), kPi / 2).xform(vec3(1, 0, 0)), vec3(0, 0, -1)));
+
+    // Euler round-trips (Godot YXZ), including a pure-X rotation.
+    CHECK(near3(Q::fromEuler(vec3(0.3f, 0.5f, -0.2f)).getEuler(), vec3(0.3f, 0.5f, -0.2f)));
+    CHECK(near3(Q::fromEuler(vec3(-0.7f, 0.1f, 0.9f)).getEuler(), vec3(-0.7f, 0.1f, 0.9f)));
+    CHECK(near3(Q::fromEuler(vec3(0.6f, 0, 0)).getEuler(), vec3(0.6f, 0, 0)));
+
+    // fromEuler is exactly the Y*X*Z composition applied to a vector.
+    {
+        const Q q = Q::fromEuler(vec3(0.4f, 0.6f, 0.2f));
+        const Q comp = Q::fromAxisAngle(vec3(0, 1, 0), 0.6f) * Q::fromAxisAngle(vec3(1, 0, 0), 0.4f) *
+                       Q::fromAxisAngle(vec3(0, 0, 1), 0.2f);
+        CHECK(near3(q.xform(vec3(1, 2, 3)), comp.xform(vec3(1, 2, 3))));
+    }
+    // Composition applies the right operand first.
+    {
+        const Q a = Q::fromAxisAngle(vec3(0, 0, 1), kPi / 2);
+        const Q b = Q::fromAxisAngle(vec3(0, 1, 0), kPi / 2);
+        CHECK(near3((a * b).xform(vec3(1, 0, 0)), a.xform(b.xform(vec3(1, 0, 0)))));
+    }
+    // Inverse undoes; unit quaternion has length 1.
+    {
+        const Q q = Q::fromEuler(vec3(0.3f, 0.7f, 0.1f));
+        CHECK(near3(q.inverse().xform(q.xform(vec3(2, 1, -3))), vec3(2, 1, -3)));
+    }
+    CHECK_NEAR(Q::fromAxisAngle(vec3(1, 2, 3), 1.1f).length(), 1.0f, 1e-4f);
+
+    // slerp: endpoints exact, midpoint == 45 deg about Y.
+    {
+        const Q a = Q::identity();
+        const Q b = Q::fromAxisAngle(vec3(0, 1, 0), kPi / 2);
+        CHECK(near3(a.slerp(b, 0.0f).xform(vec3(1, 0, 0)), a.xform(vec3(1, 0, 0))));
+        CHECK(near3(a.slerp(b, 1.0f).xform(vec3(1, 0, 0)), b.xform(vec3(1, 0, 0))));
+        CHECK(near3(a.slerp(b, 0.5f).xform(vec3(1, 0, 0)),
+                    Q::fromAxisAngle(vec3(0, 1, 0), kPi / 4).xform(vec3(1, 0, 0)), 1e-3f));
+        CHECK_NEAR(a.angleTo(b), kPi / 2, 1e-3f);
+    }
+    // mat3 interop round-trips.
+    {
+        const Q q = Q::fromEuler(vec3(0.2f, 0.9f, -0.3f));
+        CHECK(near3(Q::fromMat3(q.toMat3()).xform(vec3(3, -1, 2)), q.xform(vec3(3, -1, 2))));
+    }
+}
+
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
 void testSdf() {
     const int W = 24, H = 24;
@@ -21028,6 +21085,7 @@ int main() {
     testGeometry3DHelpers();
     testVectorOps();
     testTransform3D();
+    testQuaternion();
     testSdf();
     testGlyphCache();
     testGraphEdit();
