@@ -502,6 +502,31 @@ int main() {
         check(looped.songLoop(), "song loop defaults to on");
     }
 
+    // Song loop region: restrict playback to a sub-range of the playlist [start, end).
+    {
+        audio::Sequencer r;
+        r.setBpm(120.0);
+        r.addPattern();
+        r.addPattern();
+        r.addPattern(); // patterns 0..3 exist
+        r.setPlaylist({0, 1, 2, 3});
+        r.setSongMode(true);
+        r.setSongLoopRange(1, 3); // loop patterns at playlist indices 1,2
+        r.play();
+        check(r.currentPattern() == 1, "song loop region starts at the region start");
+        (void)renderMono(r, 16 * 6000, sampleRate);
+        check(r.currentPattern() == 2, "region advances to the next entry");
+        (void)renderMono(r, 16 * 6000, sampleRate);
+        check(r.currentPattern() == 1, "region wraps back to the start (never reaches index 3)");
+        (void)renderMono(r, 16 * 6000, sampleRate);
+        check(r.currentPattern() == 2, "region keeps cycling within [1,3)");
+
+        audio::Sequencer d;
+        check(d.songLoopEnd() <= d.songLoopStart(), "no loop region by default (whole playlist)");
+        d.setSongLoopRange(2, 1); // degenerate → cleared
+        check(d.songLoopEnd() <= d.songLoopStart(), "a degenerate region is treated as cleared");
+    }
+
     // --- Metronome: accented clicks on each beat ------------------------------
     {
         // Empty pattern → silent except for the metronome. At 120 BPM a beat is 0.5 s = 24000

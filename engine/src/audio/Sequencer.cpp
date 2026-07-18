@@ -614,7 +614,11 @@ void Sequencer::play() {
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
     if (songMode_ && !playlist_.empty()) {
-        selectPattern(playlist_[0]); // start the arrangement at the first playlist entry
+        // Start at the loop-region start when one is set, else the first playlist entry.
+        const int plSize = static_cast<int>(playlist_.size());
+        const bool region = songLoopEnd_ > songLoopStart_ && songLoopStart_ < plSize;
+        playlistPos_ = region ? songLoopStart_ : 0;
+        selectPattern(playlist_[static_cast<size_t>(playlistPos_)]);
     }
     if (!countingIn_) {
         triggerStep(0); // when counting in, the pattern's first step fires after the count-in
@@ -815,13 +819,19 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 currentStep_ = (currentStep_ + 1) % numSteps_;
                 // At the top of each bar, in song mode, advance to the next playlist pattern.
                 if (currentStep_ == 0 && songMode_ && !playlist_.empty()) {
+                    // Honour the loop region [start, end) when set; otherwise the whole playlist.
+                    const int plSize = static_cast<int>(playlist_.size());
+                    const bool region =
+                        songLoopEnd_ > songLoopStart_ && songLoopStart_ < plSize;
+                    const int loopStart = region ? songLoopStart_ : 0;
+                    const int loopEnd = region ? std::min(songLoopEnd_, plSize) : plSize;
                     const int next = playlistPos_ + 1;
-                    if (next >= static_cast<int>(playlist_.size())) {
+                    if (next >= loopEnd) {
                         if (songLoop_) {
-                            playlistPos_ = 0;
-                            selectPattern(playlist_[0]);
+                            playlistPos_ = loopStart;
+                            selectPattern(playlist_[static_cast<size_t>(loopStart)]);
                         } else {
-                            // Play-once: stop cleanly at the end of the arrangement.
+                            // Play-once: stop cleanly at the end of the arrangement/region.
                             playing_ = false;
                             synth_.allNotesOff();
                             synth2_.allNotesOff();

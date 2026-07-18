@@ -1803,6 +1803,23 @@ void buildArrangementUI(audio::Sequencer& seq) {
     if (ImGui::Checkbox("Loop song", &songLoop)) {
         seq.setSongLoop(songLoop);
     }
+    // Loop region over the playlist: [start, end). end <= start = whole playlist.
+    int loopStart = seq.songLoopStart();
+    int loopEnd = seq.songLoopEnd();
+    const int plLen = static_cast<int>(seq.playlist().size());
+    ImGui::SetNextItemWidth(80.0f);
+    bool lrCh = ImGui::InputInt("loop start##song", &loopStart, 1, 1);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(80.0f);
+    lrCh |= ImGui::InputInt("loop end##song", &loopEnd, 1, 1);
+    if (lrCh) seq.setSongLoopRange(loopStart, loopEnd);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("clear region##song")) seq.setSongLoopRange(0, 0);
+    ImGui::SameLine();
+    if (seq.songLoopEnd() > seq.songLoopStart())
+        ImGui::TextDisabled("looping [%d,%d)", seq.songLoopStart(), seq.songLoopEnd());
+    else
+        ImGui::TextDisabled("(full playlist, %d)", plLen);
 
     ImGui::Text("Playlist:");
     ImGui::SameLine();

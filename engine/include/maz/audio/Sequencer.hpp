@@ -154,6 +154,17 @@ public:
     void clearPlaylist() { playlist_.clear(); }
     void appendToPlaylist(int patternIndex) { playlist_.push_back(patternIndex); }
 
+    // Song loop region: restrict song-mode playback to the playlist index half-open range
+    // [start, end) — playback starts at `start` and, when looping, wraps `end`→`start` instead of
+    // cycling the whole playlist. A degenerate/empty range (end <= start) clears it (loop the whole
+    // playlist, the default). Great for looping a section (a drop, a chorus) while working on it.
+    void setSongLoopRange(int start, int end) {
+        songLoopStart_ = start < 0 ? 0 : start;
+        songLoopEnd_ = end;
+    }
+    int songLoopStart() const { return songLoopStart_; }
+    int songLoopEnd() const { return songLoopEnd_; }
+
     // Route the piano roll to the sampler instead of the synth (when a sample is loaded).
     void setUseSampler(bool on) { useSampler_ = on; }
     bool useSampler() const { return useSampler_; }
@@ -264,6 +275,8 @@ private:
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode
+    int songLoopStart_ = 0;         // song loop region start (playlist index)
+    int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     bool songMode_ = false;
     bool songLoop_ = true;
     int playlistPos_ = 0;
