@@ -34,6 +34,20 @@ target_link_libraries(maz_scene_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_scene COMMAND maz_scene_tests)
 set_tests_properties(unit_scene PROPERTIES TIMEOUT 30)
 
+# Unit tests: procedural primitive mesh generation (vertex/index counts, unit normals, bounds).
+add_executable(maz_primitives_tests unit_primitives.cpp)
+target_link_libraries(maz_primitives_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_primitives COMMAND maz_primitives_tests)
+set_tests_properties(unit_primitives PROPERTIES TIMEOUT 30)
+
+# Unit tests: composite asset baking (buildModel) + .mazasset save/load round-trip.
+add_executable(maz_asset_tests unit_asset.cpp)
+target_link_libraries(maz_asset_tests PRIVATE maz::maz maz_warnings)
+
+add_test(NAME unit_asset COMMAND maz_asset_tests)
+set_tests_properties(unit_asset PROPERTIES TIMEOUT 30)
+
 # Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
 # end to end (draws no-op with no GPU).
 add_test(
@@ -61,6 +75,17 @@ add_test(
     NAME render_probe
     COMMAND render_probe ${CMAKE_SOURCE_DIR}/assets/models/cube.gltf)
 set_tests_properties(render_probe PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "render probe: PASS")
+
+# Render probe over a baked composite asset: bake a .mazasset to a mesh and rasterize it off-screen,
+# proving the character/item creator's build path produces drawable geometry end to end (not just
+# correct vertex counts). Same lavapipe requirement as render_probe.
+add_test(
+    NAME render_probe_asset
+    COMMAND render_probe ${CMAKE_SOURCE_DIR}/assets/items/probe_asset.mazasset)
+set_tests_properties(render_probe_asset PROPERTIES
     TIMEOUT 120
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "render probe: PASS")
