@@ -12882,6 +12882,19 @@ void testHash() {
         CHECK(d[0] == 0xba && d[31] == 0xad);
     }
 
+    // MD5 (M300) against the RFC 1321 vectors.
+    CHECK(md5Hex("") == "d41d8cd98f00b204e9800998ecf8427e");
+    CHECK(md5Hex("abc") == "900150983cd24fb0d6963f7d28e17f72");
+    CHECK(md5Hex("message digest") == "f96b697d7cb7938d525a2f31aaf161d0");
+    CHECK(md5Hex("The quick brown fox jumps over the lazy dog") ==
+          "9e107d9d372bb6826bd81d3542a419d6");
+    CHECK(md5Hex("12345678901234567890123456789012345678901234567890123456789012345678901234567890") ==
+          "57edf4a22be3c955ac49da2e2107b67a"); // extra-block path
+    {
+        const auto d = md5(std::string("abc"));
+        CHECK(d[0] == 0x90 && d[15] == 0x72);
+    }
+
     // SHA-1 (M299) against the published vectors.
     CHECK(sha1Hex("") == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
     CHECK(sha1Hex("abc") == "a9993e364706816aba3e25717850c26c9cd0d89d");
