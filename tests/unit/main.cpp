@@ -13560,6 +13560,28 @@ void testTransform3D() {
     // Rotation 90 deg about +Y sends +X to -Z (right-handed).
     CHECK(near3(T::rotation(vec3(0, 1, 0), kPi / 2).xform(vec3(1, 0, 0)), vec3(0, 0, -1)));
 
+    // M340: is_equal_approx / is_finite (Godot Transform3D parity).
+    {
+        T tr = T::rotation(vec3(0, 1, 0), 0.7f);
+        tr.origin = vec3(3, -2, 5);
+        T trn = tr;
+        trn.origin.x += 1e-7f;
+        CHECK(tr.isEqualApprox(trn));
+        T trd = tr;
+        trd.origin.z += 0.5f;
+        CHECK(!tr.isEqualApprox(trd));
+        T trb = tr;
+        trb.basis[0].x += 0.5f;
+        CHECK(!tr.isEqualApprox(trb));
+        CHECK(tr.isFinite());
+        T trbad = tr;
+        trbad.basis[2].y = std::numeric_limits<float>::infinity();
+        CHECK(!trbad.isFinite());
+        T trbad2 = tr;
+        trbad2.origin.z = std::nanf("");
+        CHECK(!trbad2.isFinite());
+    }
+
     // xform_inv (orthonormal) and rigid inverse both undo the transform.
     {
         const T t = T::rotation(vec3(0, 1, 0), 0.7f).translated(vec3(3, -2, 5));

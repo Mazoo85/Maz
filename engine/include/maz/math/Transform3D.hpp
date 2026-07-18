@@ -1,6 +1,7 @@
 #pragma once
 
-#include "maz/math/Math.hpp" // mat3, mat4, vec3, quat, cross, dot, normalize
+#include "maz/math/Math.hpp"      // mat3, mat4, vec3, quat, cross, dot, normalize
+#include "maz/math/VectorOps.hpp" // isEqualApprox(vec3), isFinite(vec3)
 
 #include <glm/gtc/quaternion.hpp> // angleAxis, quat_cast, mat3_cast, slerp
 
@@ -46,6 +47,20 @@ struct Transform3D {
     vec3 basisXformInv(const vec3& v) const { return glm::transpose(basis) * v; }
     // Inverse transform of a point, assuming an ORTHONORMAL basis — Godot's xform_inv.
     vec3 xformInv(const vec3& p) const { return glm::transpose(basis) * (p - origin); }
+
+    // Component-wise approximate equality of every basis column and the origin — Godot's
+    // Transform3D.is_equal_approx (Basis.is_equal_approx + origin).
+    bool isEqualApprox(const Transform3D& o) const {
+        return maz::math::isEqualApprox(basis[0], o.basis[0]) &&
+               maz::math::isEqualApprox(basis[1], o.basis[1]) &&
+               maz::math::isEqualApprox(basis[2], o.basis[2]) &&
+               maz::math::isEqualApprox(origin, o.origin);
+    }
+    // True when every basis and origin component is finite — Godot's Transform3D.is_finite.
+    bool isFinite() const {
+        return maz::math::isFinite(basis[0]) && maz::math::isFinite(basis[1]) &&
+               maz::math::isFinite(basis[2]) && maz::math::isFinite(origin);
+    }
 
     // ---- composition & inverse ----
     // this * other: apply `other` first, then `this` (Godot's Transform3D operator*).

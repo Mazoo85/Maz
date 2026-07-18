@@ -52,7 +52,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with
   `*`, affine + rigid inverse, translated/rotated/scaled with global & _local variants, orthonormalized,
   looking_at (-Z forward), interpolate_with (translation lerp + rotation slerp + scale lerp),
-  basis_xform_inv (M328 — transposed-basis direction transform, Godot Basis.xform_inv), and
+  basis_xform_inv (M328 — transposed-basis direction transform, Godot Basis.xform_inv),
+  is_equal_approx / is_finite (M339 style, added M340 — every basis column + origin approx-equal /
+  all-finite, Godot Transform3D.is_equal_approx / is_finite, verified against nudged/differing
+  transforms and non-finite basis/origin components), and
   mat4 interop; semantics matched to Godot's Transform3D/Basis source), **Quaternion** (M269,
   `math::Quaternion` — Godot's rotation quaternion: axis-angle + Euler build/read in Godot's exact
   YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
