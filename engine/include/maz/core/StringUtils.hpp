@@ -298,6 +298,18 @@ inline bool isValidFloat(const std::string& s) {
     return true;
 }
 
+// Split on `delim` and convert each piece to a float — Godot's String.split_floats. Each token is
+// parsed with toFloat's leading-number rule (a non-numeric token yields 0.0). With allowEmpty=false
+// empty tokens are dropped BEFORE conversion, so "1,,2" gives {1,2} rather than {1,0,2}.
+inline std::vector<float> splitFloats(const std::string& s, const std::string& delim = ",",
+                                      bool allowEmpty = true) {
+    std::vector<float> out;
+    for (const std::string& piece : split(s, delim, allowEmpty)) {
+        out.push_back(static_cast<float>(toFloat(piece)));
+    }
+    return out;
+}
+
 // Parse a hexadecimal integer with an optional sign and optional "0x"/"0X" prefix; scanning stops at
 // the first non-hex-digit (Godot's String.hex_to_int). Returns 0 when no hex digits follow.
 inline std::int64_t hexToInt(const std::string& s) {

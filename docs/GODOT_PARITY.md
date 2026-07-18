@@ -140,6 +140,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   plus **C-string escaping** M308 — cEscape/cUnescape matching Godot String's c_escape/c_unescape
   (the backslash sequences Godot writes into text resources / C literals: \\ \a \b \f \n \r \t \v
   \' \", with c_unescape also accepting \?), verified to round-trip exactly),
+  plus **split_floats** M325 — splitFloats(s, delim, allowEmpty) toward Godot String.split_floats:
+  split on a delimiter and convert each token to a float via toFloat's leading-number rule (empty or
+  non-numeric tokens become 0.0; allowEmpty=false drops empties before conversion). Verified on comma
+  and custom delimiters, non-numeric tokens, empty-token handling, and single/empty-string edges,
   plus **natural-order comparison** M321 — naturalCompare/naturalCompareNoCase toward Godot
   String.naturalcasecmp_to/naturalnocasecmp_to: numeric-aware ordering where digit runs compare by
   value, so "file2" sorts before "file10" (plain lexicographic would not). Returns -1/0/+1, folds

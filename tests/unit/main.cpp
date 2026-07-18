@@ -11485,6 +11485,29 @@ void testStringUtils() {
     CHECK(!su::isValidFloat("3.1.4"));
     CHECK(!su::isValidFloat(""));
     CHECK(!su::isValidFloat("1.0x"));
+
+    // --- M325: split_floats ---
+    {
+        auto v = su::splitFloats("1.5,2,-3.25");
+        CHECK(v.size() == 3);
+        CHECK_NEAR(v[0], 1.5f, 1e-5f);
+        CHECK_NEAR(v[1], 2.0f, 1e-5f);
+        CHECK_NEAR(v[2], -3.25f, 1e-5f);
+        // Custom delimiter.
+        auto sp = su::splitFloats("10 20 30", " ");
+        CHECK((sp.size() == 3 && sp[0] == 10.0f && sp[2] == 30.0f));
+        // Non-numeric -> 0; trailing text after a number ignored.
+        auto m = su::splitFloats("4,abc,5px");
+        CHECK((m.size() == 3 && m[0] == 4.0f && m[1] == 0.0f && m[2] == 5.0f));
+        // allowEmpty keeps empty tokens as 0; false drops them before conversion.
+        CHECK(su::splitFloats("1,,2", ",", true).size() == 3);
+        CHECK(su::splitFloats("1,,2", ",", false).size() == 2);
+        // Single value; empty string edge cases.
+        CHECK((su::splitFloats("42").size() == 1 && su::splitFloats("42")[0] == 42.0f));
+        CHECK(su::splitFloats("").size() == 1);
+        CHECK(su::splitFloats("", ",", false).empty());
+    }
+
     CHECK(su::hexToInt("ff") == 255);
     CHECK(su::hexToInt("0xFF") == 255);
     CHECK(su::hexToInt("0x10") == 16);
