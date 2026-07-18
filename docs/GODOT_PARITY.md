@@ -126,7 +126,7 @@ Maz has a minimal editor; Godot's is vast.
 
 ### 7. Node & scene-system breadth  [CPU mostly]
 Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-value nodes:
-- [~] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
+- [x] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
   — **PathFollow2D done** (M221): `game::PathFollow2D` walks a Curve2D by progress/progress-ratio,
   loop-or-clamp ends, hOffset along the path normal, tangent-following rotation.
   — **VisibleOnScreenNotifier2D done** (M223): `game::VisibleOnScreenNotifier2D` fires screen
@@ -136,7 +136,14 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
   (skew preserved), otherwise recomposed from the selected components — plus the use-global-coordinates
   flag and a `globalToLocal(desiredGlobal, parentGlobal)` helper (`parent^-1 * global`) for the
   global-mode case. Built on `math::Transform2D`; verified across every channel combination and the
-  global↔local round-trip. CanvasLayer remains.
+  global↔local round-trip.
+  — **CanvasLayer done** (M256): `scene::CanvasLayer` — an independent 2D draw layer with its own
+  transform (offset/rotation/scale) and a `layer` draw-order index. Screen-fixed by default (a HUD
+  ignores the world camera); with follow_viewport on it tracks the viewport canvas transform scaled by
+  follow_viewport_scale via `finalTransform(viewportCanvas)`. A `CanvasLayerStack` returns visible
+  layers ordered ascending by index (low = behind), stable within ties. Built on `math::Transform2D`;
+  verified for screen-fixed vs following behaviour and stack ordering. **This closes the node line** —
+  all listed high-value nodes now have CPU models.
 - [~] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
   — **Timer done** (M222): `game::Timer` countdown with wait_time, one_shot/repeating (remainder-
   carrying so cadence never drifts), pause/stop/restart, start(override), timeout callback. Others remain.

@@ -196,6 +196,7 @@
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
+#include "maz/scene/CanvasLayer.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/RemoteTransform2D.hpp"
@@ -1123,6 +1124,72 @@ void testTransform2D() {
         CHECK_NEAR(mid.getRotation(), pi * 0.25f, 1e-3f); // 45 degrees
         CHECK_NEAR(mid.getScale().x, 2.0f, 1e-3f);       // (1+3)/2
     }
+}
+
+void testCanvasLayer() {
+    using math::Transform2D;
+    using math::vec2;
+    using scene::CanvasLayer;
+    using scene::CanvasLayerStack;
+    const float pi = 3.14159265358979323846f;
+
+    CanvasLayer hud;
+    CHECK((hud.layer() == 0 && hud.visible()));
+    hud.setLayer(10);
+    hud.setOffset(vec2(20, 30));
+    hud.setScale(vec2(2, 2));
+    CHECK(hud.layer() == 10);
+    Transform2D t = hud.transform();
+    CHECK_NEAR(t.origin.x, 20.0f, 1e-3f);
+    CHECK_NEAR(t.getScale().x, 2.0f, 1e-3f);
+
+    // Not following -> screen-fixed (camera ignored).
+    Transform2D cam = Transform2D::compose(pi * 0.3f, vec2(3, 3), vec2(-100, 55));
+    Transform2D cam2 = Transform2D::compose(0.0f, vec2(1, 1), vec2(999, 999));
+    Transform2D f1 = hud.finalTransform(cam);
+    Transform2D f2 = hud.finalTransform(cam2);
+    CHECK_NEAR(f1.origin.x, 20.0f, 1e-3f);
+    CHECK_NEAR(f1.origin.x, f2.origin.x, 1e-3f);
+    CHECK_NEAR(f1.origin.y, f2.origin.y, 1e-3f);
+
+    // Following -> depends on the camera and the follow scale.
+    hud.setFollowViewport(true);
+    Transform2D g1 = hud.finalTransform(cam);
+    Transform2D g2 = hud.finalTransform(cam2);
+    CHECK(!(std::fabs(g1.origin.x - g2.origin.x) < 1e-3f &&
+            std::fabs(g1.origin.y - g2.origin.y) < 1e-3f));
+    hud.setFollowViewportScale(2.0f);
+    Transform2D g3 = hud.finalTransform(cam);
+    CHECK(!(std::fabs(g1.origin.x - g3.origin.x) < 1e-3f &&
+            std::fabs(g1.origin.y - g3.origin.y) < 1e-3f));
+
+    // Stack ordering: low draws first (behind); hidden excluded; stable within equal indices.
+    CanvasLayer bg, world, ui, hidden;
+    bg.setLayer(-5);
+    world.setLayer(0);
+    ui.setLayer(100);
+    hidden.setLayer(50);
+    hidden.setVisible(false);
+    CanvasLayerStack stack;
+    stack.add(&ui);
+    stack.add(&bg);
+    stack.add(&world);
+    stack.add(&hidden);
+    auto order = stack.drawOrder();
+    CHECK(order.size() == 3);
+    CHECK(order[0] == &bg);
+    CHECK(order[1] == &world);
+    CHECK(order[2] == &ui);
+
+    CanvasLayer a, b;
+    a.setLayer(0);
+    b.setLayer(0);
+    CanvasLayerStack s2;
+    s2.add(&a);
+    s2.add(&b);
+    auto o2 = s2.drawOrder();
+    CHECK(o2[0] == &a);
+    CHECK(o2[1] == &b);
 }
 
 void testRemoteTransform2D() {
@@ -20001,6 +20068,7 @@ int main() {
     testGeometry2D();
     testTransform2D();
     testRemoteTransform2D();
+    testCanvasLayer();
     testRect2();
     testCollision();
     testRaycast();
