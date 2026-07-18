@@ -80,6 +80,19 @@ void Window::pumpEvents(Input& input) {
             m_resized = true;
             break;
         }
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            m_focused = true;
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            m_focused = false;
+            break;
+        case SDL_EVENT_WINDOW_MINIMIZED:
+            m_minimized = true;
+            break;
+        case SDL_EVENT_WINDOW_RESTORED:
+        case SDL_EVENT_WINDOW_MAXIMIZED:
+            m_minimized = false;
+            break;
         case SDL_EVENT_KEY_DOWN:
             input.onKey(static_cast<int>(e.key.scancode), true);
             break;

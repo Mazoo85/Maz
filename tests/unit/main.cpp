@@ -42,6 +42,7 @@
 #include "maz/core/Replay.hpp"
 #include "maz/core/Telemetry.hpp"
 #include "maz/core/Version.hpp"
+#include "maz/platform/AppFocus.hpp"
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -4926,6 +4927,81 @@ void testPerfBudget() {
     const auto r4 = b3.check(prof);
     CHECK(!r4.anyOverage());
     CHECK(r4.zones.empty());
+}
+
+void testAppFocus() {
+    using platform::decideFrame;
+    using platform::FocusPolicy;
+    using platform::WindowActivation;
+
+    // Focused + visible: always full speed, always render, no sleep — regardless of policy.
+    {
+        FocusPolicy p;
+        const auto a = decideFrame(WindowActivation{true, false}, p);
+        CHECK(a.advanceSim);
+        CHECK(a.render);
+        CHECK_NEAR(a.throttleMs, 0.0, 1e-9);
+    }
+
+    // Unfocused but visible, default policy: keep rendering + advancing sim, but throttle to
+    // backgroundFps (10 -> 100ms/frame).
+    {
+        FocusPolicy p; // defaults: throttleWhenUnfocused=true, renderWhenUnfocused=true, 10 fps
+        const auto a = decideFrame(WindowActivation{false, false}, p);
+        CHECK(a.advanceSim);
+        CHECK(a.render);
+        CHECK_NEAR(a.throttleMs, 100.0, 1e-9);
+    }
+
+    // Unfocused with pause-sim + no throttle: sim freezes, no sleep requested.
+    {
+        FocusPolicy p;
+        p.pauseSimWhenUnfocused = true;
+        p.throttleWhenUnfocused = false;
+        const auto a = decideFrame(WindowActivation{false, false}, p);
+        CHECK(!a.advanceSim);
+        CHECK(a.render);
+        CHECK_NEAR(a.throttleMs, 0.0, 1e-9);
+    }
+
+    // Unfocused but renderWhenUnfocused disabled: still no render even though visible.
+    {
+        FocusPolicy p;
+        p.renderWhenUnfocused = false;
+        const auto a = decideFrame(WindowActivation{false, false}, p);
+        CHECK(!a.render);
+    }
+
+    // Minimized, default policy: skip render, keep sim advancing, throttle to backgroundFps.
+    {
+        FocusPolicy p;
+        const auto a = decideFrame(WindowActivation{false, true}, p);
+        CHECK(!a.render);          // skipRenderWhenMinimized default true
+        CHECK(a.advanceSim);       // sim still runs (timers/netcode)
+        CHECK_NEAR(a.throttleMs, 100.0, 1e-9);
+    }
+
+    // Minimized with pause-sim, and allow render while minimized: sim frozen, render honored.
+    {
+        FocusPolicy p;
+        p.pauseSimWhenUnfocused = true;
+        p.skipRenderWhenMinimized = false;
+        const auto a = decideFrame(WindowActivation{false, true}, p);
+        CHECK(a.render);
+        CHECK(!a.advanceSim);
+    }
+
+    // backgroundFps <= 0 disables the throttle sleep even when unfocused.
+    {
+        FocusPolicy p;
+        p.backgroundFps = 0.0;
+        const auto a = decideFrame(WindowActivation{false, false}, p);
+        CHECK_NEAR(a.throttleMs, 0.0, 1e-9);
+    }
+
+    // frameMsForFps helper: 60 fps -> ~16.667ms, 0 fps -> 0.
+    CHECK_NEAR(platform::frameMsForFps(60.0), 1000.0 / 60.0, 1e-9);
+    CHECK_NEAR(platform::frameMsForFps(0.0), 0.0, 1e-9);
 }
 
 void testProfiler() {
@@ -16688,6 +16764,7 @@ int main() {
     testCVars();
     testProfiler();
     testPerfBudget();
+    testAppFocus();
     testNoise();
     testRandom();
     testInterpolate();

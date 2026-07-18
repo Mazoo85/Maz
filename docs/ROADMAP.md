@@ -191,7 +191,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] Keyboard + mouse state, just-pressed / just-released edge detection
 - [x] Fixed-timestep clock (accumulator) + frame delta
 - [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
-- [ ] Focus / minimize / occlusion handling (pause when unfocused)
+- [x] Focus / minimize / occlusion handling (pause when unfocused) (M205 — `platform::Window` now
+  tracks keyboard focus and minimized state from SDL window events (`activation()`/`isFocused()`/
+  `isMinimized()`), and `platform::AppFocus` provides a pure `decideFrame(activation, FocusPolicy)`
+  that tells the main loop whether to advance the sim, whether to render, and how long to sleep to
+  hit a background frame rate — so the engine throttles/pauses instead of pinning a CPU core and the
+  battery while unfocused, and skips rendering entirely while minimized (no surface). Godot's
+  run/pause-when-unfocused + low-processor mode, as an explicit deterministic policy. Unit-tested
+  (focused full-speed, unfocused throttle, pause-sim, minimized skip-render, fps=0 disables sleep).)
 - [x] **Gamepad / controller support** (SDL3, sticks/buttons/triggers + deadzone; M23) — haptics TODO
 - [x] **Action-mapping layer** (`maz::input::ActionMap`: named button actions with any-of
   keyboard/mouse/gamepad sources + pressed/held/released edges, and axis actions from key pairs +

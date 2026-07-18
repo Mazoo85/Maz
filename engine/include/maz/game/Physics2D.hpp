@@ -1201,7 +1201,7 @@ inline Contact2 obbObbManifold(const Body2D& A, const Body2D& B) {
     const math::vec2* incC = refIsA ? cB : cA;
     const math::vec2 refN = refIsA ? n : -n;
 
-    math::vec2 rv0, rv1, iv0, iv1;
+    math::vec2 rv0{}, rv1{}, iv0{}, iv1{}; // zero-init: bestFace fills them (quiets GCC maybe-uninit)
     bestFace(refC, refN, rv0, rv1);   // reference face (its outward normal ~ refN)
     bestFace(incC, -refN, iv0, iv1);  // incident face (most anti-parallel to refN)
 

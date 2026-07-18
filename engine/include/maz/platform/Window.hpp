@@ -1,5 +1,7 @@
 #pragma once
 
+#include "maz/platform/AppFocus.hpp"
+
 #include <cstdint>
 
 struct SDL_Window;
@@ -43,6 +45,13 @@ public:
     // True on the frame after a resize; renderer polls + clears this to rebuild the swapchain.
     bool consumeResized();
 
+    // Window activation, tracked from SDL focus/minimize events. Feed activation() into
+    // platform::decideFrame(...) with a FocusPolicy to throttle/pause when the window is in the
+    // background. Defaults (focused, not minimized) mean full speed until an event says otherwise.
+    WindowActivation activation() const { return {m_focused, m_minimized}; }
+    bool isFocused() const { return m_focused; }
+    bool isMinimized() const { return m_minimized; }
+
     // True when the window was created Vulkan-capable (i.e. a presentable surface is possible).
     // False in headless mode, where the renderer runs without presenting.
     bool supportsVulkan() const { return m_vulkanCapable; }
@@ -62,6 +71,8 @@ private:
     bool m_resized = false;
     bool m_ownsSdl = false;
     bool m_vulkanCapable = false;
+    bool m_focused = true;    // updated by SDL focus gained/lost events
+    bool m_minimized = false; // updated by SDL minimize/restore events
 };
 
 } // namespace maz::platform
