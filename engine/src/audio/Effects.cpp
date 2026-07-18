@@ -684,6 +684,58 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Multiband Compressor ---------------------------------------------------
+
+void MultibandCompressor::reset() {
+    lp1L_ = lp1R_ = lp2L_ = lp2R_ = 0.0f;
+    for (int b = 0; b < kBands; ++b) {
+        env_[b] = 0.0f;
+    }
+}
+
+void MultibandCompressor::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // Ensure lo <= hi so the mid band is well-formed regardless of setter order.
+    const float lo = std::min(crossLow_, crossHigh_);
+    const float hi = std::max(crossLow_, crossHigh_);
+    const float a1 = std::exp(-2.0f * 3.14159265358979f * lo / sr);
+    const float a2 = std::exp(-2.0f * 3.14159265358979f * hi / sr);
+    const float atkCoef = std::exp(-1.0f / (std::max(attackMs_, 0.01f) * 0.001f * sr));
+    const float relCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
+
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // One-pole low-pass splits; bands reconstruct the input exactly (low + mid + high == input).
+        lp1L_ = a1 * lp1L_ + (1.0f - a1) * l;
+        lp1R_ = a1 * lp1R_ + (1.0f - a1) * r;
+        lp2L_ = a2 * lp2L_ + (1.0f - a2) * l;
+        lp2R_ = a2 * lp2R_ + (1.0f - a2) * r;
+        const float lowL = lp1L_, lowR = lp1R_;
+        const float midL = lp2L_ - lp1L_, midR = lp2R_ - lp1R_;
+        const float hiL = l - lp2L_, hiR = r - lp2R_;
+        const float bandsL[kBands] = {lowL, midL, hiL};
+        const float bandsR[kBands] = {lowR, midR, hiR};
+
+        float outL = 0.0f, outR = 0.0f;
+        for (int b = 0; b < kBands; ++b) {
+            const float peak = std::max(std::fabs(bandsL[b]), std::fabs(bandsR[b]));
+            const float coef = peak > env_[b] ? atkCoef : relCoef;
+            env_[b] = coef * env_[b] + (1.0f - coef) * peak;
+            const float over = linToDb(env_[b]) - thr_[b];
+            const float redDb = over > 0.0f ? (1.0f / std::max(ratio_[b], 1.0f) - 1.0f) * over : 0.0f;
+            const float g = dbToLin(redDb); // ≤ 1 (or exactly 1 when not over / ratio 1)
+            outL += bandsL[b] * g;
+            outR += bandsR[b] * g;
+        }
+        stereo[2 * i] = outL;
+        stereo[2 * i + 1] = outR;
+    }
+}
+
 // ---- De-Esser ---------------------------------------------------------------
 
 void DeEsser::reset() {

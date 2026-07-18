@@ -1365,6 +1365,37 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##cmp", &cmix, 0.0f, 1.0f, "%.2f")) mx.compressor().setMix(cmix);
     }
     {
+        auto& mb = mx.multiband();
+        bool en = mb.enabled();
+        if (ImGui::Checkbox("Multiband", &en)) mb.setEnabled(en);
+        float clo = mb.crossoverLow(), chi = mb.crossoverHigh();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("lo/mid Hz##mb", &clo, 20.0f, 2000.0f, "%.0f")) mb.setCrossoverLow(clo);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mid/hi Hz##mb", &chi, 200.0f, 18000.0f, "%.0f")) mb.setCrossoverHigh(chi);
+        const char* bandName[3] = {"low", "mid", "high"};
+        for (int b = 0; b < audio::MultibandCompressor::kBands; ++b) {
+            ImGui::PushID(b);
+            float t = mb.bandThreshold(b), rr = mb.bandRatio(b);
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::SliderFloat("thr dB##mb", &t, -60.0f, 0.0f, "%.0f")) mb.setBandThreshold(b, t);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::SliderFloat("ratio##mb", &rr, 1.0f, 20.0f, "%.1f")) mb.setBandRatio(b, rr);
+            ImGui::SameLine();
+            ImGui::TextUnformatted(bandName[b]);
+            ImGui::PopID();
+        }
+        float atk = mb.attackMs(), rel = mb.releaseMs();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("atk ms##mb", &atk, 0.1f, 200.0f, "%.1f")) mb.setAttackMs(atk);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("rel ms##mb", &rel, 1.0f, 1000.0f, "%.0f")) mb.setReleaseMs(rel);
+    }
+    {
         bool en = mx.transient().enabled();
         if (ImGui::Checkbox("Transient", &en)) mx.transient().setEnabled(en);
         float atk = mx.transient().attack();

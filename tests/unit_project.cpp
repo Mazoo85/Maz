@@ -137,6 +137,15 @@ int main() {
     mixer.compressor().setMakeupDb(4.0f);
     mixer.compressor().setKneeDb(6.0f);
     mixer.compressor().setMix(0.6f);
+    mixer.multiband().setEnabled(true);
+    mixer.multiband().setCrossoverLow(180.0f);
+    mixer.multiband().setCrossoverHigh(3200.0f);
+    mixer.multiband().setBandThreshold(0, -24.0f);
+    mixer.multiband().setBandRatio(0, 4.0f);
+    mixer.multiband().setBandThreshold(2, -12.0f);
+    mixer.multiband().setBandRatio(2, 2.5f);
+    mixer.multiband().setAttackMs(15.0f);
+    mixer.multiband().setReleaseMs(180.0f);
     mixer.delay().setEnabled(true);
     mixer.delay().setTime(250.0f);
     mixer.delay().setMix(0.4f);
@@ -427,6 +436,13 @@ int main() {
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");
+    check(mixer2.multiband().enabled() && near(mixer2.multiband().crossoverLow(), 180.0f) &&
+              near(mixer2.multiband().crossoverHigh(), 3200.0f) &&
+              near(mixer2.multiband().bandThreshold(0), -24.0f) &&
+              near(mixer2.multiband().bandRatio(0), 4.0f) &&
+              near(mixer2.multiband().bandRatio(2), 2.5f) &&
+              near(mixer2.multiband().attackMs(), 15.0f) && near(mixer2.multiband().releaseMs(), 180.0f),
+          "multiband compressor round-trips");
     check(mixer2.delay().enabled() && near(mixer2.delay().time(), 250.0f) &&
               near(mixer2.delay().mix(), 0.4f) && mixer2.delay().pingPong() &&
               near(mixer2.delay().damping(), 0.4f) && mixer2.delay().sync() &&

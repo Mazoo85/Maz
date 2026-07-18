@@ -277,6 +277,12 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
       << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << " "
       << mixer.compressor().mix() << "\n";
+    f << "fx multiband " << (mixer.multiband().enabled() ? 1 : 0) << " "
+      << mixer.multiband().crossoverLow() << " " << mixer.multiband().crossoverHigh() << " "
+      << mixer.multiband().bandThreshold(0) << " " << mixer.multiband().bandRatio(0) << " "
+      << mixer.multiband().bandThreshold(1) << " " << mixer.multiband().bandRatio(1) << " "
+      << mixer.multiband().bandThreshold(2) << " " << mixer.multiband().bandRatio(2) << " "
+      << mixer.multiband().attackMs() << " " << mixer.multiband().releaseMs() << "\n";
     f << "fx transient " << (mixer.transient().enabled() ? 1 : 0) << " "
       << mixer.transient().attack() << " " << mixer.transient().sustain() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
@@ -701,6 +707,21 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> mix) {
                     mixer.compressor().setMix(mix);
                 }
+            } else if (which == "multiband") {
+                float clo = 250.0f, chi = 2500.0f, t0 = -18.0f, r0 = 3.0f, t1 = -18.0f, r1 = 3.0f,
+                      t2 = -18.0f, r2 = 3.0f, atk = 10.0f, rel = 120.0f;
+                ls >> clo >> chi >> t0 >> r0 >> t1 >> r1 >> t2 >> r2 >> atk >> rel;
+                mixer.multiband().setEnabled(en != 0);
+                mixer.multiband().setCrossoverLow(clo);
+                mixer.multiband().setCrossoverHigh(chi);
+                mixer.multiband().setBandThreshold(0, t0);
+                mixer.multiband().setBandRatio(0, r0);
+                mixer.multiband().setBandThreshold(1, t1);
+                mixer.multiband().setBandRatio(1, r1);
+                mixer.multiband().setBandThreshold(2, t2);
+                mixer.multiband().setBandRatio(2, r2);
+                mixer.multiband().setAttackMs(atk);
+                mixer.multiband().setReleaseMs(rel);
             } else if (which == "transient") {
                 float atk = 0.0f, sus = 0.0f;
                 ls >> atk >> sus;

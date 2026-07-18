@@ -293,6 +293,64 @@ int main() {
               "clipper defaults to off with a 0.9 ceiling and a hard knee");
     }
 
+    // --- Multiband compressor: per-band, exact reconstruction ----------------
+    {
+        auto tailRms = [](const std::vector<float>& b, int fromFrame) {
+            double s = 0.0;
+            int c = 0;
+            for (int i = fromFrame; i < static_cast<int>(b.size()) / 2; ++i) {
+                s += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+                ++c;
+            }
+            return c > 0 ? std::sqrt(s / c) : 0.0;
+        };
+
+        // Enabled with every ratio at 1 → the band split reconstructs the input exactly (transparent).
+        audio::MultibandCompressor flat;
+        flat.setEnabled(true);
+        for (int b = 0; b < audio::MultibandCompressor::kBands; ++b) {
+            flat.setBandRatio(b, 1.0f);
+        }
+        std::vector<float> in = sineStereo(sr / 2, 200.0, 0.5, sr);
+        std::vector<float> out = in;
+        flat.process(out.data(), sr / 2, sr);
+        double maxDiff = 0.0;
+        for (size_t i = 0; i < in.size(); ++i) {
+            maxDiff = std::max(maxDiff, static_cast<double>(std::fabs(out[i] - in[i])));
+        }
+        check(maxDiff < 1e-5, "multiband with all ratios at 1 reconstructs the input exactly");
+
+        // Compress only the LOW band: a loud low sine is reduced, a loud high sine is left alone.
+        auto lowComp = [&]() {
+            audio::MultibandCompressor m;
+            m.setEnabled(true);
+            m.setCrossoverLow(250.0f);
+            m.setCrossoverHigh(2500.0f);
+            m.setBandThreshold(0, -40.0f);
+            m.setBandRatio(0, 8.0f); // squash the lows hard
+            m.setBandRatio(1, 1.0f);
+            m.setBandRatio(2, 1.0f);
+            return m;
+        };
+        std::vector<float> low = sineStereo(sr / 2, 40.0, 0.9, sr); // deep in the low band
+        const double lowBefore = tailRms(low, sr / 4);
+        audio::MultibandCompressor mLow = lowComp();
+        mLow.process(low.data(), sr / 2, sr);
+        check(tailRms(low, sr / 4) < lowBefore * 0.5,
+              "multiband low-band compression squashes a loud low tone");
+
+        std::vector<float> high = sineStereo(sr / 2, 6000.0, 0.9, sr); // in the high band
+        const double highBefore = tailRms(high, sr / 4);
+        audio::MultibandCompressor mHigh = lowComp(); // same low-band-only settings
+        mHigh.process(high.data(), sr / 2, sr);
+        check(tailRms(high, sr / 4) > highBefore * 0.9,
+              "low-band compression leaves a high tone essentially untouched (band independence)");
+
+        audio::MultibandCompressor dm;
+        check(!dm.enabled() && dm.bandRatio(0) == 3.0f && dm.crossoverLow() == 250.0f,
+              "multiband defaults to off (3 bands, 250/2500 Hz crossovers)");
+    }
+
     // --- Tempo-synced delay: time tracks the transport --------------------
     {
         audio::Delay d;

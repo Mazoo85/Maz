@@ -426,6 +426,59 @@ private:
     float env_ = 0.0f; // linear peak-envelope follower
 };
 
+// A 3-band multiband compressor (a Maximus-style master dynamics tool). The signal is split into low
+// / mid / high bands at two crossovers, each band is compressed independently (its own threshold and
+// ratio), then the bands are summed. The one-pole crossover split reconstructs the input exactly when
+// no band is compressing, so an enabled unit with all ratios at 1 (or a disabled unit) is transparent.
+// Great for gluing a mix, controlling boomy lows without dulling highs, or taming harsh mids.
+class MultibandCompressor : public Effect {
+public:
+    static constexpr int kBands = 3; // 0 = low, 1 = mid, 2 = high
+    MultibandCompressor() { enabled_ = false; }
+    const char* name() const override { return "Multiband Comp"; }
+
+    void setCrossoverLow(float hz) { crossLow_ = hz < 20.0f ? 20.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setCrossoverHigh(float hz) {
+        crossHigh_ = hz < 200.0f ? 200.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    float crossoverLow() const { return crossLow_; }
+    float crossoverHigh() const { return crossHigh_; }
+
+    void setBandThreshold(int band, float db) {
+        if (band >= 0 && band < kBands) {
+            thr_[band] = db < -60.0f ? -60.0f : (db > 0.0f ? 0.0f : db);
+        }
+    }
+    void setBandRatio(int band, float r) {
+        if (band >= 0 && band < kBands) {
+            ratio_[band] = r < 1.0f ? 1.0f : (r > 20.0f ? 20.0f : r);
+        }
+    }
+    float bandThreshold(int band) const {
+        return band >= 0 && band < kBands ? thr_[band] : 0.0f;
+    }
+    float bandRatio(int band) const { return band >= 0 && band < kBands ? ratio_[band] : 1.0f; }
+
+    void setAttackMs(float ms) { attackMs_ = ms < 0.1f ? 0.1f : (ms > 200.0f ? 200.0f : ms); }
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    float attackMs() const { return attackMs_; }
+    float releaseMs() const { return releaseMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossLow_ = 250.0f;
+    float crossHigh_ = 2500.0f;
+    float thr_[kBands] = {-18.0f, -18.0f, -18.0f};
+    float ratio_[kBands] = {3.0f, 3.0f, 3.0f};
+    float attackMs_ = 10.0f;
+    float releaseMs_ = 120.0f;
+    float lp1L_ = 0.0f, lp1R_ = 0.0f; // one-pole LP state at the low/mid crossover (per channel)
+    float lp2L_ = 0.0f, lp2R_ = 0.0f; // one-pole LP state at the mid/high crossover
+    float env_[kBands] = {0.0f, 0.0f, 0.0f}; // per-band peak-envelope followers
+};
+
 // A de-esser: a frequency-selective compressor that tames only the high band (sibilance / harsh "ess"
 // sounds) while leaving the body of the signal untouched. The signal is split at `frequency` Hz into
 // a low band and a high band; the high band's level is followed and, above `threshold` dB, ducked
