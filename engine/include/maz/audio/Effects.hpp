@@ -787,12 +787,17 @@ public:
     // Freeze: hold the current tail indefinitely (lossless feedback, input muted) — an infinite
     // ambient pad / performance hold. Off = normal decaying reverb.
     void setFreeze(bool on) { freeze_ = on; }
+    // Ducking (0..1): sidechain the wet tail to the dry input's own level — while the dry is loud the
+    // wet is pushed down, and it swells back in the gaps. Keeps vocals/leads clear over a big reverb.
+    // 0 = off (normal reverb).
+    void setDuck(float amount) { duck_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
     float roomSize() const { return roomSize_; }
     float damping() const { return damping_; }
     float mix() const { return mix_; }
     float preDelayMs() const { return preDelayMs_; }
     float width() const { return width_; }
     bool freeze() const { return freeze_; }
+    float duck() const { return duck_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -823,6 +828,8 @@ private:
     float preDelayMs_ = 0.0f;
     float width_ = 1.0f;
     bool freeze_ = false; // hold the tail indefinitely
+    float duck_ = 0.0f;   // sidechain the wet to the dry level; 0 = off
+    float duckEnv_ = 0.0f; // dry-input peak-envelope follower for ducking
     std::vector<float> preBuf_; // pre-delay line (mono input)
     int preWrite_ = 0;
     int sizedFor_ = 0; // sampleRate the buffers were built for (0 = unsized)

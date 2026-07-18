@@ -1431,6 +1431,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         bool frz = mx.reverb().freeze();
         ImGui::SameLine();
         if (ImGui::Checkbox("freeze##rev", &frz)) mx.reverb().setFreeze(frz);
+        float duck = mx.reverb().duck();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("duck##rev", &duck, 0.0f, 1.0f, "%.2f")) mx.reverb().setDuck(duck);
     }
     {
         bool en = mx.widener().enabled();

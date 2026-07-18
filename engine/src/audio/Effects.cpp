@@ -1257,6 +1257,7 @@ void Reverb::reset() {
     }
     std::fill(preBuf_.begin(), preBuf_.end(), 0.0f);
     preWrite_ = 0;
+    duckEnv_ = 0.0f;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -1269,6 +1270,11 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
     const float damp = freeze_ ? 0.0f : (std::clamp(damping_, 0.0f, 1.0f) * 0.4f);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     constexpr float kInputGain = 0.15f;
+    // Ducking envelope: follow the dry input's peak (fast attack, slower release) and pull the wet
+    // down while the dry is loud. duck_ = 0 leaves the wet untouched.
+    const float sr = static_cast<float>(sampleRate);
+    const float duckAtk = std::exp(-1.0f / (0.005f * sr));  // ~5 ms attack
+    const float duckRel = std::exp(-1.0f / (0.150f * sr));  // ~150 ms release
 
     // Pre-delay tap: how far back in the pre-delay line the reverb network reads its input.
     const int preSize = static_cast<int>(preBuf_.size());
@@ -1284,6 +1290,18 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
         const float rawIn = (dryL + dryR) * kInputGain;
+
+        // Track the dry level for ducking (stereo-linked peak follower).
+        float duckGain = 1.0f;
+        if (duck_ > 0.0f) {
+            const float peak = std::max(std::fabs(dryL), std::fabs(dryR));
+            const float coef = peak > duckEnv_ ? duckAtk : duckRel;
+            duckEnv_ = coef * duckEnv_ + (1.0f - coef) * peak;
+            duckGain = 1.0f - duck_ * std::min(1.0f, duckEnv_);
+            if (duckGain < 0.0f) {
+                duckGain = 0.0f;
+            }
+        }
 
         // Feed the reverb from the pre-delayed input so the tail starts `preDelayMs` after the hit.
         float in = rawIn;
@@ -1313,6 +1331,10 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         const float side = 0.5f * (wetL - wetR) * width_;
         wetL = mid + side;
         wetR = mid - side;
+
+        // Duck the wet by the dry level so the tail steps out of the way of the source.
+        wetL *= duckGain;
+        wetR *= duckGain;
 
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;

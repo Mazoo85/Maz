@@ -362,6 +362,32 @@ int main() {
         check(tail > 0.0, "reverb produces a tail after the impulse");
     }
 
+    // --- Reverb ducking: the wet steps out of the way of a loud dry ----------
+    {
+        auto wetRms = [&](float duck) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.8f);
+            rev.setMix(1.0f); // fully wet, so the output is the (ducked) tail
+            rev.setDuck(duck);
+            std::vector<float> buf = sineStereo(sr, 220.0, 0.8, sr); // 1 s sustained loud tone
+            rev.process(buf.data(), sr, sr);
+            double s = 0.0;
+            for (int i = sr / 2; i < sr; ++i) { // steady tail region
+                const double v = buf[static_cast<size_t>(i) * 2];
+                s += v * v;
+            }
+            return std::sqrt(s / (sr - sr / 2));
+        };
+        const double off = wetRms(0.0f);
+        const double ducked = wetRms(1.0f);
+        check(off > 0.0, "reverb produces wet output with ducking off");
+        check(ducked < off * 0.6, "ducking suppresses the wet while the dry is loud");
+
+        audio::Reverb dd;
+        check(dd.duck() == 0.0f, "reverb ducking defaults to 0 (off)");
+    }
+
     // --- Reverb freeze: the tail is held instead of decaying ------------------
     {
         auto lateTail = [&](bool freeze) {
