@@ -96,8 +96,14 @@ Godot's headline 3D feature set. Maz has analytic IBL + shadow maps only.
 - [ ] **[CPU]** SDF/MSDF font **generation** — ✅ done (M203); [GPU] sampling shader remains
 
 ### 5. Text & internationalization  [BIG]
-- [ ] **[BIG][CPU]** TextServer: complex-script shaping (HarfBuzz-class), BiDi, line breaking for
+- [~] **[BIG][CPU]** TextServer: complex-script shaping (HarfBuzz-class), BiDi, line breaking for
   CJK/Arabic/Indic. *Almost entirely CPU — a large but verifiable effort.*
+  — **analysis subset done** (M247): `ui::TextServer` — UTF-8 decode, base-direction detection (UAX #9
+  P2/P3, first strong char), bidirectional run segmentation (mixed LTR/RTL → runs; neutrals inherit),
+  and line-break opportunities (UAX #14 subset: after spaces/hyphens, mandatory at newlines, between
+  CJK ideographs, collapsing space runs). Verified across ASCII/Hebrew/CJK/emoji. The [BIG] pieces —
+  complex-script *shaping* (HarfBuzz-class glyph sub/positioning) and full UAX #9 (embeddings/isolates,
+  weak-type resolution) — remain.
 - [x] **[CPU]** Translation/PO catalogs: `io::PoCatalog` + `io::PluralRule` — gettext PO parser
   (msgctxt/msgid/msgid_plural/msgstr[n], multi-line, escapes) with gettext/ngettext/pgettext/
   npgettext and a per-language plural-rule evaluator (the C subset: n, %*/+-, comparisons, && || !,

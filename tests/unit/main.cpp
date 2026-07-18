@@ -160,6 +160,7 @@
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
 #include "maz/ui/TextLayout.hpp"
+#include "maz/ui/TextServer.hpp"
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/ItemList.hpp"
 #include "maz/ui/PopupMenu.hpp"
@@ -4192,6 +4193,70 @@ void testTextLayout() {
         const TextLayout t = ui::layoutText("", 100.0f, measure, 10.0f);
         CHECK(t.lines.size() == 1);
         CHECK(t.lines[0].text.empty());
+    }
+}
+
+void testTextServer() {
+    using ui::baseDirection;
+    using ui::bidiRuns;
+    using ui::decodeUtf8;
+    using ui::Direction;
+    using ui::lineBreakOpportunities;
+
+    // UTF-8 decode: ASCII + 2-byte (é) + 3-byte (Hebrew alef) + 4-byte (emoji).
+    std::u32string cp = decodeUtf8("a\xC3\xA9\xD7\x90\xF0\x9F\x98\x80");
+    CHECK(cp.size() == 4);
+    CHECK((cp[0] == U'a' && cp[1] == 0x00E9 && cp[2] == 0x05D0 && cp[3] == 0x1F600));
+
+    // Base direction from the first strong char.
+    CHECK(baseDirection(decodeUtf8("hello")) == Direction::Ltr);
+    CHECK(baseDirection(decodeUtf8("123 hello")) == Direction::Ltr);
+    {
+        std::u32string heb;
+        heb.push_back(0x05D0);
+        heb.push_back(0x05D1);
+        CHECK(baseDirection(heb) == Direction::Rtl);
+    }
+
+    // Bidi runs.
+    {
+        auto r = bidiRuns(decodeUtf8("abc"));
+        CHECK((r.size() == 1 && !r[0].rtl && r[0].length == 3));
+    }
+    {
+        std::u32string heb;
+        for (int i = 0; i < 3; ++i) {
+            heb.push_back(static_cast<char32_t>(0x05D0 + i));
+        }
+        auto r = bidiRuns(heb);
+        CHECK((r.size() == 1 && r[0].rtl && r[0].length == 3));
+    }
+    {
+        std::u32string s = decodeUtf8("abc ");
+        s.push_back(0x05D0);
+        s.push_back(0x05D1);
+        auto r = bidiRuns(s);
+        CHECK(r.size() == 2);
+        CHECK((!r[0].rtl && r[0].start == 0 && r[0].length == 4)); // space inherits L
+        CHECK((r[1].rtl && r[1].start == 4 && r[1].length == 2));
+    }
+
+    // Line-break opportunities.
+    CHECK((lineBreakOpportunities(decodeUtf8("ab cd")) == std::vector<std::size_t>{3, 5}));
+    CHECK((lineBreakOpportunities(decodeUtf8("ab   cd")) == std::vector<std::size_t>{5, 7}));
+    CHECK((lineBreakOpportunities(decodeUtf8("co-op")) == std::vector<std::size_t>{3, 5}));
+    {
+        std::vector<std::size_t> mand;
+        auto ops = lineBreakOpportunities(decodeUtf8("a\nb"), &mand);
+        CHECK((mand == std::vector<std::size_t>{2}));
+        CHECK((ops.front() == 2 && ops.back() == 3));
+    }
+    {
+        std::u32string cjk;
+        cjk.push_back(0x4E00);
+        cjk.push_back(0x4E8C);
+        cjk.push_back(0x4E09);
+        CHECK((lineBreakOpportunities(cjk) == std::vector<std::size_t>{1, 2, 3}));
     }
 }
 
@@ -19461,6 +19526,7 @@ int main() {
     testItemList();
     testPopupMenu();
     testTextLayout();
+    testTextServer();
     testRichText();
     testTextInput();
     testUI();
