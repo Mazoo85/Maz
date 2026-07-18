@@ -177,8 +177,15 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   current). Verified across clamp/snap, selection, and navigation edge cases. **drag-and-drop done**
   (M249): `ui::DragAndDrop` — Godot's Control drag/drop coordinator (get_drag_data / can_drop_data /
   drop_data): begin a drag with a typed payload, poll hover targets for acceptance, deliver to an
-  accepting target on release (else keep/cancel), with single-drag and drop-when-idle guards. The
-  TabContainer / ColorPicker / FileDialog *widgets* remain.
+  accepting target on release (else keep/cancel), with single-drag and drop-when-idle guards.
+  **ColorPicker widget done** (M251): `ui::ColorPicker` — the interactive model behind Godot's
+  ColorPicker (colour math was M242). Stores H/S/V/A as the source of truth so the hue survives a
+  value/saturation drag to an extreme (setColor to black keeps hue+saturation, to grey keeps hue),
+  matching Godot; derives RGB/hex on demand. Carries the picker's editing state: RGB-channel setters,
+  hex I/O (`#` optional in, none out; alpha byte gated by an edit-alpha toggle), slider mode
+  (RGB/HSV/RAW with RAW allowing HDR >1), user preset swatches (dedup-to-end + erase), and a capped
+  most-recent list (front-inserted, deduped). Verified across hue-preservation, round-trips, and
+  preset/recent edge cases. The TabContainer / FileDialog *widgets* remain.
 - [x] **[CPU]** Full theme system (per-control theme overrides, theme types)
   (M250): extended `ui::Theme` with **theme type variations** (Godot's `theme_type_variation` /
   theme type inheritance) — `setTypeVariation(type, base)` chains a variation onto a base type, and

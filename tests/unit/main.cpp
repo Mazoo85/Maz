@@ -165,6 +165,7 @@
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/ItemList.hpp"
 #include "maz/ui/PopupMenu.hpp"
+#include "maz/ui/ColorPicker.hpp"
 #include "maz/ui/Controls.hpp"
 #include "maz/ui/DragAndDrop.hpp"
 #include "maz/ui/Range.hpp"
@@ -3719,6 +3720,109 @@ void testDragAndDrop() {
     dnd.cancel();
     CHECK((!dnd.dragging() && !delivered));
     CHECK(!dnd.drop(5, onlyItems, deliver));
+}
+
+void testColorPicker() {
+    using render::Color;
+    using ui::ColorPicker;
+
+    // Construct from pure red -> HSV h=0,s=1,v=1 and round-trips back.
+    ColorPicker cp(Color{1, 0, 0, 1});
+    CHECK_NEAR(cp.hue(), 0.0f, 1e-4f);
+    CHECK_NEAR(cp.saturation(), 1.0f, 1e-4f);
+    CHECK_NEAR(cp.value(), 1.0f, 1e-4f);
+    CHECK_NEAR(cp.color().r, 1.0f, 1e-4f);
+    CHECK_NEAR(cp.color().g, 0.0f, 1e-4f);
+
+    // Hue survives a value trip to black and back.
+    cp.setValue(0.0f);
+    CHECK_NEAR(cp.color().r, 0.0f, 1e-4f);
+    CHECK_NEAR(cp.hue(), 0.0f, 1e-4f);
+    CHECK_NEAR(cp.saturation(), 1.0f, 1e-4f);
+    cp.setValue(1.0f);
+    CHECK_NEAR(cp.color().r, 1.0f, 1e-4f); // restored red
+
+    // setColor(black) keeps hue+sat; setColor(grey) keeps hue, zeroes sat.
+    cp.setHsv(0.33f, 1.0f, 1.0f);
+    const float greenHue = cp.hue();
+    cp.setColor(Color{0, 0, 0, 1});
+    CHECK_NEAR(cp.hue(), greenHue, 1e-4f);
+    cp.setValue(1.0f);
+    CHECK(cp.color().g > cp.color().r); // came back green-ish
+    cp.setHsv(0.5f, 1.0f, 1.0f);
+    cp.setColor(Color{0.5f, 0.5f, 0.5f, 1.0f});
+    CHECK_NEAR(cp.hue(), 0.5f, 1e-4f);
+    CHECK_NEAR(cp.saturation(), 0.0f, 1e-4f);
+    CHECK_NEAR(cp.value(), 0.5f, 1e-4f);
+
+    // Round-trip an arbitrary saturated colour.
+    {
+        ColorPicker c2;
+        c2.setColor(Color{0.2f, 0.7f, 0.35f, 0.8f});
+        CHECK_NEAR(c2.color().r, 0.2f, 2e-3f);
+        CHECK_NEAR(c2.color().g, 0.7f, 2e-3f);
+        CHECK_NEAR(c2.color().b, 0.35f, 2e-3f);
+        CHECK_NEAR(c2.color().a, 0.8f, 2e-3f);
+    }
+
+    // RGB channel editing rebuilds the colour.
+    {
+        ColorPicker c3(Color{0, 0, 0, 1});
+        c3.setR(1.0f);
+        c3.setG(0.5f);
+        CHECK_NEAR(c3.color().r, 1.0f, 2e-3f);
+        CHECK_NEAR(c3.color().g, 0.5f, 2e-3f);
+        CHECK_NEAR(c3.color().b, 0.0f, 2e-3f);
+    }
+
+    // Hex I/O: '#' optional on input, no '#'/alpha on output when editAlpha off.
+    {
+        ColorPicker c4;
+        CHECK(c4.setHex("#ff8800"));
+        CHECK_NEAR(c4.color().r, 1.0f, 2e-3f);
+        c4.setEditAlpha(false);
+        CHECK((c4.hex() == "ff8800"));
+        CHECK(!c4.setHex("zzzz")); // malformed -> unchanged
+    }
+    {
+        ColorPicker c5;
+        c5.setEditAlpha(true);
+        c5.setColor(Color{1, 0, 0, 0.5f});
+        CHECK((c5.hex().size() == 8)); // rrggbbaa
+        c5.setEditAlpha(false);
+        CHECK_NEAR(c5.alpha(), 1.0f, 1e-4f);
+        CHECK((c5.hex().size() == 6)); // rrggbb
+    }
+
+    // Presets: dedup moves to end, erase removes.
+    {
+        ColorPicker c6;
+        c6.addPreset(Color{1, 0, 0, 1});
+        c6.addPreset(Color{0, 1, 0, 1});
+        c6.addPreset(Color{0, 0, 1, 1});
+        CHECK(c6.presetCount() == 3);
+        c6.addPreset(Color{1, 0, 0, 1}); // duplicate
+        CHECK(c6.presetCount() == 3);
+        CHECK_NEAR(c6.presets().back().r, 1.0f, 1e-4f);
+        c6.erasePreset(Color{0, 1, 0, 1});
+        CHECK(c6.presetCount() == 2);
+    }
+
+    // Recent: most-recent-first, dedup, capped.
+    {
+        ColorPicker c7;
+        c7.setMaxRecent(3);
+        c7.addRecent(Color{0.1f, 0, 0, 1});
+        c7.addRecent(Color{0.2f, 0, 0, 1});
+        c7.addRecent(Color{0.3f, 0, 0, 1});
+        c7.addRecent(Color{0.4f, 0, 0, 1}); // evicts oldest (0.1)
+        CHECK(c7.recent().size() == 3);
+        CHECK_NEAR(c7.recent().front().r, 0.4f, 1e-4f);
+        CHECK_NEAR(c7.recent().back().r, 0.2f, 1e-4f);
+        c7.addRecent(Color{0.3f, 0, 0, 1}); // existing -> to front
+        CHECK(c7.recent().size() == 3);
+        CHECK_NEAR(c7.recent().front().r, 0.3f, 1e-4f);
+    }
 }
 
 void testStyleBox() {
@@ -19698,6 +19802,7 @@ int main() {
     testRange();
     testControls();
     testDragAndDrop();
+    testColorPicker();
     testStyleBox();
     testTheme();
     testTree();
