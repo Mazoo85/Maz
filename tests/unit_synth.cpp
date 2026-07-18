@@ -671,6 +671,21 @@ int main() {
               "inverting twice around the same pivot is a round trip");
     }
 
+    // --- Reverse time (flip horizontally) ------------------------------------
+    {
+        audio::PianoRoll rr; // default 16-step window
+        rr.addNote(audio::Note{0, 4, 60, 1.0f});  // → 16 - 0 - 4 = 12
+        rr.addNote(audio::Note{12, 4, 64, 1.0f}); // → 16 - 12 - 4 = 0
+        rr.addNote(audio::Note{2, 1, 67, 1.0f});  // → 16 - 2 - 1 = 13
+        rr.reverseTime();
+        check(rr.hasNote(60, 12) && rr.hasNote(64, 0) && rr.hasNote(67, 13),
+              "reverse mirrors note positions in time (pitch/length kept)");
+        // Reversing again restores the original timing.
+        rr.reverseTime();
+        check(rr.hasNote(60, 0) && rr.hasNote(64, 12) && rr.hasNote(67, 2),
+              "reversing twice restores the original timing");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

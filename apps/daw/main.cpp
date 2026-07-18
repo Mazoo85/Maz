@@ -636,6 +636,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Invert")) {
         roll.invert(invertPivot);
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Reverse")) {
+        roll.reverseTime();
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

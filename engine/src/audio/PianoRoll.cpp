@@ -246,6 +246,21 @@ int PianoRoll::invert(int pivotPitch) {
     return changed;
 }
 
+int PianoRoll::reverseTime() {
+    int moved = 0;
+    for (Note& n : notes_) {
+        int newStart = numSteps_ - n.startStep - n.lengthSteps;
+        if (newStart < 0) {
+            newStart = 0; // a note running past the pattern end pins to the start
+        }
+        if (newStart != n.startStep) {
+            n.startStep = newStart;
+            ++moved;
+        }
+    }
+    return moved;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

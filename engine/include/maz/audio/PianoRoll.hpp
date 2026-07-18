@@ -78,6 +78,12 @@ public:
     // are clamped to the MIDI range. Returns the number of notes whose pitch changed.
     int invert(int pivotPitch);
 
+    // Reverse (flip horizontally in time): mirror every note's position within the pattern so its end
+    // becomes its start (newStart = numSteps − start − length), reversing the rhythm while keeping
+    // each note's length and pitch. Applying it twice restores the original. Returns the number of
+    // notes moved.
+    int reverseTime();
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 
