@@ -52,6 +52,26 @@ void Sampler::normalize() {
     }
 }
 
+void Sampler::fadeEdges(float ms) {
+    if (sample_.empty() || ms <= 0.0f) {
+        return;
+    }
+    int fade = static_cast<int>(ms * 0.001f * static_cast<float>(sampleSr_));
+    const int half = static_cast<int>(sample_.size()) / 2;
+    if (fade > half) {
+        fade = half; // never overlap the two fades
+    }
+    if (fade < 1) {
+        return;
+    }
+    const size_t n = sample_.size();
+    for (int i = 0; i < fade; ++i) {
+        const float g = static_cast<float>(i) / static_cast<float>(fade);
+        sample_[static_cast<size_t>(i)] *= g;               // fade in from the start
+        sample_[n - 1 - static_cast<size_t>(i)] *= g;       // fade out toward the end
+    }
+}
+
 void Sampler::noteOn(int midi, float velocity) {
     if (sample_.empty()) {
         return;

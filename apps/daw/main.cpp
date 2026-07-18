@@ -878,6 +878,12 @@ void buildSynthUI(audio::Sequencer& seq) {
         ImGui::Text("peak: %.3f", seq.sampler().samplePeak());
         ImGui::SameLine();
         if (ImGui::Button("Normalize")) seq.sampler().normalize();
+        ImGui::SameLine();
+        static float fadeMs = 5.0f;
+        ImGui::SetNextItemWidth(70.0f);
+        ImGui::InputFloat("##fadems", &fadeMs, 0.0f, 0.0f, "%.1f");
+        ImGui::SameLine();
+        if (ImGui::Button("Fade edges")) seq.sampler().fadeEdges(fadeMs);
     }
     bool rev = seq.sampler().reverse();
     if (ImGui::Checkbox("Reverse", &rev)) seq.sampler().setReverse(rev);

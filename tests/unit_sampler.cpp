@@ -199,6 +199,19 @@ int main() {
         check(z.samplePeak() == 0.0f, "normalizing a silent sample is a no-op");
     }
 
+    // Fade edges: linear fade-in/out on a flat sample ramps the ends to zero, middle untouched.
+    {
+        std::vector<float> flat(1000, 1.0f);
+        audio::Sampler s;
+        s.setSampleMono(flat, sr);
+        check(s.sampleLength() == 1000, "sample length is reported");
+        s.fadeEdges(5.0f); // 5 ms → 240 frames at 48 kHz
+        check(s.sampleValue(0) < 0.05f, "fade-in starts near zero");
+        check(std::fabs(s.sampleValue(120) - 0.5f) < 0.1f, "fade-in ramps to ~half at its midpoint");
+        check(std::fabs(s.sampleValue(500) - 1.0f) < 1e-4f, "the sample middle is left untouched");
+        check(s.sampleValue(999) < 0.05f, "fade-out ends near zero");
+    }
+
     // Start offset: playback begins partway into the sample (skips the leading part).
     {
         // A ramp 0→1: reading from offset 0.5 starts near value 0.5, not 0.

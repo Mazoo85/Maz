@@ -28,6 +28,13 @@ public:
     // Normalize the loaded sample so its peak reaches full scale (±1.0), preserving its shape. No-op
     // on an empty or silent sample. A one-shot edit of the in-memory sample (like Edison's Normalize).
     void normalize();
+    // Number of frames in the loaded sample, and a bounds-checked read of one frame (0 out of range)
+    // — enough for a UI waveform display or tests.
+    size_t sampleLength() const { return sample_.size(); }
+    float sampleValue(size_t i) const { return i < sample_.size() ? sample_[i] : 0.0f; }
+    // Apply a linear fade-in over the first `ms` and a fade-out over the last `ms` of the sample, to
+    // remove clicks at the edges of a one-shot/slice. A one-shot in-memory edit (like Edison's Fade).
+    void fadeEdges(float ms);
 
     void setBasePitch(int midi) { basePitch_ = midi; }
     int basePitch() const { return basePitch_; }
