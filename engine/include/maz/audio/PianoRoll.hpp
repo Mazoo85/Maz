@@ -16,7 +16,24 @@ struct Note {
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
-enum class Chord { Major, Minor, Dom7, Maj7, Min7, Dim, Aug, Sus2, Sus4 };
+// (Append new qualities at the end — the UI lists them in order.)
+enum class Chord {
+    Major,
+    Minor,
+    Dom7,
+    Maj7,
+    Min7,
+    Dim,
+    Aug,
+    Sus2,
+    Sus4,
+    Maj6,
+    Min6,
+    Maj9,
+    Min9,
+    Dom9,
+    Add9
+};
 
 // Musical scales for the scale-snap tool. Each maps to the set of semitone degrees (0..11) it allows
 // above the root pitch class.

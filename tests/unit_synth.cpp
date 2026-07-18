@@ -752,6 +752,21 @@ int main() {
         audio::PianoRoll d7;
         check(d7.addChord(0, 1, 60, audio::Chord::Dom7) == 4, "a dominant 7th is four notes");
         check(d7.hasNote(70, 0), "dominant 7th adds the flat seventh (Bb above C)");
+
+        // Extended voicings: a major 9th is five notes and includes the 9th (D an octave up).
+        audio::PianoRoll m9;
+        check(m9.addChord(0, 1, 60, audio::Chord::Maj9) == 5, "a major 9th is five notes");
+        check(m9.hasNote(74, 0), "major 9th adds the ninth (D above the octave)");
+        check(m9.hasNote(71, 0), "major 9th keeps the major seventh");
+        // A 6th chord adds the major sixth.
+        audio::PianoRoll six;
+        check(six.addChord(0, 1, 60, audio::Chord::Maj6) == 4 && six.hasNote(69, 0),
+              "a 6th chord adds the major sixth (A above C)");
+        // Add9 is a triad plus the ninth, no seventh.
+        audio::PianoRoll a9;
+        a9.addChord(0, 1, 60, audio::Chord::Add9);
+        check(a9.hasNote(74, 0) && !a9.hasNote(70, 0) && !a9.hasNote(71, 0),
+              "add9 has the ninth but no seventh");
     }
 
     // --- Scale snap ----------------------------------------------------------
