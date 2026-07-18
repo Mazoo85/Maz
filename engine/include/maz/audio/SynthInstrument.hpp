@@ -66,6 +66,10 @@ public:
     void setFmIndex(float i) { fmIndex_ = i; }
     float fmRatio() const { return fmRatio_; }
     float fmIndex() const { return fmIndex_; }
+    // FM feedback (0..1): routes the modulator operator's output back into its own phase, adding
+    // richer, more sawtooth-like harmonics. 0 = clean 2-op FM (unchanged).
+    void setFmFeedback(float f) { fmFeedback_ = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f); }
+    float fmFeedback() const { return fmFeedback_; }
 
     // Wavetable: `position` [0,1] scans the morphing table (dark→bright); `envAmt` sweeps that
     // position with the amp envelope for evolving timbres. Access the table to reprogram its frames.
@@ -161,6 +165,7 @@ private:
         double phase2 = 0.0;   // detuned 2nd oscillator
         double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
+        float fmFb = 0.0f;     // last FM modulator output (for feedback)
         uint32_t rng = 0x2545F491u; // per-voice noise state
         float noiseLp = 0.0f;       // one-pole state for the noise tone control
         float freq = 0.0f;       // current (possibly gliding) frequency
@@ -176,6 +181,7 @@ private:
     float gain_ = 0.28f;
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;
+    float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
     float glideSeconds_ = 0.0f; // portamento time; 0 = off

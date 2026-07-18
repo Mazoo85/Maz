@@ -163,8 +163,14 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             float osc;
             if (mode_ == SynthMode::FM) {
                 // 2-operator FM: a sine modulator at ratio×carrier phase-modulates a sine carrier.
+                // Feedback routes the modulator's own previous output back into its phase (up to ±π
+                // rad), adding progressively richer, sawtooth-like harmonics — the classic FM edge.
                 constexpr double kTwoPi = 6.283185307179586;
-                const double mod = std::sin(v.modPhase * kTwoPi) * static_cast<double>(fmIndex_);
+                constexpr double kPi = 3.141592653589793;
+                const double fb = static_cast<double>(fmFeedback_) * kPi * static_cast<double>(v.fmFb);
+                const double m = std::sin(v.modPhase * kTwoPi + fb);
+                v.fmFb = static_cast<float>(m);
+                const double mod = m * static_cast<double>(fmIndex_);
                 osc = static_cast<float>(std::sin(v.phase * kTwoPi + mod));
                 v.modPhase += phaseInc * static_cast<double>(fmRatio_);
                 if (v.modPhase >= 1.0) {

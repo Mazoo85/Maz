@@ -138,6 +138,30 @@ int main() {
     }
     check(diff > 1.0, "FM output differs from subtractive for the same note");
 
+    // --- FM feedback: operator self-feedback adds harmonics ------------------
+    {
+        auto fmBright = [&](float feedback) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::FM);
+            s.setFmRatio(1.0f);
+            s.setFmIndex(1.0f); // modest base brightness so feedback's effect is clear
+            s.setFmFeedback(feedback);
+            s.setEnvelope(0.002f, 0.02f, 1.0f, 0.05f);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(fmBright(0.9f) > fmBright(0.0f) * 1.3, "FM feedback adds high-frequency harmonics");
+        audio::SynthInstrument dfb;
+        check(dfb.fmFeedback() == 0.0f, "FM feedback defaults to 0");
+    }
+
     // --- Oscillator section: detune / sub / noise ----------------------------
     {
         audio::SynthInstrument single;
