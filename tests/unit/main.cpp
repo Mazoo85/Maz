@@ -10675,6 +10675,34 @@ void testStringUtils() {
     CHECK(su::count("aaaa", "aa") == 2);
     CHECK(su::count("abc", "z") == 0);
     CHECK(su::count("abc", "") == 0);
+
+    // number parsing (M274): to_int / is_valid_int / to_float / is_valid_float / hex_to_int.
+    CHECK(su::toInt("42") == 42);
+    CHECK(su::toInt("-7") == -7);
+    CHECK(su::toInt("  +15px") == 15); // leading ws + sign, trailing junk ignored
+    CHECK(su::toInt("abc") == 0);
+    CHECK(su::toInt("100 200") == 100);
+    CHECK(su::isValidInt("123"));
+    CHECK(su::isValidInt("-5"));
+    CHECK(!su::isValidInt(""));
+    CHECK(!su::isValidInt("12a"));
+    CHECK(!su::isValidInt("+"));
+    CHECK_NEAR(static_cast<float>(su::toFloat("3.14")), 3.14f, 1e-5f);
+    CHECK_NEAR(static_cast<float>(su::toFloat("-2.5e3")), -2500.0f, 1e-2f);
+    CHECK(su::toFloat("xyz") == 0.0);
+    CHECK_NEAR(static_cast<float>(su::toFloat("1.5abc")), 1.5f, 1e-5f);
+    CHECK(su::isValidFloat("3.14"));
+    CHECK(su::isValidFloat("  2.0  "));
+    CHECK(su::isValidFloat("5"));
+    CHECK(!su::isValidFloat("3.1.4"));
+    CHECK(!su::isValidFloat(""));
+    CHECK(!su::isValidFloat("1.0x"));
+    CHECK(su::hexToInt("ff") == 255);
+    CHECK(su::hexToInt("0xFF") == 255);
+    CHECK(su::hexToInt("0x10") == 16);
+    CHECK(su::hexToInt("-0x1A") == -26);
+    CHECK(su::hexToInt("deadbeef") == 0xdeadbeefLL);
+    CHECK(su::hexToInt("zz") == 0);
 }
 
 void testSlotMap() {

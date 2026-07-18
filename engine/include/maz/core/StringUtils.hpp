@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cctype>
+#include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -152,6 +154,111 @@ inline std::size_t count(const std::string& s, const std::string& needle) {
         start = hit + needle.size();
     }
     return n;
+}
+
+// ---- number parsing (Godot String's to_int / to_float / is_valid_* / hex_to_int) (M274) --------
+
+// Parse a leading base-10 integer: optional leading whitespace, an optional +/- sign, then digits;
+// scanning stops at the first non-digit and trailing junk is ignored (Godot's String.to_int).
+// Returns 0 when no digits are present.
+inline std::int64_t toInt(const std::string& s) {
+    std::size_t i = 0;
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+        ++i;
+    }
+    std::int64_t sign = 1;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) {
+        if (s[i] == '-') {
+            sign = -1;
+        }
+        ++i;
+    }
+    std::int64_t v = 0;
+    for (; i < s.size() && std::isdigit(static_cast<unsigned char>(s[i])); ++i) {
+        v = v * 10 + (s[i] - '0');
+    }
+    return sign * v;
+}
+
+// True when the ENTIRE string is a base-10 integer: an optional sign followed by one or more digits,
+// nothing else (Godot's String.is_valid_int).
+inline bool isValidInt(const std::string& s) {
+    if (s.empty()) {
+        return false;
+    }
+    std::size_t i = (s[0] == '+' || s[0] == '-') ? 1 : 0;
+    if (i >= s.size()) {
+        return false;
+    }
+    for (; i < s.size(); ++i) {
+        if (!std::isdigit(static_cast<unsigned char>(s[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Parse a leading floating-point number (Godot's String.to_float); returns 0.0 when none is present.
+inline double toFloat(const std::string& s) {
+    const char* p = s.c_str();
+    char* end = nullptr;
+    const double v = std::strtod(p, &end);
+    return end == p ? 0.0 : v;
+}
+
+// True when the ENTIRE string (bar trailing whitespace) is a valid float (Godot's is_valid_float).
+inline bool isValidFloat(const std::string& s) {
+    if (s.empty()) {
+        return false;
+    }
+    const char* p = s.c_str();
+    char* end = nullptr;
+    std::strtod(p, &end);
+    if (end == p) {
+        return false;
+    }
+    while (*end) {
+        if (!std::isspace(static_cast<unsigned char>(*end))) {
+            return false;
+        }
+        ++end;
+    }
+    return true;
+}
+
+// Parse a hexadecimal integer with an optional sign and optional "0x"/"0X" prefix; scanning stops at
+// the first non-hex-digit (Godot's String.hex_to_int). Returns 0 when no hex digits follow.
+inline std::int64_t hexToInt(const std::string& s) {
+    std::size_t i = 0;
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+        ++i;
+    }
+    std::int64_t sign = 1;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) {
+        if (s[i] == '-') {
+            sign = -1;
+        }
+        ++i;
+    }
+    if (i + 1 < s.size() && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X')) {
+        i += 2;
+    }
+    std::int64_t v = 0;
+    for (; i < s.size(); ++i) {
+        const char c = s[i];
+        int d;
+        if (c >= '0' && c <= '9') {
+            d = c - '0';
+        } else if (c >= 'a' && c <= 'f') {
+            d = c - 'a' + 10;
+        } else if (c >= 'A' && c <= 'F') {
+            d = c - 'A' + 10;
+        } else {
+            break;
+        }
+        v = v * 16 + d;
+    }
+    return sign * v;
 }
 
 } // namespace maz::core
