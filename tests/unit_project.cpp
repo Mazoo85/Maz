@@ -88,6 +88,7 @@ int main() {
     seq.sampler().setAmpEnv(0.02f, 0.3f);
     seq.sampler().setLoop(true);
     seq.sampler().setPingPong(true);
+    seq.sampler().setDetuneCents(-25.0f);
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -318,7 +319,7 @@ int main() {
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
               near(seq2.sampler().startOffset(), 0.25f) && near(seq2.sampler().attack(), 0.02f) &&
               near(seq2.sampler().release(), 0.3f) && seq2.sampler().loop() &&
-              seq2.sampler().pingPong(),
+              seq2.sampler().pingPong() && near(seq2.sampler().detuneCents(), -25.0f),
           "sampler settings round-trip");
 
     // Mixer + effects.

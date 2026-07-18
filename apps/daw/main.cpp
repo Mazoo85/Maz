@@ -955,6 +955,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::SliderInt("Base note", &base, 24, 96)) {
         seq.sampler().setBasePitch(base);
     }
+    float smpDetune = seq.sampler().detuneCents();
+    if (ImGui::SliderFloat("Fine tune", &smpDetune, -1200.0f, 1200.0f, "%.0f c"))
+        seq.sampler().setDetuneCents(smpDetune);
 
     ImGui::End();
 }

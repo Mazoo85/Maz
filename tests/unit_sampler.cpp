@@ -212,6 +212,36 @@ int main() {
         check(s.sampleValue(999) < 0.05f, "fade-out ends near zero");
     }
 
+    // Fine tune: +1200 cents (an octave) roughly doubles the played pitch.
+    {
+        std::vector<float> tone(static_cast<size_t>(sr));
+        for (int i = 0; i < sr; ++i) {
+            tone[static_cast<size_t>(i)] =
+                static_cast<float>(std::sin(2.0 * 3.14159265358979 * 300.0 * i / sr));
+        }
+        auto crossings = [&](float cents) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setBasePitch(60);
+            s.setDetuneCents(cents);
+            s.noteOn(60, 1.0f); // play at base pitch → rate driven only by the detune
+            const std::vector<float> out = renderMono(s, sr / 2, sr); // mono buffer
+            int c = 0;
+            for (int i = 1; i < sr / 2; ++i) {
+                if (out[static_cast<size_t>(i - 1)] <= 0.0f && out[static_cast<size_t>(i)] > 0.0f) {
+                    ++c;
+                }
+            }
+            return c;
+        };
+        const int baseCross = crossings(0.0f);
+        const int octCross = crossings(1200.0f);
+        check(baseCross > 0, "sampler plays the sample at its base pitch");
+        check(octCross > baseCross * 1.7, "a +1200-cent fine tune plays the sample about an octave up");
+        audio::Sampler d;
+        check(d.detuneCents() == 0.0f, "sampler fine tune defaults to 0");
+    }
+
     // Start offset: playback begins partway into the sample (skips the leading part).
     {
         // A ramp 0→1: reading from offset 0.5 starts near value 0.5, not 0.

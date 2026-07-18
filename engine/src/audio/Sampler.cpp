@@ -140,8 +140,8 @@ void Sampler::render(float* out, int frames, int sampleRate) {
         if (!v.active) {
             continue;
         }
-        const double rate =
-            static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect; // read speed
+        const double rate = static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
+                            std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0); // read speed
         for (int i = 0; i < frames; ++i) {
             // Amp envelope: quick attack up, fast release when noteOff'd.
             if (v.releasing) {

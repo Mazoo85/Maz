@@ -38,6 +38,12 @@ public:
 
     void setBasePitch(int midi) { basePitch_ = midi; }
     int basePitch() const { return basePitch_; }
+    // Fine tune in cents (-1200..+1200): shifts the playback rate for subtle detune or octave shifts,
+    // on top of the per-note pitch. 0 = no detune.
+    void setDetuneCents(float cents) {
+        detuneCents_ = cents < -1200.0f ? -1200.0f : (cents > 1200.0f ? 1200.0f : cents);
+    }
+    float detuneCents() const { return detuneCents_; }
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
@@ -88,6 +94,7 @@ private:
     std::vector<float> sample_;
     int sampleSr_ = 48000;
     int basePitch_ = 60;
+    float detuneCents_ = 0.0f;
     float gain_ = 0.9f;
     bool reverse_ = false;
     bool loop_ = false;
