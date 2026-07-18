@@ -133,7 +133,9 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
 Maz's 2D is at parity; 3D is strong but not exhaustive.
 - [~] **[CPU]** 3D convex-hull + trimesh (concave static) colliders, height-field collider
   — **convex hull done** (M227): `game::buildConvexHull` incremental hull of a point cloud →
-  outward-wound triangular faces + hull vertex set (ConvexPolygonShape3D geometry). Trimesh/heightfield remain.
+  outward-wound triangular faces + hull vertex set (ConvexPolygonShape3D geometry).
+  — **height-field done** (M228): `game::HeightField3D` — grid of height samples with bilinear
+  heightAt/normalAt and a grid-DDA + Möller–Trumbore raycast (HeightMapShape3D). Trimesh collider remains.
 - [ ] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 

@@ -113,6 +113,7 @@
 #include "maz/game/Parallax.hpp"
 #include "maz/game/ConvexHull3D.hpp"
 #include "maz/game/GridMap.hpp"
+#include "maz/game/HeightField3D.hpp"
 #include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Timer.hpp"
@@ -6337,6 +6338,84 @@ void testConvexHull3D() {
     {
         const std::vector<math::vec3> p = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
         CHECK(!game::buildConvexHull(p).valid);
+    }
+}
+
+void testHeightField3D() {
+    // Flat field at height 5.
+    {
+        game::HeightField3D hf(4, 4, 1.0f, 1.0f);
+        for (int z = 0; z < 4; ++z) {
+            for (int x = 0; x < 4; ++x) {
+                hf.setHeight(x, z, 5.0f);
+            }
+        }
+        CHECK_NEAR(hf.heightAt(1.5f, 2.5f), 5.0f, 1e-3f);
+        const math::vec3 nrm = hf.normalAt(1.5f, 1.5f);
+        CHECK_NEAR(nrm.x, 0.0f, 1e-3f);
+        CHECK_NEAR(nrm.y, 1.0f, 1e-3f);
+        CHECK_NEAR(nrm.z, 0.0f, 1e-3f);
+        float t = 0.0f;
+        math::vec3 hp;
+        CHECK(hf.raycast(math::vec3(1.5f, 20.0f, 1.5f), math::vec3(0, -1, 0), 100.0f, t, hp));
+        CHECK_NEAR(hp.y, 5.0f, 1e-3f);
+        CHECK_NEAR(t, 15.0f, 1e-3f);
+        CHECK_NEAR(hp.x, 1.5f, 1e-3f);
+        CHECK_NEAR(hp.z, 1.5f, 1e-3f);
+    }
+    // Ramp rising along +x (linear, so bilinear == planar).
+    {
+        game::HeightField3D hf(5, 3, 2.0f, 2.0f); // spanX=8, spanZ=4
+        for (int z = 0; z < 3; ++z) {
+            for (int x = 0; x < 5; ++x) {
+                hf.setHeight(x, z, static_cast<float>(x));
+            }
+        }
+        CHECK_NEAR(hf.heightAt(4.0f, 2.0f), 2.0f, 1e-3f);
+        CHECK_NEAR(hf.heightAt(6.0f, 2.0f), 3.0f, 1e-3f);
+        CHECK_NEAR(hf.heightAt(5.0f, 0.0f), 2.5f, 1e-3f);
+        const math::vec3 nrm = hf.normalAt(4.0f, 2.0f);
+        CHECK(nrm.x < 0.0f); // surface rises toward +x -> normal leans -x
+        CHECK(nrm.y > 0.0f);
+        float t = 0.0f;
+        math::vec3 hp;
+        CHECK(hf.raycast(math::vec3(6.0f, 10.0f, 2.0f), math::vec3(0, -1, 0), 100.0f, t, hp));
+        CHECK_NEAR(hp.y, 3.0f, 1e-3f);
+    }
+    // Angled ray across a flat field: descends 45 deg, hits y=0 at x=5.5.
+    {
+        game::HeightField3D hf(10, 10, 1.0f, 1.0f);
+        for (int z = 0; z < 10; ++z) {
+            for (int x = 0; x < 10; ++x) {
+                hf.setHeight(x, z, 0.0f);
+            }
+        }
+        float t = 0.0f;
+        math::vec3 hp;
+        CHECK(hf.raycast(math::vec3(0.5f, 5.0f, 0.5f), math::vec3(1, -1, 0), 100.0f, t, hp));
+        CHECK_NEAR(hp.y, 0.0f, 1e-3f);
+        CHECK_NEAR(hp.x, 5.5f, 1e-3f);
+    }
+    // Ray pointing up never hits.
+    {
+        game::HeightField3D hf(4, 4, 1.0f, 1.0f);
+        float t = 0.0f;
+        math::vec3 hp;
+        CHECK(!hf.raycast(math::vec3(1.5f, 1.0f, 1.5f), math::vec3(0, 1, 0), 100.0f, t, hp));
+    }
+    // Ray starting OUTSIDE the grid, entering it, hits the flat surface.
+    {
+        game::HeightField3D hf(6, 6, 1.0f, 1.0f);
+        for (int z = 0; z < 6; ++z) {
+            for (int x = 0; x < 6; ++x) {
+                hf.setHeight(x, z, 2.0f);
+            }
+        }
+        float t = 0.0f;
+        math::vec3 hp;
+        CHECK(hf.raycast(math::vec3(-5.0f, 10.0f, 2.5f), math::vec3(1, -1, 0), 100.0f, t, hp));
+        CHECK_NEAR(hp.y, 2.0f, 1e-3f);
+        CHECK_NEAR(hp.x, 3.0f, 1e-3f);
     }
 }
 
@@ -18128,6 +18207,7 @@ int main() {
     testObjLoader();
     testGettextPo();
     testConvexHull3D();
+    testHeightField3D();
     testNoise();
     testRandom();
     testInterpolate();
