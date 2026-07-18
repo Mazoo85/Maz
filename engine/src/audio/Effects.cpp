@@ -897,6 +897,41 @@ void StereoDelay::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- FormantFilter ----------------------------------------------------------
+
+void FormantFilter::reset() {
+    f1L_.reset();
+    f2L_.reset();
+    f1R_.reset();
+    f2R_.reset();
+}
+
+void FormantFilter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // First two formant frequencies (Hz) for each vowel.
+    float f1 = 800.0f, f2 = 1150.0f;
+    switch (vowel_) {
+    case Vowel::A: f1 = 800.0f;  f2 = 1150.0f; break;
+    case Vowel::E: f1 = 400.0f;  f2 = 1700.0f; break;
+    case Vowel::I: f1 = 300.0f;  f2 = 2300.0f; break;
+    case Vowel::O: f1 = 450.0f;  f2 = 800.0f;  break;
+    case Vowel::U: f1 = 325.0f;  f2 = 700.0f;  break;
+    }
+    constexpr float kQ = 5.0f; // resonant enough to make the formants sing
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float wetL = f1L_.process(l, f1, kQ, sampleRate, StateVariableFilter::Mode::BandPass) +
+                           0.7f * f2L_.process(l, f2, kQ, sampleRate, StateVariableFilter::Mode::BandPass);
+        const float wetR = f1R_.process(r, f1, kQ, sampleRate, StateVariableFilter::Mode::BandPass) +
+                           0.7f * f2R_.process(r, f2, kQ, sampleRate, StateVariableFilter::Mode::BandPass);
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {

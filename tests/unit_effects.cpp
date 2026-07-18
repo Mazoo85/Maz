@@ -774,6 +774,37 @@ int main() {
         check(same, "a disabled stereo delay is transparent");
     }
 
+    // --- Formant filter: passes a vowel's formant, rejects far-off tones -----
+    {
+        // Vowel A's first formant is ~800 Hz. A tone there survives the filter; a tone far above any
+        // formant (5 kHz) is strongly attenuated.
+        auto vowelPass = [&](double toneHz) {
+            audio::FormantFilter f;
+            f.setEnabled(true);
+            f.setVowel(audio::FormantFilter::Vowel::A);
+            f.setMix(1.0f); // fully wet
+            std::vector<float> b = sineStereo(sr, toneHz, 0.5, sr);
+            f.process(b.data(), sr, sr);
+            return rms(b);
+        };
+        check(vowelPass(800.0) > vowelPass(5000.0) * 3.0,
+              "formant filter passes a tone at the vowel's formant and rejects a far-off tone");
+
+        // Disabled → transparent.
+        audio::FormantFilter off;
+        std::vector<float> sig = sineStereo(1000, 800.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled formant filter is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

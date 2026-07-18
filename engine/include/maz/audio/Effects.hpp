@@ -595,6 +595,28 @@ private:
     int writePos_ = 0;
 };
 
+// A formant (vowel) filter: two resonant band-pass filters tuned to the first two formants of a
+// chosen vowel (A/E/I/O/U), summed and blended with the dry signal — imposes a vocal "aah/eee/…"
+// colour on whatever passes through (talkbox/robot-voice character). `mix` sets dry/wet.
+class FormantFilter : public Effect {
+public:
+    enum class Vowel { A, E, I, O, U };
+    FormantFilter() { enabled_ = false; }
+    const char* name() const override { return "Formant Filter"; }
+    void setVowel(Vowel v) { vowel_ = v; }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    Vowel vowel() const { return vowel_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    Vowel vowel_ = Vowel::A;
+    float mix_ = 0.5f;
+    StateVariableFilter f1L_{}, f2L_{}, f1R_{}, f2R_{};
+};
+
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by
 // `width`, and recombines: width 1 = unchanged, 0 = mono, >1 widens the stereo image (up to 2).
 // A cheap, transparent way to control stereo spread on a bus.

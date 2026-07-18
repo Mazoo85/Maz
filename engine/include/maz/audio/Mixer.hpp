@@ -53,6 +53,7 @@ public:
     CombResonator& comb() { return comb_; }
     Tremolo& tremolo() { return tremolo_; }
     StereoDelay& stereoDelay() { return stereoDelay_; }
+    FormantFilter& formant() { return formant_; }
     MonoBass& monobass() { return monobass_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
@@ -112,6 +113,7 @@ private:
     CombResonator comb_{};
     Tremolo tremolo_{};
     StereoDelay stereoDelay_{};
+    FormantFilter formant_{};
     MonoBass monobass_{};
     PluginHost plugin_{};
     ClapHost clap_{};

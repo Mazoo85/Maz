@@ -47,18 +47,19 @@ Mixer::Mixer() {
     comb_.setEnabled(false);
     tremolo_.setEnabled(false);
     stereoDelay_.setEnabled(false);
+    formant_.setEnabled(false);
     monobass_.setEnabled(false);
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
     vst3_.setEnabled(false);
     // Signal order: gate → high-pass → EQ → tilt → exciter → tone → drive → tape → ring-mod →
     // crush → dynamics (compressor → transient shaper) → modulation (chorus → flanger → phaser →
-    // auto-wah → comb → tremolo) → time fx (delay → stereo-delay → reverb) → width → mono-bass →
-    // auto-pan → plugins.
-    chain_ = {&gate_,        &hp_,       &peq_,      &tilt_,     &exciter_,  &eq_,       &dist_,
-              &tape_,        &ringmod_,  &crush_,    &comp_,     &transient_, &chorus_,  &flanger_,
-              &phaser_,      &autowah_,  &comb_,     &tremolo_,  &delay_,    &stereoDelay_, &reverb_,
-              &widener_,     &monobass_, &autopan_,  &plugin_,   &clap_,     &vst3_};
+    // auto-wah → formant → comb → tremolo) → time fx (delay → stereo-delay → reverb) → width →
+    // mono-bass → auto-pan → plugins.
+    chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,      &dist_,
+              &tape_,     &ringmod_,  &crush_,    &comp_,      &transient_,   &chorus_,  &flanger_,
+              &phaser_,   &autowah_,  &formant_,  &comb_,      &tremolo_,     &delay_,   &stereoDelay_,
+              &reverb_,   &widener_,  &monobass_, &autopan_,   &plugin_,      &clap_,    &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
     // much signal reaches them, so a fresh mixer stays transparent.

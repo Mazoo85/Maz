@@ -162,6 +162,9 @@ int main() {
     mixer.stereoDelay().setRightMs(270.0f);
     mixer.stereoDelay().setFeedback(0.55f);
     mixer.stereoDelay().setMix(0.35f);
+    mixer.formant().setEnabled(true);
+    mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
+    mixer.formant().setMix(0.6f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -368,6 +371,10 @@ int main() {
               near(mixer2.tremolo().depth(), 0.85f) &&
               mixer2.tremolo().shape() == audio::Tremolo::Shape::Square,
           "tremolo round-trips");
+    check(mixer2.formant().enabled() &&
+              mixer2.formant().vowel() == audio::FormantFilter::Vowel::E &&
+              near(mixer2.formant().mix(), 0.6f),
+          "formant filter round-trips");
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&

@@ -1385,6 +1385,20 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(100.0f);
         if (ImGui::SliderFloat("mix##sd", &mix, 0.0f, 1.0f, "%.2f")) mx.stereoDelay().setMix(mix);
     }
+    {
+        bool en = mx.formant().enabled();
+        if (ImGui::Checkbox("Formant", &en)) mx.formant().setEnabled(en);
+        int vowel = static_cast<int>(mx.formant().vowel());
+        const char* vowels[] = {"A", "E", "I", "O", "U"};
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(80.0f);
+        if (ImGui::Combo("vowel##fmt", &vowel, vowels, 5))
+            mx.formant().setVowel(static_cast<audio::FormantFilter::Vowel>(vowel));
+        float mix = mx.formant().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mix##fmt", &mix, 0.0f, 1.0f, "%.2f")) mx.formant().setMix(mix);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {

@@ -263,6 +263,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx stereodelay " << (mixer.stereoDelay().enabled() ? 1 : 0) << " "
       << mixer.stereoDelay().leftMs() << " " << mixer.stereoDelay().rightMs() << " "
       << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << "\n";
+    f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
+      << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
@@ -655,6 +657,16 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.stereoDelay().setRightMs(rms);
                 mixer.stereoDelay().setFeedback(fb);
                 mixer.stereoDelay().setMix(mix);
+            } else if (which == "formant") {
+                int vowel = 0;
+                float mix = 0.5f;
+                ls >> vowel >> mix;
+                if (vowel < 0 || vowel > 4) {
+                    vowel = 0;
+                }
+                mixer.formant().setEnabled(en != 0);
+                mixer.formant().setVowel(static_cast<FormantFilter::Vowel>(vowel));
+                mixer.formant().setMix(mix);
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;
