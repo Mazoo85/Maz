@@ -257,7 +257,14 @@ Windows editor download.
 
 ### 14. Scripting ecosystem  [CPU/BIG]
 Maz has its own VM. Godot has GDScript + C# + GDExtension (native plugins).
-- [ ] **[CPU]** GDExtension-style C ABI so third parties add engine modules without recompiling
+- [~] **[CPU]** GDExtension-style C ABI so third parties add engine modules without recompiling
+  — **ABI core done** (M245): `ext::ExtensionRegistry` — a stable, C-compatible interface (a tagged
+  `ExtVariant` + plain function pointers, no std types in the payload) for registering classes + methods
+  from a separate module, instantiating them, and dispatching calls by name. Includes ABI version
+  negotiation (`abiCompatible` — major must match, plugin minor ≤ host) and a `loadExtension` entry-point
+  that rejects incompatible plugins up front. Verified with a mock in-process "Counter" extension:
+  register/instantiate/dispatch (with args + return), unknown-method/class → ok=false, duplicate/invalid
+  registration rejection, and unregister. The real `dlopen`/`LoadLibrary` of a `.so`/`.dll` remains [DESK].
 - [x] **[CPU]** Debugger protocol (breakpoints, step, variable inspection) for the maz::script VM
   — **done** (M236): `script::Debugger` drives the VM's per-statement hook and adds line breakpoints,
   the four stepping modes (into / over / out / continue) resolved from call-stack depth, a call-stack

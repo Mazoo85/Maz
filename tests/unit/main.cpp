@@ -97,6 +97,7 @@
 #include "maz/game/Quadtree.hpp"
 #include "maz/game/GravityField2D.hpp"
 #include "maz/game/KinematicBody2D.hpp"
+#include "maz/ext/Extension.hpp"
 #include "maz/game/AutoTile.hpp"
 #include "maz/game/Avoidance.hpp"
 #include "maz/game/BehaviorTree.hpp"
@@ -365,6 +366,89 @@ void testCurve2D() {
         c.clear();
         CHECK(c.pointCount() == 0);
     }
+}
+
+namespace mockext {
+struct Counter {
+    int64_t value = 0;
+};
+inline void* extCreate() { return new Counter(); }
+inline void extDestroy(void* self) { delete static_cast<Counter*>(self); }
+inline maz::ext::ExtVariant extAdd(void* self, const maz::ext::ExtVariant* args, int argc) {
+    Counter* c = static_cast<Counter*>(self);
+    if (argc >= 1 && args[0].type == maz::ext::ExtVariant::Type::Int) {
+        c->value += args[0].i;
+    }
+    return maz::ext::ExtVariant::fromInt(c->value);
+}
+inline maz::ext::ExtVariant extGet(void* self, const maz::ext::ExtVariant*, int) {
+    return maz::ext::ExtVariant::fromInt(static_cast<Counter*>(self)->value);
+}
+inline maz::ext::ExtVariant extName(void*, const maz::ext::ExtVariant*, int) {
+    return maz::ext::ExtVariant::fromStr("Counter");
+}
+inline bool extEntry(int, int, maz::ext::ExtensionRegistry& reg) {
+    if (!reg.registerClass("Counter", extCreate, extDestroy)) {
+        return false;
+    }
+    reg.registerMethod("Counter", "add", extAdd);
+    reg.registerMethod("Counter", "get", extGet);
+    reg.registerMethod("Counter", "name", extName);
+    return true;
+}
+} // namespace mockext
+
+void testExtension() {
+    using maz::ext::abiCompatible;
+    using maz::ext::ExtensionRegistry;
+    using maz::ext::ExtVariant;
+    using maz::ext::kAbiMajor;
+    using maz::ext::kAbiMinor;
+    using maz::ext::loadExtension;
+
+    // ABI version negotiation.
+    CHECK(abiCompatible(kAbiMajor, kAbiMinor));
+    CHECK(abiCompatible(kAbiMajor, 0));
+    CHECK(!abiCompatible(kAbiMajor + 1, 0));
+    CHECK(!abiCompatible(kAbiMajor, kAbiMinor + 1));
+
+    ExtensionRegistry reg;
+    CHECK(!loadExtension(mockext::extEntry, kAbiMajor + 1, 0, reg)); // incompatible -> rejected
+    CHECK(reg.classCount() == 0);
+    CHECK(loadExtension(mockext::extEntry, kAbiMajor, kAbiMinor, reg));
+    CHECK(reg.hasClass("Counter"));
+    CHECK(reg.methodCount("Counter") == 3);
+    CHECK((reg.hasMethod("Counter", "add") && !reg.hasMethod("Counter", "nope")));
+
+    // Instantiate + dispatch across the ABI.
+    void* obj = reg.instantiate("Counter");
+    CHECK(obj != nullptr);
+    bool ok = false;
+    ExtVariant arg = ExtVariant::fromInt(5);
+    ExtVariant r = reg.call("Counter", obj, "add", &arg, 1, &ok);
+    CHECK((ok && r.type == ExtVariant::Type::Int && r.i == 5));
+    ExtVariant arg2 = ExtVariant::fromInt(3);
+    reg.call("Counter", obj, "add", &arg2, 1, &ok);
+    ExtVariant g = reg.call("Counter", obj, "get", nullptr, 0, &ok);
+    CHECK((ok && g.i == 8));
+    ExtVariant nm = reg.call("Counter", obj, "name", nullptr, 0, &ok);
+    CHECK((ok && nm.type == ExtVariant::Type::Str && std::string(nm.s) == "Counter"));
+
+    // Unknown method / class -> ok=false, Nil.
+    ExtVariant bad = reg.call("Counter", obj, "missing", nullptr, 0, &ok);
+    CHECK((!ok && bad.type == ExtVariant::Type::Nil));
+    reg.call("Nope", obj, "add", &arg, 1, &ok);
+    CHECK(!ok);
+    reg.destroy("Counter", obj);
+
+    // Duplicate / invalid registration + unregister.
+    CHECK(!reg.registerClass("Counter", mockext::extCreate, mockext::extDestroy));
+    CHECK(!reg.registerMethod("Counter", "add", mockext::extAdd));
+    CHECK(!reg.registerClass("", mockext::extCreate, mockext::extDestroy));
+    CHECK(!reg.registerClass("Bad", nullptr, nullptr));
+    CHECK(reg.unregisterClass("Counter"));
+    CHECK(!reg.hasClass("Counter"));
+    CHECK(!reg.unregisterClass("Counter"));
 }
 
 void testColorOps() {
@@ -19129,6 +19213,7 @@ int main() {
     testCurve2D();
     testAtlasPacker();
     testColorOps();
+    testExtension();
     testForceField2D();
     testExpression();
     testAStar2D();
