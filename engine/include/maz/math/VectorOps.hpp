@@ -36,6 +36,41 @@ inline float snappedf(float x, float step) {
     return x;
 }
 
+// ---- interpolation (Godot's cubic / bezier interpolate, scalar + vector) (M279) --------------
+// These are templated so they work for float, vec2, and vec3 alike (all support + and scalar *).
+
+// Catmull-Rom cubic interpolation from `from` to `to` guided by the neighbouring `pre`/`post`
+// samples — Godot's @GlobalScope.cubic_interpolate / Vector2.cubic_interpolate.
+template <typename T>
+inline T cubicInterpolate(const T& from, const T& to, const T& pre, const T& post, float w) {
+    const float w2 = w * w;
+    const float w3 = w2 * w;
+    return (from * 2.0f + (to + pre * -1.0f) * w +
+            (pre * 2.0f - from * 5.0f + to * 4.0f - post) * w2 +
+            (pre * -1.0f + from * 3.0f - to * 3.0f + post) * w3) *
+           0.5f;
+}
+
+// Cubic Bézier interpolation with two control points — Godot's Vector2.bezier_interpolate.
+template <typename T>
+inline T bezierInterpolate(const T& start, const T& c1, const T& c2, const T& end, float t) {
+    const float omt = 1.0f - t;
+    const float omt2 = omt * omt;
+    const float omt3 = omt2 * omt;
+    const float t2 = t * t;
+    const float t3 = t2 * t;
+    return start * omt3 + c1 * (omt2 * t * 3.0f) + c2 * (omt * t2 * 3.0f) + end * t3;
+}
+
+// Derivative (tangent) of the cubic Bézier at `t` — Godot's Vector2.bezier_derivative.
+template <typename T>
+inline T bezierDerivative(const T& start, const T& c1, const T& c2, const T& end, float t) {
+    const float omt = 1.0f - t;
+    const float omt2 = omt * omt;
+    const float t2 = t * t;
+    return (c1 - start) * (omt2 * 3.0f) + (c2 - c1) * (omt * t * 6.0f) + (end - c2) * (t2 * 3.0f);
+}
+
 // ---- Vector2 --------------------------------------------------------------------------------
 // 2D scalar cross product (the z of the 3D cross): positive when `b` is counter-clockwise from `a`.
 inline float cross2(const vec2& a, const vec2& b) {

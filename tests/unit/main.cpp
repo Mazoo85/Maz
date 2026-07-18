@@ -12215,6 +12215,24 @@ void testVectorOps() {
     CHECK(near3(math::project(vec3(3, 4, 5), vec3(0, 0, 1)), vec3(0, 0, 5)));
     CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
+
+    // --- cubic / bezier interpolation (M279) ---
+    // bezier: endpoints exact; straight-line control points give the linear midpoint.
+    CHECK_NEAR(math::bezierInterpolate(0.0f, 1.0f, 2.0f, 3.0f, 0.0f), 0.0f, 1e-4f);
+    CHECK_NEAR(math::bezierInterpolate(0.0f, 1.0f, 2.0f, 3.0f, 1.0f), 3.0f, 1e-4f);
+    CHECK_NEAR(math::bezierInterpolate(0.0f, 1.0f, 2.0f, 3.0f, 0.5f), 1.5f, 1e-4f);
+    // bezier derivative at the ends: 3*(c1-start) and 3*(end-c2).
+    CHECK_NEAR(math::bezierDerivative(0.0f, 2.0f, 5.0f, 9.0f, 0.0f), 6.0f, 1e-4f);
+    CHECK_NEAR(math::bezierDerivative(0.0f, 2.0f, 5.0f, 9.0f, 1.0f), 12.0f, 1e-4f);
+    // cubic (Catmull-Rom): endpoints exact; straight-line samples stay linear at the midpoint.
+    CHECK_NEAR(math::cubicInterpolate(10.0f, 20.0f, 0.0f, 30.0f, 0.0f), 10.0f, 1e-4f);
+    CHECK_NEAR(math::cubicInterpolate(10.0f, 20.0f, 0.0f, 30.0f, 1.0f), 20.0f, 1e-4f);
+    CHECK_NEAR(math::cubicInterpolate(1.0f, 2.0f, 0.0f, 3.0f, 0.5f), 1.5f, 1e-4f);
+    // vector overloads.
+    CHECK(near2(math::bezierInterpolate(vec2(0, 0), vec2(0, 1), vec2(1, 1), vec2(1, 0), 1.0f), vec2(1, 0)));
+    CHECK(near2(math::cubicInterpolate(vec2(0, 0), vec2(2, 2), vec2(-2, -2), vec2(4, 4), 1.0f), vec2(2, 2)));
+    CHECK(near3(math::bezierInterpolate(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 0, 2), vec3(0, 0, 3), 0.5f),
+                vec3(0, 0, 1.5f)));
 }
 
 // Transform3D: Godot's Basis+origin spatial transform — xform/xformInv, compose, affine/rigid
