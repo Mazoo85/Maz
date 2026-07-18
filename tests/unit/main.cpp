@@ -242,6 +242,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <numeric>
 #include <set>
 #include <string>
@@ -333,6 +334,21 @@ void testMathFuncs() {
     CHECK(isEqualApproxf(1.0f, 1.0f + 1e-7f));
     CHECK(!isEqualApproxf(1.0f, 1.1f));
     CHECK((isZeroApproxf(1e-7f) && !isZeroApproxf(0.1f)));
+
+    // M334: finiteness / NaN / infinity predicates (Godot @GlobalScope.is_finite/is_nan/is_inf).
+    {
+        volatile float vzero = 0.0f;
+        const float bad_nan = std::nanf("");
+        const float bad_inf = std::numeric_limits<float>::infinity();
+        const float ok_val = 3.5f + vzero;
+        CHECK(isFinitef(ok_val));
+        CHECK(!isFinitef(bad_nan));
+        CHECK(!isFinitef(bad_inf));
+        CHECK(isNanf(bad_nan));
+        CHECK((!isNanf(ok_val) && !isNanf(bad_inf)));
+        CHECK((isInff(bad_inf) && isInff(-bad_inf)));
+        CHECK((!isInff(ok_val) && !isInff(bad_nan)));
+    }
 
     // M311: angleDifference / rotateToward (Godot 4.2+ @GlobalScope).
     CHECK_NEAR(angleDifference(0.0f, kPi * 0.5f), kPi * 0.5f, 1e-4f);
@@ -13221,6 +13237,19 @@ void testVectorOps() {
     auto near3 = [](vec3 a, vec3 b, float e = 1e-4f) {
         return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
     };
+
+    // M334: Vector2/Vector3 is_finite — true only when every component is finite (Godot parity).
+    {
+        volatile float vz = 0.0f;
+        const float bad_nan = std::nanf("");
+        const float bad_inf = std::numeric_limits<float>::infinity();
+        CHECK(math::isFinite(vec2(1.0f + vz, 2.0f + vz)));
+        CHECK(!math::isFinite(vec2(bad_nan, 2.0f)));
+        CHECK(!math::isFinite(vec2(1.0f, bad_inf)));
+        CHECK(math::isFinite(vec3(1.0f + vz, 2.0f + vz, 3.0f + vz)));
+        CHECK(!math::isFinite(vec3(1.0f, bad_nan, 3.0f)));
+        CHECK(!math::isFinite(vec3(1.0f, 2.0f, -bad_inf)));
+    }
 
     // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
     CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);

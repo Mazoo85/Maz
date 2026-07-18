@@ -17,6 +17,13 @@
 // spelling so ported code matches. All functions taking a normal `n` assume it is unit length.
 namespace maz::math {
 
+// True when every component is finite (no NaN, no infinity) — Godot's Vector2/Vector3.is_finite.
+// Guards gameplay/physics state after a bad divide or overflow before it spreads.
+inline bool isFinite(const vec2& v) { return std::isfinite(v.x) && std::isfinite(v.y); }
+inline bool isFinite(const vec3& v) {
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
 // ---- shared scalar helpers ------------------------------------------------------------------
 // Positive modulo: result carries the sign of `y` (Godot's @GlobalScope.posmod / fposmod), so
 // posmod(-1, 3) == 2, unlike C++ std::fmod(-1, 3) == -1. Used component-wise by the vector posmod.

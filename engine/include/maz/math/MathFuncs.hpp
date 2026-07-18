@@ -158,6 +158,12 @@ inline bool isEqualApproxf(float a, float b, float eps = 1e-5f) {
 }
 inline bool isZeroApproxf(float a, float eps = 1e-5f) { return std::abs(a) < eps; }
 
+// Finiteness / NaN / infinity predicates — Godot's @GlobalScope.is_finite / is_nan / is_inf. Handy
+// for guarding physics and animation state against propagating NaN/inf after a bad divide or blow-up.
+inline bool isFinitef(float x) { return std::isfinite(x); }
+inline bool isNanf(float x) { return std::isnan(x); }
+inline bool isInff(float x) { return std::isinf(x); }
+
 // Shortest signed angular distance from `from` to `to`, in radians, wrapped to (-pi, pi] — Godot's
 // @GlobalScope.angle_difference (4.2+). Positive means `to` is counter-clockwise of `from`.
 inline float angleDifference(float from, float to) {

@@ -28,7 +28,8 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the 90-degree-clockwise perpendicular (y,-x), verified perpendicular + length-preserving + double-
   application-negates) (M323 adds the Vector3 overload rotated(v,axis,angle)
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
-  path), plus **vector slerp** (M301 — `math::slerp` for
+  path) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
+  every component is finite, verified to reject a single NaN or inf component), plus **vector slerp** (M301 — `math::slerp` for
   vec2/vec3: arc-interpolate direction while lerping length, Godot's Vector2/Vector3.slerp, with
   lerp fallback for zero-length/colinear inputs), plus **octahedral normal encoding** (M302 —
   `math::octahedronEncode` / `octahedronDecode`, Godot's Vector3.octahedron_encode/decode: pack a unit
@@ -75,7 +76,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   M330 adds cubicInterpolateAngle — Godot's @GlobalScope.cubic_interpolate_angle: a Catmull-Rom
   between two angles that remaps the control angles to the nearest equivalent so interpolation crosses
   the +/-pi wrap the short way, verified to hit its endpoints, reduce to the plain cubic for in-range
-  angles, and take the forward-through-zero path from 350deg to 10deg),
+  angles, and take the forward-through-zero path from 350deg to 10deg; M334 adds isFinitef/isNanf/
+  isInff — Godot's @GlobalScope.is_finite / is_nan / is_inf scalar predicates for guarding physics
+  and animation state against NaN/inf propagation after a bad divide or blow-up),
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
