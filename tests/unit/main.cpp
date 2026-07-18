@@ -132,6 +132,7 @@
 #include "maz/io/Config.hpp"
 #include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
+#include "maz/io/GettextPo.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
@@ -6183,6 +6184,76 @@ void testObjLoader() {
     // No faces -> empty mesh -> false.
     render::shapes::MeshData m5;
     CHECK(!render::parseObj("v 0 0 0\n", m5, noflip));
+}
+
+void testGettextPo() {
+    // Plural-rule evaluator: English, the Polish rule, and the empty default.
+    io::PluralRule en("n != 1");
+    CHECK(en.eval(1) == 0);
+    CHECK(en.eval(0) == 1);
+    CHECK(en.eval(2) == 1);
+
+    io::PluralRule pl("(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)");
+    CHECK(pl.eval(1) == 0);
+    CHECK(pl.eval(2) == 1);
+    CHECK(pl.eval(4) == 1);
+    CHECK(pl.eval(5) == 2);
+    CHECK(pl.eval(11) == 2);
+    CHECK(pl.eval(22) == 1);
+    CHECK(pl.eval(25) == 2);
+
+    io::PluralRule none("");
+    CHECK(none.eval(1) == 0);
+    CHECK(none.eval(3) == 1);
+
+    // A PO catalog with a header plural rule, a contextual entry, and a plural entry.
+    const std::string po =
+        "# comment\n"
+        "msgid \"\"\n"
+        "msgstr \"\"\n"
+        "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
+        "\"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || "
+        "n%100>=20) ? 1 : 2);\\n\"\n"
+        "\n"
+        "msgid \"Hello\"\n"
+        "msgstr \"Hi\"\n"
+        "\n"
+        "msgctxt \"menu\"\n"
+        "msgid \"File\"\n"
+        "msgstr \"Plik\"\n"
+        "\n"
+        "msgid \"%d apple\"\n"
+        "msgid_plural \"%d apples\"\n"
+        "msgstr[0] \"ONE\"\n"
+        "msgstr[1] \"FEW\"\n"
+        "msgstr[2] \"MANY\"\n";
+    io::PoCatalog cat;
+    CHECK(cat.parse(po));
+    CHECK(cat.nplurals() == 3);
+
+    CHECK(cat.gettext("Hello") == "Hi");
+    CHECK(cat.gettext("Missing") == "Missing"); // fallback to id
+    CHECK(cat.pgettext("menu", "File") == "Plik");
+    CHECK(cat.gettext("File") == "File"); // context-only entry -> no plain hit
+
+    CHECK(cat.ngettext("%d apple", "%d apples", 1) == "ONE");
+    CHECK(cat.ngettext("%d apple", "%d apples", 3) == "FEW");
+    CHECK(cat.ngettext("%d apple", "%d apples", 5) == "MANY");
+    CHECK(cat.ngettext("%d apple", "%d apples", 22) == "FEW");
+
+    // Untranslated plural -> English source fallback.
+    CHECK(cat.ngettext("%d cat", "%d cats", 1) == "%d cat");
+    CHECK(cat.ngettext("%d cat", "%d cats", 4) == "%d cats");
+
+    // Multi-line msgid concatenation.
+    io::PoCatalog c2;
+    c2.parse("msgid \"\"\n\"long \"\n\"key\"\nmsgstr \"LONGKEY\"\n");
+    CHECK(c2.gettext("long key") == "LONGKEY");
+
+    // Escape sequences in msgstr survive.
+    io::PoCatalog c3;
+    c3.parse("msgid \"a\"\nmsgstr \"x\\ny\\t\\\"z\\\"\"\n");
+    CHECK(c3.gettext("a") == "x\ny\t\"z\"");
 }
 
 void testProfiler() {
@@ -17971,6 +18042,7 @@ int main() {
     testVisibleOnScreenNotifier2D();
     testGridMap();
     testObjLoader();
+    testGettextPo();
     testNoise();
     testRandom();
     testInterpolate();

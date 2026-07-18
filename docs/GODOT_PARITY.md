@@ -91,7 +91,10 @@ Godot's headline 3D feature set. Maz has analytic IBL + shadow maps only.
 ### 5. Text & internationalization  [BIG]
 - [ ] **[BIG][CPU]** TextServer: complex-script shaping (HarfBuzz-class), BiDi, line breaking for
   CJK/Arabic/Indic. *Almost entirely CPU — a large but verifiable effort.*
-- [ ] **[CPU]** Translation/PO catalogs (Maz has CSV tables; add gettext PO + pluralization)
+- [x] **[CPU]** Translation/PO catalogs: `io::PoCatalog` + `io::PluralRule` — gettext PO parser
+  (msgctxt/msgid/msgid_plural/msgstr[n], multi-line, escapes) with gettext/ngettext/pgettext/
+  npgettext and a per-language plural-rule evaluator (the C subset: n, %*/+-, comparisons, && || !,
+  ?:). M226. Correct pluralization for English/Polish/etc. beyond Maz's CSV tables.
 - [ ] **[GPU]** SDF font rendering at draw time
 
 ### 6. Editor breadth  [BIG][GPU][DESK]
