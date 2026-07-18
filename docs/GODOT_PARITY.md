@@ -135,6 +135,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   plus **C-string escaping** M308 — cEscape/cUnescape matching Godot String's c_escape/c_unescape
   (the backslash sequences Godot writes into text resources / C literals: \\ \a \b \f \n \r \t \v
   \' \", with c_unescape also accepting \?), verified to round-trip exactly),
+  plus **natural-order comparison** M321 — naturalCompare/naturalCompareNoCase toward Godot
+  String.naturalcasecmp_to/naturalnocasecmp_to: numeric-aware ordering where digit runs compare by
+  value, so "file2" sorts before "file10" (plain lexicographic would not). Returns -1/0/+1, folds
+  ASCII case for the nocase variant, orders equal numeric values by fewer leading zeros first, and
+  places a digit before a letter at the same position. Verified by realistic filename sorting,
+  antisymmetry across many pairs, and leading-zero/empty edge cases. (Honest scope note: this is the
+  general numeric-aware comparison; Godot's extra leading-dot special case for hidden files is NOT
+  reproduced.),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or

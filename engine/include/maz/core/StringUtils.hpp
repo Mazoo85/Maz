@@ -157,6 +157,77 @@ inline std::size_t count(const std::string& s, const std::string& needle) {
     return n;
 }
 
+// ---- natural-order comparison (Godot String.naturalcasecmp_to / naturalnocasecmp_to) (M321) -----
+// Numeric-aware ordering: runs of digits compare by VALUE, not character-by-character, so "file2"
+// sorts before "file10" (plain lexicographic would put "file10" first because '1' < '2'). This is the
+// ordering Godot uses for its FileSystem dock. Returns -1 / 0 / +1 (a < b / a == b / a > b), matching
+// Godot's cmp_to sign convention. `caseSensitive == false` folds ASCII case before comparing letters.
+// Note: this is the general numeric-aware comparison; it does not replicate Godot's extra leading-dot
+// special case for hidden files (only relevant when one name starts with '.').
+inline int naturalCompare(const std::string& a, const std::string& b, bool caseSensitive = true) {
+    auto isDig = [](char c) { return c >= '0' && c <= '9'; };
+    auto fold = [caseSensitive](char c) -> char {
+        if (!caseSensitive && c >= 'A' && c <= 'Z') {
+            return static_cast<char>(c - 'A' + 'a');
+        }
+        return c;
+    };
+    const std::size_t na = a.size(), nb = b.size();
+    std::size_t i = 0, j = 0;
+    while (i < na && j < nb) {
+        const bool da = isDig(a[i]);
+        const bool db = isDig(b[j]);
+        if (da && db) {
+            // Compare two digit runs numerically. Skip leading zeros first, then compare by the
+            // number of significant digits, breaking ties left-to-right.
+            std::size_t si = i, sj = j;
+            while (si < na && a[si] == '0') ++si;
+            while (sj < nb && b[sj] == '0') ++sj;
+            std::size_t ei = si, ej = sj;
+            while (ei < na && isDig(a[ei])) ++ei;
+            while (ej < nb && isDig(b[ej])) ++ej;
+            const std::size_t lenA = ei - si, lenB = ej - sj;
+            if (lenA != lenB) {
+                return lenA < lenB ? -1 : 1; // fewer significant digits -> smaller value
+            }
+            for (std::size_t k = 0; k < lenA; ++k) {
+                if (a[si + k] != b[sj + k]) {
+                    return a[si + k] < b[sj + k] ? -1 : 1;
+                }
+            }
+            // Equal numeric value: the one with FEWER leading zeros sorts first (deterministic).
+            const std::size_t zerosA = si - i, zerosB = sj - j;
+            if (zerosA != zerosB) {
+                return zerosA < zerosB ? -1 : 1;
+            }
+            i = ei;
+            j = ej;
+        } else if (da != db) {
+            // A digit sorts before a non-digit at the same position (Godot's convention).
+            return da ? -1 : 1;
+        } else {
+            const char ca = fold(a[i]), cb = fold(b[j]);
+            if (ca != cb) {
+                return ca < cb ? -1 : 1;
+            }
+            ++i;
+            ++j;
+        }
+    }
+    if (i < na) {
+        return 1; // a has trailing content -> a is greater
+    }
+    if (j < nb) {
+        return -1;
+    }
+    return 0;
+}
+
+// Case-insensitive natural comparison — Godot's String.naturalnocasecmp_to.
+inline int naturalCompareNoCase(const std::string& a, const std::string& b) {
+    return naturalCompare(a, b, false);
+}
+
 // ---- number parsing (Godot String's to_int / to_float / is_valid_* / hex_to_int) (M274) --------
 
 // Parse a leading base-10 integer: optional leading whitespace, an optional +/- sign, then digits;

@@ -11641,6 +11641,48 @@ void testStringUtils() {
             CHECK(su::cUnescape(su::cEscape(s)) == s);
         }
     }
+
+    // --- natural-order comparison (M321): naturalCompare / naturalCompareNoCase ---
+    // The defining property: numeric runs compare by value, so file2 < file10.
+    CHECK(su::naturalCompare("file2", "file10") < 0);
+    CHECK(su::naturalCompare("file10", "file2") > 0);
+    CHECK(su::naturalCompare("file2", "file2") == 0);
+    // Plain lexicographic would disagree (proving the difference is real).
+    CHECK(std::string("file10") < std::string("file2"));
+    // Realistic list sorts into human order.
+    {
+        std::vector<std::string> v = {"img12", "img2", "img1", "img100", "img10"};
+        std::sort(v.begin(), v.end(),
+                  [](const std::string& x, const std::string& y) { return su::naturalCompare(x, y) < 0; });
+        const std::vector<std::string> want = {"img1", "img2", "img10", "img12", "img100"};
+        CHECK(v == want);
+    }
+    // Leading zeros: equal value orders by fewer zeros first; different values still by value.
+    CHECK(su::naturalCompare("a007", "a7") > 0);
+    CHECK(su::naturalCompare("a08", "a9") < 0);
+    CHECK(su::naturalCompare("a010", "a9") > 0);
+    // A digit sorts before a letter at the same position; a prefix is smaller.
+    CHECK(su::naturalCompare("a1", "ab") < 0);
+    CHECK(su::naturalCompare("abc", "abcd") < 0);
+    // Case handling.
+    CHECK(su::naturalCompareNoCase("File2", "file10") < 0);
+    CHECK(su::naturalCompareNoCase("ABC", "abc") == 0);
+    CHECK(su::naturalCompare("ABC", "abc") < 0); // 'A'(65) < 'a'(97) case-sensitive
+    // Empty strings.
+    CHECK(su::naturalCompare("", "") == 0);
+    CHECK(su::naturalCompare("", "a") < 0);
+    CHECK(su::naturalCompare("a", "") > 0);
+    // Antisymmetry across a spread of pairs.
+    {
+        const char* ws[] = {"x", "x1", "x10", "x2", "y", "x1a", "x01"};
+        for (const char* p : ws) {
+            for (const char* q : ws) {
+                const int r = su::naturalCompare(p, q);
+                const int rr = su::naturalCompare(q, p);
+                CHECK((r == 0 && rr == 0) || (r < 0 && rr > 0) || (r > 0 && rr < 0));
+            }
+        }
+    }
 }
 
 void testSlotMap() {
