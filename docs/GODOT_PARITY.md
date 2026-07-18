@@ -52,7 +52,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   closestPointsBetweenSegments (2D) matching Godot's Geometry2D; **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
   Godot's AABB); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
-  `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8` —
+  `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`; plus
+  **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
+  palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
+  constants + Color.from_string) —
   Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,

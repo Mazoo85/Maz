@@ -204,6 +204,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
+#include "maz/render/ColorNames.hpp"
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
@@ -810,6 +811,33 @@ void testColorOps() {
                                Color{0.25f, 0.5f, 0.75f, 1.0f}, 1.0f / 255.0f + 1e-4f));
     // Color8 from byte channels.
     CHECK_NEAR(render::color8(255, 128, 0, 255).g, 128.0f / 255.0f, 1e-4f);
+
+    // --- Named colours + from_string (M288) ---
+    CHECK(render::isEqualApprox(*render::namedColor("red"), render::color8(255, 0, 0), 1e-3f));
+    CHECK(render::isEqualApprox(*render::namedColor("RED"), render::color8(255, 0, 0), 1e-3f));
+    // Case-insensitive, separators ignored: SKY_BLUE == "sky blue" == "skyblue".
+    CHECK(render::isEqualApprox(*render::namedColor("SKY_BLUE"),
+                               render::color8(0x87, 0xCE, 0xEB), 1e-3f));
+    CHECK(render::isEqualApprox(*render::namedColor("sky blue"),
+                               render::color8(0x87, 0xCE, 0xEB), 1e-3f));
+    CHECK(render::isEqualApprox(*render::namedColor("skyblue"),
+                               render::color8(0x87, 0xCE, 0xEB), 1e-3f));
+    CHECK(render::isEqualApprox(*render::namedColor("cornflowerblue"),
+                               render::color8(0x64, 0x95, 0xED), 1e-3f));
+    CHECK(render::isEqualApprox(*render::namedColor("rebeccapurple"),
+                               render::color8(0x66, 0x33, 0x99), 1e-3f));
+    // TRANSPARENT is white with zero alpha in Godot.
+    CHECK(render::isEqualApprox(*render::namedColor("transparent"),
+                               render::color8(255, 255, 255, 0), 1e-3f));
+    CHECK(!render::namedColor("notacolor").has_value());
+    CHECK(!render::namedColor("").has_value());
+    // colorFromString: named, hex, and fallback.
+    const Color fb{0.1f, 0.2f, 0.3f, 1.0f};
+    CHECK(render::isEqualApprox(render::colorFromString("teal", fb),
+                               render::color8(0x00, 0x80, 0x80), 1e-3f));
+    CHECK(render::isEqualApprox(render::colorFromString("#ff0000", fb),
+                               render::color8(255, 0, 0), 1e-3f));
+    CHECK(render::isEqualApprox(render::colorFromString("bogus!!", fb), fb, 1e-6f));
 }
 
 void testAtlasPacker() {
