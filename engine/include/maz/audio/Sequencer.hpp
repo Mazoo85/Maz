@@ -105,6 +105,11 @@ public:
     void setChannelDrive(int c, float drive);
     float channelDrive(int c) const;
 
+    // Per-channel flam (0..50 ms): plays a quiet grace hit immediately, then the full hit this many
+    // ms later — the classic flam/drag humanization. 0 = off (a single hit).
+    void setChannelFlam(int c, float ms);
+    float channelFlam(int c) const;
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
@@ -240,6 +245,7 @@ private:
     std::vector<uint8_t> chanSolo_;
     std::vector<float> chanPan_; // per-channel pan (-1..1)
     std::vector<int> chanChoke_; // per-channel choke group (0 = none)
+    std::vector<float> chanFlam_; // per-channel flam offset in ms (0 = off)
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode

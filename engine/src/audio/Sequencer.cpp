@@ -33,6 +33,7 @@ Sequencer::Sequencer() {
     chanSolo_.assign(static_cast<size_t>(channelCount), 0);
     chanPan_.assign(static_cast<size_t>(channelCount), 0.0f);
     chanChoke_.assign(static_cast<size_t>(channelCount), 0);
+    chanFlam_.assign(static_cast<size_t>(channelCount), 0.0f);
     // Default: the closed hat (2) and open hat (3) choke each other, like a real hi-hat.
     if (channelCount > 3) {
         chanChoke_[2] = 1;
@@ -128,6 +129,19 @@ void Sequencer::setChannelDrive(int c, float drive) {
 float Sequencer::channelDrive(int c) const {
     if (c >= 0 && c < numChannels()) {
         return channels_[static_cast<size_t>(c)].drive();
+    }
+    return 0.0f;
+}
+
+void Sequencer::setChannelFlam(int c, float ms) {
+    if (c >= 0 && c < numChannels()) {
+        chanFlam_[static_cast<size_t>(c)] = ms < 0.0f ? 0.0f : (ms > 50.0f ? 50.0f : ms);
+    }
+}
+
+float Sequencer::channelFlam(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return chanFlam_[static_cast<size_t>(c)];
     }
     return 0.0f;
 }
@@ -429,7 +443,17 @@ void Sequencer::triggerStep(int step) {
                 }
             }
 
-            channels_[static_cast<size_t>(c)].trigger(vel);
+            // Flam: a quiet grace hit now, then the full hit a few ms later (scheduled like a
+            // ratchet sub-hit). Off → a single full-velocity hit.
+            const float flamMs = chanFlam_[static_cast<size_t>(c)];
+            if (flamMs > 0.0f) {
+                channels_[static_cast<size_t>(c)].trigger(vel * 0.5f); // grace
+                const int flamSamples =
+                    static_cast<int>(flamMs * 0.001f * static_cast<float>(sampleRate_));
+                ratchets_.push_back(RatchetHit{c, vel, flamSamples > 0 ? flamSamples : 1});
+            } else {
+                channels_[static_cast<size_t>(c)].trigger(vel);
+            }
 
             // Ratchet: schedule extra evenly-spaced retriggers within this step's slot.
             const int r = stepRatchet(c, step);

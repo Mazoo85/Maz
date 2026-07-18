@@ -708,6 +708,36 @@ int main() {
         check(d.channelDrive(0) == 0.0f, "channel drive defaults to 0");
     }
 
+    // --- Flam: a grace hit followed by the main hit --------------------------
+    {
+        auto renderFlam = [&](float flamMs) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setStep(2, 0, true); // closed hat — short, so a second onset is easy to see
+            s.setChannelFlam(2, flamMs);
+            s.play();
+            return renderMono(s, 6000, sampleRate);
+        };
+        auto energyAt = [](const std::vector<float>& out, int start, int len) {
+            double e = 0.0;
+            for (int i = start; i < start + len && i < 6000; ++i) {
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            return e;
+        };
+        const std::vector<float> noFlam = renderFlam(0.0f);
+        const std::vector<float> flam = renderFlam(30.0f); // 30 ms → main hit ~1440 frames in
+        const double ref = energyAt(noFlam, 0, 500);
+        check(ref > 1e-4, "the flam grace/first hit sounds at the step start");
+        // Without flam the hat has decayed by ~1440 frames; with flam the full hit lands there.
+        check(energyAt(noFlam, 1440, 500) < ref * 0.2, "no flam → single hit, decayed by 30 ms");
+        check(energyAt(flam, 1440, 500) > ref * 0.3, "flam fires the main hit after the grace");
+
+        audio::Sequencer dd;
+        check(dd.channelFlam(0) == 0.0f, "channel flam defaults to 0 (off)");
+    }
+
     // --- Channel rotate: shift a step row around the bar ---------------------
     {
         audio::Sequencer s;
