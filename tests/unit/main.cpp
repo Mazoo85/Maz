@@ -135,6 +135,7 @@
 #include "maz/io/Config.hpp"
 #include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
+#include "maz/io/ExportConfig.hpp"
 #include "maz/io/GettextPo.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
@@ -6296,6 +6297,60 @@ void testGettextPo() {
     io::PoCatalog c3;
     c3.parse("msgid \"a\"\nmsgstr \"x\\ny\\t\\\"z\\\"\"\n");
     CHECK(c3.gettext("a") == "x\ny\t\"z\"");
+}
+
+void testExportConfig() {
+    // Glob matcher.
+    CHECK(io::globMatch("*.png", "hero.png"));
+    CHECK(!io::globMatch("*.png", "hero.jpg"));
+    CHECK(io::globMatch("res/*.tscn", "res/level.tscn"));
+    CHECK(io::globMatch("res/*.tscn", "res/sub/level.tscn")); // '*' spans '/'
+    CHECK(io::globMatch("a?c", "abc"));
+    CHECK(!io::globMatch("a?c", "ac"));
+    CHECK(io::globMatch("*", "anything/at/all"));
+    CHECK(io::globMatch("", ""));
+    CHECK(!io::globMatch("", "x"));
+    CHECK(io::globMatch("a*b*c", "axxbyyc"));
+    CHECK(!io::globMatch("a*b*c", "axxbyy"));
+
+    // Preset include/exclude + features.
+    io::ExportPreset p;
+    p.name = "Win";
+    p.platform = "windows";
+    p.exportPath = "build/game.exe";
+    p.features = {"windows", "desktop", "pc"};
+    p.includeFilters = {"*.png", "*.ogg", "*.tscn"};
+    p.excludeFilters = {"*_dev.png"};
+    CHECK(p.hasFeature("desktop"));
+    CHECK(!p.hasFeature("mobile"));
+    CHECK(p.includes("hero.png"));
+    CHECK(p.includes("music.ogg"));
+    CHECK(!p.includes("notes.txt"));      // not in the include list
+    CHECK(!p.includes("splash_dev.png")); // excluded despite matching *.png
+
+    // Empty include list ships everything not excluded.
+    io::ExportPreset all;
+    all.excludeFilters = {"*.tmp"};
+    CHECK(all.includes("anything.dat"));
+    CHECK(!all.includes("scratch.tmp"));
+
+    // Config lookup by name and platform.
+    io::ExportConfig cfg;
+    cfg.add(p);
+    io::ExportPreset lin;
+    lin.name = "Lin";
+    lin.platform = "linux";
+    cfg.add(lin);
+    io::ExportPreset web;
+    web.name = "Web";
+    web.platform = "web";
+    cfg.add(web);
+    CHECK(cfg.count() == 3);
+    CHECK(cfg.find("Win") != nullptr);
+    CHECK(cfg.find("Win")->platform == "windows");
+    CHECK(cfg.find("Nope") == nullptr);
+    CHECK(cfg.forPlatform("linux").size() == 1);
+    CHECK(cfg.forPlatform("android").empty());
 }
 
 void testConvexHull3D() {
@@ -18358,6 +18413,7 @@ int main() {
     testObjLoader();
     testMeshLod();
     testGettextPo();
+    testExportConfig();
     testConvexHull3D();
     testHeightField3D();
     testTriMesh3D();

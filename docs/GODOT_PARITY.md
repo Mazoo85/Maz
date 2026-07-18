@@ -189,7 +189,9 @@ Windows editor download.
 - [ ] **[DESK]** macOS + Linux packaged builds (extend the existing package pipeline)
 - [ ] **[BIG]** Web export (Emscripten + WebGL/WebGPU) — depends on a GL/GPU backend
 - [ ] **[BIG]** Android + iOS export
-- [ ] **[CPU]** Export templates + a project/export config model
+- [x] **[CPU]** Export templates + a project/export config model — `io::ExportConfig` /
+  `io::ExportPreset` (M232): per-platform presets with feature tags + include/exclude glob filters
+  and an `includes(path)` decision (Godot export presets), on a reusable `globMatch` core.
 
 ### 13. Asset import breadth  [CPU mostly]
 - [~] **[CPU]** FBX, OBJ, Collada importers (Maz has glTF); [CPU] image formats beyond PNG/JPEG (WebP, HDR/EXR)
