@@ -926,6 +926,21 @@ void testColorOps() {
     // Color8 from byte channels.
     CHECK_NEAR(render::color8(255, 128, 0, 255).g, 128.0f / 255.0f, 1e-4f);
 
+    // M331: 64-bit (16-bit-per-channel) packing — Godot Color.hex64 / to_rgba64.
+    CHECK(render::toRgba64(Color{1, 1, 1, 1}) == 0xFFFFFFFFFFFFFFFFULL);
+    CHECK(render::toRgba64(Color{0, 0, 0, 0}) == 0x0000000000000000ULL);
+    CHECK(render::toRgba64(Color{1, 0, 0, 1}) == 0xFFFF00000000FFFFULL);
+    CHECK(render::isEqualApprox(render::fromRgba64(0xFFFFFFFFFFFFFFFFULL), Color{1, 1, 1, 1}));
+    CHECK(render::isEqualApprox(render::fromRgba64(0xFFFF00000000FFFFULL), Color{1, 0, 0, 1}));
+    // Round-trip keeps 16-bit precision.
+    CHECK(render::isEqualApprox(render::fromRgba64(render::toRgba64(Color{0.1f, 0.2f, 0.3f, 0.4f})),
+                                Color{0.1f, 0.2f, 0.3f, 0.4f}, 2e-5f));
+    // 16-bit keeps a fine difference that 8-bit would collapse.
+    {
+        const Color rt64 = render::fromRgba64(render::toRgba64(Color{0.5001f, 0.5f, 0.5f, 1.0f}));
+        CHECK(rt64.r != rt64.g);
+    }
+
     // --- Named colours + from_string (M288) ---
     CHECK(render::isEqualApprox(*render::namedColor("red"), render::color8(255, 0, 0), 1e-3f));
     CHECK(render::isEqualApprox(*render::namedColor("RED"), render::color8(255, 0, 0), 1e-3f));

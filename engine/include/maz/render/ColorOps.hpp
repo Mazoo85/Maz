@@ -243,6 +243,24 @@ inline Color color8(int r, int g, int b, int a = 255) {
                  static_cast<float>(b) / 255.0f, static_cast<float>(a) / 255.0f};
 }
 
+// Pack to a 64-bit integer with 16 bits per channel, RGBA order (red in the highest word) — Godot's
+// Color.to_rgba64. Each channel is quantised to 0..65535, giving high-bit-depth round-tripping.
+inline std::uint64_t toRgba64(const Color& c) {
+    auto q = [](float x) -> std::uint64_t {
+        const float v = std::round(std::clamp(x, 0.0f, 1.0f) * 65535.0f);
+        return static_cast<std::uint64_t>(v);
+    };
+    return (q(c.r) << 48) | (q(c.g) << 32) | (q(c.b) << 16) | q(c.a);
+}
+
+// Unpack an RGBA-ordered 64-bit integer (16 bits per channel, red highest) — Godot's Color.hex64.
+inline Color fromRgba64(std::uint64_t v) {
+    return Color{static_cast<float>((v >> 48) & 0xFFFF) / 65535.0f,
+                 static_cast<float>((v >> 32) & 0xFFFF) / 65535.0f,
+                 static_cast<float>((v >> 16) & 0xFFFF) / 65535.0f,
+                 static_cast<float>(v & 0xFFFF) / 65535.0f};
+}
+
 // ---- OKLab / OKLCh perceptual colour space (M304) --------------------------------------------
 //
 // OKLab (Björn Ottosson, 2020) is the perceptually-uniform colour space that underpins Godot 4's
