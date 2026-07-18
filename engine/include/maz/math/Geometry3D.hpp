@@ -140,6 +140,19 @@ struct Aabb3 {
                     dir.z >= 0 ? max.z : min.z);
     }
 
+    // True when the box straddles `plane` — Godot's AABB.intersects_plane. Godot classifies each
+    // corner as "over" (signed distance > 0) or "under" (<= 0) and returns over && under, so a box
+    // that merely TOUCHES the plane counts as intersecting only from the positive side (a corner at
+    // distance 0 is "under"). Only the two support corners along ±normal bound every corner's
+    // distance, so checking them reproduces the 8-corner scan exactly.
+    bool intersectsPlane(const Plane& plane) const {
+        const float dNear = plane.distanceTo(support(-plane.normal)); // smallest signed distance
+        const float dFar = plane.distanceTo(support(plane.normal));   // largest signed distance
+        const bool over = dFar > 0.0f;    // at least one corner strictly on the normal side
+        const bool under = dNear <= 0.0f; // at least one corner on/behind the plane
+        return over && under;
+    }
+
     // Slab ray/box test: entry distance t in [0, tMax] if the ray enters the box.
     std::optional<float> intersectRay(const vec3& origin, const vec3& dir,
                                       float tMax = std::numeric_limits<float>::infinity()) const {

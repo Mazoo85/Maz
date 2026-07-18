@@ -12920,6 +12920,19 @@ void testGeometry3D() {
         CHECK(c.intersectsSegment(vec3(1, 1, 1), vec3(5, 5, 5)));
         CHECK(!c.intersectsSegment(vec3(-5, 5, 5), vec3(-3, 5, 5)));
         CHECK(!c.intersectsSegment(vec3(-5, 1, 1), vec3(-1, 1, 1)));
+
+        // M324: intersectsPlane (Godot AABB.intersects_plane) on the unit cube [-1,1]^3.
+        const Aabb3 uc(vec3(-1, -1, -1), vec3(1, 1, 1));
+        CHECK(uc.intersectsPlane(Plane(vec3(0, 1, 0), 0.0f)));   // through origin
+        CHECK(uc.intersectsPlane(Plane(vec3(0, 1, 0), 0.5f)));   // y = 0.5 still cuts
+        CHECK(!uc.intersectsPlane(Plane(vec3(0, 1, 0), 2.0f)));  // above the box
+        CHECK(!uc.intersectsPlane(Plane(vec3(0, 1, 0), -2.0f))); // below the box
+        CHECK(uc.intersectsPlane(Plane(normalize(vec3(1, 1, 1)), 0.0f)));   // diagonal cut
+        CHECK(!uc.intersectsPlane(Plane(normalize(vec3(1, 1, 1)), 2.0f)));  // clears the corner
+        // Godot's asymmetric touch rule: touching from below (y=1) is NOT a hit; the +normal side
+        // touching (y=-1 with +Y normal) IS, because a zero-distance corner counts as "under".
+        CHECK(!uc.intersectsPlane(Plane(vec3(0, 1, 0), 1.0f)));
+        CHECK(uc.intersectsPlane(Plane(vec3(0, 1, 0), -1.0f)));
     }
 
     // --- Obb SAT ---
