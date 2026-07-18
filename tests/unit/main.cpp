@@ -168,6 +168,7 @@
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
+#include "maz/render/MeshLod.hpp"
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/ObjLoader.hpp"
@@ -6188,6 +6189,43 @@ void testObjLoader() {
     // No faces -> empty mesh -> false.
     render::shapes::MeshData m5;
     CHECK(!render::parseObj("v 0 0 0\n", m5, noflip));
+}
+
+void testMeshLod() {
+    const float fov = 1.5707963f; // 90 deg -> tan(45) = 1
+
+    // radius 1 at distance 10, 1000px tall viewport -> 1/(10*1) * 500 = 50 px.
+    CHECK_NEAR(render::projectedRadiusPixels(1.0f, 10.0f, fov, 1000.0f), 50.0f, 1e-2f);
+    CHECK(render::projectedRadiusPixels(1.0f, 5.0f, fov, 1000.0f) > 90.0f); // closer -> bigger
+    CHECK(render::projectedRadiusPixels(1.0f, 0.0f, fov, 1000.0f) > 0.0f);  // at the eye
+
+    render::LodChain c;
+    c.addLevel(100.0f); // LOD0 when >= 100 px
+    c.addLevel(40.0f);  // LOD1 when >= 40 px
+    c.addLevel(10.0f);  // LOD2 when >= 10 px
+    c.setCullBelowLast(true);
+    CHECK(c.select(120.0f) == 0);
+    CHECK(c.select(50.0f) == 1);
+    CHECK(c.select(20.0f) == 2);
+    CHECK(c.select(5.0f) == -1); // culled below the coarsest threshold
+
+    c.setCullBelowLast(false);
+    CHECK(c.select(5.0f) == 2); // clamps to coarsest instead of culling
+
+    // lod_bias keeps finer LODs longer: 30 px * 2 = 60 -> LOD1 (vs LOD2 unbiased).
+    c.setBias(1.0f);
+    CHECK(c.select(30.0f) == 2);
+    c.setBias(2.0f);
+    CHECK(c.select(30.0f) == 1);
+    c.setBias(1.0f);
+
+    // Projection + select in one call: radius 2 @ dist 10 -> 100 px -> LOD0.
+    CHECK(c.selectForCamera(2.0f, 10.0f, fov, 1000.0f) == 0);
+
+    // Hysteresis avoids flicker at a boundary.
+    CHECK(c.selectStable(41.0f, 1, 4.0f) == 1); // just above 40, already LOD1 -> stays
+    CHECK(c.selectStable(98.0f, 0, 4.0f) == 0); // within margin of the 100 boundary -> stays LOD0
+    CHECK(c.selectStable(90.0f, 0, 4.0f) == 1); // clearly below 100-margin -> drops to LOD1
 }
 
 void testGettextPo() {
@@ -18318,6 +18356,7 @@ int main() {
     testVisibleOnScreenNotifier2D();
     testGridMap();
     testObjLoader();
+    testMeshLod();
     testGettextPo();
     testConvexHull3D();
     testHeightField3D();

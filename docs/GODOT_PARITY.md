@@ -76,7 +76,10 @@ Godot's headline 3D feature set. Maz has analytic IBL + shadow maps only.
 - [ ] **[GPU]** TAA + FSR/AMD upscaling; FXAA
 - [ ] **[GPU]** GPU-driven particles (Maz particles are CPU) + particle collision/attractors on GPU
 - [ ] **[GPU]** Decals
-- [ ] **[CPU]** Mesh **LOD** selection + [GPU] auto-LOD generation
+- [~] **[CPU]** Mesh **LOD** selection + [GPU] auto-LOD generation
+  — **LOD selection done** (M231): `render::LodChain` — screen-coverage LOD pick (projected pixel
+  size vs per-level thresholds), lod_bias, cull-below-last, and switch hysteresis. [GPU] auto-LOD
+  mesh *generation* (decimation) remains.
 - [ ] **[CPU]** Occlusion culling (portal/occluder math is CPU) + [GPU] HW occlusion queries
 - [ ] **[GPU]** VMA (Vulkan Memory Allocator) — replace manual allocations
 - [ ] **[CPU]** Compressed textures **KTX2 container** — ✅ parsing done (M209); [GPU] transcode+upload remain
