@@ -87,6 +87,14 @@ public:
     // Oscillator section (subtractive mode): a detuned 2nd oscillator (cents + level) for width, a
     // sub-oscillator one octave down, and a noise layer. All 0 → a single clean oscillator.
     void setOscillators(float detuneCents, float osc2Level, float subLevel, float noiseLevel);
+    // Coarse tune for the 2nd oscillator in semitones (-24..+24): stacks it a fixed musical interval
+    // (octave, fifth, …) above/below the note for fat two-oscillator sounds. Combines with the fine
+    // `detuneCents`. Ignored while hard sync is on (there the slave pitch is the sync ratio).
+    void setOsc2Semitones(float semis) {
+        osc2Semitones_ = semis < -24.0f ? -24.0f : (semis > 24.0f ? 24.0f : semis);
+    }
+    float osc2Semitones() const { return osc2Semitones_; }
+
     // Sub-oscillator waveform (one octave below the note): Sine (default, pure weight) or Square
     // (buzzy, more harmonics). Only matters when subLevel > 0.
     void setSubWaveform(Waveform w) { subWave_ = w; }
@@ -190,6 +198,7 @@ private:
     float pulseWidth_ = 0.5f;   // square duty cycle; 0.5 = plain square
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
+    float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;
     float noiseLevel_ = 0.0f;

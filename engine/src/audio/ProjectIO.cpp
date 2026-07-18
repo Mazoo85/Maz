@@ -79,6 +79,10 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> pw) {
         syn.setPulseWidth(pw);
     }
+    float osc2semi = 0.0f; // osc2 coarse tune optional for old files
+    if (ls >> osc2semi) {
+        syn.setOsc2Semitones(osc2semi);
+    }
 }
 } // namespace
 
@@ -132,7 +136,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
-          << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << "\n";
+          << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << " "
+          << s.osc2Semitones() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

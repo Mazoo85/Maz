@@ -229,6 +229,24 @@ int main() {
         audio::SynthInstrument dsync;
         check(!dsync.hardSync(), "hard sync defaults off");
 
+        // Osc2 coarse tune: a 2nd sine oscillator an octave up adds a bright partial the unison
+        // (coarse 0) tone lacks → more high-frequency energy.
+        auto coarseRender = [&](float semis) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 1.0f, 0.0f, 0.0f); // osc2 fully up, no fine detune
+            s.setOsc2Semitones(semis);
+            s.noteOn(48, 1.0f); // C3 (low, so the raised partials stay well below Nyquist)
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        // Both cases have osc2 at full level; only the interval differs, so the extra high-frequency
+        // energy comes purely from the coarse tune raising osc2's pitch (+24 = two octaves).
+        check(hf(coarseRender(24.0f)) > hf(coarseRender(0.0f)) * 2.0,
+              "a coarse-tuned osc2 (two octaves up) adds high-frequency energy");
+        audio::SynthInstrument dcoarse;
+        check(dcoarse.osc2Semitones() == 0.0f, "osc2 coarse tune defaults to 0");
+
         // Pulse width: the fraction of a square oscillator's samples spent high equals the duty cycle.
         auto positiveFraction = [&](float pulseWidth) {
             audio::SynthInstrument s;
