@@ -191,7 +191,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   conversion giving Maz Godot's code-point view of text: `utf8EncodeChar`/`utf8Encode` (String ->
   to_utf8_buffer), `utf8Decode` (parse_utf8), and `utf8Length` (String.length — code points, not
   bytes). Rejects overlong forms, surrogates and out-of-range values, and maps malformed bytes to
-  U+FFFD with resync; verified by exact byte encodings, round-trips, and malformed-input handling.
+  U+FFFD with resync; verified by exact byte encodings, round-trips, and malformed-input handling;
+  plus `core::stringHash32` / `stringHash64` (M313) — Godot's String.hash / hash64 (djb2, seed 5381,
+  hash*33+c) hashing over CODE POINTS (via utf8Decode) so "é" hashes as one value, not its bytes;
+  verified against hand-computed djb2 values and the code-point-vs-byte distinction.
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).
 - **Tooling:** in-engine editor (viewport, gizmos, inspector, undo/redo, save/load, asset browser,

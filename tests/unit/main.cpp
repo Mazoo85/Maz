@@ -69,6 +69,7 @@
 #include "maz/core/KdTree2D.hpp"
 #include "maz/core/NodePath.hpp"
 #include "maz/core/Noise.hpp"
+#include "maz/core/StringHash.hpp"
 #include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/PoissonDisk.hpp"
@@ -11230,6 +11231,26 @@ void testUtf8() {
     // Surrogate / out-of-range encode as U+FFFD.
     CHECK(c::utf8EncodeChar(0xD800u) == c::utf8EncodeChar(c::kReplacementChar));
     CHECK(c::utf8EncodeChar(0x110000u) == c::utf8EncodeChar(c::kReplacementChar));
+}
+
+// M313: String djb2 hash over code points (Godot String.hash / hash64).
+void testStringHash() {
+    namespace c = maz::core;
+    CHECK(c::stringHash32("") == 5381u);
+    CHECK(c::stringHash64("") == 5381ull);
+    CHECK(c::stringHash32("a") == 5381u * 33u + 97u);
+    CHECK(c::stringHash32("abc") == 193485963u);
+    CHECK(c::stringHash32("hello world") == c::stringHash32("hello world")); // deterministic
+    // Code-point hashing: "é" (U+00E9) hashes as one value, not its two UTF-8 bytes.
+    {
+        std::uint32_t cp = 5381u * 33u + 0x00E9u;
+        std::uint32_t bytes = (((5381u * 33u) + 0xC3u) * 33u) + 0xA9u;
+        CHECK(c::stringHash32("\xC3\xA9") == cp);
+        CHECK(c::stringHash32("\xC3\xA9") != bytes);
+    }
+    CHECK(static_cast<std::uint32_t>(c::stringHash64("abc")) == c::stringHash32("abc"));
+    CHECK(c::stringHash32("cat") != c::stringHash32("dog"));
+    CHECK(c::stringHash32("ab") != c::stringHash32("ba"));
 }
 
 // M309: NodePath parsing (Godot NodePath — names, subnames, absolute flag, reconstruction).
@@ -22639,6 +22660,7 @@ int main() {
     testStringUtils();
     testNodePath();
     testUtf8();
+    testStringHash();
     testVariant();
     testVariantContainers();
     testStringFormat();
