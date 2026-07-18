@@ -41,7 +41,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   queries, verified against brute force), **Geometry3D segment/triangle/sphere helpers** (M262 —
   Godot's Geometry3D statics: closestPointToSegment, closestPointsBetweenSegments (skew lines),
   Moller-Trumbore rayIntersectsTriangle, segmentIntersectsTriangle, segmentIntersectsSphere for
-  picking / line-of-sight / ballistics).
+  picking / line-of-sight / ballistics), **Curve3D + Path3D/PathFollow3D** (M263, `math::Curve3D` +
+  `game::PathFollow3D` — 3D cubic-Bezier path with arc-length baking (Godot Curve3D) and constant-speed
+  traversal with loop/clamp + forward tangent (Godot Path3D/PathFollow3D; rotation-mode/up-vector
+  banking left to the caller)).
 - **3D rendering (CPU-verifiable parts):** PBR (Cook-Torrance GGX, metallic/roughness), analytic
   IBL, tonemap operators incl. **AgX**, bloom, SSAO, MSAA, fog, shadow mapping w/ PCF, frustum
   culling, instancing, billboards, procedural primitives, glTF scenes.

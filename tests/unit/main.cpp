@@ -95,6 +95,7 @@
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
 #include "maz/game/AStar3D.hpp"
+#include "maz/game/PathFollow3D.hpp"
 #include "maz/game/Bvh.hpp"
 #include "maz/game/Octree.hpp"
 #include "maz/game/Quadtree.hpp"
@@ -180,6 +181,7 @@
 #include "maz/io/PrefabText.hpp"
 #include "maz/io/ResourcePack.hpp"
 #include "maz/math/Curve2D.hpp"
+#include "maz/math/Curve3D.hpp"
 #include "maz/math/Delaunay.hpp"
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Voronoi.hpp"
@@ -538,6 +540,90 @@ void testVoronoi() {
         CHECK(voronoiCells({}, lo, hi).empty());
         auto bad = voronoiCells({{1, 1}}, hi, lo);
         CHECK((bad.size() == 1 && bad[0].empty()));
+    }
+}
+
+void testCurve3D() {
+    using game::PathFollow3D;
+    using game::PathSample3D;
+    using math::Curve3D;
+    using math::vec3;
+
+    // Straight line 0..100 along +x.
+    Curve3D c;
+    c.addPoint(vec3(0, 0, 0));
+    c.addPoint(vec3(100, 0, 0));
+    CHECK(c.pointCount() == 2);
+    CHECK_NEAR(c.sample(0.0f).x, 0.0f, 1e-4f);
+    CHECK_NEAR(c.sample(1.0f).x, 100.0f, 1e-4f);
+    CHECK_NEAR(c.length(), 100.0f, 0.5f);
+    const vec3 t = c.tangent(0.5f);
+    CHECK_NEAR(t.x, 1.0f, 1e-3f);
+    CHECK_NEAR(t.y, 0.0f, 1e-3f);
+    CHECK_NEAR(t.z, 0.0f, 1e-3f);
+
+    // Baked constant-speed sampling.
+    c.bake(10.0f);
+    CHECK_NEAR(c.bakedLength(), 100.0f, 1.0f);
+    CHECK_NEAR(c.sampleBaked(50.0f).x, 50.0f, 1.0f);
+    CHECK_NEAR(c.sampleBaked(-5.0f).x, 0.0f, 1e-3f);
+    CHECK_NEAR(c.sampleBaked(1000.0f).x, 100.0f, 0.5f);
+
+    // 3D bowed curve: longer than the chord, bulges in +z.
+    {
+        Curve3D b;
+        b.addPoint(vec3(0, 0, 0), vec3(0), vec3(0, 0, 80));
+        b.addPoint(vec3(100, 0, 0), vec3(0, 0, 80), vec3(0));
+        CHECK_NEAR(b.sample(0.0f).x, 0.0f, 1e-4f);
+        CHECK_NEAR(b.sample(1.0f).x, 100.0f, 1e-4f);
+        CHECK(b.length() > 100.0f);
+        CHECK(b.sampleSegment(0, 0.5f).z > 1.0f);
+    }
+
+    // Constant-speed: equal arc steps cover ~equal ground on a curved path.
+    {
+        Curve3D b;
+        b.addPoint(vec3(0, 0, 0), vec3(0), vec3(120, 0, 0));
+        b.addPoint(vec3(200, 200, 0), vec3(0, -120, 0), vec3(0));
+        b.bake(4.0f);
+        const float L = b.bakedLength();
+        const vec3 p1 = b.sampleBaked(L * 0.25f), p2 = b.sampleBaked(L * 0.5f),
+                   p3 = b.sampleBaked(L * 0.75f);
+        const float d1 = glm::length(p2 - p1), d2 = glm::length(p3 - p2);
+        CHECK((d1 > 0.0f && d2 > 0.0f));
+        CHECK(std::fabs(d1 - d2) < 0.15f * std::max(d1, d2));
+    }
+
+    // PathFollow3D: progress, ratio, loop/clamp, forward tangent along +z.
+    {
+        Curve3D line;
+        line.addPoint(vec3(0, 0, 0));
+        line.addPoint(vec3(0, 0, 100));
+        line.bake(4.0f);
+        PathFollow3D pf(&line);
+        const float len = pf.length();
+        CHECK_NEAR(len, 100.0f, 1.0f);
+        pf.setProgress(len * 0.5f);
+        PathSample3D s = pf.sample();
+        CHECK_NEAR(s.position.z, 50.0f, 1.0f);
+        CHECK_NEAR(s.forward.z, 1.0f, 1e-2f);
+        pf.setProgressRatio(0.25f);
+        CHECK_NEAR(pf.progressRatio(), 0.25f, 1e-3f);
+        pf.setLoop(false);
+        pf.setProgress(len + 50.0f);
+        CHECK_NEAR(pf.progress(), len, 1e-3f);
+        pf.setLoop(true);
+        pf.setProgress(len + 10.0f);
+        CHECK_NEAR(pf.progress(), 10.0f, 1e-3f);
+    }
+
+    // No curve -> safe zero.
+    {
+        PathFollow3D e;
+        CHECK_NEAR(e.length(), 0.0f, 1e-6f);
+        PathSample3D s = e.sample();
+        CHECK_NEAR(s.position.x, 0.0f, 1e-6f);
+        CHECK_NEAR(s.position.z, 0.0f, 1e-6f);
     }
 }
 
@@ -20498,6 +20584,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testCurve3D();
     testDelaunay();
     testVoronoi();
     testAtlasPacker();
