@@ -176,7 +176,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (append/insert/find/slice/reverse) and ordered string->Variant map (has/get/set/erase/keys/values/
   merge, insertion order preserved); plus `core::formatWith` (M297) — Godot's String.format:
   `{0}`/`{1}` positional substitution from an Array and `{key}` named substitution from a Dictionary
-  (values stringified via Variant; unknown placeholders left verbatim).
+  (values stringified via Variant; unknown placeholders left verbatim); plus `core::NodePath` (M309)
+  — Godot's NodePath: parses "../Enemies/Boss:health:x" into an absolute flag, name components
+  (split on "/", keeping "."/".."), and ":"-separated subnames, with get_name_count/get_name,
+  get_subname_count/get_subname, is_absolute, get_concatenated_names/subnames, is_empty and exact
+  string reconstruction (verified by round-trip).
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).
 - **Tooling:** in-engine editor (viewport, gizmos, inspector, undo/redo, save/load, asset browser,

@@ -67,6 +67,7 @@
 #include "maz/core/Jobs.hpp"
 #include "maz/core/LogSinks.hpp"
 #include "maz/core/KdTree2D.hpp"
+#include "maz/core/NodePath.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/PoissonDisk.hpp"
@@ -11163,6 +11164,57 @@ void testVariantContainers() {
     v.set("b", 2);
     const auto vals = v.values();
     CHECK((vals.size() == 2 && vals[0] == Variant(1) && vals[1] == Variant(2)));
+}
+
+// M309: NodePath parsing (Godot NodePath — names, subnames, absolute flag, reconstruction).
+void testNodePath() {
+    using maz::core::NodePath;
+    {
+        NodePath p("Node/Child");
+        CHECK(!p.isAbsolute() && !p.isEmpty());
+        CHECK(p.getNameCount() == 2);
+        CHECK(p.getName(0) == "Node" && p.getName(1) == "Child");
+        CHECK(p.getSubnameCount() == 0);
+        CHECK(p.getConcatenatedNames() == "Node/Child");
+        CHECK(p.toString() == "Node/Child");
+    }
+    {
+        NodePath p("/root/Main");
+        CHECK(p.isAbsolute() && p.getNameCount() == 2 && p.getName(0) == "root");
+        CHECK(p.toString() == "/root/Main");
+    }
+    {
+        NodePath p("Sprite2D:position:x");
+        CHECK(p.getNameCount() == 1 && p.getName(0) == "Sprite2D");
+        CHECK(p.getSubnameCount() == 2 && p.getSubname(0) == "position" && p.getSubname(1) == "x");
+        CHECK(p.getConcatenatedSubnames() == "position:x");
+        CHECK(p.toString() == "Sprite2D:position:x");
+    }
+    {
+        NodePath p(":position");
+        CHECK(p.getNameCount() == 0 && p.getSubnameCount() == 1 && !p.isAbsolute());
+        CHECK(p.toString() == ":position");
+    }
+    {
+        NodePath p("../Enemy");
+        CHECK(p.getNameCount() == 2 && p.getName(0) == ".." && p.getName(1) == "Enemy");
+        CHECK(p.toString() == "../Enemy");
+    }
+    {
+        NodePath e("");
+        CHECK(e.isEmpty() && e.getNameCount() == 0 && e.getSubnameCount() == 0);
+        CHECK(e.toString().empty());
+    }
+    CHECK(NodePath("A/B:c") == NodePath("A/B:c"));
+    CHECK(NodePath("A/B") != NodePath("/A/B"));
+    CHECK(NodePath("A:b") != NodePath("A:c"));
+    const char* cases[] = {"Node/Child",           "/root/Main", "Sprite2D:position:x",
+                           ":position",            "../Enemy",   "/root/Player:health",
+                           ".",                    "..",         "A/B/C:d:e:f"};
+    for (const char* c : cases) {
+        NodePath p(c);
+        CHECK(NodePath(p.toString()) == p);
+    }
 }
 
 void testStringUtils() {
@@ -22495,6 +22547,7 @@ int main() {
     testSignal();
     testStringId();
     testStringUtils();
+    testNodePath();
     testVariant();
     testVariantContainers();
     testStringFormat();
