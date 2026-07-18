@@ -10846,6 +10846,34 @@ void testStringUtils() {
     CHECK(su::hexToInt("-0x1A") == -26);
     CHECK(su::hexToInt("deadbeef") == 0xdeadbeefLL);
     CHECK(su::hexToInt("zz") == 0);
+
+    // file-path helpers (M285): get_extension / get_basename / get_file / get_base_dir / path_join /
+    // simplify_path.
+    CHECK(su::getExtension("a/b/c.txt") == "txt");
+    CHECK(su::getExtension("c.tar.gz") == "gz");
+    CHECK(su::getExtension("noext").empty());
+    CHECK(su::getExtension("a.b/c").empty()); // dot in a directory, not the file
+    CHECK(su::getExtension(".gitignore") == "gitignore");
+    CHECK(su::getBasename("a/b.txt") == "a/b");
+    CHECK(su::getBasename("a/b") == "a/b");
+    CHECK(su::getFile("a/b/c.txt") == "c.txt");
+    CHECK(su::getFile("c.txt") == "c.txt");
+    CHECK(su::getBaseDir("a/b/c.txt") == "a/b");
+    CHECK(su::getBaseDir("/a/b") == "/a");
+    CHECK(su::getBaseDir("c.txt").empty());
+    CHECK(su::getBaseDir("/top") == "/");
+    CHECK(su::pathJoin("a", "b") == "a/b");
+    CHECK(su::pathJoin("a/", "b") == "a/b");
+    CHECK(su::pathJoin("a", "/b") == "a/b");
+    CHECK(su::pathJoin("a/", "/b") == "a/b");
+    CHECK(su::pathJoin("", "b") == "b");
+    CHECK(su::simplifyPath("a/./b") == "a/b");
+    CHECK(su::simplifyPath("a/b/../c") == "a/c");
+    CHECK(su::simplifyPath("a//b") == "a/b");
+    CHECK(su::simplifyPath("/a/../b") == "/b");
+    CHECK(su::simplifyPath("../a") == "../a");
+    CHECK(su::simplifyPath("a/b/..") == "a");
+    CHECK(su::simplifyPath("/..") == "/");
 }
 
 void testSlotMap() {

@@ -64,7 +64,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
   contains/to_lower-upper/repeat/count, plus **number parsing** M274 — toInt/isValidInt/toFloat/
-  isValidFloat/hexToInt matching Godot String's to_int/is_valid_int/to_float/is_valid_float/hex_to_int),
+  isValidFloat/hexToInt matching Godot String's to_int/is_valid_int/to_float/is_valid_float/hex_to_int,
+  plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
+  matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or

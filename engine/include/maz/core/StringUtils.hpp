@@ -261,4 +261,117 @@ inline std::int64_t hexToInt(const std::string& s) {
     return sign * v;
 }
 
+// ---- file-path helpers (Godot String's get_extension / get_basename / get_file / get_base_dir /
+// path_join / simplify_path) (M285) ----------------------------------------------------------------
+
+// The file extension without the dot (Godot's String.get_extension); empty when the final path
+// component has no '.'. A leading-dot name like ".gitignore" is treated as all-extension, matching Godot.
+inline std::string getExtension(const std::string& path) {
+    const std::size_t dot = path.rfind('.');
+    if (dot == std::string::npos) {
+        return "";
+    }
+    const std::size_t slash = path.find_last_of("/\\");
+    if (slash != std::string::npos && dot < slash) {
+        return ""; // the '.' belongs to a directory, not the file
+    }
+    return path.substr(dot + 1);
+}
+
+// The path with its extension removed (Godot's String.get_basename): "a/b.txt" -> "a/b".
+inline std::string getBasename(const std::string& path) {
+    const std::size_t dot = path.rfind('.');
+    if (dot == std::string::npos) {
+        return path;
+    }
+    const std::size_t slash = path.find_last_of("/\\");
+    if (slash != std::string::npos && dot < slash) {
+        return path;
+    }
+    return path.substr(0, dot);
+}
+
+// The final path component (Godot's String.get_file): "a/b/c.txt" -> "c.txt".
+inline std::string getFile(const std::string& path) {
+    const std::size_t slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+// The directory containing the file, without a trailing slash (Godot's String.get_base_dir):
+// "a/b/c.txt" -> "a/b", "/a/b" -> "/a", "c.txt" -> "".
+inline std::string getBaseDir(const std::string& path) {
+    const std::size_t slash = path.find_last_of("/\\");
+    if (slash == std::string::npos) {
+        return "";
+    }
+    if (slash == 0) {
+        return path.substr(0, 1); // keep the root "/"
+    }
+    return path.substr(0, slash);
+}
+
+// Join two path fragments with a single '/' (Godot's String.path_join).
+inline std::string pathJoin(const std::string& a, const std::string& b) {
+    if (a.empty()) {
+        return b;
+    }
+    if (b.empty()) {
+        return a;
+    }
+    const bool aSlash = a.back() == '/' || a.back() == '\\';
+    const bool bSlash = b.front() == '/' || b.front() == '\\';
+    if (aSlash && bSlash) {
+        return a + b.substr(1);
+    }
+    if (aSlash || bSlash) {
+        return a + b;
+    }
+    return a + "/" + b;
+}
+
+// Collapse redundant separators and resolve "." / ".." segments (Godot's String.simplify_path).
+inline std::string simplifyPath(const std::string& path) {
+    const bool absolute = !path.empty() && (path.front() == '/' || path.front() == '\\');
+    std::vector<std::string> stack;
+    std::string seg;
+    auto flush = [&]() {
+        if (seg.empty() || seg == ".") {
+            seg.clear();
+            return;
+        }
+        if (seg == "..") {
+            if (!stack.empty() && stack.back() != "..") {
+                stack.pop_back();
+            } else if (!absolute) {
+                stack.push_back("..");
+            }
+        } else {
+            stack.push_back(seg);
+        }
+        seg.clear();
+    };
+    for (char c : path) {
+        if (c == '/' || c == '\\') {
+            flush();
+        } else {
+            seg.push_back(c);
+        }
+    }
+    flush();
+    std::string out;
+    for (std::size_t i = 0; i < stack.size(); ++i) {
+        if (i) {
+            out.push_back('/');
+        }
+        out += stack[i];
+    }
+    if (absolute) {
+        out = "/" + out;
+    }
+    if (out.empty()) {
+        return absolute ? "/" : ".";
+    }
+    return out;
+}
+
 } // namespace maz::core
