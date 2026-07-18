@@ -133,6 +133,7 @@ int main() {
     mixer.reverb().setMix(0.33f);
     mixer.reverb().setPreDelayMs(35.0f);
     mixer.reverb().setWidth(1.5f);
+    mixer.reverb().setFreeze(true);
     mixer.highpass().setEnabled(true);
     mixer.highpass().setCutoff(45.0f);
     mixer.tilt().setEnabled(true);
@@ -417,6 +418,7 @@ int main() {
           "tape saturation round-trips");
     check(near(mixer2.reverb().preDelayMs(), 35.0f), "reverb pre-delay round-trips");
     check(near(mixer2.reverb().width(), 1.5f), "reverb width round-trips");
+    check(mixer2.reverb().freeze(), "reverb freeze round-trips");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&
               near(mixer2.reverb().mix(), 0.33f),
           "reverb round-trips");

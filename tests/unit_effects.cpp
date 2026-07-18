@@ -201,6 +201,33 @@ int main() {
         check(tail > 0.0, "reverb produces a tail after the impulse");
     }
 
+    // --- Reverb freeze: the tail is held instead of decaying ------------------
+    {
+        auto lateTail = [&](bool freeze) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.5f);
+            rev.setMix(1.0f);
+            std::vector<float> imp(200 * 2, 0.0f);
+            imp[0] = 1.0f;
+            imp[1] = 1.0f;
+            rev.process(imp.data(), 200, sr); // seed a tail
+            rev.setFreeze(freeze);
+            std::vector<float> sil(static_cast<size_t>(sr) * 2 * 2, 0.0f); // 2 s stereo silence
+            rev.process(sil.data(), sr * 2, sr);
+            double e = 0.0;
+            for (int i = sr; i < sr * 2; ++i) { // energy in the final second
+                const double v = static_cast<double>(sil[static_cast<size_t>(i) * 2]);
+                e += v * v;
+            }
+            return e;
+        };
+        check(lateTail(true) > lateTail(false) * 5.0,
+              "freeze holds the reverb tail far longer than a normal decay");
+        audio::Reverb dr;
+        check(!dr.freeze(), "reverb freeze defaults off");
+    }
+
     // --- Reverb width: narrow the wet tail to mono --------------------------
     {
         auto sideEnergy = [&](float width) {

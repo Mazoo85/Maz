@@ -1054,8 +1054,9 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         return;
     }
     ensureSized(sampleRate);
-    const float feedback = 0.7f + 0.28f * std::clamp(roomSize_, 0.0f, 1.0f);
-    const float damp = std::clamp(damping_, 0.0f, 1.0f) * 0.4f;
+    // Freeze: hold the tail forever — lossless feedback, no damping, and no new input enters.
+    const float feedback = freeze_ ? 1.0f : (0.7f + 0.28f * std::clamp(roomSize_, 0.0f, 1.0f));
+    const float damp = freeze_ ? 0.0f : (std::clamp(damping_, 0.0f, 1.0f) * 0.4f);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     constexpr float kInputGain = 0.15f;
 
@@ -1081,6 +1082,9 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
             const int rd = (preWrite_ - preTap + preSize) % preSize;
             in = preBuf_[static_cast<size_t>(rd)];
             preWrite_ = (preWrite_ + 1) % preSize;
+        }
+        if (freeze_) {
+            in = 0.0f; // no new signal enters while frozen; the existing tail circulates
         }
 
         float wetL = 0.0f;

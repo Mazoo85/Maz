@@ -1320,6 +1320,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("width##rev", &rw, 0.0f, 2.0f, "%.2f")) mx.reverb().setWidth(rw);
+        bool frz = mx.reverb().freeze();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("freeze##rev", &frz)) mx.reverb().setFreeze(frz);
     }
     {
         bool en = mx.widener().enabled();
