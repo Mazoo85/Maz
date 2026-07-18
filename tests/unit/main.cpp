@@ -38,6 +38,7 @@
 #include "maz/core/Checkpoints.hpp"
 #include "maz/core/Containers.hpp"
 #include "maz/core/DateTime.hpp"
+#include "maz/core/Hash.hpp"
 #include "maz/core/Memory.hpp"
 #include "maz/core/Reflect.hpp"
 #include "maz/core/Replay.hpp"
@@ -12350,6 +12351,28 @@ void testVectorInt() {
     CHECK_NEAR(c.toVec3().z, 2.0f, 1e-6f);
 }
 
+// Hash: CRC-32 and SHA-256 against the published test vectors (M284).
+void testHash() {
+    using namespace maz::core;
+    // CRC-32/ISO-HDLC.
+    CHECK(crc32(std::string("123456789")) == 0xCBF43926u);
+    CHECK(crc32(std::string("")) == 0u);
+    CHECK(crc32(std::string("The quick brown fox jumps over the lazy dog")) == 0x414FA339u);
+    // SHA-256.
+    CHECK(sha256Hex("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    CHECK(sha256Hex("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    CHECK(sha256Hex("The quick brown fox jumps over the lazy dog") ==
+          "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592");
+    // 56-byte message forces the two-block padding path.
+    CHECK(sha256Hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") ==
+          "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+    // Digest form matches the hex form.
+    {
+        const auto d = sha256(std::string("abc"));
+        CHECK(d[0] == 0xba && d[31] == 0xad);
+    }
+}
+
 // Rect2i: Godot's integer rectangle (M281) — half-open hasPoint, intersect/merge/enclose/grow/abs.
 void testRect2i() {
     using math::Rect2i;
@@ -21650,6 +21673,7 @@ int main() {
     testTransform3D();
     testQuaternion();
     testVectorInt();
+    testHash();
     testRect2i();
     testGeometry2DPolygon();
     testHexGrid();

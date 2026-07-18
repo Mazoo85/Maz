@@ -52,7 +52,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
-  virtual filesystem, **endian-aware byte stream** (M277, `io::StreamPeerBuffer` — Godot's
+  virtual filesystem, **hashing** (M284, `core::sha256` / `sha256Hex` / `crc32` — Godot's
+  HashingContext / crc32 for asset integrity, save checksums, content-addressed caches and network
+  digests; verified against the published SHA-256 / CRC-32 test vectors), **endian-aware byte stream** (M277, `io::StreamPeerBuffer` — Godot's
   StreamPeerBuffer: fixed-width little/big-endian put/get for u8..u64 signed+unsigned, float, double,
   length-prefixed strings, safe past-end reads; for network protocols and portable binary formats),
   semver, deterministic time, replay, checkpoints, profiler, **RNG distribution
