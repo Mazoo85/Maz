@@ -118,6 +118,13 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Velocity ramp: set a linear velocity gradient across the phrase in time — the first-starting
+    // note gets `fromVel`, the last-starting note `toVel`, everything in between interpolated by its
+    // start position (so a crescendo `0.2 → 1.0` swells over the bar, or the reverse fades out). Notes
+    // sharing a start step get the same velocity. If every note starts on the same step they all take
+    // `fromVel`. Velocities are clamped to [0, 1]. Returns the number of notes whose velocity changed.
+    int velocityRamp(float fromVel, float toVel);
+
     // Randomize (humanize) timing: nudge each note's start by a random offset in
     // [−maxSteps, +maxSteps] steps (clamped at 0), for a looser, less-quantized feel. `seed` makes it
     // fully deterministic. Returns the number of notes whose start changed.

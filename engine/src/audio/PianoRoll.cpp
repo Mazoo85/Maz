@@ -361,6 +361,39 @@ int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::velocityRamp(float fromVel, float toVel) {
+    if (notes_.empty()) {
+        return 0;
+    }
+    auto clamp01 = [](float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); };
+    const float from = clamp01(fromVel);
+    const float to = clamp01(toVel);
+    // Span the ramp across the notes' start-step range so it follows musical time.
+    int minStart = notes_[0].startStep;
+    int maxStart = notes_[0].startStep;
+    for (const Note& n : notes_) {
+        if (n.startStep < minStart) {
+            minStart = n.startStep;
+        }
+        if (n.startStep > maxStart) {
+            maxStart = n.startStep;
+        }
+    }
+    const int range = maxStart - minStart;
+    int changed = 0;
+    for (Note& n : notes_) {
+        const float t = range > 0
+                            ? static_cast<float>(n.startStep - minStart) / static_cast<float>(range)
+                            : 0.0f;
+        const float v = clamp01(from + (to - from) * t);
+        if (v != n.velocity) {
+            n.velocity = v;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

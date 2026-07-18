@@ -692,6 +692,17 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Rand time")) {
         roll.randomizeTiming(timingRange, timingSeed++);
     }
+    ImGui::SameLine();
+    static float rampFrom = 0.4f, rampTo = 1.0f;
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::SliderFloat("##rampfrom", &rampFrom, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::SliderFloat("##rampto", &rampTo, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Vel ramp")) {
+        roll.velocityRamp(rampFrom, rampTo);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

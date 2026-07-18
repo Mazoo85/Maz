@@ -1042,6 +1042,43 @@ int main() {
         check(dr.duplicate(0) == 0 && dr.notes().size() == 4, "a zero-offset duplicate is a no-op");
     }
 
+    // --- Velocity ramp -------------------------------------------------------
+    {
+        // Four notes across the bar; a 0.2 → 1.0 ramp should swell linearly by start position.
+        audio::PianoRoll vr;
+        vr.addNote(audio::Note{0, 1, 60, 0.5f});
+        vr.addNote(audio::Note{4, 1, 62, 0.5f});
+        vr.addNote(audio::Note{8, 1, 64, 0.5f});
+        vr.addNote(audio::Note{12, 1, 65, 0.5f});
+        const int changed = vr.velocityRamp(0.2f, 1.0f);
+        check(changed == 4, "velocity ramp adjusts every note");
+        auto velAt = [&](int start) {
+            for (const auto& nt : vr.notes())
+                if (nt.startStep == start) return nt.velocity;
+            return -1.0f;
+        };
+        check(std::fabs(velAt(0) - 0.2f) < 1e-3f, "ramp sets the first note to the start velocity");
+        check(std::fabs(velAt(12) - 1.0f) < 1e-3f, "ramp sets the last note to the end velocity");
+        // Interpolated by start position over the 0..12 span: 4/12 and 8/12 of the way from 0.2→1.0.
+        check(std::fabs(velAt(4) - (0.2f + 0.8f * 4.0f / 12.0f)) < 1e-3f &&
+                  std::fabs(velAt(8) - (0.2f + 0.8f * 8.0f / 12.0f)) < 1e-3f,
+              "in-between notes interpolate linearly by start position");
+        check(velAt(0) < velAt(4) && velAt(4) < velAt(8) && velAt(8) < velAt(12),
+              "the ramp is monotonically increasing");
+
+        // A descending ramp fades out; notes sharing a start step all take the start velocity.
+        audio::PianoRoll fr;
+        fr.addNote(audio::Note{0, 1, 60, 0.5f});
+        fr.addNote(audio::Note{0, 1, 64, 0.5f});
+        fr.addNote(audio::Note{8, 1, 67, 0.5f});
+        fr.velocityRamp(1.0f, 0.0f);
+        int downCount = 0;
+        for (const auto& nt : fr.notes())
+            if (nt.startStep == 0) { check(std::fabs(nt.velocity - 1.0f) < 1e-3f, "same-start notes share the ramp velocity"); ++downCount; }
+        check(downCount == 2, "both notes on the first step were ramped");
+        check(vr.velocityRamp(0.5f, 0.5f) >= 0, "a flat ramp is well-defined");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz
