@@ -68,7 +68,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or
   full datetime with T/space separator + optional Z, validates field ranges incl. leap-year days,
   round-trip + weekday verified).
-- **2D:** sprites/atlas/tilemaps, **hex-grid math** (M280, `game::HexGrid` — axial coordinates:
+- **2D:** sprites/atlas/tilemaps, **isometric tile math** (M283, `game::IsoGrid` — diamond
+  tile↔pixel conversion + neighbours toward Godot TileMap's Isometric layout, round-trip verified),
+  **hex-grid math** (M280, `game::HexGrid` — axial coordinates:
   distance, six neighbours, pixel↔hex for pointy/flat-top, fractional rounding, hex line; the
   coordinate algebra behind Godot's TileMap hexagon layout and hex board games, round-trip verified),
   cameras, parallax, polygons (convex + concave ear-clip),

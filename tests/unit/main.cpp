@@ -118,6 +118,7 @@
 #include "maz/game/Goap.hpp"
 #include "maz/game/HexGrid.hpp"
 #include "maz/game/HexPath.hpp"
+#include "maz/game/IsoGrid.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
@@ -12538,6 +12539,37 @@ void testHexGrid() {
     CHECK(hexFindPath(Hex(0, 0), Hex(2, 0), [](const Hex& h) { return h == Hex(0, 0); }).empty());
 }
 
+// IsoGrid: diamond isometric tile<->pixel conversion (M283).
+void testIsoGrid() {
+    using maz::game::IsoGrid;
+    using maz::math::vec2;
+    using maz::math::Vector2i;
+    const IsoGrid g(64.0f, 32.0f);
+
+    // Known mappings for a 64x32 diamond.
+    auto near2 = [](vec2 a, vec2 b) { return std::fabs(a.x - b.x) < 1e-4f && std::fabs(a.y - b.y) < 1e-4f; };
+    CHECK(near2(g.tileToScreen(Vector2i(0, 0)), vec2(0, 0)));
+    CHECK(near2(g.tileToScreen(Vector2i(1, 0)), vec2(32, 16)));
+    CHECK(near2(g.tileToScreen(Vector2i(0, 1)), vec2(-32, 16)));
+    CHECK(near2(g.tileToScreen(Vector2i(1, 1)), vec2(0, 32)));
+
+    // tile<->screen round-trips across a block.
+    for (int c = -6; c <= 6; ++c) {
+        for (int r = -6; r <= 6; ++r) {
+            const Vector2i cell(c, r);
+            CHECK(g.screenToTile(g.tileToScreen(cell)) == cell);
+        }
+    }
+    // A pixel near a diamond centre rounds to that cell.
+    {
+        vec2 p = g.tileToScreen(Vector2i(2, 3));
+        p.x += 3.0f;
+        p.y -= 2.0f;
+        CHECK(g.screenToTile(p) == Vector2i(2, 3));
+    }
+    CHECK(g.neighbors(Vector2i(2, 2)).size() == 4);
+}
+
 // Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
 // inverse, slerp, angleTo, and mat3 interop. Euler convention matched to Godot's from_euler/get_euler.
 void testQuaternion() {
@@ -21621,6 +21653,7 @@ int main() {
     testRect2i();
     testGeometry2DPolygon();
     testHexGrid();
+    testIsoGrid();
     testSdf();
     testGlyphCache();
     testGraphEdit();
