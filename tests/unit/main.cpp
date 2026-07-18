@@ -13397,6 +13397,25 @@ void testQuaternion() {
         const Q q = Q::fromEuler(vec3(0.2f, 0.9f, -0.3f));
         CHECK(near3(Q::fromMat3(q.toMat3()).xform(vec3(3, -1, 2)), q.xform(vec3(3, -1, 2))));
     }
+    // --- M306: shortest-arc fromTo + getAxis / getAngle ---
+    // fromTo rotates the source direction onto the target (inputs need not be unit).
+    CHECK(near3(Q::fromTo(vec3(1, 0, 0), vec3(0, 1, 0)).xform(vec3(1, 0, 0)), vec3(0, 1, 0)));
+    CHECK(near3(Q::fromTo(vec3(2, 0, 0), vec3(0, 0, 5)).xform(vec3(1, 0, 0)), vec3(0, 0, 1)));
+    // Same direction -> identity (leaves an unrelated vector untouched too).
+    CHECK(near3(Q::fromTo(vec3(0, 1, 0), vec3(0, 3, 0)).xform(vec3(1, 0, 0)), vec3(1, 0, 0)));
+    // Antiparallel -> 180-degree flip.
+    CHECK(near3(Q::fromTo(vec3(1, 0, 0), vec3(-1, 0, 0)).xform(vec3(1, 0, 0)), vec3(-1, 0, 0)));
+    CHECK(near3(Q::fromTo(vec3(0, 0, 1), vec3(0, 0, -1)).xform(vec3(0, 0, 1)), vec3(0, 0, -1)));
+    // getAngle / getAxis recover the axis-angle used to build the quaternion.
+    {
+        const vec3 axis = normalize(vec3(0.3f, 0.7f, -0.2f));
+        for (float a : {0.4f, 1.0f, 2.5f, 3.0f}) {
+            const Q q = Q::fromAxisAngle(axis, a);
+            CHECK_NEAR(q.getAngle(), a, 1e-4f);
+            CHECK(near3(q.getAxis(), axis, 1e-3f));
+        }
+    }
+    CHECK_NEAR(Q::identity().getAngle(), 0.0f, 1e-4f);
 }
 
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.

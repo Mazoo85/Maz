@@ -36,6 +36,27 @@ struct Quaternion {
         return Quaternion(glm::angleAxis(radians, normalize(axis)));
     }
 
+    // Shortest-arc rotation taking direction `from` onto direction `to` — Godot's Quaternion(v0, v1).
+    // Inputs need not be unit length (they are normalized here). When they are exactly opposite the
+    // arc is a 180° turn about an arbitrary perpendicular axis (Godot picks one deterministically).
+    static Quaternion fromTo(const vec3& from, const vec3& to) {
+        const vec3 v0 = normalize(from);
+        const vec3 v1 = normalize(to);
+        const vec3 c = cross(v0, v1);
+        const float d = glm::dot(v0, v1);
+        if (d < -1.0f + 1e-6f) {
+            // Antiparallel: rotate 180° about any axis perpendicular to v0.
+            vec3 axis = cross(vec3(1.0f, 0.0f, 0.0f), v0);
+            if (glm::length(axis) < 1e-6f) {
+                axis = cross(vec3(0.0f, 1.0f, 0.0f), v0);
+            }
+            return Quaternion(glm::angleAxis(3.14159265358979324f, normalize(axis)));
+        }
+        const float s = std::sqrt((1.0f + d) * 2.0f);
+        const float rs = 1.0f / s;
+        return Quaternion(c.x * rs, c.y * rs, c.z * rs, s * 0.5f);
+    }
+
     // Build from Euler angles using Godot's YXZ order (R = Y(y)*X(x)*Z(z)) — Godot's from_euler.
     static Quaternion fromEuler(const vec3& e) {
         const float hy = e.y * 0.5f, hx = e.x * 0.5f, hz = e.z * 0.5f;
@@ -76,6 +97,22 @@ struct Quaternion {
     Quaternion operator*(const Quaternion& o) const { return Quaternion(q * o.q); }
     // Rotate a vector by this quaternion — Godot's `quat * Vector3` / xform.
     vec3 xform(const vec3& v) const { return q * v; }
+
+    // Rotation axis of this quaternion (unit) — Godot's get_axis. Near identity (|w|~1) there is no
+    // meaningful axis; Godot returns the raw (x,y,z), which is ~0, matching here.
+    vec3 getAxis() const {
+        const quat n = glm::normalize(q);
+        if (std::fabs(n.w) > 1.0f - 1e-6f) {
+            return vec3(n.x, n.y, n.z);
+        }
+        const float r = 1.0f / std::sqrt(1.0f - n.w * n.w);
+        return vec3(n.x * r, n.y * r, n.z * r);
+    }
+    // Rotation angle in radians, in [0, 2*pi) — Godot's get_angle (2*acos(w)).
+    float getAngle() const {
+        const quat n = glm::normalize(q);
+        return 2.0f * std::acos(std::fmin(1.0f, std::fmax(-1.0f, n.w)));
+    }
 
     Quaternion normalized() const { return Quaternion(glm::normalize(q)); }
     Quaternion inverse() const { return Quaternion(glm::inverse(q)); }

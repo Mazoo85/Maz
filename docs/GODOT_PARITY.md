@@ -39,7 +39,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   mat4 interop; semantics matched to Godot's Transform3D/Basis source), **Quaternion** (M269,
   `math::Quaternion` — Godot's rotation quaternion: axis-angle + Euler build/read in Godot's exact
   YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
-  so orientations authored in Godot import identically), **Projection** (M292, `math::Projection` —
+  so orientations authored in Godot import identically; M306 adds Godot's shortest-arc two-vector
+  constructor Quaternion(v0,v1) — the rotation taking one direction onto another — plus get_axis /
+  get_angle, verified by rotating the source onto the target and by axis-angle round-trip),
+  **Projection** (M292, `math::Projection` —
   Godot's 4x4 projection-matrix type: perspective/orthographic/frustum constructors (RH, depth 0..1)
   plus the near/far/fov/aspect/is-orthogonal queries recovered from the matrix, xform/project,
   compose and inverse), **scalar math helpers** (M295, `math::MathFuncs` — Godot's @GlobalScope
