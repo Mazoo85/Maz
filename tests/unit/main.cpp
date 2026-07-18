@@ -45,6 +45,7 @@
 #include "maz/platform/AppFocus.hpp"
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/platform/DisplayScale.hpp"
+#include "maz/platform/Displays.hpp"
 #include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -5066,6 +5067,40 @@ void testDisplayScale() {
     CHECK_NEAR(pixelsToLogical(200, 0.0f), 200.0f, 1e-4f);
     CHECK_NEAR(sanitizeScale(2.5f), 2.5f, 1e-6f);
     CHECK_NEAR(sanitizeScale(0.0f), 1.0f, 1e-6f);
+}
+
+void testDisplays() {
+    using namespace maz::platform;
+
+    // Two 1920x1080 monitors side by side: #0 at x=0, #1 at x=1920.
+    const std::vector<DisplayInfo> two = {{0, 0, 0, 1920, 1080, 1.0f},
+                                          {1, 1920, 0, 1920, 1080, 2.0f}};
+
+    // Point containment.
+    CHECK(displayContainingPoint(two, 100, 100) == 0);
+    CHECK(displayContainingPoint(two, 2000, 100) == 1);
+    CHECK(displayContainingPoint(two, -5, 100) == -1);   // left of everything
+    CHECK(displayContainingPoint(two, 100, 2000) == -1); // below everything
+
+    // A window fully on monitor 1.
+    CHECK(displayForRect(two, 2100, 200, 800, 600) == 1);
+    // A window straddling the seam but mostly on #0.
+    CHECK(displayForRect(two, 1400, 200, 800, 600) == 0); // 520px on #0 vs 280 on #1
+    // A window mostly on #1.
+    CHECK(displayForRect(two, 1700, 200, 800, 600) == 1); // 220 on #0 vs 580 on #1
+    // Off-screen entirely -> falls back to first display.
+    CHECK(displayForRect(two, -5000, -5000, 100, 100) == 0);
+    // No displays -> -1.
+    CHECK(displayForRect({}, 0, 0, 100, 100) == -1);
+
+    // overlapArea math.
+    CHECK(overlapArea(two[0], 0, 0, 1920, 1080) == 1920LL * 1080LL); // full cover
+    CHECK(overlapArea(two[1], 0, 0, 100, 100) == 0);                 // disjoint
+
+    // Centering a 800x600 window on monitor 1 (origin 1920,0).
+    const Point2i c = centerRectOnDisplay(two[1], 800, 600);
+    CHECK(c.x == 1920 + (1920 - 800) / 2);
+    CHECK(c.y == (1080 - 600) / 2);
 }
 
 void testProfiler() {
@@ -16831,6 +16866,7 @@ int main() {
     testAppFocus();
     testPresentMode();
     testDisplayScale();
+    testDisplays();
     testNoise();
     testRandom();
     testInterpolate();

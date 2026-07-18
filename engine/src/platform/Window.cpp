@@ -179,6 +179,56 @@ float Window::contentScale() const {
     return 1.0f;
 }
 
+std::vector<DisplayInfo> Window::displays() const {
+    std::vector<DisplayInfo> out;
+    int count = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&count);
+    if (!ids) {
+        return out;
+    }
+    out.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        SDL_Rect bounds{};
+        DisplayInfo d;
+        d.index = i;
+        if (SDL_GetDisplayBounds(ids[i], &bounds)) {
+            d.x = bounds.x;
+            d.y = bounds.y;
+            d.w = bounds.w;
+            d.h = bounds.h;
+        }
+        const float s = SDL_GetDisplayContentScale(ids[i]);
+        d.scale = s > 0.0f ? s : 1.0f;
+        out.push_back(d);
+    }
+    SDL_free(ids);
+    return out;
+}
+
+int Window::currentDisplay() const {
+    if (!m_window) {
+        return -1;
+    }
+    const SDL_DisplayID here = SDL_GetDisplayForWindow(m_window);
+    if (here == 0) {
+        return -1;
+    }
+    int count = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&count);
+    if (!ids) {
+        return -1;
+    }
+    int result = -1;
+    for (int i = 0; i < count; ++i) {
+        if (ids[i] == here) {
+            result = i;
+            break;
+        }
+    }
+    SDL_free(ids);
+    return result;
+}
+
 void Window::drawableSize(uint32_t& w, uint32_t& h) const {
     int pw = 0, ph = 0;
     if (m_window) {

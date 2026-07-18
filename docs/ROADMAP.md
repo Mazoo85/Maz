@@ -196,8 +196,12 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   (`WindowConfig::highDpi` → `SDL_WINDOW_HIGH_PIXEL_DENSITY`), and reports the live display content
   scale (`contentScale()` via `SDL_GetWindowDisplayScale`). `platform::DisplayScale` is the pure,
   unit-tested HiDPI math — `logicalToPixels`/`pixelsToLogical`/`scaledSize` for resolution-
-  independent UI (Godot's `content_scale_factor`). Multi-monitor enumeration / per-monitor moves
-  remain.)
+  independent UI (Godot's `content_scale_factor`). Multi-monitor is now covered too (M208):
+  `platform::Displays` is the pure, unit-tested geometry — `displayContainingPoint`, `overlapArea`,
+  `displayForRect` (the largest-overlap rule an OS uses to decide a window's "current" monitor), and
+  `centerRectOnDisplay`; `Window::displays()`/`currentDisplay()` enumerate live monitors via SDL3
+  (bounds + per-display content scale). Godot's `DisplayServer.get_screen_*`. Per-monitor window
+  *moves* (SDL_SetWindowPosition to a chosen display) remain a thin follow-up.)
 - [x] Focus / minimize / occlusion handling (pause when unfocused) (M205 — `platform::Window` now
   tracks keyboard focus and minimized state from SDL window events (`activation()`/`isFocused()`/
   `isMinimized()`), and `platform::AppFocus` provides a pure `decideFrame(activation, FocusPolicy)`

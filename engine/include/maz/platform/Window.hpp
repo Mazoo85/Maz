@@ -1,8 +1,10 @@
 #pragma once
 
 #include "maz/platform/AppFocus.hpp"
+#include "maz/platform/Displays.hpp"
 
 #include <cstdint>
+#include <vector>
 
 struct SDL_Window;
 struct SDL_Gamepad;
@@ -72,6 +74,13 @@ public:
     // Feed into platform::logicalToPixels / scaledSize for resolution-independent UI. Returns 1.0
     // headless or before the window exists.
     float contentScale() const;
+
+    // Live multi-monitor enumeration (SDL3). displays() returns each connected monitor's virtual-
+    // desktop bounds + content scale; currentDisplay() is the index of the monitor this window is
+    // most on. Feed displays() into platform::displayForRect / centerRectOnDisplay to place windows.
+    // Empty / -1 headless.
+    std::vector<DisplayInfo> displays() const;
+    int currentDisplay() const;
 
     SDL_Window* sdl() const { return m_window; }
 
