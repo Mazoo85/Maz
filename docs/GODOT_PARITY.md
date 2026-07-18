@@ -80,7 +80,11 @@ Godot's headline 3D feature set. Maz has analytic IBL + shadow maps only.
   — **LOD selection done** (M231): `render::LodChain` — screen-coverage LOD pick (projected pixel
   size vs per-level thresholds), lod_bias, cull-below-last, and switch hysteresis. [GPU] auto-LOD
   mesh *generation* (decimation) remains.
-- [ ] **[CPU]** Occlusion culling (portal/occluder math is CPU) + [GPU] HW occlusion queries
+- [x] **[CPU]** Occlusion culling — **software occluder buffer done** (M234): `render::OcclusionBuffer`
+  — conservative coarse depth grid (occluders write their farthest depth; a candidate is culled only
+  when every covered cell is solid AND its nearest point lies at/behind that depth, so nothing visible
+  is ever hidden), plus `projectAabb` (world AABB → screen rect + depth range through a view-proj).
+  This is the CPU technique behind Godot's `OccluderInstance3D`. [GPU] HW occlusion queries remain.
 - [ ] **[GPU]** VMA (Vulkan Memory Allocator) — replace manual allocations
 - [ ] **[CPU]** Compressed textures **KTX2 container** — ✅ parsing done (M209); [GPU] transcode+upload remain
 - [ ] **[GPU]** Anisotropic filtering, back-face-cull toggle, multiple/sub viewports, render-to-viewport

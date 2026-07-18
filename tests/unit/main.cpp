@@ -174,6 +174,7 @@
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/ObjLoader.hpp"
+#include "maz/render/Occlusion.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
@@ -6191,6 +6192,46 @@ void testObjLoader() {
     // No faces -> empty mesh -> false.
     render::shapes::MeshData m5;
     CHECK(!render::parseObj("v 0 0 0\n", m5, noflip));
+}
+
+void testOcclusion() {
+    render::OcclusionBuffer b(16, 16);
+    b.clear();
+    // A near wall covering the whole screen at depth 5.
+    b.addOccluder(0.0f, 0.0f, 16.0f, 16.0f, 5.0f);
+    CHECK(b.isOccluded(4.0f, 4.0f, 8.0f, 8.0f, 10.0f));  // fully behind -> occluded
+    CHECK(!b.isOccluded(4.0f, 4.0f, 8.0f, 8.0f, 2.0f));  // in front -> visible
+    CHECK(b.isOccluded(4.0f, 4.0f, 8.0f, 8.0f, 5.0f));   // exactly at solid depth -> occluded
+
+    // Occluder covers only the left half; an object straddling the edge has uncovered cells.
+    b.clear();
+    b.addOccluder(0.0f, 0.0f, 8.0f, 16.0f, 5.0f);
+    CHECK(b.isOccluded(2.0f, 2.0f, 6.0f, 6.0f, 10.0f));    // inside left half, behind -> occluded
+    CHECK(!b.isOccluded(6.0f, 6.0f, 12.0f, 10.0f, 10.0f)); // extends into uncovered -> visible
+
+    // Overlapping occluders keep the deepest (max) coverage depth.
+    b.clear();
+    b.addOccluder(0.0f, 0.0f, 16.0f, 16.0f, 5.0f);
+    b.addOccluder(4.0f, 4.0f, 12.0f, 12.0f, 9.0f);
+    CHECK_NEAR(b.cell(6, 6), 9.0f, 1e-6f);
+    CHECK_NEAR(b.cell(1, 1), 5.0f, 1e-6f);
+    CHECK(!b.isOccluded(5.0f, 5.0f, 11.0f, 11.0f, 7.0f)); // 7 < 9 over the deep patch -> visible
+    CHECK(b.isOccluded(0.0f, 0.0f, 4.0f, 4.0f, 7.0f));    // 7 >= 5 over the outer wall -> occluded
+
+    // Empty buffer occludes nothing.
+    b.clear();
+    CHECK(!b.isOccluded(4.0f, 4.0f, 8.0f, 8.0f, 100.0f));
+
+    // projectAabb with an orthographic matrix: box at origin -> spans the screen center.
+    const math::mat4 P = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 100.0f);
+    const render::ScreenRect r =
+        render::projectAabb(math::vec3(-1, -1, -1), math::vec3(1, 1, 1), P, 100.0f, 100.0f);
+    CHECK(r.valid);
+    CHECK(r.x0 < 50.0f);
+    CHECK(r.x1 > 50.0f);
+    CHECK(r.y0 < 50.0f);
+    CHECK(r.y1 > 50.0f);
+    CHECK(r.nearDepth <= r.farDepth);
 }
 
 void testMeshLod() {
@@ -18492,6 +18533,7 @@ int main() {
     testVisibleOnScreenNotifier2D();
     testGridMap();
     testObjLoader();
+    testOcclusion();
     testMeshLod();
     testGettextPo();
     testExportConfig();
