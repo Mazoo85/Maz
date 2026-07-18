@@ -190,6 +190,7 @@
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Transform2D.hpp"
+#include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
@@ -11912,6 +11913,74 @@ void testGeometry3DHelpers() {
     }
 }
 
+// VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,
+// direction_to, angle_to, posmod, snapped, rotated, project. Semantics verified against Godot.
+void testVectorOps() {
+    using math::vec2;
+    using math::vec3;
+    const float kPi = 3.14159265358979f;
+    auto near2 = [](vec2 a, vec2 b, float e = 1e-4f) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e;
+    };
+    auto near3 = [](vec3 a, vec3 b, float e = 1e-4f) {
+        return std::fabs(a.x - b.x) < e && std::fabs(a.y - b.y) < e && std::fabs(a.z - b.z) < e;
+    };
+
+    // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
+    CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);
+    CHECK_NEAR(math::fposmod(7.0f, 3.0f), 1.0f, 1e-5f);
+    CHECK_NEAR(math::snappedf(2.3f, 1.0f), 2.0f, 1e-5f);
+    CHECK_NEAR(math::snappedf(2.6f, 0.5f), 2.5f, 1e-5f);
+    CHECK_NEAR(math::snappedf(4.2f, 0.0f), 4.2f, 1e-5f); // step 0 is a no-op
+
+    // cross2 is positive when b is CCW from a; angle/angleTo in radians.
+    CHECK(math::cross2(vec2(1, 0), vec2(0, 1)) > 0.0f);
+    CHECK(math::cross2(vec2(1, 0), vec2(0, -1)) < 0.0f);
+    CHECK_NEAR(math::angle(vec2(0, 1)), kPi / 2, 1e-4f);
+    CHECK_NEAR(math::angleTo(vec2(1, 0), vec2(0, 1)), kPi / 2, 1e-4f);
+    CHECK_NEAR(math::angleTo(vec2(1, 0), vec2(0, -1)), -kPi / 2, 1e-4f);
+    CHECK_NEAR(math::angleToPoint(vec2(0, 0), vec2(0, 5)), kPi / 2, 1e-4f);
+    CHECK_NEAR(math::aspect(vec2(16, 9)), 16.0f / 9.0f, 1e-5f);
+
+    // rotated: 90 deg CCW sends +x to +y.
+    CHECK(near2(math::rotated(vec2(1, 0), kPi / 2), vec2(0, 1)));
+
+    // move_toward: step advances by delta, and clamps without overshooting the target.
+    CHECK(near2(math::moveToward(vec2(0, 0), vec2(10, 0), 3.0f), vec2(3, 0)));
+    CHECK(near2(math::moveToward(vec2(0, 0), vec2(2, 0), 5.0f), vec2(2, 0)));
+
+    // limit_length: leaves short vectors, clamps long ones, direction preserved.
+    CHECK_NEAR(length(math::limitLength(vec2(3, 4), 5.0f)), 5.0f, 1e-4f);
+    CHECK_NEAR(length(math::limitLength(vec2(3, 4), 2.5f)), 2.5f, 1e-4f);
+    CHECK(near2(math::directionTo(vec2(0, 0), vec2(0, 7)), vec2(0, 1)));
+
+    // slide removes the normal component; bounce ricochets; reflect mirrors; bounce == -reflect.
+    CHECK(near2(math::slide(vec2(3, 5), vec2(0, 1)), vec2(3, 0)));
+    CHECK(near2(math::bounce(vec2(3, -5), vec2(0, 1)), vec2(3, 5)));
+    CHECK(near2(math::reflect(vec2(3, -5), vec2(0, 1)), vec2(-3, -5)));
+    {
+        const vec2 b = math::bounce(vec2(3, -5), vec2(0, 1));
+        const vec2 r = math::reflect(vec2(3, -5), vec2(0, 1));
+        CHECK(near2(b, -r));
+    }
+    CHECK(near2(math::project(vec2(3, 4), vec2(1, 0)), vec2(3, 0)));
+    CHECK(near2(math::posmod(vec2(-1, 7), 3.0f), vec2(2, 1)));
+    CHECK(near2(math::snapped(vec2(2.3f, 2.6f), vec2(1, 1)), vec2(2, 3)));
+
+    // Vector3: angle_to is the unsigned [0,pi] angle; slide/bounce/reflect mirror the 2D behaviour.
+    CHECK_NEAR(math::angleTo(vec3(1, 0, 0), vec3(0, 1, 0)), kPi / 2, 1e-4f);
+    CHECK_NEAR(math::angleTo(vec3(1, 0, 0), vec3(-1, 0, 0)), kPi, 1e-4f);
+    CHECK(near3(math::slide(vec3(3, 5, 2), vec3(0, 1, 0)), vec3(3, 0, 2)));
+    CHECK(near3(math::bounce(vec3(3, -5, 2), vec3(0, 1, 0)), vec3(3, 5, 2)));
+    CHECK(near3(math::reflect(vec3(3, -5, 2), vec3(0, 1, 0)), vec3(-3, -5, -2)));
+    CHECK(near3(math::moveToward(vec3(0, 0, 0), vec3(0, 0, 10), 4.0f), vec3(0, 0, 4)));
+    CHECK_NEAR(length(math::limitLength(vec3(0, 3, 4), 2.5f)), 2.5f, 1e-4f);
+    CHECK(near3(math::directionTo(vec3(0, 0, 0), vec3(9, 0, 0)), vec3(1, 0, 0)));
+    CHECK(near3(math::project(vec3(3, 4, 5), vec3(0, 0, 1)), vec3(0, 0, 5)));
+    CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
+    CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
+}
+
 // Sdf: dead-reckoning signed distance field matches a brute-force exact transform, signs correctly.
 void testSdf() {
     const int W = 24, H = 24;
@@ -20889,6 +20958,7 @@ int main() {
     testEcsComponents();
     testGeometry3D();
     testGeometry3DHelpers();
+    testVectorOps();
     testSdf();
     testGlyphCache();
     testGraphEdit();

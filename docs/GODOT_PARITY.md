@@ -22,7 +22,10 @@ phased plan to close them. Each gap is tagged with how it can be verified in thi
 
 These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx milestone tags):
 
-- **Core / math / containers:** vectors/matrices/quats, Transform2D/3D, Rect2, Geometry2D/3D,
+- **Core / math / containers:** vectors/matrices/quats, **Vector2/Vector3 gameplay helpers** (M267,
+  `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
+  angle_to / project / posmod / snapped / rotated, semantics verified against Godot's own source so
+  GDScript-ported logic behaves identically), Transform2D/3D, Rect2, Geometry2D/3D,
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance
