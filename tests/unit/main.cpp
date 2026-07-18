@@ -54,6 +54,7 @@
 #include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
 #include "maz/net/Replication.hpp"
+#include "maz/net/Spawner.hpp"
 #include "maz/net/Rpc.hpp"
 #include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
@@ -5780,6 +5781,73 @@ void testReplication() {
 
     // Bandwidth win: a 1-field delta is smaller than a full snapshot.
     CHECK(wd.bitCount() < wf.bitCount());
+}
+
+void testSpawner() {
+    using net::BitReader;
+    using net::BitWriter;
+    using net::MultiplayerSpawner;
+    using net::SpawnRecord;
+
+    // Authority spawns three, despawns the middle one.
+    MultiplayerSpawner server;
+    const uint32_t a = server.spawn(10, {100, 200});
+    const uint32_t b = server.spawn(11, {});
+    const uint32_t c = server.spawn(10, {7});
+    CHECK((a == 1 && b == 2 && c == 3));
+    CHECK(server.aliveCount() == 3);
+    CHECK(server.despawn(b));
+    CHECK(!server.despawn(999));
+    CHECK((server.aliveCount() == 2 && !server.isAlive(b) && server.isAlive(a)));
+    CHECK(server.hasPendingEvents());
+
+    BitWriter w;
+    server.writeEvents(w);
+    CHECK(!server.hasPendingEvents()); // queue cleared on write
+
+    // Remote applies the stream; callbacks record the spawn/despawn sequence and args round-trip.
+    MultiplayerSpawner client;
+    std::vector<uint32_t> spawned, despawned, argCheck;
+    client.onSpawn = [&](const SpawnRecord& r) {
+        spawned.push_back(r.netId);
+        if (r.netId == a) argCheck = r.args;
+    };
+    client.onDespawn = [&](uint32_t id) { despawned.push_back(id); };
+    BitReader rd(w.bytes());
+    CHECK(client.readEvents(rd));
+    CHECK((spawned == std::vector<uint32_t>{1, 2, 3}));
+    CHECK((despawned == std::vector<uint32_t>{2}));
+    CHECK((argCheck == std::vector<uint32_t>{100, 200}));
+    CHECK((client.aliveCount() == 2 && client.isAlive(1) && client.isAlive(3) && !client.isAlive(2)));
+
+    // Late joiner: a full snapshot rebuilds the whole live set.
+    BitWriter full;
+    server.writeFull(full);
+    MultiplayerSpawner late;
+    std::vector<uint32_t> lateSpawned;
+    late.onSpawn = [&](const SpawnRecord& r) { lateSpawned.push_back(r.netId); };
+    BitReader frd(full.bytes());
+    CHECK(late.readFull(frd));
+    CHECK((lateSpawned == std::vector<uint32_t>{1, 3}));
+    CHECK(late.aliveCount() == 2);
+
+    // Idempotence: re-applying the same event stream does not double-spawn.
+    server.spawn(12, {});
+    BitWriter w2;
+    server.writeEvents(w2);
+    BitReader rd2a(w2.bytes());
+    BitReader rd2b(w2.bytes());
+    CHECK(client.readEvents(rd2a));
+    const std::size_t afterFirst = client.aliveCount();
+    CHECK(client.readEvents(rd2b));
+    CHECK(client.aliveCount() == afterFirst);
+
+    // Malformed (truncated) stream is rejected, not crashed.
+    BitWriter bad;
+    bad.writeUint(5, 16); // claims 5 events, writes none
+    BitReader brd(bad.bytes());
+    MultiplayerSpawner victim;
+    CHECK(!victim.readEvents(brd));
 }
 
 void testConnection() {
@@ -19173,6 +19241,7 @@ int main() {
     testPrediction();
     testRpc();
     testReplication();
+    testSpawner();
     testConnection();
     testNetSim();
     testPathFollow2D();

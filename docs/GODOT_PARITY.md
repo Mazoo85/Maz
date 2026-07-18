@@ -143,7 +143,14 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
   isosurface (within a cell), correct ring radius/centroid, outward normals, no orphan vertices, and a
   sphere-minus-box CSG meshing into one connected surface. [GPU] upload of the resulting buffers is the
   usual mesh path.
-- [ ] **[CPU]** MultiplayerSpawner/Synchronizer scene nodes (needs networking, below)
+- [x] **[CPU]** MultiplayerSpawner/Synchronizer scene nodes (needs networking, below)
+  — **done** (M243): `net::MultiplayerSpawner` — Godot's MultiplayerSpawner. The authority assigns a
+  network id per spawn (scene-type tag + args), queues spawn/despawn events, and serializes them to a
+  BitStream (`writeEvents`); remotes apply via `onSpawn`/`onDespawn` and mirror the live set. `writeFull`/
+  `readFull` give a late joiner a one-shot keyframe of the whole world; replay is idempotent (already-live
+  ids don't double-spawn) and malformed streams are rejected. Pairs with `net::Synchronizer` (M218,
+  MultiplayerSynchronizer) for per-node property sync thereafter. Verified end-to-end (event replication,
+  args round-trip, late-join snapshot, idempotence, truncation). [DESK] real socket transport remains.
 
 ### 8. UI (Control) library  [CPU mostly]
 Maz has a strong slice (LayoutNode, containers, Tree, ItemList, PopupMenu, TextField, StyleBox,
