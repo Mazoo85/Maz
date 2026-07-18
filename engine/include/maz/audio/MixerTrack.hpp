@@ -25,6 +25,10 @@ public:
     float gain() const { return gain_; }
     void setMuted(bool m) { muted_ = m; }
     bool muted() const { return muted_; }
+    // Stereo balance for the bus (-1 = hard left, 0 = centre/transparent, +1 = hard right): attenuates
+    // the opposite channel, so a stereo bus keeps its image at centre and leans to one side off it.
+    void setPan(float p) { pan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
+    float pan() const { return pan_; }
 
     HighPass& highpass() { return hp_; } // clean the bus's low end before the other inserts
     ParametricEQ& eq() { return eq_; }
@@ -36,7 +40,7 @@ public:
 
     // Whether this track changes its input at all (any insert on, non-unity gain, or muted).
     bool active() const {
-        if (muted_ || gain_ != 1.0f) {
+        if (muted_ || gain_ != 1.0f || pan_ != 0.0f) {
             return true;
         }
         for (const Effect* fx : chain_) {
@@ -68,6 +72,15 @@ public:
                 stereo[i] *= gain_;
             }
         }
+        // Balance: attenuate the channel opposite the pan direction (transparent at centre).
+        if (pan_ != 0.0f) {
+            const float lg = pan_ > 0.0f ? 1.0f - pan_ : 1.0f;
+            const float rg = pan_ < 0.0f ? 1.0f + pan_ : 1.0f;
+            for (int i = 0; i < frames; ++i) {
+                stereo[2 * i] *= lg;
+                stereo[2 * i + 1] *= rg;
+            }
+        }
     }
 
     void reset() {
@@ -79,6 +92,7 @@ public:
 private:
     float gain_ = 1.0f;
     bool muted_ = false;
+    float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
     HighPass hp_{};
     ParametricEQ eq_{};
     Distortion dist_{};

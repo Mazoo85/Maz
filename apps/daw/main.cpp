@@ -1408,6 +1408,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
             float g = tr.gain();
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::SliderFloat("gain##trk", &g, 0.0f, 2.0f, "%.2f")) tr.setGain(g);
+            ImGui::SameLine();
+            float pan = tr.pan();
+            ImGui::SetNextItemWidth(100.0f);
+            if (ImGui::SliderFloat("pan##trk", &pan, -1.0f, 1.0f, "%.2f")) tr.setPan(pan);
 
             bool eqEn = tr.eq().enabled();
             if (ImGui::Checkbox("EQ##trk", &eqEn)) tr.eq().setEnabled(eqEn);

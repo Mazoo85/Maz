@@ -1185,6 +1185,20 @@ int main() {
         const double lowIn = rms(low);
         hp.process(low.data(), sr, sr);
         check(rms(low) < lowIn * 0.3, "per-bus high-pass attenuates a low tone below its cutoff");
+
+        // Per-bus pan/balance: hard left silences the right channel, leaves the left, stays active.
+        audio::MixerTrack panned;
+        panned.setPan(-1.0f);
+        check(panned.active(), "a non-centre pan makes the track active");
+        std::vector<float> pl = sineStereo(1000, 440.0, 0.5, sr);
+        panned.process(pl.data(), 1000, sr);
+        double lE = 0.0, rE = 0.0;
+        for (int i = 0; i < 1000; ++i) {
+            lE += static_cast<double>(pl[static_cast<size_t>(2 * i)]) * pl[static_cast<size_t>(2 * i)];
+            rE += static_cast<double>(pl[static_cast<size_t>(2 * i + 1)]) *
+                  pl[static_cast<size_t>(2 * i + 1)];
+        }
+        check(lE > 0.0 && rE < 1e-9, "hard-left bus pan keeps the left channel and silences the right");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
