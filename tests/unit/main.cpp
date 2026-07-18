@@ -111,6 +111,7 @@
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
+#include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Physics3D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
@@ -5858,6 +5859,64 @@ void testNetSim() {
         CHECK(a.dropped() > 50);  // ~50% of 200, well away from the extremes
         CHECK(a.dropped() < 150);
     }
+}
+
+void testPathFollow2D() {
+    // Straight horizontal line 0..100 (constant-speed baked).
+    math::Curve2D c;
+    c.addPoint(math::vec2(0.0f, 0.0f));
+    c.addPoint(math::vec2(100.0f, 0.0f));
+    c.bake(1.0f);
+    CHECK_NEAR(c.bakedLength(), 100.0f, 0.5f);
+
+    game::PathFollow2D f;
+    f.setProgress(50.0f);
+    game::PathSample2D s = f.sample(c);
+    CHECK_NEAR(s.position.x, 50.0f, 0.02f);
+    CHECK_NEAR(s.position.y, 0.0f, 0.02f);
+    CHECK_NEAR(s.rotation, 0.0f, 0.02f); // tangent points +x
+
+    // progress_ratio getters/setters.
+    CHECK_NEAR(f.progressRatio(c), 0.5f, 0.02f);
+    f.setProgressRatio(0.25f, c);
+    CHECK_NEAR(f.progress(), 25.0f, 0.5f);
+
+    // hOffset slides along the left normal (+y for a +x tangent).
+    f.setProgress(50.0f);
+    f.setHOffset(10.0f);
+    s = f.sample(c);
+    CHECK_NEAR(s.position.x, 50.0f, 0.02f);
+    CHECK_NEAR(s.position.y, 10.0f, 0.02f);
+    f.setHOffset(0.0f);
+
+    // Clamp mode: past the ends clamps to the endpoints.
+    f.setLoop(false);
+    f.setProgress(150.0f);
+    CHECK_NEAR(f.sample(c).position.x, 100.0f, 0.02f);
+    f.setProgress(-20.0f);
+    CHECK_NEAR(f.sample(c).position.x, 0.0f, 0.02f);
+
+    // Loop mode: progress wraps around the length.
+    f.setLoop(true);
+    f.setProgress(150.0f);
+    CHECK_NEAR(f.sample(c).position.x, 50.0f, 0.02f);
+    f.setProgress(-10.0f);
+    CHECK_NEAR(f.sample(c).position.x, 90.0f, 0.02f);
+
+    // Vertical line -> tangent +y -> heading ~ +pi/2 when rotates is on.
+    math::Curve2D v;
+    v.addPoint(math::vec2(0.0f, 0.0f));
+    v.addPoint(math::vec2(0.0f, 100.0f));
+    v.bake(1.0f);
+    game::PathFollow2D vf;
+    vf.setProgress(50.0f);
+    game::PathSample2D vs = vf.sample(v);
+    CHECK_NEAR(vs.position.x, 0.0f, 0.02f);
+    CHECK_NEAR(vs.position.y, 50.0f, 0.02f);
+    CHECK_NEAR(vs.rotation, 3.14159265f / 2.0f, 0.05f);
+    // rotates off -> heading stays 0.
+    vf.setRotates(false);
+    CHECK_NEAR(vf.sample(v).rotation, 0.0f, 0.02f);
 }
 
 void testProfiler() {
@@ -17636,6 +17695,7 @@ int main() {
     testReplication();
     testConnection();
     testNetSim();
+    testPathFollow2D();
     testNoise();
     testRandom();
     testInterpolate();

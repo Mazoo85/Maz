@@ -104,7 +104,9 @@ Maz has a minimal editor; Godot's is vast.
 
 ### 7. Node & scene-system breadth  [CPU mostly]
 Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-value nodes:
-- [ ] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
+- [~] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
+  — **PathFollow2D done** (M221): `game::PathFollow2D` walks a Curve2D by progress/progress-ratio,
+  loop-or-clamp ends, hOffset along the path normal, tangent-following rotation. Others remain.
 - [ ] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
 - [ ] **[CPU]** GridMap (3D tile map) — *data model [CPU]*, [GPU] render
 - [ ] **[CPU]** CSG (constructive solid geometry) mesh ops — *pure mesh boolean math is [CPU]*
