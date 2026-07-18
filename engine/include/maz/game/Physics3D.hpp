@@ -864,14 +864,18 @@ inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
 // makeDistanceJoint3. Either body may be static (invMass 0). `beta` is the position-correction
 // stiffness.
 struct Joint3D {
-    enum Kind { Pin, Distance, Hinge, Slider };
+    enum Kind { Pin, Distance, Hinge, Slider, ConeTwist };
     int a = -1, b = -1;
     int kind = Pin;
     math::vec3 localA{0.0f}; // anchor in a's local frame (relative to a.pos, before rotation)
     math::vec3 localB{0.0f}; // anchor in b's local frame
-    math::vec3 axisLocalA{0, 0, 1}; // hinge/slider axis in a's local frame
-    math::vec3 axisLocalB{0, 0, 1}; // hinge/slider axis in b's local frame (equal in world at build)
+    math::vec3 axisLocalA{0, 0, 1}; // hinge/slider/cone axis in a's local frame
+    math::vec3 axisLocalB{0, 0, 1}; // hinge/slider/twist axis in b's local frame (equal in world at build)
     float restLength = 0.0f;        // used when kind == Distance
+    // ConeTwist limits (radians). swingSpan caps how far b's twist axis may tilt from a's cone axis;
+    // twistSpan caps rotation about that axis. Both are unilateral (free inside, held at the boundary).
+    float swingSpan = 0.7853982f; // 45 degrees
+    float twistSpan = 0.7853982f; // 45 degrees
     float beta = 0.2f;
 };
 
@@ -940,6 +944,31 @@ inline Joint3D makeSliderJoint3(int ia, const Body3D& a, int ib, const Body3D& b
     const math::vec3 axis = al > 1e-9f ? worldAxis / al : math::vec3(0, 0, 1);
     j.axisLocalA = RtA * axis;
     j.axisLocalB = RtB * axis;
+    return j;
+}
+
+// Cone-twist (ragdoll) joint: pin the bodies at a shared world anchor, then constrain b's twist axis
+// to a cone of half-angle `swingSpan` around a's cone axis (`worldAxis`) and its rotation about that
+// axis to +/- `twistSpan` (Godot ConeTwistJoint3D — shoulders, hips, ragdoll limbs). Both limits are
+// unilateral: motion is free inside the cone / twist range and only resisted at the boundary. Angles
+// are radians.
+inline Joint3D makeConeTwistJoint3(int ia, const Body3D& a, int ib, const Body3D& b,
+                                   math::vec3 worldAnchor, math::vec3 worldAxis, float swingSpan,
+                                   float twistSpan) {
+    Joint3D j;
+    j.a = ia;
+    j.b = ib;
+    j.kind = Joint3D::ConeTwist;
+    const math::mat3 RtA = glm::transpose(glm::mat3_cast(a.orientation));
+    const math::mat3 RtB = glm::transpose(glm::mat3_cast(b.orientation));
+    j.localA = RtA * (worldAnchor - a.pos);
+    j.localB = RtB * (worldAnchor - b.pos);
+    const float al = std::sqrt(glm::dot(worldAxis, worldAxis));
+    const math::vec3 axis = al > 1e-9f ? worldAxis / al : math::vec3(0, 0, 1);
+    j.axisLocalA = RtA * axis;
+    j.axisLocalB = RtB * axis;
+    j.swingSpan = swingSpan < 0.0f ? 0.0f : swingSpan;
+    j.twistSpan = twistSpan < 0.0f ? 0.0f : twistSpan;
     return j;
 }
 
@@ -1537,6 +1566,70 @@ private:
                 const math::vec3 Lw = t * L; // angular impulse
                 a.angularVel -= invIA * Lw;
                 b.angularVel += invIB * Lw;
+            }
+        }
+
+        if (j.kind == Joint3D::ConeTwist) {
+            const math::vec3 axisA = glm::mat3_cast(a.orientation) * j.axisLocalA;
+            const math::vec3 axisB = glm::mat3_cast(b.orientation) * j.axisLocalB;
+            const float la = std::sqrt(glm::dot(axisA, axisA));
+            const float lb = std::sqrt(glm::dot(axisB, axisB));
+            if (la < 1e-9f || lb < 1e-9f) {
+                return;
+            }
+            const math::vec3 uA = axisA / la;
+            const math::vec3 uB = axisB / lb;
+            const math::mat3 invISum = invIA + invIB;
+
+            // Swing limit: hold b's twist axis within a cone of half-angle swingSpan around uA.
+            const float cosSwing = std::max(-1.0f, std::min(1.0f, glm::dot(uA, uB)));
+            const float swing = std::acos(cosSwing);
+            if (swing > j.swingSpan) {
+                math::vec3 n = glm::cross(uA, uB); // swing increases along +n (dα/dt = (ωb-ωa)·n)
+                const float nl = std::sqrt(glm::dot(n, n));
+                if (nl > 1e-6f) {
+                    n /= nl;
+                    const float k = glm::dot(n, invISum * n);
+                    if (k > 0.0f) {
+                        const float swingErr = swing - j.swingSpan; // > 0 (violation)
+                        const float cdot = glm::dot(b.angularVel - a.angularVel, n);
+                        float lambda = -(cdot + bias * swingErr) / k;
+                        if (lambda > 0.0f) {
+                            lambda = 0.0f; // unilateral: only pull back toward the cone, never push out
+                        }
+                        const math::vec3 Lw = n * lambda;
+                        a.angularVel -= invIA * Lw;
+                        b.angularVel += invIB * Lw;
+                    }
+                }
+            }
+
+            // Twist limit: rotation of b about the cone axis (relative to a) capped at +/- twistSpan.
+            const math::quat qRel = glm::normalize(glm::conjugate(a.orientation) * b.orientation);
+            const math::vec3 qv(qRel.x, qRel.y, qRel.z);
+            const float d = glm::dot(qv, j.axisLocalA);          // twist component about a's local axis
+            const float twist = 2.0f * std::atan2(d, qRel.w);    // signed twist angle (radians)
+            if (std::fabs(twist) > j.twistSpan) {
+                const float k = glm::dot(uA, invISum * uA);
+                if (k > 0.0f) {
+                    const float twistErr = std::fabs(twist) - j.twistSpan; // > 0 (violation)
+                    const float cdot = glm::dot(b.angularVel - a.angularVel, uA);
+                    float lambda;
+                    if (twist > 0.0f) {
+                        lambda = -(cdot + bias * twistErr) / k;
+                        if (lambda > 0.0f) {
+                            lambda = 0.0f; // over-twisted +: only unwind, never twist further
+                        }
+                    } else {
+                        lambda = -(cdot - bias * twistErr) / k;
+                        if (lambda < 0.0f) {
+                            lambda = 0.0f; // over-twisted -: only unwind, never twist further
+                        }
+                    }
+                    const math::vec3 Lw = uA * lambda;
+                    a.angularVel -= invIA * Lw;
+                    b.angularVel += invIB * Lw;
+                }
             }
         }
     }

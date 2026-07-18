@@ -14076,6 +14076,92 @@ void testPhysics3DHinge() {
     CHECK(minY < 4.8f);         // swung down (toward hanging at pivot.y - 1 = 4)
 }
 
+void testPhysics3DConeTwist() {
+    using game::Body3D;
+
+    auto swingDeg = [](const Body3D& b, math::vec3 coneAxis, math::vec3 localAxis) {
+        const math::vec3 aw = glm::mat3_cast(b.orientation) * localAxis;
+        const float c = glm::clamp(glm::dot(glm::normalize(aw), glm::normalize(coneAxis)), -1.0f, 1.0f);
+        return glm::degrees(std::acos(c));
+    };
+
+    // Pendulum pinned at the origin, mass along +X, cone axis +X. Gravity swings it down; a 30-degree
+    // cone must hold b's twist axis at ~30 degrees from +X (a ragdoll limb hitting its swing stop).
+    const math::vec3 pivot(0, 0, 0);
+    {
+        game::PhysicsWorld3D w;
+        const int anchor = w.add(game::makeSphere(pivot, 0.1f, 0.0f)); // static
+        Body3D box = game::makeBox(math::vec3(2, 0, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        box.friction = 0.0f;
+        box.enableRotation();
+        const int bi = w.add(box);
+        w.joints.push_back(game::makeConeTwistJoint3(
+            anchor, w.bodies[static_cast<size_t>(anchor)], bi, w.bodies[static_cast<size_t>(bi)],
+            pivot, math::vec3(1, 0, 0), glm::radians(30.0f), glm::radians(170.0f)));
+        float maxSwing = 0.0f, worstAnchor = 0.0f;
+        for (int i = 0; i < 600; ++i) {
+            w.step(1.0f / 60.0f, 16);
+            const Body3D& b = w.bodies[static_cast<size_t>(bi)];
+            maxSwing = std::max(maxSwing, swingDeg(b, math::vec3(1, 0, 0), math::vec3(1, 0, 0)));
+            const math::vec3 anch = b.pos + glm::mat3_cast(b.orientation) * math::vec3(-2, 0, 0);
+            worstAnchor = std::max(worstAnchor, std::sqrt(glm::dot(anch - pivot, anch - pivot)));
+        }
+        const Body3D& b = w.bodies[static_cast<size_t>(bi)];
+        const float finalSwing = swingDeg(b, math::vec3(1, 0, 0), math::vec3(1, 0, 0));
+        CHECK(maxSwing < 34.0f);    // never swung out past the cone
+        CHECK(finalSwing > 26.0f);  // gravity holds it resting against the 30-degree stop
+        CHECK(worstAnchor < 0.10f); // the pin held the anchor (peak is the cone-impact transient)
+    }
+
+    // A wide (170-degree) cone must NOT over-constrain: the same pendulum swings freely far past a
+    // narrow cone would allow, and is only caught near 170 degrees.
+    {
+        game::PhysicsWorld3D w;
+        const int anchor = w.add(game::makeSphere(pivot, 0.1f, 0.0f));
+        Body3D box = game::makeBox(math::vec3(2, 0, 0), math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        box.friction = 0.0f;
+        box.enableRotation();
+        const int bi = w.add(box);
+        w.joints.push_back(game::makeConeTwistJoint3(
+            anchor, w.bodies[static_cast<size_t>(anchor)], bi, w.bodies[static_cast<size_t>(bi)],
+            pivot, math::vec3(1, 0, 0), glm::radians(170.0f), glm::radians(170.0f)));
+        float maxSwing = 0.0f;
+        for (int i = 0; i < 1200; ++i) {
+            w.step(1.0f / 60.0f, 16);
+            maxSwing = std::max(
+                maxSwing, swingDeg(w.bodies[static_cast<size_t>(bi)], math::vec3(1, 0, 0),
+                                   math::vec3(1, 0, 0)));
+        }
+        CHECK(maxSwing > 150.0f); // free to swing far -> no false constraint
+        CHECK(maxSwing < 172.0f); // the wide cone still caps it
+    }
+
+    // Twist limit: a body spun about the cone axis is caught at +/- twistSpan, not spun through.
+    {
+        game::PhysicsWorld3D w;
+        w.gravity = math::vec3(0.0f);
+        const int anchor = w.add(game::makeSphere(pivot, 0.1f, 0.0f));
+        Body3D box = game::makeBox(pivot, math::vec3(0.5f, 0.5f, 0.5f), 1.0f);
+        box.friction = 0.0f;
+        box.enableRotation();
+        box.angularVel = math::vec3(4.0f, 0.0f, 0.0f); // spinning about the +X axis
+        const int bi = w.add(box);
+        w.joints.push_back(game::makeConeTwistJoint3(
+            anchor, w.bodies[static_cast<size_t>(anchor)], bi, w.bodies[static_cast<size_t>(bi)],
+            pivot, math::vec3(1, 0, 0), glm::radians(120.0f), glm::radians(45.0f)));
+        float maxTwist = 0.0f;
+        for (int i = 0; i < 400; ++i) {
+            w.step(1.0f / 60.0f, 16);
+            const Body3D& b = w.bodies[static_cast<size_t>(bi)];
+            maxTwist = std::max(maxTwist,
+                                std::fabs(glm::degrees(2.0f * std::atan2(b.orientation.x,
+                                                                         b.orientation.w))));
+        }
+        CHECK(maxTwist > 40.0f); // reached the twist limit
+        CHECK(maxTwist < 52.0f); // caught near it, not spun straight through
+    }
+}
+
 void testEditorScene() {
     using editor::Node;
     using editor::Scene;
@@ -18401,6 +18487,7 @@ int main() {
     testPhysics3DJoint();
     testPhysics3DDistanceJoint();
     testPhysics3DHinge();
+    testPhysics3DConeTwist();
     testEditorScene();
     testEditorPickRay();
     testEditorGizmoDrag();

@@ -148,7 +148,12 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
 - [~] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
   — **slider done** (M230): `Joint3D::Slider` / `makeSliderJoint3` — prismatic joint locking the
   2 perpendicular linear + 2 perpendicular angular DOF, leaving slide+spin along one axis free
-  (SliderJoint3D). cone-twist / 6DOF / soft bodies / ragdolls remain.
+  (SliderJoint3D). **cone-twist done** (M235): `Joint3D::ConeTwist` / `makeConeTwistJoint3` —
+  point-to-point pin plus a unilateral swing cone (b's twist axis held within `swingSpan` of a's
+  cone axis) and a unilateral twist limit (rotation about the axis capped at +/- `twistSpan`), the
+  ragdoll-limb joint (Godot ConeTwistJoint3D). Verified: a pendulum caught exactly at a 30-degree
+  cone stop, a 170-degree cone swinging freely (no false constraint), and a spun body caught at its
+  twist limit. 6DOF / generic / soft bodies / ragdolls remain.
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 
 ### 10. Networking / multiplayer  [BIG][CPU]
