@@ -172,6 +172,7 @@
 #include "maz/scene/TransformGraph.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -179,6 +180,7 @@
 #include <numeric>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -8731,6 +8733,7 @@ void testAssetServer() {
     int guard = 0;
     while (!server.allLoaded() && guard++ < 10000) {
         server.poll();
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let worker threads run
     }
     CHECK(server.allLoaded());
     CHECK(server.status(a) == core::AssetStatus::Loaded);
@@ -8749,6 +8752,7 @@ void testAssetServer() {
     guard = 0;
     while (server.status(missing) == core::AssetStatus::Loading && guard++ < 10000) {
         server.poll();
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let worker threads run
     }
     CHECK(server.status(missing) == core::AssetStatus::Failed);
     CHECK(server.tryGet(missing) == nullptr);
@@ -8764,6 +8768,7 @@ void testAssetServer() {
     guard = 0;
     while (server.status(a) == core::AssetStatus::Loading && guard++ < 10000) {
         server.poll();
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let worker threads run
     }
     CHECK(*server.tryGet(a) == 12); // "hello, world"
     CHECK(server.version(a) == 2);  // consumer sees version change -> re-upload
@@ -8776,6 +8781,7 @@ void testAssetServer() {
     guard = 0;
     while (server.status(b) == core::AssetStatus::Loading && guard++ < 10000) {
         server.poll();
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let worker threads run
     }
     CHECK(server.version(b) == 2);
     CHECK(decodeCalls.load() == before2 + 1);
@@ -8801,6 +8807,7 @@ void testAssetServer() {
     guard = 0;
     while (!many.allLoaded() && guard++ < 100000) {
         many.poll();
+        std::this_thread::sleep_for(std::chrono::microseconds(100)); // let worker threads run
     }
     CHECK(many.allLoaded());
     CHECK(many.liveCount() == 64);
