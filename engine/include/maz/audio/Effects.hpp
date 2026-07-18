@@ -633,6 +633,31 @@ private:
     float width_ = 1.0f;
 };
 
+// A utility / output-stage tool: a gain trim in dB, independent left/right phase (polarity) invert,
+// and a mono-sum toggle — the standard mixing fixes for polarity issues, level trims, and mono
+// checks. Transparent at 0 dB with no inverts and mono off.
+class Utility : public Effect {
+public:
+    Utility() { enabled_ = false; }
+    const char* name() const override { return "Utility"; }
+    void setGainDb(float db) { gainDb_ = db < -24.0f ? -24.0f : (db > 24.0f ? 24.0f : db); }
+    void setInvertL(bool on) { invertL_ = on; }
+    void setInvertR(bool on) { invertR_ = on; }
+    void setMono(bool on) { mono_ = on; }
+    float gainDb() const { return gainDb_; }
+    bool invertL() const { return invertL_; }
+    bool invertR() const { return invertR_; }
+    bool mono() const { return mono_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+
+private:
+    float gainDb_ = 0.0f;
+    bool invertL_ = false;
+    bool invertR_ = false;
+    bool mono_ = false;
+};
+
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
 // length (0..~0.95), `damping` how fast highs decay, `mix` the dry/wet blend.
 class Reverb : public Effect {

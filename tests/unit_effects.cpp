@@ -805,6 +805,54 @@ int main() {
         check(same, "a disabled formant filter is transparent");
     }
 
+    // --- Utility: gain trim, phase invert, mono-sum --------------------------
+    {
+        // Phase invert on the left channel negates it (right untouched).
+        audio::Utility inv;
+        inv.setEnabled(true);
+        inv.setInvertL(true);
+        std::vector<float> b(8, 0.0f);
+        for (int i = 0; i < 4; ++i) {
+            b[static_cast<size_t>(2 * i)] = 0.5f;      // L
+            b[static_cast<size_t>(2 * i + 1)] = 0.3f;  // R
+        }
+        inv.process(b.data(), 4, sr);
+        check(std::fabs(b[0] + 0.5f) < 1e-5f && std::fabs(b[1] - 0.3f) < 1e-5f,
+              "utility phase-inverts the left channel only");
+
+        // Mono-sum collapses L and R to their average on both channels.
+        audio::Utility mono;
+        mono.setEnabled(true);
+        mono.setMono(true);
+        std::vector<float> m = {0.8f, 0.2f, 0.8f, 0.2f};
+        mono.process(m.data(), 2, sr);
+        check(std::fabs(m[0] - 0.5f) < 1e-5f && std::fabs(m[1] - 0.5f) < 1e-5f,
+              "utility mono-sum averages the channels");
+
+        // Gain trim of +6 dB roughly doubles the level.
+        audio::Utility gain;
+        gain.setEnabled(true);
+        gain.setGainDb(6.0f);
+        std::vector<float> g = {0.4f, 0.4f};
+        gain.process(g.data(), 1, sr);
+        check(g[0] > 0.78f && g[0] < 0.82f, "utility +6 dB gain roughly doubles the level");
+
+        // Disabled → transparent.
+        audio::Utility off;
+        off.setInvertL(true);
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        bool same = true;
+        for (size_t i = 0; i < sig.size(); ++i) {
+            if (std::fabs(sig[i] - ref[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "a disabled utility is transparent");
+    }
+
     // --- HighPass: low frequencies attenuated, highs pass -------------------
     {
         audio::HighPass hp;

@@ -266,6 +266,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autopan().depth() << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
       << "\n";
+    f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
+      << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
+      << (mixer.utility().mono() ? 1 : 0) << "\n";
     f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
@@ -652,6 +655,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> x;
                 mixer.monobass().setEnabled(en != 0);
                 mixer.monobass().setCrossover(x);
+            } else if (which == "utility") {
+                float gainDb = 0.0f;
+                int invL = 0, invR = 0, mono = 0;
+                ls >> gainDb >> invL >> invR >> mono;
+                mixer.utility().setEnabled(en != 0);
+                mixer.utility().setGainDb(gainDb);
+                mixer.utility().setInvertL(invL != 0);
+                mixer.utility().setInvertR(invR != 0);
+                mixer.utility().setMono(mono != 0);
             } else if (which == "comb") {
                 float freq = 220.0f, fb = 0.8f, mix = 0.5f;
                 ls >> freq >> fb >> mix;

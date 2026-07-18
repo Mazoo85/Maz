@@ -948,6 +948,28 @@ void StereoWidener::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Utility ----------------------------------------------------------------
+
+void Utility::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float g = dbToLin(gainDb_);
+    const float ls = invertL_ ? -1.0f : 1.0f;
+    const float rs = invertR_ ? -1.0f : 1.0f;
+    for (int i = 0; i < frames; ++i) {
+        float l = stereo[2 * i] * ls;
+        float r = stereo[2 * i + 1] * rs;
+        if (mono_) {
+            const float m = 0.5f * (l + r);
+            l = m;
+            r = m;
+        }
+        stereo[2 * i] = l * g;
+        stereo[2 * i + 1] = r * g;
+    }
+}
+
 // ---- Reverb -----------------------------------------------------------------
 
 void Reverb::Comb::setSize(int n) {

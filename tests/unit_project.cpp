@@ -169,6 +169,10 @@ int main() {
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
+    mixer.utility().setEnabled(true);
+    mixer.utility().setGainDb(-3.0f);
+    mixer.utility().setInvertR(true);
+    mixer.utility().setMono(true);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -382,6 +386,9 @@ int main() {
               mixer2.formant().vowel() == audio::FormantFilter::Vowel::E &&
               near(mixer2.formant().mix(), 0.6f),
           "formant filter round-trips");
+    check(mixer2.utility().enabled() && near(mixer2.utility().gainDb(), -3.0f) &&
+              !mixer2.utility().invertL() && mixer2.utility().invertR() && mixer2.utility().mono(),
+          "utility round-trips");
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&

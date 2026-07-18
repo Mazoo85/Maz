@@ -1410,6 +1410,23 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("mix##fmt", &mix, 0.0f, 1.0f, "%.2f")) mx.formant().setMix(mix);
     }
+    {
+        bool en = mx.utility().enabled();
+        if (ImGui::Checkbox("Utility", &en)) mx.utility().setEnabled(en);
+        float gdb = mx.utility().gainDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("dB##util", &gdb, -24.0f, 24.0f, "%.1f")) mx.utility().setGainDb(gdb);
+        bool invL = mx.utility().invertL();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("invL##util", &invL)) mx.utility().setInvertL(invL);
+        bool invR = mx.utility().invertR();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("invR##util", &invR)) mx.utility().setInvertR(invR);
+        bool mono = mx.utility().mono();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("mono##util", &mono)) mx.utility().setMono(mono);
+    }
 
     ImGui::SeparatorText("Send / Return Buses");
     {
