@@ -82,6 +82,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> mono) {
         syn.setMono(mono != 0);
     }
+    float filtLfoRate = 0.0f, filtLfoDepth = 0.0f; // filter cutoff LFO optional for old files
+    if (ls >> filtLfoRate >> filtLfoDepth) {
+        syn.setFilterLfo(filtLfoRate, filtLfoDepth);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -171,7 +175,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
           << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
           << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
-          << (s.mono() ? 1 : 0) << "\n";
+          << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

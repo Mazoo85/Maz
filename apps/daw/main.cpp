@@ -926,6 +926,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     float keyTrack = syn.filterKeyTrack();
     if (ImGui::SliderFloat("Key track", &keyTrack, 0.0f, 1.0f, "%.2f"))
         syn.setFilterKeyTrack(keyTrack);
+    float fLfoRate = syn.filterLfoRate();
+    float fLfoDepth = syn.filterLfoDepth();
+    bool flch = ImGui::SliderFloat("Cutoff LFO Hz", &fLfoRate, 0.0f, 20.0f, "%.2f");
+    flch |= ImGui::SliderFloat("Cutoff LFO oct", &fLfoDepth, 0.0f, 4.0f, "%.2f");
+    if (flch) syn.setFilterLfo(fLfoRate, fLfoDepth);
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();
@@ -1019,6 +1024,10 @@ void buildBassUI(audio::SynthInstrument& syn) {
     if (fch) {
         syn.setFilter(cutoff, reso, env);
     }
+    float bfLfoRate = syn.filterLfoRate(), bfLfoDepth = syn.filterLfoDepth();
+    bool bflch = ImGui::SliderFloat("Cutoff LFO Hz##bass", &bfLfoRate, 0.0f, 20.0f, "%.2f");
+    bflch |= ImGui::SliderFloat("Cutoff LFO oct##bass", &bfLfoDepth, 0.0f, 4.0f, "%.2f");
+    if (bflch) syn.setFilterLfo(bfLfoRate, bfLfoDepth);
     float sub = syn.subLevel();
     if (ImGui::SliderFloat("Sub##bass", &sub, 0.0f, 1.0f, "%.2f")) {
         syn.setOscillators(syn.detuneCents(), syn.osc2Level(), sub, syn.noiseLevel());

@@ -82,6 +82,7 @@ int main() {
     seq.synth().setFilterKeyTrack(0.75f);
     seq.synth().setOctave(-1);
     seq.synth().setMono(true);
+    seq.synth().setFilterLfo(3.5f, 1.5f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 2);
     seq.setArpOctaves(3);
@@ -303,6 +304,8 @@ int main() {
     check(near(seq2.synth().fmRatio(), 3.5f) && near(seq2.synth().fmIndex(), 6.0f),
           "FM params round-trip");
     check(near(seq2.synth().glide(), 0.15f), "glide time round-trips");
+    check(near(seq2.synth().filterLfoRate(), 3.5f), "filter LFO rate round-trips");
+    check(near(seq2.synth().filterLfoDepth(), 1.5f), "filter LFO depth round-trips");
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");
     check(seq2.synth().subWaveform() == audio::Waveform::Square, "sub waveform round-trips");

@@ -123,6 +123,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const double vibInc = static_cast<double>(vibRate_) / static_cast<double>(sampleRate);
     // Wavetable scan LFO (shared across voices), same block-start-phase scheme as the vibrato.
     const double wtLfoInc = static_cast<double>(wtLfoRate_) / static_cast<double>(sampleRate);
+    // Filter cutoff LFO (shared across voices), same block-start-phase scheme.
+    const double filtLfoInc = static_cast<double>(filterLfoRate_) / static_cast<double>(sampleRate);
     // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
     const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
     // Per-instrument octave shift as a frequency multiplier (2^octave).
@@ -282,6 +284,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 if (filterKeyTrack_ > 0.0f) {
                     cutoff *= std::pow(2.0f, filterKeyTrack_ * static_cast<float>(v.midi - 60) / 12.0f);
                 }
+                // Cutoff LFO: sweep the cutoff up/down by ±depth octaves for wobble/auto-wah movement.
+                if (filterLfoDepth_ > 0.0f) {
+                    const double fp = filterLfoPhase_ + static_cast<double>(i) * filtLfoInc;
+                    cutoff *= std::pow(2.0f, filterLfoDepth_ *
+                                                 static_cast<float>(std::sin(fp * kTwoPiVib)));
+                }
+                cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
                 osc = v.filter.process(osc, cutoff, filterReso_, sampleRate,
                                        StateVariableFilter::Mode::LowPass);
             }
@@ -314,6 +323,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     wtLfoPhase_ += wtLfoInc * static_cast<double>(frames);
     if (wtLfoPhase_ >= 1.0) {
         wtLfoPhase_ -= std::floor(wtLfoPhase_);
+    }
+    // Likewise the filter cutoff LFO.
+    filterLfoPhase_ += filtLfoInc * static_cast<double>(frames);
+    if (filterLfoPhase_ >= 1.0) {
+        filterLfoPhase_ -= std::floor(filterLfoPhase_);
     }
 }
 

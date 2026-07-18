@@ -180,6 +180,16 @@ public:
     void setVelToCutoff(float hz) { velCutoff_ = hz < 0.0f ? 0.0f : (hz > 15000.0f ? 15000.0f : hz); }
     float velToCutoff() const { return velCutoff_; }
 
+    // Filter cutoff LFO: sweeps the cutoff at `rateHz` by ±`depthOctaves` octaves (a shared LFO
+    // across all voices). This is the classic wobble/auto-wah movement — a slow sweep for evolving
+    // pads, a fast one for wub bass. depth 0 = off. Only has an effect when the filter is engaged.
+    void setFilterLfo(float rateHz, float depthOctaves) {
+        filterLfoRate_ = rateHz < 0.0f ? 0.0f : (rateHz > 20.0f ? 20.0f : rateHz);
+        filterLfoDepth_ = depthOctaves < 0.0f ? 0.0f : (depthOctaves > 4.0f ? 4.0f : depthOctaves);
+    }
+    float filterLfoRate() const { return filterLfoRate_; }
+    float filterLfoDepth() const { return filterLfoDepth_; }
+
     // Filter keyboard tracking (0..1): how much the cutoff follows the note's pitch (relative to
     // middle C). 1 = full tracking (an octave up doubles the cutoff, so high notes stay bright);
     // 0 = fixed cutoff. Only has an effect when the filter is engaged.
@@ -254,6 +264,9 @@ private:
     float filterEnvAmt_ = 0.0f;
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
+    float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
+    float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
+    double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
     Waveform subWave_ = Waveform::Sine;
     int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true

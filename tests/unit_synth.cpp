@@ -6,6 +6,7 @@
 #include "maz/audio/Sequencer.hpp"
 #include "maz/audio/SynthInstrument.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -726,6 +727,50 @@ int main() {
         const std::vector<float> imm = render(instant, sampleRate / 20, sampleRate);
         check(std::fabs(estimateHz(imm, sampleRate) - 880.0) < 30.0,
               "with glide off the note plays its pitch immediately");
+    }
+
+    // --- Filter cutoff LFO ---------------------------------------------------
+    {
+        // A sustained bright note through a resonant low-pass. With the cutoff LFO on, the filter
+        // sweeps open/closed, so the output loudness swings over the note; with it off, a sustained
+        // note holds a near-constant level. Measure the per-window RMS spread.
+        auto windowSpread = [&](audio::SynthInstrument& s) {
+            s.noteOn(69, 1.0f); // A4
+            const std::vector<float> buf = render(s, sampleRate / 2, sampleRate); // 0.5 s sustained
+            const int win = 2000;
+            double lo = 1e9, hi = 0.0;
+            for (size_t start = 0; start + win <= buf.size(); start += win) {
+                double sum = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    const double x = buf[start + static_cast<size_t>(i)];
+                    sum += x * x;
+                }
+                const double r = std::sqrt(sum / win);
+                lo = std::min(lo, r);
+                hi = std::max(hi, r);
+            }
+            return hi / (lo + 1e-9); // max/min window-RMS ratio
+        };
+
+        audio::SynthInstrument wob;
+        wob.setWaveform(audio::Waveform::Saw);
+        wob.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        wob.setFilter(500.0f, 6.0f, 0.0f); // resonant LP, no envelope sweep
+        wob.setFilterLfo(6.0f, 2.0f);      // 6 Hz, ±2 octaves — the wobble
+        const double wobbleRatio = windowSpread(wob);
+
+        audio::SynthInstrument steady;
+        steady.setWaveform(audio::Waveform::Saw);
+        steady.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        steady.setFilter(500.0f, 6.0f, 0.0f); // same filter, LFO off
+        const double steadyRatio = windowSpread(steady);
+
+        check(wobbleRatio > 2.0, "cutoff LFO makes the level swing across the note");
+        check(steadyRatio < 1.5, "without the cutoff LFO a sustained note holds steady");
+        check(wobbleRatio > steadyRatio * 1.5, "cutoff LFO adds clear movement vs no LFO");
+
+        audio::SynthInstrument df;
+        check(df.filterLfoDepth() == 0.0f, "filter cutoff LFO defaults to 0 (off)");
     }
 
     // --- PianoRoll model -----------------------------------------------------

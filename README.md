@@ -40,7 +40,7 @@ the project, and bounce to WAV.
 
 - **Instruments** — a synthesized drum kit (`DrumVoice` — kick/snare/hats/clap/**tom**/**cowbell**/**rimshot**, **per-channel selectable** per row, per-hit velocity, **choke groups**, per-channel **tuning** + **decay** + **drive/saturation** + **flam**); **two** polyphonic
   synths (lead + bass, `SynthInstrument`) with **subtractive** (dual detuned oscillator with a **coarse-tunable** 2nd osc + **ring mod** + sub +
-  noise + a selectable-waveform, **-1/-2 octave sub** + **unison** supersaw stack + a resonant state-variable **filter** with envelope + **velocity sensitivity** + **key tracking**), **FM** (with operator **feedback**), and **wavetable** (a morphing
+  noise + a selectable-waveform, **-1/-2 octave sub** + **unison** supersaw stack + a resonant state-variable **filter** with envelope + **velocity sensitivity** + **key tracking** + a **cutoff LFO** (wobble/auto-wah)), **FM** (with operator **feedback**), and **wavetable** (a morphing
   single-cycle table with **selectable frames**, scanned by an envelope- **and LFO**-sweepable position) engines, plus **portamento/glide**, **vibrato**, a **pitch envelope**, **oscillator hard sync**, **pulse width (PWM)**, a per-instrument **octave** shift, and a **mono** (single-voice) mode;
   and a **`Sampler`** (WAV playback, pitch-shifted per note, with **reverse**, **loop** (incl. **ping-pong** bounce), **start-offset**, an **amp envelope**, **fine tune**, **normalize**, and **fade in/out**).
 - **Sequencing** — a `Sequencer` channel rack (step grid with per-step velocity, **probability**, and **ratcheting**), **two** `PianoRoll`
