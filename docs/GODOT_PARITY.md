@@ -38,7 +38,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   so orientations authored in Godot import identically), **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
-  lengthSquared, length/distance, aspect, and float-vec conversion), Rect2, **Rect2i** (M281,
+  lengthSquared, length/distance, aspect, and float-vec conversion), **Vector4/Vector4i** (M286,
+  `math::Vector4` — Godot's 4D vectors: float Vector4 with the full gameplay surface
+  (length/normalized/dot/lerp/abs/sign/clamp/min/max/floor/ceil/round/snapped/distanceTo/directionTo/
+  isEqualApprox) for RGBA/shader-uniform/homogeneous math, plus the exact integer Vector4i with
+  truncating division and overflow-safe 64-bit lengthSquared; GLM `toVec4()` bridge), Rect2, **Rect2i** (M281,
   `math::Rect2i` — Godot's integer rectangle for tile/atlas/pixel regions: half-open hasPoint,
   intersects/intersection/merge/encloses/grow/expand/abs, exact int math), Geometry2D/3D
   (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed

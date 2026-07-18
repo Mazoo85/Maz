@@ -198,6 +198,7 @@
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Transform3D.hpp"
 #include "maz/math/Quaternion.hpp"
+#include "maz/math/Vector4.hpp"
 #include "maz/math/VectorInt.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
@@ -12379,6 +12380,68 @@ void testVectorInt() {
     CHECK_NEAR(c.toVec3().z, 2.0f, 1e-6f);
 }
 
+// Vector4 / Vector4i: Godot 4D vectors (M286). Float Vector4 gameplay API (length/normalized/dot/
+// lerp/abs/sign/clamp/min/max/floor/ceil/round/snapped/distanceTo/directionTo/isEqualApprox) and the
+// exact integer Vector4i (truncating division, 64-bit lengthSquared).
+void testVector4() {
+    using math::Vector4;
+    using math::Vector4i;
+
+    const Vector4 a(1, 2, 3, 4), b(5, 6, 7, 8);
+    CHECK((a + b == Vector4(6, 8, 10, 12)));
+    CHECK((b - a == Vector4(4, 4, 4, 4)));
+    CHECK((a * b == Vector4(5, 12, 21, 32)));
+    CHECK((a * 2.0f == Vector4(2, 4, 6, 8)));
+    CHECK((2.0f * a == Vector4(2, 4, 6, 8)));
+    CHECK((-a == Vector4(-1, -2, -3, -4)));
+    CHECK_NEAR(a.dot(b), 70.0f, 1e-5f);
+    CHECK_NEAR(Vector4(0, 3, 0, 4).length(), 5.0f, 1e-5f);
+    CHECK_NEAR(a.lengthSquared(), 30.0f, 1e-5f);
+    CHECK(Vector4(0, 3, 0, 4).normalized().isNormalized());
+    CHECK(a.lerp(b, 0.5f).isEqualApprox(Vector4(3, 4, 5, 6)));
+    CHECK(a.lerp(b, 0.0f).isEqualApprox(a));
+    CHECK(a.lerp(b, 1.0f).isEqualApprox(b));
+    CHECK(Vector4(-1.5f, 2.5f, -3.5f, 4.5f).abs().isEqualApprox(Vector4(1.5f, 2.5f, 3.5f, 4.5f)));
+    CHECK(Vector4(-2, 0, 3, 5).sign().isEqualApprox(Vector4(-1, 0, 1, 1)));
+    CHECK(Vector4(1.4f, 1.6f, -1.4f, -1.6f).round().isEqualApprox(Vector4(1, 2, -1, -2)));
+    CHECK(Vector4(1.7f, -1.2f, 0, 0).floor().isEqualApprox(Vector4(1, -2, 0, 0)));
+    CHECK(Vector4(1.2f, -1.7f, 0, 0).ceil().isEqualApprox(Vector4(2, -1, 0, 0)));
+    CHECK(a.min(b).isEqualApprox(a));
+    CHECK(a.max(b).isEqualApprox(b));
+    CHECK(Vector4(5, -5, 5, -5)
+              .clamp(Vector4(-1, -1, -1, -1), Vector4(1, 1, 1, 1))
+              .isEqualApprox(Vector4(1, -1, 1, -1)));
+    CHECK(Vector4(0.12f, 0.27f, 0, 0)
+              .snapped(Vector4(0.1f, 0.1f, 1, 1))
+              .isEqualApprox(Vector4(0.1f, 0.3f, 0, 0)));
+    CHECK_NEAR(Vector4(0, 0, 0, 0).distanceTo(Vector4(0, 3, 0, 4)), 5.0f, 1e-5f);
+    CHECK_NEAR(Vector4(0, 0, 0, 0).distanceSquaredTo(Vector4(0, 3, 0, 4)), 25.0f, 1e-5f);
+    CHECK(Vector4(0, 0, 0, 0).directionTo(Vector4(0, 10, 0, 0)).isEqualApprox(Vector4(0, 1, 0, 0)));
+    CHECK(a != b);
+    CHECK_NEAR(a.toVec4().w, 4.0f, 1e-6f);
+
+    const Vector4i p(2, 3, 4, 5), q(1, 1, 1, 1);
+    CHECK((p + q == Vector4i(3, 4, 5, 6)));
+    CHECK((p - q == Vector4i(1, 2, 3, 4)));
+    CHECK((p * q == Vector4i(2, 3, 4, 5)));
+    CHECK((p * 2 == Vector4i(4, 6, 8, 10)));
+    CHECK((Vector4i(7, 8, 9, 10) / Vector4i(2, 3, 2, 4) == Vector4i(3, 2, 4, 2))); // truncating
+    CHECK((-p == Vector4i(-2, -3, -4, -5)));
+    CHECK((Vector4i(-2, 3, -4, 5).abs() == Vector4i(2, 3, 4, 5)));
+    CHECK((Vector4i(-9, 0, 7, 0).sign() == Vector4i(-1, 0, 1, 0)));
+    CHECK((Vector4i(10, -3, 8, 1).clamp(Vector4i(0, 0, 0, 0), Vector4i(5, 5, 5, 5)) ==
+           Vector4i(5, 0, 5, 1)));
+    CHECK((p.min(q) == q));
+    CHECK((p.max(q) == p));
+    CHECK(p.lengthSquared() == 4 + 9 + 16 + 25);
+    CHECK_NEAR(static_cast<float>(Vector4i(0, 0, 0, 0).distanceTo(Vector4i(0, 3, 0, 4))), 5.0f,
+               1e-5f);
+    CHECK(Vector4i(0, 0, 0, 0).distanceSquaredTo(Vector4i(0, 3, 0, 4)) == 25);
+    // Overflow safety: exceeds 32-bit range, must be exact in 64-bit.
+    CHECK(Vector4i(50000, 50000, 0, 0).lengthSquared() == 5000000000LL);
+    CHECK_NEAR(p.toVec4().w, 5.0f, 1e-6f);
+}
+
 // Hash: CRC-32 and SHA-256 against the published test vectors (M284).
 void testHash() {
     using namespace maz::core;
@@ -21701,6 +21764,7 @@ int main() {
     testTransform3D();
     testQuaternion();
     testVectorInt();
+    testVector4();
     testHash();
     testRect2i();
     testGeometry2DPolygon();
