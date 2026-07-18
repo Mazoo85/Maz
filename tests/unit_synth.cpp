@@ -832,6 +832,19 @@ int main() {
         check(differs, "a different seed yields a different randomization");
     }
 
+    // --- Duplicate -----------------------------------------------------------
+    {
+        audio::PianoRoll dr;
+        dr.addNote(audio::Note{0, 1, 60, 1.0f});
+        dr.addNote(audio::Note{2, 1, 64, 0.7f});
+        const int added = dr.duplicate(4);
+        check(added == 2 && dr.notes().size() == 4, "duplicate appends a copy of every note");
+        check(dr.hasNote(60, 4) && dr.hasNote(64, 6),
+              "the duplicated notes are shifted later by the offset");
+        // The copy keeps pitch/velocity; a zero/negative offset is a no-op.
+        check(dr.duplicate(0) == 0 && dr.notes().size() == 4, "a zero-offset duplicate is a no-op");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

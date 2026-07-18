@@ -85,6 +85,11 @@ public:
     // notes moved.
     int reverseTime();
 
+    // Duplicate: append a copy of every current note shifted later by `offsetSteps`, extending the
+    // phrase (the FL "duplicate" / Ctrl+B move). offsetSteps must be > 0. Returns the number of notes
+    // added.
+    int duplicate(int offsetSteps);
+
     // Randomize (humanize) velocities: scale each note's velocity by a random factor in
     // [1−amount, 1+amount] (clamped to [0,1]), for natural-sounding dynamics. `seed` makes it fully
     // deterministic — the same seed and notes always give the same result. Returns the number of

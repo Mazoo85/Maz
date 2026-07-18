@@ -661,6 +661,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Humanize")) {
         roll.randomizeVelocity(humanizeAmt, humanizeSeed++);
     }
+    ImGui::SameLine();
+    static int dupOffset = 16;
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::InputInt("##dupoff", &dupOffset, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Duplicate")) {
+        roll.duplicate(dupOffset);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

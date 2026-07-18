@@ -261,6 +261,19 @@ int PianoRoll::reverseTime() {
     return moved;
 }
 
+int PianoRoll::duplicate(int offsetSteps) {
+    if (offsetSteps <= 0) {
+        return 0;
+    }
+    const size_t count = notes_.size(); // snapshot before appending
+    for (size_t i = 0; i < count; ++i) {
+        Note copy = notes_[i];
+        copy.startStep += offsetSteps;
+        notes_.push_back(copy);
+    }
+    return static_cast<int>(count);
+}
+
 int PianoRoll::randomizeVelocity(float amount, uint32_t seed) {
     if (amount <= 0.0f) {
         return 0;
