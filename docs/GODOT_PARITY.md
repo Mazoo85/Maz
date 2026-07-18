@@ -130,7 +130,13 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
   — **PathFollow2D done** (M221): `game::PathFollow2D` walks a Curve2D by progress/progress-ratio,
   loop-or-clamp ends, hOffset along the path normal, tangent-following rotation.
   — **VisibleOnScreenNotifier2D done** (M223): `game::VisibleOnScreenNotifier2D` fires screen
-  entered/exited edge events as an object's rect crosses the camera view. CanvasLayer/RemoteTransform remain.
+  entered/exited edge events as an object's rect crosses the camera view.
+  — **RemoteTransform2D done** (M255): `scene::RemoteTransform2D` mirrors its transform onto a target
+  node with Godot's per-channel toggles (position/rotation/scale) — full-copy when all three are on
+  (skew preserved), otherwise recomposed from the selected components — plus the use-global-coordinates
+  flag and a `globalToLocal(desiredGlobal, parentGlobal)` helper (`parent^-1 * global`) for the
+  global-mode case. Built on `math::Transform2D`; verified across every channel combination and the
+  global↔local round-trip. CanvasLayer remains.
 - [~] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
   — **Timer done** (M222): `game::Timer` countdown with wait_time, one_shot/repeating (remainder-
   carrying so cadence never drifts), pause/stop/restart, start(override), timeout callback. Others remain.

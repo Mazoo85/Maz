@@ -198,6 +198,7 @@
 #include "maz/render/Shapes3D.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
+#include "maz/scene/RemoteTransform2D.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
 #include <algorithm>
@@ -1121,6 +1122,84 @@ void testTransform2D() {
         CHECK_NEAR(mid.origin.x, 5.0f, 1e-4f);          // halfway across
         CHECK_NEAR(mid.getRotation(), pi * 0.25f, 1e-3f); // 45 degrees
         CHECK_NEAR(mid.getScale().x, 2.0f, 1e-3f);       // (1+3)/2
+    }
+}
+
+void testRemoteTransform2D() {
+    using math::Transform2D;
+    using math::vec2;
+    using scene::RemoteTransform2D;
+    const float pi = 3.14159265358979323846f;
+
+    Transform2D src = Transform2D::compose(pi * 0.5f, vec2(2, 3), vec2(10, 20));
+    Transform2D tgt = Transform2D::compose(0.0f, vec2(1, 1), vec2(-5, -5));
+
+    RemoteTransform2D rt;
+    // Default (all channels) -> full copy.
+    {
+        Transform2D r = rt.apply(src, tgt);
+        CHECK_NEAR(r.origin.x, 10.0f, 1e-3f);
+        CHECK_NEAR(r.origin.y, 20.0f, 1e-3f);
+        CHECK_NEAR(r.getRotation(), pi * 0.5f, 1e-3f);
+        CHECK_NEAR(r.getScale().x, 2.0f, 1e-3f);
+        CHECK_NEAR(r.getScale().y, 3.0f, 1e-3f);
+    }
+    // Position only.
+    {
+        rt.setUpdatePosition(true);
+        rt.setUpdateRotation(false);
+        rt.setUpdateScale(false);
+        Transform2D r = rt.apply(src, tgt);
+        CHECK_NEAR(r.origin.x, 10.0f, 1e-3f);
+        CHECK_NEAR(r.getRotation(), 0.0f, 1e-3f);
+        CHECK_NEAR(r.getScale().x, 1.0f, 1e-3f);
+    }
+    // Rotation only.
+    {
+        rt.setUpdatePosition(false);
+        rt.setUpdateRotation(true);
+        rt.setUpdateScale(false);
+        Transform2D r = rt.apply(src, tgt);
+        CHECK_NEAR(r.origin.x, -5.0f, 1e-3f);
+        CHECK_NEAR(r.getRotation(), pi * 0.5f, 1e-3f);
+        CHECK_NEAR(r.getScale().x, 1.0f, 1e-3f);
+    }
+    // Scale only.
+    {
+        rt.setUpdatePosition(false);
+        rt.setUpdateRotation(false);
+        rt.setUpdateScale(true);
+        Transform2D r = rt.apply(src, tgt);
+        CHECK_NEAR(r.origin.x, -5.0f, 1e-3f);
+        CHECK_NEAR(r.getRotation(), 0.0f, 1e-3f);
+        CHECK_NEAR(r.getScale().y, 3.0f, 1e-3f);
+    }
+    // None -> target unchanged.
+    {
+        rt.setUpdatePosition(false);
+        rt.setUpdateRotation(false);
+        rt.setUpdateScale(false);
+        Transform2D r = rt.apply(src, tgt);
+        CHECK_NEAR(r.origin.x, -5.0f, 1e-3f);
+        CHECK_NEAR(r.getScale().x, 1.0f, 1e-3f);
+    }
+    // Flags round-trip.
+    rt.setUseGlobalCoordinates(false);
+    CHECK(!rt.useGlobalCoordinates());
+    rt.setUseGlobalCoordinates(true);
+    CHECK(rt.useGlobalCoordinates());
+
+    // globalToLocal: parentGlobal * local reproduces the desired global transform.
+    {
+        Transform2D parent = Transform2D::compose(pi * 0.25f, vec2(2, 2), vec2(3, 4));
+        Transform2D desired = Transform2D::compose(pi * 0.5f, vec2(1, 1), vec2(10, 0));
+        Transform2D local = RemoteTransform2D::globalToLocal(desired, parent);
+        Transform2D back = parent * local;
+        const vec2 p(1.7f, -0.9f);
+        const vec2 a = back.xform(p);
+        const vec2 b = desired.xform(p);
+        CHECK_NEAR(a.x, b.x, 1e-2f);
+        CHECK_NEAR(a.y, b.y, 1e-2f);
     }
 }
 
@@ -19921,6 +20000,7 @@ int main() {
     testAStar2D();
     testGeometry2D();
     testTransform2D();
+    testRemoteTransform2D();
     testRect2();
     testCollision();
     testRaycast();
