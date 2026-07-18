@@ -12,7 +12,31 @@ float dbToLin(float db) {
 float linToDb(float lin) {
     return 20.0f * std::log10(std::max(lin, 1e-9f));
 }
+// Shared modulation-LFO sync divisions (chorus / flanger) as cycles per beat, with display names.
+constexpr float kModCyclesPerBeat[kModSyncDivisions] = {
+    0.25f, // 1/1
+    0.5f,  // 1/2
+    1.0f,  // 1/4
+    2.0f,  // 1/8
+    3.0f,  // 1/8T
+    4.0f,  // 1/16
+};
+constexpr const char* kModDivName[kModSyncDivisions] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
 } // namespace
+
+const char* modSyncDivisionName(int div) {
+    if (div < 0 || div >= kModSyncDivisions) {
+        return "?";
+    }
+    return kModDivName[div];
+}
+
+float modSyncRateHz(int div, double bpm) {
+    if (div < 0 || div >= kModSyncDivisions || bpm <= 0.0) {
+        return 1.0f;
+    }
+    return static_cast<float>(bpm / 60.0 * static_cast<double>(kModCyclesPerBeat[div]));
+}
 
 // ---- Delay ------------------------------------------------------------------
 
@@ -183,6 +207,13 @@ void Chorus::reset() {
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     write_ = 0;
     phase_ = 0.0;
+}
+
+void Chorus::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    rateHz_ = modSyncRateHz(syncDiv_, bpm);
 }
 
 void Chorus::process(float* stereo, int frames, int sampleRate) {
@@ -407,6 +438,13 @@ void Flanger::reset() {
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     write_ = 0;
     phase_ = 0.0;
+}
+
+void Flanger::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    rateHz_ = modSyncRateHz(syncDiv_, bpm);
 }
 
 void Flanger::process(float* stereo, int frames, int sampleRate) {

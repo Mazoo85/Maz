@@ -278,10 +278,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve())
       << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
-      << mixer.chorus().depth() << " " << mixer.chorus().mix() << "\n";
+      << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
+      << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
-      << "\n";
+      << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << "\n";
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
       << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
       << "\n";
@@ -869,6 +870,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.chorus().setRate(rate);
                 mixer.chorus().setDepth(depth);
                 mixer.chorus().setMix(mix);
+                int sync = 0, div = 0; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.chorus().setSync(sync != 0);
+                    mixer.chorus().setSyncDivision(div);
+                }
             } else if (which == "flanger") {
                 float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
                 ls >> rate >> depth >> fb >> mix;
@@ -877,6 +883,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.flanger().setDepth(depth);
                 mixer.flanger().setFeedback(fb);
                 mixer.flanger().setMix(mix);
+                int sync = 0, div = 1; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.flanger().setSync(sync != 0);
+                    mixer.flanger().setSyncDivision(div);
+                }
             } else if (which == "crush") {
                 float bits = 8.0f, ds = 4.0f, mix = 0.5f;
                 ls >> bits >> ds >> mix;

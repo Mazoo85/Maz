@@ -1371,6 +1371,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("mix##cho", &wet, 0.0f, 1.0f, "%.2f")) mx.chorus().setMix(wet);
+        const char* modDivs[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivs[d] = audio::modSyncDivisionName(d);
+        bool csync = mx.chorus().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##cho", &csync)) mx.chorus().setSync(csync);
+        ImGui::SameLine();
+        int cdiv = mx.chorus().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##cho", &cdiv, modDivs, audio::kModSyncDivisions))
+            mx.chorus().setSyncDivision(cdiv);
     }
     {
         bool en = mx.flanger().enabled();
@@ -1383,6 +1393,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
         if (ImGui::SliderFloat("fb##fla", &fb, 0.0f, 0.95f, "%.2f")) mx.flanger().setFeedback(fb);
+        const char* modDivsF[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsF[d] = audio::modSyncDivisionName(d);
+        bool fsync = mx.flanger().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##fla", &fsync)) mx.flanger().setSync(fsync);
+        ImGui::SameLine();
+        int fdiv = mx.flanger().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##fla", &fdiv, modDivsF, audio::kModSyncDivisions))
+            mx.flanger().setSyncDivision(fdiv);
     }
     {
         bool en = mx.phaser().enabled();

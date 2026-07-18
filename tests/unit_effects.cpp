@@ -259,6 +259,31 @@ int main() {
         check(!dd.sync(), "delay tempo sync defaults to off");
     }
 
+    // --- Tempo-synced chorus & flanger: LFO rate tracks the transport -------
+    {
+        audio::Chorus c;
+        c.setSync(true);
+        c.setSyncDivision(2); // 1/4 → 2 Hz @120
+        c.updateTempo(120.0);
+        check(std::fabs(c.rate() - 2.0f) < 0.01f, "synced chorus runs at 2 Hz for 1/4 @120 BPM");
+        audio::Chorus cm;
+        cm.setRate(0.9f);
+        cm.updateTempo(120.0);
+        check(std::fabs(cm.rate() - 0.9f) < 1e-3f, "chorus updateTempo is a no-op when sync is off");
+        check(!audio::Chorus().sync(), "chorus tempo sync defaults to off");
+
+        audio::Flanger f;
+        f.setSync(true);
+        f.setSyncDivision(3); // 1/8 → 4 Hz @120
+        f.updateTempo(120.0);
+        check(std::fabs(f.rate() - 4.0f) < 0.01f, "synced flanger runs at 4 Hz for 1/8 @120 BPM");
+        audio::Flanger fm;
+        fm.setRate(0.3f);
+        fm.updateTempo(120.0);
+        check(std::fabs(fm.rate() - 0.3f) < 1e-3f, "flanger updateTempo is a no-op when sync is off");
+        check(!audio::Flanger().sync(), "flanger tempo sync defaults to off");
+    }
+
     // --- Tempo-synced stereo delay: independent L/R times track the tempo ----
     {
         audio::StereoDelay sd;

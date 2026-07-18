@@ -214,6 +214,11 @@ int main() {
     mixer.flanger().setEnabled(true);
     mixer.flanger().setRate(0.4f);
     mixer.flanger().setFeedback(0.6f);
+    mixer.flanger().setSync(true);
+    mixer.flanger().setSyncDivision(3);
+    mixer.chorus().setEnabled(true);
+    mixer.chorus().setSync(true);
+    mixer.chorus().setSyncDivision(2);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -464,8 +469,11 @@ int main() {
               near(mixer2.ringmod().mix(), 0.7f),
           "ring-mod round-trips");
     check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&
-              near(mixer2.flanger().feedback(), 0.6f),
+              near(mixer2.flanger().feedback(), 0.6f) && mixer2.flanger().sync() &&
+              mixer2.flanger().syncDivision() == 3,
           "flanger round-trips");
+    check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2,
+          "chorus tempo sync round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&
               near(mixer2.gate().holdMs(), 50.0f),

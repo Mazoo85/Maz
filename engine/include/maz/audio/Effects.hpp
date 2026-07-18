@@ -8,6 +8,12 @@
 
 namespace maz::audio {
 
+// Shared tempo-sync note divisions for modulation effects (chorus / flanger). Maps a division index
+// (1/1 … 1/16) + BPM to an LFO rate in Hz.
+inline constexpr int kModSyncDivisions = 6;
+const char* modSyncDivisionName(int div);
+float modSyncRateHz(int div, double bpm);
+
 // A 3-band parametric EQ: a low shelf (120 Hz), a sweepable mid peak, and a high shelf (6 kHz),
 // each with a gain in dB. Real biquad filters — the "pro mixing" EQ.
 class ParametricEQ : public Effect {
@@ -140,6 +146,13 @@ public:
     void setRate(float hz) { rateHz_ = hz; }
     void setDepth(float ms) { depthMs_ = ms; }
     void setMix(float m) { mix_ = m; }
+    // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the Tremolo
+    // division set). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) { syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d); }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
     float rate() const { return rateHz_; }
     float depth() const { return depthMs_; }
     float mix() const { return mix_; }
@@ -151,6 +164,8 @@ private:
     float rateHz_ = 0.8f;
     float depthMs_ = 3.0f;
     float mix_ = 0.4f;
+    bool sync_ = false; // tempo-sync the LFO rate
+    int syncDiv_ = 0;   // note-division index (default 1/1, a slow chorus)
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;
@@ -170,6 +185,13 @@ public:
     void setDepth(float ms) { depthMs_ = ms < 0.1f ? 0.1f : (ms > 8.0f ? 8.0f : ms); }
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Tempo sync: lock the sweep LFO rate to the transport at the chosen note division (rhythmic
+    // flanging). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) { syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d); }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
     float rate() const { return rateHz_; }
     float depth() const { return depthMs_; }
     float feedback() const { return feedback_; }
@@ -183,6 +205,8 @@ private:
     float depthMs_ = 2.0f;
     float feedback_ = 0.5f;
     float mix_ = 0.5f;
+    bool sync_ = false; // tempo-sync the sweep LFO rate
+    int syncDiv_ = 1;   // note-division index (default 1/2)
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;

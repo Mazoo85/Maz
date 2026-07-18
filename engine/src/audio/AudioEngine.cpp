@@ -132,6 +132,8 @@ void AudioEngine::render(float* out, int frames) {
         mixer_.delay().updateTempo(sequencer_.bpm());       // sync the delay time to the transport tempo
         mixer_.stereoDelay().updateTempo(sequencer_.bpm()); // sync the dual-delay L/R times too
         mixer_.tremolo().updateTempo(sequencer_.bpm());     // sync the trance-gate rate too
+        mixer_.chorus().updateTempo(sequencer_.bpm());      // sync the chorus/flanger LFO rates too
+        mixer_.flanger().updateTempo(sequencer_.bpm());
         mixer_.process(out, frames, cfg_.sampleRate);
     } else {
         // Fallback mono path: sum the oscillator only (the sequencer targets stereo).
