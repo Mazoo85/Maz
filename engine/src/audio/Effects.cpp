@@ -601,6 +601,47 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- De-Esser ---------------------------------------------------------------
+
+void DeEsser::reset() {
+    lpL_ = 0.0f;
+    lpR_ = 0.0f;
+    env_ = 0.0f;
+}
+
+void DeEsser::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // One-pole low-pass split at the crossover; the high band is (input − low band).
+    const float a = std::exp(-2.0f * 3.14159265358979f * frequency_ / sr);
+    const float atkCoef = std::exp(-1.0f / (0.001f * sr));            // ~1 ms attack
+    const float relCoef = std::exp(-1.0f / (releaseMs_ * 0.001f * sr));
+    const float thr = dbToLin(thresholdDb_);
+
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        lpL_ = a * lpL_ + (1.0f - a) * l;
+        lpR_ = a * lpR_ + (1.0f - a) * r;
+        const float hfL = l - lpL_;
+        const float hfR = r - lpR_;
+
+        // Follow the high band's peak (stereo-linked) and duck it when it exceeds the threshold.
+        const float peak = std::max(std::fabs(hfL), std::fabs(hfR));
+        const float coef = peak > env_ ? atkCoef : relCoef;
+        env_ = coef * env_ + (1.0f - coef) * peak;
+        float gHF = 1.0f;
+        if (env_ > thr && env_ > 0.0f) {
+            // Blend between no reduction and a brickwall at the threshold, scaled by `amount`.
+            gHF = 1.0f - amount_ * (1.0f - thr / env_);
+        }
+        stereo[2 * i] = lpL_ + hfL * gHF;
+        stereo[2 * i + 1] = lpR_ + hfR * gHF;
+    }
+}
+
 // ---- Gate -------------------------------------------------------------------
 
 void Gate::reset() {

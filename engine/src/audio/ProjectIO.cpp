@@ -291,6 +291,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx limiter " << (mixer.limiter().enabled() ? 1 : 0) << " " << mixer.limiter().inputGainDb()
       << " " << mixer.limiter().ceilingDb() << " " << mixer.limiter().releaseMs() << " "
       << mixer.limiter().lookaheadMs() << "\n";
+    f << "fx deesser " << (mixer.deEsser().enabled() ? 1 : 0) << " " << mixer.deEsser().thresholdDb()
+      << " " << mixer.deEsser().frequency() << " " << mixer.deEsser().amount() << " "
+      << mixer.deEsser().releaseMs() << "\n";
     f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
@@ -710,6 +713,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.limiter().setCeilingDb(ceil);
                 mixer.limiter().setReleaseMs(rel);
                 mixer.limiter().setLookaheadMs(look);
+            } else if (which == "deesser") {
+                float thr = -24.0f, freq = 6000.0f, amt = 0.8f, rel = 60.0f;
+                ls >> thr >> freq >> amt >> rel;
+                mixer.deEsser().setEnabled(en != 0);
+                mixer.deEsser().setThresholdDb(thr);
+                mixer.deEsser().setFrequency(freq);
+                mixer.deEsser().setAmount(amt);
+                mixer.deEsser().setReleaseMs(rel);
             } else if (which == "comb") {
                 float freq = 220.0f, fb = 0.8f, mix = 0.5f;
                 ls >> freq >> fb >> mix;

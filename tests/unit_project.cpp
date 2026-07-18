@@ -186,6 +186,11 @@ int main() {
     mixer.limiter().setCeilingDb(-1.5f);
     mixer.limiter().setReleaseMs(200.0f);
     mixer.limiter().setLookaheadMs(3.0f);
+    mixer.deEsser().setEnabled(true);
+    mixer.deEsser().setThresholdDb(-28.0f);
+    mixer.deEsser().setFrequency(7000.0f);
+    mixer.deEsser().setAmount(0.65f);
+    mixer.deEsser().setReleaseMs(45.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
     mixer.ringmod().setEnabled(true);
@@ -416,6 +421,10 @@ int main() {
               near(mixer2.limiter().ceilingDb(), -1.5f) && near(mixer2.limiter().releaseMs(), 200.0f) &&
               near(mixer2.limiter().lookaheadMs(), 3.0f),
           "limiter round-trips");
+    check(mixer2.deEsser().enabled() && near(mixer2.deEsser().thresholdDb(), -28.0f) &&
+              near(mixer2.deEsser().frequency(), 7000.0f) && near(mixer2.deEsser().amount(), 0.65f) &&
+              near(mixer2.deEsser().releaseMs(), 45.0f),
+          "de-esser round-trips");
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&

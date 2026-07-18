@@ -1314,6 +1314,23 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.transient().setSustain(sus);
     }
     {
+        bool en = mx.deEsser().enabled();
+        if (ImGui::Checkbox("De-Esser", &en)) mx.deEsser().setEnabled(en);
+        float thr = mx.deEsser().thresholdDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("dB##deess", &thr, -60.0f, 0.0f, "%.0f")) mx.deEsser().setThresholdDb(thr);
+        float freq = mx.deEsser().frequency();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("Hz##deess", &freq, 1000.0f, 16000.0f, "%.0f"))
+            mx.deEsser().setFrequency(freq);
+        float amt = mx.deEsser().amount();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("amt##deess", &amt, 0.0f, 1.0f, "%.2f")) mx.deEsser().setAmount(amt);
+    }
+    {
         bool en = mx.chorus().enabled();
         if (ImGui::Checkbox("Chorus", &en)) mx.chorus().setEnabled(en);
         float wet = mx.chorus().mix();

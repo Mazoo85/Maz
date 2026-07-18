@@ -49,7 +49,7 @@ the project, and bounce to WAV.
 - **Mixing** — per-channel volume/mute/solo/**pan**, **pan for the lead & bass buses**, true **stereo**, **per-bus insert strips**
   (drums / lead / bass, each with its own high-pass + EQ + distortion + compressor + gain/pan/mute), a master effect
   chain (parametric EQ, tilt EQ, aural exciter (high-band harmonic enhancer), low-pass, high-pass, distortion with selectable curves (soft/hard/fold/sine), tape saturation, ring modulator, bitcrusher, noise gate (with hold),
-  compressor (soft-knee, parallel/dry-wet mix), transient shaper (attack/sustain designer), chorus, flanger, phaser, delay (with ping-pong + damping), stereo/dual delay (independent L/R times), reverb (with pre-delay + width + freeze), mid/side stereo
+  compressor (soft-knee, parallel/dry-wet mix), transient shaper (attack/sustain designer), de-esser (frequency-selective high-band compression), chorus, flanger, phaser, delay (with ping-pong + damping), stereo/dual delay (independent L/R times), reverb (with pre-delay + width + freeze), mid/side stereo
   widener, mono-bass maker, auto-pan, envelope filter / auto-wah, comb resonator, tremolo / trance-gate, formant (vowel) filter, utility (gain/phase-invert/mono), brickwall look-ahead limiter/maximizer (input gain + ceiling + release, guaranteed-ceiling output)),
   parallel **aux send/return buses** (reverb + delay), and a master **limiter** with an adjustable ceiling.
 - **Modulation** — automation of filter/FM/reverb/master/delay-mix/distortion-drive/stereo-width, synced to the transport, from either an

@@ -380,6 +380,36 @@ private:
     float env_ = 0.0f; // linear peak-envelope follower
 };
 
+// A de-esser: a frequency-selective compressor that tames only the high band (sibilance / harsh "ess"
+// sounds) while leaving the body of the signal untouched. The signal is split at `frequency` Hz into
+// a low band and a high band; the high band's level is followed and, above `threshold` dB, ducked
+// (up to `amount` toward a brickwall at the threshold) before the bands are summed back. Unlike the
+// full-band compressor, low frequencies pass through unchanged.
+class DeEsser : public Effect {
+public:
+    DeEsser() { enabled_ = false; }
+    const char* name() const override { return "De-Esser"; }
+    void setThresholdDb(float db) { thresholdDb_ = db < -60.0f ? -60.0f : (db > 0.0f ? 0.0f : db); }
+    void setFrequency(float hz) { frequency_ = hz < 1000.0f ? 1000.0f : (hz > 16000.0f ? 16000.0f : hz); }
+    void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : (ms > 500.0f ? 500.0f : ms); }
+    float thresholdDb() const { return thresholdDb_; }
+    float frequency() const { return frequency_; }
+    float amount() const { return amount_; }
+    float releaseMs() const { return releaseMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float thresholdDb_ = -24.0f;
+    float frequency_ = 6000.0f;
+    float amount_ = 0.8f;
+    float releaseMs_ = 60.0f;
+    float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state per channel (high band = input − this)
+    float env_ = 0.0f;             // high-band peak-envelope follower (stereo-linked)
+};
+
 // A stereo-linked noise gate / downward expander. Below `threshold` dB the signal is attenuated:
 // for each dB under the threshold the output drops by `ratio`:1, down to a floor of `range` dB.
 // `attack`/`release` (ms) smooth the gate opening/closing so it does not click. Above the threshold

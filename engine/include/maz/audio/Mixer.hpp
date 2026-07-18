@@ -50,6 +50,7 @@ public:
     StereoWidener& widener() { return widener_; }
     Utility& utility() { return utility_; }
     Limiter& limiter() { return limiter_; }
+    DeEsser& deEsser() { return deEsser_; }
     AutoPan& autopan() { return autopan_; }
     AutoWah& autowah() { return autowah_; }
     CombResonator& comb() { return comb_; }
@@ -112,6 +113,7 @@ private:
     StereoWidener widener_{};
     Utility utility_{};
     Limiter limiter_{};
+    DeEsser deEsser_{};
     AutoPan autopan_{};
     AutoWah autowah_{};
     CombResonator comb_{};

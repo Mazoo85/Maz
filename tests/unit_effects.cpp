@@ -233,6 +233,38 @@ int main() {
               "limiter defaults to off with a −0.3 dB ceiling");
     }
 
+    // --- De-esser: ducks the high band, leaves the low band alone ------------
+    {
+        // A loud high-frequency tone (well above the crossover) should be attenuated; a low tone
+        // (below the crossover) should pass essentially untouched.
+        auto deessed = [&](double freq) {
+            audio::DeEsser de;
+            de.setEnabled(true);
+            de.setFrequency(5000.0f);
+            de.setThresholdDb(-30.0f);
+            de.setAmount(1.0f);
+            std::vector<float> buf = sineStereo(sr / 2, freq, 0.8, sr);
+            const double before = rms(buf);
+            de.process(buf.data(), sr / 2, sr);
+            return rms(buf) / (before + 1e-12);
+        };
+        const double hiRatio = deessed(9000.0); // sibilant band → reduced
+        const double loRatio = deessed(300.0);  // body → untouched
+        check(hiRatio < 0.7, "de-esser attenuates the loud high band");
+        check(loRatio > 0.9, "de-esser leaves the low band essentially untouched");
+
+        // Disabled or below threshold → transparent.
+        audio::DeEsser off;
+        std::vector<float> q = sineStereo(sr / 4, 9000.0, 0.8, sr);
+        const double qb = rms(q);
+        off.process(q.data(), sr / 4, sr);
+        check(std::fabs(rms(q) - qb) < 1e-6, "a disabled de-esser is transparent");
+
+        audio::DeEsser dd;
+        check(!dd.enabled() && std::fabs(dd.frequency() - 6000.0f) < 1e-3f,
+              "de-esser defaults to off at a 6 kHz crossover");
+    }
+
     // --- Reverb: an impulse leaves a decaying tail ---------------------------
     {
         audio::Reverb rev;
