@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
+#include <vector>
 
 // maz::core::Pcg32 — the PCG (Permuted Congruential Generator) 32-bit random source, O'Neill's
 // minimal `pcg32` (a 64-bit LCG state run through an xorshift+rotate output permutation). It sits
@@ -67,6 +69,52 @@ class Pcg32 {
 
     // Float in [0, 1) using the top 24 bits.
     float nextFloat() { return static_cast<float>(next() >> 8) * (1.0f / 16777216.0f); }
+
+    // Float in [lo, hi) (Godot's RandomNumberGenerator.randf_range; lo==hi returns lo).
+    float rangef(float lo, float hi) { return lo + nextFloat() * (hi - lo); }
+
+    // Normally-distributed float via Box-Muller (Godot's RandomNumberGenerator.randfn). Matches
+    // Godot's algorithm and distribution; the underlying bit-stream differs (PCG vs Godot's PCG seed
+    // scheme), so values are not stream-identical to Godot — only distributionally equivalent.
+    float gaussian(float mean = 0.0f, float deviation = 1.0f) {
+        const float twoPi = 6.28318530718f;
+        const float u1 = 1.0f - nextFloat(); // (0, 1] so log() is finite
+        const float u2 = nextFloat();
+        const float mag = deviation * std::sqrt(-2.0f * std::log(u1));
+        return mag * std::cos(twoPi * u2) + mean;
+    }
+
+    // Pick an index in [0, weights.size()) with probability proportional to its weight (Godot's
+    // RandomNumberGenerator.rand_weighted). Negative weights count as 0; returns -1 if the total is
+    // not positive (all zero/empty).
+    int weighted(const std::vector<float>& weights) {
+        float total = 0.0f;
+        for (const float w : weights) {
+            if (w > 0.0f) {
+                total += w;
+            }
+        }
+        if (total <= 0.0f) {
+            return -1;
+        }
+        const float r = nextFloat() * total;
+        float acc = 0.0f;
+        for (std::size_t i = 0; i < weights.size(); ++i) {
+            if (weights[i] > 0.0f) {
+                acc += weights[i];
+                if (r < acc) {
+                    return static_cast<int>(i);
+                }
+            }
+        }
+        // Fall back to the last positive-weight index (guards against float rounding at the top end).
+        for (std::size_t i = weights.size(); i-- > 0;) {
+            if (weights[i] > 0.0f) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
 
   private:
     uint64_t m_state = 0;

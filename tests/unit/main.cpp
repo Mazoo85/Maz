@@ -12556,6 +12556,49 @@ void testPcg32() {
     CHECK(r.nextBounded(0) == 0);    // degenerate bound
     const float f = r.nextFloat();
     CHECK(f >= 0.0f && f < 1.0f);
+
+    // --- RandomNumberGenerator extensions (M275): rangef / gaussian / weighted ---
+    {
+        Pcg32 rf(111u, 3u);
+        for (int i = 0; i < 2000; ++i) {
+            const float v = rf.rangef(5.0f, 10.0f);
+            CHECK(v >= 5.0f && v < 10.0f);
+        }
+    }
+    {
+        // Gaussian: sample mean and stddev converge to the requested parameters.
+        Pcg32 g(999u, 1u);
+        const int N = 200000;
+        double sum = 0.0, sum2 = 0.0;
+        for (int i = 0; i < N; ++i) {
+            const double x = g.gaussian(3.0f, 2.0f);
+            sum += x;
+            sum2 += x * x;
+        }
+        const double mean = sum / N;
+        const double var = sum2 / N - mean * mean;
+        CHECK_NEAR(static_cast<float>(mean), 3.0f, 0.05f);
+        CHECK_NEAR(static_cast<float>(std::sqrt(var)), 2.0f, 0.05f);
+    }
+    {
+        // weighted: degenerate cases and proportional distribution.
+        Pcg32 w(1u, 1u);
+        CHECK(w.weighted({0, 1, 0}) == 1);
+        CHECK(w.weighted({1, 0, 0}) == 0);
+        CHECK(w.weighted({0, 0, 0}) == -1);
+        CHECK(w.weighted(std::vector<float>{}) == -1);
+        CHECK(w.weighted({-5.0f, 2.0f}) == 1); // negatives treated as zero
+        Pcg32 wd(42u, 2u);
+        const int N = 100000;
+        int c1 = 0, total = 0;
+        for (int i = 0; i < N; ++i) {
+            const int idx = wd.weighted({1.0f, 3.0f});
+            if (idx == 1) ++c1;
+            if (idx == 0 || idx == 1) ++total;
+        }
+        CHECK(total == N);
+        CHECK_NEAR(static_cast<float>(c1) / static_cast<float>(N), 0.75f, 0.01f);
+    }
 }
 
 void testKdTree2D() {

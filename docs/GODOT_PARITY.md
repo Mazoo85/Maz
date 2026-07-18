@@ -45,7 +45,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
-  virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance
+  virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **RNG distribution
+  helpers** (M275, `core::Pcg32::rangef`/`gaussian`/`weighted` — Godot RandomNumberGenerator's
+  randf_range / randfn Box-Muller normal / rand_weighted; distribution-verified over 200k samples),
+  **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
   contains/to_lower-upper/repeat/count, plus **number parsing** M274 — toInt/isValidInt/toFloat/
