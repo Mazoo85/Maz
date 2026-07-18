@@ -497,7 +497,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [ ] Forward+ or deferred path
 - [x] Shadow maps (directional light, depth-only pass, **5×5 PCF** soft penumbra; M44)
 - [x] Gradient skybox (per-pixel view-ray sky + sun glow)
-- [ ] Image-based lighting, cascaded / point-light shadows
+- [~] Image-based lighting, cascaded / point-light shadows (analytic IBL shipped in R3; **cascaded
+  shadow-map split math** = M211 `render::cascadeSplits`/`cascadeRanges`: the PSSM practical split
+  scheme (uniform↔logarithmic `lambda` blend) that decides where to slice the view frustum into N
+  cascades — near cascades crisp, far cascades cover more — with the last split pinned to the far
+  plane and contiguous per-cascade ranges. Pure, unit-tested (increasing splits, uniform/log limits,
+  log packs nearer, contiguous ranges, invalid-input safety). The per-cascade depth passes + shader
+  cascade selection are the GPU half; prefiltered-environment IBL + point-light cube shadows remain
+  GPU work.)
 - [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
 - [x] **HDR scene target + ACES tonemap/exposure** (16-bit float scene color, `setTonemap`; M38)
 - [x] **Separable downsampled bloom** (`BloomChain`: bright-pass + ½-res 2-pass Gaussian; M41)

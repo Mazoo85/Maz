@@ -47,6 +47,7 @@
 #include "maz/platform/DisplayScale.hpp"
 #include "maz/platform/Displays.hpp"
 #include "maz/platform/Input.hpp"
+#include "maz/render/CascadeSplits.hpp"
 #include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
@@ -5214,6 +5215,57 @@ void testInputTextAndDrop() {
     in.onTextInput("caf\xC3\xA9");
     CHECK(in.textInput() == "caf\xC3\xA9");
     CHECK(in.textInput().size() == 5);
+}
+
+void testCascadeSplits() {
+    using render::cascadeRanges;
+    using render::cascadeSplits;
+
+    // 4 cascades over [1, 100].
+    const auto s = cascadeSplits(1.0f, 100.0f, 4, 0.5f);
+    CHECK(s.size() == 4);
+    // Strictly increasing.
+    for (size_t i = 1; i < s.size(); ++i) {
+        CHECK(s[i] > s[i - 1]);
+    }
+    // Last split is exactly the far plane.
+    CHECK_NEAR(s.back(), 100.0f, 1e-3f);
+    // Every split lies within (near, far].
+    for (float d : s) {
+        CHECK(d > 1.0f);
+        CHECK(d <= 100.0f + 1e-3f);
+    }
+
+    // lambda = 0 -> pure uniform: split i = near + range*(i/n). For [0,100]-ish check with [1,101].
+    const auto u = cascadeSplits(1.0f, 101.0f, 4, 0.0f);
+    CHECK_NEAR(u[0], 1.0f + 100.0f * 0.25f, 1e-3f); // 26
+    CHECK_NEAR(u[1], 1.0f + 100.0f * 0.50f, 1e-3f); // 51
+    CHECK_NEAR(u[2], 1.0f + 100.0f * 0.75f, 1e-3f); // 76
+
+    // lambda = 1 -> pure logarithmic: split i = near * ratio^(i/n).
+    const auto lg = cascadeSplits(1.0f, 16.0f, 4, 1.0f);
+    CHECK_NEAR(lg[0], std::pow(16.0f, 0.25f), 1e-3f); // 2
+    CHECK_NEAR(lg[1], std::pow(16.0f, 0.50f), 1e-3f); // 4
+    CHECK_NEAR(lg[2], std::pow(16.0f, 0.75f), 1e-3f); // 8
+    CHECK_NEAR(lg[3], 16.0f, 1e-3f);
+
+    // Log splitting packs more resolution near the camera than uniform (first split is closer).
+    const auto un = cascadeSplits(1.0f, 100.0f, 4, 0.0f);
+    const auto ln = cascadeSplits(1.0f, 100.0f, 4, 1.0f);
+    CHECK(ln[0] < un[0]);
+
+    // Ranges are contiguous and start at nearZ.
+    const auto r = cascadeRanges(2.0f, 50.0f, 3, 0.5f);
+    CHECK(r.size() == 3);
+    CHECK_NEAR(r[0].nearZ, 2.0f, 1e-4f);
+    CHECK_NEAR(r[1].nearZ, r[0].farZ, 1e-4f);
+    CHECK_NEAR(r[2].nearZ, r[1].farZ, 1e-4f);
+    CHECK_NEAR(r[2].farZ, 50.0f, 1e-3f);
+
+    // Invalid inputs return empty (no crash, no divide-by-zero).
+    CHECK(cascadeSplits(0.0f, 100.0f, 4).empty());  // near must be > 0
+    CHECK(cascadeSplits(10.0f, 5.0f, 4).empty());   // far <= near
+    CHECK(cascadeSplits(1.0f, 100.0f, 0).empty());  // count <= 0
 }
 
 void testProfiler() {
@@ -16982,6 +17034,7 @@ int main() {
     testDisplays();
     testKtx2();
     testInputTextAndDrop();
+    testCascadeSplits();
     testNoise();
     testRandom();
     testInterpolate();
