@@ -24,7 +24,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
 
 - **Core / math / containers:** vectors/matrices/quats, **Vector2/Vector3 gameplay helpers** (M267,
   `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
-  angle_to / project / posmod / snapped / rotated, plus **vector slerp** (M301 — `math::slerp` for
+  angle_to / project / posmod / snapped / rotated (M323 adds the Vector3 overload rotated(v,axis,angle)
+  — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
+  path), plus **vector slerp** (M301 — `math::slerp` for
   vec2/vec3: arc-interpolate direction while lerping length, Godot's Vector2/Vector3.slerp, with
   lerp fallback for zero-length/colinear inputs), plus **octahedral normal encoding** (M302 —
   `math::octahedronEncode` / `octahedronDecode`, Godot's Vector3.octahedron_encode/decode: pack a unit

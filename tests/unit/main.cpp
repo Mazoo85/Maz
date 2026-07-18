@@ -13105,6 +13105,30 @@ void testVectorOps() {
     CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
 
+    // --- M323: rotate a 3D vector about an axis (Rodrigues) — Godot Vector3.rotated ---
+    {
+        const float kHalfPi = 1.57079632679f;
+        // 90 deg about +Y sends +X to -Z; about +Z sends +X to +Y.
+        CHECK(near3(math::rotated(vec3(1, 0, 0), vec3(0, 1, 0), kHalfPi), vec3(0, 0, -1)));
+        CHECK(near3(math::rotated(vec3(1, 0, 0), vec3(0, 0, 1), kHalfPi), vec3(0, 1, 0)));
+        // 180 deg about +X flips Y and Z.
+        CHECK(near3(math::rotated(vec3(0, 2, 3), vec3(1, 0, 0), kPi), vec3(0, -2, -3)));
+        // A component along the axis is untouched; zero angle is identity.
+        CHECK(near3(math::rotated(vec3(0, 5, 0), vec3(0, 1, 0), 1.234f), vec3(0, 5, 0)));
+        CHECK(near3(math::rotated(vec3(3, -1, 2), vec3(0, 1, 0), 0.0f), vec3(3, -1, 2)));
+        // Non-unit axis is normalized internally; rotation preserves length.
+        CHECK(near3(math::rotated(vec3(1, 0, 0), vec3(0, 5, 0), kHalfPi),
+                    math::rotated(vec3(1, 0, 0), vec3(0, 1, 0), kHalfPi)));
+        CHECK_NEAR(length(math::rotated(vec3(1, -2, 0.5f), normalize(vec3(1, 2, 3)), 0.77f)),
+                   length(vec3(1, -2, 0.5f)), 1e-4f);
+        // Cross-check against the quaternion axis-angle path.
+        {
+            const vec3 ax = normalize(vec3(-2, 3, 1));
+            const math::Quaternion q = math::Quaternion::fromAxisAngle(ax, 1.1f);
+            CHECK(near3(math::rotated(vec3(2, -3, 4), ax, 1.1f), q.xform(vec3(2, -3, 4)), 1e-3f));
+        }
+    }
+
     // --- vector slerp (M301): arc-interpolate direction, lerp length ---
     {
         const float inv2 = 0.70710678f;

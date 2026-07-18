@@ -183,6 +183,16 @@ inline float angleTo(const vec3& a, const vec3& b) {
     return std::atan2(length(cross(a, b)), dot(a, b));
 }
 
+// Rotate `v` by `radians` about `axis` (which is normalized here) — Godot's Vector3.rotated.
+// Right-handed: a positive angle turns counter-clockwise when the axis points toward the viewer.
+// Uses Rodrigues' rotation formula: v*cos + (axis x v)*sin + axis*(axis.v)*(1-cos).
+inline vec3 rotated(const vec3& v, const vec3& axis, float radians) {
+    const vec3 k = normalize(axis);
+    const float c = std::cos(radians);
+    const float s = std::sin(radians);
+    return v * c + cross(k, v) * s + k * (dot(k, v) * (1.0f - c));
+}
+
 inline vec3 moveToward(const vec3& from, const vec3& to, float delta) {
     const vec3 d = to - from;
     const float len = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
