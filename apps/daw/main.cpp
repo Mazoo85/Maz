@@ -950,6 +950,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool flch = ImGui::SliderFloat("Cutoff LFO Hz", &fLfoRate, 0.0f, 20.0f, "%.2f");
     flch |= ImGui::SliderFloat("Cutoff LFO oct", &fLfoDepth, 0.0f, 4.0f, "%.2f");
     if (flch) syn.setFilterLfo(fLfoRate, fLfoDepth);
+    float aLfoRate = syn.ampLfoRate(), aLfoDepth = syn.ampLfoDepth();
+    bool alch = ImGui::SliderFloat("Tremolo Hz", &aLfoRate, 0.0f, 20.0f, "%.2f");
+    alch |= ImGui::SliderFloat("Tremolo depth", &aLfoDepth, 0.0f, 1.0f, "%.2f");
+    if (alch) syn.setAmpLfo(aLfoRate, aLfoDepth);
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();
@@ -1055,6 +1059,10 @@ void buildBassUI(audio::SynthInstrument& syn) {
     bool bflch = ImGui::SliderFloat("Cutoff LFO Hz##bass", &bfLfoRate, 0.0f, 20.0f, "%.2f");
     bflch |= ImGui::SliderFloat("Cutoff LFO oct##bass", &bfLfoDepth, 0.0f, 4.0f, "%.2f");
     if (bflch) syn.setFilterLfo(bfLfoRate, bfLfoDepth);
+    float baLfoRate = syn.ampLfoRate(), baLfoDepth = syn.ampLfoDepth();
+    bool balch = ImGui::SliderFloat("Tremolo Hz##bass", &baLfoRate, 0.0f, 20.0f, "%.2f");
+    balch |= ImGui::SliderFloat("Tremolo depth##bass", &baLfoDepth, 0.0f, 1.0f, "%.2f");
+    if (balch) syn.setAmpLfo(baLfoRate, baLfoDepth);
     float sub = syn.subLevel();
     if (ImGui::SliderFloat("Sub##bass", &sub, 0.0f, 1.0f, "%.2f")) {
         syn.setOscillators(syn.detuneCents(), syn.osc2Level(), sub, syn.noiseLevel());

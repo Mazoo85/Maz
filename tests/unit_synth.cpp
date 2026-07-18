@@ -773,6 +773,46 @@ int main() {
         check(df.filterLfoDepth() == 0.0f, "filter cutoff LFO defaults to 0 (off)");
     }
 
+    // --- Amplitude LFO (tremolo) ---------------------------------------------
+    {
+        // A sustained note with the amp LFO on has its level swing over the note; off, it holds.
+        auto windowSpread = [&](audio::SynthInstrument& s) {
+            s.noteOn(69, 1.0f);
+            const std::vector<float> buf = render(s, sampleRate / 2, sampleRate); // 0.5 s
+            const int win = 2000;
+            double lo = 1e9, hi = 0.0;
+            for (size_t start = 0; start + win <= buf.size(); start += win) {
+                double sum = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    const double x = buf[start + static_cast<size_t>(i)];
+                    sum += x * x;
+                }
+                const double r = std::sqrt(sum / win);
+                lo = std::min(lo, r);
+                hi = std::max(hi, r);
+            }
+            return hi / (lo + 1e-9);
+        };
+
+        audio::SynthInstrument trem;
+        trem.setWaveform(audio::Waveform::Saw);
+        trem.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        trem.setAmpLfo(6.0f, 0.9f); // strong 6 Hz tremolo
+        const double tremRatio = windowSpread(trem);
+
+        audio::SynthInstrument steady;
+        steady.setWaveform(audio::Waveform::Saw);
+        steady.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        const double steadyRatio = windowSpread(steady);
+
+        check(tremRatio > 2.0, "amp LFO makes the level swing across the note");
+        check(steadyRatio < 1.5, "without the amp LFO a sustained note holds steady");
+        check(tremRatio > steadyRatio * 1.5, "amp LFO adds clear level movement vs no LFO");
+
+        audio::SynthInstrument da;
+        check(da.ampLfoDepth() == 0.0f, "amp LFO (tremolo) defaults to 0 (off)");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

@@ -86,6 +86,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> filtLfoRate >> filtLfoDepth) {
         syn.setFilterLfo(filtLfoRate, filtLfoDepth);
     }
+    float ampLfoRate = 0.0f, ampLfoDepth = 0.0f; // amplitude LFO optional for old files
+    if (ls >> ampLfoRate >> ampLfoDepth) {
+        syn.setAmpLfo(ampLfoRate, ampLfoDepth);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -175,7 +179,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
           << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
           << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
-          << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << "\n";
+          << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << " "
+          << s.ampLfoRate() << " " << s.ampLfoDepth() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

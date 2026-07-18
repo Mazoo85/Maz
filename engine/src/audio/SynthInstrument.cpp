@@ -125,6 +125,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const double wtLfoInc = static_cast<double>(wtLfoRate_) / static_cast<double>(sampleRate);
     // Filter cutoff LFO (shared across voices), same block-start-phase scheme.
     const double filtLfoInc = static_cast<double>(filterLfoRate_) / static_cast<double>(sampleRate);
+    // Amplitude LFO / tremolo (shared across voices), same block-start-phase scheme.
+    const double ampLfoInc = static_cast<double>(ampLfoRate_) / static_cast<double>(sampleRate);
     // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
     const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
     // Per-instrument octave shift as a frequency multiplier (2^octave).
@@ -298,7 +300,14 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             // Velocity → amplitude, scaled by sensitivity: at 1 the velocity fully sets loudness, at
             // 0 every note is equally loud regardless of how hard it was played.
             const float velAmp = (1.0f - velSens_) + velSens_ * v.velocity;
-            out[i] += osc * v.env * velAmp * gain_;
+            // Amplitude LFO (tremolo): a level dip that swings between full and (1 − depth).
+            float ampMod = 1.0f;
+            if (ampLfoDepth_ > 0.0f) {
+                const double ap = ampLfoPhase_ + static_cast<double>(i) * ampLfoInc;
+                const float lfoU = 0.5f + 0.5f * static_cast<float>(std::sin(ap * kTwoPiVib));
+                ampMod = 1.0f - ampLfoDepth_ * lfoU;
+            }
+            out[i] += osc * v.env * velAmp * gain_ * ampMod;
 
             v.phase += phaseInc;
             if (v.phase >= 1.0) {
@@ -328,6 +337,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     filterLfoPhase_ += filtLfoInc * static_cast<double>(frames);
     if (filterLfoPhase_ >= 1.0) {
         filterLfoPhase_ -= std::floor(filterLfoPhase_);
+    }
+    // Likewise the amplitude LFO.
+    ampLfoPhase_ += ampLfoInc * static_cast<double>(frames);
+    if (ampLfoPhase_ >= 1.0) {
+        ampLfoPhase_ -= std::floor(ampLfoPhase_);
     }
 }
 

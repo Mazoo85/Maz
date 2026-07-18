@@ -77,6 +77,16 @@ public:
     void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
     float glide() const { return glideSeconds_; }
 
+    // Amplitude LFO (tremolo): modulate every voice's level at `rateHz` by `depth` [0,1] — the output
+    // swings between full level (depth 0, off) and (1 − depth) of it at the trough. A shared LFO
+    // across voices, like the vibrato. depth 0 = off.
+    void setAmpLfo(float rateHz, float depth) {
+        ampLfoRate_ = rateHz < 0.0f ? 0.0f : (rateHz > 20.0f ? 20.0f : rateHz);
+        ampLfoDepth_ = depth < 0.0f ? 0.0f : (depth > 1.0f ? 1.0f : depth);
+    }
+    float ampLfoRate() const { return ampLfoRate_; }
+    float ampLfoDepth() const { return ampLfoDepth_; }
+
     // FM: modulator frequency = carrier * ratio; index sets the modulation depth (brightness).
     void setFmRatio(float r) { fmRatio_ = r; }
     void setFmIndex(float i) { fmIndex_ = i; }
@@ -267,6 +277,9 @@ private:
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
     float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
+    float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
+    float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
+    double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)
     Waveform subWave_ = Waveform::Sine;
     int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true
