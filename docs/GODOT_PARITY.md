@@ -28,7 +28,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance
   budgets** (a formal alert layer Godot lacks), job system.
 - **2D:** sprites/atlas/tilemaps, cameras, parallax, polygons (convex + concave ear-clip),
-  polylines, multimesh, 2D lights + hard/soft/normal-mapped shadows, additive blending.
+  polylines, multimesh, 2D lights + hard/soft/normal-mapped shadows, additive blending,
+  **Delaunay triangulation** (M257, `math::triangulateDelaunay` — Bowyer-Watson, Godot's
+  `Geometry2D.triangulate_delaunay`: empty-circumcircle-verified, robust double-precision predicate).
 - **3D rendering (CPU-verifiable parts):** PBR (Cook-Torrance GGX, metallic/roughness), analytic
   IBL, tonemap operators incl. **AgX**, bloom, SSAO, MSAA, fog, shadow mapping w/ PCF, frustum
   culling, instancing, billboards, procedural primitives, glTF scenes.

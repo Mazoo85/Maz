@@ -177,6 +177,7 @@
 #include "maz/io/PrefabText.hpp"
 #include "maz/io/ResourcePack.hpp"
 #include "maz/math/Curve2D.hpp"
+#include "maz/math/Delaunay.hpp"
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
@@ -375,6 +376,80 @@ void testCurve2D() {
         CHECK_NEAR(c.sampleBaked(3.0f).y, 9.0f, 1e-6f);
         c.clear();
         CHECK(c.pointCount() == 0);
+    }
+}
+
+void testDelaunay() {
+    using math::triangulateDelaunay;
+    using math::vec2;
+
+    auto crossD = [](vec2 o, vec2 a, vec2 b) {
+        return static_cast<double>(a.x - o.x) * (b.y - o.y) -
+               static_cast<double>(a.y - o.y) * (b.x - o.x);
+    };
+    auto delaunayValid = [](const std::vector<vec2>& pts, const std::vector<std::uint32_t>& tris) {
+        for (std::size_t t = 0; t < tris.size(); t += 3) {
+            const vec2 a = pts[tris[t]], b = pts[tris[t + 1]], c = pts[tris[t + 2]];
+            for (std::size_t i = 0; i < pts.size(); ++i) {
+                if (i == tris[t] || i == tris[t + 1] || i == tris[t + 2]) {
+                    continue;
+                }
+                if (math::detail::delInCircle(a, b, c, pts[i])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
+    // Degenerate: <3 points and collinear -> empty.
+    CHECK(triangulateDelaunay({}).empty());
+    CHECK((triangulateDelaunay({{0, 0}, {1, 1}}).empty()));
+    CHECK((triangulateDelaunay({{0, 0}, {1, 0}, {2, 0}, {3, 0}}).empty()));
+
+    // Unit square -> 2 triangles, Delaunay, total area 1.
+    {
+        std::vector<vec2> sq = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        auto tris = triangulateDelaunay(sq);
+        CHECK(tris.size() == 6);
+        CHECK(delaunayValid(sq, tris));
+        double area = 0;
+        for (std::size_t t = 0; t < tris.size(); t += 3) {
+            area += std::fabs(crossD(sq[tris[t]], sq[tris[t + 1]], sq[tris[t + 2]])) * 0.5;
+        }
+        CHECK_NEAR(static_cast<float>(area), 1.0f, 1e-4f);
+    }
+
+    // 3x3 grid: Euler -> 2n-2-h = 18-2-8 = 8 triangles, total area 4.
+    {
+        std::vector<vec2> grid;
+        for (int y = 0; y < 3; ++y) {
+            for (int x = 0; x < 3; ++x) {
+                grid.push_back(vec2(static_cast<float>(x), static_cast<float>(y)));
+            }
+        }
+        auto tris = triangulateDelaunay(grid);
+        CHECK(tris.size() / 3 == 8);
+        CHECK(delaunayValid(grid, tris));
+        double area = 0;
+        for (std::size_t t = 0; t < tris.size(); t += 3) {
+            area += std::fabs(crossD(grid[tris[t]], grid[tris[t + 1]], grid[tris[t + 2]])) * 0.5;
+        }
+        CHECK_NEAR(static_cast<float>(area), 4.0f, 1e-4f);
+    }
+
+    // Scattered points: valid Delaunay, all indices in range.
+    {
+        std::vector<vec2> pts = {{0.1f, 0.2f}, {0.9f, 0.15f}, {0.5f, 0.9f}, {0.3f, 0.5f},
+                                 {0.7f, 0.6f}, {0.15f, 0.8f}, {0.85f, 0.85f}, {0.5f, 0.1f},
+                                 {0.6f, 0.4f}, {0.25f, 0.3f}};
+        auto tris = triangulateDelaunay(pts);
+        CHECK(tris.size() % 3 == 0);
+        CHECK(tris.size() >= 3);
+        CHECK(delaunayValid(pts, tris));
+        for (std::uint32_t idx : tris) {
+            CHECK(idx < pts.size());
+        }
     }
 }
 
@@ -20059,6 +20134,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testCurve2D();
+    testDelaunay();
     testAtlasPacker();
     testColorOps();
     testExtension();
