@@ -44,6 +44,7 @@
 #include "maz/core/Version.hpp"
 #include "maz/platform/AppFocus.hpp"
 #include "maz/platform/CrashHandler.hpp"
+#include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
 #include "maz/core/Jobs.hpp"
@@ -5002,6 +5003,40 @@ void testAppFocus() {
     // frameMsForFps helper: 60 fps -> ~16.667ms, 0 fps -> 0.
     CHECK_NEAR(platform::frameMsForFps(60.0), 1000.0 / 60.0, 1e-9);
     CHECK_NEAR(platform::frameMsForFps(0.0), 0.0, 1e-9);
+}
+
+void testPresentMode() {
+    using render::choosePresentMode;
+    using render::PresentMode;
+
+    const std::vector<PresentMode> all = {PresentMode::Fifo, PresentMode::FifoRelaxed,
+                                          PresentMode::Mailbox, PresentMode::Immediate};
+
+    // vsync ON: prefer adaptive (FifoRelaxed) when present, else plain Fifo.
+    CHECK(choosePresentMode(all, true) == PresentMode::FifoRelaxed);
+    CHECK(choosePresentMode({PresentMode::Fifo, PresentMode::Mailbox}, true) == PresentMode::Fifo);
+
+    // vsync OFF: prefer Mailbox (low-latency, no tearing) over Immediate.
+    CHECK(choosePresentMode(all, false) == PresentMode::Mailbox);
+    CHECK(choosePresentMode({PresentMode::Fifo, PresentMode::Immediate}, false) ==
+          PresentMode::Immediate);
+
+    // vsync OFF but tearing disallowed: never pick Immediate; fall back to Fifo when no Mailbox.
+    CHECK(choosePresentMode({PresentMode::Fifo, PresentMode::Immediate}, false, false) ==
+          PresentMode::Fifo);
+    // ...but Mailbox is still fine with tearing disallowed (it doesn't tear).
+    CHECK(choosePresentMode({PresentMode::Fifo, PresentMode::Mailbox, PresentMode::Immediate},
+                            false, false) == PresentMode::Mailbox);
+
+    // Fifo is the guaranteed backstop: only Fifo available -> Fifo either way.
+    CHECK(choosePresentMode({PresentMode::Fifo}, true) == PresentMode::Fifo);
+    CHECK(choosePresentMode({PresentMode::Fifo}, false) == PresentMode::Fifo);
+
+    // Empty support list (defensive) -> Fifo.
+    CHECK(choosePresentMode({}, false) == PresentMode::Fifo);
+
+    CHECK(render::supportsMode(all, PresentMode::Mailbox));
+    CHECK(!render::supportsMode({PresentMode::Fifo}, PresentMode::Mailbox));
 }
 
 void testProfiler() {
@@ -16765,6 +16800,7 @@ int main() {
     testProfiler();
     testPerfBudget();
     testAppFocus();
+    testPresentMode();
     testNoise();
     testRandom();
     testInterpolate();

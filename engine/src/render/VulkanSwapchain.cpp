@@ -1,6 +1,7 @@
 #include "render/VulkanSwapchain.hpp"
 
 #include "maz/core/Log.hpp"
+#include "maz/render/PresentMode.hpp"
 #include "render/VulkanBuffer.hpp"
 #include "render/VulkanContext.hpp"
 
@@ -22,21 +23,28 @@ VkSurfaceFormatKHR chooseFormat(const std::vector<VkSurfaceFormatKHR>& formats) 
     return formats.front();
 }
 
-VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes, bool vsync) {
-    if (!vsync) {
-        for (auto m : modes) {
-            if (m == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-                return m;
-            }
-        }
-    } else {
-        for (auto m : modes) {
-            if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
-                return m; // low-latency vsync
-            }
+VkPresentModeKHR chooseVkPresentMode(const std::vector<VkPresentModeKHR>& modes, bool vsync) {
+    // Map the surface's Vulkan present modes onto the engine's abstract set, run the pure
+    // selection policy (unit-tested, GPU-free), then map the winner back to Vulkan.
+    std::vector<PresentMode> abstractModes;
+    abstractModes.reserve(modes.size());
+    for (auto m : modes) {
+        switch (m) {
+        case VK_PRESENT_MODE_FIFO_KHR: abstractModes.push_back(PresentMode::Fifo); break;
+        case VK_PRESENT_MODE_FIFO_RELAXED_KHR: abstractModes.push_back(PresentMode::FifoRelaxed); break;
+        case VK_PRESENT_MODE_MAILBOX_KHR: abstractModes.push_back(PresentMode::Mailbox); break;
+        case VK_PRESENT_MODE_IMMEDIATE_KHR: abstractModes.push_back(PresentMode::Immediate); break;
+        default: break; // ignore shared-present / other extension modes
         }
     }
-    return VK_PRESENT_MODE_FIFO_KHR; // always supported
+
+    switch (maz::render::choosePresentMode(abstractModes, vsync)) {
+    case PresentMode::FifoRelaxed: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    case PresentMode::Mailbox: return VK_PRESENT_MODE_MAILBOX_KHR;
+    case PresentMode::Immediate: return VK_PRESENT_MODE_IMMEDIATE_KHR;
+    case PresentMode::Fifo:
+    default: return VK_PRESENT_MODE_FIFO_KHR; // always supported
+    }
 }
 
 } // namespace
@@ -64,7 +72,7 @@ bool VulkanSwapchain::create(VulkanContext& ctx, uint32_t width, uint32_t height
     }
 
     VkSurfaceFormatKHR surfaceFormat = chooseFormat(formats);
-    VkPresentModeKHR presentMode = choosePresentMode(presentModes, vsync);
+    VkPresentModeKHR presentMode = chooseVkPresentMode(presentModes, vsync);
     m_format = surfaceFormat.format;
 
     if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {

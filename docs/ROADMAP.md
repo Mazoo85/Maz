@@ -211,7 +211,13 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   M157) — a 2D get_vector convenience over ActionMap's four directional actions + per-action deadzone config
   later
 - [ ] Text input / IME, clipboard, drag-and-drop
-- [ ] vsync toggle, frame pacing, present-mode selection
+- [~] vsync toggle, frame pacing, present-mode selection (M206 — present-mode selection is now a
+  pure, unit-tested policy (`render::choosePresentMode` in `PresentMode.hpp`): vsync-on prefers
+  adaptive FIFO-relaxed then hard FIFO; vsync-off prefers MAILBOX (low-latency, tear-free) then
+  IMMEDIATE (if tearing allowed) then FIFO — a smarter order than the old "IMMEDIATE-first" pick.
+  The Vulkan swapchain maps its real `VK_PRESENT_MODE_*` set onto this and back, so the choice is
+  testable without a GPU. vsync toggle already exists (`RendererConfig::vsync`); frame pacing is the
+  AppFocus throttle (M205). Runtime present-mode switching + a proper frame-pacing clock remain.)
 - [x] **Virtual filesystem / scheme paths** (`io::VirtualFileSystem`, toward Godot's `res://` /
   `user://`): mount a scheme to a real directory (`mount("res", installDir)` / `mount("user",
   saveDir)`) and `resolve("res://textures/hero.png")` to a real path — so game code never hard-codes
