@@ -319,6 +319,53 @@ int main() {
 
         audio::Sequencer def;
         check(def.arpOctaves() == 1, "arp octave range defaults to 1");
+
+        // As-played (mode 4): notes are arpeggiated in the order they were entered, not by pitch.
+        audio::Sequencer asp;
+        asp.setBpm(120.0);
+        asp.roll().addNote(audio::Note{0, 16, 67, 1.0f}); // entry order 67 → 60 → 64
+        asp.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        asp.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        asp.setArp(true, 4);
+        asp.play();
+        check(asp.arpCurrentPitch() == 67, "as-played arp starts with the first-entered note");
+        (void)renderMono(asp, 6000, sampleRate);
+        check(asp.arpCurrentPitch() == 60, "as-played arp follows entry order (2nd note)");
+        (void)renderMono(asp, 6000, sampleRate);
+        check(asp.arpCurrentPitch() == 64, "as-played arp follows entry order (3rd note)");
+
+        // Random (mode 3): deterministic, only plays held pitches, and differs from the strict up walk.
+        auto arpSeq = [&](int mode) {
+            audio::Sequencer r;
+            r.setBpm(120.0);
+            r.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+            r.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+            r.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+            r.setArp(true, mode);
+            r.play();
+            std::vector<int> ps;
+            ps.push_back(r.arpCurrentPitch());
+            for (int k = 0; k < 12; ++k) {
+                (void)renderMono(r, 6000, sampleRate);
+                ps.push_back(r.arpCurrentPitch());
+            }
+            return ps;
+        };
+        const std::vector<int> rnd1 = arpSeq(3);
+        const std::vector<int> rnd2 = arpSeq(3);
+        const std::vector<int> up = arpSeq(0);
+        check(rnd1 == rnd2, "random arp is deterministic (same each transport)");
+        bool allHeld = true, twoDistinct = false;
+        for (int p : rnd1) {
+            if (p != 60 && p != 64 && p != 67) allHeld = false;
+            if (p != rnd1[0]) twoDistinct = true;
+        }
+        check(allHeld, "random arp only plays held pitches");
+        check(twoDistinct, "random arp visits more than one pitch");
+        check(rnd1 != up, "random arp differs from the strict up order");
+
+        audio::Sequencer dm;
+        check(dm.arpMode() == 0, "arp mode defaults to up");
     }
 
     // --- Sidechain ducking ---------------------------------------------------

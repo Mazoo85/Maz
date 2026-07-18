@@ -159,8 +159,9 @@ public:
     bool useSampler() const { return useSampler_; }
 
     // Arpeggiator: when on, held piano-roll chords are played one note per step, cycling through the
-    // held pitches. Mode 0 = up, 1 = down, 2 = up-down. `arpCurrentPitch` reflects the last note it
-    // played (-1 if silent) — useful for the UI and tests.
+    // held pitches. Mode 0 = up, 1 = down, 2 = up-down, 3 = random (deterministic), 4 = as-played
+    // (the notes' entry order). `arpCurrentPitch` reflects the last note it played (-1 if silent) —
+    // useful for the UI and tests.
     void setArp(bool on, int mode);
     bool arpOn() const { return arpOn_; }
     int arpMode() const { return arpMode_; }
@@ -280,6 +281,7 @@ private:
     int arpOctaves_ = 1;
     int arpCounter_ = 0;
     int arpCurrentPitch_ = -1;
+    uint32_t arpRng_ = 0x1234567u; // deterministic RNG for the random arp mode
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
     float bassGain_ = 1.0f;

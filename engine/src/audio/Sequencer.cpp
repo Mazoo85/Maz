@@ -254,8 +254,9 @@ void Sequencer::setSidechain(bool on, float amount, float releaseMs) {
 
 void Sequencer::setArp(bool on, int mode) {
     arpOn_ = on;
-    arpMode_ = (mode < 0 || mode > 2) ? 0 : mode;
+    arpMode_ = (mode < 0 || mode > 4) ? 0 : mode;
     arpCounter_ = 0;
+    arpRng_ = 0x1234567u;
 }
 
 void Sequencer::setHumanize(float amount) {
@@ -507,8 +508,12 @@ void Sequencer::triggerStep(int step) {
             arpCurrentPitch_ = -1;
         }
         if (!held.empty()) {
-            std::sort(held.begin(), held.end());
             const int n = static_cast<int>(held.size());
+            // Modes 0–3 walk the pitches low→high; as-played (4) keeps the notes' entry order.
+            std::vector<int> ord = held;
+            if (arpMode_ != 4) {
+                std::sort(ord.begin(), ord.end());
+            }
             int index = 0;
             if (arpMode_ == 1) { // down
                 index = (n - 1) - (arpCounter_ % n);
@@ -516,10 +521,15 @@ void Sequencer::triggerStep(int step) {
                 const int period = 2 * n - 2;
                 const int pos = arpCounter_ % period;
                 index = pos < n ? pos : period - pos;
-            } else { // up
+            } else if (arpMode_ == 3) { // random (deterministic per-transport RNG)
+                arpRng_ ^= arpRng_ << 13;
+                arpRng_ ^= arpRng_ >> 17;
+                arpRng_ ^= arpRng_ << 5;
+                index = static_cast<int>(arpRng_ % static_cast<uint32_t>(n));
+            } else { // up (0) or as-played (4)
                 index = arpCounter_ % n;
             }
-            const int pitch = held[static_cast<size_t>(index)] + transpose_;
+            const int pitch = ord[static_cast<size_t>(index)] + transpose_;
             if (toSampler) {
                 sampler_.noteOn(pitch, 0.9f);
             } else {
@@ -585,6 +595,7 @@ void Sequencer::play() {
     samplesIntoStep_ = 0.0;
     playlistPos_ = 0;
     arpCounter_ = 0;
+    arpRng_ = 0x1234567u;
     arpCurrentPitch_ = -1;
     humanizeCounter_ = 0;
     metroLastStep_ = -1;

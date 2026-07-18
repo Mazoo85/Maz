@@ -773,9 +773,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     int arpMode = seq.arpMode();
     bool arpCh = ImGui::Checkbox("Arpeggiator", &arp);
     ImGui::SameLine();
-    const char* arpModes[] = {"Up", "Down", "Up-Down"};
+    const char* arpModes[] = {"Up", "Down", "Up-Down", "Random", "As-played"};
     ImGui::SetNextItemWidth(120.0f);
-    arpCh |= ImGui::Combo("##arpmode", &arpMode, arpModes, 3);
+    arpCh |= ImGui::Combo("##arpmode", &arpMode, arpModes, 5);
     if (arpCh) {
         seq.setArp(arp, arpMode);
     }
