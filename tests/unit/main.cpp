@@ -64,6 +64,7 @@
 #include "maz/core/Expression.hpp"
 #include "maz/core/Jobs.hpp"
 #include "maz/core/LogSinks.hpp"
+#include "maz/core/KdTree2D.hpp"
 #include "maz/core/Noise.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/PoissonDisk.hpp"
@@ -11833,6 +11834,91 @@ void testPcg32() {
     CHECK(f >= 0.0f && f < 1.0f);
 }
 
+void testKdTree2D() {
+    using core::KdTree2D;
+    using core::Pcg32;
+    using math::vec2;
+    auto d2 = [](vec2 a, vec2 b) {
+        const float dx = a.x - b.x, dy = a.y - b.y;
+        return dx * dx + dy * dy;
+    };
+
+    // Empty tree.
+    {
+        KdTree2D t;
+        CHECK(t.nearest(vec2(0, 0)) == -1);
+        CHECK(t.kNearest(vec2(0, 0), 3).empty());
+        CHECK(t.radius(vec2(0, 0), 5).empty());
+    }
+
+    // Random cloud cross-checked against brute force.
+    Pcg32 rng(42, 7);
+    std::vector<vec2> pts;
+    for (int i = 0; i < 300; ++i) {
+        pts.push_back(vec2(rng.nextFloat() * 100.0f, rng.nextFloat() * 100.0f));
+    }
+    KdTree2D tree(pts);
+    CHECK(tree.size() == pts.size());
+
+    // nearest() distance matches brute force.
+    for (int q = 0; q < 60; ++q) {
+        const vec2 query(rng.nextFloat() * 120.0f - 10.0f, rng.nextFloat() * 120.0f - 10.0f);
+        const int kd = tree.nearest(query);
+        float bd = 1e30f;
+        for (const vec2& p : pts) {
+            bd = std::min(bd, d2(p, query));
+        }
+        CHECK(std::fabs(d2(pts[static_cast<std::size_t>(kd)], query) - bd) < 1e-4f);
+    }
+
+    // kNearest matches the k smallest brute-force distances, sorted.
+    for (int q = 0; q < 25; ++q) {
+        const vec2 query(rng.nextFloat() * 100.0f, rng.nextFloat() * 100.0f);
+        const int k = 5;
+        auto kd = tree.kNearest(query, k);
+        CHECK(static_cast<int>(kd.size()) == k);
+        std::vector<float> bruteDist;
+        for (const vec2& p : pts) {
+            bruteDist.push_back(d2(p, query));
+        }
+        std::sort(bruteDist.begin(), bruteDist.end());
+        for (int i = 0; i < k; ++i) {
+            const float kdd = d2(pts[static_cast<std::size_t>(kd[static_cast<std::size_t>(i)])], query);
+            CHECK(std::fabs(kdd - bruteDist[static_cast<std::size_t>(i)]) < 1e-4f);
+            if (i > 0) {
+                const float prev =
+                    d2(pts[static_cast<std::size_t>(kd[static_cast<std::size_t>(i - 1)])], query);
+                CHECK(prev <= kdd + 1e-5f);
+            }
+        }
+    }
+
+    // radius query returns exactly the brute-force set.
+    for (int q = 0; q < 25; ++q) {
+        const vec2 query(rng.nextFloat() * 100.0f, rng.nextFloat() * 100.0f);
+        const float r = 5.0f + rng.nextFloat() * 15.0f;
+        auto got = tree.radius(query, r);
+        std::sort(got.begin(), got.end());
+        std::vector<int> brute;
+        for (std::size_t i = 0; i < pts.size(); ++i) {
+            if (d2(pts[i], query) <= r * r) {
+                brute.push_back(static_cast<int>(i));
+            }
+        }
+        std::sort(brute.begin(), brute.end());
+        CHECK((got == brute));
+    }
+
+    // k > n returns all points, nearest first.
+    {
+        std::vector<vec2> few = {{0, 0}, {1, 1}, {2, 2}};
+        KdTree2D t(few);
+        auto all = t.kNearest(vec2(0, 0), 10);
+        CHECK(all.size() == 3);
+        CHECK(all[0] == 0);
+    }
+}
+
 void testPoissonDisk() {
     using core::poissonDiskSample;
     using math::vec2;
@@ -20417,6 +20503,7 @@ int main() {
     testGlyphCache();
     testGraphEdit();
     testPcg32();
+    testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
     testChunkStreamer();
