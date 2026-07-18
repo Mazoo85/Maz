@@ -144,7 +144,10 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
   state, re-simulate the unacked ones). M216. Valve/Gaffer prediction — instant-feeling netcode.
 - [x] **[CPU]** RPC layer: `net::RpcDispatcher` (name-hashed method ids, reliable/unreliable/
   ordered transfer modes, header write + dispatch-to-handler over net::BitStream; unknown/malformed
-  calls counted, not crashed). M217. Godot's @rpc / rpc()/rpc_id() model. Scene-replication nodes next.
+  calls counted, not crashed). M217. Godot's @rpc / rpc()/rpc_id() model.
+- [x] **[CPU]** Scene-replication nodes: `net::Replication` (`ReplicatedObject` declares get/set
+  properties with wire widths; `Synchronizer` holds the per-peer baseline and does writeFull/
+  writeDelta/readFull/readDelta over net::Snapshot). M218. Godot's MultiplayerSynchronizer.
 - [ ] **[CPU]** WebSocket + WebRTC data channels
 
 ### 11. XR / VR  [GPU][DESK][BIG]

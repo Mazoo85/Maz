@@ -51,6 +51,7 @@
 #include "maz/net/Interpolation.hpp"
 #include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
+#include "maz/net/Replication.hpp"
 #include "maz/net/Rpc.hpp"
 #include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
@@ -5620,6 +5621,81 @@ void testRpc() {
     BitReader r4(w4.bytes());
     CHECK(!d.dispatch(r4));
     CHECK(d.malformedCalls() == 1);
+}
+
+void testReplication() {
+    using net::BitReader;
+    using net::BitWriter;
+    using net::ReplicatedObject;
+    using net::Synchronizer;
+
+    struct Entity {
+        uint32_t x = 0;
+        uint32_t y = 0;
+        uint32_t health = 0;
+    };
+    auto makeObj = [](Entity& e) {
+        ReplicatedObject o;
+        o.add([&] { return e.x; }, [&](uint32_t v) { e.x = v; }, 16);
+        o.add([&] { return e.y; }, [&](uint32_t v) { e.y = v; }, 16);
+        o.add([&] { return e.health; }, [&](uint32_t v) { e.health = v; }, 7);
+        return o;
+    };
+
+    Entity srv{100u, 200u, 90u};
+    Entity cli{};
+    ReplicatedObject so = makeObj(srv);
+    ReplicatedObject co = makeObj(cli);
+    Synchronizer sSync;
+    Synchronizer cSync;
+    CHECK(so.propertyCount() == 3);
+
+    // Full sync: client mirrors server.
+    BitWriter wf;
+    sSync.writeFull(wf, so);
+    CHECK(wf.bitCount() == 16 + 16 + 7);
+    BitReader rf(wf.bytes());
+    cSync.readFull(rf, co);
+    CHECK(cli.x == 100u);
+    CHECK(cli.y == 200u);
+    CHECK(cli.health == 90u);
+
+    // Only x changes -> a 1-field delta (3 mask bits + one 16-bit field).
+    srv.x = 105u;
+    BitWriter wd;
+    const std::size_t changed = sSync.writeDelta(wd, so);
+    CHECK(changed == 1);
+    CHECK(wd.bitCount() == 3 + 16);
+    BitReader rd(wd.bytes());
+    cSync.readDelta(rd, co);
+    CHECK(cli.x == 105u);
+    CHECK(cli.y == 200u);
+    CHECK(cli.health == 90u);
+
+    // No change -> delta is just the mask bits; client unchanged.
+    BitWriter wn;
+    const std::size_t c2 = sSync.writeDelta(wn, so);
+    CHECK(c2 == 0);
+    CHECK(wn.bitCount() == 3);
+    BitReader rn(wn.bytes());
+    cSync.readDelta(rn, co);
+    CHECK(cli.x == 105u);
+
+    // Two fields change together.
+    srv.y = 250u;
+    srv.health = 40u;
+    BitWriter wm;
+    const std::size_t c3 = sSync.writeDelta(wm, so);
+    CHECK(c3 == 2);
+    CHECK(wm.bitCount() == 3 + 16 + 7);
+    BitReader rm(wm.bytes());
+    cSync.readDelta(rm, co);
+    CHECK(cli.x == 105u);
+    CHECK(cli.y == 250u);
+    CHECK(cli.health == 40u);
+
+    // Bandwidth win: a 1-field delta is smaller than a full snapshot.
+    CHECK(wd.bitCount() < wf.bitCount());
 }
 
 void testProfiler() {
@@ -17395,6 +17471,7 @@ int main() {
     testNetInterpolation();
     testPrediction();
     testRpc();
+    testReplication();
     testNoise();
     testRandom();
     testInterpolate();
