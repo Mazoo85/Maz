@@ -173,6 +173,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
+#include "maz/render/ColorOps.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -362,6 +363,65 @@ void testCurve2D() {
         c.clear();
         CHECK(c.pointCount() == 0);
     }
+}
+
+void testColorOps() {
+    using render::Color;
+    using render::Hsv;
+
+    // HSV round trips.
+    Hsv hr = render::toHsv(Color{1, 0, 0, 1});
+    CHECK_NEAR(hr.h, 0.0f, 1e-3f);
+    CHECK_NEAR(hr.s, 1.0f, 1e-3f);
+    CHECK_NEAR(hr.v, 1.0f, 1e-3f);
+    CHECK_NEAR(render::toHsv(Color{0, 1, 0, 1}).h, 1.0f / 3.0f, 1e-3f);
+    CHECK_NEAR(render::toHsv(Color{0, 0, 1, 1}).h, 2.0f / 3.0f, 1e-3f);
+    Color grn = render::fromHsv(1.0f / 3.0f, 1.0f, 1.0f);
+    CHECK_NEAR(grn.g, 1.0f, 1e-3f);
+    CHECK_NEAR(grn.r, 0.0f, 1e-3f);
+    const Color samples[] = {{0.2f, 0.6f, 0.9f, 1}, {0.8f, 0.1f, 0.4f, 1}, {0.3f, 0.7f, 0.2f, 1}};
+    for (const Color& c : samples) {
+        const Color back = render::fromHsv(render::toHsv(c));
+        CHECK_NEAR(back.r, c.r, 1e-3f);
+        CHECK_NEAR(back.g, c.g, 1e-3f);
+        CHECK_NEAR(back.b, c.b, 1e-3f);
+    }
+
+    // Hex parse/format.
+    Color c;
+    CHECK((render::fromHtml("ff0000", c) && c.r > 0.99f && c.g < 0.01f && c.b < 0.01f));
+    CHECK((render::fromHtml("#00ff00", c) && c.g > 0.99f));
+    CHECK((render::fromHtml("ff000080", c) && c.r > 0.99f));
+    CHECK_NEAR(c.a, 128.0f / 255.0f, 1e-3f);
+    CHECK((render::fromHtml("#f00", c) && c.r > 0.99f && c.g < 0.01f)); // shorthand
+    CHECK(!render::fromHtml("xyz", c));                                 // bad chars
+    CHECK(!render::fromHtml("ff000", c));                               // bad length (5)
+    CHECK(render::toHtml(Color{1, 0, 0, 1}) == "ff0000");
+    Color rt;
+    CHECK(render::fromHtml(render::toHtml(Color{0.2f, 0.6f, 0.9f, 1}), rt));
+    CHECK_NEAR(rt.r, 0.2f, 0.01f);
+    CHECK_NEAR(rt.g, 0.6f, 0.01f);
+    CHECK_NEAR(rt.b, 0.9f, 0.01f);
+
+    // Lighten / darken / lerp / invert.
+    CHECK_NEAR(render::lightened(Color{0, 0, 0, 1}, 0.5f).r, 0.5f, 1e-4f);
+    CHECK_NEAR(render::darkened(Color{1, 1, 1, 1}, 0.25f).r, 0.75f, 1e-4f);
+    Color mid = render::lerpColor(Color{0, 0, 0, 0}, Color{1, 1, 1, 1}, 0.5f);
+    CHECK_NEAR(mid.r, 0.5f, 1e-4f);
+    CHECK_NEAR(mid.a, 0.5f, 1e-4f);
+    Color inv = render::inverted(Color{1, 0, 0, 1});
+    CHECK((inv.r < 0.01f && inv.g > 0.99f && inv.b > 0.99f && inv.a > 0.99f));
+
+    // Luminance endpoints + ordering.
+    CHECK_NEAR(render::luminance(Color{1, 1, 1, 1}), 1.0f, 1e-4f);
+    CHECK_NEAR(render::luminance(Color{0, 0, 0, 1}), 0.0f, 1e-4f);
+    CHECK(render::luminance(Color{0, 1, 0, 1}) > render::luminance(Color{1, 0, 0, 1}));
+
+    // sRGB <-> linear.
+    CHECK_NEAR(render::srgbToLinear(0.0f), 0.0f, 1e-5f);
+    CHECK_NEAR(render::srgbToLinear(1.0f), 1.0f, 1e-5f);
+    CHECK_NEAR(render::linearToSrgb(render::srgbToLinear(0.5f)), 0.5f, 1e-4f);
+    CHECK(render::srgbToLinear(0.5f) < 0.5f);
 }
 
 void testAtlasPacker() {
@@ -18922,6 +18982,7 @@ int main() {
     testMath();
     testCurve2D();
     testAtlasPacker();
+    testColorOps();
     testForceField2D();
     testExpression();
     testAStar2D();

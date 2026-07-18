@@ -155,7 +155,10 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   connect/disconnect with full validation (endpoints exist, no self-links, no duplicate wires,
   cycle rejection for acyclic graphs), many-to-one/one-to-many wiring, `wouldCreateCycle`, incident-wire
   cleanup on node removal, and a Kahn `topologicalOrder` (empty on cycle). Verified across all of those.
-  The other listed controls (TabContainer, ColorPicker, etc.) remain.
+  **ColorPicker colour math done** (M242): `render::ColorOps` — HSV<->RGB, hex `#rrggbb`/`#rrggbbaa`
+  (+shorthand) parse/format, lighten/darken/lerp/invert, Rec.709 luminance, and sRGB<->linear transfer
+  functions, all verified against known colour identities. The other listed controls (TabContainer,
+  the ColorPicker *widget*, etc.) remain.
 - [ ] **[CPU]** Full theme system (per-control theme overrides, theme types)
 - [ ] **[GPU]** Control clipping via viewport/backbuffer
 
