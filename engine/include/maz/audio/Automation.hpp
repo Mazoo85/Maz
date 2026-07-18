@@ -12,7 +12,16 @@ class AudioEngine;
 
 // Parameters an automation lane can drive. Each maps to one knob elsewhere in the engine.
 // (Append new targets before Count so existing saved indices stay stable.)
-enum class AutoTarget { FilterCutoff, FmIndex, ReverbMix, MasterGain, DelayMix, DistDrive, Count };
+enum class AutoTarget {
+    FilterCutoff,
+    FmIndex,
+    ReverbMix,
+    MasterGain,
+    DelayMix,
+    DistDrive,
+    StereoWidth,
+    Count
+};
 
 // One breakpoint in an automation clip: a unipolar value in [0, 1] at a time in seconds.
 struct AutoPoint {

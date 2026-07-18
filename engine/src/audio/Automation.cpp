@@ -49,6 +49,8 @@ Automation::Automation() {
     lane(AutoTarget::DelayMix).hi = 0.6f;
     lane(AutoTarget::DistDrive).lo = 1.0f;
     lane(AutoTarget::DistDrive).hi = 10.0f;
+    lane(AutoTarget::StereoWidth).lo = 0.0f;
+    lane(AutoTarget::StereoWidth).hi = 2.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -69,6 +71,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Delay Mix";
     case AutoTarget::DistDrive:
         return "Distortion Drive";
+    case AutoTarget::StereoWidth:
+        return "Stereo Width";
     case AutoTarget::Count:
         break;
     }
@@ -114,6 +118,10 @@ void Automation::apply(AudioEngine& engine, double timeSeconds) {
         case AutoTarget::DistDrive:
             engine.mixer().distortion().setEnabled(true);
             engine.mixer().distortion().setDrive(v);
+            break;
+        case AutoTarget::StereoWidth:
+            engine.mixer().widener().setEnabled(true);
+            engine.mixer().widener().setWidth(v);
             break;
         case AutoTarget::Count:
             break;

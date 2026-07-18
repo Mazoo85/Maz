@@ -119,6 +119,25 @@ int main() {
         check(eng.mixer().delay().mix() < 0.05f, "delay-mix automation reaches its low bound");
     }
 
+    // --- Stereo-width target -------------------------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& sw = autom.lane(audio::AutoTarget::StereoWidth);
+        sw.enabled = true;
+        sw.lfo.shape = audio::Waveform::Sine;
+        sw.lfo.rateHz = 1.0f;
+        sw.lo = 0.0f;
+        sw.hi = 2.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound (2.0)
+        check(eng.mixer().widener().enabled() && eng.mixer().widener().width() > 1.9f,
+              "automating stereo width drives (and enables) the widener");
+        autom.apply(eng, 0.75); // trough → lo bound (0 = mono)
+        check(eng.mixer().widener().width() < 0.1f, "stereo-width automation reaches its low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;
