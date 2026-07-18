@@ -19,6 +19,13 @@ void SynthInstrument::setFilter(float cutoffHz, float resonance, float envAmt) {
     filterEnvAmt_ = envAmt;
 }
 
+void SynthInstrument::setFilterEnvelope(float attack, float decay, float sustain, float release) {
+    filtA_ = std::max(attack, 0.0001f);
+    filtD_ = std::max(decay, 0.0001f);
+    filtS_ = std::clamp(sustain, 0.0f, 1.0f);
+    filtR_ = std::max(release, 0.0001f);
+}
+
 void SynthInstrument::setUnison(int voices, float detuneCents) {
     unisonVoices_ = voices < 1 ? 1 : (voices > kMaxUnison ? kMaxUnison : voices);
     unisonDetune_ = detuneCents < 0.0f ? 0.0f : (detuneCents > 100.0f ? 100.0f : detuneCents);
@@ -83,6 +90,8 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.driftMul = detuneCents != 0.0f ? std::pow(2.0f, detuneCents / 1200.0f) : 1.0f;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
+    v.filtStage = Stage::Attack;
+    v.filtEnv = 0.0f;
     v.filter.reset();
 }
 
@@ -90,6 +99,7 @@ void SynthInstrument::noteOff(int midi) {
     for (Voice& v : voices_) {
         if (v.midi == midi && v.stage != Stage::Off && v.stage != Stage::Release) {
             v.stage = Stage::Release;
+            v.filtStage = Stage::Release;
         }
     }
 }
@@ -98,6 +108,7 @@ void SynthInstrument::allNotesOff() {
     for (Voice& v : voices_) {
         if (v.stage != Stage::Off) {
             v.stage = Stage::Release;
+            v.filtStage = Stage::Release;
         }
     }
 }
@@ -129,6 +140,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const float attackStep = 1.0f / (attack_ * sr);
     const float decayStep = (1.0f - sustain_) / (decay_ * sr);
     const float releaseStep = sustain_ > 0.0f ? sustain_ / (release_ * sr) : 1.0f / (release_ * sr);
+    // Dedicated filter-envelope ADSR increments (only used when its depth is non-zero).
+    const float fAttackStep = 1.0f / (filtA_ * sr);
+    const float fDecayStep = (1.0f - filtS_) / (filtD_ * sr);
+    const float fReleaseStep = filtS_ > 0.0f ? filtS_ / (filtR_ * sr) : 1.0f / (filtR_ * sr);
+    const bool useFilterEnv = filterEnvDepth_ != 0.0f;
     // Vibrato LFO (shared across voices): a per-block start phase so every voice wavers together.
     constexpr double kTwoPiVib = 6.283185307179586;
     const double vibInc = static_cast<double>(vibRate_) / static_cast<double>(sampleRate);
@@ -196,6 +212,37 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 break;
             case Stage::Off:
                 break;
+            }
+
+            // Advance the dedicated filter envelope (its own ADSR) in lockstep with the note.
+            if (useFilterEnv) {
+                switch (v.filtStage) {
+                case Stage::Attack:
+                    v.filtEnv += fAttackStep;
+                    if (v.filtEnv >= 1.0f) {
+                        v.filtEnv = 1.0f;
+                        v.filtStage = Stage::Decay;
+                    }
+                    break;
+                case Stage::Decay:
+                    v.filtEnv -= fDecayStep;
+                    if (v.filtEnv <= filtS_) {
+                        v.filtEnv = filtS_;
+                        v.filtStage = Stage::Sustain;
+                    }
+                    break;
+                case Stage::Sustain:
+                    break;
+                case Stage::Release:
+                    v.filtEnv -= fReleaseStep;
+                    if (v.filtEnv <= 0.0f) {
+                        v.filtEnv = 0.0f;
+                        v.filtStage = Stage::Off;
+                    }
+                    break;
+                case Stage::Off:
+                    break;
+                }
             }
 
             float osc;
@@ -301,6 +348,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             // both open the cutoff (velocity sensitivity → harder hits sound brighter).
             if (filterCutoff_ < 19000.0f) {
                 float cutoff = filterCutoff_ + filterEnvAmt_ * v.env + velCutoff_ * v.velocity;
+                // Dedicated filter envelope: sweep the cutoff by its own ADSR × depth (Hz).
+                if (useFilterEnv) {
+                    cutoff += filterEnvDepth_ * v.filtEnv;
+                }
                 // Keyboard tracking: raise the cutoff with the note's pitch (relative to middle C) so
                 // high notes stay bright. At amount 1 the cutoff tracks pitch fully (an octave up
                 // doubles it); 0 = fixed cutoff.

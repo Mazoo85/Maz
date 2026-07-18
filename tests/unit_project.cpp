@@ -88,6 +88,8 @@ int main() {
     seq.synth().setAmpLfo(4.5f, 0.6f);
     seq.synth().setDrift(18.0f);
     seq.synth().setFilterMode(audio::StateVariableFilter::Mode::BandPass);
+    seq.synth().setFilterEnvelope(0.02f, 0.15f, 0.3f, 0.25f);
+    seq.synth().setFilterEnvDepth(4200.0f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 4);
     seq.setArpOctaves(3);
@@ -353,6 +355,10 @@ int main() {
     check(near(seq2.synth().drift(), 18.0f), "analog drift round-trips");
     check(seq2.synth().filterMode() == audio::StateVariableFilter::Mode::BandPass,
           "synth filter type round-trips");
+    check(near(seq2.synth().filterEnvDepth(), 4200.0f) &&
+              near(seq2.synth().filterEnvSustain(), 0.3f) &&
+              near(seq2.synth().filterEnvDecay(), 0.15f),
+          "synth filter envelope round-trips");
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");
     check(seq2.synth().subWaveform() == audio::Waveform::Square, "sub waveform round-trips");

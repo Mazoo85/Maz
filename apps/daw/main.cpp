@@ -985,6 +985,17 @@ void buildSynthUI(audio::Sequencer& seq) {
     const char* fmodes[] = {"Low-pass", "High-pass", "Band-pass"};
     if (ImGui::Combo("Filter type", &fmode, fmodes, 3))
         syn.setFilterMode(static_cast<audio::StateVariableFilter::Mode>(fmode));
+    float fenvDepth = syn.filterEnvDepth();
+    if (ImGui::SliderFloat("Filter env depth", &fenvDepth, -12000.0f, 12000.0f, "%.0f Hz"))
+        syn.setFilterEnvDepth(fenvDepth);
+    float fa = syn.filterEnvAttack(), fd = syn.filterEnvDecay(), fs = syn.filterEnvSustain(),
+          fr2 = syn.filterEnvRelease();
+    bool fenvCh = false;
+    fenvCh |= ImGui::SliderFloat("F.Env A", &fa, 0.001f, 1.0f, "%.3f s");
+    fenvCh |= ImGui::SliderFloat("F.Env D", &fd, 0.001f, 1.0f, "%.3f s");
+    fenvCh |= ImGui::SliderFloat("F.Env S", &fs, 0.0f, 1.0f, "%.2f");
+    fenvCh |= ImGui::SliderFloat("F.Env R", &fr2, 0.001f, 2.0f, "%.3f s");
+    if (fenvCh) syn.setFilterEnvelope(fa, fd, fs, fr2);
     float velCut = syn.velToCutoff();
     if (ImGui::SliderFloat("Vel->Cutoff", &velCut, 0.0f, 15000.0f, "%.0f Hz"))
         syn.setVelToCutoff(velCut);

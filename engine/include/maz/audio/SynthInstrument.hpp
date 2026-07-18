@@ -205,6 +205,20 @@ public:
     void setFilterMode(StateVariableFilter::Mode m) { filterMode_ = m; }
     StateVariableFilter::Mode filterMode() const { return filterMode_; }
 
+    // Dedicated filter envelope: its own ADSR (seconds / sustain 0..1) drives the cutoff by
+    // `depth` Hz (±) — the classic subtractive filter sweep that is independent of the amp envelope
+    // (e.g. a snappy filter decay under a sustained note). depth 0 = off (only has an effect when the
+    // filter is engaged). Separate from the amp-envelope-driven `Env->Cutoff` amount.
+    void setFilterEnvelope(float attack, float decay, float sustain, float release);
+    void setFilterEnvDepth(float hz) {
+        filterEnvDepth_ = hz < -18000.0f ? -18000.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    float filterEnvAttack() const { return filtA_; }
+    float filterEnvDecay() const { return filtD_; }
+    float filterEnvSustain() const { return filtS_; }
+    float filterEnvRelease() const { return filtR_; }
+    float filterEnvDepth() const { return filterEnvDepth_; }
+
     // Velocity → filter cutoff (Hz added at full velocity): makes harder-played notes brighter, the
     // classic velocity-sensitive filter. 0 = off. Only has an effect when the filter is engaged.
     void setVelToCutoff(float hz) { velCutoff_ = hz < 0.0f ? 0.0f : (hz > 15000.0f ? 15000.0f : hz); }
@@ -260,6 +274,8 @@ private:
         float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;
         float env = 0.0f;
+        Stage filtStage = Stage::Off; // dedicated filter-envelope stage
+        float filtEnv = 0.0f;         // dedicated filter-envelope level
         StateVariableFilter filter{};
     };
 
@@ -299,6 +315,8 @@ private:
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
     StateVariableFilter::Mode filterMode_ = StateVariableFilter::Mode::LowPass;
+    float filtA_ = 0.005f, filtD_ = 0.1f, filtS_ = 0.0f, filtR_ = 0.1f; // dedicated filter ADSR
+    float filterEnvDepth_ = 0.0f; // dedicated filter-envelope depth in Hz (±); 0 = off
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
     float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)

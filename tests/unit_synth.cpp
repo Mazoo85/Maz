@@ -939,6 +939,47 @@ int main() {
               "filter type defaults to low-pass");
     }
 
+    // --- Dedicated filter envelope -------------------------------------------
+    {
+        // A sustained note with a low base cutoff and a filter envelope that sweeps the cutoff up and
+        // decays back: the start is bright (open filter), the tail is dark (closed) — independent of
+        // the (sustained) amp envelope.
+        auto hfWindow = [&](const std::vector<float>& b, int a, int c) {
+            double hf = 0.0, en = 0.0;
+            for (int i = a + 1; i < c; ++i) {
+                const double d = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                hf += d * d;
+                en += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        audio::SynthInstrument s;
+        s.setWaveform(audio::Waveform::Saw);
+        s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f); // sustained amplitude
+        s.setFilter(400.0f, 1.0f, 0.0f);           // low base cutoff, no amp-env cutoff
+        s.setFilterEnvelope(0.001f, 0.05f, 0.0f, 0.05f); // fast attack, 50 ms decay to 0 sustain
+        s.setFilterEnvDepth(8000.0f);                    // sweep +8 kHz, then back to base
+        s.noteOn(57, 1.0f);
+        const std::vector<float> buf = render(s, sampleRate / 2, sampleRate);
+        const double early = hfWindow(buf, 200, 1400);    // during the sweep (bright)
+        const double late = hfWindow(buf, 12000, 24000);  // long after the decay (dark)
+        check(early > late * 1.5, "filter envelope opens the cutoff early then closes it (brighter start)");
+
+        // With depth 0 (default) the cutoff is steady, so early and late are similar.
+        audio::SynthInstrument flat;
+        flat.setWaveform(audio::Waveform::Saw);
+        flat.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        flat.setFilter(400.0f, 1.0f, 0.0f);
+        flat.noteOn(57, 1.0f);
+        const std::vector<float> fb = render(flat, sampleRate / 2, sampleRate);
+        const double fe = hfWindow(fb, 200, 1400);
+        const double fl = hfWindow(fb, 12000, 24000);
+        check(fe < fl * 1.5 && fl < fe * 1.5, "no filter envelope → a steady cutoff (no sweep)");
+
+        audio::SynthInstrument d;
+        check(d.filterEnvDepth() == 0.0f, "filter envelope depth defaults to 0 (off)");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");
