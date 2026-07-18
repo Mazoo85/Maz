@@ -197,6 +197,8 @@ Windows editor download.
 - [~] **[CPU]** FBX, OBJ, Collada importers (Maz has glTF); [CPU] image formats beyond PNG/JPEG (WebP, HDR/EXR)
   — **OBJ done** (M225): `render::parseObj`/`loadObj` — Wavefront v/vt/vn/f, 1-based + negative
   indices, v//vn form, per-combo vertex dedup, n-gon fan triangulation → MeshData. FBX/Collada remain.
+  — **HDR (Radiance RGBE) done** (M233): `io::decodeHdr` — .hdr header + new-RLE + raw scanlines →
+  linear float RGB (skybox/IBL source). WebP/EXR remain.
 - [ ] **[CPU]** OGG Vorbis / MP3 audio decode (Maz has WAV)
 - [ ] **[CPU]** Font: OTF/collection support, dynamic font sizing cache
 - [ ] **[GPU]** Video playback (Theora/WebM)

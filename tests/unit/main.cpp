@@ -137,6 +137,7 @@
 #include "maz/io/Base64.hpp"
 #include "maz/io/ExportConfig.hpp"
 #include "maz/io/GettextPo.hpp"
+#include "maz/io/Hdr.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
@@ -6351,6 +6352,86 @@ void testExportConfig() {
     CHECK(cfg.find("Nope") == nullptr);
     CHECK(cfg.forPlatform("linux").size() == 1);
     CHECK(cfg.forPlatform("android").empty());
+}
+
+void testHdr() {
+    auto put = [](std::vector<uint8_t>& v, const std::string& s) {
+        for (char ch : s) {
+            v.push_back(static_cast<uint8_t>(ch));
+        }
+    };
+
+    // New-RLE, 8x2, every pixel RGBE=(128,64,32,128): f = ldexp(1,-8) = 1/256.
+    std::vector<uint8_t> buf;
+    put(buf, "#?RADIANCE\n");
+    put(buf, "FORMAT=32-bit_rle_rgbe\n");
+    put(buf, "\n");
+    put(buf, "-Y 2 +X 8\n");
+    for (int row = 0; row < 2; ++row) {
+        buf.push_back(2);
+        buf.push_back(2);
+        buf.push_back(0);
+        buf.push_back(8);
+        const uint8_t chan[4] = {128, 64, 32, 128};
+        for (int c = 0; c < 4; ++c) {
+            buf.push_back(8); // literal run of 8
+            for (int i = 0; i < 8; ++i) {
+                buf.push_back(chan[c]);
+            }
+        }
+    }
+    io::HdrImage img = io::decodeHdr(buf);
+    CHECK(img.valid());
+    CHECK(img.width == 8);
+    CHECK(img.height == 2);
+    for (int i = 0; i < 8 * 2; ++i) {
+        CHECK_NEAR(img.rgb[static_cast<std::size_t>(i) * 3 + 0], 0.5f, 1e-4f);
+        CHECK_NEAR(img.rgb[static_cast<std::size_t>(i) * 3 + 1], 0.25f, 1e-4f);
+        CHECK_NEAR(img.rgb[static_cast<std::size_t>(i) * 3 + 2], 0.125f, 1e-4f);
+    }
+
+    // RLE run form (count>128) for one 8-wide row, RGBE=(200,100,50,129): f = 1/128.
+    std::vector<uint8_t> buf2;
+    put(buf2, "#?RGBE\n");
+    put(buf2, "FORMAT=32-bit_rle_rgbe\n");
+    put(buf2, "\n");
+    put(buf2, "-Y 1 +X 8\n");
+    buf2.push_back(2);
+    buf2.push_back(2);
+    buf2.push_back(0);
+    buf2.push_back(8);
+    const uint8_t chan2[4] = {200, 100, 50, 129};
+    for (int c = 0; c < 4; ++c) {
+        buf2.push_back(static_cast<uint8_t>(128 + 8)); // run of 8
+        buf2.push_back(chan2[c]);
+    }
+    io::HdrImage img2 = io::decodeHdr(buf2);
+    CHECK(img2.valid());
+    const float f = std::ldexp(1.0f, 129 - 136); // 1/128
+    CHECK_NEAR(img2.rgb[0], 200.0f * f, 1e-4f);
+    CHECK_NEAR(img2.rgb[1], 100.0f * f, 1e-4f);
+    CHECK_NEAR(img2.rgb[2], 50.0f * f, 1e-4f);
+
+    // Raw (flat) scanline for width < 8.
+    std::vector<uint8_t> buf3;
+    put(buf3, "#?RADIANCE\n");
+    put(buf3, "FORMAT=32-bit_rle_rgbe\n");
+    put(buf3, "\n");
+    put(buf3, "-Y 1 +X 2\n");
+    const uint8_t px[8] = {128, 128, 128, 128, 0, 0, 0, 0}; // grey, then black (e=0)
+    for (int i = 0; i < 8; ++i) {
+        buf3.push_back(px[i]);
+    }
+    io::HdrImage img3 = io::decodeHdr(buf3);
+    CHECK(img3.valid());
+    CHECK(img3.width == 2);
+    CHECK_NEAR(img3.rgb[0], 0.5f, 1e-4f);
+    CHECK_NEAR(img3.rgb[3], 0.0f, 1e-4f); // e==0 -> black
+
+    // Bad magic -> invalid.
+    std::vector<uint8_t> bad;
+    put(bad, "NOTHDR\n\n-Y 1 +X 1\n");
+    CHECK(!io::decodeHdr(bad).valid());
 }
 
 void testConvexHull3D() {
@@ -18414,6 +18495,7 @@ int main() {
     testMeshLod();
     testGettextPo();
     testExportConfig();
+    testHdr();
     testConvexHull3D();
     testHeightField3D();
     testTriMesh3D();
