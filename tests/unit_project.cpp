@@ -74,6 +74,8 @@ int main() {
     seq.synth().setSyncRatio(3.25f);
     seq.synth().setPulseWidth(0.3f);
     seq.synth().setOsc2Semitones(7.0f);
+    seq.synth().setOsc3Level(0.45f);
+    seq.synth().setOsc3Semitones(-5.0f);
     seq.synth().setVelToCutoff(4200.0f);
     seq.synth().setFmFeedback(0.55f);
     seq.synth().setRingMod(0.6f);
@@ -349,6 +351,8 @@ int main() {
           "hard sync round-trips");
     check(near(seq2.synth().pulseWidth(), 0.3f), "pulse width round-trips");
     check(near(seq2.synth().osc2Semitones(), 7.0f), "osc2 coarse tune round-trips");
+    check(near(seq2.synth().osc3Level(), 0.45f) && near(seq2.synth().osc3Semitones(), -5.0f),
+          "osc3 round-trips");
     check(near(seq2.synth().velToCutoff(), 4200.0f), "velocity→cutoff round-trips");
     check(near(seq2.synth().fmFeedback(), 0.55f), "FM feedback round-trips");
     check(near(seq2.synth().ringMod(), 0.6f), "ring mod round-trips");

@@ -880,6 +880,35 @@ int main() {
         check(fr.noteFineTune(62, 0) == 0.0f, "an empty cell reports 0 fine tune");
     }
 
+    // --- Third oscillator ----------------------------------------------------
+    {
+        // A pure sine plus a third oscillator an octave up adds high-frequency content: the
+        // first-difference ("HF") energy relative to total energy rises when osc3 is on.
+        auto hfRatio = [&](float osc3lvl) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+            s.setOsc3Level(osc3lvl);
+            s.setOsc3Semitones(12.0f); // an octave up
+            s.noteOn(69, 1.0f);
+            const std::vector<float> b = render(s, 8000, sampleRate);
+            double hf = 0.0, en = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                hf += d * d;
+                en += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        const double off = hfRatio(0.0f);
+        const double on = hfRatio(1.0f);
+        check(off > 0.0, "a single sine osc has a baseline HF ratio");
+        check(on > off * 1.5, "a third oscillator an octave up adds high-frequency content");
+
+        audio::SynthInstrument d;
+        check(d.osc3Level() == 0.0f, "osc3 defaults to off");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

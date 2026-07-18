@@ -845,6 +845,11 @@ void buildSynthUI(audio::Sequencer& seq) {
             syn.setOsc2Semitones(osc2semi);
         float ring = syn.ringMod();
         if (ImGui::SliderFloat("Ring mod", &ring, 0.0f, 1.0f, "%.2f")) syn.setRingMod(ring);
+        float osc3 = syn.osc3Level();
+        if (ImGui::SliderFloat("Osc 3", &osc3, 0.0f, 1.0f, "%.2f")) syn.setOsc3Level(osc3);
+        float osc3semi = syn.osc3Semitones();
+        if (ImGui::SliderFloat("Osc 3 coarse", &osc3semi, -24.0f, 24.0f, "%.0f st"))
+            syn.setOsc3Semitones(osc3semi);
         och |= ImGui::SliderFloat("Sub", &sub, 0.0f, 1.0f, "%.2f");
         och |= ImGui::SliderFloat("Noise", &noise, 0.0f, 1.0f, "%.2f");
         if (och) {

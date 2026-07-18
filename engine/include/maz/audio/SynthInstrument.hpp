@@ -137,6 +137,15 @@ public:
     void setRingMod(float amount) { ringMod_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
     float ringMod() const { return ringMod_; }
 
+    // Third oscillator (subtractive mode): a fixed-interval extra oscillator (level + coarse
+    // semitones, using the primary waveform) for a fuller, 3xOSC-style stack. level 0 = off.
+    void setOsc3Level(float level) { osc3Level_ = level < 0.0f ? 0.0f : (level > 1.0f ? 1.0f : level); }
+    float osc3Level() const { return osc3Level_; }
+    void setOsc3Semitones(float semis) {
+        osc3Semitones_ = semis < -24.0f ? -24.0f : (semis > 24.0f ? 24.0f : semis);
+    }
+    float osc3Semitones() const { return osc3Semitones_; }
+
     // Coarse tune for the 2nd oscillator in semitones (-24..+24): stacks it a fixed musical interval
     // (octave, fifth, …) above/below the note for fat two-oscillator sounds. Combines with the fine
     // `detuneCents`. Ignored while hard sync is on (there the slave pitch is the sync ratio).
@@ -234,6 +243,7 @@ private:
         double phase = 0.0;    // carrier phase
         std::array<double, kMaxUnison> uniPhase{}; // unison stack phases
         double phase2 = 0.0;   // detuned 2nd oscillator
+        double phase3 = 0.0;   // 3rd oscillator (coarse-tuned)
         double subPhase = 0.0; // sub-oscillator (one octave down)
         double modPhase = 0.0; // FM modulator phase
         float fmFb = 0.0f;     // last FM modulator output (for feedback)
@@ -299,6 +309,8 @@ private:
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)
+    float osc3Level_ = 0.0f;     // 3rd oscillator level; 0 = off
+    float osc3Semitones_ = 0.0f; // coarse tune for osc3 (semitones)
     float ringMod_ = 0.0f;       // osc1×osc2 ring-modulation amount; 0 = off
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;

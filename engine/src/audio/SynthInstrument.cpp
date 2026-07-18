@@ -63,6 +63,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
         v.uniPhase[static_cast<size_t>(u)] = static_cast<double>(u) / kMaxUnison; // decorrelate
     }
     v.phase2 = 0.0;
+    v.phase3 = 0.0;
     v.subPhase = 0.0;
     v.modPhase = 0.0;
     v.targetFreq = midiToFreq(midi);
@@ -264,6 +265,16 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.phase2 += phaseInc * mul;
                     if (v.phase2 >= 1.0) {
                         v.phase2 -= std::floor(v.phase2);
+                    }
+                }
+                if (osc3Level_ > 0.0f) {
+                    // A third oscillator stacked a fixed interval away (coarse semitones).
+                    osc += waveSample(waveform_, v.phase3, pulseWidth_) * osc3Level_;
+                    const double mul3 =
+                        std::pow(2.0, static_cast<double>(osc3Semitones_) * 100.0 / 1200.0);
+                    v.phase3 += phaseInc * mul3;
+                    if (v.phase3 >= 1.0) {
+                        v.phase3 -= std::floor(v.phase3);
                     }
                 }
                 if (subLevel_ > 0.0f) {
