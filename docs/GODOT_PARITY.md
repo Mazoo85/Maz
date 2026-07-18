@@ -138,7 +138,10 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
   heightAt/normalAt and a grid-DDA + Möller–Trumbore raycast (HeightMapShape3D).
   — **trimesh done** (M229): `game::TriMesh3D` — concave triangle-soup static collider with a
   BVH-accelerated nearest raycast (ConcavePolygonShape3D). All three 3D collider shapes now covered.
-- [ ] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
+- [~] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
+  — **slider done** (M230): `Joint3D::Slider` / `makeSliderJoint3` — prismatic joint locking the
+  2 perpendicular linear + 2 perpendicular angular DOF, leaving slide+spin along one axis free
+  (SliderJoint3D). cone-twist / 6DOF / soft bodies / ragdolls remain.
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 
 ### 10. Networking / multiplayer  [BIG][CPU]

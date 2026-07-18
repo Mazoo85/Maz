@@ -864,13 +864,13 @@ inline void collidePair(int ia, const Body3D& a, int ib, const Body3D& b,
 // makeDistanceJoint3. Either body may be static (invMass 0). `beta` is the position-correction
 // stiffness.
 struct Joint3D {
-    enum Kind { Pin, Distance, Hinge };
+    enum Kind { Pin, Distance, Hinge, Slider };
     int a = -1, b = -1;
     int kind = Pin;
     math::vec3 localA{0.0f}; // anchor in a's local frame (relative to a.pos, before rotation)
     math::vec3 localB{0.0f}; // anchor in b's local frame
-    math::vec3 axisLocalA{0, 0, 1}; // hinge axis in a's local frame (Kind::Hinge)
-    math::vec3 axisLocalB{0, 0, 1}; // hinge axis in b's local frame (equal in world at build time)
+    math::vec3 axisLocalA{0, 0, 1}; // hinge/slider axis in a's local frame
+    math::vec3 axisLocalB{0, 0, 1}; // hinge/slider axis in b's local frame (equal in world at build)
     float restLength = 0.0f;        // used when kind == Distance
     float beta = 0.2f;
 };
@@ -911,6 +911,27 @@ inline Joint3D makeHingeJoint3(int ia, const Body3D& a, int ib, const Body3D& b,
     j.a = ia;
     j.b = ib;
     j.kind = Joint3D::Hinge;
+    const math::mat3 RtA = glm::transpose(glm::mat3_cast(a.orientation));
+    const math::mat3 RtB = glm::transpose(glm::mat3_cast(b.orientation));
+    j.localA = RtA * (worldAnchor - a.pos);
+    j.localB = RtB * (worldAnchor - b.pos);
+    const float al = std::sqrt(glm::dot(worldAxis, worldAxis));
+    const math::vec3 axis = al > 1e-9f ? worldAxis / al : math::vec3(0, 0, 1);
+    j.axisLocalA = RtA * axis;
+    j.axisLocalB = RtB * axis;
+    return j;
+}
+
+// Slider (prismatic) joint: the bodies may only translate relative to each other along `worldAxis`
+// and rotate relative to each other about that same axis — a piston/drawer rail (Godot
+// SliderJoint3D). It locks the two translational DOF perpendicular to the axis and the two
+// rotational DOF perpendicular to it, leaving 1 linear + 1 angular free along the axis.
+inline Joint3D makeSliderJoint3(int ia, const Body3D& a, int ib, const Body3D& b,
+                                math::vec3 worldAnchor, math::vec3 worldAxis) {
+    Joint3D j;
+    j.a = ia;
+    j.b = ib;
+    j.kind = Joint3D::Slider;
     const math::mat3 RtA = glm::transpose(glm::mat3_cast(a.orientation));
     const math::mat3 RtB = glm::transpose(glm::mat3_cast(b.orientation));
     j.localA = RtA * (worldAnchor - a.pos);
@@ -1425,6 +1446,59 @@ private:
             a.angularVel -= invIA * glm::cross(rA, P);
             b.vel += P * b.invMass;
             b.angularVel += invIB * glm::cross(rB, P);
+            return;
+        }
+
+        if (j.kind == Joint3D::Slider) {
+            // Allow motion only ALONG the axis: constrain the two perpendicular linear DOF and the
+            // two perpendicular angular DOF; leave slide + spin along the axis free.
+            const math::vec3 axisA = glm::mat3_cast(a.orientation) * j.axisLocalA;
+            const float axl = std::sqrt(glm::dot(axisA, axisA));
+            if (axl < 1e-9f) {
+                return;
+            }
+            const math::vec3 axis = axisA / axl;
+            math::vec3 t1, t2;
+            detail::makeBasis3(axis, t1, t2);
+            const math::vec3 Cs = (b.pos + rB) - (a.pos + rA); // full separation
+            const math::vec3 tang[2] = {t1, t2};
+
+            // Linear: cancel relative velocity + drift in each perpendicular direction.
+            for (const math::vec3& t : tang) {
+                const math::vec3 vr =
+                    (b.vel + glm::cross(b.angularVel, rB)) - (a.vel + glm::cross(a.angularVel, rA));
+                const math::vec3 raxn = glm::cross(rA, t);
+                const math::vec3 rbxn = glm::cross(rB, t);
+                const float k = a.invMass + b.invMass + glm::dot(raxn, invIA * raxn) +
+                                glm::dot(rbxn, invIB * rbxn);
+                if (k <= 0.0f) {
+                    continue;
+                }
+                const float Cscalar = glm::dot(Cs, t);
+                const float lambda = -(glm::dot(vr, t) + bias * Cscalar) / k;
+                const math::vec3 P = t * lambda;
+                a.vel -= P * a.invMass;
+                a.angularVel -= invIA * glm::cross(rA, P);
+                b.vel += P * b.invMass;
+                b.angularVel += invIB * glm::cross(rB, P);
+            }
+
+            // Angular: lock the two rotational DOF perpendicular to the axis (same as hinge).
+            const math::vec3 axisB = glm::mat3_cast(b.orientation) * j.axisLocalB;
+            const math::vec3 alignErr = glm::cross(axisA, axisB);
+            const math::mat3 invISum = invIA + invIB;
+            for (const math::vec3& t : tang) {
+                const float k = glm::dot(t, invISum * t);
+                if (k <= 0.0f) {
+                    continue;
+                }
+                const float cv =
+                    glm::dot(b.angularVel - a.angularVel, t) + bias * glm::dot(alignErr, t);
+                const float L = -cv / k;
+                const math::vec3 Lw = t * L;
+                a.angularVel -= invIA * Lw;
+                b.angularVel += invIB * Lw;
+            }
             return;
         }
 

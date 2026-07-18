@@ -13652,6 +13652,74 @@ void testPhysics3DMaterial() {
     CHECK(maxPeak > minPeak + 0.3f);
 }
 
+void testPhysics3DSlider() {
+    using game::Body3D;
+
+    // A slider along Y between a static anchor and a dynamic body (both at the origin).
+    auto makeWorld = [](game::PhysicsWorld3D& w, int& ib) {
+        w.gravity = math::vec3(0, 0, 0);
+        // The static anchor body sits far away so it never collides with B; the joint anchor is the
+        // world point (0,0,0) regardless of A's position (localA absorbs the offset).
+        Body3D A;
+        A.pos = math::vec3(0, 50, 0);
+        A.invMass = 0.0f;
+        A.radius = 0.1f;
+        Body3D B;
+        B.pos = math::vec3(0, 0, 0);
+        B.invMass = 1.0f;
+        B.radius = 0.5f;
+        B.enableRotation();
+        B.angularDamping = 0.0f;
+        const int ia = w.add(A);
+        ib = w.add(B);
+        w.joints.push_back(game::makeSliderJoint3(ia, w.bodies[static_cast<size_t>(ia)], ib,
+                                                  w.bodies[static_cast<size_t>(ib)],
+                                                  math::vec3(0, 0, 0), math::vec3(0, 1, 0)));
+    };
+
+    // Linear: perpendicular velocity is cancelled, axial (Y) velocity is preserved.
+    {
+        game::PhysicsWorld3D w;
+        int ib = -1;
+        makeWorld(w, ib);
+        w.bodies[static_cast<size_t>(ib)].vel = math::vec3(1.0f, 2.0f, 3.0f);
+        for (int i = 0; i < 60; ++i) {
+            w.step(1.0f / 60.0f);
+        }
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].vel.x, 0.0f, 0.05f);
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].vel.z, 0.0f, 0.05f);
+        CHECK(w.bodies[static_cast<size_t>(ib)].vel.y > 1.5f); // still free to slide
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].pos.x, 0.0f, 0.05f);
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].pos.z, 0.0f, 0.05f);
+    }
+
+    // Perpendicular positional drift is corrected: displace the anchor off-axis after building.
+    {
+        game::PhysicsWorld3D w;
+        int ib = -1;
+        makeWorld(w, ib);
+        w.bodies[static_cast<size_t>(ib)].pos = math::vec3(0.5f, 0, 0);
+        for (int i = 0; i < 180; ++i) {
+            w.step(1.0f / 60.0f);
+        }
+        CHECK(std::fabs(w.bodies[static_cast<size_t>(ib)].pos.x) < 0.1f);
+    }
+
+    // Angular: spin perpendicular to the axis is cancelled, spin about the axis is preserved.
+    {
+        game::PhysicsWorld3D w;
+        int ib = -1;
+        makeWorld(w, ib);
+        w.bodies[static_cast<size_t>(ib)].angularVel = math::vec3(1.0f, 2.0f, 0.5f);
+        for (int i = 0; i < 60; ++i) {
+            w.step(1.0f / 60.0f);
+        }
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].angularVel.x, 0.0f, 0.1f);
+        CHECK_NEAR(w.bodies[static_cast<size_t>(ib)].angularVel.z, 0.0f, 0.1f);
+        CHECK(w.bodies[static_cast<size_t>(ib)].angularVel.y > 1.5f);
+    }
+}
+
 // D11: 3D pin joints (Joint3D). A ball pinned to a static anchor swings but stays at a fixed distance;
 // a two-link chain hangs to its full length under gravity.
 void testPhysics3DJoint() {
@@ -18114,6 +18182,7 @@ int main() {
     testPhysics3DRay();
     testPhysics3DMoveSlide();
     testPhysics3DMaterial();
+    testPhysics3DSlider();
     testPhysics3DJoint();
     testPhysics3DDistanceJoint();
     testPhysics3DHinge();
