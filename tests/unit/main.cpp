@@ -113,6 +113,7 @@
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/ConvexHull3D.hpp"
+#include "maz/game/Csg.hpp"
 #include "maz/game/GridMap.hpp"
 #include "maz/game/HeightField3D.hpp"
 #include "maz/game/PathFollow2D.hpp"
@@ -6629,6 +6630,68 @@ void testConvexHull3D() {
         const std::vector<math::vec3> p = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
         CHECK(!game::buildConvexHull(p).valid);
     }
+}
+
+void testCsg() {
+    using game::inside;
+    using game::Sdf;
+    const math::vec3 O(0, 0, 0);
+
+    // Primitive distances.
+    Sdf sph = game::sdSphere(O, 1.0f);
+    CHECK_NEAR(sph(O), -1.0f, 1e-4f);
+    CHECK_NEAR(sph(math::vec3(2, 0, 0)), 1.0f, 1e-4f);
+    Sdf box = game::sdBox(O, math::vec3(1, 1, 1));
+    CHECK_NEAR(box(O), -1.0f, 1e-4f);
+    CHECK_NEAR(box(math::vec3(2, 0, 0)), 1.0f, 1e-4f);
+    CHECK_NEAR(box(math::vec3(2, 2, 0)), std::sqrt(2.0f), 1e-4f); // exact corner distance
+
+    // Union: inside if inside either operand.
+    Sdf u = game::opUnion(game::sdSphere(math::vec3(-0.5f, 0, 0), 1.0f),
+                          game::sdSphere(math::vec3(0.5f, 0, 0), 1.0f));
+    CHECK(inside(u, O));
+    CHECK(inside(u, math::vec3(1.2f, 0, 0)));
+    CHECK(!inside(u, math::vec3(2.0f, 0, 0)));
+
+    // Intersection: inside only where both overlap.
+    Sdf isect = game::opIntersect(game::sdSphere(O, 1.0f), game::sdBox(O, math::vec3(0.5f, 0.5f, 0.5f)));
+    CHECK(inside(isect, O));
+    CHECK(!inside(isect, math::vec3(0.8f, 0, 0))); // in sphere, out of box
+
+    // Subtraction: outer sphere minus inner sphere = a hollow shell.
+    Sdf shell = game::opSubtract(game::sdSphere(O, 1.0f), game::sdSphere(O, 0.5f));
+    CHECK(!inside(shell, O));                      // core removed
+    CHECK(inside(shell, math::vec3(0.75f, 0, 0))); // in the wall
+    CHECK(!inside(shell, math::vec3(1.5f, 0, 0))); // outside
+
+    // Smooth union rounds the seam: the field dips below the sharp min at the touch point.
+    Sdf a = game::sdSphere(math::vec3(-1, 0, 0), 1.0f);
+    Sdf b = game::sdSphere(math::vec3(1, 0, 0), 1.0f);
+    Sdf sharp = game::opUnion(a, b);
+    Sdf smooth = game::opSmoothUnion(a, b, 0.5f);
+    CHECK_NEAR(sharp(O), 0.0f, 1e-4f);
+    CHECK(smooth(O) < sharp(O) - 1e-3f);
+    // k=0 recovers the sharp op.
+    CHECK_NEAR(game::opSmoothUnion(a, b, 0.0f)(O), sharp(O), 1e-5f);
+
+    // Transforms.
+    Sdf moved = game::opTranslate(game::sdSphere(O, 1.0f), math::vec3(5, 0, 0));
+    CHECK((inside(moved, math::vec3(5, 0, 0)) && !inside(moved, O)));
+    Sdf big = game::opScale(game::sdSphere(O, 1.0f), 2.0f); // radius 2
+    CHECK_NEAR(big(O), -2.0f, 1e-4f);
+    CHECK((inside(big, math::vec3(1.5f, 0, 0)) && !inside(big, math::vec3(2.5f, 0, 0))));
+
+    // Cylinder about Y: radius independent of height.
+    Sdf cyl = game::sdCylinder(O, math::vec3(0, 1, 0), 1.0f);
+    CHECK(inside(cyl, math::vec3(0.5f, 10.0f, 0)));
+    CHECK(!inside(cyl, math::vec3(2.0f, 0, 0)));
+
+    // Surface normals point radially outward from a sphere.
+    math::vec3 n = game::sdfNormal(sph, math::vec3(1, 0, 0));
+    CHECK_NEAR(n.x, 1.0f, 1e-2f);
+    CHECK_NEAR(n.y, 0.0f, 1e-2f);
+    math::vec3 n2 = game::sdfNormal(sph, math::vec3(0, 0, 1));
+    CHECK_NEAR(n2.z, 1.0f, 1e-2f);
 }
 
 void testHeightField3D() {
@@ -18833,6 +18896,7 @@ int main() {
     testImportFile();
     testHdr();
     testConvexHull3D();
+    testCsg();
     testHeightField3D();
     testTriMesh3D();
     testNoise();
