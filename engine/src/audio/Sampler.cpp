@@ -72,6 +72,45 @@ void Sampler::fadeEdges(float ms) {
     }
 }
 
+int Sampler::crossfadeLoop(float ms) {
+    if (sample_.empty() || ms <= 0.0f) {
+        return 0;
+    }
+    const int n = static_cast<int>(sample_.size());
+    const int ls = static_cast<int>(loopStart_ * static_cast<float>(n)); // loop start frame
+    const int le = static_cast<int>(loopEnd_ * static_cast<float>(n));   // loop end frame
+    if (le <= ls) {
+        return 0;
+    }
+    int fade = static_cast<int>(ms * 0.001f * static_cast<float>(sampleSr_));
+    // Need `fade` frames of pre-roll before the loop start to blend from, and the crossfade must fit
+    // inside the loop region.
+    if (fade > ls) {
+        fade = ls;
+    }
+    if (fade > le - ls) {
+        fade = le - ls;
+    }
+    if (fade < 1) {
+        return 0; // no room (e.g. loopStart at 0) → nothing to blend
+    }
+    // Snapshot the two source spans first (they may overlap the region we overwrite).
+    std::vector<float> tail(static_cast<size_t>(fade));   // frames approaching loopEnd
+    std::vector<float> pre(static_cast<size_t>(fade));    // frames approaching loopStart
+    for (int k = 0; k < fade; ++k) {
+        tail[static_cast<size_t>(k)] = sample_[static_cast<size_t>(le - fade + k)];
+        pre[static_cast<size_t>(k)] = sample_[static_cast<size_t>(ls - fade + k)];
+    }
+    // Blend the tail into the pre-roll so that as playback nears loopEnd it morphs into the content
+    // just before loopStart — the wrap loopEnd→loopStart then continues seamlessly.
+    for (int k = 0; k < fade; ++k) {
+        const float t = static_cast<float>(k) / static_cast<float>(fade); // 0 → 1
+        sample_[static_cast<size_t>(le - fade + k)] =
+            tail[static_cast<size_t>(k)] * (1.0f - t) + pre[static_cast<size_t>(k)] * t;
+    }
+    return fade;
+}
+
 void Sampler::noteOn(int midi, float velocity) {
     if (sample_.empty()) {
         return;

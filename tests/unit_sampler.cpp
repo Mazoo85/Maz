@@ -314,6 +314,37 @@ int main() {
               "a degenerate loop region (end <= start) is ignored");
     }
 
+    // Loop crossfade: smooth the seam where playback wraps loopEnd → loopStart.
+    {
+        // A linear ramp 0 → 1: with a loop region [0.25, 0.75] the seam jumps from the value near
+        // loopEnd (~0.75) down to the value at loopStart (~0.25) — a big discontinuity.
+        const int n = 4000;
+        std::vector<float> ramp(static_cast<size_t>(n));
+        for (int i = 0; i < n; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / static_cast<float>(n - 1);
+        }
+        audio::Sampler s;
+        s.setSampleMono(ramp, sr);
+        s.setLoop(true);
+        s.setLoopRegion(0.25f, 0.75f);
+        const int ls = static_cast<int>(0.25f * static_cast<float>(n));
+        const int le = static_cast<int>(0.75f * static_cast<float>(n));
+        const float jumpBefore = std::fabs(s.sampleValue(static_cast<size_t>(le - 1)) -
+                                           s.sampleValue(static_cast<size_t>(ls)));
+        const int applied = s.crossfadeLoop(10.0f); // 10 ms crossfade
+        check(applied > 0, "crossfade applies when there is pre-roll before the loop start");
+        const float jumpAfter = std::fabs(s.sampleValue(static_cast<size_t>(le - 1)) -
+                                          s.sampleValue(static_cast<size_t>(ls)));
+        check(jumpAfter < jumpBefore * 0.3f,
+              "loop crossfade shrinks the discontinuity at the loop seam");
+
+        // No pre-roll (loopStart at 0) → nothing to blend from, a clean no-op.
+        audio::Sampler s2;
+        s2.setSampleMono(ramp, sr);
+        s2.setLoop(true); // region defaults to the whole sample (loopStart 0)
+        check(s2.crossfadeLoop(10.0f) == 0, "crossfade is a no-op with no pre-roll (loopStart at 0)");
+    }
+
     // Beat slicer: N slices mapped across the keyboard from the base note; each note plays its slice
     // once at natural speed and stops at the slice boundary.
     {

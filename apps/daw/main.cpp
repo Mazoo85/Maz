@@ -1027,6 +1027,12 @@ void buildSynthUI(audio::Sequencer& seq) {
         ImGui::InputFloat("##fadems", &fadeMs, 0.0f, 0.0f, "%.1f");
         ImGui::SameLine();
         if (ImGui::Button("Fade edges")) seq.sampler().fadeEdges(fadeMs);
+        ImGui::SameLine();
+        static float xfadeMs = 10.0f;
+        ImGui::SetNextItemWidth(70.0f);
+        ImGui::InputFloat("##xfadems", &xfadeMs, 0.0f, 0.0f, "%.1f");
+        ImGui::SameLine();
+        if (ImGui::Button("Loop xfade")) seq.sampler().crossfadeLoop(xfadeMs);
     }
     bool rev = seq.sampler().reverse();
     if (ImGui::Checkbox("Reverse", &rev)) seq.sampler().setReverse(rev);

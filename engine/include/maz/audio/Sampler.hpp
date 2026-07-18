@@ -35,6 +35,12 @@ public:
     // Apply a linear fade-in over the first `ms` and a fade-out over the last `ms` of the sample, to
     // remove clicks at the edges of a one-shot/slice. A one-shot in-memory edit (like Edison's Fade).
     void fadeEdges(float ms);
+    // Loop crossfade: blend the `ms` of audio approaching the loop end with the `ms` approaching the
+    // loop start, so the seam where playback wraps loopEnd→loopStart is smooth (no click) — the
+    // classic sustain-loop crossfade (DirectWave/Slicex). A one-shot destructive edit of the loaded
+    // sample; needs audio before loopStart to blend from, so it is a no-op when loopStart is at 0 or
+    // the region is too short. Returns the crossfade length applied in frames (0 if nothing changed).
+    int crossfadeLoop(float ms);
 
     void setBasePitch(int midi) { basePitch_ = midi; }
     int basePitch() const { return basePitch_; }
