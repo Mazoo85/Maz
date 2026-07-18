@@ -125,6 +125,7 @@
 #include "maz/game/Timer.hpp"
 #include "maz/game/VisibleOnScreenNotifier2D.hpp"
 #include "maz/game/Physics3D.hpp"
+#include "maz/game/Ragdoll.hpp"
 #include "maz/game/SoftBody.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
@@ -14963,6 +14964,78 @@ void testSoftBody() {
     }
 }
 
+void testRagdoll() {
+    using game::RagdollBone;
+
+    auto anchorA = [](const game::PhysicsWorld3D& w, const game::Joint3D& j) {
+        const game::Body3D& a = w.bodies[static_cast<std::size_t>(j.a)];
+        return a.pos + glm::mat3_cast(a.orientation) * j.localA;
+    };
+    auto anchorB = [](const game::PhysicsWorld3D& w, const game::Joint3D& j) {
+        const game::Body3D& b = w.bodies[static_cast<std::size_t>(j.b)];
+        return b.pos + glm::mat3_cast(b.orientation) * j.localB;
+    };
+
+    std::vector<RagdollBone> bones;
+    bones.push_back(RagdollBone{math::vec3(0, 6, 0), math::vec3(0, 5, 0), 0.15f, 2.0f, -1, 0.7f, 0.5f});
+    bones.push_back(RagdollBone{math::vec3(0, 5, 0), math::vec3(0, 4, 0), 0.12f, 1.0f, 0, 0.7f, 0.5f});
+    bones.push_back(RagdollBone{math::vec3(0, 4, 0), math::vec3(0, 3, 0), 0.10f, 1.0f, 1, 0.7f, 0.5f});
+
+    game::PhysicsWorld3D w;
+    w.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+    game::Ragdoll rag = game::buildRagdoll(w, bones);
+
+    CHECK(rag.bodyIndex.size() == 3);
+    CHECK((rag.bodyIndex[0] >= 0 && rag.bodyIndex[1] >= 0 && rag.bodyIndex[2] >= 0));
+    CHECK(rag.jointIndex[0] == -1); // root has no parent joint
+    CHECK((rag.jointIndex[1] >= 0 && rag.jointIndex[2] >= 0));
+    CHECK(w.joints.size() == 2);
+
+    // Each capsule is oriented along its (downward) bone: local +Y maps to world -Y.
+    for (int bi : rag.bodyIndex) {
+        const math::vec3 axis =
+            glm::mat3_cast(w.bodies[static_cast<std::size_t>(bi)].orientation) * math::vec3(0, 1, 0);
+        CHECK_NEAR(axis.y, -1.0f, 0.05f);
+    }
+    // Joint anchors coincide at build.
+    for (const game::Joint3D& j : w.joints) {
+        CHECK(glm::length(anchorA(w, j) - anchorB(w, j)) < 1e-4f);
+    }
+
+    // Pin the root and simulate: the chain stays connected while it settles.
+    w.bodies[static_cast<std::size_t>(rag.bodyIndex[0])].invMass = 0.0f;
+    float worstGap = 0.0f;
+    for (int i = 0; i < 600; ++i) {
+        w.step(1.0f / 60.0f, 12);
+        for (const game::Joint3D& j : w.joints) {
+            worstGap = std::max(worstGap, glm::length(anchorA(w, j) - anchorB(w, j)));
+        }
+    }
+    CHECK(worstGap < 0.1f);
+    for (int bi : rag.bodyIndex) {
+        CHECK(std::isfinite(w.bodies[static_cast<std::size_t>(bi)].pos.y));
+    }
+
+    // A free ragdoll dropped onto the ground falls and lands (still connected, above the floor).
+    {
+        game::PhysicsWorld3D w2;
+        w2.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+        game::Ragdoll r2 = game::buildRagdoll(w2, bones);
+        const float startY = w2.bodies[static_cast<std::size_t>(r2.bodyIndex[2])].pos.y;
+        for (int i = 0; i < 900; ++i) {
+            w2.step(1.0f / 60.0f, 12);
+        }
+        const float endY = w2.bodies[static_cast<std::size_t>(r2.bodyIndex[2])].pos.y;
+        CHECK(endY < startY);
+        CHECK(endY > -0.5f);
+        float gap = 0.0f;
+        for (const game::Joint3D& j : w2.joints) {
+            gap = std::max(gap, glm::length(anchorA(w2, j) - anchorB(w2, j)));
+        }
+        CHECK(gap < 0.2f);
+    }
+}
+
 void testEditorScene() {
     using editor::Node;
     using editor::Scene;
@@ -19423,6 +19496,7 @@ int main() {
     testPhysics3DHinge();
     testPhysics3DConeTwist();
     testSoftBody();
+    testRagdoll();
     testEditorScene();
     testEditorPickRay();
     testEditorGizmoDrag();

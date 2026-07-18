@@ -201,6 +201,12 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
   stretched link relaxes to rest, a pinned link/rope hangs under gravity without over-stretching (<5%),
   pins stay fixed, and energy stays bounded over thousands of steps. 6DOF / generic joints and ragdolls
   (a skeleton driven by cone-twist joints) remain; soft-body-vs-rigid collision is a follow-up.
+  **ragdoll done** (M248): `game::buildRagdoll` — Godot's PhysicalBone3D ragdoll: turns a bone list
+  (segment + parent + per-joint swing/twist limits) into capsule bodies oriented along each bone, tied
+  to their parents by cone-twist joints at the shared joint. Verified: bodies/joints created, capsules
+  oriented along their bones, joint anchors coincident, a pinned chain stays connected while it settles
+  (worst gap <0.1), and a free ragdoll dropped on the ground falls, lands above the floor, and stays
+  connected. 6DOF / generic joints remain.
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 
 ### 10. Networking / multiplayer  [BIG][CPU]
