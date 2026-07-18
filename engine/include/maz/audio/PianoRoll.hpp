@@ -118,6 +118,11 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Randomize (humanize) timing: nudge each note's start by a random offset in
+    // [−maxSteps, +maxSteps] steps (clamped at 0), for a looser, less-quantized feel. `seed` makes it
+    // fully deterministic. Returns the number of notes whose start changed.
+    int randomizeTiming(int maxSteps, uint32_t seed);
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 

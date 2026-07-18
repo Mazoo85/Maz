@@ -337,6 +337,30 @@ int PianoRoll::randomizeVelocity(float amount, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
+    if (maxSteps <= 0) {
+        return 0;
+    }
+    uint32_t rng = seed != 0u ? seed : 1u;
+    const int span = 2 * maxSteps + 1; // offsets in [-maxSteps, +maxSteps]
+    int changed = 0;
+    for (Note& n : notes_) {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        const int offset = static_cast<int>(rng % static_cast<uint32_t>(span)) - maxSteps;
+        int start = n.startStep + offset;
+        if (start < 0) {
+            start = 0;
+        }
+        if (start != n.startStep) {
+            n.startStep = start;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {

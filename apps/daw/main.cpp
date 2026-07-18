@@ -683,6 +683,15 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Duplicate")) {
         roll.duplicate(dupOffset);
     }
+    ImGui::SameLine();
+    static int timingRange = 1;
+    static uint32_t timingSeed = 1u;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputInt("##timerand", &timingRange, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Rand time")) {
+        roll.randomizeTiming(timingRange, timingSeed++);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

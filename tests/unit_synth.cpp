@@ -933,6 +933,39 @@ int main() {
         check(differs, "a different seed yields a different randomization");
     }
 
+    // --- Randomize (humanize) timing -----------------------------------------
+    {
+        auto build = [](audio::PianoRoll& p) {
+            for (int i = 0; i < 8; ++i) {
+                p.addNote(audio::Note{4 + i, 1, 60, 0.9f}); // starts 4..11, away from 0
+            }
+        };
+        audio::PianoRoll a;
+        audio::PianoRoll b;
+        build(a);
+        build(b);
+        a.randomizeTiming(2, 777u);
+        b.randomizeTiming(2, 777u); // same seed → identical
+
+        bool deterministic = true, inRange = true, anyMoved = false;
+        for (size_t i = 0; i < a.notes().size(); ++i) {
+            const int start = a.notes()[i].startStep;
+            if (start != b.notes()[i].startStep) deterministic = false;
+            const int orig = 4 + static_cast<int>(i);
+            if (start < orig - 2 || start > orig + 2) inRange = false; // within ±2 (none clamp here)
+            if (start != orig) anyMoved = true;
+        }
+        check(deterministic, "timing randomize is deterministic for a given seed");
+        check(inRange, "timing randomize stays within the requested range");
+        check(anyMoved, "timing randomize actually nudges note starts");
+
+        // Clamp at 0: a note near the start never goes negative.
+        audio::PianoRoll c;
+        c.addNote(audio::Note{0, 1, 60, 0.9f});
+        c.randomizeTiming(3, 5u);
+        check(c.notes()[0].startStep >= 0, "timing randomize never produces a negative start");
+    }
+
     // --- Duplicate -----------------------------------------------------------
     {
         audio::PianoRoll dr;
