@@ -12881,6 +12881,32 @@ void testHash() {
         const auto d = sha256(std::string("abc"));
         CHECK(d[0] == 0xba && d[31] == 0xad);
     }
+
+    // HMAC-SHA256 (M298) against RFC 4231 test vectors.
+    CHECK(hmacSha256Hex("Jefe", "what do ya want for nothing?") ==
+          "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+    {
+        // TC1: key = 0x0b*20, data = "Hi There".
+        std::vector<std::uint8_t> key(20, 0x0b);
+        const std::string data = "Hi There";
+        const auto d = hmacSha256(key.data(), key.size(),
+                                  reinterpret_cast<const std::uint8_t*>(data.data()), data.size());
+        CHECK(toHex(d.data(), d.size()) ==
+              "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
+    }
+    {
+        // TC6: 131-byte key (> block size, hashed first).
+        std::vector<std::uint8_t> key(131, 0xaa);
+        const std::string data = "Test Using Larger Than Block-Size Key - Hash Key First";
+        const auto d = hmacSha256(key.data(), key.size(),
+                                  reinterpret_cast<const std::uint8_t*>(data.data()), data.size());
+        CHECK(toHex(d.data(), d.size()) ==
+              "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54");
+    }
+    // Deterministic + sensitive to key and message.
+    CHECK(hmacSha256Hex("k", "msg") == hmacSha256Hex("k", "msg"));
+    CHECK(hmacSha256Hex("k", "msg") != hmacSha256Hex("k", "msG"));
+    CHECK(hmacSha256Hex("k1", "msg") != hmacSha256Hex("k2", "msg"));
 }
 
 // Rect2i: Godot's integer rectangle (M281) — half-open hasPoint, intersect/merge/enclose/grow/abs.

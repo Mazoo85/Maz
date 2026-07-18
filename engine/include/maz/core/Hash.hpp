@@ -108,17 +108,65 @@ inline std::array<std::uint8_t, 32> sha256(const std::string& s) {
     return sha256(reinterpret_cast<const std::uint8_t*>(s.data()), s.size());
 }
 
+// Lowercase hex of an arbitrary digest.
+inline std::string toHex(const std::uint8_t* data, std::size_t len) {
+    static const char* hexd = "0123456789abcdef";
+    std::string out;
+    out.reserve(len * 2);
+    for (std::size_t i = 0; i < len; ++i) {
+        out.push_back(hexd[(data[i] >> 4) & 0xF]);
+        out.push_back(hexd[data[i] & 0xF]);
+    }
+    return out;
+}
+
 // Lowercase hex string of a SHA-256 digest (Godot's HashingContext.finish() -> hex).
 inline std::string sha256Hex(const std::string& s) {
     const auto d = sha256(s);
-    static const char* hexd = "0123456789abcdef";
-    std::string out;
-    out.reserve(64);
-    for (std::uint8_t byte : d) {
-        out.push_back(hexd[(byte >> 4) & 0xF]);
-        out.push_back(hexd[byte & 0xF]);
+    return toHex(d.data(), d.size());
+}
+
+// HMAC-SHA256 (RFC 2104) — keyed message authentication, the primitive behind signed save files,
+// tamper-proof network messages and API tokens. Godot's Crypto.hmac_digest(HASH_SHA256, ...). Built on
+// the SHA-256 above; verified against the RFC 4231 test vectors. Block size is 64 bytes.
+inline std::array<std::uint8_t, 32> hmacSha256(const std::uint8_t* key, std::size_t keyLen,
+                                               const std::uint8_t* msg, std::size_t msgLen) {
+    constexpr std::size_t kBlock = 64;
+    std::array<std::uint8_t, kBlock> k0{}; // zero-padded key
+    if (keyLen > kBlock) {
+        const auto kh = sha256(key, keyLen); // long keys are hashed first
+        for (std::size_t i = 0; i < kh.size(); ++i) {
+            k0[i] = kh[i];
+        }
+    } else {
+        for (std::size_t i = 0; i < keyLen; ++i) {
+            k0[i] = key[i];
+        }
     }
-    return out;
+
+    std::vector<std::uint8_t> inner;
+    inner.reserve(kBlock + msgLen);
+    for (std::size_t i = 0; i < kBlock; ++i) {
+        inner.push_back(static_cast<std::uint8_t>(k0[i] ^ 0x36u)); // ipad
+    }
+    inner.insert(inner.end(), msg, msg + msgLen);
+    const auto innerHash = sha256(inner.data(), inner.size());
+
+    std::vector<std::uint8_t> outer;
+    outer.reserve(kBlock + innerHash.size());
+    for (std::size_t i = 0; i < kBlock; ++i) {
+        outer.push_back(static_cast<std::uint8_t>(k0[i] ^ 0x5cu)); // opad
+    }
+    outer.insert(outer.end(), innerHash.begin(), innerHash.end());
+    return sha256(outer.data(), outer.size());
+}
+inline std::array<std::uint8_t, 32> hmacSha256(const std::string& key, const std::string& msg) {
+    return hmacSha256(reinterpret_cast<const std::uint8_t*>(key.data()), key.size(),
+                      reinterpret_cast<const std::uint8_t*>(msg.data()), msg.size());
+}
+inline std::string hmacSha256Hex(const std::string& key, const std::string& msg) {
+    const auto d = hmacSha256(key, msg);
+    return toHex(d.data(), d.size());
 }
 
 } // namespace maz::core
