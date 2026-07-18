@@ -187,7 +187,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   — Godot's NodePath: parses "../Enemies/Boss:health:x" into an absolute flag, name components
   (split on "/", keeping "."/".."), and ":"-separated subnames, with get_name_count/get_name,
   get_subname_count/get_subname, is_absolute, get_concatenated_names/subnames, is_empty and exact
-  string reconstruction (verified by round-trip).
+  string reconstruction (verified by round-trip); plus `core::Utf8` (M312) — UTF-8 <-> code-point
+  conversion giving Maz Godot's code-point view of text: `utf8EncodeChar`/`utf8Encode` (String ->
+  to_utf8_buffer), `utf8Decode` (parse_utf8), and `utf8Length` (String.length — code points, not
+  bytes). Rejects overlong forms, surrogates and out-of-range values, and maps malformed bytes to
+  U+FFFD with resync; verified by exact byte encodings, round-trips, and malformed-input handling.
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
   a scripting VM (lexer→bytecode→GC, classes, closures, modules, hot reload, gradual typing).
 - **Tooling:** in-engine editor (viewport, gizmos, inspector, undo/redo, save/load, asset browser,

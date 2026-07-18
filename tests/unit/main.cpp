@@ -69,6 +69,7 @@
 #include "maz/core/KdTree2D.hpp"
 #include "maz/core/NodePath.hpp"
 #include "maz/core/Noise.hpp"
+#include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
@@ -11177,6 +11178,58 @@ void testVariantContainers() {
     v.set("b", 2);
     const auto vals = v.values();
     CHECK((vals.size() == 2 && vals[0] == Variant(1) && vals[1] == Variant(2)));
+}
+
+// M312: UTF-8 <-> code-point conversion (Godot String code-point semantics).
+void testUtf8() {
+    namespace c = maz::core;
+    // Exact byte encodings.
+    CHECK(c::utf8EncodeChar(U'A') == std::string("\x41"));
+    CHECK(c::utf8EncodeChar(U'é') == std::string("\xC3\xA9"));          // é
+    CHECK(c::utf8EncodeChar(U'€') == std::string("\xE2\x82\xAC"));      // €
+    CHECK(c::utf8EncodeChar(U'\U0001D11E') == std::string("\xF0\x9D\x84\x9E")); // 𝄞
+    // Length counts code points, not bytes.
+    CHECK(c::utf8Length("hello") == 5);
+    CHECK(c::utf8Length("h\xC3\xA9llo") == 5);
+    CHECK(std::string("h\xC3\xA9llo").size() == 6);
+    CHECK(c::utf8Length("\xE2\x82\xAC\xF0\x9D\x84\x9E") == 2);
+    CHECK(c::utf8Length("") == 0);
+    // Decode.
+    {
+        const std::u32string cps = c::utf8Decode("A\xC3\xA9\xE2\x82\xAC\xF0\x9D\x84\x9E");
+        CHECK(cps.size() == 4);
+        CHECK(cps[0] == U'A' && cps[1] == U'é' && cps[2] == U'€' &&
+              cps[3] == U'\U0001D11E');
+    }
+    // Round-trip well-formed input; length matches decoded size.
+    {
+        const std::string samples[] = {"", "plain ascii", "caf\xC3\xA9", "\xE2\x82\xAC 100",
+                                       "music \xF0\x9D\x84\x9E note"};
+        for (const std::string& s : samples) {
+            CHECK(c::utf8Encode(c::utf8Decode(s)) == s);
+            CHECK(c::utf8Length(s) == c::utf8Decode(s).size());
+        }
+    }
+    // Malformed -> U+FFFD with resync.
+    {
+        const std::u32string cps = c::utf8Decode("\x80" "A"); // lone continuation
+        CHECK(cps.size() == 2 && cps[0] == c::kReplacementChar && cps[1] == U'A');
+    }
+    {
+        const std::u32string cps = c::utf8Decode("\xC3" "A"); // lead then ASCII
+        CHECK(cps.size() == 2 && cps[0] == c::kReplacementChar && cps[1] == U'A');
+    }
+    {
+        const std::u32string cps = c::utf8Decode("\xE2\x82"); // truncated 3-byte
+        CHECK(cps.size() == 1 && cps[0] == c::kReplacementChar);
+    }
+    {
+        const std::u32string cps = c::utf8Decode("\xC0\xAF"); // overlong '/'
+        CHECK(!cps.empty() && cps[0] == c::kReplacementChar);
+    }
+    // Surrogate / out-of-range encode as U+FFFD.
+    CHECK(c::utf8EncodeChar(0xD800u) == c::utf8EncodeChar(c::kReplacementChar));
+    CHECK(c::utf8EncodeChar(0x110000u) == c::utf8EncodeChar(c::kReplacementChar));
 }
 
 // M309: NodePath parsing (Godot NodePath — names, subnames, absolute flag, reconstruction).
@@ -22585,6 +22638,7 @@ int main() {
     testStringId();
     testStringUtils();
     testNodePath();
+    testUtf8();
     testVariant();
     testVariantContainers();
     testStringFormat();
