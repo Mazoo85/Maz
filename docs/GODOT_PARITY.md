@@ -40,7 +40,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `polygonArea`, `isPolygonClockwise` (Godot's Y-down screen convention), area-weighted
   `polygonCentroid` — Godot's Geometry2D polygon statics; **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
-  Godot's AABB),
+  Godot's AABB); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
+  `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8` —
+  Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance

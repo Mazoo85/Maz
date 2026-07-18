@@ -773,6 +773,36 @@ void testColorOps() {
     CHECK_NEAR(render::srgbToLinear(1.0f), 1.0f, 1e-5f);
     CHECK_NEAR(render::linearToSrgb(render::srgbToLinear(0.5f)), 0.5f, 1e-4f);
     CHECK(render::srgbToLinear(0.5f) < 0.5f);
+
+    // --- Color completeness (M273): blend / clamp / approx / 32-bit pack / color8 ---
+    // blend: opaque `over` replaces base; transparent `over` leaves base.
+    CHECK(render::isEqualApprox(render::blend(Color{1, 0, 0, 1}, Color{0, 0, 1, 1}), Color{0, 0, 1, 1}));
+    CHECK(render::isEqualApprox(render::blend(Color{1, 0, 0, 1}, Color{0, 1, 0, 0}), Color{1, 0, 0, 1}));
+    {
+        const Color r = render::blend(Color{0, 0, 0, 1}, Color{1, 1, 1, 0.5f}); // 50% white over black
+        CHECK_NEAR(r.a, 1.0f, 1e-4f);
+        CHECK_NEAR(r.r, 0.5f, 1e-4f);
+    }
+    // clamp into [0,1].
+    {
+        const Color r = render::clampColor(Color{2, -1, 0.5f, 3});
+        CHECK_NEAR(r.r, 1.0f, 1e-4f);
+        CHECK_NEAR(r.g, 0.0f, 1e-4f);
+        CHECK_NEAR(r.b, 0.5f, 1e-4f);
+        CHECK_NEAR(r.a, 1.0f, 1e-4f);
+    }
+    // is_equal_approx.
+    CHECK(render::isEqualApprox(Color{0.1f, 0.2f, 0.3f, 1}, Color{0.1f, 0.2f, 0.3f, 1}));
+    CHECK(!render::isEqualApprox(Color{1, 0, 0, 1}, Color{0, 0, 1, 1}));
+    // 32-bit packing (byte order is in the function name).
+    CHECK(render::toRgba32(Color{1, 0, 0, 1}) == 0xFF0000FFu);
+    CHECK(render::toArgb32(Color{1, 0, 0, 1}) == 0xFFFF0000u);
+    CHECK(render::toAbgr32(Color{1, 0, 0, 1}) == 0xFF0000FFu);
+    CHECK(render::toRgba32(Color{0, 1, 0, 1}) == 0x00FF00FFu);
+    CHECK(render::isEqualApprox(render::fromRgba32(render::toRgba32(Color{0.25f, 0.5f, 0.75f, 1.0f})),
+                               Color{0.25f, 0.5f, 0.75f, 1.0f}, 1.0f / 255.0f + 1e-4f));
+    // Color8 from byte channels.
+    CHECK_NEAR(render::color8(255, 128, 0, 255).g, 128.0f / 255.0f, 1e-4f);
 }
 
 void testAtlasPacker() {

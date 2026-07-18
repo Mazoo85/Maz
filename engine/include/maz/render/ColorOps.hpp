@@ -176,4 +176,71 @@ inline Color linearToSrgb(const Color& c) {
     return Color{linearToSrgb(c.r), linearToSrgb(c.g), linearToSrgb(c.b), c.a};
 }
 
+// ---- Color completeness (M273) — the remaining Godot Color methods ----------------------------
+
+namespace detail {
+// Quantise a [0,1] channel to a [0,255] byte with rounding (matches Godot's channel packing).
+inline std::uint32_t to255(float x) {
+    const long v = std::lround(std::clamp(x, 0.0f, 1.0f) * 255.0f);
+    return static_cast<std::uint32_t>(v < 0 ? 0 : (v > 255 ? 255 : v));
+}
+} // namespace detail
+
+// Alpha-composite `over` on top of `base` (source-over) — Godot's Color.blend. Fully transparent
+// `over` leaves `base`; fully opaque `over` replaces it. Returns transparent black if both vanish.
+inline Color blend(const Color& base, const Color& over) {
+    const float sa = 1.0f - over.a;
+    Color res;
+    res.a = base.a * sa + over.a;
+    if (res.a < 1e-8f) {
+        return Color{0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    res.r = (base.r * base.a * sa + over.r * over.a) / res.a;
+    res.g = (base.g * base.a * sa + over.g * over.a) / res.a;
+    res.b = (base.b * base.a * sa + over.b * over.a) / res.a;
+    return res;
+}
+
+// Component-wise clamp into [lo, hi] (defaults to the [0,1] display range) — Godot's Color.clamp.
+inline Color clampColor(const Color& c, const Color& lo = Color{0, 0, 0, 0},
+                        const Color& hi = Color{1, 1, 1, 1}) {
+    return Color{std::clamp(c.r, lo.r, hi.r), std::clamp(c.g, lo.g, hi.g),
+                 std::clamp(c.b, lo.b, hi.b), std::clamp(c.a, lo.a, hi.a)};
+}
+
+// Approximate equality across all four channels (absolute epsilon) — Godot's Color.is_equal_approx.
+inline bool isEqualApprox(const Color& a, const Color& b, float eps = 1e-5f) {
+    return std::fabs(a.r - b.r) < eps && std::fabs(a.g - b.g) < eps && std::fabs(a.b - b.b) < eps &&
+           std::fabs(a.a - b.a) < eps;
+}
+
+// Pack to a 32-bit integer with the byte order named by the function (Godot's to_*32). RGBA puts red
+// in the highest byte; ARGB puts alpha highest; ABGR puts alpha highest then B,G,R.
+inline std::uint32_t toRgba32(const Color& c) {
+    return (detail::to255(c.r) << 24) | (detail::to255(c.g) << 16) | (detail::to255(c.b) << 8) |
+           detail::to255(c.a);
+}
+inline std::uint32_t toArgb32(const Color& c) {
+    return (detail::to255(c.a) << 24) | (detail::to255(c.r) << 16) | (detail::to255(c.g) << 8) |
+           detail::to255(c.b);
+}
+inline std::uint32_t toAbgr32(const Color& c) {
+    return (detail::to255(c.a) << 24) | (detail::to255(c.b) << 16) | (detail::to255(c.g) << 8) |
+           detail::to255(c.r);
+}
+
+// Unpack an RGBA-ordered 32-bit integer (red in the highest byte) — Godot's Color(uint32) via rgba32.
+inline Color fromRgba32(std::uint32_t v) {
+    return Color{static_cast<float>((v >> 24) & 0xFF) / 255.0f,
+                 static_cast<float>((v >> 16) & 0xFF) / 255.0f,
+                 static_cast<float>((v >> 8) & 0xFF) / 255.0f,
+                 static_cast<float>(v & 0xFF) / 255.0f};
+}
+
+// Build a Color from 0..255 byte channels (Godot's Color8).
+inline Color color8(int r, int g, int b, int a = 255) {
+    return Color{static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f,
+                 static_cast<float>(b) / 255.0f, static_cast<float>(a) / 255.0f};
+}
+
 } // namespace maz::render
