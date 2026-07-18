@@ -1520,6 +1520,41 @@ void testTransform2D() {
         CHECK_NEAR(mid.getRotation(), pi * 0.25f, 1e-3f); // 45 degrees
         CHECK_NEAR(mid.getScale().x, 2.0f, 1e-3f);       // (1+3)/2
     }
+
+    // --- apply relative: global vs local (M278) ---
+    {
+        const Transform2D r = Transform2D::rotation(pi * 0.5f);
+        // Global translate shifts the origin in world space; local shifts along the frame's axes
+        // (after a 90-deg rotation, local +x is world +y).
+        CHECK_NEAR(r.translated(vec2(1, 0)).origin.x, 1.0f, 1e-4f);
+        CHECK_NEAR(r.translated(vec2(1, 0)).origin.y, 0.0f, 1e-4f);
+        CHECK_NEAR(r.translatedLocal(vec2(1, 0)).origin.x, 0.0f, 1e-4f);
+        CHECK_NEAR(r.translatedLocal(vec2(1, 0)).origin.y, 1.0f, 1e-4f);
+    }
+    {
+        const Transform2D t = Transform2D::translation(vec2(10, 0));
+        // Global rotate carries the origin around the world origin; local rotate spins in place.
+        CHECK_NEAR(t.rotated(pi * 0.5f).origin.y, 10.0f, 1e-4f);
+        CHECK_NEAR(t.rotatedLocal(pi * 0.5f).origin.x, 10.0f, 1e-4f);
+        const vec2 lb = t.rotatedLocal(pi * 0.5f).basisXform(vec2(1, 0));
+        CHECK_NEAR(lb.x, 0.0f, 1e-4f);
+        CHECK_NEAR(lb.y, 1.0f, 1e-4f);
+    }
+    {
+        // Global scale scales origin + basis; local scale scales only the basis columns.
+        const Transform2D g = Transform2D::translation(vec2(4, 6)).scaled(vec2(2, 3));
+        CHECK_NEAR(g.origin.x, 8.0f, 1e-4f);
+        CHECK_NEAR(g.origin.y, 18.0f, 1e-4f);
+        const Transform2D l = Transform2D::compose(0.5f, vec2(1, 1), vec2(4, 6)).scaledLocal(vec2(2, 3));
+        CHECK_NEAR(l.origin.x, 4.0f, 1e-4f); // origin unchanged
+        CHECK_NEAR(l.origin.y, 6.0f, 1e-4f);
+        const Transform2D sl = Transform2D::identity().scaledLocal(vec2(2, 3));
+        CHECK_NEAR(sl.basisXform(vec2(1, 0)).x, 2.0f, 1e-4f);
+        CHECK_NEAR(sl.basisXform(vec2(0, 1)).y, 3.0f, 1e-4f);
+    }
+    // getSkew round-trips through compose (already-present method, verified alongside M278).
+    CHECK_NEAR(Transform2D::identity().getSkew(), 0.0f, 1e-4f);
+    CHECK_NEAR(Transform2D::compose(0.7f, vec2(1, 1), vec2(0, 0), 0.3f).getSkew(), 0.3f, 1e-3f);
 }
 
 void testCanvasLayer() {

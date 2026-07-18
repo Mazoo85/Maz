@@ -121,6 +121,25 @@ struct Transform2D {
         return compose(r, s, p);
     }
 
+    // --- apply relative (global vs _local), mirroring Godot's Transform2D (M278) ---
+    // Global translate: shift the origin in world space.
+    Transform2D translated(vec2 offset) const { return Transform2D{x, y, origin + offset}; }
+    // Local translate: shift along the transform's own axes.
+    Transform2D translatedLocal(vec2 offset) const {
+        return Transform2D{x, y, origin + basisXform(offset)};
+    }
+    // Global rotate: left-multiply (rotates the whole frame, origin included, about the world origin).
+    Transform2D rotated(float radians) const { return rotation(radians) * *this; }
+    // Local rotate: right-multiply (spin in place, origin unchanged).
+    Transform2D rotatedLocal(float radians) const { return *this * rotation(radians); }
+    // Global scale: scale every column component-wise (basis rows + origin) — Godot's scaled.
+    Transform2D scaled(vec2 s) const {
+        return Transform2D{vec2(x.x * s.x, x.y * s.y), vec2(y.x * s.x, y.y * s.y),
+                           vec2(origin.x * s.x, origin.y * s.y)};
+    }
+    // Local scale: scale the basis columns, origin unchanged — Godot's scaled_local.
+    Transform2D scaledLocal(vec2 s) const { return Transform2D{x * s.x, y * s.y, origin}; }
+
 private:
     static float clampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 

@@ -25,7 +25,8 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
 - **Core / math / containers:** vectors/matrices/quats, **Vector2/Vector3 gameplay helpers** (M267,
   `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
   angle_to / project / posmod / snapped / rotated, semantics verified against Godot's own source so
-  GDScript-ported logic behaves identically), Transform2D, **Transform3D** (M268,
+  GDScript-ported logic behaves identically), Transform2D (incl. **apply-relative methods** M278 —
+  translated/rotated/scaled with global & _local variants matching Godot's Transform2D), **Transform3D** (M268,
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with
   `*`, affine + rigid inverse, translated/rotated/scaled with global & _local variants, orthonormalized,
   looking_at (-Z forward), interpolate_with (translation lerp + rotation slerp + scale lerp), and
