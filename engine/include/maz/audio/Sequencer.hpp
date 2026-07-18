@@ -57,11 +57,15 @@ public:
     float humanize() const { return humanize_; }
 
     // Sidechain ducking: when the kick (channel 0) fires, the melodic bus is ducked and recovers
-    // over `releaseMs` — the classic pumping effect. `amount` 0..1 is the depth.
-    void setSidechain(bool on, float amount, float releaseMs);
+    // over `releaseMs` — the classic pumping effect. `amount` 0..1 is the depth. `attackMs` is how
+    // fast the duck engages: 0 (default) snaps instantly (the classic hard pump); higher values ramp
+    // the gain down over that many ms for a softer, rounded duck (like a real sidechain compressor's
+    // attack). Old projects (and callers that omit it) keep the instant snap.
+    void setSidechain(bool on, float amount, float releaseMs, float attackMs = 0.0f);
     bool sidechainOn() const { return sidechainOn_; }
     float sidechainAmount() const { return scAmount_; }
     float sidechainReleaseMs() const { return scReleaseMs_; }
+    float sidechainAttackMs() const { return scAttackMs_; }
     // Which drum channel's hits duck the melodic bus (default 0 = kick). Lets any channel — a snare,
     // a clap — be the sidechain trigger, FL-style.
     void setSidechainSource(int channel) { sidechainSource_ = channel < 0 ? 0 : channel; }
@@ -318,8 +322,11 @@ private:
     bool sidechainOn_ = false;
     float scAmount_ = 0.7f;
     float scReleaseMs_ = 200.0f;
+    float scAttackMs_ = 0.0f; // duck engage time (0 = instant snap)
     int sidechainSource_ = 0; // drum channel that triggers the duck (0 = kick)
-    float scEnv_ = 1.0f; // current ducking gain (1 = open)
+    float scEnv_ = 1.0f;      // current ducking gain (1 = open)
+    float scTarget_ = 1.0f;   // floor the duck is heading toward while attacking (1 - amount)
+    bool scAttacking_ = false; // true while ramping down to scTarget_ (attack phase)
 
     bool metronome_ = false;
     int metroLastStep_ = -1;  // last step a click fired on (avoids double-triggering)

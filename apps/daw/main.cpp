@@ -1201,15 +1201,19 @@ void buildMixerUI(audio::AudioEngine& engine) {
     bool sc = seq.sidechainOn();
     float scAmt = seq.sidechainAmount();
     float scRel = seq.sidechainReleaseMs();
+    float scAtk = seq.sidechainAttackMs();
     bool scChanged = ImGui::Checkbox("Sidechain", &sc);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(90.0f);
     scChanged |= ImGui::SliderFloat("amt##sc", &scAmt, 0.0f, 1.0f, "%.2f");
     ImGui::SameLine();
+    ImGui::SetNextItemWidth(100.0f);
+    scChanged |= ImGui::SliderFloat("atk ms##sc", &scAtk, 0.0f, 200.0f, "%.0f");
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(110.0f);
     scChanged |= ImGui::SliderFloat("rel ms##sc", &scRel, 20.0f, 500.0f, "%.0f");
     if (scChanged) {
-        seq.setSidechain(sc, scAmt, scRel);
+        seq.setSidechain(sc, scAmt, scRel, scAtk);
     }
     ImGui::SameLine();
     int scSrc = seq.sidechainSource();

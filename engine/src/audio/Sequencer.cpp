@@ -246,10 +246,11 @@ void Sequencer::setSwing(float s) {
     swing_ = std::clamp(s, 0.0f, 0.9f);
 }
 
-void Sequencer::setSidechain(bool on, float amount, float releaseMs) {
+void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attackMs) {
     sidechainOn_ = on;
     scAmount_ = std::clamp(amount, 0.0f, 1.0f);
     scReleaseMs_ = std::max(releaseMs, 1.0f);
+    scAttackMs_ = attackMs < 0.0f ? 0.0f : (attackMs > 500.0f ? 500.0f : attackMs);
 }
 
 void Sequencer::setArp(bool on, int mode) {
@@ -480,9 +481,17 @@ void Sequencer::triggerStep(int step) {
             }
         }
     }
-    // Sidechain: a kick (channel 0) hit ducks the melodic bus.
+    // Sidechain: a kick (channel 0) hit ducks the melodic bus. With no attack the gain snaps down
+    // instantly (the classic hard pump); with an attack time it ramps down to the floor over that
+    // window (a softer, rounded duck) — handled per-sample in the render loop.
     if (sidechainOn_ && this->step(sidechainSource_, step)) {
-        scEnv_ = 1.0f - scAmount_;
+        scTarget_ = 1.0f - scAmount_;
+        if (scAttackMs_ <= 0.0f) {
+            scEnv_ = scTarget_;
+            scAttacking_ = false;
+        } else {
+            scAttacking_ = true; // ramp scEnv_ down toward scTarget_ starting now
+        }
     }
     const bool toSampler = useSampler_ && sampler_.loaded();
     const PianoRoll& roll = patterns_[static_cast<size_t>(current_)].roll;
@@ -786,6 +795,8 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         const float leadL = std::cos(leadTheta), leadR = std::sin(leadTheta);
         const float bassL = std::cos(bassTheta), bassR = std::sin(bassTheta);
         const float scStep = 1.0f / (scReleaseMs_ * 0.001f * static_cast<float>(sampleRate));
+        const float scAtkStep =
+            scAttackMs_ > 0.0f ? 1.0f / (scAttackMs_ * 0.001f * static_cast<float>(sampleRate)) : 1.0f;
         for (int i = 0; i < chunk; ++i) {
             const float duck = sidechainOn_ ? scEnv_ : 1.0f;
             const float leadS = synthScratch_[static_cast<size_t>(i)] * synthGain_ * duck;
@@ -794,8 +805,17 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             lead[2 * (done + i) + 1] += leadS * leadR;
             bass[2 * (done + i)] += bassS * bassL;
             bass[2 * (done + i) + 1] += bassS * bassR;
-            if (sidechainOn_ && scEnv_ < 1.0f) {
-                scEnv_ = std::min(1.0f, scEnv_ + scStep);
+            if (sidechainOn_) {
+                if (scAttacking_) {
+                    // Attack phase: ramp the gain down toward the floor, then hand off to recovery.
+                    scEnv_ -= scAtkStep;
+                    if (scEnv_ <= scTarget_) {
+                        scEnv_ = scTarget_;
+                        scAttacking_ = false;
+                    }
+                } else if (scEnv_ < 1.0f) {
+                    scEnv_ = std::min(1.0f, scEnv_ + scStep); // release recovery back up to open
+                }
             }
         }
 

@@ -94,7 +94,7 @@ int main() {
     seq.setArp(true, 4);
     seq.setArpOctaves(3);
     seq.setArpGate(0.4f);
-    seq.setSidechain(true, 0.8f, 180.0f);
+    seq.setSidechain(true, 0.8f, 180.0f, 25.0f);
     seq.setSidechainSource(2);
     seq.sampler().setBasePitch(48);
     seq.sampler().setStartOffset(0.25f);
@@ -406,8 +406,8 @@ int main() {
               near(seq2.arpGate(), 0.4f),
           "arp settings round-trip");
     check(seq2.sidechainOn() && near(seq2.sidechainAmount(), 0.8f) &&
-              seq2.sidechainSource() == 2,
-          "sidechain (incl. routable source) round-trips");
+              seq2.sidechainSource() == 2 && near(seq2.sidechainAttackMs(), 25.0f),
+          "sidechain (incl. routable source + attack) round-trips");
     check(seq2.useSampler() && seq2.synth().gain() >= 0.0f && seq2.sampler().basePitch() == 48 &&
               near(seq2.sampler().startOffset(), 0.25f) && near(seq2.sampler().attack(), 0.02f) &&
               near(seq2.sampler().release(), 0.3f) && seq2.sampler().loop() &&

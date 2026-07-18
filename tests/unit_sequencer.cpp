@@ -451,6 +451,40 @@ int main() {
         };
         check(win2(200, 1500) < win2(20000, 25000) * 0.7,
               "the routed (snare) channel drives the sidechain duck");
+
+        // Attack: with an attack time the duck ramps in, so the level *immediately* after the kick is
+        // higher (less ducked) than with the instant (attack=0) snap — a softer, rounded pump.
+        auto buildSc = [&](float attackMs) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setStep(0, 0, true);
+            s.setChannelMute(0, true);
+            s.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+            s.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setSidechain(true, 0.9f, 250.0f, attackMs);
+            s.play();
+            return renderMono(s, 16 * 6000, sampleRate);
+        };
+        const std::vector<float> snap = buildSc(0.0f);   // instant duck
+        const std::vector<float> ramp = buildSc(40.0f);  // 40 ms attack
+        auto winOf = [&](const std::vector<float>& b, int a, int c) {
+            double s = 0.0;
+            for (int i = a; i < c; ++i) {
+                const double v = static_cast<double>(b[static_cast<size_t>(i) * 2]);
+                s += v * v;
+            }
+            return std::sqrt(s / static_cast<double>(c - a));
+        };
+        // Right after the kick (~2–15 ms) the ramped duck has not fully closed yet, so it is louder.
+        check(winOf(ramp, 100, 700) > winOf(snap, 100, 700) * 1.3,
+              "sidechain attack ramps the duck in (louder just after the kick than an instant snap)");
+        // The ramped duck still pumps: near the trough (just after the ~40 ms attack completes) it is
+        // much quieter than the fully-recovered tail.
+        check(winOf(ramp, 2000, 2600) < winOf(ramp, 20000, 25000) * 0.7,
+              "with attack the duck still closes to the floor then recovers (a rounded pump)");
+        audio::Sequencer scDef;
+        check(std::fabs(scDef.sidechainAttackMs()) < 1e-6f,
+              "sidechain attack defaults to 0 (instant snap, back-compatible)");
     }
 
     // --- Arrangement: patterns + playlist -----------------------------------

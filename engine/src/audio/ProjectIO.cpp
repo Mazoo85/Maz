@@ -178,7 +178,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "spb " << seq.stepsPerBeat() << "\n";
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
-      << seq.sidechainReleaseMs() << " " << seq.sidechainSource() << "\n";
+      << seq.sidechainReleaseMs() << " " << seq.sidechainSource() << " " << seq.sidechainAttackMs()
+      << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << " "
       << seq.arpGate() << "\n";
     f << "humanize " << seq.humanize() << "\n";
@@ -433,11 +434,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int on = 0;
             float amount = 0.7f, rel = 200.0f;
             ls >> on >> amount >> rel;
-            seq.setSidechain(on != 0, amount, rel);
-            int src = 0; // sidechain source channel optional (older files omit it)
-            if (ls >> src) {
-                seq.setSidechainSource(src);
-            }
+            int src = 0;      // sidechain source channel optional (older files omit it)
+            float atk = 0.0f; // attack ms optional (older files omit it → instant snap)
+            ls >> src;        // fails on old files → src stays 0 (kick)
+            ls >> atk;        // fails on old files → atk stays 0 (instant)
+            seq.setSidechain(on != 0, amount, rel, atk);
+            seq.setSidechainSource(src);
         } else if (tag == "arp") {
             int on = 0, mode = 0;
             ls >> on >> mode;
