@@ -711,6 +711,19 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Chop")) {
         roll.chop(chopPieces);
     }
+    ImGui::SameLine();
+    static int arpLen = 2;
+    static int arpBakeMode = 0;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputInt("##arplen", &arpLen, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    const char* arpBakeModes[] = {"up", "down", "up-dn"};
+    ImGui::Combo("##arpbakemode", &arpBakeMode, arpBakeModes, 3);
+    ImGui::SameLine();
+    if (ImGui::Button("Arp notes")) {
+        roll.arpeggiate(arpLen, arpBakeMode);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

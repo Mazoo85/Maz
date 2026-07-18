@@ -361,6 +361,64 @@ int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::arpeggiate(int noteLenSteps, int mode) {
+    if (noteLenSteps < 1 || notes_.empty()) {
+        return 0;
+    }
+    // Collect the distinct chord start steps in ascending order.
+    std::vector<int> starts;
+    for (const Note& n : notes_) {
+        if (std::find(starts.begin(), starts.end(), n.startStep) == starts.end()) {
+            starts.push_back(n.startStep);
+        }
+    }
+    std::sort(starts.begin(), starts.end());
+
+    std::vector<Note> out;
+    int created = 0;
+    for (int start : starts) {
+        // Gather this chord's notes (sharing the start step).
+        std::vector<Note> group;
+        for (const Note& n : notes_) {
+            if (n.startStep == start) {
+                group.push_back(n);
+            }
+        }
+        if (group.size() < 2) {
+            out.push_back(group.front()); // a single note is not a chord — leave it be
+            continue;
+        }
+        // Sort the chord's pitches low→high; the chord's duration is its longest note.
+        std::sort(group.begin(), group.end(),
+                  [](const Note& a, const Note& b) { return a.pitch < b.pitch; });
+        int dur = 0;
+        for (const Note& n : group) {
+            dur = std::max(dur, n.lengthSteps);
+        }
+        const int n = static_cast<int>(group.size());
+        const int steps = std::max(1, dur / noteLenSteps);
+        for (int k = 0; k < steps; ++k) {
+            int idx;
+            if (mode == 1) { // down
+                idx = (n - 1) - (k % n);
+            } else if (mode == 2 && n > 1) { // up-down
+                const int period = 2 * n - 2;
+                const int pos = k % period;
+                idx = pos < n ? pos : period - pos;
+            } else { // up
+                idx = k % n;
+            }
+            Note nt = group[static_cast<size_t>(idx)];
+            nt.startStep = start + k * noteLenSteps;
+            nt.lengthSteps = noteLenSteps;
+            out.push_back(nt);
+            ++created;
+        }
+    }
+    notes_ = std::move(out);
+    return created;
+}
+
 int PianoRoll::chop(int pieces) {
     if (pieces < 2) {
         return 0;

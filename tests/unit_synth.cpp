@@ -1150,6 +1150,48 @@ int main() {
         check(np.chop(1) == 0 && np.notes().size() == 1, "chop with <2 pieces is a no-op");
     }
 
+    // --- Arpeggiate (bake a chord into notes) --------------------------------
+    {
+        // A C-E-G triad (60/64/67) lasting 8 steps, arpeggiated up at length 2 → 60,64,67,60 at
+        // steps 0,2,4,6.
+        audio::PianoRoll ar;
+        ar.addNote(audio::Note{0, 8, 64, 0.9f});
+        ar.addNote(audio::Note{0, 8, 60, 0.9f});
+        ar.addNote(audio::Note{0, 8, 67, 0.9f});
+        const int made = ar.arpeggiate(2, 0);
+        check(made == 4 && ar.notes().size() == 4, "arpeggiate prints one note per sub-step");
+        auto pitchAt = [&](int start) {
+            for (const auto& nt : ar.notes())
+                if (nt.startStep == start) return nt.pitch;
+            return -1;
+        };
+        check(pitchAt(0) == 60 && pitchAt(2) == 64 && pitchAt(4) == 67 && pitchAt(6) == 60,
+              "arpeggiate walks the chord pitches upward, cycling");
+        bool len2 = true;
+        for (const auto& nt : ar.notes())
+            if (nt.lengthSteps != 2) len2 = false;
+        check(len2, "arpeggiated notes take the requested length");
+
+        // Down mode starts from the top of the chord.
+        audio::PianoRoll dn;
+        dn.addNote(audio::Note{0, 4, 60, 1.0f});
+        dn.addNote(audio::Note{0, 4, 64, 1.0f});
+        dn.addNote(audio::Note{0, 4, 67, 1.0f});
+        dn.arpeggiate(2, 1);
+        check(dn.notes().front().pitch == 67, "arpeggiate-down starts from the highest pitch");
+
+        // A single (non-chord) note and noteLen < 1 are left untouched.
+        audio::PianoRoll one;
+        one.addNote(audio::Note{0, 8, 60, 1.0f});
+        one.arpeggiate(2, 0);
+        check(one.notes().size() == 1 && one.notes().front().lengthSteps == 8,
+              "a single note is not arpeggiated");
+        audio::PianoRoll np2;
+        np2.addNote(audio::Note{0, 8, 60, 1.0f});
+        np2.addNote(audio::Note{0, 8, 64, 1.0f});
+        check(np2.arpeggiate(0, 0) == 0 && np2.notes().size() == 2, "arpeggiate with len<1 is a no-op");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

@@ -118,6 +118,13 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Arpeggiate: bake each chord (a stack of notes sharing a start step) into a printed arpeggio —
+    // a run of single `noteLenSteps`-long notes stepping across the chord's duration, cycling through
+    // the chord's pitches. `mode` 0 = up, 1 = down, 2 = up-down. Unlike the live arpeggiator this
+    // writes real, editable notes. Single (non-chord) notes and `noteLenSteps < 1` are left as-is.
+    // Returns the number of notes created for arpeggiated chords.
+    int arpeggiate(int noteLenSteps, int mode);
+
     // Chop: split each note into `pieces` (2..) equal, evenly-spaced shorter notes of the same pitch
     // and velocity — the classic note-repeat / stutter / roll from a held note. A note is only chopped
     // if it is at least `pieces` steps long (so every piece is ≥ 1 step); shorter notes are left as-is.
