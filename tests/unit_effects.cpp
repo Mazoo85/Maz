@@ -259,6 +259,20 @@ int main() {
         check(!dd.sync(), "delay tempo sync defaults to off");
     }
 
+    // --- Tempo-synced phaser: sweep rate tracks the transport ---------------
+    {
+        audio::Phaser p;
+        p.setSync(true);
+        p.setSyncDivision(2); // 1/4 → 2 Hz @120
+        p.updateTempo(120.0);
+        check(std::fabs(p.rate() - 2.0f) < 0.01f, "synced phaser runs at 2 Hz for 1/4 @120 BPM");
+        audio::Phaser pm;
+        pm.setRate(0.5f);
+        pm.updateTempo(120.0);
+        check(std::fabs(pm.rate() - 0.5f) < 1e-3f, "phaser updateTempo is a no-op when sync is off");
+        check(!audio::Phaser().sync(), "phaser tempo sync defaults to off");
+    }
+
     // --- Tempo-synced chorus & flanger: LFO rate tracks the transport -------
     {
         audio::Chorus c;

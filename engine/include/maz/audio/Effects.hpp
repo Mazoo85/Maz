@@ -248,6 +248,13 @@ public:
     void setDepth(float d) { depth_ = d; }
     void setFeedback(float f) { feedback_ = f; }
     void setMix(float m) { mix_ = m; }
+    // Tempo sync: lock the sweep LFO rate to the transport at the chosen note division (rhythmic
+    // phasing). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) { syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d); }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
     float rate() const { return rateHz_; }
     float depth() const { return depth_; }
     float feedback() const { return feedback_; }
@@ -258,6 +265,8 @@ public:
 
 private:
     static constexpr int kStages = 4;
+    bool sync_ = false; // tempo-sync the sweep LFO rate
+    int syncDiv_ = 0;   // note-division index (default 1/1, a slow phaser)
     struct Allpass1 {
         float z = 0.0f;
         float process(float x, float a) {

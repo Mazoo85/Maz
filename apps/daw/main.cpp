@@ -1411,6 +1411,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("mix##phs", &wet, 0.0f, 1.0f, "%.2f")) mx.phaser().setMix(wet);
+        const char* modDivsP[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsP[d] = audio::modSyncDivisionName(d);
+        bool psync = mx.phaser().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##phs", &psync)) mx.phaser().setSync(psync);
+        ImGui::SameLine();
+        int pdiv = mx.phaser().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##phs", &pdiv, modDivsP, audio::kModSyncDivisions))
+            mx.phaser().setSyncDivision(pdiv);
     }
     {
         bool en = mx.delay().enabled();
