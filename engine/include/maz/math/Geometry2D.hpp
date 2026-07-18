@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 namespace maz::math {
@@ -86,6 +87,83 @@ inline bool pointInPolygon(vec2 p, const std::vector<vec2>& poly) {
 // Does segment a->b come within `radius` of `center` (i.e. cross/touch the circle)?
 inline bool segmentIntersectsCircle(vec2 a, vec2 b, vec2 center, float radius) {
     return distanceToSegment(center, a, b) <= radius;
+}
+
+// ---- more Geometry2D statics (M276) ---------------------------------------------------------
+
+// Closest point on the INFINITE line through a,b (unclamped) — Godot's
+// Geometry2D.get_closest_point_to_segment_uncapped.
+inline vec2 closestPointOnLine(vec2 p, vec2 a, vec2 b) {
+    const vec2 ab = b - a;
+    const float len2 = ab.x * ab.x + ab.y * ab.y;
+    if (len2 < 1e-12f) {
+        return a;
+    }
+    const float t = ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2;
+    return a + ab * t;
+}
+
+// Intersection of two INFINITE lines given a point + direction each; nullopt if parallel — Godot's
+// Geometry2D.line_intersects_line.
+inline std::optional<vec2> lineIntersectsLine(vec2 fromA, vec2 dirA, vec2 fromB, vec2 dirB) {
+    const float denom = dirA.x * dirB.y - dirA.y * dirB.x;
+    if (std::fabs(denom) < 1e-12f) {
+        return std::nullopt; // parallel or coincident
+    }
+    const vec2 d = fromB - fromA;
+    const float t = (d.x * dirB.y - d.y * dirB.x) / denom;
+    return fromA + dirA * t;
+}
+
+// Barycentric point-in-triangle test (inclusive of edges) — Godot's Geometry2D.point_is_inside_triangle.
+inline bool pointInTriangle(vec2 p, vec2 a, vec2 b, vec2 c) {
+    const float d1 = (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
+    const float d2 = (p.x - c.x) * (b.y - c.y) - (b.x - c.x) * (p.y - c.y);
+    const float d3 = (p.x - a.x) * (c.y - a.y) - (c.x - a.x) * (p.y - a.y);
+    const bool hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    const bool hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(hasNeg && hasPos); // all same sign (allowing zeros on edges)
+}
+
+// Closest points between two segments [p1,q1] and [p2,q2] (Ericson's clamped solver) — Godot's
+// Geometry2D.get_closest_points_between_segments. Writes the pair into c1/c2.
+inline void closestPointsBetweenSegments(vec2 p1, vec2 q1, vec2 p2, vec2 q2, vec2& c1, vec2& c2) {
+    const vec2 d1 = q1 - p1; // direction of segment 1
+    const vec2 d2 = q2 - p2; // direction of segment 2
+    const vec2 r = p1 - p2;
+    const float a = d1.x * d1.x + d1.y * d1.y;
+    const float e = d2.x * d2.x + d2.y * d2.y;
+    const float f = d2.x * r.x + d2.y * r.y;
+    float s, t;
+    if (a < 1e-12f && e < 1e-12f) {
+        c1 = p1;
+        c2 = p2;
+        return;
+    }
+    if (a < 1e-12f) {
+        s = 0.0f;
+        t = std::min(std::max(f / e, 0.0f), 1.0f);
+    } else {
+        const float c = d1.x * r.x + d1.y * r.y;
+        if (e < 1e-12f) {
+            t = 0.0f;
+            s = std::min(std::max(-c / a, 0.0f), 1.0f);
+        } else {
+            const float b = d1.x * d2.x + d1.y * d2.y;
+            const float denom = a * e - b * b;
+            s = denom > 1e-12f ? std::min(std::max((b * f - c * e) / denom, 0.0f), 1.0f) : 0.0f;
+            t = (b * s + f) / e;
+            if (t < 0.0f) {
+                t = 0.0f;
+                s = std::min(std::max(-c / a, 0.0f), 1.0f);
+            } else if (t > 1.0f) {
+                t = 1.0f;
+                s = std::min(std::max((b - c) / a, 0.0f), 1.0f);
+            }
+        }
+    }
+    c1 = p1 + d1 * s;
+    c2 = p2 + d2 * t;
 }
 
 // ---- polygon toolkit (Godot's Geometry2D polygon helpers) -----------------------------------

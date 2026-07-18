@@ -38,7 +38,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   lengthSquared, length/distance, aspect, and float-vec conversion), Rect2, Geometry2D/3D
   (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed
   `polygonArea`, `isPolygonClockwise` (Godot's Y-down screen convention), area-weighted
-  `polygonCentroid` — Godot's Geometry2D polygon statics; **Aabb3 method completeness** M272 —
+  `polygonCentroid` — Godot's Geometry2D polygon statics; plus **more Geometry2D statics** M276 —
+  closestPointOnLine (uncapped), lineIntersectsLine (infinite lines), pointInTriangle,
+  closestPointsBetweenSegments (2D) matching Godot's Geometry2D; **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
   Godot's AABB); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
   `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8` —

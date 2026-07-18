@@ -1369,6 +1369,36 @@ void testGeometry2D() {
         CHECK(segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-1, 0), 2.0f));
         CHECK(!segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-5, 0), 2.0f));
     }
+
+    // --- more Geometry2D statics (M276) ---
+    // closestPointOnLine is uncapped (projection can lie past the endpoints).
+    CHECK((math::closestPointOnLine(vec2(15, 3), vec2(0, 0), vec2(10, 0)) == vec2(15, 0)));
+    CHECK((math::closestPointOnLine(vec2(-5, 2), vec2(0, 0), vec2(10, 0)) == vec2(-5, 0)));
+    // infinite line-line intersection, and parallel -> none.
+    {
+        auto hit = math::lineIntersectsLine(vec2(0, 0), vec2(1, 0), vec2(5, -5), vec2(0, 1));
+        CHECK((hit.has_value() && *hit == vec2(5, 0)));
+        CHECK(!math::lineIntersectsLine(vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 0)).has_value());
+    }
+    // point-in-triangle (inside / outside / on-edge).
+    {
+        const vec2 a(0, 0), b(4, 0), c(0, 4);
+        CHECK(math::pointInTriangle(vec2(1, 1), a, b, c));
+        CHECK(!math::pointInTriangle(vec2(3, 3), a, b, c));
+        CHECK(math::pointInTriangle(vec2(2, 0), a, b, c)); // on edge
+    }
+    // closest points between two segments: crossing (dist 0), parallel offset, endpoint-clamped.
+    {
+        vec2 c1, c2;
+        math::closestPointsBetweenSegments(vec2(0, 0), vec2(10, 10), vec2(0, 10), vec2(10, 0), c1, c2);
+        CHECK((c1 == vec2(5, 5) && c2 == vec2(5, 5)));
+        math::closestPointsBetweenSegments(vec2(0, 0), vec2(10, 0), vec2(0, 2), vec2(10, 2), c1, c2);
+        CHECK_NEAR(length(c2 - c1), 2.0f, 1e-3f);
+        math::closestPointsBetweenSegments(vec2(0, 0), vec2(1, 0), vec2(5, -1), vec2(5, 1), c1, c2);
+        CHECK((c1 == vec2(1, 0)));
+        CHECK_NEAR(c2.x, 5.0f, 1e-4f);
+        CHECK_NEAR(c2.y, 0.0f, 1e-4f);
+    }
 }
 
 void testTransform2D() {
