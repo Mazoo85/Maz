@@ -192,6 +192,7 @@
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Transform3D.hpp"
 #include "maz/math/Quaternion.hpp"
+#include "maz/math/VectorInt.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
 #include "maz/render/Grid3D.hpp"
@@ -12050,6 +12051,50 @@ void testTransform3D() {
     }
 }
 
+// VectorInt: Godot Vector2i / Vector3i integer vectors — exact arithmetic (integer division),
+// abs/sign, clamp/min/max, 64-bit lengthSquared (overflow-safe), length/distance, aspect, conversion.
+void testVectorInt() {
+    using math::Vector2i;
+    using math::Vector3i;
+
+    const Vector2i a(3, 4), b(1, 2);
+    CHECK((a + b == Vector2i(4, 6)));
+    CHECK((a - b == Vector2i(2, 2)));
+    CHECK((a * b == Vector2i(3, 8)));
+    CHECK((a * 2 == Vector2i(6, 8)));
+    CHECK((Vector2i(7, 8) / Vector2i(2, 3) == Vector2i(3, 2)));  // truncating integer division
+    CHECK((Vector2i(7, 9) / 2 == Vector2i(3, 4)));
+    CHECK((-a == Vector2i(-3, -4)));
+    CHECK((Vector2i(-5, 7).abs() == Vector2i(5, 7)));
+    CHECK((Vector2i(-5, 0).sign() == Vector2i(-1, 0)));
+    CHECK((Vector2i(3, 4).sign() == Vector2i(1, 1)));
+    CHECK((Vector2i(10, -3).clamp(Vector2i(0, 0), Vector2i(5, 5)) == Vector2i(5, 0)));
+    CHECK((a.min(b) == Vector2i(1, 2)));
+    CHECK((a.max(b) == Vector2i(3, 4)));
+    CHECK(a.lengthSquared() == 25);
+    CHECK_NEAR(static_cast<float>(a.length()), 5.0f, 1e-5f);
+    CHECK_NEAR(static_cast<float>(Vector2i(0, 0).distanceTo(Vector2i(3, 4))), 5.0f, 1e-5f);
+    CHECK(Vector2i(0, 0).distanceSquaredTo(Vector2i(3, 4)) == 25);
+    CHECK_NEAR(Vector2i(16, 9).aspect(), 16.0f / 9.0f, 1e-5f);
+    CHECK(a.lengthSquared() != 0);
+    // Overflow safety: 50000^2 * 2 exceeds 32-bit range, must be exact in 64-bit.
+    CHECK(Vector2i(50000, 50000).lengthSquared() == 5000000000LL);
+
+    const Vector3i c(1, 2, 2), d(4, 4, 4);
+    CHECK((c + d == Vector3i(5, 6, 6)));
+    CHECK((c * d == Vector3i(4, 8, 8)));
+    CHECK((Vector3i(9, 8, 7) / Vector3i(2, 3, 2) == Vector3i(4, 2, 3)));
+    CHECK((Vector3i(-1, 2, -3).abs() == Vector3i(1, 2, 3)));
+    CHECK((Vector3i(-2, 0, 5).sign() == Vector3i(-1, 0, 1)));
+    CHECK((Vector3i(10, -3, 7).clamp(Vector3i(0, 0, 0), Vector3i(5, 5, 5)) == Vector3i(5, 0, 5)));
+    CHECK((c.min(d) == Vector3i(1, 2, 2)));
+    CHECK((c.max(d) == Vector3i(4, 4, 4)));
+    CHECK(c.lengthSquared() == 9);
+    CHECK_NEAR(static_cast<float>(c.length()), 3.0f, 1e-5f);
+    CHECK_NEAR(static_cast<float>(Vector3i(0, 0, 0).distanceTo(Vector3i(1, 2, 2))), 3.0f, 1e-5f);
+    CHECK_NEAR(c.toVec3().z, 2.0f, 1e-6f);
+}
+
 // Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
 // inverse, slerp, angleTo, and mat3 interop. Euler convention matched to Godot's from_euler/get_euler.
 void testQuaternion() {
@@ -21086,6 +21131,7 @@ int main() {
     testVectorOps();
     testTransform3D();
     testQuaternion();
+    testVectorInt();
     testSdf();
     testGlyphCache();
     testGraphEdit();

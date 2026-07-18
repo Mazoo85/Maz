@@ -32,7 +32,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   mat4 interop; semantics matched to Godot's Transform3D/Basis source), **Quaternion** (M269,
   `math::Quaternion` — Godot's rotation quaternion: axis-angle + Euler build/read in Godot's exact
   YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
-  so orientations authored in Godot import identically), Rect2, Geometry2D/3D,
+  so orientations authored in Godot import identically), **Vector2i/Vector3i** (M270,
+  `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
+  arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
+  lengthSquared, length/distance, aspect, and float-vec conversion), Rect2, Geometry2D/3D,
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance
