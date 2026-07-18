@@ -1417,6 +1417,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SameLine();
             bool compEn = tr.compressor().enabled();
             if (ImGui::Checkbox("Comp##trk", &compEn)) tr.compressor().setEnabled(compEn);
+            ImGui::SameLine();
+            bool hpEn = tr.highpass().enabled();
+            if (ImGui::Checkbox("HP##trk", &hpEn)) tr.highpass().setEnabled(hpEn);
+            ImGui::SameLine();
+            float hpCut = tr.highpass().cutoff();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("HP Hz##trk", &hpCut, 20.0f, 1000.0f, "%.0f"))
+                tr.highpass().setCutoff(hpCut);
             ImGui::PopID();
         }
     }

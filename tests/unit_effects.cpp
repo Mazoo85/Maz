@@ -1175,6 +1175,16 @@ int main() {
             delta += std::fabs(static_cast<double>(d[i] - ref[i]));
         }
         check(delta > 0.0, "a track insert (distortion) alters the bus");
+
+        // Per-bus high-pass: attenuates a low tone, leaves the track active.
+        audio::MixerTrack hp;
+        hp.highpass().setEnabled(true);
+        hp.highpass().setCutoff(500.0f);
+        check(hp.active(), "an enabled per-bus high-pass makes the track active");
+        std::vector<float> low = sineStereo(sr, 60.0, 0.8, sr); // 60 Hz, well below cutoff
+        const double lowIn = rms(low);
+        hp.process(low.data(), sr, sr);
+        check(rms(low) < lowIn * 0.3, "per-bus high-pass attenuates a low tone below its cutoff");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

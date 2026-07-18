@@ -14,10 +14,11 @@ namespace maz::audio {
 class MixerTrack {
 public:
     MixerTrack() {
+        hp_.setEnabled(false);
         eq_.setEnabled(false);
         dist_.setEnabled(false);
         comp_.setEnabled(false);
-        chain_ = {&eq_, &dist_, &comp_};
+        chain_ = {&hp_, &eq_, &dist_, &comp_};
     }
 
     void setGain(float g) { gain_ = g; }
@@ -25,6 +26,7 @@ public:
     void setMuted(bool m) { muted_ = m; }
     bool muted() const { return muted_; }
 
+    HighPass& highpass() { return hp_; } // clean the bus's low end before the other inserts
     ParametricEQ& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     Compressor& compressor() { return comp_; }
@@ -77,6 +79,7 @@ public:
 private:
     float gain_ = 1.0f;
     bool muted_ = false;
+    HighPass hp_{};
     ParametricEQ eq_{};
     Distortion dist_{};
     Compressor comp_{};

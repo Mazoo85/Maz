@@ -192,6 +192,8 @@ int main() {
     mixer.track(audio::MixerBus::Lead).setMuted(true);
     mixer.track(audio::MixerBus::Bass).eq().setEnabled(true);
     mixer.track(audio::MixerBus::Bass).eq().setLowGain(4.5f);
+    mixer.track(audio::MixerBus::Lead).highpass().setEnabled(true);
+    mixer.track(audio::MixerBus::Lead).highpass().setCutoff(120.0f);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -331,7 +333,9 @@ int main() {
               near(mixer2.track(audio::MixerBus::Drums).distortion().drive(), 6.0f) &&
               mixer2.track(audio::MixerBus::Lead).muted() &&
               mixer2.track(audio::MixerBus::Bass).eq().enabled() &&
-              near(mixer2.track(audio::MixerBus::Bass).eq().lowGain(), 4.5f),
+              near(mixer2.track(audio::MixerBus::Bass).eq().lowGain(), 4.5f) &&
+              mixer2.track(audio::MixerBus::Lead).highpass().enabled() &&
+              near(mixer2.track(audio::MixerBus::Lead).highpass().cutoff(), 120.0f),
           "per-bus mixer-track insert strips round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");

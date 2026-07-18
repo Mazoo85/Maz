@@ -278,7 +278,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << tr.eq().midQ() << " " << tr.eq().midGain() << " " << tr.eq().highGain() << " "
           << (tr.distortion().enabled() ? 1 : 0) << " " << tr.distortion().drive() << " "
           << (tr.compressor().enabled() ? 1 : 0) << " " << tr.compressor().thresholdDb() << " "
-          << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << "\n";
+          << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << " "
+          << (tr.highpass().enabled() ? 1 : 0) << " " << tr.highpass().cutoff() << "\n";
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -784,6 +785,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 tr.compressor().setThresholdDb(thr);
                 tr.compressor().setRatio(ratio);
                 tr.compressor().setMakeupDb(mk);
+                int hpEn = 0; // per-bus high-pass optional (older files omit it)
+                float hpCut = 30.0f;
+                if (ls >> hpEn >> hpCut) {
+                    tr.highpass().setEnabled(hpEn != 0);
+                    tr.highpass().setCutoff(hpCut);
+                }
             }
         } else if (tag == "plugin") {
             int en = 0;
