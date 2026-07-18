@@ -113,7 +113,7 @@ int main() {
     const int p1 = seq.addPattern();
     seq.selectPattern(p1);
     seq.setStep(2, 5, true);
-    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f});
+    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f});
     seq.setPatternName(p1, "Chorus Fill");
     seq.selectPattern(0);
     seq.setPlaylist({0, 1, 0});
@@ -295,6 +295,7 @@ int main() {
     seq2.selectPattern(1);
     check(seq2.step(2, 5) && seq2.roll().notes().size() == 1, "second pattern content round-trips");
     check(near(seq2.roll().notes()[0].probability, 0.6f), "per-note probability round-trips");
+    check(near(seq2.roll().notes()[0].fineTune, 35.0f), "per-note fine tune round-trips");
     seq2.selectPattern(0);
 
     // Second instrument round-trips (roll2 note + synth2 patch).

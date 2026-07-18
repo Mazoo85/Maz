@@ -95,6 +95,26 @@ float PianoRoll::noteProbability(int pitch, int step) const {
     return 1.0f;
 }
 
+float PianoRoll::setNoteFineTune(int pitch, int step, float cents) {
+    const float c = cents < -200.0f ? -200.0f : (cents > 200.0f ? 200.0f : cents);
+    for (Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            n.fineTune = c;
+            return c;
+        }
+    }
+    return 0.0f;
+}
+
+float PianoRoll::noteFineTune(int pitch, int step) const {
+    for (const Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            return n.fineTune;
+        }
+    }
+    return 0.0f;
+}
+
 int PianoRoll::quantize(int division) {
     if (division < 2) {
         return 0; // 1 (or less) → already on the grid

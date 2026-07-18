@@ -235,11 +235,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         }
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -607,6 +607,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> prob) {
                 n.probability = prob;
             }
+            float fine = 0.0f; // per-note fine tune optional (older files omit it)
+            if (ls >> fine) {
+                n.fineTune = fine;
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
@@ -616,6 +620,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float prob = 1.0f;
             if (ls >> prob) {
                 n.probability = prob;
+            }
+            float fine = 0.0f; // per-note fine tune optional (older files omit it)
+            if (ls >> fine) {
+                n.fineTune = fine;
             }
             seq.selectPattern(p);
             seq.roll2().addNote(n);

@@ -854,6 +854,32 @@ int main() {
         check(dd.drift() == 0.0f, "analog drift defaults to 0 (in tune)");
     }
 
+    // --- Per-note fine tune --------------------------------------------------
+    {
+        audio::SynthInstrument s;
+        s.setWaveform(audio::Waveform::Saw);
+        s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+        s.noteOn(69, 1.0f, 0.0f); // A4 = 440 Hz, no fine tune
+        const std::vector<float> a = render(s, 8000, sampleRate);
+        s.allNotesOff();
+        (void)render(s, 2000, sampleRate);
+        s.noteOn(69, 1.0f, 200.0f); // +200 cents = +2 semitones → ~493.9 Hz
+        const std::vector<float> b = render(s, 8000, sampleRate);
+        const double ha = estimateHz(a, sampleRate);
+        const double hb = estimateHz(b, sampleRate);
+        check(std::fabs(ha - 440.0) < 12.0, "a note with no fine tune plays at its pitch");
+        check(hb > ha * 1.10, "a +200-cent fine tune raises the note ~2 semitones");
+
+        // PianoRoll per-note accessor.
+        audio::PianoRoll fr;
+        fr.addNote(audio::Note{0, 4, 60, 1.0f});
+        check(std::fabs(fr.setNoteFineTune(60, 0, 50.0f) - 50.0f) < 1e-4f, "note fine tune is settable");
+        check(std::fabs(fr.noteFineTune(60, 0) - 50.0f) < 1e-4f, "note fine tune reads back");
+        check(std::fabs(fr.setNoteFineTune(60, 0, 999.0f) - 200.0f) < 1e-4f,
+              "note fine tune clamps to +/-200 cents");
+        check(fr.noteFineTune(62, 0) == 0.0f, "an empty cell reports 0 fine tune");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

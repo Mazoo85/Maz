@@ -13,6 +13,7 @@ struct Note {
     int pitch = 60; // middle C
     float velocity = 0.9f;
     float probability = 1.0f; // chance in [0,1] the note fires each loop (1 = always)
+    float fineTune = 0.0f;    // per-note pitch offset in cents (±), for micro-tuning/detune
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -153,6 +154,11 @@ public:
     // new probability (or 1.0 if there's no note there).
     float setNoteProbability(int pitch, int step, float probability);
     float noteProbability(int pitch, int step) const;
+
+    // Per-note fine tune in cents (clamped ±200): micro-detune an individual note. Returns the new
+    // value (or 0 if there's no note at that cell).
+    float setNoteFineTune(int pitch, int step, float cents);
+    float noteFineTune(int pitch, int step) const;
 
 private:
     int numSteps_ = 16;

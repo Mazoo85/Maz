@@ -761,14 +761,22 @@ void buildPianoRollUI(audio::Sequencer& seq) {
             if (ImGui::Button("##cell", ImVec2(cell, cell))) {
                 roll.toggle(pitch, s);
             }
-            // Scroll over a placed note to set its trigger probability; tooltip shows it when < 100%.
+            // Scroll over a placed note to set its trigger probability; Ctrl+scroll sets its fine
+            // tune (cents). Tooltips show either when non-default.
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    roll.setNoteProbability(pitch, s, roll.noteProbability(pitch, s) + wheel * 0.1f);
+                    if (ImGui::GetIO().KeyCtrl) {
+                        roll.setNoteFineTune(pitch, s, roll.noteFineTune(pitch, s) + wheel * 5.0f);
+                    } else {
+                        roll.setNoteProbability(pitch, s, roll.noteProbability(pitch, s) + wheel * 0.1f);
+                    }
                 }
                 const float pr = roll.noteProbability(pitch, s);
-                if (pr < 0.999f) {
+                const float ft = roll.noteFineTune(pitch, s);
+                if (ft != 0.0f) {
+                    ImGui::SetTooltip("fine %+.0f cents", ft);
+                } else if (pr < 0.999f) {
                     ImGui::SetTooltip("prob %.0f%%", pr * 100.0f);
                 }
             }

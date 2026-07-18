@@ -578,7 +578,7 @@ void Sequencer::triggerStep(int step) {
             if (toSampler) {
                 sampler_.noteOn(n.pitch + transpose_, n.velocity);
             } else {
-                synth_.noteOn(n.pitch + transpose_, n.velocity);
+                synth_.noteOn(n.pitch + transpose_, n.velocity, n.fineTune);
             }
         }
     }
@@ -592,7 +592,7 @@ void Sequencer::triggerStep(int step) {
     }
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
-            synth2_.noteOn(n.pitch + transpose_, n.velocity);
+            synth2_.noteOn(n.pitch + transpose_, n.velocity, n.fineTune);
         }
     }
 }

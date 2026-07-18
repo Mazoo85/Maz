@@ -214,7 +214,9 @@ public:
     }
     float filterKeyTrack() const { return filterKeyTrack_; }
 
-    void noteOn(int midi, float velocity);
+    void noteOn(int midi, float velocity) { noteOn(midi, velocity, 0.0f); }
+    // Trigger with a per-note fine-tune offset in cents (piano-roll micro-detune).
+    void noteOn(int midi, float velocity, float fineCents);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
 

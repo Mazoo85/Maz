@@ -32,7 +32,7 @@ void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float s
     noiseLevel_ = std::clamp(noiseLevel, 0.0f, 1.0f);
 }
 
-void SynthInstrument::noteOn(int midi, float velocity) {
+void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     int chosen = 0;
     if (mono_) {
         // Monophonic: always the one voice (voice 0); release any others still ringing.
@@ -71,15 +71,15 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     lastFreq_ = v.targetFreq;
     v.pitchEnv = pitchEnvAmt_; // seed the pitch envelope (decays to 0 in render)
     // Analog drift: detune this note by a small random amount within ±drift_ cents (deterministic).
+    float detuneCents = fineCents; // start from the per-note fine tune
     if (drift_ > 0.0f) {
         driftRng_ ^= driftRng_ << 13;
         driftRng_ ^= driftRng_ >> 17;
         driftRng_ ^= driftRng_ << 5;
         const float r = static_cast<float>(driftRng_) / 4294967295.0f * 2.0f - 1.0f; // [-1,1]
-        v.driftMul = std::pow(2.0f, drift_ * r / 1200.0f);
-    } else {
-        v.driftMul = 1.0f;
+        detuneCents += drift_ * r;
     }
+    v.driftMul = detuneCents != 0.0f ? std::pow(2.0f, detuneCents / 1200.0f) : 1.0f;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
     v.filter.reset();
