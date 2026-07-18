@@ -135,7 +135,9 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
   — **convex hull done** (M227): `game::buildConvexHull` incremental hull of a point cloud →
   outward-wound triangular faces + hull vertex set (ConvexPolygonShape3D geometry).
   — **height-field done** (M228): `game::HeightField3D` — grid of height samples with bilinear
-  heightAt/normalAt and a grid-DDA + Möller–Trumbore raycast (HeightMapShape3D). Trimesh collider remains.
+  heightAt/normalAt and a grid-DDA + Möller–Trumbore raycast (HeightMapShape3D).
+  — **trimesh done** (M229): `game::TriMesh3D` — concave triangle-soup static collider with a
+  BVH-accelerated nearest raycast (ConcavePolygonShape3D). All three 3D collider shapes now covered.
 - [ ] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 

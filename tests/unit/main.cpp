@@ -115,6 +115,7 @@
 #include "maz/game/GridMap.hpp"
 #include "maz/game/HeightField3D.hpp"
 #include "maz/game/PathFollow2D.hpp"
+#include "maz/game/TriMesh3D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Timer.hpp"
 #include "maz/game/VisibleOnScreenNotifier2D.hpp"
@@ -6417,6 +6418,49 @@ void testHeightField3D() {
         CHECK_NEAR(hp.y, 2.0f, 1e-3f);
         CHECK_NEAR(hp.x, 3.0f, 1e-3f);
     }
+}
+
+void testTriMesh3D() {
+    // A concave shape: floor at y=0 (x 0..10) plus a raised step at y=2 (x 10..20).
+    const std::vector<math::vec3> v = {
+        {0, 0, 0},  {10, 0, 0},  {10, 0, 10},  {0, 0, 10},  // floor
+        {10, 2, 0}, {20, 2, 0},  {20, 2, 10},  {10, 2, 10}, // step
+    };
+    const std::vector<uint32_t> idx = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
+    game::TriMesh3D tm;
+    tm.build(v, idx);
+    CHECK(tm.triangleCount() == 4);
+
+    // Down-ray onto the floor.
+    game::TriMeshHit h = tm.raycast(math::vec3(5, 10, 5), math::vec3(0, -1, 0), 100.0f);
+    CHECK(h.hit);
+    CHECK_NEAR(h.point.y, 0.0f, 1e-3f);
+    CHECK_NEAR(h.t, 10.0f, 1e-3f);
+    CHECK(h.triangle == 0 || h.triangle == 1);
+
+    // Down-ray onto the step.
+    h = tm.raycast(math::vec3(15, 10, 5), math::vec3(0, -1, 0), 100.0f);
+    CHECK(h.hit);
+    CHECK_NEAR(h.point.y, 2.0f, 1e-3f);
+    CHECK_NEAR(h.t, 8.0f, 1e-3f);
+    CHECK(h.triangle == 2 || h.triangle == 3);
+
+    // Misses: outside in x, pointing up, and too-short maxDist.
+    CHECK(!tm.raycast(math::vec3(50, 10, 5), math::vec3(0, -1, 0), 100.0f).hit);
+    CHECK(!tm.raycast(math::vec3(5, 10, 5), math::vec3(0, 1, 0), 100.0f).hit);
+    CHECK(!tm.raycast(math::vec3(5, 10, 5), math::vec3(0, -1, 0), 5.0f).hit);
+
+    // Nearest-hit: a stacked floor (y=0) + ceiling (y=5); a down-ray hits the ceiling first.
+    const std::vector<math::vec3> v2 = {
+        {0, 0, 0}, {10, 0, 0}, {10, 0, 10}, {0, 0, 10},
+        {0, 5, 0}, {10, 5, 0}, {10, 5, 10}, {0, 5, 10},
+    };
+    const std::vector<uint32_t> idx2 = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
+    game::TriMesh3D tm2;
+    tm2.build(v2, idx2);
+    h = tm2.raycast(math::vec3(5, 10, 5), math::vec3(0, -1, 0), 100.0f);
+    CHECK(h.hit);
+    CHECK_NEAR(h.point.y, 5.0f, 1e-3f); // nearest surface, not the floor beneath it
 }
 
 void testProfiler() {
@@ -18208,6 +18252,7 @@ int main() {
     testGettextPo();
     testConvexHull3D();
     testHeightField3D();
+    testTriMesh3D();
     testNoise();
     testRandom();
     testInterpolate();
