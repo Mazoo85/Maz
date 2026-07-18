@@ -14,6 +14,7 @@ struct AppConfig {
     int frames = -1;         // --frames N : quit after N frames (<0 = run until closed)
     const char* modelPath = nullptr; // --load-model PATH : load a glTF/GLB and draw it spinning
     const char* scenePath = nullptr; // --scene PATH : load a .mazscene and render its entities
+    bool spriteDemo = false;         // --sprite-demo : draw bouncing 2D sprites (2D renderer demo)
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

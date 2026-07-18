@@ -8,4 +8,6 @@ maz_compile_shaders(sandbox
         ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.vert
         ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag
         ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.vert
-        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag)
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag)

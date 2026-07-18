@@ -43,6 +43,7 @@ add_subdirectory(engine)
 add_subdirectory(apps/sandbox)
 add_subdirectory(apps/editor)
 add_subdirectory(apps/render_probe)
+add_subdirectory(apps/sprite_probe)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

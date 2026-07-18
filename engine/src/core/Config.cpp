@@ -27,6 +27,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.modelPath = argv[++i];
         } else if (std::strcmp(arg, "--scene") == 0 && i + 1 < argc) {
             cfg.scenePath = argv[++i];
+        } else if (std::strcmp(arg, "--sprite-demo") == 0) {
+            cfg.spriteDemo = true;
         } else {
             MAZ_LOG_WARN("ignoring unknown argument: %s", arg);
         }

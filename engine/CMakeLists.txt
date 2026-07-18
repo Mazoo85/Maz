@@ -38,6 +38,7 @@ add_library(maz STATIC
     src/render/VulkanSwapchain.cpp
     src/render/VulkanRenderer.cpp
     src/render/MeshRenderer.cpp
+    src/render/SpriteRenderer.cpp
     src/render/OffscreenRenderer.cpp)
 
 target_include_directories(maz

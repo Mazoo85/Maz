@@ -20,6 +20,16 @@ set_tests_properties(model_load_gltf PROPERTIES
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "24 verts, 12 tris")
 
+# 2D sprite demo: run the sandbox's --sprite-demo path headless for a few frames and require a
+# clean exit. Exercises texture upload + drawSprite wiring end to end (no-op draw with no GPU).
+add_test(
+    NAME sprite_demo_headless
+    COMMAND sandbox --headless --frames 5 --sprite-demo)
+set_tests_properties(sprite_demo_headless PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "sprite demo: neon tile texture handle")
+
 # Unit tests: pure C++ (no GPU/display). Camera view/projection math.
 add_executable(maz_unit_tests unit_camera.cpp)
 target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
@@ -89,3 +99,14 @@ set_tests_properties(render_probe_asset PROPERTIES
     TIMEOUT 120
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "render probe: PASS")
+
+# Sprite probe: rasterize textured 2D quads off-screen (lavapipe in CI) and verify the pixels —
+# proof the sprite batch renderer draws textures, maps UVs, tints, and batches across textures.
+# Same Vulkan-ICD requirement as render_probe.
+add_test(
+    NAME sprite_probe
+    COMMAND sprite_probe)
+set_tests_properties(sprite_probe PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "sprite probe: PASS")

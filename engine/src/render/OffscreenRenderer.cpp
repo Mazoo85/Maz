@@ -2,6 +2,7 @@
 
 #include "maz/core/Log.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/SpriteRenderer.hpp"
 #include "render/VulkanContext.hpp"
 
 #include <array>
@@ -18,6 +19,7 @@ constexpr VkFormat kDepthFormat = VK_FORMAT_D32_SFLOAT;
 struct OffscreenRenderer::Impl {
     VulkanContext ctx;
     MeshRenderer mesh;
+    SpriteRenderer sprite;
     uint32_t width = 0;
     uint32_t height = 0;
 
@@ -242,6 +244,11 @@ bool OffscreenRenderer::init(platform::Window& window, uint32_t width, uint32_t 
         MAZ_LOG_ERROR("offscreen: mesh pipeline init failed");
         return false;
     }
+    // Sprite pipeline is optional here: the mesh render probe doesn't need it, but the sprite probe
+    // does. A single frame buffer set is enough for one-shot offscreen rendering.
+    if (!d.sprite.init(d.ctx, d.renderPass, 1)) {
+        MAZ_LOG_WARN("offscreen: sprite pipeline init failed; 2D probes disabled");
+    }
 
     d.ready = true;
     MAZ_LOG_INFO("offscreen renderer ready (%ux%u)", width, height);
@@ -253,6 +260,13 @@ int OffscreenRenderer::uploadModel(const assets::Model& model) {
         return -1;
     }
     return m_impl->mesh.uploadModel(m_impl->ctx, model);
+}
+
+int OffscreenRenderer::uploadTexture(const uint8_t* rgba, uint32_t width, uint32_t height) {
+    if (!valid()) {
+        return -1;
+    }
+    return m_impl->sprite.createTexture(m_impl->ctx, rgba, width, height);
 }
 
 bool OffscreenRenderer::renderToPixels(const Color& clear, const std::vector<Item>& items,
@@ -320,6 +334,73 @@ bool OffscreenRenderer::renderToPixels(const Color& clear, const std::vector<Ite
     return true;
 }
 
+bool OffscreenRenderer::renderSpritesToPixels(const Color& clear,
+                                              const std::vector<SpriteItem>& sprites,
+                                              std::vector<uint8_t>& outRGBA) {
+    if (!valid() || !m_impl->sprite.ready()) {
+        return false;
+    }
+    Impl& d = *m_impl;
+    const VkExtent2D extent{d.width, d.height};
+
+    vkResetFences(d.ctx.device(), 1, &d.fence);
+    vkResetCommandBuffer(d.cmd, 0);
+
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(d.cmd, &begin);
+
+    std::array<VkClearValue, 2> clears{};
+    clears[0].color = {{clear.r, clear.g, clear.b, clear.a}};
+    clears[1].depthStencil = {1.0f, 0};
+
+    VkRenderPassBeginInfo rp{};
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = d.renderPass;
+    rp.framebuffer = d.framebuffer;
+    rp.renderArea.extent = extent;
+    rp.clearValueCount = static_cast<uint32_t>(clears.size());
+    rp.pClearValues = clears.data();
+    vkCmdBeginRenderPass(d.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+
+    d.sprite.begin(0, extent);
+    for (const SpriteItem& item : sprites) {
+        d.sprite.draw(item.texture, item.sprite);
+    }
+    d.sprite.flush(d.ctx, d.cmd);
+
+    vkCmdEndRenderPass(d.cmd);
+
+    VkBufferImageCopy region{};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent = {d.width, d.height, 1};
+    vkCmdCopyImageToBuffer(d.cmd, d.colorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d.readback, 1,
+                           &region);
+
+    vkEndCommandBuffer(d.cmd);
+
+    VkSubmitInfo submit{};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &d.cmd;
+    if (vkQueueSubmit(d.ctx.graphicsQueue(), 1, &submit, d.fence) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("offscreen: vkQueueSubmit (sprites) failed");
+        return false;
+    }
+    vkWaitForFences(d.ctx.device(), 1, &d.fence, VK_TRUE, UINT64_MAX);
+
+    outRGBA.resize(static_cast<size_t>(d.readbackSize));
+    void* mapped = nullptr;
+    if (vkMapMemory(d.ctx.device(), d.readbackMemory, 0, d.readbackSize, 0, &mapped) != VK_SUCCESS) {
+        return false;
+    }
+    std::memcpy(outRGBA.data(), mapped, static_cast<size_t>(d.readbackSize));
+    vkUnmapMemory(d.ctx.device(), d.readbackMemory);
+    return true;
+}
+
 void OffscreenRenderer::shutdown() {
     if (!m_impl) {
         return;
@@ -330,6 +411,7 @@ void OffscreenRenderer::shutdown() {
     }
     VkDevice dev = d.ctx.device();
     if (d.ready || d.ctx.valid()) {
+        d.sprite.destroy(d.ctx);
         d.mesh.destroy(d.ctx);
         if (d.readback) vkDestroyBuffer(dev, d.readback, nullptr);
         if (d.readbackMemory) vkFreeMemory(dev, d.readbackMemory, nullptr);
