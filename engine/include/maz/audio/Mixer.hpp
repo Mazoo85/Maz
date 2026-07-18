@@ -24,6 +24,11 @@ public:
     void setMasterGain(float g) { masterGain_ = g; }
     float masterGain() const { return masterGain_; }
 
+    // Master balance / output pan (-1 = hard left, 0 = centre/transparent, +1 = hard right):
+    // attenuates the opposite channel on the final stereo output.
+    void setMasterBalance(float b) { masterBalance_ = b < -1.0f ? -1.0f : (b > 1.0f ? 1.0f : b); }
+    float masterBalance() const { return masterBalance_; }
+
     // Master limiter output ceiling (0.1–1.0): the peak the soft-limiter asymptotes to. Lower it for
     // headroom (e.g. 0.89 ≈ -1 dBFS true-peak margin).
     void setLimiterCeiling(float c) { limiterCeiling_ = c < 0.1f ? 0.1f : (c > 1.0f ? 1.0f : c); }
@@ -95,6 +100,7 @@ public:
 
 private:
     float masterGain_ = 0.9f;
+    float masterBalance_ = 0.0f; // final output stereo balance (-1..1); 0 = centre
     float limiterCeiling_ = 1.0f;
     ParametricEQ peq_{};
     TiltEQ tilt_{};

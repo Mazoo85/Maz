@@ -26,6 +26,7 @@ enum class AutoTarget {
     LeadPan,
     ReverbSend,
     DelaySend,
+    MasterPan,
     Count
 };
 

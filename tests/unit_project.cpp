@@ -129,6 +129,7 @@ int main() {
 
     mixer.setMasterGain(0.75f);
     mixer.setLimiterCeiling(0.9f);
+    mixer.setMasterBalance(-0.4f);
     mixer.eq().setEnabled(true);
     mixer.eq().setCutoff(3200.0f);
     mixer.compressor().setEnabled(true);
@@ -430,6 +431,7 @@ int main() {
     // Mixer + effects.
     check(near(mixer2.masterGain(), 0.75f), "master gain round-trips");
     check(near(mixer2.limiterCeiling(), 0.9f), "limiter ceiling round-trips");
+    check(near(mixer2.masterBalance(), -0.4f), "master balance round-trips");
     check(mixer2.eq().enabled() && near(mixer2.eq().cutoff(), 3200.0f), "EQ round-trips");
     check(near(mixer2.compressor().kneeDb(), 6.0f), "compressor knee round-trips");
     check(near(mixer2.compressor().mix(), 0.6f), "compressor mix round-trips");

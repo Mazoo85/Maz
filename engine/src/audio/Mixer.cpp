@@ -112,8 +112,13 @@ void Mixer::process(float* stereo, int frames, int sampleRate) {
     runSend(reverbReturn_, reverbSend_);
     runSend(delayReturn_, delaySend_);
 
-    for (int i = 0; i < n; ++i) {
-        stereo[i] = limit(stereo[i] * masterGain_, limiterCeiling_);
+    // Master balance (stereo pan): attenuate the channel opposite the pan direction (transparent at
+    // centre), then apply the master gain and the guaranteed-ceiling soft limiter.
+    const float balL = masterBalance_ > 0.0f ? 1.0f - masterBalance_ : 1.0f;
+    const float balR = masterBalance_ < 0.0f ? 1.0f + masterBalance_ : 1.0f;
+    for (int i = 0; i < frames; ++i) {
+        stereo[2 * i] = limit(stereo[2 * i] * masterGain_ * balL, limiterCeiling_);
+        stereo[2 * i + 1] = limit(stereo[2 * i + 1] * masterGain_ * balR, limiterCeiling_);
     }
 }
 

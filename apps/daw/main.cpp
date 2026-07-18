@@ -1184,6 +1184,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
     if (ImGui::SliderFloat("Ceiling", &ceiling, 0.1f, 1.0f, "%.2f")) {
         mx.setLimiterCeiling(ceiling);
     }
+    float balance = mx.masterBalance();
+    if (ImGui::SliderFloat("Balance", &balance, -1.0f, 1.0f, "%.2f")) {
+        mx.setMasterBalance(balance);
+    }
     float drums = seq.drumGain();
     if (ImGui::SliderFloat("Drums", &drums, 0.0f, 2.0f, "%.2f")) {
         seq.setDrumGain(drums);

@@ -269,7 +269,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     }
     seq.selectPattern(savedCurrent);
 
-    f << "master " << mixer.masterGain() << " " << mixer.limiterCeiling() << "\n";
+    f << "master " << mixer.masterGain() << " " << mixer.limiterCeiling() << " "
+      << mixer.masterBalance() << "\n";
     f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
     f << "fx hp " << (mixer.highpass().enabled() ? 1 : 0) << " " << mixer.highpass().cutoff() << "\n";
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
@@ -675,6 +676,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float ceil = 1.0f; // limiter ceiling optional (older files omit it)
             if (ls >> ceil) {
                 mixer.setLimiterCeiling(ceil);
+            }
+            float bal = 0.0f; // master balance optional (older files omit it)
+            if (ls >> bal) {
+                mixer.setMasterBalance(bal);
             }
         } else if (tag == "fx") {
             std::string which;

@@ -812,6 +812,34 @@ int main() {
         check(halved, "master gain scales the bus and effects are transparent when disabled");
     }
 
+    // --- Mixer: master balance pans the final output ------------------------
+    {
+        auto chanRms = [](const std::vector<float>& b, int chan) {
+            double s = 0.0;
+            int c = 0;
+            for (size_t i = static_cast<size_t>(chan); i < b.size(); i += 2) {
+                s += static_cast<double>(b[i]) * b[i];
+                ++c;
+            }
+            return c > 0 ? std::sqrt(s / c) : 0.0;
+        };
+        // Hard right: the left channel is silenced, the right passes.
+        audio::Mixer right;
+        right.setMasterGain(1.0f);
+        right.setMasterBalance(1.0f);
+        std::vector<float> rb = sineStereo(1000, 440.0, 0.5, sr);
+        right.process(rb.data(), 1000, sr);
+        check(chanRms(rb, 0) < 1e-6 && chanRms(rb, 1) > 0.2,
+              "master balance hard-right silences the left channel");
+        // Centre (default) is balanced: both channels equal.
+        audio::Mixer centre;
+        centre.setMasterGain(1.0f);
+        std::vector<float> cb = sineStereo(1000, 440.0, 0.5, sr);
+        centre.process(cb.data(), 1000, sr);
+        check(std::fabs(chanRms(cb, 0) - chanRms(cb, 1)) < 1e-6,
+              "master balance defaults to centre (channels equal)");
+    }
+
     // --- Limiter ceiling: caps the master peak ------------------------------
     {
         auto peakOut = [&](float ceiling) {

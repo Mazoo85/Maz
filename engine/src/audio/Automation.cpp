@@ -63,6 +63,8 @@ Automation::Automation() {
     lane(AutoTarget::ReverbSend).hi = 0.8f;
     lane(AutoTarget::DelaySend).lo = 0.0f;
     lane(AutoTarget::DelaySend).hi = 0.7f;
+    lane(AutoTarget::MasterPan).lo = -1.0f;
+    lane(AutoTarget::MasterPan).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -97,6 +99,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Reverb Send";
     case AutoTarget::DelaySend:
         return "Delay Send";
+    case AutoTarget::MasterPan:
+        return "Master Pan";
     case AutoTarget::Count:
         break;
     }
@@ -212,6 +216,10 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
         case AutoTarget::DelaySend:
             // Sweep the parallel delay send level (throw-style dub delays on the fly).
             engine.mixer().setDelaySend(v);
+            break;
+        case AutoTarget::MasterPan:
+            // Sweep the master output balance (whole-mix auto-pan).
+            engine.mixer().setMasterBalance(v);
             break;
         case AutoTarget::Count:
             break;

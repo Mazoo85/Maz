@@ -290,6 +290,25 @@ int main() {
               "aux-send automation reaches its low bound");
     }
 
+    // --- Master-pan target: whole-mix auto-pan ------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& mp = autom.lane(audio::AutoTarget::MasterPan);
+        mp.enabled = true;
+        mp.lfo.shape = audio::Waveform::Sine;
+        mp.lfo.rateHz = 1.0f;
+        mp.lo = -1.0f;
+        mp.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // peak → +1 (hard right)
+        check(eng.mixer().masterBalance() > 0.95f,
+              "automating master pan drives the balance hard right at the high bound");
+        autom.apply(eng, 0.75); // trough → -1 (hard left)
+        check(eng.mixer().masterBalance() < -0.95f,
+              "master-pan automation reaches hard left at the low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;
