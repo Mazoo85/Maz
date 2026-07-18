@@ -497,7 +497,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 seq.setChannelFlam(c, flam);
             }
             int dtype = -1; // per-channel drum type optional (older files omit it)
-            if (ls >> dtype && dtype >= 0 && dtype <= static_cast<int>(Drum::Tom)) {
+            if (ls >> dtype && dtype >= 0 && dtype <= static_cast<int>(Drum::Cowbell)) {
                 seq.setChannelType(c, static_cast<Drum>(dtype));
             }
         } else if (tag == "patterns") {

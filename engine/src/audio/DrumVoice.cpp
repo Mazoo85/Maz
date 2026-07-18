@@ -23,6 +23,8 @@ double decayTau(Drum type) {
         return 0.14;
     case Drum::Tom:
         return 0.20;
+    case Drum::Cowbell:
+        return 0.12;
     }
     return 0.1;
 }
@@ -91,6 +93,13 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double freq = (100.0 + 100.0 * std::exp(-t_ / 0.06)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
+            break;
+        }
+        case Drum::Cowbell: {
+            // The classic 808 cowbell: two detuned square tones (~540 + ~800 Hz) ringing together.
+            const double a = std::sin(kTwoPi * 540.0 * pitchMul * t_) >= 0.0 ? 1.0 : -1.0;
+            const double b = std::sin(kTwoPi * 800.0 * pitchMul * t_) >= 0.0 ? 1.0 : -1.0;
+            s = static_cast<float>(0.5 * (a + b) * env);
             break;
         }
         }

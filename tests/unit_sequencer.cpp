@@ -785,6 +785,21 @@ int main() {
         check(s.channelType(0) == audio::Drum::Tom, "a channel's drum type can be reassigned");
         audio::Sequencer d;
         check(d.channelType(0) == audio::Drum::Kick, "channel 0 defaults to the kick");
+
+        // Cowbell: two detuned square tones → an audible, bright metallic hit.
+        audio::DrumVoice cow;
+        cow.setType(audio::Drum::Cowbell);
+        cow.trigger(1.0f);
+        std::vector<float> cb(4800, 0.0f);
+        cow.render(cb.data(), 4800, sampleRate);
+        check(rms(cb) > 0.0, "cowbell produces sound");
+        int cowCross = 0;
+        for (int i = 1; i < 2400; ++i) {
+            if (cb[static_cast<size_t>(i - 1)] <= 0.0f && cb[static_cast<size_t>(i)] > 0.0f) {
+                ++cowCross;
+            }
+        }
+        check(cowCross > 20, "cowbell rings at its metallic (few-hundred-Hz) tones");
     }
 
     // --- Channel rotate: shift a step row around the bar ---------------------

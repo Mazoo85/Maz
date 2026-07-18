@@ -6,7 +6,7 @@ namespace maz::audio {
 
 // The built-in synthesized percussion sounds. No samples on disk — each is generated from an
 // oscillator and/or noise plus an amplitude envelope, so the whole kit is self-contained.
-enum class Drum { Kick, Snare, ClosedHat, OpenHat, Clap, Tom };
+enum class Drum { Kick, Snare, ClosedHat, OpenHat, Clap, Tom, Cowbell };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into
 // the caller's buffer, and the voice goes inactive once its envelope falls to silence. Pure DSP —
