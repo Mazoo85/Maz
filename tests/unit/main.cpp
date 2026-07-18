@@ -47,6 +47,7 @@
 #include "maz/platform/DisplayScale.hpp"
 #include "maz/platform/Displays.hpp"
 #include "maz/platform/Input.hpp"
+#include "maz/net/BitStream.hpp"
 #include "maz/render/CascadeSplits.hpp"
 #include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
@@ -5266,6 +5267,68 @@ void testCascadeSplits() {
     CHECK(cascadeSplits(0.0f, 100.0f, 4).empty());  // near must be > 0
     CHECK(cascadeSplits(10.0f, 5.0f, 4).empty());   // far <= near
     CHECK(cascadeSplits(1.0f, 100.0f, 0).empty());  // count <= 0
+}
+
+void testBitStream() {
+    using net::BitReader;
+    using net::BitWriter;
+
+    // Round-trip a mix of widths, bool, signed, float, and bytes.
+    BitWriter w;
+    w.writeBits(3u, 2);        // 0..3
+    w.writeBits(5u, 3);        // 0..7
+    w.writeBool(true);
+    w.writeBool(false);
+    w.writeUint(0xABCDu, 16);
+    w.writeInt(-42, 12);       // signed field
+    w.writeFloat(3.14159f);
+    const uint8_t blob[3] = {0x11, 0x22, 0x33};
+    w.writeBytes(blob, 3);
+
+    // Bit accounting: 2+3+1+1+16+12+32+24 = 91 bits.
+    CHECK(w.bitCount() == 91);
+    CHECK(w.byteCount() == 12); // ceil(91/8)
+
+    BitReader r(w.bytes());
+    CHECK(r.readBits(2) == 3u);
+    CHECK(r.readBits(3) == 5u);
+    CHECK(r.readBool() == true);
+    CHECK(r.readBool() == false);
+    CHECK(r.readUint(16) == 0xABCDu);
+    CHECK(r.readInt(12) == -42); // sign-extended correctly
+    CHECK_NEAR(r.readFloat(), 3.14159f, 1e-6f);
+    uint8_t out[3] = {0, 0, 0};
+    r.readBytes(out, 3);
+    CHECK(out[0] == 0x11);
+    CHECK(out[1] == 0x22);
+    CHECK(out[2] == 0x33);
+    CHECK(r.ok()); // never read past the end
+
+    // Signed extremes across widths.
+    BitWriter w2;
+    w2.writeInt(-1, 8);   // all ones
+    w2.writeInt(127, 8);  // max positive in 8 bits
+    w2.writeInt(-128, 8); // min in 8 bits
+    BitReader r2(w2.bytes());
+    CHECK(r2.readInt(8) == -1);
+    CHECK(r2.readInt(8) == 127);
+    CHECK(r2.readInt(8) == -128);
+
+    // Underflow: reading past the end flips ok() to false and returns zero-fill.
+    BitWriter w3;
+    w3.writeBits(0xFu, 4);
+    BitReader r3(w3.bytes());
+    CHECK(r3.readBits(4) == 0xFu);
+    CHECK(r3.ok());
+    (void)r3.readBits(8); // only 4 bits were the payload; the byte had 4 pad bits then EOF
+    CHECK(!r3.ok());      // went past the buffer
+
+    // align() pads to a byte boundary.
+    BitWriter w4;
+    w4.writeBits(1u, 1);
+    w4.align();
+    CHECK(w4.bitCount() == 8);
+    CHECK(w4.byteCount() == 1);
 }
 
 void testProfiler() {
@@ -17035,6 +17098,7 @@ int main() {
     testKtx2();
     testInputTextAndDrop();
     testCascadeSplits();
+    testBitStream();
     testNoise();
     testRandom();
     testInterpolate();

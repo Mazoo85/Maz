@@ -127,6 +127,9 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
 ### 10. Networking / multiplayer  [BIG][CPU]
 Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebSocket). Maz has
 **none** today. This is a whole subsystem — and almost entirely CPU-testable.
+- [x] **[CPU]** Wire format: `net::BitStream` (BitWriter/BitReader) — bit-packed packet
+  serialization (N-bit ints, quantizable floats, signed sign-extension, byte arrays, align,
+  underflow-safe). M212. The compact encoding replication/RPC ride on.
 - [ ] **[CPU]** Reliable/unreliable transport abstraction (UDP + ENet-style ordering)
 - [ ] **[CPU]** Snapshot/delta replication, interpolation, client-side prediction + reconciliation
 - [ ] **[CPU]** RPC layer + scene-replication nodes
