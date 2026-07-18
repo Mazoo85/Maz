@@ -226,7 +226,13 @@ Windows editor download.
   — **HDR (Radiance RGBE) done** (M233): `io::decodeHdr` — .hdr header + new-RLE + raw scanlines →
   linear float RGB (skybox/IBL source). WebP/EXR remain.
 - [ ] **[CPU]** OGG Vorbis / MP3 audio decode (Maz has WAV)
-- [ ] **[CPU]** Font: OTF/collection support, dynamic font sizing cache
+- [~] **[CPU]** Font: OTF/collection support, dynamic font sizing cache
+  — **dynamic sizing cache done** (M240): `ui::GlyphCache` — the size-keyed glyph atlas Godot's
+  FontFile keeps for dynamic fonts. Keys by font+codepoint+pixel-size, rasterizes each glyph once (via
+  an injected rasterizer) into the skyline-packed atlas, returns the atlas rect + metrics, and
+  evicts-all + repacks when the page fills. Verified: miss→rasterize / hit→cached, distinct entries per
+  size, non-overlapping in-bounds packing, overflow eviction that keeps serving, and clear→re-raster.
+  OTF/font-collection *parsing* remains (the current rasterizer is stb_truetype/TTF).
 - [ ] **[GPU]** Video playback (Theora/WebM)
 
 ### 14. Scripting ecosystem  [CPU/BIG]

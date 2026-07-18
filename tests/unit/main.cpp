@@ -151,6 +151,7 @@
 #include "maz/ui/Container.hpp"
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/RichText.hpp"
+#include "maz/ui/GlyphCache.hpp"
 #include "maz/ui/Sdf.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
@@ -10483,6 +10484,87 @@ void testSdf() {
     CHECK(checkedEdge);
 }
 
+void testGlyphCache() {
+    using maz::ui::CachedGlyph;
+    using maz::ui::GlyphBitmap;
+    using maz::ui::GlyphCache;
+    using maz::ui::GlyphKey;
+
+    int rasterCalls = 0;
+    auto raster = [&](const GlyphKey& k) {
+        ++rasterCalls;
+        GlyphBitmap b;
+        b.metrics.width = 4 + static_cast<int>(k.codepoint % 8);
+        b.metrics.height = 6 + static_cast<int>(k.pixelSize % 10);
+        b.metrics.advance = static_cast<float>(b.metrics.width) + 1.0f;
+        b.metrics.bearingX = 1.0f;
+        b.metrics.bearingY = static_cast<float>(b.metrics.height);
+        return b;
+    };
+
+    GlyphCache cache(256, 256, raster, 1);
+
+    // Miss then hit: the same (glyph,size) is rasterized once, served from cache after.
+    const GlyphKey A{0, 'A', 16};
+    const CachedGlyph* g1 = cache.get(A);
+    CHECK((g1 != nullptr && g1->valid));
+    CHECK((cache.misses() == 1 && cache.hits() == 0 && rasterCalls == 1));
+    CHECK(g1->metrics.width == 4 + ('A' % 8));
+    CHECK((g1->rect.placed && g1->rect.w == g1->metrics.width));
+    const CachedGlyph* g1b = cache.get(A);
+    CHECK((g1b != nullptr && cache.hits() == 1 && rasterCalls == 1));
+    CHECK((g1b->rect.x == g1->rect.x && g1b->rect.y == g1->rect.y));
+
+    // Different size => distinct entry (dynamic sizing).
+    const CachedGlyph* g2 = cache.get(GlyphKey{0, 'A', 24});
+    CHECK((g2 != nullptr && cache.count() == 2 && rasterCalls == 2));
+    CHECK(g2->metrics.height != g1->metrics.height);
+
+    // Many distinct glyphs pack without overlap and stay inside the atlas.
+    std::vector<CachedGlyph> placed;
+    for (uint32_t c = 32; c < 120; ++c) {
+        const CachedGlyph* g = cache.get(GlyphKey{0, c, 16});
+        CHECK((g != nullptr && g->valid));
+        placed.push_back(*g);
+    }
+    bool overlap = false, outOfBounds = false;
+    for (std::size_t i = 0; i < placed.size(); ++i) {
+        const auto& a = placed[i].rect;
+        if (a.x < 0 || a.y < 0 || a.x + a.w > 256 || a.y + a.h > 256) {
+            outOfBounds = true;
+        }
+        for (std::size_t j = i + 1; j < placed.size(); ++j) {
+            const auto& b = placed[j].rect;
+            const bool disjoint =
+                a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+            if (!disjoint) {
+                overlap = true;
+            }
+        }
+    }
+    CHECK(!overlap);
+    CHECK(!outOfBounds);
+
+    // A tiny atlas overflows and evicts-all, then keeps serving newly-requested glyphs.
+    GlyphCache small(16, 16, raster, 0);
+    int served = 0;
+    for (uint32_t c = 0; c < 200; ++c) {
+        if (small.get(GlyphKey{0, 1000 + c, 8}) != nullptr) {
+            ++served;
+        }
+    }
+    CHECK(small.evictions() > 0);
+    CHECK(served == 200);
+
+    // clear() empties the cache; the glyph re-rasterizes on next access.
+    const long rasterBefore = rasterCalls;
+    cache.clear();
+    CHECK(cache.count() == 0);
+    const CachedGlyph* again = cache.get(A);
+    CHECK((again != nullptr && again->valid));
+    CHECK(rasterCalls == rasterBefore + 1);
+}
+
 // Pcg32: reproduces PCG's canonical reference test vector; helpers are bounded + deterministic.
 void testPcg32() {
     using maz::core::Pcg32;
@@ -18891,6 +18973,7 @@ int main() {
     testEcsComponents();
     testGeometry3D();
     testSdf();
+    testGlyphCache();
     testPcg32();
     testOverlap3D();
     testChunkStreamer();
