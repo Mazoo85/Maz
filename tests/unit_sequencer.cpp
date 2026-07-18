@@ -800,6 +800,18 @@ int main() {
             }
         }
         check(cowCross > 20, "cowbell rings at its metallic (few-hundred-Hz) tones");
+
+        // Rimshot: a short, bright crack that decays very fast.
+        audio::DrumVoice rim;
+        rim.setType(audio::Drum::Rimshot);
+        rim.trigger(1.0f);
+        std::vector<float> rb(4800, 0.0f);
+        rim.render(rb.data(), 4800, sampleRate);
+        check(rms(rb) > 0.0, "rimshot produces sound");
+        // With tau ~0.05 s the voice is silent (~6 tau) well before 0.5 s.
+        std::vector<float> rb2(24000, 0.0f);
+        rim.render(rb2.data(), 24000, sampleRate);
+        check(!rim.active(), "rimshot decays fast (inactive within 0.6 s)");
     }
 
     // --- Channel rotate: shift a step row around the bar ---------------------
