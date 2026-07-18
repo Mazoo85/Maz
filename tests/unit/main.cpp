@@ -125,6 +125,7 @@
 #include "maz/game/Timer.hpp"
 #include "maz/game/VisibleOnScreenNotifier2D.hpp"
 #include "maz/game/Physics3D.hpp"
+#include "maz/game/SoftBody.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
 #include "maz/game/ShapeCast2D.hpp"
@@ -14817,6 +14818,86 @@ void testPhysics3DConeTwist() {
     }
 }
 
+void testSoftBody() {
+    using game::SoftBody;
+    auto dist = [](const math::vec3& a, const math::vec3& b) {
+        const math::vec3 d = a - b;
+        return std::sqrt(glm::dot(d, d));
+    };
+
+    // A stretched link relaxes to its rest length, symmetrically for equal masses (no gravity).
+    {
+        SoftBody sb;
+        sb.gravity = math::vec3(0.0f);
+        const int a = sb.addParticle(math::vec3(0, 0, 0), 1.0f);
+        const int b = sb.addParticle(math::vec3(2, 0, 0), 1.0f);
+        sb.addConstraint(a, b, 1.0f, 1.0f);
+        for (int i = 0; i < 40; ++i) {
+            sb.step(1.0f / 60.0f);
+        }
+        CHECK_NEAR(dist(sb.pos(a), sb.pos(b)), 1.0f, 0.01f);
+        CHECK_NEAR((sb.pos(a).x + sb.pos(b).x) * 0.5f, 1.0f, 1e-3f); // symmetric about midpoint
+    }
+
+    // A pinned link hangs ~rest below the pin; the pin never moves.
+    {
+        SoftBody sb;
+        const math::vec3 pinPos(0, 5, 0);
+        const int top = sb.addParticle(pinPos, 1.0f);
+        sb.pin(top);
+        const int bot = sb.addParticle(math::vec3(0.5f, 5, 0), 1.0f);
+        sb.addConstraint(top, bot, 1.0f, 1.0f);
+        for (int i = 0; i < 2000; ++i) {
+            sb.step(1.0f / 60.0f);
+        }
+        CHECK(dist(sb.pos(top), pinPos) < 1e-4f);
+        CHECK_NEAR(dist(sb.pos(top), sb.pos(bot)), 1.0f, 0.02f);
+        CHECK(sb.pos(bot).y < sb.pos(top).y);
+        CHECK(std::fabs(sb.pos(bot).x) < 0.05f);
+        CHECK_NEAR(sb.pos(bot).y, 4.0f, 0.05f);
+    }
+
+    // A pinned rope hangs without over-stretching (total length ~ sum of rest lengths).
+    {
+        SoftBody sb;
+        const int N = 10;
+        int prev = sb.addParticle(math::vec3(0, 10, 0), 1.0f);
+        sb.pin(prev);
+        for (int i = 1; i < N; ++i) {
+            const int p = sb.addParticle(math::vec3(0, 10 - static_cast<float>(i), 0), 1.0f);
+            sb.addConstraint(prev, p, 1.0f, 1.0f);
+            prev = p;
+        }
+        for (int i = 0; i < 3000; ++i) {
+            sb.step(1.0f / 60.0f);
+        }
+        float total = 0.0f;
+        for (std::size_t i = 1; i < sb.particles.size(); ++i) {
+            total += dist(sb.particles[i - 1].pos, sb.particles[i].pos);
+        }
+        CHECK(total < 9.0f * 1.05f); // under 5% stretch
+        CHECK(sb.particles.back().pos.y < sb.pos(0).y - 8.5f);
+        CHECK(std::isfinite(sb.particles.back().pos.y));
+    }
+
+    // Energy stays bounded over a long run (PBD does not blow up).
+    {
+        SoftBody sb;
+        int prev = sb.addParticle(math::vec3(0, 0, 0), 0.0f); // pinned anchor
+        for (int i = 1; i < 6; ++i) {
+            const int p = sb.addParticle(math::vec3(static_cast<float>(i), 0, 0), 1.0f);
+            sb.addConstraint(prev, p, 1.0f, 1.0f);
+            prev = p;
+        }
+        float maxE = 0.0f;
+        for (int i = 0; i < 5000; ++i) {
+            sb.step(1.0f / 60.0f);
+            maxE = std::max(maxE, sb.velocityEnergy());
+        }
+        CHECK((std::isfinite(maxE) && maxE < 100.0f));
+    }
+}
+
 void testEditorScene() {
     using editor::Node;
     using editor::Scene;
@@ -19276,6 +19357,7 @@ int main() {
     testPhysics3DDistanceJoint();
     testPhysics3DHinge();
     testPhysics3DConeTwist();
+    testSoftBody();
     testEditorScene();
     testEditorPickRay();
     testEditorGizmoDrag();

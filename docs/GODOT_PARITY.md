@@ -190,7 +190,11 @@ Maz's 2D is at parity; 3D is strong but not exhaustive.
   cone axis) and a unilateral twist limit (rotation about the axis capped at +/- `twistSpan`), the
   ragdoll-limb joint (Godot ConeTwistJoint3D). Verified: a pendulum caught exactly at a 30-degree
   cone stop, a 170-degree cone swinging freely (no false constraint), and a spun body caught at its
-  twist limit. 6DOF / generic / soft bodies / ragdolls remain.
+  twist limit. **soft bodies done** (M246): `game::SoftBody` — Godot's SoftBody3D via Position-Based
+  Dynamics (Verlet particles + distance constraints + pins), unconditionally stable. Verified: a
+  stretched link relaxes to rest, a pinned link/rope hangs under gravity without over-stretching (<5%),
+  pins stay fixed, and energy stays bounded over thousands of steps. 6DOF / generic joints and ragdolls
+  (a skeleton driven by cone-twist joints) remain; soft-body-vs-rigid collision is a follow-up.
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 
 ### 10. Networking / multiplayer  [BIG][CPU]
