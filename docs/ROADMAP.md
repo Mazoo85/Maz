@@ -579,7 +579,16 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   `streaming` demo streams 24 assets in on background threads and fills a progress bar to
   `READY 24/24` (M176)
 - [x] Image loading (stb_image PNG/JPEG) + **blit-generated mipmaps** (M52)
-- [ ] Compressed textures (KTX2), anisotropic filtering
+- [~] Compressed textures (KTX2), anisotropic filtering (M209 — `render::Ktx2` parses the KTX2
+  (Khronos Texture 2) container: validates the 12-byte identifier, reads the header (vkFormat,
+  typeSize, dimensions, layer/face/level counts, supercompression scheme) and the per-mip level
+  index (byte offset / length / uncompressed length), all little-endian and bounds-checked —
+  returns `{valid,error}` on truncated/corrupt input instead of reading OOB. That's what lets the
+  loader see a texture is e.g. BC7 with a full mip chain and locate each level's bytes for a
+  no-decode GPU upload (Godot ships `.ktx2`). Pure/std-only, unit-tested against a hand-built KTX2
+  buffer (valid parse, bad identifier, truncation, out-of-bounds level). Basis/Zstd transcoding +
+  the actual VulkanTexture GPU upload + anisotropic sampler flag remain — they need the transcoder
+  and a real device.)
 - [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
 - [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
 - [x] Audio asset loading — **WAV** (`audio::decodeWav`/`encodeWav`, 8/16-bit PCM; M129); OGG/font-import/

@@ -46,6 +46,7 @@
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/platform/DisplayScale.hpp"
 #include "maz/platform/Displays.hpp"
+#include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
 #include "maz/core/Expression.hpp"
@@ -5101,6 +5102,85 @@ void testDisplays() {
     const Point2i c = centerRectOnDisplay(two[1], 800, 600);
     CHECK(c.x == 1920 + (1920 - 800) / 2);
     CHECK(c.y == (1080 - 600) / 2);
+}
+
+void testKtx2() {
+    using namespace maz::render;
+
+    auto putU32 = [](std::vector<uint8_t>& b, uint32_t v) {
+        b.push_back(static_cast<uint8_t>(v & 0xFF));
+        b.push_back(static_cast<uint8_t>((v >> 8) & 0xFF));
+        b.push_back(static_cast<uint8_t>((v >> 16) & 0xFF));
+        b.push_back(static_cast<uint8_t>((v >> 24) & 0xFF));
+    };
+    auto putU64 = [&](std::vector<uint8_t>& b, uint64_t v) {
+        putU32(b, static_cast<uint32_t>(v & 0xFFFFFFFF));
+        putU32(b, static_cast<uint32_t>((v >> 32) & 0xFFFFFFFF));
+    };
+
+    // Build a minimal single-level KTX2: identifier + header + level-index header + 1 level entry
+    // + one byte of level data. vkFormat 43 = VK_FORMAT_R8G8B8A8_SRGB; 4x4, 1 mip.
+    std::vector<uint8_t> buf;
+    const uint8_t id[12] = {0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32,
+                            0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
+    for (unsigned char i : id) {
+        buf.push_back(i);
+    }
+    putU32(buf, 43); // vkFormat (R8G8B8A8_SRGB)
+    putU32(buf, 4);  // typeSize
+    putU32(buf, 4);  // pixelWidth
+    putU32(buf, 4);  // pixelHeight
+    putU32(buf, 0);  // pixelDepth
+    putU32(buf, 0);  // layerCount
+    putU32(buf, 1);  // faceCount
+    putU32(buf, 1);  // levelCount
+    putU32(buf, 0);  // supercompressionScheme (none)
+    // Level-index header (dfd/kvd offsets+lengths as u32, sgd offset+length as u64) — zeros here.
+    putU32(buf, 0);
+    putU32(buf, 0);
+    putU32(buf, 0);
+    putU32(buf, 0);
+    putU64(buf, 0);
+    putU64(buf, 0);
+    // Level index: one level. Its data will sit right after the index (offset 80 + 24 = 104).
+    const uint64_t dataOffset = 12 + 36 + 32 + 24;
+    putU64(buf, dataOffset); // byteOffset
+    putU64(buf, 1);          // byteLength
+    putU64(buf, 1);          // uncompressedByteLength
+    buf.push_back(0xEE);     // the 1 byte of level data
+
+    const Ktx2Info ok = parseKtx2(buf);
+    CHECK(ok.valid);
+    CHECK(ok.vkFormat == 43);
+    CHECK(ok.pixelWidth == 4);
+    CHECK(ok.pixelHeight == 4);
+    CHECK(ok.levelCount == 1);
+    CHECK(ok.effectiveLevels() == 1);
+    CHECK(!ok.isSupercompressed());
+    CHECK(ok.levels.size() == 1);
+    CHECK(ok.levels[0].byteOffset == dataOffset);
+    CHECK(ok.levels[0].byteLength == 1);
+
+    // A stored levelCount of 0 means one effective level.
+    CHECK(hasKtx2Identifier(buf.data(), buf.size()));
+
+    // Not a KTX2 file.
+    const std::vector<uint8_t> junk = {'n', 'o', 'p', 'e', 1, 2, 3, 4, 5, 6, 7, 8};
+    CHECK(!parseKtx2(junk).valid);
+    CHECK(!hasKtx2Identifier(junk.data(), junk.size()));
+
+    // Truncated (identifier only) -> invalid, no crash.
+    std::vector<uint8_t> justId(buf.begin(), buf.begin() + 12);
+    CHECK(!parseKtx2(justId).valid);
+
+    // A level whose data runs past EOF is rejected.
+    std::vector<uint8_t> bad = buf;
+    // Corrupt the level byteLength (bytes at dataOffset-24+8 .. +16) to a huge value.
+    // The level index entry starts at 12+36+32 = 80; byteLength is the 2nd u64 at 80+8.
+    for (int i = 0; i < 8; ++i) {
+        bad[80 + 8 + static_cast<size_t>(i)] = 0xFF;
+    }
+    CHECK(!parseKtx2(bad).valid);
 }
 
 void testProfiler() {
@@ -16867,6 +16947,7 @@ int main() {
     testPresentMode();
     testDisplayScale();
     testDisplays();
+    testKtx2();
     testNoise();
     testRandom();
     testInterpolate();
