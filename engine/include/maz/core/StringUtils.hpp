@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -677,6 +678,85 @@ inline std::string uriDecode(const std::string& s) {
         out.push_back(s[i++]);
     }
     return out;
+}
+
+// ---- Number formatting (M305) — Godot String.num / pad_decimals / pad_zeros / humanize_size ----
+//
+// Godot's String carries a small set of number-to-text helpers that data display, save formats, and
+// debug HUDs lean on constantly. These reproduce that behaviour exactly (including Godot's quirks:
+// pad_decimals/pad_zeros are pure string surgery that TRUNCATE rather than round, and humanize_size
+// uses a strict `>` so an exact 1024-multiple stays in the smaller unit). Deterministic, unit-tested.
+
+// Format a value with exactly `decimals` fractional digits (rounded) — Godot's String.num(value, d).
+// `decimals` <= 0 yields the rounded integer with no decimal point.
+inline std::string numToString(double value, int decimals = 0) {
+    if (decimals < 0) {
+        decimals = 0;
+    }
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "%.*f", decimals, value);
+    return std::string(buf);
+}
+
+// Godot's String.pad_decimals: make the fractional part exactly `digits` long by TRUNCATING extra
+// digits (no rounding) or padding with trailing zeros. `digits` <= 0 drops the fractional part and
+// the decimal point. Operates on the string as-is (feed it a plain decimal numeral).
+inline std::string padDecimals(const std::string& s, int digits) {
+    std::string out = s;
+    std::size_t dot = out.find('.');
+    if (digits <= 0) {
+        return dot == std::string::npos ? out : out.substr(0, dot);
+    }
+    if (dot == std::string::npos) {
+        out += '.';
+        dot = out.size() - 1;
+    }
+    const std::size_t have = out.size() - (dot + 1);
+    const std::size_t want = static_cast<std::size_t>(digits);
+    if (have > want) {
+        out = out.substr(0, dot + 1 + want); // truncate — matches Godot (no rounding)
+    } else {
+        out.append(want - have, '0');
+    }
+    return out;
+}
+
+// Godot's String.pad_zeros: left-pad the INTEGER part with zeros so it is at least `digits` long,
+// inserting after any leading sign and leaving the fractional part untouched.
+inline std::string padZeros(const std::string& s, int digits) {
+    std::string out = s;
+    std::size_t end = out.find('.');
+    if (end == std::string::npos) {
+        end = out.size();
+    }
+    std::size_t begin = 0;
+    while (begin < end && !(out[begin] >= '0' && out[begin] <= '9')) {
+        ++begin; // skip a leading sign / non-digit
+    }
+    if (begin >= end) {
+        return out; // no integer digits to pad
+    }
+    const std::size_t intDigits = end - begin;
+    if (static_cast<std::size_t>(digits) > intDigits) {
+        out.insert(begin, static_cast<std::size_t>(digits) - intDigits, '0');
+    }
+    return out;
+}
+
+// Godot's String.humanize_size: byte count -> human-readable binary units (B, KiB, MiB, ... EiB),
+// two decimals above bytes, using Godot's strict `>` step so an exact 1024-multiple stays in the
+// smaller unit (e.g. 1024 -> "1024 B", 1048576 -> "1024.00 KiB").
+inline std::string humanizeSize(std::uint64_t bytes) {
+    static const char* const prefixes[] = {" B", " KiB", " MiB", " GiB", " TiB", " PiB", " EiB"};
+    std::uint64_t div = 1;
+    int idx = 0;
+    while (bytes > div * 1024 && idx < 6) {
+        div *= 1024;
+        ++idx;
+    }
+    const int digits = idx > 0 ? 2 : 0;
+    const double value = static_cast<double>(bytes) / static_cast<double>(div);
+    return numToString(value, digits) + prefixes[idx];
 }
 
 } // namespace maz::core

@@ -11323,6 +11323,34 @@ void testStringUtils() {
     CHECK(su::levenshtein("abc", "abc") == 0);
     CHECK(su::levenshtein("flaw", "lawn") == 2);
     CHECK(su::levenshtein("gumbo", "gambol") == 2);
+
+    // --- Number formatting (M305): num / pad_decimals / pad_zeros / humanize_size ---
+    CHECK(su::numToString(1.5, 2) == "1.50");
+    CHECK(su::numToString(3.14159, 3) == "3.142");
+    CHECK(su::numToString(2.0, 0) == "2");
+    CHECK(su::numToString(2.7, 0) == "3");
+    // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
+    CHECK(su::padDecimals("12.5", 3) == "12.500");
+    CHECK(su::padDecimals("12", 2) == "12.00");
+    CHECK(su::padDecimals("12.98765", 2) == "12.98");
+    CHECK(su::padDecimals("12.5", 0) == "12");
+    CHECK(su::padDecimals("0.1", 4) == "0.1000");
+    // pad_zeros left-pads the integer part after the sign; never truncates; leaves the fraction.
+    CHECK(su::padZeros("42", 4) == "0042");
+    CHECK(su::padZeros("42", 2) == "42");
+    CHECK(su::padZeros("42", 1) == "42");
+    CHECK(su::padZeros("-7", 3) == "-007");
+    CHECK(su::padZeros("3.14", 3) == "003.14");
+    CHECK(su::padZeros("-3.14", 3) == "-003.14");
+    // humanize_size: strict `>` step keeps exact 1024-multiples in the smaller unit.
+    CHECK(su::humanizeSize(0) == "0 B");
+    CHECK(su::humanizeSize(500) == "500 B");
+    CHECK(su::humanizeSize(1024) == "1024 B");
+    CHECK(su::humanizeSize(1025) == "1.00 KiB");
+    CHECK(su::humanizeSize(1536) == "1.50 KiB");
+    CHECK(su::humanizeSize(1048576) == "1024.00 KiB");
+    CHECK(su::humanizeSize(1048577) == "1.00 MiB");
+    CHECK(su::humanizeSize(1073741825ULL) == "1.00 GiB");
 }
 
 void testSlotMap() {

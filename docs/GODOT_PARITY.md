@@ -100,7 +100,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   uriEncode/uriDecode (RFC 3986 unreserved set, '+' preserved) matching Godot String's
   xml_escape/xml_unescape/uri_encode/uri_decode, plus **fuzzy matching** M290 — bigrams + similarity
   (Sørensen–Dice bigram coefficient, matching Godot String's similarity) and a Levenshtein
-  edit-distance utility (beyond Godot's String API)),
+  edit-distance utility (beyond Godot's String API),
+  plus **number formatting** M305 — numToString/padDecimals/padZeros/humanizeSize matching Godot
+  String's num/pad_decimals/pad_zeros and String.humanize_size, reproducing Godot's exact quirks
+  (pad_decimals/pad_zeros are string surgery that truncate rather than round; humanize_size uses a
+  strict `>` unit step so an exact 1024-multiple stays in the smaller binary unit)),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or
