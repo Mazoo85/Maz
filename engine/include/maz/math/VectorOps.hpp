@@ -111,6 +111,10 @@ inline float angleToPoint(const vec2& a, const vec2& b) {
     return angle(b - a);
 }
 
+// Perpendicular vector rotated 90 degrees clockwise — Godot's Vector2.orthogonal (returns (y, -x)).
+// Same length as `v`; two applications negate the input (a 180-degree turn).
+inline vec2 orthogonal(const vec2& v) { return vec2(v.y, -v.x); }
+
 // Rotate `v` by `radians` counter-clockwise — Godot's Vector2.rotated.
 inline vec2 rotated(const vec2& v, float radians) {
     const float c = std::cos(radians);

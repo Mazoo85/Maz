@@ -24,7 +24,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
 
 - **Core / math / containers:** vectors/matrices/quats, **Vector2/Vector3 gameplay helpers** (M267,
   `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
-  angle_to / project / posmod / snapped / rotated (M323 adds the Vector3 overload rotated(v,axis,angle)
+  angle_to / project / posmod / snapped / rotated / orthogonal (M326 adds Vector2.orthogonal —
+  the 90-degree-clockwise perpendicular (y,-x), verified perpendicular + length-preserving + double-
+  application-negates) (M323 adds the Vector3 overload rotated(v,axis,angle)
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
   path), plus **vector slerp** (M301 — `math::slerp` for
   vec2/vec3: arc-interpolate direction while lerping length, Godot's Vector2/Vector3.slerp, with
@@ -74,7 +76,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::Vector4` — Godot's 4D vectors: float Vector4 with the full gameplay surface
   (length/normalized/dot/lerp/abs/sign/clamp/min/max/floor/ceil/round/snapped/distanceTo/directionTo/
   isEqualApprox) for RGBA/shader-uniform/homogeneous math, plus the exact integer Vector4i with
-  truncating division and overflow-safe 64-bit lengthSquared; GLM `toVec4()` bridge), Rect2, **Rect2i** (M281,
+  truncating division and overflow-safe 64-bit lengthSquared; GLM `toVec4()` bridge), Rect2 (M326
+  adds grow_side — grow/shrink a single edge via a Side enum L/T/R/B, verified per-side and that
+  growing all four equals uniform grow), **Rect2i** (M281,
   `math::Rect2i` — Godot's integer rectangle for tile/atlas/pixel regions: half-open hasPoint,
   intersects/intersection/merge/encloses/grow/expand/abs, exact int math), Geometry2D/3D
   (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed

@@ -91,6 +91,16 @@ struct Rect2 {
         return Rect2(position.x - l, position.y - t, size.x + l + r, size.y + t + b);
     }
 
+    // Which edge grow_side / grow_individual refer to (Godot's @GlobalScope Side: L,T,R,B = 0..3).
+    enum class Side { Left = 0, Top = 1, Right = 2, Bottom = 3 };
+
+    // Grow only the given side by `amount` (negative shrinks) — Godot's Rect2.grow_side.
+    Rect2 growSide(Side side, float amount) const {
+        return growIndividual(side == Side::Left ? amount : 0.0f, side == Side::Top ? amount : 0.0f,
+                              side == Side::Right ? amount : 0.0f,
+                              side == Side::Bottom ? amount : 0.0f);
+    }
+
     // Grow the rectangle just enough to include point `p`.
     Rect2 expand(vec2 p) const {
         const float x0 = std::min(position.x, p.x);

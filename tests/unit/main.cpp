@@ -2061,6 +2061,27 @@ void testRect2() {
     CHECK_NEAR(gi.size.x, 55.0f, 1e-5f);
     CHECK_NEAR(gi.size.y, 65.0f, 1e-5f);
 
+    // M326: grow_side — grow one edge only (a is pos (0,0), size (50,50)).
+    auto near2 = [](vec2 p, vec2 q) {
+        return std::fabs(p.x - q.x) < 1e-5f && std::fabs(p.y - q.y) < 1e-5f;
+    };
+    const Rect2 gsl = a.growSide(Rect2::Side::Left, 5.0f);
+    CHECK((near2(gsl.position, vec2(-5, 0)) && near2(gsl.size, vec2(55, 50))));
+    const Rect2 gsr = a.growSide(Rect2::Side::Right, 5.0f);
+    CHECK((near2(gsr.position, vec2(0, 0)) && near2(gsr.size, vec2(55, 50))));
+    const Rect2 gst = a.growSide(Rect2::Side::Top, 5.0f);
+    CHECK((near2(gst.position, vec2(0, -5)) && near2(gst.size, vec2(50, 55))));
+    const Rect2 gsb = a.growSide(Rect2::Side::Bottom, 5.0f);
+    CHECK((near2(gsb.position, vec2(0, 0)) && near2(gsb.size, vec2(50, 55))));
+    // Negative shrinks; growing all four sides once equals uniform grow.
+    const Rect2 gss = a.growSide(Rect2::Side::Left, -5.0f);
+    CHECK((near2(gss.position, vec2(5, 0)) && near2(gss.size, vec2(45, 50))));
+    const Rect2 gall = a.growSide(Rect2::Side::Left, 3)
+                           .growSide(Rect2::Side::Top, 3)
+                           .growSide(Rect2::Side::Right, 3)
+                           .growSide(Rect2::Side::Bottom, 3);
+    CHECK((near2(gall.position, a.grow(3).position) && near2(gall.size, a.grow(3).size)));
+
     // expand to include an outside point.
     const Rect2 e = a.expand(vec2(80.0f, -20.0f));
     CHECK_NEAR(e.position.x, 0.0f, 1e-5f);
@@ -13105,6 +13126,16 @@ void testVectorOps() {
 
     // rotated: 90 deg CCW sends +x to +y.
     CHECK(near2(math::rotated(vec2(1, 0), kPi / 2), vec2(0, 1)));
+
+    // M326: orthogonal — (x,y) -> (y,-x), a 90 deg clockwise turn; perpendicular, length-preserving.
+    CHECK(near2(math::orthogonal(vec2(1, 0)), vec2(0, -1)));
+    CHECK(near2(math::orthogonal(vec2(3, 4)), vec2(4, -3)));
+    CHECK(near2(math::orthogonal(math::orthogonal(vec2(3, 4))), vec2(-3, -4))); // twice = negate
+    {
+        const vec2 v(2, -5), o = math::orthogonal(v);
+        CHECK_NEAR(v.x * o.x + v.y * o.y, 0.0f, 1e-5f); // perpendicular
+        CHECK_NEAR(length(o), length(v), 1e-5f);        // same length
+    }
 
     // move_toward: step advances by delta, and clamps without overshooting the target.
     CHECK(near2(math::moveToward(vec2(0, 0), vec2(10, 0), 3.0f), vec2(3, 0)));
