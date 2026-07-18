@@ -335,28 +335,23 @@ int runHeadless(const core::AppConfig& cfg) {
         }
     }
 
-    // Stem export: bounce drums / lead / bass to separate WAVs by isolating each bus.
+    // Stem export (FL-style): bounce drums / lead / bass to separate WAVs. Each bus is rendered
+    // through its own mixer-track insert strip but NOT the master chain (pre-master stems), in a
+    // single pass — so they can be mixed/mastered downstream without the master FX baked in twice.
     if (cfg.stemsPrefix != nullptr && sequencing) {
-        audio::Sequencer& seq = engine.sequencer();
-        struct Stem {
+        engine.sequencer().stop();
+        engine.sequencer().play();
+        const audio::AudioEngine::Stems st = engine.renderStemsOffline(cfg.seconds);
+        struct Out {
             const char* name;
-            float drum, lead, bass;
+            const std::vector<float>* buf;
         };
-        const Stem stems[] = {{"drums", 1.0f, 0.0f, 0.0f},
-                              {"lead", 0.0f, 1.0f, 0.0f},
-                              {"bass", 0.0f, 0.0f, 1.0f}};
-        for (const Stem& st : stems) {
-            seq.setDrumGain(st.drum);
-            seq.setSynthGain(st.lead);
-            seq.setBassGain(st.bass);
-            seq.stop();
-            engine.mixer().reset();
-            seq.play();
-            const std::vector<float> stemBuf = engine.renderOffline(cfg.seconds);
-            const std::string p = std::string(cfg.stemsPrefix) + "_" + st.name + ".wav";
+        const Out outs[] = {{"drums", &st.drums}, {"lead", &st.lead}, {"bass", &st.bass}};
+        for (const Out& o : outs) {
+            const std::string p = std::string(cfg.stemsPrefix) + "_" + o.name + ".wav";
+            const int sf = channels > 0 ? static_cast<int>(o.buf->size()) / channels : 0;
             std::string serr;
-            if (audio::writeWav16(p, stemBuf.data(), static_cast<int>(stemBuf.size()) / channels,
-                                  channels, acfg.sampleRate, &serr)) {
+            if (audio::writeWav16(p, o.buf->data(), sf, channels, acfg.sampleRate, &serr)) {
                 MAZ_LOG_INFO("stems: wrote %s", p.c_str());
             } else {
                 MAZ_LOG_ERROR("stems: WAV write failed: %s", serr.c_str());

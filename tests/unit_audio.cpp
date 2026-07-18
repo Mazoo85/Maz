@@ -101,6 +101,46 @@ int main() {
     check(stereo.size() >= 2 && std::fabs(stereo[0] - stereo[1]) < 1e-6f,
           "interleaved channels carry the same mono signal");
 
+    // --- AudioEngine: stem export (per-bus offline bounce) -------------------
+    {
+        auto energyOf = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (float v : b) {
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return e;
+        };
+        audio::AudioEngine eng;
+        eng.initOffline();
+        audio::Sequencer& seq = eng.sequencer();
+        seq.setStep(0, 0, true);                          // a kick on the drums bus
+        seq.roll().addNote(audio::Note{0, 8, 60, 1.0f});  // a lead note on the lead bus
+        // (no notes on roll2 → the bass bus stays silent)
+        seq.play();
+        const audio::AudioEngine::Stems st = eng.renderStemsOffline(0.3);
+        const int stChannels = eng.config().channels;
+        const size_t want = static_cast<size_t>(0.3 * 48000.0) * static_cast<size_t>(stChannels);
+        check(st.drums.size() == want && st.lead.size() == want && st.bass.size() == want,
+              "each stem buffer matches seconds * sampleRate * channels");
+        check(energyOf(st.drums) > 0.0, "the drums stem carries the kick");
+        check(energyOf(st.lead) > 0.0, "the lead stem carries the synth note");
+        check(energyOf(st.bass) < 1e-6, "the bass stem is silent (no bass notes)");
+        // The stems are genuinely separated, not copies of the same mix.
+        check(energyOf(st.drums) != energyOf(st.lead), "drums and lead stems differ (real separation)");
+
+        // A per-track insert (muting the drums strip) is reflected in that stem alone.
+        audio::AudioEngine eng2;
+        eng2.initOffline();
+        audio::Sequencer& seq2 = eng2.sequencer();
+        seq2.setStep(0, 0, true);
+        seq2.roll().addNote(audio::Note{0, 8, 60, 1.0f});
+        eng2.mixer().track(audio::MixerBus::Drums).setMuted(true);
+        seq2.play();
+        const audio::AudioEngine::Stems st2 = eng2.renderStemsOffline(0.3);
+        check(energyOf(st2.drums) < 1e-6, "muting the drums track silences the drums stem");
+        check(energyOf(st2.lead) > 0.0, "muting the drums track leaves the lead stem intact");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

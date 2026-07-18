@@ -83,6 +83,15 @@ public:
     // (frames * channels floats). Handy for WAV export and deterministic tests.
     std::vector<float> renderOffline(double seconds);
 
+    // The three mixer buses rendered separately (each interleaved stereo), for FL-style stem export:
+    // each bus runs through its own insert strip (per-track EQ/drive/comp/gain/pan) but NOT the master
+    // chain, so the drum/lead/bass stems can be mixed or mastered downstream independently. Advances
+    // the transport exactly like renderOffline (call play() first). Empty when not stereo.
+    struct Stems {
+        std::vector<float> drums, lead, bass;
+    };
+    Stems renderStemsOffline(double seconds);
+
 private:
     AudioConfig cfg_{};
     Oscillator voice_{};

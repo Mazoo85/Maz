@@ -55,7 +55,7 @@ the project, and bounce to WAV.
 - **Modulation** — automation of master-EQ-cutoff/FM/reverb/master/delay-mix/distortion-drive/stereo-width/**synth-filter-cutoff**/**synth-filter-resonance**/**lead-bus volume**/**lead-bus pan**/**reverb-send**/**delay-send** (the classic lead sweep + acid Q builds + bus volume rides + auto-pan + parallel-send risers/throws), synced to the transport, from either an
   **LFO** (optionally **tempo-synced** to note divisions from 4 bars down to 1/8) or a drawn **automation clip** (FL-style breakpoint envelope, linearly interpolated + looped).
 - **I/O** — an `AudioEngine` that drives an SDL3 device *or* renders offline, **project save/load**
-  (`.cjc`), WAV **bounce**, **stem export**, **MIDI export + import** (`.mid` in and out), session **recording** (output + SDL
+  (`.cjc`), WAV **bounce**, **stem export** (per-bus drums/lead/bass WAVs through their track inserts, pre-master, in one pass), **MIDI export + import** (`.mid` in and out), session **recording** (output + SDL
   mic/line input capture), and **plugin hosting**: a native `.so` ABI
   ([`PluginApi.h`](engine/include/maz/audio/PluginApi.h), see `plugins/example_tremolo`), the
   open [CLAP](https://cleveraudio.org) format (`ClapHost`, see `plugins/example_clap`), **and

@@ -215,4 +215,52 @@ std::vector<float> AudioEngine::renderOffline(double seconds) {
     return buffer;
 }
 
+AudioEngine::Stems AudioEngine::renderStemsOffline(double seconds) {
+    Stems stems;
+    if (cfg_.channels != 2 || cfg_.sampleRate <= 0) {
+        return stems; // stems are stereo-only
+    }
+    const int frames = static_cast<int>(seconds * static_cast<double>(cfg_.sampleRate));
+    if (frames <= 0) {
+        return stems;
+    }
+    const size_t total = static_cast<size_t>(frames) * 2;
+    stems.drums.assign(total, 0.0f);
+    stems.lead.assign(total, 0.0f);
+    stems.bass.assign(total, 0.0f);
+
+    // Block loop mirroring renderOffline/render, but capturing the three per-bus buffers post-track,
+    // pre-master. Automation is applied per block so track-level lanes (e.g. lead volume/pan) are
+    // reflected in the stems, matching the master render.
+    constexpr int kBlock = 512;
+    std::vector<float> blkDrums, blkLead, blkBass;
+    int done = 0;
+    while (done < frames) {
+        const int n = std::min(kBlock, frames - done);
+        if (automation_.anyEnabled()) {
+            // Time base runs from 0 for this bounce, so an automation-driven stem export lines up
+            // with a master render made the same way from the top.
+            automation_.apply(*this, static_cast<double>(done) / static_cast<double>(cfg_.sampleRate),
+                              sequencer_.bpm());
+        }
+        const size_t bn = static_cast<size_t>(n) * 2;
+        blkDrums.assign(bn, 0.0f);
+        blkLead.assign(bn, 0.0f);
+        blkBass.assign(bn, 0.0f);
+        sequencer_.renderStems(blkDrums.data(), blkLead.data(), blkBass.data(), n, cfg_.sampleRate);
+        mixer_.track(MixerBus::Drums).process(blkDrums.data(), n, cfg_.sampleRate);
+        mixer_.track(MixerBus::Lead).process(blkLead.data(), n, cfg_.sampleRate);
+        mixer_.track(MixerBus::Bass).process(blkBass.data(), n, cfg_.sampleRate);
+        const size_t off = static_cast<size_t>(done) * 2;
+        for (size_t i = 0; i < bn; ++i) {
+            stems.drums[off + i] = blkDrums[i];
+            stems.lead[off + i] = blkLead[i];
+            stems.bass[off + i] = blkBass[i];
+        }
+        framesRendered_ += static_cast<uint64_t>(n);
+        done += n;
+    }
+    return stems;
+}
+
 } // namespace maz::audio
