@@ -154,7 +154,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   picking / line-of-sight / ballistics), **Curve3D + Path3D/PathFollow3D** (M263, `math::Curve3D` +
   `game::PathFollow3D` — 3D cubic-Bezier path with arc-length baking (Godot Curve3D) and constant-speed
   traversal with loop/clamp + forward tangent (Godot Path3D/PathFollow3D; rotation-mode/up-vector
-  banking left to the caller)), **complete Tween transition set** (M264, `anim::Transition` — Godot's
+  banking left to the caller); M315 adds `Curve2D::closestPoint` / `closestOffset` — Godot's
+  Curve2D.get_closest_point / get_closest_offset for snapping a point onto the baked path and
+  recovering its arc-length offset, verified against straight and L-shaped paths), **complete Tween transition set** (M264, `anim::Transition` — Godot's
   full 12 transition types (Linear/Sine/Quint/Quart/Quad/Expo/Elastic/Cubic/Circ/Bounce/Back/Spring)
   x 4 ease types (In/Out/InOut/OutIn) via the Penner equations, filling the gaps in the older partial
   `anim::Tween::Ease`; verified for endpoints, midpoints, known values, monotonicity, and overshoot).

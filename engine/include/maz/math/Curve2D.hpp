@@ -2,6 +2,7 @@
 
 #include "maz/math/Math.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -201,7 +202,73 @@ public:
         return m_baked[i] + (m_baked[i + 1] - m_baked[i]) * f;
     }
 
+    // Point on the baked path nearest to `toPoint` — Godot's Curve2D.get_closest_point. Auto-bakes.
+    vec2 closestPoint(const vec2& toPoint) {
+        if (m_baked.empty()) {
+            bake();
+        }
+        if (m_baked.empty()) {
+            return vec2(0.0f);
+        }
+        if (m_baked.size() == 1) {
+            return m_baked.front();
+        }
+        vec2 best = m_baked.front();
+        float bestD2 = distanceSquared(toPoint, best);
+        for (std::size_t i = 0; i + 1 < m_baked.size(); ++i) {
+            const vec2 p = closestOnSegment(toPoint, m_baked[i], m_baked[i + 1]);
+            const float d2 = distanceSquared(toPoint, p);
+            if (d2 < bestD2) {
+                bestD2 = d2;
+                best = p;
+            }
+        }
+        return best;
+    }
+
+    // Arc-length offset along the path of the point nearest to `toPoint` — Godot's
+    // Curve2D.get_closest_offset. Auto-bakes.
+    float closestOffset(const vec2& toPoint) {
+        if (m_baked.empty()) {
+            bake();
+        }
+        if (m_baked.size() < 2) {
+            return 0.0f;
+        }
+        float bestOffset = 0.0f;
+        float bestD2 = distanceSquared(toPoint, m_baked.front());
+        for (std::size_t i = 0; i + 1 < m_baked.size(); ++i) {
+            const vec2 a = m_baked[i];
+            const vec2 b = m_baked[i + 1];
+            const vec2 ab = b - a;
+            const float len2 = glm::dot(ab, ab);
+            const float t = len2 > 1e-12f ? std::clamp(glm::dot(toPoint - a, ab) / len2, 0.0f, 1.0f)
+                                          : 0.0f;
+            const vec2 p = a + ab * t;
+            const float d2 = distanceSquared(toPoint, p);
+            if (d2 < bestD2) {
+                bestD2 = d2;
+                bestOffset = m_bakedDist[i] + t * (m_bakedDist[i + 1] - m_bakedDist[i]);
+            }
+        }
+        return bestOffset;
+    }
+
 private:
+    static float distanceSquared(const vec2& a, const vec2& b) {
+        const vec2 d = a - b;
+        return glm::dot(d, d);
+    }
+    static vec2 closestOnSegment(const vec2& p, const vec2& a, const vec2& b) {
+        const vec2 ab = b - a;
+        const float len2 = glm::dot(ab, ab);
+        if (len2 < 1e-12f) {
+            return a;
+        }
+        const float t = std::clamp(glm::dot(p - a, ab) / len2, 0.0f, 1.0f);
+        return a + ab * t;
+    }
+
     std::vector<CurvePoint2D> m_points;
     std::vector<vec2> m_baked;
     std::vector<float> m_bakedDist;

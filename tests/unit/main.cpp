@@ -462,6 +462,32 @@ void testCurve2D() {
         c.clear();
         CHECK(c.pointCount() == 0);
     }
+
+    // M315: closestPoint / closestOffset over the baked polyline.
+    {
+        Curve2D c;
+        c.addPoint(vec2(0, 0));
+        c.addPoint(vec2(10, 0)); // straight horizontal => exact baked line
+        CHECK_NEAR(c.closestPoint(vec2(5, 3)).x, 5.0f, 0.05f);
+        CHECK_NEAR(c.closestPoint(vec2(5, 3)).y, 0.0f, 0.05f);
+        CHECK_NEAR(c.closestOffset(vec2(5, 3)), 5.0f, 0.1f);
+        CHECK_NEAR(c.closestPoint(vec2(-2, 1)).x, 0.0f, 0.05f); // before start clamps
+        CHECK_NEAR(c.closestOffset(vec2(-2, 1)), 0.0f, 0.1f);
+        CHECK_NEAR(c.closestPoint(vec2(12, 1)).x, 10.0f, 0.05f); // past end clamps
+        CHECK_NEAR(c.closestOffset(vec2(12, 1)), c.bakedLength(), 0.2f);
+    }
+    {
+        // L-shaped path, baked finely so the sharp corner is well approximated.
+        Curve2D l;
+        l.addPoint(vec2(0, 0));
+        l.addPoint(vec2(10, 0));
+        l.addPoint(vec2(10, 10));
+        l.bake(0.5f);
+        CHECK_NEAR(l.closestPoint(vec2(13, 5)).x, 10.0f, 0.1f); // snaps to vertical leg
+        CHECK_NEAR(l.closestPoint(vec2(13, 5)).y, 5.0f, 0.1f);
+        CHECK_NEAR(l.closestOffset(vec2(13, 5)), 15.0f, 0.3f);  // 10 (first leg) + 5
+        CHECK_NEAR(l.closestPoint(vec2(3, -2)).y, 0.0f, 0.1f);  // snaps to horizontal leg
+    }
 }
 
 void testDelaunay() {
