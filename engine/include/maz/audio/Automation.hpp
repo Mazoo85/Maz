@@ -24,6 +24,8 @@ enum class AutoTarget {
     FilterResonance,
     LeadVolume,
     LeadPan,
+    ReverbSend,
+    DelaySend,
     Count
 };
 

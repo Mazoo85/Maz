@@ -59,6 +59,10 @@ Automation::Automation() {
     lane(AutoTarget::LeadVolume).hi = 1.0f;
     lane(AutoTarget::LeadPan).lo = -1.0f;
     lane(AutoTarget::LeadPan).hi = 1.0f;
+    lane(AutoTarget::ReverbSend).lo = 0.0f;
+    lane(AutoTarget::ReverbSend).hi = 0.8f;
+    lane(AutoTarget::DelaySend).lo = 0.0f;
+    lane(AutoTarget::DelaySend).hi = 0.7f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -89,6 +93,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Lead Volume";
     case AutoTarget::LeadPan:
         return "Lead Pan";
+    case AutoTarget::ReverbSend:
+        return "Reverb Send";
+    case AutoTarget::DelaySend:
+        return "Delay Send";
     case AutoTarget::Count:
         break;
     }
@@ -195,6 +203,15 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
         case AutoTarget::LeadPan:
             // Sweep the lead mixer strip's stereo balance (auto-pan on the lead bus only).
             engine.mixer().track(MixerBus::Lead).setPan(v);
+            break;
+        case AutoTarget::ReverbSend:
+            // Sweep the parallel reverb send level (risers/build-ups) — the return bus is always
+            // wet, so the send alone gates how much signal is fed into the reverb tail.
+            engine.mixer().setReverbSend(v);
+            break;
+        case AutoTarget::DelaySend:
+            // Sweep the parallel delay send level (throw-style dub delays on the fly).
+            engine.mixer().setDelaySend(v);
             break;
         case AutoTarget::Count:
             break;

@@ -262,6 +262,34 @@ int main() {
               "lead-pan automation reaches hard left at the low bound");
     }
 
+    // --- Aux-send targets: parallel reverb + delay send levels --------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& rs = autom.lane(audio::AutoTarget::ReverbSend);
+        rs.enabled = true;
+        rs.lfo.shape = audio::Waveform::Sine;
+        rs.lfo.rateHz = 1.0f;
+        rs.lo = 0.0f;
+        rs.hi = 0.8f;
+        audio::AutoLane& ds = autom.lane(audio::AutoTarget::DelaySend);
+        ds.enabled = true;
+        ds.lfo.shape = audio::Waveform::Sine;
+        ds.lfo.rateHz = 1.0f;
+        ds.lo = 0.0f;
+        ds.hi = 0.7f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bounds
+        check(eng.mixer().reverbSend() > 0.78f,
+              "automating reverb send drives the send to its high bound");
+        check(eng.mixer().delaySend() > 0.68f,
+              "automating delay send drives the send to its high bound");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().reverbSend() < 0.02f && eng.mixer().delaySend() < 0.02f,
+              "aux-send automation reaches its low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;
