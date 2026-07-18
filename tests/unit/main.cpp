@@ -1766,6 +1766,21 @@ void testTransform2D() {
         CHECK_NEAR(id.determinant(), 1.0f, 1e-5f);
     }
 
+    // M339: is_equal_approx / is_finite (Godot Transform2D parity).
+    {
+        const Transform2D t = Transform2D::compose(0.5f, vec2(2.0f, 3.0f), vec2(10.0f, -4.0f));
+        Transform2D tn = t;
+        tn.origin.x += 1e-7f;
+        CHECK(t.isEqualApprox(tn));
+        Transform2D td = t;
+        td.origin.x += 0.5f;
+        CHECK(!t.isEqualApprox(td));
+        CHECK(t.isFinite());
+        Transform2D tbad = t;
+        tbad.x.y = std::numeric_limits<float>::infinity();
+        CHECK(!tbad.isFinite());
+    }
+
     // Translation moves points; basisXform ignores it.
     {
         const Transform2D t = Transform2D::translation(vec2(5, -2));
@@ -13003,6 +13018,21 @@ void testGeometry3D() {
         CHECK_NEAR(nrm.normal.z, 0.0f, 1e-5f);
         CHECK_NEAR(nrm.d, 5.0f, 1e-5f);
         CHECK(nrm.hasPoint(vec3(2, 5, 3)));
+    }
+    // M339: Aabb3 is_equal_approx / is_finite (Godot AABB parity).
+    {
+        const Aabb3 box(vec3(1, 2, 3), vec3(4, 6, 8));
+        Aabb3 nudged = box;
+        nudged.max.z += 1e-7f;
+        CHECK(box.isEqualApprox(nudged));
+        Aabb3 bigger = box;
+        bigger.max.z += 0.5f; // changes size
+        CHECK(!box.isEqualApprox(bigger));
+        Aabb3 moved = box;
+        moved.min.x += 0.5f; // changes position
+        CHECK(!box.isEqualApprox(moved));
+        CHECK(box.isFinite());
+        CHECK(!Aabb3(vec3(1, 2, 3), vec3(4, std::nanf(""), 8)).isFinite());
     }
     {
         // Ray straight down from above hits at t=5.

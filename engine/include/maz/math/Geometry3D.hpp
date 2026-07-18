@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp"
+#include "maz/math/VectorOps.hpp" // isEqualApprox(vec3), isFinite(vec3)
 
 #include <algorithm>
 #include <cmath>
@@ -135,6 +136,13 @@ struct Aabb3 {
         const vec3 s = size();
         return s.x * s.y * s.z;
     }
+
+    // Component-wise approximate equality of position (min) AND size — Godot's AABB.is_equal_approx.
+    bool isEqualApprox(const Aabb3& o) const {
+        return maz::math::isEqualApprox(min, o.min) && maz::math::isEqualApprox(size(), o.size());
+    }
+    // True when every component of min and max is finite — Godot's AABB.is_finite.
+    bool isFinite() const { return maz::math::isFinite(min) && maz::math::isFinite(max); }
 
     bool contains(const vec3& p) const {
         return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y && p.z >= min.z &&

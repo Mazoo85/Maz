@@ -46,7 +46,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   against Godot's own source so GDScript-ported logic behaves identically), Transform2D (incl. **apply-relative methods** M278 —
   translated/rotated/scaled with global & _local variants matching Godot's Transform2D; M328 adds
   basis_xform_inv — the transposed-basis direction transform, exact inverse of basis_xform for an
-  orthonormal basis), **Transform3D** (M268,
+  orthonormal basis; M339 adds is_equal_approx (both basis columns + origin approx) and is_finite —
+  Godot Transform2D.is_equal_approx / is_finite, verified against nudged/differing transforms and a
+  non-finite basis component), **Transform3D** (M268,
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with
   `*`, affine + rigid inverse, translated/rotated/scaled with global & _local variants, orthonormalized,
   looking_at (-Z forward), interpolate_with (translation lerp + rotation slerp + scale lerp),
@@ -116,7 +118,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   counts as "under", so a box touching from the positive side intersects but one touching from below
   does not), tested via the two ±normal support corners; M318 adds the axis-vector forms `longestAxis`/`shortestAxis` (Godot get_longest_axis /
   get_shortest_axis, ties to the earliest axis) and `endpoint(i)` for the 8 corners
-  (get_endpoint), verified against known corners and containment); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
+  (get_endpoint), verified against known corners and containment; M339 adds `isEqualApprox`
+  (position + size approx) and `isFinite` — Godot AABB.is_equal_approx / is_finite, verified against
+  nudged/differing boxes and a NaN component); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
   `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`; M331
   adds 64-bit (16-bit-per-channel) `toRgba64`/`fromRgba64` — Godot's Color.to_rgba64 / Color.hex64
   for high-bit-depth packing, verified by known values, clamping, and a round-trip that preserves a

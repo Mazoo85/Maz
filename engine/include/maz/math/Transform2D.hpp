@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp"
+#include "maz/math/VectorOps.hpp" // isEqualApprox(vec2), isFinite(vec2)
 
 #include <cmath>
 
@@ -62,6 +63,17 @@ struct Transform2D {
     vec2 xformInv(vec2 p) const { return affineInverse().xform(p); }
 
     float determinant() const { return x.x * y.y - x.y * y.x; }
+
+    // Component-wise approximate equality of both basis columns and the origin — Godot's
+    // Transform2D.is_equal_approx.
+    bool isEqualApprox(const Transform2D& o) const {
+        return maz::math::isEqualApprox(x, o.x) && maz::math::isEqualApprox(y, o.y) &&
+               maz::math::isEqualApprox(origin, o.origin);
+    }
+    // True when every basis and origin component is finite — Godot's Transform2D.is_finite.
+    bool isFinite() const {
+        return maz::math::isFinite(x) && maz::math::isFinite(y) && maz::math::isFinite(origin);
+    }
 
     // Full affine inverse.
     Transform2D affineInverse() const {
