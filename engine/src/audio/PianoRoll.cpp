@@ -397,6 +397,26 @@ int PianoRoll::transpose(int semitones) {
     return changed;
 }
 
+int PianoRoll::stretch(float factor) {
+    if (factor <= 0.0f || factor == 1.0f) {
+        return 0;
+    }
+    int changed = 0;
+    for (Note& n : notes_) {
+        const int newStart = static_cast<int>(std::lround(static_cast<double>(n.startStep) * factor));
+        int newLen = static_cast<int>(std::lround(static_cast<double>(n.lengthSteps) * factor));
+        if (newLen < 1) {
+            newLen = 1;
+        }
+        if (newStart != n.startStep || newLen != n.lengthSteps) {
+            n.startStep = newStart;
+            n.lengthSteps = newLen;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 int PianoRoll::arpeggiate(int noteLenSteps, int mode) {
     if (noteLenSteps < 1 || notes_.empty()) {
         return 0;

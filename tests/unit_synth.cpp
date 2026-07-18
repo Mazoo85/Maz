@@ -1419,6 +1419,29 @@ int main() {
         check(cl.notes()[0].pitch == 0, "transpose clamps at the low end of the MIDI range");
     }
 
+    // --- Stretch (time-scale) ------------------------------------------------
+    {
+        audio::PianoRoll st;
+        st.addNote(audio::Note{0, 2, 60, 1.0f});
+        st.addNote(audio::Note{4, 2, 64, 1.0f});
+        const int changed = st.stretch(2.0f); // double-time (slower/expanded)
+        check(changed == 2, "stretch scales every note that moves");
+        check(st.notes()[0].startStep == 0 && st.notes()[0].lengthSteps == 4,
+              "stretch x2 doubles start and length");
+        check(st.notes()[1].startStep == 8 && st.notes()[1].lengthSteps == 4,
+              "stretch x2 pushes later notes out proportionally");
+        check(st.notes()[0].pitch == 60 && st.notes()[1].pitch == 64,
+              "stretch leaves pitches untouched");
+
+        // Compress back down; lengths never fall below 1 step.
+        audio::PianoRoll sc;
+        sc.addNote(audio::Note{4, 1, 60, 1.0f});
+        sc.stretch(0.5f);
+        check(sc.notes()[0].startStep == 2 && sc.notes()[0].lengthSteps == 1,
+              "stretch x0.5 compresses starts and floors length at 1");
+        check(sc.stretch(1.0f) == 0 && sc.stretch(0.0f) == 0, "stretch by 1 or 0 is a no-op");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

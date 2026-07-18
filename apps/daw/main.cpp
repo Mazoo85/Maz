@@ -727,6 +727,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Transpose")) {
         roll.transpose(transposeSemis);
     }
+    ImGui::SameLine();
+    static float stretchFactor = 2.0f;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputFloat("##stretchfactor", &stretchFactor, 0.0f, 0.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Stretch")) {
+        roll.stretch(stretchFactor);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

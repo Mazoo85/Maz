@@ -119,6 +119,13 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Stretch (time-scale): multiply every note's start step and length by `factor` (> 0), so the
+    // whole phrase plays faster (factor < 1, compress) or slower (factor > 1, expand) while keeping
+    // pitches and relative rhythm. Lengths stay at least 1 step. Returns the number of notes whose
+    // start or length changed. factor <= 0 or 1.0 is a no-op. (You may need to resize the pattern for
+    // notes stretched past its end.)
+    int stretch(float factor);
+
     // Transpose: shift every note's pitch by `semitones` (±), baking the shift into the notes
     // (distinct from the non-destructive playback transpose). Pitches are clamped to the MIDI range
     // [0, 127]. Returns the number of notes whose pitch changed.
