@@ -647,6 +647,15 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Reverse")) {
         roll.reverseTime();
     }
+    ImGui::SameLine();
+    static float humanizeAmt = 0.3f;
+    static uint32_t humanizeSeed = 1u;
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::SliderFloat("##humamt", &humanizeAmt, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Humanize")) {
+        roll.randomizeVelocity(humanizeAmt, humanizeSeed++);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

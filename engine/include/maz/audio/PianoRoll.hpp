@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 namespace maz::audio {
@@ -83,6 +84,12 @@ public:
     // each note's length and pitch. Applying it twice restores the original. Returns the number of
     // notes moved.
     int reverseTime();
+
+    // Randomize (humanize) velocities: scale each note's velocity by a random factor in
+    // [1−amount, 1+amount] (clamped to [0,1]), for natural-sounding dynamics. `seed` makes it fully
+    // deterministic — the same seed and notes always give the same result. Returns the number of
+    // notes whose velocity changed.
+    int randomizeVelocity(float amount, uint32_t seed);
 
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;

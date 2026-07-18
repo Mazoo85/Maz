@@ -710,6 +710,42 @@ int main() {
               "reversing twice restores the original timing");
     }
 
+    // --- Randomize (humanize) velocities -------------------------------------
+    {
+        auto build = [](audio::PianoRoll& p) {
+            for (int i = 0; i < 8; ++i) {
+                p.addNote(audio::Note{i, 1, 60, 0.8f});
+            }
+        };
+        audio::PianoRoll a;
+        audio::PianoRoll b;
+        build(a);
+        build(b);
+        a.randomizeVelocity(0.4f, 12345u);
+        b.randomizeVelocity(0.4f, 12345u); // same seed → identical result
+
+        bool deterministic = true, inRange = true, anyChanged = false;
+        for (size_t i = 0; i < a.notes().size(); ++i) {
+            const float v = a.notes()[i].velocity;
+            if (v != b.notes()[i].velocity) deterministic = false;
+            if (v < 0.0f || v > 1.0f) inRange = false;
+            if (std::fabs(v - 0.8f) > 1e-6f) anyChanged = true;
+        }
+        check(deterministic, "randomize is deterministic for a given seed");
+        check(inRange, "randomized velocities stay in [0,1]");
+        check(anyChanged, "randomize actually varies the velocities");
+
+        // A different seed gives a different outcome.
+        audio::PianoRoll c;
+        build(c);
+        c.randomizeVelocity(0.4f, 999u);
+        bool differs = false;
+        for (size_t i = 0; i < c.notes().size(); ++i) {
+            if (std::fabs(c.notes()[i].velocity - a.notes()[i].velocity) > 1e-6f) differs = true;
+        }
+        check(differs, "a different seed yields a different randomization");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz

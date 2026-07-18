@@ -261,6 +261,32 @@ int PianoRoll::reverseTime() {
     return moved;
 }
 
+int PianoRoll::randomizeVelocity(float amount, uint32_t seed) {
+    if (amount <= 0.0f) {
+        return 0;
+    }
+    uint32_t rng = seed != 0u ? seed : 1u; // xorshift needs a non-zero state
+    int changed = 0;
+    for (Note& n : notes_) {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        const float r = static_cast<float>(rng) / 4294967295.0f;    // [0,1]
+        const float factor = 1.0f + amount * (2.0f * r - 1.0f);     // [1-amount, 1+amount]
+        float v = n.velocity * factor;
+        if (v < 0.0f) {
+            v = 0.0f;
+        } else if (v > 1.0f) {
+            v = 1.0f;
+        }
+        if (v != n.velocity) {
+            n.velocity = v;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 void PianoRoll::toggle(int pitch, int step, float velocity) {
     for (size_t i = 0; i < notes_.size(); ++i) {
         if (notes_[i].pitch == pitch && notes_[i].startStep == step) {
