@@ -92,6 +92,25 @@ inline float lerpAngle(float from, float to, float weight) {
     return from + dist * weight;
 }
 
+// Catmull-Rom cubic between two ANGLES, taking the shortest arc across the ±pi wrap — Godot's
+// @GlobalScope.cubic_interpolate_angle. Each of `to`/`pre`/`post` is first remapped to the rotation
+// nearest the anchor (Godot's exact fmod construction), then a plain cubic runs on the unwrapped
+// angles, so interpolating e.g. from 350deg to 10deg goes the short way (forward through 0).
+inline float cubicInterpolateAngle(float from, float to, float pre, float post, float weight) {
+    const float fromRot = std::fmod(from, kTau);
+    const float preDiff = std::fmod(pre - fromRot, kTau);
+    const float preRot = fromRot + std::fmod(2.0f * preDiff, kTau) - preDiff;
+    const float toDiff = std::fmod(to - fromRot, kTau);
+    const float toRot = fromRot + std::fmod(2.0f * toDiff, kTau) - toDiff;
+    const float postDiff = std::fmod(post - toRot, kTau);
+    const float postRot = toRot + std::fmod(2.0f * postDiff, kTau) - postDiff;
+    const float w2 = weight * weight;
+    const float w3 = w2 * weight;
+    return 0.5f * ((fromRot * 2.0f) + (toRot - preRot) * weight +
+                   (preRot * 2.0f - fromRot * 5.0f + toRot * 4.0f - postRot) * w2 +
+                   (-preRot + fromRot * 3.0f - toRot * 3.0f + postRot) * w3);
+}
+
 // Triangle wave: ramps 0->length->0 as `t` increases — Godot's pingpong.
 inline float pingpong(float t, float length) {
     if (length == 0.0f) {

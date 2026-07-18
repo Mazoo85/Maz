@@ -71,7 +71,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   numeric utilities: degToRad/radToDeg, lerpf/inverseLerp/remap, wrapf/wrapi, smoothstep, ease,
   moveTowardf, lerpAngle (shortest-arc), pingpong, snappedi, nearestPo2, isEqualApproxf; M311 adds
   angleDifference and rotateToward — Godot 4.2's @GlobalScope.angle_difference / rotate_toward for
-  shortest-arc angle deltas and overshoot-free angular steering, verified across the +/-pi seam),
+  shortest-arc angle deltas and overshoot-free angular steering, verified across the +/-pi seam;
+  M330 adds cubicInterpolateAngle — Godot's @GlobalScope.cubic_interpolate_angle: a Catmull-Rom
+  between two angles that remaps the control angles to the nearest equivalent so interpolation crosses
+  the +/-pi wrap the short way, verified to hit its endpoints, reduce to the plain cubic for in-range
+  angles, and take the forward-through-zero path from 350deg to 10deg),
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit

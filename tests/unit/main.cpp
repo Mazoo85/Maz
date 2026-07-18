@@ -299,6 +299,28 @@ void testMathFuncs() {
     CHECK_NEAR(moveTowardf(0, 10, 100), 10.0f, 1e-4f); // no overshoot
     CHECK_NEAR(lerpAngle(0.1f, kTau - 0.1f, 0.5f), 0.0f, 1e-3f); // shortest arc
 
+    // M330: cubic_interpolate_angle — angle-aware cubic that crosses the +/-pi wrap the short way.
+    {
+        auto sameAngle = [](float a, float b, float e = 2e-3f) {
+            const float d = std::fmod(std::fabs(a - b), kTau);
+            return d < e || std::fabs(d - kTau) < e;
+        };
+        const float d2r = kPi / 180.0f;
+        // Endpoints (mod 2pi).
+        CHECK(sameAngle(cubicInterpolateAngle(0.3f, 1.1f, -0.2f, 1.6f, 0.0f), 0.3f));
+        CHECK(sameAngle(cubicInterpolateAngle(0.3f, 1.1f, -0.2f, 1.6f, 1.0f), 1.1f));
+        // In-range angles match the plain cubic.
+        for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.25f) {
+            CHECK(sameAngle(cubicInterpolateAngle(0.2f, 0.9f, -0.1f, 1.3f, w),
+                            cubicInterpolate(0.2f, 0.9f, -0.1f, 1.3f, w)));
+        }
+        // 350deg -> 10deg crosses forward through 0deg; midpoint near 0, not 180.
+        const float mid =
+            cubicInterpolateAngle(350 * d2r, 10 * d2r, 340 * d2r, 20 * d2r, 0.5f);
+        CHECK(sameAngle(mid, 0.0f, 5.0f * d2r));
+        CHECK(!sameAngle(mid, kPi, 5.0f * d2r));
+    }
+
     CHECK_NEAR(pingpong(0.0f, 1.0f), 0.0f, 1e-4f);
     CHECK_NEAR(pingpong(1.0f, 1.0f), 1.0f, 1e-4f);
     CHECK_NEAR(pingpong(2.0f, 1.0f), 0.0f, 1e-4f);
