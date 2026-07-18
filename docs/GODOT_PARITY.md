@@ -136,7 +136,10 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
 - [ ] **[CPU]** UDP transport binding (SDL_net or BSD sockets) wiring the above to real packets
 - [x] **[CPU]** Snapshot/delta replication: `net::Snapshot` (per-field-bit-width schema; full +
   changed-mask delta encode/decode over net::BitStream). M214. Only changed fields cross the wire.
-- [ ] **[CPU]** Interpolation buffer, client-side prediction + reconciliation
+- [x] **[CPU]** Interpolation buffer: `net::InterpolationBuffer` (time-ordered sample history;
+  lerp the bracketing pair at a delayed render time; bounded velocity extrapolation for late
+  packets). M215. Valve-style entity interpolation — smooth motion from discrete ticks.
+- [ ] **[CPU]** Client-side prediction + server reconciliation
 - [ ] **[CPU]** RPC layer + scene-replication nodes
 - [ ] **[CPU]** WebSocket + WebRTC data channels
 

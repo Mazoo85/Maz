@@ -48,6 +48,7 @@
 #include "maz/platform/Displays.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/net/BitStream.hpp"
+#include "maz/net/Interpolation.hpp"
 #include "maz/net/Reliability.hpp"
 #include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
@@ -5445,6 +5446,68 @@ void testSnapshot() {
 
     // Bandwidth win: a 2-field delta (15 bits) is far smaller than a full snapshot (35 bits).
     CHECK(dw.bitCount() < fw.bitCount());
+}
+
+void testNetInterpolation() {
+    net::InterpolationBuffer<float> buf;
+    CHECK(buf.empty());
+    float out = 0.0f;
+    CHECK(!buf.sample(0.0, out)); // empty buffer -> false
+
+    buf.insert(1.0, 10.0f);
+    buf.insert(2.0, 20.0f);
+    buf.insert(3.0, 30.0f);
+    CHECK(buf.size() == 3);
+
+    // Interpolate between knots.
+    CHECK(buf.sample(1.5, out));
+    CHECK_NEAR(out, 15.0f, 1e-4f);
+    CHECK(buf.sample(2.5, out));
+    CHECK_NEAR(out, 25.0f, 1e-4f);
+    // Exactly on a knot.
+    CHECK(buf.sample(2.0, out));
+    CHECK_NEAR(out, 20.0f, 1e-4f);
+    // Before the oldest -> clamp to oldest; after newest -> clamp to newest.
+    CHECK(buf.sample(0.5, out));
+    CHECK_NEAR(out, 10.0f, 1e-4f);
+    CHECK(buf.sample(9.0, out));
+    CHECK_NEAR(out, 30.0f, 1e-4f);
+
+    // Out-of-order insert lands in time order.
+    buf.insert(2.5, 25.0f);
+    CHECK(buf.sample(2.25, out));
+    CHECK_NEAR(out, 22.5f, 1e-4f); // between 2.0(20) and 2.5(25)
+
+    // A sample at an existing time replaces it.
+    buf.insert(2.5, 100.0f);
+    CHECK(buf.sample(2.5, out));
+    CHECK_NEAR(out, 100.0f, 1e-4f);
+    buf.insert(2.5, 25.0f);
+
+    // Extrapolation extends the tail velocity (+10/sec) past the newest sample.
+    CHECK(buf.sampleExtrapolated(3.5, 1.0, out));
+    CHECK_NEAR(out, 35.0f, 1e-4f);
+    // ...but never more than maxExtrapolate seconds ahead.
+    CHECK(buf.sampleExtrapolated(4.0, 0.5, out));
+    CHECK_NEAR(out, 35.0f, 1e-4f);
+
+    // Capacity trim keeps the newest samples.
+    net::InterpolationBuffer<float> cap(3);
+    for (int i = 0; i < 10; ++i) {
+        cap.insert(static_cast<double>(i), static_cast<float>(i));
+    }
+    CHECK(cap.size() == 3);
+    CHECK_NEAR(static_cast<float>(cap.oldestTime()), 7.0f, 1e-4f);
+    CHECK_NEAR(static_cast<float>(cap.newestTime()), 9.0f, 1e-4f);
+
+    // Works with a vector value type (math::vec2).
+    net::InterpolationBuffer<math::vec2> vbuf;
+    vbuf.insert(0.0, math::vec2{0.0f, 0.0f});
+    vbuf.insert(1.0, math::vec2{10.0f, 20.0f});
+    math::vec2 vo{};
+    CHECK(vbuf.sample(0.5, vo));
+    CHECK_NEAR(vo.x, 5.0f, 1e-4f);
+    CHECK_NEAR(vo.y, 10.0f, 1e-4f);
 }
 
 void testProfiler() {
@@ -17217,6 +17280,7 @@ int main() {
     testBitStream();
     testReliability();
     testSnapshot();
+    testNetInterpolation();
     testNoise();
     testRandom();
     testInterpolate();
