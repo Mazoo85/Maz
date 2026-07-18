@@ -537,6 +537,14 @@ void Sequencer::triggerStep(int step) {
             }
             arpCurrentPitch_ = pitch;
             ++arpCounter_;
+            // Gate: for a staccato arp, schedule an early note-off partway through the step; at full
+            // gate (1) the note simply rings until the next step releases it (legato, as before).
+            if (arpGate_ < 1.0f) {
+                const double sps = samplesPerStep(sampleRate_, step);
+                arpGateFramesLeft_ = std::max(1, static_cast<int>(static_cast<double>(arpGate_) * sps));
+            } else {
+                arpGateFramesLeft_ = -1;
+            }
         }
         return; // arp replaces the normal note scheduling below
     }
@@ -596,6 +604,7 @@ void Sequencer::play() {
     playlistPos_ = 0;
     arpCounter_ = 0;
     arpRng_ = 0x1234567u;
+    arpGateFramesLeft_ = -1;
     arpCurrentPitch_ = -1;
     humanizeCounter_ = 0;
     metroLastStep_ = -1;
@@ -614,6 +623,7 @@ void Sequencer::play() {
 
 void Sequencer::stop() {
     playing_ = false;
+    arpGateFramesLeft_ = -1;
     synth_.allNotesOff(); // let held notes release rather than hang
     synth2_.allNotesOff();
     sampler_.allNotesOff();
@@ -667,6 +677,20 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 chunk = std::min(chunk, ratchets_[ri].framesUntil);
                 ++ri;
             }
+        }
+
+        // Arp gate: release the current arp note when its gate expires (staccato), and don't render
+        // past that point so the release lands sample-accurately.
+        if (arpGateFramesLeft_ == 0) {
+            if (arpCurrentPitch_ >= 0) {
+                synth_.noteOff(arpCurrentPitch_);
+                sampler_.noteOff(arpCurrentPitch_);
+                arpCurrentPitch_ = -1;
+            }
+            arpGateFramesLeft_ = -1;
+        }
+        if (arpGateFramesLeft_ > 0) {
+            chunk = std::min(chunk, arpGateFramesLeft_);
         }
 
         // Metronome / count-in: fire an accented click when a new beat step begins (downbeat is
@@ -777,6 +801,10 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         const size_t ratchetsThisChunk = ratchets_.size();
         for (size_t i = 0; i < ratchetsThisChunk; ++i) {
             ratchets_[i].framesUntil -= chunk;
+        }
+        // Count down the arp gate by the frames just rendered so its note-off lands on time.
+        if (arpGateFramesLeft_ > 0) {
+            arpGateFramesLeft_ -= chunk;
         }
 
         if (playing_) {

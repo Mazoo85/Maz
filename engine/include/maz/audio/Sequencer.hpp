@@ -170,6 +170,11 @@ public:
     // octaves, so it climbs/descends over a wider range.
     void setArpOctaves(int octaves) { arpOctaves_ = octaves < 1 ? 1 : (octaves > 4 ? 4 : octaves); }
     int arpOctaves() const { return arpOctaves_; }
+    // Gate length (0.05..1): the fraction of each step an arp note is held before it is released. 1
+    // (default) = legato (the note rings until the next step); lower = staccato (a gap before the next
+    // note), the classic tight arp bounce.
+    void setArpGate(float g) { arpGate_ = g < 0.05f ? 0.05f : (g > 1.0f ? 1.0f : g); }
+    float arpGate() const { return arpGate_; }
 
     // Bus levels: relative gain of the drum kit, the lead synth, and the bass synth before the
     // soft-limited sum. (synthGain is the lead level; bassGain the second instrument.)
@@ -282,6 +287,8 @@ private:
     int arpCounter_ = 0;
     int arpCurrentPitch_ = -1;
     uint32_t arpRng_ = 0x1234567u; // deterministic RNG for the random arp mode
+    float arpGate_ = 1.0f;         // arp note length as a fraction of a step (1 = legato)
+    int arpGateFramesLeft_ = -1;   // frames until the current arp note is released (-1 = none pending)
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;
     float bassGain_ = 1.0f;

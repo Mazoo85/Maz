@@ -364,6 +364,39 @@ int main() {
         check(twoDistinct, "random arp visits more than one pitch");
         check(rnd1 != up, "random arp differs from the strict up order");
 
+        // Gate: a 0.5 gate releases the arp note halfway through the step, so the second half is
+        // near-silent (staccato); a full gate (1.0) sustains the note through the whole step.
+        auto halfEnergy = [&](float gate, bool secondHalf) {
+            audio::Sequencer g;
+            g.setBpm(120.0); // 6000 frames/step @ 48 kHz
+            g.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+            g.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.005f); // fast release for a clean staccato
+            g.setArp(true, 0);
+            g.setArpGate(gate);
+            g.play();
+            const std::vector<float> out = renderMono(g, 6000, sampleRate);
+            // The gate releases at frame 3000 (0.5·step); measure well after that (release ≈ 240 fr).
+            const int a = secondHalf ? 3600 : 200;
+            const int b = secondHalf ? 5900 : 2800;
+            double s = 0.0;
+            for (int i = a; i < b; ++i) {
+                const double v = out[static_cast<size_t>(i) * 2];
+                s += v * v;
+            }
+            return std::sqrt(s / (b - a));
+        };
+        const double gatedFirst = halfEnergy(0.5f, false);
+        const double gatedSecond = halfEnergy(0.5f, true);
+        const double legatoSecond = halfEnergy(1.0f, true);
+        check(gatedFirst > 0.0, "gated arp sounds in the first half of the step");
+        check(gatedSecond < gatedFirst * 0.25,
+              "a 0.5 arp gate silences the note in the second half (staccato)");
+        check(legatoSecond > gatedFirst * 0.5,
+              "a full arp gate sustains the note through the step (legato)");
+
+        audio::Sequencer dg;
+        check(dg.arpGate() == 1.0f, "arp gate defaults to 1 (legato)");
+
         audio::Sequencer dm;
         check(dm.arpMode() == 0, "arp mode defaults to up");
     }

@@ -793,6 +793,12 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::SliderInt("oct##arp", &arpOct, 1, 4)) {
         seq.setArpOctaves(arpOct);
     }
+    ImGui::SameLine();
+    float arpGate = seq.arpGate();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderFloat("gate##arp", &arpGate, 0.05f, 1.0f, "%.2f")) {
+        seq.setArpGate(arpGate);
+    }
     ImGui::Separator();
 
     int mode = static_cast<int>(syn.mode());
