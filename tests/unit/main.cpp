@@ -114,6 +114,7 @@
 #include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Timer.hpp"
+#include "maz/game/VisibleOnScreenNotifier2D.hpp"
 #include "maz/game/Physics3D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
@@ -5993,6 +5994,53 @@ void testTimer() {
         CHECK(t.isStopped());
         CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.0f, 1e-6f);
     }
+}
+
+void testVisibleOnScreenNotifier2D() {
+    const math::Rect2 view(0.0f, 0.0f, 100.0f, 100.0f);
+    game::VisibleOnScreenNotifier2D n(math::Rect2(200.0f, 200.0f, 10.0f, 10.0f)); // off-screen
+    CHECK(!n.isOnScreen());
+
+    // Still off-screen -> no event.
+    game::ScreenNotifierEvents e = n.update(view);
+    CHECK(!e.entered);
+    CHECK(!e.exited);
+    CHECK(!n.isOnScreen());
+
+    // Enters view -> entered fires exactly once.
+    n.setRect(math::Rect2(50.0f, 50.0f, 10.0f, 10.0f));
+    e = n.update(view);
+    CHECK(e.entered);
+    CHECK(!e.exited);
+    CHECK(n.isOnScreen());
+
+    // Stays on -> no repeat event.
+    e = n.update(view);
+    CHECK(!e.entered);
+    CHECK(!e.exited);
+    CHECK(n.isOnScreen());
+
+    // Leaves view -> exited fires exactly once.
+    n.setRect(math::Rect2(300.0f, 300.0f, 10.0f, 10.0f));
+    e = n.update(view);
+    CHECK(!e.entered);
+    CHECK(e.exited);
+    CHECK(!n.isOnScreen());
+
+    // Stays off -> no repeat event.
+    e = n.update(view);
+    CHECK(!e.entered);
+    CHECK(!e.exited);
+
+    // A rect touching the view's corner counts as on-screen (border-inclusive).
+    game::VisibleOnScreenNotifier2D b(math::Rect2(-10.0f, -10.0f, 10.0f, 10.0f));
+    e = b.update(view);
+    CHECK(e.entered);
+    CHECK(b.isOnScreen());
+
+    // reset clears state without emitting.
+    b.reset(false);
+    CHECK(!b.isOnScreen());
 }
 
 void testProfiler() {
@@ -17778,6 +17826,7 @@ int main() {
     testNetSim();
     testPathFollow2D();
     testTimer();
+    testVisibleOnScreenNotifier2D();
     testNoise();
     testRandom();
     testInterpolate();

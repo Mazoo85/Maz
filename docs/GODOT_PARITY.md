@@ -106,7 +106,9 @@ Maz has a minimal editor; Godot's is vast.
 Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-value nodes:
 - [~] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
   — **PathFollow2D done** (M221): `game::PathFollow2D` walks a Curve2D by progress/progress-ratio,
-  loop-or-clamp ends, hOffset along the path normal, tangent-following rotation. Others remain.
+  loop-or-clamp ends, hOffset along the path normal, tangent-following rotation.
+  — **VisibleOnScreenNotifier2D done** (M223): `game::VisibleOnScreenNotifier2D` fires screen
+  entered/exited edge events as an object's rect crosses the camera view. CanvasLayer/RemoteTransform remain.
 - [~] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
   — **Timer done** (M222): `game::Timer` countdown with wait_time, one_shot/repeating (remainder-
   carrying so cadence never drifts), pause/stop/restart, start(override), timeout callback. Others remain.
