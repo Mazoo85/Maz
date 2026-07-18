@@ -1395,6 +1395,36 @@ public:
     void addBreakpoint(int line) { m_breakpoints.push_back(line); }
     void clearBreakpoints() { m_breakpoints.clear(); }
 
+    // Richer debug surface (used by script::Debugger). callDepth() is 0 in <main>, 1 inside a called
+    // function, etc. callStackSnapshot() returns the live function-name stack (innermost last). The
+    // debugLocals()/debugResolve() views are only meaningful while a statement is executing (i.e. from
+    // inside an onStep callback), where m_debugEnv points at the current scope.
+    int callDepth() const { return static_cast<int>(m_callStack.size()); }
+    std::vector<std::string> callStackSnapshot() const { return m_callStack; }
+    // Names+values bound in the current scope chain, excluding globals (nearest binding per name wins).
+    std::vector<std::pair<std::string, Value>> debugLocals() const {
+        std::vector<std::pair<std::string, Value>> out;
+        std::unordered_map<std::string, bool> seen;
+        for (const Environment* e = m_debugEnv; e && e != m_global.get(); e = e->parent.get()) {
+            for (const auto& kv : e->vars) {
+                if (!seen[kv.first]) {
+                    seen[kv.first] = true;
+                    out.emplace_back(kv.first, kv.second);
+                }
+            }
+        }
+        return out;
+    }
+    // Resolve a name through the current scope chain (locals then globals), or nullptr.
+    const Value* debugResolve(const std::string& name) const {
+        if (m_debugEnv) {
+            if (const Value* v = m_debugEnv->get(name)) {
+                return v;
+            }
+        }
+        return m_global ? m_global->get(name) : nullptr;
+    }
+
     bool run(const std::string& source) {
         m_error = {};
         m_trace.clear();
@@ -1628,6 +1658,7 @@ private:
     std::string m_trace;                    // call stack captured at the last error
     std::vector<std::string> m_warnings;    // non-fatal diagnostics from the last parse
     std::vector<std::string> m_callStack;   // live call stack (function names), for trace capture
+    Environment* m_debugEnv = nullptr;      // current statement's scope, for debugger variable views
     // SC10 — gradual typing.
     std::vector<std::string> m_typeErrors;  // static type-check findings from the last parse
     bool m_strictTypes = false;             // when true, type errors make run() fail
@@ -2105,6 +2136,7 @@ private:
 
     void exec(const Stmt& s, Environment& env) {
         bump(s.line); // SC8: count a step (enforces the execution budget)
+        m_debugEnv = &env; // expose the current scope for debugger variable inspection
         // SC11: debugger hooks — a tree-walker exposes stepping/breakpoints for free.
         if (onStep) {
             onStep(s.line, m_callStack.empty() ? std::string("<main>") : m_callStack.back());

@@ -80,6 +80,7 @@
 #include "maz/ecs/Scheduler.hpp"
 #include "maz/ecs/World.hpp"
 #include "maz/editor/Scene.hpp"
+#include "maz/script/Debugger.hpp"
 #include "maz/script/Script.hpp"
 #include "maz/script/ScriptSystem.hpp"
 #include "maz/scene/SceneTree.hpp"
@@ -15254,6 +15255,137 @@ void testScriptTooling() {
     }
 }
 
+void testScriptDebugger() {
+    using maz::script::Debugger;
+    using maz::script::PauseEvent;
+    using maz::script::StepMode;
+    using maz::script::Vm;
+
+    // 1:var x = 1; 2:var y = 2; 3:func add(a,b){ 4:var s=a+b; 5:return s; 6:} 7:var z=add(x,y); 8:print z;
+    const char* src =
+        "var x = 1;\n"
+        "var y = 2;\n"
+        "func add(a, b) {\n"
+        "  var s = a + b;\n"
+        "  return s;\n"
+        "}\n"
+        "var z = add(x, y);\n"
+        "print z;\n";
+
+    // Breakpoint inside the function: inspect true locals + a call-stack snapshot.
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        dbg.addBreakpoint(5);
+        int stops = 0, line = 0, depth = -1;
+        std::string fn, a, b, s;
+        std::vector<std::string> stack;
+        dbg.onPause = [&](Debugger& d, const PauseEvent& ev) {
+            ++stops;
+            line = ev.line;
+            depth = ev.depth;
+            fn = ev.function;
+            a = d.valueString("a");
+            b = d.valueString("b");
+            s = d.valueString("s");
+            stack = ev.callStack;
+            return StepMode::Continue;
+        };
+        CHECK(vm.run(src));
+        CHECK(stops == 1);
+        CHECK((line == 5 && depth == 1 && fn == "add"));
+        CHECK((a == "1" && b == "2" && s == "3"));
+        CHECK((stack.size() == 2 && stack[0] == "<main>" && stack[1] == "add"));
+    }
+
+    // Step-into descends into the called function body.
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        dbg.addBreakpoint(7);
+        std::vector<int> lines;
+        std::vector<int> depths;
+        dbg.onPause = [&](Debugger&, const PauseEvent& ev) {
+            lines.push_back(ev.line);
+            depths.push_back(ev.depth);
+            return StepMode::StepInto;
+        };
+        CHECK(vm.run(src));
+        CHECK(lines.size() >= 3);
+        CHECK((lines[0] == 7 && depths[0] == 0));
+        CHECK((lines[1] == 4 && depths[1] == 1));
+    }
+
+    // Step-over at the call skips the body — every stop stays in <main>.
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        dbg.addBreakpoint(7);
+        std::vector<int> lines;
+        bool allMain = true;
+        dbg.onPause = [&](Debugger&, const PauseEvent& ev) {
+            lines.push_back(ev.line);
+            if (ev.depth != 0) allMain = false;
+            return StepMode::StepOver;
+        };
+        CHECK(vm.run(src));
+        CHECK(allMain);
+        CHECK((lines.size() == 2 && lines[0] == 7 && lines[1] == 8));
+    }
+
+    // Step-out from inside the function returns to the caller frame.
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        dbg.addBreakpoint(4);
+        std::vector<int> lines;
+        std::vector<int> depths;
+        dbg.onPause = [&](Debugger&, const PauseEvent& ev) {
+            lines.push_back(ev.line);
+            depths.push_back(ev.depth);
+            return StepMode::StepOut;
+        };
+        CHECK(vm.run(src));
+        CHECK(lines.size() == 2);
+        CHECK((lines[0] == 4 && depths[0] == 1));
+        CHECK((lines[1] == 8 && depths[1] == 0));
+    }
+
+    // No breakpoints + default mode => never pauses (zero overhead to correctness).
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        int pauses = 0;
+        dbg.onPause = [&](Debugger&, const PauseEvent&) {
+            ++pauses;
+            return StepMode::Continue;
+        };
+        CHECK(vm.run(src));
+        CHECK((pauses == 0 && dbg.pauseCount() == 0));
+    }
+
+    // Break-at-entry single-steps from the first statement; breakpoint toggling works.
+    {
+        Vm vm;
+        Debugger dbg(vm);
+        dbg.breakAtEntry();
+        int stops = 0, firstLine = -1;
+        dbg.onPause = [&](Debugger&, const PauseEvent& ev) {
+            if (firstLine < 0) firstLine = ev.line;
+            ++stops;
+            return StepMode::StepInto;
+        };
+        CHECK(vm.run(src));
+        CHECK(firstLine == 1);
+        CHECK(stops >= 6);
+        CHECK(!dbg.hasBreakpoint(2));
+        dbg.addBreakpoint(2);
+        CHECK(dbg.hasBreakpoint(2));
+        dbg.removeBreakpoint(2);
+        CHECK(!dbg.hasBreakpoint(2));
+    }
+}
+
 // Script↔engine bridge: a script class attached to a node drives its transform via lifecycle hooks.
 void testScriptSystem() {
     using maz::script::ScriptSystem;
@@ -18508,6 +18640,7 @@ int main() {
     testScriptHotReload();
     testScriptTyping();
     testScriptTooling();
+    testScriptDebugger();
     testScriptSystem();
     testSceneTree();
     testSceneSerialize();

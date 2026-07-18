@@ -215,7 +215,15 @@ Windows editor download.
 ### 14. Scripting ecosystem  [CPU/BIG]
 Maz has its own VM. Godot has GDScript + C# + GDExtension (native plugins).
 - [ ] **[CPU]** GDExtension-style C ABI so third parties add engine modules without recompiling
-- [ ] **[CPU]** Debugger protocol (breakpoints, step, variable inspection) for the maz::script VM
+- [x] **[CPU]** Debugger protocol (breakpoints, step, variable inspection) for the maz::script VM
+  — **done** (M236): `script::Debugger` drives the VM's per-statement hook and adds line breakpoints,
+  the four stepping modes (into / over / out / continue) resolved from call-stack depth, a call-stack
+  snapshot at each stop, and paused-frame variable inspection (`locals()` / `resolve()` /
+  `valueString()`). Execution pauses synchronously via an `onPause` handler that returns the next step
+  mode. Verified: breakpoint + local inspection (a/b/s inside a function with the right call stack),
+  step-into descending into a call, step-over skipping a body, step-out returning to the caller,
+  break-at-entry single-stepping, and zero pauses when nothing is armed. Wiring this to a remote IDE
+  over a socket is the [DESK] transport on top; the decision + inspection core is complete.
 - [ ] **[CPU]** Optional C# / other language hosting (large)
 
 ---
