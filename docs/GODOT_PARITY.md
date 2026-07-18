@@ -113,7 +113,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   plus **number formatting** M305 — numToString/padDecimals/padZeros/humanizeSize matching Godot
   String's num/pad_decimals/pad_zeros and String.humanize_size, reproducing Godot's exact quirks
   (pad_decimals/pad_zeros are string surgery that truncate rather than round; humanize_size uses a
-  strict `>` unit step so an exact 1024-multiple stays in the smaller binary unit)),
+  strict `>` unit step so an exact 1024-multiple stays in the smaller binary unit),
+  plus **C-string escaping** M308 — cEscape/cUnescape matching Godot String's c_escape/c_unescape
+  (the backslash sequences Godot writes into text resources / C literals: \\ \a \b \f \n \r \t \v
+  \' \", with c_unescape also accepting \?), verified to round-trip exactly),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or

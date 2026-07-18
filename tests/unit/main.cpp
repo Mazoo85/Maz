@@ -11352,6 +11352,25 @@ void testStringUtils() {
     CHECK(su::humanizeSize(1048576) == "1024.00 KiB");
     CHECK(su::humanizeSize(1048577) == "1.00 MiB");
     CHECK(su::humanizeSize(1073741825ULL) == "1.00 GiB");
+
+    // --- C-string escaping (M308): c_escape / c_unescape ---
+    CHECK(su::cEscape("a\nb\tc") == "a\\nb\\tc");
+    CHECK(su::cEscape("quote\"and'apos") == "quote\\\"and\\'apos");
+    CHECK(su::cEscape("back\\slash") == "back\\\\slash");
+    CHECK(su::cEscape(std::string("\a\b\f\r\v")) == "\\a\\b\\f\\r\\v");
+    CHECK(su::cEscape("plain text 123") == "plain text 123");
+    CHECK(su::cUnescape("a\\nb\\tc") == "a\nb\tc");
+    CHECK(su::cUnescape("back\\\\slash") == "back\\slash");
+    CHECK(su::cUnescape("\\?") == "?");
+    CHECK(su::cUnescape("\\z") == "z");    // unknown escape drops the backslash
+    CHECK(su::cUnescape("end\\") == "end\\"); // trailing lone backslash kept
+    {
+        const std::string cs[] = {"", "hello", "line1\nline2\r\n", "mix \"q\" 'a' \\ back",
+                                  std::string("\a\b\f\v ctl"), "\\\\\\\\", "\"\"\"\""};
+        for (const std::string& s : cs) {
+            CHECK(su::cUnescape(su::cEscape(s)) == s);
+        }
+    }
 }
 
 void testSlotMap() {

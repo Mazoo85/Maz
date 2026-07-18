@@ -759,4 +759,66 @@ inline std::string humanizeSize(std::uint64_t bytes) {
     return numToString(value, digits) + prefixes[idx];
 }
 
+// ---- C-string escaping (M308) — Godot String.c_escape / c_unescape ----------------------------
+//
+// The escaping Godot uses when it writes a string into a text resource (.tscn/.tres) or any
+// C-style literal: control characters and quotes become backslash sequences and back. c_escape maps
+// the backslash itself plus the bell/backspace/formfeed/newline/carriage-return/tab/vtab controls and
+// both quote marks; c_unescape reverses that (also accepting \? -> ?, which some emitters produce).
+// The pair round-trips exactly. Deterministic, header-only, unit-tested.
+
+// Escape control characters and quotes into C-style backslash sequences — Godot's String.c_escape.
+inline std::string cEscape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char ch : s) {
+        switch (ch) {
+        case '\\': out += "\\\\"; break;
+        case '\a': out += "\\a"; break;
+        case '\b': out += "\\b"; break;
+        case '\f': out += "\\f"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        case '\v': out += "\\v"; break;
+        case '\'': out += "\\'"; break;
+        case '"': out += "\\\""; break;
+        default: out.push_back(ch); break;
+        }
+    }
+    return out;
+}
+
+// Reverse cEscape: turn C-style backslash sequences back into their characters — Godot's c_unescape.
+// A backslash before an unrecognized character keeps that character verbatim (drops the backslash),
+// and a trailing lone backslash is kept as-is.
+inline std::string cUnescape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    std::size_t i = 0;
+    while (i < s.size()) {
+        if (s[i] == '\\' && i + 1 < s.size()) {
+            const char n = s[i + 1];
+            switch (n) {
+            case '\\': out.push_back('\\'); break;
+            case 'a': out.push_back('\a'); break;
+            case 'b': out.push_back('\b'); break;
+            case 'f': out.push_back('\f'); break;
+            case 'n': out.push_back('\n'); break;
+            case 'r': out.push_back('\r'); break;
+            case 't': out.push_back('\t'); break;
+            case 'v': out.push_back('\v'); break;
+            case '\'': out.push_back('\''); break;
+            case '"': out.push_back('"'); break;
+            case '?': out.push_back('?'); break;
+            default: out.push_back(n); break; // unknown escape: keep the char, drop the backslash
+            }
+            i += 2;
+        } else {
+            out.push_back(s[i++]);
+        }
+    }
+    return out;
+}
+
 } // namespace maz::core
