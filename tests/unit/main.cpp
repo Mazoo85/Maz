@@ -50,6 +50,7 @@
 #include "maz/net/BitStream.hpp"
 #include "maz/net/Connection.hpp"
 #include "maz/net/Interpolation.hpp"
+#include "maz/net/NetSim.hpp"
 #include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
 #include "maz/net/Replication.hpp"
@@ -5776,6 +5777,87 @@ void testConnection() {
     std::vector<uint8_t> ep;
     CHECK(server.unpack(emptyPkt, ep));
     CHECK(ep.empty());
+}
+
+void testNetSim() {
+    using net::NetConditions;
+    using net::NetSim;
+    auto pkt = [](uint8_t id) { return std::vector<uint8_t>{id}; };
+
+    // Pure latency: a packet isn't delivered until now + latency.
+    {
+        NetSim s;
+        NetConditions c;
+        c.latency = 0.1;
+        s.setConditions(c);
+        CHECK(s.send(pkt(1), 0.0));
+        CHECK(s.pending() == 1);
+        CHECK(s.receive(0.05).empty());
+        const auto got = s.receive(0.1);
+        CHECK(got.size() == 1);
+        CHECK(got[0][0] == 1);
+        CHECK(s.pending() == 0);
+    }
+
+    // Guaranteed loss: send returns false and nothing is queued.
+    {
+        NetSim s;
+        NetConditions c;
+        c.lossChance = 1.0f;
+        s.setConditions(c);
+        CHECK(!s.send(pkt(2), 0.0));
+        CHECK(s.pending() == 0);
+        CHECK(s.dropped() == 1);
+    }
+
+    // Guaranteed duplication: one send produces two deliveries.
+    {
+        NetSim s;
+        NetConditions c;
+        c.dupChance = 1.0f;
+        s.setConditions(c);
+        CHECK(s.send(pkt(3), 0.0));
+        CHECK(s.pending() == 2);
+        CHECK(s.duplicated() == 1);
+        CHECK(s.receive(0.0).size() == 2);
+    }
+
+    // Reordering: a later packet with shorter latency is delivered first (sample times chosen
+    // above the float sum to avoid boundary rounding).
+    {
+        NetSim s;
+        NetConditions c;
+        c.latency = 0.2;
+        s.setConditions(c);
+        CHECK(s.send(pkt('A'), 0.0)); // delivers at 0.2
+        c.latency = 0.1;
+        s.setConditions(c);
+        CHECK(s.send(pkt('B'), 0.05)); // delivers at ~0.15
+        const auto early = s.receive(0.16);
+        CHECK(early.size() == 1);
+        CHECK(early[0][0] == 'B');
+        const auto late = s.receive(0.25);
+        CHECK(late.size() == 1);
+        CHECK(late[0][0] == 'A');
+    }
+
+    // Determinism: identical seed + config -> identical drop pattern.
+    {
+        NetSim a(12345u);
+        NetSim b(12345u);
+        NetConditions c;
+        c.lossChance = 0.5f;
+        a.setConditions(c);
+        b.setConditions(c);
+        for (int i = 0; i < 200; ++i) {
+            a.send(pkt(static_cast<uint8_t>(i)), 0.0);
+            b.send(pkt(static_cast<uint8_t>(i)), 0.0);
+        }
+        CHECK(a.dropped() == b.dropped());
+        CHECK(a.pending() == b.pending());
+        CHECK(a.dropped() > 50);  // ~50% of 200, well away from the extremes
+        CHECK(a.dropped() < 150);
+    }
 }
 
 void testProfiler() {
@@ -17553,6 +17635,7 @@ int main() {
     testRpc();
     testReplication();
     testConnection();
+    testNetSim();
     testNoise();
     testRandom();
     testInterpolate();

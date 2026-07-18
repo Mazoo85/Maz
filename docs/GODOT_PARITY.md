@@ -152,7 +152,10 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
 - [x] **[CPU]** Scene-replication nodes: `net::Replication` (`ReplicatedObject` declares get/set
   properties with wire widths; `Synchronizer` holds the per-peer baseline and does writeFull/
   writeDelta/readFull/readDelta over net::Snapshot). M218. Godot's MultiplayerSynchronizer.
-- [ ] **[CPU]** WebSocket + WebRTC data channels
+- [x] **[CPU]** Network-condition simulator: `net::NetSim` (seeded-deterministic latency/jitter/
+  loss/duplication queue; send/receive by caller time). M220. The "bad network" test harness that
+  validates the ack/interpolation/prediction layers — beyond what Godot ships built-in.
+- [ ] **[DESK]** WebSocket + WebRTC data channels (browser/native transports — need real sockets)
 
 ### 11. XR / VR  [GPU][DESK][BIG]
 - [ ] **[GPU]** OpenXR integration, stereo rendering, XR controllers/hands
