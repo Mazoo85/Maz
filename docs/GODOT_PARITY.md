@@ -35,7 +35,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   mat4 interop; semantics matched to Godot's Transform3D/Basis source), **Quaternion** (M269,
   `math::Quaternion` — Godot's rotation quaternion: axis-angle + Euler build/read in Godot's exact
   YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
-  so orientations authored in Godot import identically), **Vector2i/Vector3i** (M270,
+  so orientations authored in Godot import identically), **Projection** (M292, `math::Projection` —
+  Godot's 4x4 projection-matrix type: perspective/orthographic/frustum constructors (RH, depth 0..1)
+  plus the near/far/fov/aspect/is-orthogonal queries recovered from the matrix, xform/project,
+  compose and inverse), **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
   lengthSquared, length/distance, aspect, and float-vec conversion), **Vector4/Vector4i** (M286,

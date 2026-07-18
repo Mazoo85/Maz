@@ -197,6 +197,7 @@
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
 #include "maz/math/Transform2D.hpp"
+#include "maz/math/Projection.hpp"
 #include "maz/math/Transform3D.hpp"
 #include "maz/math/Quaternion.hpp"
 #include "maz/math/Vector4.hpp"
@@ -12437,6 +12438,64 @@ void testVectorOps() {
 
 // Transform3D: Godot's Basis+origin spatial transform — xform/xformInv, compose, affine/rigid
 // inverse, translated/rotated/scaled (global + local), lookingAt, interpolateWith, mat4 interop.
+// Projection: Godot's 4x4 projection matrix type (M292) — RH, depth 0..1. Round-trips its constructor
+// inputs, projects near/far planes to NDC z=0/1, composes with its inverse to identity.
+void testProjection() {
+    using math::Projection;
+    using math::vec3;
+    using math::vec4;
+    const float kPi = 3.14159265358979f;
+    auto nearf = [](float a, float b, float e = 1e-3f) { return std::fabs(a - b) < e; };
+
+    // Perspective recovers aspect / fov / near / far.
+    {
+        const float fov = kPi / 3.0f; // 60 deg
+        const float aspect = 1.6f, zn = 0.1f, zf = 100.0f;
+        const Projection p = Projection::perspective(fov, aspect, zn, zf);
+        CHECK(!p.isOrthogonal());
+        CHECK(nearf(p.getAspect(), aspect));
+        CHECK(nearf(p.getFovYRadians(), fov));
+        CHECK(nearf(p.getZNear(), zn));
+        CHECK(nearf(p.getZFar(), zf, 0.05f));
+    }
+    // Orthographic is orthogonal; near/far recovered.
+    {
+        const Projection o = Projection::orthographic(-2, 2, -1, 1, 0.5f, 50.0f);
+        CHECK(o.isOrthogonal());
+        CHECK(nearf(o.getZNear(), 0.5f));
+        CHECK(nearf(o.getZFar(), 50.0f, 0.05f));
+    }
+    // Frustum is a perspective family.
+    {
+        const Projection f = Projection::frustum(-1, 1, -1, 1, 0.5f, 20.0f);
+        CHECK(!f.isOrthogonal());
+        CHECK(nearf(f.getZNear(), 0.5f, 0.02f));
+    }
+    // Near/far planes map to NDC z 0 / 1 (RH, ZO).
+    {
+        const Projection p = Projection::perspective(kPi / 2.0f, 1.0f, 1.0f, 10.0f);
+        CHECK(nearf(p.project(vec3(0, 0, -1.0f)).z, 0.0f));
+        CHECK(nearf(p.project(vec3(0, 0, -10.0f)).z, 1.0f));
+        // xform keeps homogeneous w = -z.
+        CHECK(nearf(p.xform(vec4(0, 0, -5.0f, 1.0f)).w, 5.0f));
+    }
+    // Compose with inverse -> identity; determinant non-zero.
+    {
+        const Projection p = Projection::perspective(kPi * 0.4f, 1.3f, 0.2f, 80.0f);
+        const Projection id = p * p.inverse();
+        bool isId = true;
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) {
+                if (!nearf(id.m[c][r], (c == r) ? 1.0f : 0.0f)) {
+                    isId = false;
+                }
+            }
+        }
+        CHECK(isId);
+        CHECK(std::fabs(p.determinant()) > 1e-8f);
+    }
+}
+
 void testTransform3D() {
     using math::vec3;
     using T = math::Transform3D;
@@ -21929,6 +21988,7 @@ int main() {
     testGeometry3DHelpers();
     testVectorOps();
     testTransform3D();
+    testProjection();
     testQuaternion();
     testVectorInt();
     testVector4();
