@@ -1,6 +1,7 @@
 #pragma once
 
-#include "maz/math/Math.hpp" // vec2, vec3, dot, cross, normalize
+#include "maz/math/Math.hpp"      // vec2, vec3, dot, cross, normalize
+#include "maz/math/MathFuncs.hpp" // isEqualApproxf, isZeroApproxf
 
 #include <cmath>
 
@@ -22,6 +23,30 @@ namespace maz::math {
 inline bool isFinite(const vec2& v) { return std::isfinite(v.x) && std::isfinite(v.y); }
 inline bool isFinite(const vec3& v) {
     return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+// Component-wise approximate equality — Godot's Vector2/Vector3.is_equal_approx: each component is
+// compared with the scalar relative-epsilon is_equal_approx (CMP_EPSILON = 1e-5), so tiny
+// float-rounding differences read as equal.
+inline bool isEqualApprox(const vec2& a, const vec2& b) {
+    return isEqualApproxf(a.x, b.x) && isEqualApproxf(a.y, b.y);
+}
+inline bool isEqualApprox(const vec3& a, const vec3& b) {
+    return isEqualApproxf(a.x, b.x) && isEqualApproxf(a.y, b.y) && isEqualApproxf(a.z, b.z);
+}
+
+// Every component within CMP_EPSILON of zero — Godot's Vector2/Vector3.is_zero_approx.
+inline bool isZeroApprox(const vec2& v) { return isZeroApproxf(v.x) && isZeroApproxf(v.y); }
+inline bool isZeroApprox(const vec3& v) {
+    return isZeroApproxf(v.x) && isZeroApproxf(v.y) && isZeroApproxf(v.z);
+}
+
+// Length is 1 within UNIT_EPSILON (0.001) — Godot's Vector2/Vector3.is_normalized. Tested on the
+// squared length (no sqrt), and using Godot's exact ABSOLUTE UNIT_EPSILON tolerance, which is looser
+// than the relative CMP_EPSILON used for is_equal_approx — matching Godot bit-for-bit.
+inline bool isNormalized(const vec2& v) { return std::abs(v.x * v.x + v.y * v.y - 1.0f) < 0.001f; }
+inline bool isNormalized(const vec3& v) {
+    return std::abs(v.x * v.x + v.y * v.y + v.z * v.z - 1.0f) < 0.001f;
 }
 
 // ---- shared scalar helpers ------------------------------------------------------------------

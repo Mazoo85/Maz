@@ -29,7 +29,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   application-negates) (M323 adds the Vector3 overload rotated(v,axis,angle)
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
   path) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
-  every component is finite, verified to reject a single NaN or inf component), plus **vector slerp** (M301 — `math::slerp` for
+  every component is finite, verified to reject a single NaN or inf component) (M335 adds
+  isEqualApprox / isZeroApprox / isNormalized for vec2/vec3 — Godot's Vector2/Vector3.is_equal_approx
+  (per-component relative CMP_EPSILON), is_zero_approx, and is_normalized (squared length within the
+  looser absolute UNIT_EPSILON = 0.001, matching Godot bit-for-bit), verified against normalized and
+  un-normalized inputs), plus **vector slerp** (M301 — `math::slerp` for
   vec2/vec3: arc-interpolate direction while lerping length, Godot's Vector2/Vector3.slerp, with
   lerp fallback for zero-length/colinear inputs), plus **octahedral normal encoding** (M302 —
   `math::octahedronEncode` / `octahedronDecode`, Godot's Vector3.octahedron_encode/decode: pack a unit

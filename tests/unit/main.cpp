@@ -13251,6 +13251,19 @@ void testVectorOps() {
         CHECK(!math::isFinite(vec3(1.0f, 2.0f, -bad_inf)));
     }
 
+    // M335: Vector2/Vector3 approximate-comparison predicates (Godot is_equal_approx/is_zero_approx/
+    // is_normalized). Rounding-scale differences read as equal; is_normalized uses UNIT_EPSILON.
+    CHECK(math::isEqualApprox(vec2(1.0f, 2.0f), vec2(1.0f + 1e-7f, 2.0f)));
+    CHECK(!math::isEqualApprox(vec2(1.0f, 2.0f), vec2(1.1f, 2.0f)));
+    CHECK(math::isEqualApprox(vec3(1, 2, 3), vec3(1.0f + 1e-7f, 2, 3)));
+    CHECK(!math::isEqualApprox(vec3(1, 2, 3), vec3(1, 2, 3.2f)));
+    CHECK((math::isZeroApprox(vec2(1e-7f, -1e-7f)) && !math::isZeroApprox(vec2(0.1f, 0.0f))));
+    CHECK((math::isZeroApprox(vec3(0, 1e-8f, 0)) && !math::isZeroApprox(vec3(0, 0, 0.5f))));
+    CHECK((math::isNormalized(vec2(1, 0)) && math::isNormalized(math::normalize(vec2(3, 4)))));
+    CHECK(!math::isNormalized(vec2(3, 4)));
+    CHECK((math::isNormalized(vec3(0, 1, 0)) && math::isNormalized(math::normalize(vec3(1, 2, 2)))));
+    CHECK(!math::isNormalized(vec3(1, 2, 2)));
+
     // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
     CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);
     CHECK_NEAR(math::fposmod(7.0f, 3.0f), 1.0f, 1e-5f);
