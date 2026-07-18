@@ -197,6 +197,29 @@ int main() {
               "1 bar at 120 BPM is 0.5 Hz");
     }
 
+    // --- Filter-resonance target: sweeps the lead synth's filter Q ----------
+    {
+        audio::Automation autom;
+        audio::AutoLane& fr = autom.lane(audio::AutoTarget::FilterResonance);
+        fr.enabled = true;
+        fr.lfo.shape = audio::Waveform::Sine;
+        fr.lfo.rateHz = 1.0f;
+        fr.lo = 1.0f;
+        fr.hi = 12.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        eng.sequencer().synth().setFilter(1200.0f, 2.0f, 0.0f); // known cutoff to preserve
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.sequencer().synth().filterResonance() > 11.0f,
+              "automating filter resonance sweeps the Q to the high bound");
+        check(std::fabs(eng.sequencer().synth().filterCutoff() - 1200.0f) < 1.0f,
+              "filter-resonance automation preserves the cutoff");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.sequencer().synth().filterResonance() < 1.5f,
+              "filter-resonance automation reaches its low bound");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

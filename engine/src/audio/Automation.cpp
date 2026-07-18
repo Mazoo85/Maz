@@ -53,6 +53,8 @@ Automation::Automation() {
     lane(AutoTarget::StereoWidth).hi = 2.0f;
     lane(AutoTarget::SynthCutoff).lo = 200.0f;
     lane(AutoTarget::SynthCutoff).hi = 8000.0f;
+    lane(AutoTarget::FilterResonance).lo = 0.7f;
+    lane(AutoTarget::FilterResonance).hi = 12.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -77,6 +79,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Stereo Width";
     case AutoTarget::SynthCutoff:
         return "Synth Cutoff";
+    case AutoTarget::FilterResonance:
+        return "Filter Reso";
     case AutoTarget::Count:
         break;
     }
@@ -166,6 +170,13 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // preserving its resonance and envelope amount.
             SynthInstrument& syn = engine.sequencer().synth();
             syn.setFilter(v, syn.filterResonance(), syn.filterEnvAmount());
+            break;
+        }
+        case AutoTarget::FilterResonance: {
+            // Sweep the lead synth's filter resonance (Q) — screaming acid builds — preserving the
+            // cutoff and envelope amount.
+            SynthInstrument& syn = engine.sequencer().synth();
+            syn.setFilter(syn.filterCutoff(), v, syn.filterEnvAmount());
             break;
         }
         case AutoTarget::Count:

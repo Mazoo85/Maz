@@ -21,6 +21,7 @@ enum class AutoTarget {
     DistDrive,
     StereoWidth,
     SynthCutoff,
+    FilterResonance,
     Count
 };
 
