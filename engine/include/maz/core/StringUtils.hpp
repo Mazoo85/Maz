@@ -374,4 +374,111 @@ inline std::string simplifyPath(const std::string& path) {
     return out;
 }
 
+// ---- case conversion (Godot String's capitalize / to_snake_case / to_camel_case /
+// to_pascal_case) (M287) ---------------------------------------------------------------------------
+
+namespace detail {
+inline bool isUpperAscii(char c) { return c >= 'A' && c <= 'Z'; }
+inline bool isLowerAscii(char c) { return c >= 'a' && c <= 'z'; }
+inline bool isDigitAscii(char c) { return c >= '0' && c <= '9'; }
+inline bool isAlnumAscii(char c) {
+    return isUpperAscii(c) || isLowerAscii(c) || isDigitAscii(c);
+}
+
+// Split into words the way Godot's case converters do: runs of non-alphanumeric characters are
+// separators, and inside an alphanumeric run a boundary is inserted before an uppercase letter that
+// follows a lowercase/digit (aB -> a|B) or that ends an acronym run before a lowercase (ABc -> A|Bc).
+// Acronyms are thus treated as a single word ("HTTPServer" -> "HTTP","Server").
+inline std::vector<std::string> splitCaseWords(const std::string& s) {
+    std::vector<std::string> words;
+    std::string cur;
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        const char c = s[i];
+        if (!isAlnumAscii(c)) {
+            if (!cur.empty()) {
+                words.push_back(cur);
+                cur.clear();
+            }
+            continue;
+        }
+        if (!cur.empty()) {
+            const char prev = cur.back();
+            bool boundary = false;
+            if (isUpperAscii(c) && (isLowerAscii(prev) || isDigitAscii(prev))) {
+                boundary = true;
+            } else if (isUpperAscii(c) && isUpperAscii(prev) && i + 1 < s.size() &&
+                       isLowerAscii(s[i + 1])) {
+                boundary = true;
+            }
+            if (boundary) {
+                words.push_back(cur);
+                cur.clear();
+            }
+        }
+        cur.push_back(c);
+    }
+    if (!cur.empty()) {
+        words.push_back(cur);
+    }
+    return words;
+}
+
+inline std::string firstUpperRestLower(const std::string& w) {
+    std::string out = toLower(w);
+    if (!out.empty()) {
+        out[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(out[0])));
+    }
+    return out;
+}
+} // namespace detail
+
+// "move_local_x" / "camelCase" -> "Move Local X" / "Camel Case" (Godot's String.capitalize):
+// splits into words, lowercases them, then capitalizes each and joins with single spaces.
+inline std::string capitalize(const std::string& s) {
+    const auto words = detail::splitCaseWords(s);
+    std::string out;
+    for (std::size_t i = 0; i < words.size(); ++i) {
+        if (i) {
+            out += ' ';
+        }
+        out += detail::firstUpperRestLower(words[i]);
+    }
+    return out;
+}
+
+// "MoveLocalX" / "camelCase" -> "move_local_x" / "camel_case" (Godot's String.to_snake_case):
+// lowercase words joined by underscores.
+inline std::string toSnakeCase(const std::string& s) {
+    const auto words = detail::splitCaseWords(s);
+    std::string out;
+    for (std::size_t i = 0; i < words.size(); ++i) {
+        if (i) {
+            out += '_';
+        }
+        out += toLower(words[i]);
+    }
+    return out;
+}
+
+// "move_local_x" -> "MoveLocalX" (Godot's String.to_pascal_case): each word capitalized, no
+// separators. Acronyms are normalized ("HTTPServer" -> "HttpServer").
+inline std::string toPascalCase(const std::string& s) {
+    const auto words = detail::splitCaseWords(s);
+    std::string out;
+    for (const auto& w : words) {
+        out += detail::firstUpperRestLower(w);
+    }
+    return out;
+}
+
+// "move_local_x" -> "moveLocalX" (Godot's String.to_camel_case): PascalCase with a lowercase first
+// letter.
+inline std::string toCamelCase(const std::string& s) {
+    std::string out = toPascalCase(s);
+    if (!out.empty()) {
+        out[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[0])));
+    }
+    return out;
+}
+
 } // namespace maz::core

@@ -10875,6 +10875,23 @@ void testStringUtils() {
     CHECK(su::simplifyPath("../a") == "../a");
     CHECK(su::simplifyPath("a/b/..") == "a");
     CHECK(su::simplifyPath("/..") == "/");
+
+    // Case conversion (M287): capitalize / to_snake_case / to_pascal_case / to_camel_case.
+    CHECK(su::capitalize("move_local_x") == "Move Local X");
+    CHECK(su::capitalize("camelCase") == "Camel Case");
+    CHECK(su::capitalize("HELLO_WORLD") == "Hello World");
+    CHECK(su::capitalize("") == "");
+    CHECK(su::toSnakeCase("MoveLocalX") == "move_local_x");
+    CHECK(su::toSnakeCase("camelCase") == "camel_case");
+    CHECK(su::toSnakeCase("move_local_x") == "move_local_x");
+    CHECK(su::toSnakeCase("HTTPServer") == "http_server"); // acronym treated as one word
+    CHECK(su::toPascalCase("move_local_x") == "MoveLocalX");
+    CHECK(su::toPascalCase("camelCase") == "CamelCase");
+    CHECK(su::toPascalCase("hello world") == "HelloWorld");
+    CHECK(su::toPascalCase("HTTPServer") == "HttpServer"); // acronym normalized
+    CHECK(su::toCamelCase("move_local_x") == "moveLocalX");
+    CHECK(su::toCamelCase("PascalCase") == "pascalCase");
+    CHECK(su::toCamelCase("hello world foo") == "helloWorldFoo");
 }
 
 void testSlotMap() {

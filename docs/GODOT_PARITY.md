@@ -70,7 +70,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   contains/to_lower-upper/repeat/count, plus **number parsing** M274 — toInt/isValidInt/toFloat/
   isValidFloat/hexToInt matching Godot String's to_int/is_valid_int/to_float/is_valid_float/hex_to_int,
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
-  matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path),
+  matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
+  plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
+  String's capitalize/to_snake_case/to_camel_case/to_pascal_case (Godot-style word splitting: breaks
+  on separators and camelCase/acronym boundaries, acronyms normalized e.g. HTTPServer→HttpServer)),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or
