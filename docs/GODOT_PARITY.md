@@ -179,7 +179,15 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   drop_data): begin a drag with a typed payload, poll hover targets for acceptance, deliver to an
   accepting target on release (else keep/cancel), with single-drag and drop-when-idle guards. The
   TabContainer / ColorPicker / FileDialog *widgets* remain.
-- [ ] **[CPU]** Full theme system (per-control theme overrides, theme types)
+- [x] **[CPU]** Full theme system (per-control theme overrides, theme types)
+  (M250): extended `ui::Theme` with **theme type variations** (Godot's `theme_type_variation` /
+  theme type inheritance) — `setTypeVariation(type, base)` chains a variation onto a base type, and
+  typed lookups `themeColor` / `themeStyleBox` / `themeConstant` (+ `hasTheme*`) walk that chain
+  (multi-level, cycle-safe via a visited set) before falling back. Added a numeric **constants**
+  item class alongside colours/styleboxes. Plus **per-control theme overrides** (`ui::ThemeOverrides`
+  — Godot's `add_theme_color_override` / `add_theme_stylebox_override` / …) and free `resolveColor` /
+  `resolveStyleBox` / `resolveConstant` that give a local override precedence over the theme chain,
+  with clear-to-restore. The old freeform-key `Theme` API (M109) is untouched.
 - [ ] **[GPU]** Control clipping via viewport/backbuffer
 
 ### 9. Physics remaining  [CPU/BIG]

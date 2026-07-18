@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -163,10 +164,139 @@ public:
 
     std::size_t styleCount() const { return styles_.size(); }
 
+    // --- Theme type variations (Godot's `theme_type_variation` / theme type inheritance) ---
+    // Registers that items missing on `type` are looked up on `base` next (and so on up the chain).
+    // A variation named "FlatButton" based on "Button" inherits every Button item it doesn't override.
+    void setTypeVariation(const std::string& type, const std::string& base) { typeBase_[type] = base; }
+    std::string typeVariationBase(const std::string& type) const {
+        const auto it = typeBase_.find(type);
+        return it != typeBase_.end() ? it->second : std::string{};
+    }
+
+    // Typed setters store items under "type/name" so they participate in the inheritance chain.
+    void setColor(const std::string& type, const std::string& name, render::Color c) {
+        colors_[type + "/" + name] = c;
+    }
+    void setStyleBox(const std::string& type, const std::string& name, const StyleBoxFlat& s) {
+        styles_[type + "/" + name] = s;
+    }
+    void setConstant(const std::string& type, const std::string& name, float v) {
+        constants_[type + "/" + name] = v;
+    }
+
+    // Resolve a colour item by (type, name), walking the type-variation chain before the fallback.
+    // Cycle-safe: a base that loops back on itself is visited at most once.
+    render::Color themeColor(const std::string& type, const std::string& name,
+                             render::Color fallback = {}) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            const auto it = colors_.find(t + "/" + name);
+            if (it != colors_.end()) {
+                return it->second;
+            }
+        }
+        return fallback;
+    }
+    bool hasThemeColor(const std::string& type, const std::string& name) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            if (colors_.find(t + "/" + name) != colors_.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Resolve a StyleBoxFlat by (type, name) through the chain; returns the default style on a miss.
+    const StyleBoxFlat& themeStyleBox(const std::string& type, const std::string& name) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            const auto it = styles_.find(t + "/" + name);
+            if (it != styles_.end()) {
+                return it->second;
+            }
+        }
+        return defaultStyle_;
+    }
+    bool hasThemeStyleBox(const std::string& type, const std::string& name) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            if (styles_.find(t + "/" + name) != styles_.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Resolve a numeric constant by (type, name) through the chain.
+    float themeConstant(const std::string& type, const std::string& name, float fallback = 0.0f) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            const auto it = constants_.find(t + "/" + name);
+            if (it != constants_.end()) {
+                return it->second;
+            }
+        }
+        return fallback;
+    }
+    bool hasThemeConstant(const std::string& type, const std::string& name) const {
+        std::set<std::string> seen;
+        for (std::string t = type; !t.empty() && seen.insert(t).second; t = typeVariationBase(t)) {
+            if (constants_.find(t + "/" + name) != constants_.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     std::unordered_map<std::string, StyleBoxFlat> styles_;
     std::unordered_map<std::string, render::Color> colors_;
+    std::unordered_map<std::string, float> constants_;
+    std::unordered_map<std::string, std::string> typeBase_;
     StyleBoxFlat defaultStyle_;
 };
+
+// --- Per-control theme overrides (Godot's `add_theme_color_override` / `add_theme_stylebox_override` …) ---
+// A control carries a small local override table that takes precedence over its theme. Items are keyed by
+// name only (the control already knows its own type), matching Godot where an override wins regardless of
+// the resolved theme type. Empty by default, so a control with no overrides falls straight through.
+struct ThemeOverrides {
+    std::unordered_map<std::string, render::Color> colors;
+    std::unordered_map<std::string, StyleBoxFlat> styleBoxes;
+    std::unordered_map<std::string, float> constants;
+
+    void setColor(const std::string& name, render::Color c) { colors[name] = c; }
+    bool hasColor(const std::string& name) const { return colors.find(name) != colors.end(); }
+    void clearColor(const std::string& name) { colors.erase(name); }
+
+    void setStyleBox(const std::string& name, const StyleBoxFlat& s) { styleBoxes[name] = s; }
+    bool hasStyleBox(const std::string& name) const { return styleBoxes.find(name) != styleBoxes.end(); }
+    void clearStyleBox(const std::string& name) { styleBoxes.erase(name); }
+
+    void setConstant(const std::string& name, float v) { constants[name] = v; }
+    bool hasConstant(const std::string& name) const { return constants.find(name) != constants.end(); }
+    void clearConstant(const std::string& name) { constants.erase(name); }
+
+    bool empty() const { return colors.empty() && styleBoxes.empty() && constants.empty(); }
+};
+
+// Resolve a theme item the way a Control does: a local override wins; otherwise walk the theme's
+// type-variation chain; otherwise the supplied fallback.
+inline render::Color resolveColor(const ThemeOverrides& ov, const Theme& theme, const std::string& type,
+                                  const std::string& name, render::Color fallback = {}) {
+    const auto it = ov.colors.find(name);
+    return it != ov.colors.end() ? it->second : theme.themeColor(type, name, fallback);
+}
+inline StyleBoxFlat resolveStyleBox(const ThemeOverrides& ov, const Theme& theme, const std::string& type,
+                                    const std::string& name) {
+    const auto it = ov.styleBoxes.find(name);
+    return it != ov.styleBoxes.end() ? it->second : theme.themeStyleBox(type, name);
+}
+inline float resolveConstant(const ThemeOverrides& ov, const Theme& theme, const std::string& type,
+                             const std::string& name, float fallback = 0.0f) {
+    const auto it = ov.constants.find(name);
+    return it != ov.constants.end() ? it->second : theme.themeConstant(type, name, fallback);
+}
 
 } // namespace maz::ui

@@ -3886,6 +3886,65 @@ void testTheme() {
         CHECK_NEAR(theme.color("Button/font").r, 1.0f, 1e-4f);
         CHECK_NEAR(theme.color("nope", render::Color{0.5f, 0.0f, 0.0f, 1.0f}).r, 0.5f, 1e-4f);
     }
+
+    // Theme type variations (Godot theme_type_variation) + per-control overrides.
+    {
+        ui::Theme theme;
+        theme.setColor("Button", "font_color", render::Color{1.0f, 1.0f, 1.0f, 1.0f});
+        ui::StyleBoxFlat btn;
+        btn.bg = render::Color{0.2f, 0.2f, 0.2f, 1.0f};
+        theme.setStyleBox("Button", "normal", btn);
+        theme.setConstant("Button", "h_separation", 4.0f);
+
+        // Typed lookups.
+        CHECK(theme.hasThemeColor("Button", "font_color"));
+        CHECK_NEAR(theme.themeColor("Button", "font_color").r, 1.0f, 1e-4f);
+        CHECK(theme.hasThemeStyleBox("Button", "normal"));
+        CHECK_NEAR(theme.themeStyleBox("Button", "normal").bg.g, 0.2f, 1e-4f);
+        CHECK(theme.hasThemeConstant("Button", "h_separation"));
+        CHECK_NEAR(theme.themeConstant("Button", "h_separation", -1.0f), 4.0f, 1e-4f);
+
+        // "FlatButton" inherits from "Button", overriding only the stylebox.
+        theme.setTypeVariation("FlatButton", "Button");
+        CHECK(theme.typeVariationBase("FlatButton") == "Button");
+        ui::StyleBoxFlat flat;
+        flat.bg = render::Color{0.0f, 0.0f, 0.0f, 0.0f};
+        theme.setStyleBox("FlatButton", "normal", flat);
+        CHECK_NEAR(theme.themeColor("FlatButton", "font_color").r, 1.0f, 1e-4f);      // inherited
+        CHECK_NEAR(theme.themeConstant("FlatButton", "h_separation", -1.0f), 4.0f, 1e-4f); // inherited
+        CHECK_NEAR(theme.themeStyleBox("FlatButton", "normal").bg.a, 0.0f, 1e-4f);    // own
+        CHECK(theme.hasThemeColor("FlatButton", "font_color"));
+        CHECK(!theme.hasThemeColor("FlatButton", "no_such_item"));
+
+        // Multi-level chain PrimaryButton -> FlatButton -> Button.
+        theme.setTypeVariation("PrimaryButton", "FlatButton");
+        theme.setColor("PrimaryButton", "font_color", render::Color{1.0f, 0.0f, 0.0f, 1.0f});
+        CHECK_NEAR(theme.themeColor("PrimaryButton", "font_color").g, 0.0f, 1e-4f);       // own red
+        CHECK_NEAR(theme.themeConstant("PrimaryButton", "h_separation", -1.0f), 4.0f, 1e-4f); // 2 hops
+        CHECK_NEAR(theme.themeStyleBox("PrimaryButton", "normal").bg.a, 0.0f, 1e-4f);        // 1 hop
+
+        // Cycle-safe: A -> B -> A terminates and falls back.
+        theme.setTypeVariation("A", "B");
+        theme.setTypeVariation("B", "A");
+        CHECK_NEAR(theme.themeColor("A", "ghost", render::Color{9, 9, 9, 9}).r, 9.0f, 1e-4f);
+
+        // Per-control overrides win over the theme, and clearing restores the theme value.
+        ui::ThemeOverrides ov;
+        CHECK(ov.empty());
+        CHECK_NEAR(ui::resolveColor(ov, theme, "FlatButton", "font_color").r, 1.0f, 1e-4f); // inherited
+        ov.setColor("font_color", render::Color{0.0f, 1.0f, 0.0f, 1.0f});
+        CHECK(!ov.empty());
+        CHECK_NEAR(ui::resolveColor(ov, theme, "FlatButton", "font_color").g, 1.0f, 1e-4f); // override
+        ov.setConstant("h_separation", 20.0f);
+        CHECK_NEAR(ui::resolveConstant(ov, theme, "FlatButton", "h_separation", -1.0f), 20.0f, 1e-4f);
+        ui::StyleBoxFlat ob;
+        ob.bg = render::Color{0.5f, 0.5f, 0.5f, 1.0f};
+        ov.setStyleBox("normal", ob);
+        CHECK_NEAR(ui::resolveStyleBox(ov, theme, "FlatButton", "normal").bg.r, 0.5f, 1e-4f);
+        ov.clearColor("font_color");
+        CHECK(!ov.hasColor("font_color"));
+        CHECK_NEAR(ui::resolveColor(ov, theme, "FlatButton", "font_color").r, 1.0f, 1e-4f); // restored
+    }
 }
 
 void testTree() {
