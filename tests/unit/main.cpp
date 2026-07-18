@@ -166,6 +166,7 @@
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
+#include "maz/render/ObjLoader.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
@@ -6118,6 +6119,70 @@ void testGridMap() {
     CHECK(kx == -1000);
     CHECK(ky == 2047);
     CHECK(kz == -32768);
+}
+
+void testObjLoader() {
+    using render::ObjLoadOptions;
+    render::ObjLoadOptions noflip;
+    noflip.flipV = false;
+
+    // A quad face (v/vt/vn) fan-triangulates to 2 tris (6 indices) over 4 unique verts.
+    const std::string quad =
+        "# comment\n"
+        "o Quad\n"
+        "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"
+        "vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n"
+        "vn 0 0 1\n"
+        "f 1/1/1 2/2/1 3/3/1 4/4/1\n";
+    render::shapes::MeshData m;
+    CHECK(render::parseObj(quad, m, noflip));
+    CHECK(m.vertices.size() == 4);
+    CHECK(m.indices.size() == 6);
+    CHECK_NEAR(m.vertices[2].px, 1.0f, 1e-4f);
+    CHECK_NEAR(m.vertices[2].py, 1.0f, 1e-4f);
+    CHECK_NEAR(m.vertices[0].nz, 1.0f, 1e-4f);
+    CHECK_NEAR(m.vertices[2].u, 1.0f, 1e-4f);
+    CHECK_NEAR(m.vertices[2].v, 1.0f, 1e-4f);
+
+    // flipV (default) flips texcoord V: vt "0 0" -> v = 1.
+    render::shapes::MeshData mf;
+    CHECK(render::parseObj(quad, mf));
+    CHECK_NEAR(mf.vertices[0].v, 1.0f, 1e-4f);
+
+    // Same positions but different uv combos across two faces must NOT be over-deduplicated.
+    const std::string two =
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+        "vt 0 0\nvt 1 0\nvt 0 1\n"
+        "f 1/1 2/2 3/3\n"
+        "f 1/2 2/3 3/1\n";
+    render::shapes::MeshData m2;
+    CHECK(render::parseObj(two, m2, noflip));
+    CHECK(m2.indices.size() == 6);
+    CHECK(m2.vertices.size() == 6);
+
+    // Position-only faces with negative (relative) indices.
+    const std::string neg =
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+        "f -3 -2 -1\n";
+    render::shapes::MeshData m3;
+    CHECK(render::parseObj(neg, m3, noflip));
+    CHECK(m3.vertices.size() == 3);
+    CHECK(m3.indices.size() == 3);
+    CHECK_NEAR(m3.vertices[1].px, 1.0f, 1e-4f);
+
+    // v//vn form (no texcoord).
+    const std::string vn =
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+        "vn 0 1 0\n"
+        "f 1//1 2//1 3//1\n";
+    render::shapes::MeshData m4;
+    CHECK(render::parseObj(vn, m4, noflip));
+    CHECK(m4.vertices.size() == 3);
+    CHECK_NEAR(m4.vertices[0].ny, 1.0f, 1e-4f);
+
+    // No faces -> empty mesh -> false.
+    render::shapes::MeshData m5;
+    CHECK(!render::parseObj("v 0 0 0\n", m5, noflip));
 }
 
 void testProfiler() {
@@ -17905,6 +17970,7 @@ int main() {
     testTimer();
     testVisibleOnScreenNotifier2D();
     testGridMap();
+    testObjLoader();
     testNoise();
     testRandom();
     testInterpolate();
