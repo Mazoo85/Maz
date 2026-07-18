@@ -149,7 +149,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   plus **number parsing** M274 — toInt/isValidInt/toFloat/
   isValidFloat/hexToInt matching Godot String's to_int/is_valid_int/to_float/is_valid_float/hex_to_int
   (M327 adds binToInt — Godot String.bin_to_int: binary parse with optional 0b prefix + sign, halting
-  at the first non-binary digit, verified against powers of two and edge cases),
+  at the first non-binary digit, verified against powers of two and edge cases)
+  (M337 adds validation helpers — Godot String.is_valid_identifier (letter/underscore lead, then
+  alnum/underscore), is_valid_html_color (optional # then 3/4/6/8 hex digits — RGB/RGBA/RRGGBB/
+  RRGGBBAA), and is_subsequence_of / is_subsequence_ofn (case-insensitive) for fuzzy in-order matching;
+  all verified against valid + malformed inputs),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot

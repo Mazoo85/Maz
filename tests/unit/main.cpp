@@ -11595,6 +11595,20 @@ void testStringUtils() {
     CHECK(!su::isValidFloat(""));
     CHECK(!su::isValidFloat("1.0x"));
 
+    // --- M337: string validation helpers (is_valid_identifier / is_valid_html_color /
+    // is_subsequence_of[n]) ---
+    CHECK((su::isValidIdentifier("foo_bar1") && su::isValidIdentifier("_x")));
+    CHECK((!su::isValidIdentifier("") && !su::isValidIdentifier("1abc")));
+    CHECK((!su::isValidIdentifier("a-b") && !su::isValidIdentifier("has space")));
+    CHECK((su::isValidHtmlColor("#ff8800") && su::isValidHtmlColor("ff8800")));
+    CHECK((su::isValidHtmlColor("#fff") && su::isValidHtmlColor("f80a") &&
+           su::isValidHtmlColor("#ffffff80")));
+    CHECK((!su::isValidHtmlColor("#ff880") && !su::isValidHtmlColor("#gg8800") &&
+           !su::isValidHtmlColor("#")));
+    CHECK((su::isSubsequenceOf("ace", "abcde") && su::isSubsequenceOf("", "abcde")));
+    CHECK((!su::isSubsequenceOf("aec", "abcde") && !su::isSubsequenceOf("abcdef", "abcde")));
+    CHECK((!su::isSubsequenceOf("ACE", "abcde") && su::isSubsequenceOfNoCase("ACE", "abcde")));
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

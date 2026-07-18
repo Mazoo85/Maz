@@ -348,6 +348,67 @@ inline bool isValidFloat(const std::string& s) {
     return true;
 }
 
+// True when the string is a valid identifier (Godot's String.is_valid_identifier): non-empty, the
+// first character a letter or '_', and every remaining character a letter, digit, or '_'. Handy for
+// validating user-supplied node/variable/action names before they are used as keys.
+inline bool isValidIdentifier(const std::string& s) {
+    if (s.empty()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        const bool alpha = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        const bool digit = c >= '0' && c <= '9';
+        if (i == 0 ? !alpha : !(alpha || digit)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// True when the string is a valid HTML/hex colour (Godot's String.is_valid_html_color): an optional
+// leading '#', then exactly 3, 4, 6, or 8 hexadecimal digits (RGB / RGBA / RRGGBB / RRGGBBAA).
+inline bool isValidHtmlColor(const std::string& s) {
+    std::size_t begin = (!s.empty() && s[0] == '#') ? 1 : 0;
+    const std::size_t len = s.size() - begin;
+    if (!(len == 3 || len == 4 || len == 6 || len == 8)) {
+        return false;
+    }
+    for (std::size_t i = begin; i < s.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        if (!hex) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// True when `needle` appears as a subsequence of `text` — its characters occur in `text` in order but
+// not necessarily contiguously (Godot's String.is_subsequence_of). An empty needle matches anything.
+// The NoCase variant folds ASCII case (Godot's is_subsequence_ofn).
+inline bool isSubsequenceOf(const std::string& needle, const std::string& text,
+                            bool caseSensitive = true) {
+    if (needle.empty()) {
+        return true;
+    }
+    auto fold = [](unsigned char c) -> unsigned char {
+        return (c >= 'A' && c <= 'Z') ? static_cast<unsigned char>(c - 'A' + 'a') : c;
+    };
+    std::size_t n = 0;
+    for (std::size_t t = 0; t < text.size() && n < needle.size(); ++t) {
+        const unsigned char a = static_cast<unsigned char>(needle[n]);
+        const unsigned char b = static_cast<unsigned char>(text[t]);
+        if (caseSensitive ? (a == b) : (fold(a) == fold(b))) {
+            ++n;
+        }
+    }
+    return n == needle.size();
+}
+inline bool isSubsequenceOfNoCase(const std::string& needle, const std::string& text) {
+    return isSubsequenceOf(needle, text, false);
+}
+
 // Split on `delim` and convert each piece to a float — Godot's String.split_floats. Each token is
 // parsed with toFloat's leading-number rule (a non-numeric token yields 0.0). With allowEmpty=false
 // empty tokens are dropped BEFORE conversion, so "1,,2" gives {1,2} rather than {1,0,2}.
