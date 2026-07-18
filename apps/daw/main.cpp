@@ -809,6 +809,13 @@ void buildSynthUI(audio::Sequencer& seq) {
         float morph = syn.wavetableMorph();
         if (ImGui::SliderFloat("WT Env Morph", &morph, 0.0f, 1.0f, "%.2f"))
             syn.setWavetableMorph(morph);
+        float wtLfoRate = syn.wavetableLfoRate();
+        float wtLfoDepth = syn.wavetableLfoDepth();
+        bool wtLfoCh = ImGui::SliderFloat("WT LFO Hz", &wtLfoRate, 0.0f, 20.0f, "%.2f");
+        wtLfoCh |= ImGui::SliderFloat("WT LFO Depth", &wtLfoDepth, 0.0f, 1.0f, "%.2f");
+        if (wtLfoCh) {
+            syn.setWavetableLfo(wtLfoRate, wtLfoDepth);
+        }
         // Four morph-frame selectors (frame 0 → 3 as the position sweeps).
         const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
         int fr[4];

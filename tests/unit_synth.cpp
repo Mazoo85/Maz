@@ -188,6 +188,38 @@ int main() {
         check(dr.ringMod() == 0.0f, "ring mod defaults to 0");
     }
 
+    // --- Wavetable scan LFO --------------------------------------------------
+    {
+        // Default frames run dark→bright (Sine→…→Square). With the LFO scanning the position, a
+        // window at the LFO peak (bright frame) has more HF than one at the trough (dark frame).
+        auto windowHf = [&](float depth, int startFrame) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::Wavetable);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setWavetablePosition(0.0f);
+            s.setWavetableMorph(0.0f);        // isolate the LFO from the envelope morph
+            s.setWavetableLfo(1.0f, depth);   // 1 Hz sweep
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate, sampleRate); // 1 s
+            double h = 0.0;
+            for (int i = startFrame + 1; i < startFrame + 4000; ++i) {
+                const double d = static_cast<double>(out[static_cast<size_t>(i)] -
+                                                     out[static_cast<size_t>(i - 1)]);
+                h += d * d;
+            }
+            return h;
+        };
+        // At 1 Hz: t≈0.25 s is the LFO peak (position→1, brightest); t≈0.75 s is the trough (darkest).
+        check(windowHf(1.0f, sampleRate / 4) > windowHf(1.0f, 3 * sampleRate / 4) * 1.3,
+              "wavetable LFO sweeps the position (brighter at the LFO peak)");
+        // With no LFO depth the timbre is static across the two windows.
+        const double a = windowHf(0.0f, sampleRate / 4);
+        const double b = windowHf(0.0f, 3 * sampleRate / 4);
+        check(std::fabs(a - b) < a * 0.2 + 1e-9, "with no LFO the wavetable timbre is static");
+        audio::SynthInstrument dl;
+        check(dl.wavetableLfoDepth() == 0.0f, "wavetable LFO depth defaults to 0");
+    }
+
     // --- Oscillator section: detune / sub / noise ----------------------------
     {
         audio::SynthInstrument single;

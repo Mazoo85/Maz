@@ -77,6 +77,14 @@ public:
     void setWavetableMorph(float envAmt) { wtMorphEnv_ = envAmt; }
     float wavetablePosition() const { return wtPosition_; }
     float wavetableMorph() const { return wtMorphEnv_; }
+    // Wavetable scan LFO: sweep the table position at `rateHz` by `depth` [0,1] for continuous,
+    // evolving movement (independent of the envelope morph). depth 0 = off.
+    void setWavetableLfo(float rateHz, float depth) {
+        wtLfoRate_ = rateHz < 0.0f ? 0.0f : (rateHz > 20.0f ? 20.0f : rateHz);
+        wtLfoDepth_ = depth < 0.0f ? 0.0f : (depth > 1.0f ? 1.0f : depth);
+    }
+    float wavetableLfoRate() const { return wtLfoRate_; }
+    float wavetableLfoDepth() const { return wtLfoDepth_; }
     // Choose the four waveforms the wavetable morphs between (frame 0 → 3 as the position sweeps).
     void setWavetableFrames(Waveform a, Waveform b, Waveform c, Waveform d) {
         wtFrames_ = {a, b, c, d};
@@ -190,6 +198,9 @@ private:
     float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
+    float wtLfoRate_ = 0.0f;   // wavetable scan LFO rate (Hz)
+    float wtLfoDepth_ = 0.0f;  // wavetable scan LFO depth [0,1]; 0 = off
+    double wtLfoPhase_ = 0.0;  // wavetable scan LFO phase (shared across voices)
     float glideSeconds_ = 0.0f; // portamento time; 0 = off
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)

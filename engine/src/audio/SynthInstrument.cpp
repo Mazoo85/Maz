@@ -102,6 +102,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     // Vibrato LFO (shared across voices): a per-block start phase so every voice wavers together.
     constexpr double kTwoPiVib = 6.283185307179586;
     const double vibInc = static_cast<double>(vibRate_) / static_cast<double>(sampleRate);
+    // Wavetable scan LFO (shared across voices), same block-start-phase scheme as the vibrato.
+    const double wtLfoInc = static_cast<double>(wtLfoRate_) / static_cast<double>(sampleRate);
     // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
     const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
 
@@ -177,8 +179,14 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.modPhase -= std::floor(v.modPhase);
                 }
             } else if (mode_ == SynthMode::Wavetable) {
-                // Scan the morphing table; the amp envelope can sweep the position for movement.
-                const float pos = wtPosition_ + wtMorphEnv_ * v.env;
+                // Scan the morphing table; the amp envelope and a dedicated LFO can sweep the
+                // position for continuous movement.
+                float pos = wtPosition_ + wtMorphEnv_ * v.env;
+                if (wtLfoDepth_ > 0.0f) {
+                    const double lp = wtLfoPhase_ + static_cast<double>(i) * wtLfoInc;
+                    const float lfoU = 0.5f + 0.5f * static_cast<float>(std::sin(lp * kTwoPiVib));
+                    pos += wtLfoDepth_ * lfoU;
+                }
                 osc = wavetable_.sample(pos, v.phase);
             } else {
                 if (unisonVoices_ > 1) {
@@ -271,6 +279,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     vibPhase_ += vibInc * static_cast<double>(frames);
     if (vibPhase_ >= 1.0) {
         vibPhase_ -= std::floor(vibPhase_);
+    }
+    // Likewise the wavetable scan LFO.
+    wtLfoPhase_ += wtLfoInc * static_cast<double>(frames);
+    if (wtLfoPhase_ >= 1.0) {
+        wtLfoPhase_ -= std::floor(wtLfoPhase_);
     }
 }
 
