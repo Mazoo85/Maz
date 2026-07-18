@@ -24,6 +24,38 @@ void Delay::reset() {
     dampR_ = 0.0f;
 }
 
+namespace {
+// Each sync division as a multiple of a quarter note (quarter = 60000/bpm ms).
+constexpr float kDivMul[Delay::kSyncDivisions] = {
+    4.0f,       // 1/1
+    2.0f,       // 1/2
+    1.0f,       // 1/4
+    1.5f,       // 1/4.
+    0.5f,       // 1/8
+    0.75f,      // 1/8.
+    1.0f / 3.0f, // 1/8T
+    0.25f,      // 1/16
+};
+constexpr const char* kDivName[Delay::kSyncDivisions] = {
+    "1/1", "1/2", "1/4", "1/4.", "1/8", "1/8.", "1/8T", "1/16",
+};
+} // namespace
+
+const char* Delay::syncDivisionName(int div) {
+    if (div < 0 || div >= kSyncDivisions) {
+        return "?";
+    }
+    return kDivName[div];
+}
+
+void Delay::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    const double quarterMs = 60000.0 / bpm;
+    timeMs_ = static_cast<float>(quarterMs * static_cast<double>(kDivMul[syncDiv_]));
+}
+
 void Delay::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;

@@ -256,7 +256,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.transient().attack() << " " << mixer.transient().sustain() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
-      << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << "\n";
+      << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << " "
+      << (mixer.delay().sync() ? 1 : 0) << " " << mixer.delay().syncDivision() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
@@ -676,6 +677,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float damp = 0.0f; // damping optional for old files
                 if (ls >> damp) {
                     mixer.delay().setDamping(damp);
+                }
+                int sync = 0, div = 4; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.delay().setSync(sync != 0);
+                    mixer.delay().setSyncDivision(div);
                 }
             } else if (which == "gate") {
                 float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;

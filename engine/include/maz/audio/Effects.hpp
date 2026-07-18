@@ -52,6 +52,16 @@ public:
     void setPingPong(bool on) { pingPong_ = on; }
     // Damping (0..1): high-cut on the feedback path so each repeat gets darker — analog-style echo.
     void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    // Tempo sync: when on, the delay time tracks the transport tempo at the chosen note division
+    // (1/4, dotted 1/8, 1/8 triplet, …) instead of the fixed millisecond time. Call updateTempo()
+    // each block with the current BPM to recompute the time.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int div) { syncDiv_ = div < 0 ? 0 : (div >= kSyncDivisions ? kSyncDivisions - 1 : div); }
+    void updateTempo(double bpm); // recompute timeMs_ from bpm + division when sync is on
+    static constexpr int kSyncDivisions = 8;
+    static const char* syncDivisionName(int div);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
     float time() const { return timeMs_; }
     float feedback() const { return feedback_; }
     float mix() const { return mix_; }
@@ -67,6 +77,8 @@ private:
     float mix_ = 0.30f;
     bool pingPong_ = false;
     float damping_ = 0.0f;
+    bool sync_ = false;   // tempo-sync the delay time
+    int syncDiv_ = 4;     // note-division index (default 1/8)
     float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut state per channel
     std::vector<float> bufL_;
     std::vector<float> bufR_;

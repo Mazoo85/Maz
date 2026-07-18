@@ -1393,6 +1393,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("damp##dly", &damp, 0.0f, 1.0f, "%.2f")) mx.delay().setDamping(damp);
+        bool sync = mx.delay().sync();
+        if (ImGui::Checkbox("Sync##dly", &sync)) mx.delay().setSync(sync);
+        ImGui::SameLine();
+        int div = mx.delay().syncDivision();
+        const char* divNames[audio::Delay::kSyncDivisions];
+        for (int d = 0; d < audio::Delay::kSyncDivisions; ++d)
+            divNames[d] = audio::Delay::syncDivisionName(d);
+        ImGui::SetNextItemWidth(80.0f);
+        if (ImGui::Combo("div##dly", &div, divNames, audio::Delay::kSyncDivisions))
+            mx.delay().setSyncDivision(div);
     }
     {
         bool en = mx.reverb().enabled();

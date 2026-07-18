@@ -233,6 +233,32 @@ int main() {
               "limiter defaults to off with a −0.3 dB ceiling");
     }
 
+    // --- Tempo-synced delay: time tracks the transport --------------------
+    {
+        audio::Delay d;
+        d.setSync(true);
+        // At 120 BPM a quarter note is 500 ms. Division 2 = 1/4, 4 = 1/8, 1 = 1/2.
+        d.setSyncDivision(2);
+        d.updateTempo(120.0);
+        check(std::fabs(d.time() - 500.0f) < 0.5f, "synced delay tracks a quarter note (500 ms @120)");
+        d.setSyncDivision(4); // 1/8
+        d.updateTempo(120.0);
+        check(std::fabs(d.time() - 250.0f) < 0.5f, "1/8 division halves the delay time");
+        d.setSyncDivision(1); // 1/2
+        d.updateTempo(140.0);
+        check(std::fabs(d.time() - (60000.0f / 140.0f * 2.0f)) < 0.5f,
+              "the synced time follows the BPM and division");
+
+        // With sync off, updateTempo leaves the manual time alone.
+        audio::Delay m;
+        m.setTime(333.0f);
+        m.updateTempo(120.0);
+        check(std::fabs(m.time() - 333.0f) < 1e-3f, "updateTempo is a no-op when sync is off");
+
+        audio::Delay dd;
+        check(!dd.sync(), "delay tempo sync defaults to off");
+    }
+
     // --- De-esser: ducks the high band, leaves the low band alone ------------
     {
         // A loud high-frequency tone (well above the crossover) should be attenuated; a low tone
