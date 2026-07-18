@@ -156,6 +156,7 @@
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
 #include "maz/io/Serialize.hpp"
+#include "maz/io/StreamPeer.hpp"
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/io/Xml.hpp"
 #include "maz/ui/Container.hpp"
@@ -5631,6 +5632,78 @@ void testUI() {
     ui.end();
     CHECK(moved);
     CHECK_NEAR(vol, 50.0f, 1e-3f);
+}
+
+// StreamPeerBuffer: Godot's endian-aware typed byte buffer (M277). Exact byte layout + round-trip.
+void testStreamPeer() {
+    using maz::io::StreamPeerBuffer;
+
+    // Little-endian byte layout: low byte first.
+    {
+        StreamPeerBuffer b;
+        b.putU32(0x11223344u);
+        const auto& d = b.dataArray();
+        CHECK((d.size() == 4 && d[0] == 0x44 && d[1] == 0x33 && d[2] == 0x22 && d[3] == 0x11));
+    }
+    // Big-endian byte layout: high byte first.
+    {
+        StreamPeerBuffer b;
+        b.setBigEndian(true);
+        b.putU32(0x11223344u);
+        const auto& d = b.dataArray();
+        CHECK((d[0] == 0x11 && d[1] == 0x22 && d[2] == 0x33 && d[3] == 0x44));
+    }
+    // Round-trip a mixed sequence (little-endian).
+    {
+        StreamPeerBuffer b;
+        b.putU8(200);
+        b.put16(-1000);
+        b.putU32(0xDEADBEEFu);
+        b.put64(-5);
+        b.putFloat(3.14f);
+        b.putDouble(2.718281828);
+        b.putString("hello");
+        b.seek(0);
+        CHECK(b.getU8() == 200);
+        CHECK(b.get16() == -1000);
+        CHECK(b.getU32() == 0xDEADBEEFu);
+        CHECK(b.get64() == -5);
+        CHECK_NEAR(b.getFloat(), 3.14f, 1e-6f);
+        CHECK(std::fabs(b.getDouble() - 2.718281828) < 1e-12);
+        CHECK(b.getString() == "hello");
+    }
+    // Big-endian round-trip.
+    {
+        StreamPeerBuffer b;
+        b.setBigEndian(true);
+        b.putU16(0xABCDu);
+        b.putFloat(-42.5f);
+        b.seek(0);
+        CHECK(b.getU16() == 0xABCDu);
+        CHECK(b.getFloat() == -42.5f);
+    }
+    // Position / available bytes.
+    {
+        StreamPeerBuffer b;
+        b.putU32(1);
+        b.putU32(2);
+        CHECK(b.size() == 8);
+        b.seek(0);
+        CHECK(b.getAvailableBytes() == 8);
+        b.getU32();
+        CHECK(b.getPosition() == 4);
+        CHECK(b.getAvailableBytes() == 4);
+    }
+    // Read past the end returns 0 and leaves the cursor put; clear resets.
+    {
+        StreamPeerBuffer b;
+        b.putU8(9);
+        b.seek(1);
+        CHECK(b.getU32() == 0);
+        CHECK(b.getPosition() == 1);
+        b.clear();
+        CHECK((b.size() == 0 && b.getPosition() == 0));
+    }
 }
 
 void testSerialize() {
@@ -21382,6 +21455,7 @@ int main() {
     testRichText();
     testTextInput();
     testUI();
+    testStreamPeer();
     testSerialize();
     testBase64();
     testXml();
