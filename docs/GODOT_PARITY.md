@@ -107,7 +107,9 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
 - [~] **[CPU]** CanvasLayer, ParallaxLayer node, Path2D/PathFollow2D, RemoteTransform, VisibleOnScreenNotifier
   — **PathFollow2D done** (M221): `game::PathFollow2D` walks a Curve2D by progress/progress-ratio,
   loop-or-clamp ends, hOffset along the path normal, tangent-following rotation. Others remain.
-- [ ] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
+- [~] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
+  — **Timer done** (M222): `game::Timer` countdown with wait_time, one_shot/repeating (remainder-
+  carrying so cadence never drifts), pause/stop/restart, start(override), timeout callback. Others remain.
 - [ ] **[CPU]** GridMap (3D tile map) — *data model [CPU]*, [GPU] render
 - [ ] **[CPU]** CSG (constructive solid geometry) mesh ops — *pure mesh boolean math is [CPU]*
 - [ ] **[CPU]** MultiplayerSpawner/Synchronizer scene nodes (needs networking, below)

@@ -113,6 +113,7 @@
 #include "maz/game/Parallax.hpp"
 #include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
+#include "maz/game/Timer.hpp"
 #include "maz/game/Physics3D.hpp"
 #include "maz/game/PhysicsQuery2D.hpp"
 #include "maz/game/Shake.hpp"
@@ -5917,6 +5918,79 @@ void testPathFollow2D() {
     // rotates off -> heading stays 0.
     vf.setRotates(false);
     CHECK_NEAR(vf.sample(v).rotation, 0.0f, 0.02f);
+}
+
+void testTimer() {
+    // One-shot fires once then stops.
+    {
+        game::Timer t;
+        t.setOneShot(true);
+        t.setWaitTime(1.0);
+        CHECK(t.isStopped());
+        t.start();
+        CHECK(!t.isStopped());
+        CHECK(t.tick(0.5) == 0);
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.5f, 1e-6f);
+        CHECK(t.tick(0.6) == 1);
+        CHECK(t.isStopped());
+        CHECK(t.tick(1.0) == 0); // stopped: no further fires
+    }
+    // Repeating carries the remainder so the cadence never drifts.
+    {
+        game::Timer t;
+        t.setWaitTime(1.0); // default: repeating
+        t.start();
+        CHECK(t.tick(2.5) == 2); // fires at 1.0 and 2.0
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.5f, 1e-6f);
+        CHECK(t.tick(0.4) == 0);
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.1f, 1e-6f);
+        CHECK(t.tick(0.2) == 1); // 0.1 - 0.2 -> fire, + 1.0 = 0.9 left
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.9f, 1e-6f);
+    }
+    // Pause suspends ticking.
+    {
+        game::Timer t;
+        t.setOneShot(true);
+        t.setWaitTime(1.0);
+        t.start();
+        t.setPaused(true);
+        CHECK(t.tick(5.0) == 0);
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 1.0f, 1e-6f);
+        t.setPaused(false);
+        CHECK(t.tick(1.0) == 1);
+    }
+    // Callback runs once per fire.
+    {
+        game::Timer t;
+        t.setWaitTime(0.5);
+        t.start();
+        int calls = 0;
+        const int fires = t.tick(1.6, [&] { ++calls; }); // 0.5, 1.0, 1.5
+        CHECK(fires == 3);
+        CHECK(calls == 3);
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.4f, 1e-6f);
+    }
+    // start(override) sets the wait time.
+    {
+        game::Timer t;
+        t.setWaitTime(1.0);
+        t.setOneShot(true);
+        t.start(3.0);
+        CHECK_NEAR(static_cast<float>(t.waitTime()), 3.0f, 1e-6f);
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 3.0f, 1e-6f);
+        CHECK(t.tick(2.9) == 0);
+        CHECK(t.tick(0.2) == 1);
+    }
+    // stop resets the countdown.
+    {
+        game::Timer t;
+        t.setWaitTime(1.0);
+        t.start();
+        t.tick(0.3);
+        t.stop();
+        CHECK(t.isStopped());
+        CHECK_NEAR(static_cast<float>(t.timeLeft()), 0.0f, 1e-6f);
+    }
 }
 
 void testProfiler() {
@@ -17696,6 +17770,7 @@ int main() {
     testConnection();
     testNetSim();
     testPathFollow2D();
+    testTimer();
     testNoise();
     testRandom();
     testInterpolate();
