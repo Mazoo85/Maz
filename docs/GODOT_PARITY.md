@@ -164,8 +164,12 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   cleanup on node removal, and a Kahn `topologicalOrder` (empty on cycle). Verified across all of those.
   **ColorPicker colour math done** (M242): `render::ColorOps` — HSV<->RGB, hex `#rrggbb`/`#rrggbbaa`
   (+shorthand) parse/format, lighten/darken/lerp/invert, Rec.709 luminance, and sRGB<->linear transfer
-  functions, all verified against known colour identities. The other listed controls (TabContainer,
-  the ColorPicker *widget*, etc.) remain.
+  functions, all verified against known colour identities. **SpinBox / OptionButton / TabBar done**
+  (M244): `ui::SpinBox` (a Range with step buttons + prefix/suffix text format/parse), `ui::OptionButton`
+  (drop-down list with selected item, id lookup, disabled rejection, auto-select-first), and `ui::TabBar`
+  (ordered tab strip with current tracking, disabled-skipping next/previous nav, removal that clamps
+  current). Verified across clamp/snap, selection, and navigation edge cases. TabContainer, the
+  ColorPicker/FileDialog *widgets*, and drag-and-drop remain.
 - [ ] **[CPU]** Full theme system (per-control theme overrides, theme types)
 - [ ] **[GPU]** Control clipping via viewport/backbuffer
 

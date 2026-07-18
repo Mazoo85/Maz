@@ -161,6 +161,7 @@
 #include "maz/ui/Theme.hpp"
 #include "maz/ui/ItemList.hpp"
 #include "maz/ui/PopupMenu.hpp"
+#include "maz/ui/Controls.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
@@ -3509,6 +3510,83 @@ void testRange() {
         CHECK(bar.percent() == 0);
         bar.setValue(100.0);
         CHECK(bar.percent() == 100);
+    }
+}
+
+void testControls() {
+    using ui::OptionButton;
+    using ui::SpinBox;
+    using ui::TabBar;
+
+    // SpinBox: step snap + clamp, buttons, text format/parse with prefix/suffix.
+    {
+        SpinBox sb;
+        sb.range.minValue = 0;
+        sb.range.maxValue = 10;
+        sb.range.step = 2;
+        sb.prefix = "$";
+        sb.suffix = " USD";
+        sb.setValue(3);
+        CHECK_NEAR(sb.value(), 4.0, 1e-9); // snapped to the step grid
+        sb.increment();
+        CHECK_NEAR(sb.value(), 6.0, 1e-9);
+        sb.decrement();
+        CHECK_NEAR(sb.value(), 4.0, 1e-9);
+        sb.setValue(100);
+        CHECK_NEAR(sb.value(), 10.0, 1e-9); // clamped to max
+        CHECK(sb.text() == "$10 USD");
+        CHECK(sb.setText("$8 USD"));
+        CHECK_NEAR(sb.value(), 8.0, 1e-9);
+        CHECK(sb.setText("6"));
+        CHECK_NEAR(sb.value(), 6.0, 1e-9);
+        CHECK(!sb.setText("abc")); // not a number -> unchanged
+        CHECK_NEAR(sb.value(), 6.0, 1e-9);
+    }
+
+    // OptionButton: auto-select first, id lookup, disabled rejection.
+    {
+        OptionButton ob;
+        CHECK(ob.selected() == -1);
+        ob.addItem("Low", 5);
+        ob.addItem("Medium", 6);
+        ob.addItem("High", 7);
+        CHECK((ob.selected() == 0 && ob.selectedId() == 5 && ob.selectedText() == "Low"));
+        CHECK(ob.select(2));
+        CHECK((ob.selectedId() == 7 && ob.selectedText() == "High"));
+        CHECK(ob.selectById(6));
+        CHECK(ob.selected() == 1);
+        CHECK(!ob.selectById(99));
+        ob.setItemDisabled(0, true);
+        CHECK(!ob.select(0));       // disabled
+        CHECK(ob.selected() == 1);
+        CHECK(!ob.select(5));       // out of range
+        CHECK(ob.itemCount() == 3);
+    }
+
+    // TabBar: current tracking, disabled-skipping nav, removal clamps current.
+    {
+        TabBar tb;
+        CHECK(tb.current() == -1);
+        tb.addTab("Scene");
+        tb.addTab("Script");
+        tb.addTab("Import");
+        tb.addTab("Export");
+        CHECK(tb.current() == 0);
+        CHECK(tb.setCurrent(2));
+        tb.setTabDisabled(3, true);
+        CHECK(!tb.setCurrent(3));   // disabled
+        CHECK(tb.current() == 2);
+        CHECK(!tb.selectNext());    // only disabled tab 3 remains after 2
+        CHECK(tb.current() == 2);
+        CHECK(tb.selectPrevious()); // -> 1
+        CHECK(tb.current() == 1);
+        tb.setTabDisabled(0, true);
+        CHECK(!tb.selectPrevious()); // tab 0 disabled -> none before
+        CHECK(tb.current() == 1);
+        CHECK(tb.removeTab(1));
+        CHECK(tb.tabCount() == 3);
+        CHECK((tb.current() >= 0 && tb.current() < 3));
+        CHECK(!tb.removeTab(9)); // out of range
     }
 }
 
@@ -19209,6 +19287,7 @@ int main() {
     testLayout();
     testUiContainer();
     testRange();
+    testControls();
     testStyleBox();
     testTheme();
     testTree();
