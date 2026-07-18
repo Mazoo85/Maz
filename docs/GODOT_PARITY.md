@@ -139,7 +139,9 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
 - [x] **[CPU]** Interpolation buffer: `net::InterpolationBuffer` (time-ordered sample history;
   lerp the bracketing pair at a delayed render time; bounded velocity extrapolation for late
   packets). M215. Valve-style entity interpolation — smooth motion from discrete ticks.
-- [ ] **[CPU]** Client-side prediction + server reconciliation
+- [x] **[CPU]** Client-side prediction + server reconciliation: `net::PredictionBuffer` (apply
+  inputs locally + immediately; on an authoritative snapshot, drop acked inputs, snap to server
+  state, re-simulate the unacked ones). M216. Valve/Gaffer prediction — instant-feeling netcode.
 - [ ] **[CPU]** RPC layer + scene-replication nodes
 - [ ] **[CPU]** WebSocket + WebRTC data channels
 

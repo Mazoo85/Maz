@@ -49,6 +49,7 @@
 #include "maz/platform/Input.hpp"
 #include "maz/net/BitStream.hpp"
 #include "maz/net/Interpolation.hpp"
+#include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
 #include "maz/net/Snapshot.hpp"
 #include "maz/render/CascadeSplits.hpp"
@@ -5508,6 +5509,48 @@ void testNetInterpolation() {
     CHECK(vbuf.sample(0.5, vo));
     CHECK_NEAR(vo.x, 5.0f, 1e-4f);
     CHECK_NEAR(vo.y, 10.0f, 1e-4f);
+}
+
+void testPrediction() {
+    struct St {
+        float pos = 0.0f;
+    };
+    struct In {
+        float vel = 0.0f;
+        float dt = 0.0f;
+    };
+    auto step = [](const St& s, const In& i) { return St{s.pos + i.vel * i.dt}; };
+
+    net::PredictionBuffer<St, In> pb;
+    // Three "move right" inputs applied locally, each instantly (no server wait).
+    pb.applyInput(1, In{10.0f, 0.1f}, step); // pos 1
+    pb.applyInput(2, In{10.0f, 0.1f}, step); // pos 2
+    St s = pb.applyInput(3, In{10.0f, 0.1f}, step); // pos 3
+    CHECK_NEAR(s.pos, 3.0f, 1e-4f);
+    CHECK(pb.pendingCount() == 3);
+
+    // Correct prediction: server state after input 1 is pos 1. Re-sim 2 & 3 -> unchanged 3.
+    s = pb.reconcile(1, St{1.0f}, step);
+    CHECK_NEAR(s.pos, 3.0f, 1e-4f);
+    CHECK(pb.pendingCount() == 2);
+
+    // Misprediction: server says after input 2 the true pos is 5. Snap + re-sim input 3.
+    s = pb.reconcile(2, St{5.0f}, step);
+    CHECK_NEAR(s.pos, 6.0f, 1e-4f); // 5 + 10*0.1
+    CHECK(pb.pendingCount() == 1);
+
+    // Everything acknowledged: no pending, state equals the authoritative value.
+    s = pb.reconcile(3, St{6.0f}, step);
+    CHECK_NEAR(s.pos, 6.0f, 1e-4f);
+    CHECK(pb.pendingCount() == 0);
+
+    // A stale ack (older than all pending) drops nothing and re-sims on top of the server state.
+    net::PredictionBuffer<St, In> pb2(St{0.0f});
+    pb2.applyInput(10, In{2.0f, 1.0f}, step); // pos 2
+    pb2.applyInput(11, In{2.0f, 1.0f}, step); // pos 4
+    s = pb2.reconcile(9, St{0.0f}, step);
+    CHECK(pb2.pendingCount() == 2);
+    CHECK_NEAR(s.pos, 4.0f, 1e-4f);
 }
 
 void testProfiler() {
@@ -17281,6 +17324,7 @@ int main() {
     testReliability();
     testSnapshot();
     testNetInterpolation();
+    testPrediction();
     testNoise();
     testRandom();
     testInterpolate();
