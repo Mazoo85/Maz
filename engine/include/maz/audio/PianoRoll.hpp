@@ -75,6 +75,11 @@ public:
     // 4 = to the beat at 16ths). Returns the number of notes moved.
     int quantize(int division);
 
+    // Partial quantize: move each note only `strength` (0..1) of the way toward the nearest grid
+    // multiple of `division`, so timing feel is preserved at lower strengths (1 = full snap, like
+    // quantize). Returns the number of notes moved.
+    int quantizeStrength(int division, float strength);
+
     // Scale-snap: move every off-scale note to the nearest pitch that belongs to `scale` rooted at
     // pitch class `rootPitch` (only the root's pitch class matters, any octave). On a tie the note
     // snaps down. Notes already in the scale are untouched. Returns the number of notes moved.

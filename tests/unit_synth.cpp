@@ -732,6 +732,24 @@ int main() {
         check(qr.quantize(1) == 0, "quantize to 1 is a no-op");
     }
 
+    // Partial quantize: strength moves notes only part of the way to the grid.
+    {
+        audio::PianoRoll pq;
+        pq.addNote(audio::Note{2, 1, 60, 1.0f}); // nearest multiple of 8 is 0; halfway → 1
+        pq.quantizeStrength(8, 0.5f);
+        check(pq.notes()[0].startStep == 1, "half-strength quantize moves a note halfway to the grid");
+
+        audio::PianoRoll pf;
+        pf.addNote(audio::Note{2, 1, 60, 1.0f});
+        pf.quantizeStrength(8, 1.0f);
+        check(pf.notes()[0].startStep == 0, "full-strength quantize snaps all the way");
+
+        audio::PianoRoll pz;
+        pz.addNote(audio::Note{2, 1, 60, 1.0f});
+        check(pz.quantizeStrength(8, 0.0f) == 0 && pz.notes()[0].startStep == 2,
+              "zero-strength quantize leaves notes put");
+    }
+
     // --- Chord tool ----------------------------------------------------------
     {
         audio::PianoRoll cr;

@@ -1,6 +1,7 @@
 #include "maz/audio/PianoRoll.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace maz::audio {
 
@@ -103,6 +104,24 @@ int PianoRoll::quantize(int division) {
         const int snapped = ((n.startStep + division / 2) / division) * division;
         if (snapped != n.startStep) {
             n.startStep = snapped;
+            ++moved;
+        }
+    }
+    return moved;
+}
+
+int PianoRoll::quantizeStrength(int division, float strength) {
+    if (division < 2) {
+        return 0;
+    }
+    const float s = strength < 0.0f ? 0.0f : (strength > 1.0f ? 1.0f : strength);
+    int moved = 0;
+    for (Note& n : notes_) {
+        const int snapped = ((n.startStep + division / 2) / division) * division;
+        const int target =
+            n.startStep + static_cast<int>(std::lround(s * static_cast<float>(snapped - n.startStep)));
+        if (target != n.startStep) {
+            n.startStep = target;
             ++moved;
         }
     }

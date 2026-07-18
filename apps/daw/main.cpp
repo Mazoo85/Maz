@@ -607,11 +607,15 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     }
     ImGui::SameLine();
     static int quantDiv = 4;
+    static float quantStrength = 1.0f;
     ImGui::SetNextItemWidth(70.0f);
     ImGui::InputInt("##quantdiv", &quantDiv);
     ImGui::SameLine();
+    ImGui::SetNextItemWidth(80.0f);
+    ImGui::SliderFloat("str##quant", &quantStrength, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
     if (ImGui::Button("Quantize")) {
-        roll.quantize(quantDiv);
+        roll.quantizeStrength(quantDiv, quantStrength);
     }
     ImGui::SameLine();
     static int scaleRoot = 60; // C
