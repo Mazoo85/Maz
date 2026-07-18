@@ -130,6 +130,44 @@ struct Quaternion {
         return Quaternion(glm::normalize(glm::slerp(glm::normalize(q), glm::normalize(to.q), t)));
     }
 
+    // Spherical-linear interpolation WITHOUT the shortest-path flip — Godot's slerpni ("no
+    // inversion"). Plain slerp negates `to` when the dot is negative so it always takes the short
+    // way round; slerpni skips that, so it can travel the long arc (>180°). Useful when the caller
+    // has already chosen a winding and does not want it silently reversed.
+    Quaternion slerpni(const Quaternion& to, float t) const {
+        const quat from = glm::normalize(q);
+        const quat dst = glm::normalize(to.q);
+        const float d = glm::dot(from, dst);
+        if (std::fabs(d) > 0.9999f) {
+            return Quaternion(from); // essentially identical orientations — nothing to interpolate
+        }
+        const float theta = std::acos(d);
+        const float invSin = 1.0f / std::sin(theta);
+        const float wFrom = std::sin((1.0f - t) * theta) * invSin;
+        const float wTo = std::sin(t * theta) * invSin;
+        return Quaternion(glm::normalize(from * wFrom + dst * wTo));
+    }
+
+    // Quaternion logarithm — Godot's Quaternion.log. Maps a unit rotation quaternion to the pure
+    // (w = 0) quaternion whose vector part is axis * angle (the rotation vector). log/exp are
+    // inverses on unit quaternions and are the building blocks of quaternion spline interpolation.
+    Quaternion log() const {
+        const vec3 v = getAxis() * getAngle();
+        return Quaternion(v.x, v.y, v.z, 0.0f);
+    }
+
+    // Quaternion exponential — Godot's Quaternion.exp. Inverse of log(): takes a pure quaternion
+    // holding a rotation vector (axis * angle in its x,y,z) back to the corresponding unit rotation.
+    Quaternion exp() const {
+        vec3 v(q.x, q.y, q.z);
+        const float theta = glm::length(v);
+        if (theta < 1e-6f) {
+            return Quaternion(); // ~zero rotation vector -> identity
+        }
+        v /= theta;
+        return Quaternion::fromAxisAngle(v, theta);
+    }
+
     mat3 toMat3() const { return glm::mat3_cast(glm::normalize(q)); }
     static Quaternion fromMat3(const mat3& m) { return Quaternion(glm::quat_cast(m)); }
 };

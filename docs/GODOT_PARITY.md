@@ -41,7 +41,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   YXZ convention (from_euler/get_euler), xform, compose, inverse, slerp, angle_to, and mat3 interop,
   so orientations authored in Godot import identically; M306 adds Godot's shortest-arc two-vector
   constructor Quaternion(v0,v1) — the rotation taking one direction onto another — plus get_axis /
-  get_angle, verified by rotating the source onto the target and by axis-angle round-trip),
+  get_angle, verified by rotating the source onto the target and by axis-angle round-trip; M319
+  adds Godot's slerpni (spherical interpolation WITHOUT the shortest-path flip, so a caller-chosen
+  winding is never silently reversed) plus log / exp — the quaternion logarithm/exponential that map
+  a unit rotation to/from its axis*angle rotation vector and form the basis of quaternion spline
+  interpolation. Verified as mathematical identities: slerpni endpoints and short-arc agreement with
+  slerp, exp(log(q)) == q on unit quaternions, log of a 1-rad rotation == the pure axis quaternion,
+  and exp of the zero vector == identity),
   **Euler-order conversion** (M307, `math::basisFromEuler` / `basisGetEuler` with `EulerOrder` —
   Godot's Basis.from_euler / get_euler across ALL SIX rotation orders XYZ/XZY/YXZ/YZX/ZXY/ZYX
   (Godot's Node3D.rotation_order), so non-default rotation orders import/export identically; each

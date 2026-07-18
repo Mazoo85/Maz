@@ -13723,6 +13723,41 @@ void testQuaternion() {
         }
     }
     CHECK_NEAR(Q::identity().getAngle(), 0.0f, 1e-4f);
+
+    // --- M319: slerpni (no shortest-path flip) + log/exp ---
+    {
+        // Endpoints exact; short arc matches slerp.
+        const Q qa = Q::fromAxisAngle(vec3(0, 1, 0), 0.3f);
+        const Q qb = Q::fromAxisAngle(vec3(0, 1, 0), 1.1f);
+        CHECK(near3(qa.slerpni(qb, 0.0f).xform(vec3(1, 0, 0)), qa.xform(vec3(1, 0, 0))));
+        CHECK(near3(qa.slerpni(qb, 1.0f).xform(vec3(1, 0, 0)), qb.xform(vec3(1, 0, 0))));
+        for (float t = 0.0f; t <= 1.0f; t += 0.25f) {
+            CHECK(near3(qa.slerpni(qb, t).xform(vec3(1, 0, 0)),
+                        qa.slerp(qb, t).xform(vec3(1, 0, 0)), 1e-3f));
+        }
+        // Halfway between 0.3 and 1.1 rad about Y is 0.7 rad about Y.
+        const Q qm = qa.slerpni(qb, 0.5f);
+        CHECK(near3(qm.getAxis(), vec3(0, 1, 0), 1e-3f));
+        CHECK_NEAR(qm.getAngle(), 0.7f, 1e-3f);
+        // Near-identical inputs -> returns `from` without dividing by sin(0).
+        CHECK(near3(qa.slerpni(qa, 0.5f).xform(vec3(2, -1, 3)), qa.xform(vec3(2, -1, 3))));
+    }
+    {
+        // log/exp are inverses on unit quaternions.
+        const Q ss[] = {Q::fromAxisAngle(normalize(vec3(1, 2, 3)), 0.9f),
+                        Q::fromAxisAngle(vec3(1, 0, 0), kPi / 2),
+                        Q::fromEuler(vec3(0.4f, -0.7f, 1.2f))};
+        for (const Q& s : ss) {
+            const Q rt = s.log().exp();
+            CHECK(near3(rt.xform(vec3(1, -2, 0.5f)), s.xform(vec3(1, -2, 0.5f)), 1e-3f));
+        }
+        // log of a 1.0-rad rotation about +X is the pure quat (1,0,0 ; w=0).
+        const Q lg = Q::fromAxisAngle(vec3(1, 0, 0), 1.0f).log();
+        CHECK(near3(vec3(lg.q.x, lg.q.y, lg.q.z), vec3(1, 0, 0), 1e-4f));
+        CHECK_NEAR(lg.q.w, 0.0f, 1e-5f);
+        // exp of the zero rotation vector is the identity.
+        CHECK(near3(Q(0, 0, 0, 0).exp().xform(vec3(3, 2, 1)), vec3(3, 2, 1)));
+    }
 }
 
 // M307: Basis euler conversion across all six rotation orders (Godot EulerOrder / rotation_order).
