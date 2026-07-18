@@ -35,7 +35,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   so orientations authored in Godot import identically), **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
-  lengthSquared, length/distance, aspect, and float-vec conversion), Rect2, Geometry2D/3D,
+  lengthSquared, length/distance, aspect, and float-vec conversion), Rect2, Geometry2D/3D
+  (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed
+  `polygonArea`, `isPolygonClockwise` (Godot's Y-down screen convention), area-weighted
+  `polygonCentroid` — Godot's Geometry2D polygon statics),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, semver, deterministic time, replay, checkpoints, profiler, **performance

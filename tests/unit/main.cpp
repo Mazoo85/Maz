@@ -12095,6 +12095,45 @@ void testVectorInt() {
     CHECK_NEAR(c.toVec3().z, 2.0f, 1e-6f);
 }
 
+// Geometry2D polygon toolkit: signed area, isPolygonClockwise (Godot screen-space), centroid,
+// convex hull (Andrew's monotone chain).
+void testGeometry2DPolygon() {
+    using math::vec2;
+    const std::vector<vec2> sq = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};    // CCW in Y-up
+    const std::vector<vec2> sqcw = {{0, 0}, {0, 1}, {1, 1}, {1, 0}};  // CW in Y-up
+
+    // Signed area: +1 for CCW, -1 for CW.
+    CHECK_NEAR(math::polygonArea(sq), 1.0f, 1e-4f);
+    CHECK_NEAR(math::polygonArea(sqcw), -1.0f, 1e-4f);
+    CHECK_NEAR(math::polygonArea({{0, 0}, {3, 0}, {0, 3}}), 4.5f, 1e-4f);
+
+    // isPolygonClockwise uses Godot's Y-down screen convention (opposite sign from polygonArea).
+    CHECK(!math::isPolygonClockwise(sq));
+    CHECK(math::isPolygonClockwise(sqcw));
+
+    // Centroid.
+    {
+        const vec2 c = math::polygonCentroid(sq);
+        CHECK_NEAR(c.x, 0.5f, 1e-4f);
+        CHECK_NEAR(c.y, 0.5f, 1e-4f);
+        const vec2 t = math::polygonCentroid({{0, 0}, {3, 0}, {0, 3}});
+        CHECK_NEAR(t.x, 1.0f, 1e-4f);
+        CHECK_NEAR(t.y, 1.0f, 1e-4f);
+    }
+
+    // Convex hull: interior points dropped, 4 corners remain, area preserved, CCW.
+    {
+        const auto h = math::convexHull({{0, 0}, {2, 0}, {2, 2}, {0, 2}, {1, 1}, {1, 0.5f}});
+        CHECK(h.size() == 4);
+        CHECK_NEAR(std::fabs(math::polygonArea(h)), 4.0f, 1e-4f);
+        CHECK(math::polygonArea(h) > 0.0f); // counter-clockwise
+    }
+    // Collinear edge points are dropped.
+    CHECK(math::convexHull({{0, 0}, {1, 0}, {2, 0}, {2, 2}, {0, 2}}).size() == 4);
+    // Degenerate input (<3 points) returned as-is.
+    CHECK(math::convexHull({{1, 1}, {2, 2}}).size() == 2);
+}
+
 // Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
 // inverse, slerp, angleTo, and mat3 interop. Euler convention matched to Godot's from_euler/get_euler.
 void testQuaternion() {
@@ -21132,6 +21171,7 @@ int main() {
     testTransform3D();
     testQuaternion();
     testVectorInt();
+    testGeometry2DPolygon();
     testSdf();
     testGlyphCache();
     testGraphEdit();

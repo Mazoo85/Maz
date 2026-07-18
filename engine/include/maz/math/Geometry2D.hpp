@@ -2,6 +2,7 @@
 
 #include "maz/math/Math.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -85,6 +86,102 @@ inline bool pointInPolygon(vec2 p, const std::vector<vec2>& poly) {
 // Does segment a->b come within `radius` of `center` (i.e. cross/touch the circle)?
 inline bool segmentIntersectsCircle(vec2 a, vec2 b, vec2 center, float radius) {
     return distanceToSegment(center, a, b) <= radius;
+}
+
+// ---- polygon toolkit (Godot's Geometry2D polygon helpers) -----------------------------------
+
+// Signed area of a polygon (shoelace). Positive when the vertices wind counter-clockwise in a
+// conventional Y-up frame; the magnitude is the enclosed area. Fewer than 3 points -> 0.
+inline float polygonArea(const std::vector<vec2>& poly) {
+    const std::size_t n = poly.size();
+    if (n < 3) {
+        return 0.0f;
+    }
+    float sum = 0.0f;
+    for (std::size_t i = 0; i < n; ++i) {
+        const vec2& a = poly[i];
+        const vec2& b = poly[(i + 1) % n];
+        sum += a.x * b.y - b.x * a.y;
+    }
+    return sum * 0.5f;
+}
+
+// True when the polygon winds clockwise in Godot's SCREEN space (Y points down) — matches Godot's
+// Geometry2D.is_polygon_clockwise (sum of (x2-x1)(y2+y1) > 0). Note this is the opposite sign from
+// polygonArea, which uses the Y-up math convention.
+inline bool isPolygonClockwise(const std::vector<vec2>& poly) {
+    const std::size_t n = poly.size();
+    if (n < 3) {
+        return false;
+    }
+    float sum = 0.0f;
+    for (std::size_t i = 0; i < n; ++i) {
+        const vec2& a = poly[i];
+        const vec2& b = poly[(i + 1) % n];
+        sum += (b.x - a.x) * (b.y + a.y);
+    }
+    return sum > 0.0f;
+}
+
+// Area-weighted centroid (centre of mass) of a simple polygon. Falls back to the vertex average when
+// the polygon is degenerate (near-zero area).
+inline vec2 polygonCentroid(const std::vector<vec2>& poly) {
+    const std::size_t n = poly.size();
+    if (n == 0) {
+        return vec2(0.0f, 0.0f);
+    }
+    float a2 = 0.0f;   // twice the signed area
+    vec2 c(0.0f, 0.0f);
+    for (std::size_t i = 0; i < n; ++i) {
+        const vec2& p = poly[i];
+        const vec2& q = poly[(i + 1) % n];
+        const float cross = p.x * q.y - q.x * p.y;
+        a2 += cross;
+        c.x += (p.x + q.x) * cross;
+        c.y += (p.y + q.y) * cross;
+    }
+    if (std::fabs(a2) < 1e-8f) {
+        vec2 avg(0.0f, 0.0f);
+        for (const vec2& p : poly) {
+            avg += p;
+        }
+        return avg / static_cast<float>(n);
+    }
+    return c / (3.0f * a2);
+}
+
+// Convex hull of a point set via Andrew's monotone chain, O(n log n). Returns the hull vertices in
+// counter-clockwise order (Y-up), no duplicated closing point. Fewer than 3 unique points return the
+// input's extremes as-is. Godot's Geometry2D.convex_hull.
+inline std::vector<vec2> convexHull(std::vector<vec2> pts) {
+    const std::size_t n = pts.size();
+    if (n < 3) {
+        return pts;
+    }
+    std::sort(pts.begin(), pts.end(), [](const vec2& a, const vec2& b) {
+        return a.x < b.x || (a.x == b.x && a.y < b.y);
+    });
+    // 2D cross of OA x OB; > 0 => counter-clockwise turn.
+    auto cross = [](const vec2& o, const vec2& a, const vec2& b) {
+        return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    };
+    std::vector<vec2> hull(2 * n);
+    std::size_t k = 0;
+    for (std::size_t i = 0; i < n; ++i) { // lower hull
+        while (k >= 2 && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0.0f) {
+            --k;
+        }
+        hull[k++] = pts[i];
+    }
+    const std::size_t lower = k + 1;
+    for (std::size_t i = n - 1; i-- > 0;) { // upper hull
+        while (k >= lower && cross(hull[k - 2], hull[k - 1], pts[i]) <= 0.0f) {
+            --k;
+        }
+        hull[k++] = pts[i];
+    }
+    hull.resize(k - 1); // drop the repeated start point
+    return hull;
 }
 
 } // namespace maz::math
