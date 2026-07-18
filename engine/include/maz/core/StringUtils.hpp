@@ -83,6 +83,24 @@ inline std::string rstrip(const std::string& s) {
 }
 inline std::string strip(const std::string& s) { return rstrip(lstrip(s)); }
 
+// Strip any leading characters that appear in `chars` — Godot's String.lstrip(chars). Unlike the
+// whitespace-only overload above, this removes exactly the set of characters given (empty -> no-op).
+inline std::string lstrip(const std::string& s, const std::string& chars) {
+    std::size_t b = 0;
+    while (b < s.size() && chars.find(s[b]) != std::string::npos) {
+        ++b;
+    }
+    return s.substr(b);
+}
+// Strip any trailing characters that appear in `chars` — Godot's String.rstrip(chars).
+inline std::string rstrip(const std::string& s, const std::string& chars) {
+    std::size_t e = s.size();
+    while (e > 0 && chars.find(s[e - 1]) != std::string::npos) {
+        --e;
+    }
+    return s.substr(0, e);
+}
+
 // Left/right pad to `width` with `fill` (Godot lpad/rpad). No-op if already at least `width` long.
 inline std::string padLeft(const std::string& s, std::size_t width, char fill = ' ') {
     if (s.size() >= width) {

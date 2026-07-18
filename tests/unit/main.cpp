@@ -11474,6 +11474,18 @@ void testStringUtils() {
     CHECK((su::lstrip("  hi") == "hi"));
     CHECK((su::rstrip("hi  ") == "hi"));
     CHECK(su::strip("   ").empty());
+    // M329: lstrip/rstrip with a character set (Godot String.lstrip(chars)/rstrip(chars)).
+    CHECK((su::lstrip("xxxhello", "x") == "hello"));
+    CHECK((su::lstrip("0042", "0") == "42"));
+    CHECK((su::lstrip("--+value", "-+") == "value"));
+    CHECK((su::lstrip("hello", "x") == "hello")); // none present
+    CHECK((su::lstrip("abc", "") == "abc"));       // empty set -> no-op
+    CHECK(su::lstrip("xxx", "x").empty());
+    CHECK((su::rstrip("hello///", "/") == "hello"));
+    CHECK((su::rstrip("path/to/dir/", "/") == "path/to/dir"));
+    CHECK((su::rstrip("hello", "x") == "hello"));
+    CHECK(su::rstrip("///", "/").empty());
+    CHECK((su::rstrip(su::lstrip("***mid***", "*"), "*") == "mid")); // both ends, custom set
     // pad.
     CHECK((su::padLeft("42", 5, '0') == "00042"));
     CHECK((su::padRight("42", 5) == "42   "));
