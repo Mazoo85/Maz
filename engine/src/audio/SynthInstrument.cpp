@@ -260,7 +260,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                                        StateVariableFilter::Mode::LowPass);
             }
 
-            out[i] += osc * v.env * v.velocity * gain_;
+            // Velocity → amplitude, scaled by sensitivity: at 1 the velocity fully sets loudness, at
+            // 0 every note is equally loud regardless of how hard it was played.
+            const float velAmp = (1.0f - velSens_) + velSens_ * v.velocity;
+            out[i] += osc * v.env * velAmp * gain_;
 
             v.phase += phaseInc;
             if (v.phase >= 1.0) {

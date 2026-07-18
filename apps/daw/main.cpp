@@ -862,6 +862,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (changed) {
         syn.setEnvelope(a, d, s, r);
     }
+    float velSens = syn.velSensitivity();
+    if (ImGui::SliderFloat("Vel->Amp", &velSens, 0.0f, 1.0f, "%.2f")) syn.setVelSensitivity(velSens);
     float glide = syn.glide();
     if (ImGui::SliderFloat("Glide (portamento)", &glide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(glide);
     float vibRate = syn.vibratoRate();

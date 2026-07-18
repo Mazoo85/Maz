@@ -32,6 +32,12 @@ public:
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
+    // Velocity → amplitude sensitivity (0..1): how much a note's velocity affects its loudness. 1
+    // (default) = velocity fully sets the level (as before); 0 = every note plays at full level
+    // regardless of velocity.
+    void setVelSensitivity(float s) { velSens_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float velSensitivity() const { return velSens_; }
+
     // Unison: stack `voices` (1..kMaxUnison) detuned copies of the primary oscillator, spread ±
     // `detuneCents`, for a thick supersaw. 1 = off (a single oscillator). Subtractive mode only.
     void setUnison(int voices, float detuneCents);
@@ -197,6 +203,7 @@ private:
     SynthMode mode_ = SynthMode::Subtractive;
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
+    float velSens_ = 1.0f; // velocity → amplitude depth; 1 = full (default)
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;
     float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off

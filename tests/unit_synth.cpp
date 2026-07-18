@@ -188,6 +188,28 @@ int main() {
         check(dr.ringMod() == 0.0f, "ring mod defaults to 0");
     }
 
+    // --- Velocity → amplitude sensitivity ------------------------------------
+    {
+        auto renderVel = [&](float velSens, float vel) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setVelSensitivity(velSens);
+            s.noteOn(60, vel);
+            return rms(render(s, sampleRate / 4, sampleRate));
+        };
+        // Full sensitivity: a soft (0.3) note is much quieter than a hard (1.0) one.
+        check(renderVel(1.0f, 0.3f) < renderVel(1.0f, 1.0f) * 0.5,
+              "full velocity sensitivity makes soft notes quieter");
+        // Zero sensitivity: loudness is independent of velocity.
+        const double quiet = renderVel(0.0f, 0.3f);
+        const double loud = renderVel(0.0f, 1.0f);
+        check(std::fabs(quiet - loud) < loud * 0.05,
+              "zero velocity sensitivity makes loudness ignore velocity");
+        audio::SynthInstrument dv;
+        check(dv.velSensitivity() == 1.0f, "velocity sensitivity defaults to 1 (full)");
+    }
+
     // --- Wavetable scan LFO --------------------------------------------------
     {
         // Default frames run dark→bright (Sine→…→Square). With the LFO scanning the position, a
