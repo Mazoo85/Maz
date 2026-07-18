@@ -813,6 +813,47 @@ int main() {
         check(da.ampLfoDepth() == 0.0f, "amp LFO (tremolo) defaults to 0 (off)");
     }
 
+    // --- Analog drift --------------------------------------------------------
+    {
+        auto renderNote = [&](audio::SynthInstrument& s) {
+            s.noteOn(69, 1.0f);
+            const std::vector<float> b = render(s, 4000, sampleRate);
+            s.noteOff(69);
+            (void)render(s, 2000, sampleRate); // let the release finish
+            return b;
+        };
+        auto makeSyn = [&](float driftCents) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+            s.setMono(true); // force the same voice so any difference is the drift itself
+            s.setDrift(driftCents);
+            return s;
+        };
+
+        // Drift off → two identical notes render bit-identically.
+        audio::SynthInstrument off = makeSyn(0.0f);
+        const std::vector<float> a1 = renderNote(off);
+        const std::vector<float> a2 = renderNote(off);
+        check(a1 == a2, "with drift off, repeated identical notes are bit-identical");
+
+        // Drift on → each note is detuned by a different random amount, so they differ...
+        audio::SynthInstrument on = makeSyn(40.0f);
+        const std::vector<float> b1 = renderNote(on);
+        const std::vector<float> b2 = renderNote(on);
+        check(b1 != b2, "analog drift detunes each note differently (repeats differ)");
+        check(std::fabs(estimateHz(b1, sampleRate) - 440.0) < 30.0,
+              "a drifted note still sits close to its true pitch");
+
+        // ...but it is deterministic: a fresh synth with the same seed reproduces the sequence.
+        audio::SynthInstrument on2 = makeSyn(40.0f);
+        const std::vector<float> c1 = renderNote(on2);
+        check(b1 == c1, "analog drift is deterministic (same seed → same result)");
+
+        audio::SynthInstrument dd;
+        check(dd.drift() == 0.0f, "analog drift defaults to 0 (in tune)");
+    }
+
     // --- PianoRoll model -----------------------------------------------------
     audio::PianoRoll roll;
     check(roll.notes().empty(), "roll starts empty");

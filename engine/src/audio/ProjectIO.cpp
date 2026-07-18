@@ -90,6 +90,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> ampLfoRate >> ampLfoDepth) {
         syn.setAmpLfo(ampLfoRate, ampLfoDepth);
     }
+    float drift = 0.0f; // analog drift optional for old files
+    if (ls >> drift) {
+        syn.setDrift(drift);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -181,7 +185,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
           << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
           << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << " "
-          << s.ampLfoRate() << " " << s.ampLfoDepth() << "\n";
+          << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

@@ -72,6 +72,12 @@ public:
     float vibratoRate() const { return vibRate_; }
     float vibratoDepth() const { return vibDepth_; }
 
+    // Analog drift (0..50 cents): each note is detuned by a small random amount within ±this many
+    // cents, emulating the pitch instability of analog oscillators for a warmer, less sterile sound.
+    // Deterministic (a per-instrument RNG), so renders stay reproducible. 0 = off (perfectly in tune).
+    void setDrift(float cents) { drift_ = cents < 0.0f ? 0.0f : (cents > 50.0f ? 50.0f : cents); }
+    float drift() const { return drift_; }
+
     // Portamento / glide: when > 0, a new note slides from the previously played pitch to its own
     // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
     void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
@@ -233,6 +239,7 @@ private:
         float noiseLp = 0.0f;       // one-pole state for the noise tone control
         float freq = 0.0f;       // current (possibly gliding) frequency
         float targetFreq = 0.0f; // note's destination frequency
+        float driftMul = 1.0f;   // per-note analog-drift pitch multiplier (1 = in tune)
         float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;
         float env = 0.0f;
@@ -255,6 +262,8 @@ private:
     double wtLfoPhase_ = 0.0;  // wavetable scan LFO phase (shared across voices)
     float glideSeconds_ = 0.0f; // portamento time; 0 = off
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
+    float drift_ = 0.0f;        // analog drift depth in cents; 0 = off
+    uint32_t driftRng_ = 0x51ED2C7u; // deterministic RNG for per-note drift
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
     float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off

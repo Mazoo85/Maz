@@ -70,6 +70,16 @@ void SynthInstrument::noteOn(int midi, float velocity) {
     v.freq = (glideSeconds_ > 0.0f && lastFreq_ > 0.0f) ? lastFreq_ : v.targetFreq;
     lastFreq_ = v.targetFreq;
     v.pitchEnv = pitchEnvAmt_; // seed the pitch envelope (decays to 0 in render)
+    // Analog drift: detune this note by a small random amount within ±drift_ cents (deterministic).
+    if (drift_ > 0.0f) {
+        driftRng_ ^= driftRng_ << 13;
+        driftRng_ ^= driftRng_ >> 17;
+        driftRng_ ^= driftRng_ << 5;
+        const float r = static_cast<float>(driftRng_) / 4294967295.0f * 2.0f - 1.0f; // [-1,1]
+        v.driftMul = std::pow(2.0f, drift_ * r / 1200.0f);
+    } else {
+        v.driftMul = 1.0f;
+    }
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
     v.filter.reset();
@@ -157,8 +167,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.pitchEnv = 0.0f;
                 }
             }
-            const double phaseInc = static_cast<double>(v.freq) * vibMul * pitchMul * octMul /
-                                    static_cast<double>(sampleRate);
+            const double phaseInc = static_cast<double>(v.freq) * vibMul * pitchMul * octMul *
+                                    static_cast<double>(v.driftMul) / static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 v.env += attackStep;

@@ -914,6 +914,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::SliderInt("Octave", &octave, -2, 2)) syn.setOctave(octave);
     bool synMono = syn.mono();
     if (ImGui::Checkbox("Mono", &synMono)) syn.setMono(synMono);
+    float drift = syn.drift();
+    if (ImGui::SliderFloat("Analog drift", &drift, 0.0f, 50.0f, "%.1f cents")) syn.setDrift(drift);
 
     ImGui::SeparatorText("Envelope");
     float a = syn.attack();
@@ -1071,6 +1073,8 @@ void buildBassUI(audio::SynthInstrument& syn) {
     }
     float bglide = syn.glide();
     if (ImGui::SliderFloat("Glide##bass", &bglide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(bglide);
+    float bdrift = syn.drift();
+    if (ImGui::SliderFloat("Drift##bass", &bdrift, 0.0f, 50.0f, "%.1f cents")) syn.setDrift(bdrift);
     float cutoff = syn.filterCutoff(), reso = syn.filterResonance(), env = syn.filterEnvAmount();
     bool fch = false;
     fch |= ImGui::SliderFloat("Cutoff##bass", &cutoff, 20.0f, 20000.0f, "%.0f Hz", ImGuiSliderFlags_Logarithmic);
