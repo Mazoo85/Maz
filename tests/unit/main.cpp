@@ -12633,6 +12633,24 @@ void testVectorOps() {
         CHECK_NEAR(length(math::slerp(vec3(1, 0, 0), vec3(0, 3, 0), 0.5f)), 2.0f, 1e-3f);
     }
 
+    // --- octahedral normal encoding (M302): round-trip unit vectors through vec2 ---
+    {
+        const vec3 dirs[] = {vec3(1, 0, 0),  vec3(-1, 0, 0), vec3(0, 1, 0),
+                             vec3(0, -1, 0),  vec3(0, 0, 1),  vec3(0, 0, -1),
+                             vec3(1, 1, 1),   vec3(-1, 1, -1), vec3(0.3f, 0.5f, -0.8f)};
+        for (const vec3& raw : dirs) {
+            const vec3 n = normalize(raw);
+            const vec2 o = math::octahedronEncode(n);
+            CHECK((o.x >= 0.0f && o.x <= 1.0f && o.y >= 0.0f && o.y <= 1.0f));
+            const vec3 back = math::octahedronDecode(o);
+            CHECK(near3(n, back, 1e-3f));
+            CHECK_NEAR(length(back), 1.0f, 1e-4f); // decoded vector is unit
+        }
+        // +Z maps to the octahedron centre.
+        const vec2 c = math::octahedronEncode(vec3(0, 0, 1));
+        CHECK((std::fabs(c.x - 0.5f) < 1e-5f && std::fabs(c.y - 0.5f) < 1e-5f));
+    }
+
     // --- cubic / bezier interpolation (M279) ---
     // bezier: endpoints exact; straight-line control points give the linear midpoint.
     CHECK_NEAR(math::bezierInterpolate(0.0f, 1.0f, 2.0f, 3.0f, 0.0f), 0.0f, 1e-4f);

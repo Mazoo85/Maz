@@ -209,6 +209,32 @@ inline vec3 snapped(const vec3& v, const vec3& step) {
     return vec3(snappedf(v.x, step.x), snappedf(v.y, step.y), snappedf(v.z, step.z));
 }
 
+// Octahedral encoding of a UNIT vector into a vec2 in [0,1]^2 — Godot's Vector3.octahedron_encode.
+// Packs surface normals to two channels for G-buffers / compressed vertex data; pair with
+// octahedronDecode. Assumes the input is normalized.
+inline vec2 octahedronEncode(const vec3& n) {
+    const vec3 an = n / (std::fabs(n.x) + std::fabs(n.y) + std::fabs(n.z));
+    vec2 o;
+    if (an.z >= 0.0f) {
+        o = vec2(an.x, an.y);
+    } else {
+        o.x = (1.0f - std::fabs(an.y)) * (an.x >= 0.0f ? 1.0f : -1.0f);
+        o.y = (1.0f - std::fabs(an.x)) * (an.y >= 0.0f ? 1.0f : -1.0f);
+    }
+    return o * 0.5f + 0.5f;
+}
+
+// Inverse of octahedronEncode: recover the unit vector from its [0,1]^2 encoding — Godot's
+// Vector3.octahedron_decode.
+inline vec3 octahedronDecode(const vec2& oct) {
+    const vec2 f(oct.x * 2.0f - 1.0f, oct.y * 2.0f - 1.0f);
+    vec3 n(f.x, f.y, 1.0f - std::fabs(f.x) - std::fabs(f.y));
+    const float t = n.z < 0.0f ? -n.z : 0.0f; // clamp(-n.z, 0, 1); n.z can't exceed 1 here
+    n.x += n.x >= 0.0f ? -t : t;
+    n.y += n.y >= 0.0f ? -t : t;
+    return normalize(n);
+}
+
 // Spherical interpolation of `a` toward `to` by t — Godot's Vector2.slerp: rotates along the arc
 // between the two directions while linearly interpolating length. Falls back to a straight lerp when
 // either vector has zero length (a direction can't be defined).

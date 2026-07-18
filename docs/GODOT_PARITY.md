@@ -26,7 +26,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
   angle_to / project / posmod / snapped / rotated, plus **vector slerp** (M301 — `math::slerp` for
   vec2/vec3: arc-interpolate direction while lerping length, Godot's Vector2/Vector3.slerp, with
-  lerp fallback for zero-length/colinear inputs), plus **cubic/bezier interpolation** (M279 —
+  lerp fallback for zero-length/colinear inputs), plus **octahedral normal encoding** (M302 —
+  `math::octahedronEncode` / `octahedronDecode`, Godot's Vector3.octahedron_encode/decode: pack a unit
+  normal into a vec2 for G-buffers / compressed vertex data, round-trips to ~1e-3), plus **cubic/bezier interpolation** (M279 —
   cubicInterpolate Catmull-Rom, bezierInterpolate, bezierDerivative for scalars + vec2/vec3, matching
   Godot's Vector2/3.cubic_interpolate / bezier_interpolate / bezier_derivative), semantics verified
   against Godot's own source so GDScript-ported logic behaves identically), Transform2D (incl. **apply-relative methods** M278 —
