@@ -137,6 +137,7 @@
 #include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
 #include "maz/io/ExportConfig.hpp"
+#include "maz/io/ImportFile.hpp"
 #include "maz/io/GettextPo.hpp"
 #include "maz/io/Hdr.hpp"
 #include "maz/io/Json.hpp"
@@ -6394,6 +6395,78 @@ void testExportConfig() {
     CHECK(cfg.find("Nope") == nullptr);
     CHECK(cfg.forPlatform("linux").size() == 1);
     CHECK(cfg.forPlatform("android").empty());
+}
+
+void testImportFile() {
+    // Parse a realistic .import sidecar.
+    const std::string text =
+        "[remap]\n\n"
+        "importer=\"texture\"\n"
+        "type=\"CompressedTexture2D\"\n"
+        "uid=\"uid://bx1abc\"\n"
+        "path=\"res://.godot/imported/icon.png-abc123.ctex\"\n\n"
+        "[deps]\n\n"
+        "source_file=\"res://icon.png\"\n"
+        "dest_files=[\"res://.godot/imported/icon.png-abc123.ctex\"]\n\n"
+        "[params]\n\n"
+        "compress/mode=0\n"
+        "mipmaps/generate=true\n";
+    io::ImportFile f = io::ImportFile::parse(text);
+    CHECK(f.valid());
+    CHECK(f.importer == "texture");
+    CHECK(f.type == "CompressedTexture2D");
+    CHECK(f.uid == "uid://bx1abc");
+    CHECK(f.importedPath == "res://.godot/imported/icon.png-abc123.ctex");
+    CHECK(f.sourceFile == "res://icon.png");
+    CHECK((f.destFiles.size() == 1 &&
+           f.destFiles[0] == "res://.godot/imported/icon.png-abc123.ctex"));
+    CHECK(f.params.getInt("params", "compress/mode") == 0);
+    CHECK(f.params.getBool("params", "mipmaps/generate"));
+
+    // Round-trip: encode -> parse preserves the modeled fields.
+    io::ImportFile g = io::ImportFile::parse(f.encode());
+    CHECK((g.importer == f.importer && g.type == f.type && g.uid == f.uid));
+    CHECK((g.importedPath == f.importedPath && g.sourceFile == f.sourceFile));
+    CHECK((g.destFiles == f.destFiles));
+    CHECK(g.params.getBool("params", "mipmaps/generate"));
+
+    // A minimal sidecar (no params / no optional remap fields) still parses.
+    io::ImportFile m = io::ImportFile::parse(
+        "[remap]\n\nimporter=\"wav\"\n\n[deps]\n\nsource_file=\"res://a.wav\"\ndest_files=[]\n");
+    CHECK(m.valid());
+    CHECK((m.importer == "wav" && m.sourceFile == "res://a.wav"));
+    CHECK(m.destFiles.empty());
+    CHECK(m.type.empty());
+
+    // An empty/garbage sidecar is invalid, not a crash.
+    CHECK(!io::ImportFile::parse("garbage without sections").valid());
+
+    // Cooked-path convention: res://.godot/imported/<basename>-<hash>.<ext>.
+    CHECK(io::ImportFile::cookedPath("res://art/hero.png", "deadbeef", "ctex") ==
+          "res://.godot/imported/hero.png-deadbeef.ctex");
+    CHECK(io::ImportFile::cookedPath("plain.png", "h", "ctex") ==
+          "res://.godot/imported/plain.png-h.ctex");
+
+    // Content hash: stable for identical bytes, changes when bytes change.
+    const std::string h1 = io::contentHashHex("the quick brown fox");
+    const std::string h2 = io::contentHashHex("the quick brown fox");
+    const std::string h3 = io::contentHashHex("the quick brown fox.");
+    CHECK((h1.size() == 16 && h1 == h2 && h1 != h3));
+
+    // Reimport database: unknown -> needs import; unchanged -> skip; changed -> reimport.
+    io::ImportDatabase db;
+    CHECK(db.needsReimport("res://icon.png", h1));
+    db.record("res://icon.png", h1, "res://.godot/imported/icon.png-x.ctex", "texture");
+    CHECK(db.isImported("res://icon.png"));
+    CHECK(!db.needsReimport("res://icon.png", h1));
+    CHECK(db.needsReimport("res://icon.png", h3));
+    CHECK(db.count() == 1);
+    db.record("res://icon.png", h3, "res://.godot/imported/icon.png-y.ctex", "texture");
+    CHECK(db.count() == 1); // updated in place, not duplicated
+    CHECK(!db.needsReimport("res://icon.png", h3));
+    CHECK(db.find("res://icon.png")->importedPath == "res://.godot/imported/icon.png-y.ctex");
+    db.remove("res://icon.png");
+    CHECK((db.count() == 0 && db.needsReimport("res://icon.png", h3)));
 }
 
 void testHdr() {
@@ -18757,6 +18830,7 @@ int main() {
     testMeshLod();
     testGettextPo();
     testExportConfig();
+    testImportFile();
     testHdr();
     testConvexHull3D();
     testHeightField3D();

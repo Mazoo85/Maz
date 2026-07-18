@@ -109,7 +109,13 @@ Maz has a minimal editor; Godot's is vast.
 - [ ] **[GPU]** Dockable multi-panel editor shell (Dear ImGui or custom) — *layout logic [CPU]*
 - [ ] **[GPU]** Dedicated editors: animation, tilemap/tileset, shader, particles, theme, navmesh bake
 - [ ] **[GPU]** Full gizmo set, snapping, multi-viewport, 2D+3D edit modes
-- [ ] **[CPU]** Import dock + `.import` sidecar pipeline (Maz has reimport core; add settings UI/model)
+- [~] **[CPU]** Import dock + `.import` sidecar pipeline (Maz has reimport core; add settings UI/model)
+  — **sidecar model done** (M237): `io::ImportFile` parses/encodes Godot's `.import` format
+  ([remap] importer/type/uid/path, [deps] source_file/dest_files array, [params] options) with a clean
+  round-trip; `io::ImportFile::cookedPath` builds the `res://.godot/imported/<base>-<hash>.<ext>`
+  convention; `io::contentHashHex` (FNV-1a) + `io::ImportDatabase` answer "needs reimport?" from a
+  source content hash (unknown → import, unchanged → skip, changed → reimport). The [GPU] import *dock
+  UI* still remains.
 - [ ] **[DESK]** Remote debugger / live scene inspection
 
 ### 7. Node & scene-system breadth  [CPU mostly]
