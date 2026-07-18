@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
+#include <vector>
 
 // maz::math::Geometry3D — the first-class 3D primitive types every engine leans on for spatial
 // math: a Plane, a Ray3, an axis-aligned box (Aabb3), and an oriented box (Obb), with the exact,
@@ -469,6 +471,80 @@ inline std::optional<vec3> segmentIntersectsSphere(const vec3& from, const vec3&
         return std::nullopt;
     }
     return from + d * t;
+}
+
+// Build the six outward-facing planes of an axis-aligned box with the given half-extents, centred at
+// `center` — Godot's Geometry3D.build_box_planes. A point is INSIDE the box when it is on the negative
+// side of every plane (normal·p - d <= 0). Order: +X, -X, +Y, -Y, +Z, -Z.
+inline std::vector<Plane> buildBoxPlanes(const vec3& extents, const vec3& center = vec3(0.0f)) {
+    std::vector<Plane> planes;
+    planes.reserve(6);
+    const vec3 axes[3] = {vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)};
+    const float ext[3] = {extents.x, extents.y, extents.z};
+    for (int i = 0; i < 3; ++i) {
+        // +axis: normal·p <= ext + normal·center ; -axis mirrors it.
+        planes.emplace_back(axes[i], ext[i] + dot(axes[i], center));
+        planes.emplace_back(-axes[i], ext[i] + dot(-axes[i], center));
+    }
+    return planes;
+}
+
+// Intersect a segment [from,to] with the convex volume that is the intersection of the half-spaces
+// (normal·p - d <= 0) of `planes` — Godot's Geometry3D.segment_intersects_convex. Returns the point
+// where the segment first ENTERS the volume through one of its faces (nullopt if it never does).
+// Matching Godot, a segment that starts already inside the volume reports no hit (there is no entry
+// crossing). `outNormal`, when non-null, receives the normal of the entry plane.
+inline std::optional<vec3> segmentIntersectsConvex(const vec3& from, const vec3& to,
+                                                   const Plane* planes, std::size_t planeCount,
+                                                   vec3* outNormal = nullptr) {
+    const vec3 rel = to - from;
+    const float relLen = length(rel);
+    if (relLen < 1e-9f || planeCount == 0) {
+        return std::nullopt;
+    }
+    const vec3 dir = rel / relLen;
+    float tMin = -std::numeric_limits<float>::infinity();
+    float tMax = std::numeric_limits<float>::infinity();
+    std::size_t entryPlane = planeCount; // sentinel = "none"
+    for (std::size_t i = 0; i < planeCount; ++i) {
+        const Plane& p = planes[i];
+        const float den = dot(p.normal, dir);
+        if (std::fabs(den) <= 1e-9f) {
+            // Parallel to this plane: if `from` is strictly outside it, the segment can never enter.
+            if (p.distanceTo(from) > 0.0f) {
+                return std::nullopt;
+            }
+            continue;
+        }
+        const float dist = -p.distanceTo(from) / den;
+        if (den < 0.0f) {
+            // Entering half-space: raises the lower bound.
+            if (dist > tMin) {
+                tMin = dist;
+                entryPlane = i;
+            }
+        } else {
+            // Leaving half-space: lowers the upper bound.
+            if (dist < tMax) {
+                tMax = dist;
+            }
+        }
+    }
+    // Godot's guards: the entering bound must precede the leaving bound, lie within the segment, and
+    // come from a real face (tMin < 0 means the segment starts inside -> no entry crossing).
+    if (tMax <= tMin || tMin < 0.0f || tMin > relLen || entryPlane == planeCount) {
+        return std::nullopt;
+    }
+    if (outNormal) {
+        *outNormal = planes[entryPlane].normal;
+    }
+    return from + dir * tMin;
+}
+
+inline std::optional<vec3> segmentIntersectsConvex(const vec3& from, const vec3& to,
+                                                   const std::vector<Plane>& planes,
+                                                   vec3* outNormal = nullptr) {
+    return segmentIntersectsConvex(from, to, planes.data(), planes.size(), outNormal);
 }
 
 } // namespace maz::math

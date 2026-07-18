@@ -13006,6 +13006,36 @@ void testGeometry3DHelpers() {
         CHECK(!math::segmentIntersectsSphere(vec3(-5, 5, 0), vec3(5, 5, 0), center, r).has_value());
         CHECK(!math::segmentIntersectsSphere(vec3(-5, 0, 0), vec3(-4, 0, 0), center, r).has_value());
     }
+
+    // --- M322: buildBoxPlanes + segmentIntersectsConvex ---
+    {
+        const auto planes = math::buildBoxPlanes(vec3(1, 1, 1)); // unit cube [-1,1]^3
+        CHECK(planes.size() == 6);
+        // Centre is inside (under every plane); a far point is over at least one.
+        bool allUnder = true, anyOver = false;
+        for (const auto& p : planes) {
+            if (p.distanceTo(vec3(0, 0, 0)) >= 0.0f) allUnder = false;
+            if (p.distanceTo(vec3(2, 0, 0)) > 0.0f) anyOver = true;
+        }
+        CHECK(allUnder);
+        CHECK(anyOver);
+        // Straight-through segment enters the -X face at x = -1.
+        vec3 n;
+        auto hit = math::segmentIntersectsConvex(vec3(-5, 0, 0), vec3(5, 0, 0), planes, &n);
+        CHECK((hit.has_value() && nearV(*hit, vec3(-1, 0, 0))));
+        CHECK(nearV(n, vec3(-1, 0, 0)));
+        // Diagonal into a corner.
+        auto diag = math::segmentIntersectsConvex(vec3(-3, -3, 0), vec3(3, 3, 0), planes);
+        CHECK((diag.has_value() && nearV(*diag, vec3(-1, -1, 0))));
+        // Miss (passes above), starts-inside (no entry), and stops-short all report no hit.
+        CHECK(!math::segmentIntersectsConvex(vec3(-5, 5, 0), vec3(5, 5, 0), planes).has_value());
+        CHECK(!math::segmentIntersectsConvex(vec3(0, 0, 0), vec3(5, 0, 0), planes).has_value());
+        CHECK(!math::segmentIntersectsConvex(vec3(-5, 0, 0), vec3(-3, 0, 0), planes).has_value());
+        // Off-centre box [1,3]x[-1,1]x[-1,1] enters at x = 1.
+        auto off = math::buildBoxPlanes(vec3(1, 1, 1), vec3(2, 0, 0));
+        auto hit3 = math::segmentIntersectsConvex(vec3(-5, 0, 0), vec3(5, 0, 0), off);
+        CHECK((hit3.has_value() && nearV(*hit3, vec3(1, 0, 0))));
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,
