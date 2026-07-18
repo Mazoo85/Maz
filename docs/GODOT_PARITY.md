@@ -131,7 +131,9 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
 
 ### 9. Physics remaining  [CPU/BIG]
 Maz's 2D is at parity; 3D is strong but not exhaustive.
-- [ ] **[CPU]** 3D convex-hull + trimesh (concave static) colliders, height-field collider
+- [~] **[CPU]** 3D convex-hull + trimesh (concave static) colliders, height-field collider
+  — **convex hull done** (M227): `game::buildConvexHull` incremental hull of a point cloud →
+  outward-wound triangular faces + hull vertex set (ConvexPolygonShape3D geometry). Trimesh/heightfield remain.
 - [ ] **[CPU]** 3D more joints (cone-twist, 6DOF, slider, generic), soft bodies, ragdolls
 - [ ] **[CPU]** Cross-engine determinism audit vs Godot Jolt (fixed-point optional)
 

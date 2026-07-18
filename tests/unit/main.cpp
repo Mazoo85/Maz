@@ -111,6 +111,7 @@
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
+#include "maz/game/ConvexHull3D.hpp"
 #include "maz/game/GridMap.hpp"
 #include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
@@ -175,6 +176,7 @@
 #include "maz/scene/Prefab.hpp"
 #include "maz/scene/TransformGraph.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -6254,6 +6256,88 @@ void testGettextPo() {
     io::PoCatalog c3;
     c3.parse("msgid \"a\"\nmsgstr \"x\\ny\\t\\\"z\\\"\"\n");
     CHECK(c3.gettext("a") == "x\ny\t\"z\"");
+}
+
+void testConvexHull3D() {
+    auto dot3 = [](const math::vec3& a, const math::vec3& b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    };
+    // Every input point must be on the inner side of every hull face (convex + enclosing).
+    auto encloses = [&](const game::ConvexHull3D& h, const std::vector<math::vec3>& pts) {
+        for (const game::HullFace& f : h.faces) {
+            const math::vec3& fa = pts[static_cast<std::size_t>(f.a)];
+            for (const math::vec3& q : pts) {
+                if (dot3(f.normal, q - fa) > 1e-4f) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    auto hasVert = [](const game::ConvexHull3D& h, int idx) {
+        return std::find(h.vertices.begin(), h.vertices.end(), idx) != h.vertices.end();
+    };
+
+    // Tetrahedron + an interior point.
+    {
+        const std::vector<math::vec3> p = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1},
+                                           {0.25f, 0.25f, 0.25f}};
+        const game::ConvexHull3D h = game::buildConvexHull(p);
+        CHECK(h.valid);
+        CHECK(h.faces.size() == 4);
+        CHECK(h.vertices.size() == 4);
+        CHECK(!hasVert(h, 4)); // interior point excluded
+        CHECK(encloses(h, p));
+    }
+
+    // Cube (8 corners) + interior points -> 8 hull vertices, 12 triangles.
+    {
+        std::vector<math::vec3> p;
+        for (int x = 0; x < 2; ++x) {
+            for (int y = 0; y < 2; ++y) {
+                for (int z = 0; z < 2; ++z) {
+                    p.push_back(math::vec3(static_cast<float>(x), static_cast<float>(y),
+                                           static_cast<float>(z)));
+                }
+            }
+        }
+        p.push_back(math::vec3(0.5f, 0.5f, 0.5f));
+        p.push_back(math::vec3(0.5f, 0.5f, 0.25f));
+        const game::ConvexHull3D h = game::buildConvexHull(p);
+        CHECK(h.valid);
+        CHECK(h.vertices.size() == 8);
+        CHECK(h.faces.size() == 12);
+        CHECK(encloses(h, p));
+        for (int i = 0; i < 8; ++i) {
+            CHECK(hasVert(h, i));
+        }
+        CHECK(!hasVert(h, 8));
+        CHECK(!hasVert(h, 9));
+    }
+
+    // Octahedron extremes + interior cloud -> 6 vertices, 8 faces.
+    {
+        const std::vector<math::vec3> p = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
+                                           {0, -1, 0}, {0, 0, 1},  {0, 0, -1},
+                                           {0.1f, 0.1f, 0.1f}, {-0.2f, 0.0f, 0.1f}, {0, 0, 0}};
+        const game::ConvexHull3D h = game::buildConvexHull(p);
+        CHECK(h.valid);
+        CHECK(h.vertices.size() == 6);
+        CHECK(h.faces.size() == 8);
+        CHECK(encloses(h, p));
+    }
+
+    // Coplanar set -> invalid (no volume).
+    {
+        const std::vector<math::vec3> p = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0},
+                                           {0.5f, 0.5f, 0}};
+        CHECK(!game::buildConvexHull(p).valid);
+    }
+    // Fewer than 4 points -> invalid.
+    {
+        const std::vector<math::vec3> p = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
+        CHECK(!game::buildConvexHull(p).valid);
+    }
 }
 
 void testProfiler() {
@@ -18043,6 +18127,7 @@ int main() {
     testGridMap();
     testObjLoader();
     testGettextPo();
+    testConvexHull3D();
     testNoise();
     testRandom();
     testInterpolate();
