@@ -1732,6 +1732,15 @@ void testTransform2D() {
         CHECK_NEAR(p.y, 1.0f, 1e-4f);
         CHECK_NEAR(r.determinant(), 1.0f, 1e-5f);
         CHECK_NEAR(r.getRotation(), pi * 0.5f, 1e-4f);
+        // M328: basis_xform_inv undoes basisXform for an orthonormal basis and ignores translation.
+        CHECK_NEAR(r.basisXformInv(vec2(0, 1)).x, 1.0f, 1e-4f); // inverse of +X -> +Y
+        CHECK_NEAR(r.basisXformInv(vec2(0, 1)).y, 0.0f, 1e-4f);
+        const vec2 rv(3, -1);
+        CHECK_NEAR(r.basisXformInv(r.basisXform(rv)).x, 3.0f, 1e-4f);
+        CHECK_NEAR(r.basisXformInv(r.basisXform(rv)).y, -1.0f, 1e-4f);
+        Transform2D rt = r;
+        rt.origin = vec2(100, 200);
+        CHECK_NEAR(rt.basisXformInv(vec2(0, 1)).x, 1.0f, 1e-4f); // translation ignored
     }
 
     // Scale stretches each axis; determinant is the area factor.
@@ -13371,6 +13380,9 @@ void testTransform3D() {
         CHECK(near3(t.xformInv(t.xform(vec3(1, 2, 3))), vec3(1, 2, 3)));
         const T ti = t.inverse();
         CHECK(near3((t * ti).xform(vec3(4, 5, 6)), vec3(4, 5, 6)));
+        // M328: basis_xform_inv undoes basisXform for the orthonormal basis, ignoring translation.
+        CHECK(near3(t.basisXformInv(t.basisXform(vec3(2, -3, 4))), vec3(2, -3, 4)));
+        CHECK(near3(T().basisXformInv(vec3(5, 6, 7)), vec3(5, 6, 7))); // identity basis
     }
     // affine_inverse handles scale.
     {

@@ -54,6 +54,9 @@ struct Transform2D {
     vec2 xform(vec2 p) const { return x * p.x + y * p.y + origin; }
     // Transform a VECTOR / direction (basis only, no translation).
     vec2 basisXform(vec2 v) const { return x * v.x + y * v.y; }
+    // Transform a direction by the TRANSPOSED basis (dot with each basis column) — Godot's
+    // Transform2D.basis_xform_inv. For an orthonormal basis this exactly undoes basisXform.
+    vec2 basisXformInv(vec2 v) const { return vec2(x.x * v.x + x.y * v.y, y.x * v.x + y.y * v.y); }
     // Inverse-transform a point (world -> local). Uses the full affine inverse, so it is correct even when
     // the transform is scaled or skewed.
     vec2 xformInv(vec2 p) const { return affineInverse().xform(p); }

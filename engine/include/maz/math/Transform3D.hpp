@@ -40,6 +40,10 @@ struct Transform3D {
     vec3 xform(const vec3& p) const { return basis * p + origin; }
     // Transform a direction (no translation).
     vec3 basisXform(const vec3& v) const { return basis * v; }
+    // Transform a direction by the TRANSPOSED basis (dot with each basis row) — Godot's
+    // Basis.xform_inv / Transform3D.basis_xform_inv. For an orthonormal basis this is the exact
+    // inverse of basisXform (it undoes the rotation without touching the origin).
+    vec3 basisXformInv(const vec3& v) const { return glm::transpose(basis) * v; }
     // Inverse transform of a point, assuming an ORTHONORMAL basis — Godot's xform_inv.
     vec3 xformInv(const vec3& p) const { return glm::transpose(basis) * (p - origin); }
 
