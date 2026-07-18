@@ -3,6 +3,7 @@
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/SpriteRenderer.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
@@ -47,6 +48,8 @@ public:
     void endFrame() override;
     int uploadModel(const assets::Model& model) override;
     void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) override;
+    int uploadTexture(const uint8_t* rgba, uint32_t width, uint32_t height) override;
+    void drawSprite(int texture, const Sprite& sprite) override;
     bool initGui(platform::Window& window) override;
     void guiNewFrame() override;
     bool isActive() const override { return m_active; }
@@ -60,6 +63,7 @@ private:
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
     MeshRenderer m_mesh;
+    SpriteRenderer m_sprite;
     RendererConfig m_cfg;
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
@@ -111,6 +115,10 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     if (!m_mesh.init(m_ctx, m_swapchain.renderPass())) {
         MAZ_LOG_WARN("mesh renderer unavailable; running clear-only");
     }
+    // The sprite pipeline is likewise optional; 2D just no-ops if its shaders are missing.
+    if (!m_sprite.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight)) {
+        MAZ_LOG_WARN("sprite renderer unavailable; 2D disabled");
+    }
 
     m_active = true;
     MAZ_LOG_INFO("renderer active (%ux%u, vsync %s)", m_swapchain.extent().width,
@@ -130,6 +138,21 @@ void VulkanRenderer::drawModel(int handle, const math::mat4& mvp, const math::ma
         return;
     }
     m_mesh.draw(m_commandBuffers[m_currentFrame], handle, mvp, model, m_swapchain.extent());
+}
+
+int VulkanRenderer::uploadTexture(const uint8_t* rgba, uint32_t width, uint32_t height) {
+    if (!m_active || !m_sprite.ready()) {
+        return -1;
+    }
+    return m_sprite.createTexture(m_ctx, rgba, width, height);
+}
+
+void VulkanRenderer::drawSprite(int texture, const Sprite& sprite) {
+    if (!m_active || !m_sprite.ready()) {
+        return;
+    }
+    // Queued now; recorded (batched) in endFrame() after the 3D meshes, before the ImGui overlay.
+    m_sprite.draw(texture, sprite);
 }
 
 bool VulkanRenderer::initGui(platform::Window& window) {
@@ -289,6 +312,9 @@ bool VulkanRenderer::beginFrame() {
     rp.pClearValues = clears.data();
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
+    // Start this frame's 2D batch; drawSprite() appends to it, endFrame() records it.
+    m_sprite.begin(m_currentFrame, m_swapchain.extent());
+
     // Mesh draws are recorded by drawModel(), called between beginFrame() and endFrame().
     return true;
 }
@@ -298,6 +324,9 @@ void VulkanRenderer::endFrame() {
         return;
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
+
+    // Record queued 2D sprites on top of the 3D scene, still inside the render pass.
+    m_sprite.flush(m_ctx, cmd);
 
     // Record the ImGui overlay on top of the scene, still inside the render pass.
     if (m_guiReady) {
@@ -369,6 +398,7 @@ void VulkanRenderer::shutdown() {
         m_guiReady = false;
     }
     if (m_active) {
+        m_sprite.destroy(m_ctx);
         m_mesh.destroy(m_ctx);
         destroySync();
         if (m_commandPool) {

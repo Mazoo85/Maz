@@ -67,12 +67,23 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `beginFrame` / clear / `endFrame` present loop (clear color)
 - [x] Swapchain recreation on resize / out-of-date
 - [x] Graceful degrade when no GPU/ICD present (headless safe)
-- [ ] VMA (Vulkan Memory Allocator), buffer/image helpers, staging uploads
+- [~] VMA (Vulkan Memory Allocator), buffer/image helpers, staging uploads — **staging uploads
+      landed** for textures (`SpriteRenderer::createTexture`: host-visible staging buffer → one-time
+      layout transition + copy → device-local sampled image). VMA + shared buffer/image helpers
+      (mesh buffers are still host-visible) still to do.
 - [~] Graphics pipeline + descriptor-set management, push constants, dynamic state — **pipeline +
-      push constants + dynamic viewport/scissor landed** (MeshRenderer). Descriptor sets still to do.
+      push constants + dynamic viewport/scissor landed** (MeshRenderer), and **descriptor-set
+      management landed** (SpriteRenderer: a combined image-sampler set layout + pool, one set per
+      texture). A general per-frame/per-material descriptor system is still to do.
 - [~] Shader module loading from SPIR-V + reflection + hot reload — **SPIR-V load landed** (mesh
       shaders loaded from beside the exe). Reflection + hot reload still to do.
-- [ ] **2D:** sprite batch renderer, texture atlas, `Camera2D`, line/shape debug draw
+- [~] **2D:** sprite batch renderer, texture atlas, `Camera2D`, line/shape debug draw — **sprite
+      batch renderer landed** (`SpriteRenderer`): textured, alpha-blended, tinted, rotatable quads
+      in pixel space (`maz::math::ortho2D`, top-left origin), coalesced into one draw per run of
+      same-texture sprites, uploaded via the public `Renderer::uploadTexture`/`drawSprite` API. Atlas
+      sub-rects are supported through per-sprite UVs. Verified off-screen by `ctest sprite_probe`
+      (lavapipe) and demoed live with `sandbox --sprite-demo`. See [`SPRITES.md`](SPRITES.md). Still
+      to do: image-file loading (stb_image), a pannable/zoomable `Camera2D`, and line/shape debug draw.
 - [ ] **2D:** tilemap renderer (chunked), sprite sorting / layers
 - [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
 - [~] Mesh renderer (indexed draw), vertex layouts, instancing — **indexed draw + vertex layout

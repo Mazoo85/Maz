@@ -10,11 +10,44 @@
 #include <SDL3/SDL_scancode.h>
 
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 using namespace maz;
+
+namespace {
+
+// A 32x32 neon checkerboard texture for the 2D sprite demo — hot pink / cyan, the SEGA-90s vibe.
+// Returned as tightly packed RGBA8 (top row first), ready for Renderer::uploadTexture().
+std::vector<uint8_t> makeNeonTile(uint32_t size = 32) {
+    std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4);
+    const uint32_t cell = size / 8; // 8x8 checker
+    for (uint32_t y = 0; y < size; ++y) {
+        for (uint32_t x = 0; x < size; ++x) {
+            const bool pink = ((x / cell) + (y / cell)) % 2 == 0;
+            const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+            px[i + 0] = static_cast<uint8_t>(pink ? 255 : 0);    // R
+            px[i + 1] = static_cast<uint8_t>(pink ? 20 : 255);   // G
+            px[i + 2] = static_cast<uint8_t>(pink ? 147 : 255);  // B
+            px[i + 3] = 255;                                     // A
+        }
+    }
+    return px;
+}
+
+// Triangle wave: bounces `t` back and forth within [lo, hi] (like a ball off two walls).
+float bounce(float t, float lo, float hi) {
+    const float span = hi - lo;
+    if (span <= 0.0f) {
+        return lo;
+    }
+    const float phase = std::fmod(std::fabs(t), 2.0f * span);
+    return lo + (phase <= span ? phase : 2.0f * span - phase);
+}
+
+} // namespace
 
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
@@ -93,6 +126,16 @@ int main(int argc, char** argv) {
         items.push_back({handle, e.transform});
     }
 
+    // 2D sprite demo (--sprite-demo): upload one neon tile and bounce a handful of sprites around
+    // the screen over the 3D clear. Upload returns -1 when headless/no-GPU, so this no-ops in CI.
+    int spriteTex = -1;
+    constexpr int kDemoSprites = 6;
+    if (cfg.spriteDemo) {
+        const std::vector<uint8_t> tile = makeNeonTile(32);
+        spriteTex = renderer->uploadTexture(tile.data(), 32, 32);
+        MAZ_LOG_INFO("sprite demo: neon tile texture handle %d", spriteTex);
+    }
+
     scene::Camera camera;
 
     platform::Input input;
@@ -152,6 +195,28 @@ int main(int argc, char** argv) {
                 const math::mat4 mvp = camera.viewProjection() * modelMatrix;
                 renderer->drawModel(item.handle, mvp, modelMatrix);
             }
+
+            if (spriteTex >= 0) {
+                const float sw = 64.0f, sh = 64.0f;
+                const float fw = static_cast<float>(dw), fh = static_cast<float>(dh);
+                const float maxX = fw > sw ? fw - sw : 0.0f;
+                const float maxY = fh > sh ? fh - sh : 0.0f;
+                // Neon tint cycle: pink, cyan, purple, acid-green, orange, white.
+                const render::Color tints[kDemoSprites] = {
+                    {1.0f, 0.1f, 0.6f, 1.0f}, {0.1f, 1.0f, 1.0f, 1.0f}, {0.6f, 0.2f, 1.0f, 1.0f},
+                    {0.6f, 1.0f, 0.1f, 1.0f}, {1.0f, 0.6f, 0.1f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}};
+                for (int k = 0; k < kDemoSprites; ++k) {
+                    render::Sprite s;
+                    s.w = sw;
+                    s.h = sh;
+                    s.x = bounce(hue * 90.0f + static_cast<float>(k) * 47.0f, 0.0f, maxX);
+                    s.y = bounce(hue * 70.0f + static_cast<float>(k) * 83.0f, 0.0f, maxY);
+                    s.rotation = spin + static_cast<float>(k);
+                    s.tint = tints[k];
+                    renderer->drawSprite(spriteTex, s);
+                }
+            }
+
             renderer->endFrame();
         }
 

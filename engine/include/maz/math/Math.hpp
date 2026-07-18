@@ -33,9 +33,16 @@ inline mat4 perspective(float fovYRadians, float aspect, float zNear, float zFar
     return proj;
 }
 
-// 2D pixel-space orthographic projection (origin top-left), ready for a sprite renderer.
+// 2D pixel-space orthographic projection with a top-left origin: pixel (0,0) is the top-left
+// corner, +X right, +Y down. Depth is Vulkan's 0..1.
+//
+// The engine renders with a positive-height viewport and bakes the Vulkan Y-flip into the
+// projection (see perspective() above). For an ortho that means using the OpenGL-style
+// bottom-origin form `glm::ortho(0, w, 0, h)`: on Vulkan's Y-down NDC + positive viewport that
+// lands pixel y=0 at the top of the framebuffer, i.e. a top-left origin — the natural convention
+// for 2D sprites, tilemaps and HUDs.
 inline mat4 ortho2D(float width, float height) {
-    return glm::ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
+    return glm::ortho(0.0f, width, 0.0f, height, -1.0f, 1.0f);
 }
 
 } // namespace maz::math
