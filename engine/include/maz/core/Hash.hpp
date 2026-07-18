@@ -126,6 +126,84 @@ inline std::string sha256Hex(const std::string& s) {
     return toHex(d.data(), d.size());
 }
 
+namespace detail {
+inline std::uint32_t rotl(std::uint32_t x, int n) { return (x << n) | (x >> (32 - n)); }
+} // namespace detail
+
+// SHA-1 digest (20 bytes) — Godot's HashingContext HASH_SHA1. Legacy for content integrity and the
+// WebSocket handshake (Sec-WebSocket-Accept); not for new security uses (prefer SHA-256/HMAC above).
+// Standard algorithm, verified against the published test vectors.
+inline std::array<std::uint8_t, 20> sha1(const std::uint8_t* data, std::size_t len) {
+    std::uint32_t h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476,
+                  h4 = 0xC3D2E1F0;
+
+    std::vector<std::uint8_t> msg(data, data + len);
+    const std::uint64_t bitLen = static_cast<std::uint64_t>(len) * 8u;
+    msg.push_back(0x80);
+    while (msg.size() % 64 != 56) {
+        msg.push_back(0x00);
+    }
+    for (int i = 7; i >= 0; --i) {
+        msg.push_back(static_cast<std::uint8_t>((bitLen >> (i * 8)) & 0xFF));
+    }
+
+    using detail::rotl;
+    for (std::size_t off = 0; off < msg.size(); off += 64) {
+        std::uint32_t w[80];
+        for (std::size_t i = 0; i < 16; ++i) {
+            const std::size_t j = off + i * 4;
+            w[i] = (static_cast<std::uint32_t>(msg[j]) << 24) |
+                   (static_cast<std::uint32_t>(msg[j + 1]) << 16) |
+                   (static_cast<std::uint32_t>(msg[j + 2]) << 8) |
+                   static_cast<std::uint32_t>(msg[j + 3]);
+        }
+        for (int i = 16; i < 80; ++i) {
+            w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+        }
+        std::uint32_t a = h0, b = h1, c = h2, d = h3, e = h4;
+        for (int i = 0; i < 80; ++i) {
+            std::uint32_t f, k;
+            if (i < 20) {
+                f = (b & c) | (~b & d);
+                k = 0x5A827999;
+            } else if (i < 40) {
+                f = b ^ c ^ d;
+                k = 0x6ED9EBA1;
+            } else if (i < 60) {
+                f = (b & c) | (b & d) | (c & d);
+                k = 0x8F1BBCDC;
+            } else {
+                f = b ^ c ^ d;
+                k = 0xCA62C1D6;
+            }
+            const std::uint32_t temp = rotl(a, 5) + f + e + k + w[i];
+            e = d;
+            d = c;
+            c = rotl(b, 30);
+            b = a;
+            a = temp;
+        }
+        h0 += a; h1 += b; h2 += c; h3 += d; h4 += e;
+    }
+
+    std::array<std::uint8_t, 20> out{};
+    const std::uint32_t hs[5] = {h0, h1, h2, h3, h4};
+    for (int i = 0; i < 5; ++i) {
+        out[static_cast<std::size_t>(i * 4)] = static_cast<std::uint8_t>((hs[i] >> 24) & 0xFF);
+        out[static_cast<std::size_t>(i * 4 + 1)] = static_cast<std::uint8_t>((hs[i] >> 16) & 0xFF);
+        out[static_cast<std::size_t>(i * 4 + 2)] = static_cast<std::uint8_t>((hs[i] >> 8) & 0xFF);
+        out[static_cast<std::size_t>(i * 4 + 3)] = static_cast<std::uint8_t>(hs[i] & 0xFF);
+    }
+    return out;
+}
+inline std::array<std::uint8_t, 20> sha1(const std::string& s) {
+    return sha1(reinterpret_cast<const std::uint8_t*>(s.data()), s.size());
+}
+inline std::string sha1Hex(const std::string& s) {
+    const auto d = sha1(s);
+    return toHex(d.data(), d.size());
+}
+
 // HMAC-SHA256 (RFC 2104) — keyed message authentication, the primitive behind signed save files,
 // tamper-proof network messages and API tokens. Godot's Crypto.hmac_digest(HASH_SHA256, ...). Built on
 // the SHA-256 above; verified against the RFC 4231 test vectors. Block size is 64 bytes.

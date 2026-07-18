@@ -12882,6 +12882,20 @@ void testHash() {
         CHECK(d[0] == 0xba && d[31] == 0xad);
     }
 
+    // SHA-1 (M299) against the published vectors.
+    CHECK(sha1Hex("") == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    CHECK(sha1Hex("abc") == "a9993e364706816aba3e25717850c26c9cd0d89d");
+    CHECK(sha1Hex("The quick brown fox jumps over the lazy dog") ==
+          "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12");
+    CHECK(sha1Hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") ==
+          "84983e441c3bd26ebaae4aa1f95129e5e54670f1"); // two-block padding path
+    CHECK(sha1Hex("dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11") ==
+          "b37a4f2cc0624f1690f64606cf385945b2bec4ea"); // RFC 6455 WebSocket accept step
+    {
+        const auto d = sha1(std::string("abc"));
+        CHECK(d[0] == 0xa9 && d[19] == 0x9d);
+    }
+
     // HMAC-SHA256 (M298) against RFC 4231 test vectors.
     CHECK(hmacSha256Hex("Jefe", "what do ya want for nothing?") ==
           "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");

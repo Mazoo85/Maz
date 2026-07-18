@@ -69,7 +69,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, **hashing** (M284, `core::sha256` / `sha256Hex` / `crc32` — Godot's
   HashingContext / crc32 for asset integrity, save checksums, content-addressed caches and network
-  digests; verified against the published SHA-256 / CRC-32 test vectors; plus **HMAC-SHA256** M298,
+  digests; verified against the published SHA-256 / CRC-32 test vectors; plus **SHA-1** M299,
+  `core::sha1` / `sha1Hex` — Godot's HashingContext HASH_SHA1 (content integrity, WebSocket handshake),
+  verified against the standard vectors; plus **HMAC-SHA256** M298,
   `core::hmacSha256` — keyed message authentication for signed saves / tamper-proof network messages /
   API tokens, Godot's Crypto.hmac_digest, verified against the RFC 4231 vectors), **endian-aware byte stream** (M277, `io::StreamPeerBuffer` — Godot's
   StreamPeerBuffer: fixed-width little/big-endian put/get for u8..u64 signed+unsigned, float, double,
