@@ -312,7 +312,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << (mixer.tremolo().sync() ? 1 : 0) << " " << mixer.tremolo().syncDivision() << "\n";
     f << "fx stereodelay " << (mixer.stereoDelay().enabled() ? 1 : 0) << " "
       << mixer.stereoDelay().leftMs() << " " << mixer.stereoDelay().rightMs() << " "
-      << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << "\n";
+      << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << " "
+      << (mixer.stereoDelay().sync() ? 1 : 0) << " " << mixer.stereoDelay().leftDivision() << " "
+      << mixer.stereoDelay().rightDivision() << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
@@ -780,6 +782,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.stereoDelay().setRightMs(rms);
                 mixer.stereoDelay().setFeedback(fb);
                 mixer.stereoDelay().setMix(mix);
+                int sync = 0, ldiv = 4, rdiv = 5; // tempo sync optional for old files
+                if (ls >> sync >> ldiv >> rdiv) {
+                    mixer.stereoDelay().setSync(sync != 0);
+                    mixer.stereoDelay().setLeftDivision(ldiv);
+                    mixer.stereoDelay().setRightDivision(rdiv);
+                }
             } else if (which == "formant") {
                 int vowel = 0;
                 float mix = 0.5f;

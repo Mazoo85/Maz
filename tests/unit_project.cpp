@@ -181,6 +181,9 @@ int main() {
     mixer.stereoDelay().setRightMs(270.0f);
     mixer.stereoDelay().setFeedback(0.55f);
     mixer.stereoDelay().setMix(0.35f);
+    mixer.stereoDelay().setSync(true);
+    mixer.stereoDelay().setLeftDivision(3);
+    mixer.stereoDelay().setRightDivision(6);
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
@@ -448,7 +451,8 @@ int main() {
     check(mixer2.stereoDelay().enabled() && near(mixer2.stereoDelay().leftMs(), 180.0f) &&
               near(mixer2.stereoDelay().rightMs(), 270.0f) &&
               near(mixer2.stereoDelay().feedback(), 0.55f) &&
-              near(mixer2.stereoDelay().mix(), 0.35f),
+              near(mixer2.stereoDelay().mix(), 0.35f) && mixer2.stereoDelay().sync() &&
+              mixer2.stereoDelay().leftDivision() == 3 && mixer2.stereoDelay().rightDivision() == 6,
           "stereo delay round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold,
           "distortion curve round-trips");

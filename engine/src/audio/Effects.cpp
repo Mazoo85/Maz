@@ -48,12 +48,18 @@ const char* Delay::syncDivisionName(int div) {
     return kDivName[div];
 }
 
+float Delay::syncTimeMs(int div, double bpm) {
+    if (div < 0 || div >= kSyncDivisions || bpm <= 0.0) {
+        return 0.0f;
+    }
+    return static_cast<float>(60000.0 / bpm * static_cast<double>(kDivMul[div]));
+}
+
 void Delay::updateTempo(double bpm) {
     if (!sync_ || bpm <= 0.0) {
         return;
     }
-    const double quarterMs = 60000.0 / bpm;
-    timeMs_ = static_cast<float>(quarterMs * static_cast<double>(kDivMul[syncDiv_]));
+    timeMs_ = syncTimeMs(syncDiv_, bpm);
 }
 
 void Delay::process(float* stereo, int frames, int sampleRate) {
@@ -955,6 +961,14 @@ void StereoDelay::reset() {
     std::fill(bufL_.begin(), bufL_.end(), 0.0f);
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     writePos_ = 0;
+}
+
+void StereoDelay::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    leftMs_ = Delay::syncTimeMs(leftDiv_, bpm);
+    rightMs_ = Delay::syncTimeMs(rightDiv_, bpm);
 }
 
 void StereoDelay::process(float* stereo, int frames, int sampleRate) {

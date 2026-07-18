@@ -60,6 +60,7 @@ public:
     void updateTempo(double bpm); // recompute timeMs_ from bpm + division when sync is on
     static constexpr int kSyncDivisions = 8;
     static const char* syncDivisionName(int div);
+    static float syncTimeMs(int div, double bpm); // note division + BPM → delay time in ms
     bool sync() const { return sync_; }
     int syncDivision() const { return syncDiv_; }
     float time() const { return timeMs_; }
@@ -635,6 +636,15 @@ public:
     void setRightMs(float ms) { rightMs_ = ms < 1.0f ? 1.0f : (ms > 2000.0f ? 2000.0f : ms); }
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Tempo sync: when on, each channel's delay time tracks the transport tempo at its own note
+    // division (reusing the Delay division set). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setLeftDivision(int d) { leftDiv_ = d < 0 ? 0 : (d >= Delay::kSyncDivisions ? Delay::kSyncDivisions - 1 : d); }
+    void setRightDivision(int d) { rightDiv_ = d < 0 ? 0 : (d >= Delay::kSyncDivisions ? Delay::kSyncDivisions - 1 : d); }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int leftDivision() const { return leftDiv_; }
+    int rightDivision() const { return rightDiv_; }
     float leftMs() const { return leftMs_; }
     float rightMs() const { return rightMs_; }
     float feedback() const { return feedback_; }
@@ -648,6 +658,9 @@ private:
     float rightMs_ = 375.0f;
     float feedback_ = 0.4f;
     float mix_ = 0.3f;
+    bool sync_ = false;  // tempo-sync the L/R delay times
+    int leftDiv_ = 4;    // left note-division index (default 1/8)
+    int rightDiv_ = 5;   // right note-division index (default dotted 1/8)
     std::vector<float> bufL_; // circular delay lines (sized on first process)
     std::vector<float> bufR_;
     int writePos_ = 0;

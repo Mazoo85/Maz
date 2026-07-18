@@ -129,8 +129,9 @@ void AudioEngine::render(float* out, int frames) {
             sequencer_.render(out, frames, cfg_.sampleRate);
         }
         // Master bus: the mixer's effect chain + master gain + limiter over the stereo output.
-        mixer_.delay().updateTempo(sequencer_.bpm());    // sync the delay time to the transport tempo
-        mixer_.tremolo().updateTempo(sequencer_.bpm()); // sync the trance-gate rate too
+        mixer_.delay().updateTempo(sequencer_.bpm());       // sync the delay time to the transport tempo
+        mixer_.stereoDelay().updateTempo(sequencer_.bpm()); // sync the dual-delay L/R times too
+        mixer_.tremolo().updateTempo(sequencer_.bpm());     // sync the trance-gate rate too
         mixer_.process(out, frames, cfg_.sampleRate);
     } else {
         // Fallback mono path: sum the oscillator only (the sequencer targets stereo).

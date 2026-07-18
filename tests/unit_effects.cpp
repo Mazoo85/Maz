@@ -259,6 +259,27 @@ int main() {
         check(!dd.sync(), "delay tempo sync defaults to off");
     }
 
+    // --- Tempo-synced stereo delay: independent L/R times track the tempo ----
+    {
+        audio::StereoDelay sd;
+        sd.setSync(true);
+        sd.setLeftDivision(2);  // 1/4 → 500 ms @120
+        sd.setRightDivision(4); // 1/8 → 250 ms @120
+        sd.updateTempo(120.0);
+        check(std::fabs(sd.leftMs() - 500.0f) < 0.5f, "synced stereo delay: left tracks 1/4 (500 ms)");
+        check(std::fabs(sd.rightMs() - 250.0f) < 0.5f, "synced stereo delay: right tracks 1/8 (250 ms)");
+
+        audio::StereoDelay m;
+        m.setLeftMs(180.0f);
+        m.setRightMs(240.0f);
+        m.updateTempo(120.0);
+        check(std::fabs(m.leftMs() - 180.0f) < 1e-3f && std::fabs(m.rightMs() - 240.0f) < 1e-3f,
+              "stereo delay updateTempo is a no-op when sync is off");
+
+        audio::StereoDelay dd;
+        check(!dd.sync(), "stereo delay tempo sync defaults to off");
+    }
+
     // --- Tempo-synced tremolo (trance gate): rate tracks the transport -------
     {
         audio::Tremolo t;

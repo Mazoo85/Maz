@@ -1559,6 +1559,21 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
         if (ImGui::SliderFloat("mix##sd", &mix, 0.0f, 1.0f, "%.2f")) mx.stereoDelay().setMix(mix);
+        bool sdsync = mx.stereoDelay().sync();
+        if (ImGui::Checkbox("Sync##sd", &sdsync)) mx.stereoDelay().setSync(sdsync);
+        const char* sddivNames[audio::Delay::kSyncDivisions];
+        for (int d = 0; d < audio::Delay::kSyncDivisions; ++d)
+            sddivNames[d] = audio::Delay::syncDivisionName(d);
+        ImGui::SameLine();
+        int ldiv = mx.stereoDelay().leftDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("L##sddiv", &ldiv, sddivNames, audio::Delay::kSyncDivisions))
+            mx.stereoDelay().setLeftDivision(ldiv);
+        ImGui::SameLine();
+        int rdiv = mx.stereoDelay().rightDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("R##sddiv", &rdiv, sddivNames, audio::Delay::kSyncDivisions))
+            mx.stereoDelay().setRightDivision(rdiv);
     }
     {
         bool en = mx.formant().enabled();
