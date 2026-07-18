@@ -122,6 +122,7 @@ int main() {
     mixer.compressor().setRatio(6.0f);
     mixer.compressor().setMakeupDb(4.0f);
     mixer.compressor().setKneeDb(6.0f);
+    mixer.compressor().setMix(0.6f);
     mixer.delay().setEnabled(true);
     mixer.delay().setTime(250.0f);
     mixer.delay().setMix(0.4f);
@@ -337,6 +338,7 @@ int main() {
     check(near(mixer2.limiterCeiling(), 0.9f), "limiter ceiling round-trips");
     check(mixer2.eq().enabled() && near(mixer2.eq().cutoff(), 3200.0f), "EQ round-trips");
     check(near(mixer2.compressor().kneeDb(), 6.0f), "compressor knee round-trips");
+    check(near(mixer2.compressor().mix(), 0.6f), "compressor mix round-trips");
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");

@@ -162,6 +162,28 @@ int main() {
         check(soft < hard * 0.98f, "a soft knee compresses just below the threshold");
     }
 
+    // --- Compressor mix: parallel (NY) compression sits between dry and wet --
+    {
+        auto outPeakAt = [&](float mix) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-18.0f);
+            c.setRatio(6.0f);
+            c.setMix(mix);
+            std::vector<float> b = sineStereo(sr, 220.0, 0.8, sr); // well above threshold
+            c.process(b.data(), sr, sr);
+            return peakRange(b, sr / 2, sr);
+        };
+        const float dry = outPeakAt(0.0f);      // no compression → ~0.8
+        const float parallel = outPeakAt(0.5f); // blend
+        const float wet = outPeakAt(1.0f);      // fully compressed
+        check(dry > 0.78f, "compressor mix 0 leaves the signal dry");
+        check(wet < dry * 0.7f, "compressor mix 1 fully compresses");
+        check(parallel < dry && parallel > wet, "parallel mix sits between dry and fully compressed");
+        audio::Compressor dc;
+        check(std::fabs(dc.mix() - 1.0f) < 1e-6f, "compressor mix defaults to 1 (fully wet)");
+    }
+
     // --- Reverb: an impulse leaves a decaying tail ---------------------------
     {
         audio::Reverb rev;

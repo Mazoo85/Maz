@@ -230,7 +230,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
-      << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << "\n";
+      << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << " "
+      << mixer.compressor().mix() << "\n";
     f << "fx transient " << (mixer.transient().enabled() ? 1 : 0) << " "
       << mixer.transient().attack() << " " << mixer.transient().sustain() << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
@@ -609,6 +610,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float knee = 0.0f; // knee optional (older files omit it)
                 if (ls >> knee) {
                     mixer.compressor().setKneeDb(knee);
+                }
+                float mix = 1.0f; // parallel-compression mix optional (older files omit it)
+                if (ls >> mix) {
+                    mixer.compressor().setMix(mix);
                 }
             } else if (which == "transient") {
                 float atk = 0.0f, sus = 0.0f;

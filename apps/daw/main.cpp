@@ -1242,6 +1242,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("knee##cmp", &knee, 0.0f, 24.0f, "%.0f")) mx.compressor().setKneeDb(knee);
+        float cmix = mx.compressor().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##cmp", &cmix, 0.0f, 1.0f, "%.2f")) mx.compressor().setMix(cmix);
     }
     {
         bool en = mx.transient().enabled();

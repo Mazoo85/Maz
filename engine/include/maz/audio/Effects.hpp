@@ -355,12 +355,16 @@ public:
     // Knee width in dB: 0 = hard knee (abrupt at the threshold); wider = a gradual onset of
     // compression that starts below the threshold for a smoother, more transparent sound.
     void setKneeDb(float db) { kneeDb_ = db < 0.0f ? 0.0f : (db > 24.0f ? 24.0f : db); }
+    // Dry/wet blend for parallel ("New York") compression: 1 = fully compressed (default), lower
+    // values mix the uncompressed signal back in to keep transients and punch.
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float attackMs() const { return attackMs_; }
     float releaseMs() const { return releaseMs_; }
     float makeupDb() const { return makeupDb_; }
     float kneeDb() const { return kneeDb_; }
+    float mix() const { return mix_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -372,6 +376,7 @@ private:
     float releaseMs_ = 120.0f;
     float makeupDb_ = 0.0f;
     float kneeDb_ = 0.0f; // 0 = hard knee
+    float mix_ = 1.0f;     // dry/wet blend; 1 = fully compressed
     float env_ = 0.0f; // linear peak-envelope follower
 };
 

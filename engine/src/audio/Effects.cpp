@@ -593,8 +593,11 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
             reductionDb = (1.0f / ratio - 1.0f) * over; // = targetDb − envDb
         }
         const float gain = dbToLin(reductionDb) * makeup;
-        stereo[2 * i] = l * gain;
-        stereo[2 * i + 1] = r * gain;
+        // Parallel/NY compression: blend the compressed signal back with the dry (mix 1 = fully
+        // compressed, the classic behaviour; lower mixes keep more of the untouched transients).
+        const float dry = 1.0f - mix_;
+        stereo[2 * i] = l * dry + l * gain * mix_;
+        stereo[2 * i + 1] = r * dry + r * gain * mix_;
     }
 }
 
