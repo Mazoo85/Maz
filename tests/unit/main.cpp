@@ -116,6 +116,7 @@
 #include "maz/game/Overlap3D.hpp"
 #include "maz/game/FlowField.hpp"
 #include "maz/game/Goap.hpp"
+#include "maz/game/HexGrid.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
@@ -12385,6 +12386,64 @@ void testGeometry2DPolygon() {
     CHECK(math::convexHull({{1, 1}, {2, 2}}).size() == 2);
 }
 
+// HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.
+void testHexGrid() {
+    using maz::game::Hex;
+    using maz::game::HexOrientation;
+    using maz::game::hexDistance;
+    using maz::game::hexLine;
+    using maz::game::hexNeighbors;
+    using maz::game::hexToPixel;
+    using maz::game::pixelToHex;
+
+    // Distance.
+    CHECK(hexDistance(Hex(0, 0), Hex(3, 0)) == 3);
+    CHECK(hexDistance(Hex(0, 0), Hex(0, -3)) == 3);
+    CHECK(hexDistance(Hex(0, 0), Hex(2, -1)) == 2);
+    CHECK(hexDistance(Hex(1, 1), Hex(1, 1)) == 0);
+
+    // Six neighbours, each exactly distance 1.
+    {
+        const auto n = hexNeighbors(Hex(2, 3));
+        CHECK(n.size() == 6);
+        for (const auto& h : n) {
+            CHECK(hexDistance(Hex(2, 3), h) == 1);
+        }
+    }
+
+    // hexToPixel(origin) is the origin; pixel<->hex round-trips for both orientations.
+    {
+        const maz::math::vec2 p = hexToPixel(Hex(0, 0), 10.0f);
+        CHECK((std::fabs(p.x) < 1e-4f && std::fabs(p.y) < 1e-4f));
+    }
+    for (int q = -4; q <= 4; ++q) {
+        for (int r = -4; r <= 4; ++r) {
+            const Hex h(q, r);
+            CHECK(pixelToHex(hexToPixel(h, 12.0f, HexOrientation::PointyTop), 12.0f,
+                             HexOrientation::PointyTop) == h);
+            CHECK(pixelToHex(hexToPixel(h, 12.0f, HexOrientation::FlatTop), 12.0f,
+                             HexOrientation::FlatTop) == h);
+        }
+    }
+
+    // Line: correct endpoints, unit steps, and the degenerate single-cell case.
+    {
+        const auto l = hexLine(Hex(0, 0), Hex(3, 0));
+        CHECK(l.size() == 4);
+        CHECK((l.front() == Hex(0, 0) && l.back() == Hex(3, 0)));
+        for (std::size_t i = 1; i < l.size(); ++i) {
+            CHECK(hexDistance(l[i - 1], l[i]) == 1);
+        }
+        const auto d = hexLine(Hex(0, 0), Hex(0, 0));
+        CHECK((d.size() == 1 && d[0] == Hex(0, 0)));
+        const auto g = hexLine(Hex(-2, 1), Hex(2, -3));
+        CHECK((g.front() == Hex(-2, 1) && g.back() == Hex(2, -3)));
+        for (std::size_t i = 1; i < g.size(); ++i) {
+            CHECK(hexDistance(g[i - 1], g[i]) == 1);
+        }
+    }
+}
+
 // Quaternion: Godot-style rotation quaternion — axis-angle, YXZ Euler round-trip, xform, compose,
 // inverse, slerp, angleTo, and mat3 interop. Euler convention matched to Godot's from_euler/get_euler.
 void testQuaternion() {
@@ -21466,6 +21525,7 @@ int main() {
     testQuaternion();
     testVectorInt();
     testGeometry2DPolygon();
+    testHexGrid();
     testSdf();
     testGlyphCache();
     testGraphEdit();
