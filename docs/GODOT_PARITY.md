@@ -148,8 +148,14 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
 ### 8. UI (Control) library  [CPU mostly]
 Maz has a strong slice (LayoutNode, containers, Tree, ItemList, PopupMenu, TextField, StyleBox,
 Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
-- [ ] **[CPU]** TabContainer, GraphEdit/GraphNode, RichTextLabel effects, FileDialog, ColorPicker,
+- [~] **[CPU]** TabContainer, GraphEdit/GraphNode, RichTextLabel effects, FileDialog, ColorPicker,
   SpinBox, OptionButton, Tree editing, drag-and-drop between controls
+  — **GraphEdit/GraphNode done** (M241): `ui::GraphEdit` — the node-graph model behind visual
+  scripting / the shader graph / blend trees. Nodes with named input/output ports + canvas position;
+  connect/disconnect with full validation (endpoints exist, no self-links, no duplicate wires,
+  cycle rejection for acyclic graphs), many-to-one/one-to-many wiring, `wouldCreateCycle`, incident-wire
+  cleanup on node removal, and a Kahn `topologicalOrder` (empty on cycle). Verified across all of those.
+  The other listed controls (TabContainer, ColorPicker, etc.) remain.
 - [ ] **[CPU]** Full theme system (per-control theme overrides, theme types)
 - [ ] **[GPU]** Control clipping via viewport/backbuffer
 

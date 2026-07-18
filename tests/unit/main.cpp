@@ -152,6 +152,7 @@
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/RichText.hpp"
 #include "maz/ui/GlyphCache.hpp"
+#include "maz/ui/GraphEdit.hpp"
 #include "maz/ui/Sdf.hpp"
 #include "maz/ui/StyleBox.hpp"
 #include "maz/ui/TextInput.hpp"
@@ -10565,6 +10566,90 @@ void testGlyphCache() {
     CHECK(rasterCalls == rasterBefore + 1);
 }
 
+void testGraphEdit() {
+    using maz::ui::GraphEdit;
+    using maz::ui::GraphNode;
+    using maz::ui::GraphPort;
+
+    auto mk = [](const std::string& id, int ins, int outs) {
+        GraphNode n;
+        n.id = id;
+        for (int i = 0; i < ins; ++i) {
+            n.inputs.push_back(GraphPort{"in" + std::to_string(i), 0});
+        }
+        for (int i = 0; i < outs; ++i) {
+            n.outputs.push_back(GraphPort{"out" + std::to_string(i), 0});
+        }
+        return n;
+    };
+
+    GraphEdit g;
+    CHECK(g.addNode(mk("A", 1, 1)));
+    CHECK(g.addNode(mk("B", 1, 1)));
+    CHECK(g.addNode(mk("C", 2, 1)));
+    CHECK(!g.addNode(mk("A", 1, 1))); // duplicate id
+    CHECK(!g.addNode(mk("", 1, 1)));  // empty id
+    CHECK(g.nodeCount() == 3);
+
+    // Valid chain A -> B -> C.
+    CHECK(g.connect("A", 0, "B", 0));
+    CHECK(g.connect("B", 0, "C", 0));
+    CHECK(g.connectionCount() == 2);
+    CHECK(g.isConnected("A", 0, "B", 0));
+
+    // Rejections: duplicate / self / missing node / bad ports.
+    CHECK(!g.connect("A", 0, "B", 0));
+    CHECK(!g.connect("A", 0, "A", 0));
+    CHECK(!g.connect("A", 0, "Z", 0));
+    CHECK(!g.connect("A", 5, "B", 0));
+    CHECK(!g.connect("A", 0, "B", 9));
+    CHECK(g.connectionCount() == 2);
+
+    // Cycle prevention.
+    CHECK(g.wouldCreateCycle("C", "A"));
+    CHECK(!g.connect("C", 0, "A", 0));
+    CHECK(g.connectionCount() == 2);
+
+    // Many-to-one allowed.
+    CHECK(g.connect("A", 0, "C", 1));
+    CHECK(g.connectionCount() == 3);
+
+    // Topological order respects dependencies.
+    std::vector<std::string> order = g.topologicalOrder();
+    CHECK(order.size() == 3);
+    auto pos = [&](const std::string& id) {
+        for (std::size_t i = 0; i < order.size(); ++i) {
+            if (order[i] == id) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    };
+    CHECK(pos("A") < pos("B"));
+    CHECK(pos("B") < pos("C"));
+    CHECK(pos("A") < pos("C"));
+
+    // Free-form graph permits a cycle; topo then yields empty.
+    GraphEdit f;
+    f.acyclic = false;
+    f.addNode(mk("X", 1, 1));
+    f.addNode(mk("Y", 1, 1));
+    CHECK(f.connect("X", 0, "Y", 0));
+    CHECK(f.connect("Y", 0, "X", 0));
+    CHECK(f.topologicalOrder().empty());
+
+    // removeNode drops incident wires; disconnect removes a single wire.
+    CHECK(g.removeNode("B"));
+    CHECK(g.findNode("B") == nullptr);
+    CHECK(!g.isConnected("A", 0, "B", 0));
+    CHECK(!g.isConnected("B", 0, "C", 0));
+    CHECK(g.isConnected("A", 0, "C", 1));
+    CHECK(g.connectionCount() == 1);
+    CHECK(g.disconnect("A", 0, "C", 1));
+    CHECK(g.connectionCount() == 0);
+    CHECK(!g.disconnect("A", 0, "C", 1));
+}
+
 // Pcg32: reproduces PCG's canonical reference test vector; helpers are bounded + deterministic.
 void testPcg32() {
     using maz::core::Pcg32;
@@ -18974,6 +19059,7 @@ int main() {
     testGeometry3D();
     testSdf();
     testGlyphCache();
+    testGraphEdit();
     testPcg32();
     testOverlap3D();
     testChunkStreamer();
