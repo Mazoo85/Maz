@@ -1,12 +1,10 @@
 #include "maz/scene/Scene.hpp"
 
 #include "maz/core/Log.hpp"
+#include "maz/io/TextFormat.hpp"
 
-#include <cctype>
-#include <cstdlib>
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 
 namespace maz::scene {
 
@@ -21,68 +19,12 @@ math::mat4 Transform::matrix() const {
     return t * r * s;
 }
 
-namespace {
-
-// Split a line into whitespace-separated tokens, treating a "double quoted" run as one token
-// (quotes stripped). Simple and sufficient for the scene format.
-std::vector<std::string> tokenize(const std::string& line) {
-    std::vector<std::string> tokens;
-    std::size_t i = 0;
-    while (i < line.size()) {
-        if (std::isspace(static_cast<unsigned char>(line[i]))) {
-            ++i;
-            continue;
-        }
-        std::string tok;
-        if (line[i] == '"') {
-            ++i;
-            while (i < line.size() && line[i] != '"') {
-                if (line[i] == '\\' && i + 1 < line.size()) {
-                    ++i; // take the escaped character literally
-                }
-                tok += line[i++];
-            }
-            if (i < line.size()) {
-                ++i; // closing quote
-            }
-        } else {
-            while (i < line.size() && !std::isspace(static_cast<unsigned char>(line[i]))) {
-                tok += line[i++];
-            }
-        }
-        tokens.push_back(tok);
-    }
-    return tokens;
-}
-
-// Escape a string for the quoted scene-file form (backslash + quote only).
-std::string quote(const std::string& s) {
-    std::string out = "\"";
-    for (char c : s) {
-        if (c == '"' || c == '\\') {
-            out += '\\';
-        }
-        out += c;
-    }
-    out += '"';
-    return out;
-}
-
-void writeVec3(std::ostream& os, const char* key, const math::vec3& v) {
-    os << "  " << key << ' ' << v.x << ' ' << v.y << ' ' << v.z << '\n';
-}
-
-bool readVec3(const std::vector<std::string>& t, math::vec3& out) {
-    if (t.size() < 4) {
-        return false;
-    }
-    out.x = std::strtof(t[1].c_str(), nullptr);
-    out.y = std::strtof(t[2].c_str(), nullptr);
-    out.z = std::strtof(t[3].c_str(), nullptr);
-    return true;
-}
-
-} // namespace
+// The .mazscene format shares its tokenizer and vec3 helpers with the rest of the engine's
+// text formats; see maz/io/TextFormat.hpp.
+using io::quote;
+using io::readVec3;
+using io::tokenize;
+using io::writeVec3;
 
 bool saveScene(const std::string& path, const Scene& scene, std::string* error) {
     std::ofstream file(path);

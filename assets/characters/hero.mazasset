@@ -1,0 +1,58 @@
+# Example character authored with the Creator: a blocky humanoid built from primitives.
+# Load it in the editor, or reference it from a .mazscene entity's `model` field, exactly like
+# a glTF file — it is baked to a mesh on load. Positions are in the asset's local space.
+maz-asset 1
+name "Hero"
+kind character
+part
+  name "Torso"
+  prim box
+  size 0.6 0.9 0.35
+  pos 0 1.15 0
+  rot 0 0 0
+  scale 1 1 1
+part
+  name "Head"
+  prim sphere
+  radius 0.28
+  segments 20
+  rings 12
+  pos 0 1.85 0
+  rot 0 0 0
+  scale 1 1 1
+part
+  name "Left Leg"
+  prim cylinder
+  radius 0.13
+  height 0.9
+  segments 16
+  pos -0.17 0.45 0
+  rot 0 0 0
+  scale 1 1 1
+part
+  name "Right Leg"
+  prim cylinder
+  radius 0.13
+  height 0.9
+  segments 16
+  pos 0.17 0.45 0
+  rot 0 0 0
+  scale 1 1 1
+part
+  name "Left Arm"
+  prim cylinder
+  radius 0.1
+  height 0.8
+  segments 16
+  pos -0.42 1.2 0
+  rot 0 0 0
+  scale 1 1 1
+part
+  name "Right Arm"
+  prim cylinder
+  radius 0.1
+  height 0.8
+  segments 16
+  pos 0.42 1.2 0
+  rot 0 0 0
+  scale 1 1 1

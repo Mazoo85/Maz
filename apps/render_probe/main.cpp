@@ -7,6 +7,7 @@
 // correct pixels". Exits non-zero on failure.
 
 #include "maz/Engine.hpp"
+#include "maz/assets/CompositeAsset.hpp"
 #include "maz/assets/Model.hpp"
 #include "maz/render/OffscreenRenderer.hpp"
 #include "maz/scene/Camera.hpp"
@@ -27,6 +28,24 @@ struct Pixel {
 Pixel at(const std::vector<uint8_t>& px, uint32_t w, uint32_t x, uint32_t y) {
     const size_t i = (static_cast<size_t>(y) * w + x) * 4;
     return {px[i], px[i + 1], px[i + 2], px[i + 3]};
+}
+
+bool endsWith(const std::string& s, const std::string& suffix) {
+    return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+// Load `path` into a Model — a `.mazasset` is baked from its composite document (exercising the
+// creator's build path end to end), anything else is loaded as glTF.
+bool loadAny(const std::string& path, assets::Model& out, std::string& err) {
+    if (endsWith(path, ".mazasset")) {
+        assets::AssetDoc doc;
+        if (!assets::loadAsset(path, doc, &err)) {
+            return false;
+        }
+        out = assets::buildModel(doc);
+        return true;
+    }
+    return assets::loadModel(path, out, &err);
 }
 
 } // namespace
@@ -57,7 +76,7 @@ int main(int argc, char** argv) {
 
     assets::Model model;
     std::string err;
-    if (!assets::loadModel(modelPath, model, &err)) {
+    if (!loadAny(modelPath, model, err)) {
         std::printf("render probe: FAIL (load model: %s)\n", err.c_str());
         return 1;
     }

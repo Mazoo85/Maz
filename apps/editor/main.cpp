@@ -7,6 +7,7 @@
 // Runs headless as a no-op (no GPU/UI) so CI can smoke-test that it starts and exits cleanly.
 
 #include "maz/Engine.hpp"
+#include "maz/assets/CompositeAsset.hpp"
 #include "maz/assets/Model.hpp"
 #include "maz/scene/Camera.hpp"
 #include "maz/scene/Scene.hpp"
@@ -28,17 +29,195 @@
 
 #include <SDL3/SDL_events.h>
 
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 using namespace maz;
 
 namespace {
 
+// State for the Creator panel: the composite asset being authored plus the currently edited part.
+struct CreatorState {
+    assets::AssetDoc doc;
+    int selectedPart = -1;
+};
+
+// Reduce a display name to a safe file stem (alphanumerics kept; spaces/dashes -> underscore).
+std::string sanitizeStem(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (std::isalnum(static_cast<unsigned char>(c))) {
+            out += c;
+        } else if (c == ' ' || c == '-' || c == '_') {
+            out += '_';
+        }
+    }
+    return out.empty() ? std::string("untitled") : out;
+}
+
+bool endsWith(const std::string& s, const std::string& suffix) {
+    return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+// The directory a kind of asset saves into, and the full .mazasset path for a document.
+std::string assetDir(assets::AssetKind kind) {
+    return kind == assets::AssetKind::Character ? "assets/characters" : "assets/items";
+}
+std::string assetPath(const assets::AssetDoc& doc) {
+    return assetDir(doc.kind) + "/" + sanitizeStem(doc.name) + ".mazasset";
+}
+
+// Append a new part of the given primitive shape with sensible defaults, and select it.
+void addPart(CreatorState& creator, assets::PrimitiveKind kind, const char* label) {
+    assets::Part part;
+    part.name = std::string(label) + " " + std::to_string(creator.doc.parts.size());
+    part.kind = kind;
+    creator.doc.parts.push_back(part);
+    creator.selectedPart = static_cast<int>(creator.doc.parts.size()) - 1;
+}
+
+// Draw the Creator panel. Authors the composite asset; on Save/Bake it writes a .mazasset and
+// (for Bake) adds/updates a scene entity referencing it, pushing its path to `bakeInvalidate` so
+// the caller drops any stale upload cache entry and re-bakes the fresh geometry.
+void buildCreatorUI(CreatorState& creator, scene::Scene& scn, int& selected,
+                    std::vector<std::string>& bakeInvalidate) {
+    assets::AssetDoc& doc = creator.doc;
+
+    ImGui::Begin("Creator");
+
+    char nameBuf[128];
+    std::snprintf(nameBuf, sizeof(nameBuf), "%s", doc.name.c_str());
+    if (ImGui::InputText("Asset Name", nameBuf, sizeof(nameBuf))) {
+        doc.name = nameBuf;
+    }
+    int kindIdx = static_cast<int>(doc.kind);
+    ImGui::RadioButton("Item", &kindIdx, static_cast<int>(assets::AssetKind::Item));
+    ImGui::SameLine();
+    ImGui::RadioButton("Character", &kindIdx, static_cast<int>(assets::AssetKind::Character));
+    doc.kind = static_cast<assets::AssetKind>(kindIdx);
+
+    ImGui::Separator();
+    ImGui::TextDisabled("Parts");
+    const int partCount = static_cast<int>(doc.parts.size());
+    for (int i = 0; i < partCount; ++i) {
+        const std::string label =
+            doc.parts[static_cast<size_t>(i)].name + "##part" + std::to_string(i);
+        if (ImGui::Selectable(label.c_str(), i == creator.selectedPart)) {
+            creator.selectedPart = i;
+        }
+    }
+
+    if (ImGui::Button("+Box")) addPart(creator, assets::PrimitiveKind::Box, "Box");
+    ImGui::SameLine();
+    if (ImGui::Button("+Sphere")) addPart(creator, assets::PrimitiveKind::Sphere, "Sphere");
+    ImGui::SameLine();
+    if (ImGui::Button("+Cylinder")) addPart(creator, assets::PrimitiveKind::Cylinder, "Cylinder");
+    ImGui::SameLine();
+    if (ImGui::Button("+Plane")) addPart(creator, assets::PrimitiveKind::Plane, "Plane");
+    ImGui::SameLine();
+    if (ImGui::Button("Delete Part") && creator.selectedPart >= 0 &&
+        creator.selectedPart < partCount) {
+        doc.parts.erase(doc.parts.begin() + creator.selectedPart);
+        creator.selectedPart = -1;
+    }
+
+    ImGui::Separator();
+    if (creator.selectedPart >= 0 && creator.selectedPart < partCount) {
+        assets::Part& part = doc.parts[static_cast<size_t>(creator.selectedPart)];
+        char partName[128];
+        std::snprintf(partName, sizeof(partName), "%s", part.name.c_str());
+        if (ImGui::InputText("Part Name", partName, sizeof(partName))) {
+            part.name = partName;
+        }
+        const char* shapes[] = {"Box", "Sphere", "Cylinder", "Plane"};
+        int shapeIdx = static_cast<int>(part.kind);
+        if (ImGui::Combo("Shape", &shapeIdx, shapes, IM_ARRAYSIZE(shapes))) {
+            part.kind = static_cast<assets::PrimitiveKind>(shapeIdx);
+        }
+        // Only the fields this shape uses.
+        switch (part.kind) {
+        case assets::PrimitiveKind::Box:
+            ImGui::DragFloat3("Size", part.params.size, 0.02f, 0.001f, 100.0f);
+            break;
+        case assets::PrimitiveKind::Sphere:
+            ImGui::DragFloat("Radius", &part.params.radius, 0.02f, 0.001f, 100.0f);
+            ImGui::DragInt("Segments", &part.params.segments, 1.0f, 3, 128);
+            ImGui::DragInt("Rings", &part.params.rings, 1.0f, 2, 128);
+            break;
+        case assets::PrimitiveKind::Cylinder:
+            ImGui::DragFloat("Radius", &part.params.radius, 0.02f, 0.001f, 100.0f);
+            ImGui::DragFloat("Height", &part.params.height, 0.02f, 0.001f, 100.0f);
+            ImGui::DragInt("Segments", &part.params.segments, 1.0f, 3, 128);
+            break;
+        case assets::PrimitiveKind::Plane:
+            ImGui::DragFloat3("Size (W,_,D)", part.params.size, 0.02f, 0.001f, 100.0f);
+            break;
+        }
+        ImGui::Separator();
+        ImGui::DragFloat3("Position", &part.local.position.x, 0.05f);
+        ImGui::DragFloat3("Rotation", &part.local.rotationEuler.x, 0.5f);
+        // Phase 1 keeps scale uniform (single slider) so baked normals stay correct.
+        float uniform = part.local.scale.x;
+        if (ImGui::DragFloat("Scale", &uniform, 0.02f, 0.001f, 100.0f)) {
+            part.local.scale = math::vec3(uniform, uniform, uniform);
+        }
+    } else {
+        ImGui::TextDisabled("Add a part, then select it to edit.");
+    }
+
+    ImGui::Separator();
+    const std::string path = assetPath(doc);
+    ImGui::TextDisabled("-> %s", path.c_str());
+    if (ImGui::Button("Save Asset")) {
+        std::error_code ec;
+        std::filesystem::create_directories(assetDir(doc.kind), ec);
+        std::string serr;
+        if (assets::saveAsset(path, doc, &serr)) {
+            MAZ_LOG_INFO("saved asset to %s", path.c_str());
+        } else {
+            MAZ_LOG_ERROR("save asset failed: %s", serr.c_str());
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Bake & Preview") && !doc.parts.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(assetDir(doc.kind), ec);
+        std::string serr;
+        if (assets::saveAsset(path, doc, &serr)) {
+            // Ensure exactly one scene entity references this asset; refresh its geometry.
+            bool found = false;
+            for (int i = 0; i < static_cast<int>(scn.entities.size()); ++i) {
+                if (scn.entities[static_cast<size_t>(i)].modelPath == path) {
+                    found = true;
+                    selected = i;
+                    break;
+                }
+            }
+            if (!found) {
+                scene::Entity ent;
+                ent.name = doc.name;
+                ent.modelPath = path;
+                scn.entities.push_back(ent);
+                selected = static_cast<int>(scn.entities.size()) - 1;
+            }
+            bakeInvalidate.push_back(path); // drop stale upload so the new bake is uploaded
+            MAZ_LOG_INFO("baked & previewed %s", path.c_str());
+        } else {
+            MAZ_LOG_ERROR("bake failed: %s", serr.c_str());
+        }
+    }
+
+    ImGui::End();
+}
+
 // Draw the editor panels. Mutates the scene (add/remove/select/edit) in response to input.
-void buildEditorUI(scene::Scene& scn, int& selected, bool& running, const std::string& savePath) {
+void buildEditorUI(scene::Scene& scn, int& selected, bool& running, const std::string& savePath,
+                   CreatorState& creator, std::vector<std::string>& bakeInvalidate) {
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     if (ImGui::BeginMainMenuBar()) {
@@ -127,6 +306,8 @@ void buildEditorUI(scene::Scene& scn, int& selected, bool& running, const std::s
         ImGui::TextDisabled("Select an object in the Hierarchy.");
     }
     ImGui::End();
+
+    buildCreatorUI(creator, scn, selected, bakeInvalidate);
 }
 
 } // namespace
@@ -173,7 +354,9 @@ int main(int argc, char** argv) {
         scn = scene::Scene{};
     }
 
-    // Upload-on-demand cache: model path -> renderer handle.
+    // Upload-on-demand cache: model path -> renderer handle. A `.mazasset` path is baked from its
+    // composite document; anything else is loaded as glTF. (Re-baking uploads a fresh model; the old
+    // GPU handle is orphaned — the Renderer has no release yet. Acceptable for editor previews.)
     std::unordered_map<std::string, int> pathToHandle;
     auto ensureHandle = [&](const std::string& path) -> int {
         auto it = pathToHandle.find(path);
@@ -183,7 +366,17 @@ int main(int argc, char** argv) {
         int handle = -1;
         assets::Model model;
         std::string loadErr;
-        if (assets::loadModel(path, model, &loadErr)) {
+        bool ok = false;
+        if (endsWith(path, ".mazasset")) {
+            assets::AssetDoc doc;
+            if (assets::loadAsset(path, doc, &loadErr)) {
+                model = assets::buildModel(doc);
+                ok = true;
+            }
+        } else {
+            ok = assets::loadModel(path, model, &loadErr);
+        }
+        if (ok) {
             handle = renderer->uploadModel(model);
         } else {
             MAZ_LOG_ERROR("model '%s': %s", path.c_str(), loadErr.c_str());
@@ -198,6 +391,9 @@ int main(int argc, char** argv) {
     float orbit = 0.0f;
     bool running = true;
     int rendered = 0;
+
+    CreatorState creator;
+    std::vector<std::string> bakeInvalidate; // asset paths whose cached upload must be refreshed
 
     while (running && !window.shouldClose()) {
         SDL_Event ev;
@@ -231,7 +427,12 @@ int main(int argc, char** argv) {
         if (renderer->beginFrame()) {
             if (gui) {
                 renderer->guiNewFrame();
-                buildEditorUI(scn, selected, running, savePath);
+                buildEditorUI(scn, selected, running, savePath, creator, bakeInvalidate);
+                // Drop cache entries for freshly baked assets so their new geometry is uploaded.
+                for (const std::string& p : bakeInvalidate) {
+                    pathToHandle.erase(p);
+                }
+                bakeInvalidate.clear();
             }
             for (const scene::Entity& ent : scn.entities) {
                 if (ent.modelPath.empty()) {

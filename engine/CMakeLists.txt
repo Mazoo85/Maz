@@ -26,7 +26,10 @@ add_library(maz STATIC
     src/core/Log.cpp
     src/core/Time.cpp
     src/core/Config.cpp
+    src/io/TextFormat.cpp
     src/assets/Model.cpp
+    src/assets/Primitives.cpp
+    src/assets/CompositeAsset.cpp
     src/scene/Camera.cpp
     src/scene/Scene.cpp
     src/platform/Window.cpp
