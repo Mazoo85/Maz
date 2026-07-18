@@ -293,7 +293,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
-      << (mixer.reverb().freeze() ? 1 : 0) << " " << mixer.reverb().duck() << "\n";
+      << (mixer.reverb().freeze() ? 1 : 0) << " " << mixer.reverb().duck() << " "
+      << mixer.reverb().wetLowCut() << " " << mixer.reverb().wetHighCut() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << "\n";
@@ -910,6 +911,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float duck = 0.0f; // ducking optional for old files
                 if (ls >> duck) {
                     mixer.reverb().setDuck(duck);
+                }
+                float lowCut = 0.0f, highCut = 20000.0f; // wet tone optional for old files
+                if (ls >> lowCut) {
+                    mixer.reverb().setWetLowCut(lowCut);
+                }
+                if (ls >> highCut) {
+                    mixer.reverb().setWetHighCut(highCut);
                 }
             } else if (which == "dist") {
                 float drive = 2.0f, mix = 0.5f;

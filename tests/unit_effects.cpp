@@ -840,6 +840,41 @@ int main() {
               "master balance defaults to centre (channels equal)");
     }
 
+    // --- Reverb wet-tail tone: low-cut / high-cut on the wet -----------------
+    {
+        auto reverbBright = [&](float lo, float hi) {
+            audio::Reverb rv;
+            rv.setEnabled(true);
+            rv.setMix(1.0f); // fully wet, so we measure the tail's spectrum
+            rv.setRoomSize(0.6f);
+            rv.setDamping(0.1f);
+            rv.setWetLowCut(lo);
+            rv.setWetHighCut(hi);
+            std::vector<float> b = sineStereo(sr / 2, 5000.0, 0.4, sr); // high tone
+            std::vector<float> low = sineStereo(sr / 2, 120.0, 0.4, sr); // low tone
+            for (size_t i = 0; i < b.size(); ++i) {
+                b[i] += low[i];
+            }
+            rv.process(b.data(), sr / 2, sr);
+            double h = 0.0, en = 0.0;
+            for (int i = sr / 4 + 1; i < sr / 2; ++i) { // measure the settled tail
+                const double d = static_cast<double>(b[static_cast<size_t>(i) * 2]) -
+                                 b[static_cast<size_t>(i - 1) * 2];
+                h += d * d;
+                en += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        const double open = reverbBright(0.0f, 20000.0f); // both filters off
+        check(reverbBright(0.0f, 1500.0f) < open * 0.7,
+              "reverb high-cut rolls off the wet tail's highs");
+        check(reverbBright(1500.0f, 20000.0f) > open * 1.3,
+              "reverb low-cut removes the wet tail's lows (brighter tail)");
+        audio::Reverb dr;
+        check(dr.wetLowCut() == 0.0f && dr.wetHighCut() == 20000.0f,
+              "reverb wet tone defaults to off (0 Hz low-cut, 20 kHz high-cut)");
+    }
+
     // --- Limiter ceiling: caps the master peak ------------------------------
     {
         auto peakOut = [&](float ceiling) {

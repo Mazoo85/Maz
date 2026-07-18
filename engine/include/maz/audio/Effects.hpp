@@ -915,6 +915,14 @@ public:
     // wet is pushed down, and it swells back in the gaps. Keeps vocals/leads clear over a big reverb.
     // 0 = off (normal reverb).
     void setDuck(float amount) { duck_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
+    // Wet-tail tone: a low-cut (high-pass) and high-cut (low-pass) applied to the wet signal only, so
+    // the reverb can be kept out of the mud (low-cut) and the harsh top (high-cut) without touching
+    // the dry. lowCut 0 = off (no low removed); highCut 20000 = off (no high removed). Distinct from
+    // `damping`, which shapes the tail's decay rather than filtering the wet output.
+    void setWetLowCut(float hz) { lowCutHz_ = hz < 0.0f ? 0.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setWetHighCut(float hz) {
+        highCutHz_ = hz < 500.0f ? 500.0f : (hz > 20000.0f ? 20000.0f : hz);
+    }
     float roomSize() const { return roomSize_; }
     float damping() const { return damping_; }
     float mix() const { return mix_; }
@@ -922,6 +930,8 @@ public:
     float width() const { return width_; }
     bool freeze() const { return freeze_; }
     float duck() const { return duck_; }
+    float wetLowCut() const { return lowCutHz_; }
+    float wetHighCut() const { return highCutHz_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -954,6 +964,10 @@ private:
     bool freeze_ = false; // hold the tail indefinitely
     float duck_ = 0.0f;   // sidechain the wet to the dry level; 0 = off
     float duckEnv_ = 0.0f; // dry-input peak-envelope follower for ducking
+    float lowCutHz_ = 0.0f;      // wet-tail high-pass; 0 = off
+    float highCutHz_ = 20000.0f; // wet-tail low-pass; 20000 = off
+    float lcL_ = 0.0f, lcR_ = 0.0f; // low-cut one-pole LP state (subtracted → high-pass)
+    float hcL_ = 0.0f, hcR_ = 0.0f; // high-cut one-pole LP state
     std::vector<float> preBuf_; // pre-delay line (mono input)
     int preWrite_ = 0;
     int sizedFor_ = 0; // sampleRate the buffers were built for (0 = unsized)

@@ -1387,6 +1387,7 @@ void Reverb::reset() {
     std::fill(preBuf_.begin(), preBuf_.end(), 0.0f);
     preWrite_ = 0;
     duckEnv_ = 0.0f;
+    lcL_ = lcR_ = hcL_ = hcR_ = 0.0f;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -1404,6 +1405,13 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
     const float sr = static_cast<float>(sampleRate);
     const float duckAtk = std::exp(-1.0f / (0.005f * sr));  // ~5 ms attack
     const float duckRel = std::exp(-1.0f / (0.150f * sr));  // ~150 ms release
+
+    // Wet-tone one-pole coefficients (computed once per block). Low-cut off at 0 Hz, high-cut off at
+    // 20 kHz — those defaults leave the wet untouched.
+    const bool doLowCut = lowCutHz_ > 0.0f;
+    const bool doHighCut = highCutHz_ < 20000.0f;
+    const float aLow = doLowCut ? 1.0f - std::exp(-2.0f * 3.14159265358979f * lowCutHz_ / sr) : 0.0f;
+    const float aHigh = doHighCut ? 1.0f - std::exp(-2.0f * 3.14159265358979f * highCutHz_ / sr) : 0.0f;
 
     // Pre-delay tap: how far back in the pre-delay line the reverb network reads its input.
     const int preSize = static_cast<int>(preBuf_.size());
@@ -1460,6 +1468,21 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         const float side = 0.5f * (wetL - wetR) * width_;
         wetL = mid + side;
         wetR = mid - side;
+
+        // Wet-tail tone: low-cut (high-pass = input − low-passed) then high-cut (low-pass) on the wet
+        // only, so the tail can be de-mudded and de-harshed independently of the dry.
+        if (doLowCut) {
+            lcL_ += aLow * (wetL - lcL_);
+            lcR_ += aLow * (wetR - lcR_);
+            wetL -= lcL_;
+            wetR -= lcR_;
+        }
+        if (doHighCut) {
+            hcL_ += aHigh * (wetL - hcL_);
+            hcR_ += aHigh * (wetR - hcR_);
+            wetL = hcL_;
+            wetR = hcR_;
+        }
 
         // Duck the wet by the dry level so the tail steps out of the way of the source.
         wetL *= duckGain;

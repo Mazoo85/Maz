@@ -1544,6 +1544,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("duck##rev", &duck, 0.0f, 1.0f, "%.2f")) mx.reverb().setDuck(duck);
+        float lc = mx.reverb().wetLowCut();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("lo-cut##rev", &lc, 0.0f, 2000.0f, "%.0f Hz")) mx.reverb().setWetLowCut(lc);
+        float hc = mx.reverb().wetHighCut();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("hi-cut##rev", &hc, 500.0f, 20000.0f, "%.0f Hz")) mx.reverb().setWetHighCut(hc);
     }
     {
         bool en = mx.widener().enabled();
