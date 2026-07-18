@@ -82,6 +82,13 @@ public:
     float loopStart() const { return loopStart_; }
     float loopEnd() const { return loopEnd_; }
 
+    // Beat slicer (FL Slicex-style): divide the sample into `n` equal slices mapped across the
+    // keyboard from the base note up — note basePitch plays slice 0, basePitch+1 slice 1, and so on
+    // (clamped to the available slices). Each note plays its slice once at natural speed (pitch is
+    // ignored) and stops at the slice boundary. n = 1 (default) disables slicing (normal playback).
+    void setSlices(int n) { slices_ = n < 1 ? 1 : (n > 64 ? 64 : n); }
+    int slices() const { return slices_; }
+
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
@@ -103,6 +110,8 @@ private:
         int midi = -1;
         double pos = 0.0; // fractional read index into sample_
         int dir = 1;      // playback direction: +1 forward, -1 backward (flips on ping-pong bounce)
+        bool sliced = false; // this voice plays a fixed slice (one-shot, ignores loop/reverse)
+        double sliceEnd = 0.0; // read index at which a sliced voice stops
         float velocity = 0.0f;
         float env = 0.0f;
     };
@@ -116,6 +125,7 @@ private:
     bool loop_ = false;
     bool pingPong_ = false;
     float startOffset_ = 0.0f;
+    int slices_ = 1;         // beat-slicer slice count (1 = off, normal playback)
     float loopStart_ = 0.0f; // loop region start as a fraction of the sample (0 = sample start)
     float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
     float attack_ = 0.001f;  // seconds

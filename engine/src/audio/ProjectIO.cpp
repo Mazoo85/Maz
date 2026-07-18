@@ -195,7 +195,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << seq.sampler().startOffset() << " " << seq.sampler().attack() << " "
       << seq.sampler().release() << " " << (seq.sampler().pingPong() ? 1 : 0) << " "
       << seq.sampler().detuneCents() << " " << seq.sampler().loopStart() << " "
-      << seq.sampler().loopEnd() << "\n";
+      << seq.sampler().loopEnd() << " " << seq.sampler().slices() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -496,6 +496,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float loopS = 0.0f, loopE = 1.0f; // loop region optional (older files omit it)
             if (ls >> loopS >> loopE) {
                 seq.sampler().setLoopRegion(loopS, loopE);
+            }
+            int slices = 1; // beat-slicer count optional (older files omit it)
+            if (ls >> slices) {
+                seq.sampler().setSlices(slices);
             }
         } else if (tag == "chan") {
             int c = -1;

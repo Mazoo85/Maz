@@ -92,11 +92,26 @@ void Sampler::noteOn(int midi, float velocity) {
     v.active = true;
     v.releasing = false;
     v.midi = midi;
-    // Start reading from the offset; in reverse, from the end minus the offset.
     const double last = static_cast<double>(sample_.size() - 1);
-    const double offset = static_cast<double>(startOffset_) * last;
-    v.pos = reverse_ ? (last - offset) : offset;
-    v.dir = reverse_ ? -1 : 1;
+    if (slices_ > 1) {
+        // Beat slicer: map the note (relative to the base) to a slice and play it once, forward, at
+        // natural speed. The slice runs from its start up to the next slice boundary.
+        const double total = static_cast<double>(sample_.size());
+        const double sliceLen = total / static_cast<double>(slices_);
+        int idx = midi - basePitch_;
+        idx = idx < 0 ? 0 : (idx >= slices_ ? slices_ - 1 : idx);
+        v.sliced = true;
+        v.pos = static_cast<double>(idx) * sliceLen;
+        v.sliceEnd = std::min(total, static_cast<double>(idx + 1) * sliceLen);
+        v.dir = 1;
+    } else {
+        // Start reading from the offset; in reverse, from the end minus the offset.
+        const double offset = static_cast<double>(startOffset_) * last;
+        v.sliced = false;
+        v.sliceEnd = 0.0;
+        v.pos = reverse_ ? (last - offset) : offset;
+        v.dir = reverse_ ? -1 : 1;
+    }
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
 }
@@ -140,8 +155,12 @@ void Sampler::render(float* out, int frames, int sampleRate) {
         if (!v.active) {
             continue;
         }
-        const double rate = static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
-                            std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0); // read speed
+        const double detuneMul = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
+        // Sliced voices play at natural speed (pitch ignored); otherwise the note maps to a read speed.
+        const double rate = v.sliced
+                                ? srCorrect * detuneMul
+                                : static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
+                                      detuneMul; // read speed
         for (int i = 0; i < frames; ++i) {
             // Amp envelope: quick attack up, fast release when noteOff'd.
             if (v.releasing) {
@@ -160,6 +179,13 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             // voices the start. When looping, the wrap/reflect boundaries are the loop region
             // [loopStart, loopEnd] rather than the whole sample, so the attack head plays once and just
             // the region sustains; when not looping they are the whole sample (a one-shot).
+            // Sliced voices are a plain forward one-shot bounded by the slice end — no loop/reverse.
+            if (v.sliced) {
+                if (v.pos >= v.sliceEnd) {
+                    v.active = false;
+                    break;
+                }
+            } else {
             const double dlast = static_cast<double>(last);
             const double lo = loop_ ? static_cast<double>(loopStart_) * dlast : 0.0;
             const double hi = loop_ ? static_cast<double>(loopEnd_) * dlast : dlast;
@@ -197,6 +223,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                     }
                 }
             }
+            } // end non-sliced bounds
 
             size_t i0 = static_cast<size_t>(v.pos);
             if (i0 >= last) {

@@ -1000,6 +1000,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(110.0f);
     loopCh |= ImGui::SliderFloat("Loop end", &loopE, 0.01f, 1.0f, "%.2f");
     if (loopCh) seq.sampler().setLoopRegion(loopS, loopE);
+    int slices = seq.sampler().slices();
+    ImGui::SetNextItemWidth(140.0f);
+    if (ImGui::SliderInt("Slices", &slices, 1, 32, slices == 1 ? "off" : "%d"))
+        seq.sampler().setSlices(slices);
     float smpAtk = seq.sampler().attack();
     float smpRel = seq.sampler().release();
     bool smpEnvCh = false;

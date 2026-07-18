@@ -314,6 +314,42 @@ int main() {
               "a degenerate loop region (end <= start) is ignored");
     }
 
+    // Beat slicer: N slices mapped across the keyboard from the base note; each note plays its slice
+    // once at natural speed and stops at the slice boundary.
+    {
+        std::vector<float> ramp(1000);
+        for (int i = 0; i < 1000; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / 1000.0f; // 0 → ~1
+        }
+        auto sliceStart = [&](int note) {
+            audio::Sampler s;
+            s.setSampleMono(ramp, sr);
+            s.setBasePitch(60);
+            s.setGain(1.0f);
+            s.setSlices(4); // slice length 250 frames
+            s.noteOn(note, 1.0f); // natural speed → 1 sample/frame
+            const std::vector<float> out = renderMono(s, 100, sr);
+            return out[60]; // past the ~1 ms attack
+        };
+        const float s0 = sliceStart(60); // slice 0 → starts near 0.0
+        const float s1 = sliceStart(61); // slice 1 → starts near 0.25
+        const float s2 = sliceStart(62); // slice 2 → starts near 0.50
+        check(s1 > s0 + 0.15f && s2 > s1 + 0.15f, "each higher note plays a later slice");
+        check(s1 > 0.2f && s1 < 0.4f, "slice 1 begins a quarter into the sample");
+
+        // A slice is a one-shot that ends at its boundary (slice 0 = 250 frames long).
+        audio::Sampler one;
+        one.setSampleMono(ramp, sr);
+        one.setBasePitch(60);
+        one.setSlices(4);
+        one.noteOn(60, 1.0f);
+        (void)renderMono(one, 300, sr);
+        check(!one.active(), "a slice ends at its boundary (one-shot)");
+
+        audio::Sampler def;
+        check(def.slices() == 1, "slicing defaults to off (1 slice)");
+    }
+
     // Amp envelope: a longer release makes the note-off tail ring longer before going silent.
     {
         std::vector<float> tone(sr, 0.5f); // 1 s of a constant DC-ish level (steady amplitude)
