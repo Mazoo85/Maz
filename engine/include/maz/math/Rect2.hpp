@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp"
+#include "maz/math/VectorOps.hpp" // isEqualApprox(vec2), isFinite(vec2)
 
 #include <algorithm>
 #include <cmath>
@@ -29,6 +30,14 @@ struct Rect2 {
     vec2 center() const { return position + size * 0.5f; }
     float area() const { return size.x * size.y; }
     bool hasArea() const { return size.x > 0.0f && size.y > 0.0f; }
+
+    // Component-wise approximate equality of position AND size — Godot's Rect2.is_equal_approx.
+    bool isEqualApprox(const Rect2& o) const {
+        return maz::math::isEqualApprox(position, o.position) &&
+               maz::math::isEqualApprox(size, o.size);
+    }
+    // True when every component of position and size is finite — Godot's Rect2.is_finite.
+    bool isFinite() const { return maz::math::isFinite(position) && maz::math::isFinite(size); }
 
     // Point containment — min-inclusive, max-exclusive (right/bottom edges not included), Godot convention.
     bool hasPoint(vec2 p) const {

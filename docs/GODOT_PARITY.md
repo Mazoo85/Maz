@@ -96,7 +96,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   isEqualApprox) for RGBA/shader-uniform/homogeneous math, plus the exact integer Vector4i with
   truncating division and overflow-safe 64-bit lengthSquared; GLM `toVec4()` bridge), Rect2 (M326
   adds grow_side — grow/shrink a single edge via a Side enum L/T/R/B, verified per-side and that
-  growing all four equals uniform grow), **Rect2i** (M281,
+  growing all four equals uniform grow; M338 adds is_equal_approx (component-wise approx of position
+  AND size) and is_finite (every component finite) — Godot Rect2.is_equal_approx / is_finite, verified
+  against nudged/differing rects and NaN/inf components), **Rect2i** (M281,
   `math::Rect2i` — Godot's integer rectangle for tile/atlas/pixel regions: half-open hasPoint,
   intersects/intersection/merge/encloses/grow/expand/abs, exact int math), Geometry2D/3D
   (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed

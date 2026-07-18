@@ -2158,6 +2158,17 @@ void testRect2() {
     CHECK_NEAR(an.position.y, 70.0f, 1e-5f);
     CHECK_NEAR(an.size.x, 40.0f, 1e-5f);
     CHECK_NEAR(an.size.y, 30.0f, 1e-5f);
+
+    // M338: is_equal_approx / is_finite (Godot Rect2 parity).
+    {
+        const Rect2 rf(1.0f, 2.0f, 3.0f, 4.0f);
+        CHECK(rf.isEqualApprox(Rect2(1.0f + 1e-7f, 2.0f, 3.0f, 4.0f)));
+        CHECK((!rf.isEqualApprox(Rect2(1.0f, 2.0f, 3.5f, 4.0f)) &&
+               !rf.isEqualApprox(Rect2(1.2f, 2.0f, 3.0f, 4.0f))));
+        CHECK(rf.isFinite());
+        CHECK(!Rect2(vec2(1.0f, std::numeric_limits<float>::infinity()), vec2(3.0f, 4.0f)).isFinite());
+        CHECK(!Rect2(vec2(1.0f, 2.0f), vec2(3.0f, std::nanf(""))).isFinite());
+    }
 }
 
 void testCollision() {
