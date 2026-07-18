@@ -12830,6 +12830,41 @@ void testDateTime() {
     CHECK(day.totalDays() == 1);
     CHECK(day.hourOfDay() == 1);
     CHECK(day.timeOfDay01() < 0.05); // just past midnight of day 2
+
+    // ISO parse: round-trips formatIso, and the known epoch string.
+    {
+        core::DateTime a = core::fromUnix(1752831000);
+        core::DateTime b;
+        CHECK(core::parseIso(core::formatIso(a), b));
+        CHECK(core::toUnix(b) == core::toUnix(a));
+
+        core::DateTime z;
+        CHECK(core::parseIso("1970-01-01T00:00:00Z", z));
+        CHECK(core::toUnix(z) == 0);
+        CHECK(z.weekday == 4);
+
+        // Space separator, leap day, and date-only midnight.
+        core::DateTime sp;
+        CHECK(core::parseIso("2000-02-29 12:30:45", sp));
+        CHECK((sp.month == 2 && sp.day == 29 && sp.hour == 12 && sp.second == 45));
+        core::DateTime dOnly;
+        CHECK(core::parseIso("2026-07-18", dOnly));
+        CHECK((dOnly.hour == 0 && dOnly.minute == 0 && dOnly.second == 0));
+
+        // Malformed / out-of-range rejected.
+        core::DateTime bad;
+        CHECK(!core::parseIso("2001-02-29T00:00:00Z", bad)); // non-leap Feb 29
+        CHECK(!core::parseIso("2026-13-01", bad));
+        CHECK(!core::parseIso("2026-07-32", bad));
+        CHECK(!core::parseIso("2026-07-18T25:00:00", bad));
+        CHECK(!core::parseIso("garbage", bad));
+
+        // unixFromIso convenience.
+        int64_t u = -1;
+        CHECK(core::unixFromIso("1970-01-02T00:00:00Z", u));
+        CHECK(u == 86400);
+        CHECK(!core::unixFromIso("nope", u));
+    }
 }
 
 // Virtual filesystem: pure path helpers, scheme mounting/resolution, and the traversal-escape guard.

@@ -100,6 +100,48 @@ inline std::string formatIso(const DateTime& dt) {
     return buf;
 }
 
+// Parse an ISO-8601 UTC string into `out` (the inverse of formatIso; Godot's
+// Time.get_datetime_dict_from_datetime_string). Accepts a date-only "YYYY-MM-DD" (time = 00:00:00),
+// or a full datetime with a 'T' or ' ' separator and an optional trailing 'Z' — e.g.
+// "2026-07-18T09:30:00Z" or "2026-07-18 09:30:00". Validates field ranges (incl. leap-year day
+// counts). Returns false and leaves `out` unchanged on a malformed string. The parsed weekday is
+// filled in (via the Unix round-trip) so `out.weekday` is always correct.
+inline bool parseIso(const std::string& s, DateTime& out) {
+    int y = 0, mo = 0, da = 0, h = 0, mi = 0, se = 0;
+    // %*c skips the T/space separator; n==3 for date-only, n==6 for full datetime.
+    const int n = std::sscanf(s.c_str(), "%d-%d-%d%*c%d:%d:%d", &y, &mo, &da, &h, &mi, &se);
+    if (n != 3 && n != 6) {
+        return false;
+    }
+    if (mo < 1 || mo > 12 || da < 1 || da > daysInMonth(y, mo)) {
+        return false;
+    }
+    if (h < 0 || h > 23 || mi < 0 || mi > 59 || se < 0 || se > 60) { // allow leap second 60
+        return false;
+    }
+    DateTime dt;
+    dt.year = y;
+    dt.month = mo;
+    dt.day = da;
+    dt.hour = h;
+    dt.minute = mi;
+    dt.second = se;
+    dt.weekday = fromUnix(toUnix(dt)).weekday; // normalise weekday deterministically
+    out = dt;
+    return true;
+}
+
+// Convenience: parse an ISO-8601 string straight to a Unix timestamp. Returns false on malformed
+// input (Godot's Time.get_unix_time_from_datetime_string).
+inline bool unixFromIso(const std::string& s, int64_t& outSeconds) {
+    DateTime dt;
+    if (!parseIso(s, dt)) {
+        return false;
+    }
+    outSeconds = toUnix(dt);
+    return true;
+}
+
 // A deterministic in-game clock: advance() by your fixed-step dt (scaled by a time-scale for fast-
 // forward / slow-mo), then read the accumulated game time as days/hours or a 0..1 time-of-day.
 // Never touches the system clock, so it replays identically.
