@@ -221,7 +221,14 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   stateless, pairs with any input source; the `deadzone` demo shows a stick field + the 1-D response curve;
   M157) — a 2D get_vector convenience over ActionMap's four directional actions + per-action deadzone config
   later
-- [ ] Text input / IME, clipboard, drag-and-drop
+- [x] Text input / IME, clipboard, drag-and-drop (M210 — `Input` now accumulates per-frame UTF-8
+  text input (`textInput()`, fed by SDL_EVENT_TEXT_INPUT — IME/compose aware) and dropped file
+  paths (`droppedFiles()`, from SDL_EVENT_DROP_FILE), both cleared each `newFrame()`;
+  `Window::setTextInputActive(bool)` starts/stops OS text input (SDL_StartTextInput/StopTextInput)
+  so a focused text field receives typed characters and the IME. `platform::Clipboard`
+  (`clipboardText`/`setClipboardText`/`hasClipboardText`, SDL3-backed) gives copy/cut/paste against
+  other apps — Godot's DisplayServer clipboard + Input text/IME + files_dropped. Unit-tested: text +
+  file accumulation, null-safety, per-frame clear, and a multi-byte UTF-8 sequence stored verbatim.)
 - [~] vsync toggle, frame pacing, present-mode selection (M206 — present-mode selection is now a
   pure, unit-tested policy (`render::choosePresentMode` in `PresentMode.hpp`): vsync-on prefers
   adaptive FIFO-relaxed then hard FIFO; vsync-off prefers MAILBOX (low-latency, tear-free) then

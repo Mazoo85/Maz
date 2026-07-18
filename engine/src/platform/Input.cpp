@@ -12,6 +12,20 @@ void Input::newFrame() {
     m_mouseDX = 0.0f;
     m_mouseDY = 0.0f;
     m_wheel = 0.0f;
+    m_textInput.clear();
+    m_droppedFiles.clear();
+}
+
+void Input::onTextInput(const char* utf8) {
+    if (utf8) {
+        m_textInput += utf8;
+    }
+}
+
+void Input::onDropFile(const char* path) {
+    if (path) {
+        m_droppedFiles.emplace_back(path);
+    }
 }
 
 void Input::onKey(int scancode, bool down) {

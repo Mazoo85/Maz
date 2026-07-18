@@ -64,6 +64,10 @@ public:
     // (Input::mouseDX/DY) — the basis for first-person mouse-look.
     void setRelativeMouse(bool enabled);
 
+    // Start/stop OS text input (enables SDL_EVENT_TEXT_INPUT + IME composition for the window).
+    // Turn on when a text field gains focus; the typed UTF-8 arrives via Input::textInput().
+    void setTextInputActive(bool active);
+
     // Borderless-desktop fullscreen toggle (SDL3). No-op headless. isFullscreen() reflects the
     // last requested state; toggleFullscreen() flips it.
     void setFullscreen(bool enabled);

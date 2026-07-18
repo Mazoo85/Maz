@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace maz::platform {
 
@@ -33,6 +35,10 @@ public:
     void onMouseWheel(float dy);
     // Gamepad state for the frame: `connected`, 6 axes in [-1,1] (triggers [0,1]), 15 buttons.
     void onGamepadState(bool connected, const float* axes, const bool* buttons);
+    // UTF-8 text committed this frame (from OS text input / IME) — appended, cleared each newFrame.
+    void onTextInput(const char* utf8);
+    // A file dropped onto the window this frame — accumulated, cleared each newFrame.
+    void onDropFile(const char* path);
 
     // --- queries (called by gameplay) ---
     bool keyDown(int scancode) const;
@@ -55,6 +61,12 @@ public:
     bool gamepadButtonDown(int button) const;
     bool gamepadButtonPressed(int button) const; // just went down this frame
 
+    // --- text input + drag-and-drop (this frame; cleared by newFrame) ---
+    // UTF-8 characters typed this frame — feed into a focused text field. Empty when nothing typed.
+    const std::string& textInput() const { return m_textInput; }
+    // File paths dropped onto the window this frame. Empty when nothing was dropped.
+    const std::vector<std::string>& droppedFiles() const { return m_droppedFiles; }
+
 private:
     std::array<bool, kMaxScancodes> m_keys{};
     std::array<bool, kMaxScancodes> m_keysPrev{};
@@ -68,6 +80,9 @@ private:
     std::array<float, pad::AxisCount> m_axes{};
     std::array<bool, pad::ButtonCount> m_buttons{};
     std::array<bool, pad::ButtonCount> m_buttonsPrev{};
+
+    std::string m_textInput;                  // UTF-8 typed this frame
+    std::vector<std::string> m_droppedFiles;  // files dropped this frame
 };
 
 } // namespace maz::platform

@@ -1,6 +1,7 @@
 #include "maz/platform/Window.hpp"
 
 #include "maz/core/Log.hpp"
+#include "maz/platform/Clipboard.hpp"
 #include "maz/platform/Input.hpp"
 
 #include <SDL3/SDL.h>
@@ -100,6 +101,12 @@ void Window::pumpEvents(Input& input) {
         case SDL_EVENT_WINDOW_MAXIMIZED:
             m_minimized = false;
             break;
+        case SDL_EVENT_TEXT_INPUT:
+            input.onTextInput(e.text.text);
+            break;
+        case SDL_EVENT_DROP_FILE:
+            input.onDropFile(e.drop.data);
+            break;
         case SDL_EVENT_KEY_DOWN:
             input.onKey(static_cast<int>(e.key.scancode), true);
             break;
@@ -159,6 +166,17 @@ void Window::pumpEvents(Input& input) {
 void Window::setRelativeMouse(bool enabled) {
     if (m_window) {
         SDL_SetWindowRelativeMouseMode(m_window, enabled);
+    }
+}
+
+void Window::setTextInputActive(bool active) {
+    if (!m_window) {
+        return;
+    }
+    if (active) {
+        SDL_StartTextInput(m_window);
+    } else {
+        SDL_StopTextInput(m_window);
     }
 }
 
@@ -242,6 +260,21 @@ bool Window::consumeResized() {
     bool r = m_resized;
     m_resized = false;
     return r;
+}
+
+std::string clipboardText() {
+    char* text = SDL_GetClipboardText(); // never null; "" when empty
+    std::string out = text ? text : "";
+    SDL_free(text);
+    return out;
+}
+
+bool setClipboardText(const std::string& text) {
+    return SDL_SetClipboardText(text.c_str());
+}
+
+bool hasClipboardText() {
+    return SDL_HasClipboardText();
 }
 
 } // namespace maz::platform

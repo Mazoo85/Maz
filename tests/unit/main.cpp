@@ -46,6 +46,7 @@
 #include "maz/platform/CrashHandler.hpp"
 #include "maz/platform/DisplayScale.hpp"
 #include "maz/platform/Displays.hpp"
+#include "maz/platform/Input.hpp"
 #include "maz/render/Ktx2.hpp"
 #include "maz/render/PresentMode.hpp"
 #include "maz/core/Events.hpp"
@@ -5181,6 +5182,38 @@ void testKtx2() {
         bad[80 + 8 + static_cast<size_t>(i)] = 0xFF;
     }
     CHECK(!parseKtx2(bad).valid);
+}
+
+void testInputTextAndDrop() {
+    platform::Input in;
+
+    // Nothing typed / dropped by default.
+    CHECK(in.textInput().empty());
+    CHECK(in.droppedFiles().empty());
+
+    // Text input accumulates within a frame (multiple SDL_EVENT_TEXT_INPUT events).
+    in.onTextInput("He");
+    in.onTextInput("llo");
+    in.onTextInput(nullptr); // null is ignored, not a crash
+    CHECK(in.textInput() == "Hello");
+
+    // Dropped files accumulate too.
+    in.onDropFile("/tmp/a.png");
+    in.onDropFile("/tmp/b.gltf");
+    in.onDropFile(nullptr);
+    CHECK(in.droppedFiles().size() == 2);
+    CHECK(in.droppedFiles()[0] == "/tmp/a.png");
+    CHECK(in.droppedFiles()[1] == "/tmp/b.gltf");
+
+    // newFrame clears both (they are per-frame).
+    in.newFrame();
+    CHECK(in.textInput().empty());
+    CHECK(in.droppedFiles().empty());
+
+    // UTF-8 multi-byte sequence is stored verbatim (é = 0xC3 0xA9).
+    in.onTextInput("caf\xC3\xA9");
+    CHECK(in.textInput() == "caf\xC3\xA9");
+    CHECK(in.textInput().size() == 5);
 }
 
 void testProfiler() {
@@ -16948,6 +16981,7 @@ int main() {
     testDisplayScale();
     testDisplays();
     testKtx2();
+    testInputTextAndDrop();
     testNoise();
     testRandom();
     testInterpolate();
