@@ -97,6 +97,7 @@
 #include "maz/fx/Particles.hpp"
 #include "maz/game/Area2D.hpp"
 #include "maz/game/AStar2D.hpp"
+#include "maz/game/AStarGrid2D.hpp"
 #include "maz/game/AStar3D.hpp"
 #include "maz/game/PathFollow3D.hpp"
 #include "maz/game/Bvh.hpp"
@@ -1125,6 +1126,89 @@ void testExpression() {
         CHECK(e.parse("42"));
         CHECK(!e.hasError());
         CHECK_NEAR(e.execute(), 42.0, 1e-9);
+    }
+}
+
+// AStarGrid2D: Godot grid A* — diagonal modes + heuristics on a dense solid/walkable grid (M291).
+void testAStarGrid2D() {
+    using game::AStarGrid2D;
+    using game::DiagonalMode;
+    using game::GridHeuristic;
+    using math::Vector2i;
+
+    // Orthogonal-only straight line: (0,0)->(4,0) is 5 cells.
+    {
+        AStarGrid2D g;
+        g.setSize(5, 5);
+        g.setDiagonalMode(DiagonalMode::Never);
+        g.setHeuristic(GridHeuristic::Manhattan);
+        const auto p = g.getPointPath({0, 0}, {4, 0});
+        CHECK(p.size() == 5);
+        CHECK((p.front() == Vector2i(0, 0) && p.back() == Vector2i(4, 0)));
+        CHECK(g.getPointPath({0, 0}, {4, 4}).size() == 9); // 8 orthogonal steps
+    }
+
+    // Diagonals shorten (0,0)->(4,4) to 5 cells.
+    {
+        AStarGrid2D g;
+        g.setSize(5, 5);
+        g.setDiagonalMode(DiagonalMode::Always);
+        g.setHeuristic(GridHeuristic::Chebyshev);
+        const auto d = g.getPointPath({0, 0}, {4, 4});
+        CHECK(d.size() == 5);
+        CHECK((d.front() == Vector2i(0, 0) && d.back() == Vector2i(4, 4)));
+    }
+
+    // Wall forces a detour; path stays on walkable cells.
+    {
+        AStarGrid2D g;
+        g.setSize(5, 5);
+        g.setDiagonalMode(DiagonalMode::Never);
+        for (int y = 0; y <= 3; ++y) {
+            g.setSolid(2, y, true);
+        }
+        const auto p = g.getPointPath({0, 0}, {4, 0});
+        CHECK(!p.empty());
+        CHECK(p.size() > 5);
+        bool clear = true;
+        for (const auto& c : p) {
+            if (g.isSolid(c.x, c.y)) {
+                clear = false;
+            }
+        }
+        CHECK(clear);
+    }
+
+    // Unreachable across a full wall -> empty.
+    {
+        AStarGrid2D g;
+        g.setSize(5, 5);
+        for (int y = 0; y < 5; ++y) {
+            g.setSolid(2, y, true);
+        }
+        CHECK(g.getPointPath({0, 0}, {4, 4}).empty());
+    }
+
+    // Solid / out-of-bounds endpoints -> empty; same cell -> single.
+    {
+        AStarGrid2D g;
+        g.setSize(4, 4);
+        g.setSolid(3, 3, true);
+        CHECK(g.getPointPath({0, 0}, {3, 3}).empty());
+        CHECK(g.getPointPath({0, 0}, {9, 9}).empty());
+        CHECK(g.getPointPath({-1, 0}, {2, 2}).empty());
+        CHECK(g.getPointPath({1, 1}, {1, 1}).size() == 1);
+    }
+
+    // Corner-cutting rule: solid at (1,0), start (0,0), goal (1,1).
+    {
+        AStarGrid2D g;
+        g.setSize(2, 2);
+        g.setSolid(1, 0, true);
+        g.setDiagonalMode(DiagonalMode::OnlyIfNoObstacles);
+        CHECK(g.getPointPath({0, 0}, {1, 1}).size() == 3); // must go around
+        g.setDiagonalMode(DiagonalMode::AtLeastOneWalkable);
+        CHECK(g.getPointPath({0, 0}, {1, 1}).size() == 2); // diagonal allowed
     }
 }
 
@@ -21703,6 +21787,7 @@ int main() {
     testForceField2D();
     testExpression();
     testAStar2D();
+    testAStarGrid2D();
     testAStar3D();
     testGeometry2D();
     testTransform2D();

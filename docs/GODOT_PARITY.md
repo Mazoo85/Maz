@@ -128,7 +128,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
 - **Animation:** skeletons + GPU-ready skinning, clips, blend spaces/trees, state machines,
   timelines, IK (2-bone, FABRIK), root motion, tweening.
 - **AI/nav:** A* grid + AStar2D + AStar3D (M261, `game::AStar3D` — 3D weighted-graph twin of AStar2D:
-  ids/positions, weights, one-/two-way links, id/point paths, closest-point / closest-in-segment),
+  ids/positions, weights, one-/two-way links, id/point paths, closest-point / closest-in-segment) +
+  **AStarGrid2D** (M291, `game::AStarGrid2D` — Godot's dense grid A*: solid/walkable cells, four
+  DiagonalMode rules (never / only-if-no-obstacles / at-least-one-walkable / always) and four
+  heuristics (Euclidean/Manhattan/Octile/Chebyshev)),
   navmesh, steering, flow fields, RVO avoidance, behavior trees +
   blackboard, GOAP planner.
 - **Gameplay/scene:** ECS, SceneTree/Node2D, prefabs, groups, signals, scene serialization,
