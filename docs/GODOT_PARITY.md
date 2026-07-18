@@ -112,7 +112,9 @@ Godot ships ~200 node types. Maz has the spine + many. Concrete missing high-val
 - [~] **[CPU]** Timer, Tween node, AnimationPlayer node wrapper, Marker2D/3D
   — **Timer done** (M222): `game::Timer` countdown with wait_time, one_shot/repeating (remainder-
   carrying so cadence never drifts), pause/stop/restart, start(override), timeout callback. Others remain.
-- [ ] **[CPU]** GridMap (3D tile map) — *data model [CPU]*, [GPU] render
+- [~] **[CPU]** GridMap (3D tile map) — **data model done** (M224): `game::GridMap` sparse cell→
+  (tileId, orientation) store, set/clear/has/query, occupied-bounds, world↔cell floor-div mapping,
+  packed signed 64-bit keys. [GPU] mesh-library instancing render deferred until there's a display.
 - [ ] **[CPU]** CSG (constructive solid geometry) mesh ops — *pure mesh boolean math is [CPU]*
 - [ ] **[CPU]** MultiplayerSpawner/Synchronizer scene nodes (needs networking, below)
 

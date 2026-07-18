@@ -111,6 +111,7 @@
 #include "maz/game/NavMesh.hpp"
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
+#include "maz/game/GridMap.hpp"
 #include "maz/game/PathFollow2D.hpp"
 #include "maz/game/Physics2D.hpp"
 #include "maz/game/Timer.hpp"
@@ -6041,6 +6042,82 @@ void testVisibleOnScreenNotifier2D() {
     // reset clears state without emitting.
     b.reset(false);
     CHECK(!b.isOnScreen());
+}
+
+void testGridMap() {
+    game::GridMap g;
+    CHECK(g.empty());
+    CHECK(g.count() == 0);
+
+    g.setCell(0, 0, 0, 5, 3);
+    g.setCell(2, 1, -4, 9, 0);
+    g.setCell(-3, 0, 0, 1, 12);
+    CHECK(g.count() == 3);
+    CHECK(g.hasCell(0, 0, 0));
+    CHECK(g.cellTile(0, 0, 0) == 5);
+    CHECK(g.cellOrientation(0, 0, 0) == 3);
+    CHECK(g.cellTile(2, 1, -4) == 9);
+    CHECK(g.cellTile(-3, 0, 0) == 1);
+    CHECK(g.cellOrientation(-3, 0, 0) == 12);
+    CHECK(g.cellTile(100, 100, 100) == -1); // empty cell
+    CHECK(!g.hasCell(100, 100, 100));
+
+    // Overwrite resets orientation to the new value.
+    g.setCell(0, 0, 0, 7);
+    CHECK(g.cellTile(0, 0, 0) == 7);
+    CHECK(g.cellOrientation(0, 0, 0) == 0);
+    CHECK(g.count() == 3);
+
+    // Negative tile id clears the cell (Godot set_cell_item(INVALID)).
+    g.setCell(0, 0, 0, -1);
+    CHECK(!g.hasCell(0, 0, 0));
+    CHECK(g.count() == 2);
+    g.clearCell(2, 1, -4);
+    CHECK(g.count() == 1);
+
+    // Bounds over a spread of cells.
+    g.clear();
+    g.setCell(-2, -5, 3, 1);
+    g.setCell(4, 2, -1, 1);
+    g.setCell(0, 0, 0, 1);
+    game::GridCell mn;
+    game::GridCell mx;
+    CHECK(g.bounds(mn, mx));
+    CHECK(mn.x == -2);
+    CHECK(mn.y == -5);
+    CHECK(mn.z == -1);
+    CHECK(mx.x == 4);
+    CHECK(mx.y == 2);
+    CHECK(mx.z == 3);
+
+    // Empty map has no bounds.
+    g.clear();
+    CHECK(!g.bounds(mn, mx));
+
+    // world <-> cell mapping with 2x2x2 cells.
+    g.setCellSize(math::vec3(2.0f, 2.0f, 2.0f));
+    const math::vec3 c = g.cellToWorld(1, 0, -1); // center (3, 1, -1)
+    CHECK_NEAR(c.x, 3.0f, 1e-4f);
+    CHECK_NEAR(c.y, 1.0f, 1e-4f);
+    CHECK_NEAR(c.z, -1.0f, 1e-4f);
+    const game::GridCell cell = g.worldToCell(math::vec3(3.1f, 1.0f, -0.9f));
+    CHECK(cell.x == 1);
+    CHECK(cell.y == 0);
+    CHECK(cell.z == -1);
+    // Floor division goes the right way for negatives.
+    const game::GridCell cell2 = g.worldToCell(math::vec3(-0.1f, -2.0f, 0.0f));
+    CHECK(cell2.x == -1);
+    CHECK(cell2.y == -1);
+    CHECK(cell2.z == 0);
+
+    // Packed key round-trips signed coordinates.
+    int kx = 0;
+    int ky = 0;
+    int kz = 0;
+    game::GridMap::unkey(game::GridMap::key(-1000, 2047, -32768), kx, ky, kz);
+    CHECK(kx == -1000);
+    CHECK(ky == 2047);
+    CHECK(kz == -32768);
 }
 
 void testProfiler() {
@@ -17827,6 +17904,7 @@ int main() {
     testPathFollow2D();
     testTimer();
     testVisibleOnScreenNotifier2D();
+    testGridMap();
     testNoise();
     testRandom();
     testInterpolate();
