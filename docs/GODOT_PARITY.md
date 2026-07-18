@@ -174,8 +174,11 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   (M244): `ui::SpinBox` (a Range with step buttons + prefix/suffix text format/parse), `ui::OptionButton`
   (drop-down list with selected item, id lookup, disabled rejection, auto-select-first), and `ui::TabBar`
   (ordered tab strip with current tracking, disabled-skipping next/previous nav, removal that clamps
-  current). Verified across clamp/snap, selection, and navigation edge cases. TabContainer, the
-  ColorPicker/FileDialog *widgets*, and drag-and-drop remain.
+  current). Verified across clamp/snap, selection, and navigation edge cases. **drag-and-drop done**
+  (M249): `ui::DragAndDrop` — Godot's Control drag/drop coordinator (get_drag_data / can_drop_data /
+  drop_data): begin a drag with a typed payload, poll hover targets for acceptance, deliver to an
+  accepting target on release (else keep/cancel), with single-drag and drop-when-idle guards. The
+  TabContainer / ColorPicker / FileDialog *widgets* remain.
 - [ ] **[CPU]** Full theme system (per-control theme overrides, theme types)
 - [ ] **[GPU]** Control clipping via viewport/backbuffer
 

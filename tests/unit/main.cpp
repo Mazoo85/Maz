@@ -166,6 +166,7 @@
 #include "maz/ui/ItemList.hpp"
 #include "maz/ui/PopupMenu.hpp"
 #include "maz/ui/Controls.hpp"
+#include "maz/ui/DragAndDrop.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
 #include "maz/ui/UI.hpp"
@@ -3675,6 +3676,49 @@ void testControls() {
         CHECK((tb.current() >= 0 && tb.current() < 3));
         CHECK(!tb.removeTab(9)); // out of range
     }
+}
+
+void testDragAndDrop() {
+    using ui::DragAndDrop;
+    using ui::DragPayload;
+
+    DragAndDrop dnd;
+    CHECK(!dnd.dragging());
+
+    DragPayload p;
+    p.type = "tree_item";
+    p.id = 42;
+    p.text = "res://hero.png";
+
+    CHECK(dnd.beginDrag(3, p));
+    CHECK((dnd.dragging() && dnd.source() == 3));
+    CHECK((dnd.payload().id == 42 && dnd.payload().type == "tree_item"));
+    CHECK(!dnd.beginDrag(9, p)); // already dragging
+
+    auto onlyFiles = [](const DragPayload& d) { return d.type == "files"; };
+    auto onlyItems = [](const DragPayload& d) { return d.type == "tree_item"; };
+    dnd.hover(7, onlyFiles);
+    CHECK((dnd.hoveredTarget() == 7 && !dnd.hoverAccepts()));
+    dnd.hover(8, onlyItems);
+    CHECK(dnd.hoverAccepts());
+
+    bool delivered = false;
+    int gotId = -1;
+    auto deliver = [&](const DragPayload& d) {
+        delivered = true;
+        gotId = static_cast<int>(d.id);
+    };
+    CHECK(!dnd.drop(7, onlyFiles, deliver)); // rejecting target
+    CHECK((!delivered && dnd.dragging()));
+    CHECK(dnd.drop(8, onlyItems, deliver)); // accepting target
+    CHECK((delivered && gotId == 42 && !dnd.dragging()));
+
+    // Fresh drag; cancel ends it without delivering; drop when idle is a no-op.
+    CHECK(dnd.beginDrag(1, p));
+    delivered = false;
+    dnd.cancel();
+    CHECK((!dnd.dragging() && !delivered));
+    CHECK(!dnd.drop(5, onlyItems, deliver));
 }
 
 void testStyleBox() {
@@ -19594,6 +19638,7 @@ int main() {
     testUiContainer();
     testRange();
     testControls();
+    testDragAndDrop();
     testStyleBox();
     testTheme();
     testTree();
