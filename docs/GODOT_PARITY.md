@@ -133,7 +133,11 @@ Godot has high-level multiplayer (RPC, MultiplayerSynchronizer, ENet/WebRTC/WebS
 - [x] **[CPU]** Reliability/ack layer: `net::Reliability` (seqGreaterThan wraparound comparator,
   AckReceiver producing ack + 32-bit ack-bitfield, AckSender resolving in-flight → newly-acked).
   M213. The reliable-over-UDP core (Fiedler/ENet model) — RTT + resend basis.
-- [ ] **[CPU]** UDP transport binding (SDL_net or BSD sockets) wiring the above to real packets
+- [x] **[CPU]** Connection / packet framing: `net::Connection` (protocol-id + seq/ack/ackBits
+  header over net::BitStream; pack payload → bytes, unpack bytes → payload + resolve acks +
+  reject foreign/truncated). M219. The framing directly beneath a real UDP socket.
+- [ ] **[DESK]** UDP socket binding (SDL_net or BSD sockets) wiring net::Connection to real
+  datagrams — the one part that needs actual sockets (not unit-testable headless; the framing above is)
 - [x] **[CPU]** Snapshot/delta replication: `net::Snapshot` (per-field-bit-width schema; full +
   changed-mask delta encode/decode over net::BitStream). M214. Only changed fields cross the wire.
 - [x] **[CPU]** Interpolation buffer: `net::InterpolationBuffer` (time-ordered sample history;

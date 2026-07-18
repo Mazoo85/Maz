@@ -48,6 +48,7 @@
 #include "maz/platform/Displays.hpp"
 #include "maz/platform/Input.hpp"
 #include "maz/net/BitStream.hpp"
+#include "maz/net/Connection.hpp"
 #include "maz/net/Interpolation.hpp"
 #include "maz/net/Prediction.hpp"
 #include "maz/net/Reliability.hpp"
@@ -5696,6 +5697,85 @@ void testReplication() {
 
     // Bandwidth win: a 1-field delta is smaller than a full snapshot.
     CHECK(wd.bitCount() < wf.bitCount());
+}
+
+void testConnection() {
+    using net::Connection;
+    using net::kPacketHeaderBytes;
+
+    const uint32_t proto = 0xABCD1234u;
+    Connection client(proto);
+    Connection server(proto);
+
+    // Client frames "hello".
+    const std::string msg = "hello";
+    const std::vector<uint8_t> pl(msg.begin(), msg.end());
+    uint16_t s0 = 0;
+    const std::vector<uint8_t> pkt = client.pack(pl, s0);
+    CHECK(s0 == 0);
+    CHECK(pkt.size() == kPacketHeaderBytes + 5);
+    CHECK(client.inFlightCount() == 1);
+    CHECK(client.inFlight(0));
+
+    // Server parses it, records the sequence.
+    std::vector<uint8_t> got;
+    CHECK(server.unpack(pkt, got));
+    CHECK(std::string(got.begin(), got.end()) == "hello");
+    CHECK(server.wasReceived(0));
+
+    // Server replies -> its header acknowledges seq 0; client learns it landed.
+    const std::string reply = "hi";
+    const std::vector<uint8_t> rpl(reply.begin(), reply.end());
+    uint16_t s1 = 0;
+    const std::vector<uint8_t> pkt2 = server.pack(rpl, s1);
+    std::vector<uint8_t> got2;
+    CHECK(client.unpack(pkt2, got2));
+    CHECK(std::string(got2.begin(), got2.end()) == "hi");
+    CHECK(client.inFlightCount() == 0);
+    CHECK(client.lastAcked().size() == 1);
+    CHECK(client.lastAcked()[0] == 0);
+
+    // Wrong protocol id -> rejected, not applied.
+    Connection foreign(0xDEADBEEFu);
+    uint16_t sx = 0;
+    const std::vector<uint8_t> badpkt = foreign.pack(pl, sx);
+    std::vector<uint8_t> junk;
+    CHECK(!server.unpack(badpkt, junk));
+    CHECK(server.rejectedPackets() == 1);
+
+    // Truncated packet (shorter than the header) -> rejected.
+    const std::vector<uint8_t> tiny(5, 0u);
+    CHECK(!server.unpack(tiny, junk));
+    CHECK(server.rejectedPackets() == 2);
+
+    // Three client packets in flight; one server reply acks all three at once (ack + ackBits).
+    uint16_t a = 0;
+    uint16_t b = 0;
+    uint16_t c = 0;
+    const std::vector<uint8_t> pa = client.pack(pl, a);
+    const std::vector<uint8_t> pb = client.pack(pl, b);
+    const std::vector<uint8_t> pc = client.pack(pl, c);
+    CHECK(a == 1);
+    CHECK(b == 2);
+    CHECK(c == 3);
+    CHECK(client.inFlightCount() == 3);
+    std::vector<uint8_t> t;
+    CHECK(server.unpack(pa, t));
+    CHECK(server.unpack(pb, t));
+    CHECK(server.unpack(pc, t));
+    uint16_t s2 = 0;
+    const std::vector<uint8_t> ack3 = server.pack(rpl, s2);
+    CHECK(client.unpack(ack3, t));
+    CHECK(client.inFlightCount() == 0);
+    CHECK(client.lastAcked().size() == 3);
+
+    // Empty-payload packet round-trips (header only).
+    uint16_t se = 0;
+    const std::vector<uint8_t> emptyPkt = client.pack(nullptr, 0, se);
+    CHECK(emptyPkt.size() == kPacketHeaderBytes);
+    std::vector<uint8_t> ep;
+    CHECK(server.unpack(emptyPkt, ep));
+    CHECK(ep.empty());
 }
 
 void testProfiler() {
@@ -17472,6 +17552,7 @@ int main() {
     testPrediction();
     testRpc();
     testReplication();
+    testConnection();
     testNoise();
     testRandom();
     testInterpolate();
