@@ -191,6 +191,7 @@
 #include "maz/math/Voronoi.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
+#include "maz/math/Rect2i.hpp"
 #include "maz/math/Transform2D.hpp"
 #include "maz/math/Transform3D.hpp"
 #include "maz/math/Quaternion.hpp"
@@ -12347,6 +12348,46 @@ void testVectorInt() {
     CHECK_NEAR(c.toVec3().z, 2.0f, 1e-6f);
 }
 
+// Rect2i: Godot's integer rectangle (M281) — half-open hasPoint, intersect/merge/enclose/grow/abs.
+void testRect2i() {
+    using math::Rect2i;
+    using math::Vector2i;
+    const Rect2i a(0, 0, 10, 10);
+
+    CHECK(a.right() == 10 && a.bottom() == 10);
+    CHECK((a.end() == Vector2i(10, 10)));
+    CHECK((a.center() == Vector2i(5, 5)));
+    CHECK(a.area() == 100);
+    CHECK(a.hasArea());
+
+    // Half-open containment: left/top inclusive, right/bottom exclusive.
+    CHECK(a.hasPoint(Vector2i(0, 0)));
+    CHECK(a.hasPoint(Vector2i(9, 9)));
+    CHECK(!a.hasPoint(Vector2i(10, 10)));
+    CHECK(!a.hasPoint(Vector2i(10, 5)));
+    CHECK(!a.hasPoint(Vector2i(-1, 5)));
+
+    const Rect2i b(5, 5, 10, 10);
+    CHECK(a.intersects(b));
+    CHECK((a.intersection(b) == Rect2i(5, 5, 5, 5)));
+    const Rect2i disjoint(20, 20, 3, 3);
+    CHECK(!a.intersects(disjoint));
+    CHECK((a.intersection(disjoint) == Rect2i(0, 0, 0, 0)));
+    CHECK(!a.intersects(Rect2i(10, 0, 5, 5))); // edge-adjacent: no overlap (half-open)
+
+    CHECK((a.merge(disjoint) == Rect2i(0, 0, 23, 23)));
+    CHECK(a.encloses(Rect2i(2, 2, 3, 3)));
+    CHECK(!a.encloses(b));
+    CHECK(a.encloses(a));
+
+    CHECK((a.grow(2) == Rect2i(-2, -2, 14, 14)));
+    CHECK((a.grow(-1) == Rect2i(1, 1, 8, 8)));
+    CHECK((a.growIndividual(1, 2, 3, 4) == Rect2i(-1, -2, 14, 16)));
+    CHECK((a.expand(Vector2i(15, 3)) == Rect2i(0, 0, 15, 10)));
+    CHECK((a.expand(Vector2i(-5, -5)) == Rect2i(-5, -5, 15, 15)));
+    CHECK((Rect2i(5, 8, -3, -4).abs() == Rect2i(2, 4, 3, 4)));
+}
+
 // Geometry2D polygon toolkit: signed area, isPolygonClockwise (Godot screen-space), centroid,
 // convex hull (Andrew's monotone chain).
 void testGeometry2DPolygon() {
@@ -21524,6 +21565,7 @@ int main() {
     testTransform3D();
     testQuaternion();
     testVectorInt();
+    testRect2i();
     testGeometry2DPolygon();
     testHexGrid();
     testSdf();
