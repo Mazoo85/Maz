@@ -167,6 +167,7 @@
 #include "maz/ui/PopupMenu.hpp"
 #include "maz/ui/ColorPicker.hpp"
 #include "maz/ui/Controls.hpp"
+#include "maz/ui/TabContainer.hpp"
 #include "maz/ui/DragAndDrop.hpp"
 #include "maz/ui/Range.hpp"
 #include "maz/ui/Tree.hpp"
@@ -3822,6 +3823,96 @@ void testColorPicker() {
         c7.addRecent(Color{0.3f, 0, 0, 1}); // existing -> to front
         CHECK(c7.recent().size() == 3);
         CHECK_NEAR(c7.recent().front().r, 0.3f, 1e-4f);
+    }
+}
+
+void testTabContainer() {
+    using ui::TabContainer;
+
+    TabContainer tc;
+    CHECK(tc.tabCount() == 0);
+    CHECK((tc.currentTab() == -1 && tc.currentContent() == -1));
+
+    // Add three tabs with content ids; the first selectable one becomes current.
+    CHECK(tc.addTab("General", 100) == 0);
+    CHECK(tc.addTab("Audio", 200) == 1);
+    CHECK(tc.addTab("Video", 300) == 2);
+    CHECK(tc.tabCount() == 3);
+    CHECK(tc.currentTab() == 0);
+    CHECK(tc.currentContent() == 100);
+    CHECK(tc.visibleTabCount() == 3);
+
+    // Switch tab -> content follows; out-of-range rejected.
+    CHECK(tc.setCurrentTab(2));
+    CHECK(tc.currentContent() == 300);
+    CHECK(!tc.setCurrentTab(5));
+
+    // Disabled tab: not selectable, navigation skips it.
+    tc.setTabDisabled(1, true);
+    CHECK(!tc.isSelectable(1));
+    CHECK(!tc.setCurrentTab(1));
+    tc.setCurrentTab(0);
+    CHECK(tc.selectNext());
+    CHECK(tc.currentTab() == 2); // skipped disabled 1
+    CHECK(tc.selectPrevious());
+    CHECK(tc.currentTab() == 0);
+
+    // Hidden tab: excluded from the strip and not selectable; hiding current re-points it.
+    tc.setTabDisabled(1, false);
+    tc.setTabHidden(2, true);
+    CHECK(tc.visibleTabCount() == 2);
+    CHECK(!tc.isSelectable(2));
+    tc.setCurrentTab(1);
+    tc.setTabHidden(1, true);
+    CHECK(tc.currentTab() == 0); // only tab 0 remains selectable
+    CHECK(tc.isSelectable(tc.currentTab()));
+
+    // Disabling the current tab also re-points to a selectable neighbour.
+    tc.setTabHidden(1, false);
+    tc.setTabHidden(2, false);
+    tc.setCurrentTab(0);
+    tc.setTabDisabled(0, true);
+    CHECK(tc.currentTab() != 0);
+    CHECK(tc.isSelectable(tc.currentTab()));
+
+    // Removal keeps current on a valid tab and drops to -1 when empty.
+    {
+        TabContainer t2;
+        t2.addTab("t0", 0);
+        t2.addTab("t1", 1);
+        t2.addTab("t2", 2);
+        t2.setCurrentTab(2);
+        CHECK(t2.removeTab(0)); // remove before current -> shifts down
+        CHECK(t2.tabCount() == 2);
+        CHECK(t2.currentContent() == 2);
+        t2.setCurrentTab(0);
+        CHECK(t2.removeTab(0)); // remove the current tab
+        CHECK(t2.tabCount() == 1);
+        CHECK(t2.currentContent() == 2);
+        CHECK(t2.removeTab(0)); // remove last -> current -1
+        CHECK((t2.currentTab() == -1 && t2.currentContent() == -1));
+        CHECK(!t2.removeTab(0));
+    }
+
+    // A single disabled tab yields no current; re-enabling restores it.
+    {
+        TabContainer t3;
+        t3.addTab("only", 9);
+        t3.setTabDisabled(0, true);
+        CHECK((t3.currentTab() == -1 && t3.currentContent() == -1));
+        t3.setTabDisabled(0, false);
+        CHECK(t3.currentTab() == 0);
+    }
+
+    // Title/content mutation + out-of-range title.
+    {
+        TabContainer t4;
+        t4.addTab("x", 1);
+        t4.setTitle(0, "renamed");
+        CHECK((t4.title(0) == "renamed"));
+        t4.setContent(0, 42);
+        CHECK(t4.currentContent() == 42);
+        CHECK(t4.title(9).empty());
     }
 }
 
@@ -19803,6 +19894,7 @@ int main() {
     testControls();
     testDragAndDrop();
     testColorPicker();
+    testTabContainer();
     testStyleBox();
     testTheme();
     testTree();

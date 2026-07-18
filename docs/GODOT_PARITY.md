@@ -185,7 +185,13 @@ Theme, Range/ProgressBar, nine-patch, BBCode). Missing vs Godot:
   hex I/O (`#` optional in, none out; alpha byte gated by an edit-alpha toggle), slider mode
   (RGB/HSV/RAW with RAW allowing HDR >1), user preset swatches (dedup-to-end + erase), and a capped
   most-recent list (front-inserted, deduped). Verified across hue-preservation, round-trips, and
-  preset/recent edge cases. The TabContainer / FileDialog *widgets* remain.
+  preset/recent edge cases. **TabContainer done** (M252): `ui::TabContainer` — Godot's TabContainer,
+  a container that owns several content panels and shows one at a time via an integrated tab strip.
+  Each tab carries an opaque content id (the widget layer maps it to a panel); the container keeps
+  exactly one *selectable* tab current (or -1), supports disabled tabs (shown-but-greyed) and hidden
+  tabs (dropped from the strip), and re-points `current` to a selectable neighbour whenever a tab is
+  disabled/hidden/removed. Verified across disable/hide/remove, navigation skipping, and clamp edge
+  cases. The FileDialog *widget* remains.
 - [x] **[CPU]** Full theme system (per-control theme overrides, theme types)
   (M250): extended `ui::Theme` with **theme type variations** (Godot's `theme_type_variation` /
   theme type inheritance) — `setTypeVariation(type, base)` chains a variation onto a base type, and
