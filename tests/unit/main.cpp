@@ -179,6 +179,7 @@
 #include "maz/math/Curve2D.hpp"
 #include "maz/math/Delaunay.hpp"
 #include "maz/math/Geometry2D.hpp"
+#include "maz/math/Voronoi.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Transform2D.hpp"
@@ -450,6 +451,90 @@ void testDelaunay() {
         for (std::uint32_t idx : tris) {
             CHECK(idx < pts.size());
         }
+    }
+}
+
+void testVoronoi() {
+    using math::cellArea;
+    using math::vec2;
+    using math::voronoiCells;
+
+    auto insidePoly = [](const std::vector<vec2>& poly, vec2 p) {
+        for (std::size_t i = 0, n = poly.size(); i < n; ++i) {
+            const vec2 a = poly[i], b = poly[(i + 1) % n];
+            const double cr = static_cast<double>(b.x - a.x) * (p.y - a.y) -
+                              static_cast<double>(b.y - a.y) * (p.x - a.x);
+            if (cr < -1e-4) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const vec2 lo(0, 0), hi(10, 10);
+
+    // Single site -> the whole box.
+    {
+        auto cells = voronoiCells({{5, 5}}, lo, hi);
+        CHECK(cells.size() == 1);
+        CHECK_NEAR(cellArea(cells[0]), 100.0f, 1e-2f);
+    }
+    // Two sites split by the x=5 bisector -> two 50-area halves, each containing its site.
+    {
+        auto cells = voronoiCells({{2.5f, 5}, {7.5f, 5}}, lo, hi);
+        CHECK(cells.size() == 2);
+        CHECK_NEAR(cellArea(cells[0]), 50.0f, 1e-2f);
+        CHECK_NEAR(cellArea(cells[1]), 50.0f, 1e-2f);
+        CHECK(insidePoly(cells[0], vec2(2.5f, 5)));
+        CHECK(insidePoly(cells[1], vec2(7.5f, 5)));
+    }
+    // Four symmetric sites -> four equal quadrants (area 25), summing to the box.
+    {
+        std::vector<vec2> sites = {{2.5f, 2.5f}, {7.5f, 2.5f}, {7.5f, 7.5f}, {2.5f, 7.5f}};
+        auto cells = voronoiCells(sites, lo, hi);
+        double total = 0;
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            CHECK_NEAR(cellArea(cells[i]), 25.0f, 1e-2f);
+            CHECK(insidePoly(cells[i], sites[i]));
+            total += cellArea(cells[i]);
+        }
+        CHECK_NEAR(static_cast<float>(total), 100.0f, 1e-2f);
+    }
+    // General: cells partition the box and each grid point lands in its nearest site's cell.
+    {
+        std::vector<vec2> sites = {{1, 1}, {9, 2}, {5, 8}, {3, 5}, {7, 6}, {2, 9}, {8, 9}};
+        auto cells = voronoiCells(sites, lo, hi);
+        double total = 0;
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            total += cellArea(cells[i]);
+            CHECK(insidePoly(cells[i], sites[i]));
+        }
+        CHECK_NEAR(static_cast<float>(total), 100.0f, 0.05f);
+        int inNearest = 0;
+        for (float qx = 0.5f; qx < 10; qx += 1.0f) {
+            for (float qy = 0.5f; qy < 10; qy += 1.0f) {
+                std::size_t best = 0;
+                float bd = 1e30f;
+                for (std::size_t i = 0; i < sites.size(); ++i) {
+                    const float d = (sites[i].x - qx) * (sites[i].x - qx) +
+                                    (sites[i].y - qy) * (sites[i].y - qy);
+                    if (d < bd) {
+                        bd = d;
+                        best = i;
+                    }
+                }
+                if (insidePoly(cells[best], vec2(qx, qy))) {
+                    ++inNearest;
+                }
+            }
+        }
+        CHECK(inNearest >= 95);
+    }
+    // Degenerate: empty sites, inverted box.
+    {
+        CHECK(voronoiCells({}, lo, hi).empty());
+        auto bad = voronoiCells({{1, 1}}, hi, lo);
+        CHECK((bad.size() == 1 && bad[0].empty()));
     }
 }
 
@@ -20135,6 +20220,7 @@ int main() {
     testMath();
     testCurve2D();
     testDelaunay();
+    testVoronoi();
     testAtlasPacker();
     testColorOps();
     testExtension();
