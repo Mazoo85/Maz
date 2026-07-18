@@ -96,6 +96,37 @@ int main() {
         check(wetHF(0.7f) < wetHF(0.0f) * 0.7, "delay damping rolls off the echoes' high end");
     }
 
+    // --- Delay feedback low-cut: repeats shed their low end ------------------
+    {
+        // A short low-frequency burst then silence, echoed with high feedback. With the feedback
+        // low-cut engaged each repeat loses more of its lows, so the late echoes carry less energy.
+        auto lateEnergy = [&](float lowCut) {
+            audio::Delay d;
+            d.setEnabled(true);
+            d.setTime(50.0f);
+            d.setFeedback(0.85f);
+            d.setMix(1.0f); // fully wet: measure only the echoes
+            d.setFeedbackLowCut(lowCut);
+            std::vector<float> b(static_cast<size_t>(sr / 2) * 2, 0.0f); // 0.5 s of silence
+            const int burst = sr / 20;                                   // a 50 ms 100 Hz burst up front
+            for (int i = 0; i < burst; ++i) {
+                const float s = static_cast<float>(0.5 * std::sin(kTwoPi * 100.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            d.process(b.data(), sr / 2, sr);
+            double e = 0.0; // energy in the last ~140 ms (several echoes in)
+            for (int i = sr / 2 - sr / 7; i < sr / 2; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            return e;
+        };
+        check(lateEnergy(400.0f) < lateEnergy(0.0f) * 0.7,
+              "delay feedback low-cut thins the echoes' low end over repeats");
+        audio::Delay dd;
+        check(dd.feedbackLowCut() == 0.0f, "delay feedback low-cut defaults to off");
+    }
+
     // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
     {
         audio::Delay pp;

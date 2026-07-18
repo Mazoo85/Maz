@@ -1510,6 +1510,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("damp##dly", &damp, 0.0f, 1.0f, "%.2f")) mx.delay().setDamping(damp);
+        float fbLc = mx.delay().feedbackLowCut();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("lo-cut##dly", &fbLc, 0.0f, 1000.0f, "%.0f Hz")) mx.delay().setFeedbackLowCut(fbLc);
         bool sync = mx.delay().sync();
         if (ImGui::Checkbox("Sync##dly", &sync)) mx.delay().setSync(sync);
         ImGui::SameLine();

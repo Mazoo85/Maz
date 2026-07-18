@@ -46,6 +46,8 @@ void Delay::reset() {
     write_ = 0;
     dampL_ = 0.0f;
     dampR_ = 0.0f;
+    lcL_ = 0.0f;
+    lcR_ = 0.0f;
 }
 
 namespace {
@@ -104,6 +106,12 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     // Damping: a one-pole high-cut on the feedback (damping 0 = off/bright, 1 = heavy darkening).
     const float dampCoef = std::clamp(damping_, 0.0f, 1.0f);
+    // Feedback low-cut: a one-pole high-pass on the feedback (0 Hz = off).
+    const bool doLowCut = fbLowCutHz_ > 0.0f;
+    const float aLow =
+        doLowCut ? 1.0f - std::exp(-2.0f * 3.14159265358979f * fbLowCutHz_ /
+                                       static_cast<float>(sampleRate))
+                 : 0.0f;
 
     for (int i = 0; i < frames; ++i) {
         const int r = (write_ - tap + size_) % size_;
@@ -114,8 +122,17 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
         // Low-pass the fed-back signal so successive repeats lose their highs.
         dampL_ += (1.0f - dampCoef) * (wetL - dampL_);
         dampR_ += (1.0f - dampCoef) * (wetR - dampR_);
-        const float fbL = dampL_ * fb;
-        const float fbR = dampR_ * fb;
+        float fbSigL = dampL_;
+        float fbSigR = dampR_;
+        // Low-cut (high-pass = signal − low-passed) on the feedback so repeats lose their low end.
+        if (doLowCut) {
+            lcL_ += aLow * (fbSigL - lcL_);
+            lcR_ += aLow * (fbSigR - lcR_);
+            fbSigL -= lcL_;
+            fbSigR -= lcR_;
+        }
+        const float fbL = fbSigL * fb;
+        const float fbR = fbSigR * fb;
         if (pingPong_) {
             // Cross-feed: each channel's echo re-enters the *other* channel's line, so repeats
             // alternate L→R→L across the stereo field.

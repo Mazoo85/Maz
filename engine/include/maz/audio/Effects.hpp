@@ -58,6 +58,10 @@ public:
     void setPingPong(bool on) { pingPong_ = on; }
     // Damping (0..1): high-cut on the feedback path so each repeat gets darker — analog-style echo.
     void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    // Feedback low-cut (Hz): a high-pass on the feedback path so successive repeats shed their low
+    // end and the echoes don't build up into boom/mud — the classic dub/tape delay trick. 0 = off.
+    void setFeedbackLowCut(float hz) { fbLowCutHz_ = hz < 0.0f ? 0.0f : (hz > 1000.0f ? 1000.0f : hz); }
+    float feedbackLowCut() const { return fbLowCutHz_; }
     // Tempo sync: when on, the delay time tracks the transport tempo at the chosen note division
     // (1/4, dotted 1/8, 1/8 triplet, …) instead of the fixed millisecond time. Call updateTempo()
     // each block with the current BPM to recompute the time.
@@ -87,6 +91,8 @@ private:
     bool sync_ = false;   // tempo-sync the delay time
     int syncDiv_ = 4;     // note-division index (default 1/8)
     float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut state per channel
+    float fbLowCutHz_ = 0.0f;           // feedback high-pass (low-cut) cutoff; 0 = off
+    float lcL_ = 0.0f, lcR_ = 0.0f;     // feedback low-cut one-pole LP state per channel
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;
