@@ -11536,6 +11536,22 @@ void testStringUtils() {
     CHECK(su::hexToInt("deadbeef") == 0xdeadbeefLL);
     CHECK(su::hexToInt("zz") == 0);
 
+    // M327: bin_to_int — binary parse with optional 0b prefix + sign, stops at first non-binary digit.
+    CHECK(su::binToInt("101") == 5);
+    CHECK(su::binToInt("1111") == 15);
+    CHECK(su::binToInt("0b101") == 5);
+    CHECK(su::binToInt("0B1101") == 13);
+    CHECK(su::binToInt("-101") == -5);
+    CHECK(su::binToInt("+110") == 6);
+    CHECK(su::binToInt("-0b1000") == -8);
+    CHECK(su::binToInt("  111") == 7);
+    CHECK(su::binToInt("101abc") == 5);
+    CHECK(su::binToInt("102") == 2); // halts at '2'
+    CHECK(su::binToInt("") == 0);
+    CHECK(su::binToInt("xyz") == 0);
+    CHECK(su::binToInt("0b") == 0);
+    CHECK(su::binToInt("100000000000000000000") == (1LL << 20));
+
     // file-path helpers (M285): get_extension / get_basename / get_file / get_base_dir / path_join /
     // simplify_path.
     CHECK(su::getExtension("a/b/c.txt") == "txt");

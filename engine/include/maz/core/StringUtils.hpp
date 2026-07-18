@@ -345,6 +345,34 @@ inline std::int64_t hexToInt(const std::string& s) {
     return sign * v;
 }
 
+// Parse a binary integer with an optional sign and optional "0b"/"0B" prefix; scanning stops at the
+// first non-binary digit (Godot's String.bin_to_int). Returns 0 when no binary digits follow.
+inline std::int64_t binToInt(const std::string& s) {
+    std::size_t i = 0;
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+        ++i;
+    }
+    std::int64_t sign = 1;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) {
+        if (s[i] == '-') {
+            sign = -1;
+        }
+        ++i;
+    }
+    if (i + 1 < s.size() && s[i] == '0' && (s[i + 1] == 'b' || s[i + 1] == 'B')) {
+        i += 2;
+    }
+    std::int64_t v = 0;
+    for (; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c != '0' && c != '1') {
+            break;
+        }
+        v = v * 2 + (c - '0');
+    }
+    return sign * v;
+}
+
 // ---- file-path helpers (Godot String's get_extension / get_basename / get_file / get_base_dir /
 // path_join / simplify_path) (M285) ----------------------------------------------------------------
 
