@@ -12933,6 +12933,38 @@ void testGeometry2DPolygon() {
     CHECK(math::convexHull({{0, 0}, {1, 0}, {2, 0}, {2, 2}, {0, 2}}).size() == 4);
     // Degenerate input (<3 points) returned as-is.
     CHECK(math::convexHull({{1, 1}, {2, 2}}).size() == 2);
+
+    // Convex polygon clipping (M296): Sutherland–Hodgman against a CCW clip region.
+    {
+        const std::vector<math::vec2> clip = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+        auto ar = [](const std::vector<math::vec2>& p) { return std::fabs(math::polygonArea(p)); };
+        // fully inside -> unchanged area 16
+        CHECK_NEAR(ar(math::clipPolygonConvex({{2, 2}, {6, 2}, {6, 6}, {2, 6}}, clip)), 16.0f, 1e-3f);
+        // straddling the right edge -> clipped to x<=10, area 16
+        {
+            const auto out = math::clipPolygonConvex({{6, 2}, {14, 2}, {14, 6}, {6, 6}}, clip);
+            CHECK_NEAR(ar(out), 16.0f, 1e-3f);
+            bool bounded = true;
+            for (const auto& p : out) {
+                if (p.x > 10.0f + 1e-3f) {
+                    bounded = false;
+                }
+            }
+            CHECK(bounded);
+        }
+        // fully outside -> empty
+        CHECK(math::clipPolygonConvex({{20, 20}, {24, 20}, {24, 24}, {20, 24}}, clip).empty());
+        // subject covers the clip -> result equals the clip (area 100)
+        CHECK_NEAR(ar(math::clipPolygonConvex({{-5, -5}, {15, -5}, {15, 15}, {-5, 15}}, clip)), 100.0f,
+                   1e-3f);
+        // triangular clip keeps half a square (area 50)
+        CHECK_NEAR(ar(math::clipPolygonConvex({{0, 0}, {10, 0}, {10, 10}, {0, 10}},
+                                              {{0, 0}, {10, 0}, {0, 10}})),
+                   50.0f, 1e-3f);
+        // degenerate inputs -> empty
+        CHECK(math::clipPolygonConvex({}, clip).empty());
+        CHECK(math::clipPolygonConvex(clip, {}).empty());
+    }
 }
 
 // HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.

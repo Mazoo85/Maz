@@ -262,4 +262,57 @@ inline std::vector<vec2> convexHull(std::vector<vec2> pts) {
     return hull;
 }
 
+// Clip a subject polygon against a CONVEX clip polygon (Sutherland–Hodgman) — the convex case of
+// Godot's Geometry2D.clip_polygons/intersect_polygons: keeps the part of `subject` that lies inside
+// `convexClip`. Both must be counter-clockwise (Y-up); the clip polygon must be convex (a viewport
+// rect, an FOV wedge, a scissor region). Returns the clipped polygon, empty when fully outside.
+// General (non-convex, multi-contour) boolean polygon ops via Clipper remain out of scope. (M296)
+inline std::vector<vec2> clipPolygonConvex(const std::vector<vec2>& subject,
+                                           const std::vector<vec2>& convexClip) {
+    if (subject.size() < 3 || convexClip.size() < 3) {
+        return {};
+    }
+    std::vector<vec2> output = subject;
+    const std::size_t m = convexClip.size();
+    for (std::size_t e = 0; e < m; ++e) {
+        const vec2 a = convexClip[e];
+        const vec2 b = convexClip[(e + 1) % m];
+        // Inside = left of the directed clip edge a->b (CCW convex): cross(b-a, p-a) >= 0.
+        auto inside = [&](const vec2& p) {
+            return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0.0f;
+        };
+        auto intersect = [&](const vec2& p, const vec2& q) {
+            const vec2 d1 = b - a;
+            const vec2 d2 = q - p;
+            const float denom = d1.x * d2.y - d1.y * d2.x;
+            if (std::abs(denom) < 1e-12f) {
+                return q; // parallel; degenerate, keep endpoint
+            }
+            const float t = ((p.x - a.x) * d1.y - (p.y - a.y) * d1.x) / denom;
+            return vec2(p.x + t * d2.x, p.y + t * d2.y);
+        };
+
+        const std::vector<vec2> input = output;
+        output.clear();
+        if (input.empty()) {
+            break;
+        }
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            const vec2 cur = input[i];
+            const vec2 prev = input[(i + input.size() - 1) % input.size()];
+            const bool curIn = inside(cur);
+            const bool prevIn = inside(prev);
+            if (curIn) {
+                if (!prevIn) {
+                    output.push_back(intersect(prev, cur));
+                }
+                output.push_back(cur);
+            } else if (prevIn) {
+                output.push_back(intersect(prev, cur));
+            }
+        }
+    }
+    return output;
+}
+
 } // namespace maz::math

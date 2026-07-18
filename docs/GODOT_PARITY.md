@@ -54,7 +54,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `polygonArea`, `isPolygonClockwise` (Godot's Y-down screen convention), area-weighted
   `polygonCentroid` — Godot's Geometry2D polygon statics; plus **more Geometry2D statics** M276 —
   closestPointOnLine (uncapped), lineIntersectsLine (infinite lines), pointInTriangle,
-  closestPointsBetweenSegments (2D) matching Godot's Geometry2D; **Aabb3 method completeness** M272 —
+  closestPointsBetweenSegments (2D) matching Godot's Geometry2D; plus **convex polygon clipping** M296
+  — `clipPolygonConvex` (Sutherland–Hodgman: clip a polygon to a convex region — viewport/FOV/scissor),
+  the convex case of Godot's Geometry2D.clip_polygons/intersect_polygons (general Clipper boolean ops
+  remain out of scope); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
   Godot's AABB); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
   `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`; plus
