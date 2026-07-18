@@ -66,6 +66,22 @@ public:
     void setStartOffset(float frac) { startOffset_ = frac < 0.0f ? 0.0f : (frac > 0.999f ? 0.999f : frac); }
     float startOffset() const { return startOffset_; }
 
+    // Loop region: when loop is on, playback cycles only within [loopStart, loopEnd] (fractions of the
+    // sample length) instead of the whole sample — so the attack portion before loopStart plays once
+    // and just the sustain body loops (the classic sampler sustain loop). Defaults to the full sample
+    // (0..1), which reproduces the old whole-sample loop. `end` must exceed `start`; a degenerate
+    // region is ignored. No effect when loop is off.
+    void setLoopRegion(float start, float end) {
+        const float s = start < 0.0f ? 0.0f : (start > 0.999f ? 0.999f : start);
+        const float e = end < 0.0f ? 0.0f : (end > 1.0f ? 1.0f : end);
+        if (e > s) {
+            loopStart_ = s;
+            loopEnd_ = e;
+        }
+    }
+    float loopStart() const { return loopStart_; }
+    float loopEnd() const { return loopEnd_; }
+
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
@@ -100,6 +116,8 @@ private:
     bool loop_ = false;
     bool pingPong_ = false;
     float startOffset_ = 0.0f;
+    float loopStart_ = 0.0f; // loop region start as a fraction of the sample (0 = sample start)
+    float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
     float attack_ = 0.001f;  // seconds
     float release_ = 0.012f; // seconds
     std::string path_;

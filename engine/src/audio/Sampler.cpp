@@ -157,36 +157,41 @@ void Sampler::render(float* out, int frames, int sampleRate) {
 
             // Bounds / looping, direction-aware. Ping-pong reflects off each end (flipping the
             // direction); a plain loop wraps; a one-shot stops. Forward voices watch the end, reverse
-            // voices the start.
+            // voices the start. When looping, the wrap/reflect boundaries are the loop region
+            // [loopStart, loopEnd] rather than the whole sample, so the attack head plays once and just
+            // the region sustains; when not looping they are the whole sample (a one-shot).
             const double dlast = static_cast<double>(last);
+            const double lo = loop_ ? static_cast<double>(loopStart_) * dlast : 0.0;
+            const double hi = loop_ ? static_cast<double>(loopEnd_) * dlast : dlast;
+            const double span = hi - lo;
             if (pingPong_ && loop_) {
-                if (v.pos >= dlast) {
-                    v.pos = dlast - (v.pos - dlast); // reflect back inside
-                    if (v.pos < 0.0) {
-                        v.pos = 0.0;
+                if (v.pos >= hi) {
+                    v.pos = hi - (v.pos - hi); // reflect back inside the region
+                    if (v.pos < lo) {
+                        v.pos = lo;
                     }
                     v.dir = -1;
-                } else if (v.pos <= 0.0) {
-                    v.pos = -v.pos;
-                    if (v.pos > dlast) {
-                        v.pos = dlast;
+                } else if (v.pos <= lo) {
+                    v.pos = lo + (lo - v.pos);
+                    if (v.pos > hi) {
+                        v.pos = hi;
                     }
                     v.dir = 1;
                 }
             } else if (v.dir > 0) {
-                if (v.pos >= dlast) {
-                    if (loop_) {
-                        v.pos -= dlast;
-                    } else {
+                if (v.pos >= hi) {
+                    if (loop_ && span > 0.0) {
+                        v.pos -= span;
+                    } else if (v.pos >= dlast) {
                         v.active = false;
                         break;
                     }
                 }
             } else {
-                if (v.pos < 0.0) {
-                    if (loop_) {
-                        v.pos += dlast;
-                    } else {
+                if (v.pos < lo) {
+                    if (loop_ && span > 0.0) {
+                        v.pos += span;
+                    } else if (v.pos < 0.0) {
                         v.active = false;
                         break;
                     }

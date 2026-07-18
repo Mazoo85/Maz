@@ -974,6 +974,14 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))
         seq.sampler().setStartOffset(startOff);
+    float loopS = seq.sampler().loopStart(), loopE = seq.sampler().loopEnd();
+    bool loopCh = false;
+    ImGui::SetNextItemWidth(110.0f);
+    loopCh |= ImGui::SliderFloat("Loop start", &loopS, 0.0f, 0.99f, "%.2f");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.0f);
+    loopCh |= ImGui::SliderFloat("Loop end", &loopE, 0.01f, 1.0f, "%.2f");
+    if (loopCh) seq.sampler().setLoopRegion(loopS, loopE);
     float smpAtk = seq.sampler().attack();
     float smpRel = seq.sampler().release();
     bool smpEnvCh = false;

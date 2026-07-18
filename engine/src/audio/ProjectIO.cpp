@@ -188,7 +188,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
       << " " << seq.sampler().startOffset() << " " << seq.sampler().attack() << " "
       << seq.sampler().release() << " " << (seq.sampler().pingPong() ? 1 : 0) << " "
-      << seq.sampler().detuneCents() << "\n";
+      << seq.sampler().detuneCents() << " " << seq.sampler().loopStart() << " "
+      << seq.sampler().loopEnd() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -475,6 +476,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float detune = 0.0f; // fine tune optional (older files omit it)
             if (ls >> detune) {
                 seq.sampler().setDetuneCents(detune);
+            }
+            float loopS = 0.0f, loopE = 1.0f; // loop region optional (older files omit it)
+            if (ls >> loopS >> loopE) {
+                seq.sampler().setLoopRegion(loopS, loopE);
             }
         } else if (tag == "chan") {
             int c = -1;

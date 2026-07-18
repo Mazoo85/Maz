@@ -271,6 +271,49 @@ int main() {
         check(def.startOffset() == 0.0f, "start offset defaults to 0");
     }
 
+    // Loop region: with loop on and a region [0.6, 0.8], the attack head plays once, then playback
+    // sustains only within that band — a ramp source stays between ~0.6 and ~0.8 forever, never
+    // reaching the 0..1 extremes a whole-sample loop would.
+    {
+        std::vector<float> ramp(1000);
+        for (int i = 0; i < 1000; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / 1000.0f; // 0 → ~1
+        }
+        auto steadyBand = [&](bool region, float& lo, float& hi) {
+            audio::Sampler s;
+            s.setSampleMono(ramp, sr);
+            s.setBasePitch(60);
+            s.setGain(1.0f);
+            s.setAmpEnv(0.0001f, 0.1f);
+            s.setLoop(true);
+            if (region) {
+                s.setLoopRegion(0.6f, 0.8f);
+            }
+            s.noteOn(60, 1.0f); // 1 sample/frame
+            const std::vector<float> out = renderMono(s, 3000, sr);
+            lo = 1e9f;
+            hi = -1e9f;
+            for (size_t i = 1000; i < out.size(); ++i) { // steady state, past the head + attack
+                if (out[i] < lo) lo = out[i];
+                if (out[i] > hi) hi = out[i];
+            }
+        };
+        float rLo = 0.0f, rHi = 0.0f;
+        steadyBand(true, rLo, rHi);
+        check(rHi < 0.85f && rLo > 0.55f, "a loop region sustains only within [0.6, 0.8]");
+
+        float wLo = 0.0f, wHi = 0.0f;
+        steadyBand(false, wLo, wHi);
+        check(wHi > 0.95f && wLo < 0.1f, "a whole-sample loop traverses the full 0..1 range (contrast)");
+
+        audio::Sampler def;
+        check(def.loopStart() == 0.0f && def.loopEnd() == 1.0f,
+              "loop region defaults to the whole sample");
+        def.setLoopRegion(0.8f, 0.2f); // end <= start is ignored
+        check(def.loopStart() == 0.0f && def.loopEnd() == 1.0f,
+              "a degenerate loop region (end <= start) is ignored");
+    }
+
     // Amp envelope: a longer release makes the note-off tail ring longer before going silent.
     {
         std::vector<float> tone(sr, 0.5f); // 1 s of a constant DC-ish level (steady amplitude)
