@@ -481,6 +481,82 @@ inline std::string toCamelCase(const std::string& s) {
     return out;
 }
 
+// ---- fuzzy matching (Godot String's similarity + a Levenshtein edit-distance utility) (M290) -----
+
+// The consecutive 2-character substrings of `s` (Godot's String.bigrams): "night" -> ni,ig,gh,ht.
+// Empty for strings shorter than 2 characters.
+inline std::vector<std::string> bigrams(const std::string& s) {
+    std::vector<std::string> out;
+    if (s.size() < 2) {
+        return out;
+    }
+    out.reserve(s.size() - 1);
+    for (std::size_t i = 0; i + 1 < s.size(); ++i) {
+        out.push_back(s.substr(i, 2));
+    }
+    return out;
+}
+
+// Sørensen–Dice bigram similarity in [0,1] — Godot's String.similarity. 1.0 for identical strings,
+// 0.0 when either string is shorter than 2 characters; otherwise 2*|shared bigrams| / (total bigrams),
+// matching each target bigram at most once (Godot's exact algorithm).
+inline double similarity(const std::string& a, const std::string& b) {
+    if (a == b) {
+        return 1.0;
+    }
+    if (a.size() < 2 || b.size() < 2) {
+        return 0.0;
+    }
+    std::vector<std::string> src = bigrams(a);
+    std::vector<std::string> tgt = bigrams(b);
+    const double sum = static_cast<double>(src.size() + tgt.size());
+    double inter = 0.0;
+    for (const auto& sb : src) {
+        for (auto& tb : tgt) {
+            if (!tb.empty() && sb == tb) {
+                inter += 1.0;
+                tb.clear(); // consume this target bigram so it can't match twice
+                break;
+            }
+        }
+    }
+    return (2.0 * inter) / sum;
+}
+
+// Levenshtein edit distance: the minimum number of single-character insertions, deletions or
+// substitutions to turn `a` into `b`. A general fuzzy-matching utility (beyond Godot's String API,
+// which offers only `similarity`). O(len(a)*len(b)) time, O(len(b)) space.
+inline std::size_t levenshtein(const std::string& a, const std::string& b) {
+    const std::size_t n = a.size();
+    const std::size_t m = b.size();
+    if (n == 0) {
+        return m;
+    }
+    if (m == 0) {
+        return n;
+    }
+    std::vector<std::size_t> prev(m + 1), cur(m + 1);
+    for (std::size_t j = 0; j <= m; ++j) {
+        prev[j] = j;
+    }
+    for (std::size_t i = 1; i <= n; ++i) {
+        cur[0] = i;
+        for (std::size_t j = 1; j <= m; ++j) {
+            const std::size_t cost = (a[i - 1] == b[j - 1]) ? 0u : 1u;
+            const std::size_t del = prev[j] + 1;
+            const std::size_t ins = cur[j - 1] + 1;
+            const std::size_t sub = prev[j - 1] + cost;
+            std::size_t best = del < ins ? del : ins;
+            if (sub < best) {
+                best = sub;
+            }
+            cur[j] = best;
+        }
+        std::swap(prev, cur);
+    }
+    return prev[m];
+}
+
 // ---- markup / URI escaping (Godot String's xml_escape / xml_unescape / uri_encode / uri_decode)
 // (M289) -------------------------------------------------------------------------------------------
 

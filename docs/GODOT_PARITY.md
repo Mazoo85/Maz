@@ -79,7 +79,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   on separators and camelCase/acronym boundaries, acronyms normalized e.g. HTTPServer→HttpServer),
   plus **markup/URI escaping** M289 — xmlEscape/xmlUnescape (named + numeric char refs) and
   uriEncode/uriDecode (RFC 3986 unreserved set, '+' preserved) matching Godot String's
-  xml_escape/xml_unescape/uri_encode/uri_decode),
+  xml_escape/xml_unescape/uri_encode/uri_decode, plus **fuzzy matching** M290 — bigrams + similarity
+  (Sørensen–Dice bigram coefficient, matching Godot String's similarity) and a Levenshtein
+  edit-distance utility (beyond Godot's String API)),
   **ISO-8601 date parsing** (M266, `core::parseIso` /
   `unixFromIso` — Godot Time's `get_datetime_dict_from_datetime_string` /
   `get_unix_time_from_datetime_string`: the inverse of the existing `formatIso`, accepts date-only or

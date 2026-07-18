@@ -10936,6 +10936,27 @@ void testStringUtils() {
     CHECK(su::uriDecode("plus+kept") == "plus+kept");       // '+' preserved (Godot behavior)
     CHECK(su::uriDecode("bad%zzhex") == "bad%zzhex");       // malformed kept verbatim
     CHECK(su::uriDecode(su::uriEncode("Hello, World! /p?q=1&r=2#f")) == "Hello, World! /p?q=1&r=2#f");
+
+    // Fuzzy matching (M290): bigrams / similarity (Sørensen–Dice) / levenshtein.
+    {
+        const auto bg = su::bigrams("night");
+        CHECK(bg.size() == 4);
+        CHECK((bg[0] == "ni" && bg[3] == "ht"));
+        CHECK(su::bigrams("a").empty());
+    }
+    CHECK_NEAR(static_cast<float>(su::similarity("ABC123", "ABC456")), 0.4f, 1e-6f);
+    CHECK_NEAR(static_cast<float>(su::similarity("night", "nacht")), 0.25f, 1e-6f);
+    CHECK_NEAR(static_cast<float>(su::similarity("same", "same")), 1.0f, 1e-6f);
+    CHECK_NEAR(static_cast<float>(su::similarity("", "abc")), 0.0f, 1e-6f);
+    CHECK_NEAR(static_cast<float>(su::similarity("a", "abc")), 0.0f, 1e-6f); // too short
+    CHECK_NEAR(static_cast<float>(su::similarity("kitten", "sitting")),
+               static_cast<float>(su::similarity("sitting", "kitten")), 1e-6f); // symmetric
+    CHECK(su::levenshtein("kitten", "sitting") == 3);
+    CHECK(su::levenshtein("", "abc") == 3);
+    CHECK(su::levenshtein("abc", "") == 3);
+    CHECK(su::levenshtein("abc", "abc") == 0);
+    CHECK(su::levenshtein("flaw", "lawn") == 2);
+    CHECK(su::levenshtein("gumbo", "gambol") == 2);
 }
 
 void testSlotMap() {
