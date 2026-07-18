@@ -892,6 +892,23 @@ int main() {
         std::vector<float> rb2(24000, 0.0f);
         rim.render(rb2.data(), 24000, sampleRate);
         check(!rim.active(), "rimshot decays fast (inactive within 0.6 s)");
+
+        // Crash: a long, bright, noisy cymbal wash — many zero crossings and a long tail.
+        audio::DrumVoice crash;
+        crash.setType(audio::Drum::Crash);
+        crash.trigger(1.0f);
+        std::vector<float> cr(24000, 0.0f); // 0.5 s
+        crash.render(cr.data(), 24000, sampleRate);
+        check(rms(cr) > 0.0, "crash produces sound");
+        check(crash.active(), "crash still rings at 0.5 s (long decay)");
+        int crashCross = 0;
+        for (int i = 1; i < 24000; ++i) {
+            if (cr[static_cast<size_t>(i - 1)] <= 0.0f && cr[static_cast<size_t>(i)] > 0.0f) {
+                ++crashCross;
+            }
+        }
+        // A noisy cymbal crosses zero far more often than a tonal drum.
+        check(crashCross > 2000, "crash is bright/noisy (many zero crossings)");
     }
 
     // --- Channel rotate: shift a step row around the bar ---------------------

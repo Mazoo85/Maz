@@ -27,6 +27,8 @@ double decayTau(Drum type) {
         return 0.12;
     case Drum::Rimshot:
         return 0.05;
+    case Drum::Crash:
+        return 0.6;
     }
     return 0.1;
 }
@@ -108,6 +110,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             // A short, bright crack: a high tone (~1700 Hz) plus a noise click, very fast decay.
             const double tone = std::sin(kTwoPi * 1700.0 * pitchMul * t_);
             s = static_cast<float>((0.7 * tone + 0.3 * static_cast<double>(noise())) * env);
+            break;
+        }
+        case Drum::Crash: {
+            // A long, bright cymbal wash: mostly white noise, with a few high inharmonic partials
+            // adding metallic shimmer over the long decay.
+            const double metal = std::sin(kTwoPi * 4200.0 * pitchMul * t_) +
+                                 std::sin(kTwoPi * 5300.0 * pitchMul * t_) +
+                                 std::sin(kTwoPi * 6700.0 * pitchMul * t_);
+            s = static_cast<float>((0.6 * static_cast<double>(noise()) + 0.13 * metal) * env);
             break;
         }
         }
