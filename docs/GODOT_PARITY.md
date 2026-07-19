@@ -1113,6 +1113,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   an already-acted combatant leaves the cursor on the same live one; mid-round adds and initiative changes
   apply only from the next round; a duplicate id updates initiative; and empty / removed-to-empty queues
   report -1 safely),
+  **faction reputation system** (M488, `game::Reputation` + `game::Standing` — the standing meter behind
+  "the guards now attack you on sight" and "the merchants give you a discount." Each faction carries a
+  reputation value (clamped to a configurable range, default -100..100) that deeds nudge up or down via
+  `modify` / `set`; that value maps through configurable thresholds to a Standing tier — Hostile /
+  Unfriendly / Neutral / Friendly / Allied — which the game reads to decide who fights, trades, or opens
+  doors. Factions auto-register on first use and an unknown faction reads as neutral. Godot ships no
+  reputation/faction system — games hand-roll it every time -> beyond-Godot gameplay utility pairing with
+  the quest and dialogue systems. Verified: registration and unknown-faction-is-neutral; every tier
+  boundary on the default scale (-50 and -15 inclusive downward, 15 and 50 inclusive upward, Neutral
+  between); `modify` accumulating and clamping to [min,max] with auto-registration; `set` clamping and
+  `addFaction` resetting a duplicate; a custom 0..1000 range with custom thresholds mapping all five tiers
+  and clamping out-of-range; independent factions and clear),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

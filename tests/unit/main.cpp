@@ -132,6 +132,7 @@
 #include "maz/game/Dialogue.hpp"
 #include "maz/game/Damage.hpp"
 #include "maz/game/TurnOrder.hpp"
+#include "maz/game/Reputation.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20228,6 +20229,69 @@ void testPolynomial() {
     }
 }
 
+void testReputation() {
+    using game::Reputation;
+    using game::Standing;
+
+    // Register / query; unknown faction is neutral.
+    {
+        Reputation rep;
+        CHECK(!rep.has(1));
+        rep.addFaction(1);
+        CHECK(rep.has(1) && rep.factionCount() == 1 && rep.repOf(1) == 0.0);
+        CHECK(rep.standingOf(1) == Standing::Neutral);
+        CHECK(rep.repOf(9) == 0.0 && rep.standingOf(9) == Standing::Neutral);
+        CHECK(!rep.isHostile(9) && !rep.isAllied(9));
+    }
+    // Standing tiers on default -100..100 (cutoffs -50/-15/15/50).
+    {
+        Reputation rep;
+        rep.set(1, -60);    CHECK(rep.standingOf(1) == Standing::Hostile);
+        rep.set(1, -50);    CHECK(rep.standingOf(1) == Standing::Hostile);
+        rep.set(1, -49.99); CHECK(rep.standingOf(1) == Standing::Unfriendly);
+        rep.set(1, -15);    CHECK(rep.standingOf(1) == Standing::Unfriendly);
+        rep.set(1, -14.99); CHECK(rep.standingOf(1) == Standing::Neutral);
+        rep.set(1, 14.99);  CHECK(rep.standingOf(1) == Standing::Neutral);
+        rep.set(1, 15);     CHECK(rep.standingOf(1) == Standing::Friendly);
+        rep.set(1, 49.99);  CHECK(rep.standingOf(1) == Standing::Friendly);
+        rep.set(1, 50);     CHECK(rep.standingOf(1) == Standing::Allied);
+    }
+    // modify accumulates + clamps; auto-registers; set clamps; addFaction resets.
+    {
+        Reputation rep;
+        CHECK(rep.modify(1, 60) == 60 && rep.has(1) && rep.isAllied(1));
+        CHECK(rep.modify(1, 100) == 100);
+        CHECK(rep.modify(1, -500) == -100 && rep.isHostile(1));
+        rep.set(2, 999);
+        CHECK(rep.repOf(2) == 100);
+        rep.addFaction(2, -30);
+        CHECK(rep.repOf(2) == -30 && rep.factionCount() == 2 && rep.standingOf(2) == Standing::Unfriendly);
+    }
+    // Custom range + thresholds (0..1000 MMO scale).
+    {
+        Reputation rep(0.0, 1000.0);
+        rep.setThresholds(100, 300, 600, 900);
+        rep.set(1, 50);   CHECK(rep.standingOf(1) == Standing::Hostile);
+        rep.set(1, 300);  CHECK(rep.standingOf(1) == Standing::Unfriendly);
+        rep.set(1, 450);  CHECK(rep.standingOf(1) == Standing::Neutral);
+        rep.set(1, 600);  CHECK(rep.standingOf(1) == Standing::Friendly);
+        rep.set(1, 950);  CHECK(rep.standingOf(1) == Standing::Allied);
+        rep.set(1, -100); CHECK(rep.repOf(1) == 0.0);
+        rep.set(1, 5000); CHECK(rep.repOf(1) == 1000.0);
+    }
+    // Multiple factions independent; clear.
+    {
+        Reputation rep;
+        rep.set(1, 80);
+        rep.set(2, -80);
+        rep.set(3, 0);
+        CHECK(rep.isAllied(1) && rep.isHostile(2) && rep.standingOf(3) == Standing::Neutral);
+        CHECK(rep.factionCount() == 3);
+        rep.clear();
+        CHECK(rep.factionCount() == 0 && !rep.has(1));
+    }
+}
+
 void testTurnOrder() {
     using game::TurnOrder;
 
@@ -31239,6 +31303,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testReputation();
     testTurnOrder();
     testDamage();
     testDialogue();
