@@ -2144,6 +2144,15 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("shimmer##rev", &shim, 0.0f, 1.0f, shim <= 0.0f ? "shimmer off" : "%.2f"))
             mx.reverb().setShimmer(shim);
+        float mdep = mx.reverb().modDepth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mod##rev", &mdep, 0.0f, 6.0f, mdep <= 0.0f ? "static" : "%.2f ms"))
+            mx.reverb().setModDepth(mdep);
+        float mrate = mx.reverb().modRate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mod Hz##rev", &mrate, 0.0f, 8.0f, "%.2f")) mx.reverb().setModRate(mrate);
     }
     {
         bool en = mx.convolver().enabled();

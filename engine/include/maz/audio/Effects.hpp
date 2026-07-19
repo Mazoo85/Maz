@@ -1774,6 +1774,16 @@ public:
     // shimmer path is skipped entirely, so the reverb is bit-for-bit unchanged).
     void setShimmer(float amount) { shimmer_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
     float shimmer() const { return shimmer_; }
+    // Tail modulation (a lush/chorused reverb): an LFO sweeps a short fractional delay on the wet
+    // tail (± `depthMs`, up to 6 ms, at `rateHz`), so the tail shimmers and de-correlates instead of
+    // ringing statically — the movement that separates a lush plate/hall from a metallic one. Applied
+    // to the wet OUTPUT only (never the comb feedback), with the L/R LFOs in quadrature for stereo
+    // movement. depth 0 (default) = off (the wet path is skipped, so the reverb is bit-for-bit
+    // unchanged).
+    void setModDepth(float ms) { modDepthMs_ = ms < 0.0f ? 0.0f : (ms > 6.0f ? 6.0f : ms); }
+    void setModRate(float hz) { modRateHz_ = hz < 0.0f ? 0.0f : (hz > 8.0f ? 8.0f : hz); }
+    float modDepth() const { return modDepthMs_; }
+    float modRate() const { return modRateHz_; }
     // Wet-tail tone: a low-cut (high-pass) and high-cut (low-pass) applied to the wet signal only, so
     // the reverb can be kept out of the mud (low-cut) and the harsh top (high-cut) without touching
     // the dry. lowCut 0 = off (no low removed); highCut 20000 = off (no high removed). Distinct from
@@ -1831,6 +1841,11 @@ private:
     int shWrite_ = 0;           // shimmer buffer write index
     double shPhase_ = 0.0;      // shimmer grain phase [0,1); drives the two crossfading read taps
     float shState_ = 0.0f;      // shimmer self-feedback state (the previous octave-up output)
+    float modDepthMs_ = 0.0f;   // tail-modulation depth (ms); 0 = off (wet mod path skipped)
+    float modRateHz_ = 0.5f;    // tail-modulation LFO rate (Hz)
+    double modPhase_ = 0.0;     // tail-modulation LFO phase [0,1)
+    std::vector<float> modBufL_, modBufR_; // short fractional-delay lines for the wet mod
+    int modWrite_ = 0;          // write index into the mod delay lines
     float lowCutHz_ = 0.0f;      // wet-tail high-pass; 0 = off
     float highCutHz_ = 20000.0f; // wet-tail low-pass; 20000 = off
     float lcL_ = 0.0f, lcR_ = 0.0f; // low-cut one-pole LP state (subtracted → high-pass)

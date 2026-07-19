@@ -2711,6 +2711,12 @@ void Reverb::ensureSized(int sampleRate) {
     shWrite_ = 0;
     shPhase_ = 0.0;
     shState_ = 0.0f;
+    // Tail-modulation delay lines: ~12 ms (well above the 6 ms max depth + interpolation guard).
+    const int modLen = static_cast<int>(0.012 * static_cast<double>(sampleRate)) + 4;
+    modBufL_.assign(static_cast<size_t>(modLen), 0.0f);
+    modBufR_.assign(static_cast<size_t>(modLen), 0.0f);
+    modWrite_ = 0;
+    modPhase_ = 0.0;
 }
 
 void Reverb::reset() {
@@ -2738,6 +2744,10 @@ void Reverb::reset() {
     shWrite_ = 0;
     shPhase_ = 0.0;
     shState_ = 0.0f;
+    std::fill(modBufL_.begin(), modBufL_.end(), 0.0f);
+    std::fill(modBufR_.begin(), modBufR_.end(), 0.0f);
+    modWrite_ = 0;
+    modPhase_ = 0.0;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -2823,6 +2833,37 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         const float side = 0.5f * (wetL - wetR) * width_;
         wetL = mid + side;
         wetR = mid - side;
+
+        // Tail modulation: sweep a short fractional delay on the wet tail so it shimmers and
+        // de-correlates (a lush plate/hall) instead of ringing statically. L/R LFOs in quadrature for
+        // stereo movement. Skipped when depth is 0 (the wet is then bit-for-bit unchanged).
+        if (modDepthMs_ > 0.0f && !modBufL_.empty()) {
+            constexpr float kTwoPiF = 6.28318530718f;
+            const int mlen = static_cast<int>(modBufL_.size());
+            modBufL_[static_cast<size_t>(modWrite_)] = wetL;
+            modBufR_[static_cast<size_t>(modWrite_)] = wetR;
+            const float depthSamp = modDepthMs_ * 0.001f * static_cast<float>(sampleRate);
+            const float lfoL = std::sin(static_cast<float>(modPhase_) * kTwoPiF);
+            const float lfoR = std::sin(static_cast<float>(modPhase_ + 0.25) * kTwoPiF);
+            auto readFrac = [&](const std::vector<float>& buf, float delay) {
+                float rp = static_cast<float>(modWrite_) - delay;
+                while (rp < 0.0f) {
+                    rp += static_cast<float>(mlen);
+                }
+                const int i0 = static_cast<int>(rp);
+                const float frac = rp - static_cast<float>(i0);
+                const int i1 = (i0 + 1) % mlen;
+                return buf[static_cast<size_t>(i0)] * (1.0f - frac) +
+                       buf[static_cast<size_t>(i1)] * frac;
+            };
+            wetL = readFrac(modBufL_, 1.0f + depthSamp * (0.5f + 0.5f * lfoL));
+            wetR = readFrac(modBufR_, 1.0f + depthSamp * (0.5f + 0.5f * lfoR));
+            modWrite_ = (modWrite_ + 1) % mlen;
+            modPhase_ += static_cast<double>(modRateHz_) / static_cast<double>(sampleRate);
+            if (modPhase_ >= 1.0) {
+                modPhase_ -= 1.0;
+            }
+        }
 
         // Shimmer: a parallel octave-up loop on the wet tail. A windowed two-tap granular shifter
         // transposes the wet up an octave; its own bounded self-feedback (kShFb < 1) restacks each

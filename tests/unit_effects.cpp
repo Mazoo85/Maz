@@ -1075,6 +1075,58 @@ int main() {
         check(ds.shimmer() == 0.0f, "reverb shimmer defaults to 0 (off)");
     }
 
+    // --- Reverb tail modulation: a lush moving tail smears the static spectral peak -----
+    {
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // Sustain a 500 Hz tone through a fully-wet reverb; measure how concentrated the last-0.5 s
+        // tail's energy is at exactly 500 Hz. Modulation should smear that peak (lower concentration).
+        auto run = [&](float modDepth, double* peakConc, float* peak) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.8f);
+            rev.setMix(1.0f);
+            rev.setModDepth(modDepth);
+            rev.setModRate(2.0f);
+            std::vector<float> b(static_cast<size_t>(sr) * 2 * 2, 0.0f); // 2 s stereo
+            for (int i = 0; i < sr * 2; ++i) {
+                const float s = 0.3f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 500.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            rev.process(b.data(), sr * 2, sr);
+            float pk = 0.0f;
+            for (float v : b) {
+                pk = std::max(pk, std::fabs(v));
+            }
+            *peak = pk;
+            std::vector<float> tail(b.end() - static_cast<long>(sr), b.end()); // last 0.5 s (stereo)
+            double total = 0.0;
+            for (size_t k = 0; k < tail.size(); k += 2) {
+                total += static_cast<double>(tail[k]) * tail[k];
+            }
+            *peakConc = total > 0.0 ? power(tail, 500.0, sr) / total : 0.0;
+        };
+        double concOff = 0.0, concOn = 0.0;
+        float pkOff = 0.0f, pkOn = 0.0f;
+        run(0.0f, &concOff, &pkOff);
+        run(3.0f, &concOn, &pkOn);
+        check(concOn < concOff * 0.9,
+              "reverb tail modulation smears the static spectral peak (a lusher, moving tail)");
+        check(pkOn < 4.0f, "the modulated reverb tail stays bounded");
+        audio::Reverb dm;
+        check(dm.modDepth() == 0.0f, "reverb tail modulation defaults to 0 (off)");
+    }
+
     // --- Reverb width: narrow the wet tail to mono --------------------------
     {
         auto sideEnergy = [&](float width) {

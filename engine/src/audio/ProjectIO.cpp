@@ -461,7 +461,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
       << (mixer.reverb().freeze() ? 1 : 0) << " " << mixer.reverb().duck() << " "
       << mixer.reverb().wetLowCut() << " " << mixer.reverb().wetHighCut() << " "
-      << mixer.reverb().gateMs() << " " << mixer.reverb().shimmer() << "\n";
+      << mixer.reverb().gateMs() << " " << mixer.reverb().shimmer() << " "
+      << mixer.reverb().modDepth() << " " << mixer.reverb().modRate() << "\n";
     f << "fx convolver " << (mixer.convolver().enabled() ? 1 : 0) << " " << mixer.convolver().decay()
       << " " << mixer.convolver().tone() << " " << mixer.convolver().mix() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
@@ -1485,6 +1486,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float shimmer = 0.0f; // octave-up shimmer optional for old files (0 = off)
                 if (ls >> shimmer) {
                     mixer.reverb().setShimmer(shimmer);
+                }
+                float modDepth = 0.0f, modRate = 0.5f; // tail modulation optional for old files (0=off)
+                if (ls >> modDepth >> modRate) {
+                    mixer.reverb().setModDepth(modDepth);
+                    mixer.reverb().setModRate(modRate);
                 }
             } else if (which == "convolver") {
                 float decay = 0.2f, tone = 6000.0f, mix = 0.3f;
