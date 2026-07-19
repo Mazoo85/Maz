@@ -11691,6 +11691,13 @@ void testStringUtils() {
     CHECK((su::findN("Hello World", "world") == 6 && su::findN("Hello World", "WORLD") == 6));
     CHECK((su::findN("abcabc", "B", 2) == 4 && su::findN("abc", "z") == std::string::npos));
 
+    // --- M365: hashString (Godot String.hash, djb2 seed 5381, h*33+c) ---
+    CHECK((su::hashString("") == 5381u && su::hashString("a") == 177670u));
+    CHECK((su::hashString("abc") == 193485963u));
+    CHECK((su::hashString("hello") == su::hashString("hello"))); // deterministic
+    CHECK((su::hashString("hello") != su::hashString("world")));
+    CHECK((su::hashString("Hello") != su::hashString("hello"))); // byte-wise, case-sensitive
+
     // --- M354: rfind / rfindn (reverse search) ---
     CHECK((su::rfind("hello world hello", "hello") == 12));
     CHECK((su::rfind("hello world hello", "hello", 5) == 0)); // last match starting at <= 5

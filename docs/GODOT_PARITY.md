@@ -197,6 +197,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   M354 adds rfind / rfindN — Godot String.rfind / rfindn: reverse search returning the LAST match
   at/before a position (npos default = whole string, matching Godot's -1 "from the end"), verified
   against strings with two occurrences and case-insensitive inputs;
+  M365 adds hashString — Godot String.hash: 32-bit djb2 (seed 5381, h*33+c), the hash Godot's HashMap
+  uses; empty string → 5381, verified against exact djb2 values ("abc"=193485963). NOTE: hashes bytes,
+  so equals Godot exactly for ASCII; multi-byte UTF-8 differs (Godot hashes code points) — documented.
   M355 adds validateNodeName — Godot String.validate_node_name: removes the six characters Godot
   forbids in SceneTree node names ('.', ':', '@', '/', '"', '%'), all other chars incl. spaces kept,
   verified against mixed/clean/all-forbidden inputs; M360 adds insert / erase — Godot String.insert /

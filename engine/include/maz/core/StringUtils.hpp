@@ -336,6 +336,17 @@ inline std::size_t countN(const std::string& s, const std::string& needle) {
     return count(toLower(s), toLower(needle));
 }
 
+// 32-bit djb2 hash (seed 5381, h*33 + c) — Godot's String.hash(), the hash its HashMap uses. Empty
+// string hashes to the seed 5381. NOTE: this hashes the string's BYTES, so it equals Godot exactly
+// for ASCII; for multi-byte UTF-8 Godot hashes code points, so results differ there (documented).
+inline std::uint32_t hashString(const std::string& s) {
+    std::uint32_t h = 5381;
+    for (const char c : s) {
+        h = ((h << 5) + h) + static_cast<unsigned char>(c); // h * 33 + c
+    }
+    return h;
+}
+
 // Case-insensitive (ASCII) search: index of the first match at/after `from`, or npos if none —
 // Godot's String.findn. (Empty needle follows std::string::find, returning `from`.)
 inline std::size_t findN(const std::string& s, const std::string& needle, std::size_t from = 0) {
