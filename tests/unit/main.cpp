@@ -204,6 +204,7 @@
 #include "maz/math/MarchingSquares.hpp"
 #include "maz/game/GridLine.hpp"
 #include "maz/game/FloodFill.hpp"
+#include "maz/game/FieldOfView.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2353,6 +2354,44 @@ void testGeometry2D() {
         CHECK(ffR8[0].size() == 5);
         // Degenerate size.
         CHECK(maz::game::connectedRegions(0, 5, ffAll).empty());
+    }
+
+    // --- M409: field of view (recursive shadowcasting) ---
+    {
+        using FovCell = maz::game::FovCell;
+        auto fovSees = [](const std::vector<FovCell>& v, int x, int y) {
+            for (const auto& c : v) if (c.x == x && c.y == y) return true;
+            return false;
+        };
+        auto fovOpen = [](const FovCell&) { return false; };
+        // radius 0 -> only origin.
+        auto fov0 = maz::game::computeFov(FovCell(5, 5), 0, fovOpen);
+        CHECK(fov0.size() == 1);
+        CHECK(fovSees(fov0, 5, 5));
+        // Open field radius 3: axis extents visible, beyond-radius not, all within radius.
+        auto fovOpenV = maz::game::computeFov(FovCell(0, 0), 3, fovOpen);
+        CHECK(fovSees(fovOpenV, 0, 0));
+        CHECK(fovSees(fovOpenV, 3, 0));
+        CHECK(fovSees(fovOpenV, -3, 0));
+        CHECK(fovSees(fovOpenV, 0, 3));
+        CHECK(fovSees(fovOpenV, 2, 2));   // dist^2 8 <= 9
+        CHECK(!fovSees(fovOpenV, 4, 0));  // beyond radius
+        CHECK(!fovSees(fovOpenV, 3, 3));  // dist^2 18 > 9
+        for (const auto& c : fovOpenV) CHECK(c.x * c.x + c.y * c.y <= 9);
+        // Axis wall casts a shadow: wall at (1,0) hides (2,0)/(3,0), wall itself seen, sides open.
+        auto fovWall = [](const FovCell& c) { return c.x == 1 && c.y == 0; };
+        auto fovWallV = maz::game::computeFov(FovCell(0, 0), 5, fovWall);
+        CHECK(fovSees(fovWallV, 1, 0));
+        CHECK(!fovSees(fovWallV, 2, 0));
+        CHECK(!fovSees(fovWallV, 3, 0));
+        CHECK(fovSees(fovWallV, 0, 1));
+        // Fully enclosed: only origin + first ring; nothing two steps out.
+        auto fovEnclosed = [](const FovCell& c) { return !(c.x == 0 && c.y == 0); };
+        auto fovEncV = maz::game::computeFov(FovCell(0, 0), 5, fovEnclosed);
+        CHECK(fovSees(fovEncV, 0, 0));
+        CHECK(!fovSees(fovEncV, 2, 0));
+        CHECK(!fovSees(fovEncV, 0, 2));
+        CHECK(!fovSees(fovEncV, 2, 2));
     }
 }
 

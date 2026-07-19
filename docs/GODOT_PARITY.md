@@ -259,6 +259,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   4- vs 8-connected diagonal joining, out-of-bounds/blocked seed → empty, two-blob region counts, an
   all-passable single region, all-blocked → zero, and a checkerboard (5 singletons 4-connected vs one
   region of 5 8-connected);
+  **field of view (recursive shadowcasting)** M409 (`game::computeFov` in `maz/game/FieldOfView.hpp` —
+  the roguelike "what can this tile see?" algorithm: given an origin, a sight radius and an opacity
+  predicate, it returns every visible tile, occluded by walls. The lit region of a torch, a guard's
+  sight cone, or the fog-of-war reveal as a unit moves. Processes the 8 octants tracking each opaque
+  tile's cast shadow as a slope range and recursing the still-visible sub-ranges (cost ∝ visible area);
+  opaque tiles are themselves visible but hide what's behind them. Godot leaves FOV to the game.
+  Verified against invariants — origin always visible, radius 0 → origin only, an open field's axis
+  extents visible with beyond-radius excluded and every cell inside the Euclidean radius, an axis wall
+  casting a shadow (wall seen, tiles behind hidden, sides open), a wall span hiding the cells behind
+  it, and a fully-enclosed room revealing only the origin's ring;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
