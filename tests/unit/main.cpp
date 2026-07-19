@@ -308,6 +308,7 @@
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Image.hpp"
 #include "maz/render/ImageCodecBmp.hpp"
+#include "maz/render/ImageCodecPng.hpp"
 #include "maz/render/ImageCodecQoi.hpp"
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
@@ -20240,6 +20241,77 @@ void testPolynomial() {
     }
 }
 
+void testPngDecode() {
+    using render::decodePng;
+    using render::Image;
+    using render::Color;
+
+    auto hx = [](const char* h) {
+        std::vector<std::uint8_t> v;
+        auto nib = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            return 0;
+        };
+        for (std::size_t i = 0; h[i] && h[i + 1]; i += 2)
+            v.push_back(static_cast<std::uint8_t>((nib(h[i]) << 4) | nib(h[i + 1])));
+        return v;
+    };
+    auto px = [](const Image& im, int x, int y, int r, int g, int b, int a) {
+        Color c = im.getPixel(x, y);
+        auto to8 = [](float f) { return static_cast<int>(f * 255.0f + 0.5f); };
+        return to8(c.r) == r && to8(c.g) == g && to8(c.b) == b && to8(c.a) == a;
+    };
+
+    // RGBA (filter None), from the reference encoder.
+    {
+        Image im = decodePng(hx("89504e470d0a1a0a0000000d494844520000000200000002080600000072b60d24"
+                                "000000164944415478da63f8cfc0f01f081b1880341030380000421507ba58653e"
+                                "fa0000000049454e44ae426082"));
+        CHECK(im.width() == 2 && im.height() == 2);
+        CHECK(px(im, 0, 0, 255, 0, 0, 255));
+        CHECK(px(im, 1, 0, 0, 255, 0, 128));
+        CHECK(px(im, 0, 1, 0, 0, 255, 255));
+        CHECK(px(im, 1, 1, 255, 255, 0, 64));
+    }
+    // RGB exercising all five filters (rows None/Sub/Up/Average/Paeth).
+    {
+        Image im = decodePng(hx("89504e470d0a1a0a0000000d4948445200000002000000050802000000e0d1aacb"
+                                "000000284944415478da63e01291d330b261740b88929393633a0906cc07bb8277"
+                                "6cdec1629933ffe7bbc700bf530eace514bdd90000000049454e44ae426082"));
+        CHECK(im.width() == 2 && im.height() == 5);
+        CHECK(px(im, 0, 0, 10, 20, 30, 255));
+        CHECK(px(im, 0, 1, 70, 80, 90, 255));
+        CHECK(px(im, 0, 2, 15, 25, 35, 255));
+        CHECK(px(im, 1, 3, 50, 25, 10, 255));
+        CHECK(px(im, 0, 4, 1, 2, 3, 255));
+        CHECK(px(im, 1, 4, 250, 240, 230, 255));
+    }
+    // Grayscale.
+    {
+        Image im = decodePng(hx("89504e470d0a1a0a0000000d494844520000000200000002080000000057dd52f8"
+                                "0000000e4944415478da6360706068f80f00030501c0535b159f0000000049454e"
+                                "44ae426082"));
+        CHECK(px(im, 1, 0, 64, 64, 64, 255));
+        CHECK(px(im, 1, 1, 255, 255, 255, 255));
+    }
+    // Palette (indexed).
+    {
+        Image im = decodePng(hx("89504e470d0a1a0a0000000d49484452000000020000000208030000004568fd16"
+                                "0000000c504c5445ff000000ff000000fffffffffb0060f60000000e4944415478"
+                                "da63606064606206000011000783ca64640000000049454e44ae426082"));
+        CHECK(px(im, 0, 0, 255, 0, 0, 255));
+        CHECK(px(im, 1, 0, 0, 255, 0, 255));
+        CHECK(px(im, 0, 1, 0, 0, 255, 255));
+        CHECK(px(im, 1, 1, 255, 255, 255, 255));
+    }
+    // Malformed.
+    {
+        CHECK(decodePng(hx("00112233")).empty());
+        CHECK(decodePng(std::vector<std::uint8_t>{}).empty());
+    }
+}
+
 void testInflate() {
     using io::inflateRaw;
     using io::zlibInflate;
@@ -32254,6 +32326,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testPngDecode();
     testInflate();
     testPlyLoader();
     testColladaLoader();

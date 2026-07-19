@@ -1182,6 +1182,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **PNG (`.png`) decode** (M500, `render::decodePng` / `loadPng` — closes the single most important image
+  import gap versus Godot, which imports PNG everywhere. Built on the M499 inflate: it walks the PNG chunk
+  stream (IHDR / PLTE / tRNS / IDAT / IEND), inflates the concatenated IDAT data, reverses all five
+  per-scanline filters (None / Sub / Up / Average / Paeth), and expands grayscale, RGB, RGBA, grayscale+alpha,
+  and 8-bit palette (with optional tRNS alpha) samples into an RGBA8 `Image` ready for
+  `Renderer::createTexture`. Pure CPU, and verified against PNGs produced by a *reference* encoder. Honest
+  scope: 8-bits-per-channel, non-interlaced (no 1/2/4/16-bit depths or Adam7 yet). Verified: a reference-
+  encoded RGBA image decodes with exact colors and alpha; an RGB image whose five rows each use a different
+  filter (None/Sub/Up/Average/Paeth) reconstructs every row correctly — exercising all filter paths; grayscale
+  and 8-bit palette (index → PLTE color) images decode to the right RGBA; and non-PNG / empty input yields an
+  empty Image),
   **DEFLATE / zlib inflate** (M499, `io::inflateRaw` / `io::zlibInflate` — the header-only, dependency-free
   decompressor that was the missing building block under PNG import, gzip/zlib assets, and KTX2 ZLIB
   supercompression. Godot leans on zlib for all of these; Maz had no inflate at all. `inflateRaw` expands a

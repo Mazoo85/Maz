@@ -31,7 +31,7 @@ only be written blind, the docs say exactly that.
 - [x] **TGA image decode** — ALREADY PRESENT (`render::decodeTga`, `ImageCodecTga.hpp`). No work needed.
 - [x] **BMP image decode** — ALREADY PRESENT (`render::decodeBmp`, `ImageCodecBmp.hpp`). No work needed.
 - [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]
-- [ ] **PNG decode** — now UNBLOCKED by M499's inflate; parse chunks + unfilter scanlines into `Image`. [VERIFIABLE HERE]
+- [x] **PNG decode** (`render::decodePng` / `loadPng`) — DONE (M500); chunks + all 5 filters + gray/RGB/RGBA/palette. [VERIFIABLE HERE]
 - [ ] **Ogg Vorbis / MP3 decode to PCM** — large, pure-CPU decoders feeding the existing mixer. [VERIFIABLE HERE]
 - [ ] **Font fallback chains** on top of the existing TrueType path. [VERIFIABLE HERE]
 - [ ] **FBX import** — binary + ASCII FBX is large and semi-proprietary; do the geometry subset. [VERIFIABLE HERE]
