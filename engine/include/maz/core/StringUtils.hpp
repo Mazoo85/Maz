@@ -298,6 +298,32 @@ inline std::string validateNodeName(const std::string& s) {
     return out;
 }
 
+// Make `s` safe to use as a filename — Godot's String.validate_filename. Trims leading/trailing
+// whitespace (strip_edges), then replaces each filesystem-invalid character (: / \ ? * " | % < >)
+// with '_'. All other characters, including spaces and dots, are preserved.
+inline std::string validateFilename(const std::string& s) {
+    std::string out = strip(s);
+    for (char& c : out) {
+        switch (c) {
+        case ':':
+        case '/':
+        case '\\':
+        case '?':
+        case '*':
+        case '"':
+        case '|':
+        case '%':
+        case '<':
+        case '>':
+            c = '_';
+            break;
+        default:
+            break;
+        }
+    }
+    return out;
+}
+
 inline std::string toLower(std::string s) {
     for (char& c : s) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

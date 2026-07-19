@@ -11718,6 +11718,12 @@ void testStringUtils() {
     CHECK((su::validateNodeName("/root/Main.tscn") == "rootMaintscn"));
     CHECK((su::validateNodeName("A-B_C (2)") == "A-B_C (2)")); // allowed punctuation kept
 
+    // --- M369: validate_filename (trim edges, replace : / \ ? * " | % < > with _) ---
+    CHECK((su::validateFilename("a:b/c\\d?e*f\"g|h%i<j>k") == "a_b_c_d_e_f_g_h_i_j_k"));
+    CHECK((su::validateFilename("  save file.txt  ") == "save file.txt")); // strip_edges
+    CHECK((su::validateFilename("my.save 2.dat") == "my.save 2.dat"));     // dots/spaces kept
+    CHECK((su::validateFilename("level: 1/2?") == "level_ 1_2_"));
+
     // --- M360: insert / erase (Godot String.insert / String.erase) ---
     CHECK((su::insert("Helloworld", 5, " ") == "Hello world"));
     CHECK((su::insert("ab", 99, "c") == "abc" && su::insert("ab", -1, "c") == "ab"));
