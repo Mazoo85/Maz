@@ -89,6 +89,7 @@
 #include "maz/core/LruCache.hpp"
 #include "maz/core/BloomFilter.hpp"
 #include "maz/render/ColorQuantize.hpp"
+#include "maz/render/Dither.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18688,6 +18689,84 @@ void testColorQuantize() {
     }
 }
 
+// Dither: Bayer ordered dithering + Floyd-Steinberg error diffusion (M445).
+void testDither() {
+    using render::bayerMatrix;
+    using render::floydSteinbergGray;
+    using render::orderedDitherGray;
+
+    // ---- Bayer matrix known values. ----
+    CHECK((bayerMatrix(1) == std::vector<int>{0, 2, 3, 1}));
+    CHECK((bayerMatrix(2) ==
+           std::vector<int>{0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5}));
+    CHECK((bayerMatrix(0) == std::vector<int>{0}));
+
+    // ---- Ordered dither: flat extremes stay flat. ----
+    {
+        std::vector<std::uint8_t> black(64, 0);
+        std::vector<std::uint8_t> white(64, 255);
+        for (auto v : orderedDitherGray(black, 8, 8, 2)) {
+            CHECK(v == 0);
+        }
+        for (auto v : orderedDitherGray(white, 8, 8, 2)) {
+            CHECK(v == 255);
+        }
+    }
+
+    // ---- Ordered dither: mid-gray averages near 128 with only the 2 allowed levels. ----
+    {
+        std::vector<std::uint8_t> gray(256, 128);
+        auto d = orderedDitherGray(gray, 16, 16, 2, 2);
+        long sum = 0;
+        for (auto v : d) {
+            CHECK(v == 0 || v == 255);
+            sum += v;
+        }
+        CHECK(std::fabs(static_cast<double>(sum) / static_cast<double>(d.size()) - 128.0) < 12.0);
+    }
+
+    // ---- Ordered dither: 4-level output stays on {0,85,170,255}. ----
+    {
+        std::vector<std::uint8_t> ramp(64);
+        for (int i = 0; i < 64; ++i) {
+            ramp[static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(i * 4);
+        }
+        for (auto v : orderedDitherGray(ramp, 8, 8, 4)) {
+            CHECK(v == 0 || v == 85 || v == 170 || v == 255);
+        }
+    }
+
+    // ---- Floyd-Steinberg: brightness preserved; flat extremes stay flat. ----
+    {
+        std::vector<std::uint8_t> gray(1024, 100);
+        auto d = floydSteinbergGray(gray, 32, 32, 2);
+        long sum = 0;
+        for (auto v : d) {
+            CHECK(v == 0 || v == 255);
+            sum += v;
+        }
+        CHECK(std::fabs(static_cast<double>(sum) / static_cast<double>(d.size()) - 100.0) < 8.0);
+        std::vector<std::uint8_t> black(100, 0);
+        std::vector<std::uint8_t> white(100, 255);
+        for (auto v : floydSteinbergGray(black, 10, 10, 2)) {
+            CHECK(v == 0);
+        }
+        for (auto v : floydSteinbergGray(white, 10, 10, 2)) {
+            CHECK(v == 255);
+        }
+    }
+
+    // ---- Determinism. ----
+    {
+        std::vector<std::uint8_t> px(256);
+        for (int i = 0; i < 256; ++i) {
+            px[static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(i);
+        }
+        CHECK(orderedDitherGray(px, 16, 16, 3) == orderedDitherGray(px, 16, 16, 3));
+        CHECK(floydSteinbergGray(px, 16, 16, 3) == floydSteinbergGray(px, 16, 16, 3));
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27457,6 +27536,7 @@ int main() {
     testLruCache();
     testBloomFilter();
     testColorQuantize();
+    testDither();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

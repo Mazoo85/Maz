@@ -622,6 +622,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   squared error under threshold) with the palette respecting the budget, four jittered clusters
   resolving to four entries within 20 of each center with distinct nearest indices, and deterministic
   output),
+  **dithering** (M445, `render::orderedDitherGray` + `render::floydSteinbergGray` + `render::bayerMatrix`
+  — reduce a grayscale image to a few brightness levels while hiding the banding naive quantization
+  produces. Ordered (Bayer-matrix) dithering adds a fixed tileable threshold pattern per pixel (the crisp
+  retro/print look); Floyd-Steinberg error diffusion pushes each pixel's rounding error into its
+  not-yet-processed neighbours (smoother, less patterned). The companion to color quantization for
+  retro/1-bit/limited-palette looks — Godot has neither. bayerMatrix() also stands alone as a reusable
+  threshold-matrix generator. Verified: exact Bayer matrices (2x2, the canonical 4x4, 1x1), flat extremes
+  staying flat, a mid-gray field dithering to a 0/255 mix that averages back near the input on both
+  methods (brightness preserved), output staying on the allowed level set, and determinism),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
