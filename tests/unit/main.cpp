@@ -95,6 +95,7 @@
 #include "maz/core/CurlNoise.hpp"
 #include "maz/core/ValueNoise.hpp"
 #include "maz/core/SpaceFilling.hpp"
+#include "maz/render/ImageBlur.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19130,6 +19131,117 @@ void testSpaceFilling() {
     }
 }
 
+// ImageBlur: separable CPU Gaussian + box blur (M451).
+void testImageBlur() {
+    using render::boxBlurGray;
+    using render::gaussianBlurGray;
+    using render::gaussianKernel1D;
+
+    // Reference: full 2D convolution with the outer product of a 1D kernel, clamp-to-edge.
+    auto conv2dRef = [](const std::vector<float>& src, int W, int H, int r,
+                        const std::vector<float>& k) {
+        std::vector<float> out(static_cast<std::size_t>(W * H), 0.0f);
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                float acc = 0.0f;
+                for (int dy = -r; dy <= r; ++dy) {
+                    int sy = y + dy;
+                    sy = sy < 0 ? 0 : (sy >= H ? H - 1 : sy);
+                    for (int dx = -r; dx <= r; ++dx) {
+                        int sx = x + dx;
+                        sx = sx < 0 ? 0 : (sx >= W ? W - 1 : sx);
+                        acc += k[static_cast<std::size_t>(dy + r)] * k[static_cast<std::size_t>(dx + r)]
+                               * src[static_cast<std::size_t>(sy * W + sx)];
+                    }
+                }
+                out[static_cast<std::size_t>(y * W + x)] = acc;
+            }
+        }
+        return out;
+    };
+
+    // Kernel sums to 1, symmetric, positive.
+    for (int r = 0; r <= 8; ++r) {
+        const std::vector<float> k = gaussianKernel1D(r);
+        CHECK(k.size() == static_cast<std::size_t>(2 * r + 1));
+        float sum = 0.0f;
+        for (float w : k) {
+            CHECK(w > 0.0f);
+            sum += w;
+        }
+        CHECK(std::fabs(sum - 1.0f) < 1e-6f);
+        for (int i = 0; i <= r; ++i) {
+            CHECK(std::fabs(k[static_cast<std::size_t>(r + i)] - k[static_cast<std::size_t>(r - i)]) < 1e-7f);
+        }
+    }
+
+    // Constant image is returned unchanged (partition of unity + clamp edges).
+    {
+        const int W = 12, H = 9;
+        const std::vector<float> img(static_cast<std::size_t>(W * H), 0.37f);
+        for (float v : gaussianBlurGray(img, W, H, 3)) CHECK(std::fabs(v - 0.37f) < 1e-5f);
+        for (float v : boxBlurGray(img, W, H, 2)) CHECK(std::fabs(v - 0.37f) < 1e-5f);
+    }
+
+    // Separable Gaussian EXACTLY equals the full 2D convolution reference.
+    {
+        const int W = 17, H = 13, r = 3;
+        std::vector<float> img(static_cast<std::size_t>(W * H));
+        for (int i = 0; i < W * H; ++i) {
+            img[static_cast<std::size_t>(i)] =
+                std::sin(static_cast<float>(i) * 0.3f) + 0.5f * static_cast<float>(i % 5);
+        }
+        const std::vector<float> sep = gaussianBlurGray(img, W, H, r);
+        const std::vector<float> ref = conv2dRef(img, W, H, r, gaussianKernel1D(r));
+        for (std::size_t i = 0; i < sep.size(); ++i) CHECK(std::fabs(sep[i] - ref[i]) < 1e-4f);
+    }
+
+    // Centred impulse: energy conserved (interior), centre is the peak, 4-fold symmetric.
+    {
+        const int W = 21, H = 21, r = 3;
+        std::vector<float> img(static_cast<std::size_t>(W * H), 0.0f);
+        const int cx = W / 2, cy = H / 2;
+        img[static_cast<std::size_t>(cy * W + cx)] = 1.0f;
+        const std::vector<float> g = gaussianBlurGray(img, W, H, r);
+        float sum = 0.0f;
+        for (float v : g) sum += v;
+        CHECK(std::fabs(sum - 1.0f) < 1e-4f);
+        const float peak = g[static_cast<std::size_t>(cy * W + cx)];
+        for (float v : g) CHECK(v <= peak + 1e-6f);
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                const float a = g[static_cast<std::size_t>((cy + dy) * W + (cx + dx))];
+                const float b = g[static_cast<std::size_t>((cy - dy) * W + (cx + dx))];
+                const float c = g[static_cast<std::size_t>((cy + dy) * W + (cx - dx))];
+                CHECK(std::fabs(a - b) < 1e-6f && std::fabs(a - c) < 1e-6f);
+            }
+        }
+    }
+
+    // Box blur of a centred impulse is an exact uniform (2r+1)^2 block.
+    {
+        const int W = 15, H = 15, r = 2;
+        std::vector<float> img(static_cast<std::size_t>(W * H), 0.0f);
+        const int cx = W / 2, cy = H / 2;
+        img[static_cast<std::size_t>(cy * W + cx)] = 1.0f;
+        const std::vector<float> b = boxBlurGray(img, W, H, r);
+        const float cell = 1.0f / static_cast<float>((2 * r + 1) * (2 * r + 1));
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                const float expect = (std::abs(x - cx) <= r && std::abs(y - cy) <= r) ? cell : 0.0f;
+                CHECK(std::fabs(b[static_cast<std::size_t>(y * W + x)] - expect) < 1e-6f);
+            }
+        }
+    }
+
+    // Degenerate inputs fall through unchanged.
+    {
+        const std::vector<float> img(6, 1.0f);
+        CHECK(gaussianBlurGray(img, 3, 2, 0) == img);
+        CHECK(boxBlurGray(img, 0, 0, 1) == img);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27905,6 +28017,7 @@ int main() {
     testColorTemperature();
     testValueNoise();
     testSpaceFilling();
+    testImageBlur();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

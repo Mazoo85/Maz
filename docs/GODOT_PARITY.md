@@ -675,6 +675,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   extremes + known interleave constants, Morton3D roundtrip over 40^3 + 21-bit extremes, and Hilbert over
   orders 1-6 — every cell visited exactly once (bijection), inverse agrees exactly, and every consecutive
   step is Manhattan-distance 1),
+  **CPU image blur** (M451, `render::gaussianBlurGray`/`boxBlurGray`/`gaussianKernel1D` — separable
+  Gaussian and box blur over a row-major grayscale float image with clamp-to-edge borders: the
+  offline/CPU counterpart to the GPU bloom/SSAO passes, for softening procedural textures and
+  heightmaps, anti-aliasing SDFs, and baking soft AO/shadow into textures headlessly. Godot only blurs
+  on the GPU, so a deterministic CPU blur is beyond-Godot. Verified with exact invariants: the kernel is
+  positive, symmetric, and sums to 1; a constant image is returned unchanged (partition of unity); the
+  separable result EXACTLY matches a full 2D outer-product convolution reference; a centred impulse
+  conserves energy, peaks at the centre, and is 4-fold symmetric; and a box-blurred impulse is an exact
+  uniform (2r+1)^2 block),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
