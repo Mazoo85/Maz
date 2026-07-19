@@ -53,6 +53,14 @@ struct Vector2i {
     Vector2i snapped(const Vector2i& step) const {
         return {isnappedi(x, step.x), isnappedi(y, step.y)};
     }
+    // Scalar-bound variants — Godot's Vector2i.clampi / snappedi / mini / maxi (one int applied to
+    // every component).
+    Vector2i clampi(int lo, int hi) const {
+        return {x < lo ? lo : (x > hi ? hi : x), y < lo ? lo : (y > hi ? hi : y)};
+    }
+    Vector2i snappedi(int step) const { return {isnappedi(x, step), isnappedi(y, step)}; }
+    Vector2i mini(int o) const { return {x < o ? x : o, y < o ? y : o}; }
+    Vector2i maxi(int o) const { return {x > o ? x : o, y > o ? y : o}; }
 
     std::int64_t lengthSquared() const {
         return static_cast<std::int64_t>(x) * x + static_cast<std::int64_t>(y) * y;
@@ -104,6 +112,16 @@ struct Vector3i {
     Vector3i snapped(const Vector3i& step) const {
         return {isnappedi(x, step.x), isnappedi(y, step.y), isnappedi(z, step.z)};
     }
+    // Scalar-bound variants — Godot's Vector3i.clampi / snappedi / mini / maxi.
+    Vector3i clampi(int lo, int hi) const {
+        return {x < lo ? lo : (x > hi ? hi : x), y < lo ? lo : (y > hi ? hi : y),
+                z < lo ? lo : (z > hi ? hi : z)};
+    }
+    Vector3i snappedi(int step) const {
+        return {isnappedi(x, step), isnappedi(y, step), isnappedi(z, step)};
+    }
+    Vector3i mini(int o) const { return {x < o ? x : o, y < o ? y : o, z < o ? z : o}; }
+    Vector3i maxi(int o) const { return {x > o ? x : o, y > o ? y : o, z > o ? z : o}; }
 
     std::int64_t lengthSquared() const {
         return static_cast<std::int64_t>(x) * x + static_cast<std::int64_t>(y) * y +

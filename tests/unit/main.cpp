@@ -13829,6 +13829,11 @@ void testVectorInt() {
     CHECK((Vector2i(3, 7).minAxisIndex() == 0 && Vector2i(9, 2).minAxisIndex() == 1));
     CHECK((Vector2i(5, 5).maxAxisIndex() == 0 && Vector2i(5, 5).minAxisIndex() == 1));
 
+    // M366: Vector2i scalar-bound clampi / snappedi / mini / maxi
+    CHECK((Vector2i(-3, 12).clampi(0, 10) == Vector2i(0, 10)));
+    CHECK((Vector2i(7, -9).snappedi(5) == Vector2i(5, -10) && Vector2i(7, 9).snappedi(0) == Vector2i(7, 9)));
+    CHECK((Vector2i(3, 8).mini(5) == Vector2i(3, 5) && Vector2i(3, 8).maxi(5) == Vector2i(5, 8)));
+
     const Vector3i c(1, 2, 2), d(4, 4, 4);
     CHECK((c + d == Vector3i(5, 6, 6)));
     CHECK((c * d == Vector3i(4, 8, 8)));
@@ -13844,6 +13849,10 @@ void testVectorInt() {
     CHECK((Vector3i(1, 9, 4).maxAxisIndex() == 1 && Vector3i(1, 4, 9).maxAxisIndex() == 2));
     CHECK((Vector3i(5, 1, 4).minAxisIndex() == 1 && Vector3i(5, 4, 1).minAxisIndex() == 2));
     CHECK((Vector3i(3, 3, 3).maxAxisIndex() == 0 && Vector3i(3, 3, 3).minAxisIndex() == 2));
+    // M366: Vector3i scalar-bound clampi / snappedi / mini / maxi
+    CHECK((Vector3i(-3, 12, 4).clampi(0, 10) == Vector3i(0, 10, 4)));
+    CHECK((Vector3i(7, -9, 13).snappedi(5) == Vector3i(5, -10, 15)));
+    CHECK((Vector3i(3, 8, 1).mini(5) == Vector3i(3, 5, 1) && Vector3i(3, 8, 1).maxi(5) == Vector3i(5, 8, 5)));
     CHECK(c.lengthSquared() == 9);
     CHECK_NEAR(static_cast<float>(c.length()), 3.0f, 1e-5f);
     CHECK_NEAR(static_cast<float>(Vector3i(0, 0, 0).distanceTo(Vector3i(1, 2, 2))), 3.0f, 1e-5f);

@@ -221,7 +221,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   form so tie-breaking matches its float type (all-equal → max X, min Z), verified; M363 adds
   Vector4 maxAxisIndex / minAxisIndex — Godot Vector4.max_axis_index / min_axis_index (max scans
   strict '>' earliest-wins, min scans '<=' latest-wins), completing the axis-index family across
-  2i/3i/vec2/vec3/Vector4, verified incl. all-equal; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
+  2i/3i/vec2/vec3/Vector4, verified incl. all-equal; M366 adds Vector2i/Vector3i scalar-bound clampi /
+  snappedi / mini / maxi — Godot Vector2i/Vector3i.clampi/snappedi/mini/maxi (one int applied to every
+  component, companions to the vector-arg clamp/snapped/min/max), verified; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
   rectangle corner farthest along a direction (per axis max edge when dir>0 else min; dir==0 picks min,
   matching Godot's strict >0), the GJK/SAT broadphase primitive, verified all quadrants + zero-axis),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
