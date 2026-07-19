@@ -736,6 +736,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   across interior knots; linear data is reproduced exactly (value, slope, zero curvature); even data
   yields a symmetric curve; two knots reduce to a clamped straight line; and malformed inputs are
   rejected),
+  **minimum spanning tree** (M457, `game::minimumSpanningTree` — Kruskal's algorithm over a weighted
+  undirected graph: the cheapest edge set that keeps every node connected without cycles, reusing
+  core::DisjointSet. The procgen tool for wiring up scattered dungeon rooms with the shortest total
+  corridor length, laying out road/river/power networks, or clustering; disconnected input yields the
+  minimum spanning FOREST. Godot has no MST -> beyond-Godot. Verified: a hand-computed graph gives the
+  exact expected weight; the result is always a valid tree (n-1 edges, all connected, cycle-free) and its
+  total weight matches an independent Prim reference across 40 random graphs; the globally-lightest edge
+  is always chosen (cut property); a disconnected graph yields the right forest (edges = n - components);
+  the output is deterministic; and self-loops / out-of-range edges are ignored),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

@@ -101,6 +101,7 @@
 #include "maz/math/QuaternionSwingTwist.hpp"
 #include "maz/game/ReactionDiffusion.hpp"
 #include "maz/math/CubicSpline.hpp"
+#include "maz/game/SpanningTree.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19642,6 +19643,123 @@ void testCubicSpline() {
     }
 }
 
+// SpanningTree: Kruskal minimum spanning tree/forest (M457).
+void testSpanningTree() {
+    using core::DisjointSet;
+    using core::Pcg32;
+    using game::minimumSpanningTree;
+    using game::MstEdge;
+    using game::MstResult;
+
+    // Reference: Prim's algorithm total weight for a connected graph.
+    auto primWeight = [](int n, const std::vector<MstEdge>& edges) {
+        const float INF = 1e30f;
+        std::vector<std::vector<float>> adj(static_cast<std::size_t>(n),
+                                            std::vector<float>(static_cast<std::size_t>(n), INF));
+        for (const MstEdge& e : edges) {
+            if (e.a < 0 || e.b < 0 || e.a >= n || e.b >= n || e.a == e.b) continue;
+            const std::size_t a = static_cast<std::size_t>(e.a), b = static_cast<std::size_t>(e.b);
+            adj[a][b] = std::fmin(adj[a][b], e.weight);
+            adj[b][a] = adj[a][b];
+        }
+        std::vector<char> inTree(static_cast<std::size_t>(n), 0);
+        std::vector<float> key(static_cast<std::size_t>(n), INF);
+        key[0] = 0.0f;
+        float total = 0.0f;
+        for (int it = 0; it < n; ++it) {
+            int u = -1;
+            float best = INF;
+            for (int v = 0; v < n; ++v) {
+                if (!inTree[static_cast<std::size_t>(v)] && key[static_cast<std::size_t>(v)] < best) {
+                    best = key[static_cast<std::size_t>(v)];
+                    u = v;
+                }
+            }
+            if (u == -1) break;
+            inTree[static_cast<std::size_t>(u)] = 1;
+            total += key[static_cast<std::size_t>(u)];
+            for (int v = 0; v < n; ++v) {
+                const std::size_t uv = static_cast<std::size_t>(u), vv = static_cast<std::size_t>(v);
+                if (!inTree[vv] && adj[uv][vv] < key[vv]) key[vv] = adj[uv][vv];
+            }
+        }
+        return total;
+    };
+    auto isTree = [](int n, const std::vector<MstEdge>& edges) {
+        if (edges.size() != static_cast<std::size_t>(n - 1)) return false;
+        DisjointSet ds(static_cast<std::size_t>(n));
+        for (const MstEdge& e : edges) {
+            if (!ds.unite(static_cast<std::size_t>(e.a), static_cast<std::size_t>(e.b))) return false;
+        }
+        return ds.count() == 1;
+    };
+
+    // Hand-computed MST.
+    {
+        std::vector<MstEdge> edges{{0, 1, 1.0f}, {1, 2, 2.0f}, {0, 2, 2.0f}, {2, 3, 3.0f}, {0, 3, 10.0f}};
+        const MstResult r = minimumSpanningTree(4, edges);
+        CHECK(std::fabs(r.totalWeight - 6.0f) < 1e-5f);
+        CHECK(r.edges.size() == 3 && r.connected && r.componentCount == 1);
+        CHECK(isTree(4, r.edges));
+    }
+    // Cross-check vs Prim on connected random graphs.
+    {
+        Pcg32 rng(2024u, 11u);
+        for (int trial = 0; trial < 40; ++trial) {
+            const int n = 3 + static_cast<int>(rng.nextFloat() * 12.0f);
+            std::vector<MstEdge> edges;
+            for (int i = 1; i < n; ++i) edges.push_back({i - 1, i, 0.1f + rng.nextFloat() * 5.0f});
+            const int extra = static_cast<int>(rng.nextFloat() * static_cast<float>(2 * n));
+            for (int e = 0; e < extra; ++e) {
+                const int a = static_cast<int>(rng.nextFloat() * static_cast<float>(n));
+                const int b = static_cast<int>(rng.nextFloat() * static_cast<float>(n));
+                edges.push_back({a, b, 0.1f + rng.nextFloat() * 5.0f});
+            }
+            const MstResult r = minimumSpanningTree(n, edges);
+            CHECK(r.connected);
+            CHECK(isTree(n, r.edges));
+            CHECK(std::fabs(r.totalWeight - primWeight(n, edges)) < 1e-3f);
+        }
+    }
+    // Cut property: the globally-lightest edge is in the MST.
+    {
+        std::vector<MstEdge> edges{{0, 1, 5.0f}, {1, 2, 0.25f}, {2, 3, 4.0f}, {3, 0, 3.0f}, {0, 2, 6.0f}};
+        const MstResult r = minimumSpanningTree(4, edges);
+        bool hasLightest = false;
+        for (const MstEdge& e : r.edges) {
+            if ((e.a == 1 && e.b == 2) || (e.a == 2 && e.b == 1)) hasLightest = true;
+        }
+        CHECK(hasLightest);
+    }
+    // Disconnected -> spanning forest.
+    {
+        std::vector<MstEdge> edges{{0, 1, 1.0f}, {1, 2, 1.0f}, {0, 2, 5.0f},
+                                   {3, 4, 1.0f}, {4, 5, 1.0f}, {3, 5, 5.0f}};
+        const MstResult r = minimumSpanningTree(6, edges);
+        CHECK(!r.connected && r.componentCount == 2 && r.edges.size() == 4);
+        CHECK(std::fabs(r.totalWeight - 4.0f) < 1e-5f);
+    }
+    // Determinism.
+    {
+        std::vector<MstEdge> edges{{0, 1, 2.0f}, {1, 2, 2.0f}, {2, 3, 2.0f}, {3, 0, 2.0f}, {0, 2, 2.0f}};
+        const MstResult a = minimumSpanningTree(4, edges);
+        const MstResult b = minimumSpanningTree(4, edges);
+        CHECK(a.edges.size() == b.edges.size());
+        for (std::size_t i = 0; i < a.edges.size(); ++i) {
+            CHECK(a.edges[i].a == b.edges[i].a && a.edges[i].b == b.edges[i].b);
+        }
+    }
+    // Self-loops / out-of-range ignored; degenerate node counts.
+    {
+        std::vector<MstEdge> edges{{0, 0, 0.1f}, {5, 9, 0.1f}, {-1, 2, 0.1f}, {0, 1, 3.0f}, {1, 2, 4.0f}};
+        const MstResult r = minimumSpanningTree(3, edges);
+        CHECK(r.connected && r.edges.size() == 2 && std::fabs(r.totalWeight - 7.0f) < 1e-5f);
+        CHECK(minimumSpanningTree(0, {}).edges.empty());
+        const MstResult one = minimumSpanningTree(1, {});
+        CHECK(one.connected && one.edges.empty() && one.componentCount == 1);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28423,6 +28541,7 @@ int main() {
     testQuaternionSwingTwist();
     testReactionDiffusion();
     testCubicSpline();
+    testSpanningTree();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
