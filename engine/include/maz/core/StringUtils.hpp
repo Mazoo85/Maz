@@ -294,6 +294,17 @@ inline std::size_t count(const std::string& s, const std::string& needle) {
     return n;
 }
 
+// Case-insensitive (ASCII) occurrence count — Godot's String.countn. Empty needle -> 0.
+inline std::size_t countN(const std::string& s, const std::string& needle) {
+    return count(toLower(s), toLower(needle));
+}
+
+// Case-insensitive (ASCII) search: index of the first match at/after `from`, or npos if none —
+// Godot's String.findn. (Empty needle follows std::string::find, returning `from`.)
+inline std::size_t findN(const std::string& s, const std::string& needle, std::size_t from = 0) {
+    return toLower(s).find(toLower(needle), from);
+}
+
 // ---- natural-order comparison (Godot String.naturalcasecmp_to / naturalnocasecmp_to) (M321) -----
 // Numeric-aware ordering: runs of digits compare by VALUE, not character-by-character, so "file2"
 // sorts before "file10" (plain lexicographic would put "file10" first because '1' < '2'). This is the

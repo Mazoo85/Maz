@@ -11679,6 +11679,12 @@ void testStringUtils() {
     CHECK((su::getSlice("one::two::three", "::", 1) == "two" &&
            su::getSliceCount("one::two::three", "::") == 3));
 
+    // --- M351: countn / findn (case-insensitive, ASCII) ---
+    CHECK((su::countN("aAbAa", "a") == 4 && su::countN("Hello HELLO hello", "hello") == 3));
+    CHECK((su::count("Hello HELLO hello", "hello") == 1 && su::countN("abc", "") == 0));
+    CHECK((su::findN("Hello World", "world") == 6 && su::findN("Hello World", "WORLD") == 6));
+    CHECK((su::findN("abcabc", "B", 2) == 4 && su::findN("abc", "z") == std::string::npos));
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

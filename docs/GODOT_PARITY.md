@@ -187,7 +187,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the common-minimum), verified incl. an indent→dedent round-trip)
   (M350 adds getSlice / getSliceCount — Godot String.get_slice / get_slice_count: index-based access
   to the Nth piece when split on a (possibly multi-char) delimiter, without building the whole array;
-  empty pieces preserved, out-of-range/negative/empty returns "" / 0, verified),
+  empty pieces preserved, out-of-range/negative/empty returns "" / 0, verified)
+  (M351 adds countN / findN — Godot String.countn / findn: case-insensitive (ASCII) occurrence count
+  and first-match search from an offset (npos if none), verified against mixed-case inputs),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
