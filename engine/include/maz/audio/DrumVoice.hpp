@@ -38,6 +38,12 @@ public:
     void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float drive() const { return drive_; }
 
+    // Pitch-envelope depth / "punch" (0..2): scales the built-in initial pitch sweep of the tonal
+    // drums (kick, tom). 1 = the natural sweep; 0 = a flat, sub-only tone (no click); 2 = a deeper,
+    // snappier sweep (more attack/punch). No effect on the noise-based voices (hats/clap/etc.).
+    void setPitchEnv(float amount) { pitchEnv_ = amount < 0.0f ? 0.0f : (amount > 2.0f ? 2.0f : amount); }
+    float pitchEnv() const { return pitchEnv_; }
+
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
     // hit's loudness for per-step accents; `extraSemitones` is a per-hit pitch offset (added to the
     // channel's base tune) captured at strike time, for per-step pitch.
@@ -65,6 +71,7 @@ private:
     float hitTune_ = 0.0f; // pitch (base + per-step offset) captured at the last trigger()
     float decayMul_ = 1.0f;
     float drive_ = 0.0f; // tanh saturation amount; 0 = clean
+    float pitchEnv_ = 1.0f; // scales the tonal drums' initial pitch sweep; 1 = natural
 
     float velocity_ = 1.0f;
     bool active_ = false;

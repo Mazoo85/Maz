@@ -83,6 +83,46 @@ int main() {
     hat.render(tail.data(), sampleRate / 2, sampleRate);
     check(!hat.active(), "closed hat decays to inactive");
 
+    // --- Drum pitch-envelope depth ("punch") --------------------------------
+    {
+        // High-frequency content via the first difference — a deeper initial pitch sweep starts
+        // higher and moves faster, so it carries more HF energy over the attack.
+        auto hfEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                e += d * d;
+            }
+            return e;
+        };
+        const int n = 1500; // ~31 ms, spanning the kick's pitch sweep
+
+        audio::DrumVoice flat;
+        flat.setType(audio::Drum::Kick);
+        check(std::fabs(flat.pitchEnv() - 1.0f) < 1e-6f, "kick pitch-env defaults to natural (1.0)");
+        flat.setPitchEnv(0.0f); // no sweep — a flat sub tone
+        flat.trigger(1.0f);
+        std::vector<float> fb(static_cast<size_t>(n), 0.0f);
+        flat.render(fb.data(), n, sampleRate);
+
+        audio::DrumVoice punch;
+        punch.setType(audio::Drum::Kick);
+        punch.setPitchEnv(2.0f); // a deeper, snappier sweep
+        punch.trigger(1.0f);
+        std::vector<float> pb(static_cast<size_t>(n), 0.0f);
+        punch.render(pb.data(), n, sampleRate);
+
+        check(hfEnergy(pb) > hfEnergy(fb) * 1.5,
+              "a deeper pitch-env gives the kick more attack (HF) than a flat sub");
+
+        // The amount clamps into [0, 2].
+        audio::DrumVoice clamp;
+        clamp.setPitchEnv(5.0f);
+        check(std::fabs(clamp.pitchEnv() - 2.0f) < 1e-6f, "pitch-env clamps to 2.0");
+        clamp.setPitchEnv(-1.0f);
+        check(clamp.pitchEnv() == 0.0f, "pitch-env clamps to 0");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

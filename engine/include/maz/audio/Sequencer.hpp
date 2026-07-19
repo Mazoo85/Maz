@@ -117,6 +117,11 @@ public:
     void setChannelDrive(int c, float drive);
     float channelDrive(int c) const;
 
+    // Per-channel pitch-envelope depth / "punch" (0..2): scales the tonal drums' (kick/tom) initial
+    // pitch sweep. 1 = the natural sweep; 0 = flat sub (no click); 2 = a deeper, snappier attack.
+    void setChannelPitchEnv(int c, float amount);
+    float channelPitchEnv(int c) const;
+
     // Per-channel flam (0..50 ms): plays a quiet grace hit immediately, then the full hit this many
     // ms later — the classic flam/drag humanization. 0 = off (a single hit).
     void setChannelFlam(int c, float ms);

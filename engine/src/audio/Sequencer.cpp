@@ -143,6 +143,19 @@ float Sequencer::channelDrive(int c) const {
     return 0.0f;
 }
 
+void Sequencer::setChannelPitchEnv(int c, float amount) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setPitchEnv(amount);
+    }
+}
+
+float Sequencer::channelPitchEnv(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].pitchEnv();
+    }
+    return 1.0f;
+}
+
 void Sequencer::setChannelFlam(int c, float ms) {
     if (c >= 0 && c < numChannels()) {
         chanFlam_[static_cast<size_t>(c)] = ms < 0.0f ? 0.0f : (ms > 50.0f ? 50.0f : ms);
