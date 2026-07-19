@@ -785,6 +785,12 @@ public:
     // masters. Off (peak) is bit-for-bit the original behaviour.
     void setRmsDetection(bool on) { rmsMode_ = on; }
     bool rmsDetection() const { return rmsMode_; }
+    // Stereo link: true (default) drives both channels from one shared detector (the max of L/R), so
+    // the gain reduction is identical on both and the stereo image stays put — the safe choice for a
+    // mix/master bus. false detects and reduces each channel independently, which can pull a
+    // one-sided transient down without touching the other (louder, but the image can shift).
+    void setStereoLink(bool on) { stereoLink_ = on; }
+    bool stereoLink() const { return stereoLink_; }
     // Lookahead (ms, 0..10): delay the audio by this much while the detector reads the un-delayed
     // signal, so the gain reduction is already fully engaged by the time a transient reaches the
     // output — it catches fast peaks a plain feed-forward compressor overshoots. Adds this much
@@ -826,7 +832,10 @@ private:
     float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
     bool autoMakeup_ = false; // derive makeup from threshold/ratio when on
     bool rmsMode_ = false;    // detection: false = peak (default), true = RMS (average level)
-    float rmsEnv_ = 0.0f;     // mean-square follower state (RMS mode)
+    bool stereoLink_ = true;  // true = shared detector (linked), false = per-channel detection
+    float rmsEnv_ = 0.0f;     // mean-square follower state (RMS mode, linked)
+    float envL_ = 0.0f, envR_ = 0.0f;       // per-channel envelope followers (unlinked)
+    float rmsEnvL_ = 0.0f, rmsEnvR_ = 0.0f; // per-channel mean-square followers (unlinked RMS)
     float lookaheadMs_ = 0.0f; // audio delay while the detector reads ahead; 0 = off
     float env_ = 0.0f; // linear peak-envelope follower
     float scLpL_ = 0.0f, scLpR_ = 0.0f; // detection high-pass state (one-pole LP; HP = x − LP)

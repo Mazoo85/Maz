@@ -1279,6 +1279,8 @@ void MasterFilter::process(float* stereo, int frames, int sampleRate) {
 void Compressor::reset() {
     env_ = 0.0f;
     rmsEnv_ = 0.0f;
+    envL_ = envR_ = 0.0f;
+    rmsEnvL_ = rmsEnvR_ = 0.0f;
     scLpL_ = 0.0f;
     scLpR_ = 0.0f;
     grDb_ = 0.0f;
@@ -1333,42 +1335,60 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
             dl = l - scLpL_; // high-passed
             dr = r - scLpR_;
         }
-        // Detection level: instantaneous peak (default) or an RMS (average-power) follower over a
-        // short window, which brief transients barely move — the smoother "glue" compression.
-        float level;
-        if (rmsMode_) {
-            const float ms = 0.5f * (dl * dl + dr * dr);
-            rmsEnv_ = rmsCoef * rmsEnv_ + (1.0f - rmsCoef) * ms;
-            level = std::sqrt(rmsEnv_);
+        // The gain computer: from a detection level and its own envelope state, advance the follower
+        // and return the makeup-scaled linear gain (also tracking the deepest reduction for the meter).
+        auto computeGain = [&](float level, float& env) {
+            const float coef = level > env ? atkCoef : relCoef;
+            env = coef * env + (1.0f - coef) * level;
+            const float envDb = linToDb(env);
+            const float over = envDb - thresholdDb_;
+            float reductionDb = 0.0f; // output − input, in dB (≤ 0)
+            if (kneeDb_ > 0.0f && 2.0f * std::fabs(over) <= kneeDb_) {
+                // Within the knee: quadratic interpolation into full-ratio compression.
+                const float x = over + kneeDb_ * 0.5f;
+                reductionDb = (1.0f / ratio - 1.0f) * x * x / (2.0f * kneeDb_);
+            } else if (over > 0.0f) {
+                reductionDb = (1.0f / ratio - 1.0f) * over; // = targetDb − envDb
+            }
+            if (reductionDb < grPeak) {
+                grPeak = reductionDb; // track the deepest reduction for the GR meter
+            }
+            return dbToLin(reductionDb) * makeup;
+        };
+
+        float gainL, gainR;
+        if (stereoLink_) {
+            // Linked: one shared detector from the max (peak) or summed power (RMS) of both channels.
+            float level;
+            if (rmsMode_) {
+                const float ms = 0.5f * (dl * dl + dr * dr);
+                rmsEnv_ = rmsCoef * rmsEnv_ + (1.0f - rmsCoef) * ms;
+                level = std::sqrt(rmsEnv_);
+            } else {
+                level = std::max(std::fabs(dl), std::fabs(dr));
+            }
+            gainL = gainR = computeGain(level, env_);
         } else {
-            level = std::max(std::fabs(dl), std::fabs(dr));
+            // Unlinked: each channel detects and reduces on its own.
+            float levelL, levelR;
+            if (rmsMode_) {
+                rmsEnvL_ = rmsCoef * rmsEnvL_ + (1.0f - rmsCoef) * dl * dl;
+                rmsEnvR_ = rmsCoef * rmsEnvR_ + (1.0f - rmsCoef) * dr * dr;
+                levelL = std::sqrt(rmsEnvL_);
+                levelR = std::sqrt(rmsEnvR_);
+            } else {
+                levelL = std::fabs(dl);
+                levelR = std::fabs(dr);
+            }
+            gainL = computeGain(levelL, envL_);
+            gainR = computeGain(levelR, envR_);
         }
-
-        // Envelope follower (fast attack, slow release).
-        const float coef = level > env_ ? atkCoef : relCoef;
-        env_ = coef * env_ + (1.0f - coef) * level;
-
-        // Static gain computer in dB, with an optional soft knee around the threshold.
-        const float envDb = linToDb(env_);
-        const float over = envDb - thresholdDb_;
-        float reductionDb = 0.0f; // output − input, in dB (≤ 0)
-        if (kneeDb_ > 0.0f && 2.0f * std::fabs(over) <= kneeDb_) {
-            // Within the knee: quadratic interpolation into full-ratio compression.
-            const float x = over + kneeDb_ * 0.5f;
-            reductionDb = (1.0f / ratio - 1.0f) * x * x / (2.0f * kneeDb_);
-        } else if (over > 0.0f) {
-            reductionDb = (1.0f / ratio - 1.0f) * over; // = targetDb − envDb
-        }
-        if (reductionDb < grPeak) {
-            grPeak = reductionDb; // track the deepest reduction for the GR meter
-        }
-        const float gain = dbToLin(reductionDb) * makeup;
         // Parallel/NY compression: blend the compressed signal back with the dry (mix 1 = fully
         // compressed, the classic behaviour; lower mixes keep more of the untouched transients). The
         // dry is the *delayed* audio too, so dry and wet stay time-aligned under lookahead.
         const float dry = 1.0f - mix_;
-        stereo[2 * i] = outL * dry + outL * gain * mix_;
-        stereo[2 * i + 1] = outR * dry + outR * gain * mix_;
+        stereo[2 * i] = outL * dry + outL * gainL * mix_;
+        stereo[2 * i + 1] = outR * dry + outR * gainR * mix_;
     }
     grDb_ = grPeak;
 }

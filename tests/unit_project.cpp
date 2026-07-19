@@ -203,6 +203,7 @@ int main() {
     mixer.compressor().setAutoMakeup(true);
     mixer.compressor().setLookaheadMs(3.0f);
     mixer.compressor().setRmsDetection(true);
+    mixer.compressor().setStereoLink(false);
     mixer.multiband().setEnabled(true);
     mixer.multiband().setCrossoverLow(180.0f);
     mixer.multiband().setCrossoverHigh(3200.0f);
@@ -811,6 +812,7 @@ int main() {
     check(mixer2.compressor().autoMakeup(), "compressor auto-makeup round-trips");
     check(near(mixer2.compressor().lookaheadMs(), 3.0f), "compressor lookahead round-trips");
     check(mixer2.compressor().rmsDetection(), "compressor RMS detection round-trips");
+    check(!mixer2.compressor().stereoLink(), "compressor stereo-link round-trips");
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");

@@ -1851,6 +1851,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         bool rms = mx.compressor().rmsDetection();
         if (ImGui::Checkbox("RMS##cmp", &rms)) mx.compressor().setRmsDetection(rms);
         ImGui::SameLine();
+        bool slink = mx.compressor().stereoLink();
+        if (ImGui::Checkbox("Link##cmp", &slink)) mx.compressor().setStereoLink(slink);
+        ImGui::SameLine();
         ImGui::Text("GR %.1f dB", mx.compressor().gainReductionDb());
     }
     {

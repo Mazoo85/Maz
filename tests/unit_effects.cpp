@@ -455,6 +455,41 @@ int main() {
         check(!audio::Compressor().rmsDetection(), "compressor detection defaults to peak (RMS off)");
     }
 
+    // --- Compressor stereo link: linked pulls both channels down; unlinked spares the quiet one ----
+    {
+        // Loud on the left (above threshold), quiet on the right (below). Measure the right channel's
+        // level: linked drags it down with the left, unlinked leaves it near untouched.
+        auto rightLevel = [&](bool link) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-24.0f);
+            c.setRatio(8.0f);
+            c.setAttackMs(1.0f);
+            c.setReleaseMs(50.0f);
+            c.setMakeupDb(0.0f);
+            c.setMix(1.0f);
+            c.setStereoLink(link);
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            for (int i = 0; i < sr; ++i) {
+                const float s = static_cast<float>(std::sin(2.0 * 3.14159265358979 * 200.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = 0.9f * s;       // loud left
+                b[static_cast<size_t>(i) * 2 + 1] = 0.1f * s;   // quiet right
+            }
+            c.process(b.data(), sr, sr);
+            double e = 0.0;
+            int n = 0;
+            for (int i = sr / 2; i < sr; ++i) { // settled second half
+                const double v = static_cast<double>(b[static_cast<size_t>(i) * 2 + 1]);
+                e += v * v;
+                ++n;
+            }
+            return std::sqrt(e / n);
+        };
+        check(rightLevel(false) > rightLevel(true) * 1.3,
+              "unlinked compression spares the quiet channel (per-channel gain reduction)");
+        check(audio::Compressor().stereoLink(), "compressor defaults to stereo-linked");
+    }
+
     // --- Compressor sidechain HPF: lows don't drive the detection ------------
     {
         // A loud, pure low tone (60 Hz) above the threshold.
