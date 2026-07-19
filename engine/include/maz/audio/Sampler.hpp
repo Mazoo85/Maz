@@ -144,8 +144,15 @@ public:
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
+    // Decay/sustain complete the amp ADSR: after the attack peaks the level decays over `decaySec`
+    // to the `sustain` level (0..1), held while the note is on, then the release fades from there.
+    // sustain = 1 (default) makes decay a no-op — the plain attack/hold/release of setAmpEnv.
+    void setAmpDecay(float decaySec) { ampDecay_ = decaySec < 0.0001f ? 0.0001f : decaySec; }
+    void setAmpSustain(float s) { ampSustain_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
     float attack() const { return attack_; }
     float release() const { return release_; }
+    float ampDecay() const { return ampDecay_; }
+    float ampSustain() const { return ampSustain_; }
 
     // Monophonic mode: play a single voice with last-note priority — each new note steals the one
     // before it, for tight mono sampled bass/leads (no overlapping tails). Off (default) = polyphonic.
@@ -172,6 +179,7 @@ private:
         double sliceEnd = 0.0; // read index at which a sliced voice stops
         float velocity = 0.0f;
         float env = 0.0f;
+        int ampStage = 0;                     // amp ADSR: 0=attack, 1=decay, 2=sustain
         float filtEnv = 0.0f;                 // dedicated filter-envelope level [0,1]
         int filtStage = 0;                    // 0=attack, 1=decay, 2=sustain, 3=release
         double penv = 0.0;                    // pitch-envelope level [1→0]; scales the initial pitch offset
@@ -193,6 +201,8 @@ private:
     float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
     float filterCutoff_ = 20000.0f; // playback low-pass cutoff Hz (20000 = open/bypass)
     float filterReso_ = 0.7f;       // playback low-pass resonance
+    float ampDecay_ = 0.05f;   // amp-envelope decay time (s); no-op while ampSustain_ == 1
+    float ampSustain_ = 1.0f;  // amp-envelope sustain level (0..1); 1 = plain attack/hold/release
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
     float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
     float filterVelo_ = 0.0f;       // velocity → cutoff amount in Hz; 0 = off

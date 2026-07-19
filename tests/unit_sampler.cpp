@@ -201,6 +201,38 @@ int main() {
         check(mono.active() && e > 0.0, "the stolen-to mono voice keeps sounding");
     }
 
+    // Amp ADSR: after the attack peaks, the level decays to the sustain and holds there while held.
+    {
+        std::vector<float> tone(static_cast<size_t>(sr));
+        for (int i = 0; i < sr; ++i) {
+            tone[static_cast<size_t>(i)] = 0.6f * static_cast<float>(std::sin(kTwoPi * 220.0 * i / sr));
+        }
+        auto sustainRms = [&](float sustain) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setBasePitch(60);
+            s.setAmpEnv(0.0005f, 0.1f); // ~24-frame attack
+            s.setAmpDecay(0.01f);       // ~480-frame decay
+            s.setAmpSustain(sustain);
+            s.noteOn(60, 1.0f); // read at natural speed, note held (no noteOff)
+            const std::vector<float> out = renderMono(s, sr / 2, sr); // 0.5 s, past attack+decay
+            double en = 0.0;
+            int n = 0;
+            for (int i = sr / 3; i < sr / 2; ++i) { // steady-state sustain window
+                en += static_cast<double>(out[static_cast<size_t>(i)]) * out[static_cast<size_t>(i)];
+                ++n;
+            }
+            return std::sqrt(en / n);
+        };
+        const double full = sustainRms(1.0f);
+        const double half = sustainRms(0.5f);
+        check(full > 0.0, "a held sample sustains at the full level (sustain 1)");
+        check(std::fabs(half - full * 0.5) < full * 0.1,
+              "amp sustain 0.5 holds at half the full-sustain level");
+        audio::Sampler def;
+        check(std::fabs(def.ampSustain() - 1.0f) < 1e-6f, "amp sustain defaults to 1 (transparent)");
+    }
+
     // Reverse playback: a ramp sample read backwards starts near the end value and descends.
     {
         std::vector<float> ramp(1000);

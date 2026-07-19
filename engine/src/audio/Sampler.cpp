@@ -161,6 +161,7 @@ void Sampler::noteOn(int midi, float velocity) {
     }
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
+    v.ampStage = 0;  // amp attack
     v.filtEnv = 0.0f;
     v.filtStage = 0; // attack
     v.penv = 1.0;    // pitch envelope starts fully offset, slides to 0 (true pitch)
@@ -209,7 +210,11 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     }
     const double srCorrect = static_cast<double>(sampleSr_) / static_cast<double>(sampleRate);
     const float attackStep = 1.0f / (attack_ * static_cast<float>(sampleRate));
-    const float releaseStep = 1.0f / (release_ * static_cast<float>(sampleRate));
+    const float ampDecStep = (1.0f - ampSustain_) / (ampDecay_ * static_cast<float>(sampleRate));
+    // Release ramps from the sustain level to 0 over release_ seconds (so the time is honoured
+    // regardless of how low the sustain sits). A zero sustain falls back to a full 1→0 ramp time.
+    const float releaseStep =
+        (ampSustain_ > 0.0f ? ampSustain_ : 1.0f) / (release_ * static_cast<float>(sampleRate));
     // Filter-envelope per-sample increments (only used when the envelope has a non-zero depth).
     const bool useFilterEnv = filterEnvDepth_ != 0.0f;
     const bool useFilterVelo = filterVelo_ != 0.0f;
@@ -233,7 +238,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                                 : static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
                                       detuneMul; // read speed
         for (int i = 0; i < frames; ++i) {
-            // Amp envelope: quick attack up, fast release when noteOff'd.
+            // Amp ADSR: attack up to 1, decay down to the sustain level, hold, then release on noteOff.
             if (v.releasing) {
                 v.env -= releaseStep;
                 if (v.env <= 0.0f) {
@@ -241,8 +246,25 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                     v.active = false;
                     break;
                 }
-            } else if (v.env < 1.0f) {
-                v.env = std::min(1.0f, v.env + attackStep);
+            } else {
+                switch (v.ampStage) {
+                case 0: // attack → 1
+                    v.env += attackStep;
+                    if (v.env >= 1.0f) {
+                        v.env = 1.0f;
+                        v.ampStage = 1;
+                    }
+                    break;
+                case 1: // decay → sustain
+                    v.env -= ampDecStep;
+                    if (v.env <= ampSustain_) {
+                        v.env = ampSustain_;
+                        v.ampStage = 2;
+                    }
+                    break;
+                default: // sustain: hold at the sustain level
+                    break;
+                }
             }
 
             // Filter envelope (independent ADSR driving the cutoff).

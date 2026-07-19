@@ -280,7 +280,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().filterEnvSustain() << " " << seq.sampler().filterEnvRelease() << " "
       << seq.sampler().filterEnvDepth() << " " << seq.sampler().pitchEnvDepth() << " "
       << seq.sampler().pitchEnvTime() << " " << seq.sampler().filterVelo() << " "
-      << (seq.sampler().mono() ? 1 : 0) << "\n";
+      << (seq.sampler().mono() ? 1 : 0) << " " << seq.sampler().ampDecay() << " "
+      << seq.sampler().ampSustain() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -653,6 +654,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int smono = 0; // sampler mono mode optional (older files omit it → polyphonic)
             if (ls >> smono) {
                 seq.sampler().setMono(smono != 0);
+            }
+            float adec = 0.05f, asus = 1.0f; // amp decay/sustain optional (older files → sustain 1)
+            if (ls >> adec >> asus) {
+                seq.sampler().setAmpDecay(adec);
+                seq.sampler().setAmpSustain(asus);
             }
         } else if (tag == "chan") {
             int c = -1;

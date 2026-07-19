@@ -1172,15 +1172,24 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::SliderInt("Slices", &slices, 1, 32, slices == 1 ? "off" : "%d"))
         seq.sampler().setSlices(slices);
     float smpAtk = seq.sampler().attack();
+    float smpDec = seq.sampler().ampDecay();
+    float smpSus = seq.sampler().ampSustain();
     float smpRel = seq.sampler().release();
     bool smpEnvCh = false;
     ImGui::SetNextItemWidth(110.0f);
     smpEnvCh |= ImGui::SliderFloat("Atk##smp", &smpAtk, 0.001f, 0.5f, "%.3f s");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(110.0f);
+    smpEnvCh |= ImGui::SliderFloat("Dec##smp", &smpDec, 0.001f, 1.0f, "%.3f s");
+    ImGui::SetNextItemWidth(110.0f);
+    smpEnvCh |= ImGui::SliderFloat("Sus##smp", &smpSus, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.0f);
     smpEnvCh |= ImGui::SliderFloat("Rel##smp", &smpRel, 0.001f, 1.0f, "%.3f s");
     if (smpEnvCh) {
         seq.sampler().setAmpEnv(smpAtk, smpRel);
+        seq.sampler().setAmpDecay(smpDec);
+        seq.sampler().setAmpSustain(smpSus);
     }
     static char pathBuf[256] = "";
     ImGui::SetNextItemWidth(200.0f);
