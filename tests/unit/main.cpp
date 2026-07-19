@@ -82,6 +82,7 @@
 #include "maz/core/PidController.hpp"
 #include "maz/core/SmoothDamp.hpp"
 #include "maz/core/OneEuroFilter.hpp"
+#include "maz/core/DisjointSet.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18049,6 +18050,106 @@ void testOneEuroFilter() {
     }
 }
 
+// DisjointSet: union-find with path compression + union by rank (M438).
+void testDisjointSet() {
+    using core::DisjointSet;
+    using core::Pcg32;
+
+    // ---- Singletons. ----
+    {
+        DisjointSet ds(5);
+        CHECK(ds.size() == 5 && ds.count() == 5);
+        for (std::size_t i = 0; i < 5; ++i) {
+            CHECK(ds.componentSize(i) == 1 && ds.connected(i, i));
+            for (std::size_t j = 0; j < 5; ++j) {
+                if (i != j) {
+                    CHECK(!ds.connected(i, j));
+                }
+            }
+        }
+    }
+
+    // ---- Basic merges + idempotence. ----
+    {
+        DisjointSet ds(5);
+        CHECK(ds.unite(0, 1) && ds.count() == 4);
+        CHECK(ds.connected(0, 1) && ds.componentSize(0) == 2);
+        CHECK(!ds.unite(0, 1) && ds.count() == 4); // already joined
+        CHECK(!ds.unite(1, 1));                    // self-union
+        ds.unite(1, 2);                            // {0,1,2}
+        ds.unite(3, 4);                            // {3,4}
+        CHECK(ds.count() == 2);
+        CHECK(ds.componentSize(2) == 3 && ds.componentSize(4) == 2);
+        CHECK(ds.connected(0, 2) && !ds.connected(2, 4));
+        ds.unite(2, 3);
+        CHECK(ds.count() == 1 && ds.componentSize(0) == 5);
+    }
+
+    // ---- Long chain exercises path compression. ----
+    {
+        const std::size_t n = 1000;
+        DisjointSet ds(n);
+        for (std::size_t i = 0; i + 1 < n; ++i) {
+            ds.unite(i, i + 1);
+        }
+        CHECK(ds.count() == 1 && ds.find(0) == ds.find(n - 1) && ds.componentSize(0) == n);
+    }
+
+    // ---- reset() reinitialises. ----
+    {
+        DisjointSet ds(4);
+        ds.unite(0, 1);
+        ds.unite(2, 3);
+        ds.reset(3);
+        CHECK(ds.size() == 3 && ds.count() == 3 && !ds.connected(0, 1));
+    }
+
+    // ---- Cross-check random unions against a from-scratch BFS component labelling. ----
+    {
+        const std::size_t n = 60;
+        DisjointSet ds(n);
+        Pcg32 rng(2024, 5);
+        std::vector<std::pair<std::size_t, std::size_t>> edges;
+        for (int e = 0; e < 120; ++e) {
+            const std::size_t a = static_cast<std::size_t>(rng.range(0, static_cast<int>(n) - 1));
+            const std::size_t b = static_cast<std::size_t>(rng.range(0, static_cast<int>(n) - 1));
+            edges.emplace_back(a, b);
+            ds.unite(a, b);
+        }
+        std::vector<std::vector<std::size_t>> adj(n);
+        for (auto& [a, b] : edges) {
+            adj[a].push_back(b);
+            adj[b].push_back(a);
+        }
+        std::vector<int> label(n, -1);
+        int comp = 0;
+        for (std::size_t s = 0; s < n; ++s) {
+            if (label[s] != -1) {
+                continue;
+            }
+            std::vector<std::size_t> stack{s};
+            label[s] = comp;
+            while (!stack.empty()) {
+                const std::size_t u = stack.back();
+                stack.pop_back();
+                for (std::size_t v : adj[u]) {
+                    if (label[v] == -1) {
+                        label[v] = comp;
+                        stack.push_back(v);
+                    }
+                }
+            }
+            ++comp;
+        }
+        CHECK(ds.count() == static_cast<std::size_t>(comp));
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t j = 0; j < n; ++j) {
+                CHECK(ds.connected(i, j) == (label[i] == label[j]));
+            }
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26811,6 +26912,7 @@ int main() {
     testPidController();
     testSmoothDamp();
     testOneEuroFilter();
+    testDisjointSet();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

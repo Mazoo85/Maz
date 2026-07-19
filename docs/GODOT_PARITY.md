@@ -553,6 +553,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   input passing through unchanged, >10x variance reduction on a noisy stationary stream with the mean
   preserved, the core adaptivity property (on a fast ramp beta>0 lags strictly less than beta==0 while
   staying causal), and reset()/dt<=0 pass-through),
+  **disjoint-set / union-find** (M438, `core::DisjointSet` — the near-O(1) structure for tracking which
+  elements share a group as pairs merge, with path compression + union-by-rank (inverse-Ackermann
+  amortised). The primitive behind connected-components queries, Kruskal MST, maze generation (carve a
+  wall only when it joins two different regions), flood-region merging in a tile map, and island/cluster
+  counting — all things games need and Godot ships no equivalent for. Maintains a live disjoint-set
+  count and per-set sizes. Verified: singleton init, merge idempotence + self-union, component sizes, a
+  1000-long chain exercising path compression, reset(), and a 60-element random-union run whose full
+  partition is cross-checked against an independent BFS component labelling — every pair's connectivity
+  and the total set count match),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
