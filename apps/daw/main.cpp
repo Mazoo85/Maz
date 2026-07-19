@@ -1155,6 +1155,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     fech |= ImGui::SliderFloat("F.Env S##smp", &sfs, 0.0f, 1.0f, "%.2f");
     fech |= ImGui::SliderFloat("F.Env R##smp", &sfr, 0.0001f, 2.0f, "%.3f");
     if (fech) seq.sampler().setFilterEnvelope(sfa, sfd, sfs, sfr);
+    float speDepth = seq.sampler().pitchEnvDepth(), speTime = seq.sampler().pitchEnvTime();
+    bool spech = ImGui::SliderFloat("P.Env depth##smp", &speDepth, -36.0f, 36.0f, "%.1f st");
+    spech |= ImGui::SliderFloat("P.Env time##smp", &speTime, 0.001f, 2.0f, "%.3f s");
+    if (spech) seq.sampler().setPitchEnv(speDepth, speTime);
 
     ImGui::End();
 }

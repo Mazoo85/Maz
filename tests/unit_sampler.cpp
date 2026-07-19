@@ -95,6 +95,36 @@ int main() {
     sampler3.noteOn(57, 1.0f);
     check(estimateHz(renderMono(sampler3, sr / 5, sr), sr) > 100.0, "injected sample plays");
 
+    // Pitch envelope: a note starts pitched away and slides to its true pitch.
+    {
+        const int win = sr / 20; // 50 ms measurement window
+
+        audio::Sampler pe;
+        pe.setSampleMono(sine, sr);
+        pe.setBasePitch(57); // 220 Hz at the base note
+        check(pe.pitchEnvDepth() == 0.0f, "sampler pitch-env defaults to off");
+        pe.noteOn(57, 1.0f);
+        const double flatHz = estimateHz(renderMono(pe, win, sr), sr);
+
+        // +12 semitones sliding down over 150 ms → the first 50 ms sits well above the base pitch.
+        audio::Sampler pe2;
+        pe2.setSampleMono(sine, sr);
+        pe2.setBasePitch(57);
+        pe2.setPitchEnv(12.0f, 0.15f);
+        check(std::fabs(pe2.pitchEnvDepth() - 12.0f) < 1e-6f &&
+                  std::fabs(pe2.pitchEnvTime() - 0.15f) < 1e-6f,
+              "setPitchEnv stores depth + time");
+        pe2.noteOn(57, 1.0f);
+        const double sweepHz = estimateHz(renderMono(pe2, win, sr), sr);
+        check(sweepHz > flatHz * 1.3, "a positive pitch env starts the note above its true pitch");
+
+        // Ranges clamp.
+        audio::Sampler pc;
+        pc.setPitchEnv(100.0f, 10.0f);
+        check(std::fabs(pc.pitchEnvDepth() - 36.0f) < 1e-6f, "pitch-env depth clamps to 36 st");
+        check(std::fabs(pc.pitchEnvTime() - 2.0f) < 1e-6f, "pitch-env time clamps to 2 s");
+    }
+
     // Reverse playback: a ramp sample read backwards starts near the end value and descends.
     {
         std::vector<float> ramp(1000);

@@ -155,6 +155,7 @@ void Sampler::noteOn(int midi, float velocity) {
     v.env = 0.0f;
     v.filtEnv = 0.0f;
     v.filtStage = 0; // attack
+    v.penv = 1.0;    // pitch envelope starts fully offset, slides to 0 (true pitch)
 }
 
 void Sampler::noteOff(int midi) {
@@ -193,6 +194,9 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     const float releaseStep = 1.0f / (release_ * static_cast<float>(sampleRate));
     // Filter-envelope per-sample increments (only used when the envelope has a non-zero depth).
     const bool useFilterEnv = filterEnvDepth_ != 0.0f;
+    // Pitch envelope: a linear slide of the initial pitch offset back to the true pitch.
+    const bool usePitchEnv = pitchEnvDepth_ != 0.0f;
+    const double penvStep = 1.0 / (static_cast<double>(pitchEnvTime_) * static_cast<double>(sampleRate));
     const float fAtkStep = 1.0f / (fEnvA_ * static_cast<float>(sampleRate));
     const float fDecStep = (1.0f - fEnvS_) / (fEnvD_ * static_cast<float>(sampleRate));
     const float fRelStep = (fEnvS_ > 0.0f ? fEnvS_ : 1.0f) / (fEnvR_ * static_cast<float>(sampleRate));
@@ -320,7 +324,17 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             }
             out[i] += s * v.env * v.velocity * gain_;
 
-            v.pos += static_cast<double>(v.dir) * rate;
+            // Pitch envelope: scale the read speed by the (decaying) semitone offset, then advance
+            // the slide toward 0. Off → curRate == rate, so playback is bit-identical.
+            double curRate = rate;
+            if (usePitchEnv) {
+                curRate *= std::pow(2.0, static_cast<double>(pitchEnvDepth_) * v.penv / 12.0);
+                v.penv -= penvStep;
+                if (v.penv < 0.0) {
+                    v.penv = 0.0;
+                }
+            }
+            v.pos += static_cast<double>(v.dir) * curRate;
         }
     }
 }

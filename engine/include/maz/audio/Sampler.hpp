@@ -124,6 +124,17 @@ public:
     float filterEnvRelease() const { return fEnvR_; }
     float filterEnvDepth() const { return filterEnvDepth_; }
 
+    // Pitch envelope: each note starts `depth` semitones (±36) away from its pitch and slides to the
+    // true pitch over `timeSec` — the classic sampler pitch "blip"/drop for zaps, risers, and 808
+    // glides. depth 0 = off (a fresh sampler plays at a steady pitch). timeSec is the slide length.
+    void setPitchEnv(float depthSemitones, float timeSec) {
+        pitchEnvDepth_ =
+            depthSemitones < -36.0f ? -36.0f : (depthSemitones > 36.0f ? 36.0f : depthSemitones);
+        pitchEnvTime_ = timeSec < 0.001f ? 0.001f : (timeSec > 2.0f ? 2.0f : timeSec);
+    }
+    float pitchEnvDepth() const { return pitchEnvDepth_; }
+    float pitchEnvTime() const { return pitchEnvTime_; }
+
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
@@ -151,6 +162,7 @@ private:
         float env = 0.0f;
         float filtEnv = 0.0f;                 // dedicated filter-envelope level [0,1]
         int filtStage = 0;                    // 0=attack, 1=decay, 2=sustain, 3=release
+        double penv = 0.0;                    // pitch-envelope level [1→0]; scales the initial pitch offset
         StateVariableFilter filter{}; // per-voice playback filter
     };
 
@@ -170,6 +182,8 @@ private:
     float filterReso_ = 0.7f;       // playback low-pass resonance
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
     float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
+    float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
+    float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds
     float release_ = 0.012f; // seconds
     std::string path_;
