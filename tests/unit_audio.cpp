@@ -232,6 +232,26 @@ int main() {
     check(stereo.size() >= 2 && std::fabs(stereo[0] - stereo[1]) < 1e-6f,
           "interleaved channels carry the same mono signal");
 
+    // Offline render honors a custom sample rate (the --samplerate export path).
+    {
+        audio::AudioEngine e44;
+        audio::AudioConfig c44;
+        c44.sampleRate = 44100;
+        e44.initOffline(c44);
+        check(e44.config().sampleRate == 44100, "initOffline honors a custom sample rate");
+        e44.noteOn(440.0f);
+        const std::vector<float> s44 = e44.renderOffline(1.0);
+        const int ch44 = e44.config().channels;
+        check(s44.size() == static_cast<size_t>(44100) * static_cast<size_t>(ch44),
+              "a 1 s render at 44.1 kHz is 44100 frames");
+        std::vector<float> mono44(44100, 0.0f);
+        for (int i = 0; i < 44100; ++i) {
+            mono44[static_cast<size_t>(i)] = s44[static_cast<size_t>(i) * static_cast<size_t>(ch44)];
+        }
+        check(std::fabs(estimateHz(mono44, 44100) - 440.0) < 3.0,
+              "the 440 Hz tone renders at the correct pitch at 44.1 kHz");
+    }
+
     // --- AudioEngine: stem export (per-bus offline bounce) -------------------
     {
         auto energyOf = [](const std::vector<float>& b) {

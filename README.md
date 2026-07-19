@@ -85,7 +85,7 @@ cmake --build build                                    # builds the `daw` app to
 
 Flags: `--beat` (demo drum pattern), `--melody` (demo piano-roll melody), `--fm` / `--wt` (FM or
 wavetable lead engine), `--bpm N` (tempo), `--freq HZ` (oscillator pitch), `--seconds N` (offline
-length), `--wav PATH` (write the render).
+length), `--wav PATH` (write the render), `--samplerate N` (render/export sample rate, e.g. 44100/48000/96000), `--bits N` (16/24-bit PCM or 32-bit float export), `--dither`, `--normalize`.
 Headless mode needs no audio device, so CI verifies the synth, drums, and melodic sequencing.
 
 ---

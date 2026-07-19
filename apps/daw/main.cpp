@@ -196,7 +196,9 @@ void applyDemoAuto(audio::AudioEngine& engine) {
 // silent sequenced render or a failed load/save (real failures).
 int runHeadless(const core::AppConfig& cfg) {
     audio::AudioEngine engine;
-    engine.initOffline();
+    audio::AudioConfig ocfg;
+    ocfg.sampleRate = cfg.sampleRate; // honor --samplerate for the offline render/export
+    engine.initOffline(ocfg);
 
     const bool loading = cfg.projectLoadPath != nullptr;
     const bool sequencing = cfg.beat || cfg.melody || cfg.song || loading ||
