@@ -338,7 +338,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
       << mixer.compressor().attackMs() << " " << mixer.compressor().releaseMs() << " "
       << mixer.compressor().makeupDb() << " " << mixer.compressor().kneeDb() << " "
-      << mixer.compressor().mix() << "\n";
+      << mixer.compressor().mix() << " " << mixer.compressor().sidechainHpf() << "\n";
     f << "fx multiband " << (mixer.multiband().enabled() ? 1 : 0) << " "
       << mixer.multiband().crossoverLow() << " " << mixer.multiband().crossoverHigh() << " "
       << mixer.multiband().bandThreshold(0) << " " << mixer.multiband().bandRatio(0) << " "
@@ -846,6 +846,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float mix = 1.0f; // parallel-compression mix optional (older files omit it)
                 if (ls >> mix) {
                     mixer.compressor().setMix(mix);
+                }
+                float scHpf = 0.0f; // sidechain HPF optional (older files omit it → off)
+                if (ls >> scHpf) {
+                    mixer.compressor().setSidechainHpf(scHpf);
                 }
             } else if (which == "multiband") {
                 float clo = 250.0f, chi = 2500.0f, t0 = -18.0f, r0 = 3.0f, t1 = -18.0f, r1 = 3.0f,

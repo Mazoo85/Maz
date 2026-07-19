@@ -427,6 +427,10 @@ public:
     // Dry/wet blend for parallel ("New York") compression: 1 = fully compressed (default), lower
     // values mix the uncompressed signal back in to keep transients and punch.
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Sidechain high-pass (Hz): high-pass the *detection* signal only, so low frequencies (kick,
+    // bass) don't drive the gain reduction and pump the whole mix. The gain is still applied to the
+    // full-range signal. 0 (default) = off (detect on the full signal).
+    void setSidechainHpf(float hz) { scHpfHz_ = hz < 0.0f ? 0.0f : (hz > 500.0f ? 500.0f : hz); }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float attackMs() const { return attackMs_; }
@@ -434,6 +438,7 @@ public:
     float makeupDb() const { return makeupDb_; }
     float kneeDb() const { return kneeDb_; }
     float mix() const { return mix_; }
+    float sidechainHpf() const { return scHpfHz_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -446,7 +451,9 @@ private:
     float makeupDb_ = 0.0f;
     float kneeDb_ = 0.0f; // 0 = hard knee
     float mix_ = 1.0f;     // dry/wet blend; 1 = fully compressed
+    float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
     float env_ = 0.0f; // linear peak-envelope follower
+    float scLpL_ = 0.0f, scLpR_ = 0.0f; // detection high-pass state (one-pole LP; HP = x − LP)
 };
 
 // A 3-band multiband compressor (a Maximus-style master dynamics tool). The signal is split into low

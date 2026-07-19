@@ -1494,6 +1494,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##cmp", &cmix, 0.0f, 1.0f, "%.2f")) mx.compressor().setMix(cmix);
+        float scHpf = mx.compressor().sidechainHpf();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("SC HPF##cmp", &scHpf, 0.0f, 500.0f, "%.0f Hz"))
+            mx.compressor().setSidechainHpf(scHpf);
     }
     {
         auto& mb = mx.multiband();

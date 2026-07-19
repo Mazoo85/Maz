@@ -172,6 +172,27 @@ int main() {
         check(outPeak > 0.0f, "compressor still passes signal");
     }
 
+    // --- Compressor sidechain HPF: lows don't drive the detection ------------
+    {
+        // A loud, pure low tone (60 Hz) above the threshold.
+        auto compressedRms = [&](float scHpf) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-18.0f);
+            c.setRatio(8.0f);
+            c.setMakeupDb(0.0f);
+            c.setSidechainHpf(scHpf);
+            std::vector<float> low = sineStereo(sr, 60.0, 0.8, sr);
+            c.process(low.data(), sr, sr);
+            std::vector<float> tail(low.begin() + static_cast<long>(sr), low.end()); // settled 2nd half
+            return rms(tail);
+        };
+        const double noHpf = compressedRms(0.0f);   // detects the 60 Hz → compresses
+        const double withHpf = compressedRms(300.0f); // HPF removes the 60 Hz → barely compresses
+        check(withHpf > noHpf * 1.3,
+              "sidechain HPF keeps a low tone from triggering the compressor (louder output)");
+    }
+
     // --- Compressor knee: a soft knee compresses just below the threshold ----
     {
         // A signal a few dB below the threshold: a hard knee leaves it alone; a wide soft knee

@@ -682,6 +682,8 @@ void HighPass::process(float* stereo, int frames, int sampleRate) {
 
 void Compressor::reset() {
     env_ = 0.0f;
+    scLpL_ = 0.0f;
+    scLpR_ = 0.0f;
 }
 
 void Compressor::process(float* stereo, int frames, int sampleRate) {
@@ -693,11 +695,22 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     const float relCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
     const float makeup = dbToLin(makeupDb_);
     const float ratio = std::max(ratio_, 1.0f);
+    // Sidechain high-pass on the detection signal only (0 = off): removes lows from what drives the
+    // gain reduction, so bass/kick don't pump the compressor.
+    const bool scHpf = scHpfHz_ > 0.0f;
+    const float scA = scHpf ? 1.0f - std::exp(-6.283185307179586f * scHpfHz_ / sr) : 0.0f;
 
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
-        const float peak = std::max(std::fabs(l), std::fabs(r));
+        float dl = l, dr = r; // detection signal
+        if (scHpf) {
+            scLpL_ += scA * (l - scLpL_);
+            scLpR_ += scA * (r - scLpR_);
+            dl = l - scLpL_; // high-passed
+            dr = r - scLpR_;
+        }
+        const float peak = std::max(std::fabs(dl), std::fabs(dr));
 
         // Peak-following envelope (fast attack, slow release).
         const float coef = peak > env_ ? atkCoef : relCoef;
