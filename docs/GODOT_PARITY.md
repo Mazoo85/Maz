@@ -867,6 +867,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   sampled on a known sphere recover its centre and radius within ~1%; and across 50 random clouds every
   point is enclosed while the radius stays within the hard bounds (diameter >= widest pair, radius <=
   point spread); degenerate empty/single/pair inputs handled),
+  **oriented bounding box fit** (M469, `math::fitObb` -> `math::Obb` — the tightest *rotated* box
+  around a 3D point cloud, found by principal component analysis. An axis-aligned box wastes space on a
+  slanted object; an OBB aligns its own axes to the cloud's dominant directions for a far tighter proxy —
+  the fit behind tight collision proxies, oriented editor gizmos, and better broad-phase bounds than an
+  AABB. Method: centre the points, form their 3x3 covariance matrix, take its eigenvectors (symmetric
+  Jacobi solve) as the box axes, project onto those axes to size the box; reuses the engine's Obb type
+  (contains / aabb / SAT overlap). Godot fits neither spheres nor oriented boxes to point sets in
+  gameplay code -> beyond-Godot. Verified: an axis-aligned box recovers its exact extents and centre; a
+  box rotated about two axes recovers its tight half-extents (sorted) and yields a box volume far below
+  the AABB volume of the same rotated cloud; the fitted axes are orthonormal; every point is enclosed;
+  degenerate empty/single inputs handled),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

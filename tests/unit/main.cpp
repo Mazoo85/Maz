@@ -113,6 +113,7 @@
 #include "maz/math/RootFind.hpp"
 #include "maz/math/Statistics.hpp"
 #include "maz/math/BoundingSphere.hpp"
+#include "maz/math/FitObb.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20209,6 +20210,82 @@ void testPolynomial() {
     }
 }
 
+void testFitObb() {
+    using math::fitObb;
+    using math::mat3;
+    using math::Obb;
+    using math::vec3;
+
+    auto inside = [](const Obb& b, const vec3& p, float eps) {
+        const vec3 d = p - b.center;
+        for (int i = 0; i < 3; ++i) {
+            const float t = glm::dot(d, b.axis(i));
+            if (t < -b.half[i] - eps || t > b.half[i] + eps) return false;
+        }
+        return true;
+    };
+    auto boxPoints = [](vec3 half, const mat3& rot, vec3 center) {
+        std::vector<vec3> pts;
+        const float g[5] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+        for (float i : g)
+            for (float j : g)
+                for (float k : g) pts.push_back(center + rot * vec3(i * half.x, j * half.y, k * half.z));
+        return pts;
+    };
+    auto boxVolume = [](const Obb& b) { return 8.0f * b.half.x * b.half.y * b.half.z; };
+
+    // Degenerate cases.
+    {
+        CHECK(std::fabs(fitObb({}).half.x) < 1e-6f);
+        const Obb one = fitObb({vec3(2, 3, 4)});
+        CHECK(std::fabs(one.center.x - 2.0f) < 1e-6f && std::fabs(one.half.y) < 1e-6f);
+    }
+    // Axis-aligned box: OBB matches the extents; all points enclosed.
+    {
+        const vec3 half(3, 1, 2);
+        const std::vector<vec3> pts = boxPoints(half, mat3(1.0f), vec3(5, -2, 1));
+        const Obb b = fitObb(pts);
+        for (const vec3& p : pts) CHECK(inside(b, p, 1e-3f));
+        float h[3] = {b.half.x, b.half.y, b.half.z};
+        std::sort(h, h + 3);
+        CHECK(std::fabs(h[0] - 1.0f) < 1e-2f && std::fabs(h[1] - 2.0f) < 1e-2f && std::fabs(h[2] - 3.0f) < 1e-2f);
+        CHECK(std::fabs(b.center.x - 5.0f) < 1e-2f && std::fabs(b.center.y + 2.0f) < 1e-2f);
+    }
+    // Rotated box: OBB recovers tight extents and beats the AABB volume.
+    {
+        const vec3 half(4, 1, 2);
+        const float az = 0.698f, ax = 0.524f;
+        const mat3 rz(std::cos(az), std::sin(az), 0, -std::sin(az), std::cos(az), 0, 0, 0, 1);
+        const mat3 rx(1, 0, 0, 0, std::cos(ax), std::sin(ax), 0, -std::sin(ax), std::cos(ax));
+        const mat3 rot = rx * rz;
+        const std::vector<vec3> pts = boxPoints(half, rot, vec3(0, 0, 0));
+        const Obb b = fitObb(pts);
+        for (const vec3& p : pts) CHECK(inside(b, p, 1e-3f));
+        float h[3] = {b.half.x, b.half.y, b.half.z};
+        std::sort(h, h + 3);
+        CHECK(std::fabs(h[0] - 1.0f) < 2e-2f && std::fabs(h[1] - 2.0f) < 2e-2f && std::fabs(h[2] - 4.0f) < 2e-2f);
+        const float obbVol = boxVolume(b);
+        CHECK(std::fabs(obbVol - 64.0f) < 2.0f);
+        float amin[3] = {1e30f, 1e30f, 1e30f}, amax[3] = {-1e30f, -1e30f, -1e30f};
+        for (const vec3& p : pts) {
+            amin[0] = std::min(amin[0], p.x); amax[0] = std::max(amax[0], p.x);
+            amin[1] = std::min(amin[1], p.y); amax[1] = std::max(amax[1], p.y);
+            amin[2] = std::min(amin[2], p.z); amax[2] = std::max(amax[2], p.z);
+        }
+        const float aabbVol = (amax[0] - amin[0]) * (amax[1] - amin[1]) * (amax[2] - amin[2]);
+        CHECK(obbVol < aabbVol * 0.95f);
+    }
+    // Axes are orthonormal.
+    {
+        const std::vector<vec3> pts = boxPoints(vec3(3, 2, 1), mat3(1.0f), vec3(0, 0, 0));
+        const Obb b = fitObb(pts);
+        for (int i = 0; i < 3; ++i) CHECK(std::fabs(glm::length(b.axis(i)) - 1.0f) < 1e-4f);
+        CHECK(std::fabs(glm::dot(b.axis(0), b.axis(1))) < 1e-4f);
+        CHECK(std::fabs(glm::dot(b.axis(0), b.axis(2))) < 1e-4f);
+        CHECK(std::fabs(glm::dot(b.axis(1), b.axis(2))) < 1e-4f);
+    }
+}
+
 void testBoundingSphere() {
     using math::boundingSphere;
     using math::Sphere;
@@ -29517,6 +29594,7 @@ int main() {
     testRootFind();
     testStatistics();
     testBoundingSphere();
+    testFitObb();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
