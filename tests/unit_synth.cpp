@@ -1935,6 +1935,46 @@ int main() {
         check(differs, "a different seed yields a different randomization");
     }
 
+    // --- Scale velocity dynamics (compress/expand around the mean) ------------
+    {
+        auto build = [](audio::PianoRoll& p) {
+            p.addNote(audio::Note{0, 1, 60, 0.2f});
+            p.addNote(audio::Note{1, 1, 62, 0.5f});
+            p.addNote(audio::Note{2, 1, 64, 0.8f}); // mean = 0.5
+        };
+        // factor 0.5 compresses each velocity halfway toward the mean (0.5).
+        audio::PianoRoll comp;
+        build(comp);
+        comp.scaleVelocities(0.5f);
+        check(std::fabs(comp.notes()[0].velocity - 0.35f) < 1e-4f &&
+                  std::fabs(comp.notes()[1].velocity - 0.5f) < 1e-4f &&
+                  std::fabs(comp.notes()[2].velocity - 0.65f) < 1e-4f,
+              "scaleVelocities compresses dynamics toward the mean");
+
+        // factor 1 is a no-op.
+        audio::PianoRoll same;
+        build(same);
+        const int ch = same.scaleVelocities(1.0f);
+        check(ch == 0 && std::fabs(same.notes()[0].velocity - 0.2f) < 1e-6f,
+              "scaleVelocities at factor 1 is a no-op");
+
+        // factor 0 flattens every velocity to the mean.
+        audio::PianoRoll flat;
+        build(flat);
+        flat.scaleVelocities(0.0f);
+        check(std::fabs(flat.notes()[0].velocity - 0.5f) < 1e-4f &&
+                  std::fabs(flat.notes()[2].velocity - 0.5f) < 1e-4f,
+              "scaleVelocities at factor 0 flattens to the mean");
+
+        // Expansion clamps into [0,1] rather than overshooting.
+        audio::PianoRoll exp;
+        build(exp);
+        exp.scaleVelocities(4.0f);
+        check(exp.notes()[0].velocity >= 0.0f && exp.notes()[2].velocity <= 1.0f &&
+                  exp.notes()[0].velocity < 0.2f && exp.notes()[2].velocity > 0.8f,
+              "scaleVelocities expands dynamics and clamps to [0,1]");
+    }
+
     // --- Randomize (humanize) timing -----------------------------------------
     {
         auto build = [](audio::PianoRoll& p) {

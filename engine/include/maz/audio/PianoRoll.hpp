@@ -151,6 +151,12 @@ public:
     // notes whose velocity changed.
     int randomizeVelocity(float amount, uint32_t seed);
 
+    // Scale (compress/expand) velocity dynamics around the phrase's own average velocity:
+    // v = mean + (v − mean) · factor, clamped to [0, 1]. factor < 1 compresses toward the average
+    // (tame an over-dynamic line), factor > 1 expands (exaggerate dynamics), factor 1 is a no-op.
+    // factor is clamped to [0, 4]. Returns the number of notes whose velocity changed.
+    int scaleVelocities(float factor);
+
     // Stretch (time-scale): multiply every note's start step and length by `factor` (> 0), so the
     // whole phrase plays faster (factor < 1, compress) or slower (factor > 1, expand) while keeping
     // pitches and relative rhythm. Lengths stay at least 1 step. Returns the number of notes whose

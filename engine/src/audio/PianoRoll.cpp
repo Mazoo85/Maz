@@ -512,6 +512,37 @@ int PianoRoll::randomizeVelocity(float amount, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::scaleVelocities(float factor) {
+    if (notes_.empty() || factor == 1.0f) {
+        return 0;
+    }
+    if (factor < 0.0f) {
+        factor = 0.0f;
+    } else if (factor > 4.0f) {
+        factor = 4.0f;
+    }
+    // Pivot on the phrase's own average velocity so the dynamics scale around the line's center.
+    double sum = 0.0;
+    for (const Note& n : notes_) {
+        sum += static_cast<double>(n.velocity);
+    }
+    const float mean = static_cast<float>(sum / static_cast<double>(notes_.size()));
+    int changed = 0;
+    for (Note& n : notes_) {
+        float v = mean + (n.velocity - mean) * factor;
+        if (v < 0.0f) {
+            v = 0.0f;
+        } else if (v > 1.0f) {
+            v = 1.0f;
+        }
+        if (v != n.velocity) {
+            n.velocity = v;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     if (maxSteps <= 0) {
         return 0;

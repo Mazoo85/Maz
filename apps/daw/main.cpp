@@ -742,6 +742,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.randomizeVelocity(humanizeAmt, humanizeSeed++);
     }
     ImGui::SameLine();
+    static float velScale = 0.5f;
+    ImGui::SetNextItemWidth(60.0f);
+    ImGui::SliderFloat("##velscale", &velScale, 0.0f, 4.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Dynamics")) {
+        roll.scaleVelocities(velScale);
+    }
+    ImGui::SameLine();
     static int dupOffset = 16;
     ImGui::SetNextItemWidth(60.0f);
     ImGui::InputInt("##dupoff", &dupOffset, 0, 0);
