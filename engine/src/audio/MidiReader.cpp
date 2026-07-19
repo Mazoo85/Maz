@@ -161,6 +161,17 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
                 break; // unknown byte — bail out of this track
             }
         }
+        // Flush any notes still held at end-of-track (a note-on with no matching note-off, common in
+        // real files) so they aren't dropped — end them at the track's final tick.
+        for (int c = 0; c < 16; ++c) {
+            for (int pitch = 0; pitch < 128; ++pitch) {
+                if (onTick[static_cast<size_t>(c)][pitch] >= 0) {
+                    notes.push_back({c, pitch, onTick[static_cast<size_t>(c)][pitch], tick,
+                                     onVel[static_cast<size_t>(c)][pitch]});
+                    onTick[static_cast<size_t>(c)][pitch] = -1;
+                }
+            }
+        }
         r.i = trackEnd; // jump to the next chunk regardless of how this track parsed
     }
 

@@ -154,6 +154,38 @@ int main() {
               "arrangement export writes playlist patterns back to back (2nd offset by a pattern)");
     }
 
+    // A note held to end-of-track (no note-off) is still imported, ended at the final tick.
+    {
+        auto putBE = [](std::vector<uint8_t>& v, uint32_t x, int nb) {
+            for (int k = nb - 1; k >= 0; --k) {
+                v.push_back(static_cast<uint8_t>((x >> (8 * k)) & 0xFFu));
+            }
+        };
+        const std::vector<uint8_t> trk = {
+            0x00, 0x90, 0x3C, 0x64,       // tick 0: note-on ch0, note 60, vel 100
+            0x81, 0x70, 0xFF, 0x2F, 0x00, // +240 ticks: end-of-track (NO note-off)
+        };
+        std::vector<uint8_t> mid;
+        mid.insert(mid.end(), {'M', 'T', 'h', 'd'});
+        putBE(mid, 6, 4);
+        putBE(mid, 0, 2); // format 0
+        putBE(mid, 1, 2); // one track
+        putBE(mid, 96, 2); // 96 ppq
+        mid.insert(mid.end(), {'M', 'T', 'r', 'k'});
+        putBE(mid, static_cast<uint32_t>(trk.size()), 4);
+        mid.insert(mid.end(), trk.begin(), trk.end());
+        std::ofstream of("unit_midi_hanging.mid", std::ios::binary);
+        of.write(reinterpret_cast<const char*>(mid.data()), static_cast<std::streamsize>(mid.size()));
+        of.close();
+
+        audio::Sequencer hn;
+        check(audio::readMidi("unit_midi_hanging.mid", hn, &err), "a MIDI with a hanging note reads");
+        const auto& hns = hn.roll().notes();
+        check(hns.size() == 1 && hns[0].pitch == 60 && hns[0].startStep == 0 &&
+                  hns[0].lengthSteps > 1,
+              "a note held to end-of-track is imported (ended at the track's end)");
+    }
+
     // A non-MIDI file fails cleanly.
     audio::Sequencer bad;
     check(!audio::readMidi("/nonexistent/missing.mid", bad, &err), "reading a missing file fails");
