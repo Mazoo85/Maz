@@ -111,7 +111,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
-  lengthSquared, length/distance, aspect, and float-vec conversion), **Vector4/Vector4i** (M286,
+  lengthSquared, length/distance, aspect, and float-vec conversion; M352 adds snapped(step) — Godot
+  Vector2i/Vector3i.snapped: component-wise snap to a multiple of a step (round half away from zero,
+  step 0 leaves the component), verified incl. negatives and step 0), **Vector4/Vector4i** (M286,
   `math::Vector4` — Godot's 4D vectors: float Vector4 with the full gameplay surface
   (length/normalized/dot/lerp/abs/sign/clamp/min/max/floor/ceil/round/snapped/distanceTo/directionTo/
   isEqualApprox) for RGBA/shader-uniform/homogeneous math, plus the exact integer Vector4i with

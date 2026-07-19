@@ -13757,6 +13757,11 @@ void testVectorInt() {
     // Overflow safety: 50000^2 * 2 exceeds 32-bit range, must be exact in 64-bit.
     CHECK(Vector2i(50000, 50000).lengthSquared() == 5000000000LL);
 
+    // M352: Vector2i.snapped (round half away from zero; step 0 leaves the component).
+    CHECK((Vector2i(5, 4).snapped(Vector2i(2, 2)) == Vector2i(6, 4)));
+    CHECK((Vector2i(-5, -3).snapped(Vector2i(2, 2)) == Vector2i(-6, -4)));
+    CHECK((Vector2i(7, 9).snapped(Vector2i(0, 4)) == Vector2i(7, 8)));
+
     const Vector3i c(1, 2, 2), d(4, 4, 4);
     CHECK((c + d == Vector3i(5, 6, 6)));
     CHECK((c * d == Vector3i(4, 8, 8)));
@@ -13766,6 +13771,8 @@ void testVectorInt() {
     CHECK((Vector3i(10, -3, 7).clamp(Vector3i(0, 0, 0), Vector3i(5, 5, 5)) == Vector3i(5, 0, 5)));
     CHECK((c.min(d) == Vector3i(1, 2, 2)));
     CHECK((c.max(d) == Vector3i(4, 4, 4)));
+    // M352: Vector3i.snapped
+    CHECK((Vector3i(11, -11, 25).snapped(Vector3i(10, 10, 10)) == Vector3i(10, -10, 30)));
     CHECK(c.lengthSquared() == 9);
     CHECK_NEAR(static_cast<float>(c.length()), 3.0f, 1e-5f);
     CHECK_NEAR(static_cast<float>(Vector3i(0, 0, 0).distanceTo(Vector3i(1, 2, 2))), 3.0f, 1e-5f);

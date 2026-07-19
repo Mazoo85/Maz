@@ -16,6 +16,15 @@ namespace maz::math {
 
 inline int isigni(int v) { return (v > 0) - (v < 0); } // -1 / 0 / +1
 
+// Snap an integer to the nearest multiple of `step` (round half away from zero, like Godot's
+// Math::snapped); step == 0 leaves the value unchanged. Used component-wise by Vector2i/3i.snapped.
+inline int isnappedi(int v, int step) {
+    if (step == 0) {
+        return v;
+    }
+    return static_cast<int>(std::llround(static_cast<double>(v) / static_cast<double>(step))) * step;
+}
+
 struct Vector2i {
     int x = 0;
     int y = 0;
@@ -40,6 +49,10 @@ struct Vector2i {
     }
     Vector2i min(const Vector2i& o) const { return {x < o.x ? x : o.x, y < o.y ? y : o.y}; }
     Vector2i max(const Vector2i& o) const { return {x > o.x ? x : o.x, y > o.y ? y : o.y}; }
+    // Component-wise snap to a multiple of `step` — Godot's Vector2i.snapped.
+    Vector2i snapped(const Vector2i& step) const {
+        return {isnappedi(x, step.x), isnappedi(y, step.y)};
+    }
 
     std::int64_t lengthSquared() const {
         return static_cast<std::int64_t>(x) * x + static_cast<std::int64_t>(y) * y;
@@ -81,6 +94,10 @@ struct Vector3i {
     }
     Vector3i max(const Vector3i& o) const {
         return {x > o.x ? x : o.x, y > o.y ? y : o.y, z > o.z ? z : o.z};
+    }
+    // Component-wise snap to a multiple of `step` — Godot's Vector3i.snapped.
+    Vector3i snapped(const Vector3i& step) const {
+        return {isnappedi(x, step.x), isnappedi(y, step.y), isnappedi(z, step.z)};
     }
 
     std::int64_t lengthSquared() const {
