@@ -975,6 +975,48 @@ void MonoBass::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- SubBass ----------------------------------------------------------------
+
+void SubBass::reset() {
+    lp_ = 0.0f;
+    env_ = 0.0f;
+    sq_ = 1.0f;
+    sub_ = 0.0f;
+    prevLp_ = 0.0f;
+}
+
+void SubBass::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    const float aTrack = 1.0f - std::exp(-kTwoPi * cutoff_ / static_cast<float>(sampleRate));
+    const float aTone = 1.0f - std::exp(-kTwoPi * tone_ / static_cast<float>(sampleRate));
+    // Envelope follower time constant (~30 ms) so the sub tracks the bass level without chattering.
+    const float aEnv = 1.0f - std::exp(-1.0f / (0.03f * static_cast<float>(sampleRate)));
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float mid = 0.5f * (l + r);
+        // Isolate the bass fundamental we track.
+        lp_ += aTrack * (mid - lp_);
+        // Flip the square once per input cycle (a rising zero-crossing) → an octave-down square.
+        if (prevLp_ <= 0.0f && lp_ > 0.0f) {
+            sq_ = -sq_;
+        }
+        prevLp_ = lp_;
+        // Follow the tracked bass amplitude so the sub only sounds when bass is present.
+        const float mag = lp_ < 0.0f ? -lp_ : lp_;
+        env_ += aEnv * (mag - env_);
+        // Round the amplitude-tracked square toward a sine with the tone low-pass.
+        const float target = sq_ * env_;
+        sub_ += aTone * (target - sub_);
+        const float add = amount_ * sub_;
+        stereo[2 * i] = l + add;
+        stereo[2 * i + 1] = r + add;
+    }
+}
+
 // ---- AutoPan ----------------------------------------------------------------
 
 void AutoPan::reset() {

@@ -66,6 +66,7 @@ public:
     StereoDelay& stereoDelay() { return stereoDelay_; }
     FormantFilter& formant() { return formant_; }
     MonoBass& monobass() { return monobass_; }
+    SubBass& subbass() { return subbass_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
     Vst3Host& vst3() { return vst3_; }       // a loaded VST3-format plugin
@@ -133,6 +134,7 @@ private:
     StereoDelay stereoDelay_{};
     FormantFilter formant_{};
     MonoBass monobass_{};
+    SubBass subbass_{};
     PluginHost plugin_{};
     ClapHost clap_{};
     Vst3Host vst3_{};

@@ -198,6 +198,10 @@ int main() {
     mixer.autopan().setSyncDivision(3);
     mixer.monobass().setEnabled(true);
     mixer.monobass().setCrossover(90.0f);
+    mixer.subbass().setEnabled(true);
+    mixer.subbass().setAmount(0.6f);
+    mixer.subbass().setCutoff(100.0f);
+    mixer.subbass().setTone(180.0f);
     mixer.autowah().setEnabled(true);
     mixer.autowah().setBaseHz(250.0f);
     mixer.autowah().setRangeHz(2500.0f);
@@ -531,6 +535,9 @@ int main() {
           "auto-pan round-trips");
     check(mixer2.monobass().enabled() && near(mixer2.monobass().crossover(), 90.0f),
           "mono-bass round-trips");
+    check(mixer2.subbass().enabled() && near(mixer2.subbass().amount(), 0.6f) &&
+              near(mixer2.subbass().cutoff(), 100.0f) && near(mixer2.subbass().tone(), 180.0f),
+          "sub-bass round-trips");
     check(mixer2.autowah().enabled() && near(mixer2.autowah().baseHz(), 250.0f) &&
               near(mixer2.autowah().rangeHz(), 2500.0f) &&
               near(mixer2.autowah().sensitivity(), 0.65f) &&

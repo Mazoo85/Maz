@@ -371,6 +371,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autopan().syncDivision() << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
       << "\n";
+    f << "fx subbass " << (mixer.subbass().enabled() ? 1 : 0) << " " << mixer.subbass().amount() << " "
+      << mixer.subbass().cutoff() << " " << mixer.subbass().tone() << "\n";
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
       << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
       << (mixer.utility().mono() ? 1 : 0) << "\n";
@@ -880,6 +882,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> x;
                 mixer.monobass().setEnabled(en != 0);
                 mixer.monobass().setCrossover(x);
+            } else if (which == "subbass") {
+                float amt = 0.0f, cut = 120.0f, tn = 220.0f;
+                ls >> amt >> cut >> tn;
+                mixer.subbass().setEnabled(en != 0);
+                mixer.subbass().setAmount(amt);
+                mixer.subbass().setCutoff(cut);
+                mixer.subbass().setTone(tn);
             } else if (which == "utility") {
                 float gainDb = 0.0f;
                 int invL = 0, invR = 0, mono = 0;

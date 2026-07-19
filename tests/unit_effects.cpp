@@ -1880,6 +1880,57 @@ int main() {
               "bass mono off leaves the low side untouched at width 1");
     }
 
+    // --- Sub bass: generates a tone one octave below the input --------------
+    {
+        // Frequency of the left channel over [startFrame, endFrame), via zero crossings.
+        auto freqOf = [](const std::vector<float>& b, int startFrame, int endFrame, int sampleRate) {
+            int cross = 0;
+            for (int i = startFrame + 1; i < endFrame; ++i) {
+                const float a = b[static_cast<size_t>(2 * (i - 1))];
+                const float c = b[static_cast<size_t>(2 * i)];
+                if ((a <= 0.0f && c > 0.0f) || (a >= 0.0f && c < 0.0f)) {
+                    ++cross;
+                }
+            }
+            const double dur = static_cast<double>(endFrame - startFrame) / sampleRate;
+            return static_cast<double>(cross) / (2.0 * dur);
+        };
+
+        // A 100 Hz input; the generated sub should land near 50 Hz (one octave down).
+        const std::vector<float> in = sineStereo(sr, 100.0, 0.8, sr); // 1 s
+        audio::SubBass sub;
+        sub.setEnabled(true);
+        sub.setAmount(1.0f);
+        sub.setCutoff(150.0f);
+        sub.setTone(220.0f);
+        std::vector<float> wet = in;
+        sub.process(wet.data(), sr, sr);
+
+        // Isolate the added signal (wet − dry) and measure its frequency in the settled second half.
+        std::vector<float> diff(wet.size(), 0.0f);
+        for (size_t i = 0; i < wet.size(); ++i) {
+            diff[i] = wet[i] - in[i];
+        }
+        const double subHz = freqOf(diff, sr / 2, sr, sr);
+        check(subHz > 35.0 && subHz < 65.0, "sub bass generates a tone ~one octave below the input");
+        check(rms(diff) > 0.02, "sub bass actually adds low-end energy");
+
+        // Amount 0 (default) is transparent.
+        audio::SubBass off;
+        check(off.amount() == 0.0f, "sub bass defaults to off");
+        off.setEnabled(true);
+        std::vector<float> flat = in;
+        off.process(flat.data(), sr, sr);
+        bool same = true;
+        for (size_t i = 0; i < flat.size(); ++i) {
+            if (std::fabs(flat[i] - in[i]) > 1e-6f) {
+                same = false;
+                break;
+            }
+        }
+        check(same, "sub bass at amount 0 leaves the signal unchanged");
+    }
+
     // --- Gate: passes loud signal, attenuates quiet signal ------------------
     {
         // A loud tone (above threshold) passes ~unchanged.

@@ -624,6 +624,40 @@ private:
     float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state per channel
 };
 
+// A sub-harmonic bass generator: synthesizes a tone one octave below the input's low-frequency
+// content and mixes it in, reinforcing weak kicks/basslines with club-ready sub. It low-passes the
+// centre (mid) signal to isolate the fundamental, flips a square once per input cycle (halving the
+// frequency → one octave down), tracks the bass amplitude with an envelope follower so it only
+// sounds when bass is present, and rounds the square with a tone low-pass. The generated sub is
+// centred (mono) so the low end stays tight. `amount` 0 (default) = off (dry passes untouched).
+class SubBass : public Effect {
+public:
+    SubBass() { enabled_ = false; }
+    const char* name() const override { return "Sub Bass"; }
+    // Wet level of the generated sub-octave, mixed on top of the dry signal (0 = off, 1 = full).
+    void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    // Only bass below this frequency is tracked/reinforced (the generator follows this band).
+    void setCutoff(float hz) { cutoff_ = hz < 40.0f ? 40.0f : (hz > 320.0f ? 320.0f : hz); }
+    // Tone of the generated sub: a low-pass that rounds the square toward a sine (softer = lower Hz).
+    void setTone(float hz) { tone_ = hz < 60.0f ? 60.0f : (hz > 1000.0f ? 1000.0f : hz); }
+    float amount() const { return amount_; }
+    float cutoff() const { return cutoff_; }
+    float tone() const { return tone_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float amount_ = 0.0f;   // wet sub level; 0 = off
+    float cutoff_ = 120.0f; // isolate/track bass below this Hz
+    float tone_ = 220.0f;   // low-pass on the generated sub
+    float lp_ = 0.0f;       // one-pole low-pass state on the tracked mid
+    float env_ = 0.0f;      // amplitude follower on the tracked bass
+    float sq_ = 1.0f;       // current square-wave sign (±1), flips each input cycle
+    float sub_ = 0.0f;      // tone-smoothed sub output state
+    float prevLp_ = 0.0f;   // previous low-passed sample (for zero-cross detection)
+};
+
 // An auto-panner: an internal LFO sweeps the stereo position at `rate` Hz, `depth` 0..1 (0 = none,
 // 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
 class AutoPan : public Effect {

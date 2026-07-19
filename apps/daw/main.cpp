@@ -1689,6 +1689,22 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("Hz##mono", &x, 20.0f, 500.0f, "%.0f")) mx.monobass().setCrossover(x);
     }
     {
+        bool en = mx.subbass().enabled();
+        if (ImGui::Checkbox("Sub Bass", &en)) mx.subbass().setEnabled(en);
+        float amt = mx.subbass().amount();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("amt##sub", &amt, 0.0f, 1.0f, "%.2f")) mx.subbass().setAmount(amt);
+        float cut = mx.subbass().cutoff();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("track Hz##sub", &cut, 40.0f, 320.0f, "%.0f")) mx.subbass().setCutoff(cut);
+        float tn = mx.subbass().tone();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("tone Hz##sub", &tn, 60.0f, 1000.0f, "%.0f")) mx.subbass().setTone(tn);
+    }
+    {
         bool en = mx.autowah().enabled();
         if (ImGui::Checkbox("Auto-Wah", &en)) mx.autowah().setEnabled(en);
         float base = mx.autowah().baseHz();
