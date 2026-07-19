@@ -11833,6 +11833,13 @@ void testStringUtils() {
     CHECK(su::numToString(3.14159, 3) == "3.142");
     CHECK(su::numToString(2.0, 0) == "2");
     CHECK(su::numToString(2.7, 0) == "3");
+    // M358: intToBase — Godot String.num_int64 (arbitrary base 2..36, negatives, INT64_MIN)
+    CHECK((su::intToBase(255) == "255" && su::intToBase(255, 16) == "ff"));
+    CHECK((su::intToBase(255, 16, true) == "FF" && su::intToBase(10, 2) == "1010"));
+    CHECK((su::intToBase(35, 36) == "z" && su::intToBase(36, 36) == "10"));
+    CHECK((su::intToBase(0, 16) == "0" && su::intToBase(-255, 16) == "-ff"));
+    CHECK((su::intToBase(255, 99) == "255")); // out-of-range base clamps to 10
+    CHECK((su::intToBase(INT64_MIN, 10) == "-9223372036854775808"));
     // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
     CHECK(su::padDecimals("12.5", 3) == "12.500");
     CHECK(su::padDecimals("12", 2) == "12.00");

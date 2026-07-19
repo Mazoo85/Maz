@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
@@ -1044,6 +1045,31 @@ inline std::string numToString(double value, int decimals = 0) {
     char buf[64];
     std::snprintf(buf, sizeof(buf), "%.*f", decimals, value);
     return std::string(buf);
+}
+
+// Convert an integer to its text in an arbitrary base (2..36) — Godot's String.num_int64.
+// Digits are 0-9 then a-z (uppercase A-Z when `uppercaseHex` is true). Negatives get a leading '-';
+// zero is "0". Bases outside 2..36 are clamped to 10. INT64_MIN is handled via unsigned magnitude.
+inline std::string intToBase(std::int64_t value, int base = 10, bool uppercaseHex = false) {
+    if (base < 2 || base > 36) {
+        base = 10;
+    }
+    const char a = uppercaseHex ? 'A' : 'a';
+    const bool negative = value < 0;
+    // Take the magnitude in unsigned space so INT64_MIN doesn't overflow on negation.
+    std::uint64_t n = negative ? (~static_cast<std::uint64_t>(value) + 1u) : static_cast<std::uint64_t>(value);
+    const auto ubase = static_cast<std::uint64_t>(base);
+    std::string digits;
+    do {
+        const auto d = static_cast<int>(n % ubase);
+        digits += static_cast<char>(d < 10 ? '0' + d : a + (d - 10));
+        n /= ubase;
+    } while (n != 0);
+    if (negative) {
+        digits += '-';
+    }
+    std::reverse(digits.begin(), digits.end());
+    return digits;
 }
 
 // Godot's String.pad_decimals: make the fractional part exactly `digits` long by TRUNCATING extra

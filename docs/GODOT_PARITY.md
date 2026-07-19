@@ -204,7 +204,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   complementing the scalar-modulus posmod, verified per-component incl. negative modulus sign;
   M357 adds Vector2i/Vector3i maxAxisIndex / minAxisIndex — Godot Vector2i/Vector3i.max_axis_index /
   min_axis_index (axis index of the largest/smallest component), with Godot's exact tie-breaking
-  (max: earliest axis wins; min: latest axis wins), verified incl. all-equal components),
+  (max: earliest axis wins; min: latest axis wins), verified incl. all-equal components; M358 adds
+  intToBase (StringUtils) — Godot String.num_int64: integer→text in an arbitrary base 2..36 (0-9 then
+  a-z or A-Z), negatives prefixed '-', bases out of range clamp to 10, INT64_MIN handled via unsigned
+  magnitude, verified across bases/signs),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
