@@ -201,6 +201,7 @@
 #include "maz/math/Delaunay.hpp"
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Voronoi.hpp"
+#include "maz/math/MarchingSquares.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2220,6 +2221,51 @@ void testGeometry2D() {
         CHECK((c1 == vec2(1, 0)));
         CHECK_NEAR(c2.x, 5.0f, 1e-4f);
         CHECK_NEAR(c2.y, 0.0f, 1e-4f);
+    }
+
+    // --- M406: marchingSquares (iso-contour extraction) ---
+    {
+        auto msHasSeg = [](const std::vector<math::ContourSegment>& segs, vec2 p, vec2 q,
+                           float e = 1e-4f) {
+            auto eq = [&](vec2 u, vec2 v) {
+                return std::fabs(u.x - v.x) < e && std::fabs(u.y - v.y) < e;
+            };
+            for (const auto& s : segs) {
+                if ((eq(s.a, p) && eq(s.b, q)) || (eq(s.a, q) && eq(s.b, p))) return true;
+            }
+            return false;
+        };
+        // Single cell, only corner c inside (case 4): one segment E1(1,0.5)-E2(0.5,1).
+        std::vector<float> msCell = {0, 0, 0, 1}; // f[y*w+x]: a=0,b=0,d=0,c=1
+        auto msSeg = math::marchingSquares(msCell, 2, 2, 0.5f);
+        CHECK(msSeg.size() == 1);
+        CHECK(msHasSeg(msSeg, vec2(1.0f, 0.5f), vec2(0.5f, 1.0f)));
+        // All-below / all-above -> no contour.
+        CHECK(math::marchingSquares(std::vector<float>{0, 0, 0, 0}, 2, 2, 1.0f).empty());
+        CHECK(math::marchingSquares(std::vector<float>{5, 5, 5, 5}, 2, 2, 1.0f).empty());
+        // Linear ramp f(x,y)=x on 4x4, threshold 1.5 -> vertical line x=1.5, 3 segments.
+        std::vector<float> msRamp(16);
+        for (int yy = 0; yy < 4; ++yy)
+            for (int xx = 0; xx < 4; ++xx)
+                msRamp[static_cast<std::size_t>(yy * 4 + xx)] = static_cast<float>(xx);
+        auto msLine = math::marchingSquares(msRamp, 4, 4, 1.5f);
+        CHECK(msLine.size() == 3);
+        for (const auto& s : msLine) {
+            CHECK(std::fabs(s.a.x - 1.5f) < 1e-4f);
+            CHECK(std::fabs(s.b.x - 1.5f) < 1e-4f);
+        }
+        // origin + cellSize transform.
+        auto msW = math::marchingSquares(msCell, 2, 2, 0.5f, vec2(10.0f, 20.0f), vec2(2.0f, 4.0f));
+        CHECK(msHasSeg(msW, vec2(12.0f, 22.0f), vec2(11.0f, 24.0f)));
+        // Saddle (a,c inside): 2 segments.
+        CHECK(math::marchingSquares(std::vector<float>{1, 0, 0, 1}, 2, 2, 0.5f).size() == 2);
+        // Central hot corner in 3x3 -> closed loop of 4 segments.
+        std::vector<float> msCentre(9, 0.0f);
+        msCentre[4] = 1.0f;
+        CHECK(math::marchingSquares(msCentre, 3, 3, 0.5f).size() == 4);
+        // Degenerate sizes -> empty.
+        CHECK(math::marchingSquares(std::vector<float>{1.0f}, 1, 1, 0.5f).empty());
+        CHECK(math::marchingSquares(std::vector<float>{1, 2, 3}, 2, 2, 0.5f).empty());
     }
 }
 

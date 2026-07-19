@@ -231,6 +231,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Verified against exact known cases — two-point diameter, square corners → radius √2, collinear →
   span/2, an interior point not enlarging it, acute-triangle circumcircle — plus all-points-inside
   and boundary-tightness on a random cloud;
+  **marching squares** M406 (`math::marchingSquares` / `ContourSegment` — extract the iso-contour
+  (line segments) of a 2D scalar field at a threshold; the 2D sibling of marching cubes and the tool
+  behind metaball outlines, fluid/lava surfaces, terrain contour lines and fog-of-war edges. 16-case
+  corner classification, linear-interpolated edge crossings for a smooth contour, and the two saddle
+  cases resolved by the cell-centre average. A beyond-Godot utility (Godot has no direct equivalent).
+  Verified against exact cases — a single-cell crossing at known interpolated points, all-below /
+  all-above → empty, a linear ramp → the exact vertical iso-line (3 segments), origin/cell-size
+  transform, a saddle → 2 segments, a central hot corner → a closed 4-segment loop, and degenerate
+  sizes → empty;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
