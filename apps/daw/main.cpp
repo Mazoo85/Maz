@@ -2407,6 +2407,28 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.formant().setMorph(morphPos);
     }
     {
+        auto& vc = mx.vocoder();
+        bool en = vc.enabled();
+        if (ImGui::Checkbox("Vocoder", &en)) vc.setEnabled(en);
+        int carrier = static_cast<int>(vc.carrier());
+        const char* carriers[] = {"Saw", "Noise"};
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("carrier##voc", &carrier, carriers, 2))
+            vc.setCarrier(static_cast<audio::Vocoder::Carrier>(carrier));
+        float chz = vc.carrierHz();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("pitch##voc", &chz, 20.0f, 1000.0f, "%.0f Hz")) vc.setCarrierHz(chz);
+        float rel = vc.releaseMs();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("release##voc", &rel, 1.0f, 500.0f, "%.0f ms")) vc.setReleaseMs(rel);
+        float vmix = vc.mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##voc", &vmix, 0.0f, 1.0f, "%.2f")) vc.setMix(vmix);
+    }
+    {
         bool en = mx.utility().enabled();
         if (ImGui::Checkbox("Utility", &en)) mx.utility().setEnabled(en);
         float gdb = mx.utility().gainDb();

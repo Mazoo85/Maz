@@ -535,6 +535,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
       << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << "\n";
+    f << "fx vocoder " << (mixer.vocoder().enabled() ? 1 : 0) << " "
+      << static_cast<int>(mixer.vocoder().carrier()) << " " << mixer.vocoder().carrierHz() << " "
+      << mixer.vocoder().releaseMs() << " " << mixer.vocoder().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << " " << mixer.tape().wowFlutter()
       << "\n";
@@ -1298,6 +1301,18 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     mixer.formant().setMorphEnabled(morphEn != 0);
                     mixer.formant().setMorph(morphPos);
                 }
+            } else if (which == "vocoder") {
+                int carrier = 0;
+                float chz = 110.0f, rel = 40.0f, mix = 1.0f;
+                ls >> carrier >> chz >> rel >> mix;
+                if (carrier < 0 || carrier > static_cast<int>(Vocoder::Carrier::Noise)) {
+                    carrier = 0;
+                }
+                mixer.vocoder().setEnabled(en != 0);
+                mixer.vocoder().setCarrier(static_cast<Vocoder::Carrier>(carrier));
+                mixer.vocoder().setCarrierHz(chz);
+                mixer.vocoder().setReleaseMs(rel);
+                mixer.vocoder().setMix(mix);
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;

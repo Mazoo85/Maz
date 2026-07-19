@@ -77,6 +77,7 @@ public:
     StereoDelay& stereoDelay() { return stereoDelay_; }
     ReverseDelay& reverseDelay() { return revdelay_; }
     FormantFilter& formant() { return formant_; }
+    Vocoder& vocoder() { return vocoder_; }
     MonoBass& monobass() { return monobass_; }
     SubBass& subbass() { return subbass_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
@@ -172,6 +173,7 @@ private:
     StereoDelay stereoDelay_{};
     ReverseDelay revdelay_{};
     FormantFilter formant_{};
+    Vocoder vocoder_{};
     MonoBass monobass_{};
     SubBass subbass_{};
     PluginHost plugin_{};

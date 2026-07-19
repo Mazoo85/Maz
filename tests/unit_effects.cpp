@@ -2702,6 +2702,46 @@ int main() {
         check(same, "a disabled formant filter is transparent");
     }
 
+    // --- Vocoder: the modulator's spectral envelope shapes the carrier -------
+    {
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // The carrier is a fixed low saw; the modulator (input) is a tone whose band the output should
+        // follow. A low-band modulator → low-band output; a high-band modulator → high-band output.
+        auto voc = [&](double modFreq) {
+            audio::Vocoder v;
+            v.setEnabled(true);
+            v.setCarrier(audio::Vocoder::Carrier::Saw);
+            v.setCarrierHz(110.0f);
+            v.setMix(1.0f);
+            std::vector<float> b = sineStereo(sr, modFreq, 0.5, sr);
+            v.process(b.data(), sr, sr);
+            return std::vector<float>(b.end() - static_cast<long>(sr), b.end()); // settled 0.5 s
+        };
+        const std::vector<float> lo = voc(300.0);
+        const std::vector<float> hi = voc(4000.0);
+        check(power(lo, 300.0, sr) > power(lo, 4000.0, sr) * 3.0,
+              "vocoder: a low modulator puts the carrier energy in the low band");
+        check(power(hi, 4000.0, sr) > power(hi, 300.0, sr) * 3.0,
+              "vocoder: a high modulator puts the carrier energy in the high band");
+        // Disabled → transparent; defaults off.
+        audio::Vocoder off;
+        std::vector<float> sig = sineStereo(1000, 500.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        off.process(sig.data(), 1000, sr);
+        check(sig == ref, "a disabled vocoder is transparent");
+        check(!audio::Vocoder().enabled(), "vocoder defaults to off");
+    }
+
     // --- Utility: gain trim, phase invert, mono-sum --------------------------
     {
         // Phase invert on the left channel negates it (right untouched).

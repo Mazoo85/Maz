@@ -4,6 +4,7 @@
 #include "maz/audio/Filter.hpp" // Biquad
 
 #include <array>
+#include <cstdint>
 #include <vector>
 
 namespace maz::audio {
@@ -1365,6 +1366,43 @@ private:
     bool morphEnabled_ = false; // false = discrete vowel; true = continuous morph by morph_
     float morph_ = 0.0f;        // morph position 0..4 across A,E,I,O,U
     StateVariableFilter f1L_{}, f2L_{}, f1R_{}, f2R_{};
+};
+
+// A channel vocoder (Fruity Vocoder-style, with an internal carrier). The input is the *modulator*:
+// its spectral envelope is measured across a bank of band-pass filters, and that per-band envelope is
+// imposed on a self-generated *carrier* (a buzzy saw at a chosen pitch, or noise for a whisper),
+// producing the classic robot/talkbox voice — the input's articulation over the carrier's tone. Each
+// band follows the modulator with a fast attack / slower release; more bands = more intelligible.
+// `mix` blends dry/wet. Mono-summed detection, applied to a mono carrier, so the output is centred.
+class Vocoder : public Effect {
+public:
+    static constexpr int kBands = 16;
+    enum class Carrier { Saw, Noise };
+    Vocoder() { enabled_ = false; }
+    const char* name() const override { return "Vocoder"; }
+    void setCarrier(Carrier c) { carrier_ = c; }
+    void setCarrierHz(float hz) { carrierHz_ = hz < 20.0f ? 20.0f : (hz > 1000.0f ? 1000.0f : hz); }
+    // Envelope-follower release (ms): how fast each band's level falls — longer smears the formants.
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : (ms > 500.0f ? 500.0f : ms); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    Carrier carrier() const { return carrier_; }
+    float carrierHz() const { return carrierHz_; }
+    float releaseMs() const { return releaseMs_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    Carrier carrier_ = Carrier::Saw;
+    float carrierHz_ = 110.0f;
+    float releaseMs_ = 40.0f;
+    float mix_ = 1.0f;
+    StateVariableFilter modBP_[kBands]; // per-band analysis (modulator) filters
+    StateVariableFilter carBP_[kBands]; // per-band synthesis (carrier) filters
+    float env_[kBands] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double carPhase_ = 0.0;      // saw carrier phase
+    uint32_t rng_ = 0x2545F491u; // noise carrier state
 };
 
 // A mid/side stereo widener. Splits the signal into mid (L+R) and side (L-R), scales the side by

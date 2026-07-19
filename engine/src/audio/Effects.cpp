@@ -2206,6 +2206,69 @@ void FormantFilter::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Vocoder ----------------------------------------------------------------
+
+void Vocoder::reset() {
+    for (int k = 0; k < kBands; ++k) {
+        modBP_[k].reset();
+        carBP_[k].reset();
+        env_[k] = 0.0f;
+    }
+    carPhase_ = 0.0;
+    rng_ = 0x2545F491u;
+}
+
+void Vocoder::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // Log-spaced band centres from 180 Hz to 7.5 kHz (the vocal-intelligibility range).
+    float fc[kBands];
+    for (int k = 0; k < kBands; ++k) {
+        fc[k] = 180.0f * std::pow(7500.0f / 180.0f, static_cast<float>(k) / (kBands - 1));
+    }
+    const float atk = 1.0f - std::exp(-1.0f / (0.005f * sr));            // ~5 ms attack
+    const float rel = 1.0f - std::exp(-1.0f / (releaseMs_ * 0.001f * sr));
+    const double carInc = static_cast<double>(carrierHz_) / sr;
+    constexpr float kBandQ = 5.0f;
+    // Per-band output scale so the summed bands land near unity for a full-scale input.
+    const float scale = 2.5f / std::sqrt(static_cast<float>(kBands));
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float mod = 0.5f * (l + r); // mono modulator (the input's articulation)
+        // Generate the carrier: a buzzy saw (pitched) or white noise (whisper).
+        float car;
+        if (carrier_ == Carrier::Saw) {
+            car = static_cast<float>(2.0 * carPhase_ - 1.0);
+            carPhase_ += carInc;
+            if (carPhase_ >= 1.0) {
+                carPhase_ -= 1.0;
+            }
+        } else {
+            rng_ ^= rng_ << 13;
+            rng_ ^= rng_ >> 17;
+            rng_ ^= rng_ << 5;
+            car = static_cast<float>(rng_) / 2147483648.0f - 1.0f;
+        }
+        float wet = 0.0f;
+        for (int k = 0; k < kBands; ++k) {
+            const float m = modBP_[k].process(mod, fc[k], kBandQ, sampleRate,
+                                              StateVariableFilter::Mode::BandPass);
+            const float a = std::fabs(m);
+            const float c = a > env_[k] ? atk : rel;
+            env_[k] = c * a + (1.0f - c) * env_[k];
+            const float cb = carBP_[k].process(car, fc[k], kBandQ, sampleRate,
+                                              StateVariableFilter::Mode::BandPass);
+            wet += cb * env_[k];
+        }
+        wet *= scale;
+        stereo[2 * i] = l * (1.0f - mix_) + wet * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wet * mix_;
+    }
+}
+
 // ---- StereoWidener ----------------------------------------------------------
 
 void StereoWidener::reset() {
