@@ -75,6 +75,7 @@
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedTrig.hpp"
+#include "maz/math/FixedMath.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
@@ -16460,6 +16461,109 @@ void testPcg32() {
 
         // fixTwoPi == 2 * fixPi in the fixed representation (argument reduction relies on this).
         CHECK(fixTwoPi().raw == fixPi().raw * 2);
+    }
+
+    // --- M418: FixedMath (deterministic fixed-point clamp/lerp/move-toward/rotate helpers) ---
+    {
+        using FM = maz::core::Fixed;
+        using FMV = maz::math::FixedVec2;
+        using maz::math::fixMin;
+        using maz::math::fixMax;
+        using maz::math::fixClamp;
+        using maz::math::fixSign;
+        using maz::math::fixLerp;
+        using maz::math::fixMoveToward;
+        using maz::math::fixRotated;
+        using maz::math::fixFromAngle;
+        using maz::math::fixClampLength;
+        using maz::math::fixHalfPi;
+        using maz::math::fixPi;
+
+        // Scalar min/max/clamp/sign.
+        CHECK(fixMin(FM::fromInt(2), FM::fromInt(5)) == FM::fromInt(2));
+        CHECK(fixMax(FM::fromInt(2), FM::fromInt(5)) == FM::fromInt(5));
+        CHECK(fixClamp(FM::fromInt(7), FM::fromInt(0), FM::fromInt(5)) == FM::fromInt(5));
+        CHECK(fixClamp(FM::fromInt(-3), FM::fromInt(0), FM::fromInt(5)) == FM::zero());
+        CHECK(fixClamp(FM::fromInt(3), FM::fromInt(0), FM::fromInt(5)) == FM::fromInt(3));
+        CHECK(fixSign(FM::fromInt(9)) == FM::one());
+        CHECK(fixSign(FM::fromInt(-9)) == -FM::one());
+        CHECK(fixSign(FM::zero()) == FM::zero());
+
+        // Scalar lerp: exact endpoints + exact midpoint.
+        CHECK(fixLerp(FM::fromInt(10), FM::fromInt(20), FM::zero()) == FM::fromInt(10));
+        CHECK(fixLerp(FM::fromInt(10), FM::fromInt(20), FM::one()) == FM::fromInt(20));
+        CHECK(fixLerp(FM::fromInt(10), FM::fromInt(20), FM::half()) == FM::fromInt(15));
+
+        // Scalar move-toward: no overshoot, exact stop, both directions.
+        CHECK(fixMoveToward(FM::fromInt(0), FM::fromInt(10), FM::fromInt(3)) == FM::fromInt(3));
+        CHECK(fixMoveToward(FM::fromInt(0), FM::fromInt(10), FM::fromInt(100)) == FM::fromInt(10));
+        CHECK(fixMoveToward(FM::fromInt(10), FM::fromInt(0), FM::fromInt(3)) == FM::fromInt(7));
+        CHECK(fixMoveToward(FM::fromInt(5), FM::fromInt(5), FM::fromInt(3)) == FM::fromInt(5));
+
+        // Vector lerp: exact endpoints + exact midpoint.
+        CHECK((fixLerp(FMV::fromInt(0, 0), FMV::fromInt(10, 20), FM::zero()) == FMV::fromInt(0, 0)));
+        CHECK((fixLerp(FMV::fromInt(0, 0), FMV::fromInt(10, 20), FM::one()) == FMV::fromInt(10, 20)));
+        CHECK((fixLerp(FMV::fromInt(0, 0), FMV::fromInt(10, 20), FM::half()) == FMV::fromInt(5, 10)));
+
+        // Vector move-toward along a 3-4-5 leg: exact stop, clamp, midpoint, and no-op on same point.
+        CHECK((fixMoveToward(FMV::fromInt(0, 0), FMV::fromInt(3, 4), FM::fromInt(5)) == FMV::fromInt(3, 4)));
+        CHECK((fixMoveToward(FMV::fromInt(0, 0), FMV::fromInt(3, 4), FM::fromInt(100)) == FMV::fromInt(3, 4)));
+        {
+            const FMV mid = fixMoveToward(FMV::fromInt(0, 0), FMV::fromInt(3, 4), FM::fromRaw(5 << 15));
+            CHECK(std::fabs(mid.x.toDouble() - 1.5) < 3e-3);
+            CHECK(std::fabs(mid.y.toDouble() - 2.0) < 3e-3);
+        }
+        CHECK((fixMoveToward(FMV::fromInt(4, 4), FMV::fromInt(4, 4), FM::fromInt(3)) == FMV::fromInt(4, 4)));
+
+        // Rotate: identity, quarter turn, half turn, and length preservation.
+        {
+            const FMV r0 = fixRotated(FMV::fromInt(3, 4), FM::zero());
+            CHECK(std::fabs(r0.x.toDouble() - 3.0) < 3e-3);
+            CHECK(std::fabs(r0.y.toDouble() - 4.0) < 3e-3);
+            const FMV q = fixRotated(FMV::fromInt(1, 0), fixHalfPi());
+            CHECK(std::fabs(q.x.toDouble() - 0.0) < 3e-3);
+            CHECK(std::fabs(q.y.toDouble() - 1.0) < 3e-3);
+            const FMV pp = fixRotated(FMV::fromInt(1, 0), fixPi());
+            CHECK(std::fabs(pp.x.toDouble() - (-1.0)) < 3e-3);
+            CHECK(std::fabs(pp.y.toDouble() - 0.0) < 3e-3);
+            const FMV rr = fixRotated(FMV::fromInt(3, 4), FM::fromRaw(40000));
+            CHECK(std::fabs(rr.length().toDouble() - 5.0) < 6e-3);
+        }
+
+        // fromAngle: unit vector and scaled.
+        {
+            const FMV u = fixFromAngle(FM::zero());
+            CHECK(std::fabs(u.x.toDouble() - 1.0) < 3e-3);
+            CHECK(std::fabs(u.y.toDouble() - 0.0) < 3e-3);
+            const FMV up = fixFromAngle(fixHalfPi(), FM::fromInt(2));
+            CHECK(std::fabs(up.x.toDouble() - 0.0) < 6e-3);
+            CHECK(std::fabs(up.y.toDouble() - 2.0) < 6e-3);
+        }
+
+        // clampLength: long shrinks to max, short passes through unchanged, zero stays zero.
+        {
+            const FMV clamped = fixClampLength(FMV::fromInt(3, 4), FM::fromRaw(5 << 15));
+            CHECK(std::fabs(clamped.length().toDouble() - 2.5) < 5e-3);
+            CHECK((fixClampLength(FMV::fromInt(3, 4), FM::fromInt(10)) == FMV::fromInt(3, 4)));
+            CHECK((fixClampLength(FMV::zero(), FM::fromInt(3)) == FMV::zero()));
+        }
+
+        // Determinism: an integer-only chase+rotate sim is bit-identical every run.
+        auto fmsim = []() {
+            FMV p = FMV::fromInt(-8, 3);
+            const FMV target = FMV::fromInt(9, -5);
+            FM ang = FM::zero();
+            std::int64_t h = 0;
+            for (int i = 0; i < 400; ++i) {
+                p = fixMoveToward(p, target, FM::fromRaw(6000));
+                ang += FM::fromRaw(900);
+                const FMV v = fixRotated(FMV::fromInt(1, 0), ang);
+                h ^= (static_cast<std::int64_t>(p.x.raw) << 1) ^ p.y.raw
+                     ^ (static_cast<std::int64_t>(v.x.raw) << 2);
+            }
+            return h;
+        };
+        CHECK(fmsim() == fmsim());
     }
 }
 

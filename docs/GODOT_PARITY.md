@@ -343,6 +343,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   several turns (worst error ~2e-4), exact-enough cardinal anchors at 0/±π/2/π, the Pythagorean
   identity sin²+cos²≈1 throughout, fixSinCos agreeing with the standalone fixSin/fixCos, 2π==2·π in the
   fixed representation, and a 256-step accumulating sin/cos run that is bit-identical every time;
+  **fixed-point math helpers** M418 (`math::fixMin`/`fixMax`/`fixClamp`/`fixSign`/`fixLerp`/`fixMoveToward`
+  for scalars and `fixLerp`/`fixMoveToward`/`fixRotated`/`fixFromAngle`/`fixClampLength` for FixedVec2 —
+  the everyday clamp/interpolate/chase-toward/rotate operations gameplay leans on constantly, done in
+  pure integer fixed-point so they are bit-identical on every machine. These are the deterministic twins
+  of Godot's float lerp/clamp/move_toward and Vector2.rotated/from_angle/limit_length, which Godot has
+  no deterministic form of; built on M415/M416/M417. Verified with exact endpoints and midpoints for
+  lerp, no-overshoot exact stops for move_toward (scalar and along a 3-4-5 leg), quarter/half-turn and
+  length-preserving rotation, from_angle unit/scaled vectors, length clamping, and a 400-step integer
+  chase+rotate simulation that is bit-identical every run;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
