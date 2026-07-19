@@ -99,6 +99,8 @@ Automation::Automation() {
     lane(AutoTarget::RotaryRate).hi = 7.0f; // tremolo (fast)
     lane(AutoTarget::DelayTime).lo = 40.0f;
     lane(AutoTarget::DelayTime).hi = 400.0f;
+    lane(AutoTarget::TremoloDepth).lo = 0.0f;
+    lane(AutoTarget::TremoloDepth).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -169,6 +171,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Rotary Rate";
     case AutoTarget::DelayTime:
         return "Delay Time";
+    case AutoTarget::TremoloDepth:
+        return "Tremolo Depth";
     case AutoTarget::Count:
         break;
     }
@@ -373,6 +377,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the echo time (tape-stop / pitch-warp repeats as the delay buffer re-reads).
             engine.mixer().delay().setEnabled(true);
             engine.mixer().delay().setTime(v);
+            break;
+        case AutoTarget::TremoloDepth:
+            // Fade the tremolo / trance-gate depth in and out (bring the gating up over a build).
+            engine.mixer().tremolo().setEnabled(true);
+            engine.mixer().tremolo().setDepth(v);
             break;
         case AutoTarget::Count:
             break;

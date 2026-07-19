@@ -44,6 +44,7 @@ enum class AutoTarget {
     FreqShift,
     RotaryRate,
     DelayTime,
+    TremoloDepth,
     Count
 };
 

@@ -495,6 +495,12 @@ int main() {
     dtLane.lfo.rateHz = 0.25f;
     dtLane.lo = 60.0f;
     dtLane.hi = 350.0f;
+    audio::AutoLane& tdLane = automation.lane(audio::AutoTarget::TremoloDepth);
+    tdLane.enabled = true;
+    tdLane.lfo.shape = audio::Waveform::Square;
+    tdLane.lfo.rateHz = 0.5f;
+    tdLane.lo = 0.1f;
+    tdLane.hi = 0.95f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -931,6 +937,10 @@ int main() {
     check(dt2.enabled && dt2.lfo.shape == audio::Waveform::Saw && near(dt2.lo, 60.0f) &&
               near(dt2.hi, 350.0f),
           "delay-time automation lane round-trips");
+    const audio::AutoLane& td2 = automation2.lane(audio::AutoTarget::TremoloDepth);
+    check(td2.enabled && td2.lfo.shape == audio::Waveform::Square && near(td2.lo, 0.1f) &&
+              near(td2.hi, 0.95f),
+          "tremolo-depth automation lane round-trips");
 
     // Pluck (Karplus-Strong) engine mode round-trips (the new SynthMode index).
     {

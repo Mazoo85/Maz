@@ -289,6 +289,25 @@ int main() {
               "delay-time automation reaches its short bound");
     }
 
+    // --- Tremolo-depth target (gate-in over a build) -------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& td = autom.lane(audio::AutoTarget::TremoloDepth);
+        td.enabled = true;
+        td.lfo.shape = audio::Waveform::Sine;
+        td.lfo.rateHz = 1.0f;
+        td.lo = 0.0f;
+        td.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().tremolo().enabled() && eng.mixer().tremolo().depth() > 0.9f,
+              "automating tremolo depth brings the gating in (and enables it)");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().tremolo().depth() < 0.1f,
+              "tremolo-depth automation fades the gating back out");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;
