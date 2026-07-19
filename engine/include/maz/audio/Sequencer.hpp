@@ -17,6 +17,7 @@ struct Pattern {
     std::vector<uint8_t> grid; // channel-major: grid[channel * numSteps + step]
     std::vector<uint8_t> prob; // per-step trigger probability, 0..255 (255 = always). Parallel to grid.
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
+    std::vector<int8_t> tune;     // per-step pitch offset in semitones (0 = channel pitch). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
@@ -244,6 +245,11 @@ public:
     int stepRatchet(int channel, int step) const;
     void setStepRatchet(int channel, int step, int count);
 
+    // Per-step pitch offset in semitones (±24, 0 = the channel's own tuning): the channel-rack graph
+    // editor's pitch row, so individual hits can be tuned up/down (melodic toms, pitched hats).
+    int stepTune(int channel, int step) const;
+    void setStepTune(int channel, int step, int semitones);
+
     // Rotate a channel's whole step row by `offset` steps with wraparound (positive = later, negative
     // = earlier), carrying each step's velocity, probability, and ratchet along with it. A quick way
     // to shift a groove around the bar.
@@ -344,6 +350,7 @@ private:
         int channel;
         float velocity;
         int framesUntil;
+        float tune = 0.0f; // per-step pitch offset carried to the sub-hit
     };
     std::vector<RatchetHit> ratchets_; // pending ratchet retriggers
 

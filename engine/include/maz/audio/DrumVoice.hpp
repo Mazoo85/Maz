@@ -39,8 +39,9 @@ public:
     float drive() const { return drive_; }
 
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
-    // hit's loudness for per-step accents.
-    void trigger(float velocity = 1.0f);
+    // hit's loudness for per-step accents; `extraSemitones` is a per-hit pitch offset (added to the
+    // channel's base tune) captured at strike time, for per-step pitch.
+    void trigger(float velocity = 1.0f, float extraSemitones = 0.0f);
 
     // Choke this voice: ramp it to silence over a few ms (click-free), used by choke groups so one
     // drum cuts off another (e.g. a closed hat chokes an open hat).
@@ -61,6 +62,7 @@ private:
     float gain_ = 0.8f;
     float level_ = 1.0f;
     float tuneSemitones_ = 0.0f;
+    float hitTune_ = 0.0f; // pitch (base + per-step offset) captured at the last trigger()
     float decayMul_ = 1.0f;
     float drive_ = 0.0f; // tanh saturation amount; 0 = clean
 

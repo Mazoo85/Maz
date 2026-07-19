@@ -34,13 +34,16 @@ double decayTau(Drum type) {
 }
 } // namespace
 
-void DrumVoice::trigger(float velocity) {
+void DrumVoice::trigger(float velocity, float extraSemitones) {
     active_ = true;
     choking_ = false;
     chokeGain_ = 1.0f;
     t_ = 0.0;
     phase_ = 0.0;
     velocity_ = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
+    // Capture the hit's pitch (base tune + a per-step offset) at strike time, so a later per-step
+    // pitch change never retroactively bends a still-ringing hit.
+    hitTune_ = tuneSemitones_ + extraSemitones;
 }
 
 void DrumVoice::choke() {
@@ -63,7 +66,7 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
     }
     const double dt = 1.0 / static_cast<double>(sampleRate);
     const double tau = decayTau(type_) * static_cast<double>(decayMul_);
-    const double pitchMul = std::pow(2.0, static_cast<double>(tuneSemitones_) / 12.0);
+    const double pitchMul = std::pow(2.0, static_cast<double>(hitTune_) / 12.0);
 
     for (int i = 0; i < frames; ++i) {
         const double env = std::exp(-t_ / tau);

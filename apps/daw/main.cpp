@@ -553,7 +553,9 @@ void buildRackUI(audio::Sequencer& seq) {
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    if (ImGui::GetIO().KeyShift) {
+                    if (ImGui::GetIO().KeyCtrl) {
+                        seq.setStepTune(c, s, seq.stepTune(c, s) + (wheel > 0.0f ? 1 : -1));
+                    } else if (ImGui::GetIO().KeyShift) {
                         seq.setStepRatchet(c, s, seq.stepRatchet(c, s) + (wheel > 0.0f ? 1 : -1));
                     } else {
                         seq.setStepProbability(c, s, seq.stepProbability(c, s) + wheel * 0.1f);
@@ -561,8 +563,9 @@ void buildRackUI(audio::Sequencer& seq) {
                 }
                 const float pr = seq.stepProbability(c, s);
                 const int rt = seq.stepRatchet(c, s);
-                if (pr < 0.999f || rt > 1) {
-                    ImGui::SetTooltip("prob %.0f%%  ratchet x%d", pr * 100.0f, rt);
+                const int tn = seq.stepTune(c, s);
+                if (pr < 0.999f || rt > 1 || tn != 0) {
+                    ImGui::SetTooltip("prob %.0f%%  ratchet x%d  pitch %+d st", pr * 100.0f, rt, tn);
                 }
             }
             ImGui::PopStyleColor(3);

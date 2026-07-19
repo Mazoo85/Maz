@@ -191,6 +191,36 @@ int main() {
         check(std::fabs(pp.swing() - 0.3f) < 1e-6f, "pattern 1 keeps its own swing");
     }
 
+    // --- Per-step pitch (channel-rack graph editor) --------------------------
+    {
+        // A tuned tom (a clear pitched membrane): +12 semitones on a step doubles its fundamental.
+        auto tomCrossings = [&](int tune) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setChannelType(0, audio::Drum::Tom);
+            s.setStep(0, 0, true);
+            s.setStepTune(0, 0, tune);
+            s.play();
+            const std::vector<float> out = renderMono(s, 4000, sampleRate); // ~83 ms of the hit
+            int cx = 0;
+            float prev = 0.0f;
+            for (int i = 0; i < 4000; ++i) {
+                const float v = out[static_cast<size_t>(i) * 2];
+                if (prev <= 0.0f && v > 0.0f) {
+                    ++cx;
+                }
+                prev = v;
+            }
+            return cx;
+        };
+        check(tomCrossings(12) > tomCrossings(0) * 1.5,
+              "per-step pitch tunes an individual hit up (higher fundamental)");
+        audio::Sequencer sd;
+        check(sd.stepTune(0, 0) == 0, "per-step pitch defaults to 0 (channel tuning)");
+        sd.setStepTune(0, 0, 100); // clamps to ±24
+        check(sd.stepTune(0, 0) == 24, "per-step pitch clamps to +24 semitones");
+    }
+
     // --- Per-channel mixer: volume / mute / solo ----------------------------
     {
         audio::Sequencer mix;

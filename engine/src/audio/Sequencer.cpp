@@ -67,6 +67,7 @@ void Sequencer::setNumSteps(int steps) {
         std::vector<uint8_t> g(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         std::vector<uint8_t> pr(static_cast<size_t>(chans) * static_cast<size_t>(n), 255);
         std::vector<uint8_t> rt(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
+        std::vector<int8_t> tn(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         for (int c = 0; c < chans; ++c) {
             for (int s = 0; s < copy; ++s) {
                 const size_t src = static_cast<size_t>(c) * static_cast<size_t>(numSteps_) +
@@ -82,11 +83,15 @@ void Sequencer::setNumSteps(int steps) {
                 if (src < p.ratchet.size()) {
                     rt[dst] = p.ratchet[src];
                 }
+                if (src < p.tune.size()) {
+                    tn[dst] = p.tune[src];
+                }
             }
         }
         p.grid = std::move(g);
         p.prob = std::move(pr);
         p.ratchet = std::move(rt);
+        p.tune = std::move(tn);
     }
     numSteps_ = n;
     if (currentStep_ >= numSteps_) {
@@ -198,6 +203,7 @@ int Sequencer::addPattern() {
     p.grid.assign(cells, 0);
     p.prob.assign(cells, 255); // every step defaults to "always fire"
     p.ratchet.assign(cells, 1); // one hit per step by default
+    p.tune.assign(cells, 0);    // no per-step pitch offset by default
     p.name = "Pattern " + std::to_string(patterns_.size() + 1);
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
@@ -364,6 +370,32 @@ void Sequencer::setStepRatchet(int channel, int step, int count) {
                static_cast<size_t>(step)] = static_cast<uint8_t>(cnt);
 }
 
+int Sequencer::stepTune(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 0;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.tune.size()) {
+        return 0; // patterns loaded before per-step tune existed → no offset
+    }
+    return static_cast<int>(p.tune[idx]);
+}
+
+void Sequencer::setStepTune(int channel, int step, int semitones) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.tune.size() != p.grid.size()) {
+        p.tune.assign(p.grid.size(), 0);
+    }
+    const int st = semitones < -24 ? -24 : (semitones > 24 ? 24 : semitones);
+    p.tune[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+           static_cast<size_t>(step)] = static_cast<int8_t>(st);
+}
+
 void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
@@ -458,16 +490,19 @@ void Sequencer::triggerStep(int step) {
                 }
             }
 
+            // Per-step pitch offset (captured into each hit at strike time).
+            const float stune = static_cast<float>(stepTune(c, step));
+
             // Flam: a quiet grace hit now, then the full hit a few ms later (scheduled like a
             // ratchet sub-hit). Off → a single full-velocity hit.
             const float flamMs = chanFlam_[static_cast<size_t>(c)];
             if (flamMs > 0.0f) {
-                channels_[static_cast<size_t>(c)].trigger(vel * 0.5f); // grace
+                channels_[static_cast<size_t>(c)].trigger(vel * 0.5f, stune); // grace
                 const int flamSamples =
                     static_cast<int>(flamMs * 0.001f * static_cast<float>(sampleRate_));
-                ratchets_.push_back(RatchetHit{c, vel, flamSamples > 0 ? flamSamples : 1});
+                ratchets_.push_back(RatchetHit{c, vel, flamSamples > 0 ? flamSamples : 1, stune});
             } else {
-                channels_[static_cast<size_t>(c)].trigger(vel);
+                channels_[static_cast<size_t>(c)].trigger(vel, stune);
             }
 
             // Ratchet: schedule extra evenly-spaced retriggers within this step's slot.
@@ -476,7 +511,7 @@ void Sequencer::triggerStep(int step) {
                 const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
                 const int interval = stepSamples / r;
                 for (int k = 1; k < r; ++k) {
-                    ratchets_.push_back(RatchetHit{c, vel, interval * k});
+                    ratchets_.push_back(RatchetHit{c, vel, interval * k, stune});
                 }
             }
         }
@@ -684,7 +719,8 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         // sample-accurate.
         for (size_t ri = 0; ri < ratchets_.size();) {
             if (ratchets_[ri].framesUntil <= 0) {
-                channels_[static_cast<size_t>(ratchets_[ri].channel)].trigger(ratchets_[ri].velocity);
+                channels_[static_cast<size_t>(ratchets_[ri].channel)].trigger(ratchets_[ri].velocity,
+                                                                              ratchets_[ri].tune);
                 ratchets_.erase(ratchets_.begin() + static_cast<long>(ri));
             } else {
                 chunk = std::min(chunk, ratchets_[ri].framesUntil);

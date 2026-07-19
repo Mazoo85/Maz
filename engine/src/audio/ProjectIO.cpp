@@ -284,7 +284,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     const int vel = static_cast<int>(seq.stepVelocity(c, s) * 255.0f + 0.5f);
                     const int prob = static_cast<int>(seq.stepProbability(c, s) * 255.0f + 0.5f);
                     f << "step " << p << " " << c << " " << s << " " << vel << " " << prob << " "
-                      << seq.stepRatchet(c, s) << "\n";
+                      << seq.stepRatchet(c, s) << " " << seq.stepTune(c, s) << "\n";
                 }
             }
         }
@@ -693,6 +693,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int ratchet = 1; // optional per-step ratchet count (older files omit it → single hit)
             if (ls >> ratchet) {
                 seq.setStepRatchet(c, s, ratchet);
+            }
+            int tune = 0; // optional per-step pitch offset (older files omit it → no offset)
+            if (ls >> tune) {
+                seq.setStepTune(c, s, tune);
             }
         } else if (tag == "note") {
             int p = 0;
