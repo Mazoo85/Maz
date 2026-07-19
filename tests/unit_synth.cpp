@@ -1797,6 +1797,26 @@ int main() {
         check(e13.addChord(0, 1, 60, audio::Chord::Dom13) == 6, "a dominant 13th is six notes");
         check(e13.hasNote(81, 0) && e13.hasNote(74, 0) && e13.hasNote(70, 0),
               "dom13 reaches the 13th (0,4,7,10,14,21)");
+        // Power chord "5": root + fifth only, no third (0,7).
+        audio::PianoRoll pw;
+        check(pw.addChord(0, 1, 60, audio::Chord::Power) == 2, "a power chord is two notes");
+        check(pw.hasNote(60, 0) && pw.hasNote(67, 0) && !pw.hasNote(64, 0),
+              "power chord stacks root+fifth with no third (0,7)");
+        // Minor-major 7th: minor triad + major 7th (0,3,7,11).
+        audio::PianoRoll mm;
+        check(mm.addChord(0, 1, 60, audio::Chord::MinMaj7) == 4, "a minor-major 7th is four notes");
+        check(mm.hasNote(63, 0) && mm.hasNote(67, 0) && mm.hasNote(71, 0),
+              "mMaj7 stacks the minor 3rd and the major 7th (0,3,7,11)");
+        // Augmented 7th / 7♯5: major 3rd + augmented 5th + minor 7th (0,4,8,10).
+        audio::PianoRoll a7;
+        check(a7.addChord(0, 1, 60, audio::Chord::Aug7) == 4, "an augmented 7th is four notes");
+        check(a7.hasNote(68, 0) && a7.hasNote(70, 0),
+              "aug7 raises the fifth and adds the ♭7 (0,4,8,10)");
+        // 6/9: major triad + 6th + 9th (0,4,7,9,14).
+        audio::PianoRoll sn;
+        check(sn.addChord(0, 1, 60, audio::Chord::SixNine) == 5, "a 6/9 chord is five notes");
+        check(sn.hasNote(69, 0) && sn.hasNote(74, 0),
+              "6/9 adds the major 6th and the 9th (0,4,7,9,14)");
 
         // Harmonize: thicken a two-note melody into major triads (each note + its 3rd and 5th).
         audio::PianoRoll harm;

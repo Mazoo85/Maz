@@ -76,6 +76,18 @@ std::vector<int> chordOffsets(Chord chord) {
     case Chord::Dom13:
         offsets = {0, 4, 7, 10, 14, 21};
         break;
+    case Chord::Power:
+        offsets = {0, 7};
+        break;
+    case Chord::MinMaj7:
+        offsets = {0, 3, 7, 11};
+        break;
+    case Chord::Aug7:
+        offsets = {0, 4, 8, 10};
+        break;
+    case Chord::SixNine:
+        offsets = {0, 4, 7, 9, 14};
+        break;
     }
     return offsets;
 }

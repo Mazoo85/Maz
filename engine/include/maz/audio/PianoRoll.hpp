@@ -40,7 +40,11 @@ enum class Chord {
     Dim7,     // diminished 7th (0,3,6,9)
     HalfDim7, // half-diminished / m7♭5 (0,3,6,10)
     Dom11,    // dominant 11th (0,4,7,10,14,17)
-    Dom13     // dominant 13th (0,4,7,10,14,21)
+    Dom13,    // dominant 13th (0,4,7,10,14,21)
+    Power,    // power chord "5" (0,7) — root + fifth, no third (rock/metal)
+    MinMaj7,  // minor-major 7th (0,3,7,11) — the tense "James Bond" chord
+    Aug7,     // augmented 7th / dominant 7♯5 (0,4,8,10)
+    SixNine   // 6/9 (0,4,7,9,14) — major triad with an added 6th and 9th (lush jazz voicing)
 };
 
 // Musical scales for the scale-snap tool. Each maps to the set of semitone degrees (0..11) it allows
