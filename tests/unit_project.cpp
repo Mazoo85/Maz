@@ -306,6 +306,7 @@ int main() {
     mixer.phaser().setSync(true);
     mixer.phaser().setSyncDivision(4);
     mixer.phaser().setStages(8);
+    mixer.phaser().setStereo(true);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -699,7 +700,7 @@ int main() {
               near(mixer2.chorus().feedback(), 0.45f),
           "chorus tempo sync round-trips");
     check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4 &&
-              mixer2.phaser().stages() == 8,
+              mixer2.phaser().stages() == 8 && mixer2.phaser().stereo(),
           "phaser tempo sync round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&

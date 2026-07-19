@@ -385,7 +385,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
       << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
       << " " << (mixer.phaser().sync() ? 1 : 0) << " " << mixer.phaser().syncDivision() << " "
-      << mixer.phaser().stages() << "\n";
+      << mixer.phaser().stages() << " " << (mixer.phaser().stereo() ? 1 : 0) << "\n";
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << " "
       << mixer.bitcrusher().tone() << "\n";
@@ -1203,6 +1203,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 int stages = 4; // stage count optional for old files
                 if (ls >> stages) {
                     mixer.phaser().setStages(stages);
+                }
+                int pstereo = 0; // stereo mode optional for old files (0 = mono)
+                if (ls >> pstereo) {
+                    mixer.phaser().setStereo(pstereo != 0);
                 }
             } else if (which == "peq") {
                 float lowDb = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, highDb = 0.0f;

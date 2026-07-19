@@ -667,18 +667,22 @@ void Phaser::process(float* stereo, int frames, int sampleRate) {
 
     for (int i = 0; i < frames; ++i) {
         const float lfo = static_cast<float>(std::sin(phase_ * kTwoPi));
-        // Sweep the all-pass coefficient across the audio band.
-        const float a = 0.5f + 0.45f * depth * lfo;
+        // Sweep the all-pass coefficient across the audio band. In stereo mode the right channel's
+        // LFO leads by 90° (a quarter cycle) so the two channels sweep out of step.
+        const float aL = 0.5f + 0.45f * depth * lfo;
+        const float aR =
+            stereo_ ? 0.5f + 0.45f * depth * static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi))
+                    : aL;
 
         float xL = stereo[2 * i] + fbL_ * fb;
         for (int s = 0; s < stages_; ++s) {
-            xL = apL_[static_cast<size_t>(s)].process(xL, a);
+            xL = apL_[static_cast<size_t>(s)].process(xL, aL);
         }
         fbL_ = xL;
 
         float xR = stereo[2 * i + 1] + fbR_ * fb;
         for (int s = 0; s < stages_; ++s) {
-            xR = apR_[static_cast<size_t>(s)].process(xR, a);
+            xR = apR_[static_cast<size_t>(s)].process(xR, aR);
         }
         fbR_ = xR;
 

@@ -1681,6 +1681,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderInt("stages##phs", &pstages, 2, 12)) mx.phaser().setStages(pstages);
         const char* modDivsP[audio::kModSyncDivisions];
         for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsP[d] = audio::modSyncDivisionName(d);
+        bool pstereo = mx.phaser().stereo();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Stereo##phs", &pstereo)) mx.phaser().setStereo(pstereo);
         bool psync = mx.phaser().sync();
         ImGui::SameLine();
         if (ImGui::Checkbox("Sync##phs", &psync)) mx.phaser().setSync(psync);

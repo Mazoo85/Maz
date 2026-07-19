@@ -1092,6 +1092,25 @@ int main() {
         check(dp.stages() == 4, "phaser stage count defaults to 4");
         dp.setStages(99);
         check(dp.stages() == 12, "phaser stage count clamps to the maximum");
+
+        // Stereo: a mono input stays mono through the (default) mono phaser, but stereo mode offsets
+        // the right channel's sweep by 90° so L and R decorrelate.
+        auto lrDiff = [&](bool stereo) {
+            audio::Phaser p;
+            p.setEnabled(true);
+            p.setMix(0.7f);
+            p.setStereo(stereo);
+            std::vector<float> b = sineStereo(sr / 2, 600.0, 0.5, sr); // mono input (L==R)
+            p.process(b.data(), sr / 2, sr);
+            double d = 0.0;
+            for (size_t i = 0; i + 1 < b.size(); i += 2) {
+                d += std::fabs(static_cast<double>(b[i] - b[i + 1]));
+            }
+            return d;
+        };
+        check(lrDiff(false) < 1e-6, "a mono phaser keeps L and R identical for a mono input");
+        check(lrDiff(true) > 1.0, "stereo phaser decorrelates L and R (90°-offset sweep)");
+        check(!audio::Phaser().stereo(), "phaser stereo defaults to off");
     }
 
     // --- Mixer: master gain scales; disabled chain is transparent ------------

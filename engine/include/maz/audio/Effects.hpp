@@ -300,6 +300,10 @@ public:
     // richer, more dramatic sweep. Clamped to even counts is not required — any count in range works.
     void setStages(int n) { stages_ = n < 2 ? 2 : (n > kMaxStages ? kMaxStages : n); }
     int stages() const { return stages_; }
+    // Stereo: offset the right channel's sweep LFO by 90° so the two channels phase out of step —
+    // a wide, swirling stereo phaser. Off (default) sweeps both channels together (mono-safe).
+    void setStereo(bool on) { stereo_ = on; }
+    bool stereo() const { return stereo_; }
     // Tempo sync: lock the sweep LFO rate to the transport at the chosen note division (rhythmic
     // phasing). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -318,6 +322,7 @@ public:
 private:
     static constexpr int kMaxStages = 12;
     int stages_ = 4;    // active all-pass stages (2..kMaxStages)
+    bool stereo_ = false; // offset the R-channel LFO by 90° for a wide stereo phaser
     bool sync_ = false; // tempo-sync the sweep LFO rate
     int syncDiv_ = 0;   // note-division index (default 1/1, a slow phaser)
     struct Allpass1 {
