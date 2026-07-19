@@ -181,6 +181,13 @@ public:
     // echo notes created.
     int echo(int repeats, int stepGap, float decay);
 
+    // Flam: add one quiet grace note just before each note — `stepGap` steps earlier, same pitch, a
+    // 1-step length, with velocity scaled by `velScale` (0..1) — the classic flam/grace ornament
+    // (distinct from echo, which repeats forward). A note with no room before it (start < stepGap) is
+    // left ungraced; `stepGap` < 1 is a no-op. Grace notes are added only for the original notes.
+    // Returns the number of grace notes created.
+    int flam(int stepGap, float velScale);
+
     // Velocity ramp: set a linear velocity gradient across the phrase in time — the first-starting
     // note gets `fromVel`, the last-starting note `toVel`, everything in between interpolated by its
     // start position (so a crescendo `0.2 → 1.0` swells over the bar, or the reverse fades out). Notes

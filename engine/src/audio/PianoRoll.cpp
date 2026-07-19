@@ -596,6 +596,27 @@ int PianoRoll::chop(int pieces) {
     return chopped;
 }
 
+int PianoRoll::flam(int stepGap, float velScale) {
+    if (stepGap < 1) {
+        return 0;
+    }
+    const float vs = velScale < 0.0f ? 0.0f : (velScale > 1.0f ? 1.0f : velScale);
+    const std::vector<Note> src = notes_; // snapshot so grace notes aren't themselves graced
+    int created = 0;
+    for (const Note& n : src) {
+        if (n.startStep < stepGap) {
+            continue; // no room before this note for a grace
+        }
+        Note g = n;
+        g.startStep = n.startStep - stepGap;
+        g.lengthSteps = 1;
+        g.velocity = n.velocity * vs;
+        notes_.push_back(g);
+        ++created;
+    }
+    return created;
+}
+
 int PianoRoll::echo(int repeats, int stepGap, float decay) {
     if (repeats < 1 || stepGap < 1) {
         return 0;

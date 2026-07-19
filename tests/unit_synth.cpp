@@ -1841,6 +1841,28 @@ int main() {
         check(e0.echo(2, 0, 0.5f) == 0 && e0.notes().size() == 1, "echo with <1 stepGap is a no-op");
     }
 
+    // --- PianoRoll flam (grace note before each note) ------------------------
+    {
+        audio::PianoRoll fl;
+        fl.addNote(audio::Note{4, 2, 60, 0.8f});
+        const int created = fl.flam(1, 0.5f);
+        check(created == 1 && fl.notes().size() == 2, "flam adds one grace note per note");
+        // The grace note sits one step earlier, quieter, at the same pitch.
+        bool graceOk = false;
+        for (const audio::Note& n : fl.notes()) {
+            if (n.startStep == 3 && n.pitch == 60 && n.velocity < 0.8f) graceOk = true;
+        }
+        check(graceOk, "the grace note is placed before the note with reduced velocity");
+        // A note with no room before it (start < gap) is left ungraced; gap < 1 is a no-op.
+        audio::PianoRoll edge;
+        edge.addNote(audio::Note{0, 2, 62, 0.9f});
+        check(edge.flam(1, 0.5f) == 0 && edge.notes().size() == 1,
+              "a note at step 0 gets no grace (no room before it)");
+        audio::PianoRoll fz;
+        fz.addNote(audio::Note{4, 2, 62, 0.9f});
+        check(fz.flam(0, 0.5f) == 0 && fz.notes().size() == 1, "flam with <1 stepGap is a no-op");
+    }
+
     // --- PianoRoll diatonic (scale-aware) transpose --------------------------
     {
         // C, D, E in C major, up 2 scale degrees → E, F, G (diatonic thirds, staying in key).

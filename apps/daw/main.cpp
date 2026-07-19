@@ -769,6 +769,18 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.echo(echoReps, echoGap, echoDecay);
     }
     ImGui::SameLine();
+    static int flamGap = 1;
+    static float flamVel = 0.5f;
+    ImGui::SetNextItemWidth(40.0f);
+    ImGui::InputInt("##flamgap", &flamGap, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::SliderFloat("##flamvel", &flamVel, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Flam")) {
+        roll.flam(flamGap, flamVel);
+    }
+    ImGui::SameLine();
     static int arpLen = 2;
     static int arpBakeMode = 0;
     ImGui::SetNextItemWidth(50.0f);
