@@ -73,6 +73,10 @@ Automation::Automation() {
     lane(AutoTarget::DrumVolume).hi = 1.0f;
     lane(AutoTarget::DrumPan).lo = -1.0f;
     lane(AutoTarget::DrumPan).hi = 1.0f;
+    lane(AutoTarget::BassCutoff).lo = 150.0f;
+    lane(AutoTarget::BassCutoff).hi = 6000.0f;
+    lane(AutoTarget::BassResonance).lo = 0.7f;
+    lane(AutoTarget::BassResonance).hi = 12.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -117,6 +121,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Drum Volume";
     case AutoTarget::DrumPan:
         return "Drum Pan";
+    case AutoTarget::BassCutoff:
+        return "Bass Cutoff";
+    case AutoTarget::BassResonance:
+        return "Bass Resonance";
     case AutoTarget::Count:
         break;
     }
@@ -253,6 +261,19 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the drum mixer strip's stereo balance (auto-pan on the drum bus only).
             engine.mixer().track(MixerBus::Drums).setPan(v);
             break;
+        case AutoTarget::BassCutoff: {
+            // Sweep the bass synth's filter cutoff (bass filter builds), preserving its resonance
+            // and envelope amount.
+            SynthInstrument& bs = engine.sequencer().synth2();
+            bs.setFilter(v, bs.filterResonance(), bs.filterEnvAmount());
+            break;
+        }
+        case AutoTarget::BassResonance: {
+            // Sweep the bass synth's filter resonance (Q), preserving cutoff and envelope amount.
+            SynthInstrument& bs = engine.sequencer().synth2();
+            bs.setFilter(bs.filterCutoff(), v, bs.filterEnvAmount());
+            break;
+        }
         case AutoTarget::Count:
             break;
         }

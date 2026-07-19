@@ -353,6 +353,13 @@ int main() {
     drumVolLane.lfo.rateHz = 0.6f;
     drumVolLane.lo = 0.15f;
     drumVolLane.hi = 0.9f;
+    // A bass-filter lane (bass cutoff) — the newest appended target.
+    audio::AutoLane& bassCutLane = automation.lane(audio::AutoTarget::BassCutoff);
+    bassCutLane.enabled = true;
+    bassCutLane.lfo.shape = audio::Waveform::Triangle;
+    bassCutLane.lfo.rateHz = 0.45f;
+    bassCutLane.lo = 200.0f;
+    bassCutLane.hi = 4800.0f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -680,6 +687,11 @@ int main() {
     check(drumVol2.enabled && drumVol2.lfo.shape == audio::Waveform::Saw &&
               near(drumVol2.lfo.rateHz, 0.6f) && near(drumVol2.lo, 0.15f) && near(drumVol2.hi, 0.9f),
           "drum-volume automation lane round-trips");
+    const audio::AutoLane& bassCut2 = automation2.lane(audio::AutoTarget::BassCutoff);
+    check(bassCut2.enabled && bassCut2.lfo.shape == audio::Waveform::Triangle &&
+              near(bassCut2.lfo.rateHz, 0.45f) && near(bassCut2.lo, 200.0f) &&
+              near(bassCut2.hi, 4800.0f),
+          "bass-cutoff automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

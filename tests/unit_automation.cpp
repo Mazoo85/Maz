@@ -161,6 +161,46 @@ int main() {
               "synth-cutoff automation reaches its low bound");
     }
 
+    // --- Bass-synth filter: cutoff + resonance on synth2 --------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& bc = autom.lane(audio::AutoTarget::BassCutoff);
+        bc.enabled = true;
+        bc.lfo.shape = audio::Waveform::Sine;
+        bc.lfo.rateHz = 1.0f;
+        bc.lo = 200.0f;
+        bc.hi = 6000.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        eng.sequencer().synth2().setFilter(800.0f, 4.0f, 0.0f); // known resonance to preserve
+        autom.apply(eng, 0.25); // peak → hi
+        check(eng.sequencer().synth2().filterCutoff() > 5800.0f,
+              "automating bass cutoff sweeps the bass filter to the high bound");
+        check(std::fabs(eng.sequencer().synth2().filterResonance() - 4.0f) < 1e-3f,
+              "bass-cutoff automation preserves the resonance");
+        autom.apply(eng, 0.75); // trough → lo
+        check(eng.sequencer().synth2().filterCutoff() < 400.0f,
+              "bass-cutoff automation reaches its low bound");
+
+        // Resonance sweep on the bass filter.
+        audio::Automation ares;
+        audio::AutoLane& br = ares.lane(audio::AutoTarget::BassResonance);
+        br.enabled = true;
+        br.lfo.shape = audio::Waveform::Sine;
+        br.lfo.rateHz = 1.0f;
+        br.lo = 0.7f;
+        br.hi = 12.0f;
+        audio::AudioEngine eng2;
+        eng2.initOffline();
+        eng2.sequencer().synth2().setFilter(1200.0f, 1.0f, 0.0f);
+        ares.apply(eng2, 0.25); // peak → hi
+        check(eng2.sequencer().synth2().filterResonance() > 11.0f,
+              "automating bass resonance drives the Q to its high bound");
+        check(std::fabs(eng2.sequencer().synth2().filterCutoff() - 1200.0f) < 1.0f,
+              "bass-resonance automation preserves the cutoff");
+    }
+
     // --- Tempo-synced automation LFO ----------------------------------------
     {
         audio::Automation autom;
