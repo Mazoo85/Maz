@@ -115,6 +115,7 @@
 #include "maz/math/BoundingSphere.hpp"
 #include "maz/math/FitObb.hpp"
 #include "maz/io/Huffman.hpp"
+#include "maz/game/WaveFunctionCollapse.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20211,6 +20212,98 @@ void testPolynomial() {
     }
 }
 
+void testWaveFunctionCollapse() {
+    using game::wfcGenerate;
+    using game::WfcResult;
+    using game::WfcRules;
+
+    auto satisfies = [](const WfcRules& r, const WfcResult& res) {
+        const int dx[4] = {1, -1, 0, 0};
+        const int dy[4] = {0, 0, 1, -1};
+        for (int y = 0; y < res.height; ++y)
+            for (int x = 0; x < res.width; ++x) {
+                const int a = res.tileAt(x, y);
+                if (a < 0 || a >= r.tileCount) return false;
+                for (int d = 0; d < 4; ++d) {
+                    const int nx = x + dx[d], ny = y + dy[d];
+                    if (nx < 0 || ny < 0 || nx >= res.width || ny >= res.height) continue;
+                    const int b = res.tileAt(nx, ny);
+                    if (((r.allowedMask[d][static_cast<std::size_t>(a)] >> b) & 1u) == 0) return false;
+                }
+            }
+        return true;
+    };
+
+    // Land(0)/Coast(1)/Sea(2): land never touches sea.
+    {
+        WfcRules rules(3);
+        rules.allowBoth(0, 0);
+        rules.allowBoth(0, 1);
+        rules.allowBoth(1, 1);
+        rules.allowBoth(1, 2);
+        rules.allowBoth(2, 2);
+        for (std::uint64_t seed = 1; seed <= 20; ++seed) {
+            const WfcResult res = wfcGenerate(rules, 12, 9, seed);
+            CHECK(res.success);
+            CHECK(satisfies(rules, res));
+            for (int y = 0; y < res.height; ++y)
+                for (int x = 0; x < res.width; ++x) {
+                    if (res.tileAt(x, y) != 0) continue;
+                    if (x + 1 < res.width) CHECK(res.tileAt(x + 1, y) != 2);
+                    if (y + 1 < res.height) CHECK(res.tileAt(x, y + 1) != 2);
+                }
+        }
+    }
+    // Determinism.
+    {
+        WfcRules rules(3);
+        rules.allowBoth(0, 0);
+        rules.allowBoth(0, 1);
+        rules.allowBoth(1, 1);
+        rules.allowBoth(1, 2);
+        rules.allowBoth(2, 2);
+        const WfcResult a = wfcGenerate(rules, 10, 10, 42);
+        const WfcResult b = wfcGenerate(rules, 10, 10, 42);
+        CHECK(a.success && b.success && a.tiles == b.tiles);
+    }
+    // Fully permissive: always succeeds.
+    {
+        WfcRules rules(4);
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j) rules.allowBoth(i, j);
+        const WfcResult res = wfcGenerate(rules, 16, 16, 7);
+        CHECK(res.success && satisfies(rules, res));
+        for (int t : res.tiles) CHECK(t >= 0 && t < 4);
+    }
+    // Weights force tile 0 everywhere.
+    {
+        WfcRules rules(3);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) rules.allowBoth(i, j);
+        const std::vector<float> w = {1.0f, 0.0f, 0.0f};
+        const WfcResult res = wfcGenerate(rules, 8, 8, 3, w);
+        CHECK(res.success);
+        for (int t : res.tiles) CHECK(t == 0);
+    }
+    // 1x1 grid.
+    {
+        WfcRules rules(2);
+        rules.allowBoth(0, 0);
+        rules.allowBoth(1, 1);
+        rules.allowBoth(0, 1);
+        const WfcResult res = wfcGenerate(rules, 1, 1, 5);
+        CHECK(res.success && res.tiles.size() == 1 && res.tiles[0] >= 0 && res.tiles[0] < 2);
+    }
+    // Degenerate inputs fail cleanly.
+    {
+        WfcRules rules(3);
+        rules.allowBoth(0, 0);
+        CHECK(!wfcGenerate(rules, 0, 5, 1).success);
+        CHECK(!wfcGenerate(rules, 5, -1, 1).success);
+        CHECK(!wfcGenerate(WfcRules(0), 5, 5, 1).success);
+    }
+}
+
 void testHuffman() {
     using io::huffmanCompress;
     using io::huffmanDecompress;
@@ -29665,6 +29758,7 @@ int main() {
     testBoundingSphere();
     testFitObb();
     testHuffman();
+    testWaveFunctionCollapse();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

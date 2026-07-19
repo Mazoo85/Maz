@@ -775,6 +775,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   geometry is exact (F+F traces an L, '+' turns left / '-' right); brackets return the turtle to the fork
   so branches don't displace the trunk; 'f' moves without drawing; unknown symbols and an unbalanced ']'
   are safe no-ops; and generation is deterministic),
+  **wave function collapse** (M471, `game::wfcGenerate` + `game::WfcRules` -> `game::WfcResult` —
+  constraint-based procedural tile generation. Given a palette of up to 64 tile types and adjacency
+  rules ("water may touch sand, sand may touch grass, but water never touches grass"), it fills a grid
+  so EVERY neighbouring pair obeys the rules, producing coherent non-repeating layouts from a few local
+  constraints. Distinct from the engine's other generators (CellularCave carves, L-systems grow, noise
+  makes fields): WFC solves a constraint problem. Each cell holds a bitset superposition of possible
+  tiles; the solver repeatedly collapses the lowest-entropy cell to a single weighted-random tile and
+  propagates the consequences to neighbours by arc-consistency; a contradiction triggers a re-seeded
+  retry. Godot has no WFC -> beyond-Godot. Deterministic under a fixed seed. Verified: a land/coast/sea
+  rule set where land must never touch sea produces, across 20 seeds, grids where every adjacency is
+  permitted and no land cell is 4-adjacent to sea; the same seed yields identical output; fully-permissive
+  rules always succeed; per-tile weights that zero out all but one tile force that tile everywhere; a 1x1
+  grid collapses to one valid tile; and zero-size or empty-rule inputs fail cleanly),
   **sparse table (RMQ)** (M460, `core::SparseTable<T, Op>` — O(1) range min/max (or any idempotent
   associative op: gcd, bitwise and/or) over a STATIC array after an O(n log n) build, by overlapping two
   power-of-two blocks. Complements FenwickTree (dynamic prefix sums with point updates) with far faster
