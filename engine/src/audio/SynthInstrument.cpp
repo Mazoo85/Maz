@@ -71,7 +71,31 @@ void SynthInstrument::updateTempo(double bpm) {
     }
 }
 
-void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
+void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool slide) {
+    // TB-303 slide: if a voice is currently sounding in mono mode, retune it toward the new pitch and
+    // glide there WITHOUT restarting the amp envelope — a legato tie. A note in Release is revived to
+    // Sustain so an adjacent (note-off then slide-on) pair joins seamlessly. We use an audible glide
+    // time even when the global glide is 0, so a slide always slides.
+    if (slide && mono_) {
+        for (Voice& sv : voices_) {
+            if (sv.stage == Stage::Off) {
+                continue;
+            }
+            constexpr float kDefaultSlideSec = 0.06f;
+            sv.midi = midi;
+            sv.targetFreq = midiToFreq(midi);
+            sv.glideOverride = glideSeconds_ > 0.0f ? glideSeconds_ : kDefaultSlideSec;
+            if (sv.stage == Stage::Release) {
+                sv.stage = Stage::Sustain; // revive the releasing tail into the slide
+            }
+            // Retune the analog-drift/fine-tune multiplier without touching env/phase/velocity.
+            float detune = fineCents;
+            sv.driftMul = detune != 0.0f ? std::pow(2.0f, detune / 1200.0f) : 1.0f;
+            lastFreq_ = sv.targetFreq;
+            return;
+        }
+        // Nothing sounding → fall through to a normal note-on (a slide from silence is just a note).
+    }
     // Was another note being held (not yet released) when this one started? Used by legato-only glide.
     bool wasHeld = false;
     for (const Voice& vv : voices_) {
@@ -130,6 +154,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     const bool doGlide =
         glideSeconds_ > 0.0f && lastFreq_ > 0.0f && (!glideLegato_ || wasHeld);
     v.freq = doGlide ? lastFreq_ : v.targetFreq;
+    v.glideOverride = -1.0f; // a fresh note uses the instrument's global glide, not a slide override
     lastFreq_ = v.targetFreq;
     v.pitchEnv = pitchEnvAmt_; // seed the pitch envelope (decays to 0 in render)
     // Analog drift: detune this note by a small random amount within ±drift_ cents (deterministic).
@@ -223,9 +248,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
         if (v.stage == Stage::Off) {
             continue;
         }
-        // One-pole glide coefficient toward the target pitch (0 → instant when glide is off).
+        // One-pole glide coefficient toward the target pitch (0 → instant when glide is off). A slide
+        // note carries a per-voice glide override so it always glides even when the global glide is 0.
+        const float effGlide = v.glideOverride >= 0.0f ? v.glideOverride : glideSeconds_;
         const float glideCoef =
-            glideSeconds_ > 0.0f ? (1.0f - std::exp(-1.0f / (glideSeconds_ * sr))) : 1.0f;
+            effGlide > 0.0f ? (1.0f - std::exp(-1.0f / (effGlide * sr))) : 1.0f;
         for (int i = 0; i < frames; ++i) {
             // Portamento: slide the current frequency toward the note's target each sample.
             v.freq += (v.targetFreq - v.freq) * glideCoef;

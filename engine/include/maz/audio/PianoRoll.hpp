@@ -15,6 +15,8 @@ struct Note {
     float probability = 1.0f; // chance in [0,1] the note fires each loop (1 = always)
     float fineTune = 0.0f;    // per-note pitch offset in cents (±), for micro-tuning/detune
     int roll = 1;             // retrigger count within the note's first step (1 = no roll/roll off)
+    bool slide = false;       // TB-303-style slide/portamento: glide pitch in from the previous note
+                              // WITHOUT retriggering the amp envelope (mono synth lanes only)
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -262,6 +264,10 @@ public:
     // a melodic drum-roll/stutter. 1 = a single hit. Returns the clamped value.
     int setNoteRoll(int pitch, int step, int count);
     int noteRoll(int pitch, int step) const;
+
+    // Per-note slide/portamento flag (glide into this note without retriggering the amp envelope).
+    bool setNoteSlide(int pitch, int step, bool on);
+    bool noteSlide(int pitch, int step) const;
 
 private:
     int numSteps_ = 16;

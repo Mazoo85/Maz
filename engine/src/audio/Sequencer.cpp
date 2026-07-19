@@ -767,7 +767,7 @@ void Sequencer::triggerStep(int step) {
             if (toSampler) {
                 sampler_.noteOn(p, n.velocity);
             } else {
-                synth_.noteOn(p, n.velocity, n.fineTune);
+                synth_.noteOn(p, n.velocity, n.fineTune, n.slide);
             }
             scheduleRoll(n, p, false, toSampler);
         }
@@ -783,7 +783,7 @@ void Sequencer::triggerStep(int step) {
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
             const int p = n.pitch + transpose_;
-            synth2_.noteOn(p, n.velocity, n.fineTune);
+            synth2_.noteOn(p, n.velocity, n.fineTune, n.slide);
             scheduleRoll(n, p, true, false);
         }
     }

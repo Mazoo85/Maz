@@ -1302,6 +1302,55 @@ int main() {
         check(!dg.glideLegato(), "glide legato mode defaults off (always glide)");
     }
 
+    // --- Per-note slide (TB-303 portamento) ----------------------------------
+    {
+        // A slide note (mono) glides the sounding voice to the new pitch WITHOUT retriggering the amp
+        // envelope, and it slides even when the global glide is 0.
+
+        // Pitch: C4 then a slide up an octave to C5 lands on ~523 Hz once the (~60 ms) glide settles.
+        audio::SynthInstrument sl;
+        sl.setWaveform(audio::Waveform::Saw);
+        sl.setMono(true);
+        sl.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        sl.setGlide(0.0f);       // global glide OFF — the slide must still glide
+        sl.noteOn(60, 1.0f);     // C4 ≈ 261.6 Hz
+        (void)render(sl, sampleRate / 20, sampleRate); // 50 ms to establish the voice
+        sl.noteOn(72, 1.0f, 0.0f, true);               // slide up to C5
+        (void)render(sl, sampleRate / 2, sampleRate);  // 0.5 s >> the 60 ms glide, so it fully settles
+        const std::vector<float> settled = render(sl, sampleRate / 10, sampleRate); // steady 100 ms
+        check(std::fabs(estimateHz(settled, sampleRate) - 523.25) < 12.0,
+              "a slide note glides the mono voice to the destination pitch (~C5)");
+
+        // Envelope continuity: with a long attack, the first note reaches full level over 50 ms; a
+        // slide keeps sounding at that level, whereas a fresh (non-slide) note-on re-attacks from
+        // silence. Measure the ~5 ms right after the boundary — the slide is far louder.
+        auto boundaryRms = [&](bool slide) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setMono(true);
+            s.setEnvelope(0.050f, 0.01f, 1.0f, 0.05f); // 50 ms attack
+            s.setGlide(0.0f);
+            s.noteOn(60, 1.0f);
+            (void)render(s, sampleRate / 12, sampleRate); // ~83 ms → attack completes, env at full
+            s.noteOn(72, 1.0f, 0.0f, slide);
+            return rms(render(s, sampleRate / 200, sampleRate)); // ~5 ms right after the boundary
+        };
+        const double slideRms = boundaryRms(true);
+        const double freshRms = boundaryRms(false);
+        check(slideRms > freshRms * 1.5,
+              "a slide sustains the envelope while a fresh note-on attacks from silence");
+
+        // A slide from silence (nothing sounding) falls back to a normal note at the target pitch.
+        audio::SynthInstrument fromSilence;
+        fromSilence.setWaveform(audio::Waveform::Saw);
+        fromSilence.setMono(true);
+        fromSilence.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        fromSilence.noteOn(69, 1.0f, 0.0f, true); // A4, nothing playing → a plain note-on
+        const std::vector<float> a4 = render(fromSilence, sampleRate / 4, sampleRate);
+        check(rms(a4) > 0.01 && std::fabs(estimateHz(a4, sampleRate) - 440.0) < 8.0,
+              "a slide from silence falls back to a normal note-on at the target pitch");
+    }
+
     // --- Filter cutoff LFO ---------------------------------------------------
     {
         // A sustained bright note through a resonant low-pass. With the cutoff LFO on, the filter

@@ -431,9 +431,14 @@ public:
     }
     float filterKeyTrack() const { return filterKeyTrack_; }
 
-    void noteOn(int midi, float velocity) { noteOn(midi, velocity, 0.0f); }
+    void noteOn(int midi, float velocity) { noteOn(midi, velocity, 0.0f, false); }
     // Trigger with a per-note fine-tune offset in cents (piano-roll micro-detune).
-    void noteOn(int midi, float velocity, float fineCents);
+    void noteOn(int midi, float velocity, float fineCents) { noteOn(midi, velocity, fineCents, false); }
+    // Trigger with an optional TB-303-style `slide`: when true, mono, and a voice is already sounding,
+    // the note glides in from the current pitch WITHOUT restarting the amp envelope (a legato slide);
+    // it always uses an audible glide time even if the global glide is 0. Falls back to a normal
+    // note-on when polyphonic or when nothing is currently sounding.
+    void noteOn(int midi, float velocity, float fineCents, bool slide);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
 
@@ -459,6 +464,7 @@ private:
         float noiseLp = 0.0f;       // one-pole state for the noise tone control
         float freq = 0.0f;       // current (possibly gliding) frequency
         float targetFreq = 0.0f; // note's destination frequency
+        float glideOverride = -1.0f; // per-note glide time (s); <0 = use the instrument's global glide
         float driftMul = 1.0f;   // per-note analog-drift pitch multiplier (1 = in tune)
         float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;

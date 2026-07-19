@@ -281,7 +281,7 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
 //   bpm <double>
 //   busgain <drum> <synth>
 //   step <channel> <step>                 (repeated, one per active drum step)
-//   note <start> <len> <pitch> <velocity> (repeated, one per piano-roll note)
+//   note <start> <len> <pitch> <velocity> [prob] [fine] [roll] [slide] (one per piano-roll note)
 //   master <gain>
 //   fx eq <enabled> <cutoff>
 //   fx comp <enabled> <thrDb> <ratio> <atkMs> <relMs> <makeupDb>
@@ -414,11 +414,13 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         }
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
+              << (n.slide ? 1 : 0) << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
+              << (n.slide ? 1 : 0) << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -1046,6 +1048,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (ls >> roll) {
                 n.roll = roll;
             }
+            int slide = 0; // per-note slide/portamento optional (older files omit it → off)
+            if (ls >> slide) {
+                n.slide = slide != 0;
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
@@ -1063,6 +1069,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int roll = 1; // per-note roll/ratchet optional (older files omit it → single hit)
             if (ls >> roll) {
                 n.roll = roll;
+            }
+            int slide = 0; // per-note slide/portamento optional (older files omit it → off)
+            if (ls >> slide) {
+                n.slide = slide != 0;
             }
             seq.selectPattern(p);
             seq.roll2().addNote(n);

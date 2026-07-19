@@ -937,11 +937,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 roll.toggle(pitch, s);
             }
             // Scroll over a placed note to set its trigger probability; Ctrl+scroll sets its fine
-            // tune (cents). Tooltips show either when non-default.
+            // tune (cents), Shift+scroll its roll count, Alt+scroll toggles TB-303 slide. Tooltips
+            // show whichever attribute is non-default.
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    if (ImGui::GetIO().KeyShift) {
+                    if (ImGui::GetIO().KeyAlt) {
+                        roll.setNoteSlide(pitch, s, wheel > 0.0f);
+                    } else if (ImGui::GetIO().KeyShift) {
                         roll.setNoteRoll(pitch, s, roll.noteRoll(pitch, s) + (wheel > 0.0f ? 1 : -1));
                     } else if (ImGui::GetIO().KeyCtrl) {
                         roll.setNoteFineTune(pitch, s, roll.noteFineTune(pitch, s) + wheel * 5.0f);
@@ -952,7 +955,9 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 const float pr = roll.noteProbability(pitch, s);
                 const float ft = roll.noteFineTune(pitch, s);
                 const int rl = roll.noteRoll(pitch, s);
-                if (rl > 1) {
+                if (roll.noteSlide(pitch, s)) {
+                    ImGui::SetTooltip("slide");
+                } else if (rl > 1) {
                     ImGui::SetTooltip("roll x%d", rl);
                 } else if (ft != 0.0f) {
                     ImGui::SetTooltip("fine %+.0f cents", ft);
