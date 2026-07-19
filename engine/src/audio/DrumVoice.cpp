@@ -49,6 +49,8 @@ double decayTau(Drum type) {
         return 0.45; // a long, sustaining sub tail — far longer than the short punchy kick
     case Drum::Zap:
         return 0.12; // a short, punchy electronic "pew"
+    case Drum::Riser:
+        return 0.13; // sets the swell length (~0.8 s) — the voice deactivates as the riser peaks
     }
     return 0.1;
 }
@@ -241,6 +243,19 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double freq = (70.0 + 1730.0 * std::exp(-t_ / 0.02)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
+            break;
+        }
+        case Drum::Riser: {
+            // Reverse-cymbal / riser: a bright noise burst that SWELLS UP (rather than decays) over
+            // the voice's life, then cuts off — the classic build-up transition sweep. The swell
+            // length tracks `tau` (and thus the per-channel decay knob); the voice deactivates as it
+            // peaks (exp(-t/tau) crosses the inactive threshold at ~6.2 tau).
+            const double riseTime = tau * 6.2;
+            double renv = riseTime > 0.0 ? t_ / riseTime : 1.0;
+            if (renv > 1.0) {
+                renv = 1.0;
+            }
+            s = static_cast<float>(static_cast<double>(noise()) * renv * renv); // accelerating swell
             break;
         }
         }

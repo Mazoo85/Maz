@@ -311,6 +311,23 @@ int main() {
         zap.render(zlo.data(), static_cast<int>(zlo.size()), sampleRate);
         check(freqOf(zlo, sampleRate) < 250.0, "zap sweeps down to a low pitch by its tail");
 
+        // Riser (reverse cymbal): a noise sweep that SWELLS UP — a later window is louder than an
+        // earlier one (the opposite of every decaying voice) — then cuts off after it peaks.
+        audio::DrumVoice riser;
+        riser.setType(audio::Drum::Riser);
+        riser.trigger();
+        std::vector<float> rEarly(static_cast<size_t>(sampleRate) / 10, 0.0f); // first ~100 ms
+        riser.render(rEarly.data(), static_cast<int>(rEarly.size()), sampleRate);
+        std::vector<float> rSkip(static_cast<size_t>(sampleRate) / 2, 0.0f); // advance ~0.6 s
+        riser.render(rSkip.data(), static_cast<int>(rSkip.size()), sampleRate);
+        std::vector<float> rLate(static_cast<size_t>(sampleRate) / 20, 0.0f); // ~0.6-0.65 s (near peak)
+        riser.render(rLate.data(), static_cast<int>(rLate.size()), sampleRate);
+        check(rms(rEarly) > 0.0 && rms(rLate) > rms(rEarly) * 2.0,
+              "riser swells up (late window far louder than the early window)");
+        std::vector<float> rTail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        riser.render(rTail.data(), static_cast<int>(rTail.size()), sampleRate);
+        check(!riser.active(), "riser cuts off after it peaks");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
