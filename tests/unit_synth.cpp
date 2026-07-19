@@ -631,6 +631,30 @@ int main() {
         check(do2.osc2WaveformLinked() && do2.osc2Waveform() == audio::Waveform::Saw,
               "osc2 waveform defaults to linked (follows the primary)");
 
+        // Osc3 independent waveform (like osc2): unlinking it to another shape changes the tone.
+        auto o3Render = [&](bool square) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOsc3Level(0.8f);
+            s.setOsc3Semitones(0.0f);
+            if (square) {
+                s.setOsc3Waveform(audio::Waveform::Square);
+            }
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        const std::vector<float> o3Linked = o3Render(false);
+        const std::vector<float> o3Square = o3Render(true);
+        double o3Diff = 0.0;
+        for (size_t i = 0; i < o3Linked.size(); ++i) {
+            o3Diff += std::fabs(static_cast<double>(o3Linked[i] - o3Square[i]));
+        }
+        check(o3Diff > 1.0, "osc3 can use a different waveform than the primary (changes the tone)");
+        audio::SynthInstrument do3;
+        check(do3.osc3WaveformLinked() && do3.osc3Waveform() == audio::Waveform::Saw,
+              "osc3 waveform defaults to linked (follows the primary)");
+
         // Osc2 coarse tune: a 2nd sine oscillator an octave up adds a bright partial the unison
         // (coarse 0) tone lacks → more high-frequency energy.
         auto coarseRender = [&](float semis) {

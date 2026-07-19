@@ -195,6 +195,14 @@ public:
         osc3Semitones_ = semis < -24.0f ? -24.0f : (semis > 24.0f ? 24.0f : semis);
     }
     float osc3Semitones() const { return osc3Semitones_; }
+    // Osc3's own waveform (like osc2): linked to the primary by default, or an independent shape.
+    void setOsc3Waveform(Waveform w) {
+        osc3Waveform_ = w;
+        osc3WaveLinked_ = false;
+    }
+    void setOsc3WaveformLinked(bool linked) { osc3WaveLinked_ = linked; }
+    bool osc3WaveformLinked() const { return osc3WaveLinked_; }
+    Waveform osc3Waveform() const { return osc3WaveLinked_ ? waveform_ : osc3Waveform_; }
 
     // Coarse tune for the 2nd oscillator in semitones (-24..+24): stacks it a fixed musical interval
     // (octave, fifth, …) above/below the note for fat two-oscillator sounds. Combines with the fine
@@ -450,6 +458,8 @@ private:
     bool osc2WaveLinked_ = true;            // true = osc2 follows the primary waveform (default)
     float osc3Level_ = 0.0f;     // 3rd oscillator level; 0 = off
     float osc3Semitones_ = 0.0f; // coarse tune for osc3 (semitones)
+    Waveform osc3Waveform_ = Waveform::Saw; // osc3's own shape when unlinked
+    bool osc3WaveLinked_ = true;            // true = osc3 follows the primary waveform (default)
     float ringMod_ = 0.0f;       // osc1×osc2 ring-modulation amount; 0 = off
     float osc2Level_ = 0.0f;
     float subLevel_ = 0.0f;

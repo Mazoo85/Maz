@@ -378,8 +378,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     }
                 }
                 if (osc3Level_ > 0.0f) {
-                    // A third oscillator stacked a fixed interval away (coarse semitones).
-                    osc += waveSample(waveform_, v.phase3, pw) * osc3Level_;
+                    // A third oscillator stacked a fixed interval away (coarse semitones), with its
+                    // own (or primary-linked) waveform.
+                    const Waveform o3Wave = osc3WaveLinked_ ? waveform_ : osc3Waveform_;
+                    osc += waveSample(o3Wave, v.phase3, pw) * osc3Level_;
                     const double mul3 =
                         std::pow(2.0, static_cast<double>(osc3Semitones_) * 100.0 / 1200.0);
                     v.phase3 += phaseInc * mul3;

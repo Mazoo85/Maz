@@ -206,6 +206,11 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
         syn.setOsc2Waveform(static_cast<Waveform>(osc2w < 0 || osc2w > 4 ? 0 : osc2w));
         syn.setOsc2WaveformLinked(osc2Linked != 0);
     }
+    int osc3Linked = 1, osc3w = 0; // osc3 waveform optional for old files (linked → follows primary)
+    if (ls >> osc3Linked >> osc3w) {
+        syn.setOsc3Waveform(static_cast<Waveform>(osc3w < 0 || osc3w > 4 ? 0 : osc3w));
+        syn.setOsc3WaveformLinked(osc3Linked != 0);
+    }
     // Absent → osc2 stays linked to the primary (the default), matching old files.
 }
 } // namespace
@@ -279,7 +284,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << " "
           << s.osc2Semitones() << " " << s.subOctave() << " " << s.osc3Level() << " "
           << s.osc3Semitones() << " " << (s.osc2WaveformLinked() ? 1 : 0) << " "
-          << static_cast<int>(s.osc2Waveform()) << "\n";
+          << static_cast<int>(s.osc2Waveform()) << " " << (s.osc3WaveformLinked() ? 1 : 0) << " "
+          << static_cast<int>(s.osc3Waveform()) << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());
