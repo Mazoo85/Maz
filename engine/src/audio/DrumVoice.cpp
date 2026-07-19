@@ -51,6 +51,8 @@ double decayTau(Drum type) {
         return 0.12; // a short, punchy electronic "pew"
     case Drum::Riser:
         return 0.13; // sets the swell length (~0.8 s) — the voice deactivates as the riser peaks
+    case Drum::Snare808:
+        return 0.11; // the "snappy" noise tail sets the length; the tuned shell decays faster
     }
     return 0.1;
 }
@@ -256,6 +258,21 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
                 renv = 1.0;
             }
             s = static_cast<float>(static_cast<double>(noise()) * renv * renv); // accelerating swell
+            break;
+        }
+        case Drum::Snare808: {
+            // The TR-808 snare: a tuned "shell" of two sine partials (~185 + ~330 Hz) that decays
+            // fast, plus a longer "snappy" noise tail (the snare wires). `snap_` balances shell↔snappy
+            // (0 = all body, 1 = all snap, 0.5 = the classic mix) — distinct from the acoustic Snare's
+            // single-tone body + wire-noise blend by its two fixed tuned partials and dual decays.
+            const double shell = 0.5 * (std::sin(kTwoPi * 185.0 * pitchMul * t_) +
+                                        std::sin(kTwoPi * 330.0 * pitchMul * t_));
+            const double envShell = std::exp(-t_ / 0.035); // fast tonal decay
+            const double envSnap = std::exp(-t_ / 0.11);   // longer noise ("snappy") decay
+            const double shellW = 0.7 * (1.0 - static_cast<double>(snap_));
+            const double snapW = 1.2 * static_cast<double>(snap_);
+            s = static_cast<float>(shellW * shell * envShell +
+                                   snapW * static_cast<double>(noise()) * envSnap);
             break;
         }
         }

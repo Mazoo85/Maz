@@ -328,6 +328,36 @@ int main() {
         riser.render(rTail.data(), static_cast<int>(rTail.size()), sampleRate);
         check(!riser.active(), "riser cuts off after it peaks");
 
+        // 808 snare: a tuned two-partial shell (~185 + ~330 Hz) plus a snappy noise tail. At snap 0
+        // it is the pure tonal shell (low, smooth); raising snap swaps in the bright wire noise. Its
+        // fixed tuned partials make it distinct from the acoustic Snare's single body tone.
+        auto snare808 = [&](float snap, float tune) {
+            audio::DrumVoice sn;
+            sn.setType(audio::Drum::Snare808);
+            sn.setSnap(snap);
+            sn.setTune(tune);
+            sn.trigger();
+            std::vector<float> b(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+            sn.render(b.data(), static_cast<int>(b.size()), sampleRate);
+            return b;
+        };
+        auto hfEnergy = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                s += d * d;
+            }
+            return std::sqrt(s / static_cast<double>(b.size()));
+        };
+        const std::vector<float> shell = snare808(0.0f, 0.0f);
+        check(rms(shell) > 0.0, "808 snare produces sound");
+        check(freqOf(shell, sampleRate) < 500.0,
+              "808 snare shell is a low tuned tone (not noise) at snap 0");
+        check(hfEnergy(snare808(1.0f, 0.0f)) > hfEnergy(shell) * 10.0,
+              "808 snare snap swaps in the bright wire noise");
+        check(freqOf(snare808(0.0f, 12.0f), sampleRate) > freqOf(shell, sampleRate) * 1.5,
+              "808 snare tune raises the shell pitch");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
