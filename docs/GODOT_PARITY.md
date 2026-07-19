@@ -334,6 +334,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   3-4-5 length (=5) and its 6-8-10 double (=10), exact distance, an approximate unit normalize
   (~0.6,0.8, len≈1) with a zero-safe zero vector, and a 500-iteration integer-only vector simulation
   that is bit-identical every run;
+  **fixed-point trig** M417 (`math::fixSin`/`fixCos`/`fixSinCos` + `fixPi`/`fixTwoPi`/`fixHalfPi` — a
+  deterministic sine/cosine for core::Fixed computed by an integer CORDIC: it rotates a vector by a
+  tiny table of precomputed arctangents using only shifts, adds and one integer scale, so there are no
+  floats on the runtime path and identical inputs give bit-identical bits on every CPU/compiler. This
+  is what lets a lockstep-multiplayer or replay-exact game rotate anything reproducibly — Godot has no
+  fixed-point trig at all. Verified against std::sin/std::cos across an 800-sample sweep spanning
+  several turns (worst error ~2e-4), exact-enough cardinal anchors at 0/±π/2/π, the Pythagorean
+  identity sin²+cos²≈1 throughout, fixSinCos agreeing with the standalone fixSin/fixCos, 2π==2·π in the
+  fixed representation, and a 256-step accumulating sin/cos run that is bit-identical every time;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab

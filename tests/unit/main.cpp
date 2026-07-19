@@ -74,6 +74,7 @@
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
+#include "maz/math/FixedTrig.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
@@ -16402,6 +16403,63 @@ void testPcg32() {
             return p.x.raw ^ (p.y.raw << 1);
         };
         CHECK(vsim() == vsim());
+    }
+
+    // --- M417: FixedTrig (deterministic fixed-point sin/cos via integer CORDIC) ---
+    {
+        using FixTrigFixed = maz::core::Fixed;
+        using maz::math::fixSin;
+        using maz::math::fixCos;
+        using maz::math::fixSinCos;
+        using maz::math::fixPi;
+        using maz::math::fixHalfPi;
+        using maz::math::fixTwoPi;
+
+        // Anchor values at the cardinal angles (tolerance ~1e-3 for 16-bit fixed CORDIC).
+        CHECK(std::fabs(fixSin(FixTrigFixed::zero()).toDouble() - 0.0) < 2e-3);
+        CHECK(std::fabs(fixCos(FixTrigFixed::zero()).toDouble() - 1.0) < 2e-3);
+        CHECK(std::fabs(fixSin(fixHalfPi()).toDouble() - 1.0) < 2e-3);
+        CHECK(std::fabs(fixCos(fixHalfPi()).toDouble() - 0.0) < 2e-3);
+        CHECK(std::fabs(fixSin(fixPi()).toDouble() - 0.0) < 2e-3);
+        CHECK(std::fabs(fixCos(fixPi()).toDouble() - (-1.0)) < 2e-3);
+        CHECK(std::fabs(fixCos(-fixHalfPi()).toDouble() - 0.0) < 2e-3);
+        CHECK(std::fabs(fixSin(-fixHalfPi()).toDouble() - (-1.0)) < 2e-3);
+
+        // Sweep the whole circle against std::sin/std::cos: fixed CORDIC tracks the truth within ~1e-3,
+        // and the Pythagorean identity sin^2 + cos^2 == 1 holds throughout.
+        for (int ftk = -400; ftk <= 400; ++ftk) {
+            const double ang = static_cast<double>(ftk) * 0.017;      // radians, spans several turns
+            const maz::math::FixSinCos sc = fixSinCos(FixTrigFixed::fromFloat(ang));
+            const double sn = sc.sin.toDouble();
+            const double cs = sc.cos.toDouble();
+            CHECK(std::fabs(sn - std::sin(ang)) < 3e-3);
+            CHECK(std::fabs(cs - std::cos(ang)) < 3e-3);
+            CHECK(std::fabs((sn * sn + cs * cs) - 1.0) < 4e-3);
+        }
+
+        // fixSinCos agrees with the standalone fixSin/fixCos (they share the same pass).
+        for (int ftk = 0; ftk < 50; ++ftk) {
+            const FixTrigFixed ang = FixTrigFixed::fromRaw(ftk * 8000 - 200000);
+            const maz::math::FixSinCos sc = fixSinCos(ang);
+            CHECK(sc.sin == fixSin(ang));
+            CHECK(sc.cos == fixCos(ang));
+        }
+
+        // Determinism: identical inputs give bit-identical raw output (no floats on the runtime path).
+        auto tsim = []() {
+            FixTrigFixed acc = FixTrigFixed::zero();
+            std::int64_t h = 0;
+            for (int i = 0; i < 256; ++i) {
+                acc += FixTrigFixed::fromRaw(1500);
+                const maz::math::FixSinCos sc = fixSinCos(acc);
+                h ^= (static_cast<std::int64_t>(sc.sin.raw) << 1) ^ sc.cos.raw;
+            }
+            return h;
+        };
+        CHECK(tsim() == tsim());
+
+        // fixTwoPi == 2 * fixPi in the fixed representation (argument reduction relies on this).
+        CHECK(fixTwoPi().raw == fixPi().raw * 2);
     }
 }
 
