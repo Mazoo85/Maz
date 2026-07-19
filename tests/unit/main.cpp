@@ -14026,6 +14026,32 @@ void testGeometry3DHelpers() {
         CHECK(nearV(cp, centroid, 1e-3f));
         CHECK(std::fabs(math::dot(tn, cp - t0)) < 1e-3f);
     }
+
+    // --- M399: barycentric coordinates ---
+    {
+        const vec3 a(0, 0, 0), b(4, 0, 0), c(0, 4, 0);
+        CHECK(nearV(math::barycentric(a, a, b, c), vec3(1, 0, 0)));
+        CHECK(nearV(math::barycentric(b, a, b, c), vec3(0, 1, 0)));
+        CHECK(nearV(math::barycentric(c, a, b, c), vec3(0, 0, 1)));
+        CHECK(nearV(math::barycentric((a + b + c) / 3.0f, a, b, c),
+                    vec3(1.0f / 3, 1.0f / 3, 1.0f / 3)));
+        CHECK(nearV(math::barycentric((a + b) * 0.5f, a, b, c), vec3(0.5f, 0.5f, 0)));
+        // Sum to 1, reconstruct, all-positive interior.
+        const vec3 wi = math::barycentric(vec3(1, 1, 0), a, b, c);
+        CHECK(std::fabs(wi.x + wi.y + wi.z - 1.0f) < 1e-5f);
+        CHECK(nearV(wi.x * a + wi.y * b + wi.z * c, vec3(1, 1, 0)));
+        CHECK(wi.x > 0 && wi.y > 0 && wi.z > 0);
+        // Outside -> a negative weight; off-plane -> coords of the projection.
+        CHECK(math::barycentric(vec3(5, 5, 0), a, b, c).x < 0.0f);
+        const vec3 wp = math::barycentric(vec3(1, 1, 7), a, b, c);
+        CHECK(nearV(wp.x * a + wp.y * b + wp.z * c, vec3(1, 1, 0)));
+        // Attribute interpolation at the centroid == mean of vertex values.
+        const vec3 wc = math::barycentric((a + b + c) / 3.0f, a, b, c);
+        const float attr[3] = {10.0f, 40.0f, 70.0f};
+        CHECK_NEAR(wc.x * attr[0] + wc.y * attr[1] + wc.z * attr[2], 40.0f, 1e-3f);
+        // Degenerate triangle -> (1,0,0).
+        CHECK(nearV(math::barycentric(vec3(1, 1, 1), a, a, a), vec3(1, 0, 0)));
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

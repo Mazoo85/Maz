@@ -420,7 +420,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   regions: three vertices, three edges, interior face), the bedrock of sphere-vs-mesh collision,
   decal projection and snap-to-surface. Verified against exact cases (interior projection from
   above/below, each vertex/edge region, on-surface identity) and a tilted triangle where an
-  interior projection lands on the centroid perpendicular to the face — plus Plane completeness
+  interior projection lands on the centroid perpendicular to the face; M399 adds **barycentric** —
+  the (u,v,w) coordinates of a point w.r.t. a 3D triangle (Ericson's area/Cramer method, projecting
+  off-plane points), the standard tool for interpolating a per-vertex attribute (colour, UV, normal)
+  at a ray hit or arbitrary surface point. Verified by vertex→unit-basis, centroid→(1/3,1/3,1/3),
+  edge midpoints, sum-to-one + reconstruction, a negative weight outside, off-plane projection, an
+  attribute-interpolation example, and degenerate-triangle safety — plus Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

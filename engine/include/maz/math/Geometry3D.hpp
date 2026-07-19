@@ -675,6 +675,27 @@ inline vec3 closestPointOnTriangle(const vec3& p, const vec3& a, const vec3& b, 
     return a + ab * v + ac * w;
 }
 
+// Barycentric coordinates (u,v,w) of `p` with respect to triangle (a,b,c): p projects to u*a+v*b+w*c
+// and u+v+w == 1. u is the weight of a, v of b, w of c. For a point off the triangle's plane these
+// are the coordinates of its orthogonal projection (Ericson's area/Cramer method). The standard tool
+// for interpolating a per-vertex attribute (colour, UV, normal) at an arbitrary point on a triangle,
+// e.g. shading a ray hit. A degenerate (zero-area) triangle returns (1,0,0).
+inline vec3 barycentric(const vec3& p, const vec3& a, const vec3& b, const vec3& c) {
+    const vec3 v0 = b - a, v1 = c - a, v2 = p - a;
+    const float d00 = dot(v0, v0);
+    const float d01 = dot(v0, v1);
+    const float d11 = dot(v1, v1);
+    const float d20 = dot(v2, v0);
+    const float d21 = dot(v2, v1);
+    const float denom = d00 * d11 - d01 * d01;
+    if (std::fabs(denom) < 1e-20f) {
+        return vec3(1.0f, 0.0f, 0.0f); // degenerate triangle
+    }
+    const float v = (d11 * d20 - d01 * d21) / denom;
+    const float w = (d00 * d21 - d01 * d20) / denom;
+    return vec3(1.0f - v - w, v, w);
+}
+
 // Intersect a segment [from,to] with the convex volume that is the intersection of the half-spaces
 // (normal·p - d <= 0) of `planes` — Godot's Geometry3D.segment_intersects_convex. Returns the point
 // where the segment first ENTERS the volume through one of its faces (nullopt if it never does).
