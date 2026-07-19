@@ -771,6 +771,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   min/max. Godot exposes no RMQ structure -> beyond-Godot. Verified against brute force over EVERY (l, r)
   pair across 100 random arrays for both min and max, plus known values, float payloads, single-element
   ranges, and empty/one-element tables),
+  **all-pairs shortest paths** (M461, `game::allPairsShortestPaths` — Floyd-Warshall: the shortest
+  distance between EVERY pair of nodes in a weighted graph in one O(V^3) pass, plus a next-hop matrix for
+  path reconstruction. Unlike the engine's single-source pathfinders (AStar2D, DijkstraMap) it fills a
+  whole distance matrix — the tool for a precomputed routing/influence table on a small graph, "which of
+  my bases is nearest to each threat", static AI cost tables. Handles negative edges (and detects
+  negative cycles), directed or undirected. Godot's AStar is single-pair, so all-pairs is beyond-Godot.
+  Verified: self-distance 0 and unreachable = infinity; a hand-computed graph gives exact distances and
+  the reconstructed path; every source's distances match an independent Dijkstra reference across 40
+  random graphs; reconstructed paths start/end correctly with matching total weight; a negative edge is
+  used correctly and a negative cycle is detected),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

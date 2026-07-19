@@ -105,6 +105,7 @@
 #include "maz/game/Minimax.hpp"
 #include "maz/game/LSystem.hpp"
 #include "maz/core/SparseTable.hpp"
+#include "maz/game/AllPairsShortestPath.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20039,6 +20040,102 @@ void testSparseTable() {
     }
 }
 
+// AllPairsShortestPath: Floyd-Warshall all-pairs distances + path reconstruction (M461).
+void testAllPairsShortestPath() {
+    using core::Pcg32;
+    using game::allPairsShortestPaths;
+    using game::AllPairsResult;
+    using game::WEdge;
+    const float INF = std::numeric_limits<float>::infinity();
+
+    // O(V^2) Dijkstra reference on a non-negative adjacency matrix.
+    auto dijkstra = [&](int n, const std::vector<float>& adj, int src) {
+        std::vector<float> d(static_cast<std::size_t>(n), INF);
+        std::vector<char> done(static_cast<std::size_t>(n), 0);
+        d[static_cast<std::size_t>(src)] = 0.0f;
+        for (int it = 0; it < n; ++it) {
+            int u = -1;
+            float best = INF;
+            for (int v = 0; v < n; ++v) {
+                if (!done[static_cast<std::size_t>(v)] && d[static_cast<std::size_t>(v)] < best) {
+                    best = d[static_cast<std::size_t>(v)];
+                    u = v;
+                }
+            }
+            if (u == -1) break;
+            done[static_cast<std::size_t>(u)] = 1;
+            for (int v = 0; v < n; ++v) {
+                const float w = adj[static_cast<std::size_t>(u) * static_cast<std::size_t>(n)
+                                    + static_cast<std::size_t>(v)];
+                if (w < INF && d[static_cast<std::size_t>(u)] + w < d[static_cast<std::size_t>(v)]) {
+                    d[static_cast<std::size_t>(v)] = d[static_cast<std::size_t>(u)] + w;
+                }
+            }
+        }
+        return d;
+    };
+
+    // Self distance 0; unreachable infinity; directed edges have no return.
+    {
+        std::vector<WEdge> edges{{0, 1, 2.0f, false}};
+        const AllPairsResult r = allPairsShortestPaths(3, edges);
+        CHECK(r.at(0, 0) == 0.0f && std::fabs(r.at(0, 1) - 2.0f) < 1e-6f);
+        CHECK(r.at(1, 0) == INF && r.at(0, 2) == INF);
+        CHECK(r.path(1, 0).empty() && r.path(0, 2).empty());
+    }
+    // Hand-computed undirected graph + path reconstruction.
+    {
+        std::vector<WEdge> edges{{0, 1, 1.0f}, {1, 2, 2.0f}, {0, 2, 5.0f}, {2, 3, 1.0f}};
+        const AllPairsResult r = allPairsShortestPaths(4, edges);
+        CHECK(std::fabs(r.at(0, 2) - 3.0f) < 1e-6f && std::fabs(r.at(0, 3) - 4.0f) < 1e-6f);
+        CHECK(std::fabs(r.at(3, 0) - 4.0f) < 1e-6f); // symmetry
+        const std::vector<int> p = r.path(0, 3);
+        CHECK(p.size() == 4 && p[0] == 0 && p[1] == 1 && p[2] == 2 && p[3] == 3);
+    }
+    // Cross-check every source against Dijkstra on random non-negative graphs.
+    {
+        Pcg32 rng(2024u, 9u);
+        for (int trial = 0; trial < 40; ++trial) {
+            const int n = 2 + static_cast<int>(rng.nextFloat() * 8.0f);
+            std::vector<WEdge> edges;
+            std::vector<float> adj(static_cast<std::size_t>(n * n), INF);
+            for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i)
+                adj[i * static_cast<std::size_t>(n) + i] = 0.0f;
+            const int m = static_cast<int>(rng.nextFloat() * static_cast<float>(3 * n));
+            for (int e = 0; e < m; ++e) {
+                const int a = static_cast<int>(rng.nextFloat() * static_cast<float>(n));
+                const int b = static_cast<int>(rng.nextFloat() * static_cast<float>(n));
+                if (a == b) continue;
+                const float w = 0.1f + rng.nextFloat() * 9.0f;
+                edges.push_back({a, b, w, true});
+                const std::size_t ab = static_cast<std::size_t>(a) * static_cast<std::size_t>(n) + static_cast<std::size_t>(b);
+                const std::size_t ba = static_cast<std::size_t>(b) * static_cast<std::size_t>(n) + static_cast<std::size_t>(a);
+                if (w < adj[ab]) { adj[ab] = w; adj[ba] = w; }
+            }
+            const AllPairsResult r = allPairsShortestPaths(n, edges);
+            CHECK(!r.hasNegativeCycle);
+            for (int s = 0; s < n; ++s) {
+                const std::vector<float> ref = dijkstra(n, adj, s);
+                for (int t = 0; t < n; ++t) {
+                    const float a = r.at(s, t), b = ref[static_cast<std::size_t>(t)];
+                    CHECK((a == INF && b == INF) || std::fabs(a - b) < 1e-3f);
+                }
+            }
+        }
+    }
+    // Negative edges (no cycle) handled; negative cycle detected.
+    {
+        std::vector<WEdge> edges{{0, 1, 4.0f, false}, {0, 2, 5.0f, false}, {2, 1, -3.0f, false}};
+        const AllPairsResult r = allPairsShortestPaths(3, edges);
+        CHECK(!r.hasNegativeCycle && std::fabs(r.at(0, 1) - 2.0f) < 1e-6f);
+        const std::vector<int> p = r.path(0, 1);
+        CHECK(p.size() == 3 && p[0] == 0 && p[1] == 2 && p[2] == 1);
+        std::vector<WEdge> cyc{{0, 1, 1.0f, false}, {1, 2, -3.0f, false}, {2, 0, 1.0f, false}};
+        CHECK(allPairsShortestPaths(3, cyc).hasNegativeCycle);
+        CHECK(allPairsShortestPaths(0, {}).dist.empty());
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28824,6 +28921,7 @@ int main() {
     testMinimax();
     testLSystem();
     testSparseTable();
+    testAllPairsShortestPath();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
