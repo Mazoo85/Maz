@@ -1106,6 +1106,16 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool sfch = ImGui::SliderFloat("Filter cutoff##smp", &smpCut, 20.0f, 20000.0f, "%.0f Hz");
     sfch |= ImGui::SliderFloat("Filter reso##smp", &smpRes, 0.5f, 20.0f, "%.1f");
     if (sfch) seq.sampler().setFilter(smpCut, smpRes);
+    float smpFeDepth = seq.sampler().filterEnvDepth();
+    if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
+        seq.sampler().setFilterEnvDepth(smpFeDepth);
+    float sfa = seq.sampler().filterEnvAttack(), sfd = seq.sampler().filterEnvDecay();
+    float sfs = seq.sampler().filterEnvSustain(), sfr = seq.sampler().filterEnvRelease();
+    bool fech = ImGui::SliderFloat("F.Env A##smp", &sfa, 0.0001f, 2.0f, "%.3f");
+    fech |= ImGui::SliderFloat("F.Env D##smp", &sfd, 0.0001f, 2.0f, "%.3f");
+    fech |= ImGui::SliderFloat("F.Env S##smp", &sfs, 0.0f, 1.0f, "%.2f");
+    fech |= ImGui::SliderFloat("F.Env R##smp", &sfr, 0.0001f, 2.0f, "%.3f");
+    if (fech) seq.sampler().setFilterEnvelope(sfa, sfd, sfs, sfr);
 
     ImGui::End();
 }

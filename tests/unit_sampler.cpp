@@ -370,6 +370,31 @@ int main() {
         audio::Sampler df;
         check(df.filterCutoff() == 20000.0f && df.filterResonance() == 0.7f,
               "sampler filter defaults to open (bypass)");
+
+        // Filter envelope: opens the cutoff at the start (bright) then decays it closed (dark).
+        audio::Sampler fe;
+        fe.setSampleMono(bright, sr);
+        fe.setBasePitch(60);
+        fe.setFilter(500.0f, 0.7f);          // dark base cutoff
+        fe.setFilterEnvDepth(8000.0f);       // envelope opens it wide at the start
+        fe.setFilterEnvelope(0.001f, 0.04f, 0.0f, 0.1f); // fast attack, decay closed over ~40 ms
+        fe.noteOn(60, 1.0f);
+        const std::vector<float> feo = renderMono(fe, sr / 4, sr);
+        auto hfWin = [&](const std::vector<float>& b, int a, int c) {
+            double h = 0.0;
+            for (int i = a + 1; i < c; ++i) {
+                const double d = static_cast<double>(b[static_cast<size_t>(i)] - b[static_cast<size_t>(i - 1)]);
+                h += d * d;
+            }
+            return h;
+        };
+        const int w = sr / 50;                          // 20 ms windows
+        const double early = hfWin(feo, 0, w);          // bright (cutoff open)
+        const double late = hfWin(feo, 5 * w, 6 * w);   // dark (cutoff decayed shut)
+        check(early > late * 2.0,
+              "sampler filter envelope opens the cutoff bright at the start then closes it");
+        audio::Sampler de;
+        check(de.filterEnvDepth() == 0.0f, "sampler filter-envelope depth defaults to 0 (off)");
     }
 
     // Beat slicer: N slices mapped across the keyboard from the base note; each note plays its slice

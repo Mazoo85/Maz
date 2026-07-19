@@ -107,6 +107,8 @@ int main() {
     seq.sampler().setLoopRegion(0.3f, 0.75f);
     seq.sampler().setSlices(8);
     seq.sampler().setFilter(3200.0f, 4.5f);
+    seq.sampler().setFilterEnvelope(0.02f, 0.12f, 0.4f, 0.2f);
+    seq.sampler().setFilterEnvDepth(-3500.0f);
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -434,7 +436,10 @@ int main() {
               seq2.sampler().pingPong() && near(seq2.sampler().detuneCents(), -25.0f) &&
               near(seq2.sampler().loopStart(), 0.3f) && near(seq2.sampler().loopEnd(), 0.75f) &&
               seq2.sampler().slices() == 8 && near(seq2.sampler().filterCutoff(), 3200.0f) &&
-              near(seq2.sampler().filterResonance(), 4.5f),
+              near(seq2.sampler().filterResonance(), 4.5f) &&
+              near(seq2.sampler().filterEnvDepth(), -3500.0f) &&
+              near(seq2.sampler().filterEnvSustain(), 0.4f) &&
+              near(seq2.sampler().filterEnvDecay(), 0.12f),
           "sampler settings round-trip");
 
     // Mixer + effects.

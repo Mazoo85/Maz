@@ -107,6 +107,23 @@ public:
     float filterCutoff() const { return filterCutoff_; }
     float filterResonance() const { return filterReso_; }
 
+    // Filter envelope: its own ADSR (seconds / sustain 0..1) sweeps the playback filter cutoff by
+    // `depth` Hz (±) — a filter pluck/wow on the sample, independent of the amp envelope. depth 0 = off.
+    void setFilterEnvelope(float attack, float decay, float sustain, float release) {
+        fEnvA_ = attack < 0.0001f ? 0.0001f : attack;
+        fEnvD_ = decay < 0.0001f ? 0.0001f : decay;
+        fEnvS_ = sustain < 0.0f ? 0.0f : (sustain > 1.0f ? 1.0f : sustain);
+        fEnvR_ = release < 0.0001f ? 0.0001f : release;
+    }
+    void setFilterEnvDepth(float hz) {
+        filterEnvDepth_ = hz < -18000.0f ? -18000.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    float filterEnvAttack() const { return fEnvA_; }
+    float filterEnvDecay() const { return fEnvD_; }
+    float filterEnvSustain() const { return fEnvS_; }
+    float filterEnvRelease() const { return fEnvR_; }
+    float filterEnvDepth() const { return filterEnvDepth_; }
+
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
@@ -132,6 +149,8 @@ private:
         double sliceEnd = 0.0; // read index at which a sliced voice stops
         float velocity = 0.0f;
         float env = 0.0f;
+        float filtEnv = 0.0f;                 // dedicated filter-envelope level [0,1]
+        int filtStage = 0;                    // 0=attack, 1=decay, 2=sustain, 3=release
         StateVariableFilter filter{}; // per-voice playback filter
     };
 
@@ -149,6 +168,8 @@ private:
     float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
     float filterCutoff_ = 20000.0f; // playback low-pass cutoff Hz (20000 = open/bypass)
     float filterReso_ = 0.7f;       // playback low-pass resonance
+    float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
+    float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
     float attack_ = 0.001f;  // seconds
     float release_ = 0.012f; // seconds
     std::string path_;

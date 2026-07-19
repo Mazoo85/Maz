@@ -153,12 +153,15 @@ void Sampler::noteOn(int midi, float velocity) {
     }
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
+    v.filtEnv = 0.0f;
+    v.filtStage = 0; // attack
 }
 
 void Sampler::noteOff(int midi) {
     for (Voice& v : voices_) {
         if (v.active && v.midi == midi) {
             v.releasing = true;
+            v.filtStage = 3; // filter envelope enters release
         }
     }
 }
@@ -167,6 +170,7 @@ void Sampler::allNotesOff() {
     for (Voice& v : voices_) {
         if (v.active) {
             v.releasing = true;
+            v.filtStage = 3;
         }
     }
 }
@@ -187,6 +191,11 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     const double srCorrect = static_cast<double>(sampleSr_) / static_cast<double>(sampleRate);
     const float attackStep = 1.0f / (attack_ * static_cast<float>(sampleRate));
     const float releaseStep = 1.0f / (release_ * static_cast<float>(sampleRate));
+    // Filter-envelope per-sample increments (only used when the envelope has a non-zero depth).
+    const bool useFilterEnv = filterEnvDepth_ != 0.0f;
+    const float fAtkStep = 1.0f / (fEnvA_ * static_cast<float>(sampleRate));
+    const float fDecStep = (1.0f - fEnvS_) / (fEnvD_ * static_cast<float>(sampleRate));
+    const float fRelStep = (fEnvS_ > 0.0f ? fEnvS_ : 1.0f) / (fEnvR_ * static_cast<float>(sampleRate));
     const double baseFreq = static_cast<double>(midiToFreq(basePitch_));
     const size_t last = sample_.size() - 1;
 
@@ -211,6 +220,34 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 }
             } else if (v.env < 1.0f) {
                 v.env = std::min(1.0f, v.env + attackStep);
+            }
+
+            // Filter envelope (independent ADSR driving the cutoff).
+            if (useFilterEnv) {
+                switch (v.filtStage) {
+                case 0: // attack → 1
+                    v.filtEnv += fAtkStep;
+                    if (v.filtEnv >= 1.0f) {
+                        v.filtEnv = 1.0f;
+                        v.filtStage = 1;
+                    }
+                    break;
+                case 1: // decay → sustain
+                    v.filtEnv -= fDecStep;
+                    if (v.filtEnv <= fEnvS_) {
+                        v.filtEnv = fEnvS_;
+                        v.filtStage = 2;
+                    }
+                    break;
+                case 3: // release → 0
+                    v.filtEnv -= fRelStep;
+                    if (v.filtEnv < 0.0f) {
+                        v.filtEnv = 0.0f;
+                    }
+                    break;
+                default: // sustain: hold
+                    break;
+                }
             }
 
             // Bounds / looping, direction-aware. Ping-pong reflects off each end (flipping the
@@ -270,9 +307,15 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             }
             const float frac = static_cast<float>(v.pos - static_cast<double>(i0));
             float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
-            // Playback low-pass (per voice): shape the sample's tone. Bypassed when open (≥19 kHz).
-            if (filterCutoff_ < 19000.0f) {
-                s = v.filter.process(s, filterCutoff_, filterReso_, sampleRate,
+            // Playback low-pass (per voice): shape the sample's tone, with the optional filter
+            // envelope sweeping the cutoff. Bypassed only when the base is open and no envelope is set.
+            if (filterCutoff_ < 19000.0f || useFilterEnv) {
+                float cutoff = filterCutoff_;
+                if (useFilterEnv) {
+                    cutoff += filterEnvDepth_ * v.filtEnv;
+                }
+                cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);
+                s = v.filter.process(s, cutoff, filterReso_, sampleRate,
                                      StateVariableFilter::Mode::LowPass);
             }
             out[i] += s * v.env * v.velocity * gain_;

@@ -228,7 +228,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().release() << " " << (seq.sampler().pingPong() ? 1 : 0) << " "
       << seq.sampler().detuneCents() << " " << seq.sampler().loopStart() << " "
       << seq.sampler().loopEnd() << " " << seq.sampler().slices() << " "
-      << seq.sampler().filterCutoff() << " " << seq.sampler().filterResonance() << "\n";
+      << seq.sampler().filterCutoff() << " " << seq.sampler().filterResonance() << " "
+      << seq.sampler().filterEnvAttack() << " " << seq.sampler().filterEnvDecay() << " "
+      << seq.sampler().filterEnvSustain() << " " << seq.sampler().filterEnvRelease() << " "
+      << seq.sampler().filterEnvDepth() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -558,6 +561,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float fcut = 20000.0f, freso = 0.7f; // playback filter optional (older files omit it)
             if (ls >> fcut >> freso) {
                 seq.sampler().setFilter(fcut, freso);
+            }
+            float fea = 0.005f, fed = 0.1f, fes = 0.0f, fer = 0.1f, fedep = 0.0f; // filter env optional
+            if (ls >> fea >> fed >> fes >> fer >> fedep) {
+                seq.sampler().setFilterEnvelope(fea, fed, fes, fer);
+                seq.sampler().setFilterEnvDepth(fedep);
             }
         } else if (tag == "chan") {
             int c = -1;
