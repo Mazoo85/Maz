@@ -1016,6 +1016,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   a running timer to full; multiple ids stay independent; `reduce` shortens and can free (and no-ops on a
   ready ability); `reset` / `clear` work; a non-positive duration means immediately ready (and clears an
   active timer); non-positive dt is ignored),
+  **crafting system** (M481, `game::Recipe` + `game::RecipeBook` + `canCraft` / `craft`, built directly on
+  `game::Inventory` — turns a bench of recipes plus an inventory into "combine these items to make that
+  item." A Recipe lists the input ids/quantities it consumes and the output id/quantity it produces;
+  `canCraft` checks the inventory has every ingredient and room for the result, and `craft` atomically
+  consumes the inputs and adds the output (leaving the inventory untouched on failure). A RecipeBook stores
+  many recipes and reports which ones an inventory can currently make (`craftable` / `firstCraftable`) —
+  the data behind a crafting menu that greys out what you can't yet build. Crafting and carrying share one
+  item model (ItemStack ids/quantities). Godot ships no crafting system — games hand-roll it every time ->
+  beyond-Godot gameplay utility. Verified: `canCraft` flips false->true as the last ingredient arrives;
+  `craft` consumes the exact inputs and adds the output, stacks a repeated craft's output, and fails
+  leaving the inventory byte-for-byte unchanged when short an input OR when the inventory has no room for
+  the result; output that stacks into an existing partial stack counts as room; a zero-quantity input
+  demands nothing; recipes with no output id / zero output count are rejected; the book lists craftable
+  indices in order and reports -1 when none can be made),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

@@ -125,6 +125,7 @@
 #include "maz/game/LootTable.hpp"
 #include "maz/game/Leveling.hpp"
 #include "maz/game/Cooldown.hpp"
+#include "maz/game/Crafting.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20221,6 +20222,99 @@ void testPolynomial() {
     }
 }
 
+void testCrafting() {
+    using game::canCraft;
+    using game::craft;
+    using game::Inventory;
+    using game::Recipe;
+    using game::RecipeBook;
+
+    const Recipe sword{10, 1, {{1, 3}, {2, 2}}};
+
+    // canCraft: false while ingredients are missing, true once complete.
+    {
+        Inventory inv(8, 99);
+        CHECK(!canCraft(sword, inv));
+        inv.addItem(1, 3);
+        CHECK(!canCraft(sword, inv));
+        inv.addItem(2, 2);
+        CHECK(canCraft(sword, inv));
+    }
+    // craft consumes exact inputs and adds the output.
+    {
+        Inventory inv(8, 99);
+        inv.addItem(1, 5);
+        inv.addItem(2, 3);
+        CHECK(craft(sword, inv) == true);
+        CHECK(inv.count(1) == 2 && inv.count(2) == 1 && inv.count(10) == 1);
+    }
+    // craft twice stacks the output; then fails (out of materials), unchanged.
+    {
+        Inventory inv(8, 99);
+        inv.addItem(1, 6);
+        inv.addItem(2, 4);
+        CHECK(craft(sword, inv) == true);
+        CHECK(craft(sword, inv) == true);
+        CHECK(inv.count(10) == 2 && inv.count(1) == 0 && inv.count(2) == 0);
+        CHECK(craft(sword, inv) == false);
+        CHECK(inv.count(10) == 2);
+    }
+    // craft fails and leaves inventory untouched when short an input.
+    {
+        Inventory inv(8, 99);
+        inv.addItem(1, 3);
+        inv.addItem(2, 1);
+        CHECK(craft(sword, inv) == false);
+        CHECK(inv.count(1) == 3 && inv.count(2) == 1 && inv.count(10) == 0);
+    }
+    // craft fails with no room for the output; inventory untouched.
+    {
+        Inventory inv(2, 99);
+        inv.addItem(1, 3);
+        inv.addItem(2, 2);
+        CHECK(!canCraft(sword, inv));
+        CHECK(craft(sword, inv) == false);
+        CHECK(inv.count(1) == 3 && inv.count(2) == 2 && inv.count(10) == 0);
+    }
+    // Output stacking into an existing partial stack counts as room.
+    {
+        Inventory inv(2, 99);
+        inv.addItem(10, 1);
+        inv.addItem(1, 3);
+        const Recipe plank{10, 1, {{1, 3}}};
+        CHECK(canCraft(plank, inv));
+        CHECK(craft(plank, inv) == true);
+        CHECK(inv.count(10) == 2 && inv.count(1) == 0);
+    }
+    // Zero-quantity input demands nothing; invalid recipes rejected.
+    {
+        Inventory inv(4, 99);
+        const Recipe freebie{5, 2, {{1, 0}}};
+        CHECK(canCraft(freebie, inv) && craft(freebie, inv) == true && inv.count(5) == 2);
+        CHECK(!canCraft(Recipe{-1, 1, {}}, inv));
+        CHECK(!canCraft(Recipe{5, 0, {}}, inv));
+    }
+    // RecipeBook: craftable / firstCraftable.
+    {
+        RecipeBook book;
+        book.addRecipe(sword);
+        book.addRecipe(20, 1, {{1, 1}});
+        book.addRecipe(30, 1, {{99, 5}});
+        CHECK(book.recipeCount() == 3);
+        Inventory inv(8, 99);
+        CHECK(book.craftable(inv).empty() && book.firstCraftable(inv) == -1);
+        inv.addItem(1, 1);
+        const auto c1 = book.craftable(inv);
+        CHECK(c1.size() == 1 && c1[0] == 1 && book.firstCraftable(inv) == 1);
+        inv.addItem(1, 2);
+        inv.addItem(2, 2);
+        const auto c2 = book.craftable(inv);
+        CHECK(c2.size() == 2 && c2[0] == 0 && c2[1] == 1 && book.firstCraftable(inv) == 0);
+        book.clear();
+        CHECK(book.recipeCount() == 0);
+    }
+}
+
 void testCooldown() {
     using game::CooldownManager;
 
@@ -30599,6 +30693,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testCrafting();
     testCooldown();
     testLeveling();
     testLootTable();
