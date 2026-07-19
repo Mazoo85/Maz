@@ -1446,7 +1446,7 @@ void buildMixerUI(audio::AudioEngine& engine) {
         int curve = static_cast<int>(mx.distortion().curve());
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
-        if (ImGui::Combo("##distcurve", &curve, "Soft\0Hard\0Fold\0SineFold\0\0"))
+        if (ImGui::Combo("##distcurve", &curve, "Soft\0Hard\0Fold\0SineFold\0Tube\0\0"))
             mx.distortion().setCurve(static_cast<audio::Distortion::Curve>(curve));
         float dtone = mx.distortion().tone();
         ImGui::SameLine();

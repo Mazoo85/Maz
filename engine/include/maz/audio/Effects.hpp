@@ -136,7 +136,7 @@ class Distortion : public Effect {
 public:
     // Waveshaper curve: Soft = tanh overdrive, Hard = digital clip, Fold = wavefolding, SineFold =
     // sine wrap. Each gives a distinct harmonic character for the same drive.
-    enum class Curve { Soft, Hard, Fold, SineFold };
+    enum class Curve { Soft, Hard, Fold, SineFold, Tube };
 
     const char* name() const override { return "Distortion"; }
     void setDrive(float d) { drive_ = d; }

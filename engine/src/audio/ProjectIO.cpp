@@ -1114,7 +1114,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 int curve = 0; // curve type optional (older files omit it)
                 if (ls >> curve) {
                     mixer.distortion().setCurve(static_cast<Distortion::Curve>(
-                        curve < 0 || curve > 3 ? 0 : curve));
+                        curve < 0 || curve > 4 ? 0 : curve));
                 }
                 float tone = 20000.0f; // post tone optional (older files omit it → open)
                 if (ls >> tone) {

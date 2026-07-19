@@ -246,6 +246,14 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
         case Curve::SineFold:
             wet = std::sin(x * kPi * 0.5f);
             break;
+        case Curve::Tube: {
+            // Asymmetric soft clip: the positive half saturates fully, the negative half is scaled
+            // down, so the two halves differ — that asymmetry adds even harmonics (warmth) and a
+            // small DC offset, the tube/valve character.
+            const float t = std::tanh(x) * tanhNorm;
+            wet = x >= 0.0f ? t : 0.6f * t;
+            break;
+        }
         }
         // Post tone: low-pass the wet before mixing (per channel: even i = L, odd i = R).
         if (doTone) {

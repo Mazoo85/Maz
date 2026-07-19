@@ -276,7 +276,7 @@ int main() {
     mixer.stereoEnhancer().setDelayMs(18.0f);
     mixer.stereoEnhancer().setAmount(0.55f);
     mixer.distortion().setEnabled(true);
-    mixer.distortion().setCurve(audio::Distortion::Curve::Fold);
+    mixer.distortion().setCurve(audio::Distortion::Curve::Tube);
     mixer.distortion().setTone(4800.0f);
     mixer.ringmod().setEnabled(true);
     mixer.ringmod().setFreq(440.0f);
@@ -660,7 +660,7 @@ int main() {
               near(mixer2.stereoDelay().damping(), 0.5f) &&
               near(mixer2.stereoDelay().feedbackLowCut(), 180.0f),
           "stereo delay round-trips");
-    check(mixer2.distortion().curve() == audio::Distortion::Curve::Fold &&
+    check(mixer2.distortion().curve() == audio::Distortion::Curve::Tube &&
               near(mixer2.distortion().tone(), 4800.0f),
           "distortion curve round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&

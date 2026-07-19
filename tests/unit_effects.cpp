@@ -882,6 +882,28 @@ int main() {
         // The three shaping curves give distinct outputs for the same input.
         check(std::fabs(shape(C::Hard, 0.8f) - shape(C::Fold, 0.8f)) > 0.1f,
               "hard and fold curves differ");
+        // Tube is asymmetric: the positive half is louder than the negative.
+        check(shape(C::Tube, 0.8f) > -shape(C::Tube, -0.8f),
+              "tube curve shapes the positive half harder than the negative (asymmetric)");
+
+        // That asymmetry adds a DC/even-harmonic offset on a symmetric sine that the symmetric
+        // curves don't.
+        auto meanOf = [&](audio::Distortion::Curve c) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(3.0f);
+            d.setMix(1.0f);
+            d.setCurve(c);
+            std::vector<float> b = sineStereo(sr, 200.0, 0.8, sr);
+            d.process(b.data(), sr, sr);
+            double s = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                s += static_cast<double>(b[i]);
+            }
+            return s / static_cast<double>(b.size() / 2);
+        };
+        check(std::fabs(meanOf(C::Soft)) < 0.02, "a symmetric curve leaves no DC offset");
+        check(meanOf(C::Tube) > 0.05, "the tube curve introduces a DC/even-harmonic offset");
     }
 
     // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------
