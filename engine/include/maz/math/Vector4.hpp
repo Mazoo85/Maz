@@ -96,6 +96,26 @@ struct Vector4 {
         return std::abs(x) < eps && std::abs(y) < eps && std::abs(z) < eps && std::abs(w) < eps;
     }
 
+    // Axis index (0=X..3=W) of the largest / smallest component — Godot's Vector4.max_axis_index /
+    // min_axis_index. Tie-breaking matches Godot: max scans with strict '>' (earliest axis wins),
+    // min scans with '<=' (latest axis wins).
+    int maxAxisIndex() const {
+        int idx = 0;
+        float val = x;
+        if (y > val) { idx = 1; val = y; }
+        if (z > val) { idx = 2; val = z; }
+        if (w > val) { idx = 3; }
+        return idx;
+    }
+    int minAxisIndex() const {
+        int idx = 0;
+        float val = x;
+        if (y <= val) { idx = 1; val = y; }
+        if (z <= val) { idx = 2; val = z; }
+        if (w <= val) { idx = 3; }
+        return idx;
+    }
+
     vec4 toVec4() const { return vec4(x, y, z, w); }
 };
 

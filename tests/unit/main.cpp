@@ -13864,6 +13864,11 @@ void testVector4() {
     CHECK(Vector4(0, 0, 0, 0).isZeroApprox());
     CHECK(Vector4(1e-7f, -1e-7f, 0, 1e-8f).isZeroApprox());
     CHECK(!Vector4(0, 0, 0, 1).isZeroApprox());
+    // M363: Vector4 max/min axis index (max earliest wins, min latest wins on ties)
+    CHECK((Vector4(1, 2, 3, 4).maxAxisIndex() == 3 && Vector4(4, 3, 2, 1).maxAxisIndex() == 0));
+    CHECK((Vector4(1, 4, 2, 3).maxAxisIndex() == 1 && Vector4(1, 2, 9, 3).maxAxisIndex() == 2));
+    CHECK((Vector4(1, 2, 3, 4).minAxisIndex() == 0 && Vector4(4, 3, 2, 1).minAxisIndex() == 3));
+    CHECK((Vector4(2, 2, 2, 2).maxAxisIndex() == 0 && Vector4(2, 2, 2, 2).minAxisIndex() == 3));
     CHECK(Vector4(-1.5f, 2.5f, -3.5f, 4.5f).abs().isEqualApprox(Vector4(1.5f, 2.5f, 3.5f, 4.5f)));
     CHECK(Vector4(-2, 0, 3, 5).sign().isEqualApprox(Vector4(-1, 0, 1, 1)));
     CHECK(Vector4(1.4f, 1.6f, -1.4f, -1.6f).round().isEqualApprox(Vector4(1, 2, -1, -2)));

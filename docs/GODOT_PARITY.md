@@ -215,7 +215,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   is_finite family across vec2/vec3/vec4/quat, verified against inf/NaN and tiny/nonzero components;
   M362 adds float vec2/vec3 maxAxisIndex / minAxisIndex — Godot Vector2/Vector3.max_axis_index /
   min_axis_index (float companions to the M357 integer versions), using Godot's exact nested-ternary
-  form so tie-breaking matches its float type (all-equal → max X, min Z), verified; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
+  form so tie-breaking matches its float type (all-equal → max X, min Z), verified; M363 adds
+  Vector4 maxAxisIndex / minAxisIndex — Godot Vector4.max_axis_index / min_axis_index (max scans
+  strict '>' earliest-wins, min scans '<=' latest-wins), completing the axis-index family across
+  2i/3i/vec2/vec3/Vector4, verified incl. all-equal; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
   rectangle corner farthest along a direction (per axis max edge when dir>0 else min; dir==0 picks min,
   matching Godot's strict >0), the GJK/SAT broadphase primitive, verified all quadrants + zero-axis),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
