@@ -104,6 +104,7 @@
 #include "maz/game/SpanningTree.hpp"
 #include "maz/game/Minimax.hpp"
 #include "maz/game/LSystem.hpp"
+#include "maz/core/SparseTable.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -19976,6 +19977,68 @@ void testLSystem() {
     }
 }
 
+// SparseTable: O(1) static range min/max queries (M460).
+void testSparseTable() {
+    using core::MaxOp;
+    using core::Pcg32;
+    using core::SparseTable;
+
+    // Range MIN cross-checked against brute force over every (l, r) pair.
+    {
+        Pcg32 rng(11u, 5u);
+        for (int trial = 0; trial < 60; ++trial) {
+            const std::size_t n = 1 + static_cast<std::size_t>(rng.nextFloat() * 40.0f);
+            std::vector<int> a(n);
+            for (std::size_t i = 0; i < n; ++i) a[i] = static_cast<int>(rng.nextFloat() * 200.0f) - 100;
+            SparseTable<int> st(a);
+            CHECK(st.size() == n && !st.empty());
+            for (std::size_t l = 0; l < n; ++l) {
+                int m = a[l];
+                for (std::size_t r = l; r < n; ++r) {
+                    if (a[r] < m) m = a[r];
+                    CHECK(st.query(l, r) == m);
+                }
+            }
+        }
+    }
+    // Range MAX cross-checked against brute force.
+    {
+        Pcg32 rng(99u, 1u);
+        for (int trial = 0; trial < 40; ++trial) {
+            const std::size_t n = 1 + static_cast<std::size_t>(rng.nextFloat() * 40.0f);
+            std::vector<int> a(n);
+            for (std::size_t i = 0; i < n; ++i) a[i] = static_cast<int>(rng.nextFloat() * 200.0f) - 100;
+            SparseTable<int, MaxOp<int>> st(a);
+            for (std::size_t l = 0; l < n; ++l) {
+                int m = a[l];
+                for (std::size_t r = l; r < n; ++r) {
+                    if (a[r] > m) m = a[r];
+                    CHECK(st.query(l, r) == m);
+                }
+            }
+        }
+    }
+    // Known values + float payloads.
+    {
+        std::vector<int> a{5, 2, 8, 1, 9, 3, 7};
+        SparseTable<int> mn(a);
+        SparseTable<int, MaxOp<int>> mx(a);
+        for (std::size_t i = 0; i < a.size(); ++i) CHECK(mn.query(i, i) == a[i] && mx.query(i, i) == a[i]);
+        CHECK(mn.query(0, a.size() - 1) == 1 && mx.query(0, a.size() - 1) == 9);
+        CHECK(mn.query(2, 4) == 1 && mx.query(0, 2) == 8);
+        std::vector<float> h{3.5f, 1.2f, 4.8f, 2.0f, 0.5f, 6.1f};
+        SparseTable<float, MaxOp<float>> peak(h);
+        CHECK(peak.query(0, 5) == 6.1f && peak.query(0, 3) == 4.8f && peak.query(3, 4) == 2.0f);
+    }
+    // Empty and single-element tables.
+    {
+        SparseTable<int> e;
+        CHECK(e.empty() && e.size() == 0);
+        SparseTable<int> one(std::vector<int>{42});
+        CHECK(!one.empty() && one.query(0, 0) == 42);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28760,6 +28823,7 @@ int main() {
     testSpanningTree();
     testMinimax();
     testLSystem();
+    testSparseTable();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

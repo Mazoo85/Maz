@@ -764,6 +764,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   geometry is exact (F+F traces an L, '+' turns left / '-' right); brackets return the turtle to the fork
   so branches don't displace the trunk; 'f' moves without drawing; unknown symbols and an unbalanced ']'
   are safe no-ops; and generation is deterministic),
+  **sparse table (RMQ)** (M460, `core::SparseTable<T, Op>` — O(1) range min/max (or any idempotent
+  associative op: gcd, bitwise and/or) over a STATIC array after an O(n log n) build, by overlapping two
+  power-of-two blocks. Complements FenwickTree (dynamic prefix sums with point updates) with far faster
+  read-only range extremes — the tool for "tallest terrain height in this span" and static interval
+  min/max. Godot exposes no RMQ structure -> beyond-Godot. Verified against brute force over EVERY (l, r)
+  pair across 100 random arrays for both min and max, plus known values, float payloads, single-element
+  ranges, and empty/one-element tables),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
