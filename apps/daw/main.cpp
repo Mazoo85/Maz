@@ -981,6 +981,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::SliderFloat("Vel->Amp", &velSens, 0.0f, 1.0f, "%.2f")) syn.setVelSensitivity(velSens);
     float glide = syn.glide();
     if (ImGui::SliderFloat("Glide (portamento)", &glide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(glide);
+    bool glideLegato = syn.glideLegato();
+    if (ImGui::Checkbox("Glide legato-only", &glideLegato)) syn.setGlideLegato(glideLegato);
     float vibRate = syn.vibratoRate();
     float vibDepth = syn.vibratoDepth();
     bool vch = ImGui::SliderFloat("Vibrato rate", &vibRate, 0.0f, 12.0f, "%.1f Hz");

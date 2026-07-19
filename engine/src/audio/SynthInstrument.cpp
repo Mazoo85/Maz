@@ -40,6 +40,14 @@ void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float s
 }
 
 void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
+    // Was another note being held (not yet released) when this one started? Used by legato-only glide.
+    bool wasHeld = false;
+    for (const Voice& vv : voices_) {
+        if (vv.stage != Stage::Off && vv.stage != Stage::Release) {
+            wasHeld = true;
+            break;
+        }
+    }
     int chosen = 0;
     if (mono_) {
         // Monophonic: always the one voice (voice 0); release any others still ringing.
@@ -86,7 +94,10 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.modPhase = 0.0;
     v.targetFreq = midiToFreq(midi);
     // Glide: start at the previous note's pitch and slide to the target; otherwise start on pitch.
-    v.freq = (glideSeconds_ > 0.0f && lastFreq_ > 0.0f) ? lastFreq_ : v.targetFreq;
+    // Legato mode only glides when another note was already held (fingered portamento).
+    const bool doGlide =
+        glideSeconds_ > 0.0f && lastFreq_ > 0.0f && (!glideLegato_ || wasHeld);
+    v.freq = doGlide ? lastFreq_ : v.targetFreq;
     lastFreq_ = v.targetFreq;
     v.pitchEnv = pitchEnvAmt_; // seed the pitch envelope (decays to 0 in render)
     // Analog drift: detune this note by a small random amount within ±drift_ cents (deterministic).

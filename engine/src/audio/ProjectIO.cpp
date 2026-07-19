@@ -124,6 +124,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> velWave) {
         syn.setVelToWavePosition(velWave);
     }
+    int glideLegato = 0; // legato-only glide optional for old files (0 = always)
+    if (ls >> glideLegato) {
+        syn.setGlideLegato(glideLegato != 0);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -231,7 +235,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
           << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
           << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
-          << s.velToFmIndex() << " " << s.vibratoDelay() << " " << s.velToWavePosition() << "\n";
+          << s.velToFmIndex() << " " << s.vibratoDelay() << " " << s.velToWavePosition() << " "
+          << (s.glideLegato() ? 1 : 0) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

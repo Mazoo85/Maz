@@ -66,6 +66,7 @@ int main() {
     seq.synth().setFmRatio(3.5f);
     seq.synth().setFmIndex(6.0f);
     seq.synth().setGlide(0.15f);
+    seq.synth().setGlideLegato(true);
     seq.synth().setUnison(5, 18.0f);
     seq.synth().setSubWaveform(audio::Waveform::Square);
     seq.synth().setSubOctave(2);
@@ -406,6 +407,7 @@ int main() {
     check(near(seq2.synth().fmRatio(), 3.5f) && near(seq2.synth().fmIndex(), 6.0f),
           "FM params round-trip");
     check(near(seq2.synth().glide(), 0.15f), "glide time round-trips");
+    check(seq2.synth().glideLegato(), "glide legato mode round-trips");
     check(near(seq2.synth().filterLfoRate(), 3.5f), "filter LFO rate round-trips");
     check(near(seq2.synth().filterLfoDepth(), 1.5f), "filter LFO depth round-trips");
     check(near(seq2.synth().ampLfoRate(), 4.5f) && near(seq2.synth().ampLfoDepth(), 0.6f),

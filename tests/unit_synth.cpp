@@ -868,6 +868,27 @@ int main() {
         const std::vector<float> imm = render(instant, sampleRate / 20, sampleRate);
         check(std::fabs(estimateHz(imm, sampleRate) - 880.0) < 30.0,
               "with glide off the note plays its pitch immediately");
+
+        // Legato-only glide: an isolated note (the previous one already released) does NOT glide, so
+        // it starts on-pitch; in always mode the same note glides up from the low pitch.
+        auto secondNoteEarlyHz = [&](bool legato) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setGlide(0.20f);
+            s.setGlideLegato(legato);
+            s.noteOn(57, 1.0f); // establishes lastFreq (~220 Hz)
+            (void)render(s, sampleRate / 20, sampleRate);
+            s.noteOff(57);
+            (void)render(s, sampleRate / 20, sampleRate); // released before the next note
+            s.noteOn(81, 1.0f);                            // isolated high note (~880 Hz)
+            return estimateHz(render(s, sampleRate / 100, sampleRate), sampleRate); // first 10 ms
+        };
+        check(secondNoteEarlyHz(false) < 700.0, "always-glide starts the isolated note low");
+        check(secondNoteEarlyHz(true) > 800.0,
+              "legato-only glide leaves an isolated note on-pitch (no glide)");
+        audio::SynthInstrument dg;
+        check(!dg.glideLegato(), "glide legato mode defaults off (always glide)");
     }
 
     // --- Filter cutoff LFO ---------------------------------------------------

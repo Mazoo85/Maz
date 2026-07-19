@@ -96,6 +96,10 @@ public:
     // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
     void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
     float glide() const { return glideSeconds_; }
+    // Legato glide: when on, portamento only happens on overlapping (legato) notes — an isolated note
+    // starts on-pitch. Off (default) = the classic always-glide. Only matters when glide > 0.
+    void setGlideLegato(bool on) { glideLegato_ = on; }
+    bool glideLegato() const { return glideLegato_; }
 
     // Amplitude LFO (tremolo): modulate every voice's level at `rateHz` by `depth` [0,1] — the output
     // swings between full level (depth 0, off) and (1 − depth) of it at the trough. A shared LFO
@@ -340,6 +344,7 @@ private:
     float wtLfoDepth_ = 0.0f;  // wavetable scan LFO depth [0,1]; 0 = off
     double wtLfoPhase_ = 0.0;  // wavetable scan LFO phase (shared across voices)
     float glideSeconds_ = 0.0f; // portamento time; 0 = off
+    bool glideLegato_ = false;  // glide only on overlapping (legato) notes; false = always
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     float drift_ = 0.0f;        // analog drift depth in cents; 0 = off
     uint32_t driftRng_ = 0x51ED2C7u; // deterministic RNG for per-note drift
