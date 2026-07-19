@@ -665,6 +665,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   seeds decorrelate), value2 provably stays within [-1,1] and spans it, both variants pass EXACTLY through
   the lattice samples (interpolating-spline property), input continuity has no discontinuities, cubic is
   smooth and bounded, and single-octave fbm equals value2),
+  **space-filling curves** (M450, `core::SpaceFilling` — Morton/Z-order (`mortonEncode2/Decode2`,
+  `mortonEncode3/Decode3`, bit-interleaving up to 32 bits in 2D / 21 bits per axis in 3D) and the 2D
+  Hilbert curve (`hilbertXY2D`/`hilbertD2XY`): they map grid coordinates to a single locality-preserving
+  scalar index and back, the standard tool for cache-coherent grid iteration, spatial hash keys,
+  quadtree/octree node ordering, and texture swizzling. Hilbert has strictly better locality than Morton
+  — consecutive indices are ALWAYS orthogonal grid neighbours. Godot exposes no space-filling curve, so
+  this is beyond-Godot. Verified as exact bijections: Morton2D roundtrip over 256x256 + full-32-bit
+  extremes + known interleave constants, Morton3D roundtrip over 40^3 + 21-bit extremes, and Hilbert over
+  orders 1-6 — every cell visited exactly once (bijection), inverse agrees exactly, and every consecutive
+  step is Manhattan-distance 1),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

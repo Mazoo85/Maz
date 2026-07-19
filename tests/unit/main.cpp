@@ -94,6 +94,7 @@
 #include "maz/core/WorleyNoise.hpp"
 #include "maz/core/CurlNoise.hpp"
 #include "maz/core/ValueNoise.hpp"
+#include "maz/core/SpaceFilling.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19051,6 +19052,84 @@ void testValueNoise() {
     CHECK(std::fabs(n.fbm2(3.3f, 7.1f, 1) - n.value2(3.3f, 7.1f)) < 1e-6f);
 }
 
+// SpaceFilling: Morton (Z-order) + Hilbert curves (M450).
+void testSpaceFilling() {
+    using core::hilbertD2XY;
+    using core::hilbertXY2D;
+    using core::mortonDecode2;
+    using core::mortonDecode3;
+    using core::mortonEncode2;
+    using core::mortonEncode3;
+
+    // Morton 2D: exact bijection roundtrip.
+    for (uint32_t y = 0; y < 256; ++y) {
+        for (uint32_t x = 0; x < 256; ++x) {
+            const auto [dx, dy] = mortonDecode2(mortonEncode2(x, y));
+            CHECK(dx == x && dy == y);
+        }
+    }
+    {
+        const uint32_t vals[] = {0u, 1u, 0xFFFFu, 0x12345u, 0xFFFFFFFFu, 0xA5A5A5A5u};
+        for (uint32_t x : vals) {
+            for (uint32_t y : vals) {
+                const auto [dx, dy] = mortonDecode2(mortonEncode2(x, y));
+                CHECK(dx == x && dy == y);
+            }
+        }
+    }
+    CHECK(mortonEncode2(0, 0) == 0);
+    CHECK(mortonEncode2(1, 0) == 1);
+    CHECK(mortonEncode2(0, 1) == 2);
+    CHECK(mortonEncode2(1, 1) == 3);
+    CHECK(mortonEncode2(3, 0) == 5);
+
+    // Morton 3D: exact bijection roundtrip.
+    for (uint32_t z = 0; z < 40; ++z) {
+        for (uint32_t y = 0; y < 40; ++y) {
+            for (uint32_t x = 0; x < 40; ++x) {
+                uint32_t dx = 0, dy = 0, dz = 0;
+                mortonDecode3(mortonEncode3(x, y, z), dx, dy, dz);
+                CHECK(dx == x && dy == y && dz == z);
+            }
+        }
+    }
+    {
+        const uint32_t v = 0x1FFFFFu;
+        uint32_t dx = 0, dy = 0, dz = 0;
+        mortonDecode3(mortonEncode3(v, 0, v), dx, dy, dz);
+        CHECK(dx == v && dy == 0 && dz == v);
+    }
+    CHECK(mortonEncode3(1, 0, 0) == 1);
+    CHECK(mortonEncode3(0, 1, 0) == 2);
+    CHECK(mortonEncode3(0, 0, 1) == 4);
+    CHECK(mortonEncode3(1, 1, 1) == 7);
+
+    // Hilbert 2D: bijection over the n x n grid + consecutive indices are grid neighbours.
+    for (uint32_t order = 1; order <= 6; ++order) {
+        const uint32_t n = 1u << order;
+        const uint64_t total = static_cast<uint64_t>(n) * n;
+        std::set<uint64_t> seen;
+        int32_t px = -1, py = -1;
+        for (uint64_t d = 0; d < total; ++d) {
+            uint32_t x = 0, y = 0;
+            hilbertD2XY(n, d, x, y);
+            CHECK(x < n && y < n);
+            CHECK(hilbertXY2D(n, x, y) == d);
+            seen.insert((static_cast<uint64_t>(x) << 20) | y);
+            if (d > 0) {
+                const int32_t ix = static_cast<int32_t>(x);
+                const int32_t iy = static_cast<int32_t>(y);
+                const uint32_t man = static_cast<uint32_t>(ix > px ? ix - px : px - ix)
+                                     + static_cast<uint32_t>(iy > py ? iy - py : py - iy);
+                CHECK(man == 1);
+            }
+            px = static_cast<int32_t>(x);
+            py = static_cast<int32_t>(y);
+        }
+        CHECK(seen.size() == total);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27825,6 +27904,7 @@ int main() {
     testCurlNoise();
     testColorTemperature();
     testValueNoise();
+    testSpaceFilling();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
