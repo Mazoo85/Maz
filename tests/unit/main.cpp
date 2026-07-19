@@ -1392,6 +1392,52 @@ void testColorOps() {
         CHECK(lmid > std::min(la, lb) - 1e-3f);
         CHECK(lmid < std::max(la, lb) + 1e-3f);
     }
+
+    // --- OKHSL colour space (M395) ---
+    // Extremes: l=1 -> white, l=0 -> black regardless of h,s.
+    {
+        const Color hslWhite = render::fromOkhsl(0.3f, 0.7f, 1.0f);
+        CHECK(render::isEqualApprox(hslWhite, Color{1, 1, 1, 1}, 1e-4f));
+        const Color hslBlack = render::fromOkhsl(0.3f, 0.7f, 0.0f);
+        CHECK(render::isEqualApprox(hslBlack, Color{0, 0, 0, 1}, 1e-4f));
+    }
+    // Saturation 0 -> achromatic; its OKLab L matches the independently-tested toe_inv(l).
+    for (float okh = 0.0f; okh < 1.0f; okh += 0.25f) {
+        for (float okl = 0.2f; okl <= 0.8f; okl += 0.3f) {
+            const Color grey = render::fromOkhsl(okh, 0.0f, okl);
+            CHECK_NEAR(grey.r, grey.g, 1e-4f);
+            CHECK_NEAR(grey.g, grey.b, 1e-4f);
+            CHECK_NEAR(render::linearToOklab(grey).L, render::detail::okToeInv(okl), 1e-4f);
+        }
+    }
+    // Mid-grey decodes to ~zero saturation; lightness anchors.
+    CHECK(render::toOkhsl(Color{0.25f, 0.25f, 0.25f, 1}).s < 1e-3f);
+    CHECK_NEAR(render::toOkhsl(Color{1, 1, 1, 1}).l, 1.0f, 1e-3f);
+    CHECK_NEAR(render::toOkhsl(Color{0, 0, 0, 1}).l, 0.0f, 1e-3f);
+    // Pure primaries -> distinct in-range hues.
+    {
+        const float hR = render::toOkhsl(Color{1, 0, 0, 1}).h;
+        const float hG = render::toOkhsl(Color{0, 1, 0, 1}).h;
+        const float hB = render::toOkhsl(Color{0, 0, 1, 1}).h;
+        CHECK(hR >= 0.0f && hR < 1.0f && hG >= 0.0f && hG < 1.0f && hB >= 0.0f && hB < 1.0f);
+        CHECK(std::fabs(hR - hG) > 0.02f && std::fabs(hG - hB) > 0.02f);
+    }
+    // Pure inverse round-trip: okhsl -> linear -> okhsl recovers h, s, l.
+    for (float okh = 0.05f; okh < 1.0f; okh += 0.3f) {
+        for (float oks = 0.1f; oks <= 0.9f; oks += 0.4f) {
+            for (float okl = 0.3f; okl <= 0.7f; okl += 0.4f) {
+                const render::Okhsl hslRt = render::toOkhsl(render::fromOkhsl(okh, oks, okl));
+                CHECK_NEAR(hslRt.l, okl, 2e-3f);
+                CHECK_NEAR(hslRt.s, oks, 3e-3f);
+                float dh = std::fabs(hslRt.h - okh);
+                dh = std::min(dh, 1.0f - dh);
+                CHECK(dh < 2e-3f);
+            }
+        }
+    }
+    // Alpha carried through both directions.
+    CHECK_NEAR(render::fromOkhsl(0.5f, 0.5f, 0.5f, 0.42f).a, 0.42f, 1e-6f);
+    CHECK_NEAR(render::toOkhsl(Color{0.2f, 0.4f, 0.6f, 0.33f}).alpha, 0.33f, 1e-6f);
 }
 
 void testAtlasPacker() {

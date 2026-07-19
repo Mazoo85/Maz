@@ -340,4 +340,218 @@ inline Color oklabMix(const Color& a, const Color& b, float t) {
                                la.b + (lb.b - la.b) * t, la.alpha + (lb.alpha - la.alpha) * t});
 }
 
+// ---- OKHSL colour space (M395) ---------------------------------------------------------------
+//
+// OKHSL (Björn Ottosson, 2021) is the hue/saturation/lightness model built on OKLab that Godot 4.3's
+// colour picker uses (Color.from_ok_hsl / Color.ok_hsl_h/s/l). Unlike classic HSV, its lightness and
+// saturation are perceptually even and its saturation is gamut-aware: s = 1 is the most saturated
+// colour that still fits in sRGB for the given hue and lightness, so sliders never "clip". This is a
+// faithful transcription of Ottosson's reference okhsl (the same code Godot ports); it reuses the
+// already-tested OKLab matrices above. h, s, l are all in [0, 1]; h wraps. To stay consistent with
+// maz's LINEAR render::Color convention, fromOkhsl returns a LINEAR colour and toOkhsl consumes one
+// (Ottosson's final sRGB gamma step is intentionally omitted — the pipeline is linear throughout).
+struct Okhsl {
+    float h = 0.0f; // hue        [0, 1)
+    float s = 0.0f; // saturation [0, 1]
+    float l = 0.0f; // lightness  [0, 1]
+    float alpha = 1.0f;
+};
+
+namespace detail {
+
+inline float okToe(float x) {
+    constexpr float k1 = 0.206f, k2 = 0.03f, k3 = (1.0f + k1) / (1.0f + k2);
+    return 0.5f * (k3 * x - k1 + std::sqrt((k3 * x - k1) * (k3 * x - k1) + 4.0f * k2 * k3 * x));
+}
+inline float okToeInv(float x) {
+    constexpr float k1 = 0.206f, k2 = 0.03f, k3 = (1.0f + k1) / (1.0f + k2);
+    return (x * x + k1 * x) / (k3 * (x + k2));
+}
+
+// Max saturation for hue (a,b) before the first sRGB channel goes negative (Ottosson approximation).
+inline float okComputeMaxSaturation(float a, float b) {
+    float k0, k1, k2, k3, k4, wl, wm, ws;
+    if (-1.88170328f * a - 0.80936493f * b > 1.0f) { // red
+        k0 = 1.19086277f; k1 = 1.76576728f; k2 = 0.59662641f; k3 = 0.75515197f; k4 = 0.56771245f;
+        wl = 4.0767416621f; wm = -3.3077115913f; ws = 0.2309699292f;
+    } else if (1.81444104f * a - 1.19445276f * b > 1.0f) { // green
+        k0 = 0.73956515f; k1 = -0.45954404f; k2 = 0.08285427f; k3 = 0.12541070f; k4 = 0.14503204f;
+        wl = -1.2684380046f; wm = 2.6097574011f; ws = -0.3413193965f;
+    } else { // blue
+        k0 = 1.35733652f; k1 = -0.00915799f; k2 = -1.15130210f; k3 = -0.50559606f; k4 = 0.00692167f;
+        wl = -0.0041960863f; wm = -0.7034186147f; ws = 1.7076147010f;
+    }
+    float S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
+    const float kl = 0.3963377774f * a + 0.2158037573f * b;
+    const float km = -0.1055613458f * a - 0.0638541728f * b;
+    const float ks = -0.0894841775f * a - 1.2914855480f * b;
+    {
+        const float l_ = 1.0f + S * kl, m_ = 1.0f + S * km, s_ = 1.0f + S * ks;
+        const float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+        const float ldS = 3.0f * kl * l_ * l_, mdS = 3.0f * km * m_ * m_, sdS = 3.0f * ks * s_ * s_;
+        const float ldS2 = 6.0f * kl * kl * l_, mdS2 = 6.0f * km * km * m_, sdS2 = 6.0f * ks * ks * s_;
+        const float f = wl * l + wm * m + ws * s;
+        const float f1 = wl * ldS + wm * mdS + ws * sdS;
+        const float f2 = wl * ldS2 + wm * mdS2 + ws * sdS2;
+        S = S - f * f1 / (f1 * f1 - 0.5f * f * f2);
+    }
+    return S;
+}
+
+struct OkLC { float L; float C; };
+struct OkST { float S; float T; };
+
+// The cusp (most saturated point) of the sRGB gamut for hue (a,b), in OKLab L/C.
+inline OkLC okFindCusp(float a, float b) {
+    const float sCusp = okComputeMaxSaturation(a, b);
+    const Color rgb = oklabToLinear(Oklab{1.0f, sCusp * a, sCusp * b, 1.0f});
+    const float lCusp = std::cbrt(1.0f / std::max(std::max(rgb.r, rgb.g), rgb.b));
+    return OkLC{lCusp, lCusp * sCusp};
+}
+inline OkST okToST(OkLC cusp) { return OkST{cusp.C / cusp.L, cusp.C / (1.0f - cusp.L)}; }
+
+inline OkST okGetSTMid(float a, float b) {
+    const float S = 0.11516993f +
+        1.0f / (7.44778970f + 4.15901240f * b +
+                a * (-2.19557347f + 1.75198401f * b +
+                     a * (-2.13704948f - 10.02301043f * b +
+                          a * (-4.24894561f + 5.38770819f * b + 4.69891013f * a))));
+    const float T = 0.11239642f +
+        1.0f / (1.61320320f - 0.68124379f * b +
+                a * (0.40370612f + 0.90148123f * b +
+                     a * (-0.27087943f + 0.61223990f * b +
+                          a * (0.00299215f - 0.45399568f * b - 0.14661872f * a))));
+    return OkST{S, T};
+}
+
+// Distance t (0..1) from (L0,0) toward (L1,C1) at which the sRGB gamut boundary is hit.
+inline float okFindGamutIntersection(float a, float b, float L1, float C1, float L0, OkLC cusp) {
+    float t;
+    if (((L1 - L0) * cusp.C - (cusp.L - L0) * C1) <= 0.0f) {
+        t = cusp.C * L0 / (C1 * cusp.L + cusp.C * (L0 - L1));
+    } else {
+        t = cusp.C * (L0 - 1.0f) / (C1 * (cusp.L - 1.0f) + cusp.C * (L0 - L1));
+        const float dL = L1 - L0, dC = C1;
+        const float kl = 0.3963377774f * a + 0.2158037573f * b;
+        const float km = -0.1055613458f * a - 0.0638541728f * b;
+        const float ks = -0.0894841775f * a - 1.2914855480f * b;
+        const float ldt = dL + dC * kl, mdt = dL + dC * km, sdt = dL + dC * ks;
+        {
+            const float L = L0 * (1.0f - t) + t * L1;
+            const float C = t * C1;
+            const float l_ = L + C * kl, m_ = L + C * km, s_ = L + C * ks;
+            const float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+            const float ldt_ = 3.0f * ldt * l_ * l_, mdt_ = 3.0f * mdt * m_ * m_, sdt_ = 3.0f * sdt * s_ * s_;
+            const float ldt2 = 6.0f * ldt * ldt * l_, mdt2 = 6.0f * mdt * mdt * m_, sdt2 = 6.0f * sdt * sdt * s_;
+            const float r = 4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s - 1.0f;
+            const float r1 = 4.0767416621f * ldt_ - 3.3077115913f * mdt_ + 0.2309699292f * sdt_;
+            const float r2 = 4.0767416621f * ldt2 - 3.3077115913f * mdt2 + 0.2309699292f * sdt2;
+            const float ur = r1 / (r1 * r1 - 0.5f * r * r2);
+            float tr = -r * ur;
+            const float g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s - 1.0f;
+            const float g1 = -1.2684380046f * ldt_ + 2.6097574011f * mdt_ - 0.3413193965f * sdt_;
+            const float g2 = -1.2684380046f * ldt2 + 2.6097574011f * mdt2 - 0.3413193965f * sdt2;
+            const float ug = g1 / (g1 * g1 - 0.5f * g * g2);
+            float tg = -g * ug;
+            const float bb = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s - 1.0f;
+            const float b1 = -0.0041960863f * ldt_ - 0.7034186147f * mdt_ + 1.7076147010f * sdt_;
+            const float b2 = -0.0041960863f * ldt2 - 0.7034186147f * mdt2 + 1.7076147010f * sdt2;
+            const float ub = b1 / (b1 * b1 - 0.5f * bb * b2);
+            float tb = -bb * ub;
+            constexpr float big = 3.402823e+38f; // ~FLT_MAX
+            tr = ur >= 0.0f ? tr : big;
+            tg = ug >= 0.0f ? tg : big;
+            tb = ub >= 0.0f ? tb : big;
+            t += std::min(tr, std::min(tg, tb));
+        }
+    }
+    return t;
+}
+
+struct OkCs { float C0; float CMid; float CMax; };
+inline OkCs okGetCs(float L, float a, float b) {
+    const OkLC cusp = okFindCusp(a, b);
+    const float cMax = okFindGamutIntersection(a, b, L, 1.0f, L, cusp);
+    const OkST stMax = okToST(cusp);
+    const float k = cMax / std::min(L * stMax.S, (1.0f - L) * stMax.T);
+    float cMid;
+    {
+        const OkST stMid = okGetSTMid(a, b);
+        const float cA = L * stMid.S;
+        const float cB = (1.0f - L) * stMid.T;
+        cMid = 0.9f * k * std::sqrt(std::sqrt(1.0f / (1.0f / (cA * cA * cA * cA) + 1.0f / (cB * cB * cB * cB))));
+    }
+    float c0;
+    {
+        const float cA = L * 0.4f;
+        const float cB = (1.0f - L) * 0.8f;
+        c0 = std::sqrt(1.0f / (1.0f / (cA * cA) + 1.0f / (cB * cB)));
+    }
+    return OkCs{c0, cMid, cMax};
+}
+
+constexpr float kOkTwoPi = 6.28318530717958647692f;
+
+} // namespace detail
+
+// OKHSL -> LINEAR RGBA — Godot's Color.from_ok_hsl (Ottosson okhsl_to_srgb, minus the sRGB encode).
+inline Color fromOkhsl(const Okhsl& c) {
+    if (c.l >= 1.0f) {
+        return Color{1.0f, 1.0f, 1.0f, c.alpha};
+    }
+    if (c.l <= 0.0f) {
+        return Color{0.0f, 0.0f, 0.0f, c.alpha};
+    }
+    const float a_ = std::cos(detail::kOkTwoPi * c.h);
+    const float b_ = std::sin(detail::kOkTwoPi * c.h);
+    const float L = detail::okToeInv(c.l);
+    const detail::OkCs cs = detail::okGetCs(L, a_, b_);
+    constexpr float mid = 0.8f, midInv = 1.25f;
+    float C;
+    if (c.s < mid) {
+        const float t = midInv * c.s;
+        const float k1 = mid * cs.C0;
+        const float k2 = 1.0f - k1 / cs.CMid;
+        C = t * k1 / (1.0f - k2 * t);
+    } else {
+        const float t = (c.s - mid) / (1.0f - mid);
+        const float k0 = cs.CMid;
+        const float k1 = (1.0f - mid) * cs.CMid * cs.CMid * midInv * midInv / cs.C0;
+        const float k2 = 1.0f - k1 / (cs.CMax - cs.CMid);
+        C = k0 + t * k1 / (1.0f - k2 * t);
+    }
+    return oklabToLinear(Oklab{L, C * a_, C * b_, c.alpha});
+}
+inline Color fromOkhsl(float h, float s, float l, float alpha = 1.0f) {
+    return fromOkhsl(Okhsl{h, s, l, alpha});
+}
+
+// LINEAR RGBA -> OKHSL — Godot's Color.ok_hsl_h/s/l (Ottosson srgb_to_okhsl, minus the sRGB decode).
+inline Okhsl toOkhsl(const Color& c) {
+    const Oklab lab = linearToOklab(c);
+    const float C = std::sqrt(lab.a * lab.a + lab.b * lab.b);
+    const float a_ = C > 0.0f ? lab.a / C : 0.0f;
+    const float b_ = C > 0.0f ? lab.b / C : 0.0f;
+    const float L = lab.L;
+    Okhsl out;
+    out.alpha = c.a;
+    out.h = 0.5f + 0.5f * std::atan2(-lab.b, -lab.a) / (0.5f * detail::kOkTwoPi);
+    const detail::OkCs cs = detail::okGetCs(L, a_, b_);
+    constexpr float mid = 0.8f, midInv = 1.25f;
+    if (C < cs.CMid) {
+        const float k1 = mid * cs.C0;
+        const float k2 = 1.0f - k1 / cs.CMid;
+        const float t = C / (k1 + k2 * C);
+        out.s = t * mid;
+    } else {
+        const float k0 = cs.CMid;
+        const float k1 = (1.0f - mid) * cs.CMid * cs.CMid * midInv * midInv / cs.C0;
+        const float k2 = 1.0f - k1 / (cs.CMax - cs.CMid);
+        const float t = (C - k0) / (k1 + k2 * (C - k0));
+        out.s = mid + (1.0f - mid) * t;
+    }
+    out.l = detail::okToe(L);
+    return out;
+}
+
 } // namespace maz::render

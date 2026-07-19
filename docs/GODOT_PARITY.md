@@ -224,7 +224,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
-  Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8),
+  Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8);
+  plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
+  hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
+  ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
+  matrices, with gamut-aware saturation so s=1 is the most saturated in-gamut colour for the hue;
+  kept in maz's linear-Color convention (Ottosson's final sRGB encode omitted). Verified by pure
+  inverse round-trips, black/white/mid-grey anchors, an independent OKLab gray-axis cross-check
+  (s=0 → OKLab L == toe_inv(l)), and distinct in-range primary hues),
   curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, **hashing** (M284, `core::sha256` / `sha256Hex` / `crc32` — Godot's
