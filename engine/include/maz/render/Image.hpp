@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/math/Rect2i.hpp"     // math::Rect2i (getUsedRect return)
 #include "maz/render/ColorOps.hpp" // Color, color8, detail::to255
 
 #include <algorithm>
@@ -205,6 +206,35 @@ public:
             }
         }
         *this = std::move(out);
+    }
+    // Smallest rectangle enclosing every pixel with alpha > 0 — Godot Image.get_used_rect. A fully
+    // transparent (or empty) image returns a zero rect at the origin.
+    math::Rect2i getUsedRect() const {
+        int minX = m_w, minY = m_h, maxX = -1, maxY = -1;
+        for (int y = 0; y < m_h; ++y) {
+            for (int x = 0; x < m_w; ++x) {
+                if (m_px[idx(x, y) + 3] > 0) { // alpha byte
+                    minX = std::min(minX, x);
+                    minY = std::min(minY, y);
+                    maxX = std::max(maxX, x);
+                    maxY = std::max(maxY, y);
+                }
+            }
+        }
+        if (maxX < 0) {
+            return math::Rect2i(0, 0, 0, 0);
+        }
+        return math::Rect2i(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    }
+    // Multiply each pixel's RGB by its own alpha IN PLACE — Godot Image.premultiply_alpha. Alpha is
+    // unchanged; used to prepare an image for premultiplied-alpha ("over") GPU blending.
+    void premultiplyAlpha() {
+        for (std::size_t i = 0; i + 3 < m_px.size(); i += 4) {
+            const std::uint32_t a = m_px[i + 3];
+            m_px[i] = static_cast<std::uint8_t>((m_px[i] * a + 127u) / 255u);
+            m_px[i + 1] = static_cast<std::uint8_t>((m_px[i + 1] * a + 127u) / 255u);
+            m_px[i + 2] = static_cast<std::uint8_t>((m_px[i + 2] * a + 127u) / 255u);
+        }
     }
 
 private:

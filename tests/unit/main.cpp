@@ -1149,6 +1149,34 @@ void testColorOps() {
         render::Image gone(4, 4, render::color8(1, 2, 3, 4));
         gone.resize(0, 4, render::Image::Interpolation::Nearest);
         CHECK(gone.empty());
+
+        // --- Image getUsedRect + premultiplyAlpha (M390) ---
+        // getUsedRect: opaque block from (1,1) to (3,2) in a transparent image -> (1,1,3,2).
+        render::Image ur(5, 5);
+        for (int uy = 1; uy <= 2; ++uy) {
+            for (int ux = 1; ux <= 3; ++ux) {
+                ur.setPixel(ux, uy, render::color8(10, 20, 30, 200));
+            }
+        }
+        math::Rect2i used = ur.getUsedRect();
+        CHECK(used.position.x == 1 && used.position.y == 1);
+        CHECK(used.size.x == 3 && used.size.y == 2);
+        // Fully transparent -> zero rect at origin; alpha==0 pixels are ignored even with RGB set.
+        render::Image clearImg(4, 4);
+        CHECK(clearImg.getUsedRect().size.x == 0 && clearImg.getUsedRect().size.y == 0);
+        render::Image ghost(3, 3);
+        ghost.setPixel(1, 1, render::color8(255, 0, 0, 0));
+        CHECK(ghost.getUsedRect().size.x == 0);
+        // premultiplyAlpha: RGB scaled by alpha, alpha kept; opaque unchanged; transparent zeroed.
+        render::Image pm(1, 1, render::color8(200, 100, 50, 128));
+        pm.premultiplyAlpha();
+        CHECK(near8(pm.getPixel(0, 0), 100, 50, 25, 128, 1)); // 200*128/255 etc.
+        render::Image pmOpaque(1, 1, render::color8(200, 100, 50, 255));
+        pmOpaque.premultiplyAlpha();
+        CHECK(sameC(pmOpaque.getPixel(0, 0), render::color8(200, 100, 50, 255)));
+        render::Image pmClear(1, 1, render::color8(200, 100, 50, 0));
+        pmClear.premultiplyAlpha();
+        CHECK(sameC(pmClear.getPixel(0, 0), render::color8(0, 0, 0, 0)));
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

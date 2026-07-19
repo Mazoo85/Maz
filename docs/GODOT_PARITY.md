@@ -195,7 +195,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   resampling, in place; bilinear samples at the destination pixel centre and blends the four
   surrounding texels with edge clamping; verified by exact nearest block mapping on an upscale/
   downscale and by exact known-value bilinear on a 2x1 gradient upscaled to 4x1 → 8-bit
-  {0,64,191,255}, plus solid-colour preservation and non-positive-size → empty); plus
+  {0,64,191,255}, plus solid-colour preservation and non-positive-size → empty); M390 adds
+  **getUsedRect** (Godot Image.get_used_rect — the smallest math::Rect2i enclosing all pixels with
+  alpha > 0, zero rect when fully transparent) and **premultiplyAlpha** (Godot
+  Image.premultiply_alpha — multiplies each pixel's RGB by its own alpha for premultiplied "over"
+  GPU blending; verified by known 8-bit products, opaque no-op and transparent-zeroing); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
