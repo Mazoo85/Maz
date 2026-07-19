@@ -782,6 +782,43 @@ int main() {
         check(audio::Sampler().velToStart() == 0.0f, "sampler vel->start defaults to off");
     }
 
+    // Filter keyboard tracking: a higher note opens the playback filter, so it stays brighter.
+    {
+        // Broadband (noise) sample so the low-pass cutoff clearly gates the high frequencies.
+        std::vector<float> noise(static_cast<size_t>(sr));
+        uint32_t rng = 0x1234567u;
+        for (int i = 0; i < sr; ++i) {
+            rng ^= rng << 13;
+            rng ^= rng >> 17;
+            rng ^= rng << 5;
+            noise[static_cast<size_t>(i)] = static_cast<float>(rng) / 2147483648.0f - 1.0f;
+        }
+        auto hfAtNote = [&](int midi, float kt) {
+            audio::Sampler s;
+            s.setSampleMono(noise, sr);
+            s.setKeyTrack(false); // fixed playback pitch → isolate the filter's cutoff from resampling
+            s.setBasePitch(60);
+            s.setFilter(1000.0f, 0.7f); // a 1 kHz low-pass
+            s.setFilterKeyTrack(kt);
+            s.noteOn(midi, 1.0f);
+            const std::vector<float> b = renderMono(s, sr / 10, sr);
+            double hf = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                hf += d * d;
+            }
+            return hf;
+        };
+        // With full tracking, note 72 (an octave above base) doubles the cutoff → more HF than note 60.
+        check(hfAtNote(72, 1.0f) > hfAtNote(60, 1.0f) * 1.3,
+              "sampler filter key-tracking brightens higher notes");
+        // With tracking off, the cutoff is fixed, so both notes have ~the same brightness.
+        const double lo = hfAtNote(60, 0.0f);
+        const double hi = hfAtNote(72, 0.0f);
+        check(std::fabs(hi - lo) < lo * 0.15 + 1e-9, "with filter key-track off the cutoff is fixed");
+        check(audio::Sampler().filterKeyTrack() == 0.0f, "sampler filter key-track defaults to off");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

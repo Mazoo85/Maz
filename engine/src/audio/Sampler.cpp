@@ -251,6 +251,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     // Filter-envelope per-sample increments (only used when the envelope has a non-zero depth).
     const bool useFilterEnv = filterEnvDepth_ != 0.0f;
     const bool useFilterVelo = filterVelo_ != 0.0f;
+    const bool useKeyTrack = filterKeyTrack_ > 0.0f; // filter cutoff follows the note pitch
     // Pitch envelope: a linear slide of the initial pitch offset back to the true pitch.
     const bool usePitchEnv = pitchEnvDepth_ != 0.0f;
     const double penvStep = 1.0 / (static_cast<double>(pitchEnvTime_) * static_cast<double>(sampleRate));
@@ -271,6 +272,12 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             continue;
         }
         const double detuneMul = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
+        // Filter keyboard tracking: a per-voice cutoff multiplier from the note's distance above the
+        // base pitch (an octave up doubles the cutoff at full tracking). 1.0 when off.
+        const float ktMul =
+            useKeyTrack
+                ? std::pow(2.0f, filterKeyTrack_ * static_cast<float>(v.midi - basePitch_) / 12.0f)
+                : 1.0f;
         for (int i = 0; i < frames; ++i) {
             // Amp ADSR: attack up to 1, decay down to the sustain level, hold, then release on noteOff.
             if (v.releasing) {
@@ -392,7 +399,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
             // Playback low-pass (per voice): shape the sample's tone, with the optional filter
             // envelope sweeping the cutoff. Bypassed only when the base is open and no envelope is set.
-            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo) {
+            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo || useKeyTrack) {
                 float cutoff = filterCutoff_;
                 if (useFilterEnv) {
                     cutoff += filterEnvDepth_ * v.filtEnv;
@@ -400,6 +407,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 if (useFilterVelo) {
                     cutoff += filterVelo_ * v.velocity; // harder hits open the filter
                 }
+                cutoff *= ktMul; // keyboard tracking: high notes stay bright
                 cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);
                 s = v.filter.process(s, cutoff, filterReso_, sampleRate,
                                      StateVariableFilter::Mode::LowPass);

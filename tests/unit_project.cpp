@@ -155,6 +155,7 @@ int main() {
     seq.sampler().setGlideLegato(true);     // legato-only glide
     seq.sampler().setVelToAttack(0.5f);     // velocity → attack
     seq.sampler().setVelToStart(0.4f);      // velocity → start
+    seq.sampler().setFilterKeyTrack(0.7f);  // filter keyboard tracking
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -787,7 +788,8 @@ int main() {
               near(seq2.sampler().velSensitivity(), 0.4f) && !seq2.sampler().keyTrack() &&
               near(seq2.sampler().drive(), 0.6f) && near(seq2.sampler().glide(), 0.18f) &&
               seq2.sampler().glideLegato() && near(seq2.sampler().velToAttack(), 0.5f) &&
-              near(seq2.sampler().velToStart(), 0.4f),
+              near(seq2.sampler().velToStart(), 0.4f) &&
+              near(seq2.sampler().filterKeyTrack(), 0.7f),
           "sampler settings round-trip");
 
     // Mixer + effects.

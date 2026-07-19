@@ -147,6 +147,14 @@ public:
     // (default) = off (every hit starts at the base offset). Only affects non-sliced playback.
     void setVelToStart(float amt) { velToStart_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
     float velToStart() const { return velToStart_; }
+    // Filter keyboard tracking (0..1): how much the playback filter's cutoff follows the note pitch,
+    // relative to the base pitch. 1 = full tracking (an octave up doubles the cutoff, so high notes
+    // stay bright); 0 (default) = a fixed cutoff regardless of note. Distinct from the resample
+    // key-track toggle above (which sets playback pitch). Only affects the per-voice playback filter.
+    void setFilterKeyTrack(float amount) {
+        filterKeyTrack_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+    }
+    float filterKeyTrack() const { return filterKeyTrack_; }
     float filterEnvAttack() const { return fEnvA_; }
     float filterEnvDecay() const { return fEnvD_; }
     float filterEnvSustain() const { return fEnvS_; }
@@ -258,6 +266,7 @@ private:
     float velSens_ = 1.0f;          // velocity → volume amount; 1 = full (default), 0 = ignore velocity
     float velToAttack_ = 0.0f;      // velocity → amp-attack shortening [0,1]; 0 = off
     float velToStart_ = 0.0f;       // velocity → start-offset (soft hits skip deeper) [0,1]; 0 = off
+    float filterKeyTrack_ = 0.0f;   // playback-filter cutoff → note-pitch tracking [0,1]; 0 = off
     float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
     float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds
