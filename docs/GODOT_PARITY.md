@@ -317,6 +317,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (which also compresses to <¼ size), a period-4 pattern (<½), repetitive English text via the string
   helpers (shrinks), all-256-distinct bytes, 5000 pseudo-random bytes, an overlapping long run
   (LZ-as-RLE), and a block larger than the 4KB window;
+  **fixed-point number** M415 (`core::Fixed` — a Q16.16 fixed-point type for DETERMINISTIC simulation.
+  Floating point gives subtly different results across CPUs/compilers/optimisation levels, which
+  silently desyncs lockstep multiplayer, replays and cross-platform physics; Fixed is pure integer
+  arithmetic so identical inputs give bit-identical outputs everywhere. value = raw/65536; +−×÷ with
+  64-bit intermediates, comparisons, abs/floor/ceil/round/frac, truncate-toward-zero, and a
+  float-free deterministic integer sqrt. Godot has no fixed-point type. Verified against exact raw
+  values, exact fraction arithmetic (½, ¼, ×, ÷), floor/ceil toward ±inf on negatives, round
+  half-up, truncate-toward-zero, sqrt exact on perfect squares and ~1e-3 of √2, defined divide-by-zero,
+  and a 1000-iteration integer-only simulation that is bit-identical every run;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab

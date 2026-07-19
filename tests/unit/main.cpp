@@ -72,6 +72,7 @@
 #include "maz/core/StringHash.hpp"
 #include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
+#include "maz/core/Fixed.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
@@ -16301,6 +16302,62 @@ void testPcg32() {
         }
         CHECK(total == N);
         CHECK_NEAR(static_cast<float>(c1) / static_cast<float>(N), 0.75f, 0.01f);
+    }
+
+    // --- M415: Fixed (Q16.16 deterministic fixed-point) ---
+    {
+        using Fixed = maz::core::Fixed;
+        // Exact raw values.
+        CHECK(Fixed::fromInt(1).raw == 65536);
+        CHECK(Fixed::one().raw == 65536);
+        CHECK(Fixed::half().raw == 32768);
+        // Add/sub/negate exact.
+        CHECK((Fixed::fromInt(2) + Fixed::fromInt(3)) == Fixed::fromInt(5));
+        CHECK((Fixed::fromInt(5) - Fixed::fromInt(8)) == Fixed::fromInt(-3));
+        CHECK((-Fixed::fromInt(7)) == Fixed::fromInt(-7));
+        // Multiply/divide: exact fractions.
+        CHECK((Fixed::fromInt(3) * Fixed::fromInt(4)) == Fixed::fromInt(12));
+        CHECK((Fixed::one() / Fixed::fromInt(2)) == Fixed::half());
+        CHECK((Fixed::fromInt(1) / Fixed::fromInt(4)).raw == 16384);
+        CHECK((Fixed::half() * Fixed::half()).raw == 16384);
+        CHECK((Fixed::fromInt(5) / Fixed::zero()) == Fixed::zero()); // div-by-zero defined
+        // Comparisons.
+        CHECK(Fixed::half() < Fixed::one());
+        CHECK(Fixed::fromInt(-1) < Fixed::zero());
+        CHECK(Fixed::fromInt(2) > Fixed::half());
+        // abs/floor/ceil/round/frac.
+        const Fixed twoHalf = Fixed::fromRaw((2 << 16) + 32768); // 2.5
+        CHECK(twoHalf.floor() == Fixed::fromInt(2));
+        CHECK(twoHalf.ceil() == Fixed::fromInt(3));
+        CHECK(twoHalf.round() == Fixed::fromInt(3));
+        CHECK(twoHalf.frac() == Fixed::half());
+        CHECK(Fixed::fromInt(-3).abs() == Fixed::fromInt(3));
+        const Fixed negOneHalf = Fixed::fromRaw(-((1 << 16) + 32768)); // -1.5
+        CHECK(negOneHalf.floor() == Fixed::fromInt(-2)); // toward -inf
+        CHECK(negOneHalf.ceil() == Fixed::fromInt(-1));
+        // Truncate toward zero.
+        CHECK(Fixed::fromRaw((2 << 16) + 40000).toIntTrunc() == 2);
+        CHECK(Fixed::fromRaw(-((2 << 16) + 40000)).toIntTrunc() == -2);
+        // Deterministic integer sqrt.
+        CHECK(Fixed::fromInt(4).sqrt() == Fixed::fromInt(2));
+        CHECK(Fixed::fromInt(144).sqrt() == Fixed::fromInt(12));
+        CHECK(Fixed::zero().sqrt() == Fixed::zero());
+        CHECK(Fixed::fromInt(-5).sqrt() == Fixed::zero());
+        CHECK(std::fabs(Fixed::fromInt(2).sqrt().toDouble() - std::sqrt(2.0)) < 1e-3);
+        // Determinism: a repeated integer-only computation is bit-identical.
+        auto sim = []() {
+            Fixed x = Fixed::fromInt(1);
+            const Fixed g = Fixed::fromRaw(600);
+            for (int i = 0; i < 1000; ++i) {
+                x = x + g;
+                x = x * Fixed::fromRaw(65500);
+            }
+            return x.raw;
+        };
+        CHECK(sim() == sim());
+        // Authoring conversion.
+        CHECK(Fixed::fromFloat(0.5) == Fixed::half());
+        CHECK(Fixed::fromFloat(-3.0) == Fixed::fromInt(-3));
     }
 }
 
