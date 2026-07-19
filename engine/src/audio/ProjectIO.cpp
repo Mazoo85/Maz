@@ -421,7 +421,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << " "
       << (mixer.stereoDelay().sync() ? 1 : 0) << " " << mixer.stereoDelay().leftDivision() << " "
       << mixer.stereoDelay().rightDivision() << " " << mixer.stereoDelay().damping() << " "
-      << mixer.stereoDelay().feedbackLowCut() << "\n";
+      << mixer.stereoDelay().feedbackLowCut() << " " << (mixer.stereoDelay().pingPong() ? 1 : 0)
+      << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
@@ -1029,6 +1030,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 }
                 if (ls >> fbLowCut) {
                     mixer.stereoDelay().setFeedbackLowCut(fbLowCut);
+                }
+                int ping = 0; // ping-pong cross-feedback optional for old files
+                if (ls >> ping) {
+                    mixer.stereoDelay().setPingPong(ping != 0);
                 }
             } else if (which == "formant") {
                 int vowel = 0;

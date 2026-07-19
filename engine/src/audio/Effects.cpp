@@ -1328,9 +1328,15 @@ void StereoDelay::process(float* stereo, int frames, int sampleRate) {
             fbL -= lcL_;
             fbR -= lcR_;
         }
-        // Each channel feeds its own (tone-shaped) echo back into its own line at its own time.
-        bufL_[static_cast<size_t>(writePos_)] = inL + fbL * feedback_;
-        bufR_[static_cast<size_t>(writePos_)] = inR + fbR * feedback_;
+        // Ping-pong cross-routes each channel's echo into the other line (L↔R bounce); otherwise each
+        // channel feeds its own (tone-shaped) echo back into its own line at its own time.
+        if (pingPong_) {
+            bufL_[static_cast<size_t>(writePos_)] = inL + fbR * feedback_;
+            bufR_[static_cast<size_t>(writePos_)] = inR + fbL * feedback_;
+        } else {
+            bufL_[static_cast<size_t>(writePos_)] = inL + fbL * feedback_;
+            bufR_[static_cast<size_t>(writePos_)] = inR + fbR * feedback_;
+        }
         stereo[2 * i] = inL * (1.0f - mix_) + echoL * mix_;
         stereo[2 * i + 1] = inR * (1.0f - mix_) + echoR * mix_;
         if (++writePos_ >= maxD) {

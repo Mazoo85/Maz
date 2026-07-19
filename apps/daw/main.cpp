@@ -1903,6 +1903,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("lo-cut##sd", &sdLc, 0.0f, 1000.0f, "%.0f Hz")) mx.stereoDelay().setFeedbackLowCut(sdLc);
+        bool sdping = mx.stereoDelay().pingPong();
+        if (ImGui::Checkbox("Ping-pong##sd", &sdping)) mx.stereoDelay().setPingPong(sdping);
+        ImGui::SameLine();
         bool sdsync = mx.stereoDelay().sync();
         if (ImGui::Checkbox("Sync##sd", &sdsync)) mx.stereoDelay().setSync(sdsync);
         const char* sddivNames[audio::Delay::kSyncDivisions];

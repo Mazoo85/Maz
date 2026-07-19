@@ -843,6 +843,11 @@ public:
     // `feedbackLowCut` (Hz) high-passes the feedback so echoes shed their lows. Both 0 = off/bright.
     void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     void setFeedbackLowCut(float hz) { fbLowCutHz_ = hz < 0.0f ? 0.0f : (hz > 1000.0f ? 1000.0f : hz); }
+    // Ping-pong: cross-route the feedback so each channel's echo feeds the *other* channel's delay
+    // line — repeats bounce left↔right across the stereo field. Off (default) = each line feeds
+    // itself (independent L/R echoes).
+    void setPingPong(bool on) { pingPong_ = on; }
+    bool pingPong() const { return pingPong_; }
     float damping() const { return damping_; }
     float feedbackLowCut() const { return fbLowCutHz_; }
     // Tempo sync: when on, each channel's delay time tracks the transport tempo at its own note
@@ -868,6 +873,7 @@ private:
     float feedback_ = 0.4f;
     float mix_ = 0.3f;
     bool sync_ = false;  // tempo-sync the L/R delay times
+    bool pingPong_ = false; // cross-route feedback (L↔R bounce)
     int leftDiv_ = 4;    // left note-division index (default 1/8)
     int rightDiv_ = 5;   // right note-division index (default dotted 1/8)
     float damping_ = 0.0f;    // feedback high-cut (0 = off/bright)

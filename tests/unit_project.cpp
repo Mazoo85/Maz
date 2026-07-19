@@ -251,6 +251,7 @@ int main() {
     mixer.stereoDelay().setRightDivision(6);
     mixer.stereoDelay().setDamping(0.5f);
     mixer.stereoDelay().setFeedbackLowCut(180.0f);
+    mixer.stereoDelay().setPingPong(true);
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
@@ -663,7 +664,8 @@ int main() {
               near(mixer2.stereoDelay().mix(), 0.35f) && mixer2.stereoDelay().sync() &&
               mixer2.stereoDelay().leftDivision() == 3 && mixer2.stereoDelay().rightDivision() == 6 &&
               near(mixer2.stereoDelay().damping(), 0.5f) &&
-              near(mixer2.stereoDelay().feedbackLowCut(), 180.0f),
+              near(mixer2.stereoDelay().feedbackLowCut(), 180.0f) &&
+              mixer2.stereoDelay().pingPong(),
           "stereo delay round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Tube &&
               near(mixer2.distortion().tone(), 4800.0f) &&

@@ -1547,6 +1547,33 @@ int main() {
         check(same, "a disabled stereo delay is transparent");
     }
 
+    // --- Ping-pong stereo delay: feedback cross-routes L↔R -------------------
+    {
+        // A LEFT-only impulse: without ping-pong the right line never gets input, so the right output
+        // stays silent; with ping-pong the left echo feeds the right line and the right channel sings.
+        auto rightEnergy = [&](bool ping) {
+            audio::StereoDelay d;
+            d.setEnabled(true);
+            d.setLeftMs(10.0f);
+            d.setRightMs(20.0f);
+            d.setFeedback(0.6f);
+            d.setMix(1.0f); // fully wet
+            d.setPingPong(ping);
+            std::vector<float> imp(4000 * 2, 0.0f);
+            imp[0] = 1.0f; // impulse on the LEFT channel only
+            d.process(imp.data(), 4000, sr);
+            double e = 0.0;
+            for (size_t i = 1; i < imp.size(); i += 2) { // right samples only
+                e += static_cast<double>(imp[i]) * imp[i];
+            }
+            return e;
+        };
+        check(rightEnergy(false) < 1e-9,
+              "without ping-pong a left-only signal stays out of the right channel");
+        check(rightEnergy(true) > 1e-3, "ping-pong bounces the left echo into the right channel");
+        check(!audio::StereoDelay().pingPong(), "stereo delay ping-pong defaults to off");
+    }
+
     // --- Stereo delay feedback tone: damping + low-cut -----------------------
     {
         // Damping high-cuts the feedback: a bright tone's echoes lose their highs.
