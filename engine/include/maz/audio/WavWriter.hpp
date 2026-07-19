@@ -45,8 +45,9 @@ inline float peakNormalize(float* interleaved, int count, float targetPeak = 0.9
 // fixed-seed PRNG so a given input renders to a byte-identical WAV every time. false (default) keeps
 // the exact previous behaviour (plain rounding, no added noise).
 //
-// `bits`: output PCM bit depth — 16 (default) or 24 (a higher-quality master; 24-bit's noise floor
-// is low enough that dithering is rarely needed). Any other value falls back to 16.
+// `bits`: output bit depth — 16 (default) or 24 PCM, or 32 for IEEE float (a lossless, no-clip
+// export for stems/further processing; dither is ignored for float). Any other value falls back to
+// 16. 24-bit's noise floor is low enough that dithering is rarely needed there.
 bool writeWav16(const std::string& path, const float* interleaved, int frames, int channels,
                 int sampleRate, std::string* err = nullptr, bool dither = false, int bits = 16);
 

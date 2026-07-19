@@ -1128,6 +1128,22 @@ int main() {
         std::ifstream hf("unit_wav_out24.wav", std::ios::binary);
         std::vector<uint8_t> hb((std::istreambuf_iterator<char>(hf)), std::istreambuf_iterator<char>());
         check(hb.size() > 35 && hb[34] == 24 && hb[35] == 0, "the exported WAV header declares 24-bit");
+
+        // 32-bit FLOAT export: exact round-trip (no quantization), even beyond ±1, and format code 3.
+        const std::vector<float> fsrc = {0.5f, -0.25f, 1.5f, -1.2f}; // includes out-of-range headroom
+        check(audio::writeWav16("unit_wav_f32.wav", fsrc.data(), static_cast<int>(fsrc.size()), 1,
+                                48000, &err, false, 32),
+              "writeWav16 at 32-bit float succeeds");
+        audio::WavData frd;
+        check(audio::readWav16("unit_wav_f32.wav", frd, &err), "the float export reads back");
+        bool okf2 = frd.samples.size() == fsrc.size();
+        for (size_t i = 0; okf2 && i < fsrc.size(); ++i) {
+            okf2 = frd.samples[i] == fsrc[i]; // float is exact, and preserves values past ±1
+        }
+        check(okf2, "32-bit float export round-trips exactly, preserving headroom past +/-1");
+        std::ifstream ff("unit_wav_f32.wav", std::ios::binary);
+        std::vector<uint8_t> fb2((std::istreambuf_iterator<char>(ff)), std::istreambuf_iterator<char>());
+        check(fb2.size() > 21 && fb2[20] == 3 && fb2[21] == 0, "the float WAV declares format 3 (IEEE float)");
     }
 
     // Missing file fails cleanly.

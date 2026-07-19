@@ -336,8 +336,9 @@ int runHeadless(const core::AppConfig& cfg) {
         }
         if (audio::writeWav16(cfg.wavPath, buf.data(), frames, channels, acfg.sampleRate, &werr,
                               cfg.dither, cfg.wavBits)) {
-            MAZ_LOG_INFO("audio: wrote %s (%d-bit%s)", cfg.wavPath, cfg.wavBits == 24 ? 24 : 16,
-                         cfg.dither ? ", dithered" : "");
+            const int depth = (cfg.wavBits == 24 || cfg.wavBits == 32) ? cfg.wavBits : 16;
+            MAZ_LOG_INFO("audio: wrote %s (%d-bit%s%s)", cfg.wavPath, depth,
+                         depth == 32 ? " float" : "", cfg.dither ? ", dithered" : "");
         } else {
             MAZ_LOG_ERROR("audio: WAV write failed: %s", werr.c_str());
         }

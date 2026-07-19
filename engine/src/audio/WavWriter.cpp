@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <vector>
 
@@ -27,9 +28,10 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
         }
         return false;
     }
-    if (bits != 24) {
-        bits = 16; // only 16- and 24-bit PCM are supported; anything else falls back to 16
+    if (bits != 24 && bits != 32) {
+        bits = 16; // 16/24-bit PCM and 32-bit float are supported; anything else falls back to 16
     }
+    const bool isFloat = (bits == 32); // 32-bit export is IEEE float (format 3), not PCM
 
     const uint32_t sampleCount = static_cast<uint32_t>(frames) * static_cast<uint32_t>(channels);
     const uint16_t bitsPerSample = static_cast<uint16_t>(bits);
@@ -37,28 +39,36 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
     const uint16_t blockAlign = static_cast<uint16_t>(channels * bytesPerSample);
     const uint32_t byteRate = static_cast<uint32_t>(sampleRate) * blockAlign;
     const uint32_t dataBytes = sampleCount * static_cast<uint32_t>(bytesPerSample);
-    // Full-scale integer for this depth, e.g. 32767 (16-bit) or 8388607 (24-bit).
-    const float maxVal = static_cast<float>((1 << (bits - 1)) - 1);
-    const int32_t maxInt = (1 << (bits - 1)) - 1;
-    const int32_t minInt = -(1 << (bits - 1));
+    // Full-scale integer for a PCM depth, e.g. 32767 (16-bit) or 8388607 (24-bit). Unused for float.
+    const float maxVal = isFloat ? 0.0f : static_cast<float>((1 << (bits - 1)) - 1);
+    const int32_t maxInt = isFloat ? 0 : (1 << (bits - 1)) - 1;
+    const int32_t minInt = isFloat ? 0 : -(1 << (bits - 1));
 
     std::vector<uint8_t> buf;
     buf.reserve(44 + dataBytes);
 
-    // RIFF header.
+    // RIFF header. Float files add a 12-byte "fact" chunk (required for non-PCM by the spec).
+    const uint32_t factBytes = isFloat ? 12u : 0u;
     buf.insert(buf.end(), {'R', 'I', 'F', 'F'});
-    putLE(buf, 36u + dataBytes, 4); // file size minus the first 8 bytes
+    putLE(buf, 36u + factBytes + dataBytes, 4); // file size minus the first 8 bytes
     buf.insert(buf.end(), {'W', 'A', 'V', 'E'});
 
-    // fmt chunk (PCM).
+    // fmt chunk: 1 = PCM, 3 = IEEE float.
     buf.insert(buf.end(), {'f', 'm', 't', ' '});
     putLE(buf, 16u, 4);                                   // fmt chunk size
-    putLE(buf, 1u, 2);                                    // audio format: 1 = PCM
+    putLE(buf, isFloat ? 3u : 1u, 2);                    // audio format
     putLE(buf, static_cast<uint32_t>(channels), 2);
     putLE(buf, static_cast<uint32_t>(sampleRate), 4);
     putLE(buf, byteRate, 4);
     putLE(buf, blockAlign, 2);
     putLE(buf, bitsPerSample, 2);
+
+    // fact chunk (float only): the number of sample frames.
+    if (isFloat) {
+        buf.insert(buf.end(), {'f', 'a', 'c', 't'});
+        putLE(buf, 4u, 4);
+        putLE(buf, static_cast<uint32_t>(frames), 4);
+    }
 
     // data chunk.
     buf.insert(buf.end(), {'d', 'a', 't', 'a'});
@@ -74,6 +84,14 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
         return static_cast<float>(rng) * (1.0f / 4294967296.0f); // [0, 1)
     };
     for (uint32_t i = 0; i < sampleCount; ++i) {
+        if (isFloat) {
+            // 32-bit float: write the sample verbatim (no clamp — float export preserves headroom).
+            uint32_t u;
+            const float fv = interleaved[i];
+            std::memcpy(&u, &fv, sizeof(float));
+            putLE(buf, u, 4);
+            continue;
+        }
         const float clamped = std::clamp(interleaved[i], -1.0f, 1.0f);
         float scaled = clamped * maxVal;
         if (dither) {
