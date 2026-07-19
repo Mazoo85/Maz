@@ -118,6 +118,13 @@ inline std::string getSlice(const std::string& s, const std::string& splitter, i
     return std::string();
 }
 
+// The `slice`-th piece (0-based) split on a single character `splitter` — Godot's String.get_slicec
+// (the char-delimiter form of get_slice; faster when the delimiter is one character). Same edge
+// behaviour: empty pieces preserved, out-of-range/negative index returns "".
+inline std::string getSlicec(const std::string& s, char splitter, int slice) {
+    return getSlice(s, std::string(1, splitter), slice);
+}
+
 // Prepend `prefix` to every NON-EMPTY line — Godot's String.indent. Truly empty (zero-length) lines
 // are left untouched; whitespace-only lines are still prefixed (matching Godot exactly).
 inline std::string indent(const std::string& s, const std::string& prefix) {

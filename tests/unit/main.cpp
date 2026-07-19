@@ -11684,6 +11684,10 @@ void testStringUtils() {
     CHECK((su::getSlice("abc", ",", 0) == "abc" && su::getSlice("a,b", ",", -1) == ""));
     CHECK((su::getSlice("one::two::three", "::", 1) == "two" &&
            su::getSliceCount("one::two::three", "::") == 3));
+    // M368: get_slicec (single-char delimiter)
+    CHECK((su::getSlicec("a,b,c", ',', 1) == "b" && su::getSlicec("x/y/z", '/', 2) == "z"));
+    CHECK((su::getSlicec("a,,b", ',', 1) == "" && su::getSlicec("a,b", ',', 5) == ""));
+    CHECK((su::getSlicec("nodelim", ',', 0) == "nodelim"));
 
     // --- M351: countn / findn (case-insensitive, ASCII) ---
     CHECK((su::countN("aAbAa", "a") == 4 && su::countN("Hello HELLO hello", "hello") == 3));
