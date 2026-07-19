@@ -812,6 +812,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   higher degrees fit genuinely curved (sine) data strictly better than a line (R^2 rising to >0.999);
   degree-0 returns the mean; and all degenerate inputs — too few points, negative degree, mismatched
   lengths, all-x-identical — are rejected via the ok flag),
+  **numerical quadrature** (M465, `math::integrateTrapezoid` / `integrateSimpson` /
+  `integrateAdaptiveSimpson` / `integrateRomberg` — compute the definite integral (signed area under
+  the curve) of any scalar function f(x) supplied as a callable, over [a, b]. The counterpart to the ODE
+  integrator (which advances a state through time); quadrature sums a function's area. The tool for arc
+  length of a parametric path (integrate the speed |r'(t)|), work done by a varying force over a
+  distance, a cumulative distribution from a density, or any total-accumulated-quantity where the
+  integrand is known as code. Four rules, cheapest to most accurate: composite trapezoid (O(h^2)),
+  composite Simpson (O(h^4), exact for cubics), adaptive Simpson (recursively refines only where the
+  integrand is hard, to a requested tolerance), and Romberg (Richardson extrapolation on the trapezoid
+  rule for fast convergence on smooth integrands). Godot exposes no general function integrator to
+  gameplay code -> beyond-Godot. Verified against closed-form integrals: x^2->1/3, x^3 exact under
+  Simpson with n=2, sin over [0,pi]=2, e^x=e-1, constants, reversed limits negate; adaptive Simpson
+  resolves a Runge-type spike far better than a coarse trapezoid; Romberg error shrinks with more levels;
+  a Gaussian bell integrates to sqrt(pi); and the arc length of y=x^2 matches its analytic value),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

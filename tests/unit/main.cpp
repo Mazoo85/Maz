@@ -109,6 +109,7 @@
 #include "maz/math/Polynomial.hpp"
 #include "maz/math/Integrator.hpp"
 #include "maz/math/LeastSquares.hpp"
+#include "maz/math/Quadrature.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20205,6 +20206,89 @@ void testPolynomial() {
     }
 }
 
+void testQuadrature() {
+    using math::integrateAdaptiveSimpson;
+    using math::integrateRomberg;
+    using math::integrateSimpson;
+    using math::integrateTrapezoid;
+    const double pi = 3.14159265358979323846;
+
+    // int x^2 over [0,1] = 1/3.
+    {
+        auto f = [](double x) { return x * x; };
+        CHECK(std::fabs(integrateTrapezoid(f, 0.0, 1.0, 1000) - 1.0 / 3.0) < 1e-5);
+        CHECK(std::fabs(integrateSimpson(f, 0.0, 1.0, 10) - 1.0 / 3.0) < 1e-10);
+        CHECK(std::fabs(integrateAdaptiveSimpson(f, 0.0, 1.0) - 1.0 / 3.0) < 1e-9);
+        CHECK(std::fabs(integrateRomberg(f, 0.0, 1.0) - 1.0 / 3.0) < 1e-9);
+    }
+    // Simpson integrates cubics exactly: int x^3 over [0,2] = 4 with n=2.
+    {
+        auto f = [](double x) { return x * x * x; };
+        CHECK(std::fabs(integrateSimpson(f, 0.0, 2.0, 2) - 4.0) < 1e-9);
+        CHECK(std::fabs(integrateRomberg(f, 0.0, 2.0) - 4.0) < 1e-9);
+    }
+    // int sin over [0, pi] = 2.
+    {
+        auto f = [](double x) { return std::sin(x); };
+        CHECK(std::fabs(integrateSimpson(f, 0.0, pi, 100) - 2.0) < 1e-6);
+        CHECK(std::fabs(integrateAdaptiveSimpson(f, 0.0, pi, 1e-10) - 2.0) < 1e-8);
+        CHECK(std::fabs(integrateRomberg(f, 0.0, pi, 10) - 2.0) < 1e-9);
+    }
+    // int e^x over [0,1] = e-1.
+    {
+        auto f = [](double x) { return std::exp(x); };
+        const double exact = std::exp(1.0) - 1.0;
+        CHECK(std::fabs(integrateSimpson(f, 0.0, 1.0, 20) - exact) < 1e-6);
+        CHECK(std::fabs(integrateAdaptiveSimpson(f, 0.0, 1.0) - exact) < 1e-9);
+        CHECK(std::fabs(integrateRomberg(f, 0.0, 1.0) - exact) < 1e-9);
+    }
+    // Constant integrand: int c over [a,b] = c*(b-a).
+    {
+        auto f = [](double) { return 3.5; };
+        CHECK(std::fabs(integrateTrapezoid(f, 2.0, 6.0, 1) - 14.0) < 1e-12);
+        CHECK(std::fabs(integrateSimpson(f, 2.0, 6.0, 2) - 14.0) < 1e-12);
+        CHECK(std::fabs(integrateRomberg(f, 2.0, 6.0, 3) - 14.0) < 1e-12);
+    }
+    // Reversed limits negate the result.
+    {
+        auto f = [](double x) { return x * x + 1.0; };
+        const double fwd = integrateSimpson(f, 0.0, 3.0, 100);
+        const double rev = integrateSimpson(f, 3.0, 0.0, 100);
+        CHECK(std::fabs(fwd + rev) < 1e-9);
+    }
+    // Adaptive resolves a Runge-type spike far better than a coarse fixed trapezoid.
+    {
+        auto f = [](double x) { return 1.0 / (1.0 + 25.0 * x * x); };
+        const double exact = (2.0 / 5.0) * std::atan(5.0);
+        const double coarse = integrateTrapezoid(f, -1.0, 1.0, 8);
+        const double adaptive = integrateAdaptiveSimpson(f, -1.0, 1.0, 1e-11);
+        CHECK(std::fabs(adaptive - exact) < 1e-7);
+        CHECK(std::fabs(adaptive - exact) < std::fabs(coarse - exact));
+    }
+    // Romberg converges: more levels -> less error.
+    {
+        auto f = [](double x) { return std::cos(x); };
+        const double exact = std::sin(1.0);
+        const double e3 = std::fabs(integrateRomberg(f, 0.0, 1.0, 3) - exact);
+        const double e6 = std::fabs(integrateRomberg(f, 0.0, 1.0, 6) - exact);
+        CHECK(e6 < e3);
+        CHECK(e6 < 1e-9);
+    }
+    // Gaussian bell: int e^{-x^2} over [-4,4] ~= sqrt(pi).
+    {
+        auto f = [](double x) { return std::exp(-x * x); };
+        const double sqrtPi = std::sqrt(pi);
+        CHECK(std::fabs(integrateAdaptiveSimpson(f, -4.0, 4.0, 1e-12) - sqrtPi) < 1e-4);
+        CHECK(std::fabs(integrateRomberg(f, -4.0, 4.0, 14) - sqrtPi) < 1e-4);
+    }
+    // Arc length of y = x^2 over [0,1] = int sqrt(1+(2x)^2) dx.
+    {
+        auto speed = [](double x) { return std::sqrt(1.0 + 4.0 * x * x); };
+        const double exact = 0.5 * std::sqrt(5.0) + 0.25 * std::asinh(2.0);
+        CHECK(std::fabs(integrateAdaptiveSimpson(speed, 0.0, 1.0, 1e-11) - exact) < 1e-8);
+    }
+}
+
 void testLeastSquares() {
     using math::evalPolynomial;
     using math::fitLine;
@@ -29189,6 +29273,7 @@ int main() {
     testPolynomial();
     testIntegrator();
     testLeastSquares();
+    testQuadrature();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
