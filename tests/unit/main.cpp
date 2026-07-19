@@ -13892,6 +13892,12 @@ void testVector4() {
     CHECK((Vector4(1, 4, 2, 3).maxAxisIndex() == 1 && Vector4(1, 2, 9, 3).maxAxisIndex() == 2));
     CHECK((Vector4(1, 2, 3, 4).minAxisIndex() == 0 && Vector4(4, 3, 2, 1).minAxisIndex() == 3));
     CHECK((Vector4(2, 2, 2, 2).maxAxisIndex() == 0 && Vector4(2, 2, 2, 2).minAxisIndex() == 3));
+    // M367: Vector4 scalar-bound clampf / snappedf / minf / maxf
+    CHECK(Vector4(-3, 5, 0.5f, 12).clampf(0, 10).isEqualApprox(Vector4(0, 5, 0.5f, 10)));
+    CHECK(Vector4(-3, 5, 0.5f, 12).minf(4).isEqualApprox(Vector4(-3, 4, 0.5f, 4)));
+    CHECK(Vector4(-3, 5, 0.5f, 12).maxf(4).isEqualApprox(Vector4(4, 5, 4, 12)));
+    CHECK(Vector4(2.3f, 2.6f, -2.4f, -2.6f).snappedf(1).isEqualApprox(Vector4(2, 3, -2, -3)));
+    CHECK(Vector4(2.3f, 2.6f, -2.4f, -2.6f).snappedf(0).isEqualApprox(Vector4(2.3f, 2.6f, -2.4f, -2.6f)));
     CHECK(Vector4(-1.5f, 2.5f, -3.5f, 4.5f).abs().isEqualApprox(Vector4(1.5f, 2.5f, 3.5f, 4.5f)));
     CHECK(Vector4(-2, 0, 3, 5).sign().isEqualApprox(Vector4(-1, 0, 1, 1)));
     CHECK(Vector4(1.4f, 1.6f, -1.4f, -1.6f).round().isEqualApprox(Vector4(1, 2, -1, -2)));

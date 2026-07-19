@@ -78,6 +78,23 @@ struct Vector4 {
         return {snap1(x, step.x), snap1(y, step.y), snap1(z, step.z), snap1(w, step.w)};
     }
 
+    // Scalar-bound variants — Godot's Vector4.clampf / snappedf / minf / maxf (one float applied to
+    // every component).
+    Vector4 clampf(float lo, float hi) const {
+        return {x < lo ? lo : (x > hi ? hi : x), y < lo ? lo : (y > hi ? hi : y),
+                z < lo ? lo : (z > hi ? hi : z), w < lo ? lo : (w > hi ? hi : w)};
+    }
+    Vector4 snappedf(float step) const {
+        auto snap1 = [](float v, float s) { return s != 0.0f ? std::round(v / s) * s : v; };
+        return {snap1(x, step), snap1(y, step), snap1(z, step), snap1(w, step)};
+    }
+    Vector4 minf(float o) const {
+        return {x < o ? x : o, y < o ? y : o, z < o ? z : o, w < o ? w : o};
+    }
+    Vector4 maxf(float o) const {
+        return {x > o ? x : o, y > o ? y : o, z > o ? z : o, w > o ? w : o};
+    }
+
     float distanceTo(const Vector4& o) const { return (o - *this).length(); }
     float distanceSquaredTo(const Vector4& o) const { return (o - *this).lengthSquared(); }
     Vector4 directionTo(const Vector4& o) const { return (o - *this).normalized(); }

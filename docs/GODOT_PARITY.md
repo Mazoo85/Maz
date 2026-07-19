@@ -223,7 +223,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   strict '>' earliest-wins, min scans '<=' latest-wins), completing the axis-index family across
   2i/3i/vec2/vec3/Vector4, verified incl. all-equal; M366 adds Vector2i/Vector3i scalar-bound clampi /
   snappedi / mini / maxi — Godot Vector2i/Vector3i.clampi/snappedi/mini/maxi (one int applied to every
-  component, companions to the vector-arg clamp/snapped/min/max), verified; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
+  component, companions to the vector-arg clamp/snapped/min/max), verified; M367 adds Vector4 scalar-
+  float clampf / snappedf / minf / maxf — Godot Vector4.clampf/snappedf/minf/maxf (one float per
+  component, the float analogue of M366), verified incl. snappedf step 0; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
   rectangle corner farthest along a direction (per axis max edge when dir>0 else min; dir==0 picks min,
   matching Godot's strict >0), the GJK/SAT broadphase primitive, verified all quadrants + zero-axis),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
