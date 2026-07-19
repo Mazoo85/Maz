@@ -1785,6 +1785,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.vibrato().setSyncDivision(vdiv);
     }
     {
+        bool en = mx.rotary().enabled();
+        if (ImGui::Checkbox("Rotary", &en)) mx.rotary().setEnabled(en);
+        float rrate = mx.rotary().rate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("rate##rot", &rrate, 0.1f, 12.0f, "%.2f Hz"))
+            mx.rotary().setRate(rrate);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("slow##rot")) mx.rotary().setRate(0.8f);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("fast##rot")) mx.rotary().setRate(6.5f);
+        float rdepth = mx.rotary().depth();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("depth##rot", &rdepth, 0.0f, 1.0f, "%.2f"))
+            mx.rotary().setDepth(rdepth);
+        float rmix = mx.rotary().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mix##rot", &rmix, 0.0f, 1.0f, "%.2f")) mx.rotary().setMix(rmix);
+    }
+    {
         bool en = mx.flanger().enabled();
         if (ImGui::Checkbox("Flanger", &en)) mx.flanger().setEnabled(en);
         float wet = mx.flanger().mix();

@@ -331,6 +331,36 @@ private:
     double phase_ = 0.0;
 };
 
+// A rotary (Leslie) speaker simulation: one rotation LFO drives three effects at once — amplitude
+// modulation (the horn swinging toward/away from the mic), Doppler pitch modulation (a short swept
+// delay), and stereo rotation (the two mics pick the rotation up in opposition), for the swirling
+// organ/guitar cabinet sound. `rate` is the rotation speed (slow "chorale" ~0.8 Hz, fast "tremolo"
+// ~6-7 Hz), `depth` the intensity of the swirl, `mix` dry/wet.
+class Rotary : public Effect {
+public:
+    Rotary() { enabled_ = false; }
+    const char* name() const override { return "Rotary"; }
+    void setRate(float hz) { rateHz_ = hz < 0.1f ? 0.1f : (hz > 12.0f ? 12.0f : hz); }
+    void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float rate() const { return rateHz_; }
+    float depth() const { return depth_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 6.0f;
+    float depth_ = 0.5f;
+    float mix_ = 1.0f;
+    std::vector<float> bufL_;
+    std::vector<float> bufR_;
+    int size_ = 0;
+    int write_ = 0;
+    double phase_ = 0.0;
+};
+
 // A flanger: a very short LFO-swept delay (≈0.5–8 ms) fed back on itself, so the moving comb notches
 // sweep through the spectrum for the classic "jet plane" whoosh. `rate` Hz, `depth` ms (sweep
 // range), `feedback` (0..0.95, resonance), `mix` dry/wet. Distinct from the chorus by its feedback

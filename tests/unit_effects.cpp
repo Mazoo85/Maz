@@ -1147,6 +1147,76 @@ int main() {
         check(std::fabs(vs.rate() - 4.0f) < 0.01f, "synced vibrato runs at 4 Hz for 1/8 @120 BPM");
     }
 
+    // --- Rotary (Leslie): amplitude + Doppler modulation + stereo rotation ---
+    {
+        // Windowed left-channel RMS spread (amplitude modulation) and rising-zero-crossing frequency
+        // spread (Doppler pitch modulation) over 50 ms windows.
+        auto rmsSpread = [&](const std::vector<float>& s, int win) {
+            double lo = 1e9, hi = -1e9;
+            const int n = static_cast<int>(s.size() / 2);
+            for (int start = 0; start + win <= n; start += win) {
+                double e = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    const float l = s[static_cast<size_t>((start + i) * 2)];
+                    e += static_cast<double>(l) * l;
+                }
+                const double r = std::sqrt(e / win);
+                lo = std::min(lo, r);
+                hi = std::max(hi, r);
+            }
+            return hi - lo;
+        };
+        auto freqSpread = [&](const std::vector<float>& s, int win) {
+            double lo = 1e9, hi = -1e9;
+            const int n = static_cast<int>(s.size() / 2);
+            for (int start = 0; start + win <= n; start += win) {
+                int cross = 0;
+                for (int i = start + 1; i < start + win; ++i) {
+                    if (s[static_cast<size_t>(i - 1) * 2] <= 0.0f && s[static_cast<size_t>(i) * 2] > 0.0f)
+                        ++cross;
+                }
+                const double f = static_cast<double>(cross) * sr / win;
+                lo = std::min(lo, f);
+                hi = std::max(hi, f);
+            }
+            return hi - lo;
+        };
+        const int win = sr / 20; // 50 ms
+        std::vector<float> dry = sineStereo(sr, 440.0, 0.5, sr);
+        const double dryRmsSpread = rmsSpread(dry, win);
+        const double dryFreqSpread = freqSpread(dry, win);
+
+        audio::Rotary rot;
+        rot.setEnabled(true);
+        rot.setRate(5.0f);
+        rot.setDepth(0.9f);
+        std::vector<float> b = sineStereo(sr, 440.0, 0.5, sr);
+        rot.process(b.data(), sr, sr);
+        check(rmsSpread(b, win) > dryRmsSpread + 0.02,
+              "rotary amplitude-modulates the signal (level swings as the horn rotates)");
+        check(freqSpread(b, win) > dryFreqSpread + 10.0,
+              "rotary Doppler-modulates the pitch (windowed frequency swings)");
+        // Stereo rotation: the two mics are in opposition, so L and R differ.
+        double lr = 0.0;
+        for (int i = sr / 2; i < sr; ++i) {
+            lr += std::fabs(static_cast<double>(b[static_cast<size_t>(i) * 2] -
+                                                b[static_cast<size_t>(i) * 2 + 1]));
+        }
+        check(lr > 1.0, "rotary decorrelates the stereo image (rotating mics)");
+
+        // Disabled → bit-identical passthrough; sensible defaults.
+        audio::Rotary off;
+        std::vector<float> a = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> a2 = a;
+        off.process(a2.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != a2[i]) same = false;
+        }
+        check(same, "a disabled rotary is a bit-identical passthrough");
+        check(!audio::Rotary().enabled(), "rotary defaults to off");
+    }
+
     // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------
     {
         audio::Chorus chorus;

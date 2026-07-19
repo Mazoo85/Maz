@@ -434,6 +434,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx vibrato " << (mixer.vibrato().enabled() ? 1 : 0) << " " << mixer.vibrato().rate() << " "
       << mixer.vibrato().depth() << " " << (mixer.vibrato().sync() ? 1 : 0) << " "
       << mixer.vibrato().syncDivision() << "\n";
+    f << "fx rotary " << (mixer.rotary().enabled() ? 1 : 0) << " " << mixer.rotary().rate() << " "
+      << mixer.rotary().depth() << " " << mixer.rotary().mix() << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
       << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << " "
@@ -1311,6 +1313,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     mixer.vibrato().setSync(sync != 0);
                     mixer.vibrato().setSyncDivision(div);
                 }
+            } else if (which == "rotary") {
+                float rate = 6.0f, depth = 0.5f, mix = 1.0f;
+                ls >> rate >> depth >> mix;
+                mixer.rotary().setEnabled(en != 0);
+                mixer.rotary().setRate(rate);
+                mixer.rotary().setDepth(depth);
+                mixer.rotary().setMix(mix);
             } else if (which == "flanger") {
                 float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
                 ls >> rate >> depth >> fb >> mix;

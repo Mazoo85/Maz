@@ -579,6 +579,74 @@ void Vibrato::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Rotary (Leslie) --------------------------------------------------------
+
+void Rotary::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    write_ = 0;
+    phase_ = 0.0;
+}
+
+void Rotary::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxSize = sampleRate / 20; // up to 50 ms of delay line
+    if (size_ != maxSize) {
+        size_ = maxSize;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        write_ = 0;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double phaseInc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    // Doppler sweep depth (up to ~3 ms) and the amplitude-modulation depth both scale with `depth`.
+    const float dopSamp = std::clamp(depth_, 0.0f, 1.0f) * 3.0f * 0.001f * static_cast<float>(sampleRate);
+    const float baseSamp = dopSamp + 0.001f * static_cast<float>(sampleRate);
+    const float amDepth = std::clamp(depth_, 0.0f, 1.0f);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+
+    auto readAt = [&](const std::vector<float>& buf, float delay) {
+        float rp = static_cast<float>(write_) - delay;
+        while (rp < 0.0f) {
+            rp += static_cast<float>(size_);
+        }
+        const int i0 = static_cast<int>(rp) % size_;
+        const int i1 = (i0 + 1) % size_;
+        const float frac = rp - std::floor(rp);
+        return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
+    };
+
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        bufL_[static_cast<size_t>(write_)] = dryL;
+        bufR_[static_cast<size_t>(write_)] = dryR;
+
+        const double a = phase_ * kTwoPi;
+        const float modL = static_cast<float>(std::sin(a));
+        const float modR = -modL; // the two mics sit ~180° apart around the rotor
+        // Doppler: sweep each channel's read delay with the rotation (pitch wobble).
+        float wetL = readAt(bufL_, baseSamp + dopSamp * modL);
+        float wetR = readAt(bufR_, baseSamp + dopSamp * modR);
+        // Amplitude modulation: the horn is loudest facing each mic (opposite phases per side).
+        const float cosA = static_cast<float>(std::cos(a));
+        const float amL = 1.0f - amDepth * 0.5f * (1.0f - cosA);
+        const float amR = 1.0f - amDepth * 0.5f * (1.0f + cosA);
+        wetL *= amL;
+        wetR *= amR;
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+
+        write_ = (write_ + 1) % size_;
+        phase_ += phaseInc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- ParametricEQ -----------------------------------------------------------
 
 void ParametricEQ::setLowGain(float db) {

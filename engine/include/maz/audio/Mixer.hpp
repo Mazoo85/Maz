@@ -53,6 +53,7 @@ public:
     Vibrato& vibrato() { return vibrato_; }
     FrequencyShifter& freqShifter() { return freqshift_; }
     StepGate& stepGate() { return stepgate_; }
+    Rotary& rotary() { return rotary_; }
     Flanger& flanger() { return flanger_; }
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
@@ -140,6 +141,7 @@ private:
     Vibrato vibrato_{};
     FrequencyShifter freqshift_{};
     StepGate stepgate_{};
+    Rotary rotary_{};
     Flanger flanger_{};
     Phaser phaser_{};
     Delay delay_{};
