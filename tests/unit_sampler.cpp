@@ -108,6 +108,32 @@ int main() {
     sampler3.noteOn(57, 1.0f);
     check(estimateHz(renderMono(sampler3, sr / 5, sr), sr) > 100.0, "injected sample plays");
 
+    // Drive: tanh saturation adds (odd) harmonics to an otherwise-clean sine sample.
+    {
+        auto goertzel = [&](const std::vector<float>& b, double f) {
+            const double w = kTwoPi * f / sr;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float v : b) {
+                const double s0 = static_cast<double>(v) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        auto thirdHarmonic = [&](float drive) {
+            audio::Sampler s;
+            s.setSampleMono(sine, sr);
+            s.setBasePitch(57); // 220 Hz → 3rd harmonic at 660 Hz
+            s.setDrive(drive);
+            s.noteOn(57, 1.0f);
+            return goertzel(renderMono(s, sr / 4, sr), 660.0);
+        };
+        check(thirdHarmonic(1.0f) > thirdHarmonic(0.0f) * 20.0 + 1.0,
+              "sampler drive adds harmonics to a clean sine");
+        check(audio::Sampler().drive() == 0.0f, "sampler drive defaults to 0 (clean)");
+    }
+
     // Pitch envelope: a note starts pitched away and slides to its true pitch.
     {
         const int win = sr / 20; // 50 ms measurement window

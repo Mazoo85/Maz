@@ -367,6 +367,12 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 s = v.filter.process(s, cutoff, filterReso_, sampleRate,
                                      StateVariableFilter::Mode::LowPass);
             }
+            // Drive: push through a tanh soft-clipper (normalised so full-scale stays ~unity) to warm
+            // the sample / add grit. Skipped at 0 so the clean sample is bit-identical.
+            if (drive_ > 0.0f) {
+                const float k = 1.0f + drive_ * 8.0f;
+                s = std::tanh(s * k) / std::tanh(k);
+            }
             // Velocity → volume: blend between full level and velocity-scaled by velSens_.
             const float velGain = 1.0f - velSens_ * (1.0f - v.velocity);
             out[i] += s * v.env * velGain * gain_;

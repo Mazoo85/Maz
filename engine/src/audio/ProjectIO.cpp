@@ -346,7 +346,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().pitchEnvTime() << " " << seq.sampler().filterVelo() << " "
       << (seq.sampler().mono() ? 1 : 0) << " " << seq.sampler().ampDecay() << " "
       << seq.sampler().ampSustain() << " " << seq.sampler().velSensitivity() << " "
-      << (seq.sampler().keyTrack() ? 1 : 0) << "\n";
+      << (seq.sampler().keyTrack() ? 1 : 0) << " " << seq.sampler().drive() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -791,6 +791,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int keytrack = 1; // key tracking optional (older files → on, a melodic sampler)
             if (ls >> keytrack) {
                 seq.sampler().setKeyTrack(keytrack != 0);
+            }
+            float sdrive = 0.0f; // per-voice drive optional (older files → clean)
+            if (ls >> sdrive) {
+                seq.sampler().setDrive(sdrive);
             }
         } else if (tag == "chan") {
             int c = -1;

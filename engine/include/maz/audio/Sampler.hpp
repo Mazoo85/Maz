@@ -55,6 +55,12 @@ public:
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
+    // Drive / saturation (0..1): push each voice through a tanh soft-clipper (post-filter) to warm up
+    // a sample or add grit to drums — the sampler's own "shape" character. 0 (default) = clean
+    // (bit-transparent, the path is skipped).
+    void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float drive() const { return drive_; }
+
     // Reverse: play the sample backwards (from the end). Loop: instead of stopping at the end (or
     // start, when reversed), wrap around and keep sounding until noteOff — turning a one-shot into a
     // sustained/looped instrument.
@@ -203,6 +209,7 @@ private:
     int basePitch_ = 60;
     float detuneCents_ = 0.0f;
     float gain_ = 0.9f;
+    float drive_ = 0.0f; // per-voice tanh saturation amount; 0 = clean
     bool reverse_ = false;
     bool mono_ = false; // monophonic (single-voice, last-note priority) mode
     bool keyTrack_ = true; // resample per note (melodic); false = fixed-pitch one-shot/drum mode

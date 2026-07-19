@@ -1270,6 +1270,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))
         seq.sampler().setStartOffset(startOff);
+    float sdrive = seq.sampler().drive();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Drive##smp", &sdrive, 0.0f, 1.0f, sdrive <= 0.0f ? "clean" : "%.2f"))
+        seq.sampler().setDrive(sdrive);
     float loopS = seq.sampler().loopStart(), loopE = seq.sampler().loopEnd();
     bool loopCh = false;
     ImGui::SetNextItemWidth(110.0f);
