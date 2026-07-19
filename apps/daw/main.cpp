@@ -2033,6 +2033,27 @@ void buildMixerUI(audio::AudioEngine& engine) {
         }
     }
     {
+        auto& sat = mx.multibandSaturator();
+        bool en = sat.enabled();
+        if (ImGui::Checkbox("Multiband Saturator", &en)) sat.setEnabled(en);
+        float clo = sat.crossoverLow(), chi = sat.crossoverHigh();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("lo/mid##mbsat", &clo, 20.0f, 2000.0f, "%.0f")) sat.setCrossoverLow(clo);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("mid/hi##mbsat", &chi, 200.0f, 18000.0f, "%.0f")) sat.setCrossoverHigh(chi);
+        const char* satBand[3] = {"low drive", "mid drive", "high drive"};
+        for (int b = 0; b < audio::MultibandSaturator::kBands; ++b) {
+            float d = sat.drive(b);
+            ImGui::PushID(100 + b);
+            ImGui::SetNextItemWidth(130.0f);
+            if (ImGui::SliderFloat(satBand[b], &d, 0.0f, 1.0f, "%.2f")) sat.setDrive(b, d);
+            ImGui::PopID();
+            if (b < 2) ImGui::SameLine();
+        }
+    }
+    {
         bool en = mx.stereoEnhancer().enabled();
         if (ImGui::Checkbox("Stereo Enhancer", &en)) mx.stereoEnhancer().setEnabled(en);
         float ms = mx.stereoEnhancer().delayMs();

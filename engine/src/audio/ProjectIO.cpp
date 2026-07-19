@@ -461,6 +461,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx imager " << (mixer.imager().enabled() ? 1 : 0) << " " << mixer.imager().crossoverLow()
       << " " << mixer.imager().crossoverHigh() << " " << mixer.imager().bandWidth(0) << " "
       << mixer.imager().bandWidth(1) << " " << mixer.imager().bandWidth(2) << "\n";
+    f << "fx mbsat " << (mixer.multibandSaturator().enabled() ? 1 : 0) << " "
+      << mixer.multibandSaturator().crossoverLow() << " " << mixer.multibandSaturator().crossoverHigh()
+      << " " << mixer.multibandSaturator().drive(0) << " " << mixer.multibandSaturator().drive(1) << " "
+      << mixer.multibandSaturator().drive(2) << "\n";
     f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
       << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
@@ -1065,6 +1069,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.imager().setBandWidth(0, w0);
                 mixer.imager().setBandWidth(1, w1);
                 mixer.imager().setBandWidth(2, w2);
+            } else if (which == "mbsat") {
+                float clo = 200.0f, chi = 2000.0f, d0 = 0.0f, d1 = 0.0f, d2 = 0.0f;
+                ls >> clo >> chi >> d0 >> d1 >> d2;
+                mixer.multibandSaturator().setEnabled(en != 0);
+                mixer.multibandSaturator().setCrossoverLow(clo);
+                mixer.multibandSaturator().setCrossoverHigh(chi);
+                mixer.multibandSaturator().setDrive(0, d0);
+                mixer.multibandSaturator().setDrive(1, d1);
+                mixer.multibandSaturator().setDrive(2, d2);
             } else if (which == "stereoenh") {
                 float ms = 12.0f, amt = 0.7f;
                 ls >> ms >> amt;

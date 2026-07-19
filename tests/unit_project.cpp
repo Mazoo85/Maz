@@ -369,6 +369,12 @@ int main() {
     mixer.imager().setBandWidth(0, 0.3f);
     mixer.imager().setBandWidth(1, 1.1f);
     mixer.imager().setBandWidth(2, 1.8f);
+    mixer.multibandSaturator().setEnabled(true);
+    mixer.multibandSaturator().setCrossoverLow(160.0f);
+    mixer.multibandSaturator().setCrossoverHigh(2800.0f);
+    mixer.multibandSaturator().setDrive(0, 0.7f);
+    mixer.multibandSaturator().setDrive(1, 0.25f);
+    mixer.multibandSaturator().setDrive(2, 0.5f);
     mixer.tape().setEnabled(true);
     mixer.tape().setDrive(4.5f);
     mixer.tape().setWarmth(0.6f);
@@ -881,6 +887,13 @@ int main() {
               near(mixer2.imager().bandWidth(0), 0.3f) && near(mixer2.imager().bandWidth(1), 1.1f) &&
               near(mixer2.imager().bandWidth(2), 1.8f),
           "multiband stereo imager round-trips");
+    check(mixer2.multibandSaturator().enabled() &&
+              near(mixer2.multibandSaturator().crossoverLow(), 160.0f) &&
+              near(mixer2.multibandSaturator().crossoverHigh(), 2800.0f) &&
+              near(mixer2.multibandSaturator().drive(0), 0.7f) &&
+              near(mixer2.multibandSaturator().drive(1), 0.25f) &&
+              near(mixer2.multibandSaturator().drive(2), 0.5f),
+          "multiband saturator round-trips");
     check(mixer2.tape().enabled() && near(mixer2.tape().drive(), 4.5f) &&
               near(mixer2.tape().warmth(), 0.6f) && near(mixer2.tape().mix(), 0.9f) &&
               near(mixer2.tape().wowFlutter(), 0.4f),

@@ -1542,6 +1542,54 @@ int main() {
         check(!audio::StereoImager().enabled(), "stereo imager defaults to off");
     }
 
+    // --- Multiband saturator: per-band drive adds harmonics to only that band ----
+    {
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // A low (100 Hz) sine through the saturator; tanh is odd, so driving the LOW band should add a
+        // measurable 3rd harmonic (300 Hz), while driving only the HIGH band should not.
+        auto thirdHarmonic = [&](int driveBand) {
+            audio::MultibandSaturator sat;
+            sat.setEnabled(true);
+            sat.setCrossoverLow(300.0f);  // 100 Hz is well inside the low band
+            sat.setCrossoverHigh(3000.0f);
+            if (driveBand >= 0) sat.setDrive(driveBand, 1.0f);
+            std::vector<float> b = sineStereo(sr / 2, 100.0, 0.5, sr);
+            sat.process(b.data(), sr / 2, sr);
+            return power(b, 300.0, sr);
+        };
+        const double clean = thirdHarmonic(-1);       // no drive
+        const double lowDriven = thirdHarmonic(0);    // low-band drive
+        const double highDriven = thirdHarmonic(2);   // high-band drive (100 Hz not in it)
+        check(lowDriven > clean * 20.0 + 1.0,
+              "low-band drive adds a 3rd harmonic to a low tone");
+        check(highDriven < lowDriven * 0.1,
+              "high-band drive leaves a low tone's harmonics alone (band independence)");
+        // All drives 0 → exact reconstruction (the split sums back to the input).
+        audio::MultibandSaturator flat;
+        flat.setEnabled(true);
+        std::vector<float> t = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> tref = t;
+        flat.process(t.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < t.size(); ++i) {
+            if (std::fabs(t[i] - tref[i]) > 1e-5f) same = false;
+        }
+        check(same, "a saturator with all band drives at 0 is transparent");
+        check(audio::MultibandSaturator().drive(0) == 0.0f &&
+                  !audio::MultibandSaturator().enabled(),
+              "multiband saturator defaults to off/clean");
+    }
+
     // --- Bitcrusher: quantization changes the signal but keeps energy --------
     {
         audio::Bitcrusher crush;

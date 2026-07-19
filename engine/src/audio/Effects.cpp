@@ -1232,6 +1232,54 @@ void StereoImager::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Multiband Saturator ----------------------------------------------------
+
+void MultibandSaturator::reset() {
+    lp1L_ = lp1R_ = lp2L_ = lp2R_ = 0.0f;
+}
+
+void MultibandSaturator::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    const float lo = std::min(crossLow_, crossHigh_);
+    const float hi = std::max(crossLow_, crossHigh_);
+    const float a1 = std::exp(-2.0f * 3.14159265358979f * lo / sr);
+    const float a2 = std::exp(-2.0f * 3.14159265358979f * hi / sr);
+    // Per-band saturation: dry/wet-blend a tanh-shaped copy by the band's drive so drive 0 is a bit-
+    // exact bypass. The drive scales the pre-gain into the tanh (harder → more harmonics), and the
+    // shaped signal is normalised by tanh(gain) so the band's level stays roughly constant.
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Same one-pole split as the multiband compressor / imager: low + mid + high == input.
+        lp1L_ = a1 * lp1L_ + (1.0f - a1) * l;
+        lp1R_ = a1 * lp1R_ + (1.0f - a1) * r;
+        lp2L_ = a2 * lp2L_ + (1.0f - a2) * l;
+        lp2R_ = a2 * lp2R_ + (1.0f - a2) * r;
+        const float bandsL[kBands] = {lp1L_, lp2L_ - lp1L_, l - lp2L_};
+        const float bandsR[kBands] = {lp1R_, lp2R_ - lp1R_, r - lp2R_};
+        float outL = 0.0f, outR = 0.0f;
+        for (int b = 0; b < kBands; ++b) {
+            const float d = drive_[b];
+            if (d <= 0.0f) {
+                outL += bandsL[b];
+                outR += bandsR[b];
+                continue;
+            }
+            const float gain = 1.0f + d * 6.0f; // pre-gain into the shaper; more drive → more grit
+            const float norm = 1.0f / std::tanh(gain);
+            const float shapedL = std::tanh(bandsL[b] * gain) * norm;
+            const float shapedR = std::tanh(bandsR[b] * gain) * norm;
+            outL += bandsL[b] * (1.0f - d) + shapedL * d;
+            outR += bandsR[b] * (1.0f - d) + shapedR * d;
+        }
+        stereo[2 * i] = outL;
+        stereo[2 * i + 1] = outR;
+    }
+}
+
 // ---- De-Esser ---------------------------------------------------------------
 
 void DeEsser::reset() {

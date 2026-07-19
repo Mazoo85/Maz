@@ -61,6 +61,7 @@ public:
     Reverb& reverb() { return reverb_; }
     StereoWidener& widener() { return widener_; }
     StereoImager& imager() { return imager_; }
+    MultibandSaturator& multibandSaturator() { return mbsat_; }
     StereoEnhancer& stereoEnhancer() { return stereoEnhancer_; }
     Utility& utility() { return utility_; }
     Clipper& clipper() { return clipper_; }
@@ -151,6 +152,7 @@ private:
     Reverb reverb_{};
     StereoWidener widener_{};
     StereoImager imager_{};
+    MultibandSaturator mbsat_{};
     StereoEnhancer stereoEnhancer_{};
     Utility utility_{};
     Clipper clipper_{};

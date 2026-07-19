@@ -1259,6 +1259,41 @@ private:
     float lp2L_ = 0.0f, lp2R_ = 0.0f;          // one-pole LP state at the mid/high crossover
 };
 
+// A multiband saturator: split the signal into low/mid/high over two crossovers (the same exact-
+// reconstruction one-pole split as the multiband compressor / stereo imager) and apply an independent
+// amount of tanh saturation to each band, so you can add weight/warmth to the lows, presence to the
+// mids, or air to the highs without fizzing the whole mix — the classic mastering "colour per band".
+// Each band's `drive` (0..1) dry/wet-blends the saturated signal in, so 0 is bit-exact bypass and all
+// three at 0 (default) reconstructs the input exactly.
+class MultibandSaturator : public Effect {
+public:
+    static constexpr int kBands = 3; // 0 = low, 1 = mid, 2 = high
+    MultibandSaturator() { enabled_ = false; }
+    const char* name() const override { return "Multiband Saturator"; }
+    void setCrossoverLow(float hz) { crossLow_ = hz < 20.0f ? 20.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setCrossoverHigh(float hz) {
+        crossHigh_ = hz < 200.0f ? 200.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    void setDrive(int band, float d) {
+        if (band >= 0 && band < kBands) {
+            drive_[band] = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d);
+        }
+    }
+    float crossoverLow() const { return crossLow_; }
+    float crossoverHigh() const { return crossHigh_; }
+    float drive(int band) const { return band >= 0 && band < kBands ? drive_[band] : 0.0f; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossLow_ = 200.0f;
+    float crossHigh_ = 2000.0f;
+    float drive_[kBands] = {0.0f, 0.0f, 0.0f}; // per-band saturation amount; 0 = clean (bypass)
+    float lp1L_ = 0.0f, lp1R_ = 0.0f;          // one-pole LP state at the low/mid crossover
+    float lp2L_ = 0.0f, lp2R_ = 0.0f;          // one-pole LP state at the mid/high crossover
+};
+
 // A Haas stereo enhancer: delays one channel by a few milliseconds so the signal is decorrelated
 // across the ears, widening the image via the Haas/precedence effect — and unlike a mid/side widener
 // it broadens even a mono source. `delayMs` (0..40) sets the offset and `amount` (0..1) blends the
