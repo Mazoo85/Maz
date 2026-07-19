@@ -1310,6 +1310,23 @@ int main() {
         check(level(9000.0, 10.0f) > 1.15, "positive tilt boosts the high end");
         check(level(80.0, -10.0f) > 1.15, "negative tilt boosts the low end");
 
+        // Pivot: a 1 kHz tone sits above a low (400 Hz) pivot — so a positive tilt boosts it — but
+        // below a high (4 kHz) pivot, where the same tilt cuts it. Moving the pivot flips the region.
+        auto levelP = [&](double hz, float tiltDb, float pivot) {
+            audio::TiltEQ t;
+            t.setEnabled(true);
+            t.setTilt(tiltDb);
+            t.setPivot(pivot);
+            std::vector<float> b = sineStereo(sr, hz, 0.5, sr);
+            const double in = rms(b);
+            t.process(b.data(), sr, sr);
+            return rms(b) / in;
+        };
+        check(levelP(1000.0, 10.0f, 400.0f) > levelP(1000.0, 10.0f, 4000.0f) * 1.2,
+              "lowering the tilt pivot brings a mid tone into the boosted (high) region");
+        audio::TiltEQ dp;
+        check(std::fabs(dp.pivot() - 650.0f) < 1e-3f, "tilt pivot defaults to 650 Hz");
+
         // Disabled → transparent.
         audio::TiltEQ off;
         std::vector<float> sig = sineStereo(1000, 500.0, 0.5, sr);

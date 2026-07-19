@@ -416,6 +416,13 @@ public:
     const char* name() const override { return "Tilt EQ"; }
     void setTilt(float db) { tilt_ = db < -12.0f ? -12.0f : (db > 12.0f ? 12.0f : db); dirty_ = true; }
     float tilt() const { return tilt_; }
+    // Pivot frequency (Hz): the hinge the tilt rotates around — everything below moves one way, above
+    // the other. Lower it to tilt more of the spectrum; default 650 Hz.
+    void setPivot(float hz) {
+        pivot_ = hz < 100.0f ? 100.0f : (hz > 8000.0f ? 8000.0f : hz);
+        dirty_ = true;
+    }
+    float pivot() const { return pivot_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -423,6 +430,7 @@ public:
 private:
     void recompute(int sampleRate);
     float tilt_ = 0.0f;
+    float pivot_ = 650.0f;
     int sr_ = 0;
     bool dirty_ = true;
     Biquad lowL_{}, highL_{}, lowR_{}, highR_{};

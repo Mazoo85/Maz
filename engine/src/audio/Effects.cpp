@@ -518,12 +518,12 @@ void TiltEQ::reset() {
 }
 
 void TiltEQ::recompute(int sampleRate) {
-    // Pivot around ~650 Hz: low shelf and high shelf move by ±tilt/2 in opposite directions.
+    // Pivot around pivot_ Hz: low shelf and high shelf move by ±tilt/2 in opposite directions.
     const float half = tilt_ * 0.5f;
-    lowL_.setShelf(650.0f, -half, sampleRate, false);
-    lowR_.setShelf(650.0f, -half, sampleRate, false);
-    highL_.setShelf(650.0f, half, sampleRate, true);
-    highR_.setShelf(650.0f, half, sampleRate, true);
+    lowL_.setShelf(pivot_, -half, sampleRate, false);
+    lowR_.setShelf(pivot_, -half, sampleRate, false);
+    highL_.setShelf(pivot_, half, sampleRate, true);
+    highR_.setShelf(pivot_, half, sampleRate, true);
     sr_ = sampleRate;
     dirty_ = false;
 }

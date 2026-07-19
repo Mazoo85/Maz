@@ -1460,6 +1460,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("dark<>bright##tilt", &t, -12.0f, 12.0f, "%.1f dB")) mx.tilt().setTilt(t);
+        float tpivot = mx.tilt().pivot();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("pivot##tilt", &tpivot, 100.0f, 8000.0f, "%.0f Hz")) mx.tilt().setPivot(tpivot);
     }
     {
         bool en = mx.exciter().enabled();

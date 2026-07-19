@@ -379,7 +379,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << " " << mixer.peq().mid2Freq() << " " << mixer.peq().mid2Q() << " "
       << mixer.peq().mid2Gain() << "\n";
-    f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << "\n";
+    f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << " "
+      << mixer.tilt().pivot() << "\n";
     f << "fx exciter " << (mixer.exciter().enabled() ? 1 : 0) << " " << mixer.exciter().crossover()
       << " " << mixer.exciter().amount() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
@@ -1277,6 +1278,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> t;
                 mixer.tilt().setEnabled(en != 0);
                 mixer.tilt().setTilt(t);
+                float pivot = 650.0f; // pivot optional for old files (default 650 Hz)
+                if (ls >> pivot) {
+                    mixer.tilt().setPivot(pivot);
+                }
             } else if (which == "exciter") {
                 float xover = 4000.0f, amt = 0.3f;
                 ls >> xover >> amt;
