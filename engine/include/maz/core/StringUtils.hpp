@@ -254,6 +254,20 @@ inline std::string replaceAll(const std::string& s, const std::string& from, con
     return out;
 }
 
+// Strip the characters Godot forbids in a SceneTree node name — '.', ':', '@', '/', '"', '%'
+// (Godot's String.validate_node_name). Each forbidden character is REMOVED (not replaced), matching
+// Godot exactly; all other characters, including spaces, are preserved.
+inline std::string validateNodeName(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (const char c : s) {
+        if (c != '.' && c != ':' && c != '@' && c != '/' && c != '"' && c != '%') {
+            out += c;
+        }
+    }
+    return out;
+}
+
 inline std::string toLower(std::string s) {
     for (char& c : s) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

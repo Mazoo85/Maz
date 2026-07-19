@@ -196,7 +196,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   and first-match search from an offset (npos if none), verified against mixed-case inputs;
   M354 adds rfind / rfindN — Godot String.rfind / rfindn: reverse search returning the LAST match
   at/before a position (npos default = whole string, matching Godot's -1 "from the end"), verified
-  against strings with two occurrences and case-insensitive inputs),
+  against strings with two occurrences and case-insensitive inputs;
+  M355 adds validateNodeName — Godot String.validate_node_name: removes the six characters Godot
+  forbids in SceneTree node names ('.', ':', '@', '/', '"', '%'), all other chars incl. spaces kept,
+  verified against mixed/clean/all-forbidden inputs),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot

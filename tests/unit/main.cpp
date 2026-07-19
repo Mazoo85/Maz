@@ -11694,6 +11694,13 @@ void testStringUtils() {
     CHECK((su::rfindN("Hello WORLD hello", "hello", 5) == 0));
     CHECK((su::rfindN("abc", "ZZ") == std::string::npos));
 
+    // --- M355: validate_node_name (strip . : @ / " %) ---
+    CHECK((su::validateNodeName("My.Node:name@2/x\"y%z") == "MyNodename2xyz"));
+    CHECK((su::validateNodeName("Player One") == "Player One")); // spaces preserved
+    CHECK((su::validateNodeName(".:@/\"%") == "")); // only forbidden chars -> empty
+    CHECK((su::validateNodeName("/root/Main.tscn") == "rootMaintscn"));
+    CHECK((su::validateNodeName("A-B_C (2)") == "A-B_C (2)")); // allowed punctuation kept
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");
