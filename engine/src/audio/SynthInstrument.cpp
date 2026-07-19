@@ -50,6 +50,9 @@ void SynthInstrument::updateTempo(double bpm) {
     if (ampLfoSync_) {
         ampLfoRate_ = modSyncRateHz(ampLfoSyncDiv_, bpm);
     }
+    if (vibSync_) {
+        vibRate_ = modSyncRateHz(vibSyncDiv_, bpm);
+    }
 }
 
 void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {

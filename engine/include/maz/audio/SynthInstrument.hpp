@@ -71,6 +71,13 @@ public:
     }
     float vibratoRate() const { return vibRate_; }
     float vibratoDepth() const { return vibDepth_; }
+    // Tempo-sync the vibrato (pitch) LFO: lock its rate to the transport at the chosen note division
+    // (the same 6 divisions as the cutoff/amp LFOs) for rhythmic pitch warble. updateTempo() applies
+    // it each block; off (default) = the free-running rate above.
+    void setVibratoSync(bool on) { vibSync_ = on; }
+    bool vibratoSync() const { return vibSync_; }
+    void setVibratoSyncDivision(int d) { vibSyncDiv_ = d < 0 ? 0 : (d > 5 ? 5 : d); }
+    int vibratoSyncDivision() const { return vibSyncDiv_; }
     // Vibrato delay (seconds): hold the vibrato off for this long after each note starts, then fade it
     // in over ~50 ms — the expressive "delayed vibrato" a player adds on sustained notes. 0 = off
     // (vibrato is immediate, as before). Per-note (timed from each note's onset).
@@ -408,6 +415,8 @@ private:
     int filterLfoSyncDiv_ = 3;    // sync note-division index (default 1/8)
     bool ampLfoSync_ = false;     // tempo-sync the tremolo LFO rate
     int ampLfoSyncDiv_ = 3;       // tremolo sync note-division index (default 1/8)
+    bool vibSync_ = false;        // tempo-sync the vibrato LFO rate
+    int vibSyncDiv_ = 3;          // vibrato sync note-division index (default 1/8)
     float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
     float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
     double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)

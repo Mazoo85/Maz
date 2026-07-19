@@ -1024,6 +1024,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     float vibDelay = syn.vibratoDelay();
     if (ImGui::SliderFloat("Vibrato delay", &vibDelay, 0.0f, 2.0f, "%.2f s"))
         syn.setVibratoDelay(vibDelay);
+    bool viSync = syn.vibratoSync();
+    if (ImGui::Checkbox("Vibrato sync", &viSync)) syn.setVibratoSync(viSync);
+    ImGui::SameLine();
+    int viDiv = syn.vibratoSyncDivision();
+    const char* viDivs[] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("##vidiv", &viDiv, viDivs, 6)) syn.setVibratoSyncDivision(viDiv);
     float peAmt = syn.pitchEnvAmount();
     float peTime = syn.pitchEnvTime();
     bool pech = ImGui::SliderFloat("Pitch env", &peAmt, -24.0f, 24.0f, "%.0f st");

@@ -101,6 +101,8 @@ int main() {
     seq.synth().setFilterLfoSyncDivision(4); // 1/8T
     seq.synth().setAmpLfoSync(true);
     seq.synth().setAmpLfoSyncDivision(5); // 1/16
+    seq.synth().setVibratoSync(true);
+    seq.synth().setVibratoSyncDivision(2); // 1/4
     seq.synth().setAmpLfo(4.5f, 0.6f);
     seq.synth().setDrift(18.0f);
     seq.synth().setFilterMode(audio::StateVariableFilter::Mode::Notch);
@@ -452,6 +454,8 @@ int main() {
           "filter LFO tempo sync round-trips");
     check(seq2.synth().ampLfoSync() && seq2.synth().ampLfoSyncDivision() == 5,
           "tremolo LFO tempo sync round-trips");
+    check(seq2.synth().vibratoSync() && seq2.synth().vibratoSyncDivision() == 2,
+          "vibrato tempo sync round-trips");
     check(near(seq2.synth().ampLfoRate(), 4.5f) && near(seq2.synth().ampLfoDepth(), 0.6f),
           "amp LFO (tremolo) round-trips");
     check(near(seq2.synth().drift(), 18.0f), "analog drift round-trips");

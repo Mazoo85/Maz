@@ -107,6 +107,26 @@ int main() {
         check(std::fabs(syn.ampLfoDepth() - 0.5f) < 1e-6f, "tremolo sync leaves the depth alone");
     }
 
+    // --- Vibrato (pitch LFO) tempo sync -------------------------------------
+    {
+        audio::SynthInstrument syn;
+        check(!syn.vibratoSync(), "vibrato sync defaults to off");
+        syn.setVibrato(6.0f, 30.0f); // free-running rate + depth
+        syn.updateTempo(120.0);
+        check(std::fabs(syn.vibratoRate() - 6.0f) < 1e-4f,
+              "with sync off, updateTempo leaves the free-running vibrato rate alone");
+
+        syn.setVibratoSync(true);
+        syn.setVibratoSyncDivision(2); // 1/4 → 2 Hz at 120 BPM
+        check(syn.vibratoSyncDivision() == 2, "vibrato sync division is settable");
+        syn.updateTempo(120.0);
+        check(std::fabs(syn.vibratoRate() - 2.0f) < 1e-3f, "1/4 vibrato sync at 120 BPM locks to 2 Hz");
+        syn.updateTempo(140.0); // 140 BPM → 1/4 = 140/60 ≈ 2.333 Hz
+        check(std::fabs(syn.vibratoRate() - 140.0f / 60.0f) < 1e-3f,
+              "the synced vibrato tracks a tempo change");
+        check(std::fabs(syn.vibratoDepth() - 30.0f) < 1e-6f, "vibrato sync leaves the depth alone");
+    }
+
     // --- Pitch math ----------------------------------------------------------
     check(std::fabs(audio::midiToFreq(69) - 440.0f) < 0.01f, "MIDI 69 == 440 Hz (A4)");
     check(std::fabs(audio::midiToFreq(60) - 261.63f) < 0.5f, "MIDI 60 ~= 261.6 Hz (middle C)");
