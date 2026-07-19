@@ -209,6 +209,7 @@
 #include "maz/game/IsoGrid.hpp"
 #include "maz/game/NavGrid.hpp"
 #include "maz/game/NavMesh.hpp"
+#include "maz/game/NavMesh3D.hpp"
 #include "maz/game/NormalLight2D.hpp"
 #include "maz/game/Parallax.hpp"
 #include "maz/game/ConvexHull3D.hpp"
@@ -20245,6 +20246,55 @@ void testPolynomial() {
     }
 }
 
+void testNavMesh3D() {
+    using game::NavMesh3D;
+    using math::vec2;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-3f; };
+
+    // Flat floor + ramp sharing the x=4 edge.
+    {
+        NavMesh3D nav;
+        nav.addPolygon({vec3{0, 0, 0}, vec3{4, 0, 0}, vec3{4, 0, 4}, vec3{0, 0, 4}});
+        nav.addPolygon({vec3{4, 0, 0}, vec3{8, 2, 0}, vec3{8, 2, 4}, vec3{4, 0, 4}});
+        nav.build();
+        CHECK(nav.polygonCount() == 2);
+        CHECK(nf(nav.sampleHeight(vec2{2, 2}), 0.0f));
+        CHECK(nf(nav.sampleHeight(vec2{7, 1}), 1.5f));
+        CHECK(nf(nav.sampleHeight(vec2{100, 100}, -9.0f), -9.0f));
+        auto path = nav.findPath(vec3{1, 0, 2}, vec3{7, 0, 2});
+        CHECK(path.size() >= 2);
+        CHECK(nf(path.front().x, 1.0f) && nf(path.front().y, 0.0f));
+        CHECK(nf(path.back().x, 7.0f) && nf(path.back().y, 1.5f)); // snapped onto the ramp
+    }
+    // L-shape (three quads with matching shared edges) forces a corner.
+    {
+        NavMesh3D nav;
+        nav.addPolygon({vec3{0, 0, 0}, vec3{2, 0, 0}, vec3{2, 0, 4}, vec3{0, 0, 4}});
+        nav.addPolygon({vec3{0, 0, 4}, vec3{2, 0, 4}, vec3{2, 0, 6}, vec3{0, 0, 6}});
+        nav.addPolygon({vec3{2, 0, 4}, vec3{6, 0, 4}, vec3{6, 0, 6}, vec3{2, 0, 6}});
+        nav.build();
+        auto path = nav.findPath(vec3{1, 0, 1}, vec3{5, 0, 5});
+        CHECK(path.size() >= 2);
+        CHECK(nf(path.front().x, 1.0f) && nf(path.front().z, 1.0f));
+        CHECK(nf(path.back().x, 5.0f) && nf(path.back().z, 5.0f));
+        float len = 0.0f;
+        for (std::size_t i = 1; i < path.size(); ++i) {
+            const float dx = path[i].x - path[i - 1].x, dz = path[i].z - path[i - 1].z;
+            len += std::sqrt(dx * dx + dz * dz);
+        }
+        CHECK(len > std::sqrt(32.0f) + 0.1f); // routes around the corner, longer than straight line
+    }
+    // Disconnected islands -> no path.
+    {
+        NavMesh3D nav;
+        nav.addPolygon({vec3{0, 0, 0}, vec3{1, 0, 0}, vec3{1, 0, 1}, vec3{0, 0, 1}});
+        nav.addPolygon({vec3{10, 0, 10}, vec3{11, 0, 10}, vec3{11, 0, 11}, vec3{10, 0, 11}});
+        nav.build();
+        CHECK(nav.findPath(vec3{0.5f, 0, 0.5f}, vec3{10.5f, 0, 10.5f}).empty());
+    }
+}
+
 void testVolumetricFog() {
     using namespace render;
     using math::vec3;
@@ -32605,6 +32655,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testNavMesh3D();
     testVolumetricFog();
     testDecalProject();
     testLightmapBake();

@@ -70,8 +70,9 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
 - [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
 - [ ] **Reflection-probe capture plumbing**, **SSR/SSIL passes**, **GPU particles + collision**.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
-- [ ] **3D navigation server** with runtime navmesh baking + dynamic obstacles — the baker/query is
-  [VERIFIABLE HERE]; only the debug draw is GPU-side.
+- [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
+  supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic
+  obstacles. [VERIFIABLE HERE]
 
 ### §3 Editor as an application — [CODE HERE / SEE IT ON YOUR MACHINE]
 The editor *logic* already exists (`maz/editor/`). Turning it into a running GUI app (dockable panels,

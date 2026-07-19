@@ -1182,6 +1182,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **3D navigation mesh pathfinding** (M505, `game::NavMesh3D` — the query side of Godot's
+  NavigationServer3D / NavigationRegion3D. The walkable world is convex 3D polygons (floors, ramps,
+  platforms) that share edges, and `findPath` returns a smoothed list of 3D waypoints from a start to a goal.
+  Because a walkable surface is effectively 2D, it projects every polygon to the ground plane and reuses the
+  tested 2D `NavMesh` (M87) for the corridor A* + funnel string-pulling — no duplicated pathfinding — then
+  lifts each waypoint's height back onto the polygon it lands on (`sampleHeight`), so a path correctly climbs
+  ramps and steps. Deterministic and GPU-free, unit-tested headlessly. Honest scope: pathfinding + height
+  reconstruction over supplied walkable polygons (no Recast-style baking from raw geometry, overlapping
+  multi-level surfaces at one XZ, or dynamic obstacle avoidance — follow-ups). Verified: a floor+ramp mesh
+  routes across the shared edge and snaps the goal onto the ramp at the exact interpolated height (1.5 at
+  x=7 of a 0→2 ramp); `sampleHeight` returns the plane height inside a polygon and the fallback outside; an
+  L-shaped mesh of three edge-matched quads produces a path that bends around the inner corner (strictly
+  longer than the straight line); and disconnected islands return no path),
   **analytic volumetric fog** (M504, `render::fogOpticalDepth` / `fogFactor` / `applyFog` — the CPU evaluation
   behind Godot's height/volumetric fog: "how much fog is between the camera and this point, and what color
   does it leave the pixel?" It integrates the fog density along a view segment via the Beer-Lambert law, with
