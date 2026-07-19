@@ -133,6 +133,7 @@
 #include "maz/game/Damage.hpp"
 #include "maz/game/TurnOrder.hpp"
 #include "maz/game/Reputation.hpp"
+#include "maz/game/Achievements.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20229,6 +20230,75 @@ void testPolynomial() {
     }
 }
 
+void testAchievements() {
+    using game::Achievements;
+
+    // One-shot trophy (target 1).
+    {
+        Achievements ach;
+        ach.addAchievement(1);
+        CHECK(ach.has(1) && !ach.isUnlocked(1));
+        CHECK(std::fabs(ach.fraction(1)) < 1e-4f);
+        CHECK(ach.progress(1) == true && ach.isUnlocked(1));
+        CHECK(std::fabs(ach.fraction(1) - 1.0f) < 1e-4f);
+        CHECK(ach.progress(1) == false);
+    }
+    // Counter achievement (target 100); overshoot clamps and fires once.
+    {
+        Achievements ach;
+        ach.addAchievement(1, 100);
+        CHECK(ach.progress(1, 50) == false && std::fabs(ach.fraction(1) - 0.5f) < 1e-4f);
+        CHECK(ach.progressOf(1) == 50 && ach.targetOf(1) == 100);
+        CHECK(ach.progress(1, 50) == true && ach.isUnlocked(1));
+        CHECK(ach.progress(1, 20) == false && ach.progressOf(1) == 100);
+        Achievements a2;
+        a2.addAchievement(1, 10);
+        CHECK(a2.progress(1, 99) == true && a2.progressOf(1) == 10);
+    }
+    // unlock() directly; non-positive / unknown safe.
+    {
+        Achievements ach;
+        ach.addAchievement(1, 100);
+        CHECK(ach.unlock(1) == true && ach.isUnlocked(1) && ach.progressOf(1) == 100);
+        CHECK(ach.unlock(1) == false);
+        ach.addAchievement(2, 5);
+        CHECK(ach.progress(2, 0) == false && ach.progress(2, -3) == false && ach.progressOf(2) == 0);
+        CHECK(ach.progress(99, 1) == false && ach.unlock(99) == false);
+        CHECK(!ach.isUnlocked(99) && ach.targetOf(99) == 0 && std::fabs(ach.fraction(99)) < 1e-4f);
+    }
+    // Completion stats + unlockedIds.
+    {
+        Achievements ach;
+        ach.addAchievement(1);
+        ach.addAchievement(2, 10);
+        ach.addAchievement(3, 10);
+        ach.addAchievement(4);
+        CHECK(ach.totalCount() == 4 && ach.unlockedCount() == 0);
+        CHECK(std::fabs(ach.completion()) < 1e-4f);
+        ach.unlock(1);
+        ach.progress(2, 10);
+        CHECK(ach.unlockedCount() == 2 && std::fabs(ach.completion() - 0.5f) < 1e-4f);
+        const auto ids = ach.unlockedIds();
+        CHECK(ids.size() == 2 && ids[0] == 1 && ids[1] == 2);
+    }
+    // reset re-locks; duplicate resets; clear; target clamps to >= 1.
+    {
+        Achievements ach;
+        ach.addAchievement(1, 5);
+        ach.progress(1, 5);
+        CHECK(ach.isUnlocked(1) && ach.reset(1) && !ach.isUnlocked(1) && ach.progressOf(1) == 0);
+        CHECK(ach.reset(99) == false);
+        ach.progress(1, 3);
+        ach.addAchievement(1, 20);
+        CHECK(!ach.isUnlocked(1) && ach.progressOf(1) == 0 && ach.targetOf(1) == 20 && ach.totalCount() == 1);
+        ach.clear();
+        CHECK(ach.totalCount() == 0 && !ach.has(1));
+        Achievements a2;
+        a2.addAchievement(1, 0);
+        CHECK(a2.targetOf(1) == 1 && a2.progress(1) == true);
+    }
+}
+
 void testReputation() {
     using game::Reputation;
     using game::Standing;
@@ -31303,6 +31373,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testAchievements();
     testReputation();
     testTurnOrder();
     testDamage();

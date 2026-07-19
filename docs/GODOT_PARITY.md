@@ -1125,6 +1125,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   between); `modify` accumulating and clamping to [min,max] with auto-registration; `set` clamping and
   `addFaction` resetting a duplicate; a custom 0..1000 range with custom thresholds mapping all five tiers
   and clamping out-of-range; independent factions and clear),
+  **achievement system** (M489, `game::Achievements` — the unlock tracker behind "Achievement Unlocked!"
+  toasts and a save file's completion percentage. Each achievement has a target count (a one-shot trophy
+  uses target 1; a grind like "defeat 100 enemies" uses target 100); `progress(id, amount)` advances toward
+  it and returns true only on the call that crosses the target — so a popup fires exactly once — while
+  `unlock` fills it outright, `fraction`/`progressOf`/`isUnlocked` drive the list, and `completion` gives
+  the overall unlocked/total ratio. Progress clamps at the target, unlocking is one-way until `reset`, and
+  unknown ids read as locked-and-empty. Godot ships no achievement system (games call Steam/console SDKs or
+  hand-roll one) -> beyond-Godot gameplay utility. Verified: a one-shot trophy unlocks on first progress
+  and never re-fires; a counter reports fractions, unlocks exactly when the target is met, and clamps
+  further progress; an overshoot crosses in one call and clamps; `unlock` fires once; non-positive amounts
+  and unknown ids are safe no-ops; completion and `unlockedIds` track across several achievements; `reset`
+  and a duplicate add re-lock; and a zero/negative target clamps to 1),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
