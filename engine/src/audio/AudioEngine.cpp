@@ -131,6 +131,28 @@ void AudioEngine::render(float* out, int frames) {
                     std::fill(stemBass_.begin(), stemBass_.end(), 0.0f);
                 }
             }
+            // Per-bus aux sends: sum each bus's (post-insert, post-solo) signal scaled by its own
+            // reverb/delay send into the shared return feeds, handed to the master before its returns.
+            const float rsD = mixer_.track(MixerBus::Drums).reverbSend();
+            const float rsL = mixer_.track(MixerBus::Lead).reverbSend();
+            const float rsB = mixer_.track(MixerBus::Bass).reverbSend();
+            const float dsD = mixer_.track(MixerBus::Drums).delaySend();
+            const float dsL = mixer_.track(MixerBus::Lead).delaySend();
+            const float dsB = mixer_.track(MixerBus::Bass).delaySend();
+            if (rsD > 0.0f || rsL > 0.0f || rsB > 0.0f) {
+                reverbAuxBuf_.assign(n2, 0.0f);
+                for (size_t i = 0; i < n2; ++i) {
+                    reverbAuxBuf_[i] = stemDrums_[i] * rsD + stemLead_[i] * rsL + stemBass_[i] * rsB;
+                }
+                mixer_.setReverbAux(reverbAuxBuf_);
+            }
+            if (dsD > 0.0f || dsL > 0.0f || dsB > 0.0f) {
+                delayAuxBuf_.assign(n2, 0.0f);
+                for (size_t i = 0; i < n2; ++i) {
+                    delayAuxBuf_[i] = stemDrums_[i] * dsD + stemLead_[i] * dsL + stemBass_[i] * dsB;
+                }
+                mixer_.setDelayAux(delayAuxBuf_);
+            }
             for (size_t i = 0; i < n2; ++i) {
                 const double s = static_cast<double>(stemDrums_[i]) +
                                  static_cast<double>(stemLead_[i]) +

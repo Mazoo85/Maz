@@ -32,6 +32,12 @@ public:
     // monitoring/focus aid, resolved across buses at mix time.
     void setSoloed(bool s) { soloed_ = s; }
     bool soloed() const { return soloed_; }
+    // Per-bus aux sends (0..1): how much of this bus feeds the shared parallel reverb / delay return,
+    // on top of the master send — so each bus can have its own amount of reverb/delay. 0 = none.
+    void setReverbSend(float s) { reverbSend_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float reverbSend() const { return reverbSend_; }
+    void setDelaySend(float s) { delaySend_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float delaySend() const { return delaySend_; }
     // Stereo balance for the bus (-1 = hard left, 0 = centre/transparent, +1 = hard right): attenuates
     // the opposite channel, so a stereo bus keeps its image at centre and leans to one side off it.
     void setPan(float p) { pan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
@@ -49,7 +55,8 @@ public:
 
     // Whether this track changes its input at all (any insert on, non-unity gain, or muted).
     bool active() const {
-        if (muted_ || soloed_ || gain_ != 1.0f || pan_ != 0.0f) {
+        if (muted_ || soloed_ || gain_ != 1.0f || pan_ != 0.0f || reverbSend_ > 0.0f ||
+            delaySend_ > 0.0f) {
             return true;
         }
         for (const Effect* fx : chain_) {
@@ -102,6 +109,8 @@ private:
     float gain_ = 1.0f;
     bool muted_ = false;
     bool soloed_ = false;
+    float reverbSend_ = 0.0f; // per-bus send to the shared reverb return (0 = none)
+    float delaySend_ = 0.0f;  // per-bus send to the shared delay return (0 = none)
     float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
     Gate gate_{};
     HighPass hp_{};

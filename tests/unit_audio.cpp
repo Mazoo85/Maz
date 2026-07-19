@@ -169,6 +169,36 @@ int main() {
         check(masterEnergy(soloDrums, 0.3) > 0.0, "soloing the active bus keeps it audible");
     }
 
+    // --- Per-bus aux send: a bus's reverb send feeds the shared reverb tail --
+    {
+        // Energy in the late tail (well after the dry kick has decayed) reveals the reverb.
+        auto tailEnergy = [](audio::AudioEngine& e) {
+            const std::vector<float> b = e.renderOffline(0.6);
+            const int ch = e.config().channels;
+            const size_t start = static_cast<size_t>(0.35 * 48000.0) * static_cast<size_t>(ch);
+            double en = 0.0;
+            for (size_t i = start; i < b.size(); ++i) {
+                en += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+            }
+            return en;
+        };
+        // Dry: a single kick, no sends → the tail is near silent once the kick decays.
+        audio::AudioEngine dry;
+        dry.initOffline();
+        dry.sequencer().setStep(0, 0, true);
+        dry.sequencer().play();
+        const double dryTail = tailEnergy(dry);
+
+        // Wet: the same kick with the drum bus's reverb send up → a lingering reverb tail.
+        audio::AudioEngine wet;
+        wet.initOffline();
+        wet.sequencer().setStep(0, 0, true);
+        wet.mixer().track(audio::MixerBus::Drums).setReverbSend(1.0f);
+        wet.sequencer().play();
+        const double wetTail = tailEnergy(wet);
+        check(wetTail > dryTail * 4.0, "a per-bus reverb send feeds the shared reverb tail");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

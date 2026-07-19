@@ -1979,6 +1979,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
             float pan = tr.pan();
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::SliderFloat("pan##trk", &pan, -1.0f, 1.0f, "%.2f")) tr.setPan(pan);
+            ImGui::SameLine();
+            float rsend = tr.reverbSend();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("rev send##trk", &rsend, 0.0f, 1.0f, "%.2f")) tr.setReverbSend(rsend);
+            ImGui::SameLine();
+            float dsend = tr.delaySend();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("dly send##trk", &dsend, 0.0f, 1.0f, "%.2f")) tr.setDelaySend(dsend);
 
             bool eqEn = tr.eq().enabled();
             if (ImGui::Checkbox("EQ##trk", &eqEn)) tr.eq().setEnabled(eqEn);

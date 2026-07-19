@@ -82,6 +82,12 @@ public:
     float delaySend() const { return delaySend_; }
     void setDelaySend(float s) { delaySend_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
 
+    // Per-bus aux feed: the caller (engine) sums each bus's post-insert signal scaled by that bus's
+    // send into these interleaved-stereo buffers and hands them in before process(); process() adds
+    // them into the reverb/delay returns (alongside the master send) and clears them. Empty = none.
+    void setReverbAux(const std::vector<float>& buf) { reverbAux_ = buf; }
+    void setDelayAux(const std::vector<float>& buf) { delayAux_ = buf; }
+
     // Generic iteration over the chain (for a mixer strip that lists every effect).
     int effectCount() const { return static_cast<int>(chain_.size()); }
     Effect& effect(int i) { return *chain_[static_cast<size_t>(i)]; }
@@ -155,6 +161,8 @@ private:
     Delay delayReturn_{};
     float delaySend_ = 0.0f;
     std::vector<float> sendScratch_; // scratch for the send-tapped copy
+    std::vector<float> reverbAux_;   // per-bus reverb-send feed for this block (cleared after process)
+    std::vector<float> delayAux_;    // per-bus delay-send feed for this block
 
     std::array<MixerTrack, static_cast<size_t>(MixerBus::Count)> tracks_{}; // per-bus insert strips
 };

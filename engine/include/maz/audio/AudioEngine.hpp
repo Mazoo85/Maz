@@ -103,6 +103,7 @@ private:
     uint64_t framesRendered_ = 0;
     std::vector<float> scratch_; // reused mono render buffer for mixing
     std::vector<float> stemDrums_, stemLead_, stemBass_; // per-bus stems for the mixer-track path
+    std::vector<float> reverbAuxBuf_, delayAuxBuf_;      // per-bus aux-send feeds for the returns
     std::vector<float> recordBuffer_;
     bool recording_ = false;
 };

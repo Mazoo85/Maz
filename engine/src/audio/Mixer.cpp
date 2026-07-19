@@ -97,21 +97,26 @@ void Mixer::process(float* stereo, int frames, int sampleRate) {
 
     // Parallel send/return buses: tap a scaled copy of the post-insert signal into each return's
     // wet-only effect, then sum it back. Skipped entirely when the send level is 0.
-    auto runSend = [&](Effect& ret, float send) {
-        if (send <= 0.0f) {
+    auto runSend = [&](Effect& ret, float send, const std::vector<float>& aux) {
+        const bool hasAux = static_cast<int>(aux.size()) >= n;
+        if (send <= 0.0f && !hasAux) {
             return;
         }
         sendScratch_.assign(static_cast<size_t>(n), 0.0f);
         for (int i = 0; i < n; ++i) {
-            sendScratch_[static_cast<size_t>(i)] = stereo[i] * send;
+            sendScratch_[static_cast<size_t>(i)] =
+                stereo[i] * send + (hasAux ? aux[static_cast<size_t>(i)] : 0.0f);
         }
         ret.process(sendScratch_.data(), frames, sampleRate);
         for (int i = 0; i < n; ++i) {
             stereo[i] += sendScratch_[static_cast<size_t>(i)];
         }
     };
-    runSend(reverbReturn_, reverbSend_);
-    runSend(delayReturn_, delaySend_);
+    runSend(reverbReturn_, reverbSend_, reverbAux_);
+    runSend(delayReturn_, delaySend_, delayAux_);
+    // The per-bus aux feeds are per-block; clear them so the next block starts fresh.
+    reverbAux_.clear();
+    delayAux_.clear();
 
     // Master balance (stereo pan): attenuate the channel opposite the pan direction (transparent at
     // centre), then apply the master gain and the guaranteed-ceiling soft limiter.
