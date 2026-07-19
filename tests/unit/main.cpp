@@ -116,6 +116,7 @@
 #include "maz/math/FitObb.hpp"
 #include "maz/io/Huffman.hpp"
 #include "maz/game/WaveFunctionCollapse.hpp"
+#include "maz/render/Subdivision.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20212,6 +20213,97 @@ void testPolynomial() {
     }
 }
 
+void testSubdivision() {
+    using math::vec3;
+    using render::SubdivMesh;
+    using render::subdivideMesh;
+    using render::subdivideMeshLoop;
+
+    auto uniqueEdges = [](const std::vector<std::uint32_t>& idx) {
+        std::vector<std::uint64_t> keys;
+        for (std::size_t t = 0; t < idx.size() / 3; ++t) {
+            const std::uint32_t v[3] = {idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]};
+            for (int e = 0; e < 3; ++e) {
+                std::uint32_t a = v[e], b = v[static_cast<std::size_t>((e + 1) % 3)];
+                if (a > b) std::swap(a, b);
+                keys.push_back((static_cast<std::uint64_t>(a) << 32) | b);
+            }
+        }
+        std::sort(keys.begin(), keys.end());
+        keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+        return keys.size();
+    };
+
+    std::vector<vec3> triPos = {vec3(0, 0, 0), vec3(2, 0, 0), vec3(0, 2, 0)};
+    std::vector<std::uint32_t> triIdx = {0, 1, 2};
+
+    // Linear subdivision: 4 tris, 6 verts, exact midpoints, originals preserved.
+    {
+        const SubdivMesh m = subdivideMesh(triPos, triIdx, 1);
+        CHECK(m.indices.size() == 12 && m.positions.size() == 6);
+        CHECK(std::fabs(m.positions[0].x) < 1e-6f && std::fabs(m.positions[1].x - 2.0f) < 1e-6f);
+        auto has = [&](vec3 p) {
+            for (const vec3& q : m.positions)
+                if (std::fabs(q.x - p.x) < 1e-5f && std::fabs(q.y - p.y) < 1e-5f && std::fabs(q.z - p.z) < 1e-5f) return true;
+            return false;
+        };
+        CHECK(has(vec3(1, 0, 0)) && has(vec3(1, 1, 0)) && has(vec3(0, 1, 0)));
+    }
+    // Counts obey V+E / 4T over iterations on a quad.
+    {
+        std::vector<vec3> qp = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)};
+        std::vector<std::uint32_t> qi = {0, 1, 2, 0, 2, 3};
+        SubdivMesh m{qp, qi};
+        std::size_t v = qp.size(), tcount = qi.size() / 3;
+        for (int it = 0; it < 3; ++it) {
+            const std::size_t e = uniqueEdges(m.indices);
+            m = subdivideMesh(m.positions, m.indices, 1);
+            CHECK(m.indices.size() / 3 == tcount * 4);
+            CHECK(m.positions.size() == v + e);
+            v = m.positions.size();
+            tcount *= 4;
+        }
+    }
+    // Linear keeps a planar mesh planar.
+    {
+        const SubdivMesh m = subdivideMesh(triPos, triIdx, 3);
+        for (const vec3& p : m.positions) CHECK(std::fabs(p.z) < 1e-5f);
+    }
+    // Loop on a flat square: planar + inside the square (convex).
+    {
+        std::vector<vec3> qp = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)};
+        std::vector<std::uint32_t> qi = {0, 1, 2, 0, 2, 3};
+        const SubdivMesh m = subdivideMeshLoop(qp, qi, 2);
+        CHECK(m.indices.size() / 3 == 2 * 16);
+        for (const vec3& p : m.positions) {
+            CHECK(std::fabs(p.z) < 1e-5f);
+            CHECK(p.x >= -1e-4f && p.x <= 1.0f + 1e-4f);
+            CHECK(p.y >= -1e-4f && p.y <= 1.0f + 1e-4f);
+        }
+    }
+    // Loop smooths a cube inward (convex combos stay within the bounding sphere, corners pulled in).
+    {
+        std::vector<vec3> cp;
+        for (int i = 0; i < 8; ++i)
+            cp.push_back(vec3((i & 1) ? 1.f : -1.f, (i & 2) ? 1.f : -1.f, (i & 4) ? 1.f : -1.f));
+        std::vector<std::uint32_t> ci = {
+            0, 2, 3, 0, 3, 1, 4, 5, 7, 4, 7, 6, 0, 1, 5, 0, 5, 4,
+            2, 6, 7, 2, 7, 3, 0, 4, 6, 0, 6, 2, 1, 3, 7, 1, 7, 5};
+        const SubdivMesh m = subdivideMeshLoop(cp, ci, 1);
+        float maxR = 0.0f;
+        for (const vec3& p : m.positions) maxR = std::max(maxR, glm::length(p));
+        CHECK(maxR <= std::sqrt(3.0f) + 1e-4f);
+        CHECK(maxR < std::sqrt(3.0f));
+    }
+    // Zero iterations / empty are safe.
+    {
+        const SubdivMesh a = subdivideMesh(triPos, triIdx, 0);
+        CHECK(a.positions.size() == 3 && a.indices.size() == 3);
+        const SubdivMesh b = subdivideMesh({}, {}, 2);
+        CHECK(b.positions.empty() && b.indices.empty());
+    }
+}
+
 void testWaveFunctionCollapse() {
     using game::wfcGenerate;
     using game::WfcResult;
@@ -29759,6 +29851,7 @@ int main() {
     testFitObb();
     testHuffman();
     testWaveFunctionCollapse();
+    testSubdivision();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

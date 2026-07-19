@@ -788,6 +788,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   permitted and no land cell is 4-adjacent to sea; the same seed yields identical output; fully-permissive
   rules always succeed; per-tile weights that zero out all but one tile force that tile everywhere; a 1x1
   grid collapses to one valid tile; and zero-size or empty-rule inputs fail cleanly),
+  **mesh subdivision** (M472, `render::subdivideMesh` (linear) + `render::subdivideMeshLoop` (smooth) ->
+  `render::SubdivMesh` — refine an indexed triangle mesh into a denser one. Linear (midpoint) splits every
+  triangle into four by its edge midpoints, leaving the surface unchanged — extra vertices for
+  displacement, vertex lighting or wave deformation. Loop subdivision is the standard subdivision surface:
+  new points are weighted averages (interior edge point 3/8(a+b)+1/8(c+d), boundary 1/2(a+b), even
+  vertices re-weighted by the Loop beta) that round a blocky low-poly cage toward the smooth limit surface
+  — the runtime counterpart to a modelling package's subdivision modifier. Both share one topology step
+  (every triangle -> four, one new vertex per unique edge). Godot has no runtime subdivision -> beyond-
+  Godot. Verified: linear split of a triangle gives 4 tris / 6 verts with the three exact edge midpoints;
+  counts obey the V+E / 4T rule across three iterations on a quad; a planar mesh stays planar under both
+  linear and Loop; Loop on a flat square stays inside the square (convex weights); Loop on a cube pulls
+  every vertex strictly inside the cube's bounding sphere (smoothing inward); and zero-iteration / empty
+  inputs are safe no-ops),
   **sparse table (RMQ)** (M460, `core::SparseTable<T, Op>` — O(1) range min/max (or any idempotent
   associative op: gcd, bitwise and/or) over a STATIC array after an O(n log n) build, by overlapping two
   power-of-two blocks. Complements FenwickTree (dynamic prefix sums with point updates) with far faster
