@@ -1412,6 +1412,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::Combo("Filter mode##smp", &smpMode, smpFilterModes, 4))
         seq.sampler().setFilterMode(static_cast<audio::StateVariableFilter::Mode>(smpMode));
+    float smpLfoRate = seq.sampler().filterLfoRate();
+    float smpLfoDepth = seq.sampler().filterLfoDepth();
+    bool slfoch = ImGui::SliderFloat("F.LFO rate##smp", &smpLfoRate, 0.01f, 40.0f, "%.2f Hz");
+    slfoch |= ImGui::SliderFloat("F.LFO depth##smp", &smpLfoDepth, -12000.0f, 12000.0f, "%.0f Hz");
+    if (slfoch) seq.sampler().setFilterLfo(smpLfoRate, smpLfoDepth);
     float smpFeDepth = seq.sampler().filterEnvDepth();
     if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         seq.sampler().setFilterEnvDepth(smpFeDepth);

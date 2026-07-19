@@ -252,6 +252,9 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     const bool useFilterEnv = filterEnvDepth_ != 0.0f;
     const bool useFilterVelo = filterVelo_ != 0.0f;
     const bool useKeyTrack = filterKeyTrack_ > 0.0f; // filter cutoff follows the note pitch
+    const bool useFilterLfo = filterLfoDepth_ != 0.0f; // cutoff LFO (wobble/auto-wah); 0 = off
+    constexpr double kSamplerTwoPi = 6.283185307179586;
+    const double lfoInc = static_cast<double>(filterLfoRate_) / static_cast<double>(sampleRate);
     // Pitch envelope: a linear slide of the initial pitch offset back to the true pitch.
     const bool usePitchEnv = pitchEnvDepth_ != 0.0f;
     const double penvStep = 1.0 / (static_cast<double>(pitchEnvTime_) * static_cast<double>(sampleRate));
@@ -401,13 +404,20 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             // sweeping the cutoff. Bypassed only for a low-pass that is fully open with no envelope —
             // a non-low-pass mode always engages (an open high-pass/band-pass/notch still shapes tone).
             const bool nonLowPass = filterMode_ != StateVariableFilter::Mode::LowPass;
-            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo || useKeyTrack || nonLowPass) {
+            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo || useKeyTrack ||
+                nonLowPass || useFilterLfo) {
                 float cutoff = filterCutoff_;
                 if (useFilterEnv) {
                     cutoff += filterEnvDepth_ * v.filtEnv;
                 }
                 if (useFilterVelo) {
                     cutoff += filterVelo_ * v.velocity; // harder hits open the filter
+                }
+                if (useFilterLfo) {
+                    // Shared LFO from the absolute frame index, so every voice sweeps in phase.
+                    cutoff += filterLfoDepth_ *
+                              static_cast<float>(std::sin(kSamplerTwoPi *
+                                                          (lfoPhase_ + static_cast<double>(i) * lfoInc)));
                 }
                 cutoff *= ktMul; // keyboard tracking: high notes stay bright
                 cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);
@@ -438,8 +448,13 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                     v.penv = 0.0;
                 }
             }
-            v.pos += static_cast<double>(v.dir) * curRate;
+    v.pos += static_cast<double>(v.dir) * curRate;
         }
+    }
+    // Advance the shared cutoff-LFO phase once per block (kept continuous across blocks).
+    if (useFilterLfo) {
+        lfoPhase_ += static_cast<double>(frames) * lfoInc;
+        lfoPhase_ -= std::floor(lfoPhase_);
     }
 }
 

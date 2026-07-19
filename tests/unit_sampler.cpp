@@ -948,6 +948,67 @@ int main() {
               "sampler filter mode defaults to low-pass");
     }
 
+    // --- Sampler filter LFO (cutoff wobble modulates brightness over time) ---
+    {
+        const int fn = sr / 2;
+        std::vector<float> two(static_cast<size_t>(fn));
+        for (int i = 0; i < fn; ++i) {
+            two[static_cast<size_t>(i)] =
+                0.5f * static_cast<float>(std::sin(kTwoPi * 120.0 * i / sr)) +
+                0.5f * static_cast<float>(std::sin(kTwoPi * 6000.0 * i / sr));
+        }
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = kTwoPi * f / srate;
+            const double cc = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float v : b) {
+                const double s0 = static_cast<double>(v) + cc * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - cc * s1 * s2;
+        };
+        // Depth 0 is a no-op: identical to a sampler that never touched the LFO.
+        audio::Sampler base;
+        base.setSampleMono(two, sr);
+        base.setBasePitch(60);
+        base.setKeyTrack(false);
+        base.setFilter(3000.0f, 0.7f);
+        base.noteOn(60, 1.0f);
+        const std::vector<float> plain = renderMono(base, fn, sr);
+        audio::Sampler z;
+        z.setSampleMono(two, sr);
+        z.setBasePitch(60);
+        z.setKeyTrack(false);
+        z.setFilter(3000.0f, 0.7f);
+        z.setFilterLfo(4.0f, 0.0f);
+        z.noteOn(60, 1.0f);
+        const std::vector<float> zero = renderMono(z, fn, sr);
+        check(plain == zero, "sampler filter LFO at depth 0 is a bit-for-bit no-op");
+
+        // A deep, slow LFO sweeps the cutoff past 6 kHz and back, so the 6 kHz band pulses in time.
+        audio::Sampler s;
+        s.setSampleMono(two, sr);
+        s.setBasePitch(60);
+        s.setKeyTrack(false);
+        s.setFilter(3000.0f, 0.7f);
+        s.setFilterLfo(4.0f, 6000.0f);
+        s.noteOn(60, 1.0f);
+        const std::vector<float> swept = renderMono(s, fn, sr);
+        const int w = fn / 4;
+        double lo = 1e30, hi = 0.0;
+        for (int k = 0; k < 4; ++k) {
+            std::vector<float> win(swept.begin() + static_cast<long>(k) * w,
+                                   swept.begin() + static_cast<long>(k + 1) * w);
+            const double e = goertzel(win, 6000.0, sr);
+            lo = std::min(lo, e);
+            hi = std::max(hi, e);
+        }
+        check(hi > lo * 3.0,
+              "sampler filter LFO sweeps the cutoff, modulating the high band over time");
+        check(audio::Sampler().filterLfoDepth() == 0.0f, "sampler filter LFO defaults to off");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

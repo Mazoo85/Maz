@@ -377,7 +377,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().glide() << " " << (seq.sampler().glideLegato() ? 1 : 0) << " "
       << seq.sampler().velToAttack() << " " << seq.sampler().velToStart() << " "
       << seq.sampler().filterKeyTrack() << " "
-      << static_cast<int>(seq.sampler().filterMode()) << "\n";
+      << static_cast<int>(seq.sampler().filterMode()) << " "
+      << seq.sampler().filterLfoRate() << " " << seq.sampler().filterLfoDepth() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -876,6 +877,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     sfmode = 0;
                 }
                 seq.sampler().setFilterMode(static_cast<StateVariableFilter::Mode>(sfmode));
+            }
+            float slfoRate = 5.0f, slfoDepth = 0.0f; // filter-LFO optional (older files → off)
+            if (ls >> slfoRate >> slfoDepth) {
+                seq.sampler().setFilterLfo(slfoRate, slfoDepth);
             }
         } else if (tag == "chan") {
             int c = -1;

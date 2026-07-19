@@ -119,6 +119,16 @@ public:
     void setFilterMode(StateVariableFilter::Mode m) { filterMode_ = m; }
     StateVariableFilter::Mode filterMode() const { return filterMode_; }
 
+    // Filter cutoff LFO: a sine sweeps the playback cutoff by ±`depthHz` at `rateHz` — a wobble /
+    // auto-wah on sampled material, shared across voices so they move together. depth 0 (default) =
+    // off (the cutoff path is bit-identical to before). rate clamped to (0, 40] Hz, depth to ±12 kHz.
+    void setFilterLfo(float rateHz, float depthHz) {
+        filterLfoRate_ = rateHz < 0.01f ? 0.01f : (rateHz > 40.0f ? 40.0f : rateHz);
+        filterLfoDepth_ = depthHz < -12000.0f ? -12000.0f : (depthHz > 12000.0f ? 12000.0f : depthHz);
+    }
+    float filterLfoRate() const { return filterLfoRate_; }
+    float filterLfoDepth() const { return filterLfoDepth_; }
+
     // Filter envelope: its own ADSR (seconds / sustain 0..1) sweeps the playback filter cutoff by
     // `depth` Hz (±) — a filter pluck/wow on the sample, independent of the amp envelope. depth 0 = off.
     void setFilterEnvelope(float attack, float decay, float sustain, float release) {
@@ -265,6 +275,9 @@ private:
     float filterCutoff_ = 20000.0f; // playback low-pass cutoff Hz (20000 = open/bypass)
     float filterReso_ = 0.7f;       // playback low-pass resonance
     StateVariableFilter::Mode filterMode_ = StateVariableFilter::Mode::LowPass; // playback filter mode
+    float filterLfoRate_ = 5.0f;   // cutoff-LFO rate (Hz)
+    float filterLfoDepth_ = 0.0f;  // cutoff-LFO depth (± Hz); 0 = off
+    double lfoPhase_ = 0.0;        // shared cutoff-LFO phase [0,1), advanced once per block
     float ampDecay_ = 0.05f;   // amp-envelope decay time (s); no-op while ampSustain_ == 1
     float ampSustain_ = 1.0f;  // amp-envelope sustain level (0..1); 1 = plain attack/hold/release
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
