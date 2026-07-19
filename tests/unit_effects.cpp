@@ -172,6 +172,38 @@ int main() {
               "delay feedback low-cut thins the echoes' low end over repeats");
         audio::Delay dd;
         check(dd.feedbackLowCut() == 0.0f, "delay feedback low-cut defaults to off");
+
+        // Feedback drive: as the repeats build under high feedback, the tanh saturates them and adds
+        // harmonics. A 300 Hz tone's 3rd harmonic (900 Hz) appears in the driven tail, not the clean.
+        auto thirdHarm = [&](float drive) {
+            audio::Delay d;
+            d.setEnabled(true);
+            d.setTime(30.0f);
+            d.setFeedback(0.85f);
+            d.setMix(1.0f);
+            d.setFeedbackDrive(drive);
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f); // 1 s stereo
+            const int burst = sr / 5; // a 0.2 s 300 Hz burst to build the loop up
+            for (int i = 0; i < burst; ++i) {
+                const float s = static_cast<float>(0.5 * std::sin(kTwoPi * 300.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            d.process(b.data(), sr, sr);
+            const std::vector<float> tail(b.end() - static_cast<long>(sr) * 2 / 3, b.end()); // last ~0.33s
+            const double w = 2.0 * 3.14159265358979 * 900.0 / sr;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < tail.size(); i += 2) {
+                const double s0 = static_cast<double>(tail[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        check(thirdHarm(0.9f) > thirdHarm(0.0f) * 5.0 + 1.0,
+              "delay feedback drive saturates the repeats (adds harmonics)");
+        check(audio::Delay().feedbackDrive() == 0.0f, "delay feedback drive defaults to clean");
     }
 
     // --- Delay ducking: the wet echoes step out of the way of a loud dry -----

@@ -2130,6 +2130,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("duck##dly", &dduck, 0.0f, 1.0f, "%.2f")) mx.delay().setDuck(dduck);
+        float fbdrv = mx.delay().feedbackDrive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("fb drive##dly", &fbdrv, 0.0f, 1.0f, fbdrv <= 0.0f ? "clean" : "%.2f"))
+            mx.delay().setFeedbackDrive(fbdrv);
         bool sync = mx.delay().sync();
         if (ImGui::Checkbox("Sync##dly", &sync)) mx.delay().setSync(sync);
         ImGui::SameLine();

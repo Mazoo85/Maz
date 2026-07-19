@@ -167,8 +167,16 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
             fbSigL -= lcL_;
             fbSigR -= lcR_;
         }
-        const float fbL = fbSigL * fb;
-        const float fbR = fbSigR * fb;
+        float fbL = fbSigL * fb;
+        float fbR = fbSigR * fb;
+        // Feedback drive: warm and self-limit the repeats with a tanh in the loop (tape/analog echo).
+        // Normalised so a nominal-level signal stays ~unity; skipped at 0 so feedback is bit-identical.
+        if (fbDrive_ > 0.0f) {
+            const float k = 1.0f + fbDrive_ * 4.0f;
+            const float kn = std::tanh(k);
+            fbL = std::tanh(fbL * k) / kn;
+            fbR = std::tanh(fbR * k) / kn;
+        }
         if (pingPong_) {
             // Cross-feed: each channel's echo re-enters the *other* channel's line, so repeats
             // alternate L→R→L across the stereo field.

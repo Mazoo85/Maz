@@ -81,6 +81,12 @@ public:
     // end and the echoes don't build up into boom/mud — the classic dub/tape delay trick. 0 = off.
     void setFeedbackLowCut(float hz) { fbLowCutHz_ = hz < 0.0f ? 0.0f : (hz > 1000.0f ? 1000.0f : hz); }
     float feedbackLowCut() const { return fbLowCutHz_; }
+    // Feedback drive (0..1): a tanh saturation in the feedback loop, so as the repeats build they warm
+    // up and self-limit instead of ringing cleanly or blowing up — the tape/analog-echo character
+    // (each repeat a little more compressed and harmonically rich). 0 (default) = clean feedback
+    // (bit-for-bit unchanged).
+    void setFeedbackDrive(float d) { fbDrive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float feedbackDrive() const { return fbDrive_; }
     // Modulation: an LFO sweeps the delay time by ±`depthMs` at `rateHz`, so the repeats wobble in
     // pitch — the warm, detuned character of analog/BBD/tape echoes. depth 0 (default) = off (a clean
     // digital delay). Uses fractional (interpolated) read only when modulating.
@@ -123,6 +129,7 @@ private:
     int syncDiv_ = 4;     // note-division index (default 1/8)
     float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut state per channel
     float fbLowCutHz_ = 0.0f;           // feedback high-pass (low-cut) cutoff; 0 = off
+    float fbDrive_ = 0.0f;              // feedback-path tanh saturation [0,1]; 0 = clean
     float lcL_ = 0.0f, lcR_ = 0.0f;     // feedback low-cut one-pole LP state per channel
     float modDepthMs_ = 0.0f;           // delay-time modulation depth (ms); 0 = off
     float modRateHz_ = 0.3f;            // delay-time modulation LFO rate (Hz)

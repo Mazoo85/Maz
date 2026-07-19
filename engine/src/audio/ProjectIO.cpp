@@ -456,7 +456,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << " "
       << (mixer.delay().sync() ? 1 : 0) << " " << mixer.delay().syncDivision() << " "
       << mixer.delay().feedbackLowCut() << " " << mixer.delay().modDepth() << " "
-      << mixer.delay().modRate() << " " << mixer.delay().duck() << "\n";
+      << mixer.delay().modRate() << " " << mixer.delay().duck() << " "
+      << mixer.delay().feedbackDrive() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
@@ -1159,6 +1160,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float dduck = 0.0f; // delay ducking optional for old files (0 = off)
                 if (ls >> dduck) {
                     mixer.delay().setDuck(dduck);
+                }
+                float dfbdrive = 0.0f; // feedback drive optional for old files (0 = clean)
+                if (ls >> dfbdrive) {
+                    mixer.delay().setFeedbackDrive(dfbdrive);
                 }
             } else if (which == "gate") {
                 float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;
