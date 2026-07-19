@@ -13330,6 +13330,16 @@ void testVectorOps() {
     CHECK_NEAR(math::cross(vec2(1, 0), vec2(0, 1)), 1.0f, 1e-6f);
     CHECK(math::cross(vec2(3, 1), vec2(-2, 4)) == math::cross2(vec2(3, 1), vec2(-2, 4)));
 
+    // M342: scalar-bound component ops (Godot Vector2/Vector3 clampf / minf / maxf / snappedf).
+    CHECK(near2(math::clampf(vec2(-3, 8), 0.0f, 5.0f), vec2(0, 5)));
+    CHECK(near3(math::clampf(vec3(-3, 2, 8), 0.0f, 5.0f), vec3(0, 2, 5)));
+    CHECK((near2(math::minf(vec2(1, 9), 4.0f), vec2(1, 4)) &&
+           near2(math::maxf(vec2(1, 9), 4.0f), vec2(4, 9))));
+    CHECK((near3(math::minf(vec3(1, 9, 3), 4.0f), vec3(1, 4, 3)) &&
+           near3(math::maxf(vec3(1, 9, 3), 4.0f), vec3(4, 9, 4))));
+    CHECK(near2(math::snappedf(vec2(1.2f, 7.8f), 0.5f), vec2(1.0f, 8.0f)));
+    CHECK(near3(math::snappedf(vec3(1.2f, 7.8f, -2.4f), 1.0f), vec3(1, 8, -2)));
+
     // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
     CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);
     CHECK_NEAR(math::fposmod(7.0f, 3.0f), 1.0f, 1e-5f);

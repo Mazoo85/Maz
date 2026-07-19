@@ -282,6 +282,41 @@ inline vec3 snapped(const vec3& v, const vec3& step) {
     return vec3(snappedf(v.x, step.x), snappedf(v.y, step.y), snappedf(v.z, step.z));
 }
 
+// ---- Godot 4.x scalar-bound component ops -----------------------------------------------------
+// These take a plain float and apply it to every component. They use DISTINCT names (clampf / minf /
+// maxf / snappedf-of-vec) rather than clamp/min/max, deliberately, so they never collide with GLM's
+// vector clamp/min/max overloads under ADL. The vec2-vs-scalar first argument disambiguates the
+// snappedf overloads from the scalar snappedf above.
+
+// Clamp every component into [minv, maxv] — Godot's Vector2/Vector3.clampf.
+inline vec2 clampf(const vec2& v, float minv, float maxv) {
+    return vec2(v.x < minv ? minv : (v.x > maxv ? maxv : v.x),
+                v.y < minv ? minv : (v.y > maxv ? maxv : v.y));
+}
+inline vec3 clampf(const vec3& v, float minv, float maxv) {
+    return vec3(v.x < minv ? minv : (v.x > maxv ? maxv : v.x),
+                v.y < minv ? minv : (v.y > maxv ? maxv : v.y),
+                v.z < minv ? minv : (v.z > maxv ? maxv : v.z));
+}
+
+// Component-wise minimum / maximum against a scalar — Godot's Vector2/Vector3.minf / maxf.
+inline vec2 minf(const vec2& v, float s) { return vec2(v.x < s ? v.x : s, v.y < s ? v.y : s); }
+inline vec3 minf(const vec3& v, float s) {
+    return vec3(v.x < s ? v.x : s, v.y < s ? v.y : s, v.z < s ? v.z : s);
+}
+inline vec2 maxf(const vec2& v, float s) { return vec2(v.x > s ? v.x : s, v.y > s ? v.y : s); }
+inline vec3 maxf(const vec3& v, float s) {
+    return vec3(v.x > s ? v.x : s, v.y > s ? v.y : s, v.z > s ? v.z : s);
+}
+
+// Snap every component to the nearest multiple of a single scalar step — Godot's snappedf(float).
+inline vec2 snappedf(const vec2& v, float step) {
+    return vec2(snappedf(v.x, step), snappedf(v.y, step));
+}
+inline vec3 snappedf(const vec3& v, float step) {
+    return vec3(snappedf(v.x, step), snappedf(v.y, step), snappedf(v.z, step));
+}
+
 // Octahedral encoding of a UNIT vector into a vec2 in [0,1]^2 — Godot's Vector3.octahedron_encode.
 // Packs surface normals to two channels for G-buffers / compressed vertex data; pair with
 // octahedronDecode. Assumes the input is normalized.

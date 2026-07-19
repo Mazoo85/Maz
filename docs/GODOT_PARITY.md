@@ -30,7 +30,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
   path) (M341 adds fromAngle(radians) — Godot Vector2.from_angle, the unit vector (cos,sin) that
   inverts angle(), plus a cross(vec2,vec2) alias giving Godot's exact Vector2.cross spelling for the
-  existing 2D scalar cross; both verified) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
+  existing 2D scalar cross; both verified) (M342 adds the scalar-bound component ops clampf / minf /
+  maxf / snappedf for vec2 and vec3 — Godot's Vector2/Vector3.clampf/minf/maxf/snappedf: apply one
+  float to every component; deliberately distinct names so they never ADL-collide with GLM's
+  vector clamp/min/max, verified component-wise) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
   every component is finite, verified to reject a single NaN or inf component) (M335 adds
   isEqualApprox / isZeroApprox / isNormalized for vec2/vec3 — Godot's Vector2/Vector3.is_equal_approx
   (per-component relative CMP_EPSILON), is_zero_approx, and is_normalized (squared length within the
