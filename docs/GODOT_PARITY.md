@@ -963,6 +963,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   234) is exact; the final value is independent of insertion order; source removal restores the prior
   value and reports whether anything was removed; `valueClamped` floors/ceils correctly; `setBase`
   recomputes),
+  **slot-based stackable inventory** (M477, `game::Inventory` + `game::ItemStack` — the loot bag / chest /
+  hotbar backbone: a fixed array of slots, each empty or holding a stack of one item id up to a
+  per-inventory stack limit (Minecraft's 64, an RPG's 99). `addItem` fills existing partial stacks of the
+  same id first, then spills into empty slots, so a scattered bag consolidates naturally, and returns any
+  leftover that did not fit; `removeItem` pulls from every stack of an id and returns how many it actually
+  took; plus `count` / `has` / `freeSpaceFor` / `firstEmptySlot` / `isFull` / `isEmpty` / `swapSlots` /
+  `clear`. Godot ships no inventory system — every game hand-rolls one -> beyond-Godot gameplay utility.
+  Verified: adding within/over a stack consolidates then spills (25 of stack-10 -> 10/10/5); capacity
+  overflow reports exact leftover and a full bag rejects other items; `freeSpaceFor` exactly predicts what
+  `addItem` accepts (leftover 0); remove draws across stacks, caps at what is present, frees emptied slots
+  for reuse; `swapSlots` reorganises without changing totals and ignores out-of-range; degenerate
+  constructor args clamp to >=1 slot / >=1 stack; negative/zero add args are safe no-ops),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

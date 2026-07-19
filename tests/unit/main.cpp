@@ -121,6 +121,7 @@
 #include "maz/render/MeshSmooth.hpp"
 #include "maz/core/NumberFormat.hpp"
 #include "maz/game/Stat.hpp"
+#include "maz/game/Inventory.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20217,6 +20218,114 @@ void testPolynomial() {
     }
 }
 
+void testInventory() {
+    using game::Inventory;
+
+    // Empty inventory.
+    {
+        Inventory inv(4, 10);
+        CHECK(inv.slotCount() == 4);
+        CHECK(inv.maxStack() == 10);
+        CHECK(inv.isEmpty());
+        CHECK(!inv.isFull());
+        CHECK(inv.count(1) == 0);
+        CHECK(!inv.has(1));
+        CHECK(inv.firstEmptySlot() == 0);
+    }
+    // Add within one stack; stacking tops up before using a new slot.
+    {
+        Inventory inv(4, 10);
+        CHECK(inv.addItem(5, 6) == 0);
+        CHECK(inv.addItem(5, 2) == 0); // tops up slot 0 to 8
+        CHECK(inv.slot(0).count == 8);
+        CHECK(inv.slot(1).empty());
+        CHECK(inv.count(5) == 8);
+        CHECK(inv.has(5, 8) && !inv.has(5, 9));
+    }
+    // Overflow spills into additional slots.
+    {
+        Inventory inv(4, 10);
+        CHECK(inv.addItem(7, 25) == 0);
+        CHECK(inv.slot(0).count == 10 && inv.slot(1).count == 10 && inv.slot(2).count == 5);
+        CHECK(inv.slot(3).empty());
+        CHECK(inv.count(7) == 25);
+    }
+    // Capacity exceeded returns leftover; a full inventory rejects other items.
+    {
+        Inventory inv(2, 10);
+        CHECK(inv.addItem(3, 25) == 5);
+        CHECK(inv.count(3) == 20);
+        CHECK(inv.isFull());
+        CHECK(inv.firstEmptySlot() == -1);
+        CHECK(inv.addItem(9, 4) == 4);
+        CHECK(inv.count(9) == 0);
+    }
+    // freeSpaceFor matches what addItem can accept.
+    {
+        Inventory inv(3, 10);
+        inv.addItem(2, 7);
+        CHECK(inv.freeSpaceFor(2) == 23);
+        CHECK(inv.addItem(2, 23) == 0);
+        CHECK(inv.freeSpaceFor(2) == 0);
+        CHECK(inv.count(2) == 30);
+    }
+    // Remove pulls from every stack; returns actual removed; emptied slots free up.
+    {
+        Inventory inv(4, 10);
+        inv.addItem(1, 25);
+        CHECK(inv.removeItem(1, 12) == 12);
+        CHECK(inv.count(1) == 13);
+        CHECK(inv.removeItem(1, 100) == 13);
+        CHECK(inv.count(1) == 0);
+        CHECK(inv.isEmpty());
+        CHECK(inv.removeItem(42, 5) == 0);
+    }
+    // Emptied slots are reusable.
+    {
+        Inventory inv(2, 10);
+        inv.addItem(1, 10);
+        inv.addItem(2, 3);
+        CHECK(inv.removeItem(1, 10) == 10);
+        CHECK(inv.slot(0).empty());
+        CHECK(inv.firstEmptySlot() == 0);
+        CHECK(inv.addItem(3, 4) == 0);
+        CHECK(inv.slot(0).id == 3 && inv.slot(0).count == 4);
+    }
+    // swapSlots reorganises; out-of-range is a no-op; totals unchanged.
+    {
+        Inventory inv(3, 10);
+        inv.addItem(1, 5);
+        inv.addItem(2, 6);
+        inv.swapSlots(0, 1);
+        CHECK(inv.slot(0).id == 2 && inv.slot(0).count == 6);
+        CHECK(inv.slot(1).id == 1 && inv.slot(1).count == 5);
+        inv.swapSlots(0, 5);
+        CHECK(inv.slot(0).id == 2);
+        CHECK(inv.count(1) == 5 && inv.count(2) == 6);
+    }
+    // clear empties everything.
+    {
+        Inventory inv(3, 10);
+        inv.addItem(1, 15);
+        inv.addItem(2, 4);
+        inv.clear();
+        CHECK(inv.isEmpty());
+        CHECK(inv.count(1) == 0 && inv.count(2) == 0);
+    }
+    // Degenerate constructor args clamp; bad add args are safe no-ops.
+    {
+        Inventory inv(0, 0);
+        CHECK(inv.slotCount() == 1 && inv.maxStack() == 1);
+        CHECK(inv.addItem(1, 5) == 4);
+        CHECK(inv.count(1) == 1 && inv.isFull());
+        Inventory inv2(2, 10);
+        CHECK(inv2.addItem(-1, 5) == 5);
+        CHECK(inv2.addItem(1, 0) == 0);
+        CHECK(inv2.addItem(1, -3) == 0);
+        CHECK(inv2.isEmpty());
+    }
+}
+
 void testStat() {
     using game::ModifierType;
     using game::Stat;
@@ -30184,6 +30293,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testInventory();
     testStat();
     testNumberFormat();
     testKdTree2D();
