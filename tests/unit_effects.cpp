@@ -2233,6 +2233,30 @@ int main() {
               "square auto-pan hard-alternates L/R (the quieter channel stays near silent)");
         check(audio::AutoPan().shape() == audio::AutoPan::Shape::Sine,
               "auto-pan shape defaults to sine");
+
+        // Saw shape: the pan ramps one way across the cycle (−1→+1), so the left channel fades
+        // monotonically from loud (start, hard-left) to quiet (end, hard-right).
+        auto leftQuarter = [&](audio::AutoPan::Shape shape, int q) {
+            audio::AutoPan p;
+            p.setEnabled(true);
+            p.setRate(1.0f);
+            p.setDepth(1.0f);
+            p.setShape(shape);
+            std::vector<float> b = sineStereo(sr, 220.0, 0.5, sr);
+            p.process(b.data(), sr, sr);
+            const int q0 = q * (sr / 4);
+            double e = 0.0;
+            for (int i = q0; i < q0 + sr / 4; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            return e;
+        };
+        const double sawL0 = leftQuarter(audio::AutoPan::Shape::Saw, 0);
+        const double sawL1 = leftQuarter(audio::AutoPan::Shape::Saw, 1);
+        const double sawL2 = leftQuarter(audio::AutoPan::Shape::Saw, 2);
+        const double sawL3 = leftQuarter(audio::AutoPan::Shape::Saw, 3);
+        check(sawL0 > sawL1 && sawL1 > sawL2 && sawL2 > sawL3,
+              "saw auto-pan ramps one way (left channel fades monotonically across the cycle)");
     }
 
     // --- Stereo widener: width controls L/R decorrelation -------------------

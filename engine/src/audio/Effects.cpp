@@ -1171,6 +1171,9 @@ void AutoPan::process(float* stereo, int frames, int sampleRate) {
         case Shape::Triangle:
             lfo = 1.0f - 4.0f * static_cast<float>(std::fabs(phase_ - 0.5)); // -1→+1→-1
             break;
+        case Shape::Saw:
+            lfo = 2.0f * static_cast<float>(phase_) - 1.0f; // -1→+1 ramp, then reset
+            break;
         default: // Sine
             lfo = static_cast<float>(std::sin(phase_ * kTwoPi));
             break;

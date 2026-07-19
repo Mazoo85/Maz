@@ -740,8 +740,9 @@ private:
 class AutoPan : public Effect {
 public:
     // LFO shape: Sine sweeps smoothly, Triangle sweeps linearly, Square hard-jumps between the two
-    // sides — a trance-gate-style ping-pong pan that snaps L↔R instead of gliding.
-    enum class Shape { Sine, Triangle, Square };
+    // sides (a trance-gate-style ping-pong pan), Saw ramps across then resets (a repeating one-way
+    // sweep — rotary/helicopter motion).
+    enum class Shape { Sine, Triangle, Square, Saw };
     AutoPan() { enabled_ = false; }
     const char* name() const override { return "Auto-Pan"; }
     void setRate(float hz) { rateHz_ = hz < 0.01f ? 0.01f : (hz > 20.0f ? 20.0f : hz); }

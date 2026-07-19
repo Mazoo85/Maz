@@ -1002,7 +1002,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 int panShape = 0; // LFO shape optional (older files omit it → sine)
                 if (ls >> panShape) {
                     mixer.autopan().setShape(static_cast<AutoPan::Shape>(
-                        panShape < 0 || panShape > 2 ? 0 : panShape));
+                        panShape < 0 || panShape > 3 ? 0 : panShape));
                 }
             } else if (which == "monobass") {
                 float x = 120.0f;

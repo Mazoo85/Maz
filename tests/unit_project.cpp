@@ -228,7 +228,7 @@ int main() {
     mixer.autopan().setDepth(0.8f);
     mixer.autopan().setSync(true);
     mixer.autopan().setSyncDivision(3);
-    mixer.autopan().setShape(audio::AutoPan::Shape::Square);
+    mixer.autopan().setShape(audio::AutoPan::Shape::Saw);
     mixer.monobass().setEnabled(true);
     mixer.monobass().setCrossover(90.0f);
     mixer.subbass().setEnabled(true);
@@ -659,7 +659,7 @@ int main() {
     check(mixer2.autopan().enabled() && near(mixer2.autopan().rate(), 2.5f) &&
               near(mixer2.autopan().depth(), 0.8f) && mixer2.autopan().sync() &&
               mixer2.autopan().syncDivision() == 3 &&
-              mixer2.autopan().shape() == audio::AutoPan::Shape::Square,
+              mixer2.autopan().shape() == audio::AutoPan::Shape::Saw,
           "auto-pan round-trips");
     check(mixer2.monobass().enabled() && near(mixer2.monobass().crossover(), 90.0f),
           "mono-bass round-trips");
