@@ -571,6 +571,26 @@ int main() {
         std::vector<float> splEnd(static_cast<size_t>(sampleRate), 0.0f); // 1 s more
         splA.render(splEnd.data(), static_cast<int>(splEnd.size()), sampleRate);
         check(!splA.active(), "splash decays to inactive");
+
+        // China: a trashy cymbal — bright, and its decay sits between the splash and the crash.
+        audio::DrumVoice chinaV;
+        chinaV.setType(audio::Drum::China);
+        chinaV.trigger();
+        std::vector<float> chinaEarly(static_cast<size_t>(splWin), 0.0f);
+        chinaV.render(chinaEarly.data(), splWin, sampleRate);
+        check(rms(chinaEarly) > 0.0, "china produces sound");
+        check(splashHf(chinaEarly) > splashHf(splKick) * 3.0,
+              "china is bright (far more HF energy than a dark kick)");
+
+        audio::DrumVoice chinaTailV;
+        chinaTailV.setType(audio::Drum::China);
+        chinaTailV.trigger();
+        std::vector<float> chinaSkip(static_cast<size_t>(splSkipN), 0.0f);
+        chinaTailV.render(chinaSkip.data(), splSkipN, sampleRate);
+        std::vector<float> chinaTail(static_cast<size_t>(splTailN), 0.0f);
+        chinaTailV.render(chinaTail.data(), splTailN, sampleRate);
+        check(rms(chinaTail) > rms(splTailBuf) && rms(chinaTail) < rms(splCrashTail),
+              "china's decay sits between the short splash and the long crash");
     }
 
     // --- Sequencer grid ------------------------------------------------------

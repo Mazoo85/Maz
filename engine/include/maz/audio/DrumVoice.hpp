@@ -33,7 +33,8 @@ enum class Drum {
     Snap,
     Timbale,
     Agogo,
-    Splash
+    Splash,
+    China
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into
