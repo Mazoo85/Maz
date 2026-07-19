@@ -1185,6 +1185,25 @@ inline std::string intToBase(std::int64_t value, int base = 10, bool uppercaseHe
     return digits;
 }
 
+// Convert an UNSIGNED integer to its text in an arbitrary base (2..36) — Godot's String.num_uint64.
+// Like intToBase but the value is never negated, so the full 64-bit unsigned range prints correctly
+// (e.g. UINT64_MAX in base 16 is "ffffffffffffffff"). Zero is "0"; bases outside 2..36 clamp to 10.
+inline std::string uintToBase(std::uint64_t value, int base = 10, bool uppercaseHex = false) {
+    if (base < 2 || base > 36) {
+        base = 10;
+    }
+    const char a = uppercaseHex ? 'A' : 'a';
+    const auto ubase = static_cast<std::uint64_t>(base);
+    std::string digits;
+    do {
+        const auto d = static_cast<int>(value % ubase);
+        digits += static_cast<char>(d < 10 ? '0' + d : a + (d - 10));
+        value /= ubase;
+    } while (value != 0);
+    std::reverse(digits.begin(), digits.end());
+    return digits;
+}
+
 // Godot's String.pad_decimals: make the fractional part exactly `digits` long by TRUNCATING extra
 // digits (no rounding) or padding with trailing zeros. `digits` <= 0 drops the fractional part and
 // the decimal point. Operates on the string as-is (feed it a plain decimal numeral).

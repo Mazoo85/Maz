@@ -11889,6 +11889,11 @@ void testStringUtils() {
     CHECK((su::intToBase(0, 16) == "0" && su::intToBase(-255, 16) == "-ff"));
     CHECK((su::intToBase(255, 99) == "255")); // out-of-range base clamps to 10
     CHECK((su::intToBase(INT64_MIN, 10) == "-9223372036854775808"));
+    // M372: uintToBase — Godot String.num_uint64 (full unsigned range)
+    CHECK((su::uintToBase(255) == "255" && su::uintToBase(255, 16) == "ff"));
+    CHECK((su::uintToBase(10, 2) == "1010" && su::uintToBase(0, 16) == "0"));
+    CHECK((su::uintToBase(UINT64_MAX, 16) == "ffffffffffffffff"));
+    CHECK((su::uintToBase(UINT64_MAX, 10) == "18446744073709551615"));
     // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
     CHECK(su::padDecimals("12.5", 3) == "12.500");
     CHECK(su::padDecimals("12", 2) == "12.00");

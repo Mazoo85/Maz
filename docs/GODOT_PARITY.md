@@ -220,7 +220,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (max: earliest axis wins; min: latest axis wins), verified incl. all-equal components; M358 adds
   intToBase (StringUtils) — Godot String.num_int64: integer→text in an arbitrary base 2..36 (0-9 then
   a-z or A-Z), negatives prefixed '-', bases out of range clamp to 10, INT64_MIN handled via unsigned
-  magnitude, verified across bases/signs; M361 adds Vector4 isFinite / isZeroApprox — Godot
+  magnitude, verified across bases/signs; M372 adds uintToBase — Godot String.num_uint64: the unsigned
+  companion (never negated, so the full 64-bit range prints, e.g. UINT64_MAX base16 = ffffffffffffffff),
+  verified across bases incl. the max value; M361 adds Vector4 isFinite / isZeroApprox — Godot
   Vector4.is_finite / is_zero_approx (all components finite / within epsilon of zero), completing the
   is_finite family across vec2/vec3/vec4/quat, verified against inf/NaN and tiny/nonzero components;
   M362 adds float vec2/vec3 maxAxisIndex / minAxisIndex — Godot Vector2/Vector3.max_axis_index /
