@@ -73,6 +73,7 @@
 #include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/Fixed.hpp"
+#include "maz/math/FixedVec2.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
@@ -16358,6 +16359,49 @@ void testPcg32() {
         // Authoring conversion.
         CHECK(Fixed::fromFloat(0.5) == Fixed::half());
         CHECK(Fixed::fromFloat(-3.0) == Fixed::fromInt(-3));
+    }
+
+    // --- M416: FixedVec2 (deterministic fixed-point 2D vector) ---
+    {
+        using Fixed = maz::core::Fixed;
+        using FixedVec2 = maz::math::FixedVec2;
+        // Add/sub/negate exact.
+        CHECK((FixedVec2::fromInt(1, 2) + FixedVec2::fromInt(3, 4)) == FixedVec2::fromInt(4, 6));
+        CHECK((FixedVec2::fromInt(5, 5) - FixedVec2::fromInt(2, 8)) == FixedVec2::fromInt(3, -3));
+        CHECK((-FixedVec2::fromInt(3, -4)) == FixedVec2::fromInt(-3, 4));
+        // Scale by a Fixed scalar.
+        CHECK((FixedVec2::fromInt(2, 3) * Fixed::fromInt(2)) == FixedVec2::fromInt(4, 6));
+        CHECK((FixedVec2::fromInt(4, 8) * Fixed::half()) == FixedVec2::fromInt(2, 4));
+        CHECK((FixedVec2::fromInt(6, 9) / Fixed::fromInt(3)) == FixedVec2::fromInt(2, 3));
+        // dot / cross exact.
+        CHECK(FixedVec2::fromInt(1, 2).dot(FixedVec2::fromInt(3, 4)) == Fixed::fromInt(11));
+        CHECK(FixedVec2::fromInt(1, 0).cross(FixedVec2::fromInt(0, 1)) == Fixed::fromInt(1));
+        CHECK(FixedVec2::fromInt(0, 1).cross(FixedVec2::fromInt(1, 0)) == Fixed::fromInt(-1));
+        // 3-4-5 length is EXACT.
+        CHECK(FixedVec2::fromInt(3, 4).lengthSquared() == Fixed::fromInt(25));
+        CHECK(FixedVec2::fromInt(3, 4).length() == Fixed::fromInt(5));
+        CHECK(FixedVec2::fromInt(6, 8).length() == Fixed::fromInt(10));
+        CHECK(FixedVec2::zero().length() == Fixed::zero());
+        CHECK(FixedVec2::fromInt(0, 0).distance(FixedVec2::fromInt(3, 4)) == Fixed::fromInt(5));
+        CHECK(FixedVec2::fromInt(1, 1).distanceSquared(FixedVec2::fromInt(4, 5)) == Fixed::fromInt(25));
+        // normalized: approx unit, zero-safe.
+        FixedVec2 nrm = FixedVec2::fromInt(3, 4).normalized();
+        CHECK(std::fabs(nrm.x.toDouble() - 0.6) < 2e-3);
+        CHECK(std::fabs(nrm.y.toDouble() - 0.8) < 2e-3);
+        CHECK(std::fabs(nrm.length().toDouble() - 1.0) < 3e-3);
+        CHECK((FixedVec2::zero().normalized() == FixedVec2::zero()));
+        // Determinism: repeated integer-only vector sim is bit-identical.
+        auto vsim = []() {
+            FixedVec2 p = FixedVec2::fromInt(0, 0);
+            FixedVec2 v = FixedVec2(Fixed::fromRaw(1200), Fixed::fromRaw(-700));
+            const Fixed damp = Fixed::fromRaw(65400);
+            for (int i = 0; i < 500; ++i) {
+                p += v;
+                v = v * damp;
+            }
+            return p.x.raw ^ (p.y.raw << 1);
+        };
+        CHECK(vsim() == vsim());
     }
 }
 

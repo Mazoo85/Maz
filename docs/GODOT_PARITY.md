@@ -326,6 +326,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   values, exact fraction arithmetic (½, ¼, ×, ÷), floor/ceil toward ±inf on negatives, round
   half-up, truncate-toward-zero, sqrt exact on perfect squares and ~1e-3 of √2, defined divide-by-zero,
   and a 1000-iteration integer-only simulation that is bit-identical every run;
+  **fixed-point 2D vector** M416 (`math::FixedVec2` — a 2D vector of core::Fixed, the deterministic
+  companion to vec2 for lockstep-multiplayer movement, replay-exact physics and cross-platform
+  gameplay: add/sub/scale, dot, the scalar 2D cross, squared/true length (via Fixed's float-free
+  sqrt), distance, and a zero-safe best-effort normalize, all bit-identical across machines. Godot has
+  no fixed-point vector. Verified against exact add/sub/scale, exact dot=11 and cross=±1, the EXACT
+  3-4-5 length (=5) and its 6-8-10 double (=10), exact distance, an approximate unit normalize
+  (~0.6,0.8, len≈1) with a zero-safe zero vector, and a 500-iteration integer-only vector simulation
+  that is bit-identical every run;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
