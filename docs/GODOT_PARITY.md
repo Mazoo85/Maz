@@ -425,7 +425,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   off-plane points), the standard tool for interpolating a per-vertex attribute (colour, UV, normal)
   at a ray hit or arbitrary surface point. Verified by vertex→unit-basis, centroid→(1/3,1/3,1/3),
   edge midpoints, sum-to-one + reconstruction, a negative weight outside, off-plane projection, an
-  attribute-interpolation example, and degenerate-triangle safety — plus Plane completeness
+  attribute-interpolation example, and degenerate-triangle safety; M400 adds **frustumIntersectsAabb**
+  (render::frustumIntersectsAabb — the positive-vertex frustum-vs-AABB culling test on a
+  render::FrustumPlanes, the AABB companion to Camera3D::isPointVisible/isSphereVisible that scene
+  culling actually needs; extract the six planes once, reject boxes wholly outside any plane).
+  Verified with an ahead/behind/off-to-side/beyond-far/near-clip spread, a huge enclosing box, an
+  edge-straddling box, and degenerate-box agreement with the verified isPointVisible — plus Plane
+  completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

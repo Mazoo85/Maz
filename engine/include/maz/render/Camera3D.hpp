@@ -38,6 +38,23 @@ struct FrustumPlanes {
     math::vec4 planes[6];
 };
 
+// Frustum vs axis-aligned box (given by its min/max corners) — the "positive-vertex" culling test.
+// Returns true when the box is at least partially inside the frustum; false only when the box lies
+// wholly outside one plane. Conservative (a box tucked in a frustum-corner gap may test visible), the
+// standard fast reject used for scene culling. The AABB companion to Camera3D::isPointVisible /
+// isSphereVisible — extract the planes once (Camera3D::frustum) and test many boxes against them.
+inline bool frustumIntersectsAabb(const FrustumPlanes& f, math::vec3 boxMin, math::vec3 boxMax) {
+    for (const math::vec4& pl : f.planes) {
+        // The box corner farthest along this inward-facing plane normal.
+        const math::vec3 pv(pl.x >= 0.0f ? boxMax.x : boxMin.x, pl.y >= 0.0f ? boxMax.y : boxMin.y,
+                            pl.z >= 0.0f ? boxMax.z : boxMin.z);
+        if (math::dot(math::vec3(pl), pv) + pl.w < 0.0f) {
+            return false; // wholly outside this plane
+        }
+    }
+    return true;
+}
+
 class Camera3D {
 public:
     float viewportWidth = 1280.0f;

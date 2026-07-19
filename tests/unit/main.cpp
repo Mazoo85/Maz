@@ -10330,6 +10330,33 @@ void testCamera3D() {
         CHECK(cam.isSphereVisible(vec3(0, 0, 0), 1.0f));
         CHECK(!cam.isSphereVisible(vec3(100, 0, 0), 1.0f));
     }
+
+    // M400: frustum-vs-AABB culling (positive-vertex test) on a fresh, known camera.
+    {
+        Camera3D fc;
+        fc.perspective(1.5707963f, 1.0f, 1.0f, 100.0f);       // 90deg, aspect 1, near 1, far 100
+        fc.lookAt(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0)); // looking down -Z
+        const render::FrustumPlanes fp = fc.frustum();
+        auto boxAt = [](vec3 c, float h, vec3& lo, vec3& hi) { lo = c - vec3(h); hi = c + vec3(h); };
+        vec3 lo, hi;
+        boxAt(vec3(0, 0, -10), 1.0f, lo, hi);
+        CHECK(render::frustumIntersectsAabb(fp, lo, hi));         // ahead, inside
+        boxAt(vec3(0, 0, 10), 1.0f, lo, hi);
+        CHECK(!render::frustumIntersectsAabb(fp, lo, hi));        // behind
+        boxAt(vec3(100, 0, -10), 1.0f, lo, hi);
+        CHECK(!render::frustumIntersectsAabb(fp, lo, hi));        // off to the side
+        boxAt(vec3(0, 0, -200), 1.0f, lo, hi);
+        CHECK(!render::frustumIntersectsAabb(fp, lo, hi));        // beyond far
+        boxAt(vec3(0, 0, -50), 500.0f, lo, hi);
+        CHECK(render::frustumIntersectsAabb(fp, lo, hi));         // huge box enclosing frustum
+        boxAt(vec3(10, 0, -10), 2.0f, lo, hi);
+        CHECK(render::frustumIntersectsAabb(fp, lo, hi));         // straddling right edge
+        // Degenerate box (a point) agrees with the verified point test.
+        const vec3 pts[] = {vec3(0, 0, -10), vec3(0, 0, 10), vec3(100, 0, -10), vec3(-3, 2, -8)};
+        for (const vec3& p : pts) {
+            CHECK(render::frustumIntersectsAabb(fp, p, p) == fc.isPointVisible(p));
+        }
+    }
 }
 
 void testShapes3D() {
