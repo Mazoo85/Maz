@@ -76,6 +76,7 @@
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
 #include "maz/math/FixedAabb3.hpp"
+#include "maz/math/FixedQuat.hpp"
 #include "maz/math/FixedTrig.hpp"
 #include "maz/math/FixedMath.hpp"
 #include "maz/math/FixedRect2.hpp"
@@ -16515,6 +16516,79 @@ void testPcg32() {
         CHECK(fbox.hasPoint(FA3V::fromInt(1, 1, 1)));
         CHECK(!fbox.hasPoint(FA3V::fromInt(2, 2, 2)));
         CHECK(fbox.center().x == FA3F::one());
+    }
+
+    // --- M423: FixedQuat (deterministic fixed-point unit quaternion / 3D rotation) ---
+    {
+        using FQ = maz::math::FixedQuat;
+        using FQV = maz::math::FixedVec3;
+        using FQF = maz::core::Fixed;
+        using maz::math::fixHalfPi;
+        using maz::math::fixPi;
+
+        auto qnear = [](FQV qv, double px, double py, double pz, double tol) {
+            return std::fabs(qv.x.toDouble() - px) < tol && std::fabs(qv.y.toDouble() - py) < tol &&
+                   std::fabs(qv.z.toDouble() - pz) < tol;
+        };
+        const FQV zAxis = FQV::fromInt(0, 0, 1);
+        const FQV yAxis = FQV::fromInt(0, 1, 0);
+
+        // Identity rotates a vector unchanged (exact).
+        CHECK((FQ::identity().rotate(FQV::fromInt(3, 4, 5)) == FQV::fromInt(3, 4, 5)));
+
+        // 90 deg about +z: +x -> +y, +y -> -x, +z unchanged.
+        {
+            const FQ q = FQ::fromAxisAngle(zAxis, fixHalfPi());
+            CHECK(qnear(q.rotate(FQV::fromInt(1, 0, 0)), 0.0, 1.0, 0.0, 2e-2));
+            CHECK(qnear(q.rotate(FQV::fromInt(0, 1, 0)), -1.0, 0.0, 0.0, 2e-2));
+            CHECK(qnear(q.rotate(FQV::fromInt(0, 0, 1)), 0.0, 0.0, 1.0, 2e-2));
+        }
+        // 90 deg about +y: +z -> +x.
+        CHECK(qnear(FQ::fromAxisAngle(yAxis, fixHalfPi()).rotate(FQV::fromInt(0, 0, 1)), 1.0, 0.0, 0.0, 2e-2));
+        // 180 deg about +z: +x -> -x.
+        CHECK(qnear(FQ::fromAxisAngle(zAxis, fixPi()).rotate(FQV::fromInt(1, 0, 0)), -1.0, 0.0, 0.0, 2e-2));
+
+        // Rotation preserves length (3,4,12 has length 13).
+        {
+            const FQ q = FQ::fromAxisAngle(FQV::fromInt(1, 2, 3), FQF::fromRaw(40000));
+            CHECK(std::fabs(q.rotate(FQV::fromInt(3, 4, 12)).length().toDouble() - 13.0) < 8e-2);
+        }
+
+        // Composing two 45 deg z-rotations == one 90 deg (both by rotating twice and by a*a).
+        {
+            const FQ a45 = FQ::fromAxisAngle(zAxis, fixHalfPi() * FQF::half());
+            CHECK(qnear(a45.rotate(a45.rotate(FQV::fromInt(1, 0, 0))), 0.0, 1.0, 0.0, 3e-2));
+            CHECK(qnear((a45 * a45).rotate(FQV::fromInt(1, 0, 0)), 0.0, 1.0, 0.0, 3e-2));
+        }
+
+        // q * conjugate(q) ~ identity for a unit quaternion.
+        {
+            const FQ q = FQ::fromAxisAngle(FQV::fromInt(2, -1, 3), FQF::fromRaw(30000));
+            const FQ qi = q * q.conjugate();
+            CHECK(std::fabs(qi.w.toDouble() - 1.0) < 2e-2);
+            CHECK(std::fabs(qi.x.toDouble()) < 2e-2);
+            CHECK(std::fabs(qi.y.toDouble()) < 2e-2);
+            CHECK(std::fabs(qi.z.toDouble()) < 2e-2);
+        }
+
+        // Zero axis -> identity (no divide-by-zero); from-axis-angle is unit length.
+        CHECK((FQ::fromAxisAngle(FQV::zero(), fixHalfPi()) == FQ::identity()));
+        CHECK(std::fabs(FQ::fromAxisAngle(FQV::fromInt(1, 1, 1), FQF::fromRaw(20000)).length().toDouble()
+                        - 1.0) < 1e-2);
+
+        // Determinism: repeated integer-only rotation sim is bit-identical.
+        auto qsim = []() {
+            FQ q = FQ::fromAxisAngle(FQV::fromInt(1, 2, 2), FQF::fromRaw(900));
+            FQV v = FQV::fromInt(1, 0, 0);
+            std::int64_t h = 0;
+            for (int i = 0; i < 300; ++i) {
+                v = q.rotate(v);
+                h ^= (static_cast<std::int64_t>(v.x.raw) << 1) ^ v.y.raw
+                     ^ (static_cast<std::int64_t>(v.z.raw) << 2);
+            }
+            return h;
+        };
+        CHECK(qsim() == qsim());
     }
 
     // --- M417: FixedTrig (deterministic fixed-point sin/cos via integer CORDIC) ---

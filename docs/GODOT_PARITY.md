@@ -342,6 +342,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Pythagorean quadruples (2,3,6)→7 and (1,2,2)→3 (fixed sqrt of perfect squares), exact distance, an
   approximate unit normalize with a zero-safe zero vector, and a 500-iteration integer-only 3D vector
   simulation that is bit-identical every run;
+  **fixed-point quaternion** M423 (`math::FixedQuat` — a deterministic unit quaternion for 3D rotation,
+  the rotation capstone of the deterministic-sim toolkit: 3D orientation cannot be represented
+  deterministically without it, so this is what lets a lockstep/replay 3D game turn/aim/spin with
+  bit-identical results. Built on FixedVec3 (M421) and the integer-CORDIC FixedTrig (M417): the whole
+  from-axis-angle → compose → rotate-a-vector path is pure integer math. Hamilton product, conjugate,
+  normalize, and the fast rotation formula v + 2w(u×v) + 2u×(u×v). Godot has no fixed-point quaternion.
+  Verified with an exact identity rotation, the cardinal 90°/180° axis rotations (+x→+y about z,
+  +z→+x about y, +x→−x about z, ~1e-2), length preservation, two 45° rotations composing to 90° (both
+  by rotating twice and by multiplying the quaternions), q·conj(q)≈identity, zero-axis→identity
+  (no divide-by-zero), unit length from axis-angle, and a 300-step integer rotation run that is
+  bit-identical every time;
   **fixed-point trig** M417 (`math::fixSin`/`fixCos`/`fixSinCos` + `fixPi`/`fixTwoPi`/`fixHalfPi` — a
   deterministic sine/cosine for core::Fixed computed by an integer CORDIC: it rotates a vector by a
   tiny table of precomputed arctangents using only shifts, adds and one integer scale, so there are no
