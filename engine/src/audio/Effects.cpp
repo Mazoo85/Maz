@@ -594,8 +594,11 @@ void Flanger::process(float* stereo, int frames, int sampleRate) {
         bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
         bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
 
-        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
-        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+        // Invert flips the wet polarity before the mix, so the comb's peaks become notches — a
+        // hollow, through-zero flange that deeply cancels when the delay is short.
+        const float wetGain = invert_ ? -mix : mix;
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * wetGain;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * wetGain;
 
         write_ = (write_ + 1) % size_;
         phase_ += phaseInc;

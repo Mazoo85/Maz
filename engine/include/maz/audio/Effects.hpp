@@ -234,6 +234,10 @@ public:
     void setDepth(float ms) { depthMs_ = ms < 0.1f ? 0.1f : (ms > 8.0f ? 8.0f : ms); }
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Invert: flip the wet signal's polarity before mixing, so the comb's peaks become notches — the
+    // hollow "through-zero" flange that cancels toward silence when the delay is short. Off = normal.
+    void setInvert(bool on) { invert_ = on; }
+    bool invert() const { return invert_; }
     // Tempo sync: lock the sweep LFO rate to the transport at the chosen note division (rhythmic
     // flanging). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -254,6 +258,7 @@ private:
     float depthMs_ = 2.0f;
     float feedback_ = 0.5f;
     float mix_ = 0.5f;
+    bool invert_ = false; // flip wet polarity (through-zero/hollow flange)
     bool sync_ = false; // tempo-sync the sweep LFO rate
     int syncDiv_ = 1;   // note-division index (default 1/2)
     std::vector<float> bufL_;

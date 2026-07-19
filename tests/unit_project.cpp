@@ -302,6 +302,7 @@ int main() {
     mixer.flanger().setFeedback(0.6f);
     mixer.flanger().setSync(true);
     mixer.flanger().setSyncDivision(3);
+    mixer.flanger().setInvert(true);
     mixer.chorus().setEnabled(true);
     mixer.chorus().setSync(true);
     mixer.chorus().setSyncDivision(2);
@@ -708,7 +709,7 @@ int main() {
           "ring-mod round-trips");
     check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&
               near(mixer2.flanger().feedback(), 0.6f) && mixer2.flanger().sync() &&
-              mixer2.flanger().syncDivision() == 3,
+              mixer2.flanger().syncDivision() == 3 && mixer2.flanger().invert(),
           "flanger round-trips");
     check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2 &&
               near(mixer2.chorus().feedback(), 0.45f),

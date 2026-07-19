@@ -1875,6 +1875,30 @@ int main() {
         };
         check(tailEnergy(0.85f) > tailEnergy(0.2f) * 1.5, "more feedback rings longer");
 
+        // Invert: with the shortest delay the wet is nearly in phase with the dry, so flipping its
+        // polarity cancels toward silence (hollow through-zero flange), whereas normal reinforces.
+        auto flangeRms = [&](bool invert) {
+            audio::Flanger f;
+            f.setEnabled(true);
+            f.setRate(0.0f);  // static, shortest tap (~1 ms floor)
+            f.setDepth(0.1f);
+            f.setFeedback(0.0f);
+            f.setMix(0.5f);
+            f.setInvert(invert);
+            std::vector<float> b = sineStereo(sr / 2, 60.0, 0.5, sr); // low tone → tap ~in phase
+            f.process(b.data(), sr / 2, sr);
+            double e = 0.0;
+            int n = 0;
+            for (int i = 400; i < sr / 2; ++i) { // skip the delay-line fill
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+                ++n;
+            }
+            return std::sqrt(e / n);
+        };
+        check(flangeRms(true) < flangeRms(false) * 0.6,
+              "inverting the flanger cancels a short-delay signal (hollow through-zero flange)");
+        check(!audio::Flanger().invert(), "flanger invert defaults to off");
+
         // Disabled → transparent.
         audio::Flanger off;
         std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);

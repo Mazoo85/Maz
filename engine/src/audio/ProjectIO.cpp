@@ -390,7 +390,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.chorus().feedback() << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
-      << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << "\n";
+      << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << " "
+      << (mixer.flanger().invert() ? 1 : 0) << "\n";
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
       << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
       << " " << (mixer.phaser().sync() ? 1 : 0) << " " << mixer.phaser().syncDivision() << " "
@@ -1193,6 +1194,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     mixer.flanger().setSync(sync != 0);
                     mixer.flanger().setSyncDivision(div);
+                }
+                int inv = 0; // invert optional for old files (0 = normal)
+                if (ls >> inv) {
+                    mixer.flanger().setInvert(inv != 0);
                 }
             } else if (which == "crush") {
                 float bits = 8.0f, ds = 4.0f, mix = 0.5f;

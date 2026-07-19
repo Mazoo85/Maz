@@ -1680,6 +1680,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("fb##fla", &fb, 0.0f, 0.95f, "%.2f")) mx.flanger().setFeedback(fb);
         const char* modDivsF[audio::kModSyncDivisions];
         for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsF[d] = audio::modSyncDivisionName(d);
+        bool finv = mx.flanger().invert();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Invert##fla", &finv)) mx.flanger().setInvert(finv);
         bool fsync = mx.flanger().sync();
         ImGui::SameLine();
         if (ImGui::Checkbox("Sync##fla", &fsync)) mx.flanger().setSync(fsync);
