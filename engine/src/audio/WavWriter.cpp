@@ -20,19 +20,27 @@ void putLE(std::vector<uint8_t>& out, uint32_t value, int bytes) {
 } // namespace
 
 bool writeWav16(const std::string& path, const float* interleaved, int frames, int channels,
-                int sampleRate, std::string* err, bool dither) {
+                int sampleRate, std::string* err, bool dither, int bits) {
     if (interleaved == nullptr || frames < 0 || channels <= 0 || sampleRate <= 0) {
         if (err != nullptr) {
             *err = "invalid arguments";
         }
         return false;
     }
+    if (bits != 24) {
+        bits = 16; // only 16- and 24-bit PCM are supported; anything else falls back to 16
+    }
 
     const uint32_t sampleCount = static_cast<uint32_t>(frames) * static_cast<uint32_t>(channels);
-    const uint16_t bitsPerSample = 16;
-    const uint16_t blockAlign = static_cast<uint16_t>(channels * (bitsPerSample / 8));
+    const uint16_t bitsPerSample = static_cast<uint16_t>(bits);
+    const int bytesPerSample = bits / 8;
+    const uint16_t blockAlign = static_cast<uint16_t>(channels * bytesPerSample);
     const uint32_t byteRate = static_cast<uint32_t>(sampleRate) * blockAlign;
-    const uint32_t dataBytes = sampleCount * (bitsPerSample / 8);
+    const uint32_t dataBytes = sampleCount * static_cast<uint32_t>(bytesPerSample);
+    // Full-scale integer for this depth, e.g. 32767 (16-bit) or 8388607 (24-bit).
+    const float maxVal = static_cast<float>((1 << (bits - 1)) - 1);
+    const int32_t maxInt = (1 << (bits - 1)) - 1;
+    const int32_t minInt = -(1 << (bits - 1));
 
     std::vector<uint8_t> buf;
     buf.reserve(44 + dataBytes);
@@ -67,14 +75,14 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
     };
     for (uint32_t i = 0; i < sampleCount; ++i) {
         const float clamped = std::clamp(interleaved[i], -1.0f, 1.0f);
-        float scaled = clamped * 32767.0f;
+        float scaled = clamped * maxVal;
         if (dither) {
-            scaled += nextUnit() - nextUnit(); // TPDF noise in (-1, +1) LSB
+            scaled += nextUnit() - nextUnit(); // TPDF noise in (-1, +1) LSB at the target depth
         }
-        // Dither (or a full-scale sample) can push the rounded value past the int16 range, so clamp.
-        int32_t v = static_cast<int32_t>(std::lround(scaled));
-        v = std::clamp(v, -32768, 32767);
-        putLE(buf, static_cast<uint32_t>(static_cast<uint16_t>(static_cast<int16_t>(v))), 2);
+        // Dither (or a full-scale sample) can push the rounded value past the range, so clamp.
+        int32_t v = std::clamp(static_cast<int32_t>(std::lround(scaled)), minInt, maxInt);
+        // Two's-complement low `bytesPerSample` bytes, little-endian.
+        putLE(buf, static_cast<uint32_t>(v) & (bits == 24 ? 0xFFFFFFu : 0xFFFFu), bytesPerSample);
     }
 
     std::ofstream file(path, std::ios::binary);

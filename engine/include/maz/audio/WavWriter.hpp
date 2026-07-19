@@ -38,13 +38,16 @@ inline float peakNormalize(float* interleaved, int count, float targetPeak = 0.9
 // PCM WAV file. Samples outside the range are clamped. Returns false and sets *err (when non-null)
 // on any I/O failure.
 //
-// `dither`: when true, add triangular-PDF (TPDF) dither of ±1 LSB before quantizing float→16-bit.
+// `dither`: when true, add triangular-PDF (TPDF) dither of ±1 LSB before quantizing float→PCM.
 // Dithering decorrelates the quantization error from the signal, trading audible quantization
 // distortion on quiet/fading tails for a benign, constant, inaudible noise floor — the standard
-// mastering step when reducing to 16-bit (FL Studio's export "Dithering" option). The dither uses a
+// mastering step when reducing bit depth (FL Studio's export "Dithering" option). The dither uses a
 // fixed-seed PRNG so a given input renders to a byte-identical WAV every time. false (default) keeps
 // the exact previous behaviour (plain rounding, no added noise).
+//
+// `bits`: output PCM bit depth — 16 (default) or 24 (a higher-quality master; 24-bit's noise floor
+// is low enough that dithering is rarely needed). Any other value falls back to 16.
 bool writeWav16(const std::string& path, const float* interleaved, int frames, int channels,
-                int sampleRate, std::string* err = nullptr, bool dither = false);
+                int sampleRate, std::string* err = nullptr, bool dither = false, int bits = 16);
 
 } // namespace maz::audio

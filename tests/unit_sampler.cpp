@@ -1112,6 +1112,22 @@ int main() {
         writeRaw("unit_wav8.wav", ref, 8, 1);
         audio::WavData w8;
         check(!audio::readWav16("unit_wav8.wav", w8, &err), "an unsupported bit depth is rejected");
+
+        // 24-bit EXPORT: writeWav16(bits=24) round-trips through the reader and declares 24-bit.
+        const std::vector<float> src = {0.5f, -0.25f, 0.8f, -0.6f};
+        check(audio::writeWav16("unit_wav_out24.wav", src.data(), static_cast<int>(src.size()), 1,
+                                48000, &err, false, 24),
+              "writeWav16 at 24-bit succeeds");
+        audio::WavData rd;
+        check(audio::readWav16("unit_wav_out24.wav", rd, &err), "the 24-bit export reads back");
+        bool okrt = rd.samples.size() == src.size();
+        for (size_t i = 0; okrt && i < src.size(); ++i) {
+            okrt = std::fabs(rd.samples[i] - src[i]) < 1e-4f;
+        }
+        check(okrt, "24-bit export preserves sample values");
+        std::ifstream hf("unit_wav_out24.wav", std::ios::binary);
+        std::vector<uint8_t> hb((std::istreambuf_iterator<char>(hf)), std::istreambuf_iterator<char>());
+        check(hb.size() > 35 && hb[34] == 24 && hb[35] == 0, "the exported WAV header declares 24-bit");
     }
 
     // Missing file fails cleanly.

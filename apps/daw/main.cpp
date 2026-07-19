@@ -335,8 +335,9 @@ int runHeadless(const core::AppConfig& cfg) {
             MAZ_LOG_INFO("audio: normalized mix to -0.3 dBFS (x%.3f)", static_cast<double>(g));
         }
         if (audio::writeWav16(cfg.wavPath, buf.data(), frames, channels, acfg.sampleRate, &werr,
-                              cfg.dither)) {
-            MAZ_LOG_INFO("audio: wrote %s%s", cfg.wavPath, cfg.dither ? " (dithered)" : "");
+                              cfg.dither, cfg.wavBits)) {
+            MAZ_LOG_INFO("audio: wrote %s (%d-bit%s)", cfg.wavPath, cfg.wavBits == 24 ? 24 : 16,
+                         cfg.dither ? ", dithered" : "");
         } else {
             MAZ_LOG_ERROR("audio: WAV write failed: %s", werr.c_str());
         }
@@ -359,7 +360,7 @@ int runHeadless(const core::AppConfig& cfg) {
             const int sf = channels > 0 ? static_cast<int>(o.buf->size()) / channels : 0;
             std::string serr;
             if (audio::writeWav16(p, o.buf->data(), sf, channels, acfg.sampleRate, &serr,
-                                  cfg.dither)) {
+                                  cfg.dither, cfg.wavBits)) {
                 MAZ_LOG_INFO("stems: wrote %s", p.c_str());
             } else {
                 MAZ_LOG_ERROR("stems: WAV write failed: %s", serr.c_str());
