@@ -29,6 +29,8 @@ double decayTau(Drum type) {
         return 0.05;
     case Drum::Crash:
         return 0.6;
+    case Drum::Ride:
+        return 0.5;
     }
     return 0.1;
 }
@@ -122,6 +124,18 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
                                  std::sin(kTwoPi * 5300.0 * pitchMul * t_) +
                                  std::sin(kTwoPi * 6700.0 * pitchMul * t_);
             s = static_cast<float>((0.6 * static_cast<double>(noise()) + 0.13 * metal) * env);
+            break;
+        }
+        case Drum::Ride: {
+            // A defined, pingy ride cymbal: strong high metallic partials (the "ping") with only a
+            // little noise wash and a sharp attack transient, sustaining over a medium decay.
+            const double ping = std::sin(kTwoPi * 3300.0 * pitchMul * t_) +
+                                0.7 * std::sin(kTwoPi * 4100.0 * pitchMul * t_) +
+                                0.5 * std::sin(kTwoPi * 5800.0 * pitchMul * t_);
+            const double attack = std::exp(-t_ / 0.008); // a brief bright tick at the strike
+            s = static_cast<float>(
+                (0.22 * ping + 0.18 * static_cast<double>(noise()) * attack + 0.05 * static_cast<double>(noise())) *
+                env);
             break;
         }
         }

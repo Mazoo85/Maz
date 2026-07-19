@@ -1010,6 +1010,24 @@ int main() {
         }
         // A noisy cymbal crosses zero far more often than a tonal drum.
         check(crashCross > 2000, "crash is bright/noisy (many zero crossings)");
+
+        // Ride: a pingy, sustained cymbal — rings at 0.5 s but is more tonal (fewer crossings) than
+        // the noise-heavy crash.
+        audio::DrumVoice ride;
+        ride.setType(audio::Drum::Ride);
+        ride.trigger(1.0f);
+        std::vector<float> rd(24000, 0.0f); // 0.5 s
+        ride.render(rd.data(), 24000, sampleRate);
+        check(rms(rd) > 0.0, "ride produces sound");
+        check(ride.active(), "ride sustains at 0.5 s (medium-long decay)");
+        int rideCross = 0;
+        for (int i = 1; i < 24000; ++i) {
+            if (rd[static_cast<size_t>(i - 1)] <= 0.0f && rd[static_cast<size_t>(i)] > 0.0f) {
+                ++rideCross;
+            }
+        }
+        check(rideCross < crashCross,
+              "ride is more tonal/defined than the crash (fewer zero crossings)");
     }
 
     // --- Channel rotate: shift a step row around the bar ---------------------
