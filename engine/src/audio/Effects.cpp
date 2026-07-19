@@ -1107,8 +1107,20 @@ void AutoPan::process(float* stereo, int frames, int sampleRate) {
     constexpr float kQuarterPi = 0.78539816f;
     const double inc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
     for (int i = 0; i < frames; ++i) {
-        // Pan position in [-1, 1] from the LFO, scaled by depth.
-        const float pos = depth_ * static_cast<float>(std::sin(phase_ * kTwoPi));
+        // Pan position in [-1, 1] from the LFO (by shape), scaled by depth.
+        float lfo;
+        switch (shape_) {
+        case Shape::Square:
+            lfo = phase_ < 0.5 ? 1.0f : -1.0f;
+            break;
+        case Shape::Triangle:
+            lfo = 1.0f - 4.0f * static_cast<float>(std::fabs(phase_ - 0.5)); // -1→+1→-1
+            break;
+        default: // Sine
+            lfo = static_cast<float>(std::sin(phase_ * kTwoPi));
+            break;
+        }
+        const float pos = depth_ * lfo;
         const float theta = (pos + 1.0f) * kQuarterPi; // 0..pi/2
         stereo[2 * i] *= std::cos(theta);
         stereo[2 * i + 1] *= std::sin(theta);

@@ -392,7 +392,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
       << mixer.autopan().depth() << " " << (mixer.autopan().sync() ? 1 : 0) << " "
-      << mixer.autopan().syncDivision() << "\n";
+      << mixer.autopan().syncDivision() << " " << static_cast<int>(mixer.autopan().shape()) << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
       << "\n";
     f << "fx subbass " << (mixer.subbass().enabled() ? 1 : 0) << " " << mixer.subbass().amount() << " "
@@ -951,6 +951,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     mixer.autopan().setSync(sync != 0);
                     mixer.autopan().setSyncDivision(div);
+                }
+                int panShape = 0; // LFO shape optional (older files omit it → sine)
+                if (ls >> panShape) {
+                    mixer.autopan().setShape(static_cast<AutoPan::Shape>(
+                        panShape < 0 || panShape > 2 ? 0 : panShape));
                 }
             } else if (which == "monobass") {
                 float x = 120.0f;

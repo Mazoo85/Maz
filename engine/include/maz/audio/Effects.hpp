@@ -697,12 +697,17 @@ private:
 // 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
 class AutoPan : public Effect {
 public:
+    // LFO shape: Sine sweeps smoothly, Triangle sweeps linearly, Square hard-jumps between the two
+    // sides — a trance-gate-style ping-pong pan that snaps L↔R instead of gliding.
+    enum class Shape { Sine, Triangle, Square };
     AutoPan() { enabled_ = false; }
     const char* name() const override { return "Auto-Pan"; }
     void setRate(float hz) { rateHz_ = hz < 0.01f ? 0.01f : (hz > 20.0f ? 20.0f : hz); }
     void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setShape(Shape s) { shape_ = s; }
     float rate() const { return rateHz_; }
     float depth() const { return depth_; }
+    Shape shape() const { return shape_; }
     // Tempo sync: lock the pan LFO rate to the transport at the chosen note division for rhythmic
     // panning. Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -717,6 +722,7 @@ public:
 private:
     float rateHz_ = 1.0f;
     float depth_ = 0.5f;
+    Shape shape_ = Shape::Sine; // pan LFO waveform
     bool sync_ = false; // tempo-sync the pan LFO rate
     int syncDiv_ = 2;   // note-division index (default 1 bar)
     double phase_ = 0.0; // LFO phase in [0, 1)

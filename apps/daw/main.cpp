@@ -1783,6 +1783,12 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("depth##apan", &depth, 0.0f, 1.0f, "%.2f")) mx.autopan().setDepth(depth);
+        int apShape = static_cast<int>(mx.autopan().shape());
+        const char* apShapes[] = {"Sine", "Triangle", "Square"};
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("shape##apan", &apShape, apShapes, 3))
+            mx.autopan().setShape(static_cast<audio::AutoPan::Shape>(apShape));
         bool apsync = mx.autopan().sync();
         ImGui::SameLine();
         if (ImGui::Checkbox("Sync##apan", &apsync)) mx.autopan().setSync(apsync);

@@ -1969,6 +1969,31 @@ int main() {
         }
         check(std::fabs(eL - eR) < eL * 1e-3 + 1e-9,
               "auto-pan at depth 0 leaves the balance centered");
+
+        // Shape: a full-depth square pan hard-alternates L/R (one channel is silent at any instant),
+        // whereas a sine pan sweeps through the centre where both channels carry signal. So the
+        // "quieter channel" energy is near-zero for square but substantial for sine.
+        auto minChanEnergy = [&](audio::AutoPan::Shape shape) {
+            audio::AutoPan p;
+            p.setEnabled(true);
+            p.setRate(1.0f);
+            p.setDepth(1.0f);
+            p.setShape(shape);
+            std::vector<float> b = sineStereo(sr, 220.0, 0.5, sr);
+            p.process(b.data(), sr, sr);
+            double e = 0.0;
+            for (size_t i = 0; i + 1 < b.size(); i += 2) {
+                const float mn = std::min(std::fabs(b[i]), std::fabs(b[i + 1]));
+                e += static_cast<double>(mn) * static_cast<double>(mn);
+            }
+            return e;
+        };
+        const double sineMin = minChanEnergy(audio::AutoPan::Shape::Sine);
+        const double sqMin = minChanEnergy(audio::AutoPan::Shape::Square);
+        check(sqMin < sineMin * 0.1,
+              "square auto-pan hard-alternates L/R (the quieter channel stays near silent)");
+        check(audio::AutoPan().shape() == audio::AutoPan::Shape::Sine,
+              "auto-pan shape defaults to sine");
     }
 
     // --- Stereo widener: width controls L/R decorrelation -------------------
