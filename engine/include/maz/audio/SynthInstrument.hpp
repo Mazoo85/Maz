@@ -49,6 +49,15 @@ public:
     float organBar(int i) const {
         return (i >= 0 && i < kOrganBars) ? organBars_[static_cast<size_t>(i)] : 0.0f;
     }
+    // Organ percussion (Hammond key-click): a fast-decaying harmonic ping added on each note's attack,
+    // on top of the sustained drawbars — the classic percussive organ "chiff". `amount` 0 (default) =
+    // off; `third` picks the 3rd harmonic instead of the 2nd. Only affects Organ mode.
+    void setOrganPercussion(float amount) {
+        organPercAmt_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+    }
+    float organPercussion() const { return organPercAmt_; }
+    void setOrganPercThird(bool third) { organPercThird_ = third; }
+    bool organPercThird() const { return organPercThird_; }
 
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
@@ -410,12 +419,15 @@ private:
         std::vector<float> ksBuf;  // Karplus-Strong delay line (Pluck mode); sized to one period
         int ksPtr = 0;             // KS delay-line read/write index
         bool ksInit = false;       // fill the KS line with noise on the first Pluck render sample
+        float percEnv = 0.0f;      // organ percussion (key-click) envelope; seeded on note-on
     };
 
     SynthMode mode_ = SynthMode::Subtractive;
     float pluckDamping_ = 0.0f;  // Karplus-Strong extra damping [0,1]; 0 = natural (brightest) decay
     float pluckPosition_ = 0.0f; // Karplus-Strong pluck position [0,1); 0 = no excitation comb
     std::array<float, kOrganBars> organBars_{1.0f}; // drawbar levels; default = fundamental only
+    float organPercAmt_ = 0.0f;    // organ percussion (key-click) amount; 0 = off
+    bool organPercThird_ = false;  // percussion harmonic: false = 2nd, true = 3rd
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)

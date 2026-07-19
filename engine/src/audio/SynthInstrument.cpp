@@ -132,7 +132,8 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.filtStage = Stage::Attack;
     v.filtEnv = 0.0f;
     v.filter.reset();
-    v.ksInit = true; // (Pluck mode) re-excite the string on the next render sample
+    v.ksInit = true;     // (Pluck mode) re-excite the string on the next render sample
+    v.percEnv = 1.0f;    // (Organ mode) seed the percussion key-click transient
 }
 
 void SynthInstrument::noteOff(int midi) {
@@ -386,6 +387,14 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     if (lvl > 0.0f) {
                         o += lvl * static_cast<float>(std::sin(v.phase * kTwoPi * (h + 1)));
                     }
+                }
+                // Percussion (key-click): a fast-decaying 2nd/3rd-harmonic ping on the attack.
+                if (organPercAmt_ > 0.0f && v.percEnv > 0.0001f) {
+                    const int ph = organPercThird_ ? 3 : 2;
+                    o += organPercAmt_ * v.percEnv *
+                         static_cast<float>(std::sin(v.phase * kTwoPi * ph));
+                    // ~0.15 s decay time constant.
+                    v.percEnv *= std::exp(-1.0f / (0.15f * static_cast<float>(sampleRate)));
                 }
                 osc = o * 0.35f; // headroom for the summed partials
             } else {

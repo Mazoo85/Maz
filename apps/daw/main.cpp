@@ -921,6 +921,13 @@ void buildSynthUI(audio::Sequencer& seq) {
                 syn.setOrganBar(b, lvl);
             ImGui::PopID();
         }
+        float perc = syn.organPercussion();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("Percussion##organ", &perc, 0.0f, 1.0f, "%.2f"))
+            syn.setOrganPercussion(perc);
+        ImGui::SameLine();
+        bool third = syn.organPercThird();
+        if (ImGui::Checkbox("3rd##organperc", &third)) syn.setOrganPercThird(third);
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
         int w = static_cast<int>(syn.waveform());

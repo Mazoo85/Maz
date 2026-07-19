@@ -233,6 +233,12 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
             syn.setOrganBar(b, lvl);
         }
     }
+    float organPerc = 0.0f; // organ percussion optional for old files (0 = off)
+    int organPercThird = 0;
+    if (ls >> organPerc >> organPercThird) {
+        syn.setOrganPercussion(organPerc);
+        syn.setOrganPercThird(organPercThird != 0);
+    }
     // Absent → osc2 stays linked to the primary (the default), matching old files.
 }
 } // namespace
@@ -312,6 +318,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     for (int b = 0; b < SynthInstrument::kOrganBars; ++b) {
         f << " " << s.organBar(b);
     }
+    f << " " << s.organPercussion() << " " << (s.organPercThird() ? 1 : 0);
     f << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());

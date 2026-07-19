@@ -2082,6 +2082,25 @@ int main() {
         check(audio::SynthInstrument().organBar(0) == 1.0f &&
                   audio::SynthInstrument().organBar(1) == 0.0f,
               "organ drawbars default to fundamental-only");
+
+        // Percussion (key-click): with the 3rd-harmonic percussion on but no 3rd drawbar, the 3rd
+        // harmonic is strong in the attack and has decayed away by the sustain.
+        audio::SynthInstrument perc;
+        perc.setMode(audio::SynthMode::Organ);
+        perc.setEnvelope(0.001f, 0.05f, 1.0f, 0.5f);
+        perc.setOrganPercussion(1.0f);
+        perc.setOrganPercThird(true); // 3rd harmonic = 1320 Hz for A4
+        perc.noteOn(69, 1.0f);
+        const std::vector<float> attack = render(perc, sampleRate / 20, sampleRate); // first 50 ms
+        const std::vector<float> sustain = render(perc, sampleRate / 2, sampleRate); // ~0.05-0.55 s
+        const double na = static_cast<double>(attack.size());
+        const double ns = static_cast<double>(sustain.size());
+        const double h3attack = goertzel(attack, 1320.0, sampleRate) / (na * na);
+        const double h3sustain = goertzel(sustain, 1320.0, sampleRate) / (ns * ns);
+        check(h3attack > h3sustain * 4.0,
+              "organ percussion pings the harmonic on attack then decays away");
+        check(audio::SynthInstrument().organPercussion() == 0.0f,
+              "organ percussion defaults to off");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

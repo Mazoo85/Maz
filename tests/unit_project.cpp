@@ -925,6 +925,8 @@ int main() {
         oseq.synth().setOrganBar(0, 0.8f);
         oseq.synth().setOrganBar(2, 0.5f);
         oseq.synth().setOrganBar(7, 0.3f);
+        oseq.synth().setOrganPercussion(0.7f);
+        oseq.synth().setOrganPercThird(true);
         const std::string opath = "unit_project_organ.cjc";
         check(audio::saveProject(opath, oseq, omix, oaut, &err), "saveProject (organ) succeeds");
         audio::Sequencer oseq2;
@@ -933,8 +935,9 @@ int main() {
         check(audio::loadProject(opath, oseq2, omix2, oaut2, &err), "loadProject (organ) succeeds");
         check(oseq2.synth().mode() == audio::SynthMode::Organ &&
                   near(oseq2.synth().organBar(0), 0.8f) && near(oseq2.synth().organBar(2), 0.5f) &&
-                  near(oseq2.synth().organBar(7), 0.3f),
-              "organ engine mode + drawbar levels round-trip");
+                  near(oseq2.synth().organBar(7), 0.3f) &&
+                  near(oseq2.synth().organPercussion(), 0.7f) && oseq2.synth().organPercThird(),
+              "organ engine mode + drawbar levels + percussion round-trip");
     }
 
     // A non-.cjc file is rejected.
