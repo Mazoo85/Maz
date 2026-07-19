@@ -253,6 +253,7 @@
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/io/Xml.hpp"
 #include "maz/ui/Container.hpp"
+#include "maz/ui/FontFallback.hpp"
 #include "maz/ui/Layout.hpp"
 #include "maz/ui/RichText.hpp"
 #include "maz/ui/GlyphCache.hpp"
@@ -20241,6 +20242,94 @@ void testPolynomial() {
     }
 }
 
+void testFontFallback() {
+    using ui::FontFallback;
+
+    // Coverage + resolution across scripts.
+    {
+        FontFallback fb;
+        fb.addFont(1);
+        fb.coverRange(1, 0x20, 0x7E);
+        fb.addFont(2);
+        fb.coverRange(2, 0x400, 0x4FF);
+        fb.addFont(3);
+        fb.coverRange(3, 0x1F600, 0x1F64F);
+        CHECK(fb.fontCount() == 3);
+        CHECK(fb.hasFont(1) && !fb.hasFont(9));
+        CHECK(fb.fontFor(U'A') == 1);
+        CHECK(fb.fontFor(0x410) == 2);
+        CHECK(fb.fontFor(0x1F600) == 3);
+        CHECK(fb.fontFor(0x2603) == FontFallback::kNone);
+        CHECK(fb.covers(1, U'z') && !fb.covers(1, 0x410));
+    }
+    // Default font catches uncovered codepoints.
+    {
+        FontFallback fb;
+        fb.addFont(1);
+        fb.coverRange(1, 0x20, 0x7E);
+        fb.setDefaultFont(1);
+        CHECK(fb.defaultFont() == 1);
+        CHECK(fb.fontFor(0x2603) == 1);
+    }
+    // Priority: earlier font wins on overlap.
+    {
+        FontFallback fb;
+        fb.addFont(10);
+        fb.coverRange(10, 0x41, 0x5A);
+        fb.addFont(11);
+        fb.coverRange(11, 0x41, 0x5A);
+        CHECK(fb.fontFor(U'M') == 10);
+    }
+    // runs(): split a mixed string into per-font runs.
+    {
+        FontFallback fb;
+        fb.addFont(1);
+        fb.coverRange(1, 0x20, 0x7E);
+        fb.addFont(2);
+        fb.coverRange(2, 0x400, 0x4FF);
+        fb.addFont(3);
+        fb.coverRange(3, 0x1F600, 0x1F64F);
+        std::u32string s;
+        s.push_back(U'A');
+        s.push_back(0x411);
+        s.push_back(0x1F600);
+        s.push_back(U'B');
+        s.push_back(U'C');
+        auto r = fb.runs(s);
+        CHECK(r.size() == 4);
+        CHECK(r[0].fontId == 1 && r[0].start == 0 && r[0].length == 1);
+        CHECK(r[1].fontId == 2 && r[1].length == 1);
+        CHECK(r[2].fontId == 3 && r[2].length == 1);
+        CHECK(r[3].fontId == 1 && r[3].start == 3 && r[3].length == 2);
+    }
+    // Uncovered runs carry kNone; empty string -> no runs.
+    {
+        FontFallback fb;
+        fb.addFont(1);
+        fb.coverRange(1, 0x41, 0x5A);
+        std::u32string s = U"A☃☃B";
+        auto r = fb.runs(s);
+        CHECK(r.size() == 3);
+        CHECK(r[0].fontId == 1 && r[0].length == 1);
+        CHECK(r[1].fontId == FontFallback::kNone && r[1].length == 2);
+        CHECK(r[2].fontId == 1 && r[2].length == 1);
+        CHECK(fb.runs(U"").empty());
+    }
+    // coverCodepoint, removeFont, clear.
+    {
+        FontFallback fb;
+        fb.addFont(5);
+        fb.coverCodepoint(5, U'@');
+        CHECK(fb.fontFor(U'@') == 5);
+        fb.removeFont(5);
+        CHECK(!fb.hasFont(5) && fb.fontFor(U'@') == FontFallback::kNone);
+        fb.addFont(1);
+        fb.setDefaultFont(1);
+        fb.clear();
+        CHECK(fb.fontCount() == 0 && fb.defaultFont() == FontFallback::kNone);
+    }
+}
+
 void testPngDecode() {
     using render::decodePng;
     using render::Image;
@@ -32326,6 +32415,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testFontFallback();
     testPngDecode();
     testInflate();
     testPlyLoader();

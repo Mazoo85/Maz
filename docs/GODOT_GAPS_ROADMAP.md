@@ -33,12 +33,12 @@ only be written blind, the docs say exactly that.
 - [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]
 - [x] **PNG decode** (`render::decodePng` / `loadPng`) — DONE (M500); chunks + all 5 filters + gray/RGB/RGBA/palette. [VERIFIABLE HERE]
 - [ ] **Ogg Vorbis / MP3 decode to PCM** — large, pure-CPU decoders feeding the existing mixer. [VERIFIABLE HERE]
-- [ ] **Font fallback chains** on top of the existing TrueType path. [VERIFIABLE HERE]
+- [x] **Font fallback chains** (`ui::FontFallback`) — DONE (M501); per-codepoint resolution + per-font runs. [VERIFIABLE HERE]
 - [ ] **FBX import** — binary + ASCII FBX is large and semi-proprietary; do the geometry subset. [VERIFIABLE HERE]
 
 ### §7 Text / UI / localization depth — [VERIFIABLE HERE]
-- [ ] **Unicode BiDi** (the bidirectional algorithm for Arabic/Hebrew) — `ui::bidiReorder`. [VERIFIABLE HERE]
-- [ ] **Grapheme / line-break segmentation** (UAX #14/#29 subset). [VERIFIABLE HERE]
+- [x] **Unicode BiDi runs + base direction** — ALREADY PRESENT (`ui::bidiRuns` / `baseDirection`, `TextServer.hpp`).
+- [x] **Line-break opportunities** — ALREADY PRESENT (`ui::lineBreakOpportunities`, `TextServer.hpp`).
 - [ ] **Basic complex-script shaping hooks** (mark positioning, ligature substitution tables). [VERIFIABLE HERE]
 - [ ] **Localization tooling** — POT/PO extract + import beyond the current CSV tables. [VERIFIABLE HERE]
 - [ ] **Video container/codec decode** to frames (display is GPU-side). [CODE HERE / SEE IT ON YOUR MACHINE]

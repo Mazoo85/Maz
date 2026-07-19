@@ -1182,6 +1182,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **font fallback chain** (M501, `ui::FontFallback` — the "which font can draw this character?" resolver
+  behind mixed-script text. Godot lets a Font carry an ordered list of fallback fonts and picks, per glyph,
+  the first that has the character; Maz's atlas font covers ASCII, so anything beyond it needs this. It holds
+  an ordered set of fonts (by int id), each with the Unicode ranges it covers, and answers `fontFor(codepoint)`
+  — the first covering font in priority order, or a configured default — plus `runs(text)`, which splits a
+  UTF-32 string into contiguous runs that resolve to the same font (the unit a shaper/renderer draws in one
+  pass). Deterministic, std-only, GPU-free, so it unit-tests headlessly; real per-font coverage wires into it
+  later. Verified: Latin / Cyrillic / emoji fonts resolve their own codepoints and report kNone for an
+  uncovered snowman; a default font catches uncovered codepoints; on overlapping coverage the earlier
+  (higher-priority) font wins; `runs` splits "A Б 😀 B C" into four runs merging the trailing Latin; uncovered
+  spans carry kNone and an empty string yields no runs; and coverCodepoint / removeFont / clear behave),
   **PNG (`.png`) decode** (M500, `render::decodePng` / `loadPng` — closes the single most important image
   import gap versus Godot, which imports PNG everywhere. Built on the M499 inflate: it walks the PNG chunk
   stream (IHDR / PLTE / tRNS / IDAT / IEND), inflates the concatenated IDAT data, reverses all five
