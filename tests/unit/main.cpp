@@ -14232,6 +14232,67 @@ void testGeometry3DHelpers() {
         CHECK(cpHas(cpXY, vec3(1.5f, 1.5f, 0)));
         CHECK(cpHas(cpXY, vec3(0, 0, 0)));
     }
+
+    // --- M404: buildConvexMeshFaces (planes -> polygon faces; closes M402/M403 pipeline) ---
+    {
+        auto bmfHas = [](const std::vector<vec3>& v, vec3 p, float e = 1e-3f) {
+            for (const vec3& q : v) {
+                const vec3 d = q - p;
+                if (std::sqrt(math::dot(d, d)) <= e) return true;
+            }
+            return false;
+        };
+        auto bmfNewell = [](const std::vector<vec3>& poly) {
+            vec3 n(0.0f);
+            for (std::size_t i = 0; i < poly.size(); ++i) {
+                const vec3& a = poly[i];
+                const vec3& b = poly[(i + 1) % poly.size()];
+                n.x += (a.y - b.y) * (a.z + b.z);
+                n.y += (a.z - b.z) * (a.x + b.x);
+                n.z += (a.x - b.x) * (a.y + b.y);
+            }
+            return n;
+        };
+        // Box: 6 planes -> 6 quad faces whose vertices are exactly the 8 box corners.
+        auto bmfPlanes = math::buildBoxPlanes(vec3(2.0f, 3.0f, 4.0f));
+        auto bmfFaces = math::buildConvexMeshFaces(bmfPlanes);
+        CHECK(bmfFaces.size() == 6);
+        std::vector<vec3> bmfVerts;
+        for (std::size_t i = 0; i < bmfFaces.size(); ++i) {
+            const auto& f = bmfFaces[i];
+            CHECK(f.size() == 4);
+            for (const vec3& q : f) {
+                for (const math::Plane& pl : bmfPlanes) CHECK(pl.distanceTo(q) <= 1e-3f);
+                if (!bmfHas(bmfVerts, q)) bmfVerts.push_back(q);
+            }
+            const vec3 fn = bmfNewell(f);
+            const float len = std::sqrt(math::dot(fn, fn));
+            CHECK(len > 1e-3f);
+            CHECK(math::dot(fn / len, bmfPlanes[i].normal) > 0.99f); // outward-wound
+        }
+        CHECK(bmfVerts.size() == 8);
+        for (float sx : {-2.0f, 2.0f})
+            for (float sy : {-3.0f, 3.0f})
+                for (float sz : {-4.0f, 4.0f})
+                    CHECK(bmfHas(bmfVerts, vec3(sx, sy, sz)));
+        // Cylinder: `sides` quad side-faces + 2 cap `sides`-gons.
+        const int bmfSides = 8;
+        auto bmfCyl = math::buildConvexMeshFaces(math::buildCylinderPlanes(2.0f, 4.0f, bmfSides, 2));
+        CHECK(bmfCyl.size() == static_cast<std::size_t>(bmfSides + 2));
+        int bmfQuads = 0, bmfCaps = 0;
+        for (const auto& f : bmfCyl) {
+            if (f.size() == 4) ++bmfQuads;
+            else if (f.size() == static_cast<std::size_t>(bmfSides)) ++bmfCaps;
+        }
+        CHECK(bmfQuads == bmfSides);
+        CHECK(bmfCaps == 2);
+        // Unbounded set (<4 corners) -> no faces.
+        std::vector<math::Plane> bmfFew;
+        bmfFew.emplace_back(vec3(1, 0, 0), 1.0f);
+        bmfFew.emplace_back(vec3(-1, 0, 0), 1.0f);
+        bmfFew.emplace_back(vec3(0, 1, 0), 1.0f);
+        CHECK(math::buildConvexMeshFaces(bmfFew).empty());
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

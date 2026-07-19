@@ -456,7 +456,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   with computeConvexMeshPoints' corners. Faithful port of Godot's inside/outside/boundary location
   cache. Verified: a square clipped at x=1 -> exact trimmed rectangle, wholly-inside returns the ring
   unchanged, wholly-outside returns empty, a diagonal cut yields the correct triangle, empty input ->
-  empty, and two successive clips trim to a smaller rectangle) — plus Plane completeness
+  empty, and two successive clips trim to a smaller rectangle); M404 adds **buildConvexMeshFaces**
+  (math::buildConvexMeshFaces — the planes->polygon-faces construction that closes the loop with M402
+  computeConvexMeshPoints (planes->corners) and M403 clipPolygon (trim a face against a plane): for
+  each plane it starts with a large outward-wound quad on that plane and clips it against every other
+  plane, so whatever survives with ≥3 vertices is that plane's convex face. Yields a watertight,
+  correctly-wound set of polygon faces ready for a debug renderer, a collision proxy, or triangulation
+  — the standard "planes to mesh" idea Godot uses internally to turn its build_*_planes output into a
+  MeshData; documented honestly as a composing utility over the verified M402/M403 primitives, not a
+  distinct Godot public API. Verified: a box -> 6 quad faces whose vertices are exactly the 8 corners,
+  each face wound so its Newell normal matches its plane and every vertex inside all planes; a
+  cylinder -> `sides` quad side-faces + 2 cap `sides`-gons; and an unbounded set -> no faces) — plus
+  Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

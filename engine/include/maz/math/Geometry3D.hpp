@@ -913,4 +913,60 @@ inline std::vector<vec3> clipPolygon(const std::vector<vec3>& polygon, const Pla
     return clipped;
 }
 
+// Build the polygon faces of the convex volume bounded by a set of planes (INSIDE = distanceTo <= 0
+// for every plane) — the planes->faces companion that closes the loop with computeConvexMeshPoints
+// (planes->corner vertices) and clipPolygon (trim a face against a plane). For each plane it starts
+// with a large quad lying on that plane, wound so its outward normal matches the plane normal, then
+// clips that quad against every other plane; whatever survives with >= 3 vertices is that plane's
+// face. The result is a watertight, correctly-wound set of convex polygon faces ready for a debug
+// renderer, a collision proxy, or triangulation. This is the standard "planes to mesh" construction
+// (the same idea Godot uses internally to turn its build_*_planes output into a MeshData); it is a
+// composing utility over the verified M402/M403 primitives, not a distinct Godot public API. Returns
+// an empty list when the half-space set is unbounded or empty (fewer than 4 finite corners).
+inline std::vector<std::vector<vec3>> buildConvexMeshFaces(const std::vector<Plane>& planes,
+                                                           float eps = 1e-5f) {
+    std::vector<std::vector<vec3>> faces;
+    const std::vector<vec3> corners = computeConvexMeshPoints(planes, eps);
+    if (corners.size() < 4) {
+        return faces; // unbounded / empty volume -> no finite faces
+    }
+    // Size the working quad to comfortably enclose the volume.
+    vec3 centroid(0.0f);
+    for (const vec3& c : corners) {
+        centroid += c;
+    }
+    centroid /= static_cast<float>(corners.size());
+    float radius = 0.0f;
+    for (const vec3& c : corners) {
+        radius = std::max(radius, length(c - centroid));
+    }
+    const float big = radius * 4.0f + 1.0f;
+
+    for (std::size_t i = 0; i < planes.size(); ++i) {
+        const Plane& pi = planes[i];
+        // Tangent basis on the plane: u, v with v = cross(normal, u) so (u, v, normal) is right-handed.
+        const vec3 helper =
+            (std::fabs(pi.normal.x) > 0.9f) ? vec3(0.0f, 1.0f, 0.0f) : vec3(1.0f, 0.0f, 0.0f);
+        const vec3 u = normalize(cross(pi.normal, helper));
+        const vec3 v = cross(pi.normal, u);
+        const vec3 c = pi.center(); // normal * d, the point on the plane nearest the origin
+        // Quad wound CCW around the plane normal (outward face): edges u,v,-u,-v => normal = +pi.normal.
+        std::vector<vec3> face = {c - u * big - v * big, c + u * big - v * big,
+                                  c + u * big + v * big, c - u * big + v * big};
+        for (std::size_t j = 0; j < planes.size(); ++j) {
+            if (j == i) {
+                continue; // the quad already lies on plane i
+            }
+            face = clipPolygon(face, planes[j], eps);
+            if (face.size() < 3) {
+                break; // fully clipped away -> plane i contributes no face
+            }
+        }
+        if (face.size() >= 3) {
+            faces.push_back(std::move(face));
+        }
+    }
+    return faces;
+}
+
 } // namespace maz::math
