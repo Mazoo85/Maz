@@ -913,6 +913,58 @@ int main() {
         check(dp.semitones() == 0.0f && !dp.enabled(), "pitch shifter defaults to 0 st and off");
     }
 
+    // --- Frequency shifter: single-sideband heterodyne (Hz shift, not a ratio) ------
+    {
+        // Goertzel power at a given frequency, on the left channel.
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // A 1000 Hz tone shifted +200 Hz should land at 1200 Hz, with the 800 Hz image suppressed.
+        audio::FrequencyShifter fs;
+        fs.setEnabled(true);
+        fs.setShiftHz(200.0f);
+        fs.setMix(1.0f);
+        std::vector<float> b = sineStereo(sr, 1000.0, 0.5, sr);
+        fs.process(b.data(), sr, sr);
+        const double up = goertzel(b, 1200.0, sr);
+        const double image = goertzel(b, 800.0, sr);
+        const double leak = goertzel(b, 1000.0, sr);
+        check(up > image * 10.0, "frequency shifter puts energy in the shifted sideband, not the image");
+        check(up > leak * 10.0, "frequency shifter suppresses the original (carrier) frequency");
+
+        // A negative shift moves the tone down to 800 Hz instead.
+        audio::FrequencyShifter fd;
+        fd.setEnabled(true);
+        fd.setShiftHz(-200.0f);
+        std::vector<float> bd = sineStereo(sr, 1000.0, 0.5, sr);
+        fd.process(bd.data(), sr, sr);
+        check(goertzel(bd, 800.0, sr) > goertzel(bd, 1200.0, sr) * 10.0,
+              "a negative shift moves the tone down (SSB, opposite sideband)");
+
+        // Disabled → bit-identical passthrough; sensible defaults.
+        audio::FrequencyShifter off;
+        std::vector<float> a = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> a2 = a;
+        off.process(a2.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != a2[i]) {
+                same = false;
+            }
+        }
+        check(same, "disabled frequency shifter is a bit-identical passthrough");
+        check(audio::FrequencyShifter().shiftHz() == 0.0f && !audio::FrequencyShifter().enabled(),
+              "frequency shifter defaults to 0 Hz and off");
+    }
+
     // --- Distortion: adds harmonics to a sine (raises high-frequency content) ------
     {
         audio::Distortion dist;

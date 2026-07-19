@@ -31,6 +31,7 @@ Mixer::Mixer() {
     dist_.setEnabled(false);
     tape_.setEnabled(false);
     ringmod_.setEnabled(false);
+    freqshift_.setEnabled(false);
     crush_.setEnabled(false);
     gate_.setEnabled(false);
     hp_.setEnabled(false);
@@ -65,7 +66,7 @@ Mixer::Mixer() {
     // auto-wah → formant → comb → tremolo) → time fx (delay → stereo-delay → reverb) → width →
     // mono-bass → sub-bass → auto-pan → utility → clipper → brickwall limiter → plugins.
     chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &dist_,
-              &tape_,     &ringmod_,  &pitchshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &deEsser_, &chorus_,
+              &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &deEsser_, &chorus_,
               &vibrato_,  &flanger_,  &phaser_,   &autowah_,  &formant_,   &comb_,        &tremolo_,  &delay_,
               &stereoDelay_, &reverb_, &widener_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
               &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};

@@ -374,6 +374,73 @@ void PitchShifter::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- FrequencyShifter -------------------------------------------------------
+
+void FrequencyShifter::reset() {
+    dlL_.fill(0.0f);
+    dlR_.fill(0.0f);
+    wp_ = 0;
+    phase_ = 0.0;
+}
+
+void FrequencyShifter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    constexpr double kPi = 3.141592653589793;
+    constexpr int N = kTaps;
+    constexpr int C = (N - 1) / 2;
+    // Blackman-windowed Hilbert FIR (90° phase shift; odd-symmetric, even taps zero). Built once.
+    static const std::array<float, N> h = [] {
+        std::array<float, N> t{};
+        for (int n = 0; n < N; ++n) {
+            const int k = n - C;
+            if (k % 2 == 0) {
+                t[static_cast<size_t>(n)] = 0.0f;
+            } else {
+                const double s = 2.0 / (kPi * k);
+                const double w = 0.42 - 0.5 * std::cos(kTwoPi * n / (N - 1)) +
+                                 0.08 * std::cos(2.0 * kTwoPi * n / (N - 1));
+                t[static_cast<size_t>(n)] = static_cast<float>(s * w);
+            }
+        }
+        return t;
+    }();
+
+    const double inc = kTwoPi * static_cast<double>(shiftHz_) / static_cast<double>(sampleRate);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        dlL_[static_cast<size_t>(wp_)] = dryL;
+        dlR_[static_cast<size_t>(wp_)] = dryR;
+        // Quadrature (90°) component via the FIR; in-phase component is the matching group delay.
+        float qL = 0.0f, qR = 0.0f;
+        for (int t = 0; t < N; ++t) {
+            const int idx = (wp_ - t + N) % N;
+            qL += h[static_cast<size_t>(t)] * dlL_[static_cast<size_t>(idx)];
+            qR += h[static_cast<size_t>(t)] * dlR_[static_cast<size_t>(idx)];
+        }
+        const float iL = dlL_[static_cast<size_t>((wp_ - C + N) % N)];
+        const float iR = dlR_[static_cast<size_t>((wp_ - C + N) % N)];
+        const float cs = static_cast<float>(std::cos(phase_));
+        const float sn = static_cast<float>(std::sin(phase_));
+        // Heterodyne: (I + jQ)·e^{jωt} keeps only the shifted sideband → single-sideband shift.
+        const float wetL = iL * cs - qL * sn;
+        const float wetR = iR * cs - qR * sn;
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+        wp_ = (wp_ + 1) % N;
+        phase_ += inc;
+        if (phase_ >= kTwoPi) {
+            phase_ -= kTwoPi;
+        } else if (phase_ < 0.0) {
+            phase_ += kTwoPi;
+        }
+    }
+}
+
 // ---- Chorus -----------------------------------------------------------------
 
 void Chorus::reset() {

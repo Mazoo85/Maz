@@ -214,6 +214,33 @@ private:
     double phase_ = 0.0; // tap sweep position in [0,1)
 };
 
+// A single-sideband frequency shifter (Bode/"Klangumwandler" style): shifts every frequency component
+// by a fixed number of Hz — not a musical ratio like the pitch shifter — so harmonic tones turn
+// inharmonic/metallic. Small shifts give dense phasing/chorusing and "shimmer"; large shifts give
+// clangorous, bell-like, robotic timbres. A FIR Hilbert transform forms the analytic signal, which is
+// then heterodyned up or down by `shiftHz`. `mix` blends dry/wet.
+class FrequencyShifter : public Effect {
+public:
+    FrequencyShifter() { enabled_ = false; }
+    const char* name() const override { return "Freq Shifter"; }
+    void setShiftHz(float hz) { shiftHz_ = hz < -2000.0f ? -2000.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float shiftHz() const { return shiftHz_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    static constexpr int kTaps = 65; // FIR Hilbert length (odd; group delay = (kTaps-1)/2 samples)
+    float shiftHz_ = 0.0f;           // heterodyne shift in Hz (±); 0 = unshifted
+    float mix_ = 1.0f;               // dry/wet blend; 1 = fully shifted
+    std::array<float, kTaps> dlL_{}; // per-channel input delay lines for the FIR
+    std::array<float, kTaps> dlR_{};
+    int wp_ = 0;         // delay-line write position
+    double phase_ = 0.0; // heterodyne oscillator phase
+};
+
 // A stereo chorus: two LFO-modulated delay lines (left/right in quadrature) widen and thicken the
 // sound. `rate` in Hz, `depth` in ms, `mix` dry/wet.
 class Chorus : public Effect {

@@ -51,6 +51,7 @@ public:
     TransientShaper& transient() { return transient_; }
     Chorus& chorus() { return chorus_; }
     Vibrato& vibrato() { return vibrato_; }
+    FrequencyShifter& freqShifter() { return freqshift_; }
     Flanger& flanger() { return flanger_; }
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
@@ -136,6 +137,7 @@ private:
     TransientShaper transient_{};
     Chorus chorus_{};
     Vibrato vibrato_{};
+    FrequencyShifter freqshift_{};
     Flanger flanger_{};
     Phaser phaser_{};
     Delay delay_{};

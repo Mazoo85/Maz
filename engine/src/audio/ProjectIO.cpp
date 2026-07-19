@@ -477,6 +477,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.ringmod().mix() << " " << static_cast<int>(mixer.ringmod().carrier()) << "\n";
     f << "fx pitch " << (mixer.pitchShifter().enabled() ? 1 : 0) << " "
       << mixer.pitchShifter().semitones() << " " << mixer.pitchShifter().mix() << "\n";
+    f << "fx freqshift " << (mixer.freqShifter().enabled() ? 1 : 0) << " "
+      << mixer.freqShifter().shiftHz() << " " << mixer.freqShifter().mix() << "\n";
 
     // Aux send/return buses: send level + the return effect's params.
     f << "send reverb " << mixer.reverbSend() << " " << mixer.reverbReturn().roomSize() << " "
@@ -1176,6 +1178,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.pitchShifter().setEnabled(en != 0);
                 mixer.pitchShifter().setSemitones(semis);
                 mixer.pitchShifter().setMix(mix);
+            } else if (which == "freqshift") {
+                float hz = 0.0f, mix = 1.0f;
+                ls >> hz >> mix;
+                mixer.freqShifter().setEnabled(en != 0);
+                mixer.freqShifter().setShiftHz(hz);
+                mixer.freqShifter().setMix(mix);
             } else if (which == "reverb") {
                 float room = 0.7f, damp = 0.35f, mix = 0.25f;
                 ls >> room >> damp >> mix;

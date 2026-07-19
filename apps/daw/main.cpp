@@ -1580,6 +1580,20 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##pitch", &pwet, 0.0f, 1.0f, "%.2f")) mx.pitchShifter().setMix(pwet);
     }
     {
+        bool en = mx.freqShifter().enabled();
+        if (ImGui::Checkbox("Freq Shifter", &en)) mx.freqShifter().setEnabled(en);
+        float hz = mx.freqShifter().shiftHz();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(130.0f);
+        if (ImGui::SliderFloat("Hz##fshift", &hz, -2000.0f, 2000.0f, "%.0f Hz"))
+            mx.freqShifter().setShiftHz(hz);
+        float fwet = mx.freqShifter().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##fshift", &fwet, 0.0f, 1.0f, "%.2f"))
+            mx.freqShifter().setMix(fwet);
+    }
+    {
         bool en = mx.bitcrusher().enabled();
         if (ImGui::Checkbox("Bitcrusher", &en)) mx.bitcrusher().setEnabled(en);
         float bits = mx.bitcrusher().bits();
