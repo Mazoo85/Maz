@@ -29,6 +29,8 @@ enum class AutoTarget {
     MasterPan,
     BassVolume,
     BassPan,
+    DrumVolume,
+    DrumPan,
     Count
 };
 

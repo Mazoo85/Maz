@@ -69,6 +69,10 @@ Automation::Automation() {
     lane(AutoTarget::BassVolume).hi = 1.0f;
     lane(AutoTarget::BassPan).lo = -1.0f;
     lane(AutoTarget::BassPan).hi = 1.0f;
+    lane(AutoTarget::DrumVolume).lo = 0.0f;
+    lane(AutoTarget::DrumVolume).hi = 1.0f;
+    lane(AutoTarget::DrumPan).lo = -1.0f;
+    lane(AutoTarget::DrumPan).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -109,6 +113,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Bass Volume";
     case AutoTarget::BassPan:
         return "Bass Pan";
+    case AutoTarget::DrumVolume:
+        return "Drum Volume";
+    case AutoTarget::DrumPan:
+        return "Drum Pan";
     case AutoTarget::Count:
         break;
     }
@@ -236,6 +244,14 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
         case AutoTarget::BassPan:
             // Sweep the bass mixer strip's stereo balance (auto-pan on the bass bus only).
             engine.mixer().track(MixerBus::Bass).setPan(v);
+            break;
+        case AutoTarget::DrumVolume:
+            // Sweep the drum mixer strip's gain — the classic drum drop/build volume ride.
+            engine.mixer().track(MixerBus::Drums).setGain(v);
+            break;
+        case AutoTarget::DrumPan:
+            // Sweep the drum mixer strip's stereo balance (auto-pan on the drum bus only).
+            engine.mixer().track(MixerBus::Drums).setPan(v);
             break;
         case AutoTarget::Count:
             break;

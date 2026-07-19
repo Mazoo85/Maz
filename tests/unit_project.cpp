@@ -329,6 +329,13 @@ int main() {
     sendLane.lfo.rateHz = 0.5f;
     sendLane.lo = 0.1f;
     sendLane.hi = 0.75f;
+    // A drum-bus lane (drum volume) — one of the newest appended targets.
+    audio::AutoLane& drumVolLane = automation.lane(audio::AutoTarget::DrumVolume);
+    drumVolLane.enabled = true;
+    drumVolLane.lfo.shape = audio::Waveform::Saw;
+    drumVolLane.lfo.rateHz = 0.6f;
+    drumVolLane.lo = 0.15f;
+    drumVolLane.hi = 0.9f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -637,6 +644,10 @@ int main() {
     check(send2.enabled && send2.lfo.shape == audio::Waveform::Square &&
               near(send2.lo, 0.1f) && near(send2.hi, 0.75f),
           "reverb-send automation lane round-trips");
+    const audio::AutoLane& drumVol2 = automation2.lane(audio::AutoTarget::DrumVolume);
+    check(drumVol2.enabled && drumVol2.lfo.shape == audio::Waveform::Saw &&
+              near(drumVol2.lfo.rateHz, 0.6f) && near(drumVol2.lo, 0.15f) && near(drumVol2.hi, 0.9f),
+          "drum-volume automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

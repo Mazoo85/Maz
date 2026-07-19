@@ -262,6 +262,43 @@ int main() {
               "lead-pan automation reaches hard left at the low bound");
     }
 
+    // --- Drum-bus targets: volume + pan on the drum mixer strip -------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& dv = autom.lane(audio::AutoTarget::DrumVolume);
+        dv.enabled = true;
+        dv.lfo.shape = audio::Waveform::Sine;
+        dv.lfo.rateHz = 1.0f;
+        dv.lo = 0.0f;
+        dv.hi = 1.0f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().track(audio::MixerBus::Drums).gain() > 0.95f,
+              "automating drum volume drives the drum strip gain to its high bound");
+        autom.apply(eng, 0.75); // trough → lo bound (drum drop / silence)
+        check(eng.mixer().track(audio::MixerBus::Drums).gain() < 0.05f,
+              "drum-volume automation reaches its low bound (the drop)");
+
+        // Pan sweeps the drum strip's stereo balance.
+        audio::Automation apan;
+        audio::AutoLane& dp = apan.lane(audio::AutoTarget::DrumPan);
+        dp.enabled = true;
+        dp.lfo.shape = audio::Waveform::Sine;
+        dp.lfo.rateHz = 1.0f;
+        dp.lo = -1.0f;
+        dp.hi = 1.0f;
+        audio::AudioEngine eng2;
+        eng2.initOffline();
+        apan.apply(eng2, 0.25); // peak → +1 hard right
+        check(eng2.mixer().track(audio::MixerBus::Drums).pan() > 0.95f,
+              "automating drum pan drives the balance hard right at the high bound");
+        apan.apply(eng2, 0.75); // trough → -1 hard left
+        check(eng2.mixer().track(audio::MixerBus::Drums).pan() < -0.95f,
+              "drum-pan automation reaches hard left at the low bound");
+    }
+
     // --- Aux-send targets: parallel reverb + delay send levels --------------
     {
         audio::Automation autom;
