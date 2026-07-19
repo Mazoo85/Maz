@@ -55,6 +55,8 @@ double decayTau(Drum type) {
         return 0.11; // the "snappy" noise tail sets the length; the tuned shell decays faster
     case Drum::Hat808:
         return 0.035; // a tight, bright metallic closed hat
+    case Drum::Clap808:
+        return 0.12; // the smeared noise "reverb" tail sets the length
     }
     return 0.1;
 }
@@ -287,6 +289,19 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
                 sum += std::sin(kTwoPi * fk * pitchMul * t_) >= 0.0 ? 1.0 : -1.0;
             }
             s = static_cast<float>(sum / 6.0 * env);
+            break;
+        }
+        case Drum::Clap808: {
+            // The TR-808 clap: three sharp noise bursts ~9 ms apart, then a longer smeared noise
+            // "reverb" tail — the signature stuttered clap, distinct from the single-burst acoustic
+            // clap. Each burst is a fast exp decay gated at its onset; the tail decays slowly from the
+            // third burst.
+            auto burst = [&](double onset, double dec) {
+                return t_ >= onset ? std::exp(-(t_ - onset) / dec) : 0.0;
+            };
+            const double e = burst(0.0, 0.004) + burst(0.009, 0.004) + burst(0.018, 0.004) +
+                             0.6 * burst(0.018, 0.06); // the smeared tail
+            s = static_cast<float>(static_cast<double>(noise()) * e);
             break;
         }
         }

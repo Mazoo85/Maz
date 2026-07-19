@@ -370,6 +370,33 @@ int main() {
         hat808.render(h808tail.data(), static_cast<int>(h808tail.size()), sampleRate);
         check(!hat808.active(), "808 hat decays fast (a tight closed hat)");
 
+        // 808 clap: three noise bursts ~9 ms apart + a smeared tail. The signature is a re-rise after
+        // the gap between bursts — the level dips, then jumps back up on the next burst (a single-burst
+        // clap just decays monotonically).
+        audio::DrumVoice clap808;
+        clap808.setType(audio::Drum::Clap808);
+        clap808.trigger();
+        std::vector<float> c8(static_cast<size_t>(sampleRate) / 10, 0.0f); // 100 ms
+        clap808.render(c8.data(), static_cast<int>(c8.size()), sampleRate);
+        auto win = [&](const std::vector<float>& b, double aMs, double bMs) {
+            const int a = static_cast<int>(aMs * 0.001 * sampleRate);
+            const int c = static_cast<int>(bMs * 0.001 * sampleRate);
+            double e = 0.0;
+            for (int i = a; i < c; ++i) e += static_cast<double>(b[static_cast<size_t>(i)]) * b[static_cast<size_t>(i)];
+            return std::sqrt(e / (c - a));
+        };
+        check(rms(c8) > 0.0, "808 clap produces sound");
+        check(win(c8, 8.0, 10.0) > win(c8, 6.0, 8.0) * 2.0,
+              "808 clap re-rises on the next burst after the inter-burst gap (stuttered structure)");
+        // A single-burst acoustic clap decays monotonically across the same span (no re-rise).
+        audio::DrumVoice clapStd;
+        clapStd.setType(audio::Drum::Clap);
+        clapStd.trigger();
+        std::vector<float> cs(static_cast<size_t>(sampleRate) / 10, 0.0f);
+        clapStd.render(cs.data(), static_cast<int>(cs.size()), sampleRate);
+        check(win(cs, 8.0, 10.0) < win(cs, 6.0, 8.0) * 1.2,
+              "the acoustic clap decays monotonically (no burst re-rise)");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
