@@ -65,13 +65,24 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     Voice& v = voices_[static_cast<size_t>(chosen)];
     v.stage = Stage::Attack;
     v.midi = midi;
-    v.phase = 0.0;
+    // Start-phase randomization: begin each oscillator at a random phase (scaled by phaseRandom_) so
+    // repeated notes have different transients; 0 = the classic phase-coherent start at 0.
+    auto nextPhase = [&]() -> double {
+        if (phaseRandom_ <= 0.0f) {
+            return 0.0;
+        }
+        phaseRng_ ^= phaseRng_ << 13;
+        phaseRng_ ^= phaseRng_ >> 17;
+        phaseRng_ ^= phaseRng_ << 5;
+        return static_cast<double>(phaseRng_) / 4294967295.0 * static_cast<double>(phaseRandom_);
+    };
+    v.phase = nextPhase();
     for (int u = 0; u < kMaxUnison; ++u) {
         v.uniPhase[static_cast<size_t>(u)] = static_cast<double>(u) / kMaxUnison; // decorrelate
     }
-    v.phase2 = 0.0;
-    v.phase3 = 0.0;
-    v.subPhase = 0.0;
+    v.phase2 = nextPhase();
+    v.phase3 = nextPhase();
+    v.subPhase = nextPhase();
     v.modPhase = 0.0;
     v.targetFreq = midiToFreq(midi);
     // Glide: start at the previous note's pitch and slide to the target; otherwise start on pitch.

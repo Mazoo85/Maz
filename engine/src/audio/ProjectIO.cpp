@@ -108,6 +108,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> fdrive) {
         syn.setFilterDrive(fdrive);
     }
+    float phaseRand = 0.0f; // start-phase randomization optional for old files (0 = off)
+    if (ls >> phaseRand) {
+        syn.setStartPhaseRandom(phaseRand);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -208,7 +212,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
           << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
           << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
-          << s.filterEnvDepth() << " " << s.filterDrive() << "\n";
+          << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

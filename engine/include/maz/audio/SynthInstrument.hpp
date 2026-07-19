@@ -72,6 +72,15 @@ public:
     float vibratoRate() const { return vibRate_; }
     float vibratoDepth() const { return vibDepth_; }
 
+    // Oscillator start-phase randomization (0..1): each note starts its oscillators at a random phase
+    // rather than always at 0, so repeated notes don't have identical transients and stacked/unison
+    // voices decorrelate — the subtle analog "every note is a little different" character. 0 = off
+    // (phase-coherent, always starts at 0, the classic clean digital attack). Deterministic RNG.
+    void setStartPhaseRandom(float amount) {
+        phaseRandom_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+    }
+    float startPhaseRandom() const { return phaseRandom_; }
+
     // Analog drift (0..50 cents): each note is detuned by a small random amount within ±this many
     // cents, emulating the pitch instability of analog oscillators for a warmer, less sterile sound.
     // Deterministic (a per-instrument RNG), so renders stay reproducible. 0 = off (perfectly in tune).
@@ -303,6 +312,8 @@ private:
     float lastFreq_ = 0.0f;     // last note's frequency, used as a glide start point
     float drift_ = 0.0f;        // analog drift depth in cents; 0 = off
     uint32_t driftRng_ = 0x51ED2C7u; // deterministic RNG for per-note drift
+    float phaseRandom_ = 0.0f;       // oscillator start-phase randomization [0,1]; 0 = off
+    uint32_t phaseRng_ = 0x9E3779B1u; // deterministic RNG for start-phase randomization
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
     float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off

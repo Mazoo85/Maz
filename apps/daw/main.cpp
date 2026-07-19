@@ -940,6 +940,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::Checkbox("Mono", &synMono)) syn.setMono(synMono);
     float drift = syn.drift();
     if (ImGui::SliderFloat("Analog drift", &drift, 0.0f, 50.0f, "%.1f cents")) syn.setDrift(drift);
+    float phaseRand = syn.startPhaseRandom();
+    if (ImGui::SliderFloat("Phase random", &phaseRand, 0.0f, 1.0f, "%.2f"))
+        syn.setStartPhaseRandom(phaseRand);
 
     ImGui::SeparatorText("Envelope");
     float a = syn.attack();

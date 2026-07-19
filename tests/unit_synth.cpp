@@ -896,6 +896,48 @@ int main() {
         check(dd.drift() == 0.0f, "analog drift defaults to 0 (in tune)");
     }
 
+    // --- Oscillator start-phase randomization --------------------------------
+    {
+        auto renderNote = [&](audio::SynthInstrument& s) {
+            s.noteOn(69, 1.0f);
+            const std::vector<float> b = render(s, 4000, sampleRate);
+            s.noteOff(69);
+            (void)render(s, 2000, sampleRate); // let the release finish before the next note
+            return b;
+        };
+        auto makeSyn = [&](float phaseRand) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw); // phase-dependent shape
+            s.setEnvelope(0.0005f, 0.01f, 1.0f, 0.02f);
+            s.setMono(true);
+            s.setStartPhaseRandom(phaseRand);
+            return s;
+        };
+
+        // Off → every note starts at phase 0, so repeats are bit-identical.
+        audio::SynthInstrument off = makeSyn(0.0f);
+        const std::vector<float> a1 = renderNote(off);
+        const std::vector<float> a2 = renderNote(off);
+        check(a1 == a2, "with phase-random off, repeated notes start bit-identically");
+
+        // On → each note starts at a different random phase, so repeats differ...
+        audio::SynthInstrument on = makeSyn(1.0f);
+        const std::vector<float> b1 = renderNote(on);
+        const std::vector<float> b2 = renderNote(on);
+        check(b1 != b2, "start-phase randomization makes repeated notes differ");
+        // ...but the pitch is unchanged (phase only shifts where the cycle begins).
+        check(std::fabs(estimateHz(b1, sampleRate) - 440.0) < 15.0,
+              "start-phase randomization keeps the note's pitch");
+
+        // ...and it is deterministic: same seed reproduces the sequence.
+        audio::SynthInstrument on2 = makeSyn(1.0f);
+        const std::vector<float> c1 = renderNote(on2);
+        check(b1 == c1, "start-phase randomization is deterministic (same seed → same result)");
+
+        audio::SynthInstrument dd;
+        check(dd.startPhaseRandom() == 0.0f, "start-phase randomization defaults to 0 (off)");
+    }
+
     // --- Per-note fine tune --------------------------------------------------
     {
         audio::SynthInstrument s;
