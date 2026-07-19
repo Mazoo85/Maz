@@ -567,6 +567,11 @@ public:
     const char* name() const override { return "Exciter"; }
     void setCrossover(float hz) { crossover_ = hz < 1000.0f ? 1000.0f : (hz > 12000.0f ? 12000.0f : hz); }
     void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    // Harmonic character: false (default) = the tanh saturator's *odd* harmonics (3rd, 5th — a
+    // brighter, transistor/"transistor-tape" edge); true = *even* harmonics (a 2nd-harmonic octave
+    // sparkle from a squaring cell, DC-blocked — the smoother, warmer tube/valve air, BBE/Aphex-style).
+    void setEvenHarmonics(bool on) { evenMode_ = on; }
+    bool evenHarmonics() const { return evenMode_; }
     float crossover() const { return crossover_; }
     float amount() const { return amount_; }
 
@@ -576,7 +581,10 @@ public:
 private:
     float crossover_ = 4000.0f;
     float amount_ = 0.3f;
+    bool evenMode_ = false; // false = odd harmonics (tanh), true = even harmonics (squaring cell)
     float lpL_ = 0.0f, lpR_ = 0.0f; // one-pole low-band state (high band = input − low)
+    float dcPrevL_ = 0.0f, dcPrevR_ = 0.0f; // DC-blocker input memory (even mode) per channel
+    float dcHpL_ = 0.0f, dcHpR_ = 0.0f;     // DC-blocker state (even mode) per channel
 };
 
 // A transient shaper (attack/sustain designer): reshapes a sound's dynamic envelope independently of

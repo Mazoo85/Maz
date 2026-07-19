@@ -248,6 +248,7 @@ int main() {
     mixer.exciter().setEnabled(true);
     mixer.exciter().setCrossover(6500.0f);
     mixer.exciter().setAmount(0.42f);
+    mixer.exciter().setEvenHarmonics(true);
     mixer.transient().setEnabled(true);
     mixer.transient().setAttack(0.6f);
     mixer.transient().setSustain(-0.3f);
@@ -858,7 +859,7 @@ int main() {
               near(mixer2.tilt().pivot(), 1200.0f),
           "tilt EQ round-trips (incl. pivot)");
     check(mixer2.exciter().enabled() && near(mixer2.exciter().crossover(), 6500.0f) &&
-              near(mixer2.exciter().amount(), 0.42f),
+              near(mixer2.exciter().amount(), 0.42f) && mixer2.exciter().evenHarmonics(),
           "exciter round-trips");
     check(mixer2.multibandTransient().enabled() &&
               near(mixer2.multibandTransient().crossoverLow(), 180.0f) &&

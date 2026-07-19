@@ -1633,6 +1633,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("amount##exciter", &amt, 0.0f, 1.0f, "%.2f"))
             mx.exciter().setAmount(amt);
+        ImGui::SameLine();
+        bool even = mx.exciter().evenHarmonics();
+        if (ImGui::Checkbox("even##exciter", &even)) mx.exciter().setEvenHarmonics(even);
     }
     {
         bool en = mx.eq().enabled();

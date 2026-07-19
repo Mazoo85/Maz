@@ -2480,6 +2480,33 @@ int main() {
             }
         }
         check(same, "a disabled exciter is transparent");
+
+        // Even/odd harmonic mode: a 3 kHz tone above the crossover. The odd (tanh) mode makes a 3rd
+        // harmonic (9 kHz) and no 2nd; the even (squaring) mode makes a 2nd harmonic (6 kHz octave).
+        auto harmPower = [&](bool even, double f) {
+            audio::Exciter ex;
+            ex.setEnabled(true);
+            ex.setCrossover(2000.0f);
+            ex.setAmount(0.8f);
+            ex.setEvenHarmonics(even);
+            std::vector<float> b = sineStereo(sr, 3000.0, 0.5, sr);
+            ex.process(b.data(), sr, sr);
+            const std::vector<float> tail(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+            const double w = 2.0 * 3.14159265358979 * f / sr;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < tail.size(); i += 2) {
+                const double s0 = static_cast<double>(tail[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        check(harmPower(true, 6000.0) > harmPower(false, 6000.0) * 5.0 + 1.0,
+              "exciter even mode injects a 2nd harmonic the odd mode lacks");
+        check(harmPower(false, 9000.0) > harmPower(true, 9000.0),
+              "exciter odd mode makes more 3rd-harmonic than the even mode");
+        check(!audio::Exciter().evenHarmonics(), "exciter defaults to odd harmonics");
     }
 
     // --- Transient shaper: reshape attack/sustain independent of level ------

@@ -818,6 +818,8 @@ void ParametricEQ::process(float* stereo, int frames, int sampleRate) {
 void Exciter::reset() {
     lpL_ = 0.0f;
     lpR_ = 0.0f;
+    dcPrevL_ = dcPrevR_ = 0.0f;
+    dcHpL_ = dcHpR_ = 0.0f;
 }
 
 void Exciter::process(float* stereo, int frames, int sampleRate) {
@@ -826,14 +828,31 @@ void Exciter::process(float* stereo, int frames, int sampleRate) {
     }
     constexpr float kTwoPi = 6.283185307179586f;
     const float a = 1.0f - std::exp(-kTwoPi * crossover_ / static_cast<float>(sampleRate));
+    // Even mode uses a squaring cell (→ a 2nd-harmonic octave), DC-blocked so it stays centred.
+    const float dcR = std::exp(-kTwoPi * 20.0f / static_cast<float>(sampleRate));
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
         lpL_ += a * (l - lpL_);
         lpR_ += a * (r - lpR_);
-        // Harmonics from the high band only, added back on top of the full signal.
-        const float excL = std::tanh((l - lpL_) * 3.0f) * amount_;
-        const float excR = std::tanh((r - lpR_) * 3.0f) * amount_;
+        const float hiL = l - lpL_;
+        const float hiR = r - lpR_;
+        float excL, excR;
+        if (evenMode_) {
+            // Squaring the high band makes a 2nd harmonic (+ DC); the blocker removes the DC.
+            const float sqL = hiL * hiL * 6.0f;
+            const float sqR = hiR * hiR * 6.0f;
+            dcHpL_ = sqL - dcPrevL_ + dcR * dcHpL_;
+            dcPrevL_ = sqL;
+            dcHpR_ = sqR - dcPrevR_ + dcR * dcHpR_;
+            dcPrevR_ = sqR;
+            excL = dcHpL_ * amount_;
+            excR = dcHpR_ * amount_;
+        } else {
+            // Odd harmonics from the high band via a tanh saturator.
+            excL = std::tanh(hiL * 3.0f) * amount_;
+            excR = std::tanh(hiR * 3.0f) * amount_;
+        }
         stereo[2 * i] = l + excL;
         stereo[2 * i + 1] = r + excR;
     }

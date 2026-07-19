@@ -474,7 +474,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << " "
       << mixer.tilt().pivot() << "\n";
     f << "fx exciter " << (mixer.exciter().enabled() ? 1 : 0) << " " << mixer.exciter().crossover()
-      << " " << mixer.exciter().amount() << "\n";
+      << " " << mixer.exciter().amount() << " " << (mixer.exciter().evenHarmonics() ? 1 : 0) << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve()) << " "
       << mixer.distortion().tone() << " " << mixer.distortion().outputDb() << " "
@@ -1683,6 +1683,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.exciter().setEnabled(en != 0);
                 mixer.exciter().setCrossover(xover);
                 mixer.exciter().setAmount(amt);
+                int even = 0; // even-harmonic mode optional (older files → odd/tanh)
+                if (ls >> even) {
+                    mixer.exciter().setEvenHarmonics(even != 0);
+                }
             }
         } else if (tag == "send") {
             std::string which;
