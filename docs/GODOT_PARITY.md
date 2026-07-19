@@ -543,6 +543,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   with velocity settling to ~0, provably no overshoot from either side, max-speed rate limiting, dt<=0
   no-op, zero-smoothTime guard (finite, still converges), the stateful wrapper matching the free
   function bit-for-bit, reset() zeroing velocity, and stable tracking of a continuously moving target),
+  **1€ (One Euro) adaptive filter** (M437, `core::OneEuroFilter` + `core::LowPassFilter` — Casiez/Roussel/
+  Vogel 2012 adaptive low-pass for noisy human-driven input: it RAISES its cutoff as the signal speeds up,
+  so nearly-still input is filtered hard (jitter vanishes) while fast input is filtered lightly (lag
+  vanishes) — the two goals a fixed low-pass can't serve at once. Two intuitive knobs: minCutoff (smoothing
+  at rest) and beta (how fast responsiveness ramps with speed). For denoising pointer/touch/stylus/VR-pose
+  streams; distinct from SmoothDamp (chases a target, not denoises) and from a fixed EMA. Godot has no 1€
+  filter. Verified: the LowPassFilter primitive (hold-first-sample, alpha 0/0.5/1 behaviour), constant
+  input passing through unchanged, >10x variance reduction on a noisy stationary stream with the mean
+  preserved, the core adaptivity property (on a fast ramp beta>0 lags strictly less than beta==0 while
+  staying causal), and reset()/dt<=0 pass-through),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

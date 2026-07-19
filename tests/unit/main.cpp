@@ -81,6 +81,7 @@
 #include "maz/core/RollingWindow.hpp"
 #include "maz/core/PidController.hpp"
 #include "maz/core/SmoothDamp.hpp"
+#include "maz/core/OneEuroFilter.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17970,6 +17971,84 @@ void testSmoothDamp() {
     }
 }
 
+// OneEuroFilter: adaptive low-pass filter for noisy interactive signals (M437).
+void testOneEuroFilter() {
+    using core::LowPassFilter;
+    using core::OneEuroFilter;
+    using core::Pcg32;
+
+    // ---- LowPassFilter primitive. ----
+    {
+        LowPassFilter lp;
+        CHECK(!lp.initialized());
+        CHECK(std::fabs(lp.filter(10.0, 0.5) - 10.0) < 1e-9); // first sample holds input
+        CHECK(lp.initialized());
+        CHECK(std::fabs(lp.filter(20.0, 1.0) - 20.0) < 1e-9); // alpha 1 -> pass through
+        CHECK(std::fabs(lp.filter(0.0, 0.0) - 20.0) < 1e-9);  // alpha 0 -> hold
+        CHECK(std::fabs(lp.filter(40.0, 0.5) - 30.0) < 1e-9); // 0.5*40 + 0.5*20
+        lp.reset();
+        CHECK(!lp.initialized());
+    }
+
+    // ---- Constant input passes through unchanged. ----
+    {
+        OneEuroFilter f(1.0, 0.5);
+        for (int i = 0; i < 100; ++i) {
+            CHECK(std::fabs(f.filter(5.0, 1.0 / 60.0) - 5.0) < 1e-9);
+        }
+    }
+
+    // ---- Noise reduction: output far steadier than a jittery stationary input. ----
+    {
+        OneEuroFilter f(0.6, 0.0);
+        Pcg32 rng(7, 11);
+        const double dt = 1.0 / 60.0;
+        for (int i = 0; i < 200; ++i) {
+            f.filter(50.0 + rng.rangef(-5.0f, 5.0f), dt);
+        }
+        double rawSum = 0, rawSumSq = 0, filtSum = 0, filtSumSq = 0;
+        const int n = 4000;
+        for (int i = 0; i < n; ++i) {
+            const double raw = 50.0 + rng.rangef(-5.0f, 5.0f);
+            const double filt = f.filter(raw, dt);
+            rawSum += raw;
+            rawSumSq += raw * raw;
+            filtSum += filt;
+            filtSumSq += filt * filt;
+        }
+        const double rawVar = rawSumSq / n - (rawSum / n) * (rawSum / n);
+        const double filtVar = filtSumSq / n - (filtSum / n) * (filtSum / n);
+        CHECK(filtVar < rawVar * 0.1);
+        CHECK(std::fabs(filtSum / n - 50.0) < 1.0);
+    }
+
+    // ---- Adaptivity: on a fast ramp, beta>0 lags less than beta==0. ----
+    {
+        OneEuroFilter slow(1.0, 0.0);
+        OneEuroFilter fast(1.0, 2.0);
+        const double dt = 1.0 / 60.0;
+        double x = 0.0, errSlow = 0.0, errFast = 0.0;
+        for (int i = 0; i < 400; ++i) {
+            x += 2.0;
+            errSlow = x - slow.filter(x, dt);
+            errFast = x - fast.filter(x, dt);
+        }
+        CHECK(errFast < errSlow);
+        CHECK(errFast > 0.0);
+    }
+
+    // ---- reset() and dt <= 0 pass-through. ----
+    {
+        OneEuroFilter f(1.0, 0.5);
+        for (int i = 0; i < 50; ++i) {
+            f.filter(100.0, 1.0 / 60.0);
+        }
+        f.reset();
+        CHECK(std::fabs(f.filter(7.0, 1.0 / 60.0) - 7.0) < 1e-9);
+        CHECK(std::fabs(f.filter(3.0, 0.0) - 3.0) < 1e-9);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26731,6 +26810,7 @@ int main() {
     testRollingWindow();
     testPidController();
     testSmoothDamp();
+    testOneEuroFilter();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
