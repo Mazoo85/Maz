@@ -180,7 +180,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Curve2D's Bézier baking this works on any raw polyline). Verified: open perimeter 12 / closed 16 / a
   3-4-5 leg = 5, a straight line resampled to 5 exact points, an L-shape resampled to uniform spacing-2
   points across the corner with endpoints kept, dense resampling staying within 2% of the source length
-  (corner-cutting keeps it ≤ source), and degenerate count<2 / all-coincident handling; plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
+  (corner-cutting keeps it ≤ source), and degenerate count<2 / all-coincident handling; plus **Catmull-Rom
+  spline through waypoints** M427 — `catmullRomSpline` (a smooth curve that PASSES THROUGH every waypoint,
+  unlike a Bezier whose control points only pull it — what you want for a camera/object path that must hit
+  exact points, or rounding a coarse route into a flowing curve. Each segment reuses the existing
+  cubicInterpolate/Catmull-Rom with the two neighbours as tangents; boundaries clamp (open) or wrap
+  (closed). Godot has cubic_interpolate per-segment but no spline-through-a-point-list builder. Verified:
+  degenerate pass-through, an open spline of samplesPerSegment=8 hitting every waypoint at its k·S knot
+  with count (n-1)·S+1, samplesPerSegment=1 reproducing the input, collinear waypoints staying collinear
+  with monotonic x, and a closed loop of N·S points passing through every waypoint and starting at the
+  first); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
   clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); plus **point-in-circle test** M373
   — `pointInCircle` (Godot's Geometry2D.is_point_in_circle: squared-distance ≤ radius², boundary counts as inside); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward

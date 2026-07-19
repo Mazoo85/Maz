@@ -15802,6 +15802,62 @@ void testGeometry2DPolygon() {
             }
         }
     }
+
+    // --- M427: catmullRomSpline (smooth spline through waypoints) ---
+    {
+        auto veq = [](vec2 a, vec2 b) {
+            return std::fabs(a.x - b.x) < 1e-4f && std::fabs(a.y - b.y) < 1e-4f;
+        };
+        const std::vector<vec2> wp = {{0, 0}, {1, 2}, {2, -1}, {3, 1}, {4, 0}};
+
+        // Degenerate: <2 points or samplesPerSegment<1 returns input.
+        CHECK(math::catmullRomSpline({vec2(1, 1)}, 4).size() == 1);
+        CHECK(math::catmullRomSpline(wp, 0).size() == wp.size());
+
+        // Open spline passes through every waypoint (at index k*S), count = (n-1)*S+1.
+        {
+            const int S = 8;
+            const std::vector<vec2> s = math::catmullRomSpline(wp, S);
+            CHECK(s.size() == (wp.size() - 1) * static_cast<std::size_t>(S) + 1);
+            for (std::size_t i = 0; i < wp.size(); ++i) {
+                CHECK(veq(s[i * static_cast<std::size_t>(S)], wp[i]));
+            }
+            CHECK(veq(s.back(), wp.back()));
+        }
+
+        // samplesPerSegment=1 open reproduces the input exactly.
+        {
+            const std::vector<vec2> s = math::catmullRomSpline(wp, 1);
+            CHECK(s.size() == wp.size());
+            for (std::size_t i = 0; i < wp.size(); ++i) {
+                CHECK(veq(s[i], wp[i]));
+            }
+        }
+
+        // Straight collinear waypoints -> spline stays collinear and x is monotonic.
+        {
+            const std::vector<vec2> line = {{0, 0}, {1, 0}, {2, 0}, {3, 0}};
+            const std::vector<vec2> s = math::catmullRomSpline(line, 6);
+            for (const vec2& v : s) {
+                CHECK(std::fabs(v.y) < 1e-4f);
+            }
+            for (std::size_t i = 0; i + 1 < s.size(); ++i) {
+                CHECK(s[i + 1].x >= s[i].x - 1e-4f);
+            }
+        }
+
+        // Closed loop: passes through every waypoint, N*S points, starts at first waypoint.
+        {
+            const int S = 5;
+            const std::vector<vec2> sqp = {{0, 0}, {4, 0}, {4, 4}, {0, 4}};
+            const std::vector<vec2> s = math::catmullRomSpline(sqp, S, true);
+            CHECK(s.size() == sqp.size() * static_cast<std::size_t>(S));
+            for (std::size_t i = 0; i < sqp.size(); ++i) {
+                CHECK(veq(s[i * static_cast<std::size_t>(S)], sqp[i]));
+            }
+            CHECK(veq(s.front(), vec2(0, 0)));
+        }
+    }
 }
 
 // HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.

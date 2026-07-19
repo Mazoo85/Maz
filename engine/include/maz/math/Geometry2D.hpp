@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp"
+#include "maz/math/VectorOps.hpp" // cubicInterpolate (Catmull-Rom segment) for catmullRomSpline
 
 #include <algorithm>
 #include <cmath>
@@ -783,6 +784,39 @@ inline std::vector<vec2> resamplePolyline(const std::vector<vec2>& pts, int coun
         out.push_back(vec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
     }
     out.push_back(pts.back());
+    return out;
+}
+
+// Catmull-Rom spline through a list of waypoints: a smooth curve that PASSES THROUGH every point (unlike
+// a Bezier, whose control points only pull the curve). This is what you want for a camera or object path
+// that must hit exact waypoints, or for rounding a coarse route into a flowing curve. Each segment is
+// evaluated with the existing cubicInterpolate (Catmull-Rom) using the two neighbouring points as
+// tangents; boundaries clamp the missing neighbour (open) or wrap (closed). Returns `samplesPerSegment`
+// points per segment plus the final endpoint for an open path (a closed loop returns exactly
+// N*samplesPerSegment points). samplesPerSegment < 1 or < 2 input points returns the input unchanged.
+inline std::vector<vec2> catmullRomSpline(const std::vector<vec2>& points, int samplesPerSegment,
+                                          bool closed = false) {
+    const std::size_t n = points.size();
+    if (samplesPerSegment < 1 || n < 2) {
+        return points;
+    }
+    const std::size_t segCount = closed ? n : (n - 1);
+    std::vector<vec2> out;
+    out.reserve(segCount * static_cast<std::size_t>(samplesPerSegment) + 1);
+    for (std::size_t seg = 0; seg < segCount; ++seg) {
+        const vec2 p1 = points[seg];
+        const vec2 p2 = points[(seg + 1) % n];
+        const vec2 p0 = closed ? points[(seg + n - 1) % n] : points[seg == 0 ? 0 : seg - 1];
+        const vec2 p3 =
+            closed ? points[(seg + 2) % n] : points[seg + 2 < n ? seg + 2 : n - 1];
+        for (int k = 0; k < samplesPerSegment; ++k) {
+            const float w = static_cast<float>(k) / static_cast<float>(samplesPerSegment);
+            out.push_back(cubicInterpolate<vec2>(p1, p2, p0, p3, w));
+        }
+    }
+    if (!closed) {
+        out.push_back(points.back()); // include the final endpoint (w=1 of the last segment)
+    }
     return out;
 }
 
