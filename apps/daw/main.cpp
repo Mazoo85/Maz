@@ -2030,6 +2030,12 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(70.0f);
         if (ImGui::Combo("div##vib", &vdiv, vModDivs, audio::kModSyncDivisions))
             mx.vibrato().setSyncDivision(vdiv);
+        const char* vibShapes[] = {"Sine", "Triangle", "Square", "Saw"};
+        int vsh = static_cast<int>(mx.vibrato().shape());
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("shape##vib", &vsh, vibShapes, IM_ARRAYSIZE(vibShapes)))
+            mx.vibrato().setShape(static_cast<audio::Vibrato::Shape>(vsh));
     }
     {
         bool en = mx.rotary().enabled();

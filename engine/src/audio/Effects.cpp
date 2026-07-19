@@ -659,7 +659,23 @@ void Vibrato::process(float* stereo, int frames, int sampleRate) {
         bufL_[static_cast<size_t>(write_)] = stereo[2 * i];
         bufR_[static_cast<size_t>(write_)] = stereo[2 * i + 1];
 
-        const float mod = static_cast<float>(std::sin(phase_ * kTwoPi));
+        // Pitch-LFO value in [-1,1] for the selected shape (Sine keeps the exact original expression).
+        float mod;
+        switch (shape_) {
+        case Shape::Triangle:
+            mod = 4.0f * std::fabs(static_cast<float>(phase_) - 0.5f) - 1.0f;
+            break;
+        case Shape::Square:
+            mod = phase_ < 0.5 ? 1.0f : -1.0f;
+            break;
+        case Shape::Saw:
+            mod = 2.0f * static_cast<float>(phase_) - 1.0f;
+            break;
+        case Shape::Sine:
+        default:
+            mod = static_cast<float>(std::sin(phase_ * kTwoPi));
+            break;
+        }
         // Fully wet: the output is the pitch-modulated (swept-delay) copy only, no dry blend.
         stereo[2 * i] = readAt(bufL_, baseSamp + depthSamp * mod);
         stereo[2 * i + 1] = readAt(bufR_, baseSamp + depthSamp * mod);

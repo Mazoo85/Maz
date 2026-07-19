@@ -426,6 +426,7 @@ int main() {
     mixer.vibrato().setDepth(7.0f);
     mixer.vibrato().setSync(true);
     mixer.vibrato().setSyncDivision(4);
+    mixer.vibrato().setShape(audio::Vibrato::Shape::Square);
     mixer.rotary().setEnabled(true);
     mixer.rotary().setRate(0.8f);
     mixer.rotary().setDepth(0.65f);
@@ -1014,7 +1015,8 @@ int main() {
           "chorus tempo sync round-trips");
     check(mixer2.vibrato().enabled() && near(mixer2.vibrato().rate(), 6.5f) &&
               near(mixer2.vibrato().depth(), 7.0f) && mixer2.vibrato().sync() &&
-              mixer2.vibrato().syncDivision() == 4,
+              mixer2.vibrato().syncDivision() == 4 &&
+              mixer2.vibrato().shape() == audio::Vibrato::Shape::Square,
           "vibrato round-trips");
     check(mixer2.rotary().enabled() && near(mixer2.rotary().rate(), 0.8f) &&
               near(mixer2.rotary().depth(), 0.65f) && near(mixer2.rotary().mix(), 0.9f) &&

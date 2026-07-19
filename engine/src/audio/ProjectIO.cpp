@@ -495,7 +495,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx vibrato " << (mixer.vibrato().enabled() ? 1 : 0) << " " << mixer.vibrato().rate() << " "
       << mixer.vibrato().depth() << " " << (mixer.vibrato().sync() ? 1 : 0) << " "
-      << mixer.vibrato().syncDivision() << "\n";
+      << mixer.vibrato().syncDivision() << " " << static_cast<int>(mixer.vibrato().shape()) << "\n";
     f << "fx rotary " << (mixer.rotary().enabled() ? 1 : 0) << " " << mixer.rotary().rate() << " "
       << mixer.rotary().depth() << " " << mixer.rotary().mix() << " " << mixer.rotary().drive()
       << "\n";
@@ -1620,6 +1620,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     mixer.vibrato().setSync(sync != 0);
                     mixer.vibrato().setSyncDivision(div);
+                }
+                int vshape = 0; // pitch-LFO shape optional for old files (0 = Sine)
+                if (ls >> vshape) {
+                    mixer.vibrato().setShape(static_cast<Vibrato::Shape>(
+                        vshape < 0 || vshape > 3 ? 0 : vshape));
                 }
             } else if (which == "rotary") {
                 float rate = 6.0f, depth = 0.5f, mix = 1.0f;

@@ -364,10 +364,15 @@ private:
 // so only the pitch moves. `rate` Hz (wobble speed), `depth` ms (sweep range → wobble amount).
 class Vibrato : public Effect {
 public:
+    // Pitch-LFO shape: Sine (smooth wobble), Triangle (linear up/down glide), Square (a two-pitch
+    // trill — the delay jumps between two values), or Saw (a repeating one-way pitch ramp/gliss).
+    enum class Shape { Sine, Triangle, Square, Saw };
     Vibrato() { enabled_ = false; }
     const char* name() const override { return "Vibrato"; }
     void setRate(float hz) { rateHz_ = hz < 0.0f ? 0.0f : (hz > 14.0f ? 14.0f : hz); }
     void setDepth(float ms) { depthMs_ = ms < 0.0f ? 0.0f : (ms > 20.0f ? 20.0f : ms); }
+    void setShape(Shape s) { shape_ = s; }
+    Shape shape() const { return shape_; }
     // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the shared
     // modulation division set). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -386,6 +391,7 @@ public:
 private:
     float rateHz_ = 5.0f;
     float depthMs_ = 4.0f;
+    Shape shape_ = Shape::Sine; // pitch-LFO shape
     bool sync_ = false; // tempo-sync the LFO rate
     int syncDiv_ = 3;   // note-division index
     std::vector<float> bufL_;

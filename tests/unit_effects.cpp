@@ -1798,6 +1798,31 @@ int main() {
         vs.setSyncDivision(3); // 1/8 in the shared modulation division set
         vs.updateTempo(120.0);
         check(std::fabs(vs.rate() - 4.0f) < 0.01f, "synced vibrato runs at 4 Hz for 1/8 @120 BPM");
+
+        // LFO shape: a Square-shaped vibrato jumps the delay between two values (a two-pitch trill),
+        // producing a different output than the smooth Sine — while both stay bounded. Sine is the
+        // default and unchanged.
+        auto shapeOut = [&](audio::Vibrato::Shape shp) {
+            audio::Vibrato v;
+            v.setEnabled(true);
+            v.setRate(6.0f);
+            v.setDepth(6.0f);
+            v.setShape(shp);
+            std::vector<float> b = sineStereo(sr / 2, 330.0, 0.5, sr);
+            v.process(b.data(), sr / 2, sr);
+            return b;
+        };
+        const std::vector<float> sineV = shapeOut(audio::Vibrato::Shape::Sine);
+        const std::vector<float> sqV = shapeOut(audio::Vibrato::Shape::Square);
+        double diff = 0.0;
+        float sqPk = 0.0f;
+        for (size_t i = 0; i < sineV.size(); ++i) {
+            diff += std::fabs(static_cast<double>(sineV[i] - sqV[i]));
+            sqPk = std::max(sqPk, std::fabs(sqV[i]));
+        }
+        check(diff > 1.0, "a square-shaped vibrato differs from the sine shape (two-pitch trill)");
+        check(sqPk < 1.5f, "the square-shaped vibrato stays bounded");
+        check(audio::Vibrato().shape() == audio::Vibrato::Shape::Sine, "vibrato shape defaults to sine");
     }
 
     // --- Rotary (Leslie): amplitude + Doppler modulation + stereo rotation ---
