@@ -73,6 +73,7 @@
 #include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/AliasTable.hpp"
+#include "maz/core/Halton.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17211,6 +17212,77 @@ void testAliasTable() {
     }
 }
 
+// Halton: low-discrepancy quasi-random sequence (M429).
+void testHalton() {
+    using core::radicalInverse;
+    using core::halton;
+    using core::halton2D;
+    using core::HaltonSequence;
+    auto nf = [](float a, float b) { return std::fabs(a - b) < 1e-5f; };
+
+    // Exact radical-inverse values in base 2 and 3.
+    CHECK(nf(radicalInverse(0, 2), 0.0f));
+    CHECK(nf(radicalInverse(1, 2), 0.5f));
+    CHECK(nf(radicalInverse(2, 2), 0.25f));
+    CHECK(nf(radicalInverse(3, 2), 0.75f));
+    CHECK(nf(radicalInverse(4, 2), 0.125f));
+    CHECK(nf(radicalInverse(5, 2), 0.625f));
+    CHECK(nf(radicalInverse(1, 3), 1.0f / 3.0f));
+    CHECK(nf(radicalInverse(2, 3), 2.0f / 3.0f));
+    CHECK(nf(radicalInverse(3, 3), 1.0f / 9.0f));
+
+    // Degenerate base < 2 -> 0.
+    CHECK(nf(radicalInverse(5, 1), 0.0f));
+    CHECK(nf(radicalInverse(5, 0), 0.0f));
+
+    // All values in [0,1).
+    for (std::uint32_t i = 0; i < 500; ++i) {
+        const float v = halton(i, 2);
+        CHECK(v >= 0.0f && v < 1.0f);
+        const auto p = halton2D(i);
+        CHECK(p.first >= 0.0f && p.first < 1.0f);
+        CHECK(p.second >= 0.0f && p.second < 1.0f);
+    }
+
+    // Low discrepancy: 64 2D points cover every cell of a 4x4 grid.
+    {
+        bool hit[4][4] = {};
+        for (std::uint32_t i = 0; i < 64; ++i) {
+            const auto p = halton2D(i);
+            const int cx = static_cast<int>(p.first * 4.0f);
+            const int cy = static_cast<int>(p.second * 4.0f);
+            CHECK(cx >= 0 && cx < 4 && cy >= 0 && cy < 4);
+            hit[cx][cy] = true;
+        }
+        for (int x = 0; x < 4; ++x) {
+            for (int y = 0; y < 4; ++y) {
+                CHECK(hit[x][y]);
+            }
+        }
+    }
+
+    // van der Corput property: first 16 base-2 points hit each 1/16 bucket exactly once.
+    {
+        int bucket[16] = {};
+        for (std::uint32_t i = 0; i < 16; ++i) {
+            const int b = static_cast<int>(halton(i, 2) * 16.0f);
+            CHECK(b >= 0 && b < 16);
+            ++bucket[b];
+        }
+        for (int b = 0; b < 16; ++b) {
+            CHECK(bucket[b] == 1);
+        }
+    }
+
+    // Stateful cursor matches the stateless calls.
+    {
+        HaltonSequence seq(2, 1);
+        for (std::uint32_t i = 1; i <= 10; ++i) {
+            CHECK(nf(seq.next(), radicalInverse(i, 2)));
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -25964,6 +26036,7 @@ int main() {
     testGraphEdit();
     testPcg32();
     testAliasTable();
+    testHalton();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

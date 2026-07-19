@@ -466,6 +466,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   so the build-once alias table is beyond-Godot. Distribution-verified over ~360k samples: {1,3,6}→
   10/30/60%, uniform→25% each, zero-weight entries never drawn, single/empty/rebuild handled, and the
   same seed reproduces the same sequence),
+  **low-discrepancy sequence** (M429, `core::radicalInverse`/`halton`/`halton2D` + `HaltonSequence` —
+  the Halton quasi-random sequence: unlike a pseudo-random generator (which clumps and leaves gaps), each
+  new point lands in the biggest remaining hole, filling space EVENLY. The right tool for procedural
+  scatter that should look spread-out not blotchy, anti-aliasing/temporal jitter offsets, and evenly
+  probing a search space; each coordinate is the van der Corput radical inverse of the sample index in a
+  prime base — deterministic and stateless. Godot has no low-discrepancy sequence. Verified with exact
+  radical-inverse values in base 2 (½, ¼, ¾, ⅛, …) and base 3 (⅓, ⅔, 1/9), all values in [0,1),
+  base<2→0, the van-der-Corput property that the first 16 base-2 points hit each 1/16 bucket exactly
+  once, a 4×4 grid fully covered by 64 2D points, and the stateful cursor matching the stateless calls),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
