@@ -11685,6 +11685,15 @@ void testStringUtils() {
     CHECK((su::findN("Hello World", "world") == 6 && su::findN("Hello World", "WORLD") == 6));
     CHECK((su::findN("abcabc", "B", 2) == 4 && su::findN("abc", "z") == std::string::npos));
 
+    // --- M354: rfind / rfindn (reverse search) ---
+    CHECK((su::rfind("hello world hello", "hello") == 12));
+    CHECK((su::rfind("hello world hello", "hello", 5) == 0)); // last match starting at <= 5
+    CHECK((su::rfind("abcabc", "a") == 3 && su::rfind("abcabc", "a", 2) == 0));
+    CHECK((su::rfind("abc", "xyz") == std::string::npos));
+    CHECK((su::rfindN("Hello WORLD hello", "HELLO") == 12));
+    CHECK((su::rfindN("Hello WORLD hello", "hello", 5) == 0));
+    CHECK((su::rfindN("abc", "ZZ") == std::string::npos));
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

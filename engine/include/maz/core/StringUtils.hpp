@@ -305,6 +305,20 @@ inline std::size_t findN(const std::string& s, const std::string& needle, std::s
     return toLower(s).find(toLower(needle), from);
 }
 
+// Reverse search — index of the LAST occurrence of `needle` that starts at or before `from`, or npos
+// if none (Godot's String.rfind). `from == npos` (the default) searches the whole string, matching
+// Godot's p_from == -1 "from the end". (Empty needle follows std::string::rfind.)
+inline std::size_t rfind(const std::string& s, const std::string& needle,
+                         std::size_t from = std::string::npos) {
+    return s.rfind(needle, from);
+}
+
+// Case-insensitive (ASCII) reverse search — Godot's String.rfindn.
+inline std::size_t rfindN(const std::string& s, const std::string& needle,
+                          std::size_t from = std::string::npos) {
+    return toLower(s).rfind(toLower(needle), from);
+}
+
 // ---- natural-order comparison (Godot String.naturalcasecmp_to / naturalnocasecmp_to) (M321) -----
 // Numeric-aware ordering: runs of digits compare by VALUE, not character-by-character, so "file2"
 // sorts before "file10" (plain lexicographic would put "file10" first because '1' < '2'). This is the
