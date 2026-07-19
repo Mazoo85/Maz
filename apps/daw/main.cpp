@@ -1513,6 +1513,11 @@ void buildBassUI(audio::SynthInstrument& syn) {
     if (ech) {
         syn.setEnvelope(a, d, s, r);
     }
+    bool bmono = syn.mono();
+    if (ImGui::Checkbox("Mono##bass", &bmono)) syn.setMono(bmono); // required for per-note slide
+    ImGui::SameLine();
+    bool blegato = syn.glideLegato();
+    if (ImGui::Checkbox("Legato glide##bass", &blegato)) syn.setGlideLegato(blegato);
     float bglide = syn.glide();
     if (ImGui::SliderFloat("Glide##bass", &bglide, 0.0f, 1.0f, "%.3f s")) syn.setGlide(bglide);
     float bdrift = syn.drift();
