@@ -625,6 +625,20 @@ public:
     // bass) don't drive the gain reduction and pump the whole mix. The gain is still applied to the
     // full-range signal. 0 (default) = off (detect on the full signal).
     void setSidechainHpf(float hz) { scHpfHz_ = hz < 0.0f ? 0.0f : (hz > 500.0f ? 500.0f : hz); }
+    // Auto makeup gain: when on, the makeup gain is derived from the threshold and ratio (so the
+    // output loudness is roughly restored automatically as you dial in compression), overriding the
+    // manual makeup. Off (default) = use the manual makeup dB.
+    void setAutoMakeup(bool on) { autoMakeup_ = on; }
+    bool autoMakeup() const { return autoMakeup_; }
+    // The makeup gain (dB) actually applied — the manual value, or the auto-derived one when auto is on.
+    float effectiveMakeupDb() const {
+        if (!autoMakeup_) {
+            return makeupDb_;
+        }
+        const float r = ratio_ < 1.0f ? 1.0f : ratio_;
+        const float m = -thresholdDb_ * (1.0f - 1.0f / r) * 0.5f;
+        return m < 0.0f ? 0.0f : (m > 24.0f ? 24.0f : m);
+    }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float attackMs() const { return attackMs_; }
@@ -649,6 +663,7 @@ private:
     float kneeDb_ = 0.0f; // 0 = hard knee
     float mix_ = 1.0f;     // dry/wet blend; 1 = fully compressed
     float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
+    bool autoMakeup_ = false; // derive makeup from threshold/ratio when on
     float env_ = 0.0f; // linear peak-envelope follower
     float scLpL_ = 0.0f, scLpR_ = 0.0f; // detection high-pass state (one-pole LP; HP = x − LP)
     float grDb_ = 0.0f; // peak gain reduction (dB) over the last block, for the GR meter

@@ -1697,6 +1697,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("SC HPF##cmp", &scHpf, 0.0f, 500.0f, "%.0f Hz"))
             mx.compressor().setSidechainHpf(scHpf);
         ImGui::SameLine();
+        bool autoMk = mx.compressor().autoMakeup();
+        if (ImGui::Checkbox("Auto MU##cmp", &autoMk)) mx.compressor().setAutoMakeup(autoMk);
+        ImGui::SameLine();
         ImGui::Text("GR %.1f dB", mx.compressor().gainReductionDb());
     }
     {

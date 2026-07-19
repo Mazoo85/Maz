@@ -183,6 +183,7 @@ int main() {
     mixer.compressor().setKneeDb(6.0f);
     mixer.compressor().setMix(0.6f);
     mixer.compressor().setSidechainHpf(90.0f);
+    mixer.compressor().setAutoMakeup(true);
     mixer.multiband().setEnabled(true);
     mixer.multiband().setCrossoverLow(180.0f);
     mixer.multiband().setCrossoverHigh(3200.0f);
@@ -683,6 +684,7 @@ int main() {
     check(near(mixer2.compressor().kneeDb(), 6.0f), "compressor knee round-trips");
     check(near(mixer2.compressor().mix(), 0.6f), "compressor mix round-trips");
     check(near(mixer2.compressor().sidechainHpf(), 90.0f), "compressor sidechain HPF round-trips");
+    check(mixer2.compressor().autoMakeup(), "compressor auto-makeup round-trips");
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");

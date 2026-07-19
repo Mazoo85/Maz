@@ -252,6 +252,27 @@ int main() {
         std::vector<float> soft = sineStereo(sr, 220.0, 0.05, sr); // ~-26 dB, below threshold
         quiet.process(soft.data(), sr, sr);
         check(quiet.gainReductionDb() > -0.01f, "the GR meter reads ~0 when not compressing");
+
+        // Auto makeup: it derives a positive makeup gain from threshold/ratio, so the compressed
+        // output is louder than the same settings with no makeup — and matches the manual makeup path.
+        auto compAt = [&](bool autoMk) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-18.0f);
+            c.setRatio(4.0f);
+            c.setAutoMakeup(autoMk);
+            std::vector<float> b = sineStereo(sr, 220.0, 0.8, sr);
+            c.process(b.data(), sr, sr);
+            return peakRange(b, sr / 2, sr);
+        };
+        check(compAt(true) > compAt(false) * 1.2f,
+              "auto makeup lifts the compressed output level vs no makeup");
+        audio::Compressor am;
+        am.setThresholdDb(-18.0f);
+        am.setRatio(4.0f);
+        am.setAutoMakeup(true);
+        check(am.effectiveMakeupDb() > 0.0f && !audio::Compressor().autoMakeup(),
+              "auto makeup derives a positive gain and defaults to off");
     }
 
     // --- Compressor sidechain HPF: lows don't drive the detection ------------

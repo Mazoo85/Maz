@@ -1078,7 +1078,7 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     const float sr = static_cast<float>(sampleRate);
     const float atkCoef = std::exp(-1.0f / (std::max(attackMs_, 0.01f) * 0.001f * sr));
     const float relCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
-    const float makeup = dbToLin(makeupDb_);
+    const float makeup = dbToLin(effectiveMakeupDb());
     const float ratio = std::max(ratio_, 1.0f);
     // Sidechain high-pass on the detection signal only (0 = off): removes lows from what drives the
     // gain reduction, so bass/kick don't pump the compressor.
