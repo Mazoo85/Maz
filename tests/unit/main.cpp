@@ -219,6 +219,7 @@
 #include "maz/render/ColorNames.hpp"
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Image.hpp"
+#include "maz/render/ImageCodecBmp.hpp"
 #include "maz/render/ImageCodecQoi.hpp"
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
@@ -1286,6 +1287,58 @@ void testColorOps() {
         auto qbad = qblob;
         qbad[0] = 'X';
         CHECK(render::decodeQoi(qbad).empty());
+
+        // --- BMP codec: header, round-trip, 24-bit padding, top-down (M394) ---
+        render::Image bi(3, 2, render::color8(0, 0, 0, 255));
+        bi.setPixel(0, 0, render::color8(255, 0, 0, 255));
+        bi.setPixel(1, 0, render::color8(0, 255, 0, 200));
+        bi.setPixel(0, 1, render::color8(10, 20, 30, 255));
+        auto bblob = render::encodeBmp(bi);
+        CHECK(bblob[0] == 'B' && bblob[1] == 'M');
+        CHECK(bblob.size() == 54u + 3u * 2u * 4u);
+        CHECK(bblob[10] == 54 && bblob[14] == 40);       // data offset, DIB size
+        CHECK(bblob[18] == 3 && bblob[22] == 2);         // width, height (bottom-up)
+        CHECK(bblob[28] == 32 && bblob[30] == 0);        // bpp, compression BI_RGB
+        // First pixel-data (bottom-up) = image (0,1) = (10,20,30,255) as BGRA.
+        CHECK(bblob[54] == 30 && bblob[55] == 20 && bblob[56] == 10 && bblob[57] == 255);
+        render::Image bback = render::decodeBmp(bblob);
+        CHECK(bback.width() == 3 && bback.height() == 2);
+        bool bmpRoundTrip = true;
+        for (int by = 0; by < 2; ++by) {
+            for (int bx = 0; bx < 3; ++bx) {
+                if (!sameC(bback.getPixel(bx, by), bi.getPixel(bx, by))) {
+                    bmpRoundTrip = false;
+                }
+            }
+        }
+        CHECK(bmpRoundTrip);
+        // Hand-built 24-bit bottom-up 3x2 with 4-byte row padding (rowStride 12).
+        {
+            std::vector<std::uint8_t> t;
+            auto p16 = [&t](int v) { t.push_back((std::uint8_t)(v & 0xFF)); t.push_back((std::uint8_t)((v >> 8) & 0xFF)); };
+            auto p32 = [&t](std::uint32_t v) { for (int k = 0; k < 4; ++k) t.push_back((std::uint8_t)((v >> (8 * k)) & 0xFF)); };
+            t.push_back('B'); t.push_back('M');
+            p32(0); p32(0); p32(54);
+            p32(40); p32(3); p32(2); p16(1); p16(24); p32(0); p32(0); p32(0); p32(0); p32(0); p32(0);
+            t.push_back(3); t.push_back(2); t.push_back(1);     // bottom row BGR (r1,g2,b3)... stored B,G,R
+            t.push_back(6); t.push_back(5); t.push_back(4);
+            t.push_back(9); t.push_back(8); t.push_back(7);
+            t.push_back(0); t.push_back(0); t.push_back(0);     // padding
+            t.push_back(12); t.push_back(11); t.push_back(10);  // top row
+            t.push_back(15); t.push_back(14); t.push_back(13);
+            t.push_back(18); t.push_back(17); t.push_back(16);
+            t.push_back(0); t.push_back(0); t.push_back(0);
+            render::Image cimg = render::decodeBmp(t);
+            CHECK(cimg.width() == 3 && cimg.height() == 2);
+            CHECK(sameC(cimg.getPixel(0, 1), render::color8(1, 2, 3, 255)));   // bottom row
+            CHECK(sameC(cimg.getPixel(0, 0), render::color8(10, 11, 12, 255))); // top row
+        }
+        // Malformed / empty.
+        CHECK(render::encodeBmp(render::Image{}).empty());
+        CHECK(render::decodeBmp(nullptr, 0).empty());
+        auto bbad = bblob;
+        bbad[30] = 1; // compression != 0
+        CHECK(render::decodeBmp(bbad).empty());
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

@@ -215,7 +215,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   spec-exact to qoiformat.org: 64-entry running index, per-channel DIFF/LUMA deltas, RLE runs,
   8-byte end marker; encodes 32-bit RGBA, decodes 3/4-channel; verified by exact header + chunk
   bytes (RUN/RGB/DIFF), round-trips over solid/gradient/alpha/repeated-palette content, and
-  malformed-input rejection); plus
+  malformed-input rejection); M394 adds a **BMP codec** (`render::encodeBmp`/`decodeBmp` in
+  ImageCodecBmp.hpp — uncompressed Windows BMP that Godot imports; encodes 32-bit BGRA with a
+  BITMAPINFOHEADER and bottom-up rows, decodes 24/32-bit honouring the height sign (bottom-up vs
+  top-down) and the 4-byte row padding 24-bit rows require; verified by exact header bytes, a
+  32-bit round-trip, a hand-built padded 24-bit bottom-up blob, and malformed-input rejection);
+  plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
