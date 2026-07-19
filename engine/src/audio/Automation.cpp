@@ -101,6 +101,10 @@ Automation::Automation() {
     lane(AutoTarget::DelayTime).hi = 400.0f;
     lane(AutoTarget::TremoloDepth).lo = 0.0f;
     lane(AutoTarget::TremoloDepth).hi = 1.0f;
+    lane(AutoTarget::MasterFilterCutoff).lo = 200.0f;
+    lane(AutoTarget::MasterFilterCutoff).hi = 12000.0f;
+    lane(AutoTarget::MasterFilterReso).lo = 0.7f;
+    lane(AutoTarget::MasterFilterReso).hi = 15.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -173,6 +177,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Delay Time";
     case AutoTarget::TremoloDepth:
         return "Tremolo Depth";
+    case AutoTarget::MasterFilterCutoff:
+        return "Filter Sweep";
+    case AutoTarget::MasterFilterReso:
+        return "Filter Q";
     case AutoTarget::Count:
         break;
     }
@@ -382,6 +390,16 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Fade the tremolo / trance-gate depth in and out (bring the gating up over a build).
             engine.mixer().tremolo().setEnabled(true);
             engine.mixer().tremolo().setDepth(v);
+            break;
+        case AutoTarget::MasterFilterCutoff:
+            // Sweep the master DJ filter's cutoff (the classic filter-sweep build-up/breakdown).
+            engine.mixer().filter().setEnabled(true);
+            engine.mixer().filter().setCutoff(v);
+            break;
+        case AutoTarget::MasterFilterReso:
+            // Sweep the master DJ filter's resonance (screaming filter peaks on the sweep).
+            engine.mixer().filter().setEnabled(true);
+            engine.mixer().filter().setResonance(v);
             break;
         case AutoTarget::Count:
             break;

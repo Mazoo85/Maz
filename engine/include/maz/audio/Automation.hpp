@@ -45,6 +45,8 @@ enum class AutoTarget {
     RotaryRate,
     DelayTime,
     TremoloDepth,
+    MasterFilterCutoff,
+    MasterFilterReso,
     Count
 };
 

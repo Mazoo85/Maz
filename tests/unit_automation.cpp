@@ -308,6 +308,32 @@ int main() {
               "tremolo-depth automation fades the gating back out");
     }
 
+    // --- Master filter sweep + resonance targets -----------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& fc = autom.lane(audio::AutoTarget::MasterFilterCutoff);
+        fc.enabled = true;
+        fc.lfo.shape = audio::Waveform::Sine;
+        fc.lfo.rateHz = 1.0f;
+        fc.lo = 200.0f;
+        fc.hi = 12000.0f;
+        audio::AutoLane& fq = autom.lane(audio::AutoTarget::MasterFilterReso);
+        fq.enabled = true;
+        fq.lfo.shape = audio::Waveform::Sine;
+        fq.lfo.rateHz = 1.0f;
+        fq.lo = 0.7f;
+        fq.hi = 15.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // peak → hi bounds
+        check(eng.mixer().filter().enabled() && eng.mixer().filter().cutoff() > 11000.0f &&
+                  eng.mixer().filter().resonance() > 14.0f,
+              "automating the master filter opens the cutoff and peaks the resonance");
+        autom.apply(eng, 0.75); // trough → lo bounds
+        check(eng.mixer().filter().cutoff() < 400.0f && eng.mixer().filter().resonance() < 1.0f,
+              "master-filter automation sweeps back down");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;
