@@ -1446,14 +1446,22 @@ void FormantFilter::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;
     }
-    // First two formant frequencies (Hz) for each vowel.
-    float f1 = 800.0f, f2 = 1150.0f;
-    switch (vowel_) {
-    case Vowel::A: f1 = 800.0f;  f2 = 1150.0f; break;
-    case Vowel::E: f1 = 400.0f;  f2 = 1700.0f; break;
-    case Vowel::I: f1 = 300.0f;  f2 = 2300.0f; break;
-    case Vowel::O: f1 = 450.0f;  f2 = 800.0f;  break;
-    case Vowel::U: f1 = 325.0f;  f2 = 700.0f;  break;
+    // First two formant frequencies (Hz) for each vowel A,E,I,O,U.
+    static const float kF1[5] = {800.0f, 400.0f, 300.0f, 450.0f, 325.0f};
+    static const float kF2[5] = {1150.0f, 1700.0f, 2300.0f, 800.0f, 700.0f};
+    float f1, f2;
+    if (morphEnabled_) {
+        // Continuously interpolate the formants along the vowel sequence.
+        const float p = morph_ < 0.0f ? 0.0f : (morph_ > 4.0f ? 4.0f : morph_);
+        const int i0 = static_cast<int>(p);
+        const int i1 = i0 < 4 ? i0 + 1 : 4;
+        const float fr = p - static_cast<float>(i0);
+        f1 = kF1[i0] * (1.0f - fr) + kF1[i1] * fr;
+        f2 = kF2[i0] * (1.0f - fr) + kF2[i1] * fr;
+    } else {
+        const int idx = static_cast<int>(vowel_);
+        f1 = kF1[idx];
+        f2 = kF2[idx];
     }
     constexpr float kQ = 5.0f; // resonant enough to make the formants sing
     for (int i = 0; i < frames; ++i) {

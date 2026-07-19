@@ -1798,6 +1798,48 @@ int main() {
         check(vowelPass(800.0) > vowelPass(5000.0) * 3.0,
               "formant filter passes a tone at the vowel's formant and rejects a far-off tone");
 
+        // Vowel morph: an integer morph position reproduces that discrete vowel exactly; a fractional
+        // position lands between (a continuous talkbox sweep).
+        auto fmtRender = [&](bool morphOn, float pos, audio::FormantFilter::Vowel v) {
+            audio::FormantFilter f;
+            f.setEnabled(true);
+            f.setMix(1.0f);
+            f.setVowel(v);
+            f.setMorphEnabled(morphOn);
+            f.setMorph(pos);
+            // A harmonic-rich saw (built inline) so the formants have overtones to shape.
+            std::vector<float> b(static_cast<size_t>(sr / 4) * 2, 0.0f);
+            double ph = 0.0;
+            const double inc = 200.0 / sr;
+            for (int i = 0; i < sr / 4; ++i) {
+                const float s = static_cast<float>(2.0 * ph - 1.0) * 0.5f;
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+                ph += inc;
+                if (ph >= 1.0) {
+                    ph -= 1.0;
+                }
+            }
+            f.process(b.data(), sr / 4, sr);
+            return b;
+        };
+        const std::vector<float> morphI = fmtRender(true, 2.0f, audio::FormantFilter::Vowel::A);
+        const std::vector<float> discreteI = fmtRender(false, 0.0f, audio::FormantFilter::Vowel::I);
+        double dEq = 0.0;
+        for (size_t i = 0; i < morphI.size(); ++i) {
+            dEq += std::fabs(static_cast<double>(morphI[i] - discreteI[i]));
+        }
+        check(dEq < 1e-3, "formant morph at an integer position matches the discrete vowel (I)");
+        const std::vector<float> morphMid = fmtRender(true, 0.5f, audio::FormantFilter::Vowel::A);
+        const std::vector<float> discreteA = fmtRender(false, 0.0f, audio::FormantFilter::Vowel::A);
+        double dMid = 0.0;
+        for (size_t i = 0; i < morphMid.size(); ++i) {
+            dMid += std::fabs(static_cast<double>(morphMid[i] - discreteA[i]));
+        }
+        check(dMid > 1.0, "a fractional morph position differs from the nearest discrete vowel");
+        audio::FormantFilter dfm;
+        check(!dfm.morphEnabled(), "formant vowel morph defaults to off");
+
         // Disabled → transparent.
         audio::FormantFilter off;
         std::vector<float> sig = sineStereo(1000, 800.0, 0.5, sr);

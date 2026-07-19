@@ -2012,6 +2012,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("mix##fmt", &mix, 0.0f, 1.0f, "%.2f")) mx.formant().setMix(mix);
+        bool morphEn = mx.formant().morphEnabled();
+        if (ImGui::Checkbox("morph##fmt", &morphEn)) mx.formant().setMorphEnabled(morphEn);
+        ImGui::SameLine();
+        float morphPos = mx.formant().morph();
+        ImGui::SetNextItemWidth(160.0f);
+        if (ImGui::SliderFloat("A-E-I-O-U##fmt", &morphPos, 0.0f, 4.0f, "%.2f"))
+            mx.formant().setMorph(morphPos);
     }
     {
         bool en = mx.utility().enabled();

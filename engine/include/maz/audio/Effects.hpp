@@ -948,6 +948,13 @@ public:
     const char* name() const override { return "Formant Filter"; }
     void setVowel(Vowel v) { vowel_ = v; }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Vowel morph: when enabled, the formants slide continuously along A→E→I→O→U by `pos` (0..4),
+    // for a talkbox "aa-ee-ii-oo-uu" sweep, instead of snapping to the discrete `vowel`. An integer
+    // pos reproduces that vowel exactly. Off (default) uses the discrete vowel selector.
+    void setMorphEnabled(bool on) { morphEnabled_ = on; }
+    void setMorph(float pos) { morph_ = pos < 0.0f ? 0.0f : (pos > 4.0f ? 4.0f : pos); }
+    bool morphEnabled() const { return morphEnabled_; }
+    float morph() const { return morph_; }
     Vowel vowel() const { return vowel_; }
     float mix() const { return mix_; }
 
@@ -957,6 +964,8 @@ public:
 private:
     Vowel vowel_ = Vowel::A;
     float mix_ = 0.5f;
+    bool morphEnabled_ = false; // false = discrete vowel; true = continuous morph by morph_
+    float morph_ = 0.0f;        // morph position 0..4 across A,E,I,O,U
     StateVariableFilter f1L_{}, f2L_{}, f1R_{}, f2R_{};
 };
 

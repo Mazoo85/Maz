@@ -265,6 +265,8 @@ int main() {
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
+    mixer.formant().setMorphEnabled(true);
+    mixer.formant().setMorph(2.5f);
     mixer.utility().setEnabled(true);
     mixer.utility().setGainDb(-3.0f);
     mixer.utility().setInvertR(true);
@@ -672,7 +674,8 @@ int main() {
           "tremolo round-trips");
     check(mixer2.formant().enabled() &&
               mixer2.formant().vowel() == audio::FormantFilter::Vowel::E &&
-              near(mixer2.formant().mix(), 0.6f),
+              near(mixer2.formant().mix(), 0.6f) && mixer2.formant().morphEnabled() &&
+              near(mixer2.formant().morph(), 2.5f),
           "formant filter round-trips");
     check(mixer2.utility().enabled() && near(mixer2.utility().gainDb(), -3.0f) &&
               !mixer2.utility().invertL() && mixer2.utility().invertR() && mixer2.utility().mono(),

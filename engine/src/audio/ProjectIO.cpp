@@ -443,7 +443,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.stereoDelay().feedbackLowCut() << " " << (mixer.stereoDelay().pingPong() ? 1 : 0)
       << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
-      << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << "\n";
+      << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
+      << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
       << mixer.tape().warmth() << " " << mixer.tape().mix() << " " << mixer.tape().wowFlutter()
       << "\n";
@@ -1091,6 +1092,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.formant().setEnabled(en != 0);
                 mixer.formant().setVowel(static_cast<FormantFilter::Vowel>(vowel));
                 mixer.formant().setMix(mix);
+                int morphEn = 0;
+                float morphPos = 0.0f; // vowel morph optional for old files (off)
+                if (ls >> morphEn >> morphPos) {
+                    mixer.formant().setMorphEnabled(morphEn != 0);
+                    mixer.formant().setMorph(morphPos);
+                }
             } else if (which == "autowah") {
                 float base = 300.0f, range = 3000.0f, sens = 0.7f, reso = 4.0f, atk = 5.0f,
                       rel = 80.0f;
