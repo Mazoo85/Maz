@@ -236,6 +236,36 @@ public:
             m_px[i + 2] = static_cast<std::uint8_t>((m_px[i + 2] * a + 127u) / 255u);
         }
     }
+    // Build a box-filtered mipmap chain — the CPU counterpart to Godot Image.generate_mipmaps. The
+    // result starts with a copy of this image (level 0) and halves each dimension (floored, min 1)
+    // per level until 1x1, each texel the average of the 2x2 block below it (edge-clamped on odd
+    // sizes). Hand these levels to createTexture for trilinear/anisotropic sampling. Not byte-exact
+    // to Godot's internal filter, but the standard box downsample.
+    std::vector<Image> generateMipmapChain() const {
+        std::vector<Image> chain;
+        chain.push_back(*this);
+        while (chain.back().width() > 1 || chain.back().height() > 1) {
+            const Image& src = chain.back();
+            const int nw = std::max(1, src.width() / 2);
+            const int nh = std::max(1, src.height() / 2);
+            Image dst(nw, nh);
+            for (int y = 0; y < nh; ++y) {
+                for (int x = 0; x < nw; ++x) {
+                    const int sx0 = std::min(2 * x, src.width() - 1);
+                    const int sx1 = std::min(2 * x + 1, src.width() - 1);
+                    const int sy0 = std::min(2 * y, src.height() - 1);
+                    const int sy1 = std::min(2 * y + 1, src.height() - 1);
+                    const Color a = src.getPixel(sx0, sy0), b = src.getPixel(sx1, sy0);
+                    const Color c = src.getPixel(sx0, sy1), d = src.getPixel(sx1, sy1);
+                    dst.setPixel(x, y,
+                                 Color{(a.r + b.r + c.r + d.r) * 0.25f, (a.g + b.g + c.g + d.g) * 0.25f,
+                                       (a.b + b.b + c.b + d.b) * 0.25f, (a.a + b.a + c.a + d.a) * 0.25f});
+                }
+            }
+            chain.push_back(std::move(dst));
+        }
+        return chain;
+    }
 
 private:
     static Color lerpColor(const Color& a, const Color& b, float t) {

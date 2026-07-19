@@ -1177,6 +1177,32 @@ void testColorOps() {
         render::Image pmClear(1, 1, render::color8(200, 100, 50, 0));
         pmClear.premultiplyAlpha();
         CHECK(sameC(pmClear.getPixel(0, 0), render::color8(0, 0, 0, 0)));
+
+        // --- Image generateMipmapChain (M391) ---
+        // 4x4 solid -> levels 4x4, 2x2, 1x1; colour preserved.
+        render::Image mip(4, 4, render::color8(30, 60, 90, 255));
+        auto chain = mip.generateMipmapChain();
+        CHECK(chain.size() == 3);
+        CHECK(chain[0].width() == 4 && chain[1].width() == 2 && chain[2].width() == 1);
+        CHECK(sameC(chain[2].getPixel(0, 0), render::color8(30, 60, 90, 255)));
+        // 2x2 distinct reds -> 1x1 average = (40+80+120+160)/4 = 100.
+        render::Image quad(2, 2, render::color8(0, 0, 0, 255));
+        quad.setPixel(0, 0, render::color8(40, 0, 0, 255));
+        quad.setPixel(1, 0, render::color8(80, 0, 0, 255));
+        quad.setPixel(0, 1, render::color8(120, 0, 0, 255));
+        quad.setPixel(1, 1, render::color8(160, 0, 0, 255));
+        auto qchain = quad.generateMipmapChain();
+        CHECK(qchain.size() == 2);
+        CHECK(near8(qchain[1].getPixel(0, 0), 100, 0, 0, 255, 1));
+        // Non-square 8x4 -> chain length 4, dimensions halve (floored, min 1).
+        render::Image ns(8, 4, render::color8(10, 10, 10, 255));
+        auto nschain = ns.generateMipmapChain();
+        CHECK(nschain.size() == 4);
+        CHECK(nschain[2].width() == 2 && nschain[2].height() == 1);
+        CHECK(nschain[3].width() == 1 && nschain[3].height() == 1);
+        // 1x1 -> chain is just itself.
+        render::Image one(1, 1, render::color8(5, 6, 7, 8));
+        CHECK(one.generateMipmapChain().size() == 1);
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

@@ -199,7 +199,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   **getUsedRect** (Godot Image.get_used_rect — the smallest math::Rect2i enclosing all pixels with
   alpha > 0, zero rect when fully transparent) and **premultiplyAlpha** (Godot
   Image.premultiply_alpha — multiplies each pixel's RGB by its own alpha for premultiplied "over"
-  GPU blending; verified by known 8-bit products, opaque no-op and transparent-zeroing); plus
+  GPU blending; verified by known 8-bit products, opaque no-op and transparent-zeroing); M391 adds
+  **generateMipmapChain** (Godot Image.generate_mipmaps — a box-filtered mip chain: level 0 is the
+  image, each level halves both dimensions floored (min 1) with every texel the 2x2 average below,
+  ready for createTexture trilinear sampling; verified by exact 2x2 averaging, chain length/dims
+  for square and non-square inputs, and colour/alpha preservation — documented as the standard box
+  downsample, not byte-exact to Godot's internal filter); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
