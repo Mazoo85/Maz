@@ -322,6 +322,7 @@
 #include "maz/render/MeshLod.hpp"
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
+#include "maz/render/MtlLoader.hpp"
 #include "maz/render/ObjLoader.hpp"
 #include "maz/render/ColladaLoader.hpp"
 #include "maz/render/PlyLoader.hpp"
@@ -9107,6 +9108,72 @@ void testGridMap() {
     CHECK(kx == -1000);
     CHECK(ky == 2047);
     CHECK(kz == -32768);
+}
+
+void testMtlLoader() {
+    using render::findMaterial;
+    using render::MtlMaterial;
+    using render::parseMtl;
+
+    auto feq = [](float a, float b) { return std::fabs(a - b) < 1e-5f; };
+    const std::string lib =
+        "# a test material library\n"
+        "newmtl Red\n"
+        "Ka 0.1 0.1 0.1\n"
+        "Kd 0.8 0.0 0.0\n"
+        "Ks 1.0 1.0 1.0\n"
+        "Ns 96.5\n"
+        "Ni 1.45\n"
+        "d 0.5\n"
+        "illum 2\n"
+        "map_Kd textures/red_diffuse.png\n"
+        "map_Bump -bm 0.5 textures/red_normal.png\n"
+        "\n"
+        "newmtl Gray\n"
+        "Kd 0.6\n"  // grayscale single value
+        "Tr 0.25\n" // -> d = 0.75
+        "map_Ka amb.png\n"
+        "map_Ks spec.png\n";
+
+    std::vector<MtlMaterial> mats;
+    CHECK(parseMtl(lib, mats));
+    CHECK(mats.size() == 2);
+
+    const MtlMaterial* red = findMaterial(mats, "Red");
+    CHECK(red != nullptr);
+    if (red) {
+        CHECK(red->name == "Red");
+        CHECK(feq(red->ka[0], 0.1f) && feq(red->ka[1], 0.1f) && feq(red->ka[2], 0.1f));
+        CHECK(feq(red->kd[0], 0.8f) && feq(red->kd[1], 0.0f) && feq(red->kd[2], 0.0f));
+        CHECK(feq(red->ks[0], 1.0f) && feq(red->ks[1], 1.0f) && feq(red->ks[2], 1.0f));
+        CHECK(feq(red->ns, 96.5f));
+        CHECK(feq(red->ni, 1.45f));
+        CHECK(feq(red->d, 0.5f));
+        CHECK(red->illum == 2);
+        CHECK(red->mapKd == "textures/red_diffuse.png");
+        CHECK(red->mapBump == "textures/red_normal.png"); // leading option flags skipped, last token wins
+    }
+
+    const MtlMaterial* gray = findMaterial(mats, "Gray");
+    CHECK(gray != nullptr);
+    if (gray) {
+        CHECK(feq(gray->kd[0], 0.6f) && feq(gray->kd[1], 0.6f) && feq(gray->kd[2], 0.6f)); // grayscale broadcast
+        CHECK(feq(gray->d, 0.75f)); // Tr 0.25 -> d 0.75
+        CHECK(gray->mapKa == "amb.png");
+        CHECK(gray->mapKs == "spec.png");
+        CHECK(feq(gray->ka[0], 0.2f) && feq(gray->ns, 0.0f) && feq(gray->ni, 1.0f) && gray->illum == 1);
+        CHECK(gray->mapKd.empty() && gray->mapBump.empty());
+    }
+
+    CHECK(findMaterial(mats, "Nope") == nullptr);
+
+    std::vector<MtlMaterial> none;
+    CHECK(!parseMtl("", none) && none.empty());
+    CHECK(!parseMtl("# just a comment\nKd 1 1 1\n", none) && none.empty()); // data before any newmtl
+
+    std::vector<MtlMaterial> crlf;
+    CHECK(parseMtl("newmtl A\r\nKd 0.2 0.4 0.6\r\n", crlf));
+    CHECK(crlf.size() == 1 && feq(crlf[0].kd[0], 0.2f) && feq(crlf[0].kd[2], 0.6f) && crlf[0].name == "A");
 }
 
 void testObjLoader() {
@@ -32965,6 +33032,7 @@ int main() {
     testTimer();
     testVisibleOnScreenNotifier2D();
     testGridMap();
+    testMtlLoader();
     testObjLoader();
     testOcclusion();
     testMeshLod();

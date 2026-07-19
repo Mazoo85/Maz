@@ -1182,6 +1182,22 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **OBJ material library (`.mtl`) import** (M510, `render::parseMtl` / `loadMtl` / `findMaterial` — the material
+  half of Godot's OBJ importer. An OBJ file references materials by name (`mtllib foo.mtl` + `usemtl name`) but
+  the actual colors, shininess, transparency, and texture-map paths live in the sibling `.mtl` file; Maz's OBJ
+  loader parsed only geometry and skipped those tags, so imported models came in untextured and flat. The
+  parser reads the library into a list of `MtlMaterial` records — ambient/diffuse/specular colors (Ka/Kd/Ks),
+  specular exponent (Ns), optical density (Ni), dissolve (d, with `Tr` handled as its inverse), illumination
+  model, and the diffuse/ambient/specular/bump texture filenames (map_Kd/map_Ka/map_Ks/map_Bump) — and
+  `findMaterial` resolves a `usemtl` name against it. Pure text parsing, unit-tested headlessly; `loadMtl`
+  wraps it for files. Honest scope: the common widely-emitted subset — a lone grayscale value is accepted
+  where a color is expected, texture lines take the final token as the filename (skipping option flags like
+  `-bm`), and spectral/xyz color spaces and PBR extension tags are not decoded. Verified: a two-material
+  library parses both entries; the first reads exact Ka/Kd/Ks/Ns/Ni/d/illum plus its map_Kd and a map_Bump
+  whose leading `-bm 0.5` flag is skipped to the real path; the second broadcasts a single-value `Kd 0.6` to
+  gray, converts `Tr 0.25` to `d 0.75`, keeps unset fields at their defaults, and reads its map_Ka/map_Ks;
+  an unknown name resolves to null; empty input and material data before any `newmtl` are rejected; and CRLF
+  line endings are tolerated),
   **STL (`.stl`) mesh import** (M509, `render::parseStl` / `loadStl` — closes another import-format gap versus
   Godot's asset pipeline. STL is the universal 3D-printing / CAD interchange format (every slicer, SolidWorks,
   Blender export): a flat triangle soup where each triangle carries a face normal and three corner positions,
