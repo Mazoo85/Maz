@@ -701,6 +701,23 @@ inline std::string pathJoin(const std::string& a, const std::string& b) {
     return a + "/" + b;
 }
 
+// True when `path` is absolute — Godot's String.is_absolute_path. Absolute means it starts with a
+// separator ('/' or '\\') or contains a drive/scheme root (":/" or ":\\", so "C:/x" and "res://x"
+// both count). The empty string is relative.
+inline bool isAbsolutePath(const std::string& path) {
+    if (path.size() > 1) {
+        return path[0] == '/' || path[0] == '\\' || path.find(":/") != std::string::npos ||
+               path.find(":\\") != std::string::npos;
+    }
+    if (path.size() == 1) {
+        return path[0] == '/' || path[0] == '\\';
+    }
+    return false;
+}
+
+// True when `path` is not absolute — Godot's String.is_relative_path.
+inline bool isRelativePath(const std::string& path) { return !isAbsolutePath(path); }
+
 // Collapse redundant separators and resolve "." / ".." segments (Godot's String.simplify_path).
 inline std::string simplifyPath(const std::string& path) {
     const bool absolute = !path.empty() && (path.front() == '/' || path.front() == '\\');

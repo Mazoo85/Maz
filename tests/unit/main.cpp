@@ -11788,6 +11788,13 @@ void testStringUtils() {
     CHECK(su::simplifyPath("a/b/..") == "a");
     CHECK(su::simplifyPath("/..") == "/");
 
+    // M364: is_absolute_path / is_relative_path
+    CHECK((su::isAbsolutePath("/home/user") && su::isAbsolutePath("C:/Windows")));
+    CHECK((su::isAbsolutePath("res://scene.tscn") && su::isAbsolutePath("C:\\Win")));
+    CHECK((su::isAbsolutePath("/") && !su::isAbsolutePath("a")));
+    CHECK((!su::isAbsolutePath("user/file.txt") && !su::isAbsolutePath("")));
+    CHECK((su::isRelativePath("./rel") && !su::isRelativePath("/abs")));
+
     // Case conversion (M287): capitalize / to_snake_case / to_pascal_case / to_camel_case.
     CHECK(su::capitalize("move_local_x") == "Move Local X");
     CHECK(su::capitalize("camelCase") == "Camel Case");
