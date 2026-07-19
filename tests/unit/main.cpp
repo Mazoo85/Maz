@@ -111,6 +111,7 @@
 #include "maz/math/LeastSquares.hpp"
 #include "maz/math/Quadrature.hpp"
 #include "maz/math/RootFind.hpp"
+#include "maz/math/Statistics.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20207,6 +20208,93 @@ void testPolynomial() {
     }
 }
 
+void testStatistics() {
+    using math::correlation;
+    using math::covariance;
+    using math::maxValue;
+    using math::mean;
+    using math::median;
+    using math::minValue;
+    using math::quantile;
+    using math::range;
+    using math::standardDeviation;
+
+    // Classic dataset {2,4,4,4,5,5,7,9}: mean 5, pop var 4, pop stddev 2.
+    {
+        std::vector<float> v = {2, 4, 4, 4, 5, 5, 7, 9};
+        CHECK(std::fabs(math::sum(v) - 40.0) < 1e-9);
+        CHECK(std::fabs(mean(v) - 5.0) < 1e-9);
+        CHECK(std::fabs(math::variance(v, false) - 4.0) < 1e-9);
+        CHECK(std::fabs(standardDeviation(v, false) - 2.0) < 1e-9);
+        CHECK(std::fabs(math::variance(v, true) - 32.0 / 7.0) < 1e-9);
+        CHECK(std::fabs(median(v) - 4.5) < 1e-9);
+        CHECK(std::fabs(minValue(v) - 2.0) < 1e-9);
+        CHECK(std::fabs(maxValue(v) - 9.0) < 1e-9);
+        CHECK(std::fabs(range(v) - 7.0) < 1e-9);
+    }
+    // Quantiles by linear interpolation on 0..10.
+    {
+        std::vector<float> v;
+        for (int i = 0; i <= 10; ++i) v.push_back(static_cast<float>(i));
+        CHECK(std::fabs(quantile(v, 0.0) - 0.0) < 1e-9);
+        CHECK(std::fabs(quantile(v, 1.0) - 10.0) < 1e-9);
+        CHECK(std::fabs(quantile(v, 0.5) - 5.0) < 1e-9);
+        CHECK(std::fabs(quantile(v, 0.25) - 2.5) < 1e-9);
+        CHECK(std::fabs(quantile(v, -1.0) - 0.0) < 1e-9); // clamped
+        CHECK(std::fabs(quantile(v, 2.0) - 10.0) < 1e-9); // clamped
+    }
+    // Odd-count median.
+    {
+        std::vector<float> v = {7, 1, 3, 9, 5};
+        CHECK(std::fabs(median(v) - 5.0) < 1e-9);
+    }
+    // covariance(x,x) == variance(x).
+    {
+        std::vector<float> v = {1, 2, 3, 4, 5, 6};
+        CHECK(std::fabs(covariance(v, v, true) - math::variance(v, true)) < 1e-9);
+        CHECK(std::fabs(covariance(v, v, false) - math::variance(v, false)) < 1e-9);
+    }
+    // Perfect linear -> correlation +/-1; symmetric; scale/shift invariant; self==1.
+    {
+        std::vector<float> x = {1, 2, 3, 4, 5, 6, 7, 8};
+        std::vector<float> yPos, yNeg, xScaled;
+        for (float xi : x) {
+            yPos.push_back(2.0f * xi + 1.0f);
+            yNeg.push_back(-3.0f * xi + 4.0f);
+            xScaled.push_back(10.0f * xi + 100.0f);
+        }
+        CHECK(std::fabs(correlation(x, yPos) - 1.0) < 1e-9);
+        CHECK(std::fabs(correlation(x, yNeg) + 1.0) < 1e-9);
+        CHECK(std::fabs(correlation(x, yPos) - correlation(yPos, x)) < 1e-12);
+        CHECK(std::fabs(correlation(x, yNeg) - correlation(xScaled, yNeg)) < 1e-9);
+        CHECK(std::fabs(correlation(x, x) - 1.0) < 1e-12);
+    }
+    // Noisy upward trend -> strong positive correlation, bounded.
+    {
+        std::vector<float> x, y;
+        core::Pcg32 rng(467u, 5u);
+        for (int i = 0; i < 200; ++i) {
+            const float xi = static_cast<float>(i) * 0.1f;
+            x.push_back(xi);
+            y.push_back(1.5f * xi + (rng.nextFloat() - 0.5f) * 0.5f);
+        }
+        const double r = correlation(x, y);
+        CHECK(r > 0.9 && r <= 1.0);
+    }
+    // Degenerate inputs return 0.
+    {
+        CHECK(std::fabs(mean({})) < 1e-12);
+        CHECK(std::fabs(math::variance({}, true)) < 1e-12);
+        CHECK(std::fabs(math::variance({3.0f}, true)) < 1e-12);
+        CHECK(std::fabs(median({})) < 1e-12);
+        CHECK(std::fabs(quantile({}, 0.5)) < 1e-12);
+        CHECK(std::fabs(range({})) < 1e-12);
+        std::vector<float> constant = {4, 4, 4, 4};
+        CHECK(std::fabs(correlation(constant, {1, 2, 3, 4})) < 1e-12);
+        CHECK(std::fabs(covariance({1, 2, 3}, {1, 2}, true)) < 1e-12);
+    }
+}
+
 void testRootFind() {
     using math::findRootBisection;
     using math::findRootBrent;
@@ -29356,6 +29444,7 @@ int main() {
     testLeastSquares();
     testQuadrature();
     testRootFind();
+    testStatistics();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

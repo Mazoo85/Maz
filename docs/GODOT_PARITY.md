@@ -840,6 +840,22 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   values (Newton/Brent converging in fewer iterations than bisection); an exact-root endpoint detected
   immediately; a no-bracket interval and a flat Newton derivative both reported as not converged (no
   false root, no divide-by-zero); and a decaying-value threshold-crossing time matches its closed form),
+  **descriptive statistics** (M467, `math::mean` / `variance` / `standardDeviation` / `median` /
+  `quantile` / `minValue` / `maxValue` / `range` / `covariance` / `correlation` — summarize a dataset of
+  samples held in memory. Where core::RunningStats is a streaming single-pass estimator and
+  core::Histogram gives binned approximate percentiles of a distribution's shape, this computes EXACT
+  order statistics (median and arbitrary quantiles by linear interpolation, NumPy's default method) plus
+  the two-variable measures neither provides: covariance and Pearson correlation between a pair of
+  datasets. Sample vs population vari/covariance are both offered. The tool for analyzing playtest and
+  telemetry samples ("median session length", "95th-percentile damage", "does accuracy correlate with
+  score"), or validating a procedural generator against a target distribution; it pairs with LeastSquares
+  (fit a trend) — correlation quantifies how linear that trend is. Godot exposes no statistics helpers to
+  gameplay code -> beyond-Godot. Verified: the classic {2,4,4,4,5,5,7,9} textbook set (mean 5, population
+  variance 4, sample variance 32/7, median 4.5); linear-interpolated quantiles including clamped
+  out-of-range q; covariance(x,x) equals variance(x); perfect linear data gives correlation +/-1
+  (symmetric, and invariant under positive scale+shift); a noisy upward trend gives strong bounded
+  positive correlation; and all degenerate inputs — empty, single-point sample variance, constant input,
+  length mismatch — return 0 without NaN),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
