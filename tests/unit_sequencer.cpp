@@ -123,6 +123,43 @@ int main() {
         check(clamp.pitchEnv() == 0.0f, "pitch-env clamps to 0");
     }
 
+    // --- New percussion voices: shaker + clave ------------------------------
+    {
+        // A clave is a pure high tone → measure its dominant frequency via zero crossings.
+        auto freqOf = [](const std::vector<float>& b, int srate) {
+            int cross = 0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                if ((b[i - 1] <= 0.0f && b[i] > 0.0f) || (b[i - 1] >= 0.0f && b[i] < 0.0f)) {
+                    ++cross;
+                }
+            }
+            return static_cast<double>(cross) / 2.0 /
+                   (static_cast<double>(b.size()) / static_cast<double>(srate));
+        };
+
+        audio::DrumVoice clave;
+        clave.setType(audio::Drum::Clave);
+        clave.trigger();
+        std::vector<float> cbuf(static_cast<size_t>(sampleRate) / 100, 0.0f); // 10 ms
+        clave.render(cbuf.data(), static_cast<int>(cbuf.size()), sampleRate);
+        check(rms(cbuf) > 0.0, "clave produces sound");
+        check(freqOf(cbuf, sampleRate) > 1800.0 && freqOf(cbuf, sampleRate) < 3200.0,
+              "clave rings at its ~2.5 kHz woodblock pitch");
+        std::vector<float> ctail(static_cast<size_t>(sampleRate) / 4, 0.0f); // 0.25 s
+        clave.render(ctail.data(), static_cast<int>(ctail.size()), sampleRate);
+        check(!clave.active(), "clave decays fast to inactive");
+
+        audio::DrumVoice shaker;
+        shaker.setType(audio::Drum::Shaker);
+        shaker.trigger();
+        std::vector<float> sbuf(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        shaker.render(sbuf.data(), static_cast<int>(sbuf.size()), sampleRate);
+        check(rms(sbuf) > 0.0, "shaker produces sound");
+        std::vector<float> stail(static_cast<size_t>(sampleRate) / 2, 0.0f); // 0.5 s
+        shaker.render(stail.data(), static_cast<int>(stail.size()), sampleRate);
+        check(!shaker.active(), "shaker decays to inactive");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

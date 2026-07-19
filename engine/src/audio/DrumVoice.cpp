@@ -31,6 +31,10 @@ double decayTau(Drum type) {
         return 0.6;
     case Drum::Ride:
         return 0.5;
+    case Drum::Shaker:
+        return 0.08;
+    case Drum::Clave:
+        return 0.025;
     }
     return 0.1;
 }
@@ -140,6 +144,17 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             s = static_cast<float>(
                 (0.22 * ping + 0.18 * static_cast<double>(noise()) * attack + 0.05 * static_cast<double>(noise())) *
                 env);
+            break;
+        }
+        case Drum::Shaker: {
+            // A bright noise "shhh"/"tss" with a soft attack — rounder and airier than a hi-hat.
+            const double attack = 1.0 - std::exp(-t_ / 0.004); // gentle onset (not an instant click)
+            s = static_cast<float>(static_cast<double>(noise()) * env * attack);
+            break;
+        }
+        case Drum::Clave: {
+            // A short, bright wooden "tock": a pure high sine (~2500 Hz) with a very fast decay.
+            s = static_cast<float>(std::sin(kTwoPi * 2500.0 * pitchMul * t_) * env);
             break;
         }
         }

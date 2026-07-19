@@ -57,6 +57,8 @@ int main() {
     seq.setChannelFlam(1, 18.0f);
     seq.setChannelType(1, audio::Drum::Tom);
     seq.setChannelType(4, audio::Drum::Ride);
+    seq.setChannelType(2, audio::Drum::Clave);
+    seq.setChannelType(3, audio::Drum::Shaker);
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
     seq.roll().addNote(n1);
@@ -371,7 +373,9 @@ int main() {
     check(near(seq2.channelPitchEnv(0), 1.7f), "channel pitch-env (punch) round-trips");
     check(near(seq2.channelFlam(1), 18.0f), "channel flam round-trips");
     check(seq2.channelType(1) == audio::Drum::Tom &&
-              seq2.channelType(4) == audio::Drum::Ride,
+              seq2.channelType(4) == audio::Drum::Ride &&
+              seq2.channelType(2) == audio::Drum::Clave &&
+              seq2.channelType(3) == audio::Drum::Shaker,
           "per-channel drum type round-trips");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
