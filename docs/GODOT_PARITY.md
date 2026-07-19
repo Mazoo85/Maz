@@ -745,6 +745,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   total weight matches an independent Prim reference across 40 random graphs; the globally-lightest edge
   is always chosen (cut property); a disconnected graph yields the right forest (edges = n - components);
   the output is deterministic; and self-loops / out-of-range edges are ignored),
+  **minimax + alpha-beta** (M458, `game::minimax` + `game::GameRules` — generic adversarial game-tree
+  search for perfect-information two-player games (tic-tac-toe, connect-four, reversi, checkers-likes):
+  supply move-generation / apply / terminal / evaluate callbacks and it returns the optimal move and its
+  value `depth` plies ahead, with alpha-beta pruning that explores far fewer nodes for the identical
+  result. Godot ships no game-tree search -> beyond-Godot. Verified on tic-tac-toe against known game
+  theory (perfect play from empty = draw; immediate wins taken by both max and min players; the forced
+  block is found and skipping it loses) and cross-checked against an unpruned reference minimax across
+  300 random reachable positions — identical value every time, never visiting more nodes, and strictly
+  fewer on the opening),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

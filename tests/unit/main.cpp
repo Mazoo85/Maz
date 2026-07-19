@@ -102,6 +102,8 @@
 #include "maz/game/ReactionDiffusion.hpp"
 #include "maz/math/CubicSpline.hpp"
 #include "maz/game/SpanningTree.hpp"
+#include "maz/game/Minimax.hpp"
+#include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19760,6 +19762,130 @@ void testSpanningTree() {
     }
 }
 
+// Minimax: alpha-beta adversarial search, validated on tic-tac-toe (M458).
+void testMinimax() {
+    using core::Pcg32;
+    using game::GameRules;
+    using game::minimax;
+    using game::SearchResult;
+
+    struct TTT {
+        std::array<char, 9> c{{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}};
+        int turn = 0; // 0 = X (maximizer), 1 = O (minimizer)
+    };
+    auto winner = [](const std::array<char, 9>& c) -> char {
+        static const int lines[8][3] = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {0, 3, 6},
+                                        {1, 4, 7}, {2, 5, 8}, {0, 4, 8}, {2, 4, 6}};
+        for (const auto& l : lines) {
+            const char a = c[static_cast<std::size_t>(l[0])];
+            if (a != ' ' && a == c[static_cast<std::size_t>(l[1])] && a == c[static_cast<std::size_t>(l[2])]) {
+                return a;
+            }
+        }
+        return ' ';
+    };
+    auto full = [](const std::array<char, 9>& c) {
+        for (char x : c) if (x == ' ') return false;
+        return true;
+    };
+    GameRules<TTT, int> g;
+    g.isTerminal = [&](const TTT& s) { return winner(s.c) != ' ' || full(s.c); };
+    g.evaluate = [&](const TTT& s) {
+        const char w = winner(s.c);
+        return w == 'X' ? 1.0f : (w == 'O' ? -1.0f : 0.0f);
+    };
+    g.moves = [&](const TTT& s) {
+        std::vector<int> m;
+        if (winner(s.c) != ' ') return m;
+        for (int i = 0; i < 9; ++i) if (s.c[static_cast<std::size_t>(i)] == ' ') m.push_back(i);
+        return m;
+    };
+    g.apply = [](const TTT& s, const int& m) {
+        TTT n = s;
+        n.c[static_cast<std::size_t>(m)] = (s.turn == 0) ? 'X' : 'O';
+        n.turn = 1 - s.turn;
+        return n;
+    };
+
+    // Reference minimax WITHOUT pruning (via std::function recursion) for cross-validation.
+    std::function<SearchResult<int>(const TTT&, bool)> fullRef =
+        [&](const TTT& s, bool maxing) -> SearchResult<int> {
+        SearchResult<int> r;
+        r.nodesVisited = 1;
+        if (g.isTerminal(s)) {
+            r.value = g.evaluate(s);
+            return r;
+        }
+        r.value = maxing ? -std::numeric_limits<float>::infinity()
+                         : std::numeric_limits<float>::infinity();
+        for (int m : g.moves(s)) {
+            const SearchResult<int> child = fullRef(g.apply(s, m), !maxing);
+            r.nodesVisited += child.nodesVisited;
+            if (maxing ? (child.value > r.value) : (child.value < r.value)) {
+                r.value = child.value;
+                r.bestMove = m;
+                r.hasMove = true;
+            }
+        }
+        return r;
+    };
+
+    // Perfect play from the empty board is a draw.
+    {
+        TTT s;
+        const SearchResult<int> r = minimax(g, s, 9, true);
+        CHECK(std::fabs(r.value) < 1e-6f && r.hasMove);
+    }
+    // Immediate win is found.
+    {
+        TTT s;
+        s.c = {{'X', 'X', ' ', 'O', 'O', ' ', ' ', ' ', ' '}};
+        const SearchResult<int> r = minimax(g, s, 9, true);
+        CHECK(std::fabs(r.value - 1.0f) < 1e-6f && r.bestMove == 2);
+    }
+    // Forced block: X must play 2 (only non-losing move); skipping it loses.
+    {
+        TTT s;
+        s.c = {{'O', 'O', ' ', ' ', 'X', ' ', ' ', ' ', 'X'}};
+        const SearchResult<int> r = minimax(g, s, 9, true);
+        CHECK(r.hasMove && r.bestMove == 2 && r.value >= 1.0f - 1e-6f);
+        const TTT elsewhere = g.apply(s, 5);
+        CHECK(std::fabs(minimax(g, elsewhere, 9, false).value + 1.0f) < 1e-6f);
+    }
+    // O (minimizer) takes its immediate win.
+    {
+        TTT s;
+        s.c = {{'O', 'O', ' ', 'X', 'X', ' ', ' ', ' ', ' '}};
+        s.turn = 1;
+        const SearchResult<int> r = minimax(g, s, 9, false);
+        CHECK(std::fabs(r.value + 1.0f) < 1e-6f && r.bestMove == 2);
+    }
+    // Alpha-beta == unpruned minimax value, visiting no more nodes; strictly fewer on the empty board.
+    {
+        Pcg32 rng(7u, 3u);
+        int compared = 0;
+        for (int trial = 0; trial < 300; ++trial) {
+            TTT s;
+            const int plies = static_cast<int>(rng.nextFloat() * 6.0f);
+            for (int p = 0; p < plies; ++p) {
+                if (g.isTerminal(s)) break;
+                const std::vector<int> ms = g.moves(s);
+                s = g.apply(s, ms[static_cast<std::size_t>(rng.nextFloat() * static_cast<float>(ms.size()))]);
+            }
+            if (g.isTerminal(s)) continue;
+            const bool maxing = (s.turn == 0);
+            const SearchResult<int> ab = minimax(g, s, 9, maxing);
+            const SearchResult<int> ref = fullRef(s, maxing);
+            CHECK(std::fabs(ab.value - ref.value) < 1e-6f);
+            CHECK(ab.nodesVisited <= ref.nodesVisited);
+            ++compared;
+        }
+        CHECK(compared > 100);
+        TTT empty;
+        CHECK(minimax(g, empty, 9, true).nodesVisited < fullRef(empty, true).nodesVisited);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28542,6 +28668,7 @@ int main() {
     testReactionDiffusion();
     testCubicSpline();
     testSpanningTree();
+    testMinimax();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
