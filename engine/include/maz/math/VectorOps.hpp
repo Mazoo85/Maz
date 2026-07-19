@@ -172,6 +172,17 @@ inline float angleToPoint(const vec2& a, const vec2& b) {
 // Same length as `v`; two applications negate the input (a 180-degree turn).
 inline vec2 orthogonal(const vec2& v) { return vec2(v.y, -v.x); }
 
+// Component-wise round / floor / ceil — Godot's Vector2/Vector3.round / floor / ceil. Distinct names
+// (roundv/floorv/ceilv) avoid colliding with the scalar C library functions and glm's vector overloads.
+// round uses std::round (half away from zero, matching Godot's Math::round). Handy for snapping a
+// position to a pixel or tile grid.
+inline vec2 roundv(const vec2& v) { return vec2(std::round(v.x), std::round(v.y)); }
+inline vec3 roundv(const vec3& v) { return vec3(std::round(v.x), std::round(v.y), std::round(v.z)); }
+inline vec2 floorv(const vec2& v) { return vec2(std::floor(v.x), std::floor(v.y)); }
+inline vec3 floorv(const vec3& v) { return vec3(std::floor(v.x), std::floor(v.y), std::floor(v.z)); }
+inline vec2 ceilv(const vec2& v) { return vec2(std::ceil(v.x), std::ceil(v.y)); }
+inline vec3 ceilv(const vec3& v) { return vec3(std::ceil(v.x), std::ceil(v.y), std::ceil(v.z)); }
+
 // Rotate `v` by `radians` counter-clockwise — Godot's Vector2.rotated.
 inline vec2 rotated(const vec2& v, float radians) {
     const float c = std::cos(radians);

@@ -13601,6 +13601,20 @@ void testVectorOps() {
         CHECK_NEAR(length(o), length(v), 1e-5f);        // same length
     }
 
+    // M381: roundv / floorv / ceilv — Godot Vector2/Vector3.round / floor / ceil (component-wise).
+    // round is half-away-from-zero (Godot Math::round): 2.5->3, -2.5->-3.
+    CHECK(near2(math::roundv(vec2(2.5f, -2.5f)), vec2(3, -3)));
+    CHECK(near2(math::roundv(vec2(0.4f, 0.6f)), vec2(0, 1)));
+    CHECK(near3(math::roundv(vec3(1.5f, -1.5f, 2.5f)), vec3(2, -2, 3)));
+    CHECK(near2(math::floorv(vec2(2.9f, -2.1f)), vec2(2, -3)));
+    CHECK(near3(math::floorv(vec3(-0.1f, 3.99f, -3.99f)), vec3(-1, 3, -4)));
+    CHECK(near2(math::ceilv(vec2(2.1f, -2.9f)), vec2(3, -2)));
+    CHECK(near3(math::ceilv(vec3(0.01f, -3.99f, 3.01f)), vec3(1, -3, 4)));
+    // integers are left untouched by all three.
+    CHECK(near2(math::roundv(vec2(5, -7)), vec2(5, -7)));
+    CHECK(near2(math::floorv(vec2(5, -7)), vec2(5, -7)));
+    CHECK(near2(math::ceilv(vec2(5, -7)), vec2(5, -7)));
+
     // move_toward: step advances by delta, and clamps without overshooting the target.
     CHECK(near2(math::moveToward(vec2(0, 0), vec2(10, 0), 3.0f), vec2(3, 0)));
     CHECK(near2(math::moveToward(vec2(0, 0), vec2(2, 0), 5.0f), vec2(2, 0)));

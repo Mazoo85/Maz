@@ -26,7 +26,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `math::VectorOps` — Godot's move_toward / slide / bounce / reflect / limit_length / direction_to /
   angle_to / project / posmod / snapped / rotated / orthogonal (M326 adds Vector2.orthogonal —
   the 90-degree-clockwise perpendicular (y,-x), verified perpendicular + length-preserving + double-
-  application-negates) (M323 adds the Vector3 overload rotated(v,axis,angle)
+  application-negates; M381 adds roundv / floorv / ceilv for vec2+vec3 — Godot Vector2/Vector3.round /
+  floor / ceil, component-wise, with round half-away-from-zero matching Godot's Math::round, verified
+  against exact values incl. the .5 boundary — for pixel/tile-grid snapping) (M323 adds the Vector3 overload rotated(v,axis,angle)
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
   path) (M341 adds fromAngle(radians) — Godot Vector2.from_angle, the unit vector (cos,sin) that
   inverts angle(), plus a cross(vec2,vec2) alias giving Godot's exact Vector2.cross spelling for the
