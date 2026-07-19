@@ -76,6 +76,7 @@
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedTrig.hpp"
 #include "maz/math/FixedMath.hpp"
+#include "maz/math/FixedRect2.hpp"
 #include "maz/core/PoissonDisk.hpp"
 #include "maz/core/PerfBudget.hpp"
 #include "maz/core/Profiler.hpp"
@@ -16642,6 +16643,68 @@ void testPcg32() {
             return h;
         };
         CHECK(atsim() == atsim());
+    }
+
+    // --- M420: FixedRect2 (deterministic fixed-point axis-aligned rectangle) ---
+    {
+        using FR = maz::math::FixedRect2;
+        using FRV = maz::math::FixedVec2;
+        using FRF = maz::core::Fixed;
+
+        const FR rect = FR::fromInt(2, 3, 10, 6); // x[2,12) y[3,9)
+
+        // Accessors.
+        CHECK(rect.left() == FRF::fromInt(2));
+        CHECK(rect.top() == FRF::fromInt(3));
+        CHECK(rect.right() == FRF::fromInt(12));
+        CHECK(rect.bottom() == FRF::fromInt(9));
+        CHECK((rect.end() == FRV::fromInt(12, 9)));
+        CHECK((rect.center() == FRV::fromInt(7, 6)));
+        CHECK(rect.area() == FRF::fromInt(60));
+
+        // hasPoint half-open (min inclusive, max exclusive).
+        CHECK(rect.hasPoint(FRV::fromInt(2, 3)));
+        CHECK(rect.hasPoint(FRV::fromInt(11, 8)));
+        CHECK(!rect.hasPoint(FRV::fromInt(12, 9)));
+        CHECK(!rect.hasPoint(FRV::fromInt(12, 5)));
+        CHECK(!rect.hasPoint(FRV::fromInt(1, 5)));
+
+        // intersects (edge-touching excluded by default, included with touchingCounts).
+        CHECK(rect.intersects(FR::fromInt(10, 8, 5, 5)));
+        CHECK(!rect.intersects(FR::fromInt(20, 20, 3, 3)));
+        CHECK(!rect.intersects(FR::fromInt(12, 3, 4, 6)));
+        CHECK(rect.intersects(FR::fromInt(12, 3, 4, 6), true));
+
+        // intersection.
+        CHECK((rect.intersection(FR::fromInt(8, 5, 10, 10)) == FR::fromInt(8, 5, 4, 4)));
+        CHECK(rect.intersection(FR::fromInt(20, 20, 2, 2)).area() == FRF::zero());
+
+        // merge.
+        CHECK((FR::fromInt(0, 0, 2, 2).merge(FR::fromInt(5, 5, 2, 2)) == FR::fromInt(0, 0, 7, 7)));
+
+        // grow / expand.
+        CHECK((rect.grow(FRF::fromInt(1)) == FR::fromInt(1, 2, 12, 8)));
+        CHECK((rect.expand(FRV::fromInt(15, 1)) == FR::fromInt(2, 1, 13, 8)));
+        CHECK((rect.expand(FRV::fromInt(5, 5)) == rect));
+
+        // encloses.
+        CHECK(rect.encloses(FR::fromInt(3, 4, 2, 2)));
+        CHECK(!rect.encloses(FR::fromInt(3, 4, 20, 2)));
+        CHECK(rect.encloses(rect));
+
+        // abs normalizes negative size.
+        CHECK((FR(FRV::fromInt(12, 9), FRV::fromInt(-10, -6)).abs() == FR::fromInt(2, 3, 10, 6)));
+
+        // clampPoint.
+        CHECK((rect.clampPoint(FRV::fromInt(0, 0)) == FRV::fromInt(2, 3)));
+        CHECK((rect.clampPoint(FRV::fromInt(100, 100)) == FRV::fromInt(12, 9)));
+        CHECK((rect.clampPoint(FRV::fromInt(7, 6)) == FRV::fromInt(7, 6)));
+
+        // Fractional (sub-integer) coordinates work — it is fixed-point, not integer-only.
+        const FR frac(FRV(FRF::half(), FRF::half()), FRV::fromInt(1, 1)); // x[0.5,1.5)
+        CHECK(frac.hasPoint(FRV::fromInt(1, 1)));
+        CHECK(!frac.hasPoint(FRV::fromInt(2, 2)));
+        CHECK(frac.center().x == FRF::one());
     }
 }
 

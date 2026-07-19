@@ -362,6 +362,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   all-quadrant sweep vs std::atan2 (worst error ~6e-5, compared on the circle to handle the ±π wrap), a
   fixFromAngle(fixAngle(v)) round-trip matching v's direction over a 25×25 grid, signed angle_to and
   shortest-wrap angle_difference, and a 500-point atan2 sweep that is bit-identical every run;
+  **fixed-point rectangle** M420 (`math::FixedRect2` — Godot's Rect2 in deterministic fixed-point: an
+  axis-aligned box in core::Fixed coords (position + size) for lockstep broadphase, replay-exact overlap
+  tests and deterministic trigger volumes. Same half-open convention and API as Rect2/Rect2i —
+  hasPoint / intersects (with a touching-counts flag) / intersection / merge / grow / expand / encloses
+  / abs / clampPoint / center / area — all integer fixed-point so bit-identical everywhere; the last
+  piece rounding out the deterministic-sim toolkit (M415 Fixed, M416 FixedVec2, M417 trig, M418 helpers,
+  M419 atan2, M420 rect). Godot has no fixed-point rectangle. Verified with exact accessors/area, the
+  half-open min-inclusive/max-exclusive containment, edge-touching intersects both ways, exact
+  intersection/merge/grow/expand/encloses, negative-size abs normalization, corner clamping, and
+  sub-integer (fractional) coordinates;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
