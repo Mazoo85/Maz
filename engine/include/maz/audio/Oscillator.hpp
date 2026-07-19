@@ -6,7 +6,7 @@ namespace maz::audio {
 
 // The available oscillator waveforms. Sine is the default; the rest are cheap analogue-style
 // shapes (naive, not band-limited — good enough for the current milestones).
-enum class Waveform { Sine, Square, Saw, Triangle, Trapezoid };
+enum class Waveform { Sine, Square, Saw, Triangle, Trapezoid, StepSine };
 
 // Evaluate a waveform at a phase in [0, 1). Shared by the Oscillator and the poly synth so there is
 // a single source of truth for each shape.
@@ -28,6 +28,14 @@ inline float waveSample(Waveform w, double phase) {
         const float tri = static_cast<float>(4.0 * std::fabs(phase - 0.5) - 1.0);
         const float t = tri * 2.0f;
         return t < -1.0f ? -1.0f : (t > 1.0f ? 1.0f : t);
+    }
+    case Waveform::StepSine: {
+        // A sine quantized to a small ladder of amplitude steps — a lo-fi / chiptune tone. The
+        // ladder is symmetric about zero so the wave stays DC-free, and the fundamental (its zero
+        // crossings) matches a pure sine, but the staircase adds harmonics for extra brightness.
+        constexpr double kHalfLevels = 4.0; // steps per polarity → 9 distinct levels across [-1, 1]
+        const double s = std::sin(phase * kTwoPi);
+        return static_cast<float>(std::round(s * kHalfLevels) / kHalfLevels);
     }
     }
     return 0.0f;

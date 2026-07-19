@@ -121,6 +121,54 @@ int main() {
         check(trap > tri && trap < sqr, "trapezoid brightness sits between triangle and square");
     }
 
+    // --- Step-sine waveform: a sine quantized to a step ladder (lo-fi/chiptune) ----
+    {
+        const int N = 2048;
+        auto hfEnergy = [](audio::Waveform w, int n) {
+            double e = 0.0;
+            float prev = audio::waveSample(w, 0.0);
+            for (int i = 1; i <= n; ++i) {
+                const float cur = audio::waveSample(w, static_cast<double>(i % n) / n);
+                const float d = cur - prev;
+                e += static_cast<double>(d) * d;
+                prev = cur;
+            }
+            return e;
+        };
+        // DC-free: the ladder is symmetric about zero, so one cycle integrates to ~0.
+        double dc = 0.0;
+        bool stepInRange = true;
+        bool quantized = true;
+        for (int i = 0; i < N; ++i) {
+            const float s =
+                audio::waveSample(audio::Waveform::StepSine, static_cast<double>(i) / N);
+            dc += s;
+            if (s < -1.0f || s > 1.0f) {
+                stepInRange = false;
+            }
+            // Every value lands on the 0.25 ladder (4 steps per polarity).
+            const float q = s * 4.0f;
+            if (std::fabs(q - std::round(q)) > 1e-4f) {
+                quantized = false;
+            }
+        }
+        check(std::fabs(dc / N) < 1e-3, "step-sine is DC-free over a cycle");
+        check(stepInRange, "step-sine stays within [-1, 1]");
+        check(quantized, "step-sine values sit on a discrete amplitude ladder");
+        // Brighter than a pure sine: the staircase edges add harmonics.
+        const double sine = hfEnergy(audio::Waveform::Sine, N);
+        const double step = hfEnergy(audio::Waveform::StepSine, N);
+        check(step > sine, "step-sine is brighter than a pure sine (added quantization harmonics)");
+        // Same fundamental as a sine: an oscillator playing it still estimates at ~440 Hz.
+        audio::Oscillator so;
+        so.setWaveform(audio::Waveform::StepSine);
+        so.noteOn(440.0f);
+        std::vector<float> sm(static_cast<size_t>(frames), 0.0f);
+        so.render(sm.data(), frames, sampleRate);
+        check(std::fabs(estimateHz(sm, sampleRate) - 440.0) < 3.0,
+              "step-sine preserves the fundamental (~440 Hz)");
+    }
+
     // --- AudioEngine: offline render ----------------------------------------
     audio::AudioEngine engine;
     engine.initOffline();
