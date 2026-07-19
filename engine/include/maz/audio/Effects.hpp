@@ -251,8 +251,14 @@ public:
     const char* name() const override { return "Pitch Shifter"; }
     void setSemitones(float st) { semitones_ = st < -24.0f ? -24.0f : (st > 24.0f ? 24.0f : st); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Feedback (0..0.95): route the shifted output back into the delay line, so each pass is shifted
+    // again — the shift interval stacks into a cascading spiral/arpeggio of ever-higher (or lower)
+    // copies (a Shepard-like riser at ±octaves, a metallic tail at odd intervals). 0 (default) = off
+    // (a single shift, bit-for-bit unchanged).
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
     float semitones() const { return semitones_; }
     float mix() const { return mix_; }
+    float feedback() const { return feedback_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -260,10 +266,12 @@ public:
 private:
     float semitones_ = 0.0f; // pitch shift in semitones (±24); 0 = unshifted
     float mix_ = 1.0f;       // dry/wet blend; 1 = fully shifted
+    float feedback_ = 0.0f;  // shifted-output feedback into the delay line [0,0.95]; 0 = off
     std::vector<float> bufL_, bufR_; // ring buffers (sized on first process)
     int size_ = 0;
     int writePos_ = 0;
     double phase_ = 0.0; // tap sweep position in [0,1)
+    float fbL_ = 0.0f, fbR_ = 0.0f; // last shifted output (for the feedback path)
 };
 
 // A single-sideband frequency shifter (Bode/"Klangumwandler" style): shifts every frequency component

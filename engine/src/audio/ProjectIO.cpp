@@ -590,7 +590,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
       << mixer.ringmod().mix() << " " << static_cast<int>(mixer.ringmod().carrier()) << "\n";
     f << "fx pitch " << (mixer.pitchShifter().enabled() ? 1 : 0) << " "
-      << mixer.pitchShifter().semitones() << " " << mixer.pitchShifter().mix() << "\n";
+      << mixer.pitchShifter().semitones() << " " << mixer.pitchShifter().mix() << " "
+      << mixer.pitchShifter().feedback() << "\n";
     f << "fx freqshift " << (mixer.freqShifter().enabled() ? 1 : 0) << " "
       << mixer.freqShifter().shiftHz() << " " << mixer.freqShifter().mix() << "\n";
 
@@ -1460,6 +1461,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.pitchShifter().setEnabled(en != 0);
                 mixer.pitchShifter().setSemitones(semis);
                 mixer.pitchShifter().setMix(mix);
+                float pfb = 0.0f; // pitch feedback optional (older files → off)
+                if (ls >> pfb) {
+                    mixer.pitchShifter().setFeedback(pfb);
+                }
             } else if (which == "freqshift") {
                 float hz = 0.0f, mix = 1.0f;
                 ls >> hz >> mix;

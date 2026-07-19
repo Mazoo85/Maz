@@ -376,6 +376,8 @@ void PitchShifter::reset() {
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     writePos_ = 0;
     phase_ = 0.0;
+    fbL_ = 0.0f;
+    fbR_ = 0.0f;
 }
 
 void PitchShifter::process(float* stereo, int frames, int sampleRate) {
@@ -408,11 +410,13 @@ void PitchShifter::process(float* stereo, int frames, int sampleRate) {
         return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
     };
 
+    const float fb = feedback_; // route the shifted output back in for cascading shifts
     for (int i = 0; i < frames; ++i) {
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
-        bufL_[static_cast<size_t>(writePos_)] = dryL;
-        bufR_[static_cast<size_t>(writePos_)] = dryR;
+        // Feed the previous shifted output back into the delay line so each pass shifts again.
+        bufL_[static_cast<size_t>(writePos_)] = dryL + fbL_ * fb;
+        bufR_[static_cast<size_t>(writePos_)] = dryR + fbR_ * fb;
 
         // Two taps half the buffer apart, each windowed by sin(pi·p) so one fades in as the other
         // wraps — hiding the discontinuity when a tap laps the buffer.
@@ -423,6 +427,8 @@ void PitchShifter::process(float* stereo, int frames, int sampleRate) {
         const float w1 = static_cast<float>(std::sin(kPi * p1));
         const float wetL = readTap(bufL_, p0) * w0 + readTap(bufL_, p1) * w1;
         const float wetR = readTap(bufR_, p0) * w0 + readTap(bufR_, p1) * w1;
+        fbL_ = wetL;
+        fbR_ = wetR;
 
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;

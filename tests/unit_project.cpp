@@ -397,6 +397,7 @@ int main() {
     mixer.pitchShifter().setEnabled(true);
     mixer.pitchShifter().setSemitones(7.0f);
     mixer.pitchShifter().setMix(0.65f);
+    mixer.pitchShifter().setFeedback(0.55f);
     mixer.freqShifter().setEnabled(true);
     mixer.freqShifter().setShiftHz(137.0f);
     mixer.freqShifter().setMix(0.8f);
@@ -983,7 +984,8 @@ int main() {
               mixer2.ringmod().carrier() == audio::RingMod::Carrier::Square,
           "ring-mod round-trips");
     check(mixer2.pitchShifter().enabled() && near(mixer2.pitchShifter().semitones(), 7.0f) &&
-              near(mixer2.pitchShifter().mix(), 0.65f),
+              near(mixer2.pitchShifter().mix(), 0.65f) &&
+              near(mixer2.pitchShifter().feedback(), 0.55f),
           "pitch shifter round-trips");
     check(mixer2.freqShifter().enabled() && near(mixer2.freqShifter().shiftHz(), 137.0f) &&
               near(mixer2.freqShifter().mix(), 0.8f),

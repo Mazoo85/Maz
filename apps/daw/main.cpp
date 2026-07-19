@@ -1760,6 +1760,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##pitch", &pwet, 0.0f, 1.0f, "%.2f")) mx.pitchShifter().setMix(pwet);
+        float pfb = mx.pitchShifter().feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("fb##pitch", &pfb, 0.0f, 0.95f, pfb <= 0.0f ? "off" : "%.2f"))
+            mx.pitchShifter().setFeedback(pfb);
     }
     {
         bool en = mx.freqShifter().enabled();

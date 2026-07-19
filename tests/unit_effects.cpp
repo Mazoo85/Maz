@@ -1302,6 +1302,32 @@ int main() {
               "pitch shifter at 0 semitones keeps the pitch (~440 Hz)");
         audio::PitchShifter dp;
         check(dp.semitones() == 0.0f && !dp.enabled(), "pitch shifter defaults to 0 st and off");
+
+        // Feedback: each pass re-shifts the signal, so an octave-up shift cascades ever higher — the
+        // tail's dominant frequency climbs well above the single-pass shift, and stays bounded.
+        auto shiftedFb = [&](float fb, float* peakOut) {
+            audio::PitchShifter ps;
+            ps.setEnabled(true);
+            ps.setSemitones(12.0f);
+            ps.setMix(1.0f);
+            ps.setFeedback(fb);
+            std::vector<float> b = sineStereo(sr, 440.0, 0.5, sr);
+            ps.process(b.data(), sr, sr);
+            float pk = 0.0f;
+            for (float v : b) {
+                pk = std::max(pk, std::fabs(v));
+            }
+            *peakOut = pk;
+            const std::vector<float> tail(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+            return freqOf(tail);
+        };
+        float pkNo = 0.0f, pkFb = 0.0f;
+        const double freqNo = shiftedFb(0.0f, &pkNo);
+        const double freqFb = shiftedFb(0.7f, &pkFb);
+        check(freqFb > freqNo * 1.8,
+              "pitch feedback cascades the shift upward (tail dominant frequency climbs)");
+        check(pkFb < 8.0f, "pitch feedback stays bounded");
+        check(audio::PitchShifter().feedback() == 0.0f, "pitch shifter feedback defaults to off");
     }
 
     // --- Frequency shifter: single-sideband heterodyne (Hz shift, not a ratio) ------
