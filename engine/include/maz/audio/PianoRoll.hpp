@@ -14,6 +14,7 @@ struct Note {
     float velocity = 0.9f;
     float probability = 1.0f; // chance in [0,1] the note fires each loop (1 = always)
     float fineTune = 0.0f;    // per-note pitch offset in cents (±), for micro-tuning/detune
+    int roll = 1;             // retrigger count within the note's first step (1 = no roll/roll off)
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -177,6 +178,11 @@ public:
     // value (or 0 if there's no note at that cell).
     float setNoteFineTune(int pitch, int step, float cents);
     float noteFineTune(int pitch, int step) const;
+
+    // Per-note roll/ratchet: the note retriggers `count` times (1..8) evenly across its first step —
+    // a melodic drum-roll/stutter. 1 = a single hit. Returns the clamped value.
+    int setNoteRoll(int pitch, int step, int count);
+    int noteRoll(int pitch, int step) const;
 
 private:
     int numSteps_ = 16;

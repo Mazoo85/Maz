@@ -140,7 +140,7 @@ int main() {
     seq.setStep(2, 5, true);
     seq.setStepTune(2, 5, -5); // per-step pitch offset
     seq.setStepNudge(2, 5, 40); // per-step timing nudge
-    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f});
+    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f, 3}); // roll = 3
     seq.setPatternName(p1, "Chorus Fill");
     seq.setSwing(0.35f); // pattern 1's own groove
     seq.selectPattern(0);
@@ -402,6 +402,7 @@ int main() {
     check(seq2.stepNudge(2, 5) == 40, "per-step timing nudge round-trips");
     check(near(seq2.roll().notes()[0].probability, 0.6f), "per-note probability round-trips");
     check(near(seq2.roll().notes()[0].fineTune, 35.0f), "per-note fine tune round-trips");
+    check(seq2.roll().notes()[0].roll == 3, "per-note roll/ratchet round-trips");
     check(near(seq2.swing(), 0.35f), "pattern 1 per-pattern swing round-trips");
     seq2.selectPattern(0);
     check(near(seq2.swing(), 0.15f), "pattern 0 per-pattern swing round-trips");

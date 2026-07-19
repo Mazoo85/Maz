@@ -308,11 +308,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         }
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << " " << n.fineTune << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
-              << n.velocity << " " << n.probability << " " << n.fineTune << "\n";
+              << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -752,6 +752,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> fine) {
                 n.fineTune = fine;
             }
+            int roll = 1; // per-note roll/ratchet optional (older files omit it → single hit)
+            if (ls >> roll) {
+                n.roll = roll;
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
@@ -765,6 +769,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float fine = 0.0f; // per-note fine tune optional (older files omit it)
             if (ls >> fine) {
                 n.fineTune = fine;
+            }
+            int roll = 1; // per-note roll/ratchet optional (older files omit it → single hit)
+            if (ls >> roll) {
+                n.roll = roll;
             }
             seq.selectPattern(p);
             seq.roll2().addNote(n);

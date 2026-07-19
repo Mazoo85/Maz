@@ -115,6 +115,26 @@ float PianoRoll::noteFineTune(int pitch, int step) const {
     return 0.0f;
 }
 
+int PianoRoll::setNoteRoll(int pitch, int step, int count) {
+    const int c = count < 1 ? 1 : (count > 8 ? 8 : count);
+    for (Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            n.roll = c;
+            return c;
+        }
+    }
+    return 1;
+}
+
+int PianoRoll::noteRoll(int pitch, int step) const {
+    for (const Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            return n.roll;
+        }
+    }
+    return 1;
+}
+
 int PianoRoll::quantize(int division) {
     if (division < 2) {
         return 0; // 1 (or less) → already on the grid

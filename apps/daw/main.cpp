@@ -803,7 +803,9 @@ void buildPianoRollUI(audio::Sequencer& seq) {
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    if (ImGui::GetIO().KeyCtrl) {
+                    if (ImGui::GetIO().KeyShift) {
+                        roll.setNoteRoll(pitch, s, roll.noteRoll(pitch, s) + (wheel > 0.0f ? 1 : -1));
+                    } else if (ImGui::GetIO().KeyCtrl) {
                         roll.setNoteFineTune(pitch, s, roll.noteFineTune(pitch, s) + wheel * 5.0f);
                     } else {
                         roll.setNoteProbability(pitch, s, roll.noteProbability(pitch, s) + wheel * 0.1f);
@@ -811,7 +813,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 }
                 const float pr = roll.noteProbability(pitch, s);
                 const float ft = roll.noteFineTune(pitch, s);
-                if (ft != 0.0f) {
+                const int rl = roll.noteRoll(pitch, s);
+                if (rl > 1) {
+                    ImGui::SetTooltip("roll x%d", rl);
+                } else if (ft != 0.0f) {
                     ImGui::SetTooltip("fine %+.0f cents", ft);
                 } else if (pr < 0.999f) {
                     ImGui::SetTooltip("prob %.0f%%", pr * 100.0f);

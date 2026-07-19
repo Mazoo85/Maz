@@ -615,6 +615,55 @@ int main() {
         check(r2 == 64, "arp advances to the next note after the rate interval");
     }
 
+    // --- Per-note roll / ratchet --------------------------------------------
+    {
+        // Count amplitude onsets (rising crossings of a follower) over the note's first step.
+        auto countOnsets = [&](int rollCount) {
+            audio::Sequencer s;
+            s.setBpm(120.0); // 6000 frames per 16th step @ 48 kHz
+            s.synth().setEnvelope(0.001f, 0.02f, 0.0f, 0.005f); // percussive: each hit is a burst
+            audio::Note n{0, 1, 60, 1.0f, 1.0f, 0.0f};
+            n.roll = rollCount;
+            s.roll().addNote(n);
+            s.play();
+            const std::vector<float> out = renderMono(s, 6000, sampleRate);
+            std::vector<float> env(out.size() / 2, 0.0f);
+            float e = 0.0f;
+            float peak = 0.0f;
+            for (size_t i = 0; i + 1 < out.size(); i += 2) {
+                e += 0.02f * (std::fabs(out[i]) - e);
+                env[i / 2] = e;
+                peak = std::max(peak, e);
+            }
+            if (peak <= 0.0f) {
+                return 0;
+            }
+            const float hi = 0.35f * peak, lo = 0.12f * peak;
+            int onsets = 0;
+            bool above = false;
+            for (float v : env) {
+                if (!above && v > hi) {
+                    ++onsets;
+                    above = true;
+                } else if (above && v < lo) {
+                    above = false;
+                }
+            }
+            return onsets;
+        };
+        const int single = countOnsets(1);
+        const int rolled = countOnsets(4);
+        check(single == 1, "a normal note has a single onset within its step");
+        check(rolled >= 3, "a roll=4 note retriggers several times within its step");
+        check(rolled > single, "a rolled note adds retriggers over a plain note");
+
+        audio::Sequencer dn;
+        dn.roll().addNote(audio::Note{0, 4, 60, 1.0f});
+        check(dn.roll().noteRoll(60, 0) == 1, "a note defaults to no roll");
+        dn.roll().setNoteRoll(60, 0, 20);
+        check(dn.roll().noteRoll(60, 0) == 8, "note roll clamps to 8");
+    }
+
     // --- Sidechain ducking ---------------------------------------------------
     {
         // A kick on step 0 (muted so only the ducking is heard) ducks a sustained synth note; the

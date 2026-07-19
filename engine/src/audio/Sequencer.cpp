@@ -695,13 +695,27 @@ void Sequencer::triggerStep(int step) {
         const float r = static_cast<float>(probRng_ & 0xFFFFFFu) / 16777216.0f;
         return r < n.probability;
     };
+    // Schedule a note's roll/ratchet retriggers (k=1..roll-1) evenly across its first step.
+    auto scheduleRoll = [this, step](const Note& n, int pitch, bool bass, bool samp) {
+        if (n.roll <= 1) {
+            return;
+        }
+        const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
+        const int interval = stepSamples / n.roll;
+        for (int k = 1; k < n.roll; ++k) {
+            melodicHits_.push_back(
+                MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp});
+        }
+    };
     for (const Note& n : roll.notes()) {
         if (n.startStep == step && noteFires(n)) {
+            const int p = n.pitch + transpose_;
             if (toSampler) {
-                sampler_.noteOn(n.pitch + transpose_, n.velocity);
+                sampler_.noteOn(p, n.velocity);
             } else {
-                synth_.noteOn(n.pitch + transpose_, n.velocity, n.fineTune);
+                synth_.noteOn(p, n.velocity, n.fineTune);
             }
+            scheduleRoll(n, p, false, toSampler);
         }
     }
 
@@ -714,7 +728,9 @@ void Sequencer::triggerStep(int step) {
     }
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
-            synth2_.noteOn(n.pitch + transpose_, n.velocity, n.fineTune);
+            const int p = n.pitch + transpose_;
+            synth2_.noteOn(p, n.velocity, n.fineTune);
+            scheduleRoll(n, p, true, false);
         }
     }
 }
@@ -733,6 +749,7 @@ void Sequencer::play() {
     metroEnv_ = 0.0f;
     probRng_ = 0x9E3779B9u; // reseed so probability is reproducible per play()
     ratchets_.clear();
+    melodicHits_.clear();
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
     if (songMode_ && !playlist_.empty()) {
@@ -803,6 +820,28 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             } else {
                 chunk = std::min(chunk, ratchets_[ri].framesUntil);
                 ++ri;
+            }
+        }
+
+        // Melodic roll retriggers: re-strike a rolled note (note-off then note-on) when due, and
+        // never render past the next pending one so it lands sample-accurately.
+        for (size_t mi = 0; mi < melodicHits_.size();) {
+            if (melodicHits_[mi].framesUntil <= 0) {
+                const MelodicHit h = melodicHits_[mi];
+                if (h.toSampler) {
+                    sampler_.noteOff(h.pitch);
+                    sampler_.noteOn(h.pitch, h.velocity);
+                } else if (h.bass) {
+                    synth2_.noteOff(h.pitch);
+                    synth2_.noteOn(h.pitch, h.velocity, h.fineTune);
+                } else {
+                    synth_.noteOff(h.pitch);
+                    synth_.noteOn(h.pitch, h.velocity, h.fineTune);
+                }
+                melodicHits_.erase(melodicHits_.begin() + static_cast<long>(mi));
+            } else {
+                chunk = std::min(chunk, melodicHits_[mi].framesUntil);
+                ++mi;
             }
         }
 
@@ -941,6 +980,11 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         const size_t ratchetsThisChunk = ratchets_.size();
         for (size_t i = 0; i < ratchetsThisChunk; ++i) {
             ratchets_[i].framesUntil -= chunk;
+        }
+        // Same for pending melodic roll retriggers (new ones pushed below are timed from the boundary).
+        const size_t melodicThisChunk = melodicHits_.size();
+        for (size_t i = 0; i < melodicThisChunk; ++i) {
+            melodicHits_[i].framesUntil -= chunk;
         }
         // Count down the arp gate by the frames just rendered so its note-off lands on time.
         if (arpGateFramesLeft_ > 0) {

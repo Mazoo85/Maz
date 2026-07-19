@@ -377,6 +377,17 @@ private:
     };
     std::vector<RatchetHit> ratchets_; // pending ratchet retriggers
 
+    // Pending melodic roll retriggers (per-note ratchet): a note re-struck within its first step.
+    struct MelodicHit {
+        int pitch;         // already transposed
+        float velocity;
+        float fineTune;
+        int framesUntil;
+        bool bass;         // true = synth2 (bass lane); false = lead
+        bool toSampler;    // lead lane routed to the sampler
+    };
+    std::vector<MelodicHit> melodicHits_;
+
     bool playing_ = false;
     int currentStep_ = 0;
     double samplesIntoStep_ = 0.0;
