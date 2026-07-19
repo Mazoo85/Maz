@@ -933,6 +933,8 @@ void Gate::reset() {
     env_ = 0.0f;
     gain_ = 1.0f;
     holdCounter_ = 0;
+    scLpL_ = 0.0f;
+    scLpR_ = 0.0f;
 }
 
 void Gate::process(float* stereo, int frames, int sampleRate) {
@@ -947,11 +949,22 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
     const float ratio = std::max(ratio_, 1.0f);
     const float floorLin = dbToLin(rangeDb_);
     const int holdSamples = static_cast<int>(holdMs_ * 0.001f * sr);
+    // Sidechain high-pass on the detection signal (one-pole LP; HP = x − LP). 0 = off (detect full).
+    const bool scHpf = scHpfHz_ > 0.0f;
+    const float scA = scHpf ? 1.0f - std::exp(-6.283185307179586f * scHpfHz_ / sr) : 0.0f;
 
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
-        const float peak = std::max(std::fabs(l), std::fabs(r));
+        // Detection signal: the full signal, or its high-passed version when the key filter is on.
+        float detL = l, detR = r;
+        if (scHpf) {
+            scLpL_ += scA * (l - scLpL_);
+            scLpR_ += scA * (r - scLpR_);
+            detL = l - scLpL_;
+            detR = r - scLpR_;
+        }
+        const float peak = std::max(std::fabs(detL), std::fabs(detR));
 
         // Peak-following detector (fast).
         env_ = detCoef * env_ + (1.0f - detCoef) * peak;

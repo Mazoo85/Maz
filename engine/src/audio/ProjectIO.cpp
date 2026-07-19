@@ -401,7 +401,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.bitcrusher().tone() << "\n";
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
       << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
-      << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << "\n";
+      << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << " "
+      << mixer.gate().sidechainHpf() << "\n";
     f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width() << " "
       << mixer.widener().bassMonoHz() << "\n";
     f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
@@ -951,6 +952,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float hold = 0.0f; // hold optional (older files omit it)
                 if (ls >> hold) {
                     mixer.gate().setHoldMs(hold);
+                }
+                float scHpf = 0.0f; // sidechain HPF optional (older files omit it → off)
+                if (ls >> scHpf) {
+                    mixer.gate().setSidechainHpf(scHpf);
                 }
             } else if (which == "width") {
                 float w = 1.0f;

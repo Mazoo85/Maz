@@ -2333,6 +2333,28 @@ int main() {
         }
         check(same, "a disabled gate is transparent");
 
+        // Sidechain (key) high-pass: a loud LOW tone opens the gate normally, but with the key filter
+        // set well above it the detector sees almost nothing, so the gate stays shut and the low tone
+        // is attenuated toward the floor.
+        auto lowTail = [&](float scHpf) {
+            audio::Gate g;
+            g.setEnabled(true);
+            g.setThresholdDb(-24.0f);
+            g.setRatio(6.0f);
+            g.setReleaseMs(20.0f);
+            g.setSidechainHpf(scHpf);
+            std::vector<float> b = sineStereo(sr, 40.0, 0.6, sr); // loud low tone (~-4 dB)
+            g.process(b.data(), sr, sr);
+            std::vector<float> tail(b.begin() + 2400 * 2, b.end());
+            return rms(tail);
+        };
+        const double keyOff = lowTail(0.0f);
+        check(keyOff > 0.3, "without the key filter a loud low tone opens the gate");
+        check(lowTail(2000.0f) < keyOff * 0.3,
+              "the sidechain high-pass keeps the gate shut on a low tone the key can't see");
+        audio::Gate dscg;
+        check(dscg.sidechainHpf() == 0.0f, "gate sidechain HPF defaults to off");
+
         // Hold: after a loud burst drops to a quiet tail, hold keeps the gate open longer.
         auto tailLevel = [&](float holdMs) {
             audio::Gate g;

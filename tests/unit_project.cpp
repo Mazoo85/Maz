@@ -318,6 +318,7 @@ int main() {
     mixer.gate().setRatio(5.0f);
     mixer.gate().setRangeDb(-55.0f);
     mixer.gate().setHoldMs(50.0f);
+    mixer.gate().setSidechainHpf(300.0f);
     mixer.widener().setEnabled(true);
     mixer.widener().setWidth(1.6f);
     mixer.widener().setBassMonoHz(120.0f);
@@ -720,8 +721,8 @@ int main() {
           "phaser tempo sync round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&
-              near(mixer2.gate().holdMs(), 50.0f),
-          "gate round-trips (incl. hold)");
+              near(mixer2.gate().holdMs(), 50.0f) && near(mixer2.gate().sidechainHpf(), 300.0f),
+          "gate round-trips (incl. hold + key filter)");
     check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f) &&
               near(mixer2.widener().bassMonoHz(), 120.0f),
           "stereo widener round-trips");

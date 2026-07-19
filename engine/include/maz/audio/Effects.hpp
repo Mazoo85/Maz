@@ -610,6 +610,11 @@ public:
     // Hold time (ms): once opened, keep the gate open at least this long after the signal drops
     // below the threshold — prevents chatter and stops short tails from being clipped.
     void setHoldMs(float ms) { holdMs_ = ms < 0.0f ? 0.0f : (ms > 2000.0f ? 2000.0f : ms); }
+    // Sidechain high-pass (Hz): high-pass the *detection* signal only, so booming low end (kick,
+    // bass) doesn't false-open the gate — the gate then keys off the highs. The gain is still applied
+    // to the full-range signal. 0 (default) = off (detect on the full signal).
+    void setSidechainHpf(float hz) { scHpfHz_ = hz < 0.0f ? 0.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    float sidechainHpf() const { return scHpfHz_; }
     float thresholdDb() const { return thresholdDb_; }
     float ratio() const { return ratio_; }
     float rangeDb() const { return rangeDb_; }
@@ -627,8 +632,10 @@ private:
     float attackMs_ = 2.0f;
     float releaseMs_ = 80.0f;
     float holdMs_ = 0.0f;
+    float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
     int holdCounter_ = 0; // samples remaining that the gate is held open
     float env_ = 0.0f;   // peak-envelope follower
+    float scLpL_ = 0.0f, scLpR_ = 0.0f; // sidechain HPF state (one-pole LP; HP = x − LP)
     float gain_ = 1.0f;  // smoothed gate gain
 };
 
