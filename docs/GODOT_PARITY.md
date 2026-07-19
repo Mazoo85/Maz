@@ -134,7 +134,8 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   — `clipPolygonConvex` (Sutherland–Hodgman: clip a polygon to a convex region — viewport/FOV/scissor),
   the convex case of Godot's Geometry2D.clip_polygons/intersect_polygons (general Clipper boolean ops
   remain out of scope); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
-  clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); **Aabb3 method completeness** M272 —
+  clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); plus **point-in-circle test** M373
+  — `pointInCircle` (Godot's Geometry2D.is_point_in_circle: squared-distance ≤ radius², boundary counts as inside); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
   Godot's AABB; M324 adds `intersectsPlane` (Godot AABB.intersects_plane) — true when the box
   straddles a plane, faithfully reproducing Godot's asymmetric touch rule (a zero-distance corner

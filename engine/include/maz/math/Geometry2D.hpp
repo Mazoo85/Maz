@@ -90,6 +90,13 @@ inline bool segmentIntersectsCircle(vec2 a, vec2 b, vec2 center, float radius) {
     return distanceToSegment(center, a, b) <= radius;
 }
 
+// Is `p` inside (or exactly on) the circle at `center` with `radius`? — Godot's Geometry2D
+// is_point_in_circle. Compares squared distance to radius² (boundary counts as inside).
+inline bool pointInCircle(vec2 p, vec2 center, float radius) {
+    const vec2 d = p - center;
+    return dot(d, d) <= radius * radius;
+}
+
 // ---- more Geometry2D statics (M276) ---------------------------------------------------------
 
 // Closest point on the INFINITE line through a,b (unclamped) — Godot's

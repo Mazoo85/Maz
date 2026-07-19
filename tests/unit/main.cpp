@@ -1743,6 +1743,13 @@ void testGeometry2D() {
         CHECK(!segmentIntersectsCircle(vec2(0, 0), vec2(10, 0), vec2(-5, 0), 2.0f));
     }
 
+    // --- M373: pointInCircle (boundary counts as inside; 3-4-5 checks) ---
+    CHECK(math::pointInCircle(vec2(2, 3), vec2(2, 3), 5.0f));       // center
+    CHECK(math::pointInCircle(vec2(7, 3), vec2(2, 3), 5.0f));       // exactly on boundary
+    CHECK(!math::pointInCircle(vec2(8, 3), vec2(2, 3), 5.0f));      // outside
+    CHECK(math::pointInCircle(vec2(5, 7), vec2(2, 3), 5.0f));       // dist 5 -> inside
+    CHECK(!math::pointInCircle(vec2(5, 7), vec2(2, 3), 4.99f));     // just outside
+
     // --- more Geometry2D statics (M276) ---
     // closestPointOnLine is uncapped (projection can lie past the endpoints).
     CHECK((math::closestPointOnLine(vec2(15, 3), vec2(0, 0), vec2(10, 0)) == vec2(15, 0)));
