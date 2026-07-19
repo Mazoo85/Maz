@@ -1650,10 +1650,15 @@ public:
     void setInvertL(bool on) { invertL_ = on; }
     void setInvertR(bool on) { invertR_ = on; }
     void setMono(bool on) { mono_ = on; }
+    // Stereo width (M/S) at the output stage: scale the side (L−R) component. 1 (default) = unchanged,
+    // 0 = mono, up to 2 = extra-wide. A quick output-stage width trim without inserting a full
+    // widener; ignored when mono is on. Exactly 1 is a literal no-op (bit-for-bit unchanged).
+    void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
     float gainDb() const { return gainDb_; }
     bool invertL() const { return invertL_; }
     bool invertR() const { return invertR_; }
     bool mono() const { return mono_; }
+    float width() const { return width_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
 
@@ -1662,6 +1667,7 @@ private:
     bool invertL_ = false;
     bool invertR_ = false;
     bool mono_ = false;
+    float width_ = 1.0f; // output-stage M/S width; 1 = unchanged, 0 = mono, 2 = extra-wide
 };
 
 // A soft/hard clipper (a Fruity-Soft-Clipper-style loudness tool). Unlike the drive-based Distortion

@@ -344,6 +344,7 @@ int main() {
     mixer.utility().setGainDb(-3.0f);
     mixer.utility().setInvertR(true);
     mixer.utility().setMono(true);
+    mixer.utility().setWidth(1.5f);
     mixer.limiter().setEnabled(true);
     mixer.limiter().setInputGainDb(6.0f);
     mixer.limiter().setCeilingDb(-1.5f);
@@ -917,7 +918,8 @@ int main() {
               near(mixer2.vocoder().releaseMs(), 60.0f) && near(mixer2.vocoder().mix(), 0.85f),
           "vocoder round-trips");
     check(mixer2.utility().enabled() && near(mixer2.utility().gainDb(), -3.0f) &&
-              !mixer2.utility().invertL() && mixer2.utility().invertR() && mixer2.utility().mono(),
+              !mixer2.utility().invertL() && mixer2.utility().invertR() && mixer2.utility().mono() &&
+                  near(mixer2.utility().width(), 1.5f),
           "utility round-trips");
     check(mixer2.limiter().enabled() && near(mixer2.limiter().inputGainDb(), 6.0f) &&
               near(mixer2.limiter().ceilingDb(), -1.5f) && near(mixer2.limiter().releaseMs(), 200.0f) &&

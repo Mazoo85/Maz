@@ -2488,6 +2488,7 @@ void Utility::process(float* stereo, int frames, int sampleRate) {
     const float g = dbToLin(gainDb_);
     const float ls = invertL_ ? -1.0f : 1.0f;
     const float rs = invertR_ ? -1.0f : 1.0f;
+    const bool doWidth = width_ != 1.0f; // exactly 1 → skip (bit-for-bit unchanged)
     for (int i = 0; i < frames; ++i) {
         float l = stereo[2 * i] * ls;
         float r = stereo[2 * i + 1] * rs;
@@ -2495,6 +2496,12 @@ void Utility::process(float* stereo, int frames, int sampleRate) {
             const float m = 0.5f * (l + r);
             l = m;
             r = m;
+        } else if (doWidth) {
+            // M/S width: scale the side (L−R) component around the mid.
+            const float mid = 0.5f * (l + r);
+            const float side = 0.5f * (l - r) * width_;
+            l = mid + side;
+            r = mid - side;
         }
         stereo[2 * i] = l * g;
         stereo[2 * i + 1] = r * g;

@@ -527,7 +527,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.octaver().tone() << "\n";
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
       << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
-      << (mixer.utility().mono() ? 1 : 0) << "\n";
+      << (mixer.utility().mono() ? 1 : 0) << " " << mixer.utility().width() << "\n";
     f << "fx limiter " << (mixer.limiter().enabled() ? 1 : 0) << " " << mixer.limiter().inputGainDb()
       << " " << mixer.limiter().ceilingDb() << " " << mixer.limiter().releaseMs() << " "
       << mixer.limiter().lookaheadMs() << "\n";
@@ -1243,6 +1243,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.utility().setInvertL(invL != 0);
                 mixer.utility().setInvertR(invR != 0);
                 mixer.utility().setMono(mono != 0);
+                float uwidth = 1.0f; // output width optional (older files omit it → unchanged)
+                if (ls >> uwidth) {
+                    mixer.utility().setWidth(uwidth);
+                }
             } else if (which == "limiter") {
                 float inGain = 0.0f, ceil = -0.3f, rel = 100.0f, look = 2.0f;
                 ls >> inGain >> ceil >> rel >> look;

@@ -2592,6 +2592,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         bool mono = mx.utility().mono();
         ImGui::SameLine();
         if (ImGui::Checkbox("mono##util", &mono)) mx.utility().setMono(mono);
+        float uwidth = mx.utility().width();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("width##util", &uwidth, 0.0f, 2.0f, "%.2f")) mx.utility().setWidth(uwidth);
     }
     {
         bool en = mx.limiter().enabled();

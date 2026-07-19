@@ -3091,6 +3091,20 @@ int main() {
         gain.process(g.data(), 1, sr);
         check(g[0] > 0.78f && g[0] < 0.82f, "utility +6 dB gain roughly doubles the level");
 
+        // Width (M/S): a stereo signal's side (L−R) scales with the width; 0 = mono, 2 = wider.
+        auto sideAfter = [&](float width) {
+            audio::Utility u;
+            u.setEnabled(true);
+            u.setWidth(width);
+            std::vector<float> ub = {0.6f, 0.2f, 0.6f, 0.2f}; // side = (L−R)/2 = 0.2 per frame
+            u.process(ub.data(), 2, sr);
+            return std::fabs(ub[0] - ub[1]) * 0.5f; // resulting side magnitude
+        };
+        check(std::fabs(sideAfter(0.0f)) < 1e-5f, "utility width 0 collapses to mono (no side)");
+        check(std::fabs(sideAfter(2.0f) - 0.4f) < 1e-5f, "utility width 2 doubles the side component");
+        check(std::fabs(sideAfter(1.0f) - 0.2f) < 1e-5f, "utility width 1 leaves the side unchanged");
+        check(audio::Utility().width() == 1.0f, "utility width defaults to 1 (unchanged)");
+
         // Disabled → transparent.
         audio::Utility off;
         off.setInvertL(true);
