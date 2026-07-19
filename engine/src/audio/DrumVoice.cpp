@@ -45,6 +45,8 @@ double decayTau(Drum type) {
         return 0.09;
     case Drum::Triangle:
         return 0.7;
+    case Drum::Kick808:
+        return 0.45; // a long, sustaining sub tail — far longer than the short punchy kick
     }
     return 0.1;
 }
@@ -219,6 +221,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
                                 0.7 * std::sin(kTwoPi * 5400.0 * pitchMul * t_) +
                                 0.5 * std::sin(kTwoPi * 6900.0 * pitchMul * t_);
             s = static_cast<float>(0.3 * ring * env);
+            break;
+        }
+        case Drum::Kick808: {
+            // The classic 808 sub kick: a pure sine at a very low fundamental (~50 Hz) with a short
+            // downward pitch glide from ~90 Hz over the first ~50 ms, and a long sustaining tail.
+            // Deeper and far longer than the short, punchy standard kick.
+            const double freq = (50.0 + 40.0 * std::exp(-t_ / 0.04)) * pitchMul;
+            s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
+            phase_ += freq * dt;
             break;
         }
         }

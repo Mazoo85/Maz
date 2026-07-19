@@ -274,6 +274,27 @@ int main() {
         tri.render(trimid.data(), static_cast<int>(trimid.size()), sampleRate);
         check(tri.active(), "triangle rings on well past a short percussion hit (long tail)");
 
+        // 808: a pure sub kick — a very low fundamental (~50 Hz) that sustains far longer than the
+        // short, punchy standard kick.
+        audio::DrumVoice k808;
+        k808.setType(audio::Drum::Kick808);
+        k808.trigger();
+        std::vector<float> kbuf(static_cast<size_t>(sampleRate) / 5, 0.0f); // 200 ms
+        k808.render(kbuf.data(), static_cast<int>(kbuf.size()), sampleRate);
+        check(rms(kbuf) > 0.0, "808 produces sound");
+        const double kHz = freqOf(kbuf, sampleRate);
+        check(kHz > 30.0 && kHz < 90.0, "808 rings at a very low sub fundamental (~50 Hz)");
+        std::vector<float> ktail(static_cast<size_t>(sampleRate) / 2, 0.0f); // out to ~0.7 s
+        k808.render(ktail.data(), static_cast<int>(ktail.size()), sampleRate);
+        check(k808.active(), "808 sustains as a long sub tail");
+        // Control: the short standard kick has fully decayed to inactive by 1 s, so the 808 outlasts it.
+        audio::DrumVoice shortKick;
+        shortKick.setType(audio::Drum::Kick);
+        shortKick.trigger();
+        std::vector<float> skbuf(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        shortKick.render(skbuf.data(), static_cast<int>(skbuf.size()), sampleRate);
+        check(!shortKick.active(), "standard kick has fully decayed by 1 s (808 outlasts it)");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {

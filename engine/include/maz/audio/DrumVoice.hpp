@@ -23,7 +23,8 @@ enum class Drum {
     Conga,
     Woodblock,
     Bongo,
-    Triangle
+    Triangle,
+    Kick808
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into

@@ -64,7 +64,7 @@ int main() {
     seq.setChannelType(4, audio::Drum::Ride);
     seq.setChannelType(2, audio::Drum::Clave);
     seq.setChannelType(3, audio::Drum::Shaker);
-    seq.setChannelType(0, audio::Drum::Triangle);
+    seq.setChannelType(0, audio::Drum::Kick808);
     // (channel 0's per-channel tone/punch below still apply to whatever voice it plays)
     audio::Note n1{0, 4, 60, 0.9f};
     audio::Note n2{8, 2, 67, 0.7f};
@@ -467,8 +467,8 @@ int main() {
               seq2.channelType(4) == audio::Drum::Ride &&
               seq2.channelType(2) == audio::Drum::Clave &&
               seq2.channelType(3) == audio::Drum::Shaker &&
-              seq2.channelType(0) == audio::Drum::Triangle,
-          "per-channel drum type round-trips");
+              seq2.channelType(0) == audio::Drum::Kick808,
+          "per-channel drum type round-trips (incl. the 808 index)");
     check(!seq2.step(0, 1) && !seq2.step(3, 0), "inactive steps stay off");
 
     // Arrangement: patterns, per-pattern content, playlist, song mode.
