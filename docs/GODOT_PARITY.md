@@ -501,6 +501,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   against the textbook dataset {2,4,4,4,5,5,7,9} (mean 5, population variance 4, stddev 2, sample var
   32/7), single-element/constant-stream/empty edge cases, a 1e9-offset stream keeping variance exact,
   0..99 giving mean 49.5 and variance 833.25, and clear() reset),
+  **histogram / distribution shape** (M433, `core::Histogram` — fixed-range equal-width binning: feed
+  samples into a `[min, max)` range split into N bins and read back per-bin tallies, frequency, the mode
+  (fullest bin), and interpolated percentiles / median — the distribution-shape questions a plain
+  mean/variance cannot answer (e.g. "95th-percentile frame time"). O(bins) memory, nothing per sample.
+  Out-of-range values clamp into the edge bins so the tallies always sum to the total, while separate
+  below()/above() counters report how many spilled past each end. The tool for a frame-time/latency
+  distribution readout, telemetry buckets, and damage/score-spread analysis. Godot has no histogram type.
+  Verified: even one-per-bin layout, left-closed/right-open boundaries, out-of-range clamping with
+  below/above accounting, mode tie-breaking, exact percentile interpolation (10-per-bin p25/median/p95 =
+  2.5/5.0/9.5), uniform 0..999 median 500 and p90 900, clear() reset, degenerate-range safety, and a
+  negative-range case proving true floor-not-truncation binning),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

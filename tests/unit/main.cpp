@@ -77,6 +77,7 @@
 #include "maz/core/BitSet.hpp"
 #include "maz/core/ReservoirSampler.hpp"
 #include "maz/core/RunningStats.hpp"
+#include "maz/core/Histogram.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17547,6 +17548,137 @@ void testRunningStats() {
     }
 }
 
+// Histogram: fixed-range equal-width binning + interpolated percentiles/mode (M433).
+void testHistogram() {
+    using core::Histogram;
+
+    // ---- Layout + one sample per bin. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        CHECK(h.binCount() == 10);
+        CHECK(std::fabs(h.binWidth() - 1.0) < 1e-9);
+        CHECK(h.empty() && h.total() == 0);
+        CHECK(std::fabs(h.binLow(3) - 3.0) < 1e-9);
+        CHECK(std::fabs(h.binHigh(3) - 4.0) < 1e-9);
+        CHECK(std::fabs(h.binCenter(3) - 3.5) < 1e-9);
+        for (int b = 0; b < 10; ++b) {
+            h.add(b + 0.5);
+        }
+        CHECK(h.total() == 10 && !h.empty());
+        for (int b = 0; b < 10; ++b) {
+            CHECK(h.bin(static_cast<std::size_t>(b)) == 1);
+            CHECK(std::fabs(h.frequency(static_cast<std::size_t>(b)) - 0.1) < 1e-9);
+        }
+    }
+
+    // ---- Left-closed, right-open bin boundaries. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        h.add(0.0);   // bin 0
+        h.add(0.999); // bin 0
+        h.add(1.0);   // bin 1
+        h.add(9.999); // bin 9
+        CHECK(h.bin(0) == 2 && h.bin(1) == 1 && h.bin(9) == 1);
+        CHECK(h.total() == 4 && h.below() == 0 && h.above() == 0);
+    }
+
+    // ---- Out-of-range clamps into edge bins, counted by below()/above(); bins still sum. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        h.add(-5.0);
+        h.add(-0.001);
+        h.add(10.0);
+        h.add(100.0);
+        h.add(5.5);
+        CHECK(h.total() == 5);
+        CHECK(h.below() == 2 && h.above() == 2);
+        CHECK(h.bin(0) == 2 && h.bin(9) == 2 && h.bin(5) == 1);
+        std::size_t sum = 0;
+        for (std::size_t i = 0; i < h.binCount(); ++i) {
+            sum += h.bin(i);
+        }
+        CHECK(sum == h.total());
+    }
+
+    // ---- Mode: earliest bin on ties; then fullest bin wins. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        for (int b = 0; b < 10; ++b) {
+            h.add(b + 0.5);
+        }
+        CHECK(h.modeBin() == 0);
+        h.add(7.5);
+        h.add(7.5);
+        CHECK(h.modeBin() == 7);
+        CHECK(std::fabs(h.mode() - 7.5) < 1e-9);
+    }
+
+    // ---- Percentiles: 10 samples per bin, exact interpolation. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        for (int b = 0; b < 10; ++b) {
+            for (int k = 0; k < 10; ++k) {
+                h.add(b + 0.5);
+            }
+        }
+        CHECK(h.total() == 100);
+        CHECK(std::fabs(h.median() - 5.0) < 1e-9);
+        CHECK(std::fabs(h.percentile(0.25) - 2.5) < 1e-9);
+        CHECK(std::fabs(h.percentile(0.95) - 9.5) < 1e-9);
+        CHECK(std::fabs(h.percentile(0.0) - 0.0) < 1e-9);
+        CHECK(std::fabs(h.percentile(1.0) - 10.0) < 1e-9);
+    }
+
+    // ---- Uniform 0..999 into 10 even bins. ----
+    {
+        Histogram h(0.0, 1000.0, 10);
+        for (int i = 0; i < 1000; ++i) {
+            h.add(static_cast<double>(i));
+        }
+        CHECK(h.total() == 1000);
+        for (std::size_t i = 0; i < 10; ++i) {
+            CHECK(h.bin(i) == 100);
+        }
+        CHECK(std::fabs(h.median() - 500.0) < 1e-6);
+        CHECK(std::fabs(h.percentile(0.9) - 900.0) < 1e-6);
+    }
+
+    // ---- clear() resets everything. ----
+    {
+        Histogram h(0.0, 10.0, 10);
+        h.add(1.0);
+        h.add(-1.0);
+        h.add(20.0);
+        h.clear();
+        CHECK(h.empty() && h.total() == 0 && h.below() == 0 && h.above() == 0);
+        for (std::size_t i = 0; i < h.binCount(); ++i) {
+            CHECK(h.bin(i) == 0);
+        }
+        CHECK(std::fabs(h.median() - 0.0) < 1e-9);
+    }
+
+    // ---- Degenerate construction is safe. ----
+    {
+        Histogram h(5.0, 5.0, 0);
+        CHECK(h.binCount() == 1);
+        CHECK(std::fabs(h.rangeMax() - 6.0) < 1e-9);
+        h.add(5.5);
+        CHECK(h.total() == 1 && h.bin(0) == 1);
+    }
+
+    // ---- Negative range (floor via offset, not truncation-toward-zero). ----
+    {
+        Histogram h(-10.0, 10.0, 20);
+        h.add(-9.5);
+        h.add(-0.5);
+        h.add(0.5);
+        h.add(9.5);
+        CHECK(h.bin(0) == 1 && h.bin(9) == 1 && h.bin(10) == 1 && h.bin(19) == 1);
+        CHECK(std::fabs(h.binCenter(0) - (-9.5)) < 1e-9);
+        CHECK(std::fabs(h.binCenter(10) - 0.5) < 1e-9);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26304,6 +26436,7 @@ int main() {
     testBitSet();
     testReservoirSampler();
     testRunningStats();
+    testHistogram();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
