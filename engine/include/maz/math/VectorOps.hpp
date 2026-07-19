@@ -127,6 +127,14 @@ inline T bezierDerivative(const T& start, const T& c1, const T& c2, const T& end
 inline float cross2(const vec2& a, const vec2& b) {
     return a.x * b.y - a.y * b.x;
 }
+// Godot's exact spelling for the 2D cross (Vector2.cross), so GDScript-ported `a.cross(b)` maps 1:1.
+// GLM defines no vec2 cross, so this overload is unambiguous.
+inline float cross(const vec2& a, const vec2& b) { return cross2(a, b); }
+
+// Unit vector pointing at `radians` (measured from +X, CCW): (cos, sin) — Godot's Vector2.from_angle.
+// The inverse of angle(): angle(fromAngle(t)) == t. Handy for spawning projectiles / laying out radial
+// menus from an angle.
+inline vec2 fromAngle(float radians) { return vec2(std::cos(radians), std::sin(radians)); }
 
 // Orientation angle of the vector, atan2(y, x) — Godot's Vector2.angle().
 inline float angle(const vec2& v) {

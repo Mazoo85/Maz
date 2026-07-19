@@ -13319,6 +13319,17 @@ void testVectorOps() {
     CHECK((math::isNormalized(vec3(0, 1, 0)) && math::isNormalized(math::normalize(vec3(1, 2, 2)))));
     CHECK(!math::isNormalized(vec3(1, 2, 2)));
 
+    // M341: Vector2 from_angle + cross alias (Godot Vector2.from_angle / Vector2.cross).
+    CHECK(near2(math::fromAngle(0.0f), vec2(1, 0)));
+    CHECK(near2(math::fromAngle(kPi * 0.5f), vec2(0, 1)));
+    CHECK_NEAR(math::angle(math::fromAngle(0.7f)), 0.7f, 1e-5f); // inverse of angle()
+    {
+        const vec2 fa = math::fromAngle(2.1f);
+        CHECK_NEAR(fa.x * fa.x + fa.y * fa.y, 1.0f, 1e-5f); // unit length
+    }
+    CHECK_NEAR(math::cross(vec2(1, 0), vec2(0, 1)), 1.0f, 1e-6f);
+    CHECK(math::cross(vec2(3, 1), vec2(-2, 4)) == math::cross2(vec2(3, 1), vec2(-2, 4)));
+
     // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
     CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);
     CHECK_NEAR(math::fposmod(7.0f, 3.0f), 1.0f, 1e-5f);

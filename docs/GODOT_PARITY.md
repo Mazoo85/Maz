@@ -28,7 +28,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the 90-degree-clockwise perpendicular (y,-x), verified perpendicular + length-preserving + double-
   application-negates) (M323 adds the Vector3 overload rotated(v,axis,angle)
   — Godot's Vector3.rotated via Rodrigues' formula, cross-checked against the quaternion axis-angle
-  path) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
+  path) (M341 adds fromAngle(radians) — Godot Vector2.from_angle, the unit vector (cos,sin) that
+  inverts angle(), plus a cross(vec2,vec2) alias giving Godot's exact Vector2.cross spelling for the
+  existing 2D scalar cross; both verified) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
   every component is finite, verified to reject a single NaN or inf component) (M335 adds
   isEqualApprox / isZeroApprox / isNormalized for vec2/vec3 — Godot's Vector2/Vector3.is_equal_approx
   (per-component relative CMP_EPSILON), is_zero_approx, and is_normalized (squared length within the
