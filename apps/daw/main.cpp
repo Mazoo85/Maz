@@ -1744,6 +1744,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         bool autoMk = mx.compressor().autoMakeup();
         if (ImGui::Checkbox("Auto MU##cmp", &autoMk)) mx.compressor().setAutoMakeup(autoMk);
         ImGui::SameLine();
+        float la = mx.compressor().lookaheadMs();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("lookahead##cmp", &la, 0.0f, 10.0f, la <= 0.0f ? "no lookahead" : "%.1f ms"))
+            mx.compressor().setLookaheadMs(la);
+        ImGui::SameLine();
         ImGui::Text("GR %.1f dB", mx.compressor().gainReductionDb());
     }
     {

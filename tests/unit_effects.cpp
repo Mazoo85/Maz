@@ -314,6 +314,40 @@ int main() {
               "auto makeup derives a positive gain and defaults to off");
     }
 
+    // --- Compressor lookahead: transients are caught before they overshoot ---
+    {
+        // Silence, then a sudden loud tone. Without lookahead the onset slips through before the
+        // attack engages (an overshoot spike); with lookahead the gain is already applied.
+        auto onsetPeak = [&](float lookaheadMs) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-24.0f);
+            c.setRatio(8.0f);
+            c.setAttackMs(5.0f);
+            c.setReleaseMs(100.0f);
+            c.setMix(1.0f);
+            c.setLookaheadMs(lookaheadMs);
+            const int frames = sr / 2;
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                const float s = (i > frames * 2 / 5)
+                                    ? 0.9f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 200.0 * i / sr))
+                                    : 0.0f;
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            c.process(b.data(), frames, sr);
+            float pk = 0.0f;
+            for (float v : b) pk = std::max(pk, std::fabs(v));
+            return pk;
+        };
+        check(onsetPeak(0.0f) > onsetPeak(5.0f) * 2.0f,
+              "lookahead catches the transient onset a plain compressor overshoots");
+        // Lookahead 0 (default) is off and adds no latency.
+        audio::Compressor dc;
+        check(dc.lookaheadMs() == 0.0f, "compressor lookahead defaults to 0 (off)");
+    }
+
     // --- Compressor sidechain HPF: lows don't drive the detection ------------
     {
         // A loud, pure low tone (60 Hz) above the threshold.

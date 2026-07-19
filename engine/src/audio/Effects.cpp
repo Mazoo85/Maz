@@ -1086,6 +1086,9 @@ void Compressor::reset() {
     scLpL_ = 0.0f;
     scLpR_ = 0.0f;
     grDb_ = 0.0f;
+    std::fill(laBufL_.begin(), laBufL_.end(), 0.0f);
+    std::fill(laBufR_.begin(), laBufR_.end(), 0.0f);
+    laPos_ = 0;
 }
 
 void Compressor::process(float* stereo, int frames, int sampleRate) {
@@ -1103,9 +1106,29 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     const float scA = scHpf ? 1.0f - std::exp(-6.283185307179586f * scHpfHz_ / sr) : 0.0f;
     float grPeak = 0.0f; // most negative reduction this block (for the GR meter)
 
+    // Lookahead: size the audio delay lines so the detector reads `lookaheadMs` ahead of the output.
+    const int laLen = static_cast<int>(lookaheadMs_ * 0.001f * sr);
+    if (laLen != laLen_) {
+        laLen_ = laLen;
+        laBufL_.assign(static_cast<size_t>(laLen > 0 ? laLen : 0), 0.0f);
+        laBufR_.assign(static_cast<size_t>(laLen > 0 ? laLen : 0), 0.0f);
+        laPos_ = 0;
+    }
+    const bool useLA = laLen_ > 0;
+
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
+        // Lookahead: the gain (computed from the current, un-delayed detection below) is applied to an
+        // earlier sample, so by the time a transient reaches the output the reduction is engaged.
+        float outL = l, outR = r; // the (possibly delayed) audio the gain is applied to
+        if (useLA) {
+            outL = laBufL_[static_cast<size_t>(laPos_)];
+            outR = laBufR_[static_cast<size_t>(laPos_)];
+            laBufL_[static_cast<size_t>(laPos_)] = l;
+            laBufR_[static_cast<size_t>(laPos_)] = r;
+            laPos_ = (laPos_ + 1) % laLen_;
+        }
         float dl = l, dr = r; // detection signal
         if (scHpf) {
             scLpL_ += scA * (l - scLpL_);
@@ -1135,10 +1158,11 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
         }
         const float gain = dbToLin(reductionDb) * makeup;
         // Parallel/NY compression: blend the compressed signal back with the dry (mix 1 = fully
-        // compressed, the classic behaviour; lower mixes keep more of the untouched transients).
+        // compressed, the classic behaviour; lower mixes keep more of the untouched transients). The
+        // dry is the *delayed* audio too, so dry and wet stay time-aligned under lookahead.
         const float dry = 1.0f - mix_;
-        stereo[2 * i] = l * dry + l * gain * mix_;
-        stereo[2 * i + 1] = r * dry + r * gain * mix_;
+        stereo[2 * i] = outL * dry + outL * gain * mix_;
+        stereo[2 * i + 1] = outR * dry + outR * gain * mix_;
     }
     grDb_ = grPeak;
 }

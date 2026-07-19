@@ -656,6 +656,12 @@ public:
     // manual makeup. Off (default) = use the manual makeup dB.
     void setAutoMakeup(bool on) { autoMakeup_ = on; }
     bool autoMakeup() const { return autoMakeup_; }
+    // Lookahead (ms, 0..10): delay the audio by this much while the detector reads the un-delayed
+    // signal, so the gain reduction is already fully engaged by the time a transient reaches the
+    // output — it catches fast peaks a plain feed-forward compressor overshoots. Adds this much
+    // latency. 0 (default) = off (no delay, bit-identical to the classic behaviour).
+    void setLookaheadMs(float ms) { lookaheadMs_ = ms < 0.0f ? 0.0f : (ms > 10.0f ? 10.0f : ms); }
+    float lookaheadMs() const { return lookaheadMs_; }
     // The makeup gain (dB) actually applied — the manual value, or the auto-derived one when auto is on.
     float effectiveMakeupDb() const {
         if (!autoMakeup_) {
@@ -690,9 +696,13 @@ private:
     float mix_ = 1.0f;     // dry/wet blend; 1 = fully compressed
     float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
     bool autoMakeup_ = false; // derive makeup from threshold/ratio when on
+    float lookaheadMs_ = 0.0f; // audio delay while the detector reads ahead; 0 = off
     float env_ = 0.0f; // linear peak-envelope follower
     float scLpL_ = 0.0f, scLpR_ = 0.0f; // detection high-pass state (one-pole LP; HP = x − LP)
     float grDb_ = 0.0f; // peak gain reduction (dB) over the last block, for the GR meter
+    std::vector<float> laBufL_, laBufR_; // lookahead delay lines (sized when lookahead > 0)
+    int laLen_ = 0;  // active lookahead length in samples
+    int laPos_ = 0;  // circular index into the lookahead buffers
 };
 
 // A 3-band multiband compressor (a Maximus-style master dynamics tool). The signal is split into low
