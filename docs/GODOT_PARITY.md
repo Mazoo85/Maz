@@ -269,6 +269,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   extents visible with beyond-radius excluded and every cell inside the Euclidean radius, an axis wall
   casting a shadow (wall seen, tiles behind hidden, sides open), a wall span hiding the cells behind
   it, and a fully-enclosed room revealing only the origin's ring;
+  **grid ray traversal (Amanatides–Woo DDA)** M410 (`game::traverseGrid` / `game::raycastGrid` in
+  `maz/game/GridRaycast.hpp` — the "fast voxel traversal" DDA in 2D: marches a CONTINUOUS float-coord
+  ray through the unit grid, visiting every cell it passes through in exact crossing order (sub-cell
+  precision, unlike the integer Bresenham of M407). What tile raycasters (Wolfenstein walls), light/
+  sound propagation, and precise "which tile does this shot hit first" queries need; raycastGrid stops
+  at the first blocking tile. Godot leaves grid raycasting to the game. Verified against exact cases —
+  horizontal/vertical/negative-axis cell sequences, zero-direction → origin only, the Amanatides
+  no-diagonal-jump invariant (consecutive cells differ by exactly one orthogonal step) on a 2:1 ray,
+  negative-coordinate flooring, and raycastGrid hit / no-hit / origin-blocked;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab

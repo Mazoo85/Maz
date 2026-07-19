@@ -205,6 +205,7 @@
 #include "maz/game/GridLine.hpp"
 #include "maz/game/FloodFill.hpp"
 #include "maz/game/FieldOfView.hpp"
+#include "maz/game/GridRaycast.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2392,6 +2393,49 @@ void testGeometry2D() {
         CHECK(!fovSees(fovEncV, 2, 0));
         CHECK(!fovSees(fovEncV, 0, 2));
         CHECK(!fovSees(fovEncV, 2, 2));
+    }
+
+    // --- M410: grid ray traversal (Amanatides-Woo DDA) + raycastGrid ---
+    {
+        using RayCell = maz::game::RayCell;
+        // Horizontal ray -> (0..3, 0).
+        auto grH = maz::game::traverseGrid(vec2(0.5f, 0.5f), vec2(1, 0), 3.0f);
+        CHECK(grH.size() == 4);
+        for (int i = 0; i < 4; ++i) CHECK((grH[static_cast<std::size_t>(i)] == RayCell(i, 0)));
+        // Vertical downward.
+        auto grV = maz::game::traverseGrid(vec2(2.5f, 5.5f), vec2(0, -1), 2.0f);
+        CHECK(grV.size() == 3);
+        CHECK((grV[0] == RayCell(2, 5)));
+        CHECK((grV[2] == RayCell(2, 3)));
+        // Zero direction -> just the origin cell.
+        auto grZ = maz::game::traverseGrid(vec2(4.2f, 7.9f), vec2(0, 0), 10.0f);
+        CHECK(grZ.size() == 1);
+        CHECK((grZ[0] == RayCell(4, 7)));
+        // Amanatides invariant: consecutive cells differ by exactly 1 in one axis (no diagonal jump).
+        const float grS = 1.0f / std::sqrt(5.0f);
+        auto grD = maz::game::traverseGrid(vec2(0.5f, 0.5f), vec2(2 * grS, 1 * grS), 6.0f);
+        CHECK(grD.size() >= 3);
+        CHECK((grD[0] == RayCell(0, 0)));
+        for (std::size_t i = 1; i < grD.size(); ++i) {
+            const int dxc = std::abs(grD[i].x - grD[i - 1].x);
+            const int dyc = std::abs(grD[i].y - grD[i - 1].y);
+            CHECK(dxc + dyc == 1);
+        }
+        // Negative-coordinate origin floors correctly.
+        auto grN = maz::game::traverseGrid(vec2(-0.5f, -0.5f), vec2(1, 0), 2.0f);
+        CHECK((grN[0] == RayCell(-1, -1)));
+        CHECK((grN[1] == RayCell(0, -1)));
+        // raycastGrid: wall hit, no-hit, origin-blocked.
+        auto grWall = [](const RayCell& c) { return c.x == 3 && c.y == 0; };
+        auto grHit = maz::game::raycastGrid(vec2(0.5f, 0.5f), vec2(1, 0), 10.0f, grWall);
+        CHECK(grHit.has_value());
+        CHECK((*grHit == RayCell(3, 0)));
+        auto grNone = [](const RayCell&) { return false; };
+        CHECK(!maz::game::raycastGrid(vec2(0.5f, 0.5f), vec2(1, 0), 3.0f, grNone).has_value());
+        auto grOrigin = [](const RayCell& c) { return c == RayCell(0, 0); };
+        auto grHit0 = maz::game::raycastGrid(vec2(0.5f, 0.5f), vec2(1, 0), 5.0f, grOrigin);
+        CHECK(grHit0.has_value());
+        CHECK((*grHit0 == RayCell(0, 0)));
     }
 }
 
