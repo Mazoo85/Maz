@@ -130,6 +130,25 @@ inline std::int64_t snappedi(double value, std::int64_t step) {
     return static_cast<std::int64_t>(std::llround(value / static_cast<double>(step))) * step;
 }
 
+// Number of digits after the decimal point implied by a step value — Godot's @GlobalScope
+// step_decimals. Used to pick display precision for a given increment: step_decimals(0.01) == 2,
+// step_decimals(0.001) == 3, step_decimals(1) == 0, step_decimals(0.025) == 2. Uses Godot's exact
+// epsilon-guarded lookup table, so a step like 0.1 that isn't perfectly representable still reads as 1
+// decimal. Caps at 10.
+inline int stepDecimals(double step) {
+    static const double sd[10] = {0.9999,      0.09999,      0.009999,      0.0009999,     0.00009999,
+                                  0.000009999, 0.0000009999, 0.00000009999, 0.000000009999,
+                                  0.0000000009999};
+    const double a = std::abs(step);
+    const double decs = a - static_cast<double>(static_cast<std::int64_t>(a)); // fractional part
+    for (int i = 0; i < 10; ++i) {
+        if (decs >= sd[i]) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 // Smallest power of two >= value (Godot's nearest_po2). Returns 0 for value <= 0; 1 for value == 1.
 inline std::uint64_t nearestPo2(std::int64_t value) {
     if (value <= 0) {

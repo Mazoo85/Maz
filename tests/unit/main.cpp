@@ -350,6 +350,13 @@ void testMathFuncs() {
         CHECK((!isInff(ok_val) && !isInff(bad_nan)));
     }
 
+    // M346: step_decimals (Godot @GlobalScope.step_decimals — decimal count of a step value).
+    CHECK((stepDecimals(1.0) == 0 && stepDecimals(0.0) == 0));
+    CHECK((stepDecimals(0.1) == 1 && stepDecimals(0.01) == 2 && stepDecimals(0.001) == 3));
+    CHECK((stepDecimals(0.0001) == 4 && stepDecimals(0.025) == 2));
+    CHECK((stepDecimals(2.5) == 1 && stepDecimals(-0.01) == 2)); // integer part stripped, abs
+    CHECK(stepDecimals(0.0000000001) == 0);                      // beyond the 10-decimal cap
+
     // M311: angleDifference / rotateToward (Godot 4.2+ @GlobalScope).
     CHECK_NEAR(angleDifference(0.0f, kPi * 0.5f), kPi * 0.5f, 1e-4f);
     CHECK_NEAR(angleDifference(0.0f, -kPi * 0.5f), -kPi * 0.5f, 1e-4f);

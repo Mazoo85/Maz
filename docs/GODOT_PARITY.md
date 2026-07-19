@@ -99,7 +99,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the +/-pi wrap the short way, verified to hit its endpoints, reduce to the plain cubic for in-range
   angles, and take the forward-through-zero path from 350deg to 10deg; M334 adds isFinitef/isNanf/
   isInff — Godot's @GlobalScope.is_finite / is_nan / is_inf scalar predicates for guarding physics
-  and animation state against NaN/inf propagation after a bad divide or blow-up),
+  and animation state against NaN/inf propagation after a bad divide or blow-up; M346 adds
+  stepDecimals — Godot's @GlobalScope.step_decimals: the decimal-place count implied by a step value
+  (0.01->2, 0.001->3, 1->0), via Godot's exact epsilon-guarded lookup table, for picking display
+  precision; verified against integer/fractional/negative steps and the 10-decimal cap),
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit
