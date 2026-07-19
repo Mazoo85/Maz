@@ -738,6 +738,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     if (ImGui::Button("Stretch")) {
         roll.stretch(stretchFactor);
     }
+    ImGui::SameLine();
+    static float gateFactor = 0.5f;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputFloat("##gatefactor", &gateFactor, 0.0f, 0.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Gate")) {
+        roll.scaleLengths(gateFactor);
+    }
 
     const int steps = roll.numSteps();
     const int rows = roll.numPitches();

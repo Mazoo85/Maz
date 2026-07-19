@@ -126,6 +126,12 @@ public:
     // notes stretched past its end.)
     int stretch(float factor);
 
+    // Scale note lengths (gate): multiply every note's length by `factor` (> 0) while leaving its
+    // start put — shorter for staccato (factor < 1), longer/overlapping for pads (factor > 1). Lengths
+    // stay at least 1 step. Distinct from stretch (which also moves starts). Returns the number of
+    // notes whose length changed. factor <= 0 or 1.0 is a no-op.
+    int scaleLengths(float factor);
+
     // Transpose: shift every note's pitch by `semitones` (±), baking the shift into the notes
     // (distinct from the non-destructive playback transpose). Pitches are clamped to the MIDI range
     // [0, 127]. Returns the number of notes whose pitch changed.

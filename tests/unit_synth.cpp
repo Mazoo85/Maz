@@ -1597,6 +1597,26 @@ int main() {
         check(sc.stretch(1.0f) == 0 && sc.stretch(0.0f) == 0, "stretch by 1 or 0 is a no-op");
     }
 
+    // --- Note-length scale (gate) --------------------------------------------
+    {
+        audio::PianoRoll gl;
+        gl.addNote(audio::Note{0, 4, 60, 1.0f});
+        gl.addNote(audio::Note{4, 2, 64, 1.0f});
+        const int changed = gl.scaleLengths(0.5f); // staccato
+        check(changed == 2, "gate scales every note that changes length");
+        check(gl.notes()[0].lengthSteps == 2 && gl.notes()[1].lengthSteps == 1,
+              "gate halves note lengths (floored at 1) and leaves starts put");
+        check(gl.notes()[0].startStep == 0 && gl.notes()[1].startStep == 4,
+              "gate does not move note starts");
+        // Lengthen back (legato/overlap) and confirm the no-op cases.
+        audio::PianoRoll gl2;
+        gl2.addNote(audio::Note{0, 2, 60, 1.0f});
+        gl2.scaleLengths(3.0f);
+        check(gl2.notes()[0].lengthSteps == 6, "gate can lengthen notes past their neighbours");
+        check(gl2.scaleLengths(1.0f) == 0 && gl2.scaleLengths(0.0f) == 0,
+              "gate by 1 or 0 is a no-op");
+    }
+
     // --- Melodic scheduling through the Sequencer ---------------------------
     audio::Sequencer seq;
     seq.setBpm(120.0); // 6000 samples/step @ 48 kHz
