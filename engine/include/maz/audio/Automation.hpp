@@ -60,6 +60,7 @@ enum class AutoTarget {
     FormantVowel,
     CompThreshold,
     WavetablePosition,
+    SynthPulseWidth,
     Count
 };
 

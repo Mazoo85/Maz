@@ -775,6 +775,29 @@ int main() {
               "the wavetable-position target has a UI label");
     }
 
+    // --- Synth pulse-width target (manual PWM sweeps on the Square wave) ------
+    {
+        audio::Automation autom;
+        audio::AutoLane& pw = autom.lane(audio::AutoTarget::SynthPulseWidth);
+        pw.enabled = true;
+        pw.lfo.shape = audio::Waveform::Sine;
+        pw.lfo.rateHz = 1.0f;
+        pw.lo = 0.5f;
+        pw.hi = 0.95f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        eng.sequencer().synth().setWaveform(audio::Waveform::Square);
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.sequencer().synth().pulseWidth() > 0.94f,
+              "automating synth PWM widens the square duty cycle toward the thin-pulse bound");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(std::fabs(eng.sequencer().synth().pulseWidth() - 0.5f) < 0.01f,
+              "synth-PWM automation returns the duty cycle to a plain square at the low bound");
+        check(std::string(audio::Automation::targetName(audio::AutoTarget::SynthPulseWidth)) ==
+                  "Synth PWM",
+              "the synth-PWM target has a UI label");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

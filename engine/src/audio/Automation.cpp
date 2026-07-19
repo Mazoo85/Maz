@@ -131,6 +131,8 @@ Automation::Automation() {
     lane(AutoTarget::CompThreshold).hi = 0.0f;
     lane(AutoTarget::WavetablePosition).lo = 0.0f; // lead wavetable scan position (morph)
     lane(AutoTarget::WavetablePosition).hi = 1.0f;
+    lane(AutoTarget::SynthPulseWidth).lo = 0.5f;  // square duty cycle: 0.5 = plain square...
+    lane(AutoTarget::SynthPulseWidth).hi = 0.95f; // ...up to a thin, buzzy pulse (classic PWM sweep)
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -233,6 +235,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Comp Thresh";
     case AutoTarget::WavetablePosition:
         return "Wavetable Pos";
+    case AutoTarget::SynthPulseWidth:
+        return "Synth PWM";
     case AutoTarget::Count:
         break;
     }
@@ -518,6 +522,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the lead synth's wavetable scan position — the flagship wavetable "morph"
             // automation (Serum/FL-style timbre sweeps). Only audible in Wavetable synth mode.
             engine.sequencer().synth().setWavetablePosition(v);
+            break;
+        case AutoTarget::SynthPulseWidth:
+            // Sweep the lead synth's square-wave duty cycle — the classic manual PWM sweep (lush,
+            // hollow-to-buzzy string/pad movement). Only audible on the Square waveform.
+            engine.sequencer().synth().setPulseWidth(v);
             break;
         case AutoTarget::Count:
             break;
