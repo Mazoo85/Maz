@@ -458,6 +458,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.gate().sidechainHpf() << "\n";
     f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width() << " "
       << mixer.widener().bassMonoHz() << "\n";
+    f << "fx imager " << (mixer.imager().enabled() ? 1 : 0) << " " << mixer.imager().crossoverLow()
+      << " " << mixer.imager().crossoverHigh() << " " << mixer.imager().bandWidth(0) << " "
+      << mixer.imager().bandWidth(1) << " " << mixer.imager().bandWidth(2) << "\n";
     f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
       << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
@@ -1053,6 +1056,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.widener().setWidth(w);
                 float bm = 0.0f;
                 if (ls >> bm) { mixer.widener().setBassMonoHz(bm); }
+            } else if (which == "imager") {
+                float clo = 250.0f, chi = 2500.0f, w0 = 0.5f, w1 = 1.0f, w2 = 1.5f;
+                ls >> clo >> chi >> w0 >> w1 >> w2;
+                mixer.imager().setEnabled(en != 0);
+                mixer.imager().setCrossoverLow(clo);
+                mixer.imager().setCrossoverHigh(chi);
+                mixer.imager().setBandWidth(0, w0);
+                mixer.imager().setBandWidth(1, w1);
+                mixer.imager().setBandWidth(2, w2);
             } else if (which == "stereoenh") {
                 float ms = 12.0f, amt = 0.7f;
                 ls >> ms >> amt;

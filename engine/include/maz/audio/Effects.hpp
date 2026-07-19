@@ -1226,6 +1226,39 @@ private:
     float sideLp_ = 0.0f;     // one-pole low-pass state on the side signal
 };
 
+// A multiband stereo imager: splits the signal into low / mid / high bands (two crossovers) and sets
+// each band's stereo width independently via mid/side — widen the highs for air while keeping the bass
+// mono and tight, the standard mastering imaging move. Each width is 0 (mono) … 1 (natural) … 2 (extra
+// wide); all-1 reconstructs the input exactly (transparent). Bands sum with unity gain.
+class StereoImager : public Effect {
+public:
+    static constexpr int kBands = 3; // 0 = low, 1 = mid, 2 = high
+    StereoImager() { enabled_ = false; }
+    const char* name() const override { return "Stereo Imager"; }
+    void setCrossoverLow(float hz) { crossLow_ = hz < 20.0f ? 20.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setCrossoverHigh(float hz) {
+        crossHigh_ = hz < 200.0f ? 200.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    void setBandWidth(int band, float w) {
+        if (band >= 0 && band < kBands) {
+            width_[band] = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w);
+        }
+    }
+    float crossoverLow() const { return crossLow_; }
+    float crossoverHigh() const { return crossHigh_; }
+    float bandWidth(int band) const { return band >= 0 && band < kBands ? width_[band] : 1.0f; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossLow_ = 250.0f;
+    float crossHigh_ = 2500.0f;
+    float width_[kBands] = {0.5f, 1.0f, 1.5f}; // sensible default: tight lows, wide highs
+    float lp1L_ = 0.0f, lp1R_ = 0.0f;          // one-pole LP state at the low/mid crossover
+    float lp2L_ = 0.0f, lp2R_ = 0.0f;          // one-pole LP state at the mid/high crossover
+};
+
 // A Haas stereo enhancer: delays one channel by a few milliseconds so the signal is decorrelated
 // across the ears, widening the image via the Haas/precedence effect — and unlike a mid/side widener
 // it broadens even a mono source. `delayMs` (0..40) sets the offset and `amount` (0..1) blends the

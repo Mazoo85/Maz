@@ -1195,6 +1195,43 @@ void MultibandCompressor::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- StereoImager -----------------------------------------------------------
+
+void StereoImager::reset() {
+    lp1L_ = lp1R_ = lp2L_ = lp2R_ = 0.0f;
+}
+
+void StereoImager::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    const float lo = std::min(crossLow_, crossHigh_);
+    const float hi = std::max(crossLow_, crossHigh_);
+    const float a1 = std::exp(-2.0f * 3.14159265358979f * lo / sr);
+    const float a2 = std::exp(-2.0f * 3.14159265358979f * hi / sr);
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Same one-pole split as the multiband compressor: low + mid + high == input.
+        lp1L_ = a1 * lp1L_ + (1.0f - a1) * l;
+        lp1R_ = a1 * lp1R_ + (1.0f - a1) * r;
+        lp2L_ = a2 * lp2L_ + (1.0f - a2) * l;
+        lp2R_ = a2 * lp2R_ + (1.0f - a2) * r;
+        const float bandsL[kBands] = {lp1L_, lp2L_ - lp1L_, l - lp2L_};
+        const float bandsR[kBands] = {lp1R_, lp2R_ - lp1R_, r - lp2R_};
+        float outL = 0.0f, outR = 0.0f;
+        for (int b = 0; b < kBands; ++b) {
+            const float mid = 0.5f * (bandsL[b] + bandsR[b]);
+            const float side = 0.5f * (bandsL[b] - bandsR[b]) * width_[b];
+            outL += mid + side;
+            outR += mid - side;
+        }
+        stereo[2 * i] = outL;
+        stereo[2 * i + 1] = outR;
+    }
+}
+
 // ---- De-Esser ---------------------------------------------------------------
 
 void DeEsser::reset() {

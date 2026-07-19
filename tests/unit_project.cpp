@@ -362,6 +362,12 @@ int main() {
     mixer.widener().setEnabled(true);
     mixer.widener().setWidth(1.6f);
     mixer.widener().setBassMonoHz(120.0f);
+    mixer.imager().setEnabled(true);
+    mixer.imager().setCrossoverLow(180.0f);
+    mixer.imager().setCrossoverHigh(3000.0f);
+    mixer.imager().setBandWidth(0, 0.3f);
+    mixer.imager().setBandWidth(1, 1.1f);
+    mixer.imager().setBandWidth(2, 1.8f);
     mixer.tape().setEnabled(true);
     mixer.tape().setDrive(4.5f);
     mixer.tape().setWarmth(0.6f);
@@ -869,6 +875,11 @@ int main() {
     check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f) &&
               near(mixer2.widener().bassMonoHz(), 120.0f),
           "stereo widener round-trips");
+    check(mixer2.imager().enabled() && near(mixer2.imager().crossoverLow(), 180.0f) &&
+              near(mixer2.imager().crossoverHigh(), 3000.0f) &&
+              near(mixer2.imager().bandWidth(0), 0.3f) && near(mixer2.imager().bandWidth(1), 1.1f) &&
+              near(mixer2.imager().bandWidth(2), 1.8f),
+          "multiband stereo imager round-trips");
     check(mixer2.tape().enabled() && near(mixer2.tape().drive(), 4.5f) &&
               near(mixer2.tape().warmth(), 0.6f) && near(mixer2.tape().mix(), 0.9f) &&
               near(mixer2.tape().wowFlutter(), 0.4f),

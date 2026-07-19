@@ -1406,6 +1406,74 @@ int main() {
               "master filter defaults to off and wide open");
     }
 
+    // --- Multiband stereo imager: per-band width over a pure-side signal -----
+    {
+        // A pure-"side" stereo tone at `f` (L = +sin, R = -sin); its side energy = 2*sum|L|.
+        auto sideTone = [&](double f) {
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            for (int i = 0; i < sr; ++i) {
+                const float s = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * f * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = -s;
+            }
+            return b;
+        };
+        auto sideEnergy = [&](const std::vector<float>& b) {
+            double e = 0.0;
+            for (int i = sr / 2; i < sr; ++i) {
+                e += std::fabs(static_cast<double>(b[static_cast<size_t>(i) * 2] -
+                                                   b[static_cast<size_t>(i) * 2 + 1]));
+            }
+            return e;
+        };
+        // A deep-bass (60 Hz) side tone, well below a raised low crossover so the one-pole split
+        // captures it almost entirely in the low band: the low-band width control scales its side.
+        auto lowSideAt = [&](float lowW) {
+            audio::StereoImager im;
+            im.setEnabled(true);
+            im.setCrossoverLow(500.0f);
+            im.setBandWidth(0, lowW);
+            im.setBandWidth(1, 1.0f);
+            im.setBandWidth(2, 1.0f);
+            std::vector<float> b = sideTone(60.0);
+            im.process(b.data(), sr, sr);
+            return sideEnergy(b);
+        };
+        const double base = lowSideAt(1.0f);
+        check(lowSideAt(0.0f) < base * 0.3, "imager low-band width 0 collapses the low side to mono");
+        check(lowSideAt(2.0f) > base * 1.5, "imager low-band width 2 widens the low side");
+        // Band independence: widening only the HIGH band leaves the low-band side ~unchanged.
+        auto highWidenLowSide = [&]() {
+            audio::StereoImager im;
+            im.setEnabled(true);
+            im.setCrossoverLow(500.0f);
+            im.setBandWidth(0, 1.0f);
+            im.setBandWidth(1, 1.0f);
+            im.setBandWidth(2, 2.0f);
+            std::vector<float> b = sideTone(60.0);
+            im.process(b.data(), sr, sr);
+            return sideEnergy(b);
+        };
+        check(std::fabs(highWidenLowSide() - base) < base * 0.2,
+              "imager high-band width doesn't move the low band (band independence)");
+
+        // All widths at 1 → transparent (exact mid/side reconstruction).
+        audio::StereoImager flat;
+        flat.setEnabled(true);
+        flat.setBandWidth(0, 1.0f);
+        flat.setBandWidth(1, 1.0f);
+        flat.setBandWidth(2, 1.0f);
+        std::vector<float> t = sineStereo(sr / 4, 300.0, 0.5, sr);
+        std::vector<float> tref = t;
+        flat.process(t.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < t.size(); ++i) {
+            if (std::fabs(t[i] - tref[i]) > 1e-4f) same = false;
+        }
+        check(same, "an imager with all band widths at 1 is transparent");
+        check(!audio::StereoImager().enabled(), "stereo imager defaults to off");
+    }
+
     // --- Bitcrusher: quantization changes the signal but keeps energy --------
     {
         audio::Bitcrusher crush;

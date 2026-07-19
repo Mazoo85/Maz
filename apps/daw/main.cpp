@@ -2008,6 +2008,26 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("bass mono Hz##wide", &bm, 0.0f, 500.0f, "%.0f")) mx.widener().setBassMonoHz(bm);
     }
     {
+        bool en = mx.imager().enabled();
+        if (ImGui::Checkbox("Stereo Imager", &en)) mx.imager().setEnabled(en);
+        float clo = mx.imager().crossoverLow(), chi = mx.imager().crossoverHigh();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("lo/mid##img", &clo, 20.0f, 2000.0f, "%.0f")) mx.imager().setCrossoverLow(clo);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("mid/hi##img", &chi, 200.0f, 18000.0f, "%.0f")) mx.imager().setCrossoverHigh(chi);
+        const char* imgBand[3] = {"low W", "mid W", "high W"};
+        for (int b = 0; b < audio::StereoImager::kBands; ++b) {
+            float w = mx.imager().bandWidth(b);
+            ImGui::PushID(b);
+            ImGui::SetNextItemWidth(130.0f);
+            if (ImGui::SliderFloat(imgBand[b], &w, 0.0f, 2.0f, "%.2f")) mx.imager().setBandWidth(b, w);
+            ImGui::PopID();
+            if (b < 2) ImGui::SameLine();
+        }
+    }
+    {
         bool en = mx.stereoEnhancer().enabled();
         if (ImGui::Checkbox("Stereo Enhancer", &en)) mx.stereoEnhancer().setEnabled(en);
         float ms = mx.stereoEnhancer().delayMs();

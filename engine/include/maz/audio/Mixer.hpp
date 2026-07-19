@@ -60,6 +60,7 @@ public:
     Delay& delay() { return delay_; }
     Reverb& reverb() { return reverb_; }
     StereoWidener& widener() { return widener_; }
+    StereoImager& imager() { return imager_; }
     StereoEnhancer& stereoEnhancer() { return stereoEnhancer_; }
     Utility& utility() { return utility_; }
     Clipper& clipper() { return clipper_; }
@@ -149,6 +150,7 @@ private:
     Delay delay_{};
     Reverb reverb_{};
     StereoWidener widener_{};
+    StereoImager imager_{};
     StereoEnhancer stereoEnhancer_{};
     Utility utility_{};
     Clipper clipper_{};
