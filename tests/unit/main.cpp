@@ -310,6 +310,7 @@
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Image.hpp"
 #include "maz/render/ImageCodecBmp.hpp"
+#include "maz/render/ImageCodecDds.hpp"
 #include "maz/render/ImageCodecPng.hpp"
 #include "maz/render/ImageCodecQoi.hpp"
 #include "maz/render/ImageCodecTga.hpp"
@@ -20738,6 +20739,53 @@ void testFontFallback() {
     }
 }
 
+void testDdsDecode() {
+    using render::decodeDds;
+    using render::Image;
+    using render::Color;
+
+    auto hx = [](const char* h) {
+        std::vector<std::uint8_t> v;
+        auto nib = [](char c) -> int {
+            return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : 0;
+        };
+        for (std::size_t i = 0; h[i] && h[i + 1]; i += 2)
+            v.push_back(static_cast<std::uint8_t>((nib(h[i]) << 4) | nib(h[i + 1])));
+        return v;
+    };
+    auto px = [](const Image& im, int x, int y, int r, int g, int b, int a) {
+        Color c = im.getPixel(x, y);
+        auto to8 = [](float f) { return static_cast<int>(f * 255.0f + 0.5f); };
+        return to8(c.r) == r && to8(c.g) == g && to8(c.b) == b && to8(c.a) == a;
+    };
+
+    // DXT1 (BC1) 4x4: c0=red, c1=blue, index i%4 per texel. Goldens from an independent python BC decoder.
+    Image d1 = decodeDds(hx("444453207c00000007100000040000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000004000000445854310000000000000000000000000000000000000000001000000000000000000000000000000000000000f81f00e4e4e4e4"));
+    CHECK(d1.width() == 4 && d1.height() == 4);
+    for (int y = 0; y < 4; ++y) {
+        CHECK(px(d1, 0, y, 255, 0, 0, 255));   // endpoint 0 (exact)
+        CHECK(px(d1, 1, y, 0, 0, 255, 255));   // endpoint 1 (exact)
+        CHECK(px(d1, 2, y, 170, 0, 85, 255));  // (2*c0+c1)/3
+        CHECK(px(d1, 3, y, 85, 0, 170, 255));  // (c0+2*c1)/3
+    }
+
+    // DXT5 (BC3) 4x4: green/black color + interpolated alpha a0=200 a1=50.
+    Image d5 = decodeDds(hx("444453207c000000071000000400000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000040000004458543500000000000000000000000000000000000000000010000000000000000000000000000000000000c83288c6fa88c6fae0070000e4e4e4e4"));
+    CHECK(d5.width() == 4 && d5.height() == 4);
+    CHECK(px(d5, 0, 0, 0, 255, 0, 200));
+    CHECK(px(d5, 1, 0, 0, 0, 0, 50));
+    CHECK(px(d5, 2, 0, 0, 170, 0, 178));
+    CHECK(px(d5, 3, 0, 0, 85, 0, 157));
+    CHECK(px(d5, 0, 1, 0, 255, 0, 135));
+    CHECK(px(d5, 1, 1, 0, 0, 0, 114));
+    CHECK(px(d5, 2, 1, 0, 170, 0, 92));
+    CHECK(px(d5, 3, 1, 0, 85, 0, 71));
+
+    // Malformed / unsupported rejected.
+    CHECK(decodeDds(hx("00112233")).empty());
+    CHECK(decodeDds(std::vector<std::uint8_t>{}).empty());
+}
+
 void testPngDecode() {
     using render::decodePng;
     using render::Image;
@@ -32936,6 +32984,7 @@ int main() {
     testDecalProject();
     testLightmapBake();
     testFontFallback();
+    testDdsDecode();
     testPngDecode();
     testInflate();
     testStlLoader();

@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **DDS (`.dds`) texture decode** (M511, `render::decodeDds` / `loadDds` — unpacks the block-compressed
+  DirectDraw Surface textures that games ship by the thousand (DXT1/DXT3/DXT5, a.k.a. BC1/BC2/BC3) into an
+  editable RGBA8 `Image`. Godot's Image importer reads DDS; Maz's Ktx2 path keeps blocks *compressed* for a
+  direct GPU upload and never unpacks them on the CPU, so there was no way to get DDS pixels into an `Image`
+  for procedural editing, thumbnails, or software sampling — this fills that gap without touching the GPU
+  path. It reads the 128-byte DDS header, walks the 4×4 block grid, and reverses the S3TC block math: 565
+  colour endpoints with 2-bit selectors (plus DXT1's 1-bit punch-through alpha), DXT3's explicit 4-bit
+  alpha, and DXT5's interpolated 3-bit alpha ramp. Pure CPU byte work, unit-tested headlessly. Honest scope:
+  the three S3TC formats with the classic header and the mip-0 top surface only — uncompressed-RGB DDS,
+  DX10-extended formats (BC4–7/ASTC), cubemaps, and mip chains are documented follow-ups; interpolated-texel
+  rounding is hardware-defined and may differ by ±1. Verified against blocks produced by an *independent*
+  Python BC decoder: a DXT1 4×4 decodes its two exact colour endpoints plus the two interpolated colours; a
+  DXT5 4×4 decodes the green/black colour ramp together with the full eight-entry interpolated alpha ramp
+  (200/50/178/157/135/114/92/71); and a too-short or non-DDS buffer yields an empty Image),
   **OBJ material library (`.mtl`) import** (M510, `render::parseMtl` / `loadMtl` / `findMaterial` — the material
   half of Godot's OBJ importer. An OBJ file references materials by name (`mtllib foo.mtl` + `usemtl name`) but
   the actual colors, shininess, transparency, and texture-map paths live in the sibling `.mtl` file; Maz's OBJ
