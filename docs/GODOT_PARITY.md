@@ -288,6 +288,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   interior, rooms pairwise non-overlapping, every room tile is floor, the preserved wall border, and
   crucially ALL floor forms a single connected region (proving corridors join every room, checked by
   reusing M408 connectedRegions) — plus different-seed divergence and degenerate-size → empty;
+  **perfect-maze generation** M412 (`game::generateMaze` / `Maze` in `maz/game/MazeGen.hpp` — a perfect
+  maze via the recursive-backtracker (DFS): exactly one path between any two cells, no loops, no
+  isolated pockets. Rendered as a (2·W+1)×(2·H+1) tile grid where odd coords are cell centres and even
+  ones are the walls between them; a wall is carved only when the DFS links its two cells. A different
+  procedural flavour again from BSP dungeons (rooms) and cellular caves (blobs). Deterministic for a
+  seed (core::Pcg32). Verified against the exact spanning-tree property — floor tile count is precisely
+  2·W·H−1 (fully connected AND acyclic, the definition of a perfect maze), every cell centre is floor,
+  all floor is one connected region (reusing M408), the wall border and even/even intersections stay
+  wall, plus determinism, seed divergence, and degenerate-size → empty;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab

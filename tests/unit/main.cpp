@@ -207,6 +207,7 @@
 #include "maz/game/FieldOfView.hpp"
 #include "maz/game/GridRaycast.hpp"
 #include "maz/game/BspDungeon.hpp"
+#include "maz/game/MazeGen.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2479,6 +2480,42 @@ void testGeometry2D() {
         CHECK(maz::game::generateBspDungeon(dW, dH, 1u).tiles !=
               maz::game::generateBspDungeon(dW, dH, 2u).tiles);
         CHECK(maz::game::generateBspDungeon(3, 3, 7u).rooms.empty());
+    }
+
+    // --- M412: perfect-maze generation (recursive backtracker) ---
+    {
+        using FillCell = maz::game::FillCell;
+        auto mzFloor = [](const maz::game::Maze& m) {
+            int n = 0;
+            for (auto t : m.tiles) if (t) ++n;
+            return n;
+        };
+        // Exact spanning-tree floor counts on tiny mazes: 2*W*H - 1.
+        CHECK(mzFloor(maz::game::generateMaze(1, 1, 5u)) == 1);
+        CHECK(mzFloor(maz::game::generateMaze(2, 1, 5u)) == 3);
+        CHECK(mzFloor(maz::game::generateMaze(2, 2, 5u)) == 7);
+        // Perfect-maze invariants on a larger maze.
+        const int mW = 12, mH = 9;
+        auto mz = maz::game::generateMaze(mW, mH, 2024u);
+        CHECK(mz.tileWidth == 2 * mW + 1);
+        CHECK(mz.tileHeight == 2 * mH + 1);
+        for (int cy = 0; cy < mH; ++cy)
+            for (int cx = 0; cx < mW; ++cx)
+                CHECK(mz.floorAt(2 * cx + 1, 2 * cy + 1)); // every cell centre is floor
+        CHECK(mzFloor(mz) == 2 * mW * mH - 1);             // fully connected AND acyclic
+        auto mzPass = [&](const FillCell& c) { return mz.floorAt(c.x, c.y); };
+        auto mzRegs = maz::game::connectedRegions(mz.tileWidth, mz.tileHeight, mzPass);
+        CHECK(mzRegs.size() == 1);
+        CHECK(static_cast<int>(mzRegs[0].size()) == mzFloor(mz));
+        for (int x = 0; x < mz.tileWidth; ++x) {
+            CHECK(!mz.floorAt(x, 0));
+            CHECK(!mz.floorAt(x, mz.tileHeight - 1));
+        }
+        CHECK(!mz.floorAt(2, 2)); // even/even intersections are always wall
+        // Determinism + seed divergence + degenerate.
+        CHECK(maz::game::generateMaze(10, 10, 77u).tiles == maz::game::generateMaze(10, 10, 77u).tiles);
+        CHECK(maz::game::generateMaze(10, 10, 77u).tiles != maz::game::generateMaze(10, 10, 78u).tiles);
+        CHECK(maz::game::generateMaze(0, 5, 1u).tiles.empty());
     }
 }
 
