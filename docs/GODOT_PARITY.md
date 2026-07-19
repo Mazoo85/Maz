@@ -1100,6 +1100,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   pipeline (100 -> crit x2 -> armor 100 -> resist .25 -> flat 5 = 70); True damage ignoring armor/resist/
   flat while still critting; zero/negative amounts yielding 0 without a false "blocked" flag; and
   round-to-nearest on fractional results),
+  **turn-order / initiative scheduler** (M487, `game::TurnOrder` — the initiative queue behind tactics and
+  JRPG combat, where each combatant acts in order of a speed / initiative score, highest first, looping
+  round after round. `start` opens round 1 by sorting combatants (ties broken toward the lower id for
+  determinism), `current` names whose turn it is, and `advance` steps to the next combatant, rolling into a
+  fresh round — re-sorting to pick up any initiative changes — once everyone has acted. Combatants can be
+  removed mid-battle (a defeated enemy is skipped immediately, and if it was the active one the turn passes
+  cleanly to the next) and added between rounds (a summon joins the next round). Godot ships no
+  turn/initiative system — games hand-roll it every time -> beyond-Godot gameplay utility. Verified:
+  descending-initiative order with a round wrap that bumps the round counter; the lower-id tie-break;
+  removing a later combatant skips it; removing the active combatant shifts the turn to the next; removing
+  an already-acted combatant leaves the cursor on the same live one; mid-round adds and initiative changes
+  apply only from the next round; a duplicate id updates initiative; and empty / removed-to-empty queues
+  report -1 safely),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

@@ -131,6 +131,7 @@
 #include "maz/game/Shop.hpp"
 #include "maz/game/Dialogue.hpp"
 #include "maz/game/Damage.hpp"
+#include "maz/game/TurnOrder.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20227,6 +20228,93 @@ void testPolynomial() {
     }
 }
 
+void testTurnOrder() {
+    using game::TurnOrder;
+
+    // Ordering by initiative (highest first) + round wrap.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(2, 20.0);
+        t.addCombatant(3, 15.0);
+        CHECK(t.combatantCount() == 3);
+        t.start();
+        CHECK(t.round() == 1 && t.current() == 2);
+        CHECK(t.advance() == 3 && t.advance() == 1);
+        CHECK(t.advance() == 2 && t.round() == 2);
+    }
+    // Tie-break: equal initiative -> lower id first.
+    {
+        TurnOrder t;
+        t.addCombatant(5, 10.0);
+        t.addCombatant(2, 10.0);
+        t.addCombatant(8, 10.0);
+        t.start();
+        CHECK(t.current() == 2 && t.advance() == 5 && t.advance() == 8);
+    }
+    // Remove a later combatant: skipped.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(2, 20.0);
+        t.addCombatant(3, 15.0);
+        t.start();
+        CHECK(t.current() == 2 && t.removeCombatant(3));
+        CHECK(t.advance() == 1 && t.combatantCount() == 2);
+    }
+    // Remove the current combatant: turn passes to the next.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(2, 20.0);
+        t.addCombatant(3, 15.0);
+        t.start();
+        CHECK(t.advance() == 3);
+        CHECK(t.removeCombatant(3) && t.current() == 1);
+        CHECK(t.advance() == 2 && t.round() == 2);
+    }
+    // Remove an earlier combatant keeps the cursor on the same live one.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(2, 20.0);
+        t.addCombatant(3, 15.0);
+        t.start();
+        CHECK(t.advance() == 3);
+        CHECK(t.removeCombatant(2) && t.current() == 3);
+        CHECK(t.advance() == 1);
+    }
+    // Added combatant joins next round; setInitiative applies next round.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(2, 20.0);
+        t.start();
+        t.addCombatant(3, 100.0);
+        CHECK(t.advance() == 1);
+        CHECK(t.advance() == 3 && t.round() == 2);
+        t.setInitiative(1, 999.0);
+        CHECK(t.advance() == 2 && t.advance() == 1);
+        CHECK(t.advance() == 1 && t.round() == 3);
+    }
+    // Dedup + empty safety.
+    {
+        TurnOrder t;
+        t.addCombatant(1, 10.0);
+        t.addCombatant(1, 50.0);
+        CHECK(t.combatantCount() == 1 && t.initiativeOf(1) == 50.0 && t.has(1) && !t.has(9));
+        TurnOrder e;
+        e.start();
+        CHECK(e.current() == -1 && e.advance() == -1);
+        e.addCombatant(1, 5.0);
+        e.start();
+        CHECK(e.current() == 1 && e.removeCombatant(1));
+        CHECK(e.current() == -1 && e.advance() == -1 && !e.removeCombatant(1));
+        e.clear();
+        CHECK(e.combatantCount() == 0 && e.round() == 0);
+    }
+}
+
 void testDamage() {
     using game::armorMultiplier;
     using game::DamageInfo;
@@ -31151,6 +31239,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testTurnOrder();
     testDamage();
     testDialogue();
     testShop();
