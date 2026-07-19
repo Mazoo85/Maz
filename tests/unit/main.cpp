@@ -117,6 +117,7 @@
 #include "maz/io/Huffman.hpp"
 #include "maz/game/WaveFunctionCollapse.hpp"
 #include "maz/render/Subdivision.hpp"
+#include "maz/render/MeshWeld.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20213,6 +20214,72 @@ void testPolynomial() {
     }
 }
 
+void testMeshWeld() {
+    using math::vec3;
+    using render::weldVertices;
+    using render::WeldedMesh;
+
+    // A cube built face-by-face (24 duplicated corners) welds to 8 unique verts, all 12 tris survive.
+    {
+        const vec3 c[8] = {vec3(-1, -1, -1), vec3(1, -1, -1), vec3(1, 1, -1), vec3(-1, 1, -1),
+                           vec3(-1, -1, 1),  vec3(1, -1, 1),  vec3(1, 1, 1),  vec3(-1, 1, 1)};
+        const int faceIdx[6][4] = {{0, 1, 2, 3}, {5, 4, 7, 6}, {4, 5, 1, 0},
+                                   {1, 5, 6, 2}, {5, 4, 7, 6}, {4, 0, 3, 7}};
+        std::vector<vec3> pos;
+        std::vector<std::uint32_t> idx;
+        for (auto& f : faceIdx) {
+            const std::uint32_t base = static_cast<std::uint32_t>(pos.size());
+            for (int k = 0; k < 4; ++k) pos.push_back(c[f[k]]);
+            idx.insert(idx.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+        }
+        CHECK(pos.size() == 24 && idx.size() == 36);
+        const WeldedMesh w = weldVertices(pos, idx, 1e-4f);
+        CHECK(w.positions.size() == 8 && w.indices.size() == 36 && w.removedTriangles == 0);
+        for (const vec3& p : w.positions) {
+            bool match = false;
+            for (const vec3& cc : c)
+                if (std::fabs(p.x - cc.x) < 1e-5f && std::fabs(p.y - cc.y) < 1e-5f && std::fabs(p.z - cc.z) < 1e-5f)
+                    match = true;
+            CHECK(match);
+        }
+    }
+    // Threshold: within epsilon merges (degenerate triangle dropped), beyond stays.
+    {
+        std::vector<vec3> pos = {vec3(0, 0, 0), vec3(0.0005f, 0, 0), vec3(1, 0, 0)};
+        std::vector<std::uint32_t> idx = {0, 1, 2};
+        const WeldedMesh a = weldVertices(pos, idx, 1e-3f);
+        CHECK(a.positions.size() == 2 && a.indices.empty() && a.removedTriangles == 1);
+        const WeldedMesh b = weldVertices(pos, idx, 1e-4f);
+        CHECK(b.positions.size() == 3 && b.indices.size() == 3 && b.removedTriangles == 0);
+    }
+    // Cell-boundary straddle still merges.
+    {
+        const float e = 1e-3f;
+        std::vector<vec3> pos = {vec3(e * 0.999f, 0, 0), vec3(e * 1.0005f, 0, 0), vec3(5, 0, 0)};
+        std::vector<std::uint32_t> idx = {0, 2, 1};
+        CHECK(weldVertices(pos, idx, e).positions.size() == 2);
+    }
+    // Already-unique mesh unchanged.
+    {
+        std::vector<vec3> pos = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(1, 1, 1)};
+        std::vector<std::uint32_t> idx = {0, 1, 2, 1, 3, 2};
+        const WeldedMesh w = weldVertices(pos, idx, 1e-5f);
+        CHECK(w.positions.size() == 4 && w.indices.size() == 6 && w.removedTriangles == 0);
+    }
+    // Bit-exact welding with epsilon <= 0.
+    {
+        std::vector<vec3> pos = {vec3(2, 2, 2), vec3(2, 2, 2), vec3(3, 3, 3)};
+        std::vector<std::uint32_t> idx = {0, 2, 1};
+        const WeldedMesh w = weldVertices(pos, idx, 0.0f);
+        CHECK(w.positions.size() == 2 && w.indices.empty() && w.removedTriangles == 1);
+    }
+    // Empty input is safe.
+    {
+        const WeldedMesh w = weldVertices({}, {}, 1e-4f);
+        CHECK(w.positions.empty() && w.indices.empty() && w.removedTriangles == 0);
+    }
+}
+
 void testSubdivision() {
     using math::vec3;
     using render::SubdivMesh;
@@ -29852,6 +29919,7 @@ int main() {
     testHuffman();
     testWaveFunctionCollapse();
     testSubdivision();
+    testMeshWeld();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

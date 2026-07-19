@@ -801,6 +801,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   linear and Loop; Loop on a flat square stays inside the square (convex weights); Loop on a cube pulls
   every vertex strictly inside the cube's bounding sphere (smoothing inward); and zero-iteration / empty
   inputs are safe no-ops),
+  **vertex welding** (M473, `render::weldVertices` -> `render::WeldedMesh` — merge coincident (or
+  near-coincident) vertices of an indexed triangle mesh into one, remapping the indices and dropping
+  triangles that collapse to a line. The cleanup pass a mesh needs after being built face-by-face (each
+  quad emitting its own corners), from CSG or marching cubes, or an import that duplicated shared vertices
+  along every seam — a shared corner must be ONE vertex for smoothing groups, subdivision, and normal
+  generation to average correctly. This is Godot's SurfaceTool.index() with a distance threshold (Godot
+  welds only bit-exact duplicates; the threshold is the extra step -> parity-or-better). A spatial hash
+  keyed by the weld cell finds candidates in O(n) expected, checking the 3x3x3 neighbourhood so points
+  either side of a cell boundary still merge; the first occurrence of each cluster is the representative
+  so surviving positions are unchanged. Verified: a cube built face-by-face (24 duplicated corners) welds
+  to exactly 8 unique vertices with all 12 triangles surviving and every kept position matching an
+  original corner; the threshold merges within epsilon (collapsing a degenerate triangle, counted in
+  removedTriangles) and keeps beyond it; two points straddling a cell boundary still merge; an
+  already-unique mesh is unchanged; epsilon<=0 welds bit-exact duplicates; empty input is safe),
   **sparse table (RMQ)** (M460, `core::SparseTable<T, Op>` — O(1) range min/max (or any idempotent
   associative op: gcd, bitwise and/or) over a STATIC array after an O(n log n) build, by overlapping two
   power-of-two blocks. Complements FenwickTree (dynamic prefix sums with point updates) with far faster
