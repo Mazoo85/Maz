@@ -655,6 +655,36 @@ int main() {
         check(do3.osc3WaveformLinked() && do3.osc3Waveform() == audio::Waveform::Saw,
               "osc3 waveform defaults to linked (follows the primary)");
 
+        // Osc3 fine tune: a small detune (same coarse pitch as osc1) makes osc3 beat against it, so
+        // the summed level swells and dips over the note; at 0 cents they stay phase-locked (steady).
+        auto o3Beat = [&](float cents) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.2f);
+            s.setOsc3Level(1.0f);
+            s.setOsc3Semitones(0.0f);
+            s.setOsc3FineTune(cents);
+            s.noteOn(45, 1.0f); // low note → slow, clear beats
+            const std::vector<float> out = render(s, sampleRate, sampleRate); // 1 s, held
+            double mx = 0.0, mn = 1e9;
+            const int win = sampleRate / 20; // 50 ms windows
+            for (int start = 0; start + win <= static_cast<int>(out.size()); start += win) {
+                double e = 0.0;
+                for (int i = 0; i < win; ++i) {
+                    const double v = out[static_cast<size_t>(start + i)];
+                    e += v * v;
+                }
+                const double r = std::sqrt(e / win);
+                if (r > mx) mx = r;
+                if (r < mn) mn = r;
+            }
+            return mx > 0.0 ? (mx - mn) / mx : 0.0;
+        };
+        check(o3Beat(25.0f) > o3Beat(0.0f) + 0.2,
+              "osc3 fine detune makes the stack beat (the summed level swells)");
+        audio::SynthInstrument do3f;
+        check(do3f.osc3FineTune() == 0.0f, "osc3 fine tune defaults to 0 (dead-on)");
+
         // Osc2 coarse tune: a 2nd sine oscillator an octave up adds a bright partial the unison
         // (coarse 0) tone lacks → more high-frequency energy.
         auto coarseRender = [&](float semis) {

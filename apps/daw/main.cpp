@@ -933,6 +933,9 @@ void buildSynthUI(audio::Sequencer& seq) {
         const char* osc3Waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
         if (ImGui::Combo("Osc 3 wave", &osc3w, osc3Waves, 5))
             syn.setOsc3Waveform(static_cast<audio::Waveform>(osc3w));
+        float osc3fine = syn.osc3FineTune();
+        if (ImGui::SliderFloat("Osc 3 fine", &osc3fine, -100.0f, 100.0f, "%.0f ct"))
+            syn.setOsc3FineTune(osc3fine);
         och |= ImGui::SliderFloat("Sub", &sub, 0.0f, 1.0f, "%.2f");
         och |= ImGui::SliderFloat("Noise", &noise, 0.0f, 1.0f, "%.2f");
         if (och) {

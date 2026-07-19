@@ -383,7 +383,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     const Waveform o3Wave = osc3WaveLinked_ ? waveform_ : osc3Waveform_;
                     osc += waveSample(o3Wave, v.phase3, pw) * osc3Level_;
                     const double mul3 =
-                        std::pow(2.0, static_cast<double>(osc3Semitones_) * 100.0 / 1200.0);
+                        std::pow(2.0, (static_cast<double>(osc3Semitones_) * 100.0 +
+                                       static_cast<double>(osc3FineCents_)) /
+                                          1200.0);
                     v.phase3 += phaseInc * mul3;
                     if (v.phase3 >= 1.0) {
                         v.phase3 -= std::floor(v.phase3);

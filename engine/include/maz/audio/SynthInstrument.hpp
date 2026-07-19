@@ -195,6 +195,10 @@ public:
         osc3Semitones_ = semis < -24.0f ? -24.0f : (semis > 24.0f ? 24.0f : semis);
     }
     float osc3Semitones() const { return osc3Semitones_; }
+    // Osc3 fine tune (±100 cents): a small detune from its coarse pitch so osc3 beats against the
+    // rest of the stack for a fatter, wider sound. 0 (default) = dead-on (no beating).
+    void setOsc3FineTune(float cents) { osc3FineCents_ = cents < -100.0f ? -100.0f : (cents > 100.0f ? 100.0f : cents); }
+    float osc3FineTune() const { return osc3FineCents_; }
     // Osc3's own waveform (like osc2): linked to the primary by default, or an independent shape.
     void setOsc3Waveform(Waveform w) {
         osc3Waveform_ = w;
@@ -458,6 +462,7 @@ private:
     bool osc2WaveLinked_ = true;            // true = osc2 follows the primary waveform (default)
     float osc3Level_ = 0.0f;     // 3rd oscillator level; 0 = off
     float osc3Semitones_ = 0.0f; // coarse tune for osc3 (semitones)
+    float osc3FineCents_ = 0.0f; // fine detune for osc3 (cents); 0 = dead-on
     Waveform osc3Waveform_ = Waveform::Saw; // osc3's own shape when unlinked
     bool osc3WaveLinked_ = true;            // true = osc3 follows the primary waveform (default)
     float ringMod_ = 0.0f;       // osc1×osc2 ring-modulation amount; 0 = off

@@ -92,6 +92,7 @@ int main() {
     seq.synth().setOsc3Level(0.45f);
     seq.synth().setOsc3Semitones(-5.0f);
     seq.synth().setOsc3Waveform(audio::Waveform::Triangle); // unlinks osc3 from the primary
+    seq.synth().setOsc3FineTune(-18.0f);
     seq.synth().setVelToCutoff(4200.0f);
     seq.synth().setFmFeedback(0.55f);
     seq.synth().setVelToFmIndex(3.0f);
@@ -557,8 +558,9 @@ int main() {
           "osc2 waveform (unlinked) round-trips");
     check(near(seq2.synth().osc3Level(), 0.45f) && near(seq2.synth().osc3Semitones(), -5.0f) &&
               !seq2.synth().osc3WaveformLinked() &&
-              seq2.synth().osc3Waveform() == audio::Waveform::Triangle,
-          "osc3 round-trips (incl. its own waveform)");
+              seq2.synth().osc3Waveform() == audio::Waveform::Triangle &&
+              near(seq2.synth().osc3FineTune(), -18.0f),
+          "osc3 round-trips (incl. its own waveform + fine tune)");
     check(near(seq2.synth().velToCutoff(), 4200.0f), "velocity→cutoff round-trips");
     check(near(seq2.synth().fmFeedback(), 0.55f), "FM feedback round-trips");
     check(near(seq2.synth().velToFmIndex(), 3.0f), "velocity → FM index round-trips");
