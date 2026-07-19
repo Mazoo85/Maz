@@ -367,7 +367,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.exciter().amount() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve()) << " "
-      << mixer.distortion().tone() << "\n";
+      << mixer.distortion().tone() << " " << mixer.distortion().outputDb() << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
       << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << " "
@@ -1119,6 +1119,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float tone = 20000.0f; // post tone optional (older files omit it → open)
                 if (ls >> tone) {
                     mixer.distortion().setTone(tone);
+                }
+                float outDb = 0.0f; // output trim optional (older files omit it → unity)
+                if (ls >> outDb) {
+                    mixer.distortion().setOutputDb(outDb);
                 }
             } else if (which == "chorus") {
                 float rate = 0.8f, depth = 3.0f, mix = 0.4f;

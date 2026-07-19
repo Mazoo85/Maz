@@ -869,6 +869,24 @@ int main() {
               "distortion post tone darkens the drive (rolls off added highs)");
         audio::Distortion dt;
         check(dt.tone() == 20000.0f, "distortion tone defaults to open (20 kHz)");
+
+        // Output trim: a post-shaper level control that scales the whole output linearly.
+        auto distOut = [&](float outDb) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(8.0f);
+            d.setMix(1.0f);
+            d.setCurve(audio::Distortion::Curve::Hard);
+            d.setOutputDb(outDb);
+            std::vector<float> b = sineStereo(sr / 2, 300.0, 0.5, sr);
+            d.process(b.data(), sr / 2, sr);
+            return rms(b);
+        };
+        const double outAt0 = distOut(0.0f);
+        const double outAtMinus6 = distOut(-6.0f);
+        check(std::fabs(outAtMinus6 - outAt0 * 0.5011872) < outAt0 * 0.02,
+              "distortion output trim scales the level (−6 dB ≈ half)");
+        check(dt.outputDb() == 0.0f, "distortion output trim defaults to 0 dB (unity)");
     }
 
     // --- Distortion curves: each mode shapes differently --------------------

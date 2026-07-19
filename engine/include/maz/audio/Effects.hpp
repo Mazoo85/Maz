@@ -145,10 +145,14 @@ public:
     // Post tone: a one-pole low-pass on the distorted (wet) signal that tames the fizzy top saturation
     // adds. 20000 Hz (default) = fully open/off; lower it to darken the drive. (Fruity-Dist "low-pass".)
     void setTone(float hz) { toneHz_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
+    // Output level (dB, ±24): a post-shaper output trim so you can drive hard for the tone and then
+    // bring the (now-louder) result back down for gain-staging. 0 dB (default) = unity/off.
+    void setOutputDb(float db) { outputDb_ = db < -24.0f ? -24.0f : (db > 24.0f ? 24.0f : db); }
     float drive() const { return drive_; }
     float mix() const { return mix_; }
     Curve curve() const { return curve_; }
     float tone() const { return toneHz_; }
+    float outputDb() const { return outputDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -158,6 +162,7 @@ private:
     float mix_ = 0.5f;
     Curve curve_ = Curve::Soft;
     float toneHz_ = 20000.0f; // post low-pass cutoff; 20000 = off
+    float outputDb_ = 0.0f;   // post-shaper output trim in dB; 0 = unity
     float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
 };
 

@@ -211,6 +211,7 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
     const float drive = std::max(drive_, 1.0f);
     const float tanhNorm = 1.0f / std::tanh(drive); // keep unity-ish level across drive
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    const float outGain = dbToLin(outputDb_); // post-shaper output trim (1.0 at 0 dB)
     constexpr float kPi = 3.14159265f;
     // Post tone: a one-pole low-pass on the wet signal (off at 20 kHz).
     const bool doTone = toneHz_ < 19000.0f;
@@ -265,7 +266,7 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
                 wet = toneR_;
             }
         }
-        stereo[i] = dry * (1.0f - mix) + wet * mix;
+        stereo[i] = (dry * (1.0f - mix) + wet * mix) * outGain;
     }
 }
 

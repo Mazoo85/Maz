@@ -1452,6 +1452,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("tone##dist", &dtone, 200.0f, 20000.0f, "%.0f Hz")) mx.distortion().setTone(dtone);
+        float dout = mx.distortion().outputDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("out##dist", &dout, -24.0f, 24.0f, "%.1f dB")) mx.distortion().setOutputDb(dout);
     }
     {
         bool en = mx.tape().enabled();
