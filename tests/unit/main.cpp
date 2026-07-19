@@ -78,6 +78,7 @@
 #include "maz/core/ReservoirSampler.hpp"
 #include "maz/core/RunningStats.hpp"
 #include "maz/core/Histogram.hpp"
+#include "maz/core/RollingWindow.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17679,6 +17680,107 @@ void testHistogram() {
     }
 }
 
+// RollingWindow: fixed-capacity sliding-window sum/mean/min/max (M434).
+void testRollingWindow() {
+    using core::Pcg32;
+    using core::RollingWindow;
+
+    // ---- Empty. ----
+    {
+        RollingWindow w(3);
+        CHECK(w.empty() && w.size() == 0 && w.capacity() == 3 && !w.full());
+        CHECK(std::fabs(w.mean()) < 1e-9 && std::fabs(w.min()) < 1e-9 && std::fabs(w.max()) < 1e-9);
+    }
+
+    // ---- Fill then slide. ----
+    {
+        RollingWindow w(3);
+        w.push(5.0);
+        CHECK(w.size() == 1 && std::fabs(w.mean() - 5.0) < 1e-9);
+        w.push(3.0);
+        CHECK(std::fabs(w.sum() - 8.0) < 1e-9 && std::fabs(w.min() - 3.0) < 1e-9);
+        w.push(8.0); // {5,3,8}
+        CHECK(w.full() && std::fabs(w.sum() - 16.0) < 1e-9);
+        CHECK(std::fabs(w.min() - 3.0) < 1e-9 && std::fabs(w.max() - 8.0) < 1e-9);
+        CHECK(std::fabs(w.latest() - 8.0) < 1e-9);
+        w.push(1.0); // evict 5 -> {3,8,1}
+        CHECK(std::fabs(w.sum() - 12.0) < 1e-9 && std::fabs(w.min() - 1.0) < 1e-9 &&
+              std::fabs(w.max() - 8.0) < 1e-9);
+        w.push(10.0); // evict 3 -> {8,1,10}
+        CHECK(std::fabs(w.min() - 1.0) < 1e-9 && std::fabs(w.max() - 10.0) < 1e-9);
+        w.push(10.0); // evict 8 -> {1,10,10}
+        CHECK(std::fabs(w.sum() - 21.0) < 1e-9 && std::fabs(w.max() - 10.0) < 1e-9);
+    }
+
+    // ---- Max-eviction stress: a duplicate max must survive until both copies leave. ----
+    {
+        RollingWindow w(3);
+        w.push(1.0);
+        w.push(10.0);
+        w.push(10.0); // {1,10,10}
+        w.push(2.0); // evict 1 -> {10,10,2}
+        CHECK(std::fabs(w.min() - 2.0) < 1e-9 && std::fabs(w.max() - 10.0) < 1e-9);
+        w.push(3.0); // evict a 10 -> {10,2,3} (one 10 remains)
+        CHECK(std::fabs(w.max() - 10.0) < 1e-9);
+        w.push(4.0); // evict last 10 -> {2,3,4}
+        CHECK(std::fabs(w.max() - 4.0) < 1e-9 && std::fabs(w.mean() - 3.0) < 1e-9);
+    }
+
+    // ---- Capacity 1 and 0. ----
+    {
+        RollingWindow w(1);
+        w.push(7.0);
+        CHECK(std::fabs(w.min() - 7.0) < 1e-9 && std::fabs(w.max() - 7.0) < 1e-9);
+        w.push(2.0);
+        CHECK(std::fabs(w.min() - 2.0) < 1e-9 && std::fabs(w.max() - 2.0) < 1e-9);
+        RollingWindow z(0);
+        CHECK(z.capacity() == 1);
+        z.push(4.0);
+        CHECK(std::fabs(z.mean() - 4.0) < 1e-9);
+    }
+
+    // ---- clear() resets. ----
+    {
+        RollingWindow w(4);
+        w.push(1.0);
+        w.push(2.0);
+        w.push(3.0);
+        w.clear();
+        CHECK(w.empty() && w.size() == 0 && std::fabs(w.sum()) < 1e-9);
+        w.push(5.0);
+        CHECK(w.size() == 1 && std::fabs(w.mean() - 5.0) < 1e-9);
+    }
+
+    // ---- Brute-force cross-check over a long random stream. ----
+    {
+        const std::size_t win = 7;
+        RollingWindow w(win);
+        Pcg32 rng(1234, 99);
+        std::vector<double> all;
+        for (int i = 0; i < 3000; ++i) {
+            const double x = rng.rangef(-100.0f, 100.0f);
+            all.push_back(x);
+            w.push(x);
+            const std::size_t n = all.size();
+            const std::size_t start = n > win ? n - win : 0;
+            double bsum = 0.0, bmin = all[start], bmax = all[start];
+            for (std::size_t j = start; j < n; ++j) {
+                bsum += all[j];
+                if (all[j] < bmin) {
+                    bmin = all[j];
+                }
+                if (all[j] > bmax) {
+                    bmax = all[j];
+                }
+            }
+            CHECK(w.size() == n - start);
+            CHECK(std::fabs(w.sum() - bsum) < 1e-6);
+            CHECK(std::fabs(w.min() - bmin) < 1e-9);
+            CHECK(std::fabs(w.max() - bmax) < 1e-9);
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26437,6 +26539,7 @@ int main() {
     testReservoirSampler();
     testRunningStats();
     testHistogram();
+    testRollingWindow();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

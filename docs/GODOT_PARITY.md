@@ -512,6 +512,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   below/above accounting, mode tie-breaking, exact percentile interpolation (10-per-bin p25/median/p95 =
   2.5/5.0/9.5), uniform 0..999 median 500 and p90 900, clear() reset, degenerate-range safety, and a
   negative-range case proving true floor-not-truncation binning),
+  **rolling-window statistics** (M434, `core::RollingWindow` — fixed-capacity sliding window that keeps
+  only the last N samples and reports their sum / mean / min / max, dropping the oldest as each new one
+  arrives. Unlike RunningStats (all-time) it answers "what have the last N samples been doing" — the
+  shape for a live "average FPS over the last 60 frames" readout, a recent-input smoother, or a
+  short-horizon trend signal. Running sum makes mean() O(1); min()/max() use monotonic index deques so
+  they stay O(1) amortised as the window slides, with no per-eviction rescan. Godot has no
+  rolling-window accumulator. Verified against fill-then-slide eviction, a duplicate-max stress case
+  (a repeated maximum survives until both copies leave the window), capacity-1/0 edge cases, clear()
+  reset, and a 3000-sample random stream cross-checked every step against a brute-force recompute of
+  the window's sum/min/max),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
