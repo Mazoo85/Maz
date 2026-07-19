@@ -103,6 +103,7 @@
 #include "maz/math/CubicSpline.hpp"
 #include "maz/game/SpanningTree.hpp"
 #include "maz/game/Minimax.hpp"
+#include "maz/game/LSystem.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -19886,6 +19887,95 @@ void testMinimax() {
     }
 }
 
+// LSystem: Lindenmayer grammar rewriting + turtle interpretation (M459).
+void testLSystem() {
+    using game::interpretTurtle;
+    using game::LSystem;
+    using game::TurtleConfig;
+    using game::TurtleSegment;
+    using math::vec2;
+
+    auto vclose = [](vec2 a, vec2 b, float tol) {
+        return std::fabs(a.x - b.x) < tol && std::fabs(a.y - b.y) < tol;
+    };
+    auto countF = [](const std::string& s) {
+        std::size_t n = 0;
+        for (char c : s) if (c == 'F') ++n;
+        return n;
+    };
+
+    // Algae: A->AB, B->A. Exact strings + Fibonacci growth.
+    {
+        LSystem algae;
+        algae.axiom = "A";
+        algae.rules = {{'A', "AB"}, {'B', "A"}};
+        CHECK(algae.generate(0) == "A");
+        CHECK(algae.generate(1) == "AB");
+        CHECK(algae.generate(2) == "ABA");
+        CHECK(algae.generate(3) == "ABAAB");
+        CHECK(algae.generate(4) == "ABAABABA");
+        CHECK(algae.generate(5) == "ABAABABAABAAB");
+        const std::size_t fib[] = {1, 2, 3, 5, 8, 13, 21, 34};
+        for (int i = 0; i <= 7; ++i) CHECK(algae.generate(i).size() == fib[static_cast<std::size_t>(i)]);
+    }
+    // Constants pass through unchanged.
+    {
+        LSystem g;
+        g.axiom = "F";
+        g.rules = {{'F', "F+F-F"}};
+        CHECK(g.generate(1) == "F+F-F");
+        CHECK(g.generate(2) == "F+F-F+F+F-F-F+F-F");
+    }
+    // Quadratic Koch: 5^n drawn segments.
+    {
+        LSystem koch;
+        koch.axiom = "F";
+        koch.rules = {{'F', "F+F-F-F+F"}};
+        std::size_t expect = 1;
+        for (int n = 0; n <= 4; ++n) {
+            const std::string s = koch.generate(n);
+            CHECK(countF(s) == expect);
+            TurtleConfig cfg;
+            CHECK(interpretTurtle(s, cfg).size() == expect);
+            expect *= 5;
+        }
+    }
+    // Exact turtle geometry + turn directions.
+    {
+        TurtleConfig cfg;
+        cfg.angleRad = 1.5707963268f;
+        const std::vector<TurtleSegment> l = interpretTurtle("F+F", cfg);
+        CHECK(l.size() == 2);
+        CHECK(vclose(l[0].a, vec2(0, 0), 1e-5f) && vclose(l[0].b, vec2(1, 0), 1e-5f));
+        CHECK(vclose(l[1].b, vec2(1, 1), 1e-5f));            // '+' turned left
+        CHECK(vclose(interpretTurtle("F-F", cfg)[1].b, vec2(1, -1), 1e-5f)); // '-' turned right
+    }
+    // Bracket push/pop returns the turtle to the fork.
+    {
+        TurtleConfig cfg;
+        cfg.angleRad = 1.5707963268f;
+        const std::vector<TurtleSegment> segs = interpretTurtle("F[+F]F", cfg);
+        CHECK(segs.size() == 3);
+        CHECK(vclose(segs[1].b, vec2(1, 1), 1e-5f));                              // branch tip
+        CHECK(vclose(segs[2].a, vec2(1, 0), 1e-5f) && vclose(segs[2].b, vec2(2, 0), 1e-5f)); // resumed
+    }
+    // 'f' skips without drawing; unknown symbols ignored; unbalanced ']' safe.
+    {
+        TurtleConfig cfg;
+        const std::vector<TurtleSegment> a = interpretTurtle("XfFY", cfg);
+        CHECK(a.size() == 1 && vclose(a[0].a, vec2(1, 0), 1e-5f) && vclose(a[0].b, vec2(2, 0), 1e-5f));
+        const std::vector<TurtleSegment> b = interpretTurtle("F]F", cfg);
+        CHECK(b.size() == 2 && vclose(b[1].b, vec2(2, 0), 1e-5f));
+    }
+    // Determinism.
+    {
+        LSystem g;
+        g.axiom = "X";
+        g.rules = {{'X', "F[+X][-X]FX"}, {'F', "FF"}};
+        CHECK(g.generate(4) == g.generate(4));
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28669,6 +28759,7 @@ int main() {
     testCubicSpline();
     testSpanningTree();
     testMinimax();
+    testLSystem();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

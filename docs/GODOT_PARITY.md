@@ -754,6 +754,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   block is found and skipping it loses) and cross-checked against an unpruned reference minimax across
   300 random reachable positions — identical value every time, never visiting more nodes, and strictly
   fewer on the opening),
+  **L-system** (M459, `game::LSystem` + `game::interpretTurtle` — a Lindenmayer grammar rewriter plus a
+  turtle-graphics interpreter: expand an axiom by symbol->replacement rules, then walk the result with a
+  turtle (F/G draw, f move, +/- turn, [ ] branch push/pop) to emit line segments. The compact procedural
+  source for plants, trees, roots, and space-filling fractals (Koch, dragon, Sierpinski), and for growing
+  branching corridors or river networks. Godot has no L-system -> beyond-Godot. Verified: Lindenmayer's
+  algae (A->AB, B->A) produces the exact expected strings with Fibonacci lengths (1,2,3,5,8,13,21,34);
+  rule-less symbols pass through as constants; quadratic Koch yields exactly 5^n drawn segments; turtle
+  geometry is exact (F+F traces an L, '+' turns left / '-' right); brackets return the turtle to the fork
+  so branches don't displace the trunk; 'f' moves without drawing; unknown symbols and an unbalanced ']'
+  are safe no-ops; and generation is deterministic),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
