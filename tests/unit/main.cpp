@@ -87,6 +87,7 @@
 #include "maz/core/Trie.hpp"
 #include "maz/core/FuzzyMatch.hpp"
 #include "maz/core/LruCache.hpp"
+#include "maz/core/BloomFilter.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -273,6 +274,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -18503,6 +18505,93 @@ void testLruCache() {
     }
 }
 
+// BloomFilter: probabilistic set membership (no false negatives, bounded false positives) (M443).
+void testBloomFilter() {
+    using core::BloomFilter;
+
+    // ---- Empty filter: no bits set -> nothing is a false positive. ----
+    {
+        BloomFilter<int> b(1024, 3);
+        CHECK(b.numBits() == 1024 && b.numHashes() == 3 && b.setBits() == 0 && b.addedCount() == 0);
+        for (int i = 0; i < 1000; ++i) {
+            CHECK(!b.possiblyContains(i));
+        }
+        CHECK(std::fabs(b.approxItemCount()) < 1e-12);
+    }
+
+    // ---- No false negatives: every added key always tests present. ----
+    {
+        BloomFilter<int> b(20000, 5);
+        for (int i = 0; i < 2000; ++i) {
+            b.add(i * 7 + 3);
+        }
+        for (int i = 0; i < 2000; ++i) {
+            CHECK(b.possiblyContains(i * 7 + 3));
+        }
+        CHECK(b.addedCount() == 2000);
+    }
+
+    // ---- Strings (std::hash<std::string>). ----
+    {
+        BloomFilter<std::string> b(4096, 4);
+        b.add("alpha");
+        b.add("beta");
+        b.add("gamma");
+        CHECK(b.possiblyContains("alpha") && b.possiblyContains("beta") && b.possiblyContains("gamma"));
+        CHECK(!b.possiblyContains("this_key_was_never_added_xyz"));
+    }
+
+    // ---- False-positive rate stays near the target; item estimate is reasonable. ----
+    {
+        const std::size_t n = 5000;
+        BloomFilter<int> b = BloomFilter<int>::optimal(n, 0.01);
+        std::unordered_set<int> added;
+        for (std::size_t i = 0; i < n; ++i) {
+            const int k = static_cast<int>(i) * 2;
+            b.add(k);
+            added.insert(k);
+        }
+        int fp = 0;
+        const int trials = 20000;
+        for (int i = 0; i < trials; ++i) {
+            const int k = i * 2 + 1; // odd -> guaranteed not added
+            if (added.count(k) == 0 && b.possiblyContains(k)) {
+                ++fp;
+            }
+        }
+        CHECK(static_cast<double>(fp) / trials < 0.03);
+        CHECK(b.approxItemCount() > static_cast<double>(n) * 0.9 &&
+              b.approxItemCount() < static_cast<double>(n) * 1.1);
+    }
+
+    // ---- clear() resets. ----
+    {
+        BloomFilter<int> b(2048, 3);
+        b.add(42);
+        CHECK(b.possiblyContains(42) && b.setBits() > 0);
+        b.clear();
+        CHECK(b.setBits() == 0 && b.addedCount() == 0 && !b.possiblyContains(42));
+    }
+
+    // ---- merge() unions same-geometry filters; mismatched geometry rejected. ----
+    {
+        BloomFilter<int> a(4096, 4);
+        BloomFilter<int> c(4096, 4);
+        for (int i = 0; i < 500; ++i) {
+            a.add(i);
+        }
+        for (int i = 500; i < 1000; ++i) {
+            c.add(i);
+        }
+        CHECK(a.merge(c));
+        for (int i = 0; i < 1000; ++i) {
+            CHECK(a.possiblyContains(i));
+        }
+        BloomFilter<int> wrong(2048, 4);
+        CHECK(!a.merge(wrong));
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27270,6 +27359,7 @@ int main() {
     testTrie();
     testFuzzyMatch();
     testLruCache();
+    testBloomFilter();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

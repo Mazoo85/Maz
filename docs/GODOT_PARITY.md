@@ -602,6 +602,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   with correct LRU eviction, value-update-on-reinsert, peek() leaving recency untouched, hit/miss stats,
   erase/clear, capacity-0 coercion, and a 20000-op random workload cross-checked every step against a
   reference LRU for size, MRU/LRU keys, per-value correctness, and full membership),
+  **Bloom filter** (M443, `core::BloomFilter<T>` — a space-efficient probabilistic set: answers "have I
+  definitely NOT seen this?" with certainty and "might I have?" with a small tunable false-positive
+  chance, in a fraction of a real set's memory, with zero false negatives. The ideal fast pre-filter: a
+  "visited" marker for the millions of cells/chunks in a huge procedural world, a duplicate suppressor
+  for events/packets, or a cheap gate before an expensive exact lookup. k probes derived from a single
+  std::hash by double-hashing, so it works for any hashable key; build by bit-count+probe-count or via
+  optimal() from expected items + target false-positive rate. Godot has no Bloom filter. Verified: empty
+  filter reports nothing present, the no-false-negatives invariant over 2000 keys, string keys, a
+  5000-item filter whose measured false-positive rate lands near the 1% target with a Swamidass-Baldi
+  count estimate within 10% of actual, clear(), and merge() unioning same-geometry filters while
+  rejecting mismatched ones),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
