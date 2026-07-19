@@ -684,6 +684,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   separable result EXACTLY matches a full 2D outer-product convolution reference; a centred impulse
   conserves energy, peaks at the centre, and is 4-fold symmetric; and a box-blurred impulse is an exact
   uniform (2r+1)^2 block),
+  **Kalman filtering** (M452, `core::Kalman1D` + `core::KalmanCV` — the statistically-optimal recursive
+  estimator that fuses a noisy measurement with a model prediction while carrying its own uncertainty.
+  Distinct from the engine's other smoothers (OneEuroFilter is a low-pass, SmoothDamp a spring,
+  PidController a controller — none model measurement noise): Kalman1D is a scalar random-walk filter
+  (predict inflates variance by Q, update folds in a measurement with gain K=P/(P+R)); KalmanCV is a
+  constant-velocity tracker that recovers a smooth position AND an inferred velocity from noisy position
+  samples (2x2 covariance carried as explicit symmetric terms). The right tool for de-noising jittery
+  analog/sensor input, smoothing network-replicated positions, and light sensor fusion. Godot ships no
+  Kalman filter -> beyond-Godot. Verified deterministically: gain always in [0,1]; R->0 snaps to the
+  measurement while R->inf keeps the prediction; predict grows and update shrinks variance; over 4000
+  seeded noisy samples of a constant the filter cuts error energy by >2x and tracks the truth; and the
+  constant-velocity tracker recovers both position and velocity from clean linear motion with a
+  positive-definite covariance),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

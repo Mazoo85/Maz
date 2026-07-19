@@ -96,6 +96,7 @@
 #include "maz/core/ValueNoise.hpp"
 #include "maz/core/SpaceFilling.hpp"
 #include "maz/render/ImageBlur.hpp"
+#include "maz/core/Kalman.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19242,6 +19243,85 @@ void testImageBlur() {
     }
 }
 
+// Kalman: scalar + constant-velocity optimal estimators (M452).
+void testKalman() {
+    using core::Kalman1D;
+    using core::KalmanCV;
+    using core::Pcg32;
+
+    // Scalar gain always in [0,1], variance positive.
+    {
+        Kalman1D f(1e-3f, 1e-2f, 0.0f, 1.0f);
+        for (int i = 0; i < 100; ++i) {
+            f.step(5.0f);
+            CHECK(f.gain() >= 0.0f && f.gain() <= 1.0f);
+            CHECK(f.variance() > 0.0f);
+        }
+    }
+    // Perfect measurements (R -> 0): estimate snaps to the measurement.
+    {
+        Kalman1D f(0.0f, 1e-9f, 0.0f, 1.0f);
+        CHECK(std::fabs(f.step(3.14159f) - 3.14159f) < 1e-3f);
+    }
+    // Useless measurements (R huge): estimate barely moves.
+    {
+        Kalman1D f(0.0f, 1e9f, 10.0f, 1.0f);
+        CHECK(std::fabs(f.step(-999.0f) - 10.0f) < 1e-2f);
+    }
+    // predict inflates variance, update shrinks it.
+    {
+        Kalman1D f(0.5f, 1.0f, 0.0f, 1.0f);
+        const float p0 = f.variance();
+        f.predict();
+        CHECK(f.variance() > p0);
+        const float p1 = f.variance();
+        f.update(1.0f);
+        CHECK(f.variance() < p1);
+    }
+    // Converges to a constant truth and reduces noise energy >2x vs raw measurements (deterministic).
+    {
+        const float truth = 7.5f;
+        Pcg32 rng(1234u, 7u);
+        Kalman1D f(1e-4f, 0.25f, 0.0f, 1.0f);
+        double sumRaw = 0.0, sumEst = 0.0;
+        const int N = 4000;
+        for (int i = 0; i < N; ++i) {
+            const float z = truth + (rng.nextFloat() - 0.5f);
+            const float est = f.step(z);
+            if (i > 500) {
+                sumRaw += static_cast<double>((z - truth) * (z - truth));
+                sumEst += static_cast<double>((est - truth) * (est - truth));
+            }
+        }
+        CHECK(sumEst < sumRaw * 0.5);
+        CHECK(std::fabs(f.value() - truth) < 0.1f);
+    }
+    // Constant-velocity tracker recovers position AND velocity from clean linear motion.
+    {
+        const float v0 = 2.0f, dt = 0.1f;
+        KalmanCV f(1.0f, 1e-4f);
+        f.reset(0.0f, 0.0f, 1.0f, 1.0f);
+        float t = 0.0f;
+        for (int i = 0; i < 400; ++i) {
+            t += dt;
+            f.step(dt, v0 * t);
+        }
+        CHECK(std::fabs(f.position() - v0 * t) < 0.05f);
+        CHECK(std::fabs(f.velocity() - v0) < 0.05f);
+        CHECK(f.posVariance() > 0.0f && f.velVariance() > 0.0f);
+    }
+    // CV covariance diagonals stay positive under noisy input.
+    {
+        KalmanCV f(0.5f, 0.01f);
+        f.reset(0.0f);
+        Pcg32 rng(99u, 1u);
+        for (int i = 0; i < 300; ++i) {
+            f.step(0.05f, 0.3f * static_cast<float>(i) + (rng.nextFloat() - 0.5f));
+            CHECK(f.posVariance() > 0.0f && f.velVariance() > 0.0f);
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28018,6 +28098,7 @@ int main() {
     testValueNoise();
     testSpaceFilling();
     testImageBlur();
+    testKalman();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
