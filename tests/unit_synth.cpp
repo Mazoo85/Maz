@@ -86,6 +86,27 @@ int main() {
         check(std::fabs(syn.filterLfoRate() - 2.0f) < 1e-3f, "1/4 sync at 120 BPM locks to 2 Hz");
     }
 
+    // --- Tremolo (amp LFO) tempo sync ---------------------------------------
+    {
+        audio::SynthInstrument syn;
+        check(!syn.ampLfoSync(), "tremolo LFO sync defaults to off");
+        syn.setAmpLfo(5.0f, 0.5f); // a free-running rate + depth
+        syn.updateTempo(120.0);
+        check(std::fabs(syn.ampLfoRate() - 5.0f) < 1e-4f,
+              "with sync off, updateTempo leaves the free-running tremolo rate alone");
+
+        syn.setAmpLfoSync(true);
+        syn.setAmpLfoSyncDivision(3); // 1/8 → 4 Hz at 120 BPM
+        check(syn.ampLfoSyncDivision() == 3, "tremolo sync division is settable");
+        syn.updateTempo(120.0);
+        check(std::fabs(syn.ampLfoRate() - 4.0f) < 1e-3f,
+              "1/8 tremolo sync at 120 BPM locks to 4 Hz");
+        syn.updateTempo(90.0); // 90 BPM → 1/8 = 3 Hz
+        check(std::fabs(syn.ampLfoRate() - 3.0f) < 1e-3f, "the synced tremolo tracks a tempo change");
+        // The tremolo depth is untouched by the rate sync.
+        check(std::fabs(syn.ampLfoDepth() - 0.5f) < 1e-6f, "tremolo sync leaves the depth alone");
+    }
+
     // --- Pitch math ----------------------------------------------------------
     check(std::fabs(audio::midiToFreq(69) - 440.0f) < 0.01f, "MIDI 69 == 440 Hz (A4)");
     check(std::fabs(audio::midiToFreq(60) - 261.63f) < 0.5f, "MIDI 60 ~= 261.6 Hz (middle C)");

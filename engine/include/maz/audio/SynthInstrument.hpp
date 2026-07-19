@@ -110,6 +110,13 @@ public:
     }
     float ampLfoRate() const { return ampLfoRate_; }
     float ampLfoDepth() const { return ampLfoDepth_; }
+    // Tempo-sync the tremolo LFO: lock its rate to the transport at the chosen note division (the
+    // same 6 divisions as the cutoff LFO / effects) for a rhythmic synth trance-gate. updateTempo()
+    // applies it each block; off (default) = the free-running rate above.
+    void setAmpLfoSync(bool on) { ampLfoSync_ = on; }
+    bool ampLfoSync() const { return ampLfoSync_; }
+    void setAmpLfoSyncDivision(int d) { ampLfoSyncDiv_ = d < 0 ? 0 : (d > 5 ? 5 : d); }
+    int ampLfoSyncDivision() const { return ampLfoSyncDiv_; }
 
     // FM: modulator frequency = carrier * ratio; index sets the modulation depth (brightness).
     void setFmRatio(float r) { fmRatio_ = r; }
@@ -399,6 +406,8 @@ private:
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
     bool filterLfoSync_ = false;  // tempo-sync the cutoff LFO rate
     int filterLfoSyncDiv_ = 3;    // sync note-division index (default 1/8)
+    bool ampLfoSync_ = false;     // tempo-sync the tremolo LFO rate
+    int ampLfoSyncDiv_ = 3;       // tremolo sync note-division index (default 1/8)
     float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
     float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
     double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)

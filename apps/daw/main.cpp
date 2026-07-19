@@ -1083,6 +1083,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool alch = ImGui::SliderFloat("Tremolo Hz", &aLfoRate, 0.0f, 20.0f, "%.2f");
     alch |= ImGui::SliderFloat("Tremolo depth", &aLfoDepth, 0.0f, 1.0f, "%.2f");
     if (alch) syn.setAmpLfo(aLfoRate, aLfoDepth);
+    bool alSync = syn.ampLfoSync();
+    if (ImGui::Checkbox("Tremolo sync", &alSync)) syn.setAmpLfoSync(alSync);
+    ImGui::SameLine();
+    int alDiv = syn.ampLfoSyncDivision();
+    const char* alDivs[] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("##aldiv", &alDiv, alDivs, 6)) syn.setAmpLfoSyncDivision(alDiv);
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();

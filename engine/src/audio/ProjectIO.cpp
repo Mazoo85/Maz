@@ -137,6 +137,11 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
         syn.setFilterLfoSync(flSync != 0);
         syn.setFilterLfoSyncDivision(flDiv);
     }
+    int alSync = 0, alDiv = 3; // amp-LFO tempo sync optional for old files (0 = free-running)
+    if (ls >> alSync >> alDiv) {
+        syn.setAmpLfoSync(alSync != 0);
+        syn.setAmpLfoSyncDivision(alDiv);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -246,7 +251,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
           << s.velToFmIndex() << " " << s.vibratoDelay() << " " << s.velToWavePosition() << " "
           << (s.glideLegato() ? 1 : 0) << " " << s.pwmLfoRate() << " " << s.pwmLfoDepth() << " "
-          << (s.filterLfoSync() ? 1 : 0) << " " << s.filterLfoSyncDivision() << "\n";
+          << (s.filterLfoSync() ? 1 : 0) << " " << s.filterLfoSyncDivision() << " "
+          << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

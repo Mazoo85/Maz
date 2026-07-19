@@ -41,8 +41,14 @@ void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float s
 }
 
 void SynthInstrument::updateTempo(double bpm) {
-    if (filterLfoSync_ && bpm > 0.0) {
+    if (bpm <= 0.0) {
+        return;
+    }
+    if (filterLfoSync_) {
         filterLfoRate_ = modSyncRateHz(filterLfoSyncDiv_, bpm);
+    }
+    if (ampLfoSync_) {
+        ampLfoRate_ = modSyncRateHz(ampLfoSyncDiv_, bpm);
     }
 }
 
