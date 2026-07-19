@@ -1,5 +1,6 @@
 #include "maz/audio/AudioEngine.hpp"
 
+#include "maz/audio/ProjectIO.hpp"
 #include "maz/audio/WavWriter.hpp"
 #include "maz/core/Log.hpp"
 
@@ -78,6 +79,28 @@ void AudioEngine::shutdown() {
         SDL_DestroyAudioStream(captureStream_);
         captureStream_ = nullptr;
     }
+}
+
+void AudioEngine::snapshotForUndo() {
+    undoHistory_.push(saveProjectToString(sequencer_, mixer_, automation_));
+}
+
+bool AudioEngine::undoEdit() {
+    std::string current = saveProjectToString(sequencer_, mixer_, automation_);
+    std::string prev;
+    if (!undoHistory_.undo(current, prev)) {
+        return false;
+    }
+    return loadProjectFromString(prev, sequencer_, mixer_, automation_);
+}
+
+bool AudioEngine::redoEdit() {
+    std::string current = saveProjectToString(sequencer_, mixer_, automation_);
+    std::string next;
+    if (!undoHistory_.redo(current, next)) {
+        return false;
+    }
+    return loadProjectFromString(next, sequencer_, mixer_, automation_);
 }
 
 void AudioEngine::render(float* out, int frames) {

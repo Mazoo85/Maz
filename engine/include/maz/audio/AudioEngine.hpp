@@ -4,6 +4,7 @@
 #include "maz/audio/Mixer.hpp"
 #include "maz/audio/Oscillator.hpp"
 #include "maz/audio/Sequencer.hpp"
+#include "maz/audio/UndoHistory.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -53,6 +54,18 @@ public:
 
     // Parameter automation (LFO lanes) evaluated each block against the transport clock.
     Automation& automation() { return automation_; }
+
+    // --- Undo/redo -----------------------------------------------------------
+    // Snapshot-based edit history. snapshotForUndo() records the CURRENT project state (sequencer +
+    // mixer + automation, serialized) before an edit; call it right before mutating the model. undoEdit()
+    // rewinds to the last snapshot (stashing the present for redo), redoEdit() replays it. Backed by the
+    // same serialization as the .cjc project files, so it captures everything a save would.
+    void snapshotForUndo();
+    bool undoEdit();
+    bool redoEdit();
+    bool canUndo() const { return undoHistory_.canUndo(); }
+    bool canRedo() const { return undoHistory_.canRedo(); }
+    void clearUndoHistory() { undoHistory_.clear(); }
 
     // Convenience passthrough to the single voice.
     void noteOn(float freqHz) { voice_.noteOn(freqHz); }
@@ -106,6 +119,7 @@ private:
     Sequencer sequencer_{};
     Mixer mixer_{};
     Automation automation_{};
+    UndoHistory undoHistory_{}; // snapshot-based edit history (undo/redo)
     SDL_AudioStream* stream_ = nullptr;        // non-null only in real-time mode
     SDL_AudioStream* captureStream_ = nullptr; // non-null while capturing input
     uint64_t framesRendered_ = 0;

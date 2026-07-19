@@ -365,6 +365,41 @@ int main() {
               "the master RMS is positive and never exceeds the peak");
     }
 
+    // --- Undo/redo: snapshot the project, edit, then rewind and replay -------
+    {
+        audio::AudioEngine eng;
+        eng.initOffline();
+        check(!eng.canUndo() && !eng.canRedo(), "a fresh engine has nothing to undo or redo");
+
+        eng.sequencer().setBpm(120.0);
+        eng.snapshotForUndo(); // record the 120 BPM state before editing
+        check(eng.canUndo() && !eng.canRedo(), "snapshot arms undo (and leaves redo empty)");
+
+        eng.sequencer().setBpm(80.0);
+        check(std::fabs(eng.sequencer().bpm() - 80.0) < 1e-9, "the edit took (80 BPM)");
+
+        check(eng.undoEdit(), "undo succeeds when there is history");
+        check(std::fabs(eng.sequencer().bpm() - 120.0) < 1e-9, "undo restores the pre-edit 120 BPM");
+        check(!eng.canUndo() && eng.canRedo(), "after undo, redo is armed and undo is empty");
+
+        check(eng.redoEdit(), "redo succeeds after an undo");
+        check(std::fabs(eng.sequencer().bpm() - 80.0) < 1e-9, "redo re-applies the 80 BPM edit");
+
+        // A snapshot also captures step-grid edits (proves it's the whole project, not just tempo).
+        eng.snapshotForUndo();
+        eng.sequencer().setStep(0, 5, true);
+        check(eng.sequencer().step(0, 5), "the step edit took");
+        check(eng.undoEdit(), "undo the step edit");
+        check(!eng.sequencer().step(0, 5), "undo clears the step that was set after the snapshot");
+
+        // Undoing past the bottom of the stack is a no-op that leaves state untouched.
+        eng.clearUndoHistory();
+        check(!eng.canUndo() && !eng.canRedo(), "clearUndoHistory empties both stacks");
+        const double bpmBefore = eng.sequencer().bpm();
+        check(!eng.undoEdit(), "undo on an empty history returns false");
+        check(std::fabs(eng.sequencer().bpm() - bpmBefore) < 1e-9, "a failed undo leaves state intact");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }
