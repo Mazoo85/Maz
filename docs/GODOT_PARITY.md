@@ -438,8 +438,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   *conservative* faceted containment — the plane set fully encloses the true capsule (every point
   inside the capsule is inside all planes) but the faceting means it is not byte-exact to Godot's
   capsule shape. Verified by 200+ interior sample points (all contained), pole/wall anchors,
-  clearly-outside rejections, an X-aligned variant, and axis-out-of-range fallback to Z) — plus
-  Plane completeness
+  clearly-outside rejections, an X-aligned variant, and axis-out-of-range fallback to Z); M402 adds
+  **computeConvexMeshPoints** (math::computeConvexMeshPoints — Godot's Geometry3D.compute_convex_mesh_points,
+  the INVERSE of the plane-builder family: given a set of bounding planes it returns the corner
+  vertices of that convex polytope, so a box/cylinder/capsule bound — or any half-space set — becomes
+  the drawable hull corners you can feed to a hull builder, a debug renderer, or a bounds computation.
+  Every corner is where three planes meet (via the existing Plane::intersect3) and survives only if it
+  lies on or inside all the other planes; coincident corners are merged within eps. Verified with a box
+  (6 planes -> exactly 8 corners at ±extent, off-centre translation, origin-not-a-corner), an
+  inside-all-planes property check, redundant/duplicate-plane merging (still 8), the fewer-than-4-planes
+  empty case, and a cylinder (2·sides corners, each on a cap and between the inscribed radius and the
+  circumradius)) — plus Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

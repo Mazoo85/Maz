@@ -795,4 +795,60 @@ inline std::optional<vec3> segmentIntersectsConvex(const vec3& from, const vec3&
     return segmentIntersectsConvex(from, to, planes.data(), planes.size(), outNormal);
 }
 
+// Given a set of planes bounding a convex volume (INSIDE = distanceTo(p) <= 0 for every plane, the
+// convention buildBoxPlanes / buildCylinderPlanes / buildCapsulePlanes and segmentIntersectsConvex
+// all share), return the corner vertices of that convex polytope — Godot's
+// Geometry3D.compute_convex_mesh_points. This is the INVERSE of the plane-builder family: a box /
+// cylinder / capsule bound (or any half-space set) becomes the drawable set of hull corners you can
+// feed to a convex-hull builder, a debug renderer, or a bounding-box computation. Every corner is a
+// point where three of the planes meet (via Plane::intersect3); it is a real vertex only when it also
+// lies on or inside all the other planes. Corners where more than three planes coincide (a box corner
+// meets 3, but a pyramid apex meets 4+) are merged within `eps`. Returns an empty list for fewer than
+// four planes, or when the half-space set is empty / unbounded (no finite corner survives the test).
+inline std::vector<vec3> computeConvexMeshPoints(const Plane* planes, std::size_t planeCount,
+                                                 float eps = 1e-5f) {
+    std::vector<vec3> points;
+    if (planeCount < 4) {
+        return points;
+    }
+    for (std::size_t i = 0; i < planeCount; ++i) {
+        for (std::size_t j = i + 1; j < planeCount; ++j) {
+            for (std::size_t k = j + 1; k < planeCount; ++k) {
+                const std::optional<vec3> corner =
+                    Plane::intersect3(planes[i], planes[j], planes[k]);
+                if (!corner) {
+                    continue; // two of the three planes are parallel / share a line
+                }
+                const vec3 p = *corner;
+                bool inside = true;
+                for (std::size_t m = 0; m < planeCount; ++m) {
+                    if (planes[m].distanceTo(p) > eps) {
+                        inside = false;
+                        break; // this triple's meeting point pokes outside another face
+                    }
+                }
+                if (!inside) {
+                    continue;
+                }
+                bool duplicate = false;
+                for (const vec3& q : points) {
+                    if (length(p - q) <= eps) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    points.push_back(p);
+                }
+            }
+        }
+    }
+    return points;
+}
+
+inline std::vector<vec3> computeConvexMeshPoints(const std::vector<Plane>& planes,
+                                                 float eps = 1e-5f) {
+    return computeConvexMeshPoints(planes.data(), planes.size(), eps);
+}
+
 } // namespace maz::math

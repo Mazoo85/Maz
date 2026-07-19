@@ -14129,6 +14129,61 @@ void testGeometry3DHelpers() {
         auto plz = math::buildCapsulePlanes(1.0f, 2.0f, 6, 2, 99);
         CHECK(!insideAll(plz, vec3(0, 0, 2.5f)));
     }
+
+    // --- M402: computeConvexMeshPoints (planes -> hull corners; inverse of the plane builders) ---
+    {
+        auto hasCorner = [](const std::vector<vec3>& pts, vec3 p, float e = 1e-3f) {
+            for (const vec3& q : pts) {
+                const vec3 d = q - p;
+                if (std::sqrt(math::dot(d, d)) <= e) return true;
+            }
+            return false;
+        };
+        // Box: 6 planes -> exactly 8 corners at (+-ext).
+        auto mcpBox = math::computeConvexMeshPoints(math::buildBoxPlanes(vec3(2.0f, 3.0f, 4.0f)));
+        CHECK(mcpBox.size() == 8);
+        for (float sx : {-2.0f, 2.0f})
+            for (float sy : {-3.0f, 3.0f})
+                for (float sz : {-4.0f, 4.0f})
+                    CHECK(hasCorner(mcpBox, vec3(sx, sy, sz)));
+        // Off-centre box: corners translate with the centre; origin is not a corner.
+        auto mcpOff =
+            math::computeConvexMeshPoints(math::buildBoxPlanes(vec3(1.0f), vec3(10.0f, -5.0f, 2.0f)));
+        CHECK(mcpOff.size() == 8);
+        CHECK(hasCorner(mcpOff, vec3(11.0f, -4.0f, 3.0f)));
+        CHECK(hasCorner(mcpOff, vec3(9.0f, -6.0f, 1.0f)));
+        CHECK(!hasCorner(mcpOff, vec3(0.0f, 0.0f, 0.0f)));
+        // Property: every returned corner lies inside all the planes it came from.
+        auto mcpPlanes = math::buildBoxPlanes(vec3(1.0f, 2.0f, 0.5f));
+        auto mcpCorners = math::computeConvexMeshPoints(mcpPlanes);
+        CHECK(!mcpCorners.empty());
+        for (const vec3& q : mcpCorners)
+            for (const math::Plane& pl : mcpPlanes)
+                CHECK(pl.distanceTo(q) <= 1e-4f);
+        // Duplicate / redundant planes are merged: still 8 corners.
+        auto mcpDup = math::buildBoxPlanes(vec3(1.0f));
+        mcpDup.push_back(mcpDup[0]);                 // exact duplicate +X plane
+        mcpDup.emplace_back(vec3(1, 0, 0), 5.0f);    // far redundant +X plane
+        CHECK(math::computeConvexMeshPoints(mcpDup).size() == 8);
+        // Fewer than 4 planes cannot bound a volume -> empty.
+        std::vector<math::Plane> mcpFew;
+        mcpFew.emplace_back(vec3(1, 0, 0), 1.0f);
+        mcpFew.emplace_back(vec3(-1, 0, 0), 1.0f);
+        mcpFew.emplace_back(vec3(0, 1, 0), 1.0f);
+        CHECK(math::computeConvexMeshPoints(mcpFew).empty());
+        CHECK(math::computeConvexMeshPoints(std::vector<math::Plane>{}).empty());
+        // Cylinder: 2*sides corners, all on a cap and within the circumradius.
+        const int mcpSides = 8;
+        auto mcpCyl = math::computeConvexMeshPoints(math::buildCylinderPlanes(2.0f, 4.0f, mcpSides, 2));
+        CHECK(mcpCyl.size() == static_cast<std::size_t>(2 * mcpSides));
+        const float mcpCircum = 2.0f / std::cos(3.14159265358979f / static_cast<float>(mcpSides));
+        for (const vec3& q : mcpCyl) {
+            CHECK(std::fabs(std::fabs(q.z) - 2.0f) < 1e-3f);
+            const float mcpRad = std::sqrt(q.x * q.x + q.y * q.y);
+            CHECK(mcpRad <= mcpCircum + 1e-3f);
+            CHECK(mcpRad >= 2.0f - 1e-3f);
+        }
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,
