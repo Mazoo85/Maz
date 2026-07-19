@@ -555,6 +555,34 @@ int main() {
         check(std::fabs(positiveFraction(0.25f) - 0.25) < 0.05, "a 0.25 pulse width narrows the duty to 25%");
         audio::SynthInstrument dpw;
         check(std::fabs(dpw.pulseWidth() - 0.5f) < 1e-6f, "pulse width defaults to 0.5 (square)");
+
+        // PWM LFO: sweeping the duty cycle makes the pulse's DC/mean wander over time (a 0.5 square
+        // has ~0 mean; a narrow pulse a large one). With the LFO off the mean is steady.
+        auto meanSpread = [&](float depth) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Square);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+            s.setPulseWidth(0.5f);
+            s.setPwmLfo(3.0f, depth);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> b = render(s, sampleRate, sampleRate); // 1 s
+            double lo = 1e18, hi = -1e18;
+            const int win = 2000;
+            for (int w = 0; w + win <= sampleRate; w += win) {
+                double sum = 0.0;
+                for (int i = w; i < w + win; ++i) {
+                    sum += static_cast<double>(b[static_cast<size_t>(i)]);
+                }
+                const double m = sum / win;
+                lo = std::min(lo, m);
+                hi = std::max(hi, m);
+            }
+            return hi - lo;
+        };
+        check(meanSpread(0.0f) < 0.02, "with the PWM LFO off the square's duty (mean) is steady");
+        check(meanSpread(0.4f) > 0.1, "the PWM LFO sweeps the duty cycle over time");
+        audio::SynthInstrument dpwm;
+        check(dpwm.pwmLfoDepth() == 0.0f, "PWM LFO depth defaults to 0 (off)");
     }
 
     // --- Resonant filter -----------------------------------------------------

@@ -218,6 +218,15 @@ public:
     // values thin it toward a bright nasal pulse. Only affects the Square waveform.
     void setPulseWidth(float w) { pulseWidth_ = w < 0.02f ? 0.02f : (w > 0.98f ? 0.98f : w); }
     float pulseWidth() const { return pulseWidth_; }
+    // Pulse-width (PWM) LFO: sweep the Square duty cycle at `rateHz` by ±`depth` around the set pulse
+    // width — the classic lush PWM string/pad movement. depth 0 = off (static pulse width). Shared
+    // across voices; only affects the Square waveform.
+    void setPwmLfo(float rateHz, float depth) {
+        pwmLfoRate_ = rateHz < 0.0f ? 0.0f : (rateHz > 20.0f ? 20.0f : rateHz);
+        pwmLfoDepth_ = depth < 0.0f ? 0.0f : (depth > 0.48f ? 0.48f : depth);
+    }
+    float pwmLfoRate() const { return pwmLfoRate_; }
+    float pwmLfoDepth() const { return pwmLfoDepth_; }
     // Noise color (0 = bright white, 1 = dark/low-passed): a tone control on the noise layer.
     void setNoiseColor(float c) { noiseColor_ = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c); }
     float noiseColor() const { return noiseColor_; }
@@ -385,6 +394,9 @@ private:
     bool hardSync_ = false;     // osc2 hard-syncs to the master when true
     float syncRatio_ = 1.5f;    // slave frequency = note freq × this (when hard sync is on)
     float pulseWidth_ = 0.5f;   // square duty cycle; 0.5 = plain square
+    float pwmLfoRate_ = 0.0f;   // PWM LFO rate (Hz)
+    float pwmLfoDepth_ = 0.0f;  // PWM LFO depth (± around pulse width); 0 = off
+    double pwmLfoPhase_ = 0.0;  // PWM LFO phase (shared across voices)
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)

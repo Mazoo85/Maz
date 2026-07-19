@@ -908,6 +908,11 @@ void buildSynthUI(audio::Sequencer& seq) {
             syn.setSyncRatio(syncRatio);
         float pw = syn.pulseWidth();
         if (ImGui::SliderFloat("Pulse width", &pw, 0.02f, 0.98f, "%.2f")) syn.setPulseWidth(pw);
+        float pwmRate = syn.pwmLfoRate();
+        float pwmDepth = syn.pwmLfoDepth();
+        bool pwmCh = ImGui::SliderFloat("PWM LFO Hz", &pwmRate, 0.0f, 12.0f, "%.2f");
+        pwmCh |= ImGui::SliderFloat("PWM LFO depth", &pwmDepth, 0.0f, 0.48f, "%.2f");
+        if (pwmCh) syn.setPwmLfo(pwmRate, pwmDepth);
     } else if (syn.mode() == audio::SynthMode::FM) {
         float ratio = syn.fmRatio();
         if (ImGui::SliderFloat("FM Ratio", &ratio, 0.5f, 8.0f, "%.2f")) syn.setFmRatio(ratio);

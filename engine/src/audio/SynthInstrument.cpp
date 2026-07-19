@@ -177,6 +177,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     const double filtLfoInc = static_cast<double>(filterLfoRate_) / static_cast<double>(sampleRate);
     // Amplitude LFO / tremolo (shared across voices), same block-start-phase scheme.
     const double ampLfoInc = static_cast<double>(ampLfoRate_) / static_cast<double>(sampleRate);
+    // Pulse-width (PWM) LFO (shared across voices), same block-start-phase scheme.
+    const double pwmLfoInc = static_cast<double>(pwmLfoRate_) / static_cast<double>(sampleRate);
     // Pitch-envelope decay coefficient (one time-constant = pitchEnvTime_).
     const float pitchEnvCoef = std::exp(-1.0f / (pitchEnvTime_ * sr));
     // Per-instrument octave shift as a frequency multiplier (2^octave).
@@ -308,6 +310,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 osc = wavetable_.sample(pos, v.phase);
             } else {
+                // Pulse-width, optionally swept by the PWM LFO (square-wave duty movement).
+                float pw = pulseWidth_;
+                if (pwmLfoDepth_ > 0.0f) {
+                    const double pp = pwmLfoPhase_ + static_cast<double>(i) * pwmLfoInc;
+                    pw = pulseWidth_ + pwmLfoDepth_ * static_cast<float>(std::sin(pp * kTwoPiVib));
+                    pw = pw < 0.02f ? 0.02f : (pw > 0.98f ? 0.98f : pw);
+                }
                 if (unisonVoices_ > 1) {
                     // Supersaw: sum detuned copies spread ±unisonDetune_ cents, equal-power scaled.
                     float acc = 0.0f;
@@ -317,7 +326,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                         const double spread = static_cast<double>(u) / (uv - 1) - 0.5; // -0.5..0.5
                         const double mul =
                             std::pow(2.0, spread * 2.0 * static_cast<double>(unisonDetune_) / 1200.0);
-                        acc += waveSample(waveform_, v.uniPhase[static_cast<size_t>(u)], pulseWidth_);
+                        acc += waveSample(waveform_, v.uniPhase[static_cast<size_t>(u)], pw);
                         v.uniPhase[static_cast<size_t>(u)] += phaseInc * mul;
                         if (v.uniPhase[static_cast<size_t>(u)] >= 1.0) {
                             v.uniPhase[static_cast<size_t>(u)] -=
@@ -326,12 +335,12 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     }
                     osc = acc * uniGain;
                 } else {
-                    osc = waveSample(waveform_, v.phase, pulseWidth_);
+                    osc = waveSample(waveform_, v.phase, pw);
                 }
                 if (osc2Level_ > 0.0f || ringMod_ > 0.0f) {
                     const float o1 = osc; // the primary oscillator, before osc2 is mixed in
                     const Waveform o2Wave = osc2WaveLinked_ ? waveform_ : osc2Waveform_;
-                    const float o2 = waveSample(o2Wave, v.phase2, pulseWidth_);
+                    const float o2 = waveSample(o2Wave, v.phase2, pw);
                     osc += o2 * osc2Level_;
                     // Ring modulation: add the product of the two oscillators for metallic,
                     // inharmonic (sum/difference) partials. 0 = off.
@@ -353,7 +362,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 if (osc3Level_ > 0.0f) {
                     // A third oscillator stacked a fixed interval away (coarse semitones).
-                    osc += waveSample(waveform_, v.phase3, pulseWidth_) * osc3Level_;
+                    osc += waveSample(waveform_, v.phase3, pw) * osc3Level_;
                     const double mul3 =
                         std::pow(2.0, static_cast<double>(osc3Semitones_) * 100.0 / 1200.0);
                     v.phase3 += phaseInc * mul3;
@@ -455,6 +464,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
     ampLfoPhase_ += ampLfoInc * static_cast<double>(frames);
     if (ampLfoPhase_ >= 1.0) {
         ampLfoPhase_ -= std::floor(ampLfoPhase_);
+    }
+    pwmLfoPhase_ += pwmLfoInc * static_cast<double>(frames);
+    if (pwmLfoPhase_ >= 1.0) {
+        pwmLfoPhase_ -= std::floor(pwmLfoPhase_);
     }
 }
 
