@@ -856,6 +856,39 @@ int main() {
         check(same, "ring-mod at mix 0 is transparent");
     }
 
+    // --- Pitch shifter: shifts pitch up/down without changing length ---------
+    {
+        // Rising zero-crossing rate on the left channel = fundamental frequency estimate.
+        auto freqOf = [&](const std::vector<float>& b) {
+            int cross = 0;
+            for (size_t i = 4; i + 1 < b.size(); i += 2) {
+                if (b[i - 2] <= 0.0f && b[i] > 0.0f) {
+                    ++cross;
+                }
+            }
+            const double dur = static_cast<double>(b.size() / 2) / sr;
+            return static_cast<double>(cross) / dur;
+        };
+        auto shifted = [&](float semis) {
+            audio::PitchShifter ps;
+            ps.setEnabled(true);
+            ps.setSemitones(semis);
+            ps.setMix(1.0f);
+            std::vector<float> b = sineStereo(sr, 440.0, 0.5, sr);
+            ps.process(b.data(), sr, sr);
+            // Measure the settled second half (past the buffer fill).
+            return std::vector<float>(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+        };
+        check(freqOf(shifted(12.0f)) > 780.0 && freqOf(shifted(12.0f)) < 980.0,
+              "pitch shifter up an octave roughly doubles the frequency (~880 Hz)");
+        check(freqOf(shifted(-12.0f)) > 180.0 && freqOf(shifted(-12.0f)) < 280.0,
+              "pitch shifter down an octave roughly halves the frequency (~220 Hz)");
+        check(std::fabs(freqOf(shifted(0.0f)) - 440.0) < 40.0,
+              "pitch shifter at 0 semitones keeps the pitch (~440 Hz)");
+        audio::PitchShifter dp;
+        check(dp.semitones() == 0.0f && !dp.enabled(), "pitch shifter defaults to 0 st and off");
+    }
+
     // --- Distortion: adds harmonics to a sine (raises high-frequency content) ------
     {
         audio::Distortion dist;

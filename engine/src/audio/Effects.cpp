@@ -291,6 +291,72 @@ void Distortion::reset() {
     toneR_ = 0.0f;
 }
 
+// ---- PitchShifter -----------------------------------------------------------
+
+void PitchShifter::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    writePos_ = 0;
+    phase_ = 0.0;
+}
+
+void PitchShifter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int bufLen = sampleRate / 20; // ~50 ms window
+    if (size_ != bufLen) {
+        size_ = bufLen;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        writePos_ = 0;
+        phase_ = 0.0;
+    }
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    const float ratio = std::pow(2.0f, semitones_ / 12.0f);
+    // The tap delay sweeps so the read advances at `ratio` samples per output sample.
+    const double inc = (1.0 - static_cast<double>(ratio)) / static_cast<double>(size_);
+    constexpr double kPi = 3.14159265358979;
+
+    auto readTap = [&](const std::vector<float>& buf, double p) {
+        const double delay = p * static_cast<double>(size_ - 1);
+        double rp = static_cast<double>(writePos_) - delay;
+        while (rp < 0.0) {
+            rp += static_cast<double>(size_);
+        }
+        const int i0 = static_cast<int>(rp) % size_;
+        const int i1 = (i0 + 1) % size_;
+        const float frac = static_cast<float>(rp - std::floor(rp));
+        return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
+    };
+
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        bufL_[static_cast<size_t>(writePos_)] = dryL;
+        bufR_[static_cast<size_t>(writePos_)] = dryR;
+
+        // Two taps half the buffer apart, each windowed by sin(pi·p) so one fades in as the other
+        // wraps — hiding the discontinuity when a tap laps the buffer.
+        double p0 = phase_ - std::floor(phase_);
+        double p1 = phase_ + 0.5;
+        p1 -= std::floor(p1);
+        const float w0 = static_cast<float>(std::sin(kPi * p0));
+        const float w1 = static_cast<float>(std::sin(kPi * p1));
+        const float wetL = readTap(bufL_, p0) * w0 + readTap(bufL_, p1) * w1;
+        const float wetR = readTap(bufR_, p0) * w0 + readTap(bufR_, p1) * w1;
+
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+
+        if (++writePos_ >= size_) {
+            writePos_ = 0;
+        }
+        phase_ += inc;
+        phase_ -= std::floor(phase_);
+    }
+}
+
 // ---- Chorus -----------------------------------------------------------------
 
 void Chorus::reset() {

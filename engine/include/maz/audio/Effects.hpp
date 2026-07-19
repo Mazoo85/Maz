@@ -182,6 +182,31 @@ private:
     float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
 };
 
+// A time-domain pitch shifter (Fruity Pitch Shifter style): a delay line read by two crossfading
+// taps whose delay sweeps, so the read speed — and thus the pitch — is scaled by `semitones` without
+// changing tempo. `mix` blends the shifted signal with the dry (harmony/detune). 0 semitones = the
+// dry signal (a small latency but pitch-unchanged).
+class PitchShifter : public Effect {
+public:
+    PitchShifter() { enabled_ = false; }
+    const char* name() const override { return "Pitch Shifter"; }
+    void setSemitones(float st) { semitones_ = st < -24.0f ? -24.0f : (st > 24.0f ? 24.0f : st); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float semitones() const { return semitones_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float semitones_ = 0.0f; // pitch shift in semitones (±24); 0 = unshifted
+    float mix_ = 1.0f;       // dry/wet blend; 1 = fully shifted
+    std::vector<float> bufL_, bufR_; // ring buffers (sized on first process)
+    int size_ = 0;
+    int writePos_ = 0;
+    double phase_ = 0.0; // tap sweep position in [0,1)
+};
+
 // A stereo chorus: two LFO-modulated delay lines (left/right in quadrature) widen and thicken the
 // sound. `rate` in Hz, `depth` in ms, `mix` dry/wet.
 class Chorus : public Effect {

@@ -1553,6 +1553,19 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##ring", &wet, 0.0f, 1.0f, "%.2f")) mx.ringmod().setMix(wet);
     }
     {
+        bool en = mx.pitchShifter().enabled();
+        if (ImGui::Checkbox("Pitch Shifter", &en)) mx.pitchShifter().setEnabled(en);
+        float st = mx.pitchShifter().semitones();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("semis##pitch", &st, -24.0f, 24.0f, "%.0f st"))
+            mx.pitchShifter().setSemitones(st);
+        float pwet = mx.pitchShifter().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##pitch", &pwet, 0.0f, 1.0f, "%.2f")) mx.pitchShifter().setMix(pwet);
+    }
+    {
         bool en = mx.bitcrusher().enabled();
         if (ImGui::Checkbox("Bitcrusher", &en)) mx.bitcrusher().setEnabled(en);
         float bits = mx.bitcrusher().bits();

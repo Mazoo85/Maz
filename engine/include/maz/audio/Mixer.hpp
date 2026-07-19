@@ -42,6 +42,7 @@ public:
     Distortion& distortion() { return dist_; }
     TapeSaturation& tape() { return tape_; }
     RingMod& ringmod() { return ringmod_; }
+    PitchShifter& pitchShifter() { return pitchshift_; }
     Bitcrusher& bitcrusher() { return crush_; }
     Gate& gate() { return gate_; }
     HighPass& highpass() { return hp_; }
@@ -125,6 +126,7 @@ private:
     Distortion dist_{};
     TapeSaturation tape_{};
     RingMod ringmod_{};
+    PitchShifter pitchshift_{};
     Bitcrusher crush_{};
     Gate gate_{};
     HighPass hp_{};

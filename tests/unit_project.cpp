@@ -305,6 +305,9 @@ int main() {
     mixer.ringmod().setEnabled(true);
     mixer.ringmod().setFreq(440.0f);
     mixer.ringmod().setMix(0.7f);
+    mixer.pitchShifter().setEnabled(true);
+    mixer.pitchShifter().setSemitones(7.0f);
+    mixer.pitchShifter().setMix(0.65f);
     mixer.flanger().setEnabled(true);
     mixer.flanger().setRate(0.4f);
     mixer.flanger().setFeedback(0.6f);
@@ -726,6 +729,9 @@ int main() {
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
               near(mixer2.ringmod().mix(), 0.7f),
           "ring-mod round-trips");
+    check(mixer2.pitchShifter().enabled() && near(mixer2.pitchShifter().semitones(), 7.0f) &&
+              near(mixer2.pitchShifter().mix(), 0.65f),
+          "pitch shifter round-trips");
     check(mixer2.flanger().enabled() && near(mixer2.flanger().rate(), 0.4f) &&
               near(mixer2.flanger().feedback(), 0.6f) && mixer2.flanger().sync() &&
               mixer2.flanger().syncDivision() == 3 && mixer2.flanger().invert(),
