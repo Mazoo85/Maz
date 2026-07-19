@@ -597,6 +597,12 @@ void ParametricEQ::setMid2(float freq, float q, float db) {
     mid2Db_ = db;
     dirty_ = true;
 }
+void ParametricEQ::setMid3(float freq, float q, float db) {
+    mid3Freq_ = freq;
+    mid3Q_ = q;
+    mid3Db_ = db;
+    dirty_ = true;
+}
 void ParametricEQ::setHighGain(float db) {
     highDb_ = db;
     dirty_ = true;
@@ -606,10 +612,12 @@ void ParametricEQ::reset() {
     lowL_.reset();
     midL_.reset();
     mid2L_.reset();
+    mid3L_.reset();
     highL_.reset();
     lowR_.reset();
     midR_.reset();
     mid2R_.reset();
+    mid3R_.reset();
     highR_.reset();
 }
 
@@ -620,6 +628,8 @@ void ParametricEQ::recompute(int sampleRate) {
     midR_.setPeaking(midFreq_, midQ_, midDb_, sampleRate);
     mid2L_.setPeaking(mid2Freq_, mid2Q_, mid2Db_, sampleRate);
     mid2R_.setPeaking(mid2Freq_, mid2Q_, mid2Db_, sampleRate);
+    mid3L_.setPeaking(mid3Freq_, mid3Q_, mid3Db_, sampleRate);
+    mid3R_.setPeaking(mid3Freq_, mid3Q_, mid3Db_, sampleRate);
     highL_.setShelf(6000.0f, highDb_, sampleRate, true);
     highR_.setShelf(6000.0f, highDb_, sampleRate, true);
     sr_ = sampleRate;
@@ -634,9 +644,10 @@ void ParametricEQ::process(float* stereo, int frames, int sampleRate) {
         recompute(sampleRate);
     }
     for (int i = 0; i < frames; ++i) {
-        stereo[2 * i] = highL_.process(mid2L_.process(midL_.process(lowL_.process(stereo[2 * i]))));
-        stereo[2 * i + 1] =
-            highR_.process(mid2R_.process(midR_.process(lowR_.process(stereo[2 * i + 1]))));
+        stereo[2 * i] =
+            highL_.process(mid3L_.process(mid2L_.process(midL_.process(lowL_.process(stereo[2 * i])))));
+        stereo[2 * i + 1] = highR_.process(
+            mid3R_.process(mid2R_.process(midR_.process(lowR_.process(stereo[2 * i + 1])))));
     }
 }
 

@@ -1243,6 +1243,23 @@ int main() {
               "an EQ with default bands (0 dB 2nd mid) is transparent");
         audio::ParametricEQ deq;
         check(std::fabs(deq.mid2Gain()) < 1e-6f, "2nd mid band defaults to 0 dB");
+
+        // Third, independent mid bell: boosting it lifts a tone at its own centre frequency, while a
+        // tone away from all three mids is left alone (confirming it's a localized band).
+        std::vector<float> hiTone = sineStereo(sr, 7000.0, 0.3, sr);
+        const double hiFlat = rms(hiTone);
+        audio::ParametricEQ eq3;
+        eq3.setEnabled(true);
+        eq3.setMid3(7000.0f, 3.0f, 12.0f);
+        std::vector<float> m3 = sineStereo(sr, 7000.0, 0.3, sr);
+        eq3.process(m3.data(), sr, sr);
+        check(rms(m3) > hiFlat * 1.3, "third mid band boost lifts a tone at its centre frequency");
+        std::vector<float> away = sineStereo(sr, 500.0, 0.3, sr);
+        const double awayFlat = rms(away);
+        eq3.process(away.data(), sr, sr);
+        check(std::fabs(rms(away) - awayFlat) < awayFlat * 0.05,
+              "third mid band leaves a tone far from its centre alone");
+        check(std::fabs(deq.mid3Gain()) < 1e-6f, "3rd mid band defaults to 0 dB");
     }
 
     // --- Bitcrusher: quantization changes the signal but keeps energy --------

@@ -24,6 +24,9 @@ public:
     // Second fully-sweepable mid bell band (freq/Q/gain), in series after the first — two independent
     // peaks let you cut a resonance and boost presence at once. Defaults to 0 dB (transparent).
     void setMid2(float freq, float q, float db);
+    // Third fully-sweepable mid bell band (freq/Q/gain), in series after the second — a third
+    // independent peak for more surgical tone-shaping. Defaults to 0 dB (transparent).
+    void setMid3(float freq, float q, float db);
     void setHighGain(float db);
     float lowGain() const { return lowDb_; }
     float midFreq() const { return midFreq_; }
@@ -32,6 +35,9 @@ public:
     float mid2Freq() const { return mid2Freq_; }
     float mid2Q() const { return mid2Q_; }
     float mid2Gain() const { return mid2Db_; }
+    float mid3Freq() const { return mid3Freq_; }
+    float mid3Q() const { return mid3Q_; }
+    float mid3Gain() const { return mid3Db_; }
     float highGain() const { return highDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
@@ -47,11 +53,14 @@ private:
     float mid2Freq_ = 3500.0f;
     float mid2Q_ = 1.0f;
     float mid2Db_ = 0.0f;
+    float mid3Freq_ = 7000.0f;
+    float mid3Q_ = 1.0f;
+    float mid3Db_ = 0.0f;
     float highDb_ = 0.0f;
     int sr_ = 0;
     bool dirty_ = true;
-    Biquad lowL_{}, midL_{}, mid2L_{}, highL_{};
-    Biquad lowR_{}, midR_{}, mid2R_{}, highR_{};
+    Biquad lowL_{}, midL_{}, mid2L_{}, mid3L_{}, highL_{};
+    Biquad lowR_{}, midR_{}, mid2R_{}, mid3R_{}, highR_{};
 };
 
 // A stereo feedback delay (echo). `time` sets the tap in ms, `feedback` how much of the wet signal
