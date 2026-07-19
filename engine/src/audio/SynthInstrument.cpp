@@ -289,7 +289,7 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             } else if (mode_ == SynthMode::Wavetable) {
                 // Scan the morphing table; the amp envelope and a dedicated LFO can sweep the
                 // position for continuous movement.
-                float pos = wtPosition_ + wtMorphEnv_ * v.env;
+                float pos = wtPosition_ + wtMorphEnv_ * v.env + velWavePos_ * v.velocity;
                 if (wtLfoDepth_ > 0.0f) {
                     const double lp = wtLfoPhase_ + static_cast<double>(i) * wtLfoInc;
                     const float lfoU = 0.5f + 0.5f * static_cast<float>(std::sin(lp * kTwoPiVib));

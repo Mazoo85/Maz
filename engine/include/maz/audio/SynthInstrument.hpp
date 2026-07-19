@@ -128,6 +128,11 @@ public:
     void setWavetableMorph(float envAmt) { wtMorphEnv_ = envAmt; }
     float wavetablePosition() const { return wtPosition_; }
     float wavetableMorph() const { return wtMorphEnv_; }
+    // Velocity → wavetable position (0..1 added to the scan position at full velocity): harder-played
+    // notes scan further into the table (usually brighter) — the wavetable analog of velocity → cutoff
+    // / FM index. 0 = off. Only has an effect in Wavetable mode.
+    void setVelToWavePosition(float amt) { velWavePos_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
+    float velToWavePosition() const { return velWavePos_; }
     // Wavetable scan LFO: sweep the table position at `rateHz` by `depth` [0,1] for continuous,
     // evolving movement (independent of the envelope morph). depth 0 = off.
     void setWavetableLfo(float rateHz, float depth) {
@@ -316,6 +321,7 @@ private:
     float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off
     float velFmIndex_ = 0.0f; // velocity → FM index depth; 0 = off
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
+    float velWavePos_ = 0.0f;  // velocity → wavetable position depth; 0 = off
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
     float wtLfoRate_ = 0.0f;   // wavetable scan LFO rate (Hz)
     float wtLfoDepth_ = 0.0f;  // wavetable scan LFO depth [0,1]; 0 = off

@@ -909,6 +909,9 @@ void buildSynthUI(audio::Sequencer& seq) {
         float morph = syn.wavetableMorph();
         if (ImGui::SliderFloat("WT Env Morph", &morph, 0.0f, 1.0f, "%.2f"))
             syn.setWavetableMorph(morph);
+        float velWt = syn.velToWavePosition();
+        if (ImGui::SliderFloat("Vel>WT Pos", &velWt, 0.0f, 1.0f, "%.2f"))
+            syn.setVelToWavePosition(velWt);
         float wtLfoRate = syn.wavetableLfoRate();
         float wtLfoDepth = syn.wavetableLfoDepth();
         bool wtLfoCh = ImGui::SliderFloat("WT LFO Hz", &wtLfoRate, 0.0f, 20.0f, "%.2f");

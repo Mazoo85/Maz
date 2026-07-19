@@ -119,6 +119,7 @@ int main() {
     seq.synth2().setMode(audio::SynthMode::Wavetable);
     seq.synth2().setWavetablePosition(0.65f);
     seq.synth2().setWavetableMorph(0.4f);
+    seq.synth2().setVelToWavePosition(0.5f);
     seq.synth2().setWavetableFrames(audio::Waveform::Saw, audio::Waveform::Square,
                                     audio::Waveform::Triangle, audio::Waveform::Sine);
     // A second pattern + a playlist arrangement.
@@ -363,7 +364,8 @@ int main() {
     check(seq2.synth2().waveform() == audio::Waveform::Square, "synth2 patch round-trips");
     check(seq2.synth2().mode() == audio::SynthMode::Wavetable &&
               near(seq2.synth2().wavetablePosition(), 0.65f) &&
-              near(seq2.synth2().wavetableMorph(), 0.4f),
+              near(seq2.synth2().wavetableMorph(), 0.4f) &&
+              near(seq2.synth2().velToWavePosition(), 0.5f),
           "synth2 wavetable mode + position/morph round-trip");
     check(seq2.synth2().wavetableFrame(0) == audio::Waveform::Saw &&
               seq2.synth2().wavetableFrame(3) == audio::Waveform::Sine,

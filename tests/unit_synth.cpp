@@ -348,6 +348,30 @@ int main() {
         check(std::fabs(a - b) < a * 0.2 + 1e-9, "with no LFO the wavetable timbre is static");
         audio::SynthInstrument dl;
         check(dl.wavetableLfoDepth() == 0.0f, "wavetable LFO depth defaults to 0");
+
+        // Velocity → wavetable position: a hard note scans further (brighter) than a soft one.
+        auto velWtBright = [&](float velocity) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::Wavetable);
+            s.setWavetablePosition(0.0f); // base at the darkest frame
+            s.setWavetableMorph(0.0f);
+            s.setVelToWavePosition(1.0f); // velocity scans the whole table
+            s.setVelSensitivity(0.0f);    // equal levels → isolate brightness
+            s.setEnvelope(0.002f, 0.02f, 1.0f, 0.05f);
+            s.noteOn(57, velocity);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(velWtBright(1.0f) > velWtBright(0.1f) * 1.3,
+              "velocity → wavetable position makes harder notes scan brighter");
+        audio::SynthInstrument dvw;
+        check(dvw.velToWavePosition() == 0.0f, "velocity → wavetable position defaults to 0");
     }
 
     // --- Oscillator section: detune / sub / noise ----------------------------
