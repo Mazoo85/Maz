@@ -100,6 +100,31 @@ int main() {
     check(cutoffLo < 600.0f, "trough sweep reaches the low bound");
     check(engine.mixer().eq().enabled(), "an active cutoff lane switches the EQ on");
 
+    // --- Newer automation targets drive their effects -----------------------
+    {
+        audio::AudioEngine eng;
+        eng.initOffline();
+        audio::Automation au;
+        // lo == hi → the swept value is constant, so the check is time-independent.
+        auto fixLane = [&](audio::AutoTarget t, float val) {
+            audio::AutoLane& L = au.lane(t);
+            L.enabled = true;
+            L.lo = val;
+            L.hi = val;
+        };
+        fixLane(audio::AutoTarget::ReverbShimmer, 0.7f);
+        fixLane(audio::AutoTarget::PhaserRate, 3.0f);
+        fixLane(audio::AutoTarget::FlangerRate, 2.0f);
+        au.apply(eng, 0.0);
+        check(std::fabs(eng.mixer().reverb().shimmer() - 0.7f) < 1e-3f &&
+                  eng.mixer().reverb().enabled(),
+              "reverb-shimmer automation drives the shimmer and enables the reverb");
+        check(std::fabs(eng.mixer().phaser().rate() - 3.0f) < 1e-3f,
+              "phaser-rate automation drives the phaser rate");
+        check(std::fabs(eng.mixer().flanger().rate() - 2.0f) < 1e-3f,
+              "flanger-rate automation drives the flanger rate");
+    }
+
     // --- Automation clips (breakpoint envelopes) ------------------------------
     {
         // A clip ramps 0 → 1 over 0 → 2 s, then holds. It must interpolate linearly and take

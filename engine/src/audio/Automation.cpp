@@ -105,6 +105,12 @@ Automation::Automation() {
     lane(AutoTarget::MasterFilterCutoff).hi = 12000.0f;
     lane(AutoTarget::MasterFilterReso).lo = 0.7f;
     lane(AutoTarget::MasterFilterReso).hi = 15.0f;
+    lane(AutoTarget::ReverbShimmer).lo = 0.0f;
+    lane(AutoTarget::ReverbShimmer).hi = 1.0f;
+    lane(AutoTarget::PhaserRate).lo = 0.05f;
+    lane(AutoTarget::PhaserRate).hi = 4.0f;
+    lane(AutoTarget::FlangerRate).lo = 0.05f;
+    lane(AutoTarget::FlangerRate).hi = 4.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -181,6 +187,12 @@ const char* Automation::targetName(AutoTarget t) {
         return "Filter Sweep";
     case AutoTarget::MasterFilterReso:
         return "Filter Q";
+    case AutoTarget::ReverbShimmer:
+        return "Reverb Shimmer";
+    case AutoTarget::PhaserRate:
+        return "Phaser Rate";
+    case AutoTarget::FlangerRate:
+        return "Flanger Rate";
     case AutoTarget::Count:
         break;
     }
@@ -400,6 +412,21 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the master DJ filter's resonance (screaming filter peaks on the sweep).
             engine.mixer().filter().setEnabled(true);
             engine.mixer().filter().setResonance(v);
+            break;
+        case AutoTarget::ReverbShimmer:
+            // Swell the reverb's octave-up shimmer halo in over a build.
+            engine.mixer().reverb().setEnabled(true);
+            engine.mixer().reverb().setShimmer(v);
+            break;
+        case AutoTarget::PhaserRate:
+            // Ramp the phaser's sweep speed (slow evolving → fast swirl).
+            engine.mixer().phaser().setEnabled(true);
+            engine.mixer().phaser().setRate(v);
+            break;
+        case AutoTarget::FlangerRate:
+            // Ramp the flanger's sweep speed.
+            engine.mixer().flanger().setEnabled(true);
+            engine.mixer().flanger().setRate(v);
             break;
         case AutoTarget::Count:
             break;

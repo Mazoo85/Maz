@@ -47,6 +47,9 @@ enum class AutoTarget {
     TremoloDepth,
     MasterFilterCutoff,
     MasterFilterReso,
+    ReverbShimmer,
+    PhaserRate,
+    FlangerRate,
     Count
 };
 
