@@ -138,6 +138,7 @@
 #include "maz/game/JumpAssist.hpp"
 #include "maz/game/ComboMeter.hpp"
 #include "maz/game/DayNightCycle.hpp"
+#include "maz/game/Health.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20234,6 +20235,80 @@ void testPolynomial() {
     }
 }
 
+void testHealth() {
+    using game::Health;
+
+    // Init full; takeDamage clamps and reports actual; death; dead ignores damage/heal.
+    {
+        Health h(100.0);
+        CHECK(std::fabs(h.current() - 100.0) < 1e-9 && h.isFull() && !h.isDead());
+        CHECK(std::fabs(h.takeDamage(30.0) - 30.0) < 1e-9 && std::fabs(h.current() - 70.0) < 1e-9);
+        CHECK(std::fabs(h.fraction() - 0.7) < 1e-9);
+        CHECK(std::fabs(h.takeDamage(200.0) - 70.0) < 1e-9 && h.isDead() && h.current() == 0.0);
+        CHECK(std::fabs(h.takeDamage(10.0)) < 1e-9 && std::fabs(h.heal(10.0)) < 1e-9);
+    }
+    // heal clamps to max; non-positive safe.
+    {
+        Health h(100.0);
+        h.takeDamage(60.0);
+        CHECK(std::fabs(h.heal(20.0) - 20.0) < 1e-9 && std::fabs(h.current() - 60.0) < 1e-9);
+        CHECK(std::fabs(h.heal(1000.0) - 40.0) < 1e-9 && h.isFull());
+        CHECK(std::fabs(h.heal(-5.0)) < 1e-9 && std::fabs(h.takeDamage(0.0)) < 1e-9);
+    }
+    // On-hit i-frames.
+    {
+        Health h(100.0);
+        h.setOnHitInvulnerability(1.0);
+        CHECK(std::fabs(h.takeDamage(10.0) - 10.0) < 1e-9 && h.isInvulnerable());
+        CHECK(std::fabs(h.takeDamage(10.0)) < 1e-9 && std::fabs(h.current() - 90.0) < 1e-9);
+        h.update(0.5);
+        CHECK(std::fabs(h.invulnerabilityRemaining() - 0.5) < 1e-9 && std::fabs(h.takeDamage(10.0)) < 1e-9);
+        h.update(0.6);
+        CHECK(!h.isInvulnerable() && std::fabs(h.takeDamage(10.0) - 10.0) < 1e-9 && std::fabs(h.current() - 80.0) < 1e-9);
+    }
+    // Manual grant keeps longer window; passive regen clamps.
+    {
+        Health h(100.0);
+        h.grantInvulnerability(2.0);
+        h.grantInvulnerability(1.0);
+        CHECK(std::fabs(h.invulnerabilityRemaining() - 2.0) < 1e-9 && std::fabs(h.takeDamage(50.0)) < 1e-9);
+        Health r(100.0);
+        r.setRegen(10.0);
+        r.setCurrent(50.0);
+        r.update(1.0);
+        CHECK(std::fabs(r.current() - 60.0) < 1e-9);
+        r.update(10.0);
+        CHECK(std::fabs(r.current() - 100.0) < 1e-9 && r.isFull());
+    }
+    // setMax; setCurrent clamps; kill/revive; degenerate max; non-positive dt.
+    {
+        Health h(100.0);
+        h.takeDamage(40.0);
+        h.setMax(50.0);
+        CHECK(std::fabs(h.current() - 50.0) < 1e-9 && std::fabs(h.max() - 50.0) < 1e-9);
+        h.setMax(200.0, true);
+        CHECK(std::fabs(h.current() - 200.0) < 1e-9);
+        h.setCurrent(-10.0);
+        CHECK(std::fabs(h.current()) < 1e-9);
+        h.setCurrent(999.0);
+        CHECK(std::fabs(h.current() - 200.0) < 1e-9);
+        h.grantInvulnerability(5.0);
+        h.kill();
+        CHECK(h.isDead());
+        h.revive();
+        CHECK(!h.isDead() && h.isFull() && !h.isInvulnerable());
+        h.revive(25.0);
+        CHECK(std::fabs(h.current() - 25.0) < 1e-9);
+        Health z(0.0);
+        CHECK(std::fabs(z.max() - 1.0) < 1e-9);
+        z.setRegen(10.0);
+        z.setCurrent(0.5);
+        z.update(0.0);
+        z.update(-1.0);
+        CHECK(std::fabs(z.current() - 0.5) < 1e-9);
+    }
+}
+
 void testDayNightCycle() {
     using game::DayNightCycle;
     using game::DayPhase;
@@ -31663,6 +31738,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testHealth();
     testDayNightCycle();
     testComboMeter();
     testJumpAssist();

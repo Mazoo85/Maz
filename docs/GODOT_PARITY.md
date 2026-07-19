@@ -1182,6 +1182,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **health component** (M494, `game::Health` — the hit-point pool behind health bars, death, and
+  post-hit invulnerability frames. It holds current / max HP with `takeDamage` and `heal` both clamped
+  (HP never drops below 0 or climbs above max) and each returning the amount actually applied, reports
+  the `fraction` for a health bar plus `isDead` / `isFull`, and pairs directly with the M486 damage
+  resolver — feed its result straight into `takeDamage`. A connecting hit can start a window of
+  invulnerability (the classic post-damage i-frames) during which further damage is ignored; you can also
+  grant a window manually (it keeps the longer of the current / new window). `update(dt)` ticks that
+  window down and applies optional passive regeneration. `setMax` can refill to full or clamp down,
+  `setCurrent` clamps to [0, max], and `kill` / `revive` handle the down-and-back-up cases. Godot ships
+  no health system — games hand-roll it every time — so this is a beyond-Godot gameplay utility. Verified:
+  a fresh pool starts full; damage clamps to remaining HP and kills at 0; a dead pool ignores further
+  damage and healing; healing caps at max; on-hit i-frames block a second hit and expire after their
+  window; a manual grant keeps the longer window; passive regen heals over time and stops at full; `setMax`
+  with and without heal-to-full and `setCurrent` clamp correctly; `kill` / `revive` (full and partial)
+  work; and a degenerate max (< 1, clamped to 1) plus non-positive dt are safe),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
