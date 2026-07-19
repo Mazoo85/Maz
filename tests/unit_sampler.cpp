@@ -1163,6 +1163,61 @@ int main() {
               "mono WAV reads back as one channel");
     }
 
+    // Regression: a plain loop whose per-sample read rate exceeds the loop-region length must wrap
+    // fully into the region. The old single-span correction let the position escape the region and
+    // run off the buffer → Inf/garbage (forward) or a negative index / UB (reverse).
+    {
+        std::vector<float> tone(1000);
+        for (size_t i = 0; i < tone.size(); ++i) {
+            tone[i] = 0.5f * static_cast<float>(std::sin(kTwoPi * 5.0 * static_cast<double>(i) / 1000.0));
+        }
+        auto finiteBounded = [](const std::vector<float>& b) {
+            for (float v : b) {
+                if (!std::isfinite(v) || std::fabs(v) > 2.0f) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        audio::Sampler fwd;
+        fwd.setSampleMono(tone, sr);
+        fwd.setBasePitch(60);
+        fwd.setKeyTrack(true);
+        fwd.setLoop(true);
+        fwd.setLoopRegion(0.5f, 0.502f);   // ~2-sample region
+        fwd.noteOn(84, 1.0f);              // +24 st → read rate 4 ≫ the region span
+        check(finiteBounded(renderMono(fwd, 2000, sr)),
+              "a fast forward loop over a tiny region stays finite/bounded (wraps, not escapes)");
+
+        audio::Sampler rev;
+        rev.setSampleMono(tone, sr);
+        rev.setBasePitch(60);
+        rev.setKeyTrack(true);
+        rev.setLoop(true);
+        rev.setReverse(true);
+        rev.setLoopRegion(0.5f, 0.502f);
+        rev.noteOn(84, 1.0f);
+        check(finiteBounded(renderMono(rev, 2000, sr)),
+              "a fast reverse loop over a tiny region stays finite/bounded (no negative index/UB)");
+    }
+
+    // Regression: a single-sample buffer played in reverse underflowed the interpolation base index
+    // (i0 = last - 1 with last == 0 → SIZE_MAX) → out-of-bounds read. Must render safely.
+    {
+        audio::Sampler one;
+        one.setSampleMono({0.5f}, sr);
+        one.setReverse(true);
+        one.noteOn(60, 1.0f);
+        const std::vector<float> out = renderMono(one, 64, sr);
+        bool ok = true;
+        for (float v : out) {
+            if (!std::isfinite(v) || std::fabs(v) > 1.0f) {
+                ok = false;
+            }
+        }
+        check(ok, "a 1-sample buffer in reverse renders safely (no out-of-bounds / Inf)");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

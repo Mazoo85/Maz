@@ -377,7 +377,14 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             } else if (v.dir > 0) {
                 if (v.pos >= hi) {
                     if (loop_ && span > 0.0) {
-                        v.pos -= span;
+                        // Wrap fully into [lo, hi) with a modulo, not a single subtraction: a read rate
+                        // larger than the loop region (tiny region + high pitch) would otherwise
+                        // overshoot by more than one span and escape the region.
+                        double rel = std::fmod(v.pos - lo, span);
+                        if (rel < 0.0) {
+                            rel += span;
+                        }
+                        v.pos = lo + rel;
                     } else if (v.pos >= dlast) {
                         v.active = false;
                         break;
@@ -386,7 +393,11 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             } else {
                 if (v.pos < lo) {
                     if (loop_ && span > 0.0) {
-                        v.pos += span;
+                        double rel = std::fmod(v.pos - lo, span);
+                        if (rel < 0.0) {
+                            rel += span;
+                        }
+                        v.pos = lo + rel;
                     } else if (v.pos < 0.0) {
                         v.active = false;
                         break;
@@ -395,12 +406,17 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             }
             } // end non-sliced bounds
 
-            size_t i0 = static_cast<size_t>(v.pos);
-            if (i0 >= last) {
-                i0 = last - 1; // keep i0+1 in range for interpolation
+            // Linear interpolation, guarding both ends: clamp the base index into range and hold the
+            // last sample as the upper neighbour when there is none (a 1-sample buffer, or a read
+            // position that has run to the final sample of a slice) — never index sample_[size].
+            const size_t n = sample_.size();
+            size_t i0 = v.pos > 0.0 ? static_cast<size_t>(v.pos) : 0;
+            if (i0 >= n) {
+                i0 = n - 1;
             }
+            const size_t i1 = (i0 + 1 < n) ? i0 + 1 : i0;
             const float frac = static_cast<float>(v.pos - static_cast<double>(i0));
-            float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
+            float s = sample_[i0] * (1.0f - frac) + sample_[i1] * frac;
             // Playback filter (per voice): shape the sample's tone, with the optional filter envelope
             // sweeping the cutoff. Bypassed only for a low-pass that is fully open with no envelope —
             // a non-low-pass mode always engages (an open high-pass/band-pass/notch still shapes tone).
