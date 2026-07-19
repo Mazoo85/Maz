@@ -1521,6 +1521,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("bits##crush", &bits, 1.0f, 16.0f, "%.0f")) mx.bitcrusher().setBits(bits);
+        float ctone = mx.bitcrusher().tone();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("tone##crush", &ctone, 200.0f, 20000.0f, "%.0f Hz"))
+            mx.bitcrusher().setTone(ctone);
     }
     {
         bool en = mx.gate().enabled();

@@ -387,7 +387,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << (mixer.phaser().sync() ? 1 : 0) << " " << mixer.phaser().syncDivision() << " "
       << mixer.phaser().stages() << "\n";
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
-      << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
+      << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << " "
+      << mixer.bitcrusher().tone() << "\n";
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
       << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
       << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << "\n";
@@ -1182,6 +1183,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.bitcrusher().setBits(bits);
                 mixer.bitcrusher().setDownsample(ds);
                 mixer.bitcrusher().setMix(mix);
+                float ctone = 20000.0f; // post tone optional (older files omit it → open)
+                if (ls >> ctone) {
+                    mixer.bitcrusher().setTone(ctone);
+                }
             } else if (which == "phaser") {
                 float rate = 0.5f, depth = 0.7f, fb = 0.3f, mix = 0.5f;
                 ls >> rate >> depth >> fb >> mix;

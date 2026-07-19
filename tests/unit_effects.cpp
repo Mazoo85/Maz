@@ -1031,6 +1031,28 @@ int main() {
         }
         check(changed > 0.0, "bitcrusher alters the signal");
         check(rms(sig) > 0.0, "bitcrusher still passes signal");
+
+        // Post tone: a low LP setting darkens the crushed output (rolls off the aliasing/quant fizz).
+        auto crushHf = [&](float tone) {
+            audio::Bitcrusher c;
+            c.setEnabled(true);
+            c.setBits(4.0f);
+            c.setDownsample(6.0f);
+            c.setMix(1.0f);
+            c.setTone(tone);
+            std::vector<float> b = sineStereo(sr / 2, 500.0, 0.5, sr);
+            c.process(b.data(), sr / 2, sr);
+            double s = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double d = static_cast<double>(b[i] - b[i - 2]);
+                s += d * d;
+            }
+            return s;
+        };
+        check(crushHf(600.0f) < crushHf(20000.0f) * 0.7,
+              "bitcrusher post tone rolls off the crushed highs");
+        audio::Bitcrusher dc;
+        check(dc.tone() == 20000.0f, "bitcrusher tone defaults to open (20 kHz)");
     }
 
     // --- Phaser: sweeping all-pass notches change the signal over time -------

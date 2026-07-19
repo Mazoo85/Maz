@@ -265,9 +265,13 @@ public:
     void setBits(float b) { bits_ = b; }
     void setDownsample(float d) { downsample_ = d; }
     void setMix(float m) { mix_ = m; }
+    // Post tone: a one-pole low-pass on the crushed (wet) signal that tames the harsh aliasing/quant
+    // fizz the crusher adds — the smoothed grunge of FL's Squeeze. 20000 Hz (default) = open/off.
+    void setTone(float hz) { toneHz_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
     float bits() const { return bits_; }
     float downsample() const { return downsample_; }
     float mix() const { return mix_; }
+    float tone() const { return toneHz_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -276,8 +280,10 @@ private:
     float bits_ = 8.0f;
     float downsample_ = 4.0f;
     float mix_ = 0.5f;
+    float toneHz_ = 20000.0f; // post low-pass cutoff; 20000 = off
     float holdL_ = 0.0f;
     float holdR_ = 0.0f;
+    float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
     int counter_ = 0;
 };
 

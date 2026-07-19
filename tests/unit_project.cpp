@@ -283,6 +283,9 @@ int main() {
     mixer.peq().setEnabled(true);
     mixer.peq().setMid(1200.0f, 1.5f, 5.0f);
     mixer.peq().setMid2(4200.0f, 2.5f, -6.0f);
+    mixer.bitcrusher().setEnabled(true);
+    mixer.bitcrusher().setBits(6.0f);
+    mixer.bitcrusher().setTone(3200.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Tube);
     mixer.distortion().setTone(4800.0f);
@@ -682,6 +685,9 @@ int main() {
     check(near(mixer2.peq().midGain(), 5.0f) && near(mixer2.peq().mid2Freq(), 4200.0f) &&
               near(mixer2.peq().mid2Q(), 2.5f) && near(mixer2.peq().mid2Gain(), -6.0f),
           "parametric EQ 2nd mid band round-trips");
+    check(mixer2.bitcrusher().enabled() && near(mixer2.bitcrusher().bits(), 6.0f) &&
+              near(mixer2.bitcrusher().tone(), 3200.0f),
+          "bitcrusher (incl. post tone) round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
               near(mixer2.ringmod().mix(), 0.7f),
           "ring-mod round-trips");

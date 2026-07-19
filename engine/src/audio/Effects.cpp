@@ -594,6 +594,8 @@ void Flanger::process(float* stereo, int frames, int sampleRate) {
 void Bitcrusher::reset() {
     holdL_ = 0.0f;
     holdR_ = 0.0f;
+    toneL_ = 0.0f;
+    toneR_ = 0.0f;
     counter_ = 0;
 }
 
@@ -605,6 +607,10 @@ void Bitcrusher::process(float* stereo, int frames, int sampleRate) {
     const int step = std::max(1, static_cast<int>(downsample_));
     const float levels = std::pow(2.0f, bits);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    // Post tone: a one-pole low-pass on the crushed (wet) signal (off at 20 kHz).
+    const bool doTone = toneHz_ < 19000.0f;
+    const float toneA =
+        doTone ? 1.0f - std::exp(-2.0f * 3.14159265f * toneHz_ / static_cast<float>(sampleRate)) : 0.0f;
     auto crush = [levels](float x) {
         return std::round(x * levels) / levels; // quantize to `bits` bits
     };
@@ -615,8 +621,16 @@ void Bitcrusher::process(float* stereo, int frames, int sampleRate) {
             counter_ = step;
         }
         --counter_;
-        stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + holdL_ * mix;
-        stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + holdR_ * mix;
+        float wetL = holdL_;
+        float wetR = holdR_;
+        if (doTone) {
+            toneL_ += toneA * (wetL - toneL_);
+            wetL = toneL_;
+            toneR_ += toneA * (wetR - toneR_);
+            wetR = toneR_;
+        }
+        stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + wetR * mix;
     }
 }
 
