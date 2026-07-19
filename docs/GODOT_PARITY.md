@@ -123,7 +123,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   AND size) and is_finite (every component finite) — Godot Rect2.is_equal_approx / is_finite, verified
   against nudged/differing rects and NaN/inf components), **Rect2i** (M281,
   `math::Rect2i` — Godot's integer rectangle for tile/atlas/pixel regions: half-open hasPoint,
-  intersects/intersection/merge/encloses/grow/expand/abs, exact int math), Geometry2D/3D
+  intersects/intersection/merge/encloses/grow/expand/abs, exact int math; M353 adds growSide
+  (Godot Rect2i.grow_side — grow/shrink one edge, reusing Rect2's shared Side enum L/T/R/B),
+  verified per-edge and that growing all four equals a uniform grow), Geometry2D/3D
   (incl. **polygon toolkit** M271, `math::convexHull` (Andrew's monotone chain), signed
   `polygonArea`, `isPolygonClockwise` (Godot's Y-down screen convention), area-weighted
   `polygonCentroid` — Godot's Geometry2D polygon statics; plus **more Geometry2D statics** M276 —

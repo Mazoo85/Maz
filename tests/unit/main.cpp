@@ -13954,6 +13954,19 @@ void testRect2i() {
     CHECK((a.expand(Vector2i(15, 3)) == Rect2i(0, 0, 15, 10)));
     CHECK((a.expand(Vector2i(-5, -5)) == Rect2i(-5, -5, 15, 15)));
     CHECK((Rect2i(5, 8, -3, -4).abs() == Rect2i(2, 4, 3, 4)));
+
+    // growSide (M353): only the named edge moves; reuses Rect2's Side enum.
+    using Side = math::Rect2::Side;
+    CHECK((a.growSide(Side::Left, 5) == Rect2i(-5, 0, 15, 10)));
+    CHECK((a.growSide(Side::Top, 5) == Rect2i(0, -5, 10, 15)));
+    CHECK((a.growSide(Side::Right, 5) == Rect2i(0, 0, 15, 10)));
+    CHECK((a.growSide(Side::Bottom, 5) == Rect2i(0, 0, 10, 15)));
+    CHECK((a.growSide(Side::Left, -3) == Rect2i(3, 0, 7, 10))); // negative shrinks the edge
+    // Growing all four edges by the same amount equals a uniform grow.
+    CHECK((a.growSide(Side::Left, 2)
+               .growSide(Side::Top, 2)
+               .growSide(Side::Right, 2)
+               .growSide(Side::Bottom, 2) == a.grow(2)));
 }
 
 // Geometry2D polygon toolkit: signed area, isPolygonClockwise (Godot screen-space), centroid,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/math/Rect2.hpp"     // Rect2::Side (shared with the float rect)
 #include "maz/math/VectorInt.hpp" // Vector2i
 
 #include <algorithm>
@@ -80,6 +81,12 @@ struct Rect2i {
     Rect2i growIndividual(int l, int t, int r, int b) const {
         return Rect2i(Vector2i(position.x - l, position.y - t),
                       Vector2i(size.x + l + r, size.y + t + b));
+    }
+    // Grow/shrink a single edge (Godot's Rect2i.grow_side), reusing Rect2's Side enum (L/T/R/B).
+    Rect2i growSide(Rect2::Side side, int amount) const {
+        using S = Rect2::Side;
+        return growIndividual(side == S::Left ? amount : 0, side == S::Top ? amount : 0,
+                              side == S::Right ? amount : 0, side == S::Bottom ? amount : 0);
     }
 
     // Grow the rectangle to include point `p` (Godot's Rect2i.expand).
