@@ -98,6 +98,7 @@
 #include "maz/render/ImageBlur.hpp"
 #include "maz/core/Kalman.hpp"
 #include "maz/game/Ballistics.hpp"
+#include "maz/math/QuaternionSwingTwist.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19400,6 +19401,95 @@ void testBallistics() {
     }
 }
 
+// QuaternionSwingTwist: swing-twist decomposition + nlerp (M454).
+void testQuaternionSwingTwist() {
+    using math::nlerp;
+    using math::Quaternion;
+    using math::SwingTwist;
+    using math::swingTwist;
+    using math::vec3;
+
+    auto vdot = [](vec3 a, vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+    auto vclose = [](vec3 a, vec3 b, float tol) {
+        return std::fabs(a.x - b.x) < tol && std::fabs(a.y - b.y) < tol && std::fabs(a.z - b.z) < tol;
+    };
+    // Sign-robust rotation equality: act identically on a spanning probe set.
+    auto sameRotation = [&](const Quaternion& a, const Quaternion& b, float tol) {
+        const vec3 probes[] = {vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0.577f, 0.577f, 0.577f)};
+        for (const vec3& v : probes) {
+            if (!vclose(a.xform(v), b.xform(v), tol)) return false;
+        }
+        return true;
+    };
+
+    const vec3 axisY(0.0f, 1.0f, 0.0f);
+
+    // Reconstruction: swing * twist == rot across a spread of orientations and axes.
+    {
+        const vec3 axes[] = {vec3(0, 1, 0), vec3(1, 0, 0), vec3(0, 0, 1), vec3(0.267f, 0.535f, 0.802f)};
+        for (const vec3& ax : axes) {
+            for (float ex = -1.4f; ex <= 1.4f; ex += 0.35f) {
+                for (float ey = -1.4f; ey <= 1.4f; ey += 0.35f) {
+                    const Quaternion q = Quaternion::fromEuler(vec3(ex, ey, 0.6f));
+                    const SwingTwist st = swingTwist(q, ax);
+                    CHECK(sameRotation(st.swing * st.twist, q, 1e-3f));
+                    CHECK(std::fabs(st.twist.length() - 1.0f) < 1e-4f);
+                    CHECK(std::fabs(st.swing.length() - 1.0f) < 1e-4f);
+                }
+            }
+        }
+    }
+    // Twist axis parallel to the axis; swing axis perpendicular.
+    {
+        const Quaternion q = Quaternion::fromEuler(vec3(0.5f, 0.9f, -0.3f));
+        const SwingTwist st = swingTwist(q, axisY);
+        if (st.twist.getAngle() > 0.05f) CHECK(std::fabs(std::fabs(vdot(st.twist.getAxis(), axisY)) - 1.0f) < 1e-3f);
+        if (st.swing.getAngle() > 0.05f) CHECK(std::fabs(vdot(st.swing.getAxis(), axisY)) < 1e-3f);
+    }
+    // Pure twist: swing identity, twist reproduces q.
+    {
+        for (float ang = -3.0f; ang <= 3.0f; ang += 0.5f) {
+            const Quaternion q = Quaternion::fromAxisAngle(axisY, ang);
+            const SwingTwist st = swingTwist(q, axisY);
+            CHECK(sameRotation(st.swing, Quaternion::identity(), 1e-3f));
+            CHECK(sameRotation(st.twist, q, 1e-3f));
+        }
+    }
+    // Pure swing: twist identity, swing == q.
+    {
+        const vec3 axisX(1.0f, 0.0f, 0.0f);
+        for (float ang = -2.5f; ang <= 2.5f; ang += 0.5f) {
+            const Quaternion q = Quaternion::fromAxisAngle(axisX, ang);
+            const SwingTwist st = swingTwist(q, axisY);
+            CHECK(sameRotation(st.twist, Quaternion::identity(), 1e-3f));
+            CHECK(sameRotation(st.swing, q, 1e-3f));
+        }
+    }
+    // nlerp: endpoints, unit length, monotone approach to target.
+    {
+        const Quaternion a = Quaternion::fromAxisAngle(vec3(0, 0, 1), 0.2f);
+        const Quaternion b = Quaternion::fromAxisAngle(vec3(0, 1, 0), 1.3f);
+        CHECK(sameRotation(nlerp(a, b, 0.0f), a, 1e-4f));
+        CHECK(sameRotation(nlerp(a, b, 1.0f), b, 1e-4f));
+        CHECK(sameRotation(nlerp(a, a, 0.5f), a, 1e-4f));
+        float prevAngle = 10.0f;
+        for (int i = 0; i <= 10; ++i) {
+            const Quaternion m = nlerp(a, b, static_cast<float>(i) * 0.1f);
+            CHECK(std::fabs(m.length() - 1.0f) < 1e-5f);
+            const float ang = m.angleTo(b);
+            CHECK(ang <= prevAngle + 1e-4f);
+            prevAngle = ang;
+        }
+    }
+    // Singular case: 180-degree rotation perpendicular to the axis -> all swing.
+    {
+        const Quaternion q = Quaternion::fromAxisAngle(vec3(1.0f, 0.0f, 0.0f), 3.14159265f);
+        const SwingTwist st = swingTwist(q, axisY);
+        CHECK(sameRotation(st.twist, Quaternion::identity(), 1e-3f));
+        CHECK(sameRotation(st.swing * st.twist, q, 1e-3f));
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28178,6 +28268,7 @@ int main() {
     testImageBlur();
     testKalman();
     testBallistics();
+    testQuaternionSwingTwist();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

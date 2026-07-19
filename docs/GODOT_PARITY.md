@@ -706,6 +706,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   through the target height, flat-ground angles are complementary (sum to 90 deg) with the range gate at
   v^2/g, the solved velocity lands precisely on target at the requested time, pos(0) is the launch point,
   and the apex matches both the closed form and a densely-sampled trajectory peak),
+  **quaternion swing-twist + nlerp** (M454, `math::swingTwist` + `math::nlerp` — swing-twist splits any
+  rotation into a twist about a chosen axis and a perpendicular swing (q == swing * twist), the standard
+  primitive for joint limits: a shoulder/knuckle twists freely about the bone while its swing cone is
+  clamped, each limited independently after decomposing; nlerp is normalized linear interpolation, a
+  cheaper torque-minimal alternative to slerp for per-frame blends. Godot's Quaternion has slerp/slerpni
+  but neither swing-twist nor nlerp -> beyond-Godot. Verified: swing * twist reconstructs the rotation
+  exactly across a spread of orientations and axes; the twist axis is parallel and the swing axis
+  perpendicular to the chosen axis; a pure twist yields identity swing and a pure perpendicular swing
+  yields identity twist; the 180-degree perpendicular singularity degrades to all-swing; and nlerp hits
+  its endpoints, stays unit-length, and approaches the target monotonically),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
