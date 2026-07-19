@@ -656,6 +656,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   with alpha 1, warm 1500K reddish (r>g>b, blue ~0), 6600K near-neutral white, cool 10000K blue-dominant
   (b>=g>=r), monotone trends (blue rises and warmth r-b falls with temperature) across the range, and
   clamping outside [1000, 40000]),
+  **value noise** (M449, `core::ValueNoise` — the sibling of the Perlin gradient noise in `core::Noise`:
+  where Perlin interpolates random *gradients*, value noise interpolates random *values* stored at the
+  integer lattice, giving a cheaper, rounder field for clouds/soft terrain/cheap textures. Mirrors
+  Godot FastNoiseLite TYPE_VALUE (`value2`, quintic-smoothstep bilinear) and TYPE_VALUE_CUBIC
+  (`value2Cubic`, Catmull-Rom bicubic), plus `fbm2` fractal layering. A self-contained integer hash makes
+  each seed reproducible with no shared state. Verified: determinism (equal seeds agree exactly, distinct
+  seeds decorrelate), value2 provably stays within [-1,1] and spans it, both variants pass EXACTLY through
+  the lattice samples (interpolating-spline property), input continuity has no discontinuities, cubic is
+  smooth and bounded, and single-octave fbm equals value2),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

@@ -93,6 +93,7 @@
 #include "maz/render/ColorTemperature.hpp"
 #include "maz/core/WorleyNoise.hpp"
 #include "maz/core/CurlNoise.hpp"
+#include "maz/core/ValueNoise.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18978,6 +18979,78 @@ void testColorTemperature() {
     }
 }
 
+// ValueNoise: interpolated value noise (Godot FastNoiseLite Value / ValueCubic) (M449).
+void testValueNoise() {
+    using core::ValueNoise;
+    ValueNoise n(1234u);
+
+    // Determinism: identical seeds agree exactly; distinct seeds decorrelate.
+    {
+        ValueNoise a(42u), b(42u), c(43u);
+        int diffs = 0;
+        for (int i = 0; i < 200; ++i) {
+            const float x = static_cast<float>(i) * 0.37f;
+            const float y = static_cast<float>(i) * 0.19f;
+            CHECK(a.value2(x, y) == b.value2(x, y));
+            if (std::fabs(a.value2(x, y) - c.value2(x, y)) > 1e-6f) ++diffs;
+        }
+        CHECK(diffs > 150);
+    }
+
+    // value2 is a convex blend of lattice values, so it stays strictly within [-1, 1] and spans it.
+    {
+        float lo = 2.0f, hi = -2.0f;
+        for (int i = 0; i < 4000; ++i) {
+            const float x = static_cast<float>(i) * 0.113f - 200.0f;
+            const float y = static_cast<float>(i) * 0.071f + 33.0f;
+            const float v = n.value2(x, y);
+            CHECK(v >= -1.0f && v <= 1.0f);
+            lo = std::fmin(lo, v);
+            hi = std::fmax(hi, v);
+        }
+        CHECK(lo < -0.4f && hi > 0.4f);
+    }
+
+    // Interpolating property: both variants pass EXACTLY through the lattice samples.
+    for (int iy = -8; iy <= 8; ++iy) {
+        for (int ix = -8; ix <= 8; ++ix) {
+            const float lat = n.lattice(ix, iy);
+            const float fx = static_cast<float>(ix);
+            const float fy = static_cast<float>(iy);
+            CHECK(std::fabs(n.value2(fx, fy) - lat) < 1e-5f);
+            CHECK(std::fabs(n.value2Cubic(fx, fy) - lat) < 1e-5f);
+        }
+    }
+
+    // Continuity: a tiny input step yields a tiny output step (no discontinuities).
+    {
+        float maxJump = 0.0f;
+        for (int i = 0; i < 2000; ++i) {
+            const float x = static_cast<float>(i) * 0.017f;
+            const float y = 5.0f + static_cast<float>(i) * 0.013f;
+            maxJump = std::fmax(maxJump, std::fabs(n.value2(x, y) - n.value2(x + 1e-3f, y)));
+        }
+        CHECK(maxJump < 0.05f);
+    }
+
+    // Cubic is smoother but bounded (only a slight cubic overshoot beyond [-1, 1]).
+    for (int i = 0; i < 4000; ++i) {
+        const float x = static_cast<float>(i) * 0.091f - 150.0f;
+        const float y = static_cast<float>(i) * 0.057f - 12.0f;
+        const float v = n.value2Cubic(x, y);
+        CHECK(v > -2.0f && v < 2.0f);
+    }
+
+    // fbm2 stays in range; a single octave equals plain value2.
+    for (int i = 0; i < 2000; ++i) {
+        const float x = static_cast<float>(i) * 0.05f;
+        const float y = static_cast<float>(i) * 0.03f;
+        const float v = n.fbm2(x, y, 5);
+        CHECK(v >= -1.01f && v <= 1.01f);
+    }
+    CHECK(std::fabs(n.fbm2(3.3f, 7.1f, 1) - n.value2(3.3f, 7.1f)) < 1e-6f);
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27751,6 +27824,7 @@ int main() {
     testWorleyNoise();
     testCurlNoise();
     testColorTemperature();
+    testValueNoise();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
