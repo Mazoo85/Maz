@@ -57,6 +57,8 @@ double decayTau(Drum type) {
         return 0.035; // a tight, bright metallic closed hat
     case Drum::Clap808:
         return 0.12; // the smeared noise "reverb" tail sets the length
+    case Drum::Snap:
+        return 0.022; // a dry, tight finger snap — a very fast decay
     }
     return 0.1;
 }
@@ -302,6 +304,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double e = burst(0.0, 0.004) + burst(0.009, 0.004) + burst(0.018, 0.004) +
                              0.6 * burst(0.018, 0.06); // the smeared tail
             s = static_cast<float>(static_cast<double>(noise()) * e);
+            break;
+        }
+        case Drum::Snap: {
+            // A dry finger snap: one short, band-focused noise pop with a woody ~2.2 kHz resonance
+            // and a sharp attack, decaying very fast — tighter and drier than the (stuttered) 808/
+            // acoustic clap and more noise-like than the (tonal) rimshot.
+            const double body = std::sin(kTwoPi * 2200.0 * pitchMul * t_) * std::exp(-t_ / 0.010);
+            const double click = static_cast<double>(noise()) * env; // sharp broadband transient
+            s = static_cast<float>(0.5 * click + 0.6 * body * env);
             break;
         }
         }

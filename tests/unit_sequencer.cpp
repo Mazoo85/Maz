@@ -417,6 +417,19 @@ int main() {
               "snare snap 1 (wires/noise) is far brighter than snap 0 (body/tone)");
         audio::DrumVoice dsn;
         check(std::fabs(dsn.snap() - 0.5f) < 1e-6f, "snare snap defaults to 0.5 (classic mix)");
+
+        // Finger snap: a single dry noise pop that decays fast and monotonically (no clap re-rise).
+        audio::DrumVoice snap;
+        snap.setType(audio::Drum::Snap);
+        snap.trigger();
+        std::vector<float> sp(static_cast<size_t>(sampleRate) / 10, 0.0f); // 100 ms
+        snap.render(sp.data(), static_cast<int>(sp.size()), sampleRate);
+        check(rms(sp) > 0.0, "finger snap produces sound");
+        check(win(sp, 15.0, 18.0) < win(sp, 0.0, 3.0) * 0.7,
+              "finger snap decays fast and monotonically (a single burst, no clap re-rise)");
+        std::vector<float> sptail(static_cast<size_t>(sampleRate) / 4, 0.0f); // 0.25 s
+        snap.render(sptail.data(), static_cast<int>(sptail.size()), sampleRate);
+        check(!snap.active(), "finger snap decays fast to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------
