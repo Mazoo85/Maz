@@ -1301,6 +1301,14 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Drive##smp", &sdrive, 0.0f, 1.0f, sdrive <= 0.0f ? "clean" : "%.2f"))
         seq.sampler().setDrive(sdrive);
+    ImGui::SameLine();
+    float sglide = seq.sampler().glide();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Glide##smp", &sglide, 0.0f, 1.0f, sglide <= 0.0f ? "off" : "%.2fs"))
+        seq.sampler().setGlide(sglide);
+    ImGui::SameLine();
+    bool sglideleg = seq.sampler().glideLegato();
+    if (ImGui::Checkbox("Legato##smp", &sglideleg)) seq.sampler().setGlideLegato(sglideleg);
     float loopS = seq.sampler().loopStart(), loopE = seq.sampler().loopEnd();
     bool loopCh = false;
     ImGui::SetNextItemWidth(110.0f);

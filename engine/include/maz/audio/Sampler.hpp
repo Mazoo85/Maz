@@ -177,6 +177,18 @@ public:
     void setKeyTrack(bool on) { keyTrack_ = on; }
     bool keyTrack() const { return keyTrack_; }
 
+    // Portamento / glide: when > 0, a new (pitched) note slides its read speed from the previously
+    // played note's pitch to its own over `seconds` (one-pole smoothing) — the classic mono sampled
+    // bass/lead slide. 0 = off (instant pitch). Only affects key-tracked, non-sliced voices; sliced
+    // and fixed-pitch (key-track-off) playback are unchanged.
+    void setGlide(float seconds) { glideSeconds_ = seconds < 0.0f ? 0.0f : seconds; }
+    float glide() const { return glideSeconds_; }
+    // Legato glide: when on, portamento only happens when a note starts while another is still held
+    // (an overlapping/legato line) — an isolated note starts on-pitch. Off (default) = always glide.
+    // Only matters when glide > 0.
+    void setGlideLegato(bool on) { glideLegato_ = on; }
+    bool glideLegato() const { return glideLegato_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
@@ -201,6 +213,8 @@ private:
         float filtEnv = 0.0f;                 // dedicated filter-envelope level [0,1]
         int filtStage = 0;                    // 0=attack, 1=decay, 2=sustain, 3=release
         double penv = 0.0;                    // pitch-envelope level [1→0]; scales the initial pitch offset
+        double noteRatio = 1.0;   // this note's target pitch ratio vs. the base (1 = sliced/no-keytrack)
+        double glideRatio = 1.0;  // current, glides toward noteRatio when portamento is on
         StateVariableFilter filter{}; // per-voice playback filter
     };
 
@@ -213,6 +227,9 @@ private:
     bool reverse_ = false;
     bool mono_ = false; // monophonic (single-voice, last-note priority) mode
     bool keyTrack_ = true; // resample per note (melodic); false = fixed-pitch one-shot/drum mode
+    float glideSeconds_ = 0.0f;    // portamento time; 0 = off (instant pitch)
+    bool glideLegato_ = false;     // glide only on overlapping (legato) notes; false = always
+    double lastNoteRatio_ = 1.0;   // last pitched note's ratio, used as a glide start point
     bool loop_ = false;
     bool pingPong_ = false;
     float startOffset_ = 0.0f;

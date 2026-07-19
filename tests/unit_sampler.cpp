@@ -667,6 +667,64 @@ int main() {
         check(std::fabs(def.release() - 0.012f) < 1e-4f, "sampler release has a sane default");
     }
 
+    // Portamento / glide: a new pitched note slides its read speed from the previous note's pitch
+    // to its own, so the early pitch after a jump sits below the target and settles onto it.
+    {
+        const int f = sr / 2;
+        std::vector<float> tone(static_cast<size_t>(f));
+        for (int i = 0; i < f; ++i) {
+            tone[static_cast<size_t>(i)] =
+                0.8f * static_cast<float>(std::sin(kTwoPi * 440.0 * i / sr));
+        }
+        // Play A3 (220 Hz), settle, then jump to A4 (440 Hz); measure the first 50 ms after the jump.
+        auto earlyHzAfterJump = [&](float glide) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setBasePitch(69); // 440 Hz at note 69
+            s.setLoop(true);
+            s.setMono(true);
+            s.setGlide(glide);
+            s.noteOn(57, 1.0f);               // an octave down → 220 Hz
+            (void)renderMono(s, sr / 10, sr); // settle at 220 Hz
+            s.noteOn(69, 1.0f);               // up to 440 Hz (glides when enabled)
+            return estimateHz(renderMono(s, sr / 20, sr), sr);
+        };
+        const double snapHz = earlyHzAfterJump(0.0f);
+        const double glideHz = earlyHzAfterJump(0.3f);
+        check(snapHz > 380.0, "without glide the new note jumps straight to pitch");
+        check(glideHz < 340.0, "with glide the new note starts below its target pitch");
+        check(glideHz < snapHz - 40.0, "glide keeps the early pitch lower than an instant jump");
+
+        // A long glide render eventually reaches the target pitch.
+        audio::Sampler s2;
+        s2.setSampleMono(tone, sr);
+        s2.setBasePitch(69);
+        s2.setLoop(true);
+        s2.setMono(true);
+        s2.setGlide(0.2f);
+        s2.noteOn(57, 1.0f);
+        (void)renderMono(s2, sr / 10, sr);
+        s2.noteOn(69, 1.0f);
+        (void)renderMono(s2, sr, sr); // 1 s — well past the glide time
+        const double settledHz = estimateHz(renderMono(s2, sr / 10, sr), sr);
+        check(std::fabs(settledHz - 440.0) < 15.0, "glide settles on the target pitch");
+
+        // Legato glide: an isolated note (nothing held) starts on-pitch even with glide on.
+        audio::Sampler leg;
+        leg.setSampleMono(tone, sr);
+        leg.setBasePitch(69);
+        leg.setLoop(true);
+        leg.setMono(true);
+        leg.setGlide(0.3f);
+        leg.setGlideLegato(true);
+        leg.noteOn(57, 1.0f); // no prior held note → should not glide
+        const double isoHz = estimateHz(renderMono(leg, sr / 20, sr), sr);
+        check(std::fabs(isoHz - 220.0) < 20.0, "legato glide leaves an isolated note on-pitch");
+
+        audio::Sampler def;
+        check(def.glide() == 0.0f && !def.glideLegato(), "glide defaults to off");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

@@ -364,7 +364,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().pitchEnvTime() << " " << seq.sampler().filterVelo() << " "
       << (seq.sampler().mono() ? 1 : 0) << " " << seq.sampler().ampDecay() << " "
       << seq.sampler().ampSustain() << " " << seq.sampler().velSensitivity() << " "
-      << (seq.sampler().keyTrack() ? 1 : 0) << " " << seq.sampler().drive() << "\n";
+      << (seq.sampler().keyTrack() ? 1 : 0) << " " << seq.sampler().drive() << " "
+      << seq.sampler().glide() << " " << (seq.sampler().glideLegato() ? 1 : 0) << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -822,6 +823,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float sdrive = 0.0f; // per-voice drive optional (older files → clean)
             if (ls >> sdrive) {
                 seq.sampler().setDrive(sdrive);
+            }
+            float sglide = 0.0f; // portamento optional (older files → off)
+            int sglideleg = 0;
+            if (ls >> sglide >> sglideleg) {
+                seq.sampler().setGlide(sglide);
+                seq.sampler().setGlideLegato(sglideleg != 0);
             }
         } else if (tag == "chan") {
             int c = -1;

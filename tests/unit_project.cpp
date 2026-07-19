@@ -150,6 +150,8 @@ int main() {
     seq.sampler().setAmpSustain(0.45f);     // amp ADSR sustain
     seq.sampler().setVelSensitivity(0.4f);  // velocity → volume amount
     seq.sampler().setDrive(0.6f);           // per-voice saturation
+    seq.sampler().setGlide(0.18f);          // portamento time
+    seq.sampler().setGlideLegato(true);     // legato-only glide
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -764,7 +766,8 @@ int main() {
               near(seq2.sampler().filterVelo(), 5000.0f) && seq2.sampler().mono() &&
               near(seq2.sampler().ampDecay(), 0.08f) && near(seq2.sampler().ampSustain(), 0.45f) &&
               near(seq2.sampler().velSensitivity(), 0.4f) && !seq2.sampler().keyTrack() &&
-              near(seq2.sampler().drive(), 0.6f),
+              near(seq2.sampler().drive(), 0.6f) && near(seq2.sampler().glide(), 0.18f) &&
+              seq2.sampler().glideLegato(),
           "sampler settings round-trip");
 
     // Mixer + effects.

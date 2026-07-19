@@ -115,6 +115,14 @@ void Sampler::noteOn(int midi, float velocity) {
     if (sample_.empty()) {
         return;
     }
+    // A note is "legato" (for the legato-glide option) when it starts while another is still held.
+    bool legatoActive = false;
+    for (const Voice& ov : voices_) {
+        if (ov.active && !ov.releasing) {
+            legatoActive = true;
+            break;
+        }
+    }
     int chosen = -1;
     if (mono_) {
         // Last-note priority: silence every voice and always (re)use voice 0, so only one sounds.
@@ -165,6 +173,20 @@ void Sampler::noteOn(int midi, float velocity) {
     v.filtEnv = 0.0f;
     v.filtStage = 0; // attack
     v.penv = 1.0;    // pitch envelope starts fully offset, slides to 0 (true pitch)
+
+    // Portamento: pitched (key-tracked, non-sliced) notes carry a pitch ratio relative to the base;
+    // sliced / fixed-pitch playback stays at ratio 1 so it is unaffected. When gliding, the read speed
+    // starts at the previous pitched note's ratio and eases to this note's ratio in render().
+    const bool pitched = !v.sliced && keyTrack_;
+    const double noteRatio =
+        pitched ? static_cast<double>(midiToFreq(midi)) / static_cast<double>(midiToFreq(basePitch_))
+                : 1.0;
+    const bool gliding = glideSeconds_ > 0.0f && pitched && (!glideLegato_ || legatoActive);
+    v.noteRatio = noteRatio;
+    v.glideRatio = gliding ? lastNoteRatio_ : noteRatio;
+    if (pitched) {
+        lastNoteRatio_ = noteRatio;
+    }
 }
 
 void Sampler::noteOff(int midi) {
@@ -224,20 +246,20 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     const float fAtkStep = 1.0f / (fEnvA_ * static_cast<float>(sampleRate));
     const float fDecStep = (1.0f - fEnvS_) / (fEnvD_ * static_cast<float>(sampleRate));
     const float fRelStep = (fEnvS_ > 0.0f ? fEnvS_ : 1.0f) / (fEnvR_ * static_cast<float>(sampleRate));
-    const double baseFreq = static_cast<double>(midiToFreq(basePitch_));
     const size_t last = sample_.size() - 1;
+    // Portamento one-pole coefficient: how much of the remaining pitch gap survives each sample.
+    // 0 (glide off) snaps instantly; the read speed uses v.glideRatio, which equals v.noteRatio when
+    // glide is off, so playback stays bit-identical to before.
+    const double glideCoeff =
+        glideSeconds_ > 0.0f
+            ? std::exp(-1.0 / (static_cast<double>(glideSeconds_) * static_cast<double>(sampleRate)))
+            : 0.0;
 
     for (Voice& v : voices_) {
         if (!v.active) {
             continue;
         }
         const double detuneMul = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
-        // Sliced voices, and voices with key tracking off, play at natural speed (note pitch ignored);
-        // otherwise the note maps to a read speed.
-        const double rate = (v.sliced || !keyTrack_)
-                                ? srCorrect * detuneMul
-                                : static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
-                                      detuneMul; // read speed
         for (int i = 0; i < frames; ++i) {
             // Amp ADSR: attack up to 1, decay down to the sustain level, hold, then release on noteOff.
             if (v.releasing) {
@@ -377,9 +399,14 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             const float velGain = 1.0f - velSens_ * (1.0f - v.velocity);
             out[i] += s * v.env * velGain * gain_;
 
+            // Glide: ease the read-speed ratio toward this note's target ratio (a no-op when glide is
+            // off, since glideRatio already equals noteRatio). Then map the ratio to a read speed.
+            if (glideSeconds_ > 0.0f) {
+                v.glideRatio = v.noteRatio + (v.glideRatio - v.noteRatio) * glideCoeff;
+            }
             // Pitch envelope: scale the read speed by the (decaying) semitone offset, then advance
-            // the slide toward 0. Off → curRate == rate, so playback is bit-identical.
-            double curRate = rate;
+            // the slide toward 0. Off → curRate == the glided base rate, so playback is bit-identical.
+            double curRate = v.glideRatio * srCorrect * detuneMul;
             if (usePitchEnv) {
                 curRate *= std::pow(2.0, static_cast<double>(pitchEnvDepth_) * v.penv / 12.0);
                 v.penv -= penvStep;
