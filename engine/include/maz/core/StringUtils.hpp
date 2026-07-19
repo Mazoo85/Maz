@@ -713,6 +713,47 @@ inline std::int64_t hexToInt(const std::string& s) {
     return sign * v;
 }
 
+// Is `s` a valid IPv4 or IPv6 address? — a faithful port of Godot's String.is_valid_ip_address,
+// including its permissiveness: the IPv6 branch simply splits on ':' and accepts any run of
+// hex groups (each 0..0xffff, empties from '::' skipped) plus an optional trailing embedded IPv4,
+// so shorthand like "1:2" or "::1" is accepted exactly as Godot accepts it (it is NOT a strict
+// RFC validator). The IPv4 branch requires exactly four decimal octets, each in 0..255.
+inline bool isValidIpAddress(const std::string& s) {
+    if (s.find(':') != std::string::npos) {
+        const std::vector<std::string> groups = split(s, ":");
+        for (const std::string& n : groups) {
+            if (n.empty()) {
+                continue;  // empties from "::" are allowed
+            }
+            if (isValidHexNumber(n, false)) {
+                const std::int64_t v = hexToInt(n);
+                if (v < 0 || v > 0xffff) {
+                    return false;
+                }
+                continue;
+            }
+            if (!isValidIpAddress(n)) {  // trailing embedded IPv4 (e.g. "::ffff:1.2.3.4")
+                return false;
+            }
+        }
+    } else {
+        const std::vector<std::string> octets = split(s, ".");
+        if (octets.size() != 4) {
+            return false;
+        }
+        for (const std::string& n : octets) {
+            if (!isValidInt(n)) {
+                return false;
+            }
+            const std::int64_t v = toInt(n);
+            if (v < 0 || v > 255) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 // Parse a binary integer with an optional sign and optional "0b"/"0B" prefix; scanning stops at the
 // first non-binary digit (Godot's String.bin_to_int). Returns 0 when no binary digits follow.
 inline std::int64_t binToInt(const std::string& s) {

@@ -11912,6 +11912,20 @@ void testStringUtils() {
     CHECK((su::nocasecmpTo("Zoo", "aardvark") == 1)); // folded 'z' > 'a'
     CHECK((su::nocasecmpTo("apple", "Apricot") == -1));
     CHECK((su::nocasecmpTo("Hello", "hello!") == -1));
+    // M375: isValidIpAddress — Godot String.is_valid_ip_address (IPv4 + permissive IPv6)
+    CHECK(su::isValidIpAddress("192.168.1.1"));
+    CHECK(su::isValidIpAddress("0.0.0.0") && su::isValidIpAddress("255.255.255.255"));
+    CHECK(!su::isValidIpAddress("256.1.1.1"));     // octet > 255
+    CHECK(!su::isValidIpAddress("1.2.3"));         // too few octets
+    CHECK(!su::isValidIpAddress("1.2.3.4.5"));     // too many octets
+    CHECK(!su::isValidIpAddress("1.2.3."));        // trailing empty octet
+    CHECK(!su::isValidIpAddress("-1.2.3.4"));      // negative octet
+    CHECK(su::isValidIpAddress("::1") && su::isValidIpAddress("fe80::1"));
+    CHECK(su::isValidIpAddress("2001:0db8:0000:0000:0000:ff00:0042:8329"));
+    CHECK(su::isValidIpAddress("::ffff:192.168.1.1")); // embedded IPv4 tail
+    CHECK(!su::isValidIpAddress("2001:db8::10000")); // group > 0xffff
+    CHECK(!su::isValidIpAddress("2001:db8::xyz"));   // non-hex group
+    CHECK(!su::isValidIpAddress("::ffff:999.1.1.1")); // bad embedded IPv4
     // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
     CHECK(su::padDecimals("12.5", 3) == "12.500");
     CHECK(su::padDecimals("12", 2) == "12.00");

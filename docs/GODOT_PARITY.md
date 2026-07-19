@@ -225,7 +225,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   companion (never negated, so the full 64-bit range prints, e.g. UINT64_MAX base16 = ffffffffffffffff),
   verified across bases incl. the max value; M374 adds casecmpTo / nocasecmpTo — Godot String.casecmp_to /
   nocasecmp_to (three-way -1/0/1 lexicographic compare, shorter-prefix sorts first; nocase folds ASCII case;
-  cross-checked against std::string ordering), toward String sorting; M361 adds Vector4 isFinite / isZeroApprox — Godot
+  cross-checked against std::string ordering), toward String sorting; M375 adds isValidIpAddress — a faithful
+  port of Godot String.is_valid_ip_address (four decimal octets 0..255 for IPv4; a permissive split-on-':'
+  IPv6 check accepting hex groups 0..0xffff, '::' empties, and a trailing embedded IPv4 — matching Godot's
+  behaviour exactly rather than being a strict RFC validator, documented as such); M361 adds Vector4 isFinite / isZeroApprox — Godot
   Vector4.is_finite / is_zero_approx (all components finite / within epsilon of zero), completing the
   is_finite family across vec2/vec3/vec4/quat, verified against inf/NaN and tiny/nonzero components;
   M362 adds float vec2/vec3 maxAxisIndex / minAxisIndex — Godot Vector2/Vector3.max_axis_index /
