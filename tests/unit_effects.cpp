@@ -1493,6 +1493,25 @@ int main() {
         audio::AutoWah dw;
         check(!dw.downward(), "auto-wah direction defaults to upward");
 
+        // Dry/wet mix: at mix 0 the wah is transparent (bright dry saw); at mix 1 a low fixed cutoff
+        // darkens it. So the dry-blend output is clearly brighter than the fully-wet one.
+        auto wahMixOut = [&](float mixv) {
+            audio::AutoWah w;
+            w.setEnabled(true);
+            w.setBaseHz(200.0f);
+            w.setRangeHz(0.0f);     // fixed low cutoff
+            w.setSensitivity(0.0f); // envelope doesn't move it
+            w.setResonance(1.0f);
+            w.setMix(mixv);
+            std::vector<float> b = sawStereo(300.0, 0.5, sr / 2);
+            w.process(b.data(), sr / 2, sr);
+            return std::vector<float>(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+        };
+        check(brightness(wahMixOut(0.0f)) > brightness(wahMixOut(1.0f)) * 1.5,
+              "auto-wah mix 0 stays bright (dry) while mix 1 darkens (wet filter)");
+        audio::AutoWah dm;
+        check(std::fabs(dm.mix() - 1.0f) < 1e-6f, "auto-wah mix defaults to 1 (fully wet)");
+
         // Disabled → transparent.
         audio::AutoWah off;
         std::vector<float> sig = sawStereo(300.0, 0.5, 1000);

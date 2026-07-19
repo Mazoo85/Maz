@@ -1214,10 +1214,13 @@ void AutoWah::process(float* stereo, int frames, int sampleRate) {
         const float e = env_ > 1.0f ? 1.0f : env_;
         const float sweep = sensitivity_ * e * rangeHz_;
         const float cutoff = downward_ ? (baseHz_ + rangeHz_ - sweep) : (baseHz_ + sweep);
-        stereo[2 * i] =
+        const float wetL =
             lpL_.process(l, cutoff, resonance_, sampleRate, StateVariableFilter::Mode::LowPass);
-        stereo[2 * i + 1] =
+        const float wetR =
             lpR_.process(r, cutoff, resonance_, sampleRate, StateVariableFilter::Mode::LowPass);
+        // Dry/wet blend (parallel wah); mix 1 = fully wet, as before.
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
     }
 }
 

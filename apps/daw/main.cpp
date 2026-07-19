@@ -1902,6 +1902,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         bool down = mx.autowah().downward();
         ImGui::SameLine();
         if (ImGui::Checkbox("down##wah", &down)) mx.autowah().setDownward(down);
+        float wahMix = mx.autowah().mix();
+        ImGui::SetNextItemWidth(140.0f);
+        if (ImGui::SliderFloat("mix##wah", &wahMix, 0.0f, 1.0f, "%.2f")) mx.autowah().setMix(wahMix);
     }
     {
         bool en = mx.comb().enabled();

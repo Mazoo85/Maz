@@ -781,6 +781,10 @@ public:
     // DOWNward, louder input closes the filter from base+range toward base (a reverse/"anti" wah).
     void setDownward(bool d) { downward_ = d; }
     bool downward() const { return downward_; }
+    // Dry/wet mix (0..1): blend the filtered signal with the dry for a parallel wah. 1 (default) =
+    // fully wet (the filter replaces the signal, as before); lower keeps body under the sweep.
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float mix() const { return mix_; }
     float baseHz() const { return baseHz_; }
     float rangeHz() const { return rangeHz_; }
     float sensitivity() const { return sensitivity_; }
@@ -799,6 +803,7 @@ private:
     float attackMs_ = 5.0f;
     float releaseMs_ = 80.0f;
     bool downward_ = false; // true = louder input lowers the cutoff (reverse wah)
+    float mix_ = 1.0f; // dry/wet blend; 1 = fully wet (filter replaces the signal)
     float env_ = 0.0f; // amplitude-envelope follower
     StateVariableFilter lpL_{};
     StateVariableFilter lpR_{};
