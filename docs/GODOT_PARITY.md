@@ -415,7 +415,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   cap-plane distances, a segment entering through the top cap (via segmentIntersectsConvex), an
   X-aligned variant, and out-of-range-axis fallback to Z; M332 adds
   closestPointToSegmentUncapped — Godot's Geometry3D.get_closest_point_to_segment_uncapped
-  (projection onto the infinite line, no clamping) — plus Plane completeness has_point / get_center /
+  (projection onto the infinite line, no clamping); M398 adds **closestPointOnTriangle** — the
+  point on a triangle nearest an arbitrary 3D point via Ericson's Voronoi-region method (all seven
+  regions: three vertices, three edges, interior face), the bedrock of sphere-vs-mesh collision,
+  decal projection and snap-to-surface. Verified against exact cases (interior projection from
+  above/below, each vertex/edge region, on-surface identity) and a tilted triangle where an
+  interior projection lands on the centroid perpendicular to the face — plus Plane completeness
+  has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite
   normal/offset), **Curve3D + Path3D/PathFollow3D** (M263, `math::Curve3D` +

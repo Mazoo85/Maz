@@ -14000,6 +14000,32 @@ void testGeometry3DHelpers() {
         CHECK(plz.size() == 7u);
         CHECK(!insideVol(plz, vec3(0, 0, 2.0f)));
     }
+
+    // --- M398: closestPointOnTriangle (Ericson Voronoi regions) ---
+    {
+        const vec3 a(0, 0, 0), b(4, 0, 0), c(0, 4, 0);
+        // Interior projection (point above/below the face).
+        CHECK(nearV(math::closestPointOnTriangle(vec3(1, 1, 5), a, b, c), vec3(1, 1, 0)));
+        CHECK(nearV(math::closestPointOnTriangle(vec3(1, 1, -3), a, b, c), vec3(1, 1, 0)));
+        // Vertex regions.
+        CHECK(nearV(math::closestPointOnTriangle(vec3(-1, -1, 0), a, b, c), a));
+        CHECK(nearV(math::closestPointOnTriangle(vec3(6, -1, 0), a, b, c), b));
+        CHECK(nearV(math::closestPointOnTriangle(vec3(-1, 6, 2), a, b, c), c));
+        // Edge regions.
+        CHECK(nearV(math::closestPointOnTriangle(vec3(2, -1, 0), a, b, c), vec3(2, 0, 0)));
+        CHECK(nearV(math::closestPointOnTriangle(vec3(-1, 2, 0), a, b, c), vec3(0, 2, 0)));
+        CHECK(nearV(math::closestPointOnTriangle(vec3(3, 3, 0), a, b, c), vec3(2, 2, 0)));
+        // Points already on the triangle map to themselves.
+        CHECK(nearV(math::closestPointOnTriangle(vec3(1, 1, 0), a, b, c), vec3(1, 1, 0)));
+        CHECK(nearV(math::closestPointOnTriangle(a, a, b, c), a));
+        // Tilted triangle: interior projection lands on the centroid, perpendicular to the face.
+        const vec3 t0(0, 0, 0), t1(2, 0, 2), t2(0, 2, 2);
+        const vec3 tn = math::cross(t1 - t0, t2 - t0);
+        const vec3 centroid = (t0 + t1 + t2) / 3.0f;
+        const vec3 cp = math::closestPointOnTriangle(centroid + 3.0f * tn, t0, t1, t2);
+        CHECK(nearV(cp, centroid, 1e-3f));
+        CHECK(std::fabs(math::dot(tn, cp - t0)) < 1e-3f);
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

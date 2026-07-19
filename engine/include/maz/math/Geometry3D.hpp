@@ -628,6 +628,53 @@ inline std::vector<Plane> buildCylinderPlanes(float radius, float height, int si
     return planes;
 }
 
+// The point on triangle (a,b,c) closest to `p` — Ericson's Voronoi-region method (Real-Time
+// Collision Detection). Handles all seven regions (three vertices, three edges, the interior face)
+// in closed form, so it works for a point above/below the face or off to any side. The bedrock of
+// sphere-vs-mesh collision, decal projection, and "snap to surface" queries.
+inline vec3 closestPointOnTriangle(const vec3& p, const vec3& a, const vec3& b, const vec3& c) {
+    const vec3 ab = b - a;
+    const vec3 ac = c - a;
+    const vec3 ap = p - a;
+    const float d1 = dot(ab, ap);
+    const float d2 = dot(ac, ap);
+    if (d1 <= 0.0f && d2 <= 0.0f) {
+        return a; // vertex region A
+    }
+    const vec3 bp = p - b;
+    const float d3 = dot(ab, bp);
+    const float d4 = dot(ac, bp);
+    if (d3 >= 0.0f && d4 <= d3) {
+        return b; // vertex region B
+    }
+    const float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
+        const float v = d1 / (d1 - d3);
+        return a + v * ab; // edge AB
+    }
+    const vec3 cp = p - c;
+    const float d5 = dot(ab, cp);
+    const float d6 = dot(ac, cp);
+    if (d6 >= 0.0f && d5 <= d6) {
+        return c; // vertex region C
+    }
+    const float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+        const float w = d2 / (d2 - d6);
+        return a + w * ac; // edge AC
+    }
+    const float va = d3 * d6 - d5 * d4;
+    if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+        const float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        return b + w * (c - b); // edge BC
+    }
+    // Inside the face: barycentric projection.
+    const float denom = 1.0f / (va + vb + vc);
+    const float v = vb * denom;
+    const float w = vc * denom;
+    return a + ab * v + ac * w;
+}
+
 // Intersect a segment [from,to] with the convex volume that is the intersection of the half-spaces
 // (normal·p - d <= 0) of `planes` — Godot's Geometry3D.segment_intersects_convex. Returns the point
 // where the segment first ENTERS the volume through one of its faces (nullopt if it never does).
