@@ -61,6 +61,7 @@ enum class AutoTarget {
     CompThreshold,
     WavetablePosition,
     SynthPulseWidth,
+    SamplerStart,
     Count
 };
 

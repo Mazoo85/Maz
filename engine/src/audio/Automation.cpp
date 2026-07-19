@@ -133,6 +133,8 @@ Automation::Automation() {
     lane(AutoTarget::WavetablePosition).hi = 1.0f;
     lane(AutoTarget::SynthPulseWidth).lo = 0.5f;  // square duty cycle: 0.5 = plain square...
     lane(AutoTarget::SynthPulseWidth).hi = 0.95f; // ...up to a thin, buzzy pulse (classic PWM sweep)
+    lane(AutoTarget::SamplerStart).lo = 0.0f;     // sample start point: 0 = head...
+    lane(AutoTarget::SamplerStart).hi = 0.5f;     // ...to halfway in (glitch/stutter sample-start mod)
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -237,6 +239,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Wavetable Pos";
     case AutoTarget::SynthPulseWidth:
         return "Synth PWM";
+    case AutoTarget::SamplerStart:
+        return "Sampler Start";
     case AutoTarget::Count:
         break;
     }
@@ -527,6 +531,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the lead synth's square-wave duty cycle — the classic manual PWM sweep (lush,
             // hollow-to-buzzy string/pad movement). Only audible on the Square waveform.
             engine.sequencer().synth().setPulseWidth(v);
+            break;
+        case AutoTarget::SamplerStart:
+            // Sweep the sampler's start point — modulate where each note begins in the loaded sample
+            // for glitch/stutter/scan effects (Slicex-style). Only audible when a sample is loaded.
+            engine.sequencer().sampler().setStartOffset(v);
             break;
         case AutoTarget::Count:
             break;

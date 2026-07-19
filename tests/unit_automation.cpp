@@ -798,6 +798,28 @@ int main() {
               "the synth-PWM target has a UI label");
     }
 
+    // --- Sampler-start target (glitch/stutter sample-start modulation) --------
+    {
+        audio::Automation autom;
+        audio::AutoLane& ss = autom.lane(audio::AutoTarget::SamplerStart);
+        ss.enabled = true;
+        ss.lfo.shape = audio::Waveform::Sine;
+        ss.lfo.rateHz = 1.0f;
+        ss.lo = 0.0f;
+        ss.hi = 0.5f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(std::fabs(eng.sequencer().sampler().startOffset() - 0.5f) < 0.01f,
+              "automating sampler start pushes the note start halfway into the sample");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.sequencer().sampler().startOffset() < 0.01f,
+              "sampler-start automation returns the start to the head of the sample");
+        check(std::string(audio::Automation::targetName(audio::AutoTarget::SamplerStart)) ==
+                  "Sampler Start",
+              "the sampler-start target has a UI label");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;
