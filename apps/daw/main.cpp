@@ -1316,6 +1316,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Vel->Atk##smp", &svelatk, 0.0f, 1.0f, svelatk <= 0.0f ? "off" : "%.2f"))
         seq.sampler().setVelToAttack(svelatk);
+    ImGui::SameLine();
+    float svelstart = seq.sampler().velToStart();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Vel->Start##smp", &svelstart, 0.0f, 1.0f, svelstart <= 0.0f ? "off" : "%.2f"))
+        seq.sampler().setVelToStart(svelstart);
     float loopS = seq.sampler().loopStart(), loopE = seq.sampler().loopEnd();
     bool loopCh = false;
     ImGui::SetNextItemWidth(110.0f);

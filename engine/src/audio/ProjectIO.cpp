@@ -371,7 +371,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().ampSustain() << " " << seq.sampler().velSensitivity() << " "
       << (seq.sampler().keyTrack() ? 1 : 0) << " " << seq.sampler().drive() << " "
       << seq.sampler().glide() << " " << (seq.sampler().glideLegato() ? 1 : 0) << " "
-      << seq.sampler().velToAttack() << "\n";
+      << seq.sampler().velToAttack() << " " << seq.sampler().velToStart() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -845,6 +845,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float svelatk = 0.0f; // velocity → attack optional (older files → off)
             if (ls >> svelatk) {
                 seq.sampler().setVelToAttack(svelatk);
+            }
+            float svelstart = 0.0f; // velocity → start optional (older files → off)
+            if (ls >> svelstart) {
+                seq.sampler().setVelToStart(svelstart);
             }
         } else if (tag == "chan") {
             int c = -1;

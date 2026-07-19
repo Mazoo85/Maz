@@ -141,6 +141,12 @@ public:
     // (default) = off (attack is velocity-independent, bit-for-bit unchanged).
     void setVelToAttack(float amt) { velToAttack_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
     float velToAttack() const { return velToAttack_; }
+    // Velocity → start (0..1): softer hits begin further into the sample, skipping the sharp attack
+    // transient for a mellower ghost-note, while hard hits play the full transient. `amount` is the
+    // fraction of the remaining sample a zero-velocity hit skips past the base start offset. 0
+    // (default) = off (every hit starts at the base offset). Only affects non-sliced playback.
+    void setVelToStart(float amt) { velToStart_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
+    float velToStart() const { return velToStart_; }
     float filterEnvAttack() const { return fEnvA_; }
     float filterEnvDecay() const { return fEnvD_; }
     float filterEnvSustain() const { return fEnvS_; }
@@ -251,6 +257,7 @@ private:
     float filterVelo_ = 0.0f;       // velocity → cutoff amount in Hz; 0 = off
     float velSens_ = 1.0f;          // velocity → volume amount; 1 = full (default), 0 = ignore velocity
     float velToAttack_ = 0.0f;      // velocity → amp-attack shortening [0,1]; 0 = off
+    float velToStart_ = 0.0f;       // velocity → start-offset (soft hits skip deeper) [0,1]; 0 = off
     float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
     float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds

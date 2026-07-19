@@ -160,8 +160,19 @@ void Sampler::noteOn(int midi, float velocity) {
         v.sliceEnd = std::min(total, static_cast<double>(idx + 1) * sliceLen);
         v.dir = 1;
     } else {
-        // Start reading from the offset; in reverse, from the end minus the offset.
-        const double offset = static_cast<double>(startOffset_) * last;
+        // Start reading from the offset; in reverse, from the end minus the offset. Velocity → start
+        // pushes softer hits deeper into the sample (skipping the transient); 0 leaves it at the base
+        // offset for every hit.
+        double startFrac = static_cast<double>(startOffset_);
+        if (velToStart_ > 0.0f) {
+            const float vc = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
+            startFrac += static_cast<double>(velToStart_) * (1.0 - static_cast<double>(vc)) *
+                         (1.0 - startFrac);
+            if (startFrac > 0.999) {
+                startFrac = 0.999;
+            }
+        }
+        const double offset = startFrac * last;
         v.sliced = false;
         v.sliceEnd = 0.0;
         v.pos = reverse_ ? (last - offset) : offset;

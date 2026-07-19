@@ -753,6 +753,35 @@ int main() {
         check(audio::Sampler().velToAttack() == 0.0f, "sampler vel->attack defaults to off");
     }
 
+    // Velocity → start: softer hits begin further into the sample (skipping the transient).
+    {
+        std::vector<float> ramp(static_cast<size_t>(sr)); // a 0→1 linear ramp: value == position
+        for (int i = 0; i < sr; ++i) {
+            ramp[static_cast<size_t>(i)] = static_cast<float>(i) / static_cast<float>(sr - 1);
+        }
+        // Read at natural speed (key-track off) with a near-instant attack and no velocity→volume, so
+        // the early output value reflects the read *position* (i.e. how far in the note started).
+        auto earlyValue = [&](float velocity, float velToStart) {
+            audio::Sampler s;
+            s.setSampleMono(ramp, sr);
+            s.setKeyTrack(false);
+            s.setVelSensitivity(0.0f);
+            s.setAmpEnv(0.0002f, 0.05f);
+            s.setVelToStart(velToStart);
+            s.noteOn(60, velocity);
+            const std::vector<float> b = renderMono(s, 64, sr);
+            return b[32]; // past the ~10-sample attack, still near the start
+        };
+        const double hard = static_cast<double>(earlyValue(1.0f, 0.6f)); // full transient → starts ~0
+        const double soft = static_cast<double>(earlyValue(0.1f, 0.6f)); // starts deep into the ramp
+        check(soft > hard + 0.3, "sampler vel->start makes a soft hit begin further into the sample");
+        // With the amount at 0 the start is velocity-independent (both begin at the base offset).
+        const double hardOff = static_cast<double>(earlyValue(1.0f, 0.0f));
+        const double softOff = static_cast<double>(earlyValue(0.1f, 0.0f));
+        check(std::fabs(hardOff - softOff) < 0.02, "with sampler vel->start off the start is fixed");
+        check(audio::Sampler().velToStart() == 0.0f, "sampler vel->start defaults to off");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");
