@@ -150,7 +150,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   closestPointsBetweenSegments (2D) matching Godot's Geometry2D; plus **convex polygon clipping** M296
   — `clipPolygonConvex` (Sutherland–Hodgman: clip a polygon to a convex region — viewport/FOV/scissor),
   the convex case of Godot's Geometry2D.clip_polygons/intersect_polygons (general Clipper boolean ops
-  remain out of scope); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
+  remain out of scope); plus **convex decomposition** M384 — `decomposePolygonInConvex` (Godot's
+  Geometry2D.decompose_polygon_in_convex: ear-clip into triangles then Hertel–Mehlhorn-merge
+  edge-adjacent pieces while they stay convex, so a concave collider splits into convex parts;
+  verified every piece is convex, areas sum to the input, a convex input collapses to one piece, and
+  CW input is normalised to CCW); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
   clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); plus **point-in-circle test** M373
   — `pointInCircle` (Godot's Geometry2D.is_point_in_circle: squared-distance ≤ radius², boundary counts as inside); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward

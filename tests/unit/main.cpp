@@ -14282,6 +14282,44 @@ void testGeometry2DPolygon() {
     // Degenerate input (<3 points) returned as-is.
     CHECK(math::convexHull({{1, 1}, {2, 2}}).size() == 2);
 
+    // M384: decomposePolygonInConvex (Godot Geometry2D.decompose_polygon_in_convex).
+    {
+        auto convexPiece = [](const std::vector<math::vec2>& p) {
+            const std::size_t n = p.size();
+            if (n < 3) return false;
+            bool neg = false, pos = false;
+            for (std::size_t i = 0; i < n; ++i) {
+                const math::vec2& a = p[i];
+                const math::vec2& b = p[(i + 1) % n];
+                const math::vec2& c = p[(i + 2) % n];
+                const float cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+                if (cr < -1e-4f) neg = true;
+                if (cr > 1e-4f) pos = true;
+            }
+            return !(neg && pos);
+        };
+        auto sumArea = [](const std::vector<std::vector<math::vec2>>& ps) {
+            float a = 0.0f;
+            for (const auto& p : ps) a += std::fabs(math::polygonArea(p));
+            return a;
+        };
+        // Convex square -> exactly one convex piece, area preserved.
+        auto dsq = math::decomposePolygonInConvex({{0, 0}, {2, 0}, {2, 2}, {0, 2}});
+        CHECK(dsq.size() == 1 && convexPiece(dsq[0]));
+        CHECK_NEAR(sumArea(dsq), 4.0f, 1e-3f);
+        // Clockwise winding is normalised -> still one convex piece.
+        auto dcw = math::decomposePolygonInConvex({{0, 0}, {0, 2}, {2, 2}, {2, 0}});
+        CHECK(dcw.size() == 1 && convexPiece(dcw[0]));
+        // L-shape (concave, area 5): >=2 convex pieces, all convex, area preserved.
+        std::vector<math::vec2> L = {{0, 0}, {3, 0}, {3, 1}, {1, 1}, {1, 3}, {0, 3}};
+        auto dl = math::decomposePolygonInConvex(L);
+        CHECK(dl.size() >= 2);
+        for (const auto& p : dl) CHECK(convexPiece(p));
+        CHECK_NEAR(sumArea(dl), 5.0f, 1e-3f);
+        // Degenerate input -> empty.
+        CHECK(math::decomposePolygonInConvex({{0, 0}, {1, 1}}).empty());
+    }
+
     // Convex polygon clipping (M296): Sutherland–Hodgman against a CCW clip region.
     {
         const std::vector<math::vec2> clip = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};

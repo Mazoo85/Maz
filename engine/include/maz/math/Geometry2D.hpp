@@ -270,6 +270,138 @@ inline std::vector<vec2> convexHull(std::vector<vec2> pts) {
     return hull;
 }
 
+// Decompose a simple polygon (convex or concave, no holes) into convex polygons whose union is the
+// original — Godot's Geometry2D.decompose_polygon_in_convex. Ear-clips into triangles, then greedily
+// merges edge-adjacent pieces (Hertel–Mehlhorn) while the union stays convex. Guarantees every
+// returned polygon is convex, their areas sum to the input's, and a convex input collapses to a
+// single piece. Godot only promises A valid convex cover (not a specific partition); this returns
+// one, in counter-clockwise (Y-up) winding. Fewer than 3 vertices -> empty.
+inline std::vector<std::vector<vec2>> decomposePolygonInConvex(const std::vector<vec2>& polyIn) {
+    if (polyIn.size() < 3) {
+        return {};
+    }
+    // Normalise to counter-clockwise (positive shoelace area) so cross > 0 means a left turn.
+    std::vector<vec2> poly = polyIn;
+    {
+        float area2 = 0.0f;
+        const std::size_t n = poly.size();
+        for (std::size_t i = 0; i < n; ++i) {
+            const vec2& p = poly[i];
+            const vec2& q = poly[(i + 1) % n];
+            area2 += p.x * q.y - q.x * p.y;
+        }
+        if (area2 < 0.0f) {
+            std::reverse(poly.begin(), poly.end());
+        }
+    }
+    auto cross3 = [](const vec2& a, const vec2& b, const vec2& c) {
+        return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    };
+    auto pointInTri = [&](const vec2& p, const vec2& a, const vec2& b, const vec2& c) {
+        const float d1 = cross3(a, b, p), d2 = cross3(b, c, p), d3 = cross3(c, a, p);
+        const bool hasNeg = d1 < 0.0f || d2 < 0.0f || d3 < 0.0f;
+        const bool hasPos = d1 > 0.0f || d2 > 0.0f || d3 > 0.0f;
+        return !(hasNeg && hasPos); // inside or on an edge
+    };
+    // --- ear clipping into CCW triangles ---
+    std::vector<int> idx(poly.size());
+    for (std::size_t i = 0; i < poly.size(); ++i) {
+        idx[i] = static_cast<int>(i);
+    }
+    std::vector<std::vector<vec2>> pieces;
+    int guard = 0;
+    while (idx.size() > 3 && guard++ < 100000) {
+        bool clipped = false;
+        const int n = static_cast<int>(idx.size());
+        for (int i = 0; i < n; ++i) {
+            const vec2& a = poly[static_cast<std::size_t>(idx[static_cast<std::size_t>((i + n - 1) % n)])];
+            const vec2& b = poly[static_cast<std::size_t>(idx[static_cast<std::size_t>(i)])];
+            const vec2& c = poly[static_cast<std::size_t>(idx[static_cast<std::size_t>((i + 1) % n)])];
+            if (cross3(a, b, c) <= 0.0f) {
+                continue; // reflex or degenerate corner: not an ear
+            }
+            bool ear = true;
+            for (int j = 0; j < n; ++j) {
+                if (j == (i + n - 1) % n || j == i || j == (i + 1) % n) {
+                    continue;
+                }
+                if (pointInTri(poly[static_cast<std::size_t>(idx[static_cast<std::size_t>(j)])], a, b, c)) {
+                    ear = false;
+                    break;
+                }
+            }
+            if (ear) {
+                pieces.push_back({a, b, c});
+                idx.erase(idx.begin() + i);
+                clipped = true;
+                break;
+            }
+        }
+        if (!clipped) {
+            break; // degenerate polygon: stop with what we have
+        }
+    }
+    if (idx.size() == 3) {
+        pieces.push_back({poly[static_cast<std::size_t>(idx[0])], poly[static_cast<std::size_t>(idx[1])],
+                          poly[static_cast<std::size_t>(idx[2])]});
+    }
+    // --- Hertel–Mehlhorn: merge edge-adjacent pieces while the result stays convex ---
+    auto isConvexCCW = [&](const std::vector<vec2>& p) {
+        const int n = static_cast<int>(p.size());
+        if (n < 3) {
+            return false;
+        }
+        for (int i = 0; i < n; ++i) {
+            if (cross3(p[static_cast<std::size_t>(i)], p[static_cast<std::size_t>((i + 1) % n)],
+                       p[static_cast<std::size_t>((i + 2) % n)]) < -1e-4f) {
+                return false;
+            }
+        }
+        return true;
+    };
+    auto same = [](const vec2& u, const vec2& v) {
+        return std::fabs(u.x - v.x) < 1e-5f && std::fabs(u.y - v.y) < 1e-5f;
+    };
+    bool merged = true;
+    guard = 0;
+    while (merged && guard++ < 100000) {
+        merged = false;
+        for (std::size_t pi = 0; pi < pieces.size() && !merged; ++pi) {
+            for (std::size_t qi = pi + 1; qi < pieces.size() && !merged; ++qi) {
+                const std::vector<vec2>& P = pieces[pi];
+                const std::vector<vec2>& Q = pieces[qi];
+                const int np = static_cast<int>(P.size());
+                const int nq = static_cast<int>(Q.size());
+                for (int i = 0; i < np && !merged; ++i) {
+                    const vec2& a = P[static_cast<std::size_t>(i)];
+                    const vec2& b = P[static_cast<std::size_t>((i + 1) % np)];
+                    for (int j = 0; j < nq; ++j) {
+                        // Shared edge: P's a->b is the reverse of Q's edge (Q[j]=b, Q[j+1]=a).
+                        if (same(Q[static_cast<std::size_t>(j)], b) &&
+                            same(Q[static_cast<std::size_t>((j + 1) % nq)], a)) {
+                            std::vector<vec2> m;
+                            m.reserve(static_cast<std::size_t>(np + nq - 2));
+                            for (int k = 0; k < np; ++k) {
+                                m.push_back(P[static_cast<std::size_t>((i + 1 + k) % np)]); // b .. a
+                            }
+                            for (int k = 0; k < nq - 2; ++k) {
+                                m.push_back(Q[static_cast<std::size_t>((j + 2 + k) % nq)]); // Q interior
+                            }
+                            if (isConvexCCW(m)) {
+                                pieces[pi] = m;
+                                pieces.erase(pieces.begin() + static_cast<std::ptrdiff_t>(qi));
+                                merged = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return pieces;
+}
+
 // Clip a subject polygon against a CONVEX clip polygon (Sutherland–Hodgman) — the convex case of
 // Godot's Geometry2D.clip_polygons/intersect_polygons: keeps the part of `subject` that lies inside
 // `convexClip`. Both must be counter-clockwise (Y-up); the clip polygon must be convex (a viewport
