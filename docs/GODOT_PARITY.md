@@ -1182,6 +1182,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **CPU lightmap baker** (M502, `render::bakeLightmap` — the offline "burn the lighting into a texture" step
+  behind Godot's LightmapGI, letting static geometry look lit without paying for lights at runtime. For each
+  surfel (a world-space point + normal — the unwrapped texel centers in a full pipeline) it sums each light's
+  direct contribution (N·L, with linear range falloff for point lights) and traces a shadow ray against the
+  occluder triangles via the header-only `math::segmentIntersectsTriangle`, so geometry casts hard shadows
+  into the map. Pure CPU, so the *bake* is fully unit-testable here even though *sampling* the map at draw
+  time needs a GPU — a first §5 (high-end rendering) item from `GODOT_GAPS_ROADMAP.md`. Honest scope: direct
+  light + hard shadows only (no bounce/indirect GI, area-light softness, or UV-atlas unwrap yet). Verified:
+  a surfel facing a directional light gets N·L=1, a 60°-tilted normal gets 0.5, a back-facing normal is unlit
+  (ambient still applies); an occluder triangle shadows both directional and point lights (and castShadows=off
+  ignores it); point-light linear range falloff gives 0.5 at half range and 0 beyond range; colored light and
+  multiple surfels resolve independently; and empty input yields an empty result),
   **font fallback chain** (M501, `ui::FontFallback` — the "which font can draw this character?" resolver
   behind mixed-script text. Godot lets a Font carry an ordered list of fallback fonts and picks, per glyph,
   the first that has the character; Maz's atlas font covers ASCII, so anything beyond it needs this. It holds

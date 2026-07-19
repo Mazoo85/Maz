@@ -61,8 +61,8 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
-- [ ] **Lightmap baker** (CPU raytraced GI into a texture atlas) — the bake is pure CPU + testable;
-  sampling it is GPU-side. [CODE HERE / SEE IT ON YOUR MACHINE]
+- [x] **Lightmap baker** (`render::bakeLightmap`) — DONE (M502); direct light + hard shadows, bake fully
+  VERIFIABLE HERE (sampling the map is GPU-side). Follow-up: bounce GI + UV-atlas unwrap. [VERIFIABLE HERE]
 - [ ] **Reflection-probe capture plumbing**, **decal projection math**, **volumetric-fog params**,
   **SSR/SSIL passes**, **GPU particles + collision**, **occlusion culling**, **mesh LOD selection**.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]

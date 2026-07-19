@@ -314,6 +314,7 @@
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
+#include "maz/render/Lightmap.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MeshLod.hpp"
 #include "maz/render/MeshTools.hpp"
@@ -20242,6 +20243,83 @@ void testPolynomial() {
     }
 }
 
+void testLightmapBake() {
+    using namespace render;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-4f; };
+
+    BakeLight sun;
+    sun.kind = BakeLightKind::Directional;
+    sun.direction = vec3{0, -1, 0};
+    sun.color = vec3{1, 1, 1};
+
+    // Directional, surfel facing the light: N·L = 1.
+    {
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, 1, 0}}};
+        auto r = bakeLightmap(s, {sun}, {});
+        CHECK(r.size() == 1);
+        CHECK(nf(r[0].x, 1.0f) && nf(r[0].y, 1.0f) && nf(r[0].z, 1.0f));
+    }
+    // Tilted 60deg: N·L = 0.5.
+    {
+        const float c = std::cos(3.14159265f / 3.0f), sn = std::sin(3.14159265f / 3.0f);
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{sn, c, 0}}};
+        auto r = bakeLightmap(s, {sun}, {});
+        CHECK(nf(r[0].x, 0.5f));
+    }
+    // Facing away: unlit; ambient still applies.
+    {
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, -1, 0}}};
+        CHECK(nf(bakeLightmap(s, {sun}, {})[0].x, 0.0f));
+        LightmapBakeOptions opt;
+        opt.ambient = vec3{0.2f, 0.2f, 0.2f};
+        CHECK(nf(bakeLightmap(s, {sun}, {}, opt)[0].x, 0.2f));
+    }
+    // Directional shadow via occluder; castShadows=false ignores it.
+    {
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, 1, 0}}};
+        std::vector<BakeTriangle> occ = {{vec3{-1, 1, -1}, vec3{1, 1, -1}, vec3{0, 1, 2}}};
+        CHECK(nf(bakeLightmap(s, {sun}, occ)[0].x, 0.0f));
+        LightmapBakeOptions opt;
+        opt.castShadows = false;
+        CHECK(nf(bakeLightmap(s, {sun}, occ, opt)[0].x, 1.0f));
+    }
+    // Point light: range falloff + cutoff.
+    {
+        BakeLight pl;
+        pl.kind = BakeLightKind::Point;
+        pl.position = vec3{0, 2, 0};
+        pl.color = vec3{1, 1, 1};
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, 1, 0}}};
+        CHECK(nf(bakeLightmap(s, {pl}, {})[0].x, 1.0f)); // range 0 = no falloff
+        pl.range = 4.0f;
+        CHECK(nf(bakeLightmap(s, {pl}, {})[0].x, 0.5f)); // 1 - 2/4
+        pl.range = 1.0f;
+        CHECK(nf(bakeLightmap(s, {pl}, {})[0].x, 0.0f)); // dist beyond range
+    }
+    // Point light shadow.
+    {
+        BakeLight pl;
+        pl.kind = BakeLightKind::Point;
+        pl.position = vec3{0, 2, 0};
+        pl.color = vec3{1, 1, 1};
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, 1, 0}}};
+        std::vector<BakeTriangle> occ = {{vec3{-1, 1, -1}, vec3{1, 1, -1}, vec3{0, 1, 2}}};
+        CHECK(nf(bakeLightmap(s, {pl}, occ)[0].x, 0.0f));
+    }
+    // Colored light + mixed surfels; empty input.
+    {
+        BakeLight red = sun;
+        red.color = vec3{1, 0, 0};
+        std::vector<Surfel> s = {{vec3{0, 0, 0}, vec3{0, 1, 0}}, {vec3{5, 0, 0}, vec3{0, -1, 0}}};
+        auto r = bakeLightmap(s, {red}, {});
+        CHECK(r.size() == 2);
+        CHECK(nf(r[0].x, 1.0f) && nf(r[0].y, 0.0f));
+        CHECK(nf(r[1].x, 0.0f));
+        CHECK(bakeLightmap({}, {sun}, {}).empty());
+    }
+}
+
 void testFontFallback() {
     using ui::FontFallback;
 
@@ -32415,6 +32493,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testLightmapBake();
     testFontFallback();
     testPngDecode();
     testInflate();
