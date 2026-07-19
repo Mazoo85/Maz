@@ -3,6 +3,7 @@
 #include "maz/render/ColorOps.hpp" // Color, color8, detail::to255
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -160,8 +161,57 @@ public:
         }
         *this = std::move(out);
     }
+    // Resampling filter for resize() — Godot Image.Interpolation (nearest and bilinear subset).
+    enum class Interpolation { Nearest, Bilinear };
+    // Resample to newW x newH IN PLACE — Godot Image.resize. Nearest picks the closest source texel;
+    // bilinear (the default, matching Godot) samples at the destination pixel centre and blends the
+    // four surrounding texels, clamping at the edges. A non-positive size or an empty source yields
+    // an empty image.
+    void resize(int newW, int newH, Interpolation interp = Interpolation::Bilinear) {
+        if (newW <= 0 || newH <= 0 || empty()) {
+            *this = Image(newW < 0 ? 0 : newW, newH < 0 ? 0 : newH);
+            return;
+        }
+        Image out(newW, newH);
+        if (interp == Interpolation::Nearest) {
+            for (int y = 0; y < newH; ++y) {
+                for (int x = 0; x < newW; ++x) {
+                    int sx = static_cast<int>(static_cast<long long>(x) * m_w / newW);
+                    int sy = static_cast<int>(static_cast<long long>(y) * m_h / newH);
+                    sx = std::min(sx, m_w - 1);
+                    sy = std::min(sy, m_h - 1);
+                    out.setPixel(x, y, getPixel(sx, sy));
+                }
+            }
+        } else {
+            const float rx = static_cast<float>(m_w) / static_cast<float>(newW);
+            const float ry = static_cast<float>(m_h) / static_cast<float>(newH);
+            for (int y = 0; y < newH; ++y) {
+                for (int x = 0; x < newW; ++x) {
+                    const float fx = (static_cast<float>(x) + 0.5f) * rx - 0.5f;
+                    const float fy = (static_cast<float>(y) + 0.5f) * ry - 0.5f;
+                    const int x0 = static_cast<int>(std::floor(fx));
+                    const int y0 = static_cast<int>(std::floor(fy));
+                    const float tx = fx - static_cast<float>(x0);
+                    const float ty = fy - static_cast<float>(y0);
+                    const int cx0 = std::clamp(x0, 0, m_w - 1);
+                    const int cx1 = std::clamp(x0 + 1, 0, m_w - 1);
+                    const int cy0 = std::clamp(y0, 0, m_h - 1);
+                    const int cy1 = std::clamp(y0 + 1, 0, m_h - 1);
+                    const Color top = lerpColor(getPixel(cx0, cy0), getPixel(cx1, cy0), tx);
+                    const Color bot = lerpColor(getPixel(cx0, cy1), getPixel(cx1, cy1), tx);
+                    out.setPixel(x, y, lerpColor(top, bot, ty));
+                }
+            }
+        }
+        *this = std::move(out);
+    }
 
 private:
+    static Color lerpColor(const Color& a, const Color& b, float t) {
+        return Color{a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t,
+                     a.a + (b.a - a.a) * t};
+    }
     static std::uint8_t to8(float v) { return static_cast<std::uint8_t>(detail::to255(v)); }
     std::size_t idx(int x, int y) const {
         return (static_cast<std::size_t>(y) * static_cast<std::size_t>(m_w) +

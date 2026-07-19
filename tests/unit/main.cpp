@@ -1115,6 +1115,40 @@ void testColorOps() {
         CHECK(cropL.width() == 4 && cropL.height() == 4);
         CHECK(sameC(cropL.getPixel(2, 1), render::color8(20, 10, 0, 255))); // original corner
         CHECK(sameC(cropL.getPixel(3, 3), render::color8(0, 0, 0, 0)));     // padded
+
+        // --- Image resize: nearest + bilinear (M389) ---
+        // near8: 8-bit component match within a tolerance (bilinear rounding).
+        auto near8 = [](const Color& col, int r, int g, int b, int a, int tol) {
+            auto d = [](int p, int q) { return p > q ? p - q : q - p; };
+            return d(render::r8(col), r) <= tol && d(render::g8(col), g) <= tol &&
+                   d(render::b8(col), b) <= tol && d(render::a8(col), a) <= tol;
+        };
+        // NEAREST upscale 2x2 -> 4x4: each texel maps to a 2x2 block (sx = x*2/4).
+        render::Image nn(2, 2, render::color8(0, 0, 0, 255));
+        nn.setPixel(0, 0, render::color8(10, 0, 0, 255));
+        nn.setPixel(1, 0, render::color8(20, 0, 0, 255));
+        nn.setPixel(0, 1, render::color8(30, 0, 0, 255));
+        nn.setPixel(1, 1, render::color8(40, 0, 0, 255));
+        nn.resize(4, 4, render::Image::Interpolation::Nearest);
+        CHECK(nn.width() == 4 && nn.height() == 4);
+        CHECK(sameC(nn.getPixel(1, 0), render::color8(10, 0, 0, 255)));
+        CHECK(sameC(nn.getPixel(2, 0), render::color8(20, 0, 0, 255)));
+        CHECK(sameC(nn.getPixel(3, 3), render::color8(40, 0, 0, 255)));
+        // BILINEAR upscale 2x1 gradient -> 4x1; centre-sampled expected 8-bit {0,64,191,255}.
+        render::Image bl(2, 1, render::color8(0, 0, 0, 255));
+        bl.setPixel(1, 0, render::color8(255, 255, 255, 255));
+        bl.resize(4, 1, render::Image::Interpolation::Bilinear);
+        CHECK(near8(bl.getPixel(0, 0), 0, 0, 0, 255, 1));
+        CHECK(near8(bl.getPixel(1, 0), 64, 64, 64, 255, 1));
+        CHECK(near8(bl.getPixel(2, 0), 191, 191, 191, 255, 1));
+        CHECK(near8(bl.getPixel(3, 0), 255, 255, 255, 255, 1));
+        // BILINEAR downscale of a solid colour preserves it; non-positive target -> empty.
+        render::Image solid(2, 2, render::color8(70, 80, 90, 255));
+        solid.resize(1, 1, render::Image::Interpolation::Bilinear);
+        CHECK(near8(solid.getPixel(0, 0), 70, 80, 90, 255, 1));
+        render::Image gone(4, 4, render::color8(1, 2, 3, 4));
+        gone.resize(0, 4, render::Image::Interpolation::Nearest);
+        CHECK(gone.empty());
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

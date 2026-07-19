@@ -190,7 +190,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `rotate180` — Godot Image.crop / rotate_90 / rotate_180, all in-place: crop resizes the canvas
   keeping the top-left corner and pads new area transparent, rotate90 swaps width/height either
   direction, rotate180 flips both axes; verified by exact pixel remaps on a coordinate-coded
-  image, four-CW-rotations-is-identity, two-CW-equals-180, and crop shrink/grow); plus
+  image, four-CW-rotations-is-identity, two-CW-equals-180, and crop shrink/grow); M389 adds
+  **resize** (`resize(w, h, Interpolation)` — Godot Image.resize: nearest-neighbour or bilinear
+  resampling, in place; bilinear samples at the destination pixel centre and blends the four
+  surrounding texels with edge clamping; verified by exact nearest block mapping on an upscale/
+  downscale and by exact known-value bilinear on a 2x1 gradient upscaled to 4x1 → 8-bit
+  {0,64,191,255}, plus solid-colour preservation and non-positive-size → empty); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
