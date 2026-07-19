@@ -348,6 +348,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (which also compresses to <¼ size), a period-4 pattern (<½), repetitive English text via the string
   helpers (shrinks), all-256-distinct bytes, 5000 pseudo-random bytes, an overlapping long run
   (LZ-as-RLE), and a block larger than the 4KB window;
+  **Huffman entropy compression** M470 (`io::huffmanCompress` / `io::huffmanDecompress` in
+  `maz/io/Huffman.hpp` — the ENTROPY-coding companion to the LZSS dictionary codec above: it assigns
+  short bit codes to frequent bytes and long codes to rare ones (optimal prefix coding), the piece LZ +
+  Huffman combine into as "deflate". Reach for it on data with a lopsided byte histogram but few long
+  repeats — packed tables, tile indices, quantised audio, text. Canonical Huffman: the stream stores
+  one-byte code lengths per present symbol, so the decoder rebuilds the identical code table with no
+  separate model. Godot bundles deflate/zstd; the engine had only a dictionary coder, so this adds the
+  missing entropy path -> parity. Verified round-trip-exact across empty, single-byte, a 1000-byte
+  single-symbol run, alternating two-symbol, repetitive English text (which also compresses below its
+  size), all-256-distinct bytes, deterministic identical output on repeat, highly-skewed data (shrinks
+  to <½), 5000 pseudo-random bytes (exact, no corruption), and a truncated stream (no crash);
   **fixed-point number** M415 (`core::Fixed` — a Q16.16 fixed-point type for DETERMINISTIC simulation.
   Floating point gives subtly different results across CPUs/compilers/optimisation levels, which
   silently desyncs lockstep multiplayer, replays and cross-platform physics; Fixed is pure integer

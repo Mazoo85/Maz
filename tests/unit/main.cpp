@@ -114,6 +114,7 @@
 #include "maz/math/Statistics.hpp"
 #include "maz/math/BoundingSphere.hpp"
 #include "maz/math/FitObb.hpp"
+#include "maz/io/Huffman.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20210,6 +20211,74 @@ void testPolynomial() {
     }
 }
 
+void testHuffman() {
+    using io::huffmanCompress;
+    using io::huffmanDecompress;
+    using io::huffmanDecompressString;
+
+    auto roundtrips = [](const std::vector<std::uint8_t>& in) {
+        return huffmanDecompress(huffmanCompress(in)) == in;
+    };
+
+    // Empty, single byte, and a long run of one repeated byte.
+    CHECK(roundtrips({}));
+    CHECK(huffmanDecompress(huffmanCompress(std::vector<std::uint8_t>{})).empty());
+    CHECK(roundtrips({42}));
+    CHECK(roundtrips(std::vector<std::uint8_t>(1000, 7)));
+    // Two symbols alternating.
+    {
+        std::vector<std::uint8_t> v;
+        for (int i = 0; i < 100; ++i) v.push_back(static_cast<std::uint8_t>(i % 2 ? 'a' : 'b'));
+        CHECK(roundtrips(v));
+    }
+    // Text round-trips and actually compresses.
+    {
+        const std::string text =
+            "the quick brown fox jumps over the lazy dog. "
+            "the quick brown fox jumps over the lazy dog. "
+            "the quick brown fox jumps over the lazy dog. "
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeeeee";
+        const std::vector<std::uint8_t> comp = huffmanCompress(text);
+        CHECK(huffmanDecompressString(comp) == text);
+        CHECK(comp.size() < text.size());
+    }
+    // All 256 byte values present.
+    {
+        std::vector<std::uint8_t> v;
+        for (int rep = 0; rep < 4; ++rep)
+            for (int b = 0; b < 256; ++b) v.push_back(static_cast<std::uint8_t>(b));
+        CHECK(roundtrips(v));
+    }
+    // Deterministic output.
+    {
+        const std::string s = "deterministic output check deterministic output check";
+        CHECK(huffmanCompress(s) == huffmanCompress(s));
+    }
+    // Highly skewed data shrinks dramatically and decodes exactly.
+    {
+        std::vector<std::uint8_t> v;
+        for (int i = 0; i < 1000; ++i) v.push_back(static_cast<std::uint8_t>(i % 100 == 0 ? 1 : 0));
+        const std::vector<std::uint8_t> comp = huffmanCompress(v);
+        CHECK(huffmanDecompress(comp) == v);
+        CHECK(comp.size() < v.size() / 2);
+    }
+    // Pseudorandom bytes: exact (no corruption) even when it can't shrink.
+    {
+        std::vector<std::uint8_t> v;
+        core::Pcg32 rng(470u, 3u);
+        for (int i = 0; i < 5000; ++i) v.push_back(static_cast<std::uint8_t>(rng.next() & 0xffu));
+        CHECK(roundtrips(v));
+    }
+    // Truncated stream must not crash.
+    {
+        const std::string s = "some data to truncate midway through the bitstream";
+        std::vector<std::uint8_t> comp = huffmanCompress(s);
+        comp.resize(comp.size() - 2);
+        const std::vector<std::uint8_t> out = huffmanDecompress(comp);
+        CHECK(out.size() <= s.size());
+    }
+}
+
 void testFitObb() {
     using math::fitObb;
     using math::mat3;
@@ -29595,6 +29664,7 @@ int main() {
     testStatistics();
     testBoundingSphere();
     testFitObb();
+    testHuffman();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
