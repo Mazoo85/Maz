@@ -1707,6 +1707,41 @@ void SubBass::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Octaver ----------------------------------------------------------------
+
+void Octaver::reset() {
+    prevL_ = prevR_ = 0.0f;
+    hpL_ = hpR_ = 0.0f;
+    lpL_ = lpR_ = 0.0f;
+}
+
+void Octaver::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || amount_ <= 0.0f || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    constexpr float kTwoPi = 6.283185307179586f;
+    // DC-blocker (~20 Hz high-pass) to strip the rectifier's DC offset, and a tone low-pass.
+    const float dcR = std::exp(-kTwoPi * 20.0f / static_cast<float>(sampleRate));
+    const float aTone = 1.0f - std::exp(-kTwoPi * tone_ / static_cast<float>(sampleRate));
+    // 1.6 roughly compensates the rectified octave partial's amplitude so `amount` reads unity-ish.
+    const float g = amount_ * 1.6f;
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Full-wave rectify → DC-block → tone low-pass, per channel.
+        const float rl = l < 0.0f ? -l : l;
+        hpL_ = rl - prevL_ + dcR * hpL_;
+        prevL_ = rl;
+        lpL_ += aTone * (hpL_ - lpL_);
+        const float rr = r < 0.0f ? -r : r;
+        hpR_ = rr - prevR_ + dcR * hpR_;
+        prevR_ = rr;
+        lpR_ += aTone * (hpR_ - lpR_);
+        stereo[2 * i] = l + g * lpL_;
+        stereo[2 * i + 1] = r + g * lpR_;
+    }
+}
+
 // ---- AutoPan ----------------------------------------------------------------
 
 void AutoPan::reset() {

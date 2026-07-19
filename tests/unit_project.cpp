@@ -260,6 +260,9 @@ int main() {
     mixer.subbass().setAmount(0.6f);
     mixer.subbass().setCutoff(100.0f);
     mixer.subbass().setTone(180.0f);
+    mixer.octaver().setEnabled(true);
+    mixer.octaver().setAmount(0.55f);
+    mixer.octaver().setTone(5000.0f);
     mixer.autowah().setEnabled(true);
     mixer.autowah().setBaseHz(250.0f);
     mixer.autowah().setRangeHz(2500.0f);
@@ -856,6 +859,9 @@ int main() {
     check(mixer2.subbass().enabled() && near(mixer2.subbass().amount(), 0.6f) &&
               near(mixer2.subbass().cutoff(), 100.0f) && near(mixer2.subbass().tone(), 180.0f),
           "sub-bass round-trips");
+    check(mixer2.octaver().enabled() && near(mixer2.octaver().amount(), 0.55f) &&
+              near(mixer2.octaver().tone(), 5000.0f),
+          "octaver round-trips");
     check(mixer2.autowah().enabled() && near(mixer2.autowah().baseHz(), 250.0f) &&
               near(mixer2.autowah().rangeHz(), 2500.0f) &&
               near(mixer2.autowah().sensitivity(), 0.65f) &&

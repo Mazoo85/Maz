@@ -2251,6 +2251,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("tone Hz##sub", &tn, 60.0f, 1000.0f, "%.0f")) mx.subbass().setTone(tn);
     }
     {
+        bool en = mx.octaver().enabled();
+        if (ImGui::Checkbox("Octaver", &en)) mx.octaver().setEnabled(en);
+        float amt = mx.octaver().amount();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("up##oct", &amt, 0.0f, 1.0f, "%.2f")) mx.octaver().setAmount(amt);
+        float tn = mx.octaver().tone();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("tone Hz##oct", &tn, 500.0f, 18000.0f, "%.0f")) mx.octaver().setTone(tn);
+    }
+    {
         bool en = mx.autowah().enabled();
         if (ImGui::Checkbox("Auto-Wah", &en)) mx.autowah().setEnabled(en);
         float base = mx.autowah().baseHz();

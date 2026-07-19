@@ -513,6 +513,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx subbass " << (mixer.subbass().enabled() ? 1 : 0) << " " << mixer.subbass().amount() << " "
       << mixer.subbass().cutoff() << " " << mixer.subbass().tone() << "\n";
+    f << "fx octaver " << (mixer.octaver().enabled() ? 1 : 0) << " " << mixer.octaver().amount() << " "
+      << mixer.octaver().tone() << "\n";
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
       << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
       << (mixer.utility().mono() ? 1 : 0) << "\n";
@@ -1200,6 +1202,12 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.subbass().setAmount(amt);
                 mixer.subbass().setCutoff(cut);
                 mixer.subbass().setTone(tn);
+            } else if (which == "octaver") {
+                float amt = 0.0f, tn = 4000.0f;
+                ls >> amt >> tn;
+                mixer.octaver().setEnabled(en != 0);
+                mixer.octaver().setAmount(amt);
+                mixer.octaver().setTone(tn);
             } else if (which == "utility") {
                 float gainDb = 0.0f;
                 int invL = 0, invR = 0, mono = 0;

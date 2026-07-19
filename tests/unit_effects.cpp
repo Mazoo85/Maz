@@ -3641,6 +3641,55 @@ int main() {
         check(rms(qtail) < quietIn * 0.5, "per-bus gate attenuates a signal below its threshold");
     }
 
+    // --- Octaver: full-wave rectification injects a strong octave-up harmonic ------
+    {
+        // Goertzel power at a frequency on the left channel (stereo-interleaved buffer).
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // A 220 Hz tone has (essentially) no 440 Hz content; the octaver should create a strong one.
+        std::vector<float> dry = sineStereo(sr, 220.0, 0.6, sr);
+        std::vector<float> wet = dry; // copy, then process in place
+        audio::Octaver oct;
+        oct.setEnabled(true);
+        oct.setAmount(1.0f);
+        oct.setTone(6000.0f);
+        oct.process(wet.data(), sr, sr);
+        // Skip the DC-blocker/low-pass settling transient by measuring the second half.
+        std::vector<float> wTail(wet.begin() + static_cast<long>(sr), wet.end());
+        std::vector<float> dTail(dry.begin() + static_cast<long>(sr), dry.end());
+        const double dry440 = power(dTail, 440.0, sr);
+        const double wet440 = power(wTail, 440.0, sr);
+        check(wet440 > dry440 * 50.0 + 1.0, "octaver injects a strong octave-up (440 Hz) component");
+        check(power(wTail, 220.0, sr) > 0.0, "octaver keeps the dry fundamental");
+
+        // amount 0 leaves the signal untouched (bit-for-bit), and it's off by default.
+        std::vector<float> pass = sineStereo(sr / 4, 300.0, 0.5, sr);
+        std::vector<float> ref = pass;
+        audio::Octaver zero;
+        zero.setEnabled(true);
+        zero.setAmount(0.0f);
+        zero.process(pass.data(), sr / 4, sr);
+        bool identical = true;
+        for (size_t i = 0; i < pass.size(); ++i) {
+            if (pass[i] != ref[i]) {
+                identical = false;
+                break;
+            }
+        }
+        check(identical, "octaver at amount 0 is bit-for-bit transparent");
+        audio::Octaver def;
+        check(!def.enabled() && def.amount() == 0.0f, "octaver is off by default");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

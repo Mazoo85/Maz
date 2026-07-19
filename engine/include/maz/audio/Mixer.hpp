@@ -83,6 +83,7 @@ public:
     Vocoder& vocoder() { return vocoder_; }
     MonoBass& monobass() { return monobass_; }
     SubBass& subbass() { return subbass_; }
+    Octaver& octaver() { return octaver_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
     Vst3Host& vst3() { return vst3_; }       // a loaded VST3-format plugin
@@ -182,6 +183,7 @@ private:
     Vocoder vocoder_{};
     MonoBass monobass_{};
     SubBass subbass_{};
+    Octaver octaver_{};
     PluginHost plugin_{};
     ClapHost clap_{};
     Vst3Host vst3_{};

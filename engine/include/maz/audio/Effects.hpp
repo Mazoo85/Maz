@@ -1034,6 +1034,34 @@ private:
     float prevLp_ = 0.0f;   // previous low-passed sample (for zero-cross detection)
 };
 
+// An octave-up generator (the classic Octavia / octave-fuzz doubler): full-wave rectifying the input
+// (|x|) folds its waveform so the dominant periodicity halves in the time domain — i.e. a tone at f
+// gains a strong component at 2f (an octave up), plus higher even harmonics for a searing, fuzzy
+// lead-doubling character. A DC blocker removes the rectifier's offset and a tone low-pass tames the
+// fizz; the octave signal is mixed on top of the dry (the dry always passes). The counterpart to
+// SubBass (octave-down). `amount` 0 (default) = off (dry passes untouched).
+class Octaver : public Effect {
+public:
+    Octaver() { enabled_ = false; }
+    const char* name() const override { return "Octaver"; }
+    // Wet level of the generated octave-up signal, mixed on top of the dry (0 = off, 1 = full).
+    void setAmount(float a) { amount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    // Tone: a low-pass on the octave-up signal that tames the rectifier fizz (softer = lower Hz).
+    void setTone(float hz) { tone_ = hz < 500.0f ? 500.0f : (hz > 18000.0f ? 18000.0f : hz); }
+    float amount() const { return amount_; }
+    float tone() const { return tone_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float amount_ = 0.0f;   // wet octave-up level; 0 = off
+    float tone_ = 4000.0f;  // low-pass on the generated octave signal
+    float prevL_ = 0.0f, prevR_ = 0.0f; // DC-blocker: previous rectified input per channel
+    float hpL_ = 0.0f, hpR_ = 0.0f;     // DC-blocker high-pass state per channel
+    float lpL_ = 0.0f, lpR_ = 0.0f;     // tone low-pass state per channel
+};
+
 // An auto-panner: an internal LFO sweeps the stereo position at `rate` Hz, `depth` 0..1 (0 = none,
 // 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
 class AutoPan : public Effect {
