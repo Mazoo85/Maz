@@ -6,7 +6,7 @@ namespace maz::audio {
 
 // The available oscillator waveforms. Sine is the default; the rest are cheap analogue-style
 // shapes (naive, not band-limited — good enough for the current milestones).
-enum class Waveform { Sine, Square, Saw, Triangle };
+enum class Waveform { Sine, Square, Saw, Triangle, Trapezoid };
 
 // Evaluate a waveform at a phase in [0, 1). Shared by the Oscillator and the poly synth so there is
 // a single source of truth for each shape.
@@ -21,6 +21,14 @@ inline float waveSample(Waveform w, double phase) {
         return static_cast<float>(2.0 * phase - 1.0);
     case Waveform::Triangle:
         return static_cast<float>(4.0 * std::fabs(phase - 0.5) - 1.0);
+    case Waveform::Trapezoid: {
+        // A triangle whose peaks are clamped into flat plateaus: linear ramps like a triangle but
+        // flat tops like a square, so its (odd-only) harmonics roll off between the two — a warm,
+        // hollow tone brighter than a triangle yet softer than a square. DC-free and symmetric.
+        const float tri = static_cast<float>(4.0 * std::fabs(phase - 0.5) - 1.0);
+        const float t = tri * 2.0f;
+        return t < -1.0f ? -1.0f : (t > 1.0f ? 1.0f : t);
+    }
     }
     return 0.0f;
 }

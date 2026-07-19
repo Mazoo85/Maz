@@ -19,7 +19,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
     syn.setMode(mode == 1 ? SynthMode::FM
                           : (mode == 2 ? SynthMode::Wavetable : SynthMode::Subtractive));
-    syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 3 ? 0 : wave));
+    syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 4 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);
     syn.setFmIndex(index);
@@ -39,7 +39,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int f0 = 0, f1 = 1, f2 = 2, f3 = 3; // wavetable frames optional for old files
     if (ls >> f0 >> f1 >> f2 >> f3) {
-        auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 3 ? 0 : v); };
+        auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 4 ? 0 : v); };
         syn.setWavetableFrames(wf(f0), wf(f1), wf(f2), wf(f3));
     }
     float vibRate = 5.0f, vibDepth = 0.0f; // vibrato optional for old files
@@ -160,7 +160,7 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int subW = 0; // sub waveform optional for old files
     if (ls >> subW) {
-        syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 3 ? 0 : subW));
+        syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 4 ? 0 : subW));
     }
     float noiseCol = 0.0f; // noise color optional for old files
     if (ls >> noiseCol) {
@@ -191,7 +191,7 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int osc2Linked = 1, osc2w = 0; // osc2 waveform optional for old files (linked → follows primary)
     if (ls >> osc2Linked >> osc2w) {
-        syn.setOsc2Waveform(static_cast<Waveform>(osc2w < 0 || osc2w > 3 ? 0 : osc2w));
+        syn.setOsc2Waveform(static_cast<Waveform>(osc2w < 0 || osc2w > 4 ? 0 : osc2w));
         syn.setOsc2WaveformLinked(osc2Linked != 0);
     }
     // Absent → osc2 stays linked to the primary (the default), matching old files.
@@ -1284,7 +1284,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (idx >= 0 && idx < Automation::count()) {
                 AutoLane& lane = automation.lane(idx);
                 lane.enabled = en != 0;
-                lane.lfo.shape = static_cast<Waveform>(shape < 0 || shape > 3 ? 0 : shape);
+                lane.lfo.shape = static_cast<Waveform>(shape < 0 || shape > 4 ? 0 : shape);
                 lane.lfo.rateHz = rate;
                 lane.lo = lo;
                 lane.hi = hi;

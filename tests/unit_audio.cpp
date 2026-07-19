@@ -87,6 +87,40 @@ int main() {
     osc2.render(mono2.data(), frames, sampleRate);
     check(std::fabs(estimateHz(mono2, sampleRate) - 880.0) < 3.0, "880 Hz note renders at ~880 Hz");
 
+    // --- Trapezoid waveform: a clipped triangle (flat tops, DC-free) ---------
+    {
+        const int N = 2048;
+        auto hfEnergy = [](audio::Waveform w, int n) {
+            double e = 0.0;
+            float prev = audio::waveSample(w, 0.0);
+            for (int i = 1; i <= n; ++i) {
+                const float cur = audio::waveSample(w, static_cast<double>(i % n) / n);
+                const float d = cur - prev;
+                e += static_cast<double>(d) * d;
+                prev = cur;
+            }
+            return e;
+        };
+        // DC-free: one cycle integrates to ~0 (symmetric, no offset — safe as an audio oscillator).
+        double dc = 0.0;
+        for (int i = 0; i < N; ++i) {
+            dc += audio::waveSample(audio::Waveform::Trapezoid, static_cast<double>(i) / N);
+        }
+        check(std::fabs(dc / N) < 1e-3, "trapezoid is DC-free over a cycle");
+        // Flat tops: samples across the peak plateau all clamp to +1, unlike a triangle which only
+        // touches +1 at a single instant.
+        check(std::fabs(audio::waveSample(audio::Waveform::Trapezoid, 0.02) - 1.0f) < 1e-4f &&
+                  std::fabs(audio::waveSample(audio::Waveform::Trapezoid, 0.08) - 1.0f) < 1e-4f,
+              "trapezoid has a flat plateau at its peak");
+        check(audio::waveSample(audio::Waveform::Triangle, 0.08) < 0.9f,
+              "a triangle does not (control: it is still ramping at the same phase)");
+        // Harmonic brightness sits between triangle (smoothest) and square (hardest edges).
+        const double tri = hfEnergy(audio::Waveform::Triangle, N);
+        const double trap = hfEnergy(audio::Waveform::Trapezoid, N);
+        const double sqr = hfEnergy(audio::Waveform::Square, N);
+        check(trap > tri && trap < sqr, "trapezoid brightness sits between triangle and square");
+    }
+
     // --- AudioEngine: offline render ----------------------------------------
     audio::AudioEngine engine;
     engine.initOffline();

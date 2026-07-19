@@ -898,8 +898,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
         int w = static_cast<int>(syn.waveform());
-        const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
-        if (ImGui::Combo("Waveform", &w, waves, 4)) {
+        const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+        if (ImGui::Combo("Waveform", &w, waves, 5)) {
             syn.setWaveform(static_cast<audio::Waveform>(w));
         }
         float detune = syn.detuneCents();
@@ -913,8 +913,8 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("Osc 2 coarse", &osc2semi, -24.0f, 24.0f, "%.0f st"))
             syn.setOsc2Semitones(osc2semi);
         int osc2w = static_cast<int>(syn.osc2Waveform());
-        const char* osc2Waves[] = {"Sine", "Square", "Saw", "Triangle"};
-        if (ImGui::Combo("Osc 2 wave", &osc2w, osc2Waves, 4))
+        const char* osc2Waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+        if (ImGui::Combo("Osc 2 wave", &osc2w, osc2Waves, 5))
             syn.setOsc2Waveform(static_cast<audio::Waveform>(osc2w));
         float ring = syn.ringMod();
         if (ImGui::SliderFloat("Ring mod", &ring, 0.0f, 1.0f, "%.2f")) syn.setRingMod(ring);
@@ -936,8 +936,8 @@ void buildSynthUI(audio::Sequencer& seq) {
             syn.setUnison(uni, uniDet);
         }
         int subw = static_cast<int>(syn.subWaveform());
-        const char* subWaves[] = {"Sine", "Square", "Saw", "Triangle"};
-        if (ImGui::Combo("Sub wave", &subw, subWaves, 4))
+        const char* subWaves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+        if (ImGui::Combo("Sub wave", &subw, subWaves, 5))
             syn.setSubWaveform(static_cast<audio::Waveform>(subw));
         int subOct = syn.subOctave();
         const char* subOcts[] = {"-1 oct", "-2 oct"};
@@ -987,14 +987,14 @@ void buildSynthUI(audio::Sequencer& seq) {
             syn.setWavetableLfo(wtLfoRate, wtLfoDepth);
         }
         // Four morph-frame selectors (frame 0 → 3 as the position sweeps).
-        const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
+        const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
         int fr[4];
         bool frCh = false;
         for (int k = 0; k < 4; ++k) {
             fr[k] = static_cast<int>(syn.wavetableFrame(k));
             ImGui::PushID(k);
             ImGui::SetNextItemWidth(90.0f);
-            frCh |= ImGui::Combo("##wtframe", &fr[k], waves, 4);
+            frCh |= ImGui::Combo("##wtframe", &fr[k], waves, 5);
             ImGui::PopID();
             if (k < 3) ImGui::SameLine();
         }
@@ -1232,8 +1232,8 @@ void buildSynthUI(audio::Sequencer& seq) {
 void buildBassUI(audio::SynthInstrument& syn) {
     ImGui::Begin("CJC Music Station — Bass Synth");
     int w = static_cast<int>(syn.waveform());
-    const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
-    if (ImGui::Combo("Waveform##bass", &w, waves, 4)) {
+    const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    if (ImGui::Combo("Waveform##bass", &w, waves, 5)) {
         syn.setWaveform(static_cast<audio::Waveform>(w));
     }
     float a = syn.attack(), d = syn.decay(), s = syn.sustain(), r = syn.release();
@@ -2079,9 +2079,9 @@ void buildAutomationUI(audio::Automation& automation) {
         ImGui::Checkbox(audio::Automation::targetName(static_cast<audio::AutoTarget>(i)),
                         &lane.enabled);
         int shape = static_cast<int>(lane.lfo.shape);
-        const char* shapes[] = {"Sine", "Square", "Saw", "Triangle"};
+        const char* shapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
         ImGui::SetNextItemWidth(110.0f);
-        if (ImGui::Combo("shape", &shape, shapes, 4)) {
+        if (ImGui::Combo("shape", &shape, shapes, 5)) {
             lane.lfo.shape = static_cast<audio::Waveform>(shape);
         }
         ImGui::SameLine();
@@ -2271,8 +2271,8 @@ int runWindowed(const core::AppConfig& cfg) {
                 if (ImGui::SliderFloat("Frequency", &freq, 40.0f, 2000.0f, "%.0f Hz")) {
                     engine.voice().setFrequency(freq);
                 }
-                const char* waves[] = {"Sine", "Square", "Saw", "Triangle"};
-                if (ImGui::Combo("Waveform", &waveIndex, waves, 4)) {
+                const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+                if (ImGui::Combo("Waveform", &waveIndex, waves, 5)) {
                     engine.voice().setWaveform(static_cast<audio::Waveform>(waveIndex));
                 }
                 ImGui::End();
