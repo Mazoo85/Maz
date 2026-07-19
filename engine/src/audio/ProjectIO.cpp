@@ -295,7 +295,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().filterEnvDepth() << " " << seq.sampler().pitchEnvDepth() << " "
       << seq.sampler().pitchEnvTime() << " " << seq.sampler().filterVelo() << " "
       << (seq.sampler().mono() ? 1 : 0) << " " << seq.sampler().ampDecay() << " "
-      << seq.sampler().ampSustain() << "\n";
+      << seq.sampler().ampSustain() << " " << seq.sampler().velSensitivity() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -674,6 +674,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> adec >> asus) {
                 seq.sampler().setAmpDecay(adec);
                 seq.sampler().setAmpSustain(asus);
+            }
+            float vsens = 1.0f; // velocity→volume optional (older files → full sensitivity)
+            if (ls >> vsens) {
+                seq.sampler().setVelSensitivity(vsens);
             }
         } else if (tag == "chan") {
             int c = -1;

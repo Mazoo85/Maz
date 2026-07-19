@@ -1208,6 +1208,10 @@ void buildSynthUI(audio::Sequencer& seq) {
         seq.sampler().setAmpDecay(smpDec);
         seq.sampler().setAmpSustain(smpSus);
     }
+    float smpVel = seq.sampler().velSensitivity();
+    ImGui::SetNextItemWidth(150.0f);
+    if (ImGui::SliderFloat("Vel→vol##smp", &smpVel, 0.0f, 1.0f, "%.2f"))
+        seq.sampler().setVelSensitivity(smpVel);
     static char pathBuf[256] = "";
     ImGui::SetNextItemWidth(200.0f);
     ImGui::InputText("wav path", pathBuf, sizeof(pathBuf));

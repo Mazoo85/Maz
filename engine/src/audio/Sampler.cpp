@@ -366,7 +366,9 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 s = v.filter.process(s, cutoff, filterReso_, sampleRate,
                                      StateVariableFilter::Mode::LowPass);
             }
-            out[i] += s * v.env * v.velocity * gain_;
+            // Velocity → volume: blend between full level and velocity-scaled by velSens_.
+            const float velGain = 1.0f - velSens_ * (1.0f - v.velocity);
+            out[i] += s * v.env * velGain * gain_;
 
             // Pitch envelope: scale the read speed by the (decaying) semitone offset, then advance
             // the slide toward 0. Off → curRate == rate, so playback is bit-identical.

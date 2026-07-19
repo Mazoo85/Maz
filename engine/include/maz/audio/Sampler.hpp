@@ -124,6 +124,11 @@ public:
         filterVelo_ = hz < 0.0f ? 0.0f : (hz > 18000.0f ? 18000.0f : hz);
     }
     float filterVelo() const { return filterVelo_; }
+    // Velocity → volume sensitivity (0..1): how much note velocity scales loudness. 1 (default) =
+    // fully velocity-scaled (a soft hit is proportionally quieter); 0 = velocity-independent (every
+    // hit plays at full level, e.g. for one-shots that should stay constant). Blends linearly.
+    void setVelSensitivity(float s) { velSens_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float velSensitivity() const { return velSens_; }
     float filterEnvAttack() const { return fEnvA_; }
     float filterEnvDecay() const { return fEnvD_; }
     float filterEnvSustain() const { return fEnvS_; }
@@ -206,6 +211,7 @@ private:
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
     float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
     float filterVelo_ = 0.0f;       // velocity → cutoff amount in Hz; 0 = off
+    float velSens_ = 1.0f;          // velocity → volume amount; 1 = full (default), 0 = ignore velocity
     float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
     float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds

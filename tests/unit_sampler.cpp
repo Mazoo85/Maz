@@ -233,6 +233,36 @@ int main() {
         check(std::fabs(def.ampSustain() - 1.0f) < 1e-6f, "amp sustain defaults to 1 (transparent)");
     }
 
+    // Velocity → volume sensitivity: full (default) makes a soft hit quieter; zero ignores velocity.
+    {
+        std::vector<float> tone(static_cast<size_t>(sr) / 2);
+        for (int i = 0; i < sr / 2; ++i) {
+            tone[static_cast<size_t>(i)] = 0.6f * static_cast<float>(std::sin(kTwoPi * 220.0 * i / sr));
+        }
+        auto hitRms = [&](float velSens, float velocity) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setBasePitch(60);
+            s.setVelSensitivity(velSens);
+            s.noteOn(60, velocity);
+            const std::vector<float> out = renderMono(s, sr / 4, sr);
+            double e = 0.0;
+            for (float v : out) {
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return std::sqrt(e / static_cast<double>(out.size()));
+        };
+        const double hard = hitRms(1.0f, 1.0f);
+        const double soft = hitRms(1.0f, 0.3f);
+        check(soft < hard * 0.5, "full velocity sensitivity makes a soft hit quieter");
+        const double softFlat = hitRms(0.0f, 0.3f);
+        const double hardFlat = hitRms(0.0f, 1.0f);
+        check(std::fabs(softFlat - hardFlat) < hardFlat * 0.02,
+              "zero velocity sensitivity ignores velocity for volume");
+        audio::Sampler dv;
+        check(std::fabs(dv.velSensitivity() - 1.0f) < 1e-6f, "velocity sensitivity defaults to 1 (full)");
+    }
+
     // Reverse playback: a ramp sample read backwards starts near the end value and descends.
     {
         std::vector<float> ramp(1000);
