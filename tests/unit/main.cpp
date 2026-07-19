@@ -106,6 +106,7 @@
 #include "maz/game/LSystem.hpp"
 #include "maz/core/SparseTable.hpp"
 #include "maz/game/AllPairsShortestPath.hpp"
+#include "maz/math/Polynomial.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20136,6 +20137,72 @@ void testAllPairsShortestPath() {
     }
 }
 
+// Polynomial: analytic quadratic + cubic real-root solvers (M462).
+void testPolynomial() {
+    using core::Pcg32;
+    using math::CubicRoots;
+    using math::QuadraticRoots;
+    using math::solveCubic;
+    using math::solveQuadratic;
+    Pcg32 rng(20u, 24u);
+
+    // Quadratic from known roots: recover both, residual ~0.
+    for (int trial = 0; trial < 400; ++trial) {
+        const float r0 = rng.nextFloat() * 20.0f - 10.0f;
+        const float r1 = rng.nextFloat() * 20.0f - 10.0f;
+        const float a = rng.nextFloat() * 4.0f + 0.5f;
+        const float b = -a * (r0 + r1);
+        const float c = a * r0 * r1;
+        const QuadraticRoots q = solveQuadratic(a, b, c);
+        const float lo = std::fmin(r0, r1), hi = std::fmax(r0, r1);
+        if (std::fabs(lo - hi) < 1e-3f) {
+            CHECK(q.count >= 1 && std::fabs(q.x0 - lo) < 1e-2f);
+        } else {
+            CHECK(q.count == 2 && std::fabs(q.x0 - lo) < 1e-2f && std::fabs(q.x1 - hi) < 1e-2f);
+            CHECK(std::fabs(a * q.x0 * q.x0 + b * q.x0 + c) < 1e-2f);
+            CHECK(std::fabs(a * q.x1 * q.x1 + b * q.x1 + c) < 1e-2f);
+        }
+    }
+    // Quadratic edge cases.
+    {
+        CHECK(solveQuadratic(1.0f, 0.0f, 1.0f).count == 0);
+        const QuadraticRoots dbl = solveQuadratic(1.0f, -4.0f, 4.0f);
+        CHECK(dbl.count == 1 && std::fabs(dbl.x0 - 2.0f) < 1e-4f);
+        const QuadraticRoots lin = solveQuadratic(0.0f, 2.0f, -6.0f);
+        CHECK(lin.count == 1 && std::fabs(lin.x0 - 3.0f) < 1e-4f);
+        CHECK(solveQuadratic(0.0f, 0.0f, 5.0f).count == 0);
+    }
+    // Cubic from three known distinct roots.
+    for (int trial = 0; trial < 400; ++trial) {
+        float r[3] = {rng.nextFloat() * 16.0f - 8.0f, rng.nextFloat() * 16.0f - 8.0f,
+                      rng.nextFloat() * 16.0f - 8.0f};
+        std::sort(r, r + 3);
+        if (std::fabs(r[0] - r[1]) < 0.2f || std::fabs(r[1] - r[2]) < 0.2f) continue;
+        const float a = rng.nextFloat() * 3.0f + 0.5f;
+        const float b = -a * (r[0] + r[1] + r[2]);
+        const float c = a * (r[0] * r[1] + r[1] * r[2] + r[0] * r[2]);
+        const float d = -a * r[0] * r[1] * r[2];
+        const CubicRoots roots = solveCubic(a, b, c, d);
+        CHECK(roots.count == 3);
+        for (int i = 0; i < 3; ++i) {
+            CHECK(std::fabs(roots.x[i] - r[i]) < 2e-2f);
+            const float x = roots.x[i];
+            CHECK(std::fabs(a * x * x * x + b * x * x + c * x + d) < 2e-2f);
+        }
+    }
+    // Cubic special cases.
+    {
+        const CubicRoots one = solveCubic(1.0f, -3.0f, 1.0f, -3.0f); // (x-3)(x^2+1)
+        CHECK(one.count == 1 && std::fabs(one.x[0] - 3.0f) < 1e-3f);
+        const CubicRoots dbl = solveCubic(1.0f, -6.0f, 9.0f, -4.0f); // (x-1)^2(x-4)
+        CHECK(dbl.count == 2 && std::fabs(dbl.x[0] - 1.0f) < 1e-3f && std::fabs(dbl.x[1] - 4.0f) < 1e-3f);
+        const CubicRoots trip = solveCubic(1.0f, -6.0f, 12.0f, -8.0f); // (x-2)^3
+        CHECK(trip.count == 1 && std::fabs(trip.x[0] - 2.0f) < 1e-3f);
+        const CubicRoots deg = solveCubic(0.0f, 1.0f, -5.0f, 6.0f); // -> x^2-5x+6
+        CHECK(deg.count == 2 && std::fabs(deg.x[0] - 2.0f) < 1e-4f && std::fabs(deg.x[1] - 3.0f) < 1e-4f);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28922,6 +28989,7 @@ int main() {
     testLSystem();
     testSparseTable();
     testAllPairsShortestPath();
+    testPolynomial();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

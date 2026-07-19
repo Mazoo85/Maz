@@ -781,6 +781,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the reconstructed path; every source's distances match an independent Dijkstra reference across 40
   random graphs; reconstructed paths start/end correctly with matching total weight; a negative edge is
   used correctly and a negative cycle is detected),
+  **polynomial root solvers** (M462, `math::solveQuadratic` + `math::solveCubic` — closed-form real roots
+  of quadratics (numerically-stable form) and cubics (Cardano + the trigonometric three-real-root case),
+  sorted and de-duplicated. The exact building blocks behind ray/sphere and ray/quadric intersection,
+  solving for the time a projectile reaches a height, and inverting a cubic ease. Godot has no general
+  polynomial solver -> beyond-Godot. Verified: built from 400 random known-root quadratics and 400 random
+  cubics, both recovered exactly with near-zero residuals; plus edge cases — no-real-root, double and
+  triple roots, the linear/quadratic degrade paths, and a one-real-root cubic),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
