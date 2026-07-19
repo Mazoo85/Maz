@@ -59,6 +59,7 @@ enum class AutoTarget {
     BeatRepeatMix,
     FormantVowel,
     CompThreshold,
+    WavetablePosition,
     Count
 };
 

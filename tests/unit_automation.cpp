@@ -749,6 +749,32 @@ int main() {
               "bass volume/pan automation reaches its low bounds");
     }
 
+    // --- Wavetable-position target (Serum/FL-style timbre morph sweeps) -------
+    {
+        audio::Automation autom;
+        audio::AutoLane& wp = autom.lane(audio::AutoTarget::WavetablePosition);
+        wp.enabled = true;
+        wp.lfo.shape = audio::Waveform::Sine;
+        wp.lfo.rateHz = 1.0f;
+        wp.lo = 0.0f;
+        wp.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        eng.sequencer().synth().setMode(audio::SynthMode::Wavetable);
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.sequencer().synth().wavetablePosition() > 0.95f,
+              "automating wavetable position scans the lead synth to the top of the table");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.sequencer().synth().wavetablePosition() < 0.05f,
+              "wavetable-position automation reaches its low bound (back to table start)");
+        // The lane is the last real target — proves the enum widened correctly and the apply switch,
+        // name table and default bounds all cover it (a missing case would fail to compile under
+        // -Werror, and a missing default bound would leave hi at the fallback 1.0).
+        check(std::string(audio::Automation::targetName(audio::AutoTarget::WavetablePosition)) ==
+                  "Wavetable Pos",
+              "the wavetable-position target has a UI label");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

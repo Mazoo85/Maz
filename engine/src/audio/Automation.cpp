@@ -129,6 +129,8 @@ Automation::Automation() {
     lane(AutoTarget::FormantVowel).hi = 4.0f;
     lane(AutoTarget::CompThreshold).lo = -40.0f; // master compressor threshold (dB)
     lane(AutoTarget::CompThreshold).hi = 0.0f;
+    lane(AutoTarget::WavetablePosition).lo = 0.0f; // lead wavetable scan position (morph)
+    lane(AutoTarget::WavetablePosition).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -229,6 +231,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Formant Vowel";
     case AutoTarget::CompThreshold:
         return "Comp Thresh";
+    case AutoTarget::WavetablePosition:
+        return "Wavetable Pos";
     case AutoTarget::Count:
         break;
     }
@@ -509,6 +513,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Ride the master compressor threshold — pull it down over a build for more pump/breathe.
             engine.mixer().compressor().setEnabled(true);
             engine.mixer().compressor().setThresholdDb(v);
+            break;
+        case AutoTarget::WavetablePosition:
+            // Sweep the lead synth's wavetable scan position — the flagship wavetable "morph"
+            // automation (Serum/FL-style timbre sweeps). Only audible in Wavetable synth mode.
+            engine.sequencer().synth().setWavetablePosition(v);
             break;
         case AutoTarget::Count:
             break;
