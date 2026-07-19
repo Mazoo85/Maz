@@ -605,6 +605,32 @@ private:
     float xR_ = 0.0f, yR_ = 0.0f;
 };
 
+// A resonant multimode "DJ" filter: a sweepable state-variable filter over the whole mix with a
+// selectable mode (low-pass / high-pass / band-pass), a `cutoff` and a `resonance` peak — the classic
+// filter-sweep build-up/breakdown, richer than the one-pole master EQ low-pass (it adds resonance and
+// HP/BP modes). Defaults to a wide-open low-pass (transparent) until swept.
+class MasterFilter : public Effect {
+public:
+    MasterFilter() { enabled_ = false; }
+    const char* name() const override { return "Filter"; }
+    void setMode(StateVariableFilter::Mode m) { mode_ = m; }
+    void setCutoff(float hz) { cutoff_ = hz < 20.0f ? 20.0f : (hz > 20000.0f ? 20000.0f : hz); }
+    void setResonance(float r) { reso_ = r < 0.5f ? 0.5f : (r > 20.0f ? 20.0f : r); }
+    StateVariableFilter::Mode mode() const { return mode_; }
+    float cutoff() const { return cutoff_; }
+    float resonance() const { return reso_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    StateVariableFilter::Mode mode_ = StateVariableFilter::Mode::LowPass;
+    float cutoff_ = 20000.0f; // wide open by default (transparent)
+    float reso_ = 0.7f;
+    StateVariableFilter fL_{};
+    StateVariableFilter fR_{};
+};
+
 // A stereo-linked peak compressor. Tames dynamics: above `threshold` dB the signal is reduced by
 // `ratio`:1, with `attack`/`release` in ms and `makeup` dB applied after.
 class Compressor : public Effect {

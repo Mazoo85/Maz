@@ -39,6 +39,7 @@ public:
     TiltEQ& tilt() { return tilt_; }
     Exciter& exciter() { return exciter_; }
     LowPass& eq() { return eq_; }
+    MasterFilter& filter() { return filter_; }
     Distortion& distortion() { return dist_; }
     TapeSaturation& tape() { return tape_; }
     RingMod& ringmod() { return ringmod_; }
@@ -127,6 +128,7 @@ private:
     TiltEQ tilt_{};
     Exciter exciter_{};
     LowPass eq_{};
+    MasterFilter filter_{};
     Distortion dist_{};
     TapeSaturation tape_{};
     RingMod ringmod_{};

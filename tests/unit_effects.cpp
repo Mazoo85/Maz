@@ -1353,6 +1353,59 @@ int main() {
         check(std::fabs(deq.mid3Gain()) < 1e-6f, "3rd mid band defaults to 0 dB");
     }
 
+    // --- Master resonant filter (DJ filter): LP/HP attenuate their stop-bands -----
+    {
+        // Low-pass at 500 Hz strongly attenuates a 5 kHz tone but passes a 200 Hz tone.
+        auto lpAt = [&](double toneHz) {
+            audio::MasterFilter f;
+            f.setEnabled(true);
+            f.setMode(audio::StateVariableFilter::Mode::LowPass);
+            f.setCutoff(500.0f);
+            std::vector<float> b = sineStereo(sr, toneHz, 0.5, sr);
+            f.process(b.data(), sr, sr);
+            return rms(b);
+        };
+        check(lpAt(5000.0) < lpAt(200.0) * 0.3, "master LP filter cuts highs, passes lows");
+
+        // High-pass at 2 kHz attenuates a 200 Hz tone but passes a 5 kHz tone.
+        auto hpAt = [&](double toneHz) {
+            audio::MasterFilter f;
+            f.setEnabled(true);
+            f.setMode(audio::StateVariableFilter::Mode::HighPass);
+            f.setCutoff(2000.0f);
+            std::vector<float> b = sineStereo(sr, toneHz, 0.5, sr);
+            f.process(b.data(), sr, sr);
+            return rms(b);
+        };
+        check(hpAt(200.0) < hpAt(5000.0) * 0.3, "master HP filter cuts lows, passes highs");
+
+        // Resonance boosts a tone sitting right at the cutoff.
+        auto resoAt = [&](float reso) {
+            audio::MasterFilter f;
+            f.setEnabled(true);
+            f.setMode(audio::StateVariableFilter::Mode::LowPass);
+            f.setCutoff(1000.0f);
+            f.setResonance(reso);
+            std::vector<float> b = sineStereo(sr, 1000.0, 0.5, sr);
+            f.process(b.data(), sr, sr);
+            return rms(b);
+        };
+        check(resoAt(10.0f) > resoAt(0.7f) * 1.3, "filter resonance peaks a tone at the cutoff");
+
+        // Disabled → bit-identical passthrough; defaults are transparent (wide-open LP, off).
+        audio::MasterFilter off;
+        std::vector<float> a = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> a2 = a;
+        off.process(a2.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != a2[i]) same = false;
+        }
+        check(same, "a disabled master filter is a bit-identical passthrough");
+        check(!audio::MasterFilter().enabled() && audio::MasterFilter().cutoff() > 19000.0f,
+              "master filter defaults to off and wide open");
+    }
+
     // --- Bitcrusher: quantization changes the signal but keeps energy --------
     {
         audio::Bitcrusher crush;

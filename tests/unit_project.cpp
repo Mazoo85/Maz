@@ -176,6 +176,10 @@ int main() {
     mixer.setMasterBalance(-0.4f);
     mixer.eq().setEnabled(true);
     mixer.eq().setCutoff(3200.0f);
+    mixer.filter().setEnabled(true);
+    mixer.filter().setMode(audio::StateVariableFilter::Mode::HighPass);
+    mixer.filter().setCutoff(800.0f);
+    mixer.filter().setResonance(6.0f);
     mixer.compressor().setEnabled(true);
     mixer.compressor().setThresholdDb(-20.0f);
     mixer.compressor().setRatio(6.0f);
@@ -687,6 +691,10 @@ int main() {
     check(near(mixer2.limiterCeiling(), 0.9f), "limiter ceiling round-trips");
     check(near(mixer2.masterBalance(), -0.4f), "master balance round-trips");
     check(mixer2.eq().enabled() && near(mixer2.eq().cutoff(), 3200.0f), "EQ round-trips");
+    check(mixer2.filter().enabled() &&
+              mixer2.filter().mode() == audio::StateVariableFilter::Mode::HighPass &&
+              near(mixer2.filter().cutoff(), 800.0f) && near(mixer2.filter().resonance(), 6.0f),
+          "master resonant filter round-trips");
     check(near(mixer2.compressor().kneeDb(), 6.0f), "compressor knee round-trips");
     check(near(mixer2.compressor().mix(), 0.6f), "compressor mix round-trips");
     check(near(mixer2.compressor().sidechainHpf(), 90.0f), "compressor sidechain HPF round-trips");

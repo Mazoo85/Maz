@@ -1062,6 +1062,23 @@ void HighPass::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- MasterFilter (resonant DJ filter) --------------------------------------
+
+void MasterFilter::reset() {
+    fL_.reset();
+    fR_.reset();
+}
+
+void MasterFilter::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    for (int i = 0; i < frames; ++i) {
+        stereo[2 * i] = fL_.process(stereo[2 * i], cutoff_, reso_, sampleRate, mode_);
+        stereo[2 * i + 1] = fR_.process(stereo[2 * i + 1], cutoff_, reso_, sampleRate, mode_);
+    }
+}
+
 // ---- Compressor -------------------------------------------------------------
 
 void Compressor::reset() {

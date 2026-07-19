@@ -1570,6 +1570,26 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("Hz##eq", &cutoff, 200.0f, 18000.0f, "%.0f")) mx.eq().setCutoff(cutoff);
     }
     {
+        bool en = mx.filter().enabled();
+        if (ImGui::Checkbox("Filter", &en)) mx.filter().setEnabled(en);
+        int fmode = static_cast<int>(mx.filter().mode());
+        const char* fmodes[] = {"LP", "HP", "BP", "Notch"};
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(80.0f);
+        if (ImGui::Combo("mode##mf", &fmode, fmodes, IM_ARRAYSIZE(fmodes)))
+            mx.filter().setMode(static_cast<audio::StateVariableFilter::Mode>(fmode));
+        float fcut = mx.filter().cutoff();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("cutoff##mf", &fcut, 20.0f, 20000.0f, "%.0f Hz"))
+            mx.filter().setCutoff(fcut);
+        float freso = mx.filter().resonance();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("reso##mf", &freso, 0.5f, 20.0f, "%.1f"))
+            mx.filter().setResonance(freso);
+    }
+    {
         bool en = mx.highpass().enabled();
         if (ImGui::Checkbox("High-Pass", &en)) mx.highpass().setEnabled(en);
         float cutoff = mx.highpass().cutoff();

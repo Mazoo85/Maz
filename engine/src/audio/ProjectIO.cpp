@@ -390,6 +390,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "master " << mixer.masterGain() << " " << mixer.limiterCeiling() << " "
       << mixer.masterBalance() << "\n";
     f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
+    f << "fx filter " << (mixer.filter().enabled() ? 1 : 0) << " "
+      << static_cast<int>(mixer.filter().mode()) << " " << mixer.filter().cutoff() << " "
+      << mixer.filter().resonance() << "\n";
     f << "fx hp " << (mixer.highpass().enabled() ? 1 : 0) << " " << mixer.highpass().cutoff() << "\n";
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
@@ -933,6 +936,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> cutoff;
                 mixer.eq().setEnabled(en != 0);
                 mixer.eq().setCutoff(cutoff);
+            } else if (which == "filter") {
+                int mode = 0;
+                float cutoff = 20000.0f, reso = 0.7f;
+                ls >> mode >> cutoff >> reso;
+                mixer.filter().setEnabled(en != 0);
+                mixer.filter().setMode(static_cast<StateVariableFilter::Mode>(
+                    mode < 0 || mode > 3 ? 0 : mode));
+                mixer.filter().setCutoff(cutoff);
+                mixer.filter().setResonance(reso);
             } else if (which == "hp") {
                 float cutoff = 30.0f;
                 ls >> cutoff;

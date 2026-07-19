@@ -28,6 +28,7 @@ Mixer::Mixer() {
     tilt_.setEnabled(false);
     exciter_.setEnabled(false);
     eq_.setEnabled(false);
+    filter_.setEnabled(false);
     dist_.setEnabled(false);
     tape_.setEnabled(false);
     ringmod_.setEnabled(false);
@@ -63,11 +64,11 @@ Mixer::Mixer() {
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
     vst3_.setEnabled(false);
-    // Signal order: gate → high-pass → EQ → tilt → exciter → tone → drive → tape → ring-mod →
+    // Signal order: gate → high-pass → EQ → tilt → exciter → tone → resonant filter → drive → tape → ring-mod →
     // crush → dynamics (compressor → multiband compressor → transient shaper) → modulation (chorus → vibrato → flanger → phaser →
     // auto-wah → formant → comb → tremolo) → time fx (delay → stereo-delay → reverb) → width →
     // mono-bass → sub-bass → auto-pan → utility → clipper → brickwall limiter → plugins.
-    chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &dist_,
+    chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &filter_,   &dist_,
               &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &deEsser_, &chorus_,
               &vibrato_,  &rotary_,   &flanger_,  &phaser_,   &autowah_,  &formant_,   &comb_,        &tremolo_,  &stepgate_, &delay_,
               &stereoDelay_, &reverb_, &widener_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
