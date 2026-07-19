@@ -398,6 +398,12 @@ int main() {
     dfbLane.lfo.rateHz = 0.25f;
     dfbLane.lo = 0.2f;
     dfbLane.hi = 0.8f;
+    audio::AutoLane& crushLane = automation.lane(audio::AutoTarget::BitcrusherMix);
+    crushLane.enabled = true;
+    crushLane.lfo.shape = audio::Waveform::Saw;
+    crushLane.lfo.rateHz = 0.5f;
+    crushLane.lo = 0.1f;
+    crushLane.hi = 0.9f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -761,6 +767,10 @@ int main() {
     const audio::AutoLane& dfb2 = automation2.lane(audio::AutoTarget::DelayFeedback);
     check(dfb2.enabled && near(dfb2.lfo.rateHz, 0.25f) && near(dfb2.lo, 0.2f) && near(dfb2.hi, 0.8f),
           "delay-feedback automation lane round-trips");
+    const audio::AutoLane& crush2 = automation2.lane(audio::AutoTarget::BitcrusherMix);
+    check(crush2.enabled && crush2.lfo.shape == audio::Waveform::Saw && near(crush2.lo, 0.1f) &&
+              near(crush2.hi, 0.9f),
+          "bitcrusher-mix automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

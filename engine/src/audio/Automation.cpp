@@ -81,6 +81,8 @@ Automation::Automation() {
     lane(AutoTarget::DelayFeedback).hi = 0.85f;
     lane(AutoTarget::ReverbSize).lo = 0.3f;
     lane(AutoTarget::ReverbSize).hi = 0.95f;
+    lane(AutoTarget::BitcrusherMix).lo = 0.0f;
+    lane(AutoTarget::BitcrusherMix).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -133,6 +135,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Delay Feedback";
     case AutoTarget::ReverbSize:
         return "Reverb Size";
+    case AutoTarget::BitcrusherMix:
+        return "Bitcrusher Mix";
     case AutoTarget::Count:
         break;
     }
@@ -291,6 +295,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the reverb room size (reverb swells / risers).
             engine.mixer().reverb().setEnabled(true);
             engine.mixer().reverb().setRoomSize(v);
+            break;
+        case AutoTarget::BitcrusherMix:
+            // Fade the bitcrusher wet amount in/out (lo-fi drops and risers).
+            engine.mixer().bitcrusher().setEnabled(true);
+            engine.mixer().bitcrusher().setMix(v);
             break;
         case AutoTarget::Count:
             break;

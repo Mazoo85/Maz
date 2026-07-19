@@ -119,6 +119,24 @@ int main() {
         check(eng.mixer().delay().mix() < 0.05f, "delay-mix automation reaches its low bound");
     }
 
+    // --- Bitcrusher-mix target (lo-fi drops/risers) --------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& bc = autom.lane(audio::AutoTarget::BitcrusherMix);
+        bc.enabled = true;
+        bc.lfo.shape = audio::Waveform::Sine;
+        bc.lfo.rateHz = 1.0f;
+        bc.lo = 0.0f;
+        bc.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().bitcrusher().enabled() && eng.mixer().bitcrusher().mix() > 0.95f,
+              "automating bitcrusher mix drives (and enables) the crusher");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().bitcrusher().mix() < 0.05f, "bitcrusher-mix automation reaches its low bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

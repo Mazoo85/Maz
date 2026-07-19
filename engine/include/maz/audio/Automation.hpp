@@ -35,6 +35,7 @@ enum class AutoTarget {
     BassResonance,
     DelayFeedback,
     ReverbSize,
+    BitcrusherMix,
     Count
 };
 
