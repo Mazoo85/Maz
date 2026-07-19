@@ -2107,6 +2107,12 @@ void testRect2() {
     CHECK(r.hasArea());
     CHECK(!Rect2(0.0f, 0.0f, 0.0f, 5.0f).hasArea());
 
+    // M359: getSupport — farthest corner in a direction (0-component picks the min edge).
+    CHECK((r.getSupport(vec2(1, 1)) == vec2(110, 80)));
+    CHECK((r.getSupport(vec2(-1, -1)) == vec2(10, 20)));
+    CHECK((r.getSupport(vec2(1, -1)) == vec2(110, 20)));
+    CHECK((r.getSupport(vec2(0, 1)) == vec2(10, 80))); // dir.x==0 -> min edge (Godot strict >0)
+
     // hasPoint — min-inclusive, max-exclusive.
     CHECK(r.hasPoint(vec2(10.0f, 20.0f)));   // top-left corner included
     CHECK(r.hasPoint(vec2(60.0f, 50.0f)));   // interior

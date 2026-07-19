@@ -31,6 +31,14 @@ struct Rect2 {
     float area() const { return size.x * size.y; }
     bool hasArea() const { return size.x > 0.0f && size.y > 0.0f; }
 
+    // Support point — the rectangle corner farthest along `dir` (Godot's Rect2.get_support), the
+    // primitive GJK/SAT broadphase leans on. Per axis: the max edge when dir > 0, else the min edge
+    // (dir component of exactly 0 picks the min edge, matching Godot's strict `> 0`).
+    vec2 getSupport(vec2 dir) const {
+        return vec2(dir.x > 0.0f ? position.x + size.x : position.x,
+                    dir.y > 0.0f ? position.y + size.y : position.y);
+    }
+
     // Component-wise approximate equality of position AND size — Godot's Rect2.is_equal_approx.
     bool isEqualApprox(const Rect2& o) const {
         return maz::math::isEqualApprox(position, o.position) &&

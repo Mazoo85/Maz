@@ -207,7 +207,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (max: earliest axis wins; min: latest axis wins), verified incl. all-equal components; M358 adds
   intToBase (StringUtils) — Godot String.num_int64: integer→text in an arbitrary base 2..36 (0-9 then
   a-z or A-Z), negatives prefixed '-', bases out of range clamp to 10, INT64_MIN handled via unsigned
-  magnitude, verified across bases/signs),
+  magnitude, verified across bases/signs; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
+  rectangle corner farthest along a direction (per axis max edge when dir>0 else min; dir==0 picks min,
+  matching Godot's strict >0), the GJK/SAT broadphase primitive, verified all quadrants + zero-axis),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
