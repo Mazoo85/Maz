@@ -1740,6 +1740,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mod Hz##dly", &modR, 0.0f, 10.0f, "%.2f")) mx.delay().setModRate(modR);
+        float dduck = mx.delay().duck();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("duck##dly", &dduck, 0.0f, 1.0f, "%.2f")) mx.delay().setDuck(dduck);
         bool sync = mx.delay().sync();
         if (ImGui::Checkbox("Sync##dly", &sync)) mx.delay().setSync(sync);
         ImGui::SameLine();

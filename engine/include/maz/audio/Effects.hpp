@@ -78,6 +78,11 @@ public:
     void setModRate(float hz) { modRateHz_ = hz < 0.0f ? 0.0f : (hz > 10.0f ? 10.0f : hz); }
     float modDepth() const { return modDepthMs_; }
     float modRate() const { return modRateHz_; }
+    // Ducking (0..1): sidechain the wet echoes to the dry input's own level — while the dry is loud
+    // the repeats are pushed down, and they bloom back in the gaps. Keeps a vocal/lead clear over a
+    // busy delay. 0 = off (a normal delay).
+    void setDuck(float amount) { duck_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
+    float duck() const { return duck_; }
     // Tempo sync: when on, the delay time tracks the transport tempo at the chosen note division
     // (1/4, dotted 1/8, 1/8 triplet, …) instead of the fixed millisecond time. Call updateTempo()
     // each block with the current BPM to recompute the time.
@@ -112,6 +117,8 @@ private:
     float modDepthMs_ = 0.0f;           // delay-time modulation depth (ms); 0 = off
     float modRateHz_ = 0.3f;            // delay-time modulation LFO rate (Hz)
     double modPhase_ = 0.0;             // modulation LFO phase [0,1)
+    float duck_ = 0.0f;                 // sidechain the wet to the dry level; 0 = off
+    float duckEnv_ = 0.0f;              // dry-level envelope follower for ducking
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;

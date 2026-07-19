@@ -49,6 +49,7 @@ void Delay::reset() {
     lcL_ = 0.0f;
     lcR_ = 0.0f;
     modPhase_ = 0.0;
+    duckEnv_ = 0.0f;
 }
 
 namespace {
@@ -117,6 +118,10 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
     const bool doMod = modDepthMs_ > 0.0f;
     const float modSamples = modDepthMs_ * 0.001f * static_cast<float>(sampleRate);
     const double modInc = static_cast<double>(modRateHz_) / static_cast<double>(sampleRate);
+    // Ducking: follow the dry input's peak (fast attack, slower release) and pull the wet down while
+    // the dry is loud. duck_ = 0 leaves the wet untouched.
+    const float duckAtk = std::exp(-1.0f / (0.005f * static_cast<float>(sampleRate))); // ~5 ms
+    const float duckRel = std::exp(-1.0f / (0.150f * static_cast<float>(sampleRate))); // ~150 ms
 
     for (int i = 0; i < frames; ++i) {
         const float dryL = stereo[2 * i];
@@ -172,8 +177,19 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
             bufL_[static_cast<size_t>(write_)] = dryL + fbL;
             bufR_[static_cast<size_t>(write_)] = dryR + fbR;
         }
-        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
-        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+        // Ducking: scale the wet by the (inverted) dry-level envelope before the mix.
+        float duckGain = 1.0f;
+        if (duck_ > 0.0f) {
+            const float peak = std::max(std::fabs(dryL), std::fabs(dryR));
+            const float coef = peak > duckEnv_ ? duckAtk : duckRel;
+            duckEnv_ = coef * duckEnv_ + (1.0f - coef) * peak;
+            duckGain = 1.0f - duck_ * std::min(1.0f, duckEnv_);
+            if (duckGain < 0.0f) {
+                duckGain = 0.0f;
+            }
+        }
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix * duckGain;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix * duckGain;
         write_ = (write_ + 1) % size_;
     }
 }

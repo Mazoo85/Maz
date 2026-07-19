@@ -198,6 +198,7 @@ int main() {
     mixer.delay().setFeedbackLowCut(220.0f);
     mixer.delay().setModDepth(4.5f);
     mixer.delay().setModRate(1.2f);
+    mixer.delay().setDuck(0.7f);
     mixer.reverb().setEnabled(true);
     mixer.reverb().setRoomSize(0.85f);
     mixer.reverb().setMix(0.33f);
@@ -603,7 +604,8 @@ int main() {
               near(mixer2.delay().mix(), 0.4f) && mixer2.delay().pingPong() &&
               near(mixer2.delay().damping(), 0.4f) && mixer2.delay().sync() &&
               mixer2.delay().syncDivision() == 6 && near(mixer2.delay().feedbackLowCut(), 220.0f) &&
-              near(mixer2.delay().modDepth(), 4.5f) && near(mixer2.delay().modRate(), 1.2f),
+              near(mixer2.delay().modDepth(), 4.5f) && near(mixer2.delay().modRate(), 1.2f) &&
+              near(mixer2.delay().duck(), 0.7f),
           "delay round-trips (incl. ping-pong + damping + feedback low-cut)");
     check(near(mixer2.reverbSend(), 0.45f) && near(mixer2.reverbReturn().roomSize(), 0.6f) &&
               near(mixer2.delaySend(), 0.3f) && near(mixer2.delayReturn().time(), 180.0f),

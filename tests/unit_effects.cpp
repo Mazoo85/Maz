@@ -173,6 +173,32 @@ int main() {
         check(dd.feedbackLowCut() == 0.0f, "delay feedback low-cut defaults to off");
     }
 
+    // --- Delay ducking: the wet echoes step out of the way of a loud dry -----
+    {
+        auto wetRms = [&](float duck) {
+            audio::Delay d;
+            d.setEnabled(true);
+            d.setTime(120.0f);
+            d.setFeedback(0.4f);
+            d.setMix(1.0f); // fully wet, so the output is the (ducked) echo
+            d.setDuck(duck);
+            std::vector<float> buf = sineStereo(sr, 220.0, 0.8, sr); // 1 s sustained loud tone
+            d.process(buf.data(), sr, sr);
+            double s = 0.0;
+            for (int i = sr / 2; i < sr; ++i) { // steady region (past the first echo)
+                const double v = buf[static_cast<size_t>(i) * 2];
+                s += v * v;
+            }
+            return std::sqrt(s / (sr - sr / 2));
+        };
+        const double off = wetRms(0.0f);
+        const double ducked = wetRms(1.0f);
+        check(off > 0.0, "delay produces wet output with ducking off");
+        check(ducked < off * 0.6, "delay ducking suppresses the echoes while the dry is loud");
+        audio::Delay dd2;
+        check(dd2.duck() == 0.0f, "delay ducking defaults to 0 (off)");
+    }
+
     // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
     {
         audio::Delay pp;
