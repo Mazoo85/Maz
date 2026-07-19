@@ -2032,6 +2032,28 @@ int main() {
               "mutate with maxDegrees < 1 is a no-op");
     }
 
+    // --- Limit to range (octave-fold into a pitch window) -------------------
+    {
+        audio::PianoRoll lr;
+        lr.addNote(audio::Note{0, 1, 36, 0.9f}); // C2, below the range
+        lr.addNote(audio::Note{1, 1, 60, 0.9f}); // C4, inside
+        lr.addNote(audio::Note{2, 1, 88, 0.9f}); // E6, above the range
+        const int moved = lr.limitToRange(48, 72); // C3..C5
+        check(moved == 2, "limit moves only the out-of-range notes");
+        for (const auto& n : lr.notes())
+            check(n.pitch >= 48 && n.pitch <= 72, "every note ends inside the range");
+        // Pitch class is preserved by the octave fold: C2 → C3/C4 (a C), E6 → an E in range.
+        check(lr.notes()[0].pitch % 12 == 0, "the low note keeps its pitch class (a C)");
+        check(lr.notes()[1].pitch == 60, "an in-range note is untouched");
+        check(lr.notes()[2].pitch % 12 == 4, "the high note keeps its pitch class (an E)");
+        // A sub-octave range clamps a note that can't fold in.
+        audio::PianoRoll cr;
+        cr.addNote(audio::Note{0, 1, 30, 0.9f});
+        cr.limitToRange(60, 64); // 5-semitone window
+        check(cr.notes()[0].pitch >= 60 && cr.notes()[0].pitch <= 64,
+              "a note folds/clamps into a sub-octave range");
+    }
+
     // --- Arpeggiate (bake a chord into notes) --------------------------------
     {
         // A C-E-G triad (60/64/67) lasting 8 steps, arpeggiated up at length 2 → 60,64,67,60 at

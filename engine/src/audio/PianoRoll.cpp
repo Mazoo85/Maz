@@ -517,6 +517,31 @@ int PianoRoll::transpose(int semitones) {
     return changed;
 }
 
+int PianoRoll::limitToRange(int lowPitch, int highPitch) {
+    if (highPitch < lowPitch) {
+        std::swap(lowPitch, highPitch);
+    }
+    int moved = 0;
+    for (Note& n : notes_) {
+        int p = n.pitch;
+        while (p < lowPitch) {
+            p += 12; // fold up an octave (preserves pitch class)
+        }
+        while (p > highPitch) {
+            p -= 12; // fold down an octave
+        }
+        // Range narrower than an octave and folding overshot the low bound → clamp to the nearer edge.
+        if (p < lowPitch) {
+            p = lowPitch;
+        }
+        if (p != n.pitch) {
+            n.pitch = p;
+            ++moved;
+        }
+    }
+    return moved;
+}
+
 int PianoRoll::shift(int steps) {
     if (notes_.empty() || numSteps_ <= 0 || steps % numSteps_ == 0) {
         return 0;

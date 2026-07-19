@@ -810,6 +810,17 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.transpose(transposeSemis);
     }
     ImGui::SameLine();
+    static int limitLo = 48, limitHi = 72; // C3..C5 default range
+    ImGui::SetNextItemWidth(46.0f);
+    ImGui::InputInt("##limitlo", &limitLo, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(46.0f);
+    ImGui::InputInt("##limithi", &limitHi, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Limit")) {
+        roll.limitToRange(limitLo, limitHi);
+    }
+    ImGui::SameLine();
     static int shiftSteps = 1;
     ImGui::SetNextItemWidth(50.0f);
     ImGui::InputInt("##shiftsteps", &shiftSteps, 0, 0);

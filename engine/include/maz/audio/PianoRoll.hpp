@@ -163,6 +163,12 @@ public:
     // [0, 127]. Returns the number of notes whose pitch changed.
     int transpose(int semitones);
 
+    // Limit to range: fold every out-of-range note into [lowPitch, highPitch] by whole octaves,
+    // preserving its pitch class — the classic "fit to an instrument's range" move (FL Riff Machine's
+    // Limit). If the range is narrower than an octave and folding still overshoots, the note is clamped
+    // to the nearer bound. Notes already in range are untouched. Returns the number of notes moved.
+    int limitToRange(int lowPitch, int highPitch);
+
     // Shift: move every note's start by `steps` (±) with wraparound within the pattern length — nudge
     // the whole phrase earlier/later in time (the melodic counterpart to the drum-grid rotate).
     // Returns the number of notes moved.
