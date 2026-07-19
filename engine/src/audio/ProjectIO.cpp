@@ -489,7 +489,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.vibrato().depth() << " " << (mixer.vibrato().sync() ? 1 : 0) << " "
       << mixer.vibrato().syncDivision() << "\n";
     f << "fx rotary " << (mixer.rotary().enabled() ? 1 : 0) << " " << mixer.rotary().rate() << " "
-      << mixer.rotary().depth() << " " << mixer.rotary().mix() << "\n";
+      << mixer.rotary().depth() << " " << mixer.rotary().mix() << " " << mixer.rotary().drive()
+      << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
       << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << " "
@@ -1584,6 +1585,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.rotary().setRate(rate);
                 mixer.rotary().setDepth(depth);
                 mixer.rotary().setMix(mix);
+                float rdrive = 0.0f; // preamp drive optional (older files → clean)
+                if (ls >> rdrive) {
+                    mixer.rotary().setDrive(rdrive);
+                }
             } else if (which == "flanger") {
                 float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
                 ls >> rate >> depth >> fb >> mix;

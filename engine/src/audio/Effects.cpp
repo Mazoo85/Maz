@@ -667,6 +667,10 @@ void Rotary::process(float* stereo, int frames, int sampleRate) {
     const float baseSamp = dopSamp + 0.001f * static_cast<float>(sampleRate);
     const float amDepth = std::clamp(depth_, 0.0f, 1.0f);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    // Tube-preamp drive on the wet path; skipped at 0 so the rotary is bit-for-bit unchanged.
+    const bool doDrive = drive_ > 0.0f;
+    const float driveK = 1.0f + drive_ * 8.0f;
+    const float driveNorm = doDrive ? 1.0f / std::tanh(driveK) : 1.0f;
 
     auto readAt = [&](const std::vector<float>& buf, float delay) {
         float rp = static_cast<float>(write_) - delay;
@@ -697,6 +701,11 @@ void Rotary::process(float* stereo, int frames, int sampleRate) {
         const float amR = 1.0f - amDepth * 0.5f * (1.0f + cosA);
         wetL *= amL;
         wetR *= amR;
+        // Leslie tube-preamp overdrive on the rotating signal.
+        if (doDrive) {
+            wetL = std::tanh(wetL * driveK) * driveNorm;
+            wetR = std::tanh(wetR * driveK) * driveNorm;
+        }
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
 

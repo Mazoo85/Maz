@@ -386,9 +386,14 @@ public:
     void setRate(float hz) { rateHz_ = hz < 0.1f ? 0.1f : (hz > 12.0f ? 12.0f : hz); }
     void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Preamp drive (0..1): a tanh overdrive on the rotating (wet) signal, emulating the Leslie's tube
+    // preamp pushing into distortion at higher volumes — grit + harmonics on the swirl. 0 (default) =
+    // clean (bit-for-bit unchanged).
+    void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float rate() const { return rateHz_; }
     float depth() const { return depth_; }
     float mix() const { return mix_; }
+    float drive() const { return drive_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -397,6 +402,7 @@ private:
     float rateHz_ = 6.0f;
     float depth_ = 0.5f;
     float mix_ = 1.0f;
+    float drive_ = 0.0f; // tube-preamp overdrive on the wet path [0,1]; 0 = clean
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;

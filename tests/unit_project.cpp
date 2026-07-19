@@ -420,6 +420,7 @@ int main() {
     mixer.rotary().setRate(0.8f);
     mixer.rotary().setDepth(0.65f);
     mixer.rotary().setMix(0.9f);
+    mixer.rotary().setDrive(0.5f);
     mixer.phaser().setEnabled(true);
     mixer.phaser().setSync(true);
     mixer.phaser().setSyncDivision(4);
@@ -999,7 +1000,8 @@ int main() {
               mixer2.vibrato().syncDivision() == 4,
           "vibrato round-trips");
     check(mixer2.rotary().enabled() && near(mixer2.rotary().rate(), 0.8f) &&
-              near(mixer2.rotary().depth(), 0.65f) && near(mixer2.rotary().mix(), 0.9f),
+              near(mixer2.rotary().depth(), 0.65f) && near(mixer2.rotary().mix(), 0.9f) &&
+              near(mixer2.rotary().drive(), 0.5f),
           "rotary round-trips");
     check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4 &&
               mixer2.phaser().stages() == 8 && mixer2.phaser().stereo(),

@@ -1726,6 +1726,27 @@ int main() {
         }
         check(same, "a disabled rotary is a bit-identical passthrough");
         check(!audio::Rotary().enabled(), "rotary defaults to off");
+
+        // Preamp drive: overdriving the rotating signal adds harmonics (more high-frequency content).
+        auto rotHf = [&](float drive) {
+            audio::Rotary rd;
+            rd.setEnabled(true);
+            rd.setRate(6.0f);
+            rd.setDepth(0.3f);
+            rd.setMix(1.0f);
+            rd.setDrive(drive);
+            std::vector<float> rb = sineStereo(sr / 4, 300.0, 0.7, sr);
+            rd.process(rb.data(), sr / 4, sr);
+            double e = 0.0;
+            for (size_t i = 2; i < rb.size(); i += 2) {
+                const double d = static_cast<double>(rb[i] - rb[i - 2]); // left-channel first difference
+                e += d * d;
+            }
+            return e;
+        };
+        check(rotHf(0.8f) > rotHf(0.0f) * 1.2,
+              "rotary preamp drive adds harmonics (tube grit on the swirl)");
+        check(audio::Rotary().drive() == 0.0f, "rotary drive defaults to clean (0)");
     }
 
     // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------

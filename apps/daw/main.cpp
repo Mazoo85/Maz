@@ -2024,6 +2024,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("mix##rot", &rmix, 0.0f, 1.0f, "%.2f")) mx.rotary().setMix(rmix);
+        float rdrive = mx.rotary().drive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("drive##rot", &rdrive, 0.0f, 1.0f, rdrive <= 0.0f ? "clean" : "%.2f"))
+            mx.rotary().setDrive(rdrive);
     }
     {
         bool en = mx.flanger().enabled();
