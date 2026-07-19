@@ -798,6 +798,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Verified: y'=-y and y'=y recovered to e^-1 and e^1; constant derivative integrated exactly; a harmonic
   oscillator conserves energy and tracks the analytic cosine over 6+ periods; measured 4th-order
   convergence (error ratio near 16 as the step halves); and RK4 beats Euler at the same step),
+  **least-squares curve fitting** (M464, `math::fitLine` / `math::fitPolynomial` / `math::evalPolynomial`
+  — recover the line or polynomial that best matches a cloud of (x, y) samples in the ordinary
+  least-squares sense, with the R^2 goodness-of-fit reported for each. fitLine gives slope/intercept in
+  closed form; fitPolynomial fits any degree via the normal equations (A^T A c = A^T y) solved with an
+  internal Gaussian-elimination-with-partial-pivoting dense solver. The tool for turning noisy
+  measurements into a smooth trend — fit a straight line through a scatter of points, calibrate an
+  analog-stick or sensor response curve, model a difficulty ramp from playtest data, or smooth a jittery
+  signal with a low-degree polynomial. Godot exposes no curve-fitting to gameplay code -> beyond-Godot.
+  Verified: perfectly collinear data recovers slope/intercept with R^2==1; 100 random noisy lines recover
+  their trend (slope/intercept within tolerance, R^2>0.98); exact quadratic and cubic coefficients
+  recovered at the matching degree; the degree-1 polynomial fit agrees with the closed-form line fit;
+  higher degrees fit genuinely curved (sine) data strictly better than a line (R^2 rising to >0.999);
+  degree-0 returns the mean; and all degenerate inputs — too few points, negative degree, mismatched
+  lengths, all-x-identical — are rejected via the ok flag),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

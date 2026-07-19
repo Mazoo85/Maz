@@ -108,6 +108,7 @@
 #include "maz/game/AllPairsShortestPath.hpp"
 #include "maz/math/Polynomial.hpp"
 #include "maz/math/Integrator.hpp"
+#include "maz/math/LeastSquares.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20204,6 +20205,130 @@ void testPolynomial() {
     }
 }
 
+void testLeastSquares() {
+    using math::evalPolynomial;
+    using math::fitLine;
+    using math::fitPolynomial;
+    using math::LineFit;
+    using math::PolyFit;
+    using core::Pcg32;
+
+    // Exact line recovered with R^2 == 1.
+    {
+        std::vector<float> xs, ys;
+        for (int i = 0; i < 20; ++i) {
+            const float x = static_cast<float>(i);
+            xs.push_back(x);
+            ys.push_back(3.0f * x - 7.0f);
+        }
+        const LineFit f = fitLine(xs, ys);
+        CHECK(f.ok);
+        CHECK(std::fabs(f.slope - 3.0f) < 1e-3f);
+        CHECK(std::fabs(f.intercept + 7.0f) < 1e-3f);
+        CHECK(std::fabs(f.r2 - 1.0f) < 1e-5f);
+    }
+    // Noisy line: recover the trend across many random datasets (symmetric noise).
+    {
+        Pcg32 rng(464u, 12u);
+        for (int trial = 0; trial < 100; ++trial) {
+            // Keep the slope away from zero: with a near-flat line the signal variance is tiny next
+            // to the fixed noise, so R^2 stops being meaningful. Magnitude >= 1, random sign.
+            const float mag = 1.0f + rng.nextFloat() * 3.0f;      // [1, 4]
+            const float trueSlope = (rng.nextFloat() < 0.5f) ? mag : -mag;
+            const float trueB = rng.nextFloat() * 10.0f - 5.0f;
+            std::vector<float> xs, ys;
+            for (int i = 0; i < 120; ++i) {
+                const float x = static_cast<float>(i) * 0.1f;
+                xs.push_back(x);
+                ys.push_back(trueSlope * x + trueB + (rng.nextFloat() - 0.5f) * 0.1f);
+            }
+            const LineFit f = fitLine(xs, ys);
+            CHECK(f.ok);
+            CHECK(std::fabs(f.slope - trueSlope) < 0.05f);
+            CHECK(std::fabs(f.intercept - trueB) < 0.1f);
+            CHECK(f.r2 > 0.98f);
+        }
+    }
+    // Degenerate line inputs.
+    {
+        CHECK(!fitLine({}, {}).ok);
+        CHECK(!fitLine({1.0f}, {2.0f}).ok);
+        CHECK(!fitLine({5.0f, 5.0f, 5.0f}, {1.0f, 2.0f, 3.0f}).ok);
+        CHECK(!fitLine({1.0f, 2.0f}, {1.0f}).ok);
+    }
+    // Exact quadratic recovered (coeffs ascending).
+    {
+        std::vector<float> xs, ys;
+        for (int i = 0; i < 15; ++i) {
+            const float x = static_cast<float>(i) - 7.0f;
+            xs.push_back(x);
+            ys.push_back(1.0f - 2.0f * x + 0.5f * x * x);
+        }
+        const PolyFit f = fitPolynomial(xs, ys, 2);
+        CHECK(f.ok && f.coeffs.size() == 3);
+        CHECK(std::fabs(f.coeffs[0] - 1.0f) < 1e-2f);
+        CHECK(std::fabs(f.coeffs[1] + 2.0f) < 1e-2f);
+        CHECK(std::fabs(f.coeffs[2] - 0.5f) < 1e-2f);
+        CHECK(std::fabs(f.r2 - 1.0f) < 1e-5f);
+    }
+    // Exact cubic recovered.
+    {
+        std::vector<float> xs, ys;
+        for (int i = 0; i < 12; ++i) {
+            const float x = static_cast<float>(i) * 0.5f - 3.0f;
+            xs.push_back(x);
+            ys.push_back(2.0f + x - 0.3f * x * x + 0.05f * x * x * x);
+        }
+        const PolyFit f = fitPolynomial(xs, ys, 3);
+        CHECK(f.ok && f.coeffs.size() == 4);
+        CHECK(std::fabs(f.coeffs[0] - 2.0f) < 1e-2f);
+        CHECK(std::fabs(f.coeffs[1] - 1.0f) < 1e-2f);
+        CHECK(std::fabs(f.coeffs[2] + 0.3f) < 1e-2f);
+        CHECK(std::fabs(f.coeffs[3] - 0.05f) < 1e-2f);
+        CHECK(std::fabs(f.r2 - 1.0f) < 1e-5f);
+    }
+    // Degree-1 polynomial fit agrees with the closed-form line fit.
+    {
+        std::vector<float> xs = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+        std::vector<float> ys = {1.1f, 2.9f, 5.2f, 6.8f, 9.1f, 10.9f};
+        const LineFit line = fitLine(xs, ys);
+        const PolyFit poly = fitPolynomial(xs, ys, 1);
+        CHECK(line.ok && poly.ok);
+        CHECK(std::fabs(poly.coeffs[0] - line.intercept) < 1e-3f);
+        CHECK(std::fabs(poly.coeffs[1] - line.slope) < 1e-3f);
+        CHECK(std::fabs(poly.r2 - line.r2) < 1e-4f);
+    }
+    // Higher degree fits genuinely curved data better than a line.
+    {
+        std::vector<float> xs, ys;
+        for (int i = 0; i < 30; ++i) {
+            const float x = static_cast<float>(i) * 0.2f;
+            xs.push_back(x);
+            ys.push_back(std::sin(x));
+        }
+        const PolyFit lin = fitPolynomial(xs, ys, 1);
+        const PolyFit hi = fitPolynomial(xs, ys, 7);
+        CHECK(lin.ok && hi.ok);
+        CHECK(lin.r2 < 0.95f);
+        CHECK(hi.r2 > lin.r2);
+        CHECK(hi.r2 > 0.999f);
+    }
+    // Degenerate polynomial inputs + degree-0 mean.
+    {
+        CHECK(!fitPolynomial({1.0f, 2.0f}, {1.0f, 2.0f}, 5).ok);
+        CHECK(!fitPolynomial({1.0f}, {2.0f}, -1).ok);
+        CHECK(!fitPolynomial({1.0f, 2.0f}, {1.0f}, 1).ok);
+        const PolyFit c = fitPolynomial({0.0f, 1.0f, 2.0f, 3.0f}, {2.0f, 4.0f, 6.0f, 8.0f}, 0);
+        CHECK(c.ok && c.coeffs.size() == 1 && std::fabs(c.coeffs[0] - 5.0f) < 1e-4f);
+    }
+    // Horner evaluation of a known polynomial.
+    {
+        const std::vector<float> coeffs = {1.0f, 0.0f, -2.0f, 1.0f}; // 1 - 2x^2 + x^3
+        CHECK(std::fabs(evalPolynomial(coeffs, 2.0f) - (1.0f - 8.0f + 8.0f)) < 1e-4f);
+        CHECK(std::fabs(evalPolynomial(coeffs, 0.0f) - 1.0f) < 1e-4f);
+    }
+}
+
 void testIntegrator() {
     using math::integrateEuler;
     using math::integrateRK4;
@@ -29063,6 +29188,7 @@ int main() {
     testAllPairsShortestPath();
     testPolynomial();
     testIntegrator();
+    testLeastSquares();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
