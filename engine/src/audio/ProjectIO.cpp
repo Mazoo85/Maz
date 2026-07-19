@@ -508,6 +508,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autowah().mix() << "\n";
     f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
       << mixer.comb().feedback() << " " << mixer.comb().mix() << " " << mixer.comb().damping() << "\n";
+    f << "fx chordres " << (mixer.chordResonator().enabled() ? 1 : 0) << " "
+      << mixer.chordResonator().rootNote() << " " << static_cast<int>(mixer.chordResonator().chord())
+      << " " << mixer.chordResonator().feedback() << " " << mixer.chordResonator().damping() << " "
+      << mixer.chordResonator().mix() << "\n";
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
       << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << " "
       << (mixer.tremolo().sync() ? 1 : 0) << " " << mixer.tremolo().syncDivision() << "\n";
@@ -1203,6 +1207,20 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> cdamp) {
                     mixer.comb().setDamping(cdamp);
                 }
+            } else if (which == "chordres") {
+                int root = 57, chord = 1;
+                float fb = 0.9f, damp = 0.3f, mix = 0.5f;
+                ls >> root >> chord >> fb >> damp >> mix;
+                if (chord < 0 || chord > static_cast<int>(ChordResonator::Chord::Octaves)) {
+                    chord = 0;
+                }
+                auto& cr = mixer.chordResonator();
+                cr.setEnabled(en != 0);
+                cr.setRootNote(root);
+                cr.setChord(static_cast<ChordResonator::Chord>(chord));
+                cr.setFeedback(fb);
+                cr.setDamping(damp);
+                cr.setMix(mix);
             } else if (which == "stepgate") {
                 float rate = 2.0f, mix = 1.0f;
                 int sync = 0, div = 2;

@@ -1804,6 +1804,92 @@ void CombResonator::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Chord Resonator --------------------------------------------------------
+
+const int* ChordResonator::chordIntervals(Chord c) {
+    // Semitone offsets from the root, kVoices each (padded with octaves for a full 6-voice stack).
+    static const int major[kVoices] = {0, 4, 7, 12, 16, 19};
+    static const int minor[kVoices] = {0, 3, 7, 12, 15, 19};
+    static const int dom7[kVoices] = {0, 4, 7, 10, 12, 16};
+    static const int min7[kVoices] = {0, 3, 7, 10, 12, 15};
+    static const int sus4[kVoices] = {0, 5, 7, 12, 17, 19};
+    static const int octaves[kVoices] = {0, 12, 24, 0, 12, 24};
+    switch (c) {
+    case Chord::Major: return major;
+    case Chord::Minor: return minor;
+    case Chord::Dom7: return dom7;
+    case Chord::Min7: return min7;
+    case Chord::Sus4: return sus4;
+    case Chord::Octaves: return octaves;
+    }
+    return minor;
+}
+
+void ChordResonator::reset() {
+    for (int v = 0; v < kVoices; ++v) {
+        std::fill(bufL_[v].begin(), bufL_[v].end(), 0.0f);
+        std::fill(bufR_[v].begin(), bufR_[v].end(), 0.0f);
+        dampL_[v] = dampR_[v] = 0.0f;
+    }
+    writePos_ = 0;
+}
+
+void ChordResonator::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxD = sampleRate / 20 + 4; // covers down to 20 Hz
+    if (static_cast<int>(bufL_[0].size()) != maxD) {
+        for (int v = 0; v < kVoices; ++v) {
+            bufL_[v].assign(static_cast<size_t>(maxD), 0.0f);
+            bufR_[v].assign(static_cast<size_t>(maxD), 0.0f);
+        }
+        writePos_ = 0;
+    }
+    // Per-voice delay length from each chord tone's frequency (equal temperament from the root).
+    const int* iv = chordIntervals(chord_);
+    int delay[kVoices];
+    for (int v = 0; v < kVoices; ++v) {
+        const double freq = 440.0 * std::pow(2.0, (static_cast<double>(root_ + iv[v]) - 69.0) / 12.0);
+        int d = static_cast<int>(static_cast<double>(sampleRate) / freq + 0.5);
+        if (d < 1) {
+            d = 1;
+        }
+        if (d >= maxD) {
+            d = maxD - 1;
+        }
+        delay[v] = d;
+    }
+    const float damp = std::clamp(damping_, 0.0f, 1.0f);
+    const float voiceGain = 1.0f / static_cast<float>(kVoices);
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        float wetL = 0.0f, wetR = 0.0f;
+        for (int v = 0; v < kVoices; ++v) {
+            int readPos = writePos_ - delay[v];
+            if (readPos < 0) {
+                readPos += maxD;
+            }
+            dampL_[v] = bufL_[v][static_cast<size_t>(readPos)] * (1.0f - damp) + dampL_[v] * damp;
+            dampR_[v] = bufR_[v][static_cast<size_t>(readPos)] * (1.0f - damp) + dampR_[v] * damp;
+            const float sl = l + feedback_ * dampL_[v];
+            const float sr = r + feedback_ * dampR_[v];
+            bufL_[v][static_cast<size_t>(writePos_)] = sl;
+            bufR_[v][static_cast<size_t>(writePos_)] = sr;
+            wetL += sl;
+            wetR += sr;
+        }
+        wetL *= voiceGain;
+        wetR *= voiceGain;
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
+        if (++writePos_ >= maxD) {
+            writePos_ = 0;
+        }
+    }
+}
+
 // ---- Tremolo ----------------------------------------------------------------
 
 void Tremolo::reset() {

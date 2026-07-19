@@ -6,6 +6,7 @@
 #include "maz/audio/Mixer.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <vector>
 
@@ -2304,6 +2305,61 @@ int main() {
             }
         }
         check(same, "a disabled comb resonator is transparent");
+    }
+
+    // --- Chord resonator: rings at the chord's frequencies from noise --------
+    {
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // Excite with 1 s of white noise, measure the resonant tail's spectrum (last 0.5 s).
+        auto ring = [&](int root, audio::ChordResonator::Chord chord) {
+            audio::ChordResonator cr;
+            cr.setEnabled(true);
+            cr.setRootNote(root);
+            cr.setChord(chord);
+            cr.setFeedback(0.95f);
+            cr.setDamping(0.2f);
+            cr.setMix(1.0f);
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            uint32_t rng = 12345u;
+            for (int i = 0; i < sr; ++i) {
+                rng ^= rng << 13;
+                rng ^= rng >> 17;
+                rng ^= rng << 5;
+                const float n = 0.2f * (static_cast<float>(rng) / 2147483648.0f - 1.0f);
+                b[static_cast<size_t>(i) * 2] = n;
+                b[static_cast<size_t>(i) * 2 + 1] = n;
+            }
+            cr.process(b.data(), sr, sr);
+            return std::vector<float>(b.end() - static_cast<long>(sr), b.end());
+        };
+        // A-minor rooted at A3 (57 → 220 Hz): resonates at 220 (root) and 330 (fifth); little at 290.
+        const std::vector<float> aMinor = ring(57, audio::ChordResonator::Chord::Minor);
+        const double root = power(aMinor, 220.0, sr);
+        const double fifth = power(aMinor, 330.0, sr);
+        const double off = power(aMinor, 290.0, sr);
+        check(root > off * 5.0, "chord resonator rings at the root frequency");
+        check(fifth > off * 3.0, "chord resonator rings at a chord tone (the fifth)");
+        // Moving the root shifts the resonant peak: root at A4 (69 → 440 Hz) now peaks at 440.
+        const std::vector<float> aUp = ring(69, audio::ChordResonator::Chord::Minor);
+        check(power(aUp, 440.0, sr) > power(aUp, 220.0, sr) * 3.0,
+              "chord resonator's root note shifts the resonant frequency");
+        // Disabled → transparent.
+        audio::ChordResonator offx;
+        std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> ref = sig;
+        offx.process(sig.data(), 1000, sr);
+        check(sig == ref, "a disabled chord resonator is transparent");
+        check(!audio::ChordResonator().enabled(), "chord resonator defaults to off");
     }
 
     // --- Tremolo / trance-gate: rhythmic amplitude modulation ---------------

@@ -72,6 +72,7 @@ public:
     AutoPan& autopan() { return autopan_; }
     AutoWah& autowah() { return autowah_; }
     CombResonator& comb() { return comb_; }
+    ChordResonator& chordResonator() { return chordres_; }
     Tremolo& tremolo() { return tremolo_; }
     StereoDelay& stereoDelay() { return stereoDelay_; }
     ReverseDelay& reverseDelay() { return revdelay_; }
@@ -166,6 +167,7 @@ private:
     AutoPan autopan_{};
     AutoWah autowah_{};
     CombResonator comb_{};
+    ChordResonator chordres_{};
     Tremolo tremolo_{};
     StereoDelay stereoDelay_{};
     ReverseDelay revdelay_{};

@@ -2235,6 +2235,32 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("damp##comb", &cdamp, 0.0f, 1.0f, "%.2f")) mx.comb().setDamping(cdamp);
     }
     {
+        auto& cr = mx.chordResonator();
+        bool en = cr.enabled();
+        if (ImGui::Checkbox("Chord Resonator", &en)) cr.setEnabled(en);
+        int root = cr.rootNote();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderInt("root##chres", &root, 24, 84, "MIDI %d")) cr.setRootNote(root);
+        int chord = static_cast<int>(cr.chord());
+        const char* chords[] = {"Major", "Minor", "Dom7", "Min7", "Sus4", "Octaves"};
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::Combo("chord##chres", &chord, chords, 6))
+            cr.setChord(static_cast<audio::ChordResonator::Chord>(chord));
+        float fb = cr.feedback();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("ring##chres", &fb, 0.0f, 0.98f, "%.2f")) cr.setFeedback(fb);
+        float damp = cr.damping();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("damp##chres", &damp, 0.0f, 1.0f, "%.2f")) cr.setDamping(damp);
+        float mix = cr.mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mix##chres", &mix, 0.0f, 1.0f, "%.2f")) cr.setMix(mix);
+    }
+    {
         bool en = mx.tremolo().enabled();
         if (ImGui::Checkbox("Tremolo", &en)) mx.tremolo().setEnabled(en);
         float rate = mx.tremolo().rate();

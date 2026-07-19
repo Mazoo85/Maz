@@ -266,6 +266,12 @@ int main() {
     mixer.comb().setFeedback(0.72f);
     mixer.comb().setMix(0.45f);
     mixer.comb().setDamping(0.35f);
+    mixer.chordResonator().setEnabled(true);
+    mixer.chordResonator().setRootNote(50);
+    mixer.chordResonator().setChord(audio::ChordResonator::Chord::Dom7);
+    mixer.chordResonator().setFeedback(0.88f);
+    mixer.chordResonator().setDamping(0.4f);
+    mixer.chordResonator().setMix(0.55f);
     mixer.tremolo().setEnabled(true);
     mixer.tremolo().setRate(7.5f);
     mixer.tremolo().setDepth(0.85f);
@@ -824,6 +830,12 @@ int main() {
               near(mixer2.comb().feedback(), 0.72f) && near(mixer2.comb().mix(), 0.45f) &&
               near(mixer2.comb().damping(), 0.35f),
           "comb resonator round-trips");
+    check(mixer2.chordResonator().enabled() && mixer2.chordResonator().rootNote() == 50 &&
+              mixer2.chordResonator().chord() == audio::ChordResonator::Chord::Dom7 &&
+              near(mixer2.chordResonator().feedback(), 0.88f) &&
+              near(mixer2.chordResonator().damping(), 0.4f) &&
+              near(mixer2.chordResonator().mix(), 0.55f),
+          "chord resonator round-trips");
     check(mixer2.tremolo().enabled() && near(mixer2.tremolo().rate(), 7.5f) &&
               near(mixer2.tremolo().depth(), 0.85f) &&
               mixer2.tremolo().shape() == audio::Tremolo::Shape::Saw &&

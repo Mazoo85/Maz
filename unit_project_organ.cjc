@@ -60,6 +60,7 @@ fx deesser 0 -24 6000 0.8 60
 fx dyneq 0 3000 2 -24 -6 5 80
 fx autowah 0 300 3000 0.7 4 5 80 0 1
 fx comb 0 220 0.8 0.5 0
+fx chordres 0 57 1 0.9 0.3 0.5
 fx tremolo 0 5 0.5 0 0 3
 fx stepgate 0 2 0 5 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
 fx stereodelay 0 250 375 0.4 0.3 0 4 5 0 0 0

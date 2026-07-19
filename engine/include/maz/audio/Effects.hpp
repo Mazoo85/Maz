@@ -1117,6 +1117,47 @@ private:
     int writePos_ = 0;
 };
 
+// A chord resonator (Fruity Vibed-style physical resonance): a bank of tuned comb resonators, one per
+// note of a chord rooted at a chosen pitch, fed in parallel. Excite it with noise or percussion and
+// the resonators ring at the chord's frequencies, turning unpitched material into a pitched chord —
+// or add rich resonant body to a sustained source. `feedback` sets the ring length, `damping` darkens
+// the tail, `mix` the dry/wet. Self-contained (its own small chord table), like every other effect.
+class ChordResonator : public Effect {
+public:
+    static constexpr int kVoices = 6;
+    // A small built-in chord set (self-contained, so Effects doesn't depend on the piano roll).
+    enum class Chord { Major, Minor, Dom7, Min7, Sus4, Octaves };
+    ChordResonator() { enabled_ = false; }
+    const char* name() const override { return "Chord Resonator"; }
+    void setRootNote(int midi) { root_ = midi < 12 ? 12 : (midi > 108 ? 108 : midi); }
+    void setChord(Chord c) { chord_ = c; }
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.98f ? 0.98f : f); }
+    void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    int rootNote() const { return root_; }
+    Chord chord() const { return chord_; }
+    float feedback() const { return feedback_; }
+    float damping() const { return damping_; }
+    float mix() const { return mix_; }
+    // The semitone offsets (from the root) of the current chord's voices.
+    static const int* chordIntervals(Chord c);
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    int root_ = 57; // A3 (220 Hz)
+    Chord chord_ = Chord::Minor;
+    float feedback_ = 0.9f;
+    float damping_ = 0.3f;
+    float mix_ = 0.5f;
+    std::vector<float> bufL_[kVoices]; // per-voice circular delay lines (sized on first process)
+    std::vector<float> bufR_[kVoices];
+    float dampL_[kVoices] = {0, 0, 0, 0, 0, 0};
+    float dampR_[kVoices] = {0, 0, 0, 0, 0, 0};
+    int writePos_ = 0; // shared write index (all lines share the same max length)
+};
+
 // A tremolo / trance-gate: an amplitude LFO that dips the level rhythmically. `rate` sets the LFO
 // speed (Hz), `depth` how deep the dips go (0 = none, 1 = down to silence), and `shape` picks a Sine
 // LFO (smooth tremolo) or Square LFO (a hard on/off trance gate). Both channels are modulated
