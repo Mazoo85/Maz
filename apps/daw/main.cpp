@@ -1797,6 +1797,34 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("amt##deess", &amt, 0.0f, 1.0f, "%.2f")) mx.deEsser().setAmount(amt);
     }
     {
+        auto& dq = mx.dynamicEq();
+        bool en = dq.enabled();
+        if (ImGui::Checkbox("Dynamic EQ", &en)) dq.setEnabled(en);
+        float freq = dq.frequency();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("Hz##dyneq", &freq, 40.0f, 18000.0f, "%.0f")) dq.setFrequency(freq);
+        float q = dq.q();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::SliderFloat("Q##dyneq", &q, 0.3f, 10.0f, "%.1f")) dq.setQ(q);
+        float thr = dq.thresholdDb();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("thr dB##dyneq", &thr, -60.0f, 0.0f, "%.0f")) dq.setThresholdDb(thr);
+        float range = dq.rangeDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("range dB##dyneq", &range, -24.0f, 24.0f, "%.1f")) dq.setRangeDb(range);
+        float atk = dq.attackMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("atk##dyneq", &atk, 0.1f, 200.0f, "%.1f ms")) dq.setAttackMs(atk);
+        float rel = dq.releaseMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("rel##dyneq", &rel, 1.0f, 1000.0f, "%.0f ms")) dq.setReleaseMs(rel);
+    }
+    {
         bool en = mx.chorus().enabled();
         if (ImGui::Checkbox("Chorus", &en)) mx.chorus().setEnabled(en);
         float wet = mx.chorus().mix();

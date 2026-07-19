@@ -778,6 +778,47 @@ private:
     float env_ = 0.0f;             // high-band peak-envelope follower (stereo-linked)
 };
 
+// A dynamic EQ band: one fully-parametric bell (frequency + Q) whose gain reacts to the level in
+// that band. A state-variable band-pass both extracts the band and keys a stereo-linked envelope
+// follower; when the band's level rises above `threshold`, the bell's gain moves toward `range` dB
+// (negative = a dynamic cut that tames only loud moments — a tunable, general de-esser; positive =
+// a dynamic boost that lifts the band when it is quiet-and-present). Below the threshold the band is
+// left at 0 dB, so the effect is bit-exact bypass until it engages. Distinct from the fixed high-band
+// de-esser (any frequency, cut OR boost) and from the static parametric EQ (level-dependent).
+class DynamicEq : public Effect {
+public:
+    DynamicEq() { enabled_ = false; }
+    const char* name() const override { return "Dynamic EQ"; }
+    void setFrequency(float hz) { frequency_ = hz < 40.0f ? 40.0f : (hz > 18000.0f ? 18000.0f : hz); }
+    void setQ(float q) { q_ = q < 0.3f ? 0.3f : (q > 10.0f ? 10.0f : q); }
+    void setThresholdDb(float db) { thresholdDb_ = db < -60.0f ? -60.0f : (db > 0.0f ? 0.0f : db); }
+    // Max gain change when fully engaged, in dB (±24): negative dynamically cuts the band, positive
+    // dynamically boosts it. 0 = no movement (transparent).
+    void setRangeDb(float db) { rangeDb_ = db < -24.0f ? -24.0f : (db > 24.0f ? 24.0f : db); }
+    void setAttackMs(float ms) { attackMs_ = ms < 0.1f ? 0.1f : (ms > 200.0f ? 200.0f : ms); }
+    void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    float frequency() const { return frequency_; }
+    float q() const { return q_; }
+    float thresholdDb() const { return thresholdDb_; }
+    float rangeDb() const { return rangeDb_; }
+    float attackMs() const { return attackMs_; }
+    float releaseMs() const { return releaseMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float frequency_ = 3000.0f;
+    float q_ = 2.0f;
+    float thresholdDb_ = -24.0f;
+    float rangeDb_ = -6.0f;   // default: a gentle dynamic cut
+    float attackMs_ = 5.0f;
+    float releaseMs_ = 80.0f;
+    StateVariableFilter bpL_{}; // per-channel band-pass: extracts the band and adds/subtracts it
+    StateVariableFilter bpR_{};
+    float env_ = 0.0f;          // band peak-envelope follower (stereo-linked)
+};
+
 // A stereo-linked noise gate / downward expander. Below `threshold` dB the signal is attenuated:
 // for each dB under the threshold the output drops by `ratio`:1, down to a floor of `range` dB.
 // `attack`/`release` (ms) smooth the gate opening/closing so it does not click. Above the threshold

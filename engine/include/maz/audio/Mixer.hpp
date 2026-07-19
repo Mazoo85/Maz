@@ -67,6 +67,7 @@ public:
     Clipper& clipper() { return clipper_; }
     Limiter& limiter() { return limiter_; }
     DeEsser& deEsser() { return deEsser_; }
+    DynamicEq& dynamicEq() { return dyneq_; }
     AutoPan& autopan() { return autopan_; }
     AutoWah& autowah() { return autowah_; }
     CombResonator& comb() { return comb_; }
@@ -158,6 +159,7 @@ private:
     Clipper clipper_{};
     Limiter limiter_{};
     DeEsser deEsser_{};
+    DynamicEq dyneq_{};
     AutoPan autopan_{};
     AutoWah autowah_{};
     CombResonator comb_{};

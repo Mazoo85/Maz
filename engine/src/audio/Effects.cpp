@@ -1321,6 +1321,50 @@ void DeEsser::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Dynamic EQ -------------------------------------------------------------
+
+void DynamicEq::reset() {
+    bpL_.reset();
+    bpR_.reset();
+    env_ = 0.0f;
+}
+
+void DynamicEq::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0 || rangeDb_ == 0.0f) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    const float atkCoef = std::exp(-1.0f / (attackMs_ * 0.001f * sr));
+    const float relCoef = std::exp(-1.0f / (releaseMs_ * 0.001f * sr));
+    const float thr = dbToLin(thresholdDb_);
+    constexpr float kKneeDb = 12.0f; // dB above threshold over which the band moves to full `range`
+    // This SVF's band-pass peaks at ~Q at resonance; normalise it to unity peak so that adding
+    // g * bandpass to the dry signal gives a peak bell gain of exactly (1 + g) — otherwise a large
+    // cut over-subtracts (and can flip sign). The band level then also reads ~= the in-band input.
+    const float bpNorm = 1.0f / std::max(q_, 0.5f);
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Band-pass extracts the band; adding a scaled copy to the dry signal is a peaking bell
+        // (g > 0 boosts, g < 0 cuts). The same band-pass keys the envelope follower.
+        const float bpL = bpL_.process(l, frequency_, q_, sampleRate, StateVariableFilter::Mode::BandPass) * bpNorm;
+        const float bpR = bpR_.process(r, frequency_, q_, sampleRate, StateVariableFilter::Mode::BandPass) * bpNorm;
+        const float peak = std::max(std::fabs(bpL), std::fabs(bpR));
+        const float coef = peak > env_ ? atkCoef : relCoef;
+        env_ = coef * env_ + (1.0f - coef) * peak;
+        float g = 0.0f; // extra band gain factor (0 = flat); out = dry + g * bandpass
+        if (env_ > thr && env_ > 0.0f) {
+            // How far over threshold, in dB, mapped 0..1 across the knee → engagement.
+            const float overDb = linToDb(env_) - thresholdDb_;
+            float engage = overDb / kKneeDb;
+            engage = engage < 0.0f ? 0.0f : (engage > 1.0f ? 1.0f : engage);
+            g = dbToLin(rangeDb_ * engage) - 1.0f; // peak bell gain of (range*engage) dB
+        }
+        stereo[2 * i] = l + g * bpL;
+        stereo[2 * i + 1] = r + g * bpR;
+    }
+}
+
 // ---- Gate -------------------------------------------------------------------
 
 void Gate::reset() {

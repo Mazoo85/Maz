@@ -663,6 +663,60 @@ int main() {
               "de-esser defaults to off at a 6 kHz crossover");
     }
 
+    // --- Dynamic EQ: a tunable band cuts/boosts only when it crosses threshold ----
+    {
+        // RMS of a settled window (second half) of a mono tone run through a dynamic-EQ band at 3 kHz.
+        auto ratioAt = [&](double freq, double amp, float rangeDb, float thrDb) {
+            audio::DynamicEq dq;
+            dq.setEnabled(true);
+            dq.setFrequency(3000.0f);
+            dq.setQ(2.0f);
+            dq.setThresholdDb(thrDb);
+            dq.setRangeDb(rangeDb);
+            std::vector<float> b = sineStereo(sr, freq, amp, sr);
+            double before = 0.0;
+            for (int i = sr / 2; i < sr; ++i) before += static_cast<double>(b[static_cast<size_t>(i) * 2]) *
+                                                          static_cast<double>(b[static_cast<size_t>(i) * 2]);
+            dq.process(b.data(), sr, sr);
+            double after = 0.0;
+            for (int i = sr / 2; i < sr; ++i) after += static_cast<double>(b[static_cast<size_t>(i) * 2]) *
+                                                       static_cast<double>(b[static_cast<size_t>(i) * 2]);
+            return std::sqrt(after / (before + 1e-18));
+        };
+        // A loud tone at the band centre, over threshold, with a dynamic cut → strongly attenuated.
+        check(ratioAt(3000.0, 0.8, -12.0f, -40.0f) < 0.4,
+              "dynamic EQ cuts a loud tone at the band centre");
+        // A loud tone far from the band → the detector never engages, so it passes ~untouched.
+        check(ratioAt(300.0, 0.8, -12.0f, -40.0f) > 0.95,
+              "dynamic EQ leaves an out-of-band tone alone (band-selective)");
+        // Boost mode: a loud in-band tone is lifted.
+        check(ratioAt(3000.0, 0.4, 12.0f, -40.0f) > 1.5,
+              "dynamic EQ boosts a loud in-band tone when range is positive");
+        // A quiet in-band tone below threshold passes bit-exact (engagement is exactly 0).
+        {
+            audio::DynamicEq dq;
+            dq.setEnabled(true);
+            dq.setFrequency(3000.0f);
+            dq.setRangeDb(-12.0f);
+            dq.setThresholdDb(-6.0f); // well above the quiet tone's band level
+            std::vector<float> b = sineStereo(sr / 4, 3000.0, 0.01, sr);
+            std::vector<float> ref = b;
+            dq.process(b.data(), sr / 4, sr);
+            check(b == ref, "dynamic EQ below threshold is bit-exact transparent");
+        }
+        // Disabled → transparent.
+        {
+            audio::DynamicEq off;
+            std::vector<float> b = sineStereo(sr / 4, 3000.0, 0.8, sr);
+            std::vector<float> ref = b;
+            off.process(b.data(), sr / 4, sr);
+            check(b == ref, "a disabled dynamic EQ is transparent");
+        }
+        audio::DynamicEq def;
+        check(!def.enabled() && std::fabs(def.frequency() - 3000.0f) < 1e-3f,
+              "dynamic EQ defaults to off at 3 kHz");
+    }
+
     // --- Stereo enhancer: widens a mono source ------------------------------
     {
         // A mono input (L == R) comes out decorrelated: the right channel is delayed, so L and R

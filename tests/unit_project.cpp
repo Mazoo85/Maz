@@ -305,6 +305,13 @@ int main() {
     mixer.deEsser().setFrequency(7000.0f);
     mixer.deEsser().setAmount(0.65f);
     mixer.deEsser().setReleaseMs(45.0f);
+    mixer.dynamicEq().setEnabled(true);
+    mixer.dynamicEq().setFrequency(2400.0f);
+    mixer.dynamicEq().setQ(3.5f);
+    mixer.dynamicEq().setThresholdDb(-18.0f);
+    mixer.dynamicEq().setRangeDb(-9.0f);
+    mixer.dynamicEq().setAttackMs(8.0f);
+    mixer.dynamicEq().setReleaseMs(120.0f);
     mixer.stereoEnhancer().setEnabled(true);
     mixer.stereoEnhancer().setDelayMs(18.0f);
     mixer.stereoEnhancer().setAmount(0.55f);
@@ -823,6 +830,11 @@ int main() {
               near(mixer2.deEsser().frequency(), 7000.0f) && near(mixer2.deEsser().amount(), 0.65f) &&
               near(mixer2.deEsser().releaseMs(), 45.0f),
           "de-esser round-trips");
+    check(mixer2.dynamicEq().enabled() && near(mixer2.dynamicEq().frequency(), 2400.0f) &&
+              near(mixer2.dynamicEq().q(), 3.5f) && near(mixer2.dynamicEq().thresholdDb(), -18.0f) &&
+              near(mixer2.dynamicEq().rangeDb(), -9.0f) && near(mixer2.dynamicEq().attackMs(), 8.0f) &&
+              near(mixer2.dynamicEq().releaseMs(), 120.0f),
+          "dynamic EQ round-trips");
     check(mixer2.stereoEnhancer().enabled() && near(mixer2.stereoEnhancer().delayMs(), 18.0f) &&
               near(mixer2.stereoEnhancer().amount(), 0.55f),
           "stereo enhancer round-trips");

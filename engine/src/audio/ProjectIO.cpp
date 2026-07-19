@@ -485,6 +485,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx deesser " << (mixer.deEsser().enabled() ? 1 : 0) << " " << mixer.deEsser().thresholdDb()
       << " " << mixer.deEsser().frequency() << " " << mixer.deEsser().amount() << " "
       << mixer.deEsser().releaseMs() << "\n";
+    f << "fx dyneq " << (mixer.dynamicEq().enabled() ? 1 : 0) << " " << mixer.dynamicEq().frequency()
+      << " " << mixer.dynamicEq().q() << " " << mixer.dynamicEq().thresholdDb() << " "
+      << mixer.dynamicEq().rangeDb() << " " << mixer.dynamicEq().attackMs() << " "
+      << mixer.dynamicEq().releaseMs() << "\n";
     f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
@@ -1144,6 +1148,16 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.deEsser().setFrequency(freq);
                 mixer.deEsser().setAmount(amt);
                 mixer.deEsser().setReleaseMs(rel);
+            } else if (which == "dyneq") {
+                float freq = 3000.0f, q = 2.0f, thr = -24.0f, range = -6.0f, atk = 5.0f, rel = 80.0f;
+                ls >> freq >> q >> thr >> range >> atk >> rel;
+                mixer.dynamicEq().setEnabled(en != 0);
+                mixer.dynamicEq().setFrequency(freq);
+                mixer.dynamicEq().setQ(q);
+                mixer.dynamicEq().setThresholdDb(thr);
+                mixer.dynamicEq().setRangeDb(range);
+                mixer.dynamicEq().setAttackMs(atk);
+                mixer.dynamicEq().setReleaseMs(rel);
             } else if (which == "comb") {
                 float freq = 220.0f, fb = 0.8f, mix = 0.5f;
                 ls >> freq >> fb >> mix;
