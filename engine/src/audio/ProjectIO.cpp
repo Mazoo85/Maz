@@ -216,6 +216,10 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> osc3fine) {
         syn.setOsc3FineTune(osc3fine);
     }
+    float pluckDamp = 0.0f; // pluck damping optional for old files (0 = natural KS decay)
+    if (ls >> pluckDamp) {
+        syn.setPluckDamping(pluckDamp);
+    }
     // Absent → osc2 stays linked to the primary (the default), matching old files.
 }
 } // namespace
@@ -290,7 +294,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.osc2Semitones() << " " << s.subOctave() << " " << s.osc3Level() << " "
           << s.osc3Semitones() << " " << (s.osc2WaveformLinked() ? 1 : 0) << " "
           << static_cast<int>(s.osc2Waveform()) << " " << (s.osc3WaveformLinked() ? 1 : 0) << " "
-          << static_cast<int>(s.osc3Waveform()) << " " << s.osc3FineTune() << "\n";
+          << static_cast<int>(s.osc3Waveform()) << " " << s.osc3FineTune() << " "
+          << s.pluckDamping() << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

@@ -352,8 +352,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 const int cur = v.ksPtr;
                 const int nxt = (cur + 1) % n;
                 osc = v.ksBuf[static_cast<size_t>(cur)];
-                v.ksBuf[static_cast<size_t>(cur)] =
+                // One-zero low-pass average = the string's natural decay; the damping control bleeds a
+                // little extra energy out each pass for a faster, darker, more muted pluck.
+                const float avg =
                     0.5f * (v.ksBuf[static_cast<size_t>(cur)] + v.ksBuf[static_cast<size_t>(nxt)]);
+                v.ksBuf[static_cast<size_t>(cur)] = avg * (1.0f - 0.02f * pluckDamping_);
                 v.ksPtr = nxt;
             } else {
                 // Pulse-width, optionally swept by the PWM LFO (square-wave duty movement).

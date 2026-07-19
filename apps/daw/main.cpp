@@ -903,6 +903,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (ImGui::Combo("Engine", &mode, modes, IM_ARRAYSIZE(modes))) {
         syn.setMode(static_cast<audio::SynthMode>(mode));
     }
+    if (syn.mode() == audio::SynthMode::Pluck) {
+        float pd = syn.pluckDamping();
+        if (ImGui::SliderFloat("Damping##pluck", &pd, 0.0f, 1.0f, "%.2f"))
+            syn.setPluckDamping(pd);
+    }
     if (syn.mode() == audio::SynthMode::Subtractive) {
         int w = static_cast<int>(syn.waveform());
         const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap", "Step"};

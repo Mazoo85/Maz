@@ -1998,6 +1998,22 @@ int main() {
         check(rms(w2) < rms(w1) * 0.9, "pluck decays over time (Karplus-Strong string damping)");
         check(audio::SynthInstrument().mode() == audio::SynthMode::Subtractive,
               "synth engine mode defaults to subtractive (not pluck)");
+
+        // Damping control: a heavily-damped string decays faster, so its tail is quieter than an
+        // undamped (default) one measured over the same later window.
+        auto pluckTailRms = [&](float damping) {
+            audio::SynthInstrument p;
+            p.setMode(audio::SynthMode::Pluck);
+            p.setPluckDamping(damping);
+            p.setEnvelope(0.001f, 0.05f, 1.0f, 0.1f);
+            p.noteOn(69, 1.0f);
+            render(p, sampleRate / 8, sampleRate);                          // skip the attack (~0.125 s)
+            return rms(render(p, sampleRate / 4, sampleRate));              // tail window
+        };
+        check(pluckTailRms(1.0f) < pluckTailRms(0.0f) * 0.8,
+              "higher pluck damping shortens the string's decay");
+        check(audio::SynthInstrument().pluckDamping() == 0.0f,
+              "pluck damping defaults to 0 (natural decay)");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

@@ -847,14 +847,16 @@ int main() {
         audio::Mixer pmix;
         audio::Automation paut;
         pseq.synth().setMode(audio::SynthMode::Pluck);
+        pseq.synth().setPluckDamping(0.6f);
         const std::string ppath = "unit_project_pluck.cjc";
         check(audio::saveProject(ppath, pseq, pmix, paut, &err), "saveProject (pluck) succeeds");
         audio::Sequencer pseq2;
         audio::Mixer pmix2;
         audio::Automation paut2;
         check(audio::loadProject(ppath, pseq2, pmix2, paut2, &err), "loadProject (pluck) succeeds");
-        check(pseq2.synth().mode() == audio::SynthMode::Pluck,
-              "pluck engine mode round-trips");
+        check(pseq2.synth().mode() == audio::SynthMode::Pluck &&
+                  near(pseq2.synth().pluckDamping(), 0.6f),
+              "pluck engine mode + damping round-trip");
     }
 
     // A non-.cjc file is rejected.

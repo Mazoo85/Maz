@@ -26,6 +26,11 @@ public:
 
     void setMode(SynthMode m) { mode_ = m; }
     SynthMode mode() const { return mode_; }
+    // Pluck (Karplus-Strong) string damping [0,1]: 0 = the brightest, longest-ringing string; higher
+    // bleeds energy out of the delay line each pass, so the pluck decays faster and darker (a softer,
+    // more muted string). Only affects Pluck mode; 0 (default) keeps the natural KS decay.
+    void setPluckDamping(float d) { pluckDamping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    float pluckDamping() const { return pluckDamping_; }
 
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
@@ -390,6 +395,7 @@ private:
     };
 
     SynthMode mode_ = SynthMode::Subtractive;
+    float pluckDamping_ = 0.0f;  // Karplus-Strong extra damping [0,1]; 0 = natural (brightest) decay
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)
