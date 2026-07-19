@@ -376,6 +376,7 @@ int main() {
     mixer.distortion().setCurve(audio::Distortion::Curve::Tube);
     mixer.distortion().setTone(4800.0f);
     mixer.distortion().setOutputDb(-4.5f);
+    mixer.distortion().setBias(0.35f);
     mixer.ampCab().setEnabled(true);
     mixer.ampCab().setDrive(0.65f);
     mixer.ampCab().setPresence(0.55f);
@@ -947,7 +948,8 @@ int main() {
           "reverse delay round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Tube &&
               near(mixer2.distortion().tone(), 4800.0f) &&
-              near(mixer2.distortion().outputDb(), -4.5f),
+              near(mixer2.distortion().outputDb(), -4.5f) &&
+              near(mixer2.distortion().bias(), 0.35f),
           "distortion curve round-trips");
     check(mixer2.ampCab().enabled() && near(mixer2.ampCab().drive(), 0.65f) &&
               near(mixer2.ampCab().presence(), 0.55f) && near(mixer2.ampCab().tone(), 4200.0f) &&

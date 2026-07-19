@@ -181,6 +181,13 @@ public:
     // Output level (dB, ±24): a post-shaper output trim so you can drive hard for the tone and then
     // bring the (now-louder) result back down for gain-staging. 0 dB (default) = unity/off.
     void setOutputDb(float db) { outputDb_ = db < -24.0f ? -24.0f : (db > 24.0f ? 24.0f : db); }
+    // Bias / asymmetry (±1): offsets the signal into the waveshaper before clipping so the two halves
+    // of the wave saturate unequally. A symmetric curve (Soft/Hard/Fold) on its own makes only odd
+    // harmonics; the asymmetry adds *even* harmonics (2nd, 4th…) for a warmer, tube-like grit. The
+    // resulting DC is removed by a blocker, so the output stays centred. 0 (default) = off (symmetric,
+    // bit-for-bit unchanged). Applies to every curve (it further warms the already-asymmetric Tube).
+    void setBias(float b) { bias_ = b < -1.0f ? -1.0f : (b > 1.0f ? 1.0f : b); }
+    float bias() const { return bias_; }
     float drive() const { return drive_; }
     float mix() const { return mix_; }
     Curve curve() const { return curve_; }
@@ -196,7 +203,10 @@ private:
     Curve curve_ = Curve::Soft;
     float toneHz_ = 20000.0f; // post low-pass cutoff; 20000 = off
     float outputDb_ = 0.0f;   // post-shaper output trim in dB; 0 = unity
+    float bias_ = 0.0f;       // pre-shaper asymmetry offset (±1); 0 = symmetric/off
     float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
+    float dcPrevL_ = 0.0f, dcPrevR_ = 0.0f; // DC-blocker input memory (bias path) per channel
+    float dcHpL_ = 0.0f, dcHpR_ = 0.0f;     // DC-blocker high-pass state (bias path) per channel
 };
 
 // A guitar amp + cabinet simulator (FL "Hardcore"-style): a preamp overdrive stage into a speaker-

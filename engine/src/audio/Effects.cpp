@@ -251,10 +251,15 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
     const bool doTone = toneHz_ < 19000.0f;
     const float toneA =
         doTone ? 1.0f - std::exp(-2.0f * kPi * toneHz_ / static_cast<float>(sampleRate)) : 0.0f;
+    // Bias/asymmetry: offset the shaper input, then remove the resulting DC. Engaged only when set,
+    // so bias 0 stays bit-for-bit identical to the classic symmetric behaviour.
+    const bool doBias = bias_ != 0.0f;
+    const float biasOffset = bias_ * 2.0f; // shift in the (post-drive) shaper-input domain
+    const float dcR = std::exp(-2.0f * kPi * 20.0f / static_cast<float>(sampleRate)); // ~20 Hz blocker
     const int n = frames * 2;
     for (int i = 0; i < n; ++i) {
         const float dry = stereo[i];
-        const float x = dry * drive;
+        const float x = dry * drive + (doBias ? biasOffset : 0.0f);
         float wet = 0.0f;
         switch (curve_) {
         case Curve::Soft:
@@ -290,6 +295,18 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
             break;
         }
         }
+        // Bias DC blocker: strip the offset the asymmetry introduced so the output stays centred.
+        if (doBias) {
+            if ((i & 1) == 0) {
+                dcHpL_ = wet - dcPrevL_ + dcR * dcHpL_;
+                dcPrevL_ = wet;
+                wet = dcHpL_;
+            } else {
+                dcHpR_ = wet - dcPrevR_ + dcR * dcHpR_;
+                dcPrevR_ = wet;
+                wet = dcHpR_;
+            }
+        }
         // Post tone: low-pass the wet before mixing (per channel: even i = L, odd i = R).
         if (doTone) {
             if ((i & 1) == 0) {
@@ -307,6 +324,8 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
 void Distortion::reset() {
     toneL_ = 0.0f;
     toneR_ = 0.0f;
+    dcPrevL_ = dcPrevR_ = 0.0f;
+    dcHpL_ = dcHpR_ = 0.0f;
 }
 
 // ---- AmpCab -----------------------------------------------------------------

@@ -1325,6 +1325,63 @@ int main() {
         check(std::fabs(outAtMinus6 - outAt0 * 0.5011872) < outAt0 * 0.02,
               "distortion output trim scales the level (−6 dB ≈ half)");
         check(dt.outputDb() == 0.0f, "distortion output trim defaults to 0 dB (unity)");
+
+        // Bias/asymmetry: a symmetric curve makes only odd harmonics; bias adds even ones (2nd).
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        auto second = [&](float bias) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(6.0f);
+            d.setMix(1.0f);
+            d.setCurve(audio::Distortion::Curve::Soft); // symmetric on its own → odd harmonics only
+            d.setBias(bias);
+            std::vector<float> b = sineStereo(sr, 220.0, 0.5, sr);
+            d.process(b.data(), sr, sr);
+            std::vector<float> tail(b.begin() + static_cast<long>(sr) / 2, b.end()); // skip settling
+            return goertzel(tail, 440.0, sr); // the 2nd (even) harmonic
+        };
+        const double evenSym = second(0.0f);
+        const double evenBias = second(0.5f);
+        check(evenBias > evenSym * 20.0 + 1.0,
+              "distortion bias adds a strong even (2nd) harmonic a symmetric curve lacks");
+
+        // bias 0 leaves the shaper bit-for-bit identical to the classic symmetric path.
+        auto proc = [&](float bias) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(5.0f);
+            d.setMix(1.0f);
+            d.setBias(bias);
+            std::vector<float> b = sineStereo(sr / 4, 300.0, 0.6, sr);
+            d.process(b.data(), sr / 4, sr);
+            return b;
+        };
+        std::vector<float> noBias = proc(0.0f);
+        audio::Distortion base;
+        base.setEnabled(true);
+        base.setDrive(5.0f);
+        base.setMix(1.0f);
+        std::vector<float> ref = sineStereo(sr / 4, 300.0, 0.6, sr);
+        base.process(ref.data(), sr / 4, sr);
+        bool identical = noBias.size() == ref.size();
+        for (size_t i = 0; identical && i < noBias.size(); ++i) {
+            if (noBias[i] != ref[i]) {
+                identical = false;
+            }
+        }
+        check(identical, "distortion bias 0 is bit-for-bit the symmetric shaper");
+        audio::Distortion db;
+        check(db.bias() == 0.0f, "distortion bias defaults to 0 (symmetric)");
     }
 
     // --- Amp/Cab: preamp drive + a speaker-cabinet frequency voicing ---------

@@ -469,7 +469,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << mixer.exciter().amount() << "\n";
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve()) << " "
-      << mixer.distortion().tone() << " " << mixer.distortion().outputDb() << "\n";
+      << mixer.distortion().tone() << " " << mixer.distortion().outputDb() << " "
+      << mixer.distortion().bias() << "\n";
     f << "fx ampcab " << (mixer.ampCab().enabled() ? 1 : 0) << " " << mixer.ampCab().drive() << " "
       << mixer.ampCab().presence() << " " << mixer.ampCab().tone() << " " << mixer.ampCab().mix()
       << "\n";
@@ -1500,6 +1501,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float outDb = 0.0f; // output trim optional (older files omit it → unity)
                 if (ls >> outDb) {
                     mixer.distortion().setOutputDb(outDb);
+                }
+                float bias = 0.0f; // asymmetry optional (older files omit it → symmetric)
+                if (ls >> bias) {
+                    mixer.distortion().setBias(bias);
                 }
             } else if (which == "ampcab") {
                 float drive = 0.5f, presence = 0.4f, tone = 5000.0f, mix = 1.0f;

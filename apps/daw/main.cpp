@@ -1671,6 +1671,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("out##dist", &dout, -24.0f, 24.0f, "%.1f dB")) mx.distortion().setOutputDb(dout);
+        float dbias = mx.distortion().bias();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("bias##dist", &dbias, -1.0f, 1.0f, dbias == 0.0f ? "symmetric" : "%.2f"))
+            mx.distortion().setBias(dbias);
     }
     {
         auto& ac = mx.ampCab();
