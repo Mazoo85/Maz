@@ -77,21 +77,37 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool sli
     // Sustain so an adjacent (note-off then slide-on) pair joins seamlessly. We use an audible glide
     // time even when the global glide is 0, so a slide always slides.
     if (slide && mono_) {
+        Voice* target = nullptr;
         for (Voice& sv : voices_) {
-            if (sv.stage == Stage::Off) {
-                continue;
+            if (sv.stage != Stage::Off) {
+                target = &sv;
+                break;
             }
+        }
+        if (target != nullptr) {
             constexpr float kDefaultSlideSec = 0.06f;
-            sv.midi = midi;
-            sv.targetFreq = midiToFreq(midi);
-            sv.glideOverride = glideSeconds_ > 0.0f ? glideSeconds_ : kDefaultSlideSec;
-            if (sv.stage == Stage::Release) {
-                sv.stage = Stage::Sustain; // revive the releasing tail into the slide
+            target->midi = midi;
+            target->targetFreq = midiToFreq(midi);
+            target->glideOverride = glideSeconds_ > 0.0f ? glideSeconds_ : kDefaultSlideSec;
+            // Revive BOTH envelopes from Release so the slid note keeps sounding AND keeps its filter
+            // contour — the flagship acid-bass case relies on the filter envelope surviving the slide.
+            if (target->stage == Stage::Release) {
+                target->stage = Stage::Sustain;
+            }
+            if (target->filtStage == Stage::Release) {
+                target->filtStage = Stage::Sustain;
             }
             // Retune the analog-drift/fine-tune multiplier without touching env/phase/velocity.
-            float detune = fineCents;
-            sv.driftMul = detune != 0.0f ? std::pow(2.0f, detune / 1200.0f) : 1.0f;
-            lastFreq_ = sv.targetFreq;
+            const float detune = fineCents;
+            target->driftMul = detune != 0.0f ? std::pow(2.0f, detune / 1200.0f) : 1.0f;
+            // Enforce monophony: release any other voices still ringing (e.g. after a runtime
+            // poly→mono switch that left several voices sounding).
+            for (Voice& other : voices_) {
+                if (&other != target && other.stage != Stage::Off) {
+                    other.stage = Stage::Release;
+                }
+            }
+            lastFreq_ = target->targetFreq;
             return;
         }
         // Nothing sounding → fall through to a normal note-on (a slide from silence is just a note).

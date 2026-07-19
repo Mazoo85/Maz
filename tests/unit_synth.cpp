@@ -1349,6 +1349,55 @@ int main() {
         const std::vector<float> a4 = render(fromSilence, sampleRate / 4, sampleRate);
         check(rms(a4) > 0.01 && std::fabs(estimateHz(a4, sampleRate) - 440.0) < 8.0,
               "a slide from silence falls back to a normal note-on at the target pitch");
+
+        // Filter-envelope survival: sliding onto a just-released voice (the normal sequencer seam,
+        // where the note-off fires before the slide note-on) must revive the FILTER envelope too, not
+        // just the amp envelope — otherwise the slid note loses its cutoff sweep and sounds dull. This
+        // is the flagship acid-bass case, where the filter envelope IS the sound.
+        auto brightness = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                e += std::fabs(static_cast<double>(b[i]) - static_cast<double>(b[i - 1]));
+            }
+            return e;
+        };
+        auto mkFilterSynth = [&](audio::SynthInstrument& s) {
+            s.setWaveform(audio::Waveform::Saw);
+            s.setMono(true);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.2f);       // amp: full sustain
+            s.setFilter(500.0f, 2.0f, 0.0f);                // low base cutoff
+            s.setFilterEnvelope(0.005f, 0.05f, 0.8f, 0.2f); // filter env sustains high
+            s.setFilterEnvDepth(5000.0f);                   // big upward sweep while the env is alive
+            s.setGlide(0.0f);
+        };
+        audio::SynthInstrument refNote;
+        mkFilterSynth(refNote);
+        refNote.noteOn(50, 1.0f); // a normally-sustained note (filter env alive)
+        const std::vector<float> refBuf = render(refNote, sampleRate / 4, sampleRate);
+        audio::SynthInstrument slidNote;
+        mkFilterSynth(slidNote);
+        slidNote.noteOn(48, 1.0f);
+        (void)render(slidNote, sampleRate / 20, sampleRate);
+        slidNote.noteOff(48);                    // → both envelopes enter Release
+        slidNote.noteOn(50, 1.0f, 0.0f, true);   // slide onto the releasing voice
+        const std::vector<float> slidBuf = render(slidNote, sampleRate / 4, sampleRate);
+        check(brightness(slidBuf) > brightness(refBuf) * 0.6,
+              "a slid note keeps its filter envelope alive (stays bright, not just the base cutoff)");
+
+        // Monophony: after a runtime poly→mono switch that leaves several voices ringing, a mono slide
+        // must release the extras so only one voice sounds.
+        audio::SynthInstrument monoSlide;
+        monoSlide.setWaveform(audio::Waveform::Saw);
+        monoSlide.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        monoSlide.noteOn(60, 1.0f);
+        monoSlide.noteOn(64, 1.0f);
+        monoSlide.noteOn(67, 1.0f);
+        check(monoSlide.activeVoices() == 3, "three poly voices sound before the mono switch");
+        monoSlide.setMono(true);
+        monoSlide.noteOn(72, 1.0f, 0.0f, true);              // mono slide
+        (void)render(monoSlide, sampleRate / 5, sampleRate); // 200 ms >> the 50 ms release
+        check(monoSlide.activeVoices() == 1,
+              "a mono slide releases the extra ringing voices (true monophony)");
     }
 
     // --- Filter cutoff LFO ---------------------------------------------------
