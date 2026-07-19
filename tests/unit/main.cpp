@@ -119,6 +119,7 @@
 #include "maz/render/Subdivision.hpp"
 #include "maz/render/MeshWeld.hpp"
 #include "maz/render/MeshSmooth.hpp"
+#include "maz/core/NumberFormat.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20215,6 +20216,64 @@ void testPolynomial() {
     }
 }
 
+void testNumberFormat() {
+    using core::abbreviateNumber;
+    using core::clockDuration;
+    using core::compactDuration;
+    using core::formatBytes;
+    using core::groupThousands;
+
+    // Thousands grouping.
+    CHECK(groupThousands(0) == "0");
+    CHECK(groupThousands(999) == "999");
+    CHECK(groupThousands(1000) == "1,000");
+    CHECK(groupThousands(12345) == "12,345");
+    CHECK(groupThousands(1000000) == "1,000,000");
+    CHECK(groupThousands(1234567890) == "1,234,567,890");
+    CHECK(groupThousands(-1234) == "-1,234");
+    CHECK(groupThousands(1000, '.') == "1.000");
+    CHECK(groupThousands(9223372036854775807LL) == "9,223,372,036,854,775,807");
+
+    // Clock durations.
+    CHECK(clockDuration(0) == "0:00");
+    CHECK(clockDuration(5) == "0:05");
+    CHECK(clockDuration(65) == "1:05");
+    CHECK(clockDuration(3599) == "59:59");
+    CHECK(clockDuration(3600) == "1:00:00");
+    CHECK(clockDuration(3661) == "1:01:01");
+    CHECK(clockDuration(-10) == "0:00");
+    CHECK(clockDuration(90.9) == "1:30");
+
+    // Compact durations.
+    CHECK(compactDuration(0) == "0s");
+    CHECK(compactDuration(45) == "45s");
+    CHECK(compactDuration(83) == "1m 23s");
+    CHECK(compactDuration(3661) == "1h 1m 1s");
+    CHECK(compactDuration(7325) == "2h 2m 5s");
+
+    // Abbreviated magnitudes.
+    CHECK(abbreviateNumber(0) == "0");
+    CHECK(abbreviateNumber(999) == "999");
+    CHECK(abbreviateNumber(1000) == "1K");
+    CHECK(abbreviateNumber(1500) == "1.5K");
+    CHECK(abbreviateNumber(1234567) == "1.2M");
+    CHECK(abbreviateNumber(2500000000.0) == "2.5B");
+    CHECK(abbreviateNumber(1000000000000.0) == "1T");
+    CHECK(abbreviateNumber(-2500) == "-2.5K");
+    CHECK(abbreviateNumber(1234, 2) == "1.23K");
+    CHECK(abbreviateNumber(1000, 3) == "1K");
+
+    // Byte sizes.
+    CHECK(formatBytes(0) == "0 B");
+    CHECK(formatBytes(500) == "500 B");
+    CHECK(formatBytes(1023) == "1023 B");
+    CHECK(formatBytes(1024) == "1 KiB");
+    CHECK(formatBytes(1536) == "1.5 KiB");
+    CHECK(formatBytes(1048576) == "1 MiB");
+    CHECK(formatBytes(1073741824ULL) == "1 GiB");
+    CHECK(formatBytes(2684354560ULL) == "2.5 GiB");
+}
+
 void testMeshSmooth() {
     using math::vec3;
     using render::smoothMeshLaplacian;
@@ -30015,6 +30074,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testNumberFormat();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

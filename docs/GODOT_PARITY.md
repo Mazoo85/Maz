@@ -941,6 +941,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   box rotated about two axes recovers its tight half-extents (sorted) and yields a box volume far below
   the AABB volume of the same rotated cloud; the fitted axes are orthonormal; every point is enclosed;
   degenerate empty/single inputs handled),
+  **number formatting for HUDs** (M475, `core::groupThousands` / `clockDuration` / `compactDuration` /
+  `abbreviateNumber` / `formatBytes` — turn raw numbers into the strings a game shows: a score with
+  thousand separators ("1,000,000"), a timer as a clock ("1:23:45") or a compact span ("1h 23m 45s"), a
+  big idle-game count abbreviated ("1.2M"), or an asset size in bytes ("1.5 MiB"). The engine had
+  DateTime::formatTime for a wall-clock instant but nothing for elapsed durations or grouped/abbreviated
+  magnitudes; Godot's String offers num/pad but not these -> parity-or-better. Locale-independent (the
+  separator is an explicit argument). Verified exact strings across grouping (incl. INT64_MAX, negatives,
+  a European '.' separator), clock durations (M:SS vs H:MM:SS split, negative clamp, fractional floor),
+  compact durations, K/M/B/T abbreviation (trailing zeros trimmed, custom precision, negatives), and
+  binary IEC byte sizes),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
