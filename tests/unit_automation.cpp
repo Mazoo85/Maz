@@ -213,6 +213,25 @@ int main() {
               "chorus-mix automation fades back to dry");
     }
 
+    // --- Reverb-damping target (evolving space) ------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& rd = autom.lane(audio::AutoTarget::ReverbDamping);
+        rd.enabled = true;
+        rd.lfo.shape = audio::Waveform::Sine;
+        rd.lfo.rateHz = 1.0f;
+        rd.lo = 0.0f;
+        rd.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().reverb().enabled() && eng.mixer().reverb().damping() > 0.9f,
+              "automating reverb damping darkens (and enables) the tail");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().reverb().damping() < 0.1f,
+              "reverb-damping automation opens the tail back up");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

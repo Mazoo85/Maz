@@ -91,6 +91,8 @@ Automation::Automation() {
     lane(AutoTarget::RingModFreq).hi = 1500.0f;
     lane(AutoTarget::ChorusMix).lo = 0.0f;
     lane(AutoTarget::ChorusMix).hi = 1.0f;
+    lane(AutoTarget::ReverbDamping).lo = 0.0f;
+    lane(AutoTarget::ReverbDamping).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -153,6 +155,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Ring Mod Freq";
     case AutoTarget::ChorusMix:
         return "Chorus Mix";
+    case AutoTarget::ReverbDamping:
+        return "Reverb Damping";
     case AutoTarget::Count:
         break;
     }
@@ -336,6 +340,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Fade the chorus wet amount in/out (breakdown widening / build-up swells).
             engine.mixer().chorus().setEnabled(true);
             engine.mixer().chorus().setMix(v);
+            break;
+        case AutoTarget::ReverbDamping:
+            // Sweep the reverb tail's damping (darken/brighten the space as it evolves).
+            engine.mixer().reverb().setEnabled(true);
+            engine.mixer().reverb().setDamping(v);
             break;
         case AutoTarget::Count:
             break;
