@@ -15685,6 +15685,61 @@ void testGeometry2DPolygon() {
             CHECK(math::simplifyPolyline(arc, 0.01f).size() > 2);
         }
     }
+
+    // --- M425: chaikinSmooth (Chaikin corner-cutting) ---
+    {
+        auto veq = [](vec2 a, vec2 b) {
+            return std::fabs(a.x - b.x) < 1e-5f && std::fabs(a.y - b.y) < 1e-5f;
+        };
+
+        // No-op on <3 points or iterations <= 0.
+        CHECK(math::chaikinSmooth({vec2(0, 0), vec2(1, 1)}, 2).size() == 2);
+        CHECK(math::chaikinSmooth({vec2(0, 0), vec2(1, 1), vec2(2, 0)}, 0).size() == 3);
+
+        // Open L, one iteration: endpoints kept, 6 points, corner cuts at [3],[4].
+        {
+            const std::vector<vec2> el = {{0, 0}, {4, 0}, {4, 4}};
+            const std::vector<vec2> s = math::chaikinSmooth(el, 1);
+            CHECK(s.size() == 6);
+            CHECK(veq(s.front(), vec2(0, 0)));
+            CHECK(veq(s.back(), vec2(4, 4)));
+            CHECK(veq(s[1], vec2(1, 0)));
+            CHECK(veq(s[2], vec2(3, 0)));
+            CHECK(veq(s[3], vec2(4, 1)));
+            CHECK(veq(s[4], vec2(4, 3)));
+        }
+
+        // Point count grows per iteration; endpoints still preserved.
+        {
+            const std::vector<vec2> p = {{0, 0}, {1, 2}, {2, 0}, {3, 2}, {4, 0}};
+            const std::vector<vec2> s1 = math::chaikinSmooth(p, 1);
+            const std::vector<vec2> s2 = math::chaikinSmooth(p, 2);
+            CHECK(s1.size() > p.size());
+            CHECK(s2.size() > s1.size());
+            CHECK(veq(s2.front(), vec2(0, 0)));
+            CHECK(veq(s2.back(), vec2(4, 0)));
+        }
+
+        // Closed square: 2N points, stays in bounds, remains a positive-area polygon.
+        {
+            const std::vector<vec2> sqp = {{0, 0}, {4, 0}, {4, 4}, {0, 4}};
+            const std::vector<vec2> s = math::chaikinSmooth(sqp, 1, true);
+            CHECK(s.size() == 8);
+            for (const vec2& v : s) {
+                CHECK(v.x >= -1e-4f && v.x <= 4.0f + 1e-4f);
+                CHECK(v.y >= -1e-4f && v.y <= 4.0f + 1e-4f);
+            }
+            CHECK(std::fabs(math::polygonArea(s)) > 8.0f);
+        }
+
+        // A straight collinear run stays collinear.
+        {
+            const std::vector<vec2> line = {{0, 0}, {1, 0}, {2, 0}, {3, 0}};
+            for (const vec2& v : math::chaikinSmooth(line, 2)) {
+                CHECK(std::fabs(v.y) < 1e-5f);
+            }
+        }
+    }
 }
 
 // HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.

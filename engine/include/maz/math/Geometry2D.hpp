@@ -687,4 +687,41 @@ inline std::vector<vec2> simplifyPolyline(const std::vector<vec2>& pts, float to
     return out;
 }
 
+// Chaikin corner-cutting: round off a coarse polyline into a smooth one by replacing each interior
+// corner with two points 1/4 and 3/4 of the way along its two edges, repeated `iterations` times. This
+// is the workhorse behind smoothing AI/nav paths, hand-drawn strokes and generated outlines into gentle
+// curves without a spline fit — the complement of simplifyPolyline (which thins; this rounds). For an
+// open path the two endpoints are preserved; set `closed` for a loop (every vertex is cut, no endpoints).
+// Each iteration roughly doubles the point count; iterations <= 0 or < 3 points returns the input as-is.
+inline std::vector<vec2> chaikinSmooth(const std::vector<vec2>& pts, int iterations, bool closed = false) {
+    if (iterations <= 0 || pts.size() < 3) {
+        return pts;
+    }
+    std::vector<vec2> cur = pts;
+    for (int it = 0; it < iterations; ++it) {
+        const std::size_t n = cur.size();
+        if (n < 3) {
+            break;
+        }
+        std::vector<vec2> next;
+        next.reserve(closed ? n * 2 : (n * 2));
+        if (!closed) {
+            next.push_back(cur.front()); // keep the first endpoint
+        }
+        const std::size_t last = closed ? n : (n - 1);
+        for (std::size_t i = 0; i < last; ++i) {
+            const vec2 a = cur[i];
+            const vec2 b = cur[(i + 1) % n];
+            // Q = 3/4 a + 1/4 b, R = 1/4 a + 3/4 b.
+            next.push_back(vec2(0.75f * a.x + 0.25f * b.x, 0.75f * a.y + 0.25f * b.y));
+            next.push_back(vec2(0.25f * a.x + 0.75f * b.x, 0.25f * a.y + 0.75f * b.y));
+        }
+        if (!closed) {
+            next.push_back(cur.back()); // keep the last endpoint
+        }
+        cur = std::move(next);
+    }
+    return cur;
+}
+
 } // namespace maz::math

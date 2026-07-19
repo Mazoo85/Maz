@@ -166,7 +166,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   no polyline simplify. Verified: trivial pass-through, a collinear run collapsing to 2 points, a bump
   kept/dropped either side of the tolerance, a preserved right-angle corner, endpoints-preserved with
   result never larger than input, a square outline keeping its 4 corners, and a shallow arc collapsing
-  under a big tolerance but surviving a fine one); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
+  under a big tolerance but surviving a fine one); plus **polyline smoothing** M425 —
+  `chaikinSmooth` (Chaikin corner-cutting: replace each corner with points 1/4 and 3/4 along its two
+  edges, repeated N times, to round a coarse polyline into a smooth curve — the complement of
+  simplifyPolyline for smoothing AI/nav paths, strokes and outlines without a spline fit; open paths
+  keep both endpoints, `closed` cuts every vertex of a loop. Godot has no Chaikin. Verified: no-op on
+  <3 points / iterations<=0, an open L cutting to 6 points with the exact 1/4–3/4 corner cuts, point
+  count growing with endpoints preserved across iterations, a closed square cutting to 8 in-bounds
+  positive-area points, and a straight run staying collinear); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
   clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); plus **point-in-circle test** M373
   — `pointInCircle` (Godot's Geometry2D.is_point_in_circle: squared-distance ≤ radius², boundary counts as inside); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
