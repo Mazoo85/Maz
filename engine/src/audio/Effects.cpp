@@ -2452,6 +2452,12 @@ void FormantFilter::process(float* stereo, int frames, int sampleRate) {
         f1 = kF1[idx];
         f2 = kF2[idx];
     }
+    // Formant / gender shift: scale both formants by 2^(semis/12), clamped to a sane range.
+    if (formantShift_ != 0.0f) {
+        const float fmul = std::pow(2.0f, formantShift_ / 12.0f);
+        f1 = std::clamp(f1 * fmul, 50.0f, 12000.0f);
+        f2 = std::clamp(f2 * fmul, 50.0f, 12000.0f);
+    }
     constexpr float kQ = 5.0f; // resonant enough to make the formants sing
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];

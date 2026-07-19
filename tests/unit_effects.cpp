@@ -3181,6 +3181,22 @@ int main() {
         audio::FormantFilter dfm;
         check(!dfm.morphEnabled(), "formant vowel morph defaults to off");
 
+        // Formant/gender shift: shifting the formants up an octave moves vowel A's ~800 Hz F1 up to
+        // ~1600 Hz, so a 1600 Hz tone (rejected at the natural shift) now passes through the formant.
+        auto shiftedPass = [&](float semis, double toneHz) {
+            audio::FormantFilter f;
+            f.setEnabled(true);
+            f.setVowel(audio::FormantFilter::Vowel::A);
+            f.setMix(1.0f);
+            f.setFormantShift(semis);
+            std::vector<float> b = sineStereo(sr, toneHz, 0.5, sr);
+            f.process(b.data(), sr, sr);
+            return rms(b);
+        };
+        check(shiftedPass(12.0f, 1600.0) > shiftedPass(0.0f, 1600.0) * 2.0,
+              "formant shift moves the formants up (a higher tone now passes)");
+        check(audio::FormantFilter().formantShift() == 0.0f, "formant shift defaults to natural (0)");
+
         // Disabled → transparent.
         audio::FormantFilter off;
         std::vector<float> sig = sineStereo(1000, 800.0, 0.5, sr);

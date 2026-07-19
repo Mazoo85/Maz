@@ -1518,6 +1518,14 @@ public:
     void setMorph(float pos) { morph_ = pos < 0.0f ? 0.0f : (pos > 4.0f ? 4.0f : pos); }
     bool morphEnabled() const { return morphEnabled_; }
     float morph() const { return morph_; }
+    // Formant / "gender" shift (±12 semitones): scales both formant frequencies by 2^(semis/12),
+    // moving the vocal tract shorter (up → smaller/female/child) or longer (down → larger/male) while
+    // the pitch is untouched — a talkbox gender/character bend. 0 (default) = the vowel's natural
+    // formants (bit-for-bit unchanged).
+    void setFormantShift(float semis) {
+        formantShift_ = semis < -12.0f ? -12.0f : (semis > 12.0f ? 12.0f : semis);
+    }
+    float formantShift() const { return formantShift_; }
     Vowel vowel() const { return vowel_; }
     float mix() const { return mix_; }
 
@@ -1529,6 +1537,7 @@ private:
     float mix_ = 0.5f;
     bool morphEnabled_ = false; // false = discrete vowel; true = continuous morph by morph_
     float morph_ = 0.0f;        // morph position 0..4 across A,E,I,O,U
+    float formantShift_ = 0.0f; // formant/gender shift in semitones (±12); 0 = natural
     StateVariableFilter f1L_{}, f2L_{}, f1R_{}, f2R_{};
 };
 

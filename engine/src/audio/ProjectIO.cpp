@@ -584,7 +584,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.multiTapDelay().spread() << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
-      << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << "\n";
+      << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << " "
+      << mixer.formant().formantShift() << "\n";
     f << "fx vocoder " << (mixer.vocoder().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.vocoder().carrier()) << " " << mixer.vocoder().carrierHz() << " "
       << mixer.vocoder().releaseMs() << " " << mixer.vocoder().mix() << "\n";
@@ -1417,6 +1418,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> morphEn >> morphPos) {
                     mixer.formant().setMorphEnabled(morphEn != 0);
                     mixer.formant().setMorph(morphPos);
+                }
+                float fshift = 0.0f; // formant shift optional for old files (0 = natural)
+                if (ls >> fshift) {
+                    mixer.formant().setFormantShift(fshift);
                 }
             } else if (which == "vocoder") {
                 int carrier = 0;

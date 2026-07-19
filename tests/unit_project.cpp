@@ -339,6 +339,7 @@ int main() {
     mixer.formant().setMix(0.6f);
     mixer.formant().setMorphEnabled(true);
     mixer.formant().setMorph(2.5f);
+    mixer.formant().setFormantShift(-4.0f);
     mixer.vocoder().setEnabled(true);
     mixer.vocoder().setCarrier(audio::Vocoder::Carrier::Noise);
     mixer.vocoder().setCarrierHz(82.0f);
@@ -919,7 +920,7 @@ int main() {
     check(mixer2.formant().enabled() &&
               mixer2.formant().vowel() == audio::FormantFilter::Vowel::E &&
               near(mixer2.formant().mix(), 0.6f) && mixer2.formant().morphEnabled() &&
-              near(mixer2.formant().morph(), 2.5f),
+              near(mixer2.formant().morph(), 2.5f) && near(mixer2.formant().formantShift(), -4.0f),
           "formant filter round-trips");
     check(mixer2.vocoder().enabled() &&
               mixer2.vocoder().carrier() == audio::Vocoder::Carrier::Noise &&

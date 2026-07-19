@@ -2586,6 +2586,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::SliderFloat("A-E-I-O-U##fmt", &morphPos, 0.0f, 4.0f, "%.2f"))
             mx.formant().setMorph(morphPos);
+        float fshift = mx.formant().formantShift();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("gender##fmt", &fshift, -12.0f, 12.0f, fshift == 0.0f ? "natural" : "%.1f st"))
+            mx.formant().setFormantShift(fshift);
     }
     {
         auto& vc = mx.vocoder();
