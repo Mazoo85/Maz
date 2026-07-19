@@ -1216,6 +1216,25 @@ int main() {
         check(brightness(wahOut(0.9)) > brightness(wahOut(0.05)) * 1.3,
               "auto-wah opens the filter for louder input");
 
+        // Downward mode reverses it: the same loud input closes the filter, so it is darker than the
+        // upward sweep.
+        auto wahDir = [&](bool down) {
+            audio::AutoWah w;
+            w.setEnabled(true);
+            w.setBaseHz(300.0f);
+            w.setRangeHz(3000.0f);
+            w.setSensitivity(1.0f);
+            w.setResonance(3.0f);
+            w.setDownward(down);
+            std::vector<float> b = sawStereo(300.0, 0.9, sr / 2);
+            w.process(b.data(), sr / 2, sr);
+            return std::vector<float>(b.begin() + static_cast<std::ptrdiff_t>(b.size() / 2), b.end());
+        };
+        check(brightness(wahDir(true)) < brightness(wahDir(false)) * 0.7,
+              "downward auto-wah closes the filter for louder input (darker)");
+        audio::AutoWah dw;
+        check(!dw.downward(), "auto-wah direction defaults to upward");
+
         // Disabled → transparent.
         audio::AutoWah off;
         std::vector<float> sig = sawStereo(300.0, 0.5, 1000);

@@ -374,7 +374,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx autowah " << (mixer.autowah().enabled() ? 1 : 0) << " " << mixer.autowah().baseHz() << " "
       << mixer.autowah().rangeHz() << " " << mixer.autowah().sensitivity() << " "
       << mixer.autowah().resonance() << " " << mixer.autowah().attackMs() << " "
-      << mixer.autowah().releaseMs() << "\n";
+      << mixer.autowah().releaseMs() << " " << (mixer.autowah().downward() ? 1 : 0) << "\n";
     f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
       << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
@@ -948,6 +948,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.autowah().setResonance(reso);
                 mixer.autowah().setAttackMs(atk);
                 mixer.autowah().setReleaseMs(rel);
+                int down = 0; // direction optional for old files (0 = upward)
+                if (ls >> down) {
+                    mixer.autowah().setDownward(down != 0);
+                }
             } else if (which == "tape") {
                 float drive = 2.0f, warmth = 0.3f, mix = 1.0f;
                 ls >> drive >> warmth >> mix;

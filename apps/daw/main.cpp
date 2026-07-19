@@ -1672,6 +1672,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("reso##wah", &reso, 0.5f, 20.0f, "%.1f")) mx.autowah().setResonance(reso);
+        bool down = mx.autowah().downward();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("down##wah", &down)) mx.autowah().setDownward(down);
     }
     {
         bool en = mx.comb().enabled();

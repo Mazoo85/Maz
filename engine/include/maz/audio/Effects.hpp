@@ -657,6 +657,10 @@ public:
     void setResonance(float r) { resonance_ = r < 0.5f ? 0.5f : (r > 20.0f ? 20.0f : r); }
     void setAttackMs(float ms) { attackMs_ = ms < 0.1f ? 0.1f : ms; }
     void setReleaseMs(float ms) { releaseMs_ = ms < 1.0f ? 1.0f : ms; }
+    // Direction: false (default) = louder input sweeps the cutoff UP from base (classic wah); true =
+    // DOWNward, louder input closes the filter from base+range toward base (a reverse/"anti" wah).
+    void setDownward(bool d) { downward_ = d; }
+    bool downward() const { return downward_; }
     float baseHz() const { return baseHz_; }
     float rangeHz() const { return rangeHz_; }
     float sensitivity() const { return sensitivity_; }
@@ -674,6 +678,7 @@ private:
     float resonance_ = 4.0f;
     float attackMs_ = 5.0f;
     float releaseMs_ = 80.0f;
+    bool downward_ = false; // true = louder input lowers the cutoff (reverse wah)
     float env_ = 0.0f; // amplitude-envelope follower
     StateVariableFilter lpL_{};
     StateVariableFilter lpR_{};

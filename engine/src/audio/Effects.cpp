@@ -985,9 +985,11 @@ void AutoWah::process(float* stereo, int frames, int sampleRate) {
         const float mag = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
         const float coef = mag > env_ ? aAtk : aRel;
         env_ += coef * (mag - env_);
-        // Map the envelope (clamped to unity) to a cutoff between base and base+range.
+        // Map the envelope (clamped to unity) to a cutoff between base and base+range. Downward mode
+        // starts open (base+range) and closes toward base as the input gets louder.
         const float e = env_ > 1.0f ? 1.0f : env_;
-        const float cutoff = baseHz_ + sensitivity_ * e * rangeHz_;
+        const float sweep = sensitivity_ * e * rangeHz_;
+        const float cutoff = downward_ ? (baseHz_ + rangeHz_ - sweep) : (baseHz_ + sweep);
         stereo[2 * i] =
             lpL_.process(l, cutoff, resonance_, sampleRate, StateVariableFilter::Mode::LowPass);
         stereo[2 * i + 1] =
