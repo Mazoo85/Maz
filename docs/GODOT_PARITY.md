@@ -182,7 +182,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   HashingContext HASH_MD5 (legacy non-security checksums), RFC 1321 vectors verified — completing
   Godot's MD5/SHA-1/SHA-256 HashingContext trio; plus **HMAC-SHA256** M298,
   `core::hmacSha256` — keyed message authentication for signed saves / tamper-proof network messages /
-  API tokens, Godot's Crypto.hmac_digest, verified against the RFC 4231 vectors), **endian-aware byte stream** (M277, `io::StreamPeerBuffer` — Godot's
+  API tokens, Godot's Crypto.hmac_digest, verified against the RFC 4231 vectors); plus **hexDecode** M382 —
+  `core::hexDecode`, the inverse of toHex (Godot's String.hex_decode): parses a hex string to bytes,
+  case-insensitively, returning empty on odd length or any non-hex character (Godot's exact failure
+  behaviour), round-trips with toHex both ways), **endian-aware byte stream** (M277, `io::StreamPeerBuffer` — Godot's
   StreamPeerBuffer: fixed-width little/big-endian put/get for u8..u64 signed+unsigned, float, double,
   length-prefixed strings, safe past-end reads; for network protocols and portable binary formats),
   semver, deterministic time, replay, checkpoints, profiler, **RNG distribution

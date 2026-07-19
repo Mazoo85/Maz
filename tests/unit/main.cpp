@@ -14088,6 +14088,22 @@ void testHash() {
     CHECK(crc32(std::string("123456789")) == 0xCBF43926u);
     CHECK(crc32(std::string("")) == 0u);
     CHECK(crc32(std::string("The quick brown fox jumps over the lazy dog")) == 0x414FA339u);
+    // M382: hexDecode — Godot String.hex_decode, the inverse of toHex.
+    {
+        using Bytes = std::vector<std::uint8_t>;
+        CHECK((hexDecode("00ff10") == Bytes{0x00, 0xff, 0x10}));
+        CHECK((hexDecode("deadbeef") == Bytes{0xde, 0xad, 0xbe, 0xef}));
+        CHECK(hexDecode("").empty());
+        CHECK(hexDecode("DEADBEEF") == hexDecode("deadbeef")); // case-insensitive
+        // Round-trips both ways.
+        const Bytes orig{1, 2, 3, 250, 128, 0, 255};
+        CHECK(hexDecode(toHex(orig.data(), orig.size())) == orig);
+        CHECK(toHex(hexDecode("0123456789abcdef").data(), 8) == "0123456789abcdef");
+        // Failure modes return empty (Godot's behaviour).
+        CHECK(hexDecode("abc").empty());  // odd length
+        CHECK(hexDecode("zz").empty());   // non-hex
+        CHECK(hexDecode("00gg").empty()); // partly invalid
+    }
     // SHA-256.
     CHECK(sha256Hex("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     CHECK(sha256Hex("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");

@@ -120,6 +120,33 @@ inline std::string toHex(const std::uint8_t* data, std::size_t len) {
     return out;
 }
 
+// Decode a hex string to bytes — the inverse of toHex, matching Godot's String.hex_decode. An odd
+// length OR any non-hex character yields an empty result (Godot's exact failure behaviour). Both
+// upper- and lower-case digits are accepted, so toHex(hexDecode(s)) round-trips any even-length hex
+// string once folded to lower case.
+inline std::vector<std::uint8_t> hexDecode(const std::string& s) {
+    if (s.size() % 2 != 0) {
+        return {};
+    }
+    auto nibble = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    std::vector<std::uint8_t> out;
+    out.reserve(s.size() / 2);
+    for (std::size_t i = 0; i < s.size(); i += 2) {
+        const int hi = nibble(s[i]);
+        const int lo = nibble(s[i + 1]);
+        if (hi < 0 || lo < 0) {
+            return {};
+        }
+        out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
+    }
+    return out;
+}
+
 // Lowercase hex string of a SHA-256 digest (Godot's HashingContext.finish() -> hex).
 inline std::string sha256Hex(const std::string& s) {
     const auto d = sha256(s);
