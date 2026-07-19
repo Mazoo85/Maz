@@ -216,10 +216,11 @@ void AudioEngine::stopRecording() {
     recording_ = false;
 }
 
-bool AudioEngine::saveRecording(const std::string& path, std::string* err) const {
+bool AudioEngine::saveRecording(const std::string& path, std::string* err, bool dither,
+                                int bits) const {
     const int ch = cfg_.channels > 0 ? cfg_.channels : 2;
     const int frames = static_cast<int>(recordBuffer_.size()) / ch;
-    return writeWav16(path, recordBuffer_.data(), frames, ch, cfg_.sampleRate, err);
+    return writeWav16(path, recordBuffer_.data(), frames, ch, cfg_.sampleRate, err, dither, bits);
 }
 
 bool AudioEngine::startInputCapture(const AudioConfig& cfg) {

@@ -68,7 +68,10 @@ public:
     void stopRecording();
     bool recording() const { return recording_; }
     const std::vector<float>& recordedAudio() const { return recordBuffer_; }
-    bool saveRecording(const std::string& path, std::string* err = nullptr) const;
+    // `bits` (16/24 PCM or 32 float) and `dither` match the WAV bounce, so a captured session can be
+    // saved at master quality too. Defaults preserve the previous 16-bit, no-dither behaviour.
+    bool saveRecording(const std::string& path, std::string* err = nullptr, bool dither = false,
+                       int bits = 16) const;
 
     // Master output metering: the peak and RMS level of the most recently rendered block (0..~1),
     // for a level meter in the UI. Updated every render() call.

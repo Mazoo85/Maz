@@ -5,7 +5,9 @@
 #include "maz/audio/WavReader.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <fstream>
 #include <vector>
 
 using namespace maz;
@@ -67,6 +69,16 @@ int main() {
     check(engine.saveRecording(path, &err), "saveRecording writes a WAV");
     audio::WavData wav;
     check(audio::readWav16(path, wav, &err) && wav.frames() > 0, "the recorded WAV reads back");
+
+    // Recording honors the export bit depth (matching the bounce): save a 24-bit copy.
+    const std::string path24 = "unit_recording_24.wav";
+    check(engine.saveRecording(path24, &err, false, 24), "saveRecording writes a 24-bit WAV");
+    audio::WavData wav24;
+    check(audio::readWav16(path24, wav24, &err) && wav24.frames() == wav.frames(),
+          "the 24-bit recording reads back with the same length");
+    std::ifstream rf(path24, std::ios::binary);
+    std::vector<uint8_t> rb((std::istreambuf_iterator<char>(rf)), std::istreambuf_iterator<char>());
+    check(rb.size() > 35 && rb[34] == 24, "the recorded WAV header declares 24-bit");
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
