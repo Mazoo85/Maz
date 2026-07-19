@@ -2044,6 +2044,46 @@ int main() {
               "pluck position defaults to 0 (raw excitation)");
     }
 
+    // --- Organ (additive drawbar) mode: harmonics follow the drawbar levels --------
+    {
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float x : b) {
+                const double s0 = static_cast<double>(x) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // Pull down the fundamental and push up the 3rd harmonic: the output should have far more
+        // energy at 3f (1320 Hz) than at 2f (880 Hz), following the drawbars rather than a fixed shape.
+        audio::SynthInstrument org;
+        org.setMode(audio::SynthMode::Organ);
+        org.setEnvelope(0.001f, 0.05f, 1.0f, 0.1f);
+        org.setOrganBar(0, 0.2f); // fundamental low
+        org.setOrganBar(1, 0.0f); // 2nd harmonic off
+        org.setOrganBar(2, 1.0f); // 3rd harmonic full
+        org.noteOn(69, 1.0f);     // A4 = 440 Hz
+        const std::vector<float> b = render(org, sampleRate / 2, sampleRate);
+        check(rms(b) > 0.0, "organ mode produces sound");
+        check(goertzel(b, 1320.0, sampleRate) > goertzel(b, 880.0, sampleRate) * 10.0,
+              "organ drawbars set the harmonic balance (3rd harmonic dominates the off 2nd)");
+
+        // The default organ tone (fundamental only) is nearly a pure sine: almost no 2nd-harmonic.
+        audio::SynthInstrument def;
+        def.setMode(audio::SynthMode::Organ);
+        def.setEnvelope(0.001f, 0.05f, 1.0f, 0.1f);
+        def.noteOn(69, 1.0f);
+        const std::vector<float> d = render(def, sampleRate / 2, sampleRate);
+        check(goertzel(d, 880.0, sampleRate) < goertzel(d, 440.0, sampleRate) * 0.01,
+              "default organ (fundamental drawbar only) is essentially a pure sine");
+        check(audio::SynthInstrument().organBar(0) == 1.0f &&
+                  audio::SynthInstrument().organBar(1) == 0.0f,
+              "organ drawbars default to fundamental-only");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

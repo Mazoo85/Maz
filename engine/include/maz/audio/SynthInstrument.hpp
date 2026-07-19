@@ -13,7 +13,7 @@ namespace maz::audio {
 // The synth's sound-generation engine: classic subtractive (an oscillator waveform), 2-operator FM
 // (a modulator oscillator bends a sine carrier for metallic/bell/electric-piano timbres), or
 // Wavetable (a morphing single-cycle table scanned by a position that the envelope can sweep).
-enum class SynthMode { Subtractive, FM, Wavetable, Pluck };
+enum class SynthMode { Subtractive, FM, Wavetable, Pluck, Organ };
 
 // A small polyphonic synth: a fixed pool of voices, each with an ADSR amplitude envelope, keyed by
 // MIDI note number. noteOn/noteOff drive it like a keyboard; render() ADDS the summed voices into
@@ -38,6 +38,17 @@ public:
     // (default) = no comb (the raw, brightest excitation).
     void setPluckPosition(float p) { pluckPosition_ = p < 0.0f ? 0.0f : (p > 0.99f ? 0.99f : p); }
     float pluckPosition() const { return pluckPosition_; }
+    // Organ drawbars: 8 additive harmonic levels [0,1] (harmonics 1..8 of the note), summed like a
+    // tonewheel organ's drawbars. Only affects Organ mode. Defaults to fundamental-only (a sine).
+    static constexpr int kOrganBars = 8;
+    void setOrganBar(int i, float level) {
+        if (i >= 0 && i < kOrganBars) {
+            organBars_[static_cast<size_t>(i)] = level < 0.0f ? 0.0f : (level > 1.0f ? 1.0f : level);
+        }
+    }
+    float organBar(int i) const {
+        return (i >= 0 && i < kOrganBars) ? organBars_[static_cast<size_t>(i)] : 0.0f;
+    }
 
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
@@ -404,6 +415,7 @@ private:
     SynthMode mode_ = SynthMode::Subtractive;
     float pluckDamping_ = 0.0f;  // Karplus-Strong extra damping [0,1]; 0 = natural (brightest) decay
     float pluckPosition_ = 0.0f; // Karplus-Strong pluck position [0,1); 0 = no excitation comb
+    std::array<float, kOrganBars> organBars_{1.0f}; // drawbar levels; default = fundamental only
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)

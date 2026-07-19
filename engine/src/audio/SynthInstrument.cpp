@@ -375,6 +375,19 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     0.5f * (v.ksBuf[static_cast<size_t>(cur)] + v.ksBuf[static_cast<size_t>(nxt)]);
                 v.ksBuf[static_cast<size_t>(cur)] = avg * (1.0f - 0.02f * pluckDamping_);
                 v.ksPtr = nxt;
+            } else if (mode_ == SynthMode::Organ) {
+                // Additive drawbar organ: sum sines at harmonics 1..8 of the note, each scaled by its
+                // drawbar level (a tonewheel-organ tone). All harmonics ride the fundamental phase, so
+                // they stay phase-coherent and continuous across its wrap.
+                constexpr double kTwoPi = 6.283185307179586;
+                float o = 0.0f;
+                for (int h = 0; h < kOrganBars; ++h) {
+                    const float lvl = organBars_[static_cast<size_t>(h)];
+                    if (lvl > 0.0f) {
+                        o += lvl * static_cast<float>(std::sin(v.phase * kTwoPi * (h + 1)));
+                    }
+                }
+                osc = o * 0.35f; // headroom for the summed partials
             } else {
                 // Pulse-width, optionally swept by the PWM LFO (square-wave duty movement).
                 float pw = pulseWidth_;

@@ -916,6 +916,27 @@ int main() {
               "pluck engine mode + damping + position round-trip");
     }
 
+    // Organ (additive drawbar) engine mode + drawbar levels round-trip.
+    {
+        audio::Sequencer oseq;
+        audio::Mixer omix;
+        audio::Automation oaut;
+        oseq.synth().setMode(audio::SynthMode::Organ);
+        oseq.synth().setOrganBar(0, 0.8f);
+        oseq.synth().setOrganBar(2, 0.5f);
+        oseq.synth().setOrganBar(7, 0.3f);
+        const std::string opath = "unit_project_organ.cjc";
+        check(audio::saveProject(opath, oseq, omix, oaut, &err), "saveProject (organ) succeeds");
+        audio::Sequencer oseq2;
+        audio::Mixer omix2;
+        audio::Automation oaut2;
+        check(audio::loadProject(opath, oseq2, omix2, oaut2, &err), "loadProject (organ) succeeds");
+        check(oseq2.synth().mode() == audio::SynthMode::Organ &&
+                  near(oseq2.synth().organBar(0), 0.8f) && near(oseq2.synth().organBar(2), 0.5f) &&
+                  near(oseq2.synth().organBar(7), 0.3f),
+              "organ engine mode + drawbar levels round-trip");
+    }
+
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
     audio::Mixer mixer3;

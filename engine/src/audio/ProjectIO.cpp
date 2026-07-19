@@ -19,7 +19,9 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
     syn.setMode(mode == 1 ? SynthMode::FM
                           : (mode == 2 ? SynthMode::Wavetable
-                                       : (mode == 3 ? SynthMode::Pluck : SynthMode::Subtractive)));
+                                       : (mode == 3 ? SynthMode::Pluck
+                                                    : (mode == 4 ? SynthMode::Organ
+                                                                 : SynthMode::Subtractive))));
     syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 5 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);
@@ -224,6 +226,13 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> pluckPos) {
         syn.setPluckPosition(pluckPos);
     }
+    // Organ drawbars optional for old files (absent → the default fundamental-only tone).
+    for (int b = 0; b < SynthInstrument::kOrganBars; ++b) {
+        float lvl = 0.0f;
+        if (ls >> lvl) {
+            syn.setOrganBar(b, lvl);
+        }
+    }
     // Absent → osc2 stays linked to the primary (the default), matching old files.
 }
 } // namespace
@@ -299,7 +308,11 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.osc3Semitones() << " " << (s.osc2WaveformLinked() ? 1 : 0) << " "
           << static_cast<int>(s.osc2Waveform()) << " " << (s.osc3WaveformLinked() ? 1 : 0) << " "
           << static_cast<int>(s.osc3Waveform()) << " " << s.osc3FineTune() << " "
-          << s.pluckDamping() << " " << s.pluckPosition() << "\n";
+          << s.pluckDamping() << " " << s.pluckPosition();
+    for (int b = 0; b < SynthInstrument::kOrganBars; ++b) {
+        f << " " << s.organBar(b);
+    }
+    f << "\n";
     };
     writeSynth("synth", "synthosc", seq.synth());
     writeSynth("synth2", "synthosc2", seq.synth2());

@@ -899,7 +899,7 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::Separator();
 
     int mode = static_cast<int>(syn.mode());
-    const char* modes[] = {"Subtractive", "FM", "Wavetable", "Pluck"};
+    const char* modes[] = {"Subtractive", "FM", "Wavetable", "Pluck", "Organ"};
     if (ImGui::Combo("Engine", &mode, modes, IM_ARRAYSIZE(modes))) {
         syn.setMode(static_cast<audio::SynthMode>(mode));
     }
@@ -910,6 +910,17 @@ void buildSynthUI(audio::Sequencer& seq) {
         float pp = syn.pluckPosition();
         if (ImGui::SliderFloat("Position##pluck", &pp, 0.0f, 0.99f, "%.2f"))
             syn.setPluckPosition(pp);
+    }
+    if (syn.mode() == audio::SynthMode::Organ) {
+        // A row of 8 drawbar sliders (harmonics 1..8).
+        for (int b = 0; b < audio::SynthInstrument::kOrganBars; ++b) {
+            if (b > 0) ImGui::SameLine();
+            float lvl = syn.organBar(b);
+            ImGui::PushID(b);
+            if (ImGui::VSliderFloat("##organbar", ImVec2(18, 60), &lvl, 0.0f, 1.0f, ""))
+                syn.setOrganBar(b, lvl);
+            ImGui::PopID();
+        }
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
         int w = static_cast<int>(syn.waveform());
