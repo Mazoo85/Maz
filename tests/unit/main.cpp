@@ -86,6 +86,7 @@
 #include "maz/core/FenwickTree.hpp"
 #include "maz/core/Trie.hpp"
 #include "maz/core/FuzzyMatch.hpp"
+#include "maz/core/LruCache.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -271,6 +272,7 @@
 #include "maz/scene/TransformGraph.hpp"
 
 #include <algorithm>
+#include <unordered_map>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -18394,6 +18396,113 @@ void testFuzzyMatch() {
     }
 }
 
+// LruCache: fixed-capacity least-recently-used eviction cache (M442).
+void testLruCache() {
+    using core::LruCache;
+    using core::Pcg32;
+
+    // ---- Fill + order. ----
+    {
+        LruCache<int, int> c(3);
+        CHECK(c.capacity() == 3 && c.empty());
+        c.put(1, 10);
+        c.put(2, 20);
+        c.put(3, 30);
+        CHECK(c.size() == 3 && c.mostRecentKey() == 3 && c.leastRecentKey() == 1);
+    }
+
+    // ---- get() promotes; the LRU is evicted, not a freshly-touched key. ----
+    {
+        LruCache<int, int> c(3);
+        c.put(1, 10);
+        c.put(2, 20);
+        c.put(3, 30);
+        int* v = c.get(1);
+        CHECK(v && *v == 10 && c.mostRecentKey() == 1 && c.leastRecentKey() == 2);
+        c.put(4, 40); // evicts 2
+        CHECK(!c.contains(2) && c.contains(1) && c.contains(3) && c.contains(4) && c.size() == 3);
+    }
+
+    // ---- put() on existing updates value + promotes. ----
+    {
+        LruCache<int, int> c(2);
+        c.put(1, 10);
+        c.put(2, 20);
+        c.put(1, 111);
+        CHECK(*c.peek(1) == 111 && c.mostRecentKey() == 1 && c.leastRecentKey() == 2);
+        c.put(3, 30);
+        CHECK(!c.contains(2) && c.contains(1) && c.contains(3));
+    }
+
+    // ---- peek() does not change recency. ----
+    {
+        LruCache<int, int> c(2);
+        c.put(1, 10);
+        c.put(2, 20);
+        CHECK(*c.peek(1) == 10 && c.leastRecentKey() == 1);
+        c.put(3, 30); // evicts 1 (peek did not promote it)
+        CHECK(!c.contains(1) && c.contains(2) && c.contains(3));
+    }
+
+    // ---- miss/hit stats + capacity 0 coerced. ----
+    {
+        LruCache<int, int> c(2);
+        c.put(1, 10);
+        CHECK(c.get(9) == nullptr && c.get(1) != nullptr && c.hits() == 1 && c.misses() == 1);
+        c.resetStats();
+        CHECK(c.hits() == 0 && c.misses() == 0);
+        CHECK(c.erase(1) && !c.contains(1));
+        c.clear();
+        CHECK(c.empty());
+        LruCache<int, int> z(0);
+        CHECK(z.capacity() == 1);
+        z.put(1, 1);
+        z.put(2, 2);
+        CHECK(z.size() == 1 && z.contains(2) && !z.contains(1));
+    }
+
+    // ---- Brute-force cross-check against a reference LRU. ----
+    {
+        const std::size_t cap = 5;
+        LruCache<int, int> c(cap);
+        std::vector<int> order; // front = MRU
+        std::unordered_map<int, int> refVal;
+        Pcg32 rng(31, 7);
+        auto touch = [&](int k, int val) {
+            order.erase(std::remove(order.begin(), order.end(), k), order.end());
+            order.insert(order.begin(), k);
+            refVal[k] = val;
+            if (order.size() > cap) {
+                refVal.erase(order.back());
+                order.pop_back();
+            }
+        };
+        for (int step = 0; step < 20000; ++step) {
+            const int k = rng.range(0, 9);
+            if (rng.range(0, 1) == 0) {
+                const int val = rng.range(0, 1000000);
+                c.put(k, val);
+                touch(k, val);
+            } else {
+                const bool refHit = std::find(order.begin(), order.end(), k) != order.end();
+                int* cv = c.get(k);
+                CHECK((cv != nullptr) == refHit);
+                if (refHit) {
+                    CHECK(*cv == refVal[k]);
+                    touch(k, refVal[k]);
+                }
+            }
+            CHECK(c.size() == order.size());
+            if (!order.empty()) {
+                CHECK(c.mostRecentKey() == order.front() && c.leastRecentKey() == order.back());
+            }
+            for (int key = 0; key < 10; ++key) {
+                CHECK(c.contains(key) == (std::find(order.begin(), order.end(), key) != order.end()));
+            }
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27160,6 +27269,7 @@ int main() {
     testFenwickTree();
     testTrie();
     testFuzzyMatch();
+    testLruCache();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

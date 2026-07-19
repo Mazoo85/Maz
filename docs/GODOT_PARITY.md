@@ -593,6 +593,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   subsequence membership + landed positions, exact hand-computed scores (consecutive tight match beats
   the separated one, camelCase boundary bonus), case sensitivity, and a candidate-ranking pass that
   picks the exact match),
+  **LRU cache** (M442, `core::LruCache<K,V>` — a fixed-capacity least-recently-used cache: holds up to N
+  key->value entries and evicts the one untouched longest when a new key overflows, so the hot working
+  set survives and the cold tail drops. O(1) get/put via a hash map into an intrusive recency list, with
+  hit/miss counters. The standard bounded-memory memoization tool — caching decoded tiles/chunks,
+  pathfinding results, or any expensive keyed computation — distinct from ResourceCache (ref-counted
+  asset lifetimes, no eviction). Godot has no generic LRU. Verified: fill/order, get()/put() promotion
+  with correct LRU eviction, value-update-on-reinsert, peek() leaving recency untouched, hit/miss stats,
+  erase/clear, capacity-0 coercion, and a 20000-op random workload cross-checked every step against a
+  reference LRU for size, MRU/LRU keys, per-value correctness, and full membership),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
