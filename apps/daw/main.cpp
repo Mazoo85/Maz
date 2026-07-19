@@ -1982,6 +1982,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::SliderFloat("HP Hz##trk", &hpCut, 20.0f, 1000.0f, "%.0f"))
                 tr.highpass().setCutoff(hpCut);
+            bool gEn = tr.gate().enabled();
+            if (ImGui::Checkbox("Gate##trk", &gEn)) tr.gate().setEnabled(gEn);
+            ImGui::SameLine();
+            float gThr = tr.gate().thresholdDb();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("gate dB##trk", &gThr, -80.0f, 0.0f, "%.0f"))
+                tr.gate().setThresholdDb(gThr);
             bool trEn = tr.transientShaper().enabled();
             if (ImGui::Checkbox("Trans##trk", &trEn)) tr.transientShaper().setEnabled(trEn);
             ImGui::SameLine();

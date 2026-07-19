@@ -14,13 +14,14 @@ namespace maz::audio {
 class MixerTrack {
 public:
     MixerTrack() {
+        gate_.setEnabled(false);
         hp_.setEnabled(false);
         transient_.setEnabled(false);
         eq_.setEnabled(false);
         dist_.setEnabled(false);
         comp_.setEnabled(false);
-        // Order: clean the lows, shape transients, then EQ → drive → glue-compress.
-        chain_ = {&hp_, &transient_, &eq_, &dist_, &comp_};
+        // Order: gate the input, clean the lows, shape transients, then EQ → drive → glue-compress.
+        chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_};
     }
 
     void setGain(float g) { gain_ = g; }
@@ -32,6 +33,7 @@ public:
     void setPan(float p) { pan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
     float pan() const { return pan_; }
 
+    Gate& gate() { return gate_; }       // noise gate on the bus input
     HighPass& highpass() { return hp_; } // clean the bus's low end before the other inserts
     TransientShaper& transientShaper() { return transient_; } // punch/snap or soften the bus
     ParametricEQ& eq() { return eq_; }
@@ -96,6 +98,7 @@ private:
     float gain_ = 1.0f;
     bool muted_ = false;
     float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
+    Gate gate_{};
     HighPass hp_{};
     TransientShaper transient_{};
     ParametricEQ eq_{};

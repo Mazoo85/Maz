@@ -318,6 +318,11 @@ int main() {
     mixer.track(audio::MixerBus::Drums).transientShaper().setEnabled(true);
     mixer.track(audio::MixerBus::Drums).transientShaper().setAttack(0.7f);
     mixer.track(audio::MixerBus::Drums).transientShaper().setSustain(-0.3f);
+    mixer.track(audio::MixerBus::Lead).gate().setEnabled(true);
+    mixer.track(audio::MixerBus::Lead).gate().setThresholdDb(-30.0f);
+    mixer.track(audio::MixerBus::Lead).gate().setRatio(6.0f);
+    mixer.track(audio::MixerBus::Lead).gate().setAttackMs(3.0f);
+    mixer.track(audio::MixerBus::Lead).gate().setReleaseMs(120.0f);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -564,7 +569,11 @@ int main() {
               near(mixer2.track(audio::MixerBus::Bass).pan(), -0.4f) &&
               mixer2.track(audio::MixerBus::Drums).transientShaper().enabled() &&
               near(mixer2.track(audio::MixerBus::Drums).transientShaper().attack(), 0.7f) &&
-              near(mixer2.track(audio::MixerBus::Drums).transientShaper().sustain(), -0.3f),
+              near(mixer2.track(audio::MixerBus::Drums).transientShaper().sustain(), -0.3f) &&
+              mixer2.track(audio::MixerBus::Lead).gate().enabled() &&
+              near(mixer2.track(audio::MixerBus::Lead).gate().thresholdDb(), -30.0f) &&
+              near(mixer2.track(audio::MixerBus::Lead).gate().ratio(), 6.0f) &&
+              near(mixer2.track(audio::MixerBus::Lead).gate().releaseMs(), 120.0f),
           "per-bus mixer-track insert strips round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");

@@ -2098,6 +2098,20 @@ int main() {
         trans.process(proc.data(), bn, sr);
         check(peakWindow(proc, 0, 400) > peakWindow(burst, 0, 400) * 1.03f,
               "per-bus transient attack boost raises the onset peak");
+
+        // Per-bus gate: a signal below the threshold is attenuated.
+        audio::MixerTrack gated;
+        gated.gate().setEnabled(true);
+        gated.gate().setThresholdDb(-12.0f);
+        gated.gate().setRatio(8.0f);
+        gated.gate().setAttackMs(1.0f);
+        gated.gate().setReleaseMs(20.0f);
+        check(gated.active(), "an enabled per-bus gate makes the track active");
+        std::vector<float> quiet = sineStereo(sr, 220.0, 0.05, sr); // ~-26 dB, below the threshold
+        const double quietIn = rms(quiet);
+        gated.process(quiet.data(), sr, sr);
+        std::vector<float> qtail(quiet.begin() + static_cast<long>(sr), quiet.end()); // 2nd half
+        check(rms(qtail) < quietIn * 0.5, "per-bus gate attenuates a signal below its threshold");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

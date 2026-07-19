@@ -444,7 +444,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << " "
           << (tr.highpass().enabled() ? 1 : 0) << " " << tr.highpass().cutoff() << " " << tr.pan()
           << " " << (tr.transientShaper().enabled() ? 1 : 0) << " "
-          << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << "\n";
+          << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << " "
+          << (tr.gate().enabled() ? 1 : 0) << " " << tr.gate().thresholdDb() << " "
+          << tr.gate().ratio() << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs()
+          << "\n";
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -1218,6 +1221,15 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     tr.transientShaper().setEnabled(trEn != 0);
                     tr.transientShaper().setAttack(trAtt);
                     tr.transientShaper().setSustain(trSus);
+                }
+                int gEn = 0; // per-bus gate optional (older files omit it)
+                float gThr = -40.0f, gRatio = 4.0f, gAtk = 2.0f, gRel = 80.0f;
+                if (ls >> gEn >> gThr >> gRatio >> gAtk >> gRel) {
+                    tr.gate().setEnabled(gEn != 0);
+                    tr.gate().setThresholdDb(gThr);
+                    tr.gate().setRatio(gRatio);
+                    tr.gate().setAttackMs(gAtk);
+                    tr.gate().setReleaseMs(gRel);
                 }
             }
         } else if (tag == "plugin") {
