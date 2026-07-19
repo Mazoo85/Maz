@@ -191,6 +191,47 @@ int main() {
         check(std::fabs(pp.swing() - 0.3f) < 1e-6f, "pattern 1 keeps its own swing");
     }
 
+    // --- Per-step micro-timing nudge ----------------------------------------
+    {
+        // Index of the first frame whose level crosses a threshold (a hit's onset), or -1.
+        auto onset = [](const std::vector<float>& buf) {
+            for (size_t i = 0; i + 1 < buf.size(); i += 2) {
+                if (std::fabs(buf[i]) > 0.05f || std::fabs(buf[i + 1]) > 0.05f) {
+                    return static_cast<int>(i / 2);
+                }
+            }
+            return -1;
+        };
+
+        // Default: a step is on the grid — its kick fires essentially at step 0's boundary (t≈0).
+        audio::Sequencer straight;
+        straight.setBpm(120.0); // 48 kHz → a 16th step is 6000 frames
+        straight.setStep(0, 0, true);
+        check(straight.stepNudge(0, 0) == 0, "a step starts with no timing nudge");
+        straight.play();
+        const int t0 = onset(renderMono(straight, 8000, sampleRate));
+        check(t0 >= 0 && t0 < 600, "an un-nudged step fires on the grid (near t=0)");
+
+        // Nudge 50%: the same hit is pushed to ~half a step later (~3000 frames).
+        audio::Sequencer late;
+        late.setBpm(120.0);
+        late.setStep(0, 0, true);
+        late.setStepNudge(0, 0, 50);
+        check(late.stepNudge(0, 0) == 50, "setStepNudge stores the nudge amount");
+        late.play();
+        const int t1 = onset(renderMono(late, 8000, sampleRate));
+        check(t1 > 2200 && t1 < 3800, "a 50% nudge delays the hit to ~half a step later");
+        check(t1 > t0 + 2000, "the nudged hit lands clearly later than the on-grid hit");
+
+        // The nudge is clamped into [0, 95] and defaults per pattern.
+        audio::Sequencer clamp;
+        clamp.setStep(0, 0, true);
+        clamp.setStepNudge(0, 0, 200);
+        check(clamp.stepNudge(0, 0) == 95, "nudge is clamped to 95%");
+        clamp.setStepNudge(0, 0, -30);
+        check(clamp.stepNudge(0, 0) == 0, "negative nudge clamps to on-grid");
+    }
+
     // --- Per-step pitch (channel-rack graph editor) --------------------------
     {
         // A tuned tom (a clear pitched membrane): +12 semitones on a step doubles its fundamental.

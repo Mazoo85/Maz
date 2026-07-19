@@ -18,6 +18,7 @@ struct Pattern {
     std::vector<uint8_t> prob; // per-step trigger probability, 0..255 (255 = always). Parallel to grid.
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
     std::vector<int8_t> tune;     // per-step pitch offset in semitones (0 = channel pitch). Parallel to grid.
+    std::vector<int8_t> nudge;    // per-step timing push, % of the step's slot (0 = on-grid, later). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
@@ -249,6 +250,13 @@ public:
     // editor's pitch row, so individual hits can be tuned up/down (melodic toms, pitched hats).
     int stepTune(int channel, int step) const;
     void setStepTune(int channel, int step, int semitones);
+
+    // Per-step micro-timing nudge (0..95): push a single step's hit later by this percent of the
+    // step's own slot, so it lands off the grid for a laid-back/behind-the-beat feel — a per-step,
+    // finer-grained cousin of swing. 0 = dead on the grid. Delivered through the deferred-hit queue,
+    // so the strike stays sample-accurate. Drum grid only (the piano roll keeps its own timing).
+    int stepNudge(int channel, int step) const;
+    void setStepNudge(int channel, int step, int percent);
 
     // Rotate a channel's whole step row by `offset` steps with wraparound (positive = later, negative
     // = earlier), carrying each step's velocity, probability, and ratchet along with it. A quick way

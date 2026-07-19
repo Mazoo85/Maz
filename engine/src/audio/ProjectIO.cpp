@@ -293,7 +293,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     const int vel = static_cast<int>(seq.stepVelocity(c, s) * 255.0f + 0.5f);
                     const int prob = static_cast<int>(seq.stepProbability(c, s) * 255.0f + 0.5f);
                     f << "step " << p << " " << c << " " << s << " " << vel << " " << prob << " "
-                      << seq.stepRatchet(c, s) << " " << seq.stepTune(c, s) << "\n";
+                      << seq.stepRatchet(c, s) << " " << seq.stepTune(c, s) << " "
+                      << seq.stepNudge(c, s) << "\n";
                 }
             }
         }
@@ -707,6 +708,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int tune = 0; // optional per-step pitch offset (older files omit it → no offset)
             if (ls >> tune) {
                 seq.setStepTune(c, s, tune);
+            }
+            int nudge = 0; // optional per-step timing nudge (older files omit it → on the grid)
+            if (ls >> nudge) {
+                seq.setStepNudge(c, s, nudge);
             }
         } else if (tag == "note") {
             int p = 0;

@@ -68,6 +68,7 @@ void Sequencer::setNumSteps(int steps) {
         std::vector<uint8_t> pr(static_cast<size_t>(chans) * static_cast<size_t>(n), 255);
         std::vector<uint8_t> rt(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
         std::vector<int8_t> tn(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
+        std::vector<int8_t> nd(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         for (int c = 0; c < chans; ++c) {
             for (int s = 0; s < copy; ++s) {
                 const size_t src = static_cast<size_t>(c) * static_cast<size_t>(numSteps_) +
@@ -86,12 +87,16 @@ void Sequencer::setNumSteps(int steps) {
                 if (src < p.tune.size()) {
                     tn[dst] = p.tune[src];
                 }
+                if (src < p.nudge.size()) {
+                    nd[dst] = p.nudge[src];
+                }
             }
         }
         p.grid = std::move(g);
         p.prob = std::move(pr);
         p.ratchet = std::move(rt);
         p.tune = std::move(tn);
+        p.nudge = std::move(nd);
     }
     numSteps_ = n;
     if (currentStep_ >= numSteps_) {
@@ -204,6 +209,7 @@ int Sequencer::addPattern() {
     p.prob.assign(cells, 255); // every step defaults to "always fire"
     p.ratchet.assign(cells, 1); // one hit per step by default
     p.tune.assign(cells, 0);    // no per-step pitch offset by default
+    p.nudge.assign(cells, 0);   // every step on the grid by default
     p.name = "Pattern " + std::to_string(patterns_.size() + 1);
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
@@ -396,6 +402,32 @@ void Sequencer::setStepTune(int channel, int step, int semitones) {
            static_cast<size_t>(step)] = static_cast<int8_t>(st);
 }
 
+int Sequencer::stepNudge(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 0;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.nudge.size()) {
+        return 0; // patterns loaded before per-step nudge existed → on the grid
+    }
+    return static_cast<int>(p.nudge[idx]);
+}
+
+void Sequencer::setStepNudge(int channel, int step, int percent) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.nudge.size() != p.grid.size()) {
+        p.nudge.assign(p.grid.size(), 0);
+    }
+    const int nd = percent < 0 ? 0 : (percent > 95 ? 95 : percent);
+    p.nudge[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+            static_cast<size_t>(step)] = static_cast<int8_t>(nd);
+}
+
 void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
@@ -493,14 +525,30 @@ void Sequencer::triggerStep(int step) {
             // Per-step pitch offset (captured into each hit at strike time).
             const float stune = static_cast<float>(stepTune(c, step));
 
+            // Per-step micro-timing nudge: push this step's hits later by a fraction of the step's
+            // own slot (0 = on the grid). Delivered through the same deferred-hit queue as ratchets
+            // and flams, so a nudged strike still lands sample-accurately.
+            const int nudgePct = stepNudge(c, step);
+            const int nudgeFrames =
+                nudgePct > 0 ? static_cast<int>(static_cast<double>(nudgePct) * 0.01 *
+                                                samplesPerStep(sampleRate_, step))
+                             : 0;
+
             // Flam: a quiet grace hit now, then the full hit a few ms later (scheduled like a
-            // ratchet sub-hit). Off → a single full-velocity hit.
+            // ratchet sub-hit). Off → a single full-velocity hit. The nudge delays every hit equally.
             const float flamMs = chanFlam_[static_cast<size_t>(c)];
             if (flamMs > 0.0f) {
-                channels_[static_cast<size_t>(c)].trigger(vel * 0.5f, stune); // grace
+                if (nudgeFrames > 0) {
+                    ratchets_.push_back(RatchetHit{c, vel * 0.5f, nudgeFrames, stune}); // grace
+                } else {
+                    channels_[static_cast<size_t>(c)].trigger(vel * 0.5f, stune); // grace
+                }
                 const int flamSamples =
                     static_cast<int>(flamMs * 0.001f * static_cast<float>(sampleRate_));
-                ratchets_.push_back(RatchetHit{c, vel, flamSamples > 0 ? flamSamples : 1, stune});
+                ratchets_.push_back(
+                    RatchetHit{c, vel, (flamSamples > 0 ? flamSamples : 1) + nudgeFrames, stune});
+            } else if (nudgeFrames > 0) {
+                ratchets_.push_back(RatchetHit{c, vel, nudgeFrames, stune});
             } else {
                 channels_[static_cast<size_t>(c)].trigger(vel, stune);
             }
@@ -511,7 +559,7 @@ void Sequencer::triggerStep(int step) {
                 const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
                 const int interval = stepSamples / r;
                 for (int k = 1; k < r; ++k) {
-                    ratchets_.push_back(RatchetHit{c, vel, interval * k, stune});
+                    ratchets_.push_back(RatchetHit{c, vel, interval * k + nudgeFrames, stune});
                 }
             }
         }
