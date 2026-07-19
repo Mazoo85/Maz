@@ -120,6 +120,7 @@
 #include "maz/render/MeshWeld.hpp"
 #include "maz/render/MeshSmooth.hpp"
 #include "maz/core/NumberFormat.hpp"
+#include "maz/game/Stat.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20216,6 +20217,115 @@ void testPolynomial() {
     }
 }
 
+void testStat() {
+    using game::ModifierType;
+    using game::Stat;
+    using game::StatModifier;
+
+    // Empty stack == base.
+    {
+        Stat s(100.0);
+        CHECK(std::fabs(s.base() - 100.0) < 1e-9);
+        CHECK(std::fabs(s.value() - 100.0) < 1e-9);
+        CHECK(s.modifierCount() == 0);
+        Stat d;
+        CHECK(std::fabs(d.value() - 0.0) < 1e-9);
+    }
+    // Flat modifiers add.
+    {
+        Stat s(100.0);
+        s.addModifier(20.0, ModifierType::Flat);
+        CHECK(std::fabs(s.value() - 120.0) < 1e-9);
+        s.addModifier(5.0, ModifierType::Flat);
+        CHECK(std::fabs(s.value() - 125.0) < 1e-9);
+    }
+    // PercentAdd sums then applies once: +10% +20% = x1.3.
+    {
+        Stat s(100.0);
+        s.addModifier(0.1, ModifierType::PercentAdd);
+        s.addModifier(0.2, ModifierType::PercentAdd);
+        CHECK(std::fabs(s.value() - 130.0) < 1e-9);
+    }
+    // PercentMult applies per modifier.
+    {
+        Stat s(100.0);
+        s.addModifier(0.5, ModifierType::PercentMult);
+        s.addModifier(0.2, ModifierType::PercentMult);
+        CHECK(std::fabs(s.value() - (100.0 * 1.5 * 1.2)) < 1e-9);
+    }
+    // Combined order: 100 -> +20 -> 120 -> x1.3 -> 156 -> x1.5 -> 234.
+    {
+        Stat s(100.0);
+        s.addModifier(20.0, ModifierType::Flat);
+        s.addModifier(0.1, ModifierType::PercentAdd);
+        s.addModifier(0.2, ModifierType::PercentAdd);
+        s.addModifier(0.5, ModifierType::PercentMult);
+        CHECK(std::fabs(s.value() - 234.0) < 1e-9);
+    }
+    // Insertion order does not change result.
+    {
+        Stat a(100.0), b(100.0);
+        a.addModifier(0.5, ModifierType::PercentMult);
+        a.addModifier(20.0, ModifierType::Flat);
+        a.addModifier(0.2, ModifierType::PercentAdd);
+        a.addModifier(0.1, ModifierType::PercentAdd);
+        b.addModifier(0.1, ModifierType::PercentAdd);
+        b.addModifier(0.2, ModifierType::PercentAdd);
+        b.addModifier(20.0, ModifierType::Flat);
+        b.addModifier(0.5, ModifierType::PercentMult);
+        CHECK(std::fabs(a.value() - b.value()) < 1e-9);
+        CHECK(std::fabs(a.value() - 234.0) < 1e-9);
+    }
+    // removeModifiersFromSource restores value and reports removals.
+    {
+        Stat s(100.0);
+        s.addModifier(20.0, ModifierType::Flat, 7);
+        s.addModifier(0.5, ModifierType::PercentMult, 7);
+        s.addModifier(10.0, ModifierType::Flat, 3);
+        CHECK(std::fabs(s.value() - ((100.0 + 20.0 + 10.0) * 1.5)) < 1e-9);
+        CHECK(s.removeModifiersFromSource(7) == true);
+        CHECK(s.modifierCount() == 1);
+        CHECK(std::fabs(s.value() - 110.0) < 1e-9);
+        CHECK(s.removeModifiersFromSource(99) == false);
+        CHECK(s.removeModifiersFromSource(3) == true);
+        CHECK(std::fabs(s.value() - 100.0) < 1e-9);
+        CHECK(s.modifierCount() == 0);
+    }
+    // clearModifiers wipes all; setBase recomputes.
+    {
+        Stat s(10.0);
+        s.addModifier(0.5, ModifierType::PercentMult);
+        CHECK(std::fabs(s.value() - 15.0) < 1e-9);
+        s.setBase(20.0);
+        CHECK(std::fabs(s.value() - 30.0) < 1e-9);
+        s.clearModifiers();
+        CHECK(s.modifierCount() == 0);
+        CHECK(std::fabs(s.value() - 20.0) < 1e-9);
+    }
+    // valueClamped bounds the result.
+    {
+        Stat lo(100.0);
+        lo.addModifier(-200.0, ModifierType::Flat);
+        CHECK(std::fabs(lo.valueClamped(0.0, 999.0) - 0.0) < 1e-9);
+        Stat hi(100.0);
+        hi.addModifier(5.0, ModifierType::PercentMult);
+        CHECK(std::fabs(hi.valueClamped(0.0, 250.0) - 250.0) < 1e-9);
+        Stat mid(100.0);
+        CHECK(std::fabs(mid.valueClamped(0.0, 250.0) - 100.0) < 1e-9);
+    }
+    // struct-based addModifier overload.
+    {
+        Stat s(100.0);
+        StatModifier m;
+        m.value = 0.25;
+        m.type = ModifierType::PercentAdd;
+        m.source = 1;
+        s.addModifier(m);
+        CHECK(std::fabs(s.value() - 125.0) < 1e-9);
+        CHECK(s.modifiers().size() == 1);
+    }
+}
+
 void testNumberFormat() {
     using core::abbreviateNumber;
     using core::clockDuration;
@@ -30074,6 +30184,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testStat();
     testNumberFormat();
     testKdTree2D();
     testPoissonDisk();

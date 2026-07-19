@@ -951,6 +951,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   a European '.' separator), clock durations (M:SS vs H:MM:SS split, negative clamp, fractional floor),
   compact durations, K/M/B/T abbreviation (trailing zeros trimmed, custom precision, negatives), and
   binary IEC byte sizes),
+  **RPG stat / modifier system** (M476, `game::Stat` + `game::StatModifier` — a character attribute
+  (health, damage, move-speed) as a base value plus a stack of modifiers that combine in the standard
+  game-design order: all FLAT bonuses add first (base + 5 + 10), then all ADDITIVE-PERCENT modifiers sum
+  and apply once (+10% +20% = x1.3), then each MULTIPLICATIVE-PERCENT modifier applies in turn (a separate
+  x1.5 on top), so buffs and gear stack predictably instead of order-dependently. Each modifier carries a
+  `source` id so a whole buff or an unequipped item's bonuses drop in one `removeModifiersFromSource`
+  call. Godot ships no stat system — games hand-roll this every time -> beyond-Godot gameplay utility.
+  Verified: an empty stack equals the base; flat modifiers add; additive percents sum to one multiplier;
+  multiplicative percents chain; the canonical worked example (100 -> +20 -> 120 -> x1.3 -> 156 -> x1.5 ->
+  234) is exact; the final value is independent of insertion order; source removal restores the prior
+  value and reports whether anything was removed; `valueClamped` floors/ceils correctly; `setBase`
+  recomputes),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
