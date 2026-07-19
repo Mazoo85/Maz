@@ -1626,6 +1626,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("depth##apan", &depth, 0.0f, 1.0f, "%.2f")) mx.autopan().setDepth(depth);
+        bool apsync = mx.autopan().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##apan", &apsync)) mx.autopan().setSync(apsync);
+        ImGui::SameLine();
+        const char* modDivsA[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsA[d] = audio::modSyncDivisionName(d);
+        int apdiv = mx.autopan().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##apan", &apdiv, modDivsA, audio::kModSyncDivisions))
+            mx.autopan().setSyncDivision(apdiv);
     }
     {
         bool en = mx.monobass().enabled();

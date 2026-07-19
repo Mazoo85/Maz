@@ -135,6 +135,7 @@ void AudioEngine::render(float* out, int frames) {
         mixer_.chorus().updateTempo(sequencer_.bpm());      // sync the chorus/flanger/phaser LFO rates
         mixer_.flanger().updateTempo(sequencer_.bpm());
         mixer_.phaser().updateTempo(sequencer_.bpm());
+        mixer_.autopan().updateTempo(sequencer_.bpm());     // sync the auto-pan rate too
         mixer_.process(out, frames, cfg_.sampleRate);
     } else {
         // Fallback mono path: sum the oscillator only (the sequencer targets stereo).

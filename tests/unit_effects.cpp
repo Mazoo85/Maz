@@ -445,6 +445,17 @@ int main() {
         fm.updateTempo(120.0);
         check(std::fabs(fm.rate() - 0.3f) < 1e-3f, "flanger updateTempo is a no-op when sync is off");
         check(!audio::Flanger().sync(), "flanger tempo sync defaults to off");
+
+        audio::AutoPan ap;
+        ap.setSync(true);
+        ap.setSyncDivision(2); // 1/4 → 2 Hz @120
+        ap.updateTempo(120.0);
+        check(std::fabs(ap.rate() - 2.0f) < 0.01f, "synced auto-pan runs at 2 Hz for 1/4 @120 BPM");
+        audio::AutoPan apm;
+        apm.setRate(1.0f);
+        apm.updateTempo(120.0);
+        check(std::fabs(apm.rate() - 1.0f) < 1e-3f, "auto-pan updateTempo is a no-op when sync is off");
+        check(!audio::AutoPan().sync(), "auto-pan tempo sync defaults to off");
     }
 
     // --- Tempo-synced stereo delay: independent L/R times track the tempo ----

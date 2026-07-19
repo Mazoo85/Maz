@@ -916,6 +916,13 @@ void AutoPan::reset() {
     phase_ = 0.0;
 }
 
+void AutoPan::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    rateHz_ = modSyncRateHz(syncDiv_, bpm);
+}
+
 void AutoPan::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;

@@ -616,6 +616,13 @@ public:
     void setDepth(float d) { depth_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float rate() const { return rateHz_; }
     float depth() const { return depth_; }
+    // Tempo sync: lock the pan LFO rate to the transport at the chosen note division for rhythmic
+    // panning. Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) { syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d); }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -623,6 +630,8 @@ public:
 private:
     float rateHz_ = 1.0f;
     float depth_ = 0.5f;
+    bool sync_ = false; // tempo-sync the pan LFO rate
+    int syncDiv_ = 2;   // note-division index (default 1 bar)
     double phase_ = 0.0; // LFO phase in [0, 1)
 };
 

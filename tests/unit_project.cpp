@@ -187,6 +187,8 @@ int main() {
     mixer.autopan().setEnabled(true);
     mixer.autopan().setRate(2.5f);
     mixer.autopan().setDepth(0.8f);
+    mixer.autopan().setSync(true);
+    mixer.autopan().setSyncDivision(3);
     mixer.monobass().setEnabled(true);
     mixer.monobass().setCrossover(90.0f);
     mixer.autowah().setEnabled(true);
@@ -503,7 +505,8 @@ int main() {
               near(mixer2.transient().sustain(), -0.3f),
           "transient shaper round-trips");
     check(mixer2.autopan().enabled() && near(mixer2.autopan().rate(), 2.5f) &&
-              near(mixer2.autopan().depth(), 0.8f),
+              near(mixer2.autopan().depth(), 0.8f) && mixer2.autopan().sync() &&
+              mixer2.autopan().syncDivision() == 3,
           "auto-pan round-trips");
     check(mixer2.monobass().enabled() && near(mixer2.monobass().crossover(), 90.0f),
           "mono-bass round-trips");

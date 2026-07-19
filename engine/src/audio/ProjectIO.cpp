@@ -356,7 +356,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
       << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
-      << mixer.autopan().depth() << "\n";
+      << mixer.autopan().depth() << " " << (mixer.autopan().sync() ? 1 : 0) << " "
+      << mixer.autopan().syncDivision() << "\n";
     f << "fx monobass " << (mixer.monobass().enabled() ? 1 : 0) << " " << mixer.monobass().crossover()
       << "\n";
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
@@ -839,6 +840,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.autopan().setEnabled(en != 0);
                 mixer.autopan().setRate(rate);
                 mixer.autopan().setDepth(depth);
+                int sync = 0, div = 2; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.autopan().setSync(sync != 0);
+                    mixer.autopan().setSyncDivision(div);
+                }
             } else if (which == "monobass") {
                 float x = 120.0f;
                 ls >> x;
