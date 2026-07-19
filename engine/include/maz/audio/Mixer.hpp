@@ -50,6 +50,7 @@ public:
     MultibandCompressor& multiband() { return mbcomp_; }
     TransientShaper& transient() { return transient_; }
     Chorus& chorus() { return chorus_; }
+    Vibrato& vibrato() { return vibrato_; }
     Flanger& flanger() { return flanger_; }
     Phaser& phaser() { return phaser_; }
     Delay& delay() { return delay_; }
@@ -134,6 +135,7 @@ private:
     MultibandCompressor mbcomp_{};
     TransientShaper transient_{};
     Chorus chorus_{};
+    Vibrato vibrato_{};
     Flanger flanger_{};
     Phaser phaser_{};
     Delay delay_{};

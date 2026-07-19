@@ -167,6 +167,7 @@ void AudioEngine::render(float* out, int frames) {
         mixer_.stereoDelay().updateTempo(sequencer_.bpm()); // sync the dual-delay L/R times too
         mixer_.tremolo().updateTempo(sequencer_.bpm());     // sync the trance-gate rate too
         mixer_.chorus().updateTempo(sequencer_.bpm());      // sync the chorus/flanger/phaser LFO rates
+        mixer_.vibrato().updateTempo(sequencer_.bpm());     // sync the vibrato LFO rate too
         mixer_.flanger().updateTempo(sequencer_.bpm());
         mixer_.phaser().updateTempo(sequencer_.bpm());
         mixer_.autopan().updateTempo(sequencer_.bpm());     // sync the auto-pan rate too

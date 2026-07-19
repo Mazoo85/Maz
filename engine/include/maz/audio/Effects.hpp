@@ -251,6 +251,43 @@ private:
     double phase_ = 0.0;
 };
 
+// A vibrato: a fully-wet LFO-swept delay line, so the output is a pitch-modulated copy of the input
+// with no dry blend — a pure, periodic pitch wobble. Distinct from the chorus/flanger, which mix the
+// swept voice back with the dry signal (thickening/comb-filtering); here the dry is replaced outright,
+// so only the pitch moves. `rate` Hz (wobble speed), `depth` ms (sweep range → wobble amount).
+class Vibrato : public Effect {
+public:
+    Vibrato() { enabled_ = false; }
+    const char* name() const override { return "Vibrato"; }
+    void setRate(float hz) { rateHz_ = hz < 0.0f ? 0.0f : (hz > 14.0f ? 14.0f : hz); }
+    void setDepth(float ms) { depthMs_ = ms < 0.0f ? 0.0f : (ms > 20.0f ? 20.0f : ms); }
+    // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the shared
+    // modulation division set). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) {
+        syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d);
+    }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
+    float rate() const { return rateHz_; }
+    float depth() const { return depthMs_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float rateHz_ = 5.0f;
+    float depthMs_ = 4.0f;
+    bool sync_ = false; // tempo-sync the LFO rate
+    int syncDiv_ = 3;   // note-division index
+    std::vector<float> bufL_;
+    std::vector<float> bufR_;
+    int size_ = 0;
+    int write_ = 0;
+    double phase_ = 0.0;
+};
+
 // A flanger: a very short LFO-swept delay (≈0.5–8 ms) fed back on itself, so the moving comb notches
 // sweep through the spectrum for the classic "jet plane" whoosh. `rate` Hz, `depth` ms (sweep
 // range), `feedback` (0..0.95, resonance), `mix` dry/wet. Distinct from the chorus by its feedback

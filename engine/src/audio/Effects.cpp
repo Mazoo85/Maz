@@ -432,6 +432,69 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Vibrato ----------------------------------------------------------------
+
+void Vibrato::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    write_ = 0;
+    phase_ = 0.0;
+}
+
+void Vibrato::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    rateHz_ = modSyncRateHz(syncDiv_, bpm);
+}
+
+void Vibrato::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const int maxSize = sampleRate / 20; // up to 50 ms of delay line
+    if (size_ != maxSize) {
+        size_ = maxSize;
+        bufL_.assign(static_cast<size_t>(size_), 0.0f);
+        bufR_.assign(static_cast<size_t>(size_), 0.0f);
+        write_ = 0;
+    }
+    constexpr double kTwoPi = 6.283185307179586;
+    const double phaseInc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    const float depthSamp =
+        std::clamp(depthMs_, 0.0f, 20.0f) * 0.001f * static_cast<float>(sampleRate);
+    // Centre the swept read one depth + 1 ms back, so the modulated delay never reads past the write
+    // head (rp stays positive) and swings symmetrically around the centre.
+    const float baseSamp = depthSamp + 0.001f * static_cast<float>(sampleRate);
+
+    auto readAt = [&](const std::vector<float>& buf, float delay) {
+        float rp = static_cast<float>(write_) - delay;
+        while (rp < 0.0f) {
+            rp += static_cast<float>(size_);
+        }
+        const int i0 = static_cast<int>(rp) % size_;
+        const int i1 = (i0 + 1) % size_;
+        const float frac = rp - std::floor(rp);
+        return buf[static_cast<size_t>(i0)] * (1.0f - frac) + buf[static_cast<size_t>(i1)] * frac;
+    };
+
+    for (int i = 0; i < frames; ++i) {
+        bufL_[static_cast<size_t>(write_)] = stereo[2 * i];
+        bufR_[static_cast<size_t>(write_)] = stereo[2 * i + 1];
+
+        const float mod = static_cast<float>(std::sin(phase_ * kTwoPi));
+        // Fully wet: the output is the pitch-modulated (swept-delay) copy only, no dry blend.
+        stereo[2 * i] = readAt(bufL_, baseSamp + depthSamp * mod);
+        stereo[2 * i + 1] = readAt(bufR_, baseSamp + depthSamp * mod);
+
+        write_ = (write_ + 1) % size_;
+        phase_ += phaseInc;
+        if (phase_ >= 1.0) {
+            phase_ -= 1.0;
+        }
+    }
+}
+
 // ---- ParametricEQ -----------------------------------------------------------
 
 void ParametricEQ::setLowGain(float db) {

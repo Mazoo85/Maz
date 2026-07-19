@@ -996,6 +996,81 @@ int main() {
         check(meanOf(C::Tube) > 0.05, "the tube curve introduces a DC/even-harmonic offset");
     }
 
+    // --- Vibrato: a fully-wet swept delay wobbles the pitch of a steady tone -
+    {
+        // Windowed rising-zero-crossing frequency of the left channel over `win`-sample windows.
+        auto winFreqs = [&](const std::vector<float>& s, int win) {
+            std::vector<double> f;
+            const int n = static_cast<int>(s.size() / 2);
+            for (int start = 0; start + win <= n; start += win) {
+                int cross = 0;
+                for (int i = start + 1; i < start + win; ++i) {
+                    if (s[static_cast<size_t>(i - 1) * 2] <= 0.0f &&
+                        s[static_cast<size_t>(i) * 2] > 0.0f) {
+                        ++cross;
+                    }
+                }
+                f.push_back(static_cast<double>(cross) * sr / win);
+            }
+            return f;
+        };
+        auto spread = [](const std::vector<double>& f) {
+            double lo = 1e9, hi = -1e9;
+            for (double v : f) {
+                lo = std::min(lo, v);
+                hi = std::max(hi, v);
+            }
+            return f.empty() ? 0.0 : hi - lo;
+        };
+
+        // Dry control: a steady 440 Hz tone has near-constant windowed frequency.
+        std::vector<float> dry = sineStereo(sr, 440.0, 0.5, sr);
+        const double drySpread = spread(winFreqs(dry, sr / 20)); // 50 ms windows
+
+        // Vibrato on: the pitch wobbles, so the windowed frequency swings widely.
+        audio::Vibrato vib;
+        vib.setEnabled(true);
+        vib.setRate(6.0f);
+        vib.setDepth(8.0f);
+        std::vector<float> wet = sineStereo(sr, 440.0, 0.5, sr);
+        vib.process(wet.data(), sr, sr);
+        const double wetSpread = spread(winFreqs(wet, sr / 20));
+        check(wetSpread > 50.0 && wetSpread > drySpread,
+              "vibrato modulates the pitch (windowed frequency swings widely)");
+        check(rms(wet) > 0.0, "vibrato passes signal");
+
+        // Depth 0: no wobble — the windowed frequency stays as steady as the dry control.
+        audio::Vibrato flat;
+        flat.setEnabled(true);
+        flat.setRate(6.0f);
+        flat.setDepth(0.0f);
+        std::vector<float> fb = sineStereo(sr, 440.0, 0.5, sr);
+        flat.process(fb.data(), sr, sr);
+        check(spread(winFreqs(fb, sr / 20)) < wetSpread,
+              "vibrato at depth 0 does not wobble the pitch");
+
+        // Disabled → bit-identical passthrough.
+        audio::Vibrato off;
+        std::vector<float> a = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> b2 = a;
+        off.process(b2.data(), sr / 4, sr);
+        bool identical = true;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != b2[i]) {
+                identical = false;
+            }
+        }
+        check(identical, "disabled vibrato is a bit-identical passthrough");
+        check(!audio::Vibrato().enabled(), "vibrato defaults to disabled");
+
+        // Tempo sync: the LFO rate locks to the transport (1/8 @ 120 BPM = 4 Hz).
+        audio::Vibrato vs;
+        vs.setSync(true);
+        vs.setSyncDivision(3); // 1/8 in the shared modulation division set
+        vs.updateTempo(120.0);
+        check(std::fabs(vs.rate() - 4.0f) < 0.01f, "synced vibrato runs at 4 Hz for 1/8 @120 BPM");
+    }
+
     // --- Chorus: a dry mono signal becomes wet + decorrelated ----------------
     {
         audio::Chorus chorus;

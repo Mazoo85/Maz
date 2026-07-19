@@ -1706,6 +1706,30 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.chorus().setSyncDivision(cdiv);
     }
     {
+        bool en = mx.vibrato().enabled();
+        if (ImGui::Checkbox("Vibrato", &en)) mx.vibrato().setEnabled(en);
+        float vrate = mx.vibrato().rate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("rate##vib", &vrate, 0.0f, 14.0f, "%.2f Hz"))
+            mx.vibrato().setRate(vrate);
+        float vdepth = mx.vibrato().depth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("depth##vib", &vdepth, 0.0f, 20.0f, "%.1f ms"))
+            mx.vibrato().setDepth(vdepth);
+        const char* vModDivs[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) vModDivs[d] = audio::modSyncDivisionName(d);
+        bool vsync = mx.vibrato().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##vib", &vsync)) mx.vibrato().setSync(vsync);
+        ImGui::SameLine();
+        int vdiv = mx.vibrato().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##vib", &vdiv, vModDivs, audio::kModSyncDivisions))
+            mx.vibrato().setSyncDivision(vdiv);
+    }
+    {
         bool en = mx.flanger().enabled();
         if (ImGui::Checkbox("Flanger", &en)) mx.flanger().setEnabled(en);
         float wet = mx.flanger().mix();

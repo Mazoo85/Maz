@@ -319,6 +319,11 @@ int main() {
     mixer.chorus().setSyncDivision(2);
     mixer.chorus().setFeedback(0.45f);
     mixer.chorus().setWidth(1.6f);
+    mixer.vibrato().setEnabled(true);
+    mixer.vibrato().setRate(6.5f);
+    mixer.vibrato().setDepth(7.0f);
+    mixer.vibrato().setSync(true);
+    mixer.vibrato().setSyncDivision(4);
     mixer.phaser().setEnabled(true);
     mixer.phaser().setSync(true);
     mixer.phaser().setSyncDivision(4);
@@ -745,6 +750,10 @@ int main() {
     check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2 &&
               near(mixer2.chorus().feedback(), 0.45f) && near(mixer2.chorus().width(), 1.6f),
           "chorus tempo sync round-trips");
+    check(mixer2.vibrato().enabled() && near(mixer2.vibrato().rate(), 6.5f) &&
+              near(mixer2.vibrato().depth(), 7.0f) && mixer2.vibrato().sync() &&
+              mixer2.vibrato().syncDivision() == 4,
+          "vibrato round-trips");
     check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4 &&
               mixer2.phaser().stages() == 8 && mixer2.phaser().stereo(),
           "phaser tempo sync round-trips");

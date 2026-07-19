@@ -400,6 +400,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
       << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << " "
       << mixer.chorus().feedback() << " " << mixer.chorus().width() << "\n";
+    f << "fx vibrato " << (mixer.vibrato().enabled() ? 1 : 0) << " " << mixer.vibrato().rate() << " "
+      << mixer.vibrato().depth() << " " << (mixer.vibrato().sync() ? 1 : 0) << " "
+      << mixer.vibrato().syncDivision() << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
       << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << " "
@@ -1230,6 +1233,17 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float cwidth = 1.0f; // stereo width optional for old files (1 = natural)
                 if (ls >> cwidth) {
                     mixer.chorus().setWidth(cwidth);
+                }
+            } else if (which == "vibrato") {
+                float rate = 5.0f, depth = 4.0f;
+                ls >> rate >> depth;
+                mixer.vibrato().setEnabled(en != 0);
+                mixer.vibrato().setRate(rate);
+                mixer.vibrato().setDepth(depth);
+                int sync = 0, div = 3; // tempo sync optional for old files
+                if (ls >> sync >> div) {
+                    mixer.vibrato().setSync(sync != 0);
+                    mixer.vibrato().setSyncDivision(div);
                 }
             } else if (which == "flanger") {
                 float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
