@@ -21,7 +21,8 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
                           : (mode == 2 ? SynthMode::Wavetable
                                        : (mode == 3 ? SynthMode::Pluck
                                                     : (mode == 4 ? SynthMode::Organ
-                                                                 : SynthMode::Subtractive))));
+                                                                 : (mode == 5 ? SynthMode::PhaseDistortion
+                                                                              : SynthMode::Subtractive)))));
     syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 5 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);
@@ -161,6 +162,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     int viShape = 0; // vibrato-LFO shape optional for old files (0 = sine)
     if (ls >> viShape) {
         syn.setVibratoShape(static_cast<Waveform>(viShape < 0 || viShape > 5 ? 0 : viShape));
+    }
+    float pdAmt = 0.0f; // phase-distortion amount optional for old files (0 = clean sine)
+    if (ls >> pdAmt) {
+        syn.setPdAmount(pdAmt);
     }
 }
 // Parse a `synthosc`/`synthosc2` line.
@@ -305,7 +310,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << " "
           << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
           << static_cast<int>(s.filterLfoShape()) << " " << static_cast<int>(s.ampLfoShape()) << " "
-          << static_cast<int>(s.vibratoShape()) << "\n";
+          << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

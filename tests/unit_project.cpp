@@ -1042,6 +1042,24 @@ int main() {
               "organ engine mode + drawbar levels + percussion round-trip");
     }
 
+    // Phase-distortion (Casio CZ) engine mode + amount round-trip (a new SynthMode index).
+    {
+        audio::Sequencer dseq;
+        audio::Mixer dmix;
+        audio::Automation daut;
+        dseq.synth().setMode(audio::SynthMode::PhaseDistortion);
+        dseq.synth().setPdAmount(0.72f);
+        const std::string dpath = "unit_project_pd.cjc";
+        check(audio::saveProject(dpath, dseq, dmix, daut, &err), "saveProject (phase dist) succeeds");
+        audio::Sequencer dseq2;
+        audio::Mixer dmix2;
+        audio::Automation daut2;
+        check(audio::loadProject(dpath, dseq2, dmix2, daut2, &err), "loadProject (phase dist) succeeds");
+        check(dseq2.synth().mode() == audio::SynthMode::PhaseDistortion &&
+                  near(dseq2.synth().pdAmount(), 0.72f),
+              "phase-distortion engine mode + amount round-trip");
+    }
+
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
     audio::Mixer mixer3;

@@ -13,7 +13,7 @@ namespace maz::audio {
 // The synth's sound-generation engine: classic subtractive (an oscillator waveform), 2-operator FM
 // (a modulator oscillator bends a sine carrier for metallic/bell/electric-piano timbres), or
 // Wavetable (a morphing single-cycle table scanned by a position that the envelope can sweep).
-enum class SynthMode { Subtractive, FM, Wavetable, Pluck, Organ };
+enum class SynthMode { Subtractive, FM, Wavetable, Pluck, Organ, PhaseDistortion };
 
 // A small polyphonic synth: a fixed pool of voices, each with an ADSR amplitude envelope, keyed by
 // MIDI note number. noteOn/noteOff drive it like a keyboard; render() ADDS the summed voices into
@@ -58,6 +58,13 @@ public:
     float organPercussion() const { return organPercAmt_; }
     void setOrganPercThird(bool third) { organPercThird_ = third; }
     bool organPercThird() const { return organPercThird_; }
+
+    // Phase-distortion (Casio CZ-style) amount [0,1]: warps the read-phase of a sine through a
+    // two-segment map so the cosine cycle is squeezed into part of the period, morphing a pure sine
+    // (0) toward a bright, saw-like tone (1) — a distinctive digital timbre distinct from FM/wavetable.
+    // Only affects PhaseDistortion mode; 0 (default) = a clean sine.
+    void setPdAmount(float a) { pdAmount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    float pdAmount() const { return pdAmount_; }
 
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
@@ -429,6 +436,7 @@ private:
     float organPercAmt_ = 0.0f;    // organ percussion (key-click) amount; 0 = off
     bool organPercThird_ = false;  // percussion harmonic: false = 2nd, true = 3rd
     Waveform waveform_ = Waveform::Saw;
+    float pdAmount_ = 0.0f; // phase-distortion amount [0,1]; 0 = clean sine (PhaseDistortion mode)
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)
     bool mono_ = false;    // monophonic (single-voice) mode

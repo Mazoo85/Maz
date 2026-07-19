@@ -888,6 +888,41 @@ int main() {
         check(custom.wavetableFrame(0) == audio::Waveform::Square, "custom wavetable frame is stored");
     }
 
+    // --- Phase distortion (Casio CZ) engine ----------------------------------
+    {
+        auto hf = [](const std::vector<float>& b) {
+            double s = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                s += d * d;
+            }
+            return std::sqrt(s / static_cast<double>(b.size()));
+        };
+        auto pdOut = [&](float amount) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::PhaseDistortion);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f); // keep the filter out of the way
+            s.setPdAmount(amount);
+            s.noteOn(57, 1.0f); // A3
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        const std::vector<float> clean = pdOut(0.0f);
+        const std::vector<float> bright = pdOut(1.0f);
+        check(rms(clean) > 0.0, "phase-distortion engine produces sound");
+        // Amount 0 is a pure sine; pushing the amount up warps the phase and injects harmonics.
+        check(hf(bright) > hf(clean) * 3.0,
+              "increasing the phase-distortion amount adds harmonics");
+        // Amount 0 tracks the note pitch cleanly (it is a clean sinusoid at the fundamental).
+        check(std::fabs(estimateHz(clean, sampleRate) - audio::midiToFreq(57)) < 5.0,
+              "phase distortion at amount 0 holds the note pitch");
+        // The bright tone keeps the same fundamental (phase distortion doesn't shift pitch).
+        check(std::fabs(estimateHz(bright, sampleRate) - audio::midiToFreq(57)) < 8.0,
+              "phase distortion keeps the fundamental as the amount rises");
+        audio::SynthInstrument def;
+        check(def.pdAmount() == 0.0f, "phase-distortion amount defaults to 0 (clean sine)");
+    }
+
     // --- Unison (supersaw) ---------------------------------------------------
     {
         // Ratio of loudest to quietest short-window RMS across the render: detuned unison voices

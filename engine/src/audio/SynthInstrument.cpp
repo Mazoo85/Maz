@@ -397,6 +397,17 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     v.percEnv *= std::exp(-1.0f / (0.15f * static_cast<float>(sampleRate)));
                 }
                 osc = o * 0.35f; // headroom for the summed partials
+            } else if (mode_ == SynthMode::PhaseDistortion) {
+                // Casio CZ-style phase distortion: warp the linear phase through a two-segment map
+                // (a movable midpoint `m`) so the cosine cycle is squeezed into the first segment and
+                // stretched over the second. At m = 0.5 the map is identity → a pure sine; as the
+                // amount pushes m toward 0 the asymmetry injects progressively brighter harmonics —
+                // a smooth sine→saw morph. Rides the shared phase, so glide/vibrato/drift still apply.
+                constexpr double kTwoPi = 6.283185307179586;
+                const double m = 0.5 * (1.0 - static_cast<double>(pdAmount_) * 0.98);
+                const double p = v.phase;
+                const double pp = (p < m) ? 0.5 * p / m : 0.5 + 0.5 * (p - m) / (1.0 - m);
+                osc = static_cast<float>(-std::cos(pp * kTwoPi));
             } else {
                 // Pulse-width, optionally swept by the PWM LFO (square-wave duty movement).
                 float pw = pulseWidth_;
