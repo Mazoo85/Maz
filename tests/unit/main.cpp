@@ -13782,6 +13782,11 @@ void testVectorInt() {
     CHECK((Vector2i(-5, -3).snapped(Vector2i(2, 2)) == Vector2i(-6, -4)));
     CHECK((Vector2i(7, 9).snapped(Vector2i(0, 4)) == Vector2i(7, 8)));
 
+    // M357: Vector2i max/min axis index (ties: max prefers X, min prefers Y)
+    CHECK((Vector2i(3, 7).maxAxisIndex() == 1 && Vector2i(9, 2).maxAxisIndex() == 0));
+    CHECK((Vector2i(3, 7).minAxisIndex() == 0 && Vector2i(9, 2).minAxisIndex() == 1));
+    CHECK((Vector2i(5, 5).maxAxisIndex() == 0 && Vector2i(5, 5).minAxisIndex() == 1));
+
     const Vector3i c(1, 2, 2), d(4, 4, 4);
     CHECK((c + d == Vector3i(5, 6, 6)));
     CHECK((c * d == Vector3i(4, 8, 8)));
@@ -13793,6 +13798,10 @@ void testVectorInt() {
     CHECK((c.max(d) == Vector3i(4, 4, 4)));
     // M352: Vector3i.snapped
     CHECK((Vector3i(11, -11, 25).snapped(Vector3i(10, 10, 10)) == Vector3i(10, -10, 30)));
+    // M357: Vector3i max/min axis index (max: earliest wins on ties; min: latest wins on ties)
+    CHECK((Vector3i(1, 9, 4).maxAxisIndex() == 1 && Vector3i(1, 4, 9).maxAxisIndex() == 2));
+    CHECK((Vector3i(5, 1, 4).minAxisIndex() == 1 && Vector3i(5, 4, 1).minAxisIndex() == 2));
+    CHECK((Vector3i(3, 3, 3).maxAxisIndex() == 0 && Vector3i(3, 3, 3).minAxisIndex() == 2));
     CHECK(c.lengthSquared() == 9);
     CHECK_NEAR(static_cast<float>(c.length()), 3.0f, 1e-5f);
     CHECK_NEAR(static_cast<float>(Vector3i(0, 0, 0).distanceTo(Vector3i(1, 2, 2))), 3.0f, 1e-5f);

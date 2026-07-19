@@ -62,6 +62,11 @@ struct Vector2i {
     std::int64_t distanceSquaredTo(const Vector2i& o) const { return (o - *this).lengthSquared(); }
     float aspect() const { return static_cast<float>(x) / static_cast<float>(y); }
 
+    // Axis index (0 = X, 1 = Y) of the largest / smallest component — Godot Vector2i.max_axis_index /
+    // min_axis_index. Ties resolve exactly as Godot: max prefers X (0), min prefers Y (1).
+    int maxAxisIndex() const { return x < y ? 1 : 0; }
+    int minAxisIndex() const { return x < y ? 0 : 1; }
+
     vec2 toVec2() const { return vec2(static_cast<float>(x), static_cast<float>(y)); }
 };
 
@@ -107,6 +112,24 @@ struct Vector3i {
     double length() const { return std::sqrt(static_cast<double>(lengthSquared())); }
     double distanceTo(const Vector3i& o) const { return (o - *this).length(); }
     std::int64_t distanceSquaredTo(const Vector3i& o) const { return (o - *this).lengthSquared(); }
+
+    // Axis index (0=X, 1=Y, 2=Z) of the largest / smallest component — Godot Vector3i.max_axis_index /
+    // min_axis_index. Tie-breaking matches Godot exactly: max scans with strict '>' (earliest axis
+    // wins), min scans with '<=' (latest axis wins).
+    int maxAxisIndex() const {
+        int idx = 0;
+        int val = x;
+        if (y > val) { idx = 1; val = y; }
+        if (z > val) { idx = 2; }
+        return idx;
+    }
+    int minAxisIndex() const {
+        int idx = 0;
+        int val = x;
+        if (y <= val) { idx = 1; val = y; }
+        if (z <= val) { idx = 2; }
+        return idx;
+    }
 
     vec3 toVec3() const {
         return vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
