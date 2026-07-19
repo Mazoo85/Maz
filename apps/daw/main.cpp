@@ -1628,6 +1628,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("width##wide", &w, 0.0f, 2.0f, "%.2f")) mx.widener().setWidth(w);
+        float bm = mx.widener().bassMonoHz();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        if (ImGui::SliderFloat("bass mono Hz##wide", &bm, 0.0f, 500.0f, "%.0f")) mx.widener().setBassMonoHz(bm);
     }
     {
         bool en = mx.stereoEnhancer().enabled();

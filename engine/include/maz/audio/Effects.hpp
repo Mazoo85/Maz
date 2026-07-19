@@ -841,11 +841,18 @@ public:
     const char* name() const override { return "Stereo Widener"; }
     void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
     float width() const { return width_; }
+    // Bass mono: collapse the side (stereo) signal below `hz` to mono so the low end stays centred and
+    // tight while the highs are widened — the standard "keep the bass mono" mastering move. 0 = off.
+    void setBassMonoHz(float hz) { bassMonoHz_ = hz < 0.0f ? 0.0f : (hz > 500.0f ? 500.0f : hz); }
+    float bassMonoHz() const { return bassMonoHz_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
 
 private:
     float width_ = 1.0f;
+    float bassMonoHz_ = 0.0f; // mono the side below this frequency; 0 = off
+    float sideLp_ = 0.0f;     // one-pole low-pass state on the side signal
 };
 
 // A Haas stereo enhancer: delays one channel by a few milliseconds so the signal is decorrelated

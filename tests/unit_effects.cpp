@@ -1825,6 +1825,61 @@ int main() {
         check(same, "width 1 leaves the signal unchanged");
     }
 
+    // --- Stereo widener bass mono: lows collapse to center, highs stay wide --
+    {
+        auto sideEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 0; i + 1 < b.size(); i += 2) {
+                const double s = 0.5 * (static_cast<double>(b[i]) - static_cast<double>(b[i + 1]));
+                e += s * s;
+            }
+            return e;
+        };
+        // A hard-left tone carries pure side energy (L != 0, R == 0).
+        auto makeLeftTone = [&](double hz, int frames) {
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                const double t = static_cast<double>(i) / sr;
+                b[static_cast<size_t>(i) * 2] = static_cast<float>(0.5 * std::sin(2.0 * 3.14159265 * hz * t));
+            }
+            return b;
+        };
+
+        // A low, hard-left tone: bass mono should pull it toward the center (side drops).
+        const std::vector<float> lowBase = makeLeftTone(60.0, sr / 2);
+        const double lowSideBase = sideEnergy(lowBase);
+        audio::StereoWidener bmLow;
+        bmLow.setEnabled(true);
+        bmLow.setWidth(1.0f);
+        bmLow.setBassMonoHz(200.0f);
+        std::vector<float> lo = lowBase;
+        bmLow.process(lo.data(), sr / 2, sr);
+        check(sideEnergy(lo) < lowSideBase * 0.25,
+              "bass mono collapses the low-frequency side toward center");
+
+        // A high, hard-left tone: bass mono leaves it wide (side largely preserved).
+        const std::vector<float> hiBase = makeLeftTone(3000.0, sr / 2);
+        const double hiSideBase = sideEnergy(hiBase);
+        audio::StereoWidener bmHi;
+        bmHi.setEnabled(true);
+        bmHi.setWidth(1.0f);
+        bmHi.setBassMonoHz(200.0f);
+        std::vector<float> hi = hiBase;
+        bmHi.process(hi.data(), sr / 2, sr);
+        check(sideEnergy(hi) > hiSideBase * 0.8,
+              "bass mono leaves the high-frequency side wide");
+
+        // Default (0 Hz) is off: width-1 output is unchanged even on a low tone.
+        audio::StereoWidener bmOff;
+        bmOff.setEnabled(true);
+        bmOff.setWidth(1.0f);
+        check(bmOff.bassMonoHz() == 0.0f, "bass mono defaults to off");
+        std::vector<float> off = lowBase;
+        bmOff.process(off.data(), sr / 2, sr);
+        check(sideEnergy(off) > lowSideBase * 0.99,
+              "bass mono off leaves the low side untouched at width 1");
+    }
+
     // --- Gate: passes loud signal, attenuates quiet signal ------------------
     {
         // A loud tone (above threshold) passes ~unchanged.

@@ -360,8 +360,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
       << mixer.gate().ratio() << " " << mixer.gate().rangeDb() << " " << mixer.gate().attackMs()
       << " " << mixer.gate().releaseMs() << " " << mixer.gate().holdMs() << "\n";
-    f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width()
-      << "\n";
+    f << "fx width " << (mixer.widener().enabled() ? 1 : 0) << " " << mixer.widener().width() << " "
+      << mixer.widener().bassMonoHz() << "\n";
     f << "fx stereoenh " << (mixer.stereoEnhancer().enabled() ? 1 : 0) << " "
       << mixer.stereoEnhancer().delayMs() << " " << mixer.stereoEnhancer().amount() << "\n";
     f << "fx autopan " << (mixer.autopan().enabled() ? 1 : 0) << " " << mixer.autopan().rate() << " "
@@ -842,6 +842,8 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 ls >> w;
                 mixer.widener().setEnabled(en != 0);
                 mixer.widener().setWidth(w);
+                float bm = 0.0f;
+                if (ls >> bm) { mixer.widener().setBassMonoHz(bm); }
             } else if (which == "stereoenh") {
                 float ms = 12.0f, amt = 0.7f;
                 ls >> ms >> amt;

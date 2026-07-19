@@ -273,6 +273,7 @@ int main() {
     mixer.gate().setHoldMs(50.0f);
     mixer.widener().setEnabled(true);
     mixer.widener().setWidth(1.6f);
+    mixer.widener().setBassMonoHz(120.0f);
     mixer.tape().setEnabled(true);
     mixer.tape().setDrive(4.5f);
     mixer.tape().setWarmth(0.6f);
@@ -586,7 +587,8 @@ int main() {
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&
               near(mixer2.gate().holdMs(), 50.0f),
           "gate round-trips (incl. hold)");
-    check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f),
+    check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f) &&
+              near(mixer2.widener().bassMonoHz(), 120.0f),
           "stereo widener round-trips");
     check(mixer2.tape().enabled() && near(mixer2.tape().drive(), 4.5f) &&
               near(mixer2.tape().warmth(), 0.6f) && near(mixer2.tape().mix(), 0.9f) &&

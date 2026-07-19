@@ -1265,15 +1265,30 @@ void FormantFilter::process(float* stereo, int frames, int sampleRate) {
 
 // ---- StereoWidener ----------------------------------------------------------
 
+void StereoWidener::reset() {
+    sideLp_ = 0.0f;
+}
+
 void StereoWidener::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;
     }
+    const bool doBassMono = bassMonoHz_ > 0.0f;
+    const float a =
+        doBassMono ? 1.0f - std::exp(-2.0f * 3.14159265358979f * bassMonoHz_ /
+                                         static_cast<float>(sampleRate))
+                   : 0.0f;
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
         const float mid = 0.5f * (l + r);
-        const float side = 0.5f * (l - r) * width_;
+        float rawSide = 0.5f * (l - r);
+        // Bass mono: low-pass the side and subtract it, so only the high side is widened (lows → mono).
+        if (doBassMono) {
+            sideLp_ += a * (rawSide - sideLp_);
+            rawSide -= sideLp_;
+        }
+        const float side = rawSide * width_;
         stereo[2 * i] = mid + side;
         stereo[2 * i + 1] = mid - side;
     }
