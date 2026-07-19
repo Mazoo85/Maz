@@ -77,6 +77,10 @@ Automation::Automation() {
     lane(AutoTarget::BassCutoff).hi = 6000.0f;
     lane(AutoTarget::BassResonance).lo = 0.7f;
     lane(AutoTarget::BassResonance).hi = 12.0f;
+    lane(AutoTarget::DelayFeedback).lo = 0.1f;
+    lane(AutoTarget::DelayFeedback).hi = 0.85f;
+    lane(AutoTarget::ReverbSize).lo = 0.3f;
+    lane(AutoTarget::ReverbSize).hi = 0.95f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -125,6 +129,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Bass Cutoff";
     case AutoTarget::BassResonance:
         return "Bass Resonance";
+    case AutoTarget::DelayFeedback:
+        return "Delay Feedback";
+    case AutoTarget::ReverbSize:
+        return "Reverb Size";
     case AutoTarget::Count:
         break;
     }
@@ -274,6 +282,16 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             bs.setFilter(bs.filterCutoff(), v, bs.filterEnvAmount());
             break;
         }
+        case AutoTarget::DelayFeedback:
+            // Sweep the delay feedback (dub throws / runaway repeats).
+            engine.mixer().delay().setEnabled(true);
+            engine.mixer().delay().setFeedback(v);
+            break;
+        case AutoTarget::ReverbSize:
+            // Sweep the reverb room size (reverb swells / risers).
+            engine.mixer().reverb().setEnabled(true);
+            engine.mixer().reverb().setRoomSize(v);
+            break;
         case AutoTarget::Count:
             break;
         }

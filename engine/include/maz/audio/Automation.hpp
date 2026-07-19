@@ -33,6 +33,8 @@ enum class AutoTarget {
     DrumPan,
     BassCutoff,
     BassResonance,
+    DelayFeedback,
+    ReverbSize,
     Count
 };
 

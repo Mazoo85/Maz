@@ -339,6 +339,34 @@ int main() {
               "drum-pan automation reaches hard left at the low bound");
     }
 
+    // --- Time-fx targets: delay feedback + reverb size ----------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& df = autom.lane(audio::AutoTarget::DelayFeedback);
+        df.enabled = true;
+        df.lfo.shape = audio::Waveform::Sine;
+        df.lfo.rateHz = 1.0f;
+        df.lo = 0.1f;
+        df.hi = 0.8f;
+        audio::AutoLane& rz = autom.lane(audio::AutoTarget::ReverbSize);
+        rz.enabled = true;
+        rz.lfo.shape = audio::Waveform::Sine;
+        rz.lfo.rateHz = 1.0f;
+        rz.lo = 0.3f;
+        rz.hi = 0.95f;
+
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // peak → hi bounds
+        check(eng.mixer().delay().enabled() && eng.mixer().delay().feedback() > 0.78f,
+              "automating delay feedback drives it to the high bound (and enables the delay)");
+        check(eng.mixer().reverb().enabled() && eng.mixer().reverb().roomSize() > 0.93f,
+              "automating reverb size drives it to the high bound (and enables the reverb)");
+        autom.apply(eng, 0.75); // trough → lo bounds
+        check(eng.mixer().delay().feedback() < 0.12f, "delay-feedback automation reaches its low bound");
+        check(eng.mixer().reverb().roomSize() < 0.32f, "reverb-size automation reaches its low bound");
+    }
+
     // --- Aux-send targets: parallel reverb + delay send levels --------------
     {
         audio::Automation autom;

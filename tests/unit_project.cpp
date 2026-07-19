@@ -371,6 +371,13 @@ int main() {
     bassCutLane.lfo.rateHz = 0.45f;
     bassCutLane.lo = 200.0f;
     bassCutLane.hi = 4800.0f;
+    // A time-fx lane (delay feedback) — one of the newest appended targets.
+    audio::AutoLane& dfbLane = automation.lane(audio::AutoTarget::DelayFeedback);
+    dfbLane.enabled = true;
+    dfbLane.lfo.shape = audio::Waveform::Sine;
+    dfbLane.lfo.rateHz = 0.25f;
+    dfbLane.lo = 0.2f;
+    dfbLane.hi = 0.8f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -712,6 +719,9 @@ int main() {
               near(bassCut2.lfo.rateHz, 0.45f) && near(bassCut2.lo, 200.0f) &&
               near(bassCut2.hi, 4800.0f),
           "bass-cutoff automation lane round-trips");
+    const audio::AutoLane& dfb2 = automation2.lane(audio::AutoTarget::DelayFeedback);
+    check(dfb2.enabled && near(dfb2.lfo.rateHz, 0.25f) && near(dfb2.lo, 0.2f) && near(dfb2.hi, 0.8f),
+          "delay-feedback automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
