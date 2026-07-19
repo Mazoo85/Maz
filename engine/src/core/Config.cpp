@@ -33,6 +33,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.seconds = std::atof(argv[++i]);
         } else if (std::strcmp(arg, "--wav") == 0 && i + 1 < argc) {
             cfg.wavPath = argv[++i];
+        } else if (std::strcmp(arg, "--dither") == 0) {
+            cfg.dither = true;
         } else if (std::strcmp(arg, "--beat") == 0) {
             cfg.beat = true;
         } else if (std::strcmp(arg, "--melody") == 0) {

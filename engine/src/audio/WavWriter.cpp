@@ -20,7 +20,7 @@ void putLE(std::vector<uint8_t>& out, uint32_t value, int bytes) {
 } // namespace
 
 bool writeWav16(const std::string& path, const float* interleaved, int frames, int channels,
-                int sampleRate, std::string* err) {
+                int sampleRate, std::string* err, bool dither) {
     if (interleaved == nullptr || frames < 0 || channels <= 0 || sampleRate <= 0) {
         if (err != nullptr) {
             *err = "invalid arguments";
@@ -55,9 +55,25 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
     // data chunk.
     buf.insert(buf.end(), {'d', 'a', 't', 'a'});
     putLE(buf, dataBytes, 4);
+    // Fixed-seed xorshift32 PRNG for reproducible TPDF dither (only advanced when `dither` is set, so
+    // the non-dithered path is bit-for-bit unchanged). Two independent uniforms summed with opposite
+    // sign give a triangular distribution spanning (-1, +1) LSB — the standard TPDF dither.
+    uint32_t rng = 0x2545F491u;
+    auto nextUnit = [&rng]() -> float {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        return static_cast<float>(rng) * (1.0f / 4294967296.0f); // [0, 1)
+    };
     for (uint32_t i = 0; i < sampleCount; ++i) {
         const float clamped = std::clamp(interleaved[i], -1.0f, 1.0f);
-        const int32_t v = static_cast<int32_t>(std::lround(clamped * 32767.0f));
+        float scaled = clamped * 32767.0f;
+        if (dither) {
+            scaled += nextUnit() - nextUnit(); // TPDF noise in (-1, +1) LSB
+        }
+        // Dither (or a full-scale sample) can push the rounded value past the int16 range, so clamp.
+        int32_t v = static_cast<int32_t>(std::lround(scaled));
+        v = std::clamp(v, -32768, 32767);
         putLE(buf, static_cast<uint32_t>(static_cast<uint16_t>(static_cast<int16_t>(v))), 2);
     }
 

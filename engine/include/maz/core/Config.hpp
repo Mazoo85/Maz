@@ -19,6 +19,7 @@ struct AppConfig {
     float toneHz = 440.0f;          // --freq HZ : oscillator frequency
     double seconds = 1.0;           // --seconds N : length of an offline render
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
+    bool dither = false;            // --dither : TPDF-dither the 16-bit WAV/stem export (mastering)
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
     bool melody = false;            // --melody : render the demo piano-roll melody
     bool fm = false;                // --fm : use the FM synth engine for the demo melody

@@ -819,6 +819,60 @@ int main() {
         check(audio::Sampler().filterKeyTrack() == 0.0f, "sampler filter key-track defaults to off");
     }
 
+    // --- TPDF export dither ---------------------------------------------------
+    // A constant signal sitting a fraction of an LSB above a quantization step. Without dither every
+    // sample rounds to the same integer (a dead-constant, distorted result); with dither the rounding
+    // is randomized so the output varies sample-to-sample yet stays unbiased around the true value —
+    // the textbook behaviour that trades quantization distortion for a benign noise floor.
+    {
+        const int n = 4096;
+        const float lsb = 1.0f / 32767.0f;
+        std::vector<float> flat(static_cast<size_t>(n), 0.3f * lsb); // 0.3 LSB → rounds to 0 undithered
+
+        const std::string dpath = "unit_sampler_dither.wav";
+        // No dither: identical write is bit-exact on repeat, and every decoded sample is the same.
+        check(audio::writeWav16(dpath, flat.data(), n, 1, sr, &err, false), "write undithered WAV");
+        audio::WavData nd;
+        check(audio::readWav16(dpath, nd, &err), "read undithered WAV");
+        bool allSame = true;
+        for (float s : nd.samples) {
+            if (s != nd.samples[0]) {
+                allSame = false;
+                break;
+            }
+        }
+        check(allSame, "undithered constant sub-LSB signal quantizes to a dead-constant output");
+
+        // Dither on: the output is no longer constant (some samples round up), but its mean stays
+        // close to the intended 0.3 LSB — the dither is unbiased, not a DC offset.
+        check(audio::writeWav16(dpath, flat.data(), n, 1, sr, &err, true), "write dithered WAV");
+        audio::WavData dd;
+        check(audio::readWav16(dpath, dd, &err), "read dithered WAV");
+        bool varies = false;
+        double sum = 0.0;
+        for (float s : dd.samples) {
+            if (s != dd.samples[0]) {
+                varies = true;
+            }
+            sum += static_cast<double>(s);
+        }
+        check(varies, "dither decorrelates quantization: the output is no longer dead-constant");
+        const double mean = sum / static_cast<double>(dd.samples.size());
+        check(std::fabs(mean - 0.3 * static_cast<double>(lsb)) < 0.25 * static_cast<double>(lsb),
+              "dither is unbiased: mean stays near the true sub-LSB level");
+
+        // Deterministic: the same input dithers to a byte-identical file (fixed-seed PRNG).
+        const std::string dpath2 = "unit_sampler_dither2.wav";
+        check(audio::writeWav16(dpath2, flat.data(), n, 1, sr, &err, true), "write dithered WAV #2");
+        audio::WavData dd2;
+        check(audio::readWav16(dpath2, dd2, &err), "read dithered WAV #2");
+        bool identical = dd.samples.size() == dd2.samples.size();
+        for (size_t i = 0; identical && i < dd.samples.size(); ++i) {
+            identical = dd.samples[i] == dd2.samples[i];
+        }
+        check(identical, "dither is deterministic: same input → byte-identical WAV");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");
