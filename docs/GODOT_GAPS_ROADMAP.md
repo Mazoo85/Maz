@@ -26,7 +26,7 @@ only be written blind, the docs say exactly that.
 
 ### §4 Import formats — mostly [VERIFIABLE HERE] (pure parsers)
 - [x] **Collada `.dae` mesh import** (`render::parseCollada`) — DONE (M497). [VERIFIABLE HERE]
-- [ ] **PLY mesh import** (ASCII + binary) — `render::parsePly`. [VERIFIABLE HERE]
+- [x] **PLY mesh import** (ASCII + binary) — `render::parsePly` — DONE (M498). [VERIFIABLE HERE]
 - [ ] **STL mesh import** (ASCII + binary) — `render::parseStl`. [VERIFIABLE HERE]
 - [ ] **TGA image decode** (`render::decodeTga` → RGBA `Image`). [VERIFIABLE HERE]
 - [ ] **BMP image decode**. [VERIFIABLE HERE]

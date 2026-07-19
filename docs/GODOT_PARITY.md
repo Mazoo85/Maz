@@ -1182,6 +1182,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **PLY (Stanford `.ply`) mesh import** (M498, `render::parsePly` / `loadPly` — closes another Godot import
+  gap: PLY is the standard output of 3D scanners and tools like MeshLab and CloudCompare. It reads both the
+  ASCII and the binary (little- and big-endian) encodings, parsing the header's element/property
+  declarations, then loading the vertex list (mapping x/y/z, nx/ny/nz, red/green/blue with 0–255 colors
+  normalized, and s/t or u/v texcoords) and the face list into `shapes::MeshData`, fan-triangulating faces
+  with more than three corners. A sequential reader pulls typed scalars from either an ASCII token stream or
+  a binary byte cursor, so both paths share the property logic. Pure CPU, fully unit-tested; another
+  gap-closing milestone from `GODOT_GAPS_ROADMAP.md`. Honest scope: the common `vertex`+`face` elements with
+  scalar properties and one face index list (no custom elements, edge lists, or material blocks). Verified:
+  an ASCII colored triangle loads the right positions and normalized RGB; an ASCII quad fan-triangulates to
+  two triangles with the expected winding and default white tint; a binary little-endian triangle
+  round-trips positions through the byte cursor; the flipV option inverts the texcoord; and non-PLY /
+  header-truncated input fails gracefully),
   **COLLADA `.dae` mesh import** (M497, `render::parseCollada` / `loadCollada` — closes a real Godot import
   gap: Godot imports Collada out of the box, while Maz previously read only OBJ and glTF. COLLADA is an XML
   interchange format many DCC tools (Blender, Maya, SketchUp) still export, so supporting it widens what

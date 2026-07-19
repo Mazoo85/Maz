@@ -317,6 +317,7 @@
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/ObjLoader.hpp"
 #include "maz/render/ColladaLoader.hpp"
+#include "maz/render/PlyLoader.hpp"
 #include "maz/render/Occlusion.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
@@ -20238,6 +20239,92 @@ void testPolynomial() {
     }
 }
 
+void testPlyLoader() {
+    using render::parsePly;
+    using render::PlyLoadOptions;
+
+    static const char* kAscii =
+        "ply\nformat ascii 1.0\ncomment made by test\n"
+        "element vertex 3\n"
+        "property float x\nproperty float y\nproperty float z\n"
+        "property uchar red\nproperty uchar green\nproperty uchar blue\n"
+        "element face 1\nproperty list uchar int vertex_indices\nend_header\n"
+        "0 0 0 255 0 0\n1 0 0 0 255 0\n0 1 0 0 0 255\n3 0 1 2\n";
+
+    static const char* kQuad =
+        "ply\nformat ascii 1.0\n"
+        "element vertex 4\nproperty float x\nproperty float y\nproperty float z\n"
+        "element face 1\nproperty list uchar int vertex_indices\nend_header\n"
+        "0 0 0\n1 0 0\n1 1 0\n0 1 0\n4 0 1 2 3\n";
+
+    // ASCII with per-vertex colors.
+    {
+        render::shapes::MeshData m;
+        CHECK(parsePly(kAscii, m));
+        CHECK(m.vertices.size() == 3);
+        CHECK(m.indices.size() == 3);
+        CHECK_NEAR(m.vertices[1].px, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[2].py, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].r, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].g, 0.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[1].g, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[2].b, 1.0f, 1e-5f);
+        CHECK(m.indices[0] == 0 && m.indices[2] == 2);
+    }
+
+    // ASCII quad fan-triangulates to two triangles.
+    {
+        render::shapes::MeshData m;
+        CHECK(parsePly(kQuad, m));
+        CHECK(m.vertices.size() == 4);
+        CHECK(m.indices.size() == 6);
+        CHECK(m.indices[0] == 0 && m.indices[1] == 1 && m.indices[2] == 2);
+        CHECK(m.indices[3] == 0 && m.indices[4] == 2 && m.indices[5] == 3);
+        CHECK_NEAR(m.vertices[0].r, 1.0f, 1e-5f); // default tint
+    }
+
+    // Binary little-endian.
+    {
+        std::string s =
+            "ply\nformat binary_little_endian 1.0\n"
+            "element vertex 3\nproperty float x\nproperty float y\nproperty float z\n"
+            "element face 1\nproperty list uchar int vertex_indices\nend_header\n";
+        auto putF = [&s](float f) { char b[4]; std::memcpy(b, &f, 4); s.append(b, 4); };
+        auto putI = [&s](int32_t v) { char b[4]; std::memcpy(b, &v, 4); s.append(b, 4); };
+        putF(0.0f); putF(0.0f); putF(0.0f);
+        putF(2.0f); putF(0.0f); putF(0.0f);
+        putF(0.0f); putF(3.0f); putF(0.0f);
+        s.push_back(static_cast<char>(3));
+        putI(0); putI(1); putI(2);
+        render::shapes::MeshData m;
+        CHECK(parsePly(s, m));
+        CHECK(m.vertices.size() == 3);
+        CHECK(m.indices.size() == 3);
+        CHECK_NEAR(m.vertices[1].px, 2.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[2].py, 3.0f, 1e-5f);
+    }
+
+    // flipV option.
+    {
+        std::string s =
+            "ply\nformat ascii 1.0\nelement vertex 1\n"
+            "property float x\nproperty float y\nproperty float z\nproperty float t\n"
+            "element face 0\nproperty list uchar int vertex_indices\nend_header\n0 0 0 0.25\n";
+        render::shapes::MeshData m;
+        PlyLoadOptions opt;
+        opt.flipV = true;
+        CHECK(parsePly(s, m, opt));
+        CHECK_NEAR(m.vertices[0].v, 0.75f, 1e-5f);
+    }
+
+    // Malformed.
+    {
+        render::shapes::MeshData m;
+        CHECK(!parsePly("not a ply file", m));
+        CHECK(!parsePly("ply\nformat ascii 1.0\n", m));
+    }
+}
+
 void testColladaLoader() {
     using render::parseCollada;
     using render::ColladaLoadOptions;
@@ -32091,6 +32178,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testPlyLoader();
     testColladaLoader();
     testSkillTree();
     testAggroTable();
