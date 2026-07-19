@@ -1206,6 +1206,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     float velCut = syn.velToCutoff();
     if (ImGui::SliderFloat("Vel->Cutoff", &velCut, 0.0f, 15000.0f, "%.0f Hz"))
         syn.setVelToCutoff(velCut);
+    float velAtk = syn.velToAttack();
+    if (ImGui::SliderFloat("Vel->Attack", &velAtk, 0.0f, 1.0f, velAtk <= 0.0f ? "off" : "%.2f"))
+        syn.setVelToAttack(velAtk);
     float keyTrack = syn.filterKeyTrack();
     if (ImGui::SliderFloat("Key track", &keyTrack, 0.0f, 1.0f, "%.2f"))
         syn.setFilterKeyTrack(keyTrack);

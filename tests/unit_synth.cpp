@@ -2438,6 +2438,32 @@ int main() {
               "organ percussion defaults to off");
     }
 
+    // --- Velocity → attack: softer notes swell in more slowly ----------------
+    {
+        // Isolate the attack ramp from velocity→volume by disabling velocity sensitivity, so both
+        // notes reach the same peak level and only the attack *time* differs.
+        auto earlyRms = [&](float velocity, float velToAttack) {
+            audio::SynthInstrument s;
+            s.setVelSensitivity(0.0f);          // level is velocity-independent
+            s.setEnvelope(0.05f, 0.2f, 1.0f, 0.1f); // a slow-ish 50 ms attack, full sustain
+            s.setVelToAttack(velToAttack);
+            s.noteOn(57, velocity);
+            const std::vector<float> b = render(s, sampleRate / 100, sampleRate); // first 10 ms
+            return rms(b);
+        };
+        // With vel→attack engaged, a soft note is still ramping (quieter early) vs. a hard note.
+        const double softOn = earlyRms(0.2f, 1.0f);
+        const double hardOn = earlyRms(1.0f, 1.0f);
+        check(hardOn > softOn * 1.5,
+              "vel->attack makes a hard note rise faster (louder early) than a soft note");
+        // With vel→attack off, velocity no longer changes the attack ramp (early level matches).
+        const double softOff = earlyRms(0.2f, 0.0f);
+        const double hardOff = earlyRms(1.0f, 0.0f);
+        check(std::fabs(hardOff - softOff) < hardOff * 0.05 + 1e-6,
+              "with vel->attack off the attack ramp is velocity-independent");
+        check(audio::SynthInstrument().velToAttack() == 0.0f, "vel->attack defaults to off");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

@@ -336,6 +336,13 @@ public:
     float decay() const { return decay_; }
     float sustain() const { return sustain_; }
     float release() const { return release_; }
+    // Velocity → attack (0..1): how much a note's velocity shortens its amp-envelope attack. At full
+    // velocity the attack is the set time; softer notes swell in more slowly (up to ~5× longer at the
+    // lowest velocity for amount 1) — the classic velocity-to-envelope expression of a soft pad that
+    // blooms on gentle keys and snaps on hard ones. 0 (default) = off (attack is velocity-independent,
+    // bit-for-bit unchanged).
+    void setVelToAttack(float amt) { velToAttack_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
+    float velToAttack() const { return velToAttack_; }
 
     // Resonant low-pass filter driven per voice. `cutoff` is the base cutoff in Hz, `resonance`
     // sharpens the peak, and `envAmt` (Hz) opens the cutoff with the amp envelope for a classic
@@ -518,6 +525,7 @@ private:
     float filtA_ = 0.005f, filtD_ = 0.1f, filtS_ = 0.0f, filtR_ = 0.1f; // dedicated filter ADSR
     float filterEnvDepth_ = 0.0f; // dedicated filter-envelope depth in Hz (±); 0 = off
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
+    float velToAttack_ = 0.0f; // velocity → amp-attack shortening [0,1]; 0 = off
     float filterKeyTrack_ = 0.0f; // filter cutoff → note pitch tracking [0,1]; 0 = off
     float filterDrive_ = 0.0f;    // pre-filter tanh overdrive amount [0,1]; 0 = clean
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)

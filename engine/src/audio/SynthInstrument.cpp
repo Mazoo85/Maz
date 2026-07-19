@@ -263,7 +263,11 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                                     static_cast<double>(v.driftMul) / static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
-                v.env += attackStep;
+                // Velocity → attack: softer notes get a smaller step (a longer swell). At amount 0 the
+                // step is exactly attackStep, so the envelope is bit-for-bit unchanged.
+                v.env += velToAttack_ > 0.0f
+                             ? attackStep / (1.0f + velToAttack_ * (1.0f - v.velocity) * 4.0f)
+                             : attackStep;
                 if (v.env >= 1.0f) {
                     v.env = 1.0f;
                     v.stage = Stage::Decay;

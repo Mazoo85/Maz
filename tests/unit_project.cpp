@@ -109,6 +109,7 @@ int main() {
     seq.synth().setFilterLfoSampleHold(true);
     seq.synth().setFilterSlope(24);
     seq.synth().setNoiseAttack(0.55f, 22.0f);
+    seq.synth().setVelToAttack(0.65f);
     seq.synth().setAmpLfoSampleHold(true);
     seq.synth().setVibratoSampleHold(true);
     seq.synth().setAmpLfoSync(true);
@@ -700,6 +701,7 @@ int main() {
           "noise attack round-trips");
     check(seq2.synth().ampLfoSampleHold(), "tremolo sample & hold round-trips");
     check(seq2.synth().vibratoSampleHold(), "vibrato sample & hold round-trips");
+    check(near(seq2.synth().velToAttack(), 0.65f), "velocity→attack round-trips");
     check(seq2.synth().ampLfoSync() && seq2.synth().ampLfoSyncDivision() == 5,
           "tremolo LFO tempo sync round-trips");
     check(seq2.synth().ampLfoShape() == audio::Waveform::Saw, "tremolo LFO shape round-trips");
