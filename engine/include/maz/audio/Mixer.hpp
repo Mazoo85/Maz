@@ -84,6 +84,7 @@ public:
     MonoBass& monobass() { return monobass_; }
     SubBass& subbass() { return subbass_; }
     Octaver& octaver() { return octaver_; }
+    BeatRepeat& beatRepeat() { return beatrepeat_; }
     Convolver& convolver() { return convolver_; }
     PluginHost& plugin() { return plugin_; } // a dynamically-loaded native plugin, last in the chain
     ClapHost& clap() { return clap_; }       // a loaded CLAP-format plugin
@@ -185,6 +186,7 @@ private:
     MonoBass monobass_{};
     SubBass subbass_{};
     Octaver octaver_{};
+    BeatRepeat beatrepeat_{};
     Convolver convolver_{};
     PluginHost plugin_{};
     ClapHost clap_{};

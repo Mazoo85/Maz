@@ -2364,6 +2364,23 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("tone Hz##oct", &tn, 500.0f, 18000.0f, "%.0f")) mx.octaver().setTone(tn);
     }
     {
+        bool en = mx.beatRepeat().enabled();
+        if (ImGui::Checkbox("Beat Repeat", &en)) mx.beatRepeat().setEnabled(en);
+        float slice = mx.beatRepeat().sliceMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("slice ms##br", &slice, 10.0f, 1000.0f, "%.0f"))
+            mx.beatRepeat().setSliceMs(slice);
+        int reps = mx.beatRepeat().repeats();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderInt("repeats##br", &reps, 1, 16)) mx.beatRepeat().setRepeats(reps);
+        float mix = mx.beatRepeat().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("mix##br", &mix, 0.0f, 1.0f, "%.2f")) mx.beatRepeat().setMix(mix);
+    }
+    {
         bool en = mx.autowah().enabled();
         if (ImGui::Checkbox("Auto-Wah", &en)) mx.autowah().setEnabled(en);
         float base = mx.autowah().baseHz();

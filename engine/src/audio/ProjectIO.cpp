@@ -534,6 +534,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.subbass().cutoff() << " " << mixer.subbass().tone() << "\n";
     f << "fx octaver " << (mixer.octaver().enabled() ? 1 : 0) << " " << mixer.octaver().amount() << " "
       << mixer.octaver().tone() << "\n";
+    f << "fx beatrepeat " << (mixer.beatRepeat().enabled() ? 1 : 0) << " " << mixer.beatRepeat().sliceMs()
+      << " " << mixer.beatRepeat().repeats() << " " << mixer.beatRepeat().mix() << "\n";
     f << "fx utility " << (mixer.utility().enabled() ? 1 : 0) << " " << mixer.utility().gainDb() << " "
       << (mixer.utility().invertL() ? 1 : 0) << " " << (mixer.utility().invertR() ? 1 : 0) << " "
       << (mixer.utility().mono() ? 1 : 0) << " " << mixer.utility().width() << "\n";
@@ -1258,6 +1260,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.octaver().setEnabled(en != 0);
                 mixer.octaver().setAmount(amt);
                 mixer.octaver().setTone(tn);
+            } else if (which == "beatrepeat") {
+                float slice = 125.0f, mix = 1.0f;
+                int reps = 1;
+                ls >> slice >> reps >> mix;
+                mixer.beatRepeat().setEnabled(en != 0);
+                mixer.beatRepeat().setSliceMs(slice);
+                mixer.beatRepeat().setRepeats(reps);
+                mixer.beatRepeat().setMix(mix);
             } else if (which == "utility") {
                 float gainDb = 0.0f;
                 int invL = 0, invR = 0, mono = 0;

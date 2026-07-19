@@ -4213,6 +4213,75 @@ int main() {
         check(!def.enabled(), "convolver is off by default");
     }
 
+    // --- BeatRepeat: each cell's captured sub-slice repeats to fill the cell ---
+    {
+        const int brSr = 48000;
+        // A per-sample-distinct signal so a repeated sub-slice is unambiguous (a slow ramp per frame).
+        auto ramp = [](int frames) {
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                const float v = static_cast<float>(i) * 1e-4f;
+                b[static_cast<size_t>(i) * 2] = v;
+                b[static_cast<size_t>(i) * 2 + 1] = -v;
+            }
+            return b;
+        };
+        const int nframes = 480; // 10 ms cell @48k
+
+        // Disabled and repeats==1 are both bit-for-bit passthroughs.
+        {
+            const std::vector<float> ref = ramp(nframes);
+            std::vector<float> off = ref;
+            audio::BeatRepeat br;
+            br.setRepeats(4);
+            br.setMix(1.0f); // still disabled → must be untouched
+            br.process(off.data(), nframes, brSr);
+            check(off == ref, "beat-repeat disabled is bit-for-bit passthrough");
+
+            std::vector<float> one = ref;
+            audio::BeatRepeat br1;
+            br1.setEnabled(true);
+            br1.setRepeats(1);
+            br1.setMix(1.0f);
+            br1.process(one.data(), nframes, brSr);
+            check(one == ref, "beat-repeat at repeats=1 is bit-for-bit passthrough");
+        }
+
+        // repeats=2, mix=1, slice=10 ms → cell 480, sub 240: the 2nd sub-slice replays the 1st, which
+        // (played live while capturing) equals the input. So out[240+k] == in[k] for k in [0,240).
+        {
+            const std::vector<float> in = ramp(nframes);
+            std::vector<float> out = in;
+            audio::BeatRepeat br;
+            br.setEnabled(true);
+            br.setSliceMs(10.0f);
+            br.setRepeats(2);
+            br.setMix(1.0f);
+            br.process(out.data(), nframes, brSr);
+            const int sub = 240;
+            // First sub-slice is untouched (live capture).
+            bool liveOk = true;
+            for (int k = 0; k < sub && liveOk; ++k) {
+                liveOk = out[static_cast<size_t>(k) * 2] == in[static_cast<size_t>(k) * 2] &&
+                         out[static_cast<size_t>(k) * 2 + 1] == in[static_cast<size_t>(k) * 2 + 1];
+            }
+            check(liveOk, "beat-repeat plays the first sub-slice live");
+            // Second sub-slice is a copy of the first (the stutter).
+            bool repOk = true;
+            for (int k = 0; k < sub && repOk; ++k) {
+                repOk = out[static_cast<size_t>(sub + k) * 2] == in[static_cast<size_t>(k) * 2] &&
+                        out[static_cast<size_t>(sub + k) * 2 + 1] == in[static_cast<size_t>(k) * 2 + 1];
+            }
+            check(repOk, "beat-repeat's later sub-slices replay the captured slice (the stutter)");
+            // And it is not just the passthrough: the 2nd half now differs from the original input.
+            check(out[static_cast<size_t>(sub) * 2] != in[static_cast<size_t>(sub) * 2],
+                  "beat-repeat actually alters the repeated region");
+        }
+
+        audio::BeatRepeat brDef;
+        check(!brDef.enabled() && brDef.repeats() == 1, "beat-repeat is off / passthrough by default");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

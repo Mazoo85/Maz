@@ -1136,6 +1136,38 @@ private:
     float lpL_ = 0.0f, lpR_ = 0.0f;     // tone low-pass state per channel
 };
 
+// A beat-repeat / stutter effect (the ratcheting core of FL's Gross Beat / Slicex live play). Time is
+// divided into fixed "cells" of `sliceMs`; each cell captures its first 1/`repeats` and then replays
+// that captured sub-slice `repeats` times to fill the cell — so a single hit stutters into a
+// rhythmic roll/ratchet. `repeats == 1` (the default) is a pure passthrough, and when disabled the
+// effect is skipped entirely, so both leave the signal bit-for-bit unchanged. `mix` blends the
+// stuttered (wet) signal against the dry.
+class BeatRepeat : public Effect {
+public:
+    BeatRepeat() { enabled_ = false; }
+    const char* name() const override { return "BeatRepeat"; }
+    // Cell length in milliseconds (10..1000): the musical slice the stutter fills.
+    void setSliceMs(float ms) { sliceMs_ = ms < 10.0f ? 10.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    // How many times the captured sub-slice repeats to fill the cell (1..16; 1 = passthrough).
+    void setRepeats(int n) { repeats_ = n < 1 ? 1 : (n > 16 ? 16 : n); }
+    // Dry/wet blend of the stuttered signal (0 = dry, 1 = fully stuttered).
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float sliceMs() const { return sliceMs_; }
+    int repeats() const { return repeats_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float sliceMs_ = 125.0f; // cell length (ms)
+    int repeats_ = 1;        // sub-slice repeats per cell; 1 = passthrough
+    float mix_ = 1.0f;       // dry/wet
+    std::vector<float> sliceL_, sliceR_; // the captured sub-slice (length = cell/repeats)
+    int sizedSub_ = 0;       // sub-slice length the buffers are sized for (0 = unsized)
+    int cellPos_ = 0;        // position within the current cell [0, sizedSub_ * repeats_)
+};
+
 // An auto-panner: an internal LFO sweeps the stereo position at `rate` Hz, `depth` 0..1 (0 = none,
 // 1 = full hard-left↔hard-right), using an equal-power law so the perceived loudness stays constant.
 class AutoPan : public Effect {

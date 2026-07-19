@@ -1880,6 +1880,60 @@ void Octaver::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- BeatRepeat -------------------------------------------------------------
+
+void BeatRepeat::reset() {
+    cellPos_ = 0;
+    std::fill(sliceL_.begin(), sliceL_.end(), 0.0f);
+    std::fill(sliceR_.begin(), sliceR_.end(), 0.0f);
+}
+
+void BeatRepeat::process(float* stereo, int frames, int sampleRate) {
+    // repeats_ == 1 is a pure passthrough; disabled skips entirely. Either way, bit-for-bit unchanged.
+    if (!enabled_ || repeats_ <= 1 || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // Cell = repeats_ copies of a captured sub-slice. Size the sub-slice to sliceMs_/repeats_ (>=1).
+    int cellLen = static_cast<int>(sliceMs_ * static_cast<float>(sampleRate) / 1000.0f);
+    int subLen = cellLen / repeats_;
+    if (subLen < 1) {
+        subLen = 1;
+    }
+    if (subLen != sizedSub_) {
+        sliceL_.assign(static_cast<size_t>(subLen), 0.0f);
+        sliceR_.assign(static_cast<size_t>(subLen), 0.0f);
+        sizedSub_ = subLen;
+        cellPos_ = 0;
+    }
+    const int fullCell = subLen * repeats_;
+    if (cellPos_ >= fullCell) {
+        cellPos_ = 0;
+    }
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const int sub = cellPos_ % subLen;
+        float wetL, wetR;
+        if (cellPos_ < subLen) {
+            // First sub-slice of the cell: play live and capture it for the repeats that follow.
+            sliceL_[static_cast<size_t>(sub)] = l;
+            sliceR_[static_cast<size_t>(sub)] = r;
+            wetL = l;
+            wetR = r;
+        } else {
+            // Later sub-slices: replay the captured sub-slice — the stutter.
+            wetL = sliceL_[static_cast<size_t>(sub)];
+            wetR = sliceR_[static_cast<size_t>(sub)];
+        }
+        // dry*(1-mix) + wet*mix — exact wet at mix 1 and exact dry at mix 0 (no float residual).
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
+        if (++cellPos_ >= fullCell) {
+            cellPos_ = 0;
+        }
+    }
+}
+
 // ---- AutoPan ----------------------------------------------------------------
 
 void AutoPan::reset() {
