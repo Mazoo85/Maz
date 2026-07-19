@@ -206,6 +206,7 @@
 #include "maz/game/FloodFill.hpp"
 #include "maz/game/FieldOfView.hpp"
 #include "maz/game/GridRaycast.hpp"
+#include "maz/game/BspDungeon.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2436,6 +2437,48 @@ void testGeometry2D() {
         auto grHit0 = maz::game::raycastGrid(vec2(0.5f, 0.5f), vec2(1, 0), 5.0f, grOrigin);
         CHECK(grHit0.has_value());
         CHECK((*grHit0 == RayCell(0, 0)));
+    }
+
+    // --- M411: BSP dungeon generation ---
+    {
+        using FillCell = maz::game::FillCell;
+        const int dW = 48, dH = 32;
+        // Determinism.
+        auto dgA = maz::game::generateBspDungeon(dW, dH, 12345u);
+        auto dgB = maz::game::generateBspDungeon(dW, dH, 12345u);
+        CHECK(dgA.tiles == dgB.tiles);
+        // Structural guarantees.
+        auto dg = maz::game::generateBspDungeon(dW, dH, 999u);
+        CHECK(!dg.rooms.empty());
+        auto dgOverlap = [](const math::Rect2i& a, const math::Rect2i& b) {
+            return a.position.x < b.position.x + b.size.x && b.position.x < a.position.x + a.size.x &&
+                   a.position.y < b.position.y + b.size.y && b.position.y < a.position.y + a.size.y;
+        };
+        for (const auto& r : dg.rooms) {
+            CHECK(r.size.x >= 1 && r.size.y >= 1);
+            CHECK(r.position.x >= 1 && r.position.y >= 1);
+            CHECK(r.position.x + r.size.x <= dW - 1);
+            CHECK(r.position.y + r.size.y <= dH - 1);
+            CHECK(dg.floorAt(r.position.x, r.position.y));
+        }
+        for (std::size_t i = 0; i < dg.rooms.size(); ++i)
+            for (std::size_t j = i + 1; j < dg.rooms.size(); ++j)
+                CHECK(!dgOverlap(dg.rooms[i], dg.rooms[j]));
+        // All floor forms one connected region (corridors join every room) — reuses M408.
+        auto dgPass = [&](const FillCell& c) { return dg.floorAt(c.x, c.y); };
+        auto dgRegs = maz::game::connectedRegions(dW, dH, dgPass);
+        CHECK(dgRegs.size() == 1);
+        int dgFloor = 0;
+        for (auto t : dg.tiles) if (t) ++dgFloor;
+        CHECK(static_cast<int>(dgRegs[0].size()) == dgFloor);
+        CHECK(dgFloor > 20);
+        // Border preserved as wall.
+        for (int x = 0; x < dW; ++x) { CHECK(!dg.floorAt(x, 0)); CHECK(!dg.floorAt(x, dH - 1)); }
+        for (int y = 0; y < dH; ++y) { CHECK(!dg.floorAt(0, y)); CHECK(!dg.floorAt(dW - 1, y)); }
+        // Different seeds differ; degenerate size -> empty.
+        CHECK(maz::game::generateBspDungeon(dW, dH, 1u).tiles !=
+              maz::game::generateBspDungeon(dW, dH, 2u).tiles);
+        CHECK(maz::game::generateBspDungeon(3, 3, 7u).rooms.empty());
     }
 }
 

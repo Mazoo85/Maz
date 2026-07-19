@@ -278,6 +278,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   horizontal/vertical/negative-axis cell sequences, zero-direction → origin only, the Amanatides
   no-diagonal-jump invariant (consecutive cells differ by exactly one orthogonal step) on a 2:1 ray,
   negative-coordinate flooring, and raycastGrid hit / no-hit / origin-blocked;
+  **BSP dungeon generation** M411 (`game::generateBspDungeon` / `Dungeon` / `BspDungeonParams` in
+  `maz/game/BspDungeon.hpp` — the classic roguelike rooms-and-corridors generator via binary space
+  partitioning: recursively split the map into regions, carve a random room in each leaf, and join
+  siblings with L-shaped corridors so the whole level is one connected space. A different flavour from
+  the organic CellularCave (M96) — sharp rectangular rooms linked by straight halls. Deterministic for
+  a seed (core::Pcg32). Godot leaves procedural level generation to the game. Verified against
+  structural guarantees — determinism (same seed → identical tiles), rooms within the bordered
+  interior, rooms pairwise non-overlapping, every room tile is floor, the preserved wall border, and
+  crucially ALL floor forms a single connected region (proving corridors join every room, checked by
+  reusing M408 connectedRegions) — plus different-seed divergence and degenerate-size → empty;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
