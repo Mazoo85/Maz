@@ -306,8 +306,10 @@ int runHeadless(const core::AppConfig& cfg) {
 
         if (cfg.midiPath != nullptr) {
             std::string merr;
-            if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr)) {
-                MAZ_LOG_INFO("midi: exported %s", cfg.midiPath);
+            // With a multi-pattern playlist, export the whole arrangement; otherwise the one pattern.
+            const bool songMidi = engine.sequencer().playlist().size() > 1;
+            if (audio::writeMidi(cfg.midiPath, engine.sequencer(), 96, &merr, songMidi)) {
+                MAZ_LOG_INFO("midi: exported %s%s", cfg.midiPath, songMidi ? " (arrangement)" : "");
             } else {
                 MAZ_LOG_ERROR("midi export failed: %s", merr.c_str());
                 return 1;

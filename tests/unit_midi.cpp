@@ -124,6 +124,36 @@ int main() {
         check(cbIn.step(0, 2), "the cowbell hit round-trips onto the matching-type channel");
     }
 
+    // Arrangement export: a 2-entry playlist writes both patterns back to back, each offset by one
+    // pattern length.
+    {
+        audio::Sequencer song;
+        const int n = song.numSteps();
+        song.selectPattern(0);
+        song.roll().addNote(audio::Note{0, 2, 60, 1.0f}); // pattern 0, step 0
+        const int p1 = song.addPattern();
+        song.selectPattern(p1);
+        song.roll().addNote(audio::Note{2, 2, 64, 1.0f}); // pattern 1, step 2
+        song.setPlaylist({0, p1});
+
+        const std::string sp = "unit_midi_song.mid";
+        check(audio::writeMidi(sp, song, 96, &err, true), "arrangement MIDI export succeeds");
+        audio::Sequencer in2;
+        check(audio::readMidi(sp, in2, &err), "arrangement MIDI reads back");
+        const auto& ns = in2.roll().notes();
+        bool got0 = false, gotOffset = false;
+        for (const audio::Note& nn : ns) {
+            if (nn.pitch == 60 && nn.startStep == 0) {
+                got0 = true;
+            }
+            if (nn.pitch == 64 && nn.startStep == n + 2) {
+                gotOffset = true;
+            }
+        }
+        check(ns.size() == 2 && got0 && gotOffset,
+              "arrangement export writes playlist patterns back to back (2nd offset by a pattern)");
+    }
+
     // A non-MIDI file fails cleanly.
     audio::Sequencer bad;
     check(!audio::readMidi("/nonexistent/missing.mid", bad, &err), "reading a missing file fails");

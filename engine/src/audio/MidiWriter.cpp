@@ -45,7 +45,8 @@ uint8_t vel7(float v) {
 
 } // namespace
 
-bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* err) {
+bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* err,
+               bool arrangement) {
     if (ppq < 24) {
         ppq = 96;
     }
@@ -53,36 +54,47 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
 
     std::vector<MidiEvent> events;
 
-    // Melody (lead): piano-roll notes on channel 0.
-    for (const Note& n : seq.roll().notes()) {
-        const int onTick = n.startStep * ticksPerStep;
-        const int offTick = (n.startStep + n.lengthSteps) * ticksPerStep;
-        const uint8_t v = vel7(n.velocity);
-        events.push_back({onTick, 1, 0x90, static_cast<uint8_t>(n.pitch & 0x7F), v});
-        events.push_back({offTick, 0, 0x80, static_cast<uint8_t>(n.pitch & 0x7F), 0});
-    }
-
-    // Bass: the second piano-roll's notes on channel 1 (previously omitted from the export).
-    for (const Note& n : seq.roll2().notes()) {
-        const int onTick = n.startStep * ticksPerStep;
-        const int offTick = (n.startStep + n.lengthSteps) * ticksPerStep;
-        const uint8_t v = vel7(n.velocity);
-        events.push_back({onTick, 1, 0x91, static_cast<uint8_t>(n.pitch & 0x7F), v});
-        events.push_back({offTick, 0, 0x81, static_cast<uint8_t>(n.pitch & 0x7F), 0});
-    }
-
-    // Drums: the grid as GM percussion on channel 9 (MIDI channel 10). Each channel maps by its
-    // assigned drum TYPE (not its position), so every drum — and every channel — exports correctly.
-    for (int c = 0; c < seq.numChannels(); ++c) {
-        const uint8_t note = static_cast<uint8_t>(gmNoteForDrum(seq.channelType(c)) & 0x7F);
-        for (int s = 0; s < seq.numSteps(); ++s) {
-            if (seq.step(c, s)) {
-                const int onTick = s * ticksPerStep;
-                const int offTick = onTick + ticksPerStep / 2;
-                events.push_back({onTick, 1, 0x99, note, vel7(seq.stepVelocity(c, s))});
-                events.push_back({offTick, 0, 0x89, note, 0});
+    // Emit the CURRENT pattern's lead (ch0), bass (ch1), and drums (ch10) shifted later by
+    // `stepOffset` steps — one pattern's worth of steps when writing an arrangement back to back.
+    auto emitPattern = [&](int stepOffset) {
+        const int base = stepOffset * ticksPerStep;
+        for (const Note& n : seq.roll().notes()) {
+            const uint8_t v = vel7(n.velocity);
+            const uint8_t p = static_cast<uint8_t>(n.pitch & 0x7F);
+            events.push_back({base + n.startStep * ticksPerStep, 1, 0x90, p, v});
+            events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, 0x80, p, 0});
+        }
+        for (const Note& n : seq.roll2().notes()) {
+            const uint8_t v = vel7(n.velocity);
+            const uint8_t p = static_cast<uint8_t>(n.pitch & 0x7F);
+            events.push_back({base + n.startStep * ticksPerStep, 1, 0x91, p, v});
+            events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, 0x81, p, 0});
+        }
+        // Drums map by each channel's drum TYPE, so every drum and channel exports correctly.
+        for (int c = 0; c < seq.numChannels(); ++c) {
+            const uint8_t note = static_cast<uint8_t>(gmNoteForDrum(seq.channelType(c)) & 0x7F);
+            for (int s = 0; s < seq.numSteps(); ++s) {
+                if (seq.step(c, s)) {
+                    const int onTick = base + s * ticksPerStep;
+                    events.push_back({onTick, 1, 0x99, note, vel7(seq.stepVelocity(c, s))});
+                    events.push_back({onTick + ticksPerStep / 2, 0, 0x89, note, 0});
+                }
             }
         }
+    };
+
+    if (arrangement && !seq.playlist().empty()) {
+        // Write the whole playlist back to back; each entry is one pattern length (numSteps) later.
+        const int saved = seq.currentPattern();
+        const int patLen = seq.numSteps();
+        const std::vector<int> pl = seq.playlist();
+        for (size_t p = 0; p < pl.size(); ++p) {
+            seq.selectPattern(pl[p]);
+            emitPattern(static_cast<int>(p) * patLen);
+        }
+        seq.selectPattern(saved);
+    } else {
+        emitPattern(0);
     }
 
     std::sort(events.begin(), events.end(), [](const MidiEvent& a, const MidiEvent& b) {
