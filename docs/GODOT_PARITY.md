@@ -1160,6 +1160,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   press while airborne is held and fires on landing within the buffer window but is dropped if the buffer
   expires first; `pressJump` refreshes the buffer; `reset` clears; and a zero coyote window forbids jumping
   the instant the character leaves the ground),
+  **combo / score-chain meter** (M492, `game::ComboMeter` + `game::ComboTier` — the score-chain tracker
+  behind arcade multipliers, fighting-game combo counters, and rhythm-game streaks. Each `hit` bumps the
+  count and refreshes a countdown; if the countdown runs out (or the game calls `breakCombo` on a miss) the
+  chain resets to zero. The current count maps through configurable tiers to a score MULTIPLIER, `scoreFor`
+  applies it to a base point value, and the best combo reached is remembered for an end-of-run stat. Godot
+  ships no combo/score-chain system -> beyond-Godot gameplay utility. Verified: hits grow the combo and
+  refresh the timer; the default tiers step 1x / 1.5x@5 / 2x@10 / 3x@25 / 4x@50; a timeout breaks the combo
+  while preserving the max-combo record; `breakCombo` resets immediately; the max tracks the peak across
+  several chains; `scoreFor` scales and rounds (101 at 2x -> 202); custom tiers are sorted from unsorted
+  input; an empty tier set falls back to a flat 1x; `reset` keeps the record while `resetAll` clears it;
+  and non-positive hits / dt are safe no-ops),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

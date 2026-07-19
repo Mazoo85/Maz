@@ -136,6 +136,7 @@
 #include "maz/game/Achievements.hpp"
 #include "maz/game/WaveSpawner.hpp"
 #include "maz/game/JumpAssist.hpp"
+#include "maz/game/ComboMeter.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20232,6 +20233,88 @@ void testPolynomial() {
     }
 }
 
+void testComboMeter() {
+    using game::ComboMeter;
+
+    // Fresh meter.
+    {
+        ComboMeter c(2.0);
+        CHECK(c.count() == 0 && c.maxCount() == 0 && !c.active());
+        CHECK(std::fabs(c.multiplier() - 1.0) < 1e-9 && std::fabs(c.timeRemaining()) < 1e-9);
+    }
+    // Hits grow the combo and refresh the timer.
+    {
+        ComboMeter c(2.0);
+        c.hit();
+        CHECK(c.count() == 1 && c.active() && std::fabs(c.timeRemaining() - 2.0) < 1e-9);
+        c.update(1.5);
+        CHECK(std::fabs(c.timeRemaining() - 0.5) < 1e-9);
+        c.hit();
+        CHECK(std::fabs(c.timeRemaining() - 2.0) < 1e-9 && c.count() == 2);
+    }
+    // Default multiplier tiers.
+    {
+        ComboMeter c(100.0);
+        c.hit(4);  CHECK(std::fabs(c.multiplier() - 1.0) < 1e-9);
+        c.hit(1);  CHECK(c.count() == 5 && std::fabs(c.multiplier() - 1.5) < 1e-9);
+        c.hit(5);  CHECK(c.count() == 10 && std::fabs(c.multiplier() - 2.0) < 1e-9);
+        c.hit(15); CHECK(c.count() == 25 && std::fabs(c.multiplier() - 3.0) < 1e-9);
+        c.hit(25); CHECK(c.count() == 50 && std::fabs(c.multiplier() - 4.0) < 1e-9);
+    }
+    // Timeout breaks the combo; maxCount preserved; breakCombo resets.
+    {
+        ComboMeter c(2.0);
+        c.hit(8);
+        c.update(1.0);
+        CHECK(c.active() && c.count() == 8);
+        c.update(1.5);
+        CHECK(!c.active() && c.count() == 0 && c.maxCount() == 8);
+        c.hit(12);
+        c.breakCombo();
+        CHECK(c.count() == 0 && c.maxCount() == 12);
+    }
+    // maxCount tracks the peak across chains; scoreFor applies the multiplier.
+    {
+        ComboMeter c(100.0);
+        c.hit(10);
+        c.breakCombo();
+        c.hit(6);
+        CHECK(c.count() == 6 && c.maxCount() == 10);
+        c.hit(20);
+        CHECK(c.maxCount() == 26);
+        ComboMeter s(100.0);
+        CHECK(s.scoreFor(100) == 100);
+        s.hit(5);
+        CHECK(s.scoreFor(100) == 150);
+        s.hit(5);
+        CHECK(s.scoreFor(100) == 200 && s.scoreFor(101) == 202);
+    }
+    // Custom tiers (unsorted sorted); empty -> flat 1x; reset/resetAll; bad args safe.
+    {
+        ComboMeter c(100.0);
+        c.setTiers({{10, 5.0}, {0, 1.0}, {3, 2.0}});
+        c.hit(2);  CHECK(std::fabs(c.multiplier() - 1.0) < 1e-9);
+        c.hit(1);  CHECK(std::fabs(c.multiplier() - 2.0) < 1e-9);
+        c.hit(7);  CHECK(std::fabs(c.multiplier() - 5.0) < 1e-9);
+        ComboMeter e(100.0);
+        e.setTiers({});
+        e.hit(100);
+        CHECK(std::fabs(e.multiplier() - 1.0) < 1e-9);
+        ComboMeter r(2.0);
+        r.hit(9);
+        r.reset();
+        CHECK(r.count() == 0 && r.maxCount() == 9);
+        r.hit(3);
+        r.resetAll();
+        CHECK(r.count() == 0 && r.maxCount() == 0);
+        r.hit(0);
+        r.hit(-5);
+        r.update(1.0);
+        r.update(-1.0);
+        CHECK(r.count() == 0);
+    }
+}
+
 void testJumpAssist() {
     using game::JumpAssist;
 
@@ -31519,6 +31602,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testComboMeter();
     testJumpAssist();
     testWaveSpawner();
     testAchievements();
