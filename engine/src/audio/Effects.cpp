@@ -250,6 +250,7 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     const float baseSamp = baseMs * 0.001f * static_cast<float>(sampleRate);
     const float depthSamp = std::clamp(depthMs_, 0.0f, 20.0f) * 0.001f * static_cast<float>(sampleRate);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    const float fb = std::clamp(feedback_, 0.0f, 0.9f);
 
     auto readAt = [&](const std::vector<float>& buf, float delay) {
         float rp = static_cast<float>(write_) - delay;
@@ -265,13 +266,15 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     for (int i = 0; i < frames; ++i) {
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
-        bufL_[static_cast<size_t>(write_)] = dryL;
-        bufR_[static_cast<size_t>(write_)] = dryR;
 
         const float modL = static_cast<float>(std::sin(phase_ * kTwoPi));
         const float modR = static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi)); // quadrature
         const float wetL = readAt(bufL_, baseSamp + depthSamp * modL);
         const float wetR = readAt(bufR_, baseSamp + depthSamp * modR);
+
+        // Feedback: mix the wet output back into the delay lines (0 = clean chorus).
+        bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
+        bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
 
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;

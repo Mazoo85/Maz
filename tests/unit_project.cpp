@@ -253,6 +253,7 @@ int main() {
     mixer.chorus().setEnabled(true);
     mixer.chorus().setSync(true);
     mixer.chorus().setSyncDivision(2);
+    mixer.chorus().setFeedback(0.45f);
     mixer.phaser().setEnabled(true);
     mixer.phaser().setSync(true);
     mixer.phaser().setSyncDivision(4);
@@ -558,7 +559,8 @@ int main() {
               near(mixer2.flanger().feedback(), 0.6f) && mixer2.flanger().sync() &&
               mixer2.flanger().syncDivision() == 3,
           "flanger round-trips");
-    check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2,
+    check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2 &&
+              near(mixer2.chorus().feedback(), 0.45f),
           "chorus tempo sync round-trips");
     check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4 &&
               mixer2.phaser().stages() == 8,

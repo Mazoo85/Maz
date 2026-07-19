@@ -152,6 +152,10 @@ public:
     void setRate(float hz) { rateHz_ = hz; }
     void setDepth(float ms) { depthMs_ = ms; }
     void setMix(float m) { mix_ = m; }
+    // Feedback (0..0.9): routes the wet output back into the delay lines for a deeper, more resonant
+    // chorus that edges toward flanging at higher settings. 0 = off (a clean chorus, unchanged).
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.9f ? 0.9f : f); }
+    float feedback() const { return feedback_; }
     // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the Tremolo
     // division set). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -170,6 +174,7 @@ private:
     float rateHz_ = 0.8f;
     float depthMs_ = 3.0f;
     float mix_ = 0.4f;
+    float feedback_ = 0.0f; // wet→delay feedback; 0 = off
     bool sync_ = false; // tempo-sync the LFO rate
     int syncDiv_ = 0;   // note-division index (default 1/1, a slow chorus)
     std::vector<float> bufL_;

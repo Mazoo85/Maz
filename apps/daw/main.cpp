@@ -1475,6 +1475,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("mix##cho", &wet, 0.0f, 1.0f, "%.2f")) mx.chorus().setMix(wet);
+        float cfb = mx.chorus().feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("fb##cho", &cfb, 0.0f, 0.9f, "%.2f")) mx.chorus().setFeedback(cfb);
         const char* modDivs[audio::kModSyncDivisions];
         for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivs[d] = audio::modSyncDivisionName(d);
         bool csync = mx.chorus().sync();

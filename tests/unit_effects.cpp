@@ -769,6 +769,26 @@ int main() {
         }
         check(diff > 0.0, "chorus decorrelates the stereo image");
         check(rms(sig) > 0.0, "chorus still passes signal");
+
+        // Feedback: routing the wet back changes the sound vs a clean (feedback 0) chorus.
+        auto chorusOut = [&](float fb) {
+            audio::Chorus c;
+            c.setEnabled(true);
+            c.setMix(0.7f);
+            c.setFeedback(fb);
+            std::vector<float> b = sineStereo(sr / 2, 440.0, 0.5, sr);
+            c.process(b.data(), sr / 2, sr);
+            return b;
+        };
+        const std::vector<float> clean = chorusOut(0.0f);
+        const std::vector<float> resonant = chorusOut(0.8f);
+        double fbDiff = 0.0;
+        for (size_t i = 0; i < clean.size(); ++i) {
+            fbDiff += std::fabs(static_cast<double>(clean[i] - resonant[i]));
+        }
+        check(fbDiff > 1.0, "chorus feedback changes the sound (deeper/resonant)");
+        audio::Chorus dc;
+        check(dc.feedback() == 0.0f, "chorus feedback defaults to 0");
     }
 
     // --- Parametric EQ: shelves boost/cut their band -------------------------

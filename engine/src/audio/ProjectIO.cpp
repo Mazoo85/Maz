@@ -337,7 +337,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
-      << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << "\n";
+      << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << " "
+      << mixer.chorus().feedback() << "\n";
     f << "fx flanger " << (mixer.flanger().enabled() ? 1 : 0) << " " << mixer.flanger().rate() << " "
       << mixer.flanger().depth() << " " << mixer.flanger().feedback() << " " << mixer.flanger().mix()
       << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << "\n";
@@ -1002,6 +1003,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     mixer.chorus().setSync(sync != 0);
                     mixer.chorus().setSyncDivision(div);
+                }
+                float fb = 0.0f; // feedback optional for old files
+                if (ls >> fb) {
+                    mixer.chorus().setFeedback(fb);
                 }
             } else if (which == "flanger") {
                 float rate = 0.3f, depth = 2.0f, fb = 0.5f, mix = 0.5f;
