@@ -77,6 +77,46 @@ inline std::string trimSuffix(const std::string& s, const std::string& suffix) {
     return endsWith(s, suffix) ? s.substr(0, s.size() - suffix.size()) : s;
 }
 
+// Number of pieces `s` splits into on `splitter` — Godot's String.get_slice_count. Returns 0 for an
+// empty string or empty splitter; a string with no delimiter counts as 1 slice.
+inline int getSliceCount(const std::string& s, const std::string& splitter) {
+    if (s.empty() || splitter.empty()) {
+        return 0;
+    }
+    int count = 1;
+    std::size_t pos = 0;
+    while ((pos = s.find(splitter, pos)) != std::string::npos) {
+        ++count;
+        pos += splitter.size();
+    }
+    return count;
+}
+
+// The `slice`-th piece (0-based) of `s` split on `splitter` — Godot's String.get_slice. Returns ""
+// when the index is out of range, negative, or either string is empty. Empty pieces are preserved,
+// so get_slice("a,,b", ",", 1) == "". Cheaper than a full split when you only need one field.
+inline std::string getSlice(const std::string& s, const std::string& splitter, int slice) {
+    if (s.empty() || splitter.empty() || slice < 0) {
+        return std::string();
+    }
+    std::size_t pos = 0, prev = 0;
+    int i = 0;
+    while (true) {
+        const std::size_t found = s.find(splitter, pos);
+        const std::size_t end = (found == std::string::npos) ? s.size() : found;
+        if (i == slice) {
+            return s.substr(prev, end - prev);
+        }
+        if (found == std::string::npos) {
+            break;
+        }
+        pos = found + splitter.size();
+        prev = pos;
+        ++i;
+    }
+    return std::string();
+}
+
 // Prepend `prefix` to every NON-EMPTY line — Godot's String.indent. Truly empty (zero-length) lines
 // are left untouched; whitespace-only lines are still prefixed (matching Godot exactly).
 inline std::string indent(const std::string& s, const std::string& prefix) {

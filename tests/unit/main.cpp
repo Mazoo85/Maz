@@ -11670,6 +11670,15 @@ void testStringUtils() {
     CHECK(su::dedent("\ttab\n  spaces") == "tab\nspaces");
     CHECK(su::dedent(su::indent("line1\nline2", "    ")) == "line1\nline2");
 
+    // --- M350: get_slice / get_slice_count ---
+    CHECK((su::getSliceCount("a,b,c", ",") == 3 && su::getSliceCount("abc", ",") == 1));
+    CHECK((su::getSliceCount("", ",") == 0 && su::getSliceCount("a,b", "") == 0));
+    CHECK((su::getSlice("a,b,c", ",", 0) == "a" && su::getSlice("a,b,c", ",", 2) == "c"));
+    CHECK((su::getSlice("a,b,c", ",", 3) == "" && su::getSlice("a,,b", ",", 1) == ""));
+    CHECK((su::getSlice("abc", ",", 0) == "abc" && su::getSlice("a,b", ",", -1) == ""));
+    CHECK((su::getSlice("one::two::three", "::", 1) == "two" &&
+           su::getSliceCount("one::two::three", "::") == 3));
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

@@ -184,7 +184,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   res://user:// scheme + extension stripping and no-op cases)
   (M345 adds indent / dedent — Godot String.indent (prefix every non-empty line, leaving truly empty
   lines alone) and String.dedent (strip ALL leading spaces/tabs per line, Godot's per-line rule, not
-  the common-minimum), verified incl. an indent→dedent round-trip),
+  the common-minimum), verified incl. an indent→dedent round-trip)
+  (M350 adds getSlice / getSliceCount — Godot String.get_slice / get_slice_count: index-based access
+  to the Nth piece when split on a (possibly multi-char) delimiter, without building the whole array;
+  empty pieces preserved, out-of-range/negative/empty returns "" / 0, verified),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
