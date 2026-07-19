@@ -6,7 +6,7 @@ namespace maz::audio {
 
 // The available oscillator waveforms. Sine is the default; the rest are cheap analogue-style
 // shapes (naive, not band-limited — good enough for the current milestones).
-enum class Waveform { Sine, Square, Saw, Triangle, Trapezoid, StepSine };
+enum class Waveform { Sine, Square, Saw, Triangle, Trapezoid, StepSine, RectSine };
 
 // Evaluate a waveform at a phase in [0, 1). Shared by the Oscillator and the poly synth so there is
 // a single source of truth for each shape.
@@ -36,6 +36,16 @@ inline float waveSample(Waveform w, double phase) {
         constexpr double kHalfLevels = 4.0; // steps per polarity → 9 distinct levels across [-1, 1]
         const double s = std::sin(phase * kTwoPi);
         return static_cast<float>(std::round(s * kHalfLevels) / kHalfLevels);
+    }
+    case Waveform::RectSine: {
+        // A half-wave rectified sine: the positive half of the sine, the negative half flattened to
+        // zero, then DC-removed and normalized. It keeps the fundamental (same period as a sine) but
+        // adds strong even harmonics for a bright, reedy/hollow tone distinct from the pure sine.
+        const double s = std::sin(phase * kTwoPi);
+        const double half = s > 0.0 ? s : 0.0;       // half-wave rectify
+        constexpr double kMean = 0.3183098861837907; // 1/pi = the DC of a half-wave sine
+        constexpr double kScale = 1.0 / (1.0 - kMean); // so the positive peak lands at +1
+        return static_cast<float>((half - kMean) * kScale);
     }
     }
     return 0.0f;

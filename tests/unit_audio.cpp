@@ -169,6 +169,55 @@ int main() {
               "step-sine preserves the fundamental (~440 Hz)");
     }
 
+    // --- Rect-sine waveform: a half-wave rectified sine (even harmonics, DC-free) ---
+    {
+        const int N = 2048;
+        auto hfEnergy = [](audio::Waveform w, int n) {
+            double e = 0.0;
+            float prev = audio::waveSample(w, 0.0);
+            for (int i = 1; i <= n; ++i) {
+                const float cur = audio::waveSample(w, static_cast<double>(i % n) / n);
+                const float d = cur - prev;
+                e += static_cast<double>(d) * d;
+                prev = cur;
+            }
+            return e;
+        };
+        double dc = 0.0;
+        double go2 = 0.0; // Goertzel-ish power at the 2nd harmonic (even harmonic marker)
+        bool rsInRange = true;
+        constexpr double kTwoPi = 6.283185307179586;
+        for (int i = 0; i < N; ++i) {
+            const float s =
+                audio::waveSample(audio::Waveform::RectSine, static_cast<double>(i) / N);
+            dc += s;
+            go2 += static_cast<double>(s) * std::cos(2.0 * 2.0 * kTwoPi * i / N); // 2nd harmonic
+            if (s < -1.0001f || s > 1.0001f) {
+                rsInRange = false;
+            }
+        }
+        check(std::fabs(dc / N) < 1e-3, "rect-sine is DC-free over a cycle");
+        check(rsInRange, "rect-sine stays within [-1, 1]");
+        // A pure sine has essentially no 2nd-harmonic content; the rectified sine has a strong one.
+        double sineGo2 = 0.0;
+        for (int i = 0; i < N; ++i) {
+            const float s = audio::waveSample(audio::Waveform::Sine, static_cast<double>(i) / N);
+            sineGo2 += static_cast<double>(s) * std::cos(2.0 * 2.0 * kTwoPi * i / N);
+        }
+        check(std::fabs(go2) > std::fabs(sineGo2) + 50.0,
+              "rect-sine carries strong even (2nd) harmonic content, unlike a pure sine");
+        check(hfEnergy(audio::Waveform::RectSine, N) > hfEnergy(audio::Waveform::Sine, N),
+              "rect-sine is brighter than a pure sine");
+        // Same fundamental as a sine: one positive excursion per cycle → ~440 Hz.
+        audio::Oscillator ro;
+        ro.setWaveform(audio::Waveform::RectSine);
+        ro.noteOn(440.0f);
+        std::vector<float> rm(static_cast<size_t>(frames), 0.0f);
+        ro.render(rm.data(), frames, sampleRate);
+        check(std::fabs(estimateHz(rm, sampleRate) - 440.0) < 3.0,
+              "rect-sine preserves the fundamental (~440 Hz)");
+    }
+
     // --- AudioEngine: offline render ----------------------------------------
     audio::AudioEngine engine;
     engine.initOffline();

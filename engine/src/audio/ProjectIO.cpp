@@ -23,7 +23,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
                                                     : (mode == 4 ? SynthMode::Organ
                                                                  : (mode == 5 ? SynthMode::PhaseDistortion
                                                                               : SynthMode::Subtractive)))));
-    syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 5 ? 0 : wave));
+    syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 6 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);
     syn.setFmIndex(index);
@@ -43,7 +43,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int f0 = 0, f1 = 1, f2 = 2, f3 = 3; // wavetable frames optional for old files
     if (ls >> f0 >> f1 >> f2 >> f3) {
-        auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 5 ? 0 : v); };
+        auto wf = [](int v) { return static_cast<Waveform>(v < 0 || v > 6 ? 0 : v); };
         syn.setWavetableFrames(wf(f0), wf(f1), wf(f2), wf(f3));
     }
     float vibRate = 5.0f, vibDepth = 0.0f; // vibrato optional for old files
@@ -153,15 +153,15 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int flShape = 0; // cutoff-LFO shape optional for old files (0 = sine)
     if (ls >> flShape) {
-        syn.setFilterLfoShape(static_cast<Waveform>(flShape < 0 || flShape > 5 ? 0 : flShape));
+        syn.setFilterLfoShape(static_cast<Waveform>(flShape < 0 || flShape > 6 ? 0 : flShape));
     }
     int alShape = 0; // tremolo-LFO shape optional for old files (0 = sine)
     if (ls >> alShape) {
-        syn.setAmpLfoShape(static_cast<Waveform>(alShape < 0 || alShape > 5 ? 0 : alShape));
+        syn.setAmpLfoShape(static_cast<Waveform>(alShape < 0 || alShape > 6 ? 0 : alShape));
     }
     int viShape = 0; // vibrato-LFO shape optional for old files (0 = sine)
     if (ls >> viShape) {
-        syn.setVibratoShape(static_cast<Waveform>(viShape < 0 || viShape > 5 ? 0 : viShape));
+        syn.setVibratoShape(static_cast<Waveform>(viShape < 0 || viShape > 6 ? 0 : viShape));
     }
     float pdAmt = 0.0f; // phase-distortion amount optional for old files (0 = clean sine)
     if (ls >> pdAmt) {
@@ -193,7 +193,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int fmModW = 0; // FM modulator waveform optional for old files (0 = Sine)
     if (ls >> fmModW) {
-        syn.setFmModWaveform(static_cast<Waveform>(fmModW < 0 || fmModW > 5 ? 0 : fmModW));
+        syn.setFmModWaveform(static_cast<Waveform>(fmModW < 0 || fmModW > 6 ? 0 : fmModW));
     }
 }
 // Parse a `synthosc`/`synthosc2` line.
@@ -208,7 +208,7 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int subW = 0; // sub waveform optional for old files
     if (ls >> subW) {
-        syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 5 ? 0 : subW));
+        syn.setSubWaveform(static_cast<Waveform>(subW < 0 || subW > 6 ? 0 : subW));
     }
     float noiseCol = 0.0f; // noise color optional for old files
     if (ls >> noiseCol) {
@@ -239,12 +239,12 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int osc2Linked = 1, osc2w = 0; // osc2 waveform optional for old files (linked → follows primary)
     if (ls >> osc2Linked >> osc2w) {
-        syn.setOsc2Waveform(static_cast<Waveform>(osc2w < 0 || osc2w > 5 ? 0 : osc2w));
+        syn.setOsc2Waveform(static_cast<Waveform>(osc2w < 0 || osc2w > 6 ? 0 : osc2w));
         syn.setOsc2WaveformLinked(osc2Linked != 0);
     }
     int osc3Linked = 1, osc3w = 0; // osc3 waveform optional for old files (linked → follows primary)
     if (ls >> osc3Linked >> osc3w) {
-        syn.setOsc3Waveform(static_cast<Waveform>(osc3w < 0 || osc3w > 5 ? 0 : osc3w));
+        syn.setOsc3Waveform(static_cast<Waveform>(osc3w < 0 || osc3w > 6 ? 0 : osc3w));
         syn.setOsc3WaveformLinked(osc3Linked != 0);
     }
     float osc3fine = 0.0f; // osc3 fine tune optional for old files (0 = dead-on)
@@ -1838,7 +1838,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (idx >= 0 && idx < Automation::count()) {
                 AutoLane& lane = automation.lane(idx);
                 lane.enabled = en != 0;
-                lane.lfo.shape = static_cast<Waveform>(shape < 0 || shape > 5 ? 0 : shape);
+                lane.lfo.shape = static_cast<Waveform>(shape < 0 || shape > 6 ? 0 : shape);
                 lane.lfo.rateHz = rate;
                 lane.lo = lo;
                 lane.hi = hi;
