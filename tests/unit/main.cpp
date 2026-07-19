@@ -203,6 +203,7 @@
 #include "maz/math/Voronoi.hpp"
 #include "maz/math/MarchingSquares.hpp"
 #include "maz/game/GridLine.hpp"
+#include "maz/game/FloodFill.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2310,6 +2311,48 @@ void testGeometry2D() {
         auto glBlockAll = [](const GridCell&) { return true; };
         CHECK(maz::game::lineOfSight(GridCell(2, 2), GridCell(2, 2), glBlockAll)); // identical
         CHECK(maz::game::lineOfSight(GridCell(2, 2), GridCell(3, 2), glBlockAll)); // adjacent
+    }
+
+    // --- M408: flood fill + connected regions ---
+    {
+        using FillCell = maz::game::FillCell;
+        // Full 3x3, 4-connected from centre -> all 9.
+        auto ffAll = [](const FillCell&) { return true; };
+        CHECK(maz::game::floodFill(3, 3, FillCell(1, 1), ffAll).size() == 9);
+        // Wall column x=1 splits a 3x3: left fill = column 0 (3 cells), right = column 2.
+        auto ffSplit = [](const FillCell& c) { return c.x != 1; };
+        auto ffLeft = maz::game::floodFill(3, 3, FillCell(0, 0), ffSplit);
+        CHECK(ffLeft.size() == 3);
+        for (const auto& c : ffLeft) CHECK(c.x == 0);
+        CHECK(maz::game::floodFill(3, 3, FillCell(2, 0), ffSplit).size() == 3);
+        // Diagonal connectivity: (0,0) and (1,1) touch only at a corner.
+        auto ffCorner = [](const FillCell& c) {
+            return (c.x == 0 && c.y == 0) || (c.x == 1 && c.y == 1);
+        };
+        CHECK(maz::game::floodFill(2, 2, FillCell(0, 0), ffCorner, false).size() == 1);
+        CHECK(maz::game::floodFill(2, 2, FillCell(0, 0), ffCorner, true).size() == 2);
+        // Out-of-bounds / blocked seed -> empty.
+        CHECK(maz::game::floodFill(3, 3, FillCell(-1, 0), ffAll).empty());
+        auto ffNone = [](const FillCell&) { return false; };
+        CHECK(maz::game::floodFill(3, 3, FillCell(0, 0), ffNone).empty());
+        // connectedRegions: two blobs in a 5x1 strip split by a wall at x=2.
+        auto ffStrip = [](const FillCell& c) { return c.x != 2; };
+        auto ffRegs = maz::game::connectedRegions(5, 1, ffStrip);
+        CHECK(ffRegs.size() == 2);
+        CHECK(ffRegs[0].size() == 2);
+        CHECK(ffRegs[1].size() == 2);
+        CHECK(ffRegs[0][0] == FillCell(0, 0));
+        // all passable 2x2 -> 1 region of 4; all blocked -> 0.
+        CHECK(maz::game::connectedRegions(2, 2, ffAll).size() == 1);
+        CHECK(maz::game::connectedRegions(2, 2, ffNone).empty());
+        // Checkerboard: 4-conn -> 5 singletons, 8-conn -> 1 region of 5.
+        auto ffChecker = [](const FillCell& c) { return ((c.x + c.y) % 2) == 0; };
+        CHECK(maz::game::connectedRegions(3, 3, ffChecker, false).size() == 5);
+        auto ffR8 = maz::game::connectedRegions(3, 3, ffChecker, true);
+        CHECK(ffR8.size() == 1);
+        CHECK(ffR8[0].size() == 5);
+        // Degenerate size.
+        CHECK(maz::game::connectedRegions(0, 5, ffAll).empty());
     }
 }
 

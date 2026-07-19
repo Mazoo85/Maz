@@ -249,6 +249,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Verified against exact cases — single point, contiguous horizontal/vertical runs, a perfect diagonal,
   a 2:1 shallow-slope midpoint, forward/backward cell-set equality, clear vs blocked-between vs
   endpoints-never-block, and adjacent/identical always-visible;
+  **flood fill + connected regions** M408 (`game::floodFill` / `game::connectedRegions` in
+  `maz/game/FloodFill.hpp` — the grid paint-bucket (every cell reachable from a seed through passable
+  cells, BFS, 4- or 8-connected) and its region-labelling companion (partition all passable cells into
+  connected components). Uses for reachability ("can the player get here"), spill/water fill,
+  enclosed-area detection, and counting rooms/islands or finding the biggest cavern of a procedural
+  map. Caller-supplied passability predicate, deterministic BFS/scan order. Godot leaves this to the
+  game. Verified against exact cases — full-grid fill, a wall splitting a grid into two fills,
+  4- vs 8-connected diagonal joining, out-of-bounds/blocked seed → empty, two-blob region counts, an
+  all-passable single region, all-blocked → zero, and a checkerboard (5 singletons 4-connected vs one
+  region of 5 8-connected);
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
