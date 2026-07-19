@@ -72,6 +72,7 @@
 #include "maz/core/StringHash.hpp"
 #include "maz/core/Utf8.hpp"
 #include "maz/core/Pcg32.hpp"
+#include "maz/core/AliasTable.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17129,6 +17130,87 @@ void testPcg32() {
     }
 }
 
+// AliasTable: Vose O(1) weighted sampling (M428).
+void testAliasTable() {
+    using core::AliasTable;
+    using core::Pcg32;
+
+    // Empty -> sample returns -1.
+    {
+        AliasTable t;
+        Pcg32 rng(1u, 1u);
+        CHECK(t.empty());
+        CHECK(t.sample(rng) == -1);
+    }
+
+    // Single entry always returns 0.
+    {
+        AliasTable t({5.0f});
+        Pcg32 rng(2u, 1u);
+        for (int i = 0; i < 100; ++i) {
+            CHECK(t.sample(rng) == 0);
+        }
+    }
+
+    // Distribution matches weights {1,3,6} -> ~10/30/60%.
+    {
+        AliasTable t({1.0f, 3.0f, 6.0f});
+        Pcg32 rng(42u, 7u);
+        const int N = 200000;
+        int cnt[3] = {0, 0, 0};
+        for (int i = 0; i < N; ++i) {
+            const int s = t.sample(rng);
+            CHECK(s >= 0 && s < 3);
+            ++cnt[s];
+        }
+        CHECK(std::fabs(static_cast<double>(cnt[0]) / N - 0.10) < 0.01);
+        CHECK(std::fabs(static_cast<double>(cnt[1]) / N - 0.30) < 0.01);
+        CHECK(std::fabs(static_cast<double>(cnt[2]) / N - 0.60) < 0.01);
+    }
+
+    // Zero-weight entries are never chosen.
+    {
+        AliasTable t({0.0f, 5.0f, 0.0f, 5.0f});
+        Pcg32 rng(9u, 3u);
+        for (int i = 0; i < 50000; ++i) {
+            const int s = t.sample(rng);
+            CHECK(s == 1 || s == 3);
+        }
+    }
+
+    // Determinism: same seed -> identical sequence.
+    {
+        AliasTable t({2.0f, 5.0f, 1.0f, 8.0f, 3.0f});
+        Pcg32 a(77u, 2u), b(77u, 2u);
+        for (int i = 0; i < 1000; ++i) {
+            CHECK(t.sample(a) == t.sample(b));
+        }
+    }
+
+    // Rebuild replaces the table.
+    {
+        AliasTable t({1.0f});
+        t.build({0.0f, 1.0f});
+        Pcg32 rng(5u, 5u);
+        for (int i = 0; i < 100; ++i) {
+            CHECK(t.sample(rng) == 1);
+        }
+    }
+
+    // All-zero weights -> uniform fallback (still in range, every index appears).
+    {
+        AliasTable t({0.0f, 0.0f, 0.0f});
+        Pcg32 rng(3u, 9u);
+        int cnt[3] = {0, 0, 0};
+        for (int i = 0; i < 60000; ++i) {
+            const int s = t.sample(rng);
+            CHECK(s >= 0 && s < 3);
+            ++cnt[s];
+        }
+        CHECK(cnt[0] > 0 && cnt[1] > 0 && cnt[2] > 0);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -25881,6 +25963,7 @@ int main() {
     testGlyphCache();
     testGraphEdit();
     testPcg32();
+    testAliasTable();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

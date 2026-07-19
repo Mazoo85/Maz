@@ -458,6 +458,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   semver, deterministic time, replay, checkpoints, profiler, **RNG distribution
   helpers** (M275, `core::Pcg32::rangef`/`gaussian`/`weighted` — Godot RandomNumberGenerator's
   randf_range / randfn Box-Muller normal / rand_weighted; distribution-verified over 200k samples),
+  **O(1) weighted sampler** (M428, `core::AliasTable` — Vose's alias method: pay an O(n) build ONCE to
+  precompute two tables, then every draw is a single random column + one coin flip, constant-time
+  regardless of table size — the right tool for a loot/spawn/scatter table sampled thousands of times a
+  frame, where Pcg32::weighted's O(n) per-draw rescan is wasteful. Deterministic from a caller Pcg32;
+  negative weights count as 0; all-zero falls back to uniform. Godot's rand_weighted is the O(n) form,
+  so the build-once alias table is beyond-Godot. Distribution-verified over ~360k samples: {1,3,6}→
+  10/30/60%, uniform→25% each, zero-weight entries never drawn, single/empty/rebuild handled, and the
+  same seed reproduces the same sequence),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
