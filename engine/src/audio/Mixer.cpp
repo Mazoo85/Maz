@@ -72,17 +72,19 @@ Mixer::Mixer() {
     monobass_.setEnabled(false);
     subbass_.setEnabled(false);
     octaver_.setEnabled(false);
+    convolver_.setEnabled(false);
     plugin_.setEnabled(false);
     clap_.setEnabled(false);
     vst3_.setEnabled(false);
     // Signal order: gate → high-pass → EQ → tilt → exciter → tone → resonant filter → drive → tape → ring-mod →
     // crush → dynamics (compressor → multiband compressor → transient shaper) → modulation (chorus → vibrato → flanger → phaser →
     // auto-wah → formant → comb → tremolo) → time fx (delay → stereo-delay → reverb) → width →
-    // mono-bass → sub-bass → octaver → auto-pan → utility → clipper → brickwall limiter → plugins.
+    // (reverb → convolver) → width → mono-bass → sub-bass → octaver → auto-pan → utility →
+    // clipper → brickwall limiter → plugins.
     chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &filter_,   &dist_,
               &ampcab_,   &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &mbtransient_, &deEsser_, &dyneq_, &chorus_,
               &vibrato_,  &rotary_,   &flanger_,  &phaser_,   &autowah_,  &formant_,   &vocoder_,  &comb_,        &chordres_, &tremolo_,  &stepgate_, &delay_,
-              &stereoDelay_, &revdelay_, &multitap_, &reverb_, &widener_, &imager_, &mbsat_, &stereoEnhancer_, &monobass_, &subbass_, &octaver_, &autopan_, &utility_,
+              &stereoDelay_, &revdelay_, &multitap_, &reverb_, &convolver_, &widener_, &imager_, &mbsat_, &stereoEnhancer_, &monobass_, &subbass_, &octaver_, &autopan_, &utility_,
               &leveler_,  &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how

@@ -1834,4 +1834,57 @@ private:
     std::array<Allpass, kAllpass> apsR_{};
 };
 
+// A convolution reverb (an FIR/impulse-response reverb, FL's Fruity Convolver in spirit). Unlike the
+// algorithmic Reverb (a recursive comb/all-pass network), this convolves the input with a finite
+// impulse response, giving a dense, smooth, colourless tail with no metallic comb ringing. The IR is
+// generated internally: decaying, tone-shaped, stereo-decorrelated noise whose length follows the
+// `decay` time — so it behaves like a real room/plate whose size you dial in. Direct-form (time
+// domain) convolution over a bounded IR (<= ~0.5 s). Disabled by default; when off it is skipped
+// entirely, and at mix 0 the dry passes through unchanged.
+class Convolver : public Effect {
+public:
+    Convolver() { enabled_ = false; }
+    const char* name() const override { return "Convolver"; }
+    // Reverb decay/length in seconds (0.05..0.5): sets how long the generated IR rings — a small
+    // ambience through to a long hall/plate. Changing it rebuilds the IR.
+    void setDecay(float seconds) {
+        const float s = seconds < 0.05f ? 0.05f : (seconds > 0.5f ? 0.5f : seconds);
+        if (s != decay_) {
+            decay_ = s;
+            dirty_ = true;
+        }
+    }
+    // Tone: a low-pass on the IR that darkens the space (softer = lower Hz). Rebuilds the IR.
+    void setTone(float hz) {
+        const float t = hz < 500.0f ? 500.0f : (hz > 18000.0f ? 18000.0f : hz);
+        if (t != tone_) {
+            tone_ = t;
+            dirty_ = true;
+        }
+    }
+    // Dry/wet blend (0 = fully dry / bypassed, 1 = fully wet).
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float decay() const { return decay_; }
+    float tone() const { return tone_; }
+    float mix() const { return mix_; }
+    // Length of the generated IR in samples for the last-processed sample rate (0 until first built);
+    // exposed for the UI/tests.
+    int impulseLength() const { return static_cast<int>(irL_.size()); }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    void buildIR(int sampleRate); // regenerate irL_/irR_ from decay_/tone_ for this sample rate
+
+    float decay_ = 0.2f;   // IR decay time (seconds)
+    float tone_ = 6000.0f; // low-pass on the IR
+    float mix_ = 0.3f;     // dry/wet
+    bool dirty_ = true;    // IR needs rebuilding (params changed)
+    int builtFor_ = 0;     // sample rate the IR was built for (0 = unbuilt)
+    std::vector<float> irL_, irR_;         // the (energy-normalized) stereo impulse responses
+    std::vector<float> histL_, histR_;     // circular input-history rings (length == IR length)
+    int histPos_ = 0;                      // write index into the history rings
+};
+
 } // namespace maz::audio

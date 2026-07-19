@@ -228,6 +228,10 @@ int main() {
     mixer.reverb().setWetHighCut(8000.0f);
     mixer.reverb().setGateMs(180.0f);
     mixer.reverb().setShimmer(0.65f);
+    mixer.convolver().setEnabled(true);
+    mixer.convolver().setDecay(0.35f);
+    mixer.convolver().setTone(5500.0f);
+    mixer.convolver().setMix(0.4f);
     mixer.highpass().setEnabled(true);
     mixer.highpass().setCutoff(45.0f);
     mixer.tilt().setEnabled(true);
@@ -1014,6 +1018,9 @@ int main() {
     check(near(mixer2.reverb().duck(), 0.7f), "reverb ducking round-trips");
     check(near(mixer2.reverb().gateMs(), 180.0f), "reverb gate time round-trips");
     check(near(mixer2.reverb().shimmer(), 0.65f), "reverb shimmer round-trips");
+    check(mixer2.convolver().enabled() && near(mixer2.convolver().decay(), 0.35f) &&
+              near(mixer2.convolver().tone(), 5500.0f) && near(mixer2.convolver().mix(), 0.4f),
+          "convolver round-trips");
     check(near(mixer2.reverb().wetLowCut(), 120.0f) && near(mixer2.reverb().wetHighCut(), 8000.0f),
           "reverb wet tone (low/high cut) round-trips");
     check(mixer2.reverb().enabled() && near(mixer2.reverb().roomSize(), 0.85f) &&

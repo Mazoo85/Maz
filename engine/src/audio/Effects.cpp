@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace maz::audio {
 
@@ -2883,6 +2884,110 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
 
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+    }
+}
+
+// ---- Convolver --------------------------------------------------------------
+
+namespace {
+// Deterministic noise in [-1, 1) from an index — the IR is reproducible across runs/loads.
+float convNoise(uint32_t i) {
+    uint32_t x = i * 2654435761u + 0x9E3779B9u;
+    x ^= x >> 15;
+    x *= 0x85EBCA6Bu;
+    x ^= x >> 13;
+    x *= 0xC2B2AE35u;
+    x ^= x >> 16;
+    return static_cast<float>(x / 2147483648.0) - 1.0f;
+}
+} // namespace
+
+void Convolver::buildIR(int sampleRate) {
+    constexpr float kTwoPi = 6.283185307179586f;
+    int len = static_cast<int>(decay_ * static_cast<float>(sampleRate));
+    if (len < 1) {
+        len = 1;
+    }
+    const int cap = sampleRate / 2; // hard cap at 0.5 s of IR
+    if (len > cap) {
+        len = cap;
+    }
+    irL_.assign(static_cast<size_t>(len), 0.0f);
+    irR_.assign(static_cast<size_t>(len), 0.0f);
+    const float aTone = 1.0f - std::exp(-kTwoPi * tone_ / static_cast<float>(sampleRate));
+    // Exponential decay envelope: ~4 time-constants across the IR window so it fades to near silence.
+    const float tau = decay_ * 0.25f * static_cast<float>(sampleRate);
+    float lpL = 0.0f, lpR = 0.0f;
+    double eL = 0.0, eR = 0.0;
+    for (int i = 0; i < len; ++i) {
+        // Two decorrelated noise streams → a wide, natural stereo tail. A tiny early gap keeps the
+        // direct hit from being swamped by the very first IR sample.
+        const float nL = convNoise(0x1000u + static_cast<uint32_t>(i));
+        const float nR = convNoise(0x9000u + static_cast<uint32_t>(i));
+        lpL += aTone * (nL - lpL);
+        lpR += aTone * (nR - lpR);
+        const float env = std::exp(-static_cast<float>(i) / tau);
+        irL_[static_cast<size_t>(i)] = lpL * env;
+        irR_[static_cast<size_t>(i)] = lpR * env;
+        eL += static_cast<double>(irL_[static_cast<size_t>(i)]) * irL_[static_cast<size_t>(i)];
+        eR += static_cast<double>(irR_[static_cast<size_t>(i)]) * irR_[static_cast<size_t>(i)];
+    }
+    // Energy-normalize each IR so the wet level is roughly constant regardless of decay/tone.
+    const float gL = eL > 0.0 ? static_cast<float>(1.0 / std::sqrt(eL)) : 1.0f;
+    const float gR = eR > 0.0 ? static_cast<float>(1.0 / std::sqrt(eR)) : 1.0f;
+    for (int i = 0; i < len; ++i) {
+        irL_[static_cast<size_t>(i)] *= gL;
+        irR_[static_cast<size_t>(i)] *= gR;
+    }
+    histL_.assign(static_cast<size_t>(len), 0.0f);
+    histR_.assign(static_cast<size_t>(len), 0.0f);
+    histPos_ = 0;
+    dirty_ = false;
+    builtFor_ = sampleRate;
+}
+
+void Convolver::reset() {
+    std::fill(histL_.begin(), histL_.end(), 0.0f);
+    std::fill(histR_.begin(), histR_.end(), 0.0f);
+    histPos_ = 0;
+}
+
+void Convolver::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    if (dirty_ || builtFor_ != sampleRate || irL_.empty()) {
+        buildIR(sampleRate);
+    }
+    const int len = static_cast<int>(irL_.size());
+    if (len <= 0) {
+        return;
+    }
+    const float mix = mix_;
+    const float* irL = irL_.data();
+    const float* irR = irR_.data();
+    float* hL = histL_.data();
+    float* hR = histR_.data();
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        hL[histPos_] = dryL;
+        hR[histPos_] = dryR;
+        // Direct-form convolution: sum ir[k] * history[now - k].
+        double accL = 0.0, accR = 0.0;
+        int idx = histPos_;
+        for (int k = 0; k < len; ++k) {
+            accL += static_cast<double>(irL[k]) * hL[idx];
+            accR += static_cast<double>(irR[k]) * hR[idx];
+            if (--idx < 0) {
+                idx = len - 1;
+            }
+        }
+        if (++histPos_ >= len) {
+            histPos_ = 0;
+        }
+        stereo[2 * i] = dryL * (1.0f - mix) + static_cast<float>(accL) * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + static_cast<float>(accR) * mix;
     }
 }
 

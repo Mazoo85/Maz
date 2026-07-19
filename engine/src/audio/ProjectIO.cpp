@@ -456,6 +456,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << (mixer.reverb().freeze() ? 1 : 0) << " " << mixer.reverb().duck() << " "
       << mixer.reverb().wetLowCut() << " " << mixer.reverb().wetHighCut() << " "
       << mixer.reverb().gateMs() << " " << mixer.reverb().shimmer() << "\n";
+    f << "fx convolver " << (mixer.convolver().enabled() ? 1 : 0) << " " << mixer.convolver().decay()
+      << " " << mixer.convolver().tone() << " " << mixer.convolver().mix() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << " " << mixer.peq().mid2Freq() << " " << mixer.peq().mid2Q() << " "
@@ -1473,6 +1475,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> shimmer) {
                     mixer.reverb().setShimmer(shimmer);
                 }
+            } else if (which == "convolver") {
+                float decay = 0.2f, tone = 6000.0f, mix = 0.3f;
+                ls >> decay >> tone >> mix;
+                mixer.convolver().setEnabled(en != 0);
+                mixer.convolver().setDecay(decay);
+                mixer.convolver().setTone(tone);
+                mixer.convolver().setMix(mix);
             } else if (which == "dist") {
                 float drive = 2.0f, mix = 0.5f;
                 ls >> drive >> mix;

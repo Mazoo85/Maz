@@ -2134,6 +2134,22 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.reverb().setShimmer(shim);
     }
     {
+        bool en = mx.convolver().enabled();
+        if (ImGui::Checkbox("Convolver", &en)) mx.convolver().setEnabled(en);
+        float dec = mx.convolver().decay();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("decay s##conv", &dec, 0.05f, 0.5f, "%.2f")) mx.convolver().setDecay(dec);
+        float tn = mx.convolver().tone();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("tone Hz##conv", &tn, 500.0f, 18000.0f, "%.0f")) mx.convolver().setTone(tn);
+        float mix = mx.convolver().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mix##conv", &mix, 0.0f, 1.0f, "%.2f")) mx.convolver().setMix(mix);
+    }
+    {
         bool en = mx.widener().enabled();
         if (ImGui::Checkbox("Stereo Widener", &en)) mx.widener().setEnabled(en);
         float w = mx.widener().width();

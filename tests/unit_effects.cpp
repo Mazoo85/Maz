@@ -3690,6 +3690,80 @@ int main() {
         check(!def.enabled() && def.amount() == 0.0f, "octaver is off by default");
     }
 
+    // --- Convolver: an impulse produces an IR-length decaying tail; decay sets its length ----------
+    {
+        // Feed a unit impulse through a fully-wet convolver; the response is the IR (plus the dry
+        // impulse at sample 0). Its energy should sit within the IR window and be ~silent afterwards.
+        auto impulseResponse = [&](float decay, float* tailAfterIr, int* irLen) {
+            audio::Convolver cv;
+            cv.setEnabled(true);
+            cv.setDecay(decay);
+            cv.setTone(6000.0f);
+            cv.setMix(1.0f); // fully wet → output is the IR
+            std::vector<float> b(static_cast<size_t>(sr), 0.0f); // 0.5 s stereo
+            b[0] = 1.0f;
+            b[1] = 1.0f;
+            cv.process(b.data(), sr / 2, sr);
+            const int L = cv.impulseLength();
+            *irLen = L;
+            // Energy strictly after the IR window should be essentially zero (FIR has finite support).
+            double e = 0.0;
+            for (int i = L + 8; i < sr / 2; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            *tailAfterIr = static_cast<float>(e);
+            return rms(b); // overall wet RMS
+        };
+        float afterShort = 0.0f, afterLong = 0.0f;
+        int lenShort = 0, lenLong = 0;
+        const double rmsShort = impulseResponse(0.1f, &afterShort, &lenShort);
+        const double rmsLong = impulseResponse(0.4f, &afterLong, &lenLong);
+        check(lenLong > lenShort * 2, "a longer decay builds a proportionally longer IR");
+        check(lenShort > 0 && rmsShort > 0.0 && rmsLong > 0.0,
+              "the convolver produces a non-trivial impulse response");
+        check(afterShort < 1e-6f && afterLong < 1e-6f, "the IR is finite (silent past its length)");
+
+        // A sustained tone through a wet convolver reverb-tails: it keeps ringing after the input stops.
+        auto tailEnergy = [&]() {
+            audio::Convolver cv;
+            cv.setEnabled(true);
+            cv.setDecay(0.3f);
+            cv.setMix(1.0f);
+            std::vector<float> b(static_cast<size_t>(sr), 0.0f); // 0.5 s stereo
+            // 0.1 s of tone, then silence — the tail should fill part of the silence.
+            for (int i = 0; i < sr / 10; ++i) {
+                const float s = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 300.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            cv.process(b.data(), sr / 2, sr);
+            double e = 0.0;
+            for (int i = sr / 8; i < sr / 4; ++i) { // a window well after the input ended
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            return e;
+        };
+        check(tailEnergy() > 0.0, "the convolver rings out after the input stops (a reverb tail)");
+
+        // mix 0 leaves the signal untouched (bit-for-bit), and it's off by default.
+        std::vector<float> pass = sineStereo(sr / 4, 250.0, 0.5, sr);
+        std::vector<float> ref = pass;
+        audio::Convolver zero;
+        zero.setEnabled(true);
+        zero.setMix(0.0f);
+        zero.process(pass.data(), sr / 4, sr);
+        bool identical = true;
+        for (size_t i = 0; i < pass.size(); ++i) {
+            if (pass[i] != ref[i]) {
+                identical = false;
+                break;
+            }
+        }
+        check(identical, "convolver at mix 0 is bit-for-bit transparent");
+        audio::Convolver def;
+        check(!def.enabled(), "convolver is off by default");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }
