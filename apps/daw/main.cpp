@@ -520,6 +520,11 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("##punch", &penv, 0.0f, 2.0f, "pn%.2f"))
             seq.setChannelPitchEnv(c, penv);
         ImGui::SameLine();
+        float petime = seq.channelPitchEnvTime(c);
+        ImGui::SetNextItemWidth(58.0f);
+        if (ImGui::SliderFloat("##penvtime", &petime, 0.25f, 4.0f, "pt%.2f"))
+            seq.setChannelPitchEnvTime(c, petime);
+        ImGui::SameLine();
         float tone = seq.channelTone(c);
         ImGui::SetNextItemWidth(70.0f);
         if (ImGui::SliderFloat("##tone", &tone, 200.0f, 20000.0f, "to%.0f"))

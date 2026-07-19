@@ -121,6 +121,26 @@ int main() {
         check(std::fabs(clamp.pitchEnv() - 2.0f) < 1e-6f, "pitch-env clamps to 2.0");
         clamp.setPitchEnv(-1.0f);
         check(clamp.pitchEnv() == 0.0f, "pitch-env clamps to 0");
+
+        // Pitch-env time: a longer sweep keeps the pitch high longer → more HF energy over the hit.
+        check(std::fabs(clamp.pitchEnvTime() - 1.0f) < 1e-6f, "pitch-env time defaults to 1.0");
+        audio::DrumVoice tight;
+        tight.setType(audio::Drum::Kick);
+        tight.setPitchEnvTime(0.3f); // a fast drop (snappy click)
+        tight.trigger(1.0f);
+        std::vector<float> tb(static_cast<size_t>(n), 0.0f);
+        tight.render(tb.data(), n, sampleRate);
+        audio::DrumVoice boom;
+        boom.setType(audio::Drum::Kick);
+        boom.setPitchEnvTime(4.0f); // a long, boomy drop
+        boom.trigger(1.0f);
+        std::vector<float> bb(static_cast<size_t>(n), 0.0f);
+        boom.render(bb.data(), n, sampleRate);
+        check(hfEnergy(bb) > hfEnergy(tb) * 1.5,
+              "a longer pitch-env time keeps the kick pitch up longer (more HF energy)");
+        audio::DrumVoice ptc;
+        ptc.setPitchEnvTime(10.0f);
+        check(std::fabs(ptc.pitchEnvTime() - 4.0f) < 1e-6f, "pitch-env time clamps to 4.0");
     }
 
     // --- Per-channel drum tone (low-pass darkening) -------------------------

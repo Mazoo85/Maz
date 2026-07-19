@@ -122,6 +122,10 @@ public:
     void setChannelPitchEnv(int c, float amount);
     float channelPitchEnv(int c) const;
 
+    // Per-channel pitch-envelope time (0.25..4): scales how long the kick/tom pitch sweep takes.
+    void setChannelPitchEnvTime(int c, float mul);
+    float channelPitchEnvTime(int c) const;
+
     // Per-channel tone (low-pass cutoff in Hz, 20000 = open): darkens an individual drum, FL-style.
     void setChannelTone(int c, float hz);
     float channelTone(int c) const;

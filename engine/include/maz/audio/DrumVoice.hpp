@@ -59,6 +59,12 @@ public:
     void setPitchEnv(float amount) { pitchEnv_ = amount < 0.0f ? 0.0f : (amount > 2.0f ? 2.0f : amount); }
     float pitchEnv() const { return pitchEnv_; }
 
+    // Pitch-envelope time (0.25..4): scales how long the kick/tom pitch sweep takes to fall. 1 = the
+    // natural time; higher = a slower drop (a longer, boomier 808-style tail); lower = a tighter,
+    // snappier click. Works with the pitch-env depth above to fully shape the tonal drums' attack.
+    void setPitchEnvTime(float mul) { pitchEnvTime_ = mul < 0.25f ? 0.25f : (mul > 4.0f ? 4.0f : mul); }
+    float pitchEnvTime() const { return pitchEnvTime_; }
+
     // Tone: a per-voice one-pole low-pass that darkens the hit (FL-style channel filter). Cutoff in
     // Hz; 20000 (default) = fully open/bypassed (bit-transparent). Lower it to tame bright hats, take
     // the edge off a snare, or round a kick.
@@ -92,7 +98,8 @@ private:
     float hitTune_ = 0.0f; // pitch (base + per-step offset) captured at the last trigger()
     float decayMul_ = 1.0f;
     float drive_ = 0.0f; // tanh saturation amount; 0 = clean
-    float pitchEnv_ = 1.0f; // scales the tonal drums' initial pitch sweep; 1 = natural
+    float pitchEnv_ = 1.0f; // scales the tonal drums' initial pitch sweep depth; 1 = natural
+    float pitchEnvTime_ = 1.0f; // scales the pitch-sweep time constant; 1 = natural
     float toneCutoff_ = 20000.0f; // per-voice low-pass cutoff Hz; 20000 = open/bypassed
     float toneLp_ = 0.0f;         // one-pole low-pass state for the tone filter
 

@@ -93,7 +93,9 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             // Pitch sweeps from ~120 Hz down to ~45 Hz over the first few ms — the classic thump.
             // pitchEnv_ scales the sweep depth (0 = flat sub, 1 = natural, 2 = extra snap/punch).
             const double freq =
-                (45.0 + 75.0 * static_cast<double>(pitchEnv_) * std::exp(-t_ / 0.03)) * pitchMul;
+                (45.0 + 75.0 * static_cast<double>(pitchEnv_) *
+                            std::exp(-t_ / (0.03 * static_cast<double>(pitchEnvTime_)))) *
+                pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
             break;
@@ -117,7 +119,9 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             // A tuned membrane: a sine with a gentle downward pitch sweep (200 → 100 Hz).
             // pitchEnv_ scales the sweep depth (0 = flat, 1 = natural, 2 = a deeper drop).
             const double freq =
-                (100.0 + 100.0 * static_cast<double>(pitchEnv_) * std::exp(-t_ / 0.06)) * pitchMul;
+                (100.0 + 100.0 * static_cast<double>(pitchEnv_) *
+                             std::exp(-t_ / (0.06 * static_cast<double>(pitchEnvTime_)))) *
+                pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
             break;
