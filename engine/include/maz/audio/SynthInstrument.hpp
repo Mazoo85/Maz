@@ -117,6 +117,10 @@ public:
     }
     float ampLfoRate() const { return ampLfoRate_; }
     float ampLfoDepth() const { return ampLfoDepth_; }
+    // Tremolo-LFO shape: Sine (smooth), Square (a hard on/off gate — the classic synth trance-gate),
+    // Saw (rhythmic fade), Triangle, or Trapezoid. Reuses the oscillator waveforms; defaults to Sine.
+    void setAmpLfoShape(Waveform w) { ampLfoShape_ = w; }
+    Waveform ampLfoShape() const { return ampLfoShape_; }
     // Tempo-sync the tremolo LFO: lock its rate to the transport at the chosen note division (the
     // same 6 divisions as the cutoff LFO / effects) for a rhythmic synth trance-gate. updateTempo()
     // applies it each block; off (default) = the free-running rate above.
@@ -424,6 +428,7 @@ private:
     int vibSyncDiv_ = 3;          // vibrato sync note-division index (default 1/8)
     float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
     float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
+    Waveform ampLfoShape_ = Waveform::Sine; // tremolo LFO waveform
     double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)
     Waveform subWave_ = Waveform::Sine;
     int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)

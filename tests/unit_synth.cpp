@@ -1093,6 +1093,31 @@ int main() {
 
         audio::SynthInstrument da;
         check(da.ampLfoDepth() == 0.0f, "amp LFO (tremolo) defaults to 0 (off)");
+
+        // Tremolo shape: a full-depth square LFO hard-gates the amp OFF for the first half of each
+        // cycle (a synth trance-gate), so a window inside that half is near-silent — unlike the sine
+        // LFO, which only dips smoothly. The LFO phase starts at 0 (square high → gated).
+        auto offWindowRms = [&](audio::Waveform shape) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f); // filter open — isolate the amp LFO
+            s.setAmpLfo(2.0f, 1.0f);           // 2 Hz, full depth
+            s.setAmpLfoShape(shape);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate / 2, sampleRate); // 0.5 s = 1 cycle
+            double e = 0.0;
+            int n = 0;
+            for (int i = 2000; i < 10000; ++i) { // inside the first half-cycle (gated off for square)
+                e += static_cast<double>(out[static_cast<size_t>(i)]) * out[static_cast<size_t>(i)];
+                ++n;
+            }
+            return std::sqrt(e / n);
+        };
+        check(offWindowRms(audio::Waveform::Square) < offWindowRms(audio::Waveform::Sine) * 0.2,
+              "a square tremolo hard-gates the amp off (near-silent in the off half)");
+        audio::SynthInstrument das;
+        check(das.ampLfoShape() == audio::Waveform::Sine, "tremolo LFO shape defaults to sine");
     }
 
     // --- Analog drift --------------------------------------------------------

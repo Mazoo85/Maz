@@ -1124,6 +1124,12 @@ void buildSynthUI(audio::Sequencer& seq) {
     const char* alDivs[] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::Combo("##aldiv", &alDiv, alDivs, 6)) syn.setAmpLfoSyncDivision(alDiv);
+    int alShape = static_cast<int>(syn.ampLfoShape());
+    const char* alShapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("Trem shape##al", &alShape, alShapes, 5))
+        syn.setAmpLfoShape(static_cast<audio::Waveform>(alShape));
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();
@@ -1284,6 +1290,11 @@ void buildBassUI(audio::SynthInstrument& syn) {
     bool balch = ImGui::SliderFloat("Tremolo Hz##bass", &baLfoRate, 0.0f, 20.0f, "%.2f");
     balch |= ImGui::SliderFloat("Tremolo depth##bass", &baLfoDepth, 0.0f, 1.0f, "%.2f");
     if (balch) syn.setAmpLfo(baLfoRate, baLfoDepth);
+    int balShape = static_cast<int>(syn.ampLfoShape());
+    const char* balShapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("Trem shape##bassal", &balShape, balShapes, 5))
+        syn.setAmpLfoShape(static_cast<audio::Waveform>(balShape));
     float sub = syn.subLevel();
     if (ImGui::SliderFloat("Sub##bass", &sub, 0.0f, 1.0f, "%.2f")) {
         syn.setOscillators(syn.detuneCents(), syn.osc2Level(), sub, syn.noiseLevel());

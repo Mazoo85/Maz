@@ -441,8 +441,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             // Amplitude LFO (tremolo): a level dip that swings between full and (1 − depth).
             float ampMod = 1.0f;
             if (ampLfoDepth_ > 0.0f) {
-                const double ap = ampLfoPhase_ + static_cast<double>(i) * ampLfoInc;
-                const float lfoU = 0.5f + 0.5f * static_cast<float>(std::sin(ap * kTwoPiVib));
+                double ap = ampLfoPhase_ + static_cast<double>(i) * ampLfoInc;
+                ap -= std::floor(ap); // wrap into [0,1) for the (non-sine) shapes
+                const float lfoU = 0.5f + 0.5f * waveSample(ampLfoShape_, ap); // unipolar [0,1]
                 ampMod = 1.0f - ampLfoDepth_ * lfoU;
             }
             out[i] += osc * v.env * velAmp * gain_ * ampMod;
