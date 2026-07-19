@@ -20,8 +20,10 @@ public:
         eq_.setEnabled(false);
         dist_.setEnabled(false);
         comp_.setEnabled(false);
-        // Order: gate the input, clean the lows, shape transients, then EQ → drive → glue-compress.
-        chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_};
+        stereoEnh_.setEnabled(false);
+        // Order: gate the input, clean the lows, shape transients, then EQ → drive → glue-compress →
+        // stereo-widen (imaging last, after dynamics).
+        chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_, &stereoEnh_};
     }
 
     void setGain(float g) { gain_ = g; }
@@ -49,6 +51,7 @@ public:
     ParametricEQ& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     Compressor& compressor() { return comp_; }
+    StereoEnhancer& stereoEnhancer() { return stereoEnh_; } // Haas widener on the bus (imaging)
 
     int effectCount() const { return static_cast<int>(chain_.size()); }
     Effect& effect(int i) { return *chain_[static_cast<size_t>(i)]; }
@@ -118,6 +121,7 @@ private:
     ParametricEQ eq_{};
     Distortion dist_{};
     Compressor comp_{};
+    StereoEnhancer stereoEnh_{};
     std::vector<Effect*> chain_;
 };
 

@@ -388,6 +388,9 @@ int main() {
     mixer.track(audio::MixerBus::Bass).setSoloed(true);
     mixer.track(audio::MixerBus::Drums).setReverbSend(0.55f);
     mixer.track(audio::MixerBus::Drums).setDelaySend(0.35f);
+    mixer.track(audio::MixerBus::Lead).stereoEnhancer().setEnabled(true);
+    mixer.track(audio::MixerBus::Lead).stereoEnhancer().setDelayMs(15.0f);
+    mixer.track(audio::MixerBus::Lead).stereoEnhancer().setAmount(0.6f);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -718,7 +721,10 @@ int main() {
               near(mixer2.track(audio::MixerBus::Lead).gate().releaseMs(), 120.0f) &&
               mixer2.track(audio::MixerBus::Bass).soloed() &&
               near(mixer2.track(audio::MixerBus::Drums).reverbSend(), 0.55f) &&
-              near(mixer2.track(audio::MixerBus::Drums).delaySend(), 0.35f),
+              near(mixer2.track(audio::MixerBus::Drums).delaySend(), 0.35f) &&
+              mixer2.track(audio::MixerBus::Lead).stereoEnhancer().enabled() &&
+              near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().delayMs(), 15.0f) &&
+              near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().amount(), 0.6f),
           "per-bus mixer-track insert strips round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");

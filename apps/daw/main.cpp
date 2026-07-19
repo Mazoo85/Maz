@@ -2329,6 +2329,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::SliderFloat("sustain##trk", &trSus, -1.0f, 1.0f, "%.2f"))
                 tr.transientShaper().setSustain(trSus);
+            bool seEn = tr.stereoEnhancer().enabled();
+            if (ImGui::Checkbox("Wide##trk", &seEn)) tr.stereoEnhancer().setEnabled(seEn);
+            ImGui::SameLine();
+            float seAmt = tr.stereoEnhancer().amount();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("width##trk", &seAmt, 0.0f, 1.0f, "%.2f"))
+                tr.stereoEnhancer().setAmount(seAmt);
             ImGui::PopID();
         }
     }

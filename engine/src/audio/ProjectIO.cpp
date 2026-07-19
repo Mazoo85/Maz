@@ -531,7 +531,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << " "
           << (tr.gate().enabled() ? 1 : 0) << " " << tr.gate().thresholdDb() << " "
           << tr.gate().ratio() << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs() << " "
-          << (tr.soloed() ? 1 : 0) << " " << tr.reverbSend() << " " << tr.delaySend() << "\n";
+          << (tr.soloed() ? 1 : 0) << " " << tr.reverbSend() << " " << tr.delaySend() << " "
+          << (tr.stereoEnhancer().enabled() ? 1 : 0) << " " << tr.stereoEnhancer().delayMs() << " "
+          << tr.stereoEnhancer().amount() << "\n";
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -1475,6 +1477,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> rsend >> dsend) {
                     tr.setReverbSend(rsend);
                     tr.setDelaySend(dsend);
+                }
+                int seEn = 0; // per-bus stereo enhancer optional (older files omit it)
+                float seMs = 12.0f, seAmt = 0.7f;
+                if (ls >> seEn >> seMs >> seAmt) {
+                    tr.stereoEnhancer().setEnabled(seEn != 0);
+                    tr.stereoEnhancer().setDelayMs(seMs);
+                    tr.stereoEnhancer().setAmount(seAmt);
                 }
             }
         } else if (tag == "plugin") {
