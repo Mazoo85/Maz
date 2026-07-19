@@ -1507,6 +1507,18 @@ int main() {
         check(hd.addChord(0, 1, 60, audio::Chord::HalfDim7) == 4, "a half-diminished 7th is four notes");
         check(hd.hasNote(60, 0) && hd.hasNote(63, 0) && hd.hasNote(66, 0) && hd.hasNote(70, 0),
               "m7b5 is a diminished triad with a minor 7th (0,3,6,10)");
+
+        // Dominant 11th: root + M3 + P5 + m7 + 9 + 11 (0,4,7,10,14,17).
+        audio::PianoRoll e11;
+        check(e11.addChord(0, 1, 60, audio::Chord::Dom11) == 6, "a dominant 11th is six notes");
+        check(e11.hasNote(60, 0) && e11.hasNote(64, 0) && e11.hasNote(67, 0) && e11.hasNote(70, 0) &&
+                  e11.hasNote(74, 0) && e11.hasNote(77, 0),
+              "dom11 stacks 0,4,7,10,14,17");
+        // Dominant 13th: root + M3 + P5 + m7 + 9 + 13 (0,4,7,10,14,21).
+        audio::PianoRoll e13;
+        check(e13.addChord(0, 1, 60, audio::Chord::Dom13) == 6, "a dominant 13th is six notes");
+        check(e13.hasNote(81, 0) && e13.hasNote(74, 0) && e13.hasNote(70, 0),
+              "dom13 reaches the 13th (0,4,7,10,14,21)");
     }
 
     // --- Scale snap ----------------------------------------------------------

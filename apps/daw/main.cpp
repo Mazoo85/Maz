@@ -629,7 +629,7 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     static int chordRoot = 60, chordStep = 0, chordLen = 4, chordType = 0;
     const char* chordNames[] = {"Maj",  "Min",  "Dom7", "Maj7", "Min7", "Dim",   "Aug",
                                 "Sus2", "Sus4", "Maj6", "Min6", "Maj9", "Min9",  "Dom9",
-                                "Add9", "Dim7", "m7b5"};
+                                "Add9", "Dim7", "m7b5", "11th", "13th"};
     ImGui::SetNextItemWidth(70.0f);
     ImGui::InputInt("root##chord", &chordRoot);
     ImGui::SameLine();
