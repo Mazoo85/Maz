@@ -462,9 +462,9 @@ void buildRackUI(audio::Sequencer& seq) {
         ImGui::Text("%-9s", seq.channelName(c).c_str());
         ImGui::SameLine(96.0f);
         {
-            const char* drumNames[] = {"Kick",    "Snare",      "ClosedHat", "OpenHat", "Clap",
-                                       "Tom",     "Cowbell",    "Rimshot",   "Crash",   "Ride",
-                                       "Shaker",  "Clave",      "Tambourine", "Conga"};
+            const char* drumNames[] = {"Kick",    "Snare",      "ClosedHat",  "OpenHat", "Clap",
+                                       "Tom",     "Cowbell",    "Rimshot",    "Crash",   "Ride",
+                                       "Shaker",  "Clave",      "Tambourine", "Conga",   "Woodblock"};
             int dt = static_cast<int>(seq.channelType(c));
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::Combo("##drumtype", &dt, drumNames, IM_ARRAYSIZE(drumNames)))

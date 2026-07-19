@@ -697,7 +697,7 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 seq.setChannelFlam(c, flam);
             }
             int dtype = -1; // per-channel drum type optional (older files omit it)
-            if (ls >> dtype && dtype >= 0 && dtype <= static_cast<int>(Drum::Conga)) {
+            if (ls >> dtype && dtype >= 0 && dtype <= static_cast<int>(Drum::Woodblock)) {
                 seq.setChannelType(c, static_cast<Drum>(dtype));
             }
             float penv = 1.0f; // pitch-envelope depth optional (older files omit it → natural sweep)

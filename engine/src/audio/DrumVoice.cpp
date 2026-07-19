@@ -39,6 +39,8 @@ double decayTau(Drum type) {
         return 0.12;
     case Drum::Conga:
         return 0.14;
+    case Drum::Woodblock:
+        return 0.035;
     }
     return 0.1;
 }
@@ -184,6 +186,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double freq = (220.0 + 200.0 * std::exp(-t_ / 0.04)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
+            break;
+        }
+        case Drum::Woodblock: {
+            // A hollow wooden "tok": a mid tone (~800 Hz) with a quieter inharmonic upper partial
+            // (~1300 Hz) for the woody ring, a sharp attack and a fast decay. Lower and rounder than
+            // the (much higher, pure) clave.
+            const double tok = std::sin(kTwoPi * 800.0 * pitchMul * t_) +
+                               0.4 * std::sin(kTwoPi * 1300.0 * pitchMul * t_);
+            s = static_cast<float>(0.7 * tok * env);
             break;
         }
         }

@@ -234,6 +234,20 @@ int main() {
         check(rms(gbuf) > 0.0, "conga produces sound");
         const double gHz = freqOf(gbuf, sampleRate);
         check(gHz > 150.0 && gHz < 550.0, "conga rings at a mid tuned-drum pitch");
+
+        // Woodblock: a hollow wooden "tok" → a mid tonal pitch (~800 Hz), well below the clave, with
+        // a fast decay.
+        audio::DrumVoice wood;
+        wood.setType(audio::Drum::Woodblock);
+        wood.trigger();
+        std::vector<float> wbuf(static_cast<size_t>(sampleRate) / 100, 0.0f); // 10 ms
+        wood.render(wbuf.data(), static_cast<int>(wbuf.size()), sampleRate);
+        check(rms(wbuf) > 0.0, "woodblock produces sound");
+        const double wHz = freqOf(wbuf, sampleRate);
+        check(wHz > 500.0 && wHz < 1600.0, "woodblock rings at its mid ~800 Hz woody pitch");
+        std::vector<float> wtail(static_cast<size_t>(sampleRate) / 4, 0.0f); // 0.25 s
+        wood.render(wtail.data(), static_cast<int>(wtail.size()), sampleRate);
+        check(!wood.active(), "woodblock decays fast to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------
