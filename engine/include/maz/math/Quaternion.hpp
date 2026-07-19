@@ -233,6 +233,59 @@ struct Quaternion {
         return q1.slerp(q2, weight);
     }
 
+    // Time-parametrised SQUAD — Godot's Quaternion.spherical_cubic_interpolate_in_time. Identical to
+    // sphericalCubicInterpolate but the scalar cubic on the log-map coordinates is the non-uniform
+    // (Barry-Goldman) cubicInterpolateInTime, with `b`/`preA`/`postB` sitting at their own times
+    // (`bT`, `preAT`, `postBT`). With uniform times (preAT=-1, bT=1, postBT=2) it collapses onto
+    // sphericalCubicInterpolate, exactly as cubicInterpolateInTime collapses onto the plain cubic.
+    Quaternion sphericalCubicInterpolateInTime(const Quaternion& b, const Quaternion& preA,
+                                               const Quaternion& postB, float weight, float bT,
+                                               float preAT, float postBT) const {
+        auto neg = [](const Quaternion& x) { return Quaternion(-x.x(), -x.y(), -x.z(), -x.w()); };
+        auto cubicT = [](float from, float to, float pre, float post, float w, float toT, float preT,
+                         float postT) {
+            auto lerpT = [](float a, float bb, float t) { return a + (bb - a) * t; };
+            const float t = toT * w;
+            const float a1 = lerpT(pre, from, preT == 0.0f ? 0.0f : (t - preT) / -preT);
+            const float a2 = lerpT(from, to, toT == 0.0f ? 0.5f : t / toT);
+            const float a3 = lerpT(to, post, (postT - toT) == 0.0f ? 1.0f : (t - toT) / (postT - toT));
+            const float b1 = lerpT(a1, a2, (toT - preT) == 0.0f ? 0.0f : (t - preT) / (toT - preT));
+            const float b2 = lerpT(a2, a3, postT == 0.0f ? 1.0f : t / postT);
+            return lerpT(b1, b2, toT == 0.0f ? 0.5f : t / toT);
+        };
+
+        Quaternion fromQ = normalized();
+        Quaternion preQ = preA.normalized();
+        Quaternion toQ = b.normalized();
+        Quaternion postQ = postB.normalized();
+
+        preQ = std::signbit(fromQ.dot(preQ)) ? neg(preQ) : preQ;
+        const bool flip2 = std::signbit(fromQ.dot(toQ));
+        toQ = flip2 ? neg(toQ) : toQ;
+        const bool flip3 = flip2 ? (toQ.dot(postQ) <= 0.0f) : std::signbit(toQ.dot(postQ));
+        postQ = flip3 ? neg(postQ) : postQ;
+
+        const Quaternion lnTo1 = (fromQ.inverse() * toQ).log();
+        const Quaternion lnPre1 = (fromQ.inverse() * preQ).log();
+        const Quaternion lnPost1 = (fromQ.inverse() * postQ).log();
+        const Quaternion ln1(
+            cubicT(0.0f, lnTo1.x(), lnPre1.x(), lnPost1.x(), weight, bT, preAT, postBT),
+            cubicT(0.0f, lnTo1.y(), lnPre1.y(), lnPost1.y(), weight, bT, preAT, postBT),
+            cubicT(0.0f, lnTo1.z(), lnPre1.z(), lnPost1.z(), weight, bT, preAT, postBT), 0.0f);
+        const Quaternion q1 = fromQ * ln1.exp();
+
+        const Quaternion lnFrom2 = (toQ.inverse() * fromQ).log();
+        const Quaternion lnPre2 = (toQ.inverse() * preQ).log();
+        const Quaternion lnPost2 = (toQ.inverse() * postQ).log();
+        const Quaternion ln2(
+            cubicT(lnFrom2.x(), 0.0f, lnPre2.x(), lnPost2.x(), weight, bT, preAT, postBT),
+            cubicT(lnFrom2.y(), 0.0f, lnPre2.y(), lnPost2.y(), weight, bT, preAT, postBT),
+            cubicT(lnFrom2.z(), 0.0f, lnPre2.z(), lnPost2.z(), weight, bT, preAT, postBT), 0.0f);
+        const Quaternion q2 = toQ * ln2.exp();
+
+        return q1.slerp(q2, weight);
+    }
+
     mat3 toMat3() const { return glm::mat3_cast(glm::normalize(q)); }
     static Quaternion fromMat3(const mat3& m) { return Quaternion(glm::quat_cast(m)); }
 };

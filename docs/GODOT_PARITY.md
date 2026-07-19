@@ -79,7 +79,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Quaternion.spherical_cubic_interpolate (SQUAD-style cubic guided by neighbouring pre/post
   orientations: normalize + shortest-hemisphere flip, a scalar cubic on the log-map coordinates in
   both from- and to-tangent-spaces, then a slerp of the two Expmap results), verified for exact
-  endpoints, always-unit output, monotonic same-axis sweep, and mixed-axis 3D control points; M336 adds the validation predicates is_finite /
+  endpoints, always-unit output, monotonic same-axis sweep, and mixed-axis 3D control points; M379
+  completes the pair with sphericalCubicInterpolateInTime — Godot's
+  Quaternion.spherical_cubic_interpolate_in_time: the same SQUAD construction but the log-map cubic is
+  the non-uniform (Barry-Goldman) cubicInterpolateInTime with per-sample times, verified to collapse
+  onto sphericalCubicInterpolate at uniform times and to keep exact endpoints and unit output; M336 adds the validation predicates is_finite /
   is_equal_approx / is_normalized plus length_squared — Godot's Quaternion.is_finite/is_equal_approx/
   is_normalized: guard interpolation and physics state against NaN/inf orientations, compare
   orientations up to float rounding, and confirm a quaternion is a valid unit rotation (squared

@@ -14525,6 +14525,30 @@ void testQuaternion() {
                     b.xform(vec3(1, 0, 0)), 1e-3f));
         CHECK_NEAR(a.sphericalCubicInterpolate(b, pa, pb, 0.5f).length(), 1.0f, 1e-3f);
     }
+    // --- M379: sphericalCubicInterpolateInTime (Godot spherical_cubic_interpolate_in_time) ---
+    {
+        const Q from = Q::fromAxisAngle(vec3(0, 1, 0), 10 * kPi / 180.0f);
+        const Q to = Q::fromAxisAngle(vec3(0, 1, 0), 80 * kPi / 180.0f);
+        const Q pre = Q::fromAxisAngle(vec3(0, 1, 0), -20 * kPi / 180.0f);
+        const Q post = Q::fromAxisAngle(vec3(0, 1, 0), 110 * kPi / 180.0f);
+        // Uniform times (preAT=-1, bT=1, postBT=2) collapse onto sphericalCubicInterpolate.
+        for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.1f) {
+            const Q inTime = from.sphericalCubicInterpolateInTime(to, pre, post, w, 1.0f, -1.0f, 2.0f);
+            const Q uniform = from.sphericalCubicInterpolate(to, pre, post, w);
+            CHECK(near3(inTime.xform(vec3(1, 0, 0)), uniform.xform(vec3(1, 0, 0)), 1e-3f));
+        }
+        // Endpoints exact + always unit-length with non-uniform times.
+        CHECK(near3(from.sphericalCubicInterpolateInTime(to, pre, post, 0.0f, 1.0f, -0.5f, 2.5f)
+                        .xform(vec3(1, 0, 0)),
+                    from.xform(vec3(1, 0, 0)), 1e-3f));
+        CHECK(near3(from.sphericalCubicInterpolateInTime(to, pre, post, 1.0f, 1.0f, -0.5f, 2.5f)
+                        .xform(vec3(1, 0, 0)),
+                    to.xform(vec3(1, 0, 0)), 1e-3f));
+        for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.1f) {
+            CHECK_NEAR(from.sphericalCubicInterpolateInTime(to, pre, post, w, 1.0f, -0.5f, 2.5f).length(),
+                       1.0f, 1e-3f);
+        }
+    }
 }
 
 // M307: Basis euler conversion across all six rotation orders (Godot EulerOrder / rotation_order).
