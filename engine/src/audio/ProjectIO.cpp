@@ -305,7 +305,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << seq.channelChokeGroup(c) << " " << seq.channelTune(c) << " " << seq.channelDecay(c)
           << " " << seq.channelDrive(c) << " " << seq.channelFlam(c) << " "
           << static_cast<int>(seq.channelType(c)) << " " << seq.channelPitchEnv(c) << " "
-          << seq.channelTone(c) << " " << seq.channelPitchEnvTime(c) << "\n";
+          << seq.channelTone(c) << " " << seq.channelPitchEnvTime(c) << " " << seq.channelSnap(c)
+          << "\n";
     }
 
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
@@ -729,6 +730,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float petime = 1.0f; // per-channel pitch-env time optional (older files omit it → natural)
             if (ls >> petime) {
                 seq.setChannelPitchEnvTime(c, petime);
+            }
+            float snap = 0.5f; // per-channel snare snap optional (older files omit it → classic mix)
+            if (ls >> snap) {
+                seq.setChannelSnap(c, snap);
             }
         } else if (tag == "patterns") {
             int count = 1;

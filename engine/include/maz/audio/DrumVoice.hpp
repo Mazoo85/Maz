@@ -73,6 +73,12 @@ public:
     void setToneCutoff(float hz) { toneCutoff_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
     float toneCutoff() const { return toneCutoff_; }
 
+    // Snap (0..1): the snare's noise-vs-tone balance. 0 = all body (the tuned tone, a tom-like
+    // thud), 1 = all snare wires (bright noise crack), 0.5 (default) = the classic mix. Only affects
+    // the Snare voice.
+    void setSnap(float s) { snap_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float snap() const { return snap_; }
+
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
     // hit's loudness for per-step accents; `extraSemitones` is a per-hit pitch offset (added to the
     // channel's base tune) captured at strike time, for per-step pitch.
@@ -103,6 +109,7 @@ private:
     float pitchEnv_ = 1.0f; // scales the tonal drums' initial pitch sweep depth; 1 = natural
     float pitchEnvTime_ = 1.0f; // scales the pitch-sweep time constant; 1 = natural
     float toneCutoff_ = 20000.0f; // per-voice low-pass cutoff Hz; 20000 = open/bypassed
+    float snap_ = 0.5f; // snare noise/tone balance; 0.5 = classic mix
     float toneLp_ = 0.0f;         // one-pole low-pass state for the tone filter
 
     float velocity_ = 1.0f;

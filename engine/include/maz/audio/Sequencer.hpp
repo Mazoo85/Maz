@@ -130,6 +130,10 @@ public:
     void setChannelTone(int c, float hz);
     float channelTone(int c) const;
 
+    // Per-channel snap (0..1): the snare's noise-vs-tone balance (body ↔ wires); 0.5 = classic.
+    void setChannelSnap(int c, float s);
+    float channelSnap(int c) const;
+
     // Per-channel flam (0..50 ms): plays a quiet grace hit immediately, then the full hit this many
     // ms later — the classic flam/drag humanization. 0 = off (a single hit).
     void setChannelFlam(int c, float ms);

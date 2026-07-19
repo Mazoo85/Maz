@@ -182,6 +182,19 @@ float Sequencer::channelTone(int c) const {
     return 20000.0f;
 }
 
+void Sequencer::setChannelSnap(int c, float s) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setSnap(s);
+    }
+}
+
+float Sequencer::channelSnap(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].snap();
+    }
+    return 0.5f;
+}
+
 void Sequencer::setChannelFlam(int c, float ms) {
     if (c >= 0 && c < numChannels()) {
         chanFlam_[static_cast<size_t>(c)] = ms < 0.0f ? 0.0f : (ms > 50.0f ? 50.0f : ms);

@@ -261,6 +261,27 @@ int main() {
         std::vector<float> btail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
         bongo.render(btail.data(), static_cast<int>(btail.size()), sampleRate);
         check(!bongo.active(), "bongo decays to inactive");
+
+        // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
+        // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
+        auto snareHf = [&](float snap) {
+            audio::DrumVoice sn;
+            sn.setType(audio::Drum::Snare);
+            sn.setSnap(snap);
+            sn.trigger();
+            std::vector<float> b(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+            sn.render(b.data(), static_cast<int>(b.size()), sampleRate);
+            double hf = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                hf += d * d;
+            }
+            return hf;
+        };
+        check(snareHf(1.0f) > snareHf(0.0f) * 2.0,
+              "snare snap 1 (wires/noise) is far brighter than snap 0 (body/tone)");
+        audio::DrumVoice dsn;
+        check(std::fabs(dsn.snap() - 0.5f) < 1e-6f, "snare snap defaults to 0.5 (classic mix)");
     }
 
     // --- Sequencer grid ------------------------------------------------------

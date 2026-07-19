@@ -531,6 +531,11 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("##tone", &tone, 200.0f, 20000.0f, "to%.0f"))
             seq.setChannelTone(c, tone);
         ImGui::SameLine();
+        float snap = seq.channelSnap(c);
+        ImGui::SetNextItemWidth(58.0f);
+        if (ImGui::SliderFloat("##snap", &snap, 0.0f, 1.0f, "sn%.2f"))
+            seq.setChannelSnap(c, snap);
+        ImGui::SameLine();
         ImGui::PushID(c * 7 + 5);
         if (ImGui::SmallButton("<")) seq.rotateChannel(c, -1);
         ImGui::SameLine();

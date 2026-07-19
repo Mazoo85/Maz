@@ -107,7 +107,10 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         case Drum::Snare: {
             const double tone = std::sin(phase_ * kTwoPi);
             const float n = noise();
-            s = static_cast<float>((0.4 * tone + 0.9 * static_cast<double>(n)) * env);
+            // Snap crossfades body (tone) ↔ wires (noise); snap 0.5 = the classic 0.4/0.9 mix.
+            const double toneW = 0.8 * (1.0 - static_cast<double>(snap_));
+            const double noiseW = 1.8 * static_cast<double>(snap_);
+            s = static_cast<float>((toneW * tone + noiseW * static_cast<double>(n)) * env);
             phase_ += 180.0 * pitchMul * dt;
             break;
         }
