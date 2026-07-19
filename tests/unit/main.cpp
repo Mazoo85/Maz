@@ -15621,6 +15621,70 @@ void testGeometry2DPolygon() {
         CHECK(math::clipPolygonConvex({}, clip).empty());
         CHECK(math::clipPolygonConvex(clip, {}).empty());
     }
+
+    // --- M424: simplifyPolyline (Ramer-Douglas-Peucker) ---
+    {
+        auto veq = [](vec2 a, vec2 b) {
+            return std::fabs(a.x - b.x) < 1e-5f && std::fabs(a.y - b.y) < 1e-5f;
+        };
+
+        // Trivial cases pass through.
+        CHECK(math::simplifyPolyline({}, 0.1f).empty());
+        CHECK(math::simplifyPolyline({vec2(1, 1)}, 0.1f).size() == 1);
+        CHECK(math::simplifyPolyline({vec2(0, 0), vec2(5, 5)}, 0.1f).size() == 2);
+
+        // Straight collinear run collapses to its two endpoints.
+        {
+            const std::vector<vec2> line = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}};
+            const std::vector<vec2> s = math::simplifyPolyline(line, 0.01f);
+            CHECK(s.size() == 2);
+            CHECK(veq(s.front(), vec2(0, 0)));
+            CHECK(veq(s.back(), vec2(4, 0)));
+        }
+
+        // A bump within tolerance drops; outside tolerance is kept.
+        {
+            const std::vector<vec2> path = {{0, 0}, {1, 0.05f}, {2, 0}};
+            CHECK(math::simplifyPolyline(path, 0.1f).size() == 2);
+            CHECK(math::simplifyPolyline(path, 0.01f).size() == 3);
+        }
+
+        // A right-angle corner is preserved.
+        {
+            const std::vector<vec2> el = {{0, 0}, {2, 0}, {2, 2}};
+            const std::vector<vec2> s = math::simplifyPolyline(el, 0.1f);
+            CHECK(s.size() == 3);
+            CHECK(veq(s[1], vec2(2, 0)));
+        }
+
+        // Endpoints preserved; result never larger than input.
+        {
+            const std::vector<vec2> zig = {{0, 0}, {1, 1}, {2, -1}, {3, 1}, {4, 0}};
+            const std::vector<vec2> s = math::simplifyPolyline(zig, 0.5f);
+            CHECK(veq(s.front(), vec2(0, 0)));
+            CHECK(veq(s.back(), vec2(4, 0)));
+            CHECK(s.size() <= zig.size());
+            CHECK(s.size() >= 2);
+        }
+
+        // A square outline keeps its 4 corners + repeated close = 5.
+        {
+            const std::vector<vec2> sqp = {{0, 0}, {1, 0}, {2, 0}, {2, 1}, {2, 2},
+                                           {1, 2}, {0, 2}, {0, 1}, {0, 0}};
+            CHECK(math::simplifyPolyline(sqp, 0.1f).size() == 5);
+        }
+
+        // Big tolerance collapses a shallow arc; fine tolerance keeps the curve.
+        {
+            std::vector<vec2> arc;
+            for (int i = 0; i <= 10; ++i) {
+                const float t = static_cast<float>(i) / 10.0f;
+                arc.push_back(vec2(t * 10.0f, std::sin(t * 3.14159f) * 0.2f));
+            }
+            CHECK(math::simplifyPolyline(arc, 1.0f).size() == 2);
+            CHECK(math::simplifyPolyline(arc, 0.01f).size() > 2);
+        }
+    }
 }
 
 // HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.

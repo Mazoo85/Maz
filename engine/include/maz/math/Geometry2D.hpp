@@ -622,4 +622,69 @@ inline Circle2 minEnclosingCircle(const std::vector<vec2>& points) {
     return c;
 }
 
+// Ramer-Douglas-Peucker polyline simplification: drop points that lie within `tolerance` of the line
+// through the segment's endpoints, keeping the overall shape while shedding redundant vertices. This is
+// the workhorse behind cleaning up hand-drawn strokes and gestures, thinning GPS/AI paths, and reducing
+// vertex counts on generated outlines. Endpoints are always kept; a collinear run collapses to its two
+// ends; a corner farther than `tolerance` from the chord survives. Non-recursive (explicit range stack)
+// so it is safe on very long inputs. tolerance < 0 is treated as 0. Godot has no polyline simplify.
+inline std::vector<vec2> simplifyPolyline(const std::vector<vec2>& pts, float tolerance) {
+    const std::size_t n = pts.size();
+    if (n <= 2) {
+        return pts;
+    }
+    const float tol = tolerance > 0.0f ? tolerance : 0.0f;
+
+    // Perpendicular distance from p to the line through a and b (point distance if a == b).
+    auto perpDist = [](vec2 p, vec2 a, vec2 b) -> float {
+        const vec2 ab = b - a;
+        const float len2 = ab.x * ab.x + ab.y * ab.y;
+        const vec2 ap = p - a;
+        if (len2 <= 0.0f) {
+            return std::sqrt(ap.x * ap.x + ap.y * ap.y);
+        }
+        const float cross = ab.x * ap.y - ab.y * ap.x;
+        return std::fabs(cross) / std::sqrt(len2);
+    };
+
+    std::vector<bool> keep(n, false);
+    keep[0] = true;
+    keep[n - 1] = true;
+
+    std::vector<std::pair<std::size_t, std::size_t>> stack;
+    stack.emplace_back(0, n - 1);
+    while (!stack.empty()) {
+        const std::pair<std::size_t, std::size_t> range = stack.back();
+        stack.pop_back();
+        const std::size_t lo = range.first;
+        const std::size_t hi = range.second;
+        if (hi <= lo + 1) {
+            continue; // nothing between the endpoints
+        }
+        float maxDist = -1.0f;
+        std::size_t maxIdx = lo;
+        for (std::size_t i = lo + 1; i < hi; ++i) {
+            const float d = perpDist(pts[i], pts[lo], pts[hi]);
+            if (d > maxDist) {
+                maxDist = d;
+                maxIdx = i;
+            }
+        }
+        if (maxDist > tol) {
+            keep[maxIdx] = true;
+            stack.emplace_back(lo, maxIdx);
+            stack.emplace_back(maxIdx, hi);
+        }
+    }
+
+    std::vector<vec2> out;
+    out.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        if (keep[i]) {
+            out.push_back(pts[i]);
+        }
+    }
+    return out;
+}
+
 } // namespace maz::math

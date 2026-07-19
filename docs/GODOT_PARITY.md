@@ -158,7 +158,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (the convex mitre case of Godot's Geometry2D.offset_polygon: push each edge out along its outward
   normal by delta and re-intersect at the corners, for collision margins / selection outlines /
   grow-shrink; verified a side-2 square +1 -> area 16, -0.5 -> area 1, 0 -> unchanged, CW normalised,
-  triangle grows and stays convex — general concave/round-join Clipper offsetting stays out of scope); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
+  triangle grows and stays convex — general concave/round-join Clipper offsetting stays out of scope); plus **polyline simplification** M424 —
+  `simplifyPolyline` (Ramer–Douglas–Peucker: drop points within a tolerance of the chord through a
+  run's endpoints, keeping the shape while shedding redundant vertices — the workhorse behind cleaning
+  hand-drawn strokes/gestures, thinning GPS/AI paths and reducing generated-outline vertex counts;
+  non-recursive explicit-stack form so it is safe on very long inputs; endpoints always kept. Godot has
+  no polyline simplify. Verified: trivial pass-through, a collinear run collapsing to 2 points, a bump
+  kept/dropped either side of the tolerance, a preserved right-angle corner, endpoints-preserved with
+  result never larger than input, a square outline keeping its 4 corners, and a shallow arc collapsing
+  under a big tolerance but surviving a fine one); plus **segment-vs-rect clipping** M303 — `clipSegmentToRect` (Liang–Barsky:
   clip a segment to an axis-aligned rectangle for viewport/bounds clipping of lines and rays); plus **point-in-circle test** M373
   — `pointInCircle` (Godot's Geometry2D.is_point_in_circle: squared-distance ≤ radius², boundary counts as inside); **Aabb3 method completeness** M272 —
   encloses / intersection / grow / expand / abs / longest-shortest-axis / intersectsSegment toward
