@@ -903,6 +903,51 @@ int main() {
               "normalize with target <= 0 is a no-op");
     }
 
+    // --- Sampler filter mode (multimode SVF: low-pass vs high-pass) ----------
+    {
+        // A sample carrying a low (120 Hz) and a high (6 kHz) tone. A ~1 kHz filter should keep the
+        // low in low-pass mode and the high in high-pass mode.
+        const int fn = sr / 2;
+        std::vector<float> two(static_cast<size_t>(fn));
+        for (int i = 0; i < fn; ++i) {
+            two[static_cast<size_t>(i)] =
+                0.5f * static_cast<float>(std::sin(kTwoPi * 120.0 * i / sr)) +
+                0.5f * static_cast<float>(std::sin(kTwoPi * 6000.0 * i / sr));
+        }
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = kTwoPi * f / srate;
+            const double cc = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float v : b) {
+                const double s0 = static_cast<double>(v) + cc * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - cc * s1 * s2;
+        };
+        auto bandsFor = [&](audio::StateVariableFilter::Mode m, double& lo, double& hi) {
+            audio::Sampler s;
+            s.setSampleMono(two, sr);
+            s.setBasePitch(60);
+            s.setKeyTrack(false); // play at the sample's natural pitch
+            s.setFilter(1000.0f, 0.7f);
+            s.setFilterMode(m);
+            s.noteOn(60, 1.0f);
+            const std::vector<float> out = renderMono(s, fn, sr);
+            lo = goertzel(out, 120.0, sr);
+            hi = goertzel(out, 6000.0, sr);
+        };
+        double lpLo = 0, lpHi = 0, hpLo = 0, hpHi = 0;
+        bandsFor(audio::StateVariableFilter::Mode::LowPass, lpLo, lpHi);
+        bandsFor(audio::StateVariableFilter::Mode::HighPass, hpLo, hpHi);
+        check(lpLo > lpHi, "sampler low-pass keeps the low tone over the high");
+        check(hpHi > hpLo, "sampler high-pass keeps the high tone over the low");
+        check(lpLo > hpLo * 2.0, "high-pass attenuates the low tone relative to low-pass");
+        check(hpHi > lpHi * 2.0, "low-pass attenuates the high tone relative to high-pass");
+        check(audio::Sampler().filterMode() == audio::StateVariableFilter::Mode::LowPass,
+              "sampler filter mode defaults to low-pass");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

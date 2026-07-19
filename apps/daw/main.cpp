@@ -1407,6 +1407,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool sfch = ImGui::SliderFloat("Filter cutoff##smp", &smpCut, 20.0f, 20000.0f, "%.0f Hz");
     sfch |= ImGui::SliderFloat("Filter reso##smp", &smpRes, 0.5f, 20.0f, "%.1f");
     if (sfch) seq.sampler().setFilter(smpCut, smpRes);
+    const char* smpFilterModes[] = {"Low-pass", "High-pass", "Band-pass", "Notch"};
+    int smpMode = static_cast<int>(seq.sampler().filterMode());
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::Combo("Filter mode##smp", &smpMode, smpFilterModes, 4))
+        seq.sampler().setFilterMode(static_cast<audio::StateVariableFilter::Mode>(smpMode));
     float smpFeDepth = seq.sampler().filterEnvDepth();
     if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         seq.sampler().setFilterEnvDepth(smpFeDepth);

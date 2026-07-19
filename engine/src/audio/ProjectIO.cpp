@@ -376,7 +376,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << (seq.sampler().keyTrack() ? 1 : 0) << " " << seq.sampler().drive() << " "
       << seq.sampler().glide() << " " << (seq.sampler().glideLegato() ? 1 : 0) << " "
       << seq.sampler().velToAttack() << " " << seq.sampler().velToStart() << " "
-      << seq.sampler().filterKeyTrack() << "\n";
+      << seq.sampler().filterKeyTrack() << " "
+      << static_cast<int>(seq.sampler().filterMode()) << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -868,6 +869,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float sfkt = 0.0f; // filter key-tracking optional (older files → off)
             if (ls >> sfkt) {
                 seq.sampler().setFilterKeyTrack(sfkt);
+            }
+            int sfmode = 0; // filter mode optional (older files → LowPass)
+            if (ls >> sfmode) {
+                if (sfmode < 0 || sfmode > 3) {
+                    sfmode = 0;
+                }
+                seq.sampler().setFilterMode(static_cast<StateVariableFilter::Mode>(sfmode));
             }
         } else if (tag == "chan") {
             int c = -1;

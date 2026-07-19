@@ -113,6 +113,12 @@ public:
     float filterCutoff() const { return filterCutoff_; }
     float filterResonance() const { return filterReso_; }
 
+    // Filter mode: low-pass (default), high-pass, band-pass, or notch — the same multimode
+    // state-variable filter the synth uses, now selectable on sampled material (thin a loop with a
+    // high-pass, isolate a band, notch a resonance). LowPass reproduces the previous behaviour.
+    void setFilterMode(StateVariableFilter::Mode m) { filterMode_ = m; }
+    StateVariableFilter::Mode filterMode() const { return filterMode_; }
+
     // Filter envelope: its own ADSR (seconds / sustain 0..1) sweeps the playback filter cutoff by
     // `depth` Hz (±) — a filter pluck/wow on the sample, independent of the amp envelope. depth 0 = off.
     void setFilterEnvelope(float attack, float decay, float sustain, float release) {
@@ -258,6 +264,7 @@ private:
     float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
     float filterCutoff_ = 20000.0f; // playback low-pass cutoff Hz (20000 = open/bypass)
     float filterReso_ = 0.7f;       // playback low-pass resonance
+    StateVariableFilter::Mode filterMode_ = StateVariableFilter::Mode::LowPass; // playback filter mode
     float ampDecay_ = 0.05f;   // amp-envelope decay time (s); no-op while ampSustain_ == 1
     float ampSustain_ = 1.0f;  // amp-envelope sustain level (0..1); 1 = plain attack/hold/release
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR

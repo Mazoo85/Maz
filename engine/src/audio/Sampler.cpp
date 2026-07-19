@@ -397,9 +397,11 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             }
             const float frac = static_cast<float>(v.pos - static_cast<double>(i0));
             float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
-            // Playback low-pass (per voice): shape the sample's tone, with the optional filter
-            // envelope sweeping the cutoff. Bypassed only when the base is open and no envelope is set.
-            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo || useKeyTrack) {
+            // Playback filter (per voice): shape the sample's tone, with the optional filter envelope
+            // sweeping the cutoff. Bypassed only for a low-pass that is fully open with no envelope —
+            // a non-low-pass mode always engages (an open high-pass/band-pass/notch still shapes tone).
+            const bool nonLowPass = filterMode_ != StateVariableFilter::Mode::LowPass;
+            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo || useKeyTrack || nonLowPass) {
                 float cutoff = filterCutoff_;
                 if (useFilterEnv) {
                     cutoff += filterEnvDepth_ * v.filtEnv;
@@ -409,8 +411,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 }
                 cutoff *= ktMul; // keyboard tracking: high notes stay bright
                 cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);
-                s = v.filter.process(s, cutoff, filterReso_, sampleRate,
-                                     StateVariableFilter::Mode::LowPass);
+                s = v.filter.process(s, cutoff, filterReso_, sampleRate, filterMode_);
             }
             // Drive: push through a tanh soft-clipper (normalised so full-scale stays ~unity) to warm
             // the sample / add grit. Skipped at 0 so the clean sample is bit-identical.
