@@ -293,7 +293,7 @@ void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attac
 
 void Sequencer::setArp(bool on, int mode) {
     arpOn_ = on;
-    arpMode_ = (mode < 0 || mode > 4) ? 0 : mode;
+    arpMode_ = (mode < 0 || mode > 5) ? 0 : mode; // 0..5 (5 = chord)
     arpCounter_ = 0;
     arpRng_ = 0x1234567u;
 }
@@ -621,43 +621,54 @@ void Sequencer::triggerStep(int step) {
                 }
             }
         }
-        if (arpCurrentPitch_ >= 0) {
+        // Release the previous arp note(s) (a chord in chord mode, otherwise a single note).
+        for (int p : arpHeld_) {
             if (toSampler) {
-                sampler_.noteOff(arpCurrentPitch_);
+                sampler_.noteOff(p);
             } else {
-                synth_.noteOff(arpCurrentPitch_);
+                synth_.noteOff(p);
             }
-            arpCurrentPitch_ = -1;
         }
+        arpHeld_.clear();
+        arpCurrentPitch_ = -1;
         if (!held.empty()) {
+            auto playPitch = [&](int pitch) {
+                if (toSampler) {
+                    sampler_.noteOn(pitch, 0.9f);
+                } else {
+                    synth_.noteOn(pitch, 0.9f);
+                }
+                arpHeld_.push_back(pitch);
+                arpCurrentPitch_ = pitch;
+            };
             const int n = static_cast<int>(held.size());
             // Modes 0–3 walk the pitches low→high; as-played (4) keeps the notes' entry order.
             std::vector<int> ord = held;
             if (arpMode_ != 4) {
                 std::sort(ord.begin(), ord.end());
             }
-            int index = 0;
-            if (arpMode_ == 1) { // down
-                index = (n - 1) - (arpCounter_ % n);
-            } else if (arpMode_ == 2 && n > 1) { // up-down
-                const int period = 2 * n - 2;
-                const int pos = arpCounter_ % period;
-                index = pos < n ? pos : period - pos;
-            } else if (arpMode_ == 3) { // random (deterministic per-transport RNG)
-                arpRng_ ^= arpRng_ << 13;
-                arpRng_ ^= arpRng_ >> 17;
-                arpRng_ ^= arpRng_ << 5;
-                index = static_cast<int>(arpRng_ % static_cast<uint32_t>(n));
-            } else { // up (0) or as-played (4)
-                index = arpCounter_ % n;
-            }
-            const int pitch = ord[static_cast<size_t>(index)] + transpose_;
-            if (toSampler) {
-                sampler_.noteOn(pitch, 0.9f);
+            if (arpMode_ == 5) { // chord: strike every held pitch together (a rhythmic stab)
+                for (int hp : ord) {
+                    playPitch(hp + transpose_);
+                }
             } else {
-                synth_.noteOn(pitch, 0.9f);
+                int index = 0;
+                if (arpMode_ == 1) { // down
+                    index = (n - 1) - (arpCounter_ % n);
+                } else if (arpMode_ == 2 && n > 1) { // up-down
+                    const int period = 2 * n - 2;
+                    const int pos = arpCounter_ % period;
+                    index = pos < n ? pos : period - pos;
+                } else if (arpMode_ == 3) { // random (deterministic per-transport RNG)
+                    arpRng_ ^= arpRng_ << 13;
+                    arpRng_ ^= arpRng_ >> 17;
+                    arpRng_ ^= arpRng_ << 5;
+                    index = static_cast<int>(arpRng_ % static_cast<uint32_t>(n));
+                } else { // up (0) or as-played (4)
+                    index = arpCounter_ % n;
+                }
+                playPitch(ord[static_cast<size_t>(index)] + transpose_);
             }
-            arpCurrentPitch_ = pitch;
             ++arpCounter_;
             // Gate: for a staccato arp, schedule an early note-off partway through the step; at full
             // gate (1) the note simply rings until the next step releases it (legato, as before).
@@ -744,6 +755,7 @@ void Sequencer::play() {
     arpRng_ = 0x1234567u;
     arpGateFramesLeft_ = -1;
     arpCurrentPitch_ = -1;
+    arpHeld_.clear();
     humanizeCounter_ = 0;
     metroLastStep_ = -1;
     metroEnv_ = 0.0f;
@@ -848,11 +860,12 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         // Arp gate: release the current arp note when its gate expires (staccato), and don't render
         // past that point so the release lands sample-accurately.
         if (arpGateFramesLeft_ == 0) {
-            if (arpCurrentPitch_ >= 0) {
-                synth_.noteOff(arpCurrentPitch_);
-                sampler_.noteOff(arpCurrentPitch_);
-                arpCurrentPitch_ = -1;
+            for (int p : arpHeld_) {
+                synth_.noteOff(p);
+                sampler_.noteOff(p);
             }
+            arpHeld_.clear();
+            arpCurrentPitch_ = -1;
             arpGateFramesLeft_ = -1;
         }
         if (arpGateFramesLeft_ > 0) {

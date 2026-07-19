@@ -113,7 +113,7 @@ int main() {
     seq.synth().setFilterDrive(0.65f);
     seq.synth().setStartPhaseRandom(0.55f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
-    seq.setArp(true, 4);
+    seq.setArp(true, 5); // chord mode
     seq.setArpOctaves(3);
     seq.setArpGate(0.4f);
     seq.setArpRate(3);
@@ -527,7 +527,7 @@ int main() {
     check(seq2.synth().mono(), "monophonic mode round-trips");
     check(near(seq2.synth().pitchEnvAmount(), -7.0f) && near(seq2.synth().pitchEnvTime(), 0.08f),
           "pitch envelope round-trips");
-    check(seq2.arpOn() && seq2.arpMode() == 4 && seq2.arpOctaves() == 3 &&
+    check(seq2.arpOn() && seq2.arpMode() == 5 && seq2.arpOctaves() == 3 &&
               near(seq2.arpGate(), 0.4f) && seq2.arpRate() == 3,
           "arp settings round-trip");
     check(seq2.sidechainOn() && near(seq2.sidechainAmount(), 0.8f) &&

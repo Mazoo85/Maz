@@ -617,6 +617,30 @@ int main() {
         check(dm.arpMode() == 0, "arp mode defaults to up");
         check(dm.arpRate() == 1, "arp rate defaults to 1 (one note per step)");
 
+        // Chord mode (5): every held pitch sounds at once (a rhythmic stab), not one per step.
+        audio::Sequencer chord;
+        chord.setBpm(120.0);
+        chord.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        chord.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        chord.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        chord.synth().setEnvelope(0.001f, 0.05f, 1.0f, 0.05f); // sustain so all voices stay up
+        chord.setArp(true, 5);
+        chord.play();                                // strikes step 0
+        (void)renderMono(chord, 512, sampleRate);    // let the attacks ramp up
+        check(chord.synth().activeVoices() == 3, "chord arp strikes all three held notes at once");
+
+        // A single-note (up) arp sounds only one voice at a time, for contrast.
+        audio::Sequencer single;
+        single.setBpm(120.0);
+        single.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        single.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        single.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        single.synth().setEnvelope(0.001f, 0.05f, 1.0f, 0.05f);
+        single.setArp(true, 0);
+        single.play();
+        (void)renderMono(single, 512, sampleRate);
+        check(single.synth().activeVoices() == 1, "an up arp sounds a single voice at a time");
+
         // Rate 2: the arp advances every 2 steps, holding the note across the skipped step.
         audio::Sequencer rate;
         rate.setBpm(120.0);
