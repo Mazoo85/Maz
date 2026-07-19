@@ -62,6 +62,7 @@ fx comb 0 220 0.8 0.5 0
 fx tremolo 0 5 0.5 0 0 3
 fx stepgate 0 2 0 5 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
 fx stereodelay 0 250 375 0.4 0.3 0 4 5 0 0 0
+fx revdelay 0 300 0.3 0.35
 fx formant 0 0 0.5 0 0
 fx tape 0 2 0.3 1 0
 fx ringmod 0 200 1 0

@@ -1916,6 +1916,80 @@ void StereoDelay::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- ReverseDelay -----------------------------------------------------------
+
+void ReverseDelay::ensureSized(int sampleRate) {
+    int len = static_cast<int>(timeMs_ * 0.001f * static_cast<float>(sampleRate));
+    if (len < 1) {
+        len = 1;
+    }
+    // Rebuild (and restart) whenever the sample rate or the chunk length changes.
+    if (sizedFor_ != sampleRate || chunkLen_ != len) {
+        sizedFor_ = sampleRate;
+        chunkLen_ = len;
+        recL_.assign(static_cast<size_t>(len), 0.0f);
+        recR_.assign(static_cast<size_t>(len), 0.0f);
+        playL_.assign(static_cast<size_t>(len), 0.0f);
+        playR_.assign(static_cast<size_t>(len), 0.0f);
+        wpos_ = 0;
+        havePlay_ = false;
+    }
+}
+
+void ReverseDelay::reset() {
+    std::fill(recL_.begin(), recL_.end(), 0.0f);
+    std::fill(recR_.begin(), recR_.end(), 0.0f);
+    std::fill(playL_.begin(), playL_.end(), 0.0f);
+    std::fill(playR_.begin(), playR_.end(), 0.0f);
+    wpos_ = 0;
+    havePlay_ = false;
+}
+
+void ReverseDelay::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    ensureSized(sampleRate);
+    const int n = chunkLen_;
+    // Short raised edge-fades (~5 ms, at most a quarter-chunk) declick each reversed grain's seams.
+    int fade = static_cast<int>(0.005f * static_cast<float>(sampleRate));
+    if (fade > n / 4) {
+        fade = n / 4;
+    }
+    if (fade < 1) {
+        fade = 1;
+    }
+    const float mix = mix_;
+    for (int i = 0; i < frames; ++i) {
+        const float dryL = stereo[2 * i];
+        const float dryR = stereo[2 * i + 1];
+        // Read the previous chunk backwards, windowed.
+        float wetL = 0.0f, wetR = 0.0f;
+        if (havePlay_) {
+            const int r = n - 1 - wpos_;
+            float w = 1.0f;
+            if (wpos_ < fade) {
+                w = static_cast<float>(wpos_) / static_cast<float>(fade);
+            } else if (wpos_ >= n - fade) {
+                w = static_cast<float>(n - 1 - wpos_) / static_cast<float>(fade);
+            }
+            wetL = playL_[static_cast<size_t>(r)] * w;
+            wetR = playR_[static_cast<size_t>(r)] * w;
+        }
+        // Record the dry input (plus the reversed wet, for repeating reverse echoes).
+        recL_[static_cast<size_t>(wpos_)] = dryL + feedback_ * wetL;
+        recR_[static_cast<size_t>(wpos_)] = dryR + feedback_ * wetR;
+        if (++wpos_ >= n) {
+            recL_.swap(playL_);
+            recR_.swap(playR_);
+            wpos_ = 0;
+            havePlay_ = true;
+        }
+        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+    }
+}
+
 // ---- FormantFilter ----------------------------------------------------------
 
 void FormantFilter::reset() {

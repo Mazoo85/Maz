@@ -2304,6 +2304,23 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.stereoDelay().setRightDivision(rdiv);
     }
     {
+        auto& rd = mx.reverseDelay();
+        bool en = rd.enabled();
+        if (ImGui::Checkbox("Reverse Delay", &en)) rd.setEnabled(en);
+        float t = rd.timeMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("time##rd", &t, 20.0f, 1000.0f, "%.0f ms")) rd.setTimeMs(t);
+        float fb = rd.feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("fb##rd", &fb, 0.0f, 0.95f, "%.2f")) rd.setFeedback(fb);
+        float mix = rd.mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mix##rd", &mix, 0.0f, 1.0f, "%.2f")) rd.setMix(mix);
+    }
+    {
         bool en = mx.formant().enabled();
         if (ImGui::Checkbox("Formant", &en)) mx.formant().setEnabled(en);
         int vowel = static_cast<int>(mx.formant().vowel());

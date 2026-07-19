@@ -518,6 +518,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.stereoDelay().rightDivision() << " " << mixer.stereoDelay().damping() << " "
       << mixer.stereoDelay().feedbackLowCut() << " " << (mixer.stereoDelay().pingPong() ? 1 : 0)
       << "\n";
+    f << "fx revdelay " << (mixer.reverseDelay().enabled() ? 1 : 0) << " "
+      << mixer.reverseDelay().timeMs() << " " << mixer.reverseDelay().feedback() << " "
+      << mixer.reverseDelay().mix() << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
       << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << "\n";
@@ -1229,6 +1232,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> ping) {
                     mixer.stereoDelay().setPingPong(ping != 0);
                 }
+            } else if (which == "revdelay") {
+                float tms = 300.0f, fb = 0.3f, mix = 0.35f;
+                ls >> tms >> fb >> mix;
+                mixer.reverseDelay().setEnabled(en != 0);
+                mixer.reverseDelay().setTimeMs(tms);
+                mixer.reverseDelay().setFeedback(fb);
+                mixer.reverseDelay().setMix(mix);
             } else if (which == "formant") {
                 int vowel = 0;
                 float mix = 0.5f;

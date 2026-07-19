@@ -73,6 +73,7 @@ public:
     CombResonator& comb() { return comb_; }
     Tremolo& tremolo() { return tremolo_; }
     StereoDelay& stereoDelay() { return stereoDelay_; }
+    ReverseDelay& reverseDelay() { return revdelay_; }
     FormantFilter& formant() { return formant_; }
     MonoBass& monobass() { return monobass_; }
     SubBass& subbass() { return subbass_; }
@@ -165,6 +166,7 @@ private:
     CombResonator comb_{};
     Tremolo tremolo_{};
     StereoDelay stereoDelay_{};
+    ReverseDelay revdelay_{};
     FormantFilter formant_{};
     MonoBass monobass_{};
     SubBass subbass_{};

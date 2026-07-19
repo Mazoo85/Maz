@@ -199,6 +199,45 @@ int main() {
         check(dd2.duck() == 0.0f, "delay ducking defaults to 0 (off)");
     }
 
+    // --- Reverse delay: each chunk plays back time-reversed -------------------
+    {
+        audio::ReverseDelay rd;
+        rd.setEnabled(true);
+        rd.setTimeMs(100.0f); // 100 ms chunk → 4800 frames at 48 kHz
+        rd.setFeedback(0.0f);
+        rd.setMix(1.0f); // fully wet → only the reversed echo remains
+        const int chunk = sr / 10; // 4800
+        // Put a single click in the MIDDLE of the first chunk, silence elsewhere for two chunks.
+        std::vector<float> buf(static_cast<size_t>(chunk) * 2 * 2, 0.0f); // two chunks, stereo
+        const int clickAt = chunk / 4; // 1200 samples into chunk 0
+        buf[static_cast<size_t>(clickAt) * 2] = 1.0f;
+        buf[static_cast<size_t>(clickAt) * 2 + 1] = 1.0f;
+        rd.process(buf.data(), chunk * 2, sr);
+        // The reversed echo of chunk 0 plays during chunk 1; the click at index `clickAt` emerges at
+        // the mirrored index (chunk-1-clickAt) within that second chunk.
+        int peak = -1;
+        float pv = 0.0f;
+        for (int i = 0; i < chunk; ++i) {
+            const float v = std::fabs(buf[static_cast<size_t>(chunk + i) * 2]);
+            if (v > pv) {
+                pv = v;
+                peak = i;
+            }
+        }
+        const int expected = chunk - 1 - clickAt;
+        check(pv > 0.5f, "reverse delay produces the echo one chunk later");
+        check(std::abs(peak - expected) < 50, "reverse delay plays the chunk back time-reversed");
+        // Disabled → transparent.
+        audio::ReverseDelay off;
+        std::vector<float> q = sineStereo(sr / 4, 300.0, 0.5, sr);
+        std::vector<float> ref = q;
+        off.process(q.data(), sr / 4, sr);
+        check(q == ref, "a disabled reverse delay is transparent");
+        audio::ReverseDelay def;
+        check(!def.enabled() && std::fabs(def.timeMs() - 300.0f) < 1e-3f,
+              "reverse delay defaults to off at a 300 ms chunk");
+    }
+
     // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
     {
         audio::Delay pp;

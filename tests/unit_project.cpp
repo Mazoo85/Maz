@@ -282,6 +282,10 @@ int main() {
     mixer.stereoDelay().setDamping(0.5f);
     mixer.stereoDelay().setFeedbackLowCut(180.0f);
     mixer.stereoDelay().setPingPong(true);
+    mixer.reverseDelay().setEnabled(true);
+    mixer.reverseDelay().setTimeMs(420.0f);
+    mixer.reverseDelay().setFeedback(0.5f);
+    mixer.reverseDelay().setMix(0.4f);
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
@@ -848,6 +852,9 @@ int main() {
               near(mixer2.stereoDelay().feedbackLowCut(), 180.0f) &&
               mixer2.stereoDelay().pingPong(),
           "stereo delay round-trips");
+    check(mixer2.reverseDelay().enabled() && near(mixer2.reverseDelay().timeMs(), 420.0f) &&
+              near(mixer2.reverseDelay().feedback(), 0.5f) && near(mixer2.reverseDelay().mix(), 0.4f),
+          "reverse delay round-trips");
     check(mixer2.distortion().curve() == audio::Distortion::Curve::Tube &&
               near(mixer2.distortion().tone(), 4800.0f) &&
               near(mixer2.distortion().outputDb(), -4.5f),

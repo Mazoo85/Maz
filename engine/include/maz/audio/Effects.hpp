@@ -1213,6 +1213,39 @@ private:
     int writePos_ = 0;
 };
 
+// A reverse delay: record the input in fixed-length chunks and play each chunk back BACKWARDS as the
+// wet echo — the classic psychedelic/EDM reverse echo (a sound emerges swelling up to its own
+// transient). Double-buffered: while one chunk records forward, the previous one plays reversed, then
+// they swap. Short raised edge-fades declick the grain seams, and `feedback` re-records the reversed
+// wet so the reverse echoes repeat. `timeMs` is the chunk length (= the echo delay). mix/feedback as
+// usual. Distinct from every forward delay by the time-reversal of each grain.
+class ReverseDelay : public Effect {
+public:
+    ReverseDelay() { enabled_ = false; }
+    const char* name() const override { return "Reverse Delay"; }
+    void setTimeMs(float ms) { timeMs_ = ms < 20.0f ? 20.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float timeMs() const { return timeMs_; }
+    float feedback() const { return feedback_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    void ensureSized(int sampleRate);
+    float timeMs_ = 300.0f;
+    float feedback_ = 0.3f;
+    float mix_ = 0.35f;
+    std::vector<float> recL_, recR_;   // the chunk currently being recorded (forward)
+    std::vector<float> playL_, playR_; // the previous chunk, played back reversed
+    int chunkLen_ = 0;   // active chunk length in samples (derived from timeMs)
+    int wpos_ = 0;       // record/playback position within the chunk
+    bool havePlay_ = false; // false until the first chunk has been captured
+    int sizedFor_ = 0;   // sampleRate the buffers were built for
+};
+
 // A formant (vowel) filter: two resonant band-pass filters tuned to the first two formants of a
 // chosen vowel (A/E/I/O/U), summed and blended with the dry signal — imposes a vocal "aah/eee/…"
 // colour on whatever passes through (talkbox/robot-voice character). `mix` sets dry/wet.
