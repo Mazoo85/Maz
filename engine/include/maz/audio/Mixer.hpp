@@ -67,6 +67,7 @@ public:
     Utility& utility() { return utility_; }
     Clipper& clipper() { return clipper_; }
     Limiter& limiter() { return limiter_; }
+    Leveler& leveler() { return leveler_; }
     DeEsser& deEsser() { return deEsser_; }
     DynamicEq& dynamicEq() { return dyneq_; }
     AutoPan& autopan() { return autopan_; }
@@ -164,6 +165,7 @@ private:
     Utility utility_{};
     Clipper clipper_{};
     Limiter limiter_{};
+    Leveler leveler_{};
     DeEsser deEsser_{};
     DynamicEq dyneq_{};
     AutoPan autopan_{};

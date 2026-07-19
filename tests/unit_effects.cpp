@@ -503,6 +503,54 @@ int main() {
         check(std::fabs(dl.gainReductionDb()) < 1e-6f, "limiter GR meter defaults to 0");
     }
 
+    // --- Leveler: slow AGC converges loud and quiet passages toward a target ---
+    {
+        // A 300 Hz tone that is loud (0.8) for 0.5 s then quiet (0.1) for 0.5 s.
+        auto build = [&]() {
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f);
+            for (int i = 0; i < sr; ++i) {
+                const float amp = i < sr / 2 ? 0.8f : 0.1f;
+                const float s = amp * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 300.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            return b;
+        };
+        auto rmsWin = [&](const std::vector<float>& b, int a, int c) {
+            double e = 0.0;
+            int n = 0;
+            for (int i = a; i < c; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+                ++n;
+            }
+            return std::sqrt(e / n);
+        };
+        std::vector<float> in = build();
+        const double inLoud = rmsWin(in, sr * 3 / 10, sr * 45 / 100); // settled loud tail
+        const double inQuiet = rmsWin(in, sr * 8 / 10, sr);            // settled quiet tail
+        std::vector<float> out = build();
+        audio::Leveler lv;
+        lv.setEnabled(true);
+        lv.setTargetDb(-12.0f);
+        lv.setResponseMs(150.0f);
+        lv.setMaxGainDb(24.0f);
+        lv.process(out.data(), sr, sr);
+        const double outLoud = rmsWin(out, sr * 3 / 10, sr * 45 / 100);
+        const double outQuiet = rmsWin(out, sr * 8 / 10, sr);
+        check(outLoud < inLoud, "leveler eases the loud passage down");
+        check(outQuiet > inQuiet, "leveler lifts the quiet passage up");
+        check(outLoud / outQuiet < (inLoud / inQuiet) * 0.6,
+              "leveler pulls loud and quiet toward a common level");
+        // Disabled → transparent; defaults.
+        std::vector<float> q = build();
+        const std::vector<float> ref = q;
+        audio::Leveler off;
+        off.process(q.data(), sr, sr);
+        check(q == ref, "a disabled leveler is transparent");
+        check(!audio::Leveler().enabled() && std::fabs(audio::Leveler().targetDb() + 12.0f) < 1e-4f,
+              "leveler defaults to off at a −12 dB target");
+    }
+
     // --- Clipper: an instantaneous soft/hard ceiling -------------------------
     {
         // Hard clip (hardness 1): a signal driven well past the ceiling is flat-topped exactly at it.

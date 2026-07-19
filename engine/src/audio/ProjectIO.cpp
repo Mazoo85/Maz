@@ -506,6 +506,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx limiter " << (mixer.limiter().enabled() ? 1 : 0) << " " << mixer.limiter().inputGainDb()
       << " " << mixer.limiter().ceilingDb() << " " << mixer.limiter().releaseMs() << " "
       << mixer.limiter().lookaheadMs() << "\n";
+    f << "fx leveler " << (mixer.leveler().enabled() ? 1 : 0) << " " << mixer.leveler().targetDb()
+      << " " << mixer.leveler().responseMs() << " " << mixer.leveler().maxGainDb() << "\n";
     f << "fx clipper " << (mixer.clipper().enabled() ? 1 : 0) << " " << mixer.clipper().driveDb() << " "
       << mixer.clipper().ceiling() << " " << mixer.clipper().hardness() << "\n";
     f << "fx deesser " << (mixer.deEsser().enabled() ? 1 : 0) << " " << mixer.deEsser().thresholdDb()
@@ -1196,6 +1198,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.limiter().setCeilingDb(ceil);
                 mixer.limiter().setReleaseMs(rel);
                 mixer.limiter().setLookaheadMs(look);
+            } else if (which == "leveler") {
+                float tgt = -12.0f, resp = 800.0f, maxg = 12.0f;
+                ls >> tgt >> resp >> maxg;
+                mixer.leveler().setEnabled(en != 0);
+                mixer.leveler().setTargetDb(tgt);
+                mixer.leveler().setResponseMs(resp);
+                mixer.leveler().setMaxGainDb(maxg);
             } else if (which == "clipper") {
                 float drive = 0.0f, ceil = 0.9f, hard = 1.0f;
                 ls >> drive >> ceil >> hard;

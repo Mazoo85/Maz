@@ -55,6 +55,7 @@ fx monobass 0 120
 fx subbass 0 0 120 220
 fx utility 0 0 0 0 0
 fx limiter 0 0 -0.3 100 2
+fx leveler 0 -12 800 12
 fx clipper 0 0 0.9 1
 fx deesser 0 -24 6000 0.8 60
 fx dyneq 0 3000 2 -24 -6 5 80

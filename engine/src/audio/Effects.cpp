@@ -2476,6 +2476,47 @@ void Limiter::process(float* stereo, int frames, int sampleRate) {
     grDb_ = gMin < 1.0f ? linToDb(gMin) : 0.0f;
 }
 
+// ---- Leveler ----------------------------------------------------------------
+
+void Leveler::reset() {
+    env_ = 0.0f;
+    gain_ = 1.0f;
+    gainDb_ = 0.0f;
+}
+
+void Leveler::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    // One slow follower for the level, and an even slower smoother on the gain, both from responseMs.
+    const float envCoef = std::exp(-1.0f / (responseMs_ * 0.001f * sr));
+    const float gainCoef = std::exp(-1.0f / (responseMs_ * 0.001f * sr));
+    const float target = dbToLin(targetDb_);
+    const float gMax = dbToLin(maxGainDb_);
+    const float gMin = dbToLin(-maxGainDb_);
+    constexpr float kFloor = 1e-4f; // don't try to lift near-silence (noise) up to the target
+    float lastGain = gain_;
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        const float mag = std::max(std::fabs(l), std::fabs(r));
+        // Slow level follower (mean-magnitude, one-pole).
+        env_ = envCoef * env_ + (1.0f - envCoef) * mag;
+        // Desired gain drives the level toward the target; only engage above the noise floor.
+        float desired = 1.0f;
+        if (env_ > kFloor) {
+            desired = target / env_;
+            desired = desired < gMin ? gMin : (desired > gMax ? gMax : desired);
+        }
+        gain_ = gainCoef * gain_ + (1.0f - gainCoef) * desired;
+        stereo[2 * i] = l * gain_;
+        stereo[2 * i + 1] = r * gain_;
+        lastGain = gain_;
+    }
+    gainDb_ = linToDb(lastGain);
+}
+
 // ---- Stereo Enhancer --------------------------------------------------------
 
 void StereoEnhancer::reset() {

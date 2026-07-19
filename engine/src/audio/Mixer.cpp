@@ -55,6 +55,7 @@ Mixer::Mixer() {
     utility_.setEnabled(false);
     clipper_.setEnabled(false);
     limiter_.setEnabled(false);
+    leveler_.setEnabled(false);
     deEsser_.setEnabled(false);
     autopan_.setEnabled(false);
     autowah_.setEnabled(false);
@@ -80,7 +81,7 @@ Mixer::Mixer() {
               &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &mbtransient_, &deEsser_, &dyneq_, &chorus_,
               &vibrato_,  &rotary_,   &flanger_,  &phaser_,   &autowah_,  &formant_,   &vocoder_,  &comb_,        &chordres_, &tremolo_,  &stepgate_, &delay_,
               &stereoDelay_, &revdelay_, &multitap_, &reverb_, &widener_, &imager_, &mbsat_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
-              &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};
+              &leveler_,  &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how
     // much signal reaches them, so a fresh mixer stays transparent.

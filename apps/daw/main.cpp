@@ -2520,6 +2520,25 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::Text("GR %.1f dB", mx.limiter().gainReductionDb());
     }
     {
+        auto& lv = mx.leveler();
+        bool en = lv.enabled();
+        if (ImGui::Checkbox("Leveler", &en)) lv.setEnabled(en);
+        float tgt = lv.targetDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("target##lvl", &tgt, -36.0f, 0.0f, "%.1f dB")) lv.setTargetDb(tgt);
+        float resp = lv.responseMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("response##lvl", &resp, 50.0f, 5000.0f, "%.0f ms")) lv.setResponseMs(resp);
+        float mg = lv.maxGainDb();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("max##lvl", &mg, 0.0f, 24.0f, "%.1f dB")) lv.setMaxGainDb(mg);
+        ImGui::SameLine();
+        ImGui::Text("%.1f dB", lv.gainDb());
+    }
+    {
         bool en = mx.clipper().enabled();
         if (ImGui::Checkbox("Clipper", &en)) mx.clipper().setEnabled(en);
         float drive = mx.clipper().driveDb();

@@ -1641,6 +1641,36 @@ private:
     float grDb_ = 0.0f; // peak gain reduction (dB) over the last block, for the GR meter
 };
 
+// An auto-leveler (slow AGC): tracks the signal's level with a slow RMS follower and applies a
+// smoothly-varying gain that pushes it toward `targetDb` — quiet passages are lifted, loud ones eased
+// down, so a bus/master sits at a consistent level. Distinct from the compressor (which reacts fast
+// around a threshold): this rides the overall level slowly and transparently. `responseMs` sets how
+// fast it adapts; `maxGainDb` bounds the boost/cut (symmetric) so it never runs away or over-pumps.
+class Leveler : public Effect {
+public:
+    Leveler() { enabled_ = false; }
+    const char* name() const override { return "Leveler"; }
+    void setTargetDb(float db) { targetDb_ = db < -36.0f ? -36.0f : (db > 0.0f ? 0.0f : db); }
+    void setResponseMs(float ms) { responseMs_ = ms < 50.0f ? 50.0f : (ms > 5000.0f ? 5000.0f : ms); }
+    void setMaxGainDb(float db) { maxGainDb_ = db < 0.0f ? 0.0f : (db > 24.0f ? 24.0f : db); }
+    float targetDb() const { return targetDb_; }
+    float responseMs() const { return responseMs_; }
+    float maxGainDb() const { return maxGainDb_; }
+    // Current applied gain in dB (for a UI readout).
+    float gainDb() const { return gainDb_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float targetDb_ = -12.0f;
+    float responseMs_ = 800.0f;
+    float maxGainDb_ = 12.0f;
+    float env_ = 0.0f;    // slow RMS-ish level follower (linear)
+    float gain_ = 1.0f;   // smoothed applied gain (linear)
+    float gainDb_ = 0.0f; // last applied gain in dB (meter)
+};
+
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
 // length (0..~0.95), `damping` how fast highs decay, `mix` the dry/wet blend.
 class Reverb : public Effect {
