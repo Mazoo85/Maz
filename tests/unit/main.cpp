@@ -219,6 +219,7 @@
 #include "maz/render/ColorNames.hpp"
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Image.hpp"
+#include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -1203,6 +1204,36 @@ void testColorOps() {
         // 1x1 -> chain is just itself.
         render::Image one(1, 1, render::color8(5, 6, 7, 8));
         CHECK(one.generateMipmapChain().size() == 1);
+
+        // --- TGA codec: encode/decode round-trip (M392) ---
+        render::Image ti(3, 2, render::color8(0, 0, 0, 255));
+        ti.setPixel(0, 0, render::color8(255, 0, 0, 255));
+        ti.setPixel(1, 0, render::color8(0, 255, 0, 128));
+        ti.setPixel(2, 0, render::color8(0, 0, 255, 64));
+        ti.setPixel(0, 1, render::color8(10, 20, 30, 200));
+        auto blob = render::encodeTga(ti);
+        CHECK(blob.size() == 18u + 3u * 2u * 4u);
+        CHECK(blob[2] == 2 && blob[16] == 32 && blob[17] == 0x28);
+        CHECK(blob[12] == 3 && blob[14] == 2);
+        // First pixel BGRA of (255,0,0,255).
+        CHECK(blob[18] == 0 && blob[19] == 0 && blob[20] == 255 && blob[21] == 255);
+        render::Image tback = render::decodeTga(blob);
+        CHECK(tback.width() == 3 && tback.height() == 2);
+        bool tgaRoundTrip = true;
+        for (int ty = 0; ty < 2; ++ty) {
+            for (int tx = 0; tx < 3; ++tx) {
+                if (!sameC(tback.getPixel(tx, ty), ti.getPixel(tx, ty))) {
+                    tgaRoundTrip = false;
+                }
+            }
+        }
+        CHECK(tgaRoundTrip);
+        // Malformed / empty inputs -> empty image or empty blob.
+        CHECK(render::decodeTga(nullptr, 0).empty());
+        CHECK(render::encodeTga(render::Image{}).empty());
+        auto badType = blob;
+        badType[2] = 10;
+        CHECK(render::decodeTga(badType).empty());
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

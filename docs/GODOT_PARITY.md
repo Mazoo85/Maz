@@ -204,7 +204,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   image, each level halves both dimensions floored (min 1) with every texel the 2x2 average below,
   ready for createTexture trilinear sampling; verified by exact 2x2 averaging, chain length/dims
   for square and non-square inputs, and colour/alpha preservation — documented as the standard box
-  downsample, not byte-exact to Godot's internal filter); plus
+  downsample, not byte-exact to Godot's internal filter); M392 adds a **headless TGA codec**
+  (`render::encodeTga`/`decodeTga` in ImageCodecTga.hpp — dependency-free encode/decode between
+  render::Image and the Truevision TGA byte format Godot's Image imports; encodes uncompressed
+  32-bit BGRA top-left-origin, decodes uncompressed 24/32-bit either origin, rejecting
+  colour-mapped/RLE/truncated blobs; unlike the runtime stb_image path this is pure CPU bytes,
+  verified by an exact header + round-trip, a hand-built bottom-up blob, 24-bit alpha-fill, and
+  malformed-input rejection); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
