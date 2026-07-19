@@ -1182,6 +1182,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **aggro / threat table** (M495, `game::AggroTable` — the bookkeeping behind "which target does this
+  enemy attack?" Every action a would-be target takes against the owner (`addThreat` from damage, healing an
+  ally, a taunt) accumulates threat keyed by an int source id, and the enemy attacks whoever holds the most.
+  Two touches make it feel right rather than naive: sticky aggro (a challenger must exceed the current
+  target's threat by a configurable switch threshold — default 110% — before it steals aggro, so the enemy
+  doesn't flip-flop target every hit) and `taunt`, which forces a target immediately and tops its threat up
+  to the current highest so it holds. Optional per-second `decay` bleeds threat back toward zero for
+  out-of-combat forgetting, and `removeSource` retargets when the current target dies or flees. Godot ships
+  no aggro/threat system — enemy targeting is hand-rolled every game — so this is a beyond-Godot gameplay
+  utility. Verified: an empty table reports no target; the first threat establishes the target; threat floors
+  at 0 on a large negative; a 105-vs-100 challenger is the raw leader yet aggro sticks to the incumbent until
+  it passes 110% (115); a 1.0 switch threshold flips immediately and sub-1.0 clamps to 1.0; taunt forces the
+  target and tops up its threat; equal threat breaks the tie to the lower id; removeSource retargets to the
+  next and empties cleanly; uniform decay preserves ordering, floors at 0, and is a no-op for non-positive dt
+  or a zero rate; and setThreat clamps while clear resets),
   **health component** (M494, `game::Health` — the hit-point pool behind health bars, death, and
   post-hit invulnerability frames. It holds current / max HP with `takeDamage` and `heal` both clamped
   (HP never drops below 0 or climbs above max) and each returning the amount actually applied, reports

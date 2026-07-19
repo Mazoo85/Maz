@@ -139,6 +139,7 @@
 #include "maz/game/ComboMeter.hpp"
 #include "maz/game/DayNightCycle.hpp"
 #include "maz/game/Health.hpp"
+#include "maz/game/AggroTable.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20235,6 +20236,140 @@ void testPolynomial() {
     }
 }
 
+void testAggroTable() {
+    using game::AggroTable;
+
+    // Empty table.
+    {
+        AggroTable a;
+        CHECK(a.isEmpty());
+        CHECK(a.sourceCount() == 0);
+        CHECK(a.currentTarget() == AggroTable::kNone);
+        CHECK(a.topThreatId() == AggroTable::kNone);
+        CHECK(a.topThreat() == 0.0);
+        CHECK(a.threatOf(7) == 0.0);
+        CHECK(!a.has(7));
+    }
+
+    // Accumulation + highest target established on first threat.
+    {
+        AggroTable a;
+        a.addThreat(1, 50.0);
+        a.addThreat(2, 30.0);
+        CHECK(a.threatOf(1) == 50.0);
+        CHECK(a.threatOf(2) == 30.0);
+        CHECK(a.sourceCount() == 2);
+        CHECK(a.has(1) && a.has(2));
+        CHECK(a.topThreatId() == 1);
+        CHECK(a.topThreat() == 50.0);
+        CHECK(a.currentTarget() == 1);
+    }
+
+    // Threat floors at 0 on a large negative.
+    {
+        AggroTable a;
+        a.addThreat(1, 20.0);
+        a.addThreat(1, -50.0);
+        CHECK(a.threatOf(1) == 0.0);
+    }
+
+    // Sticky aggro: a challenger must exceed 110% of the target to steal it.
+    {
+        AggroTable a;
+        a.addThreat(1, 100.0);
+        CHECK(a.currentTarget() == 1);
+        a.addThreat(2, 105.0);       // raw leader, but 105 <= 110
+        CHECK(a.topThreatId() == 2);
+        CHECK(a.currentTarget() == 1);
+        a.addThreat(2, 10.0);        // 115 > 110 -> steals
+        CHECK(a.currentTarget() == 2);
+    }
+
+    // Switch threshold configurable; 1.0 flips immediately; clamps to >= 1.
+    {
+        AggroTable a;
+        a.setSwitchThreshold(1.0);
+        CHECK(a.switchThreshold() == 1.0);
+        a.addThreat(1, 100.0);
+        a.addThreat(2, 101.0);
+        CHECK(a.currentTarget() == 2);
+        a.setSwitchThreshold(0.5);
+        CHECK(a.switchThreshold() == 1.0);
+    }
+
+    // Taunt forces the target and tops up its threat so it holds.
+    {
+        AggroTable a;
+        a.addThreat(1, 200.0);
+        a.addThreat(2, 10.0);
+        CHECK(a.currentTarget() == 1);
+        a.taunt(2);
+        CHECK(a.currentTarget() == 2);
+        CHECK(a.threatOf(2) == 200.0);
+        CHECK(a.currentTarget() == 2);
+    }
+
+    // Tie-break: equal threat -> lower id is the raw top.
+    {
+        AggroTable a;
+        a.addThreat(5, 40.0);
+        a.addThreat(3, 40.0);
+        CHECK(a.topThreatId() == 3);
+    }
+
+    // removeSource retargets when the current target leaves.
+    {
+        AggroTable a;
+        a.addThreat(1, 100.0);
+        a.addThreat(2, 40.0);
+        CHECK(a.currentTarget() == 1);
+        a.removeSource(1);
+        CHECK(!a.has(1));
+        CHECK(a.sourceCount() == 1);
+        CHECK(a.currentTarget() == 2);
+        a.removeSource(2);
+        CHECK(a.isEmpty());
+        CHECK(a.currentTarget() == AggroTable::kNone);
+        a.removeSource(99); // absent -> no-op
+    }
+
+    // Decay bleeds threat uniformly; ordering preserved; non-positive dt safe.
+    {
+        AggroTable a;
+        a.setDecayRate(10.0);
+        CHECK(a.decayRate() == 10.0);
+        a.addThreat(1, 100.0);
+        a.addThreat(2, 50.0);
+        a.update(1.0);
+        CHECK(a.threatOf(1) == 90.0);
+        CHECK(a.threatOf(2) == 40.0);
+        CHECK(a.currentTarget() == 1);
+        a.update(10.0);
+        CHECK(a.threatOf(1) == 0.0);
+        CHECK(a.threatOf(2) == 0.0);
+        a.update(0.0);
+        a.update(-1.0);
+        AggroTable b;
+        b.addThreat(1, 50.0);
+        b.update(5.0);         // no decay rate set
+        CHECK(b.threatOf(1) == 50.0);
+    }
+
+    // setThreat exact + clamp; clear resets.
+    {
+        AggroTable a;
+        a.setThreat(1, 75.0);
+        CHECK(a.threatOf(1) == 75.0);
+        a.setThreat(1, -5.0);
+        CHECK(a.threatOf(1) == 0.0);
+        a.setThreat(2, 200.0);
+        CHECK(a.currentTarget() == 2);
+        a.clear();
+        CHECK(a.isEmpty());
+        CHECK(a.currentTarget() == AggroTable::kNone);
+    }
+}
+
 void testHealth() {
     using game::Health;
 
@@ -31738,6 +31873,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testAggroTable();
     testHealth();
     testDayNightCycle();
     testComboMeter();
