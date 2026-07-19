@@ -199,7 +199,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   against strings with two occurrences and case-insensitive inputs;
   M355 adds validateNodeName — Godot String.validate_node_name: removes the six characters Godot
   forbids in SceneTree node names ('.', ':', '@', '/', '"', '%'), all other chars incl. spaces kept,
-  verified against mixed/clean/all-forbidden inputs; M356 adds posmodv (vec2/vec3) — Godot
+  verified against mixed/clean/all-forbidden inputs; M360 adds insert / erase — Godot String.insert /
+  String.erase: insert a substring at a byte index (negative pos unchanged, past-end clamps to append)
+  and remove N chars at a byte index (pos/count clamped, out-of-range removes nothing), round-trip
+  verified; M356 adds posmodv (vec2/vec3) — Godot
   Vector2/Vector3.posmodv: per-component positive modulo with a per-component modulus vector,
   complementing the scalar-modulus posmod, verified per-component incl. negative modulus sign;
   M357 adds Vector2i/Vector3i maxAxisIndex / minAxisIndex — Godot Vector2i/Vector3i.max_axis_index /

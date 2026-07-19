@@ -255,6 +255,28 @@ inline std::string replaceAll(const std::string& s, const std::string& from, con
     return out;
 }
 
+// Insert `what` at byte index `pos`, returning the new string — Godot's String.insert. A negative
+// `pos` leaves the string unchanged; a `pos` past the end clamps to the end (append).
+inline std::string insert(const std::string& s, long pos, const std::string& what) {
+    if (pos < 0) {
+        return s;
+    }
+    const std::size_t at = std::min(static_cast<std::size_t>(pos), s.size());
+    return s.substr(0, at) + what + s.substr(at);
+}
+
+// Remove `count` characters starting at byte index `pos`, returning the new string — Godot's
+// String.erase. `pos` is clamped to [0, size] and `count` to what remains, so out-of-range requests
+// simply remove nothing past the end; a negative `pos` or `count` removes nothing.
+inline std::string erase(const std::string& s, long pos, long count) {
+    if (pos < 0 || count <= 0 || static_cast<std::size_t>(pos) >= s.size()) {
+        return s;
+    }
+    const std::size_t at = static_cast<std::size_t>(pos);
+    const std::size_t n = std::min(static_cast<std::size_t>(count), s.size() - at);
+    return s.substr(0, at) + s.substr(at + n);
+}
+
 // Strip the characters Godot forbids in a SceneTree node name — '.', ':', '@', '/', '"', '%'
 // (Godot's String.validate_node_name). Each forbidden character is REMOVED (not replaced), matching
 // Godot exactly; all other characters, including spaces, are preserved.

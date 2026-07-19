@@ -11707,6 +11707,14 @@ void testStringUtils() {
     CHECK((su::validateNodeName("/root/Main.tscn") == "rootMaintscn"));
     CHECK((su::validateNodeName("A-B_C (2)") == "A-B_C (2)")); // allowed punctuation kept
 
+    // --- M360: insert / erase (Godot String.insert / String.erase) ---
+    CHECK((su::insert("Helloworld", 5, " ") == "Hello world"));
+    CHECK((su::insert("ab", 99, "c") == "abc" && su::insert("ab", -1, "c") == "ab"));
+    CHECK((su::erase("Hello world", 5, 1) == "Helloworld"));
+    CHECK((su::erase("abcdef", 3, 100) == "abc")); // count clamps to what remains
+    CHECK((su::erase("abc", 5, 2) == "abc" && su::erase("abc", 1, -5) == "abc"));
+    CHECK((su::erase(su::insert("abc", 1, "XY"), 1, 2) == "abc")); // round-trip
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");
