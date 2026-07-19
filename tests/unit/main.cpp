@@ -11643,6 +11643,15 @@ void testStringUtils() {
     CHECK(su::trimSuffix("sprite.jpg", ".png") == "sprite.jpg"); // unchanged
     CHECK(su::trimSuffix(su::trimPrefix("user://save.dat", "user://"), ".dat") == "save");
 
+    // --- M345: indent / dedent ---
+    CHECK(su::indent("a\nb", "  ") == "  a\n  b");
+    CHECK(su::indent("a\n\nb", "  ") == "  a\n\n  b"); // empty line untouched
+    CHECK(su::indent("a\n", "> ") == "> a\n");
+    CHECK(su::dedent("    hello\n    world") == "hello\nworld");
+    CHECK(su::dedent("    a\n        b") == "a\nb"); // strips all per-line, not common
+    CHECK(su::dedent("\ttab\n  spaces") == "tab\nspaces");
+    CHECK(su::dedent(su::indent("line1\nline2", "    ")) == "line1\nline2");
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

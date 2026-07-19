@@ -77,6 +77,42 @@ inline std::string trimSuffix(const std::string& s, const std::string& suffix) {
     return endsWith(s, suffix) ? s.substr(0, s.size() - suffix.size()) : s;
 }
 
+// Prepend `prefix` to every NON-EMPTY line — Godot's String.indent. Truly empty (zero-length) lines
+// are left untouched; whitespace-only lines are still prefixed (matching Godot exactly).
+inline std::string indent(const std::string& s, const std::string& prefix) {
+    const std::vector<std::string> lines = split(s, "\n", true);
+    std::string out;
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (i != 0) {
+            out += '\n';
+        }
+        if (!lines[i].empty()) {
+            out += prefix;
+        }
+        out += lines[i];
+    }
+    return out;
+}
+
+// Strip the leading spaces/tabs from EVERY line independently — Godot's String.dedent. Note Godot
+// removes ALL leading whitespace per line (not just the common minimum), so mixed indent collapses.
+inline std::string dedent(const std::string& s) {
+    const std::vector<std::string> lines = split(s, "\n", true);
+    std::string out;
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (i != 0) {
+            out += '\n';
+        }
+        const std::string& ln = lines[i];
+        std::size_t j = 0;
+        while (j < ln.size() && (ln[j] == ' ' || ln[j] == '\t')) {
+            ++j;
+        }
+        out += ln.substr(j);
+    }
+    return out;
+}
+
 // Strip leading/trailing ASCII whitespace (Godot strip_edges).
 inline std::string lstrip(const std::string& s) {
     std::size_t b = 0;

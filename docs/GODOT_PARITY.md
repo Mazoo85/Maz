@@ -173,7 +173,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   all verified against valid + malformed inputs)
   (M344 adds trimPrefix / trimSuffix — Godot String.trim_prefix / trim_suffix: strip a prefix or
   suffix ONLY when it is actually present (returns the string unchanged otherwise), verified on
-  res://user:// scheme + extension stripping and no-op cases),
+  res://user:// scheme + extension stripping and no-op cases)
+  (M345 adds indent / dedent — Godot String.indent (prefix every non-empty line, leaving truly empty
+  lines alone) and String.dedent (strip ALL leading spaces/tabs per line, Godot's per-line rule, not
+  the common-minimum), verified incl. an indent→dedent round-trip),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot
