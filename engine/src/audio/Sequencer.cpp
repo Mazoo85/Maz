@@ -332,7 +332,7 @@ void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attac
 
 void Sequencer::setArp(bool on, int mode) {
     arpOn_ = on;
-    arpMode_ = (mode < 0 || mode > 5) ? 0 : mode; // 0..5 (5 = chord)
+    arpMode_ = (mode < 0 || mode > 6) ? 0 : mode; // 0..6 (5 = chord, 6 = down-up)
     arpCounter_ = 0;
     arpRng_ = 0x1234567u;
 }
@@ -703,6 +703,10 @@ void Sequencer::triggerStep(int step) {
                     arpRng_ ^= arpRng_ >> 17;
                     arpRng_ ^= arpRng_ << 5;
                     index = static_cast<int>(arpRng_ % static_cast<uint32_t>(n));
+                } else if (arpMode_ == 6 && n > 1) { // down-up (high→low→high; mirror of up-down)
+                    const int period = 2 * n - 2;
+                    const int pos = arpCounter_ % period;
+                    index = (n - 1) - (pos < n ? pos : period - pos);
                 } else { // up (0) or as-played (4)
                     index = arpCounter_ % n;
                 }

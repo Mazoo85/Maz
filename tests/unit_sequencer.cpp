@@ -876,6 +876,24 @@ int main() {
         down.play();
         check(down.arpCurrentPitch() == 67, "arp-down starts from the highest note");
 
+        // Down-Up mode (6): high → low → back up (the mirror of up-down).
+        audio::Sequencer du;
+        du.setBpm(120.0);
+        du.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        du.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        du.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        du.setArp(true, 6);
+        du.play();
+        check(du.arpCurrentPitch() == 67, "down-up arp starts from the highest note");
+        (void)renderMono(du, 6000, sampleRate);
+        check(du.arpCurrentPitch() == 64, "down-up arp descends to the middle note");
+        (void)renderMono(du, 6000, sampleRate);
+        check(du.arpCurrentPitch() == 60, "down-up arp reaches the lowest note");
+        (void)renderMono(du, 6000, sampleRate);
+        check(du.arpCurrentPitch() == 64, "down-up arp turns back up to the middle");
+        (void)renderMono(du, 6000, sampleRate);
+        check(du.arpCurrentPitch() == 67, "down-up arp returns to the top");
+
         // Octave range: one held C4 with a 2-octave arp cycles C4 → C5 → C4.
         audio::Sequencer oct;
         oct.setBpm(120.0);
