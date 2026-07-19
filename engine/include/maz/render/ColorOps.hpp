@@ -243,6 +243,13 @@ inline Color color8(int r, int g, int b, int a = 255) {
                  static_cast<float>(b) / 255.0f, static_cast<float>(a) / 255.0f};
 }
 
+// Individual 0..255 channel values — Godot's Color.get_r8 / g8 / b8 / a8. Each is the [0,1] channel
+// rounded to the nearest byte (clamped to 0..255, matching the engine's channel packing).
+inline int r8(const Color& c) { return static_cast<int>(detail::to255(c.r)); }
+inline int g8(const Color& c) { return static_cast<int>(detail::to255(c.g)); }
+inline int b8(const Color& c) { return static_cast<int>(detail::to255(c.b)); }
+inline int a8(const Color& c) { return static_cast<int>(detail::to255(c.a)); }
+
 // Pack to a 64-bit integer with 16 bits per channel, RGBA order (red in the highest word) — Godot's
 // Color.to_rgba64. Each channel is quantised to 0..65535, giving high-bit-depth round-tripping.
 inline std::uint64_t toRgba64(const Color& c) {

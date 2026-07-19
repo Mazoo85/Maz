@@ -144,7 +144,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (get_endpoint), verified against known corners and containment; M339 adds `isEqualApprox`
   (position + size approx) and `isFinite` — Godot AABB.is_equal_approx / is_finite, verified against
   nudged/differing boxes and a NaN component); **Color completeness** M273 (`render::blend` alpha compositing, `clampColor`,
-  `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`; M331
+  `isEqualApprox`, 32-bit pack/unpack `toRgba32`/`toArgb32`/`toAbgr32`/`fromRgba32`, `color8`,
+  and M370 `r8`/`g8`/`b8`/`a8` 0..255 channel accessors (Godot Color.get_r8..a8, round+clamp per
+  channel, verified incl. out-of-range clamp and color8 round-trip); M331
   adds 64-bit (16-bit-per-channel) `toRgba64`/`fromRgba64` — Godot's Color.to_rgba64 / Color.hex64
   for high-bit-depth packing, verified by known values, clamping, and a round-trip that preserves a
   fine difference 8-bit would collapse; plus

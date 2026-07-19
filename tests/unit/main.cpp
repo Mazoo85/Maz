@@ -959,6 +959,11 @@ void testColorOps() {
                                Color{0.25f, 0.5f, 0.75f, 1.0f}, 1.0f / 255.0f + 1e-4f));
     // Color8 from byte channels.
     CHECK_NEAR(render::color8(255, 128, 0, 255).g, 128.0f / 255.0f, 1e-4f);
+    // M370: r8/g8/b8/a8 channel accessors (Godot Color.get_r8..a8)
+    CHECK((render::r8(Color{1, 0, 0, 1}) == 255 && render::g8(Color{1, 0, 0, 1}) == 0));
+    CHECK((render::r8(Color{0.5f, 0.25f, 0.75f, 0}) == 128 && render::b8(Color{0.5f, 0.25f, 0.75f, 0}) == 191));
+    CHECK((render::r8(Color{1.5f, -0.3f, 0, 2}) == 255 && render::g8(Color{1.5f, -0.3f, 0, 2}) == 0)); // clamp
+    CHECK((render::a8(render::color8(10, 20, 30, 40)) == 40 && render::b8(render::color8(10, 20, 30, 40)) == 30));
 
     // M331: 64-bit (16-bit-per-channel) packing — Godot Color.hex64 / to_rgba64.
     CHECK(render::toRgba64(Color{1, 1, 1, 1}) == 0xFFFFFFFFFFFFFFFFULL);
