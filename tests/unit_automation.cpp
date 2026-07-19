@@ -270,6 +270,25 @@ int main() {
               "rotary-rate automation drops back to chorale speed");
     }
 
+    // --- Delay-time target (tape-warp echoes) --------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& dt = autom.lane(audio::AutoTarget::DelayTime);
+        dt.enabled = true;
+        dt.lfo.shape = audio::Waveform::Sine;
+        dt.lfo.rateHz = 1.0f;
+        dt.lo = 40.0f;
+        dt.hi = 400.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().delay().enabled() && eng.mixer().delay().time() > 380.0f,
+              "automating delay time sweeps (and enables) the echo time up");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().delay().time() < 60.0f,
+              "delay-time automation reaches its short bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

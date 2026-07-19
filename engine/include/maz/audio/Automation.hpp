@@ -43,6 +43,7 @@ enum class AutoTarget {
     ReverbDamping,
     FreqShift,
     RotaryRate,
+    DelayTime,
     Count
 };
 

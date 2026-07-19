@@ -485,6 +485,12 @@ int main() {
     rrLane.lfo.rateHz = 0.1f;
     rrLane.lo = 0.8f;
     rrLane.hi = 6.5f;
+    audio::AutoLane& dtLane = automation.lane(audio::AutoTarget::DelayTime);
+    dtLane.enabled = true;
+    dtLane.lfo.shape = audio::Waveform::Saw;
+    dtLane.lfo.rateHz = 0.25f;
+    dtLane.lo = 60.0f;
+    dtLane.hi = 350.0f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -913,6 +919,10 @@ int main() {
     check(rr2.enabled && rr2.lfo.shape == audio::Waveform::Triangle && near(rr2.lo, 0.8f) &&
               near(rr2.hi, 6.5f),
           "rotary-rate automation lane round-trips");
+    const audio::AutoLane& dt2 = automation2.lane(audio::AutoTarget::DelayTime);
+    check(dt2.enabled && dt2.lfo.shape == audio::Waveform::Saw && near(dt2.lo, 60.0f) &&
+              near(dt2.hi, 350.0f),
+          "delay-time automation lane round-trips");
 
     // Pluck (Karplus-Strong) engine mode round-trips (the new SynthMode index).
     {
