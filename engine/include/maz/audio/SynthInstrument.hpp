@@ -6,13 +6,14 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 namespace maz::audio {
 
 // The synth's sound-generation engine: classic subtractive (an oscillator waveform), 2-operator FM
 // (a modulator oscillator bends a sine carrier for metallic/bell/electric-piano timbres), or
 // Wavetable (a morphing single-cycle table scanned by a position that the envelope can sweep).
-enum class SynthMode { Subtractive, FM, Wavetable };
+enum class SynthMode { Subtractive, FM, Wavetable, Pluck };
 
 // A small polyphonic synth: a fixed pool of voices, each with an ADSR amplitude envelope, keyed by
 // MIDI note number. noteOn/noteOff drive it like a keyboard; render() ADDS the summed voices into
@@ -383,6 +384,9 @@ private:
         Stage filtStage = Stage::Off; // dedicated filter-envelope stage
         float filtEnv = 0.0f;         // dedicated filter-envelope level
         StateVariableFilter filter{};
+        std::vector<float> ksBuf;  // Karplus-Strong delay line (Pluck mode); sized to one period
+        int ksPtr = 0;             // KS delay-line read/write index
+        bool ksInit = false;       // fill the KS line with noise on the first Pluck render sample
     };
 
     SynthMode mode_ = SynthMode::Subtractive;

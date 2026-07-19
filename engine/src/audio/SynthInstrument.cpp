@@ -132,6 +132,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.filtStage = Stage::Attack;
     v.filtEnv = 0.0f;
     v.filter.reset();
+    v.ksInit = true; // (Pluck mode) re-excite the string on the next render sample
 }
 
 void SynthInstrument::noteOff(int midi) {
@@ -326,6 +327,34 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     pos += wtLfoDepth_ * lfoU;
                 }
                 osc = wavetable_.sample(pos, v.phase);
+            } else if (mode_ == SynthMode::Pluck) {
+                // Karplus-Strong plucked string: a one-period delay line excited with a noise burst
+                // on note-on, then repeatedly averaged with its neighbour (a one-zero low-pass) so the
+                // burst decays into a warm, string-like pluck whose pitch is set by the line length.
+                if (v.ksInit) {
+                    int n = static_cast<int>(std::lround(static_cast<double>(sampleRate) /
+                                                         std::max(20.0f, v.targetFreq)));
+                    if (n < 2) {
+                        n = 2;
+                    }
+                    v.ksBuf.assign(static_cast<size_t>(n), 0.0f);
+                    for (int k = 0; k < n; ++k) {
+                        v.rng ^= v.rng << 13;
+                        v.rng ^= v.rng >> 17;
+                        v.rng ^= v.rng << 5;
+                        v.ksBuf[static_cast<size_t>(k)] =
+                            static_cast<float>(v.rng) / 2147483648.0f - 1.0f;
+                    }
+                    v.ksPtr = 0;
+                    v.ksInit = false;
+                }
+                const int n = static_cast<int>(v.ksBuf.size());
+                const int cur = v.ksPtr;
+                const int nxt = (cur + 1) % n;
+                osc = v.ksBuf[static_cast<size_t>(cur)];
+                v.ksBuf[static_cast<size_t>(cur)] =
+                    0.5f * (v.ksBuf[static_cast<size_t>(cur)] + v.ksBuf[static_cast<size_t>(nxt)]);
+                v.ksPtr = nxt;
             } else {
                 // Pulse-width, optionally swept by the PWM LFO (square-wave duty movement).
                 float pw = pulseWidth_;

@@ -841,6 +841,22 @@ int main() {
               near(rm2.hi, 1200.0f),
           "ring-mod-frequency automation lane round-trips");
 
+    // Pluck (Karplus-Strong) engine mode round-trips (the new SynthMode index).
+    {
+        audio::Sequencer pseq;
+        audio::Mixer pmix;
+        audio::Automation paut;
+        pseq.synth().setMode(audio::SynthMode::Pluck);
+        const std::string ppath = "unit_project_pluck.cjc";
+        check(audio::saveProject(ppath, pseq, pmix, paut, &err), "saveProject (pluck) succeeds");
+        audio::Sequencer pseq2;
+        audio::Mixer pmix2;
+        audio::Automation paut2;
+        check(audio::loadProject(ppath, pseq2, pmix2, paut2, &err), "loadProject (pluck) succeeds");
+        check(pseq2.synth().mode() == audio::SynthMode::Pluck,
+              "pluck engine mode round-trips");
+    }
+
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
     audio::Mixer mixer3;

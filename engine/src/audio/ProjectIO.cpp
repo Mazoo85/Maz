@@ -18,7 +18,8 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
           gain = 0.28f;
     ls >> mode >> wave >> atk >> dec >> sus >> rel >> ratio >> index >> gain;
     syn.setMode(mode == 1 ? SynthMode::FM
-                          : (mode == 2 ? SynthMode::Wavetable : SynthMode::Subtractive));
+                          : (mode == 2 ? SynthMode::Wavetable
+                                       : (mode == 3 ? SynthMode::Pluck : SynthMode::Subtractive)));
     syn.setWaveform(static_cast<Waveform>(wave < 0 || wave > 5 ? 0 : wave));
     syn.setEnvelope(atk, dec, sus, rel);
     syn.setFmRatio(ratio);

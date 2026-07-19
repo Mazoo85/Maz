@@ -1965,6 +1965,41 @@ int main() {
     quiet.render(nothing.data(), 6000, sampleRate);
     check(rms(nothing) == 0.0, "empty pattern renders silence");
 
+    // --- Karplus-Strong pluck mode: a decaying string tone at the note pitch ------
+    {
+        audio::SynthInstrument s;
+        s.setMode(audio::SynthMode::Pluck);
+        s.setEnvelope(0.001f, 0.05f, 1.0f, 0.1f); // hold at full so the string's own decay dominates
+        s.noteOn(69, 1.0f);                        // A4 = 440 Hz
+        const std::vector<float> w1 = render(s, sampleRate / 4, sampleRate); // 0-0.25 s (attack)
+        const std::vector<float> w2 = render(s, sampleRate / 4, sampleRate); // 0.25-0.5 s (settled)
+        check(rms(w1) > 0.0, "pluck mode produces sound");
+        // Pitch via autocorrelation (robust to the pluck's rich harmonics, unlike zero-crossing):
+        // the lag in [300, 600] Hz that maximises self-similarity is the fundamental period.
+        auto acHz = [](const std::vector<float>& b, int sr, int loHz, int hiHz) {
+            const int minLag = sr / hiHz, maxLag = sr / loHz;
+            double best = -1e30;
+            int bestLag = minLag;
+            for (int lag = minLag; lag <= maxLag; ++lag) {
+                double acc = 0.0;
+                for (size_t i = static_cast<size_t>(lag); i < b.size(); ++i) {
+                    acc += static_cast<double>(b[i]) * static_cast<double>(b[i - static_cast<size_t>(lag)]);
+                }
+                if (acc > best) {
+                    best = acc;
+                    bestLag = lag;
+                }
+            }
+            return static_cast<double>(sr) / bestLag;
+        };
+        check(std::fabs(acHz(w2, sampleRate, 300, 600) - 440.0) < 15.0,
+              "pluck rings at the note pitch (~440 Hz)");
+        // Karplus-Strong low-pass feedback bleeds energy away: the tail is quieter than the attack.
+        check(rms(w2) < rms(w1) * 0.9, "pluck decays over time (Karplus-Strong string damping)");
+        check(audio::SynthInstrument().mode() == audio::SynthMode::Subtractive,
+              "synth engine mode defaults to subtractive (not pluck)");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

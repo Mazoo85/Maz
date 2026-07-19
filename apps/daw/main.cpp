@@ -899,8 +899,8 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::Separator();
 
     int mode = static_cast<int>(syn.mode());
-    const char* modes[] = {"Subtractive", "FM", "Wavetable"};
-    if (ImGui::Combo("Engine", &mode, modes, 3)) {
+    const char* modes[] = {"Subtractive", "FM", "Wavetable", "Pluck"};
+    if (ImGui::Combo("Engine", &mode, modes, IM_ARRAYSIZE(modes))) {
         syn.setMode(static_cast<audio::SynthMode>(mode));
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
