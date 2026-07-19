@@ -305,6 +305,12 @@ int main() {
     mixer.reverseDelay().setTimeMs(420.0f);
     mixer.reverseDelay().setFeedback(0.5f);
     mixer.reverseDelay().setMix(0.4f);
+    mixer.multiTapDelay().setEnabled(true);
+    mixer.multiTapDelay().setTimeMs(180.0f);
+    mixer.multiTapDelay().setTaps(4);
+    mixer.multiTapDelay().setDecay(0.55f);
+    mixer.multiTapDelay().setMix(0.45f);
+    mixer.multiTapDelay().setSpread(0.6f);
     mixer.formant().setEnabled(true);
     mixer.formant().setVowel(audio::FormantFilter::Vowel::E);
     mixer.formant().setMix(0.6f);
@@ -899,6 +905,10 @@ int main() {
               near(mixer2.stereoDelay().feedbackLowCut(), 180.0f) &&
               mixer2.stereoDelay().pingPong(),
           "stereo delay round-trips");
+    check(mixer2.multiTapDelay().enabled() && near(mixer2.multiTapDelay().timeMs(), 180.0f) &&
+              mixer2.multiTapDelay().taps() == 4 && near(mixer2.multiTapDelay().decay(), 0.55f) &&
+              near(mixer2.multiTapDelay().mix(), 0.45f) && near(mixer2.multiTapDelay().spread(), 0.6f),
+          "multi-tap delay round-trips");
     check(mixer2.reverseDelay().enabled() && near(mixer2.reverseDelay().timeMs(), 420.0f) &&
               near(mixer2.reverseDelay().feedback(), 0.5f) && near(mixer2.reverseDelay().mix(), 0.4f),
           "reverse delay round-trips");

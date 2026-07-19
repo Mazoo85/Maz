@@ -1337,6 +1337,42 @@ private:
     int sizedFor_ = 0;   // sampleRate the buffers were built for
 };
 
+// A multi-tap delay (Fruity Delay Bank-style): one input burst produces a rhythmic cluster of up to
+// `kMaxTaps` echoes at successive multiples of the base time, each quieter than the last (by `decay`)
+// and panned alternately left/right so the pattern bounces across the stereo field. Unlike the
+// feedback delays this is a finite, shaped echo pattern (dotted/triplet cascades, rhythmic throws),
+// not a self-repeating tail. `mix` sets dry/wet.
+class MultiTapDelay : public Effect {
+public:
+    static constexpr int kMaxTaps = 6;
+    MultiTapDelay() { enabled_ = false; }
+    const char* name() const override { return "Multi-Tap Delay"; }
+    void setTimeMs(float ms) { timeMs_ = ms < 10.0f ? 10.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    void setTaps(int n) { taps_ = n < 1 ? 1 : (n > kMaxTaps ? kMaxTaps : n); }
+    void setDecay(float d) { decay_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Stereo spread (0..1): how hard successive taps pan alternately L/R. 0 = centred (mono taps).
+    void setSpread(float s) { spread_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    float timeMs() const { return timeMs_; }
+    int taps() const { return taps_; }
+    float decay() const { return decay_; }
+    float mix() const { return mix_; }
+    float spread() const { return spread_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float timeMs_ = 250.0f;
+    int taps_ = 3;
+    float decay_ = 0.6f;
+    float mix_ = 0.35f;
+    float spread_ = 0.8f;
+    std::vector<float> bufL_, bufR_; // circular delay lines (sized to kMaxTaps * max time)
+    int writePos_ = 0;
+    int sizedFor_ = 0;
+};
+
 // A formant (vowel) filter: two resonant band-pass filters tuned to the first two formants of a
 // chosen vowel (A/E/I/O/U), summed and blended with the dry signal — imposes a vocal "aah/eee/…"
 // colour on whatever passes through (talkbox/robot-voice character). `mix` sets dry/wet.

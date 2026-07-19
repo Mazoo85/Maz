@@ -76,6 +76,7 @@ public:
     Tremolo& tremolo() { return tremolo_; }
     StereoDelay& stereoDelay() { return stereoDelay_; }
     ReverseDelay& reverseDelay() { return revdelay_; }
+    MultiTapDelay& multiTapDelay() { return multitap_; }
     FormantFilter& formant() { return formant_; }
     Vocoder& vocoder() { return vocoder_; }
     MonoBass& monobass() { return monobass_; }
@@ -172,6 +173,7 @@ private:
     Tremolo tremolo_{};
     StereoDelay stereoDelay_{};
     ReverseDelay revdelay_{};
+    MultiTapDelay multitap_{};
     FormantFilter formant_{};
     Vocoder vocoder_{};
     MonoBass monobass_{};

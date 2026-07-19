@@ -65,6 +65,7 @@ fx tremolo 0 5 0.5 0 0 3
 fx stepgate 0 2 0 5 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
 fx stereodelay 0 250 375 0.4 0.3 0 4 5 0 0 0
 fx revdelay 0 300 0.3 0.35
+fx multitap 0 250 3 0.6 0.35 0.8
 fx formant 0 0 0.5 0 0
 fx vocoder 0 0 110 40 1
 fx tape 0 2 0.3 1 0
@@ -111,3 +112,6 @@ auto 30 0 0 0.5 40 400 0 2 0
 auto 31 0 0 0.5 0 1 0 2 0
 auto 32 0 0 0.5 200 12000 0 2 0
 auto 33 0 0 0.5 0.7 15 0 2 0
+auto 34 0 0 0.5 0 1 0 2 0
+auto 35 0 0 0.5 0.05 4 0 2 0
+auto 36 0 0 0.5 0.05 4 0 2 0

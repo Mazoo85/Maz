@@ -541,6 +541,10 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx revdelay " << (mixer.reverseDelay().enabled() ? 1 : 0) << " "
       << mixer.reverseDelay().timeMs() << " " << mixer.reverseDelay().feedback() << " "
       << mixer.reverseDelay().mix() << "\n";
+    f << "fx multitap " << (mixer.multiTapDelay().enabled() ? 1 : 0) << " "
+      << mixer.multiTapDelay().timeMs() << " " << mixer.multiTapDelay().taps() << " "
+      << mixer.multiTapDelay().decay() << " " << mixer.multiTapDelay().mix() << " "
+      << mixer.multiTapDelay().spread() << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
       << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << "\n";
@@ -1298,6 +1302,17 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.reverseDelay().setTimeMs(tms);
                 mixer.reverseDelay().setFeedback(fb);
                 mixer.reverseDelay().setMix(mix);
+            } else if (which == "multitap") {
+                float tms = 250.0f, decay = 0.6f, mix = 0.35f, spread = 0.8f;
+                int taps = 3;
+                ls >> tms >> taps >> decay >> mix >> spread;
+                auto& mt = mixer.multiTapDelay();
+                mt.setEnabled(en != 0);
+                mt.setTimeMs(tms);
+                mt.setTaps(taps);
+                mt.setDecay(decay);
+                mt.setMix(mix);
+                mt.setSpread(spread);
             } else if (which == "formant") {
                 int vowel = 0;
                 float mix = 0.5f;

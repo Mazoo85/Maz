@@ -239,6 +239,44 @@ int main() {
               "reverse delay defaults to off at a 300 ms chunk");
     }
 
+    // --- Multi-tap delay: a burst of echoes at successive tap times ----------
+    {
+        audio::MultiTapDelay mt;
+        mt.setEnabled(true);
+        mt.setTimeMs(100.0f); // base = 100 ms → 4800 frames
+        mt.setTaps(3);
+        mt.setDecay(0.5f);
+        mt.setSpread(1.0f); // hard alternating pan
+        mt.setMix(1.0f);    // fully wet
+        const int base = sr / 10; // 4800
+        std::vector<float> buf(static_cast<size_t>(sr) / 2 * 2, 0.0f); // 0.5 s
+        buf[0] = 1.0f;
+        buf[1] = 1.0f;
+        mt.process(buf.data(), sr / 2, sr);
+        auto peakAt = [&](int frame, int ch) {
+            float p = 0.0f;
+            for (int i = frame - 40; i <= frame + 40; ++i)
+                if (i >= 0) p = std::max(p, std::fabs(buf[static_cast<size_t>(i) * 2 + ch]));
+            return p;
+        };
+        // Tap 1 at 1×base (left-biased), tap 2 at 2×base (right-biased), tap 3 at 3×base (left).
+        check(peakAt(base, 0) > 0.3f, "multi-tap: first echo lands at the base time");
+        // Tap 2 is panned hard right, so it shows on the right channel.
+        check(peakAt(2 * base, 1) > 0.05f, "multi-tap: second echo lands at 2× the base time");
+        check(peakAt(2 * base, 1) < peakAt(base, 0), "multi-tap: successive taps decay");
+        // Alternating pan: tap 1 leans left, tap 2 leans right.
+        check(peakAt(base, 0) > peakAt(base, 1) * 2.0f, "multi-tap: the first tap pans left");
+        check(peakAt(2 * base, 1) > peakAt(2 * base, 0) * 2.0f, "multi-tap: the second tap pans right");
+        // Disabled → transparent; defaults.
+        audio::MultiTapDelay off;
+        std::vector<float> q = sineStereo(sr / 4, 300.0, 0.5, sr);
+        const std::vector<float> ref = q;
+        off.process(q.data(), sr / 4, sr);
+        check(q == ref, "a disabled multi-tap delay is transparent");
+        check(!audio::MultiTapDelay().enabled() && audio::MultiTapDelay().taps() == 3,
+              "multi-tap delay defaults to off with 3 taps");
+    }
+
     // --- Ping-pong delay: echoes of a left-only impulse bounce L → R → L ------
     {
         audio::Delay pp;

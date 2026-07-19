@@ -64,6 +64,7 @@ Mixer::Mixer() {
     stepgate_.setEnabled(false);
     stereoDelay_.setEnabled(false);
     revdelay_.setEnabled(false);
+    multitap_.setEnabled(false);
     formant_.setEnabled(false);
     vocoder_.setEnabled(false);
     monobass_.setEnabled(false);
@@ -78,7 +79,7 @@ Mixer::Mixer() {
     chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &filter_,   &dist_,
               &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &mbtransient_, &deEsser_, &dyneq_, &chorus_,
               &vibrato_,  &rotary_,   &flanger_,  &phaser_,   &autowah_,  &formant_,   &vocoder_,  &comb_,        &chordres_, &tremolo_,  &stepgate_, &delay_,
-              &stereoDelay_, &revdelay_, &reverb_, &widener_, &imager_, &mbsat_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
+              &stereoDelay_, &revdelay_, &multitap_, &reverb_, &widener_, &imager_, &mbsat_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
               &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};
 
     // The return buses are always "enabled" and fully wet — the send level (0 by default) gates how

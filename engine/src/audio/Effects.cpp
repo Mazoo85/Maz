@@ -2163,6 +2163,67 @@ void ReverseDelay::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- MultiTapDelay ----------------------------------------------------------
+
+void MultiTapDelay::reset() {
+    std::fill(bufL_.begin(), bufL_.end(), 0.0f);
+    std::fill(bufR_.begin(), bufR_.end(), 0.0f);
+    writePos_ = 0;
+}
+
+void MultiTapDelay::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    // The line must hold the longest tap (kMaxTaps × the max base time of 1 s).
+    const int maxLen = sampleRate * kMaxTaps + 4;
+    if (sizedFor_ != sampleRate || static_cast<int>(bufL_.size()) != maxLen) {
+        sizedFor_ = sampleRate;
+        bufL_.assign(static_cast<size_t>(maxLen), 0.0f);
+        bufR_.assign(static_cast<size_t>(maxLen), 0.0f);
+        writePos_ = 0;
+    }
+    const int baseD = static_cast<int>(timeMs_ * 0.001f * static_cast<float>(sampleRate));
+    // Precompute each tap's delay + equal-power L/R gains (alternating pan, decaying level).
+    int tapDelay[kMaxTaps];
+    float gL[kMaxTaps], gR[kMaxTaps];
+    for (int k = 0; k < taps_; ++k) {
+        int d = baseD * (k + 1);
+        if (d >= maxLen) {
+            d = maxLen - 1;
+        }
+        tapDelay[k] = d;
+        const float lvl = std::pow(decay_, static_cast<float>(k)); // tap 0 = full, then decays
+        // Alternate the pan L/R/L/… by `spread`; even taps lean left, odd taps right.
+        const float pan = (k % 2 == 0 ? -1.0f : 1.0f) * spread_;
+        const float angle = (pan + 1.0f) * 0.5f * 1.57079632679f;
+        gL[k] = std::cos(angle) * lvl;
+        gR[k] = std::sin(angle) * lvl;
+    }
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        bufL_[static_cast<size_t>(writePos_)] = l;
+        bufR_[static_cast<size_t>(writePos_)] = r;
+        float wetL = 0.0f, wetR = 0.0f;
+        for (int k = 0; k < taps_; ++k) {
+            int rp = writePos_ - tapDelay[k];
+            if (rp < 0) {
+                rp += maxLen;
+            }
+            // Feed each tap from the mono sum so its alternating pan is clean.
+            const float s = 0.5f * (bufL_[static_cast<size_t>(rp)] + bufR_[static_cast<size_t>(rp)]);
+            wetL += s * gL[k];
+            wetR += s * gR[k];
+        }
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
+        if (++writePos_ >= maxLen) {
+            writePos_ = 0;
+        }
+    }
+}
+
 // ---- FormantFilter ----------------------------------------------------------
 
 void FormantFilter::reset() {

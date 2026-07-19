@@ -2407,6 +2407,30 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("mix##rd", &mix, 0.0f, 1.0f, "%.2f")) rd.setMix(mix);
     }
     {
+        auto& mt = mx.multiTapDelay();
+        bool en = mt.enabled();
+        if (ImGui::Checkbox("Multi-Tap Delay", &en)) mt.setEnabled(en);
+        float t = mt.timeMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("time##mt", &t, 10.0f, 1000.0f, "%.0f ms")) mt.setTimeMs(t);
+        int taps = mt.taps();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderInt("taps##mt", &taps, 1, audio::MultiTapDelay::kMaxTaps)) mt.setTaps(taps);
+        float decay = mt.decay();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("decay##mt", &decay, 0.0f, 1.0f, "%.2f")) mt.setDecay(decay);
+        float spread = mt.spread();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("spread##mt", &spread, 0.0f, 1.0f, "%.2f")) mt.setSpread(spread);
+        float mmix = mt.mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mix##mt", &mmix, 0.0f, 1.0f, "%.2f")) mt.setMix(mmix);
+    }
+    {
         bool en = mx.formant().enabled();
         if (ImGui::Checkbox("Formant", &en)) mx.formant().setEnabled(en);
         int vowel = static_cast<int>(mx.formant().vowel());
