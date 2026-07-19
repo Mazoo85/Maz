@@ -562,7 +562,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         const AutoLane& lane = automation.lane(i);
         f << "auto " << i << " " << (lane.enabled ? 1 : 0) << " "
           << static_cast<int>(lane.lfo.shape) << " " << lane.lfo.rateHz << " " << lane.lo << " "
-          << lane.hi << " " << (lane.sync ? 1 : 0) << " " << lane.syncDiv << "\n";
+          << lane.hi << " " << (lane.sync ? 1 : 0) << " " << lane.syncDiv << " "
+          << (lane.lfo.sampleHold ? 1 : 0) << "\n";
         // Automation clip (breakpoints): only written when the lane has one.
         if (!lane.clip.empty()) {
             f << "autoclip " << i << " " << lane.clipLength << " " << lane.clip.size();
@@ -1579,6 +1580,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     lane.sync = sync != 0;
                     lane.syncDiv = div;
+                }
+                int sh = 0; // sample & hold optional for old files (0 = periodic shape)
+                if (ls >> sh) {
+                    lane.lfo.sampleHold = sh != 0;
                 }
             }
         } else if (tag == "autoclip") {

@@ -437,6 +437,7 @@ int main() {
     leadVolLane.lfo.rateHz = 0.8f;
     leadVolLane.lo = 0.2f;
     leadVolLane.hi = 0.95f;
+    leadVolLane.lfo.sampleHold = true; // random stepped LFO on this lane
     // An aux-send lane (reverb send) — another later-appended target.
     audio::AutoLane& sendLane = automation.lane(audio::AutoTarget::ReverbSend);
     sendLane.enabled = true;
@@ -935,8 +936,9 @@ int main() {
           "automation clip (breakpoints) round-trips");
     const audio::AutoLane& leadVol2 = automation2.lane(audio::AutoTarget::LeadVolume);
     check(leadVol2.enabled && leadVol2.lfo.shape == audio::Waveform::Triangle &&
-              near(leadVol2.lfo.rateHz, 0.8f) && near(leadVol2.lo, 0.2f) && near(leadVol2.hi, 0.95f),
-          "lead-volume automation lane round-trips");
+              near(leadVol2.lfo.rateHz, 0.8f) && near(leadVol2.lo, 0.2f) && near(leadVol2.hi, 0.95f) &&
+              leadVol2.lfo.sampleHold,
+          "lead-volume automation lane round-trips (incl. sample & hold)");
     const audio::AutoLane& send2 = automation2.lane(audio::AutoTarget::ReverbSend);
     check(send2.enabled && send2.lfo.shape == audio::Waveform::Square &&
               near(send2.lo, 0.1f) && near(send2.hi, 0.75f),

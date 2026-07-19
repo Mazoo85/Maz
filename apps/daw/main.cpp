@@ -2509,6 +2509,8 @@ void buildAutomationUI(audio::Automation& automation) {
             adivNames[d] = audio::Automation::syncDivisionName(d);
         ImGui::SetNextItemWidth(90.0f);
         ImGui::Combo("div##auto", &lane.syncDiv, adivNames, audio::Automation::kSyncDivisions);
+        ImGui::SameLine();
+        ImGui::Checkbox("S&H", &lane.lfo.sampleHold); // random stepped LFO
         ImGui::PopID();
         ImGui::Separator();
     }

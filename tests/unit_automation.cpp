@@ -40,6 +40,39 @@ int main() {
     check(saw.valueUnipolar(0.0) >= 0.0f && saw.valueUnipolar(0.0) <= 0.01f,
           "unipolar maps the low point to ~0");
 
+    // --- Sample & hold LFO ----------------------------------------------------
+    {
+        audio::LFO sh;
+        sh.shape = audio::Waveform::Sine; // ignored while sampleHold is on
+        sh.rateHz = 1.0f;                 // one new random value per second
+        sh.sampleHold = true;
+        // Holds constant within a cycle: t=0.1 and t=0.9 fall in the same step → identical value.
+        check(std::fabs(sh.valueBipolar(0.1) - sh.valueBipolar(0.9)) < 1e-6f,
+              "sample & hold holds one value for the whole cycle");
+        // Deterministic: the same t always gives the same value.
+        check(sh.valueBipolar(3.4) == sh.valueBipolar(3.4),
+              "sample & hold is deterministic (pure function of t)");
+        // Stepped: different cycles almost always give different values, and values span the range.
+        int distinct = 0;
+        float prev = sh.valueBipolar(0.5);
+        float minV = prev, maxV = prev;
+        for (int k = 1; k < 20; ++k) {
+            const float v = sh.valueBipolar(static_cast<double>(k) + 0.5);
+            if (std::fabs(v - prev) > 1e-6f) ++distinct;
+            minV = std::min(minV, v);
+            maxV = std::max(maxV, v);
+            prev = v;
+            check(v >= -1.0f && v <= 1.0f, "sample & hold stays in [-1, 1]");
+        }
+        check(distinct >= 15, "sample & hold jumps to a new value most cycles (stepped/random)");
+        check(maxV > 0.4f && minV < -0.4f, "sample & hold spans a wide range");
+        // Off by default → the periodic shape is used (a sine at t=0.25 peaks).
+        audio::LFO def;
+        def.rateHz = 1.0f;
+        check(!def.sampleHold && def.valueBipolar(0.25) > 0.99f,
+              "sample & hold defaults off (periodic shape)");
+    }
+
     // --- Automation bank ------------------------------------------------------
     audio::Automation automation;
     check(!automation.anyEnabled(), "no lanes enabled by default");
