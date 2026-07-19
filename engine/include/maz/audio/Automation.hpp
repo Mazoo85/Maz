@@ -38,6 +38,7 @@ enum class AutoTarget {
     BitcrusherMix,
     PitchShift,
     VibratoDepth,
+    RingModFreq,
     Count
 };
 

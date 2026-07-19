@@ -175,6 +175,25 @@ int main() {
               "vibrato-depth automation settles back to its low bound");
     }
 
+    // --- Ring-mod frequency target (metallic sweeps) -------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& rm = autom.lane(audio::AutoTarget::RingModFreq);
+        rm.enabled = true;
+        rm.lfo.shape = audio::Waveform::Sine;
+        rm.lfo.rateHz = 1.0f;
+        rm.lo = 30.0f;
+        rm.hi = 1500.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().ringmod().enabled() && eng.mixer().ringmod().freq() > 1400.0f,
+              "automating ring-mod frequency sweeps (and enables) the carrier up");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().ringmod().freq() < 100.0f,
+              "ring-mod-frequency automation reaches its low bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

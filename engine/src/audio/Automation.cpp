@@ -87,6 +87,8 @@ Automation::Automation() {
     lane(AutoTarget::PitchShift).hi = 12.0f;
     lane(AutoTarget::VibratoDepth).lo = 0.0f;
     lane(AutoTarget::VibratoDepth).hi = 10.0f;
+    lane(AutoTarget::RingModFreq).lo = 30.0f;
+    lane(AutoTarget::RingModFreq).hi = 1500.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -145,6 +147,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Pitch Shift";
     case AutoTarget::VibratoDepth:
         return "Vibrato Depth";
+    case AutoTarget::RingModFreq:
+        return "Ring Mod Freq";
     case AutoTarget::Count:
         break;
     }
@@ -318,6 +322,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Swell the vibrato depth in/out (a pitch wobble that blooms into a phrase then settles).
             engine.mixer().vibrato().setEnabled(true);
             engine.mixer().vibrato().setDepth(v);
+            break;
+        case AutoTarget::RingModFreq:
+            // Sweep the ring modulator's carrier frequency (metallic clangs / robot-voice sweeps).
+            engine.mixer().ringmod().setEnabled(true);
+            engine.mixer().ringmod().setFreq(v);
             break;
         case AutoTarget::Count:
             break;

@@ -437,6 +437,12 @@ int main() {
     vibLane.lfo.rateHz = 0.4f;
     vibLane.lo = 1.0f;
     vibLane.hi = 8.0f;
+    audio::AutoLane& rmLane = automation.lane(audio::AutoTarget::RingModFreq);
+    rmLane.enabled = true;
+    rmLane.lfo.shape = audio::Waveform::Saw;
+    rmLane.lfo.rateHz = 0.6f;
+    rmLane.lo = 40.0f;
+    rmLane.hi = 1200.0f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -830,6 +836,10 @@ int main() {
     check(vib2.enabled && vib2.lfo.shape == audio::Waveform::Triangle && near(vib2.lo, 1.0f) &&
               near(vib2.hi, 8.0f),
           "vibrato-depth automation lane round-trips");
+    const audio::AutoLane& rm2 = automation2.lane(audio::AutoTarget::RingModFreq);
+    check(rm2.enabled && rm2.lfo.shape == audio::Waveform::Saw && near(rm2.lo, 40.0f) &&
+              near(rm2.hi, 1200.0f),
+          "ring-mod-frequency automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;
