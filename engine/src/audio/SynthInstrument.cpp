@@ -422,9 +422,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 // Cutoff LFO: sweep the cutoff up/down by ±depth octaves for wobble/auto-wah movement.
                 if (filterLfoDepth_ > 0.0f) {
-                    const double fp = filterLfoPhase_ + static_cast<double>(i) * filtLfoInc;
-                    cutoff *= std::pow(2.0f, filterLfoDepth_ *
-                                                 static_cast<float>(std::sin(fp * kTwoPiVib)));
+                    double fp = filterLfoPhase_ + static_cast<double>(i) * filtLfoInc;
+                    fp -= std::floor(fp); // wrap into [0,1) for the (non-sine) shapes
+                    cutoff *= std::pow(2.0f, filterLfoDepth_ * waveSample(filterLfoShape_, fp));
                 }
                 cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
                 // Filter drive: overdrive the signal into the filter (tanh) for harmonics/grit before

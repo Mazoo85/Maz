@@ -297,6 +297,10 @@ public:
     }
     float filterLfoRate() const { return filterLfoRate_; }
     float filterLfoDepth() const { return filterLfoDepth_; }
+    // Cutoff-LFO shape: Sine (smooth wobble), Square (stepped/gated two-value jump), Saw (rhythmic
+    // ramp), Triangle, or Trapezoid — reusing the oscillator waveforms. Defaults to Sine.
+    void setFilterLfoShape(Waveform w) { filterLfoShape_ = w; }
+    Waveform filterLfoShape() const { return filterLfoShape_; }
     // Tempo-sync the cutoff LFO: lock its rate to the transport at the chosen note division (the same
     // 6 divisions as the effects: 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16) for rhythmic filter wobble. Call
     // updateTempo() with the current BPM each block; off (default) = the free-running rate above.
@@ -411,6 +415,7 @@ private:
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
     float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
+    Waveform filterLfoShape_ = Waveform::Sine; // cutoff LFO waveform
     bool filterLfoSync_ = false;  // tempo-sync the cutoff LFO rate
     int filterLfoSyncDiv_ = 3;    // sync note-division index (default 1/8)
     bool ampLfoSync_ = false;     // tempo-sync the tremolo LFO rate

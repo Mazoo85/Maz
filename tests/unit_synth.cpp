@@ -86,6 +86,34 @@ int main() {
         check(std::fabs(syn.filterLfoRate() - 2.0f) < 1e-3f, "1/4 sync at 120 BPM locks to 2 Hz");
     }
 
+    // --- Filter cutoff LFO shape --------------------------------------------
+    {
+        // A square cutoff LFO parks the cutoff at its two extremes; because octave modulation is
+        // exponential (2^x is convex), sitting at ±depth yields a higher *average* cutoff than a sine
+        // that sweeps smoothly through the centre — so the square-LFO tone is brighter overall.
+        auto lfoBright = [&](audio::Waveform shape) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(400.0f, 0.7f, 0.0f); // low base cutoff so the LFO's sweep is audible
+            s.setFilterLfo(4.0f, 3.0f);      // 4 Hz, ±3 octaves
+            s.setFilterLfoShape(shape);
+            s.noteOn(45, 1.0f); // low note → rich harmonics for the filter to act on
+            const std::vector<float> out = render(s, sampleRate, sampleRate); // 1 s = 4 whole cycles
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(lfoBright(audio::Waveform::Square) > lfoBright(audio::Waveform::Sine) * 1.1,
+              "a square cutoff LFO is brighter than a sine one (parks at the octave extremes)");
+        audio::SynthInstrument dls;
+        check(dls.filterLfoShape() == audio::Waveform::Sine, "cutoff LFO shape defaults to sine");
+    }
+
     // --- Tremolo (amp LFO) tempo sync ---------------------------------------
     {
         audio::SynthInstrument syn;

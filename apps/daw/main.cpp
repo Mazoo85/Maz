@@ -1107,6 +1107,12 @@ void buildSynthUI(audio::Sequencer& seq) {
     const char* flDivs[] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::Combo("##fldiv", &flDiv, flDivs, 6)) syn.setFilterLfoSyncDivision(flDiv);
+    int flShape = static_cast<int>(syn.filterLfoShape());
+    const char* flShapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("LFO shape##fl", &flShape, flShapes, 5))
+        syn.setFilterLfoShape(static_cast<audio::Waveform>(flShape));
     float aLfoRate = syn.ampLfoRate(), aLfoDepth = syn.ampLfoDepth();
     bool alch = ImGui::SliderFloat("Tremolo Hz", &aLfoRate, 0.0f, 20.0f, "%.2f");
     alch |= ImGui::SliderFloat("Tremolo depth", &aLfoDepth, 0.0f, 1.0f, "%.2f");
@@ -1269,6 +1275,11 @@ void buildBassUI(audio::SynthInstrument& syn) {
     bool bflch = ImGui::SliderFloat("Cutoff LFO Hz##bass", &bfLfoRate, 0.0f, 20.0f, "%.2f");
     bflch |= ImGui::SliderFloat("Cutoff LFO oct##bass", &bfLfoDepth, 0.0f, 4.0f, "%.2f");
     if (bflch) syn.setFilterLfo(bfLfoRate, bfLfoDepth);
+    int bflShape = static_cast<int>(syn.filterLfoShape());
+    const char* bflShapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("LFO shape##bassfl", &bflShape, bflShapes, 5))
+        syn.setFilterLfoShape(static_cast<audio::Waveform>(bflShape));
     float baLfoRate = syn.ampLfoRate(), baLfoDepth = syn.ampLfoDepth();
     bool balch = ImGui::SliderFloat("Tremolo Hz##bass", &baLfoRate, 0.0f, 20.0f, "%.2f");
     balch |= ImGui::SliderFloat("Tremolo depth##bass", &baLfoDepth, 0.0f, 1.0f, "%.2f");

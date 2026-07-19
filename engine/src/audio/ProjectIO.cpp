@@ -147,6 +147,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
         syn.setVibratoSync(viSync != 0);
         syn.setVibratoSyncDivision(viDiv);
     }
+    int flShape = 0; // cutoff-LFO shape optional for old files (0 = sine)
+    if (ls >> flShape) {
+        syn.setFilterLfoShape(static_cast<Waveform>(flShape < 0 || flShape > 4 ? 0 : flShape));
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -258,7 +262,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.glideLegato() ? 1 : 0) << " " << s.pwmLfoRate() << " " << s.pwmLfoDepth() << " "
           << (s.filterLfoSync() ? 1 : 0) << " " << s.filterLfoSyncDivision() << " "
           << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << " "
-          << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << "\n";
+          << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
+          << static_cast<int>(s.filterLfoShape()) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
