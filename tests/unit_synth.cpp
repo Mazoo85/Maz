@@ -1564,6 +1564,24 @@ int main() {
         cr.addNote(audio::Note{0, 1, 61, 1.0f});
         cr.addNote(audio::Note{1, 1, 66, 1.0f});
         check(cr.snapToScale(60, audio::Scale::Chromatic) == 0, "chromatic snap is a no-op");
+
+        // Phrygian dominant (0,1,4,5,7,8,10): a ♮2 (D, 62) snaps down to the ♭2 (61); the major 3rd
+        // (E, 64) is in scale and stays.
+        audio::PianoRoll pd;
+        pd.addNote(audio::Note{0, 1, 62, 1.0f});
+        pd.addNote(audio::Note{1, 1, 64, 1.0f});
+        pd.snapToScale(60, audio::Scale::PhrygianDominant);
+        check(pd.notes()[0].pitch == 61 && pd.notes()[1].pitch == 64,
+              "phrygian-dominant snaps a natural 2nd to the flat 2nd and keeps the major 3rd");
+
+        // Hungarian minor (0,2,3,6,7,8,11): a major 3rd (E, 64) snaps down to the minor 3rd (63); the
+        // ♯4 (F♯, 66) is in scale and stays.
+        audio::PianoRoll hm;
+        hm.addNote(audio::Note{0, 1, 64, 1.0f});
+        hm.addNote(audio::Note{1, 1, 66, 1.0f});
+        hm.snapToScale(60, audio::Scale::HungarianMinor);
+        check(hm.notes()[0].pitch == 63 && hm.notes()[1].pitch == 66,
+              "hungarian-minor snaps the major 3rd to the minor 3rd and keeps the sharp 4th");
     }
 
     // --- Strum ---------------------------------------------------------------

@@ -57,7 +57,9 @@ enum class Scale {
     PentatonicMinor,
     Blues,
     WholeTone, // 0,2,4,6,8,10 — the symmetric whole-tone scale (dreamy/ambiguous)
-    Chromatic  // all 12 semitones — snapping is a no-op (an "off" option)
+    Chromatic, // all 12 semitones — snapping is a no-op (an "off" option)
+    PhrygianDominant, // 0,1,4,5,7,8,10 — the Spanish/flamenco scale (5th mode of harmonic minor)
+    HungarianMinor    // 0,2,3,6,7,8,11 — gypsy minor, with two augmented-second leaps
 };
 
 // The melodic pattern the piano roll edits and the sequencer plays: a set of notes over a step

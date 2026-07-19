@@ -668,7 +668,8 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                                 "Phrygian",    "Lydian",        "Mixolydian",
                                 "Locrian",     "Harm. Minor",   "Mel. Minor",
                                 "Penta. Major", "Penta. Minor", "Blues",
-                                "Whole Tone",  "Chromatic"};
+                                "Whole Tone",  "Chromatic",     "Phryg. Dom.",
+                                "Hungarian Min."};
     ImGui::Combo("##scaletype", &scaleType, scaleNames, IM_ARRAYSIZE(scaleNames));
     ImGui::SameLine();
     if (ImGui::Button("Snap to scale")) {

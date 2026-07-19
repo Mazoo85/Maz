@@ -226,6 +226,12 @@ int PianoRoll::snapToScale(int rootPitch, Scale scale) {
     case Scale::Chromatic:
         degrees = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
         break;
+    case Scale::PhrygianDominant:
+        degrees = {0, 1, 4, 5, 7, 8, 10};
+        break;
+    case Scale::HungarianMinor:
+        degrees = {0, 2, 3, 6, 7, 8, 11};
+        break;
     }
     // Membership test for a pitch class relative to the root.
     auto inScale = [&](int pitch) {
