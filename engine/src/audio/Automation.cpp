@@ -89,6 +89,8 @@ Automation::Automation() {
     lane(AutoTarget::VibratoDepth).hi = 10.0f;
     lane(AutoTarget::RingModFreq).lo = 30.0f;
     lane(AutoTarget::RingModFreq).hi = 1500.0f;
+    lane(AutoTarget::ChorusMix).lo = 0.0f;
+    lane(AutoTarget::ChorusMix).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -149,6 +151,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Vibrato Depth";
     case AutoTarget::RingModFreq:
         return "Ring Mod Freq";
+    case AutoTarget::ChorusMix:
+        return "Chorus Mix";
     case AutoTarget::Count:
         break;
     }
@@ -327,6 +331,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the ring modulator's carrier frequency (metallic clangs / robot-voice sweeps).
             engine.mixer().ringmod().setEnabled(true);
             engine.mixer().ringmod().setFreq(v);
+            break;
+        case AutoTarget::ChorusMix:
+            // Fade the chorus wet amount in/out (breakdown widening / build-up swells).
+            engine.mixer().chorus().setEnabled(true);
+            engine.mixer().chorus().setMix(v);
             break;
         case AutoTarget::Count:
             break;

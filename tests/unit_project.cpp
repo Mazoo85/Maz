@@ -443,6 +443,12 @@ int main() {
     rmLane.lfo.rateHz = 0.6f;
     rmLane.lo = 40.0f;
     rmLane.hi = 1200.0f;
+    audio::AutoLane& cmLane = automation.lane(audio::AutoTarget::ChorusMix);
+    cmLane.enabled = true;
+    cmLane.lfo.shape = audio::Waveform::Sine;
+    cmLane.lfo.rateHz = 0.2f;
+    cmLane.lo = 0.05f;
+    cmLane.hi = 0.85f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -840,6 +846,10 @@ int main() {
     check(rm2.enabled && rm2.lfo.shape == audio::Waveform::Saw && near(rm2.lo, 40.0f) &&
               near(rm2.hi, 1200.0f),
           "ring-mod-frequency automation lane round-trips");
+    const audio::AutoLane& cm2 = automation2.lane(audio::AutoTarget::ChorusMix);
+    check(cm2.enabled && cm2.lfo.shape == audio::Waveform::Sine && near(cm2.lo, 0.05f) &&
+              near(cm2.hi, 0.85f),
+          "chorus-mix automation lane round-trips");
 
     // Pluck (Karplus-Strong) engine mode round-trips (the new SynthMode index).
     {

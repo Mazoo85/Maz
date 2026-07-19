@@ -194,6 +194,25 @@ int main() {
               "ring-mod-frequency automation reaches its low bound");
     }
 
+    // --- Chorus-mix target (wet swells) --------------------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& cm = autom.lane(audio::AutoTarget::ChorusMix);
+        cm.enabled = true;
+        cm.lfo.shape = audio::Waveform::Sine;
+        cm.lfo.rateHz = 1.0f;
+        cm.lo = 0.0f;
+        cm.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().chorus().enabled() && eng.mixer().chorus().mix() > 0.9f,
+              "automating chorus mix swells (and enables) the wet signal");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().chorus().mix() < 0.1f,
+              "chorus-mix automation fades back to dry");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

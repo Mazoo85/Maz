@@ -39,6 +39,7 @@ enum class AutoTarget {
     PitchShift,
     VibratoDepth,
     RingModFreq,
+    ChorusMix,
     Count
 };
 
