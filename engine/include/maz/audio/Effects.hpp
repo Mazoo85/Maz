@@ -449,6 +449,9 @@ public:
     float kneeDb() const { return kneeDb_; }
     float mix() const { return mix_; }
     float sidechainHpf() const { return scHpfHz_; }
+    // Peak gain reduction (dB, <= 0) applied over the most recent processed block — drives a GR
+    // meter in the UI. 0 = not compressing.
+    float gainReductionDb() const { return grDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -464,6 +467,7 @@ private:
     float scHpfHz_ = 0.0f; // sidechain (detection) high-pass cutoff; 0 = off
     float env_ = 0.0f; // linear peak-envelope follower
     float scLpL_ = 0.0f, scLpR_ = 0.0f; // detection high-pass state (one-pole LP; HP = x − LP)
+    float grDb_ = 0.0f; // peak gain reduction (dB) over the last block, for the GR meter
 };
 
 // A 3-band multiband compressor (a Maximus-style master dynamics tool). The signal is split into low

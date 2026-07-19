@@ -722,6 +722,7 @@ void Compressor::reset() {
     env_ = 0.0f;
     scLpL_ = 0.0f;
     scLpR_ = 0.0f;
+    grDb_ = 0.0f;
 }
 
 void Compressor::process(float* stereo, int frames, int sampleRate) {
@@ -737,6 +738,7 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     // gain reduction, so bass/kick don't pump the compressor.
     const bool scHpf = scHpfHz_ > 0.0f;
     const float scA = scHpf ? 1.0f - std::exp(-6.283185307179586f * scHpfHz_ / sr) : 0.0f;
+    float grPeak = 0.0f; // most negative reduction this block (for the GR meter)
 
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
@@ -765,6 +767,9 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
         } else if (over > 0.0f) {
             reductionDb = (1.0f / ratio - 1.0f) * over; // = targetDb − envDb
         }
+        if (reductionDb < grPeak) {
+            grPeak = reductionDb; // track the deepest reduction for the GR meter
+        }
         const float gain = dbToLin(reductionDb) * makeup;
         // Parallel/NY compression: blend the compressed signal back with the dry (mix 1 = fully
         // compressed, the classic behaviour; lower mixes keep more of the untouched transients).
@@ -772,6 +777,7 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
         stereo[2 * i] = l * dry + l * gain * mix_;
         stereo[2 * i + 1] = r * dry + r * gain * mix_;
     }
+    grDb_ = grPeak;
 }
 
 // ---- Multiband Compressor ---------------------------------------------------

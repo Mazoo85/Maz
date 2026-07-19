@@ -216,6 +216,16 @@ int main() {
         const float outPeak = peakRange(loud, sr / 2, sr); // measure after it settles
         check(outPeak < inPeak * 0.6f, "compressor reduces a loud signal's peak");
         check(outPeak > 0.0f, "compressor still passes signal");
+        check(comp.gainReductionDb() < -1.0f, "the GR meter reports gain reduction on a loud signal");
+
+        // A quiet signal (below threshold) draws no gain reduction.
+        audio::Compressor quiet;
+        quiet.setEnabled(true);
+        quiet.setThresholdDb(-18.0f);
+        quiet.setRatio(4.0f);
+        std::vector<float> soft = sineStereo(sr, 220.0, 0.05, sr); // ~-26 dB, below threshold
+        quiet.process(soft.data(), sr, sr);
+        check(quiet.gainReductionDb() > -0.01f, "the GR meter reads ~0 when not compressing");
     }
 
     // --- Compressor sidechain HPF: lows don't drive the detection ------------

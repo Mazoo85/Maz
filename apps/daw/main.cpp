@@ -1521,6 +1521,8 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("SC HPF##cmp", &scHpf, 0.0f, 500.0f, "%.0f Hz"))
             mx.compressor().setSidechainHpf(scHpf);
+        ImGui::SameLine();
+        ImGui::Text("GR %.1f dB", mx.compressor().gainReductionDb());
     }
     {
         auto& mb = mx.multiband();
