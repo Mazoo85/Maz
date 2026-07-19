@@ -137,6 +137,25 @@ int main() {
         check(eng.mixer().bitcrusher().mix() < 0.05f, "bitcrusher-mix automation reaches its low bound");
     }
 
+    // --- Pitch-shift target (pitch dives/risers) -----------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& ps = autom.lane(audio::AutoTarget::PitchShift);
+        ps.enabled = true;
+        ps.lfo.shape = audio::Waveform::Sine;
+        ps.lfo.rateHz = 1.0f;
+        ps.lo = -12.0f;
+        ps.hi = 12.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().pitchShifter().enabled() && eng.mixer().pitchShifter().semitones() > 11.0f,
+              "automating pitch shift drives (and enables) the shifter up");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().pitchShifter().semitones() < -11.0f,
+              "pitch-shift automation reaches its low (dive) bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

@@ -419,6 +419,12 @@ int main() {
     crushLane.lfo.rateHz = 0.5f;
     crushLane.lo = 0.1f;
     crushLane.hi = 0.9f;
+    audio::AutoLane& pitchLane = automation.lane(audio::AutoTarget::PitchShift);
+    pitchLane.enabled = true;
+    pitchLane.lfo.shape = audio::Waveform::Sine;
+    pitchLane.lfo.rateHz = 0.3f;
+    pitchLane.lo = -7.0f;
+    pitchLane.hi = 5.0f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -799,6 +805,10 @@ int main() {
     check(crush2.enabled && crush2.lfo.shape == audio::Waveform::Saw && near(crush2.lo, 0.1f) &&
               near(crush2.hi, 0.9f),
           "bitcrusher-mix automation lane round-trips");
+    const audio::AutoLane& pitch2 = automation2.lane(audio::AutoTarget::PitchShift);
+    check(pitch2.enabled && pitch2.lfo.shape == audio::Waveform::Sine && near(pitch2.lo, -7.0f) &&
+              near(pitch2.hi, 5.0f),
+          "pitch-shift automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

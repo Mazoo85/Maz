@@ -83,6 +83,8 @@ Automation::Automation() {
     lane(AutoTarget::ReverbSize).hi = 0.95f;
     lane(AutoTarget::BitcrusherMix).lo = 0.0f;
     lane(AutoTarget::BitcrusherMix).hi = 1.0f;
+    lane(AutoTarget::PitchShift).lo = -12.0f;
+    lane(AutoTarget::PitchShift).hi = 12.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -137,6 +139,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Reverb Size";
     case AutoTarget::BitcrusherMix:
         return "Bitcrusher Mix";
+    case AutoTarget::PitchShift:
+        return "Pitch Shift";
     case AutoTarget::Count:
         break;
     }
@@ -300,6 +304,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Fade the bitcrusher wet amount in/out (lo-fi drops and risers).
             engine.mixer().bitcrusher().setEnabled(true);
             engine.mixer().bitcrusher().setMix(v);
+            break;
+        case AutoTarget::PitchShift:
+            // Sweep the pitch shifter's semitone offset (pitch dives/risers/whooshes).
+            engine.mixer().pitchShifter().setEnabled(true);
+            engine.mixer().pitchShifter().setSemitones(v);
             break;
         case AutoTarget::Count:
             break;
