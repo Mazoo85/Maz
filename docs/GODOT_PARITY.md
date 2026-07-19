@@ -815,6 +815,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   original corner; the threshold merges within epsilon (collapsing a degenerate triangle, counted in
   removedTriangles) and keeps beyond it; two points straddling a cell boundary still merge; an
   already-unique mesh is unchanged; epsilon<=0 welds bit-exact duplicates; empty input is safe),
+  **mesh smoothing** (M474, `render::smoothMeshLaplacian` + `render::smoothMeshTaubin` — relax the
+  vertices of an indexed triangle mesh toward the average of their neighbours, ironing out noise and
+  faceting WITHOUT changing topology (vertices moved, none added or removed). The denoise pass for a mesh
+  built from noisy data: a marching-cubes isosurface, an fbm-perturbed heightfield, a voxelised blob.
+  Plain Laplacian smoothing shrinks the shape (every point drifts inward); the Taubin lambda|mu two-pass
+  alternates a positive smoothing step and a slightly larger negative unshrinking step so the surface
+  relaxes while its volume is preserved — the standard low-pass mesh filter. Boundary vertices can be
+  pinned so open edges keep their shape. Godot exposes no runtime mesh smoothing to gameplay code ->
+  beyond-Godot. Verified: a flat mesh stays flat and keeps its vertex count; Laplacian cuts interior
+  z-noise on a bumpy grid by more than half; on a closed icosahedron plain Laplacian collapses the shape
+  inward (average radius under 20% of the original) while Taubin resists the shrinkage (over 40%, more
+  than 5x better volume retention); pinned boundary vertices don't move; and empty input is safe),
   **sparse table (RMQ)** (M460, `core::SparseTable<T, Op>` — O(1) range min/max (or any idempotent
   associative op: gcd, bitwise and/or) over a STATIC array after an O(n log n) build, by overlapping two
   power-of-two blocks. Complements FenwickTree (dynamic prefix sums with point updates) with far faster

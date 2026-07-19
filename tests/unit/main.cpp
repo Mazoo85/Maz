@@ -118,6 +118,7 @@
 #include "maz/game/WaveFunctionCollapse.hpp"
 #include "maz/render/Subdivision.hpp"
 #include "maz/render/MeshWeld.hpp"
+#include "maz/render/MeshSmooth.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20214,6 +20215,99 @@ void testPolynomial() {
     }
 }
 
+void testMeshSmooth() {
+    using math::vec3;
+    using render::smoothMeshLaplacian;
+    using render::smoothMeshTaubin;
+
+    // Build an NxN grid in z=0; optionally add per-vertex z noise.
+    auto gridMesh = [](int n, bool noise, std::vector<vec3>& pos, std::vector<std::uint32_t>& idx) {
+        pos.clear();
+        idx.clear();
+        core::Pcg32 rng(474u, 7u);
+        for (int y = 0; y < n; ++y)
+            for (int x = 0; x < n; ++x) {
+                const float fx = static_cast<float>(x) / static_cast<float>(n - 1);
+                const float fy = static_cast<float>(y) / static_cast<float>(n - 1);
+                const float z = noise ? (rng.nextFloat() - 0.5f) * 0.1f : 0.0f;
+                pos.push_back(vec3(fx, fy, z));
+            }
+        for (int y = 0; y < n - 1; ++y)
+            for (int x = 0; x < n - 1; ++x) {
+                const std::uint32_t a = static_cast<std::uint32_t>(y * n + x);
+                const std::uint32_t b = a + 1, c = a + static_cast<std::uint32_t>(n), d = c + 1;
+                idx.insert(idx.end(), {a, b, c, b, d, c});
+            }
+    };
+    auto interiorMaxAbsZ = [](const std::vector<vec3>& p, int n) {
+        float m = 0.0f;
+        for (int y = 1; y < n - 1; ++y)
+            for (int x = 1; x < n - 1; ++x) m = std::max(m, std::fabs(p[static_cast<std::size_t>(y * n + x)].z));
+        return m;
+    };
+
+    // Flat mesh stays flat; vertex count unchanged.
+    {
+        std::vector<vec3> pos;
+        std::vector<std::uint32_t> idx;
+        gridMesh(8, false, pos, idx);
+        const std::vector<vec3> out = smoothMeshLaplacian(pos, idx, 5, 0.5f, true);
+        CHECK(out.size() == pos.size());
+        float mz = 0.0f;
+        for (const vec3& v : out) mz = std::max(mz, std::fabs(v.z));
+        CHECK(mz < 1e-5f);
+    }
+    // Laplacian cuts interior noise substantially.
+    {
+        std::vector<vec3> pos;
+        std::vector<std::uint32_t> idx;
+        gridMesh(12, true, pos, idx);
+        const float before = interiorMaxAbsZ(pos, 12);
+        const std::vector<vec3> out = smoothMeshLaplacian(pos, idx, 8, 0.5f, true);
+        CHECK(out.size() == pos.size());
+        CHECK(interiorMaxAbsZ(out, 12) < before * 0.5f);
+    }
+    // Closed icosahedron: Laplacian collapses inward, Taubin preserves the volume far better.
+    {
+        const float t = (1.0f + std::sqrt(5.0f)) * 0.5f;
+        std::vector<vec3> pos = {
+            vec3(-1, t, 0), vec3(1, t, 0), vec3(-1, -t, 0), vec3(1, -t, 0),
+            vec3(0, -1, t), vec3(0, 1, t), vec3(0, -1, -t), vec3(0, 1, -t),
+            vec3(t, 0, -1), vec3(t, 0, 1), vec3(-t, 0, -1), vec3(-t, 0, 1)};
+        std::vector<std::uint32_t> idx = {
+            0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+            3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1};
+        const float R = std::sqrt(1.0f + t * t);
+        auto avgRadius = [](const std::vector<vec3>& p) {
+            float s = 0.0f;
+            for (const vec3& v : p) s += glm::length(v);
+            return s / static_cast<float>(p.size());
+        };
+        const std::vector<vec3> lap = smoothMeshLaplacian(pos, idx, 10, 0.5f, false);
+        const std::vector<vec3> tau = smoothMeshTaubin(pos, idx, 10, 0.5f, -0.53f, false);
+        CHECK(avgRadius(lap) < R * 0.2f);
+        CHECK(avgRadius(tau) > R * 0.4f);
+        CHECK(avgRadius(tau) > avgRadius(lap) * 5.0f);
+    }
+    // Pinned boundary vertices don't move.
+    {
+        std::vector<vec3> pos;
+        std::vector<std::uint32_t> idx;
+        gridMesh(6, true, pos, idx);
+        const std::vector<vec3> out = smoothMeshLaplacian(pos, idx, 10, 0.5f, true);
+        const int n = 6;
+        for (int y = 0; y < n; ++y)
+            for (int x = 0; x < n; ++x) {
+                if (!(x == 0 || y == 0 || x == n - 1 || y == n - 1)) continue;
+                const std::size_t i = static_cast<std::size_t>(y * n + x);
+                CHECK(std::fabs(out[i].x - pos[i].x) < 1e-6f && std::fabs(out[i].z - pos[i].z) < 1e-6f);
+            }
+    }
+    // Empty input safe.
+    CHECK(smoothMeshLaplacian({}, {}, 3).empty());
+    CHECK(smoothMeshTaubin({}, {}, 3).empty());
+}
+
 void testMeshWeld() {
     using math::vec3;
     using render::weldVertices;
@@ -29920,6 +30014,7 @@ int main() {
     testWaveFunctionCollapse();
     testSubdivision();
     testMeshWeld();
+    testMeshSmooth();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
