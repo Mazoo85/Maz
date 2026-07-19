@@ -124,6 +124,7 @@
 #include "maz/game/Inventory.hpp"
 #include "maz/game/LootTable.hpp"
 #include "maz/game/Leveling.hpp"
+#include "maz/game/Cooldown.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20220,6 +20221,96 @@ void testPolynomial() {
     }
 }
 
+void testCooldown() {
+    using game::CooldownManager;
+
+    // Fresh manager: everything ready.
+    {
+        CooldownManager cd;
+        CHECK(cd.isReady(1) && cd.activeCount() == 0);
+        CHECK(std::fabs(cd.remaining(1)) < 1e-9);
+        CHECK(std::fabs(cd.fraction(1)) < 1e-9);
+    }
+    // tryUse gates while recharging.
+    {
+        CooldownManager cd;
+        CHECK(cd.tryUse(1, 5.0) == true);
+        CHECK(!cd.isReady(1));
+        CHECK(std::fabs(cd.remaining(1) - 5.0) < 1e-9);
+        CHECK(std::fabs(cd.fraction(1) - 1.0) < 1e-9);
+        CHECK(cd.activeCount() == 1);
+        CHECK(cd.tryUse(1, 5.0) == false);
+        CHECK(std::fabs(cd.remaining(1) - 5.0) < 1e-9);
+    }
+    // tick advances, clamps at zero, frees the ability; fraction tracks.
+    {
+        CooldownManager cd;
+        cd.tryUse(1, 5.0);
+        cd.tick(2.0);
+        CHECK(std::fabs(cd.remaining(1) - 3.0) < 1e-9);
+        CHECK(std::fabs(cd.fraction(1) - 0.6) < 1e-9);
+        cd.tick(3.0);
+        CHECK(cd.isReady(1) && cd.activeCount() == 0);
+        CHECK(std::fabs(cd.remaining(1)) < 1e-9);
+        CHECK(cd.tryUse(1, 5.0) == true);
+        cd.tick(100.0); // overshoot does not go negative
+        CHECK(cd.isReady(1) && std::fabs(cd.remaining(1)) < 1e-9);
+    }
+    // start resets a running cooldown to full.
+    {
+        CooldownManager cd;
+        cd.start(1, 5.0);
+        cd.tick(3.0);
+        CHECK(std::fabs(cd.remaining(1) - 2.0) < 1e-9);
+        cd.start(1, 5.0);
+        CHECK(std::fabs(cd.remaining(1) - 5.0) < 1e-9);
+    }
+    // Multiple ids are independent.
+    {
+        CooldownManager cd;
+        cd.start(1, 5.0);
+        cd.start(2, 10.0);
+        cd.tick(5.0);
+        CHECK(cd.isReady(1) && !cd.isReady(2));
+        CHECK(std::fabs(cd.remaining(2) - 5.0) < 1e-9);
+        CHECK(cd.activeCount() == 1);
+    }
+    // reduce shortens; can free the ability; no effect when ready.
+    {
+        CooldownManager cd;
+        cd.start(1, 10.0);
+        cd.reduce(1, 4.0);
+        CHECK(std::fabs(cd.remaining(1) - 6.0) < 1e-9);
+        cd.reduce(1, 100.0);
+        CHECK(cd.isReady(1));
+        cd.reduce(1, 5.0);
+        CHECK(cd.isReady(1));
+    }
+    // reset and clear.
+    {
+        CooldownManager cd;
+        cd.start(1, 5.0);
+        cd.start(2, 5.0);
+        cd.reset(1);
+        CHECK(cd.isReady(1) && !cd.isReady(2));
+        cd.clear();
+        CHECK(cd.isReady(2) && cd.activeCount() == 0);
+    }
+    // Non-positive duration => ready; clears an active one; non-positive dt ignored.
+    {
+        CooldownManager cd;
+        cd.start(1, 0.0);
+        CHECK(cd.isReady(1));
+        cd.start(2, 5.0);
+        cd.start(2, -1.0);
+        CHECK(cd.isReady(2));
+        cd.start(3, 5.0);
+        cd.tick(0.0);
+        cd.tick(-2.0);
+        CHECK(std::fabs(cd.remaining(3) - 5.0) < 1e-9);
+    }
+}
+
 void testLeveling() {
     using game::ExperienceTrack;
     using game::LevelCurve;
@@ -30508,6 +30599,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testCooldown();
     testLeveling();
     testLootTable();
     testInventory();

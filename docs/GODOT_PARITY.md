@@ -1003,6 +1003,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   growth rounds correctly (100 -> 110 -> 121 -> 133 at +10%); table caps at size+1 and stops earning at
   max; zero-cost curves clamp to 1 (no infinite levels); the track levels up/down on add/remove, floors
   total at 0, and reports progress 1.0 / next-cost 0 at max level),
+  **ability cooldown manager** (M480, `game::CooldownManager` — the timer bank behind spell cooldowns,
+  dashes, the global cooldown, and any "you can't do that yet" gate. Abilities are keyed by an integer id;
+  `tryUse(id, duration)` fires an ability and puts it on cooldown in one call (returning false if it is
+  still recharging), `tick(dt)` advances every active timer by the frame delta, and `isReady` /
+  `remaining` / `fraction` drive the greyed-out button and the radial cooldown sweep. `reduce` applies a
+  haste / cooldown-reduction effect, `reset` / `clear` free abilities, and timers that reach zero are
+  dropped so an idle manager holds nothing. Godot ships Timer nodes but no ability-cooldown abstraction —
+  games wire this up by hand every time -> beyond-Godot gameplay utility. Verified: a fresh manager is
+  ready everywhere; `tryUse` fires once then gates while recharging; `tick` counts down, clamps at zero
+  (no negative on overshoot), and frees the ability, with `fraction` tracking 1.0->0.0; `start` refreshes
+  a running timer to full; multiple ids stay independent; `reduce` shortens and can free (and no-ops on a
+  ready ability); `reset` / `clear` work; a non-positive duration means immediately ready (and clears an
+  active timer); non-positive dt is ignored),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
