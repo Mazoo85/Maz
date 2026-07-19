@@ -61,7 +61,7 @@ int main() {
     seq.setChannelSnap(1, 0.8f);         // a crisp, wiry snare
     seq.setChannelFlam(1, 18.0f);
     seq.setChannelType(1, audio::Drum::Tom);
-    seq.setChannelType(4, audio::Drum::Timbale);
+    seq.setChannelType(4, audio::Drum::Agogo);
     seq.setChannelType(2, audio::Drum::Clave);
     seq.setChannelType(3, audio::Drum::Shaker);
     seq.setChannelType(0, audio::Drum::Snap);
@@ -641,7 +641,7 @@ int main() {
     check(near(seq2.channelSnap(1), 0.8f), "channel snare snap round-trips");
     check(near(seq2.channelFlam(1), 18.0f), "channel flam round-trips");
     check(seq2.channelType(1) == audio::Drum::Tom &&
-              seq2.channelType(4) == audio::Drum::Timbale &&
+              seq2.channelType(4) == audio::Drum::Agogo &&
               seq2.channelType(2) == audio::Drum::Clave &&
               seq2.channelType(3) == audio::Drum::Shaker &&
               seq2.channelType(0) == audio::Drum::Snap,

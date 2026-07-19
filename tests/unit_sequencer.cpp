@@ -456,6 +456,30 @@ int main() {
         std::vector<float> tbtail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
         timb.render(tbtail.data(), static_cast<int>(tbtail.size()), sampleRate);
         check(!timb.active(), "timbale decays to inactive");
+
+        // Agogo: a bright metallic bell with a clear pitched fundamental (~780 Hz), decays cleanly.
+        auto goertzelMono = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float v : b) {
+                const double s0 = static_cast<double>(v) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        audio::DrumVoice ag;
+        ag.setType(audio::Drum::Agogo);
+        ag.trigger();
+        std::vector<float> agb(static_cast<size_t>(sampleRate) / 10, 0.0f); // 100 ms
+        ag.render(agb.data(), static_cast<int>(agb.size()), sampleRate);
+        check(rms(agb) > 0.0, "agogo produces sound");
+        check(goertzelMono(agb, 780.0, sampleRate) > goertzelMono(agb, 400.0, sampleRate) * 3.0,
+              "agogo rings at its ~780 Hz bell pitch (a clear tonal fundamental)");
+        std::vector<float> agt(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        ag.render(agt.data(), static_cast<int>(agt.size()), sampleRate);
+        check(!ag.active(), "agogo decays to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------

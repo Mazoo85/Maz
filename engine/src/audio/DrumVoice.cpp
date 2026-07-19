@@ -61,6 +61,8 @@ double decayTau(Drum type) {
         return 0.022; // a dry, tight finger snap — a very fast decay
     case Drum::Timbale:
         return 0.14; // a high, ringing metal-shell drum — a medium-short metallic ring
+    case Drum::Agogo:
+        return 0.16; // a bright, high metallic bell — a clear pitched ring
     }
     return 0.1;
 }
@@ -327,6 +329,17 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double stick = std::exp(-t_ / 0.004); // brief bright stick tick
             s = static_cast<float>(
                 (0.7 * bodyT + ring + 0.5 * static_cast<double>(noise()) * stick) * env);
+            break;
+        }
+        case Drum::Agogo: {
+            // A bright, high-pitched metallic bell (agogo): a clear ~780 Hz fundamental plus two
+            // inharmonic bell partials (~2.8x, ~5.2x) for a shimmering ring, with a sharp attack tick.
+            // Higher and more bell-like (pure sine partials) than the buzzy two-square cowbell.
+            const double fund = std::sin(kTwoPi * 780.0 * pitchMul * t_);
+            const double ring = 0.5 * std::sin(kTwoPi * 2184.0 * pitchMul * t_) +
+                                0.3 * std::sin(kTwoPi * 4056.0 * pitchMul * t_);
+            const double tick = std::exp(-t_ / 0.003); // a brief metallic strike tick
+            s = static_cast<float>((fund + ring + 0.2 * static_cast<double>(noise()) * tick) * env);
             break;
         }
         }
