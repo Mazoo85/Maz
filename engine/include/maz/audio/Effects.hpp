@@ -820,9 +820,13 @@ public:
     void setFrequency(float hz) { freq_ = hz < 20.0f ? 20.0f : (hz > 5000.0f ? 5000.0f : hz); }
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.98f ? 0.98f : f); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Damping (0..1): a high-cut on the resonator's feedback so the ringing tail darkens over time —
+    // mellower, less metallic. 0 (default) = off (bright, full-range resonance).
+    void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float frequency() const { return freq_; }
     float feedback() const { return feedback_; }
     float mix() const { return mix_; }
+    float damping() const { return damping_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -831,6 +835,8 @@ private:
     float freq_ = 220.0f;
     float feedback_ = 0.8f;
     float mix_ = 0.5f;
+    float damping_ = 0.0f; // feedback high-cut (0 = off/bright)
+    float dampL_ = 0.0f, dampR_ = 0.0f; // one-pole feedback low-pass state per channel
     std::vector<float> bufL_; // circular delay lines (sized on first process)
     std::vector<float> bufR_;
     int writePos_ = 0;

@@ -244,6 +244,7 @@ int main() {
     mixer.comb().setFrequency(330.0f);
     mixer.comb().setFeedback(0.72f);
     mixer.comb().setMix(0.45f);
+    mixer.comb().setDamping(0.35f);
     mixer.tremolo().setEnabled(true);
     mixer.tremolo().setRate(7.5f);
     mixer.tremolo().setDepth(0.85f);
@@ -661,7 +662,8 @@ int main() {
               near(mixer2.autowah().mix(), 0.55f),
           "auto-wah round-trips");
     check(mixer2.comb().enabled() && near(mixer2.comb().frequency(), 330.0f) &&
-              near(mixer2.comb().feedback(), 0.72f) && near(mixer2.comb().mix(), 0.45f),
+              near(mixer2.comb().feedback(), 0.72f) && near(mixer2.comb().mix(), 0.45f) &&
+              near(mixer2.comb().damping(), 0.35f),
           "comb resonator round-trips");
     check(mixer2.tremolo().enabled() && near(mixer2.tremolo().rate(), 7.5f) &&
               near(mixer2.tremolo().depth(), 0.85f) &&

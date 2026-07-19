@@ -431,7 +431,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.autowah().releaseMs() << " " << (mixer.autowah().downward() ? 1 : 0) << " "
       << mixer.autowah().mix() << "\n";
     f << "fx comb " << (mixer.comb().enabled() ? 1 : 0) << " " << mixer.comb().frequency() << " "
-      << mixer.comb().feedback() << " " << mixer.comb().mix() << "\n";
+      << mixer.comb().feedback() << " " << mixer.comb().mix() << " " << mixer.comb().damping() << "\n";
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
       << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << " "
       << (mixer.tremolo().sync() ? 1 : 0) << " " << mixer.tremolo().syncDivision() << "\n";
@@ -1038,6 +1038,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.comb().setFrequency(freq);
                 mixer.comb().setFeedback(fb);
                 mixer.comb().setMix(mix);
+                float cdamp = 0.0f; // damping optional for old files (0 = off/bright)
+                if (ls >> cdamp) {
+                    mixer.comb().setDamping(cdamp);
+                }
             } else if (which == "tremolo") {
                 float rate = 5.0f, depth = 0.5f;
                 int shape = 0;

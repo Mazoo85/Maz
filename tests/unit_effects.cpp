@@ -1544,6 +1544,30 @@ int main() {
         check(std::fabs(imp[2 * 480] - 0.8f) < 1e-3f, "comb echoes at the tuned delay, scaled by feedback");
         check(std::fabs(imp[2 * 960] - 0.64f) < 1e-3f, "comb's second echo is feedback squared");
 
+        // Damping: a high-cut on the feedback smears the sharp echoes, so the impulse response
+        // carries far less high-frequency (first-difference) energy than the undamped comb.
+        auto combHf = [&](float damp) {
+            audio::CombResonator c;
+            c.setEnabled(true);
+            c.setFrequency(100.0f);
+            c.setFeedback(0.85f);
+            c.setMix(1.0f);
+            c.setDamping(damp);
+            std::vector<float> b(4000 * 2, 0.0f);
+            b[0] = 1.0f;
+            b[1] = 1.0f;
+            c.process(b.data(), 4000, sr);
+            double hf = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double dd = static_cast<double>(b[i] - b[i - 2]);
+                hf += dd * dd;
+            }
+            return hf;
+        };
+        check(combHf(0.7f) < combHf(0.0f) * 0.7, "comb damping darkens (smears) the resonant tail");
+        audio::CombResonator dcmp;
+        check(dcmp.damping() == 0.0f, "comb damping defaults to off");
+
         // Disabled → transparent.
         audio::CombResonator off;
         std::vector<float> sig = sineStereo(1000, 300.0, 0.5, sr);

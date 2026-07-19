@@ -1230,6 +1230,8 @@ void CombResonator::reset() {
     std::fill(bufL_.begin(), bufL_.end(), 0.0f);
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     writePos_ = 0;
+    dampL_ = 0.0f;
+    dampR_ = 0.0f;
 }
 
 void CombResonator::process(float* stereo, int frames, int sampleRate) {
@@ -1250,6 +1252,7 @@ void CombResonator::process(float* stereo, int frames, int sampleRate) {
     if (d >= maxD) {
         d = maxD - 1;
     }
+    const float damp = std::clamp(damping_, 0.0f, 1.0f);
     for (int i = 0; i < frames; ++i) {
         int readPos = writePos_ - d;
         if (readPos < 0) {
@@ -1257,9 +1260,12 @@ void CombResonator::process(float* stereo, int frames, int sampleRate) {
         }
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
-        // Feedback comb: output = input + feedback · (delayed output), stored back into the line.
-        const float wl = l + feedback_ * bufL_[static_cast<size_t>(readPos)];
-        const float wr = r + feedback_ * bufR_[static_cast<size_t>(readPos)];
+        // Damping: one-pole low-pass the delayed (fed-back) signal so the tail loses highs over time.
+        dampL_ = bufL_[static_cast<size_t>(readPos)] * (1.0f - damp) + dampL_ * damp;
+        dampR_ = bufR_[static_cast<size_t>(readPos)] * (1.0f - damp) + dampR_ * damp;
+        // Feedback comb: output = input + feedback · (damped delayed output), stored back into the line.
+        const float wl = l + feedback_ * dampL_;
+        const float wr = r + feedback_ * dampR_;
         bufL_[static_cast<size_t>(writePos_)] = wl;
         bufR_[static_cast<size_t>(writePos_)] = wr;
         stereo[2 * i] = l * (1.0f - mix_) + wl * mix_;

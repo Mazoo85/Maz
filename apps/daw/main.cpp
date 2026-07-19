@@ -1920,6 +1920,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         float mix = mx.comb().mix();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##comb", &mix, 0.0f, 1.0f, "%.2f")) mx.comb().setMix(mix);
+        float cdamp = mx.comb().damping();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("damp##comb", &cdamp, 0.0f, 1.0f, "%.2f")) mx.comb().setDamping(cdamp);
     }
     {
         bool en = mx.tremolo().enabled();
