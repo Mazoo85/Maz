@@ -380,7 +380,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << static_cast<int>(seq.sampler().filterMode()) << " "
       << seq.sampler().filterLfoRate() << " " << seq.sampler().filterLfoDepth() << " "
       << (seq.sampler().filterLfoSync() ? 1 : 0) << " " << seq.sampler().filterLfoSyncDivision()
-      << "\n";
+      << " " << static_cast<int>(seq.sampler().filterLfoShape()) << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -888,6 +888,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             if (ls >> slfoSync >> slfoDiv) {
                 seq.sampler().setFilterLfoSync(slfoSync != 0);
                 seq.sampler().setFilterLfoSyncDivision(slfoDiv);
+            }
+            int slfoShape = 0; // filter-LFO shape optional (older files → Sine)
+            if (ls >> slfoShape) {
+                if (slfoShape < 0 || slfoShape > 3) {
+                    slfoShape = 0;
+                }
+                seq.sampler().setFilterLfoShape(static_cast<Sampler::LfoShape>(slfoShape));
             }
         } else if (tag == "chan") {
             int c = -1;

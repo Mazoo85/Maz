@@ -1432,6 +1432,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(70.0f);
     if (ImGui::Combo("##smplfodiv", &smpLfoDiv, smpLfoDivs, audio::kModSyncDivisions))
         seq.sampler().setFilterLfoSyncDivision(smpLfoDiv);
+    const char* smpLfoShapes[] = {"Sine", "Triangle", "Square", "Saw"};
+    int smpLfoShape = static_cast<int>(seq.sampler().filterLfoShape());
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("F.LFO shape##smp", &smpLfoShape, smpLfoShapes, 4))
+        seq.sampler().setFilterLfoShape(static_cast<audio::Sampler::LfoShape>(smpLfoShape));
     float smpFeDepth = seq.sampler().filterEnvDepth();
     if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         seq.sampler().setFilterEnvDepth(smpFeDepth);

@@ -1022,6 +1022,30 @@ int main() {
         ts.updateTempo(120.0);
         check(std::fabs(ts.filterLfoRate() - 8.0f) < 0.05f, "sampler LFO 1/16 @120 BPM = 8 Hz");
         check(!audio::Sampler().filterLfoSync(), "sampler filter LFO sync defaults to off");
+
+        // LFO shape: a square gives a hard bang-bang sweep, distinct from the smooth sine, but still
+        // gates the high band over time.
+        audio::Sampler sq;
+        sq.setSampleMono(two, sr);
+        sq.setBasePitch(60);
+        sq.setKeyTrack(false);
+        sq.setFilter(3000.0f, 0.7f);
+        sq.setFilterLfo(4.0f, 6000.0f);
+        sq.setFilterLfoShape(audio::Sampler::LfoShape::Square);
+        sq.noteOn(60, 1.0f);
+        const std::vector<float> sqOut = renderMono(sq, fn, sr);
+        check(sqOut != swept, "sampler filter LFO shape changes the sweep (square != sine)");
+        double slo = 1e30, shi = 0.0;
+        for (int k = 0; k < 4; ++k) {
+            std::vector<float> win(sqOut.begin() + static_cast<long>(k) * w,
+                                   sqOut.begin() + static_cast<long>(k + 1) * w);
+            const double e = goertzel(win, 6000.0, sr);
+            slo = std::min(slo, e);
+            shi = std::max(shi, e);
+        }
+        check(shi > slo * 3.0, "square filter LFO still gates the high band over time");
+        check(audio::Sampler().filterLfoShape() == audio::Sampler::LfoShape::Sine,
+              "sampler filter LFO shape defaults to sine");
     }
 
     // Missing file fails cleanly.

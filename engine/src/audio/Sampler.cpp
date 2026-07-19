@@ -416,9 +416,30 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 }
                 if (useFilterLfo) {
                     // Shared LFO from the absolute frame index, so every voice sweeps in phase.
-                    cutoff += filterLfoDepth_ *
-                              static_cast<float>(std::sin(kSamplerTwoPi *
-                                                          (lfoPhase_ + static_cast<double>(i) * lfoInc)));
+                    const double raw = lfoPhase_ + static_cast<double>(i) * lfoInc;
+                    double mod;
+                    switch (filterLfoShape_) {
+                    case LfoShape::Triangle: {
+                        const double ph = raw - std::floor(raw);
+                        mod = 4.0 * std::fabs(ph - 0.5) - 1.0;
+                        break;
+                    }
+                    case LfoShape::Square: {
+                        const double ph = raw - std::floor(raw);
+                        mod = ph < 0.5 ? 1.0 : -1.0;
+                        break;
+                    }
+                    case LfoShape::Saw: {
+                        const double ph = raw - std::floor(raw);
+                        mod = 2.0 * ph - 1.0;
+                        break;
+                    }
+                    case LfoShape::Sine:
+                    default:
+                        mod = std::sin(kSamplerTwoPi * raw); // unchanged sine path
+                        break;
+                    }
+                    cutoff += filterLfoDepth_ * static_cast<float>(mod);
                 }
                 cutoff *= ktMul; // keyboard tracking: high notes stay bright
                 cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);

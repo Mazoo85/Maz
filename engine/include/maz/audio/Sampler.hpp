@@ -129,6 +129,12 @@ public:
     float filterLfoRate() const { return filterLfoRate_; }
     float filterLfoDepth() const { return filterLfoDepth_; }
 
+    // Cutoff-LFO shape: a smooth sine wobble, a triangle, a hard square (a filter gate — pairs with
+    // tempo-sync for a beat-locked filter gate on loops), or a saw ramp. Sine is the default.
+    enum class LfoShape { Sine, Triangle, Square, Saw };
+    void setFilterLfoShape(LfoShape s) { filterLfoShape_ = s; }
+    LfoShape filterLfoShape() const { return filterLfoShape_; }
+
     // Tempo-sync the cutoff LFO: lock its rate to a note division (the same 6 divisions as the synth
     // LFOs / effects — 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16). Call updateTempo() each block with the BPM.
     // Off (default) leaves the free-running rate above in charge.
@@ -289,6 +295,7 @@ private:
     double lfoPhase_ = 0.0;        // shared cutoff-LFO phase [0,1), advanced once per block
     bool filterLfoSync_ = false;   // tempo-sync the cutoff-LFO rate to a note division
     int filterLfoSyncDiv_ = 3;     // sync division index (3 = 1/8), matching kModSyncDivisions
+    LfoShape filterLfoShape_ = LfoShape::Sine; // cutoff-LFO waveform
     float ampDecay_ = 0.05f;   // amp-envelope decay time (s); no-op while ampSustain_ == 1
     float ampSustain_ = 1.0f;  // amp-envelope sustain level (0..1); 1 = plain attack/hold/release
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
