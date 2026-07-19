@@ -1,5 +1,6 @@
 #include "maz/audio/Sampler.hpp"
 
+#include "maz/audio/Effects.hpp" // modSyncRateHz for the tempo-synced cutoff LFO
 #include "maz/audio/Pitch.hpp"
 #include "maz/audio/WavReader.hpp"
 
@@ -455,6 +456,12 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     if (useFilterLfo) {
         lfoPhase_ += static_cast<double>(frames) * lfoInc;
         lfoPhase_ -= std::floor(lfoPhase_);
+    }
+}
+
+void Sampler::updateTempo(double bpm) {
+    if (filterLfoSync_ && bpm > 0.0) {
+        setFilterLfo(modSyncRateHz(filterLfoSyncDiv_, bpm), filterLfoDepth_);
     }
 }
 

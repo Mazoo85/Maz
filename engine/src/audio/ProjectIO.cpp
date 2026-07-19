@@ -378,7 +378,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().velToAttack() << " " << seq.sampler().velToStart() << " "
       << seq.sampler().filterKeyTrack() << " "
       << static_cast<int>(seq.sampler().filterMode()) << " "
-      << seq.sampler().filterLfoRate() << " " << seq.sampler().filterLfoDepth() << "\n";
+      << seq.sampler().filterLfoRate() << " " << seq.sampler().filterLfoDepth() << " "
+      << (seq.sampler().filterLfoSync() ? 1 : 0) << " " << seq.sampler().filterLfoSyncDivision()
+      << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -881,6 +883,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float slfoRate = 5.0f, slfoDepth = 0.0f; // filter-LFO optional (older files → off)
             if (ls >> slfoRate >> slfoDepth) {
                 seq.sampler().setFilterLfo(slfoRate, slfoDepth);
+            }
+            int slfoSync = 0, slfoDiv = 3; // filter-LFO tempo-sync optional (older files → off)
+            if (ls >> slfoSync >> slfoDiv) {
+                seq.sampler().setFilterLfoSync(slfoSync != 0);
+                seq.sampler().setFilterLfoSyncDivision(slfoDiv);
             }
         } else if (tag == "chan") {
             int c = -1;

@@ -129,6 +129,15 @@ public:
     float filterLfoRate() const { return filterLfoRate_; }
     float filterLfoDepth() const { return filterLfoDepth_; }
 
+    // Tempo-sync the cutoff LFO: lock its rate to a note division (the same 6 divisions as the synth
+    // LFOs / effects — 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16). Call updateTempo() each block with the BPM.
+    // Off (default) leaves the free-running rate above in charge.
+    void setFilterLfoSync(bool on) { filterLfoSync_ = on; }
+    void setFilterLfoSyncDivision(int d) { filterLfoSyncDiv_ = d < 0 ? 0 : (d > 5 ? 5 : d); }
+    bool filterLfoSync() const { return filterLfoSync_; }
+    int filterLfoSyncDivision() const { return filterLfoSyncDiv_; }
+    void updateTempo(double bpm); // apply a tempo-synced cutoff-LFO rate (no-op unless sync is on)
+
     // Filter envelope: its own ADSR (seconds / sustain 0..1) sweeps the playback filter cutoff by
     // `depth` Hz (±) — a filter pluck/wow on the sample, independent of the amp envelope. depth 0 = off.
     void setFilterEnvelope(float attack, float decay, float sustain, float release) {
@@ -278,6 +287,8 @@ private:
     float filterLfoRate_ = 5.0f;   // cutoff-LFO rate (Hz)
     float filterLfoDepth_ = 0.0f;  // cutoff-LFO depth (± Hz); 0 = off
     double lfoPhase_ = 0.0;        // shared cutoff-LFO phase [0,1), advanced once per block
+    bool filterLfoSync_ = false;   // tempo-sync the cutoff-LFO rate to a note division
+    int filterLfoSyncDiv_ = 3;     // sync division index (3 = 1/8), matching kModSyncDivisions
     float ampDecay_ = 0.05f;   // amp-envelope decay time (s); no-op while ampSustain_ == 1
     float ampSustain_ = 1.0f;  // amp-envelope sustain level (0..1); 1 = plain attack/hold/release
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR

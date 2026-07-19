@@ -1007,6 +1007,21 @@ int main() {
         check(hi > lo * 3.0,
               "sampler filter LFO sweeps the cutoff, modulating the high band over time");
         check(audio::Sampler().filterLfoDepth() == 0.0f, "sampler filter LFO defaults to off");
+
+        // Tempo sync locks the LFO rate to the division: 1/8 @120 BPM = 4 Hz, 1/16 = 8 Hz. With sync
+        // off, updateTempo leaves the manual rate alone.
+        audio::Sampler ts;
+        ts.setFilterLfo(5.0f, 6000.0f);
+        ts.updateTempo(120.0); // sync off → no change
+        check(std::fabs(ts.filterLfoRate() - 5.0f) < 1e-3f, "sampler LFO ignores tempo when unsynced");
+        ts.setFilterLfoSync(true);
+        ts.setFilterLfoSyncDivision(3); // 1/8
+        ts.updateTempo(120.0);
+        check(std::fabs(ts.filterLfoRate() - 4.0f) < 0.05f, "sampler LFO 1/8 @120 BPM = 4 Hz");
+        ts.setFilterLfoSyncDivision(5); // 1/16
+        ts.updateTempo(120.0);
+        check(std::fabs(ts.filterLfoRate() - 8.0f) < 0.05f, "sampler LFO 1/16 @120 BPM = 8 Hz");
+        check(!audio::Sampler().filterLfoSync(), "sampler filter LFO sync defaults to off");
     }
 
     // Missing file fails cleanly.

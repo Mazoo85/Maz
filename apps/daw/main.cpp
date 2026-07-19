@@ -1417,6 +1417,16 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool slfoch = ImGui::SliderFloat("F.LFO rate##smp", &smpLfoRate, 0.01f, 40.0f, "%.2f Hz");
     slfoch |= ImGui::SliderFloat("F.LFO depth##smp", &smpLfoDepth, -12000.0f, 12000.0f, "%.0f Hz");
     if (slfoch) seq.sampler().setFilterLfo(smpLfoRate, smpLfoDepth);
+    const char* smpLfoDivs[audio::kModSyncDivisions];
+    for (int dv = 0; dv < audio::kModSyncDivisions; ++dv)
+        smpLfoDivs[dv] = audio::modSyncDivisionName(dv);
+    bool smpLfoSync = seq.sampler().filterLfoSync();
+    if (ImGui::Checkbox("F.LFO sync##smp", &smpLfoSync)) seq.sampler().setFilterLfoSync(smpLfoSync);
+    ImGui::SameLine();
+    int smpLfoDiv = seq.sampler().filterLfoSyncDivision();
+    ImGui::SetNextItemWidth(70.0f);
+    if (ImGui::Combo("##smplfodiv", &smpLfoDiv, smpLfoDivs, audio::kModSyncDivisions))
+        seq.sampler().setFilterLfoSyncDivision(smpLfoDiv);
     float smpFeDepth = seq.sampler().filterEnvDepth();
     if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         seq.sampler().setFilterEnvDepth(smpFeDepth);
