@@ -448,7 +448,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (6 planes -> exactly 8 corners at ±extent, off-centre translation, origin-not-a-corner), an
   inside-all-planes property check, redundant/duplicate-plane merging (still 8), the fewer-than-4-planes
   empty case, and a cylinder (2·sides corners, each on a cap and between the inscribed radius and the
-  circumradius)) — plus Plane completeness
+  circumradius)); M403 adds **clipPolygon** (math::clipPolygon — Godot's Geometry3D.clip_polygon,
+  single-plane Sutherland-Hodgman clipping of a 3D polygon ring against a plane, keeping the part on
+  the negative side (inside the volume) and inserting the exact edge/plane intersection at each
+  crossing. Same "inside = negative side" convention as the plane-builder family, so a face can be
+  clipped plane-by-plane against a convex bound — the classic way to build the polygon faces that pair
+  with computeConvexMeshPoints' corners. Faithful port of Godot's inside/outside/boundary location
+  cache. Verified: a square clipped at x=1 -> exact trimmed rectangle, wholly-inside returns the ring
+  unchanged, wholly-outside returns empty, a diagonal cut yields the correct triangle, empty input ->
+  empty, and two successive clips trim to a smaller rectangle) — plus Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

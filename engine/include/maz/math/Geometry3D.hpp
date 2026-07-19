@@ -851,4 +851,66 @@ inline std::vector<vec3> computeConvexMeshPoints(const std::vector<Plane>& plane
     return computeConvexMeshPoints(planes.data(), planes.size(), eps);
 }
 
+// Clip a 3D polygon (an ordered ring of points) against a plane, keeping the part on the plane's
+// NEGATIVE side (distanceTo(p) < 0) — Godot's Geometry3D.clip_polygon. Single-plane Sutherland-
+// Hodgman: vertices strictly inside are kept in order, and every edge that crosses the plane
+// contributes the exact intersection point, so the ring comes back trimmed to the half-space. This is
+// the same "inside = negative side" convention as buildBoxPlanes / segmentIntersectsConvex /
+// computeConvexMeshPoints, so a face can be clipped plane-by-plane against a convex bound (the classic
+// way to build the polygon faces that go with computeConvexMeshPoints' corners). Returns the polygon
+// unchanged when it lies wholly inside (or on the plane), and an empty list when wholly outside.
+inline std::vector<vec3> clipPolygon(const std::vector<vec3>& polygon, const Plane& plane,
+                                     float eps = 1e-6f) {
+    if (polygon.empty()) {
+        return polygon;
+    }
+    enum Loc { Inside = 1, Boundary = 0, Outside = -1 };
+    std::vector<int> loc(polygon.size());
+    std::size_t insideCount = 0;
+    std::size_t outsideCount = 0;
+    for (std::size_t i = 0; i < polygon.size(); ++i) {
+        const float dist = plane.distanceTo(polygon[i]);
+        if (dist < -eps) {
+            loc[i] = Inside;
+            ++insideCount;
+        } else if (dist > eps) {
+            loc[i] = Outside;
+            ++outsideCount;
+        } else {
+            loc[i] = Boundary;
+        }
+    }
+    if (outsideCount == 0) {
+        return polygon; // wholly inside / on the plane -> unchanged
+    }
+    if (insideCount == 0) {
+        return {}; // wholly outside -> nothing survives
+    }
+    std::vector<vec3> clipped;
+    std::size_t previous = polygon.size() - 1;
+    for (std::size_t index = 0; index < polygon.size(); ++index) {
+        const int cur = loc[index];
+        if (cur == Outside) {
+            if (loc[previous] == Inside) {
+                const vec3& v1 = polygon[previous];
+                const vec3& v2 = polygon[index];
+                const vec3 segment = v1 - v2;
+                const float t = -plane.distanceTo(v1) / dot(plane.normal, segment);
+                clipped.push_back(v1 + segment * t);
+            }
+        } else {
+            const vec3& v1 = polygon[index];
+            if (cur == Inside && loc[previous] == Outside) {
+                const vec3& v2 = polygon[previous];
+                const vec3 segment = v1 - v2;
+                const float t = -plane.distanceTo(v1) / dot(plane.normal, segment);
+                clipped.push_back(v1 + segment * t);
+            }
+            clipped.push_back(v1);
+        }
+        previous = index;
+    }
+    return clipped;
+}
+
 } // namespace maz::math

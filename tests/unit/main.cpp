@@ -14184,6 +14184,54 @@ void testGeometry3DHelpers() {
             CHECK(mcpRad >= 2.0f - 1e-3f);
         }
     }
+
+    // --- M403: clipPolygon (single-plane 3D Sutherland-Hodgman) ---
+    {
+        auto cpHas = [](const std::vector<vec3>& v, vec3 p, float e = 1e-4f) {
+            for (const vec3& q : v) {
+                const vec3 d = q - p;
+                if (std::sqrt(math::dot(d, d)) <= e) return true;
+            }
+            return false;
+        };
+        const std::vector<vec3> cpSquare = {
+            vec3(0, 0, 0), vec3(2, 0, 0), vec3(2, 2, 0), vec3(0, 2, 0)};
+        // Clip against x=1 (keep x<1) -> rectangle x in [0,1].
+        auto cpOut = math::clipPolygon(cpSquare, math::Plane(vec3(1, 0, 0), 1.0f));
+        CHECK(cpOut.size() == 4);
+        CHECK(cpHas(cpOut, vec3(0, 0, 0)));
+        CHECK(cpHas(cpOut, vec3(1, 0, 0)));
+        CHECK(cpHas(cpOut, vec3(1, 2, 0)));
+        CHECK(cpHas(cpOut, vec3(0, 2, 0)));
+        CHECK(!cpHas(cpOut, vec3(2, 0, 0)));
+        // Wholly inside -> unchanged (same order and values).
+        auto cpIn = math::clipPolygon(cpSquare, math::Plane(vec3(1, 0, 0), 100.0f));
+        CHECK(cpIn.size() == 4);
+        for (std::size_t i = 0; i < cpSquare.size(); ++i) {
+            const vec3 d = cpIn[i] - cpSquare[i];
+            CHECK(std::sqrt(math::dot(d, d)) < 1e-4f);
+        }
+        // Wholly outside -> empty.
+        CHECK(math::clipPolygon(cpSquare, math::Plane(vec3(1, 0, 0), -1.0f)).empty());
+        // Diagonal cut of an origin-centred square -> triangle on the x+y<0 side.
+        const float cpS = 1.0f / std::sqrt(2.0f);
+        std::vector<vec3> cpCentre = {
+            vec3(-1, -1, 0), vec3(1, -1, 0), vec3(1, 1, 0), vec3(-1, 1, 0)};
+        auto cpDiag = math::clipPolygon(cpCentre, math::Plane(vec3(cpS, cpS, 0), 0.0f));
+        CHECK(cpDiag.size() == 3);
+        CHECK(cpHas(cpDiag, vec3(-1, -1, 0)));
+        CHECK(cpHas(cpDiag, vec3(1, -1, 0)));
+        CHECK(cpHas(cpDiag, vec3(-1, 1, 0)));
+        CHECK(!cpHas(cpDiag, vec3(1, 1, 0)));
+        // Empty input -> empty output.
+        CHECK(math::clipPolygon(std::vector<vec3>{}, math::Plane(vec3(1, 0, 0), 0.0f)).empty());
+        // Two successive clips trim to a smaller rectangle.
+        auto cpX = math::clipPolygon(cpSquare, math::Plane(vec3(1, 0, 0), 1.5f));
+        auto cpXY = math::clipPolygon(cpX, math::Plane(vec3(0, 1, 0), 1.5f));
+        CHECK(cpXY.size() == 4);
+        CHECK(cpHas(cpXY, vec3(1.5f, 1.5f, 0)));
+        CHECK(cpHas(cpXY, vec3(0, 0, 0)));
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,
