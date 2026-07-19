@@ -93,6 +93,8 @@ Automation::Automation() {
     lane(AutoTarget::ChorusMix).hi = 1.0f;
     lane(AutoTarget::ReverbDamping).lo = 0.0f;
     lane(AutoTarget::ReverbDamping).hi = 1.0f;
+    lane(AutoTarget::FreqShift).lo = -500.0f;
+    lane(AutoTarget::FreqShift).hi = 500.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -157,6 +159,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Chorus Mix";
     case AutoTarget::ReverbDamping:
         return "Reverb Damping";
+    case AutoTarget::FreqShift:
+        return "Freq Shift";
     case AutoTarget::Count:
         break;
     }
@@ -345,6 +349,12 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the reverb tail's damping (darken/brighten the space as it evolves).
             engine.mixer().reverb().setEnabled(true);
             engine.mixer().reverb().setDamping(v);
+            break;
+        case AutoTarget::FreqShift:
+            // Sweep the frequency shifter's Hz offset (evolving metallic/robotic textures, through-zero
+            // shimmer as it crosses 0).
+            engine.mixer().freqShifter().setEnabled(true);
+            engine.mixer().freqShifter().setShiftHz(v);
             break;
         case AutoTarget::Count:
             break;

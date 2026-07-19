@@ -232,6 +232,25 @@ int main() {
               "reverb-damping automation opens the tail back up");
     }
 
+    // --- Frequency-shift target (evolving metallic textures) -----------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& fsl = autom.lane(audio::AutoTarget::FreqShift);
+        fsl.enabled = true;
+        fsl.lfo.shape = audio::Waveform::Sine;
+        fsl.lfo.rateHz = 1.0f;
+        fsl.lo = -500.0f;
+        fsl.hi = 500.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().freqShifter().enabled() && eng.mixer().freqShifter().shiftHz() > 450.0f,
+              "automating frequency shift sweeps (and enables) the shifter up");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().freqShifter().shiftHz() < -450.0f,
+              "frequency-shift automation reaches its low (downward) bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

@@ -41,6 +41,7 @@ enum class AutoTarget {
     RingModFreq,
     ChorusMix,
     ReverbDamping,
+    FreqShift,
     Count
 };
 
