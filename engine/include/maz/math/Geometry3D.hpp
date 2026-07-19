@@ -628,6 +628,47 @@ inline std::vector<Plane> buildCylinderPlanes(float radius, float height, int si
     return planes;
 }
 
+// Build bounding planes of a capsule — a cylinder of `radius`/`height` capped by two hemispheres,
+// aligned to `axis` (0=X/1=Y/2=Z, default Z), centred at the origin. The capsule companion to
+// buildBoxPlanes / buildCylinderPlanes (toward Godot Geometry3D.build_capsule_planes): `sides`
+// radial facets bound the cylindrical middle and each hemisphere is bounded by `rings` latitude
+// rings of tangent planes. `height` is the distance between the two hemisphere CENTRES, so the
+// capsule spans +/-(height/2 + radius) along the axis. Every plane is tangent to (or outside) the
+// true capsule, so the intersection of their half-spaces CONTAINS the capsule — a conservative bound
+// for culling / segmentIntersectsConvex clipping, NOT a byte-exact match of Godot's facet layout.
+// Returns sides*(1 + 2*rings) planes; a point is INSIDE when on the negative side of every plane.
+inline std::vector<Plane> buildCapsulePlanes(float radius, float height, int sides, int rings,
+                                             int axis = 2) {
+    std::vector<Plane> planes;
+    if (axis < 0 || axis > 2) {
+        axis = 2;
+    }
+    const int a1 = (axis + 1) % 3;
+    const int a2 = (axis + 2) % 3;
+    constexpr float twoPi = 6.28318530717958647692f;
+    constexpr float halfPi = 1.57079632679489661923f;
+    vec3 ax(0.0f);
+    ax[axis] = 1.0f;
+    const vec3 capTop = ax * (height * 0.5f);
+    const vec3 capBot = ax * (-height * 0.5f);
+    for (int i = 0; i < sides; ++i) {
+        const float ang = static_cast<float>(i) * twoPi / static_cast<float>(sides);
+        vec3 radial(0.0f);
+        radial[a1] = std::cos(ang);
+        radial[a2] = std::sin(ang);
+        planes.emplace_back(radial, radius); // cylindrical side facet
+        for (int j = 1; j <= rings; ++j) {
+            const float theta = static_cast<float>(j) * halfPi / static_cast<float>(rings);
+            const float ct = std::cos(theta), st = std::sin(theta);
+            const vec3 nTop = radial * ct + ax * st; // tangent plane of the top cap sphere
+            planes.emplace_back(nTop, dot(nTop, capTop) + radius);
+            const vec3 nBot = radial * ct - ax * st; // tangent plane of the bottom cap sphere
+            planes.emplace_back(nBot, dot(nBot, capBot) + radius);
+        }
+    }
+    return planes;
+}
+
 // The point on triangle (a,b,c) closest to `p` — Ericson's Voronoi-region method (Real-Time
 // Collision Detection). Handles all seven regions (three vertices, three edges, the interior face)
 // in closed form, so it works for a point above/below the face or off to any side. The bedrock of

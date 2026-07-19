@@ -14079,6 +14079,56 @@ void testGeometry3DHelpers() {
         // Degenerate triangle -> (1,0,0).
         CHECK(nearV(math::barycentric(vec3(1, 1, 1), a, a, a), vec3(1, 0, 0)));
     }
+
+    // --- M401: buildCapsulePlanes (conservative containment) ---
+    {
+        auto insideAll = [](const std::vector<math::Plane>& pl, vec3 p) {
+            for (const math::Plane& q : pl) {
+                if (q.distanceTo(p) > 1e-4f) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto distSeg = [](vec3 p, vec3 sa, vec3 sb) {
+            const vec3 ab = sb - sa;
+            float t = math::dot(p - sa, ab) / math::dot(ab, ab);
+            t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+            const vec3 d = p - (sa + ab * t);
+            return std::sqrt(math::dot(d, d));
+        };
+        const float r = 2.0f, h = 6.0f; // Z capsule, cap centres z=+-3, tips z=+-5
+        const int sides = 12, rings = 4;
+        auto pl = math::buildCapsulePlanes(r, h, sides, rings, 2);
+        CHECK(pl.size() == static_cast<std::size_t>(sides) * (1u + 2u * static_cast<std::size_t>(rings)));
+        const vec3 capTop(0, 0, h * 0.5f), capBot(0, 0, -h * 0.5f);
+        // Every point strictly inside the true capsule is inside all planes (conservative containment).
+        int tested = 0;
+        for (int iz = -60; iz <= 60; iz += 6) {
+            for (int ix = -30; ix <= 30; ix += 4) {
+                for (int iy = -30; iy <= 30; iy += 4) {
+                    const vec3 p(static_cast<float>(ix) * 0.1f, static_cast<float>(iy) * 0.1f,
+                                 static_cast<float>(iz) * 0.1f);
+                    if (distSeg(p, capBot, capTop) <= r - 1e-3f) {
+                        CHECK(insideAll(pl, p));
+                        ++tested;
+                    }
+                }
+            }
+        }
+        CHECK(tested > 150);
+        // Anchors and clearly-outside rejection.
+        CHECK(insideAll(pl, vec3(0, 0, 4.9f)));
+        CHECK(insideAll(pl, vec3(1.9f, 0, 0)));
+        CHECK(!insideAll(pl, vec3(0, 0, 6.0f)));   // above top tip
+        CHECK(!insideAll(pl, vec3(5.0f, 0, 0)));   // beyond radius
+        // X-aligned + axis fallback.
+        auto plx = math::buildCapsulePlanes(1.0f, 4.0f, 8, 3, 0);
+        CHECK(insideAll(plx, vec3(2.9f, 0, 0)));
+        CHECK(!insideAll(plx, vec3(3.5f, 0, 0)));
+        auto plz = math::buildCapsulePlanes(1.0f, 2.0f, 6, 2, 99);
+        CHECK(!insideAll(plz, vec3(0, 0, 2.5f)));
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

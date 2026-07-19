@@ -430,8 +430,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   render::FrustumPlanes, the AABB companion to Camera3D::isPointVisible/isSphereVisible that scene
   culling actually needs; extract the six planes once, reject boxes wholly outside any plane).
   Verified with an ahead/behind/off-to-side/beyond-far/near-clip spread, a huge enclosing box, an
-  edge-straddling box, and degenerate-box agreement with the verified isPointVisible — plus Plane
-  completeness
+  edge-straddling box, and degenerate-box agreement with the verified isPointVisible; M401 adds
+  **buildCapsulePlanes** (math::buildCapsulePlanes — the capsule companion to buildBoxPlanes/
+  buildCylinderPlanes, completing the plane-builder family: `sides` radial facets around the axis
+  plus per-ring tangent planes for each hemispherical cap, so a capsule collision/culling volume
+  can feed segmentIntersectsConvex like any other convex hull. Documented honestly as a
+  *conservative* faceted containment — the plane set fully encloses the true capsule (every point
+  inside the capsule is inside all planes) but the faceting means it is not byte-exact to Godot's
+  capsule shape. Verified by 200+ interior sample points (all contained), pole/wall anchors,
+  clearly-outside rejections, an X-aligned variant, and axis-out-of-range fallback to Z) — plus
+  Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite
