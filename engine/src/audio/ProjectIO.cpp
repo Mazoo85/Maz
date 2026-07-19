@@ -116,6 +116,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> velFm) {
         syn.setVelToFmIndex(velFm);
     }
+    float vibDelay = 0.0f; // vibrato onset delay optional for old files (0 = immediate)
+    if (ls >> vibDelay) {
+        syn.setVibratoDelay(vibDelay);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -217,7 +221,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
           << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
           << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
-          << s.velToFmIndex() << "\n";
+          << s.velToFmIndex() << " " << s.vibratoDelay() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

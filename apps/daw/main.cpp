@@ -970,6 +970,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (vch) {
         syn.setVibrato(vibRate, vibDepth);
     }
+    float vibDelay = syn.vibratoDelay();
+    if (ImGui::SliderFloat("Vibrato delay", &vibDelay, 0.0f, 2.0f, "%.2f s"))
+        syn.setVibratoDelay(vibDelay);
     float peAmt = syn.pitchEnvAmount();
     float peTime = syn.pitchEnvTime();
     bool pech = ImGui::SliderFloat("Pitch env", &peAmt, -24.0f, 24.0f, "%.0f st");

@@ -101,6 +101,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.driftMul = detuneCents != 0.0f ? std::pow(2.0f, detuneCents / 1200.0f) : 1.0f;
     v.velocity = std::clamp(velocity, 0.0f, 1.0f);
     v.env = 0.0f;
+    v.ageSamples = 0.0;
     v.filtStage = Stage::Attack;
     v.filtEnv = 0.0f;
     v.filter.reset();
@@ -182,10 +183,21 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             v.freq += (v.targetFreq - v.freq) * glideCoef;
             double vibMul = 1.0;
             if (vibDepth_ > 0.0f) {
-                const double vp = vibPhase_ + static_cast<double>(i) * vibInc;
-                vibMul = std::pow(2.0, static_cast<double>(vibDepth_) *
-                                           std::sin(vp * kTwoPiVib) / 1200.0);
+                // Onset delay: hold vibrato off until vibDelay_ elapses for this note, then fade it in
+                // over ~50 ms. 0 delay → full vibrato immediately.
+                float vibOnset = 1.0f;
+                if (vibDelay_ > 0.0f) {
+                    const float ageSec = static_cast<float>(v.ageSamples) / sr;
+                    vibOnset = (ageSec - vibDelay_) * 20.0f; // 1/0.05 s fade
+                    vibOnset = vibOnset < 0.0f ? 0.0f : (vibOnset > 1.0f ? 1.0f : vibOnset);
+                }
+                if (vibOnset > 0.0f) {
+                    const double vp = vibPhase_ + static_cast<double>(i) * vibInc;
+                    vibMul = std::pow(2.0, static_cast<double>(vibDepth_ * vibOnset) *
+                                               std::sin(vp * kTwoPiVib) / 1200.0);
+                }
             }
+            v.ageSamples += 1.0;
             // Pitch envelope: apply the current offset, then decay it toward 0.
             double pitchMul = 1.0;
             if (v.pitchEnv != 0.0f) {

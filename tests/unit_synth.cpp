@@ -756,6 +756,34 @@ int main() {
               "without vibrato the pitch is steady");
         audio::SynthInstrument dv;
         check(dv.vibratoDepth() == 0.0f, "vibrato depth defaults to 0 (off)");
+
+        // Vibrato onset delay: no pitch modulation before the delay elapses, then it fades in.
+        auto renderVib = [&](float depth, float delay) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setVibrato(6.0f, depth);
+            s.setVibratoDelay(delay);
+            s.noteOn(60, 1.0f);
+            return render(s, sampleRate / 4, sampleRate); // 0.25 s
+        };
+        const std::vector<float> ref = renderVib(0.0f, 0.0f);        // no vibrato at all
+        const std::vector<float> delayed = renderVib(80.0f, 0.1f);   // deep vibrato, 100 ms onset
+        auto rangeDiff = [](const std::vector<float>& a, const std::vector<float>& b, int lo, int hi) {
+            double d = 0.0;
+            for (int i = lo; i < hi; ++i) {
+                d += std::fabs(static_cast<double>(a[static_cast<size_t>(i)] - b[static_cast<size_t>(i)]));
+            }
+            return d;
+        };
+        // Before the delay (first ~60 ms) the delayed-vibrato render matches the no-vibrato render.
+        check(rangeDiff(delayed, ref, 0, 3000) < 1e-4,
+              "vibrato onset delay: no modulation before the delay elapses");
+        // Well after the delay + fade (~190–250 ms) the vibrato is active, so it diverges from steady.
+        check(rangeDiff(delayed, ref, 9000, 12000) > 0.1,
+              "vibrato fades in after the onset delay");
+        audio::SynthInstrument dvd;
+        check(dvd.vibratoDelay() == 0.0f, "vibrato delay defaults to 0 (immediate)");
     }
 
     // --- Portamento / glide --------------------------------------------------

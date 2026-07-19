@@ -71,6 +71,11 @@ public:
     }
     float vibratoRate() const { return vibRate_; }
     float vibratoDepth() const { return vibDepth_; }
+    // Vibrato delay (seconds): hold the vibrato off for this long after each note starts, then fade it
+    // in over ~50 ms — the expressive "delayed vibrato" a player adds on sustained notes. 0 = off
+    // (vibrato is immediate, as before). Per-note (timed from each note's onset).
+    void setVibratoDelay(float seconds) { vibDelay_ = seconds < 0.0f ? 0.0f : (seconds > 5.0f ? 5.0f : seconds); }
+    float vibratoDelay() const { return vibDelay_; }
 
     // Oscillator start-phase randomization (0..1): each note starts its oscillators at a random phase
     // rather than always at 0, so repeated notes don't have identical transients and stacked/unison
@@ -294,6 +299,7 @@ private:
         float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;
         float env = 0.0f;
+        double ageSamples = 0.0; // samples since noteOn (for the vibrato onset delay)
         Stage filtStage = Stage::Off; // dedicated filter-envelope stage
         float filtEnv = 0.0f;         // dedicated filter-envelope level
         StateVariableFilter filter{};
@@ -322,6 +328,7 @@ private:
     uint32_t phaseRng_ = 0x9E3779B1u; // deterministic RNG for start-phase randomization
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
+    float vibDelay_ = 0.0f;     // vibrato onset delay (seconds); 0 = immediate
     float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off
     float pitchEnvTime_ = 0.05f; // pitch-envelope decay time (seconds)
     double vibPhase_ = 0.0;     // vibrato LFO phase (shared across voices)
