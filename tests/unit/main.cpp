@@ -13502,6 +13502,9 @@ void testVectorOps() {
     // M356: posmodv — per-component modulus (Godot Vector2.posmodv)
     CHECK(near2(math::posmodv(vec2(-1, 5), vec2(3, 4)), vec2(2, 1)));
     CHECK(near2(math::posmodv(vec2(5, 5), vec2(-3, 3)), vec2(-1, 2))); // carries modulus sign
+    // M362: float vec2 max/min axis index (max prefers X, min prefers Y on ties)
+    CHECK((math::maxAxisIndex(vec2(3, 7)) == 1 && math::maxAxisIndex(vec2(9, 2)) == 0));
+    CHECK((math::minAxisIndex(vec2(3, 7)) == 0 && math::minAxisIndex(vec2(5, 5)) == 1));
 
     // Vector3: angle_to is the unsigned [0,pi] angle; slide/bounce/reflect mirror the 2D behaviour.
     CHECK_NEAR(math::angleTo(vec3(1, 0, 0), vec3(0, 1, 0)), kPi / 2, 1e-4f);
@@ -13515,6 +13518,10 @@ void testVectorOps() {
     CHECK(near3(math::project(vec3(3, 4, 5), vec3(0, 0, 1)), vec3(0, 0, 5)));
     CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
     CHECK(near3(math::posmodv(vec3(-1, 7, 10), vec3(3, 4, 6)), vec3(2, 3, 4))); // M356 per-component
+    // M362: float vec3 max/min axis index (all-equal -> max X, min Z; matches integer M357)
+    CHECK((math::maxAxisIndex(vec3(1, 9, 4)) == 1 && math::maxAxisIndex(vec3(1, 4, 9)) == 2));
+    CHECK((math::minAxisIndex(vec3(5, 1, 4)) == 1 && math::minAxisIndex(vec3(1, 4, 5)) == 0));
+    CHECK((math::maxAxisIndex(vec3(3, 3, 3)) == 0 && math::minAxisIndex(vec3(3, 3, 3)) == 2));
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
 
     // --- M323: rotate a 3D vector about an axis (Rodrigues) — Godot Vector3.rotated ---

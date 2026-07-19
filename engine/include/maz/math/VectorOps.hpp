@@ -230,6 +230,11 @@ inline vec2 posmodv(const vec2& v, const vec2& modv) {
     return vec2(fposmod(v.x, modv.x), fposmod(v.y, modv.y));
 }
 
+// Axis index (0=X, 1=Y) of the largest / smallest component — Godot's Vector2.max_axis_index /
+// min_axis_index (exact ternary form: max prefers X on ties, min prefers Y).
+inline int maxAxisIndex(const vec2& v) { return v.x < v.y ? 1 : 0; }
+inline int minAxisIndex(const vec2& v) { return v.x < v.y ? 0 : 1; }
+
 // Snap each component to the nearest multiple of the matching `step` component — Godot's Vector2.snapped.
 inline vec2 snapped(const vec2& v, const vec2& step) {
     return vec2(snappedf(v.x, step.x), snappedf(v.y, step.y));
@@ -302,6 +307,15 @@ inline vec3 posmod(const vec3& v, float m) {
 // Per-component positive modulo — Godot's Vector3.posmodv.
 inline vec3 posmodv(const vec3& v, const vec3& modv) {
     return vec3(fposmod(v.x, modv.x), fposmod(v.y, modv.y), fposmod(v.z, modv.z));
+}
+
+// Axis index (0=X, 1=Y, 2=Z) of the largest / smallest component — Godot's Vector3.max_axis_index /
+// min_axis_index, using Godot's exact nested-ternary form so tie-breaking matches its float type.
+inline int maxAxisIndex(const vec3& v) {
+    return v.x < v.y ? (v.y < v.z ? 2 : 1) : (v.x < v.z ? 2 : 0);
+}
+inline int minAxisIndex(const vec3& v) {
+    return v.x < v.y ? (v.x < v.z ? 0 : 2) : (v.y < v.z ? 1 : 2);
 }
 
 inline vec3 snapped(const vec3& v, const vec3& step) {

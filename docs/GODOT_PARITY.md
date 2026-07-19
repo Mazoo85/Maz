@@ -212,7 +212,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   a-z or A-Z), negatives prefixed '-', bases out of range clamp to 10, INT64_MIN handled via unsigned
   magnitude, verified across bases/signs; M361 adds Vector4 isFinite / isZeroApprox — Godot
   Vector4.is_finite / is_zero_approx (all components finite / within epsilon of zero), completing the
-  is_finite family across vec2/vec3/vec4/quat, verified against inf/NaN and tiny/nonzero components; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
+  is_finite family across vec2/vec3/vec4/quat, verified against inf/NaN and tiny/nonzero components;
+  M362 adds float vec2/vec3 maxAxisIndex / minAxisIndex — Godot Vector2/Vector3.max_axis_index /
+  min_axis_index (float companions to the M357 integer versions), using Godot's exact nested-ternary
+  form so tie-breaking matches its float type (all-equal → max X, min Z), verified; M359 adds Rect2.getSupport — Godot Rect2.get_support: the
   rectangle corner farthest along a direction (per axis max edge when dir>0 else min; dir==0 picks min,
   matching Godot's strict >0), the GJK/SAT broadphase primitive, verified all quadrants + zero-axis),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
