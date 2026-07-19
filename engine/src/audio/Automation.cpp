@@ -117,6 +117,12 @@ Automation::Automation() {
     lane(AutoTarget::AutoPanRate).hi = 8.0f;
     lane(AutoTarget::CombFrequency).lo = 80.0f;
     lane(AutoTarget::CombFrequency).hi = 2000.0f;
+    lane(AutoTarget::OctaverAmount).lo = 0.0f;
+    lane(AutoTarget::OctaverAmount).hi = 1.0f;
+    lane(AutoTarget::ConvolverMix).lo = 0.0f;
+    lane(AutoTarget::ConvolverMix).hi = 1.0f;
+    lane(AutoTarget::DistortionBias).lo = -1.0f;
+    lane(AutoTarget::DistortionBias).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -205,6 +211,12 @@ const char* Automation::targetName(AutoTarget t) {
         return "Auto-Pan Rate";
     case AutoTarget::CombFrequency:
         return "Comb Freq";
+    case AutoTarget::OctaverAmount:
+        return "Octaver Up";
+    case AutoTarget::ConvolverMix:
+        return "Convolver Mix";
+    case AutoTarget::DistortionBias:
+        return "Dist Bias";
     case AutoTarget::Count:
         break;
     }
@@ -454,6 +466,21 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the comb resonator's tuned pitch (metallic riser/sweep).
             engine.mixer().comb().setEnabled(true);
             engine.mixer().comb().setFrequency(v);
+            break;
+        case AutoTarget::OctaverAmount:
+            // Swell the octave-up harmonic layer in over a build.
+            engine.mixer().octaver().setEnabled(true);
+            engine.mixer().octaver().setAmount(v);
+            break;
+        case AutoTarget::ConvolverMix:
+            // Ride the convolution-reverb wet blend (space swells in/out).
+            engine.mixer().convolver().setEnabled(true);
+            engine.mixer().convolver().setMix(v);
+            break;
+        case AutoTarget::DistortionBias:
+            // Sweep the distortion asymmetry (even-harmonic warmth in over a build).
+            engine.mixer().distortion().setEnabled(true);
+            engine.mixer().distortion().setBias(v);
             break;
         case AutoTarget::Count:
             break;

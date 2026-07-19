@@ -53,6 +53,9 @@ enum class AutoTarget {
     AmpCabDrive,
     AutoPanRate,
     CombFrequency,
+    OctaverAmount,
+    ConvolverMix,
+    DistortionBias,
     Count
 };
 

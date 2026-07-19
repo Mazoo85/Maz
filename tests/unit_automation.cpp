@@ -118,6 +118,9 @@ int main() {
         fixLane(audio::AutoTarget::AmpCabDrive, 0.8f);
         fixLane(audio::AutoTarget::AutoPanRate, 5.0f);
         fixLane(audio::AutoTarget::CombFrequency, 440.0f);
+        fixLane(audio::AutoTarget::OctaverAmount, 0.6f);
+        fixLane(audio::AutoTarget::ConvolverMix, 0.5f);
+        fixLane(audio::AutoTarget::DistortionBias, 0.4f);
         au.apply(eng, 0.0);
         check(std::fabs(eng.mixer().reverb().shimmer() - 0.7f) < 1e-3f &&
                   eng.mixer().reverb().enabled(),
@@ -133,6 +136,15 @@ int main() {
               "auto-pan-rate automation drives the auto-pan rate");
         check(std::fabs(eng.mixer().comb().frequency() - 440.0f) < 1e-3f,
               "comb-frequency automation drives the comb resonator pitch");
+        check(std::fabs(eng.mixer().octaver().amount() - 0.6f) < 1e-3f &&
+                  eng.mixer().octaver().enabled(),
+              "octaver-amount automation drives the octaver and enables it");
+        check(std::fabs(eng.mixer().convolver().mix() - 0.5f) < 1e-3f &&
+                  eng.mixer().convolver().enabled(),
+              "convolver-mix automation drives the convolver and enables it");
+        check(std::fabs(eng.mixer().distortion().bias() - 0.4f) < 1e-3f &&
+                  eng.mixer().distortion().enabled(),
+              "distortion-bias automation drives the bias and enables the distortion");
     }
 
     // --- Automation clips (breakpoint envelopes) ------------------------------
