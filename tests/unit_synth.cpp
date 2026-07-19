@@ -1833,6 +1833,47 @@ int main() {
         hm.snapToScale(60, audio::Scale::HungarianMinor);
         check(hm.notes()[0].pitch == 63 && hm.notes()[1].pitch == 66,
               "hungarian-minor snaps the major 3rd to the minor 3rd and keeps the sharp 4th");
+
+        // Double harmonic / Byzantine (0,1,4,5,7,8,11): a natural 2nd (D, 62) snaps to the ♭2 (61); the
+        // major 3rd (E, 64) is in scale and stays.
+        audio::PianoRoll dh;
+        dh.addNote(audio::Note{0, 1, 62, 1.0f});
+        dh.addNote(audio::Note{1, 1, 64, 1.0f});
+        dh.snapToScale(60, audio::Scale::DoubleHarmonic);
+        check(dh.notes()[0].pitch == 61 && dh.notes()[1].pitch == 64,
+              "double-harmonic snaps the natural 2nd to the flat 2nd and keeps the major 3rd");
+
+        // Neapolitan minor (0,1,3,5,7,8,11): a natural 7th (B is in scale) — test the raised leading
+        // tone stays while a major 3rd (E, 64) snaps to the minor 3rd (63).
+        audio::PianoRoll nm;
+        nm.addNote(audio::Note{0, 1, 64, 1.0f});
+        nm.addNote(audio::Note{1, 1, 71, 1.0f}); // B4 = the ♮7 leading tone, in scale
+        nm.snapToScale(60, audio::Scale::NeapolitanMinor);
+        check(nm.notes()[0].pitch == 63 && nm.notes()[1].pitch == 71,
+              "neapolitan-minor snaps the major 3rd down and keeps the raised 7th");
+
+        // Hirajoshi (0,2,3,7,8): a Japanese pentatonic. In-scale pitches from C are 60,62,63,67,68.
+        // The perfect 4th (F, 65) is out of scale and equidistant from 63 (down 2) and 67 (up 2);
+        // snapToScale resolves exact ties DOWNWARD, so it lands on 63 (the ♭3).
+        audio::PianoRoll hj;
+        hj.addNote(audio::Note{0, 1, 65, 1.0f});
+        hj.snapToScale(60, audio::Scale::Hirajoshi);
+        check(hj.notes()[0].pitch == 63,
+              "hirajoshi snaps the out-of-scale 4th to the nearest in-scale degree (tie resolves down)");
+
+        // In-Sen (0,1,5,7,10) and Egyptian (0,2,5,7,10): confirm an in-scale note is untouched (root)
+        // and the degree sets are wired (a distinct out-of-scale note moves).
+        audio::PianoRoll is;
+        is.addNote(audio::Note{0, 1, 60, 1.0f}); // root, in every scale
+        is.addNote(audio::Note{1, 1, 63, 1.0f}); // ♭3, not in In-Sen → snaps to ♭2 (61) or 4th (65)
+        is.snapToScale(60, audio::Scale::InSen);
+        check(is.notes()[0].pitch == 60 && is.notes()[1].pitch != 63,
+              "in-sen keeps the root and moves an out-of-scale note onto a scale degree");
+
+        audio::PianoRoll eg;
+        eg.addNote(audio::Note{0, 1, 62, 1.0f}); // major 2nd (D) is in Egyptian → untouched
+        eg.snapToScale(60, audio::Scale::Egyptian);
+        check(eg.notes()[0].pitch == 62, "egyptian keeps the in-scale major 2nd");
     }
 
     // --- Strum ---------------------------------------------------------------

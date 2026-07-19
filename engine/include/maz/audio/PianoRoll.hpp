@@ -59,7 +59,12 @@ enum class Scale {
     WholeTone, // 0,2,4,6,8,10 — the symmetric whole-tone scale (dreamy/ambiguous)
     Chromatic, // all 12 semitones — snapping is a no-op (an "off" option)
     PhrygianDominant, // 0,1,4,5,7,8,10 — the Spanish/flamenco scale (5th mode of harmonic minor)
-    HungarianMinor    // 0,2,3,6,7,8,11 — gypsy minor, with two augmented-second leaps
+    HungarianMinor,   // 0,2,3,6,7,8,11 — gypsy minor, with two augmented-second leaps
+    DoubleHarmonic,   // 0,1,4,5,7,8,11 — Byzantine / Arabic "double harmonic major" (two aug-2nds)
+    NeapolitanMinor,  // 0,1,3,5,7,8,11 — Phrygian with a raised 7th (leading tone) for a minor cadence
+    Hirajoshi,        // 0,2,3,7,8 — Japanese pentatonic (koto tuning), dark and spacious
+    InSen,            // 0,1,5,7,10 — Japanese "in" pentatonic, a haunting shakuhachi colour
+    Egyptian          // 0,2,5,7,10 — suspended pentatonic (2nd mode of major pentatonic), open 4ths/5ths
 };
 
 // The melodic pattern the piano roll edits and the sequencer plays: a set of notes over a step

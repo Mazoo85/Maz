@@ -268,6 +268,16 @@ std::vector<int> PianoRoll::scaleDegrees(Scale scale) {
         return {0, 1, 4, 5, 7, 8, 10};
     case Scale::HungarianMinor:
         return {0, 2, 3, 6, 7, 8, 11};
+    case Scale::DoubleHarmonic:
+        return {0, 1, 4, 5, 7, 8, 11};
+    case Scale::NeapolitanMinor:
+        return {0, 1, 3, 5, 7, 8, 11};
+    case Scale::Hirajoshi:
+        return {0, 2, 3, 7, 8};
+    case Scale::InSen:
+        return {0, 1, 5, 7, 10};
+    case Scale::Egyptian:
+        return {0, 2, 5, 7, 10};
     }
     return {0, 2, 4, 5, 7, 9, 11};
 }
