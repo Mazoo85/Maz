@@ -698,9 +698,14 @@ public:
     void setMode(StateVariableFilter::Mode m) { mode_ = m; }
     void setCutoff(float hz) { cutoff_ = hz < 20.0f ? 20.0f : (hz > 20000.0f ? 20000.0f : hz); }
     void setResonance(float r) { reso_ = r < 0.5f ? 0.5f : (r > 20.0f ? 20.0f : r); }
+    // Drive (0..1): overdrive the signal into the filter with a tanh saturation before filtering,
+    // adding harmonics and analog grit — the classic driven/acid DJ-filter growl. 0 (default) = clean
+    // (bit-for-bit unchanged).
+    void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     StateVariableFilter::Mode mode() const { return mode_; }
     float cutoff() const { return cutoff_; }
     float resonance() const { return reso_; }
+    float drive() const { return drive_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -709,6 +714,7 @@ private:
     StateVariableFilter::Mode mode_ = StateVariableFilter::Mode::LowPass;
     float cutoff_ = 20000.0f; // wide open by default (transparent)
     float reso_ = 0.7f;
+    float drive_ = 0.0f; // pre-filter tanh overdrive [0,1]; 0 = clean
     StateVariableFilter fL_{};
     StateVariableFilter fR_{};
 };

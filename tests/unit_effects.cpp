@@ -1858,6 +1858,29 @@ int main() {
         check(same, "a disabled master filter is a bit-identical passthrough");
         check(!audio::MasterFilter().enabled() && audio::MasterFilter().cutoff() > 19000.0f,
               "master filter defaults to off and wide open");
+
+        // Drive: overdriving into a wide-open filter adds harmonics (more high-frequency content).
+        auto hfEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double d = static_cast<double>(b[i] - b[i - 2]); // left-channel first difference
+                e += d * d;
+            }
+            return e;
+        };
+        auto driven = [&](float drive) {
+            audio::MasterFilter f;
+            f.setEnabled(true);
+            f.setCutoff(20000.0f); // wide open, so the drive harmonics pass through
+            f.setResonance(0.7f);
+            f.setDrive(drive);
+            std::vector<float> b = sineStereo(sr / 4, 300.0, 0.8, sr);
+            f.process(b.data(), sr / 4, sr);
+            return b;
+        };
+        check(hfEnergy(driven(0.8f)) > hfEnergy(driven(0.0f)) * 1.2,
+              "master filter drive adds harmonics (analog growl)");
+        check(audio::MasterFilter().drive() == 0.0f, "master filter drive defaults to clean (0)");
     }
 
     // --- Multiband stereo imager: per-band width over a pure-side signal -----

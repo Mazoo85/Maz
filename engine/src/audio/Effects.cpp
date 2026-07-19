@@ -1197,9 +1197,20 @@ void MasterFilter::process(float* stereo, int frames, int sampleRate) {
     if (!enabled_ || frames <= 0 || sampleRate <= 0) {
         return;
     }
+    // Drive: overdrive into the filter with a tanh saturation, normalised so full-scale stays ~unity.
+    // Skipped at 0 so the clean filter is bit-for-bit unchanged.
+    const bool doDrive = drive_ > 0.0f;
+    const float k = 1.0f + drive_ * 8.0f;
+    const float kNorm = doDrive ? 1.0f / std::tanh(k) : 1.0f;
     for (int i = 0; i < frames; ++i) {
-        stereo[2 * i] = fL_.process(stereo[2 * i], cutoff_, reso_, sampleRate, mode_);
-        stereo[2 * i + 1] = fR_.process(stereo[2 * i + 1], cutoff_, reso_, sampleRate, mode_);
+        float l = stereo[2 * i];
+        float r = stereo[2 * i + 1];
+        if (doDrive) {
+            l = std::tanh(l * k) * kNorm;
+            r = std::tanh(r * k) * kNorm;
+        }
+        stereo[2 * i] = fL_.process(l, cutoff_, reso_, sampleRate, mode_);
+        stereo[2 * i + 1] = fR_.process(r, cutoff_, reso_, sampleRate, mode_);
     }
 }
 

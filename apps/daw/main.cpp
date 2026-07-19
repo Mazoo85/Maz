@@ -1654,6 +1654,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("reso##mf", &freso, 0.5f, 20.0f, "%.1f"))
             mx.filter().setResonance(freso);
+        float fdrive = mx.filter().drive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("drive##mf", &fdrive, 0.0f, 1.0f, fdrive <= 0.0f ? "clean" : "%.2f"))
+            mx.filter().setDrive(fdrive);
     }
     {
         bool en = mx.highpass().enabled();

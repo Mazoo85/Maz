@@ -427,7 +427,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx eq " << (mixer.eq().enabled() ? 1 : 0) << " " << mixer.eq().cutoff() << "\n";
     f << "fx filter " << (mixer.filter().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.filter().mode()) << " " << mixer.filter().cutoff() << " "
-      << mixer.filter().resonance() << "\n";
+      << mixer.filter().resonance() << " " << mixer.filter().drive() << "\n";
     f << "fx hp " << (mixer.highpass().enabled() ? 1 : 0) << " " << mixer.highpass().cutoff() << "\n";
     f << "fx comp " << (mixer.compressor().enabled() ? 1 : 0) << " "
       << mixer.compressor().thresholdDb() << " " << mixer.compressor().ratio() << " "
@@ -1042,6 +1042,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     mode < 0 || mode > 3 ? 0 : mode));
                 mixer.filter().setCutoff(cutoff);
                 mixer.filter().setResonance(reso);
+                float fdrive = 0.0f; // filter drive optional (older files → clean)
+                if (ls >> fdrive) {
+                    mixer.filter().setDrive(fdrive);
+                }
             } else if (which == "hp") {
                 float cutoff = 30.0f;
                 ls >> cutoff;
