@@ -975,6 +975,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   `addItem` accepts (leftover 0); remove draws across stacks, caps at what is present, frees emptied slots
   for reuse; `swapSlots` reorganises without changing totals and ignores out-of-range; degenerate
   constructor args clamp to >=1 slot / >=1 stack; negative/zero add args are safe no-ops),
+  **weighted loot table** (M478, `game::LootTable` + `game::LootEntry` / `game::LootDrop` — the drop
+  system behind chests, defeated enemies, and treasure rolls: a list of entries, each an item id with a
+  relative weight and a `[minCount, maxCount]` quantity range. `roll(rng)` picks ONE entry with
+  probability proportional to its weight and yields a uniform count within that entry's range; weights are
+  relative (never need to sum to 1) and an entry with id < 0 models a "nothing dropped" outcome that can
+  win the roll and reports `empty()`. Driven by the engine's deterministic `core::Pcg32`, so a seed
+  reproduces the exact loot (replays, shareable seeds); `rollMany` batches independent rolls. Godot ships
+  no loot-table resource — games hand-roll weighted drops every time -> beyond-Godot gameplay utility.
+  Verified: a single entry always drops its item with count spanning both range extremes; fixed count
+  (min==max) is exact; same seed reproduces an identical 1000-roll sequence; over 200k rolls a 1/3/6
+  weight split lands within 1% of 10%/30%/60%; zero and negative weights never drop; a "no drop" entry
+  wins ~50% and reports empty; `rollMany` returns exactly N (and empty for N<=0); a reversed count range
+  is tolerated; `clear` resets),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

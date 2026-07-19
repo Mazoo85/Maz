@@ -122,6 +122,7 @@
 #include "maz/core/NumberFormat.hpp"
 #include "maz/game/Stat.hpp"
 #include "maz/game/Inventory.hpp"
+#include "maz/game/LootTable.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20218,6 +20219,137 @@ void testPolynomial() {
     }
 }
 
+void testLootTable() {
+    using core::Pcg32;
+    using game::LootDrop;
+    using game::LootTable;
+
+    // Empty table -> empty drop.
+    {
+        LootTable t;
+        CHECK(t.empty() && t.entryCount() == 0);
+        CHECK(t.totalWeight() == 0.0);
+        Pcg32 rng(1, 1);
+        const LootDrop d = t.roll(rng);
+        CHECK(d.empty() && d.id == -1 && d.count == 0);
+    }
+    // Single entry always drops that item; count spans [min,max].
+    {
+        LootTable t;
+        t.addEntry(7, 1.0, 2, 5);
+        Pcg32 rng(42, 7);
+        bool sawMin = false, sawMax = false;
+        for (int i = 0; i < 5000; ++i) {
+            const LootDrop d = t.roll(rng);
+            CHECK(d.id == 7 && d.count >= 2 && d.count <= 5);
+            if (d.count == 2) sawMin = true;
+            if (d.count == 5) sawMax = true;
+        }
+        CHECK(sawMin && sawMax);
+    }
+    // Fixed count (min==max) is exact.
+    {
+        LootTable t;
+        t.addEntry(3, 1.0, 4, 4);
+        Pcg32 rng(9, 9);
+        for (int i = 0; i < 100; ++i) {
+            const LootDrop d = t.roll(rng);
+            CHECK(d.id == 3 && d.count == 4);
+        }
+    }
+    // Determinism: same seed -> identical sequence.
+    {
+        LootTable t;
+        t.addEntry(1, 2.0);
+        t.addEntry(2, 3.0);
+        t.addEntry(3, 5.0);
+        Pcg32 a(123, 456), b(123, 456);
+        for (int i = 0; i < 1000; ++i) {
+            const LootDrop da = t.roll(a);
+            const LootDrop db = t.roll(b);
+            CHECK(da.id == db.id && da.count == db.count);
+        }
+    }
+    // Weight distribution approximates weight share.
+    {
+        LootTable t;
+        t.addEntry(10, 1.0);
+        t.addEntry(20, 3.0);
+        t.addEntry(30, 6.0);
+        CHECK(std::fabs(t.totalWeight() - 10.0) < 1e-12);
+        Pcg32 rng(2024, 99);
+        const int N = 200000;
+        int c10 = 0, c20 = 0, c30 = 0;
+        for (int i = 0; i < N; ++i) {
+            const LootDrop d = t.roll(rng);
+            if (d.id == 10) ++c10;
+            else if (d.id == 20) ++c20;
+            else if (d.id == 30) ++c30;
+            else CHECK(false);
+        }
+        CHECK(c10 + c20 + c30 == N);
+        CHECK(std::fabs(static_cast<double>(c10) / N - 0.10) < 0.01);
+        CHECK(std::fabs(static_cast<double>(c20) / N - 0.30) < 0.01);
+        CHECK(std::fabs(static_cast<double>(c30) / N - 0.60) < 0.01);
+    }
+    // Zero / negative weight entries never drop.
+    {
+        LootTable t;
+        t.addEntry(1, 0.0);
+        t.addEntry(2, -5.0);
+        t.addEntry(3, 1.0);
+        CHECK(t.totalWeight() == 1.0);
+        Pcg32 rng(5, 5);
+        for (int i = 0; i < 3000; ++i) CHECK(t.roll(rng).id == 3);
+    }
+    // "No drop" entry (id < 0) can win and reports empty().
+    {
+        LootTable t;
+        t.addEntry(-1, 1.0);
+        t.addEntry(99, 1.0);
+        Pcg32 rng(77, 3);
+        int nothing = 0, item = 0;
+        const int N = 40000;
+        for (int i = 0; i < N; ++i) {
+            const LootDrop d = t.roll(rng);
+            if (d.empty()) ++nothing;
+            else { CHECK(d.id == 99); ++item; }
+        }
+        CHECK(nothing + item == N);
+        CHECK(std::fabs(static_cast<double>(nothing) / N - 0.5) < 0.02);
+    }
+    // rollMany returns exactly N drops; rolls <= 0 -> empty.
+    {
+        LootTable t;
+        t.addEntry(1, 1.0);
+        Pcg32 rng(11, 11);
+        const auto many = t.rollMany(rng, 250);
+        CHECK(many.size() == 250);
+        for (const LootDrop& d : many) CHECK(d.id == 1);
+        CHECK(t.rollMany(rng, 0).empty());
+        CHECK(t.rollMany(rng, -3).empty());
+    }
+    // Reversed count range (min>max) is tolerated.
+    {
+        LootTable t;
+        t.addEntry(4, 1.0, 9, 3);
+        Pcg32 rng(8, 8);
+        for (int i = 0; i < 2000; ++i) {
+            const LootDrop d = t.roll(rng);
+            CHECK(d.id == 4 && d.count >= 3 && d.count <= 9);
+        }
+    }
+    // clear resets.
+    {
+        LootTable t;
+        t.addEntry(1, 1.0);
+        t.clear();
+        CHECK(t.empty() && t.entryCount() == 0);
+        Pcg32 rng(1, 1);
+        CHECK(t.roll(rng).empty());
+    }
+}
+
 void testInventory() {
     using game::Inventory;
 
@@ -30293,6 +30425,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testLootTable();
     testInventory();
     testStat();
     testNumberFormat();
