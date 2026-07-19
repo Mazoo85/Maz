@@ -87,6 +87,41 @@ public:
             }
         }
     }
+    // Alpha-composite a `w x h` sub-rectangle of `src` (from srcX,srcY) OVER this image at
+    // (dstX,dstY) — Godot Image.blend_rect. Unlike blitRect (which overwrites), each source pixel is
+    // source-over blended onto the destination (render::blend), so semi-transparent pixels mix.
+    void blendRect(const Image& src, int srcX, int srcY, int w, int h, int dstX, int dstY) {
+        for (int j = 0; j < h; ++j) {
+            for (int i = 0; i < w; ++i) {
+                const int sx = srcX + i, sy = srcY + j, dx = dstX + i, dy = dstY + j;
+                if (src.inBounds(sx, sy) && inBounds(dx, dy)) {
+                    setPixel(dx, dy, blend(getPixel(dx, dy), src.getPixel(sx, sy)));
+                }
+            }
+        }
+    }
+    // Fill a `w x h` rectangle at (x,y) with one colour — Godot Image.fill_rect. Clipped to bounds.
+    void fillRect(int x, int y, int w, int h, const Color& c) {
+        for (int j = 0; j < h; ++j) {
+            for (int i = 0; i < w; ++i) {
+                setPixel(x + i, y + j, c); // setPixel already ignores out-of-bounds
+            }
+        }
+    }
+    // Return a new `w x h` image copied from the sub-rectangle at (x,y) — Godot Image.get_region.
+    // Pixels outside this image are transparent black (the new image's default fill).
+    Image getRegion(int x, int y, int w, int h) const {
+        Image out(w, h);
+        for (int j = 0; j < h; ++j) {
+            for (int i = 0; i < w; ++i) {
+                const int sx = x + i, sy = y + j;
+                if (inBounds(sx, sy)) {
+                    out.setPixel(i, j, getPixel(sx, sy));
+                }
+            }
+        }
+        return out;
+    }
 
 private:
     static std::uint8_t to8(float v) { return static_cast<std::uint8_t>(detail::to255(v)); }

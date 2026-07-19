@@ -181,7 +181,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   between images; row-major, 8-bit-per-channel, top-left origin, raw bytes ready for
   createTexture — used to build procedural textures, icons and lookup tables on the CPU;
   verified by exact 8-bit round-trips through Color, fill, both flips, a clipped blit, and
-  out-of-bounds safety); plus
+  out-of-bounds safety); M387 extends Image with **region & compositing ops** (`fillRect`,
+  `getRegion` — Godot Image.fill_rect / get_region — and `blendRect`, Godot Image.blend_rect:
+  source-over alpha compositing of a sub-rectangle using the same operator as Color.blend, so
+  semi-transparent pixels mix rather than overwrite; all clipped to bounds, verified against
+  render::blend with a known base/over pair, region extraction across the edge, and a
+  transparent-source no-op); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —

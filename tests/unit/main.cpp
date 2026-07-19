@@ -1046,6 +1046,35 @@ void testColorOps() {
         CHECK(sameC(dst.getPixel(-1, 0), render::color8(0, 0, 0, 0)));
         dst.setPixel(99, 99, render::color8(1, 2, 3, 4));
         CHECK(sameC(dst.getPixel(0, 0), render::color8(0, 0, 0, 255)));
+
+        // --- Image region & compositing ops (M387) ---
+        // fillRect fills an inner rect; outside is untouched; out-of-bounds is clipped.
+        render::Image rimg(4, 4, render::color8(0, 0, 0, 255));
+        rimg.fillRect(1, 1, 2, 2, render::color8(50, 60, 70, 255));
+        CHECK(sameC(rimg.getPixel(1, 1), render::color8(50, 60, 70, 255)));
+        CHECK(sameC(rimg.getPixel(2, 2), render::color8(50, 60, 70, 255)));
+        CHECK(sameC(rimg.getPixel(0, 0), render::color8(0, 0, 0, 255)));
+        rimg.fillRect(3, 3, 5, 5, render::color8(9, 9, 9, 255)); // straddles the edge
+        CHECK(sameC(rimg.getPixel(3, 3), render::color8(9, 9, 9, 255)));
+        // getRegion extracts a sub-image; pixels outside the source are transparent black.
+        render::Image reg = rimg.getRegion(1, 1, 2, 2);
+        CHECK(reg.width() == 2 && reg.height() == 2);
+        CHECK(sameC(reg.getPixel(0, 0), render::color8(50, 60, 70, 255)));
+        render::Image edge = rimg.getRegion(3, 3, 2, 2);
+        CHECK(sameC(edge.getPixel(0, 0), render::color8(9, 9, 9, 255)));
+        CHECK(sameC(edge.getPixel(1, 1), render::color8(0, 0, 0, 0)));
+        // blendRect source-over composites; must equal render::blend of the two colours.
+        const Color bbase = render::color8(200, 0, 0, 255);
+        const Color bover = render::color8(0, 0, 200, 128);
+        render::Image bdst(2, 2, bbase);
+        render::Image bsrc(2, 2, bover);
+        bdst.blendRect(bsrc, 0, 0, 2, 2, 0, 0);
+        CHECK(sameC(bdst.getPixel(0, 0), render::blend(bbase, bover)));
+        // A fully-transparent source leaves the base unchanged.
+        render::Image bclear(1, 1, render::color8(255, 255, 255, 0));
+        render::Image bkeep(1, 1, bbase);
+        bkeep.blendRect(bclear, 0, 0, 1, 1, 0, 0);
+        CHECK(sameC(bkeep.getPixel(0, 0), bbase));
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---
