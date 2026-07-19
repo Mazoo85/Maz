@@ -54,6 +54,7 @@ int main() {
     seq.setChannelDecay(0, 2.5f);
     seq.setChannelDrive(0, 0.65f);
     seq.setChannelPitchEnv(0, 1.7f); // kick punch
+    seq.setChannelTone(0, 2500.0f);  // darken the kick
     seq.setChannelFlam(1, 18.0f);
     seq.setChannelType(1, audio::Drum::Tom);
     seq.setChannelType(4, audio::Drum::Ride);
@@ -371,6 +372,7 @@ int main() {
     check(near(seq2.channelDecay(0), 2.5f), "channel decay round-trips");
     check(near(seq2.channelDrive(0), 0.65f), "channel drive round-trips");
     check(near(seq2.channelPitchEnv(0), 1.7f), "channel pitch-env (punch) round-trips");
+    check(near(seq2.channelTone(0), 2500.0f), "channel tone (low-pass) round-trips");
     check(near(seq2.channelFlam(1), 18.0f), "channel flam round-trips");
     check(seq2.channelType(1) == audio::Drum::Tom &&
               seq2.channelType(4) == audio::Drum::Ride &&

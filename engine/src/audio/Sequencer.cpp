@@ -156,6 +156,19 @@ float Sequencer::channelPitchEnv(int c) const {
     return 1.0f;
 }
 
+void Sequencer::setChannelTone(int c, float hz) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setToneCutoff(hz);
+    }
+}
+
+float Sequencer::channelTone(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].toneCutoff();
+    }
+    return 20000.0f;
+}
+
 void Sequencer::setChannelFlam(int c, float ms) {
     if (c >= 0 && c < numChannels()) {
         chanFlam_[static_cast<size_t>(c)] = ms < 0.0f ? 0.0f : (ms > 50.0f ? 50.0f : ms);

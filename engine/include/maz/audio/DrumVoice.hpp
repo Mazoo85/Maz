@@ -57,6 +57,12 @@ public:
     void setPitchEnv(float amount) { pitchEnv_ = amount < 0.0f ? 0.0f : (amount > 2.0f ? 2.0f : amount); }
     float pitchEnv() const { return pitchEnv_; }
 
+    // Tone: a per-voice one-pole low-pass that darkens the hit (FL-style channel filter). Cutoff in
+    // Hz; 20000 (default) = fully open/bypassed (bit-transparent). Lower it to tame bright hats, take
+    // the edge off a snare, or round a kick.
+    void setToneCutoff(float hz) { toneCutoff_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
+    float toneCutoff() const { return toneCutoff_; }
+
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
     // hit's loudness for per-step accents; `extraSemitones` is a per-hit pitch offset (added to the
     // channel's base tune) captured at strike time, for per-step pitch.
@@ -85,6 +91,8 @@ private:
     float decayMul_ = 1.0f;
     float drive_ = 0.0f; // tanh saturation amount; 0 = clean
     float pitchEnv_ = 1.0f; // scales the tonal drums' initial pitch sweep; 1 = natural
+    float toneCutoff_ = 20000.0f; // per-voice low-pass cutoff Hz; 20000 = open/bypassed
+    float toneLp_ = 0.0f;         // one-pole low-pass state for the tone filter
 
     float velocity_ = 1.0f;
     bool active_ = false;

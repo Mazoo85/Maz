@@ -50,6 +50,7 @@ void DrumVoice::trigger(float velocity, float extraSemitones) {
     // Capture the hit's pitch (base tune + a per-step offset) at strike time, so a later per-step
     // pitch change never retroactively bends a still-ringing hit.
     hitTune_ = tuneSemitones_ + extraSemitones;
+    toneLp_ = 0.0f; // start the tone filter from silence so the attack is click-free
 }
 
 void DrumVoice::choke() {
@@ -73,6 +74,11 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
     const double dt = 1.0 / static_cast<double>(sampleRate);
     const double tau = decayTau(type_) * static_cast<double>(decayMul_);
     const double pitchMul = std::pow(2.0, static_cast<double>(hitTune_) / 12.0);
+    // Per-voice tone low-pass: one-pole coefficient; skipped entirely when open (bit-transparent).
+    const bool useTone = toneCutoff_ < 19000.0f;
+    const float toneA =
+        useTone ? 1.0f - std::exp(-2.0f * 3.14159265358979f * toneCutoff_ / static_cast<float>(sampleRate))
+                : 0.0f;
 
     for (int i = 0; i < frames; ++i) {
         const double env = std::exp(-t_ / tau);
@@ -168,6 +174,12 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         if (drive_ > 0.0f) {
             const float k = 1.0f + drive_ * 8.0f;
             s = std::tanh(s * k) / std::tanh(k);
+        }
+
+        // Tone: one-pole low-pass to darken the hit (post-drive so it also tames drive harmonics).
+        if (useTone) {
+            toneLp_ += toneA * (s - toneLp_);
+            s = toneLp_;
         }
 
         // Choke fade: ~4 ms ramp to silence, then the voice deactivates.

@@ -122,6 +122,10 @@ public:
     void setChannelPitchEnv(int c, float amount);
     float channelPitchEnv(int c) const;
 
+    // Per-channel tone (low-pass cutoff in Hz, 20000 = open): darkens an individual drum, FL-style.
+    void setChannelTone(int c, float hz);
+    float channelTone(int c) const;
+
     // Per-channel flam (0..50 ms): plays a quiet grace hit immediately, then the full hit this many
     // ms later — the classic flam/drag humanization. 0 = off (a single hit).
     void setChannelFlam(int c, float ms);

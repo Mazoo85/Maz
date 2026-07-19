@@ -123,6 +123,41 @@ int main() {
         check(clamp.pitchEnv() == 0.0f, "pitch-env clamps to 0");
     }
 
+    // --- Per-channel drum tone (low-pass darkening) -------------------------
+    {
+        auto hfEnergy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i]) - static_cast<double>(b[i - 1]);
+                e += d * d;
+            }
+            return e;
+        };
+        const int n = sampleRate / 40; // ~25 ms, while the hat is ringing
+
+        audio::DrumVoice open;
+        open.setType(audio::Drum::ClosedHat);
+        check(open.toneCutoff() == 20000.0f, "drum tone defaults to open (20 kHz)");
+        open.trigger();
+        std::vector<float> ob(static_cast<size_t>(n), 0.0f);
+        open.render(ob.data(), n, sampleRate);
+
+        audio::DrumVoice dark;
+        dark.setType(audio::Drum::ClosedHat);
+        dark.setToneCutoff(800.0f);
+        dark.trigger();
+        std::vector<float> db(static_cast<size_t>(n), 0.0f);
+        dark.render(db.data(), n, sampleRate);
+
+        check(hfEnergy(db) < hfEnergy(ob) * 0.5,
+              "a low tone cutoff darkens the hit (much less HF energy)");
+        check(rms(db) > 0.0, "the darkened hit still produces sound");
+
+        audio::DrumVoice cl;
+        cl.setToneCutoff(50.0f);
+        check(cl.toneCutoff() == 200.0f, "drum tone clamps to a 200 Hz minimum");
+    }
+
     // --- New percussion voices: shaker + clave ------------------------------
     {
         // A clave is a pure high tone → measure its dominant frequency via zero crossings.
