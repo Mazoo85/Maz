@@ -539,6 +539,11 @@ void buildRackUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("##tone", &tone, 200.0f, 20000.0f, "to%.0f"))
             seq.setChannelTone(c, tone);
         ImGui::SameLine();
+        float hicut = seq.channelHighpass(c);
+        ImGui::SetNextItemWidth(64.0f);
+        if (ImGui::SliderFloat("##hp", &hicut, 0.0f, 2000.0f, "hp%.0f"))
+            seq.setChannelHighpass(c, hicut);
+        ImGui::SameLine();
         float snap = seq.channelSnap(c);
         ImGui::SetNextItemWidth(58.0f);
         if (ImGui::SliderFloat("##snap", &snap, 0.0f, 1.0f, "sn%.2f"))

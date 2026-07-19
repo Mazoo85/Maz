@@ -57,6 +57,7 @@ int main() {
     seq.setChannelDrive(0, 0.65f);
     seq.setChannelPitchEnv(0, 1.7f); // kick punch
     seq.setChannelTone(0, 2500.0f);  // darken the kick
+    seq.setChannelHighpass(2, 600.0f); // thin the closed hat with a low-cut
     seq.setChannelPitchEnvTime(0, 2.5f); // longer/boomier kick sweep
     seq.setChannelSnap(1, 0.8f);         // a crisp, wiry snare
     seq.setChannelFlam(1, 18.0f);
@@ -649,6 +650,7 @@ int main() {
     check(near(seq2.channelDrive(0), 0.65f), "channel drive round-trips");
     check(near(seq2.channelPitchEnv(0), 1.7f), "channel pitch-env (punch) round-trips");
     check(near(seq2.channelTone(0), 2500.0f), "channel tone (low-pass) round-trips");
+    check(near(seq2.channelHighpass(2), 600.0f), "channel high-pass (low-cut) round-trips");
     check(near(seq2.channelPitchEnvTime(0), 2.5f), "channel pitch-env time round-trips");
     check(near(seq2.channelSnap(1), 0.8f), "channel snare snap round-trips");
     check(near(seq2.channelFlam(1), 18.0f), "channel flam round-trips");

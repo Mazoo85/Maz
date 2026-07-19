@@ -84,6 +84,12 @@ public:
     void setToneCutoff(float hz) { toneCutoff_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
     float toneCutoff() const { return toneCutoff_; }
 
+    // High-pass / low-cut: a per-voice one-pole high-pass that thins the hit — tighten a boomy kick,
+    // shave rumble off hats/claps (the other half of an FL channel filter). Cutoff in Hz; 0 (default)
+    // = off/bypassed (bit-transparent). Up to 2 kHz.
+    void setHighpassCutoff(float hz) { hpCutoff_ = hz < 0.0f ? 0.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    float highpassCutoff() const { return hpCutoff_; }
+
     // Snap (0..1): the snare's noise-vs-tone balance. 0 = all body (the tuned tone, a tom-like
     // thud), 1 = all snare wires (bright noise crack), 0.5 (default) = the classic mix. Only affects
     // the Snare voice.
@@ -122,6 +128,8 @@ private:
     float toneCutoff_ = 20000.0f; // per-voice low-pass cutoff Hz; 20000 = open/bypassed
     float snap_ = 0.5f; // snare noise/tone balance; 0.5 = classic mix
     float toneLp_ = 0.0f;         // one-pole low-pass state for the tone filter
+    float hpCutoff_ = 0.0f;       // per-voice high-pass/low-cut cutoff Hz; 0 = off/bypassed
+    float hpLp_ = 0.0f;           // one-pole low-pass state (subtracted → high-pass)
 
     float velocity_ = 1.0f;
     bool active_ = false;

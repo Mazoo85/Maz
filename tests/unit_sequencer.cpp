@@ -178,6 +178,47 @@ int main() {
         check(cl.toneCutoff() == 200.0f, "drum tone clamps to a 200 Hz minimum");
     }
 
+    // --- Per-channel drum high-pass / low-cut -------------------------------
+    {
+        const int hn = sampleRate / 10; // 100 ms of the kick body
+
+        audio::DrumVoice full;
+        full.setType(audio::Drum::Kick);
+        check(full.highpassCutoff() == 0.0f, "drum high-pass defaults to off");
+        full.trigger();
+        std::vector<float> fb(static_cast<size_t>(hn), 0.0f);
+        full.render(fb.data(), hn, sampleRate);
+
+        audio::DrumVoice thin;
+        thin.setType(audio::Drum::Kick);
+        thin.setHighpassCutoff(1500.0f);
+        thin.trigger();
+        std::vector<float> tb(static_cast<size_t>(hn), 0.0f);
+        thin.render(tb.data(), hn, sampleRate);
+
+        check(rms(tb) < rms(fb) * 0.5,
+              "a high-pass thins the kick (removes most of its low-frequency energy)");
+        check(rms(tb) > 0.0, "the thinned kick still produces some sound");
+
+        // hp = 0 is a bit-for-bit no-op vs an untouched (deterministic) kick.
+        audio::DrumVoice noop1;
+        noop1.setType(audio::Drum::Kick);
+        noop1.trigger();
+        std::vector<float> nb1(static_cast<size_t>(hn), 0.0f);
+        noop1.render(nb1.data(), hn, sampleRate);
+        audio::DrumVoice noop2;
+        noop2.setType(audio::Drum::Kick);
+        noop2.setHighpassCutoff(0.0f);
+        noop2.trigger();
+        std::vector<float> nb2(static_cast<size_t>(hn), 0.0f);
+        noop2.render(nb2.data(), hn, sampleRate);
+        check(nb1 == nb2, "drum high-pass at 0 is a bit-for-bit no-op");
+
+        audio::DrumVoice clampV;
+        clampV.setHighpassCutoff(5000.0f);
+        check(clampV.highpassCutoff() == 2000.0f, "drum high-pass clamps to a 2 kHz maximum");
+    }
+
     // --- New percussion voices: shaker + clave ------------------------------
     {
         // A clave is a pure high tone → measure its dominant frequency via zero crossings.

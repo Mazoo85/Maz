@@ -182,6 +182,19 @@ float Sequencer::channelTone(int c) const {
     return 20000.0f;
 }
 
+void Sequencer::setChannelHighpass(int c, float hz) {
+    if (c >= 0 && c < numChannels()) {
+        channels_[static_cast<size_t>(c)].setHighpassCutoff(hz);
+    }
+}
+
+float Sequencer::channelHighpass(int c) const {
+    if (c >= 0 && c < numChannels()) {
+        return channels_[static_cast<size_t>(c)].highpassCutoff();
+    }
+    return 0.0f;
+}
+
 void Sequencer::setChannelSnap(int c, float s) {
     if (c >= 0 && c < numChannels()) {
         channels_[static_cast<size_t>(c)].setSnap(s);

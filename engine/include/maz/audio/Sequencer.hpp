@@ -130,6 +130,11 @@ public:
     void setChannelTone(int c, float hz);
     float channelTone(int c) const;
 
+    // Per-channel high-pass / low-cut (cutoff in Hz, 0 = off): thins an individual drum — tighten a
+    // boomy kick, shave rumble off hats/claps.
+    void setChannelHighpass(int c, float hz);
+    float channelHighpass(int c) const;
+
     // Per-channel snap (0..1): the snare's noise-vs-tone balance (body ↔ wires); 0.5 = classic.
     void setChannelSnap(int c, float s);
     float channelSnap(int c) const;

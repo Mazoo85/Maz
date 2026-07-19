@@ -391,7 +391,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << seq.channelDrive(c) << " " << seq.channelFlam(c) << " "
           << static_cast<int>(seq.channelType(c)) << " " << seq.channelPitchEnv(c) << " "
           << seq.channelTone(c) << " " << seq.channelPitchEnvTime(c) << " " << seq.channelSnap(c)
-          << "\n";
+          << " " << seq.channelHighpass(c) << "\n";
     }
 
     // Arrangement: every pattern's grid + notes, the playlist, and the song-mode flag.
@@ -939,6 +939,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float snap = 0.5f; // per-channel snare snap optional (older files omit it → classic mix)
             if (ls >> snap) {
                 seq.setChannelSnap(c, snap);
+            }
+            float hp = 0.0f; // per-channel high-pass optional (older files omit it → off)
+            if (ls >> hp) {
+                seq.setChannelHighpass(c, hp);
             }
         } else if (tag == "patterns") {
             int count = 1;

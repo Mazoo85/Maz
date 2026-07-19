@@ -81,6 +81,7 @@ void DrumVoice::trigger(float velocity, float extraSemitones) {
     // pitch change never retroactively bends a still-ringing hit.
     hitTune_ = tuneSemitones_ + extraSemitones;
     toneLp_ = 0.0f; // start the tone filter from silence so the attack is click-free
+    hpLp_ = 0.0f;   // reset the high-pass state too
 }
 
 void DrumVoice::choke() {
@@ -109,6 +110,11 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
     const float toneA =
         useTone ? 1.0f - std::exp(-2.0f * 3.14159265358979f * toneCutoff_ / static_cast<float>(sampleRate))
                 : 0.0f;
+    // Per-voice high-pass / low-cut: one-pole coefficient; the HP output is (signal − low band).
+    const bool useHp = hpCutoff_ > 0.0f;
+    const float hpA =
+        useHp ? 1.0f - std::exp(-2.0f * 3.14159265358979f * hpCutoff_ / static_cast<float>(sampleRate))
+              : 0.0f;
 
     for (int i = 0; i < frames; ++i) {
         const double env = std::exp(-t_ / tau);
@@ -374,6 +380,12 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         if (useTone) {
             toneLp_ += toneA * (s - toneLp_);
             s = toneLp_;
+        }
+
+        // High-pass / low-cut: track the low band with a one-pole and subtract it, thinning the hit.
+        if (useHp) {
+            hpLp_ += hpA * (s - hpLp_);
+            s = s - hpLp_;
         }
 
         // Choke fade: ~4 ms ramp to silence, then the voice deactivates.
