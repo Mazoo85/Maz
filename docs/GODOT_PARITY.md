@@ -33,7 +33,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   existing 2D scalar cross; both verified) (M342 adds the scalar-bound component ops clampf / minf /
   maxf / snappedf for vec2 and vec3 — Godot's Vector2/Vector3.clampf/minf/maxf/snappedf: apply one
   float to every component; deliberately distinct names so they never ADL-collide with GLM's
-  vector clamp/min/max, verified component-wise) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
+  vector clamp/min/max, verified component-wise) (M343 adds lengthSquared / distanceTo /
+  distanceSquaredTo / lerp for vec2 and vec3 — Godot's Vector2/Vector3.length_squared /
+  distance_to / distance_squared_to / lerp (component-wise, extrapolates past [0,1]); verified on
+  3-4-5 / 2-3-6 triangles and lerp endpoints/midpoint/extrapolation) (M334 adds isFinite(vec2)/isFinite(vec3) — Godot's Vector2/Vector3.is_finite, true only when
   every component is finite, verified to reject a single NaN or inf component) (M335 adds
   isEqualApprox / isZeroApprox / isNormalized for vec2/vec3 — Godot's Vector2/Vector3.is_equal_approx
   (per-component relative CMP_EPSILON), is_zero_approx, and is_normalized (squared length within the

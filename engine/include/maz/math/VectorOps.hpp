@@ -191,6 +191,14 @@ inline vec2 directionTo(const vec2& a, const vec2& b) {
     return normalize(b - a);
 }
 
+// Squared length (no sqrt) — Godot's Vector2.length_squared. Prefer for comparisons / thresholds.
+inline float lengthSquared(const vec2& v) { return v.x * v.x + v.y * v.y; }
+// Distance and squared distance between two points — Godot's Vector2.distance_to / distance_squared_to.
+inline float distanceSquaredTo(const vec2& a, const vec2& b) { return lengthSquared(b - a); }
+inline float distanceTo(const vec2& a, const vec2& b) { return std::sqrt(distanceSquaredTo(a, b)); }
+// Component-wise linear interpolation a..b by t (t may leave [0,1]) — Godot's Vector2.lerp.
+inline vec2 lerp(const vec2& a, const vec2& b, float t) { return a + (b - a) * t; }
+
 // Component of `v` perpendicular to unit normal `n` (slide along the surface) — Godot's Vector2.slide.
 inline vec2 slide(const vec2& v, const vec2& n) {
     return v - n * dot(v, n);
@@ -257,6 +265,13 @@ inline vec3 limitLength(const vec3& v, float maxLen = 1.0f) {
 inline vec3 directionTo(const vec3& a, const vec3& b) {
     return normalize(b - a);
 }
+
+// Squared length / distance / lerp for vec3 — Godot's Vector3.length_squared / distance_to /
+// distance_squared_to / lerp (matching the vec2 forms above).
+inline float lengthSquared(const vec3& v) { return v.x * v.x + v.y * v.y + v.z * v.z; }
+inline float distanceSquaredTo(const vec3& a, const vec3& b) { return lengthSquared(b - a); }
+inline float distanceTo(const vec3& a, const vec3& b) { return std::sqrt(distanceSquaredTo(a, b)); }
+inline vec3 lerp(const vec3& a, const vec3& b, float t) { return a + (b - a) * t; }
 
 inline vec3 slide(const vec3& v, const vec3& n) {
     return v - n * dot(v, n);

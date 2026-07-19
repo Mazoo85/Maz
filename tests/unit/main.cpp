@@ -13340,6 +13340,17 @@ void testVectorOps() {
     CHECK(near2(math::snappedf(vec2(1.2f, 7.8f), 0.5f), vec2(1.0f, 8.0f)));
     CHECK(near3(math::snappedf(vec3(1.2f, 7.8f, -2.4f), 1.0f), vec3(1, 8, -2)));
 
+    // M343: length_squared / distance_to / distance_squared_to / lerp (Godot Vector2/Vector3).
+    CHECK_NEAR(math::lengthSquared(vec2(3, 4)), 25.0f, 1e-5f);
+    CHECK_NEAR(math::distanceTo(vec2(0, 0), vec2(3, 4)), 5.0f, 1e-5f);
+    CHECK_NEAR(math::distanceSquaredTo(vec2(1, 1), vec2(4, 5)), 25.0f, 1e-5f);
+    CHECK(near2(math::lerp(vec2(0, 0), vec2(10, 20), 0.25f), vec2(2.5f, 5.0f)));
+    CHECK(near2(math::lerp(vec2(0, 0), vec2(2, 2), 2.0f), vec2(4, 4))); // extrapolates
+    CHECK_NEAR(math::lengthSquared(vec3(2, 3, 6)), 49.0f, 1e-5f);
+    CHECK_NEAR(math::distanceTo(vec3(0, 0, 0), vec3(2, 3, 6)), 7.0f, 1e-5f);
+    CHECK_NEAR(math::distanceSquaredTo(vec3(1, 0, 0), vec3(1, 3, 4)), 25.0f, 1e-5f);
+    CHECK(near3(math::lerp(vec3(0, 0, 0), vec3(10, 20, 40), 0.5f), vec3(5, 10, 20)));
+
     // Scalar helpers: positive modulo carries the sign of y; snap rounds to nearest step.
     CHECK_NEAR(math::fposmod(-1.0f, 3.0f), 2.0f, 1e-5f);
     CHECK_NEAR(math::fposmod(7.0f, 3.0f), 1.0f, 1e-5f);
