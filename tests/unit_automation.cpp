@@ -115,6 +115,9 @@ int main() {
         fixLane(audio::AutoTarget::ReverbShimmer, 0.7f);
         fixLane(audio::AutoTarget::PhaserRate, 3.0f);
         fixLane(audio::AutoTarget::FlangerRate, 2.0f);
+        fixLane(audio::AutoTarget::AmpCabDrive, 0.8f);
+        fixLane(audio::AutoTarget::AutoPanRate, 5.0f);
+        fixLane(audio::AutoTarget::CombFrequency, 440.0f);
         au.apply(eng, 0.0);
         check(std::fabs(eng.mixer().reverb().shimmer() - 0.7f) < 1e-3f &&
                   eng.mixer().reverb().enabled(),
@@ -123,6 +126,13 @@ int main() {
               "phaser-rate automation drives the phaser rate");
         check(std::fabs(eng.mixer().flanger().rate() - 2.0f) < 1e-3f,
               "flanger-rate automation drives the flanger rate");
+        check(std::fabs(eng.mixer().ampCab().drive() - 0.8f) < 1e-3f &&
+                  eng.mixer().ampCab().enabled(),
+              "amp-drive automation drives the amp/cab and enables it");
+        check(std::fabs(eng.mixer().autopan().rate() - 5.0f) < 1e-3f,
+              "auto-pan-rate automation drives the auto-pan rate");
+        check(std::fabs(eng.mixer().comb().frequency() - 440.0f) < 1e-3f,
+              "comb-frequency automation drives the comb resonator pitch");
     }
 
     // --- Automation clips (breakpoint envelopes) ------------------------------

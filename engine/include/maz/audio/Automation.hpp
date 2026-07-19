@@ -50,6 +50,9 @@ enum class AutoTarget {
     ReverbShimmer,
     PhaserRate,
     FlangerRate,
+    AmpCabDrive,
+    AutoPanRate,
+    CombFrequency,
     Count
 };
 

@@ -111,6 +111,12 @@ Automation::Automation() {
     lane(AutoTarget::PhaserRate).hi = 4.0f;
     lane(AutoTarget::FlangerRate).lo = 0.05f;
     lane(AutoTarget::FlangerRate).hi = 4.0f;
+    lane(AutoTarget::AmpCabDrive).lo = 0.0f;
+    lane(AutoTarget::AmpCabDrive).hi = 1.0f;
+    lane(AutoTarget::AutoPanRate).lo = 0.1f;
+    lane(AutoTarget::AutoPanRate).hi = 8.0f;
+    lane(AutoTarget::CombFrequency).lo = 80.0f;
+    lane(AutoTarget::CombFrequency).hi = 2000.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -193,6 +199,12 @@ const char* Automation::targetName(AutoTarget t) {
         return "Phaser Rate";
     case AutoTarget::FlangerRate:
         return "Flanger Rate";
+    case AutoTarget::AmpCabDrive:
+        return "Amp Drive";
+    case AutoTarget::AutoPanRate:
+        return "Auto-Pan Rate";
+    case AutoTarget::CombFrequency:
+        return "Comb Freq";
     case AutoTarget::Count:
         break;
     }
@@ -427,6 +439,21 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Ramp the flanger's sweep speed.
             engine.mixer().flanger().setEnabled(true);
             engine.mixer().flanger().setRate(v);
+            break;
+        case AutoTarget::AmpCabDrive:
+            // Ride the amp's preamp drive (build-up grit / dynamic overdrive).
+            engine.mixer().ampCab().setEnabled(true);
+            engine.mixer().ampCab().setDrive(v);
+            break;
+        case AutoTarget::AutoPanRate:
+            // Accelerate/decelerate the auto-pan speed.
+            engine.mixer().autopan().setEnabled(true);
+            engine.mixer().autopan().setRate(v);
+            break;
+        case AutoTarget::CombFrequency:
+            // Sweep the comb resonator's tuned pitch (metallic riser/sweep).
+            engine.mixer().comb().setEnabled(true);
+            engine.mixer().comb().setFrequency(v);
             break;
         case AutoTarget::Count:
             break;
