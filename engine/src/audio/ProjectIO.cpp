@@ -289,16 +289,8 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
 //   fx delay <enabled> <timeMs> <feedback> <mix>
 //   fx reverb <enabled> <roomSize> <damping> <mix>
 
-bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
-                 std::string* err) {
-    std::ofstream f(path);
-    if (!f) {
-        if (err != nullptr) {
-            *err = "could not open '" + path + "' for writing";
-        }
-        return false;
-    }
-
+// Serialize the whole project to any output stream (shared by the file and string savers).
+static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automation& automation) {
     f << "cjc 1\n";
     f << "bpm " << seq.bpm() << "\n";
     f << "steps " << seq.numSteps() << "\n";
@@ -655,6 +647,18 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
         }
     }
 
+}
+
+bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
+                 std::string* err) {
+    std::ofstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for writing";
+        }
+        return false;
+    }
+    writeProjectTo(f, seq, mixer, automation);
     if (!f) {
         if (err != nullptr) {
             *err = "write to '" + path + "' failed";
@@ -664,15 +668,15 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     return true;
 }
 
-bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
-                 std::string* err) {
-    std::ifstream f(path);
-    if (!f) {
-        if (err != nullptr) {
-            *err = "could not open '" + path + "' for reading";
-        }
-        return false;
-    }
+std::string saveProjectToString(Sequencer& seq, Mixer& mixer, Automation& automation) {
+    std::ostringstream ss;
+    writeProjectTo(ss, seq, mixer, automation);
+    return ss.str();
+}
+
+// Parse a whole project from any input stream (shared by the file and string loaders).
+static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Automation& automation,
+                            std::string* err) {
 
     // Reset the destination to a clean slate so the file fully defines the project.
     seq.clearArrangement();
@@ -1906,11 +1910,29 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
 
     if (!sawHeader) {
         if (err != nullptr) {
-            *err = "'" + path + "' is not a .cjc project (missing header)";
+            *err = "not a .cjc project (missing header)";
         }
         return false;
     }
     return true;
+}
+
+bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automation& automation,
+                 std::string* err) {
+    std::ifstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for reading";
+        }
+        return false;
+    }
+    return readProjectFrom(f, seq, mixer, automation, err);
+}
+
+bool loadProjectFromString(const std::string& text, Sequencer& seq, Mixer& mixer,
+                           Automation& automation, std::string* err) {
+    std::istringstream ss(text);
+    return readProjectFrom(ss, seq, mixer, automation, err);
 }
 
 } // namespace maz::audio

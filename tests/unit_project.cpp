@@ -6,6 +6,7 @@
 #include "maz/audio/Mixer.hpp"
 #include "maz/audio/ProjectIO.hpp"
 #include "maz/audio/Sequencer.hpp"
+#include "maz/audio/UndoHistory.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -1214,6 +1215,52 @@ int main() {
         check(dseq2.synth().mode() == audio::SynthMode::PhaseDistortion &&
                   near(dseq2.synth().pdAmount(), 0.72f),
               "phase-distortion engine mode + amount round-trip");
+    }
+
+    // --- In-memory serialization + undo/redo history -------------------------
+    {
+        audio::Sequencer s;
+        audio::Mixer m;
+        audio::Automation a;
+        s.setBpm(128.0);
+        s.setStep(0, 0, true);
+        const std::string snapA = audio::saveProjectToString(s, m, a);
+
+        // A string snapshot round-trips the project state, and a non-project string is rejected.
+        audio::Sequencer s2;
+        audio::Mixer m2;
+        audio::Automation a2;
+        check(audio::loadProjectFromString(snapA, s2, m2, a2, &err),
+              "loadProjectFromString succeeds");
+        check(std::fabs(s2.bpm() - 128.0) < 1e-9 && s2.step(0, 0),
+              "a string snapshot round-trips the project state");
+        check(!audio::loadProjectFromString("garbage no header", s2, m2, a2, &err),
+              "loadProjectFromString rejects a non-project string");
+
+        // Undo/redo via snapshots: push the pre-edit state, edit, undo restores it, redo re-applies.
+        audio::UndoHistory hist;
+        hist.push(snapA);
+        s.setBpm(90.0);
+        const std::string snapB = audio::saveProjectToString(s, m, a);
+        check(hist.canUndo() && !hist.canRedo(), "history has an undo and no redo after one push");
+
+        std::string restore;
+        check(hist.undo(snapB, restore), "undo returns a state");
+        audio::Sequencer su;
+        audio::Mixer mu;
+        audio::Automation au;
+        audio::loadProjectFromString(restore, su, mu, au, &err);
+        check(std::fabs(su.bpm() - 128.0) < 1e-9, "undo restores the pre-edit tempo");
+        check(hist.canRedo(), "redo becomes available after an undo");
+
+        std::string re;
+        check(hist.redo(restore, re) && re == snapB, "redo returns the post-edit state");
+        check(!hist.canRedo(), "the redo stack empties after a redo");
+
+        audio::UndoHistory empty;
+        std::string dummy;
+        check(!empty.undo("x", dummy) && !empty.redo("x", dummy),
+              "an empty history has nothing to undo or redo");
     }
 
     // A non-.cjc file is rejected.
