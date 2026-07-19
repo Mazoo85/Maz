@@ -272,7 +272,11 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             } else {
                 switch (v.ampStage) {
                 case 0: // attack → 1
-                    v.env += attackStep;
+                    // Velocity → attack: softer hits take a smaller step (a longer swell). At amount 0
+                    // the step is exactly attackStep, so the envelope is bit-for-bit unchanged.
+                    v.env += velToAttack_ > 0.0f
+                                 ? attackStep / (1.0f + velToAttack_ * (1.0f - v.velocity) * 4.0f)
+                                 : attackStep;
                     if (v.env >= 1.0f) {
                         v.env = 1.0f;
                         v.ampStage = 1;

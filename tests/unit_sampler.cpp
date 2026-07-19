@@ -725,6 +725,34 @@ int main() {
         check(def.glide() == 0.0f && !def.glideLegato(), "glide defaults to off");
     }
 
+    // Velocity → attack: softer hits swell in more slowly (isolated from velocity→volume).
+    {
+        std::vector<float> tone(static_cast<size_t>(sr), 0.5f); // 1 s of a steady level
+        auto earlyRms = [&](float velocity, float velAtk) {
+            audio::Sampler s;
+            s.setSampleMono(tone, sr);
+            s.setVelSensitivity(0.0f); // level is velocity-independent → only the attack time differs
+            s.setAmpEnv(0.05f, 0.1f);  // a 50 ms attack
+            s.setVelToAttack(velAtk);
+            s.noteOn(60, velocity);
+            const std::vector<float> b = renderMono(s, sr / 100, sr); // first 10 ms
+            double e = 0.0;
+            for (float v : b) {
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return std::sqrt(e / static_cast<double>(b.size()));
+        };
+        const double softOn = earlyRms(0.2f, 1.0f);
+        const double hardOn = earlyRms(1.0f, 1.0f);
+        check(hardOn > softOn * 1.5,
+              "sampler vel->attack makes a hard hit rise faster (louder early) than a soft one");
+        const double softOff = earlyRms(0.2f, 0.0f);
+        const double hardOff = earlyRms(1.0f, 0.0f);
+        check(std::fabs(hardOff - softOff) < hardOff * 0.05 + 1e-6,
+              "with sampler vel->attack off the attack ramp is velocity-independent");
+        check(audio::Sampler().velToAttack() == 0.0f, "sampler vel->attack defaults to off");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

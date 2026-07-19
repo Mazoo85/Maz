@@ -135,6 +135,12 @@ public:
     // hit plays at full level, e.g. for one-shots that should stay constant). Blends linearly.
     void setVelSensitivity(float s) { velSens_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
     float velSensitivity() const { return velSens_; }
+    // Velocity → attack (0..1): how much a note's velocity shortens its amp-envelope attack. At full
+    // velocity the attack is the set time; softer hits swell in more slowly (up to ~5× longer at the
+    // lowest velocity for amount 1) — dynamic sample swells (soft pads bloom, hard hits snap). 0
+    // (default) = off (attack is velocity-independent, bit-for-bit unchanged).
+    void setVelToAttack(float amt) { velToAttack_ = amt < 0.0f ? 0.0f : (amt > 1.0f ? 1.0f : amt); }
+    float velToAttack() const { return velToAttack_; }
     float filterEnvAttack() const { return fEnvA_; }
     float filterEnvDecay() const { return fEnvD_; }
     float filterEnvSustain() const { return fEnvS_; }
@@ -244,6 +250,7 @@ private:
     float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
     float filterVelo_ = 0.0f;       // velocity → cutoff amount in Hz; 0 = off
     float velSens_ = 1.0f;          // velocity → volume amount; 1 = full (default), 0 = ignore velocity
+    float velToAttack_ = 0.0f;      // velocity → amp-attack shortening [0,1]; 0 = off
     float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
     float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds

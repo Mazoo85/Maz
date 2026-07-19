@@ -1312,6 +1312,10 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SameLine();
     bool sglideleg = seq.sampler().glideLegato();
     if (ImGui::Checkbox("Legato##smp", &sglideleg)) seq.sampler().setGlideLegato(sglideleg);
+    float svelatk = seq.sampler().velToAttack();
+    ImGui::SetNextItemWidth(120.0f);
+    if (ImGui::SliderFloat("Vel->Atk##smp", &svelatk, 0.0f, 1.0f, svelatk <= 0.0f ? "off" : "%.2f"))
+        seq.sampler().setVelToAttack(svelatk);
     float loopS = seq.sampler().loopStart(), loopE = seq.sampler().loopEnd();
     bool loopCh = false;
     ImGui::SetNextItemWidth(110.0f);
