@@ -419,7 +419,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
       << (mixer.reverb().freeze() ? 1 : 0) << " " << mixer.reverb().duck() << " "
       << mixer.reverb().wetLowCut() << " " << mixer.reverb().wetHighCut() << " "
-      << mixer.reverb().gateMs() << "\n";
+      << mixer.reverb().gateMs() << " " << mixer.reverb().shimmer() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
       << mixer.peq().highGain() << " " << mixer.peq().mid2Freq() << " " << mixer.peq().mid2Q() << " "
@@ -1298,6 +1298,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float gate = 0.0f; // gated-reverb time optional for old files (0 = off)
                 if (ls >> gate) {
                     mixer.reverb().setGateMs(gate);
+                }
+                float shimmer = 0.0f; // octave-up shimmer optional for old files (0 = off)
+                if (ls >> shimmer) {
+                    mixer.reverb().setShimmer(shimmer);
                 }
             } else if (which == "dist") {
                 float drive = 2.0f, mix = 0.5f;

@@ -2106,6 +2106,11 @@ void Reverb::ensureSized(int sampleRate) {
     // Pre-delay line: up to 250 ms.
     preBuf_.assign(static_cast<size_t>(sampleRate) / 4 + 1, 0.0f);
     preWrite_ = 0;
+    // Shimmer grain buffer: ~50 ms, the octave-up pitch-shifter's delay line.
+    shBuf_.assign(static_cast<size_t>(sampleRate) / 20 + 1, 0.0f);
+    shWrite_ = 0;
+    shPhase_ = 0.0;
+    shState_ = 0.0f;
 }
 
 void Reverb::reset() {
@@ -2129,6 +2134,10 @@ void Reverb::reset() {
     lcL_ = lcR_ = hcL_ = hcR_ = 0.0f;
     gateGain_ = 1.0f;
     gateCountdown_ = 0;
+    std::fill(shBuf_.begin(), shBuf_.end(), 0.0f);
+    shWrite_ = 0;
+    shPhase_ = 0.0;
+    shState_ = 0.0f;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -2214,6 +2223,46 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         const float side = 0.5f * (wetL - wetR) * width_;
         wetL = mid + side;
         wetR = mid - side;
+
+        // Shimmer: a parallel octave-up loop on the wet tail. A windowed two-tap granular shifter
+        // transposes the wet up an octave; its own bounded self-feedback (kShFb < 1) restacks each
+        // pass an octave higher for the ascending-octave halo. Added to the wet OUTPUT only — never
+        // into the comb feedback — so it can never destabilise the reverb. Skipped when shimmer_ == 0
+        // (the reverb is then bit-for-bit unchanged).
+        if (shimmer_ > 0.0f && !shBuf_.empty()) {
+            constexpr float kShFb = 0.6f; // shimmer cascade feedback (octave stacking); < 1 = stable
+            const int shLen = static_cast<int>(shBuf_.size());
+            const float src = 0.5f * (wetL + wetR) + kShFb * shState_;
+            shBuf_[static_cast<size_t>(shWrite_)] = src;
+            // Delay shrinks each sample (read runs at 2× write) → up one octave; wrap the grain phase.
+            shPhase_ -= 1.0 / static_cast<double>(shLen);
+            if (shPhase_ < 0.0) {
+                shPhase_ += 1.0;
+            }
+            double p2 = shPhase_ + 0.5;
+            if (p2 >= 1.0) {
+                p2 -= 1.0;
+            }
+            auto readTap = [&](double phase) {
+                double rp = static_cast<double>(shWrite_) - phase * static_cast<double>(shLen);
+                while (rp < 0.0) {
+                    rp += static_cast<double>(shLen);
+                }
+                const int i0 = static_cast<int>(rp);
+                const float fr = static_cast<float>(rp - i0);
+                const int i1 = (i0 + 1) % shLen;
+                return shBuf_[static_cast<size_t>(i0)] * (1.0f - fr) +
+                       shBuf_[static_cast<size_t>(i1)] * fr;
+            };
+            // Triangular grain windows, each zero at its own wrap point so the seam is silent.
+            const float w1 = 1.0f - std::fabs(2.0f * static_cast<float>(shPhase_) - 1.0f);
+            const float w2 = 1.0f - std::fabs(2.0f * static_cast<float>(p2) - 1.0f);
+            const float shOut = readTap(shPhase_) * w1 + readTap(p2) * w2;
+            shState_ = shOut;
+            shWrite_ = (shWrite_ + 1) % shLen;
+            wetL += shimmer_ * shOut;
+            wetR += shimmer_ * shOut;
+        }
 
         // Wet-tail tone: low-cut (high-pass = input − low-passed) then high-cut (low-pass) on the wet
         // only, so the tail can be de-mudded and de-harshed independently of the dry.

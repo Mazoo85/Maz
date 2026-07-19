@@ -1994,6 +1994,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("gate##rev", &gate, 0.0f, 1000.0f, gate <= 0.0f ? "gate off" : "%.0f ms"))
             mx.reverb().setGateMs(gate);
+        float shim = mx.reverb().shimmer();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("shimmer##rev", &shim, 0.0f, 1.0f, shim <= 0.0f ? "shimmer off" : "%.2f"))
+            mx.reverb().setShimmer(shim);
     }
     {
         bool en = mx.widener().enabled();

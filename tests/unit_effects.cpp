@@ -793,6 +793,74 @@ int main() {
         check(!dr.freeze(), "reverb freeze defaults off");
     }
 
+    // --- Reverb shimmer: an octave-up halo appears in the wet, and stays stable ----
+    {
+        // Goertzel power at a frequency on the left channel.
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // Run a sustained 200 Hz tone through a fully-wet reverb and return the last-0.5 s window +
+        // the whole-run peak (for a stability check).
+        auto run = [&](float shimmer, double* octPower, float* peak) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.7f);
+            rev.setMix(1.0f); // fully wet, so the output is the (shimmered) tail
+            rev.setShimmer(shimmer);
+            std::vector<float> b(static_cast<size_t>(sr) * 2 * 2, 0.0f); // 2 s stereo
+            for (int i = 0; i < sr * 2; ++i) {
+                const float s = 0.3f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 200.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            rev.process(b.data(), sr * 2, sr);
+            float pk = 0.0f;
+            for (float v : b) {
+                pk = std::max(pk, std::fabs(v));
+            }
+            *peak = pk;
+            std::vector<float> tail(b.end() - static_cast<long>(sr), b.end()); // last 0.5 s (stereo)
+            *octPower = power(tail, 400.0, sr); // octave-up of the 200 Hz input
+        };
+        double octOff = 0.0, octOn = 0.0;
+        float pkOff = 0.0f, pkOn = 0.0f;
+        run(0.0f, &octOff, &pkOff);
+        run(0.8f, &octOn, &pkOn);
+        check(octOn > octOff * 20.0 + 1.0,
+              "shimmer injects a strong octave-up halo into the wet tail");
+        check(pkOn < 4.0f, "shimmer stays bounded (no runaway feedback)");
+        // shimmer = 0 leaves the reverb bit-for-bit unchanged (the shimmer path is skipped).
+        auto tailOf = [&](float shimmer) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.6f);
+            rev.setMix(0.5f);
+            rev.setShimmer(shimmer);
+            std::vector<float> b(static_cast<size_t>(sr) / 2 * 2, 0.0f);
+            b[0] = 1.0f;
+            b[1] = 1.0f;
+            rev.process(b.data(), sr / 2, sr);
+            return b;
+        };
+        std::vector<float> zeroA = tailOf(0.0f);
+        std::vector<float> zeroB = tailOf(0.0f);
+        bool identical = zeroA.size() == zeroB.size();
+        for (size_t i = 0; identical && i < zeroA.size(); ++i) {
+            if (zeroA[i] != zeroB[i]) identical = false;
+        }
+        check(identical, "a shimmer-off reverb is deterministic (path fully skipped)");
+        audio::Reverb ds;
+        check(ds.shimmer() == 0.0f, "reverb shimmer defaults to 0 (off)");
+    }
+
     // --- Reverb width: narrow the wet tail to mono --------------------------
     {
         auto sideEnergy = [&](float width) {

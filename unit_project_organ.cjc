@@ -33,7 +33,7 @@ fx comp 0 -18 4 8 120 0 0 1 0 0
 fx multiband 0 250 2500 -18 3 -18 3 -18 3 10 120
 fx transient 0 0 0
 fx delay 0 300 0.35 0.3 0 0 0 4 0 0 0.3 0
-fx reverb 0 0.7 0.35 0.25 0 1 0 0 0 20000 0
+fx reverb 0 0.7 0.35 0.25 0 1 0 0 0 20000 0 0
 fx peq 0 0 1000 1 0 0 3500 1 0 7000 1 0
 fx tilt 0 0 650
 fx exciter 0 4000 0.3
@@ -46,6 +46,7 @@ fx phaser 0 0.5 0.7 0.3 0.5 0 0 4 0
 fx crush 0 8 4 0.5 20000
 fx gate 0 -40 4 -60 2 80 0 0
 fx width 0 1 0
+fx imager 0 250 2500 0.5 1 1.5
 fx stereoenh 0 12 0.7
 fx autopan 0 1 0.5 0 2 0
 fx monobass 0 120
