@@ -907,6 +907,9 @@ void buildSynthUI(audio::Sequencer& seq) {
         float pd = syn.pluckDamping();
         if (ImGui::SliderFloat("Damping##pluck", &pd, 0.0f, 1.0f, "%.2f"))
             syn.setPluckDamping(pd);
+        float pp = syn.pluckPosition();
+        if (ImGui::SliderFloat("Position##pluck", &pp, 0.0f, 0.99f, "%.2f"))
+            syn.setPluckPosition(pp);
     }
     if (syn.mode() == audio::SynthMode::Subtractive) {
         int w = static_cast<int>(syn.waveform());

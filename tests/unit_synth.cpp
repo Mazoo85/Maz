@@ -2014,6 +2014,34 @@ int main() {
               "higher pluck damping shortens the string's decay");
         check(audio::SynthInstrument().pluckDamping() == 0.0f,
               "pluck damping defaults to 0 (natural decay)");
+
+        // Pluck position: a centre pluck (0.5) sits a node on the 2nd harmonic, so the comb on the
+        // excitation nulls it — the 880 Hz energy relative to the 440 Hz fundamental collapses versus
+        // a raw (position 0) pluck. Measured with a Goertzel at each harmonic.
+        auto goertzel = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (float x : b) {
+                const double s0 = static_cast<double>(x) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        auto h2Ratio = [&](float pos) {
+            audio::SynthInstrument p;
+            p.setMode(audio::SynthMode::Pluck);
+            p.setPluckPosition(pos);
+            p.setEnvelope(0.001f, 0.05f, 1.0f, 0.1f);
+            p.noteOn(69, 1.0f); // A4 = 440 Hz
+            const std::vector<float> b = render(p, sampleRate / 4, sampleRate);
+            return goertzel(b, 880.0, sampleRate) / goertzel(b, 440.0, sampleRate);
+        };
+        check(h2Ratio(0.5f) < h2Ratio(0.0f) * 0.2,
+              "centre pluck position nulls the 2nd harmonic (hollow tone)");
+        check(audio::SynthInstrument().pluckPosition() == 0.0f,
+              "pluck position defaults to 0 (raw excitation)");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

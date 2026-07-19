@@ -345,6 +345,23 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                         v.ksBuf[static_cast<size_t>(k)] =
                             static_cast<float>(v.rng) / 2147483648.0f - 1.0f;
                     }
+                    // Pluck position: comb-filter the excitation (x[k] - x[k-D]) so the harmonics with
+                    // a node at the strike point are nulled — centre plucks lose the even harmonics.
+                    if (pluckPosition_ > 0.0f) {
+                        int d = static_cast<int>(std::lround(static_cast<double>(pluckPosition_) * n));
+                        if (d < 1) {
+                            d = 1;
+                        }
+                        if (d > n - 1) {
+                            d = n - 1;
+                        }
+                        const std::vector<float> src = v.ksBuf;
+                        for (int k = 0; k < n; ++k) {
+                            v.ksBuf[static_cast<size_t>(k)] =
+                                src[static_cast<size_t>(k)] -
+                                src[static_cast<size_t>(((k - d) % n + n) % n)];
+                        }
+                    }
                     v.ksPtr = 0;
                     v.ksInit = false;
                 }

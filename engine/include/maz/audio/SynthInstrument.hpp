@@ -31,6 +31,13 @@ public:
     // more muted string). Only affects Pluck mode; 0 (default) keeps the natural KS decay.
     void setPluckDamping(float d) { pluckDamping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
     float pluckDamping() const { return pluckDamping_; }
+    // Pluck position [0,1): where along the string it is struck, as a fraction of its length. A comb
+    // filter on the excitation nulls the harmonics that have a node at the pluck point, so 0.5
+    // (centre) removes the even harmonics for a hollow, clarinet-like tone, while values near 0
+    // (the bridge) keep every harmonic for a bright, full pluck. Only affects Pluck mode; 0
+    // (default) = no comb (the raw, brightest excitation).
+    void setPluckPosition(float p) { pluckPosition_ = p < 0.0f ? 0.0f : (p > 0.99f ? 0.99f : p); }
+    float pluckPosition() const { return pluckPosition_; }
 
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
@@ -396,6 +403,7 @@ private:
 
     SynthMode mode_ = SynthMode::Subtractive;
     float pluckDamping_ = 0.0f;  // Karplus-Strong extra damping [0,1]; 0 = natural (brightest) decay
+    float pluckPosition_ = 0.0f; // Karplus-Strong pluck position [0,1); 0 = no excitation comb
     Waveform waveform_ = Waveform::Saw;
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)
