@@ -95,6 +95,8 @@ Automation::Automation() {
     lane(AutoTarget::ReverbDamping).hi = 1.0f;
     lane(AutoTarget::FreqShift).lo = -500.0f;
     lane(AutoTarget::FreqShift).hi = 500.0f;
+    lane(AutoTarget::RotaryRate).lo = 0.8f; // chorale (slow)
+    lane(AutoTarget::RotaryRate).hi = 7.0f; // tremolo (fast)
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -161,6 +163,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Reverb Damping";
     case AutoTarget::FreqShift:
         return "Freq Shift";
+    case AutoTarget::RotaryRate:
+        return "Rotary Rate";
     case AutoTarget::Count:
         break;
     }
@@ -355,6 +359,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // shimmer as it crosses 0).
             engine.mixer().freqShifter().setEnabled(true);
             engine.mixer().freqShifter().setShiftHz(v);
+            break;
+        case AutoTarget::RotaryRate:
+            // Ramp the rotary speaker's speed (the classic Leslie slow "chorale" ↔ fast "tremolo").
+            engine.mixer().rotary().setEnabled(true);
+            engine.mixer().rotary().setRate(v);
             break;
         case AutoTarget::Count:
             break;

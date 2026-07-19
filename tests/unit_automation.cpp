@@ -251,6 +251,25 @@ int main() {
               "frequency-shift automation reaches its low (downward) bound");
     }
 
+    // --- Rotary-rate target (Leslie slow/fast ramp) --------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& rr = autom.lane(audio::AutoTarget::RotaryRate);
+        rr.enabled = true;
+        rr.lfo.shape = audio::Waveform::Sine;
+        rr.lfo.rateHz = 1.0f;
+        rr.lo = 0.8f;
+        rr.hi = 7.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound (fast/tremolo)
+        check(eng.mixer().rotary().enabled() && eng.mixer().rotary().rate() > 6.5f,
+              "automating rotary rate ramps (and enables) it up to tremolo speed");
+        autom.apply(eng, 0.75); // trough → lo bound (slow/chorale)
+        check(eng.mixer().rotary().rate() < 1.2f,
+              "rotary-rate automation drops back to chorale speed");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

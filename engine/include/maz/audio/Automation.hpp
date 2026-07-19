@@ -42,6 +42,7 @@ enum class AutoTarget {
     ChorusMix,
     ReverbDamping,
     FreqShift,
+    RotaryRate,
     Count
 };
 
