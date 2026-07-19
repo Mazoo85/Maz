@@ -558,10 +558,28 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
 
-        const float modL = static_cast<float>(std::sin(phase_ * kTwoPi));
-        const float modR = static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi)); // quadrature
-        const float wetL = readAt(bufL_, baseSamp + depthSamp * modL);
-        const float wetR = readAt(bufR_, baseSamp + depthSamp * modR);
+        // Sum `voices_` modulated taps spread evenly across the LFO cycle (an ensemble chorus). With
+        // one voice this reduces to a single quadrature tap — bit-for-bit the original behaviour.
+        float wetL;
+        float wetR;
+        if (voices_ <= 1) {
+            const float modL = static_cast<float>(std::sin(phase_ * kTwoPi));
+            const float modR = static_cast<float>(std::sin((phase_ + 0.25) * kTwoPi)); // quadrature
+            wetL = readAt(bufL_, baseSamp + depthSamp * modL);
+            wetR = readAt(bufR_, baseSamp + depthSamp * modR);
+        } else {
+            float sumL = 0.0f, sumR = 0.0f;
+            for (int v = 0; v < voices_; ++v) {
+                const double ph = phase_ + static_cast<double>(v) / static_cast<double>(voices_);
+                const float modL = static_cast<float>(std::sin(ph * kTwoPi));
+                const float modR = static_cast<float>(std::sin((ph + 0.25) * kTwoPi));
+                sumL += readAt(bufL_, baseSamp + depthSamp * modL);
+                sumR += readAt(bufR_, baseSamp + depthSamp * modR);
+            }
+            const float invV = 1.0f / static_cast<float>(voices_);
+            wetL = sumL * invV;
+            wetR = sumR * invV;
+        }
 
         // Feedback: mix the wet output back into the delay lines (0 = clean chorus).
         bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;

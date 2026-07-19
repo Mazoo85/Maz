@@ -316,6 +316,11 @@ public:
     // Stereo width of the wet voices (mid/side): 0 = mono, 1 = natural (default), 2 = extra-wide.
     void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
     float width() const { return width_; }
+    // Voices (1..3): the number of modulated delay taps summed per channel, spread evenly across the
+    // LFO cycle. 1 (default) = a single-voice chorus (unchanged); 2–3 = a lusher, denser "ensemble"
+    // chorus (Juno-6 vs the fuller ensemble/dimension sound). Averaged so the level stays constant.
+    void setVoices(int v) { voices_ = v < 1 ? 1 : (v > 3 ? 3 : v); }
+    int voices() const { return voices_; }
     // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the Tremolo
     // division set). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -336,6 +341,7 @@ private:
     float mix_ = 0.4f;
     float feedback_ = 0.0f; // wet→delay feedback; 0 = off
     float width_ = 1.0f; // wet stereo width (mid/side); 1 = natural
+    int voices_ = 1;     // modulated taps per channel (1 = single-voice, 2-3 = ensemble)
     bool sync_ = false; // tempo-sync the LFO rate
     int syncDiv_ = 0;   // note-division index (default 1/1, a slow chorus)
     std::vector<float> bufL_;

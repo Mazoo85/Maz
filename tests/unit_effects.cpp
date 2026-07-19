@@ -1830,6 +1830,42 @@ int main() {
         check(lrDiff(1.0f) > 1.0, "chorus width 1 keeps the wet decorrelated (wide)");
         audio::Chorus dw;
         check(std::fabs(dw.width() - 1.0f) < 1e-6f, "chorus width defaults to 1 (natural)");
+
+        // Ensemble voices: each voice is a modulated delay tap, so an impulse produces one echo per
+        // voice. Count the distinct echo clusters on the left channel (LFO nearly frozen so the taps
+        // sit at stable, well-separated delays).
+        auto tapCount = [&](int voices) {
+            audio::Chorus c;
+            c.setEnabled(true);
+            c.setMix(1.0f);
+            c.setDepth(8.0f);
+            c.setRate(0.01f); // ~frozen LFO over the short window → stable tap delays
+            c.setVoices(voices);
+            std::vector<float> b(static_cast<size_t>(sr) / 10 * 2, 0.0f); // 100 ms stereo
+            b[0] = 1.0f;
+            b[1] = 1.0f; // an impulse
+            c.process(b.data(), sr / 10, sr);
+            float peak = 0.0f;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                peak = std::max(peak, std::fabs(b[i]));
+            }
+            const float thr = 0.3f * peak;
+            int clusters = 0;
+            bool inCluster = false;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const float v = std::fabs(b[i]);
+                if (v > thr && !inCluster) {
+                    ++clusters;
+                    inCluster = true;
+                } else if (v <= thr) {
+                    inCluster = false;
+                }
+            }
+            return clusters;
+        };
+        check(tapCount(1) >= 1, "a single-voice chorus produces a delay tap");
+        check(tapCount(3) > tapCount(1), "a 3-voice ensemble chorus produces more delay taps");
+        check(audio::Chorus().voices() == 1, "chorus defaults to a single voice");
     }
 
     // --- Parametric EQ: shelves boost/cut their band -------------------------

@@ -485,7 +485,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
       << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << " "
-      << mixer.chorus().feedback() << " " << mixer.chorus().width() << "\n";
+      << mixer.chorus().feedback() << " " << mixer.chorus().width() << " " << mixer.chorus().voices()
+      << "\n";
     f << "fx vibrato " << (mixer.vibrato().enabled() ? 1 : 0) << " " << mixer.vibrato().rate() << " "
       << mixer.vibrato().depth() << " " << (mixer.vibrato().sync() ? 1 : 0) << " "
       << mixer.vibrato().syncDivision() << "\n";
@@ -1576,6 +1577,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float cwidth = 1.0f; // stereo width optional for old files (1 = natural)
                 if (ls >> cwidth) {
                     mixer.chorus().setWidth(cwidth);
+                }
+                int cvoices = 1; // ensemble voices optional for old files (1 = single-voice)
+                if (ls >> cvoices) {
+                    mixer.chorus().setVoices(cvoices);
                 }
             } else if (which == "vibrato") {
                 float rate = 5.0f, depth = 4.0f;

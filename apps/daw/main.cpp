@@ -1981,6 +1981,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("width##cho", &cwidth, 0.0f, 2.0f, "%.2f")) mx.chorus().setWidth(cwidth);
+        int cvoices = mx.chorus().voices();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderInt("voices##cho", &cvoices, 1, 3, cvoices == 1 ? "1 (single)" : "%d (ensemble)"))
+            mx.chorus().setVoices(cvoices);
         const char* modDivs[audio::kModSyncDivisions];
         for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivs[d] = audio::modSyncDivisionName(d);
         bool csync = mx.chorus().sync();
