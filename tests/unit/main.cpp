@@ -79,6 +79,7 @@
 #include "maz/core/RunningStats.hpp"
 #include "maz/core/Histogram.hpp"
 #include "maz/core/RollingWindow.hpp"
+#include "maz/core/PidController.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17781,6 +17782,110 @@ void testRollingWindow() {
     }
 }
 
+// PidController: proportional-integral-derivative feedback controller (M435).
+void testPidController() {
+    using core::PidController;
+
+    // ---- Pure proportional. ----
+    {
+        PidController p(2.0, 0.0, 0.0);
+        CHECK(std::fabs(p.update(5.0, 0.0, 0.1) - 10.0) < 1e-9); // 2 * 5
+        CHECK(std::fabs(p.lastError() - 5.0) < 1e-9 && std::fabs(p.lastOutput() - 10.0) < 1e-9);
+    }
+
+    // ---- Output clamping. ----
+    {
+        PidController p(100.0, 0.0, 0.0);
+        p.setOutputLimits(-10.0, 10.0);
+        CHECK(std::fabs(p.update(5.0, 0.0, 0.1) - 10.0) < 1e-9);
+        CHECK(std::fabs(p.update(0.0, 5.0, 0.1) - (-10.0)) < 1e-9);
+    }
+
+    // ---- Integral accumulation. ----
+    {
+        PidController p(0.0, 1.0, 0.0);
+        p.update(2.0, 0.0, 0.5);
+        p.update(2.0, 0.0, 0.5);
+        const double out = p.update(2.0, 0.0, 0.5); // integral = 2*0.5*3 = 3
+        CHECK(std::fabs(p.integral() - 3.0) < 1e-9 && std::fabs(out - 3.0) < 1e-9);
+    }
+
+    // ---- Integral anti-windup clamp (both directions). ----
+    {
+        PidController p(0.0, 1.0, 0.0);
+        p.setIntegralLimit(1.0);
+        for (int i = 0; i < 100; ++i) {
+            p.update(10.0, 0.0, 0.1);
+        }
+        CHECK(std::fabs(p.integral() - 1.0) < 1e-9);
+        for (int i = 0; i < 100; ++i) {
+            p.update(0.0, 10.0, 0.1);
+        }
+        CHECK(std::fabs(p.integral() - (-1.0)) < 1e-9);
+    }
+
+    // ---- Pure derivative (on error): zero on the first sample, then rate of change. ----
+    {
+        PidController p(0.0, 0.0, 2.0);
+        CHECK(std::fabs(p.update(0.0, 0.0, 2.0)) < 1e-9);        // first sample -> 0
+        CHECK(std::fabs(p.update(4.0, 0.0, 2.0) - 4.0) < 1e-9);  // deriv (4-0)/2 = 2, *kd 2
+    }
+
+    // ---- Derivative-on-measurement removes the setpoint-change kick. ----
+    {
+        PidController kick(0.0, 0.0, 5.0);
+        kick.update(0.0, 0.0, 1.0);
+        CHECK(kick.update(10.0, 0.0, 1.0) > 40.0); // setpoint jump spikes the derivative
+
+        PidController smooth(0.0, 0.0, 5.0);
+        smooth.setDerivativeOnMeasurement(true);
+        smooth.update(0.0, 0.0, 1.0);
+        CHECK(std::fabs(smooth.update(10.0, 0.0, 1.0)) < 1e-9); // measured unchanged -> no kick
+    }
+
+    // ---- dt <= 0 holds state. ----
+    {
+        PidController p(1.0, 1.0, 1.0);
+        p.update(5.0, 0.0, 0.1);
+        const double before = p.integral();
+        const double out = p.update(5.0, 0.0, 0.0);
+        CHECK(std::fabs(p.integral() - before) < 1e-12);
+        CHECK(std::fabs(out - (5.0 + before)) < 1e-9);
+    }
+
+    // ---- reset() clears state. ----
+    {
+        PidController p(1.0, 1.0, 1.0);
+        p.update(5.0, 0.0, 0.1);
+        p.reset();
+        CHECK(std::fabs(p.integral()) < 1e-12 && std::fabs(p.lastError()) < 1e-12);
+    }
+
+    // ---- Closed loop: P-only leaves a steady-state offset under a constant disturbance. ----
+    {
+        PidController p(2.0, 0.0, 0.0);
+        double y = 0.0;
+        const double sp = 5.0, dist = -3.0, dt = 0.02;
+        for (int i = 0; i < 5000; ++i) {
+            const double u = p.update(sp, y, dt);
+            y += (u + dist) * dt; // pure-integrator plant with constant disturbance
+        }
+        CHECK(std::fabs(y - 3.5) < 0.02); // offset = -dist/kp = 1.5 -> y = 3.5
+    }
+
+    // ---- Closed loop: PI rejects the disturbance -> zero steady-state error. ----
+    {
+        PidController p(2.0, 1.0, 0.0);
+        double y = 0.0;
+        const double sp = 5.0, dist = -3.0, dt = 0.02;
+        for (int i = 0; i < 12000; ++i) {
+            const double u = p.update(sp, y, dt);
+            y += (u + dist) * dt;
+        }
+        CHECK(std::fabs(y - 5.0) < 0.02);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26540,6 +26645,7 @@ int main() {
     testRunningStats();
     testHistogram();
     testRollingWindow();
+    testPidController();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

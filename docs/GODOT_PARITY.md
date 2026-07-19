@@ -522,6 +522,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (a repeated maximum survives until both copies leave the window), capacity-1/0 edge cases, clear()
   reset, and a 3000-sample random stream cross-checked every step against a brute-force recompute of
   the window's sum/min/max),
+  **PID feedback controller** (M435, `core::PidController` — the classic proportional-integral-derivative
+  controller: given a target and a measurement each step it returns a control signal driving the
+  measurement toward the target. P reacts to current error, I accumulates past error to erase
+  steady-state offset (e.g. a constant disturbance P alone can't cancel), D damps via the error's rate
+  of change. Includes anti-windup (integral accumulator clamp), output clamping, and a
+  derivative-on-measurement mode that avoids the "derivative kick" a sudden setpoint change would cause.
+  The workhorse behind self-correcting systems Godot has no built-in for: a turret tracking a moving
+  target, a hovering vehicle holding altitude, an auto-throttle, a self-balancing biped, or an
+  adaptive-difficulty signal chasing a target win-rate. Verified against pure-P/I/D behaviour, output
+  and integral clamps, the derivative-kick removal, dt<=0 state-hold, reset(), and two closed-loop
+  simulations against an integrator plant: P-only leaves the predicted steady-state offset under a
+  constant disturbance while PI drives it to zero),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
