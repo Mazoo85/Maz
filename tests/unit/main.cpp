@@ -83,6 +83,7 @@
 #include "maz/core/SmoothDamp.hpp"
 #include "maz/core/OneEuroFilter.hpp"
 #include "maz/core/DisjointSet.hpp"
+#include "maz/core/FenwickTree.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18150,6 +18151,99 @@ void testDisjointSet() {
     }
 }
 
+// FenwickTree: mutable prefix sums + dynamic weighted sampling (M439).
+void testFenwickTree() {
+    using core::FenwickTree;
+    using core::Pcg32;
+
+    // ---- add / at / prefix / range / total. ----
+    {
+        FenwickTree ft(4);
+        CHECK(ft.size() == 4 && ft.total() == 0);
+        ft.add(0, 5);
+        ft.add(2, 3);
+        CHECK(ft.at(0) == 5 && ft.at(1) == 0 && ft.at(2) == 3 && ft.at(3) == 0);
+        CHECK(ft.prefixSum(1) == 5 && ft.prefixSum(2) == 8 && ft.prefixSum(3) == 8);
+        CHECK(ft.rangeSum(0, 2) == 8 && ft.rangeSum(1, 2) == 3 && ft.rangeSum(3, 3) == 0);
+        CHECK(ft.total() == 8);
+        ft.set(0, 10);
+        CHECK(ft.at(0) == 10 && ft.total() == 13);
+        ft.set(0, 0);
+        CHECK(ft.at(0) == 0 && ft.total() == 3);
+    }
+
+    // ---- findByPrefix exact mapping for weights [2,0,3,5]. ----
+    {
+        FenwickTree ft(4);
+        ft.add(0, 2);
+        ft.add(2, 3);
+        ft.add(3, 5); // prefix sums 2,2,5,10
+        CHECK(ft.findByPrefix(1) == 0 && ft.findByPrefix(2) == 0);
+        CHECK(ft.findByPrefix(3) == 2 && ft.findByPrefix(5) == 2); // weight-0 bucket 1 skipped
+        CHECK(ft.findByPrefix(6) == 3 && ft.findByPrefix(10) == 3);
+        CHECK(ft.findByPrefix(0) == 0);
+        CHECK(ft.findByPrefix(11) == ft.size());
+    }
+
+    // ---- Dynamic weighted sampling matches proportions and reflects updates. ----
+    {
+        FenwickTree ft(3);
+        ft.add(0, 1);
+        ft.add(1, 3);
+        ft.add(2, 6);
+        Pcg32 rng(99, 3);
+        long long hits[3] = {0, 0, 0};
+        const int samples = 300000;
+        for (int i = 0; i < samples; ++i) {
+            hits[ft.findByPrefix(rng.range(1, static_cast<int>(ft.total())))]++;
+        }
+        CHECK(std::fabs(static_cast<double>(hits[0]) / samples - 0.10) < 0.01);
+        CHECK(std::fabs(static_cast<double>(hits[1]) / samples - 0.30) < 0.01);
+        CHECK(std::fabs(static_cast<double>(hits[2]) / samples - 0.60) < 0.01);
+
+        ft.set(2, 0); // deplete the heavy bucket; now only 0 and 1, ratio 1:3
+        long long h2[3] = {0, 0, 0};
+        for (int i = 0; i < samples; ++i) {
+            h2[ft.findByPrefix(rng.range(1, static_cast<int>(ft.total())))]++;
+        }
+        CHECK(h2[2] == 0);
+        CHECK(std::fabs(static_cast<double>(h2[0]) / samples - 0.25) < 0.01);
+        CHECK(std::fabs(static_cast<double>(h2[1]) / samples - 0.75) < 0.01);
+    }
+
+    // ---- Brute-force cross-check over random add/set. ----
+    {
+        const std::size_t n = 50;
+        FenwickTree ft(n);
+        std::vector<std::int64_t> ref(n, 0);
+        Pcg32 rng(7, 21);
+        for (int step = 0; step < 3000; ++step) {
+            const std::size_t i = static_cast<std::size_t>(rng.range(0, static_cast<int>(n) - 1));
+            if (rng.range(0, 1) == 0) {
+                const std::int64_t d = rng.range(-20, 20);
+                ft.add(i, d);
+                ref[i] += d;
+            } else {
+                const std::int64_t v = rng.range(-50, 50);
+                ft.set(i, v);
+                ref[i] = v;
+            }
+            CHECK(ft.at(i) == ref[i]);
+            const std::size_t p = static_cast<std::size_t>(rng.range(0, static_cast<int>(n) - 1));
+            std::int64_t running = 0;
+            for (std::size_t k = 0; k <= p; ++k) {
+                running += ref[k];
+            }
+            CHECK(ft.prefixSum(p) == running);
+            std::int64_t tot = 0;
+            for (std::size_t k = 0; k < n; ++k) {
+                tot += ref[k];
+            }
+            CHECK(ft.total() == tot);
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26913,6 +27007,7 @@ int main() {
     testSmoothDamp();
     testOneEuroFilter();
     testDisjointSet();
+    testFenwickTree();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

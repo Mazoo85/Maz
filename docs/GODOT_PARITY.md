@@ -562,6 +562,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   1000-long chain exercising path compression, reset(), and a 60-element random-union run whose full
   partition is cross-checked against an independent BFS component labelling — every pair's connectivity
   and the total set count match),
+  **Fenwick tree / binary indexed tree** (M439, `core::FenwickTree` — a mutable integer array that
+  answers any prefix/range sum in O(log n) while still allowing O(log n) element updates (a plain array
+  or a static prefix array can only make one of the two cheap). The key game use is DYNAMIC weighted
+  random selection: findByPrefix() picks a bucket with probability proportional to its weight in
+  O(log n), and unlike the build-once alias table (M428) the weights can change between draws — loot
+  tables that shift with luck stats, spawn tables that deplete as a wave clears, cumulative-frequency
+  sampling. Also serves running range sums over a mutable series. Godot has no Fenwick tree. Verified:
+  add/at/prefix/range/total, exact findByPrefix bucket mapping (including that a zero-weight bucket is
+  never selected), a 300k-draw weighted-sampling distribution that then re-checks the new proportions
+  after a weight is zeroed live, and a 3000-op random add/set stream cross-checked against a brute-force
+  array for element, prefix, and total),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
