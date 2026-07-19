@@ -97,7 +97,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   M330 adds cubicInterpolateAngle — Godot's @GlobalScope.cubic_interpolate_angle: a Catmull-Rom
   between two angles that remaps the control angles to the nearest equivalent so interpolation crosses
   the +/-pi wrap the short way, verified to hit its endpoints, reduce to the plain cubic for in-range
-  angles, and take the forward-through-zero path from 350deg to 10deg; M334 adds isFinitef/isNanf/
+  angles, and take the forward-through-zero path from 350deg to 10deg; M377 completes this family with
+  cubicInterpolateAngleInTime — Godot's @GlobalScope.cubic_interpolate_angle_in_time: the shortest-arc
+  angle unwrap of cubicInterpolateAngle fed into cubicInterpolateInTime's non-uniform timing, verified
+  to collapse onto cubicInterpolateAngle at uniform times and to keep the forward-through-zero wrap;
+  M334 adds isFinitef/isNanf/
   isInff — Godot's @GlobalScope.is_finite / is_nan / is_inf scalar predicates for guarding physics
   and animation state against NaN/inf propagation after a bad divide or blow-up; M346 adds
   stepDecimals — Godot's @GlobalScope.step_decimals: the decimal-place count implied by a step value

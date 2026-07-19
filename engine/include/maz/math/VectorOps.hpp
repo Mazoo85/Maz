@@ -102,6 +102,23 @@ inline T cubicInterpolateInTime(const T& from, const T& to, const T& pre, const 
     return lerpT(b1, b2, toT == 0.0f ? 0.5f : t / toT);
 }
 
+// Time-parametrised Catmull-Rom between ANGLES, taking the shortest arc across the ±pi wrap —
+// Godot's @GlobalScope.cubic_interpolate_angle_in_time. It unwraps `to`/`pre`/`post` to the rotation
+// nearest their anchor exactly as cubicInterpolateAngle does, then delegates to cubicInterpolateInTime
+// on the unwrapped angles. With uniform times (preT=-1, toT=1, postT=2) it collapses onto
+// cubicInterpolateAngle, just as cubicInterpolateInTime collapses onto cubicInterpolate.
+inline float cubicInterpolateAngleInTime(float from, float to, float pre, float post, float weight,
+                                         float toT, float preT, float postT) {
+    const float fromRot = std::fmod(from, kTau);
+    const float preDiff = std::fmod(pre - fromRot, kTau);
+    const float preRot = fromRot + std::fmod(2.0f * preDiff, kTau) - preDiff;
+    const float toDiff = std::fmod(to - fromRot, kTau);
+    const float toRot = fromRot + std::fmod(2.0f * toDiff, kTau) - toDiff;
+    const float postDiff = std::fmod(post - toRot, kTau);
+    const float postRot = toRot + std::fmod(2.0f * postDiff, kTau) - postDiff;
+    return cubicInterpolateInTime<float>(fromRot, toRot, preRot, postRot, weight, toT, preT, postT);
+}
+
 // Cubic Bézier interpolation with two control points — Godot's Vector2.bezier_interpolate.
 template <typename T>
 inline T bezierInterpolate(const T& start, const T& c1, const T& c2, const T& end, float t) {

@@ -13709,6 +13709,25 @@ void testVectorOps() {
                 vec2(2, 4)));
     // Degenerate (all-zero) times take the guarded fallbacks without dividing by zero.
     CHECK(std::isfinite(math::cubicInterpolateInTime(1.0f, 5.0f, 1.0f, 5.0f, 0.5f, 0.0f, 0.0f, 0.0f)));
+
+    // M377: cubicInterpolateAngleInTime — Godot @GlobalScope.cubic_interpolate_angle_in_time.
+    // With uniform times (preT=-1, toT=1, postT=2) it collapses onto cubicInterpolateAngle.
+    for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.1f) {
+        CHECK_NEAR(math::cubicInterpolateAngleInTime(0.2f, 0.9f, -0.1f, 1.3f, w, 1.0f, -1.0f, 2.0f),
+                   math::cubicInterpolateAngle(0.2f, 0.9f, -0.1f, 1.3f, w), 1e-4f);
+    }
+    // Weight 0 returns the anchor fmod(from, TAU).
+    CHECK_NEAR(math::cubicInterpolateAngleInTime(0.7f, 2.0f, -1.0f, 3.0f, 0.0f, 1.0f, -0.5f, 2.5f),
+               std::fmod(0.7f, math::kTau), 1e-4f);
+    // The short-arc wrap works across the +-pi boundary (350deg -> 10deg goes forward through 0).
+    {
+        const float d2r = math::kPi / 180.0f;
+        const float mid = math::cubicInterpolateAngleInTime(350 * d2r, 10 * d2r, 340 * d2r, 20 * d2r,
+                                                            0.5f, 1.0f, -1.0f, 2.0f);
+        CHECK(std::isfinite(mid));
+        CHECK_NEAR(mid, math::cubicInterpolateAngle(350 * d2r, 10 * d2r, 340 * d2r, 20 * d2r, 0.5f),
+                   1e-4f);
+    }
 }
 
 // Transform3D: Godot's Basis+origin spatial transform — xform/xformInv, compose, affine/rigid
