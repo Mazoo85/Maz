@@ -53,6 +53,8 @@ double decayTau(Drum type) {
         return 0.13; // sets the swell length (~0.8 s) — the voice deactivates as the riser peaks
     case Drum::Snare808:
         return 0.11; // the "snappy" noise tail sets the length; the tuned shell decays faster
+    case Drum::Hat808:
+        return 0.035; // a tight, bright metallic closed hat
     }
     return 0.1;
 }
@@ -273,6 +275,18 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double snapW = 1.2 * static_cast<double>(snap_);
             s = static_cast<float>(shellW * shell * envShell +
                                    snapW * static_cast<double>(noise()) * envSnap);
+            break;
+        }
+        case Drum::Hat808: {
+            // The TR-808 hi-hat: a dense cluster of six inharmonic square oscillators (the same
+            // "metal" tone-generator idea as the cowbell, but six higher, closely-spaced partials)
+            // with a tight, fast decay — bright and metallic, distinct from the noise-based hats.
+            static const double freqs[6] = {682.0, 1041.0, 1123.0, 1479.0, 1693.0, 2140.0};
+            double sum = 0.0;
+            for (double fk : freqs) {
+                sum += std::sin(kTwoPi * fk * pitchMul * t_) >= 0.0 ? 1.0 : -1.0;
+            }
+            s = static_cast<float>(sum / 6.0 * env);
             break;
         }
         }

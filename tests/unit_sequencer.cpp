@@ -358,6 +358,18 @@ int main() {
         check(freqOf(snare808(0.0f, 12.0f), sampleRate) > freqOf(shell, sampleRate) * 1.5,
               "808 snare tune raises the shell pitch");
 
+        // 808 hi-hat: a dense cluster of inharmonic square oscillators — bright/metallic and tight.
+        audio::DrumVoice hat808;
+        hat808.setType(audio::Drum::Hat808);
+        hat808.trigger();
+        std::vector<float> h808(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        hat808.render(h808.data(), static_cast<int>(h808.size()), sampleRate);
+        check(rms(h808) > 0.0, "808 hat produces sound");
+        check(freqOf(h808, sampleRate) > 1200.0, "808 hat is bright/metallic (high zero-crossing rate)");
+        std::vector<float> h808tail(static_cast<size_t>(sampleRate) / 2, 0.0f); // out to ~0.55 s
+        hat808.render(h808tail.data(), static_cast<int>(h808tail.size()), sampleRate);
+        check(!hat808.active(), "808 hat decays fast (a tight closed hat)");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
