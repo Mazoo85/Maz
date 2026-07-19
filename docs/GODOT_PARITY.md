@@ -1060,6 +1060,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   ticks report the live stack count; Refresh resets duration and replaces stacks; Add accumulates to the
   cap; Keep leaves a running effect untouched; multiple effects tick independently and expire on their own
   schedules; remove / clear work; non-positive dt is a no-op),
+  **shop / merchant economy** (M484, `game::Shop` + `game::ShopItem` + `game::TradeResult`, built on
+  `game::Inventory` — the vendor counter behind "buy" and "sell." A Shop is a catalogue of items, each with
+  a gold price and an optional stock count (-1 = unlimited); `buy` charges the player's gold wallet, hands
+  over the item, and draws down stock, while `sell` takes the item back and pays a fraction of its price
+  (the sell margin — shops pay less than they charge). The wallet is passed by reference so one purse
+  visits many shops; every trade is atomic and fully guarded, returning a typed TradeResult (NotForSale /
+  OutOfStock / NotEnoughGold / NoInventoryRoom / NotEnoughItems) and leaving wallet and bag untouched on
+  any failure. Godot ships no shop/economy system — games hand-roll it every time -> beyond-Godot gameplay
+  utility. Verified: pricing (buy price, sell price = round(price*margin), -1 for unlisted); a successful
+  buy debits gold, adds the item, and drops finite stock; each buy failure mode (too little gold, out of
+  stock, no inventory room, not for sale) changes nothing; unlimited stock never depletes; sell pays the
+  margin price, removes the item, and grows finite stock; selling more than owned or an unlisted item is
+  rejected; the margin clamps to [0,1] and rounds; restock and catalogue re-add overwrite; a zero-quantity
+  trade is a safe no-op),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

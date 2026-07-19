@@ -128,6 +128,7 @@
 #include "maz/game/Crafting.hpp"
 #include "maz/game/Quest.hpp"
 #include "maz/game/StatusEffect.hpp"
+#include "maz/game/Shop.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20224,6 +20225,102 @@ void testPolynomial() {
     }
 }
 
+void testShop() {
+    using game::Inventory;
+    using game::Shop;
+    using game::TradeResult;
+
+    // Catalogue / pricing.
+    {
+        Shop shop(0.5);
+        shop.addItem(1, 100, 10);
+        shop.addItem(2, 250);
+        CHECK(shop.itemCount() == 2 && shop.sells(1) && !shop.sells(9));
+        CHECK(shop.buyPrice(1) == 100 && shop.sellPrice(1) == 50);
+        CHECK(shop.buyPrice(9) == -1 && shop.sellPrice(9) == -1);
+        CHECK(shop.stockOf(1) == 10 && shop.stockOf(2) == -1);
+    }
+    // buy success draws gold, gives item, drops stock.
+    {
+        Shop shop(0.5);
+        shop.addItem(1, 100, 10);
+        Inventory inv(8, 99);
+        long long gold = 500;
+        CHECK(shop.buy(1, 3, gold, inv) == TradeResult::Ok);
+        CHECK(gold == 200 && inv.count(1) == 3 && shop.stockOf(1) == 7);
+    }
+    // buy failures leave everything unchanged.
+    {
+        Shop shop(0.5);
+        shop.addItem(1, 100, 10);
+        Inventory inv(8, 99);
+        long long gold = 250;
+        CHECK(shop.buy(1, 3, gold, inv) == TradeResult::NotEnoughGold);
+        CHECK(gold == 250 && inv.count(1) == 0 && shop.stockOf(1) == 10);
+
+        Shop shop2(0.5);
+        shop2.addItem(1, 10, 2);
+        long long gold2 = 1000;
+        CHECK(shop2.buy(1, 5, gold2, inv) == TradeResult::OutOfStock);
+        CHECK(gold2 == 1000 && inv.count(1) == 0 && shop2.stockOf(1) == 2);
+
+        Shop shop3(0.5);
+        shop3.addItem(1, 10, 100);
+        Inventory small(1, 5);
+        long long gold3 = 1000;
+        CHECK(shop3.buy(1, 6, gold3, small) == TradeResult::NoInventoryRoom);
+        CHECK(gold3 == 1000 && small.count(1) == 0);
+        CHECK(shop3.buy(1, 5, gold3, small) == TradeResult::Ok && gold3 == 950 && small.count(1) == 5);
+
+        long long gold4 = 1000;
+        CHECK(shop3.buy(42, 1, gold4, inv) == TradeResult::NotForSale && gold4 == 1000);
+    }
+    // Unlimited stock never depletes.
+    {
+        Shop shop(0.5);
+        shop.addItem(2, 5);
+        Inventory inv(8, 99);
+        long long gold = 1000;
+        CHECK(shop.buy(2, 50, gold, inv) == TradeResult::Ok);
+        CHECK(gold == 750 && inv.count(2) == 50 && shop.stockOf(2) == -1);
+    }
+    // sell gives item, gains gold, finite stock grows; failures unchanged.
+    {
+        Shop shop(0.5);
+        shop.addItem(1, 100, 4);
+        Inventory inv(8, 99);
+        inv.addItem(1, 3);
+        long long gold = 0;
+        CHECK(shop.sell(1, 2, gold, inv) == TradeResult::Ok);
+        CHECK(gold == 100 && inv.count(1) == 1 && shop.stockOf(1) == 6);
+        CHECK(shop.sell(1, 5, gold, inv) == TradeResult::NotEnoughItems);
+        CHECK(gold == 100 && inv.count(1) == 1);
+
+        Inventory inv2(8, 99);
+        inv2.addItem(7, 5);
+        long long gold2 = 0;
+        CHECK(shop.sell(7, 1, gold2, inv2) == TradeResult::NotForSale);
+        CHECK(gold2 == 0 && inv2.count(7) == 5);
+    }
+    // Sell margin rounding + adjustable margin (clamped); restock; re-add overwrites; qty<=0 no-op.
+    {
+        Shop shop(0.3);
+        shop.addItem(1, 100);
+        shop.addItem(2, 101);
+        CHECK(shop.sellPrice(1) == 30 && shop.sellPrice(2) == 30);
+        shop.setSellMargin(1.5);
+        CHECK(shop.sellMargin() == 1.0 && shop.sellPrice(1) == 100);
+        shop.addItem(3, 100, 5);
+        shop.restock(3, 10);
+        CHECK(shop.stockOf(3) == 15);
+        shop.addItem(3, 200, 3);
+        CHECK(shop.buyPrice(3) == 200 && shop.stockOf(3) == 3);
+        Inventory inv(8, 99);
+        long long gold = 1000;
+        CHECK(shop.buy(3, 0, gold, inv) == TradeResult::Ok && gold == 1000 && inv.count(3) == 0);
+    }
+}
+
 void testStatusEffect() {
     using game::StackMode;
     using game::StatusEffectSystem;
@@ -30886,6 +30983,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testShop();
     testStatusEffect();
     testQuest();
     testCrafting();
