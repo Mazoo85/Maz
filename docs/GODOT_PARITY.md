@@ -170,7 +170,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (M337 adds validation helpers — Godot String.is_valid_identifier (letter/underscore lead, then
   alnum/underscore), is_valid_html_color (optional # then 3/4/6/8 hex digits — RGB/RGBA/RRGGBB/
   RRGGBBAA), and is_subsequence_of / is_subsequence_ofn (case-insensitive) for fuzzy in-order matching;
-  all verified against valid + malformed inputs),
+  all verified against valid + malformed inputs)
+  (M344 adds trimPrefix / trimSuffix — Godot String.trim_prefix / trim_suffix: strip a prefix or
+  suffix ONLY when it is actually present (returns the string unchanged otherwise), verified on
+  res://user:// scheme + extension stripping and no-op cases),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot

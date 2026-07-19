@@ -11635,6 +11635,14 @@ void testStringUtils() {
     CHECK((!su::isSubsequenceOf("aec", "abcde") && !su::isSubsequenceOf("abcdef", "abcde")));
     CHECK((!su::isSubsequenceOf("ACE", "abcde") && su::isSubsequenceOfNoCase("ACE", "abcde")));
 
+    // --- M344: trim_prefix / trim_suffix (strip only when present) ---
+    CHECK(su::trimPrefix("res://player.png", "res://") == "player.png");
+    CHECK(su::trimPrefix("player.png", "res://") == "player.png"); // unchanged
+    CHECK((su::trimPrefix("aaa", "a") == "aa" && su::trimPrefix("abc", "") == "abc"));
+    CHECK(su::trimSuffix("sprite.png", ".png") == "sprite");
+    CHECK(su::trimSuffix("sprite.jpg", ".png") == "sprite.jpg"); // unchanged
+    CHECK(su::trimSuffix(su::trimPrefix("user://save.dat", "user://"), ".dat") == "save");
+
     // --- M325: split_floats ---
     {
         auto v = su::splitFloats("1.5,2,-3.25");

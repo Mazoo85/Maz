@@ -66,6 +66,17 @@ inline bool contains(const std::string& s, const std::string& needle) {
     return s.find(needle) != std::string::npos;
 }
 
+// Remove `prefix` from the start of `s` only if it is actually there — Godot's String.trim_prefix.
+// Returns `s` unchanged when it does not begin with `prefix` (unlike a blind substr).
+inline std::string trimPrefix(const std::string& s, const std::string& prefix) {
+    return beginsWith(s, prefix) ? s.substr(prefix.size()) : s;
+}
+// Remove `suffix` from the end of `s` only if present — Godot's String.trim_suffix. Handy for
+// stripping a known extension or unit tag without touching strings that lack it.
+inline std::string trimSuffix(const std::string& s, const std::string& suffix) {
+    return endsWith(s, suffix) ? s.substr(0, s.size() - suffix.size()) : s;
+}
+
 // Strip leading/trailing ASCII whitespace (Godot strip_edges).
 inline std::string lstrip(const std::string& s) {
     std::size_t b = 0;
