@@ -632,6 +632,40 @@ int main() {
         check(!dl.enabled() && std::fabs(dl.ceilingDb() + 0.3f) < 1e-4f,
               "limiter defaults to off with a −0.3 dB ceiling");
         check(std::fabs(dl.gainReductionDb()) < 1e-6f, "limiter GR meter defaults to 0");
+
+        // Release time must actually shape the gain recovery. (Regression: the release formula was
+        // inverted — gain_ + (1-gain_)·relCoef — which snapped the gain back to unity in a single
+        // sample regardless of releaseMs, so the release knob did nothing and loud material pumped.)
+        // After a short loud burst pulls the gain down, a long release should still be holding the
+        // gain reduced through the quiet tail, so that tail comes out quieter than with a fast release.
+        auto burstTailRms = [&](float releaseMs) {
+            audio::Limiter l;
+            l.setEnabled(true);
+            l.setCeilingDb(-6.0f);
+            l.setLookaheadMs(1.0f);
+            l.setReleaseMs(releaseMs);
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f); // 1 s stereo
+            for (int i = 0; i < sr; ++i) {
+                const float amp = i < sr / 10 ? 0.95f : 0.3f; // 0.1 s loud (over ceiling), then quiet
+                const float s =
+                    amp * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 200.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            l.process(b.data(), sr, sr);
+            const int start = sr / 10 + sr / 200; // just after the loud→quiet transition (past LA)
+            const int win = sr / 40;              // 25 ms window
+            double e = 0.0;
+            for (int i = start; i < start + win; ++i) {
+                const float v = b[static_cast<size_t>(i) * 2];
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return std::sqrt(e / win);
+        };
+        const double fastTail = burstTailRms(1.0f);
+        const double slowTail = burstTailRms(800.0f);
+        check(fastTail > slowTail * 1.2f,
+              "a short limiter release recovers gain faster than a long one (releaseMs is honoured)");
     }
 
     // --- Leveler: slow AGC converges loud and quiet passages toward a target ---

@@ -2770,7 +2770,10 @@ void Limiter::process(float* stereo, int frames, int sampleRate) {
         // target as wmax falls. gain_ never exceeds the target, so the output cannot exceed the
         // ceiling: |outL| ≤ wmax and gain_ ≤ ceiling / wmax.
         const float target = wmax > ceiling ? ceiling / wmax : 1.0f;
-        const float released = gain_ + (1.0f - gain_) * relCoef;
+        // One-pole release toward unity: released = relCoef·gain_ + (1-relCoef)·1, i.e. gain_ climbs
+        // back to 1 over ~releaseMs. (The earlier form gain_ + (1-gain_)·relCoef snapped to ~1 in a
+        // single sample because relCoef≈1 for any musical release, making releaseMs inert.)
+        const float released = 1.0f - (1.0f - gain_) * relCoef;
         gain_ = std::min(released, target);
         if (gain_ < gMin) {
             gMin = gain_; // track the deepest reduction for the GR meter
