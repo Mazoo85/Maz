@@ -74,6 +74,7 @@
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/AliasTable.hpp"
 #include "maz/core/Halton.hpp"
+#include "maz/core/BitSet.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17283,6 +17284,100 @@ void testHalton() {
     }
 }
 
+// BitSet: dynamic word-packed bit set (M430).
+void testBitSet() {
+    using core::BitSet;
+
+    // set / test / reset / flip / count.
+    {
+        BitSet b(10);
+        CHECK(b.size() == 10 && b.none() && b.count() == 0);
+        b.set(1);
+        b.set(3);
+        b.set(9);
+        CHECK(b.test(1) && b[3] && b.test(9) && !b.test(0));
+        CHECK(b.count() == 3 && b.any() && !b.none());
+        b.reset(3);
+        CHECK(!b.test(3) && b.count() == 2);
+        b.flip(3);
+        b.flip(1);
+        CHECK(b.test(3) && !b.test(1) && b.count() == 2);
+        b.set(0, true);
+        b.set(9, false);
+        CHECK(b.test(0) && !b.test(9));
+    }
+
+    // setAll / all / tail bits: a 3-bit set must count 3, not 64.
+    {
+        BitSet b(3);
+        b.setAll();
+        CHECK(b.count() == 3 && b.all());
+        b.resetAll();
+        CHECK(b.none() && !b.all());
+        CHECK(BitSet(5, true).count() == 5);
+    }
+
+    // and / or / xor / not.
+    {
+        BitSet a(6), c(6);
+        a.set(0);
+        a.set(2);
+        a.set(4);
+        c.set(1);
+        c.set(2);
+        c.set(3);
+        const BitSet band = a & c;
+        CHECK(band.count() == 1 && band.test(2));
+        const BitSet bor = a | c;
+        CHECK(bor.count() == 5 && !bor.test(5));
+        const BitSet bxor = a ^ c;
+        CHECK(bxor.count() == 4 && bxor.test(0) && bxor.test(1) && bxor.test(3) && bxor.test(4) &&
+              !bxor.test(2));
+        const BitSet bnot = ~a;
+        CHECK(bnot.count() == 3 && bnot.test(1) && bnot.test(3) && bnot.test(5) && !bnot.test(0));
+    }
+
+    // findFirst / findNext iterate exactly the set bits, in order, across word boundaries.
+    {
+        BitSet b(200);
+        const std::vector<std::size_t> bits = {3, 63, 64, 65, 127, 128, 199};
+        for (std::size_t x : bits) {
+            b.set(x);
+        }
+        std::vector<std::size_t> got;
+        for (std::size_t i = b.findFirst(); i != BitSet::npos; i = b.findNext(i + 1)) {
+            got.push_back(i);
+        }
+        CHECK(got == bits);
+        CHECK(b.count() == bits.size());
+        CHECK(BitSet(50).findFirst() == BitSet::npos);
+    }
+
+    // resize grow (new bits 0) and shrink (drops bits).
+    {
+        BitSet b(4);
+        b.set(1);
+        b.set(3);
+        b.resize(100);
+        CHECK(b.size() == 100 && b.count() == 2 && b.test(1) && b.test(3) && !b.test(50));
+        b.set(70);
+        b.resize(4);
+        CHECK(b.size() == 4 && b.count() == 2 && b.test(1) && b.test(3));
+    }
+
+    // equality (order-independent) / inequality.
+    {
+        BitSet a(8), c(8);
+        a.set(2);
+        a.set(5);
+        c.set(5);
+        c.set(2);
+        CHECK(a == c);
+        c.set(7);
+        CHECK(a != c);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26037,6 +26132,7 @@ int main() {
     testPcg32();
     testAliasTable();
     testHalton();
+    testBitSet();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

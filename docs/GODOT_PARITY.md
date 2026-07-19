@@ -439,7 +439,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   kept in maz's linear-Color convention (Ottosson's final sRGB encode omitted). Verified by pure
   inverse round-trips, black/white/mid-grey anchors, an independent OKLab gray-axis cross-check
   (s=0 → OKLab L == toe_inv(l)), and distinct in-range primary hues),
-  curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer, string
+  curves, easing, two RNGs (xoshiro + PCG32), SlotMap, SmallVector/SparseSet, RingBuffer,
+  **dynamic bit set** (M430, `core::BitSet` — a resizable word-packed bit set with test/set/reset/flip,
+  whole-set and/or/xor/not, hardware-popcount count/any/none/all, and O(1)-per-hit iteration over just
+  the set bits via findFirst/findNext; the natural backing for entity flag sets, per-frame visited/dirty
+  marks, tile occupancy grids and arbitrary-width layer masks where a plain int mask runs out of bits —
+  std::bitset is fixed-size and vector<bool> lacks set-algebra + fast scan, and Godot exposes only fixed
+  32-bit masks. Verified: single-bit set/reset/flip/count, tail-bit correctness (a 3-bit setAll counts 3
+  not 64), and/or/xor/not exact, findFirst/findNext walking set bits across word boundaries in order,
+  resize grow/shrink, and order-independent equality),
+  string
   interning, reflection, JSON/CSV/XML/base64/INI, binary + text serialization, resource packs,
   virtual filesystem, **hashing** (M284, `core::sha256` / `sha256Hex` / `crc32` — Godot's
   HashingContext / crc32 for asset integrity, save checksums, content-addressed caches and network
