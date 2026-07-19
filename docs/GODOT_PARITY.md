@@ -1182,6 +1182,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **DEFLATE / zlib inflate** (M499, `io::inflateRaw` / `io::zlibInflate` — the header-only, dependency-free
+  decompressor that was the missing building block under PNG import, gzip/zlib assets, and KTX2 ZLIB
+  supercompression. Godot leans on zlib for all of these; Maz had no inflate at all. `inflateRaw` expands a
+  raw RFC 1951 DEFLATE stream (stored, fixed-Huffman, and dynamic-Huffman blocks with LZ77 back-references,
+  via the canonical bit-at-a-time "puff" Huffman walk); `zlibInflate` validates and strips the RFC 1950
+  2-byte header (and optional preset dictionary) first. Pure CPU, and — importantly for trust — verified
+  against golden streams produced by the *reference* zlib, not just self-consistency. Honest scope: it
+  decompresses only (no compression) and does not verify the trailing Adler-32. Verified: three real
+  zlib-compressed payloads (a repetitive string exercising back-references, 64 varied bytes, and a 300-byte
+  run) round-trip exactly through both the raw and zlib-wrapped paths; a hand-framed stored (uncompressed)
+  block decodes; and a bad zlib header plus a reserved/truncated block are rejected. This unblocks PNG,
+  next on `GODOT_GAPS_ROADMAP.md`),
   **PLY (Stanford `.ply`) mesh import** (M498, `render::parsePly` / `loadPly` — closes another Godot import
   gap: PLY is the standard output of 3D scanners and tools like MeshLab and CloudCompare. It reads both the
   ASCII and the binary (little- and big-endian) encodings, parsing the header's element/property

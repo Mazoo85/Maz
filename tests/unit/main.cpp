@@ -244,6 +244,7 @@
 #include "maz/io/ImportFile.hpp"
 #include "maz/io/GettextPo.hpp"
 #include "maz/io/Hdr.hpp"
+#include "maz/io/Inflate.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
 #include "maz/io/SceneSerializer.hpp"
@@ -20239,6 +20240,81 @@ void testPolynomial() {
     }
 }
 
+void testInflate() {
+    using io::inflateRaw;
+    using io::zlibInflate;
+
+    auto hx = [](const char* h) {
+        std::vector<std::uint8_t> v;
+        auto nib = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            return 0;
+        };
+        for (std::size_t i = 0; h[i] && h[i + 1]; i += 2)
+            v.push_back(static_cast<std::uint8_t>((nib(h[i]) << 4) | nib(h[i + 1])));
+        return v;
+    };
+    auto eq = [](const std::vector<std::uint8_t>& a, const std::string& b) {
+        if (a.size() != b.size()) return false;
+        for (std::size_t i = 0; i < a.size(); ++i)
+            if (a[i] != static_cast<std::uint8_t>(b[i])) return false;
+        return true;
+    };
+
+    // Golden vectors from the reference zlib (level 9).
+    const std::string msg1 = "hello, hello, hello, world!";
+    std::string msg2;
+    for (int i = 0; i < 64; ++i) msg2.push_back(static_cast<char>(i));
+    const std::string msg3(300, 'A');
+
+    // Raw DEFLATE.
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(inflateRaw(hx("cb48cdc9c9d751c840a1caf38b72521401"), out));
+        CHECK(eq(out, msg1));
+    }
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(inflateRaw(hx("6360646266616563e7e0e4e2e6e1e5e3171014121611151397909492969195935750"
+                            "545256515553d7d0d4d2d6d1d5d33730343236313533b7b0b4b2b6b1b5b30700"),
+                         out));
+        CHECK(eq(out, msg2));
+    }
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(inflateRaw(hx("73741c05c40200"), out));
+        CHECK(out.size() == 300);
+        CHECK(eq(out, msg3));
+    }
+    // zlib wrapper.
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(zlibInflate(hx("78dacb48cdc9c9d751c840a1caf38b7252140185fa096a"), out));
+        CHECK(eq(out, msg1));
+    }
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(zlibInflate(hx("78da73741c05c40200cb9e4c2d"), out));
+        CHECK(eq(out, msg3));
+    }
+    // Stored (uncompressed) block.
+    {
+        std::vector<std::uint8_t> in = {0x01, 0x05, 0x00, 0xFA, 0xFF, 'a', 'b', 'c', 'd', 'e'};
+        std::vector<std::uint8_t> out;
+        CHECK(inflateRaw(in, out));
+        CHECK(eq(out, "abcde"));
+    }
+    // Malformed rejected.
+    {
+        std::vector<std::uint8_t> out;
+        CHECK(!zlibInflate(std::vector<std::uint8_t>{0x00, 0x00}, out));
+        std::vector<std::uint8_t> junk = {0xFF, 0xFF, 0xFF};
+        out.clear();
+        CHECK(!inflateRaw(junk, out));
+    }
+}
+
 void testPlyLoader() {
     using render::parsePly;
     using render::PlyLoadOptions;
@@ -32178,6 +32254,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testInflate();
     testPlyLoader();
     testColladaLoader();
     testSkillTree();

@@ -28,9 +28,10 @@ only be written blind, the docs say exactly that.
 - [x] **Collada `.dae` mesh import** (`render::parseCollada`) — DONE (M497). [VERIFIABLE HERE]
 - [x] **PLY mesh import** (ASCII + binary) — `render::parsePly` — DONE (M498). [VERIFIABLE HERE]
 - [ ] **STL mesh import** (ASCII + binary) — `render::parseStl`. [VERIFIABLE HERE]
-- [ ] **TGA image decode** (`render::decodeTga` → RGBA `Image`). [VERIFIABLE HERE]
-- [ ] **BMP image decode**. [VERIFIABLE HERE]
-- [ ] **PNG decode** (needs a DEFLATE/inflate implementation first — sizeable but pure CPU). [VERIFIABLE HERE]
+- [x] **TGA image decode** — ALREADY PRESENT (`render::decodeTga`, `ImageCodecTga.hpp`). No work needed.
+- [x] **BMP image decode** — ALREADY PRESENT (`render::decodeBmp`, `ImageCodecBmp.hpp`). No work needed.
+- [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]
+- [ ] **PNG decode** — now UNBLOCKED by M499's inflate; parse chunks + unfilter scanlines into `Image`. [VERIFIABLE HERE]
 - [ ] **Ogg Vorbis / MP3 decode to PCM** — large, pure-CPU decoders feeding the existing mixer. [VERIFIABLE HERE]
 - [ ] **Font fallback chains** on top of the existing TrueType path. [VERIFIABLE HERE]
 - [ ] **FBX import** — binary + ASCII FBX is large and semi-proprietary; do the geometry subset. [VERIFIABLE HERE]
