@@ -64,8 +64,11 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
 - [x] **Lightmap baker** (`render::bakeLightmap`) — DONE (M502); direct light + hard shadows, bake fully
   VERIFIABLE HERE (sampling the map is GPU-side). Follow-up: bounce GI + UV-atlas unwrap. [VERIFIABLE HERE]
 - [x] **Decal projection math** (`render::projectDecal`) — DONE (M503); oriented-box UV + normal fade. [VERIFIABLE HERE]
-- [ ] **Reflection-probe capture plumbing**, **volumetric-fog params**,
-  **SSR/SSIL passes**, **GPU particles + collision**, **occlusion culling**, **mesh LOD selection**.
+- [x] **Volumetric-fog evaluation** (`render::fogOpticalDepth` / `fogFactor` / `applyFog`) — DONE (M504);
+  analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).
+- [x] **Occlusion culling** — ALREADY PRESENT (`render::Occlusion.hpp`, screen-space coverage buffer).
+- [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
+- [ ] **Reflection-probe capture plumbing**, **SSR/SSIL passes**, **GPU particles + collision**.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [ ] **3D navigation server** with runtime navmesh baking + dynamic obstacles — the baker/query is
   [VERIFIABLE HERE]; only the debug draw is GPU-side.

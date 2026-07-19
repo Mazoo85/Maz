@@ -327,6 +327,7 @@
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
+#include "maz/render/VolumetricFog.hpp"
 #include "maz/scene/CanvasLayer.hpp"
 #include "maz/scene/GroupRegistry.hpp"
 #include "maz/scene/Prefab.hpp"
@@ -20244,6 +20245,61 @@ void testPolynomial() {
     }
 }
 
+void testVolumetricFog() {
+    using namespace render;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-4f; };
+
+    // Homogeneous fog: Beer-Lambert.
+    {
+        FogParams fog;
+        fog.density = 0.1f;
+        CHECK(nf(fogOpticalDepth(fog, vec3{0, 0, 0}, vec3{10, 0, 0}), 1.0f));
+        CHECK(nf(fogFactor(fog, vec3{0, 0, 0}, vec3{10, 0, 0}), 1.0f - std::exp(-1.0f)));
+        CHECK(nf(fogOpticalDepth(fog, vec3{0, 0, 0}, vec3{0, 0, 0}), 0.0f));
+    }
+    // Zero density -> no fog.
+    {
+        FogParams fog;
+        CHECK(nf(fogFactor(fog, vec3{0, 0, 0}, vec3{100, 0, 0}), 0.0f));
+    }
+    // Height falloff: vertical ray closed-form.
+    {
+        FogParams fog;
+        fog.density = 0.1f;
+        fog.heightFalloff = 0.5f;
+        const float expected = 0.2f * (1.0f - std::exp(-5.0f));
+        CHECK(nf(fogOpticalDepth(fog, vec3{0, 0, 0}, vec3{0, 10, 0}), expected));
+    }
+    // Height falloff: horizontal ray at height uses local density.
+    {
+        FogParams fog;
+        fog.density = 0.2f;
+        fog.heightFalloff = 1.0f;
+        const float expected = 0.2f * std::exp(-2.0f) * 5.0f;
+        CHECK(nf(fogOpticalDepth(fog, vec3{0, 2, 0}, vec3{5, 2, 0}), expected));
+    }
+    // Higher rays less foggy than lower.
+    {
+        FogParams fog;
+        fog.density = 0.3f;
+        fog.heightFalloff = 0.7f;
+        CHECK(fogFactor(fog, vec3{0, 5, 0}, vec3{10, 5, 0}) <
+              fogFactor(fog, vec3{0, 0, 0}, vec3{10, 0, 0}));
+    }
+    // applyFog mixes toward fog color.
+    {
+        FogParams fog;
+        fog.density = 0.1f;
+        fog.color = vec3{1, 1, 1};
+        CHECK(applyFog(vec3{0, 0, 0}, fog, vec3{0, 0, 0}, vec3{1000, 0, 0}).x > 0.99f);
+        auto n = applyFog(vec3{0.2f, 0.4f, 0.6f}, fog, vec3{0, 0, 0}, vec3{0, 0, 0});
+        CHECK(nf(n.x, 0.2f) && nf(n.y, 0.4f) && nf(n.z, 0.6f));
+        const float f = fogFactor(fog, vec3{0, 0, 0}, vec3{10, 0, 0});
+        CHECK(nf(applyFog(vec3{0, 0, 0}, fog, vec3{0, 0, 0}, vec3{10, 0, 0}).x, f));
+    }
+}
+
 void testDecalProject() {
     using namespace render;
     using math::vec3;
@@ -32549,6 +32605,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testVolumetricFog();
     testDecalProject();
     testLightmapBake();
     testFontFallback();

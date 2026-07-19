@@ -1182,6 +1182,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **analytic volumetric fog** (M504, `render::fogOpticalDepth` / `fogFactor` / `applyFog` — the CPU evaluation
+  behind Godot's height/volumetric fog: "how much fog is between the camera and this point, and what color
+  does it leave the pixel?" It integrates the fog density along a view segment via the Beer-Lambert law, with
+  optional exponential height falloff (thicker low, thinner high, like real mist) solved in closed form,
+  converts the optical depth to a blend factor `1 - exp(-optical)`, and mixes the scene color toward the fog
+  color. Godot's volumetric fog raymarches a froxel volume on the GPU; this is the exact analytic form a
+  renderer can use directly for simple exponential fog or as a reference. Pure math, fully unit-tested.
+  Honest scope: homogeneous or exponential-height density with a single fog color (no GPU froxel scattering,
+  per-light in-scatter, or noise/wind). Verified: homogeneous density gives optical depth density×distance and
+  factor 1-e^-1 over the classic case; zero density and zero-length segments give no fog; the height-falloff
+  closed form matches the hand-integrated value for a vertical ray and reduces to local-density×length for a
+  horizontal one; higher rays are strictly less foggy than lower ones; and applyFog reproduces the exact
+  color lerp, approaching the fog color at long range and leaving the scene untouched at zero distance),
   **decal projection** (M503, `render::projectDecal` — the math behind Godot's Decal node, which stamps a
   texture onto whatever surface lies inside an oriented box (bullet holes, blood, posters, tire tracks).
   Given a decal box (center + orthonormal right/up/forward frame + half extents) and a world-space surface
