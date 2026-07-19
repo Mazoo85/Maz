@@ -161,6 +161,7 @@
 #include "maz/io/Config.hpp"
 #include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
+#include "maz/io/Compression.hpp"
 #include "maz/io/ExportConfig.hpp"
 #include "maz/io/ImportFile.hpp"
 #include "maz/io/GettextPo.hpp"
@@ -7126,6 +7127,57 @@ void testBase64() {
     {
         std::vector<std::uint8_t> out;
         CHECK(!base64Decode("Zm9v$YmFy", out));
+    }
+
+    // --- M414: LZSS byte compression (io::lzCompress / lzDecompress) ---
+    {
+        auto lzRound = [](const std::vector<std::uint8_t>& v) {
+            return io::lzDecompress(io::lzCompress(v)) == v;
+        };
+        // Empty / trivial.
+        CHECK(io::lzCompress(std::vector<std::uint8_t>{}).empty());
+        CHECK(io::lzDecompress(std::vector<std::uint8_t>{}).empty());
+        CHECK(lzRound({}));
+        CHECK(lzRound({42}));
+        CHECK(lzRound({0, 0, 0}));
+        // Highly repetitive -> round-trips and compresses much smaller.
+        std::vector<std::uint8_t> rep(1000, 0xAB);
+        CHECK(lzRound(rep));
+        CHECK(io::lzCompress(rep).size() < rep.size() / 4);
+        // Period-4 pattern.
+        std::vector<std::uint8_t> pat;
+        for (int i = 0; i < 800; ++i) pat.push_back(static_cast<std::uint8_t>("MAZ!"[i % 4]));
+        CHECK(lzRound(pat));
+        CHECK(io::lzCompress(pat).size() < pat.size() / 2);
+        // Text via the string helpers.
+        std::string text =
+            "the quick brown fox jumps over the lazy dog. the quick brown fox jumps again. "
+            "the quick brown fox is quick and brown and the dog is lazy and the fox is quick.";
+        auto comp = io::lzCompress(text);
+        CHECK(io::lzDecompressToString(comp) == text);
+        CHECK(comp.size() < text.size());
+        // All 256 distinct bytes still round-trip.
+        std::vector<std::uint8_t> distinct;
+        for (int i = 0; i < 256; ++i) distinct.push_back(static_cast<std::uint8_t>(i));
+        CHECK(lzRound(distinct));
+        // Pseudo-random bytes round-trip exactly.
+        std::vector<std::uint8_t> rnd;
+        std::uint32_t seed = 123456789u;
+        for (int i = 0; i < 5000; ++i) {
+            seed = seed * 1664525u + 1013904223u;
+            rnd.push_back(static_cast<std::uint8_t>(seed >> 24));
+        }
+        CHECK(lzRound(rnd));
+        // Overlapping long run (LZ acting like RLE).
+        std::vector<std::uint8_t> runv = {7};
+        for (int i = 0; i < 100; ++i) runv.push_back(7);
+        CHECK(lzRound(runv));
+        // Data larger than the 4 KB window round-trips.
+        std::vector<std::uint8_t> big;
+        for (int i = 0; i < 10000; ++i) big.push_back(static_cast<std::uint8_t>((i * 37) & 0xFF));
+        std::vector<std::uint8_t> big2 = big;
+        big2.insert(big2.end(), big.begin(), big.end());
+        CHECK(lzRound(big2));
     }
 }
 

@@ -308,6 +308,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   nearest-goal, a wall forcing a longer-than-Manhattan detour with walls unreachable, an enclosed cell
   staying unreachable, `descend` walking strictly downhill to the goal (and staying put at a goal), the
   flee map moving a pursuer away from the goal, and degenerate-size → empty;
+  **LZSS byte compression** M414 (`io::lzCompress` / `io::lzDecompress` in `maz/io/Compression.hpp` — a
+  small self-contained LZ77 sliding-window codec for shrinking save files, level data and network
+  payloads: longest-match-in-a-4KB-window references replace repeated runs, short runs stay literals,
+  packed as control-byte groups of 8 flag bits (literal vs 12-bit-offset/4-bit-length match). Godot's
+  PackedByteArray.compress/decompress territory (a lossless general codec, round-trip-exact rather than
+  a specific on-disk format). Verified round-trip-exact across empty/single-byte, highly-repetitive
+  (which also compresses to <¼ size), a period-4 pattern (<½), repetitive English text via the string
+  helpers (shrinks), all-256-distinct bytes, 5000 pseudo-random bytes, an overlapping long run
+  (LZ-as-RLE), and a block larger than the 4KB window;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
