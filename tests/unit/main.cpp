@@ -1075,6 +1075,46 @@ void testColorOps() {
         render::Image bkeep(1, 1, bbase);
         bkeep.blendRect(bclear, 0, 0, 1, 1, 0, 0);
         CHECK(sameC(bkeep.getPixel(0, 0), bbase));
+
+        // --- Image geometric transforms (M388) ---
+        // Build a 3x2 image where pixel (x,y) encodes its coordinate as (10x, 10y, 0).
+        render::Image coded(3, 2, render::color8(0, 0, 0, 255));
+        for (int cy = 0; cy < 2; ++cy) {
+            for (int cx = 0; cx < 3; ++cx) {
+                coded.setPixel(cx, cy, render::color8(cx * 10, cy * 10, 0, 255));
+            }
+        }
+        // rotate90 clockwise: 3x2 -> 2x3; src(x,y) -> dst(h-1-y, x).
+        render::Image rcw = coded;
+        rcw.rotate90(true);
+        CHECK(rcw.width() == 2 && rcw.height() == 3);
+        CHECK(sameC(rcw.getPixel(0, 0), render::color8(0, 10, 0, 255)));  // src(0,1)
+        CHECK(sameC(rcw.getPixel(1, 2), render::color8(20, 0, 0, 255)));  // src(2,0)
+        // rotate90 counter-clockwise: src(x,y) -> dst(y, w-1-x).
+        render::Image rccw = coded;
+        rccw.rotate90(false);
+        CHECK(sameC(rccw.getPixel(1, 0), render::color8(20, 10, 0, 255))); // src(2,1)
+        // Four clockwise rotations return to the original.
+        render::Image r4 = coded;
+        r4.rotate90(true); r4.rotate90(true); r4.rotate90(true); r4.rotate90(true);
+        CHECK(r4.width() == 3 && r4.height() == 2);
+        CHECK(sameC(r4.getPixel(2, 1), coded.getPixel(2, 1)));
+        // rotate180 == two clockwise rotate90s.
+        render::Image r180 = coded;
+        r180.rotate180();
+        CHECK(r180.width() == 3 && r180.height() == 2);
+        CHECK(sameC(r180.getPixel(0, 0), render::color8(20, 10, 0, 255))); // src(2,1)
+        CHECK(sameC(r180.getPixel(2, 1), render::color8(0, 0, 0, 255)));   // src(0,0)
+        // crop smaller keeps the top-left; crop larger pads transparent black.
+        render::Image cropS = coded;
+        cropS.crop(2, 2);
+        CHECK(cropS.width() == 2 && cropS.height() == 2);
+        CHECK(sameC(cropS.getPixel(1, 1), render::color8(10, 10, 0, 255)));
+        render::Image cropL = coded;
+        cropL.crop(4, 4);
+        CHECK(cropL.width() == 4 && cropL.height() == 4);
+        CHECK(sameC(cropL.getPixel(2, 1), render::color8(20, 10, 0, 255))); // original corner
+        CHECK(sameC(cropL.getPixel(3, 3), render::color8(0, 0, 0, 0)));     // padded
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---

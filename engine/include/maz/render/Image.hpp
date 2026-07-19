@@ -122,6 +122,44 @@ public:
         }
         return out;
     }
+    // Resize the canvas to newW x newH IN PLACE, keeping the top-left corner — Godot Image.crop.
+    // Shrinking discards the far edges; growing pads the new area with transparent black.
+    void crop(int newW, int newH) {
+        Image out(newW, newH);
+        const int cw = std::min(newW, m_w), ch = std::min(newH, m_h);
+        for (int y = 0; y < ch; ++y) {
+            for (int x = 0; x < cw; ++x) {
+                out.setPixel(x, y, getPixel(x, y));
+            }
+        }
+        *this = std::move(out);
+    }
+    // Rotate 90 degrees IN PLACE — Godot Image.rotate_90. Width and height swap. `clockwise` true
+    // rotates CW (top row becomes the right column); false rotates CCW (top row becomes left column).
+    void rotate90(bool clockwise = true) {
+        Image out(m_h, m_w);
+        for (int y = 0; y < m_h; ++y) {
+            for (int x = 0; x < m_w; ++x) {
+                if (clockwise) {
+                    out.setPixel(m_h - 1 - y, x, getPixel(x, y));
+                } else {
+                    out.setPixel(y, m_w - 1 - x, getPixel(x, y));
+                }
+            }
+        }
+        *this = std::move(out);
+    }
+    // Rotate 180 degrees IN PLACE — Godot Image.rotate_180. Dimensions unchanged; every pixel maps
+    // to the diagonally opposite position.
+    void rotate180() {
+        Image out(m_w, m_h);
+        for (int y = 0; y < m_h; ++y) {
+            for (int x = 0; x < m_w; ++x) {
+                out.setPixel(m_w - 1 - x, m_h - 1 - y, getPixel(x, y));
+            }
+        }
+        *this = std::move(out);
+    }
 
 private:
     static std::uint8_t to8(float v) { return static_cast<std::uint8_t>(detail::to255(v)); }

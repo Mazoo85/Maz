@@ -186,7 +186,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   source-over alpha compositing of a sub-rectangle using the same operator as Color.blend, so
   semi-transparent pixels mix rather than overwrite; all clipped to bounds, verified against
   render::blend with a known base/over pair, region extraction across the edge, and a
-  transparent-source no-op); plus
+  transparent-source no-op); M388 adds **geometric transforms** (`crop`, `rotate90(clockwise)`,
+  `rotate180` — Godot Image.crop / rotate_90 / rotate_180, all in-place: crop resizes the canvas
+  keeping the top-left corner and pads new area transparent, rotate90 swaps width/height either
+  direction, rotate180 flips both axes; verified by exact pixel remaps on a coordinate-coded
+  image, four-CW-rotations-is-identity, two-CW-equals-180, and crop shrink/grow); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
