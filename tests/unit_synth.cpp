@@ -1709,6 +1709,28 @@ int main() {
         check(e13.addChord(0, 1, 60, audio::Chord::Dom13) == 6, "a dominant 13th is six notes");
         check(e13.hasNote(81, 0) && e13.hasNote(74, 0) && e13.hasNote(70, 0),
               "dom13 reaches the 13th (0,4,7,10,14,21)");
+
+        // Harmonize: thicken a two-note melody into major triads (each note + its 3rd and 5th).
+        audio::PianoRoll harm;
+        harm.addNote(audio::Note{0, 2, 60, 0.8f}); // C4
+        harm.addNote(audio::Note{4, 2, 62, 0.8f}); // D4
+        const int harmAdded = harm.harmonize(audio::Chord::Major); // adds +4 and +7 per note → 2 each
+        check(harmAdded == 4, "harmonize adds the non-root chord tones for every note");
+        check(static_cast<int>(harm.notes().size()) == 6, "harmonize keeps the originals and adds copies");
+        // C4 gains E4 (64) and G4 (67); D4 gains F#4 (66) and A4 (69) — same starts as their roots.
+        check(harm.hasNote(64, 0) && harm.hasNote(67, 0), "harmonize builds the triad over the first note");
+        check(harm.hasNote(66, 4) && harm.hasNote(69, 4), "harmonize builds the triad over the second note");
+        // A copy inherits the root note's timing/velocity.
+        for (const audio::Note& n : harm.notes()) {
+            if (n.pitch == 64) {
+                check(n.startStep == 0 && n.lengthSteps == 2 && std::fabs(n.velocity - 0.8f) < 1e-6f,
+                      "a harmonized copy inherits the source note's timing and velocity");
+            }
+        }
+        // Out-of-range copies are skipped (a note near the top of MIDI can't gain a +7).
+        audio::PianoRoll hi;
+        hi.addNote(audio::Note{0, 1, 125, 1.0f}); // +4 = 129, +7 = 132 → both out of range
+        check(hi.harmonize(audio::Chord::Major) == 0, "harmonize skips copies pushed out of MIDI range");
     }
 
     // --- Scale snap ----------------------------------------------------------

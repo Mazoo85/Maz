@@ -14,8 +14,9 @@ bool PianoRoll::hasNote(int pitch, int step) const {
     return false;
 }
 
-int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord chord, float velocity) {
-    // Semitone offsets from the root for each chord quality.
+namespace {
+// Semitone offsets from the root for each chord quality (shared by addChord and harmonize).
+std::vector<int> chordOffsets(Chord chord) {
     std::vector<int> offsets;
     switch (chord) {
     case Chord::Major:
@@ -76,6 +77,12 @@ int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord cho
         offsets = {0, 4, 7, 10, 14, 21};
         break;
     }
+    return offsets;
+}
+} // namespace
+
+int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord chord, float velocity) {
+    const std::vector<int> offsets = chordOffsets(chord);
     for (int off : offsets) {
         Note n;
         n.startStep = startStep;
@@ -85,6 +92,34 @@ int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord cho
         notes_.push_back(n);
     }
     return static_cast<int>(offsets.size());
+}
+
+int PianoRoll::harmonize(Chord chord) {
+    // Thicken every existing note into a chord: for each note, add a copy at each of the chord's
+    // non-root semitone offsets (same start/length/velocity/probability/fine-tune/roll), treating the
+    // note's own pitch as the chord root. Turns a melody line into moving chords. New copies are added
+    // only for the original notes, and any pushed out of the MIDI range [0,127] are skipped. Returns
+    // the number of notes added.
+    const std::vector<int> offsets = chordOffsets(chord);
+    const size_t original = notes_.size();
+    int added = 0;
+    for (size_t i = 0; i < original; ++i) {
+        const Note base = notes_[i];
+        for (int off : offsets) {
+            if (off == 0) {
+                continue; // the root already exists (the original note)
+            }
+            const int p = base.pitch + off;
+            if (p < 0 || p > 127) {
+                continue;
+            }
+            Note n = base;
+            n.pitch = p;
+            notes_.push_back(n);
+            ++added;
+        }
+    }
+    return added;
 }
 
 float PianoRoll::setNoteProbability(int pitch, int step, float probability) {

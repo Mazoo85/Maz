@@ -81,6 +81,12 @@ public:
     // `startStep` for `lengthSteps`. Returns the number of notes added.
     int addChord(int startStep, int lengthSteps, int rootPitch, Chord chord, float velocity = 0.9f);
 
+    // Harmonize: thicken every existing note into a chord — for each note, add a copy at each of the
+    // chord's non-root semitone offsets (its own pitch is the chord root), keeping the note's timing,
+    // velocity, and per-note settings. Turns a melody into moving chords/octaves. Copies pushed out of
+    // the MIDI range are skipped; new copies aren't re-harmonized. Returns the number of notes added.
+    int harmonize(Chord chord);
+
     // Quantize: snap every note's start to the nearest multiple of `division` steps (1 = no-op,
     // 4 = to the beat at 16ths). Returns the number of notes moved.
     int quantize(int division);

@@ -646,6 +646,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.addChord(chordStep, chordLen, chordRoot, static_cast<audio::Chord>(chordType));
     }
     ImGui::SameLine();
+    if (ImGui::Button("Harmonize")) {
+        roll.harmonize(static_cast<audio::Chord>(chordType)); // thicken the whole line into chords
+    }
+    ImGui::SameLine();
     static int quantDiv = 4;
     static float quantStrength = 1.0f;
     ImGui::SetNextItemWidth(70.0f);
