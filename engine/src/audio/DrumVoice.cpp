@@ -63,6 +63,8 @@ double decayTau(Drum type) {
         return 0.14; // a high, ringing metal-shell drum — a medium-short metallic ring
     case Drum::Agogo:
         return 0.16; // a bright, high metallic bell — a clear pitched ring
+    case Drum::Splash:
+        return 0.16; // a short, explosive cymbal — much shorter than the long crash wash
     }
     return 0.1;
 }
@@ -340,6 +342,19 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
                                 0.3 * std::sin(kTwoPi * 4056.0 * pitchMul * t_);
             const double tick = std::exp(-t_ / 0.003); // a brief metallic strike tick
             s = static_cast<float>((fund + ring + 0.2 * static_cast<double>(noise()) * tick) * env);
+            break;
+        }
+        case Drum::Splash: {
+            // A short, explosive splash cymbal: as bright and noisy as a crash (white wash + high
+            // inharmonic partials) but with a fast, sharp decay instead of the crash's long wash — so
+            // it reads as a quick accent. Higher, tighter partials than the crash keep it brilliant.
+            const double metal = std::sin(kTwoPi * 5200.0 * pitchMul * t_) +
+                                 std::sin(kTwoPi * 6400.0 * pitchMul * t_) +
+                                 std::sin(kTwoPi * 7900.0 * pitchMul * t_);
+            const double attack = std::exp(-t_ / 0.006); // a bright burst right at the strike
+            s = static_cast<float>(
+                (0.6 * static_cast<double>(noise()) + 0.15 * metal + 0.2 * static_cast<double>(noise()) * attack) *
+                env);
             break;
         }
         }

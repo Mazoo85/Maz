@@ -480,6 +480,56 @@ int main() {
         std::vector<float> agt(static_cast<size_t>(sampleRate), 0.0f); // 1 s
         ag.render(agt.data(), static_cast<int>(agt.size()), sampleRate);
         check(!ag.active(), "agogo decays to inactive");
+
+        // Splash: a bright cymbal like the crash, but with a much shorter, explosive decay.
+        auto splashHf = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double d = static_cast<double>(b[i] - b[i - 1]);
+                e += d * d;
+            }
+            return e;
+        };
+        const int splWin = sampleRate / 20; // 50 ms
+        audio::DrumVoice splash;
+        splash.setType(audio::Drum::Splash);
+        splash.trigger();
+        std::vector<float> splEarly(static_cast<size_t>(splWin), 0.0f);
+        splash.render(splEarly.data(), splWin, sampleRate);
+        check(rms(splEarly) > 0.0, "splash produces sound");
+
+        audio::DrumVoice splKickV;
+        splKickV.setType(audio::Drum::Kick);
+        splKickV.trigger();
+        std::vector<float> splKick(static_cast<size_t>(splWin), 0.0f);
+        splKickV.render(splKick.data(), splWin, sampleRate);
+        check(splashHf(splEarly) > splashHf(splKick) * 3.0,
+              "splash is bright (far more HF energy than a dark kick)");
+
+        // Skip 0.2 s, then compare a 0.3 s tail: the long crash still rings; the splash has faded.
+        const int splSkipN = sampleRate / 5;        // 0.2 s
+        const int splTailN = (sampleRate * 3) / 10; // 0.3 s
+        audio::DrumVoice splA;
+        splA.setType(audio::Drum::Splash);
+        splA.trigger();
+        std::vector<float> splSkipBuf(static_cast<size_t>(splSkipN), 0.0f);
+        splA.render(splSkipBuf.data(), splSkipN, sampleRate);
+        std::vector<float> splTailBuf(static_cast<size_t>(splTailN), 0.0f);
+        splA.render(splTailBuf.data(), splTailN, sampleRate);
+
+        audio::DrumVoice splCrashV;
+        splCrashV.setType(audio::Drum::Crash);
+        splCrashV.trigger();
+        std::vector<float> splCrashSkip(static_cast<size_t>(splSkipN), 0.0f);
+        splCrashV.render(splCrashSkip.data(), splSkipN, sampleRate);
+        std::vector<float> splCrashTail(static_cast<size_t>(splTailN), 0.0f);
+        splCrashV.render(splCrashTail.data(), splTailN, sampleRate);
+        check(rms(splTailBuf) < rms(splCrashTail) * 0.5,
+              "splash decays much faster than the long crash");
+
+        std::vector<float> splEnd(static_cast<size_t>(sampleRate), 0.0f); // 1 s more
+        splA.render(splEnd.data(), static_cast<int>(splEnd.size()), sampleRate);
+        check(!splA.active(), "splash decays to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------
