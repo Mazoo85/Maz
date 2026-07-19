@@ -89,6 +89,18 @@ int main() {
     const std::vector<float> octaveUp = renderMono(sampler2, sr / 5, sr);
     check(std::fabs(estimateHz(octaveUp, sr) - 440.0) < 10.0, "octave-up note plays at 440 Hz");
 
+    // Key tracking off: every key plays the sample at its natural pitch, so the octave-up note (69)
+    // still comes out at 220 Hz (one-shot / drum-sampler mode), not resampled to 440 Hz.
+    audio::Sampler noKey;
+    noKey.load(path, &err);
+    noKey.setBasePitch(57);
+    noKey.setKeyTrack(false);
+    noKey.noteOn(69, 1.0f);
+    const std::vector<float> fixed = renderMono(noKey, sr / 5, sr);
+    check(std::fabs(estimateHz(fixed, sr) - 220.0) < 6.0,
+          "key tracking off plays every note at the sample's natural pitch (220 Hz)");
+    check(audio::Sampler().keyTrack(), "sampler key tracking defaults to on (melodic)");
+
     // Directly injected mono sample works too.
     audio::Sampler sampler3;
     sampler3.setSampleMono(sine, sr);

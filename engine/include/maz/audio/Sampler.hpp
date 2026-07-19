@@ -164,6 +164,13 @@ public:
     void setMono(bool on) { mono_ = on; }
     bool mono() const { return mono_; }
 
+    // Key tracking: when on (default) the sample is resampled so each note plays at its own pitch
+    // (a melodic instrument). When off, every key plays the sample at its natural pitch (only the
+    // base tune/detune applies) — the classic one-shot / drum-sampler mode where the keyboard just
+    // retriggers the hit instead of transposing it.
+    void setKeyTrack(bool on) { keyTrack_ = on; }
+    bool keyTrack() const { return keyTrack_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
@@ -198,6 +205,7 @@ private:
     float gain_ = 0.9f;
     bool reverse_ = false;
     bool mono_ = false; // monophonic (single-voice, last-note priority) mode
+    bool keyTrack_ = true; // resample per note (melodic); false = fixed-pitch one-shot/drum mode
     bool loop_ = false;
     bool pingPong_ = false;
     float startOffset_ = 0.0f;

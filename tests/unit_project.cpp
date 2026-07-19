@@ -140,6 +140,7 @@ int main() {
     seq.sampler().setPitchEnv(9.0f, 0.12f); // pitch envelope
     seq.sampler().setFilterVelo(5000.0f);   // velocity → cutoff
     seq.sampler().setMono(true);            // monophonic mode
+    seq.sampler().setKeyTrack(false);       // fixed-pitch one-shot mode
     seq.sampler().setAmpDecay(0.08f);       // amp ADSR decay
     seq.sampler().setAmpSustain(0.45f);     // amp ADSR sustain
     seq.sampler().setVelSensitivity(0.4f);  // velocity → volume amount
@@ -656,7 +657,7 @@ int main() {
               near(seq2.sampler().pitchEnvTime(), 0.12f) &&
               near(seq2.sampler().filterVelo(), 5000.0f) && seq2.sampler().mono() &&
               near(seq2.sampler().ampDecay(), 0.08f) && near(seq2.sampler().ampSustain(), 0.45f) &&
-              near(seq2.sampler().velSensitivity(), 0.4f),
+              near(seq2.sampler().velSensitivity(), 0.4f) && !seq2.sampler().keyTrack(),
           "sampler settings round-trip");
 
     // Mixer + effects.

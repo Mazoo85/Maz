@@ -232,8 +232,9 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             continue;
         }
         const double detuneMul = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
-        // Sliced voices play at natural speed (pitch ignored); otherwise the note maps to a read speed.
-        const double rate = v.sliced
+        // Sliced voices, and voices with key tracking off, play at natural speed (note pitch ignored);
+        // otherwise the note maps to a read speed.
+        const double rate = (v.sliced || !keyTrack_)
                                 ? srCorrect * detuneMul
                                 : static_cast<double>(midiToFreq(v.midi)) / baseFreq * srCorrect *
                                       detuneMul; // read speed

@@ -1212,6 +1212,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool smono = seq.sampler().mono();
     if (ImGui::Checkbox("Mono", &smono)) seq.sampler().setMono(smono);
     ImGui::SameLine();
+    bool skey = seq.sampler().keyTrack();
+    if (ImGui::Checkbox("Key track", &skey)) seq.sampler().setKeyTrack(skey);
+    ImGui::SameLine();
     float startOff = seq.sampler().startOffset();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))
