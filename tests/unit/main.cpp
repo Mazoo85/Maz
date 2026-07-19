@@ -85,6 +85,7 @@
 #include "maz/core/DisjointSet.hpp"
 #include "maz/core/FenwickTree.hpp"
 #include "maz/core/Trie.hpp"
+#include "maz/core/FuzzyMatch.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18331,6 +18332,68 @@ void testTrie() {
     }
 }
 
+// FuzzyMatch: edit distance, similarity, LCS, and fzf-style subsequence scoring (M441).
+void testFuzzyMatch() {
+    using core::fuzzyMatch;
+    using core::levenshtein; // reused from StringUtils (M290)
+    using core::longestCommonSubsequenceLength;
+
+    // ---- Levenshtein sanity (reused helper). ----
+    CHECK(levenshtein("kitten", "sitting") == 3);
+    CHECK(levenshtein("flaw", "lawn") == 2);
+    CHECK(levenshtein("abc", "abc") == 0 && levenshtein("a", "b") == 1);
+
+    // ---- LCS length. ----
+    CHECK(longestCommonSubsequenceLength("ABCBDAB", "BDCAB") == 4);
+    CHECK(longestCommonSubsequenceLength("abc", "abc") == 3);
+    CHECK(longestCommonSubsequenceLength("abc", "xyz") == 0);
+    CHECK(longestCommonSubsequenceLength("", "abc") == 0);
+    CHECK(longestCommonSubsequenceLength("AGGTAB", "GXTXAYB") == 4);
+
+    // ---- fuzzyMatch subsequence + positions. ----
+    {
+        const auto r = fuzzyMatch("ac", "abc");
+        CHECK(r.matched && (r.positions == std::vector<std::size_t>{0, 2}));
+        const auto miss = fuzzyMatch("xyz", "abc");
+        CHECK(!miss.matched && miss.score == 0 && miss.positions.empty());
+        CHECK(fuzzyMatch("", "abc").matched && fuzzyMatch("", "abc").score == 0);
+        CHECK(!fuzzyMatch("aa", "a").matched);
+    }
+
+    // ---- fuzzyMatch exact scores. ----
+    {
+        CHECK(fuzzyMatch("abc", "abc").score == 11);   // consecutive + leading boundary
+        CHECK(fuzzyMatch("abc", "a_b_c").score == 9);  // separator boundaries, no runs
+        CHECK(fuzzyMatch("abc", "abc").score > fuzzyMatch("abc", "a_b_c").score);
+        const auto camel = fuzzyMatch("gw", "getWidget");
+        CHECK(camel.matched && (camel.positions == std::vector<std::size_t>{0, 3}) && camel.score == 6);
+    }
+
+    // ---- Case sensitivity. ----
+    {
+        const auto ci = fuzzyMatch("AB", "aabb");
+        CHECK(ci.matched && (ci.positions == std::vector<std::size_t>{0, 2}));
+        CHECK(!fuzzyMatch("AB", "aabb", true).matched);
+        const auto cs = fuzzyMatch("aB", "xaBy", true);
+        CHECK(cs.matched && (cs.positions == std::vector<std::size_t>{1, 2}));
+    }
+
+    // ---- Ranking picks the tightest candidate. ----
+    {
+        const char* cands[] = {"command", "cmd", "customer_made", "cold_medium_drink"};
+        int best = -1;
+        int bestScore = -1;
+        for (int i = 0; i < 4; ++i) {
+            const auto r = fuzzyMatch("cmd", cands[i]);
+            if (r.matched && r.score > bestScore) {
+                bestScore = r.score;
+                best = i;
+            }
+        }
+        CHECK(best == 1);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27096,6 +27159,7 @@ int main() {
     testDisjointSet();
     testFenwickTree();
     testTrie();
+    testFuzzyMatch();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

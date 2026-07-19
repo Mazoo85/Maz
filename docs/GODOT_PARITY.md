@@ -582,6 +582,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   prefix existence/counts, lexicographically-sorted collectWithPrefix autocomplete, erase updating both
   membership and prefix state, empty-string entries, and a full cross-check against a std::set over a
   dozen overlapping words),
+  **fuzzy subsequence matching** (M441, `core::fuzzyMatch` + `core::longestCommonSubsequenceLength` —
+  builds on the existing StringUtils edit-distance/bigram-similarity helpers (M290, reused not
+  duplicated) with the two pieces a command palette actually needs: LCS length (longest in-order shared
+  run, a distinct overlap measure), and an fzf/Sublime-style scorer that reports whether a short
+  pattern's characters appear in order inside a candidate, where they landed, and how tight the match
+  is — rewarding consecutive runs and matches on word boundaries (start / after a separator / camelCase
+  hump), so "gw" ranks "getWidget" above scattered hits. Pairs with the Trie to rank
+  abbreviation-style queries; Godot offers only a bigram similarity ratio. Verified: LCS known values,
+  subsequence membership + landed positions, exact hand-computed scores (consecutive tight match beats
+  the separated one, camelCase boundary bonus), case sensitivity, and a candidate-ranking pass that
+  picks the exact match),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
