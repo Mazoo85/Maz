@@ -534,6 +534,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   and integral clamps, the derivative-kick removal, dt<=0 state-hold, reset(), and two closed-loop
   simulations against an integrator plant: P-only leaves the predicted steady-state offset under a
   constant disturbance while PI drives it to zero),
+  **SmoothDamp critically-damped smoothing** (M436, `core::smoothDamp` + `core::SmoothDamp` — eases a
+  value toward a possibly-moving target over an approximate time-to-reach, carrying velocity between
+  frames, with no overshoot/ringing and an optional max-speed cap. The classic Game-Programming-Gems /
+  Unity Mathf.SmoothDamp recurrence — the standard "buttery" follow for a trailing camera, a UI element
+  gliding to rest, or a health bar catching up. Godot's Tween/lerp are fixed-duration, not
+  velocity-carrying critically-damped springs, so this is a genuine gap-filler. Verified: converges
+  with velocity settling to ~0, provably no overshoot from either side, max-speed rate limiting, dt<=0
+  no-op, zero-smoothTime guard (finite, still converges), the stateful wrapper matching the free
+  function bit-for-bit, reset() zeroing velocity, and stable tracking of a continuously moving target),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

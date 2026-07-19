@@ -80,6 +80,7 @@
 #include "maz/core/Histogram.hpp"
 #include "maz/core/RollingWindow.hpp"
 #include "maz/core/PidController.hpp"
+#include "maz/core/SmoothDamp.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17886,6 +17887,89 @@ void testPidController() {
     }
 }
 
+// SmoothDamp: critically-damped spring smoothing toward a target (M436).
+void testSmoothDamp() {
+    using core::smoothDamp;
+    using core::SmoothDamp;
+
+    // ---- Converges to a static target; velocity settles to ~0. ----
+    {
+        double v = 0.0, cur = 0.0;
+        for (int i = 0; i < 600; ++i) {
+            cur = smoothDamp(cur, 10.0, v, 0.3, 1.0 / 60.0);
+        }
+        CHECK(std::fabs(cur - 10.0) < 1e-4 && std::fabs(v) < 1e-3);
+    }
+
+    // ---- No overshoot approaching from below or above. ----
+    {
+        double v = 0.0, cur = 0.0;
+        for (int i = 0; i < 600; ++i) {
+            cur = smoothDamp(cur, 10.0, v, 0.2, 1.0 / 60.0);
+            CHECK(cur <= 10.0 + 1e-9);
+        }
+        double v2 = 0.0, cur2 = 100.0;
+        for (int i = 0; i < 600; ++i) {
+            cur2 = smoothDamp(cur2, 20.0, v2, 0.25, 1.0 / 60.0);
+            CHECK(cur2 >= 20.0 - 1e-9);
+        }
+        CHECK(std::fabs(cur2 - 20.0) < 1e-3);
+    }
+
+    // ---- maxSpeed rate-limits travel. ----
+    {
+        double v = 0.0, cur = 0.0;
+        for (int i = 0; i < 100; ++i) {
+            cur = smoothDamp(cur, 1000.0, v, 1.0, 0.1, 5.0);
+        }
+        CHECK(cur > 30.0 && cur < 60.0); // ~10s * 5 units/s of ground
+        double v2 = 0.0, cur2 = 0.0;
+        for (int i = 0; i < 100; ++i) {
+            cur2 = smoothDamp(cur2, 1000.0, v2, 1.0, 0.1); // uncapped reaches near target
+        }
+        CHECK(cur2 > 900.0);
+    }
+
+    // ---- dt <= 0 is a no-op (value + velocity untouched). ----
+    {
+        double v = 3.0;
+        const double out = smoothDamp(5.0, 10.0, v, 0.3, 0.0);
+        CHECK(std::fabs(out - 5.0) < 1e-12 && std::fabs(v - 3.0) < 1e-12);
+    }
+
+    // ---- Zero smoothTime is guarded: finite and still converges. ----
+    {
+        double v = 0.0, cur = 0.0;
+        for (int i = 0; i < 100; ++i) {
+            cur = smoothDamp(cur, 7.0, v, 0.0, 1.0 / 60.0);
+        }
+        CHECK(std::isfinite(cur) && std::fabs(cur - 7.0) < 1e-2);
+    }
+
+    // ---- Stateful wrapper mirrors the free function; reset() zeroes velocity. ----
+    {
+        SmoothDamp sd(0.0);
+        double v = 0.0, cur = 0.0;
+        for (int i = 0; i < 300; ++i) {
+            sd.step(10.0, 0.3, 1.0 / 60.0);
+            cur = smoothDamp(cur, 10.0, v, 0.3, 1.0 / 60.0);
+        }
+        CHECK(std::fabs(sd.value() - cur) < 1e-9 && std::fabs(sd.velocity() - v) < 1e-9);
+        sd.reset(42.0);
+        CHECK(std::fabs(sd.value() - 42.0) < 1e-12 && std::fabs(sd.velocity()) < 1e-12);
+    }
+
+    // ---- Tracks a moving target, trailing just behind it. ----
+    {
+        SmoothDamp sd(0.0);
+        for (int i = 0; i < 2000; ++i) {
+            sd.step(static_cast<double>(i) * 0.01, 0.2, 1.0 / 60.0);
+            CHECK(std::isfinite(sd.value()));
+        }
+        CHECK(sd.value() > 18.0 && sd.value() <= 20.0 + 1e-6);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26646,6 +26730,7 @@ int main() {
     testHistogram();
     testRollingWindow();
     testPidController();
+    testSmoothDamp();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
