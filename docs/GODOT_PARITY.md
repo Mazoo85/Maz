@@ -401,7 +401,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot's Geometry3D.build_box_planes / segment_intersects_convex: represent a convex volume as its
   outward-facing half-space planes and find where a segment first enters it (frustum / convex-region
   clipping and picking). Verified with straight-through, diagonal-corner, off-centre, miss,
-  starts-inside (no entry, matching Godot) and stops-short cases; M332 adds
+  starts-inside (no entry, matching Godot) and stops-short cases; M396 adds **buildCylinderPlanes** —
+  Godot's Geometry3D.build_cylinder_planes: the `sides` radial side planes (each at distance radius)
+  plus the two axis caps at +/- height/2 of an axis-aligned cylinder (0=X/1=Y/2=Z, default Z),
+  bounding the faceted prism with the same negative-side-is-inside convention. Verified by
+  inside/outside membership (centre, near-radius, near-cap, beyond-radius, above/below caps), exact
+  cap-plane distances, a segment entering through the top cap (via segmentIntersectsConvex), an
+  X-aligned variant, and out-of-range-axis fallback to Z; M332 adds
   closestPointToSegmentUncapped — Godot's Geometry3D.get_closest_point_to_segment_uncapped
   (projection onto the infinite line, no clamping) — plus Plane completeness has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot

@@ -13898,6 +13898,46 @@ void testGeometry3DHelpers() {
         auto hit3 = math::segmentIntersectsConvex(vec3(-5, 0, 0), vec3(5, 0, 0), off);
         CHECK((hit3.has_value() && nearV(*hit3, vec3(1, 0, 0))));
     }
+
+    // --- M396: buildCylinderPlanes ---
+    {
+        auto insideVol = [](const std::vector<math::Plane>& pl, vec3 p) {
+            for (const math::Plane& q : pl) {
+                if (q.distanceTo(p) > 1e-5f) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        // Z-aligned cylinder, radius 2, height 4 (caps at +/-2), 8 sides.
+        auto pl = math::buildCylinderPlanes(2.0f, 4.0f, 8, 2);
+        CHECK(pl.size() == 10u); // 8 sides + 2 caps
+        CHECK(insideVol(pl, vec3(0, 0, 0)));
+        CHECK(insideVol(pl, vec3(1.9f, 0, 0)));
+        CHECK(insideVol(pl, vec3(0, 0, 1.9f)));
+        CHECK(!insideVol(pl, vec3(4.0f, 0, 0)));
+        CHECK(!insideVol(pl, vec3(0, 0, 2.5f)));
+        CHECK(!insideVol(pl, vec3(0, 0, -2.5f)));
+        // Cap planes are the last two, at +Z and -Z distance 2.
+        CHECK_NEAR(pl[8].distanceTo(vec3(0, 0, 2.0f)), 0.0f, 1e-4f);
+        CHECK_NEAR(pl[9].distanceTo(vec3(0, 0, -2.0f)), 0.0f, 1e-4f);
+        // A vertical segment enters through the top cap at z=+2.
+        vec3 cn;
+        auto chit = math::segmentIntersectsConvex(vec3(0, 0, 10), vec3(0, 0, -10), pl, &cn);
+        CHECK(chit.has_value());
+        CHECK_NEAR(chit->z, 2.0f, 1e-3f);
+        CHECK(cn.z > 0.9f);
+        // X-aligned cylinder: caps live on X.
+        auto plx = math::buildCylinderPlanes(1.0f, 6.0f, 6, 0);
+        CHECK(plx.size() == 8u);
+        CHECK(insideVol(plx, vec3(2.9f, 0, 0)));
+        CHECK(!insideVol(plx, vec3(3.5f, 0, 0)));
+        CHECK(!insideVol(plx, vec3(0, 1.5f, 0)));
+        // Out-of-range axis falls back to Z.
+        auto plz = math::buildCylinderPlanes(1.0f, 2.0f, 5, 99);
+        CHECK(plz.size() == 7u);
+        CHECK(!insideVol(plz, vec3(0, 0, 2.0f)));
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

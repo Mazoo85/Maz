@@ -601,6 +601,33 @@ inline std::vector<Plane> buildBoxPlanes(const vec3& extents, const vec3& center
     return planes;
 }
 
+// Build the bounding planes of a cylinder (a `sides`-faceted prism) of the given radius and height,
+// aligned to `axis` (0=X, 1=Y, 2=Z; default Z to match Godot) and centred at the origin — Godot's
+// Geometry3D.build_cylinder_planes. Returns `sides` radial side planes (each at distance `radius`)
+// followed by the two cap planes at +/- height/2. A point is INSIDE when it is on the negative side
+// of every plane (normal·p - d <= 0), the same convention as buildBoxPlanes / segmentIntersectsConvex.
+inline std::vector<Plane> buildCylinderPlanes(float radius, float height, int sides, int axis = 2) {
+    std::vector<Plane> planes;
+    if (axis < 0 || axis > 2) {
+        axis = 2;
+    }
+    const int a1 = (axis + 1) % 3;
+    const int a2 = (axis + 2) % 3;
+    constexpr float twoPi = 6.28318530717958647692f;
+    for (int i = 0; i < sides; ++i) {
+        const float angle = static_cast<float>(i) * twoPi / static_cast<float>(sides);
+        vec3 n(0.0f);
+        n[a1] = std::cos(angle);
+        n[a2] = std::sin(angle);
+        planes.emplace_back(n, radius);
+    }
+    vec3 ax(0.0f);
+    ax[axis] = 1.0f;
+    planes.emplace_back(ax, height * 0.5f);
+    planes.emplace_back(-ax, height * 0.5f);
+    return planes;
+}
+
 // Intersect a segment [from,to] with the convex volume that is the intersection of the half-spaces
 // (normal·p - d <= 0) of `planes` — Godot's Geometry3D.segment_intersects_convex. Returns the point
 // where the segment first ENTERS the volume through one of its faces (nullopt if it never does).
