@@ -2401,8 +2401,18 @@ void MultiTapDelay::process(float* stereo, int frames, int sampleRate) {
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i];
         const float r = stereo[2 * i + 1];
-        bufL_[static_cast<size_t>(writePos_)] = l;
-        bufR_[static_cast<size_t>(writePos_)] = r;
+        // Feedback: re-inject the longest (last) tap — read before writing — so the whole cluster
+        // repeats one cluster-length later. Skipped at 0 so the write is bit-for-bit the input.
+        float fbMono = 0.0f;
+        if (feedback_ > 0.0f && taps_ > 0) {
+            int rpL = writePos_ - tapDelay[taps_ - 1];
+            if (rpL < 0) {
+                rpL += maxLen;
+            }
+            fbMono = 0.5f * (bufL_[static_cast<size_t>(rpL)] + bufR_[static_cast<size_t>(rpL)]);
+        }
+        bufL_[static_cast<size_t>(writePos_)] = l + fbMono * feedback_;
+        bufR_[static_cast<size_t>(writePos_)] = r + fbMono * feedback_;
         float wetL = 0.0f, wetR = 0.0f;
         for (int k = 0; k < taps_; ++k) {
             int rp = writePos_ - tapDelay[k];

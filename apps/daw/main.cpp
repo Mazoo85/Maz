@@ -2565,6 +2565,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
         if (ImGui::SliderFloat("mix##mt", &mmix, 0.0f, 1.0f, "%.2f")) mt.setMix(mmix);
+        float mfb = mt.feedback();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("fb##mt", &mfb, 0.0f, 0.9f, mfb <= 0.0f ? "off" : "%.2f")) mt.setFeedback(mfb);
     }
     {
         bool en = mx.formant().enabled();

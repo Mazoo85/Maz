@@ -299,6 +299,34 @@ int main() {
         // Alternating pan: tap 1 leans left, tap 2 leans right.
         check(peakAt(base, 0) > peakAt(base, 1) * 2.0f, "multi-tap: the first tap pans left");
         check(peakAt(2 * base, 1) > peakAt(2 * base, 0) * 2.0f, "multi-tap: the second tap pans right");
+
+        // Feedback: the longest tap (3×base) re-injects, so a second cluster appears — its first tap
+        // lands at 4×base, a position that carries nothing in the finite (no-feedback) burst.
+        auto peakAt4x = [&](float fb) {
+            audio::MultiTapDelay m;
+            m.setEnabled(true);
+            m.setTimeMs(100.0f);
+            m.setTaps(3);
+            m.setDecay(0.6f);
+            m.setSpread(1.0f);
+            m.setMix(1.0f);
+            m.setFeedback(fb);
+            std::vector<float> b(static_cast<size_t>(sr) * 2, 0.0f); // 1 s
+            b[0] = 1.0f;
+            b[1] = 1.0f;
+            m.process(b.data(), sr, sr);
+            const int f4 = 4 * (sr / 10); // 4×base
+            float p = 0.0f;
+            for (int i = f4 - 40; i <= f4 + 40; ++i) {
+                if (i >= 0) {
+                    p = std::max(p, std::fabs(b[static_cast<size_t>(i) * 2])); // left (2nd cluster tap 0)
+                }
+            }
+            return p;
+        };
+        check(peakAt4x(0.7f) > 0.02f, "multi-tap feedback repeats the cluster (a 4th-position echo)");
+        check(peakAt4x(0.0f) < 0.005f, "without feedback the multi-tap burst is finite (no repeat)");
+        check(audio::MultiTapDelay().feedback() == 0.0f, "multi-tap feedback defaults to off");
         // Disabled → transparent; defaults.
         audio::MultiTapDelay off;
         std::vector<float> q = sineStereo(sr / 4, 300.0, 0.5, sr);

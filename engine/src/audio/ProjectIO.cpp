@@ -581,7 +581,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx multitap " << (mixer.multiTapDelay().enabled() ? 1 : 0) << " "
       << mixer.multiTapDelay().timeMs() << " " << mixer.multiTapDelay().taps() << " "
       << mixer.multiTapDelay().decay() << " " << mixer.multiTapDelay().mix() << " "
-      << mixer.multiTapDelay().spread() << "\n";
+      << mixer.multiTapDelay().spread() << " " << mixer.multiTapDelay().feedback() << "\n";
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << " "
       << (mixer.formant().morphEnabled() ? 1 : 0) << " " << mixer.formant().morph() << " "
@@ -1403,6 +1403,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mt.setDecay(decay);
                 mt.setMix(mix);
                 mt.setSpread(spread);
+                float mtfb = 0.0f; // multi-tap feedback optional for old files (0 = finite burst)
+                if (ls >> mtfb) {
+                    mt.setFeedback(mtfb);
+                }
             } else if (which == "formant") {
                 int vowel = 0;
                 float mix = 0.5f;

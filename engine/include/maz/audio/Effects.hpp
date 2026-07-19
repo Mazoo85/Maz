@@ -1481,11 +1481,16 @@ public:
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
     // Stereo spread (0..1): how hard successive taps pan alternately L/R. 0 = centred (mono taps).
     void setSpread(float s) { spread_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s); }
+    // Feedback (0..0.9): re-inject the longest tap back into the input, so the whole tap cluster
+    // repeats (a little quieter) one cluster-length later — turning the finite burst into a sustaining,
+    // rhythmic cascade. 0 (default) = off (the classic finite multi-tap burst, bit-for-bit unchanged).
+    void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.9f ? 0.9f : f); }
     float timeMs() const { return timeMs_; }
     int taps() const { return taps_; }
     float decay() const { return decay_; }
     float mix() const { return mix_; }
     float spread() const { return spread_; }
+    float feedback() const { return feedback_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -1496,6 +1501,7 @@ private:
     float decay_ = 0.6f;
     float mix_ = 0.35f;
     float spread_ = 0.8f;
+    float feedback_ = 0.0f; // re-inject the longest tap; 0 = a finite burst
     std::vector<float> bufL_, bufR_; // circular delay lines (sized to kMaxTaps * max time)
     int writePos_ = 0;
     int sizedFor_ = 0;
