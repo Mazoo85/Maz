@@ -350,6 +350,11 @@ void testMathFuncs() {
         CHECK((!isInff(ok_val) && !isInff(bad_nan)));
     }
 
+    // M349: integer posmod (Godot @GlobalScope.posmod — positive modulo, sign of y).
+    CHECK((posmod(5, 3) == 2 && posmod(6, 3) == 0 && posmod(0, 5) == 0));
+    CHECK((posmod(-1, 3) == 2 && posmod(-4, 3) == 2)); // negatives wrap up
+    CHECK((posmod(1, -3) == -2 && posmod(-1, -3) == -1)); // result carries sign of y
+
     // M347: scalar clampf / clampi (Godot @GlobalScope.clampf / clampi).
     CHECK_NEAR(clampf(5.0f, 0.0f, 10.0f), 5.0f, 1e-6f);
     CHECK((clampf(-3.0f, 0.0f, 10.0f) == 0.0f && clampf(99.0f, 0.0f, 10.0f) == 10.0f));

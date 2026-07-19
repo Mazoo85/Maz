@@ -104,7 +104,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (0.01->2, 0.001->3, 1->0), via Godot's exact epsilon-guarded lookup table, for picking display
   precision; verified against integer/fractional/negative steps and the 10-decimal cap; M347 adds the
   scalar clampf / clampi — Godot's @GlobalScope.clampf / clampi (clamp a float / 64-bit int into a
-  range), coexisting unambiguously with the vector clampf via scalar-first overloading, verified),
+  range), coexisting unambiguously with the vector clampf via scalar-first overloading, verified;
+  M349 adds the integer posmod — Godot's @GlobalScope.posmod: positive modulo whose result carries the
+  sign of the divisor (posmod(-1,3)==2), for wrapping possibly-negative tile/array indices, verified
+  across positive/negative operands and full index ranges),
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit

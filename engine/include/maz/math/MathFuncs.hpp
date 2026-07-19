@@ -59,6 +59,17 @@ inline std::int64_t wrapi(std::int64_t value, std::int64_t minv, std::int64_t ma
     return minv + ((value - minv) % range + range) % range;
 }
 
+// Positive integer modulo: the result carries the sign of `y` — Godot's @GlobalScope.posmod. So
+// posmod(-1, 3) == 2, unlike C++'s -1 % 3 == -1. Ideal for wrapping tile/array indices that may go
+// negative. (The float form lives in VectorOps as fposmod; `y == 0` is undefined, matching Godot.)
+inline std::int64_t posmod(std::int64_t x, std::int64_t y) {
+    std::int64_t v = x % y;
+    if (v != 0 && ((v < 0) != (y < 0))) {
+        v += y;
+    }
+    return v;
+}
+
 // Hermite smoothstep: 0 below `from`, 1 above `to`, smooth in between — Godot's smoothstep.
 inline float smoothstep(float from, float to, float x) {
     if (from == to) {
