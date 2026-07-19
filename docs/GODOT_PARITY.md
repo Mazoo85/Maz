@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **reflection probe influence + box projection** (M507, `render::ReflectionProbe` — the CPU math behind
+  Godot's ReflectionProbe. A probe captures the surroundings into a cubemap inside an axis-aligned box;
+  reflective surfaces in that box sample it. Two pieces are pure math: `influenceWeight` (how strongly a
+  probe affects a point — full inside, fading to zero across a blend margin near the faces, so overlapping
+  probes cross-fade) and `boxProjectDirection` (the parallax correction that makes a box-captured cubemap look
+  right off flat walls — it intersects the reflection ray with the box and re-aims the sample from the probe
+  center to that hit point). `probeSample` composes it with the M506 cubemap mapping to give the face/UV a
+  surface reads. Fully unit-tested; the cubemap *capture* is a GPU pass and blending probe *colors* is the
+  shader's job. Honest scope: axis-aligned box probes, linear face blend, box-projection parallax (no capture,
+  roughness prefiltering, or color compositing). Verified: influence is 1 deep inside, exactly 0.5 half a
+  blend-distance from a face, and 0 at/outside the surface; blendDistance 0 gives a hard inside/outside
+  cutoff; box projection from the center returns the ray direction unchanged, while an off-center viewer's ray
+  is correctly re-aimed from the center to the box exit point; and probeSample resolves to the expected cube
+  face/UV),
   **cubemap direction mapping** (M506, `render::directionToCube` / `cubeToDirection` — the sampling math
   shared by reflection probes, skyboxes, and image-based lighting. A cubemap stores a 360° environment across
   six square faces; `directionToCube` converts a 3D direction into "which face + where on it (u,v)" and

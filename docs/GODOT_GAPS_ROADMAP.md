@@ -70,7 +70,9 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
 - [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
 - [x] **Cubemap direction/UV mapping** (`render::directionToCube` / `cubeToDirection`) — DONE (M506); the
   sampling math for reflection probes, skyboxes, and IBL. [VERIFIABLE HERE]
-- [ ] **Reflection-probe capture plumbing**, **SSR/SSIL passes**, **GPU particles + collision**.
+- [x] **Reflection-probe influence + box projection** (`render::ReflectionProbe`) — DONE (M507); blend
+  weights + parallax-corrected sample direction. The cubemap *capture* is still a GPU pass. [VERIFIABLE HERE]
+- [ ] **SSR/SSIL passes**, **GPU particles + collision**, reflection-probe cubemap **capture** pass.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
   supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic

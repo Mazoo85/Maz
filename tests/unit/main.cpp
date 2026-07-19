@@ -327,6 +327,7 @@
 #include "maz/render/PlyLoader.hpp"
 #include "maz/render/Occlusion.hpp"
 #include "maz/render/PolyTriangulate.hpp"
+#include "maz/render/ReflectionProbe.hpp"
 #include "maz/render/SpriteOrder.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/render/VolumetricFog.hpp"
@@ -20247,6 +20248,52 @@ void testPolynomial() {
     }
 }
 
+void testReflectionProbe() {
+    using namespace render;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-4f; };
+    auto dirNear = [&](vec3 a, vec3 b) { return nf(a.x, b.x) && nf(a.y, b.y) && nf(a.z, b.z); };
+
+    ReflectionProbe p;
+    p.center = vec3{0, 0, 0};
+    p.halfExtents = vec3{2, 2, 2};
+    p.blendDistance = 1.0f;
+
+    // Influence: 1 deep inside, linear fade near a face, 0 at/outside the surface.
+    {
+        CHECK(nf(influenceWeight(p, vec3{0, 0, 0}), 1.0f));
+        CHECK(nf(influenceWeight(p, vec3{1.5f, 0, 0}), 0.5f));
+        CHECK(nf(influenceWeight(p, vec3{2, 0, 0}), 0.0f));
+        CHECK(nf(influenceWeight(p, vec3{3, 0, 0}), 0.0f));
+        CHECK(probeContains(p, vec3{1, 1, 1}) && !probeContains(p, vec3{3, 0, 0}));
+    }
+    // No blend -> hard cutoff.
+    {
+        ReflectionProbe hard = p;
+        hard.blendDistance = 0.0f;
+        CHECK(nf(influenceWeight(hard, vec3{1.9f, 0, 0}), 1.0f));
+        CHECK(nf(influenceWeight(hard, vec3{2.1f, 0, 0}), 0.0f));
+    }
+    // Box projection from center: corrected dir == ray dir.
+    {
+        CHECK(dirNear(boxProjectDirection(p, vec3{0, 0, 0}, vec3{1, 0, 0}), vec3{1, 0, 0}));
+        CHECK(dirNear(boxProjectDirection(p, vec3{0, 0, 0}, vec3{0, 0, -1}), vec3{0, 0, -1}));
+    }
+    // Parallax from an off-center viewer.
+    {
+        CHECK(dirNear(boxProjectDirection(p, vec3{1, 0, 0}, vec3{1, 0, 0}), vec3{1, 0, 0}));
+        const vec3 e = vec3{1, 2, 0};
+        const float l = std::sqrt(glm::dot(e, e));
+        CHECK(dirNear(boxProjectDirection(p, vec3{1, 0, 0}, vec3{0, 1, 0}), e / l));
+    }
+    // probeSample composes projection + cube mapping.
+    {
+        auto s = probeSample(p, vec3{0, 0, 0}, vec3{1, 0, 0});
+        CHECK(s.face == CubeFace::PosX);
+        CHECK(nf(s.u, 0.5f) && nf(s.v, 0.5f));
+    }
+}
+
 void testCubemap() {
     using namespace render;
     using math::vec3;
@@ -32708,6 +32755,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testReflectionProbe();
     testCubemap();
     testNavMesh3D();
     testVolumetricFog();
