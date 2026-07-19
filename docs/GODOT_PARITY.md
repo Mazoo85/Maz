@@ -352,6 +352,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   lerp, no-overshoot exact stops for move_toward (scalar and along a 3-4-5 leg), quarter/half-turn and
   length-preserving rotation, from_angle unit/scaled vectors, length clamping, and a 400-step integer
   chase+rotate simulation that is bit-identical every run;
+  **fixed-point atan2 / vector angle** M419 (`math::fixAtan2` + `math::fixAngle`/`fixAngleTo`/
+  `fixAngleDifference` — the deterministic inverse of M417's sin/cos, recovering the angle of a vector.
+  Computed by the SAME CORDIC run in "vectoring" mode: instead of rotating a vector BY an angle it
+  rotates (x,y) onto the +x axis and accumulates how far it turned, using the same arctan table with
+  only shifts and adds, so it is bit-identical everywhere. This completes the trig round-trip
+  (angle→vector via fixFromAngle, vector→angle via fixAngle) that lockstep games need for facing/aiming;
+  Godot has no fixed-point atan2 or Vector2.angle. Verified with cardinal anchors, a 1600-point
+  all-quadrant sweep vs std::atan2 (worst error ~6e-5, compared on the circle to handle the ±π wrap), a
+  fixFromAngle(fixAngle(v)) round-trip matching v's direction over a 25×25 grid, signed angle_to and
+  shortest-wrap angle_difference, and a 500-point atan2 sweep that is bit-identical every run;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab

@@ -16565,6 +16565,84 @@ void testPcg32() {
         };
         CHECK(fmsim() == fmsim());
     }
+
+    // --- M419: fixAtan2 / fixAngle / fixAngleTo / fixAngleDifference (deterministic vectoring CORDIC) ---
+    {
+        using FA = maz::core::Fixed;
+        using FAV = maz::math::FixedVec2;
+        using maz::math::fixAtan2;
+        using maz::math::fixAngle;
+        using maz::math::fixAngleTo;
+        using maz::math::fixAngleDifference;
+        using maz::math::fixFromAngle;
+
+        const double kPi = 3.14159265358979323846;
+
+        // Cardinal anchors of atan2.
+        CHECK(std::fabs(fixAtan2(FA::zero(), FA::one()).toDouble() - 0.0) < 2e-3);
+        CHECK(std::fabs(fixAtan2(FA::one(), FA::zero()).toDouble() - (kPi / 2)) < 2e-3);
+        CHECK(std::fabs(fixAtan2(FA::zero(), -FA::one()).toDouble() - kPi) < 2e-3);
+        CHECK(std::fabs(fixAtan2(-FA::one(), FA::zero()).toDouble() - (-kPi / 2)) < 2e-3);
+        CHECK(std::fabs(fixAtan2(FA::one(), FA::one()).toDouble() - (kPi / 4)) < 2e-3);
+        CHECK(fixAtan2(FA::zero(), FA::zero()) == FA::zero());
+
+        // Sweep every quadrant vs std::atan2 (compared on the circle to handle the -x wrap).
+        for (int iy = -20; iy <= 20; ++iy) {
+            for (int ix = -20; ix <= 20; ++ix) {
+                if (ix == 0 && iy == 0) {
+                    continue;
+                }
+                const double got = fixAtan2(FA::fromInt(iy), FA::fromInt(ix)).toDouble();
+                const double ref = std::atan2(static_cast<double>(iy), static_cast<double>(ix));
+                double diff = got - ref;
+                while (diff > kPi) {
+                    diff -= 2 * kPi;
+                }
+                while (diff < -kPi) {
+                    diff += 2 * kPi;
+                }
+                CHECK(std::fabs(diff) < 2e-3);
+            }
+        }
+
+        // Round trip: fixFromAngle(fixAngle(v)) points the same way as v.
+        for (int iy = -12; iy <= 12; ++iy) {
+            for (int ix = -12; ix <= 12; ++ix) {
+                if (ix == 0 && iy == 0) {
+                    continue;
+                }
+                const FAV v = FAV::fromInt(ix, iy);
+                const FAV dir = fixFromAngle(fixAngle(v));
+                const FAV vn = v.normalized();
+                CHECK(std::fabs(dir.x.toDouble() - vn.x.toDouble()) < 5e-3);
+                CHECK(std::fabs(dir.y.toDouble() - vn.y.toDouble()) < 5e-3);
+            }
+        }
+
+        // angle_to: signed shortest turn between two directions.
+        CHECK(std::fabs(fixAngleTo(FAV::fromInt(1, 0), FAV::fromInt(0, 1)).toDouble() - (kPi / 2)) < 3e-3);
+        CHECK(std::fabs(fixAngleTo(FAV::fromInt(1, 0), FAV::fromInt(0, -1)).toDouble() - (-kPi / 2)) < 3e-3);
+        CHECK(std::fabs(fixAngleTo(FAV::fromInt(3, 4), FAV::fromInt(6, 8)).toDouble() - 0.0) < 3e-3);
+
+        // angle_difference: shortest wrap (170deg -> -170deg is a short +20deg step).
+        {
+            const FA from170 = FA::fromFloat(170.0 * kPi / 180.0);
+            const FA toNeg170 = FA::fromFloat(-170.0 * kPi / 180.0);
+            CHECK(std::fabs(fixAngleDifference(from170, toNeg170).toDouble() - (20.0 * kPi / 180.0)) < 3e-3);
+            CHECK(std::fabs(fixAngleDifference(FA::fromInt(1), FA::fromInt(1)).toDouble()) < 1e-6);
+        }
+
+        // Determinism: a repeated atan2 sweep is bit-identical.
+        auto atsim = []() {
+            std::int64_t h = 0;
+            for (int i = 1; i <= 500; ++i) {
+                const FA av = fixAtan2(FA::fromRaw(i * 131), FA::fromRaw(500000 - i * 337));
+                h ^= (static_cast<std::int64_t>(av.raw) << 1) ^ i;
+            }
+            return h;
+        };
+        CHECK(atsim() == atsim());
+    }
 }
 
 void testKdTree2D() {

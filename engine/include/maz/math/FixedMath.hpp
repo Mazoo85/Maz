@@ -79,4 +79,28 @@ inline FixedVec2 fixClampLength(FixedVec2 v, Fixed maxLength) {
     return v * (maxLength / len);
 }
 
+// The angle of `v` in radians (-pi, pi], deterministically — Godot's Vector2.angle. Inverse of
+// fixFromAngle: fixFromAngle(fixAngle(v)) points the same way as v.
+inline Fixed fixAngle(FixedVec2 v) { return fixAtan2(v.y, v.x); }
+
+// The signed angle from `from` to `to` (radians), the deterministic Vector2.angle_to.
+inline Fixed fixAngleTo(FixedVec2 from, FixedVec2 to) {
+    // atan2(cross, dot) gives the shortest signed turn between the two directions.
+    return fixAtan2(from.cross(to), from.dot(to));
+}
+
+// The shortest signed difference between two angles (radians), wrapped into [-pi, pi] — the
+// deterministic twin of Godot's angle_difference. Handy for turning toward a heading.
+inline Fixed fixAngleDifference(Fixed from, Fixed to) {
+    Fixed d = to - from;
+    // Wrap into (-pi, pi] by adding/subtracting whole turns in the fixed representation.
+    while (d.raw > fixPi().raw) {
+        d = d - fixTwoPi();
+    }
+    while (d.raw <= -fixPi().raw) {
+        d = d + fixTwoPi();
+    }
+    return d;
+}
+
 } // namespace maz::math

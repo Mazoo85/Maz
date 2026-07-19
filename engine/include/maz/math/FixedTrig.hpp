@@ -112,4 +112,44 @@ inline Fixed fixPi() { return Fixed::fromRaw(detail::kFixPiRaw); }
 inline Fixed fixTwoPi() { return Fixed::fromRaw(detail::kFixTwoPiRaw); }
 inline Fixed fixHalfPi() { return Fixed::fromRaw(detail::kFixHalfPiRaw); }
 
+// Deterministic atan2(y, x) in radians (result in (-pi, pi]), the inverse of fixSinCos: it recovers
+// the angle of the vector (x, y). Computed by the SAME CORDIC, run in "vectoring" mode — instead of
+// rotating a vector BY an angle, it rotates (x, y) onto the +x axis and accumulates how far it turned,
+// using the same arctan table with only shifts and adds. No floats on the runtime path, so it is
+// bit-identical everywhere. Godot has no fixed-point atan2. atan2(0, 0) is defined as 0.
+inline Fixed fixAtan2(Fixed y, Fixed x) {
+    if (x.raw == 0 && y.raw == 0) {
+        return Fixed::zero();
+    }
+
+    // Fold the left half-plane (x < 0) into x >= 0 by a 180-degree pre-rotation; correct z afterward
+    // by +/- pi (sign chosen so the final result lands in (-pi, pi]).
+    std::int64_t vx = x.raw;
+    std::int64_t vy = y.raw;
+    std::int64_t zOffset = 0;
+    if (vx < 0) {
+        vx = -vx;
+        vy = -vy;
+        zOffset = (y.raw >= 0) ? detail::kFixPiRaw : -detail::kFixPiRaw;
+    }
+
+    // Vectoring CORDIC: drive vy to 0, accumulating the angle we undid into z.
+    std::int64_t z = 0;
+    for (int i = 0; i < 16; ++i) {
+        const std::int64_t dx = vx >> i;
+        const std::int64_t dy = vy >> i;
+        if (vy > 0) {
+            vx += dy;
+            vy -= dx;
+            z += detail::kCordicAtan[i];
+        } else {
+            vx -= dy;
+            vy += dx;
+            z -= detail::kCordicAtan[i];
+        }
+    }
+
+    return Fixed::fromRaw(static_cast<std::int32_t>(z + zOffset));
+}
+
 } // namespace maz::math
