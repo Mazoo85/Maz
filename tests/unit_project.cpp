@@ -275,6 +275,9 @@ int main() {
     mixer.stereoEnhancer().setEnabled(true);
     mixer.stereoEnhancer().setDelayMs(18.0f);
     mixer.stereoEnhancer().setAmount(0.55f);
+    mixer.peq().setEnabled(true);
+    mixer.peq().setMid(1200.0f, 1.5f, 5.0f);
+    mixer.peq().setMid2(4200.0f, 2.5f, -6.0f);
     mixer.distortion().setEnabled(true);
     mixer.distortion().setCurve(audio::Distortion::Curve::Tube);
     mixer.distortion().setTone(4800.0f);
@@ -666,6 +669,9 @@ int main() {
               near(mixer2.distortion().tone(), 4800.0f) &&
               near(mixer2.distortion().outputDb(), -4.5f),
           "distortion curve round-trips");
+    check(near(mixer2.peq().midGain(), 5.0f) && near(mixer2.peq().mid2Freq(), 4200.0f) &&
+              near(mixer2.peq().mid2Q(), 2.5f) && near(mixer2.peq().mid2Gain(), -6.0f),
+          "parametric EQ 2nd mid band round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
               near(mixer2.ringmod().mix(), 0.7f),
           "ring-mod round-trips");

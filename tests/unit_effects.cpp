@@ -993,6 +993,26 @@ int main() {
         std::vector<float> down = sineStereo(sr, 80.0, 0.3, sr);
         cut.process(down.data(), sr, sr);
         check(rms(down) < flat * 0.7, "low-shelf cut lowers low-end level");
+
+        // Second, independent mid bell: boosting it lifts a tone at its own centre frequency.
+        std::vector<float> midTone = sineStereo(sr, 3500.0, 0.3, sr);
+        const double midFlat = rms(midTone);
+        audio::ParametricEQ eq2;
+        eq2.setEnabled(true);
+        eq2.setMid2(3500.0f, 3.0f, 12.0f);
+        std::vector<float> m2 = sineStereo(sr, 3500.0, 0.3, sr);
+        eq2.process(m2.data(), sr, sr);
+        check(rms(m2) > midFlat * 1.3, "second mid band boost lifts a tone at its centre frequency");
+
+        // Default bands (all 0 dB, incl. the new 2nd mid) are transparent — no level change.
+        audio::ParametricEQ flatEq;
+        flatEq.setEnabled(true);
+        std::vector<float> pass = sineStereo(sr, 3500.0, 0.3, sr);
+        flatEq.process(pass.data(), sr, sr);
+        check(std::fabs(rms(pass) - midFlat) < midFlat * 0.02,
+              "an EQ with default bands (0 dB 2nd mid) is transparent");
+        audio::ParametricEQ deq;
+        check(std::fabs(deq.mid2Gain()) < 1e-6f, "2nd mid band defaults to 0 dB");
     }
 
     // --- Bitcrusher: quantization changes the signal but keeps energy --------

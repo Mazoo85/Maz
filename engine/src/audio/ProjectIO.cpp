@@ -361,7 +361,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.reverb().gateMs() << "\n";
     f << "fx peq " << (mixer.peq().enabled() ? 1 : 0) << " " << mixer.peq().lowGain() << " "
       << mixer.peq().midFreq() << " " << mixer.peq().midQ() << " " << mixer.peq().midGain() << " "
-      << mixer.peq().highGain() << "\n";
+      << mixer.peq().highGain() << " " << mixer.peq().mid2Freq() << " " << mixer.peq().mid2Q() << " "
+      << mixer.peq().mid2Gain() << "\n";
     f << "fx tilt " << (mixer.tilt().enabled() ? 1 : 0) << " " << mixer.tilt().tilt() << "\n";
     f << "fx exciter " << (mixer.exciter().enabled() ? 1 : 0) << " " << mixer.exciter().crossover()
       << " " << mixer.exciter().amount() << "\n";
@@ -1184,6 +1185,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.peq().setLowGain(lowDb);
                 mixer.peq().setMid(midF, midQ, midDb);
                 mixer.peq().setHighGain(highDb);
+                float mid2F = 3500.0f, mid2Q = 1.0f, mid2Db = 0.0f; // 2nd mid optional (old files omit)
+                if (ls >> mid2F >> mid2Q >> mid2Db) {
+                    mixer.peq().setMid2(mid2F, mid2Q, mid2Db);
+                }
             } else if (which == "tilt") {
                 float t = 0.0f;
                 ls >> t;

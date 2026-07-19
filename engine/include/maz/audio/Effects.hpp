@@ -21,11 +21,17 @@ public:
     const char* name() const override { return "Parametric EQ"; }
     void setLowGain(float db);
     void setMid(float freq, float q, float db);
+    // Second fully-sweepable mid bell band (freq/Q/gain), in series after the first — two independent
+    // peaks let you cut a resonance and boost presence at once. Defaults to 0 dB (transparent).
+    void setMid2(float freq, float q, float db);
     void setHighGain(float db);
     float lowGain() const { return lowDb_; }
     float midFreq() const { return midFreq_; }
     float midQ() const { return midQ_; }
     float midGain() const { return midDb_; }
+    float mid2Freq() const { return mid2Freq_; }
+    float mid2Q() const { return mid2Q_; }
+    float mid2Gain() const { return mid2Db_; }
     float highGain() const { return highDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
@@ -38,11 +44,14 @@ private:
     float midFreq_ = 1000.0f;
     float midQ_ = 1.0f;
     float midDb_ = 0.0f;
+    float mid2Freq_ = 3500.0f;
+    float mid2Q_ = 1.0f;
+    float mid2Db_ = 0.0f;
     float highDb_ = 0.0f;
     int sr_ = 0;
     bool dirty_ = true;
-    Biquad lowL_{}, midL_{}, highL_{};
-    Biquad lowR_{}, midR_{}, highR_{};
+    Biquad lowL_{}, midL_{}, mid2L_{}, highL_{};
+    Biquad lowR_{}, midR_{}, mid2R_{}, highR_{};
 };
 
 // A stereo feedback delay (echo). `time` sets the tap in ms, `feedback` how much of the wet signal

@@ -1381,6 +1381,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         float midF = mx.peq().midFreq();
         float midQ = mx.peq().midQ();
         float highDb = mx.peq().highGain();
+        float mid2Db = mx.peq().mid2Gain();
+        float mid2F = mx.peq().mid2Freq();
+        float mid2Q = mx.peq().mid2Q();
         bool ch = false;
         ImGui::SetNextItemWidth(90.0f);
         ch |= ImGui::SliderFloat("Low dB##peq", &lowDb, -18.0f, 18.0f, "%.1f");
@@ -1392,9 +1395,15 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         ch |= ImGui::SliderFloat("Mid Hz##peq", &midF, 200.0f, 8000.0f, "%.0f");
+        ImGui::SetNextItemWidth(90.0f);
+        ch |= ImGui::SliderFloat("Mid2 dB##peq", &mid2Db, -18.0f, 18.0f, "%.1f");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        ch |= ImGui::SliderFloat("Mid2 Hz##peq", &mid2F, 200.0f, 12000.0f, "%.0f");
         if (ch) {
             mx.peq().setLowGain(lowDb);
             mx.peq().setMid(midF, midQ, midDb);
+            mx.peq().setMid2(mid2F, mid2Q, mid2Db);
             mx.peq().setHighGain(highDb);
         }
     }
