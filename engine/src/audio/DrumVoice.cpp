@@ -59,6 +59,8 @@ double decayTau(Drum type) {
         return 0.12; // the smeared noise "reverb" tail sets the length
     case Drum::Snap:
         return 0.022; // a dry, tight finger snap — a very fast decay
+    case Drum::Timbale:
+        return 0.14; // a high, ringing metal-shell drum — a medium-short metallic ring
     }
     return 0.1;
 }
@@ -313,6 +315,18 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double body = std::sin(kTwoPi * 2200.0 * pitchMul * t_) * std::exp(-t_ / 0.010);
             const double click = static_cast<double>(noise()) * env; // sharp broadband transient
             s = static_cast<float>(0.5 * click + 0.6 * body * env);
+            break;
+        }
+        case Drum::Timbale: {
+            // A high, ringing metal-shell drum (Latin timbale): a tuned fundamental (~300 Hz) plus two
+            // inharmonic metallic partials for the shell ring, and a sharp stick-attack noise tick.
+            // Brighter and drier than the tom (a pure membrane sweep) and more tonal than the cowbell.
+            const double bodyT = std::sin(kTwoPi * 300.0 * pitchMul * t_);
+            const double ring = 0.4 * std::sin(kTwoPi * 845.0 * pitchMul * t_) +
+                                0.25 * std::sin(kTwoPi * 1290.0 * pitchMul * t_);
+            const double stick = std::exp(-t_ / 0.004); // brief bright stick tick
+            s = static_cast<float>(
+                (0.7 * bodyT + ring + 0.5 * static_cast<double>(noise()) * stick) * env);
             break;
         }
         }

@@ -430,6 +430,32 @@ int main() {
         std::vector<float> sptail(static_cast<size_t>(sampleRate) / 4, 0.0f); // 0.25 s
         snap.render(sptail.data(), static_cast<int>(sptail.size()), sampleRate);
         check(!snap.active(), "finger snap decays fast to inactive");
+
+        // Timbale: a high metal-shell drum — tonal + metallic ring, brighter than a tom, medium decay.
+        auto drumHf = [&](audio::Drum type) {
+            audio::DrumVoice d;
+            d.setType(type);
+            d.trigger();
+            std::vector<float> b(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+            d.render(b.data(), static_cast<int>(b.size()), sampleRate);
+            double hf = 0.0;
+            for (size_t i = 1; i < b.size(); ++i) {
+                const double diff = static_cast<double>(b[i] - b[i - 1]);
+                hf += diff * diff;
+            }
+            return hf;
+        };
+        audio::DrumVoice timb;
+        timb.setType(audio::Drum::Timbale);
+        timb.trigger();
+        std::vector<float> tb(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        timb.render(tb.data(), static_cast<int>(tb.size()), sampleRate);
+        check(rms(tb) > 0.0, "timbale produces sound");
+        check(drumHf(audio::Drum::Timbale) > drumHf(audio::Drum::Tom) * 2.0,
+              "timbale is brighter (more metallic HF ring) than the pure-membrane tom");
+        std::vector<float> tbtail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        timb.render(tbtail.data(), static_cast<int>(tbtail.size()), sampleRate);
+        check(!timb.active(), "timbale decays to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------

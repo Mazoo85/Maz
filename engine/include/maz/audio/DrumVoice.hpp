@@ -30,7 +30,8 @@ enum class Drum {
     Snare808,
     Hat808,
     Clap808,
-    Snap
+    Snap,
+    Timbale
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into
