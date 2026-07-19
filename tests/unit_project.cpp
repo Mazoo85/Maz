@@ -254,6 +254,7 @@ int main() {
     mixer.phaser().setEnabled(true);
     mixer.phaser().setSync(true);
     mixer.phaser().setSyncDivision(4);
+    mixer.phaser().setStages(8);
     mixer.gate().setEnabled(true);
     mixer.gate().setThresholdDb(-38.0f);
     mixer.gate().setRatio(5.0f);
@@ -555,7 +556,8 @@ int main() {
           "flanger round-trips");
     check(mixer2.chorus().enabled() && mixer2.chorus().sync() && mixer2.chorus().syncDivision() == 2,
           "chorus tempo sync round-trips");
-    check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4,
+    check(mixer2.phaser().enabled() && mixer2.phaser().sync() && mixer2.phaser().syncDivision() == 4 &&
+              mixer2.phaser().stages() == 8,
           "phaser tempo sync round-trips");
     check(mixer2.gate().enabled() && near(mixer2.gate().thresholdDb(), -38.0f) &&
               near(mixer2.gate().ratio(), 5.0f) && near(mixer2.gate().rangeDb(), -55.0f) &&

@@ -585,14 +585,14 @@ void Phaser::process(float* stereo, int frames, int sampleRate) {
         const float a = 0.5f + 0.45f * depth * lfo;
 
         float xL = stereo[2 * i] + fbL_ * fb;
-        for (Allpass1& stage : apL_) {
-            xL = stage.process(xL, a);
+        for (int s = 0; s < stages_; ++s) {
+            xL = apL_[static_cast<size_t>(s)].process(xL, a);
         }
         fbL_ = xL;
 
         float xR = stereo[2 * i + 1] + fbR_ * fb;
-        for (Allpass1& stage : apR_) {
-            xR = stage.process(xR, a);
+        for (int s = 0; s < stages_; ++s) {
+            xR = apR_[static_cast<size_t>(s)].process(xR, a);
         }
         fbR_ = xR;
 

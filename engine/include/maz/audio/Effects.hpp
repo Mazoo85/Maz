@@ -254,6 +254,10 @@ public:
     void setDepth(float d) { depth_ = d; }
     void setFeedback(float f) { feedback_ = f; }
     void setMix(float m) { mix_ = m; }
+    // All-pass stage count (2..kMaxStages, default 4): more stages carve more/deeper notches for a
+    // richer, more dramatic sweep. Clamped to even counts is not required — any count in range works.
+    void setStages(int n) { stages_ = n < 2 ? 2 : (n > kMaxStages ? kMaxStages : n); }
+    int stages() const { return stages_; }
     // Tempo sync: lock the sweep LFO rate to the transport at the chosen note division (rhythmic
     // phasing). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -270,7 +274,8 @@ public:
     void reset() override;
 
 private:
-    static constexpr int kStages = 4;
+    static constexpr int kMaxStages = 12;
+    int stages_ = 4;    // active all-pass stages (2..kMaxStages)
     bool sync_ = false; // tempo-sync the sweep LFO rate
     int syncDiv_ = 0;   // note-division index (default 1/1, a slow phaser)
     struct Allpass1 {
@@ -288,8 +293,8 @@ private:
     double phase_ = 0.0;
     float fbL_ = 0.0f;
     float fbR_ = 0.0f;
-    std::array<Allpass1, kStages> apL_{};
-    std::array<Allpass1, kStages> apR_{};
+    std::array<Allpass1, kMaxStages> apL_{};
+    std::array<Allpass1, kMaxStages> apR_{};
 };
 
 // An aural exciter / high-frequency enhancer: high-passes at `crossover` Hz, generates harmonics

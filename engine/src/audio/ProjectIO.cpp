@@ -341,7 +341,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << " " << (mixer.flanger().sync() ? 1 : 0) << " " << mixer.flanger().syncDivision() << "\n";
     f << "fx phaser " << (mixer.phaser().enabled() ? 1 : 0) << " " << mixer.phaser().rate() << " "
       << mixer.phaser().depth() << " " << mixer.phaser().feedback() << " " << mixer.phaser().mix()
-      << " " << (mixer.phaser().sync() ? 1 : 0) << " " << mixer.phaser().syncDivision() << "\n";
+      << " " << (mixer.phaser().sync() ? 1 : 0) << " " << mixer.phaser().syncDivision() << " "
+      << mixer.phaser().stages() << "\n";
     f << "fx crush " << (mixer.bitcrusher().enabled() ? 1 : 0) << " " << mixer.bitcrusher().bits()
       << " " << mixer.bitcrusher().downsample() << " " << mixer.bitcrusher().mix() << "\n";
     f << "fx gate " << (mixer.gate().enabled() ? 1 : 0) << " " << mixer.gate().thresholdDb() << " "
@@ -1024,6 +1025,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> sync >> div) {
                     mixer.phaser().setSync(sync != 0);
                     mixer.phaser().setSyncDivision(div);
+                }
+                int stages = 4; // stage count optional for old files
+                if (ls >> stages) {
+                    mixer.phaser().setStages(stages);
                 }
             } else if (which == "peq") {
                 float lowDb = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, highDb = 0.0f;

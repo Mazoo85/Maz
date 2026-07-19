@@ -1515,6 +1515,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150.0f);
         if (ImGui::SliderFloat("mix##phs", &wet, 0.0f, 1.0f, "%.2f")) mx.phaser().setMix(wet);
+        int pstages = mx.phaser().stages();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderInt("stages##phs", &pstages, 2, 12)) mx.phaser().setStages(pstages);
         const char* modDivsP[audio::kModSyncDivisions];
         for (int d = 0; d < audio::kModSyncDivisions; ++d) modDivsP[d] = audio::modSyncDivisionName(d);
         bool psync = mx.phaser().sync();

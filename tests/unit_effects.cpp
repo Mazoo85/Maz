@@ -824,6 +824,29 @@ int main() {
         }
         check(changed > 0.0, "phaser alters the signal");
         check(rms(sig) > 0.0, "phaser still passes signal");
+
+        // Stage count: more all-pass stages carve a different notch pattern, so the output changes.
+        auto phaseOut = [&](int stages) {
+            audio::Phaser p;
+            p.setEnabled(true);
+            p.setMix(0.7f);
+            p.setFeedback(0.0f); // isolate the stage count from feedback resonance
+            p.setStages(stages);
+            std::vector<float> b = sineStereo(sr / 2, 600.0, 0.5, sr);
+            p.process(b.data(), sr / 2, sr);
+            return b;
+        };
+        const std::vector<float> s2 = phaseOut(2);
+        const std::vector<float> s12 = phaseOut(12);
+        double stageDiff = 0.0;
+        for (size_t i = 0; i < s2.size(); ++i) {
+            stageDiff += std::fabs(static_cast<double>(s2[i] - s12[i]));
+        }
+        check(stageDiff > 1.0, "phaser stage count changes the sound (more stages = more notches)");
+        audio::Phaser dp;
+        check(dp.stages() == 4, "phaser stage count defaults to 4");
+        dp.setStages(99);
+        check(dp.stages() == 12, "phaser stage count clamps to the maximum");
     }
 
     // --- Mixer: master gain scales; disabled chain is transparent ------------
