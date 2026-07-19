@@ -208,6 +208,7 @@
 #include "maz/game/GridRaycast.hpp"
 #include "maz/game/BspDungeon.hpp"
 #include "maz/game/MazeGen.hpp"
+#include "maz/game/DijkstraMap.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2516,6 +2517,59 @@ void testGeometry2D() {
         CHECK(maz::game::generateMaze(10, 10, 77u).tiles == maz::game::generateMaze(10, 10, 77u).tiles);
         CHECK(maz::game::generateMaze(10, 10, 77u).tiles != maz::game::generateMaze(10, 10, 78u).tiles);
         CHECK(maz::game::generateMaze(0, 5, 1u).tiles.empty());
+    }
+
+    // --- M413: Dijkstra distance map (Brogue-style) + descend + flee map ---
+    {
+        using MapCell = maz::game::MapCell;
+        using maz::game::DijkstraMap;
+        auto dmOpen = [](const MapCell&) { return false; };
+        // Open 5x5, goal (0,0): Manhattan distances (4-connected).
+        auto dm = maz::game::buildDijkstraMap(5, 5, {MapCell(0, 0)}, dmOpen);
+        CHECK(dm.at(0, 0) == 0);
+        CHECK(dm.at(4, 0) == 4);
+        CHECK(dm.at(4, 4) == 8);
+        CHECK(dm.at(2, 3) == 5);
+        // Multi-source: nearest of two goals.
+        auto dm2 = maz::game::buildDijkstraMap(7, 1, {MapCell(0, 0), MapCell(6, 0)}, dmOpen);
+        CHECK(dm2.at(3, 0) == 3);
+        CHECK(dm2.at(5, 0) == 1);
+        // Wall forces a detour (> Manhattan) and walls are unreachable.
+        auto dmWall = [](const MapCell& c) { return c.x == 2 && (c.y == 0 || c.y == 1); };
+        auto dm3 = maz::game::buildDijkstraMap(5, 3, {MapCell(0, 0)}, dmWall);
+        CHECK(dm3.at(2, 0) == DijkstraMap::kUnreachable);
+        CHECK(dm3.at(4, 0) > 4);
+        CHECK(dm3.at(4, 0) != DijkstraMap::kUnreachable);
+        // descend walks strictly downhill to the goal.
+        auto dm4 = maz::game::buildDijkstraMap(6, 6, {MapCell(0, 0)}, dmOpen);
+        MapCell cur(5, 5);
+        int guard = 0;
+        while (dm4.at(cur.x, cur.y) > 0 && guard++ < 100) {
+            MapCell nxt = dm4.descend(cur);
+            CHECK(dm4.at(nxt.x, nxt.y) < dm4.at(cur.x, cur.y));
+            cur = nxt;
+        }
+        CHECK(dm4.at(cur.x, cur.y) == 0);
+        // descend at the goal stays put.
+        MapCell gg(0, 0);
+        CHECK((dm4.descend(gg) == gg));
+        // Flee map: descending moves away from the goal.
+        auto approach = maz::game::buildDijkstraMap(9, 1, {MapCell(4, 0)}, dmOpen);
+        auto flee = maz::game::makeFleeMap(approach, dmOpen);
+        MapCell fc(3, 0);
+        int prevA = approach.at(fc.x, fc.y);
+        int fmoves = 0;
+        for (int step = 0; step < 3; ++step) {
+            MapCell nxt = flee.descend(fc);
+            if ((nxt == fc)) break;
+            CHECK(approach.at(nxt.x, nxt.y) > prevA);
+            prevA = approach.at(nxt.x, nxt.y);
+            fc = nxt;
+            ++fmoves;
+        }
+        CHECK(fmoves >= 1);
+        // Degenerate size -> empty.
+        CHECK(maz::game::buildDijkstraMap(0, 5, {MapCell(0, 0)}, dmOpen).dist.empty());
     }
 }
 

@@ -297,6 +297,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   2·W·H−1 (fully connected AND acyclic, the definition of a perfect maze), every cell centre is floor,
   all floor is one connected region (reusing M408), the wall border and even/even intersections stay
   wall, plus determinism, seed divergence, and degenerate-size → empty;
+  **Dijkstra distance map** M413 (`game::buildDijkstraMap` / `DijkstraMap::descend` / `game::makeFleeMap`
+  in `maz/game/DijkstraMap.hpp` — the Brogue-style scalar "desire map" behind roguelike monster AI:
+  multi-source BFS fills every passable cell with its step-distance to the nearest of one-or-more goals
+  (walls impassable); a monster walks to the lowest-valued neighbour to approach (`descend`), and
+  negating+re-scanning the field (`makeFleeMap`) turns approach into flee. Complements the vector-field
+  FlowField (M112, single-goal float integration baked into direction vectors for crowds) — this is a
+  multi-source INTEGER field the game reads and recombines directly. Unit-cost BFS, 4- or 8-connected.
+  Godot leaves this to the game. Verified against exact Manhattan distances on open ground, multi-source
+  nearest-goal, a wall forcing a longer-than-Manhattan detour with walls unreachable, an enclosed cell
+  staying unreachable, `descend` walking strictly downhill to the goal (and staying put at a goal), the
+  flee map moving a pursuer away from the goal, and degenerate-size → empty;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
