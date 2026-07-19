@@ -41,6 +41,7 @@ public:
     LowPass& eq() { return eq_; }
     MasterFilter& filter() { return filter_; }
     Distortion& distortion() { return dist_; }
+    AmpCab& ampCab() { return ampcab_; }
     TapeSaturation& tape() { return tape_; }
     RingMod& ringmod() { return ringmod_; }
     PitchShifter& pitchShifter() { return pitchshift_; }
@@ -139,6 +140,7 @@ private:
     LowPass eq_{};
     MasterFilter filter_{};
     Distortion dist_{};
+    AmpCab ampcab_{};
     TapeSaturation tape_{};
     RingMod ringmod_{};
     PitchShifter pitchshift_{};

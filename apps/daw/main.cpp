@@ -1665,6 +1665,26 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("out##dist", &dout, -24.0f, 24.0f, "%.1f dB")) mx.distortion().setOutputDb(dout);
     }
     {
+        auto& ac = mx.ampCab();
+        bool en = ac.enabled();
+        if (ImGui::Checkbox("Amp/Cab", &en)) ac.setEnabled(en);
+        float drive = ac.drive();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("drive##amp", &drive, 0.0f, 1.0f, "%.2f")) ac.setDrive(drive);
+        float pres = ac.presence();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("presence##amp", &pres, 0.0f, 1.0f, "%.2f")) ac.setPresence(pres);
+        float tone = ac.tone();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("tone##amp", &tone, 1500.0f, 8000.0f, "%.0f Hz")) ac.setTone(tone);
+        float amix = ac.mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("mix##amp", &amix, 0.0f, 1.0f, "%.2f")) ac.setMix(amix);
+    }
+    {
         bool en = mx.tape().enabled();
         if (ImGui::Checkbox("Tape Sat", &en)) mx.tape().setEnabled(en);
         float drive = mx.tape().drive();

@@ -308,6 +308,47 @@ void Distortion::reset() {
     toneR_ = 0.0f;
 }
 
+// ---- AmpCab -----------------------------------------------------------------
+
+void AmpCab::reset() {
+    lcL_ = lcR_ = toneLpL_ = toneLpR_ = 0.0f;
+    presL_.reset();
+    presR_.reset();
+}
+
+void AmpCab::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    const float preGain = 1.0f + drive_ * 24.0f;      // preamp gain into the tanh
+    const float norm = 1.0f / std::tanh(preGain);     // keep the driven level roughly unity
+    const float aLc = 1.0f - std::exp(-2.0f * 3.14159265358979f * 90.0f / sr);   // low-cut ~90 Hz
+    const float aTone = 1.0f - std::exp(-2.0f * 3.14159265358979f * toneHz_ / sr); // cabinet high-cut
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        auto amp = [&](float x, float& lc, float& toneLp, StateVariableFilter& pres) {
+            // Preamp overdrive.
+            float d = std::tanh(x * preGain) * norm;
+            // Cabinet low-cut (shed flub): high-pass = x − low-passed.
+            lc += aLc * (d - lc);
+            d -= lc;
+            // Presence: a mid bite bump around 2.5 kHz added back in.
+            const float bp = pres.process(d, 2500.0f, 1.2f, sampleRate,
+                                          StateVariableFilter::Mode::BandPass);
+            d += presence_ * bp;
+            // Cabinet high-cut (speaker top-end rolloff).
+            toneLp += aTone * (d - toneLp);
+            return toneLp;
+        };
+        const float wetL = amp(l, lcL_, toneLpL_, presL_);
+        const float wetR = amp(r, lcR_, toneLpR_, presR_);
+        stereo[2 * i] = l * (1.0f - mix_) + wetL * mix_;
+        stereo[2 * i + 1] = r * (1.0f - mix_) + wetR * mix_;
+    }
+}
+
 // ---- PitchShifter -----------------------------------------------------------
 
 void PitchShifter::reset() {

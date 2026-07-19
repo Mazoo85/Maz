@@ -199,6 +199,38 @@ private:
     float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
 };
 
+// A guitar amp + cabinet simulator (FL "Hardcore"-style): a preamp overdrive stage into a speaker-
+// cabinet voicing. The preamp drives the signal through a tanh (grit + compression); the cabinet then
+// shapes it like a real speaker — a low-cut to shed flub, a `presence` mid bump for bite, and a
+// high-cut (`tone`) for the speaker's top-end rolloff. `mix` blends dry/wet. Distinct from the plain
+// distortion by its fixed, recognisable amp-cabinet frequency voicing.
+class AmpCab : public Effect {
+public:
+    AmpCab() { enabled_ = false; }
+    const char* name() const override { return "Amp/Cab"; }
+    void setDrive(float d) { drive_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setPresence(float p) { presence_ = p < 0.0f ? 0.0f : (p > 1.0f ? 1.0f : p); }
+    // Cabinet high-cut (speaker top-end rolloff), 1500–8000 Hz; lower = darker/boxier.
+    void setTone(float hz) { toneHz_ = hz < 1500.0f ? 1500.0f : (hz > 8000.0f ? 8000.0f : hz); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    float drive() const { return drive_; }
+    float presence() const { return presence_; }
+    float tone() const { return toneHz_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float drive_ = 0.5f;
+    float presence_ = 0.4f;
+    float toneHz_ = 5000.0f;
+    float mix_ = 1.0f;
+    float lcL_ = 0.0f, lcR_ = 0.0f;     // low-cut one-pole state (HP = x − LP)
+    float toneLpL_ = 0.0f, toneLpR_ = 0.0f; // cabinet high-cut one-pole state
+    StateVariableFilter presL_{}, presR_{}; // presence band-pass per channel
+};
+
 // A time-domain pitch shifter (Fruity Pitch Shifter style): a delay line read by two crossfading
 // taps whose delay sweeps, so the read speed — and thus the pitch — is scaled by `semitones` without
 // changing tempo. `mix` blends the shifted signal with the dry (harmony/detune). 0 semitones = the

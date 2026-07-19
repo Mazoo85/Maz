@@ -1327,6 +1327,69 @@ int main() {
         check(dt.outputDb() == 0.0f, "distortion output trim defaults to 0 dB (unity)");
     }
 
+    // --- Amp/Cab: preamp drive + a speaker-cabinet frequency voicing ---------
+    {
+        auto power = [](const std::vector<float>& b, double f, int srate) {
+            const double w = 2.0 * 3.14159265358979 * f / srate;
+            const double c = 2.0 * std::cos(w);
+            double s1 = 0.0, s2 = 0.0;
+            for (size_t i = 0; i < b.size(); i += 2) {
+                const double s0 = static_cast<double>(b[i]) + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            return s1 * s1 + s2 * s2 - c * s1 * s2;
+        };
+        // Cabinet rolloff: a 6 kHz tone comes out attenuated relative to a 1 kHz tone (same input).
+        auto cabRatio = [&](double f) {
+            audio::AmpCab a;
+            a.setEnabled(true);
+            a.setDrive(0.3f);
+            a.setPresence(0.4f);
+            a.setTone(5000.0f);
+            a.setMix(1.0f);
+            std::vector<float> b = sineStereo(sr / 2, f, 0.3, sr);
+            const double before = rms(b);
+            a.process(b.data(), sr / 2, sr);
+            return rms(b) / (before + 1e-12);
+        };
+        check(cabRatio(6000.0) < cabRatio(1000.0) * 0.8,
+              "amp/cab rolls off the highs (speaker cabinet voicing)");
+        // Preamp drive adds harmonics: a 200 Hz tone gains a strong 3rd harmonic (600 Hz).
+        auto third = [&](float drive) {
+            audio::AmpCab a;
+            a.setEnabled(true);
+            a.setDrive(drive);
+            a.setPresence(0.0f);
+            a.setTone(8000.0f);
+            a.setMix(1.0f);
+            std::vector<float> b = sineStereo(sr / 2, 200.0, 0.3, sr);
+            a.process(b.data(), sr / 2, sr);
+            return power(b, 600.0, sr);
+        };
+        check(third(0.9f) > third(0.0f) * 20.0 + 1.0, "amp/cab preamp drive adds harmonics");
+        // Presence lifts the ~2.5 kHz bite region.
+        auto presRms = [&](float p) {
+            audio::AmpCab a;
+            a.setEnabled(true);
+            a.setDrive(0.1f);
+            a.setPresence(p);
+            a.setTone(8000.0f);
+            a.setMix(1.0f);
+            std::vector<float> b = sineStereo(sr / 2, 2500.0, 0.3, sr);
+            a.process(b.data(), sr / 2, sr);
+            return rms(b);
+        };
+        check(presRms(1.0f) > presRms(0.0f) * 1.4, "amp/cab presence lifts the bite region");
+        // Disabled → transparent; defaults.
+        audio::AmpCab off;
+        std::vector<float> q = sineStereo(sr / 4, 500.0, 0.5, sr);
+        const std::vector<float> ref = q;
+        off.process(q.data(), sr / 4, sr);
+        check(q == ref, "a disabled amp/cab is transparent");
+        check(!audio::AmpCab().enabled(), "amp/cab defaults to off");
+    }
+
     // --- Distortion curves: each mode shapes differently --------------------
     {
         auto shape = [&](audio::Distortion::Curve c, float x) {

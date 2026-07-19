@@ -467,6 +467,9 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx dist " << (mixer.distortion().enabled() ? 1 : 0) << " " << mixer.distortion().drive()
       << " " << mixer.distortion().mix() << " " << static_cast<int>(mixer.distortion().curve()) << " "
       << mixer.distortion().tone() << " " << mixer.distortion().outputDb() << "\n";
+    f << "fx ampcab " << (mixer.ampCab().enabled() ? 1 : 0) << " " << mixer.ampCab().drive() << " "
+      << mixer.ampCab().presence() << " " << mixer.ampCab().tone() << " " << mixer.ampCab().mix()
+      << "\n";
     f << "fx chorus " << (mixer.chorus().enabled() ? 1 : 0) << " " << mixer.chorus().rate() << " "
       << mixer.chorus().depth() << " " << mixer.chorus().mix() << " "
       << (mixer.chorus().sync() ? 1 : 0) << " " << mixer.chorus().syncDivision() << " "
@@ -1474,6 +1477,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 if (ls >> outDb) {
                     mixer.distortion().setOutputDb(outDb);
                 }
+            } else if (which == "ampcab") {
+                float drive = 0.5f, presence = 0.4f, tone = 5000.0f, mix = 1.0f;
+                ls >> drive >> presence >> tone >> mix;
+                mixer.ampCab().setEnabled(en != 0);
+                mixer.ampCab().setDrive(drive);
+                mixer.ampCab().setPresence(presence);
+                mixer.ampCab().setTone(tone);
+                mixer.ampCab().setMix(mix);
             } else if (which == "chorus") {
                 float rate = 0.8f, depth = 3.0f, mix = 0.4f;
                 ls >> rate >> depth >> mix;

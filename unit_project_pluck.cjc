@@ -39,6 +39,7 @@ fx peq 0 0 1000 1 0 0 3500 1 0 7000 1 0
 fx tilt 0 0 650
 fx exciter 0 4000 0.3
 fx dist 0 2 0.5 0 20000 0
+fx ampcab 0 0.5 0.4 5000 1
 fx chorus 0 0.8 3 0.4 0 0 0 1
 fx vibrato 0 5 4 0 3
 fx rotary 0 6 0.5 1
