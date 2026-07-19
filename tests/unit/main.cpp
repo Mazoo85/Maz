@@ -218,6 +218,7 @@
 #include "maz/render/AtlasPacker.hpp"
 #include "maz/render/ColorNames.hpp"
 #include "maz/render/ColorOps.hpp"
+#include "maz/render/Image.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
 #include "maz/render/Line2D.hpp"
@@ -1006,6 +1007,46 @@ void testColorOps() {
     CHECK(render::isEqualApprox(render::colorFromString("#ff0000", fb),
                                render::color8(255, 0, 0), 1e-3f));
     CHECK(render::isEqualApprox(render::colorFromString("bogus!!", fb), fb, 1e-6f));
+
+    // M386: render::Image — CPU RGBA8 raster (Godot Image): fill/get/set/flip/blit.
+    {
+        auto sameC = [](const Color& a, const Color& b) {
+            return render::r8(a) == render::r8(b) && render::g8(a) == render::g8(b) &&
+                   render::b8(a) == render::b8(b) && render::a8(a) == render::a8(b);
+        };
+        render::Image img(4, 3, render::color8(255, 0, 0, 255)); // red fill
+        CHECK(img.width() == 4 && img.height() == 3 && !img.empty());
+        CHECK(img.data().size() == 4u * 3u * 4u);
+        CHECK(sameC(img.getPixel(0, 0), render::color8(255, 0, 0, 255)));
+        CHECK(sameC(img.getPixel(3, 2), render::color8(255, 0, 0, 255)));
+        // set/get round-trips an arbitrary 8-bit colour.
+        img.setPixel(1, 1, render::color8(10, 20, 30, 40));
+        CHECK(sameC(img.getPixel(1, 1), render::color8(10, 20, 30, 40)));
+        // fill replaces everything.
+        img.fill(render::color8(0, 0, 255, 255));
+        CHECK(sameC(img.getPixel(1, 1), render::color8(0, 0, 255, 255)));
+        // flipX moves (0,0) to (w-1,0).
+        img.setPixel(0, 0, render::color8(255, 255, 255, 255));
+        img.flipX();
+        CHECK(sameC(img.getPixel(3, 0), render::color8(255, 255, 255, 255)));
+        // flipY moves (2,0) to (2,h-1).
+        img.fill(render::color8(0, 0, 0, 255));
+        img.setPixel(2, 0, render::color8(255, 255, 255, 255));
+        img.flipY();
+        CHECK(sameC(img.getPixel(2, 2), render::color8(255, 255, 255, 255)));
+        // blitRect copies a 2x2 block.
+        render::Image src(2, 2, render::color8(9, 9, 9, 255));
+        src.setPixel(0, 0, render::color8(100, 110, 120, 255));
+        render::Image dst(4, 4, render::color8(0, 0, 0, 255));
+        dst.blitRect(src, 0, 0, 2, 2, 1, 1);
+        CHECK(sameC(dst.getPixel(1, 1), render::color8(100, 110, 120, 255)));
+        CHECK(sameC(dst.getPixel(2, 2), render::color8(9, 9, 9, 255)));
+        CHECK(sameC(dst.getPixel(0, 0), render::color8(0, 0, 0, 255))); // outside blit unchanged
+        // Out-of-bounds get -> transparent black; set -> no-op.
+        CHECK(sameC(dst.getPixel(-1, 0), render::color8(0, 0, 0, 0)));
+        dst.setPixel(99, 99, render::color8(1, 2, 3, 4));
+        CHECK(sameC(dst.getPixel(0, 0), render::color8(0, 0, 0, 255)));
+    }
 
     // --- OKLab / OKLCh perceptual space (M304) ---
     // Linear white -> OKLab L~1, a~0, b~0 (space anchored so D65 white is L=1); black -> all zero.

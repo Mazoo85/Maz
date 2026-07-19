@@ -175,7 +175,13 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   channel, verified incl. out-of-range clamp and color8 round-trip); M331
   adds 64-bit (16-bit-per-channel) `toRgba64`/`fromRgba64` — Godot's Color.to_rgba64 / Color.hex64
   for high-bit-depth packing, verified by known values, clamping, and a round-trip that preserves a
-  fine difference 8-bit would collapse; plus
+  fine difference 8-bit would collapse; plus **CPU Image** M386 (`render::Image` — a headless
+  RGBA8 raster, the counterpart to Godot's Image class: construct at a size with a fill colour,
+  getPixel/setPixel with clamped bounds, fill, flipX/flipY, and blitRect to copy a sub-rectangle
+  between images; row-major, 8-bit-per-channel, top-left origin, raw bytes ready for
+  createTexture — used to build procedural textures, icons and lookup tables on the CPU;
+  verified by exact 8-bit round-trips through Color, fill, both flips, a clipped blit, and
+  out-of-bounds safety); plus
   **named colours** M288 (`render::namedColor` / `colorFromString` — the full CSS3/Godot named-colour
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
