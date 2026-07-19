@@ -1072,6 +1072,10 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("FM Feedback", &fb, 0.0f, 1.0f, "%.2f")) syn.setFmFeedback(fb);
         float velFm = syn.velToFmIndex();
         if (ImGui::SliderFloat("Vel>FM Index", &velFm, 0.0f, 10.0f, "%.2f")) syn.setVelToFmIndex(velFm);
+        const char* fmModWaves[] = {"Sine", "Square", "Saw", "Triangle", "Trap", "Step"};
+        int fmw = static_cast<int>(syn.fmModWaveform());
+        if (ImGui::Combo("Mod wave##fm", &fmw, fmModWaves, IM_ARRAYSIZE(fmModWaves)))
+            syn.setFmModWaveform(static_cast<audio::Waveform>(fmw));
     } else {
         float pos = syn.wavetablePosition();
         if (ImGui::SliderFloat("WT Position", &pos, 0.0f, 1.0f, "%.2f"))

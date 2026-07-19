@@ -208,6 +208,11 @@ public:
     // has an effect in FM mode.
     void setVelToFmIndex(float amt) { velFmIndex_ = amt < 0.0f ? 0.0f : (amt > 20.0f ? 20.0f : amt); }
     float velToFmIndex() const { return velFmIndex_; }
+    // FM modulator waveform: the modulating operator is a Sine by default (classic clean 2-op FM), but
+    // it can be any oscillator shape — a saw/square/triangle modulator injects far richer sidebands
+    // for grittier, more aggressive DX-style tones. Only affects FM mode; Sine = unchanged.
+    void setFmModWaveform(Waveform w) { fmModWave_ = w; }
+    Waveform fmModWaveform() const { return fmModWave_; }
 
     // Wavetable: `position` [0,1] scans the morphing table (dark→bright); `envAmt` sweeps that
     // position with the amp envelope for evolving timbres. Access the table to reprogram its frames.
@@ -484,6 +489,7 @@ private:
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;
     float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off
+    Waveform fmModWave_ = Waveform::Sine; // FM modulator operator waveform; Sine = classic 2-op FM
     float velFmIndex_ = 0.0f; // velocity → FM index depth; 0 = off
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
     float velWavePos_ = 0.0f;  // velocity → wavetable position depth; 0 = off

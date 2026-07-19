@@ -455,6 +455,30 @@ int main() {
               "velocity → FM index makes harder notes brighter");
         audio::SynthInstrument dvf;
         check(dvf.velToFmIndex() == 0.0f, "velocity → FM index defaults to 0");
+
+        // FM modulator waveform: a harmonically-rich modulator (saw) injects far more sidebands than
+        // the default sine at the same index — a brighter, grittier FM tone.
+        auto modBright = [&](audio::Waveform modw) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::FM);
+            s.setFmRatio(2.0f);
+            s.setFmIndex(5.0f);
+            s.setFmModWaveform(modw);
+            s.setEnvelope(0.002f, 0.02f, 1.0f, 0.05f);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(modBright(audio::Waveform::Saw) > modBright(audio::Waveform::Sine) * 1.2,
+              "a saw FM modulator injects richer sidebands than a sine");
+        check(audio::SynthInstrument().fmModWaveform() == audio::Waveform::Sine,
+              "FM modulator waveform defaults to sine");
     }
 
     // --- Oscillator ring modulation ------------------------------------------

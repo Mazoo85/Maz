@@ -96,6 +96,7 @@ int main() {
     seq.synth().setVelToCutoff(4200.0f);
     seq.synth().setFmFeedback(0.55f);
     seq.synth().setVelToFmIndex(3.0f);
+    seq.synth().setFmModWaveform(audio::Waveform::Saw);
     seq.synth().setRingMod(0.6f);
     seq.synth().setWavetableLfo(2.5f, 0.7f);
     seq.synth().setVelSensitivity(0.4f);
@@ -761,6 +762,7 @@ int main() {
           "osc3 round-trips (incl. its own waveform + fine tune)");
     check(near(seq2.synth().velToCutoff(), 4200.0f), "velocity→cutoff round-trips");
     check(near(seq2.synth().fmFeedback(), 0.55f), "FM feedback round-trips");
+    check(seq2.synth().fmModWaveform() == audio::Waveform::Saw, "FM modulator waveform round-trips");
     check(near(seq2.synth().velToFmIndex(), 3.0f), "velocity → FM index round-trips");
     check(near(seq2.synth().ringMod(), 0.6f), "ring mod round-trips");
     check(near(seq2.synth().wavetableLfoRate(), 2.5f) &&

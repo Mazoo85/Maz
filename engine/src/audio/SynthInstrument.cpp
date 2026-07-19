@@ -332,7 +332,16 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 constexpr double kTwoPi = 6.283185307179586;
                 constexpr double kPi = 3.141592653589793;
                 const double fb = static_cast<double>(fmFeedback_) * kPi * static_cast<double>(v.fmFb);
-                const double m = std::sin(v.modPhase * kTwoPi + fb);
+                // Modulator operator: a sine (classic, kept bit-identical) or any selectable shape,
+                // whose extra harmonics inject far richer FM sidebands.
+                double m;
+                if (fmModWave_ == Waveform::Sine) {
+                    m = std::sin(v.modPhase * kTwoPi + fb);
+                } else {
+                    double mph = v.modPhase + fb / kTwoPi; // fold the feedback into the read phase
+                    mph -= std::floor(mph);
+                    m = static_cast<double>(waveSample(fmModWave_, mph));
+                }
                 v.fmFb = static_cast<float>(m);
                 // Velocity → FM index: harder notes push the modulation depth up (brighter).
                 const float effIndex = fmIndex_ + velFmIndex_ * v.velocity;

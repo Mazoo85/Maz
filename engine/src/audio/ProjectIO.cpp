@@ -191,6 +191,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> velAtk) {
         syn.setVelToAttack(velAtk);
     }
+    int fmModW = 0; // FM modulator waveform optional for old files (0 = Sine)
+    if (ls >> fmModW) {
+        syn.setFmModWaveform(static_cast<Waveform>(fmModW < 0 || fmModW > 5 ? 0 : fmModW));
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -338,7 +342,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
           << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << " "
           << (s.ampLfoSampleHold() ? 1 : 0) << " " << (s.vibratoSampleHold() ? 1 : 0) << " "
-          << s.velToAttack() << "\n";
+          << s.velToAttack() << " " << static_cast<int>(s.fmModWaveform()) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
