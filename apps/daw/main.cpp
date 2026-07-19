@@ -2379,6 +2379,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f);
         if (ImGui::SliderFloat("mix##br", &mix, 0.0f, 1.0f, "%.2f")) mx.beatRepeat().setMix(mix);
+        const char* brDivs[audio::kModSyncDivisions];
+        for (int d = 0; d < audio::kModSyncDivisions; ++d) brDivs[d] = audio::modSyncDivisionName(d);
+        bool brsync = mx.beatRepeat().sync();
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Sync##br", &brsync)) mx.beatRepeat().setSync(brsync);
+        ImGui::SameLine();
+        int brdiv = mx.beatRepeat().syncDivision();
+        ImGui::SetNextItemWidth(70.0f);
+        if (ImGui::Combo("div##br", &brdiv, brDivs, audio::kModSyncDivisions))
+            mx.beatRepeat().setSyncDivision(brdiv);
     }
     {
         bool en = mx.autowah().enabled();

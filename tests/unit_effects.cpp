@@ -4280,6 +4280,22 @@ int main() {
 
         audio::BeatRepeat brDef;
         check(!brDef.enabled() && brDef.repeats() == 1, "beat-repeat is off / passthrough by default");
+
+        // Tempo sync: the cell length locks to the chosen note division. At 120 BPM a 1/4 cell is
+        // 500 ms, 1/8 is 250 ms, 1/16 is 125 ms. With sync off, updateTempo leaves sliceMs alone.
+        {
+            audio::BeatRepeat brs;
+            brs.setSliceMs(125.0f);
+            brs.updateTempo(120.0); // sync off → no change
+            check(std::fabs(brs.sliceMs() - 125.0f) < 1e-3f, "beat-repeat ignores tempo when sync off");
+            brs.setSync(true);
+            brs.setSyncDivision(2); // 1/4
+            brs.updateTempo(120.0);
+            check(std::fabs(brs.sliceMs() - 500.0f) < 1.0f, "beat-repeat 1/4 @120 BPM = 500 ms cell");
+            brs.setSyncDivision(5); // 1/16
+            brs.updateTempo(120.0);
+            check(std::fabs(brs.sliceMs() - 125.0f) < 1.0f, "beat-repeat 1/16 @120 BPM = 125 ms cell");
+        }
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

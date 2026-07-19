@@ -1146,23 +1146,35 @@ class BeatRepeat : public Effect {
 public:
     BeatRepeat() { enabled_ = false; }
     const char* name() const override { return "BeatRepeat"; }
-    // Cell length in milliseconds (10..1000): the musical slice the stutter fills.
-    void setSliceMs(float ms) { sliceMs_ = ms < 10.0f ? 10.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    // Cell length in milliseconds (10..2000): the musical slice the stutter fills. Ignored while
+    // tempo-sync is on (updateTempo() sets it from the chosen note division instead).
+    void setSliceMs(float ms) { sliceMs_ = ms < 10.0f ? 10.0f : (ms > 2000.0f ? 2000.0f : ms); }
     // How many times the captured sub-slice repeats to fill the cell (1..16; 1 = passthrough).
     void setRepeats(int n) { repeats_ = n < 1 ? 1 : (n > 16 ? 16 : n); }
     // Dry/wet blend of the stuttered signal (0 = dry, 1 = fully stuttered).
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Tempo sync: lock the cell length to a note division (reusing the shared modulation division
+    // set — 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) {
+        syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d);
+    }
+    void updateTempo(double bpm);
     float sliceMs() const { return sliceMs_; }
     int repeats() const { return repeats_; }
     float mix() const { return mix_; }
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
 
 private:
-    float sliceMs_ = 125.0f; // cell length (ms)
+    float sliceMs_ = 125.0f; // cell length (ms); overridden by updateTempo() while synced
     int repeats_ = 1;        // sub-slice repeats per cell; 1 = passthrough
     float mix_ = 1.0f;       // dry/wet
+    bool sync_ = false;      // tempo-sync the cell length to syncDiv_
+    int syncDiv_ = 3;        // note division when synced (index into the shared set; 3 = 1/8)
     std::vector<float> sliceL_, sliceR_; // the captured sub-slice (length = cell/repeats)
     int sizedSub_ = 0;       // sub-slice length the buffers are sized for (0 = unsized)
     int cellPos_ = 0;        // position within the current cell [0, sizedSub_ * repeats_)

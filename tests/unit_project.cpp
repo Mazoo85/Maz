@@ -283,6 +283,8 @@ int main() {
     mixer.beatRepeat().setSliceMs(90.0f);
     mixer.beatRepeat().setRepeats(4);
     mixer.beatRepeat().setMix(0.75f);
+    mixer.beatRepeat().setSync(true);
+    mixer.beatRepeat().setSyncDivision(5);
     mixer.autowah().setEnabled(true);
     mixer.autowah().setBaseHz(250.0f);
     mixer.autowah().setRangeHz(2500.0f);
@@ -899,7 +901,8 @@ int main() {
               near(mixer2.octaver().tone(), 5000.0f),
           "octaver round-trips");
     check(mixer2.beatRepeat().enabled() && near(mixer2.beatRepeat().sliceMs(), 90.0f) &&
-              mixer2.beatRepeat().repeats() == 4 && near(mixer2.beatRepeat().mix(), 0.75f),
+              mixer2.beatRepeat().repeats() == 4 && near(mixer2.beatRepeat().mix(), 0.75f) &&
+              mixer2.beatRepeat().sync() && mixer2.beatRepeat().syncDivision() == 5,
           "beat-repeat round-trips");
     check(mixer2.autowah().enabled() && near(mixer2.autowah().baseHz(), 250.0f) &&
               near(mixer2.autowah().rangeHz(), 2500.0f) &&

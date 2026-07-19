@@ -1888,6 +1888,17 @@ void BeatRepeat::reset() {
     std::fill(sliceR_.begin(), sliceR_.end(), 0.0f);
 }
 
+void BeatRepeat::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    // The cell spans one note division: period (ms) = 1000 / (cycles-per-second for that division).
+    const float rate = modSyncRateHz(syncDiv_, bpm);
+    if (rate > 0.0f) {
+        setSliceMs(1000.0f / rate);
+    }
+}
+
 void BeatRepeat::process(float* stereo, int frames, int sampleRate) {
     // repeats_ == 1 is a pure passthrough; disabled skips entirely. Either way, bit-for-bit unchanged.
     if (!enabled_ || repeats_ <= 1 || frames <= 0 || sampleRate <= 0) {
