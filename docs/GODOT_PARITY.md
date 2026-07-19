@@ -1030,6 +1030,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   the result; output that stacks into an existing partial stack counts as room; a zero-quantity input
   demands nothing; recipes with no output id / zero output count are rejected; the book lists craftable
   indices in order and reports -1 when none can be made),
+  **quest / objective tracker** (M482, `game::QuestLog` + `game::Quest` / `game::Objective` — the journal
+  behind "kill 5 goblins", "collect 3 keys", and the "Quest Complete!" banner. A quest is a set of counted
+  objectives (each with a target and progress) that carries a state (Inactive -> Active -> Completed /
+  Failed) and auto-completes when every objective is met. The canonical driver is `advance(objectiveId,
+  amount)`: the game reports an event once and every ACTIVE quest with a matching objective moves forward,
+  returning how many quests finished on that call so the UI can celebrate; `addProgress` targets a single
+  quest, `failQuest` abandons one, and `progress` / `objective` / `activeQuests` / `completedQuests` drive
+  the journal screen. Godot ships no quest system — games hand-roll it every time -> beyond-Godot gameplay
+  utility. Verified: the Inactive -> Active -> Completed lifecycle (dup ids and unknown ids rejected);
+  `advance` fires only on active quests, clamps at the target, completes exactly when the last objective is
+  met, and returns the newly-completed count (with no re-trigger afterward); several active quests sharing
+  an objective id all advance; a multi-objective quest completes only when ALL objectives are met (progress
+  0.5 midway); `addProgress` moves one quest without touching another; `failQuest` freezes progress; an
+  objective-less quest completes on start; the active/completed lists and all unknown-quest queries are
+  safe),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

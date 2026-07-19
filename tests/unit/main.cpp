@@ -126,6 +126,7 @@
 #include "maz/game/Leveling.hpp"
 #include "maz/game/Cooldown.hpp"
 #include "maz/game/Crafting.hpp"
+#include "maz/game/Quest.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20222,6 +20223,109 @@ void testPolynomial() {
     }
 }
 
+void testQuest() {
+    using game::QuestLog;
+    using game::QuestState;
+
+    // add / start lifecycle.
+    {
+        QuestLog log;
+        CHECK(log.addQuest(1, {{5, 3, 0}}) == true);
+        CHECK(log.questCount() == 1);
+        CHECK(log.addQuest(1, {}) == false);
+        CHECK(log.state(1) == QuestState::Inactive && !log.isActive(1));
+        CHECK(log.startQuest(1) == true && log.isActive(1));
+        CHECK(log.startQuest(1) == false);
+        CHECK(log.startQuest(99) == false);
+    }
+    // advance drives objectives; quest completes when met; clamps; no re-trigger.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 3, 0}});
+        log.startQuest(1);
+        CHECK(std::fabs(log.progress(1)) < 1e-4f);
+        CHECK(log.advance(5, 1) == 0 && log.objective(1, 5).current == 1);
+        CHECK(log.advance(5, 1) == 0);
+        CHECK(log.advance(5, 1) == 1 && log.isComplete(1));
+        CHECK(std::fabs(log.progress(1) - 1.0f) < 1e-4f);
+        CHECK(log.advance(5, 1) == 0 && log.objective(1, 5).current == 3);
+    }
+    // advance overshoot clamps; only ACTIVE quests move.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 10, 0}});
+        log.addQuest(2, {{5, 10, 0}});
+        log.startQuest(1);
+        CHECK(log.advance(5, 100) == 1 && log.objective(1, 5).current == 10);
+        CHECK(log.objective(2, 5).current == 0 && log.state(2) == QuestState::Inactive);
+    }
+    // Multiple active quests sharing an objective id both advance.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 2, 0}});
+        log.addQuest(2, {{5, 4, 0}});
+        log.startQuest(1);
+        log.startQuest(2);
+        CHECK(log.advance(5, 2) == 1 && log.isComplete(1) && log.isActive(2));
+        CHECK(log.objective(2, 5).current == 2);
+        CHECK(log.advance(5, 2) == 1 && log.isComplete(2));
+    }
+    // Multi-objective quest completes only when ALL met.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 1, 0}, {6, 2, 0}});
+        log.startQuest(1);
+        CHECK(log.advance(5, 1) == 0);
+        CHECK(std::fabs(log.progress(1) - 0.5f) < 1e-4f && log.isActive(1));
+        CHECK(log.advance(6, 1) == 0);
+        CHECK(log.advance(6, 1) == 1 && log.isComplete(1));
+    }
+    // addProgress targets one quest.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 3, 0}});
+        log.addQuest(2, {{5, 3, 0}});
+        log.startQuest(1);
+        log.startQuest(2);
+        CHECK(log.addProgress(1, 5, 3) == true && log.isComplete(1));
+        CHECK(log.objective(2, 5).current == 0);
+        CHECK(log.addProgress(99, 5, 1) == false);
+    }
+    // failQuest stops progress.
+    {
+        QuestLog log;
+        log.addQuest(1, {{5, 3, 0}});
+        log.startQuest(1);
+        log.advance(5, 1);
+        CHECK(log.failQuest(1) == true && log.isFailed(1));
+        CHECK(log.advance(5, 5) == 0 && log.objective(1, 5).current == 1);
+        CHECK(log.failQuest(1) == false);
+    }
+    // Objective-less quest completes on start; lists; unknown-quest safety.
+    {
+        QuestLog log;
+        log.addQuest(1, {});
+        CHECK(log.startQuest(1) == true && log.isComplete(1));
+        CHECK(std::fabs(log.progress(1) - 1.0f) < 1e-4f);
+
+        QuestLog log2;
+        log2.addQuest(1, {{5, 1, 0}});
+        log2.addQuest(2, {{6, 1, 0}});
+        log2.addQuest(3, {{7, 1, 0}});
+        log2.startQuest(1);
+        log2.startQuest(2);
+        log2.advance(5, 1);
+        const auto active = log2.activeQuests();
+        const auto done = log2.completedQuests();
+        CHECK(active.size() == 1 && active[0] == 2);
+        CHECK(done.size() == 1 && done[0] == 1);
+
+        CHECK(log2.state(42) == QuestState::Inactive);
+        CHECK(std::fabs(log2.progress(42)) < 1e-4f);
+        CHECK(log2.objective(42, 5).id == -1);
+    }
+}
+
 void testCrafting() {
     using game::canCraft;
     using game::craft;
@@ -30693,6 +30797,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testQuest();
     testCrafting();
     testCooldown();
     testLeveling();
