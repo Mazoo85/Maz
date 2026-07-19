@@ -37,6 +37,11 @@ enum class Drum {
     China
 };
 
+// The General-MIDI channel-10 percussion note each drum type maps to, for MIDI export/import. Every
+// type gets a distinct note so a pattern round-trips through a .mid regardless of which drums are on
+// which channels (the old export hard-coded only the first five channels by position).
+int gmNoteForDrum(Drum type);
+
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into
 // the caller's buffer, and the voice goes inactive once its envelope falls to silence. Pure DSP —
 // no SDL, no device — so it is unit-testable on its own and safe to mix many at once.

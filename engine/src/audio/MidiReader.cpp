@@ -12,10 +12,6 @@ namespace maz::audio {
 
 namespace {
 
-// General-MIDI percussion note numbers for the default kit (Kick/Snare/ClosedHat/OpenHat/Clap) —
-// the same mapping writeMidi uses, so a write→read round-trip restores the grid.
-constexpr int kGmDrum[] = {36, 38, 42, 46, 39};
-
 // A cursor over a byte buffer with bounds-checked reads.
 struct Reader {
     const uint8_t* p;
@@ -178,7 +174,6 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
     seq.roll().clear();
     seq.roll2().clear();
     seq.clear();
-    const int drumCount = static_cast<int>(sizeof(kGmDrum) / sizeof(kGmDrum[0]));
     for (const RawNote& rn : notes) {
         const int startStep = (rn.onTick + ticksPerStep / 2) / ticksPerStep;
         int lenSteps = (rn.offTick - rn.onTick + ticksPerStep / 2) / ticksPerStep;
@@ -186,9 +181,11 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             lenSteps = 1;
         }
         if (rn.channel == 9) {
-            // Percussion: map the GM note back to a kit channel and set the step.
-            for (int c = 0; c < drumCount && c < seq.numChannels(); ++c) {
-                if (kGmDrum[c] == rn.pitch && startStep >= 0 && startStep < seq.numSteps()) {
+            // Percussion: map the GM note back to the channel whose drum TYPE emits that note, so a
+            // pattern round-trips whatever kit it uses (matches the type-based export).
+            for (int c = 0; c < seq.numChannels(); ++c) {
+                if (gmNoteForDrum(seq.channelType(c)) == rn.pitch && startStep >= 0 &&
+                    startStep < seq.numSteps()) {
                     seq.setStepVelocity(c, startStep, rn.velocity);
                     break;
                 }

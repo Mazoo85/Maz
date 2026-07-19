@@ -99,6 +99,31 @@ int main() {
     check(in.step(0, 0) && in.step(1, 4), "imported drum hits land on the grid");
     check(!in.step(0, 1), "unset drum steps stay off after import");
 
+    // Drums export by TYPE, not channel position: a reassigned channel emits its drum's GM note and
+    // round-trips when the target kit has that drum.
+    {
+        audio::Sequencer cb;
+        cb.setChannelType(0, audio::Drum::Cowbell);
+        cb.setStep(0, 2, true);
+        const std::string cbPath = "unit_midi_cowbell.mid";
+        check(audio::writeMidi(cbPath, cb, 96, &err), "writeMidi (cowbell kit) succeeds");
+        std::ifstream cf(cbPath, std::ios::binary);
+        std::vector<uint8_t> cbytes((std::istreambuf_iterator<char>(cf)),
+                                    std::istreambuf_iterator<char>());
+        bool gmCowbell = false;
+        for (size_t i = 22; i + 1 < cbytes.size(); ++i) {
+            if (cbytes[i] == 0x99 && cbytes[i + 1] == 56) { // GM cowbell = 56
+                gmCowbell = true;
+            }
+        }
+        check(gmCowbell, "a cowbell channel exports the GM cowbell note (56), not a position default");
+
+        audio::Sequencer cbIn;
+        cbIn.setChannelType(0, audio::Drum::Cowbell);
+        check(audio::readMidi(cbPath, cbIn, &err), "readMidi (cowbell kit) succeeds");
+        check(cbIn.step(0, 2), "the cowbell hit round-trips onto the matching-type channel");
+    }
+
     // A non-MIDI file fails cleanly.
     audio::Sequencer bad;
     check(!audio::readMidi("/nonexistent/missing.mid", bad, &err), "reading a missing file fails");

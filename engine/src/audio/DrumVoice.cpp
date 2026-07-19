@@ -72,6 +72,40 @@ double decayTau(Drum type) {
 }
 } // namespace
 
+int gmNoteForDrum(Drum type) {
+    switch (type) {
+    case Drum::Kick:       return 36; // Bass Drum 1
+    case Drum::Snare:      return 38; // Acoustic Snare
+    case Drum::ClosedHat:  return 42; // Closed Hi-Hat
+    case Drum::OpenHat:    return 46; // Open Hi-Hat
+    case Drum::Clap:       return 39; // Hand Clap
+    case Drum::Tom:        return 45; // Low Tom
+    case Drum::Cowbell:    return 56; // Cowbell
+    case Drum::Rimshot:    return 37; // Side Stick
+    case Drum::Crash:      return 49; // Crash Cymbal 1
+    case Drum::Ride:       return 51; // Ride Cymbal 1
+    case Drum::Shaker:     return 70; // Maracas
+    case Drum::Clave:      return 75; // Claves
+    case Drum::Tambourine: return 54; // Tambourine
+    case Drum::Conga:      return 63; // Open Hi Conga
+    case Drum::Woodblock:  return 76; // Hi Wood Block
+    case Drum::Bongo:      return 60; // Hi Bongo
+    case Drum::Triangle:   return 81; // Open Triangle
+    case Drum::Kick808:    return 35; // Acoustic Bass Drum
+    case Drum::Zap:        return 43; // (repurposed: High Floor Tom slot)
+    case Drum::Riser:      return 47; // (repurposed: Low-Mid Tom slot)
+    case Drum::Snare808:   return 40; // Electric Snare
+    case Drum::Hat808:     return 44; // Pedal Hi-Hat
+    case Drum::Clap808:    return 48; // (repurposed: Hi-Mid Tom slot)
+    case Drum::Snap:       return 50; // (repurposed: High Tom slot)
+    case Drum::Timbale:    return 65; // High Timbale
+    case Drum::Agogo:      return 67; // High Agogo
+    case Drum::Splash:     return 55; // Splash Cymbal
+    case Drum::China:      return 52; // Chinese Cymbal
+    }
+    return 36;
+}
+
 void DrumVoice::trigger(float velocity, float extraSemitones) {
     active_ = true;
     choking_ = false;

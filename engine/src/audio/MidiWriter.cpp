@@ -11,9 +11,6 @@ namespace maz::audio {
 
 namespace {
 
-// General-MIDI percussion note numbers for the default kit (Kick/Snare/ClosedHat/OpenHat/Clap).
-constexpr int kGmDrum[] = {36, 38, 42, 46, 39};
-
 struct MidiEvent {
     int tick;
     int order;   // 0 = note-off, 1 = note-on (offs sort first at the same tick)
@@ -53,7 +50,6 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         ppq = 96;
     }
     const int ticksPerStep = ppq / std::max(seq.stepsPerBeat(), 1);
-    const int drumCount = static_cast<int>(sizeof(kGmDrum) / sizeof(kGmDrum[0]));
 
     std::vector<MidiEvent> events;
 
@@ -75,13 +71,14 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         events.push_back({offTick, 0, 0x81, static_cast<uint8_t>(n.pitch & 0x7F), 0});
     }
 
-    // Drums: the grid as GM percussion on channel 9 (MIDI channel 10).
-    for (int c = 0; c < seq.numChannels() && c < drumCount; ++c) {
+    // Drums: the grid as GM percussion on channel 9 (MIDI channel 10). Each channel maps by its
+    // assigned drum TYPE (not its position), so every drum — and every channel — exports correctly.
+    for (int c = 0; c < seq.numChannels(); ++c) {
+        const uint8_t note = static_cast<uint8_t>(gmNoteForDrum(seq.channelType(c)) & 0x7F);
         for (int s = 0; s < seq.numSteps(); ++s) {
             if (seq.step(c, s)) {
                 const int onTick = s * ticksPerStep;
                 const int offTick = onTick + ticksPerStep / 2;
-                const uint8_t note = static_cast<uint8_t>(kGmDrum[c] & 0x7F);
                 events.push_back({onTick, 1, 0x99, note, vel7(seq.stepVelocity(c, s))});
                 events.push_back({offTick, 0, 0x89, note, 0});
             }
