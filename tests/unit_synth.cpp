@@ -149,6 +149,35 @@ int main() {
         check(!dsh.filterLfoSampleHold(), "cutoff LFO sample & hold defaults to off");
     }
 
+    // --- Tremolo (amp LFO) sample & hold ------------------------------------
+    {
+        // RMS of a 0.2 s window at `startSec` of a 2 s render.
+        auto winRms = [&](bool sampleHold, double startSec) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f);
+            s.setAmpLfo(1.0f, 0.9f); // 1 Hz (one cycle/second), deep depth so the level moves a lot
+            s.setAmpLfoSampleHold(sampleHold);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate * 2, sampleRate);
+            const int a = static_cast<int>(startSec * sampleRate);
+            const int b = a + sampleRate / 5;
+            double e = 0.0;
+            for (int i = a; i < b; ++i)
+                e += static_cast<double>(out[static_cast<size_t>(i)]) * out[static_cast<size_t>(i)];
+            return std::sqrt(e / (sampleRate / 5));
+        };
+        // Two windows inside the SAME first cycle (0..1 s): sample & hold parks the tremolo level for
+        // the whole cycle (~equal RMS), while a sine tremolo sweeps across it (differing RMS).
+        const double shA = winRms(true, 0.2), shB = winRms(true, 0.7);
+        const double snA = winRms(false, 0.2), snB = winRms(false, 0.7);
+        check(std::fabs(shA - shB) < std::fabs(snA - snB) * 0.5,
+              "sample & hold parks the tremolo level within a cycle (flatter than a swept sine)");
+        audio::SynthInstrument dta;
+        check(!dta.ampLfoSampleHold(), "tremolo sample & hold defaults to off");
+    }
+
     // --- Filter slope (12 vs 24 dB/oct) -------------------------------------
     {
         auto slopeBright = [&](int slope) {

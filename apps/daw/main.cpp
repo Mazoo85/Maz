@@ -1247,6 +1247,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::Combo("Trem shape##al", &alShape, alShapes, 6))
         syn.setAmpLfoShape(static_cast<audio::Waveform>(alShape));
+    ImGui::SameLine();
+    bool alSH = syn.ampLfoSampleHold();
+    if (ImGui::Checkbox("S&H##al", &alSH)) syn.setAmpLfoSampleHold(alSH); // random stepped tremolo
 
     ImGui::SeparatorText("Sampler");
     bool useSampler = seq.useSampler();

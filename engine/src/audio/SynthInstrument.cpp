@@ -566,9 +566,12 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
             // Amplitude LFO (tremolo): a level dip that swings between full and (1 − depth).
             float ampMod = 1.0f;
             if (ampLfoDepth_ > 0.0f) {
-                double ap = ampLfoPhase_ + static_cast<double>(i) * ampLfoInc;
-                ap -= std::floor(ap); // wrap into [0,1) for the (non-sine) shapes
-                const float lfoU = 0.5f + 0.5f * waveSample(ampLfoShape_, ap); // unipolar [0,1]
+                const double ap = ampLfoPhase_ + static_cast<double>(i) * ampLfoInc;
+                // Sample & hold jumps to a new random level each cycle (random tremolo/gate); else the
+                // periodic shape. Unipolar [0,1].
+                const float lfoU = ampLfoSampleHold_
+                                       ? 0.5f + 0.5f * sampleHoldValue(ap)
+                                       : 0.5f + 0.5f * waveSample(ampLfoShape_, ap - std::floor(ap));
                 ampMod = 1.0f - ampLfoDepth_ * lfoU;
             }
             out[i] += osc * v.env * velAmp * gain_ * ampMod;

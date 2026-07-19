@@ -176,6 +176,11 @@ public:
     // Saw (rhythmic fade), Triangle, or Trapezoid. Reuses the oscillator waveforms; defaults to Sine.
     void setAmpLfoShape(Waveform w) { ampLfoShape_ = w; }
     Waveform ampLfoShape() const { return ampLfoShape_; }
+    // Tremolo-LFO sample & hold: instead of the periodic shape, drop the level to a new random value
+    // each LFO cycle and hold it — a random stepped tremolo / glitchy trance-gate. Deterministic (a
+    // hash of the cycle index). Off (default) = the periodic shape above.
+    void setAmpLfoSampleHold(bool on) { ampLfoSampleHold_ = on; }
+    bool ampLfoSampleHold() const { return ampLfoSampleHold_; }
     // Tempo-sync the tremolo LFO: lock its rate to the transport at the chosen note division (the
     // same 6 divisions as the cutoff LFO / effects) for a rhythmic synth trance-gate. updateTempo()
     // applies it each block; off (default) = the free-running rate above.
@@ -523,6 +528,7 @@ private:
     float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
     float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
     Waveform ampLfoShape_ = Waveform::Sine; // tremolo LFO waveform
+    bool ampLfoSampleHold_ = false;         // tremolo LFO random stepped (sample & hold) mode
     double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)
     Waveform subWave_ = Waveform::Sine;
     int subOctave_ = 1;         // octaves the sub sits below the note (1 or 2)
