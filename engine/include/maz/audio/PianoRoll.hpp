@@ -164,6 +164,13 @@ public:
     // pieces < 2 is a no-op. Returns the number of notes that were chopped.
     int chop(int pieces);
 
+    // Echo: append `repeats` decaying copies of every note, each `stepGap` steps later than the last
+    // and with its velocity scaled by `decay` (0..1) per repeat — bakes a rhythmic delay/echo into
+    // printed notes (distinct from chop, which subdivides one note). `repeats` < 1 or `stepGap` < 1 is
+    // a no-op; echoes are added only for the original notes, not the new copies. Returns the number of
+    // echo notes created.
+    int echo(int repeats, int stepGap, float decay);
+
     // Velocity ramp: set a linear velocity gradient across the phrase in time — the first-starting
     // note gets `fromVel`, the last-starting note `toVel`, everything in between interpolated by its
     // start position (so a crescendo `0.2 → 1.0` swells over the bar, or the reverse fades out). Notes

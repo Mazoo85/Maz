@@ -745,6 +745,22 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.chop(chopPieces);
     }
     ImGui::SameLine();
+    static int echoReps = 3;
+    static int echoGap = 4;
+    static float echoDecay = 0.6f;
+    ImGui::SetNextItemWidth(40.0f);
+    ImGui::InputInt("##echoreps", &echoReps, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(40.0f);
+    ImGui::InputInt("##echogap", &echoGap, 0, 0);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::SliderFloat("##echodecay", &echoDecay, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Echo")) {
+        roll.echo(echoReps, echoGap, echoDecay);
+    }
+    ImGui::SameLine();
     static int arpLen = 2;
     static int arpBakeMode = 0;
     ImGui::SetNextItemWidth(50.0f);

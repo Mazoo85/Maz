@@ -1813,6 +1813,34 @@ int main() {
         check(np.chop(1) == 0 && np.notes().size() == 1, "chop with <2 pieces is a no-op");
     }
 
+    // --- PianoRoll echo (rhythmic delay baked into notes) --------------------
+    {
+        audio::PianoRoll er;
+        er.addNote(audio::Note{0, 2, 60, 0.8f});
+        const int created = er.echo(3, 4, 0.5f);
+        check(created == 3 && er.notes().size() == 4, "echo appends the requested repeats");
+        // The three echoes land 4/8/12 steps after the source with halving velocity.
+        bool ok = true;
+        float prevVel = 0.8f;
+        for (int r = 1; r <= 3; ++r) {
+            bool found = false;
+            for (const audio::Note& n : er.notes()) {
+                if (n.startStep == r * 4 && n.pitch == 60 && n.lengthSteps == 2) {
+                    found = true;
+                    if (n.velocity > prevVel - 1e-6f) ok = false; // each echo quieter than the last
+                    prevVel = n.velocity;
+                }
+            }
+            if (!found) ok = false;
+        }
+        check(ok, "echoes are spaced by stepGap with decaying velocity");
+        // No-ops.
+        audio::PianoRoll e0;
+        e0.addNote(audio::Note{0, 2, 60, 0.8f});
+        check(e0.echo(0, 4, 0.5f) == 0 && e0.notes().size() == 1, "echo with <1 repeat is a no-op");
+        check(e0.echo(2, 0, 0.5f) == 0 && e0.notes().size() == 1, "echo with <1 stepGap is a no-op");
+    }
+
     // --- Arpeggiate (bake a chord into notes) --------------------------------
     {
         // A C-E-G triad (60/64/67) lasting 8 steps, arpeggiated up at length 2 → 60,64,67,60 at

@@ -573,6 +573,27 @@ int PianoRoll::chop(int pieces) {
     return chopped;
 }
 
+int PianoRoll::echo(int repeats, int stepGap, float decay) {
+    if (repeats < 1 || stepGap < 1) {
+        return 0;
+    }
+    const float d = decay < 0.0f ? 0.0f : (decay > 1.0f ? 1.0f : decay);
+    const std::vector<Note> src = notes_; // snapshot so the echoes are not themselves echoed
+    int created = 0;
+    for (const Note& n : src) {
+        float vel = n.velocity;
+        for (int r = 1; r <= repeats; ++r) {
+            vel *= d;
+            Note e = n;
+            e.startStep = n.startStep + r * stepGap;
+            e.velocity = vel < 0.0f ? 0.0f : (vel > 1.0f ? 1.0f : vel);
+            notes_.push_back(e);
+            ++created;
+        }
+    }
+    return created;
+}
+
 int PianoRoll::velocityRamp(float fromVel, float toVel) {
     if (notes_.empty()) {
         return 0;
