@@ -14320,6 +14320,38 @@ void testGeometry2DPolygon() {
         CHECK(math::decomposePolygonInConvex({{0, 0}, {1, 1}}).empty());
     }
 
+    // M385: offsetPolygonConvex (Godot Geometry2D.offset_polygon, convex mitre case).
+    {
+        auto ccwConvex = [](const std::vector<math::vec2>& p) {
+            const std::size_t n = p.size();
+            for (std::size_t i = 0; i < n; ++i) {
+                const math::vec2& a = p[i];
+                const math::vec2& b = p[(i + 1) % n];
+                const math::vec2& c = p[(i + 2) % n];
+                if ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) < -1e-4f) return false;
+            }
+            return true;
+        };
+        // Square side 2 (area 4): +1 -> side 4 (area 16); -0.5 -> side 1 (area 1); 0 -> unchanged.
+        const std::vector<math::vec2> box = {{0, 0}, {2, 0}, {2, 2}, {0, 2}};
+        auto grown = math::offsetPolygonConvex(box, 1.0f);
+        CHECK(grown.size() == 4 && ccwConvex(grown));
+        CHECK_NEAR(std::fabs(math::polygonArea(grown)), 16.0f, 1e-3f);
+        CHECK_NEAR(std::fabs(math::polygonArea(math::offsetPolygonConvex(box, -0.5f))), 1.0f, 1e-3f);
+        CHECK_NEAR(std::fabs(math::polygonArea(math::offsetPolygonConvex(box, 0.0f))), 4.0f, 1e-3f);
+        // Clockwise input is normalised to a CCW convex result.
+        auto cwGrown = math::offsetPolygonConvex({{0, 0}, {0, 2}, {2, 2}, {2, 0}}, 1.0f);
+        CHECK(ccwConvex(cwGrown));
+        CHECK_NEAR(std::fabs(math::polygonArea(cwGrown)), 16.0f, 1e-3f);
+        // Triangle grows and stays convex.
+        std::vector<math::vec2> tri = {{0, 0}, {4, 0}, {0, 3}};
+        auto tg = math::offsetPolygonConvex(tri, 0.5f);
+        CHECK(tg.size() == 3 && ccwConvex(tg));
+        CHECK(std::fabs(math::polygonArea(tg)) > std::fabs(math::polygonArea(tri)));
+        // <3 vertices returned unchanged.
+        CHECK(math::offsetPolygonConvex({{0, 0}, {1, 1}}, 1.0f).size() == 2);
+    }
+
     // Convex polygon clipping (M296): Sutherland–Hodgman against a CCW clip region.
     {
         const std::vector<math::vec2> clip = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};

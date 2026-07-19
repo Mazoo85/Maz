@@ -455,6 +455,51 @@ inline std::vector<vec2> clipPolygonConvex(const std::vector<vec2>& subject,
     return output;
 }
 
+// Offset (inflate for delta > 0, deflate for delta < 0) a CONVEX polygon by `delta` with MITRE joins —
+// the convex case of Godot's Geometry2D.offset_polygon. Each edge is pushed out along its outward
+// normal and consecutive offset edges are re-intersected at the corners; the result is returned
+// counter-clockwise. Use for collision margins, selection outlines and grow/shrink of convex hulls.
+// General (concave, multi-contour, round/square joins) Clipper offsetting remains out of scope; a
+// large negative delta that collapses the polygon yields a degenerate result. < 3 vertices -> input.
+inline std::vector<vec2> offsetPolygonConvex(const std::vector<vec2>& polyIn, float delta) {
+    const std::size_t n = polyIn.size();
+    if (n < 3) {
+        return polyIn;
+    }
+    // Normalise to counter-clockwise so the outward normal (edgeDir rotated -90°) points away.
+    std::vector<vec2> poly = polyIn;
+    {
+        float area2 = 0.0f;
+        for (std::size_t i = 0; i < n; ++i) {
+            const vec2& p = poly[i];
+            const vec2& q = poly[(i + 1) % n];
+            area2 += p.x * q.y - q.x * p.y;
+        }
+        if (area2 < 0.0f) {
+            std::reverse(poly.begin(), poly.end());
+        }
+    }
+    // Per-edge outward unit normal: for CCW winding the outward direction of edge e is (e.y, -e.x).
+    std::vector<vec2> normal(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const vec2 e = poly[(i + 1) % n] - poly[i];
+        const vec2 nrm(e.y, -e.x);
+        const float len = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y);
+        normal[i] = len > 1e-12f ? vec2(nrm.x / len, nrm.y / len) : vec2(0.0f, 0.0f);
+    }
+    std::vector<vec2> out(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::size_t prev = (i + n - 1) % n; // edge prev->i
+        const vec2 aFrom = poly[prev] + normal[prev] * delta;
+        const vec2 aDir = poly[i] - poly[prev];
+        const vec2 bFrom = poly[i] + normal[i] * delta;
+        const vec2 bDir = poly[(i + 1) % n] - poly[i];
+        const std::optional<vec2> hit = lineIntersectsLine(aFrom, aDir, bFrom, bDir);
+        out[i] = hit ? *hit : (poly[i] + normal[i] * delta); // parallel (straight vertex): just shift
+    }
+    return out;
+}
+
 // Clip a segment [a,b] to the axis-aligned rectangle [rmin, rmax] (Liang–Barsky). Returns the clipped
 // sub-segment, or nullopt when the segment lies entirely outside the rect. The portion inside the
 // rectangle is what's kept — the standard viewport/bounds clip for lines, laser sights and debug rays.
