@@ -197,6 +197,24 @@ int PianoRoll::quantize(int division) {
     return moved;
 }
 
+int PianoRoll::quantizeLengths(int division) {
+    if (division < 2) {
+        return 0; // 1 (or less) → already on the grid
+    }
+    int changed = 0;
+    for (Note& n : notes_) {
+        int snapped = ((n.lengthSteps + division / 2) / division) * division;
+        if (snapped < division) {
+            snapped = division; // never collapse a note to zero length
+        }
+        if (snapped != n.lengthSteps) {
+            n.lengthSteps = snapped;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 int PianoRoll::quantizeStrength(int division, float strength) {
     if (division < 2) {
         return 0;

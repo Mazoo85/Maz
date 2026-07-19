@@ -677,6 +677,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.quantizeStrength(quantDiv, quantStrength);
     }
     ImGui::SameLine();
+    if (ImGui::Button("Q.Len")) {
+        roll.quantizeLengths(quantDiv);
+    }
+    ImGui::SameLine();
     static int scaleRoot = 60; // C
     static int scaleType = 0;
     ImGui::SetNextItemWidth(60.0f);

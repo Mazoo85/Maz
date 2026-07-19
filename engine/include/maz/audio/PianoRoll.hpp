@@ -96,6 +96,12 @@ public:
     // quantize). Returns the number of notes moved.
     int quantizeStrength(int division, float strength);
 
+    // Quantize durations: snap every note's length to the nearest multiple of `division` steps,
+    // clamped to at least one division so notes never collapse to zero (1 = no-op). Distinct from
+    // quantize(), which snaps note starts — this tidies note lengths to the grid. Returns the number
+    // of notes whose length changed.
+    int quantizeLengths(int division);
+
     // Scale-snap: move every off-scale note to the nearest pitch that belongs to `scale` rooted at
     // pitch class `rootPitch` (only the root's pitch class matters, any octave). On a tie the note
     // snaps down. Notes already in the scale are untouched. Returns the number of notes moved.

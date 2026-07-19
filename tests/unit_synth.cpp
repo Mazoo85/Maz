@@ -1656,6 +1656,21 @@ int main() {
         check(qr.quantize(1) == 0, "quantize to 1 is a no-op");
     }
 
+    // Quantize durations: snap note lengths to the nearest division, never below one division.
+    {
+        audio::PianoRoll ql;
+        ql.addNote(audio::Note{0, 3, 60, 1.0f});  // 3 → nearest 4 = 4
+        ql.addNote(audio::Note{0, 5, 62, 1.0f});  // 5 → nearest 4 = 4
+        ql.addNote(audio::Note{0, 8, 64, 1.0f});  // 8 → on grid, unchanged
+        ql.addNote(audio::Note{0, 1, 66, 1.0f});  // 1 → clamps up to the division (4), not 0
+        const int changed = ql.quantizeLengths(4);
+        check(changed == 3, "quantizeLengths changes only the off-grid lengths");
+        check(ql.notes()[0].lengthSteps == 4 && ql.notes()[1].lengthSteps == 4 &&
+                  ql.notes()[2].lengthSteps == 8 && ql.notes()[3].lengthSteps == 4,
+              "quantizeLengths snaps durations to the grid, min one division");
+        check(ql.quantizeLengths(1) == 0, "quantizeLengths to 1 is a no-op");
+    }
+
     // Partial quantize: strength moves notes only part of the way to the grid.
     {
         audio::PianoRoll pq;
