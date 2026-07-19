@@ -273,7 +273,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sampler().filterEnvAttack() << " " << seq.sampler().filterEnvDecay() << " "
       << seq.sampler().filterEnvSustain() << " " << seq.sampler().filterEnvRelease() << " "
       << seq.sampler().filterEnvDepth() << " " << seq.sampler().pitchEnvDepth() << " "
-      << seq.sampler().pitchEnvTime() << "\n";
+      << seq.sampler().pitchEnvTime() << " " << seq.sampler().filterVelo() << "\n";
     f << "sampler " << (seq.useSampler() ? 1 : 0) << " " << seq.sampler().basePitch() << " "
       << seq.sampler().gain() << " " << seq.sampler().path() << "\n";
 
@@ -627,6 +627,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float pedep = 0.0f, petime = 0.05f; // pitch env optional (older files omit it → off)
             if (ls >> pedep >> petime) {
                 seq.sampler().setPitchEnv(pedep, petime);
+            }
+            float fvelo = 0.0f; // velocity → cutoff optional (older files omit it → off)
+            if (ls >> fvelo) {
+                seq.sampler().setFilterVelo(fvelo);
             }
         } else if (tag == "chan") {
             int c = -1;

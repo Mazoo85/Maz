@@ -8,6 +8,7 @@
 #include "maz/audio/WavWriter.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <vector>
 
@@ -123,6 +124,48 @@ int main() {
         pc.setPitchEnv(100.0f, 10.0f);
         check(std::fabs(pc.pitchEnvDepth() - 36.0f) < 1e-6f, "pitch-env depth clamps to 36 st");
         check(std::fabs(pc.pitchEnvTime() - 2.0f) < 1e-6f, "pitch-env time clamps to 2 s");
+    }
+
+    // Velocity → filter cutoff: harder hits open the low-pass (brighter), amplitude-independent.
+    {
+        // A broadband (white-noise) sample so the filter's brightness change is measurable.
+        std::vector<float> noise(static_cast<size_t>(sr));
+        uint32_t rng = 0x1234567u;
+        for (int i = 0; i < sr; ++i) {
+            rng ^= rng << 13;
+            rng ^= rng >> 17;
+            rng ^= rng << 5;
+            noise[static_cast<size_t>(i)] = static_cast<float>(rng) / 2147483648.0f - 1.0f;
+        }
+        // Brightness = HF (first-difference) energy / total energy — invariant to loudness.
+        auto brightness = [&](float velo, float vel) {
+            audio::Sampler s;
+            s.setSampleMono(noise, sr);
+            s.setBasePitch(60);
+            s.setFilter(700.0f, 0.7f); // a low base cutoff so velocity has room to open it
+            s.setFilterVelo(velo);
+            s.noteOn(60, vel);
+            const std::vector<float> out = renderMono(s, sr / 10, sr);
+            double hf = 0.0, en = 0.0;
+            for (size_t i = 0; i < out.size(); ++i) {
+                if (i > 0) {
+                    const double d = static_cast<double>(out[i]) - static_cast<double>(out[i - 1]);
+                    hf += d * d;
+                }
+                en += static_cast<double>(out[i]) * static_cast<double>(out[i]);
+            }
+            return en > 0.0 ? hf / en : 0.0;
+        };
+        audio::Sampler defs;
+        check(defs.filterVelo() == 0.0f, "sampler velocity→cutoff defaults to off");
+        // With the mod on, a hard hit is brighter than a soft one.
+        check(brightness(9000.0f, 1.0f) > brightness(9000.0f, 0.3f) * 1.2,
+              "velocity opens the sampler filter (harder = brighter)");
+        // With the mod off, brightness is the same regardless of velocity (loudness cancels out).
+        const double offSoft = brightness(0.0f, 0.3f);
+        const double offHard = brightness(0.0f, 1.0f);
+        check(std::fabs(offHard - offSoft) < offSoft * 0.15,
+              "with velocity→cutoff off, brightness is velocity-independent");
     }
 
     // Reverse playback: a ramp sample read backwards starts near the end value and descends.

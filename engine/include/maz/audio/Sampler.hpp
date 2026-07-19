@@ -118,6 +118,12 @@ public:
     void setFilterEnvDepth(float hz) {
         filterEnvDepth_ = hz < -18000.0f ? -18000.0f : (hz > 18000.0f ? 18000.0f : hz);
     }
+    // Velocity → filter cutoff (Hz added at full velocity): harder hits open the filter for dynamic,
+    // touch-sensitive brightness. 0 (default) = off (velocity affects only loudness).
+    void setFilterVelo(float hz) {
+        filterVelo_ = hz < 0.0f ? 0.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    float filterVelo() const { return filterVelo_; }
     float filterEnvAttack() const { return fEnvA_; }
     float filterEnvDecay() const { return fEnvD_; }
     float filterEnvSustain() const { return fEnvS_; }
@@ -182,6 +188,7 @@ private:
     float filterReso_ = 0.7f;       // playback low-pass resonance
     float fEnvA_ = 0.005f, fEnvD_ = 0.1f, fEnvS_ = 0.0f, fEnvR_ = 0.1f; // filter-envelope ADSR
     float filterEnvDepth_ = 0.0f;   // filter-envelope depth in Hz (±); 0 = off
+    float filterVelo_ = 0.0f;       // velocity → cutoff amount in Hz; 0 = off
     float pitchEnvDepth_ = 0.0f;    // pitch-envelope depth in semitones (±); 0 = off
     float pitchEnvTime_ = 0.05f;    // pitch-envelope slide time in seconds
     float attack_ = 0.001f;  // seconds

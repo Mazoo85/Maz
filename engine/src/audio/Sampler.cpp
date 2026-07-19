@@ -194,6 +194,7 @@ void Sampler::render(float* out, int frames, int sampleRate) {
     const float releaseStep = 1.0f / (release_ * static_cast<float>(sampleRate));
     // Filter-envelope per-sample increments (only used when the envelope has a non-zero depth).
     const bool useFilterEnv = filterEnvDepth_ != 0.0f;
+    const bool useFilterVelo = filterVelo_ != 0.0f;
     // Pitch envelope: a linear slide of the initial pitch offset back to the true pitch.
     const bool usePitchEnv = pitchEnvDepth_ != 0.0f;
     const double penvStep = 1.0 / (static_cast<double>(pitchEnvTime_) * static_cast<double>(sampleRate));
@@ -313,10 +314,13 @@ void Sampler::render(float* out, int frames, int sampleRate) {
             float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
             // Playback low-pass (per voice): shape the sample's tone, with the optional filter
             // envelope sweeping the cutoff. Bypassed only when the base is open and no envelope is set.
-            if (filterCutoff_ < 19000.0f || useFilterEnv) {
+            if (filterCutoff_ < 19000.0f || useFilterEnv || useFilterVelo) {
                 float cutoff = filterCutoff_;
                 if (useFilterEnv) {
                     cutoff += filterEnvDepth_ * v.filtEnv;
+                }
+                if (useFilterVelo) {
+                    cutoff += filterVelo_ * v.velocity; // harder hits open the filter
                 }
                 cutoff = cutoff < 20.0f ? 20.0f : (cutoff > 20000.0f ? 20000.0f : cutoff);
                 s = v.filter.process(s, cutoff, filterReso_, sampleRate,

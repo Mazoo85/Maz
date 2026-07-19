@@ -1179,6 +1179,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     float smpFeDepth = seq.sampler().filterEnvDepth();
     if (ImGui::SliderFloat("F.Env depth##smp", &smpFeDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         seq.sampler().setFilterEnvDepth(smpFeDepth);
+    float smpFVelo = seq.sampler().filterVelo();
+    if (ImGui::SliderFloat("F.Vel->cutoff##smp", &smpFVelo, 0.0f, 12000.0f, "%.0f Hz"))
+        seq.sampler().setFilterVelo(smpFVelo);
     float sfa = seq.sampler().filterEnvAttack(), sfd = seq.sampler().filterEnvDecay();
     float sfs = seq.sampler().filterEnvSustain(), sfr = seq.sampler().filterEnvRelease();
     bool fech = ImGui::SliderFloat("F.Env A##smp", &sfa, 0.0001f, 2.0f, "%.3f");

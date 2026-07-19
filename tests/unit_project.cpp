@@ -125,6 +125,7 @@ int main() {
     seq.sampler().setFilterEnvelope(0.02f, 0.12f, 0.4f, 0.2f);
     seq.sampler().setFilterEnvDepth(-3500.0f);
     seq.sampler().setPitchEnv(9.0f, 0.12f); // pitch envelope
+    seq.sampler().setFilterVelo(5000.0f);   // velocity → cutoff
     seq.setUseSampler(true);
     // Second instrument: a bass note on roll2 + a distinct synth2 patch.
     seq.roll2().addNote(audio::Note{2, 6, 40, 0.85f});
@@ -508,7 +509,8 @@ int main() {
               near(seq2.sampler().filterEnvSustain(), 0.4f) &&
               near(seq2.sampler().filterEnvDecay(), 0.12f) &&
               near(seq2.sampler().pitchEnvDepth(), 9.0f) &&
-              near(seq2.sampler().pitchEnvTime(), 0.12f),
+              near(seq2.sampler().pitchEnvTime(), 0.12f) &&
+              near(seq2.sampler().filterVelo(), 5000.0f),
           "sampler settings round-trip");
 
     // Mixer + effects.
