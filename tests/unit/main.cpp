@@ -13033,6 +13033,17 @@ void testGeometry3D() {
         CHECK_NEAR(proj.y, 5.0f, 1e-5f);
         CHECK_NEAR(proj.x, 2.0f, 1e-5f);
     }
+    // M348: Plane is_equal_approx / is_finite (Godot Plane parity).
+    {
+        const Plane base(vec3(0, 1, 0), 5.0f);
+        CHECK(base.isEqualApprox(Plane(vec3(0, 1, 0), 5.0f + 1e-7f)));
+        CHECK((!base.isEqualApprox(Plane(vec3(0, 1, 0), 5.5f)) &&
+               !base.isEqualApprox(Plane(vec3(1, 0, 0), 5.0f))));
+        CHECK(base.isFinite());
+        CHECK(!Plane(vec3(0, 1, 0), std::numeric_limits<float>::infinity()).isFinite());
+        CHECK(!Plane(vec3(0, std::nanf(""), 0), 5.0f).isFinite());
+    }
+
     // M332: Plane has_point / center / normalized.
     CHECK(pl.hasPoint(vec3(7, 5, -1)));     // on y=5
     CHECK(!pl.hasPoint(vec3(7, 5.1f, -1))); // off it

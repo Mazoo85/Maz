@@ -58,6 +58,13 @@ struct Plane {
         return Plane(normal / len, d / len);
     }
 
+    // Component-wise approximate equality of normal AND offset — Godot's Plane.is_equal_approx.
+    bool isEqualApprox(const Plane& o) const {
+        return maz::math::isEqualApprox(normal, o.normal) && maz::math::isEqualApproxf(d, o.d);
+    }
+    // True when the normal and offset are all finite — Godot's Plane.is_finite.
+    bool isFinite() const { return maz::math::isFinite(normal) && maz::math::isFinitef(d); }
+
     // Closest point on the plane to `p`.
     vec3 project(const vec3& p) const { return p - normal * distanceTo(p); }
 
