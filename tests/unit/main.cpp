@@ -11901,6 +11901,17 @@ void testStringUtils() {
     CHECK((su::uintToBase(10, 2) == "1010" && su::uintToBase(0, 16) == "0"));
     CHECK((su::uintToBase(UINT64_MAX, 16) == "ffffffffffffffff"));
     CHECK((su::uintToBase(UINT64_MAX, 10) == "18446744073709551615"));
+    // M374: casecmpTo / nocasecmpTo — Godot String.casecmp_to / nocasecmp_to (-1/0/1)
+    CHECK((su::casecmpTo("abc", "abc") == 0));
+    CHECK((su::casecmpTo("abc", "abd") == -1 && su::casecmpTo("abd", "abc") == 1));
+    CHECK((su::casecmpTo("ab", "abc") == -1 && su::casecmpTo("abc", "ab") == 1));
+    CHECK((su::casecmpTo("", "") == 0 && su::casecmpTo("", "a") == -1));
+    CHECK((su::casecmpTo("A", "a") == -1));           // 'A'(65) < 'a'(97) — case-sensitive
+    CHECK((su::casecmpTo("Zoo", "aardvark") == -1));  // 'Z'(90) < 'a'(97)
+    CHECK((su::nocasecmpTo("ABC", "abc") == 0));
+    CHECK((su::nocasecmpTo("Zoo", "aardvark") == 1)); // folded 'z' > 'a'
+    CHECK((su::nocasecmpTo("apple", "Apricot") == -1));
+    CHECK((su::nocasecmpTo("Hello", "hello!") == -1));
     // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
     CHECK(su::padDecimals("12.5", 3) == "12.500");
     CHECK(su::padDecimals("12", 2) == "12.00");

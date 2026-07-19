@@ -337,6 +337,40 @@ inline std::string toUpper(std::string s) {
     return s;
 }
 
+// Lexicographic three-way compare — Godot String.casecmp_to. Returns -1 if `a`
+// sorts before `b`, 0 if equal, 1 if after. Compares byte by byte (ASCII-exact;
+// multibyte UTF-8 sorts by its raw bytes, matching a codepoint compare for ASCII);
+// when one string is a prefix of the other, the shorter one sorts first.
+inline int casecmpTo(const std::string& a, const std::string& b) {
+    const std::size_t n = a.size() < b.size() ? a.size() : b.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        const unsigned char ca = static_cast<unsigned char>(a[i]);
+        const unsigned char cb = static_cast<unsigned char>(b[i]);
+        if (ca < cb) return -1;
+        if (ca > cb) return 1;
+    }
+    if (a.size() < b.size()) return -1;
+    if (a.size() > b.size()) return 1;
+    return 0;
+}
+
+// Case-insensitive three-way compare — Godot String.nocasecmp_to. Same rules as
+// casecmpTo but folds ASCII letters to lower case before comparing each byte.
+inline int nocasecmpTo(const std::string& a, const std::string& b) {
+    const std::size_t n = a.size() < b.size() ? a.size() : b.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        const unsigned char ca =
+            static_cast<unsigned char>(std::tolower(static_cast<unsigned char>(a[i])));
+        const unsigned char cb =
+            static_cast<unsigned char>(std::tolower(static_cast<unsigned char>(b[i])));
+        if (ca < cb) return -1;
+        if (ca > cb) return 1;
+    }
+    if (a.size() < b.size()) return -1;
+    if (a.size() > b.size()) return 1;
+    return 0;
+}
+
 // Repeat `s` `n` times (Godot repeat).
 inline std::string repeat(const std::string& s, std::size_t n) {
     std::string out;
