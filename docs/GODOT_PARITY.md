@@ -1182,6 +1182,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **half-precision float (float16) conversion** (M512, `math::halfToFloat` / `floatToHalf` — the 16-bit
+  floating-point format Godot exposes as `Math::half_to_float` / `Math::make_half_float` and leans on for HDR
+  image storage, glTF quantized vertex accessors, and GPU vertex/attribute compression (half the bandwidth of
+  float32). Maz had no way to pack or unpack halves, so any code touching a float16 texture buffer or a
+  half-packed vertex stream had to hand-roll the bit twiddling. `floatToHalf` rounds to nearest, ties to even
+  (the IEEE default and what GPUs do), saturating out-of-range magnitudes to infinity and flushing the tiniest
+  values through the subnormal range to zero; `halfToFloat` is exact for all 65 536 half patterns. Pure integer
+  bit work, unit-tested headlessly. Verified against the reference half encoding produced by Python's `struct`
+  module: the exact bit patterns for ±0, 1, ±2, 0.5, the largest normal (65504), the smallest normal and
+  subnormal, and infinity/NaN all convert correctly; float→half goldens match the reference including a
+  round-to-even tie (1.00048828125 → 0x3c00), overflow → infinity, and 2⁻²⁵ underflow → zero; and an
+  *exhaustive* sweep confirms every one of the 65 024 non-NaN half values survives half→float→half unchanged),
   **DDS (`.dds`) texture decode** (M511, `render::decodeDds` / `loadDds` — unpacks the block-compressed
   DirectDraw Surface textures that games ship by the thousand (DXT1/DXT3/DXT5, a.k.a. BC1/BC2/BC3) into an
   editable RGBA8 `Image`. Godot's Image importer reads DDS; Maz's Ktx2 path keeps blocks *compressed* for a

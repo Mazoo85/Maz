@@ -303,6 +303,7 @@
 #include "maz/math/VectorInt.hpp"
 #include "maz/math/VectorOps.hpp"
 #include "maz/math/Math.hpp"
+#include "maz/math/HalfFloat.hpp"
 #include "maz/math/MathFuncs.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
@@ -381,6 +382,55 @@ void reportFail(const char* expr, const char* file, int line) {
 using namespace maz;
 
 // MathFuncs: Godot @GlobalScope scalar helpers (M295) — wrap/remap/smoothstep/ease/lerp_angle/etc.
+void testHalfFloat() {
+    using maz::math::floatToHalf;
+    using maz::math::halfToFloat;
+    auto fbits = [](float f) { std::uint32_t b; std::memcpy(&b, &f, 4); return b; };
+
+    // halfToFloat exact patterns.
+    CHECK(fbits(halfToFloat(0x0000)) == 0x00000000u);
+    CHECK(fbits(halfToFloat(0x8000)) == 0x80000000u);
+    CHECK(fbits(halfToFloat(0x3c00)) == fbits(1.0f));
+    CHECK(fbits(halfToFloat(0xc000)) == fbits(-2.0f));
+    CHECK(fbits(halfToFloat(0x3800)) == fbits(0.5f));
+    CHECK(fbits(halfToFloat(0x7bff)) == fbits(65504.0f));       // largest normal
+    CHECK(fbits(halfToFloat(0x0400)) == fbits(6.103515625e-05f)); // smallest normal
+    CHECK(fbits(halfToFloat(0x0001)) == fbits(5.9604645e-08f));   // smallest subnormal
+    CHECK(std::isinf(halfToFloat(0x7c00)) && halfToFloat(0x7c00) > 0);
+    CHECK(std::isinf(halfToFloat(0xfc00)) && halfToFloat(0xfc00) < 0);
+    CHECK(std::isnan(halfToFloat(0x7e00)));
+
+    // floatToHalf goldens from python struct '<e' (independent reference).
+    CHECK(floatToHalf(0.0f) == 0x0000);
+    CHECK(floatToHalf(-0.0f) == 0x8000);
+    CHECK(floatToHalf(1.0f) == 0x3c00);
+    CHECK(floatToHalf(-2.0f) == 0xc000);
+    CHECK(floatToHalf(0.5f) == 0x3800);
+    CHECK(floatToHalf(65504.0f) == 0x7bff);
+    CHECK(floatToHalf(6e-8f) == 0x0001);
+    CHECK(floatToHalf(0.3333333f) == 0x3555);
+    CHECK(floatToHalf(1.0009765625f) == 0x3c01);
+    CHECK(floatToHalf(1.00048828125f) == 0x3c00); // exact tie -> rounds to even
+    CHECK(floatToHalf(-1000.5f) == 0xe3d1);
+    CHECK(floatToHalf(3.1415927f) == 0x4248);
+    CHECK(floatToHalf(std::ldexp(1.0f, -25)) == 0x0000); // underflow -> +0
+    CHECK(floatToHalf(std::ldexp(1.0f, -24)) == 0x0001); // smallest subnormal
+    CHECK(floatToHalf(INFINITY) == 0x7c00);
+    CHECK(floatToHalf(-INFINITY) == 0xfc00);
+    CHECK(floatToHalf(65536.0f) == 0x7c00); // overflow -> +inf
+    CHECK(std::isnan(halfToFloat(floatToHalf(NAN))));
+
+    // Exhaustive: every non-NaN half survives half->float->half unchanged (validates both directions).
+    int bad = 0;
+    for (std::uint32_t h = 0; h < 0x10000u; ++h) {
+        const std::uint32_t e = (h >> 10) & 0x1fu, m = h & 0x3ffu;
+        if (e == 0x1fu && m != 0) continue;
+        const float f = halfToFloat(static_cast<std::uint16_t>(h));
+        if (floatToHalf(f) != static_cast<std::uint16_t>(h)) ++bad;
+    }
+    CHECK(bad == 0);
+}
+
 void testMathFuncs() {
     using namespace maz::math;
     CHECK_NEAR(degToRad(180.0f), kPi, 1e-4f);
@@ -32757,6 +32807,7 @@ void testSceneStack() {
 int main() {
     std::printf("maz unit tests\n");
     testMath();
+    testHalfFloat();
     testMathFuncs();
     testCurve2D();
     testCurve3D();
