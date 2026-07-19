@@ -18,7 +18,9 @@ enum class Drum {
     Crash,
     Ride,
     Shaker,
-    Clave
+    Clave,
+    Tambourine,
+    Conga
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into

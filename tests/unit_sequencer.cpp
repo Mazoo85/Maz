@@ -193,6 +193,27 @@ int main() {
         std::vector<float> stail(static_cast<size_t>(sampleRate) / 2, 0.0f); // 0.5 s
         shaker.render(stail.data(), static_cast<int>(stail.size()), sampleRate);
         check(!shaker.active(), "shaker decays to inactive");
+
+        // Tambourine: bright jingling noise, produces sound and decays.
+        audio::DrumVoice tamb;
+        tamb.setType(audio::Drum::Tambourine);
+        tamb.trigger();
+        std::vector<float> tbuf(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        tamb.render(tbuf.data(), static_cast<int>(tbuf.size()), sampleRate);
+        check(rms(tbuf) > 0.0, "tambourine produces sound");
+        std::vector<float> ttail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        tamb.render(ttail.data(), static_cast<int>(ttail.size()), sampleRate);
+        check(!tamb.active(), "tambourine decays to inactive");
+
+        // Conga: a tuned hand drum → a mid-range tonal pitch (~220–450 Hz over its sweep).
+        audio::DrumVoice conga;
+        conga.setType(audio::Drum::Conga);
+        conga.trigger();
+        std::vector<float> gbuf(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        conga.render(gbuf.data(), static_cast<int>(gbuf.size()), sampleRate);
+        check(rms(gbuf) > 0.0, "conga produces sound");
+        const double gHz = freqOf(gbuf, sampleRate);
+        check(gHz > 150.0 && gHz < 550.0, "conga rings at a mid tuned-drum pitch");
     }
 
     // --- Sequencer grid ------------------------------------------------------

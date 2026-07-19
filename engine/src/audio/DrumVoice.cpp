@@ -35,6 +35,10 @@ double decayTau(Drum type) {
         return 0.08;
     case Drum::Clave:
         return 0.025;
+    case Drum::Tambourine:
+        return 0.12;
+    case Drum::Conga:
+        return 0.14;
     }
     return 0.1;
 }
@@ -161,6 +165,21 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
         case Drum::Clave: {
             // A short, bright wooden "tock": a pure high sine (~2500 Hz) with a very fast decay.
             s = static_cast<float>(std::sin(kTwoPi * 2500.0 * pitchMul * t_) * env);
+            break;
+        }
+        case Drum::Tambourine: {
+            // Bright jingling noise with a couple of high metallic partials for shimmer, medium decay.
+            const double jingle = std::sin(kTwoPi * 8000.0 * pitchMul * t_) +
+                                  std::sin(kTwoPi * 11000.0 * pitchMul * t_);
+            s = static_cast<float>((0.7 * static_cast<double>(noise()) + 0.15 * jingle) * env);
+            break;
+        }
+        case Drum::Conga: {
+            // A tuned hand drum: a sine with a fast downward pitch sweep (~420 → 220 Hz), tighter and
+            // higher than the tom.
+            const double freq = (220.0 + 200.0 * std::exp(-t_ / 0.04)) * pitchMul;
+            s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
+            phase_ += freq * dt;
             break;
         }
         }
