@@ -325,6 +325,7 @@
 #include "maz/render/ObjLoader.hpp"
 #include "maz/render/ColladaLoader.hpp"
 #include "maz/render/PlyLoader.hpp"
+#include "maz/render/StlLoader.hpp"
 #include "maz/render/Occlusion.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/ReflectionProbe.hpp"
@@ -20829,6 +20830,99 @@ void testInflate() {
     }
 }
 
+void testStlLoader() {
+    using render::parseStl;
+    using render::StlLoadOptions;
+    using render::shapes::MeshData;
+
+    auto feq = [](float a, float b) { return std::fabs(a - b) < 1e-5f; };
+    auto hx = [](const char* h) {
+        std::vector<std::uint8_t> v;
+        auto nib = [](char c) -> int {
+            return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : 0;
+        };
+        for (std::size_t i = 0; h[i] && h[i + 1]; i += 2)
+            v.push_back(static_cast<std::uint8_t>((nib(h[i]) << 4) | nib(h[i + 1])));
+        return v;
+    };
+
+    // Binary STL: two triangles (quad on the XZ plane, normal +Y) from a reference struct-packed buffer.
+    auto bin = hx("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                  "000000000000000000000000000000000000000000000000000000000000000002000000000000000000803f00000000"
+                  "0000000000000000000000000000803f00000000000000000000803f000000000000803f0000000000000000803f0000"
+                  "00000000000000000000000000000000803f000000000000803f00000000000000000000803f0000");
+    {
+        MeshData m;
+        CHECK(parseStl(bin.data(), bin.size(), m));
+        CHECK(m.vertices.size() == 6); // 2 triangles * 3 verts, no vertex sharing
+        CHECK(m.indices.size() == 6);
+        for (std::size_t k = 0; k < 6; ++k) CHECK(m.indices[k] == k);
+        CHECK(feq(m.vertices[0].px, 0) && feq(m.vertices[0].py, 0) && feq(m.vertices[0].pz, 0));
+        CHECK(feq(m.vertices[1].px, 1) && feq(m.vertices[1].pz, 0));
+        CHECK(feq(m.vertices[2].px, 1) && feq(m.vertices[2].pz, 1));
+        for (const auto& v : m.vertices) CHECK(feq(v.nx, 0) && feq(v.ny, 1) && feq(v.nz, 0));
+        for (const auto& v : m.vertices)
+            CHECK(feq(v.r, 1) && feq(v.g, 1) && feq(v.b, 1) && feq(v.u, 0) && feq(v.v, 0));
+    }
+    // Tint option applies.
+    {
+        MeshData m;
+        StlLoadOptions o;
+        o.r = 0.25f;
+        o.g = 0.5f;
+        o.b = 0.75f;
+        CHECK(parseStl(bin, m, o));
+        CHECK(feq(m.vertices[0].r, 0.25f) && feq(m.vertices[0].g, 0.5f) && feq(m.vertices[0].b, 0.75f));
+    }
+    // ASCII STL: single triangle, normal declared +Z.
+    {
+        const char* ascii =
+            "solid tri\n  facet normal 0 0 1\n    outer loop\n"
+            "      vertex 0 0 0\n      vertex 2 0 0\n      vertex 0 3 0\n"
+            "    endloop\n  endfacet\nendsolid tri\n";
+        std::vector<std::uint8_t> buf(reinterpret_cast<const std::uint8_t*>(ascii),
+                                      reinterpret_cast<const std::uint8_t*>(ascii) + std::strlen(ascii));
+        MeshData m;
+        CHECK(parseStl(buf, m));
+        CHECK(m.vertices.size() == 3 && m.indices.size() == 3);
+        CHECK(feq(m.vertices[1].px, 2) && feq(m.vertices[2].py, 3));
+        for (const auto& v : m.vertices) CHECK(feq(v.nx, 0) && feq(v.ny, 0) && feq(v.nz, 1));
+    }
+    // ASCII with a zero normal -> recomputed from the winding (CCW in XY plane -> +Z).
+    {
+        const char* ascii = "solid t\n facet normal 0 0 0\n outer loop\n"
+                            " vertex 0 0 0\n vertex 1 0 0\n vertex 0 1 0\n endloop\n endfacet\n endsolid\n";
+        std::vector<std::uint8_t> buf(reinterpret_cast<const std::uint8_t*>(ascii),
+                                      reinterpret_cast<const std::uint8_t*>(ascii) + std::strlen(ascii));
+        MeshData m;
+        CHECK(parseStl(buf, m));
+        CHECK(m.vertices.size() == 3);
+        CHECK(feq(m.vertices[0].nx, 0) && feq(m.vertices[0].ny, 0) && feq(m.vertices[0].nz, 1));
+    }
+    // recomputeNormals overrides an (incorrect) stored normal.
+    {
+        const char* ascii = "solid t\n facet normal 1 0 0\n outer loop\n"
+                            " vertex 0 0 0\n vertex 1 0 0\n vertex 0 1 0\n endloop\n endfacet\n endsolid\n";
+        std::vector<std::uint8_t> buf(reinterpret_cast<const std::uint8_t*>(ascii),
+                                      reinterpret_cast<const std::uint8_t*>(ascii) + std::strlen(ascii));
+        MeshData m;
+        StlLoadOptions o;
+        o.recomputeNormals = true;
+        CHECK(parseStl(buf, m, o));
+        CHECK(feq(m.vertices[0].nx, 0) && feq(m.vertices[0].ny, 0) && feq(m.vertices[0].nz, 1));
+    }
+    // Malformed / empty rejected.
+    {
+        MeshData m;
+        CHECK(!parseStl(nullptr, 0, m));
+        CHECK(!parseStl(std::vector<std::uint8_t>{}, m));
+        const char* junk = "hello world not an stl";
+        std::vector<std::uint8_t> buf(reinterpret_cast<const std::uint8_t*>(junk),
+                                      reinterpret_cast<const std::uint8_t*>(junk) + std::strlen(junk));
+        CHECK(!parseStl(buf, m)); // no facet keyword
+    }
+}
+
 void testPlyLoader() {
     using render::parsePly;
     using render::PlyLoadOptions;
@@ -32777,6 +32871,7 @@ int main() {
     testFontFallback();
     testPngDecode();
     testInflate();
+    testStlLoader();
     testPlyLoader();
     testColladaLoader();
     testSkillTree();

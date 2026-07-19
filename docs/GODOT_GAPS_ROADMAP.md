@@ -27,7 +27,8 @@ only be written blind, the docs say exactly that.
 ### §4 Import formats — mostly [VERIFIABLE HERE] (pure parsers)
 - [x] **Collada `.dae` mesh import** (`render::parseCollada`) — DONE (M497). [VERIFIABLE HERE]
 - [x] **PLY mesh import** (ASCII + binary) — `render::parsePly` — DONE (M498). [VERIFIABLE HERE]
-- [ ] **STL mesh import** (ASCII + binary) — `render::parseStl`. [VERIFIABLE HERE]
+- [x] **STL mesh import** (ASCII + binary) — `render::parseStl` / `loadStl` — DONE (M509); auto-detects encoding,
+  per-face normals with winding-based fallback. [VERIFIABLE HERE]
 - [x] **TGA image decode** — ALREADY PRESENT (`render::decodeTga`, `ImageCodecTga.hpp`). No work needed.
 - [x] **BMP image decode** — ALREADY PRESENT (`render::decodeBmp`, `ImageCodecBmp.hpp`). No work needed.
 - [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]

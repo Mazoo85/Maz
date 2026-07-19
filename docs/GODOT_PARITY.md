@@ -1182,6 +1182,22 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **STL (`.stl`) mesh import** (M509, `render::parseStl` / `loadStl` — closes another import-format gap versus
+  Godot's asset pipeline. STL is the universal 3D-printing / CAD interchange format (every slicer, SolidWorks,
+  Blender export): a flat triangle soup where each triangle carries a face normal and three corner positions,
+  with no shared vertices, UVs, or materials. The importer reads BOTH encodings — ASCII (`solid` / `facet
+  normal` / `vertex` keywords) and binary (80-byte header + uint32 triangle count + 50-byte records) — and
+  auto-detects which a buffer is via the exact `84 + 50·count == size` identity (more robust than sniffing a
+  leading "solid", which binary headers can also carry). It emits a `shapes::MeshData` — three vertices per
+  triangle, sequential indices — ready for `Renderer::createMesh`. Because STL normals are frequently absent
+  or wrong, a zero-length stored normal (or the `recomputeNormals` option) derives the geometric normal from
+  the winding. Pure CPU byte/string work, unit-tested headlessly; `loadStl` wraps it for files. Honest scope:
+  triangle geometry + per-face normals only — STL stores no texcoords or standard color, so UVs are zero and
+  every vertex takes the fallback tint. Verified against a *reference* struct-packed binary buffer: a two-
+  triangle binary quad decodes to six unshared vertices with sequential indices, exact corner positions, +Y
+  normals, and the tint option overriding the default white; an ASCII triangle reads its declared +Z normal
+  and positions; a zero stored normal is recomputed from the winding to +Z; `recomputeNormals` overrides even
+  a (wrong) stored normal; and non-STL / empty / null input is rejected),
   **Adam7-interlaced PNG decode** (M508, extends `render::decodePng` — closes the "no Adam7 yet" follow-up
   the M500 PNG decoder honestly flagged. Interlaced PNGs (common for progressive web loading) don't store
   pixels row-by-row; they store SEVEN successively-finer passes, each a sparse sub-grid of the image with its
