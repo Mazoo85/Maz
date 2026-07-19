@@ -57,13 +57,22 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
 
     std::vector<MidiEvent> events;
 
-    // Melody: piano-roll notes on channel 0.
+    // Melody (lead): piano-roll notes on channel 0.
     for (const Note& n : seq.roll().notes()) {
         const int onTick = n.startStep * ticksPerStep;
         const int offTick = (n.startStep + n.lengthSteps) * ticksPerStep;
         const uint8_t v = vel7(n.velocity);
         events.push_back({onTick, 1, 0x90, static_cast<uint8_t>(n.pitch & 0x7F), v});
         events.push_back({offTick, 0, 0x80, static_cast<uint8_t>(n.pitch & 0x7F), 0});
+    }
+
+    // Bass: the second piano-roll's notes on channel 1 (previously omitted from the export).
+    for (const Note& n : seq.roll2().notes()) {
+        const int onTick = n.startStep * ticksPerStep;
+        const int offTick = (n.startStep + n.lengthSteps) * ticksPerStep;
+        const uint8_t v = vel7(n.velocity);
+        events.push_back({onTick, 1, 0x91, static_cast<uint8_t>(n.pitch & 0x7F), v});
+        events.push_back({offTick, 0, 0x81, static_cast<uint8_t>(n.pitch & 0x7F), 0});
     }
 
     // Drums: the grid as GM percussion on channel 9 (MIDI channel 10).

@@ -37,6 +37,7 @@ int main() {
     seq.setStep(1, 4, true);  // snare
     seq.roll().addNote(audio::Note{0, 4, 60, 0.9f});
     seq.roll().addNote(audio::Note{8, 4, 67, 0.8f});
+    seq.roll2().addNote(audio::Note{0, 4, 36, 0.9f}); // a bass note — must reach the export too
 
     const std::string path = "unit_midi_out.mid";
     std::string err;
@@ -52,17 +53,22 @@ int main() {
     check(b[12] == 0 && b[13] == 96, "division = 96 ppq");
     check(tagAt(b, 14, "MTrk"), "track chunk follows");
 
-    // At least one note-on (0x90 melody or 0x99 drums) and an end-of-track meta event.
-    bool hasNoteOn = false, hasEot = false;
+    // At least one note-on (0x90 melody or 0x99 drums), a bass note-on on channel 1 (0x91), and an
+    // end-of-track meta event.
+    bool hasNoteOn = false, hasBass = false, hasEot = false;
     for (size_t i = 22; i + 2 < b.size(); ++i) {
         if (b[i] == 0x90 || b[i] == 0x99) {
             hasNoteOn = true;
+        }
+        if (b[i] == 0x91) {
+            hasBass = true;
         }
         if (b[i] == 0xFF && b[i + 1] == 0x2F && b[i + 2] == 0x00) {
             hasEot = true;
         }
     }
     check(hasNoteOn, "contains note-on events");
+    check(hasBass, "the bass piano-roll is exported on MIDI channel 1");
     check(hasEot, "ends with an end-of-track meta event");
 
     // --- Import round-trip: read the file we just wrote back into a fresh sequencer ---------------
@@ -81,6 +87,10 @@ int main() {
         }
     }
     check(gotC && gotG, "imported notes keep pitch, start, and length");
+    // The bass note round-trips onto the bass roll (channel 1), not the lead.
+    const auto& bassNotes = in.roll2().notes();
+    check(bassNotes.size() == 1 && bassNotes[0].pitch == 36 && bassNotes[0].startStep == 0,
+          "the bass note round-trips onto the bass roll");
     // The two drum hits come back on the grid.
     check(in.step(0, 0) && in.step(1, 4), "imported drum hits land on the grid");
     check(!in.step(0, 1), "unset drum steps stay off after import");

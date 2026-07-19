@@ -159,8 +159,10 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
         r.i = trackEnd; // jump to the next chunk regardless of how this track parsed
     }
 
-    // Apply: melodic notes → the lead roll, channel-10 percussion → the grid. Clear both first.
+    // Apply: channel-0 melodic notes → the lead roll, channel-1 → the bass roll, channel-10
+    // percussion → the grid. Clear all three first.
     seq.roll().clear();
+    seq.roll2().clear();
     seq.clear();
     const int drumCount = static_cast<int>(sizeof(kGmDrum) / sizeof(kGmDrum[0]));
     for (const RawNote& rn : notes) {
@@ -183,7 +185,12 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             note.lengthSteps = lenSteps;
             note.pitch = rn.pitch;
             note.velocity = rn.velocity;
-            seq.roll().addNote(note);
+            // Channel 1 → bass roll (symmetric with the writer); every other melodic channel → lead.
+            if (rn.channel == 1) {
+                seq.roll2().addNote(note);
+            } else {
+                seq.roll().addNote(note);
+            }
         }
     }
     return true;
