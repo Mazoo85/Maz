@@ -854,6 +854,30 @@ int main() {
             }
         }
         check(same, "ring-mod at mix 0 is transparent");
+
+        // Carrier waveform: a square carrier carries many harmonics, each mirroring the input into a
+        // fresh sideband pair, so its output is measurably brighter (more first-difference / HF
+        // energy) than the classic sine carrier at the same frequency and mix.
+        auto ringHf = [&](audio::RingMod::Carrier c) {
+            audio::RingMod r;
+            r.setEnabled(true);
+            r.setFreq(200.0f);
+            r.setMix(1.0f);
+            r.setCarrier(c);
+            std::vector<float> b = sineStereo(sr, 300.0, 0.5, sr);
+            r.process(b.data(), sr, sr);
+            double e = 0.0;
+            for (int i = 1; i < sr; ++i) {
+                const double d = static_cast<double>(b[static_cast<size_t>(i) * 2] -
+                                                     b[static_cast<size_t>(i - 1) * 2]);
+                e += d * d;
+            }
+            return e;
+        };
+        check(ringHf(audio::RingMod::Carrier::Square) > ringHf(audio::RingMod::Carrier::Sine) * 1.5,
+              "square-carrier ring mod is brighter than sine (more sidebands)");
+        check(audio::RingMod().carrier() == audio::RingMod::Carrier::Sine,
+              "ring-mod carrier defaults to sine");
     }
 
     // --- Pitch shifter: shifts pitch up/down without changing length ---------

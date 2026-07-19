@@ -129,12 +129,18 @@ private:
 // metallic, inharmonic sidebands (the classic robot/bell timbre). `mix` blends dry/wet.
 class RingMod : public Effect {
 public:
+    // Carrier waveform the input is multiplied by. A sine gives the classic two-sideband ring mod;
+    // the richer shapes inject many more sidebands for a brighter, harsher, more metallic clang.
+    enum class Carrier { Sine, Square, Saw, Triangle };
+
     RingMod() { enabled_ = false; }
     const char* name() const override { return "Ring Mod"; }
     void setFreq(float hz) { freqHz_ = hz < 1.0f ? 1.0f : (hz > 8000.0f ? 8000.0f : hz); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    void setCarrier(Carrier c) { carrier_ = c; }
     float freq() const { return freqHz_; }
     float mix() const { return mix_; }
+    Carrier carrier() const { return carrier_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -142,6 +148,7 @@ public:
 private:
     float freqHz_ = 200.0f;
     float mix_ = 1.0f;
+    Carrier carrier_ = Carrier::Sine; // classic sine carrier by default
     double phase_ = 0.0;
 };
 

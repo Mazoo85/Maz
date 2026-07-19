@@ -464,7 +464,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.tape().warmth() << " " << mixer.tape().mix() << " " << mixer.tape().wowFlutter()
       << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
-      << mixer.ringmod().mix() << "\n";
+      << mixer.ringmod().mix() << " " << static_cast<int>(mixer.ringmod().carrier()) << "\n";
     f << "fx pitch " << (mixer.pitchShifter().enabled() ? 1 : 0) << " "
       << mixer.pitchShifter().semitones() << " " << mixer.pitchShifter().mix() << "\n";
 
@@ -1155,6 +1155,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.ringmod().setEnabled(en != 0);
                 mixer.ringmod().setFreq(freq);
                 mixer.ringmod().setMix(mix);
+                int carrier = 0; // carrier waveform optional for old files (0 = sine)
+                if (ls >> carrier) {
+                    mixer.ringmod().setCarrier(static_cast<RingMod::Carrier>(
+                        carrier < 0 || carrier > 3 ? 0 : carrier));
+                }
             } else if (which == "pitch") {
                 float semis = 0.0f, mix = 1.0f;
                 ls >> semis >> mix;

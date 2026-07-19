@@ -208,7 +208,24 @@ void RingMod::process(float* stereo, int frames, int sampleRate) {
     const double inc = static_cast<double>(freqHz_) / static_cast<double>(sampleRate);
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     for (int i = 0; i < frames; ++i) {
-        const float carrier = static_cast<float>(std::sin(phase_ * kTwoPi));
+        // Carrier waveform: a sine is the classic two-sideband ring mod; the other shapes carry many
+        // harmonics, each of which mirrors the input into a fresh sideband pair for a brighter clang.
+        float carrier;
+        switch (carrier_) {
+        case Carrier::Square:
+            carrier = phase_ < 0.5 ? 1.0f : -1.0f;
+            break;
+        case Carrier::Saw:
+            carrier = static_cast<float>(2.0 * phase_ - 1.0);
+            break;
+        case Carrier::Triangle:
+            carrier = static_cast<float>(4.0 * std::fabs(phase_ - 0.5) - 1.0);
+            break;
+        case Carrier::Sine:
+        default:
+            carrier = static_cast<float>(std::sin(phase_ * kTwoPi));
+            break;
+        }
         stereo[2 * i] = stereo[2 * i] * (1.0f - mix) + stereo[2 * i] * carrier * mix;
         stereo[2 * i + 1] = stereo[2 * i + 1] * (1.0f - mix) + stereo[2 * i + 1] * carrier * mix;
         phase_ += inc;

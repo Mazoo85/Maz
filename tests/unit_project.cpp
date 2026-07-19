@@ -305,6 +305,7 @@ int main() {
     mixer.ringmod().setEnabled(true);
     mixer.ringmod().setFreq(440.0f);
     mixer.ringmod().setMix(0.7f);
+    mixer.ringmod().setCarrier(audio::RingMod::Carrier::Square);
     mixer.pitchShifter().setEnabled(true);
     mixer.pitchShifter().setSemitones(7.0f);
     mixer.pitchShifter().setMix(0.65f);
@@ -744,7 +745,8 @@ int main() {
               near(mixer2.bitcrusher().tone(), 3200.0f),
           "bitcrusher (incl. post tone) round-trips");
     check(mixer2.ringmod().enabled() && near(mixer2.ringmod().freq(), 440.0f) &&
-              near(mixer2.ringmod().mix(), 0.7f),
+              near(mixer2.ringmod().mix(), 0.7f) &&
+              mixer2.ringmod().carrier() == audio::RingMod::Carrier::Square,
           "ring-mod round-trips");
     check(mixer2.pitchShifter().enabled() && near(mixer2.pitchShifter().semitones(), 7.0f) &&
               near(mixer2.pitchShifter().mix(), 0.65f),

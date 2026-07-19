@@ -1551,6 +1551,12 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("mix##ring", &wet, 0.0f, 1.0f, "%.2f")) mx.ringmod().setMix(wet);
+        const char* ringCarriers[] = {"Sine", "Square", "Saw", "Triangle"};
+        int rc = static_cast<int>(mx.ringmod().carrier());
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("carrier##ring", &rc, ringCarriers, IM_ARRAYSIZE(ringCarriers)))
+            mx.ringmod().setCarrier(static_cast<audio::RingMod::Carrier>(rc));
     }
     {
         bool en = mx.pitchShifter().enabled();
