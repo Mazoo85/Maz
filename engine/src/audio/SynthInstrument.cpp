@@ -240,10 +240,13 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     vibOnset = vibOnset < 0.0f ? 0.0f : (vibOnset > 1.0f ? 1.0f : vibOnset);
                 }
                 if (vibOnset > 0.0f) {
-                    double vp = vibPhase_ + static_cast<double>(i) * vibInc;
-                    vp -= std::floor(vp); // wrap into [0,1) for the (non-sine) shapes
+                    const double vp = vibPhase_ + static_cast<double>(i) * vibInc;
+                    // Sample & hold jumps the pitch to a new random offset each cycle (random stepped
+                    // pitch — chiptune/arp character); else the periodic shape.
+                    const float lfo = vibSampleHold_ ? sampleHoldValue(vp)
+                                                     : waveSample(vibShape_, vp - std::floor(vp));
                     vibMul = std::pow(2.0, static_cast<double>(vibDepth_ * vibOnset) *
-                                               static_cast<double>(waveSample(vibShape_, vp)) / 1200.0);
+                                               static_cast<double>(lfo) / 1200.0);
                 }
             }
             v.ageSamples += 1.0;

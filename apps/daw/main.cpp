@@ -1149,6 +1149,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::Combo("Vib shape##vi", &viShape, viShapes, 6))
         syn.setVibratoShape(static_cast<audio::Waveform>(viShape));
+    ImGui::SameLine();
+    bool viSH = syn.vibratoSampleHold();
+    if (ImGui::Checkbox("S&H##vi", &viSH)) syn.setVibratoSampleHold(viSH); // random stepped pitch
     bool viSync = syn.vibratoSync();
     if (ImGui::Checkbox("Vibrato sync", &viSync)) syn.setVibratoSync(viSync);
     ImGui::SameLine();

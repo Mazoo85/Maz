@@ -126,6 +126,11 @@ public:
     // ramp/gliss), Triangle, or Trapezoid. Reuses the oscillator waveforms; defaults to Sine.
     void setVibratoShape(Waveform w) { vibShape_ = w; }
     Waveform vibratoShape() const { return vibShape_; }
+    // Vibrato-LFO sample & hold: instead of the periodic shape, jump the pitch to a new random offset
+    // each LFO cycle and hold it — random stepped pitch (chiptune/arp character). Deterministic (a hash
+    // of the cycle index). Off (default) = the periodic shape above.
+    void setVibratoSampleHold(bool on) { vibSampleHold_ = on; }
+    bool vibratoSampleHold() const { return vibSampleHold_; }
     // Tempo-sync the vibrato (pitch) LFO: lock its rate to the transport at the chosen note division
     // (the same 6 divisions as the cutoff/amp LFOs) for rhythmic pitch warble. updateTempo() applies
     // it each block; off (default) = the free-running rate above.
@@ -489,6 +494,7 @@ private:
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
     Waveform vibShape_ = Waveform::Sine; // vibrato LFO waveform
+    bool vibSampleHold_ = false;         // vibrato LFO random stepped (sample & hold) mode
     float vibDelay_ = 0.0f;     // vibrato onset delay (seconds); 0 = immediate
     float noiseAttackAmt_ = 0.0f;     // noise-attack transient level; 0 = off
     float noiseAttackDecayMs_ = 15.0f; // noise-attack decay time (ms)

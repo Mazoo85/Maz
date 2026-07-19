@@ -183,6 +183,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> alSH) {
         syn.setAmpLfoSampleHold(alSH != 0);
     }
+    int viSH = 0; // vibrato sample & hold optional for old files (0 = periodic shape)
+    if (ls >> viSH) {
+        syn.setVibratoSampleHold(viSH != 0);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -329,7 +333,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << " "
           << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
           << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << " "
-          << (s.ampLfoSampleHold() ? 1 : 0) << "\n";
+          << (s.ampLfoSampleHold() ? 1 : 0) << " " << (s.vibratoSampleHold() ? 1 : 0) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
