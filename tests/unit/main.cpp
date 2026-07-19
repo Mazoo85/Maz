@@ -137,6 +137,7 @@
 #include "maz/game/WaveSpawner.hpp"
 #include "maz/game/JumpAssist.hpp"
 #include "maz/game/ComboMeter.hpp"
+#include "maz/game/DayNightCycle.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20233,6 +20234,66 @@ void testPolynomial() {
     }
 }
 
+void testDayNightCycle() {
+    using game::DayNightCycle;
+    using game::DayPhase;
+
+    // Start at midnight; advance to noon.
+    {
+        DayNightCycle c(100.0, 0.0);
+        CHECK(std::fabs(c.normalized()) < 1e-6 && std::fabs(c.hour()) < 1e-6);
+        CHECK(std::fabs(c.sunElevation() + 1.0) < 1e-6 && !c.isDaytime());
+        CHECK(c.phase() == DayPhase::Night && c.day() == 0);
+        c.update(50.0);
+        CHECK(std::fabs(c.normalized() - 0.5) < 1e-6 && std::fabs(c.hour() - 12.0) < 1e-6);
+        CHECK(std::fabs(c.sunElevation() - 1.0) < 1e-6 && c.isDaytime() && c.phase() == DayPhase::Day);
+    }
+    // Sun elevation at the quarters.
+    {
+        DayNightCycle c(100.0);
+        c.setNormalized(0.25); CHECK(std::fabs(c.sunElevation()) < 1e-6);
+        c.setNormalized(0.5);  CHECK(std::fabs(c.sunElevation() - 1.0) < 1e-6);
+        c.setNormalized(0.75); CHECK(std::fabs(c.sunElevation()) < 1e-6);
+        c.setNormalized(0.0);  CHECK(std::fabs(c.sunElevation() + 1.0) < 1e-6);
+    }
+    // Phase boundaries (dawn .2, day .3, dusk .7, night .8).
+    {
+        DayNightCycle c(100.0);
+        c.setNormalized(0.1);  CHECK(c.phase() == DayPhase::Night);
+        c.setNormalized(0.2);  CHECK(c.phase() == DayPhase::Dawn);
+        c.setNormalized(0.3);  CHECK(c.phase() == DayPhase::Day);
+        c.setNormalized(0.7);  CHECK(c.phase() == DayPhase::Dusk);
+        c.setNormalized(0.8);  CHECK(c.phase() == DayPhase::Night);
+    }
+    // Wrap increments the day counter (single and multi-day jumps).
+    {
+        DayNightCycle c(100.0, 0.9);
+        c.update(20.0);
+        CHECK(c.day() == 1 && std::fabs(c.normalized() - 0.1) < 1e-6);
+        c.update(250.0);
+        CHECK(c.day() == 3 && std::fabs(c.normalized() - 0.6) < 1e-6);
+    }
+    // setHour / setDay; custom thresholds; safety.
+    {
+        DayNightCycle c(100.0);
+        c.setHour(18.0);
+        CHECK(std::fabs(c.normalized() - 0.75) < 1e-6 && std::fabs(c.sunElevation()) < 1e-6);
+        c.setHour(30.0);
+        CHECK(std::fabs(c.hour() - 6.0) < 1e-6);
+        c.setDay(42);
+        CHECK(c.day() == 42);
+        c.setPhaseThresholds(0.1, 0.15, 0.85, 0.9);
+        c.setNormalized(0.12); CHECK(c.phase() == DayPhase::Dawn);
+        c.setNormalized(0.87); CHECK(c.phase() == DayPhase::Dusk);
+        DayNightCycle d(100.0, 0.3);
+        d.update(0.0);
+        d.update(-5.0);
+        CHECK(std::fabs(d.normalized() - 0.3) < 1e-6);
+        DayNightCycle z(0.0);
+        CHECK(std::fabs(z.dayLength() - 1.0) < 1e-6);
+    }
+}
+
 void testComboMeter() {
     using game::ComboMeter;
 
@@ -31602,6 +31663,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testDayNightCycle();
     testComboMeter();
     testJumpAssist();
     testWaveSpawner();

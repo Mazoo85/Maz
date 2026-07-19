@@ -1171,6 +1171,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   several chains; `scoreFor` scales and rounds (101 at 2x -> 202); custom tiers are sorted from unsorted
   input; an empty tier set falls back to a flat 1x; `reset` keeps the record while `resetAll` clears it;
   and non-positive hits / dt are safe no-ops),
+  **day/night cycle** (M493, `game::DayNightCycle` + `game::DayPhase` — a looping time-of-day clock for
+  open-world lighting, shop hours, and spawn schedules. One in-game day spans a configurable number of real
+  seconds; `update(dt)` advances the clock, wraps it at midnight, and ticks a day counter (a large dt spans
+  multiple days). It reports the normalized time [0,1), the in-game hour [0,24), a DayPhase (Night / Dawn /
+  Day / Dusk) from configurable thresholds, and a sun elevation in [-1,1] (`-cos(2*pi*t)`: -1 at midnight,
+  0 at sunrise/sunset, +1 at noon) the renderer can feed straight into a directional light. Godot ships no
+  day/night system -> beyond-Godot gameplay utility. Verified: midnight and noon report the right hour /
+  sun elevation / phase; the sun curve hits -1/0/+1/0 at the four quarters; every phase boundary classifies
+  correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
+  overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
+  non-positive dt / a zero day-length (clamped to 1) are safe),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
