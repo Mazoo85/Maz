@@ -1021,6 +1021,11 @@ public:
     // wet is pushed down, and it swells back in the gaps. Keeps vocals/leads clear over a big reverb.
     // 0 = off (normal reverb).
     void setDuck(float amount) { duck_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
+    // Gated reverb (ms): the classic 80s effect — the wet tail plays at full level while the input is
+    // present and for this long after it stops, then is cut off sharply instead of decaying naturally.
+    // 0 (default) = off (a normal, freely-decaying tail). Up to 1000 ms.
+    void setGateMs(float ms) { gateMs_ = ms < 0.0f ? 0.0f : (ms > 1000.0f ? 1000.0f : ms); }
+    float gateMs() const { return gateMs_; }
     // Wet-tail tone: a low-cut (high-pass) and high-cut (low-pass) applied to the wet signal only, so
     // the reverb can be kept out of the mud (low-cut) and the harsh top (high-cut) without touching
     // the dry. lowCut 0 = off (no low removed); highCut 20000 = off (no high removed). Distinct from
@@ -1070,6 +1075,9 @@ private:
     bool freeze_ = false; // hold the tail indefinitely
     float duck_ = 0.0f;   // sidechain the wet to the dry level; 0 = off
     float duckEnv_ = 0.0f; // dry-input peak-envelope follower for ducking
+    float gateMs_ = 0.0f;  // gated-reverb hold time; 0 = off (natural decay)
+    float gateGain_ = 1.0f; // current gate gain applied to the wet tail
+    int gateCountdown_ = 0; // samples left of the open-hold before the gate closes
     float lowCutHz_ = 0.0f;      // wet-tail high-pass; 0 = off
     float highCutHz_ = 20000.0f; // wet-tail low-pass; 20000 = off
     float lcL_ = 0.0f, lcR_ = 0.0f; // low-cut one-pole LP state (subtracted → high-pass)

@@ -629,6 +629,37 @@ int main() {
         check(dd.duck() == 0.0f, "reverb ducking defaults to 0 (off)");
     }
 
+    // --- Gated reverb: the tail is cut off after the hold time ----------------
+    {
+        // Energy in the late window (after 250 ms), fed a 50 ms burst then silence.
+        auto lateEnergy = [&](float gateMs) {
+            audio::Reverb rev;
+            rev.setEnabled(true);
+            rev.setRoomSize(0.85f);
+            rev.setMix(1.0f); // fully wet — the output is the tail
+            rev.setGateMs(gateMs);
+            std::vector<float> buf(static_cast<size_t>(sr) / 2 * 2, 0.0f); // 0.5 s stereo
+            for (int i = 0; i < sr / 20; ++i) {                            // 50 ms burst
+                const float s = static_cast<float>(0.6 * std::sin(2.0 * 3.14159265 * 220.0 * i / sr));
+                buf[static_cast<size_t>(i) * 2] = s;
+                buf[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            rev.process(buf.data(), sr / 2, sr);
+            double e = 0.0;
+            for (int i = sr / 4; i < sr / 2; ++i) { // after 250 ms
+                const double v = buf[static_cast<size_t>(i) * 2];
+                e += v * v;
+            }
+            return e;
+        };
+        audio::Reverb dg;
+        check(dg.gateMs() == 0.0f, "reverb gate defaults to 0 (off)");
+        const double natural = lateEnergy(0.0f);
+        const double gated = lateEnergy(100.0f);
+        check(natural > 0.0, "an ungated reverb rings on well after the burst");
+        check(gated < natural * 0.15, "a gated reverb cuts the tail after the hold time");
+    }
+
     // --- Reverb freeze: the tail is held instead of decaying ------------------
     {
         auto lateTail = [&](bool freeze) {

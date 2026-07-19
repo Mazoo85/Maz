@@ -1688,6 +1688,11 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("hi-cut##rev", &hc, 500.0f, 20000.0f, "%.0f Hz")) mx.reverb().setWetHighCut(hc);
+        float gate = mx.reverb().gateMs();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("gate##rev", &gate, 0.0f, 1000.0f, gate <= 0.0f ? "gate off" : "%.0f ms"))
+            mx.reverb().setGateMs(gate);
     }
     {
         bool en = mx.widener().enabled();

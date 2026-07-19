@@ -1572,6 +1572,8 @@ void Reverb::reset() {
     preWrite_ = 0;
     duckEnv_ = 0.0f;
     lcL_ = lcR_ = hcL_ = hcR_ = 0.0f;
+    gateGain_ = 1.0f;
+    gateCountdown_ = 0;
 }
 
 void Reverb::process(float* stereo, int frames, int sampleRate) {
@@ -1589,6 +1591,11 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
     const float sr = static_cast<float>(sampleRate);
     const float duckAtk = std::exp(-1.0f / (0.005f * sr));  // ~5 ms attack
     const float duckRel = std::exp(-1.0f / (0.150f * sr));  // ~150 ms release
+    // Gated reverb: hold the wet open while the input is present (+ gateMs after), then cut it fast.
+    const bool doGate = gateMs_ > 0.0f;
+    const int gateHold = static_cast<int>(gateMs_ * 0.001f * sr);
+    const float gateClose = 1.0f / (0.004f * sr); // ~4 ms close ramp
+    constexpr float kGateThresh = 0.02f;          // dry level that (re)opens the gate
 
     // Wet-tone one-pole coefficients (computed once per block). Low-cut off at 0 Hz, high-cut off at
     // 20 kHz — those defaults leave the wet untouched.
@@ -1671,6 +1678,24 @@ void Reverb::process(float* stereo, int frames, int sampleRate) {
         // Duck the wet by the dry level so the tail steps out of the way of the source.
         wetL *= duckGain;
         wetR *= duckGain;
+
+        // Gated reverb: keep the tail at full while the input is present (+ hold), then cut it fast.
+        if (doGate) {
+            const float peak = std::max(std::fabs(dryL), std::fabs(dryR));
+            if (peak > kGateThresh) {
+                gateCountdown_ = gateHold;
+                gateGain_ = 1.0f;
+            } else if (gateCountdown_ > 0) {
+                --gateCountdown_;
+            } else {
+                gateGain_ -= gateClose;
+                if (gateGain_ < 0.0f) {
+                    gateGain_ = 0.0f;
+                }
+            }
+            wetL *= gateGain_;
+            wetR *= gateGain_;
+        }
 
         stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
         stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
