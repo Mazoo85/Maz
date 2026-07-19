@@ -149,6 +149,32 @@ int main() {
         check(!dsh.filterLfoSampleHold(), "cutoff LFO sample & hold defaults to off");
     }
 
+    // --- Filter slope (12 vs 24 dB/oct) -------------------------------------
+    {
+        auto slopeBright = [&](int slope) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(500.0f, 0.7f, 0.0f); // fixed low cutoff so the rolloff steepness shows
+            s.setFilterSlope(slope);
+            s.noteOn(45, 1.0f);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(slopeBright(24) < slopeBright(12) * 0.9,
+              "a 24 dB/oct slope rolls off more high end than 12 dB/oct");
+        audio::SynthInstrument dsl;
+        check(dsl.filterSlope() == 12, "filter slope defaults to 12 dB/oct");
+        dsl.setFilterSlope(24);
+        check(dsl.filterSlope() == 24, "filter slope is settable to 24 dB/oct");
+    }
+
     // --- Tremolo (amp LFO) tempo sync ---------------------------------------
     {
         audio::SynthInstrument syn;

@@ -148,6 +148,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {
     v.filtStage = Stage::Attack;
     v.filtEnv = 0.0f;
     v.filter.reset();
+    v.filter2.reset();
     v.ksInit = true;     // (Pluck mode) re-excite the string on the next render sample
     v.percEnv = 1.0f;    // (Organ mode) seed the percussion key-click transient
 }
@@ -539,6 +540,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     osc = std::tanh(osc * (1.0f + filterDrive_ * 5.0f));
                 }
                 osc = v.filter.process(osc, cutoff, filterReso_, sampleRate, filterMode_);
+                // 24 dB/oct: a second identical stage cascades for a steeper Moog-style rolloff.
+                if (filter24_) {
+                    osc = v.filter2.process(osc, cutoff, filterReso_, sampleRate, filterMode_);
+                }
             }
 
             // Velocity → amplitude, scaled by sensitivity: at 1 the velocity fully sets loudness, at

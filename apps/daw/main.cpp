@@ -1168,6 +1168,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     const char* fmodes[] = {"Low-pass", "High-pass", "Band-pass", "Notch"};
     if (ImGui::Combo("Filter type", &fmode, fmodes, 4))
         syn.setFilterMode(static_cast<audio::StateVariableFilter::Mode>(fmode));
+    ImGui::SameLine();
+    bool f24 = syn.filterSlope() >= 24;
+    if (ImGui::Checkbox("24 dB##fslope", &f24)) syn.setFilterSlope(f24 ? 24 : 12);
     float fenvDepth = syn.filterEnvDepth();
     if (ImGui::SliderFloat("Filter env depth", &fenvDepth, -12000.0f, 12000.0f, "%.0f Hz"))
         syn.setFilterEnvDepth(fenvDepth);

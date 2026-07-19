@@ -326,6 +326,12 @@ public:
 
     // Filter type: low-pass (default, dark below cutoff), high-pass (thin, removes lows), or band-pass
     // (keeps a band around the cutoff). Uses the per-voice state-variable filter's mode.
+    // Filter slope: 12 dB/oct (one state-variable stage, the default) or 24 dB/oct (two cascaded
+    // stages, a steeper Moog-style rolloff that clamps the tone harder below the cutoff). Any value
+    // other than 24 is treated as 12.
+    void setFilterSlope(int db) { filter24_ = (db >= 24); }
+    int filterSlope() const { return filter24_ ? 24 : 12; }
+
     void setFilterMode(StateVariableFilter::Mode m) { filterMode_ = m; }
     StateVariableFilter::Mode filterMode() const { return filterMode_; }
 
@@ -428,6 +434,7 @@ private:
         Stage filtStage = Stage::Off; // dedicated filter-envelope stage
         float filtEnv = 0.0f;         // dedicated filter-envelope level
         StateVariableFilter filter{};
+        StateVariableFilter filter2{}; // 2nd cascaded stage for the 24 dB/oct slope
         std::vector<float> ksBuf;  // Karplus-Strong delay line (Pluck mode); sized to one period
         int ksPtr = 0;             // KS delay-line read/write index
         bool ksInit = false;       // fill the KS line with noise on the first Pluck render sample
@@ -483,6 +490,7 @@ private:
     float filterReso_ = 0.7f;
     float filterEnvAmt_ = 0.0f;
     StateVariableFilter::Mode filterMode_ = StateVariableFilter::Mode::LowPass;
+    bool filter24_ = false; // false = 12 dB/oct (one stage), true = 24 dB/oct (two cascaded stages)
     float filtA_ = 0.005f, filtD_ = 0.1f, filtS_ = 0.0f, filtR_ = 0.1f; // dedicated filter ADSR
     float filterEnvDepth_ = 0.0f; // dedicated filter-envelope depth in Hz (±); 0 = off
     float velCutoff_ = 0.0f; // velocity → cutoff amount (Hz at full velocity); 0 = off
