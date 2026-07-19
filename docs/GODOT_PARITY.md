@@ -988,6 +988,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   weight split lands within 1% of 10%/30%/60%; zero and negative weights never drop; a "no drop" entry
   wins ~50% and reports empty; `rollMany` returns exactly N (and empty for N<=0); a reversed count range
   is tolerated; `clear` resets),
+  **experience / leveling system** (M479, `game::LevelCurve` + `game::ExperienceTrack` — the
+  character-progression backbone behind XP bars, "level up!" popups, and difficulty pacing. A LevelCurve
+  defines the XP cost to advance each level via one of three shapes — `linear` (arithmetic growth),
+  `geometric` (each level a fixed percentage more than the last — the classic RPG feel), or an explicit
+  hand-authored `table` — and answers `costToNext`, `cumulativeToReach`, and `levelForTotalXp`. An
+  ExperienceTrack is the live counter: `addXp` accumulates (or removes) XP and returns the change in
+  level, and `level` / `xpIntoLevel` / `xpForNextLevel` / `progress` / `isMaxLevel` drive the UI. Costs
+  and totals are integers so level boundaries never drift, and every cost is clamped to >= 1 so a curve
+  can never grant infinite instant levels. Godot ships no leveling system — games hand-roll XP curves
+  every time -> beyond-Godot gameplay utility completing the stat / inventory / loot RPG suite. Verified:
+  linear cost/cumulative/threshold arithmetic exact; `cumulativeToReach` and `levelForTotalXp` are perfect
+  inverses at every one of 50 level thresholds (and one XP below each lands the previous level); geometric
+  growth rounds correctly (100 -> 110 -> 121 -> 133 at +10%); table caps at size+1 and stops earning at
+  max; zero-cost curves clamp to 1 (no infinite levels); the track levels up/down on add/remove, floors
+  total at 0, and reports progress 1.0 / next-cost 0 at max level),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

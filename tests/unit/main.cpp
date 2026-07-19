@@ -123,6 +123,7 @@
 #include "maz/game/Stat.hpp"
 #include "maz/game/Inventory.hpp"
 #include "maz/game/LootTable.hpp"
+#include "maz/game/Leveling.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20219,6 +20220,88 @@ void testPolynomial() {
     }
 }
 
+void testLeveling() {
+    using game::ExperienceTrack;
+    using game::LevelCurve;
+
+    // Linear curve: cost(n) = 100 + 50*(n-1).
+    {
+        LevelCurve c = LevelCurve::linear(100, 50);
+        CHECK(c.costToNext(1) == 100 && c.costToNext(2) == 150 && c.costToNext(3) == 200);
+        CHECK(c.cumulativeToReach(1) == 0 && c.cumulativeToReach(2) == 100);
+        CHECK(c.cumulativeToReach(3) == 250 && c.cumulativeToReach(4) == 450);
+        CHECK(c.levelForTotalXp(0) == 1 && c.levelForTotalXp(99) == 1);
+        CHECK(c.levelForTotalXp(100) == 2 && c.levelForTotalXp(249) == 2);
+        CHECK(c.levelForTotalXp(250) == 3 && c.levelForTotalXp(450) == 4);
+    }
+    // cumulativeToReach and levelForTotalXp are inverses at every threshold.
+    {
+        LevelCurve c = LevelCurve::linear(100, 50);
+        for (int lvl = 1; lvl <= 50; ++lvl) {
+            const long long need = c.cumulativeToReach(lvl);
+            CHECK(c.levelForTotalXp(need) == lvl);
+            if (lvl > 1) CHECK(c.levelForTotalXp(need - 1) == lvl - 1);
+        }
+    }
+    // Geometric curve grows by the growth factor.
+    {
+        LevelCurve c = LevelCurve::geometric(100, 0.10);
+        CHECK(c.costToNext(1) == 100 && c.costToNext(2) == 110);
+        CHECK(c.costToNext(3) == 121 && c.costToNext(4) == 133);
+        CHECK(c.cumulativeToReach(3) == 210);
+    }
+    // Table curve.
+    {
+        LevelCurve c = LevelCurve::table({10, 20, 30});
+        CHECK(c.maxLevel() == 4);
+        CHECK(c.costToNext(1) == 10 && c.costToNext(3) == 30 && c.costToNext(4) == 0);
+        CHECK(c.cumulativeToReach(4) == 60);
+        CHECK(c.levelForTotalXp(59) == 3 && c.levelForTotalXp(60) == 4);
+        CHECK(c.levelForTotalXp(1000) == 4);
+    }
+    // Cost clamped to >= 1 (no infinite instant levels).
+    {
+        LevelCurve c = LevelCurve::linear(0, 0);
+        CHECK(c.costToNext(1) == 1);
+        CHECK(c.levelForTotalXp(5) == 6);
+        LevelCurve t = LevelCurve::table({0, 0});
+        CHECK(t.costToNext(1) == 1 && t.costToNext(2) == 1);
+    }
+    // ExperienceTrack: accumulate, level up, query progress.
+    {
+        ExperienceTrack xp{LevelCurve::linear(100, 50)};
+        CHECK(xp.level() == 1 && xp.xpForNextLevel() == 100);
+        CHECK(std::fabs(xp.progress() - 0.0f) < 1e-4f);
+        CHECK(xp.addXp(50) == 0 && xp.xpIntoLevel() == 50);
+        CHECK(std::fabs(xp.progress() - 0.5f) < 1e-4f);
+        CHECK(xp.addXp(50) == 1 && xp.level() == 2 && xp.xpForNextLevel() == 150);
+        CHECK(xp.addXp(400) == 2 && xp.level() == 4 && xp.xpIntoLevel() == 50);
+    }
+    // Removing XP de-levels; total floors at 0.
+    {
+        ExperienceTrack xp{LevelCurve::linear(100, 50)};
+        xp.setTotalXp(500);
+        CHECK(xp.level() == 4);
+        CHECK(xp.addXp(-300) == -2 && xp.level() == 2);
+        CHECK(xp.addXp(-100000) == -1 && xp.totalXp() == 0 && xp.level() == 1);
+    }
+    // Max level: progress 1, next cost 0, isMaxLevel true.
+    {
+        ExperienceTrack xp{LevelCurve::table({10, 20})};
+        xp.setTotalXp(1000);
+        CHECK(xp.level() == 3 && xp.isMaxLevel() && xp.xpForNextLevel() == 0);
+        CHECK(std::fabs(xp.progress() - 1.0f) < 1e-4f);
+        CHECK(xp.addXp(500) == 0 && xp.level() == 3);
+    }
+    // reset.
+    {
+        ExperienceTrack xp{LevelCurve::linear(100, 50)};
+        xp.addXp(1234);
+        xp.reset();
+        CHECK(xp.totalXp() == 0 && xp.level() == 1);
+    }
+}
+
 void testLootTable() {
     using core::Pcg32;
     using game::LootDrop;
@@ -30425,6 +30508,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testLeveling();
     testLootTable();
     testInventory();
     testStat();
