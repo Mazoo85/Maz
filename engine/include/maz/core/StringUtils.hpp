@@ -513,6 +513,36 @@ inline bool isValidInt(const std::string& s) {
     return true;
 }
 
+// True when the string is a valid hexadecimal integer — Godot's String.is_valid_hex_number. An
+// optional leading '+'/'-' sign is allowed (only when the string is longer than one character); when
+// `withPrefix` is set the digits must be introduced by "0x". This mirrors Godot's algorithm exactly,
+// including its edge cases (empty -> false; "0x" alone -> false since length < 3).
+inline bool isValidHexNumber(const std::string& s, bool withPrefix = false) {
+    const std::size_t len = s.size();
+    if (len == 0) {
+        return false;
+    }
+    std::size_t start = 0;
+    if (len != 1 && (s[0] == '+' || s[0] == '-')) {
+        start = 1;
+    }
+    if (withPrefix) {
+        if (len < 3) {
+            return false;
+        }
+        if (s[start] != '0' || s[start + 1] != 'x') {
+            return false;
+        }
+        start += 2;
+    }
+    for (std::size_t i = start; i < len; ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(s[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Parse a leading floating-point number (Godot's String.to_float); returns 0.0 when none is present.
 inline double toFloat(const std::string& s) {
     const char* p = s.c_str();

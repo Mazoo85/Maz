@@ -185,6 +185,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   alnum/underscore), is_valid_html_color (optional # then 3/4/6/8 hex digits — RGB/RGBA/RRGGBB/
   RRGGBBAA), and is_subsequence_of / is_subsequence_ofn (case-insensitive) for fuzzy in-order matching;
   all verified against valid + malformed inputs)
+  (M371 adds isValidHexNumber — Godot String.is_valid_hex_number: hex integer with an optional +/- sign
+  and optional "0x" prefix, replicating Godot's algorithm and its edge cases (empty and bare "0x" ->
+  false), verified with/without prefix and against non-hex input)
   (M344 adds trimPrefix / trimSuffix — Godot String.trim_prefix / trim_suffix: strip a prefix or
   suffix ONLY when it is actually present (returns the string unchanged otherwise), verified on
   res://user:// scheme + extension stripping and no-op cases)

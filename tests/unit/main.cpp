@@ -11650,6 +11650,12 @@ void testStringUtils() {
     CHECK(!su::isValidFloat(""));
     CHECK(!su::isValidFloat("1.0x"));
 
+    // --- M371: is_valid_hex_number ---
+    CHECK((su::isValidHexNumber("1A2b") && su::isValidHexNumber("deadbeef") && su::isValidHexNumber("-1a")));
+    CHECK((!su::isValidHexNumber("xyz") && !su::isValidHexNumber("") && !su::isValidHexNumber("1g")));
+    CHECK((su::isValidHexNumber("0x1A", true) && su::isValidHexNumber("-0xFF", true)));
+    CHECK((!su::isValidHexNumber("1A", true) && !su::isValidHexNumber("0x", true) && !su::isValidHexNumber("0xGG", true)));
+
     // --- M337: string validation helpers (is_valid_identifier / is_valid_html_color /
     // is_subsequence_of[n]) ---
     CHECK((su::isValidIdentifier("foo_bar1") && su::isValidIdentifier("_x")));
