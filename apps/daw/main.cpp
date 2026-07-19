@@ -1045,6 +1045,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     float vibDelay = syn.vibratoDelay();
     if (ImGui::SliderFloat("Vibrato delay", &vibDelay, 0.0f, 2.0f, "%.2f s"))
         syn.setVibratoDelay(vibDelay);
+    int viShape = static_cast<int>(syn.vibratoShape());
+    const char* viShapes[] = {"Sine", "Square", "Saw", "Triangle", "Trap"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("Vib shape##vi", &viShape, viShapes, 5))
+        syn.setVibratoShape(static_cast<audio::Waveform>(viShape));
     bool viSync = syn.vibratoSync();
     if (ImGui::Checkbox("Vibrato sync", &viSync)) syn.setVibratoSync(viSync);
     ImGui::SameLine();

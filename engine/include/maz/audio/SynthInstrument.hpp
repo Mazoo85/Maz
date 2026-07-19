@@ -71,6 +71,10 @@ public:
     }
     float vibratoRate() const { return vibRate_; }
     float vibratoDepth() const { return vibDepth_; }
+    // Vibrato-LFO shape: Sine (smooth waver), Square (a two-pitch trill), Saw (a repeating pitch
+    // ramp/gliss), Triangle, or Trapezoid. Reuses the oscillator waveforms; defaults to Sine.
+    void setVibratoShape(Waveform w) { vibShape_ = w; }
+    Waveform vibratoShape() const { return vibShape_; }
     // Tempo-sync the vibrato (pitch) LFO: lock its rate to the transport at the chosen note division
     // (the same 6 divisions as the cutoff/amp LFOs) for rhythmic pitch warble. updateTempo() applies
     // it each block; off (default) = the free-running rate above.
@@ -394,6 +398,7 @@ private:
     uint32_t phaseRng_ = 0x9E3779B1u; // deterministic RNG for start-phase randomization
     float vibRate_ = 5.0f;      // vibrato LFO rate (Hz)
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
+    Waveform vibShape_ = Waveform::Sine; // vibrato LFO waveform
     float vibDelay_ = 0.0f;     // vibrato onset delay (seconds); 0 = immediate
     float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off
     float pitchEnvTime_ = 0.05f; // pitch-envelope decay time (seconds)

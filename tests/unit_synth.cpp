@@ -153,6 +153,29 @@ int main() {
         check(std::fabs(syn.vibratoRate() - 140.0f / 60.0f) < 1e-3f,
               "the synced vibrato tracks a tempo change");
         check(std::fabs(syn.vibratoDepth() - 30.0f) < 1e-6f, "vibrato sync leaves the depth alone");
+
+        // Vibrato shape: a square vibrato (a two-pitch trill that holds each pitch) modulates the
+        // pitch differently from the smooth sine waver, so the rendered waveform diverges — proving
+        // the shape parameter is wired into the pitch LFO.
+        auto vibRender = [&](audio::Waveform shape) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f);
+            s.setVibrato(5.0f, 100.0f); // 5 Hz, ±100 cents
+            s.setVibratoShape(shape);
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        const std::vector<float> vsine = vibRender(audio::Waveform::Sine);
+        const std::vector<float> vsquare = vibRender(audio::Waveform::Square);
+        double vibDiff = 0.0;
+        for (size_t i = 0; i < vsine.size(); ++i) {
+            vibDiff += std::fabs(static_cast<double>(vsine[i]) - static_cast<double>(vsquare[i]));
+        }
+        check(vibDiff > 1.0, "vibrato shape changes the pitch modulation (square trill vs sine waver)");
+        audio::SynthInstrument dvs;
+        check(dvs.vibratoShape() == audio::Waveform::Sine, "vibrato LFO shape defaults to sine");
     }
 
     // --- Pitch math ----------------------------------------------------------

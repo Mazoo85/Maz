@@ -221,9 +221,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                     vibOnset = vibOnset < 0.0f ? 0.0f : (vibOnset > 1.0f ? 1.0f : vibOnset);
                 }
                 if (vibOnset > 0.0f) {
-                    const double vp = vibPhase_ + static_cast<double>(i) * vibInc;
+                    double vp = vibPhase_ + static_cast<double>(i) * vibInc;
+                    vp -= std::floor(vp); // wrap into [0,1) for the (non-sine) shapes
                     vibMul = std::pow(2.0, static_cast<double>(vibDepth_ * vibOnset) *
-                                               std::sin(vp * kTwoPiVib) / 1200.0);
+                                               static_cast<double>(waveSample(vibShape_, vp)) / 1200.0);
                 }
             }
             v.ageSamples += 1.0;

@@ -108,6 +108,7 @@ int main() {
     seq.synth().setAmpLfoShape(audio::Waveform::Saw);
     seq.synth().setVibratoSync(true);
     seq.synth().setVibratoSyncDivision(2); // 1/4
+    seq.synth().setVibratoShape(audio::Waveform::Triangle);
     seq.synth().setAmpLfo(4.5f, 0.6f);
     seq.synth().setDrift(18.0f);
     seq.synth().setFilterMode(audio::StateVariableFilter::Mode::Notch);
@@ -503,6 +504,7 @@ int main() {
     check(seq2.synth().ampLfoSync() && seq2.synth().ampLfoSyncDivision() == 5,
           "tremolo LFO tempo sync round-trips");
     check(seq2.synth().ampLfoShape() == audio::Waveform::Saw, "tremolo LFO shape round-trips");
+    check(seq2.synth().vibratoShape() == audio::Waveform::Triangle, "vibrato LFO shape round-trips");
     check(seq2.synth().vibratoSync() && seq2.synth().vibratoSyncDivision() == 2,
           "vibrato tempo sync round-trips");
     check(near(seq2.synth().ampLfoRate(), 4.5f) && near(seq2.synth().ampLfoDepth(), 0.6f),
