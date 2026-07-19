@@ -233,6 +233,9 @@ public:
     // step 0 of the bar). A monitoring aid, mixed into the output.
     void setMetronome(bool on) { metronome_ = on; }
     bool metronome() const { return metronome_; }
+    // Metronome click level (0..1): scales the click loudness. 0.5 (default) matches the original.
+    void setMetronomeLevel(float v) { metroLevel_ = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
+    float metronomeLevel() const { return metroLevel_; }
 
     // Count-in: play this many bars of clicks before the pattern starts (0 = none). While counting
     // in, only the metronome sounds; the pattern begins when the count-in finishes.
@@ -359,6 +362,7 @@ private:
     bool scAttacking_ = false; // true while ramping down to scTarget_ (attack phase)
 
     bool metronome_ = false;
+    float metroLevel_ = 0.5f;  // metronome click level (0..1)
     int metroLastStep_ = -1;  // last step a click fired on (avoids double-triggering)
     double metroPhase_ = 0.0; // click oscillator phase
     float metroEnv_ = 0.0f;   // click amplitude envelope

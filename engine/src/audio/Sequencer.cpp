@@ -874,7 +874,8 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             const double inc = static_cast<double>(metroFreq_) / static_cast<double>(sampleRate);
             const float decay = 1.0f / (0.04f * static_cast<float>(sampleRate)); // ~40 ms click
             for (int i = 0; i < chunk && metroEnv_ > 0.0f; ++i) {
-                const float s = static_cast<float>(std::sin(metroPhase_ * kTwoPi)) * metroEnv_ * 0.5f;
+                const float s =
+                    static_cast<float>(std::sin(metroPhase_ * kTwoPi)) * metroEnv_ * metroLevel_;
                 drums[2 * (done + i)] += s;
                 drums[2 * (done + i) + 1] += s;
                 metroPhase_ += inc;

@@ -889,6 +889,22 @@ int main() {
         off.play();
         const std::vector<float> q = renderMono(off, sampleRate, sampleRate);
         check(rms(q) == 0.0, "metronome off leaves an empty pattern silent");
+
+        // Level scales the click loudness.
+        audio::Sequencer lvl;
+        check(std::fabs(lvl.metronomeLevel() - 0.5f) < 1e-6f, "metronome level defaults to 0.5");
+        auto clickRms = [&](float level) {
+            audio::Sequencer m;
+            m.setBpm(120.0);
+            m.setMetronome(true);
+            m.setMetronomeLevel(level);
+            m.play();
+            return rms(renderMono(m, sampleRate / 2, sampleRate)); // half a second (a couple clicks)
+        };
+        const double soft = clickRms(0.25f);
+        const double loud = clickRms(1.0f);
+        check(soft > 0.0 && loud > soft * 1.5, "a higher metronome level makes a louder click");
+        check(clickRms(0.0f) == 0.0, "metronome level 0 silences the click");
     }
 
     // --- Per-note probability -------------------------------------------------

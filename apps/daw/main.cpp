@@ -430,6 +430,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setMetronome(metro);
     }
     ImGui::SameLine();
+    float metroLvl = seq.metronomeLevel();
+    ImGui::SetNextItemWidth(80.0f);
+    if (ImGui::SliderFloat("lvl##metro", &metroLvl, 0.0f, 1.0f, "%.2f")) {
+        seq.setMetronomeLevel(metroLvl);
+    }
+    ImGui::SameLine();
     int countIn = seq.countInBars();
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::SliderInt("Count-in", &countIn, 0, 4, "%d bars")) {

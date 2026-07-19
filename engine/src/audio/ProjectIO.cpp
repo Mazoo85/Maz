@@ -232,7 +232,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << " "
       << seq.arpGate() << " " << seq.arpRate() << "\n";
     f << "humanize " << seq.humanize() << "\n";
-    f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
+    f << "metronome " << (seq.metronome() ? 1 : 0) << " " << seq.metronomeLevel() << "\n";
     f << "countin " << seq.countInBars() << "\n";
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << " "
       << seq.leadPan() << " " << seq.bassPan() << " " << seq.transpose() << "\n";
@@ -549,6 +549,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             int m = 0;
             ls >> m;
             seq.setMetronome(m != 0);
+            float mlvl = 0.5f; // metronome level optional (older files omit it → 0.5)
+            if (ls >> mlvl) {
+                seq.setMetronomeLevel(mlvl);
+            }
         } else if (tag == "countin") {
             int b = 0;
             ls >> b;

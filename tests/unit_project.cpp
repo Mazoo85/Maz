@@ -41,6 +41,8 @@ int main() {
     seq.setLeadPan(-0.5f);
     seq.setBassPan(0.3f);
     seq.setTranspose(-7);
+    seq.setMetronome(true);
+    seq.setMetronomeLevel(0.7f);
     seq.setNumSteps(32);
     seq.setStepsPerBeat(3);
     seq.setStep(0, 0, true);
@@ -382,6 +384,7 @@ int main() {
     check(near(seq2.drumGain(), 0.8f) && near(seq2.synthGain(), 1.2f), "bus gains round-trip");
     check(near(seq2.leadPan(), -0.5f) && near(seq2.bassPan(), 0.3f), "melodic bus pans round-trip");
     check(seq2.transpose() == -7, "global transpose round-trips");
+    check(seq2.metronome() && near(seq2.metronomeLevel(), 0.7f), "metronome + level round-trip");
 
     // Drum grid (pattern 0).
     check(seq2.numSteps() == 32, "pattern length round-trips");
