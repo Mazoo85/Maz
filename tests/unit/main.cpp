@@ -88,6 +88,7 @@
 #include "maz/core/FuzzyMatch.hpp"
 #include "maz/core/LruCache.hpp"
 #include "maz/core/BloomFilter.hpp"
+#include "maz/render/ColorQuantize.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18592,6 +18593,101 @@ void testBloomFilter() {
     }
 }
 
+// ColorQuantize: median-cut palette reduction (M444).
+void testColorQuantize() {
+    using core::Pcg32;
+    using render::mapToPalette;
+    using render::nearestPaletteIndex;
+    using render::quantizePalette;
+    using render::Rgb8;
+    auto rgb = [](int r, int g, int b) {
+        return Rgb8{static_cast<std::uint8_t>(r), static_cast<std::uint8_t>(g),
+                    static_cast<std::uint8_t>(b)};
+    };
+
+    // ---- Degenerate. ----
+    CHECK(quantizePalette({}, 4).empty());
+    CHECK(quantizePalette({rgb(1, 2, 3)}, 0).empty());
+    CHECK(nearestPaletteIndex(rgb(0, 0, 0), {}) == 0);
+
+    // ---- Single color -> one entry equal to it. ----
+    {
+        std::vector<Rgb8> px(100, rgb(123, 45, 67));
+        auto pal = quantizePalette(px, 8);
+        CHECK(pal.size() == 1 && (pal[0] == rgb(123, 45, 67)));
+    }
+
+    // ---- Near-lossless mapping of well-separated inputs; palette respects the budget. ----
+    {
+        std::vector<Rgb8> px;
+        for (int i = 0; i < 30; ++i) {
+            px.push_back(rgb(255, 0, 0));
+        }
+        for (int i = 0; i < 30; ++i) {
+            px.push_back(rgb(0, 255, 0));
+        }
+        for (int i = 0; i < 30; ++i) {
+            px.push_back(rgb(0, 0, 255));
+        }
+        auto pal = quantizePalette(px, 8);
+        CHECK(!pal.empty() && pal.size() <= 8);
+        auto idx = mapToPalette(px, pal);
+        long sqErr = 0;
+        for (std::size_t i = 0; i < px.size(); ++i) {
+            const Rgb8 q = pal[idx[i]];
+            const long dr = static_cast<long>(px[i].r) - q.r;
+            const long dg = static_cast<long>(px[i].g) - q.g;
+            const long db = static_cast<long>(px[i].b) - q.b;
+            sqErr += dr * dr + dg * dg + db * db;
+        }
+        CHECK(static_cast<double>(sqErr) / static_cast<double>(px.size()) < 100.0);
+    }
+
+    // ---- Four separated clusters -> four entries near the centers, distinct nearest indices. ----
+    {
+        const Rgb8 centers[4] = {{200, 20, 20}, {20, 200, 20}, {20, 20, 200}, {230, 230, 230}};
+        std::vector<Rgb8> px;
+        Pcg32 rng(5, 9);
+        for (int c = 0; c < 4; ++c) {
+            for (int i = 0; i < 200; ++i) {
+                auto jit = [&](int base) {
+                    const int v = base + rng.range(-8, 8);
+                    return static_cast<std::uint8_t>(v < 0 ? 0 : (v > 255 ? 255 : v));
+                };
+                px.push_back(rgb(jit(centers[c].r), jit(centers[c].g), jit(centers[c].b)));
+            }
+        }
+        auto pal = quantizePalette(px, 4);
+        CHECK(pal.size() == 4);
+        std::size_t id[4];
+        for (int c = 0; c < 4; ++c) {
+            id[c] = nearestPaletteIndex(centers[c], pal);
+            const Rgb8 p = pal[id[c]];
+            const int dr = std::abs(static_cast<int>(p.r) - centers[c].r);
+            const int dg = std::abs(static_cast<int>(p.g) - centers[c].g);
+            const int db = std::abs(static_cast<int>(p.b) - centers[c].b);
+            CHECK(dr <= 20 && dg <= 20 && db <= 20);
+        }
+        CHECK(id[0] != id[1] && id[0] != id[2] && id[0] != id[3] && id[1] != id[2] &&
+              id[1] != id[3] && id[2] != id[3]);
+    }
+
+    // ---- Determinism + budget cap. ----
+    {
+        std::vector<Rgb8> px;
+        Pcg32 rng(11, 2);
+        for (int i = 0; i < 500; ++i) {
+            px.push_back(rgb(rng.range(0, 255), rng.range(0, 255), rng.range(0, 255)));
+        }
+        auto a = quantizePalette(px, 16);
+        auto b = quantizePalette(px, 16);
+        CHECK(a.size() == b.size() && a.size() <= 16);
+        for (std::size_t i = 0; i < a.size(); ++i) {
+            CHECK((a[i] == b[i]));
+        }
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27360,6 +27456,7 @@ int main() {
     testFuzzyMatch();
     testLruCache();
     testBloomFilter();
+    testColorQuantize();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

@@ -613,6 +613,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   5000-item filter whose measured false-positive rate lands near the 1% target with a Swamidass-Baldi
   count estimate within 10% of actual, clear(), and merge() unioning same-geometry filters while
   rejecting mismatched ones),
+  **median-cut color quantization** (M444, `render::quantizePalette` + `mapToPalette` /
+  `nearestPaletteIndex` — reduce an arbitrary set of RGB colors to a small representative palette by
+  repeatedly splitting the color box with the widest channel spread at its median, then averaging each
+  final box. The tool for retro/indexed-color looks (NES/GameBoy-style palettes), GIF-style export,
+  texture palettization, and dominant-color swatches — none of which Godot provides. Verified:
+  degenerate inputs, single-color -> one exact entry, near-lossless remap of well-separated inputs (mean
+  squared error under threshold) with the palette respecting the budget, four jittered clusters
+  resolving to four entries within 20 of each center with distinct nearest indices, and deterministic
+  output),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
