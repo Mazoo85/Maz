@@ -334,6 +334,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   3-4-5 length (=5) and its 6-8-10 double (=10), exact distance, an approximate unit normalize
   (~0.6,0.8, len≈1) with a zero-safe zero vector, and a 500-iteration integer-only vector simulation
   that is bit-identical every run;
+  **fixed-point 3D vector** M421 (`math::FixedVec3` — the 3D sibling of FixedVec2, a deterministic
+  Q16.16 3D vector for 3D lockstep/replay/cross-platform play: add/sub/scale, dot, the true 3D cross
+  product, squared/true length (via Fixed's float-free sqrt), distance and zero-safe normalize, all
+  bit-identical across machines. Godot has no fixed-point vector. Verified with exact arithmetic, dot=32,
+  the right-hand cross basis (x×y=z etc.) with parallel-is-zero and cross ⟂ both inputs, EXACT
+  Pythagorean quadruples (2,3,6)→7 and (1,2,2)→3 (fixed sqrt of perfect squares), exact distance, an
+  approximate unit normalize with a zero-safe zero vector, and a 500-iteration integer-only 3D vector
+  simulation that is bit-identical every run;
   **fixed-point trig** M417 (`math::fixSin`/`fixCos`/`fixSinCos` + `fixPi`/`fixTwoPi`/`fixHalfPi` — a
   deterministic sine/cosine for core::Fixed computed by an integer CORDIC: it rotates a vector by a
   tiny table of precomputed arctangents using only shifts, adds and one integer scale, so there are no

@@ -74,6 +74,7 @@
 #include "maz/core/Pcg32.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
+#include "maz/math/FixedVec3.hpp"
 #include "maz/math/FixedTrig.hpp"
 #include "maz/math/FixedMath.hpp"
 #include "maz/math/FixedRect2.hpp"
@@ -16405,6 +16406,57 @@ void testPcg32() {
             return p.x.raw ^ (p.y.raw << 1);
         };
         CHECK(vsim() == vsim());
+    }
+
+    // --- M421: FixedVec3 (deterministic fixed-point 3D vector) ---
+    {
+        using Fixed = maz::core::Fixed;
+        using FixedVec3 = maz::math::FixedVec3;
+
+        CHECK((FixedVec3::fromInt(1, 2, 3) + FixedVec3::fromInt(3, 4, 5)) == FixedVec3::fromInt(4, 6, 8));
+        CHECK((FixedVec3::fromInt(5, 5, 5) - FixedVec3::fromInt(2, 8, 1)) == FixedVec3::fromInt(3, -3, 4));
+        CHECK((-FixedVec3::fromInt(3, -4, 5)) == FixedVec3::fromInt(-3, 4, -5));
+        CHECK((FixedVec3::fromInt(2, 3, 4) * Fixed::fromInt(2)) == FixedVec3::fromInt(4, 6, 8));
+        CHECK((FixedVec3::fromInt(4, 8, 2) * Fixed::half()) == FixedVec3::fromInt(2, 4, 1));
+        CHECK((FixedVec3::fromInt(6, 9, 3) / Fixed::fromInt(3)) == FixedVec3::fromInt(2, 3, 1));
+        // dot: (1,2,3).(4,5,6) = 32
+        CHECK(FixedVec3::fromInt(1, 2, 3).dot(FixedVec3::fromInt(4, 5, 6)) == Fixed::fromInt(32));
+        // cross: right-hand basis + parallel-is-zero + perpendicularity.
+        CHECK((FixedVec3::fromInt(1, 0, 0).cross(FixedVec3::fromInt(0, 1, 0)) == FixedVec3::fromInt(0, 0, 1)));
+        CHECK((FixedVec3::fromInt(0, 1, 0).cross(FixedVec3::fromInt(0, 0, 1)) == FixedVec3::fromInt(1, 0, 0)));
+        CHECK((FixedVec3::fromInt(0, 0, 1).cross(FixedVec3::fromInt(1, 0, 0)) == FixedVec3::fromInt(0, 1, 0)));
+        CHECK((FixedVec3::fromInt(2, 4, 6).cross(FixedVec3::fromInt(1, 2, 3)) == FixedVec3::zero()));
+        {
+            const FixedVec3 va = FixedVec3::fromInt(3, -2, 5);
+            const FixedVec3 vb = FixedVec3::fromInt(-1, 4, 2);
+            const FixedVec3 vc = va.cross(vb);
+            CHECK(vc.dot(va) == Fixed::zero());
+            CHECK(vc.dot(vb) == Fixed::zero());
+        }
+        // Exact Pythagorean quadruples: (2,3,6)->7, (1,2,2)->3.
+        CHECK(FixedVec3::fromInt(2, 3, 6).lengthSquared() == Fixed::fromInt(49));
+        CHECK(FixedVec3::fromInt(2, 3, 6).length() == Fixed::fromInt(7));
+        CHECK(FixedVec3::fromInt(1, 2, 2).length() == Fixed::fromInt(3));
+        CHECK(FixedVec3::zero().length() == Fixed::zero());
+        CHECK(FixedVec3::fromInt(0, 0, 0).distance(FixedVec3::fromInt(2, 3, 6)) == Fixed::fromInt(7));
+        CHECK(FixedVec3::fromInt(1, 1, 1).distanceSquared(FixedVec3::fromInt(3, 4, 7)) == Fixed::fromInt(49));
+        // normalize best-effort + zero-safe.
+        const FixedVec3 nrm3 = FixedVec3::fromInt(1, 2, 2).normalized();
+        CHECK(std::fabs(nrm3.x.toDouble() - (1.0 / 3.0)) < 3e-3);
+        CHECK(std::fabs(nrm3.length().toDouble() - 1.0) < 3e-3);
+        CHECK((FixedVec3::zero().normalized() == FixedVec3::zero()));
+        // Determinism: repeated integer-only 3D vector sim is bit-identical.
+        auto v3sim = []() {
+            FixedVec3 p = FixedVec3::zero();
+            FixedVec3 v = FixedVec3(Fixed::fromRaw(1200), Fixed::fromRaw(-700), Fixed::fromRaw(450));
+            const Fixed damp = Fixed::fromRaw(65400);
+            for (int i = 0; i < 500; ++i) {
+                p += v;
+                v = v * damp;
+            }
+            return p.x.raw ^ (p.y.raw << 1) ^ (static_cast<std::int64_t>(p.z.raw) << 2);
+        };
+        CHECK(v3sim() == v3sim());
     }
 
     // --- M417: FixedTrig (deterministic fixed-point sin/cos via integer CORDIC) ---
