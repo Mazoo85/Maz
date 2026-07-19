@@ -350,8 +350,13 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
         bufL_[static_cast<size_t>(write_)] = dryL + wetL * fb;
         bufR_[static_cast<size_t>(write_)] = dryR + wetR * fb;
 
-        stereo[2 * i] = dryL * (1.0f - mix) + wetL * mix;
-        stereo[2 * i + 1] = dryR * (1.0f - mix) + wetR * mix;
+        // Stereo width: mid/side-scale the wet (0 = mono wet, 1 = natural, 2 = extra-wide).
+        const float wMid = 0.5f * (wetL + wetR);
+        const float wSide = 0.5f * (wetL - wetR) * width_;
+        const float outWetL = wMid + wSide;
+        const float outWetR = wMid - wSide;
+        stereo[2 * i] = dryL * (1.0f - mix) + outWetL * mix;
+        stereo[2 * i + 1] = dryR * (1.0f - mix) + outWetR * mix;
 
         write_ = (write_ + 1) % size_;
         phase_ += phaseInc;

@@ -998,6 +998,26 @@ int main() {
         check(fbDiff > 1.0, "chorus feedback changes the sound (deeper/resonant)");
         audio::Chorus dc;
         check(dc.feedback() == 0.0f, "chorus feedback defaults to 0");
+
+        // Stereo width: width 0 collapses the wet to mono (L==R); width 1 keeps it decorrelated.
+        auto lrDiff = [&](float width) {
+            audio::Chorus c;
+            c.setEnabled(true);
+            c.setMix(1.0f); // fully wet, so width acts on the whole output
+            c.setWidth(width);
+            std::vector<float> b = sineStereo(sr, 440.0, 0.5, sr);
+            c.process(b.data(), sr, sr);
+            double d = 0.0;
+            for (int i = sr / 2; i < sr; ++i) {
+                d += std::fabs(static_cast<double>(b[static_cast<size_t>(i) * 2] -
+                                                   b[static_cast<size_t>(i) * 2 + 1]));
+            }
+            return d;
+        };
+        check(lrDiff(0.0f) < 1e-3, "chorus width 0 collapses the wet to mono (L==R)");
+        check(lrDiff(1.0f) > 1.0, "chorus width 1 keeps the wet decorrelated (wide)");
+        audio::Chorus dw;
+        check(std::fabs(dw.width() - 1.0f) < 1e-6f, "chorus width defaults to 1 (natural)");
     }
 
     // --- Parametric EQ: shelves boost/cut their band -------------------------

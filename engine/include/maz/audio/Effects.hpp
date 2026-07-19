@@ -194,6 +194,9 @@ public:
     // chorus that edges toward flanging at higher settings. 0 = off (a clean chorus, unchanged).
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.9f ? 0.9f : f); }
     float feedback() const { return feedback_; }
+    // Stereo width of the wet voices (mid/side): 0 = mono, 1 = natural (default), 2 = extra-wide.
+    void setWidth(float w) { width_ = w < 0.0f ? 0.0f : (w > 2.0f ? 2.0f : w); }
+    float width() const { return width_; }
     // Tempo sync: lock the LFO rate to the transport at the chosen note division (reusing the Tremolo
     // division set). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -213,6 +216,7 @@ private:
     float depthMs_ = 3.0f;
     float mix_ = 0.4f;
     float feedback_ = 0.0f; // wet→delay feedback; 0 = off
+    float width_ = 1.0f; // wet stereo width (mid/side); 1 = natural
     bool sync_ = false; // tempo-sync the LFO rate
     int syncDiv_ = 0;   // note-division index (default 1/1, a slow chorus)
     std::vector<float> bufL_;
