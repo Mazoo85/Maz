@@ -986,6 +986,55 @@ private:
     double phase_ = 0.0; // LFO phase in [0, 1)
 };
 
+// A 16-step gate sequencer (trance-gate / "gross-beat"-style rhythmic gating): a user-drawn pattern
+// of 16 per-step volume levels the effect cycles through, chopping the signal into a rhythmic
+// pattern. Unlike the tremolo's single on/off LFO, each step has its own level, so you can draw
+// stutters, ramps, and syncopated gates. Tempo-synced: the whole 16-step pattern spans the chosen
+// note division (default 1 bar → 1/16-note steps). A short smoothing ramp declicks the step edges.
+class StepGate : public Effect {
+public:
+    static constexpr int kSteps = 16;
+    StepGate() {
+        enabled_ = false;
+        steps_.fill(1.0f); // all steps open → transparent until a pattern is drawn
+    }
+    const char* name() const override { return "Step Gate"; }
+    void setStep(int i, float level) {
+        if (i >= 0 && i < kSteps) {
+            steps_[static_cast<size_t>(i)] = level < 0.0f ? 0.0f : (level > 1.0f ? 1.0f : level);
+        }
+    }
+    float step(int i) const {
+        return (i >= 0 && i < kSteps) ? steps_[static_cast<size_t>(i)] : 0.0f;
+    }
+    // Pattern cycles per second (how fast the whole 16-step pattern repeats). Tempo sync overrides it.
+    void setRate(float hz) { rateHz_ = hz < 0.01f ? 0.01f : (hz > 50.0f ? 50.0f : hz); }
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Tempo sync: the whole pattern spans the chosen note division (reusing the shared modulation
+    // division set). Call updateTempo() each block with the current BPM.
+    void setSync(bool on) { sync_ = on; }
+    void setSyncDivision(int d) {
+        syncDiv_ = d < 0 ? 0 : (d >= kModSyncDivisions ? kModSyncDivisions - 1 : d);
+    }
+    void updateTempo(double bpm);
+    bool sync() const { return sync_; }
+    int syncDivision() const { return syncDiv_; }
+    float rate() const { return rateHz_; }
+    float mix() const { return mix_; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    std::array<float, kSteps> steps_{};
+    float rateHz_ = 2.0f; // pattern cycles per second
+    float mix_ = 1.0f;    // dry/wet blend; 1 = fully gated
+    bool sync_ = false;   // tempo-sync the pattern length
+    int syncDiv_ = 5;     // per-step note division (default 1/16 → a 1-bar 16-step pattern)
+    double phase_ = 0.0;  // pattern position in [0, 1)
+    float smoothedGain_ = 1.0f; // one-pole-smoothed gate gain (declick)
+};
+
 // A stereo (dual) delay: each channel has its own independent delay time, so the left and right
 // echoes fall at different intervals — wide, dubby, cross-rhythmic stereo echoes the single-time
 // Delay can't make. `feedback` sets the repeat tail; `mix` the dry/wet blend.

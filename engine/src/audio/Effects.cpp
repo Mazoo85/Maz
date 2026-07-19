@@ -1561,6 +1561,48 @@ void Tremolo::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- StepGate ---------------------------------------------------------------
+
+void StepGate::reset() {
+    phase_ = 0.0;
+    smoothedGain_ = 1.0f;
+}
+
+void StepGate::updateTempo(double bpm) {
+    if (!sync_ || bpm <= 0.0) {
+        return;
+    }
+    // Each of the 16 steps is one note division, so the whole pattern cycles at 1/16 that rate.
+    rateHz_ = modSyncRateHz(syncDiv_, bpm) / static_cast<float>(kSteps);
+}
+
+void StepGate::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const double inc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
+    const float mix = std::clamp(mix_, 0.0f, 1.0f);
+    // One-pole smoothing (~3 ms) so step edges don't click.
+    const float sc = 1.0f - std::exp(-1.0f / (0.003f * static_cast<float>(sampleRate)));
+    for (int i = 0; i < frames; ++i) {
+        int s = static_cast<int>(phase_ * kSteps);
+        if (s < 0) {
+            s = 0;
+        }
+        if (s >= kSteps) {
+            s = kSteps - 1;
+        }
+        smoothedGain_ += sc * (steps_[static_cast<size_t>(s)] - smoothedGain_);
+        const float g = 1.0f - mix + mix * smoothedGain_;
+        stereo[2 * i] *= g;
+        stereo[2 * i + 1] *= g;
+        phase_ += inc;
+        if (phase_ >= 1.0) {
+            phase_ -= std::floor(phase_);
+        }
+    }
+}
+
 // ---- StereoDelay ------------------------------------------------------------
 
 void StereoDelay::reset() {

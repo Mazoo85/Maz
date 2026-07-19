@@ -1869,6 +1869,74 @@ int main() {
         check(same, "a disabled tremolo is transparent");
     }
 
+    // --- Step gate: a 16-step rhythmic volume pattern -----------------------
+    {
+        // All steps open (the default) → transparent (gain 1 everywhere).
+        audio::StepGate open;
+        open.setEnabled(true);
+        open.setRate(2.0f);
+        std::vector<float> b = sineStereo(sr, 300.0, 0.5, sr);
+        const double dryRms = rms(sineStereo(sr, 300.0, 0.5, sr));
+        open.process(b.data(), sr, sr);
+        check(std::fabs(rms(b) - dryRms) < 1e-4, "an all-open step gate is transparent");
+
+        // All steps closed → silence.
+        audio::StepGate shut;
+        shut.setEnabled(true);
+        shut.setRate(2.0f);
+        for (int s = 0; s < audio::StepGate::kSteps; ++s) shut.setStep(s, 0.0f);
+        std::vector<float> z = sineStereo(sr, 300.0, 0.5, sr);
+        shut.process(z.data(), sr, sr);
+        // (A brief declick ramp from the gate's initially-open state leaks a few ms at the very start.)
+        check(rms(z) < 0.03, "an all-closed step gate silences the signal");
+
+        // An alternating on/off pattern gates the signal rhythmically: windowed levels swing between
+        // ~full and ~silent, and the overall level drops versus the dry (roughly half the steps open).
+        audio::StepGate alt;
+        alt.setEnabled(true);
+        alt.setRate(1.0f); // one 16-step pass per second → 62.5 ms steps
+        for (int s = 0; s < audio::StepGate::kSteps; ++s) alt.setStep(s, (s % 2 == 0) ? 1.0f : 0.0f);
+        std::vector<float> g = sineStereo(sr, 300.0, 0.5, sr);
+        alt.process(g.data(), sr, sr);
+        check(rms(g) < dryRms * 0.85 && rms(g) > dryRms * 0.4,
+              "an alternating step gate cuts the overall level (rhythmic gating)");
+        double loud = 0.0, quiet = 1e9;
+        const int win = 512;
+        for (int start = 0; start + win <= sr; start += win) {
+            double e = 0.0;
+            for (int i = 0; i < win; ++i) {
+                const float l = g[static_cast<size_t>((start + i) * 2)];
+                e += static_cast<double>(l) * l;
+            }
+            const double r = std::sqrt(e / win);
+            if (r > loud) loud = r;
+            if (r < quiet) quiet = r;
+        }
+        check(loud > 0.2 && quiet < 0.02, "step gate windows swing between open and closed");
+
+        // Tempo sync: with 1/16-note steps the 16-step pattern spans one bar (0.5 Hz @120 BPM).
+        audio::StepGate sg;
+        sg.setSync(true);
+        sg.setSyncDivision(5); // "1/16" per step in the shared modulation division set
+        sg.updateTempo(120.0);
+        check(std::fabs(sg.rate() - 0.5f) < 0.01f,
+              "synced 1/16-step gate spans one bar @120 BPM (0.5 Hz pattern)");
+
+        // Disabled → bit-identical passthrough; defaults are transparent (all steps open).
+        audio::StepGate dis;
+        dis.setStep(0, 0.0f);
+        std::vector<float> d = sineStereo(1000, 300.0, 0.5, sr);
+        const std::vector<float> dref = d;
+        dis.process(d.data(), 1000, sr);
+        bool same2 = true;
+        for (size_t i = 0; i < d.size(); ++i) {
+            if (d[i] != dref[i]) same2 = false;
+        }
+        check(same2, "a disabled step gate is a bit-identical passthrough");
+        check(audio::StepGate().step(0) == 1.0f && !audio::StepGate().enabled(),
+              "step gate defaults to all-open and off");
+    }
+
     // --- Stereo delay: independent left/right echo times --------------------
     {
         // 10 ms left = 480 samples, 20 ms right = 960 samples at 48 kHz — exact for a clean check.

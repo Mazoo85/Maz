@@ -54,6 +54,7 @@ Mixer::Mixer() {
     autowah_.setEnabled(false);
     comb_.setEnabled(false);
     tremolo_.setEnabled(false);
+    stepgate_.setEnabled(false);
     stereoDelay_.setEnabled(false);
     formant_.setEnabled(false);
     monobass_.setEnabled(false);
@@ -67,7 +68,7 @@ Mixer::Mixer() {
     // mono-bass → sub-bass → auto-pan → utility → clipper → brickwall limiter → plugins.
     chain_ = {&gate_,     &hp_,       &peq_,      &tilt_,      &exciter_,     &eq_,       &dist_,
               &tape_,     &ringmod_,  &pitchshift_, &freqshift_, &crush_,   &comp_,        &mbcomp_,    &transient_, &deEsser_, &chorus_,
-              &vibrato_,  &flanger_,  &phaser_,   &autowah_,  &formant_,   &comb_,        &tremolo_,  &delay_,
+              &vibrato_,  &flanger_,  &phaser_,   &autowah_,  &formant_,   &comb_,        &tremolo_,  &stepgate_, &delay_,
               &stereoDelay_, &reverb_, &widener_, &stereoEnhancer_, &monobass_, &subbass_, &autopan_, &utility_,
               &clipper_,  &limiter_,  &plugin_,   &clap_,     &vst3_};
 

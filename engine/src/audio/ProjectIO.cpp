@@ -460,6 +460,13 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx tremolo " << (mixer.tremolo().enabled() ? 1 : 0) << " " << mixer.tremolo().rate() << " "
       << mixer.tremolo().depth() << " " << static_cast<int>(mixer.tremolo().shape()) << " "
       << (mixer.tremolo().sync() ? 1 : 0) << " " << mixer.tremolo().syncDivision() << "\n";
+    f << "fx stepgate " << (mixer.stepGate().enabled() ? 1 : 0) << " " << mixer.stepGate().rate()
+      << " " << (mixer.stepGate().sync() ? 1 : 0) << " " << mixer.stepGate().syncDivision() << " "
+      << mixer.stepGate().mix();
+    for (int s = 0; s < StepGate::kSteps; ++s) {
+        f << " " << mixer.stepGate().step(s);
+    }
+    f << "\n";
     f << "fx stereodelay " << (mixer.stereoDelay().enabled() ? 1 : 0) << " "
       << mixer.stereoDelay().leftMs() << " " << mixer.stereoDelay().rightMs() << " "
       << mixer.stereoDelay().feedback() << " " << mixer.stereoDelay().mix() << " "
@@ -1075,6 +1082,21 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float cdamp = 0.0f; // damping optional for old files (0 = off/bright)
                 if (ls >> cdamp) {
                     mixer.comb().setDamping(cdamp);
+                }
+            } else if (which == "stepgate") {
+                float rate = 2.0f, mix = 1.0f;
+                int sync = 0, div = 2;
+                ls >> rate >> sync >> div >> mix;
+                mixer.stepGate().setEnabled(en != 0);
+                mixer.stepGate().setRate(rate);
+                mixer.stepGate().setSync(sync != 0);
+                mixer.stepGate().setSyncDivision(div);
+                mixer.stepGate().setMix(mix);
+                for (int s = 0; s < StepGate::kSteps; ++s) {
+                    float lvl = 1.0f;
+                    if (ls >> lvl) {
+                        mixer.stepGate().setStep(s, lvl);
+                    }
                 }
             } else if (which == "tremolo") {
                 float rate = 5.0f, depth = 0.5f;

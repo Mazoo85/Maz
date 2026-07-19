@@ -2035,6 +2035,40 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.tremolo().setSyncDivision(tdiv);
     }
     {
+        bool en = mx.stepGate().enabled();
+        if (ImGui::Checkbox("Step Gate", &en)) mx.stepGate().setEnabled(en);
+        ImGui::SameLine();
+        bool gsync = mx.stepGate().sync();
+        if (ImGui::Checkbox("Sync##sg", &gsync)) mx.stepGate().setSync(gsync);
+        ImGui::SameLine();
+        if (gsync) {
+            int gdiv = mx.stepGate().syncDivision();
+            const char* gdivNames[audio::kModSyncDivisions];
+            for (int d = 0; d < audio::kModSyncDivisions; ++d)
+                gdivNames[d] = audio::modSyncDivisionName(d);
+            ImGui::SetNextItemWidth(80.0f);
+            if (ImGui::Combo("div##sg", &gdiv, gdivNames, audio::kModSyncDivisions))
+                mx.stepGate().setSyncDivision(gdiv);
+        } else {
+            float grate = mx.stepGate().rate();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("cyc/s##sg", &grate, 0.1f, 12.0f, "%.2f"))
+                mx.stepGate().setRate(grate);
+        }
+        // 16 vertical step-level sliders drawn as a pattern row.
+        for (int s = 0; s < audio::StepGate::kSteps; ++s) {
+            if (s > 0) ImGui::SameLine();
+            float lvl = mx.stepGate().step(s);
+            ImGui::PushID(s);
+            if (ImGui::VSliderFloat("##sgstep", ImVec2(16, 60), &lvl, 0.0f, 1.0f, ""))
+                mx.stepGate().setStep(s, lvl);
+            ImGui::PopID();
+        }
+        float gmix = mx.stepGate().mix();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("mix##sg", &gmix, 0.0f, 1.0f, "%.2f")) mx.stepGate().setMix(gmix);
+    }
+    {
         bool en = mx.stereoDelay().enabled();
         if (ImGui::Checkbox("Stereo Delay", &en)) mx.stereoDelay().setEnabled(en);
         float lms = mx.stereoDelay().leftMs();

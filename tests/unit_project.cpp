@@ -255,6 +255,15 @@ int main() {
     mixer.tremolo().setShape(audio::Tremolo::Shape::Saw);
     mixer.tremolo().setSync(true);
     mixer.tremolo().setSyncDivision(5);
+    mixer.stepGate().setEnabled(true);
+    mixer.stepGate().setRate(3.0f);
+    mixer.stepGate().setSync(true);
+    mixer.stepGate().setSyncDivision(1);
+    mixer.stepGate().setMix(0.8f);
+    mixer.stepGate().setStep(0, 1.0f);
+    mixer.stepGate().setStep(1, 0.25f);
+    mixer.stepGate().setStep(7, 0.5f);
+    mixer.stepGate().setStep(15, 0.0f);
     mixer.stereoDelay().setEnabled(true);
     mixer.stereoDelay().setLeftMs(180.0f);
     mixer.stereoDelay().setRightMs(270.0f);
@@ -730,6 +739,12 @@ int main() {
               mixer2.tremolo().shape() == audio::Tremolo::Shape::Saw &&
               mixer2.tremolo().sync() && mixer2.tremolo().syncDivision() == 5,
           "tremolo round-trips");
+    check(mixer2.stepGate().enabled() && near(mixer2.stepGate().rate(), 3.0f) &&
+              mixer2.stepGate().sync() && mixer2.stepGate().syncDivision() == 1 &&
+              near(mixer2.stepGate().mix(), 0.8f) && near(mixer2.stepGate().step(0), 1.0f) &&
+              near(mixer2.stepGate().step(1), 0.25f) && near(mixer2.stepGate().step(7), 0.5f) &&
+              near(mixer2.stepGate().step(15), 0.0f),
+          "step gate round-trips (rate + sync + mix + 16 step levels)");
     check(mixer2.formant().enabled() &&
               mixer2.formant().vowel() == audio::FormantFilter::Vowel::E &&
               near(mixer2.formant().mix(), 0.6f) && mixer2.formant().morphEnabled() &&
