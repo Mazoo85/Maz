@@ -351,7 +351,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << " "
       << (mixer.delay().sync() ? 1 : 0) << " " << mixer.delay().syncDivision() << " "
-      << mixer.delay().feedbackLowCut() << "\n";
+      << mixer.delay().feedbackLowCut() << " " << mixer.delay().modDepth() << " "
+      << mixer.delay().modRate() << "\n";
     f << "fx reverb " << (mixer.reverb().enabled() ? 1 : 0) << " " << mixer.reverb().roomSize()
       << " " << mixer.reverb().damping() << " " << mixer.reverb().mix() << " "
       << mixer.reverb().preDelayMs() << " " << mixer.reverb().width() << " "
@@ -896,6 +897,11 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float fbLowCut = 0.0f; // feedback low-cut optional for old files
                 if (ls >> fbLowCut) {
                     mixer.delay().setFeedbackLowCut(fbLowCut);
+                }
+                float modDepth = 0.0f, modRate = 0.3f; // delay modulation optional for old files
+                if (ls >> modDepth >> modRate) {
+                    mixer.delay().setModDepth(modDepth);
+                    mixer.delay().setModRate(modRate);
                 }
             } else if (which == "gate") {
                 float thr = -40.0f, ratio = 4.0f, range = -60.0f, atk = 2.0f, rel = 80.0f;

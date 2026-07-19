@@ -96,6 +96,52 @@ int main() {
         check(wetHF(0.7f) < wetHF(0.0f) * 0.7, "delay damping rolls off the echoes' high end");
     }
 
+    // --- Delay modulation: the repeats wobble in pitch (analog character) ----
+    {
+        // Std-dev of the wet's per-window frequency: a modulated delay makes it wobble; a clean one
+        // holds steady. (10 windows across a 1 s render of a wet-only 300 Hz tone.)
+        auto freqWobble = [&](float modDepth) {
+            audio::Delay d;
+            d.setEnabled(true);
+            d.setTime(20.0f);
+            d.setFeedback(0.0f); // a single clean echo
+            d.setMix(1.0f);      // wet only
+            d.setModDepth(modDepth);
+            d.setModRate(3.0f);
+            std::vector<float> b = sineStereo(sr, 300.0, 0.6, sr); // 1 s, 300 Hz
+            d.process(b.data(), sr, sr);
+            const int win = sr / 10;
+            std::vector<double> freqs;
+            for (int w = 0; w < 10; ++w) {
+                int cross = 0;
+                const int a = w * win + sr / 20; // skip the first 50 ms (initial delay fill)
+                const int e = (w + 1) * win;
+                for (int i = a + 1; i < e; ++i) {
+                    const float p = b[static_cast<size_t>(2 * (i - 1))];
+                    const float c = b[static_cast<size_t>(2 * i)];
+                    if ((p <= 0.0f && c > 0.0f) || (p >= 0.0f && c < 0.0f)) {
+                        ++cross;
+                    }
+                }
+                freqs.push_back(static_cast<double>(cross) / 2.0 /
+                                (static_cast<double>(e - a - 1) / sr));
+            }
+            double mean = 0.0;
+            for (double f : freqs) {
+                mean += f;
+            }
+            mean /= static_cast<double>(freqs.size());
+            double var = 0.0;
+            for (double f : freqs) {
+                var += (f - mean) * (f - mean);
+            }
+            return std::sqrt(var / static_cast<double>(freqs.size()));
+        };
+        const double clean = freqWobble(0.0f);
+        const double modded = freqWobble(6.0f);
+        check(modded > clean + 3.0, "delay modulation wobbles the repeats' pitch (higher freq spread)");
+    }
+
     // --- Delay feedback low-cut: repeats shed their low end ------------------
     {
         // A short low-frequency burst then silence, echoed with high feedback. With the feedback

@@ -1656,6 +1656,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::SliderFloat("lo-cut##dly", &fbLc, 0.0f, 1000.0f, "%.0f Hz")) mx.delay().setFeedbackLowCut(fbLc);
+        float modD = mx.delay().modDepth();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mod ms##dly", &modD, 0.0f, 20.0f, "%.1f")) mx.delay().setModDepth(modD);
+        float modR = mx.delay().modRate();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("mod Hz##dly", &modR, 0.0f, 10.0f, "%.2f")) mx.delay().setModRate(modR);
         bool sync = mx.delay().sync();
         if (ImGui::Checkbox("Sync##dly", &sync)) mx.delay().setSync(sync);
         ImGui::SameLine();

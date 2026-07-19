@@ -48,6 +48,7 @@ void Delay::reset() {
     dampR_ = 0.0f;
     lcL_ = 0.0f;
     lcR_ = 0.0f;
+    modPhase_ = 0.0;
 }
 
 namespace {
@@ -112,13 +113,42 @@ void Delay::process(float* stereo, int frames, int sampleRate) {
         doLowCut ? 1.0f - std::exp(-2.0f * 3.14159265358979f * fbLowCutHz_ /
                                        static_cast<float>(sampleRate))
                  : 0.0f;
+    // Delay-time modulation: sweep the read tap ±modSamples with a slow LFO (analog/tape wobble).
+    const bool doMod = modDepthMs_ > 0.0f;
+    const float modSamples = modDepthMs_ * 0.001f * static_cast<float>(sampleRate);
+    const double modInc = static_cast<double>(modRateHz_) / static_cast<double>(sampleRate);
 
     for (int i = 0; i < frames; ++i) {
-        const int r = (write_ - tap + size_) % size_;
         const float dryL = stereo[2 * i];
         const float dryR = stereo[2 * i + 1];
-        const float wetL = bufL_[static_cast<size_t>(r)];
-        const float wetR = bufR_[static_cast<size_t>(r)];
+        float wetL;
+        float wetR;
+        if (doMod) {
+            // Fractional, interpolated read at a tap that wobbles with the LFO.
+            const float m =
+                modSamples * static_cast<float>(std::sin(modPhase_ * 6.283185307179586));
+            float tapF = static_cast<float>(tap) + m;
+            const float maxTap = static_cast<float>(size_ - 2);
+            tapF = tapF < 1.0f ? 1.0f : (tapF > maxTap ? maxTap : tapF);
+            double pos = std::fmod(static_cast<double>(write_) - static_cast<double>(tapF),
+                                   static_cast<double>(size_));
+            if (pos < 0.0) {
+                pos += static_cast<double>(size_);
+            }
+            const int i0 = static_cast<int>(pos);
+            const float frac = static_cast<float>(pos - static_cast<double>(i0));
+            const int i1 = (i0 + 1) % size_;
+            wetL = bufL_[static_cast<size_t>(i0)] * (1.0f - frac) + bufL_[static_cast<size_t>(i1)] * frac;
+            wetR = bufR_[static_cast<size_t>(i0)] * (1.0f - frac) + bufR_[static_cast<size_t>(i1)] * frac;
+            modPhase_ += modInc;
+            if (modPhase_ >= 1.0) {
+                modPhase_ -= 1.0;
+            }
+        } else {
+            const int r = (write_ - tap + size_) % size_;
+            wetL = bufL_[static_cast<size_t>(r)];
+            wetR = bufR_[static_cast<size_t>(r)];
+        }
         // Low-pass the fed-back signal so successive repeats lose their highs.
         dampL_ += (1.0f - dampCoef) * (wetL - dampL_);
         dampR_ += (1.0f - dampCoef) * (wetR - dampR_);

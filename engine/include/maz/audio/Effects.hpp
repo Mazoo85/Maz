@@ -62,6 +62,13 @@ public:
     // end and the echoes don't build up into boom/mud — the classic dub/tape delay trick. 0 = off.
     void setFeedbackLowCut(float hz) { fbLowCutHz_ = hz < 0.0f ? 0.0f : (hz > 1000.0f ? 1000.0f : hz); }
     float feedbackLowCut() const { return fbLowCutHz_; }
+    // Modulation: an LFO sweeps the delay time by ±`depthMs` at `rateHz`, so the repeats wobble in
+    // pitch — the warm, detuned character of analog/BBD/tape echoes. depth 0 (default) = off (a clean
+    // digital delay). Uses fractional (interpolated) read only when modulating.
+    void setModDepth(float ms) { modDepthMs_ = ms < 0.0f ? 0.0f : (ms > 20.0f ? 20.0f : ms); }
+    void setModRate(float hz) { modRateHz_ = hz < 0.0f ? 0.0f : (hz > 10.0f ? 10.0f : hz); }
+    float modDepth() const { return modDepthMs_; }
+    float modRate() const { return modRateHz_; }
     // Tempo sync: when on, the delay time tracks the transport tempo at the chosen note division
     // (1/4, dotted 1/8, 1/8 triplet, …) instead of the fixed millisecond time. Call updateTempo()
     // each block with the current BPM to recompute the time.
@@ -93,6 +100,9 @@ private:
     float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut state per channel
     float fbLowCutHz_ = 0.0f;           // feedback high-pass (low-cut) cutoff; 0 = off
     float lcL_ = 0.0f, lcR_ = 0.0f;     // feedback low-cut one-pole LP state per channel
+    float modDepthMs_ = 0.0f;           // delay-time modulation depth (ms); 0 = off
+    float modRateHz_ = 0.3f;            // delay-time modulation LFO rate (Hz)
+    double modPhase_ = 0.0;             // modulation LFO phase [0,1)
     std::vector<float> bufL_;
     std::vector<float> bufR_;
     int size_ = 0;
