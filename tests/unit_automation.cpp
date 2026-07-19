@@ -122,6 +122,7 @@ int main() {
         fixLane(audio::AutoTarget::ConvolverMix, 0.5f);
         fixLane(audio::AutoTarget::DistortionBias, 0.4f);
         fixLane(audio::AutoTarget::BeatRepeatMix, 0.9f);
+        fixLane(audio::AutoTarget::FormantVowel, 2.5f);
         au.apply(eng, 0.0);
         check(std::fabs(eng.mixer().reverb().shimmer() - 0.7f) < 1e-3f &&
                   eng.mixer().reverb().enabled(),
@@ -149,6 +150,9 @@ int main() {
         check(std::fabs(eng.mixer().beatRepeat().mix() - 0.9f) < 1e-3f &&
                   eng.mixer().beatRepeat().enabled(),
               "beat-repeat-mix automation drives the stutter wet and enables it");
+        check(std::fabs(eng.mixer().formant().morph() - 2.5f) < 1e-3f &&
+                  eng.mixer().formant().enabled() && eng.mixer().formant().morphEnabled(),
+              "formant-vowel automation drives the morph and enables the formant filter");
     }
 
     // --- Automation clips (breakpoint envelopes) ------------------------------

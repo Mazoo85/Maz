@@ -125,6 +125,8 @@ Automation::Automation() {
     lane(AutoTarget::DistortionBias).hi = 1.0f;
     lane(AutoTarget::BeatRepeatMix).lo = 0.0f;
     lane(AutoTarget::BeatRepeatMix).hi = 1.0f;
+    lane(AutoTarget::FormantVowel).lo = 0.0f; // A→E→I→O→U morph position
+    lane(AutoTarget::FormantVowel).hi = 4.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -221,6 +223,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Dist Bias";
     case AutoTarget::BeatRepeatMix:
         return "Beat-Rpt Mix";
+    case AutoTarget::FormantVowel:
+        return "Formant Vowel";
     case AutoTarget::Count:
         break;
     }
@@ -490,6 +494,12 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Ride the beat-repeat wet blend — automate the stutter in/out over a build/drop.
             engine.mixer().beatRepeat().setEnabled(true);
             engine.mixer().beatRepeat().setMix(v);
+            break;
+        case AutoTarget::FormantVowel:
+            // Sweep the formant filter's vowel morph (A→E→I→O→U) — automated talkbox vowel sweeps.
+            engine.mixer().formant().setEnabled(true);
+            engine.mixer().formant().setMorphEnabled(true);
+            engine.mixer().formant().setMorph(v);
             break;
         case AutoTarget::Count:
             break;
