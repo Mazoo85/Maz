@@ -75,6 +75,7 @@
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
+#include "maz/math/FixedAabb3.hpp"
 #include "maz/math/FixedTrig.hpp"
 #include "maz/math/FixedMath.hpp"
 #include "maz/math/FixedRect2.hpp"
@@ -16457,6 +16458,63 @@ void testPcg32() {
             return p.x.raw ^ (p.y.raw << 1) ^ (static_cast<std::int64_t>(p.z.raw) << 2);
         };
         CHECK(v3sim() == v3sim());
+    }
+
+    // --- M422: FixedAabb3 (deterministic fixed-point 3D axis-aligned box) ---
+    {
+        using FA3 = maz::math::FixedAabb3;
+        using FA3V = maz::math::FixedVec3;
+        using FA3F = maz::core::Fixed;
+
+        const FA3 box = FA3::fromInt(2, 3, 4, 10, 6, 8); // x[2,12) y[3,9) z[4,12)
+
+        CHECK((box.end() == FA3V::fromInt(12, 9, 12)));
+        CHECK((box.center() == FA3V::fromInt(7, 6, 8)));
+        CHECK(box.volume() == FA3F::fromInt(10 * 6 * 8));
+
+        // Half-open containment.
+        CHECK(box.hasPoint(FA3V::fromInt(2, 3, 4)));
+        CHECK(box.hasPoint(FA3V::fromInt(11, 8, 11)));
+        CHECK(!box.hasPoint(FA3V::fromInt(12, 9, 12)));
+        CHECK(!box.hasPoint(FA3V::fromInt(5, 5, 12)));
+        CHECK(!box.hasPoint(FA3V::fromInt(1, 5, 5)));
+
+        // intersects (face-touching excluded by default, included with touchingCounts).
+        CHECK(box.intersects(FA3::fromInt(10, 8, 10, 5, 5, 5)));
+        CHECK(!box.intersects(FA3::fromInt(20, 20, 20, 3, 3, 3)));
+        CHECK(!box.intersects(FA3::fromInt(2, 3, 12, 4, 4, 4)));
+        CHECK(box.intersects(FA3::fromInt(2, 3, 12, 4, 4, 4), true));
+
+        // intersection.
+        CHECK((box.intersection(FA3::fromInt(8, 5, 6, 10, 10, 10)) == FA3::fromInt(8, 5, 6, 4, 4, 6)));
+        CHECK(box.intersection(FA3::fromInt(20, 20, 20, 2, 2, 2)).volume() == FA3F::zero());
+
+        // merge / grow / expand.
+        CHECK((FA3::fromInt(0, 0, 0, 2, 2, 2).merge(FA3::fromInt(5, 5, 5, 2, 2, 2))
+               == FA3::fromInt(0, 0, 0, 7, 7, 7)));
+        CHECK((box.grow(FA3F::fromInt(1)) == FA3::fromInt(1, 2, 3, 12, 8, 10)));
+        CHECK((box.expand(FA3V::fromInt(15, 1, 4)) == FA3::fromInt(2, 1, 4, 13, 8, 8)));
+        CHECK((box.expand(FA3V::fromInt(5, 5, 5)) == box));
+
+        // encloses.
+        CHECK(box.encloses(FA3::fromInt(3, 4, 5, 2, 2, 2)));
+        CHECK(!box.encloses(FA3::fromInt(3, 4, 5, 20, 2, 2)));
+        CHECK(box.encloses(box));
+
+        // abs normalizes negative size.
+        CHECK((FA3(FA3V::fromInt(12, 9, 12), FA3V::fromInt(-10, -6, -8)).abs()
+               == FA3::fromInt(2, 3, 4, 10, 6, 8)));
+
+        // clampPoint.
+        CHECK((box.clampPoint(FA3V::fromInt(0, 0, 0)) == FA3V::fromInt(2, 3, 4)));
+        CHECK((box.clampPoint(FA3V::fromInt(100, 100, 100)) == FA3V::fromInt(12, 9, 12)));
+        CHECK((box.clampPoint(FA3V::fromInt(7, 6, 8)) == FA3V::fromInt(7, 6, 8)));
+
+        // Fractional (sub-integer) coordinates.
+        const FA3 fbox(FA3V(FA3F::half(), FA3F::half(), FA3F::half()), FA3V::fromInt(1, 1, 1));
+        CHECK(fbox.hasPoint(FA3V::fromInt(1, 1, 1)));
+        CHECK(!fbox.hasPoint(FA3V::fromInt(2, 2, 2)));
+        CHECK(fbox.center().x == FA3F::one());
     }
 
     // --- M417: FixedTrig (deterministic fixed-point sin/cos via integer CORDIC) ---

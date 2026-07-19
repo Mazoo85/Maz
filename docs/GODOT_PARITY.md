@@ -380,6 +380,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   half-open min-inclusive/max-exclusive containment, edge-touching intersects both ways, exact
   intersection/merge/grow/expand/encloses, negative-size abs normalization, corner clamping, and
   sub-integer (fractional) coordinates;
+  **fixed-point 3D box** M422 (`math::FixedAabb3` — Godot's AABB in deterministic fixed-point and the 3D
+  sibling of FixedRect2: an axis-aligned box in core::Fixed 3D coords (position + size) for 3D lockstep
+  broadphase, replay-exact overlap and deterministic 3D trigger volumes. Same half-open convention and
+  API as FixedRect2/Rect2i — hasPoint / intersects (touching-counts flag) / intersection / merge / grow
+  / expand / encloses / abs / clampPoint / center / volume — all integer fixed-point so bit-identical
+  everywhere. Godot has no fixed-point box. Verified with exact accessors/volume, half-open
+  min-inclusive/max-exclusive containment on all three axes, face-touching intersects both ways, exact
+  intersection/merge/grow/expand/encloses, negative-size abs normalization, corner clamping, and
+  sub-integer coordinates. Deterministic-sim toolkit now spans 2D+3D: M415 Fixed, M416 FixedVec2, M417
+  trig, M418 helpers, M419 atan2, M420 FixedRect2, M421 FixedVec3, M422 FixedAabb3;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
