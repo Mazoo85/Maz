@@ -1045,6 +1045,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   0.5 midway); `addProgress` moves one quest without touching another; `failQuest` freezes progress; an
   objective-less quest completes on start; the active/completed lists and all unknown-quest queries are
   safe),
+  **status-effect system** (M483, `game::StatusEffectSystem` + `game::StatusEffect` / `game::StatusTick` —
+  the timed buff / debuff layer behind poison, regeneration, haste, and burning. Each effect has a type id,
+  a remaining duration, a stack count, and an optional periodic interval; `update(dt)` counts every effect
+  down, fires a "tick" each time an effect's interval elapses (carrying the sub-interval remainder), and
+  drops effects whose duration runs out. Ticks are reported with the effect's current stack count so the
+  game multiplies per-stack damage/heal without owning any timer. Re-applying follows a StackMode —
+  Refresh (reset timer, replace stacks), Add (add stacks up to a cap, refresh timer), or Keep (ignore while
+  active). This is deliberately DISTINCT from the untimed stat-modifier stack (M476) and the one-timer-per-
+  ability cooldown bank (M480): status effects are the durational, pulsing on-entity effects. Godot ships
+  no status-effect system — games hand-roll it every time -> beyond-Godot gameplay utility. Verified: apply
+  / query with bad args rejected; duration counts down and the effect auto-expires; periodic ticks fire on
+  exact interval boundaries and carry the remainder (0.5+0.5 -> one tick, 2.5 -> two ticks + 0.5 carried);
+  ticks report the live stack count; Refresh resets duration and replaces stacks; Add accumulates to the
+  cap; Keep leaves a running effect untouched; multiple effects tick independently and expire on their own
+  schedules; remove / clear work; non-positive dt is a no-op),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

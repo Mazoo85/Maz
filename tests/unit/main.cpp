@@ -127,6 +127,7 @@
 #include "maz/game/Cooldown.hpp"
 #include "maz/game/Crafting.hpp"
 #include "maz/game/Quest.hpp"
+#include "maz/game/StatusEffect.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20223,6 +20224,94 @@ void testPolynomial() {
     }
 }
 
+void testStatusEffect() {
+    using game::StackMode;
+    using game::StatusEffectSystem;
+
+    // apply / query; bad args ignored.
+    {
+        StatusEffectSystem sx;
+        CHECK(!sx.has(1));
+        CHECK(sx.apply(1, 5.0) == 1 && sx.has(1) && sx.stacksOf(1) == 1);
+        CHECK(std::fabs(sx.remainingOf(1) - 5.0) < 1e-9 && sx.activeCount() == 1);
+        CHECK(sx.apply(-1, 5.0) == 0);
+        CHECK(sx.apply(2, 0.0) == 0);
+        CHECK(sx.apply(2, 5.0, 0) == 0);
+        CHECK(sx.activeCount() == 1);
+    }
+    // Duration counts down and expires (no ticks without an interval).
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 3.0);
+        CHECK(sx.update(1.0).empty());
+        CHECK(std::fabs(sx.remainingOf(1) - 2.0) < 1e-9);
+        sx.update(1.0);
+        sx.update(1.0);
+        CHECK(!sx.has(1) && sx.activeCount() == 0);
+    }
+    // Periodic ticks fire on interval boundaries, carrying the remainder.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 100.0, 1, 1.0);
+        CHECK(sx.update(0.5).empty());
+        auto t1 = sx.update(0.5);
+        CHECK(t1.size() == 1 && t1[0].id == 1 && t1[0].ticks == 1 && t1[0].stacks == 1);
+        auto t2 = sx.update(2.5);
+        CHECK(t2.size() == 1 && t2[0].ticks == 2);
+        auto t3 = sx.update(0.5);
+        CHECK(t3.size() == 1 && t3[0].ticks == 1);
+    }
+    // Ticks report current stacks.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 100.0, 3, 1.0);
+        auto t = sx.update(1.0);
+        CHECK(t.size() == 1 && t[0].stacks == 3 && t[0].ticks == 1);
+    }
+    // Refresh resets duration and replaces stacks.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 5.0, 2);
+        sx.update(3.0);
+        CHECK(std::fabs(sx.remainingOf(1) - 2.0) < 1e-9);
+        CHECK(sx.apply(1, 5.0, 4, 0.0, StackMode::Refresh) == 4);
+        CHECK(std::fabs(sx.remainingOf(1) - 5.0) < 1e-9 && sx.stacksOf(1) == 4);
+    }
+    // Add stacks up to the cap; refreshes duration.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 5.0, 2, 0.0, StackMode::Add, 5);
+        CHECK(sx.apply(1, 5.0, 2, 0.0, StackMode::Add, 5) == 4);
+        CHECK(sx.apply(1, 5.0, 2, 0.0, StackMode::Add, 5) == 5);
+        CHECK(sx.stacksOf(1) == 5);
+    }
+    // Keep leaves the running effect untouched.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 5.0, 2);
+        sx.update(3.0);
+        CHECK(sx.apply(1, 10.0, 9, 0.0, StackMode::Keep) == 2);
+        CHECK(std::fabs(sx.remainingOf(1) - 2.0) < 1e-9 && sx.stacksOf(1) == 2);
+    }
+    // Multiple effects independent; remove / clear; non-positive dt no-op.
+    {
+        StatusEffectSystem sx;
+        sx.apply(1, 2.0, 1, 1.0);
+        sx.apply(2, 10.0);
+        auto t = sx.update(1.0);
+        CHECK(t.size() == 1 && t[0].id == 1);
+        CHECK(sx.has(1) && sx.has(2));
+        sx.update(1.0);
+        CHECK(!sx.has(1) && sx.has(2));
+        CHECK(sx.remove(2) == true && sx.remove(2) == false);
+        sx.apply(3, 5.0, 1, 1.0);
+        CHECK(sx.update(0.0).empty() && sx.update(-1.0).empty());
+        CHECK(std::fabs(sx.remainingOf(3) - 5.0) < 1e-9);
+        sx.clear();
+        CHECK(sx.activeCount() == 0);
+    }
+}
+
 void testQuest() {
     using game::QuestLog;
     using game::QuestState;
@@ -30797,6 +30886,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testStatusEffect();
     testQuest();
     testCrafting();
     testCooldown();
