@@ -1137,6 +1137,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   further progress; an overshoot crosses in one call and clamps; `unlock` fires once; non-positive amounts
   and unknown ids are safe no-ops; completion and `unlockedIds` track across several achievements; `reset`
   and a duplicate add re-lock; and a zero/negative target clamps to 1),
+  **enemy wave spawner** (M490, `game::WaveSpawner` + `game::Wave` — the wave director behind
+  tower-defense, survival, and horde modes. Waves run in sequence: each waits a start delay, then releases
+  its enemies one at a time on a fixed interval, and the NEXT wave begins only once the current wave is
+  fully spawned AND every enemy is dead (the game reports kills). `update(dt)` returns the enemy-type ids to
+  spawn this tick (handling a large dt that spans several intervals in one call), `reportKilled` feeds the
+  clear condition, and the spawner tracks the current wave, alive count, and all-waves-finished. Purely
+  time- and event-driven, no rendering. Godot ships no wave/spawner system — games hand-roll it every time
+  -> beyond-Godot gameplay utility. Verified: a two-wave sequence spawns wave 0's three enemies on interval,
+  holds at "clearing" until all three are reported killed, then honors wave 1's start delay before spawning
+  and only finishes after the last kill; the first enemy comes out on the first positive update; a large dt
+  releases a whole wave in one call; start delay gates the first spawn; an empty (count-0) wave is skipped;
+  a no-waves spawner finishes on start; and reset / clear / pre-start-kill / non-positive-dt are safe),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

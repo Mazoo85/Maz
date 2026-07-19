@@ -134,6 +134,7 @@
 #include "maz/game/TurnOrder.hpp"
 #include "maz/game/Reputation.hpp"
 #include "maz/game/Achievements.hpp"
+#include "maz/game/WaveSpawner.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20230,6 +20231,82 @@ void testPolynomial() {
     }
 }
 
+void testWaveSpawner() {
+    using game::WaveSpawner;
+
+    // Two waves; wave clears only after all spawned AND all killed.
+    {
+        WaveSpawner s;
+        s.addWave(1, 3, 1.0, 0.0);
+        s.addWave(2, 2, 0.5, 2.0);
+        CHECK(s.waveCount() == 2 && !s.running() && !s.finished());
+        s.start();
+        CHECK(s.running() && s.currentWave() == 0);
+        int t1 = 0, t2 = 0;
+        for (int i = 0; i < 6; ++i)
+            for (int e : s.update(0.5)) { if (e == 1) ++t1; else if (e == 2) ++t2; }
+        CHECK(t1 == 3 && t2 == 0 && s.spawnedInWave() == 3 && s.remainingInWave() == 0);
+        CHECK(s.aliveCount() == 3 && !s.isSpawning() && s.currentWave() == 0);
+        s.reportKilled(1);
+        CHECK(s.aliveCount() == 2 && s.currentWave() == 0);
+        s.reportKilled(2);
+        CHECK(s.currentWave() == 1 && s.aliveCount() == 0 && s.spawnedInWave() == 0);
+        int mid = 0;
+        for (int i = 0; i < 4; ++i)
+            for (int e : s.update(0.5)) if (e == 2) ++mid;
+        CHECK(mid == 0 && s.spawnedInWave() == 0); // start delay
+        for (int i = 0; i < 4; ++i)
+            for (int e : s.update(0.5)) if (e == 2) ++t2;
+        CHECK(t2 == 2 && s.spawnedInWave() == 2 && !s.finished());
+        s.reportKilled(2);
+        CHECK(s.finished() && !s.running() && s.currentWave() == 2);
+        CHECK(s.update(5.0).empty());
+    }
+    // Single spawn on first positive update; large dt spans intervals.
+    {
+        WaveSpawner s;
+        s.addWave(7, 1, 1.0, 0.0);
+        s.start();
+        const auto first = s.update(0.1);
+        CHECK(first.size() == 1 && first[0] == 7 && !s.isSpawning());
+        s.reportKilled(1);
+        CHECK(s.finished());
+        WaveSpawner b;
+        b.addWave(1, 5, 1.0, 0.0);
+        b.start();
+        CHECK(b.update(10.0).size() == 5 && b.spawnedInWave() == 5);
+    }
+    // Start delay honored; empty wave skipped; no-waves finishes; reset.
+    {
+        WaveSpawner s;
+        s.addWave(1, 1, 1.0, 3.0);
+        s.start();
+        CHECK(s.update(1.0).empty() && s.update(1.0).empty());
+        const auto out = s.update(1.5);
+        CHECK(out.size() == 1 && out[0] == 1);
+
+        WaveSpawner e;
+        e.addWave(1, 0);
+        e.addWave(2, 1, 1.0, 0.0);
+        e.start();
+        CHECK(e.currentWave() == 1);
+        const auto o2 = e.update(0.1);
+        CHECK(o2.size() == 1 && o2[0] == 2);
+
+        WaveSpawner n;
+        n.start();
+        CHECK(n.finished() && n.update(1.0).empty());
+        n.clear();
+        CHECK(n.waveCount() == 0);
+        n.addWave(1, 2, 1.0, 0.0);
+        n.start();
+        n.update(0.1);
+        CHECK(n.spawnedInWave() == 1);
+        n.reset();
+        CHECK(!n.running() && n.spawnedInWave() == 0 && n.waveCount() == 1);
+    }
+}
+
 void testAchievements() {
     using game::Achievements;
 
@@ -31373,6 +31450,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testWaveSpawner();
     testAchievements();
     testReputation();
     testTurnOrder();
