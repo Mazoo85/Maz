@@ -248,6 +248,19 @@ int main() {
         std::vector<float> wtail(static_cast<size_t>(sampleRate) / 4, 0.0f); // 0.25 s
         wood.render(wtail.data(), static_cast<int>(wtail.size()), sampleRate);
         check(!wood.active(), "woodblock decays fast to inactive");
+
+        // Bongo: a tight high tuned drum → a pitch above the conga's, with a fast decay.
+        audio::DrumVoice bongo;
+        bongo.setType(audio::Drum::Bongo);
+        bongo.trigger();
+        std::vector<float> bbuf(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        bongo.render(bbuf.data(), static_cast<int>(bbuf.size()), sampleRate);
+        check(rms(bbuf) > 0.0, "bongo produces sound");
+        const double bHz = freqOf(bbuf, sampleRate);
+        check(bHz > 300.0 && bHz < 800.0, "bongo rings at its tight high tuned-drum pitch");
+        std::vector<float> btail(static_cast<size_t>(sampleRate), 0.0f); // 1 s
+        bongo.render(btail.data(), static_cast<int>(btail.size()), sampleRate);
+        check(!bongo.active(), "bongo decays to inactive");
     }
 
     // --- Sequencer grid ------------------------------------------------------

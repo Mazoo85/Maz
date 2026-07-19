@@ -41,6 +41,8 @@ double decayTau(Drum type) {
         return 0.14;
     case Drum::Woodblock:
         return 0.035;
+    case Drum::Bongo:
+        return 0.09;
     }
     return 0.1;
 }
@@ -195,6 +197,14 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double tok = std::sin(kTwoPi * 800.0 * pitchMul * t_) +
                                0.4 * std::sin(kTwoPi * 1300.0 * pitchMul * t_);
             s = static_cast<float>(0.7 * tok * env);
+            break;
+        }
+        case Drum::Bongo: {
+            // A tight, high tuned hand drum: a sine with a fast downward pitch sweep (~650 → 350 Hz),
+            // higher and snappier than the conga.
+            const double freq = (350.0 + 300.0 * std::exp(-t_ / 0.025)) * pitchMul;
+            s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
+            phase_ += freq * dt;
             break;
         }
         }

@@ -21,7 +21,8 @@ enum class Drum {
     Clave,
     Tambourine,
     Conga,
-    Woodblock
+    Woodblock,
+    Bongo
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into
