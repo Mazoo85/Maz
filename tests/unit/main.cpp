@@ -11926,6 +11926,19 @@ void testStringUtils() {
     CHECK(!su::isValidIpAddress("2001:db8::10000")); // group > 0xffff
     CHECK(!su::isValidIpAddress("2001:db8::xyz"));   // non-hex group
     CHECK(!su::isValidIpAddress("::ffff:999.1.1.1")); // bad embedded IPv4
+    // M376: chr — Godot String.chr (Unicode code point -> UTF-8), exact byte checks
+    CHECK(su::chr(U'A') == "A");
+    CHECK(su::chr(0x00E9).size() == 2 &&
+          static_cast<unsigned char>(su::chr(0x00E9)[0]) == 0xC3 &&
+          static_cast<unsigned char>(su::chr(0x00E9)[1]) == 0xA9); // 'é'
+    CHECK(su::chr(0x263A).size() == 3 &&
+          static_cast<unsigned char>(su::chr(0x263A)[0]) == 0xE2 &&
+          static_cast<unsigned char>(su::chr(0x263A)[2]) == 0xBA); // '☺'
+    CHECK(su::chr(0x1F600).size() == 4 &&
+          static_cast<unsigned char>(su::chr(0x1F600)[0]) == 0xF0 &&
+          static_cast<unsigned char>(su::chr(0x1F600)[3]) == 0x80); // '😀'
+    CHECK(su::chr(0x10FFFF).size() == 4);   // highest valid code point
+    CHECK(su::chr(0x110000).empty());       // beyond Unicode range
     // pad_decimals TRUNCATES extra digits (Godot behaviour), pads short ones with zeros.
     CHECK(su::padDecimals("12.5", 3) == "12.500");
     CHECK(su::padDecimals("12", 2) == "12.00");

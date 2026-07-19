@@ -371,6 +371,30 @@ inline int nocasecmpTo(const std::string& a, const std::string& b) {
     return 0;
 }
 
+// Encode a single Unicode code point as UTF-8 — Godot's String.chr (which builds a one-code-point
+// String). Returns the 1–4 byte UTF-8 sequence: < 0x80 -> 1 byte, < 0x800 -> 2, < 0x10000 -> 3,
+// <= 0x10FFFF -> 4 bytes. Code points beyond the Unicode range (> 0x10FFFF) yield an empty string.
+inline std::string chr(char32_t codepoint) {
+    std::string out;
+    const std::uint32_t c = static_cast<std::uint32_t>(codepoint);
+    if (c < 0x80u) {
+        out += static_cast<char>(c);
+    } else if (c < 0x800u) {
+        out += static_cast<char>(0xC0u | (c >> 6));
+        out += static_cast<char>(0x80u | (c & 0x3Fu));
+    } else if (c < 0x10000u) {
+        out += static_cast<char>(0xE0u | (c >> 12));
+        out += static_cast<char>(0x80u | ((c >> 6) & 0x3Fu));
+        out += static_cast<char>(0x80u | (c & 0x3Fu));
+    } else if (c <= 0x10FFFFu) {
+        out += static_cast<char>(0xF0u | (c >> 18));
+        out += static_cast<char>(0x80u | ((c >> 12) & 0x3Fu));
+        out += static_cast<char>(0x80u | ((c >> 6) & 0x3Fu));
+        out += static_cast<char>(0x80u | (c & 0x3Fu));
+    }
+    return out;
+}
+
 // Repeat `s` `n` times (Godot repeat).
 inline std::string repeat(const std::string& s, std::size_t n) {
     std::string out;
