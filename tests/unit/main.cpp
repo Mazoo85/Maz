@@ -2130,6 +2130,68 @@ void testGeometry2D() {
     CHECK(math::pointInCircle(vec2(5, 7), vec2(2, 3), 5.0f));       // dist 5 -> inside
     CHECK(!math::pointInCircle(vec2(5, 7), vec2(2, 3), 4.99f));     // just outside
 
+    // --- M397: minimal enclosing circle (Welzl / Nayuki) ---
+    {
+        auto allIn = [](const std::vector<vec2>& p, const math::Circle2& c) {
+            for (const vec2& q : p) {
+                const float dx = q.x - c.center.x, dy = q.y - c.center.y;
+                if (std::sqrt(dx * dx + dy * dy) > c.radius + 1e-3f) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto tight = [](const std::vector<vec2>& p, const math::Circle2& c) {
+            float md = 0.0f;
+            for (const vec2& q : p) {
+                const float dx = q.x - c.center.x, dy = q.y - c.center.y;
+                md = std::max(md, std::sqrt(dx * dx + dy * dy));
+            }
+            return std::fabs(md - c.radius) < 2e-3f;
+        };
+        CHECK(math::minEnclosingCircle({}).radius == 0.0f);
+        {
+            const math::Circle2 c = math::minEnclosingCircle({vec2(3, 5)});
+            CHECK_NEAR(c.center.x, 3.0f, 1e-3f); CHECK_NEAR(c.center.y, 5.0f, 1e-3f); CHECK(c.radius < 1e-4f);
+        }
+        {
+            const math::Circle2 c = math::minEnclosingCircle({vec2(0, 0), vec2(4, 0)});
+            CHECK_NEAR(c.center.x, 2.0f, 1e-3f); CHECK_NEAR(c.center.y, 0.0f, 1e-3f);
+            CHECK_NEAR(c.radius, 2.0f, 1e-3f);
+        }
+        {
+            std::vector<vec2> sq = {vec2(-1, -1), vec2(1, -1), vec2(1, 1), vec2(-1, 1)};
+            const math::Circle2 c = math::minEnclosingCircle(sq);
+            CHECK_NEAR(c.center.x, 0.0f, 1e-3f); CHECK_NEAR(c.center.y, 0.0f, 1e-3f);
+            CHECK_NEAR(c.radius, std::sqrt(2.0f), 1e-3f);
+            CHECK(allIn(sq, c));
+        }
+        {
+            std::vector<vec2> ln = {vec2(0, 0), vec2(1, 0), vec2(2, 0), vec2(3, 0)};
+            const math::Circle2 c = math::minEnclosingCircle(ln);
+            CHECK_NEAR(c.center.x, 1.5f, 1e-3f); CHECK_NEAR(c.center.y, 0.0f, 1e-3f);
+            CHECK_NEAR(c.radius, 1.5f, 1e-3f);
+        }
+        // Interior point doesn't enlarge the circle.
+        {
+            std::vector<vec2> sq = {vec2(-1, -1), vec2(1, -1),      vec2(1, 1),
+                                    vec2(-1, 1),  vec2(0.1f, -0.2f)};
+            const math::Circle2 c = math::minEnclosingCircle(sq);
+            CHECK_NEAR(c.radius, std::sqrt(2.0f), 1e-3f);
+            CHECK(allIn(sq, c));
+        }
+        // General cloud: inside + tight.
+        {
+            std::vector<vec2> pts = {
+                vec2(0.1f, 0.2f),  vec2(0.9f, 0.05f), vec2(0.8f, 0.7f),   vec2(0.2f, 0.85f),
+                vec2(0.5f, 0.45f), vec2(0.35f, 0.3f), vec2(0.65f, 0.25f), vec2(0.15f, 0.6f),
+                vec2(0.02f, 0.02f), vec2(0.98f, 0.97f)};
+            const math::Circle2 c = math::minEnclosingCircle(pts);
+            CHECK(allIn(pts, c));
+            CHECK(tight(pts, c));
+        }
+    }
+
     // --- more Geometry2D statics (M276) ---
     // closestPointOnLine is uncapped (projection can lie past the endpoints).
     CHECK((math::closestPointOnLine(vec2(15, 3), vec2(0, 0), vec2(10, 0)) == vec2(15, 0)));

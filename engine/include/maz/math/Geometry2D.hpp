@@ -541,4 +541,85 @@ inline std::optional<std::pair<vec2, vec2>> clipSegmentToRect(const vec2& a, con
     return std::make_pair(c0, c1);
 }
 
+// A 2D circle (centre + radius), the result type of minEnclosingCircle.
+struct Circle2 {
+    vec2 center{0.0f, 0.0f};
+    float radius = 0.0f;
+    bool contains(vec2 p, float eps = 1e-4f) const {
+        const float dx = p.x - center.x, dy = p.y - center.y;
+        return dx * dx + dy * dy <= (radius + eps) * (radius + eps);
+    }
+};
+
+namespace detail {
+
+inline Circle2 circleFromTwo(vec2 a, vec2 b) {
+    const vec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
+    const float dx = a.x - c.x, dy = a.y - c.y;
+    return Circle2{c, std::sqrt(dx * dx + dy * dy)};
+}
+
+// Circumcircle of three points; radius < 0 signals a degenerate (collinear) triple.
+inline Circle2 circleFromThree(vec2 a, vec2 b, vec2 c) {
+    const float d = 2.0f * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+    if (std::fabs(d) < 1e-12f) {
+        return Circle2{vec2(0.0f, 0.0f), -1.0f};
+    }
+    const float a2 = a.x * a.x + a.y * a.y;
+    const float b2 = b.x * b.x + b.y * b.y;
+    const float c2 = c.x * c.x + c.y * c.y;
+    const float ux = (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d;
+    const float uy = (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d;
+    const vec2 ctr(ux, uy);
+    const float rx = a.x - ux, ry = a.y - uy;
+    return Circle2{ctr, std::sqrt(rx * rx + ry * ry)};
+}
+
+} // namespace detail
+
+// Smallest circle enclosing all `points` — Welzl's minimal-enclosing-circle via Nayuki's
+// deterministic incremental algorithm. Every point ends up inside (or on) the result and the circle
+// is the unique smallest such; empty input yields a zero circle, one point a zero-radius circle.
+// Handy for bounding-volume culling, broadphase bounds, and "fit the view to these points". O(n)
+// expected on shuffled input; deterministic here (fixed order), so worst case O(n^2) — fine for the
+// modest point counts these bounds are built from.
+inline Circle2 minEnclosingCircle(const std::vector<vec2>& points) {
+    const std::size_t n = points.size();
+    if (n == 0) {
+        return Circle2{vec2(0.0f, 0.0f), 0.0f};
+    }
+    Circle2 c{points[0], 0.0f};
+    bool has = false;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (has && c.contains(points[i])) {
+            continue;
+        }
+        // points[i] must lie on the boundary of the circle of points[0..i].
+        c = Circle2{points[i], 0.0f};
+        for (std::size_t j = 0; j < i; ++j) {
+            if (c.contains(points[j])) {
+                continue;
+            }
+            if (c.radius == 0.0f) {
+                c = detail::circleFromTwo(points[i], points[j]);
+            } else {
+                // points[i] and points[j] on the boundary; find the third.
+                Circle2 cc{detail::circleFromTwo(points[i], points[j])};
+                for (std::size_t k = 0; k < j; ++k) {
+                    if (cc.contains(points[k])) {
+                        continue;
+                    }
+                    const Circle2 tri = detail::circleFromThree(points[i], points[j], points[k]);
+                    if (tri.radius >= 0.0f) {
+                        cc = tri;
+                    }
+                }
+                c = cc;
+            }
+        }
+        has = true;
+    }
+    return c;
+}
+
 } // namespace maz::math

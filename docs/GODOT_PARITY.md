@@ -225,6 +225,12 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   palette, 146 constants byte-for-byte, forgiving name lookup like Godot's, matching Godot's Color
   constants + Color.from_string) —
   Godot's Color.blend/clamp/is_equal_approx/to_*32/Color8);
+  **minimal enclosing circle** M397 (`math::minEnclosingCircle` / `Circle2` — the smallest circle
+  covering a point set, via Welzl's algorithm (Nayuki's deterministic incremental form); a
+  beyond-Godot bounding-volume utility for culling, broadphase bounds and fit-view-to-points.
+  Verified against exact known cases — two-point diameter, square corners → radius √2, collinear →
+  span/2, an interior point not enlarging it, acute-triangle circumcircle — plus all-points-inside
+  and boundary-tightness on a random cloud;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
