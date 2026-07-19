@@ -13478,6 +13478,9 @@ void testVectorOps() {
     CHECK(near2(math::project(vec2(3, 4), vec2(1, 0)), vec2(3, 0)));
     CHECK(near2(math::posmod(vec2(-1, 7), 3.0f), vec2(2, 1)));
     CHECK(near2(math::snapped(vec2(2.3f, 2.6f), vec2(1, 1)), vec2(2, 3)));
+    // M356: posmodv — per-component modulus (Godot Vector2.posmodv)
+    CHECK(near2(math::posmodv(vec2(-1, 5), vec2(3, 4)), vec2(2, 1)));
+    CHECK(near2(math::posmodv(vec2(5, 5), vec2(-3, 3)), vec2(-1, 2))); // carries modulus sign
 
     // Vector3: angle_to is the unsigned [0,pi] angle; slide/bounce/reflect mirror the 2D behaviour.
     CHECK_NEAR(math::angleTo(vec3(1, 0, 0), vec3(0, 1, 0)), kPi / 2, 1e-4f);
@@ -13490,6 +13493,7 @@ void testVectorOps() {
     CHECK(near3(math::directionTo(vec3(0, 0, 0), vec3(9, 0, 0)), vec3(1, 0, 0)));
     CHECK(near3(math::project(vec3(3, 4, 5), vec3(0, 0, 1)), vec3(0, 0, 5)));
     CHECK(near3(math::posmod(vec3(-1, 7, -4), 3.0f), vec3(2, 1, 2)));
+    CHECK(near3(math::posmodv(vec3(-1, 7, 10), vec3(3, 4, 6)), vec3(2, 3, 4))); // M356 per-component
     CHECK(near3(math::snapped(vec3(2.3f, 2.6f, -0.4f), vec3(1, 1, 1)), vec3(2, 3, 0)));
 
     // --- M323: rotate a 3D vector about an axis (Rodrigues) — Godot Vector3.rotated ---

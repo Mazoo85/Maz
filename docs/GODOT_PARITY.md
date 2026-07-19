@@ -199,7 +199,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   against strings with two occurrences and case-insensitive inputs;
   M355 adds validateNodeName — Godot String.validate_node_name: removes the six characters Godot
   forbids in SceneTree node names ('.', ':', '@', '/', '"', '%'), all other chars incl. spaces kept,
-  verified against mixed/clean/all-forbidden inputs),
+  verified against mixed/clean/all-forbidden inputs; M356 adds posmodv (vec2/vec3) — Godot
+  Vector2/Vector3.posmodv: per-component positive modulo with a per-component modulus vector,
+  complementing the scalar-modulus posmod, verified per-component incl. negative modulus sign),
   plus **path helpers** M285 — getExtension/getBasename/getFile/getBaseDir/pathJoin/simplifyPath
   matching Godot String's get_extension/get_basename/get_file/get_base_dir/path_join/simplify_path,
   plus **case conversion** M287 — capitalize/toSnakeCase/toCamelCase/toPascalCase matching Godot

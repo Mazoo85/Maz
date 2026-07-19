@@ -224,6 +224,12 @@ inline vec2 posmod(const vec2& v, float m) {
     return vec2(fposmod(v.x, m), fposmod(v.y, m));
 }
 
+// Per-component positive modulo — Godot's Vector2.posmodv: each component wrapped by the matching
+// component of `modv` (result carries the modulus component's sign, like fposmod).
+inline vec2 posmodv(const vec2& v, const vec2& modv) {
+    return vec2(fposmod(v.x, modv.x), fposmod(v.y, modv.y));
+}
+
 // Snap each component to the nearest multiple of the matching `step` component — Godot's Vector2.snapped.
 inline vec2 snapped(const vec2& v, const vec2& step) {
     return vec2(snappedf(v.x, step.x), snappedf(v.y, step.y));
@@ -291,6 +297,11 @@ inline vec3 project(const vec3& v, const vec3& b) {
 
 inline vec3 posmod(const vec3& v, float m) {
     return vec3(fposmod(v.x, m), fposmod(v.y, m), fposmod(v.z, m));
+}
+
+// Per-component positive modulo — Godot's Vector3.posmodv.
+inline vec3 posmodv(const vec3& v, const vec3& modv) {
+    return vec3(fposmod(v.x, modv.x), fposmod(v.y, modv.y), fposmod(v.z, modv.z));
 }
 
 inline vec3 snapped(const vec3& v, const vec3& step) {
