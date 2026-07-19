@@ -99,6 +99,7 @@
 #include "maz/core/Kalman.hpp"
 #include "maz/game/Ballistics.hpp"
 #include "maz/math/QuaternionSwingTwist.hpp"
+#include "maz/game/ReactionDiffusion.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19490,6 +19491,90 @@ void testQuaternionSwingTwist() {
     }
 }
 
+// ReactionDiffusion: Gray-Scott Turing-pattern simulation (M455).
+void testReactionDiffusion() {
+    using game::GrayScottParams;
+    using game::ReactionDiffusion;
+
+    auto sum = [](const std::vector<float>& f) {
+        double s = 0.0;
+        for (float v : f) s += static_cast<double>(v);
+        return s;
+    };
+    auto variance = [&](const std::vector<float>& f) {
+        const double mean = sum(f) / static_cast<double>(f.size());
+        double s = 0.0;
+        for (float v : f) {
+            const double d = static_cast<double>(v) - mean;
+            s += d * d;
+        }
+        return s / static_cast<double>(f.size());
+    };
+
+    // Pure diffusion (F=K=0, V==0) conserves total U mass exactly and reduces variance.
+    {
+        GrayScottParams p{0.0f, 0.0f, 0.16f, 0.08f, 1.0f};
+        ReactionDiffusion rd(24, 24, p);
+        for (int y = 0; y < 24; ++y) {
+            for (int x = 0; x < 24; ++x) {
+                rd.set(x, y, 0.5f + 0.4f * std::sin(0.7f * static_cast<float>(x))
+                                        * std::cos(0.5f * static_cast<float>(y)), 0.0f);
+            }
+        }
+        const double m0 = sum(rd.u());
+        const double var0 = variance(rd.u());
+        rd.step(50);
+        CHECK(std::fabs(sum(rd.u()) - m0) < 1e-2);
+        CHECK(variance(rd.u()) < var0);
+        for (float v : rd.v()) CHECK(v == 0.0f);
+    }
+    // Determinism.
+    {
+        ReactionDiffusion a(40, 40), b(40, 40);
+        a.seedSquare(20, 20, 4);
+        b.seedSquare(20, 20, 4);
+        a.step(200);
+        b.step(200);
+        CHECK(a.u() == b.u() && a.v() == b.v());
+    }
+    // Pattern formation: a seed grows V structure; fields stay finite and bounded.
+    {
+        ReactionDiffusion rd(64, 64, GrayScottParams::mitosis());
+        const double vVar0 = variance(rd.v());
+        rd.seedSquare(32, 32, 5);
+        rd.step(1500);
+        double vmin = 1e9, vmax = -1e9;
+        bool finite = true;
+        for (float v : rd.v()) {
+            finite = finite && std::isfinite(v);
+            vmin = std::fmin(vmin, static_cast<double>(v));
+            vmax = std::fmax(vmax, static_cast<double>(v));
+        }
+        CHECK(finite);
+        CHECK(vmin >= -0.01 && vmax <= 1.01);
+        CHECK(variance(rd.v()) > vVar0 + 1e-4);
+        CHECK(vmax > 0.2);
+    }
+    // Symmetry: a centre-symmetric seed keeps the field mirror-symmetric.
+    {
+        const int N = 33;
+        ReactionDiffusion rd(N, N, GrayScottParams::mitosis());
+        rd.seedSquare(N / 2, N / 2, 3);
+        rd.step(300);
+        for (int y = 0; y < N; ++y) {
+            for (int x = 0; x < N; ++x) {
+                CHECK(std::fabs(rd.vAt(x, y) - rd.vAt(N - 1 - x, y)) < 1e-4f);
+            }
+        }
+    }
+    // Degenerate size: no cells, step is a safe no-op.
+    {
+        ReactionDiffusion rd(0, 0);
+        rd.step(10);
+        CHECK(rd.cells() == 0);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28269,6 +28354,7 @@ int main() {
     testKalman();
     testBallistics();
     testQuaternionSwingTwist();
+    testReactionDiffusion();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

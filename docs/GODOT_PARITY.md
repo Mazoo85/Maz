@@ -716,6 +716,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   perpendicular to the chosen axis; a pure twist yields identity swing and a pure perpendicular swing
   yields identity twist; the 180-degree perpendicular singularity degrades to all-swing; and nlerp hits
   its endpoints, stays unit-length, and approaches the target monotonically),
+  **reaction-diffusion** (M455, `game::ReactionDiffusion` — a Gray-Scott simulation that grows organic
+  Turing patterns (spots, stripes, mazes, coral, mitosis) from two diffusing/reacting chemicals on a
+  toroidal grid: the procedural source for animal-coat textures, rust/lichen growth, and alien-surface
+  detail that static noise can't produce. Explicit-Euler step with a 5-point Laplacian; feed/kill/
+  diffusion presets (mitosis, coral). Godot has no reaction-diffusion -> beyond-Godot. Verified: pure
+  diffusion (F=K=0, V=0) conserves total U mass EXACTLY (the toroidal Laplacian sums to zero) and reduces
+  variance; the step is fully deterministic; a seed grows real V structure while staying finite and
+  bounded in ~[0,1]; a centre-symmetric seed keeps the field mirror-symmetric; and a zero-size grid is a
+  safe no-op),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
