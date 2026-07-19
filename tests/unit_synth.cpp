@@ -1968,6 +1968,43 @@ int main() {
         check(c.notes()[0].startStep >= 0, "timing randomize never produces a negative start");
     }
 
+    // --- Randomize (humanize) note lengths -----------------------------------
+    {
+        auto build = [](audio::PianoRoll& p) {
+            for (int i = 0; i < 8; ++i) {
+                p.addNote(audio::Note{i * 2, 8, 60, 0.9f}); // length 8 so ±scaling has room
+            }
+        };
+        audio::PianoRoll a;
+        audio::PianoRoll b;
+        build(a);
+        build(b);
+        a.randomizeLengths(0.5f, 4242u);
+        b.randomizeLengths(0.5f, 4242u); // same seed → identical
+
+        bool deterministic = true, inRange = true, anyChanged = false;
+        for (size_t i = 0; i < a.notes().size(); ++i) {
+            const int len = a.notes()[i].lengthSteps;
+            if (len != b.notes()[i].lengthSteps) deterministic = false;
+            if (len < 4 || len > 12) inRange = false; // factor in [0.5,1.5) of 8 → [4,12]
+            if (len != 8) anyChanged = true;
+        }
+        check(deterministic, "length randomize is deterministic for a given seed");
+        check(inRange, "length randomize keeps lengths within the scaled range");
+        check(anyChanged, "length randomize actually varies note durations");
+
+        // Never below 1 step, and amount 0 is a no-op.
+        audio::PianoRoll c;
+        c.addNote(audio::Note{0, 1, 60, 0.9f});
+        c.randomizeLengths(1.0f, 9u);
+        check(c.notes()[0].lengthSteps >= 1, "length randomize never drops below 1 step");
+        audio::PianoRoll d;
+        d.addNote(audio::Note{0, 5, 60, 0.9f});
+        const int noop = d.randomizeLengths(0.0f, 1u);
+        check(noop == 0 && d.notes()[0].lengthSteps == 5,
+              "length randomize with amount 0 is a no-op");
+    }
+
     // --- Duplicate -----------------------------------------------------------
     {
         audio::PianoRoll dr;

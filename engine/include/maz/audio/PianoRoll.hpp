@@ -219,6 +219,12 @@ public:
     // fully deterministic. Returns the number of notes whose start changed.
     int randomizeTiming(int maxSteps, uint32_t seed);
 
+    // Randomize (humanize) note lengths: scale each note's duration by a random factor in
+    // [1−amount, 1+amount] (amount clamped to [0, 1]), clamped to at least one step, for less
+    // mechanical, more played-feeling note durations. `seed` makes it fully deterministic. Returns
+    // the number of notes whose length changed.
+    int randomizeLengths(float amount, uint32_t seed);
+
     // Is there any note at this exact (pitch, step) start cell? (Step-entry granularity.)
     bool hasNote(int pitch, int step) const;
 

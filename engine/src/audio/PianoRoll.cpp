@@ -536,6 +536,33 @@ int PianoRoll::randomizeTiming(int maxSteps, uint32_t seed) {
     return changed;
 }
 
+int PianoRoll::randomizeLengths(float amount, uint32_t seed) {
+    if (amount <= 0.0f) {
+        return 0;
+    }
+    if (amount > 1.0f) {
+        amount = 1.0f;
+    }
+    uint32_t rng = seed != 0u ? seed : 1u;
+    int changed = 0;
+    for (Note& n : notes_) {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        const float u = static_cast<float>(rng & 0xFFFFu) / 32768.0f - 1.0f; // [-1, 1)
+        const float scaled = static_cast<float>(n.lengthSteps) * (1.0f + amount * u);
+        int len = static_cast<int>(scaled + 0.5f); // round (lengths are positive)
+        if (len < 1) {
+            len = 1;
+        }
+        if (len != n.lengthSteps) {
+            n.lengthSteps = len;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 int PianoRoll::transpose(int semitones) {
     if (semitones == 0) {
         return 0;

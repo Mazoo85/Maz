@@ -754,6 +754,15 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.randomizeTiming(timingRange, timingSeed++);
     }
     ImGui::SameLine();
+    static float lenRandAmt = 0.4f;
+    static uint32_t lenSeed = 1u;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::SliderFloat("##lenrand", &lenRandAmt, 0.0f, 1.0f, "%.2f");
+    ImGui::SameLine();
+    if (ImGui::Button("Rand len")) {
+        roll.randomizeLengths(lenRandAmt, lenSeed++);
+    }
+    ImGui::SameLine();
     static float rampFrom = 0.4f, rampTo = 1.0f;
     ImGui::SetNextItemWidth(60.0f);
     ImGui::SliderFloat("##rampfrom", &rampFrom, 0.0f, 1.0f, "%.2f");
