@@ -63,7 +63,8 @@ only be written blind, the docs say exactly that.
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
 - [x] **Lightmap baker** (`render::bakeLightmap`) — DONE (M502); direct light + hard shadows, bake fully
   VERIFIABLE HERE (sampling the map is GPU-side). Follow-up: bounce GI + UV-atlas unwrap. [VERIFIABLE HERE]
-- [ ] **Reflection-probe capture plumbing**, **decal projection math**, **volumetric-fog params**,
+- [x] **Decal projection math** (`render::projectDecal`) — DONE (M503); oriented-box UV + normal fade. [VERIFIABLE HERE]
+- [ ] **Reflection-probe capture plumbing**, **volumetric-fog params**,
   **SSR/SSIL passes**, **GPU particles + collision**, **occlusion culling**, **mesh LOD selection**.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [ ] **3D navigation server** with runtime navmesh baking + dynamic obstacles — the baker/query is

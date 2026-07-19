@@ -314,6 +314,7 @@
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
+#include "maz/render/Decal.hpp"
 #include "maz/render/Lightmap.hpp"
 #include "maz/render/Line2D.hpp"
 #include "maz/render/MeshLod.hpp"
@@ -20243,6 +20244,61 @@ void testPolynomial() {
     }
 }
 
+void testDecalProject() {
+    using namespace render;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-4f; };
+
+    Decal d;
+    d.halfExtents = vec3{2, 1, 3};
+    const vec3 up{0, 1, 0};
+
+    // Center -> UV (0.5,0.5), alpha 1.
+    {
+        auto s = projectDecal(d, vec3{0, 0, 0}, up);
+        CHECK(s.has_value());
+        CHECK(nf(s->u, 0.5f) && nf(s->v, 0.5f) && nf(s->alpha, 1.0f));
+    }
+    // Offsets map to UV; far edge inclusive.
+    {
+        CHECK(nf(projectDecal(d, vec3{1, 0, 0}, up)->u, 0.75f));
+        auto s2 = projectDecal(d, vec3{0, 0, 3}, up);
+        CHECK(s2.has_value() && nf(s2->v, 1.0f));
+    }
+    // Outside on each axis -> nullopt.
+    {
+        CHECK(!projectDecal(d, vec3{3, 0, 0}, up).has_value());
+        CHECK(!projectDecal(d, vec3{0, 2, 0}, up).has_value());
+        CHECK(!projectDecal(d, vec3{0, 0, 3.1f}, up).has_value());
+    }
+    // Normal facing away -> rejected; tilted -> alpha = dot(n,up).
+    {
+        CHECK(!projectDecal(d, vec3{0, 0, 0}, vec3{0, -1, 0}).has_value());
+        const float c = std::cos(3.14159265f / 3.0f), sn = std::sin(3.14159265f / 3.0f);
+        CHECK(nf(projectDecal(d, vec3{0, 0, 0}, vec3{sn, c, 0})->alpha, 0.5f));
+    }
+    // normalCutoff gate.
+    {
+        Decal dc = d;
+        dc.normalCutoff = 0.6f;
+        const float c = std::cos(3.14159265f / 3.0f), sn = std::sin(3.14159265f / 3.0f);
+        CHECK(!projectDecal(dc, vec3{0, 0, 0}, vec3{sn, c, 0}).has_value());
+        CHECK(projectDecal(dc, vec3{0, 0, 0}, up).has_value());
+    }
+    // Rotated frame maps through the axes.
+    {
+        Decal r;
+        r.center = vec3{10, 0, 0};
+        r.right = vec3{0, 0, 1};
+        r.up = vec3{0, 1, 0};
+        r.forward = vec3{-1, 0, 0};
+        r.halfExtents = vec3{2, 1, 2};
+        auto s = projectDecal(r, vec3{10, 0, 1}, up);
+        CHECK(s.has_value());
+        CHECK(nf(s->u, 0.75f) && nf(s->v, 0.5f));
+    }
+}
+
 void testLightmapBake() {
     using namespace render;
     using math::vec3;
@@ -32493,6 +32549,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testDecalProject();
     testLightmapBake();
     testFontFallback();
     testPngDecode();

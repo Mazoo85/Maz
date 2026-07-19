@@ -1182,6 +1182,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **decal projection** (M503, `render::projectDecal` — the math behind Godot's Decal node, which stamps a
+  texture onto whatever surface lies inside an oriented box (bullet holes, blood, posters, tire tracks).
+  Given a decal box (center + orthonormal right/up/forward frame + half extents) and a world-space surface
+  point with its normal, it returns the texture UV to sample plus a blend alpha — or nothing when the point
+  falls outside the box or the surface faces away from the projector (a normal-fade cutoff matching Godot's
+  `normal_fade`). The footprint is the right×forward plane, projection depth runs along up. Pure math, so it
+  unit-tests headlessly; the texture blend itself is the GPU's job. Honest scope: axis-aligned-in-local-space
+  projection + linear normal fade (no GPU blend, per-decal albedo/emission mix, or depth-fade curves yet).
+  Verified: a centered hit yields UV (0.5,0.5) with alpha 1; offsets map to the right UVs with the far edge
+  inclusive; points beyond any of the three half-extents are rejected; a back-facing normal is rejected while
+  a 60°-tilted one yields alpha 0.5 (= N·up); the normalCutoff gate rejects insufficiently-aligned surfaces;
+  and a rotated decal frame maps world points correctly through its axes),
   **CPU lightmap baker** (M502, `render::bakeLightmap` — the offline "burn the lighting into a texture" step
   behind Godot's LightmapGI, letting static geometry look lit without paying for lights at runtime. For each
   surfel (a world-space point + normal — the unwrapped texel centers in a full pipeline) it sums each light's
