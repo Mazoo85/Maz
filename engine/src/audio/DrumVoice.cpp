@@ -47,6 +47,8 @@ double decayTau(Drum type) {
         return 0.7;
     case Drum::Kick808:
         return 0.45; // a long, sustaining sub tail — far longer than the short punchy kick
+    case Drum::Zap:
+        return 0.12; // a short, punchy electronic "pew"
     }
     return 0.1;
 }
@@ -228,6 +230,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             // downward pitch glide from ~90 Hz over the first ~50 ms, and a long sustaining tail.
             // Deeper and far longer than the short, punchy standard kick.
             const double freq = (50.0 + 40.0 * std::exp(-t_ / 0.04)) * pitchMul;
+            s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
+            phase_ += freq * dt;
+            break;
+        }
+        case Drum::Zap: {
+            // A synthwave/EDM "laser zap": a sine with a very fast, very wide downward pitch sweep
+            // (~1800 Hz → ~70 Hz over the first ~20 ms) and a short punchy decay. Far higher and
+            // faster than the kick/808 sweep, so it reads as an electronic "pew" rather than a thump.
+            const double freq = (70.0 + 1730.0 * std::exp(-t_ / 0.02)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
             break;

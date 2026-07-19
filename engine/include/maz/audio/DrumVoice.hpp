@@ -24,7 +24,8 @@ enum class Drum {
     Woodblock,
     Bongo,
     Triangle,
-    Kick808
+    Kick808,
+    Zap
 };
 
 // A one-shot percussion voice: trigger() (re)starts the hit, render() ADDS the decaying sound into

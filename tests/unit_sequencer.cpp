@@ -295,6 +295,22 @@ int main() {
         shortKick.render(skbuf.data(), static_cast<int>(skbuf.size()), sampleRate);
         check(!shortKick.active(), "standard kick has fully decayed by 1 s (808 outlasts it)");
 
+        // Zap: a laser "pew" — a very fast, very wide downward pitch sweep. The first few ms sit
+        // high (well above any kick) and it drops to a low pitch by the tail.
+        audio::DrumVoice zap;
+        zap.setType(audio::Drum::Zap);
+        zap.trigger();
+        std::vector<float> zhi(static_cast<size_t>(sampleRate) / 100, 0.0f); // first 10 ms
+        zap.render(zhi.data(), static_cast<int>(zhi.size()), sampleRate);
+        check(rms(zhi) > 0.0, "zap produces sound");
+        check(freqOf(zhi, sampleRate) > 500.0,
+              "zap starts high (a fast sweep from well above any kick)");
+        std::vector<float> zskip(static_cast<size_t>(sampleRate) / 10, 0.0f); // advance to ~110 ms
+        zap.render(zskip.data(), static_cast<int>(zskip.size()), sampleRate);
+        std::vector<float> zlo(static_cast<size_t>(sampleRate) / 10, 0.0f); // settled tail (~110-210 ms)
+        zap.render(zlo.data(), static_cast<int>(zlo.size()), sampleRate);
+        check(freqOf(zlo, sampleRate) < 250.0, "zap sweeps down to a low pitch by its tail");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
