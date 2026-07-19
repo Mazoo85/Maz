@@ -1919,9 +1919,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("depth##trem", &depth, 0.0f, 1.0f, "%.2f")) mx.tremolo().setDepth(depth);
         int shape = static_cast<int>(mx.tremolo().shape());
-        const char* shapes[] = {"Sine", "Square (gate)"};
+        const char* shapes[] = {"Sine", "Square (gate)", "Triangle", "Saw"};
         ImGui::SetNextItemWidth(140.0f);
-        if (ImGui::Combo("shape##trem", &shape, shapes, 2))
+        if (ImGui::Combo("shape##trem", &shape, shapes, 4))
             mx.tremolo().setShape(static_cast<audio::Tremolo::Shape>(shape));
         bool tsync = mx.tremolo().sync();
         if (ImGui::Checkbox("Sync##trem", &tsync)) mx.tremolo().setSync(tsync);

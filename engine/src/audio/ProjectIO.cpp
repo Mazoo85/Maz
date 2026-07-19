@@ -1038,7 +1038,8 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.tremolo().setEnabled(en != 0);
                 mixer.tremolo().setRate(rate);
                 mixer.tremolo().setDepth(depth);
-                mixer.tremolo().setShape(shape == 1 ? Tremolo::Shape::Square : Tremolo::Shape::Sine);
+                mixer.tremolo().setShape(
+                    static_cast<Tremolo::Shape>(shape < 0 || shape > 3 ? 0 : shape));
                 int sync = 0, div = 3; // tempo sync optional for old files
                 if (ls >> sync >> div) {
                     mixer.tremolo().setSync(sync != 0);

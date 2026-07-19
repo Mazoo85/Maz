@@ -1290,9 +1290,21 @@ void Tremolo::process(float* stereo, int frames, int sampleRate) {
     const double inc = static_cast<double>(rateHz_) / static_cast<double>(sampleRate);
     for (int i = 0; i < frames; ++i) {
         // Unipolar LFO in [0,1]: 1 = full level, 0 = fully dipped.
-        const float lfo = shape_ == Shape::Square
-                              ? (phase_ < 0.5 ? 1.0f : 0.0f)
-                              : 0.5f + 0.5f * static_cast<float>(std::sin(phase_ * kTwoPi));
+        float lfo;
+        switch (shape_) {
+        case Shape::Square:
+            lfo = phase_ < 0.5 ? 1.0f : 0.0f;
+            break;
+        case Shape::Triangle:
+            lfo = 1.0f - 2.0f * static_cast<float>(std::fabs(phase_ - 0.5)); // 0→1→0 ramp gate
+            break;
+        case Shape::Saw:
+            lfo = static_cast<float>(phase_); // rising ramp then reset (asymmetric fade)
+            break;
+        default: // Sine
+            lfo = 0.5f + 0.5f * static_cast<float>(std::sin(phase_ * kTwoPi));
+            break;
+        }
         const float gain = (1.0f - depth_) + depth_ * lfo; // depth 0 → unity (transparent)
         stereo[2 * i] *= gain;
         stereo[2 * i + 1] *= gain;

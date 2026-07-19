@@ -246,7 +246,7 @@ int main() {
     mixer.tremolo().setEnabled(true);
     mixer.tremolo().setRate(7.5f);
     mixer.tremolo().setDepth(0.85f);
-    mixer.tremolo().setShape(audio::Tremolo::Shape::Square);
+    mixer.tremolo().setShape(audio::Tremolo::Shape::Saw);
     mixer.tremolo().setSync(true);
     mixer.tremolo().setSyncDivision(5);
     mixer.stereoDelay().setEnabled(true);
@@ -660,7 +660,7 @@ int main() {
           "comb resonator round-trips");
     check(mixer2.tremolo().enabled() && near(mixer2.tremolo().rate(), 7.5f) &&
               near(mixer2.tremolo().depth(), 0.85f) &&
-              mixer2.tremolo().shape() == audio::Tremolo::Shape::Square &&
+              mixer2.tremolo().shape() == audio::Tremolo::Shape::Saw &&
               mixer2.tremolo().sync() && mixer2.tremolo().syncDivision() == 5,
           "tremolo round-trips");
     check(mixer2.formant().enabled() &&

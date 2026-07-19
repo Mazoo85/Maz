@@ -1547,6 +1547,32 @@ int main() {
         check(loud > 0.2, "trance-gate passes the signal at the LFO peak");
         check(quiet < 0.02, "trance-gate silences the signal at the LFO trough");
 
+        // Saw shape: the gain ramps linearly up across each cycle, so windowed level rises
+        // monotonically over one cycle — unlike the sine, which rises then falls (symmetric).
+        auto quarterRms = [&](audio::Tremolo::Shape shape, int q) {
+            audio::Tremolo t;
+            t.setEnabled(true);
+            t.setRate(1.0f); // one cycle over the 1 s render
+            t.setDepth(1.0f);
+            t.setShape(shape);
+            std::vector<float> bb = sineStereo(sr, 300.0, 0.5, sr);
+            t.process(bb.data(), sr, sr);
+            const int q0 = q * (sr / 4);
+            double e = 0.0;
+            for (int i = q0; i < q0 + sr / 4; ++i) {
+                e += static_cast<double>(bb[static_cast<size_t>(i) * 2]) * bb[static_cast<size_t>(i) * 2];
+            }
+            return std::sqrt(e / (sr / 4));
+        };
+        const double sawQ0 = quarterRms(audio::Tremolo::Shape::Saw, 0);
+        const double sawQ1 = quarterRms(audio::Tremolo::Shape::Saw, 1);
+        const double sawQ2 = quarterRms(audio::Tremolo::Shape::Saw, 2);
+        const double sawQ3 = quarterRms(audio::Tremolo::Shape::Saw, 3);
+        check(sawQ0 < sawQ1 && sawQ1 < sawQ2 && sawQ2 < sawQ3,
+              "saw tremolo ramps the level up monotonically across each cycle");
+        check(quarterRms(audio::Tremolo::Shape::Sine, 3) < quarterRms(audio::Tremolo::Shape::Sine, 1),
+              "sine tremolo is symmetric (its last quarter is quieter than its second — not a ramp)");
+
         // Depth 0 is unity gain (transparent) even while enabled.
         audio::Tremolo flat;
         flat.setEnabled(true);

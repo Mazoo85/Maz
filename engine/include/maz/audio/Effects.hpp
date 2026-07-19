@@ -821,7 +821,9 @@ private:
 // together, so the stereo image is untouched. Off by default.
 class Tremolo : public Effect {
 public:
-    enum class Shape { Sine, Square };
+    // Sine (smooth tremolo), Square (hard on/off trance gate), Triangle (linear ramp gate), or Saw
+    // (a repeating fade — asymmetric, rhythmic).
+    enum class Shape { Sine, Square, Triangle, Saw };
     Tremolo() { enabled_ = false; }
     const char* name() const override { return "Tremolo"; }
     void setRate(float hz) { rateHz_ = hz < 0.05f ? 0.05f : (hz > 30.0f ? 30.0f : hz); }
