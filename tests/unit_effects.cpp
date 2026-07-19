@@ -1282,6 +1282,58 @@ int main() {
         check(same, "a disabled stereo delay is transparent");
     }
 
+    // --- Stereo delay feedback tone: damping + low-cut -----------------------
+    {
+        // Damping high-cuts the feedback: a bright tone's echoes lose their highs.
+        auto wetHF = [&](float damp) {
+            audio::StereoDelay d;
+            d.setEnabled(true);
+            d.setLeftMs(50.0f);
+            d.setRightMs(50.0f);
+            d.setFeedback(0.7f);
+            d.setMix(1.0f);
+            d.setDamping(damp);
+            std::vector<float> b = sineStereo(sr / 2, 3000.0, 0.5, sr);
+            d.process(b.data(), sr / 2, sr);
+            double s = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double diff = static_cast<double>(b[i] - b[i - 2]);
+                s += diff * diff;
+            }
+            return s;
+        };
+        check(wetHF(0.7f) < wetHF(0.0f) * 0.7, "stereo delay damping darkens the echoes");
+
+        // Low-cut high-passes the feedback: a low burst's late echoes carry less energy.
+        auto lateEnergy = [&](float lowCut) {
+            audio::StereoDelay d;
+            d.setEnabled(true);
+            d.setLeftMs(50.0f);
+            d.setRightMs(50.0f);
+            d.setFeedback(0.85f);
+            d.setMix(1.0f);
+            d.setFeedbackLowCut(lowCut);
+            std::vector<float> b(static_cast<size_t>(sr / 2) * 2, 0.0f);
+            const int burst = sr / 20;
+            for (int i = 0; i < burst; ++i) {
+                const float s = static_cast<float>(0.5 * std::sin(kTwoPi * 100.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            d.process(b.data(), sr / 2, sr);
+            double e = 0.0;
+            for (int i = sr / 2 - sr / 7; i < sr / 2; ++i) {
+                e += static_cast<double>(b[static_cast<size_t>(i) * 2]) * b[static_cast<size_t>(i) * 2];
+            }
+            return e;
+        };
+        check(lateEnergy(400.0f) < lateEnergy(0.0f) * 0.7,
+              "stereo delay feedback low-cut thins the echoes' lows");
+        audio::StereoDelay dd2;
+        check(dd2.damping() == 0.0f && dd2.feedbackLowCut() == 0.0f,
+              "stereo delay feedback tone defaults to off");
+    }
+
     // --- Formant filter: passes a vowel's formant, rejects far-off tones -----
     {
         // Vowel A's first formant is ~800 Hz. A tone there survives the filter; a tone far above any

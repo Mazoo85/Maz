@@ -728,6 +728,12 @@ public:
     void setRightMs(float ms) { rightMs_ = ms < 1.0f ? 1.0f : (ms > 2000.0f ? 2000.0f : ms); }
     void setFeedback(float f) { feedback_ = f < 0.0f ? 0.0f : (f > 0.95f ? 0.95f : f); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Feedback tone (like the mono Delay): `damping` (0..1) high-cuts each repeat so echoes darken;
+    // `feedbackLowCut` (Hz) high-passes the feedback so echoes shed their lows. Both 0 = off/bright.
+    void setDamping(float d) { damping_ = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d); }
+    void setFeedbackLowCut(float hz) { fbLowCutHz_ = hz < 0.0f ? 0.0f : (hz > 1000.0f ? 1000.0f : hz); }
+    float damping() const { return damping_; }
+    float feedbackLowCut() const { return fbLowCutHz_; }
     // Tempo sync: when on, each channel's delay time tracks the transport tempo at its own note
     // division (reusing the Delay division set). Call updateTempo() each block with the current BPM.
     void setSync(bool on) { sync_ = on; }
@@ -753,6 +759,10 @@ private:
     bool sync_ = false;  // tempo-sync the L/R delay times
     int leftDiv_ = 4;    // left note-division index (default 1/8)
     int rightDiv_ = 5;   // right note-division index (default dotted 1/8)
+    float damping_ = 0.0f;    // feedback high-cut (0 = off/bright)
+    float fbLowCutHz_ = 0.0f; // feedback high-pass (low-cut) cutoff; 0 = off
+    float dampL_ = 0.0f, dampR_ = 0.0f; // feedback high-cut one-pole state per channel
+    float lcL_ = 0.0f, lcR_ = 0.0f;     // feedback low-cut one-pole state per channel
     std::vector<float> bufL_; // circular delay lines (sized on first process)
     std::vector<float> bufR_;
     int writePos_ = 0;

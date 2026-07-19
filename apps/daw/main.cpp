@@ -1688,6 +1688,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
         if (ImGui::SliderFloat("mix##sd", &mix, 0.0f, 1.0f, "%.2f")) mx.stereoDelay().setMix(mix);
+        float sdDamp = mx.stereoDelay().damping();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0f);
+        if (ImGui::SliderFloat("damp##sd", &sdDamp, 0.0f, 1.0f, "%.2f")) mx.stereoDelay().setDamping(sdDamp);
+        float sdLc = mx.stereoDelay().feedbackLowCut();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("lo-cut##sd", &sdLc, 0.0f, 1000.0f, "%.0f Hz")) mx.stereoDelay().setFeedbackLowCut(sdLc);
         bool sdsync = mx.stereoDelay().sync();
         if (ImGui::Checkbox("Sync##sd", &sdsync)) mx.stereoDelay().setSync(sdsync);
         const char* sddivNames[audio::Delay::kSyncDivisions];

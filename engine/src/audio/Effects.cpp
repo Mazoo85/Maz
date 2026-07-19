@@ -1075,6 +1075,8 @@ void StereoDelay::reset() {
     std::fill(bufL_.begin(), bufL_.end(), 0.0f);
     std::fill(bufR_.begin(), bufR_.end(), 0.0f);
     writePos_ = 0;
+    dampL_ = dampR_ = 0.0f;
+    lcL_ = lcR_ = 0.0f;
 }
 
 void StereoDelay::updateTempo(double bpm) {
@@ -1107,6 +1109,13 @@ void StereoDelay::process(float* stereo, int frames, int sampleRate) {
     };
     const int dl = delaySamples(leftMs_);
     const int dr = delaySamples(rightMs_);
+    // Feedback tone: high-cut (damping) then low-cut (high-pass) on the fed-back signal.
+    const float dampCoef = std::clamp(damping_, 0.0f, 1.0f);
+    const bool doLowCut = fbLowCutHz_ > 0.0f;
+    const float aLow =
+        doLowCut ? 1.0f - std::exp(-2.0f * 3.14159265358979f * fbLowCutHz_ /
+                                       static_cast<float>(sampleRate))
+                 : 0.0f;
     for (int i = 0; i < frames; ++i) {
         int rl = writePos_ - dl;
         if (rl < 0) {
@@ -1120,9 +1129,20 @@ void StereoDelay::process(float* stereo, int frames, int sampleRate) {
         const float inR = stereo[2 * i + 1];
         const float echoL = bufL_[static_cast<size_t>(rl)];
         const float echoR = bufR_[static_cast<size_t>(rr)];
-        // Each channel feeds its own echo back into its own line at its own time.
-        bufL_[static_cast<size_t>(writePos_)] = inL + echoL * feedback_;
-        bufR_[static_cast<size_t>(writePos_)] = inR + echoR * feedback_;
+        // Feedback tone: darken (high-cut) then de-mud (low-cut) each channel's fed-back echo.
+        dampL_ += (1.0f - dampCoef) * (echoL - dampL_);
+        dampR_ += (1.0f - dampCoef) * (echoR - dampR_);
+        float fbL = dampL_;
+        float fbR = dampR_;
+        if (doLowCut) {
+            lcL_ += aLow * (fbL - lcL_);
+            lcR_ += aLow * (fbR - lcR_);
+            fbL -= lcL_;
+            fbR -= lcR_;
+        }
+        // Each channel feeds its own (tone-shaped) echo back into its own line at its own time.
+        bufL_[static_cast<size_t>(writePos_)] = inL + fbL * feedback_;
+        bufR_[static_cast<size_t>(writePos_)] = inR + fbR * feedback_;
         stereo[2 * i] = inL * (1.0f - mix_) + echoL * mix_;
         stereo[2 * i + 1] = inR * (1.0f - mix_) + echoR * mix_;
         if (++writePos_ >= maxD) {
