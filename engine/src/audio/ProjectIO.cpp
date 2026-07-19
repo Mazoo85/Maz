@@ -539,7 +539,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx leveler " << (mixer.leveler().enabled() ? 1 : 0) << " " << mixer.leveler().targetDb()
       << " " << mixer.leveler().responseMs() << " " << mixer.leveler().maxGainDb() << "\n";
     f << "fx clipper " << (mixer.clipper().enabled() ? 1 : 0) << " " << mixer.clipper().driveDb() << " "
-      << mixer.clipper().ceiling() << " " << mixer.clipper().hardness() << "\n";
+      << mixer.clipper().ceiling() << " " << mixer.clipper().hardness() << " "
+      << mixer.clipper().mix() << "\n";
     f << "fx deesser " << (mixer.deEsser().enabled() ? 1 : 0) << " " << mixer.deEsser().thresholdDb()
       << " " << mixer.deEsser().frequency() << " " << mixer.deEsser().amount() << " "
       << mixer.deEsser().releaseMs() << "\n";
@@ -1288,6 +1289,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.clipper().setDriveDb(drive);
                 mixer.clipper().setCeiling(ceil);
                 mixer.clipper().setHardness(hard);
+                float cmix = 1.0f; // parallel mix optional (older files → fully clipped)
+                if (ls >> cmix) {
+                    mixer.clipper().setMix(cmix);
+                }
             } else if (which == "deesser") {
                 float thr = -24.0f, freq = 6000.0f, amt = 0.8f, rel = 60.0f;
                 ls >> thr >> freq >> amt >> rel;

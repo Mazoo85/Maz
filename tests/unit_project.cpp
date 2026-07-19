@@ -364,6 +364,7 @@ int main() {
     mixer.clipper().setDriveDb(4.5f);
     mixer.clipper().setCeiling(0.75f);
     mixer.clipper().setHardness(0.4f);
+    mixer.clipper().setMix(0.7f);
     mixer.deEsser().setEnabled(true);
     mixer.deEsser().setThresholdDb(-28.0f);
     mixer.deEsser().setFrequency(7000.0f);
@@ -940,7 +941,8 @@ int main() {
               near(mixer2.leveler().responseMs(), 600.0f) && near(mixer2.leveler().maxGainDb(), 15.0f),
           "leveler round-trips");
     check(mixer2.clipper().enabled() && near(mixer2.clipper().driveDb(), 4.5f) &&
-              near(mixer2.clipper().ceiling(), 0.75f) && near(mixer2.clipper().hardness(), 0.4f),
+              near(mixer2.clipper().ceiling(), 0.75f) && near(mixer2.clipper().hardness(), 0.4f) &&
+                  near(mixer2.clipper().mix(), 0.7f),
           "clipper round-trips");
     check(mixer2.deEsser().enabled() && near(mixer2.deEsser().thresholdDb(), -28.0f) &&
               near(mixer2.deEsser().frequency(), 7000.0f) && near(mixer2.deEsser().amount(), 0.65f) &&

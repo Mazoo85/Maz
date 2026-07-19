@@ -2695,6 +2695,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f);
         if (ImGui::SliderFloat("hard##clip", &hard, 0.0f, 1.0f, "%.2f")) mx.clipper().setHardness(hard);
+        float cmix = mx.clipper().mix();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("mix##clip", &cmix, 0.0f, 1.0f, "%.2f")) mx.clipper().setMix(cmix);
     }
 
     ImGui::SeparatorText("Send / Return Buses");

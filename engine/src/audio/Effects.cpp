@@ -2613,12 +2613,16 @@ void Clipper::process(float* stereo, int frames, int sampleRate) {
     const float g = dbToLin(driveDb_);
     const float c = ceiling_;
     const float h = hardness_;
+    const float mix = mix_;
     const int n = frames * 2;
     for (int i = 0; i < n; ++i) {
-        const float s = stereo[i] * g;
+        const float dry = stereo[i];
+        const float s = dry * g;
         const float hard = s < -c ? -c : (s > c ? c : s); // instantaneous flat-top clamp
         const float soft = c * std::tanh(s / c);          // smooth saturation, asymptotic to ±c
-        stereo[i] = h * hard + (1.0f - h) * soft;         // both bounded by ±c → ceiling guaranteed
+        const float clipped = h * hard + (1.0f - h) * soft; // both bounded by ±c → ceiling guaranteed
+        // Parallel blend: mix 1 = fully clipped (unchanged); lower lets dry transients through.
+        stereo[i] = dry * (1.0f - mix) + clipped * mix;
     }
 }
 

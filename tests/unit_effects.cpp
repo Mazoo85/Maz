@@ -740,6 +740,27 @@ int main() {
         check(!dc.enabled() && std::fabs(dc.ceiling() - 0.9f) < 1e-4f &&
                   std::fabs(dc.hardness() - 1.0f) < 1e-4f,
               "clipper defaults to off with a 0.9 ceiling and a hard knee");
+
+        // Parallel mix: below 1 the untouched (louder) dry is blended back, so peaks poke back above
+        // the ceiling that fully-wet clipping holds them under.
+        auto peakAtMix = [&](float mix) {
+            audio::Clipper cl;
+            cl.setEnabled(true);
+            cl.setDriveDb(0.0f);
+            cl.setCeiling(0.5f);
+            cl.setHardness(1.0f);
+            cl.setMix(mix);
+            std::vector<float> b = sineStereo(sr / 4, 200.0, 1.0, sr); // peaks at ~1.0, above 0.5
+            cl.process(b.data(), sr / 4, sr);
+            float p = 0.0f;
+            for (float v : b) {
+                p = std::max(p, std::fabs(v));
+            }
+            return p;
+        };
+        check(peakAtMix(1.0f) <= 0.5f * 1.001f, "fully-wet clipper holds the peak at the ceiling");
+        check(peakAtMix(0.3f) > 0.7f, "parallel clipping (mix < 1) lets the dry peak back through");
+        check(std::fabs(audio::Clipper().mix() - 1.0f) < 1e-6f, "clipper mix defaults to 1 (fully clipped)");
     }
 
     // --- Multiband compressor: per-band, exact reconstruction ----------------

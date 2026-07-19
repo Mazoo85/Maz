@@ -1742,9 +1742,15 @@ public:
     void setDriveDb(float db) { driveDb_ = db < 0.0f ? 0.0f : (db > 36.0f ? 36.0f : db); }
     void setCeiling(float c) { ceiling_ = c < 0.05f ? 0.05f : (c > 1.0f ? 1.0f : c); }
     void setHardness(float h) { hardness_ = h < 0.0f ? 0.0f : (h > 1.0f ? 1.0f : h); }
+    // Dry/wet mix for *parallel* clipping: 1 (default) = fully clipped (the classic hard ceiling);
+    // lower blends the untouched dry back in, so transients poke back through — parallel saturation
+    // that adds grit/density without a hard flat-top. Note: below 1 the peak is no longer guaranteed
+    // at the ceiling (the dry can exceed it), so keep a limiter after it for a true brickwall.
+    void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
     float driveDb() const { return driveDb_; }
     float ceiling() const { return ceiling_; }
     float hardness() const { return hardness_; }
+    float mix() const { return mix_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
 
@@ -1752,6 +1758,7 @@ private:
     float driveDb_ = 0.0f;
     float ceiling_ = 0.9f;
     float hardness_ = 1.0f; // 1 = hard clamp, 0 = soft tanh knee
+    float mix_ = 1.0f;      // dry/wet; 1 = fully clipped (default)
 };
 
 // A brickwall look-ahead limiter (a Fruity-Limiter-style maximizer). An `inputGain` (dB) pushes the
