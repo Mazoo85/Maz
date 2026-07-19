@@ -53,7 +53,9 @@ enum class Scale {
     MelodicMinor,
     PentatonicMajor,
     PentatonicMinor,
-    Blues
+    Blues,
+    WholeTone, // 0,2,4,6,8,10 — the symmetric whole-tone scale (dreamy/ambiguous)
+    Chromatic  // all 12 semitones — snapping is a no-op (an "off" option)
 };
 
 // The melodic pattern the piano roll edits and the sequencer plays: a set of notes over a step

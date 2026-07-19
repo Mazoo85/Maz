@@ -1408,6 +1408,20 @@ int main() {
         pr.addNote(audio::Note{0, 1, 71, 1.0f}); // B4, pc 11 → nearest penta degree is 9 (A, down 2) or 0/12 (C5, up 1)
         pr.snapToScale(60, audio::Scale::PentatonicMajor);
         check(pr.notes()[0].pitch == 72, "B snaps up to C in C-major pentatonic (nearest degree)");
+
+        // Whole-tone (0,2,4,6,8,10): an odd pitch class snaps to an even one; evens are untouched.
+        audio::PianoRoll wt;
+        wt.addNote(audio::Note{0, 1, 61, 1.0f}); // C#4 (pc 1) → C4 (60) or D4 (62), tie → down
+        wt.addNote(audio::Note{1, 1, 66, 1.0f}); // F#4 (pc 6) already whole-tone → unchanged
+        const int wtMoved = wt.snapToScale(60, audio::Scale::WholeTone);
+        check(wtMoved == 1 && wt.notes()[0].pitch == 60 && wt.notes()[1].pitch == 66,
+              "whole-tone snap moves odd pitch classes and leaves whole-tone ones alone");
+
+        // Chromatic: every pitch is in scale, so snapping never moves anything.
+        audio::PianoRoll cr;
+        cr.addNote(audio::Note{0, 1, 61, 1.0f});
+        cr.addNote(audio::Note{1, 1, 66, 1.0f});
+        check(cr.snapToScale(60, audio::Scale::Chromatic) == 0, "chromatic snap is a no-op");
     }
 
     // --- Strum ---------------------------------------------------------------
