@@ -20734,6 +20734,19 @@ void testPngDecode() {
         CHECK(px(im, 0, 1, 0, 0, 255, 255));
         CHECK(px(im, 1, 1, 255, 255, 255, 255));
     }
+    // Adam7-interlaced 8x8 RGBA where pixel (x,y) = (x*32, y*32, (x+y)*16, 255); exercises all 7 passes.
+    {
+        Image im = decodePng(hx(
+            "89504e470d0a1a0a0000000d4948445200000008000000080806000001b3088e1d000000aa4944415478da158e41"
+            "15c350080491500948880424440212be0424440212220109958093e9f6c65b6066cdccb0b2c0ac82aac2c29cb1d45"
+            "0c9546b154e84d6a120746293c41435cdcc606e1fd22eda6ed68e82b8c8b8e9386c3c0aea26ebd0f5b0f52a9843ce"
+            "43cfcbce5750ffe02e93ebd56573bdbb8c2e84ffad79e119440a9549a570594c0a99ff9e7de3ad6a2d74ab5e0bdfa"
+            "ad852b46ada1e7c8bd887dca6f6a57798fdb2bbfc0023cf93c12b7bec1b0000000049454e44ae426082"));
+        CHECK(im.width() == 8 && im.height() == 8);
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 8; ++x)
+                CHECK(px(im, x, y, (x * 32) & 0xff, (y * 32) & 0xff, ((x + y) * 16) & 0xff, 255));
+    }
     // Malformed.
     {
         CHECK(decodePng(hx("00112233")).empty());

@@ -1182,6 +1182,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **Adam7-interlaced PNG decode** (M508, extends `render::decodePng` — closes the "no Adam7 yet" follow-up
+  the M500 PNG decoder honestly flagged. Interlaced PNGs (common for progressive web loading) don't store
+  pixels row-by-row; they store SEVEN successively-finer passes, each a sparse sub-grid of the image with its
+  own filtered scanlines. The decoder now inflates the IDAT once, then walks the seven passes with the
+  standard Adam7 {startX,startY,stepX,stepY} table, unfilters each pass as its own little image (reusing the
+  same five-filter reconstruction as the progressive path), and scatters every recovered sample to its true
+  (x,y). A shared `writeSample` lambda expands grayscale / RGB / RGBA / gray+alpha / palette samples so both
+  paths agree bit-for-bit. Pure CPU, verified against a *reference* zlib+Adam7 encoding. Verified: an
+  8×8 interlaced RGBA image whose pixel (x,y) = (x·32, y·32, (x+y)·16, 255) decodes with all 64 pixels exact —
+  which forces correct handling of every one of the seven passes — while a plain non-interlaced RGBA image
+  still round-trips unchanged),
   **reflection probe influence + box projection** (M507, `render::ReflectionProbe` — the CPU math behind
   Godot's ReflectionProbe. A probe captures the surroundings into a cubemap inside an axis-aligned box;
   reflective surfaces in that box sample it. Two pieces are pure math: `influenceWeight` (how strongly a
@@ -1274,11 +1285,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   per-scanline filters (None / Sub / Up / Average / Paeth), and expands grayscale, RGB, RGBA, grayscale+alpha,
   and 8-bit palette (with optional tRNS alpha) samples into an RGBA8 `Image` ready for
   `Renderer::createTexture`. Pure CPU, and verified against PNGs produced by a *reference* encoder. Honest
-  scope: 8-bits-per-channel, non-interlaced (no 1/2/4/16-bit depths or Adam7 yet). Verified: a reference-
-  encoded RGBA image decodes with exact colors and alpha; an RGB image whose five rows each use a different
-  filter (None/Sub/Up/Average/Paeth) reconstructs every row correctly — exercising all filter paths; grayscale
-  and 8-bit palette (index → PLTE color) images decode to the right RGBA; and non-PNG / empty input yields an
-  empty Image),
+  scope: 8-bits-per-channel, both progressive and Adam7-interlaced (M508) — no 1/2/4/16-bit depths yet. Verified:
+  a reference-encoded RGBA image decodes with exact colors and alpha; an RGB image whose five rows each use a
+  different filter (None/Sub/Up/Average/Paeth) reconstructs every row correctly — exercising all filter paths;
+  grayscale and 8-bit palette (index → PLTE color) images decode to the right RGBA; and non-PNG / empty input
+  yields an empty Image),
   **DEFLATE / zlib inflate** (M499, `io::inflateRaw` / `io::zlibInflate` — the header-only, dependency-free
   decompressor that was the missing building block under PNG import, gzip/zlib assets, and KTX2 ZLIB
   supercompression. Godot leans on zlib for all of these; Maz had no inflate at all. `inflateRaw` expands a

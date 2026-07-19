@@ -17,8 +17,8 @@
 // alpha) color types are supported. Pure CPU byte work — unit-tested headlessly against PNGs produced by a
 // reference encoder.
 //
-// Scope note (honest): 8-bits-per-channel, non-interlaced only. It does not handle 1/2/4/16-bit depths,
-// Adam7 interlacing, or ancillary color-management chunks; those are documented follow-ups. A malformed or
+// Scope note (honest): 8-bits-per-channel, both progressive and Adam7-interlaced. It does not handle
+// 1/2/4/16-bit depths or ancillary color-management chunks; those are documented follow-ups. A malformed or
 // unsupported file returns an empty Image.
 namespace maz::render {
 
@@ -81,7 +81,7 @@ inline Image decodePng(const std::uint8_t* data, std::size_t size) {
         pos = body + len + 4; // advance past data + CRC
     }
 
-    if (width <= 0 || height <= 0 || bitDepth != 8 || interlace != 0) return Image{};
+    if (width <= 0 || height <= 0 || bitDepth != 8 || interlace > 1) return Image{};
 
     int channels = 0;
     switch (colorType) {
@@ -98,59 +98,90 @@ inline Image decodePng(const std::uint8_t* data, std::size_t size) {
     if (!io::zlibInflate(idat, raw)) return Image{};
 
     const std::size_t bpp = static_cast<std::size_t>(channels);
-    const std::size_t stride = static_cast<std::size_t>(width) * bpp;
-    const std::size_t expected = static_cast<std::size_t>(height) * (stride + 1);
-    if (raw.size() < expected) return Image{};
-
-    // Reverse the per-scanline filters into a contiguous height*stride buffer.
-    std::vector<std::uint8_t> recon(static_cast<std::size_t>(height) * stride, 0u);
     std::size_t src = 0;
-    for (int y = 0; y < height; ++y) {
-        const std::uint8_t filter = raw[src++];
-        const std::size_t rowOff = static_cast<std::size_t>(y) * stride;
-        for (std::size_t i = 0; i < stride; ++i) {
-            const int x = raw[src++];
-            const int a = i >= bpp ? recon[rowOff + i - bpp] : 0;
-            const int b = y > 0 ? recon[rowOff - stride + i] : 0;
-            const int c = (i >= bpp && y > 0) ? recon[rowOff - stride + i - bpp] : 0;
-            int v = x;
-            switch (filter) {
-                case 0: v = x; break;
-                case 1: v = x + a; break;
-                case 2: v = x + b; break;
-                case 3: v = x + ((a + b) >> 1); break;
-                case 4: v = x + detail::pngPaeth(a, b, c); break;
-                default: return Image{};
-            }
-            recon[rowOff + i] = static_cast<std::uint8_t>(v & 0xff);
-        }
-    }
+    bool failed = false;
 
-    // Expand samples to RGBA.
-    Image img(width, height);
-    for (int y = 0; y < height; ++y) {
-        const std::size_t rowOff = static_cast<std::size_t>(y) * stride;
-        for (int x = 0; x < width; ++x) {
-            const std::size_t s = rowOff + static_cast<std::size_t>(x) * bpp;
-            int r = 0, g = 0, b = 0, al = 255;
-            switch (colorType) {
-                case 0: r = g = b = recon[s]; break;
-                case 2: r = recon[s]; g = recon[s + 1]; b = recon[s + 2]; break;
-                case 4: r = g = b = recon[s]; al = recon[s + 1]; break;
-                case 6: r = recon[s]; g = recon[s + 1]; b = recon[s + 2]; al = recon[s + 3]; break;
-                case 3: {
-                    const std::size_t idxp = static_cast<std::size_t>(recon[s]) * 3u;
-                    if (idxp + 2 < palette.size()) {
-                        r = palette[idxp];
-                        g = palette[idxp + 1];
-                        b = palette[idxp + 2];
-                    }
-                    if (recon[s] < transAlpha.size()) al = transAlpha[recon[s]];
-                    break;
-                }
-                default: break;
+    // Unfilter a `sw x sh` sub-image starting at the current stream cursor into a fresh buffer, advancing
+    // the cursor. Returns an empty buffer (and sets `failed`) on a bad filter byte or a short stream.
+    auto unfilterSub = [&](int sw, int sh) -> std::vector<std::uint8_t> {
+        const std::size_t sstride = static_cast<std::size_t>(sw) * bpp;
+        std::vector<std::uint8_t> rec(static_cast<std::size_t>(sh) * sstride, 0u);
+        for (int y = 0; y < sh; ++y) {
+            if (src + 1 + sstride > raw.size()) {
+                failed = true;
+                return {};
             }
-            img.setPixel(x, y, color8(r, g, b, al));
+            const std::uint8_t filter = raw[src++];
+            const std::size_t rowOff = static_cast<std::size_t>(y) * sstride;
+            for (std::size_t i = 0; i < sstride; ++i) {
+                const int x = raw[src++];
+                const int a = i >= bpp ? rec[rowOff + i - bpp] : 0;
+                const int b = y > 0 ? rec[rowOff - sstride + i] : 0;
+                const int c = (i >= bpp && y > 0) ? rec[rowOff - sstride + i - bpp] : 0;
+                int v = x;
+                switch (filter) {
+                    case 0: v = x; break;
+                    case 1: v = x + a; break;
+                    case 2: v = x + b; break;
+                    case 3: v = x + ((a + b) >> 1); break;
+                    case 4: v = x + detail::pngPaeth(a, b, c); break;
+                    default: failed = true; return {};
+                }
+                rec[rowOff + i] = static_cast<std::uint8_t>(v & 0xff);
+            }
+        }
+        return rec;
+    };
+
+    Image img(width, height);
+
+    // Expand one sub-image sample (at rec[s]) to RGBA and write it to (dx, dy).
+    auto writeSample = [&](const std::vector<std::uint8_t>& rec, std::size_t s, int dx, int dy) {
+        int r = 0, g = 0, b = 0, al = 255;
+        switch (colorType) {
+            case 0: r = g = b = rec[s]; break;
+            case 2: r = rec[s]; g = rec[s + 1]; b = rec[s + 2]; break;
+            case 4: r = g = b = rec[s]; al = rec[s + 1]; break;
+            case 6: r = rec[s]; g = rec[s + 1]; b = rec[s + 2]; al = rec[s + 3]; break;
+            case 3: {
+                const std::size_t idxp = static_cast<std::size_t>(rec[s]) * 3u;
+                if (idxp + 2 < palette.size()) {
+                    r = palette[idxp];
+                    g = palette[idxp + 1];
+                    b = palette[idxp + 2];
+                }
+                if (rec[s] < transAlpha.size()) al = transAlpha[rec[s]];
+                break;
+            }
+            default: break;
+        }
+        img.setPixel(dx, dy, color8(r, g, b, al));
+    };
+
+    if (interlace == 0) {
+        const std::vector<std::uint8_t> rec = unfilterSub(width, height);
+        if (failed) return Image{};
+        const std::size_t stride = static_cast<std::size_t>(width) * bpp;
+        for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x)
+                writeSample(rec, static_cast<std::size_t>(y) * stride + static_cast<std::size_t>(x) * bpp,
+                            x, y);
+    } else {
+        // Adam7: seven passes, each {startX, startY, stepX, stepY}, scattered into the full image.
+        static const int adam[7][4] = {{0, 0, 8, 8}, {4, 0, 8, 8}, {0, 4, 4, 8}, {2, 0, 4, 4},
+                                       {0, 2, 2, 4}, {1, 0, 2, 2}, {0, 1, 1, 2}};
+        for (const auto& p : adam) {
+            const int sx = p[0], sy = p[1], stx = p[2], sty = p[3];
+            const int sw = (width - sx + stx - 1) / stx;
+            const int sh = (height - sy + sty - 1) / sty;
+            if (sw <= 0 || sh <= 0) continue;
+            const std::vector<std::uint8_t> rec = unfilterSub(sw, sh);
+            if (failed) return Image{};
+            const std::size_t sstride = static_cast<std::size_t>(sw) * bpp;
+            for (int r = 0; r < sh; ++r)
+                for (int c = 0; c < sw; ++c)
+                    writeSample(rec, static_cast<std::size_t>(r) * sstride + static_cast<std::size_t>(c) * bpp,
+                                sx + c * stx, sy + r * sty);
         }
     }
     return img;
