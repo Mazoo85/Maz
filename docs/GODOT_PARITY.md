@@ -1149,6 +1149,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   and only finishes after the last kill; the first enemy comes out on the first positive update; a large dt
   releases a whole wave in one call; start delay gates the first spawn; an empty (count-0) wave is skipped;
   a no-waves spawner finishes on start; and reset / clear / pre-start-kill / non-positive-dt are safe),
+  **platformer jump-assist (coyote time + jump buffering)** (M491, `game::JumpAssist` — the two forgiving-
+  input timers that separate a stiff platformer from a great-feeling one: COYOTE TIME lets a jump land for
+  a moment after the character walks off a ledge, and JUMP BUFFERING makes a jump pressed just before
+  landing fire the instant the ground is touched. Feed `update(dt, grounded)` each frame and `pressJump` on
+  the button; `tryJump` returns true (consuming the buffered press) exactly when a jump should start — a
+  live press AND grounded-or-within-coyote. Both windows are configurable. Godot leaves this feel tuning
+  entirely to the game -> beyond-Godot gameplay utility. Verified: a grounded press fires once and is
+  consumed; a jump within the coyote window after leaving the ground succeeds while one past it fails; a
+  press while airborne is held and fires on landing within the buffer window but is dropped if the buffer
+  expires first; `pressJump` refreshes the buffer; `reset` clears; and a zero coyote window forbids jumping
+  the instant the character leaves the ground),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

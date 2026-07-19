@@ -135,6 +135,7 @@
 #include "maz/game/Reputation.hpp"
 #include "maz/game/Achievements.hpp"
 #include "maz/game/WaveSpawner.hpp"
+#include "maz/game/JumpAssist.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20231,6 +20232,74 @@ void testPolynomial() {
     }
 }
 
+void testJumpAssist() {
+    using game::JumpAssist;
+
+    // Grounded jump fires once.
+    {
+        JumpAssist j(0.1, 0.1);
+        j.update(0.016, true);
+        CHECK(j.canJump() && !j.hasBufferedJump() && j.tryJump() == false);
+        j.pressJump();
+        CHECK(j.hasBufferedJump() && j.tryJump() == true);
+        CHECK(j.tryJump() == false && !j.hasBufferedJump());
+    }
+    // Coyote time: jump shortly after leaving ground; expires later.
+    {
+        JumpAssist j(0.1, 0.1);
+        j.update(0.016, true);
+        j.update(0.05, false);
+        CHECK(j.canJump());
+        j.pressJump();
+        CHECK(j.tryJump() == true);
+        JumpAssist k(0.1, 0.1);
+        k.update(0.016, true);
+        k.update(0.12, false);
+        CHECK(!k.canJump());
+        k.pressJump();
+        CHECK(k.tryJump() == false);
+    }
+    // Jump buffering: press before landing fires on landing; expires otherwise.
+    {
+        JumpAssist j(0.1, 0.1);
+        j.update(0.2, false);
+        CHECK(!j.canJump());
+        j.pressJump();
+        CHECK(j.tryJump() == false);
+        j.update(0.05, false);
+        CHECK(j.hasBufferedJump() && j.tryJump() == false);
+        j.update(0.016, true);
+        CHECK(j.tryJump() == true);
+        JumpAssist k(0.1, 0.1);
+        k.update(0.2, false);
+        k.pressJump();
+        k.update(0.12, false);
+        CHECK(!k.hasBufferedJump());
+        k.update(0.016, true);
+        CHECK(k.tryJump() == false);
+    }
+    // pressJump refreshes the buffer; reset clears; zero coyote forbids after leaving.
+    {
+        JumpAssist j(0.1, 0.1);
+        j.update(0.2, false);
+        j.pressJump();
+        j.update(0.08, false);
+        j.pressJump();
+        j.update(0.05, false);
+        CHECK(j.hasBufferedJump());
+        j.reset();
+        CHECK(!j.canJump() && !j.hasBufferedJump() && !j.grounded() && j.tryJump() == false);
+        JumpAssist z(0.0, 0.1);
+        z.update(0.016, true);
+        z.pressJump();
+        CHECK(z.tryJump() == true);
+        z.update(0.001, false);
+        CHECK(!z.canJump());
+        z.pressJump();
+        CHECK(z.tryJump() == false);
+    }
+}
+
 void testWaveSpawner() {
     using game::WaveSpawner;
 
@@ -31450,6 +31519,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testJumpAssist();
     testWaveSpawner();
     testAchievements();
     testReputation();
