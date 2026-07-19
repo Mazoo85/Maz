@@ -1086,6 +1086,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   and `advance()` on a line that still has choices are both no-ops that leave the cursor put; a linear
   `setNext` chain walks A->B->C and then ends; a choice whose link is -1 ends the conversation immediately;
   an invalid start id begins finished with safe choose/advance; bad authoring node ids are ignored),
+  **combat damage resolver** (M486, `game::resolveDamage` + `game::DamageInfo` / `game::DamageResult` +
+  `game::armorMultiplier` — the "how much damage actually lands" math behind every hit. Given a raw amount
+  and the defender's mitigation (scaling armor, a fractional resistance, optional flat reduction) plus an
+  optional crit, it returns the final integer damage and whether the blow crit or was fully blocked. Armor
+  uses the classic diminishing-returns curve 100/(100+armor) (100 armor halves, 200 armor thirds, never
+  negative), resistance scales by (1-resist), and a `True` damage type bypasses all mitigation. Crit is a
+  caller-supplied flag (roll it with the engine's Pcg32) so the resolver stays pure and deterministic.
+  Godot ships no damage/combat system -> beyond-Godot gameplay utility pairing with the stat and
+  status-effect systems. Verified: the armor curve (0->x1, 100->x0.5, 200->x1/3, negative clamps); no-
+  mitigation passthrough; crit multiplies the raw amount before armor (and a custom multiplier); resistance
+  scaling and its clamp to a full block; flat reduction after scaling clamping to a full block; the full
+  pipeline (100 -> crit x2 -> armor 100 -> resist .25 -> flat 5 = 70); True damage ignoring armor/resist/
+  flat while still critting; zero/negative amounts yielding 0 without a false "blocked" flag; and
+  round-to-nearest on fractional results),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

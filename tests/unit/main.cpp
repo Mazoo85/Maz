@@ -130,6 +130,7 @@
 #include "maz/game/StatusEffect.hpp"
 #include "maz/game/Shop.hpp"
 #include "maz/game/Dialogue.hpp"
+#include "maz/game/Damage.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20226,6 +20227,100 @@ void testPolynomial() {
     }
 }
 
+void testDamage() {
+    using game::armorMultiplier;
+    using game::DamageInfo;
+    using game::DamageResult;
+    using game::DamageType;
+    using game::resolveDamage;
+
+    // armorMultiplier curve.
+    CHECK(std::fabs(armorMultiplier(0) - 1.0) < 1e-12);
+    CHECK(std::fabs(armorMultiplier(100) - 0.5) < 1e-12);
+    CHECK(std::fabs(armorMultiplier(200) - (1.0 / 3.0)) < 1e-12);
+    CHECK(std::fabs(armorMultiplier(-50) - 1.0) < 1e-12);
+
+    // No mitigation.
+    {
+        DamageInfo in;
+        in.amount = 42.0;
+        const DamageResult r = resolveDamage(in);
+        CHECK(r.damage == 42 && !r.crit && !r.fullyBlocked);
+    }
+    // Armor halves at 100; crit multiplies raw before armor.
+    {
+        DamageInfo in;
+        in.amount = 100.0;
+        in.armor = 100.0;
+        CHECK(resolveDamage(in).damage == 50);
+        in.isCrit = true;
+        const DamageResult r = resolveDamage(in);
+        CHECK(r.damage == 100 && r.crit);
+        DamageInfo c;
+        c.amount = 50.0;
+        c.isCrit = true;
+        c.critMultiplier = 3.0;
+        CHECK(resolveDamage(c).damage == 150);
+    }
+    // Resistance scales by (1 - resist); clamps to full block.
+    {
+        DamageInfo in;
+        in.amount = 200.0;
+        in.resist = 0.25;
+        CHECK(resolveDamage(in).damage == 150);
+        in.resist = 1.5;
+        const DamageResult r = resolveDamage(in);
+        CHECK(r.damage == 0 && r.fullyBlocked);
+    }
+    // Flat reduction after scaling; clamps at 0.
+    {
+        DamageInfo in;
+        in.amount = 20.0;
+        in.flatReduction = 5.0;
+        CHECK(resolveDamage(in).damage == 15);
+        in.flatReduction = 100.0;
+        const DamageResult r = resolveDamage(in);
+        CHECK(r.damage == 0 && r.fullyBlocked);
+    }
+    // Combined pipeline: 100 -> crit x2 -> armor 100 -> resist .25 -> flat 5 = 70.
+    {
+        DamageInfo in;
+        in.amount = 100.0;
+        in.isCrit = true;
+        in.armor = 100.0;
+        in.resist = 0.25;
+        in.flatReduction = 5.0;
+        const DamageResult r = resolveDamage(in);
+        CHECK(r.damage == 70 && r.crit);
+    }
+    // True damage ignores all mitigation (crit still applies).
+    {
+        DamageInfo in;
+        in.amount = 100.0;
+        in.type = DamageType::True;
+        in.armor = 500.0;
+        in.resist = 0.9;
+        in.flatReduction = 50.0;
+        CHECK(resolveDamage(in).damage == 100);
+        in.isCrit = true;
+        CHECK(resolveDamage(in).damage == 200);
+    }
+    // Zero/negative amount -> 0, not fully-blocked; rounding to nearest.
+    {
+        DamageInfo z;
+        z.amount = 0.0;
+        CHECK(resolveDamage(z).damage == 0 && !resolveDamage(z).fullyBlocked);
+        z.amount = -50.0;
+        CHECK(resolveDamage(z).damage == 0 && !resolveDamage(z).fullyBlocked);
+        DamageInfo in;
+        in.amount = 10.0;
+        in.armor = 300.0; // 2.5 -> 3
+        CHECK(resolveDamage(in).damage == 3);
+        in.armor = 700.0; // 1.25 -> 1
+        CHECK(resolveDamage(in).damage == 1);
+    }
+}
+
 void testDialogue() {
     using game::DialogueRunner;
     using game::DialogueTree;
@@ -31056,6 +31151,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testDamage();
     testDialogue();
     testShop();
     testStatusEffect();
