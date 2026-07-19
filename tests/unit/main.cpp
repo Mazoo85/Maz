@@ -316,6 +316,7 @@
 #include "maz/render/MeshTools.hpp"
 #include "maz/render/MultiMesh2D.hpp"
 #include "maz/render/ObjLoader.hpp"
+#include "maz/render/ColladaLoader.hpp"
 #include "maz/render/Occlusion.hpp"
 #include "maz/render/PolyTriangulate.hpp"
 #include "maz/render/SpriteOrder.hpp"
@@ -20237,6 +20238,82 @@ void testPolynomial() {
     }
 }
 
+void testColladaLoader() {
+    using render::parseCollada;
+    using render::ColladaLoadOptions;
+
+    static const char* kTriDae =
+        "<?xml version=\"1.0\"?><COLLADA><library_geometries><geometry id=\"g1\"><mesh>"
+        "<source id=\"pos\"><float_array count=\"12\">0 0 0  1 0 0  1 1 0  0 1 0</float_array></source>"
+        "<source id=\"nrm\"><float_array count=\"3\">0 0 1</float_array></source>"
+        "<source id=\"uv\"><float_array count=\"8\">0 0  1 0  1 1  0 1</float_array></source>"
+        "<vertices id=\"verts\"><input semantic=\"POSITION\" source=\"#pos\"/></vertices>"
+        "<triangles count=\"2\">"
+        "<input semantic=\"VERTEX\" source=\"#verts\" offset=\"0\"/>"
+        "<input semantic=\"NORMAL\" source=\"#nrm\" offset=\"1\"/>"
+        "<input semantic=\"TEXCOORD\" source=\"#uv\" offset=\"2\"/>"
+        "<p>0 0 0  1 0 1  2 0 2   0 0 0  2 0 2  3 0 3</p>"
+        "</triangles></mesh></geometry></library_geometries></COLLADA>";
+
+    static const char* kPolyDae =
+        "<?xml version=\"1.0\"?><COLLADA><library_geometries><geometry id=\"g\"><mesh>"
+        "<source id=\"p\"><float_array count=\"12\">0 0 0  2 0 0  2 2 0  0 2 0</float_array></source>"
+        "<vertices id=\"v\"><input semantic=\"POSITION\" source=\"#p\"/></vertices>"
+        "<polylist count=\"1\"><input semantic=\"VERTEX\" source=\"#v\" offset=\"0\"/>"
+        "<vcount>4</vcount><p>0 1 2 3</p></polylist>"
+        "</mesh></geometry></library_geometries></COLLADA>";
+
+    // Triangles primitive with multi-offset inputs.
+    {
+        render::shapes::MeshData m;
+        CHECK(parseCollada(kTriDae, m));
+        CHECK(m.vertices.size() == 6);
+        CHECK(m.indices.size() == 6);
+        CHECK_NEAR(m.vertices[0].px, 0.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].nz, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].u, 0.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].v, 1.0f, 1e-5f); // flipV default
+        CHECK_NEAR(m.vertices[2].px, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[2].py, 1.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[2].v, 0.0f, 1e-5f);
+        CHECK(m.indices[0] == 0 && m.indices[5] == 5);
+    }
+
+    // flipV disabled; vertex tint applied.
+    {
+        render::shapes::MeshData m;
+        ColladaLoadOptions opt;
+        opt.flipV = false;
+        opt.r = 0.25f;
+        opt.g = 0.5f;
+        opt.b = 0.75f;
+        CHECK(parseCollada(kTriDae, m, opt));
+        CHECK_NEAR(m.vertices[0].v, 0.0f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].r, 0.25f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].g, 0.5f, 1e-5f);
+        CHECK_NEAR(m.vertices[0].b, 0.75f, 1e-5f);
+    }
+
+    // Polylist quad fan-triangulates to two triangles.
+    {
+        render::shapes::MeshData m;
+        CHECK(parseCollada(kPolyDae, m));
+        CHECK(m.vertices.size() == 4);
+        CHECK(m.indices.size() == 6);
+        CHECK(m.indices[0] == 0 && m.indices[1] == 1 && m.indices[2] == 2);
+        CHECK(m.indices[3] == 0 && m.indices[4] == 2 && m.indices[5] == 3);
+        CHECK_NEAR(m.vertices[2].px, 2.0f, 1e-5f);
+    }
+
+    // Malformed / empty documents fail gracefully.
+    {
+        render::shapes::MeshData m;
+        CHECK(!parseCollada("not xml at all", m));
+        CHECK(!parseCollada("<COLLADA></COLLADA>", m));
+        CHECK(m.vertices.empty() && m.indices.empty());
+    }
+}
+
 void testSkillTree() {
     using game::SkillTree;
 
@@ -32014,6 +32091,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testColladaLoader();
     testSkillTree();
     testAggroTable();
     testHealth();

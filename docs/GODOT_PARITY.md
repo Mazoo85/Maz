@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **COLLADA `.dae` mesh import** (M497, `render::parseCollada` / `loadCollada` — closes a real Godot import
+  gap: Godot imports Collada out of the box, while Maz previously read only OBJ and glTF. COLLADA is an XML
+  interchange format many DCC tools (Blender, Maya, SketchUp) still export, so supporting it widens what
+  artists can bring in. Built on the M174 `io::XmlParser` pull parser, it gathers every `<source>` float
+  array, the `<vertices>` POSITION mapping, and the `<triangles>` / `<polylist>` index streams with their
+  per-semantic input offsets, then de-interleaves them into position/normal/uv `MeshVertex` data ready for
+  `Renderer::createMesh`; polygons with more than three corners are fan-triangulated. Pure CPU string work,
+  so it is fully unit-tested headlessly — this is a first gap-closing milestone from `GODOT_GAPS_ROADMAP.md`.
+  Honest scope: it reads the common exported-mesh case (first geometry, triangle/polylist primitives with
+  VERTEX/NORMAL/TEXCOORD) and does not yet apply node transforms, skinning, materials, or trifan/tristrip
+  primitives. Verified: a two-triangle quad with distinct position/normal/texcoord sources at separate input
+  offsets de-interleaves to the right positions/normals/UVs; the default flipV inverts V while flipV=false
+  leaves it; the vertex tint applies; a one-polygon polylist quad fan-triangulates to two triangles with the
+  expected index winding; and malformed / geometry-less documents fail gracefully to an empty mesh),
   **skill / talent tree** (M496, `game::SkillTree` — the point-buy progression graph behind "spend a
   talent point to unlock this node." Each node has a point cost and a max rank (buy once, or several times
   for a stacking bonus), and can be gated behind prerequisite nodes that must already be unlocked (multiple
