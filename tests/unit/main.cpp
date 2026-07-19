@@ -84,6 +84,7 @@
 #include "maz/core/OneEuroFilter.hpp"
 #include "maz/core/DisjointSet.hpp"
 #include "maz/core/FenwickTree.hpp"
+#include "maz/core/Trie.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18244,6 +18245,92 @@ void testFenwickTree() {
     }
 }
 
+// Trie: prefix tree with membership, prefix queries, and sorted autocomplete (M440).
+void testTrie() {
+    using core::Trie;
+
+    // ---- Empty. ----
+    {
+        Trie t;
+        CHECK(t.empty() && t.size() == 0);
+        CHECK(!t.contains("x") && !t.startsWith("") && t.countWithPrefix("a") == 0);
+        CHECK(t.collectWithPrefix("").empty());
+    }
+
+    // ---- Insert + membership + prefix. ----
+    {
+        Trie t;
+        CHECK(t.insert("cat") && t.insert("car") && t.insert("card") && t.insert("dog"));
+        CHECK(t.size() == 4 && !t.insert("cat") && t.size() == 4);
+        CHECK(t.contains("cat") && t.contains("car") && t.contains("card") && t.contains("dog"));
+        CHECK(!t.contains("ca") && !t.contains("care") && !t.contains("do"));
+        CHECK(t.startsWith("ca") && t.startsWith("car") && t.startsWith("d") && t.startsWith(""));
+        CHECK(!t.startsWith("z") && !t.startsWith("care"));
+        CHECK(t.countWithPrefix("car") == 2 && t.countWithPrefix("ca") == 3);
+        CHECK(t.countWithPrefix("d") == 1 && t.countWithPrefix("") == 4);
+    }
+
+    // ---- Autocomplete returns sorted words. ----
+    {
+        Trie t;
+        for (const char* w : {"cat", "car", "card", "dog"}) {
+            t.insert(w);
+        }
+        CHECK((t.collectWithPrefix("car") == std::vector<std::string>{"car", "card"}));
+        CHECK((t.collectWithPrefix("ca") == std::vector<std::string>{"car", "card", "cat"}));
+        CHECK((t.collectWithPrefix("") == std::vector<std::string>{"car", "card", "cat", "dog"}));
+        CHECK(t.collectWithPrefix("z").empty());
+    }
+
+    // ---- Erase updates membership and prefix counts. ----
+    {
+        Trie t;
+        for (const char* w : {"cat", "car", "card"}) {
+            t.insert(w);
+        }
+        CHECK(t.erase("car") && t.size() == 2);
+        CHECK(!t.contains("car") && t.contains("card"));
+        CHECK(t.startsWith("car") && t.countWithPrefix("car") == 1);
+        CHECK((t.collectWithPrefix("car") == std::vector<std::string>{"card"}));
+        CHECK(t.erase("card") && !t.startsWith("car") && t.startsWith("ca"));
+        CHECK(!t.erase("car"));
+        t.clear();
+        CHECK(t.empty() && !t.startsWith("ca"));
+    }
+
+    // ---- Empty-string word is valid. ----
+    {
+        Trie t;
+        CHECK(t.insert("") && t.contains("") && t.size() == 1 && t.startsWith(""));
+        CHECK(t.erase("") && !t.contains(""));
+    }
+
+    // ---- Cross-check against std::set. ----
+    {
+        Trie t;
+        std::set<std::string> ref;
+        const char* words[] = {"apple", "app",    "apply", "apt", "bat",    "batch",
+                               "bath",  "bad",     "band",  "banana", "cab", "cabbage"};
+        for (const char* w : words) {
+            t.insert(w);
+            ref.insert(w);
+        }
+        CHECK(t.size() == ref.size());
+        for (const auto& w : ref) {
+            CHECK(t.contains(w));
+        }
+        CHECK(!t.contains("ap") && !t.contains("ban"));
+        std::vector<std::string> expect;
+        for (const auto& w : ref) {
+            if (w.rfind("ba", 0) == 0) {
+                expect.push_back(w);
+            }
+        }
+        CHECK(t.collectWithPrefix("ba") == expect);
+        CHECK(t.countWithPrefix("ba") == expect.size());
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27008,6 +27095,7 @@ int main() {
     testOneEuroFilter();
     testDisjointSet();
     testFenwickTree();
+    testTrie();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

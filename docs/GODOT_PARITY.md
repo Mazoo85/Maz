@@ -573,6 +573,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   never selected), a 300k-draw weighted-sampling distribution that then re-checks the new proportions
   after a weight is zeroed live, and a 3000-op random add/set stream cross-checked against a brute-force
   array for element, prefix, and total),
+  **trie / prefix tree** (M440, `core::Trie` — stores a set of words so exact-membership, "any word with
+  this prefix?", prefix counts, and sorted autocomplete all run in time proportional to the query
+  length regardless of how many words are held. The structure behind developer-console/chat command
+  autocomplete, dictionary word validation (spelling, word games), and profanity/keyword filtering —
+  none of which Godot ships a primitive for. Each node caches a subtree word count so prefix
+  existence/counts stay exact even after erases (kept nodes, decremented counts). Verified: membership,
+  prefix existence/counts, lexicographically-sorted collectWithPrefix autocomplete, erase updating both
+  membership and prefix state, empty-string entries, and a full cross-check against a std::set over a
+  dozen overlapping words),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
