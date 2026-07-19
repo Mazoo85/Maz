@@ -42,6 +42,8 @@ AppConfig parseArgs(int argc, char** argv) {
         } else if (std::strcmp(arg, "--samplerate") == 0 && i + 1 < argc) {
             const int sr = std::atoi(argv[++i]);
             cfg.sampleRate = sr < 8000 ? 8000 : (sr > 192000 ? 192000 : sr);
+        } else if (std::strcmp(arg, "--mono") == 0) {
+            cfg.mono = true;
         } else if (std::strcmp(arg, "--beat") == 0) {
             cfg.beat = true;
         } else if (std::strcmp(arg, "--melody") == 0) {

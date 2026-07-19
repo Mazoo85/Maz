@@ -1146,6 +1146,23 @@ int main() {
         check(fb2.size() > 21 && fb2[20] == 3 && fb2[21] == 0, "the float WAV declares format 3 (IEEE float)");
     }
 
+    // --- Mono downmix helper (mono export) -----------------------------------
+    {
+        // Two stereo frames: (1, 0) and (0.2, 0.4) → mono averages 0.5 and 0.3.
+        const std::vector<float> stereo = {1.0f, 0.0f, 0.2f, 0.4f};
+        const std::vector<float> m = audio::downmixToMono(stereo.data(), 2, 2);
+        check(m.size() == 2 && std::fabs(m[0] - 0.5f) < 1e-6f && std::fabs(m[1] - 0.3f) < 1e-6f,
+              "downmixToMono averages the channels");
+        check(audio::downmixToMono(nullptr, 2, 2).empty() &&
+                  audio::downmixToMono(stereo.data(), 0, 2).empty(),
+              "downmixToMono is empty on invalid arguments");
+        // A round-trip through a mono WAV write/read preserves the downmixed values.
+        check(audio::writeWav16("unit_mono.wav", m.data(), 2, 1, 48000, &err), "mono WAV writes");
+        audio::WavData mw;
+        check(audio::readWav16("unit_mono.wav", mw, &err) && mw.channels == 1 && mw.frames() == 2,
+              "mono WAV reads back as one channel");
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");

@@ -338,11 +338,21 @@ int runHeadless(const core::AppConfig& cfg) {
             const float g = audio::peakNormalize(buf.data(), static_cast<int>(buf.size()));
             MAZ_LOG_INFO("audio: normalized mix to -0.3 dBFS (x%.3f)", static_cast<double>(g));
         }
-        if (audio::writeWav16(cfg.wavPath, buf.data(), frames, channels, acfg.sampleRate, &werr,
+        // Optional mono downmix of the final bounce.
+        std::vector<float> monoBuf;
+        const float* outData = buf.data();
+        int outChannels = channels;
+        if (cfg.mono && channels > 1) {
+            monoBuf = audio::downmixToMono(buf.data(), frames, channels);
+            outData = monoBuf.data();
+            outChannels = 1;
+        }
+        if (audio::writeWav16(cfg.wavPath, outData, frames, outChannels, acfg.sampleRate, &werr,
                               cfg.dither, cfg.wavBits)) {
             const int depth = (cfg.wavBits == 24 || cfg.wavBits == 32) ? cfg.wavBits : 16;
-            MAZ_LOG_INFO("audio: wrote %s (%d-bit%s%s)", cfg.wavPath, depth,
-                         depth == 32 ? " float" : "", cfg.dither ? ", dithered" : "");
+            MAZ_LOG_INFO("audio: wrote %s (%d-bit%s%s%s)", cfg.wavPath, depth,
+                         depth == 32 ? " float" : "", cfg.dither ? ", dithered" : "",
+                         outChannels == 1 ? ", mono" : "");
         } else {
             MAZ_LOG_ERROR("audio: WAV write failed: %s", werr.c_str());
         }

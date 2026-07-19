@@ -23,6 +23,7 @@ struct AppConfig {
     bool normalize = false;         // --normalize : peak-normalize the WAV bounce to -0.3 dBFS
     int wavBits = 16;               // --bits N : WAV/stem export bit depth (16 or 24)
     int sampleRate = 48000;         // --samplerate N : offline render/export sample rate (Hz)
+    bool mono = false;              // --mono : downmix the WAV bounce to a single mono channel
     bool beat = false;              // --beat : render the demo step-sequencer pattern (not a tone)
     bool melody = false;            // --melody : render the demo piano-roll melody
     bool fm = false;                // --fm : use the FM synth engine for the demo melody

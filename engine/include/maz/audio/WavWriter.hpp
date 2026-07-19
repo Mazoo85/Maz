@@ -2,8 +2,28 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace maz::audio {
+
+// Downmix an interleaved multi-channel buffer to a single mono channel (the average of the channels),
+// returning `frames` samples. Used for mono export. Returns an empty vector on invalid arguments.
+inline std::vector<float> downmixToMono(const float* interleaved, int frames, int channels) {
+    std::vector<float> mono;
+    if (interleaved == nullptr || frames <= 0 || channels <= 0) {
+        return mono;
+    }
+    mono.resize(static_cast<size_t>(frames));
+    for (int i = 0; i < frames; ++i) {
+        float sum = 0.0f;
+        for (int c = 0; c < channels; ++c) {
+            sum += interleaved[static_cast<size_t>(i) * static_cast<size_t>(channels) +
+                               static_cast<size_t>(c)];
+        }
+        mono[static_cast<size_t>(i)] = sum / static_cast<float>(channels);
+    }
+    return mono;
+}
 
 // Scale `interleaved` (a run of `count` samples) in place so its largest absolute sample equals
 // `targetPeak` (linear; the default 0.966 ≈ -0.3 dBFS, leaving a hair of inter-sample headroom). This
