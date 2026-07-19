@@ -7,6 +7,7 @@
 #include "maz/audio/WavReader.hpp"
 #include "maz/audio/WavWriter.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -871,6 +872,35 @@ int main() {
             identical = dd.samples[i] == dd2.samples[i];
         }
         check(identical, "dither is deterministic: same input → byte-identical WAV");
+    }
+
+    // --- Export peak-normalization -------------------------------------------
+    // Static peak normalization scales the buffer so its loudest sample hits the target, without
+    // touching dynamics; it is a no-op on silence, and idempotent once at the target.
+    {
+        std::vector<float> b = {0.0f, 0.5f, -0.25f, 0.1f}; // peak 0.5
+        const float g = audio::peakNormalize(b.data(), static_cast<int>(b.size()), 0.966f);
+        check(std::fabs(g - 0.966f / 0.5f) < 1e-4f, "normalize returns target/peak gain");
+        float pk = 0.0f;
+        for (float s : b) {
+            pk = std::max(pk, std::fabs(s));
+        }
+        check(std::fabs(pk - 0.966f) < 1e-4f, "normalized buffer peaks at the target");
+        // Relative shape preserved: the -0.25 sample stays exactly half the +0.5 sample's magnitude.
+        check(std::fabs(std::fabs(b[2]) / b[1] - 0.5f) < 1e-4f, "normalize preserves relative levels");
+
+        // Idempotent: normalizing again applies ~unity gain and leaves the peak put.
+        const float g2 = audio::peakNormalize(b.data(), static_cast<int>(b.size()), 0.966f);
+        check(std::fabs(g2 - 1.0f) < 1e-4f, "re-normalizing an at-target buffer is a no-op");
+
+        // Silence and degenerate targets are no-ops that never divide by zero.
+        std::vector<float> silent(16, 0.0f);
+        check(audio::peakNormalize(silent.data(), static_cast<int>(silent.size())) == 1.0f,
+              "normalize is a no-op on silence");
+        std::vector<float> c = {0.4f, -0.2f};
+        check(audio::peakNormalize(c.data(), static_cast<int>(c.size()), 0.0f) == 1.0f &&
+                  c[0] == 0.4f,
+              "normalize with target <= 0 is a no-op");
     }
 
     // Missing file fails cleanly.

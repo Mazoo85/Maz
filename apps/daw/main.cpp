@@ -320,7 +320,7 @@ int runHeadless(const core::AppConfig& cfg) {
         engine.noteOn(cfg.toneHz);
     }
 
-    const std::vector<float> buf = engine.renderOffline(cfg.seconds);
+    std::vector<float> buf = engine.renderOffline(cfg.seconds);
     const audio::AudioConfig& acfg = engine.config();
     const int channels = acfg.channels;
     const int frames = channels > 0 ? static_cast<int>(buf.size()) / channels : 0;
@@ -328,6 +328,12 @@ int runHeadless(const core::AppConfig& cfg) {
 
     if (cfg.wavPath != nullptr) {
         std::string werr;
+        // Optional peak-normalization of the final mix (FL's "Normalize" on export). Applied to the
+        // full bounce only — never to individual stems, whose relative balance must be preserved.
+        if (cfg.normalize) {
+            const float g = audio::peakNormalize(buf.data(), static_cast<int>(buf.size()));
+            MAZ_LOG_INFO("audio: normalized mix to -0.3 dBFS (x%.3f)", static_cast<double>(g));
+        }
         if (audio::writeWav16(cfg.wavPath, buf.data(), frames, channels, acfg.sampleRate, &werr,
                               cfg.dither)) {
             MAZ_LOG_INFO("audio: wrote %s%s", cfg.wavPath, cfg.dither ? " (dithered)" : "");
