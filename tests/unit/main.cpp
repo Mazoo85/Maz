@@ -219,6 +219,7 @@
 #include "maz/render/ColorNames.hpp"
 #include "maz/render/ColorOps.hpp"
 #include "maz/render/Image.hpp"
+#include "maz/render/ImageCodecQoi.hpp"
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
@@ -1234,6 +1235,57 @@ void testColorOps() {
         auto badType = blob;
         badType[2] = 10;
         CHECK(render::decodeTga(badType).empty());
+
+        // --- QOI codec: header, chunk-level, round-trip (M393) ---
+        auto qoiRoundTrips = [&sameC](const render::Image& srcImg) {
+            render::Image r = render::decodeQoi(render::encodeQoi(srcImg));
+            if (r.width() != srcImg.width() || r.height() != srcImg.height()) {
+                return false;
+            }
+            for (int yy = 0; yy < srcImg.height(); ++yy) {
+                for (int xx = 0; xx < srcImg.width(); ++xx) {
+                    if (!sameC(r.getPixel(xx, yy), srcImg.getPixel(xx, yy))) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+        render::Image qh(5, 3, render::color8(0, 0, 0, 255));
+        auto qblob = render::encodeQoi(qh);
+        CHECK(qblob[0] == 'q' && qblob[1] == 'o' && qblob[2] == 'i' && qblob[3] == 'f');
+        CHECK(qblob[7] == 5 && qblob[11] == 3 && qblob[12] == 4 && qblob[13] == 0);
+        const std::size_t qs = qblob.size();
+        CHECK(qblob[qs - 1] == 1 && qblob[qs - 8] == 0); // end marker
+        // A 1x1 pixel equal to the (0,0,0,255) start -> single RUN chunk of length 1 (0xC0).
+        CHECK(render::encodeQoi(render::Image(1, 1, render::color8(0, 0, 0, 255)))[14] == 0xC0);
+        // The 15-pixel solid above encodes as one run of length 15 -> 0xC0 | 14 == 0xCE.
+        CHECK(qblob[14] == 0xCE);
+        // 1x1 big red jump -> QOI_OP_RGB (0xFE); a +1 red -> QOI_OP_DIFF (0x7A).
+        CHECK(render::encodeQoi(render::Image(1, 1, render::color8(10, 0, 0, 255)))[14] == 0xFE);
+        CHECK(render::encodeQoi(render::Image(1, 1, render::color8(1, 0, 0, 255)))[14] == 0x7A);
+        // Round-trip solid, gradient, alpha, and repeated-palette content.
+        CHECK(qoiRoundTrips(render::Image(20, 10, render::color8(70, 130, 200, 255))));
+        render::Image qgrad(16, 4, render::color8(0, 0, 0, 255));
+        for (int yy = 0; yy < 4; ++yy) {
+            for (int xx = 0; xx < 16; ++xx) {
+                qgrad.setPixel(xx, yy, render::color8(xx * 16, yy * 60, 128, 255));
+            }
+        }
+        CHECK(qoiRoundTrips(qgrad));
+        render::Image qtrans(8, 8, render::color8(0, 0, 0, 0));
+        for (int yy = 0; yy < 8; ++yy) {
+            for (int xx = 0; xx < 8; ++xx) {
+                qtrans.setPixel(xx, yy, render::color8(xx * 30, yy * 30, (xx + yy) * 15, (xx * 8 + yy) * 4));
+            }
+        }
+        CHECK(qoiRoundTrips(qtrans));
+        // Malformed / empty inputs.
+        CHECK(render::encodeQoi(render::Image{}).empty());
+        CHECK(render::decodeQoi(nullptr, 0).empty());
+        auto qbad = qblob;
+        qbad[0] = 'X';
+        CHECK(render::decodeQoi(qbad).empty());
     }
 
     // --- OKLab / OKLCh perceptual space (M304) ---
