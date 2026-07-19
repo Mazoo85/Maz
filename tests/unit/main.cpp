@@ -90,6 +90,7 @@
 #include "maz/core/BloomFilter.hpp"
 #include "maz/render/ColorQuantize.hpp"
 #include "maz/render/Dither.hpp"
+#include "maz/core/WorleyNoise.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18767,6 +18768,80 @@ void testDither() {
     }
 }
 
+// WorleyNoise: cellular / F1-F2 noise field (M446).
+void testWorleyNoise() {
+    using core::WorleyNoise;
+    WorleyNoise w(1234);
+
+    // ---- Determinism. ----
+    {
+        auto a = w.f1f2(3.7f, -2.1f);
+        auto b = w.f1f2(3.7f, -2.1f);
+        CHECK(a.first == b.first && a.second == b.second);
+    }
+
+    // ---- F2 >= F1 >= 0, F1 bounded everywhere. ----
+    {
+        for (int i = 0; i < 200; ++i) {
+            const float x = static_cast<float>(i) * 0.37f - 30.0f;
+            const float y = static_cast<float>(i) * 0.11f + 5.0f;
+            auto p = w.f1f2(x, y);
+            CHECK(p.first >= 0.0f && p.second >= p.first && p.first < 2.0f);
+        }
+    }
+
+    // ---- A dense scan lands very close to some feature point (F1 ~ 0). ----
+    {
+        float minF1 = 1.0e30f;
+        for (int gy = 0; gy < 40; ++gy) {
+            for (int gx = 0; gx < 40; ++gx) {
+                minF1 = std::fmin(minF1, w.f1(static_cast<float>(gx) * 0.05f,
+                                              static_cast<float>(gy) * 0.05f));
+            }
+        }
+        CHECK(minF1 < 0.05f);
+    }
+
+    // ---- crackle = F2 - F1 >= 0, and ~0 on some cell boundary. ----
+    {
+        float minCr = 1.0e30f;
+        for (int i = 0; i < 4000; ++i) {
+            const float c = w.crackle(static_cast<float>(i % 200) * 0.02f,
+                                      static_cast<float>(i / 200) * 0.10f);
+            CHECK(c >= 0.0f);
+            minCr = std::fmin(minCr, c);
+        }
+        CHECK(minCr < 0.05f);
+    }
+
+    // ---- Different seeds -> different fields. ----
+    {
+        WorleyNoise a(1);
+        WorleyNoise b(2);
+        int diffs = 0;
+        for (int i = 0; i < 50; ++i) {
+            const float x = static_cast<float>(i) * 0.3f;
+            const float y = static_cast<float>(i) * 0.7f;
+            if (std::fabs(a.f1(x, y) - b.f1(x, y)) > 1e-4f) {
+                ++diffs;
+            }
+        }
+        CHECK(diffs > 25);
+    }
+
+    // ---- Mean F1 over a region sits in a sane band. ----
+    {
+        double sum = 0.0;
+        for (int gy = 0; gy < 100; ++gy) {
+            for (int gx = 0; gx < 100; ++gx) {
+                sum += w.f1(static_cast<float>(gx) * 0.1f, static_cast<float>(gy) * 0.1f);
+            }
+        }
+        const double mean = sum / 10000.0;
+        CHECK(mean > 0.2 && mean < 0.8);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27537,6 +27612,7 @@ int main() {
     testBloomFilter();
     testColorQuantize();
     testDither();
+    testWorleyNoise();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

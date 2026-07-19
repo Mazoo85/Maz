@@ -631,6 +631,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   threshold-matrix generator. Verified: exact Bayer matrices (2x2, the canonical 4x4, 1x1), flat extremes
   staying flat, a mid-gray field dithering to a 0/255 mix that averages back near the input on both
   methods (brightness preserved), output staying on the allowed level set, and determinism),
+  **Worley / cellular noise** (M446, `core::WorleyNoise` — scatters one jittered feature point per unit
+  grid cell and returns the distance to the nearest (F1) and second-nearest (F2) feature point for any
+  sample. F1 makes rounded cell blobs (stone, scales, cracked mud, bubbles); F2 - F1 traces the ridges
+  between cells (crack/vein networks). The scalar-texture cousin of the engine's geometric Voronoi
+  diagram, filling the gap that Maz's Perlin-only `Noise` module (M85) left — reaching parity with
+  Godot's FastNoiseLite cellular mode. Deterministic from a seed. Verified: determinism, F2 >= F1 >= 0
+  with F1 bounded under sqrt(2), a dense scan landing within 0.05 of a feature point, crackle(F2-F1) >= 0
+  hitting ~0 on cell boundaries, distinct fields per seed, and a sane mean-F1 band),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
