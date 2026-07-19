@@ -127,6 +127,8 @@ Automation::Automation() {
     lane(AutoTarget::BeatRepeatMix).hi = 1.0f;
     lane(AutoTarget::FormantVowel).lo = 0.0f; // A→E→I→O→U morph position
     lane(AutoTarget::FormantVowel).hi = 4.0f;
+    lane(AutoTarget::CompThreshold).lo = -40.0f; // master compressor threshold (dB)
+    lane(AutoTarget::CompThreshold).hi = 0.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -225,6 +227,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Beat-Rpt Mix";
     case AutoTarget::FormantVowel:
         return "Formant Vowel";
+    case AutoTarget::CompThreshold:
+        return "Comp Thresh";
     case AutoTarget::Count:
         break;
     }
@@ -500,6 +504,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             engine.mixer().formant().setEnabled(true);
             engine.mixer().formant().setMorphEnabled(true);
             engine.mixer().formant().setMorph(v);
+            break;
+        case AutoTarget::CompThreshold:
+            // Ride the master compressor threshold — pull it down over a build for more pump/breathe.
+            engine.mixer().compressor().setEnabled(true);
+            engine.mixer().compressor().setThresholdDb(v);
             break;
         case AutoTarget::Count:
             break;
