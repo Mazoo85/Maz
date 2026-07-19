@@ -1958,6 +1958,44 @@ void testTransform2D() {
     // getSkew round-trips through compose (already-present method, verified alongside M278).
     CHECK_NEAR(Transform2D::identity().getSkew(), 0.0f, 1e-4f);
     CHECK_NEAR(Transform2D::compose(0.7f, vec2(1, 1), vec2(0, 0), 0.3f).getSkew(), 0.3f, 1e-3f);
+    // M380: getOrigin accessor + lookingAt (Godot Transform2D.get_origin / looking_at).
+    // getRotation() == atan2(x.y, x.x) directly reports the X-axis heading, so aiming means the
+    // heading equals atan2(target.y - origin.y, target.x - origin.x).
+    {
+        const Transform2D t = Transform2D::translation(vec2(7, -3));
+        CHECK_NEAR(t.getOrigin().x, 7.0f, 1e-5f);
+        CHECK_NEAR(t.getOrigin().y, -3.0f, 1e-5f);
+    }
+    {
+        // Identity aiming up: heading -> +Y (pi/2), origin + unit scale preserved.
+        const Transform2D r = Transform2D::identity().lookingAt(vec2(0, 5));
+        CHECK_NEAR(r.getRotation(), pi * 0.5f, 1e-4f);
+        CHECK_NEAR(r.origin.x, 0.0f, 1e-5f);
+        CHECK_NEAR(r.origin.y, 0.0f, 1e-5f);
+        CHECK_NEAR(r.getScale().x, 1.0f, 1e-4f);
+        CHECK_NEAR(r.getScale().y, 1.0f, 1e-4f);
+    }
+    {
+        // Translated source: heading points from origin toward the target (dir (3,4)).
+        const Transform2D r = Transform2D::translation(vec2(5, 5)).lookingAt(vec2(8, 9));
+        CHECK_NEAR(r.getRotation(), std::atan2(4.0f, 3.0f), 1e-4f);
+        CHECK_NEAR(r.origin.x, 5.0f, 1e-5f);
+        CHECK_NEAR(r.origin.y, 5.0f, 1e-5f);
+    }
+    {
+        // Rotated source (90deg) aiming at world +X -> heading == 0 (hand-computed).
+        const Transform2D r = Transform2D::rotation(pi * 0.5f).lookingAt(vec2(1, 0));
+        CHECK_NEAR(r.getRotation(), 0.0f, 1e-4f);
+    }
+    {
+        // General unit-scale (rotated + translated): heading aims at the target from the origin.
+        const Transform2D t = Transform2D::compose(0.7f, vec2(1, 1), vec2(-2, 3));
+        const Transform2D r = t.lookingAt(vec2(4, -1));
+        CHECK_NEAR(r.getRotation(), std::atan2(-1.0f - 3.0f, 4.0f - (-2.0f)), 1e-4f);
+        CHECK_NEAR(r.origin.x, -2.0f, 1e-5f);
+        CHECK_NEAR(r.getScale().x, 1.0f, 1e-4f);
+        CHECK_NEAR(r.getScale().y, 1.0f, 1e-4f);
+    }
 }
 
 void testCanvasLayer() {

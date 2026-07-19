@@ -56,7 +56,10 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   basis_xform_inv — the transposed-basis direction transform, exact inverse of basis_xform for an
   orthonormal basis; M339 adds is_equal_approx (both basis columns + origin approx) and is_finite —
   Godot Transform2D.is_equal_approx / is_finite, verified against nudged/differing transforms and a
-  non-finite basis component), **Transform3D** (M268,
+  non-finite basis component; M380 adds get_origin plus **looking_at** — Godot's Transform2D.looking_at:
+  a faithful port that returns a unit-scale copy at the same origin whose X axis aims at a world-space
+  target (Godot's affine-inverse + scale-weighted angle formula), verified so the X-axis heading equals
+  atan2(target - origin) for identity, translated, rotated and general unit-scale sources), **Transform3D** (M268,
   `math::Transform3D` — Godot's core Basis+origin spatial transform: xform / xform_inv, compose with
   `*`, affine + rigid inverse, translated/rotated/scaled with global & _local variants, orthonormalized,
   looking_at (-Z forward), interpolate_with (translation lerp + rotation slerp + scale lerp),

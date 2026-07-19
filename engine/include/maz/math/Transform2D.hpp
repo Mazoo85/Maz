@@ -99,6 +99,9 @@ struct Transform2D {
     // --- decomposition (Godot get_rotation / get_scale / get_skew) ---
     float getRotation() const { return std::atan2(x.y, x.x); }
 
+    // The translation component — Godot's Transform2D.get_origin (the `origin` field, as a getter).
+    vec2 getOrigin() const { return origin; }
+
     vec2 getScale() const {
         const float det = determinant();
         const float sx = std::sqrt(x.x * x.x + x.y * x.y);
@@ -123,6 +126,20 @@ struct Transform2D {
         vec2 ny = y - nx * dot(nx, y);
         ny = normalize(ny);
         return Transform2D{nx, ny, origin};
+    }
+
+    // Return a unit-scale copy at the same origin, rotated so its X axis points toward `target`
+    // (world space) — Godot's Transform2D.looking_at. Faithful port of Godot's formula: the target is
+    // brought into local space, weighted by the current scale, and its angle added to the current
+    // rotation. For a unit-scale source this is simply "aim the X axis from the origin at the target".
+    Transform2D lookingAt(vec2 target) const {
+        const vec2 localTarget = affineInverse().xform(target);
+        const vec2 scale = getScale();
+        const vec2 scaled(localTarget.x * scale.x, localTarget.y * scale.y);
+        const float newRotation = getRotation() + std::atan2(scaled.y, scaled.x);
+        Transform2D r = Transform2D::rotation(newRotation);
+        r.origin = origin;
+        return r;
     }
 
     // Decompose both, lerp position + scale and shortest-arc the rotation, recompose (Godot interpolate_with).
