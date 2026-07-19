@@ -492,6 +492,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot has no reservoir sampler. Verified: streams shorter than k keep all, k=0 stays empty, uniformity
   within 0.0015 of k/n over 300k trials, a long stream always holds exactly k valid items, the same seed
   reproduces the same reservoir, and reset() clears for reuse),
+  **online running statistics** (M432, `core::RunningStats` — Welford's streaming algorithm: feed samples
+  one at a time and read count / mean / population + sample variance / stddev / min / max / sum at any
+  moment, in O(1) memory and a single pass without storing the samples. Welford's recurrence is
+  numerically stable — no catastrophic cancellation from the naive sum-of-squares — so it stays accurate
+  over millions of samples and large offsets. The tool for live frame-time/FPS stats, telemetry
+  aggregates and adaptive-difficulty signals. Godot has no running-statistics accumulator. Verified
+  against the textbook dataset {2,4,4,4,5,5,7,9} (mean 5, population variance 4, stddev 2, sample var
+  32/7), single-element/constant-stream/empty edge cases, a 1e9-offset stream keeping variance exact,
+  0..99 giving mean 49.5 and variance 833.25, and clear() reset),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

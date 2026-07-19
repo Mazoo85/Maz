@@ -76,6 +76,7 @@
 #include "maz/core/Halton.hpp"
 #include "maz/core/BitSet.hpp"
 #include "maz/core/ReservoirSampler.hpp"
+#include "maz/core/RunningStats.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17467,6 +17468,85 @@ void testReservoirSampler() {
     }
 }
 
+// RunningStats: Welford online mean/variance/min/max (M432).
+void testRunningStats() {
+    using core::RunningStats;
+    auto nd = [](double a, double b) { return std::fabs(a - b) < 1e-9; };
+
+    // Empty.
+    {
+        RunningStats s;
+        CHECK(s.empty() && s.count() == 0);
+        CHECK(s.mean() == 0.0 && s.variance() == 0.0 && s.stddev() == 0.0);
+        CHECK(s.min() == 0.0 && s.max() == 0.0 && s.sum() == 0.0);
+    }
+
+    // Textbook dataset {2,4,4,4,5,5,7,9}: mean 5, pop variance 4, pop stddev 2, sample var 32/7.
+    {
+        RunningStats s;
+        const double data[] = {2, 4, 4, 4, 5, 5, 7, 9};
+        for (double x : data) {
+            s.push(x);
+        }
+        CHECK(s.count() == 8);
+        CHECK(nd(s.mean(), 5.0));
+        CHECK(nd(s.sum(), 40.0));
+        CHECK(nd(s.variance(), 4.0));
+        CHECK(std::fabs(s.stddev() - 2.0) < 1e-9);
+        CHECK(nd(s.min(), 2.0) && nd(s.max(), 9.0));
+        CHECK(std::fabs(s.sampleVariance() - 32.0 / 7.0) < 1e-9);
+    }
+
+    // Single element: variance 0; sample variance 0 (n<2).
+    {
+        RunningStats s;
+        s.push(42.0);
+        CHECK(s.count() == 1 && nd(s.mean(), 42.0) && nd(s.variance(), 0.0));
+        CHECK(nd(s.min(), 42.0) && nd(s.max(), 42.0) && s.sampleVariance() == 0.0);
+    }
+
+    // Constant stream: variance 0.
+    {
+        RunningStats s;
+        for (int i = 0; i < 1000; ++i) {
+            s.push(7.5);
+        }
+        CHECK(nd(s.mean(), 7.5) && s.variance() < 1e-12 && s.stddev() < 1e-6);
+    }
+
+    // clear() resets.
+    {
+        RunningStats s;
+        s.push(1.0);
+        s.push(2.0);
+        s.clear();
+        CHECK(s.empty() && s.mean() == 0.0);
+        s.push(10.0);
+        CHECK(s.count() == 1 && nd(s.mean(), 10.0));
+    }
+
+    // Numerical stability: a large offset does not corrupt the variance.
+    {
+        RunningStats s;
+        const double base = 1.0e9;
+        for (int i = 0; i < 5; ++i) {
+            s.push(base + i);
+        }
+        CHECK(std::fabs(s.mean() - (base + 2.0)) < 1e-3);
+        CHECK(std::fabs(s.variance() - 2.0) < 1e-6);
+    }
+
+    // Running mean/variance over 0..99.
+    {
+        RunningStats s;
+        for (int i = 0; i < 100; ++i) {
+            s.push(static_cast<double>(i));
+        }
+        CHECK(std::fabs(s.mean() - 49.5) < 1e-9);
+        CHECK(std::fabs(s.variance() - 833.25) < 1e-6);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26223,6 +26303,7 @@ int main() {
     testHalton();
     testBitSet();
     testReservoirSampler();
+    testRunningStats();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
