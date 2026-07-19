@@ -1,5 +1,7 @@
 #pragma once
 
+#include "maz/audio/Filter.hpp"
+
 #include <array>
 #include <string>
 #include <vector>
@@ -95,6 +97,16 @@ public:
     void setSlices(int n) { slices_ = n < 1 ? 1 : (n > 64 ? 64 : n); }
     int slices() const { return slices_; }
 
+    // Resonant low-pass filter on playback (per voice): `cutoff` in Hz shapes the sample's tone,
+    // `resonance` sharpens the peak. Set cutoff high (e.g. 20000, default) to bypass — a fresh sampler
+    // is unfiltered. The classic sampler channel filter for darkening/shaping loops and one-shots.
+    void setFilter(float cutoffHz, float resonance) {
+        filterCutoff_ = cutoffHz < 20.0f ? 20.0f : (cutoffHz > 20000.0f ? 20000.0f : cutoffHz);
+        filterReso_ = resonance < 0.5f ? 0.5f : (resonance > 20.0f ? 20.0f : resonance);
+    }
+    float filterCutoff() const { return filterCutoff_; }
+    float filterResonance() const { return filterReso_; }
+
     // Amplitude envelope (seconds): a click-free attack ramp on trigger and a release fade on
     // noteOff. Longer release lets sustained/looped samples fade out smoothly.
     void setAmpEnv(float attackSec, float releaseSec);
@@ -120,6 +132,7 @@ private:
         double sliceEnd = 0.0; // read index at which a sliced voice stops
         float velocity = 0.0f;
         float env = 0.0f;
+        StateVariableFilter filter{}; // per-voice playback filter
     };
 
     std::vector<float> sample_;
@@ -134,6 +147,8 @@ private:
     int slices_ = 1;         // beat-slicer slice count (1 = off, normal playback)
     float loopStart_ = 0.0f; // loop region start as a fraction of the sample (0 = sample start)
     float loopEnd_ = 1.0f;   // loop region end as a fraction of the sample (1 = sample end)
+    float filterCutoff_ = 20000.0f; // playback low-pass cutoff Hz (20000 = open/bypass)
+    float filterReso_ = 0.7f;       // playback low-pass resonance
     float attack_ = 0.001f;  // seconds
     float release_ = 0.012f; // seconds
     std::string path_;

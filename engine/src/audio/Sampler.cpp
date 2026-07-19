@@ -269,7 +269,12 @@ void Sampler::render(float* out, int frames, int sampleRate) {
                 i0 = last - 1; // keep i0+1 in range for interpolation
             }
             const float frac = static_cast<float>(v.pos - static_cast<double>(i0));
-            const float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
+            float s = sample_[i0] * (1.0f - frac) + sample_[i0 + 1] * frac;
+            // Playback low-pass (per voice): shape the sample's tone. Bypassed when open (≥19 kHz).
+            if (filterCutoff_ < 19000.0f) {
+                s = v.filter.process(s, filterCutoff_, filterReso_, sampleRate,
+                                     StateVariableFilter::Mode::LowPass);
+            }
             out[i] += s * v.env * v.velocity * gain_;
 
             v.pos += static_cast<double>(v.dir) * rate;

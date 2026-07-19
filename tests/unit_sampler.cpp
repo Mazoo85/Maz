@@ -345,6 +345,33 @@ int main() {
         check(s2.crossfadeLoop(10.0f) == 0, "crossfade is a no-op with no pre-roll (loopStart at 0)");
     }
 
+    // Playback low-pass filter: darken a bright sample.
+    {
+        std::vector<float> bright(static_cast<size_t>(sr), 0.0f); // 1 s of a bright 6 kHz tone
+        for (int i = 0; i < sr; ++i) {
+            bright[static_cast<size_t>(i)] = 0.5f * static_cast<float>(std::sin(kTwoPi * 6000.0 * i / sr));
+        }
+        auto hf = [&](float cutoff) {
+            audio::Sampler s;
+            s.setSampleMono(bright, sr);
+            s.setBasePitch(60);
+            s.setFilter(cutoff, 0.7f);
+            s.noteOn(60, 1.0f); // natural speed → the 6 kHz survives unless filtered
+            const std::vector<float> out = renderMono(s, sr / 4, sr);
+            double h = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+            }
+            return h;
+        };
+        check(hf(500.0f) < hf(20000.0f) * 0.5,
+              "sampler low-pass filter attenuates a bright sample's highs");
+        audio::Sampler df;
+        check(df.filterCutoff() == 20000.0f && df.filterResonance() == 0.7f,
+              "sampler filter defaults to open (bypass)");
+    }
+
     // Beat slicer: N slices mapped across the keyboard from the base note; each note plays its slice
     // once at natural speed and stops at the slice boundary.
     {

@@ -1101,6 +1101,11 @@ void buildSynthUI(audio::Sequencer& seq) {
     float smpDetune = seq.sampler().detuneCents();
     if (ImGui::SliderFloat("Fine tune", &smpDetune, -1200.0f, 1200.0f, "%.0f c"))
         seq.sampler().setDetuneCents(smpDetune);
+    float smpCut = seq.sampler().filterCutoff();
+    float smpRes = seq.sampler().filterResonance();
+    bool sfch = ImGui::SliderFloat("Filter cutoff##smp", &smpCut, 20.0f, 20000.0f, "%.0f Hz");
+    sfch |= ImGui::SliderFloat("Filter reso##smp", &smpRes, 0.5f, 20.0f, "%.1f");
+    if (sfch) seq.sampler().setFilter(smpCut, smpRes);
 
     ImGui::End();
 }
