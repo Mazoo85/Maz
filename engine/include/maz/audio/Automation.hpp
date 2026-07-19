@@ -56,6 +56,7 @@ enum class AutoTarget {
     OctaverAmount,
     ConvolverMix,
     DistortionBias,
+    BeatRepeatMix,
     Count
 };
 

@@ -123,6 +123,8 @@ Automation::Automation() {
     lane(AutoTarget::ConvolverMix).hi = 1.0f;
     lane(AutoTarget::DistortionBias).lo = -1.0f;
     lane(AutoTarget::DistortionBias).hi = 1.0f;
+    lane(AutoTarget::BeatRepeatMix).lo = 0.0f;
+    lane(AutoTarget::BeatRepeatMix).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -217,6 +219,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Convolver Mix";
     case AutoTarget::DistortionBias:
         return "Dist Bias";
+    case AutoTarget::BeatRepeatMix:
+        return "Beat-Rpt Mix";
     case AutoTarget::Count:
         break;
     }
@@ -481,6 +485,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the distortion asymmetry (even-harmonic warmth in over a build).
             engine.mixer().distortion().setEnabled(true);
             engine.mixer().distortion().setBias(v);
+            break;
+        case AutoTarget::BeatRepeatMix:
+            // Ride the beat-repeat wet blend — automate the stutter in/out over a build/drop.
+            engine.mixer().beatRepeat().setEnabled(true);
+            engine.mixer().beatRepeat().setMix(v);
             break;
         case AutoTarget::Count:
             break;
