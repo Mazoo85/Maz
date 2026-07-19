@@ -5,6 +5,7 @@
 #include "maz/audio/MidiWriter.hpp"
 #include "maz/audio/Sequencer.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -38,6 +39,7 @@ int main() {
     seq.roll().addNote(audio::Note{0, 4, 60, 0.9f});
     seq.roll().addNote(audio::Note{8, 4, 67, 0.8f});
     seq.roll2().addNote(audio::Note{0, 4, 36, 0.9f}); // a bass note — must reach the export too
+    seq.setBpm(140.0); // a non-default tempo — must survive the round-trip
 
     const std::string path = "unit_midi_out.mid";
     std::string err;
@@ -91,6 +93,8 @@ int main() {
     const auto& bassNotes = in.roll2().notes();
     check(bassNotes.size() == 1 && bassNotes[0].pitch == 36 && bassNotes[0].startStep == 0,
           "the bass note round-trips onto the bass roll");
+    // The tempo meta event carries the project BPM through the file.
+    check(std::fabs(in.bpm() - 140.0) < 0.5, "the project tempo round-trips via the MIDI tempo meta");
     // The two drum hits come back on the grid.
     check(in.step(0, 0) && in.step(1, 4), "imported drum hits land on the grid");
     check(!in.step(0, 1), "unset drum steps stay off after import");

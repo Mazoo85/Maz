@@ -107,6 +107,7 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
         ch.fill(-1);
     }
 
+    double tempoBpm = 0.0; // captured from a tempo meta event, if any (0 = none found)
     for (uint32_t t = 0; t < ntrks && r.ok; ++t) {
         // Find the next MTrk chunk.
         while (r.i + 8 <= r.n && !(r.p[r.i] == 'M' && r.p[r.i + 1] == 'T' && r.p[r.i + 2] == 'r' &&
@@ -146,8 +147,16 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             } else if (hi == 0xC0 || hi == 0xD0) {
                 r.skip(1); // one data byte
             } else if (status == 0xFF) {
-                r.u8();                       // meta type
+                const uint8_t metaType = r.u8();
                 const uint32_t len = r.vlq();
+                if (metaType == 0x51 && len == 3 && r.i + 3 <= trackEnd) {
+                    const uint32_t us = (static_cast<uint32_t>(r.p[r.i]) << 16) |
+                                        (static_cast<uint32_t>(r.p[r.i + 1]) << 8) |
+                                        static_cast<uint32_t>(r.p[r.i + 2]);
+                    if (us > 0 && tempoBpm <= 0.0) { // keep the first tempo found
+                        tempoBpm = 60000000.0 / static_cast<double>(us);
+                    }
+                }
                 r.skip(len);
             } else if (status == 0xF0 || status == 0xF7) {
                 const uint32_t len = r.vlq();
@@ -157,6 +166,11 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             }
         }
         r.i = trackEnd; // jump to the next chunk regardless of how this track parsed
+    }
+
+    // Apply the file's tempo, if it carried one.
+    if (tempoBpm > 0.0) {
+        seq.setBpm(tempoBpm);
     }
 
     // Apply: channel-0 melodic notes → the lead roll, channel-1 → the bass roll, channel-10

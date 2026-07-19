@@ -94,6 +94,16 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
 
     // Encode the track.
     std::vector<uint8_t> track;
+    // Tempo meta at tick 0, so the file plays back at the project's BPM instead of the 120 default.
+    const double bpm = seq.bpm() > 0.0 ? seq.bpm() : 120.0;
+    const uint32_t usPerQuarter = static_cast<uint32_t>(60000000.0 / bpm + 0.5);
+    putVLQ(track, 0);
+    track.push_back(0xFF);
+    track.push_back(0x51);
+    track.push_back(0x03);
+    track.push_back(static_cast<uint8_t>((usPerQuarter >> 16) & 0xFFu));
+    track.push_back(static_cast<uint8_t>((usPerQuarter >> 8) & 0xFFu));
+    track.push_back(static_cast<uint8_t>(usPerQuarter & 0xFFu));
     int prevTick = 0;
     for (const MidiEvent& e : events) {
         putVLQ(track, static_cast<uint32_t>(e.tick - prevTick));
