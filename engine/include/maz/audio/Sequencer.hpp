@@ -19,6 +19,7 @@ struct Pattern {
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
+    float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
 };
 
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
@@ -48,8 +49,9 @@ public:
 
     // Swing/groove: 0 = straight; higher values push the off-beat (odd) steps later for a shuffled
     // feel, while keeping each pair of steps the same total length (tempo preserved). Range 0..0.9.
+    // Per-pattern: each pattern carries its own swing, so different patterns can groove differently.
     void setSwing(float s);
-    float swing() const { return swing_; }
+    float swing() const { return patterns_[static_cast<size_t>(current_)].swing; }
 
     // Humanize: randomize each drum hit's velocity slightly (0 = off, 1 = max) for a less
     // machine-like feel. Deterministic, so renders are reproducible.
@@ -316,7 +318,6 @@ private:
     int numSteps_ = 16;
     int stepsPerBeat_ = 4;
     double bpm_ = 120.0;
-    float swing_ = 0.0f;
     float humanize_ = 0.0f;
     uint32_t humanizeCounter_ = 0;
     bool sidechainOn_ = false;

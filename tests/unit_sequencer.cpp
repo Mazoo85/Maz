@@ -177,6 +177,18 @@ int main() {
         straight.play();
         (void)renderMono(straight, 6000, sampleRate);
         check(straight.currentStep() == 1, "straight timing advances every 6000 samples");
+
+        // Swing is per-pattern: each pattern carries its own groove independently.
+        audio::Sequencer pp;
+        pp.setSwing(0.6f); // pattern 0
+        const int p1 = pp.addPattern();
+        pp.selectPattern(p1);
+        check(pp.swing() == 0.0f, "a new pattern starts straight (independent of pattern 0)");
+        pp.setSwing(0.3f); // pattern 1
+        pp.selectPattern(0);
+        check(std::fabs(pp.swing() - 0.6f) < 1e-6f, "pattern 0 keeps its own swing");
+        pp.selectPattern(p1);
+        check(std::fabs(pp.swing() - 0.3f) < 1e-6f, "pattern 1 keeps its own swing");
     }
 
     // --- Per-channel mixer: volume / mute / solo ----------------------------

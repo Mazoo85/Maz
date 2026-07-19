@@ -276,6 +276,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
+        f << "patswing " << p << " " << seq.swing() << "\n"; // per-pattern groove
+
         for (int c = 0; c < seq.numChannels(); ++c) {
             for (int s = 0; s < seq.numSteps(); ++s) {
                 if (seq.step(c, s)) {
@@ -638,6 +640,14 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             nm = (nb == std::string::npos) ? std::string() : nm.substr(nb);
             if (!nm.empty()) {
                 seq.setPatternName(p, nm);
+            }
+        } else if (tag == "patswing") {
+            int p = 0;
+            float sw = 0.0f;
+            ls >> p >> sw;
+            if (p >= 0 && p < seq.patternCount()) {
+                seq.selectPattern(p);
+                seq.setSwing(sw); // sets the selected pattern's swing
             }
         } else if (tag == "songmode") {
             int on = 0;

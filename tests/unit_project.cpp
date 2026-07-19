@@ -129,7 +129,9 @@ int main() {
     seq.setStep(2, 5, true);
     seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f});
     seq.setPatternName(p1, "Chorus Fill");
+    seq.setSwing(0.35f); // pattern 1's own groove
     seq.selectPattern(0);
+    seq.setSwing(0.15f); // pattern 0's own groove
     seq.setPlaylist({0, 1, 0});
     seq.setSongMode(true);
     seq.setSongLoop(false);
@@ -358,7 +360,9 @@ int main() {
     check(seq2.step(2, 5) && seq2.roll().notes().size() == 1, "second pattern content round-trips");
     check(near(seq2.roll().notes()[0].probability, 0.6f), "per-note probability round-trips");
     check(near(seq2.roll().notes()[0].fineTune, 35.0f), "per-note fine tune round-trips");
+    check(near(seq2.swing(), 0.35f), "pattern 1 per-pattern swing round-trips");
     seq2.selectPattern(0);
+    check(near(seq2.swing(), 0.15f), "pattern 0 per-pattern swing round-trips");
 
     // Second instrument round-trips (roll2 note + synth2 patch).
     check(seq2.roll2().notes().size() == 1 && seq2.roll2().notes()[0].pitch == 40,

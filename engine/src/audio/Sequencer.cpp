@@ -243,7 +243,7 @@ void Sequencer::clearArrangement() {
 }
 
 void Sequencer::setSwing(float s) {
-    swing_ = std::clamp(s, 0.0f, 0.9f);
+    patterns_[static_cast<size_t>(current_)].swing = std::clamp(s, 0.0f, 0.9f);
 }
 
 void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attackMs) {
@@ -268,9 +268,9 @@ double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
     const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
     const double base = static_cast<double>(sampleRate) / stepsPerSec;
-    // Swing: even steps get (1 + swing), odd steps (1 - swing) — a pair still sums to 2·base.
-    const double factor = (step % 2 == 0) ? (1.0 + static_cast<double>(swing_))
-                                          : (1.0 - static_cast<double>(swing_));
+    // Swing (per-pattern): even steps get (1 + swing), odd steps (1 - swing) — a pair sums to 2·base.
+    const double sw = static_cast<double>(patterns_[static_cast<size_t>(current_)].swing);
+    const double factor = (step % 2 == 0) ? (1.0 + sw) : (1.0 - sw);
     return base * factor;
 }
 
