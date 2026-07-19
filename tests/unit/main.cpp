@@ -202,6 +202,7 @@
 #include "maz/math/Geometry2D.hpp"
 #include "maz/math/Voronoi.hpp"
 #include "maz/math/MarchingSquares.hpp"
+#include "maz/game/GridLine.hpp"
 #include "maz/math/Geometry3D.hpp"
 #include "maz/math/Rect2.hpp"
 #include "maz/math/Rect2i.hpp"
@@ -2266,6 +2267,49 @@ void testGeometry2D() {
         // Degenerate sizes -> empty.
         CHECK(math::marchingSquares(std::vector<float>{1.0f}, 1, 1, 0.5f).empty());
         CHECK(math::marchingSquares(std::vector<float>{1, 2, 3}, 2, 2, 0.5f).empty());
+    }
+
+    // --- M407: grid line (Bresenham) + tile line-of-sight ---
+    {
+        using GridCell = maz::game::LineCell;
+        auto glHas = [](const std::vector<GridCell>& v, GridCell c) {
+            for (const auto& q : v) if (q == c) return true;
+            return false;
+        };
+        // Single point.
+        auto glPt = maz::game::bresenhamLine(GridCell(3, 4), GridCell(3, 4));
+        CHECK(glPt.size() == 1);
+        CHECK(glPt[0] == GridCell(3, 4));
+        // Horizontal: contiguous, inclusive, ordered.
+        auto glH = maz::game::bresenhamLine(GridCell(0, 2), GridCell(4, 2));
+        CHECK(glH.size() == 5);
+        CHECK(glH.front() == GridCell(0, 2));
+        CHECK(glH.back() == GridCell(4, 2));
+        for (int gx = 0; gx <= 4; ++gx) CHECK(glH[static_cast<std::size_t>(gx)] == GridCell(gx, 2));
+        // Perfect diagonal.
+        auto glD = maz::game::bresenhamLine(GridCell(0, 0), GridCell(3, 3));
+        CHECK(glD.size() == 4);
+        CHECK(glD[1] == GridCell(1, 1));
+        CHECK(glD[2] == GridCell(2, 2));
+        // Shallow 2:1 slope: major axis x, midpoint ~ (2,1).
+        auto glS = maz::game::bresenhamLine(GridCell(0, 0), GridCell(4, 2));
+        CHECK(glS.size() == 5);
+        CHECK(glHas(glS, GridCell(2, 1)));
+        // Reversibility: same cell set forwards and backwards.
+        auto glAB = maz::game::bresenhamLine(GridCell(0, 0), GridCell(5, 2));
+        auto glBA = maz::game::bresenhamLine(GridCell(5, 2), GridCell(0, 0));
+        CHECK(glAB.size() == glBA.size());
+        for (const auto& c : glAB) CHECK(glHas(glBA, c));
+        // Line of sight: clear vs blocked-between vs endpoints-never-block.
+        auto glClear = [](const GridCell&) { return false; };
+        CHECK(maz::game::lineOfSight(GridCell(0, 0), GridCell(5, 0), glClear));
+        auto glWall3 = [](const GridCell& c) { return c.x == 3 && c.y == 0; };
+        CHECK(!maz::game::lineOfSight(GridCell(0, 0), GridCell(5, 0), glWall3));
+        auto glWallTgt = [](const GridCell& c) { return c == GridCell(5, 0); };
+        CHECK(maz::game::lineOfSight(GridCell(0, 0), GridCell(5, 0), glWallTgt));
+        auto glBlockAll = [](const GridCell&) { return true; };
+        CHECK(maz::game::lineOfSight(GridCell(2, 2), GridCell(2, 2), glBlockAll)); // identical
+        CHECK(maz::game::lineOfSight(GridCell(2, 2), GridCell(3, 2), glBlockAll)); // adjacent
     }
 }
 

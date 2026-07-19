@@ -240,6 +240,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   all-above → empty, a linear ramp → the exact vertical iso-line (3 segments), origin/cell-size
   transform, a saddle → 2 segments, a central hot corner → a closed 4-segment loop, and degenerate
   sizes → empty;
+  **grid line + tile line-of-sight** M407 (`game::bresenhamLine` / `game::lineOfSight` in
+  `maz/game/GridLine.hpp` — the integer-grid line rasteriser (Bresenham, 8-connected, inclusive
+  endpoints) and the tile line-of-sight test built on it: laser/road/trajectory tile strokes and
+  "can A see B?" across a blocking tilemap (roguelike FOV, guard sight, cover). LOS walks the Bresenham
+  path and blocks only on a cell STRICTLY between the endpoints, so a viewer on or looking at a wall
+  still sees up to it. Godot leaves grid line/LOS to the game, so this is a genuinely-useful utility.
+  Verified against exact cases — single point, contiguous horizontal/vertical runs, a perfect diagonal,
+  a 2:1 shallow-slope midpoint, forward/backward cell-set equality, clear vs blocked-between vs
+  endpoints-never-block, and adjacent/identical always-visible;
   plus **OKHSL** M395 (`render::fromOkhsl`/`toOkhsl` + `Okhsl` struct — the perceptual
   hue/saturation/lightness space Godot 4.3's colour picker uses, Color.from_ok_hsl /
   ok_hsl_h/s/l; a faithful transcription of Ottosson's reference okhsl built on the M304 OKLab
