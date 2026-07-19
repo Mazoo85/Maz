@@ -466,8 +466,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   MeshData; documented honestly as a composing utility over the verified M402/M403 primitives, not a
   distinct Godot public API. Verified: a box -> 6 quad faces whose vertices are exactly the 8 corners,
   each face wound so its Newell normal matches its plane and every vertex inside all planes; a
-  cylinder -> `sides` quad side-faces + 2 cap `sides`-gons; and an unbounded set -> no faces) — plus
-  Plane completeness
+  cylinder -> `sides` quad side-faces + 2 cap `sides`-gons; and an unbounded set -> no faces); M405
+  adds **triangulateConvexFaces / triangulateConvexPlanes** (math::ConvexMesh3 — the final step of the
+  planes -> corners -> faces -> mesh pipeline: fan-triangulate the convex polygon faces from
+  buildConvexMeshFaces into an indexed triangle mesh (shared vertex list + 3 indices per triangle,
+  vertices merged within eps, winding preserved outward), and a one-call triangulateConvexPlanes that
+  goes straight from bounding planes to a drawable/collidable convex mesh. Verified: a box -> 8
+  vertices / 12 triangles / 36 indices with every index in range and every triangle wound outward
+  (normal·centroid > 0), edge-sharing faces deduped to a shared vertex list, a quad -> 2 triangles, a
+  cylinder -> 2·sides vertices / 4·sides−4 triangles, and degenerate/empty/unbounded inputs -> empty.
+  Documented as a composing utility over the verified M402–M404 primitives) — plus Plane completeness
   has_point / get_center /
   normalized; M348 adds Plane is_equal_approx (normal + offset approx) and is_finite — Godot
   Plane.is_equal_approx / is_finite, verified against nudged/differing planes and non-finite

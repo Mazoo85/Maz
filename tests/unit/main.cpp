@@ -14293,6 +14293,59 @@ void testGeometry3DHelpers() {
         bmfFew.emplace_back(vec3(0, 1, 0), 1.0f);
         CHECK(math::buildConvexMeshFaces(bmfFew).empty());
     }
+
+    // --- M405: triangulateConvexFaces / triangulateConvexPlanes (faces -> indexed triangle mesh) ---
+    {
+        // Box -> 8 verts, 12 triangles, all indices valid, every triangle wound outward.
+        auto tcmMesh = math::triangulateConvexPlanes(math::buildBoxPlanes(vec3(2.0f, 3.0f, 4.0f)));
+        CHECK(tcmMesh.vertices.size() == 8);
+        CHECK(tcmMesh.triangleCount() == 12);
+        CHECK(tcmMesh.indices.size() == 36);
+        for (const vec3& v : tcmMesh.vertices) {
+            CHECK(std::fabs(std::fabs(v.x) - 2.0f) < 1e-3f);
+            CHECK(std::fabs(std::fabs(v.y) - 3.0f) < 1e-3f);
+            CHECK(std::fabs(std::fabs(v.z) - 4.0f) < 1e-3f);
+        }
+        for (std::size_t t = 0; t < tcmMesh.triangleCount(); ++t) {
+            const std::uint32_t ia = tcmMesh.indices[t * 3 + 0];
+            const std::uint32_t ib = tcmMesh.indices[t * 3 + 1];
+            const std::uint32_t ic = tcmMesh.indices[t * 3 + 2];
+            CHECK(ia < tcmMesh.vertices.size());
+            CHECK(ib < tcmMesh.vertices.size());
+            CHECK(ic < tcmMesh.vertices.size());
+            const vec3 v0 = tcmMesh.vertices[ia];
+            const vec3 v1 = tcmMesh.vertices[ib];
+            const vec3 v2 = tcmMesh.vertices[ic];
+            const vec3 nrm = math::cross(v1 - v0, v2 - v0);
+            CHECK(math::dot(nrm, nrm) > 1e-6f);                 // non-degenerate
+            CHECK(math::dot(nrm, (v0 + v1 + v2) / 3.0f) > 0.0f); // outward (box centred at origin)
+        }
+        // Two adjacent triangles sharing an edge -> 4 deduped verts, 2 triangles.
+        std::vector<std::vector<vec3>> tcmAdj = {
+            {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0)},
+            {vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0)}};
+        auto tcmA = math::triangulateConvexFaces(tcmAdj);
+        CHECK(tcmA.vertices.size() == 4);
+        CHECK(tcmA.triangleCount() == 2);
+        // A single quad -> 2 triangles, 4 verts.
+        std::vector<std::vector<vec3>> tcmQuad = {
+            {vec3(0, 0, 0), vec3(2, 0, 0), vec3(2, 2, 0), vec3(0, 2, 0)}};
+        CHECK(math::triangulateConvexFaces(tcmQuad).triangleCount() == 2);
+        // Cylinder -> 2*sides verts, 4*sides-4 triangles.
+        const int tcmSides = 8;
+        auto tcmCyl = math::triangulateConvexPlanes(math::buildCylinderPlanes(2.0f, 4.0f, tcmSides, 2));
+        CHECK(tcmCyl.vertices.size() == static_cast<std::size_t>(2 * tcmSides));
+        CHECK(tcmCyl.triangleCount() == static_cast<std::size_t>(4 * tcmSides - 4));
+        // Degenerate / empty inputs.
+        CHECK(math::triangulateConvexFaces({}).vertices.empty());
+        std::vector<std::vector<vec3>> tcmSmall = {{vec3(0, 0, 0), vec3(1, 0, 0)}};
+        CHECK(math::triangulateConvexFaces(tcmSmall).indices.empty());
+        std::vector<math::Plane> tcmFew;
+        tcmFew.emplace_back(vec3(1, 0, 0), 1.0f);
+        tcmFew.emplace_back(vec3(-1, 0, 0), 1.0f);
+        tcmFew.emplace_back(vec3(0, 1, 0), 1.0f);
+        CHECK(math::triangulateConvexPlanes(tcmFew).vertices.empty());
+    }
 }
 
 // VectorOps: Godot Vector2/Vector3 helpers — move_toward, slide/bounce/reflect, limit_length,

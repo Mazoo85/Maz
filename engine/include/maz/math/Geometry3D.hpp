@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -967,6 +968,54 @@ inline std::vector<std::vector<vec3>> buildConvexMeshFaces(const std::vector<Pla
         }
     }
     return faces;
+}
+
+// An indexed triangle mesh: a shared vertex list plus 3 indices per triangle, wound CCW (outward,
+// matching the source faces). The GPU-/collider-ready form.
+struct ConvexMesh3 {
+    std::vector<vec3> vertices;
+    std::vector<std::uint32_t> indices;
+    std::size_t triangleCount() const { return indices.size() / 3; }
+};
+
+// Triangulate a set of convex polygon faces (e.g. from buildConvexMeshFaces) into an indexed triangle
+// mesh — the final step of the planes -> corners -> faces -> mesh pipeline. Each convex face is
+// fan-triangulated from its first vertex (valid precisely because the faces are convex), and vertices
+// shared between faces are merged within `eps`, so the result is a compact indexed mesh ready to hand
+// to a renderer or a collision system. Winding is preserved from the input faces (CCW / outward).
+inline ConvexMesh3 triangulateConvexFaces(const std::vector<std::vector<vec3>>& faces,
+                                          float eps = 1e-5f) {
+    ConvexMesh3 mesh;
+    auto indexOf = [&](const vec3& p) -> std::uint32_t {
+        for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
+            if (length(mesh.vertices[i] - p) <= eps) {
+                return static_cast<std::uint32_t>(i);
+            }
+        }
+        mesh.vertices.push_back(p);
+        return static_cast<std::uint32_t>(mesh.vertices.size() - 1);
+    };
+    for (const std::vector<vec3>& face : faces) {
+        if (face.size() < 3) {
+            continue;
+        }
+        const std::uint32_t i0 = indexOf(face[0]);
+        for (std::size_t k = 1; k + 1 < face.size(); ++k) {
+            const std::uint32_t i1 = indexOf(face[k]);
+            const std::uint32_t i2 = indexOf(face[k + 1]);
+            mesh.indices.push_back(i0);
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i2);
+        }
+    }
+    return mesh;
+}
+
+// Convenience: bounding planes straight to an indexed triangle mesh (buildConvexMeshFaces then
+// triangulateConvexFaces) — one call turns a box/cylinder/capsule bound into a drawable/collidable
+// convex mesh. Empty for an unbounded / empty half-space set.
+inline ConvexMesh3 triangulateConvexPlanes(const std::vector<Plane>& planes, float eps = 1e-5f) {
+    return triangulateConvexFaces(buildConvexMeshFaces(planes, eps), eps);
 }
 
 } // namespace maz::math
