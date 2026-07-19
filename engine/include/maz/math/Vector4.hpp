@@ -87,6 +87,15 @@ struct Vector4 {
                std::abs(w - o.w) < eps;
     }
 
+    // Every component finite (no NaN/inf) — Godot's Vector4.is_finite.
+    bool isFinite() const {
+        return std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && std::isfinite(w);
+    }
+    // Every component within `eps` of zero — Godot's Vector4.is_zero_approx.
+    bool isZeroApprox(float eps = 1e-5f) const {
+        return std::abs(x) < eps && std::abs(y) < eps && std::abs(z) < eps && std::abs(w) < eps;
+    }
+
     vec4 toVec4() const { return vec4(x, y, z, w); }
 };
 

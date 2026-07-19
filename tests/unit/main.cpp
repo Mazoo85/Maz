@@ -13850,6 +13850,13 @@ void testVector4() {
     CHECK(a.lerp(b, 0.5f).isEqualApprox(Vector4(3, 4, 5, 6)));
     CHECK(a.lerp(b, 0.0f).isEqualApprox(a));
     CHECK(a.lerp(b, 1.0f).isEqualApprox(b));
+    // M361: Vector4 is_finite / is_zero_approx
+    CHECK(Vector4(1, 2, 3, 4).isFinite());
+    CHECK(!Vector4(1, std::numeric_limits<float>::infinity(), 3, 4).isFinite());
+    CHECK(!Vector4(1, 2, std::nanf(""), 4).isFinite());
+    CHECK(Vector4(0, 0, 0, 0).isZeroApprox());
+    CHECK(Vector4(1e-7f, -1e-7f, 0, 1e-8f).isZeroApprox());
+    CHECK(!Vector4(0, 0, 0, 1).isZeroApprox());
     CHECK(Vector4(-1.5f, 2.5f, -3.5f, 4.5f).abs().isEqualApprox(Vector4(1.5f, 2.5f, 3.5f, 4.5f)));
     CHECK(Vector4(-2, 0, 3, 5).sign().isEqualApprox(Vector4(-1, 0, 1, 1)));
     CHECK(Vector4(1.4f, 1.6f, -1.4f, -1.6f).round().isEqualApprox(Vector4(1, 2, -1, -2)));
