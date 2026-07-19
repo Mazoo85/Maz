@@ -1301,6 +1301,13 @@ void buildMixerUI(audio::AudioEngine& engine) {
     if (ImGui::SliderFloat("Master", &master, 0.0f, 1.5f, "%.2f")) {
         mx.setMasterGain(master);
     }
+    // Master output level meter (peak bar + RMS readout).
+    {
+        const float peak = engine.masterPeak();
+        ImGui::ProgressBar(peak > 1.0f ? 1.0f : peak, ImVec2(-1.0f, 0.0f));
+        ImGui::Text("out: peak %.2f  rms %.2f%s", peak, engine.masterRms(),
+                    peak >= 0.999f ? "  CLIP" : "");
+    }
     float ceiling = mx.limiterCeiling();
     if (ImGui::SliderFloat("Ceiling", &ceiling, 0.1f, 1.0f, "%.2f")) {
         mx.setLimiterCeiling(ceiling);

@@ -70,6 +70,11 @@ public:
     const std::vector<float>& recordedAudio() const { return recordBuffer_; }
     bool saveRecording(const std::string& path, std::string* err = nullptr) const;
 
+    // Master output metering: the peak and RMS level of the most recently rendered block (0..~1),
+    // for a level meter in the UI. Updated every render() call.
+    float masterPeak() const { return masterPeak_; }
+    float masterRms() const { return masterRms_; }
+
     // Open a real-time audio *input* (microphone/line) capture device and record it to the same
     // buffer. Returns false on failure; under SDL_AUDIODRIVER=dummy it opens a silent input.
     bool startInputCapture(const AudioConfig& cfg = {});
@@ -104,6 +109,8 @@ private:
     std::vector<float> scratch_; // reused mono render buffer for mixing
     std::vector<float> stemDrums_, stemLead_, stemBass_; // per-bus stems for the mixer-track path
     std::vector<float> reverbAuxBuf_, delayAuxBuf_;      // per-bus aux-send feeds for the returns
+    float masterPeak_ = 0.0f; // peak level of the last rendered block (UI meter)
+    float masterRms_ = 0.0f;  // RMS level of the last rendered block (UI meter)
     std::vector<float> recordBuffer_;
     bool recording_ = false;
 };

@@ -199,6 +199,21 @@ int main() {
         check(wetTail > dryTail * 4.0, "a per-bus reverb send feeds the shared reverb tail");
     }
 
+    // --- Master output metering: peak + RMS track the rendered level ---------
+    {
+        audio::AudioEngine eng;
+        eng.initOffline();
+        check(eng.masterPeak() == 0.0f && eng.masterRms() == 0.0f,
+              "a fresh engine reports zero output level");
+        eng.sequencer().setStep(0, 0, true); // a loud kick on the drums
+        eng.sequencer().play();
+        (void)eng.renderOffline(0.05); // render a block containing the kick onset
+        check(eng.masterPeak() > 0.01f && eng.masterPeak() <= 1.0f,
+              "the master peak meter reflects the rendered kick (0 < peak <= 1)");
+        check(eng.masterRms() > 0.0f && eng.masterRms() <= eng.masterPeak() + 1e-6f,
+              "the master RMS is positive and never exceeds the peak");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

@@ -180,6 +180,22 @@ void AudioEngine::render(float* out, int frames) {
         }
     }
 
+    // Master output metering: peak + RMS of the finished block, for the UI level meter.
+    {
+        const int meterN = frames * cfg_.channels;
+        float pk = 0.0f;
+        double sq = 0.0;
+        for (int i = 0; i < meterN; ++i) {
+            const float a = std::fabs(out[i]);
+            if (a > pk) {
+                pk = a;
+            }
+            sq += static_cast<double>(out[i]) * static_cast<double>(out[i]);
+        }
+        masterPeak_ = pk;
+        masterRms_ = meterN > 0 ? static_cast<float>(std::sqrt(sq / static_cast<double>(meterN))) : 0.0f;
+    }
+
     // Capture the finished output if recording is armed.
     if (recording_) {
         recordBuffer_.insert(recordBuffer_.end(), out, out + total);
