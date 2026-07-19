@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **skill / talent tree** (M496, `game::SkillTree` — the point-buy progression graph behind "spend a
+  talent point to unlock this node." Each node has a point cost and a max rank (buy once, or several times
+  for a stacking bonus), and can be gated behind prerequisite nodes that must already be unlocked (multiple
+  prerequisites are ANDed). The player earns points (e.g. from the M479 Leveling track) via `grantPoints`,
+  and `unlock` spends them when `canUnlock` confirms the node exists, isn't maxed, is affordable, and all
+  prerequisites are met; `respec` refunds every spent point and zeroes all ranks so the build can be
+  re-planned while the tree layout is kept. It is deliberately the unlock *graph* only — what each node
+  grants (a Stat bonus via M476, an ability, etc.) is left to the game, keeping it distinct from the stat
+  math and the XP curve. Godot ships no skill-tree system — it's hand-rolled every RPG — so this is a
+  beyond-Godot gameplay utility. Verified: nodes register with clamped cost/maxRank and unknown-id queries
+  are safe; unlock is blocked by insufficient points and by unmet prerequisites, then succeeds once both are
+  satisfied and spends the cost; multiple prerequisites are ANDed; a multi-rank node buys up to its cap then
+  refuses; chained prerequisites (A→B→C) gate correctly; respec refunds and resets ranks while keeping the
+  layout; degenerate cost/maxRank clamp and negative point grants are ignored; and clear wipes everything),
   **aggro / threat table** (M495, `game::AggroTable` — the bookkeeping behind "which target does this
   enemy attack?" Every action a would-be target takes against the owner (`addThreat` from damage, healing an
   ally, a taunt) accumulates threat keyed by an int source id, and the enemy attacks whoever holds the most.

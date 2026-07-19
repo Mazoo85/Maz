@@ -140,6 +140,7 @@
 #include "maz/game/DayNightCycle.hpp"
 #include "maz/game/Health.hpp"
 #include "maz/game/AggroTable.hpp"
+#include "maz/game/SkillTree.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20236,6 +20237,146 @@ void testPolynomial() {
     }
 }
 
+void testSkillTree() {
+    using game::SkillTree;
+
+    // Add nodes; defaults; unknown-id queries safe.
+    {
+        SkillTree t;
+        t.addNode(1);
+        t.addNode(2, 3, 2);
+        CHECK(t.nodeCount() == 2);
+        CHECK(t.has(1) && t.has(2) && !t.has(99));
+        CHECK(t.costOf(1) == 1 && t.costOf(2) == 3);
+        CHECK(t.maxRankOf(2) == 2);
+        CHECK(t.rankOf(1) == 0 && !t.isUnlocked(1));
+        CHECK(t.rankOf(99) == 0 && t.costOf(99) == 0 && t.maxRankOf(99) == 0);
+        CHECK(!t.canUnlock(99));
+    }
+
+    // Unlock blocked by insufficient points.
+    {
+        SkillTree t;
+        t.addNode(1, 5);
+        CHECK(t.pointsAvailable() == 0);
+        CHECK(!t.canUnlock(1));
+        CHECK(!t.unlock(1));
+        t.grantPoints(4);
+        CHECK(!t.canUnlock(1));
+        t.grantPoints(1);
+        CHECK(t.canUnlock(1));
+        CHECK(t.unlock(1));
+        CHECK(t.isUnlocked(1) && t.rankOf(1) == 1);
+        CHECK(t.pointsAvailable() == 0 && t.pointsSpent() == 5);
+    }
+
+    // Unlock blocked by unmet prerequisite.
+    {
+        SkillTree t;
+        t.addNode(1, 1);
+        t.addNode(2, 1);
+        t.addPrerequisite(2, 1);
+        t.grantPoints(2);
+        CHECK(!t.canUnlock(2));
+        CHECK(!t.unlock(2));
+        CHECK(t.unlock(1));
+        CHECK(t.canUnlock(2));
+        CHECK(t.unlock(2));
+        CHECK(t.isUnlocked(2));
+        CHECK(t.pointsAvailable() == 0);
+    }
+
+    // Multiple prerequisites (AND).
+    {
+        SkillTree t;
+        t.addNode(1);
+        t.addNode(2);
+        t.addNode(3);
+        t.addPrerequisite(3, 1);
+        t.addPrerequisite(3, 2);
+        t.grantPoints(3);
+        CHECK(t.unlock(1));
+        CHECK(!t.canUnlock(3));
+        CHECK(t.unlock(2));
+        CHECK(t.canUnlock(3));
+        CHECK(t.unlock(3));
+    }
+
+    // Multi-rank node buys up to maxRank then stops.
+    {
+        SkillTree t;
+        t.addNode(1, 2, 3);
+        t.grantPoints(10);
+        CHECK(t.unlock(1) && t.rankOf(1) == 1);
+        CHECK(t.unlock(1) && t.rankOf(1) == 2);
+        CHECK(t.unlock(1) && t.rankOf(1) == 3);
+        CHECK(!t.canUnlock(1));
+        CHECK(!t.unlock(1));
+        CHECK(t.rankOf(1) == 3);
+        CHECK(t.pointsSpent() == 6 && t.pointsAvailable() == 4);
+    }
+
+    // Chained prerequisites A -> B -> C.
+    {
+        SkillTree t;
+        t.addNode(10);
+        t.addNode(11);
+        t.addNode(12);
+        t.addPrerequisite(11, 10);
+        t.addPrerequisite(12, 11);
+        t.grantPoints(3);
+        CHECK(!t.canUnlock(12) && !t.canUnlock(11));
+        CHECK(t.unlock(10));
+        CHECK(t.canUnlock(11) && !t.canUnlock(12));
+        CHECK(t.unlock(11));
+        CHECK(t.canUnlock(12));
+        CHECK(t.unlock(12));
+    }
+
+    // respec refunds points and zeroes ranks.
+    {
+        SkillTree t;
+        t.addNode(1, 2, 2);
+        t.addNode(2, 3);
+        t.addPrerequisite(2, 1);
+        t.grantPoints(10);
+        t.unlock(1);
+        t.unlock(1);
+        t.unlock(2);
+        CHECK(t.pointsSpent() == 7 && t.pointsAvailable() == 3);
+        CHECK(t.rankOf(1) == 2 && t.isUnlocked(2));
+        t.respec();
+        CHECK(t.pointsSpent() == 0 && t.pointsAvailable() == 10);
+        CHECK(t.rankOf(1) == 0 && !t.isUnlocked(2));
+        CHECK(t.nodeCount() == 2);
+        CHECK(!t.canUnlock(2));
+        CHECK(t.unlock(1));
+    }
+
+    // Degenerate cost/maxRank clamps; grantPoints ignores negatives.
+    {
+        SkillTree t;
+        t.addNode(1, -5, 0);
+        CHECK(t.costOf(1) == 0 && t.maxRankOf(1) == 1);
+        CHECK(t.canUnlock(1));
+        CHECK(t.unlock(1));
+        CHECK(!t.canUnlock(1));
+        t.grantPoints(-3);
+        CHECK(t.pointsAvailable() == 0);
+    }
+
+    // clear resets everything.
+    {
+        SkillTree t;
+        t.addNode(1);
+        t.grantPoints(5);
+        t.unlock(1);
+        t.clear();
+        CHECK(t.nodeCount() == 0 && !t.has(1));
+        CHECK(t.pointsAvailable() == 0 && t.pointsSpent() == 0);
+    }
+}
+
 void testAggroTable() {
     using game::AggroTable;
 
@@ -31873,6 +32014,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testSkillTree();
     testAggroTable();
     testHealth();
     testDayNightCycle();
