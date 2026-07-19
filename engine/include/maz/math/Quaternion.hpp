@@ -183,6 +183,56 @@ struct Quaternion {
         return Quaternion::fromAxisAngle(v, theta);
     }
 
+    // SQUAD-style cubic quaternion interpolation guided by the neighbouring `preA`/`postB`
+    // orientations — Godot's Quaternion.spherical_cubic_interpolate. A faithful port of Godot's
+    // algorithm: normalize the four samples, flip `pre`/`to`/`post` to the shortest hemisphere, run a
+    // scalar cubic on the log-map coordinates in both the `from` and `to` tangent spaces, then slerp
+    // the two Expmap results to cancel the map's ambiguity. Endpoints are exact (weight 0 -> this,
+    // weight 1 -> `b`) and the result is always a unit quaternion.
+    Quaternion sphericalCubicInterpolate(const Quaternion& b, const Quaternion& preA,
+                                         const Quaternion& postB, float weight) const {
+        auto neg = [](const Quaternion& x) { return Quaternion(-x.x(), -x.y(), -x.z(), -x.w()); };
+        auto cubic = [](float from, float to, float pre, float post, float w) {
+            const float w2 = w * w;
+            const float w3 = w2 * w;
+            return 0.5f * ((from * 2.0f) + (-pre + to) * w +
+                           (2.0f * pre - 5.0f * from + 4.0f * to - post) * w2 +
+                           (-pre + 3.0f * from - 3.0f * to + post) * w3);
+        };
+
+        Quaternion fromQ = normalized();
+        Quaternion preQ = preA.normalized();
+        Quaternion toQ = b.normalized();
+        Quaternion postQ = postB.normalized();
+
+        // Flip to the shortest hemisphere (Godot's exact sign logic).
+        preQ = std::signbit(fromQ.dot(preQ)) ? neg(preQ) : preQ;
+        const bool flip2 = std::signbit(fromQ.dot(toQ));
+        toQ = flip2 ? neg(toQ) : toQ;
+        const bool flip3 = flip2 ? (toQ.dot(postQ) <= 0.0f) : std::signbit(toQ.dot(postQ));
+        postQ = flip3 ? neg(postQ) : postQ;
+
+        // Expmap in from-space (from's log coordinate is the origin).
+        const Quaternion lnTo1 = (fromQ.inverse() * toQ).log();
+        const Quaternion lnPre1 = (fromQ.inverse() * preQ).log();
+        const Quaternion lnPost1 = (fromQ.inverse() * postQ).log();
+        const Quaternion ln1(cubic(0.0f, lnTo1.x(), lnPre1.x(), lnPost1.x(), weight),
+                             cubic(0.0f, lnTo1.y(), lnPre1.y(), lnPost1.y(), weight),
+                             cubic(0.0f, lnTo1.z(), lnPre1.z(), lnPost1.z(), weight), 0.0f);
+        const Quaternion q1 = fromQ * ln1.exp();
+
+        // Expmap in to-space (to's log coordinate is the origin).
+        const Quaternion lnFrom2 = (toQ.inverse() * fromQ).log();
+        const Quaternion lnPre2 = (toQ.inverse() * preQ).log();
+        const Quaternion lnPost2 = (toQ.inverse() * postQ).log();
+        const Quaternion ln2(cubic(lnFrom2.x(), 0.0f, lnPre2.x(), lnPost2.x(), weight),
+                             cubic(lnFrom2.y(), 0.0f, lnPre2.y(), lnPost2.y(), weight),
+                             cubic(lnFrom2.z(), 0.0f, lnPre2.z(), lnPost2.z(), weight), 0.0f);
+        const Quaternion q2 = toQ * ln2.exp();
+
+        return q1.slerp(q2, weight);
+    }
+
     mat3 toMat3() const { return glm::mat3_cast(glm::normalize(q)); }
     static Quaternion fromMat3(const mat3& m) { return Quaternion(glm::quat_cast(m)); }
 };

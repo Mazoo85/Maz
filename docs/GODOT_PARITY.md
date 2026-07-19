@@ -75,7 +75,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   a unit rotation to/from its axis*angle rotation vector and form the basis of quaternion spline
   interpolation. Verified as mathematical identities: slerpni endpoints and short-arc agreement with
   slerp, exp(log(q)) == q on unit quaternions, log of a 1-rad rotation == the pure axis quaternion,
-  and exp of the zero vector == identity; M336 adds the validation predicates is_finite /
+  and exp of the zero vector == identity; M378 adds sphericalCubicInterpolate — Godot's
+  Quaternion.spherical_cubic_interpolate (SQUAD-style cubic guided by neighbouring pre/post
+  orientations: normalize + shortest-hemisphere flip, a scalar cubic on the log-map coordinates in
+  both from- and to-tangent-spaces, then a slerp of the two Expmap results), verified for exact
+  endpoints, always-unit output, monotonic same-axis sweep, and mixed-axis 3D control points; M336 adds the validation predicates is_finite /
   is_equal_approx / is_normalized plus length_squared — Godot's Quaternion.is_finite/is_equal_approx/
   is_normalized: guard interpolation and physics state against NaN/inf orientations, compare
   orientations up to float rounding, and confirm a quaternion is a valid unit rotation (squared

@@ -14493,6 +14493,38 @@ void testQuaternion() {
         // exp of the zero rotation vector is the identity.
         CHECK(near3(Q(0, 0, 0, 0).exp().xform(vec3(3, 2, 1)), vec3(3, 2, 1)));
     }
+    // --- M378: sphericalCubicInterpolate (Godot Quaternion.spherical_cubic_interpolate) ---
+    {
+        const Q from = Q::fromAxisAngle(vec3(0, 1, 0), 10 * kPi / 180.0f);
+        const Q to = Q::fromAxisAngle(vec3(0, 1, 0), 80 * kPi / 180.0f);
+        const Q pre = Q::fromAxisAngle(vec3(0, 1, 0), -20 * kPi / 180.0f);
+        const Q post = Q::fromAxisAngle(vec3(0, 1, 0), 110 * kPi / 180.0f);
+        // Endpoints are exact.
+        CHECK(near3(from.sphericalCubicInterpolate(to, pre, post, 0.0f).xform(vec3(1, 0, 0)),
+                    from.xform(vec3(1, 0, 0)), 1e-3f));
+        CHECK(near3(from.sphericalCubicInterpolate(to, pre, post, 1.0f).xform(vec3(1, 0, 0)),
+                    to.xform(vec3(1, 0, 0)), 1e-3f));
+        // Always a unit quaternion; same-axis path keeps the Y axis and increases monotonically.
+        float prev = -1e9f;
+        for (float w = 0.0f; w <= 1.0f + 1e-6f; w += 0.1f) {
+            const Q r = from.sphericalCubicInterpolate(to, pre, post, w);
+            CHECK_NEAR(r.length(), 1.0f, 1e-3f);
+            CHECK(std::abs(r.getAxis().x) < 1e-2f && std::abs(r.getAxis().z) < 1e-2f);
+            const float ang = r.getAngle() * (r.getAxis().y >= 0 ? 1.0f : -1.0f);
+            CHECK(ang >= prev - 1e-3f);
+            prev = ang;
+        }
+        // 3D control points (mixed axes) still hit endpoints and stay unit-length.
+        const Q a = Q::fromAxisAngle(vec3(1, 0, 0), 15 * kPi / 180.0f);
+        const Q b = Q::fromAxisAngle(vec3(0, 0, 1), 60 * kPi / 180.0f);
+        const Q pa = Q::fromAxisAngle(normalize(vec3(1, 1, 0)), -30 * kPi / 180.0f);
+        const Q pb = Q::fromAxisAngle(normalize(vec3(0, 1, 1)), 95 * kPi / 180.0f);
+        CHECK(near3(a.sphericalCubicInterpolate(b, pa, pb, 0.0f).xform(vec3(1, 0, 0)),
+                    a.xform(vec3(1, 0, 0)), 1e-3f));
+        CHECK(near3(a.sphericalCubicInterpolate(b, pa, pb, 1.0f).xform(vec3(1, 0, 0)),
+                    b.xform(vec3(1, 0, 0)), 1e-3f));
+        CHECK_NEAR(a.sphericalCubicInterpolate(b, pa, pb, 0.5f).length(), 1.0f, 1e-3f);
+    }
 }
 
 // M307: Basis euler conversion across all six rotation orders (Godot EulerOrder / rotation_order).
