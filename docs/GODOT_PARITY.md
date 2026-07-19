@@ -1074,6 +1074,18 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   margin price, removes the item, and grows finite stock; selling more than owned or an unlisted item is
   rejected; the margin clamps to [0,1] and rounds; restock and catalogue re-add overwrite; a zero-quantity
   trade is a safe no-op),
+  **branching dialogue system** (M485, `game::DialogueTree` + `game::DialogueRunner` + `game::DialogueNode`
+  / `game::DialogueChoice` — the conversation graph behind NPC talk, cutscene lines, and "[1] Accept /
+  [2] Decline" prompts. A DialogueTree is a set of nodes, each with a speaker, a line of text, and either a
+  list of player CHOICES (each linking to the next node) or a single auto-advance `next` link for a
+  straight run of lines. A DialogueRunner walks the tree: `current` is the line on screen, `choose(i)`
+  follows a branch, and `advance()` steps a choice-less line forward, ending the conversation when a link
+  points to -1. The tree is pure data, so one tree drives many NPCs at once via independent runners. Godot
+  ships no dialogue system (games hand-roll it or add a third-party plugin) -> beyond-Godot gameplay
+  utility. Verified: a yes/no branch reaches the correct terminal line on each path; an out-of-range choice
+  and `advance()` on a line that still has choices are both no-ops that leave the cursor put; a linear
+  `setNext` chain walks A->B->C and then ends; a choice whose link is -1 ends the conversation immediately;
+  an invalid start id begins finished with safe choose/advance; bad authoring node ids are ignored),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

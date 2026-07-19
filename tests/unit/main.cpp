@@ -129,6 +129,7 @@
 #include "maz/game/Quest.hpp"
 #include "maz/game/StatusEffect.hpp"
 #include "maz/game/Shop.hpp"
+#include "maz/game/Dialogue.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20225,6 +20226,78 @@ void testPolynomial() {
     }
 }
 
+void testDialogue() {
+    using game::DialogueRunner;
+    using game::DialogueTree;
+
+    DialogueTree tree;
+    const int n0 = tree.addNode("Elder", "Will you help us?");
+    const int n1 = tree.addNode("Elder", "Wonderful!");
+    const int n2 = tree.addNode("Elder", "A pity.");
+    CHECK(n0 == 0 && n1 == 1 && n2 == 2 && tree.nodeCount() == 3);
+    tree.addChoice(n0, "Yes", n1);
+    tree.addChoice(n0, "No", n2);
+
+    // Branch left (Yes).
+    {
+        DialogueRunner run(tree);
+        run.start(0);
+        CHECK(!run.isFinished() && run.current() != nullptr && run.current()->id == 0);
+        CHECK(run.current()->text == "Will you help us?");
+        CHECK(run.choiceCount() == 2 && run.current()->choices[0].text == "Yes");
+        CHECK(run.choose(0) == true && run.current()->id == 1);
+        CHECK(run.choiceCount() == 0 && run.advance() == false && run.isFinished());
+    }
+    // Branch right (No).
+    {
+        DialogueRunner run(tree);
+        run.start(0);
+        CHECK(run.choose(1) == true && run.current()->id == 2);
+        CHECK(run.advance() == false && run.isFinished());
+    }
+    // Invalid choice / advance-with-choices: no state change.
+    {
+        DialogueRunner run(tree);
+        run.start(0);
+        CHECK(run.choose(5) == false && run.current()->id == 0);
+        CHECK(run.advance() == false && run.current()->id == 0);
+    }
+    // Linear chain via setNext.
+    {
+        DialogueTree chain;
+        const int a = chain.addNode("Bard", "Once upon a time");
+        const int b = chain.addNode("Bard", "there was a dragon");
+        const int c = chain.addNode("Bard", "the end.");
+        chain.setNext(a, b);
+        chain.setNext(b, c);
+        DialogueRunner run(chain);
+        run.start(a);
+        CHECK(run.current()->text == "Once upon a time");
+        CHECK(run.advance() == true && run.current()->id == b);
+        CHECK(run.advance() == true && run.current()->id == c);
+        CHECK(run.advance() == false && run.isFinished());
+    }
+    // Choice ending the conversation (next == -1); invalid start; bad authoring ids.
+    {
+        DialogueTree t2;
+        const int q = t2.addNode("Guard", "Halt!");
+        t2.addChoice(q, "Leave", -1);
+        DialogueRunner run(t2);
+        run.start(q);
+        CHECK(run.choose(0) == false && run.isFinished());
+
+        DialogueRunner run2(tree);
+        run2.start(99);
+        CHECK(run2.isFinished() && run2.current() == nullptr && run2.choiceCount() == 0);
+        CHECK(run2.choose(0) == false && run2.advance() == false);
+
+        DialogueTree t3;
+        t3.addChoice(42, "ghost", 0);
+        t3.setNext(42, 0);
+        CHECK(t3.nodeCount() == 0 && t3.node(0) == nullptr && t3.node(-1) == nullptr);
+    }
+}
+
 void testShop() {
     using game::Inventory;
     using game::Shop;
@@ -30983,6 +31056,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testDialogue();
     testShop();
     testStatusEffect();
     testQuest();
