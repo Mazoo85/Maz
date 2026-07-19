@@ -180,59 +180,47 @@ int PianoRoll::quantizeStrength(int division, float strength) {
     return moved;
 }
 
-int PianoRoll::snapToScale(int rootPitch, Scale scale) {
+std::vector<int> PianoRoll::scaleDegrees(Scale scale) {
     // Semitone degrees (0..11) each scale allows above the root pitch class.
-    std::vector<int> degrees;
     switch (scale) {
     case Scale::Major:
-        degrees = {0, 2, 4, 5, 7, 9, 11};
-        break;
+        return {0, 2, 4, 5, 7, 9, 11};
     case Scale::Minor:
-        degrees = {0, 2, 3, 5, 7, 8, 10};
-        break;
+        return {0, 2, 3, 5, 7, 8, 10};
     case Scale::Dorian:
-        degrees = {0, 2, 3, 5, 7, 9, 10};
-        break;
+        return {0, 2, 3, 5, 7, 9, 10};
     case Scale::Phrygian:
-        degrees = {0, 1, 3, 5, 7, 8, 10};
-        break;
+        return {0, 1, 3, 5, 7, 8, 10};
     case Scale::Lydian:
-        degrees = {0, 2, 4, 6, 7, 9, 11};
-        break;
+        return {0, 2, 4, 6, 7, 9, 11};
     case Scale::Mixolydian:
-        degrees = {0, 2, 4, 5, 7, 9, 10};
-        break;
+        return {0, 2, 4, 5, 7, 9, 10};
     case Scale::Locrian:
-        degrees = {0, 1, 3, 5, 6, 8, 10};
-        break;
+        return {0, 1, 3, 5, 6, 8, 10};
     case Scale::HarmonicMinor:
-        degrees = {0, 2, 3, 5, 7, 8, 11};
-        break;
+        return {0, 2, 3, 5, 7, 8, 11};
     case Scale::MelodicMinor:
-        degrees = {0, 2, 3, 5, 7, 9, 11};
-        break;
+        return {0, 2, 3, 5, 7, 9, 11};
     case Scale::PentatonicMajor:
-        degrees = {0, 2, 4, 7, 9};
-        break;
+        return {0, 2, 4, 7, 9};
     case Scale::PentatonicMinor:
-        degrees = {0, 3, 5, 7, 10};
-        break;
+        return {0, 3, 5, 7, 10};
     case Scale::Blues:
-        degrees = {0, 3, 5, 6, 7, 10};
-        break;
+        return {0, 3, 5, 6, 7, 10};
     case Scale::WholeTone:
-        degrees = {0, 2, 4, 6, 8, 10};
-        break;
+        return {0, 2, 4, 6, 8, 10};
     case Scale::Chromatic:
-        degrees = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-        break;
+        return {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     case Scale::PhrygianDominant:
-        degrees = {0, 1, 4, 5, 7, 8, 10};
-        break;
+        return {0, 1, 4, 5, 7, 8, 10};
     case Scale::HungarianMinor:
-        degrees = {0, 2, 3, 6, 7, 8, 11};
-        break;
+        return {0, 2, 3, 6, 7, 8, 11};
     }
+    return {0, 2, 4, 5, 7, 9, 11};
+}
+
+int PianoRoll::snapToScale(int rootPitch, Scale scale) {
+    const std::vector<int> degrees = scaleDegrees(scale);
     // Membership test for a pitch class relative to the root.
     auto inScale = [&](int pitch) {
         const int pc = ((pitch - rootPitch) % 12 + 12) % 12;
@@ -262,6 +250,41 @@ int PianoRoll::snapToScale(int rootPitch, Scale scale) {
                 break;
             }
         }
+    }
+    return moved;
+}
+
+int PianoRoll::transposeDiatonic(int degrees, int rootPitch, Scale scale) {
+    if (degrees == 0) {
+        return 0;
+    }
+    const std::vector<int> deg = scaleDegrees(scale);
+    const int n = static_cast<int>(deg.size());
+    if (n == 0) {
+        return 0;
+    }
+    // Floor division helpers (C++ integer division truncates toward zero).
+    auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+    int moved = 0;
+    for (Note& note : notes_) {
+        const int rel = note.pitch - rootPitch;
+        const int oct = floorDiv(rel, 12);
+        const int within = rel - oct * 12; // 0..11
+        // Scale-degree index at or below `within` (off-scale notes snap down to the nearest degree).
+        int idx = 0;
+        for (int i = 0; i < n; ++i) {
+            if (deg[i] <= within) {
+                idx = i;
+            }
+        }
+        const int newDegAbs = idx + degrees;
+        const int degOct = floorDiv(newDegAbs, n);
+        const int newIdx = newDegAbs - degOct * n; // 0..n-1
+        const int newPitch = rootPitch + (oct + degOct) * 12 + deg[static_cast<size_t>(newIdx)];
+        if (newPitch != note.pitch) {
+            ++moved;
+        }
+        note.pitch = newPitch;
     }
     return moved;
 }

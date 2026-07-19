@@ -676,6 +676,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.snapToScale(scaleRoot, static_cast<audio::Scale>(scaleType));
     }
     ImGui::SameLine();
+    static int diaDegrees = 2;
+    ImGui::SetNextItemWidth(40.0f);
+    ImGui::InputInt("##diadeg", &diaDegrees, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Transpose in key")) {
+        roll.transposeDiatonic(diaDegrees, scaleRoot, static_cast<audio::Scale>(scaleType));
+    }
+    ImGui::SameLine();
     static int strumStep = 1;
     ImGui::SetNextItemWidth(60.0f);
     ImGui::InputInt("##strumstep", &strumStep);

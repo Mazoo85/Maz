@@ -1841,6 +1841,33 @@ int main() {
         check(e0.echo(2, 0, 0.5f) == 0 && e0.notes().size() == 1, "echo with <1 stepGap is a no-op");
     }
 
+    // --- PianoRoll diatonic (scale-aware) transpose --------------------------
+    {
+        // C, D, E in C major, up 2 scale degrees → E, F, G (diatonic thirds, staying in key).
+        audio::PianoRoll dr;
+        dr.addNote(audio::Note{0, 1, 60, 0.9f}); // C
+        dr.addNote(audio::Note{1, 1, 62, 0.9f}); // D
+        dr.addNote(audio::Note{2, 1, 64, 0.9f}); // E
+        const int moved = dr.transposeDiatonic(2, 60, audio::Scale::Major);
+        check(moved == 3, "diatonic transpose moves every note");
+        check(dr.notes()[0].pitch == 64 && dr.notes()[1].pitch == 65 && dr.notes()[2].pitch == 67,
+              "diatonic +2 turns C/D/E into their in-key thirds E/F/G");
+        // Wrap across the octave: B (71) up 2 degrees in C major → D above (74).
+        audio::PianoRoll wr;
+        wr.addNote(audio::Note{0, 1, 71, 0.9f});
+        wr.transposeDiatonic(2, 60, audio::Scale::Major);
+        check(wr.notes()[0].pitch == 74, "diatonic transpose wraps across the octave (B → D)");
+        // Negative shift moves down in key; 0 degrees is a no-op.
+        audio::PianoRoll nr;
+        nr.addNote(audio::Note{0, 1, 67, 0.9f}); // G
+        nr.transposeDiatonic(-2, 60, audio::Scale::Major);
+        check(nr.notes()[0].pitch == 64, "diatonic -2 moves G down to E in key");
+        audio::PianoRoll zr;
+        zr.addNote(audio::Note{0, 1, 60, 0.9f});
+        check(zr.transposeDiatonic(0, 60, audio::Scale::Major) == 0 && zr.notes()[0].pitch == 60,
+              "diatonic transpose of 0 degrees is a no-op");
+    }
+
     // --- Arpeggiate (bake a chord into notes) --------------------------------
     {
         // A C-E-G triad (60/64/67) lasting 8 steps, arpeggiated up at length 2 → 60,64,67,60 at

@@ -95,6 +95,16 @@ public:
     // snaps down. Notes already in the scale are untouched. Returns the number of notes moved.
     int snapToScale(int rootPitch, Scale scale);
 
+    // The semitone degrees (0..11 above the root) that make up a scale — the shared table behind
+    // snap-to-scale and diatonic transpose.
+    static std::vector<int> scaleDegrees(Scale scale);
+
+    // Diatonic (scale-aware) transpose: shift every note by `degrees` scale steps within `scale`
+    // rooted at `rootPitch`, keeping the melody in key (e.g. +2 turns each note into its diatonic
+    // third). Off-scale notes snap down to the nearest degree first. Negative shifts move down.
+    // Returns the number of notes whose pitch changed.
+    int transposeDiatonic(int degrees, int rootPitch, Scale scale);
+
     // Strum: for every stack of notes that share a start step, stagger their starts so the chord
     // rolls — ordered low pitch to high, the j-th note is delayed by `stepOffset · j` steps (a
     // negative offset rolls from the top instead; starts are clamped at 0). The lowest note of each
