@@ -100,6 +100,7 @@
 #include "maz/game/Ballistics.hpp"
 #include "maz/math/QuaternionSwingTwist.hpp"
 #include "maz/game/ReactionDiffusion.hpp"
+#include "maz/math/CubicSpline.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19575,6 +19576,72 @@ void testReactionDiffusion() {
     }
 }
 
+// CubicSpline: natural (C2) interpolating cubic spline (M456).
+void testCubicSpline() {
+    using math::CubicSpline;
+
+    // Interpolation: passes exactly through every knot.
+    {
+        std::vector<float> xs{0.0f, 1.0f, 2.5f, 4.0f, 6.0f, 7.0f};
+        std::vector<float> ys{0.0f, 2.0f, -1.0f, 3.0f, 0.5f, -2.0f};
+        CubicSpline s(xs, ys);
+        CHECK(s.valid() && s.knotCount() == 6);
+        for (std::size_t i = 0; i < xs.size(); ++i) CHECK(std::fabs(s.eval(xs[i]) - ys[i]) < 1e-4f);
+    }
+    // Natural boundary: second derivative is exactly zero at both ends.
+    {
+        CubicSpline s(std::vector<float>{0, 1, 2, 3, 4}, std::vector<float>{1, 3, 2, 5, 4});
+        CHECK(std::fabs(s.secondDerivative(0.0f)) < 1e-4f);
+        CHECK(std::fabs(s.secondDerivative(4.0f)) < 1e-4f);
+    }
+    // C1 + C2 continuity across interior knots.
+    {
+        std::vector<float> xs{-2.0f, 0.0f, 1.0f, 3.0f, 5.0f, 6.5f};
+        std::vector<float> ys{4.0f, -1.0f, 2.0f, 0.0f, 3.0f, -2.0f};
+        CubicSpline s(xs, ys);
+        const float e = 1e-3f;
+        for (std::size_t i = 1; i + 1 < xs.size(); ++i) {
+            const float x = xs[i];
+            CHECK(std::fabs(s.derivative(x - e) - s.derivative(x + e)) < 5e-2f);
+            CHECK(std::fabs(s.secondDerivative(x - e) - s.secondDerivative(x + e)) < 5e-2f);
+        }
+    }
+    // Linear data reproduced exactly.
+    {
+        const float a = 1.7f, b = -0.5f;
+        std::vector<float> xs, ys;
+        for (int i = 0; i < 7; ++i) {
+            const float x = static_cast<float>(i) * 0.9f;
+            xs.push_back(x);
+            ys.push_back(a * x + b);
+        }
+        CubicSpline s(xs, ys);
+        for (float x = 0.0f; x <= 5.4f; x += 0.13f) {
+            CHECK(std::fabs(s.eval(x) - (a * x + b)) < 1e-3f);
+            CHECK(std::fabs(s.derivative(x) - a) < 1e-3f);
+            CHECK(std::fabs(s.secondDerivative(x)) < 1e-3f);
+        }
+    }
+    // Symmetry: even (mirror) data yields a symmetric curve about the centre.
+    {
+        CubicSpline s(std::vector<float>{-3, -2, -1, 0, 1, 2, 3}, std::vector<float>{0, 1, 0, 2, 0, 1, 0});
+        for (float x = 0.0f; x <= 3.0f; x += 0.1f) CHECK(std::fabs(s.eval(x) - s.eval(-x)) < 1e-3f);
+    }
+    // Two knots -> straight line, with clamping outside the range.
+    {
+        CubicSpline s(std::vector<float>{0.0f, 2.0f}, std::vector<float>{1.0f, 5.0f});
+        CHECK(std::fabs(s.eval(1.0f) - 3.0f) < 1e-4f);
+        CHECK(std::fabs(s.eval(-5.0f) - 1.0f) < 1e-4f);
+        CHECK(std::fabs(s.eval(99.0f) - 5.0f) < 1e-4f);
+    }
+    // Degenerate inputs rejected.
+    {
+        CHECK(!CubicSpline(std::vector<float>{1.0f}, std::vector<float>{1.0f}).valid());
+        CHECK(!CubicSpline(std::vector<float>{0.0f, 0.0f}, std::vector<float>{1, 2}).valid());
+        CHECK(!CubicSpline(std::vector<float>{0, 1, 2}, std::vector<float>{1, 2}).valid());
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28355,6 +28422,7 @@ int main() {
     testBallistics();
     testQuaternionSwingTwist();
     testReactionDiffusion();
+    testCubicSpline();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

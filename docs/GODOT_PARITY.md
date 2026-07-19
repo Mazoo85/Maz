@@ -725,6 +725,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   variance; the step is fully deterministic; a seed grows real V structure while staying finite and
   bounded in ~[0,1]; a centre-symmetric seed keeps the field mirror-symmetric; and a zero-size grid is a
   safe no-op),
+  **natural cubic spline** (M456, `math::CubicSpline` — the globally-smooth interpolating spline: given
+  knots (x_i, y_i) it builds the unique piecewise cubic that passes exactly through every knot and is
+  C2-continuous everywhere (continuous value, slope, AND curvature) with natural (zero-curvature) ends,
+  solved with the O(n) Thomas tridiagonal algorithm. Distinct from Curve2D (Bezier, not interpolating),
+  anim::Curve (keyframe track), and the C1-local Catmull-Rom in VectorOps — this is the tool for a smooth
+  camera dolly through waypoints or a terrain cross-section through samples. Godot's curves are
+  Bezier-based, so a true natural cubic spline is beyond-Godot. Verified: it passes exactly through every
+  knot; second derivative is exactly zero at both ends (natural BC); slope and curvature are continuous
+  across interior knots; linear data is reproduced exactly (value, slope, zero curvature); even data
+  yields a symmetric curve; two knots reduce to a clamped straight line; and malformed inputs are
+  rejected),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
