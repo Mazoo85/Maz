@@ -1,6 +1,7 @@
 #include "maz/audio/WavReader.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <vector>
 
@@ -70,6 +71,11 @@ bool readWav16(const std::string& path, WavData& out, std::string* err) {
             channels = static_cast<int>(readLE(b, body + 2, 2));
             sampleRate = static_cast<int>(readLE(b, body + 4, 4));
             bits = static_cast<int>(readLE(b, body + 14, 2));
+            // WAVE_FORMAT_EXTENSIBLE (0xFFFE): the real format code is the first 2 bytes of the
+            // sub-format GUID in the fmt extension.
+            if (format == 0xFFFE && sz >= 40 && body + 26 <= b.size()) {
+                format = static_cast<int>(readLE(b, body + 24, 2));
+            }
         } else if (tag(b, pos, "data")) {
             dataOff = body;
             dataLen = sz;
@@ -77,9 +83,13 @@ bool readWav16(const std::string& path, WavData& out, std::string* err) {
         pos = body + sz + (sz & 1); // chunks are word-aligned
     }
 
-    if (format != 1 || bits != 16 || channels <= 0 || sampleRate <= 0 || dataOff == 0) {
+    // Accept PCM (format 1) at 16/24/32-bit and IEEE float (format 3) at 32-bit — the common sample
+    // formats. Anything else is rejected.
+    const bool pcm = (format == 1) && (bits == 16 || bits == 24 || bits == 32);
+    const bool isFloat = (format == 3) && (bits == 32);
+    if ((!pcm && !isFloat) || channels <= 0 || sampleRate <= 0 || dataOff == 0) {
         if (err != nullptr) {
-            *err = "'" + path + "' is not 16-bit PCM WAV";
+            *err = "'" + path + "' is not a supported WAV (need 16/24/32-bit PCM or 32-bit float)";
         }
         return false;
     }
@@ -87,13 +97,29 @@ bool readWav16(const std::string& path, WavData& out, std::string* err) {
         dataLen = b.size() - dataOff; // tolerate a truncated/oversized data length
     }
 
-    const size_t sampleCount = dataLen / 2;
+    const int bytesPer = bits / 8;
+    const size_t sampleCount = dataLen / static_cast<size_t>(bytesPer);
     out.channels = channels;
     out.sampleRate = sampleRate;
     out.samples.resize(sampleCount);
     for (size_t i = 0; i < sampleCount; ++i) {
-        const int16_t s = static_cast<int16_t>(readLE(b, dataOff + i * 2, 2));
-        out.samples[i] = static_cast<float>(s) / 32768.0f;
+        const size_t off = dataOff + i * static_cast<size_t>(bytesPer);
+        float sample = 0.0f;
+        if (isFloat) {
+            const uint32_t u = readLE(b, off, 4);
+            std::memcpy(&sample, &u, sizeof(float));
+        } else if (bits == 16) {
+            sample = static_cast<float>(static_cast<int16_t>(readLE(b, off, 2))) / 32768.0f;
+        } else if (bits == 24) {
+            const uint32_t u = readLE(b, off, 3);
+            // Sign-extend the 24-bit value into 32 bits, then normalize by 2^23.
+            const int32_t s = (u & 0x800000u) ? static_cast<int32_t>(u | 0xFF000000u)
+                                              : static_cast<int32_t>(u);
+            sample = static_cast<float>(s) / 8388608.0f;
+        } else { // 32-bit PCM
+            sample = static_cast<float>(static_cast<int32_t>(readLE(b, off, 4))) / 2147483648.0f;
+        }
+        out.samples[i] = sample;
     }
     return true;
 }

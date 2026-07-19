@@ -17,8 +17,9 @@ struct WavData {
     std::vector<float> toMono() const;
 };
 
-// Read a canonical 16-bit PCM WAV file. Returns false and sets *err (when non-null) on I/O errors or
-// unsupported formats (only 16-bit PCM is handled). Extra/unknown chunks are skipped.
+// Read a WAV file into float samples in [-1, 1]. Supports 16/24/32-bit PCM and 32-bit IEEE float
+// (including WAVE_FORMAT_EXTENSIBLE), any channel count. Returns false and sets *err (when non-null)
+// on I/O errors or unsupported formats. Extra/unknown chunks are skipped. (Name kept for history.)
 bool readWav16(const std::string& path, WavData& out, std::string* err = nullptr);
 
 } // namespace maz::audio

@@ -11,6 +11,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <fstream>
 #include <vector>
 
 using namespace maz;
@@ -1046,6 +1048,70 @@ int main() {
         check(shi > slo * 3.0, "square filter LFO still gates the high band over time");
         check(audio::Sampler().filterLfoShape() == audio::Sampler::LfoShape::Sine,
               "sampler filter LFO shape defaults to sine");
+    }
+
+    // --- WAV reader: 24-bit PCM and 32-bit float support ---------------------
+    {
+        auto putLE = [](std::vector<uint8_t>& v, uint32_t x, int n) {
+            for (int k = 0; k < n; ++k) {
+                v.push_back(static_cast<uint8_t>((x >> (8 * k)) & 0xFFu));
+            }
+        };
+        auto writeRaw = [&](const std::string& p, const std::vector<float>& s, int bits, int fmt) {
+            const int ch = 1, sr2 = 48000, bytesPer = bits / 8;
+            std::vector<uint8_t> data;
+            for (float fv : s) {
+                if (fmt == 3) { // 32-bit float
+                    uint32_t u;
+                    std::memcpy(&u, &fv, 4);
+                    putLE(data, u, 4);
+                } else if (bits == 24) {
+                    const int32_t q = static_cast<int32_t>(fv * 8388607.0f);
+                    putLE(data, static_cast<uint32_t>(q) & 0xFFFFFFu, 3);
+                } else if (bits == 32) {
+                    putLE(data, static_cast<uint32_t>(static_cast<int32_t>(fv * 2147483647.0f)), 4);
+                } // bits == 8 → no data written (an unsupported format for the reject test)
+            }
+            std::vector<uint8_t> bb;
+            bb.insert(bb.end(), {'R', 'I', 'F', 'F'});
+            putLE(bb, 36u + static_cast<uint32_t>(data.size()), 4);
+            bb.insert(bb.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+            putLE(bb, 16, 4);
+            putLE(bb, static_cast<uint32_t>(fmt), 2);
+            putLE(bb, static_cast<uint32_t>(ch), 2);
+            putLE(bb, static_cast<uint32_t>(sr2), 4);
+            putLE(bb, static_cast<uint32_t>(sr2 * ch * bytesPer), 4);
+            putLE(bb, static_cast<uint32_t>(ch * bytesPer), 2);
+            putLE(bb, static_cast<uint32_t>(bits), 2);
+            bb.insert(bb.end(), {'d', 'a', 't', 'a'});
+            putLE(bb, static_cast<uint32_t>(data.size()), 4);
+            bb.insert(bb.end(), data.begin(), data.end());
+            std::ofstream of(p, std::ios::binary);
+            of.write(reinterpret_cast<const char*>(bb.data()), static_cast<std::streamsize>(bb.size()));
+        };
+        const std::vector<float> ref = {0.5f, -0.25f, 0.75f, -0.9f};
+
+        writeRaw("unit_wav24.wav", ref, 24, 1);
+        audio::WavData w24;
+        check(audio::readWav16("unit_wav24.wav", w24, &err), "24-bit WAV reads");
+        bool ok24 = w24.samples.size() == ref.size();
+        for (size_t i = 0; ok24 && i < ref.size(); ++i) {
+            ok24 = std::fabs(w24.samples[i] - ref[i]) < 1e-4f;
+        }
+        check(ok24, "24-bit samples decode to the right values");
+
+        writeRaw("unit_wavf32.wav", ref, 32, 3);
+        audio::WavData wf;
+        check(audio::readWav16("unit_wavf32.wav", wf, &err), "32-bit float WAV reads");
+        bool okf = wf.samples.size() == ref.size();
+        for (size_t i = 0; okf && i < ref.size(); ++i) {
+            okf = std::fabs(wf.samples[i] - ref[i]) < 1e-6f;
+        }
+        check(okf, "32-bit float samples decode exactly");
+
+        writeRaw("unit_wav8.wav", ref, 8, 1);
+        audio::WavData w8;
+        check(!audio::readWav16("unit_wav8.wav", w8, &err), "an unsupported bit depth is rejected");
     }
 
     // Missing file fails cleanly.
