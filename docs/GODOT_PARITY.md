@@ -484,6 +484,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   radical-inverse values in base 2 (½, ¼, ¾, ⅛, …) and base 3 (⅓, ⅔, 1/9), all values in [0,1),
   base<2→0, the van-der-Corput property that the first 16 base-2 points hit each 1/16 bucket exactly
   once, a 4×4 grid fully covered by 64 2D points, and the stateful cursor matching the stateless calls),
+  **reservoir sampling** (M431, `core::ReservoirSampler<T>` + `reservoirSample` — Vitter's algorithm R:
+  uniformly pick k items from a stream of UNKNOWN length in a single pass and O(k) memory, feeding items
+  one at a time while always holding k chosen so every item seen had an equal chance. The right tool for
+  picking N random spawn points from a candidate stream, sampling events from a firehose, or keeping a
+  bounded representative telemetry subset without unbounded memory. Deterministic from a caller Pcg32.
+  Godot has no reservoir sampler. Verified: streams shorter than k keep all, k=0 stays empty, uniformity
+  within 0.0015 of k/n over 300k trials, a long stream always holds exactly k valid items, the same seed
+  reproduces the same reservoir, and reset() clears for reuse),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

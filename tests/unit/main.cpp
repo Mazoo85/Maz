@@ -75,6 +75,7 @@
 #include "maz/core/AliasTable.hpp"
 #include "maz/core/Halton.hpp"
 #include "maz/core/BitSet.hpp"
+#include "maz/core/ReservoirSampler.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -17378,6 +17379,94 @@ void testBitSet() {
     }
 }
 
+// ReservoirSampler: uniform sampling of k items from an unknown-length stream (M431).
+void testReservoirSampler() {
+    using core::Pcg32;
+    using core::ReservoirSampler;
+    using core::reservoirSample;
+
+    // Fewer items than k -> holds all.
+    {
+        Pcg32 rng(1u, 1u);
+        ReservoirSampler<int> s(5, rng);
+        for (int i = 0; i < 3; ++i) {
+            s.offer(i);
+        }
+        CHECK(s.size() == 3 && s.seen() == 3);
+        CHECK(s.samples()[0] == 0 && s.samples()[1] == 1 && s.samples()[2] == 2);
+    }
+
+    // Exactly k -> holds all k; k == 0 -> empty.
+    {
+        Pcg32 rng(2u, 1u);
+        CHECK(reservoirSample(std::vector<int>{10, 20, 30, 40}, 4, rng).size() == 4);
+        Pcg32 rng2(3u, 1u);
+        ReservoirSampler<int> z(0, rng2);
+        for (int i = 0; i < 100; ++i) {
+            z.offer(i);
+        }
+        CHECK(z.size() == 0 && z.seen() == 100);
+    }
+
+    // Uniformity: each of n items kept with prob ~ k/n over many trials.
+    {
+        const int n = 12, k = 4, trials = 300000;
+        std::vector<int> cnt(static_cast<std::size_t>(n), 0);
+        Pcg32 rng(42u, 7u);
+        for (int t = 0; t < trials; ++t) {
+            ReservoirSampler<int> s(static_cast<std::size_t>(k), rng);
+            for (int i = 0; i < n; ++i) {
+                s.offer(i);
+            }
+            for (int v : s.samples()) {
+                ++cnt[static_cast<std::size_t>(v)];
+            }
+        }
+        const double expected = static_cast<double>(k) / n;
+        for (int i = 0; i < n; ++i) {
+            const double p = static_cast<double>(cnt[static_cast<std::size_t>(i)]) / trials;
+            CHECK(std::fabs(p - expected) < 0.01);
+            CHECK(cnt[static_cast<std::size_t>(i)] > 0);
+        }
+    }
+
+    // Reservoir holds exactly k for a long stream, all values valid.
+    {
+        Pcg32 rng(9u, 3u);
+        ReservoirSampler<int> s(7, rng);
+        for (int i = 0; i < 1000; ++i) {
+            s.offer(i);
+        }
+        CHECK(s.size() == 7 && s.seen() == 1000);
+        for (int v : s.samples()) {
+            CHECK(v >= 0 && v < 1000);
+        }
+    }
+
+    // Determinism: same seed + stream -> identical reservoir.
+    {
+        std::vector<int> stream;
+        for (int i = 0; i < 500; ++i) {
+            stream.push_back(i * 3 - 100);
+        }
+        Pcg32 a(77u, 2u), b(77u, 2u);
+        CHECK(reservoirSample(stream, 6, a) == reservoirSample(stream, 6, b));
+    }
+
+    // reset() clears for reuse.
+    {
+        Pcg32 rng(5u, 5u);
+        ReservoirSampler<int> s(3, rng);
+        for (int i = 0; i < 50; ++i) {
+            s.offer(i);
+        }
+        s.reset();
+        CHECK(s.size() == 0 && s.seen() == 0);
+        s.offer(99);
+        CHECK(s.size() == 1 && s.samples()[0] == 99);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -26133,6 +26222,7 @@ int main() {
     testAliasTable();
     testHalton();
     testBitSet();
+    testReservoirSampler();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
