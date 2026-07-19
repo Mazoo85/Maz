@@ -2071,6 +2071,33 @@ int main() {
                   pl[static_cast<size_t>(2 * i + 1)];
         }
         check(lE > 0.0 && rE < 1e-9, "hard-left bus pan keeps the left channel and silences the right");
+
+        // Per-bus transient shaper: attack boost emphasizes a percussive onset.
+        audio::MixerTrack trans;
+        trans.transientShaper().setEnabled(true);
+        trans.transientShaper().setAttack(1.0f);
+        check(trans.active(), "an enabled per-bus transient shaper makes the track active");
+        // A percussive burst: an exponentially-decaying 200 Hz tone (sharp onset at t=0).
+        const int bn = 3000;
+        std::vector<float> burst(static_cast<size_t>(bn) * 2, 0.0f);
+        for (int i = 0; i < bn; ++i) {
+            const float e = std::exp(-static_cast<float>(i) / 500.0f);
+            const float s =
+                e * static_cast<float>(std::sin(2.0 * 3.14159265 * 200.0 * i / sr));
+            burst[static_cast<size_t>(2 * i)] = s;
+            burst[static_cast<size_t>(2 * i) + 1] = s;
+        }
+        auto peakWindow = [](const std::vector<float>& b, int from, int to) {
+            float p = 0.0f;
+            for (int i = from; i < to; ++i) {
+                p = std::max(p, std::fabs(b[static_cast<size_t>(2 * i)]));
+            }
+            return p;
+        };
+        std::vector<float> proc = burst;
+        trans.process(proc.data(), bn, sr);
+        check(peakWindow(proc, 0, 400) > peakWindow(burst, 0, 400) * 1.03f,
+              "per-bus transient attack boost raises the onset peak");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

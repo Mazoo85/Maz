@@ -15,10 +15,12 @@ class MixerTrack {
 public:
     MixerTrack() {
         hp_.setEnabled(false);
+        transient_.setEnabled(false);
         eq_.setEnabled(false);
         dist_.setEnabled(false);
         comp_.setEnabled(false);
-        chain_ = {&hp_, &eq_, &dist_, &comp_};
+        // Order: clean the lows, shape transients, then EQ → drive → glue-compress.
+        chain_ = {&hp_, &transient_, &eq_, &dist_, &comp_};
     }
 
     void setGain(float g) { gain_ = g; }
@@ -31,6 +33,7 @@ public:
     float pan() const { return pan_; }
 
     HighPass& highpass() { return hp_; } // clean the bus's low end before the other inserts
+    TransientShaper& transientShaper() { return transient_; } // punch/snap or soften the bus
     ParametricEQ& eq() { return eq_; }
     Distortion& distortion() { return dist_; }
     Compressor& compressor() { return comp_; }
@@ -94,6 +97,7 @@ private:
     bool muted_ = false;
     float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
     HighPass hp_{};
+    TransientShaper transient_{};
     ParametricEQ eq_{};
     Distortion dist_{};
     Compressor comp_{};

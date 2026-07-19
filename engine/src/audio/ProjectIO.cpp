@@ -424,7 +424,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (tr.compressor().enabled() ? 1 : 0) << " " << tr.compressor().thresholdDb() << " "
           << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << " "
           << (tr.highpass().enabled() ? 1 : 0) << " " << tr.highpass().cutoff() << " " << tr.pan()
-          << "\n";
+          << " " << (tr.transientShaper().enabled() ? 1 : 0) << " "
+          << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << "\n";
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -1171,6 +1172,13 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 float pan = 0.0f; // per-bus pan optional (older files omit it)
                 if (ls >> pan) {
                     tr.setPan(pan);
+                }
+                int trEn = 0; // per-bus transient shaper optional (older files omit it)
+                float trAtt = 0.0f, trSus = 0.0f;
+                if (ls >> trEn >> trAtt >> trSus) {
+                    tr.transientShaper().setEnabled(trEn != 0);
+                    tr.transientShaper().setAttack(trAtt);
+                    tr.transientShaper().setSustain(trSus);
                 }
             }
         } else if (tag == "plugin") {

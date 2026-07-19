@@ -1944,6 +1944,18 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::SliderFloat("HP Hz##trk", &hpCut, 20.0f, 1000.0f, "%.0f"))
                 tr.highpass().setCutoff(hpCut);
+            bool trEn = tr.transientShaper().enabled();
+            if (ImGui::Checkbox("Trans##trk", &trEn)) tr.transientShaper().setEnabled(trEn);
+            ImGui::SameLine();
+            float trAtt = tr.transientShaper().attack();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("attack##trk", &trAtt, -1.0f, 1.0f, "%.2f"))
+                tr.transientShaper().setAttack(trAtt);
+            ImGui::SameLine();
+            float trSus = tr.transientShaper().sustain();
+            ImGui::SetNextItemWidth(90.0f);
+            if (ImGui::SliderFloat("sustain##trk", &trSus, -1.0f, 1.0f, "%.2f"))
+                tr.transientShaper().setSustain(trSus);
             ImGui::PopID();
         }
     }
