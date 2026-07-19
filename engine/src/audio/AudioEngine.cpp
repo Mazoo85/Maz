@@ -119,6 +119,18 @@ void AudioEngine::render(float* out, int frames) {
             mixer_.track(MixerBus::Drums).process(stemDrums_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Lead).process(stemLead_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Bass).process(stemBass_.data(), frames, cfg_.sampleRate);
+            // Per-bus solo: when any bus is soloed, silence the buses that are not.
+            if (mixer_.anyTrackSoloed()) {
+                if (!mixer_.track(MixerBus::Drums).soloed()) {
+                    std::fill(stemDrums_.begin(), stemDrums_.end(), 0.0f);
+                }
+                if (!mixer_.track(MixerBus::Lead).soloed()) {
+                    std::fill(stemLead_.begin(), stemLead_.end(), 0.0f);
+                }
+                if (!mixer_.track(MixerBus::Bass).soloed()) {
+                    std::fill(stemBass_.begin(), stemBass_.end(), 0.0f);
+                }
+            }
             for (size_t i = 0; i < n2; ++i) {
                 const double s = static_cast<double>(stemDrums_[i]) +
                                  static_cast<double>(stemLead_[i]) +

@@ -28,6 +28,10 @@ public:
     float gain() const { return gain_; }
     void setMuted(bool m) { muted_ = m; }
     bool muted() const { return muted_; }
+    // Solo: when any bus is soloed, only soloed buses are heard (the engine silences the rest). A
+    // monitoring/focus aid, resolved across buses at mix time.
+    void setSoloed(bool s) { soloed_ = s; }
+    bool soloed() const { return soloed_; }
     // Stereo balance for the bus (-1 = hard left, 0 = centre/transparent, +1 = hard right): attenuates
     // the opposite channel, so a stereo bus keeps its image at centre and leans to one side off it.
     void setPan(float p) { pan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
@@ -45,7 +49,7 @@ public:
 
     // Whether this track changes its input at all (any insert on, non-unity gain, or muted).
     bool active() const {
-        if (muted_ || gain_ != 1.0f || pan_ != 0.0f) {
+        if (muted_ || soloed_ || gain_ != 1.0f || pan_ != 0.0f) {
             return true;
         }
         for (const Effect* fx : chain_) {
@@ -97,6 +101,7 @@ public:
 private:
     float gain_ = 1.0f;
     bool muted_ = false;
+    bool soloed_ = false;
     float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
     Gate gate_{};
     HighPass hp_{};

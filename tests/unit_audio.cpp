@@ -141,6 +141,34 @@ int main() {
         check(energyOf(st2.lead) > 0.0, "muting the drums track leaves the lead stem intact");
     }
 
+    // --- Per-bus solo: only soloed buses are heard in the master render -----
+    {
+        auto masterEnergy = [](audio::AudioEngine& e, double sec) {
+            const std::vector<float> b = e.renderOffline(sec);
+            double en = 0.0;
+            for (float v : b) {
+                en += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return en;
+        };
+        // A kick on the drums bus only. Soloing the (empty) lead bus silences the master.
+        audio::AudioEngine soloLead;
+        soloLead.initOffline();
+        soloLead.sequencer().setStep(0, 0, true);
+        soloLead.mixer().track(audio::MixerBus::Lead).setSoloed(true);
+        soloLead.sequencer().play();
+        check(masterEnergy(soloLead, 0.3) < 1e-6,
+              "soloing an empty bus silences the other (non-soloed) buses");
+
+        // Soloing the drums bus keeps the kick audible.
+        audio::AudioEngine soloDrums;
+        soloDrums.initOffline();
+        soloDrums.sequencer().setStep(0, 0, true);
+        soloDrums.mixer().track(audio::MixerBus::Drums).setSoloed(true);
+        soloDrums.sequencer().play();
+        check(masterEnergy(soloDrums, 0.3) > 0.0, "soloing the active bus keeps it audible");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

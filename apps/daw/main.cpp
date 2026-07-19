@@ -1964,6 +1964,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
             bool muted = tr.muted();
             if (ImGui::Checkbox("Mute##trk", &muted)) tr.setMuted(muted);
             ImGui::SameLine();
+            bool soloed = tr.soloed();
+            if (ImGui::Checkbox("Solo##trk", &soloed)) tr.setSoloed(soloed);
+            ImGui::SameLine();
             float g = tr.gain();
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::SliderFloat("gain##trk", &g, 0.0f, 2.0f, "%.2f")) tr.setGain(g);

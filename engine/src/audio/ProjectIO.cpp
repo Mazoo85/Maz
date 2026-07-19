@@ -446,8 +446,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << " " << (tr.transientShaper().enabled() ? 1 : 0) << " "
           << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << " "
           << (tr.gate().enabled() ? 1 : 0) << " " << tr.gate().thresholdDb() << " "
-          << tr.gate().ratio() << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs()
-          << "\n";
+          << tr.gate().ratio() << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs() << " "
+          << (tr.soloed() ? 1 : 0) << "\n";
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -1234,6 +1234,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                     tr.gate().setRatio(gRatio);
                     tr.gate().setAttackMs(gAtk);
                     tr.gate().setReleaseMs(gRel);
+                }
+                int solo = 0; // per-bus solo optional (older files omit it)
+                if (ls >> solo) {
+                    tr.setSoloed(solo != 0);
                 }
             }
         } else if (tag == "plugin") {

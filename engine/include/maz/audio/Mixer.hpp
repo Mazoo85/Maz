@@ -93,6 +93,15 @@ public:
     MixerTrack& track(int i) { return tracks_[static_cast<size_t>(i)]; }
     static constexpr int trackCount() { return static_cast<int>(MixerBus::Count); }
     bool anyTrackActive() const;
+    // True if any per-bus track is soloed (then the engine silences the non-soloed buses).
+    bool anyTrackSoloed() const {
+        for (const MixerTrack& t : tracks_) {
+            if (t.soloed()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Process `frames` of interleaved stereo in place: run each enabled effect, then master gain.
     void process(float* stereo, int frames, int sampleRate);
