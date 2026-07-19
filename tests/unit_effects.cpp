@@ -1644,6 +1644,39 @@ int main() {
             }
         }
         check(same, "a disabled tape saturation is transparent");
+
+        // Wow & flutter: the modulated delay wobbles the pitch, so the per-window pitch varies over
+        // time; with it off the pitch is rock-steady.
+        auto pitchSpread = [&](float wf) {
+            audio::TapeSaturation t;
+            t.setEnabled(true);
+            t.setDrive(1.0f);
+            t.setWarmth(0.0f);
+            t.setMix(1.0f);
+            t.setWowFlutter(wf);
+            std::vector<float> b = sineStereo(sr, 440.0, 0.5, sr); // 1 s
+            t.process(b.data(), sr, sr);
+            int minC = 1 << 30, maxC = 0;
+            const int win = 3000;
+            for (int w = win; w + win <= sr; w += win) { // skip the first window (delay fill-in)
+                int cx = 0;
+                float prev = b[static_cast<size_t>(w) * 2];
+                for (int i = w + 1; i < w + win; ++i) {
+                    const float v = b[static_cast<size_t>(i) * 2];
+                    if (prev <= 0.0f && v > 0.0f) {
+                        ++cx;
+                    }
+                    prev = v;
+                }
+                minC = std::min(minC, cx);
+                maxC = std::max(maxC, cx);
+            }
+            return maxC - minC;
+        };
+        check(pitchSpread(0.0f) <= 1, "with wow/flutter off the tape pitch is steady");
+        check(pitchSpread(1.0f) >= 2, "wow/flutter wobbles the pitch over time");
+        audio::TapeSaturation dwf;
+        check(dwf.wowFlutter() == 0.0f, "tape wow/flutter defaults to 0 (off)");
     }
 
     // --- Mono bass: low band collapses to mono, highs stay stereo -----------

@@ -276,6 +276,7 @@ int main() {
     mixer.tape().setDrive(4.5f);
     mixer.tape().setWarmth(0.6f);
     mixer.tape().setMix(0.9f);
+    mixer.tape().setWowFlutter(0.4f);
     // Aux send/return buses.
     mixer.setReverbSend(0.45f);
     mixer.reverbReturn().setRoomSize(0.6f);
@@ -585,7 +586,8 @@ int main() {
     check(mixer2.widener().enabled() && near(mixer2.widener().width(), 1.6f),
           "stereo widener round-trips");
     check(mixer2.tape().enabled() && near(mixer2.tape().drive(), 4.5f) &&
-              near(mixer2.tape().warmth(), 0.6f) && near(mixer2.tape().mix(), 0.9f),
+              near(mixer2.tape().warmth(), 0.6f) && near(mixer2.tape().mix(), 0.9f) &&
+              near(mixer2.tape().wowFlutter(), 0.4f),
           "tape saturation round-trips");
     check(near(mixer2.reverb().preDelayMs(), 35.0f), "reverb pre-delay round-trips");
     check(near(mixer2.reverb().width(), 1.5f), "reverb width round-trips");

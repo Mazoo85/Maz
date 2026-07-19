@@ -394,7 +394,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
     f << "fx formant " << (mixer.formant().enabled() ? 1 : 0) << " "
       << static_cast<int>(mixer.formant().vowel()) << " " << mixer.formant().mix() << "\n";
     f << "fx tape " << (mixer.tape().enabled() ? 1 : 0) << " " << mixer.tape().drive() << " "
-      << mixer.tape().warmth() << " " << mixer.tape().mix() << "\n";
+      << mixer.tape().warmth() << " " << mixer.tape().mix() << " " << mixer.tape().wowFlutter()
+      << "\n";
     f << "fx ringmod " << (mixer.ringmod().enabled() ? 1 : 0) << " " << mixer.ringmod().freq() << " "
       << mixer.ringmod().mix() << "\n";
 
@@ -964,6 +965,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.tape().setDrive(drive);
                 mixer.tape().setWarmth(warmth);
                 mixer.tape().setMix(mix);
+                float wf = 0.0f; // wow/flutter optional for old files
+                if (ls >> wf) {
+                    mixer.tape().setWowFlutter(wf);
+                }
             } else if (which == "ringmod") {
                 float freq = 200.0f, mix = 1.0f;
                 ls >> freq >> mix;

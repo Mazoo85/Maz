@@ -874,6 +874,11 @@ void Gate::process(float* stereo, int frames, int sampleRate) {
 void TapeSaturation::reset() {
     lpL_ = 0.0f;
     lpR_ = 0.0f;
+    std::fill(wfL_.begin(), wfL_.end(), 0.0f);
+    std::fill(wfR_.begin(), wfR_.end(), 0.0f);
+    wfWrite_ = 0;
+    wowPhase_ = 0.0;
+    flutPhase_ = 0.0;
 }
 
 void TapeSaturation::process(float* stereo, int frames, int sampleRate) {
@@ -887,9 +892,50 @@ void TapeSaturation::process(float* stereo, int frames, int sampleRate) {
     const float x = std::exp(-2.0f * 3.14159265f * cutHz / static_cast<float>(sampleRate));
     const float bias = 0.05f * warmth_;
     const float biasOut = std::tanh(bias) * norm; // steady-state DC from the asymmetry, removed below
+    // Wow & flutter: a modulated delay wobbles the pitch (a slow ~0.6 Hz wow + faster ~7 Hz flutter).
+    const bool doWf = wowFlutter_ > 0.0f;
+    const float sr = static_cast<float>(sampleRate);
+    if (doWf) {
+        const int want = sampleRate / 20 + 4; // ~50 ms delay line
+        if (wfSize_ != want) {
+            wfSize_ = want;
+            wfL_.assign(static_cast<size_t>(wfSize_), 0.0f);
+            wfR_.assign(static_cast<size_t>(wfSize_), 0.0f);
+            wfWrite_ = 0;
+        }
+    }
+    const double wowInc = 0.6 / static_cast<double>(sampleRate);
+    const double flutInc = 7.0 / static_cast<double>(sampleRate);
+    const float baseDelay = 0.015f * sr;                 // ~15 ms center tap
+    const float wfDepth = wowFlutter_ * 0.004f * sr;     // up to ±4 ms
+    constexpr double kTwoPi = 6.283185307179586;
     for (int i = 0; i < frames; ++i) {
-        const float l = stereo[2 * i];
-        const float r = stereo[2 * i + 1];
+        float l = stereo[2 * i];
+        float r = stereo[2 * i + 1];
+        if (doWf) {
+            wfL_[static_cast<size_t>(wfWrite_)] = l;
+            wfR_[static_cast<size_t>(wfWrite_)] = r;
+            const float mod = 0.7f * static_cast<float>(std::sin(wowPhase_ * kTwoPi)) +
+                              0.3f * static_cast<float>(std::sin(flutPhase_ * kTwoPi));
+            float rp = static_cast<float>(wfWrite_) - (baseDelay + wfDepth * mod);
+            while (rp < 0.0f) {
+                rp += static_cast<float>(wfSize_);
+            }
+            const int i0 = static_cast<int>(rp) % wfSize_;
+            const int i1 = (i0 + 1) % wfSize_;
+            const float frac = rp - std::floor(rp);
+            l = wfL_[static_cast<size_t>(i0)] * (1.0f - frac) + wfL_[static_cast<size_t>(i1)] * frac;
+            r = wfR_[static_cast<size_t>(i0)] * (1.0f - frac) + wfR_[static_cast<size_t>(i1)] * frac;
+            wfWrite_ = (wfWrite_ + 1) % wfSize_;
+            wowPhase_ += wowInc;
+            if (wowPhase_ >= 1.0) {
+                wowPhase_ -= 1.0;
+            }
+            flutPhase_ += flutInc;
+            if (flutPhase_ >= 1.0) {
+                flutPhase_ -= 1.0;
+            }
+        }
         // Asymmetric drive (small bias → even harmonics), tanh soft-knee, gain-compensated, DC-free.
         float wl = std::tanh(drive_ * l + bias) * norm - biasOut;
         float wr = std::tanh(drive_ * r + bias) * norm - biasOut;

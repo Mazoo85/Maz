@@ -1374,6 +1374,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("warmth##tape", &warmth, 0.0f, 1.0f, "%.2f")) mx.tape().setWarmth(warmth);
+        float wf = mx.tape().wowFlutter();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("wow/flut##tape", &wf, 0.0f, 1.0f, "%.2f")) mx.tape().setWowFlutter(wf);
     }
     {
         bool en = mx.ringmod().enabled();

@@ -581,9 +581,14 @@ public:
     void setDrive(float d) { drive_ = d < 1.0f ? 1.0f : (d > 12.0f ? 12.0f : d); }
     void setWarmth(float w) { warmth_ = w < 0.0f ? 0.0f : (w > 1.0f ? 1.0f : w); }
     void setMix(float m) { mix_ = m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m); }
+    // Wow & flutter (0..1): analog-tape pitch instability — a slow "wow" plus a faster "flutter"
+    // wobble the playback speed via a modulated delay, for that unstable vintage character. 0 = off
+    // (rock-steady pitch).
+    void setWowFlutter(float amount) { wowFlutter_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount); }
     float drive() const { return drive_; }
     float warmth() const { return warmth_; }
     float mix() const { return mix_; }
+    float wowFlutter() const { return wowFlutter_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -592,8 +597,14 @@ private:
     float drive_ = 2.0f;
     float warmth_ = 0.3f;
     float mix_ = 1.0f;
+    float wowFlutter_ = 0.0f; // pitch-wobble depth; 0 = off
     float lpL_ = 0.0f; // one-pole high-cut state per channel
     float lpR_ = 0.0f;
+    std::vector<float> wfL_, wfR_; // wow/flutter modulated delay lines
+    int wfSize_ = 0;
+    int wfWrite_ = 0;
+    double wowPhase_ = 0.0;
+    double flutPhase_ = 0.0;
 };
 
 // A bass mono-maker: sums everything below `crossover` Hz to mono (tight, centered low end) while
