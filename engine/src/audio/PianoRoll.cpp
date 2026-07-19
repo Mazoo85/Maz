@@ -289,6 +289,59 @@ int PianoRoll::transposeDiatonic(int degrees, int rootPitch, Scale scale) {
     return moved;
 }
 
+int PianoRoll::mutate(float amount, int rootPitch, Scale scale, int maxDegrees, uint32_t seed) {
+    if (amount <= 0.0f || maxDegrees < 1) {
+        return 0;
+    }
+    const std::vector<int> deg = scaleDegrees(scale);
+    const int n = static_cast<int>(deg.size());
+    if (n == 0) {
+        return 0;
+    }
+    auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+    uint32_t rng = seed ? seed : 0x1234567u; // deterministic xorshift; avoid a 0 state
+    auto next = [&]() {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        return rng;
+    };
+    int moved = 0;
+    for (Note& note : notes_) {
+        // Roll for whether this note mutates (deterministic across the whole pass).
+        const float roll = static_cast<float>(next() >> 8) / 16777216.0f; // [0,1)
+        if (roll >= amount) {
+            continue;
+        }
+        // A random non-zero degree offset in [-maxDegrees, +maxDegrees].
+        const int span = 2 * maxDegrees + 1;
+        int offset = static_cast<int>(next() % static_cast<uint32_t>(span)) - maxDegrees;
+        if (offset == 0) {
+            offset = (next() & 1u) ? maxDegrees : -maxDegrees; // nudge off zero (no no-op mutation)
+        }
+        // Same diatonic-shift math as transposeDiatonic: snap the note to a degree index, then step.
+        const int rel = note.pitch - rootPitch;
+        const int oct = floorDiv(rel, 12);
+        const int within = rel - oct * 12;
+        int idx = 0;
+        for (int i = 0; i < n; ++i) {
+            if (deg[i] <= within) {
+                idx = i;
+            }
+        }
+        const int newDegAbs = idx + offset;
+        const int degOct = floorDiv(newDegAbs, n);
+        const int newIdx = newDegAbs - degOct * n;
+        int newPitch = rootPitch + (oct + degOct) * 12 + deg[static_cast<size_t>(newIdx)];
+        newPitch = newPitch < 0 ? 0 : (newPitch > 127 ? 127 : newPitch);
+        if (newPitch != note.pitch) {
+            ++moved;
+        }
+        note.pitch = newPitch;
+    }
+    return moved;
+}
+
 int PianoRoll::strum(int stepOffset) {
     if (stepOffset == 0 || notes_.empty()) {
         return 0;

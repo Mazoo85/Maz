@@ -684,6 +684,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.transposeDiatonic(diaDegrees, scaleRoot, static_cast<audio::Scale>(scaleType));
     }
     ImGui::SameLine();
+    static int mutateSeed = 1;
+    if (ImGui::Button("Mutate")) {
+        // Randomize ~40% of notes by up to ±2 scale degrees, staying in key; bump the seed each
+        // click so repeated presses give fresh variations.
+        roll.mutate(0.4f, scaleRoot, static_cast<audio::Scale>(scaleType), 2,
+                    static_cast<uint32_t>(mutateSeed++));
+    }
+    ImGui::SameLine();
     static int strumStep = 1;
     ImGui::SetNextItemWidth(60.0f);
     ImGui::InputInt("##strumstep", &strumStep);

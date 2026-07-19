@@ -105,6 +105,13 @@ public:
     // Returns the number of notes whose pitch changed.
     int transposeDiatonic(int degrees, int rootPitch, Scale scale);
 
+    // Mutate (scale-aware randomize, FL's Randomize-pitch tool): with probability `amount` (0..1),
+    // move each note by a random non-zero offset of up to ±`maxDegrees` scale steps within `scale`
+    // rooted at `rootPitch` — generative melodic variation that always stays in key (off-scale notes
+    // snap to a degree first). `seed` makes it fully deterministic (same seed + notes → same result).
+    // Returns the number of notes whose pitch changed.
+    int mutate(float amount, int rootPitch, Scale scale, int maxDegrees, uint32_t seed);
+
     // Strum: for every stack of notes that share a start step, stagger their starts so the chord
     // rolls — ordered low pitch to high, the j-th note is delayed by `stepOffset · j` steps (a
     // negative offset rolls from the top instead; starts are clamped at 0). The lowest note of each

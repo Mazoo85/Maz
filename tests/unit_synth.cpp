@@ -1925,6 +1925,52 @@ int main() {
               "diatonic transpose of 0 degrees is a no-op");
     }
 
+    // --- Mutate (scale-aware randomize) --------------------------------------
+    {
+        // Membership test for C-major.
+        auto inCMajor = [](int pitch) {
+            static const int deg[] = {0, 2, 4, 5, 7, 9, 11};
+            const int pc = ((pitch - 60) % 12 + 12) % 12;
+            for (int d : deg)
+                if (d == pc) return true;
+            return false;
+        };
+        // Build a C-major scale run so every note starts in key.
+        auto makeRun = []() {
+            audio::PianoRoll r;
+            const int pitches[] = {60, 62, 64, 65, 67, 69, 71, 72};
+            for (int k = 0; k < 8; ++k) r.addNote(audio::Note{k, 1, pitches[k], 0.9f});
+            return r;
+        };
+        audio::PianoRoll mr = makeRun();
+        const int changed = mr.mutate(1.0f, 60, audio::Scale::Major, 2, 12345u);
+        // amount 1.0 → every note is offered a non-zero shift, so all move; all stay in key.
+        check(changed == 8, "mutate at amount 1.0 changes every note");
+        bool allInKey = true;
+        for (const auto& nt : mr.notes())
+            if (!inCMajor(nt.pitch)) allInKey = false;
+        check(allInKey, "mutate keeps every note in the chosen scale");
+        // Determinism: the same seed reproduces the same result exactly.
+        audio::PianoRoll mr2 = makeRun();
+        mr2.mutate(1.0f, 60, audio::Scale::Major, 2, 12345u);
+        bool identical = mr.notes().size() == mr2.notes().size();
+        for (size_t i = 0; identical && i < mr.notes().size(); ++i)
+            if (mr.notes()[i].pitch != mr2.notes()[i].pitch) identical = false;
+        check(identical, "mutate is deterministic (same seed → same result)");
+        // A different seed generally gives a different result.
+        audio::PianoRoll mr3 = makeRun();
+        mr3.mutate(1.0f, 60, audio::Scale::Major, 2, 99999u);
+        bool differs = false;
+        for (size_t i = 0; i < mr.notes().size(); ++i)
+            if (mr.notes()[i].pitch != mr3.notes()[i].pitch) differs = true;
+        check(differs, "a different mutate seed gives a different variation");
+        // amount 0 (and maxDegrees < 1) are no-ops.
+        audio::PianoRoll mz = makeRun();
+        check(mz.mutate(0.0f, 60, audio::Scale::Major, 2, 1u) == 0, "mutate at amount 0 is a no-op");
+        check(mz.mutate(0.5f, 60, audio::Scale::Major, 0, 1u) == 0,
+              "mutate with maxDegrees < 1 is a no-op");
+    }
+
     // --- Arpeggiate (bake a chord into notes) --------------------------------
     {
         // A C-E-G triad (60/64/67) lasting 8 steps, arpeggiated up at length 2 → 60,64,67,60 at
