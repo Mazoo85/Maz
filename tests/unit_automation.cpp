@@ -309,6 +309,34 @@ int main() {
               "master-pan automation reaches hard left at the low bound");
     }
 
+    // --- Bass-bus targets: volume + pan on the bass mixer strip -------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& bv = autom.lane(audio::AutoTarget::BassVolume);
+        bv.enabled = true;
+        bv.lfo.shape = audio::Waveform::Sine;
+        bv.lfo.rateHz = 1.0f;
+        bv.lo = 0.0f;
+        bv.hi = 1.0f;
+        audio::AutoLane& bp = autom.lane(audio::AutoTarget::BassPan);
+        bp.enabled = true;
+        bp.lfo.shape = audio::Waveform::Sine;
+        bp.lfo.rateHz = 1.0f;
+        bp.lo = -1.0f;
+        bp.hi = 1.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // peak → hi bounds
+        check(eng.mixer().track(audio::MixerBus::Bass).gain() > 0.95f,
+              "automating bass volume drives the bass strip gain to its high bound");
+        check(eng.mixer().track(audio::MixerBus::Bass).pan() > 0.95f,
+              "automating bass pan drives the balance hard right at the high bound");
+        autom.apply(eng, 0.75); // trough → lo bounds
+        check(eng.mixer().track(audio::MixerBus::Bass).gain() < 0.05f &&
+                  eng.mixer().track(audio::MixerBus::Bass).pan() < -0.95f,
+              "bass volume/pan automation reaches its low bounds");
+    }
+
     // A disabled lane leaves its target untouched.
     audio::Automation idle;
     audio::AudioEngine engine2;

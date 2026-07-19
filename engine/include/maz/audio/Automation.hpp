@@ -27,6 +27,8 @@ enum class AutoTarget {
     ReverbSend,
     DelaySend,
     MasterPan,
+    BassVolume,
+    BassPan,
     Count
 };
 

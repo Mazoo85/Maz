@@ -65,6 +65,10 @@ Automation::Automation() {
     lane(AutoTarget::DelaySend).hi = 0.7f;
     lane(AutoTarget::MasterPan).lo = -1.0f;
     lane(AutoTarget::MasterPan).hi = 1.0f;
+    lane(AutoTarget::BassVolume).lo = 0.0f;
+    lane(AutoTarget::BassVolume).hi = 1.0f;
+    lane(AutoTarget::BassPan).lo = -1.0f;
+    lane(AutoTarget::BassPan).hi = 1.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -101,6 +105,10 @@ const char* Automation::targetName(AutoTarget t) {
         return "Delay Send";
     case AutoTarget::MasterPan:
         return "Master Pan";
+    case AutoTarget::BassVolume:
+        return "Bass Volume";
+    case AutoTarget::BassPan:
+        return "Bass Pan";
     case AutoTarget::Count:
         break;
     }
@@ -220,6 +228,14 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
         case AutoTarget::MasterPan:
             // Sweep the master output balance (whole-mix auto-pan).
             engine.mixer().setMasterBalance(v);
+            break;
+        case AutoTarget::BassVolume:
+            // Sweep the bass mixer strip's gain (bus volume rides on the bass).
+            engine.mixer().track(MixerBus::Bass).setGain(v);
+            break;
+        case AutoTarget::BassPan:
+            // Sweep the bass mixer strip's stereo balance (auto-pan on the bass bus only).
+            engine.mixer().track(MixerBus::Bass).setPan(v);
             break;
         case AutoTarget::Count:
             break;
