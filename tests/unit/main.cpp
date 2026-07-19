@@ -13470,6 +13470,25 @@ void testGeometry3DHelpers() {
         CHECK(!math::segmentIntersectsSphere(vec3(-5, 0, 0), vec3(-4, 0, 0), center, r).has_value());
     }
 
+    // M383: segmentIntersectsCylinder (Godot Geometry3D.segment_intersects_cylinder). Y-axis cylinder,
+    // centred origin, height 4 (y in [-2,2]), radius 2.
+    {
+        auto side = math::segmentIntersectsCylinder(vec3(-5, 0, 0), vec3(5, 0, 0), 4.0f, 2.0f);
+        CHECK((side.has_value() && nearV(*side, vec3(-2, 0, 0)))); // entry at -radius
+        auto cap = math::segmentIntersectsCylinder(vec3(0, 5, 0), vec3(0, -5, 0), 4.0f, 2.0f);
+        CHECK((cap.has_value() && nearV(*cap, vec3(0, 2, 0)))); // top cap
+        auto inside = math::segmentIntersectsCylinder(vec3(0, 0, 0), vec3(5, 0, 0), 4.0f, 2.0f);
+        CHECK((inside.has_value() && nearV(*inside, vec3(2, 0, 0)))); // starts inside -> exit
+        // Offset-in-z side hit: x^2 + 1 = 4 -> x = -sqrt(3).
+        auto off = math::segmentIntersectsCylinder(vec3(-5, 0, 1), vec3(5, 0, 1), 4.0f, 2.0f);
+        CHECK(off.has_value());
+        CHECK_NEAR(off->x, -std::sqrt(3.0f), 1e-3f);
+        // Misses: above the caps, outside the radius, too short.
+        CHECK(!math::segmentIntersectsCylinder(vec3(-5, 3, 0), vec3(5, 3, 0), 4.0f, 2.0f).has_value());
+        CHECK(!math::segmentIntersectsCylinder(vec3(-5, 0, 5), vec3(5, 0, 5), 4.0f, 2.0f).has_value());
+        CHECK(!math::segmentIntersectsCylinder(vec3(-5, 0, 0), vec3(-3, 0, 0), 4.0f, 2.0f).has_value());
+    }
+
     // --- M322: buildBoxPlanes + segmentIntersectsConvex ---
     {
         const auto planes = math::buildBoxPlanes(vec3(1, 1, 1)); // unit cube [-1,1]^3

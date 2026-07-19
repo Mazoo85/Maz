@@ -333,7 +333,11 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   queries, verified against brute force), **Geometry3D segment/triangle/sphere helpers** (M262 —
   Godot's Geometry3D statics: closestPointToSegment, closestPointsBetweenSegments (skew lines),
   Moller-Trumbore rayIntersectsTriangle, segmentIntersectsTriangle, segmentIntersectsSphere for
-  picking / line-of-sight / ballistics; M322 adds buildBoxPlanes and segmentIntersectsConvex —
+  picking / line-of-sight / ballistics; M383 adds segmentIntersectsCylinder — Godot's
+  Geometry3D.segment_intersects_cylinder (finite Y-axis cylinder centred at origin, height + radius):
+  clips the segment against the radial slab and the two Y caps and returns the entry crossing
+  (forward exit when the segment starts inside, mirroring segmentIntersectsSphere), verified with
+  side-hit, cap-hit, offset-side, starts-inside, above-cap/outside-radius/too-short cases; M322 adds buildBoxPlanes and segmentIntersectsConvex —
   Godot's Geometry3D.build_box_planes / segment_intersects_convex: represent a convex volume as its
   outward-facing half-space planes and find where a segment first enters it (frustum / convex-region
   clipping and picking). Verified with straight-through, diagonal-corner, off-centre, miss,

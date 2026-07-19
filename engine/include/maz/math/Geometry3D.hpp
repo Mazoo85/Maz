@@ -529,6 +529,62 @@ inline std::optional<vec3> segmentIntersectsSphere(const vec3& from, const vec3&
     return from + d * t;
 }
 
+// First surface point where segment [from,to] meets a finite cylinder — Godot's
+// Geometry3D.segment_intersects_cylinder. The cylinder is centred at the origin, aligned to the Y
+// axis, spans y in [-height/2, +height/2] and has the given radius. Returns the entry crossing;
+// a segment that starts inside reports its forward exit crossing, mirroring segmentIntersectsSphere.
+// nullopt when the segment never reaches the cylinder's surface within [from,to].
+inline std::optional<vec3> segmentIntersectsCylinder(const vec3& from, const vec3& to, float height,
+                                                     float radius) {
+    const vec3 d = to - from;
+    const float inf = std::numeric_limits<float>::infinity();
+    // Radial slab: points with x^2 + z^2 <= radius^2 (infinite cylinder about Y).
+    float tr0 = -inf, tr1 = inf;
+    const float a = d.x * d.x + d.z * d.z;
+    const float c = from.x * from.x + from.z * from.z - radius * radius;
+    if (a < 1e-12f) {
+        if (c > 0.0f) {
+            return std::nullopt; // parallel to axis and outside the radius
+        }
+    } else {
+        const float b = 2.0f * (from.x * d.x + from.z * d.z);
+        const float disc = b * b - 4.0f * a * c;
+        if (disc < 0.0f) {
+            return std::nullopt; // never crosses the infinite cylinder
+        }
+        const float sq = std::sqrt(disc);
+        tr0 = (-b - sq) / (2.0f * a);
+        tr1 = (-b + sq) / (2.0f * a);
+    }
+    // Cap slab: points with y in [-height/2, +height/2].
+    const float halfH = height * 0.5f;
+    float ty0 = -inf, ty1 = inf;
+    if (std::fabs(d.y) < 1e-9f) {
+        if (from.y < -halfH || from.y > halfH) {
+            return std::nullopt; // parallel to caps and outside the height band
+        }
+    } else {
+        ty0 = (-halfH - from.y) / d.y;
+        ty1 = (halfH - from.y) / d.y;
+        if (ty0 > ty1) {
+            std::swap(ty0, ty1);
+        }
+    }
+    const float tEnter = std::max(tr0, ty0);
+    const float tExit = std::min(tr1, ty1);
+    if (tEnter > tExit) {
+        return std::nullopt; // radial and cap intervals do not overlap
+    }
+    float t = tEnter;
+    if (t < 0.0f) {
+        t = tExit; // segment starts inside -> forward exit crossing
+    }
+    if (t < 0.0f || t > 1.0f) {
+        return std::nullopt;
+    }
+    return from + d * t;
+}
+
 // Build the six outward-facing planes of an axis-aligned box with the given half-extents, centred at
 // `center` — Godot's Geometry3D.build_box_planes. A point is INSIDE the box when it is on the negative
 // side of every plane (normal·p - d <= 0). Order: +X, -X, +Y, -Y, +Z, -Z.
