@@ -1131,6 +1131,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool pp = seq.sampler().pingPong();
     if (ImGui::Checkbox("Ping-pong", &pp)) seq.sampler().setPingPong(pp);
     ImGui::SameLine();
+    bool smono = seq.sampler().mono();
+    if (ImGui::Checkbox("Mono", &smono)) seq.sampler().setMono(smono);
+    ImGui::SameLine();
     float startOff = seq.sampler().startOffset();
     ImGui::SetNextItemWidth(120.0f);
     if (ImGui::SliderFloat("Start", &startOff, 0.0f, 0.99f, "%.2f"))

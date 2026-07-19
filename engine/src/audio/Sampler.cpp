@@ -116,15 +116,23 @@ void Sampler::noteOn(int midi, float velocity) {
         return;
     }
     int chosen = -1;
-    float lowest = 2.0f;
-    for (int i = 0; i < kMaxVoices; ++i) {
-        if (!voices_[static_cast<size_t>(i)].active) {
-            chosen = i;
-            break;
+    if (mono_) {
+        // Last-note priority: silence every voice and always (re)use voice 0, so only one sounds.
+        for (Voice& ov : voices_) {
+            ov.active = false;
         }
-        if (voices_[static_cast<size_t>(i)].env < lowest) {
-            lowest = voices_[static_cast<size_t>(i)].env;
-            chosen = i;
+        chosen = 0;
+    } else {
+        float lowest = 2.0f;
+        for (int i = 0; i < kMaxVoices; ++i) {
+            if (!voices_[static_cast<size_t>(i)].active) {
+                chosen = i;
+                break;
+            }
+            if (voices_[static_cast<size_t>(i)].env < lowest) {
+                lowest = voices_[static_cast<size_t>(i)].env;
+                chosen = i;
+            }
         }
     }
     Voice& v = voices_[static_cast<size_t>(chosen)];
@@ -183,6 +191,16 @@ bool Sampler::active() const {
         }
     }
     return false;
+}
+
+int Sampler::activeVoices() const {
+    int n = 0;
+    for (const Voice& v : voices_) {
+        if (v.active) {
+            ++n;
+        }
+    }
+    return n;
 }
 
 void Sampler::render(float* out, int frames, int sampleRate) {

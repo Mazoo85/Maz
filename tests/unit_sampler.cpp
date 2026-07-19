@@ -168,6 +168,39 @@ int main() {
               "with velocity→cutoff off, brightness is velocity-independent");
     }
 
+    // Monophonic mode: overlapping notes collapse to a single voice (last-note priority).
+    {
+        std::vector<float> tone(static_cast<size_t>(sr) / 2);
+        for (int i = 0; i < sr / 2; ++i) {
+            tone[static_cast<size_t>(i)] =
+                0.5f * static_cast<float>(std::sin(kTwoPi * 220.0 * i / sr));
+        }
+        // Polyphonic (default): two overlapping notes sound two voices.
+        audio::Sampler poly;
+        poly.setSampleMono(tone, sr);
+        poly.setBasePitch(57);
+        check(!poly.mono(), "sampler defaults to polyphonic");
+        poly.noteOn(60, 1.0f);
+        poly.noteOn(64, 1.0f);
+        check(poly.activeVoices() == 2, "polyphonic sampler stacks overlapping notes");
+
+        // Mono: the second note steals the first, so only one voice sounds.
+        audio::Sampler mono;
+        mono.setSampleMono(tone, sr);
+        mono.setBasePitch(57);
+        mono.setMono(true);
+        mono.noteOn(60, 1.0f);
+        mono.noteOn(64, 1.0f);
+        check(mono.activeVoices() == 1, "mono sampler plays a single voice (last-note priority)");
+        // The surviving voice is the most recent note (64) — it still sounds.
+        const std::vector<float> out = renderMono(mono, sr / 10, sr);
+        double e = 0.0;
+        for (float s : out) {
+            e += static_cast<double>(s) * static_cast<double>(s);
+        }
+        check(mono.active() && e > 0.0, "the stolen-to mono voice keeps sounding");
+    }
+
     // Reverse playback: a ramp sample read backwards starts near the end value and descends.
     {
         std::vector<float> ramp(1000);

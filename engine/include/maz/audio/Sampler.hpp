@@ -147,10 +147,16 @@ public:
     float attack() const { return attack_; }
     float release() const { return release_; }
 
+    // Monophonic mode: play a single voice with last-note priority — each new note steals the one
+    // before it, for tight mono sampled bass/leads (no overlapping tails). Off (default) = polyphonic.
+    void setMono(bool on) { mono_ = on; }
+    bool mono() const { return mono_; }
+
     void noteOn(int midi, float velocity);
     void noteOff(int midi);
     void allNotesOff();
     bool active() const;
+    int activeVoices() const; // number of voices currently sounding (for the UI / tests)
 
     // Render `frames` mono samples, ADDING into out[0..frames). `sampleRate` is the engine rate.
     void render(float* out, int frames, int sampleRate);
@@ -178,6 +184,7 @@ private:
     float detuneCents_ = 0.0f;
     float gain_ = 0.9f;
     bool reverse_ = false;
+    bool mono_ = false; // monophonic (single-voice, last-note priority) mode
     bool loop_ = false;
     bool pingPong_ = false;
     float startOffset_ = 0.0f;
