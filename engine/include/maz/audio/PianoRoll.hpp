@@ -140,6 +140,11 @@ public:
     // [0, 127]. Returns the number of notes whose pitch changed.
     int transpose(int semitones);
 
+    // Shift: move every note's start by `steps` (±) with wraparound within the pattern length — nudge
+    // the whole phrase earlier/later in time (the melodic counterpart to the drum-grid rotate).
+    // Returns the number of notes moved.
+    int shift(int steps);
+
     // Arpeggiate: bake each chord (a stack of notes sharing a start step) into a printed arpeggio —
     // a run of single `noteLenSteps`-long notes stepping across the chord's duration, cycling through
     // the chord's pitches. `mode` 0 = up, 1 = down, 2 = up-down. Unlike the live arpeggiator this

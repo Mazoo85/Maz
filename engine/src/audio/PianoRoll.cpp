@@ -423,6 +423,17 @@ int PianoRoll::transpose(int semitones) {
     return changed;
 }
 
+int PianoRoll::shift(int steps) {
+    if (notes_.empty() || numSteps_ <= 0 || steps % numSteps_ == 0) {
+        return 0;
+    }
+    const int off = ((steps % numSteps_) + numSteps_) % numSteps_; // normalize to [0, numSteps_)
+    for (Note& n : notes_) {
+        n.startStep = (n.startStep + off) % numSteps_;
+    }
+    return static_cast<int>(notes_.size());
+}
+
 int PianoRoll::stretch(float factor) {
     if (factor <= 0.0f || factor == 1.0f) {
         return 0;

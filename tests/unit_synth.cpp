@@ -1699,6 +1699,22 @@ int main() {
         check(cl.notes()[0].pitch == 0, "transpose clamps at the low end of the MIDI range");
     }
 
+    // --- Shift (nudge the phrase in time, wrapping) --------------------------
+    {
+        audio::PianoRoll sh; // default 16 steps
+        sh.addNote(audio::Note{2, 1, 60, 1.0f});
+        sh.addNote(audio::Note{15, 1, 64, 1.0f});
+        const int moved = sh.shift(3);
+        check(moved == 2, "shift moves every note");
+        check(sh.notes()[0].startStep == 5, "shift moves a note later by the given steps");
+        check(sh.notes()[1].startStep == 2, "shift wraps a note past the pattern end (15+3 → 2)");
+        // Negative shift wraps the other way, and a whole-pattern shift is a no-op.
+        sh.shift(-3);
+        check(sh.notes()[0].startStep == 2 && sh.notes()[1].startStep == 15,
+              "a negative shift wraps back to the original positions");
+        check(sh.shift(16) == 0 && sh.shift(0) == 0, "a full-pattern (or zero) shift is a no-op");
+    }
+
     // --- Stretch (time-scale) ------------------------------------------------
     {
         audio::PianoRoll st;

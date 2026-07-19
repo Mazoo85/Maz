@@ -753,6 +753,14 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.transpose(transposeSemis);
     }
     ImGui::SameLine();
+    static int shiftSteps = 1;
+    ImGui::SetNextItemWidth(50.0f);
+    ImGui::InputInt("##shiftsteps", &shiftSteps, 0, 0);
+    ImGui::SameLine();
+    if (ImGui::Button("Shift")) {
+        roll.shift(shiftSteps);
+    }
+    ImGui::SameLine();
     static float stretchFactor = 2.0f;
     ImGui::SetNextItemWidth(50.0f);
     ImGui::InputFloat("##stretchfactor", &stretchFactor, 0.0f, 0.0f, "%.2f");
