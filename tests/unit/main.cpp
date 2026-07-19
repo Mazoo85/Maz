@@ -91,6 +91,7 @@
 #include "maz/render/ColorQuantize.hpp"
 #include "maz/render/Dither.hpp"
 #include "maz/core/WorleyNoise.hpp"
+#include "maz/core/CurlNoise.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -18842,6 +18843,92 @@ void testWorleyNoise() {
     }
 }
 
+// CurlNoise: divergence-free flow field from the Perlin potential (M447).
+void testCurlNoise() {
+    using core::CurlNoise;
+    CurlNoise cn(2024);
+
+    // ---- Determinism. ----
+    {
+        auto a = cn.curl2(1.3f, 4.7f);
+        auto b = cn.curl2(1.3f, 4.7f);
+        CHECK(a.first == b.first && a.second == b.second);
+    }
+
+    // ---- Curl is exactly perpendicular to the gradient. ----
+    {
+        for (int i = 0; i < 500; ++i) {
+            const float x = static_cast<float>(i) * 0.13f - 5.0f;
+            const float y = static_cast<float>(i) * 0.07f + 2.0f;
+            auto c = cn.curl2(x, y);
+            auto g = cn.gradient2(x, y);
+            CHECK(c.first * g.first + c.second * g.second == 0.0f);
+        }
+    }
+
+    // ---- Non-trivial field. ----
+    {
+        int nonzero = 0;
+        for (int i = 0; i < 200; ++i) {
+            auto c = cn.curl2(static_cast<float>(i) * 0.31f, static_cast<float>(i) * 0.53f);
+            if (std::sqrt(c.first * c.first + c.second * c.second) > 0.05f) {
+                ++nonzero;
+            }
+        }
+        CHECK(nonzero > 150);
+    }
+
+    // ---- Divergence ~ 0 (incompressible flow). ----
+    {
+        const float h = 0.02f;
+        double sumAbsDiv = 0.0;
+        int n = 0;
+        for (int gy = 1; gy < 40; ++gy) {
+            for (int gx = 1; gx < 40; ++gx) {
+                const float x = static_cast<float>(gx) * 0.25f;
+                const float y = static_cast<float>(gy) * 0.25f;
+                auto right = cn.curl2(x + h, y);
+                auto left = cn.curl2(x - h, y);
+                auto up = cn.curl2(x, y + h);
+                auto down = cn.curl2(x, y - h);
+                const float dvxdx = (right.first - left.first) / (2.0f * h);
+                const float dvydy = (up.second - down.second) / (2.0f * h);
+                sumAbsDiv += std::fabs(static_cast<double>(dvxdx + dvydy));
+                ++n;
+            }
+        }
+        CHECK(sumAbsDiv / n < 0.05);
+    }
+
+    // ---- fbm curl is finite and non-trivial. ----
+    {
+        int nonzero = 0;
+        for (int i = 0; i < 100; ++i) {
+            auto c = cn.curlFbm2(static_cast<float>(i) * 0.2f, static_cast<float>(i) * 0.3f, 4);
+            CHECK(std::isfinite(c.first) && std::isfinite(c.second));
+            if (std::sqrt(c.first * c.first + c.second * c.second) > 0.01f) {
+                ++nonzero;
+            }
+        }
+        CHECK(nonzero > 60);
+    }
+
+    // ---- Different seeds -> different fields. ----
+    {
+        CurlNoise a(1);
+        CurlNoise b(2);
+        int diffs = 0;
+        for (int i = 0; i < 50; ++i) {
+            auto ca = a.curl2(static_cast<float>(i) * 0.4f, 1.0f);
+            auto cb = b.curl2(static_cast<float>(i) * 0.4f, 1.0f);
+            if (std::fabs(ca.first - cb.first) > 1e-4f || std::fabs(ca.second - cb.second) > 1e-4f) {
+                ++diffs;
+            }
+        }
+        CHECK(diffs > 25);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27613,6 +27700,7 @@ int main() {
     testColorQuantize();
     testDither();
     testWorleyNoise();
+    testCurlNoise();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

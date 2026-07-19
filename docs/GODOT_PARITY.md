@@ -639,6 +639,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Godot's FastNoiseLite cellular mode. Deterministic from a seed. Verified: determinism, F2 >= F1 >= 0
   with F1 bounded under sqrt(2), a dense scan landing within 0.05 of a feature point, crackle(F2-F1) >= 0
   hitting ~0 on cell boundaries, distinct fields per seed, and a sane mean-F1 band),
+  **curl noise** (M447, `core::CurlNoise` — a divergence-free ("incompressible") 2D flow field: the flow
+  vector is the perpendicular of the Perlin noise's gradient, so it runs along the potential's contour
+  lines and its divergence is ~0. Particles carried by it swirl and fold without ever bunching or
+  thinning — the look of smoke, wind, magic, fluid, and flowing hair that plain random/radial forces
+  cannot give. Built on the existing Noise (M85, reused not duplicated); distinct from FlowField
+  (goal-seeking pathfinding). Godot has no curl-noise primitive. Verified: determinism, EXACT
+  perpendicularity to the gradient (curl . gradient == 0), a non-trivial field, a measured
+  mean-|divergence| under 0.05 on a 40x40 grid (the incompressibility property), a finite non-trivial
+  fbm variant, and distinct fields per seed),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
