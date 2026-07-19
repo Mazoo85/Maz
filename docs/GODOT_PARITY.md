@@ -788,6 +788,16 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   polynomial solver -> beyond-Godot. Verified: built from 400 random known-root quadratics and 400 random
   cubics, both recovered exactly with near-zero residuals; plus edge cases — no-real-root, double and
   triple roots, the linear/quadratic degrade paths, and a one-real-root cubic),
+  **numerical ODE integrators** (M463, `math::integrateRK4` / `integrateRK2` / `integrateEuler` /
+  `integrateRK4Steps` — classic Runge-Kutta and Euler steppers that advance any continuous system state
+  by dt given its derivative callable deriv(state, t). The engine's physics uses semi-implicit Euler for
+  contacts; these are the accurate general-purpose integrators for smooth continuous motion where Euler
+  drifts — orbital/n-body motion, springs and pendulums, projectiles with air drag, any custom equation of
+  motion. RK4 is 4th-order (its error shrinks ~16x each time the step halves) and works on plain floats, a
+  vec, or a small phase-space struct. Godot exposes no general integrator to gameplay code -> beyond-Godot.
+  Verified: y'=-y and y'=y recovered to e^-1 and e^1; constant derivative integrated exactly; a harmonic
+  oscillator conserves energy and tracks the analytic cosine over 6+ periods; measured 4th-order
+  convergence (error ratio near 16 as the step halves); and RK4 beats Euler at the same step),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

@@ -107,6 +107,7 @@
 #include "maz/core/SparseTable.hpp"
 #include "maz/game/AllPairsShortestPath.hpp"
 #include "maz/math/Polynomial.hpp"
+#include "maz/math/Integrator.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20203,6 +20204,77 @@ void testPolynomial() {
     }
 }
 
+void testIntegrator() {
+    using math::integrateEuler;
+    using math::integrateRK4;
+    using math::integrateRK4Steps;
+
+    // y' = -y, y(0)=1 -> y(t)=e^-t: RK4 matches the analytic decay closely.
+    {
+        auto f = [](float y, float) { return -y; };
+        const float y = integrateRK4Steps(1.0f, 0.0f, 0.01f, 100, f); // to t=1
+        CHECK(std::fabs(y - std::exp(-1.0f)) < 1e-5f);
+    }
+    // y' = y -> e^t.
+    {
+        auto f = [](float y, float) { return y; };
+        const float y = integrateRK4Steps(1.0f, 0.0f, 0.005f, 200, f);
+        CHECK(std::fabs(y - std::exp(1.0f)) < 1e-4f);
+    }
+    // Constant derivative is integrated exactly (RK4 reproduces linear motion).
+    {
+        auto f = [](float, float) { return 3.5f; };
+        const float y = integrateRK4Steps(2.0f, 0.0f, 0.25f, 8, f); // 2 + 3.5*2 = 9
+        CHECK(std::fabs(y - 9.0f) < 1e-4f);
+    }
+    // Harmonic oscillator x'' = -w^2 x: energy conserved + tracks the analytic cosine.
+    {
+        struct Phase {
+            float x = 0.0f, v = 0.0f;
+            Phase operator+(const Phase& o) const { return {x + o.x, v + o.v}; }
+            Phase operator*(float s) const { return {x * s, v * s}; }
+        };
+        const float w = 2.0f;
+        auto f = [w](const Phase& s, float) { return Phase{s.v, -w * w * s.x}; };
+        Phase s{1.0f, 0.0f}; // x(t)=cos(wt)
+        const float E0 = 0.5f * (s.v * s.v + w * w * s.x * s.x);
+        const float dt = 0.001f;
+        float t = 0.0f;
+        for (int i = 0; i < 20000; ++i) {
+            s = integrateRK4(s, t, dt, f);
+            t += dt;
+            const float E = 0.5f * (s.v * s.v + w * w * s.x * s.x);
+            CHECK(std::fabs(E - E0) < 1e-3f);
+        }
+        CHECK(std::fabs(s.x - std::cos(w * t)) < 1e-2f);
+    }
+    // 4th-order convergence: halving dt cuts error ~16x. Done in double at coarse, exactly
+    // representable steps so truncation error dominates the integrator's float coefficient math.
+    {
+        auto f = [](double y, float) { return -y; };
+        const double exact = std::exp(-1.0);
+        const double e1 = std::fabs(integrateRK4Steps<double>(1.0, 0.0f, 0.5f, 2, f) - exact);
+        const double e2 = std::fabs(integrateRK4Steps<double>(1.0, 0.0f, 0.25f, 4, f) - exact);
+        const double e3 = std::fabs(integrateRK4Steps<double>(1.0, 0.0f, 0.125f, 8, f) - exact);
+        CHECK(e1 > e2 && e2 > e3);
+        CHECK(e1 / e2 > 10.0 && e1 / e2 < 25.0); // near 16 (2nd order would be ~4)
+        CHECK(e2 / e3 > 10.0 && e2 / e3 < 25.0);
+    }
+    // RK4 beats Euler for the same step.
+    {
+        auto f = [](float y, float) { return -y; };
+        const float exact = std::exp(-1.0f);
+        float ey = 1.0f, ry = 1.0f, t = 0.0f;
+        const float dt = 0.1f;
+        for (int i = 0; i < 10; ++i) {
+            ey = integrateEuler(ey, t, dt, f);
+            ry = integrateRK4(ry, t, dt, f);
+            t += dt;
+        }
+        CHECK(std::fabs(ry - exact) < std::fabs(ey - exact));
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28990,6 +29062,7 @@ int main() {
     testSparseTable();
     testAllPairsShortestPath();
     testPolynomial();
+    testIntegrator();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
