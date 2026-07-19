@@ -361,6 +361,11 @@ public:
     // ramp), Triangle, or Trapezoid — reusing the oscillator waveforms. Defaults to Sine.
     void setFilterLfoShape(Waveform w) { filterLfoShape_ = w; }
     Waveform filterLfoShape() const { return filterLfoShape_; }
+    // Cutoff-LFO sample & hold: instead of the periodic shape, jump the cutoff to a new random level
+    // each LFO cycle and hold it — the classic acid/IDM stepped-filter movement. Deterministic (a hash
+    // of the cycle index), so renders stay reproducible. Off (default) = the periodic shape above.
+    void setFilterLfoSampleHold(bool on) { filterLfoSampleHold_ = on; }
+    bool filterLfoSampleHold() const { return filterLfoSampleHold_; }
     // Tempo-sync the cutoff LFO: lock its rate to the transport at the chosen note division (the same
     // 6 divisions as the effects: 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16) for rhythmic filter wobble. Call
     // updateTempo() with the current BPM each block; off (default) = the free-running rate above.
@@ -487,6 +492,7 @@ private:
     float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
     Waveform filterLfoShape_ = Waveform::Sine; // cutoff LFO waveform
+    bool filterLfoSampleHold_ = false; // cutoff LFO random stepped (sample & hold) mode
     bool filterLfoSync_ = false;  // tempo-sync the cutoff LFO rate
     int filterLfoSyncDiv_ = 3;    // sync note-division index (default 1/8)
     bool ampLfoSync_ = false;     // tempo-sync the tremolo LFO rate

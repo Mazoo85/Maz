@@ -114,6 +114,41 @@ int main() {
         check(dls.filterLfoShape() == audio::Waveform::Sine, "cutoff LFO shape defaults to sine");
     }
 
+    // --- Filter cutoff LFO sample & hold ------------------------------------
+    {
+        // Brightness (HF/energy) of a 0.2 s window starting at `startSec` of a 2 s render.
+        auto winBright = [&](bool sampleHold, double startSec) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(500.0f, 0.7f, 0.0f); // low base cutoff so the LFO moves the tone a lot
+            s.setFilterLfo(1.0f, 3.0f);       // 1 Hz → one cycle per second, ±3 octaves
+            s.setFilterLfoSampleHold(sampleHold);
+            s.noteOn(45, 1.0f);
+            const std::vector<float> out = render(s, sampleRate * 2, sampleRate); // 2 s
+            const int a = static_cast<int>(startSec * sampleRate);
+            const int b = a + sampleRate / 5; // 0.2 s window
+            double h = 0.0, en = 0.0;
+            for (int i = a + 1; i < b; ++i) {
+                const double d = static_cast<double>(out[static_cast<size_t>(i)] - out[static_cast<size_t>(i - 1)]);
+                h += d * d;
+                en += static_cast<double>(out[static_cast<size_t>(i)]) * out[static_cast<size_t>(i)];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        // Both windows (0.2 s and 0.7 s) sit inside the SAME first LFO cycle (0..1 s). Sample & hold
+        // parks the cutoff for the whole cycle, so the two windows are ~equally bright; a sine LFO
+        // sweeps across the cycle, so its two windows differ far more.
+        const double shA = winBright(true, 0.2), shB = winBright(true, 0.7);
+        const double snA = winBright(false, 0.2), snB = winBright(false, 0.7);
+        const double shVar = std::fabs(shA - shB);
+        const double snVar = std::fabs(snA - snB);
+        check(shVar < snVar * 0.5,
+              "sample & hold parks the cutoff within a cycle (far flatter than a swept sine LFO)");
+        audio::SynthInstrument dsh;
+        check(!dsh.filterLfoSampleHold(), "cutoff LFO sample & hold defaults to off");
+    }
+
     // --- Tremolo (amp LFO) tempo sync ---------------------------------------
     {
         audio::SynthInstrument syn;

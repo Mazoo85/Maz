@@ -4,8 +4,24 @@
 #include "maz/audio/Pitch.hpp"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace maz::audio {
+
+namespace {
+// Deterministic sample & hold: a well-distributed value in [-1,1) that holds for each integer cycle
+// of the phase `p` (same floor(p) → same value), matching the LFO struct's random-stepped mode.
+float sampleHoldValue(double p) {
+    const long long step = static_cast<long long>(std::floor(p));
+    uint32_t x = static_cast<uint32_t>(step) * 2654435761u + 0x9E3779B9u;
+    x ^= x >> 15;
+    x *= 0x85EBCA6Bu;
+    x ^= x >> 13;
+    x *= 0xC2B2AE35u;
+    x ^= x >> 16;
+    return static_cast<float>(x) / 2147483648.0f - 1.0f;
+}
+} // namespace
 
 void SynthInstrument::setEnvelope(float attack, float decay, float sustain, float release) {
     attack_ = std::max(attack, 0.0001f);
@@ -509,9 +525,12 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 // Cutoff LFO: sweep the cutoff up/down by ±depth octaves for wobble/auto-wah movement.
                 if (filterLfoDepth_ > 0.0f) {
-                    double fp = filterLfoPhase_ + static_cast<double>(i) * filtLfoInc;
-                    fp -= std::floor(fp); // wrap into [0,1) for the (non-sine) shapes
-                    cutoff *= std::pow(2.0f, filterLfoDepth_ * waveSample(filterLfoShape_, fp));
+                    const double fp = filterLfoPhase_ + static_cast<double>(i) * filtLfoInc;
+                    // Sample & hold jumps to a new random level each cycle; else read the periodic shape.
+                    const float lfoVal = filterLfoSampleHold_
+                                             ? sampleHoldValue(fp)
+                                             : waveSample(filterLfoShape_, fp - std::floor(fp));
+                    cutoff *= std::pow(2.0f, filterLfoDepth_ * lfoVal);
                 }
                 cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
                 // Filter drive: overdrive the signal into the filter (tanh) for harmonics/grit before

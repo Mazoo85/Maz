@@ -167,6 +167,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> pdAmt) {
         syn.setPdAmount(pdAmt);
     }
+    int flSH = 0; // filter-LFO sample & hold optional for old files (0 = periodic shape)
+    if (ls >> flSH) {
+        syn.setFilterLfoSampleHold(flSH != 0);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -310,7 +314,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << " "
           << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
           << static_cast<int>(s.filterLfoShape()) << " " << static_cast<int>(s.ampLfoShape()) << " "
-          << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << "\n";
+          << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << " "
+          << (s.filterLfoSampleHold() ? 1 : 0) << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

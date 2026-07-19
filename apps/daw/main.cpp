@@ -1206,6 +1206,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(90.0f);
     if (ImGui::Combo("LFO shape##fl", &flShape, flShapes, 6))
         syn.setFilterLfoShape(static_cast<audio::Waveform>(flShape));
+    ImGui::SameLine();
+    bool flSH = syn.filterLfoSampleHold();
+    if (ImGui::Checkbox("S&H##fl", &flSH)) syn.setFilterLfoSampleHold(flSH); // random stepped cutoff
     float aLfoRate = syn.ampLfoRate(), aLfoDepth = syn.ampLfoDepth();
     bool alch = ImGui::SliderFloat("Tremolo Hz", &aLfoRate, 0.0f, 20.0f, "%.2f");
     alch |= ImGui::SliderFloat("Tremolo depth", &aLfoDepth, 0.0f, 1.0f, "%.2f");
