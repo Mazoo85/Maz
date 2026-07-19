@@ -102,7 +102,9 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   and animation state against NaN/inf propagation after a bad divide or blow-up; M346 adds
   stepDecimals — Godot's @GlobalScope.step_decimals: the decimal-place count implied by a step value
   (0.01->2, 0.001->3, 1->0), via Godot's exact epsilon-guarded lookup table, for picking display
-  precision; verified against integer/fractional/negative steps and the 10-decimal cap),
+  precision; verified against integer/fractional/negative steps and the 10-decimal cap; M347 adds the
+  scalar clampf / clampi — Godot's @GlobalScope.clampf / clampi (clamp a float / 64-bit int into a
+  range), coexisting unambiguously with the vector clampf via scalar-first overloading, verified),
   **Vector2i/Vector3i** (M270,
   `math::VectorInt` — Godot's integer vectors for tile/grid coords, indices and pixel sizes: exact
   arithmetic with truncating integer division, abs/sign, clamp/min/max, overflow-safe 64-bit

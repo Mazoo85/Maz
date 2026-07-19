@@ -34,6 +34,13 @@ inline float remap(float v, float iMin, float iMax, float oMin, float oMax) {
     return lerpf(oMin, oMax, inverseLerp(iMin, iMax, v));
 }
 
+// Clamp a scalar into [lo, hi] — Godot's @GlobalScope.clampf / clampi. (The vector clampf lives in
+// VectorOps; these overload on a scalar first argument, so both coexist without ambiguity.)
+inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+inline std::int64_t clampi(std::int64_t v, std::int64_t lo, std::int64_t hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
 // Wrap a float into [min, max) (looping), carrying the sign of the range — Godot's wrapf.
 inline float wrapf(float value, float minv, float maxv) {
     const float range = maxv - minv;

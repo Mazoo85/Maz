@@ -350,6 +350,12 @@ void testMathFuncs() {
         CHECK((!isInff(ok_val) && !isInff(bad_nan)));
     }
 
+    // M347: scalar clampf / clampi (Godot @GlobalScope.clampf / clampi).
+    CHECK_NEAR(clampf(5.0f, 0.0f, 10.0f), 5.0f, 1e-6f);
+    CHECK((clampf(-3.0f, 0.0f, 10.0f) == 0.0f && clampf(99.0f, 0.0f, 10.0f) == 10.0f));
+    CHECK((clampi(5, 0, 10) == 5 && clampi(-7, 0, 10) == 0 && clampi(42, 0, 10) == 10));
+    CHECK(clampi(-2, -5, -1) == -2);
+
     // M346: step_decimals (Godot @GlobalScope.step_decimals — decimal count of a step value).
     CHECK((stepDecimals(1.0) == 0 && stepDecimals(0.0) == 0));
     CHECK((stepDecimals(0.1) == 1 && stepDecimals(0.01) == 2 && stepDecimals(0.001) == 3));
