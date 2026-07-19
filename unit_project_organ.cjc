@@ -32,6 +32,7 @@ fx hp 0 30
 fx comp 0 -18 4 8 120 0 0 1 0 0 0
 fx multiband 0 250 2500 -18 3 -18 3 -18 3 10 120
 fx transient 0 0 0
+fx mbtransient 0 200 2000 0 0 0 0 0 0
 fx delay 0 300 0.35 0.3 0 0 0 4 0 0 0.3 0
 fx reverb 0 0.7 0.35 0.25 0 1 0 0 0 20000 0 0
 fx peq 0 0 1000 1 0 0 3500 1 0 7000 1 0

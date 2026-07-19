@@ -414,6 +414,12 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << mixer.multiband().attackMs() << " " << mixer.multiband().releaseMs() << "\n";
     f << "fx transient " << (mixer.transient().enabled() ? 1 : 0) << " "
       << mixer.transient().attack() << " " << mixer.transient().sustain() << "\n";
+    f << "fx mbtransient " << (mixer.multibandTransient().enabled() ? 1 : 0) << " "
+      << mixer.multibandTransient().crossoverLow() << " "
+      << mixer.multibandTransient().crossoverHigh() << " " << mixer.multibandTransient().attack(0)
+      << " " << mixer.multibandTransient().sustain(0) << " " << mixer.multibandTransient().attack(1)
+      << " " << mixer.multibandTransient().sustain(1) << " " << mixer.multibandTransient().attack(2)
+      << " " << mixer.multibandTransient().sustain(2) << "\n";
     f << "fx delay " << (mixer.delay().enabled() ? 1 : 0) << " " << mixer.delay().time() << " "
       << mixer.delay().feedback() << " " << mixer.delay().mix() << " "
       << (mixer.delay().pingPong() ? 1 : 0) << " " << mixer.delay().damping() << " "
@@ -1021,6 +1027,20 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
                 mixer.transient().setEnabled(en != 0);
                 mixer.transient().setAttack(atk);
                 mixer.transient().setSustain(sus);
+            } else if (which == "mbtransient") {
+                float clo = 200.0f, chi = 2000.0f, a0 = 0.0f, s0 = 0.0f, a1 = 0.0f, s1 = 0.0f,
+                      a2 = 0.0f, s2 = 0.0f;
+                ls >> clo >> chi >> a0 >> s0 >> a1 >> s1 >> a2 >> s2;
+                auto& mt = mixer.multibandTransient();
+                mt.setEnabled(en != 0);
+                mt.setCrossoverLow(clo);
+                mt.setCrossoverHigh(chi);
+                mt.setAttack(0, a0);
+                mt.setSustain(0, s0);
+                mt.setAttack(1, a1);
+                mt.setSustain(1, s1);
+                mt.setAttack(2, a2);
+                mt.setSustain(2, s2);
             } else if (which == "delay") {
                 float t = 300.0f, fb = 0.35f, mix = 0.3f;
                 ls >> t >> fb >> mix;

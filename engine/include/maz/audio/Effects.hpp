@@ -543,6 +543,45 @@ private:
     float envRelFast_ = 0.0f, envRelSlow_ = 0.0f;
 };
 
+// A 3-band transient shaper: split the signal into low/mid/high over two crossovers (the same
+// exact-reconstruction one-pole split as the multiband compressor / imager) and shape each band's
+// attack and sustain independently — snap the drum highs while tightening the low sustain, add body
+// to the mids, etc. Each band reuses the full-band shaper's fast-vs-slow envelope detection. With all
+// attack/sustain at 0 (default) every band's gain is 1, so the split sums back to the input exactly.
+class MultibandTransientShaper : public Effect {
+public:
+    static constexpr int kBands = 3; // 0 = low, 1 = mid, 2 = high
+    MultibandTransientShaper() { enabled_ = false; }
+    const char* name() const override { return "Multiband Transient"; }
+    void setCrossoverLow(float hz) { crossLow_ = hz < 20.0f ? 20.0f : (hz > 2000.0f ? 2000.0f : hz); }
+    void setCrossoverHigh(float hz) {
+        crossHigh_ = hz < 200.0f ? 200.0f : (hz > 18000.0f ? 18000.0f : hz);
+    }
+    void setAttack(int band, float a) {
+        if (band >= 0 && band < kBands) attack_[band] = a < -1.0f ? -1.0f : (a > 1.0f ? 1.0f : a);
+    }
+    void setSustain(int band, float s) {
+        if (band >= 0 && band < kBands) sustain_[band] = s < -1.0f ? -1.0f : (s > 1.0f ? 1.0f : s);
+    }
+    float crossoverLow() const { return crossLow_; }
+    float crossoverHigh() const { return crossHigh_; }
+    float attack(int band) const { return band >= 0 && band < kBands ? attack_[band] : 0.0f; }
+    float sustain(int band) const { return band >= 0 && band < kBands ? sustain_[band] : 0.0f; }
+
+    void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
+
+private:
+    float crossLow_ = 200.0f;
+    float crossHigh_ = 2000.0f;
+    float attack_[kBands] = {0.0f, 0.0f, 0.0f};
+    float sustain_[kBands] = {0.0f, 0.0f, 0.0f};
+    float lp1L_ = 0.0f, lp1R_ = 0.0f; // one-pole LP state at the low/mid crossover
+    float lp2L_ = 0.0f, lp2R_ = 0.0f; // one-pole LP state at the mid/high crossover
+    float attF_[kBands] = {0, 0, 0}, attS_[kBands] = {0, 0, 0}; // per-band attack-detector followers
+    float relF_[kBands] = {0, 0, 0}, relS_[kBands] = {0, 0, 0}; // per-band sustain-detector followers
+};
+
 // A one-knob "tilt" EQ (mastering tone control): a single `tilt` in dB pivots the spectrum around a
 // centre frequency — positive brightens (low shelf down, high shelf up by tilt/2), negative darkens.
 class TiltEQ : public Effect {

@@ -1717,6 +1717,56 @@ int main() {
               "multiband saturator defaults to off/clean");
     }
 
+    // --- Multiband transient shaper: per-band attack targets its own band -----
+    {
+        // A high-frequency (5 kHz) burst with a sharp onset, mostly in the high band.
+        auto burst = [&]() {
+            std::vector<float> b(static_cast<size_t>(sr) / 10 * 2, 0.0f); // 100 ms stereo
+            for (int i = 0; i < sr / 10; ++i) {
+                const float env = std::exp(-static_cast<float>(i) / (0.02f * sr));
+                const float s = env * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 5000.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            return b;
+        };
+        auto onsetPeak = [&](const std::vector<float>& b) {
+            float p = 0.0f;
+            for (int i = 0; i < sr / 200; ++i) p = std::max(p, std::fabs(b[static_cast<size_t>(i) * 2]));
+            return p;
+        };
+        auto shaped = [&](float loAtk, float hiAtk) {
+            audio::MultibandTransientShaper mt;
+            mt.setEnabled(true);
+            mt.setCrossoverLow(200.0f);
+            mt.setCrossoverHigh(2000.0f);
+            mt.setAttack(0, loAtk);
+            mt.setAttack(2, hiAtk);
+            std::vector<float> b = burst();
+            mt.process(b.data(), sr / 10, sr);
+            return onsetPeak(b);
+        };
+        const float flat = onsetPeak(burst());
+        const float hiBoost = shaped(0.0f, 1.0f); // boost the high band's attack
+        const float loBoost = shaped(1.0f, 0.0f); // boost the low band's attack
+        check(hiBoost > flat * 2.0f, "high-band attack lifts a high burst's onset");
+        check(hiBoost > loBoost * 2.0f,
+              "attack targets its own band (high boost >> low boost on a high burst)");
+        // All bands flat → exact reconstruction (transparent).
+        audio::MultibandTransientShaper mt;
+        mt.setEnabled(true);
+        std::vector<float> t = sineStereo(sr / 4, 440.0, 0.5, sr);
+        std::vector<float> ref = t;
+        mt.process(t.data(), sr / 4, sr);
+        bool same = true;
+        for (size_t i = 0; i < t.size(); ++i)
+            if (std::fabs(t[i] - ref[i]) > 1e-5f) same = false;
+        check(same, "a flat multiband transient shaper is transparent");
+        check(audio::MultibandTransientShaper().attack(0) == 0.0f &&
+                  !audio::MultibandTransientShaper().enabled(),
+              "multiband transient shaper defaults to off/flat");
+    }
+
     // --- Bitcrusher: quantization changes the signal but keeps energy --------
     {
         audio::Bitcrusher crush;

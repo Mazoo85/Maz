@@ -800,6 +800,69 @@ void TransientShaper::process(float* stereo, int frames, int sampleRate) {
     }
 }
 
+// ---- Multiband Transient Shaper ---------------------------------------------
+
+void MultibandTransientShaper::reset() {
+    lp1L_ = lp1R_ = lp2L_ = lp2R_ = 0.0f;
+    for (int b = 0; b < kBands; ++b) {
+        attF_[b] = attS_[b] = relF_[b] = relS_[b] = 0.0f;
+    }
+}
+
+void MultibandTransientShaper::process(float* stereo, int frames, int sampleRate) {
+    if (!enabled_ || frames <= 0 || sampleRate <= 0) {
+        return;
+    }
+    const float sr = static_cast<float>(sampleRate);
+    auto coef = [sr](float ms) { return 1.0f - std::exp(-1.0f / (0.001f * ms * sr)); };
+    const float aFast = coef(0.5f), aSlow = coef(15.0f);   // attack detector pair
+    const float rFast = coef(40.0f), rSlow = coef(300.0f); // sustain detector release pair
+    const float relAtk = coef(1.0f);                       // shared quick attack for the release pair
+    constexpr float kEps = 1e-6f;
+    const float lo = std::min(crossLow_, crossHigh_);
+    const float hi = std::max(crossLow_, crossHigh_);
+    const float a1 = std::exp(-2.0f * 3.14159265358979f * lo / sr);
+    const float a2 = std::exp(-2.0f * 3.14159265358979f * hi / sr);
+    for (int i = 0; i < frames; ++i) {
+        const float l = stereo[2 * i];
+        const float r = stereo[2 * i + 1];
+        // Exact-reconstruction one-pole split (low + mid + high == input).
+        lp1L_ = a1 * lp1L_ + (1.0f - a1) * l;
+        lp1R_ = a1 * lp1R_ + (1.0f - a1) * r;
+        lp2L_ = a2 * lp2L_ + (1.0f - a2) * l;
+        lp2R_ = a2 * lp2R_ + (1.0f - a2) * r;
+        const float bandsL[kBands] = {lp1L_, lp2L_ - lp1L_, l - lp2L_};
+        const float bandsR[kBands] = {lp1R_, lp2R_ - lp1R_, r - lp2R_};
+        float outL = 0.0f, outR = 0.0f;
+        for (int b = 0; b < kBands; ++b) {
+            if (attack_[b] == 0.0f && sustain_[b] == 0.0f) {
+                outL += bandsL[b];
+                outR += bandsR[b];
+                continue;
+            }
+            const float mag = std::max(std::fabs(bandsL[b]), std::fabs(bandsR[b]));
+            // Attack: fast follower leads the slow one on an onset.
+            attF_[b] += aFast * (mag - attF_[b]);
+            attS_[b] += aSlow * (mag - attS_[b]);
+            const float attTrans = attF_[b] - attS_[b];
+            const float attRatio = attTrans > 0.0f ? attTrans / (attS_[b] + kEps) : 0.0f;
+            // Sustain: quick attack, then fast vs slow release → slow lags on the body/tail.
+            const float cUpF = mag > relF_[b] ? relAtk : rFast;
+            const float cUpS = mag > relS_[b] ? relAtk : rSlow;
+            relF_[b] += cUpF * (mag - relF_[b]);
+            relS_[b] += cUpS * (mag - relS_[b]);
+            const float susTrans = relS_[b] - relF_[b];
+            const float susRatio = susTrans > 0.0f ? susTrans / (relS_[b] + kEps) : 0.0f;
+            float gain = 1.0f + attack_[b] * attRatio + sustain_[b] * susRatio;
+            gain = gain < 0.05f ? 0.05f : (gain > 8.0f ? 8.0f : gain);
+            outL += bandsL[b] * gain;
+            outR += bandsR[b] * gain;
+        }
+        stereo[2 * i] = outL;
+        stereo[2 * i + 1] = outR;
+    }
+}
+
 // ---- TiltEQ -----------------------------------------------------------------
 
 void TiltEQ::reset() {

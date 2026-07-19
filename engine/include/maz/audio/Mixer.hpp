@@ -50,6 +50,7 @@ public:
     Compressor& compressor() { return comp_; }
     MultibandCompressor& multiband() { return mbcomp_; }
     TransientShaper& transient() { return transient_; }
+    MultibandTransientShaper& multibandTransient() { return mbtransient_; }
     Chorus& chorus() { return chorus_; }
     Vibrato& vibrato() { return vibrato_; }
     FrequencyShifter& freqShifter() { return freqshift_; }
@@ -143,6 +144,7 @@ private:
     Compressor comp_{};
     MultibandCompressor mbcomp_{};
     TransientShaper transient_{};
+    MultibandTransientShaper mbtransient_{};
     Chorus chorus_{};
     Vibrato vibrato_{};
     FrequencyShifter freqshift_{};

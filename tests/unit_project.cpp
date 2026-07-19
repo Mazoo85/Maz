@@ -231,6 +231,15 @@ int main() {
     mixer.transient().setEnabled(true);
     mixer.transient().setAttack(0.6f);
     mixer.transient().setSustain(-0.3f);
+    mixer.multibandTransient().setEnabled(true);
+    mixer.multibandTransient().setCrossoverLow(180.0f);
+    mixer.multibandTransient().setCrossoverHigh(2600.0f);
+    mixer.multibandTransient().setAttack(0, -0.4f);
+    mixer.multibandTransient().setSustain(0, 0.2f);
+    mixer.multibandTransient().setAttack(1, 0.1f);
+    mixer.multibandTransient().setSustain(1, -0.1f);
+    mixer.multibandTransient().setAttack(2, 0.7f);
+    mixer.multibandTransient().setSustain(2, -0.5f);
     mixer.autopan().setEnabled(true);
     mixer.autopan().setRate(2.5f);
     mixer.autopan().setDepth(0.8f);
@@ -783,6 +792,14 @@ int main() {
     check(mixer2.exciter().enabled() && near(mixer2.exciter().crossover(), 6500.0f) &&
               near(mixer2.exciter().amount(), 0.42f),
           "exciter round-trips");
+    check(mixer2.multibandTransient().enabled() &&
+              near(mixer2.multibandTransient().crossoverLow(), 180.0f) &&
+              near(mixer2.multibandTransient().crossoverHigh(), 2600.0f) &&
+              near(mixer2.multibandTransient().attack(0), -0.4f) &&
+              near(mixer2.multibandTransient().sustain(0), 0.2f) &&
+              near(mixer2.multibandTransient().attack(2), 0.7f) &&
+              near(mixer2.multibandTransient().sustain(2), -0.5f),
+          "multiband transient shaper round-trips");
     check(mixer2.transient().enabled() && near(mixer2.transient().attack(), 0.6f) &&
               near(mixer2.transient().sustain(), -0.3f),
           "transient shaper round-trips");

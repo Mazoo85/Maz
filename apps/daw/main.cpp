@@ -1797,6 +1797,32 @@ void buildMixerUI(audio::AudioEngine& engine) {
             mx.transient().setSustain(sus);
     }
     {
+        auto& mt = mx.multibandTransient();
+        bool en = mt.enabled();
+        if (ImGui::Checkbox("Multiband Transient", &en)) mt.setEnabled(en);
+        float clo = mt.crossoverLow(), chi = mt.crossoverHigh();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("lo/mid##mbt", &clo, 20.0f, 2000.0f, "%.0f")) mt.setCrossoverLow(clo);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("mid/hi##mbt", &chi, 200.0f, 18000.0f, "%.0f")) mt.setCrossoverHigh(chi);
+        const char* bandNm[3] = {"low", "mid", "high"};
+        for (int b = 0; b < audio::MultibandTransientShaper::kBands; ++b) {
+            ImGui::PushID(200 + b);
+            float a = mt.attack(b);
+            ImGui::SetNextItemWidth(110.0f);
+            if (ImGui::SliderFloat((std::string("atk ") + bandNm[b]).c_str(), &a, -1.0f, 1.0f, "%.2f"))
+                mt.setAttack(b, a);
+            ImGui::SameLine();
+            float s = mt.sustain(b);
+            ImGui::SetNextItemWidth(110.0f);
+            if (ImGui::SliderFloat((std::string("sus ") + bandNm[b]).c_str(), &s, -1.0f, 1.0f, "%.2f"))
+                mt.setSustain(b, s);
+            ImGui::PopID();
+        }
+    }
+    {
         bool en = mx.deEsser().enabled();
         if (ImGui::Checkbox("De-Esser", &en)) mx.deEsser().setEnabled(en);
         float thr = mx.deEsser().thresholdDb();
