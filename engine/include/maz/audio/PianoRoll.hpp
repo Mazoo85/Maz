@@ -34,7 +34,9 @@ enum class Chord {
     Maj9,
     Min9,
     Dom9,
-    Add9
+    Add9,
+    Dim7,     // diminished 7th (0,3,6,9)
+    HalfDim7  // half-diminished / m7♭5 (0,3,6,10)
 };
 
 // Musical scales for the scale-snap tool. Each maps to the set of semitone degrees (0..11) it allows

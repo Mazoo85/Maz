@@ -1365,6 +1365,18 @@ int main() {
         a9.addChord(0, 1, 60, audio::Chord::Add9);
         check(a9.hasNote(74, 0) && !a9.hasNote(70, 0) && !a9.hasNote(71, 0),
               "add9 has the ninth but no seventh");
+
+        // Diminished 7th: root + m3 + b5 + bb7 (0,3,6,9).
+        audio::PianoRoll dim7;
+        check(dim7.addChord(0, 1, 60, audio::Chord::Dim7) == 4, "a diminished 7th is four notes");
+        check(dim7.hasNote(60, 0) && dim7.hasNote(63, 0) && dim7.hasNote(66, 0) && dim7.hasNote(69, 0),
+              "dim7 stacks minor thirds (0,3,6,9)");
+
+        // Half-diminished (m7b5): root + m3 + b5 + b7 (0,3,6,10).
+        audio::PianoRoll hd;
+        check(hd.addChord(0, 1, 60, audio::Chord::HalfDim7) == 4, "a half-diminished 7th is four notes");
+        check(hd.hasNote(60, 0) && hd.hasNote(63, 0) && hd.hasNote(66, 0) && hd.hasNote(70, 0),
+              "m7b5 is a diminished triad with a minor 7th (0,3,6,10)");
     }
 
     // --- Scale snap ----------------------------------------------------------

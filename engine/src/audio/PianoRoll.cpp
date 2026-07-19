@@ -63,6 +63,12 @@ int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord cho
     case Chord::Add9:
         offsets = {0, 4, 7, 14};
         break;
+    case Chord::Dim7:
+        offsets = {0, 3, 6, 9};
+        break;
+    case Chord::HalfDim7:
+        offsets = {0, 3, 6, 10};
+        break;
     }
     for (int off : offsets) {
         Note n;
