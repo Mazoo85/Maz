@@ -1218,6 +1218,7 @@ void MasterFilter::process(float* stereo, int frames, int sampleRate) {
 
 void Compressor::reset() {
     env_ = 0.0f;
+    rmsEnv_ = 0.0f;
     scLpL_ = 0.0f;
     scLpR_ = 0.0f;
     grDb_ = 0.0f;
@@ -1233,6 +1234,7 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
     const float sr = static_cast<float>(sampleRate);
     const float atkCoef = std::exp(-1.0f / (std::max(attackMs_, 0.01f) * 0.001f * sr));
     const float relCoef = std::exp(-1.0f / (std::max(releaseMs_, 0.01f) * 0.001f * sr));
+    const float rmsCoef = std::exp(-1.0f / (0.010f * sr)); // ~10 ms RMS averaging window
     const float makeup = dbToLin(effectiveMakeupDb());
     const float ratio = std::max(ratio_, 1.0f);
     // Sidechain high-pass on the detection signal only (0 = off): removes lows from what drives the
@@ -1271,11 +1273,20 @@ void Compressor::process(float* stereo, int frames, int sampleRate) {
             dl = l - scLpL_; // high-passed
             dr = r - scLpR_;
         }
-        const float peak = std::max(std::fabs(dl), std::fabs(dr));
+        // Detection level: instantaneous peak (default) or an RMS (average-power) follower over a
+        // short window, which brief transients barely move — the smoother "glue" compression.
+        float level;
+        if (rmsMode_) {
+            const float ms = 0.5f * (dl * dl + dr * dr);
+            rmsEnv_ = rmsCoef * rmsEnv_ + (1.0f - rmsCoef) * ms;
+            level = std::sqrt(rmsEnv_);
+        } else {
+            level = std::max(std::fabs(dl), std::fabs(dr));
+        }
 
-        // Peak-following envelope (fast attack, slow release).
-        const float coef = peak > env_ ? atkCoef : relCoef;
-        env_ = coef * env_ + (1.0f - coef) * peak;
+        // Envelope follower (fast attack, slow release).
+        const float coef = level > env_ ? atkCoef : relCoef;
+        env_ = coef * env_ + (1.0f - coef) * level;
 
         // Static gain computer in dB, with an optional soft knee around the threshold.
         const float envDb = linToDb(env_);

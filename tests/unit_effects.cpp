@@ -387,6 +387,42 @@ int main() {
         check(dc.lookaheadMs() == 0.0f, "compressor lookahead defaults to 0 (off)");
     }
 
+    // --- Compressor RMS detection: a brief transient is compressed less than in peak mode ----
+    {
+        // A quiet steady tone with a short loud burst. Peak detection clamps the burst hard; RMS
+        // detection (a ~10 ms average) barely rises over the brief burst, so it passes louder.
+        auto burstPeak = [&](bool rms) {
+            audio::Compressor c;
+            c.setEnabled(true);
+            c.setThresholdDb(-30.0f);
+            c.setRatio(10.0f);
+            c.setAttackMs(1.0f);
+            c.setReleaseMs(120.0f);
+            c.setMix(1.0f);
+            c.setRmsDetection(rms);
+            const int frames = sr / 4;
+            const int burstStart = frames / 2;
+            const int burstLen = sr / 400; // ~2.5 ms burst
+            std::vector<float> b(static_cast<size_t>(frames) * 2, 0.0f);
+            for (int i = 0; i < frames; ++i) {
+                const bool inBurst = i >= burstStart && i < burstStart + burstLen;
+                const float amp = inBurst ? 0.9f : 0.02f; // loud burst over a quiet bed
+                const float s = amp * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 300.0 * i / sr));
+                b[static_cast<size_t>(i) * 2] = s;
+                b[static_cast<size_t>(i) * 2 + 1] = s;
+            }
+            c.process(b.data(), frames, sr);
+            float pk = 0.0f;
+            for (int i = burstStart; i < burstStart + burstLen; ++i) {
+                pk = std::max(pk, std::fabs(b[static_cast<size_t>(i) * 2]));
+            }
+            return pk;
+        };
+        check(burstPeak(true) > burstPeak(false) * 1.15f,
+              "RMS detection lets a brief transient through louder than peak detection");
+        check(!audio::Compressor().rmsDetection(), "compressor detection defaults to peak (RMS off)");
+    }
+
     // --- Compressor sidechain HPF: lows don't drive the detection ------------
     {
         // A loud, pure low tone (60 Hz) above the threshold.

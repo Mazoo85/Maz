@@ -201,6 +201,7 @@ int main() {
     mixer.compressor().setSidechainHpf(90.0f);
     mixer.compressor().setAutoMakeup(true);
     mixer.compressor().setLookaheadMs(3.0f);
+    mixer.compressor().setRmsDetection(true);
     mixer.multiband().setEnabled(true);
     mixer.multiband().setCrossoverLow(180.0f);
     mixer.multiband().setCrossoverHigh(3200.0f);
@@ -801,6 +802,7 @@ int main() {
     check(near(mixer2.compressor().sidechainHpf(), 90.0f), "compressor sidechain HPF round-trips");
     check(mixer2.compressor().autoMakeup(), "compressor auto-makeup round-trips");
     check(near(mixer2.compressor().lookaheadMs(), 3.0f), "compressor lookahead round-trips");
+    check(mixer2.compressor().rmsDetection(), "compressor RMS detection round-trips");
     check(mixer2.compressor().enabled() && near(mixer2.compressor().thresholdDb(), -20.0f) &&
               near(mixer2.compressor().ratio(), 6.0f) && near(mixer2.compressor().makeupDb(), 4.0f),
           "compressor round-trips");

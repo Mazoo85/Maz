@@ -1833,6 +1833,9 @@ void buildMixerUI(audio::AudioEngine& engine) {
         if (ImGui::SliderFloat("lookahead##cmp", &la, 0.0f, 10.0f, la <= 0.0f ? "no lookahead" : "%.1f ms"))
             mx.compressor().setLookaheadMs(la);
         ImGui::SameLine();
+        bool rms = mx.compressor().rmsDetection();
+        if (ImGui::Checkbox("RMS##cmp", &rms)) mx.compressor().setRmsDetection(rms);
+        ImGui::SameLine();
         ImGui::Text("GR %.1f dB", mx.compressor().gainReductionDb());
     }
     {
