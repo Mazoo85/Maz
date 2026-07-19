@@ -108,6 +108,7 @@ int main() {
     seq.synth().setFilterLfoShape(audio::Waveform::Square);
     seq.synth().setFilterLfoSampleHold(true);
     seq.synth().setFilterSlope(24);
+    seq.synth().setNoiseAttack(0.55f, 22.0f);
     seq.synth().setAmpLfoSync(true);
     seq.synth().setAmpLfoSyncDivision(5); // 1/16
     seq.synth().setAmpLfoShape(audio::Waveform::Saw);
@@ -673,6 +674,9 @@ int main() {
           "filter LFO shape round-trips");
     check(seq2.synth().filterLfoSampleHold(), "filter LFO sample & hold round-trips");
     check(seq2.synth().filterSlope() == 24, "filter slope round-trips");
+    check(near(seq2.synth().noiseAttackAmount(), 0.55f) &&
+              near(seq2.synth().noiseAttackDecay(), 22.0f),
+          "noise attack round-trips");
     check(seq2.synth().ampLfoSync() && seq2.synth().ampLfoSyncDivision() == 5,
           "tremolo LFO tempo sync round-trips");
     check(seq2.synth().ampLfoShape() == audio::Waveform::Saw, "tremolo LFO shape round-trips");

@@ -546,6 +546,20 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             }
 
+            // Noise attack transient: a fast-decaying white-noise burst on each note's onset — a
+            // percussive click/chiff added post-filter so it stays bright. Uses the voice's own RNG.
+            if (noiseAttackAmt_ > 0.0f) {
+                const float nenv = std::exp(-static_cast<float>(v.ageSamples) /
+                                            (noiseAttackDecayMs_ * 0.001f * sr));
+                if (nenv > 0.0005f) {
+                    v.rng ^= v.rng << 13;
+                    v.rng ^= v.rng >> 17;
+                    v.rng ^= v.rng << 5;
+                    const float wn = static_cast<float>(v.rng) / 2147483648.0f - 1.0f;
+                    osc += noiseAttackAmt_ * nenv * wn;
+                }
+            }
+
             // Velocity → amplitude, scaled by sensitivity: at 1 the velocity fully sets loudness, at
             // 0 every note is equally loud regardless of how hard it was played.
             const float velAmp = (1.0f - velSens_) + velSens_ * v.velocity;

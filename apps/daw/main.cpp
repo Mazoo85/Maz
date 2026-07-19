@@ -1163,6 +1163,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     if (pech) {
         syn.setPitchEnv(peAmt, peTime);
     }
+    float naAmt = syn.noiseAttackAmount();
+    float naDecay = syn.noiseAttackDecay();
+    bool nach = ImGui::SliderFloat("Noise attack", &naAmt, 0.0f, 1.0f, naAmt <= 0.0f ? "off" : "%.2f");
+    nach |= ImGui::SliderFloat("Noise atk decay", &naDecay, 1.0f, 200.0f, "%.0f ms");
+    if (nach) {
+        syn.setNoiseAttack(naAmt, naDecay);
+    }
 
     ImGui::SeparatorText("Filter (resonant low-pass)");
     float cutoff = syn.filterCutoff();

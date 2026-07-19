@@ -175,6 +175,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> fslope) {
         syn.setFilterSlope(fslope);
     }
+    float naAmt = 0.0f, naDecay = 15.0f; // noise attack optional for old files (0 = off)
+    if (ls >> naAmt >> naDecay) {
+        syn.setNoiseAttack(naAmt, naDecay);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -319,7 +323,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
           << static_cast<int>(s.filterLfoShape()) << " " << static_cast<int>(s.ampLfoShape()) << " "
           << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << " "
-          << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << "\n";
+          << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
+          << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

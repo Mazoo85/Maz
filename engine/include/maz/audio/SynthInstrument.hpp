@@ -103,6 +103,17 @@ public:
     float pitchEnvAmount() const { return pitchEnvAmt_; }
     float pitchEnvTime() const { return pitchEnvTime_; }
 
+    // Noise attack transient: a short burst of white noise added at each note's onset, fading over
+    // `decayMs`, for a percussive click/chiff attack on plucks, pads, and basses (a "spit" the
+    // sustained oscillators can't make on their own). `amount` 0 (default) = off. Per-note, using the
+    // voice's own deterministic noise, so renders stay reproducible.
+    void setNoiseAttack(float amount, float decayMs) {
+        noiseAttackAmt_ = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+        noiseAttackDecayMs_ = decayMs < 1.0f ? 1.0f : (decayMs > 200.0f ? 200.0f : decayMs);
+    }
+    float noiseAttackAmount() const { return noiseAttackAmt_; }
+    float noiseAttackDecay() const { return noiseAttackDecayMs_; }
+
     // Vibrato: a pitch LFO at `rateHz` modulating ±`depthCents`. depth 0 = off. Applies to all
     // voices for expressive, wavering pitch.
     void setVibrato(float rateHz, float depthCents) {
@@ -474,6 +485,8 @@ private:
     float vibDepth_ = 0.0f;     // vibrato depth (cents); 0 = off
     Waveform vibShape_ = Waveform::Sine; // vibrato LFO waveform
     float vibDelay_ = 0.0f;     // vibrato onset delay (seconds); 0 = immediate
+    float noiseAttackAmt_ = 0.0f;     // noise-attack transient level; 0 = off
+    float noiseAttackDecayMs_ = 15.0f; // noise-attack decay time (ms)
     float pitchEnvAmt_ = 0.0f;  // pitch-envelope start offset (semitones); 0 = off
     float pitchEnvTime_ = 0.05f; // pitch-envelope decay time (seconds)
     double vibPhase_ = 0.0;     // vibrato LFO phase (shared across voices)

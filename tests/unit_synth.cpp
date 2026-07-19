@@ -175,6 +175,45 @@ int main() {
         check(dsl.filterSlope() == 24, "filter slope is settable to 24 dB/oct");
     }
 
+    // --- Noise attack transient ---------------------------------------------
+    {
+        auto rendered = [&](float amt) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f); // open filter so we isolate the added noise
+            s.setNoiseAttack(amt, 15.0f);
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        auto onsetHf = [&](const std::vector<float>& b) {
+            double h = 0.0;
+            const int n = sampleRate / 100; // first 10 ms
+            for (int i = 1; i < n; ++i) {
+                const double d = static_cast<double>(b[static_cast<size_t>(i)] - b[static_cast<size_t>(i - 1)]);
+                h += d * d;
+            }
+            return h;
+        };
+        auto steadyRms = [&](const std::vector<float>& b) {
+            double e = 0.0;
+            int c = 0;
+            for (int i = sampleRate / 10; i < sampleRate / 10 + sampleRate / 20; ++i) { // 0.1–0.15 s
+                e += static_cast<double>(b[static_cast<size_t>(i)]) * b[static_cast<size_t>(i)];
+                ++c;
+            }
+            return std::sqrt(e / c);
+        };
+        const std::vector<float> off = rendered(0.0f);
+        const std::vector<float> on = rendered(0.8f);
+        check(onsetHf(on) > onsetHf(off) * 5.0,
+              "noise attack adds a bright transient at the note onset");
+        check(std::fabs(steadyRms(on) - steadyRms(off)) < steadyRms(off) * 0.1 + 1e-4,
+              "the noise attack has decayed away by the sustain (steady tone unchanged)");
+        audio::SynthInstrument dna;
+        check(dna.noiseAttackAmount() == 0.0f, "noise attack defaults to 0 (off)");
+    }
+
     // --- Tremolo (amp LFO) tempo sync ---------------------------------------
     {
         audio::SynthInstrument syn;
