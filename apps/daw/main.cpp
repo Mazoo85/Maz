@@ -900,6 +900,8 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (ImGui::SliderFloat("FM Index", &index, 0.0f, 10.0f, "%.2f")) syn.setFmIndex(index);
         float fb = syn.fmFeedback();
         if (ImGui::SliderFloat("FM Feedback", &fb, 0.0f, 1.0f, "%.2f")) syn.setFmFeedback(fb);
+        float velFm = syn.velToFmIndex();
+        if (ImGui::SliderFloat("Vel>FM Index", &velFm, 0.0f, 10.0f, "%.2f")) syn.setVelToFmIndex(velFm);
     } else {
         float pos = syn.wavetablePosition();
         if (ImGui::SliderFloat("WT Position", &pos, 0.0f, 1.0f, "%.2f"))

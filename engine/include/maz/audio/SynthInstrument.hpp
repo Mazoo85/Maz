@@ -111,6 +111,11 @@ public:
     // richer, more sawtooth-like harmonics. 0 = clean 2-op FM (unchanged).
     void setFmFeedback(float f) { fmFeedback_ = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f); }
     float fmFeedback() const { return fmFeedback_; }
+    // Velocity → FM index (added to the index at full velocity): harder-played notes get a brighter,
+    // more harmonically rich FM tone — the FM-mode analog of velocity → filter cutoff. 0 = off. Only
+    // has an effect in FM mode.
+    void setVelToFmIndex(float amt) { velFmIndex_ = amt < 0.0f ? 0.0f : (amt > 20.0f ? 20.0f : amt); }
+    float velToFmIndex() const { return velFmIndex_; }
 
     // Wavetable: `position` [0,1] scans the morphing table (dark→bright); `envAmt` sweeps that
     // position with the amp envelope for evolving timbres. Access the table to reprogram its frames.
@@ -303,6 +308,7 @@ private:
     float fmRatio_ = 2.0f;
     float fmIndex_ = 3.0f;
     float fmFeedback_ = 0.0f; // FM operator self-feedback; 0 = off
+    float velFmIndex_ = 0.0f; // velocity → FM index depth; 0 = off
     float wtPosition_ = 0.0f;  // wavetable scan position [0,1]
     float wtMorphEnv_ = 0.0f;  // envelope amount added to the scan position
     float wtLfoRate_ = 0.0f;   // wavetable scan LFO rate (Hz)

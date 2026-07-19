@@ -161,6 +161,30 @@ int main() {
         check(fmBright(0.9f) > fmBright(0.0f) * 1.3, "FM feedback adds high-frequency harmonics");
         audio::SynthInstrument dfb;
         check(dfb.fmFeedback() == 0.0f, "FM feedback defaults to 0");
+
+        // Velocity → FM index: a hard note is brighter than a soft one when the amount is up.
+        auto velBright = [&](float velocity) {
+            audio::SynthInstrument s;
+            s.setMode(audio::SynthMode::FM);
+            s.setFmRatio(1.0f);
+            s.setFmIndex(0.5f);       // low base index
+            s.setVelToFmIndex(8.0f);  // velocity adds a lot of index
+            s.setVelSensitivity(0.0f); // isolate brightness from loudness (equal levels)
+            s.setEnvelope(0.002f, 0.02f, 1.0f, 0.05f);
+            s.noteOn(57, velocity);
+            const std::vector<float> out = render(s, sampleRate / 4, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        check(velBright(1.0f) > velBright(0.2f) * 1.3,
+              "velocity → FM index makes harder notes brighter");
+        audio::SynthInstrument dvf;
+        check(dvf.velToFmIndex() == 0.0f, "velocity → FM index defaults to 0");
     }
 
     // --- Oscillator ring modulation ------------------------------------------

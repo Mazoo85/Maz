@@ -266,7 +266,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 const double fb = static_cast<double>(fmFeedback_) * kPi * static_cast<double>(v.fmFb);
                 const double m = std::sin(v.modPhase * kTwoPi + fb);
                 v.fmFb = static_cast<float>(m);
-                const double mod = m * static_cast<double>(fmIndex_);
+                // Velocity → FM index: harder notes push the modulation depth up (brighter).
+                const float effIndex = fmIndex_ + velFmIndex_ * v.velocity;
+                const double mod = m * static_cast<double>(effIndex);
                 osc = static_cast<float>(std::sin(v.phase * kTwoPi + mod));
                 v.modPhase += phaseInc * static_cast<double>(fmRatio_);
                 if (v.modPhase >= 1.0) {

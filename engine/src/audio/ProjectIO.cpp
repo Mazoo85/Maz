@@ -112,6 +112,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> phaseRand) {
         syn.setStartPhaseRandom(phaseRand);
     }
+    float velFm = 0.0f; // velocity → FM index optional for old files (0 = off)
+    if (ls >> velFm) {
+        syn.setVelToFmIndex(velFm);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -212,7 +216,8 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
           << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
           << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
           << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
-          << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << "\n";
+          << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
+          << s.velToFmIndex() << "\n";
         f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
           << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
           << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
