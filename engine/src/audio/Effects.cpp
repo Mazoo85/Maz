@@ -1441,6 +1441,7 @@ void Limiter::reset() {
     std::fill(dPeak_.begin(), dPeak_.end(), 0.0f);
     widx_ = 0;
     gain_ = 1.0f;
+    grDb_ = 0.0f;
 }
 
 void Limiter::process(float* stereo, int frames, int sampleRate) {
@@ -1461,6 +1462,7 @@ void Limiter::process(float* stereo, int frames, int sampleRate) {
     const float inGain = dbToLin(inputGainDb_);
     const float ceiling = dbToLin(ceilingDb_);
     const float relCoef = std::exp(-1.0f / (releaseMs_ * 0.001f * sr));
+    float gMin = 1.0f; // deepest (smallest) gain this block, for the GR meter
 
     for (int i = 0; i < frames; ++i) {
         const float l = stereo[2 * i] * inGain;
@@ -1496,10 +1498,14 @@ void Limiter::process(float* stereo, int frames, int sampleRate) {
         const float target = wmax > ceiling ? ceiling / wmax : 1.0f;
         const float released = gain_ + (1.0f - gain_) * relCoef;
         gain_ = std::min(released, target);
+        if (gain_ < gMin) {
+            gMin = gain_; // track the deepest reduction for the GR meter
+        }
 
         stereo[2 * i] = outL * gain_;
         stereo[2 * i + 1] = outR * gain_;
     }
+    grDb_ = gMin < 1.0f ? linToDb(gMin) : 0.0f;
 }
 
 // ---- Stereo Enhancer --------------------------------------------------------

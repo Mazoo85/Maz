@@ -1956,6 +1956,8 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f);
         if (ImGui::SliderFloat("look##lim", &look, 0.1f, 10.0f, "%.1f")) mx.limiter().setLookaheadMs(look);
+        ImGui::SameLine();
+        ImGui::Text("GR %.1f dB", mx.limiter().gainReductionDb());
     }
     {
         bool en = mx.clipper().enabled();

@@ -310,6 +310,7 @@ int main() {
         }
         check(pk <= ceilLin * 1.001f, "limiter keeps the whole signal at or under the ceiling");
         check(pk > ceilLin * 0.9f, "limiter pushes the loud signal up to the ceiling");
+        check(lim.gainReductionDb() < -1.0f, "limiter GR meter reports reduction on a loud signal");
 
         // The first sample of a hard transient does not overshoot (look-ahead does its job).
         audio::Limiter lim2;
@@ -335,10 +336,12 @@ int main() {
         const double before = rms(quiet);
         lim3.process(quiet.data(), sr / 4, sr);
         check(std::fabs(rms(quiet) - before) < before * 0.05, "limiter leaves a sub-ceiling signal alone");
+        check(std::fabs(lim3.gainReductionDb()) < 0.01f, "limiter GR meter reads ~0 on a sub-ceiling signal");
 
         audio::Limiter dl;
         check(!dl.enabled() && std::fabs(dl.ceilingDb() + 0.3f) < 1e-4f,
               "limiter defaults to off with a −0.3 dB ceiling");
+        check(std::fabs(dl.gainReductionDb()) < 1e-6f, "limiter GR meter defaults to 0");
     }
 
     // --- Clipper: an instantaneous soft/hard ceiling -------------------------

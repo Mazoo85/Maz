@@ -1000,6 +1000,9 @@ public:
     float ceilingDb() const { return ceilingDb_; }
     float releaseMs() const { return releaseMs_; }
     float lookaheadMs() const { return lookaheadMs_; }
+    // Peak gain reduction (dB, <= 0) applied over the most recent processed block — drives a GR
+    // meter in the UI. 0 = not limiting.
+    float gainReductionDb() const { return grDb_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
     void reset() override;
@@ -1013,6 +1016,7 @@ private:
     int bufLen_ = 0;   // current look-ahead length in samples
     int widx_ = 0;     // write/oldest index into the ring
     float gain_ = 1.0f; // smoothed gain reduction (≤ 1)
+    float grDb_ = 0.0f; // peak gain reduction (dB) over the last block, for the GR meter
 };
 
 // A Schroeder/Freeverb-style reverb (comb filters into allpass diffusers). `roomSize` sets the tail
