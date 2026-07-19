@@ -319,7 +319,8 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
                 if (osc2Level_ > 0.0f || ringMod_ > 0.0f) {
                     const float o1 = osc; // the primary oscillator, before osc2 is mixed in
-                    const float o2 = waveSample(waveform_, v.phase2, pulseWidth_);
+                    const Waveform o2Wave = osc2WaveLinked_ ? waveform_ : osc2Waveform_;
+                    const float o2 = waveSample(o2Wave, v.phase2, pulseWidth_);
                     osc += o2 * osc2Level_;
                     // Ring modulation: add the product of the two oscillators for metallic,
                     // inharmonic (sum/difference) partials. 0 = off.

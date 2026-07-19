@@ -854,6 +854,10 @@ void buildSynthUI(audio::Sequencer& seq) {
         float osc2semi = syn.osc2Semitones();
         if (ImGui::SliderFloat("Osc 2 coarse", &osc2semi, -24.0f, 24.0f, "%.0f st"))
             syn.setOsc2Semitones(osc2semi);
+        int osc2w = static_cast<int>(syn.osc2Waveform());
+        const char* osc2Waves[] = {"Sine", "Square", "Saw", "Triangle"};
+        if (ImGui::Combo("Osc 2 wave", &osc2w, osc2Waves, 4))
+            syn.setOsc2Waveform(static_cast<audio::Waveform>(osc2w));
         float ring = syn.ringMod();
         if (ImGui::SliderFloat("Ring mod", &ring, 0.0f, 1.0f, "%.2f")) syn.setRingMod(ring);
         float osc3 = syn.osc3Level();

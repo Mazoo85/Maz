@@ -493,6 +493,29 @@ int main() {
         audio::SynthInstrument dsync;
         check(!dsync.hardSync(), "hard sync defaults off");
 
+        // Osc2 independent waveform: unlinking osc2 to a different shape changes the tone.
+        auto o2Render = [&](bool square) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.8f, 0.0f, 0.0f); // osc2 at the same pitch
+            if (square) {
+                s.setOsc2Waveform(audio::Waveform::Square);
+            }
+            s.noteOn(57, 1.0f);
+            return render(s, sampleRate / 4, sampleRate);
+        };
+        const std::vector<float> o2Linked = o2Render(false); // osc2 follows the primary (Saw)
+        const std::vector<float> o2Square = o2Render(true);   // osc2 = Square (unlinked)
+        double o2Diff = 0.0;
+        for (size_t i = 0; i < o2Linked.size(); ++i) {
+            o2Diff += std::fabs(static_cast<double>(o2Linked[i] - o2Square[i]));
+        }
+        check(o2Diff > 1.0, "osc2 can use a different waveform than the primary (changes the tone)");
+        audio::SynthInstrument do2;
+        check(do2.osc2WaveformLinked() && do2.osc2Waveform() == audio::Waveform::Saw,
+              "osc2 waveform defaults to linked (follows the primary)");
+
         // Osc2 coarse tune: a 2nd sine oscillator an octave up adds a bright partial the unison
         // (coarse 0) tone lacks → more high-frequency energy.
         auto coarseRender = [&](float semis) {

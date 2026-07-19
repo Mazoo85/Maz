@@ -75,6 +75,7 @@ int main() {
     seq.synth().setSyncRatio(3.25f);
     seq.synth().setPulseWidth(0.3f);
     seq.synth().setOsc2Semitones(7.0f);
+    seq.synth().setOsc2Waveform(audio::Waveform::Square); // unlinks osc2 from the primary
     seq.synth().setOsc3Level(0.45f);
     seq.synth().setOsc3Semitones(-5.0f);
     seq.synth().setVelToCutoff(4200.0f);
@@ -415,6 +416,9 @@ int main() {
           "hard sync round-trips");
     check(near(seq2.synth().pulseWidth(), 0.3f), "pulse width round-trips");
     check(near(seq2.synth().osc2Semitones(), 7.0f), "osc2 coarse tune round-trips");
+    check(!seq2.synth().osc2WaveformLinked() &&
+              seq2.synth().osc2Waveform() == audio::Waveform::Square,
+          "osc2 waveform (unlinked) round-trips");
     check(near(seq2.synth().osc3Level(), 0.45f) && near(seq2.synth().osc3Semitones(), -5.0f),
           "osc3 round-trips");
     check(near(seq2.synth().velToCutoff(), 4200.0f), "velocity→cutoff round-trips");

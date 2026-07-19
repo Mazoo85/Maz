@@ -178,6 +178,19 @@ public:
     }
     float osc2Semitones() const { return osc2Semitones_; }
 
+    // Second oscillator's own waveform (3xOSC-style): lets osc2 be a different shape than the primary
+    // (e.g. a saw layered under a square) for richer two-oscillator tones. By default osc2 is *linked*
+    // to the primary waveform (so old patches are unchanged); setting an explicit waveform unlinks it.
+    // Only matters when osc2Level > 0.
+    void setOsc2Waveform(Waveform w) {
+        osc2Waveform_ = w;
+        osc2WaveLinked_ = false;
+    }
+    void setOsc2WaveformLinked(bool linked) { osc2WaveLinked_ = linked; }
+    bool osc2WaveformLinked() const { return osc2WaveLinked_; }
+    // The effective osc2 waveform: the primary's shape while linked, otherwise the explicit choice.
+    Waveform osc2Waveform() const { return osc2WaveLinked_ ? waveform_ : osc2Waveform_; }
+
     // Sub-oscillator waveform (one octave below the note): Sine (default, pure weight) or Square
     // (buzzy, more harmonics). Only matters when subLevel > 0.
     void setSubWaveform(Waveform w) { subWave_ = w; }
@@ -370,6 +383,8 @@ private:
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
     float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)
+    Waveform osc2Waveform_ = Waveform::Saw; // osc2's own shape when unlinked
+    bool osc2WaveLinked_ = true;            // true = osc2 follows the primary waveform (default)
     float osc3Level_ = 0.0f;     // 3rd oscillator level; 0 = off
     float osc3Semitones_ = 0.0f; // coarse tune for osc3 (semitones)
     float ringMod_ = 0.0f;       // osc1×osc2 ring-modulation amount; 0 = off
