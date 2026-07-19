@@ -85,6 +85,8 @@ Automation::Automation() {
     lane(AutoTarget::BitcrusherMix).hi = 1.0f;
     lane(AutoTarget::PitchShift).lo = -12.0f;
     lane(AutoTarget::PitchShift).hi = 12.0f;
+    lane(AutoTarget::VibratoDepth).lo = 0.0f;
+    lane(AutoTarget::VibratoDepth).hi = 10.0f;
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -141,6 +143,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Bitcrusher Mix";
     case AutoTarget::PitchShift:
         return "Pitch Shift";
+    case AutoTarget::VibratoDepth:
+        return "Vibrato Depth";
     case AutoTarget::Count:
         break;
     }
@@ -309,6 +313,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the pitch shifter's semitone offset (pitch dives/risers/whooshes).
             engine.mixer().pitchShifter().setEnabled(true);
             engine.mixer().pitchShifter().setSemitones(v);
+            break;
+        case AutoTarget::VibratoDepth:
+            // Swell the vibrato depth in/out (a pitch wobble that blooms into a phrase then settles).
+            engine.mixer().vibrato().setEnabled(true);
+            engine.mixer().vibrato().setDepth(v);
             break;
         case AutoTarget::Count:
             break;

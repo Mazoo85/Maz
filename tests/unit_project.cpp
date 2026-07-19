@@ -430,6 +430,12 @@ int main() {
     pitchLane.lfo.rateHz = 0.3f;
     pitchLane.lo = -7.0f;
     pitchLane.hi = 5.0f;
+    audio::AutoLane& vibLane = automation.lane(audio::AutoTarget::VibratoDepth);
+    vibLane.enabled = true;
+    vibLane.lfo.shape = audio::Waveform::Triangle;
+    vibLane.lfo.rateHz = 0.4f;
+    vibLane.lo = 1.0f;
+    vibLane.hi = 8.0f;
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -818,6 +824,10 @@ int main() {
     check(pitch2.enabled && pitch2.lfo.shape == audio::Waveform::Sine && near(pitch2.lo, -7.0f) &&
               near(pitch2.hi, 5.0f),
           "pitch-shift automation lane round-trips");
+    const audio::AutoLane& vib2 = automation2.lane(audio::AutoTarget::VibratoDepth);
+    check(vib2.enabled && vib2.lfo.shape == audio::Waveform::Triangle && near(vib2.lo, 1.0f) &&
+              near(vib2.hi, 8.0f),
+          "vibrato-depth automation lane round-trips");
 
     // A non-.cjc file is rejected.
     audio::Sequencer seq3;

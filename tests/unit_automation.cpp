@@ -156,6 +156,25 @@ int main() {
               "pitch-shift automation reaches its low (dive) bound");
     }
 
+    // --- Vibrato-depth target (pitch-wobble swells) --------------------------
+    {
+        audio::Automation autom;
+        audio::AutoLane& vd = autom.lane(audio::AutoTarget::VibratoDepth);
+        vd.enabled = true;
+        vd.lfo.shape = audio::Waveform::Sine;
+        vd.lfo.rateHz = 1.0f;
+        vd.lo = 0.0f;
+        vd.hi = 10.0f;
+        audio::AudioEngine eng;
+        eng.initOffline();
+        autom.apply(eng, 0.25); // sine peak → unipolar 1 → hi bound
+        check(eng.mixer().vibrato().enabled() && eng.mixer().vibrato().depth() > 9.0f,
+              "automating vibrato depth swells (and enables) the vibrato");
+        autom.apply(eng, 0.75); // trough → lo bound
+        check(eng.mixer().vibrato().depth() < 1.0f,
+              "vibrato-depth automation settles back to its low bound");
+    }
+
     // --- Stereo-width target -------------------------------------------------
     {
         audio::Automation autom;

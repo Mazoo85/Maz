@@ -37,6 +37,7 @@ enum class AutoTarget {
     ReverbSize,
     BitcrusherMix,
     PitchShift,
+    VibratoDepth,
     Count
 };
 
