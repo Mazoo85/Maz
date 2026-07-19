@@ -203,6 +203,11 @@ public:
     // note), the classic tight arp bounce.
     void setArpGate(float g) { arpGate_ = g < 0.05f ? 0.05f : (g > 1.0f ? 1.0f : g); }
     float arpGate() const { return arpGate_; }
+    // Rate (1..8 steps per arp note): the arp advances/retriggers every `steps` grid steps and holds
+    // the note in between, so it can run at 1/8 or 1/4 over a 1/16 grid. 1 (default) = one note per
+    // step (the classic behaviour).
+    void setArpRate(int steps) { arpRate_ = steps < 1 ? 1 : (steps > 8 ? 8 : steps); }
+    int arpRate() const { return arpRate_; }
 
     // Bus levels: relative gain of the drum kit, the lead synth, and the bass synth before the
     // soft-limited sum. (synthGain is the lead level; bassGain the second instrument.)
@@ -330,6 +335,7 @@ private:
     int arpCurrentPitch_ = -1;
     uint32_t arpRng_ = 0x1234567u; // deterministic RNG for the random arp mode
     float arpGate_ = 1.0f;         // arp note length as a fraction of a step (1 = legato)
+    int arpRate_ = 1;              // grid steps per arp note (1 = one note per step)
     int arpGateFramesLeft_ = -1;   // frames until the current arp note is released (-1 = none pending)
     float drumGain_ = 1.0f;
     float synthGain_ = 1.0f;

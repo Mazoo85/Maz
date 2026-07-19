@@ -594,6 +594,25 @@ int main() {
 
         audio::Sequencer dm;
         check(dm.arpMode() == 0, "arp mode defaults to up");
+        check(dm.arpRate() == 1, "arp rate defaults to 1 (one note per step)");
+
+        // Rate 2: the arp advances every 2 steps, holding the note across the skipped step.
+        audio::Sequencer rate;
+        rate.setBpm(120.0);
+        rate.roll().addNote(audio::Note{0, 16, 60, 1.0f});
+        rate.roll().addNote(audio::Note{0, 16, 64, 1.0f});
+        rate.roll().addNote(audio::Note{0, 16, 67, 1.0f});
+        rate.setArp(true, 0); // up
+        rate.setArpRate(2);
+        check(rate.arpRate() == 2, "arp rate is settable");
+        rate.play(); // step 0 → first note
+        const int r0 = rate.arpCurrentPitch();
+        (void)renderMono(rate, 6000, sampleRate); // step 1 → held (skipped)
+        const int r1 = rate.arpCurrentPitch();
+        (void)renderMono(rate, 6000, sampleRate); // step 2 → advance
+        const int r2 = rate.arpCurrentPitch();
+        check(r0 == 60 && r1 == 60, "arp rate 2 holds the note across the skipped step");
+        check(r2 == 64, "arp advances to the next note after the rate interval");
     }
 
     // --- Sidechain ducking ---------------------------------------------------

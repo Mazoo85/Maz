@@ -215,7 +215,7 @@ bool saveProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
       << seq.sidechainReleaseMs() << " " << seq.sidechainSource() << " " << seq.sidechainAttackMs()
       << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << " "
-      << seq.arpGate() << "\n";
+      << seq.arpGate() << " " << seq.arpRate() << "\n";
     f << "humanize " << seq.humanize() << "\n";
     f << "metronome " << (seq.metronome() ? 1 : 0) << "\n";
     f << "countin " << seq.countInBars() << "\n";
@@ -514,6 +514,10 @@ bool loadProject(const std::string& path, Sequencer& seq, Mixer& mixer, Automati
             float gate = 1.0f; // gate length optional (older files omit it)
             if (ls >> gate) {
                 seq.setArpGate(gate);
+            }
+            int rate = 1; // arp rate optional (older files omit it → one note per step)
+            if (ls >> rate) {
+                seq.setArpRate(rate);
             }
         } else if (tag == "humanize") {
             float h = 0.0f;

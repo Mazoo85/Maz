@@ -608,6 +608,10 @@ void Sequencer::triggerStep(int step) {
     // Arpeggiator: instead of playing the roll notes directly, play one note per step from the set
     // of pitches held at this step, cycling through them per the mode.
     if (arpOn_) {
+        // Arp rate: advance/retrigger only every arpRate_ steps; hold the ringing note in between.
+        if (arpRate_ > 1 && (step % arpRate_) != 0) {
+            return; // hold the current arp note this step (no release, no new note)
+        }
         std::vector<int> held;
         for (const Note& n : roll.notes()) {
             if (step >= n.startStep && step < n.startStep + n.lengthSteps) {
