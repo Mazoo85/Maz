@@ -43,6 +43,8 @@ double decayTau(Drum type) {
         return 0.035;
     case Drum::Bongo:
         return 0.09;
+    case Drum::Triangle:
+        return 0.7;
     }
     return 0.1;
 }
@@ -208,6 +210,15 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             const double freq = (350.0 + 300.0 * std::exp(-t_ / 0.025)) * pitchMul;
             s = static_cast<float>(std::sin(phase_ * kTwoPi) * env);
             phase_ += freq * dt;
+            break;
+        }
+        case Drum::Triangle: {
+            // A percussion triangle: bright inharmonic high partials, purely tonal (no noise), with a
+            // long shimmering ring — distinct from the noise-based cymbals.
+            const double ring = std::sin(kTwoPi * 4200.0 * pitchMul * t_) +
+                                0.7 * std::sin(kTwoPi * 5400.0 * pitchMul * t_) +
+                                0.5 * std::sin(kTwoPi * 6900.0 * pitchMul * t_);
+            s = static_cast<float>(0.3 * ring * env);
             break;
         }
         }

@@ -465,7 +465,7 @@ void buildRackUI(audio::Sequencer& seq) {
             const char* drumNames[] = {"Kick",    "Snare",   "ClosedHat",  "OpenHat", "Clap",
                                        "Tom",     "Cowbell", "Rimshot",    "Crash",   "Ride",
                                        "Shaker",  "Clave",   "Tambourine", "Conga",   "Woodblock",
-                                       "Bongo"};
+                                       "Bongo",   "Triangle"};
             int dt = static_cast<int>(seq.channelType(c));
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::Combo("##drumtype", &dt, drumNames, IM_ARRAYSIZE(drumNames)))

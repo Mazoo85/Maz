@@ -262,6 +262,18 @@ int main() {
         bongo.render(btail.data(), static_cast<int>(btail.size()), sampleRate);
         check(!bongo.active(), "bongo decays to inactive");
 
+        // Triangle: a bright tonal metallic ring that sustains far longer than the tuned drums.
+        audio::DrumVoice tri;
+        tri.setType(audio::Drum::Triangle);
+        tri.trigger();
+        std::vector<float> tribuf(static_cast<size_t>(sampleRate) / 20, 0.0f); // 50 ms
+        tri.render(tribuf.data(), static_cast<int>(tribuf.size()), sampleRate);
+        check(rms(tribuf) > 0.0, "triangle produces sound");
+        check(freqOf(tribuf, sampleRate) > 3000.0, "triangle rings bright (high metallic partials)");
+        std::vector<float> trimid(static_cast<size_t>(sampleRate) / 4, 0.0f); // to ~0.3 s
+        tri.render(trimid.data(), static_cast<int>(trimid.size()), sampleRate);
+        check(tri.active(), "triangle rings on well past a short percussion hit (long tail)");
+
         // Snare snap: at snap 0 the snare is its tuned body tone (smooth, low HF); at snap 1 it is
         // the noisy wire crack (much brighter). Measured as first-difference (HF) energy.
         auto snareHf = [&](float snap) {
