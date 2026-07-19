@@ -15740,6 +15740,68 @@ void testGeometry2DPolygon() {
             }
         }
     }
+
+    // --- M426: polylineLength + resamplePolyline (even arc-length resampling) ---
+    {
+        auto veq = [](vec2 a, vec2 b) {
+            return std::fabs(a.x - b.x) < 1e-4f && std::fabs(a.y - b.y) < 1e-4f;
+        };
+
+        // polylineLength open/closed and degenerate.
+        {
+            const std::vector<vec2> path = {{0, 0}, {4, 0}, {4, 4}, {0, 4}};
+            CHECK(std::fabs(math::polylineLength(path) - 12.0f) < 1e-4f);
+            CHECK(std::fabs(math::polylineLength(path, true) - 16.0f) < 1e-4f);
+            CHECK(math::polylineLength({}) == 0.0f);
+            CHECK(math::polylineLength({vec2(3, 3)}) == 0.0f);
+            CHECK(std::fabs(math::polylineLength({vec2(0, 0), vec2(3, 4)}) - 5.0f) < 1e-4f);
+        }
+
+        // Straight line into 5 even points.
+        {
+            const std::vector<vec2> s = math::resamplePolyline({vec2(0, 0), vec2(10, 0)}, 5);
+            CHECK(s.size() == 5);
+            CHECK(veq(s[0], vec2(0, 0)));
+            CHECK(veq(s[1], vec2(2.5f, 0)));
+            CHECK(veq(s[2], vec2(5, 0)));
+            CHECK(veq(s[3], vec2(7.5f, 0)));
+            CHECK(veq(s[4], vec2(10, 0)));
+        }
+
+        // L-shape: endpoints preserved, uniform spacing 2 across the corner.
+        {
+            const std::vector<vec2> s = math::resamplePolyline({vec2(0, 0), vec2(4, 0), vec2(4, 4)}, 5);
+            CHECK(s.size() == 5);
+            CHECK(veq(s.front(), vec2(0, 0)));
+            CHECK(veq(s.back(), vec2(4, 4)));
+            CHECK(veq(s[1], vec2(2, 0)));
+            CHECK(veq(s[2], vec2(4, 0)));
+            CHECK(veq(s[3], vec2(4, 2)));
+            for (std::size_t i = 0; i + 1 < s.size(); ++i) {
+                const vec2 d = s[i + 1] - s[i];
+                CHECK(std::fabs(std::sqrt(d.x * d.x + d.y * d.y) - 2.0f) < 1e-3f);
+            }
+        }
+
+        // Dense resample cuts corners so length <= original, but stays within 2%.
+        {
+            const std::vector<vec2> p = {{0, 0}, {3, 4}, {6, 0}, {9, 4}};
+            const float orig = math::polylineLength(p);
+            const float rlen = math::polylineLength(math::resamplePolyline(p, 200));
+            CHECK(rlen <= orig + 1e-3f);
+            CHECK(rlen > orig * 0.98f);
+        }
+
+        // Degenerate: count<2 returns input; coincident path returns count copies.
+        {
+            CHECK(math::resamplePolyline({vec2(1, 1), vec2(2, 2)}, 1).size() == 2);
+            const std::vector<vec2> s = math::resamplePolyline({vec2(5, 5), vec2(5, 5), vec2(5, 5)}, 4);
+            CHECK(s.size() == 4);
+            for (const vec2& v : s) {
+                CHECK(veq(v, vec2(5, 5)));
+            }
+        }
+    }
 }
 
 // HexGrid: axial hex-coordinate math (M280) — distance, neighbors, pixel round-trip, line.

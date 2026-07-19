@@ -724,4 +724,66 @@ inline std::vector<vec2> chaikinSmooth(const std::vector<vec2>& pts, int iterati
     return cur;
 }
 
+// Total arc length of a polyline (sum of edge lengths); set `closed` to include the wrap edge back to
+// the start. The natural companion to resamplePolyline and handy for path budgets / travel times.
+inline float polylineLength(const std::vector<vec2>& pts, bool closed = false) {
+    const std::size_t n = pts.size();
+    if (n < 2) {
+        return 0.0f;
+    }
+    float total = 0.0f;
+    for (std::size_t i = 0; i + 1 < n; ++i) {
+        const vec2 d = pts[i + 1] - pts[i];
+        total += std::sqrt(d.x * d.x + d.y * d.y);
+    }
+    if (closed) {
+        const vec2 d = pts[0] - pts[n - 1];
+        total += std::sqrt(d.x * d.x + d.y * d.y);
+    }
+    return total;
+}
+
+// Resample a polyline to exactly `count` points spread evenly by ARC LENGTH along the path, keeping the
+// original endpoints. This is the workhorse behind evenly spacing dashes / decorations / spawn points
+// along a route, and uniform sampling for morphing or per-point animation. Unlike Curve2D's Bézier
+// baking, this works on any raw polyline. count < 2 or < 2 input points returns the input unchanged; an
+// all-coincident path returns `count` copies of the first point (no divide-by-zero).
+inline std::vector<vec2> resamplePolyline(const std::vector<vec2>& pts, int count) {
+    const std::size_t n = pts.size();
+    if (count < 2 || n < 2) {
+        return pts;
+    }
+    const float total = polylineLength(pts);
+    if (total <= 0.0f) {
+        return std::vector<vec2>(static_cast<std::size_t>(count), pts.front());
+    }
+    const float step = total / static_cast<float>(count - 1);
+
+    std::vector<vec2> out;
+    out.reserve(static_cast<std::size_t>(count));
+    out.push_back(pts.front());
+
+    std::size_t seg = 0;
+    float segStart = 0.0f; // arc length at the start of the current segment
+    auto edgeLen = [&](std::size_t i) {
+        const vec2 d = pts[i + 1] - pts[i];
+        return std::sqrt(d.x * d.x + d.y * d.y);
+    };
+    float segLen = edgeLen(0);
+    for (int k = 1; k < count - 1; ++k) {
+        const float target = static_cast<float>(k) * step;
+        while (seg + 1 < n - 1 && segStart + segLen < target) {
+            segStart += segLen;
+            ++seg;
+            segLen = edgeLen(seg);
+        }
+        const float t = segLen > 0.0f ? (target - segStart) / segLen : 0.0f;
+        const vec2 a = pts[seg];
+        const vec2 b = pts[seg + 1];
+        out.push_back(vec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
+    }
+    out.push_back(pts.back());
+    return out;
+}
+
 } // namespace maz::math
