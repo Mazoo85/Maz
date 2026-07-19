@@ -826,6 +826,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   Simpson with n=2, sin over [0,pi]=2, e^x=e-1, constants, reversed limits negate; adaptive Simpson
   resolves a Runge-type spike far better than a coarse trapezoid; Romberg error shrinks with more levels;
   a Gaussian bell integrates to sqrt(pi); and the arc length of y=x^2 matches its analytic value),
+  **root finding** (M466, `math::findRootBisection` / `findRootNewton` / `findRootSecant` /
+  `findRootBrent` — solve f(x)=0 for any scalar function supplied as a callable, returning the root plus
+  a converged flag and iteration count. The inverse-problem companion to Polynomial.hpp (which solves
+  *known* quadratics/cubics in closed form): many gameplay questions reduce to "find the x where this
+  custom function crosses zero" — the launch angle that lands a projectile on a moving target, the time a
+  value curve first hits a threshold, the path parameter nearest a point, or inverting any monotonic
+  response curve. Bisection is bracketing and utterly reliable (linear); Newton-Raphson uses the
+  derivative for quadratic convergence; secant is derivative-free and superlinear; Brent is a bracketing
+  hybrid of bisection + secant + inverse-quadratic interpolation — robust like bisection but usually much
+  faster, the recommended default. Godot exposes no root finder to gameplay code -> beyond-Godot.
+  Verified: sqrt(2), cos(x)=x, x^3-x-2, and e^x=3x+1 recovered by all applicable methods to matching
+  values (Newton/Brent converging in fewer iterations than bisection); an exact-root endpoint detected
+  immediately; a no-bracket interval and a flat Newton derivative both reported as not converged (no
+  false root, no divide-by-zero); and a decaying-value threshold-crossing time matches its closed form),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/

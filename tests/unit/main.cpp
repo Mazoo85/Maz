@@ -110,6 +110,7 @@
 #include "maz/math/Integrator.hpp"
 #include "maz/math/LeastSquares.hpp"
 #include "maz/math/Quadrature.hpp"
+#include "maz/math/RootFind.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20206,6 +20207,86 @@ void testPolynomial() {
     }
 }
 
+void testRootFind() {
+    using math::findRootBisection;
+    using math::findRootBrent;
+    using math::findRootNewton;
+    using math::findRootSecant;
+    using math::RootResult;
+
+    // sqrt(2): root of x^2 - 2, all four methods.
+    {
+        auto f = [](double x) { return x * x - 2.0; };
+        auto df = [](double x) { return 2.0 * x; };
+        const double r = std::sqrt(2.0);
+        const RootResult bis = findRootBisection(f, 0.0, 2.0);
+        const RootResult nwt = findRootNewton(f, df, 2.0);
+        const RootResult sec = findRootSecant(f, 1.0, 2.0);
+        const RootResult bre = findRootBrent(f, 0.0, 2.0);
+        CHECK(bis.converged && std::fabs(bis.root - r) < 1e-8);
+        CHECK(nwt.converged && std::fabs(nwt.root - r) < 1e-9);
+        CHECK(sec.converged && std::fabs(sec.root - r) < 1e-9);
+        CHECK(bre.converged && std::fabs(bre.root - r) < 1e-9);
+        CHECK(nwt.iterations < bis.iterations); // faster convergence than bisection
+        CHECK(bre.iterations < bis.iterations);
+    }
+    // cos(x) = x, root ~ 0.7390851332.
+    {
+        auto f = [](double x) { return std::cos(x) - x; };
+        auto df = [](double x) { return -std::sin(x) - 1.0; };
+        const double r = 0.7390851332151607;
+        CHECK(std::fabs(findRootBisection(f, 0.0, 1.0).root - r) < 1e-8);
+        CHECK(std::fabs(findRootNewton(f, df, 0.5).root - r) < 1e-9);
+        CHECK(std::fabs(findRootSecant(f, 0.0, 1.0).root - r) < 1e-9);
+        CHECK(std::fabs(findRootBrent(f, 0.0, 1.0).root - r) < 1e-9);
+    }
+    // x^3 - x - 2 = 0, root ~ 1.5213797068.
+    {
+        auto f = [](double x) { return x * x * x - x - 2.0; };
+        auto df = [](double x) { return 3.0 * x * x - 1.0; };
+        const double r = 1.5213797068045676;
+        CHECK(std::fabs(findRootBrent(f, 1.0, 2.0).root - r) < 1e-9);
+        CHECK(std::fabs(findRootNewton(f, df, 1.5).root - r) < 1e-9);
+        CHECK(std::fabs(findRootSecant(f, 1.0, 2.0).root - r) < 1e-9);
+    }
+    // Exact-root endpoint detected immediately.
+    {
+        auto f = [](double x) { return x - 3.0; };
+        const RootResult r = findRootBisection(f, 3.0, 10.0);
+        CHECK(r.converged && std::fabs(r.root - 3.0) < 1e-12);
+        const RootResult rb = findRootBrent(f, 3.0, 10.0);
+        CHECK(rb.converged && std::fabs(rb.root - 3.0) < 1e-12);
+    }
+    // No bracket -> not converged, no false root.
+    {
+        auto f = [](double x) { return x * x + 1.0; };
+        CHECK(!findRootBisection(f, -1.0, 1.0).converged);
+        CHECK(!findRootBrent(f, -1.0, 1.0).converged);
+    }
+    // Newton stalls on a flat derivative -> reported not converged (guarded, no divide-by-zero).
+    {
+        auto f = [](double x) { return x * x + 1.0; };
+        auto dfZero = [](double) { return 0.0; };
+        CHECK(!findRootNewton(f, dfZero, 1.0).converged);
+    }
+    // Gameplay: time a decaying value first hits a threshold. 100 e^{-0.5t} = 25 -> t = 2 ln 4.
+    {
+        auto f = [](double t) { return 100.0 * std::exp(-0.5 * t) - 25.0; };
+        const double exact = std::log(4.0) / 0.5;
+        const RootResult r = findRootBrent(f, 0.0, 20.0);
+        CHECK(r.converged && std::fabs(r.root - exact) < 1e-8);
+    }
+    // Methods agree with one another on a shared monotonic root.
+    {
+        auto f = [](double x) { return std::exp(x) - 3.0 * x - 1.0; };
+        const double a = findRootBisection(f, 1.0, 3.0).root;
+        const double b = findRootSecant(f, 1.0, 3.0).root;
+        const double c = findRootBrent(f, 1.0, 3.0).root;
+        CHECK(std::fabs(a - b) < 1e-6 && std::fabs(b - c) < 1e-6);
+        CHECK(std::fabs(f(c)) < 1e-9);
+    }
+}
+
 void testQuadrature() {
     using math::integrateAdaptiveSimpson;
     using math::integrateRomberg;
@@ -29274,6 +29355,7 @@ int main() {
     testIntegrator();
     testLeastSquares();
     testQuadrature();
+    testRootFind();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();
