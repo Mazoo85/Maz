@@ -737,6 +737,27 @@ int main() {
         const double before = hf(sine);
         dist.process(sine.data(), sr, sr);
         check(hf(sine) > before, "distortion adds high-frequency harmonics");
+
+        // Post tone: a low tone setting rolls off the harmonics the drive added.
+        auto distHf = [&](float tone) {
+            audio::Distortion d;
+            d.setEnabled(true);
+            d.setDrive(8.0f);
+            d.setMix(1.0f);
+            d.setTone(tone);
+            std::vector<float> b = sineStereo(sr / 2, 400.0, 0.5, sr); // harmonics at 1200, 2000, …
+            d.process(b.data(), sr / 2, sr);
+            double s = 0.0;
+            for (size_t i = 2; i < b.size(); i += 2) {
+                const double dd = static_cast<double>(b[i] - b[i - 2]);
+                s += dd * dd;
+            }
+            return s;
+        };
+        check(distHf(700.0f) < distHf(20000.0f) * 0.7,
+              "distortion post tone darkens the drive (rolls off added highs)");
+        audio::Distortion dt;
+        check(dt.tone() == 20000.0f, "distortion tone defaults to open (20 kHz)");
     }
 
     // --- Distortion curves: each mode shapes differently --------------------

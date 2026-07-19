@@ -1348,6 +1348,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::Combo("##distcurve", &curve, "Soft\0Hard\0Fold\0SineFold\0\0"))
             mx.distortion().setCurve(static_cast<audio::Distortion::Curve>(curve));
+        float dtone = mx.distortion().tone();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::SliderFloat("tone##dist", &dtone, 200.0f, 20000.0f, "%.0f Hz")) mx.distortion().setTone(dtone);
     }
     {
         bool en = mx.tape().enabled();

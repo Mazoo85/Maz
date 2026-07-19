@@ -182,6 +182,10 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
     const float tanhNorm = 1.0f / std::tanh(drive); // keep unity-ish level across drive
     const float mix = std::clamp(mix_, 0.0f, 1.0f);
     constexpr float kPi = 3.14159265f;
+    // Post tone: a one-pole low-pass on the wet signal (off at 20 kHz).
+    const bool doTone = toneHz_ < 19000.0f;
+    const float toneA =
+        doTone ? 1.0f - std::exp(-2.0f * kPi * toneHz_ / static_cast<float>(sampleRate)) : 0.0f;
     const int n = frames * 2;
     for (int i = 0; i < n; ++i) {
         const float dry = stereo[i];
@@ -213,8 +217,23 @@ void Distortion::process(float* stereo, int frames, int sampleRate) {
             wet = std::sin(x * kPi * 0.5f);
             break;
         }
+        // Post tone: low-pass the wet before mixing (per channel: even i = L, odd i = R).
+        if (doTone) {
+            if ((i & 1) == 0) {
+                toneL_ += toneA * (wet - toneL_);
+                wet = toneL_;
+            } else {
+                toneR_ += toneA * (wet - toneR_);
+                wet = toneR_;
+            }
+        }
         stereo[i] = dry * (1.0f - mix) + wet * mix;
     }
+}
+
+void Distortion::reset() {
+    toneL_ = 0.0f;
+    toneR_ = 0.0f;
 }
 
 // ---- Chorus -----------------------------------------------------------------

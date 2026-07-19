@@ -132,16 +132,23 @@ public:
     void setDrive(float d) { drive_ = d; }
     void setMix(float m) { mix_ = m; }
     void setCurve(Curve c) { curve_ = c; }
+    // Post tone: a one-pole low-pass on the distorted (wet) signal that tames the fizzy top saturation
+    // adds. 20000 Hz (default) = fully open/off; lower it to darken the drive. (Fruity-Dist "low-pass".)
+    void setTone(float hz) { toneHz_ = hz < 200.0f ? 200.0f : (hz > 20000.0f ? 20000.0f : hz); }
     float drive() const { return drive_; }
     float mix() const { return mix_; }
     Curve curve() const { return curve_; }
+    float tone() const { return toneHz_; }
 
     void process(float* stereo, int frames, int sampleRate) override;
+    void reset() override;
 
 private:
     float drive_ = 2.0f;
     float mix_ = 0.5f;
     Curve curve_ = Curve::Soft;
+    float toneHz_ = 20000.0f; // post low-pass cutoff; 20000 = off
+    float toneL_ = 0.0f, toneR_ = 0.0f; // one-pole LP state per channel
 };
 
 // A stereo chorus: two LFO-modulated delay lines (left/right in quadrature) widen and thicken the
