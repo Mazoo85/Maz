@@ -63,6 +63,29 @@ std::vector<float> render(audio::SynthInstrument& synth, int frames, int sampleR
 int main() {
     const int sampleRate = 48000;
 
+    // --- Filter cutoff LFO tempo sync ---------------------------------------
+    {
+        audio::SynthInstrument syn;
+        check(!syn.filterLfoSync(), "cutoff LFO sync defaults to off");
+        syn.setFilterLfo(3.0f, 1.0f); // a free-running rate
+        syn.updateTempo(120.0);
+        check(std::fabs(syn.filterLfoRate() - 3.0f) < 1e-4f,
+              "with sync off, updateTempo leaves the free-running rate alone");
+
+        syn.setFilterLfoSync(true);
+        syn.setFilterLfoSyncDivision(3); // 1/8 → 2 cycles per beat
+        check(syn.filterLfoSyncDivision() == 3, "cutoff LFO sync division is settable");
+        syn.updateTempo(120.0); // 120 BPM → 2 beats/s → 1/8 = 4 Hz
+        check(std::fabs(syn.filterLfoRate() - 4.0f) < 1e-3f,
+              "1/8 sync at 120 BPM locks the cutoff LFO to 4 Hz");
+        syn.updateTempo(60.0); // 60 BPM → 1/8 = 2 Hz
+        check(std::fabs(syn.filterLfoRate() - 2.0f) < 1e-3f,
+              "the synced cutoff LFO tracks a tempo change");
+        syn.setFilterLfoSyncDivision(2); // 1/4 → 1 cycle per beat
+        syn.updateTempo(120.0);          // → 2 Hz
+        check(std::fabs(syn.filterLfoRate() - 2.0f) < 1e-3f, "1/4 sync at 120 BPM locks to 2 Hz");
+    }
+
     // --- Pitch math ----------------------------------------------------------
     check(std::fabs(audio::midiToFreq(69) - 440.0f) < 0.01f, "MIDI 69 == 440 Hz (A4)");
     check(std::fabs(audio::midiToFreq(60) - 261.63f) < 0.5f, "MIDI 60 ~= 261.6 Hz (middle C)");

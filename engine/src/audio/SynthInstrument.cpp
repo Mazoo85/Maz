@@ -1,5 +1,6 @@
 #include "maz/audio/SynthInstrument.hpp"
 
+#include "maz/audio/Effects.hpp" // modSyncRateHz for the tempo-synced cutoff LFO
 #include "maz/audio/Pitch.hpp"
 
 #include <algorithm>
@@ -37,6 +38,12 @@ void SynthInstrument::setOscillators(float detuneCents, float osc2Level, float s
     osc2Level_ = std::clamp(osc2Level, 0.0f, 1.0f);
     subLevel_ = std::clamp(subLevel, 0.0f, 1.0f);
     noiseLevel_ = std::clamp(noiseLevel, 0.0f, 1.0f);
+}
+
+void SynthInstrument::updateTempo(double bpm) {
+    if (filterLfoSync_ && bpm > 0.0) {
+        filterLfoRate_ = modSyncRateHz(filterLfoSyncDiv_, bpm);
+    }
 }
 
 void SynthInstrument::noteOn(int midi, float velocity, float fineCents) {

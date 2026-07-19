@@ -283,6 +283,17 @@ public:
     }
     float filterLfoRate() const { return filterLfoRate_; }
     float filterLfoDepth() const { return filterLfoDepth_; }
+    // Tempo-sync the cutoff LFO: lock its rate to the transport at the chosen note division (the same
+    // 6 divisions as the effects: 1/1, 1/2, 1/4, 1/8, 1/8T, 1/16) for rhythmic filter wobble. Call
+    // updateTempo() with the current BPM each block; off (default) = the free-running rate above.
+    void setFilterLfoSync(bool on) { filterLfoSync_ = on; }
+    bool filterLfoSync() const { return filterLfoSync_; }
+    void setFilterLfoSyncDivision(int d) {
+        filterLfoSyncDiv_ = d < 0 ? 0 : (d > 5 ? 5 : d); // 6 divisions, matching kModSyncDivisions
+    }
+    int filterLfoSyncDivision() const { return filterLfoSyncDiv_; }
+    // Recompute the cutoff-LFO rate from the tempo + division when sync is on (no-op otherwise).
+    void updateTempo(double bpm);
 
     // Filter drive (0..1): overdrive the signal into the filter with a tanh saturation before it is
     // filtered, adding harmonics and analog grit (the classic driven-filter growl). 0 = clean
@@ -386,6 +397,8 @@ private:
     float filterLfoRate_ = 0.0f;  // filter cutoff LFO rate (Hz)
     float filterLfoDepth_ = 0.0f; // filter cutoff LFO depth (octaves, ±); 0 = off
     double filterLfoPhase_ = 0.0; // filter cutoff LFO phase (shared across voices)
+    bool filterLfoSync_ = false;  // tempo-sync the cutoff LFO rate
+    int filterLfoSyncDiv_ = 3;    // sync note-division index (default 1/8)
     float ampLfoRate_ = 0.0f;     // amplitude LFO (tremolo) rate (Hz)
     float ampLfoDepth_ = 0.0f;    // amplitude LFO depth [0,1]; 0 = off
     double ampLfoPhase_ = 0.0;    // amplitude LFO phase (shared across voices)

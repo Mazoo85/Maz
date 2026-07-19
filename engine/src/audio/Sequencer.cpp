@@ -898,6 +898,8 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             }
         }
         // Lead bus = synth + sampler; bass bus = synth2. Each has its own gain.
+        synth_.updateTempo(bpm_);  // lock a tempo-synced cutoff LFO to the transport
+        synth2_.updateTempo(bpm_);
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
         bassScratch_.assign(static_cast<size_t>(chunk), 0.0f);

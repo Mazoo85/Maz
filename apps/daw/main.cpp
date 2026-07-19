@@ -1067,6 +1067,13 @@ void buildSynthUI(audio::Sequencer& seq) {
     bool flch = ImGui::SliderFloat("Cutoff LFO Hz", &fLfoRate, 0.0f, 20.0f, "%.2f");
     flch |= ImGui::SliderFloat("Cutoff LFO oct", &fLfoDepth, 0.0f, 4.0f, "%.2f");
     if (flch) syn.setFilterLfo(fLfoRate, fLfoDepth);
+    bool flSync = syn.filterLfoSync();
+    if (ImGui::Checkbox("Cutoff LFO sync", &flSync)) syn.setFilterLfoSync(flSync);
+    ImGui::SameLine();
+    int flDiv = syn.filterLfoSyncDivision();
+    const char* flDivs[] = {"1/1", "1/2", "1/4", "1/8", "1/8T", "1/16"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("##fldiv", &flDiv, flDivs, 6)) syn.setFilterLfoSyncDivision(flDiv);
     float aLfoRate = syn.ampLfoRate(), aLfoDepth = syn.ampLfoDepth();
     bool alch = ImGui::SliderFloat("Tremolo Hz", &aLfoRate, 0.0f, 20.0f, "%.2f");
     alch |= ImGui::SliderFloat("Tremolo depth", &aLfoDepth, 0.0f, 1.0f, "%.2f");
