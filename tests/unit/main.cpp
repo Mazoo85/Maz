@@ -112,6 +112,7 @@
 #include "maz/math/Quadrature.hpp"
 #include "maz/math/RootFind.hpp"
 #include "maz/math/Statistics.hpp"
+#include "maz/math/BoundingSphere.hpp"
 #include <array>
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
@@ -20208,6 +20209,76 @@ void testPolynomial() {
     }
 }
 
+void testBoundingSphere() {
+    using math::boundingSphere;
+    using math::Sphere;
+    using math::vec3;
+
+    auto maxPairwise = [](const std::vector<vec3>& p) {
+        float best = 0.0f;
+        for (std::size_t i = 0; i < p.size(); ++i)
+            for (std::size_t j = i + 1; j < p.size(); ++j) {
+                const vec3 d = p[i] - p[j];
+                best = std::max(best, glm::dot(d, d));
+            }
+        return std::sqrt(best);
+    };
+
+    // Degenerate cases.
+    {
+        CHECK(std::fabs(boundingSphere({}).radius) < 1e-6f);
+        const Sphere one = boundingSphere({vec3(3, 4, 5)});
+        CHECK(std::fabs(one.radius) < 1e-6f && std::fabs(one.center.x - 3.0f) < 1e-6f);
+        const Sphere two = boundingSphere({vec3(-2, 0, 0), vec3(2, 0, 0)});
+        CHECK(std::fabs(two.radius - 2.0f) < 1e-5f && std::fabs(two.center.x) < 1e-5f);
+    }
+    // Cube corners: exact minimal sphere is centered at the origin, radius sqrt(3).
+    {
+        std::vector<vec3> corners;
+        for (int i = 0; i < 8; ++i)
+            corners.push_back(vec3((i & 1) ? 1.f : -1.f, (i & 2) ? 1.f : -1.f, (i & 4) ? 1.f : -1.f));
+        const Sphere s = boundingSphere(corners);
+        for (const vec3& c : corners) CHECK(s.contains(c, 1e-4f));
+        const float r3 = std::sqrt(3.0f);
+        CHECK(s.radius >= r3 - 1e-3f && s.radius <= r3 * 1.02f);
+        CHECK(glm::length(s.center) < 1e-2f);
+    }
+    // Points on a known sphere are recovered.
+    {
+        const vec3 C(1.0f, 2.0f, 3.0f);
+        const float R = 5.0f;
+        std::vector<vec3> pts;
+        const float golden = 3.14159265f * (3.0f - std::sqrt(5.0f));
+        const int N = 300;
+        for (int i = 0; i < N; ++i) {
+            const float y = 1.0f - (static_cast<float>(i) / static_cast<float>(N - 1)) * 2.0f;
+            const float rad = std::sqrt(std::max(0.0f, 1.0f - y * y));
+            const float theta = golden * static_cast<float>(i);
+            pts.push_back(C + R * vec3(std::cos(theta) * rad, y, std::sin(theta) * rad));
+        }
+        const Sphere s = boundingSphere(pts);
+        for (const vec3& p : pts) CHECK(s.contains(p, 1e-3f));
+        CHECK(glm::length(s.center - C) < 0.1f);
+        CHECK(s.radius >= R - 0.05f && s.radius <= R * 1.02f);
+    }
+    // Random clouds: encloses everything, and radius sits within valid bounds.
+    {
+        core::Pcg32 rng(468u, 9u);
+        for (int trial = 0; trial < 50; ++trial) {
+            std::vector<vec3> pts;
+            const int n = 5 + trial;
+            for (int i = 0; i < n; ++i)
+                pts.push_back(vec3(rng.nextFloat() * 20.0f - 10.0f, rng.nextFloat() * 20.0f - 10.0f,
+                                   rng.nextFloat() * 20.0f - 10.0f));
+            const Sphere s = boundingSphere(pts);
+            for (const vec3& p : pts) CHECK(s.contains(p, 1e-3f));
+            const float mp = maxPairwise(pts);
+            CHECK(s.radius * 2.0f >= mp - 1e-3f); // diameter covers the widest pair
+            CHECK(s.radius <= mp + 1e-3f);         // never larger than the point spread
+        }
+    }
+}
+
 void testStatistics() {
     using math::correlation;
     using math::covariance;
@@ -29445,6 +29516,7 @@ int main() {
     testQuadrature();
     testRootFind();
     testStatistics();
+    testBoundingSphere();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

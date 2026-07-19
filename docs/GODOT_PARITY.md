@@ -856,6 +856,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   (symmetric, and invariant under positive scale+shift); a noisy upward trend gives strong bounded
   positive correlation; and all degenerate inputs — empty, single-point sample variance, constant input,
   length mismatch — return 0 without NaN),
+  **3D bounding sphere** (M468, `math::boundingSphere` -> `math::Sphere` — the smallest sphere enclosing
+  a cloud of 3D points, the 3D companion to Geometry2D's minEnclosingCircle. A tight bounding sphere is
+  the cheapest proxy for an object's extent: one sphere-vs-plane test per object for frustum culling,
+  distance-to-sphere for broad-phase overlap and LOD selection, or a trigger/aggro radius fitted to an
+  actual mesh. Computed with Welzl's incremental minimal-enclosing-sphere algorithm — the EXACT 3D
+  analog of the 2D minidisk, not an approximation — with a final growth pass guaranteeing every point is
+  enclosed under round-off. Godot computes AABBs but exposes no bounding-sphere fit to gameplay code ->
+  beyond-Godot. Verified: the 8 cube corners give the exact minimum (origin, radius sqrt(3)); 300 points
+  sampled on a known sphere recover its centre and radius within ~1%; and across 50 random clouds every
+  point is enclosed while the radius stays within the hard bounds (diameter >= widest pair, radius <=
+  point spread); degenerate empty/single/pair inputs handled),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
