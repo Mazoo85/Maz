@@ -90,6 +90,7 @@
 #include "maz/core/BloomFilter.hpp"
 #include "maz/render/ColorQuantize.hpp"
 #include "maz/render/Dither.hpp"
+#include "maz/render/ColorTemperature.hpp"
 #include "maz/core/WorleyNoise.hpp"
 #include "maz/core/CurlNoise.hpp"
 #include "maz/core/Fixed.hpp"
@@ -18929,6 +18930,54 @@ void testCurlNoise() {
     }
 }
 
+// ColorTemperature: Kelvin -> RGB blackbody tint (M448).
+void testColorTemperature() {
+    using render::Color;
+    using render::kelvinToColor;
+
+    for (float k = 1000.0f; k <= 40000.0f; k += 250.0f) {
+        const Color c = kelvinToColor(k);
+        CHECK(c.r >= 0.0f && c.r <= 1.0f && c.g >= 0.0f && c.g <= 1.0f);
+        CHECK(c.b >= 0.0f && c.b <= 1.0f && c.a == 1.0f);
+    }
+
+    {
+        const Color warm = kelvinToColor(1500.0f);
+        CHECK(std::fabs(warm.r - 1.0f) < 0.01f && warm.r > warm.g && warm.g > warm.b);
+        CHECK(warm.b < 0.01f);
+    }
+    {
+        const Color white = kelvinToColor(6600.0f);
+        CHECK(white.r > 0.95f && white.g > 0.95f && white.b > 0.90f);
+        CHECK(std::fabs(white.r - white.b) < 0.06f);
+    }
+    {
+        const Color cool = kelvinToColor(10000.0f);
+        CHECK(cool.b >= cool.g && cool.g >= cool.r);
+        CHECK(std::fabs(cool.b - 1.0f) < 0.01f && cool.r < 0.9f);
+    }
+    {
+        float prevBlue = -1.0f;
+        float prevWarmth = 2.0f;
+        for (float k = 1000.0f; k <= 40000.0f; k += 500.0f) {
+            const Color c = kelvinToColor(k);
+            CHECK(c.b >= prevBlue - 1e-4f);
+            const float warmth = c.r - c.b;
+            CHECK(warmth <= prevWarmth + 1e-4f);
+            prevBlue = c.b;
+            prevWarmth = warmth;
+        }
+    }
+    {
+        const Color lo = kelvinToColor(500.0f);
+        const Color at1000 = kelvinToColor(1000.0f);
+        CHECK(std::fabs(lo.r - at1000.r) < 1e-6f && std::fabs(lo.b - at1000.b) < 1e-6f);
+        const Color hi = kelvinToColor(90000.0f);
+        const Color at40000 = kelvinToColor(40000.0f);
+        CHECK(std::fabs(hi.r - at40000.r) < 1e-6f && std::fabs(hi.b - at40000.b) < 1e-6f);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -27701,6 +27750,7 @@ int main() {
     testDither();
     testWorleyNoise();
     testCurlNoise();
+    testColorTemperature();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

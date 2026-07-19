@@ -648,6 +648,14 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   perpendicularity to the gradient (curl . gradient == 0), a non-trivial field, a measured
   mean-|divergence| under 0.05 on a 40x40 grid (the incompressibility property), a finite non-trivial
   fbm variant, and distinct fields per seed),
+  **color temperature (Kelvin -> RGB)** (M448, `render::kelvinToColor` — the Tanner Helland blackbody fit
+  (~1000-40000 K): warm reddish tints at low temperatures (candle/tungsten), neutral daylight white near
+  6500K, cool blue at high temperatures (overcast/shade). The tool for physically-plausible light tints:
+  day/night cycles shifting the sun dawn-orange to noon-white, lamp/torch/fire glows, and
+  white-balance-style grading. Godot has no built-in Kelvin->RGB helper. Verified: every output in [0,1]
+  with alpha 1, warm 1500K reddish (r>g>b, blue ~0), 6600K near-neutral white, cool 10000K blue-dominant
+  (b>=g>=r), monotone trends (blue rises and warmth r-b falls with temperature) across the range, and
+  clamping outside [1000, 40000]),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
