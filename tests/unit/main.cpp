@@ -97,6 +97,7 @@
 #include "maz/core/SpaceFilling.hpp"
 #include "maz/render/ImageBlur.hpp"
 #include "maz/core/Kalman.hpp"
+#include "maz/game/Ballistics.hpp"
 #include "maz/core/Fixed.hpp"
 #include "maz/math/FixedVec2.hpp"
 #include "maz/math/FixedVec3.hpp"
@@ -19322,6 +19323,83 @@ void testKalman() {
     }
 }
 
+// Ballistics: closed-form projectile aiming (M453).
+void testBallistics() {
+    using game::LaunchSolution;
+    using game::maxRangeFlat;
+    using game::projectileApex;
+    using game::projectilePosition;
+    using game::solveLaunchAngle;
+    using game::solveLaunchVelocity;
+    using math::vec3;
+    const float g = 9.81f;
+
+    // Analytic trajectory height at horizontal distance x for angle theta and speed v.
+    auto heightAt = [](float x, float theta, float v, float gg) {
+        const float c = std::cos(theta);
+        return x * std::tan(theta) - gg * x * x / (2.0f * v * v * c * c);
+    };
+
+    // Both firing angles actually pass through the target.
+    {
+        const float range = 40.0f, height = 5.0f, speed = 30.0f;
+        const LaunchSolution s = solveLaunchAngle(range, height, speed, g);
+        CHECK(s.reachable);
+        CHECK(std::fabs(heightAt(range, s.low, speed, g) - height) < 1e-2f);
+        CHECK(std::fabs(heightAt(range, s.high, speed, g) - height) < 1e-2f);
+        CHECK(s.low <= s.high);
+    }
+    // Flat target: the two angles are complementary (sum to 90 deg); range gate matches v^2/g.
+    {
+        const float range = 50.0f, speed = 28.0f;
+        const LaunchSolution s = solveLaunchAngle(range, 0.0f, speed, g);
+        CHECK(s.reachable);
+        CHECK(std::fabs(s.low + s.high - 3.14159265f / 2.0f) < 1e-3f);
+        const float rmax = maxRangeFlat(speed, g);
+        CHECK(solveLaunchAngle(rmax - 1.0f, 0.0f, speed, g).reachable);
+        CHECK(!solveLaunchAngle(rmax + 1.0f, 0.0f, speed, g).reachable);
+        CHECK(std::fabs(heightAt(rmax, 3.14159265f / 4.0f, speed, g)) < 1e-2f);
+    }
+    // solveLaunchVelocity lands exactly on target at the requested flight time.
+    {
+        const vec3 from(1.0f, 2.0f, -3.0f);
+        const vec3 targets[] = {vec3(20.0f, 5.0f, 8.0f), vec3(-15.0f, 0.0f, 12.0f), vec3(0.0f, 10.0f, 0.0f)};
+        const float times[] = {1.5f, 2.0f, 0.75f};
+        for (const vec3& to : targets) {
+            for (float T : times) {
+                const vec3 v = solveLaunchVelocity(from, to, g, T);
+                const vec3 p = projectilePosition(from, v, g, T);
+                CHECK(std::fabs(p.x - to.x) < 1e-3f && std::fabs(p.y - to.y) < 1e-3f
+                      && std::fabs(p.z - to.z) < 1e-3f);
+            }
+        }
+    }
+    // projectilePosition at t=0 is the launch point.
+    {
+        const vec3 p = projectilePosition(vec3(5.0f, 6.0f, 7.0f), vec3(1.0f, 2.0f, 3.0f), g, 0.0f);
+        CHECK(std::fabs(p.x - 5.0f) < 1e-6f && std::fabs(p.y - 6.0f) < 1e-6f && std::fabs(p.z - 7.0f) < 1e-6f);
+    }
+    // Apex matches analytic max height and the sampled trajectory peak.
+    {
+        CHECK(std::fabs(projectileApex(20.0f, 3.14159265f / 2.0f, g) - 20.0f * 20.0f / (2.0f * g)) < 1e-2f);
+        const float speed = 25.0f, theta = 1.0f;
+        const float apex = projectileApex(speed, theta, g);
+        const vec3 from(0.0f, 0.0f, 0.0f);
+        const vec3 v(speed * std::cos(theta), speed * std::sin(theta), 0.0f);
+        float peak = -1.0f;
+        for (int i = 0; i <= 20000; ++i) {
+            peak = std::fmax(peak, projectilePosition(from, v, g, static_cast<float>(i) * 0.0005f).y);
+        }
+        CHECK(std::fabs(peak - apex) < 0.05f);
+    }
+    // Degenerate inputs are rejected.
+    {
+        CHECK(!solveLaunchAngle(0.0f, 5.0f, 30.0f, g).reachable);
+        CHECK(!solveLaunchAngle(10.0f, 5.0f, 0.0f, g).reachable);
+        CHECK(!solveLaunchAngle(10.0f, 100.0f, 5.0f, g).reachable);
+    }
+}
+
 void testKdTree2D() {
     using core::KdTree2D;
     using core::Pcg32;
@@ -28099,6 +28177,7 @@ int main() {
     testSpaceFilling();
     testImageBlur();
     testKalman();
+    testBallistics();
     testKdTree2D();
     testPoissonDisk();
     testOverlap3D();

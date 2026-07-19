@@ -697,6 +697,15 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   seeded noisy samples of a constant the filter cuts error energy by >2x and tracks the truth; and the
   constant-velocity tracker recovers both position and velocity from clean linear motion with a
   positive-definite covariance),
+  **ballistic aiming** (M453, `game::solveLaunchAngle`/`solveLaunchVelocity`/`projectilePosition`/
+  `projectileApex`/`maxRangeFlat` — closed-form projectile-motion helpers for lobbing grenades, arcing
+  arrows, and ranging artillery onto a target under gravity. solveLaunchAngle returns the two firing
+  angles (flat direct shot + high mortar arc) for a fixed speed, or reports the target out of range;
+  solveLaunchVelocity gives the exact throw velocity to land on a target in a chosen flight time. Godot
+  has no ballistic solver -> beyond-Godot. Verified analytically: both returned angles pass exactly
+  through the target height, flat-ground angles are complementary (sum to 90 deg) with the range gate at
+  v^2/g, the solved velocity lands precisely on target at the requested time, pos(0) is the launch point,
+  and the apex matches both the closed form and a densely-sampled trajectory peak),
   **performance
   budgets** (a formal alert layer Godot lacks), job system, **string utilities** (M265,
   `core::StringUtils` — Godot String's split/join/strip_edges/lpad-rpad/replace/begins-ends-with/
