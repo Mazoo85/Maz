@@ -1182,6 +1182,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **cubemap direction mapping** (M506, `render::directionToCube` / `cubeToDirection` — the sampling math
+  shared by reflection probes, skyboxes, and image-based lighting. A cubemap stores a 360° environment across
+  six square faces; `directionToCube` converts a 3D direction into "which face + where on it (u,v)" and
+  `cubeToDirection` inverts it, using the standard OpenGL/Vulkan cube mapping (major-axis selection with the
+  conventional per-face s/t axes) so a Maz cubemap matches what artists author elsewhere. Pure math,
+  unit-tested headlessly; a GPU samples the actual texels and reflection-probe capture is a separate pass.
+  Honest scope: the direction<->face/uv convention only (no texture allocation/sampling, seamless edge
+  filtering, or roughness prefiltering). Verified: the six axis directions land centered on their expected
+  faces; major-axis selection picks the dominant component by magnitude (a -Z-dominant vector maps to NegZ);
+  each face center inverts back to its axis; a spread of directions round-trips direction->face/uv->direction
+  to the normalized input with UVs staying in [0,1]; and every face's UV corners yield unit-length directions),
   **3D navigation mesh pathfinding** (M505, `game::NavMesh3D` — the query side of Godot's
   NavigationServer3D / NavigationRegion3D. The walkable world is convex 3D polygons (floors, ramps,
   platforms) that share edges, and `findPath` returns a smoothed list of 3D waypoints from a start to a goal.

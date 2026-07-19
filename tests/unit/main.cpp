@@ -315,6 +315,7 @@
 #include "maz/render/ImageCodecTga.hpp"
 #include "maz/render/Billboard.hpp"
 #include "maz/render/Camera3D.hpp"
+#include "maz/render/Cubemap.hpp"
 #include "maz/render/Decal.hpp"
 #include "maz/render/Lightmap.hpp"
 #include "maz/render/Line2D.hpp"
@@ -20246,6 +20247,58 @@ void testPolynomial() {
     }
 }
 
+void testCubemap() {
+    using namespace render;
+    using math::vec3;
+    auto nf = [](float a, float b) { return std::fabs(a - b) <= 1e-5f; };
+    auto dirNear = [&](vec3 a, vec3 b) { return nf(a.x, b.x) && nf(a.y, b.y) && nf(a.z, b.z); };
+
+    // Axis directions land on the expected face, centered.
+    {
+        auto px = directionToCube(vec3{1, 0, 0});
+        CHECK(px.face == CubeFace::PosX);
+        CHECK(nf(px.u, 0.5f) && nf(px.v, 0.5f));
+        CHECK(directionToCube(vec3{-1, 0, 0}).face == CubeFace::NegX);
+        CHECK(directionToCube(vec3{0, 1, 0}).face == CubeFace::PosY);
+        CHECK(directionToCube(vec3{0, -1, 0}).face == CubeFace::NegY);
+        CHECK(directionToCube(vec3{0, 0, 1}).face == CubeFace::PosZ);
+        CHECK(directionToCube(vec3{0, 0, -1}).face == CubeFace::NegZ);
+    }
+    // Major-axis selection picks the dominant component (magnitude, not sign).
+    {
+        CHECK(directionToCube(vec3{0.9f, 0.1f, 0.2f}).face == CubeFace::PosX);
+        CHECK(directionToCube(vec3{0.1f, -0.8f, 0.3f}).face == CubeFace::NegY);
+        CHECK(directionToCube(vec3{0.2f, 0.3f, -0.9f}).face == CubeFace::NegZ);
+    }
+    // Face centers map back to their axis.
+    {
+        CHECK(nf(cubeToDirection(CubeFace::PosX, 0.5f, 0.5f).x, 1.0f));
+        CHECK(nf(cubeToDirection(CubeFace::NegY, 0.5f, 0.5f).y, -1.0f));
+        CHECK(nf(cubeToDirection(CubeFace::PosZ, 0.5f, 0.5f).z, 1.0f));
+    }
+    // Round-trip direction -> face/uv -> direction returns the normalized direction.
+    {
+        const vec3 samples[] = {{1, 0, 0},         {0, -1, 0},         {0, 0, -1},
+                                {0.4f, 0.7f, -0.3f}, {-0.6f, 0.2f, 0.5f}, {0.3f, -0.4f, 0.85f}};
+        for (const vec3& s : samples) {
+            const float len = std::sqrt(s.x * s.x + s.y * s.y + s.z * s.z);
+            const vec3 n{s.x / len, s.y / len, s.z / len};
+            const CubeSample cs = directionToCube(s);
+            CHECK(cs.u >= 0.0f && cs.u <= 1.0f && cs.v >= 0.0f && cs.v <= 1.0f);
+            CHECK(dirNear(cubeToDirection(cs.face, cs.u, cs.v), n));
+        }
+    }
+    // UV corners produce unit-length directions on every face.
+    {
+        for (int f = 0; f < 6; ++f)
+            for (float u : {0.0f, 1.0f})
+                for (float v : {0.0f, 1.0f}) {
+                    const vec3 d = cubeToDirection(static_cast<CubeFace>(f), u, v);
+                    CHECK(nf(std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z), 1.0f));
+                }
+    }
+}
+
 void testNavMesh3D() {
     using game::NavMesh3D;
     using math::vec2;
@@ -32655,6 +32708,7 @@ int main() {
     testSubdivision();
     testMeshWeld();
     testMeshSmooth();
+    testCubemap();
     testNavMesh3D();
     testVolumetricFog();
     testDecalProject();

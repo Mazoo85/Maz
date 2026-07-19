@@ -68,6 +68,8 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).
 - [x] **Occlusion culling** — ALREADY PRESENT (`render::Occlusion.hpp`, screen-space coverage buffer).
 - [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
+- [x] **Cubemap direction/UV mapping** (`render::directionToCube` / `cubeToDirection`) — DONE (M506); the
+  sampling math for reflection probes, skyboxes, and IBL. [VERIFIABLE HERE]
 - [ ] **Reflection-probe capture plumbing**, **SSR/SSIL passes**, **GPU particles + collision**.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
