@@ -13,7 +13,7 @@ struct StateVariableFilter {
     float ic1 = 0.0f; // integrator states
     float ic2 = 0.0f;
 
-    enum class Mode { LowPass, HighPass, BandPass };
+    enum class Mode { LowPass, HighPass, BandPass, Notch };
 
     void reset() {
         ic1 = 0.0f;
@@ -44,6 +44,8 @@ struct StateVariableFilter {
             return x - k * v1 - v2;
         case Mode::BandPass:
             return v1;
+        case Mode::Notch:
+            return x - k * v1; // low-pass + high-pass: rejects a band around the cutoff
         }
         return v2;
     }

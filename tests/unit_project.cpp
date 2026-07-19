@@ -90,7 +90,7 @@ int main() {
     seq.synth().setFilterLfo(3.5f, 1.5f);
     seq.synth().setAmpLfo(4.5f, 0.6f);
     seq.synth().setDrift(18.0f);
-    seq.synth().setFilterMode(audio::StateVariableFilter::Mode::BandPass);
+    seq.synth().setFilterMode(audio::StateVariableFilter::Mode::Notch);
     seq.synth().setFilterEnvelope(0.02f, 0.15f, 0.3f, 0.25f);
     seq.synth().setFilterEnvDepth(4200.0f);
     seq.synth().setFilterDrive(0.65f);
@@ -397,7 +397,7 @@ int main() {
     check(near(seq2.synth().ampLfoRate(), 4.5f) && near(seq2.synth().ampLfoDepth(), 0.6f),
           "amp LFO (tremolo) round-trips");
     check(near(seq2.synth().drift(), 18.0f), "analog drift round-trips");
-    check(seq2.synth().filterMode() == audio::StateVariableFilter::Mode::BandPass,
+    check(seq2.synth().filterMode() == audio::StateVariableFilter::Mode::Notch,
           "synth filter type round-trips");
     check(near(seq2.synth().filterEnvDepth(), 4200.0f) &&
               near(seq2.synth().filterEnvSustain(), 0.3f) &&

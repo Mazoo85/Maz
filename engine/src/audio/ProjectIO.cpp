@@ -96,7 +96,7 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     }
     int fmode = 0; // filter mode optional for old files (0 = low-pass)
     if (ls >> fmode) {
-        fmode = fmode < 0 || fmode > 2 ? 0 : fmode;
+        fmode = fmode < 0 || fmode > 3 ? 0 : fmode;
         syn.setFilterMode(static_cast<StateVariableFilter::Mode>(fmode));
     }
     float fa = 0.0f, fd = 0.0f, fs = 0.0f, fr = 0.0f, fdepth = 0.0f; // filter env optional for old files

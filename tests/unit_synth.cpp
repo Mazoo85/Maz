@@ -1117,6 +1117,20 @@ int main() {
         check(lp > 0.0, "low-pass filter produces sound");
         check(hp > lp * 2.0, "high-pass keeps highs and removes lows (higher HF ratio than low-pass)");
 
+        // Notch: a pure tone sitting at the cutoff is rejected, whereas low-pass passes it.
+        auto rmsAtCutoff = [&](audio::StateVariableFilter::Mode m) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.02f);
+            s.setFilter(220.0f, 1.0f, 0.0f); // cutoff on the note's fundamental
+            s.setFilterMode(m);
+            s.noteOn(57, 1.0f); // A3 = 220 Hz
+            return rms(render(s, 8000, sampleRate));
+        };
+        check(rmsAtCutoff(audio::StateVariableFilter::Mode::Notch) <
+                  rmsAtCutoff(audio::StateVariableFilter::Mode::LowPass) * 0.5,
+              "notch rejects a tone at the cutoff (much quieter than low-pass)");
+
         audio::SynthInstrument df;
         check(df.filterMode() == audio::StateVariableFilter::Mode::LowPass,
               "filter type defaults to low-pass");
