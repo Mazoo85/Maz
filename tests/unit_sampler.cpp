@@ -905,6 +905,47 @@ int main() {
               "normalize with target <= 0 is a no-op");
     }
 
+    // --- Export loudness (RMS) normalization ---------------------------------
+    // Scales the buffer so its RMS hits the target, capping the gain so the peak never clips.
+    {
+        // A steady low-level tone (a sine at amplitude 0.1 has RMS ≈ 0.0707). Lift it toward RMS 0.25.
+        std::vector<float> tone(4096);
+        for (size_t i = 0; i < tone.size(); ++i) {
+            tone[i] = 0.1f * static_cast<float>(std::sin(kTwoPi * 5.0 * static_cast<double>(i) /
+                                                         static_cast<double>(tone.size())));
+        }
+        auto rmsOf = [](const std::vector<float>& v) {
+            double sq = 0.0;
+            for (float s : v) {
+                sq += static_cast<double>(s) * static_cast<double>(s);
+            }
+            return std::sqrt(sq / static_cast<double>(v.size()));
+        };
+        const float g = audio::rmsNormalize(tone.data(), static_cast<int>(tone.size()), 0.25f, 0.966f);
+        check(g > 1.0f, "loudness normalize lifts a quiet mix (gain > 1)");
+        check(std::fabs(rmsOf(tone) - 0.25) < 0.01, "loudness normalize hits the target RMS");
+
+        // A peaky mix (one full-scale spike, otherwise quiet) must NOT clip: the gain is capped so the
+        // peak lands at the ceiling and the RMS stays below the requested target.
+        std::vector<float> peaky(4096, 0.02f);
+        peaky[100] = 0.95f;
+        const float gp = audio::rmsNormalize(peaky.data(), static_cast<int>(peaky.size()), 0.5f, 0.966f);
+        float pk = 0.0f;
+        for (float s : peaky) {
+            pk = std::max(pk, std::fabs(s));
+        }
+        check(pk <= 0.966f + 1e-4f && gp > 1.0f,
+              "loudness normalize caps the gain so a peaky mix never clips");
+
+        // Silence and degenerate targets are no-ops (no divide-by-zero).
+        std::vector<float> silent2(16, 0.0f);
+        check(audio::rmsNormalize(silent2.data(), static_cast<int>(silent2.size())) == 1.0f,
+              "loudness normalize is a no-op on silence");
+        std::vector<float> d = {0.4f, -0.2f};
+        check(audio::rmsNormalize(d.data(), static_cast<int>(d.size()), 0.0f) == 1.0f && d[0] == 0.4f,
+              "loudness normalize with target <= 0 is a no-op");
+    }
+
     // --- Sampler filter mode (multimode SVF: low-pass vs high-pass) ----------
     {
         // A sample carrying a low (120 Hz) and a high (6 kHz) tone. A ~1 kHz filter should keep the

@@ -54,6 +54,43 @@ inline float peakNormalize(float* interleaved, int count, float targetPeak = 0.9
     return gain;
 }
 
+// Loudness (RMS) normalization: scale the mix so its average level (RMS) reaches `targetRms` (linear),
+// which tracks perceived loudness far better than peak normalization — quiet masters are lifted to a
+// consistent loudness rather than merely to full scale. To guarantee no clipping, the gain is capped
+// so the loudest sample stays at or under `peakCeiling`; a very peaky (transient-heavy) mix therefore
+// lands a little below the RMS target rather than clipping. Like peakNormalize this applies ONE
+// constant gain — no compression/limiting — so it never alters dynamics. Returns the gain applied; a
+// no-op (1.0, buffer untouched) on silence, a null/empty buffer, or a non-positive target. Apply to a
+// final mix bounce, not to individual stems (their RMS differ, so per-stem normalizing skews balance).
+inline float rmsNormalize(float* interleaved, int count, float targetRms = 0.125f,
+                          float peakCeiling = 0.966f) {
+    if (interleaved == nullptr || count <= 0 || targetRms <= 0.0f) {
+        return 1.0f;
+    }
+    double sq = 0.0;
+    float peak = 0.0f;
+    for (int i = 0; i < count; ++i) {
+        const float s = interleaved[i];
+        sq += static_cast<double>(s) * static_cast<double>(s);
+        const float a = std::fabs(s);
+        if (a > peak) {
+            peak = a;
+        }
+    }
+    const float rms = static_cast<float>(std::sqrt(sq / static_cast<double>(count)));
+    if (rms <= 0.0f) {
+        return 1.0f; // silence — nothing to scale
+    }
+    float gain = targetRms / rms;
+    if (peakCeiling > 0.0f && peak * gain > peakCeiling) {
+        gain = peakCeiling / peak; // cap so the peak never clips (peaky mixes fall short of target)
+    }
+    for (int i = 0; i < count; ++i) {
+        interleaved[i] *= gain;
+    }
+    return gain;
+}
+
 // Write `frames` of interleaved float32 samples (values expected in [-1, 1]) to a canonical 16-bit
 // PCM WAV file. Samples outside the range are clamped. Returns false and sets *err (when non-null)
 // on any I/O failure.

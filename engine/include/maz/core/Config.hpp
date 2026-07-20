@@ -21,6 +21,8 @@ struct AppConfig {
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool dither = false;            // --dither : TPDF-dither the 16-bit WAV/stem export (mastering)
     bool normalize = false;         // --normalize : peak-normalize the WAV bounce to -0.3 dBFS
+    bool loudnessNorm = false;      // --loudness N : RMS/loudness-normalize the bounce to N dBFS
+    float loudnessDb = -18.0f;      //               target integrated RMS level (dBFS) for --loudness
     int wavBits = 16;               // --bits N : WAV/stem export bit depth (16 or 24)
     int sampleRate = 48000;         // --samplerate N : offline render/export sample rate (Hz)
     bool mono = false;              // --mono : downmix the WAV bounce to a single mono channel

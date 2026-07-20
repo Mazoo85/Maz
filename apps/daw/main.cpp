@@ -338,6 +338,14 @@ int runHeadless(const core::AppConfig& cfg) {
             const float g = audio::peakNormalize(buf.data(), static_cast<int>(buf.size()));
             MAZ_LOG_INFO("audio: normalized mix to -0.3 dBFS (x%.3f)", static_cast<double>(g));
         }
+        // Optional loudness (RMS) normalization to a target dBFS — lifts quiet masters to a consistent
+        // perceived loudness (gain-capped so the peak never clips). Distinct from peak-normalize above.
+        if (cfg.loudnessNorm) {
+            const float targetRms = std::pow(10.0f, cfg.loudnessDb / 20.0f);
+            const float g = audio::rmsNormalize(buf.data(), static_cast<int>(buf.size()), targetRms);
+            MAZ_LOG_INFO("audio: loudness-normalized mix to %.1f dBFS RMS (x%.3f)",
+                         static_cast<double>(cfg.loudnessDb), static_cast<double>(g));
+        }
         // Optional mono downmix of the final bounce.
         std::vector<float> monoBuf;
         const float* outData = buf.data();

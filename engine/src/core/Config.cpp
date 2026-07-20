@@ -37,6 +37,9 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.dither = true;
         } else if (std::strcmp(arg, "--normalize") == 0) {
             cfg.normalize = true;
+        } else if (std::strcmp(arg, "--loudness") == 0 && i + 1 < argc) {
+            cfg.loudnessNorm = true;
+            cfg.loudnessDb = static_cast<float>(std::atof(argv[++i]));
         } else if (std::strcmp(arg, "--bits") == 0 && i + 1 < argc) {
             cfg.wavBits = std::atoi(argv[++i]);
         } else if (std::strcmp(arg, "--samplerate") == 0 && i + 1 < argc) {
