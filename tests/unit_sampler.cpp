@@ -1218,6 +1218,93 @@ int main() {
         check(ok, "a 1-sample buffer in reverse renders safely (no out-of-bounds / Inf)");
     }
 
+    // WavReader robustness: the reader parses untrusted external files, so malformed inputs must be
+    // rejected or tolerated cleanly — never crash or read past the buffer. These lock in that handling.
+    {
+        auto wavWriteBytes = [](const std::string& p, const std::vector<uint8_t>& bytes) {
+            std::ofstream o(p, std::ios::binary);
+            o.write(reinterpret_cast<const char*>(bytes.data()),
+                    static_cast<std::streamsize>(bytes.size()));
+        };
+        auto wavPutLE = [](std::vector<uint8_t>& v, uint32_t x, int nb) {
+            for (int k = 0; k < nb; ++k) {
+                v.push_back(static_cast<uint8_t>((x >> (8 * k)) & 0xFFu));
+            }
+        };
+        auto wavTag = [](std::vector<uint8_t>& v, const char* t) {
+            for (int k = 0; k < 4; ++k) {
+                v.push_back(static_cast<uint8_t>(t[k]));
+            }
+        };
+
+        // 1. A too-short file is rejected.
+        wavWriteBytes("unit_wav_short.wav", {'R', 'I', 'F', 'F', 0, 0, 0, 0});
+        audio::WavData ws;
+        check(!audio::readWav16("unit_wav_short.wav", ws, &err), "a too-short WAV is rejected");
+
+        // 2. A valid RIFF/WAVE header with no fmt/data chunks (zero-padded to 44 bytes) is rejected.
+        {
+            std::vector<uint8_t> v;
+            wavTag(v, "RIFF");
+            wavPutLE(v, 36, 4);
+            wavTag(v, "WAVE");
+            while (v.size() < 44) {
+                v.push_back(0);
+            }
+            wavWriteBytes("unit_wav_nofmt.wav", v);
+            audio::WavData wnf;
+            check(!audio::readWav16("unit_wav_nofmt.wav", wnf, &err),
+                  "a WAVE file with no fmt/data chunk is rejected");
+        }
+
+        // 3. An unsupported bit depth (8-bit PCM) is rejected.
+        {
+            std::vector<uint8_t> v;
+            wavTag(v, "RIFF");
+            wavPutLE(v, 36, 4);
+            wavTag(v, "WAVE");
+            wavTag(v, "fmt ");
+            wavPutLE(v, 16, 4);
+            wavPutLE(v, 1, 2);     // PCM
+            wavPutLE(v, 1, 2);     // mono
+            wavPutLE(v, 44100, 4); // sample rate
+            wavPutLE(v, 44100, 4); // byte rate
+            wavPutLE(v, 1, 2);     // block align
+            wavPutLE(v, 8, 2);     // 8 bits — unsupported
+            wavTag(v, "data");
+            wavPutLE(v, 4, 4);
+            wavPutLE(v, 0, 4);
+            wavWriteBytes("unit_wav_8bit.wav", v);
+            audio::WavData w8;
+            check(!audio::readWav16("unit_wav_8bit.wav", w8, &err),
+                  "an 8-bit PCM WAV is rejected (unsupported depth)");
+        }
+
+        // 4. A data chunk claiming far more bytes than are present is clamped, not over-read.
+        {
+            std::vector<uint8_t> v;
+            wavTag(v, "RIFF");
+            wavPutLE(v, 36, 4);
+            wavTag(v, "WAVE");
+            wavTag(v, "fmt ");
+            wavPutLE(v, 16, 4);
+            wavPutLE(v, 1, 2);     // PCM
+            wavPutLE(v, 1, 2);     // mono
+            wavPutLE(v, 44100, 4); // sample rate
+            wavPutLE(v, 88200, 4); // byte rate
+            wavPutLE(v, 2, 2);     // block align
+            wavPutLE(v, 16, 2);    // 16-bit
+            wavTag(v, "data");
+            wavPutLE(v, 1000000, 4); // claims ~1 MB of data...
+            wavPutLE(v, 0x1234, 2);  // ...but only one 16-bit sample is actually present
+            wavWriteBytes("unit_wav_trunc.wav", v);
+            audio::WavData wt;
+            const bool ok = audio::readWav16("unit_wav_trunc.wav", wt, &err);
+            check(ok && wt.samples.size() <= 1,
+                  "an over-claimed data length is clamped to the bytes present (no over-read)");
+        }
+    }
+
     // Missing file fails cleanly.
     audio::Sampler bad;
     check(!bad.load("/nonexistent/missing.wav", &err), "loading a missing WAV fails");
