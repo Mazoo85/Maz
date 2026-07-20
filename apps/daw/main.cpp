@@ -351,6 +351,13 @@ int runHeadless(const core::AppConfig& cfg) {
             MAZ_LOG_INFO("audio: loudness-normalized mix to %.1f dBFS RMS (x%.3f)",
                          static_cast<double>(cfg.loudnessDb), static_cast<double>(g));
         }
+        // Optional master fade-in/out — applied last so it shapes the final normalized master.
+        if (cfg.fadeInMs > 0 || cfg.fadeOutMs > 0) {
+            const int fin = cfg.fadeInMs * cfg.sampleRate / 1000;
+            const int fout = cfg.fadeOutMs * cfg.sampleRate / 1000;
+            audio::applyFade(buf.data(), static_cast<int>(buf.size()) / channels, channels, fin, fout);
+            MAZ_LOG_INFO("audio: applied fade in %d ms / out %d ms", cfg.fadeInMs, cfg.fadeOutMs);
+        }
         // Optional mono downmix of the final bounce.
         std::vector<float> monoBuf;
         const float* outData = buf.data();

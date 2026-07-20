@@ -35,6 +35,10 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.wavPath = argv[++i];
         } else if (std::strcmp(arg, "--dither") == 0) {
             cfg.dither = true;
+        } else if (std::strcmp(arg, "--fadein") == 0 && i + 1 < argc) {
+            cfg.fadeInMs = std::atoi(argv[++i]);
+        } else if (std::strcmp(arg, "--fadeout") == 0 && i + 1 < argc) {
+            cfg.fadeOutMs = std::atoi(argv[++i]);
         } else if (std::strcmp(arg, "--removedc") == 0) {
             cfg.removeDc = true;
         } else if (std::strcmp(arg, "--normalize") == 0) {

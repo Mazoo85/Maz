@@ -943,6 +943,27 @@ int main() {
         audio::removeDcOffset(nullptr, 10, 2); // must not crash
     }
 
+    // --- Export master fade-in / fade-out ------------------------------------
+    // Linear fades ramp the first/last N frames from/to silence; the middle is untouched.
+    {
+        const int frames = 1000;
+        std::vector<float> b(static_cast<size_t>(frames) * 2, 0.5f); // stereo, steady 0.5
+        audio::applyFade(b.data(), frames, 2, 100, 200);             // 100-frame in, 200-frame out
+        check(b[0] == 0.0f && b[1] == 0.0f, "fade-in starts at silence");
+        check(std::fabs(b[static_cast<size_t>(500) * 2] - 0.5f) < 1e-6f, "the middle is untouched by fades");
+        check(b[static_cast<size_t>(frames - 1) * 2] == 0.0f &&
+                  b[static_cast<size_t>(frames - 1) * 2 + 1] == 0.0f,
+              "fade-out ends at silence");
+        // Halfway through the 100-frame fade-in the gain is ~0.5, so the 0.5 sample is ~0.25.
+        check(std::fabs(b[static_cast<size_t>(50) * 2] - 0.25f) < 0.02f, "fade-in ramps linearly");
+        // Fades are clamped to half the length so they never overlap (both huge → no double-scaling).
+        std::vector<float> s(static_cast<size_t>(frames) * 2, 1.0f);
+        audio::applyFade(s.data(), frames, 2, 100000, 100000);
+        check(std::isfinite(s[static_cast<size_t>(500) * 2]),
+              "over-long fades are clamped to half-length (no overlap/corruption)");
+        audio::applyFade(nullptr, 10, 2, 5, 5); // must not crash
+    }
+
     // --- Export loudness (RMS) normalization ---------------------------------
     // Scales the buffer so its RMS hits the target, capping the gain so the peak never clips.
     {

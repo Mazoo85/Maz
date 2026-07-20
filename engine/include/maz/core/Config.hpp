@@ -20,6 +20,8 @@ struct AppConfig {
     double seconds = 1.0;           // --seconds N : length of an offline render
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool dither = false;            // --dither : TPDF-dither the 16-bit WAV/stem export (mastering)
+    int fadeInMs = 0;               // --fadein N : linear fade-in over the first N ms of the bounce
+    int fadeOutMs = 0;              // --fadeout N : linear fade-out over the last N ms of the bounce
     bool removeDc = false;          // --removedc : subtract each channel's mean (DC offset) on bounce
     bool normalize = false;         // --normalize : peak-normalize the WAV bounce to -0.3 dBFS
     bool loudnessNorm = false;      // --loudness N : RMS/loudness-normalize the bounce to N dBFS

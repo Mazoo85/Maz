@@ -76,6 +76,34 @@ inline void removeDcOffset(float* interleaved, int frames, int channels) {
     }
 }
 
+// Apply a linear fade-in over the first `fadeInFrames` and a fade-out over the last `fadeOutFrames`
+// of an interleaved mix — the classic song fade-out and a click-free start/end on the bounce. Each
+// fade is clamped to at most half the length so the two never overlap. No-op for zero-length fades, a
+// null/empty buffer, or a non-positive channel count. Apply LAST (after any normalization) so it
+// shapes the final master. `interleaved` holds `frames*channels` samples.
+inline void applyFade(float* interleaved, int frames, int channels, int fadeInFrames,
+                      int fadeOutFrames) {
+    if (interleaved == nullptr || frames <= 0 || channels <= 0) {
+        return;
+    }
+    const int half = frames / 2;
+    const int fin = fadeInFrames < 0 ? 0 : (fadeInFrames > half ? half : fadeInFrames);
+    const int fout = fadeOutFrames < 0 ? 0 : (fadeOutFrames > half ? half : fadeOutFrames);
+    for (int i = 0; i < fin; ++i) {
+        const float g = static_cast<float>(i) / static_cast<float>(fin); // 0 → ~1
+        for (int c = 0; c < channels; ++c) {
+            interleaved[i * channels + c] *= g;
+        }
+    }
+    for (int i = 0; i < fout; ++i) {
+        const float g = static_cast<float>(i) / static_cast<float>(fout); // 0 at the very last sample
+        const int idx = frames - 1 - i;
+        for (int c = 0; c < channels; ++c) {
+            interleaved[idx * channels + c] *= g;
+        }
+    }
+}
+
 // Loudness (RMS) normalization: scale the mix so its average level (RMS) reaches `targetRms` (linear),
 // which tracks perceived loudness far better than peak normalization — quiet masters are lifted to a
 // consistent loudness rather than merely to full scale. To guarantee no clipping, the gain is capped
