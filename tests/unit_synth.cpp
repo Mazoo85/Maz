@@ -1400,6 +1400,37 @@ int main() {
               "a mono slide releases the extra ringing voices (true monophony)");
     }
 
+    // --- Square pulse width changes the audible duty cycle -------------------
+    {
+        // For a square wave, pulse width is the fraction of each cycle spent high, so the fraction of
+        // positive samples in the (filter-open) output should track it. This proves the PWM control —
+        // and the SynthPulseWidth automation target that drives it — is audible, not just a stored knob.
+        auto positiveFraction = [&](float pw) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Square);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setOscillators(0.0f, 0.0f, 0.0f, 0.0f); // isolate the main oscillator (no osc2/sub/noise)
+            s.setFilter(20000.0f, 0.7f, 0.0f);        // filter wide open so the raw duty shows through
+            s.setPulseWidth(pw);
+            s.noteOn(45, 1.0f); // a low note so many full cycles fit the window
+            const std::vector<float> buf = render(s, sampleRate / 4, sampleRate);
+            int pos = 0, tot = 0;
+            for (float v : buf) {
+                if (std::fabs(v) > 1e-3f) {
+                    ++tot;
+                    if (v > 0.0f) {
+                        ++pos;
+                    }
+                }
+            }
+            return tot > 0 ? static_cast<double>(pos) / static_cast<double>(tot) : 0.0;
+        };
+        const double wide = positiveFraction(0.5f);
+        const double narrow = positiveFraction(0.1f);
+        check(std::fabs(wide - 0.5) < 0.12, "a 50% pulse width is ~half positive (a plain square)");
+        check(narrow < wide - 0.2, "a narrow pulse width spends clearly less of the cycle positive");
+    }
+
     // --- Filter cutoff LFO ---------------------------------------------------
     {
         // A sustained bright note through a resonant low-pass. With the cutoff LFO on, the filter
