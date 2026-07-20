@@ -48,6 +48,7 @@ add_subdirectory(plugins/example_tremolo)
 add_subdirectory(plugins/example_clap)
 add_subdirectory(plugins/example_clap_instrument)
 add_subdirectory(plugins/example_vst3)
+add_subdirectory(plugins/example_vst3_instrument)
 
 if(MAZ_BUILD_TESTS)
     enable_testing()

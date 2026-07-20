@@ -119,8 +119,10 @@ set_tests_properties(unit_clap PROPERTIES TIMEOUT 30)
 # Unit tests: VST3 plugin hosting — load a real .vst3 built from plugins/example_vst3.
 add_executable(maz_vst3_tests unit_vst3.cpp)
 target_link_libraries(maz_vst3_tests PRIVATE maz::maz maz_warnings)
-add_dependencies(maz_vst3_tests maz_example_vst3)
-target_compile_definitions(maz_vst3_tests PRIVATE MAZ_TEST_VST3="$<TARGET_FILE:maz_example_vst3>")
+add_dependencies(maz_vst3_tests maz_example_vst3 maz_example_vst3_instrument)
+target_compile_definitions(maz_vst3_tests PRIVATE
+    MAZ_TEST_VST3="$<TARGET_FILE:maz_example_vst3>"
+    MAZ_TEST_VST3_INSTRUMENT="$<TARGET_FILE:maz_example_vst3_instrument>")
 
 add_test(NAME unit_vst3 COMMAND maz_vst3_tests)
 set_tests_properties(unit_vst3 PROPERTIES TIMEOUT 30)

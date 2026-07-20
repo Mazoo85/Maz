@@ -80,6 +80,21 @@ int main() {
     host.unload();
     check(!host.loaded(), "unloads cleanly");
 
+#ifdef MAZ_TEST_VST3_INSTRUMENT
+    // The example instrument declares an event/note input bus, so the host detects it as hostable as
+    // an instrument (the true side of the hasEventInput() routing signal — the tremolo above is false).
+    audio::Vst3Host inst;
+    const bool iok = inst.load(MAZ_TEST_VST3_INSTRUMENT, sr, 512, &err);
+    check(iok, "loads the example VST3 instrument");
+    if (iok) {
+        check(inst.pluginName() == std::string("Maz Synth"), "reads the instrument class name");
+        check(inst.hasEventInput(), "the instrument exposes a VST3 event input bus");
+        inst.unload();
+    } else {
+        std::printf("  instrument load error: %s\n", err.c_str());
+    }
+#endif
+
     audio::Vst3Host bad;
     check(!bad.load("/nonexistent/missing.vst3", sr, 512, &err), "loading a missing .vst3 fails");
 
