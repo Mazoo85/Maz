@@ -2956,6 +2956,10 @@ void buildAutomationUI(audio::Automation& automation) {
         ImGui::Combo("div##auto", &lane.syncDiv, adivNames, audio::Automation::kSyncDivisions);
         ImGui::SameLine();
         ImGui::Checkbox("S&H", &lane.lfo.sampleHold); // random stepped LFO
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(90.0f);
+        // Phase offset (fraction of a cycle) — run lanes out of phase (e.g. pan vs filter).
+        ImGui::SliderFloat("phase", &lane.lfo.phase, 0.0f, 1.0f, "%.2f");
         ImGui::PopID();
         ImGui::Separator();
     }

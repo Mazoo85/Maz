@@ -509,6 +509,7 @@ int main() {
     lane.hi = 5500.0f;
     lane.sync = true;
     lane.syncDiv = 3;
+    lane.lfo.phase = 0.375f; // a non-default LFO phase offset (must round-trip)
     // A breakpoint automation clip on a second lane.
     audio::AutoLane& reverbLane = automation.lane(audio::AutoTarget::ReverbMix);
     reverbLane.enabled = true;
@@ -1083,8 +1084,8 @@ int main() {
     const audio::AutoLane& lane2 = automation2.lane(audio::AutoTarget::FilterCutoff);
     check(lane2.enabled && lane2.lfo.shape == audio::Waveform::Saw &&
               near(lane2.lfo.rateHz, 1.75f) && near(lane2.lo, 300.0f) && near(lane2.hi, 5500.0f) &&
-              lane2.sync && lane2.syncDiv == 3,
-          "automation lane round-trips");
+              lane2.sync && lane2.syncDiv == 3 && near(lane2.lfo.phase, 0.375f),
+          "automation lane round-trips (incl. LFO phase offset)");
     const audio::AutoLane& clipLane2 = automation2.lane(audio::AutoTarget::ReverbMix);
     check(clipLane2.clip.size() == 3 && near(static_cast<float>(clipLane2.clipLength), 4.0f) &&
               near(static_cast<float>(clipLane2.clip[1].time), 1.5f) &&

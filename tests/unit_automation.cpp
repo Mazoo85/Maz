@@ -159,6 +159,24 @@ int main() {
               "comp-threshold automation drives the master compressor threshold and enables it");
     }
 
+    // --- LFO phase offset ----------------------------------------------------
+    {
+        // A quarter-cycle phase offset shifts a sine LFO to its peak at t=0 (sin of a quarter turn),
+        // whereas no offset starts it at the zero crossing. This lets lanes run out of phase.
+        audio::LFO base;
+        base.shape = audio::Waveform::Sine;
+        base.rateHz = 1.0f;
+        audio::LFO shifted = base;
+        shifted.phase = 0.25f;
+        check(std::fabs(base.valueBipolar(0.0)) < 1e-4f, "a sine LFO starts at zero with no phase offset");
+        check(shifted.valueBipolar(0.0) > 0.99f, "a 0.25 phase offset starts the sine LFO at its peak");
+        // A full-cycle offset is a no-op (phase wraps modulo 1).
+        audio::LFO whole = base;
+        whole.phase = 1.0f;
+        check(std::fabs(whole.valueBipolar(0.3) - base.valueBipolar(0.3)) < 1e-4f,
+              "a whole-cycle phase offset is equivalent to none (wraps mod 1)");
+    }
+
     // --- Automation clips (breakpoint envelopes) ------------------------------
     {
         // A clip ramps 0 → 1 over 0 → 2 s, then holds. It must interpolate linearly and take

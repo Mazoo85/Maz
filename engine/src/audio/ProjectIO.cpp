@@ -638,7 +638,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         f << "auto " << i << " " << (lane.enabled ? 1 : 0) << " "
           << static_cast<int>(lane.lfo.shape) << " " << lane.lfo.rateHz << " " << lane.lo << " "
           << lane.hi << " " << (lane.sync ? 1 : 0) << " " << lane.syncDiv << " "
-          << (lane.lfo.sampleHold ? 1 : 0) << "\n";
+          << (lane.lfo.sampleHold ? 1 : 0) << " " << lane.lfo.phase << "\n";
         // Automation clip (breakpoints): only written when the lane has one.
         if (!lane.clip.empty()) {
             f << "autoclip " << i << " " << lane.clipLength << " " << lane.clip.size();
@@ -1895,6 +1895,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 int sh = 0; // sample & hold optional for old files (0 = periodic shape)
                 if (ls >> sh) {
                     lane.lfo.sampleHold = sh != 0;
+                }
+                float ph = 0.0f; // LFO phase offset optional for old files (0 = no offset)
+                if (ls >> ph) {
+                    lane.lfo.phase = ph;
                 }
             }
         } else if (tag == "autoclip") {
