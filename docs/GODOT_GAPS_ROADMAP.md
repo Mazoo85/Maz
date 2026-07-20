@@ -137,7 +137,14 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
 - [x] **Cubemap direction/UV mapping** (`render::directionToCube` / `cubeToDirection`) — DONE (M506); the
   sampling math for reflection probes, skyboxes, and IBL. [VERIFIABLE HERE]
 - [x] **Reflection-probe influence + box projection** (`render::ReflectionProbe`) — DONE (M507); blend
-  weights + parallax-corrected sample direction. The cubemap *capture* is still a GPU pass. [VERIFIABLE HERE]
+  weights + parallax-corrected sample direction. [VERIFIABLE HERE]
+- [x] **Reflection-probe / cubemap CAPTURE matrices** (`render::cubeFaceView` / `cubeFaceProjection` /
+  `cubeFaceViewProjection` / `cubeFaceForward`) — DONE (M519); the six per-face camera view matrices (correct
+  look axis + up per Cubemap.hpp's convention) and the shared 90° projection a capture pass renders the scene
+  into to build a probe's cubemap. Verified for self-consistency with the sampler (`ctest -R cubemap_capture`):
+  each face's look axis maps back to that face and projects to the face center, the FOV is a true 90°, and the
+  six frustums tile the sphere. Issuing the six render passes + roughness prefilter are the GPU steps this
+  feeds. [VERIFIABLE HERE (matrices) / SEE IT ON YOUR MACHINE (capture)]
 - [x] **GPU-driven particles + collision** (`fx::GpuParticleSystem`) — DONE (M509); state lives in flat
   SoA float buffers (SSBO-ready) and the CPU `update()` is the exact arithmetic the compute shader runs:
   gravity+drag integration, plane collision with restitution + friction, no-sink resolution, life recycling,
@@ -151,7 +158,7 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   arithmetic and is unit-verified headlessly (`ctest -R ssr_trace`: wall-hit UV/depth, sky miss, off-screen
   miss, thickness gate); sampling the color buffer + roughness blur + temporal accumulation is the GPU pass.
   [VERIFIABLE HERE (trace) / SEE IT ON YOUR MACHINE (image)]
-- [ ] **SSIL pass**, reflection-probe cubemap **capture** pass.
+- [ ] **SSIL pass** (screen-space indirect light).
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
   supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic

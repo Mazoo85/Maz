@@ -118,6 +118,15 @@ target_link_libraries(maz_websocket_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME websocket COMMAND maz_websocket_tests)
 set_tests_properties(websocket PROPERTIES TIMEOUT 30)
 
+# Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
+# self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
+# to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
+# matrix math; the six GPU render passes are owner-verified.
+add_executable(maz_cubemap_capture_tests render/cubemap_capture.cpp)
+target_link_libraries(maz_cubemap_capture_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cubemap_capture COMMAND maz_cubemap_capture_tests)
+set_tests_properties(cubemap_capture PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
