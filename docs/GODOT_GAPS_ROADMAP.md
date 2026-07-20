@@ -72,6 +72,9 @@ only be written blind, the docs say exactly that.
   recompiling the engine. [VERIFIABLE HERE]
 
 ### §2 Platforms & export — mixed
+- [x] **ProjectSettings / project.godot manifest** (`core::ProjectSettings`) — DONE (M518); typed project-wide
+  settings (name, main scene, window size) with Godot dotted keys + sectioned save/load round-trip. Foundation
+  for the editor + export. [VERIFIABLE HERE]
 - [ ] **Desktop export/packaging** — extend `tools/package.sh` into a real per-OS bundler
   (assets + launcher + config). [VERIFIABLE HERE] (the packaging logic; running the packaged game is manual)
 - [ ] **Web/WASM build target** via Emscripten for the headless/logic core. [CODE HERE / SEE IT ON YOUR MACHINE]

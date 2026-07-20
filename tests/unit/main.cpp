@@ -239,6 +239,7 @@
 #include "maz/input/ActionMap.hpp"
 #include "maz/input/Analog.hpp"
 #include "maz/io/Config.hpp"
+#include "maz/core/ProjectSettings.hpp"
 #include "maz/io/ConfigFile.hpp"
 #include "maz/io/Base64.hpp"
 #include "maz/io/Compression.hpp"
@@ -7554,6 +7555,61 @@ void testXml() {
         CHECK(!p.read());
         CHECK(p.hasError());
     }
+}
+
+void testProjectSettings() {
+    using maz::core::ProjectSettings;
+    auto nf = [](double a, double b) { return std::fabs(a - b) < 1e-6; };
+
+    ProjectSettings ps;
+    ps.setString("application/config/name", "My Game");
+    ps.setInt("display/window/size/viewport_width", 1280);
+    ps.setFloat("physics/common/gravity", 9.8);
+    ps.setBool("display/window/vsync", true);
+    CHECK(ps.getString("application/config/name") == "My Game");
+    CHECK(ps.getInt("display/window/size/viewport_width") == 1280);
+    CHECK(nf(ps.getFloat("physics/common/gravity"), 9.8));
+    CHECK(ps.getBool("display/window/vsync") == true);
+    CHECK(ps.getInt("nope/missing", 42) == 42);
+    CHECK(ps.getString("nope", "fallback") == "fallback");
+    CHECK(ps.has("display/window/vsync") && !ps.has("ghost"));
+
+    // Convenience accessors (standard Godot keys) + defaults.
+    ps.setApplicationName("Hero Quest");
+    ps.setMainScene("res://scenes/main.tscn");
+    ps.setWindowWidth(1920);
+    ps.setWindowHeight(1080);
+    CHECK(ps.applicationName() == "Hero Quest");
+    CHECK(ps.mainScene() == "res://scenes/main.tscn");
+    CHECK(ps.windowWidth() == 1920 && ps.windowHeight() == 1080);
+    { ProjectSettings d; CHECK(d.windowWidth() == 1152 && d.windowHeight() == 648); }
+
+    // save -> load round-trip preserves keys, types, values, escaping, and no-slash keys.
+    ps.setString("application/config/desc", "a \"quoted\" tale");
+    ps.setBool("debug/enabled", false);
+    ps.setInt("flat_key", 7);
+    const std::string text = ps.save();
+    CHECK(text.find("[application]") != std::string::npos);
+    CHECK(text.find("[display]") != std::string::npos);
+
+    ProjectSettings ps2;
+    CHECK(ps2.load(text));
+    CHECK(ps2.count() == ps.count());
+    CHECK(ps2.applicationName() == "Hero Quest");
+    CHECK(ps2.mainScene() == "res://scenes/main.tscn");
+    CHECK(ps2.windowWidth() == 1920 && ps2.windowHeight() == 1080);
+    CHECK(nf(ps2.getFloat("physics/common/gravity"), 9.8));
+    CHECK(ps2.getBool("display/window/vsync") == true);
+    CHECK(ps2.getBool("debug/enabled") == false);
+    CHECK(ps2.getString("application/config/desc") == "a \"quoted\" tale");
+    CHECK(ps2.getInt("flat_key") == 7);
+    CHECK(ps2.getString("display/window/size/viewport_width") == "1920");       // int stays int
+    CHECK(ps2.getString("physics/common/gravity").find('.') != std::string::npos); // float stays float
+
+    ps2.erase("flat_key");
+    CHECK(!ps2.has("flat_key"));
+    ps2.clear();
+    CHECK(ps2.count() == 0);
 }
 
 void testConfigFile() {
@@ -33365,6 +33421,7 @@ int main() {
     testSerialize();
     testBase64();
     testXml();
+    testProjectSettings();
     testConfigFile();
     testResourcePack();
     testJson();

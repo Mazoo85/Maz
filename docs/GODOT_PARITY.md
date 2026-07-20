@@ -1195,6 +1195,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   run both round-trip exactly; a stream carrying a stored FILENAME decodes correctly (proving the optional
   header-field skipping lands on the DEFLATE data); and bad magic, a too-short buffer, and a corrupted CRC-32
   footer are each rejected),
+  **ProjectSettings / project manifest** (M518, `core::ProjectSettings` — the central project-wide settings
+  store behind Godot's ProjectSettings singleton and its `project.godot` file: the one place that answers
+  "what is this game called, what scene does it start on, how big is the window," plus any number of typed
+  key→value settings organized by Godot-style dotted paths (`application/config/name`,
+  `display/window/size/viewport_width`, …). Both the editor (main scene + window size) and the export/packaging
+  step read from here. Values are typed (bool / int / float / string) with absent-key defaults; `save`
+  serializes to Godot's sectioned `project.godot` text (first path segment → `[section]`) and `load` reads it
+  back, so settings round-trip exactly. Convenience accessors expose the standard keys
+  (applicationName / mainScene / windowWidth / windowHeight) with Godot's default window size (1152×648).
+  Pure CPU string/number work — no filesystem here — so it unit-tests headlessly; it composes with
+  `core::ConfigFile` (generic INI) rather than replacing it, adding typed values + Godot conventions + the
+  project-manifest accessors. Verified: typed set/get with coercion; absent keys return the supplied default;
+  the convenience accessors read/write the right keys and defaults; and a full save→load round-trip preserves
+  every key, its type (an int stays an int, a float keeps its decimal), string escaping of embedded quotes,
+  sectioned output, and no-slash keys — plus erase/clear behave),
   **BC3/DXT5 texture encoder** (M517, `render::encodeBc3AlphaBlock` / `encodeDdsBc3` / `saveDdsBc3` — extends
   the M515 DXT1 encoder to carry the ALPHA channel that DXT1 can't, so transparent textures — sprites, UI,
   foliage cut-outs — can be block-compressed too. Each 4×4 block gets a BC3 alpha block (min/max endpoints +
