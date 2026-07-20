@@ -191,6 +191,7 @@ int main() {
     seq.addClip(1, 4, 2); // a 2-D playlist clip: pattern 1 at bar 4 on track 2
     seq.addClip(0, 0, 0); // pattern 0 at bar 0 on track 0
     seq.setSongMode(true);
+    seq.setSongUsesClips(true); // clip-driven (2-D) song mode
     seq.setSongLoop(false);
     seq.setSongLoopRange(1, 3);
 
@@ -697,6 +698,7 @@ int main() {
     check(seq2.patternName(1) == "Chorus Fill", "pattern name round-trips");
     check(seq2.patternName(0) == "Pattern 1", "default pattern name is preserved");
     check(seq2.songMode() && !seq2.songLoop(), "song mode + play-once flag round-trip");
+    check(seq2.songUsesClips(), "clip-driven song-mode flag round-trips");
     check(seq2.songLoopStart() == 1 && seq2.songLoopEnd() == 3, "song loop region round-trips");
     check(seq2.clipCount() == 2 && seq2.clip(0).pattern == 1 && seq2.clip(0).startBar == 4 &&
               seq2.clip(0).track == 2 && seq2.clip(1).pattern == 0 && seq2.clip(1).startBar == 0,

@@ -272,6 +272,23 @@ public:
     }
     void clearClips() { clips_.clear(); }
     const std::vector<PlaylistClip>& clips() const { return clips_; }
+    // Clip-driven song mode: when on (and clips exist), song playback walks the 2-D clip timeline bar
+    // by bar and plays EVERY clip active on the current bar simultaneously (patterns layered on the
+    // shared instruments) — true multi-track playback, distinct from the legacy 1-D playlist. Off by
+    // default, so the existing playlist transport is unchanged.
+    void setSongUsesClips(bool on) { songUsesClips_ = on; }
+    bool songUsesClips() const { return songUsesClips_; }
+    int songBar() const { return songBar_; }
+    // Highest occupied bar + 1 across all clips (0 if none) — the clip timeline's length in bars.
+    int clipBarCount() const {
+        int n = 0;
+        for (const PlaylistClip& c : clips_) {
+            if (c.startBar + 1 > n) {
+                n = c.startBar + 1;
+            }
+        }
+        return n;
+    }
     // Compile the 2-D clips into the legacy 1-D `playlist_` (patterns in bar, then track order) so the
     // existing, tested song transport plays the arrangement. A safe bridge until the transport gains
     // true simultaneous multi-track clip playback. Returns the resulting playlist length.
@@ -416,6 +433,12 @@ private:
     // Swing lengthens even steps and shortens odd ones, so `step`'s parity matters.
     double samplesPerStep(int sampleRate, int step) const;
     void triggerStep(int step);
+    // Trigger this transport step, honouring clip-song mode: layer every clip active on songBar_ by
+    // temporarily pointing current_ at each clip's pattern and reusing triggerStep. Falls back to a
+    // plain triggerStep in the legacy modes.
+    void triggerTransportStep(int step);
+    // Pattern of the lowest-track clip on `bar` (the "primary" for transport timing), or -1 if none.
+    int primaryClipPattern(int bar) const;
 
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;
@@ -434,6 +457,8 @@ private:
     bool songMode_ = false;
     bool songLoop_ = true;
     int playlistPos_ = 0;
+    bool songUsesClips_ = false; // clip-driven (2-D) song mode vs the legacy 1-D playlist
+    int songBar_ = 0;            // current bar on the clip timeline (clip-song mode)
 
     std::vector<float> mixScratch_;   // per-block, per-channel drum render
     std::vector<float> synthScratch_; // per-block lead (synth + sampler) sum

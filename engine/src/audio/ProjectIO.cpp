@@ -494,7 +494,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     const int savedCurrent = seq.currentPattern();
     f << "patterns " << seq.patternCount() << "\n";
     f << "songmode " << (seq.songMode() ? 1 : 0) << " " << (seq.songLoop() ? 1 : 0) << " "
-      << seq.songLoopStart() << " " << seq.songLoopEnd() << "\n";
+      << seq.songLoopStart() << " " << seq.songLoopEnd() << " " << (seq.songUsesClips() ? 1 : 0)
+      << "\n";
     f << "playlist " << seq.playlist().size();
     for (int idx : seq.playlist()) {
         f << " " << idx;
@@ -1198,6 +1199,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int lstart = 0, lend = 0; // loop region optional (older files omit it → whole playlist)
             if (ls >> lstart >> lend) {
                 seq.setSongLoopRange(lstart, lend);
+            }
+            int useClips = 0; // clip-driven song mode optional (older files omit it → legacy playlist)
+            if (ls >> useClips) {
+                seq.setSongUsesClips(useClips != 0);
             }
         } else if (tag == "playlist") {
             int count = 0;

@@ -3306,7 +3306,13 @@ void buildArrangementUI(audio::Sequencer& seq) {
     if (ImGui::Button("Clear clips")) {
         seq.clearClips();
     }
-    ImGui::TextDisabled("Click a cell to place the selected pattern; click a placed clip to remove it.");
+    ImGui::SameLine();
+    bool useClips = seq.songUsesClips();
+    if (ImGui::Checkbox("Clip song mode", &useClips)) {
+        seq.setSongUsesClips(useClips);
+    }
+    ImGui::TextDisabled("Click a cell to place the selected pattern; click a placed clip to remove it. "
+                        "Clip song mode plays every clip on a bar together (needs Song mode on).");
     constexpr int kTracks = 5, kBars = 16;
     auto clipAt = [&](int track, int bar) {
         for (int i = 0; i < seq.clipCount(); ++i) {

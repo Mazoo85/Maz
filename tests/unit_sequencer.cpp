@@ -754,6 +754,31 @@ int main() {
               "clips compile in bar order, then track order");
     }
 
+    // --- Clip-song mode: true simultaneous multi-track clip playback ---------
+    {
+        // Two patterns, each with a lead note at step 0 (distinct pitches). Placing both as clips on
+        // bar 0 (different tracks) in clip-song mode must play BOTH at once → two voices on the shared
+        // lead synth. Without clip mode, only the current pattern plays → one voice. A fresh sequencer
+        // per case so no voices from a previous play() linger.
+        auto voicesFor = [](bool clipMode) {
+            audio::Sequencer s;
+            s.roll().addNote(audio::Note{0, 4, 60, 0.9f}); // pattern 0 lead note
+            const int pB = s.addPattern();
+            s.selectPattern(pB);
+            s.roll().addNote(audio::Note{0, 4, 67, 0.9f}); // pattern 1 lead note
+            s.selectPattern(0);
+            s.addClip(0, 0, 0);  // pattern 0 @ bar 0, track 0
+            s.addClip(pB, 0, 1); // pattern 1 @ bar 0, track 1
+            s.setSongMode(true);
+            s.setSongUsesClips(clipMode);
+            s.play();
+            return s.synth().activeVoices();
+        };
+        check(voicesFor(false) == 1, "without clip mode only one pattern plays on the bar");
+        check(voicesFor(true) == 2,
+              "clip-song mode plays both clips on the same bar simultaneously (multi-track)");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

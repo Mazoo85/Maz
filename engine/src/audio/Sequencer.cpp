@@ -995,9 +995,42 @@ void Sequencer::triggerStep(int step) {
     }
 }
 
+int Sequencer::primaryClipPattern(int bar) const {
+    int best = -1, bestTrack = 0;
+    bool found = false;
+    for (const PlaylistClip& c : clips_) {
+        if (c.startBar == bar && c.pattern >= 0 && c.pattern < patternCount()) {
+            if (!found || c.track < bestTrack) {
+                best = c.pattern;
+                bestTrack = c.track;
+                found = true;
+            }
+        }
+    }
+    return best;
+}
+
+void Sequencer::triggerTransportStep(int step) {
+    if (songMode_ && songUsesClips_ && !clips_.empty()) {
+        // Layer every clip active on the current bar: temporarily point current_ at each clip's
+        // pattern and reuse triggerStep, so the patterns play simultaneously on the shared instruments.
+        const int saved = current_;
+        for (const PlaylistClip& c : clips_) {
+            if (c.startBar == songBar_ && c.pattern >= 0 && c.pattern < patternCount()) {
+                current_ = c.pattern;
+                triggerStep(step);
+            }
+        }
+        current_ = saved;
+    } else {
+        triggerStep(step);
+    }
+}
+
 void Sequencer::play() {
     playing_ = true;
     currentStep_ = 0;
+    songBar_ = 0;
     samplesIntoStep_ = 0.0;
     playlistPos_ = 0;
     arpCounter_ = 0;
@@ -1014,7 +1047,13 @@ void Sequencer::play() {
     melodicHits_.clear();
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
-    if (songMode_ && !playlist_.empty()) {
+    if (songMode_ && songUsesClips_ && !clips_.empty()) {
+        // Clip-song mode: start at bar 0 and select the primary (lowest-track) clip there for timing.
+        const int prim = primaryClipPattern(0);
+        if (prim >= 0) {
+            selectPattern(prim);
+        }
+    } else if (songMode_ && !playlist_.empty()) {
         // Start at the loop-region start when one is set, else the first playlist entry.
         const int plSize = static_cast<int>(playlist_.size());
         const bool region = songLoopEnd_ > songLoopStart_ && songLoopStart_ < plSize;
@@ -1022,7 +1061,7 @@ void Sequencer::play() {
         selectPattern(playlist_[static_cast<size_t>(playlistPos_)]);
     }
     if (!countingIn_) {
-        triggerStep(0); // when counting in, the pattern's first step fires after the count-in
+        triggerTransportStep(0); // when counting in, the first step fires after the count-in
     }
 }
 
@@ -1176,7 +1215,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     currentStep_ = 0;
                     samplesIntoStep_ = 0.0;
                     metroLastStep_ = -1;
-                    triggerStep(0);
+                    triggerTransportStep(0);
                 }
             }
             done += chunk;
@@ -1296,8 +1335,31 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 if (currentStep_ == 0) {
                     ++loopCounter_;
                 }
-                // At the top of each bar, in song mode, advance to the next playlist pattern.
-                if (currentStep_ == 0 && songMode_ && !playlist_.empty()) {
+                // At the top of each bar, in clip-song mode, advance along the 2-D clip timeline.
+                if (currentStep_ == 0 && songMode_ && songUsesClips_ && !clips_.empty()) {
+                    const int bars = clipBarCount();
+                    const int next = songBar_ + 1;
+                    if (next >= bars) {
+                        if (songLoop_) {
+                            songBar_ = 0;
+                        } else {
+                            playing_ = false; // play-once: stop at the end of the timeline
+                        }
+                    } else {
+                        songBar_ = next;
+                    }
+                    // Release held voices at the bar change so the previous bar's clips don't hang, then
+                    // point current_ at the new bar's primary clip for the transport's swing/tempo.
+                    releaseAllNotes();
+                    if (playing_) {
+                        const int prim = primaryClipPattern(songBar_);
+                        if (prim >= 0) {
+                            selectPattern(prim);
+                        }
+                    }
+                }
+                // At the top of each bar, in the legacy 1-D song mode, advance to the next pattern.
+                else if (currentStep_ == 0 && songMode_ && !playlist_.empty()) {
                     // Honour the loop region [start, end) when set; otherwise the whole playlist.
                     const int plSize = static_cast<int>(playlist_.size());
                     const bool region =
@@ -1339,7 +1401,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     }
                 }
                 if (playing_) {
-                    triggerStep(currentStep_);
+                    triggerTransportStep(currentStep_);
                 }
             }
         }
