@@ -742,7 +742,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         for (int g = 0; g < mixer.groupCount(); ++g) {
             f << "group " << g << " ";
             writeMixerTrackFields(f, mixer.group(g));
-            f << "\n";
+            f << " " << mixer.group(g).output() << "\n"; // group's own routing (master / higher group)
         }
     }
 
@@ -2053,6 +2053,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             ls >> g;
             if (g >= 0 && g < mixer.groupCount()) {
                 readMixerTrackFields(ls, mixer.group(g));
+                int gOut = -1; // group routing optional (older files omit it → master)
+                if (ls >> gOut) {
+                    mixer.group(g).setOutput(gOut);
+                }
             }
         } else if (tag == "plugin") {
             int en = 0;

@@ -512,6 +512,8 @@ int main() {
     mixer.group(grpIdx).eq().setEnabled(true);
     mixer.group(grpIdx).eq().setLowGain(3.0f);
     mixer.track(audio::MixerBus::Bass).setOutput(grpIdx);
+    const int grp2 = mixer.addGroup();      // a second group…
+    mixer.group(grpIdx).setOutput(grp2);    // …that group 0 is nested into (group 0 -> group 1)
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -925,11 +927,12 @@ int main() {
               near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().delayMs(), 15.0f) &&
               near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().amount(), 0.6f),
           "per-bus mixer-track insert strips round-trip");
-    check(mixer2.groupCount() == 1 && near(mixer2.group(0).gain(), 0.7f) &&
+    check(mixer2.groupCount() == 2 && near(mixer2.group(0).gain(), 0.7f) &&
               mixer2.group(0).eq().enabled() && near(mixer2.group(0).eq().lowGain(), 3.0f) &&
               mixer2.track(audio::MixerBus::Bass).output() == 0 &&
-              mixer2.track(audio::MixerBus::Drums).output() == -1,
-          "mixer submix group + per-bus output routing round-trip");
+              mixer2.track(audio::MixerBus::Drums).output() == -1 &&
+              mixer2.group(0).output() == 1 && mixer2.group(1).output() == -1,
+          "mixer submix groups + per-bus and nested group routing round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
     check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f) &&

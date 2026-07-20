@@ -21,9 +21,26 @@ public:
         dist_.setEnabled(false);
         comp_.setEnabled(false);
         stereoEnh_.setEnabled(false);
-        // Order: gate the input, clean the lows, shape transients, then EQ → drive → glue-compress →
-        // stereo-widen (imaging last, after dynamics).
-        chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_, &stereoEnh_};
+        rebuildChain();
+    }
+    // chain_ holds pointers to this object's own effect members, so a default copy/move would leave
+    // them dangling (they'd point at the source). Copy the data then rebuild the chain to point at our
+    // own members — required now that tracks live in a std::vector (mixer groups) that can reallocate.
+    MixerTrack(const MixerTrack& o) { assignData(o); rebuildChain(); }
+    MixerTrack(MixerTrack&& o) noexcept { assignData(o); rebuildChain(); }
+    MixerTrack& operator=(const MixerTrack& o) {
+        if (this != &o) {
+            assignData(o);
+            rebuildChain();
+        }
+        return *this;
+    }
+    MixerTrack& operator=(MixerTrack&& o) noexcept {
+        if (this != &o) {
+            assignData(o);
+            rebuildChain();
+        }
+        return *this;
     }
 
     void setGain(float g) { gain_ = g; }
@@ -113,6 +130,27 @@ public:
     }
 
 private:
+    // Copy every data member (effects + scalars) but NOT chain_ (rebuilt separately to point at us).
+    void assignData(const MixerTrack& o) {
+        gain_ = o.gain_;
+        muted_ = o.muted_;
+        soloed_ = o.soloed_;
+        reverbSend_ = o.reverbSend_;
+        delaySend_ = o.delaySend_;
+        pan_ = o.pan_;
+        output_ = o.output_;
+        gate_ = o.gate_;
+        hp_ = o.hp_;
+        transient_ = o.transient_;
+        eq_ = o.eq_;
+        dist_ = o.dist_;
+        comp_ = o.comp_;
+        stereoEnh_ = o.stereoEnh_;
+    }
+    // Insert order: gate the input, clean the lows, shape transients, then EQ → drive → glue-compress
+    // → stereo-widen (imaging last, after dynamics).
+    void rebuildChain() { chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_, &stereoEnh_}; }
+
     float gain_ = 1.0f;
     bool muted_ = false;
     bool soloed_ = false;

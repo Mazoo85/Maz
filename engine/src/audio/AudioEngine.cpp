@@ -225,8 +225,13 @@ void AudioEngine::render(float* out, int frames) {
                 for (int g = 0; g < ng; ++g) {
                     mixer_.group(g).process(groupBufs_[static_cast<size_t>(g)].data(), frames,
                                             cfg_.sampleRate);
+                    // Nested submix: a group may route into a HIGHER-index group (forward-only, so this
+                    // ascending pass stays valid); master or any other target folds into the master acc.
+                    const int gOut = mixer_.group(g).output();
+                    float* gdst = (gOut > g && gOut < ng) ? groupBufs_[static_cast<size_t>(gOut)].data()
+                                                          : masterAcc_.data();
                     for (size_t i = 0; i < n2; ++i) {
-                        masterAcc_[i] += groupBufs_[static_cast<size_t>(g)][i];
+                        gdst[i] += groupBufs_[static_cast<size_t>(g)][i];
                     }
                 }
                 for (size_t i = 0; i < n2; ++i) {

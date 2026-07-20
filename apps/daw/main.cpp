@@ -3128,6 +3128,26 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SameLine();
             bool ggDist = gt.distortion().enabled();
             if (ImGui::Checkbox("Drive##grp", &ggDist)) gt.distortion().setEnabled(ggDist);
+            // Nested routing: a group may feed the master or a HIGHER-numbered group (forward only).
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.0f);
+            {
+                char gcur[24];
+                if (gt.output() > gg && gt.output() < mx.groupCount()) {
+                    std::snprintf(gcur, sizeof(gcur), "-> Group %d", gt.output() + 1);
+                } else {
+                    std::snprintf(gcur, sizeof(gcur), "-> Master");
+                }
+                if (ImGui::BeginCombo("route##grp", gcur)) {
+                    if (ImGui::Selectable("Master", gt.output() < 0)) gt.setOutput(-1);
+                    for (int tgt = gg + 1; tgt < mx.groupCount(); ++tgt) {
+                        char gl[24];
+                        std::snprintf(gl, sizeof(gl), "Group %d", tgt + 1);
+                        if (ImGui::Selectable(gl, gt.output() == tgt)) gt.setOutput(tgt);
+                    }
+                    ImGui::EndCombo();
+                }
+            }
             ImGui::PopID();
         }
     }

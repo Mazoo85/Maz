@@ -347,6 +347,31 @@ int main() {
         grpThru.sequencer().play();
         check(masterEnergy(grpThru, 0.3) > 0.0,
               "routing a bus into a transparent group keeps it audible");
+
+        // Nested submix routing: drums -> group0 -> group1. Silencing the DOWNSTREAM group (group1)
+        // silences the master, proving the signal actually flows group0 -> group1 -> master.
+        audio::AudioEngine nest;
+        nest.initOffline();
+        nest.sequencer().setStep(0, 0, true);
+        const int g0 = nest.mixer().addGroup();
+        const int g1 = nest.mixer().addGroup();
+        nest.mixer().track(audio::MixerBus::Drums).setOutput(g0); // drums -> group0
+        nest.mixer().group(g0).setOutput(g1);                     // group0 -> group1 (nested)
+        nest.mixer().group(g1).setGain(0.0f);                     // group1 silences the chain
+        nest.sequencer().play();
+        check(masterEnergy(nest, 0.3) < 1e-6,
+              "silencing a downstream nested group silences the whole routed chain");
+
+        audio::AudioEngine nestThru;
+        nestThru.initOffline();
+        nestThru.sequencer().setStep(0, 0, true);
+        const int h0 = nestThru.mixer().addGroup();
+        const int h1 = nestThru.mixer().addGroup();
+        nestThru.mixer().track(audio::MixerBus::Drums).setOutput(h0);
+        nestThru.mixer().group(h0).setOutput(h1); // transparent nested chain stays audible
+        nestThru.sequencer().play();
+        check(masterEnergy(nestThru, 0.3) > 0.0,
+              "a transparent nested group chain stays audible at the master");
     }
 
     // --- Per-bus aux send: a bus's reverb send feeds the shared reverb tail --
