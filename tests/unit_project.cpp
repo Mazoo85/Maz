@@ -44,6 +44,8 @@ int main() {
     seq.setTranspose(-7);
     seq.setMetronome(true);
     seq.setMetronomeLevel(0.7f);
+    seq.mapMidiCc(7, audio::Sequencer::CcTarget::LeadGain);
+    seq.mapMidiCc(1, audio::Sequencer::CcTarget::MetronomeLevel);
     seq.setNumSteps(32);
     seq.setStepsPerBeat(3);
     seq.setStep(0, 0, true);
@@ -664,6 +666,10 @@ int main() {
     check(near(seq2.leadPan(), -0.5f) && near(seq2.bassPan(), 0.3f), "melodic bus pans round-trip");
     check(seq2.transpose() == -7, "global transpose round-trips");
     check(seq2.metronome() && near(seq2.metronomeLevel(), 0.7f), "metronome + level round-trip");
+    check(seq2.midiCcTarget(7) == audio::Sequencer::CcTarget::LeadGain &&
+              seq2.midiCcTarget(1) == audio::Sequencer::CcTarget::MetronomeLevel &&
+              seq2.midiCcTarget(0) == audio::Sequencer::CcTarget::None,
+          "MIDI-learn CC bindings round-trip");
 
     // Drum grid (pattern 0).
     check(seq2.numSteps() == 32, "pattern length round-trips");

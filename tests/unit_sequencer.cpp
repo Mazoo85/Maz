@@ -2518,6 +2518,42 @@ int main() {
               "with recording off, live notes are not written to the roll");
     }
 
+    // MIDI-learn: a mapped MIDI CC drives its bound parameter live. CC 7 → lead gain: with the gain up
+    // a held live note is audible; pushing CC 7 = 0 zeroes the gain and the lead falls silent. A CC
+    // bound to the metronome level updates it once drained.
+    {
+        const int sr = 48000;
+        const int fr = sr / 10;
+        audio::Sequencer cseq;
+        cseq.mapMidiCc(7, audio::Sequencer::CcTarget::LeadGain);
+        check(cseq.midiCcTarget(7) == audio::Sequencer::CcTarget::LeadGain,
+              "a MIDI CC binds to the lead-gain target");
+
+        cseq.midiInput().pushControlChange(7, 1.0f); // gain full
+        cseq.midiInput().pushNoteOn(69, 1.0f);
+        std::vector<float> cd(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> cl(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> cb(static_cast<size_t>(fr) * 2, 0.0f);
+        cseq.renderStems(cd.data(), cl.data(), cb.data(), fr, sr);
+        check(rms(cl) > 0.0, "with a CC-mapped gain up, the live note is audible");
+
+        cseq.midiInput().pushControlChange(7, 0.0f); // gain to zero via CC
+        std::fill(cl.begin(), cl.end(), 0.0f);
+        std::fill(cd.begin(), cd.end(), 0.0f);
+        std::fill(cb.begin(), cb.end(), 0.0f);
+        cseq.renderStems(cd.data(), cl.data(), cb.data(), fr, sr);
+        check(rms(cl) == 0.0, "a CC that drives the gain to 0 silences the lead live");
+
+        cseq.mapMidiCc(1, audio::Sequencer::CcTarget::MetronomeLevel);
+        cseq.midiInput().pushControlChange(1, 0.25f);
+        cseq.renderStems(cd.data(), cl.data(), cb.data(), fr, sr); // drains the CC
+        check(std::fabs(cseq.metronomeLevel() - 0.25f) < 1e-6f,
+              "a CC bound to the metronome level updates it");
+
+        cseq.mapMidiCc(7, audio::Sequencer::CcTarget::None);
+        check(cseq.midiCcTarget(7) == audio::Sequencer::CcTarget::None, "a CC can be unbound");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

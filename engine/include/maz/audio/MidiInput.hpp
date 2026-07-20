@@ -14,14 +14,18 @@ namespace maz::audio {
 class MidiInput {
 public:
     struct Event {
-        int key;         // MIDI note number 0..127
-        float velocity;  // 0..1 (ignored for note-off)
-        bool on;         // true = note-on, false = note-off
+        enum class Type { NoteOn, NoteOff, ControlChange };
+        Type type;
+        int index;    // MIDI note number (notes) or controller number (control change), 0..127
+        float value;  // note velocity 0..1 (NoteOn) or controller value 0..1 (ControlChange)
     };
 
-    // Queue a note event (safe to call from a device/callback thread).
+    // Queue an event (safe to call from a device/callback thread).
     void pushNoteOn(int key, float velocity);
     void pushNoteOff(int key);
+    // A MIDI continuous-controller message: controller number + normalised value 0..1. Used for
+    // live "MIDI-learn" parameter control (map a knob/slider to an engine parameter).
+    void pushControlChange(int controller, float value);
 
     // Move all queued events out for processing, clearing the queue. Called once per render block.
     std::vector<Event> drain();

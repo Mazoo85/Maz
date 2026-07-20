@@ -6,6 +6,7 @@
 #include "maz/audio/Sampler.hpp"
 #include "maz/audio/SynthInstrument.hpp"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -226,6 +227,13 @@ public:
     // A note is added on its note-off, spanning from its note-on step to the note-off step.
     void setLiveRecording(bool on) { liveRecording_ = on; }
     bool liveRecording() const { return liveRecording_; }
+
+    // MIDI-learn: bind an incoming MIDI continuous-controller (CC 0..127) to an engine parameter, so a
+    // hardware knob/slider drives it live. A CC value 0..1 maps to the target's range. Append new
+    // targets at the END (persistence stores the enum index). CcTarget::None unbinds a controller.
+    enum class CcTarget { None, LeadGain, BassGain, MetronomeLevel };
+    void mapMidiCc(int controller, CcTarget target);
+    CcTarget midiCcTarget(int controller) const;
 
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
@@ -525,6 +533,8 @@ private:
         float velocity;
     };
     std::vector<RecNote> recPending_;      // live notes held down, awaiting their note-off to be written
+    std::array<CcTarget, 128> ccMap_{};    // MIDI-learn: controller number → bound engine parameter
+    void applyMidiCc(int controller, float value); // apply a live CC to its bound target (0..1)
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     std::vector<std::unique_ptr<InstrumentPlugin>> extraPlugins_; // optional hosted CLAP/VST3 instrument per channel

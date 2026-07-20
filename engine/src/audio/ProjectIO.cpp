@@ -439,6 +439,13 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     f << "humanize " << seq.humanize() << "\n";
     f << "metronome " << (seq.metronome() ? 1 : 0) << " " << seq.metronomeLevel() << "\n";
     f << "countin " << seq.countInBars() << "\n";
+    // MIDI-learn CC bindings: one line per bound controller (controller number + target enum index).
+    for (int cc = 0; cc < 128; ++cc) {
+        const auto tgt = seq.midiCcTarget(cc);
+        if (tgt != Sequencer::CcTarget::None) {
+            f << "ccmap " << cc << " " << static_cast<int>(tgt) << "\n";
+        }
+    }
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << " "
       << seq.leadPan() << " " << seq.bassPan() << " " << seq.transpose() << "\n";
 
@@ -884,6 +891,17 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int b = 0;
             ls >> b;
             seq.setCountInBars(b);
+        } else if (tag == "ccmap") {
+            int cc = -1;
+            int tgt = 0;
+            if (ls >> cc >> tgt) {
+                // Clamp the target index to the known enum range so a newer file's target can't index
+                // out of range on an older build (widen this bound whenever CcTarget grows).
+                if (tgt < 0 || tgt > 3) {
+                    tgt = 0;
+                }
+                seq.mapMidiCc(cc, static_cast<Sequencer::CcTarget>(tgt));
+            }
         } else if (tag == "busgain") {
             float d = 1.0f;
             float s = 1.0f;

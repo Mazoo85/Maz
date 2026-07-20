@@ -96,6 +96,39 @@ bool Sequencer::leadPluginLoaded() const {
     return leadPlugin_ != nullptr && leadPlugin_->loaded();
 }
 
+void Sequencer::mapMidiCc(int controller, CcTarget target) {
+    if (controller >= 0 && controller < 128) {
+        ccMap_[static_cast<size_t>(controller)] = target;
+    }
+}
+
+Sequencer::CcTarget Sequencer::midiCcTarget(int controller) const {
+    if (controller < 0 || controller >= 128) {
+        return CcTarget::None;
+    }
+    return ccMap_[static_cast<size_t>(controller)];
+}
+
+void Sequencer::applyMidiCc(int controller, float value) {
+    if (controller < 0 || controller >= 128) {
+        return;
+    }
+    const float v = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+    switch (ccMap_[static_cast<size_t>(controller)]) {
+    case CcTarget::None:
+        break;
+    case CcTarget::LeadGain:
+        synth_.setGain(v);
+        break;
+    case CcTarget::BassGain:
+        synth2_.setGain(v);
+        break;
+    case CcTarget::MetronomeLevel:
+        setMetronomeLevel(v);
+        break;
+    }
+}
+
 void Sequencer::setChannelChokeGroup(int c, int group) {
     if (c >= 0 && c < numChannels()) {
         chanChoke_[static_cast<size_t>(c)] = group < 0 ? 0 : group;
@@ -1217,24 +1250,28 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         leadTarget ? leadPlugin_.get() : extraPlugins_[static_cast<size_t>(lt)].get();
     PianoRoll& liveRoll = leadTarget ? roll() : instrumentRoll(lt);
     for (const MidiInput::Event& ev : liveIn_.drain()) {
-        if (ev.on) {
-            liveSynth.noteOn(ev.key, ev.velocity);
+        if (ev.type == MidiInput::Event::Type::ControlChange) {
+            applyMidiCc(ev.index, ev.value); // MIDI-learn: drive the bound parameter live
+            continue;
+        }
+        if (ev.type == MidiInput::Event::Type::NoteOn) {
+            liveSynth.noteOn(ev.index, ev.value);
             if (livePlugin) {
-                livePlugin->noteOn(ev.key, ev.velocity);
+                livePlugin->noteOn(ev.index, ev.value);
             }
             // Live record: remember where this note started so its note-off can write a roll note.
             if (liveRecording_ && playing_) {
-                recPending_.push_back({ev.key, currentStep_, ev.velocity});
+                recPending_.push_back({ev.index, currentStep_, ev.value});
             }
-        } else {
-            liveSynth.noteOff(ev.key);
+        } else { // NoteOff
+            liveSynth.noteOff(ev.index);
             if (livePlugin) {
-                livePlugin->noteOff(ev.key);
+                livePlugin->noteOff(ev.index);
             }
             // Live record: close out the held note into the target roll, spanning start→now.
             if (liveRecording_) {
                 for (size_t i = 0; i < recPending_.size(); ++i) {
-                    if (recPending_[i].key != ev.key) {
+                    if (recPending_[i].key != ev.index) {
                         continue;
                     }
                     int len =
@@ -1245,7 +1282,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     Note n;
                     n.startStep = recPending_[i].startStep;
                     n.lengthSteps = len;
-                    n.pitch = ev.key;
+                    n.pitch = ev.index;
                     n.velocity = recPending_[i].velocity;
                     liveRoll.addNote(n);
                     recPending_.erase(recPending_.begin() + static_cast<long>(i));

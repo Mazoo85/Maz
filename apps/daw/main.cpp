@@ -530,6 +530,21 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.clear();
     }
 
+    // MIDI-learn: bind a MIDI CC number to an engine parameter so a hardware knob drives it live.
+    {
+        static int learnCc = 7;
+        ImGui::SetNextItemWidth(90.0f);
+        ImGui::InputInt("CC##learn", &learnCc);
+        learnCc = learnCc < 0 ? 0 : (learnCc > 127 ? 127 : learnCc);
+        ImGui::SameLine();
+        const char* ccTargets[] = {"None", "Lead gain", "Bass gain", "Metronome lvl"};
+        int tgt = static_cast<int>(seq.midiCcTarget(learnCc));
+        ImGui::SetNextItemWidth(130.0f);
+        if (ImGui::Combo("CC target", &tgt, ccTargets, 4)) {
+            seq.mapMidiCc(learnCc, static_cast<audio::Sequencer::CcTarget>(tgt));
+        }
+    }
+
     // Step grid: one row per channel, one small toggle button per step. The playhead column is
     // tinted so you can see where the transport is.
     const int steps = seq.numSteps();
