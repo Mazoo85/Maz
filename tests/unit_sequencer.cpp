@@ -617,6 +617,47 @@ int main() {
         chinaTailV.render(chinaTail.data(), splTailN, sampleRate);
         check(rms(chinaTail) > rms(splTailBuf) && rms(chinaTail) < rms(splCrashTail),
               "china's decay sits between the short splash and the long crash");
+
+        // Guiro: a scraped idiophone whose amplitude is ratcheted (gated at ~55 Hz), so its short-time
+        // energy pulses hard — unlike the steady noise of a shaker. Compare the coefficient of
+        // variation (std/mean) of windowed RMS: the guiro's must be far higher than the shaker's.
+        auto energyCV = [&](audio::Drum type) {
+            audio::DrumVoice v;
+            v.setType(type);
+            v.trigger();
+            const int n = sampleRate / 10; // 100 ms
+            std::vector<float> buf(static_cast<size_t>(n), 0.0f);
+            v.render(buf.data(), n, sampleRate);
+            const int ewin = 64;
+            std::vector<double> e;
+            for (int i = 0; i + ewin <= n; i += ewin) {
+                double sum = 0.0;
+                for (int k = 0; k < ewin; ++k) {
+                    const double x = static_cast<double>(buf[static_cast<size_t>(i + k)]);
+                    sum += x * x;
+                }
+                e.push_back(std::sqrt(sum / ewin));
+            }
+            double mean = 0.0;
+            for (double x : e) {
+                mean += x;
+            }
+            mean /= static_cast<double>(e.size());
+            double var = 0.0;
+            for (double x : e) {
+                var += (x - mean) * (x - mean);
+            }
+            var /= static_cast<double>(e.size());
+            return mean > 0.0 ? std::sqrt(var) / mean : 0.0;
+        };
+        audio::DrumVoice guiroV;
+        guiroV.setType(audio::Drum::Guiro);
+        guiroV.trigger();
+        std::vector<float> guiroBuf(static_cast<size_t>(splWin), 0.0f);
+        guiroV.render(guiroBuf.data(), splWin, sampleRate);
+        check(rms(guiroBuf) > 0.0, "guiro produces sound");
+        check(energyCV(audio::Drum::Guiro) > energyCV(audio::Drum::Shaker) * 2.0,
+              "the guiro's amplitude ratchets (far more energy variation than a steady shaker)");
     }
 
     // --- Sequencer grid ------------------------------------------------------

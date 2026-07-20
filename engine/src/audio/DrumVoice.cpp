@@ -67,6 +67,8 @@ double decayTau(Drum type) {
         return 0.16; // a short, explosive cymbal — much shorter than the long crash wash
     case Drum::China:
         return 0.30; // a trashy cymbal — decay sits between the short splash and the long crash
+    case Drum::Guiro:
+        return 0.18; // a scraped idiophone — a medium "brrrp" rasp
     }
     return 0.1;
 }
@@ -102,6 +104,7 @@ int gmNoteForDrum(Drum type) {
     case Drum::Agogo:      return 67; // High Agogo
     case Drum::Splash:     return 55; // Splash Cymbal
     case Drum::China:      return 52; // Chinese Cymbal
+    case Drum::Guiro:      return 73; // Short Guiro
     }
     return 36;
 }
@@ -411,6 +414,18 @@ void DrumVoice::render(float* out, int frames, int sampleRate) {
             s = static_cast<float>(
                 (0.7 * static_cast<double>(noise()) + 0.18 * metal + 0.25 * static_cast<double>(noise()) * attack) *
                 env);
+            break;
+        }
+        case Drum::Guiro: {
+            // A scraped Latin idiophone (guiro): bright noise "rasped" by a fast amplitude ratchet —
+            // the gate is a hard square at ~55 Hz simulating the scrape crossing the ridges, giving the
+            // characteristic buzzing "brrrp". A small tonal edge adds body. Distinct from the steady,
+            // un-modulated shaker/hi-hat noise by that strong periodic amplitude gating.
+            const double ratchetHz = 55.0 * pitchMul;
+            const double ridge = std::sin(kTwoPi * ratchetHz * t_) >= 0.0 ? 1.0 : 0.0; // 0/1 scrape gate
+            const double bright = 0.85 * static_cast<double>(noise()) +
+                                  0.15 * std::sin(kTwoPi * 2400.0 * pitchMul * t_);
+            s = static_cast<float>(bright * ridge * env);
             break;
         }
         }

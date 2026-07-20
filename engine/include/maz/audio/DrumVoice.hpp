@@ -34,7 +34,8 @@ enum class Drum {
     Timbale,
     Agogo,
     Splash,
-    China
+    China,
+    Guiro
 };
 
 // The General-MIDI channel-10 percussion note each drum type maps to, for MIDI export/import. Every
