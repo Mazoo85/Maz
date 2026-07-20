@@ -53,6 +53,14 @@ target_link_libraries(maz_ssr_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ssr_trace COMMAND maz_ssr_tests)
 set_tests_properties(ssr_trace PROPERTIES TIMEOUT 30)
 
+# One-bounce global-illumination gather (render::gatherIrradiance / bakeIndirect): cosine-weighted
+# hemisphere path-trace of indirect + sky irradiance. Verified headlessly — open sky returns exactly the sky
+# color, facing a bright patch beats facing away, a dark ceiling darkens the gather, energy stays bounded.
+add_executable(maz_gi_tests render/gi.cpp)
+target_link_libraries(maz_gi_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gi_gather COMMAND maz_gi_tests)
+set_tests_properties(gi_gather PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

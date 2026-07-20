@@ -94,6 +94,13 @@ only be written blind, the docs say exactly that.
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
 - [x] **Lightmap baker** (`render::bakeLightmap`) — DONE (M502); direct light + hard shadows, bake fully
   VERIFIABLE HERE (sampling the map is GPU-side). Follow-up: bounce GI + UV-atlas unwrap. [VERIFIABLE HERE]
+- [x] **Indirect / global-illumination gather** (`render::gatherIrradiance` / `bakeIndirect`) — DONE (M511);
+  the INDIRECT half M502 left open. Cosine-weighted hemisphere path-trace: each receiver surfel fires a
+  Hammersley hemisphere of rays that either strike a scene patch (collecting its radiance — sky bounce, color
+  bleed, emissive) or escape to the sky. A real single-bounce irradiance estimate, unit-verified headlessly
+  (`ctest -R gi_gather`): an open surfel returns exactly the sky color, facing a bright patch beats facing
+  away, a dark ceiling darkens the gather, energy stays bounded. Follow-up: iterate to convergence over a UV
+  atlas, multi-bounce, SDFGI probe volume. [VERIFIABLE HERE]
 - [x] **Decal projection math** (`render::projectDecal`) — DONE (M503); oriented-box UV + normal fade. [VERIFIABLE HERE]
 - [x] **Volumetric-fog evaluation** (`render::fogOpticalDepth` / `fogFactor` / `applyFog`) — DONE (M504);
   analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).
