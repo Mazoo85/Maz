@@ -57,7 +57,13 @@ only be written blind, the docs say exactly that.
   verify (reuses core::crc32). Godot's FileAccess gzip mode. [VERIFIABLE HERE]
 - [x] **PNG decode** (`render::decodePng` / `loadPng`) — DONE (M500); chunks + all 5 filters + gray/RGB/RGBA/palette.
   **Adam7 interlacing added M508** (7-pass sparse sub-grids unfiltered + scattered). [VERIFIABLE HERE]
-- [ ] **Ogg Vorbis / MP3 decode to PCM** — large, pure-CPU decoders feeding the existing mixer. [VERIFIABLE HERE]
+- [x] **QOA (Quite OK Audio) codec** (`audio::encodeQoa` / `decodeQoa`) — DONE (M517); a full spec-accurate
+  encoder + decoder (LMS predictor + 4-bit-scaled 3-bit residuals), compressing PCM ~2.5-4x with no external
+  dependency. Verified by an encode→decode round-trip (mono + stereo) with bounded lossy error, correct
+  header/rate/channels/sample-count, and smaller-than-16-bit-PCM output (`ctest -R qoa_codec`). This is the
+  compressed-audio import that was missing next to WAV. [VERIFIABLE HERE]
+- [ ] **Ogg Vorbis / MP3 decode to PCM** — large, patent-adjacent pure-CPU decoders feeding the existing
+  mixer; QOA (above) already covers the compressed-audio need dependency-free. Optional follow-up. [VERIFIABLE HERE]
 - [x] **Font fallback chains** (`ui::FontFallback`) — DONE (M501); per-codepoint resolution + per-font runs. [VERIFIABLE HERE]
 - [~] **FBX import** — ASCII FBX **geometry** landed: `render::parseFbxAscii` / `loadFbx` reads the mesh
   `Vertices` + `PolygonVertexIndex` arrays (decoding FBX's `~i` polygon terminator) and fan-triangulates to

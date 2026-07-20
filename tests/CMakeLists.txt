@@ -101,6 +101,14 @@ target_link_libraries(maz_platform_backend_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_backend COMMAND maz_platform_backend_tests)
 set_tests_properties(platform_backend PROPERTIES TIMEOUT 30)
 
+# QOA (Quite OK Audio) codec (audio::encodeQoa / decodeQoa) — a full spec-accurate encoder + decoder,
+# verified headlessly by an encode->decode round-trip (mono + stereo) that checks header/metadata/sample
+# count, bounded lossy error, and that the stream is smaller than 16-bit PCM. No external reference file.
+add_executable(maz_qoa_tests audio/qoa.cpp)
+target_link_libraries(maz_qoa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME qoa_codec COMMAND maz_qoa_tests)
+set_tests_properties(qoa_codec PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
