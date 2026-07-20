@@ -3081,6 +3081,18 @@ void buildAutomationUI(audio::Automation& automation) {
         ImGui::SetNextItemWidth(90.0f);
         // Phase offset (fraction of a cycle) — run lanes out of phase (e.g. pan vs filter).
         ImGui::SliderFloat("phase", &lane.lfo.phase, 0.0f, 1.0f, "%.2f");
+        // When the lane carries a drawn automation clip (from a loaded project), expose a single curve
+        // control that sets the tension on every breakpoint (+ eases out, − eases in, 0 = linear).
+        if (!lane.clip.empty()) {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            float clipTension = lane.clip.front().tension;
+            if (ImGui::SliderFloat("curve##autoclip", &clipTension, -1.0f, 1.0f, "%.2f")) {
+                for (audio::AutoPoint& pt : lane.clip) {
+                    pt.tension = clipTension;
+                }
+            }
+        }
         ImGui::PopID();
         ImGui::Separator();
     }

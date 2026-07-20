@@ -655,6 +655,11 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
             for (const AutoPoint& p : lane.clip) {
                 f << " " << p.time << " " << p.value;
             }
+            // Per-point curve tension appended after all (time,value) pairs so old readers (which stop
+            // after `size` pairs) ignore it and old files (which lack it) read back as tension 0.
+            for (const AutoPoint& p : lane.clip) {
+                f << " " << p.tension;
+            }
             f << "\n";
         }
     }
@@ -1959,6 +1964,14 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                     AutoPoint p;
                     if (ls >> p.time >> p.value) {
                         lane.clip.push_back(p);
+                    }
+                }
+                // Optional trailing per-point tensions (older files omit them → linear segments).
+                for (size_t k = 0; k < lane.clip.size(); ++k) {
+                    float tension = 0.0f;
+                    if (ls >> tension) {
+                        lane.clip[k].tension =
+                            tension < -1.0f ? -1.0f : (tension > 1.0f ? 1.0f : tension);
                     }
                 }
             }

@@ -69,6 +69,10 @@ enum class AutoTarget {
 struct AutoPoint {
     double time = 0.0;
     float value = 0.0f;
+    // Curve tension for the segment starting at this point, in [-1, 1] (FL-style handle). 0 = linear;
+    // positive = fast-start/ease-out (concave), negative = slow-start/ease-in (convex). Endpoints are
+    // always preserved, so a tensioned segment still hits both breakpoints exactly.
+    float tension = 0.0f;
 };
 
 // One automation lane driving a target parameter between [lo, hi]. It has two sources: an LFO

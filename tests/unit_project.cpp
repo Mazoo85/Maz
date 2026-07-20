@@ -518,6 +518,7 @@ int main() {
     audio::AutoLane& reverbLane = automation.lane(audio::AutoTarget::ReverbMix);
     reverbLane.enabled = true;
     reverbLane.clip = {{0.0, 0.1f}, {1.5, 0.9f}, {3.0, 0.3f}};
+    reverbLane.clip[1].tension = -0.7f; // curved segment out of the middle point
     reverbLane.clipLength = 4.0;
     // A lead-bus volume lane (a later-appended target) — checks new lanes persist by index.
     audio::AutoLane& leadVolLane = automation.lane(audio::AutoTarget::LeadVolume);
@@ -1101,6 +1102,9 @@ int main() {
               near(static_cast<float>(clipLane2.clip[1].time), 1.5f) &&
               near(clipLane2.clip[1].value, 0.9f),
           "automation clip (breakpoints) round-trips");
+    check(clipLane2.clip.size() == 3 && near(clipLane2.clip[1].tension, -0.7f) &&
+              near(clipLane2.clip[0].tension, 0.0f),
+          "automation clip per-point curve tension round-trips");
     const audio::AutoLane& leadVol2 = automation2.lane(audio::AutoTarget::LeadVolume);
     check(leadVol2.enabled && leadVol2.lfo.shape == audio::Waveform::Triangle &&
               near(leadVol2.lfo.rateHz, 0.8f) && near(leadVol2.lo, 0.2f) && near(leadVol2.hi, 0.95f) &&

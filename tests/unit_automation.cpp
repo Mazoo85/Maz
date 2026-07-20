@@ -201,6 +201,23 @@ int main() {
               "looped clip wraps back to the start after clipLength");
         check(std::fabs(looped.sourceUnipolar(0.5) - 0.5f) < 1e-4f, "looped clip midpoint interpolates");
 
+        // Curve tension warps the segment while preserving both endpoints. A 0→1 ramp with positive
+        // tension on the starting point rises above the linear midpoint (fast start / ease-out);
+        // negative tension dips below it (slow start / ease-in); 0 stays exactly linear.
+        audio::AutoLane curved;
+        curved.clip = {{0.0, 0.0f}, {2.0, 1.0f}};
+        curved.clipLength = 0.0;
+        curved.clip[0].tension = 0.6f;
+        check(std::fabs(curved.sourceUnipolar(0.0) - 0.0f) < 1e-4f &&
+                  std::fabs(curved.sourceUnipolar(2.0) - 1.0f) < 1e-4f,
+              "a tensioned segment still hits both breakpoints exactly");
+        check(curved.sourceUnipolar(1.0) > 0.55f, "positive tension rises above the linear midpoint");
+        curved.clip[0].tension = -0.6f;
+        check(curved.sourceUnipolar(1.0) < 0.45f, "negative tension dips below the linear midpoint");
+        curved.clip[0].tension = 0.0f;
+        check(std::fabs(curved.sourceUnipolar(1.0) - 0.5f) < 1e-4f,
+              "zero tension is exactly linear (bit-identical)");
+
         // Edge cases: a single-point clip holds its value at every time (before, at, and after the
         // point) — it must never fall through to the interpolation loop.
         audio::AutoLane single;

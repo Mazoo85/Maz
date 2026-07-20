@@ -28,7 +28,14 @@ float AutoLane::sourceUnipolar(double t) const {
             const AutoPoint& a = clip[i - 1];
             const AutoPoint& b = clip[i];
             const double span = b.time - a.time;
-            const float frac = span > 0.0 ? static_cast<float>((ct - a.time) / span) : 0.0f;
+            float frac = span > 0.0 ? static_cast<float>((ct - a.time) / span) : 0.0f;
+            // Curve tension on the segment's starting point warps the interpolation fraction while
+            // preserving both endpoints (0→0, 1→1). p<1 (positive tension) rises fast then eases out;
+            // p>1 (negative tension) eases in slowly. 0 tension → p=1 → linear (bit-identical).
+            if (a.tension != 0.0f) {
+                const float p = std::pow(2.0f, -a.tension * 4.0f);
+                frac = std::pow(frac, p);
+            }
             return a.value + (b.value - a.value) * frac;
         }
     }
