@@ -253,6 +253,18 @@ int PianoRoll::noteNudge(int pitch, int step) const {
     return 0;
 }
 
+int PianoRoll::setNudgeForStep(int step, int percent) {
+    const int v = percent < 0 ? 0 : (percent > 95 ? 95 : percent);
+    int count = 0;
+    for (Note& n : notes_) {
+        if (n.startStep == step) {
+            n.nudge = v;
+            ++count;
+        }
+    }
+    return count;
+}
+
 int PianoRoll::quantize(int division) {
     if (division < 2) {
         return 0; // 1 (or less) → already on the grid

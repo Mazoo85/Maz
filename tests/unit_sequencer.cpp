@@ -2170,6 +2170,21 @@ int main() {
         check(allOnGrid, "the straight groove clears all nudge back to the grid");
         check(std::string(audio::Sequencer::grooveName(1)) == "Swing 16th",
               "groove presets have UI names");
+
+        // A groove also swings the melodic lanes, not just the drum grid: a lead note on an odd 16th
+        // gets the swing nudge, one on an even step stays on the grid.
+        audio::Sequencer g;
+        g.setNumSteps(16);
+        g.roll().addNote(audio::Note{1, 1, 60, 0.9f}); // odd step
+        g.roll().addNote(audio::Note{2, 1, 64, 0.9f}); // even step
+        g.roll2().addNote(audio::Note{3, 1, 40, 0.9f}); // bass, odd step
+        g.applyGroove(1); // Swing 16th
+        check(g.roll().noteNudge(60, 1) > 0 && g.roll().noteNudge(64, 2) == 0,
+              "a groove swings the lead notes on off-beats but not on-beats");
+        check(g.roll2().noteNudge(40, 3) > 0, "a groove swings the bass lane too");
+        g.applyGroove(0); // Straight clears melody nudge as well
+        check(g.roll().noteNudge(60, 1) == 0 && g.roll2().noteNudge(40, 3) == 0,
+              "the straight groove clears the melodic nudge too");
     }
 
     // --- Count-in: a bar of clicks before the pattern starts ------------------

@@ -286,6 +286,10 @@ public:
     int setNoteNudge(int pitch, int step, int percent);
     int noteNudge(int pitch, int step) const;
 
+    // Set the micro-timing nudge on every note that starts on `step` (used to stamp a groove template
+    // across the melody, not just the drum grid). Returns the number of notes affected.
+    int setNudgeForStep(int step, int percent);
+
 private:
     int numSteps_ = 16;
     int lowPitch_ = 48;   // C3

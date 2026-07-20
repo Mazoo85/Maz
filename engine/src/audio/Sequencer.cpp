@@ -373,10 +373,15 @@ void Sequencer::applyGroove(int preset) {
             return 0;
         }
     };
-    for (int c = 0; c < numChannels(); ++c) {
-        for (int s = 0; s < numSteps_; ++s) {
-            setStepNudge(c, s, nudgeFor(s));
+    Pattern& pat = patterns_[static_cast<size_t>(current_)];
+    for (int s = 0; s < numSteps_; ++s) {
+        const int nd = nudgeFor(s);
+        for (int c = 0; c < numChannels(); ++c) {
+            setStepNudge(c, s, nd);
         }
+        // Apply the same feel to the melodic lanes so the whole pattern grooves, not just the drums.
+        pat.roll.setNudgeForStep(s, nd);
+        pat.roll2.setNudgeForStep(s, nd);
     }
 }
 
