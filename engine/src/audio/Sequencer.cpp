@@ -782,8 +782,12 @@ void Sequencer::triggerStep(int step) {
             }
         }
     }
-    // Per-note probability: skip a note this loop when its odds fail (deterministic per-transport).
+    // Per-note trig condition + probability: skip a note this loop when its every-Nth-loop stride
+    // condition or its random odds fail (both deterministic per-transport).
     auto noteFires = [this](const Note& n) {
+        if (n.stride > 1 && (loopCounter_ % static_cast<uint32_t>(n.stride)) != 0) {
+            return false; // trig condition: this note only fires every n.stride loops
+        }
         if (n.probability >= 1.0f) {
             return true;
         }

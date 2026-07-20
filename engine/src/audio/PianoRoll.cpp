@@ -213,6 +213,26 @@ bool PianoRoll::noteSlide(int pitch, int step) const {
     return false;
 }
 
+int PianoRoll::setNoteStride(int pitch, int step, int stride) {
+    const int s = stride < 1 ? 1 : (stride > 8 ? 8 : stride);
+    for (Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            n.stride = s;
+            return s;
+        }
+    }
+    return 1;
+}
+
+int PianoRoll::noteStride(int pitch, int step) const {
+    for (const Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            return n.stride;
+        }
+    }
+    return 1;
+}
+
 int PianoRoll::quantize(int division) {
     if (division < 2) {
         return 0; // 1 (or less) → already on the grid

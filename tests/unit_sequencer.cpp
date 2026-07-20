@@ -1954,6 +1954,47 @@ int main() {
         check(d.stepStride(0, 0) == 8, "step stride clamps to a max of 8");
     }
 
+    // --- Per-note trig condition (melodic stride) ----------------------------
+    {
+        // A lead note on step 0 with a stride must fire only every Nth loop, just like drum steps.
+        auto melodyBarsFired = [&](int stride) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            audio::Note note;
+            note.startStep = 0;
+            note.lengthSteps = 2;
+            note.pitch = 60;
+            note.stride = stride;
+            s.roll().addNote(note);
+            s.play();
+            std::vector<bool> fired;
+            const int barFrames = 16 * 6000;
+            for (int b = 0; b < 4; ++b) {
+                const std::vector<float> out = renderMono(s, barFrames, sampleRate);
+                double e = 0.0;
+                for (int i = 0; i < 6000; ++i) { // the note's first step (its onset)
+                    e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                         static_cast<double>(out[static_cast<size_t>(i) * 2]);
+                }
+                fired.push_back(e > 1e-4);
+            }
+            return fired;
+        };
+        const std::vector<bool> every = melodyBarsFired(1);
+        check(every[0] && every[1] && every[2] && every[3], "a stride-1 note fires on every loop");
+        const std::vector<bool> alt = melodyBarsFired(2);
+        check(alt[0] && !alt[1] && alt[2] && !alt[3],
+              "a stride-2 note fires on loops 0 and 2 but not 1 and 3");
+
+        // PianoRoll accessor round-trip + clamp.
+        audio::PianoRoll pr;
+        pr.addNote(audio::Note{0, 1, 60, 0.9f});
+        check(pr.noteStride(60, 0) == 1, "a note defaults to stride 1");
+        check(pr.setNoteStride(60, 0, 4) == 4 && pr.noteStride(60, 0) == 4,
+              "note stride setter/getter round-trips");
+        check(pr.setNoteStride(60, 0, 99) == 8, "note stride clamps to a max of 8");
+    }
+
     // --- Count-in: a bar of clicks before the pattern starts ------------------
     {
         // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks

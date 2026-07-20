@@ -415,12 +415,12 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
               << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
-              << (n.slide ? 1 : 0) << "\n";
+              << (n.slide ? 1 : 0) << " " << n.stride << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
               << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
-              << (n.slide ? 1 : 0) << "\n";
+              << (n.slide ? 1 : 0) << " " << n.stride << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -1056,6 +1056,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (ls >> slide) {
                 n.slide = slide != 0;
             }
+            int stride = 1; // per-note trig condition optional (older files omit it → every loop)
+            if (ls >> stride) {
+                n.stride = stride < 1 ? 1 : (stride > 8 ? 8 : stride);
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
@@ -1077,6 +1081,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int slide = 0; // per-note slide/portamento optional (older files omit it → off)
             if (ls >> slide) {
                 n.slide = slide != 0;
+            }
+            int stride = 1; // per-note trig condition optional (older files omit it → every loop)
+            if (ls >> stride) {
+                n.stride = stride < 1 ? 1 : (stride > 8 ? 8 : stride);
             }
             seq.selectPattern(p);
             seq.roll2().addNote(n);
