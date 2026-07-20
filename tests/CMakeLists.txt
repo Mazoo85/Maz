@@ -143,6 +143,14 @@ target_link_libraries(maz_radiosity_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME radiosity COMMAND maz_radiosity_tests)
 set_tests_properties(radiosity PROPERTIES TIMEOUT 60)
 
+# Vertex-cache optimization (render::optimizeVertexCache, Forsyth's algorithm): reorders triangle indices
+# for GPU post-transform cache locality. Verified headlessly — the reordering is a lossless permutation of
+# the exact same triangle set, and the simulated-cache ACMR drops versus the naive row-major grid order.
+add_executable(maz_vertexcache_tests render/vertexcache.cpp)
+target_link_libraries(maz_vertexcache_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME vertex_cache COMMAND maz_vertexcache_tests)
+set_tests_properties(vertex_cache PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
