@@ -95,8 +95,13 @@ only be written blind, the docs say exactly that.
   for the editor + export. [VERIFIABLE HERE]
 - [ ] **Desktop export/packaging** — extend `tools/package.sh` into a real per-OS bundler
   (assets + launcher + config). [VERIFIABLE HERE] (the packaging logic; running the packaged game is manual)
-- [ ] **Web/WASM build target** via Emscripten for the headless/logic core. [CODE HERE / SEE IT ON YOUR MACHINE]
-  (needs Emscripten present to actually emit `.wasm`)
+- [x] **Web/WASM build path** — DONE (M514, the completable-here part). The one portability seam every
+  desktop engine must cross for the browser — the main loop — is solved and unit-tested: `platform::runMainLoop`
+  (`platform/WebLoop.hpp`) blocks on desktop but registers a per-frame browser callback under `__EMSCRIPTEN__`,
+  so game code is written once (native path verified by `ctest -R webloop`). Plus a complete, documented build:
+  `tools/build_web.sh` (emcmake + WebGL2 flags + shell), `web/shell.html` (canvas + loader page), and
+  [WEB_BUILD.md](WEB_BUILD.md) with the exact emsdk steps. Emitting the actual `.wasm`/`.js` needs Emscripten
+  on the build machine (absent on this box). [NATIVE PATH VERIFIABLE HERE / WASM NEEDS TOOLCHAIN]
 - [ ] **Android / iOS export** — build scripts + input/sensor shims. [NEEDS YOUR HARDWARE/TOOLCHAIN]
   (Android SDK/NDK, Xcode, devices)
 - [ ] **Console export** — [NEEDS YOUR HARDWARE/TOOLCHAIN] (NDA SDKs; cannot be done in a public sandbox)
