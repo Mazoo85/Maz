@@ -253,6 +253,23 @@ int PianoRoll::noteNudge(int pitch, int step) const {
     return 0;
 }
 
+int PianoRoll::humanizeTiming(int maxNudge, uint32_t seed) {
+    const int cap = maxNudge < 0 ? 0 : (maxNudge > 95 ? 95 : maxNudge);
+    if (cap == 0) {
+        return 0;
+    }
+    uint32_t rng = seed != 0u ? seed : 1u;
+    int changed = 0;
+    for (Note& n : notes_) {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        n.nudge = static_cast<int>(rng % static_cast<uint32_t>(cap + 1)); // [0, cap]
+        ++changed;
+    }
+    return changed;
+}
+
 int PianoRoll::setNudgeForStep(int step, int percent) {
     const int v = percent < 0 ? 0 : (percent > 95 ? 95 : percent);
     int count = 0;

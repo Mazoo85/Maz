@@ -835,6 +835,11 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         roll.randomizeTiming(timingRange, timingSeed++);
     }
     ImGui::SameLine();
+    static int humTimeSeed = 1;
+    if (ImGui::Button("Hum.time")) { // sub-step micro-timing humanize (keeps notes on their steps)
+        roll.humanizeTiming(35, static_cast<uint32_t>(humTimeSeed++));
+    }
+    ImGui::SameLine();
     static float lenRandAmt = 0.4f;
     static uint32_t lenSeed = 1u;
     ImGui::SetNextItemWidth(50.0f);

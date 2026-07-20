@@ -2213,6 +2213,38 @@ int main() {
         check(c.notes()[0].startStep >= 0, "timing randomize never produces a negative start");
     }
 
+    // --- Humanize micro-timing (sub-step nudge) ------------------------------
+    {
+        auto build = [](audio::PianoRoll& p) {
+            for (int i = 0; i < 8; ++i) {
+                p.addNote(audio::Note{i * 2, 1, 60 + i, 0.9f});
+            }
+        };
+        audio::PianoRoll a;
+        audio::PianoRoll b;
+        build(a);
+        build(b);
+        a.humanizeTiming(35, 4242u);
+        b.humanizeTiming(35, 4242u); // same seed → identical
+        bool deterministic = true, inRange = true, anyNudged = false, startsIntact = true;
+        for (size_t i = 0; i < a.notes().size(); ++i) {
+            const audio::Note& n = a.notes()[i];
+            if (n.nudge != b.notes()[i].nudge) deterministic = false;
+            if (n.nudge < 0 || n.nudge > 35) inRange = false;
+            if (n.nudge > 0) anyNudged = true;
+            if (n.startStep != static_cast<int>(i) * 2) startsIntact = false; // steps unchanged
+        }
+        check(deterministic, "humanize timing is deterministic for a given seed");
+        check(inRange, "humanize timing keeps nudges within the requested cap");
+        check(anyNudged, "humanize timing applies sub-step nudges");
+        check(startsIntact, "humanize timing keeps notes on their steps (only micro-timing changes)");
+        // A zero cap is a no-op.
+        audio::PianoRoll z;
+        z.addNote(audio::Note{0, 1, 60, 0.9f});
+        z.humanizeTiming(0, 1u);
+        check(z.notes()[0].nudge == 0, "humanize timing with cap 0 is a no-op");
+    }
+
     // --- Randomize (humanize) note lengths -----------------------------------
     {
         auto build = [](audio::PianoRoll& p) {

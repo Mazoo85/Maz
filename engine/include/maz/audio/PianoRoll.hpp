@@ -247,6 +247,12 @@ public:
     // fully deterministic. Returns the number of notes whose start changed.
     int randomizeTiming(int maxSteps, uint32_t seed);
 
+    // Humanize micro-timing: set each note's per-note nudge to a random value in [0, maxNudge] % of a
+    // step (maxNudge clamped to [0, 95]), for a subtle behind-the-beat looseness WITHOUT moving notes
+    // off their steps (distinct from randomizeTiming, which shifts whole steps). Deterministic per
+    // `seed`. Returns the number of notes affected.
+    int humanizeTiming(int maxNudge, uint32_t seed);
+
     // Randomize (humanize) note lengths: scale each note's duration by a random factor in
     // [1−amount, 1+amount] (amount clamped to [0, 1]), clamped to at least one step, for less
     // mechanical, more played-feeling note durations. `seed` makes it fully deterministic. Returns
