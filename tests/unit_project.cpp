@@ -1332,6 +1332,26 @@ int main() {
         // A malformed / non-preset file is rejected without corrupting the target synth.
         check(!audio::loadSynthPreset("/nonexistent/missing.cjcpatch", dst, &err),
               "loading a missing preset fails cleanly");
+
+        // Two independent preset files (the lead's and the bass's own path) do not clobber each other:
+        // save distinct patches to distinct paths, then load each back and confirm they differ.
+        audio::SynthInstrument leadPatch;
+        leadPatch.setWaveform(audio::Waveform::Saw);
+        leadPatch.setFilter(4800.0f, 1.5f, 0.0f);
+        audio::SynthInstrument bassPatch;
+        bassPatch.setWaveform(audio::Waveform::Square);
+        bassPatch.setFilter(320.0f, 6.0f, 0.0f);
+        check(audio::saveSynthPreset("unit_project_lead.cjcpatch", leadPatch, &err) &&
+                  audio::saveSynthPreset("unit_project_bass.cjcpatch", bassPatch, &err),
+              "two independent presets save to their own paths");
+        audio::SynthInstrument backLead, backBass;
+        check(audio::loadSynthPreset("unit_project_lead.cjcpatch", backLead, &err) &&
+                  audio::loadSynthPreset("unit_project_bass.cjcpatch", backBass, &err),
+              "both independent presets load back");
+        check(backLead.waveform() == audio::Waveform::Saw &&
+                  backBass.waveform() == audio::Waveform::Square &&
+                  near(backLead.filterCutoff(), 4800.0f) && near(backBass.filterCutoff(), 320.0f),
+              "independent preset files stay distinct (no cross-clobber)");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

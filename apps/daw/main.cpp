@@ -1594,6 +1594,29 @@ void buildSynthUI(audio::Sequencer& seq) {
 // Draw a compact panel for the second (bass) instrument.
 void buildBassUI(audio::SynthInstrument& syn) {
     ImGui::Begin("CJC Music Station — Bass Synth");
+
+    // Instrument preset (channel patch) I/O — the bass channel gets its own preset file so it stays
+    // independent of the lead's, matching the Save/Load Patch workflow in the Synth window.
+    static const char* kBassPresetPath = "bass.cjcpatch";
+    if (ImGui::Button("Save Patch##bass")) {
+        std::string perr;
+        if (audio::saveSynthPreset(kBassPresetPath, syn, &perr)) {
+            MAZ_LOG_INFO("preset: saved %s", kBassPresetPath);
+        } else {
+            MAZ_LOG_ERROR("preset save failed: %s", perr.c_str());
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load Patch##bass")) {
+        std::string perr;
+        if (audio::loadSynthPreset(kBassPresetPath, syn, &perr)) {
+            MAZ_LOG_INFO("preset: loaded %s", kBassPresetPath);
+        } else {
+            MAZ_LOG_ERROR("preset load failed: %s", perr.c_str());
+        }
+    }
+    ImGui::Separator();
+
     int w = static_cast<int>(syn.waveform());
     const char* waves[] = {"Sine", "Square", "Saw", "Triangle", "Trap", "Step", "Rect"};
     if (ImGui::Combo("Waveform##bass", &w, waves, 7)) {
