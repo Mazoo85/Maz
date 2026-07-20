@@ -159,6 +159,14 @@ target_link_libraries(maz_vertexcache_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME vertex_cache COMMAND maz_vertexcache_tests)
 set_tests_properties(vertex_cache PROPERTIES TIMEOUT 30)
 
+# Mesh simplification by vertex clustering (render::simplifyClustering) — grid-based decimation for LODs and
+# collision hulls. Verified headlessly: output has fewer verts/tris, every triangle is non-degenerate and
+# in range, the bbox is preserved within one cell, coarser cells reduce more, and a sub-spacing cell no-ops.
+add_executable(maz_meshsimplify_tests render/meshsimplify.cpp)
+target_link_libraries(maz_meshsimplify_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_simplify COMMAND maz_meshsimplify_tests)
+set_tests_properties(mesh_simplify PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

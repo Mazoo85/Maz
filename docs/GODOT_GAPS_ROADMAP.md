@@ -150,6 +150,13 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).
 - [x] **Occlusion culling** — ALREADY PRESENT (`render::Occlusion.hpp`, screen-space coverage buffer).
 - [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
+- [x] **Mesh simplification / decimation** (`render::simplifyClustering`) — DONE (M524); the load-time
+  vertex-clustering decimation that GENERATES lower-poly LODs and collision hulls from a dense mesh (M-selection
+  above only picks which LOD to draw; this makes them). Overlays a uniform grid, averages each cell's vertices
+  to one representative, remaps triangles, drops the collapsed ones — O(n), hole-free, no flipped normals.
+  Verified (`ctest -R mesh_simplify`): fewer verts/tris, every triangle non-degenerate + in range, bbox kept
+  within one cell, coarser cells reduce more, sub-spacing cell is a no-op. Follow-up: quadric-error edge
+  collapse for silhouette-preserving aggressive ratios. [VERIFIABLE HERE]
 - [x] **Vertex-cache optimization** (`render::optimizeVertexCache`, Forsyth's algorithm) — DONE (M522); the
   load-time index reorder every importer runs so consecutive triangles reuse the GPU's post-transform vertex
   cache, cutting redundant vertex-shader runs. A pure lossless index permutation (positions untouched).
