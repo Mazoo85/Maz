@@ -109,8 +109,9 @@ set_tests_properties(unit_plugin PROPERTIES TIMEOUT 30)
 # Unit tests: CLAP plugin hosting — load a real .clap built from plugins/example_clap.
 add_executable(maz_clap_tests unit_clap.cpp)
 target_link_libraries(maz_clap_tests PRIVATE maz::maz maz_warnings)
-add_dependencies(maz_clap_tests maz_example_clap)
-target_compile_definitions(maz_clap_tests PRIVATE MAZ_TEST_CLAP="$<TARGET_FILE:maz_example_clap>")
+add_dependencies(maz_clap_tests maz_example_clap maz_example_clap_instrument)
+target_compile_definitions(maz_clap_tests PRIVATE MAZ_TEST_CLAP="$<TARGET_FILE:maz_example_clap>"
+    MAZ_TEST_CLAP_INSTRUMENT="$<TARGET_FILE:maz_example_clap_instrument>")
 
 add_test(NAME unit_clap COMMAND maz_clap_tests)
 set_tests_properties(unit_clap PROPERTIES TIMEOUT 30)

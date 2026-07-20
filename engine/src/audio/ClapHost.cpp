@@ -186,6 +186,19 @@ void ClapHost::unload() {
     name_.clear();
 }
 
+bool ClapHost::hasNotePorts() const {
+    const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
+    if (plugin == nullptr || plugin->get_extension == nullptr) {
+        return false;
+    }
+    const auto* np = static_cast<const clap_plugin_note_ports_t*>(
+        plugin->get_extension(plugin, CLAP_EXT_NOTE_PORTS));
+    if (np == nullptr || np->count == nullptr) {
+        return false;
+    }
+    return np->count(plugin, true) > 0; // true = input note ports → an instrument
+}
+
 void ClapHost::process(float* stereo, int frames, int sampleRate) {
     (void)sampleRate;
     const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);

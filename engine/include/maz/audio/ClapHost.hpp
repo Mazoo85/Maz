@@ -26,6 +26,9 @@ public:
     void unload();
     bool loaded() const { return plugin_ != nullptr; }
     const std::string& pluginName() const { return name_; }
+    // True if the loaded plugin exposes at least one INPUT note port — i.e. it is an instrument
+    // (driven by note events) rather than a pure audio effect. Used to route it as a channel synth.
+    bool hasNotePorts() const;
 
     const char* name() const override { return name_.empty() ? "CLAP" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;

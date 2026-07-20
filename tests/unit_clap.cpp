@@ -56,8 +56,26 @@ int main() {
     check(minv < 0.2f, "CLAP tremolo modulates the amplitude down");
     check(maxv > 0.45f, "CLAP tremolo leaves peaks near the input");
 
+    // The tremolo is an audio effect — no note input ports.
+    check(!host.hasNotePorts(), "the tremolo effect exposes no note ports");
+
     host.unload();
     check(!host.loaded(), "unloads cleanly");
+
+#ifdef MAZ_TEST_CLAP_INSTRUMENT
+    // The example instrument declares a note input port and a synth name — the host detects it as an
+    // instrument (the routing signal for hosting a plugin as a channel synth).
+    audio::ClapHost inst;
+    const bool iok = inst.load(MAZ_TEST_CLAP_INSTRUMENT, sr, 512, &err);
+    check(iok, "loads the example CLAP instrument");
+    if (iok) {
+        check(inst.pluginName() == std::string("CJC CLAP Synth"), "reads the instrument name");
+        check(inst.hasNotePorts(), "the instrument exposes an input note port");
+        inst.unload();
+    } else {
+        std::printf("  instrument load error: %s\n", err.c_str());
+    }
+#endif
 
     audio::ClapHost bad;
     check(!bad.load("/nonexistent/missing.clap", sr, 512, &err), "loading a missing .clap fails");
