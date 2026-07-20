@@ -1182,6 +1182,21 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **BC1/DXT1 texture encoder** (M515, `render::encodeBc1Block` / `encodeDdsBc1` / `saveDdsBc1` — the inverse
+  of the M511 DDS decoder, and the CPU texture-compression step Godot's editor runs on import: an RGBA image
+  becomes a block-compressed `.dds` that lives in a sixth of the VRAM. Each 4×4 block picks its two 565
+  endpoints as the pair of texels that are FARTHEST apart in RGB (a "farthest-pair" range fit that follows the
+  block's actual colour line in any orientation — unlike a naive RGB bounding box, which fails when channels
+  are anticorrelated), interpolates the four-colour palette exactly as the decoder does, and snaps each texel
+  to its nearest entry. `encodeDdsBc1` writes a complete 128-byte-header DXT1 file (padding non-multiple-of-4
+  sizes by clamping edge texels); `saveDdsBc1` wraps it to disk. Pure CPU. Honest scope: opaque BC1 (4-colour
+  mode), mip-0, a fast range fit — not the optimal least-squares/cluster fit an offline tool uses — and no
+  BC2/BC3 or 1-bit alpha yet. Verified by encoding then decoding with the (independently-golden-verified) M511
+  decoder: a constant block reconstructs within 565 quantization; an ANTICORRELATED red/blue block (the
+  bounding-box killer) round-trips within 8 per channel thanks to the farthest-pair endpoints; an 8×8 gradient
+  stays within 20; non-multiple-of-4 sizes decode to the requested dimensions; and an independent Python BC1
+  decoder reading the encoder's own `.dds` output reproduces the source image to within a max error of 3,
+  confirming the bytes are a spec-correct DXT1 stream),
   **SNORM/UNORM fixed-point packing** (M514, `math::packUnorm8/16` / `packSnorm8/16` + `unpack…` — the
   quantization layer of GPU vertex/attribute compression, converting a normalized float to an 8- or 16-bit
   integer and back. This is the piece that actually shrinks the data: paired with the existing

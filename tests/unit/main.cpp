@@ -314,6 +314,7 @@
 #include "maz/render/Image.hpp"
 #include "maz/render/ImageCodecBmp.hpp"
 #include "maz/render/ImageCodecDds.hpp"
+#include "maz/render/ImageCodecDdsEncode.hpp"
 #include "maz/render/ImageCodecPng.hpp"
 #include "maz/render/ImageCodecQoi.hpp"
 #include "maz/render/ImageCodecTga.hpp"
@@ -20901,6 +20902,72 @@ void testFontFallback() {
     }
 }
 
+void testDdsEncode() {
+    using render::Color;
+    using render::color8;
+    using render::decodeDds;
+    using render::encodeDdsBc1;
+    using render::Image;
+    auto to8 = [](float f) { return static_cast<int>(f * 255.0f + 0.5f); };
+
+    // Constant-colour 4x4 block reconstructs within 565 quantization (encode -> trusted M511 decode).
+    {
+        Image img(4, 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) img.setPixel(x, y, color8(200, 100, 50));
+        Image dec = decodeDds(encodeDdsBc1(img));
+        CHECK(dec.width() == 4 && dec.height() == 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) {
+                Color c = dec.getPixel(x, y);
+                CHECK(std::abs(to8(c.r) - 200) <= 8 && std::abs(to8(c.g) - 100) <= 6 &&
+                      std::abs(to8(c.b) - 50) <= 8 && to8(c.a) == 255);
+            }
+    }
+    // Anticorrelated two-colour block: farthest-pair endpoints follow the colour line, so each texel snaps
+    // close (this is the case a naive RGB-bounding-box range fit gets badly wrong).
+    {
+        Image img(4, 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) {
+                if (x < 2) img.setPixel(x, y, color8(255, 0, 0));
+                else       img.setPixel(x, y, color8(0, 0, 255));
+            }
+        Image dec = decodeDds(encodeDdsBc1(img));
+        for (int y = 0; y < 4; ++y) {
+            Color red = dec.getPixel(0, y), blue = dec.getPixel(3, y);
+            CHECK(std::abs(to8(red.r) - 255) <= 8 && to8(red.b) <= 8);
+            CHECK(std::abs(to8(blue.b) - 255) <= 8 && to8(blue.r) <= 8);
+        }
+    }
+    // Full-image round-trip: 8x8 horizontal grayscale gradient stays within BC1 tolerance.
+    {
+        Image img(8, 8);
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 8; ++x) {
+                const int v = x * 255 / 7;
+                img.setPixel(x, y, color8(v, v, v));
+            }
+        Image dec = decodeDds(encodeDdsBc1(img));
+        CHECK(dec.width() == 8 && dec.height() == 8);
+        int maxErr = 0;
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 8; ++x)
+                maxErr = std::max(maxErr, std::abs(to8(dec.getPixel(x, y).r) - x * 255 / 7));
+        CHECK(maxErr <= 20);
+    }
+    // Non-multiple-of-4 dimensions are padded (edge clamp) and decode to the requested size.
+    {
+        Image img(5, 3);
+        for (int y = 0; y < 3; ++y)
+            for (int x = 0; x < 5; ++x) img.setPixel(x, y, color8(90, 90, 90));
+        Image dec = decodeDds(encodeDdsBc1(img));
+        CHECK(dec.width() == 5 && dec.height() == 3);
+        CHECK(std::abs(to8(dec.getPixel(4, 2).r) - 90) <= 8);
+    }
+    CHECK(encodeDdsBc1(Image{}).empty());
+}
+
 void testDdsDecode() {
     using render::decodeDds;
     using render::Image;
@@ -33149,6 +33216,7 @@ int main() {
     testDecalProject();
     testLightmapBake();
     testFontFallback();
+    testDdsEncode();
     testDdsDecode();
     testPngDecode();
     testInflate();
