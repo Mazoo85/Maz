@@ -14,6 +14,7 @@
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
+#include "pluginterfaces/vst/ivstevents.h"
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -35,6 +36,37 @@ using ModuleExitProc = bool (PLUGIN_API*)();
 IPluginFactory* factoryOf(void* p) { return static_cast<IPluginFactory*>(p); }
 IComponent* componentOf(void* p) { return static_cast<IComponent*>(p); }
 IAudioProcessor* processorOf(void* p) { return static_cast<IAudioProcessor*>(p); }
+
+// A minimal host-side IEventList: a plain buffer of VST3 events handed to the plugin's process() as
+// data.inputEvents. Ref-counting is a no-op — the list lives on the stack for the duration of one
+// process() call (a static singleton lifetime, exactly like the plugin factories in the examples).
+class HostEventList : public IEventList {
+public:
+    std::vector<Event> events;
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) SMTG_OVERRIDE {
+        if (FUnknownPrivate::iidEqual(_iid, FUnknown_iid) ||
+            FUnknownPrivate::iidEqual(_iid, IEventList_iid)) {
+            *obj = static_cast<IEventList*>(this);
+            return kResultOk;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() SMTG_OVERRIDE { return 1000; }
+    uint32 PLUGIN_API release() SMTG_OVERRIDE { return 1000; }
+    int32 PLUGIN_API getEventCount() SMTG_OVERRIDE { return static_cast<int32>(events.size()); }
+    tresult PLUGIN_API getEvent(int32 index, Event& e) SMTG_OVERRIDE {
+        if (index < 0 || index >= static_cast<int32>(events.size())) {
+            return kInvalidArgument;
+        }
+        e = events[static_cast<size_t>(index)];
+        return kResultOk;
+    }
+    tresult PLUGIN_API addEvent(Event& e) SMTG_OVERRIDE {
+        events.push_back(e);
+        return kResultOk;
+    }
+};
 } // namespace
 
 Vst3Host::~Vst3Host() { unload(); }
@@ -46,6 +78,25 @@ bool Vst3Host::hasEventInput() const {
     // An instrument declares one or more event (note/MIDI) input buses; a pure audio effect declares
     // none. Query the component's kEvent/kInput bus count.
     return componentOf(component_)->getBusCount(kEvent, kInput) > 0;
+}
+
+void Vst3Host::noteOn(int key, float velocity) {
+    pendingNotes_.push_back({key, velocity, true});
+    if (std::find(heldKeys_.begin(), heldKeys_.end(), key) == heldKeys_.end()) {
+        heldKeys_.push_back(key);
+    }
+}
+
+void Vst3Host::noteOff(int key) {
+    pendingNotes_.push_back({key, 0.0f, false});
+    heldKeys_.erase(std::remove(heldKeys_.begin(), heldKeys_.end(), key), heldKeys_.end());
+}
+
+void Vst3Host::allNotesOff() {
+    for (int key : heldKeys_) {
+        pendingNotes_.push_back({key, 0.0f, false});
+    }
+    heldKeys_.clear();
 }
 
 bool Vst3Host::load(const std::string& path, int sampleRate, int maxBlock, std::string* err) {
@@ -187,6 +238,38 @@ void Vst3Host::process(float* stereo, int frames, int sampleRate) {
     }
     (void)sampleRate;
     IAudioProcessor* processor = processorOf(processor_);
+
+    // Drain queued note events into a VST3 event list (instrument hosting). It is attached to the
+    // first sub-block only, so each note fires exactly once. With no queued notes the list stays empty
+    // and inputEvents is left null — the audio-effect path is then bit-identical to before.
+    HostEventList events;
+    for (const auto& pn : pendingNotes_) {
+        Event ev{};
+        ev.busIndex = 0;
+        ev.sampleOffset = 0;
+        ev.ppqPosition = 0.0;
+        ev.flags = 0;
+        if (pn.on) {
+            ev.type = Event::kNoteOnEvent;
+            ev.noteOn.channel = 0;
+            ev.noteOn.pitch = static_cast<int16>(pn.key);
+            ev.noteOn.tuning = 0.0f;
+            ev.noteOn.velocity = pn.velocity;
+            ev.noteOn.length = 0;
+            ev.noteOn.noteId = -1;
+        } else {
+            ev.type = Event::kNoteOffEvent;
+            ev.noteOff.channel = 0;
+            ev.noteOff.pitch = static_cast<int16>(pn.key);
+            ev.noteOff.velocity = 0.0f;
+            ev.noteOff.noteId = -1;
+            ev.noteOff.tuning = 0.0f;
+        }
+        events.events.push_back(ev);
+    }
+    pendingNotes_.clear();
+    bool eventsFed = false;
+
     int done = 0;
     while (done < frames) {
         const int n = std::min(frames - done, maxBlock_);
@@ -215,6 +298,11 @@ void Vst3Host::process(float* stereo, int frames, int sampleRate) {
         data.numOutputs = 1;
         data.inputs = &inBus;
         data.outputs = &outBus;
+        // Deliver queued note events on the first sub-block only.
+        if (!eventsFed && !events.events.empty()) {
+            data.inputEvents = &events;
+        }
+        eventsFed = true;
 
         if (processor->process(data) == kResultOk) {
             for (int i = 0; i < n; ++i) {

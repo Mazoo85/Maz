@@ -34,6 +34,15 @@ public:
     // Mirrors ClapHost::hasNotePorts(). Pure audio effects (e.g. the example tremolo) report false.
     bool hasEventInput() const;
 
+    // Instrument hosting: queue note-on/off events for the next process() call. They are delivered to
+    // the plugin as a VST3 IEventList at the top of that block; the plugin's synthesised audio then
+    // replaces the buffer passed to process() (an instrument ignores audio input). Velocity is 0..1.
+    // Mirrors ClapHost::noteOn/noteOff/allNotesOff.
+    void noteOn(int key, float velocity);
+    void noteOff(int key);
+    // Release every currently-held note (panic / all-notes-off) so a hosted instrument doesn't hang.
+    void allNotesOff();
+
     const char* name() const override { return name_.empty() ? "VST3" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
 
@@ -47,6 +56,13 @@ private:
     int maxBlock_ = 4096;
     std::string name_;
     std::vector<float> inL_, inR_, outL_, outR_;
+    struct PendingNote {
+        int key;
+        float velocity;
+        bool on; // true = note-on, false = note-off
+    };
+    std::vector<PendingNote> pendingNotes_; // queued for the next process() (instrument hosting)
+    std::vector<int> heldKeys_;             // keys currently on (for allNotesOff / panic)
 };
 
 } // namespace maz::audio
