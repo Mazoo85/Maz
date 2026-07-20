@@ -103,7 +103,13 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   sampling math for reflection probes, skyboxes, and IBL. [VERIFIABLE HERE]
 - [x] **Reflection-probe influence + box projection** (`render::ReflectionProbe`) — DONE (M507); blend
   weights + parallax-corrected sample direction. The cubemap *capture* is still a GPU pass. [VERIFIABLE HERE]
-- [ ] **SSR/SSIL passes**, **GPU particles + collision**, reflection-probe cubemap **capture** pass.
+- [x] **GPU-driven particles + collision** (`fx::GpuParticleSystem`) — DONE (M509); state lives in flat
+  SoA float buffers (SSBO-ready) and the CPU `update()` is the exact arithmetic the compute shader runs:
+  gravity+drag integration, plane collision with restitution + friction, no-sink resolution, life recycling,
+  and an instance-buffer builder for the single instanced draw. Bounce energy, no-sink, friction, lifecycle
+  and instances are all unit-verified headlessly (`ctest -R gpu_particles`); the GPU compute dispatch +
+  instanced draw are owner-verified. [VERIFIABLE HERE (sim) / SEE IT ON YOUR MACHINE (draw)]
+- [ ] **SSR/SSIL passes**, reflection-probe cubemap **capture** pass.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
   supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic

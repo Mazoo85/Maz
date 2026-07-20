@@ -37,6 +37,14 @@ target_link_libraries(maz_pnm_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME pnm_codec COMMAND maz_pnm_tests)
 set_tests_properties(pnm_codec PROPERTIES TIMEOUT 30)
 
+# GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
+# arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
+# buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
+add_executable(maz_gpu_particles_tests fx/gpu_particles.cpp)
+target_link_libraries(maz_gpu_particles_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gpu_particles COMMAND maz_gpu_particles_tests)
+set_tests_properties(gpu_particles PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
