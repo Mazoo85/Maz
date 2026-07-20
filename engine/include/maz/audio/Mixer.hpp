@@ -117,6 +117,19 @@ public:
     MixerTrack& track(MixerBus b) { return tracks_[static_cast<size_t>(b)]; }
     MixerTrack& track(int i) { return tracks_[static_cast<size_t>(i)]; }
     static constexpr int trackCount() { return static_cast<int>(MixerBus::Count); }
+
+    // Mixer group (submix) tracks — a dynamic list beyond the fixed drums/lead/bass buses. Any bus
+    // whose output() names a group index is summed into that group's buffer, run through the group's
+    // insert chain, and then folded into the master — the flexible-routing foundation (FL "send to
+    // group"). None by default, so the mix is bit-identical until a group is added and a bus routed.
+    int addGroup() {
+        groups_.emplace_back();
+        return static_cast<int>(groups_.size()) - 1;
+    }
+    int groupCount() const { return static_cast<int>(groups_.size()); }
+    MixerTrack& group(int i) { return groups_[static_cast<size_t>(i)]; }
+    const MixerTrack& group(int i) const { return groups_[static_cast<size_t>(i)]; }
+    void clearGroups() { groups_.clear(); }
     bool anyTrackActive() const;
     // True if any per-bus track is soloed (then the engine silences the non-soloed buses).
     bool anyTrackSoloed() const {
@@ -203,6 +216,7 @@ private:
     std::vector<float> delayAux_;    // per-bus delay-send feed for this block
 
     std::array<MixerTrack, static_cast<size_t>(MixerBus::Count)> tracks_{}; // per-bus insert strips
+    std::vector<MixerTrack> groups_; // user-added submix/group tracks (routing destinations)
 };
 
 } // namespace maz::audio

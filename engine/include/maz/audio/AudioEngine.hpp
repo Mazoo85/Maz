@@ -131,6 +131,8 @@ private:
     std::vector<float> scratch_; // reused mono render buffer for mixing
     std::vector<float> stemDrums_, stemLead_, stemBass_; // per-bus stems for the mixer-track path
     std::vector<float> reverbAuxBuf_, delayAuxBuf_;      // per-bus aux-send feeds for the returns
+    std::vector<float> masterAcc_;                       // master accumulator when groups are routed
+    std::vector<std::vector<float>> groupBufs_;          // per-group submix buffers (routed path only)
     float masterPeak_ = 0.0f; // peak level of the last rendered block (UI meter)
     float masterRms_ = 0.0f;  // RMS level of the last rendered block (UI meter)
     std::vector<float> recordBuffer_;

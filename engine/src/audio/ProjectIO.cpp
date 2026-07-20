@@ -341,6 +341,89 @@ static void writeSynthBlock(std::ostream& f, const char* tag, const char* oscTag
     f << "\n";
 }
 
+// Serialize a mixer track's insert-strip fields (everything after the tag+index) to a stream, with no
+// leading space and no trailing newline. Shared by the fixed per-bus `track` lines and the `group`
+// (submix) lines so both round-trip through the exact same format and reader.
+static void writeMixerTrackFields(std::ostream& f, MixerTrack& tr) {
+    f << tr.gain() << " " << (tr.muted() ? 1 : 0) << " " << (tr.eq().enabled() ? 1 : 0) << " "
+      << tr.eq().lowGain() << " " << tr.eq().midFreq() << " " << tr.eq().midQ() << " "
+      << tr.eq().midGain() << " " << tr.eq().highGain() << " " << (tr.distortion().enabled() ? 1 : 0)
+      << " " << tr.distortion().drive() << " " << (tr.compressor().enabled() ? 1 : 0) << " "
+      << tr.compressor().thresholdDb() << " " << tr.compressor().ratio() << " "
+      << tr.compressor().makeupDb() << " " << (tr.highpass().enabled() ? 1 : 0) << " "
+      << tr.highpass().cutoff() << " " << tr.pan() << " " << (tr.transientShaper().enabled() ? 1 : 0)
+      << " " << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << " "
+      << (tr.gate().enabled() ? 1 : 0) << " " << tr.gate().thresholdDb() << " " << tr.gate().ratio()
+      << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs() << " " << (tr.soloed() ? 1 : 0)
+      << " " << tr.reverbSend() << " " << tr.delaySend() << " "
+      << (tr.stereoEnhancer().enabled() ? 1 : 0) << " " << tr.stereoEnhancer().delayMs() << " "
+      << tr.stereoEnhancer().amount();
+}
+
+// Read the insert-strip fields written by writeMixerTrackFields into a track. The later blocks are
+// guarded so older/shorter lines (which omit them) still load — matching the pre-helper reader.
+static void readMixerTrackFields(std::istringstream& ls, MixerTrack& tr) {
+    int muted = 0, eqEn = 0, distEn = 0, compEn = 0;
+    float gain = 1.0f, low = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, high = 0.0f;
+    float drive = 1.0f, thr = -18.0f, ratio = 4.0f, mk = 0.0f;
+    ls >> gain >> muted >> eqEn >> low >> midF >> midQ >> midDb >> high >> distEn >> drive >> compEn >>
+        thr >> ratio >> mk;
+    tr.setGain(gain);
+    tr.setMuted(muted != 0);
+    tr.eq().setEnabled(eqEn != 0);
+    tr.eq().setLowGain(low);
+    tr.eq().setMid(midF, midQ, midDb);
+    tr.eq().setHighGain(high);
+    tr.distortion().setEnabled(distEn != 0);
+    tr.distortion().setDrive(drive);
+    tr.compressor().setEnabled(compEn != 0);
+    tr.compressor().setThresholdDb(thr);
+    tr.compressor().setRatio(ratio);
+    tr.compressor().setMakeupDb(mk);
+    int hpEn = 0;
+    float hpCut = 30.0f;
+    if (ls >> hpEn >> hpCut) {
+        tr.highpass().setEnabled(hpEn != 0);
+        tr.highpass().setCutoff(hpCut);
+    }
+    float pan = 0.0f;
+    if (ls >> pan) {
+        tr.setPan(pan);
+    }
+    int trEn = 0;
+    float trAtt = 0.0f, trSus = 0.0f;
+    if (ls >> trEn >> trAtt >> trSus) {
+        tr.transientShaper().setEnabled(trEn != 0);
+        tr.transientShaper().setAttack(trAtt);
+        tr.transientShaper().setSustain(trSus);
+    }
+    int gEn = 0;
+    float gThr = -40.0f, gRatio = 4.0f, gAtk = 2.0f, gRel = 80.0f;
+    if (ls >> gEn >> gThr >> gRatio >> gAtk >> gRel) {
+        tr.gate().setEnabled(gEn != 0);
+        tr.gate().setThresholdDb(gThr);
+        tr.gate().setRatio(gRatio);
+        tr.gate().setAttackMs(gAtk);
+        tr.gate().setReleaseMs(gRel);
+    }
+    int solo = 0;
+    if (ls >> solo) {
+        tr.setSoloed(solo != 0);
+    }
+    float rsend = 0.0f, dsend = 0.0f;
+    if (ls >> rsend >> dsend) {
+        tr.setReverbSend(rsend);
+        tr.setDelaySend(dsend);
+    }
+    int seEn = 0;
+    float seMs = 12.0f, seAmt = 0.7f;
+    if (ls >> seEn >> seMs >> seAmt) {
+        tr.stereoEnhancer().setEnabled(seEn != 0);
+        tr.stereoEnhancer().setDelayMs(seMs);
+        tr.stereoEnhancer().setAmount(seAmt);
+    }
+}
+
 // Serialize the whole project to any output stream (shared by the file and string savers).
 static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automation& automation) {
     f << "cjc 1\n";
@@ -623,23 +706,22 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     f << "send delay " << mixer.delaySend() << " " << mixer.delayReturn().time() << " "
       << mixer.delayReturn().feedback() << "\n";
 
-    // Per-bus mixer-track insert strips (0 = drums, 1 = lead, 2 = bass).
+    // Per-bus mixer-track insert strips (0 = drums, 1 = lead, 2 = bass). The `output` routing index is
+    // appended after the shared fields (guarded on read → old files load with output -1 = master).
     for (int t = 0; t < Mixer::trackCount(); ++t) {
         MixerTrack& tr = mixer.track(t);
-        f << "track " << t << " " << tr.gain() << " " << (tr.muted() ? 1 : 0) << " "
-          << (tr.eq().enabled() ? 1 : 0) << " " << tr.eq().lowGain() << " " << tr.eq().midFreq()
-          << " " << tr.eq().midQ() << " " << tr.eq().midGain() << " " << tr.eq().highGain() << " "
-          << (tr.distortion().enabled() ? 1 : 0) << " " << tr.distortion().drive() << " "
-          << (tr.compressor().enabled() ? 1 : 0) << " " << tr.compressor().thresholdDb() << " "
-          << tr.compressor().ratio() << " " << tr.compressor().makeupDb() << " "
-          << (tr.highpass().enabled() ? 1 : 0) << " " << tr.highpass().cutoff() << " " << tr.pan()
-          << " " << (tr.transientShaper().enabled() ? 1 : 0) << " "
-          << tr.transientShaper().attack() << " " << tr.transientShaper().sustain() << " "
-          << (tr.gate().enabled() ? 1 : 0) << " " << tr.gate().thresholdDb() << " "
-          << tr.gate().ratio() << " " << tr.gate().attackMs() << " " << tr.gate().releaseMs() << " "
-          << (tr.soloed() ? 1 : 0) << " " << tr.reverbSend() << " " << tr.delaySend() << " "
-          << (tr.stereoEnhancer().enabled() ? 1 : 0) << " " << tr.stereoEnhancer().delayMs() << " "
-          << tr.stereoEnhancer().amount() << "\n";
+        f << "track " << t << " ";
+        writeMixerTrackFields(f, tr);
+        f << " " << tr.output() << "\n";
+    }
+    // Mixer group (submix) tracks — a count line then one full insert strip per group (same format).
+    if (mixer.groupCount() > 0) {
+        f << "groupcount " << mixer.groupCount() << "\n";
+        for (int g = 0; g < mixer.groupCount(); ++g) {
+            f << "group " << g << " ";
+            writeMixerTrackFields(f, mixer.group(g));
+            f << "\n";
+        }
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
@@ -698,6 +780,7 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
 
     // Reset the destination to a clean slate so the file fully defines the project.
     seq.clearArrangement();
+    mixer.clearGroups(); // drop any stale submix groups so an older (group-less) snapshot restores cleanly
 
     std::string line;
     bool sawHeader = false;
@@ -1861,67 +1944,28 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 mixer.delayReturn().setFeedback(fb);
             }
         } else if (tag == "track") {
-            int t = -1, muted = 0, eqEn = 0, distEn = 0, compEn = 0;
-            float gain = 1.0f, low = 0.0f, midF = 1000.0f, midQ = 1.0f, midDb = 0.0f, high = 0.0f;
-            float drive = 1.0f, thr = -18.0f, ratio = 4.0f, mk = 0.0f;
-            ls >> t >> gain >> muted >> eqEn >> low >> midF >> midQ >> midDb >> high >> distEn >>
-                drive >> compEn >> thr >> ratio >> mk;
+            int t = -1;
+            ls >> t;
             if (t >= 0 && t < Mixer::trackCount()) {
                 MixerTrack& tr = mixer.track(t);
-                tr.setGain(gain);
-                tr.setMuted(muted != 0);
-                tr.eq().setEnabled(eqEn != 0);
-                tr.eq().setLowGain(low);
-                tr.eq().setMid(midF, midQ, midDb);
-                tr.eq().setHighGain(high);
-                tr.distortion().setEnabled(distEn != 0);
-                tr.distortion().setDrive(drive);
-                tr.compressor().setEnabled(compEn != 0);
-                tr.compressor().setThresholdDb(thr);
-                tr.compressor().setRatio(ratio);
-                tr.compressor().setMakeupDb(mk);
-                int hpEn = 0; // per-bus high-pass optional (older files omit it)
-                float hpCut = 30.0f;
-                if (ls >> hpEn >> hpCut) {
-                    tr.highpass().setEnabled(hpEn != 0);
-                    tr.highpass().setCutoff(hpCut);
+                readMixerTrackFields(ls, tr);
+                int outIdx = -1; // output routing optional (older files omit it → master)
+                if (ls >> outIdx) {
+                    tr.setOutput(outIdx);
                 }
-                float pan = 0.0f; // per-bus pan optional (older files omit it)
-                if (ls >> pan) {
-                    tr.setPan(pan);
-                }
-                int trEn = 0; // per-bus transient shaper optional (older files omit it)
-                float trAtt = 0.0f, trSus = 0.0f;
-                if (ls >> trEn >> trAtt >> trSus) {
-                    tr.transientShaper().setEnabled(trEn != 0);
-                    tr.transientShaper().setAttack(trAtt);
-                    tr.transientShaper().setSustain(trSus);
-                }
-                int gEn = 0; // per-bus gate optional (older files omit it)
-                float gThr = -40.0f, gRatio = 4.0f, gAtk = 2.0f, gRel = 80.0f;
-                if (ls >> gEn >> gThr >> gRatio >> gAtk >> gRel) {
-                    tr.gate().setEnabled(gEn != 0);
-                    tr.gate().setThresholdDb(gThr);
-                    tr.gate().setRatio(gRatio);
-                    tr.gate().setAttackMs(gAtk);
-                    tr.gate().setReleaseMs(gRel);
-                }
-                int solo = 0; // per-bus solo optional (older files omit it)
-                if (ls >> solo) {
-                    tr.setSoloed(solo != 0);
-                }
-                float rsend = 0.0f, dsend = 0.0f; // per-bus aux sends optional (older files omit them)
-                if (ls >> rsend >> dsend) {
-                    tr.setReverbSend(rsend);
-                    tr.setDelaySend(dsend);
-                }
-                int seEn = 0; // per-bus stereo enhancer optional (older files omit it)
-                float seMs = 12.0f, seAmt = 0.7f;
-                if (ls >> seEn >> seMs >> seAmt) {
-                    tr.stereoEnhancer().setEnabled(seEn != 0);
-                    tr.stereoEnhancer().setDelayMs(seMs);
-                    tr.stereoEnhancer().setAmount(seAmt);
-                }
+            }
+        } else if (tag == "groupcount") {
+            int n = 0;
+            ls >> n;
+            mixer.clearGroups();
+            for (int g = 0; g < n && g < 256; ++g) {
+                mixer.addGroup();
+            }
+        } else if (tag == "group") {
+            int g = -1;
+            ls >> g;
+            if (g >= 0 && g < mixer.groupCount()) {
+                readMixerTrackFields(ls, mixer.group(g));
             }
         } else if (tag == "plugin") {
             int en = 0;

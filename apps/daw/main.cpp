@@ -3048,6 +3048,55 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(90.0f);
             if (ImGui::SliderFloat("width##trk", &seAmt, 0.0f, 1.0f, "%.2f"))
                 tr.stereoEnhancer().setAmount(seAmt);
+            // Output routing: send this bus straight to master or into a submix group.
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            {
+                const int gc = mx.groupCount();
+                char cur[24];
+                if (tr.output() < 0 || tr.output() >= gc) {
+                    std::snprintf(cur, sizeof(cur), "-> Master");
+                } else {
+                    std::snprintf(cur, sizeof(cur), "-> Group %d", tr.output() + 1);
+                }
+                if (ImGui::BeginCombo("route##trk", cur)) {
+                    if (ImGui::Selectable("Master", tr.output() < 0)) tr.setOutput(-1);
+                    for (int gg = 0; gg < gc; ++gg) {
+                        char gl[24];
+                        std::snprintf(gl, sizeof(gl), "Group %d", gg + 1);
+                        if (ImGui::Selectable(gl, tr.output() == gg)) tr.setOutput(gg);
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+            ImGui::PopID();
+        }
+        // Submix group (bus) tracks — add-able routing destinations with their own inserts.
+        ImGui::SeparatorText("Groups (submix buses)");
+        if (ImGui::Button("Add Group")) {
+            mx.addGroup();
+        }
+        for (int gg = 0; gg < mx.groupCount(); ++gg) {
+            audio::MixerTrack& gt = mx.group(gg);
+            ImGui::PushID(2000 + gg);
+            ImGui::Text("Group %d", gg + 1);
+            ImGui::SameLine();
+            float ggGain = gt.gain();
+            ImGui::SetNextItemWidth(100.0f);
+            if (ImGui::SliderFloat("gain##grp", &ggGain, 0.0f, 2.0f, "%.2f")) gt.setGain(ggGain);
+            ImGui::SameLine();
+            float ggPan = gt.pan();
+            ImGui::SetNextItemWidth(100.0f);
+            if (ImGui::SliderFloat("pan##grp", &ggPan, -1.0f, 1.0f, "%.2f")) gt.setPan(ggPan);
+            ImGui::SameLine();
+            bool ggEq = gt.eq().enabled();
+            if (ImGui::Checkbox("EQ##grp", &ggEq)) gt.eq().setEnabled(ggEq);
+            ImGui::SameLine();
+            bool ggComp = gt.compressor().enabled();
+            if (ImGui::Checkbox("Comp##grp", &ggComp)) gt.compressor().setEnabled(ggComp);
+            ImGui::SameLine();
+            bool ggDist = gt.distortion().enabled();
+            if (ImGui::Checkbox("Drive##grp", &ggDist)) gt.distortion().setEnabled(ggDist);
             ImGui::PopID();
         }
     }

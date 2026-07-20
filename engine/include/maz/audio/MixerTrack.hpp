@@ -44,6 +44,10 @@ public:
     // the opposite channel, so a stereo bus keeps its image at centre and leans to one side off it.
     void setPan(float p) { pan_ = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p); }
     float pan() const { return pan_; }
+    // Output routing: −1 (default) = straight to the master bus; ≥0 = the index of a mixer group
+    // (submix) track this bus feeds instead, so several buses can share one insert chain before master.
+    void setOutput(int t) { output_ = t < 0 ? -1 : t; }
+    int output() const { return output_; }
 
     Gate& gate() { return gate_; }       // noise gate on the bus input
     HighPass& highpass() { return hp_; } // clean the bus's low end before the other inserts
@@ -115,6 +119,7 @@ private:
     float reverbSend_ = 0.0f; // per-bus send to the shared reverb return (0 = none)
     float delaySend_ = 0.0f;  // per-bus send to the shared delay return (0 = none)
     float pan_ = 0.0f; // stereo balance (-1..1); 0 = centre
+    int output_ = -1;  // routing: -1 = master; >=0 = a mixer group (submix) index
     Gate gate_{};
     HighPass hp_{};
     TransientShaper transient_{};

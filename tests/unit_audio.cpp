@@ -318,6 +318,35 @@ int main() {
         soloDrums.mixer().track(audio::MixerBus::Drums).setSoloed(true);
         soloDrums.sequencer().play();
         check(masterEnergy(soloDrums, 0.3) > 0.0, "soloing the active bus keeps it audible");
+
+        // Mixer group routing: route the drums bus into a submix group; the group's insert chain then
+        // shapes it before master. A group at gain 0 silences the routed bus; an unmuted transparent
+        // group leaves it audible — proving the routed path engages and folds back into the master.
+        audio::AudioEngine grp;
+        grp.initOffline();
+        grp.sequencer().setStep(0, 0, true); // kick on drums
+        grp.sequencer().play();
+        const double routedDry = masterEnergy(grp, 0.3);
+        check(routedDry > 0.0, "baseline kick is audible before grouping");
+
+        audio::AudioEngine grpSilent;
+        grpSilent.initOffline();
+        grpSilent.sequencer().setStep(0, 0, true);
+        const int gi = grpSilent.mixer().addGroup();
+        grpSilent.mixer().group(gi).setGain(0.0f);                       // group silences its input
+        grpSilent.mixer().track(audio::MixerBus::Drums).setOutput(gi);   // drums -> silent group
+        grpSilent.sequencer().play();
+        check(masterEnergy(grpSilent, 0.3) < 1e-6,
+              "routing a bus into a gain-0 group silences it at the master");
+
+        audio::AudioEngine grpThru;
+        grpThru.initOffline();
+        grpThru.sequencer().setStep(0, 0, true);
+        const int gt = grpThru.mixer().addGroup();                       // transparent group (unity)
+        grpThru.mixer().track(audio::MixerBus::Drums).setOutput(gt);
+        grpThru.sequencer().play();
+        check(masterEnergy(grpThru, 0.3) > 0.0,
+              "routing a bus into a transparent group keeps it audible");
     }
 
     // --- Per-bus aux send: a bus's reverb send feeds the shared reverb tail --

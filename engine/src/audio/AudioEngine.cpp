@@ -146,9 +146,10 @@ void AudioEngine::render(float* out, int frames) {
             out[2 * i] += s;
             out[2 * i + 1] += s;
         }
-        if (mixer_.anyTrackActive()) {
+        if (mixer_.anyTrackActive() || mixer_.groupCount() > 0) {
             // Per-track path: render the three buses separately, run each through its insert strip,
-            // then sum with the tanh bus soft-limit (matching Sequencer::render's summation).
+            // then sum with the tanh bus soft-limit (matching Sequencer::render's summation). Also
+            // taken whenever submix groups exist, since routing a bus into a group needs this path.
             const size_t n2 = static_cast<size_t>(frames) * 2;
             stemDrums_.assign(n2, 0.0f);
             stemLead_.assign(n2, 0.0f);
@@ -192,11 +193,45 @@ void AudioEngine::render(float* out, int frames) {
                 }
                 mixer_.setDelayAux(delayAuxBuf_);
             }
-            for (size_t i = 0; i < n2; ++i) {
-                const double s = static_cast<double>(stemDrums_[i]) +
-                                 static_cast<double>(stemLead_[i]) +
-                                 static_cast<double>(stemBass_[i]);
-                out[i] += static_cast<float>(std::tanh(s));
+            const int ng = mixer_.groupCount();
+            if (ng == 0) {
+                // Fast path (no groups): sum the three buses straight into master, tanh-saturated.
+                for (size_t i = 0; i < n2; ++i) {
+                    const double s = static_cast<double>(stemDrums_[i]) +
+                                     static_cast<double>(stemLead_[i]) +
+                                     static_cast<double>(stemBass_[i]);
+                    out[i] += static_cast<float>(std::tanh(s));
+                }
+            } else {
+                // Routed path: each bus feeds either the master accumulator or a group's buffer, then
+                // each group runs its own insert chain and folds into master; tanh saturates the sum.
+                if (static_cast<int>(groupBufs_.size()) < ng) {
+                    groupBufs_.resize(static_cast<size_t>(ng));
+                }
+                masterAcc_.assign(n2, 0.0f);
+                for (int g = 0; g < ng; ++g) {
+                    groupBufs_[static_cast<size_t>(g)].assign(n2, 0.0f);
+                }
+                float* stems[3] = {stemDrums_.data(), stemLead_.data(), stemBass_.data()};
+                for (int b = 0; b < 3; ++b) {
+                    const int outIdx = mixer_.track(b).output();
+                    float* dst = (outIdx >= 0 && outIdx < ng)
+                                     ? groupBufs_[static_cast<size_t>(outIdx)].data()
+                                     : masterAcc_.data();
+                    for (size_t i = 0; i < n2; ++i) {
+                        dst[i] += stems[b][i];
+                    }
+                }
+                for (int g = 0; g < ng; ++g) {
+                    mixer_.group(g).process(groupBufs_[static_cast<size_t>(g)].data(), frames,
+                                            cfg_.sampleRate);
+                    for (size_t i = 0; i < n2; ++i) {
+                        masterAcc_[i] += groupBufs_[static_cast<size_t>(g)][i];
+                    }
+                }
+                for (size_t i = 0; i < n2; ++i) {
+                    out[i] += static_cast<float>(std::tanh(static_cast<double>(masterAcc_[i])));
+                }
             }
         } else {
             sequencer_.render(out, frames, cfg_.sampleRate);

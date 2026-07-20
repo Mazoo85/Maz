@@ -506,6 +506,12 @@ int main() {
     mixer.track(audio::MixerBus::Lead).stereoEnhancer().setEnabled(true);
     mixer.track(audio::MixerBus::Lead).stereoEnhancer().setDelayMs(15.0f);
     mixer.track(audio::MixerBus::Lead).stereoEnhancer().setAmount(0.6f);
+    // A mixer submix group with its own insert, and the bass bus routed into it.
+    const int grpIdx = mixer.addGroup();
+    mixer.group(grpIdx).setGain(0.7f);
+    mixer.group(grpIdx).eq().setEnabled(true);
+    mixer.group(grpIdx).eq().setLowGain(3.0f);
+    mixer.track(audio::MixerBus::Bass).setOutput(grpIdx);
 
     audio::AutoLane& lane = automation.lane(audio::AutoTarget::FilterCutoff);
     lane.enabled = true;
@@ -888,6 +894,11 @@ int main() {
               near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().delayMs(), 15.0f) &&
               near(mixer2.track(audio::MixerBus::Lead).stereoEnhancer().amount(), 0.6f),
           "per-bus mixer-track insert strips round-trip");
+    check(mixer2.groupCount() == 1 && near(mixer2.group(0).gain(), 0.7f) &&
+              mixer2.group(0).eq().enabled() && near(mixer2.group(0).eq().lowGain(), 3.0f) &&
+              mixer2.track(audio::MixerBus::Bass).output() == 0 &&
+              mixer2.track(audio::MixerBus::Drums).output() == -1,
+          "mixer submix group + per-bus output routing round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
     check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f) &&
