@@ -84,7 +84,9 @@ void PluginHost::unload() {
 }
 
 void PluginHost::setParam(int index, float value) {
-    if (instance_ != nullptr && setParam_ != nullptr) {
+    // Bounds-check against the plugin's declared parameter count so out-of-range automation/UI indices
+    // never reach the hosted plugin (which may index a fixed array without checking).
+    if (instance_ != nullptr && setParam_ != nullptr && index >= 0 && index < paramCount_) {
         setParam_(instance_, index, value);
     }
 }

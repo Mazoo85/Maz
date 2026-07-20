@@ -60,6 +60,20 @@ int main() {
     check(minv < 0.2f, "tremolo dips the amplitude (modulation is applied)");
     check(maxv > 0.45f, "tremolo leaves peaks near the input level");
 
+    // Out-of-range parameter indices are ignored (never reach the plugin's fixed param array).
+    host.setParam(-1, 1.0f);
+    host.setParam(999, 1.0f);
+    host.setParam(host.paramCount(), 1.0f); // one past the last valid index
+    std::vector<float> buf2(static_cast<size_t>(sr) * 2, 0.5f);
+    host.process(buf2.data(), sr, sr); // must not crash / read out of bounds
+    bool finite = true;
+    for (float v : buf2) {
+        if (!std::isfinite(v)) {
+            finite = false;
+        }
+    }
+    check(finite, "out-of-range setParam indices are ignored (no crash / OOB)");
+
     // A missing file fails cleanly.
     audio::PluginHost bad;
     check(!bad.load("/nonexistent/missing_plugin.so", sr, &err), "loading a missing plugin fails");
