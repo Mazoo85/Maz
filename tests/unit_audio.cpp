@@ -449,6 +449,18 @@ int main() {
         wet.sequencer().play();
         const double wetTail = tailEnergy(wet);
         check(wetTail > dryTail * 4.0, "a per-bus reverb send feeds the shared reverb tail");
+
+        // A submix group's OWN reverb send also feeds the shared tail: route the kick into a group and
+        // raise the group's send (not the bus's).
+        audio::AudioEngine wetGrp;
+        wetGrp.initOffline();
+        wetGrp.sequencer().setStep(0, 0, true);
+        const int wg = wetGrp.mixer().addGroup();
+        wetGrp.mixer().track(audio::MixerBus::Drums).setOutput(wg); // drums -> group
+        wetGrp.mixer().group(wg).setReverbSend(1.0f);               // the GROUP sends to the reverb bus
+        wetGrp.sequencer().play();
+        check(tailEnergy(wetGrp) > dryTail * 4.0,
+              "a submix group's reverb send feeds the shared reverb tail");
     }
 
     // --- Master output metering: peak + RMS track the rendered level ---------

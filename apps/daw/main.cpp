@@ -3244,6 +3244,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::SliderFloat("pan##grp", &ggPan, -1.0f, 1.0f, "%.2f")) gt.setPan(ggPan);
             ImGui::SameLine();
+            float ggRev = gt.reverbSend();
+            ImGui::SetNextItemWidth(80.0f);
+            if (ImGui::SliderFloat("rev##grp", &ggRev, 0.0f, 1.0f, "%.2f")) gt.setReverbSend(ggRev);
+            ImGui::SameLine();
+            float ggDly = gt.delaySend();
+            ImGui::SetNextItemWidth(80.0f);
+            if (ImGui::SliderFloat("dly##grp", &ggDly, 0.0f, 1.0f, "%.2f")) gt.setDelaySend(ggDly);
+            ImGui::SameLine();
             bool ggEq = gt.eq().enabled();
             if (ImGui::Checkbox("EQ##grp", &ggEq)) gt.eq().setEnabled(ggEq);
             ImGui::SameLine();

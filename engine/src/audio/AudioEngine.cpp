@@ -233,27 +233,34 @@ void AudioEngine::render(float* out, int frames) {
                     std::fill(stemBass_.begin(), stemBass_.end(), 0.0f);
                 }
             }
-            // Per-bus aux sends: sum each bus's (post-insert, post-solo) signal scaled by its own
-            // reverb/delay send into the shared return feeds, handed to the master before its returns.
+            // Aux sends: each bus's (post-insert, post-solo) signal scaled by its own reverb/delay send
+            // feeds the shared return, PLUS each audible submix group's post-insert signal by its own
+            // send (accumulated in the group loop below). The feeds are handed to the master once, after
+            // routing, so the master's returns process buses and groups alike.
             const float rsD = mixer_.track(MixerBus::Drums).reverbSend();
             const float rsL = mixer_.track(MixerBus::Lead).reverbSend();
             const float rsB = mixer_.track(MixerBus::Bass).reverbSend();
             const float dsD = mixer_.track(MixerBus::Drums).delaySend();
             const float dsL = mixer_.track(MixerBus::Lead).delaySend();
             const float dsB = mixer_.track(MixerBus::Bass).delaySend();
-            if (rsD > 0.0f || rsL > 0.0f || rsB > 0.0f) {
+            bool anyGrpRev = false, anyGrpDly = false;
+            for (int g = 0; g < ng; ++g) {
+                anyGrpRev = anyGrpRev || mixer_.group(g).reverbSend() > 0.0f;
+                anyGrpDly = anyGrpDly || mixer_.group(g).delaySend() > 0.0f;
+            }
+            const bool anyRev = rsD > 0.0f || rsL > 0.0f || rsB > 0.0f || anyGrpRev;
+            const bool anyDly = dsD > 0.0f || dsL > 0.0f || dsB > 0.0f || anyGrpDly;
+            if (anyRev) {
                 reverbAuxBuf_.assign(n2, 0.0f);
                 for (size_t i = 0; i < n2; ++i) {
                     reverbAuxBuf_[i] = stemDrums_[i] * rsD + stemLead_[i] * rsL + stemBass_[i] * rsB;
                 }
-                mixer_.setReverbAux(reverbAuxBuf_);
             }
-            if (dsD > 0.0f || dsL > 0.0f || dsB > 0.0f) {
+            if (anyDly) {
                 delayAuxBuf_.assign(n2, 0.0f);
                 for (size_t i = 0; i < n2; ++i) {
                     delayAuxBuf_[i] = stemDrums_[i] * dsD + stemLead_[i] * dsL + stemBass_[i] * dsB;
                 }
-                mixer_.setDelayAux(delayAuxBuf_);
             }
             if (ng == 0) {
                 // Fast path (no groups): sum the three buses straight into master, tanh-saturated.
@@ -287,6 +294,20 @@ void AudioEngine::render(float* out, int frames) {
                     if (anySolo && !soloAudible_[static_cast<size_t>(3 + g)]) {
                         continue;
                     }
+                    // Group aux sends: an audible group feeds the shared reverb/delay returns by its own
+                    // send amount (its post-insert output), exactly like the buses do.
+                    const float grs = mixer_.group(g).reverbSend();
+                    if (grs > 0.0f && !reverbAuxBuf_.empty()) {
+                        for (size_t i = 0; i < n2; ++i) {
+                            reverbAuxBuf_[i] += groupBufs_[static_cast<size_t>(g)][i] * grs;
+                        }
+                    }
+                    const float gds = mixer_.group(g).delaySend();
+                    if (gds > 0.0f && !delayAuxBuf_.empty()) {
+                        for (size_t i = 0; i < n2; ++i) {
+                            delayAuxBuf_[i] += groupBufs_[static_cast<size_t>(g)][i] * gds;
+                        }
+                    }
                     // Nested submix: a group may route into a HIGHER-index group (forward-only, so this
                     // ascending pass stays valid); master or any other target folds into the master acc.
                     const int gOut = mixer_.group(g).output();
@@ -299,6 +320,14 @@ void AudioEngine::render(float* out, int frames) {
                 for (size_t i = 0; i < n2; ++i) {
                     out[i] += static_cast<float>(std::tanh(static_cast<double>(masterAcc_[i])));
                 }
+            }
+            // Hand the accumulated bus + group aux feeds to the master, whose reverb/delay returns run
+            // in mixer_.process() below (which clears them). Set once here so both paths are covered.
+            if (anyRev) {
+                mixer_.setReverbAux(reverbAuxBuf_);
+            }
+            if (anyDly) {
+                mixer_.setDelayAux(delayAuxBuf_);
             }
         } else {
             sequencer_.render(out, frames, cfg_.sampleRate);
