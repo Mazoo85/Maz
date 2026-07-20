@@ -715,7 +715,7 @@ void buildRackUI(audio::Sequencer& seq) {
 }
 
 // Draw the piano-roll UI: pitch rows (high at top) × steps. Clicking a cell toggles a note.
-void buildPianoRollUI(audio::Sequencer& seq) {
+void buildPianoRollUI(audio::Sequencer& seq, int mixerGroupCount) {
     ImGui::Begin("CJC Music Station — Piano Roll");
     // Lane selector: edit the lead (roll), the bass (roll2), or an extra instrument channel.
     static int lane = 0;
@@ -751,10 +751,31 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         ImGui::SetNextItemWidth(110.0f);
         if (ImGui::SliderFloat("pan##inst", &ip, -1.0f, 1.0f, "%.2f")) seq.setInstrumentPan(ic, ip);
         ImGui::SameLine();
-        int ib = seq.instrumentBus(ic);
-        const char* busItems[] = {"Drums bus", "Lead bus", "Bass bus"};
+        // Route: the three fixed buses, or (per-channel FL-style routing) any mixer submix group,
+        // which gives this channel its own insert chain. Groups are listed after the buses.
+        std::vector<std::string> routeItems = {"Drums bus", "Lead bus", "Bass bus"};
+        for (int g = 0; g < mixerGroupCount; ++g) {
+            routeItems.push_back("Group " + std::to_string(g + 1));
+        }
+        std::vector<const char*> routePtrs;
+        routePtrs.reserve(routeItems.size());
+        for (const std::string& s : routeItems) {
+            routePtrs.push_back(s.c_str());
+        }
+        int routeSel = seq.instrumentGroup(ic) >= 0 ? 3 + seq.instrumentGroup(ic) : seq.instrumentBus(ic);
+        if (routeSel >= static_cast<int>(routePtrs.size())) {
+            routeSel = seq.instrumentBus(ic); // a group that no longer exists → show its bus
+        }
         ImGui::SetNextItemWidth(120.0f);
-        if (ImGui::Combo("route##inst", &ib, busItems, 3)) seq.setInstrumentBus(ic, ib);
+        if (ImGui::Combo("route##inst", &routeSel, routePtrs.data(),
+                         static_cast<int>(routePtrs.size()))) {
+            if (routeSel < 3) {
+                seq.setInstrumentGroup(ic, -1); // back to a fixed bus
+                seq.setInstrumentBus(ic, routeSel);
+            } else {
+                seq.setInstrumentGroup(ic, routeSel - 3); // route to a mixer group
+            }
+        }
         // Host a plugin instrument on this channel (layered with its built-in synth; mute that for
         // plugin-only via the gain above). The format is chosen by extension (.vst3 → VST3, else CLAP).
         static char instClap[256] = "";
@@ -3516,7 +3537,7 @@ int runWindowed(const core::AppConfig& cfg) {
             if (gui) {
                 renderer->guiNewFrame();
                 buildRackUI(engine.sequencer());
-                buildPianoRollUI(engine.sequencer());
+                buildPianoRollUI(engine.sequencer(), engine.mixer().groupCount());
                 buildSynthUI(engine.sequencer());
                 buildBassUI(engine.sequencer().synth2());
                 buildMixerUI(engine);

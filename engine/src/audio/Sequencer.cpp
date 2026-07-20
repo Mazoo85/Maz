@@ -408,6 +408,7 @@ int Sequencer::addInstrumentChannel() {
     extraGain_.push_back(1.0f); // unity gain
     extraPan_.push_back(0.0f);  // centre
     extraBus_.push_back(1);     // default to the lead bus
+    extraGroup_.push_back(-1);  // default: route to the bus, not a mixer group
     for (Pattern& p : patterns_) {
         p.extraRolls.emplace_back(); // keep every pattern's lane count in step with the synth count
     }
@@ -1250,6 +1251,13 @@ void Sequencer::render(float* out, int frames, int sampleRate) {
 }
 
 void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, int sampleRate) {
+    // Forward to the group-aware overload with no group buffers: every channel routes to its bus, so
+    // this is bit-identical to the pre-group-routing behavior.
+    renderStems(drums, lead, bass, nullptr, 0, frames, sampleRate);
+}
+
+void Sequencer::renderStems(float* drums, float* lead, float* bass, float** groups, int groupCount,
+                            int frames, int sampleRate) {
     if (frames <= 0 || sampleRate <= 0) {
         return;
     }
@@ -1516,7 +1524,12 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             const float eg = extraGain_[c];
             const float eth = (extraPan_[c] + 1.0f) * kQuarterPi;
             const float eL = std::cos(eth), eR = std::sin(eth);
-            float* dst = (extraBus_[c] == 0) ? drums : (extraBus_[c] == 2) ? bass : lead;
+            // Route to a mixer group (its own insert chain) when one is selected and the caller gave us
+            // the group buffers; otherwise fall back to the fixed bus stem.
+            const int grp = extraGroup_[c];
+            float* dst = (grp >= 0 && grp < groupCount)
+                             ? groups[static_cast<size_t>(grp)]
+                             : ((extraBus_[c] == 0) ? drums : (extraBus_[c] == 2) ? bass : lead);
             for (int i = 0; i < chunk; ++i) {
                 const float sV = extraScratch_[static_cast<size_t>(i)] * eg;
                 dst[2 * (done + i)] += sV * eL;

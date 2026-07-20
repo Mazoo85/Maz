@@ -459,7 +459,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         f << "instchannelcount " << seq.instrumentChannelCount() << "\n";
         for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
             f << "instchannel " << c << " " << seq.instrumentGain(c) << " " << seq.instrumentPan(c)
-              << " " << seq.instrumentBus(c) << "\n";
+              << " " << seq.instrumentBus(c) << " " << seq.instrumentGroup(c) << "\n";
             writeSynthBlock(f, "synthI", "synthoscI", seq.instrumentSynth(c));
             if (!seq.instrumentPluginPath(c).empty()) {
                 f << "instplugin " << c << " " << seq.instrumentPluginPath(c) << "\n";
@@ -949,6 +949,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 }
                 if (ls >> b) {
                     seq.setInstrumentBus(curInst, b);
+                }
+                int grp = -1; // per-channel mixer group optional (older files omit → bus routing)
+                if (ls >> grp) {
+                    seq.setInstrumentGroup(curInst, grp);
                 }
             }
         } else if (tag == "instplugin") {

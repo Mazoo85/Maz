@@ -151,11 +151,26 @@ void AudioEngine::render(float* out, int frames) {
             // then sum with the tanh bus soft-limit (matching Sequencer::render's summation). Also
             // taken whenever submix groups exist, since routing a bus into a group needs this path.
             const size_t n2 = static_cast<size_t>(frames) * 2;
+            const int ng = mixer_.groupCount();
             stemDrums_.assign(n2, 0.0f);
             stemLead_.assign(n2, 0.0f);
             stemBass_.assign(n2, 0.0f);
-            sequencer_.renderStems(stemDrums_.data(), stemLead_.data(), stemBass_.data(), frames,
-                                   cfg_.sampleRate);
+            // Group buffers: allocate + zero BEFORE rendering so instrument channels routed to a group
+            // render straight into them (their own insert chain); the buses add in afterward. With no
+            // groups this collapses to the plain 3-stem render (bit-identical).
+            groupPtrs_.clear();
+            if (ng > 0) {
+                if (static_cast<int>(groupBufs_.size()) < ng) {
+                    groupBufs_.resize(static_cast<size_t>(ng));
+                }
+                groupPtrs_.resize(static_cast<size_t>(ng));
+                for (int g = 0; g < ng; ++g) {
+                    groupBufs_[static_cast<size_t>(g)].assign(n2, 0.0f);
+                    groupPtrs_[static_cast<size_t>(g)] = groupBufs_[static_cast<size_t>(g)].data();
+                }
+            }
+            sequencer_.renderStems(stemDrums_.data(), stemLead_.data(), stemBass_.data(),
+                                   ng > 0 ? groupPtrs_.data() : nullptr, ng, frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Drums).process(stemDrums_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Lead).process(stemLead_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Bass).process(stemBass_.data(), frames, cfg_.sampleRate);
@@ -193,7 +208,6 @@ void AudioEngine::render(float* out, int frames) {
                 }
                 mixer_.setDelayAux(delayAuxBuf_);
             }
-            const int ng = mixer_.groupCount();
             if (ng == 0) {
                 // Fast path (no groups): sum the three buses straight into master, tanh-saturated.
                 for (size_t i = 0; i < n2; ++i) {
@@ -205,13 +219,9 @@ void AudioEngine::render(float* out, int frames) {
             } else {
                 // Routed path: each bus feeds either the master accumulator or a group's buffer, then
                 // each group runs its own insert chain and folds into master; tanh saturates the sum.
-                if (static_cast<int>(groupBufs_.size()) < ng) {
-                    groupBufs_.resize(static_cast<size_t>(ng));
-                }
+                // (groupBufs_ were already allocated + zeroed above, and may already hold the audio of
+                // instrument channels routed directly to a group — the buses add on top here.)
                 masterAcc_.assign(n2, 0.0f);
-                for (int g = 0; g < ng; ++g) {
-                    groupBufs_[static_cast<size_t>(g)].assign(n2, 0.0f);
-                }
                 float* stems[3] = {stemDrums_.data(), stemLead_.data(), stemBass_.data()};
                 for (int b = 0; b < 3; ++b) {
                     const int outIdx = mixer_.track(b).output();

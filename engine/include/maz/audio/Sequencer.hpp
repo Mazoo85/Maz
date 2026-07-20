@@ -276,6 +276,13 @@ public:
         extraBus_[static_cast<size_t>(c)] = b < 0 ? 0 : (b > 2 ? 2 : b);
     }
     int instrumentBus(int c) const { return extraBus_[static_cast<size_t>(c)]; }
+    // Per-channel mixer routing: instead of a fixed bus, a channel can route into a mixer submix group
+    // (its own insert chain). -1 (default) = route to the fixed bus per setInstrumentBus; >=0 = the
+    // index of a Mixer group. When the render is given the group buffers (the AudioEngine path), the
+    // channel renders straight into that group; otherwise it falls back to its bus. FL-style
+    // per-channel inserts, built on the existing group infrastructure.
+    void setInstrumentGroup(int c, int g) { extraGroup_[static_cast<size_t>(c)] = g < 0 ? -1 : g; }
+    int instrumentGroup(int c) const { return extraGroup_[static_cast<size_t>(c)]; }
     // Host a CLAP instrument on an extra channel (like the lead plugin, but per channel): its notes
     // drive the plugin and its audio layers into the channel's target bus. Returns false on load fail.
     bool loadInstrumentPlugin(int c, const std::string& path, int sampleRate);
@@ -484,6 +491,13 @@ public:
     // its own insert chain before summing. Advances the transport exactly like render(). Bus order
     // matches MixerBus: 0 = drums, 1 = lead, 2 = bass.
     void renderStems(float* drums, float* lead, float* bass, int frames, int sampleRate);
+    // Same, but also given the mixer group buffers (each 2*frames, ADDED into). An extra instrument
+    // channel whose instrumentGroup() names a valid group index renders straight into that group's
+    // buffer (so it gets the group's own insert chain) instead of its fixed bus. With groupCount==0
+    // (or groups==nullptr) this behaves exactly like the 3-stem overload — group-routed channels fall
+    // back to their bus — so the default path stays bit-identical.
+    void renderStems(float* drums, float* lead, float* bass, float** groups, int groupCount, int frames,
+                     int sampleRate);
 
 private:
     // Frames for a given step at the current tempo. stepsPerBeat_ 16th-notes → 4 steps per beat.
@@ -547,6 +561,7 @@ private:
     std::vector<float> extraGain_;             // per-extra-channel gain (parallel to extraSynths_)
     std::vector<float> extraPan_;              // per-extra-channel pan (-1..1)
     std::vector<int> extraBus_;                // per-extra-channel target bus (0=drums,1=lead,2=bass)
+    std::vector<int> extraGroup_;              // per-extra-channel mixer group (-1 = use bus; >=0 group)
     std::vector<float> extraScratch_;          // per-chunk mono scratch for rendering one extra channel
     bool useSampler_ = false;
     bool arpOn_ = false;

@@ -3,6 +3,7 @@
 // drum voices produce sound while an empty pattern stays silent.
 
 #include "maz/audio/DrumVoice.hpp"
+#include "maz/audio/MixerTrack.hpp"
 #include "maz/audio/Sequencer.hpp"
 
 #include <algorithm>
@@ -722,6 +723,65 @@ int main() {
               "an extra channel routed to the lead bus appears only in the lead stem");
         check(toBass.second > 0.0 && toBass.first == 0.0,
               "an extra channel routed to the bass bus appears only in the bass stem");
+
+        // Per-channel mixer-group routing: a channel routed to a group renders into that group's own
+        // buffer (for its own insert chain), not into any fixed bus stem.
+        {
+            audio::Sequencer r;
+            const int rc = r.addInstrumentChannel();
+            r.instrumentSynth(rc).setWaveform(audio::Waveform::Saw);
+            r.setInstrumentGroup(rc, 0); // route to mixer group 0
+            check(r.instrumentGroup(rc) == 0, "setInstrumentGroup selects a mixer group");
+            r.instrumentRoll(rc).addNote(audio::Note{0, 4, 60, 0.9f});
+            r.play();
+            const int fr = sampleRate / 4;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> grp(static_cast<size_t>(fr) * 2, 0.0f);
+            float* groups[1] = {grp.data()};
+            r.renderStems(d.data(), l.data(), b.data(), groups, 1, fr, sampleRate);
+            check(rms(grp) > 0.0, "a group-routed channel renders into the group buffer");
+            check(rms(d) == 0.0 && rms(l) == 0.0 && rms(b) == 0.0,
+                  "and not into any fixed bus stem");
+            // The group's own insert strip processes that audio: a MixerTrack at gain 0 silences it.
+            audio::MixerTrack group;
+            group.setGain(0.0f);
+            group.process(grp.data(), fr, sampleRate);
+            check(rms(grp) == 0.0, "the group's insert strip (gain 0) processes the routed channel");
+        }
+
+        // Bit-identical default: the group-aware overload with no groups matches the 3-stem overload.
+        {
+            auto renderVia = [&](bool viaGroupOverload) {
+                audio::Sequencer r;
+                const int rc = r.addInstrumentChannel();
+                r.instrumentSynth(rc).setWaveform(audio::Waveform::Saw);
+                r.instrumentRoll(rc).addNote(audio::Note{0, 4, 60, 0.9f});
+                r.roll().addNote(audio::Note{0, 4, 64, 0.8f});
+                r.play();
+                const int fr = sampleRate / 4;
+                std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+                if (viaGroupOverload) {
+                    r.renderStems(d.data(), l.data(), b.data(), nullptr, 0, fr, sampleRate);
+                } else {
+                    r.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+                }
+                std::vector<float> out = l;
+                out.insert(out.end(), b.begin(), b.end());
+                out.insert(out.end(), d.begin(), d.end());
+                return out;
+            };
+            const auto viaThree = renderVia(false);
+            const auto viaGroup = renderVia(true);
+            double maxDiff = 0.0;
+            for (size_t i = 0; i < viaThree.size(); ++i) {
+                maxDiff = std::max(maxDiff, std::fabs(static_cast<double>(viaThree[i] - viaGroup[i])));
+            }
+            check(maxDiff < 1e-6, "renderStems with no groups matches the 3-stem overload (default path)");
+        }
 
         // Per-note attributes now apply to extra channels: a probability-0 note never fires (silence),
         // proving extra-channel notes run through the same per-note path as the lead/bass lanes.

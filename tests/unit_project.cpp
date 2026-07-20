@@ -645,7 +645,8 @@ int main() {
     seq.instrumentSynth(extraCh).setMode(audio::SynthMode::FM);
     seq.setInstrumentGain(extraCh, 0.6f);
     seq.setInstrumentPan(extraCh, -0.5f);
-    seq.setInstrumentBus(extraCh, 2); // route to the bass bus
+    seq.setInstrumentBus(extraCh, 2);   // route to the bass bus
+    seq.setInstrumentGroup(extraCh, 1); // ...but override to mixer group 1 (per-channel routing)
     // Full per-note attributes on the extra channel: prob, fine, roll, slide, stride, nudge, cutoff.
     seq.instrumentRoll(0, extraCh).addNote(
         audio::Note{4, 3, 64, 0.8f, 0.7f, 12.0f, 3, true, 2, 20, -1.0f});
@@ -747,9 +748,9 @@ int main() {
                   seq2.instrumentRoll(0, 0).notes()[0].pitch == 64 &&
                   seq2.instrumentRoll(0, 0).notes()[0].startStep == 4 &&
                   near(seq2.instrumentGain(0), 0.6f) && near(seq2.instrumentPan(0), -0.5f) &&
-                  seq2.instrumentBus(0) == 2;
+                  seq2.instrumentBus(0) == 2 && seq2.instrumentGroup(0) == 1;
     }
-    check(extraOk, "extra instrument channel (synth patch + note + gain/pan/bus) round-trips");
+    check(extraOk, "extra instrument channel (synth patch + note + gain/pan/bus/group) round-trips");
     bool extraNoteAttrsOk = seq2.instrumentChannelCount() == 1 &&
                             seq2.instrumentRoll(0, 0).notes().size() == 1;
     if (extraNoteAttrsOk) {

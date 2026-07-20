@@ -133,6 +133,7 @@ private:
     std::vector<float> reverbAuxBuf_, delayAuxBuf_;      // per-bus aux-send feeds for the returns
     std::vector<float> masterAcc_;                       // master accumulator when groups are routed
     std::vector<std::vector<float>> groupBufs_;          // per-group submix buffers (routed path only)
+    std::vector<float*> groupPtrs_;                      // .data() of each groupBufs_ entry, for renderStems
     float masterPeak_ = 0.0f; // peak level of the last rendered block (UI meter)
     float masterRms_ = 0.0f;  // RMS level of the last rendered block (UI meter)
     std::vector<float> recordBuffer_;
