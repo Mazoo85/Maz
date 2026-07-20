@@ -127,6 +127,14 @@ target_link_libraries(maz_cubemap_capture_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME cubemap_capture COMMAND maz_cubemap_capture_tests)
 set_tests_properties(cubemap_capture PROPERTIES TIMEOUT 30)
 
+# GLB (binary glTF) container parser (render::parseGlb / buildGlb) — split a .glb byte buffer into its JSON
+# and BIN chunks without a file device or cgltf. Verified against hand-built buffers: build->parse
+# round-trip, JSON-only files, header magic/version/length validation, spec chunk padding, unknown-chunk skip.
+add_executable(maz_glb_tests render/glb.cpp)
+target_link_libraries(maz_glb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME glb_container COMMAND maz_glb_tests)
+set_tests_properties(glb_container PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

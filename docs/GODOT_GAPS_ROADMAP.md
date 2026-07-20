@@ -69,6 +69,12 @@ only be written blind, the docs say exactly that.
   `Vertices` + `PolygonVertexIndex` arrays (decoding FBX's `~i` polygon terminator) and fan-triangulates to
   `shapes::MeshData`; verified against a hand-authored unit-cube (`tests/render/fbx.cpp`, ctest `fbx_import`).
   [VERIFIABLE HERE — geometry DONE]. Remaining: binary FBX, LayerElement normals/UVs, multi-mesh scenes.
+- [x] **GLB (binary glTF) container parser** (`render::parseGlb` / `buildGlb`) — DONE (M520); splits a `.glb`
+  byte buffer into its JSON + BIN chunks (and rebuilds one) WITHOUT a file device or cgltf, so a `.glb`
+  embedded in an `io::ResourcePack` or fetched over the network can be unpacked in memory. Header
+  magic/version/length validation, spec 4-byte chunk padding, unknown-chunk skipping. Verified against
+  hand-built GLBs (`ctest -R glb_container`): build→parse round-trip, JSON-only files, malformed rejection.
+  The glTF scene parse on top is the existing `render::loadGltf`. [VERIFIABLE HERE]
 
 ### §7 Text / UI / localization depth — [VERIFIABLE HERE]
 - [x] **Unicode BiDi runs + base direction** — ALREADY PRESENT (`ui::bidiRuns` / `baseDirection`, `TextServer.hpp`).
