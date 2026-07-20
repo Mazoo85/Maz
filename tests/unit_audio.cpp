@@ -372,6 +372,53 @@ int main() {
         nestThru.sequencer().play();
         check(masterEnergy(nestThru, 0.3) > 0.0,
               "a transparent nested group chain stays audible at the master");
+
+        // Group solo (unified with bus solo). anyGroupSoloed detects a soloed group.
+        {
+            audio::Mixer msolo;
+            check(!msolo.anyGroupSoloed(), "a fresh mixer reports no soloed group");
+            msolo.addGroup();
+            msolo.group(0).setSoloed(true);
+            check(msolo.anyGroupSoloed(), "anyGroupSoloed detects a soloed submix group");
+        }
+
+        // Soloing an EMPTY group silences the master (nothing routes into it), proving group solo is
+        // honoured — a non-soloed group carrying the kick is silenced.
+        audio::AudioEngine gsoloEmpty;
+        gsoloEmpty.initOffline();
+        gsoloEmpty.sequencer().setStep(0, 0, true); // kick -> group0
+        const int ge0 = gsoloEmpty.mixer().addGroup();
+        const int ge1 = gsoloEmpty.mixer().addGroup(); // an empty second group
+        gsoloEmpty.mixer().track(audio::MixerBus::Drums).setOutput(ge0);
+        gsoloEmpty.mixer().group(ge1).setSoloed(true); // solo the empty group
+        gsoloEmpty.sequencer().play();
+        check(masterEnergy(gsoloEmpty, 0.3) < 1e-6,
+              "soloing an empty submix group silences the non-soloed groups");
+
+        // Soloing the group that carries the kick keeps it audible — and its feeding drums bus stays
+        // live (a soloed group preserves its inputs).
+        audio::AudioEngine gsoloActive;
+        gsoloActive.initOffline();
+        gsoloActive.sequencer().setStep(0, 0, true);
+        const int ga0 = gsoloActive.mixer().addGroup();
+        gsoloActive.mixer().track(audio::MixerBus::Drums).setOutput(ga0);
+        gsoloActive.mixer().group(ga0).setSoloed(true);
+        gsoloActive.sequencer().play();
+        check(masterEnergy(gsoloActive, 0.3) > 0.0,
+              "soloing the group that carries the signal keeps it (and its feeding bus) audible");
+
+        // Bus solo within a shared group: drums + lead both feed one group; soloing the (empty) drums
+        // bus silences the lead that also feeds the group — bus solo isolates within the group.
+        audio::AudioEngine gsoloBus;
+        gsoloBus.initOffline();
+        gsoloBus.sequencer().roll().addNote(audio::Note{0, 8, 60, 0.9f}); // a lead note (drums empty)
+        const int gb0 = gsoloBus.mixer().addGroup();
+        gsoloBus.mixer().track(audio::MixerBus::Drums).setOutput(gb0);
+        gsoloBus.mixer().track(audio::MixerBus::Lead).setOutput(gb0);
+        gsoloBus.mixer().track(audio::MixerBus::Drums).setSoloed(true); // solo the empty drums bus
+        gsoloBus.sequencer().play();
+        check(masterEnergy(gsoloBus, 0.3) < 1e-6,
+              "soloing an empty bus that feeds a group silences that group's other inputs");
     }
 
     // --- Per-bus aux send: a bus's reverb send feeds the shared reverb tail --

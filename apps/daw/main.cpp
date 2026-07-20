@@ -3252,6 +3252,12 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SameLine();
             bool ggDist = gt.distortion().enabled();
             if (ImGui::Checkbox("Drive##grp", &ggDist)) gt.distortion().setEnabled(ggDist);
+            ImGui::SameLine();
+            bool ggMute = gt.muted();
+            if (ImGui::Checkbox("M##grp", &ggMute)) gt.setMuted(ggMute);
+            ImGui::SameLine();
+            bool ggSolo = gt.soloed();
+            if (ImGui::Checkbox("S##grp", &ggSolo)) gt.setSoloed(ggSolo);
             // Nested routing: a group may feed the master or a HIGHER-numbered group (forward only).
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);

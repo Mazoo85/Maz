@@ -174,15 +174,62 @@ void AudioEngine::render(float* out, int frames) {
             mixer_.track(MixerBus::Drums).process(stemDrums_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Lead).process(stemLead_.data(), frames, cfg_.sampleRate);
             mixer_.track(MixerBus::Bass).process(stemBass_.data(), frames, cfg_.sampleRate);
-            // Per-bus solo: when any bus is soloed, silence the buses that are not.
-            if (mixer_.anyTrackSoloed()) {
-                if (!mixer_.track(MixerBus::Drums).soloed()) {
+            // Unified solo across buses + submix groups: when anything is soloed, only "audible" strips
+            // reach the master. A strip is audible if it is downstream of a soloed strip (carrying the
+            // solo out to master) or on the input side of a soloed GROUP (so a soloed group keeps the
+            // buses/groups feeding it). Resolved over the small forward-only routing DAG. Node indices:
+            // 0..2 = the drums/lead/bass buses, 3+g = submix group g. audible[] is reused below to gate
+            // the per-group fold.
+            const bool anySolo = mixer_.anyTrackSoloed() || mixer_.anyGroupSoloed();
+            const int nNodes = 3 + ng;
+            soloAudible_.assign(static_cast<size_t>(nNodes), 1);
+            if (anySolo) {
+                auto target = [&](int node) -> int { // output node index, or -1 for master
+                    if (node < 3) {
+                        const int t = mixer_.track(node).output();
+                        return (t >= 0 && t < ng) ? 3 + t : -1;
+                    }
+                    const int g = node - 3;
+                    const int t = mixer_.group(g).output();
+                    return (t > g && t < ng) ? 3 + t : -1;
+                };
+                auto isSoloed = [&](int node) {
+                    return node < 3 ? mixer_.track(node).soloed() : mixer_.group(node - 3).soloed();
+                };
+                soloDown_.assign(static_cast<size_t>(nNodes), 0);
+                soloFeeds_.assign(static_cast<size_t>(nNodes), 0);
+                // downstream-of-solo: walk forward from each soloed node along its output chain.
+                for (int n = 0; n < nNodes; ++n) {
+                    if (isSoloed(n)) {
+                        for (int cur = n; cur >= 0 && !soloDown_[static_cast<size_t>(cur)];
+                             cur = target(cur)) {
+                            soloDown_[static_cast<size_t>(cur)] = 1;
+                        }
+                    }
+                }
+                // feeds-a-soloed-group: a node whose output path passes through a soloed group. The DAG
+                // is forward-only (groups ascend, buses feed groups), so a decreasing-index pass sees
+                // each node's target (higher index) already resolved.
+                for (int n = nNodes - 1; n >= 0; --n) {
+                    const int t = target(n);
+                    if (t >= 0) {
+                        const bool tSoloedGroup = t >= 3 && mixer_.group(t - 3).soloed();
+                        soloFeeds_[static_cast<size_t>(n)] =
+                            (tSoloedGroup || soloFeeds_[static_cast<size_t>(t)]) ? 1 : 0;
+                    }
+                }
+                for (int n = 0; n < nNodes; ++n) {
+                    soloAudible_[static_cast<size_t>(n)] =
+                        (soloDown_[static_cast<size_t>(n)] || soloFeeds_[static_cast<size_t>(n)]) ? 1 : 0;
+                }
+                // Silence the stems of non-audible buses before routing / aux sends.
+                if (!soloAudible_[0]) {
                     std::fill(stemDrums_.begin(), stemDrums_.end(), 0.0f);
                 }
-                if (!mixer_.track(MixerBus::Lead).soloed()) {
+                if (!soloAudible_[1]) {
                     std::fill(stemLead_.begin(), stemLead_.end(), 0.0f);
                 }
-                if (!mixer_.track(MixerBus::Bass).soloed()) {
+                if (!soloAudible_[2]) {
                     std::fill(stemBass_.begin(), stemBass_.end(), 0.0f);
                 }
             }
@@ -235,6 +282,11 @@ void AudioEngine::render(float* out, int frames) {
                 for (int g = 0; g < ng; ++g) {
                     mixer_.group(g).process(groupBufs_[static_cast<size_t>(g)].data(), frames,
                                             cfg_.sampleRate);
+                    // Solo: a non-audible group does not fold into the mix (its inputs weren't part of
+                    // the soloed submix). No-solo path always folds (soloAudible_ is all-1).
+                    if (anySolo && !soloAudible_[static_cast<size_t>(3 + g)]) {
+                        continue;
+                    }
                     // Nested submix: a group may route into a HIGHER-index group (forward-only, so this
                     // ascending pass stays valid); master or any other target folds into the master acc.
                     const int gOut = mixer_.group(g).output();

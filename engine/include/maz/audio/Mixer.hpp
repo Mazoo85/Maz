@@ -140,6 +140,16 @@ public:
         }
         return false;
     }
+    // True if any submix group is soloed. Group solo is resolved across the whole routing graph in the
+    // engine, alongside bus solo — see AudioEngine's routed render path.
+    bool anyGroupSoloed() const {
+        for (const MixerTrack& g : groups_) {
+            if (g.soloed()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Process `frames` of interleaved stereo in place: run each enabled effect, then master gain.
     void process(float* stereo, int frames, int sampleRate);
