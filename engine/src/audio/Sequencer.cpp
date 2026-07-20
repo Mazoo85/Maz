@@ -1204,6 +1204,24 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         return;
     }
     sampleRate_ = sampleRate; // used by triggerStep to schedule ratchet sub-hits
+
+    // Live MIDI: drain any note events pushed since the last block and play them on the lead instrument
+    // (built-in synth + hosted lead plugin), so a live keyboard layers on top of the running sequence.
+    // The notes sustain across blocks until their note-off arrives, exactly like sequenced lead notes.
+    for (const MidiInput::Event& ev : liveIn_.drain()) {
+        if (ev.on) {
+            synth_.noteOn(ev.key, ev.velocity);
+            if (leadPlugin_) {
+                leadPlugin_->noteOn(ev.key, ev.velocity);
+            }
+        } else {
+            synth_.noteOff(ev.key);
+            if (leadPlugin_) {
+                leadPlugin_->noteOff(ev.key);
+            }
+        }
+    }
+
     int done = 0;
     while (done < frames) {
         int chunk = frames - done;

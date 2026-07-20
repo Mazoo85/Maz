@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/audio/DrumVoice.hpp"
+#include "maz/audio/MidiInput.hpp"
 #include "maz/audio/PianoRoll.hpp"
 #include "maz/audio/Sampler.hpp"
 #include "maz/audio/SynthInstrument.hpp"
@@ -205,6 +206,13 @@ public:
     void clearLeadPlugin();
     bool leadPluginLoaded() const;
     const std::string& leadPluginPath() const { return leadPluginPath_; }
+
+    // Live MIDI input: a device backend (or the UI) pushes note events into this queue from any thread;
+    // renderStems() drains it at the top of each block and plays the notes on the lead instrument (the
+    // built-in lead synth plus a hosted lead plugin if loaded), layered on top of the running sequence.
+    // Backend-agnostic, so live playing is fully exercised headlessly in tests by pushing events here.
+    MidiInput& midiInput() { return liveIn_; }
+    const MidiInput& midiInput() const { return liveIn_; }
 
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
@@ -495,6 +503,7 @@ private:
     Sampler sampler_{};        // alternative lead instrument (sample playback)
     std::unique_ptr<InstrumentPlugin> leadPlugin_; // optional hosted CLAP/VST3 instrument on the lead lane
     std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
+    MidiInput liveIn_;                     // live MIDI note input queue (drained in renderStems)
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     std::vector<std::unique_ptr<InstrumentPlugin>> extraPlugins_; // optional hosted CLAP/VST3 instrument per channel

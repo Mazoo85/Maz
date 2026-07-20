@@ -2433,6 +2433,38 @@ int main() {
         check(rms(d) > 0.0 && rms(l) > 0.0, "drums and lead stems each carry sound");
     }
 
+    // Live MIDI input: a note pushed into the input queue (as a device backend would) plays on the lead
+    // instrument and shows up in the lead stem, with no sequence running. A note-off then releases it so
+    // the sound decays to silence — proving the live-input routing and gating work end to end.
+    {
+        const int sr = 48000;
+        audio::Sequencer lseq;
+        lseq.synth().setEnvelope(0.002f, 0.02f, 0.7f, 0.05f); // fast release so it silences quickly
+        const int fr = sr / 10;                                // 0.1 s blocks
+
+        // No play() — nothing is sequenced. Push a live note-on and render: the lead stem must sound.
+        lseq.midiInput().pushNoteOn(69, 1.0f); // A4
+        std::vector<float> d1(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l1(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b1(static_cast<size_t>(fr) * 2, 0.0f);
+        lseq.renderStems(d1.data(), l1.data(), b1.data(), fr, sr);
+        check(rms(l1) > 0.0, "a live MIDI note-on plays on the lead stem (no sequence running)");
+        check(rms(d1) == 0.0, "and does not leak into the drum stem");
+
+        // Note-off, then render long enough for the release to finish: the lead falls silent.
+        lseq.midiInput().pushNoteOff(69);
+        std::vector<float> d2(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l2(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b2(static_cast<size_t>(fr) * 2, 0.0f);
+        for (int k = 0; k < 5; ++k) { // 0.5 s of release
+            std::fill(l2.begin(), l2.end(), 0.0f);
+            std::fill(d2.begin(), d2.end(), 0.0f);
+            std::fill(b2.begin(), b2.end(), 0.0f);
+            lseq.renderStems(d2.data(), l2.data(), b2.data(), fr, sr);
+        }
+        check(rms(l2) == 0.0, "a live MIDI note-off releases the note (lead falls silent)");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

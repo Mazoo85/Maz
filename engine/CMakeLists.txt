@@ -32,6 +32,7 @@ add_library(maz STATIC
     src/audio/Sampler.cpp
     src/audio/WavReader.cpp
     src/audio/PianoRoll.cpp
+    src/audio/MidiInput.cpp
     src/audio/Sequencer.cpp
     src/audio/Effects.cpp
     src/audio/Mixer.cpp
