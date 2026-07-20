@@ -182,6 +182,22 @@ int main() {
         check(std::fabs(looped.sourceUnipolar(2.0) - 0.2f) < 1e-4f,
               "looped clip wraps back to the start after clipLength");
         check(std::fabs(looped.sourceUnipolar(0.5) - 0.5f) < 1e-4f, "looped clip midpoint interpolates");
+
+        // Edge cases: a single-point clip holds its value at every time (before, at, and after the
+        // point) — it must never fall through to the interpolation loop.
+        audio::AutoLane single;
+        single.clip = {{1.0, 0.42f}};
+        check(std::fabs(single.sourceUnipolar(0.0) - 0.42f) < 1e-4f &&
+                  std::fabs(single.sourceUnipolar(1.0) - 0.42f) < 1e-4f &&
+                  std::fabs(single.sourceUnipolar(9.0) - 0.42f) < 1e-4f,
+              "a single-point clip holds its value everywhere");
+
+        // Two points at the SAME time must not divide by zero — the span==0 guard returns the left
+        // value rather than producing NaN/Inf.
+        audio::AutoLane coincident;
+        coincident.clip = {{0.0, 0.1f}, {1.0, 0.3f}, {1.0, 0.9f}, {2.0, 0.5f}};
+        const float atDup = coincident.sourceUnipolar(1.0);
+        check(std::isfinite(atDup), "coincident-time clip points do not divide by zero (finite output)");
     }
 
     // --- Extended targets: delay mix + distortion drive ----------------------
