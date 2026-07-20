@@ -724,6 +724,22 @@ void buildPianoRollUI(audio::Sequencer& seq) {
     audio::PianoRoll& roll = (lane == 0) ? seq.roll()
                              : (lane == 1) ? seq.roll2()
                                            : seq.instrumentRoll(lane - 2);
+    // Per-channel mix for a selected extra instrument channel: gain, pan, and target bus.
+    if (lane >= 2) {
+        const int ic = lane - 2;
+        float ig = seq.instrumentGain(ic);
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("gain##inst", &ig, 0.0f, 2.0f, "%.2f")) seq.setInstrumentGain(ic, ig);
+        ImGui::SameLine();
+        float ip = seq.instrumentPan(ic);
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderFloat("pan##inst", &ip, -1.0f, 1.0f, "%.2f")) seq.setInstrumentPan(ic, ip);
+        ImGui::SameLine();
+        int ib = seq.instrumentBus(ic);
+        const char* busItems[] = {"Drums bus", "Lead bus", "Bass bus"};
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::Combo("route##inst", &ib, busItems, 3)) seq.setInstrumentBus(ic, ib);
+    }
     ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 
     // Chord tool: drop a whole chord (root + quality) at a chosen step/length.

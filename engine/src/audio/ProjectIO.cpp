@@ -451,7 +451,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     if (seq.instrumentChannelCount() > 0) {
         f << "instchannelcount " << seq.instrumentChannelCount() << "\n";
         for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
-            f << "instchannel " << c << "\n";
+            f << "instchannel " << c << " " << seq.instrumentGain(c) << " " << seq.instrumentPan(c)
+              << " " << seq.instrumentBus(c) << "\n";
             writeSynthBlock(f, "synthI", "synthoscI", seq.instrumentSynth(c));
         }
     }
@@ -905,6 +906,19 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             }
         } else if (tag == "instchannel") {
             ls >> curInst; // selector for the following synthI/synthoscI lines
+            if (curInst >= 0 && curInst < seq.instrumentChannelCount()) {
+                float g = 1.0f, p = 0.0f; // per-channel mix optional (older files omit → defaults)
+                int b = 1;
+                if (ls >> g) {
+                    seq.setInstrumentGain(curInst, g);
+                }
+                if (ls >> p) {
+                    seq.setInstrumentPan(curInst, p);
+                }
+                if (ls >> b) {
+                    seq.setInstrumentBus(curInst, b);
+                }
+            }
         } else if (tag == "synthI") {
             if (curInst >= 0 && curInst < seq.instrumentChannelCount()) {
                 parseSynthLine(ls, seq.instrumentSynth(curInst));

@@ -210,6 +210,19 @@ public:
     PianoRoll& instrumentRoll(int patternIdx, int c) {
         return patterns_[static_cast<size_t>(patternIdx)].extraRolls[static_cast<size_t>(c)];
     }
+    // Per-extra-channel mix: its own gain, stereo pan (-1..1), and target bus (0=drums, 1=lead,
+    // 2=bass) — the channel renders into that bus's stem, so it then flows through that bus's insert
+    // strip and any group routing. Defaults: unity gain, centre, lead bus.
+    void setInstrumentGain(int c, float g) { extraGain_[static_cast<size_t>(c)] = g < 0.0f ? 0.0f : g; }
+    float instrumentGain(int c) const { return extraGain_[static_cast<size_t>(c)]; }
+    void setInstrumentPan(int c, float p) {
+        extraPan_[static_cast<size_t>(c)] = p < -1.0f ? -1.0f : (p > 1.0f ? 1.0f : p);
+    }
+    float instrumentPan(int c) const { return extraPan_[static_cast<size_t>(c)]; }
+    void setInstrumentBus(int c, int b) {
+        extraBus_[static_cast<size_t>(c)] = b < 0 ? 0 : (b > 2 ? 2 : b);
+    }
+    int instrumentBus(int c) const { return extraBus_[static_cast<size_t>(c)]; }
 
     // --- Patterns & arrangement ---------------------------------------------
     int patternCount() const { return static_cast<int>(patterns_.size()); }
@@ -404,6 +417,10 @@ private:
     SynthInstrument synth2_{}; // bass instrument playing roll2
     Sampler sampler_{};        // alternative lead instrument (sample playback)
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
+    std::vector<float> extraGain_;             // per-extra-channel gain (parallel to extraSynths_)
+    std::vector<float> extraPan_;              // per-extra-channel pan (-1..1)
+    std::vector<int> extraBus_;                // per-extra-channel target bus (0=drums,1=lead,2=bass)
+    std::vector<float> extraScratch_;          // per-chunk mono scratch for rendering one extra channel
     bool useSampler_ = false;
     bool arpOn_ = false;
     int arpMode_ = 0;

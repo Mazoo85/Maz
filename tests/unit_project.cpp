@@ -635,6 +635,9 @@ int main() {
     const int extraCh = seq.addInstrumentChannel();
     seq.instrumentSynth(extraCh).setWaveform(audio::Waveform::Square);
     seq.instrumentSynth(extraCh).setMode(audio::SynthMode::FM);
+    seq.setInstrumentGain(extraCh, 0.6f);
+    seq.setInstrumentPan(extraCh, -0.5f);
+    seq.setInstrumentBus(extraCh, 2); // route to the bass bus
     seq.instrumentRoll(0, extraCh).addNote(audio::Note{4, 3, 64, 0.8f});
 
     const std::string path = "unit_project_roundtrip.cjc";
@@ -722,9 +725,11 @@ int main() {
                   seq2.instrumentSynth(0).mode() == audio::SynthMode::FM &&
                   seq2.instrumentRoll(0, 0).notes().size() == 1 &&
                   seq2.instrumentRoll(0, 0).notes()[0].pitch == 64 &&
-                  seq2.instrumentRoll(0, 0).notes()[0].startStep == 4;
+                  seq2.instrumentRoll(0, 0).notes()[0].startStep == 4 &&
+                  near(seq2.instrumentGain(0), 0.6f) && near(seq2.instrumentPan(0), -0.5f) &&
+                  seq2.instrumentBus(0) == 2;
     }
-    check(extraOk, "extra instrument channel (synth patch + note) round-trips");
+    check(extraOk, "extra instrument channel (synth patch + note + gain/pan/bus) round-trips");
     check(seq2.synth2().mode() == audio::SynthMode::Wavetable &&
               near(seq2.synth2().wavetablePosition(), 0.65f) &&
               near(seq2.synth2().wavetableMorph(), 0.4f) &&

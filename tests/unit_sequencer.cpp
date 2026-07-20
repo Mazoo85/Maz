@@ -699,6 +699,29 @@ int main() {
         s.play();
         check(rms(renderMono(s, sampleRate / 4, sampleRate)) > 0.0,
               "a note on an extra instrument channel produces sound");
+
+        // Per-channel routing: an extra channel routed to the bass bus lands in the bass stem, not the
+        // lead stem. Render both stems separately and check where the energy shows up.
+        auto stemEnergy = [&](int busTarget) {
+            audio::Sequencer r;
+            const int rc = r.addInstrumentChannel();
+            r.setInstrumentBus(rc, busTarget);
+            r.instrumentSynth(rc).setWaveform(audio::Waveform::Saw);
+            r.instrumentRoll(rc).addNote(audio::Note{0, 4, 60, 0.9f});
+            r.play();
+            const int fr = sampleRate / 4;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            r.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+            return std::pair<double, double>{rms(l), rms(b)};
+        };
+        const auto toLead = stemEnergy(1);
+        const auto toBass = stemEnergy(2);
+        check(toLead.first > 0.0 && toLead.second == 0.0,
+              "an extra channel routed to the lead bus appears only in the lead stem");
+        check(toBass.second > 0.0 && toBass.first == 0.0,
+              "an extra channel routed to the bass bus appears only in the bass stem");
     }
 
     // --- Sequencer grid ------------------------------------------------------

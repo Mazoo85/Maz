@@ -294,6 +294,9 @@ int Sequencer::addPattern() {
 
 int Sequencer::addInstrumentChannel() {
     extraSynths_.emplace_back();
+    extraGain_.push_back(1.0f); // unity gain
+    extraPan_.push_back(0.0f);  // centre
+    extraBus_.push_back(1);     // default to the lead bus
     for (Pattern& p : patterns_) {
         p.extraRolls.emplace_back(); // keep every pattern's lane count in step with the synth count
     }
@@ -333,6 +336,9 @@ void Sequencer::selectPattern(int i) {
 void Sequencer::clearArrangement() {
     patterns_.clear();
     extraSynths_.clear(); // drop extra instrument channels so the fresh pattern starts with none
+    extraGain_.clear();
+    extraPan_.clear();
+    extraBus_.clear();
     playlist_.clear();
     songMode_ = false;
     playlistPos_ = 0;
@@ -1183,11 +1189,6 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         sampler_.updateTempo(bpm_); // lock the sampler's tempo-synced cutoff LFO too
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
-        // Extra instrument channels sum into the lead bus for now (dedicated routing comes later).
-        for (SynthInstrument& es : extraSynths_) {
-            es.updateTempo(bpm_);
-            es.render(synthScratch_.data(), chunk, sampleRate);
-        }
         bassScratch_.assign(static_cast<size_t>(chunk), 0.0f);
         synth2_.render(bassScratch_.data(), chunk, sampleRate);
         // Equal-power pan per melodic bus (pan 0 → both gains 0.707, matching the old center mix).
@@ -1218,6 +1219,24 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 } else if (scEnv_ < 1.0f) {
                     scEnv_ = std::min(1.0f, scEnv_ + scStep); // release recovery back up to open
                 }
+            }
+        }
+
+        // Extra instrument channels: render each into its own gain + equal-power pan, then sum into its
+        // target bus's stem (drums/lead/bass) so it flows through that bus's insert strip + group
+        // routing. (Not sidechain-ducked yet.)
+        for (size_t c = 0; c < extraSynths_.size(); ++c) {
+            extraScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+            extraSynths_[c].updateTempo(bpm_);
+            extraSynths_[c].render(extraScratch_.data(), chunk, sampleRate);
+            const float eg = extraGain_[c];
+            const float eth = (extraPan_[c] + 1.0f) * kQuarterPi;
+            const float eL = std::cos(eth), eR = std::sin(eth);
+            float* dst = (extraBus_[c] == 0) ? drums : (extraBus_[c] == 2) ? bass : lead;
+            for (int i = 0; i < chunk; ++i) {
+                const float sV = extraScratch_[static_cast<size_t>(i)] * eg;
+                dst[2 * (done + i)] += sV * eL;
+                dst[2 * (done + i) + 1] += sV * eR;
             }
         }
 
