@@ -1656,6 +1656,9 @@ void buildBassUI(audio::SynthInstrument& syn) {
     if (fch) {
         syn.setFilter(cutoff, reso, env);
     }
+    float bfold = syn.fold();
+    if (ImGui::SliderFloat("Wavefold##bass", &bfold, 0.0f, 1.0f, bfold <= 0.0f ? "off" : "%.2f"))
+        syn.setFold(bfold); // West-coast wavefolder — the bass engine supports it too
     float bfLfoRate = syn.filterLfoRate(), bfLfoDepth = syn.filterLfoDepth();
     bool bflch = ImGui::SliderFloat("Cutoff LFO Hz##bass", &bfLfoRate, 0.0f, 20.0f, "%.2f");
     bflch |= ImGui::SliderFloat("Cutoff LFO oct##bass", &bfLfoDepth, 0.0f, 4.0f, "%.2f");
