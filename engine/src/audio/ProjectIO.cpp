@@ -752,6 +752,9 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     }
 
     f << "plugin " << (mixer.plugin().enabled() ? 1 : 0) << " " << mixer.plugin().path() << "\n";
+    if (!seq.leadPluginPath().empty()) {
+        f << "leadplugin " << seq.leadPluginPath() << "\n"; // hosted CLAP instrument on the lead lane
+    }
 
     for (int i = 0; i < Automation::count(); ++i) {
         const AutoLane& lane = automation.lane(i);
@@ -2085,6 +2088,14 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 if (mixer.plugin().load(pp, 48000, &pe)) {
                     mixer.plugin().setEnabled(en != 0);
                 }
+            }
+        } else if (tag == "leadplugin") {
+            std::string pp;
+            std::getline(ls, pp);
+            const size_t nb = pp.find_first_not_of(' ');
+            pp = (nb == std::string::npos) ? std::string() : pp.substr(nb);
+            if (!pp.empty()) {
+                seq.loadLeadPlugin(pp, 48000); // fails gracefully if the plugin is missing
             }
         } else if (tag == "auto") {
             int idx = -1, en = 0, shape = 0;

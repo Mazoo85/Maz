@@ -1,5 +1,7 @@
 #include "maz/audio/Sequencer.hpp"
 
+#include "maz/audio/ClapHost.hpp"
+
 #include <algorithm>
 #include <cmath>
 
@@ -45,6 +47,29 @@ Sequencer::Sequencer() {
         chanChoke_[3] = 1;
     }
     addPattern(); // start with one empty pattern
+}
+
+Sequencer::~Sequencer() = default; // ClapHost is complete here, so unique_ptr can destroy it
+
+bool Sequencer::loadLeadPlugin(const std::string& path, int sampleRate) {
+    auto host = std::make_unique<ClapHost>();
+    std::string err;
+    if (!host->load(path, sampleRate > 0 ? sampleRate : 48000, 4096, &err)) {
+        return false;
+    }
+    host->setEnabled(true);
+    leadPlugin_ = std::move(host);
+    leadPluginPath_ = path;
+    return true;
+}
+
+void Sequencer::clearLeadPlugin() {
+    leadPlugin_.reset();
+    leadPluginPath_.clear();
+}
+
+bool Sequencer::leadPluginLoaded() const {
+    return leadPlugin_ != nullptr && leadPlugin_->loaded();
 }
 
 void Sequencer::setChannelChokeGroup(int c, int group) {
@@ -892,6 +917,9 @@ void Sequencer::triggerStep(int step) {
             } else {
                 synth_.noteOff(n.pitch + tr);
             }
+            if (leadPlugin_) {
+                leadPlugin_->noteOff(n.pitch + tr); // a hosted CLAP instrument follows the lead lane
+            }
         }
     }
     // Per-note trig condition + probability: skip a note this loop when its every-Nth-loop stride
@@ -941,6 +969,9 @@ void Sequencer::triggerStep(int step) {
                 sampler_.noteOn(p, n.velocity);
             } else {
                 synth_.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
+            }
+            if (leadPlugin_) {
+                leadPlugin_->noteOn(p, n.velocity); // layer a hosted CLAP instrument on the lead
             }
             scheduleRoll(n, p, false, toSampler, -1);
         }
@@ -1286,6 +1317,18 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 } else if (scEnv_ < 1.0f) {
                     scEnv_ = std::min(1.0f, scEnv_ + scStep); // release recovery back up to open
                 }
+            }
+        }
+
+        // Hosted CLAP instrument on the lead lane: render its (stereo) output for this chunk and sum it
+        // into the lead stem at the lead bus gain, so it layers with the built-in lead synth and flows
+        // through the lead insert strip. (Its own stereo image is kept; not sidechain-ducked yet.)
+        if (leadPlugin_ && leadPlugin_->loaded()) {
+            pluginScratch_.assign(static_cast<size_t>(chunk) * 2, 0.0f);
+            leadPlugin_->process(pluginScratch_.data(), chunk, sampleRate);
+            for (int i = 0; i < chunk; ++i) {
+                lead[2 * (done + i)] += pluginScratch_[static_cast<size_t>(2 * i)] * synthGain_;
+                lead[2 * (done + i) + 1] += pluginScratch_[static_cast<size_t>(2 * i + 1)] * synthGain_;
             }
         }
 

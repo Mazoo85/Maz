@@ -5,6 +5,7 @@
 #include "maz/audio/Sampler.hpp"
 #include "maz/audio/SynthInstrument.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -38,6 +39,8 @@ struct PlaylistClip {
     int track = 0;    // arrangement-track row this clip sits on
 };
 
+class ClapHost; // hosted CLAP instrument on the lead lane (defined in ClapHost.hpp)
+
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
 // (play/stop + BPM), and a set of built-in drum voices — one per channel. When playing, it walks
 // the step grid in sample-accurate time and strikes each channel whose step is switched on.
@@ -54,6 +57,7 @@ struct PlaylistClip {
 class Sequencer {
 public:
     Sequencer();
+    ~Sequencer(); // defined in the .cpp where ClapHost is a complete type (unique_ptr member)
 
     // --- Transport -----------------------------------------------------------
     void play();  // start from step 0 and strike step 0 immediately
@@ -192,6 +196,14 @@ public:
     // any row can be reassigned (e.g. two kicks, or a tom).
     void setChannelType(int c, Drum type);
     Drum channelType(int c) const;
+
+    // Hosted CLAP instrument on the lead lane: when loaded, the lead piano-roll notes also drive the
+    // plugin and its synthesised audio is summed into the lead bus (layered with the built-in synth —
+    // set the lead synth gain to 0 for plugin-only). Returns false if the plugin fails to load.
+    bool loadLeadPlugin(const std::string& path, int sampleRate);
+    void clearLeadPlugin();
+    bool leadPluginLoaded() const;
+    const std::string& leadPluginPath() const { return leadPluginPath_; }
 
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
@@ -472,6 +484,9 @@ private:
     SynthInstrument synth_{};  // lead instrument playing roll
     SynthInstrument synth2_{}; // bass instrument playing roll2
     Sampler sampler_{};        // alternative lead instrument (sample playback)
+    std::unique_ptr<ClapHost> leadPlugin_; // optional hosted CLAP instrument on the lead lane
+    std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
+    std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     std::vector<float> extraGain_;             // per-extra-channel gain (parallel to extraSynths_)
     std::vector<float> extraPan_;              // per-extra-channel pan (-1..1)

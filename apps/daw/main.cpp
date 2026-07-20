@@ -1115,6 +1115,27 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     ImGui::Separator();
 
+    // Hosted CLAP instrument on the lead lane: load a .clap synth to layer with (or replace, by muting
+    // the built-in) the lead. Path is typed in; Load hosts it, Clear removes it.
+    static char clapPath[256] = "";
+    ImGui::SetNextItemWidth(260.0f);
+    ImGui::InputText("##leadclap", clapPath, sizeof(clapPath));
+    ImGui::SameLine();
+    if (ImGui::Button("Load Instr")) {
+        if (seq.loadLeadPlugin(clapPath, 48000)) {
+            MAZ_LOG_INFO("lead plugin: loaded %s", clapPath);
+        } else {
+            MAZ_LOG_ERROR("lead plugin load failed: %s", clapPath);
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear Instr")) {
+        seq.clearLeadPlugin();
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled(seq.leadPluginLoaded() ? "CLAP instrument loaded" : "(no CLAP instrument)");
+    ImGui::Separator();
+
     // Arpeggiator (drives the piano roll).
     bool arp = seq.arpOn();
     int arpMode = seq.arpMode();
