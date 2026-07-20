@@ -35,6 +35,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.wavPath = argv[++i];
         } else if (std::strcmp(arg, "--dither") == 0) {
             cfg.dither = true;
+        } else if (std::strcmp(arg, "--removedc") == 0) {
+            cfg.removeDc = true;
         } else if (std::strcmp(arg, "--normalize") == 0) {
             cfg.normalize = true;
         } else if (std::strcmp(arg, "--loudness") == 0 && i + 1 < argc) {

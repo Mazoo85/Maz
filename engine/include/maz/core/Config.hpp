@@ -20,6 +20,7 @@ struct AppConfig {
     double seconds = 1.0;           // --seconds N : length of an offline render
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool dither = false;            // --dither : TPDF-dither the 16-bit WAV/stem export (mastering)
+    bool removeDc = false;          // --removedc : subtract each channel's mean (DC offset) on bounce
     bool normalize = false;         // --normalize : peak-normalize the WAV bounce to -0.3 dBFS
     bool loudnessNorm = false;      // --loudness N : RMS/loudness-normalize the bounce to N dBFS
     float loudnessDb = -18.0f;      //               target integrated RMS level (dBFS) for --loudness

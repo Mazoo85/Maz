@@ -905,6 +905,44 @@ int main() {
               "normalize with target <= 0 is a no-op");
     }
 
+    // --- Export DC-offset removal --------------------------------------------
+    // Subtracts each channel's mean so the mix is centred at zero (per interleaved channel).
+    {
+        // Stereo: L carries a +0.3 DC bias on a small sine; R carries a -0.1 bias. Each channel's mean
+        // must come out ~0 while the AC (sine) shape is preserved.
+        const int n = 2000;
+        std::vector<float> st(static_cast<size_t>(n) * 2);
+        for (int i = 0; i < n; ++i) {
+            const float ac = 0.2f * static_cast<float>(std::sin(kTwoPi * 8.0 * i / n));
+            st[static_cast<size_t>(i) * 2] = ac + 0.3f;      // L: biased +0.3
+            st[static_cast<size_t>(i) * 2 + 1] = ac - 0.1f;  // R: biased -0.1
+        }
+        audio::removeDcOffset(st.data(), n, 2);
+        double meanL = 0.0, meanR = 0.0;
+        for (int i = 0; i < n; ++i) {
+            meanL += st[static_cast<size_t>(i) * 2];
+            meanR += st[static_cast<size_t>(i) * 2 + 1];
+        }
+        meanL /= n;
+        meanR /= n;
+        check(std::fabs(meanL) < 1e-4 && std::fabs(meanR) < 1e-4,
+              "removeDcOffset centres each channel at zero mean");
+        // The AC content is preserved: the peak-to-peak swing is still ~0.4 (the sine), not flattened.
+        float lo = 1e9f, hi = -1e9f;
+        for (int i = 0; i < n; ++i) {
+            lo = std::min(lo, st[static_cast<size_t>(i) * 2]);
+            hi = std::max(hi, st[static_cast<size_t>(i) * 2]);
+        }
+        check(std::fabs((hi - lo) - 0.4f) < 0.02f, "removeDcOffset preserves the AC signal (only DC goes)");
+        // Already-centred input (each channel sums to zero) and degenerate args are no-ops.
+        // Interleaved 2 frames × 2 ch: L = {0.5, -0.5} (mean 0), R = {0.25, -0.25} (mean 0).
+        std::vector<float> centred = {0.5f, 0.25f, -0.5f, -0.25f};
+        audio::removeDcOffset(centred.data(), 2, 2);
+        check(std::fabs(centred[0] - 0.5f) < 1e-6f && std::fabs(centred[1] - 0.25f) < 1e-6f,
+              "removeDcOffset leaves an already-centred mix alone");
+        audio::removeDcOffset(nullptr, 10, 2); // must not crash
+    }
+
     // --- Export loudness (RMS) normalization ---------------------------------
     // Scales the buffer so its RMS hits the target, capping the gain so the peak never clips.
     {

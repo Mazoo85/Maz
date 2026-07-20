@@ -54,6 +54,28 @@ inline float peakNormalize(float* interleaved, int count, float targetPeak = 0.9
     return gain;
 }
 
+// Remove any DC offset from a rendered mix by subtracting each channel's mean (FL Studio's export
+// "remove DC offset"). A constant bias wastes headroom, can click on start/stop, and stresses woofers;
+// centring each channel at zero fixes it exactly. Best applied BEFORE normalization so the level stage
+// sees the centred signal. No-op on a null/empty buffer. `interleaved` is `frames*channels` samples.
+inline void removeDcOffset(float* interleaved, int frames, int channels) {
+    if (interleaved == nullptr || frames <= 0 || channels <= 0) {
+        return;
+    }
+    for (int c = 0; c < channels; ++c) {
+        double sum = 0.0;
+        for (int i = 0; i < frames; ++i) {
+            sum += static_cast<double>(interleaved[i * channels + c]);
+        }
+        const float mean = static_cast<float>(sum / static_cast<double>(frames));
+        if (mean != 0.0f) {
+            for (int i = 0; i < frames; ++i) {
+                interleaved[i * channels + c] -= mean;
+            }
+        }
+    }
+}
+
 // Loudness (RMS) normalization: scale the mix so its average level (RMS) reaches `targetRms` (linear),
 // which tracks perceived loudness far better than peak normalization — quiet masters are lifted to a
 // consistent loudness rather than merely to full scale. To guarantee no clipping, the gain is capped

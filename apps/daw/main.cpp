@@ -334,6 +334,11 @@ int runHeadless(const core::AppConfig& cfg) {
         std::string werr;
         // Optional peak-normalization of the final mix (FL's "Normalize" on export). Applied to the
         // full bounce only — never to individual stems, whose relative balance must be preserved.
+        // Remove any DC offset first, so the level stages below see a centred signal (full headroom).
+        if (cfg.removeDc) {
+            audio::removeDcOffset(buf.data(), static_cast<int>(buf.size()) / channels, channels);
+            MAZ_LOG_INFO("audio: removed DC offset from the mix");
+        }
         if (cfg.normalize) {
             const float g = audio::peakNormalize(buf.data(), static_cast<int>(buf.size()));
             MAZ_LOG_INFO("audio: normalized mix to -0.3 dBFS (x%.3f)", static_cast<double>(g));
