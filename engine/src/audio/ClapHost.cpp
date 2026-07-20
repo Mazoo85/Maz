@@ -26,6 +26,22 @@ bool outEventsPush(const clap_output_events*, const clap_event_header_t*) {
 const clap_input_events_t g_inEvents = {nullptr, inEventsSize, inEventsGet};
 const clap_output_events_t g_outEvents = {nullptr, outEventsPush};
 
+// A concrete clap_input_events backed by a vector of note events (instrument hosting). The vector is
+// reached through the event list's ctx pointer.
+struct NoteEventFeed {
+    std::vector<clap_event_note_t> notes;
+};
+uint32_t feedSize(const clap_input_events* e) {
+    return static_cast<uint32_t>(static_cast<const NoteEventFeed*>(e->ctx)->notes.size());
+}
+const clap_event_header_t* feedGet(const clap_input_events* e, uint32_t index) {
+    const auto* f = static_cast<const NoteEventFeed*>(e->ctx);
+    if (index >= f->notes.size()) {
+        return nullptr;
+    }
+    return &f->notes[static_cast<size_t>(index)].header;
+}
+
 // Minimal host callbacks.
 const void* hostGetExtension(const clap_host*, const char*) {
     return nullptr;
@@ -199,12 +215,40 @@ bool ClapHost::hasNotePorts() const {
     return np->count(plugin, true) > 0; // true = input note ports → an instrument
 }
 
+void ClapHost::noteOn(int key, float velocity) {
+    pendingNotes_.push_back({key, velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity), true});
+}
+
+void ClapHost::noteOff(int key) {
+    pendingNotes_.push_back({key, 0.0f, false});
+}
+
 void ClapHost::process(float* stereo, int frames, int sampleRate) {
     (void)sampleRate;
     const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
     if (!enabled_ || plugin == nullptr || plugin->process == nullptr || frames <= 0) {
         return;
     }
+
+    // Build the note events queued since the last call; deliver them at the top of the first sub-block.
+    NoteEventFeed feed;
+    for (const PendingNote& pn : pendingNotes_) {
+        clap_event_note_t ev;
+        std::memset(&ev, 0, sizeof(ev));
+        ev.header.size = sizeof(clap_event_note_t);
+        ev.header.time = 0;
+        ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        ev.header.type = static_cast<uint16_t>(pn.on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF);
+        ev.header.flags = 0;
+        ev.note_id = -1;
+        ev.port_index = 0;
+        ev.channel = 0;
+        ev.key = static_cast<int16_t>(pn.key);
+        ev.velocity = static_cast<double>(pn.velocity);
+        feed.notes.push_back(ev);
+    }
+    pendingNotes_.clear();
+    const clap_input_events_t noteEvents = {&feed, feedSize, feedGet};
 
     int offset = 0;
     while (offset < frames) {
@@ -236,7 +280,8 @@ void ClapHost::process(float* stereo, int frames, int sampleRate) {
         p.audio_outputs = &outBuf;
         p.audio_inputs_count = 1;
         p.audio_outputs_count = 1;
-        p.in_events = &g_inEvents;
+        // Deliver the queued note events on the first sub-block only; later sub-blocks get none.
+        p.in_events = (offset == 0) ? &noteEvents : &g_inEvents;
         p.out_events = &g_outEvents;
 
         const clap_process_status status = plugin->process(plugin, &p);

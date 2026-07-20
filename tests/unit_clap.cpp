@@ -71,6 +71,27 @@ int main() {
     if (iok) {
         check(inst.pluginName() == std::string("CJC CLAP Synth"), "reads the instrument name");
         check(inst.hasNotePorts(), "the instrument exposes an input note port");
+
+        // Send a note and pull audio: the hosted instrument must synthesise sound from the note event.
+        inst.setEnabled(true);
+        auto energy = [](const std::vector<float>& b) {
+            double e = 0.0;
+            for (float v : b) {
+                e += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return e;
+        };
+        const int block = sr / 10; // 0.1 s
+        inst.noteOn(69, 1.0f);     // A4
+        std::vector<float> on(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(on.data(), block, sr);
+        check(energy(on) > 0.0, "hosted instrument produces sound from a note-on event");
+
+        // Note-off then render again: the synth gates off, so the block goes silent.
+        inst.noteOff(69);
+        std::vector<float> off(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(off.data(), block, sr);
+        check(energy(off) == 0.0, "a note-off silences the hosted instrument");
         inst.unload();
     } else {
         std::printf("  instrument load error: %s\n", err.c_str());

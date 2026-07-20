@@ -30,6 +30,12 @@ public:
     // (driven by note events) rather than a pure audio effect. Used to route it as a channel synth.
     bool hasNotePorts() const;
 
+    // Instrument hosting: queue note-on/off events for the next process() call. They are delivered to
+    // the plugin at the top of that block via the CLAP event input; the plugin's audio output then
+    // replaces the buffer passed to process() (an instrument ignores audio input). Velocity is 0..1.
+    void noteOn(int key, float velocity);
+    void noteOff(int key);
+
     const char* name() const override { return name_.empty() ? "CLAP" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
 
@@ -42,6 +48,12 @@ private:
     int maxBlock_ = 4096;
     std::string name_;
     std::vector<float> inL_, inR_, outL_, outR_;
+    struct PendingNote {
+        int key;
+        float velocity;
+        bool on; // true = note-on, false = note-off
+    };
+    std::vector<PendingNote> pendingNotes_; // queued for the next process() (instrument hosting)
 };
 
 } // namespace maz::audio

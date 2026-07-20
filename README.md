@@ -60,7 +60,7 @@ the project, and bounce to WAV.
   ([`PluginApi.h`](engine/include/maz/audio/PluginApi.h), see `plugins/example_tremolo`), the
   open [CLAP](https://cleveraudio.org) format (`ClapHost`, see `plugins/example_clap`), **and
   [VST3](https://steinbergmedia.github.io/vst3_doc/)** (`Vst3Host`, see `plugins/example_vst3`) —
-  hosted against Steinberg's **MIT-licensed** `pluginterfaces` headers only (no GPL `public.sdk`). Effect hosting is complete; **instrument (synth) plugin hosting** is in progress — the `ClapHost` now detects a plugin's note ports (`hasNotePorts()`) and there's an example CLAP instrument (`plugins/example_clap_instrument`, a note-driven sine synth), with note-event delivery + channel routing landing incrementally.
+  hosted against Steinberg's **MIT-licensed** `pluginterfaces` headers only (no GPL `public.sdk`). Effect hosting is complete; **instrument (synth) plugin hosting** is in progress — the `ClapHost` detects a plugin's note ports (`hasNotePorts()`) and **delivers note-on/off events to the plugin, pulling its synthesised audio** (`noteOn`/`noteOff` → CLAP events → the plugin's output), verified end-to-end against an example CLAP instrument (`plugins/example_clap_instrument`, a note-driven sine synth). Routing a hosted instrument onto a sequencer channel (played from the piano roll) lands next.
 - **GUI** — a Dear ImGui interface (channel rack with a **Panic** all-notes-off button, piano roll, synth, bass, mixer with a **master peak/RMS level meter**, automation,
   arrangement, transport) rendered via Vulkan; a CI test drives it under software Vulkan.
 
