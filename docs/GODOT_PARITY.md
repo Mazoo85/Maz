@@ -1195,6 +1195,17 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   run both round-trip exactly; a stream carrying a stored FILENAME decodes correctly (proving the optional
   header-field skipping lands on the DEFLATE data); and bad magic, a too-short buffer, and a corrupted CRC-32
   footer are each rejected),
+  **BC3/DXT5 texture encoder** (M517, `render::encodeBc3AlphaBlock` / `encodeDdsBc3` / `saveDdsBc3` — extends
+  the M515 DXT1 encoder to carry the ALPHA channel that DXT1 can't, so transparent textures — sprites, UI,
+  foliage cut-outs — can be block-compressed too. Each 4×4 block gets a BC3 alpha block (min/max endpoints +
+  the 8-value interpolation table + 3-bit per-texel indices) alongside the same farthest-pair color block the
+  DXT1 path uses. `encodeDdsBc3` writes a full DXT5 `.dds`; `saveDdsBc3` wraps it to disk. Pure CPU. Honest
+  scope: BC3/DXT5 (RGB + interpolated alpha), 8-value alpha mode, mip-0, fast range fit; no BC2/BC4-7. Verified
+  by encode→decode with the independently-golden-verified M511 decoder: constant colour+alpha reconstructs
+  within quantization; a fully-opaque block stays opaque (no alpha erasure); an alpha GRADIENT across the block
+  round-trips monotonically within tolerance (the whole point of DXT5's interpolated alpha); non-multiple-of-4
+  sizes decode to the requested dimensions; and an independent Python DXT5 decoder reading the encoder's own
+  `.dds` reproduces the source within a max RGB error of 3 and alpha error of 6, confirming spec-correct output),
   **BC1/DXT1 texture encoder** (M515, `render::encodeBc1Block` / `encodeDdsBc1` / `saveDdsBc1` — the inverse
   of the M511 DDS decoder, and the CPU texture-compression step Godot's editor runs on import: an RGBA image
   becomes a block-compressed `.dds` that lives in a sixth of the VRAM. Each 4×4 block picks its two 565

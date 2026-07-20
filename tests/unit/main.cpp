@@ -20967,6 +20967,41 @@ void testDdsEncode() {
         CHECK(std::abs(to8(dec.getPixel(4, 2).r) - 90) <= 8);
     }
     CHECK(encodeDdsBc1(Image{}).empty());
+
+    // --- BC3/DXT5 encode (adds the alpha channel), decoded back with the trusted M511 decoder. ---
+    using render::encodeDdsBc3;
+    {
+        Image img(4, 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) img.setPixel(x, y, color8(200, 100, 50, 128));
+        Image dec = decodeDds(encodeDdsBc3(img));
+        CHECK(dec.width() == 4 && dec.height() == 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) {
+                Color c = dec.getPixel(x, y);
+                CHECK(std::abs(to8(c.r) - 200) <= 8 && std::abs(to8(c.a) - 128) <= 10);
+            }
+    }
+    { // opaque alpha survives (no darkening/erasure)
+        Image img(4, 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) img.setPixel(x, y, color8(30, 200, 90, 255));
+        Image dec = decodeDds(encodeDdsBc3(img));
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) CHECK(to8(dec.getPixel(x, y).a) >= 250);
+    }
+    { // alpha gradient across the block (the point of DXT5) reconstructs monotonically within tolerance
+        Image img(4, 4);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x) img.setPixel(x, y, color8(180, 180, 180, x * 255 / 3));
+        Image dec = decodeDds(encodeDdsBc3(img));
+        for (int y = 0; y < 4; ++y) {
+            CHECK(std::abs(to8(dec.getPixel(0, y).a) - 0) <= 12);
+            CHECK(std::abs(to8(dec.getPixel(3, y).a) - 255) <= 12);
+            CHECK(to8(dec.getPixel(0, y).a) <= to8(dec.getPixel(3, y).a));
+        }
+    }
+    CHECK(encodeDdsBc3(Image{}).empty());
 }
 
 void testDdsDecode() {

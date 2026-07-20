@@ -8,20 +8,22 @@
 #include <string>
 #include <vector>
 
-// maz::render DDS (.dds) BC1/DXT1 encoder — the inverse of the M511 decoder, and the CPU texture-compression
-// step Godot's editor runs on import (RGBA -> block-compressed GPU texture, 1/6th the memory of RGBA8). Maz
-// could decode DXT but not produce it, so there was no way to author or re-pack a compressed texture on the
-// CPU. `encodeBc1Block` compresses one 4x4 RGBA block to 8 bytes using range-fit endpoints (the RGB bounding
-// box of the block's texels as the two 565 endpoints, then each texel snapped to the nearest of the four
-// interpolated palette colours); `encodeDdsBc1` writes a complete 128-byte-header DXT1 `.dds` for an Image,
-// and `saveDdsBc1` wraps it to a file. Pure CPU byte work — no GPU — so it unit-tests headlessly by
-// compressing then decoding with the (independently-verified) M511 decoder and checking the result stays
-// within block-compression tolerance.
+// maz::render DDS (.dds) BC1/DXT1 + BC3/DXT5 encoder — the inverse of the M511 decoder, and the CPU
+// texture-compression step Godot's editor runs on import (RGBA -> block-compressed GPU texture, 1/4-1/6th the
+// memory of RGBA8). Maz could decode DXT but not produce it, so there was no way to author or re-pack a
+// compressed texture on the CPU. `encodeBc1Block` compresses one 4x4 RGB block to 8 bytes using
+// "farthest-pair" range-fit endpoints (the two most distant texels in RGB as the 565 endpoints, then each
+// texel snapped to the nearest of the four interpolated palette colours); `encodeBc3AlphaBlock` compresses a
+// 4x4 alpha block to 8 bytes (min/max endpoints + 8-value interpolation + 3-bit indices). `encodeDdsBc1`
+// writes an opaque DXT1 `.dds`; `encodeDdsBc3` writes a DXT5 `.dds` that also carries the alpha channel (for
+// sprites, UI, foliage cut-outs); `saveDdsBc1` / `saveDdsBc3` wrap them to files. Pure CPU byte work — no
+// GPU — so it unit-tests headlessly by compressing then decoding with the (independently-verified) M511
+// decoder and checking the result stays within block-compression tolerance.
 //
-// Scope note (honest): opaque BC1/DXT1 (4-colour mode), dimensions padded up to a multiple of 4 by clamping
-// edge texels, mip-0 only. It is a fast range-fit encoder (not the optimal least-squares / cluster-fit an
-// offline tool like NVTT uses), and does not emit BC2/BC3 or 1-bit-alpha punch-through. Good enough for
-// authoring and round-trip; documented follow-ups for higher quality.
+// Scope note (honest): BC1/DXT1 (opaque 4-colour) and BC3/DXT5 (RGB + interpolated alpha); dimensions padded
+// up to a multiple of 4 by clamping edge texels; mip-0 only. It is a fast range-fit encoder (not the optimal
+// least-squares / cluster-fit an offline tool like NVTT uses), and does not emit BC2 or BC4/5/6/7. Good
+// enough for authoring and round-trip; documented follow-ups for higher quality.
 namespace maz::render {
 
 namespace detail {
@@ -155,6 +157,104 @@ inline std::vector<std::uint8_t> encodeDdsBc1(const Image& img) {
 
 inline bool saveDdsBc1(const std::string& path, const Image& img) {
     const std::vector<std::uint8_t> bytes = encodeDdsBc1(img);
+    if (bytes.empty()) return false;
+    std::ofstream f(path, std::ios::binary);
+    if (!f) return false;
+    f.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    return static_cast<bool>(f);
+}
+
+// Encode one BC3/DXT5 alpha block: 16 alpha bytes -> 8 output bytes (a0, a1, then 16x 3-bit indices).
+// Uses the 8-value interpolated mode (a0 > a1), matching the decoder.
+inline void encodeBc3AlphaBlock(const std::uint8_t a[16], std::uint8_t out[8]) {
+    int amin = 255, amax = 0;
+    for (int i = 0; i < 16; ++i) {
+        if (a[i] < amin) amin = a[i];
+        if (a[i] > amax) amax = a[i];
+    }
+    int a0 = amax, a1 = amin; // a0 > a1 selects the 8-value interpolation table
+    if (a0 == a1) {           // constant-alpha block: nudge so a0 > a1 stays in 8-value mode
+        if (a0 > 0) a1 = a0 - 1;
+        else a0 = 1;
+    }
+    int pal[8];
+    pal[0] = a0;
+    pal[1] = a1;
+    for (int k = 1; k <= 6; ++k) pal[k + 1] = ((7 - k) * a0 + k * a1) / 7;
+
+    std::uint64_t bits = 0;
+    for (int i = 0; i < 16; ++i) {
+        int best = 0, bestD = 0x7fffffff;
+        for (int p = 0; p < 8; ++p) {
+            const int d = a[i] - pal[p];
+            const int dd = d * d;
+            if (dd < bestD) { bestD = dd; best = p; }
+        }
+        bits |= static_cast<std::uint64_t>(best) << (3 * i);
+    }
+    out[0] = static_cast<std::uint8_t>(a0);
+    out[1] = static_cast<std::uint8_t>(a1);
+    for (int k = 0; k < 6; ++k) out[2 + k] = static_cast<std::uint8_t>((bits >> (8 * k)) & 0xff);
+}
+
+// Encode an Image (with alpha) to a complete DXT5 .dds byte blob: an alpha block + a colour block per 4x4.
+// Returns empty on bad input.
+inline std::vector<std::uint8_t> encodeDdsBc3(const Image& img) {
+    const int w = img.width(), h = img.height();
+    if (w <= 0 || h <= 0) return {};
+    const int bw = (w + 3) / 4, bh = (h + 3) / 4;
+
+    std::vector<std::uint8_t> out(
+        128u + static_cast<std::size_t>(bw) * static_cast<std::size_t>(bh) * 16u, 0u);
+    auto put32 = [&](std::size_t off, std::uint32_t v) {
+        out[off] = static_cast<std::uint8_t>(v & 0xff);
+        out[off + 1] = static_cast<std::uint8_t>((v >> 8) & 0xff);
+        out[off + 2] = static_cast<std::uint8_t>((v >> 16) & 0xff);
+        out[off + 3] = static_cast<std::uint8_t>((v >> 24) & 0xff);
+    };
+    out[0] = 'D'; out[1] = 'D'; out[2] = 'S'; out[3] = ' ';
+    put32(4, 124);
+    put32(8, 0x1007);
+    put32(12, static_cast<std::uint32_t>(h));
+    put32(16, static_cast<std::uint32_t>(w));
+    put32(20, static_cast<std::uint32_t>(bw * bh * 16)); // linear size
+    put32(76, 32);
+    put32(80, 0x4); // DDPF_FOURCC
+    out[84] = 'D'; out[85] = 'X'; out[86] = 'T'; out[87] = '5';
+    put32(108, 0x1000);
+
+    auto to8 = [](float f) {
+        int v = static_cast<int>(f * 255.0f + 0.5f);
+        return static_cast<std::uint8_t>(v < 0 ? 0 : (v > 255 ? 255 : v));
+    };
+    std::size_t off = 128;
+    for (int by = 0; by < bh; ++by) {
+        for (int bx = 0; bx < bw; ++bx) {
+            std::uint8_t rgb[48];
+            std::uint8_t alpha[16];
+            for (int ty = 0; ty < 4; ++ty) {
+                for (int tx = 0; tx < 4; ++tx) {
+                    int px = bx * 4 + tx, py = by * 4 + ty;
+                    if (px >= w) px = w - 1;
+                    if (py >= h) py = h - 1;
+                    const Color c = img.getPixel(px, py);
+                    const int t = ty * 4 + tx;
+                    rgb[t * 3 + 0] = to8(c.r);
+                    rgb[t * 3 + 1] = to8(c.g);
+                    rgb[t * 3 + 2] = to8(c.b);
+                    alpha[t] = to8(c.a);
+                }
+            }
+            encodeBc3AlphaBlock(alpha, out.data() + off);
+            encodeBc1Block(rgb, out.data() + off + 8);
+            off += 16;
+        }
+    }
+    return out;
+}
+
+inline bool saveDdsBc3(const std::string& path, const Image& img) {
+    const std::vector<std::uint8_t> bytes = encodeDdsBc3(img);
     if (bytes.empty()) return false;
     std::ofstream f(path, std::ios::binary);
     if (!f) return false;
