@@ -82,6 +82,12 @@ only be written blind, the docs say exactly that.
   the entry so the plugin registers its classes. Verified END-TO-END (not a mock): the build compiles
   `examples/plugins/counter_plugin.cpp` into a real shared library and `ctest -R ext_dynamic` loads it at
   runtime, then instantiates + calls a `Counter` class the plugin registered across the C ABI. [VERIFIABLE HERE]
+- [x] **Documentation site + getting-started tutorial** — DONE (M513). `maz::docs` (`render::`-free header
+  `docs/SiteGen.hpp`) turns the repo's Markdown into a linked static HTML site (index + per-page + shared
+  nav), HTML-escaping text and rewriting intra-doc `.md`→`.html` links; the `docsgen` CLI (`tools/gen_docs.cpp`)
+  generates the whole `docs/` tree to a folder, and `ctest -R docs_site` verifies the renderer + site assembly
+  headlessly. Plus [TUTORIAL_FIRST_GAME.md](TUTORIAL_FIRST_GAME.md) — a beginner "first game in 10 minutes"
+  walkthrough using real engine APIs. [VERIFIABLE HERE]
 
 ### §2 Platforms & export — mixed
 - [x] **ProjectSettings / project.godot manifest** (`core::ProjectSettings`) — DONE (M518); typed project-wide

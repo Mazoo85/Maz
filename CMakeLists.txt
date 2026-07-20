@@ -223,6 +223,11 @@ add_subdirectory(apps/pong)
 add_subdirectory(apps/platformer)
 add_subdirectory(apps/adventure)
 
+# Documentation-site generator CLI (maz::docs): turns docs/*.md into a linked static HTML site.
+add_executable(maz_docsgen tools/gen_docs.cpp)
+target_link_libraries(maz_docsgen PRIVATE maz::maz)
+set_target_properties(maz_docsgen PROPERTIES OUTPUT_NAME docsgen)
+
 if(MAZ_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)

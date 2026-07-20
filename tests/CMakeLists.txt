@@ -76,6 +76,14 @@ add_dependencies(maz_ext_dynamic_tests maz_counter_plugin)
 add_test(NAME ext_dynamic COMMAND maz_ext_dynamic_tests)
 set_tests_properties(ext_dynamic PROPERTIES TIMEOUT 30)
 
+# Static docs-site generator (maz::docs): Markdown subset -> linked HTML site. Verified headlessly on
+# in-memory strings — heading/list/code/bold/inline-code rendering, HTML escaping, .md->.html link rewrite,
+# and index + per-page + shared-nav site assembly.
+add_executable(maz_docs_tests docs/site.cpp)
+target_link_libraries(maz_docs_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME docs_site COMMAND maz_docs_tests)
+set_tests_properties(docs_site PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
