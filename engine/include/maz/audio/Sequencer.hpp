@@ -23,6 +23,7 @@ struct Pattern {
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
+    int transpose = 0;         // per-pattern transpose in semitones (added to the global transpose)
 };
 
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
@@ -55,6 +56,12 @@ public:
     // Per-pattern: each pattern carries its own swing, so different patterns can groove differently.
     void setSwing(float s);
     float swing() const { return patterns_[static_cast<size_t>(current_)].swing; }
+
+    // Per-pattern transpose (semitones, clamped ±48): the current pattern's melodic notes (lead + bass
+    // + arp) are shifted by this on top of the global transpose, so a song can change key between
+    // patterns (e.g. a chorus a step up). Drums are unaffected. Persisted with the pattern.
+    void setPatternTranspose(int semis);
+    int patternTranspose() const { return patterns_[static_cast<size_t>(current_)].transpose; }
 
     // Humanize: randomize each drum hit's velocity slightly (0 = off, 1 = max) for a less
     // machine-like feel. Deterministic, so renders are reproducible.

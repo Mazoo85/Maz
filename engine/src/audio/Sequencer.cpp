@@ -334,6 +334,10 @@ void Sequencer::setSwing(float s) {
     patterns_[static_cast<size_t>(current_)].swing = std::clamp(s, 0.0f, 0.9f);
 }
 
+void Sequencer::setPatternTranspose(int semis) {
+    patterns_[static_cast<size_t>(current_)].transpose = semis < -48 ? -48 : (semis > 48 ? 48 : semis);
+}
+
 void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attackMs) {
     sidechainOn_ = on;
     scAmount_ = std::clamp(amount, 0.0f, 1.0f);
@@ -592,6 +596,9 @@ void Sequencer::clear() {
 }
 
 void Sequencer::triggerStep(int step) {
+    // Effective melodic transpose = global transpose + the current pattern's own transpose (key
+    // changes between patterns). Drums are unaffected (they use per-step tune, not transpose).
+    const int tr = transpose_ + patterns_[static_cast<size_t>(current_)].transpose;
     // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
@@ -732,7 +739,7 @@ void Sequencer::triggerStep(int step) {
             }
             if (arpMode_ == 5) { // chord: strike every held pitch together (a rhythmic stab)
                 for (int hp : ord) {
-                    playPitch(hp + transpose_);
+                    playPitch(hp + tr);
                 }
             } else {
                 int index = 0;
@@ -754,7 +761,7 @@ void Sequencer::triggerStep(int step) {
                 } else { // up (0) or as-played (4)
                     index = arpCounter_ % n;
                 }
-                playPitch(ord[static_cast<size_t>(index)] + transpose_);
+                playPitch(ord[static_cast<size_t>(index)] + tr);
             }
             ++arpCounter_;
             // Gate: for a staccato arp, schedule an early note-off partway through the step; at full
@@ -776,9 +783,9 @@ void Sequencer::triggerStep(int step) {
         const int endStep = (n.startStep + n.lengthSteps) % numSteps_;
         if (endStep == step) {
             if (toSampler) {
-                sampler_.noteOff(n.pitch + transpose_);
+                sampler_.noteOff(n.pitch + tr);
             } else {
-                synth_.noteOff(n.pitch + transpose_);
+                synth_.noteOff(n.pitch + tr);
             }
         }
     }
@@ -811,7 +818,7 @@ void Sequencer::triggerStep(int step) {
     };
     for (const Note& n : roll.notes()) {
         if (n.startStep == step && noteFires(n)) {
-            const int p = n.pitch + transpose_;
+            const int p = n.pitch + tr;
             if (toSampler) {
                 sampler_.noteOn(p, n.velocity);
             } else {
@@ -825,12 +832,12 @@ void Sequencer::triggerStep(int step) {
     const PianoRoll& roll2 = patterns_[static_cast<size_t>(current_)].roll2;
     for (const Note& n : roll2.notes()) {
         if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
-            synth2_.noteOff(n.pitch + transpose_);
+            synth2_.noteOff(n.pitch + tr);
         }
     }
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
-            const int p = n.pitch + transpose_;
+            const int p = n.pitch + tr;
             synth2_.noteOn(p, n.velocity, n.fineTune, n.slide);
             scheduleRoll(n, p, true, false);
         }

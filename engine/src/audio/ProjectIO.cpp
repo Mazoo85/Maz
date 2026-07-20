@@ -400,6 +400,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
         f << "patswing " << p << " " << seq.swing() << "\n"; // per-pattern groove
+        f << "pattranspose " << p << " " << seq.patternTranspose() << "\n"; // per-pattern key change
 
         for (int c = 0; c < seq.numChannels(); ++c) {
             for (int s = 0; s < seq.numSteps(); ++s) {
@@ -980,6 +981,14 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (p >= 0 && p < seq.patternCount()) {
                 seq.selectPattern(p);
                 seq.setSwing(sw); // sets the selected pattern's swing
+            }
+        } else if (tag == "pattranspose") {
+            int p = 0;
+            int tr = 0;
+            ls >> p >> tr;
+            if (p >= 0 && p < seq.patternCount()) {
+                seq.selectPattern(p);
+                seq.setPatternTranspose(tr); // sets the selected pattern's transpose
             }
         } else if (tag == "songmode") {
             int on = 0;

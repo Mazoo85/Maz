@@ -492,6 +492,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setTranspose(transpose);
     }
     ImGui::SameLine();
+    int patTr = seq.patternTranspose();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderInt("Pat.key", &patTr, -24, 24, "%+d st")) { // this pattern's own key change
+        seq.setPatternTranspose(patTr);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }

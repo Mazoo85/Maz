@@ -1995,6 +1995,47 @@ int main() {
         check(pr.setNoteStride(60, 0, 99) == 8, "note stride clamps to a max of 8");
     }
 
+    // --- Per-pattern transpose (key change) ----------------------------------
+    {
+        // A held A4 note played through a clean sine lead; the pattern transpose shifts its pitch.
+        auto noteHz = [&](int patTranspose) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.synth().setWaveform(audio::Waveform::Sine);
+            s.synth().setOscillators(0.0f, 0.0f, 0.0f, 0.0f); // pure tone for a clean pitch estimate
+            s.setPatternTranspose(patTranspose);
+            audio::Note note;
+            note.startStep = 0;
+            note.lengthSteps = 16;
+            note.pitch = 69; // A4 = 440 Hz
+            s.roll().addNote(note);
+            s.play();
+            const std::vector<float> out = renderMono(s, sampleRate / 4, sampleRate); // 0.25 s
+            int crossings = 0;
+            float prev = 0.0f;
+            for (size_t i = 0; i < out.size(); i += 2) { // left channel
+                const float v = out[i];
+                if (prev <= 0.0f && v > 0.0f) {
+                    ++crossings;
+                }
+                prev = v;
+            }
+            const double frames = static_cast<double>(out.size() / 2);
+            return static_cast<double>(crossings) * sampleRate / frames;
+        };
+        const double base = noteHz(0);
+        const double up = noteHz(12);
+        check(std::fabs(base - 440.0) < 25.0, "pattern transpose 0 plays the note at its pitch (~A4)");
+        check(up > base * 1.8, "pattern transpose +12 raises the note about an octave");
+
+        audio::Sequencer d;
+        check(d.patternTranspose() == 0, "pattern transpose defaults to 0");
+        d.setPatternTranspose(100);
+        check(d.patternTranspose() == 48, "pattern transpose clamps to +48");
+        d.setPatternTranspose(-100);
+        check(d.patternTranspose() == -48, "pattern transpose clamps to -48");
+    }
+
     // --- Count-in: a bar of clicks before the pattern starts ------------------
     {
         // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks
