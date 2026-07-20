@@ -2,6 +2,8 @@
 
 #include "maz/audio/Effects.hpp"
 
+#include <string>
+
 namespace maz::audio {
 
 // One mixer track ("insert strip", FL-style): a per-bus chain of insert effects run in order over
@@ -42,6 +44,11 @@ public:
         }
         return *this;
     }
+
+    // Optional user-facing name (e.g. for a submix group: "Drums bus", "Reverb send"). Empty by
+    // default; the UI shows a "Group N" placeholder when empty.
+    void setName(const std::string& n) { name_ = n; }
+    const std::string& name() const { return name_; }
 
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
@@ -132,6 +139,7 @@ public:
 private:
     // Copy every data member (effects + scalars) but NOT chain_ (rebuilt separately to point at us).
     void assignData(const MixerTrack& o) {
+        name_ = o.name_;
         gain_ = o.gain_;
         muted_ = o.muted_;
         soloed_ = o.soloed_;
@@ -151,6 +159,7 @@ private:
     // → stereo-widen (imaging last, after dynamics).
     void rebuildChain() { chain_ = {&gate_, &hp_, &transient_, &eq_, &dist_, &comp_, &stereoEnh_}; }
 
+    std::string name_;
     float gain_ = 1.0f;
     bool muted_ = false;
     bool soloed_ = false;

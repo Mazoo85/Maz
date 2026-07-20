@@ -759,6 +759,10 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
             f << "group " << g << " ";
             writeMixerTrackFields(f, mixer.group(g));
             f << " " << mixer.group(g).output() << "\n"; // group's own routing (master / higher group)
+            // Optional name on its own line (may contain spaces, so kept off the numeric group line).
+            if (!mixer.group(g).name().empty()) {
+                f << "groupname " << g << " " << mixer.group(g).name() << "\n";
+            }
         }
     }
 
@@ -2120,6 +2124,16 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 if (ls >> gOut) {
                     mixer.group(g).setOutput(gOut);
                 }
+            }
+        } else if (tag == "groupname") {
+            int g = -1;
+            ls >> g;
+            std::string nm;
+            std::getline(ls, nm); // the rest of the line is the name (may contain spaces)
+            const size_t nb = nm.find_first_not_of(' ');
+            nm = (nb == std::string::npos) ? std::string() : nm.substr(nb);
+            if (g >= 0 && g < mixer.groupCount()) {
+                mixer.group(g).setName(nm);
             }
         } else if (tag == "plugin") {
             int en = 0;

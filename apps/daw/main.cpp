@@ -1828,6 +1828,15 @@ void buildMixerUI(audio::AudioEngine& engine) {
     audio::Sequencer& seq = engine.sequencer();
     ImGui::Begin("CJC Music Station — Mixer");
 
+    // A group's display label: its user name, or a "Group N" fallback when unnamed.
+    auto groupLabel = [&mx](int g, char* out, size_t n) {
+        if (g >= 0 && g < mx.groupCount() && !mx.group(g).name().empty()) {
+            std::snprintf(out, n, "%s", mx.group(g).name().c_str());
+        } else {
+            std::snprintf(out, n, "Group %d", g + 1);
+        }
+    };
+
     // Project file I/O to a fixed path next to the app.
     static const char* kProjectPath = "project.cjc";
     if (ImGui::Button("Save Project")) {
@@ -3187,17 +3196,19 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SetNextItemWidth(110.0f);
             {
                 const int gc = mx.groupCount();
-                char cur[24];
+                char cur[72];
                 if (tr.output() < 0 || tr.output() >= gc) {
                     std::snprintf(cur, sizeof(cur), "-> Master");
                 } else {
-                    std::snprintf(cur, sizeof(cur), "-> Group %d", tr.output() + 1);
+                    char gl[64];
+                    groupLabel(tr.output(), gl, sizeof(gl));
+                    std::snprintf(cur, sizeof(cur), "-> %s", gl);
                 }
                 if (ImGui::BeginCombo("route##trk", cur)) {
                     if (ImGui::Selectable("Master", tr.output() < 0)) tr.setOutput(-1);
                     for (int gg = 0; gg < gc; ++gg) {
-                        char gl[24];
-                        std::snprintf(gl, sizeof(gl), "Group %d", gg + 1);
+                        char gl[64];
+                        groupLabel(gg, gl, sizeof(gl));
                         if (ImGui::Selectable(gl, tr.output() == gg)) tr.setOutput(gg);
                     }
                     ImGui::EndCombo();
@@ -3213,7 +3224,17 @@ void buildMixerUI(audio::AudioEngine& engine) {
         for (int gg = 0; gg < mx.groupCount(); ++gg) {
             audio::MixerTrack& gt = mx.group(gg);
             ImGui::PushID(2000 + gg);
-            ImGui::Text("Group %d", gg + 1);
+            // Editable name (placeholder shows "Group N" when empty).
+            {
+                char gname[64];
+                std::snprintf(gname, sizeof(gname), "%s", gt.name().c_str());
+                char ghint[24];
+                std::snprintf(ghint, sizeof(ghint), "Group %d", gg + 1);
+                ImGui::SetNextItemWidth(110.0f);
+                if (ImGui::InputTextWithHint("##grpname", ghint, gname, sizeof(gname))) {
+                    gt.setName(gname);
+                }
+            }
             ImGui::SameLine();
             float ggGain = gt.gain();
             ImGui::SetNextItemWidth(100.0f);
@@ -3235,17 +3256,19 @@ void buildMixerUI(audio::AudioEngine& engine) {
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);
             {
-                char gcur[24];
+                char gcur[72];
                 if (gt.output() > gg && gt.output() < mx.groupCount()) {
-                    std::snprintf(gcur, sizeof(gcur), "-> Group %d", gt.output() + 1);
+                    char gl[64];
+                    groupLabel(gt.output(), gl, sizeof(gl));
+                    std::snprintf(gcur, sizeof(gcur), "-> %s", gl);
                 } else {
                     std::snprintf(gcur, sizeof(gcur), "-> Master");
                 }
                 if (ImGui::BeginCombo("route##grp", gcur)) {
                     if (ImGui::Selectable("Master", gt.output() < 0)) gt.setOutput(-1);
                     for (int tgt = gg + 1; tgt < mx.groupCount(); ++tgt) {
-                        char gl[24];
-                        std::snprintf(gl, sizeof(gl), "Group %d", tgt + 1);
+                        char gl[64];
+                        groupLabel(tgt, gl, sizeof(gl));
                         if (ImGui::Selectable(gl, gt.output() == tgt)) gt.setOutput(tgt);
                     }
                     ImGui::EndCombo();

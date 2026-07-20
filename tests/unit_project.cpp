@@ -518,6 +518,7 @@ int main() {
     mixer.group(grpIdx).eq().setEnabled(true);
     mixer.group(grpIdx).eq().setLowGain(3.0f);
     mixer.track(audio::MixerBus::Bass).setOutput(grpIdx);
+    mixer.group(grpIdx).setName("Drum bus"); // named group (with a space) — group 1 stays unnamed
     const int grp2 = mixer.addGroup();      // a second group…
     mixer.group(grpIdx).setOutput(grp2);    // …that group 0 is nested into (group 0 -> group 1)
 
@@ -948,8 +949,9 @@ int main() {
               mixer2.group(0).eq().enabled() && near(mixer2.group(0).eq().lowGain(), 3.0f) &&
               mixer2.track(audio::MixerBus::Bass).output() == 0 &&
               mixer2.track(audio::MixerBus::Drums).output() == -1 &&
-              mixer2.group(0).output() == 1 && mixer2.group(1).output() == -1,
-          "mixer submix groups + per-bus and nested group routing round-trip");
+              mixer2.group(0).output() == 1 && mixer2.group(1).output() == -1 &&
+              mixer2.group(0).name() == "Drum bus" && mixer2.group(1).name().empty(),
+          "mixer submix groups + per-bus and nested group routing + name round-trip");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
     check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f) &&
