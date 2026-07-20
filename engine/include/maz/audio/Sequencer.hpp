@@ -39,7 +39,8 @@ struct PlaylistClip {
     int track = 0;    // arrangement-track row this clip sits on
 };
 
-class ClapHost; // hosted CLAP instrument on the lead lane (defined in ClapHost.hpp)
+class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete
+                        // host is chosen by the plugin file's extension in loadLeadPlugin/loadInstrumentPlugin
 
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
 // (play/stop + BPM), and a set of built-in drum voices — one per channel. When playing, it walks
@@ -492,11 +493,11 @@ private:
     SynthInstrument synth_{};  // lead instrument playing roll
     SynthInstrument synth2_{}; // bass instrument playing roll2
     Sampler sampler_{};        // alternative lead instrument (sample playback)
-    std::unique_ptr<ClapHost> leadPlugin_; // optional hosted CLAP instrument on the lead lane
+    std::unique_ptr<InstrumentPlugin> leadPlugin_; // optional hosted CLAP/VST3 instrument on the lead lane
     std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
-    std::vector<std::unique_ptr<ClapHost>> extraPlugins_; // optional hosted CLAP instrument per channel
+    std::vector<std::unique_ptr<InstrumentPlugin>> extraPlugins_; // optional hosted CLAP/VST3 instrument per channel
     std::vector<std::string> extraPluginPath_;            // its path (for persistence), parallel
     std::vector<float> extraGain_;             // per-extra-channel gain (parallel to extraSynths_)
     std::vector<float> extraPan_;              // per-extra-channel pan (-1..1)

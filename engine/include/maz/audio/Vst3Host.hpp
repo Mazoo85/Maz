@@ -1,6 +1,6 @@
 #pragma once
 
-#include "maz/audio/Effect.hpp"
+#include "maz/audio/InstrumentPlugin.hpp"
 
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@ namespace maz::audio {
 // engine/third_party/vst3) — not Steinberg's GPL `public.sdk` — so it carries no GPL obligation.
 // It is a focused host: one stereo in / stereo out, no parameter/GUI/event plumbing yet. The VST3
 // COM types are kept out of this header (opaque pointers) so it stays clean.
-class Vst3Host : public Effect {
+class Vst3Host : public InstrumentPlugin {
 public:
     Vst3Host() = default;
     ~Vst3Host() override;
@@ -26,7 +26,7 @@ public:
     bool load(const std::string& path, int sampleRate, int maxBlock = 4096,
               std::string* err = nullptr);
     void unload();
-    bool loaded() const { return processor_ != nullptr; }
+    bool loaded() const override { return processor_ != nullptr; }
     const std::string& pluginName() const { return name_; }
 
     // True if the plugin declares at least one event (MIDI/note) input bus — the routing signal that
@@ -38,10 +38,10 @@ public:
     // the plugin as a VST3 IEventList at the top of that block; the plugin's synthesised audio then
     // replaces the buffer passed to process() (an instrument ignores audio input). Velocity is 0..1.
     // Mirrors ClapHost::noteOn/noteOff/allNotesOff.
-    void noteOn(int key, float velocity);
-    void noteOff(int key);
+    void noteOn(int key, float velocity) override;
+    void noteOff(int key) override;
     // Release every currently-held note (panic / all-notes-off) so a hosted instrument doesn't hang.
-    void allNotesOff();
+    void allNotesOff() override;
 
     const char* name() const override { return name_.empty() ? "VST3" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;

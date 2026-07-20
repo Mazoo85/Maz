@@ -739,8 +739,8 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         const char* busItems[] = {"Drums bus", "Lead bus", "Bass bus"};
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::Combo("route##inst", &ib, busItems, 3)) seq.setInstrumentBus(ic, ib);
-        // Host a CLAP instrument on this channel (layered with its built-in synth; mute that for
-        // plugin-only via the gain above).
+        // Host a plugin instrument on this channel (layered with its built-in synth; mute that for
+        // plugin-only via the gain above). The format is chosen by extension (.vst3 → VST3, else CLAP).
         static char instClap[256] = "";
         ImGui::SetNextItemWidth(220.0f);
         ImGui::InputText("##instclap", instClap, sizeof(instClap));
@@ -753,7 +753,7 @@ void buildPianoRollUI(audio::Sequencer& seq) {
             seq.clearInstrumentPlugin(ic);
         }
         ImGui::SameLine();
-        ImGui::TextDisabled(seq.instrumentPluginLoaded(ic) ? "CLAP loaded" : "(no CLAP)");
+        ImGui::TextDisabled(seq.instrumentPluginLoaded(ic) ? "plugin loaded" : "(no plugin)");
     }
     ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 
@@ -1130,8 +1130,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     }
     ImGui::Separator();
 
-    // Hosted CLAP instrument on the lead lane: load a .clap synth to layer with (or replace, by muting
-    // the built-in) the lead. Path is typed in; Load hosts it, Clear removes it.
+    // Hosted plugin instrument on the lead lane: load a .clap or .vst3 synth to layer with (or replace,
+    // by muting the built-in) the lead. The host format is chosen by the path extension (.vst3 → VST3,
+    // otherwise CLAP). Path is typed in; Load hosts it, Clear removes it.
     static char clapPath[256] = "";
     ImGui::SetNextItemWidth(260.0f);
     ImGui::InputText("##leadclap", clapPath, sizeof(clapPath));
@@ -1148,7 +1149,8 @@ void buildSynthUI(audio::Sequencer& seq) {
         seq.clearLeadPlugin();
     }
     ImGui::SameLine();
-    ImGui::TextDisabled(seq.leadPluginLoaded() ? "CLAP instrument loaded" : "(no CLAP instrument)");
+    ImGui::TextDisabled(seq.leadPluginLoaded() ? "instrument loaded (CLAP/VST3)"
+                                               : "(no plugin instrument)");
     ImGui::Separator();
 
     // Arpeggiator (drives the piano roll).

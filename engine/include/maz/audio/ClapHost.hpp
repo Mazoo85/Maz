@@ -1,6 +1,6 @@
 #pragma once
 
-#include "maz/audio/Effect.hpp"
+#include "maz/audio/InstrumentPlugin.hpp"
 
 #include <string>
 #include <vector>
@@ -14,7 +14,7 @@ namespace maz::audio {
 //
 // This is a focused host: one stereo audio-in / stereo audio-out plugin, no parameter/GUI/event
 // plumbing yet. The CLAP structs are kept out of this header (opaque pointers) so it stays clean.
-class ClapHost : public Effect {
+class ClapHost : public InstrumentPlugin {
 public:
     ClapHost() = default;
     ~ClapHost() override;
@@ -24,7 +24,7 @@ public:
     bool load(const std::string& path, int sampleRate, int maxBlock = 4096,
               std::string* err = nullptr);
     void unload();
-    bool loaded() const { return plugin_ != nullptr; }
+    bool loaded() const override { return plugin_ != nullptr; }
     const std::string& pluginName() const { return name_; }
     // True if the loaded plugin exposes at least one INPUT note port — i.e. it is an instrument
     // (driven by note events) rather than a pure audio effect. Used to route it as a channel synth.
@@ -33,11 +33,11 @@ public:
     // Instrument hosting: queue note-on/off events for the next process() call. They are delivered to
     // the plugin at the top of that block via the CLAP event input; the plugin's audio output then
     // replaces the buffer passed to process() (an instrument ignores audio input). Velocity is 0..1.
-    void noteOn(int key, float velocity);
-    void noteOff(int key);
+    void noteOn(int key, float velocity) override;
+    void noteOff(int key) override;
     // Release every currently-held note (panic / all-notes-off) — queues a note-off for each key that
     // was turned on and not yet turned off, so a hosted instrument doesn't hang on stop/pattern change.
-    void allNotesOff();
+    void allNotesOff() override;
 
     const char* name() const override { return name_.empty() ? "CLAP" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;

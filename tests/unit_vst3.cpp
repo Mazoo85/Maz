@@ -1,6 +1,10 @@
 // Unit test for VST3 plugin hosting — load a real .vst3 module (built from plugins/example_vst3),
 // instantiate it through the Vst3Host, and confirm it processes / modulates audio. No audio device.
 
+#include "maz/audio/Automation.hpp"
+#include "maz/audio/Mixer.hpp"
+#include "maz/audio/ProjectIO.hpp"
+#include "maz/audio/Sequencer.hpp"
 #include "maz/audio/Vst3Host.hpp"
 
 #include <algorithm>
@@ -121,6 +125,38 @@ int main() {
         inst.unload();
     } else {
         std::printf("  instrument load error: %s\n", err.c_str());
+    }
+
+    // Route a hosted VST3 instrument onto a sequencer channel: the lead lane drives the plugin and its
+    // audio shows up in the lead stem. Mute the built-in lead synth so the energy is the plugin's. The
+    // Sequencer picks the VST3 host from the ".vst3" path extension (CLAP for anything else).
+    {
+        audio::Sequencer seq;
+        seq.synth().setGain(0.0f); // built-in lead silent → lead stem energy is the plugin's alone
+        seq.roll().addNote(audio::Note{0, 4, 69, 1.0f});
+        const bool lok = seq.loadLeadPlugin(MAZ_TEST_VST3_INSTRUMENT, sr);
+        check(lok && seq.leadPluginLoaded(), "sequencer loads a VST3 instrument on the lead lane");
+        seq.play();
+        const int fr = sr / 4;
+        std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+        seq.renderStems(d.data(), l.data(), b.data(), fr, sr);
+        double le = 0.0;
+        for (float v : l) {
+            le += static_cast<double>(v) * static_cast<double>(v);
+        }
+        check(le > 0.0, "the hosted VST3 lead instrument is audible in the lead stem (built-in muted)");
+
+        // The lead plugin's path round-trips through the project (reloaded on load, VST3 host again).
+        audio::Mixer mx;
+        audio::Automation autom;
+        const std::string proj = audio::saveProjectToString(seq, mx, autom);
+        audio::Sequencer seq2;
+        audio::Mixer mx2;
+        audio::Automation autom2;
+        audio::loadProjectFromString(proj, seq2, mx2, autom2);
+        check(seq2.leadPluginLoaded(), "the VST3 lead plugin path round-trips through the project");
     }
 #endif
 

@@ -1,6 +1,7 @@
 #include "maz/audio/Sequencer.hpp"
 
 #include "maz/audio/ClapHost.hpp"
+#include "maz/audio/Vst3Host.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,6 +9,31 @@
 namespace maz::audio {
 
 namespace {
+// Instantiate the right instrument host for a plugin path: `.vst3` → Vst3Host, otherwise ClapHost.
+// Returns a loaded, enabled host, or nullptr if the module failed to load.
+std::unique_ptr<InstrumentPlugin> makeInstrumentHost(const std::string& path, int sampleRate) {
+    const int sr = sampleRate > 0 ? sampleRate : 48000;
+    const bool isVst3 = path.size() >= 5 && path.compare(path.size() - 5, 5, ".vst3") == 0;
+    std::unique_ptr<InstrumentPlugin> host;
+    if (isVst3) {
+        host = std::make_unique<Vst3Host>();
+    } else {
+        host = std::make_unique<ClapHost>();
+    }
+    std::string err;
+    bool ok = false;
+    if (isVst3) {
+        ok = static_cast<Vst3Host*>(host.get())->load(path, sr, 4096, &err);
+    } else {
+        ok = static_cast<ClapHost*>(host.get())->load(path, sr, 4096, &err);
+    }
+    if (!ok) {
+        return nullptr;
+    }
+    host->setEnabled(true);
+    return host;
+}
+
 struct ChannelDef {
     const char* name;
     Drum drum;
@@ -52,12 +78,10 @@ Sequencer::Sequencer() {
 Sequencer::~Sequencer() = default; // ClapHost is complete here, so unique_ptr can destroy it
 
 bool Sequencer::loadLeadPlugin(const std::string& path, int sampleRate) {
-    auto host = std::make_unique<ClapHost>();
-    std::string err;
-    if (!host->load(path, sampleRate > 0 ? sampleRate : 48000, 4096, &err)) {
+    auto host = makeInstrumentHost(path, sampleRate);
+    if (!host) {
         return false;
     }
-    host->setEnabled(true);
     leadPlugin_ = std::move(host);
     leadPluginPath_ = path;
     return true;
@@ -348,12 +372,10 @@ bool Sequencer::loadInstrumentPlugin(int c, const std::string& path, int sampleR
     if (c < 0 || c >= instrumentChannelCount()) {
         return false;
     }
-    auto host = std::make_unique<ClapHost>();
-    std::string err;
-    if (!host->load(path, sampleRate > 0 ? sampleRate : 48000, 4096, &err)) {
+    auto host = makeInstrumentHost(path, sampleRate);
+    if (!host) {
         return false;
     }
-    host->setEnabled(true);
     extraPlugins_[static_cast<size_t>(c)] = std::move(host);
     extraPluginPath_[static_cast<size_t>(c)] = path;
     return true;
@@ -1036,7 +1058,7 @@ void Sequencer::triggerStep(int step) {
     Pattern& cur = patterns_[static_cast<size_t>(current_)];
     for (size_t c = 0; c < extraSynths_.size() && c < cur.extraRolls.size(); ++c) {
         SynthInstrument& es = extraSynths_[c];
-        ClapHost* plug = extraPlugins_[c].get();
+        InstrumentPlugin* plug = extraPlugins_[c].get();
         const PianoRoll& er = cur.extraRolls[c];
         for (const Note& n : er.notes()) {
             if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
@@ -1148,7 +1170,7 @@ void Sequencer::releaseAllNotes() {
     for (SynthInstrument& es : extraSynths_) {
         es.allNotesOff();
     }
-    for (std::unique_ptr<ClapHost>& p : extraPlugins_) {
+    for (std::unique_ptr<InstrumentPlugin>& p : extraPlugins_) {
         if (p) {
             p->allNotesOff();
         }
