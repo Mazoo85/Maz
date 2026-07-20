@@ -167,6 +167,19 @@ itself, so it is written here and run on your machine. [CODE HERE / SEE IT ON YO
   `net_reliable`: 50/50 in order). [VERIFIABLE HERE — DONE]. Remaining: secure (DTLS) transport,
   WebSocket/WebRTC for browsers, and a true cross-machine soak on the owner's two machines (manual).
 
+### §7 Community & release scaffolding
+- [x] **Contribution + release scaffolding** — DONE (M516, the completable-here part). `CONTRIBUTING.md`
+  (build/test/style/PR flow), `CODE_OF_CONDUCT.md` (Contributor Covenant), GitHub issue templates
+  (`.github/ISSUE_TEMPLATE/bug_report.yml`, `feature_request.yml`) + `PULL_REQUEST_TEMPLATE.md`, and an
+  automated **release pipeline** (`.github/workflows/release.yml`: on a `v*` tag it builds with
+  warnings-as-errors, runs the full ctest suite, packages the sample games via `tools/package.sh`, and
+  attaches the bundles to a GitHub Release). Plus [RELEASING.md](RELEASING.md) with the itch.io/Steam
+  upload steps. All YAML parser-validated. [VERIFIABLE HERE]
+- [ ] **Shipped to real players + an active community + mileage over time** — the honest human step. The
+  scaffolding above lowers the barrier, but real players, third-party plugins, and reports from strangers
+  require actual people choosing to show up, and trust accumulates only by shipping games over time. This
+  can never be marked done from a sandbox. [NEEDS REAL PEOPLE + TIME]
+
 ## How the loop uses this
 
 Each iteration: pick the next unchecked **[VERIFIABLE HERE]** item first (highest confidence, real
