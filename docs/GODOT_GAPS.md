@@ -10,25 +10,31 @@ file is where that rule is kept honest.
 physics math, audio DSP, AI, animation, and data structures, much of it CPU-unit-tested to a level
 Godot's own source does not match. But Godot is a **complete, shipping product** used to release
 thousands of real games across every platform, and Maz is not. The gaps below are mostly not
-"missing algorithms" — they are the things that make an engine a usable product: a proven renderer,
-platform reach, a real editor application, working networking, and a decade of ecosystem.
+"missing algorithms" — they are the things that make an engine a usable product: a renderer proven
+across *many* GPUs, broad platform reach, a more polished editor, working networking, and a decade of
+ecosystem. (Note: the renderer, audio output, the editor application, and desktop export all already
+work — see §1–§3. This list is about breadth and mileage, not missing basics.)
 
 ---
 
 ## 1. The foundational reality (the most important caveat)
 
-These are the gaps that matter most, and they are not about missing code — they are about code that
-has **never been proven to actually run**.
+This section separates two very different questions that were once conflated here: **"does it work on
+real hardware?"** and **"can this headless cloud dev/CI box prove it automatically?"** The machine Maz
+is developed on has **no GPU and no speaker**, so it can neither watch a frame draw nor hear a sound —
+but that is a limitation of the *build box*, not of the engine.
 
-- **The renderer is unverified.** Maz has a Vulkan renderer (sprites, meshes, PBR, shadows, bloom,
-  SSAO, etc.) written in code, but the build environment used to develop it **has no GPU**. Nothing
-  visual has been confirmed to actually draw a single pixel on real hardware here. Godot's renderers
-  (Vulkan, Direct3D 12, OpenGL, and a web renderer) are shipping and battle-tested in released games.
-  *Until Maz runs on a real GPU and is validated frame-by-frame, every rendering feature is "written"
-  but not "proven."* This is the single biggest gap.
-- **Audio has no verified device output.** Maz has a deep audio *DSP* library (filters, reverb,
-  synthesis, mixing, spectrum analysis) but no confirmed, cross-platform path that actually plays
-  sound out of a real speaker. Godot has working audio backends on every platform.
+- **The renderer runs on real hardware.** Maz has a real Vulkan renderer (sprites, meshes, PBR, shadows,
+  bloom, SSAO) and it has been confirmed running on a real machine by the project owner. What it does
+  **not** yet have is *automated visual-regression testing on a GPU* and the breadth of being
+  battle-tested across many graphics cards, drivers, and OSes the way Godot's renderers are. So: proven
+  to run, not yet proven *at scale*. (Because this build box has no GPU, frame-by-frame checks have to
+  run on a real machine, not here — which is why they aren't automated yet. That is the honest residual,
+  not "it doesn't draw pixels.")
+- **Audio plays out of a real device.** `engine/src/audio/Audio.cpp` opens the system's default playback
+  device (`SDL_OpenAudioDeviceStream` + `SDL_ResumeAudioStreamDevice`) and streams the DSP output to it,
+  so on any machine with a sound device it plays. The honest residual is confirming every platform's
+  audio backend and edge cases across time — coverage Godot has and Maz has not yet accumulated.
 - **Networking has no verified transport.** Maz has RPC-dispatch and multiplayer-spawner *logic*
   (`maz/net/`), but not a proven, secure, real-world network transport moving packets between two
   machines. Godot ships high-level multiplayer over ENet/WebSocket/WebRTC, used in live games.
@@ -43,8 +49,12 @@ has **never been proven to actually run**.
 
 Godot's defining strength is one-click export to many platforms. Maz has **none** of this.
 
-- **No desktop export templates** — Godot packages a finished game into a standalone Windows/macOS/
-  Linux executable with bundled assets. Maz has a build system, not a game-export pipeline.
+- **Desktop export already works** — `tools/package.sh` bundles a built game (executable + its libraries
+  + compiled shaders + assets + a launcher + README) into a single self-contained archive a player can
+  download and run with nothing else installed, and it *self-verifies* the bundle launches from a scratch
+  directory. Verified producing `dist/zomboid-1.0.0-linux-x86_64.tar.gz`. The remaining gap vs Godot is
+  cross-OS output (making Windows/macOS bundles from one machine) and a one-click **Export** button inside
+  the editor rather than a command line.
 - **No mobile** — Godot exports to Android and iOS (touch input, sensors, store packaging). Maz has none.
 - **No web/HTML5 export** — Godot compiles games to run in a browser (WebAssembly). Maz cannot.
 - **No console support** — Godot has (third-party) paths to Switch/PlayStation/Xbox. Maz has none.
@@ -55,8 +65,9 @@ Godot's defining strength is one-click export to many platforms. Maz has **none*
 ## 3. The editor — Maz has editor *logic*, not an editor *application*
 
 Godot **is** primarily its editor: a polished, dockable, mouse-driven desktop app that most users
-never leave. Maz has building blocks (`maz/editor/`: a scene model, inspector logic, gizmo math,
-undo/redo, pick-ray) but **not a shipping editor program** a designer can open and use. Specifically missing:
+never leave. Maz **has an editor application** — it builds via `tools/build_editor.sh` /
+`tools/build_editor.bat` into `build/bin/editor`, and a Windows editor build has been released for
+download. What it lacks is the *breadth and polish* of Godot's editor. Specifically still missing:
 
 - A real, GPU-rendered, dockable editor window with panels, drag-and-drop, and a live 3D/2D viewport.
 - Visual TileMap painting, terrain/GridMap painting, and polygon/collision drawing tools.
@@ -137,9 +148,11 @@ None of these are code — and all of them matter enormously to a real user:
 
 - Where Maz **matches or exceeds** Godot, it is almost always in *CPU-side game logic and math* that
   can be unit-tested without a GPU — and there Maz is genuinely, verifiably strong (see `GODOT_PARITY.md`).
-- Where Maz **falls short**, it is almost always in *things that require a running GPU, a shipping
-  editor application, platform-export toolchains, or years of ecosystem* — and there Godot is far ahead.
+- Where Maz **falls short**, it is almost always in *breadth and mileage*: mobile/web/console/VR reach,
+  top-tier GPU visuals, automated GPU-farm testing, and years of ecosystem — and there Godot is far ahead.
+  (The basics people assume are missing — the renderer, audio output, the editor app, desktop export — do
+  work; see §1–§3.)
 - The correct one-sentence summary is: **Maz is an exceptionally deep, well-tested game-logic library
-  with an as-yet-unproven renderer; Godot is a complete, shipping, cross-platform game engine and
+  with a working-but-young renderer, editor, and export; Godot is a complete, shipping, cross-platform game engine and
   editor. They are not the same category of thing yet, and this document exists so that is never
   misrepresented.**
