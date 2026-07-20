@@ -1182,6 +1182,19 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **gzip (.gz) container decode** (M516, `io::gunzip` — the gzip framing that wraps countless shipped and
+  downloaded assets and that Godot reads through FileAccess's gzip compression mode. Maz already had raw-DEFLATE
+  and zlib inflate (M499) but not the gzip layer, so a `.gz` blob couldn't be opened. `gunzip` parses the
+  10-byte gzip header (magic 1f 8b, method deflate) plus the optional FEXTRA / FNAME / FCOMMENT / FHCRC fields,
+  runs the embedded DEFLATE stream through the existing `io::inflateRaw`, then VERIFIES the output against the
+  trailing CRC-32 (via the existing `core::crc32`) and ISIZE footer — a corrupted or truncated stream is
+  reported, not silently returned as garbage. Composes with the M499 inflate and M-earlier CRC without
+  duplicating either. Pure CPU. Honest scope: single-member streams (the common case; a multi-member archive
+  decodes only its first member), decompress only (no gzip *compression* — Maz has no deflate encoder yet).
+  Verified against blobs from Python's reference `gzip` module: a back-reference-heavy message and a 300-byte
+  run both round-trip exactly; a stream carrying a stored FILENAME decodes correctly (proving the optional
+  header-field skipping lands on the DEFLATE data); and bad magic, a too-short buffer, and a corrupted CRC-32
+  footer are each rejected),
   **BC1/DXT1 texture encoder** (M515, `render::encodeBc1Block` / `encodeDdsBc1` / `saveDdsBc1` — the inverse
   of the M511 DDS decoder, and the CPU texture-compression step Godot's editor runs on import: an RGBA image
   becomes a block-compressed `.dds` that lives in a sixth of the VRAM. Each 4×4 block picks its two 565

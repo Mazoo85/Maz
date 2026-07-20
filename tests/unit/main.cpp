@@ -246,6 +246,7 @@
 #include "maz/io/ImportFile.hpp"
 #include "maz/io/GettextPo.hpp"
 #include "maz/io/Hdr.hpp"
+#include "maz/io/Gzip.hpp"
 #include "maz/io/Inflate.hpp"
 #include "maz/io/Json.hpp"
 #include "maz/io/Localization.hpp"
@@ -21099,6 +21100,47 @@ void testPngDecode() {
     }
 }
 
+void testGzip() {
+    using maz::io::gunzip;
+    auto hx = [](const char* h) {
+        std::vector<std::uint8_t> v;
+        auto nib = [](char c) -> int {
+            return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : 0;
+        };
+        for (std::size_t i = 0; h[i] && h[i + 1]; i += 2)
+            v.push_back(static_cast<std::uint8_t>((nib(h[i]) << 4) | nib(h[i + 1])));
+        return v;
+    };
+    auto str = [](const std::vector<std::uint8_t>& v) {
+        return std::string(reinterpret_cast<const char*>(v.data()), v.size());
+    };
+    std::vector<std::uint8_t> out;
+
+    // Reference gzip from python gzip.compress (back-references).
+    CHECK(gunzip(hx("1f8b0800000000000203cb48cdc9c9d751c840a1caf38b7252140183891f6e1b000000"), out));
+    CHECK(str(out) == "hello, hello, hello, world!");
+
+    // Long run (300x 'A').
+    CHECK(gunzip(hx("1f8b080000000000020373741c05c402002333a0bb2c010000"), out));
+    CHECK(out.size() == 300);
+    { bool allA = true; for (std::uint8_t c : out) if (c != 'A') allA = false; CHECK(allA); }
+
+    // gzip WITH a stored filename (FNAME flag) — header-field skipping must land on the DEFLATE stream.
+    CHECK(gunzip(hx("1f8b08080000000002ff666f6f2e74787400cb4bcc4d4d512848acccc94f4c51c8482d4a0500cc2de9e912000000"), out));
+    CHECK(str(out) == "named payload here");
+
+    // Malformed / corruption rejection.
+    CHECK(!gunzip(hx("0000080000000000020300"), out));   // bad magic
+    CHECK(!gunzip(hx("1f8b08"), out));                    // too short
+    CHECK(!gunzip(std::vector<std::uint8_t>{}, out));
+    {
+        auto bad = hx("1f8b0800000000000203cb48cdc9c9d751c840a1caf38b7252140183891f6e1b000000");
+        bad[bad.size() - 8] ^= 0xff; // corrupt stored CRC-32 -> must reject even though inflate succeeds
+        std::vector<std::uint8_t> o2;
+        CHECK(!gunzip(bad, o2));
+    }
+}
+
 void testInflate() {
     using io::inflateRaw;
     using io::zlibInflate;
@@ -33219,6 +33261,7 @@ int main() {
     testDdsEncode();
     testDdsDecode();
     testPngDecode();
+    testGzip();
     testInflate();
     testStlLoader();
     testPlyLoader();
