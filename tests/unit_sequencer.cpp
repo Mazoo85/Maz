@@ -2092,6 +2092,18 @@ int main() {
               "advancing to a different pattern releases held notes (no hung/droning note)");
     }
 
+    // --- releaseAllNotes: panic / all-notes-off ------------------------------
+    {
+        audio::Sequencer s;
+        s.synth().noteOn(60, 1.0f);
+        s.synth2().noteOn(48, 1.0f);
+        check(s.synth().active() && s.synth2().active(), "voices are active after noteOn");
+        s.releaseAllNotes();
+        (void)renderMono(s, sampleRate, sampleRate); // 1 s >> the release tail
+        check(!s.synth().active() && !s.synth2().active(),
+              "releaseAllNotes releases every held voice (they decay to inactive)");
+    }
+
     // --- Groove templates: stamp a per-step micro-timing feel --------------------
     {
         audio::Sequencer s;

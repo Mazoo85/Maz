@@ -46,6 +46,11 @@ public:
     // --- Transport -----------------------------------------------------------
     void play();  // start from step 0 and strike step 0 immediately
     void stop();  // freeze the transport (ringing voices still decay)
+
+    // Release every held melodic voice (lead synth, bass synth, sampler) at once — a "panic" /
+    // all-notes-off for stuck notes, and the clean way to switch patterns live without leaving the
+    // outgoing pattern's notes ringing. Voices enter their release stage (they still fade out).
+    void releaseAllNotes();
     bool playing() const { return playing_; }
 
     void setBpm(double bpm) { bpm_ = bpm > 1.0 ? bpm : 1.0; }

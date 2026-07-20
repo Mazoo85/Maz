@@ -435,6 +435,10 @@ void buildRackUI(audio::Sequencer& seq) {
         }
     }
     ImGui::SameLine();
+    if (ImGui::Button("Panic")) { // all-notes-off for stuck notes
+        seq.releaseAllNotes();
+    }
+    ImGui::SameLine();
     float bpm = static_cast<float>(seq.bpm());
     ImGui::SetNextItemWidth(160.0f);
     if (ImGui::SliderFloat("BPM", &bpm, 40.0f, 240.0f, "%.0f")) {
@@ -3023,6 +3027,9 @@ void buildArrangementUI(audio::Sequencer& seq) {
         char label[16];
         std::snprintf(label, sizeof(label), "P%d", i + 1);
         if (ImGui::RadioButton(label, seq.currentPattern() == i)) {
+            if (seq.playing() && i != seq.currentPattern()) {
+                seq.releaseAllNotes(); // avoid the outgoing pattern's notes hanging on a live switch
+            }
             seq.selectPattern(i);
         }
     }

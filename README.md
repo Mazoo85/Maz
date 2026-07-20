@@ -61,7 +61,7 @@ the project, and bounce to WAV.
   open [CLAP](https://cleveraudio.org) format (`ClapHost`, see `plugins/example_clap`), **and
   [VST3](https://steinbergmedia.github.io/vst3_doc/)** (`Vst3Host`, see `plugins/example_vst3`) —
   hosted against Steinberg's **MIT-licensed** `pluginterfaces` headers only (no GPL `public.sdk`).
-- **GUI** — a Dear ImGui interface (channel rack, piano roll, synth, bass, mixer with a **master peak/RMS level meter**, automation,
+- **GUI** — a Dear ImGui interface (channel rack with a **Panic** all-notes-off button, piano roll, synth, bass, mixer with a **master peak/RMS level meter**, automation,
   arrangement, transport) rendered via Vulkan; a CI test drives it under software Vulkan.
 
 See the **CJC Music Station track** in [`docs/ROADMAP.md`](docs/ROADMAP.md). All three plugin formats

@@ -920,6 +920,10 @@ void Sequencer::play() {
 void Sequencer::stop() {
     playing_ = false;
     arpGateFramesLeft_ = -1;
+    releaseAllNotes();
+}
+
+void Sequencer::releaseAllNotes() {
     synth_.allNotesOff(); // let held notes release rather than hang
     synth2_.allNotesOff();
     sampler_.allNotesOff();
