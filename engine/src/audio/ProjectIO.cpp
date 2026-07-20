@@ -289,6 +289,54 @@ void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
 //   fx delay <enabled> <timeMs> <feedback> <mix>
 //   fx reverb <enabled> <roomSize> <damping> <mix>
 
+// Serialize one synth engine (its main parameter line + oscillator line) to a stream. Shared by the
+// whole-project saver and the standalone instrument-preset saver so both formats stay identical and a
+// preset round-trips through the exact same parser (parseSynthLine/parseOscLine).
+static void writeSynthBlock(std::ostream& f, const char* tag, const char* oscTag,
+                            const SynthInstrument& s) {
+    f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
+      << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
+      << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
+      << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
+      << s.wavetableMorph() << " " << s.glide() << " " << static_cast<int>(s.wavetableFrame(0))
+      << " " << static_cast<int>(s.wavetableFrame(1)) << " "
+      << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
+      << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
+      << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
+      << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
+      << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
+      << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << " "
+      << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
+      << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
+      << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
+      << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
+      << s.velToFmIndex() << " " << s.vibratoDelay() << " " << s.velToWavePosition() << " "
+      << (s.glideLegato() ? 1 : 0) << " " << s.pwmLfoRate() << " " << s.pwmLfoDepth() << " "
+      << (s.filterLfoSync() ? 1 : 0) << " " << s.filterLfoSyncDivision() << " "
+      << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << " "
+      << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
+      << static_cast<int>(s.filterLfoShape()) << " " << static_cast<int>(s.ampLfoShape()) << " "
+      << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << " "
+      << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
+      << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << " "
+      << (s.ampLfoSampleHold() ? 1 : 0) << " " << (s.vibratoSampleHold() ? 1 : 0) << " "
+      << s.velToAttack() << " " << static_cast<int>(s.fmModWaveform()) << "\n";
+    f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
+      << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
+      << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
+      << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << " "
+      << s.osc2Semitones() << " " << s.subOctave() << " " << s.osc3Level() << " "
+      << s.osc3Semitones() << " " << (s.osc2WaveformLinked() ? 1 : 0) << " "
+      << static_cast<int>(s.osc2Waveform()) << " " << (s.osc3WaveformLinked() ? 1 : 0) << " "
+      << static_cast<int>(s.osc3Waveform()) << " " << s.osc3FineTune() << " "
+      << s.pluckDamping() << " " << s.pluckPosition();
+    for (int b = 0; b < SynthInstrument::kOrganBars; ++b) {
+        f << " " << s.organBar(b);
+    }
+    f << " " << s.organPercussion() << " " << (s.organPercThird() ? 1 : 0);
+    f << "\n";
+}
+
 // Serialize the whole project to any output stream (shared by the file and string savers).
 static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automation& automation) {
     f << "cjc 1\n";
@@ -307,51 +355,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     f << "busgain " << seq.drumGain() << " " << seq.synthGain() << " " << seq.bassGain() << " "
       << seq.leadPan() << " " << seq.bassPan() << " " << seq.transpose() << "\n";
 
-    auto writeSynth = [&](const char* tag, const char* oscTag, const SynthInstrument& s) {
-        f << tag << " " << static_cast<int>(s.mode()) << " " << static_cast<int>(s.waveform()) << " "
-          << s.attack() << " " << s.decay() << " " << s.sustain() << " " << s.release() << " "
-          << s.fmRatio() << " " << s.fmIndex() << " " << s.gain() << " " << s.filterCutoff() << " "
-          << s.filterResonance() << " " << s.filterEnvAmount() << " " << s.wavetablePosition() << " "
-          << s.wavetableMorph() << " " << s.glide() << " " << static_cast<int>(s.wavetableFrame(0))
-          << " " << static_cast<int>(s.wavetableFrame(1)) << " "
-          << static_cast<int>(s.wavetableFrame(2)) << " " << static_cast<int>(s.wavetableFrame(3))
-          << " " << s.vibratoRate() << " " << s.vibratoDepth() << " " << s.pitchEnvAmount() << " "
-          << s.pitchEnvTime() << " " << s.velToCutoff() << " " << s.fmFeedback() << " "
-          << s.ringMod() << " " << s.wavetableLfoRate() << " " << s.wavetableLfoDepth() << " "
-          << s.velSensitivity() << " " << s.filterKeyTrack() << " " << s.octave() << " "
-          << (s.mono() ? 1 : 0) << " " << s.filterLfoRate() << " " << s.filterLfoDepth() << " "
-          << s.ampLfoRate() << " " << s.ampLfoDepth() << " " << s.drift() << " "
-          << static_cast<int>(s.filterMode()) << " " << s.filterEnvAttack() << " "
-          << s.filterEnvDecay() << " " << s.filterEnvSustain() << " " << s.filterEnvRelease() << " "
-          << s.filterEnvDepth() << " " << s.filterDrive() << " " << s.startPhaseRandom() << " "
-          << s.velToFmIndex() << " " << s.vibratoDelay() << " " << s.velToWavePosition() << " "
-          << (s.glideLegato() ? 1 : 0) << " " << s.pwmLfoRate() << " " << s.pwmLfoDepth() << " "
-          << (s.filterLfoSync() ? 1 : 0) << " " << s.filterLfoSyncDivision() << " "
-          << (s.ampLfoSync() ? 1 : 0) << " " << s.ampLfoSyncDivision() << " "
-          << (s.vibratoSync() ? 1 : 0) << " " << s.vibratoSyncDivision() << " "
-          << static_cast<int>(s.filterLfoShape()) << " " << static_cast<int>(s.ampLfoShape()) << " "
-          << static_cast<int>(s.vibratoShape()) << " " << s.pdAmount() << " "
-          << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
-          << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << " "
-          << (s.ampLfoSampleHold() ? 1 : 0) << " " << (s.vibratoSampleHold() ? 1 : 0) << " "
-          << s.velToAttack() << " " << static_cast<int>(s.fmModWaveform()) << "\n";
-        f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
-          << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
-          << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "
-          << (s.hardSync() ? 1 : 0) << " " << s.syncRatio() << " " << s.pulseWidth() << " "
-          << s.osc2Semitones() << " " << s.subOctave() << " " << s.osc3Level() << " "
-          << s.osc3Semitones() << " " << (s.osc2WaveformLinked() ? 1 : 0) << " "
-          << static_cast<int>(s.osc2Waveform()) << " " << (s.osc3WaveformLinked() ? 1 : 0) << " "
-          << static_cast<int>(s.osc3Waveform()) << " " << s.osc3FineTune() << " "
-          << s.pluckDamping() << " " << s.pluckPosition();
-    for (int b = 0; b < SynthInstrument::kOrganBars; ++b) {
-        f << " " << s.organBar(b);
-    }
-    f << " " << s.organPercussion() << " " << (s.organPercThird() ? 1 : 0);
-    f << "\n";
-    };
-    writeSynth("synth", "synthosc", seq.synth());
-    writeSynth("synth2", "synthosc2", seq.synth2());
+    writeSynthBlock(f, "synth", "synthosc", seq.synth());
+    writeSynthBlock(f, "synth2", "synthosc2", seq.synth2());
 
     f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
       << " " << seq.sampler().startOffset() << " " << seq.sampler().attack() << " "
@@ -1976,6 +1981,63 @@ bool loadProjectFromString(const std::string& text, Sequencer& seq, Mixer& mixer
                            Automation& automation, std::string* err) {
     std::istringstream ss(text);
     return readProjectFrom(ss, seq, mixer, automation, err);
+}
+
+// Save a single synth engine as a standalone instrument preset (".cjcpatch"). The body is written by
+// the very same writeSynthBlock() used for full projects, so a preset is just the two synth lines
+// under a distinct header — and it loads back through the exact same parsers, guaranteeing an exact
+// round-trip and forward/backward compatibility with the project format.
+bool saveSynthPreset(const std::string& path, const SynthInstrument& s, std::string* err) {
+    std::ofstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for writing";
+        }
+        return false;
+    }
+    f << "cjcsynth 1\n";
+    writeSynthBlock(f, "synth", "synthosc", s);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "write error on '" + path + "'";
+        }
+        return false;
+    }
+    return true;
+}
+
+bool loadSynthPreset(const std::string& path, SynthInstrument& s, std::string* err) {
+    std::ifstream f(path);
+    if (!f) {
+        if (err != nullptr) {
+            *err = "could not open '" + path + "' for reading";
+        }
+        return false;
+    }
+    bool sawHeader = false, sawSynth = false;
+    std::string line;
+    while (std::getline(f, line)) {
+        std::istringstream ls(line);
+        std::string tag;
+        if (!(ls >> tag)) {
+            continue;
+        }
+        if (tag == "cjcsynth") {
+            sawHeader = true;
+        } else if (tag == "synth") {
+            parseSynthLine(ls, s);
+            sawSynth = true;
+        } else if (tag == "synthosc") {
+            parseOscLine(ls, s);
+        }
+    }
+    if (!sawHeader || !sawSynth) {
+        if (err != nullptr) {
+            *err = "'" + path + "' is not a valid CJC synth preset";
+        }
+        return false;
+    }
+    return true;
 }
 
 } // namespace maz::audio

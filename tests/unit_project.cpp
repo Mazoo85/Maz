@@ -1279,6 +1279,60 @@ int main() {
     check(!audio::loadProject("/nonexistent/definitely_missing.cjc", seq3, mixer3, automation3, &err),
           "loading a missing file fails cleanly");
 
+    // --- Standalone instrument presets (.cjcpatch) ---------------------------
+    {
+        // Dial in a distinctive patch on one synth, save it, and recall it onto a fresh synth.
+        audio::SynthInstrument src;
+        src.setMode(audio::SynthMode::FM);
+        src.setWaveform(audio::Waveform::Square);
+        src.setEnvelope(0.011f, 0.22f, 0.33f, 0.44f);
+        src.setFmRatio(3.5f);
+        src.setFmIndex(6.25f);
+        src.setGlide(0.17f);
+        src.setGlideLegato(true);
+        src.setMono(true);
+        src.setDrift(21.0f);
+        src.setFilter(2750.0f, 4.5f, 3300.0f);
+        src.setFilterMode(audio::StateVariableFilter::Mode::Notch);
+        src.setUnison(5, 19.0f);
+        src.setOsc2Semitones(7.0f);
+        src.setOsc2WaveformLinked(false);
+        src.setOsc2Waveform(audio::Waveform::Triangle);
+        src.setOsc3Level(0.42f);
+        src.setOsc3Semitones(-5.0f);
+        src.setSubOctave(2);
+        src.setPulseWidth(0.31f);
+
+        const std::string presetPath = "unit_project_patch.cjcpatch";
+        check(audio::saveSynthPreset(presetPath, src, &err), "saveSynthPreset succeeds");
+
+        audio::SynthInstrument dst; // default-initialised, deliberately different from src
+        check(audio::loadSynthPreset(presetPath, dst, &err), "loadSynthPreset succeeds");
+        check(dst.mode() == audio::SynthMode::FM && dst.waveform() == audio::Waveform::Square,
+              "preset mode + waveform round-trip");
+        check(near(dst.attack(), 0.011f) && near(dst.decay(), 0.22f) && near(dst.sustain(), 0.33f) &&
+                  near(dst.release(), 0.44f),
+              "preset amp envelope round-trips");
+        check(near(dst.fmRatio(), 3.5f) && near(dst.fmIndex(), 6.25f), "preset FM params round-trip");
+        check(near(dst.glide(), 0.17f) && dst.glideLegato() && dst.mono(),
+              "preset glide + mono round-trip");
+        check(near(dst.drift(), 21.0f) && dst.filterMode() == audio::StateVariableFilter::Mode::Notch,
+              "preset drift + filter mode round-trip");
+        check(near(dst.filterCutoff(), 2750.0f) && near(dst.filterResonance(), 4.5f),
+              "preset filter cutoff/resonance round-trip");
+        check(dst.unisonVoices() == 5 && near(dst.unisonDetune(), 19.0f), "preset unison round-trips");
+        check(near(dst.osc2Semitones(), 7.0f) && !dst.osc2WaveformLinked() &&
+                  dst.osc2Waveform() == audio::Waveform::Triangle,
+              "preset osc2 round-trips");
+        check(near(dst.osc3Level(), 0.42f) && near(dst.osc3Semitones(), -5.0f) && dst.subOctave() == 2 &&
+                  near(dst.pulseWidth(), 0.31f),
+              "preset osc3 + sub + pulse-width round-trip");
+
+        // A malformed / non-preset file is rejected without corrupting the target synth.
+        check(!audio::loadSynthPreset("/nonexistent/missing.cjcpatch", dst, &err),
+              "loading a missing preset fails cleanly");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

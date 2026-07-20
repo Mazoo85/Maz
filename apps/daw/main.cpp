@@ -1049,6 +1049,28 @@ void buildSynthUI(audio::Sequencer& seq) {
     audio::SynthInstrument& syn = seq.synth();
     ImGui::Begin("CJC Music Station — Synth");
 
+    // Instrument preset (channel patch) I/O to a fixed path next to the app: save this synth's full
+    // patch, or recall a previously-saved one onto the lead channel.
+    static const char* kLeadPresetPath = "lead.cjcpatch";
+    if (ImGui::Button("Save Patch")) {
+        std::string perr;
+        if (audio::saveSynthPreset(kLeadPresetPath, syn, &perr)) {
+            MAZ_LOG_INFO("preset: saved %s", kLeadPresetPath);
+        } else {
+            MAZ_LOG_ERROR("preset save failed: %s", perr.c_str());
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load Patch")) {
+        std::string perr;
+        if (audio::loadSynthPreset(kLeadPresetPath, syn, &perr)) {
+            MAZ_LOG_INFO("preset: loaded %s", kLeadPresetPath);
+        } else {
+            MAZ_LOG_ERROR("preset load failed: %s", perr.c_str());
+        }
+    }
+    ImGui::Separator();
+
     // Arpeggiator (drives the piano roll).
     bool arp = seq.arpOn();
     int arpMode = seq.arpMode();
