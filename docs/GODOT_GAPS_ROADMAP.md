@@ -62,6 +62,11 @@ only be written blind, the docs say exactly that.
   dependency. Verified by an encode→decode round-trip (mono + stereo) with bounded lossy error, correct
   header/rate/channels/sample-count, and smaller-than-16-bit-PCM output (`ctest -R qoa_codec`). This is the
   compressed-audio import that was missing next to WAV. [VERIFIABLE HERE]
+- [x] **G.711 μ-law / A-law codec** (`audio::encodeMuLaw` / `decodeMuLaw` / `encodeALaw` / `decodeALaw`) —
+  DONE (M523); the ITU-T telephony/VoIP companding codec (WAVE format tags 7 & 6), a 2:1 log-companded
+  one-byte-per-sample format decode-anywhere with no tables. Both laws, exact ITU-T reference companding,
+  bridged to `WavData`. Verified (`ctest -R g711_codec`) against spec anchors (μ-law silence → 0xFF), sign +
+  monotonicity, and a round-trip with bounded log-quantization error. [VERIFIABLE HERE]
 - [ ] **Ogg Vorbis / MP3 decode to PCM** — large, patent-adjacent pure-CPU decoders feeding the existing
   mixer; QOA (above) already covers the compressed-audio need dependency-free. Optional follow-up. [VERIFIABLE HERE]
 - [x] **Font fallback chains** (`ui::FontFallback`) — DONE (M501); per-codepoint resolution + per-font runs. [VERIFIABLE HERE]

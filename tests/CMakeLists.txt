@@ -109,6 +109,14 @@ target_link_libraries(maz_qoa_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME qoa_codec COMMAND maz_qoa_tests)
 set_tests_properties(qoa_codec PROPERTIES TIMEOUT 30)
 
+# G.711 mu-law / A-law companding codec (audio::encodeMuLaw / decodeMuLaw / encodeALaw / decodeALaw) — the
+# ITU-T telephony/VoIP audio format (a common .wav payload). Verified against spec anchors (mu-law silence ->
+# 0xFF), sign + monotonicity, and a 2:1 encode->decode round-trip with bounded log-quantization error.
+add_executable(maz_g711_tests audio/g711.cpp)
+target_link_libraries(maz_g711_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME g711_codec COMMAND maz_g711_tests)
+set_tests_properties(g711_codec PROPERTIES TIMEOUT 30)
+
 # WebSocket (RFC 6455) handshake + frame codec (net::wsAcceptKey / wsEncodeFrame / wsDecodeFrame) — the
 # transport a browser/WASM build must use (raw UDP is unavailable in a browser). Verified against RFC 6455's
 # own golden vectors: the canonical accept key and the canonical masked/unmasked "Hello" frames, plus a
