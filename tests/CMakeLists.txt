@@ -23,6 +23,13 @@ target_link_libraries(maz_net_reliable_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME net_reliable COMMAND maz_net_reliable_tests)
 set_tests_properties(net_reliable PROPERTIES TIMEOUT 30)
 
+# FBX geometry import: parse an ASCII .fbx mesh (Vertices + PolygonVertexIndex, ~i polygon terminator,
+# fan-triangulation) into shapes::MeshData. Pure CPU — verifies a hand-authored unit cube headlessly.
+add_executable(maz_fbx_tests render/fbx.cpp)
+target_link_libraries(maz_fbx_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fbx_import COMMAND maz_fbx_tests)
+set_tests_properties(fbx_import PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
