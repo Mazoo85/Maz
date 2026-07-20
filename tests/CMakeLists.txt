@@ -15,6 +15,14 @@ target_link_libraries(maz_net_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME net_loopback COMMAND maz_net_tests)
 set_tests_properties(net_loopback PROPERTIES TIMEOUT 30)
 
+# Reliability wired onto the transport: net::ReliableChannel delivers whole messages reliably and
+# in order over real UDP even across a 40%-packet-loss link (retransmit + ack + reorder). The proof
+# that the ack layer (AckSender/AckReceiver) + UdpSocket compose into real reliable networking.
+add_executable(maz_net_reliable_tests net/reliable.cpp)
+target_link_libraries(maz_net_reliable_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME net_reliable COMMAND maz_net_reliable_tests)
+set_tests_properties(net_reliable PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

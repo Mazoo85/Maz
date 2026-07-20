@@ -35,12 +35,14 @@ but that is a limitation of the *build box*, not of the engine.
   device (`SDL_OpenAudioDeviceStream` + `SDL_ResumeAudioStreamDevice`) and streams the DSP output to it,
   so on any machine with a sound device it plays. The honest residual is confirming every platform's
   audio backend and edge cases across time — coverage Godot has and Maz has not yet accumulated.
-- **Networking now has a real, verified UDP transport.** On top of the existing RPC/replication/ack
-  *logic* (`maz/net/`), `maz::net::UdpSocket` is a real OS-socket datagram transport, proven by a
-  loopback round-trip between two sockets (`tests/net/loopback.cpp`, ctest `net_loopback`) — the same
-  code path two physical machines use, only the destination IP differs. What remains vs Godot: wiring
-  the reliability layer onto it end-to-end, a true cross-machine soak test, secure (DTLS-style)
-  transport, and WebSocket/WebRTC for browsers.
+- **Networking now has real, verified, reliable UDP.** On top of the existing RPC/replication/ack
+  *logic* (`maz/net/`), `maz::net::UdpSocket` is a real OS-socket datagram transport (loopback round-trip
+  proven — `tests/net/loopback.cpp`), and `maz::net::ReliableChannel` wires the ack layer
+  (`AckSender`/`AckReceiver`) onto it to deliver whole messages reliably and **in order even across a
+  40%-packet-loss link** (`tests/net/reliable.cpp`, ctest `net_reliable`: 50/50 messages, exactly once,
+  in order). This is the same code path two physical machines use, only the destination IP differs.
+  What remains vs Godot: secure (DTLS-style) transport, WebSocket/WebRTC for browsers, and a true
+  cross-machine soak test on the owner's two machines.
 - **Maturity and real-world testing.** Godot is ~10+ years old, hardened by thousands of shipped
   titles, millions of user-hours, and a large contributor base finding and fixing edge cases. Maz
   has shipped zero real games and has no external users. Untested code, however elegant, is not the
