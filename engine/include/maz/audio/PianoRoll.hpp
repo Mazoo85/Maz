@@ -20,6 +20,8 @@ struct Note {
     int stride = 1;           // trig condition: fire only every Nth transport loop (1 = every loop);
                               // counts bars from playback start — deterministic melodic fills/variation
                               // (mirrors the drum step stride)
+    int nudge = 0;            // micro-timing: delay the note's onset by this % (0..95) of a step's slot
+                              // for a behind-the-beat feel (0 = dead on the grid; mirrors drum nudge)
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -279,6 +281,10 @@ public:
     // Per-note trig condition (1..8): fire only every Nth pattern loop (1 = every loop).
     int setNoteStride(int pitch, int step, int stride);
     int noteStride(int pitch, int step) const;
+
+    // Per-note micro-timing nudge (0..95): delay the onset by this % of a step (0 = on the grid).
+    int setNoteNudge(int pitch, int step, int percent);
+    int noteNudge(int pitch, int step) const;
 
 private:
     int numSteps_ = 16;

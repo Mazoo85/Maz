@@ -858,10 +858,22 @@ void Sequencer::triggerStep(int step) {
                 MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp});
         }
     };
+    // Per-note micro-timing nudge: delay the onset by nudge% of the step (deferred through the same
+    // sample-accurate hit queue as rolls). 0 = on the grid, immediate.
+    auto nudgeDelay = [this, step](const Note& n) {
+        if (n.nudge <= 0) {
+            return 0;
+        }
+        const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
+        return stepSamples * (n.nudge > 95 ? 95 : n.nudge) / 100;
+    };
     for (const Note& n : roll.notes()) {
         if (n.startStep == step && noteFires(n)) {
             const int p = n.pitch + tr;
-            if (toSampler) {
+            const int delay = nudgeDelay(n);
+            if (delay > 0) {
+                melodicHits_.push_back(MelodicHit{p, n.velocity, n.fineTune, delay, false, toSampler});
+            } else if (toSampler) {
                 sampler_.noteOn(p, n.velocity);
             } else {
                 synth_.noteOn(p, n.velocity, n.fineTune, n.slide);
@@ -880,7 +892,12 @@ void Sequencer::triggerStep(int step) {
     for (const Note& n : roll2.notes()) {
         if (n.startStep == step && noteFires(n)) {
             const int p = n.pitch + tr;
-            synth2_.noteOn(p, n.velocity, n.fineTune, n.slide);
+            const int delay = nudgeDelay(n);
+            if (delay > 0) {
+                melodicHits_.push_back(MelodicHit{p, n.velocity, n.fineTune, delay, true, false});
+            } else {
+                synth2_.noteOn(p, n.velocity, n.fineTune, n.slide);
+            }
             scheduleRoll(n, p, true, false);
         }
     }

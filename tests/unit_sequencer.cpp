@@ -2104,6 +2104,42 @@ int main() {
               "releaseAllNotes releases every held voice (they decay to inactive)");
     }
 
+    // --- Per-note micro-timing nudge (melodic) -------------------------------
+    {
+        // A lead note on step 0: with no nudge it sounds immediately; with a 50% nudge its onset is
+        // delayed ~half a step, so there is little energy at the very start of the step.
+        auto earlyEnergy = [&](int nudge) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            audio::Note note;
+            note.startStep = 0;
+            note.lengthSteps = 4;
+            note.pitch = 60;
+            note.nudge = nudge;
+            s.roll().addNote(note);
+            s.play();
+            const std::vector<float> out = renderMono(s, 6000, sampleRate); // one 16th step @120 BPM
+            double e = 0.0;
+            for (int i = 0; i < 1500; ++i) { // first quarter of the step
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            return e;
+        };
+        const double onGrid = earlyEnergy(0);
+        const double nudged = earlyEnergy(50);
+        check(onGrid > 1e-4, "an on-grid note sounds at the step start");
+        check(nudged < onGrid * 0.1, "a nudged note's onset is delayed (quiet at the step start)");
+
+        // Accessor round-trip + clamp.
+        audio::PianoRoll pr;
+        pr.addNote(audio::Note{0, 1, 60, 0.9f});
+        check(pr.noteNudge(60, 0) == 0, "a note defaults to nudge 0");
+        check(pr.setNoteNudge(60, 0, 40) == 40 && pr.noteNudge(60, 0) == 40,
+              "note nudge setter/getter round-trips");
+        check(pr.setNoteNudge(60, 0, 999) == 95, "note nudge clamps to 95%");
+    }
+
     // --- Groove templates: stamp a per-step micro-timing feel --------------------
     {
         audio::Sequencer s;

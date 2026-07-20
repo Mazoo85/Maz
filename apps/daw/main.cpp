@@ -989,7 +989,9 @@ void buildPianoRollUI(audio::Sequencer& seq) {
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift) {
+                    if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyAlt) {
+                        roll.setNoteNudge(pitch, s, roll.noteNudge(pitch, s) + (wheel > 0.0f ? 5 : -5));
+                    } else if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift) {
                         roll.setNoteStride(pitch, s, roll.noteStride(pitch, s) + (wheel > 0.0f ? 1 : -1));
                     } else if (ImGui::GetIO().KeyAlt) {
                         roll.setNoteSlide(pitch, s, wheel > 0.0f);
@@ -1005,7 +1007,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 const float ft = roll.noteFineTune(pitch, s);
                 const int rl = roll.noteRoll(pitch, s);
                 const int sd = roll.noteStride(pitch, s);
-                if (sd > 1) {
+                const int nu = roll.noteNudge(pitch, s);
+                if (nu > 0) {
+                    ImGui::SetTooltip("nudge %d%%", nu);
+                } else if (sd > 1) {
                     ImGui::SetTooltip("1/%d loops", sd);
                 } else if (roll.noteSlide(pitch, s)) {
                     ImGui::SetTooltip("slide");
