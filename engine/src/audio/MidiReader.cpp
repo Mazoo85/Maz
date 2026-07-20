@@ -214,9 +214,18 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             note.lengthSteps = lenSteps;
             note.pitch = rn.pitch;
             note.velocity = rn.velocity;
-            // Channel 1 → bass roll (symmetric with the writer); every other melodic channel → lead.
+            // Symmetric with the writer: channel 0 → lead, channel 1 → bass, channels >=2 (skipping the
+            // GM drum channel 9) → extra instrument channels, created on demand.
             if (rn.channel == 1) {
                 seq.roll2().addNote(note);
+            } else if (rn.channel >= 2 && rn.channel != 9) {
+                const int c = (rn.channel < 9) ? rn.channel - 2 : rn.channel - 3;
+                while (seq.instrumentChannelCount() <= c && seq.instrumentChannelCount() < 256) {
+                    seq.addInstrumentChannel();
+                }
+                if (c >= 0 && c < seq.instrumentChannelCount()) {
+                    seq.instrumentRoll(c).addNote(note);
+                }
             } else {
                 seq.roll().addNote(note);
             }

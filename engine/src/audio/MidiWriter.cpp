@@ -73,6 +73,25 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
             events.push_back({base + n.startStep * ticksPerStep, 1, 0x91, p, v});
             events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, 0x81, p, 0});
         }
+        // Extra instrument channels: each on its own MIDI channel, starting at 2 and skipping the GM
+        // drum channel (9); channels past 15 clamp to 15. Transposed like the other melodic lanes.
+        for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
+            int mc = 2 + c;
+            if (mc >= 9) {
+                mc += 1; // step over the reserved GM percussion channel
+            }
+            if (mc > 15) {
+                mc = 15;
+            }
+            const uint8_t on = static_cast<uint8_t>(0x90 | mc);
+            const uint8_t off = static_cast<uint8_t>(0x80 | mc);
+            for (const Note& n : seq.instrumentRoll(c).notes()) {
+                const uint8_t v = vel7(n.velocity);
+                const uint8_t p = static_cast<uint8_t>(std::clamp(n.pitch + tr, 0, 127));
+                events.push_back({base + n.startStep * ticksPerStep, 1, on, p, v});
+                events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, off, p, 0});
+            }
+        }
         // Drums map by each channel's drum TYPE, so every drum and channel exports correctly.
         for (int c = 0; c < seq.numChannels(); ++c) {
             const uint8_t note = static_cast<uint8_t>(gmNoteForDrum(seq.channelType(c)) & 0x7F);

@@ -39,6 +39,8 @@ int main() {
     seq.roll().addNote(audio::Note{0, 4, 60, 0.9f});
     seq.roll().addNote(audio::Note{8, 4, 67, 0.8f});
     seq.roll2().addNote(audio::Note{0, 4, 36, 0.9f}); // a bass note — must reach the export too
+    const int midiExtra = seq.addInstrumentChannel();  // an extra instrument channel
+    seq.instrumentRoll(midiExtra).addNote(audio::Note{0, 4, 72, 0.8f}); // must export on its own channel
     seq.setBpm(140.0); // a non-default tempo — must survive the round-trip
 
     const std::string path = "unit_midi_out.mid";
@@ -57,7 +59,7 @@ int main() {
 
     // At least one note-on (0x90 melody or 0x99 drums), a bass note-on on channel 1 (0x91), and an
     // end-of-track meta event.
-    bool hasNoteOn = false, hasBass = false, hasEot = false;
+    bool hasNoteOn = false, hasBass = false, hasEot = false, hasExtra = false;
     for (size_t i = 22; i + 2 < b.size(); ++i) {
         if (b[i] == 0x90 || b[i] == 0x99) {
             hasNoteOn = true;
@@ -65,12 +67,16 @@ int main() {
         if (b[i] == 0x91) {
             hasBass = true;
         }
+        if (b[i] == 0x92 && b[i + 1] == 72) { // extra channel 0 → MIDI channel 2, note 72
+            hasExtra = true;
+        }
         if (b[i] == 0xFF && b[i + 1] == 0x2F && b[i + 2] == 0x00) {
             hasEot = true;
         }
     }
     check(hasNoteOn, "contains note-on events");
     check(hasBass, "the bass piano-roll is exported on MIDI channel 1");
+    check(hasExtra, "an extra instrument channel is exported on its own MIDI channel (2)");
     check(hasEot, "ends with an end-of-track meta event");
 
     // --- Import round-trip: read the file we just wrote back into a fresh sequencer ---------------
@@ -93,6 +99,10 @@ int main() {
     const auto& bassNotes = in.roll2().notes();
     check(bassNotes.size() == 1 && bassNotes[0].pitch == 36 && bassNotes[0].startStep == 0,
           "the bass note round-trips onto the bass roll");
+    // The extra-channel note round-trips onto an imported extra instrument channel (symmetric routing).
+    check(in.instrumentChannelCount() >= 1 && in.instrumentRoll(0).notes().size() == 1 &&
+              in.instrumentRoll(0).notes()[0].pitch == 72,
+          "the extra-channel note round-trips onto an imported instrument channel");
     // The tempo meta event carries the project BPM through the file.
     check(std::fabs(in.bpm() - 140.0) < 0.5, "the project tempo round-trips via the MIDI tempo meta");
     // The two drum hits come back on the grid.
