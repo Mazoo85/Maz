@@ -21,6 +21,8 @@ __pycache__/
 # Test scratch output
 unit_scene_*.mazscene
 unit_project_roundtrip.cjc
+unit_project_*.cjc
+unit_project_*.cjcpatch
 /tone.wav
 /project.cjc
 
