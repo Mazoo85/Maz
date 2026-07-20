@@ -102,10 +102,15 @@ only be written blind, the docs say exactly that.
   `tools/build_web.sh` (emcmake + WebGL2 flags + shell), `web/shell.html` (canvas + loader page), and
   [WEB_BUILD.md](WEB_BUILD.md) with the exact emsdk steps. Emitting the actual `.wasm`/`.js` needs Emscripten
   on the build machine (absent on this box). [NATIVE PATH VERIFIABLE HERE / WASM NEEDS TOOLCHAIN]
-- [ ] **Android / iOS export** — build scripts + input/sensor shims. [NEEDS YOUR HARDWARE/TOOLCHAIN]
-  (Android SDK/NDK, Xcode, devices)
-- [ ] **Console export** — [NEEDS YOUR HARDWARE/TOOLCHAIN] (NDA SDKs; cannot be done in a public sandbox)
-- [ ] **XR/OpenXR** — runtime bindings can be stubbed; real use is [NEEDS YOUR HARDWARE/TOOLCHAIN]
+- [x] **Per-platform backend seam** (`platform::PlatformBackend` + `HeadlessBackend` + `PlatformRegistry`) —
+  DONE (M515). The single interface a port implements per target (init/shutdown, native surface handle,
+  asset/user directories, input caps, OS suspend/resume lifecycle). The headless backend + registry are
+  unit-tested here (`ctest -R platform_backend`); console/VR/mobile are backends behind this same seam with
+  the exact human step documented in [PLATFORMS.md](PLATFORMS.md). [VERIFIABLE HERE]
+- [ ] **Android / iOS backend** — an `AndroidBackend`/`IOSBackend` against the seam above. [NEEDS YOUR
+  HARDWARE/TOOLCHAIN] (Android SDK/NDK, Xcode, devices, dev accounts — see PLATFORMS.md)
+- [ ] **Console backend** — behind the seam. [NEEDS YOUR HARDWARE/TOOLCHAIN] (NDA SDKs; not in a public repo)
+- [ ] **XR/OpenXR backend** — behind the seam (`caps().immersiveVr`). [NEEDS YOUR HARDWARE/TOOLCHAIN] (headset)
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.

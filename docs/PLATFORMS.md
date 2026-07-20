@@ -1,0 +1,61 @@
+# Platforms & Porting
+
+Maz reaches a new platform by implementing **one backend** behind a single interface,
+`maz::platform::PlatformBackend` (`engine/include/maz/platform/PlatformBackend.hpp`). The engine,
+renderer, and games talk only to that interface, so a port never touches game code. Each backend
+answers the same questions: how to boot/teardown, what native surface handle the GPU renderer binds
+to, where the readable (assets) and writable (saves) directories are, what input exists, and whether
+the OS can suspend/resume the app.
+
+## Status of each target
+
+| Platform | Backend | Status | What's left |
+|---|---|---|---|
+| **Headless** | `HeadlessBackend` | ✅ Implemented + unit-tested (`ctest -R platform_backend`) | — |
+| **Desktop (Linux/Win/Mac)** | SDL3 + Vulkan | ✅ Shipping (the native path the samples/editor use) | — |
+| **Web / WASM** | Emscripten + WebGL2 | ⚙️ Build path + main-loop done ([WEB_BUILD.md](WEB_BUILD.md)); needs Emscripten to emit `.wasm` | Install emsdk, run `tools/build_web.sh` |
+| **Android** | `PlatformId::Android` | 🔩 Seam defined; backend not implementable here | **Human step** below |
+| **iOS** | `PlatformId::iOS` | 🔩 Seam defined | **Human step** below |
+| **VR (OpenXR)** | `PlatformId::VrOpenXR` | 🔩 Seam defined | **Human step** below |
+| **Consoles** | `PlatformId::ConsoleA/B/C` | 🔩 Seam defined; SDKs are under NDA | **Human step** below |
+
+These are deliberately **not** marked "100%": each needs hardware, a toolchain, and/or an account this
+cloud environment cannot have. The engine-side seam is done and tested; the remaining work is a
+per-platform backend that only you, on the right machine with the right access, can build and sign.
+
+## The exact human/hardware step per platform
+
+### Android
+1. Install the **Android SDK + NDK** and set `ANDROID_NDK_HOME`.
+2. Implement an `AndroidBackend : PlatformBackend`: `nativeWindowHandle()` returns the `ANativeWindow*`
+   from the `android_app`; `directory(Assets)` maps to the APK asset manager, `UserData` to the app's
+   internal storage; `caps().hasTouch/canSuspend = true`; forward `onPause`/`onResume` to
+   `transition(Suspended/Running)`.
+3. Build the Vulkan-for-Android surface, package an APK (Gradle), and deploy to a **physical device or
+   emulator**. Publishing needs a **Google Play developer account**.
+
+### iOS
+1. Install **Xcode** on a Mac; you need an **Apple Developer account** to sign.
+2. Implement an `IOSBackend`: `nativeWindowHandle()` → the `CAMetalLayer`/`UIView`; wire
+   `applicationDidEnterBackground`/`willEnterForeground` to the lifecycle transitions.
+3. Build with MoltenVK (Vulkan-on-Metal), sign, and deploy to a **physical device** via Xcode.
+
+### VR (OpenXR)
+1. Install an **OpenXR runtime** (SteamVR, Meta, Monado) and connect a **physical headset**.
+2. Implement a `VrBackend` with `caps().immersiveVr = true`: create the OpenXR session/swapchains, expose
+   the per-eye views and head/hand poses, and drive stereo submission each frame.
+3. Verified only wearing the headset.
+
+### Consoles
+1. Console SDKs are distributed under **NDA** by the platform holders — names, headers, and toolchains
+   cannot live in this repo.
+2. Once you have registered developer access, implement `ConsoleXBackend` against that SDK: its native
+   surface, storage mounts, controller input, and mandatory suspend/resume + certification hooks.
+3. Verified only on a devkit.
+
+## Why the abstraction is enough
+
+Because every subsystem already goes through `PlatformBackend` (surface handle, directories, input
+caps, lifecycle), each of the above is a **self-contained backend file** — no engine changes. That is
+the whole point of the seam, and it is why the headless backend and the registry that selects backends
+are unit-tested here as the worked example the real ports follow.

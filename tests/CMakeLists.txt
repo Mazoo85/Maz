@@ -92,6 +92,15 @@ target_link_libraries(maz_webloop_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME webloop COMMAND maz_webloop_tests)
 set_tests_properties(webloop PROPERTIES TIMEOUT 30)
 
+# Per-platform backend seam (platform::PlatformBackend + HeadlessBackend + PlatformRegistry). The headless
+# backend + registry are pure CPU: capabilities, init/shutdown lifecycle, directory resolution, suspend/
+# resume transitions, and backend-by-id selection are verified here (console/VR/mobile backends are the
+# documented human step, see docs/PLATFORMS.md).
+add_executable(maz_platform_backend_tests platform/backend.cpp)
+target_link_libraries(maz_platform_backend_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_backend COMMAND maz_platform_backend_tests)
+set_tests_properties(platform_backend PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
