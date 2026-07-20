@@ -96,6 +96,11 @@ public:
     bool startInputCapture(const AudioConfig& cfg = {});
     void stopInputCapture();
 
+    // Append externally-captured interleaved input samples to the recording buffer (only while
+    // recording is armed). The input-capture device callback drains the capture stream through this;
+    // it is public so the drain/append path is unit-testable without a live audio device.
+    void appendCapturedInput(const float* data, int count);
+
     // Render `frames` interleaved samples (frames * channels floats) into out, mixing all active
     // voices and advancing the sample clock. Called by both the device callback and renderOffline.
     void render(float* out, int frames);

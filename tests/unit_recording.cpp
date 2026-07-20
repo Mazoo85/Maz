@@ -80,6 +80,26 @@ int main() {
     std::vector<uint8_t> rb((std::istreambuf_iterator<char>(rf)), std::istreambuf_iterator<char>());
     check(rb.size() > 35 && rb[34] == 24, "the recorded WAV header declares 24-bit");
 
+    // Input-capture drain sink: the live SDL mic path can't run headlessly, but appendCapturedInput
+    // (the sink its device callback drains into) is testable. It must honor the recording arm state.
+    {
+        audio::AudioEngine cap;
+        cap.initOffline();
+        const float chunk[4] = {0.1f, -0.2f, 0.3f, -0.4f};
+        cap.appendCapturedInput(chunk, 4);
+        check(cap.recordedAudio().empty(), "captured input is dropped when recording is not armed");
+        cap.armRecording();
+        cap.appendCapturedInput(chunk, 4);
+        cap.appendCapturedInput(chunk, 4);
+        check(cap.recordedAudio().size() == 8, "captured input appends to the record buffer while armed");
+        check(cap.recordedAudio()[0] == 0.1f && cap.recordedAudio()[5] == -0.2f,
+              "captured input lands in the buffer verbatim");
+        cap.stopRecording();
+        cap.appendCapturedInput(chunk, 4);
+        check(cap.recordedAudio().size() == 8, "captured input is dropped after recording stops");
+        check(cap.saveRecording("unit_recording_capture.wav", &err), "a captured-input recording saves");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

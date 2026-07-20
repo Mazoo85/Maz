@@ -36,6 +36,22 @@ void SDLCALL feedCallback(void* userdata, SDL_AudioStream* stream, int additiona
     SDL_PutAudioStreamData(stream, buffer.data(), frames * bytesPerFrame);
 }
 
+// SDL calls this on its capture thread when recorded input is available. We pull the new bytes out
+// of the stream and append them to the engine's record buffer — without this drain the capture
+// stream fills and the input is never recorded.
+void SDLCALL captureCallback(void* userdata, SDL_AudioStream* stream, int additionalAmount,
+                             int /*totalAmount*/) {
+    auto* engine = static_cast<AudioEngine*>(userdata);
+    if (additionalAmount <= 0) {
+        return;
+    }
+    std::vector<float> buffer(static_cast<size_t>(additionalAmount) / sizeof(float), 0.0f);
+    const int got = SDL_GetAudioStreamData(stream, buffer.data(), additionalAmount);
+    if (got > 0) {
+        engine->appendCapturedInput(buffer.data(), got / static_cast<int>(sizeof(float)));
+    }
+}
+
 } // namespace
 
 AudioEngine::~AudioEngine() {
@@ -257,7 +273,7 @@ bool AudioEngine::startInputCapture(const AudioConfig& cfg) {
     spec.format = SDL_AUDIO_F32;
     spec.channels = cfg_.channels;
     captureStream_ =
-        SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &spec, nullptr, nullptr);
+        SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &spec, captureCallback, this);
     if (captureStream_ == nullptr) {
         MAZ_LOG_ERROR("audio: input capture open failed: %s", SDL_GetError());
         return false;
@@ -274,6 +290,13 @@ void AudioEngine::stopInputCapture() {
         SDL_DestroyAudioStream(captureStream_);
         captureStream_ = nullptr;
     }
+}
+
+void AudioEngine::appendCapturedInput(const float* data, int count) {
+    if (!recording_ || data == nullptr || count <= 0) {
+        return;
+    }
+    recordBuffer_.insert(recordBuffer_.end(), data, data + count);
 }
 
 std::vector<float> AudioEngine::renderOffline(double seconds) {
