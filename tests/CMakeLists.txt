@@ -7,6 +7,14 @@ target_include_directories(maz_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zombo
 add_test(NAME unit_tests COMMAND maz_unit_tests)
 set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 
+# Networking transport: a REAL UDP round-trip between two sockets on the loopback interface. This is
+# the "networking between two machines" proof at its smallest honest scale — actual OS sockets, not a
+# mock — the same code path two physical machines use, only the destination IP differs. No GPU needed.
+add_executable(maz_net_tests net/loopback.cpp)
+target_link_libraries(maz_net_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME net_loopback COMMAND maz_net_tests)
+set_tests_properties(net_loopback PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

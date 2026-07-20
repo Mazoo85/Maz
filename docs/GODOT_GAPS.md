@@ -35,9 +35,12 @@ but that is a limitation of the *build box*, not of the engine.
   device (`SDL_OpenAudioDeviceStream` + `SDL_ResumeAudioStreamDevice`) and streams the DSP output to it,
   so on any machine with a sound device it plays. The honest residual is confirming every platform's
   audio backend and edge cases across time — coverage Godot has and Maz has not yet accumulated.
-- **Networking has no verified transport.** Maz has RPC-dispatch and multiplayer-spawner *logic*
-  (`maz/net/`), but not a proven, secure, real-world network transport moving packets between two
-  machines. Godot ships high-level multiplayer over ENet/WebSocket/WebRTC, used in live games.
+- **Networking now has a real, verified UDP transport.** On top of the existing RPC/replication/ack
+  *logic* (`maz/net/`), `maz::net::UdpSocket` is a real OS-socket datagram transport, proven by a
+  loopback round-trip between two sockets (`tests/net/loopback.cpp`, ctest `net_loopback`) — the same
+  code path two physical machines use, only the destination IP differs. What remains vs Godot: wiring
+  the reliability layer onto it end-to-end, a true cross-machine soak test, secure (DTLS-style)
+  transport, and WebSocket/WebRTC for browsers.
 - **Maturity and real-world testing.** Godot is ~10+ years old, hardened by thousands of shipped
   titles, millions of user-hours, and a large contributor base finding and fixing edge cases. Maz
   has shipped zero real games and has no external users. Untested code, however elegant, is not the

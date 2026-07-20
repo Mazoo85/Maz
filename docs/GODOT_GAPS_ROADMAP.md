@@ -113,8 +113,10 @@ itself, so it is written here and run on your machine. [CODE HERE / SEE IT ON YO
   gap only your machine can close; the code exists and is what everything in §5/§3 builds on.
 - [ ] **Audio device output path** — SDL audio callback wiring is [CODE HERE / SEE IT ON YOUR MACHINE]
   (compiles here; a speaker confirms it).
-- [ ] **Networking transport** — real UDP/TCP/ENet-style sockets over `maz/net/`. The framing/reliability
-  logic is [VERIFIABLE HERE] with loopback tests; true cross-machine play is manual.
+- [~] **Networking transport** — real UDP sockets landed: `maz::net::UdpSocket` (portable POSIX/Winsock)
+  with a loopback round-trip test (`tests/net/loopback.cpp`, ctest `net_loopback`) proving a real
+  two-endpoint exchange [VERIFIABLE HERE — DONE]. Remaining: reliability layer wired onto it end-to-end,
+  TCP/ENet-style + WebSocket/WebRTC, secure transport, and a true cross-machine soak (manual).
 
 ## How the loop uses this
 
