@@ -55,9 +55,14 @@ bool Vst3Host::load(const std::string& path, int sampleRate, int maxBlock, std::
         return fail(std::string("dlopen failed: ") + (e != nullptr ? e : "?"));
     }
 
-    // Optional module init (Linux VST3 modules expose ModuleEntry/ModuleExit).
+    // Optional module init (Linux VST3 modules expose ModuleEntry/ModuleExit). ModuleEntry returns
+    // false when the module's global init failed — bail out instead of using an uninitialized module,
+    // and only record moduleEntered_ on success so unload() doesn't call ModuleExit against a module
+    // that never entered (an unbalanced init/exit).
     if (auto entry = reinterpret_cast<ModuleEntryProc>(dlsym(handle_, "ModuleEntry"))) {
-        entry(handle_);
+        if (!entry(handle_)) {
+            return fail("VST3 ModuleEntry failed (module global init error)");
+        }
         moduleEntered_ = true;
     }
 

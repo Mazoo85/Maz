@@ -74,6 +74,15 @@ bool ClapHost::load(const std::string& path, int sampleRate, int maxBlock, std::
         unload();
         return false;
     }
+    // Reject an incompatible ABI before calling through the entry: a 0.x or future-major CLAP has no
+    // guaranteed struct layout, so reading init/get_factory (done above) and calling them would be UB.
+    if (!clap_version_is_compatible(entry->clap_version)) {
+        if (err != nullptr) {
+            *err = "'" + path + "' has an incompatible CLAP ABI version";
+        }
+        unload();
+        return false;
+    }
     entry_ = entry;
     if (!entry->init(path.c_str())) {
         if (err != nullptr) {
@@ -85,7 +94,11 @@ bool ClapHost::load(const std::string& path, int sampleRate, int maxBlock, std::
 
     const auto* factory =
         static_cast<const clap_plugin_factory_t*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
-    if (factory == nullptr || factory->get_plugin_count(factory) == 0) {
+    // Guard the mandatory factory vtable members before calling through them (a malformed plugin can
+    // expose a non-null factory with null function pointers).
+    if (factory == nullptr || factory->get_plugin_count == nullptr ||
+        factory->get_plugin_descriptor == nullptr || factory->create_plugin == nullptr ||
+        factory->get_plugin_count(factory) == 0) {
         if (err != nullptr) {
             *err = "no CLAP plugin factory / empty factory";
         }
@@ -103,9 +116,12 @@ bool ClapHost::load(const std::string& path, int sampleRate, int maxBlock, std::
     }
 
     const clap_plugin_t* plugin = factory->create_plugin(factory, &g_host, desc->id);
-    if (plugin == nullptr) {
+    if (plugin == nullptr || plugin->init == nullptr || plugin->activate == nullptr) {
         if (err != nullptr) {
-            *err = "create_plugin failed";
+            *err = "create_plugin failed / incomplete plugin";
+        }
+        if (plugin != nullptr && plugin->destroy != nullptr) {
+            plugin->destroy(plugin); // release a partially-created plugin we won't adopt
         }
         unload();
         return false;
@@ -210,11 +226,15 @@ void ClapHost::process(float* stereo, int frames, int sampleRate) {
         p.in_events = &g_inEvents;
         p.out_events = &g_outEvents;
 
-        plugin->process(plugin, &p);
+        const clap_process_status status = plugin->process(plugin, &p);
 
-        for (int i = 0; i < n; ++i) {
-            stereo[2 * (offset + i)] = outL_[static_cast<size_t>(i)];
-            stereo[2 * (offset + i) + 1] = outR_[static_cast<size_t>(i)];
+        // Only copy the plugin's output back when it reported success; on CLAP_PROCESS_ERROR it may
+        // have left its output buffers untouched, so we keep the dry input rather than emit stale data.
+        if (status != CLAP_PROCESS_ERROR) {
+            for (int i = 0; i < n; ++i) {
+                stereo[2 * (offset + i)] = outL_[static_cast<size_t>(i)];
+                stereo[2 * (offset + i) + 1] = outR_[static_cast<size_t>(i)];
+            }
         }
         offset += n;
     }
