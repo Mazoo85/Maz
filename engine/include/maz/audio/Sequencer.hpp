@@ -220,6 +220,13 @@ public:
     void setLiveTarget(int channel) { liveTarget_ = channel; }
     int liveTarget() const { return liveTarget_; }
 
+    // Live recording: when enabled AND the transport is playing, live MIDI notes are captured into the
+    // live-target lane's piano roll (step-quantized to the transport step they arrive on), so playing
+    // the keyboard over a running loop writes the performance into the pattern — FL-style live record.
+    // A note is added on its note-off, spanning from its note-on step to the note-off step.
+    void setLiveRecording(bool on) { liveRecording_ = on; }
+    bool liveRecording() const { return liveRecording_; }
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
@@ -511,6 +518,13 @@ private:
     std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
     MidiInput liveIn_;                     // live MIDI note input queue (drained in renderStems)
     int liveTarget_ = -1;                  // live-input target: -1 = lead lane, else an extra channel
+    bool liveRecording_ = false;           // capture live notes into the target roll while playing
+    struct RecNote {
+        int key;
+        int startStep;
+        float velocity;
+    };
+    std::vector<RecNote> recPending_;      // live notes held down, awaiting their note-off to be written
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     std::vector<std::unique_ptr<InstrumentPlugin>> extraPlugins_; // optional hosted CLAP/VST3 instrument per channel

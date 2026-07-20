@@ -1173,6 +1173,11 @@ void buildSynthUI(audio::Sequencer& seq) {
         if (ImGui::Combo("Live MIDI target", &sel, labels.data(), static_cast<int>(labels.size()))) {
             seq.setLiveTarget(sel == 0 ? -1 : sel - 1);
         }
+        ImGui::SameLine();
+        bool rec = seq.liveRecording();
+        if (ImGui::Checkbox("Record", &rec)) {
+            seq.setLiveRecording(rec);
+        }
     }
     ImGui::Separator();
 

@@ -2480,6 +2480,44 @@ int main() {
         check(rms(l3) == 0.0, "and not on the lead stem");
     }
 
+    // Live recording: with the transport running and record armed, a held live note is captured into the
+    // target lane's roll (step-quantized), so playing over a loop writes the performance into the pattern.
+    {
+        const int sr = 48000;
+        const int half = sr / 2;
+        std::vector<float> rd(static_cast<size_t>(half) * 2, 0.0f);
+        std::vector<float> rl(static_cast<size_t>(half) * 2, 0.0f);
+        std::vector<float> rb(static_cast<size_t>(half) * 2, 0.0f);
+
+        audio::Sequencer rseq;
+        rseq.setBpm(120.0);
+        const size_t before = rseq.roll().notes().size();
+        rseq.setLiveRecording(true);
+        check(rseq.liveRecording(), "live recording arms");
+        rseq.play();
+        rseq.midiInput().pushNoteOn(64, 0.9f);                 // E4
+        rseq.renderStems(rd.data(), rl.data(), rb.data(), half, sr); // hold across several steps
+        rseq.midiInput().pushNoteOff(64);
+        rseq.renderStems(rd.data(), rl.data(), rb.data(), half, sr);
+        check(rseq.roll().notes().size() == before + 1, "live recording writes a note into the roll");
+        if (!rseq.roll().notes().empty()) {
+            const audio::Note& rec = rseq.roll().notes().back();
+            check(rec.pitch == 64, "the recorded note carries the played pitch");
+            check(rec.lengthSteps >= 1, "the recorded note has a positive length");
+        }
+
+        // With recording off, a live note plays but is NOT written to the roll.
+        audio::Sequencer nseq;
+        nseq.play();
+        const size_t n0 = nseq.roll().notes().size();
+        nseq.midiInput().pushNoteOn(64, 0.9f);
+        nseq.renderStems(rd.data(), rl.data(), rb.data(), half, sr);
+        nseq.midiInput().pushNoteOff(64);
+        nseq.renderStems(rd.data(), rl.data(), rb.data(), half, sr);
+        check(nseq.roll().notes().size() == n0,
+              "with recording off, live notes are not written to the roll");
+    }
+
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
     return g_failures ? 1 : 0;
 }

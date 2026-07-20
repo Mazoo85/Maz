@@ -1215,16 +1215,42 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
     SynthInstrument& liveSynth = leadTarget ? synth_ : extraSynths_[static_cast<size_t>(lt)];
     InstrumentPlugin* livePlugin =
         leadTarget ? leadPlugin_.get() : extraPlugins_[static_cast<size_t>(lt)].get();
+    PianoRoll& liveRoll = leadTarget ? roll() : instrumentRoll(lt);
     for (const MidiInput::Event& ev : liveIn_.drain()) {
         if (ev.on) {
             liveSynth.noteOn(ev.key, ev.velocity);
             if (livePlugin) {
                 livePlugin->noteOn(ev.key, ev.velocity);
             }
+            // Live record: remember where this note started so its note-off can write a roll note.
+            if (liveRecording_ && playing_) {
+                recPending_.push_back({ev.key, currentStep_, ev.velocity});
+            }
         } else {
             liveSynth.noteOff(ev.key);
             if (livePlugin) {
                 livePlugin->noteOff(ev.key);
+            }
+            // Live record: close out the held note into the target roll, spanning start→now.
+            if (liveRecording_) {
+                for (size_t i = 0; i < recPending_.size(); ++i) {
+                    if (recPending_[i].key != ev.key) {
+                        continue;
+                    }
+                    int len =
+                        ((currentStep_ - recPending_[i].startStep) % numSteps_ + numSteps_) % numSteps_;
+                    if (len < 1) {
+                        len = 1; // a note released within its start step still lasts one step
+                    }
+                    Note n;
+                    n.startStep = recPending_[i].startStep;
+                    n.lengthSteps = len;
+                    n.pitch = ev.key;
+                    n.velocity = recPending_[i].velocity;
+                    liveRoll.addNote(n);
+                    recPending_.erase(recPending_.begin() + static_cast<long>(i));
+                    break;
+                }
             }
         }
     }
