@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **spherical-harmonic irradiance probes** (M513, `math::ShL2` / `shBasis` / `shIrradiance` — the order-2
+  spherical-harmonic "light probe" representation Godot bakes into LightmapGI and uses for ambient lighting.
+  Instead of a full environment cubemap, an entire low-frequency lighting environment is captured in nine RGB
+  numbers: cheap to store, cheap to evaluate, smooth to interpolate between probes. `shBasis` gives the nine
+  real SH basis functions at a direction; `ShL2::addSample` projects a weighted directional radiance sample
+  onto them; and `shIrradiance` reconstructs the diffuse irradiance arriving on any surface normal, applying
+  the standard clamped-cosine (Lambert) convolution with the Ramamoorthi band scaling (A0 = π, A1 = 2π/3,
+  A2 = π/4) — the same math Godot uses. Pure CPU: projecting and evaluating are fully unit-testable (a lit
+  frame from the result is the GPU's job). Honest scope: order-2 (9 coefficients); SH rotation and
+  windowing/deringing are follow-ups. Verified against the convention-independent analytic ground truth —
+  uniform radiance C over the sphere reconstructs to irradiance E = π·C for every normal (checked at five
+  normals with a 2048-sample projection); a single bright directional sample lights the facing normal more
+  than the perpendicular and far more than the back-facing one, keeping the untouched colour channels at
+  zero; and an empty or cleared probe reconstructs to zero),
   **half-precision float (float16) conversion** (M512, `math::halfToFloat` / `floatToHalf` — the 16-bit
   floating-point format Godot exposes as `Math::half_to_float` / `Math::make_half_float` and leans on for HDR
   image storage, glTF quantized vertex accessors, and GPU vertex/attribute compression (half the bandwidth of

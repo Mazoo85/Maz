@@ -111,6 +111,7 @@
 #include "maz/math/LeastSquares.hpp"
 #include "maz/math/Quadrature.hpp"
 #include "maz/math/RootFind.hpp"
+#include "maz/math/SphericalHarmonics.hpp"
 #include "maz/math/Statistics.hpp"
 #include "maz/math/BoundingSphere.hpp"
 #include "maz/math/FitObb.hpp"
@@ -382,6 +383,64 @@ void reportFail(const char* expr, const char* file, int line) {
 using namespace maz;
 
 // MathFuncs: Godot @GlobalScope scalar helpers (M295) — wrap/remap/smoothstep/ease/lerp_angle/etc.
+void testSphericalHarmonics() {
+    using maz::math::ShL2;
+    using maz::math::shBasis;
+    using maz::math::shIrradiance;
+    using maz::math::vec3;
+    const float kPiL = 3.14159265358979323846f;
+    auto nr = [](float a, float b, float eps) { return std::fabs(a - b) < eps; };
+
+    CHECK(nr(shBasis(vec3(1, 0, 0))[0], 0.2820947918f, 1e-6f)); // Y0,0 constant
+
+    // Uniform radiance C over the sphere -> irradiance E = pi*C for every normal (analytic ground truth).
+    {
+        const int N = 2048;
+        const float w = 4.0f * kPiL / static_cast<float>(N);
+        const vec3 C(0.5f, 0.25f, 0.75f);
+        ShL2 sh;
+        const float ga = kPiL * (3.0f - std::sqrt(5.0f));
+        for (int i = 0; i < N; ++i) {
+            const float fi = static_cast<float>(i);
+            const float z = 1.0f - (2.0f * fi + 1.0f) / static_cast<float>(N);
+            const float r = std::sqrt(std::fmax(0.0f, 1.0f - z * z));
+            const float phi = ga * fi;
+            sh.addSample(vec3(r * std::cos(phi), r * std::sin(phi), z), C, w);
+        }
+        const vec3 normals[] = {vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(-1, 0, 0), vec3(0, 0, -1)};
+        for (const vec3& n : normals) {
+            const vec3 e = shIrradiance(sh, n);
+            CHECK(nr(e.x, kPiL * C.x, 0.02f));
+            CHECK(nr(e.y, kPiL * C.y, 0.02f));
+            CHECK(nr(e.z, kPiL * C.z, 0.02f));
+        }
+    }
+
+    // Directionality: a bright sample from +Z lights +Z-facing normals, not -Z.
+    {
+        ShL2 sh;
+        sh.addSample(vec3(0, 0, 1), vec3(1, 0, 0), 1.0f);
+        const vec3 up = shIrradiance(sh, vec3(0, 0, 1));
+        const vec3 side = shIrradiance(sh, vec3(1, 0, 0));
+        const vec3 down = shIrradiance(sh, vec3(0, 0, -1));
+        CHECK(up.x > side.x);
+        CHECK(side.x > down.x);
+        CHECK(up.x > 0.0f);
+        CHECK(nr(up.y, 0.0f, 1e-6f) && nr(up.z, 0.0f, 1e-6f));
+    }
+
+    // Empty / cleared probe reconstructs to zero.
+    {
+        ShL2 sh;
+        vec3 e = shIrradiance(sh, vec3(0, 1, 0));
+        CHECK(nr(e.x, 0.0f, 1e-6f) && nr(e.y, 0.0f, 1e-6f) && nr(e.z, 0.0f, 1e-6f));
+        sh.addSample(vec3(0, 1, 0), vec3(1, 1, 1), 1.0f);
+        sh.clear();
+        e = shIrradiance(sh, vec3(0, 1, 0));
+        CHECK(nr(e.x, 0.0f, 1e-6f));
+    }
+}
+
 void testHalfFloat() {
     using maz::math::floatToHalf;
     using maz::math::halfToFloat;
@@ -32807,6 +32866,7 @@ void testSceneStack() {
 int main() {
     std::printf("maz unit tests\n");
     testMath();
+    testSphericalHarmonics();
     testHalfFloat();
     testMathFuncs();
     testCurve2D();

@@ -36,6 +36,9 @@ only be written blind, the docs say exactly that.
 - [x] **half-precision float (float16) conversion** — `math::halfToFloat` / `floatToHalf` — DONE (M512); the
   IEEE 754 half format underpinning HDR image storage, glTF quantized accessors, and GPU vertex compression
   (round-to-nearest-even, exhaustively verified). [VERIFIABLE HERE]
+- [x] **spherical-harmonic irradiance probes** (`math::ShL2` / `shBasis` / `shIrradiance`) — DONE (M513); the
+  order-2 SH ambient/light-probe representation Godot bakes into LightmapGI (project radiance -> 9 RGB
+  coeffs -> clamped-cosine irradiance). [VERIFIABLE HERE]
 - [x] **TGA image decode** — ALREADY PRESENT (`render::decodeTga`, `ImageCodecTga.hpp`). No work needed.
 - [x] **BMP image decode** — ALREADY PRESENT (`render::decodeBmp`, `ImageCodecBmp.hpp`). No work needed.
 - [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]
