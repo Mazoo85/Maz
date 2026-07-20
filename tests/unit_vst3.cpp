@@ -57,6 +57,10 @@ int main() {
     check(minv < 0.1f, "VST3 tremolo modulates the amplitude down");
     check(maxv > 0.45f, "VST3 tremolo leaves peaks near the input");
 
+    // The tremolo is a pure audio effect — it declares no event/note input bus, so the host reports it
+    // is not hostable as an instrument (the routing signal that separates effects from instruments).
+    check(!host.hasEventInput(), "the tremolo effect exposes no VST3 event input");
+
     // A disabled host is transparent.
     audio::Vst3Host host2;
     check(host2.load(MAZ_TEST_VST3, sr, 512, &err), "reloads for the bypass check");

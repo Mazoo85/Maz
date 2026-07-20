@@ -39,6 +39,15 @@ IAudioProcessor* processorOf(void* p) { return static_cast<IAudioProcessor*>(p);
 
 Vst3Host::~Vst3Host() { unload(); }
 
+bool Vst3Host::hasEventInput() const {
+    if (component_ == nullptr) {
+        return false;
+    }
+    // An instrument declares one or more event (note/MIDI) input buses; a pure audio effect declares
+    // none. Query the component's kEvent/kInput bus count.
+    return componentOf(component_)->getBusCount(kEvent, kInput) > 0;
+}
+
 bool Vst3Host::load(const std::string& path, int sampleRate, int maxBlock, std::string* err) {
     unload();
     const auto fail = [&](const std::string& m) {

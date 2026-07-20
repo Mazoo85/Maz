@@ -29,6 +29,11 @@ public:
     bool loaded() const { return processor_ != nullptr; }
     const std::string& pluginName() const { return name_; }
 
+    // True if the plugin declares at least one event (MIDI/note) input bus — the routing signal that
+    // it can be hosted as an instrument (driven by note events) rather than a pure audio effect.
+    // Mirrors ClapHost::hasNotePorts(). Pure audio effects (e.g. the example tremolo) report false.
+    bool hasEventInput() const;
+
     const char* name() const override { return name_.empty() ? "VST3" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
 
