@@ -338,6 +338,10 @@ void Sequencer::setPatternTranspose(int semis) {
     patterns_[static_cast<size_t>(current_)].transpose = semis < -48 ? -48 : (semis > 48 ? 48 : semis);
 }
 
+void Sequencer::setPatternTempoMul(float mul) {
+    patterns_[static_cast<size_t>(current_)].tempoMul = mul < 0.25f ? 0.25f : (mul > 4.0f ? 4.0f : mul);
+}
+
 const char* Sequencer::grooveName(int preset) {
     switch (preset) {
     case 0:
@@ -426,7 +430,9 @@ void Sequencer::setHumanize(float amount) {
 
 double Sequencer::samplesPerStep(int sampleRate, int step) const {
     // beats/sec = bpm/60; steps/sec = beats/sec * stepsPerBeat; samples/step = sampleRate / steps-sec.
-    const double stepsPerSec = (bpm_ / 60.0) * static_cast<double>(stepsPerBeat_);
+    // Per-pattern tempo multiplier scales the effective BPM (1 = the song tempo, bit-identical).
+    const double tempoMul = static_cast<double>(patterns_[static_cast<size_t>(current_)].tempoMul);
+    const double stepsPerSec = (bpm_ * tempoMul / 60.0) * static_cast<double>(stepsPerBeat_);
     const double base = static_cast<double>(sampleRate) / stepsPerSec;
     // Swing (per-pattern): even steps get (1 + swing), odd steps (1 - swing) — a pair sums to 2·base.
     const double sw = static_cast<double>(patterns_[static_cast<size_t>(current_)].swing);

@@ -183,6 +183,7 @@ int main() {
     seq.setPatternName(p1, "Chorus Fill");
     seq.setSwing(0.35f); // pattern 1's own groove
     seq.setPatternTranspose(5); // pattern 1's own key change (+5 st)
+    seq.setPatternTempoMul(1.5f); // pattern 1's own speed (1.5x the song tempo)
     seq.selectPattern(0);
     seq.setSwing(0.15f); // pattern 0's own groove
     seq.setPlaylist({0, 1, 0});
@@ -692,6 +693,7 @@ int main() {
     check(near(seq2.roll().notes()[0].cutoff, -1.5f), "per-note filter-cutoff offset (Mod X) round-trips");
     check(near(seq2.swing(), 0.35f), "pattern 1 per-pattern swing round-trips");
     check(seq2.patternTranspose() == 5, "pattern 1 per-pattern transpose round-trips");
+    check(near(seq2.patternTempoMul(), 1.5f), "pattern 1 per-pattern tempo multiplier round-trips");
     seq2.selectPattern(0);
     check(near(seq2.swing(), 0.15f), "pattern 0 per-pattern swing round-trips");
 

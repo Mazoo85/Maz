@@ -24,6 +24,8 @@ struct Pattern {
     PianoRoll roll2;           // second (bass) instrument
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
     int transpose = 0;         // per-pattern transpose in semitones (added to the global transpose)
+    float tempoMul = 1.0f;     // per-pattern tempo multiplier on the song BPM (0.25..4; 1 = song tempo)
+                               // — a section can run half-time or double-time in a chained song
 };
 
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
@@ -81,6 +83,11 @@ public:
     // patterns (e.g. a chorus a step up). Drums are unaffected. Persisted with the pattern.
     void setPatternTranspose(int semis);
     int patternTranspose() const { return patterns_[static_cast<size_t>(current_)].transpose; }
+
+    // Per-pattern tempo multiplier on the song BPM (0.25..4; 1 = the song tempo). In song mode each
+    // chained pattern plays at its own speed, so a section can drop to half-time or push to double-time.
+    void setPatternTempoMul(float mul);
+    float patternTempoMul() const { return patterns_[static_cast<size_t>(current_)].tempoMul; }
 
     // Humanize: randomize each drum hit's velocity slightly (0 = off, 1 = max) for a less
     // machine-like feel. Deterministic, so renders are reproducible.

@@ -660,6 +660,28 @@ int main() {
               "the guiro's amplitude ratchets (far more energy variation than a steady shaker)");
     }
 
+    // --- Per-pattern tempo multiplier ---------------------------------------
+    {
+        // At the same BPM, a higher per-pattern tempo multiplier walks the step clock faster, so the
+        // transport reaches a higher step after the same number of rendered samples. Default 1.0 is
+        // the song tempo. (bpm 120, 4 steps/beat → 6000 samples/step at 48 kHz; render 24000 samples.)
+        auto stepAfter = [&](float mul) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setPatternTempoMul(mul);
+            check(std::fabs(s.patternTempoMul() - mul) < 1e-4f, "pattern tempo multiplier is settable");
+            s.play();
+            renderMono(s, 24000, sampleRate); // < 16 steps at both speeds, so no wrap
+            return s.currentStep();
+        };
+        const int slow = stepAfter(1.0f);
+        const int fast = stepAfter(2.0f);
+        check(fast >= slow * 2 - 1 && fast > slow,
+              "double the pattern tempo advances the step clock about twice as far");
+        audio::Sequencer def;
+        check(std::fabs(def.patternTempoMul() - 1.0f) < 1e-4f, "pattern tempo defaults to 1x (song tempo)");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

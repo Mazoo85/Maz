@@ -520,6 +520,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setPatternTranspose(patTr);
     }
     ImGui::SameLine();
+    float patTempo = seq.patternTempoMul();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::SliderFloat("Pat.tempo", &patTempo, 0.25f, 4.0f, "%.2fx")) { // this pattern's own speed
+        seq.setPatternTempoMul(patTempo);
+    }
+    ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         seq.clear();
     }
