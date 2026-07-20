@@ -112,11 +112,18 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
         }
         r.skip(4); // "MTrk"
         const uint32_t trackLen = r.be(4);
-        const size_t trackEnd = r.i + trackLen;
+        // Clamp the declared track length to the bytes actually present: a truncated/corrupt file can
+        // claim a track far longer than the buffer, and every direct r.p[r.i] read below (and the
+        // r.i + 3 <= trackEnd tempo guard) must stay inside the buffer, not just inside the claim.
+        const size_t claimedEnd = r.i + static_cast<size_t>(trackLen);
+        const size_t trackEnd = claimedEnd < r.n ? claimedEnd : r.n;
         int tick = 0;
         uint8_t running = 0;
         while (r.i < trackEnd && r.ok) {
             tick += static_cast<int>(r.vlq());
+            if (r.i >= trackEnd) {
+                break; // the delta-time consumed the rest of the track — no status byte follows
+            }
             uint8_t status = r.p[r.i];
             if (status & 0x80u) {
                 r.i++;

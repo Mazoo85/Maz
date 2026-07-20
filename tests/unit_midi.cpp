@@ -186,6 +186,34 @@ int main() {
               "a note held to end-of-track is imported (ended at the track's end)");
     }
 
+    // A truncated file whose MTrk length claims far more bytes than are present must not over-read
+    // past the buffer (regression: trackEnd was the unclamped claimed length, so the event loop and
+    // the tempo-meta read walked off the end of a corrupt/truncated import).
+    {
+        auto putBE = [](std::vector<uint8_t>& v, uint32_t x, int nb) {
+            for (int k = nb - 1; k >= 0; --k) {
+                v.push_back(static_cast<uint8_t>((x >> (8 * k)) & 0xFFu));
+            }
+        };
+        std::vector<uint8_t> mid;
+        mid.insert(mid.end(), {'M', 'T', 'h', 'd'});
+        putBE(mid, 6, 4);
+        putBE(mid, 0, 2);  // format 0
+        putBE(mid, 1, 2);  // one track
+        putBE(mid, 96, 2); // 96 ppq
+        mid.insert(mid.end(), {'M', 'T', 'r', 'k'});
+        putBE(mid, 0xFFFFFFFFu, 4); // claims a 4 GB track...
+        // ...but there is NO track data at all (the file ends here).
+        std::ofstream of("unit_midi_truncated.mid", std::ios::binary);
+        of.write(reinterpret_cast<const char*>(mid.data()), static_cast<std::streamsize>(mid.size()));
+        of.close();
+
+        audio::Sequencer tr;
+        // The only requirement is that this returns without an out-of-bounds read / crash.
+        (void)audio::readMidi("unit_midi_truncated.mid", tr, &err);
+        check(tr.roll().notes().empty(), "a truncated MIDI track yields no notes and does not over-read");
+    }
+
     // A non-MIDI file fails cleanly.
     audio::Sequencer bad;
     check(!audio::readMidi("/nonexistent/missing.mid", bad, &err), "reading a missing file fails");
