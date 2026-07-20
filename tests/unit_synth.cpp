@@ -114,6 +114,33 @@ int main() {
         check(dls.filterLfoShape() == audio::Waveform::Sine, "cutoff LFO shape defaults to sine");
     }
 
+    // --- Per-note filter-cutoff offset (FL "Mod X") -------------------------
+    {
+        // The 5-arg noteOn carries a per-note cutoff offset in octaves. With the patch filter engaged,
+        // a negative offset should darken the tone (fewer highs → lower first-difference brightness)
+        // and a positive offset should brighten it, relative to the same note with no offset.
+        auto brightAt = [&](float cutoffOct) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Saw);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(1200.0f, 0.7f, 0.0f); // engaged base cutoff so the offset is audible
+            s.noteOn(45, 1.0f, 0.0f, false, cutoffOct);
+            const std::vector<float> out = render(s, sampleRate / 2, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        const double dark = brightAt(-2.0f);
+        const double flat = brightAt(0.0f);
+        const double open = brightAt(2.0f);
+        check(dark < flat * 0.9, "a negative per-note cutoff offset darkens the tone (Mod X down)");
+        check(open > flat * 1.1, "a positive per-note cutoff offset brightens the tone (Mod X up)");
+    }
+
     // --- Filter cutoff LFO sample & hold ------------------------------------
     {
         // Brightness (HF/energy) of a 0.2 s window starting at `startSec` of a 2 s render.

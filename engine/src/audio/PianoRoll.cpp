@@ -253,6 +253,26 @@ int PianoRoll::noteNudge(int pitch, int step) const {
     return 0;
 }
 
+float PianoRoll::setNoteCutoff(int pitch, int step, float octaves) {
+    const float v = octaves < -8.0f ? -8.0f : (octaves > 8.0f ? 8.0f : octaves);
+    for (Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            n.cutoff = v;
+            return v;
+        }
+    }
+    return 0.0f;
+}
+
+float PianoRoll::noteCutoff(int pitch, int step) const {
+    for (const Note& n : notes_) {
+        if (n.pitch == pitch && n.startStep == step) {
+            return n.cutoff;
+        }
+    }
+    return 0.0f;
+}
+
 int PianoRoll::humanizeTiming(int maxNudge, uint32_t seed) {
     const int cap = maxNudge < 0 ? 0 : (maxNudge > 95 ? 95 : maxNudge);
     if (cap == 0) {

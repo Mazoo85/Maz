@@ -71,7 +71,7 @@ void SynthInstrument::updateTempo(double bpm) {
     }
 }
 
-void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool slide) {
+void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool slide, float cutoffOct) {
     // TB-303 slide: if a voice is currently sounding in mono mode, retune it toward the new pitch and
     // glide there WITHOUT restarting the amp envelope — a legato tie. A note in Release is revived to
     // Sustain so an adjacent (note-off then slide-on) pair joins seamlessly. We use an audible glide
@@ -88,6 +88,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool sli
             constexpr float kDefaultSlideSec = 0.06f;
             target->midi = midi;
             target->targetFreq = midiToFreq(midi);
+            target->cutoffOffsetOct = cutoffOct; // Mod X follows the slid note
             target->glideOverride = glideSeconds_ > 0.0f ? glideSeconds_ : kDefaultSlideSec;
             // Revive BOTH envelopes from Release so the slid note keeps sounding AND keeps its filter
             // contour — the flagship acid-bass case relies on the filter envelope surviving the slide.
@@ -145,6 +146,7 @@ void SynthInstrument::noteOn(int midi, float velocity, float fineCents, bool sli
     Voice& v = voices_[static_cast<size_t>(chosen)];
     v.stage = Stage::Attack;
     v.midi = midi;
+    v.cutoffOffsetOct = cutoffOct; // per-note filter-cutoff offset (FL "Mod X")
     // Start-phase randomization: begin each oscillator at a random phase (scaled by phaseRandom_) so
     // repeated notes have different transients; 0 = the classic phase-coherent start at 0.
     auto nextPhase = [&]() -> double {
@@ -591,6 +593,10 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                                              ? sampleHoldValue(fp)
                                              : waveSample(filterLfoShape_, fp - std::floor(fp));
                     cutoff *= std::pow(2.0f, filterLfoDepth_ * lfoVal);
+                }
+                // Per-note cutoff offset (FL "Mod X"): shift this voice's cutoff by ±octaves.
+                if (v.cutoffOffsetOct != 0.0f) {
+                    cutoff *= std::pow(2.0f, v.cutoffOffsetOct);
                 }
                 cutoff = std::clamp(cutoff, 20.0f, 20000.0f);
                 // Filter drive: overdrive the signal into the filter (tanh) for harmonics/grit before

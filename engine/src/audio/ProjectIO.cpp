@@ -421,12 +421,12 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         for (const Note& n : seq.roll2().notes()) {
             f << "note2 " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
               << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
-              << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << "\n";
+              << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << " " << n.cutoff << "\n";
         }
         for (const Note& n : seq.roll().notes()) {
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
               << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
-              << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << "\n";
+              << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << " " << n.cutoff << "\n";
         }
     }
     seq.selectPattern(savedCurrent);
@@ -1078,6 +1078,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (ls >> nudge) {
                 n.nudge = nudge < 0 ? 0 : (nudge > 95 ? 95 : nudge);
             }
+            float cutoff = 0.0f; // per-note cutoff offset (FL "Mod X") optional (older files omit → 0)
+            if (ls >> cutoff) {
+                n.cutoff = cutoff < -8.0f ? -8.0f : (cutoff > 8.0f ? 8.0f : cutoff);
+            }
             seq.selectPattern(p);
             seq.roll().addNote(n);
         } else if (tag == "note2") {
@@ -1107,6 +1111,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int nudge = 0; // per-note micro-timing nudge optional (older files omit it → on the grid)
             if (ls >> nudge) {
                 n.nudge = nudge < 0 ? 0 : (nudge > 95 ? 95 : nudge);
+            }
+            float cutoff = 0.0f; // per-note cutoff offset (FL "Mod X") optional (older files omit → 0)
+            if (ls >> cutoff) {
+                n.cutoff = cutoff < -8.0f ? -8.0f : (cutoff > 8.0f ? 8.0f : cutoff);
             }
             seq.selectPattern(p);
             seq.roll2().addNote(n);

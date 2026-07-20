@@ -22,6 +22,9 @@ struct Note {
                               // (mirrors the drum step stride)
     int nudge = 0;            // micro-timing: delay the note's onset by this % (0..95) of a step's slot
                               // for a behind-the-beat feel (0 = dead on the grid; mirrors drum nudge)
+    float cutoff = 0.0f;      // per-note filter-cutoff offset in octaves (±), FL "Mod X": multiplies the
+                              // synth's base cutoff for this note by 2^cutoff (0 = unchanged). Needs the
+                              // synth filter engaged (base cutoff below ~19 kHz) to be audible.
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.
@@ -291,6 +294,11 @@ public:
     // Per-note micro-timing nudge (0..95): delay the onset by this % of a step (0 = on the grid).
     int setNoteNudge(int pitch, int step, int percent);
     int noteNudge(int pitch, int step) const;
+
+    // Per-note filter-cutoff offset in octaves (FL "Mod X"), clamped to [-8, +8]; returns the applied
+    // value (0 if no note is at pitch/step).
+    float setNoteCutoff(int pitch, int step, float octaves);
+    float noteCutoff(int pitch, int step) const;
 
     // Set the micro-timing nudge on every note that starts on `step` (used to stamp a groove template
     // across the melody, not just the drum grid). Returns the number of notes affected.

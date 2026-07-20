@@ -881,7 +881,7 @@ void Sequencer::triggerStep(int step) {
         const int interval = stepSamples / n.roll;
         for (int k = 1; k < n.roll; ++k) {
             melodicHits_.push_back(
-                MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp});
+                MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp, n.cutoff});
         }
     };
     // Per-note micro-timing nudge: delay the onset by nudge% of the step (deferred through the same
@@ -898,11 +898,12 @@ void Sequencer::triggerStep(int step) {
             const int p = n.pitch + tr;
             const int delay = nudgeDelay(n);
             if (delay > 0) {
-                melodicHits_.push_back(MelodicHit{p, n.velocity, n.fineTune, delay, false, toSampler});
+                melodicHits_.push_back(
+                    MelodicHit{p, n.velocity, n.fineTune, delay, false, toSampler, n.cutoff});
             } else if (toSampler) {
                 sampler_.noteOn(p, n.velocity);
             } else {
-                synth_.noteOn(p, n.velocity, n.fineTune, n.slide);
+                synth_.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
             }
             scheduleRoll(n, p, false, toSampler);
         }
@@ -920,9 +921,10 @@ void Sequencer::triggerStep(int step) {
             const int p = n.pitch + tr;
             const int delay = nudgeDelay(n);
             if (delay > 0) {
-                melodicHits_.push_back(MelodicHit{p, n.velocity, n.fineTune, delay, true, false});
+                melodicHits_.push_back(
+                    MelodicHit{p, n.velocity, n.fineTune, delay, true, false, n.cutoff});
             } else {
-                synth2_.noteOn(p, n.velocity, n.fineTune, n.slide);
+                synth2_.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
             }
             scheduleRoll(n, p, true, false);
         }
@@ -1033,10 +1035,10 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     sampler_.noteOn(h.pitch, h.velocity);
                 } else if (h.bass) {
                     synth2_.noteOff(h.pitch);
-                    synth2_.noteOn(h.pitch, h.velocity, h.fineTune);
+                    synth2_.noteOn(h.pitch, h.velocity, h.fineTune, false, h.cutoff);
                 } else {
                     synth_.noteOff(h.pitch);
-                    synth_.noteOn(h.pitch, h.velocity, h.fineTune);
+                    synth_.noteOn(h.pitch, h.velocity, h.fineTune, false, h.cutoff);
                 }
                 melodicHits_.erase(melodicHits_.begin() + static_cast<long>(mi));
             } else {

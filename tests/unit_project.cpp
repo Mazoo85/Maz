@@ -177,8 +177,8 @@ int main() {
     seq.setStepTune(2, 5, -5); // per-step pitch offset
     seq.setStepNudge(2, 5, 40); // per-step timing nudge
     seq.setStepStride(2, 5, 3); // per-step trig condition (fire every 3rd loop)
-    seq.roll().addNote(
-        audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f, 3, true, 4, 25}); // roll=3, slide, stride=4, nudge=25
+    seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f, 3, true, 4, 25,
+                                   -1.5f}); // roll=3, slide, stride=4, nudge=25, cutoff=-1.5 oct
     seq.setPatternName(p1, "Chorus Fill");
     seq.setSwing(0.35f); // pattern 1's own groove
     seq.setPatternTranspose(5); // pattern 1's own key change (+5 st)
@@ -687,6 +687,7 @@ int main() {
     check(seq2.roll().notes()[0].slide, "per-note slide/portamento round-trips");
     check(seq2.roll().notes()[0].stride == 4, "per-note trig condition (stride) round-trips");
     check(seq2.roll().notes()[0].nudge == 25, "per-note micro-timing nudge round-trips");
+    check(near(seq2.roll().notes()[0].cutoff, -1.5f), "per-note filter-cutoff offset (Mod X) round-trips");
     check(near(seq2.swing(), 0.35f), "pattern 1 per-pattern swing round-trips");
     check(seq2.patternTranspose() == 5, "pattern 1 per-pattern transpose round-trips");
     seq2.selectPattern(0);

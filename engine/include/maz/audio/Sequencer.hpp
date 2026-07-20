@@ -441,6 +441,7 @@ private:
         int framesUntil;
         bool bass;         // true = synth2 (bass lane); false = lead
         bool toSampler;    // lead lane routed to the sampler
+        float cutoff;      // per-note filter-cutoff offset in octaves (FL "Mod X")
     };
     std::vector<MelodicHit> melodicHits_;
 

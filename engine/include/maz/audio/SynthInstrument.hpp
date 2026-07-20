@@ -438,7 +438,12 @@ public:
     // the note glides in from the current pitch WITHOUT restarting the amp envelope (a legato slide);
     // it always uses an audible glide time even if the global glide is 0. Falls back to a normal
     // note-on when polyphonic or when nothing is currently sounding.
-    void noteOn(int midi, float velocity, float fineCents, bool slide);
+    void noteOn(int midi, float velocity, float fineCents, bool slide) {
+        noteOn(midi, velocity, fineCents, slide, 0.0f);
+    }
+    // Trigger with an additional per-note filter-cutoff offset in octaves (FL "Mod X"): the voice's
+    // cutoff is multiplied by 2^cutoffOct while it sounds (0 = the patch cutoff unchanged).
+    void noteOn(int midi, float velocity, float fineCents, bool slide, float cutoffOct);
     void noteOff(int midi);
     void allNotesOff(); // release every held voice
 
@@ -465,6 +470,7 @@ private:
         float freq = 0.0f;       // current (possibly gliding) frequency
         float targetFreq = 0.0f; // note's destination frequency
         float glideOverride = -1.0f; // per-note glide time (s); <0 = use the instrument's global glide
+        float cutoffOffsetOct = 0.0f; // per-note filter-cutoff offset in octaves (FL "Mod X"); 0 = none
         float driftMul = 1.0f;   // per-note analog-drift pitch multiplier (1 = in tune)
         float pitchEnv = 0.0f;   // pitch-envelope offset in semitones (decays to 0)
         float velocity = 0.0f;

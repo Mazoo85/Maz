@@ -994,12 +994,16 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 roll.toggle(pitch, s);
             }
             // Scroll over a placed note to set its trigger probability; Ctrl+scroll sets its fine
-            // tune (cents), Shift+scroll its roll count, Alt+scroll toggles TB-303 slide. Tooltips
+            // tune (cents), Shift+scroll its roll count, Alt+scroll toggles TB-303 slide,
+            // Ctrl+Alt+Shift+scroll sets its filter-cutoff offset (FL "Mod X", octaves). Tooltips
             // show whichever attribute is non-default.
             if (on && ImGui::IsItemHovered()) {
                 const float wheel = ImGui::GetIO().MouseWheel;
                 if (wheel != 0.0f) {
-                    if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyAlt) {
+                    if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyAlt && ImGui::GetIO().KeyShift) {
+                        roll.setNoteCutoff(pitch, s,
+                                           roll.noteCutoff(pitch, s) + (wheel > 0.0f ? 0.25f : -0.25f));
+                    } else if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyAlt) {
                         roll.setNoteNudge(pitch, s, roll.noteNudge(pitch, s) + (wheel > 0.0f ? 5 : -5));
                     } else if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift) {
                         roll.setNoteStride(pitch, s, roll.noteStride(pitch, s) + (wheel > 0.0f ? 1 : -1));
@@ -1018,7 +1022,10 @@ void buildPianoRollUI(audio::Sequencer& seq) {
                 const int rl = roll.noteRoll(pitch, s);
                 const int sd = roll.noteStride(pitch, s);
                 const int nu = roll.noteNudge(pitch, s);
-                if (nu > 0) {
+                const float co = roll.noteCutoff(pitch, s);
+                if (co != 0.0f) {
+                    ImGui::SetTooltip("cutoff %+.2f oct", co);
+                } else if (nu > 0) {
                     ImGui::SetTooltip("nudge %d%%", nu);
                 } else if (sd > 1) {
                     ImGui::SetTooltip("1/%d loops", sd);
