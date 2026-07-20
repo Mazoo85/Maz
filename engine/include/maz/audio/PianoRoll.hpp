@@ -17,8 +17,9 @@ struct Note {
     int roll = 1;             // retrigger count within the note's first step (1 = no roll/roll off)
     bool slide = false;       // TB-303-style slide/portamento: glide pitch in from the previous note
                               // WITHOUT retriggering the amp envelope (mono synth lanes only)
-    int stride = 1;           // trig condition: fire only every Nth pattern loop (1 = every loop),
-                              // deterministic melodic fills/variation — mirrors the drum step stride
+    int stride = 1;           // trig condition: fire only every Nth transport loop (1 = every loop);
+                              // counts bars from playback start — deterministic melodic fills/variation
+                              // (mirrors the drum step stride)
 };
 
 // Common chord qualities for the chord tool. Each expands to a set of semitone offsets from the root.

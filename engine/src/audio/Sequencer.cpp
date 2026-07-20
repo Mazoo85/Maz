@@ -1166,11 +1166,25 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                         songLoopEnd_ > songLoopStart_ && songLoopStart_ < plSize;
                     const int loopStart = region ? songLoopStart_ : 0;
                     const int loopEnd = region ? std::min(songLoopEnd_, plSize) : plSize;
+                    // Switching to a DIFFERENT pattern must release any melodic voices still held from
+                    // the outgoing pattern: the next triggerStep only iterates the new pattern's notes,
+                    // so an outgoing note ringing to the bar line (endStep 0) would otherwise never get
+                    // its note-off and hang — guaranteed when the patterns' transposes differ (the new
+                    // pattern's note-off is at a different pitch). Same-pattern repeats are left alone
+                    // (triggerStep releases and re-triggers them correctly).
+                    auto switchTo = [this](int patIndex) {
+                        if (patIndex != currentPattern()) {
+                            synth_.allNotesOff();
+                            synth2_.allNotesOff();
+                            sampler_.allNotesOff();
+                        }
+                        selectPattern(patIndex);
+                    };
                     const int next = playlistPos_ + 1;
                     if (next >= loopEnd) {
                         if (songLoop_) {
                             playlistPos_ = loopStart;
-                            selectPattern(playlist_[static_cast<size_t>(loopStart)]);
+                            switchTo(playlist_[static_cast<size_t>(loopStart)]);
                         } else {
                             // Play-once: stop cleanly at the end of the arrangement/region.
                             playing_ = false;
@@ -1180,7 +1194,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                         }
                     } else {
                         playlistPos_ = next;
-                        selectPattern(playlist_[static_cast<size_t>(next)]);
+                        switchTo(playlist_[static_cast<size_t>(next)]);
                     }
                 }
                 if (playing_) {

@@ -2062,6 +2062,36 @@ int main() {
               "trig conditions count global loops in song mode (stride 2 fires bars 0 and 2)");
     }
 
+    // --- Song-mode pattern change releases held melodic notes (no hang) ----------
+    {
+        // Pattern 0 holds a full-bar lead note (rings to the bar line); pattern 1 is empty with a
+        // different transpose (the guaranteed-hang case). Advancing 0→1 must release the note.
+        audio::Sequencer s;
+        s.setBpm(120.0);
+        audio::Note note;
+        note.startStep = 0;
+        note.lengthSteps = 16; // ends exactly on the bar line (endStep 0)
+        note.pitch = 60;
+        s.roll().addNote(note);
+        const int emptyPat = s.addPattern();
+        s.selectPattern(emptyPat);
+        s.setPatternTranspose(2); // different key → a note-off here would be a different pitch
+        s.selectPattern(0);
+        s.setPlaylist({0, 1});
+        s.setSongMode(true);
+        s.play();
+        const int barFrames = 16 * 6000;
+        (void)renderMono(s, barFrames, sampleRate);                          // bar A: the note plays
+        const std::vector<float> barB = renderMono(s, barFrames, sampleRate); // bar B: empty pattern
+        double tailE = 0.0;
+        for (int i = barFrames * 3 / 4; i < barFrames; ++i) { // last quarter of bar B
+            tailE += static_cast<double>(barB[static_cast<size_t>(i) * 2]) *
+                    static_cast<double>(barB[static_cast<size_t>(i) * 2]);
+        }
+        check(tailE < 1e-3,
+              "advancing to a different pattern releases held notes (no hung/droning note)");
+    }
+
     // --- Groove templates: stamp a per-step micro-timing feel --------------------
     {
         audio::Sequencer s;

@@ -305,10 +305,13 @@ public:
     int stepNudge(int channel, int step) const;
     void setStepNudge(int channel, int step, int percent);
 
-    // Per-step trig condition (1..8): the step fires only on pattern loops where (loopIndex % stride)
-    // == 0, i.e. stride 1 = every loop (default), 2 = every other loop, 4 = one loop in four — the
-    // classic Elektron/FL conditional trig for fills and long-form variation. Deterministic: the same
-    // transport always plays the same loops. Distinct from per-step probability (random). Drum grid.
+    // Per-step trig condition (1..8): the step fires only on transport loops where (loopIndex %
+    // stride) == 0, i.e. stride 1 = every loop (default), 2 = every other loop, 4 = one loop in four —
+    // the classic Elektron/FL conditional trig for fills and long-form variation. The loop index
+    // counts bars from the start of playback (so in a single looping pattern it is that pattern's loop
+    // count; in song mode it counts global bars across the playlist — song-wide fills every N bars).
+    // Deterministic: the same transport always plays the same loops. Distinct from per-step
+    // probability (random). Drum grid.
     int stepStride(int channel, int step) const;
     void setStepStride(int channel, int step, int stride);
 
