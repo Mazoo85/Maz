@@ -83,6 +83,32 @@ int main() {
     hat.render(tail.data(), sampleRate / 2, sampleRate);
     check(!hat.active(), "closed hat decays to inactive");
 
+    // --- Per-voice noise decorrelation (setNoiseSeed) ------------------------
+    {
+        // Two closed hats (noise-driven) with DIFFERENT seeds must render different noise, so stacking
+        // two same-type channels sums incoherently instead of doubling a bit-identical signal.
+        auto renderHat = [&](uint32_t seed) {
+            audio::DrumVoice h;
+            h.setType(audio::Drum::ClosedHat);
+            h.setNoiseSeed(seed);
+            h.trigger();
+            std::vector<float> b(2048, 0.0f);
+            h.render(b.data(), 2048, sampleRate);
+            return b;
+        };
+        const std::vector<float> a = renderHat(0x1234567u);
+        const std::vector<float> b = renderHat(0x1234567u + 0x9E3779B9u);
+        const std::vector<float> a2 = renderHat(0x1234567u);
+        int diff = 0;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != b[i]) {
+                ++diff;
+            }
+        }
+        check(diff > 1000, "different seeds decorrelate two same-type drum voices' noise");
+        check(a == a2, "the same seed reproduces bit-identical noise (still deterministic)");
+    }
+
     // --- Drum pitch-envelope depth ("punch") --------------------------------
     {
         // High-frequency content via the first difference — a deeper initial pitch sweep starts

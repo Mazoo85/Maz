@@ -26,6 +26,11 @@ Sequencer::Sequencer() {
     for (int c = 0; c < channelCount; ++c) {
         channels_[static_cast<size_t>(c)].setType(kKit[c].drum);
         channels_[static_cast<size_t>(c)].setGain(kKit[c].gain);
+        // Decorrelate each channel's noise generator so two channels of the same drum type don't
+        // produce bit-identical noise that sums coherently. Channel 0 keeps the historical default
+        // seed (its output is unchanged); the odd multiplier spreads the rest across the state space.
+        channels_[static_cast<size_t>(c)].setNoiseSeed(0x1234567u +
+                                                       static_cast<uint32_t>(c) * 0x9E3779B9u);
         names_[static_cast<size_t>(c)] = kKit[c].name;
     }
     chanVolume_.assign(static_cast<size_t>(channelCount), 1.0f);

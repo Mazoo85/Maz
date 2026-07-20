@@ -118,6 +118,11 @@ public:
     // inactive, so it is cheap to call on every voice every block.
     void render(float* out, int frames, int sampleRate);
 
+    // Seed the per-voice noise generator. Distinct seeds decorrelate the noise of two voices playing
+    // the same drum type at once (e.g. two channels both set to Closed Hat), so they sum incoherently
+    // (~+3 dB) like real hits instead of doubling coherently (~+6 dB). Deterministic per seed.
+    void setNoiseSeed(uint32_t seed) { rng_ = seed != 0u ? seed : 0x1234567u; }
+
 private:
     // Deterministic white-noise source (xorshift), seeded per-voice so hits are reproducible.
     float noise();
