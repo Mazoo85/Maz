@@ -500,6 +500,10 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         f << " " << idx;
     }
     f << "\n";
+    // 2-D playlist clips (pattern @ bar @ track). Written after the legacy playlist; only when present.
+    for (const PlaylistClip& cl : seq.clips()) {
+        f << "clip " << cl.pattern << " " << cl.startBar << " " << cl.track << "\n";
+    }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
@@ -1206,6 +1210,12 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 }
             }
             seq.setPlaylist(seqList);
+        } else if (tag == "clip") {
+            int pat = 0, bar = 0, trk = 0;
+            ls >> pat >> bar >> trk;
+            if (pat >= 0) {
+                seq.addClip(pat, bar, trk);
+            }
         } else if (tag == "step") {
             int p = 0;
             int c = 0;

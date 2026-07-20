@@ -29,6 +29,15 @@ struct Pattern {
                                // — a section can run half-time or double-time in a chained song
 };
 
+// One clip on the 2-D playlist timeline: a pattern placed at a bar position on an arrangement track.
+// The foundation of the FL-style freeform playlist (patterns arranged in 2-D across tracks + time),
+// distinct from the legacy 1-D `playlist_` sequence. Playback consumption is wired incrementally.
+struct PlaylistClip {
+    int pattern = 0;  // which pattern this clip plays
+    int startBar = 0; // bar position on the timeline (0-based)
+    int track = 0;    // arrangement-track row this clip sits on
+};
+
 // An FL-style step sequencer (a "channel rack"): a grid of channels × steps, a transport
 // (play/stop + BPM), and a set of built-in drum voices — one per channel. When playing, it walks
 // the step grid in sample-accurate time and strikes each channel whose step is switched on.
@@ -247,6 +256,23 @@ public:
     void clearPlaylist() { playlist_.clear(); }
     void appendToPlaylist(int patternIndex) { playlist_.push_back(patternIndex); }
 
+    // 2-D playlist clips (pattern placed at a bar on an arrangement track). The additive foundation of
+    // the freeform playlist; edited/persisted independently of the legacy 1-D `playlist_`.
+    int addClip(int pattern, int startBar, int track) {
+        clips_.push_back(PlaylistClip{pattern, startBar < 0 ? 0 : startBar, track < 0 ? 0 : track});
+        return static_cast<int>(clips_.size()) - 1;
+    }
+    int clipCount() const { return static_cast<int>(clips_.size()); }
+    const PlaylistClip& clip(int i) const { return clips_[static_cast<size_t>(i)]; }
+    PlaylistClip& clip(int i) { return clips_[static_cast<size_t>(i)]; }
+    void removeClip(int i) {
+        if (i >= 0 && i < clipCount()) {
+            clips_.erase(clips_.begin() + i);
+        }
+    }
+    void clearClips() { clips_.clear(); }
+    const std::vector<PlaylistClip>& clips() const { return clips_; }
+
     // Song loop region: restrict song-mode playback to the playlist index half-open range
     // [start, end) — playback starts at `start` and, when looping, wraps `end`→`start` instead of
     // cycling the whole playlist. A degenerate/empty range (end <= start) clears it (loop the whole
@@ -397,7 +423,8 @@ private:
     std::vector<float> chanFlam_; // per-channel flam offset in ms (0 = off)
     std::vector<Pattern> patterns_; // at least one; patterns_[current_] is edited/played
     int current_ = 0;
-    std::vector<int> playlist_;     // ordered pattern indices for song mode
+    std::vector<int> playlist_;     // ordered pattern indices for song mode (legacy 1-D playlist)
+    std::vector<PlaylistClip> clips_; // 2-D playlist clips (pattern @ bar @ track)
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     bool songMode_ = false;

@@ -340,6 +340,7 @@ void Sequencer::clearArrangement() {
     extraPan_.clear();
     extraBus_.clear();
     playlist_.clear();
+    clips_.clear();
     songMode_ = false;
     playlistPos_ = 0;
     current_ = 0;
