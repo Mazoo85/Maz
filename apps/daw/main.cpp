@@ -1151,6 +1151,29 @@ void buildSynthUI(audio::Sequencer& seq) {
     ImGui::SameLine();
     ImGui::TextDisabled(seq.leadPluginLoaded() ? "instrument loaded (CLAP/VST3)"
                                                : "(no plugin instrument)");
+
+    // Live MIDI target: which instrument a live keyboard (pushed into seq.midiInput()) plays — the lead
+    // lane or one of the extra instrument channels.
+    {
+        std::vector<std::string> items;
+        items.emplace_back("Lead");
+        for (int i = 0; i < seq.instrumentChannelCount(); ++i) {
+            items.push_back("Channel " + std::to_string(i + 1));
+        }
+        std::vector<const char*> labels;
+        labels.reserve(items.size());
+        for (const std::string& s : items) {
+            labels.push_back(s.c_str());
+        }
+        int sel = seq.liveTarget() < 0 ? 0 : seq.liveTarget() + 1;
+        if (sel >= static_cast<int>(labels.size())) {
+            sel = 0;
+        }
+        ImGui::SetNextItemWidth(160.0f);
+        if (ImGui::Combo("Live MIDI target", &sel, labels.data(), static_cast<int>(labels.size()))) {
+            seq.setLiveTarget(sel == 0 ? -1 : sel - 1);
+        }
+    }
     ImGui::Separator();
 
     // Arpeggiator (drives the piano roll).

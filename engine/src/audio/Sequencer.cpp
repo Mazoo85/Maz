@@ -1205,19 +1205,26 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
     }
     sampleRate_ = sampleRate; // used by triggerStep to schedule ratchet sub-hits
 
-    // Live MIDI: drain any note events pushed since the last block and play them on the lead instrument
-    // (built-in synth + hosted lead plugin), so a live keyboard layers on top of the running sequence.
-    // The notes sustain across blocks until their note-off arrives, exactly like sequenced lead notes.
+    // Live MIDI: drain any note events pushed since the last block and play them on the live-target
+    // instrument, so a live keyboard layers on top of the running sequence. The notes sustain across
+    // blocks until their note-off arrives, exactly like sequenced notes. The target is the lead lane
+    // (built-in synth + hosted lead plugin) by default, or a chosen extra channel (its synth + plugin,
+    // sounding in that channel's routed bus).
+    const int lt = liveTarget_;
+    const bool leadTarget = lt < 0 || lt >= static_cast<int>(extraSynths_.size());
+    SynthInstrument& liveSynth = leadTarget ? synth_ : extraSynths_[static_cast<size_t>(lt)];
+    InstrumentPlugin* livePlugin =
+        leadTarget ? leadPlugin_.get() : extraPlugins_[static_cast<size_t>(lt)].get();
     for (const MidiInput::Event& ev : liveIn_.drain()) {
         if (ev.on) {
-            synth_.noteOn(ev.key, ev.velocity);
-            if (leadPlugin_) {
-                leadPlugin_->noteOn(ev.key, ev.velocity);
+            liveSynth.noteOn(ev.key, ev.velocity);
+            if (livePlugin) {
+                livePlugin->noteOn(ev.key, ev.velocity);
             }
         } else {
-            synth_.noteOff(ev.key);
-            if (leadPlugin_) {
-                leadPlugin_->noteOff(ev.key);
+            liveSynth.noteOff(ev.key);
+            if (livePlugin) {
+                livePlugin->noteOff(ev.key);
             }
         }
     }

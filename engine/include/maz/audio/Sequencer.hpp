@@ -214,6 +214,12 @@ public:
     MidiInput& midiInput() { return liveIn_; }
     const MidiInput& midiInput() const { return liveIn_; }
 
+    // Which instrument the live MIDI queue plays: -1 (default) = the lead lane (built-in synth + hosted
+    // lead plugin); 0..instrumentChannelCount()-1 = that extra instrument channel (its synth + hosted
+    // plugin, sounding in the channel's routed bus). Lets you live-play any channel, not just the lead.
+    void setLiveTarget(int channel) { liveTarget_ = channel; }
+    int liveTarget() const { return liveTarget_; }
+
     // The step currently sounding (0..numSteps-1); useful for a playhead in the UI.
     int currentStep() const { return currentStep_; }
 
@@ -504,6 +510,7 @@ private:
     std::unique_ptr<InstrumentPlugin> leadPlugin_; // optional hosted CLAP/VST3 instrument on the lead lane
     std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
     MidiInput liveIn_;                     // live MIDI note input queue (drained in renderStems)
+    int liveTarget_ = -1;                  // live-input target: -1 = lead lane, else an extra channel
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     std::vector<std::unique_ptr<InstrumentPlugin>> extraPlugins_; // optional hosted CLAP/VST3 instrument per channel

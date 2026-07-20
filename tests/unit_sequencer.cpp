@@ -2463,6 +2463,21 @@ int main() {
             lseq.renderStems(d2.data(), l2.data(), b2.data(), fr, sr);
         }
         check(rms(l2) == 0.0, "a live MIDI note-off releases the note (lead falls silent)");
+
+        // Live input can target an extra channel instead of the lead: route a new channel to the bass
+        // bus, aim the live queue at it, and a pushed note now sounds in the bass stem, not the lead.
+        const int ch = lseq.addInstrumentChannel();
+        lseq.instrumentSynth(ch).setEnvelope(0.002f, 0.02f, 0.7f, 0.05f);
+        lseq.setInstrumentBus(ch, 2); // 2 = bass bus
+        lseq.setLiveTarget(ch);
+        check(lseq.liveTarget() == ch, "the live-input target is the chosen extra channel");
+        lseq.midiInput().pushNoteOn(72, 1.0f); // C5
+        std::vector<float> d3(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l3(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b3(static_cast<size_t>(fr) * 2, 0.0f);
+        lseq.renderStems(d3.data(), l3.data(), b3.data(), fr, sr);
+        check(rms(b3) > 0.0, "live input on a bass-routed channel sounds in the bass stem");
+        check(rms(l3) == 0.0, "and not on the lead stem");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);
