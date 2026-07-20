@@ -272,6 +272,10 @@ public:
     }
     void clearClips() { clips_.clear(); }
     const std::vector<PlaylistClip>& clips() const { return clips_; }
+    // Compile the 2-D clips into the legacy 1-D `playlist_` (patterns in bar, then track order) so the
+    // existing, tested song transport plays the arrangement. A safe bridge until the transport gains
+    // true simultaneous multi-track clip playback. Returns the resulting playlist length.
+    int compileClipsToPlaylist();
 
     // Song loop region: restrict song-mode playback to the playlist index half-open range
     // [start, end) — playback starts at `start` and, when looping, wraps `end`→`start` instead of

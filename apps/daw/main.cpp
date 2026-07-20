@@ -3286,6 +3286,60 @@ void buildArrangementUI(audio::Sequencer& seq) {
         seq.clearPlaylist();
     }
 
+    // 2-D playlist timeline: place pattern clips on a tracks × bars grid, then compile to the playlist
+    // so the song transport plays them (true simultaneous multi-track playback lands in a later step).
+    ImGui::SeparatorText("Timeline (2-D playlist clips)");
+    static int clipPat = 0;
+    if (clipPat >= seq.patternCount()) {
+        clipPat = seq.patternCount() - 1;
+    }
+    if (clipPat < 0) {
+        clipPat = 0;
+    }
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::InputInt("clip pattern", &clipPat);
+    ImGui::SameLine();
+    if (ImGui::Button("Compile to playlist")) {
+        seq.compileClipsToPlaylist();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear clips")) {
+        seq.clearClips();
+    }
+    ImGui::TextDisabled("Click a cell to place the selected pattern; click a placed clip to remove it.");
+    constexpr int kTracks = 5, kBars = 16;
+    auto clipAt = [&](int track, int bar) {
+        for (int i = 0; i < seq.clipCount(); ++i) {
+            if (seq.clip(i).track == track && seq.clip(i).startBar == bar) {
+                return i;
+            }
+        }
+        return -1;
+    };
+    for (int t = 0; t < kTracks; ++t) {
+        for (int bar = 0; bar < kBars; ++bar) {
+            ImGui::PushID(t * kBars + bar);
+            const int ci = clipAt(t, bar);
+            char lbl[16];
+            if (ci >= 0) {
+                std::snprintf(lbl, sizeof(lbl), "%d", seq.clip(ci).pattern + 1);
+            } else {
+                std::snprintf(lbl, sizeof(lbl), ".");
+            }
+            if (ImGui::Button(lbl, ImVec2(24, 0))) {
+                if (ci >= 0) {
+                    seq.removeClip(ci);
+                } else {
+                    seq.addClip(clipPat, bar, t);
+                }
+            }
+            if (bar + 1 < kBars) {
+                ImGui::SameLine();
+            }
+            ImGui::PopID();
+        }
+    }
+
     ImGui::End();
 }
 

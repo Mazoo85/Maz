@@ -292,6 +292,20 @@ int Sequencer::addPattern() {
     return static_cast<int>(patterns_.size()) - 1;
 }
 
+int Sequencer::compileClipsToPlaylist() {
+    std::vector<PlaylistClip> sorted = clips_;
+    std::sort(sorted.begin(), sorted.end(), [](const PlaylistClip& a, const PlaylistClip& b) {
+        return a.startBar != b.startBar ? a.startBar < b.startBar : a.track < b.track;
+    });
+    playlist_.clear();
+    for (const PlaylistClip& c : sorted) {
+        if (c.pattern >= 0 && c.pattern < patternCount()) {
+            playlist_.push_back(c.pattern);
+        }
+    }
+    return static_cast<int>(playlist_.size());
+}
+
 int Sequencer::addInstrumentChannel() {
     extraSynths_.emplace_back();
     extraGain_.push_back(1.0f); // unity gain

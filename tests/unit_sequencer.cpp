@@ -739,6 +739,21 @@ int main() {
         check(probEnergy(1.0f) > 0.0, "a probability-1 note on an extra channel always fires");
     }
 
+    // --- 2-D playlist clips compile to the song transport --------------------
+    {
+        audio::Sequencer s;
+        const int pB = s.addPattern(); // pattern index 1
+        const int pC = s.addPattern(); // pattern index 2
+        // Place clips out of bar order across tracks; compile should sort by bar, then track.
+        s.addClip(pC, 4, 0); // pattern 2 at bar 4
+        s.addClip(0, 0, 1);  // pattern 0 at bar 0, track 1
+        s.addClip(pB, 0, 0); // pattern 1 at bar 0, track 0
+        const int len = s.compileClipsToPlaylist();
+        check(len == 3 && s.playlist().size() == 3, "compile fills the playlist from all clips");
+        check(s.playlist()[0] == pB && s.playlist()[1] == 0 && s.playlist()[2] == pC,
+              "clips compile in bar order, then track order");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");
