@@ -109,6 +109,15 @@ target_link_libraries(maz_qoa_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME qoa_codec COMMAND maz_qoa_tests)
 set_tests_properties(qoa_codec PROPERTIES TIMEOUT 30)
 
+# WebSocket (RFC 6455) handshake + frame codec (net::wsAcceptKey / wsEncodeFrame / wsDecodeFrame) — the
+# transport a browser/WASM build must use (raw UDP is unavailable in a browser). Verified against RFC 6455's
+# own golden vectors: the canonical accept key and the canonical masked/unmasked "Hello" frames, plus a
+# round-trip and the partial-buffer "need more" case. No live socket.
+add_executable(maz_websocket_tests net/websocket.cpp)
+target_link_libraries(maz_websocket_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME websocket COMMAND maz_websocket_tests)
+set_tests_properties(websocket PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

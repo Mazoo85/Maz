@@ -171,7 +171,14 @@ itself, so it is written here and run on your machine. [CODE HERE / SEE IT ON YO
   POSIX/Winsock; `tests/net/loopback.cpp`) AND `maz::net::ReliableChannel` wiring the ack layer onto them
   for reliable, in-order message delivery across a **40%-loss link** (`tests/net/reliable.cpp`, ctest
   `net_reliable`: 50/50 in order). [VERIFIABLE HERE — DONE]. Remaining: secure (DTLS) transport,
-  WebSocket/WebRTC for browsers, and a true cross-machine soak on the owner's two machines (manual).
+  WebRTC for browsers, and a true cross-machine soak on the owner's two machines (manual).
+- [x] **WebSocket (RFC 6455) transport for browsers** (`net::wsAcceptKey` / `wsEncodeFrame` /
+  `wsDecodeFrame` / `serverHandshakeResponse` / `parseClientKey`) — DONE (M518). A WASM build can't open raw
+  UDP; browsers only speak WebSocket/WebRTC. This implements the handshake accept-key (base64(SHA1(key+GUID))
+  reusing `core::sha1` + `io::base64Encode`) and the full frame codec (FIN/opcode, 7/16/64-bit lengths,
+  client XOR masking), so a Maz server can talk to browser clients over the app's TCP socket. Verified
+  against RFC 6455's own golden vectors (`ctest -R websocket`): canonical accept key, canonical masked +
+  unmasked "Hello" frames, round-trip, and the partial-buffer "need more" case. [VERIFIABLE HERE]
 
 ### §7 Community & release scaffolding
 - [x] **Contribution + release scaffolding** — DONE (M516, the completable-here part). `CONTRIBUTING.md`
