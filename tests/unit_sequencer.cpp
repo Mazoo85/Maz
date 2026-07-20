@@ -754,6 +754,22 @@ int main() {
               "clips compile in bar order, then track order");
     }
 
+    // --- Multi-bar clips: a clip spans several bars, tiling its pattern ------
+    {
+        audio::Sequencer s;
+        const int pB = s.addPattern();  // pattern index 1
+        s.addClip(pB, 0, 0, 2);         // pattern 1 at bar 0, spanning 2 bars
+        s.addClip(0, 3, 0, 1);          // pattern 0 at bar 3, one bar (a gap at bar 2)
+        check(s.clipBarCount() == 4, "clipBarCount spans multi-bar clips (bars 0-1 + bar 3 → 4)");
+        check(s.primaryClipPattern(0) == pB && s.primaryClipPattern(1) == pB,
+              "a 2-bar clip is active on both of its bars");
+        check(s.primaryClipPattern(2) == -1, "the gap bar has no active clip");
+        check(s.primaryClipPattern(3) == 0, "the later single-bar clip is active on its bar");
+        const int len = s.compileClipsToPlaylist();
+        check(len == 3 && s.playlist()[0] == pB && s.playlist()[1] == pB && s.playlist()[2] == 0,
+              "a multi-bar clip tiles its pattern across bars when compiled");
+    }
+
     // --- Clip-song mode: true simultaneous multi-track clip playback ---------
     {
         // Two patterns, each with a lead note at step 0 (distinct pitches). Placing both as clips on

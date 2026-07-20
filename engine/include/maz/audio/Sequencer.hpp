@@ -39,6 +39,7 @@ struct PlaylistClip {
     int pattern = 0;  // which pattern this clip plays
     int startBar = 0; // bar position on the timeline (0-based)
     int track = 0;    // arrangement-track row this clip sits on
+    int bars = 1;     // how many bars the clip spans (its pattern tiles/loops across them); >= 1
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete
@@ -308,8 +309,9 @@ public:
 
     // 2-D playlist clips (pattern placed at a bar on an arrangement track). The additive foundation of
     // the freeform playlist; edited/persisted independently of the legacy 1-D `playlist_`.
-    int addClip(int pattern, int startBar, int track) {
-        clips_.push_back(PlaylistClip{pattern, startBar < 0 ? 0 : startBar, track < 0 ? 0 : track});
+    int addClip(int pattern, int startBar, int track, int bars = 1) {
+        clips_.push_back(PlaylistClip{pattern, startBar < 0 ? 0 : startBar, track < 0 ? 0 : track,
+                                      bars < 1 ? 1 : bars});
         return static_cast<int>(clips_.size()) - 1;
     }
     int clipCount() const { return static_cast<int>(clips_.size()); }
@@ -333,8 +335,9 @@ public:
     int clipBarCount() const {
         int n = 0;
         for (const PlaylistClip& c : clips_) {
-            if (c.startBar + 1 > n) {
-                n = c.startBar + 1;
+            const int end = c.startBar + (c.bars < 1 ? 1 : c.bars);
+            if (end > n) {
+                n = end;
             }
         }
         return n;
@@ -343,6 +346,9 @@ public:
     // existing, tested song transport plays the arrangement. A safe bridge until the transport gains
     // true simultaneous multi-track clip playback. Returns the resulting playlist length.
     int compileClipsToPlaylist();
+    // Pattern of the lowest-track clip active on `bar` (the "primary" for transport timing / a UI
+    // playhead), or -1 if no clip covers that bar. Honours multi-bar clip spans.
+    int primaryClipPattern(int bar) const;
 
     // Song loop region: restrict song-mode playback to the playlist index half-open range
     // [start, end) — playback starts at `start` and, when looping, wraps `end`→`start` instead of
@@ -487,8 +493,6 @@ private:
     // temporarily pointing current_ at each clip's pattern and reusing triggerStep. Falls back to a
     // plain triggerStep in the legacy modes.
     void triggerTransportStep(int step);
-    // Pattern of the lowest-track clip on `bar` (the "primary" for transport timing), or -1 if none.
-    int primaryClipPattern(int bar) const;
 
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;

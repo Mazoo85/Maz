@@ -3380,6 +3380,11 @@ void buildArrangementUI(audio::Sequencer& seq) {
     ImGui::SetNextItemWidth(120.0f);
     ImGui::InputInt("clip pattern", &clipPat);
     ImGui::SameLine();
+    static int clipBars = 1;
+    ImGui::SetNextItemWidth(90.0f);
+    ImGui::InputInt("bars", &clipBars);
+    clipBars = clipBars < 1 ? 1 : (clipBars > 16 ? 16 : clipBars);
+    ImGui::SameLine();
     if (ImGui::Button("Compile to playlist")) {
         seq.compileClipsToPlaylist();
     }
@@ -3395,9 +3400,13 @@ void buildArrangementUI(audio::Sequencer& seq) {
     ImGui::TextDisabled("Click a cell to place the selected pattern; click a placed clip to remove it. "
                         "Clip song mode plays every clip on a bar together (needs Song mode on).");
     constexpr int kTracks = 5, kBars = 16;
+    // Find the clip covering (track, bar), honouring multi-bar spans, so a placed multi-bar clip shows
+    // and removes across all its cells.
     auto clipAt = [&](int track, int bar) {
         for (int i = 0; i < seq.clipCount(); ++i) {
-            if (seq.clip(i).track == track && seq.clip(i).startBar == bar) {
+            const auto& c = seq.clip(i);
+            const int span = c.bars < 1 ? 1 : c.bars;
+            if (c.track == track && bar >= c.startBar && bar < c.startBar + span) {
                 return i;
             }
         }
@@ -3417,7 +3426,7 @@ void buildArrangementUI(audio::Sequencer& seq) {
                 if (ci >= 0) {
                     seq.removeClip(ci);
                 } else {
-                    seq.addClip(clipPat, bar, t);
+                    seq.addClip(clipPat, bar, t, clipBars);
                 }
             }
             if (bar + 1 < kBars) {
