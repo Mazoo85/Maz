@@ -19,6 +19,7 @@ struct Pattern {
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
     std::vector<int8_t> tune;     // per-step pitch offset in semitones (0 = channel pitch). Parallel to grid.
     std::vector<int8_t> nudge;    // per-step timing push, % of the step's slot (0 = on-grid, later). Parallel to grid.
+    std::vector<uint8_t> stride;  // per-step trig condition: fire only every Nth pattern loop (1 = always). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
@@ -288,6 +289,13 @@ public:
     int stepNudge(int channel, int step) const;
     void setStepNudge(int channel, int step, int percent);
 
+    // Per-step trig condition (1..8): the step fires only on pattern loops where (loopIndex % stride)
+    // == 0, i.e. stride 1 = every loop (default), 2 = every other loop, 4 = one loop in four — the
+    // classic Elektron/FL conditional trig for fills and long-form variation. Deterministic: the same
+    // transport always plays the same loops. Distinct from per-step probability (random). Drum grid.
+    int stepStride(int channel, int step) const;
+    void setStepStride(int channel, int step, int stride);
+
     // Rotate a channel's whole step row by `offset` steps with wraparound (positive = later, negative
     // = earlier), carrying each step's velocity, probability, and ratchet along with it. A quick way
     // to shift a groove around the bar.
@@ -385,6 +393,7 @@ private:
     bool countingIn_ = false; // currently playing the count-in
     int countInStepsRemaining_ = 0;
     uint32_t probRng_ = 0x9E3779B9u; // deterministic RNG for per-step probability
+    uint32_t loopCounter_ = 0;       // pattern-loop index (increments each wrap), for per-step trig conditions
 
     int sampleRate_ = 48000; // last render rate, used to schedule ratchet sub-hits
     struct RatchetHit {

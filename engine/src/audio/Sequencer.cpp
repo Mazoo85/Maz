@@ -74,6 +74,7 @@ void Sequencer::setNumSteps(int steps) {
         std::vector<uint8_t> rt(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
         std::vector<int8_t> tn(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         std::vector<int8_t> nd(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
+        std::vector<uint8_t> sd(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
         for (int c = 0; c < chans; ++c) {
             for (int s = 0; s < copy; ++s) {
                 const size_t src = static_cast<size_t>(c) * static_cast<size_t>(numSteps_) +
@@ -95,6 +96,9 @@ void Sequencer::setNumSteps(int steps) {
                 if (src < p.nudge.size()) {
                     nd[dst] = p.nudge[src];
                 }
+                if (src < p.stride.size()) {
+                    sd[dst] = p.stride[src];
+                }
             }
         }
         p.grid = std::move(g);
@@ -102,6 +106,7 @@ void Sequencer::setNumSteps(int steps) {
         p.ratchet = std::move(rt);
         p.tune = std::move(tn);
         p.nudge = std::move(nd);
+        p.stride = std::move(sd);
     }
     numSteps_ = n;
     if (currentStep_ >= numSteps_) {
@@ -280,6 +285,7 @@ int Sequencer::addPattern() {
     p.ratchet.assign(cells, 1); // one hit per step by default
     p.tune.assign(cells, 0);    // no per-step pitch offset by default
     p.nudge.assign(cells, 0);   // every step on the grid by default
+    p.stride.assign(cells, 1);  // every step fires on every loop by default
     p.name = "Pattern " + std::to_string(patterns_.size() + 1);
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
@@ -498,6 +504,33 @@ void Sequencer::setStepNudge(int channel, int step, int percent) {
             static_cast<size_t>(step)] = static_cast<int8_t>(nd);
 }
 
+int Sequencer::stepStride(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 1;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.stride.size()) {
+        return 1; // patterns loaded before trig conditions existed → fire every loop
+    }
+    const uint8_t s = p.stride[idx];
+    return s < 1 ? 1 : static_cast<int>(s);
+}
+
+void Sequencer::setStepStride(int channel, int step, int stride) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.stride.size() != p.grid.size()) {
+        p.stride.assign(p.grid.size(), 1);
+    }
+    const int s = stride < 1 ? 1 : (stride > 8 ? 8 : stride);
+    p.stride[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) +
+             static_cast<size_t>(step)] = static_cast<uint8_t>(s);
+}
+
 void Sequencer::toggle(int channel, int step) {
     setStep(channel, step, !this->step(channel, step));
 }
@@ -562,6 +595,12 @@ void Sequencer::triggerStep(int step) {
     // Drums: strike every channel switched on at this step.
     for (int c = 0; c < numChannels(); ++c) {
         if (this->step(c, step)) {
+            // Per-step trig condition: fire only on loops where (loopIndex % stride) == 0 (fills /
+            // long-form variation). Deterministic — depends only on the transport's loop count.
+            const int stride = stepStride(c, step);
+            if (stride > 1 && (loopCounter_ % static_cast<uint32_t>(stride)) != 0) {
+                continue;
+            }
             // Per-step probability: roll a deterministic RNG and skip the hit when it fails.
             const float pr = stepProbability(c, step);
             if (pr < 1.0f) {
@@ -808,6 +847,7 @@ void Sequencer::play() {
     metroLastStep_ = -1;
     metroEnv_ = 0.0f;
     probRng_ = 0x9E3779B9u; // reseed so probability is reproducible per play()
+    loopCounter_ = 0;       // reset the pattern-loop index for per-step trig conditions
     ratchets_.clear();
     melodicHits_.clear();
     countingIn_ = countInBars_ > 0;
@@ -1060,6 +1100,11 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
             if (samplesIntoStep_ + 0.5 >= sps) {
                 samplesIntoStep_ -= sps;
                 currentStep_ = (currentStep_ + 1) % numSteps_;
+                // A wrap to step 0 begins a new pattern loop — advance the loop index that per-step
+                // trig conditions test against.
+                if (currentStep_ == 0) {
+                    ++loopCounter_;
+                }
                 // At the top of each bar, in song mode, advance to the next playlist pattern.
                 if (currentStep_ == 0 && songMode_ && !playlist_.empty()) {
                     // Honour the loop region [start, end) when set; otherwise the whole playlist.

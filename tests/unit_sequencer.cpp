@@ -1914,6 +1914,46 @@ int main() {
         check(d.stepProbability(0, 0) == 1.0f, "steps default to probability 1.0");
     }
 
+    // --- Per-step trig condition (stride): fire only every Nth loop -----------
+    {
+        // Which of the first 4 loops does a kick on step 0 fire in, at a given stride? (Deterministic,
+        // unlike probability — a stride-N step fires on loops 0, N, 2N, …)
+        auto barsFired = [&](int stride) {
+            audio::Sequencer s;
+            s.setBpm(120.0);
+            s.setStep(0, 0, true);
+            s.setStepStride(0, 0, stride);
+            s.play();
+            std::vector<bool> fired;
+            const int barFrames = 16 * 6000; // one 16-step bar @120 BPM
+            for (int b = 0; b < 4; ++b) {
+                const std::vector<float> out = renderMono(s, barFrames, sampleRate);
+                double e = 0.0;
+                for (int i = 0; i < 3000; ++i) {
+                    e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                         static_cast<double>(out[static_cast<size_t>(i) * 2]);
+                }
+                fired.push_back(e > 1e-4);
+            }
+            return fired;
+        };
+        const std::vector<bool> every = barsFired(1);
+        check(every[0] && every[1] && every[2] && every[3], "stride 1 fires on every loop");
+        const std::vector<bool> alt = barsFired(2);
+        check(alt[0] && !alt[1] && alt[2] && !alt[3],
+              "stride 2 fires on loops 0 and 2 but not 1 and 3");
+        const std::vector<bool> quarter = barsFired(4);
+        check(quarter[0] && !quarter[1] && !quarter[2] && !quarter[3],
+              "stride 4 fires only on the first loop of every four");
+
+        audio::Sequencer d;
+        check(d.stepStride(0, 0) == 1, "steps default to stride 1 (fire every loop)");
+        d.setStepStride(0, 0, 3);
+        check(d.stepStride(0, 0) == 3, "step stride setter/getter round-trips");
+        d.setStepStride(0, 0, 99);
+        check(d.stepStride(0, 0) == 8, "step stride clamps to a max of 8");
+    }
+
     // --- Count-in: a bar of clicks before the pattern starts ------------------
     {
         // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks
