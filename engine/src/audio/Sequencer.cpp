@@ -338,6 +338,48 @@ void Sequencer::setPatternTranspose(int semis) {
     patterns_[static_cast<size_t>(current_)].transpose = semis < -48 ? -48 : (semis > 48 ? 48 : semis);
 }
 
+const char* Sequencer::grooveName(int preset) {
+    switch (preset) {
+    case 0:
+        return "Straight";
+    case 1:
+        return "Swing 16th";
+    case 2:
+        return "Swing 8th";
+    case 3:
+        return "Laid-back";
+    case 4:
+        return "Hard swing";
+    default:
+        return "Straight";
+    }
+}
+
+void Sequencer::applyGroove(int preset) {
+    // Per-step nudge (% of the slot, later only) for step index i within the bar. Nudge can only
+    // delay, so grooves are built from delays + the natural on-grid steps.
+    auto nudgeFor = [preset](int i) -> int {
+        switch (preset) {
+        case 1:                            // Swing 16th: delay every odd 16th note
+            return (i % 2 == 1) ? 55 : 0;
+        case 2:                            // Swing 8th: delay the "and" of each beat (every odd 8th)
+            return (i % 4 == 2) ? 60 : 0;
+        case 3:                            // Laid-back: nudge the whole pattern slightly late
+            return 12;
+        case 4:                            // Hard swing: a heavier 16th swing
+            return (i % 2 == 1) ? 70 : 0;
+        case 0:                            // Straight: dead on the grid
+        default:
+            return 0;
+        }
+    };
+    for (int c = 0; c < numChannels(); ++c) {
+        for (int s = 0; s < numSteps_; ++s) {
+            setStepNudge(c, s, nudgeFor(s));
+        }
+    }
+}
+
 void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attackMs) {
     sidechainOn_ = on;
     scAmount_ = std::clamp(amount, 0.0f, 1.0f);

@@ -57,6 +57,15 @@ public:
     void setSwing(float s);
     float swing() const { return patterns_[static_cast<size_t>(current_)].swing; }
 
+    // Groove templates: stamp a named per-16th micro-timing feel onto every channel's per-step nudge
+    // (a recognisable MPC/Akai-style groove that varies step to step, richer than the single swing
+    // knob's uniform odd-step delay). Presets: 0 = Straight (clears all nudge), 1 = Swing 16th,
+    // 2 = Swing 8th, 3 = Laid-back (whole pattern pushed slightly late), 4 = Hard swing. Applies to
+    // the current pattern's drum grid. kGrooveCount presets; grooveName(i) for the UI labels.
+    static constexpr int kGrooveCount = 5;
+    static const char* grooveName(int preset);
+    void applyGroove(int preset);
+
     // Per-pattern transpose (semitones, clamped ±48): the current pattern's melodic notes (lead + bass
     // + arp) are shifted by this on top of the global transpose, so a song can change key between
     // patterns (e.g. a chorus a step up). Drums are unaffected. Persisted with the pattern.

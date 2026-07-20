@@ -2036,6 +2036,38 @@ int main() {
         check(d.patternTranspose() == -48, "pattern transpose clamps to -48");
     }
 
+    // --- Groove templates: stamp a per-step micro-timing feel --------------------
+    {
+        audio::Sequencer s;
+        s.setNumSteps(16);
+        // Swing 16th: every odd 16th step is nudged late, even steps stay on the grid.
+        s.applyGroove(1);
+        check(s.stepNudge(0, 0) == 0 && s.stepNudge(0, 2) == 0 && s.stepNudge(0, 4) == 0,
+              "swing-16th groove leaves the on-beat 16ths on the grid");
+        check(s.stepNudge(0, 1) > 0 && s.stepNudge(0, 3) > 0,
+              "swing-16th groove delays the off-beat 16ths");
+        // The groove applies to every channel, not just one.
+        check(s.stepNudge(2, 1) == s.stepNudge(0, 1) && s.stepNudge(2, 1) > 0,
+              "the groove is applied across all channels");
+        // Swing 8th nudges the "and" of each beat (step 2, 6, …) but not the odd 16ths.
+        s.applyGroove(2);
+        check(s.stepNudge(0, 2) > 0 && s.stepNudge(0, 1) == 0,
+              "swing-8th groove delays the 8th-note offbeats, not every 16th");
+        // Straight clears every nudge back to the grid.
+        s.applyGroove(0);
+        bool allOnGrid = true;
+        for (int c = 0; c < s.numChannels(); ++c) {
+            for (int st = 0; st < s.numSteps(); ++st) {
+                if (s.stepNudge(c, st) != 0) {
+                    allOnGrid = false;
+                }
+            }
+        }
+        check(allOnGrid, "the straight groove clears all nudge back to the grid");
+        check(std::string(audio::Sequencer::grooveName(1)) == "Swing 16th",
+              "groove presets have UI names");
+    }
+
     // --- Count-in: a bar of clicks before the pattern starts ------------------
     {
         // A loud kick on every step; with a 1-bar count-in, the pattern must stay silent (clicks
