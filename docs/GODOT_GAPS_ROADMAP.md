@@ -74,8 +74,14 @@ only be written blind, the docs say exactly that.
 ### §6 Scripting & language — [VERIFIABLE HERE]
 - [ ] **C# / .NET-style second binding** OR deepen the existing script VM toward GDScript-grade tooling
   (autocomplete data, doc tooltips, live debug protocol). [VERIFIABLE HERE]
-- [ ] **Stable C-ABI extension interface** (a GDExtension analog) so native modules load without
-  recompiling the engine. [VERIFIABLE HERE]
+- [x] **Stable C-ABI extension interface** (a GDExtension analog) so native modules load without
+  recompiling the engine — DONE. The in-process ABI (`ext::Extension.hpp`: versioned registry, tagged
+  variant, entry-point negotiation) is now joined by the real dynamic loader (M512, `ext::DynamicLibrary` /
+  `loadExtensionLibrary`): it dlopen/LoadLibrary's a compiled `.so`/`.dll`, resolves the plugin's exported
+  `maz_extension_abi_version` + `maz_extension_entry` symbols, rejects an incompatible ABI major, then runs
+  the entry so the plugin registers its classes. Verified END-TO-END (not a mock): the build compiles
+  `examples/plugins/counter_plugin.cpp` into a real shared library and `ctest -R ext_dynamic` loads it at
+  runtime, then instantiates + calls a `Counter` class the plugin registered across the C ABI. [VERIFIABLE HERE]
 
 ### §2 Platforms & export — mixed
 - [x] **ProjectSettings / project.godot manifest** (`core::ProjectSettings`) — DONE (M518); typed project-wide

@@ -61,6 +61,21 @@ target_link_libraries(maz_gi_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gi_gather COMMAND maz_gi_tests)
 set_tests_properties(gi_gather PROPERTIES TIMEOUT 30)
 
+# Dynamic extension loader (maz::ext::DynamicLibrary / loadExtensionLibrary). End-to-end, NOT a mock: build
+# the sample plugin as a real shared library (a MODULE), then the test dlopen/LoadLibrary's it at runtime and
+# calls a class it registered across the C ABI. The plugin path is injected as MAZ_COUNTER_PLUGIN_PATH.
+add_library(maz_counter_plugin MODULE ${CMAKE_SOURCE_DIR}/examples/plugins/counter_plugin.cpp)
+target_link_libraries(maz_counter_plugin PRIVATE maz::maz)
+set_target_properties(maz_counter_plugin PROPERTIES PREFIX "" OUTPUT_NAME "counter_plugin")
+
+add_executable(maz_ext_dynamic_tests ext/dynamic.cpp)
+target_link_libraries(maz_ext_dynamic_tests PRIVATE maz::maz maz_warnings ${CMAKE_DL_LIBS})
+target_compile_definitions(maz_ext_dynamic_tests PRIVATE
+    MAZ_COUNTER_PLUGIN_PATH="$<TARGET_FILE:maz_counter_plugin>")
+add_dependencies(maz_ext_dynamic_tests maz_counter_plugin)
+add_test(NAME ext_dynamic COMMAND maz_ext_dynamic_tests)
+set_tests_properties(ext_dynamic PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
