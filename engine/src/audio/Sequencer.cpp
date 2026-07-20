@@ -126,6 +126,16 @@ void Sequencer::applyMidiCc(int controller, float value) {
     case CcTarget::MetronomeLevel:
         setMetronomeLevel(v);
         break;
+    case CcTarget::LeadCutoff:
+        // Map 0..1 exponentially to ~20 Hz .. 20 kHz — a musical (log) filter sweep, the classic
+        // hardware-knob → cutoff mapping. Resonance and envelope amount are preserved.
+        synth_.setFilter(20.0f * std::pow(1000.0f, v), synth_.filterResonance(),
+                         synth_.filterEnvAmount());
+        break;
+    case CcTarget::BassCutoff:
+        synth2_.setFilter(20.0f * std::pow(1000.0f, v), synth2_.filterResonance(),
+                          synth2_.filterEnvAmount());
+        break;
     }
 }
 

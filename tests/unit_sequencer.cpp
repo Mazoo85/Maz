@@ -2601,6 +2601,17 @@ int main() {
 
         cseq.mapMidiCc(7, audio::Sequencer::CcTarget::None);
         check(cseq.midiCcTarget(7) == audio::Sequencer::CcTarget::None, "a CC can be unbound");
+
+        // CC → lead filter cutoff: the classic live filter sweep. A low CC value darkens the filter
+        // (low cutoff), a high value opens it, mapped exponentially — so the cutoff rises with the CC.
+        cseq.mapMidiCc(74, audio::Sequencer::CcTarget::LeadCutoff);
+        cseq.midiInput().pushControlChange(74, 0.1f);
+        cseq.renderStems(cd.data(), cl.data(), cb.data(), fr, sr);
+        const float lowCut = cseq.synth().filterCutoff();
+        cseq.midiInput().pushControlChange(74, 0.9f);
+        cseq.renderStems(cd.data(), cl.data(), cb.data(), fr, sr);
+        const float highCut = cseq.synth().filterCutoff();
+        check(highCut > lowCut * 4.0f, "a CC mapped to lead cutoff sweeps the filter (up opens it)");
     }
 
     std::printf("%s: %d failure(s)\n", g_failures ? "FAILURES" : "ALL PASS", g_failures);

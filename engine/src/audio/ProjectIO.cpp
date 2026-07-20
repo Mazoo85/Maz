@@ -898,7 +898,7 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (ls >> cc >> tgt) {
                 // Clamp the target index to the known enum range so a newer file's target can't index
                 // out of range on an older build (widen this bound whenever CcTarget grows).
-                if (tgt < 0 || tgt > 3) {
+                if (tgt < 0 || tgt > 5) {
                     tgt = 0;
                 }
                 seq.mapMidiCc(cc, static_cast<Sequencer::CcTarget>(tgt));

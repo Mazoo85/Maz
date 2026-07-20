@@ -233,7 +233,7 @@ public:
     // MIDI-learn: bind an incoming MIDI continuous-controller (CC 0..127) to an engine parameter, so a
     // hardware knob/slider drives it live. A CC value 0..1 maps to the target's range. Append new
     // targets at the END (persistence stores the enum index). CcTarget::None unbinds a controller.
-    enum class CcTarget { None, LeadGain, BassGain, MetronomeLevel };
+    enum class CcTarget { None, LeadGain, BassGain, MetronomeLevel, LeadCutoff, BassCutoff };
     void mapMidiCc(int controller, CcTarget target);
     CcTarget midiCcTarget(int controller) const;
 

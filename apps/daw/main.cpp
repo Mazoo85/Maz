@@ -537,10 +537,11 @@ void buildRackUI(audio::Sequencer& seq) {
         ImGui::InputInt("CC##learn", &learnCc);
         learnCc = learnCc < 0 ? 0 : (learnCc > 127 ? 127 : learnCc);
         ImGui::SameLine();
-        const char* ccTargets[] = {"None", "Lead gain", "Bass gain", "Metronome lvl"};
+        const char* ccTargets[] = {"None",          "Lead gain",   "Bass gain",
+                                   "Metronome lvl", "Lead cutoff", "Bass cutoff"};
         int tgt = static_cast<int>(seq.midiCcTarget(learnCc));
         ImGui::SetNextItemWidth(130.0f);
-        if (ImGui::Combo("CC target", &tgt, ccTargets, 4)) {
+        if (ImGui::Combo("CC target", &tgt, ccTargets, 6)) {
             seq.mapMidiCc(learnCc, static_cast<audio::Sequencer::CcTarget>(tgt));
         }
     }
