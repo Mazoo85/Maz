@@ -30,6 +30,13 @@ target_link_libraries(maz_fbx_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME fbx_import COMMAND maz_fbx_tests)
 set_tests_properties(fbx_import PROPERTIES TIMEOUT 30)
 
+# Netpbm (PNM) image codec: decode P1..P6 + encode P6/P3, checked against hand-authored byte streams
+# (independent of the implementation) plus an encode->decode round-trip. Pure CPU, headless.
+add_executable(maz_pnm_tests render/pnm.cpp)
+target_link_libraries(maz_pnm_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME pnm_codec COMMAND maz_pnm_tests)
+set_tests_properties(pnm_codec PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
