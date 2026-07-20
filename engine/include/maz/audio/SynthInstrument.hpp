@@ -66,6 +66,13 @@ public:
     void setPdAmount(float a) { pdAmount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
     float pdAmount() const { return pdAmount_; }
 
+    // West-coast wavefolder amount [0,1]: drives the summed oscillator signal past ±1 and reflects it
+    // back on itself (a triangle folder) before the filter, adding sweeping upper harmonics as it rises
+    // — a Buchla/Serum-style timbre distinct from tanh drive and phase distortion. Applies to every
+    // engine mode; 0 (default) = bypass, bit-identical.
+    void setFold(float a) { foldAmount_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    float fold() const { return foldAmount_; }
+
     void setWaveform(Waveform w) { waveform_ = w; }
     Waveform waveform() const { return waveform_; }
 
@@ -494,6 +501,7 @@ private:
     bool organPercThird_ = false;  // percussion harmonic: false = 2nd, true = 3rd
     Waveform waveform_ = Waveform::Saw;
     float pdAmount_ = 0.0f; // phase-distortion amount [0,1]; 0 = clean sine (PhaseDistortion mode)
+    float foldAmount_ = 0.0f; // West-coast wavefolder amount [0,1]; 0 = bypass (all modes)
     float gain_ = 0.28f;
     int octave_ = 0;       // per-instrument octave shift (-2..+2)
     bool mono_ = false;    // monophonic (single-voice) mode

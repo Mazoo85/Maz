@@ -141,6 +141,34 @@ int main() {
         check(open > flat * 1.1, "a positive per-note cutoff offset brightens the tone (Mod X up)");
     }
 
+    // --- Wavefolder ---------------------------------------------------------
+    {
+        // Folding a pure sine drives it past ±1 and reflects it, injecting upper harmonics — the
+        // folded tone is far brighter (higher first-difference energy) than the clean sine. Fold 0 is
+        // a bypass. The filter is left open so we measure the fold, not the low-pass.
+        auto foldBright = [&](float amt) {
+            audio::SynthInstrument s;
+            s.setWaveform(audio::Waveform::Sine);
+            s.setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+            s.setFilter(20000.0f, 0.7f, 0.0f); // >=19 kHz → filter bypassed, fold heard raw
+            s.setFold(amt);
+            s.noteOn(57, 1.0f);
+            const std::vector<float> out = render(s, sampleRate / 2, sampleRate);
+            double h = 0.0, en = 0.0;
+            for (size_t i = 1; i < out.size(); ++i) {
+                const double d = static_cast<double>(out[i] - out[i - 1]);
+                h += d * d;
+                en += static_cast<double>(out[i]) * out[i];
+            }
+            return en > 0.0 ? h / en : 0.0;
+        };
+        const double clean = foldBright(0.0f);
+        const double folded = foldBright(1.0f);
+        check(folded > clean * 1.5, "the wavefolder adds harmonics (folded is far brighter than clean)");
+        audio::SynthInstrument df;
+        check(df.fold() == 0.0f, "wavefold defaults to off");
+    }
+
     // --- Filter cutoff LFO sample & hold ------------------------------------
     {
         // Brightness (HF/energy) of a 0.2 s window starting at `startSec` of a 2 s render.

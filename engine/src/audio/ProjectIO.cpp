@@ -195,6 +195,10 @@ void parseSynthLine(std::istringstream& ls, SynthInstrument& syn) {
     if (ls >> fmModW) {
         syn.setFmModWaveform(static_cast<Waveform>(fmModW < 0 || fmModW > 6 ? 0 : fmModW));
     }
+    float fold = 0.0f; // West-coast wavefolder amount optional for old files (0 = bypass)
+    if (ls >> fold) {
+        syn.setFold(fold);
+    }
 }
 // Parse a `synthosc`/`synthosc2` line.
 void parseOscLine(std::istringstream& ls, SynthInstrument& syn) {
@@ -320,7 +324,7 @@ static void writeSynthBlock(std::ostream& f, const char* tag, const char* oscTag
       << (s.filterLfoSampleHold() ? 1 : 0) << " " << s.filterSlope() << " "
       << s.noiseAttackAmount() << " " << s.noiseAttackDecay() << " "
       << (s.ampLfoSampleHold() ? 1 : 0) << " " << (s.vibratoSampleHold() ? 1 : 0) << " "
-      << s.velToAttack() << " " << static_cast<int>(s.fmModWaveform()) << "\n";
+      << s.velToAttack() << " " << static_cast<int>(s.fmModWaveform()) << " " << s.fold() << "\n";
     f << oscTag << " " << s.detuneCents() << " " << s.osc2Level() << " " << s.subLevel() << " "
       << s.noiseLevel() << " " << s.unisonVoices() << " " << s.unisonDetune() << " "
       << static_cast<int>(s.subWaveform()) << " " << s.noiseColor() << " "

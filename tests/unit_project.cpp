@@ -127,6 +127,7 @@ int main() {
     seq.synth().setFilterEnvelope(0.02f, 0.15f, 0.3f, 0.25f);
     seq.synth().setFilterEnvDepth(4200.0f);
     seq.synth().setFilterDrive(0.65f);
+    seq.synth().setFold(0.42f);
     seq.synth().setStartPhaseRandom(0.55f);
     seq.synth().setPitchEnv(-7.0f, 0.08f);
     seq.setArp(true, 5); // chord mode
@@ -756,6 +757,7 @@ int main() {
               near(seq2.synth().filterEnvDecay(), 0.15f),
           "synth filter envelope round-trips");
     check(near(seq2.synth().filterDrive(), 0.65f), "synth filter drive round-trips");
+    check(near(seq2.synth().fold(), 0.42f), "synth wavefolder amount round-trips");
     check(near(seq2.synth().startPhaseRandom(), 0.55f), "synth start-phase randomization round-trips");
     check(seq2.synth().unisonVoices() == 5 && near(seq2.synth().unisonDetune(), 18.0f),
           "unison round-trips");

@@ -1375,6 +1375,9 @@ void buildSynthUI(audio::Sequencer& seq) {
     float fDrive = syn.filterDrive();
     if (ImGui::SliderFloat("Filter drive", &fDrive, 0.0f, 1.0f, "%.2f"))
         syn.setFilterDrive(fDrive);
+    float fold = syn.fold();
+    if (ImGui::SliderFloat("Wavefold", &fold, 0.0f, 1.0f, fold <= 0.0f ? "off" : "%.2f"))
+        syn.setFold(fold);
     float fLfoRate = syn.filterLfoRate();
     float fLfoDepth = syn.filterLfoDepth();
     bool flch = ImGui::SliderFloat("Cutoff LFO Hz", &fLfoRate, 0.0f, 20.0f, "%.2f");

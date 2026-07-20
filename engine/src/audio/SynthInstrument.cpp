@@ -571,6 +571,22 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             }
 
+            // West-coast wavefolder: drive the summed signal past ±1 and reflect it back on itself,
+            // adding sweeping upper harmonics distinct from the filter and tanh drive. 0 = bypass.
+            if (foldAmount_ > 0.0f) {
+                float folded = osc * (1.0f + foldAmount_ * 4.0f); // pre-gain into the folder
+                for (int fk = 0; fk < 4; ++fk) {
+                    if (folded > 1.0f) {
+                        folded = 2.0f - folded;
+                    } else if (folded < -1.0f) {
+                        folded = -2.0f - folded;
+                    } else {
+                        break;
+                    }
+                }
+                osc = folded;
+            }
+
             // Resonant low-pass (subtractive character): the amp envelope and the note's velocity
             // both open the cutoff (velocity sensitivity → harder hits sound brighter).
             if (filterCutoff_ < 19000.0f) {
