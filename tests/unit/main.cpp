@@ -306,6 +306,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/math/HalfFloat.hpp"
 #include "maz/math/MathFuncs.hpp"
+#include "maz/math/PackNorm.hpp"
 #include "maz/render/Grid3D.hpp"
 #include "maz/render/AtlasPacker.hpp"
 #include "maz/render/ColorNames.hpp"
@@ -438,6 +439,58 @@ void testSphericalHarmonics() {
         sh.clear();
         e = shIrradiance(sh, vec3(0, 1, 0));
         CHECK(nr(e.x, 0.0f, 1e-6f));
+    }
+}
+
+void testPackNorm() {
+    using namespace maz::math;
+    auto nr = [](float a, float b, float eps) { return std::fabs(a - b) < eps; };
+
+    // Exact endpoints.
+    CHECK(packUnorm8(1.0f) == 255);
+    CHECK(packUnorm8(0.0f) == 0);
+    CHECK(packUnorm16(1.0f) == 65535);
+    CHECK(packUnorm16(0.0f) == 0);
+    CHECK(packSnorm8(1.0f) == 127);
+    CHECK(packSnorm8(-1.0f) == -127);
+    CHECK(packSnorm8(0.0f) == 0);
+    CHECK(packSnorm16(1.0f) == 32767);
+    CHECK(packSnorm16(-1.0f) == -32767);
+    CHECK(packSnorm16(0.0f) == 0);
+
+    // Clamping of out-of-range inputs.
+    CHECK(packUnorm16(2.0f) == 65535);
+    CHECK(packUnorm16(-3.0f) == 0);
+    CHECK(packSnorm16(2.0f) == 32767);
+    CHECK(packSnorm16(-3.0f) == -32767);
+
+    // Hand-computed mid values (round-half-away-from-zero).
+    CHECK(packUnorm8(0.5f) == 128);
+    CHECK(nr(unpackUnorm8(packUnorm8(0.5f)), 128.0f / 255.0f, 1e-6f));
+    CHECK(packSnorm8(0.5f) == 64);
+
+    // Round-trip bound: |unpack(pack(f)) - f| <= 1/MAX for every width.
+    for (int k = 0; k <= 100; ++k) {
+        const float u = static_cast<float>(k) / 100.0f;
+        CHECK(nr(unpackUnorm8(packUnorm8(u)), u, 1.0f / 255.0f + 1e-6f));
+        CHECK(nr(unpackUnorm16(packUnorm16(u)), u, 1.0f / 65535.0f + 1e-6f));
+        const float s = u * 2.0f - 1.0f;
+        CHECK(nr(unpackSnorm8(packSnorm8(s)), s, 1.0f / 127.0f + 1e-6f));
+        CHECK(nr(unpackSnorm16(packSnorm16(s)), s, 1.0f / 32767.0f + 1e-6f));
+    }
+
+    // Composition: normal -> octahedronEncode -> UNORM16 x2 -> back -> octahedronDecode ~= normal
+    // (the exact Godot compressed-normal path).
+    const vec3 normals[] = {
+        normalize(vec3(0, 0, 1)),   normalize(vec3(0, 0, -1)),  normalize(vec3(1, 0, 0)),
+        normalize(vec3(0, 1, 0)),   normalize(vec3(1, 1, 1)),   normalize(vec3(-1, 2, -3)),
+        normalize(vec3(0.3f, -0.7f, 0.65f)), normalize(vec3(-0.9f, -0.1f, 0.42f)),
+    };
+    for (const vec3& n : normals) {
+        const vec2 oct = octahedronEncode(n);
+        const vec2 oct2(unpackUnorm16(packUnorm16(oct.x)), unpackUnorm16(packUnorm16(oct.y)));
+        const vec3 d = octahedronDecode(oct2);
+        CHECK(nr(d.x, n.x, 2e-4f) && nr(d.y, n.y, 2e-4f) && nr(d.z, n.z, 2e-4f));
     }
 }
 
@@ -32867,6 +32920,7 @@ int main() {
     std::printf("maz unit tests\n");
     testMath();
     testSphericalHarmonics();
+    testPackNorm();
     testHalfFloat();
     testMathFuncs();
     testCurve2D();

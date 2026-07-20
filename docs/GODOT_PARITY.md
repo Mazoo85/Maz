@@ -1182,6 +1182,20 @@ These are implemented and tested in-tree (see `docs/ROADMAP.md` for the Mxxx mil
   correctly (0.2 dawn, 0.3 day, 0.7 dusk, 0.8 night); wrapping increments the day counter for both a single
   overflow and a multi-day jump; `setHour` wraps a 30h input to 6h; custom thresholds reclassify; and
   non-positive dt / a zero day-length (clamped to 1) are safe),
+  **SNORM/UNORM fixed-point packing** (M514, `math::packUnorm8/16` / `packSnorm8/16` + `unpack…` — the
+  quantization layer of GPU vertex/attribute compression, converting a normalized float to an 8- or 16-bit
+  integer and back. This is the piece that actually shrinks the data: paired with the existing
+  `octahedronEncode`, a surface normal is stored in two 16-bit integers instead of three 32-bit floats —
+  exactly how Godot's compressed mesh format keeps normals/tangents, and the standard Vulkan/OpenGL
+  vertex-attribute encoding. UNORM maps [0,1] → [0, 2ⁿ−1]; SNORM maps [-1,1] → [−(2ⁿ⁻¹−1), +(2ⁿ⁻¹−1)] (the
+  Khronos symmetric form, so ±1 and 0 are exact), rounding round-half-away-from-zero (the GL `round()` rule).
+  Pure integer/float math, unit-tested by round-trip and exact endpoints. Honest scope: 8/16-bit scalar
+  packing (the caller composes per channel); vector overloads and the packed 10/10/10/2 format are follow-ups.
+  Verified: the endpoints are exact (`packUnorm16(1)=65535`, `packSnorm16(±1)=±32767`, `0→0`); out-of-range
+  inputs saturate; a 100-step value sweep round-trips within the 1/MAX quantization bound for all four widths;
+  hand-computed mid values match the rounding rule; and — the real payoff — a set of unit normals survives the
+  full `octahedronEncode → packUnorm16×2 → unpack → octahedronDecode` pipeline within 2e-4, proving the exact
+  Godot compressed-normal path end to end),
   **spherical-harmonic irradiance probes** (M513, `math::ShL2` / `shBasis` / `shIrradiance` — the order-2
   spherical-harmonic "light probe" representation Godot bakes into LightmapGI and uses for ambient lighting.
   Instead of a full environment cubemap, an entire low-frequency lighting environment is captured in nine RGB

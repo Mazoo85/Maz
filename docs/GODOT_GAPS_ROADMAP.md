@@ -39,6 +39,9 @@ only be written blind, the docs say exactly that.
 - [x] **spherical-harmonic irradiance probes** (`math::ShL2` / `shBasis` / `shIrradiance`) — DONE (M513); the
   order-2 SH ambient/light-probe representation Godot bakes into LightmapGI (project radiance -> 9 RGB
   coeffs -> clamped-cosine irradiance). [VERIFIABLE HERE]
+- [x] **SNORM/UNORM fixed-point packing** (`math::packUnorm8/16` / `packSnorm8/16` + unpack) — DONE (M514);
+  the quantization layer of vertex/attribute compression (Khronos GL/Vulkan norm encoding). Composes with
+  octahedronEncode to store a normal in two uint16s the way Godot's compressed mesh format does. [VERIFIABLE HERE]
 - [x] **TGA image decode** — ALREADY PRESENT (`render::decodeTga`, `ImageCodecTga.hpp`). No work needed.
 - [x] **BMP image decode** — ALREADY PRESENT (`render::decodeBmp`, `ImageCodecBmp.hpp`). No work needed.
 - [x] **DEFLATE / zlib inflate** (`io::inflateRaw` / `io::zlibInflate`) — DONE (M499); prerequisite for PNG. [VERIFIABLE HERE]
