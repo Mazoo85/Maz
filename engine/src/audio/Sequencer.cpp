@@ -333,6 +333,8 @@ int Sequencer::compileClipsToPlaylist() {
 
 int Sequencer::addInstrumentChannel() {
     extraSynths_.emplace_back();
+    extraPlugins_.push_back(nullptr); // no hosted plugin by default
+    extraPluginPath_.emplace_back();
     extraGain_.push_back(1.0f); // unity gain
     extraPan_.push_back(0.0f);  // centre
     extraBus_.push_back(1);     // default to the lead bus
@@ -340,6 +342,34 @@ int Sequencer::addInstrumentChannel() {
         p.extraRolls.emplace_back(); // keep every pattern's lane count in step with the synth count
     }
     return static_cast<int>(extraSynths_.size()) - 1;
+}
+
+bool Sequencer::loadInstrumentPlugin(int c, const std::string& path, int sampleRate) {
+    if (c < 0 || c >= instrumentChannelCount()) {
+        return false;
+    }
+    auto host = std::make_unique<ClapHost>();
+    std::string err;
+    if (!host->load(path, sampleRate > 0 ? sampleRate : 48000, 4096, &err)) {
+        return false;
+    }
+    host->setEnabled(true);
+    extraPlugins_[static_cast<size_t>(c)] = std::move(host);
+    extraPluginPath_[static_cast<size_t>(c)] = path;
+    return true;
+}
+
+void Sequencer::clearInstrumentPlugin(int c) {
+    if (c >= 0 && c < instrumentChannelCount()) {
+        extraPlugins_[static_cast<size_t>(c)].reset();
+        extraPluginPath_[static_cast<size_t>(c)].clear();
+    }
+}
+
+bool Sequencer::instrumentPluginLoaded(int c) const {
+    return c >= 0 && c < instrumentChannelCount() &&
+           extraPlugins_[static_cast<size_t>(c)] != nullptr &&
+           extraPlugins_[static_cast<size_t>(c)]->loaded();
 }
 
 int Sequencer::clonePattern(int src) {
@@ -375,6 +405,8 @@ void Sequencer::selectPattern(int i) {
 void Sequencer::clearArrangement() {
     patterns_.clear();
     extraSynths_.clear(); // drop extra instrument channels so the fresh pattern starts with none
+    extraPlugins_.clear();
+    extraPluginPath_.clear();
     extraGain_.clear();
     extraPan_.clear();
     extraBus_.clear();
@@ -1004,10 +1036,14 @@ void Sequencer::triggerStep(int step) {
     Pattern& cur = patterns_[static_cast<size_t>(current_)];
     for (size_t c = 0; c < extraSynths_.size() && c < cur.extraRolls.size(); ++c) {
         SynthInstrument& es = extraSynths_[c];
+        ClapHost* plug = extraPlugins_[c].get();
         const PianoRoll& er = cur.extraRolls[c];
         for (const Note& n : er.notes()) {
             if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
                 es.noteOff(n.pitch + tr);
+                if (plug != nullptr) {
+                    plug->noteOff(n.pitch + tr);
+                }
             }
         }
         for (const Note& n : er.notes()) {
@@ -1019,6 +1055,9 @@ void Sequencer::triggerStep(int step) {
                                                       n.cutoff, static_cast<int>(c)});
                 } else {
                     es.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
+                }
+                if (plug != nullptr) {
+                    plug->noteOn(p, n.velocity); // layer the hosted plugin on this channel
                 }
                 scheduleRoll(n, p, false, false, static_cast<int>(c));
             }
@@ -1108,6 +1147,11 @@ void Sequencer::releaseAllNotes() {
     sampler_.allNotesOff();
     for (SynthInstrument& es : extraSynths_) {
         es.allNotesOff();
+    }
+    for (std::unique_ptr<ClapHost>& p : extraPlugins_) {
+        if (p) {
+            p->allNotesOff();
+        }
     }
     if (leadPlugin_) {
         leadPlugin_->allNotesOff(); // release any held notes on the hosted lead instrument
@@ -1351,6 +1395,16 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                 dst[2 * (done + i)] += sV * eL;
                 dst[2 * (done + i) + 1] += sV * eR;
             }
+            // A hosted plugin on this channel: render its stereo output into the channel's target bus
+            // at the channel gain (its own stereo image kept), layered with the built-in synth.
+            if (extraPlugins_[c] && extraPlugins_[c]->loaded()) {
+                pluginScratch_.assign(static_cast<size_t>(chunk) * 2, 0.0f);
+                extraPlugins_[c]->process(pluginScratch_.data(), chunk, sampleRate);
+                for (int i = 0; i < chunk; ++i) {
+                    dst[2 * (done + i)] += pluginScratch_[static_cast<size_t>(2 * i)] * eg;
+                    dst[2 * (done + i) + 1] += pluginScratch_[static_cast<size_t>(2 * i + 1)] * eg;
+                }
+            }
         }
 
         // Advance the pending ratchets that existed during this chunk by the frames just rendered.
@@ -1420,12 +1474,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                     // (triggerStep releases and re-triggers them correctly).
                     auto switchTo = [this](int patIndex) {
                         if (patIndex != currentPattern()) {
-                            synth_.allNotesOff();
-                            synth2_.allNotesOff();
-                            sampler_.allNotesOff();
-                            for (SynthInstrument& es : extraSynths_) {
-                                es.allNotesOff();
-                            }
+                            releaseAllNotes(); // release built-ins + hosted plugins so nothing hangs
                         }
                         selectPattern(patIndex);
                     };

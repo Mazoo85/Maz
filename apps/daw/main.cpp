@@ -739,6 +739,21 @@ void buildPianoRollUI(audio::Sequencer& seq) {
         const char* busItems[] = {"Drums bus", "Lead bus", "Bass bus"};
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::Combo("route##inst", &ib, busItems, 3)) seq.setInstrumentBus(ic, ib);
+        // Host a CLAP instrument on this channel (layered with its built-in synth; mute that for
+        // plugin-only via the gain above).
+        static char instClap[256] = "";
+        ImGui::SetNextItemWidth(220.0f);
+        ImGui::InputText("##instclap", instClap, sizeof(instClap));
+        ImGui::SameLine();
+        if (ImGui::Button("Load##instclap")) {
+            seq.loadInstrumentPlugin(ic, instClap, 48000);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear##instclap")) {
+            seq.clearInstrumentPlugin(ic);
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled(seq.instrumentPluginLoaded(ic) ? "CLAP loaded" : "(no CLAP)");
     }
     ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 

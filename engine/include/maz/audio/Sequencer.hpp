@@ -244,6 +244,14 @@ public:
         extraBus_[static_cast<size_t>(c)] = b < 0 ? 0 : (b > 2 ? 2 : b);
     }
     int instrumentBus(int c) const { return extraBus_[static_cast<size_t>(c)]; }
+    // Host a CLAP instrument on an extra channel (like the lead plugin, but per channel): its notes
+    // drive the plugin and its audio layers into the channel's target bus. Returns false on load fail.
+    bool loadInstrumentPlugin(int c, const std::string& path, int sampleRate);
+    void clearInstrumentPlugin(int c);
+    bool instrumentPluginLoaded(int c) const;
+    const std::string& instrumentPluginPath(int c) const {
+        return extraPluginPath_[static_cast<size_t>(c)];
+    }
 
     // --- Patterns & arrangement ---------------------------------------------
     int patternCount() const { return static_cast<int>(patterns_.size()); }
@@ -488,6 +496,8 @@ private:
     std::string leadPluginPath_;           // path of the loaded lead plugin (for persistence)
     std::vector<float> pluginScratch_;     // interleaved-stereo scratch for the lead plugin's output
     std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
+    std::vector<std::unique_ptr<ClapHost>> extraPlugins_; // optional hosted CLAP instrument per channel
+    std::vector<std::string> extraPluginPath_;            // its path (for persistence), parallel
     std::vector<float> extraGain_;             // per-extra-channel gain (parallel to extraSynths_)
     std::vector<float> extraPan_;              // per-extra-channel pan (-1..1)
     std::vector<int> extraBus_;                // per-extra-channel target bus (0=drums,1=lead,2=bass)

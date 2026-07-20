@@ -454,6 +454,9 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
             f << "instchannel " << c << " " << seq.instrumentGain(c) << " " << seq.instrumentPan(c)
               << " " << seq.instrumentBus(c) << "\n";
             writeSynthBlock(f, "synthI", "synthoscI", seq.instrumentSynth(c));
+            if (!seq.instrumentPluginPath(c).empty()) {
+                f << "instplugin " << c << " " << seq.instrumentPluginPath(c) << "\n";
+            }
         }
     }
 
@@ -928,6 +931,16 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 if (ls >> b) {
                     seq.setInstrumentBus(curInst, b);
                 }
+            }
+        } else if (tag == "instplugin") {
+            int ch = -1;
+            ls >> ch;
+            std::string pp;
+            std::getline(ls, pp);
+            const size_t nb = pp.find_first_not_of(' ');
+            pp = (nb == std::string::npos) ? std::string() : pp.substr(nb);
+            if (ch >= 0 && ch < seq.instrumentChannelCount() && !pp.empty()) {
+                seq.loadInstrumentPlugin(ch, pp, 48000); // fails gracefully if missing
             }
         } else if (tag == "synthI") {
             if (curInst >= 0 && curInst < seq.instrumentChannelCount()) {

@@ -139,6 +139,43 @@ int main() {
         audio::loadProjectFromString(proj, seq2, mx2, autom2);
         check(seq2.leadPluginLoaded(), "the lead plugin path round-trips through the project");
     }
+
+    // A hosted CLAP instrument on an EXTRA channel, routed to the bass bus.
+    {
+        audio::Sequencer seq;
+        const int ch = seq.addInstrumentChannel();
+        seq.instrumentSynth(ch).setGain(0.0f);                     // built-in silent → plugin's energy
+        seq.setInstrumentBus(ch, 2);                               // route the channel to the bass bus
+        seq.instrumentRoll(ch).addNote(audio::Note{0, 4, 69, 1.0f});
+        const bool pok = seq.loadInstrumentPlugin(ch, MAZ_TEST_CLAP_INSTRUMENT, sr);
+        check(pok && seq.instrumentPluginLoaded(ch), "loads a CLAP instrument on an extra channel");
+        seq.play();
+        const int fr = sr / 4;
+        std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+        seq.renderStems(d.data(), l.data(), b.data(), fr, sr);
+        double le = 0.0, be = 0.0;
+        for (float v : l) {
+            le += static_cast<double>(v) * static_cast<double>(v);
+        }
+        for (float v : b) {
+            be += static_cast<double>(v) * static_cast<double>(v);
+        }
+        check(be > 0.0, "the channel's hosted plugin is audible in its routed (bass) bus");
+        check(le == 0.0, "and not in the lead bus");
+
+        // The per-channel plugin path round-trips through the project.
+        audio::Mixer mx;
+        audio::Automation autom;
+        const std::string proj = audio::saveProjectToString(seq, mx, autom);
+        audio::Sequencer seq2;
+        audio::Mixer mx2;
+        audio::Automation autom2;
+        audio::loadProjectFromString(proj, seq2, mx2, autom2);
+        check(seq2.instrumentChannelCount() == 1 && seq2.instrumentPluginLoaded(0),
+              "the per-channel plugin path round-trips through the project");
+    }
 #endif
 
     audio::ClapHost bad;
