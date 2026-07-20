@@ -770,6 +770,39 @@ int main() {
               "a multi-bar clip tiles its pattern across bars when compiled");
     }
 
+    // --- Per-clip mute: a muted clip is skipped in playback and compile -----
+    {
+        // Two clips share bar 0; muting one drops its voice from the simultaneous playback.
+        auto voicesWithMute = [](bool muteSecond) {
+            audio::Sequencer s;
+            s.roll().addNote(audio::Note{0, 4, 60, 0.9f}); // pattern 0
+            const int pB = s.addPattern();
+            s.selectPattern(pB);
+            s.roll().addNote(audio::Note{0, 4, 67, 0.9f}); // pattern 1
+            s.selectPattern(0);
+            s.addClip(0, 0, 0);
+            const int c2 = s.addClip(pB, 0, 1);
+            if (muteSecond) {
+                s.clip(c2).muted = true;
+            }
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.play();
+            return s.synth().activeVoices();
+        };
+        check(voicesWithMute(false) == 2, "both clips play when neither is muted");
+        check(voicesWithMute(true) == 1, "a muted clip is skipped in clip-song playback");
+
+        // Compile skips muted clips too.
+        audio::Sequencer s;
+        const int pB = s.addPattern();
+        s.addClip(0, 0, 0);
+        const int cm = s.addClip(pB, 1, 0);
+        s.clip(cm).muted = true;
+        check(s.compileClipsToPlaylist() == 1 && s.playlist().size() == 1 && s.playlist()[0] == 0,
+              "compile skips muted clips");
+    }
+
     // --- Clip-song mode: true simultaneous multi-track clip playback ---------
     {
         // Two patterns, each with a lead note at step 0 (distinct pitches). Placing both as clips on

@@ -40,6 +40,7 @@ struct PlaylistClip {
     int startBar = 0; // bar position on the timeline (0-based)
     int track = 0;    // arrangement-track row this clip sits on
     int bars = 1;     // how many bars the clip spans (its pattern tiles/loops across them); >= 1
+    bool muted = false; // a muted clip is skipped in playback, compile, and MIDI export
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete

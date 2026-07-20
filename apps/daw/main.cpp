@@ -3418,16 +3418,24 @@ void buildArrangementUI(audio::Sequencer& seq) {
             const int ci = clipAt(t, bar);
             char lbl[16];
             if (ci >= 0) {
-                std::snprintf(lbl, sizeof(lbl), "%d", seq.clip(ci).pattern + 1);
+                // A muted clip shows its pattern number in parentheses.
+                if (seq.clip(ci).muted) {
+                    std::snprintf(lbl, sizeof(lbl), "(%d)", seq.clip(ci).pattern + 1);
+                } else {
+                    std::snprintf(lbl, sizeof(lbl), "%d", seq.clip(ci).pattern + 1);
+                }
             } else {
                 std::snprintf(lbl, sizeof(lbl), ".");
             }
-            if (ImGui::Button(lbl, ImVec2(24, 0))) {
+            if (ImGui::Button(lbl, ImVec2(24, 0))) { // left-click: place / remove
                 if (ci >= 0) {
                     seq.removeClip(ci);
                 } else {
                     seq.addClip(clipPat, bar, t, clipBars);
                 }
+            }
+            if (ci >= 0 && ImGui::IsItemClicked(ImGuiMouseButton_Right)) { // right-click: toggle mute
+                seq.clip(ci).muted = !seq.clip(ci).muted;
             }
             if (bar + 1 < kBars) {
                 ImGui::SameLine();

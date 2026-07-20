@@ -191,7 +191,8 @@ int main() {
     seq.setSwing(0.15f); // pattern 0's own groove
     seq.setPlaylist({0, 1, 0});
     seq.addClip(1, 4, 2, 3); // a 2-D playlist clip: pattern 1 at bar 4 on track 2, spanning 3 bars
-    seq.addClip(0, 0, 0);    // pattern 0 at bar 0 on track 0 (default single bar)
+    const int mclip = seq.addClip(0, 0, 0); // pattern 0 at bar 0 on track 0 (default single bar)
+    seq.clip(mclip).muted = true;           // mark it muted to check the flag round-trips
     seq.setSongMode(true);
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
     seq.setSongLoop(false);
@@ -707,9 +708,10 @@ int main() {
     check(seq2.songUsesClips(), "clip-driven song-mode flag round-trips");
     check(seq2.songLoopStart() == 1 && seq2.songLoopEnd() == 3, "song loop region round-trips");
     check(seq2.clipCount() == 2 && seq2.clip(0).pattern == 1 && seq2.clip(0).startBar == 4 &&
-              seq2.clip(0).track == 2 && seq2.clip(0).bars == 3 && seq2.clip(1).pattern == 0 &&
-              seq2.clip(1).startBar == 0 && seq2.clip(1).bars == 1,
-          "2-D playlist clips round-trip (including multi-bar span)");
+              seq2.clip(0).track == 2 && seq2.clip(0).bars == 3 && !seq2.clip(0).muted &&
+              seq2.clip(1).pattern == 0 && seq2.clip(1).startBar == 0 && seq2.clip(1).bars == 1 &&
+              seq2.clip(1).muted,
+          "2-D playlist clips round-trip (including multi-bar span + mute)");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");

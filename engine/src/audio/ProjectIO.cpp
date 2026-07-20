@@ -513,7 +513,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     f << "\n";
     // 2-D playlist clips (pattern @ bar @ track). Written after the legacy playlist; only when present.
     for (const PlaylistClip& cl : seq.clips()) {
-        f << "clip " << cl.pattern << " " << cl.startBar << " " << cl.track << " " << cl.bars << "\n";
+        f << "clip " << cl.pattern << " " << cl.startBar << " " << cl.track << " " << cl.bars << " "
+          << (cl.muted ? 1 : 0) << "\n";
     }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
@@ -1256,8 +1257,13 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (!(ls >> bars)) {
                 bars = 1;
             }
+            int muted = 0; // optional trailing mute flag (older files omit it → not muted)
+            ls >> muted;
             if (pat >= 0) {
-                seq.addClip(pat, bar, trk, bars);
+                const int idx = seq.addClip(pat, bar, trk, bars);
+                if (muted) {
+                    seq.clip(idx).muted = true;
+                }
             }
         } else if (tag == "step") {
             int p = 0;

@@ -381,7 +381,7 @@ int Sequencer::compileClipsToPlaylist() {
     });
     playlist_.clear();
     for (const PlaylistClip& c : sorted) {
-        if (c.pattern >= 0 && c.pattern < patternCount()) {
+        if (!c.muted && c.pattern >= 0 && c.pattern < patternCount()) {
             const int span = c.bars < 1 ? 1 : c.bars;
             for (int b = 0; b < span; ++b) { // a multi-bar clip tiles its pattern across each bar
                 playlist_.push_back(c.pattern);
@@ -1128,7 +1128,7 @@ int Sequencer::primaryClipPattern(int bar) const {
     bool found = false;
     for (const PlaylistClip& c : clips_) {
         const int span = c.bars < 1 ? 1 : c.bars;
-        if (bar >= c.startBar && bar < c.startBar + span && c.pattern >= 0 &&
+        if (!c.muted && bar >= c.startBar && bar < c.startBar + span && c.pattern >= 0 &&
             c.pattern < patternCount()) {
             if (!found || c.track < bestTrack) {
                 best = c.pattern;
@@ -1147,8 +1147,8 @@ void Sequencer::triggerTransportStep(int step) {
         const int saved = current_;
         for (const PlaylistClip& c : clips_) {
             const int span = c.bars < 1 ? 1 : c.bars;
-            if (songBar_ >= c.startBar && songBar_ < c.startBar + span && c.pattern >= 0 &&
-                c.pattern < patternCount()) {
+            if (!c.muted && songBar_ >= c.startBar && songBar_ < c.startBar + span &&
+                c.pattern >= 0 && c.pattern < patternCount()) {
                 current_ = c.pattern;
                 triggerStep(step);
             }
