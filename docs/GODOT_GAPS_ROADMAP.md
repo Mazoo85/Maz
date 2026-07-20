@@ -157,6 +157,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R mesh_simplify`): fewer verts/tris, every triangle non-degenerate + in range, bbox kept
   within one cell, coarser cells reduce more, sub-spacing cell is a no-op. Follow-up: quadric-error edge
   collapse for silhouette-preserving aggressive ratios. [VERIFIABLE HERE]
+- [x] **GIF image codec** (`render::decodeGif` / `render::encodeGif`) — DONE (M525); reads and writes the
+  GIF89a image (still ubiquitous for pixel-art sprites, UI icons, and short web loops), which stores an
+  indexed image (palette of ≤256 colors + one index per pixel) compressed with variable-width LZW. The
+  decoder parses the header, logical-screen + global color table, skips extension blocks, and inflates the
+  first frame's LZW stream (clear/EOI codes, 2→12-bit code growth, dictionary reset); the encoder builds an
+  exact palette for ≤256-color images (so the round-trip is LOSSLESS) and LZW-compresses the indices. The
+  fiddly part is the variable-width LZW code-width sync: the decoder's dictionary lags the encoder's by one
+  string (the first code after a clear adds nothing), so it must widen one entry early to stay byte-aligned.
+  Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
+  pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
+  animation + transparency index. [VERIFIABLE HERE]
 - [x] **Vertex-cache optimization** (`render::optimizeVertexCache`, Forsyth's algorithm) — DONE (M522); the
   load-time index reorder every importer runs so consecutive triangles reuse the GPU's post-transform vertex
   cache, cutting redundant vertex-shader runs. A pure lossless index permutation (positions untouched).
