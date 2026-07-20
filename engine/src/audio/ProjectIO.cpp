@@ -533,7 +533,9 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
             for (const Note& n : seq.instrumentRoll(c).notes()) {
                 f << "noteN " << c << " " << p << " " << n.startStep << " " << n.lengthSteps << " "
-                  << n.pitch << " " << n.velocity << " " << n.fineTune << "\n";
+                  << n.pitch << " " << n.velocity << " " << n.fineTune << " " << n.probability << " "
+                  << n.roll << " " << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << " "
+                  << n.cutoff << "\n";
             }
         }
     }
@@ -934,6 +936,30 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             float fine = 0.0f;
             if (ls >> fine) {
                 n.fineTune = fine;
+            }
+            float prob = 1.0f; // per-note attributes optional (older/basic files omit them)
+            if (ls >> prob) {
+                n.probability = prob;
+            }
+            int roll = 1;
+            if (ls >> roll) {
+                n.roll = roll;
+            }
+            int slide = 0;
+            if (ls >> slide) {
+                n.slide = slide != 0;
+            }
+            int stride = 1;
+            if (ls >> stride) {
+                n.stride = stride < 1 ? 1 : (stride > 8 ? 8 : stride);
+            }
+            int nudge = 0;
+            if (ls >> nudge) {
+                n.nudge = nudge < 0 ? 0 : (nudge > 95 ? 95 : nudge);
+            }
+            float cutoff = 0.0f;
+            if (ls >> cutoff) {
+                n.cutoff = cutoff < -8.0f ? -8.0f : (cutoff > 8.0f ? 8.0f : cutoff);
             }
             if (c >= 0 && c < seq.instrumentChannelCount() && p >= 0 && p < seq.patternCount()) {
                 seq.instrumentRoll(p, c).addNote(n);

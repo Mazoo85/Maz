@@ -638,7 +638,9 @@ int main() {
     seq.setInstrumentGain(extraCh, 0.6f);
     seq.setInstrumentPan(extraCh, -0.5f);
     seq.setInstrumentBus(extraCh, 2); // route to the bass bus
-    seq.instrumentRoll(0, extraCh).addNote(audio::Note{4, 3, 64, 0.8f});
+    // Full per-note attributes on the extra channel: prob, fine, roll, slide, stride, nudge, cutoff.
+    seq.instrumentRoll(0, extraCh).addNote(
+        audio::Note{4, 3, 64, 0.8f, 0.7f, 12.0f, 3, true, 2, 20, -1.0f});
 
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
@@ -730,6 +732,14 @@ int main() {
                   seq2.instrumentBus(0) == 2;
     }
     check(extraOk, "extra instrument channel (synth patch + note + gain/pan/bus) round-trips");
+    bool extraNoteAttrsOk = seq2.instrumentChannelCount() == 1 &&
+                            seq2.instrumentRoll(0, 0).notes().size() == 1;
+    if (extraNoteAttrsOk) {
+        const audio::Note& en = seq2.instrumentRoll(0, 0).notes()[0];
+        extraNoteAttrsOk = near(en.probability, 0.7f) && near(en.fineTune, 12.0f) && en.roll == 3 &&
+                           en.slide && en.stride == 2 && en.nudge == 20 && near(en.cutoff, -1.0f);
+    }
+    check(extraNoteAttrsOk, "extra-channel per-note attributes (roll/slide/nudge/cutoff/...) round-trip");
     check(seq2.synth2().mode() == audio::SynthMode::Wavetable &&
               near(seq2.synth2().wavetablePosition(), 0.65f) &&
               near(seq2.synth2().wavetableMorph(), 0.4f) &&

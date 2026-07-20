@@ -722,6 +722,21 @@ int main() {
               "an extra channel routed to the lead bus appears only in the lead stem");
         check(toBass.second > 0.0 && toBass.first == 0.0,
               "an extra channel routed to the bass bus appears only in the bass stem");
+
+        // Per-note attributes now apply to extra channels: a probability-0 note never fires (silence),
+        // proving extra-channel notes run through the same per-note path as the lead/bass lanes.
+        auto probEnergy = [&](float prob) {
+            audio::Sequencer r;
+            const int rc = r.addInstrumentChannel();
+            r.instrumentSynth(rc).setWaveform(audio::Waveform::Saw);
+            audio::Note nn{0, 4, 60, 0.9f};
+            nn.probability = prob;
+            r.instrumentRoll(rc).addNote(nn);
+            r.play();
+            return rms(renderMono(r, sampleRate / 4, sampleRate));
+        };
+        check(probEnergy(0.0f) == 0.0, "a probability-0 note on an extra channel never fires");
+        check(probEnergy(1.0f) > 0.0, "a probability-1 note on an extra channel always fires");
     }
 
     // --- Sequencer grid ------------------------------------------------------

@@ -895,15 +895,15 @@ void Sequencer::triggerStep(int step) {
         return r < n.probability;
     };
     // Schedule a note's roll/ratchet retriggers (k=1..roll-1) evenly across its first step.
-    auto scheduleRoll = [this, step](const Note& n, int pitch, bool bass, bool samp) {
+    auto scheduleRoll = [this, step](const Note& n, int pitch, bool bass, bool samp, int channel) {
         if (n.roll <= 1) {
             return;
         }
         const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
         const int interval = stepSamples / n.roll;
         for (int k = 1; k < n.roll; ++k) {
-            melodicHits_.push_back(
-                MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp, n.cutoff});
+            melodicHits_.push_back(MelodicHit{pitch, n.velocity, n.fineTune, interval * k, bass, samp,
+                                              n.cutoff, channel});
         }
     };
     // Per-note micro-timing nudge: delay the onset by nudge% of the step (deferred through the same
@@ -921,13 +921,13 @@ void Sequencer::triggerStep(int step) {
             const int delay = nudgeDelay(n);
             if (delay > 0) {
                 melodicHits_.push_back(
-                    MelodicHit{p, n.velocity, n.fineTune, delay, false, toSampler, n.cutoff});
+                    MelodicHit{p, n.velocity, n.fineTune, delay, false, toSampler, n.cutoff, -1});
             } else if (toSampler) {
                 sampler_.noteOn(p, n.velocity);
             } else {
                 synth_.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
             }
-            scheduleRoll(n, p, false, toSampler);
+            scheduleRoll(n, p, false, toSampler, -1);
         }
     }
 
@@ -944,16 +944,17 @@ void Sequencer::triggerStep(int step) {
             const int delay = nudgeDelay(n);
             if (delay > 0) {
                 melodicHits_.push_back(
-                    MelodicHit{p, n.velocity, n.fineTune, delay, true, false, n.cutoff});
+                    MelodicHit{p, n.velocity, n.fineTune, delay, true, false, n.cutoff, -1});
             } else {
                 synth2_.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
             }
-            scheduleRoll(n, p, true, false);
+            scheduleRoll(n, p, true, false, -1);
         }
     }
 
-    // Extra instrument channels → their own synths (offs before ons). Basic note playback for now:
-    // start/length/pitch/velocity honoured, immediate (no roll/nudge/slide deferral yet).
+    // Extra instrument channels → their own synths (offs before ons). Full per-note attributes:
+    // probability, fine-tune, roll/ratchet, micro-timing nudge, slide, and cutoff (Mod X) — routed
+    // through the same sample-accurate melodic-hit queue as the lead/bass lanes, keyed by channel.
     Pattern& cur = patterns_[static_cast<size_t>(current_)];
     for (size_t c = 0; c < extraSynths_.size() && c < cur.extraRolls.size(); ++c) {
         SynthInstrument& es = extraSynths_[c];
@@ -965,7 +966,15 @@ void Sequencer::triggerStep(int step) {
         }
         for (const Note& n : er.notes()) {
             if (n.startStep == step && noteFires(n)) {
-                es.noteOn(n.pitch + tr, n.velocity, n.fineTune);
+                const int p = n.pitch + tr;
+                const int delay = nudgeDelay(n);
+                if (delay > 0) {
+                    melodicHits_.push_back(MelodicHit{p, n.velocity, n.fineTune, delay, false, false,
+                                                      n.cutoff, static_cast<int>(c)});
+                } else {
+                    es.noteOn(p, n.velocity, n.fineTune, n.slide, n.cutoff);
+                }
+                scheduleRoll(n, p, false, false, static_cast<int>(c));
             }
         }
     }
@@ -1073,7 +1082,11 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         for (size_t mi = 0; mi < melodicHits_.size();) {
             if (melodicHits_[mi].framesUntil <= 0) {
                 const MelodicHit h = melodicHits_[mi];
-                if (h.toSampler) {
+                if (h.channel >= 0 && h.channel < static_cast<int>(extraSynths_.size())) {
+                    SynthInstrument& es = extraSynths_[static_cast<size_t>(h.channel)];
+                    es.noteOff(h.pitch);
+                    es.noteOn(h.pitch, h.velocity, h.fineTune, false, h.cutoff);
+                } else if (h.toSampler) {
                     sampler_.noteOff(h.pitch);
                     sampler_.noteOn(h.pitch, h.velocity);
                 } else if (h.bass) {
