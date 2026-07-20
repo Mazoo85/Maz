@@ -2036,6 +2036,32 @@ int main() {
         check(d.patternTranspose() == -48, "pattern transpose clamps to -48");
     }
 
+    // --- Trig conditions in song mode: count global loops across the playlist ----
+    {
+        // Pattern 0 has a stride-2 kick; play it four times via the playlist. The stride counts global
+        // pattern loops, so the kick fires on bars 0 and 2 but not 1 and 3 (as in pattern-loop mode).
+        audio::Sequencer s;
+        s.setBpm(120.0);
+        s.setStep(0, 0, true);
+        s.setStepStride(0, 0, 2);
+        s.setPlaylist({0, 0, 0, 0});
+        s.setSongMode(true);
+        s.play();
+        std::vector<bool> fired;
+        const int barFrames = 16 * 6000;
+        for (int b = 0; b < 4; ++b) {
+            const std::vector<float> out = renderMono(s, barFrames, sampleRate);
+            double e = 0.0;
+            for (int i = 0; i < 3000; ++i) {
+                e += static_cast<double>(out[static_cast<size_t>(i) * 2]) *
+                     static_cast<double>(out[static_cast<size_t>(i) * 2]);
+            }
+            fired.push_back(e > 1e-4);
+        }
+        check(fired[0] && !fired[1] && fired[2] && !fired[3],
+              "trig conditions count global loops in song mode (stride 2 fires bars 0 and 2)");
+    }
+
     // --- Groove templates: stamp a per-step micro-timing feel --------------------
     {
         audio::Sequencer s;
