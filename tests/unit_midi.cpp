@@ -164,6 +164,39 @@ int main() {
               "arrangement export writes playlist patterns back to back (2nd offset by a pattern)");
     }
 
+    // Clip-song arrangement export: the 2-D clip timeline exports each clip at its own bar offset
+    // (a clip on bar 2 lands two pattern-lengths into the file), honouring clip-song mode.
+    {
+        audio::Sequencer song;
+        const int n = song.numSteps();
+        song.selectPattern(0);
+        song.roll().addNote(audio::Note{0, 2, 60, 1.0f}); // pattern 0 lead note at step 0
+        const int p1 = song.addPattern();
+        song.selectPattern(p1);
+        song.roll().addNote(audio::Note{3, 2, 67, 1.0f}); // pattern 1 lead note at step 3
+        song.selectPattern(0);
+        song.addClip(0, 0, 0);  // pattern 0 at bar 0
+        song.addClip(p1, 2, 0); // pattern 1 at bar 2
+        song.setSongUsesClips(true);
+
+        const std::string cp = "unit_midi_clips.mid";
+        check(audio::writeMidi(cp, song, 96, &err, true), "clip-arrangement MIDI export succeeds");
+        audio::Sequencer cin;
+        check(audio::readMidi(cp, cin, &err), "clip-arrangement MIDI reads back");
+        const auto& cns = cin.roll().notes();
+        bool at0 = false, at2 = false;
+        for (const audio::Note& nn : cns) {
+            if (nn.pitch == 60 && nn.startStep == 0) {
+                at0 = true;
+            }
+            if (nn.pitch == 67 && nn.startStep == 2 * n + 3) {
+                at2 = true;
+            }
+        }
+        check(cns.size() == 2 && at0 && at2,
+              "clip export places each clip's pattern at its bar offset (bar 2 → two pattern lengths in)");
+    }
+
     // A note held to end-of-track (no note-off) is still imported, ended at the final tick.
     {
         auto putBE = [](std::vector<uint8_t>& v, uint32_t x, int nb) {

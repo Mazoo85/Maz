@@ -32,6 +32,7 @@ unit_project_*.cjcpatch
 
 # Test scratch (MIDI export)
 unit_midi_out.mid
+unit_midi_*.mid
 /song.mid
 /stem_*.wav
 /unit_recording_out.wav

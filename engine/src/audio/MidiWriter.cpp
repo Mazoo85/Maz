@@ -105,7 +105,26 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         }
     };
 
-    if (arrangement && !seq.playlist().empty()) {
+    if (arrangement && seq.songUsesClips() && seq.clipCount() > 0) {
+        // Clip-song arrangement: walk the 2-D timeline bar by bar and emit every clip covering each bar
+        // at that bar's step offset (honouring multi-bar spans). Clips sharing a bar overlay — their
+        // events simply accumulate — matching the simultaneous multi-track clip playback.
+        const int saved = seq.currentPattern();
+        const int patLen = seq.numSteps();
+        const int bars = seq.clipBarCount();
+        for (int bar = 0; bar < bars; ++bar) {
+            for (int i = 0; i < seq.clipCount(); ++i) {
+                const PlaylistClip& c = seq.clip(i);
+                const int span = c.bars < 1 ? 1 : c.bars;
+                if (bar >= c.startBar && bar < c.startBar + span && c.pattern >= 0 &&
+                    c.pattern < seq.patternCount()) {
+                    seq.selectPattern(c.pattern);
+                    emitPattern(bar * patLen);
+                }
+            }
+        }
+        seq.selectPattern(saved);
+    } else if (arrangement && !seq.playlist().empty()) {
         // Write the whole playlist back to back; each entry is one pattern length (numSteps) later.
         const int saved = seq.currentPattern();
         const int patLen = seq.numSteps();
