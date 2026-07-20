@@ -58,15 +58,18 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
     // `stepOffset` steps — one pattern's worth of steps when writing an arrangement back to back.
     auto emitPattern = [&](int stepOffset) {
         const int base = stepOffset * ticksPerStep;
+        // Match playback: apply the global + current-pattern transpose to the melodic pitches (drums
+        // are keyed by GM note, not transposed). Clamped to the valid MIDI range.
+        const int tr = seq.transpose() + seq.patternTranspose();
         for (const Note& n : seq.roll().notes()) {
             const uint8_t v = vel7(n.velocity);
-            const uint8_t p = static_cast<uint8_t>(n.pitch & 0x7F);
+            const uint8_t p = static_cast<uint8_t>(std::clamp(n.pitch + tr, 0, 127));
             events.push_back({base + n.startStep * ticksPerStep, 1, 0x90, p, v});
             events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, 0x80, p, 0});
         }
         for (const Note& n : seq.roll2().notes()) {
             const uint8_t v = vel7(n.velocity);
-            const uint8_t p = static_cast<uint8_t>(n.pitch & 0x7F);
+            const uint8_t p = static_cast<uint8_t>(std::clamp(n.pitch + tr, 0, 127));
             events.push_back({base + n.startStep * ticksPerStep, 1, 0x91, p, v});
             events.push_back({base + (n.startStep + n.lengthSteps) * ticksPerStep, 0, 0x81, p, 0});
         }

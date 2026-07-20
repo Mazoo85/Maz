@@ -186,6 +186,30 @@ int main() {
               "a note held to end-of-track is imported (ended at the track's end)");
     }
 
+    // Transpose (global + per-pattern) is baked into the exported pitches, so the MIDI file matches
+    // what playback sounds — not the raw stored note numbers.
+    {
+        audio::Sequencer ts;
+        ts.setTranspose(5);          // global +5 st
+        ts.setPatternTranspose(7);   // this pattern +7 st → effective +12 (an octave)
+        ts.roll().addNote(audio::Note{0, 4, 60, 0.9f}); // C4 → should export as C5 (72)
+        const std::string tp = "unit_midi_transpose.mid";
+        check(audio::writeMidi(tp, ts, 96, &err), "writeMidi (transposed) succeeds");
+        audio::Sequencer tin;
+        check(audio::readMidi(tp, tin, &err), "readMidi (transposed) succeeds");
+        bool found72 = false, found60 = false;
+        for (const audio::Note& n : tin.roll().notes()) {
+            if (n.pitch == 72) {
+                found72 = true;
+            }
+            if (n.pitch == 60) {
+                found60 = true;
+            }
+        }
+        check(found72 && !found60,
+              "MIDI export bakes in the global + per-pattern transpose (C4 +12 → C5)");
+    }
+
     // A truncated file whose MTrk length claims far more bytes than are present must not over-read
     // past the buffer (regression: trackEnd was the unclamped claimed length, so the event loop and
     // the tempo-meta read walked off the end of a corrupt/truncated import).
