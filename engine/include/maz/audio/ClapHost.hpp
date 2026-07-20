@@ -35,6 +35,9 @@ public:
     // replaces the buffer passed to process() (an instrument ignores audio input). Velocity is 0..1.
     void noteOn(int key, float velocity);
     void noteOff(int key);
+    // Release every currently-held note (panic / all-notes-off) — queues a note-off for each key that
+    // was turned on and not yet turned off, so a hosted instrument doesn't hang on stop/pattern change.
+    void allNotesOff();
 
     const char* name() const override { return name_.empty() ? "CLAP" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
@@ -54,6 +57,7 @@ private:
         bool on; // true = note-on, false = note-off
     };
     std::vector<PendingNote> pendingNotes_; // queued for the next process() (instrument hosting)
+    std::vector<int> heldKeys_;             // keys currently on (for allNotesOff / panic)
 };
 
 } // namespace maz::audio

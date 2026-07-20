@@ -96,6 +96,14 @@ int main() {
         std::vector<float> off(static_cast<size_t>(block) * 2, 0.0f);
         inst.process(off.data(), block, sr);
         check(energy(off) == 0.0, "a note-off silences the hosted instrument");
+
+        // Panic: hold notes, then allNotesOff() must release them so nothing hangs.
+        inst.noteOn(60, 1.0f);
+        inst.noteOn(64, 1.0f);
+        inst.allNotesOff();
+        std::vector<float> panic(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(panic.data(), block, sr);
+        check(energy(panic) == 0.0, "allNotesOff releases held notes (no hang)");
         inst.unload();
     } else {
         std::printf("  instrument load error: %s\n", err.c_str());

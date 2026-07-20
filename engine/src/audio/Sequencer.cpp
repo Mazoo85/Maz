@@ -1109,6 +1109,9 @@ void Sequencer::releaseAllNotes() {
     for (SynthInstrument& es : extraSynths_) {
         es.allNotesOff();
     }
+    if (leadPlugin_) {
+        leadPlugin_->allNotesOff(); // release any held notes on the hosted lead instrument
+    }
 }
 
 void Sequencer::render(float* out, int frames, int sampleRate) {

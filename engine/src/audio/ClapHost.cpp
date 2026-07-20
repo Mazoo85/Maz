@@ -217,10 +217,24 @@ bool ClapHost::hasNotePorts() const {
 
 void ClapHost::noteOn(int key, float velocity) {
     pendingNotes_.push_back({key, velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity), true});
+    heldKeys_.push_back(key);
 }
 
 void ClapHost::noteOff(int key) {
     pendingNotes_.push_back({key, 0.0f, false});
+    for (size_t i = 0; i < heldKeys_.size(); ++i) {
+        if (heldKeys_[i] == key) {
+            heldKeys_.erase(heldKeys_.begin() + static_cast<long>(i));
+            break;
+        }
+    }
+}
+
+void ClapHost::allNotesOff() {
+    for (int key : heldKeys_) {
+        pendingNotes_.push_back({key, 0.0f, false});
+    }
+    heldKeys_.clear();
 }
 
 void ClapHost::process(float* stereo, int frames, int sampleRate) {
