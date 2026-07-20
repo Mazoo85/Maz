@@ -133,8 +133,13 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Hammersley hemisphere of rays that either strike a scene patch (collecting its radiance — sky bounce, color
   bleed, emissive) or escape to the sky. A real single-bounce irradiance estimate, unit-verified headlessly
   (`ctest -R gi_gather`): an open surfel returns exactly the sky color, facing a bright patch beats facing
-  away, a dark ceiling darkens the gather, energy stays bounded. Follow-up: iterate to convergence over a UV
-  atlas, multi-bounce, SDFGI probe volume. [VERIFIABLE HERE]
+  away, a dark ceiling darkens the gather, energy stays bounded. [VERIFIABLE HERE]
+- [x] **Multi-bounce GI / progressive radiosity** (`render::bakeRadiosity`) — DONE (M521); iterates the M511
+  gather into the FULL bounced solution — every patch is both emitter and receiver, each pass re-gathers from
+  the others' current radiance and reflects `albedo × received + emission`, so light bounces wall→floor→wall
+  and settles. Verified (`ctest -R radiosity`) with the signature of a correct solve: total light grows across
+  bounces but the increments shrink (converges), zero albedo yields no indirect, and energy stays within the
+  geometric-series bound. Follow-up: adaptive subdivision + form-factor caching + SDFGI probe volume. [VERIFIABLE HERE]
 - [x] **Decal projection math** (`render::projectDecal`) — DONE (M503); oriented-box UV + normal fade. [VERIFIABLE HERE]
 - [x] **Volumetric-fog evaluation** (`render::fogOpticalDepth` / `fogFactor` / `applyFog`) — DONE (M504);
   analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).

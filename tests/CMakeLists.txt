@@ -135,6 +135,14 @@ target_link_libraries(maz_glb_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME glb_container COMMAND maz_glb_tests)
 set_tests_properties(glb_container PROPERTIES TIMEOUT 30)
 
+# Multi-bounce global illumination / progressive radiosity (render::bakeRadiosity) on the tested hemisphere
+# gather: verifies the signature of a correct solve — total light grows across bounces but the increments
+# shrink (converges), zero albedo means no indirect, and energy stays within the geometric-series bound.
+add_executable(maz_radiosity_tests render/radiosity.cpp)
+target_link_libraries(maz_radiosity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME radiosity COMMAND maz_radiosity_tests)
+set_tests_properties(radiosity PROPERTIES TIMEOUT 60)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
