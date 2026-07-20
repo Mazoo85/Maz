@@ -480,6 +480,11 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.applyGroove(grooveSel);
     }
     ImGui::SameLine();
+    static int drumHumSeed = 1;
+    if (ImGui::Button("Hum.time##drums")) { // random per-step micro-timing (drummer feel)
+        seq.humanizeStepTiming(30, static_cast<uint32_t>(drumHumSeed++));
+    }
+    ImGui::SameLine();
     float humanize = seq.humanize();
     ImGui::SetNextItemWidth(110.0f);
     if (ImGui::SliderFloat("Humanize", &humanize, 0.0f, 1.0f, "%.2f")) {

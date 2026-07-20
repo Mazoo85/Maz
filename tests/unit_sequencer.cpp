@@ -2171,6 +2171,27 @@ int main() {
         check(std::string(audio::Sequencer::grooveName(1)) == "Swing 16th",
               "groove presets have UI names");
 
+        // Drum micro-timing humanize: random per-step nudges within the cap, deterministic per seed.
+        audio::Sequencer h1;
+        audio::Sequencer h2;
+        h1.humanizeStepTiming(30, 2024u);
+        h2.humanizeStepTiming(30, 2024u);
+        bool det = true, cap = true, anyNudge = false;
+        for (int st = 0; st < h1.numSteps(); ++st) {
+            if (h1.stepNudge(0, st) != h2.stepNudge(0, st)) det = false;
+            if (h1.stepNudge(0, st) < 0 || h1.stepNudge(0, st) > 30) cap = false;
+            if (h1.stepNudge(0, st) > 0) anyNudge = true;
+        }
+        check(det, "drum timing humanize is deterministic for a given seed");
+        check(cap, "drum timing humanize stays within the cap");
+        check(anyNudge, "drum timing humanize applies nudges");
+        h1.humanizeStepTiming(0, 1u); // cap 0 clears all nudge
+        bool cleared = true;
+        for (int st = 0; st < h1.numSteps(); ++st) {
+            if (h1.stepNudge(0, st) != 0) cleared = false;
+        }
+        check(cleared, "drum timing humanize with cap 0 clears all nudge");
+
         // A groove also swings the melodic lanes, not just the drum grid: a lead note on an odd 16th
         // gets the swing nudge, one on an even step stays on the grid.
         audio::Sequencer g;

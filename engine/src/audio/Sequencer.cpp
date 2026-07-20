@@ -385,6 +385,27 @@ void Sequencer::applyGroove(int preset) {
     }
 }
 
+void Sequencer::humanizeStepTiming(int maxNudge, uint32_t seed) {
+    const int cap = maxNudge < 0 ? 0 : (maxNudge > 95 ? 95 : maxNudge);
+    if (cap == 0) {
+        for (int c = 0; c < numChannels(); ++c) {
+            for (int s = 0; s < numSteps_; ++s) {
+                setStepNudge(c, s, 0);
+            }
+        }
+        return;
+    }
+    uint32_t rng = seed != 0u ? seed : 1u;
+    for (int c = 0; c < numChannels(); ++c) {
+        for (int s = 0; s < numSteps_; ++s) {
+            rng ^= rng << 13;
+            rng ^= rng >> 17;
+            rng ^= rng << 5;
+            setStepNudge(c, s, static_cast<int>(rng % static_cast<uint32_t>(cap + 1)));
+        }
+    }
+}
+
 void Sequencer::setSidechain(bool on, float amount, float releaseMs, float attackMs) {
     sidechainOn_ = on;
     scAmount_ = std::clamp(amount, 0.0f, 1.0f);

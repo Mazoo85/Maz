@@ -71,6 +71,11 @@ public:
     static const char* grooveName(int preset);
     void applyGroove(int preset);
 
+    // Humanize drum micro-timing: set a random per-step nudge in [0, maxNudge] % of a step on every
+    // channel, for a loose "drummer feel" (the timing counterpart to the velocity humanize, and the
+    // drum-grid counterpart to the piano roll's humanizeTiming). Deterministic per `seed`.
+    void humanizeStepTiming(int maxNudge, uint32_t seed);
+
     // Per-pattern transpose (semitones, clamped ±48): the current pattern's melodic notes (lead + bass
     // + arp) are shifted by this on top of the global transpose, so a song can change key between
     // patterns (e.g. a chorus a step up). Drums are unaffected. Persisted with the pattern.
