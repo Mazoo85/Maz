@@ -109,7 +109,14 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   and an instance-buffer builder for the single instanced draw. Bounce energy, no-sink, friction, lifecycle
   and instances are all unit-verified headlessly (`ctest -R gpu_particles`); the GPU compute dispatch +
   instanced draw are owner-verified. [VERIFIABLE HERE (sim) / SEE IT ON YOUR MACHINE (draw)]
-- [ ] **SSR/SSIL passes**, reflection-probe cubemap **capture** pass.
+- [x] **Screen-space reflections trace** (`render::ssrTrace` / `SsrCamera` / `DepthBuffer` / `reflect`) —
+  DONE (M510); the reflection ray-march that mirrors glossy floors/wet streets: bounce the view vector about
+  the normal, march the ray, project each step into the depth buffer and detect the first surface it passes
+  behind (binary-refined), returning the hit UV + confidence. The trace/projection is the exact SSR-shader
+  arithmetic and is unit-verified headlessly (`ctest -R ssr_trace`: wall-hit UV/depth, sky miss, off-screen
+  miss, thickness gate); sampling the color buffer + roughness blur + temporal accumulation is the GPU pass.
+  [VERIFIABLE HERE (trace) / SEE IT ON YOUR MACHINE (image)]
+- [ ] **SSIL pass**, reflection-probe cubemap **capture** pass.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
   supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic

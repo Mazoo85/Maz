@@ -45,6 +45,14 @@ target_link_libraries(maz_gpu_particles_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gpu_particles COMMAND maz_gpu_particles_tests)
 set_tests_properties(gpu_particles PROPERTIES TIMEOUT 30)
 
+# Screen-space reflections (render::ssrTrace): reflection ray-march projected against a hand-built depth
+# buffer — wall-hit UV/depth, sky miss, off-screen miss, thickness gate, reflect/project. The trace math is
+# exactly what the SSR shader runs; producing the reflected image is the owner-verified GPU pass.
+add_executable(maz_ssr_tests render/ssr.cpp)
+target_link_libraries(maz_ssr_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ssr_trace COMMAND maz_ssr_tests)
+set_tests_properties(ssr_trace PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
