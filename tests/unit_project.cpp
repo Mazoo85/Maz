@@ -631,6 +631,12 @@ int main() {
     mfcLane.lo = 300.0f;
     mfcLane.hi = 9000.0f;
 
+    // An extra instrument channel (beyond lead/bass) with its own synth patch + a note in pattern 0.
+    const int extraCh = seq.addInstrumentChannel();
+    seq.instrumentSynth(extraCh).setWaveform(audio::Waveform::Square);
+    seq.instrumentSynth(extraCh).setMode(audio::SynthMode::FM);
+    seq.instrumentRoll(0, extraCh).addNote(audio::Note{4, 3, 64, 0.8f});
+
     const std::string path = "unit_project_roundtrip.cjc";
     std::string err;
     check(audio::saveProject(path, seq, mixer, automation, &err), "saveProject succeeds");
@@ -709,6 +715,16 @@ int main() {
           "second-instrument (bass) notes round-trip");
     check(seq2.synth2().waveform() == audio::Waveform::Square, "synth2 patch round-trips");
     check(near(seq2.synth2().fold(), 0.3f), "synth2 (bass) wavefolder round-trips");
+    // Extra instrument channel round-trips (channel count, its synth patch, and its note).
+    bool extraOk = seq2.instrumentChannelCount() == 1;
+    if (extraOk) {
+        extraOk = seq2.instrumentSynth(0).waveform() == audio::Waveform::Square &&
+                  seq2.instrumentSynth(0).mode() == audio::SynthMode::FM &&
+                  seq2.instrumentRoll(0, 0).notes().size() == 1 &&
+                  seq2.instrumentRoll(0, 0).notes()[0].pitch == 64 &&
+                  seq2.instrumentRoll(0, 0).notes()[0].startStep == 4;
+    }
+    check(extraOk, "extra instrument channel (synth patch + note) round-trips");
     check(seq2.synth2().mode() == audio::SynthMode::Wavetable &&
               near(seq2.synth2().wavetablePosition(), 0.65f) &&
               near(seq2.synth2().wavetableMorph(), 0.4f) &&

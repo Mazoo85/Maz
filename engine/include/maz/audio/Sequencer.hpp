@@ -22,6 +22,7 @@ struct Pattern {
     std::vector<uint8_t> stride;  // per-step trig condition: fire only every Nth pattern loop (1 = always). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
+    std::vector<PianoRoll> extraRolls; // one lane per extra instrument channel (see Sequencer)
     float swing = 0.0f;        // per-pattern swing amount (0..0.9); each pattern grooves on its own
     int transpose = 0;         // per-pattern transpose in semitones (added to the global transpose)
     float tempoMul = 1.0f;     // per-pattern tempo multiplier on the song BPM (0.25..4; 1 = song tempo)
@@ -194,6 +195,21 @@ public:
     // The second (bass) instrument: its own synth and piano-roll lane.
     SynthInstrument& synth2() { return synth2_; }
     PianoRoll& roll2() { return patterns_[static_cast<size_t>(current_)].roll2; }
+
+    // Additional instrument channels beyond the fixed lead/bass — the foundation of unlimited
+    // channels. Each has its own synth (shared across patterns) and a per-pattern piano-roll lane.
+    // Their audio currently sums into the lead bus (per-channel mixer routing lands in a later step).
+    // Basic note playback (start/length/pitch/velocity); the advanced per-note attributes remain
+    // lead/bass-only for now.
+    int addInstrumentChannel(); // append a channel (adds a lane to every pattern); returns its index
+    int instrumentChannelCount() const { return static_cast<int>(extraSynths_.size()); }
+    SynthInstrument& instrumentSynth(int c) { return extraSynths_[static_cast<size_t>(c)]; }
+    PianoRoll& instrumentRoll(int c) {
+        return patterns_[static_cast<size_t>(current_)].extraRolls[static_cast<size_t>(c)];
+    }
+    PianoRoll& instrumentRoll(int patternIdx, int c) {
+        return patterns_[static_cast<size_t>(patternIdx)].extraRolls[static_cast<size_t>(c)];
+    }
 
     // --- Patterns & arrangement ---------------------------------------------
     int patternCount() const { return static_cast<int>(patterns_.size()); }
@@ -387,6 +403,7 @@ private:
     SynthInstrument synth_{};  // lead instrument playing roll
     SynthInstrument synth2_{}; // bass instrument playing roll2
     Sampler sampler_{};        // alternative lead instrument (sample playback)
+    std::vector<SynthInstrument> extraSynths_; // extra instrument channels (parallel to Pattern.extraRolls)
     bool useSampler_ = false;
     bool arpOn_ = false;
     int arpMode_ = 0;

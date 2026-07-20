@@ -445,6 +445,17 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     writeSynthBlock(f, "synth", "synthosc", seq.synth());
     writeSynthBlock(f, "synth2", "synthosc2", seq.synth2());
 
+    // Extra instrument channels: a count, then each channel's synth patch (reusing the shared synth
+    // block format under an `instchannel` selector). Written before the pattern grid so the channels
+    // exist when the per-pattern extra-lane notes (noteN) are read back.
+    if (seq.instrumentChannelCount() > 0) {
+        f << "instchannelcount " << seq.instrumentChannelCount() << "\n";
+        for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
+            f << "instchannel " << c << "\n";
+            writeSynthBlock(f, "synthI", "synthoscI", seq.instrumentSynth(c));
+        }
+    }
+
     f << "samplercfg " << (seq.sampler().reverse() ? 1 : 0) << " " << (seq.sampler().loop() ? 1 : 0)
       << " " << seq.sampler().startOffset() << " " << seq.sampler().attack() << " "
       << seq.sampler().release() << " " << (seq.sampler().pingPong() ? 1 : 0) << " "
@@ -515,6 +526,14 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
             f << "note " << p << " " << n.startStep << " " << n.lengthSteps << " " << n.pitch << " "
               << n.velocity << " " << n.probability << " " << n.fineTune << " " << n.roll << " "
               << (n.slide ? 1 : 0) << " " << n.stride << " " << n.nudge << " " << n.cutoff << "\n";
+        }
+        // Extra instrument-channel lanes (basic note fields: channel, pattern, start, len, pitch, vel,
+        // fine). `noteN <channel> <pattern> ...`.
+        for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
+            for (const Note& n : seq.instrumentRoll(c).notes()) {
+                f << "noteN " << c << " " << p << " " << n.startStep << " " << n.lengthSteps << " "
+                  << n.pitch << " " << n.velocity << " " << n.fineTune << "\n";
+            }
         }
     }
     seq.selectPattern(savedCurrent);
@@ -784,6 +803,7 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
 
     std::string line;
     bool sawHeader = false;
+    int curInst = -1; // currently-selected extra instrument channel (for synthI/synthoscI lines)
     while (std::getline(f, line)) {
         std::istringstream ls(line);
         std::string tag;
@@ -877,6 +897,33 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             parseOscLine(ls, seq.synth());
         } else if (tag == "synthosc2") {
             parseOscLine(ls, seq.synth2());
+        } else if (tag == "instchannelcount") {
+            int n = 0;
+            ls >> n;
+            while (seq.instrumentChannelCount() < n && seq.instrumentChannelCount() < 256) {
+                seq.addInstrumentChannel();
+            }
+        } else if (tag == "instchannel") {
+            ls >> curInst; // selector for the following synthI/synthoscI lines
+        } else if (tag == "synthI") {
+            if (curInst >= 0 && curInst < seq.instrumentChannelCount()) {
+                parseSynthLine(ls, seq.instrumentSynth(curInst));
+            }
+        } else if (tag == "synthoscI") {
+            if (curInst >= 0 && curInst < seq.instrumentChannelCount()) {
+                parseOscLine(ls, seq.instrumentSynth(curInst));
+            }
+        } else if (tag == "noteN") {
+            int c = -1, p = -1;
+            Note n;
+            ls >> c >> p >> n.startStep >> n.lengthSteps >> n.pitch >> n.velocity;
+            float fine = 0.0f;
+            if (ls >> fine) {
+                n.fineTune = fine;
+            }
+            if (c >= 0 && c < seq.instrumentChannelCount() && p >= 0 && p < seq.patternCount()) {
+                seq.instrumentRoll(p, c).addNote(n);
+            }
         } else if (tag == "sampler") {
             int use = 0;
             int base = 60;

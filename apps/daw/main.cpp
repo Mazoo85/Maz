@@ -701,14 +701,29 @@ void buildRackUI(audio::Sequencer& seq) {
 // Draw the piano-roll UI: pitch rows (high at top) × steps. Clicking a cell toggles a note.
 void buildPianoRollUI(audio::Sequencer& seq) {
     ImGui::Begin("CJC Music Station — Piano Roll");
-    // Lane selector: edit the lead instrument (roll) or the bass (roll2).
+    // Lane selector: edit the lead (roll), the bass (roll2), or an extra instrument channel.
     static int lane = 0;
     ImGui::TextUnformatted("Lane:");
     ImGui::SameLine();
     ImGui::RadioButton("Lead", &lane, 0);
     ImGui::SameLine();
     ImGui::RadioButton("Bass", &lane, 1);
-    audio::PianoRoll& roll = (lane == 1) ? seq.roll2() : seq.roll();
+    for (int c = 0; c < seq.instrumentChannelCount(); ++c) {
+        ImGui::SameLine();
+        char rl[16];
+        std::snprintf(rl, sizeof(rl), "Inst %d", c + 3);
+        ImGui::RadioButton(rl, &lane, c + 2);
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+ Channel")) {
+        lane = seq.addInstrumentChannel() + 2; // select the new channel
+    }
+    if (lane < 0 || lane > seq.instrumentChannelCount() + 1) {
+        lane = 0; // a channel was removed/reset — fall back to the lead lane
+    }
+    audio::PianoRoll& roll = (lane == 0) ? seq.roll()
+                             : (lane == 1) ? seq.roll2()
+                                           : seq.instrumentRoll(lane - 2);
     ImGui::TextDisabled("Click cells to place notes; each lane plays its own synth.");
 
     // Chord tool: drop a whole chord (root + quality) at a chosen step/length.

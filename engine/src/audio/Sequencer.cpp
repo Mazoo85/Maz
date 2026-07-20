@@ -287,8 +287,17 @@ int Sequencer::addPattern() {
     p.nudge.assign(cells, 0);   // every step on the grid by default
     p.stride.assign(cells, 1);  // every step fires on every loop by default
     p.name = "Pattern " + std::to_string(patterns_.size() + 1);
+    p.extraRolls.resize(extraSynths_.size()); // one lane per existing extra instrument channel
     patterns_.push_back(std::move(p));
     return static_cast<int>(patterns_.size()) - 1;
+}
+
+int Sequencer::addInstrumentChannel() {
+    extraSynths_.emplace_back();
+    for (Pattern& p : patterns_) {
+        p.extraRolls.emplace_back(); // keep every pattern's lane count in step with the synth count
+    }
+    return static_cast<int>(extraSynths_.size()) - 1;
 }
 
 int Sequencer::clonePattern(int src) {
@@ -323,6 +332,7 @@ void Sequencer::selectPattern(int i) {
 
 void Sequencer::clearArrangement() {
     patterns_.clear();
+    extraSynths_.clear(); // drop extra instrument channels so the fresh pattern starts with none
     playlist_.clear();
     songMode_ = false;
     playlistPos_ = 0;
@@ -935,6 +945,24 @@ void Sequencer::triggerStep(int step) {
             scheduleRoll(n, p, true, false);
         }
     }
+
+    // Extra instrument channels → their own synths (offs before ons). Basic note playback for now:
+    // start/length/pitch/velocity honoured, immediate (no roll/nudge/slide deferral yet).
+    Pattern& cur = patterns_[static_cast<size_t>(current_)];
+    for (size_t c = 0; c < extraSynths_.size() && c < cur.extraRolls.size(); ++c) {
+        SynthInstrument& es = extraSynths_[c];
+        const PianoRoll& er = cur.extraRolls[c];
+        for (const Note& n : er.notes()) {
+            if ((n.startStep + n.lengthSteps) % numSteps_ == step) {
+                es.noteOff(n.pitch + tr);
+            }
+        }
+        for (const Note& n : er.notes()) {
+            if (n.startStep == step && noteFires(n)) {
+                es.noteOn(n.pitch + tr, n.velocity, n.fineTune);
+            }
+        }
+    }
 }
 
 void Sequencer::play() {
@@ -978,6 +1006,9 @@ void Sequencer::releaseAllNotes() {
     synth_.allNotesOff(); // let held notes release rather than hang
     synth2_.allNotesOff();
     sampler_.allNotesOff();
+    for (SynthInstrument& es : extraSynths_) {
+        es.allNotesOff();
+    }
 }
 
 void Sequencer::render(float* out, int frames, int sampleRate) {
@@ -1152,6 +1183,11 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
         sampler_.updateTempo(bpm_); // lock the sampler's tempo-synced cutoff LFO too
         synth_.render(synthScratch_.data(), chunk, sampleRate);
         sampler_.render(synthScratch_.data(), chunk, sampleRate);
+        // Extra instrument channels sum into the lead bus for now (dedicated routing comes later).
+        for (SynthInstrument& es : extraSynths_) {
+            es.updateTempo(bpm_);
+            es.render(synthScratch_.data(), chunk, sampleRate);
+        }
         bassScratch_.assign(static_cast<size_t>(chunk), 0.0f);
         synth2_.render(bassScratch_.data(), chunk, sampleRate);
         // Equal-power pan per melodic bus (pan 0 → both gains 0.707, matching the old center mix).
@@ -1232,6 +1268,9 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, int frames, 
                             synth_.allNotesOff();
                             synth2_.allNotesOff();
                             sampler_.allNotesOff();
+                            for (SynthInstrument& es : extraSynths_) {
+                                es.allNotesOff();
+                            }
                         }
                         selectPattern(patIndex);
                     };

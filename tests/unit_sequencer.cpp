@@ -682,6 +682,25 @@ int main() {
         check(std::fabs(def.patternTempoMul() - 1.0f) < 1e-4f, "pattern tempo defaults to 1x (song tempo)");
     }
 
+    // --- Extra instrument channels (unlimited-channels foundation) -----------
+    {
+        audio::Sequencer s;
+        check(s.instrumentChannelCount() == 0, "no extra instrument channels by default");
+        const int ch = s.addInstrumentChannel();
+        check(ch == 0 && s.instrumentChannelCount() == 1, "addInstrumentChannel appends a channel");
+        // Adding a channel gives every pattern a parallel lane.
+        const int pat = s.addPattern();
+        check(static_cast<int>(s.instrumentRoll(pat, ch).notes().size()) == 0,
+              "a newly added pattern gets the extra channel's (empty) lane");
+        // A note on the extra channel is audible in the render (it sums into the lead bus for now).
+        s.selectPattern(0);
+        s.instrumentSynth(ch).setWaveform(audio::Waveform::Saw);
+        s.instrumentRoll(ch).addNote(audio::Note{0, 4, 60, 0.9f});
+        s.play();
+        check(rms(renderMono(s, sampleRate / 4, sampleRate)) > 0.0,
+              "a note on an extra instrument channel produces sound");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");
