@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Curvature heatmap** (`render::curvatureHeatmap`) — DONE (M591); paint a mesh so you can SEE where it bends
+  — flat regions go cool blue, gently curved areas green, and sharp creases/tips hot red. This is the standard
+  "curvature map" every DCC/inspection tool shows: how modellers spot pinching, lumps and over-sharp edges that
+  shade badly, and how a retopo/QA pass finds the high-detail zones. It runs the engine's `computeCurvature`
+  (M535) and maps each vertex's curvature MAGNITUDE through a blue→green→red ramp, normalised so the mesh's own
+  peak (or a supplied `maxValue`) becomes full red; choose mean curvature |H| (creases, default) or Gaussian |K|
+  (spherical-vs-saddle). Verified (`ctest -R mesh_curvature_color`): the ramp hits blue/green/red exactly at
+  0/0.5/1; a flat grid comes out all blue (zero curvature); on a pyramid the sharp interior apex reads redder and
+  less blue than the flat base corners; positions are untouched; empty is safe. Honest scope: overwrites RGB with
+  a debug colour (a visualisation, not a physical signal); curvature at open BOUNDARY vertices is unreliable (needs
+  a full one-ring) so trust the interior; auto-normalisation makes colours RELATIVE to this mesh — pass an explicit
+  `maxValue` to compare two meshes on the same scale. [VERIFIABLE HERE]
 - [x] **Inset faces** (`render::insetFaces`) — DONE (M590); shrink every triangle IN PLACE toward its own centre,
   opening a gap between neighbouring faces. Each triangle keeps its shape and facing but scales down about its
   centroid by `amount` (0 = untouched, 1 = collapsed to a point), so a solid surface becomes a field of shrunken
