@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Weapon recoil pattern** (`game::RecoilPattern`) — DONE (M649); the climbing "spray" every first-person
+  shooter needs — each shot kicks the aim by a DEFINED amount, the kicks ACCUMULATE while firing (so a weapon
+  has a recognisable, learnable pattern like CS/Valorant), and the aim RECOVERS smoothly toward centre when you
+  stop. Distinct from `game::Spread` (M632), which perturbs each shot by a RANDOM amount within a cone (bullet
+  inaccuracy); recoil is the deterministic, per-shot, memorised climb the player learns to counter. `fire()`
+  advances the pattern and accumulates the kick (repeating the last kick past the pattern's end for a sustained
+  climb); `update(dt)` recovers via frame-rate-independent exponential decay; `release()` restarts the pattern
+  for the next burst while the offset keeps recovering; `offset()` feeds the crosshair/aim. Beyond Godot.
+  Verified (`ctest -R "^recoil$"`): each shot accumulates the right kick and shotIndex tracks the burst; firing
+  past the pattern repeats the last kick; `update(1s)` at rate 1 decays the offset by exactly exp(-1) and long
+  recovery eases to ~0 without the sign flipping; `release()` zeroes the index but preserves the offset (next
+  fire uses pattern[0]); `reset()` clears both; an empty pattern and recoveryRate 0 are safe no-ops. Honest
+  scope: the aim-offset accumulator/recovery model (drive your camera/crosshair with `offset()`) — not the
+  input handling or hit registration. [VERIFIABLE HERE]
 - [x] **Image drawing primitives** (`render::drawLine` / `drawRect` / `drawCircle` / `fillCircle` /
   `fillTriangle`) — DONE (M648); rasterize 2D shapes directly INTO an Image on the CPU. The Image class already
   edited pixels and blitted regions but had no way to stroke a line, outline or fill a circle, draw a rectangle
