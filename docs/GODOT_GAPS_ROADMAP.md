@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Token-bucket rate limiter** (`core::TokenBucket`, `TokenBucket.hpp`) — DONE (M698); the standard
+  burst-tolerant rate limiter: a bucket holds up to `capacity` tokens, refills at `refillPerSecond`, and an
+  action spends tokens or is refused when dry. [VERIFIABLE HERE] Distinct from `game::CooldownManager` (a
+  per-ability binary "ready or not" timer with no burst): a token bucket accumulates several charges and
+  refills fractionally, so it models "3 dashes, one back every 2s", chat/emote spam limits, outgoing packet
+  or RPC throttling in netcode, and spawn/emission budgets — spend the whole bucket in a burst but stay
+  capped over time. `advance(dt)` per frame, then `tryConsume(n)`; `timeUntil(n)` drives a UI "ready in Ns".
+  No clock inside (tests drive it with explicit dt). Tested: burst-then-refuse, refill accrual and clamping,
+  fractional / zero / over-capacity consume, `timeUntil` including the unreachable (+inf) cases, a
+  sustained-rate run whose allowed-action count tracks the token budget, and the setters. Header-only,
+  std-only, deterministic. The leaky bucket's cousin; Godot ships neither.
 - [x] **Hungarian algorithm — optimal assignment** (`core::hungarian`, `Hungarian.hpp`) — DONE (M697); match
   N agents to N distinct tasks so the TOTAL cost is globally minimal, in O(n^3) (Kuhn-Munkres). [VERIFIABLE
   HERE] A genuinely different problem from the engine's pathfinding: AStar2D finds one least-cost route, this
