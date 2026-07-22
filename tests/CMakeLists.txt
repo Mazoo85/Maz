@@ -2301,3 +2301,8 @@ add_executable(maz_randomdistributions_tests core/randomdistributions.cpp)
 target_link_libraries(maz_randomdistributions_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME random_distributions COMMAND maz_randomdistributions_tests)
 set_tests_properties(random_distributions PROPERTIES TIMEOUT 30)
+
+add_executable(maz_segmenttree_tests core/segmenttree.cpp)
+target_link_libraries(maz_segmenttree_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME segment_tree COMMAND maz_segmenttree_tests)
+set_tests_properties(segment_tree PROPERTIES TIMEOUT 30)

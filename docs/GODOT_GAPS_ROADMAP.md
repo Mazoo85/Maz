@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Segment tree — dynamic range queries with point updates** (`core::SegmentTree`, `SegmentTree.hpp`)
+  — DONE (M694); arbitrary range min / max / sum / gcd AND live point updates, each in O(log n).
+  [VERIFIABLE HERE] Fills the gap between the engine's two existing range structures: `FenwickTree` does
+  prefix SUMS with updates but no range min/max, and `SparseTable` does O(1) range min/max but only over a
+  STATIC array. A segment tree does both. The tool for a deforming heightfield's "tallest point in this
+  span", a scrolling audio meter's running peak, or any "combine over [l,r] while values keep changing"
+  query. Templated on the combine op (default sum) with a caller-supplied identity, so min/max/gcd all work;
+  iterative (cache-friendly, no recursion), with left/right accumulators kept separate so non-commutative
+  ops stay correct. Tested against brute-force scans: sum/min/max ranges before and after updates, `queryAll`
+  and `get`, empty/inverted/over-long-bound edge cases, and a 3000-iteration randomized update/query stress
+  test that agrees with a linear reference every step. Header-only, std-only. Godot exposes no segment tree.
 - [x] **Poisson / exponential / geometric random sampling** (`core::poisson`/`exponential`/`geometric`,
   `RandomDistributions.hpp`) — DONE (M693); the standard "event-timing" random variates on top of any
   uniform source. [VERIFIABLE HERE] `core::Random` already has uniform, ranges, weighted-pick, shuffle, and
