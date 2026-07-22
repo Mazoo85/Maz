@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Triangle-strip generation** (`render::buildTriangleStrips` / `expandTriangleStrips`, `TriangleStrips`)
+  — DONE (M544); repack an indexed triangle LIST into triangle STRIPS. A strip stores a run of triangles as one
+  vertex sequence v0 v1 v2 v3… where every new vertex forms a triangle with the previous two (GPU
+  GL_TRIANGLE_STRIP / primitive-restart semantics), so N connected triangles cost N+2 indices instead of 3N —
+  less index bandwidth, and the form fixed-function / mobile / retro GPU paths and some file formats (MD2/MD3,
+  PS2/GameCube era) prefer. Greedy: start a triangle, orient it so its trailing edge has an un-stripped
+  neighbour, walk neighbour-to-neighbour across the trailing edge until the run dead-ends, separate runs by a
+  restart index. `expandTriangleStrips` is the exact inverse, so the pair round-trips the triangle SET
+  losslessly. Verified (`ctest -R mesh_strip`): a 6×6 grid strips-and-expands back to the identical triangle
+  set AND compresses (fewer indices than 3·triangleCount, stripCount < triangleCount); two edge-sharing
+  triangles become one strip of four; a lone triangle is a strip of three; disconnected triangles stay separate
+  strips; degenerate triangles are dropped; a cube round-trips its 12 faces; empty is safe. Honest scope: greedy,
+  not length-optimal (NvTriStrip/tipsify find longer runs); winding alternates per GPU convention so the
+  expanded list preserves the triangle SET though a face's winding may be normalised. [VERIFIABLE HERE]
 - [x] **Mesh plane slice / cross-section** (`render::sliceMesh`, `SliceContour`) — DONE (M543); intersect a
   triangle mesh with an infinite plane and return the CONTOUR — the line segments where the surface crosses the
   plane, chained into ordered (closed on a watertight solid) polyline loops. This is the cross-section a CAD

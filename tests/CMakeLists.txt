@@ -262,6 +262,11 @@ target_link_libraries(maz_meshslice_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_slice COMMAND maz_meshslice_tests)
 set_tests_properties(mesh_slice PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshstrip_tests render/meshstrip.cpp)
+target_link_libraries(maz_meshstrip_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_strip COMMAND maz_meshstrip_tests)
+set_tests_properties(mesh_strip PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
