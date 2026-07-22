@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh geodesic distance** (`render::geodesicDistance`, `GeodesicResult`) — DONE (M542); the shortest
+  "walk along the surface" distance from one or more source vertices to every other vertex, measured along the
+  mesh's EDGES (Dijkstra on the vertex graph, edge weight = the 3D edge length). Straight-line distance cuts
+  through the solid; geodesic distance is how far it actually is over the skin — what you want for heat-map /
+  falloff vertex weights (damage or snow spreading from a point), texture-blend / vertex-paint masks that follow
+  the form, region-growing "flood N metres from here" selection, feature-distance fields, and cheap procedural
+  effects. Multi-source seeds every source at 0 in one pass (distance-to-nearest-feature); the predecessor array
+  reconstructs the actual shortest edge-path via `pathFrom`. Verified (`ctest -R mesh_geodesic`): on a regular
+  flat grid split along the main diagonal, distance along the bottom row is exactly x·spacing and to the far
+  corner exactly n·√2·spacing (both equal the Euclidean straight line, so the estimate is exact there); no
+  distance is ever shorter than the straight line; path reconstruction returns a chain ending at the source;
+  multi-source takes the nearest source and never exceeds the single-source distance; disconnected islands are
+  unreachable (infinite); empty mesh and out-of-range source are safe. Honest scope: the EDGE-graph geodesic
+  slightly OVERestimates the true smooth surface geodesic on coarse meshes and converges under refinement; exact
+  polyhedral geodesics (MMP / heat method) are the documented follow-up. [VERIFIABLE HERE]
 - [x] **Mesh cleanup pass** (`render::cleanupMesh`, `MeshCleanupStats`) — DONE (M541); the import/optimization
   hygiene pass that shrinks a mesh without changing what it draws: merge BIT-EXACT duplicate vertices (identical
   in every attribute — position, normal, colour, UV) into one, drop DEGENERATE triangles (a repeated corner
