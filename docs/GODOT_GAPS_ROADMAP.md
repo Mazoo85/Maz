@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Damped spring value smoother** (`core::Spring`) — DONE (M631); a tunable damped harmonic oscillator for UI
+  juice and gameplay motion — eases a value toward a moving target with a natural bounce. Complements
+  `core::SmoothDamp` (critically damped, no overshoot): a Spring is set by `frequency` (Hz) and `damping` (ζ) and
+  ranges from bouncy (ζ<1, overshoots and settles) through critical (ζ=1) to sluggish (ζ>1), driving springy menus,
+  camera lag, knockback recovery, cursor trails, and pickup "pop". Sub-stepped semi-implicit (symplectic) Euler so
+  it's stable at any dt/parameters; run one per axis for 2D/3D. Verified (`ctest -R "^spring$"`): a critical spring
+  converges to and rests on its target (atRest reports it); an under-damped spring (ζ=0.15) overshoots the target
+  then settles; critical and over-damped springs never overshoot; a spring resting on its target stays put; dt≤0 and
+  a non-positive frequency are no-ops; identical springs evolve identically (deterministic). Honest scope: numerical
+  (sub-stepped) integration, not a closed-form analytic solution — accurate and stable for game use, not a physics
+  reference. [VERIFIABLE HERE]
 - [x] **CSS-style cubic-bezier easing** (`anim::CubicBezierEasing` + `easeCurve`/`easeInCurve`/`easeOutCurve`/
   `easeInOutCurve`) — DONE (M629); arbitrary motion curves defined exactly like CSS `cubic-bezier(x1,y1,x2,y2)` and
   the browser ease presets, so a designer can dial in ANY curve by placing the two control handles rather than
