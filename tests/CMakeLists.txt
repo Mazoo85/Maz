@@ -2311,3 +2311,8 @@ add_executable(maz_clipsegmentrect_tests math/clipsegmentrect.cpp)
 target_link_libraries(maz_clipsegmentrect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME clip_segment_rect COMMAND maz_clipsegmentrect_tests)
 set_tests_properties(clip_segment_rect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_movingaverage_tests core/movingaverage.cpp)
+target_link_libraries(maz_movingaverage_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME moving_average COMMAND maz_movingaverage_tests)
+set_tests_properties(moving_average PROPERTIES TIMEOUT 30)

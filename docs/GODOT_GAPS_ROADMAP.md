@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Fixed-window moving average + windowed min/max** (`core::MovingAverage`, `MovingAverage.hpp`) — DONE
+  (M696); rolling statistics over the last N samples — mean in O(1) per push, window min and max in O(1)
+  amortized (monotonic deques). [VERIFIABLE HERE] Distinct from the engine's other streaming stats:
+  `RunningStats` (Welford) averages over ALL samples ever and can't forget old data; `P2Quantile` tracks a
+  streaming percentile; `RingBuffer` is a raw ring with no reductions. A moving average deliberately forgets
+  so it tracks a *changing* signal instead of drifting to a lifetime mean — the canonical "N-frame average
+  FPS" readout, a denoised input axis or sensor, a rolling damage-per-second meter, or any "recent trend,
+  not all-time" number; the windowed min/max give "worst frame time in the last second" for free. Tested:
+  fill-before-full behaviour, oldest-sample eviction on overflow, min/max recomputed when the extreme leaves
+  the window, count/full/clear, and a randomized stress test across four window sizes that agrees with a
+  brute-force reference on average/min/max/count at every push. Header-only, std-only, deterministic.
 - [x] **Segment-vs-rectangle clipping (Liang-Barsky)** (`math::clipSegmentToRect`, `Geometry2D.hpp`) — DONE
   (M695); trim a line segment to an axis-aligned rectangle (viewport / scissor clipping for one segment).
   [VERIFIABLE HERE] Geometry2D already had segment-segment intersection, closest-points, polygon clipping
