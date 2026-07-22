@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Displace / roughen** (`render::displaceMesh` → `DisplaceResult`) — DONE (M580); push each vertex along its
+  smooth normal by a procedural NOISE amount, so a too-perfect surface gains organic bumpiness: a flat plane
+  becomes rough ground, a smooth sphere becomes a lumpy rock/asteroid, a cylinder becomes a gnarled trunk. This is
+  Blender's "Displace" modifier driven by a noise texture — the cheapest way to make procedural or CAD-clean
+  geometry look natural. The offset is coherent VALUE NOISE (nearby vertices move together, so the surface
+  undulates instead of turning to static) scaled by `amplitude`, with `frequency` setting bump size (low = broad
+  swells, high = tight pebbling) and `seed` picking a different field. Fully deterministic — same mesh + amplitude
+  + frequency + seed always gives the exact same result, so it is safe for networked/replayed procedural content.
+  Reuses `computeNormals` for the push direction; the value noise is a self-contained 32-bit lattice hash with a
+  smootherstep fade. Verified (`ctest -R mesh_displace`): a +Y grid moves ONLY in Y (X/Z fixed) by at most
+  |amplitude|; the same inputs give a byte-identical result; a different seed changes the field; amplitude 0 is a
+  no-op; the coherent noise is non-trivial across the grid; empty is safe. Honest scope: vertices move only along
+  their normals by at most |amplitude| (no sideways drift); positions change so stored normals go stale (re-run
+  `computeNormals`); the detail is capped by the mesh's resolution (subdivide first for fine roughness). Amplitude
+  may be negative; frequency ≤ 0 collapses to one broad lump. [VERIFIABLE HERE]
 - [x] **Solidify / shell** (`render::solidifyMesh` → `SolidifyResult`) — DONE (M579); give a paper-thin surface
   real THICKNESS — take a one-sided sheet (a plane, a curved patch, a wall built from a single quad, an imported
   single-sided mesh, a heightmap skirt) and turn it into a CLOSED solid slab with a front face, a back face, and a
