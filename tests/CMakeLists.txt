@@ -972,6 +972,11 @@ target_link_libraries(maz_inversebilinear_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME inverse_bilinear COMMAND maz_inversebilinear_tests)
 set_tests_properties(inverse_bilinear PROPERTIES TIMEOUT 30)
 
+add_executable(maz_wavefield2d_tests game/wavefield2d.cpp)
+target_link_libraries(maz_wavefield2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wave_field2d COMMAND maz_wavefield2d_tests)
+set_tests_properties(wave_field2d PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

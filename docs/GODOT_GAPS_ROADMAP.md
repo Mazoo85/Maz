@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **2D wave / ripple simulation** (`game::WaveField2D`, `WaveField2D.hpp`) — DONE (M688); the "water
+  surface" effect on a grid — drop a stone and rings spread out, reflect off the edges, cross each other,
+  and fade. [VERIFIABLE HERE] The classic two-buffer wave step (Hugo Elias' water algorithm, a
+  discretisation of the wave equation): each cell's next height = half the sum of its four neighbours'
+  current heights minus its own PREVIOUS height, times a damping factor. That one line reproduces
+  travelling ripples, interference between drops, boundary reflection, and decay; feed the height (or its
+  gradient) into a normal map / UV distortion for water, force fields, shockwaves, or a trampoline
+  surface. Border cells are held at rest (a fixed shore). Verified (`ctest -R wave_field2d`): an
+  undisturbed surface stays perfectly flat; a drop at the exact centre of a square grid stays 4-fold
+  (and diagonally) symmetric as it spreads; a neighbour of the drop goes from rest to non-zero after one
+  step (outward propagation); damping drives the total amplitude down and the surface settles back toward
+  rest; and the border stays at rest. Pure CPU, header-only, deterministic.
 - [x] **Inverse bilinear interpolation** (`math::invBilinear`/`bilinear`, `InverseBilinear.hpp`) — DONE
   (M687); map a point inside a (possibly warped) quad back to its (u,v) coordinates in the unit square.
   [VERIFIABLE HERE] Forward bilinear (blend four corners by (u,v)) is easy; the inverse — "I have point P
