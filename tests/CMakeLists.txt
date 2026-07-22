@@ -2331,3 +2331,8 @@ add_executable(maz_graycode_tests core/graycode.cpp)
 target_link_libraries(maz_graycode_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gray_code COMMAND maz_graycode_tests)
 set_tests_properties(gray_code PROPERTIES TIMEOUT 30)
+
+add_executable(maz_jarowinkler_tests core/jarowinkler.cpp)
+target_link_libraries(maz_jarowinkler_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME jaro_winkler COMMAND maz_jarowinkler_tests)
+set_tests_properties(jaro_winkler PROPERTIES TIMEOUT 30)

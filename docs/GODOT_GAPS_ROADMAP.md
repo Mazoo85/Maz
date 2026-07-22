@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Jaro & Jaro-Winkler string similarity** (`core::jaro`/`jaroWinkler`, `JaroWinkler.hpp`) — DONE
+  (M700); a normalised [0,1] closeness score tuned for SHORT strings and typos (1 identical, 0 nothing in
+  common). [VERIFIABLE HERE] Complements the existing fuzzy tools — StringUtils/FuzzyMatch give Levenshtein
+  edit distance and an fzf-style subsequence scorer — but Jaro-Winkler measures similarity differently: it
+  counts characters matching within a sliding window, penalises transposed pairs, and (the Winkler part)
+  BOOSTS strings sharing a leading prefix. That makes it the go-to metric for "did you mean...?" command/name
+  suggestions, matching a typed player or item name against a list, and de-duplicating near-identical
+  strings. Tested against published reference values (jaro MARTHA/MARHTA = 0.9444, jaroWinkler = 0.9611;
+  DIXON/DICKSONX = 0.7667/0.8133; DWAYNE/DUANE = 0.8222/0.84), plus identity/empty edges, symmetry, the
+  [0,1] range, the prefix boost never lowering the score, and a "did you mean" ranking that maps 'attak' ->
+  'attack'. Header-only, std-only, deterministic. Godot's String offers only a bigram similarity ratio.
 - [x] **Gray code + Hamming distance** (`core::grayEncode`/`grayDecode`/`graySequence`/`hammingDistance`,
   `GrayCode.hpp`) — DONE (M699); reflected-binary Gray codes (consecutive values differ by EXACTLY one bit)
   plus the bit-change count that measures that. [VERIFIABLE HERE] Neither is in the standard library (unlike
