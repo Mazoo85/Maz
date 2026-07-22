@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Exact Euclidean distance transform + nearest-seed labelling** (`math::distanceTransform`,
+  `DistanceTransform.hpp`) — DONE (M675); fills every grid cell with its EXACT Euclidean distance to the
+  nearest "seed" cell, plus which seed is nearest (a grid Voronoi labelling). [VERIFIABLE HERE] This is
+  the workhorse behind exact SDF baking, "how far is this tile from the nearest wall?" navigation
+  clearance fields (spawn placement, corridor widths, influence maps), morphological grow/shrink, and
+  grid Voronoi regions. The engine's `ui::Sdf` bakes glyph fields with dead reckoning, which is
+  APPROXIMATE (sub-texel, fine for fonts); this is the EXACT transform — the separable
+  Felzenszwalb-Huttenlocher lower-envelope-of-parabolas algorithm, O(n) per row and per column, so the
+  result equals a brute-force nearest-seed search to the bit. It threads the argmin through both the
+  column and row passes to recover each cell's nearest-seed (x,y). Verified (`ctest -R distance_transform`):
+  a single seed gives the exact `hypot` at every cell with that seed as nearest; a seed cell is distance
+  0 pointing at itself; on a 16×12 grid with six scattered seeds EVERY cell's distance matches a
+  brute-force O(n·seeds) search exactly and the reported nearest is a genuinely-nearest real seed; and an
+  empty grid yields the infinite-scale sentinel with nearest = (−1,−1). Header-only, deterministic.
 - [x] **Uniform cubic B-spline (open + closed)** (`math::bsplinePoint`/`bsplineTangent`/`bsplineEval`,
   `BSpline.hpp`) — DONE (M674); the C²-continuous *approximating* spline behind smooth camera dollies,
   easing rails, and procedural geometry — and the curve NURBS is built on. [VERIFIABLE HERE] The engine
