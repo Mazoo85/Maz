@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Radix sort (linear-time key sorting)** (`core::radixSort` / `radixSortByKey` / `radixSortFloats`,
+  `RadixSort.hpp`) — DONE (M716); sort by an integer or float key in O(n) instead of a comparison sort's
+  O(n log n), with NO key comparisons at all. [VERIFIABLE HERE] Renderers sort thousands of draw calls every
+  frame by a packed 32/64-bit sort key (layer<<depth<<material) to batch state and draw front-to-back;
+  particle systems sort by camera distance for correct alpha; an ECS sorts entities by archetype key. Run
+  every frame at those sizes, n vs n·log n is real time. Radix sort buckets on one byte of the key at a time
+  (a stable counting sort per byte, least-significant first), fully ordering the array after 4 passes (32-bit)
+  or 8 (64-bit). The key+payload form (radixSortByKey) is STABLE — equal keys keep their original order, so
+  it is safe to chain sorts — and floats are handled via the standard order-preserving bit transform so depth
+  sorting works with negatives. The ctest cross-checks radixSort(uint32/uint64) against std::sort on 5,000
+  random arrays, radixSortByKey against std::stable_sort on tie-heavy data (verifying stability by payload
+  order), radixSortFloats against std::sort with negatives/zero, and the empty/single/sorted/reverse/float
+  edge cases. Godot has no radix sort; this is the workhorse behind fast per-frame ordering. Header-only,
+  std-only, deterministic. ctest `radix_sort`.
 - [x] **MessagePack binary serialization** (`io::MsgValue` / `io::msgpackEncode` / `io::msgpackDecode`,
   `MessagePack.hpp`) — DONE (M715); the MessagePack standard (msgpack.org): a compact, self-describing binary
   format that is "JSON in bytes". [VERIFIABLE HERE] The engine already had JSON (verbose, human-editable) and

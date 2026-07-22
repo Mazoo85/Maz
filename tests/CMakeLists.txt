@@ -2411,3 +2411,8 @@ add_executable(maz_messagepack_tests io/messagepack.cpp)
 target_link_libraries(maz_messagepack_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME message_pack COMMAND maz_messagepack_tests)
 set_tests_properties(message_pack PROPERTIES TIMEOUT 30)
+
+add_executable(maz_radixsort_tests core/radixsort.cpp)
+target_link_libraries(maz_radixsort_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME radix_sort COMMAND maz_radixsort_tests)
+set_tests_properties(radix_sort PROPERTIES TIMEOUT 30)
