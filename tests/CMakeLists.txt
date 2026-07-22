@@ -847,6 +847,11 @@ target_link_libraries(maz_dualquat_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME dual_quat COMMAND maz_dualquat_tests)
 set_tests_properties(dual_quat PROPERTIES TIMEOUT 30)
 
+add_executable(maz_lowdiscrepancy_tests math/lowdiscrepancy.cpp)
+target_link_libraries(maz_lowdiscrepancy_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME low_discrepancy COMMAND maz_lowdiscrepancy_tests)
+set_tests_properties(low_discrepancy PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

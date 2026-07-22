@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Low-discrepancy sequences — Halton / Hammersley / radical inverse** (`math::radicalInverse`,
+  `halton2D`, `hammersley2D`, `LowDiscrepancy.hpp`) — DONE (M663); the quasi-random sampling the engine
+  had no equivalent of (it had a PRNG and Poisson-disk, but not the QMC sequences). [VERIFIABLE HERE]
+  Where a pseudo-random generator clumps and leaves gaps, these sequences fill the unit interval/square
+  as evenly as possible for *any* prefix count — exactly what you want for temporal anti-aliasing
+  sub-pixel jitter (a fresh well-spread offset every frame), progressive/quasi-Monte-Carlo integration
+  (soft shadows, AO, image-based-lighting sampling that converges faster than white noise), and even
+  scatter placement. The van der Corput radical inverse reflects an integer's base-b digits about the
+  radix point; Halton pairs two coprime-base radical inverses; Hammersley uses the sample index directly
+  for one axis. Pure integer/float math, stateless. Verified (`ctest -R low_discrepancy`): base-2 radical
+  inverse hits its textbook values (1/2, 1/4, 3/4, 1/8, 5/8, 3/8, 7/8) and base-3 gives 1/3, 2/3, 1/9;
+  all outputs stay in [0,1); the STRATIFICATION property holds — the first 8 base-2 points sorted are
+  exactly {0/8…7/8}, perfectly even where random would clump; the Halton (2,3) x-axis has max-gap < 1/50
+  over 64 points; and Hammersley's x is exactly i/count. Complements the existing PRNG/Poisson-disk with
+  the deterministic even-coverage tool renderers rely on for jitter and QMC.
 - [x] **Dual-quaternion skinning (DQS)** (`math::DualQuaternion`, `blendDual`, `DualQuaternion.hpp`) —
   DONE (M662); the skinning math that fixes the "candy-wrapper" collapse of the engine's existing
   linear-blend skinning. [VERIFIABLE HERE] A unit dual quaternion represents a rigid motion (rotation +
