@@ -952,6 +952,11 @@ target_link_libraries(maz_indexedheap_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME indexed_heap COMMAND maz_indexedheap_tests)
 set_tests_properties(indexed_heap PROPERTIES TIMEOUT 30)
 
+add_executable(maz_sobeledge_tests render/sobeledge.cpp)
+target_link_libraries(maz_sobeledge_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sobel_edge COMMAND maz_sobeledge_tests)
+set_tests_properties(sobel_edge PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

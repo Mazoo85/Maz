@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Sobel edge detection** (`render::sobel`/`edgeMask`, `SobelEdge.hpp`) — DONE (M684); find the edges
+  (sharp brightness changes) in a grayscale image — the classic block behind toon/outline post-processing
+  (run it on depth or normals to draw ink lines), sprite/UI outline generation, and image analysis.
+  [VERIFIABLE HERE] Convolves with the two 3×3 Sobel kernels for the horizontal (Gx) and vertical (Gy)
+  brightness gradient; the magnitude sqrt(Gx²+Gy²) is large exactly where the image changes fast (an
+  edge) and the direction points across it. `edgeMask` thresholds the magnitude into a binary edge map;
+  clamp-to-edge borders so every pixel gets a value. Verified (`ctest -R sobel_edge`): a constant image
+  has zero gradient everywhere; a vertical step edge reads exactly Gx=4, Gy=0 at the boundary pixels and
+  ~0 in the flat region; a horizontal step reads Gy=4, Gx=0; the gradient magnitude is largest on the
+  edge; and `edgeMask` flags the edge pixels while leaving the flat region unmarked. Pure CPU,
+  header-only, deterministic.
 - [x] **Indexed binary min-heap with decrease-key** (`core::IndexedHeap<Key,Priority>`, `IndexedHeap.hpp`)
   — DONE (M683); a priority queue whose entries can be UPDATED — the operation Dijkstra, A*, and
   event/timer queues need constantly ("this node's tentative cost just dropped; re-prioritise it").
