@@ -155,8 +155,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   above only picks which LOD to draw; this makes them). Overlays a uniform grid, averages each cell's vertices
   to one representative, remaps triangles, drops the collapsed ones — O(n), hole-free, no flipped normals.
   Verified (`ctest -R mesh_simplify`): fewer verts/tris, every triangle non-degenerate + in range, bbox kept
-  within one cell, coarser cells reduce more, sub-spacing cell is a no-op. Follow-up: quadric-error edge
-  collapse for silhouette-preserving aggressive ratios. [VERIFIABLE HERE]
+  within one cell, coarser cells reduce more, sub-spacing cell is a no-op. Feature-preserving follow-up is
+  quadric-error edge collapse (M526, below). [VERIFIABLE HERE]
+- [x] **Quadric-error edge-collapse simplification** (`render::simplifyQuadric`, Garland–Heckbert QEM) —
+  DONE (M526); the FEATURE-PRESERVING decimation an importer runs to make LODs that keep their silhouette at
+  aggressive triangle budgets, where the O(n) clustering path would visibly round off edges. Each vertex
+  carries a 4×4 error quadric (summed squared distance to its incident triangles' planes); collapsing an edge
+  merges the two quadrics, and the collapse cost is that quadric at the optimal merged position (found by a
+  3×3 solve, with a midpoint/endpoint fallback when singular). A min-heap always collapses the cheapest edge,
+  so flat regions decimate first and creases/boundaries — high quadric error — survive. Complements, doesn't
+  replace, `simplifyClustering`: clustering is the fast hole-proof choice for collision proxies and far LODs;
+  QEM is the silhouette-preserving choice for visible mid LODs. Verified (`ctest -R mesh_simplify_quadric`)
+  on a curved height-field: hits the triangle budget, every output triangle non-degenerate + in range, the
+  bounding box and the curved peak are preserved (flat interior collapses first), output normals are unit
+  length, it is deterministic, and a budget ≥ the input is a no-op. [VERIFIABLE HERE]
 - [x] **GIF image codec** (`render::decodeGif` / `render::encodeGif`) — DONE (M525); reads and writes the
   GIF89a image (still ubiquitous for pixel-art sprites, UI icons, and short web loops), which stores an
   indexed image (palette of ≤256 colors + one index per pixel) compressed with variable-width LZW. The
