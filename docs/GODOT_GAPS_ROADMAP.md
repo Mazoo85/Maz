@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Pivot snap / recenter** (`render::recenterMesh`, `RecenterResult`, `PivotMode`) — DONE (M569); move a
+  mesh's PIVOT (the point that ends up at the world origin) to a sensible place. Imported models land wherever the
+  exporter left them — floating off-axis, pivot in a random corner — which makes them awkward to place, rotate,
+  and scale. This recentres geometry so its pivot sits at the origin, choosing the pivot by intent: BOUNDING-BOX
+  CENTRE (spin-in-place props), BASE (characters/trees/furniture that stand on the ground — bottom-centre), CENTRE
+  OF MASS (physics bodies that rotate about their true balance point), or VERTEX AVERAGE (a cheap centroid). It
+  returns a recentred copy plus the applied offset and the world-space pivot so a parent transform can be
+  compensated. Reuses the M532 mass-properties centroid for the centre-of-mass mode. Verified (`ctest -R
+  mesh_recenter`): a unit cube's bbox-centre pivot is (0.5,0.5,0.5) with offset −pivot and the recentred cube
+  spanning [−0.5,0.5]³; Base mode lands the bottom face on y=0 centred in x/z; a square pyramid's centre of mass
+  sits at ¼ height (below its ½-height bbox centre — mass near the base); the cube corners' average is the centre;
+  centre-of-mass on an open triangle falls back to the vertex average and flags `fellBack`; empty meshes are safe.
+  Honest scope: this only TRANSLATES — never rotates or scales (pair with M568 dominant-plane to also align, or a
+  normalize-to-box pass to also scale); centre of mass needs a closed, consistently-wound solid (M566/M562) and
+  falls back to the average otherwise; Base uses the supplied `up` axis (default +Y); only positions move.
+  [VERIFIABLE HERE]
 - [x] **Dominant-plane / flatness detector** (`render::fitDominantPlane`, `MeshPlane`) — DONE (M568); fit the
   best-matching flat plane to a mesh's vertices and measure how FLAT the shape actually is. Via principal
   component analysis (centre the points, form the 3×3 covariance, take its eigenvectors), the direction of LEAST

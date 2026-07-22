@@ -387,6 +387,11 @@ target_link_libraries(maz_meshdominantplane_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_dominant_plane COMMAND maz_meshdominantplane_tests)
 set_tests_properties(mesh_dominant_plane PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshrecenter_tests render/meshrecenter.cpp)
+target_link_libraries(maz_meshrecenter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_recenter COMMAND maz_meshrecenter_tests)
+set_tests_properties(mesh_recenter PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
