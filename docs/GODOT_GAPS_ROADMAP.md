@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **WCAG contrast ratio** (`render::contrastRatio` / `relativeLuminance` / `passesAA` / `passesAAA` /
+  `bestTextColor`) — DONE (M620); the legibility companion to the colour-blindness sim (M619): is HUD/menu/subtitle
+  text actually readable against its background? Implements the WCAG 2.x relative-luminance + contrast-ratio formula
+  (ratio in [1,21]) and the AA/AAA pass thresholds for normal and large text, plus a `bestTextColor` helper that
+  auto-picks the more legible of black/white for a label on any swatch. Verified (`ctest -R contrast_ratio`): black
+  luminance 0 and white 1; black-on-white is the maximum 21:1; identical colours 1:1; the ratio is symmetric; the
+  canonical WCAG reference pair #767676-on-white computes ~4.54:1 and correctly passes AA-normal (≥4.5) while
+  failing AAA-normal (<7.0) and passing AA-large (≥3.0); a ~3.4:1 pair passes AA-large but not AA-normal;
+  `bestTextColor` picks black on white/bright-yellow and white on black/dark-navy. Honest scope: exact WCAG 2.x math
+  (standard sRGB EOTF, 0.2126/0.7152/0.0722 weights); alpha ignored (composite translucent text first). [VERIFIABLE HERE]
 - [x] **Colour-blindness simulation** (`render::simulateColorVision` / `render::ColorVision`) — DONE (M619); an
   accessibility dev-tool that previews how UI, minimap, team colours, or status effects read to players with
   colour-vision deficiency, so red/green pairs that collapse can be caught before shipping. Applies the widely-used

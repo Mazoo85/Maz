@@ -642,6 +642,11 @@ target_link_libraries(maz_imagecolorblind_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME image_colorblind COMMAND maz_imagecolorblind_tests)
 set_tests_properties(image_colorblind PROPERTIES TIMEOUT 30)
 
+add_executable(maz_contrastratio_tests render/contrastratio.cpp)
+target_link_libraries(maz_contrastratio_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME contrast_ratio COMMAND maz_contrastratio_tests)
+set_tests_properties(contrast_ratio PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
