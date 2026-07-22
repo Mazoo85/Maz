@@ -956,6 +956,30 @@ int main() {
                   "an audio clip routed to the bass bus lands in the bass stem");
         }
 
+        // Per-clip pitch: a clip pitched up an octave (+12) resamples at 2× rate, so its one-shot voice
+        // finishes in half the frames. After rendering ~0.075 s, a natural clip is still sounding but the
+        // pitched-up clip has already ended.
+        {
+            auto voicesAfter = [&](int semis) {
+                audio::Sequencer s;
+                const int c = s.addAudioClip(0, 0);
+                s.setAudioClipPitch(c, semis);
+                s.audioClipSampler(c).setSampleMono(makeSample(), 48000); // 0.1 s sample
+                s.setSongMode(true);
+                s.setSongUsesClips(true);
+                s.play();
+                const int fr = 3600; // 0.075 s @ 48k — between the +12 end (~0.05 s) and natural end (0.1 s)
+                std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+                s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+                return s.audioClipSampler(c).activeVoices();
+            };
+            check(voicesAfter(0) == 1, "a natural-pitch audio clip is still sounding at 0.075 s");
+            check(voicesAfter(12) == 0,
+                  "a +12-semitone audio clip resamples at 2x rate and finishes sooner");
+        }
+
         // removeAudioClip / clearAudioClips manage the collection.
         {
             audio::Sequencer s;

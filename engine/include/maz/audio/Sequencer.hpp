@@ -53,6 +53,7 @@ struct AudioClip {
     int track = 0;      // arrangement-track row this clip sits on
     float gain = 1.0f;  // per-clip gain
     int bus = 1;        // target bus (0=drums, 1=lead, 2=bass) it mixes into
+    int pitch = 0;      // playback pitch shift in semitones (±24; 0 = natural pitch)
     Sampler sampler{};  // holds the sample + plays it back
 };
 
@@ -374,6 +375,9 @@ public:
     void setAudioClipGain(int i, float g) { audioClips_[static_cast<size_t>(i)].gain = g < 0.0f ? 0.0f : g; }
     void setAudioClipBus(int i, int b) {
         audioClips_[static_cast<size_t>(i)].bus = b < 0 ? 0 : (b > 2 ? 2 : b);
+    }
+    void setAudioClipPitch(int i, int semis) {
+        audioClips_[static_cast<size_t>(i)].pitch = semis < -24 ? -24 : (semis > 24 ? 24 : semis);
     }
     void removeAudioClip(int i) {
         if (i >= 0 && i < audioClipCount()) {

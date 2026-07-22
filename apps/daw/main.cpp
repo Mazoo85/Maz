@@ -3543,6 +3543,12 @@ void buildArrangementUI(audio::Sequencer& seq) {
             seq.setAudioClipGain(i, g);
         }
         ImGui::SameLine();
+        int semis = ac.pitch;
+        ImGui::SetNextItemWidth(110.0f);
+        if (ImGui::SliderInt("pitch##ac", &semis, -24, 24, "%d st")) {
+            seq.setAudioClipPitch(i, semis);
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Remove##ac")) {
             seq.removeAudioClip(i);
             ImGui::PopID();

@@ -520,7 +520,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     for (int i = 0; i < seq.audioClipCount(); ++i) {
         const AudioClip& ac = seq.audioClip(i);
         f << "audioclip " << ac.startBar << " " << ac.track << " " << ac.gain << " " << ac.bus << " "
-          << ac.path << "\n";
+          << ac.pitch << " " << ac.path << "\n";
     }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
@@ -1280,9 +1280,16 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 }
             }
         } else if (tag == "audioclip") {
-            int bar = 0, trk = 0, bus = 1;
+            int bar = 0, trk = 0, bus = 1, pitch = 0;
             float gain = 1.0f;
             ls >> bar >> trk >> gain >> bus;
+            // The pitch field was added after the initial audioclip format; a line without it (the path
+            // follows bus directly) leaves the extraction failing → clear the state and keep pitch 0 so
+            // the path that follows is still read intact.
+            if (!(ls >> pitch)) {
+                ls.clear();
+                pitch = 0;
+            }
             std::string path;
             std::getline(ls, path); // rest of the line is the path (may contain spaces)
             const size_t nb = path.find_first_not_of(' ');
@@ -1290,6 +1297,7 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             const int idx = seq.addAudioClip(bar, trk);
             seq.setAudioClipGain(idx, gain);
             seq.setAudioClipBus(idx, bus);
+            seq.setAudioClipPitch(idx, pitch);
             if (!path.empty()) {
                 seq.loadAudioClip(idx, path); // fails gracefully if the file is missing
             }
