@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Apply / bake transform** (`render::applyTransform`, `translationMatrix`/`scaleMatrix`/`rotationMatrix`) —
+  DONE (M571); permanently apply a 4×4 transform (translate + rotate + scale) to a mesh's geometry, moving both
+  its POSITIONS and its NORMALS correctly. This "freeze transform" step is everywhere in a content pipeline:
+  flatten a node's transform into its mesh before export, merge several placed copies into one buffer, pre-bake an
+  import fix-up (a rotate to swap Y-up/Z-up, a scale to convert units) so the runtime does no per-frame matrix
+  work, or snapshot an instance. The subtlety it gets right: normals do NOT transform by the same matrix as
+  positions under NON-UNIFORM scale — they use the INVERSE-TRANSPOSE of the 3×3 part, then renormalize, so a
+  squashed surface keeps its normals perpendicular (a naive transform skews them and lighting goes wrong). Ships
+  translate/scale/rotate matrix builders so callers needn't touch glm. Verified (`ctest -R mesh_transform`):
+  translation shifts positions and leaves normals; uniform ×3 scale scales positions and keeps a unit +X normal;
+  a 90° Z-rotation rotates both position and normal (1,0,0)→(0,1,0); a non-uniform (1,2,1) scale transforms a 45°
+  normal by the inverse-transpose to nx:ny = 2:1 (not the 1:2 a naive matrix gives) and keeps it unit-length; a
+  composed T·R·S maps (1,0,0) to (5,2,0); empty meshes are safe. Honest scope: this BAKES the transform into
+  vertex data (it doesn't keep a separate node transform); tangents are not recomputed here (regenerate via
+  computeTangents after a mirror/negative-scale, which also flips winding — pair with M562 when the determinant is
+  negative); positions use the full 4×4, normals the translation-free inverse-transpose 3×3, and a zero normal
+  stays zero. [VERIFIABLE HERE]
 - [x] **Normalize to a target box** (`render::normalizeToBox`, `NormalizeResult`) — DONE (M570); recentre AND
   uniformly scale a mesh so it fills a chosen box — the import-normalization companion to the M569 pivot snap.
   Imported models arrive at wildly different scales (one in metres, one in centimetres, one a thousand units tall)
