@@ -2461,3 +2461,8 @@ add_executable(maz_murmur3_tests core/murmur3.cpp)
 target_link_libraries(maz_murmur3_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME murmur3 COMMAND maz_murmur3_tests)
 set_tests_properties(murmur3 PROPERTIES TIMEOUT 30)
+
+add_executable(maz_hyperloglog_tests core/hyperloglog.cpp)
+target_link_libraries(maz_hyperloglog_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hyperloglog COMMAND maz_hyperloglog_tests)
+set_tests_properties(hyperloglog PROPERTIES TIMEOUT 30)

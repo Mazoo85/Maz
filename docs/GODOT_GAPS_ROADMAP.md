@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **HyperLogLog (cardinality estimator)** (`core::HyperLogLog`, `HyperLogLog.hpp`) — DONE (M726); estimate
+  how many DISTINCT items a stream contained using a few kilobytes of fixed memory, no matter how many
+  billions flow through. [VERIFIABLE HERE] Counting uniques exactly needs a set that grows with the data
+  (megabytes for millions of distinct values); HyperLogLog answers "roughly how many different X?" from a
+  tiny fixed array of counters, trading a small bounded error (~1.04/sqrt(m)) for O(1) memory — the standard
+  tool for distinct players online, distinct enemies a weapon hit, distinct assets touched this session for
+  telemetry. It hashes each item to 64 bits, uses the top bits to pick one of m=2^p registers, records the
+  leftmost 1-bit position of the rest, and takes the harmonic mean across registers (with a linear-counting
+  small-range correction); registers merge by max, so per-shard sketches combine for free. The ctest checks
+  the estimate is within 5% of the true count for streams of 100 / 1k / 10k / 50k / 200k distinct items, that
+  adding the same item 1000x does not inflate the count, that an empty sketch estimates ~0, that merging two
+  sketches over disjoint halves recovers the union cardinality, and that estimation is deterministic. Godot
+  has no cardinality estimator. Header-only, std-only, deterministic. ctest `hyperloglog`.
 - [x] **MurmurHash3 (fast non-crypto hash)** (`core::murmur3_32`, `Murmur3.hpp`) — DONE (M725); a fast,
   well-distributed non-cryptographic hash (Austin Appleby), the default workhorse for hash tables, bloom
   filters, feature flags, and stable content/asset IDs. [VERIFIABLE HERE] The engine already had
