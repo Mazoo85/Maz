@@ -2356,3 +2356,8 @@ add_executable(maz_influencemap_tests game/influencemap.cpp)
 target_link_libraries(maz_influencemap_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME influence_map COMMAND maz_influencemap_tests)
 set_tests_properties(influence_map PROPERTIES TIMEOUT 30)
+
+add_executable(maz_diamondsquare_tests game/diamondsquare.cpp)
+target_link_libraries(maz_diamondsquare_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME diamond_square COMMAND maz_diamondsquare_tests)
+set_tests_properties(diamond_square PROPERTIES TIMEOUT 30)

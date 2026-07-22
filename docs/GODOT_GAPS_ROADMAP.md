@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Diamond-square fractal heightmaps** (`game::DiamondSquare`, `DiamondSquare.hpp`) — DONE (M705); the
+  midpoint-displacement terrain generator: seed four corners of a (2^n+1) grid, then recursively subdivide —
+  each diamond step sets a square's centre to its corners' average plus a shrinking random offset, each
+  square step sets an edge midpoint likewise — producing self-similar fractal terrain. [VERIFIABLE HERE]
+  Distinct from the engine's Perlin/fbm noise (`core::Noise`): value/gradient noise is band-limited and
+  smooth, whereas diamond-square is a recursive random-midpoint fractal with a characteristic ridged/plasma
+  look — the classic generator for island heightmaps, cloud/plasma textures, and lightning. `roughness`
+  controls how fast the random amplitude decays per level (higher = bumpier). Deterministic via an embedded
+  splitmix64 (no <random>, no clock). Tested: side is exactly 2^exponent+1 with all heights finite,
+  amplitude 0 gives a flat map at the baseline, the same seed reproduces an identical map while a different
+  seed diverges, higher roughness yields larger height variance, and the exponent clamps to a sane range.
+  Header-only, std-only.
 - [x] **Tactical influence map** (`game::InfluenceMap`, `InfluenceMap.hpp`) — DONE (M704); a strategy/shooter
   AI grid where influence spreads outward from sources and decays. [VERIFIABLE HERE] Drop POSITIVE influence
   at friendly units and NEGATIVE at enemies, then `propagate(decay, spread)`: each cell blends toward its
