@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Per-vertex discrete curvature** (`render::computeCurvature`, `MeshCurvature`) — DONE (M539); estimate how
+  sharply a mesh bends at every vertex, producing two scalar fields: GAUSSIAN curvature K (positive on domes,
+  negative on saddles, zero on developable surfaces) via the angle deficit `(2π − Σθ) / A_mixed`, and MEAN
+  curvature |H| via the cotangent Laplacian — the classic Meyer/Desbrun/Schröder/Barr (2003) operators, with
+  obtuse-safe Voronoi mixed area. Uses: curvature-adaptive tessellation/LOD, feature/crease/ridge-valley
+  detection, curvature-guided remeshing, wear/cavity shading masks, "curvature" vertex-paint like a DCC tool.
+  Reuses MeshTopology (M528) only to flag boundary vertices (where the closed-surface estimate does not apply).
+  Verified (`ctest -R mesh_curvature`): a unit sphere converges to K≈1, H≈1 everywhere (positive Gaussian, no
+  wild outliers); a radius-2 sphere scales to K≈1/4, H≈1/2 (confirming the 1/r² and 1/r laws); a flat grid gives
+  ~0 curvature at interior vertices with its rim correctly flagged as boundary; empty mesh is safe. [VERIFIABLE HERE]
 - [x] **Boundary / hole edge-loop extraction** (`render::extractBoundaryLoops`) — DONE (M538); walk a mesh's
   open edges into the ordered vertex LOOPS that ring each hole or the outer rim of an open surface. MeshTopology
   (M528) already counts boundary edges; this turns them into usable curves — the front end for hole FILLING
