@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh topology / connectivity** (`render::buildTopology`, `render::MeshTopology`) — DONE (M528); the
+  reusable half-edge-style adjacency an engine builds once so everything needing to know how a mesh is
+  STITCHED — boundary/hole detection, watertightness (is it a closed solid?), per-triangle neighbours for
+  flood-fill smoothing groups / UV islands / crease detection, and an Euler-characteristic sanity check —
+  queries it instead of rebuilding edge maps inline (as MeshSmooth and Subdivision previously did). Godot
+  exposes the same via MeshDataTool. Each triangle owns three directed half-edges; twins are matched by
+  UNDIRECTED edge so it's robust to inconsistent winding. Verified (`ctest -R mesh_topology`): a welded cube
+  is watertight with 18 edges + Euler 2, every triangle has three neighbours, twins are symmetric; an open
+  2×2 grid reports exactly its 8 perimeter edges as boundary (rim vertices flagged, centre not) with Euler 1;
+  an edge shared by three triangles is flagged non-manifold. [VERIFIABLE HERE]
 - [x] **Overdraw optimization** (`render::optimizeOverdraw` / `render::simulateOverdraw`) — DONE (M527); the
   load-time triangle reorder that pairs with vertex-cache optimization to cut redundant FRAGMENT-shader work.
   Vertex-cache order reduces vertex-shader runs; overdraw order reduces fragment-shader runs: with early-Z

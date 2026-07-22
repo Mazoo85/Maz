@@ -182,6 +182,11 @@ target_link_libraries(maz_overdraw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME overdraw_optimize COMMAND maz_overdraw_tests)
 set_tests_properties(overdraw_optimize PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshtopology_tests render/meshtopology.cpp)
+target_link_libraries(maz_meshtopology_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_topology COMMAND maz_meshtopology_tests)
+set_tests_properties(mesh_topology PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
