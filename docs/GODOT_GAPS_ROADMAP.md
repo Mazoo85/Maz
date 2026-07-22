@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Skin / loft across sections** (`render::skinSections`) — DONE (M597); stretch a smooth surface over a stack of
+  cross-section "ribs", like pulling skin over the frames of a boat hull or an aeroplane fuselage. You give it an
+  ordered list of rings — each ring the outline of the shape at that station — and it bridges every rib to the next
+  with a band of triangles, so the shape flows from one outline into the next. Unlike sweep (M595, which drags ONE
+  fixed profile along a path), each rib here can be a DIFFERENT size and shape, so the surface can taper, bulge, twist,
+  or morph: a funnel (big ring → small ring), a boat hull (keel → beam → stern), a vase whose silhouette changes
+  freely, a tube that fairs from a circle into a square. This is Blender's "Bridge Edge Loops" / classic CAD lofting.
+  Reuses the engine's area-weighted `computeNormals`. Verified (`ctest -R mesh_skin`): two identical square ribs skin a
+  tube band with N·P vertices and (N-1)·P·2 triangles; a funnel of a half-width-2 rib and a half-width-0.5 rib keeps
+  each rib's own size and height (a true taper, not a resample); `closedPath` adds exactly one extra wrap band
+  (last rib → first); open rings drop one edge per band vs closed rings; a single rib, no ribs, and ragged ribs
+  (unequal point counts) all safely return nothing. Honest scope: every rib must have the SAME point count (point j
+  connects to point j — no resampling), ribs must be given in body order, and it builds the side skin only (end ribs
+  left open — cap separately). `closedRings` picks tube vs open strip; `closedPath` closes the body into a torus.
+  [VERIFIABLE HERE]
 - [x] **Heightfield / terrain mesh** (`render::buildHeightfield`) — DONE (M596); turn a flat grid of height numbers
   into a rolling 3D terrain surface. Hand it a cols×rows grid of heights (row-major — straight out of a Perlin/fbm
   noise function, a greyscale heightmap image, or hand-authored contours) and it drops a vertex at every grid point,

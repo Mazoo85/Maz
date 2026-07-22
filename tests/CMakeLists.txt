@@ -527,6 +527,11 @@ target_link_libraries(maz_meshheightfield_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_heightfield COMMAND maz_meshheightfield_tests)
 set_tests_properties(mesh_heightfield PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshskin_tests render/meshskin.cpp)
+target_link_libraries(maz_meshskin_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_skin COMMAND maz_meshskin_tests)
+set_tests_properties(mesh_skin PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
