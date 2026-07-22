@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Principal inertia axes** (`render::computePrincipalAxes` → `PrincipalAxes`) — DONE (M589); the three
+  natural spin axes of a solid mesh and how hard it is to spin about each. Every rigid body has three perpendicular
+  axes it rotates cleanly about (no wobble); a physics engine that wants realistic tumbling — a thrown plank spins
+  easily end-over-end but resists rolling about its length — needs exactly this: the centre of mass, the three
+  principal axes, and the moment of inertia about each. This takes the raw inertia TENSOR from
+  `computeMassProperties` (M549) and DIAGONALISES it with the engine's symmetric Jacobi solver (eigenvectors =
+  principal axes, eigenvalues = principal moments), sorted by moment ascending so `axis[0]` is the easiest to spin
+  (the long direction) and `axis[2]` the hardest. Verified (`ctest -R mesh_principal_axes`): for a solid 4×1×1 box
+  the mass equals the volume (4), the centre of mass is at the origin, the smallest moment is about the long X
+  axis with the two cross moments (Y,Z) equal, and both moments match the closed-form solid-cuboid formulas
+  (Ix = m(h²+d²)/12 ≈ 0.667, Iy = m(w²+d²)/12 ≈ 5.667) to 1e−2; the three axes are orthonormal; an open (zero-
+  volume) mesh is invalid. Honest scope: correct only for a CLOSED, consistently-wound solid (the volume integral
+  needs a watertight surface); values are at unit density (mass == volume — scale by real density for physical
+  units); reads positions only. [VERIFIABLE HERE]
 - [x] **Component tint (debug viz)** (`render::tintComponents`) — DONE (M588); paint every disconnected PIECE of a
   mesh a different colour, so you can see at a glance how many separate islands it is made of and which triangles
   belong together. A model that looks like one object is often secretly several (a character plus loose props,
