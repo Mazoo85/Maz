@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh index / deduplicate (bit-exact)** (`render::reindexMesh` → `ReindexReport`) — DONE (M575); turn a
+  "triangle soup" (a mesh where every triangle carries its own three corners, so shared corners are stored two,
+  three or six times over) into a compact INDEXED mesh: keep one copy of each truly-identical vertex and point
+  every triangle at it through a fresh index buffer — Godot's `SurfaceTool.index()`. The engine's own shape
+  builders, CSG, marching-cubes/SurfaceNets output and flat OBJ/STL imports all emit unshared corners; indexing
+  shrinks the vertex buffer and lets the GPU's post-transform vertex cache actually hit. The key difference from
+  position welding (`weldVertices`): this merges ONLY when EVERY attribute matches bit-for-bit — position AND
+  normal AND colour AND UV — so a hard crease (same point, different normal) or a texture seam (same point,
+  different UV) is deliberately LEFT as two vertices, because collapsing it would smooth the crease or tear the
+  texture. (Position welding, which ignores normals/UVs, is the tool for when you WANT to fuse a seam.) Degenerate
+  triangles (two corners that were already the same vertex) are dropped; a mesh with no index buffer is read as an
+  implicit soup. Verified (`ctest -R mesh_reindex`): a 6-corner two-triangle soup collapses to 4 unique vertices
+  (2 merged) with 6 valid indices and no dropped triangle; a shared point with differing UV stays two vertices (a
+  seam survives); a shared point with differing normal stays two vertices (a crease survives); a triangle with two
+  identical corners is dropped; an already-clean indexed triangle is untouched; empty is safe. Honest scope: this
+  is EXACT dedup (bit-for-bit), not tolerance-based — near-but-not-equal vertices are kept separate (use
+  `weldVertices` with an epsilon for that); positions/attributes are never modified, only shared. [VERIFIABLE HERE]
 - [x] **Vertex-colour gradient paint** (`render::paintAxisGradient`, `render::paintRadialGradient`) — DONE
   (M574); tint a mesh's per-vertex RGB by WHERE each vertex sits, in one call — the "give it a look without a
   texture" move. `paintAxisGradient` fades one colour to another along X, Y or Z (grass at a hill's base fading
