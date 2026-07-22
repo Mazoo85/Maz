@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh cleanup pass** (`render::cleanupMesh`, `MeshCleanupStats`) — DONE (M541); the import/optimization
+  hygiene pass that shrinks a mesh without changing what it draws: merge BIT-EXACT duplicate vertices (identical
+  in every attribute — position, normal, colour, UV) into one, drop DEGENERATE triangles (a repeated corner
+  index → zero area), and remove UNUSED vertices (referenced by no surviving triangle), compacting the buffers.
+  Importers/generators routinely emit this bloat — a face-by-face-authored glTF/OBJ repeats every shared corner,
+  CSG/marching-cubes leaves orphaned vertices, edits leave slivers — and it costs VRAM, breaks the vertex cache,
+  and stops smoothing/subdivision from treating a shared corner as one point. This is Godot's SurfaceTool.index()
+  hygiene, but attribute-exact and attribute-PRESERVING — complementary to MeshWeld (which welds by SPATIAL
+  proximity and keeps positions only): weld near-coincident corners with MeshWeld, strip exact redundancy with
+  cleanupMesh while keeping normals/UVs intact. Deterministic (survivors keep first-seen order). Verified
+  (`ctest -R mesh_cleanup`): orphan vertices removed with drawn geometry byte-identical, a face-by-face quad
+  merges 6→4 vertices keeping both triangles, degenerate triangles dropped, dedup that collapses a triangle
+  removes it too, an already-clean mesh is untouched and cleanup is idempotent, empty mesh safe. [VERIFIABLE HERE]
 - [x] **Solid mesh voxelization** (`render::voxelizeSolid`, `VoxelGrid`) — DONE (M540); convert a closed triangle
   mesh into a boolean 3D occupancy grid — each cell 1 if its centre is INSIDE the solid, 0 outside. This bridges
   surface geometry to the volumetric representations games rely on: destructible/editable voxel terrain
