@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Degenerate / sliver-triangle classifier** (`render::analyzeDegenerate`, `DegenerateReport`, `TriDefect`)
+  — DONE (M563); find the badly-shaped triangles in a mesh and label each by DEFECT TYPE, returning their indices
+  as a cleanup report. Bad triangles come from booleans, decimation, planar cuts, and sloppy imports; they wreck
+  normals, lighting, physics, and simplification. Unlike the M537 TriangleQuality score (a single 0..1 number per
+  triangle), this NAMES the problem so a repair step knows what to do: ZERO-AREA (collapsed — vertices coincident
+  or collinear, delete it), CAP (one angle near 180° — a flat sliver poking across its neighbours, split or
+  collapse), and NEEDLE (one angle near 0° — a thin spike from a very short edge, collapse along it). It also
+  returns the mesh's sharpest and widest angles and smallest area. Verified (`ctest -R mesh_degenerate`): in one
+  mesh a healthy right triangle reads Ok, three collinear vertices and two coincident vertices are both ZeroArea,
+  a near-180° apex is a Cap, and a thin spike is a Needle; the per-type index lists hold 2/1/1 with badCount 4;
+  the reported widest angle exceeds 150° (the cap) and sharpest is under 5° (the needle); a well-shaped triangle
+  under the default thresholds is not flagged; empty meshes are safe. Honest scope: this REPORTS defects (kind +
+  indices + extremes) but does not repair them — feed the indices to a collapse/split/delete pass (MeshCleanup
+  M541 already drops the zero-area ones); classification order is zero-area → cap → needle, so a triangle that is
+  both spiky and flat is reported as a cap; thresholds are tunable and the zero-area epsilon scales with the
+  bounding box. [VERIFIABLE HERE]
 - [x] **Triangle winding / normal-consistency detector** (`render::analyzeWinding`, `render::makeWinding-
   Consistent`, `WindingReport`) — DONE (M562); find the triangles whose winding (vertex order — which decides
   which way a face points) DISAGREES with their neighbours, and re-wind them so the surface is uniformly
