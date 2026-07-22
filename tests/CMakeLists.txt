@@ -317,6 +317,11 @@ target_link_libraries(maz_meshstats_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_stats COMMAND maz_meshstats_tests)
 set_tests_properties(mesh_stats PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshsurfacesample_tests render/meshsurfacesample.cpp)
+target_link_libraries(maz_meshsurfacesample_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_surface_sample COMMAND maz_meshsurfacesample_tests)
+set_tests_properties(mesh_surface_sample PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Area-weighted surface point sampler** (`render::sampleSurfacePoints`, `SurfacePoint`) — DONE (M555);
+  scatter N points UNIFORMLY over a mesh's surface so every unit of area is equally likely — a triangle twice as
+  big gets twice the points. This is the seed for scattering grass, rocks, foliage, or debris across terrain and
+  props; turning a mesh into a point cloud; placing decals or spawn markers; and as the input a blue-noise /
+  Poisson-disk relaxation pass refines. Each returned point carries its world POSITION, the FACE NORMAL there (to
+  orient what you place), and the TRIANGLE it landed on. Picking is exact: a per-triangle cumulative-area CDF
+  chooses the face by binary search on one uniform draw, then a standard barycentric warp (b0=1−√r₁, b1=√r₁·(1−r₂),
+  b2=√r₁·r₂) places the point uniformly inside it. Deterministic — the same `seed` reproduces the same points
+  every run (self-contained LCG, no engine RNG dependency). Verified (`ctest -R mesh_surface_sample`): 2000 samples
+  of a unit right-triangle all land on the plane inside the triangle carrying the +Z face normal; a triangle 100×
+  larger than its neighbour collects >20× more points while the small one still gets some (area weighting); the
+  same seed reproduces identical points and a different seed diverges; a unit quad keeps every sample in [0,1]² and
+  hits both equal-area triangles; empty mesh and zero count return empty safely. Honest scope: uniform over AREA,
+  not blue-noise — points can clump, feed them into a relaxation pass for even spacing; degenerate (zero-area)
+  triangles are never chosen; the normal is the geometric FACE normal (winding-derived), not the interpolated
+  smooth normal. [VERIFIABLE HERE]
 - [x] **Mesh statistics report** (`render::analyzeMesh`, `MeshStats`) — DONE (M554); the at-a-glance
   size-and-scale report an editor's mesh-info panel or an import log shows: the axis-aligned BOUNDING BOX
   (min/max/size/centre), the area-weighted CENTROID (the shell's balance point), the total SURFACE AREA, and the
