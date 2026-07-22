@@ -572,6 +572,11 @@ target_link_libraries(maz_shapes2dgear_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME shapes2d_gear COMMAND maz_shapes2dgear_tests)
 set_tests_properties(shapes2d_gear PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshextrudescaled_tests render/meshextrudescaled.cpp)
+target_link_libraries(maz_meshextrudescaled_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_extrude_scaled COMMAND maz_meshextrudescaled_tests)
+set_tests_properties(mesh_extrude_scaled PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

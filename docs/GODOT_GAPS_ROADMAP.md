@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Tapered / scaled extrude** (`render::extrudePolygonScaled`) — DONE (M606); like `extrudePolygon` (M602), but
+  the top cap is scaled by `topScale` about the shape's centroid, so any flat outline becomes a truncated pyramid /
+  frustum: a plinth, a tapered building or tower, a bevelled block, a stub, a keystone, a lampshade profile. At
+  topScale=1 it's a straight prism; below 1 it tapers inward toward the top; above 1 it flares out. The slanted side
+  walls get true flat per-face normals computed from their actual geometry (so they shade correctly, unlike a naive
+  vertical-wall assumption). Verified (`ctest -R mesh_extrude_scaled`): topScale=1 reproduces a straight prism
+  (volume=area×depth); a taper to 0.5 scales the top cap to half-size while the base is unchanged, and a flare to 2.0
+  makes the top bigger — both closed solids whose signed volume follows the exact PRISMATOID rule A·h·(s²+s+1)/3; the
+  prism stays centred z=−depth/2..+depth/2; <3 points and zero depth return empty. Honest scope: `topScale` is clamped
+  to a small positive minimum — a true point-apex pyramid should use a cone/pyramid tool; the taper pivots about the
+  vertex-average centroid. [VERIFIABLE HERE]
 - [x] **Gear / cog outline** (`render::shapes2d::gear`) — DONE (M605); a spur-gear silhouette — `teeth` trapezoidal
   teeth rising from a root circle to a tip circle — extending the shapes2d family. Spin it into a machine, a clock
   face, a steampunk prop, a factory backdrop, or a rotating puzzle piece; extrude it (M602) into a solid cog, or spin
