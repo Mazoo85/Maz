@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Icosphere / geodesic sphere** (`render::makeIcosphere`) — DONE (M598); a round ball built by repeatedly
+  splitting an icosahedron (a 20-sided die) into smaller triangles, giving a sphere whose triangles are all nearly
+  the SAME size — the good kind of sphere for most jobs. The everyday "UV sphere" (M28 makeSphere) crowds its
+  triangles into tight pinch-points at the north and south poles, which shows as ugly stretching on planets,
+  blotchy shading, and uneven tessellation; the icosphere has no poles and no pinching, so it lights evenly and
+  subdivides cleanly. Reach for it for planets and moons, explosion / shockwave domes, force-field bubbles,
+  evenly-spread point scatters, low-poly rock/asteroid bases — anywhere a sphere should look the same from every
+  angle. `subdivisions` sets smoothness: 0 = the raw 20-face gem, 1 = 80 faces, 2 = 320, each level ×4. Normals are
+  the exact analytic sphere normals (no `computeNormals` pass needed). Verified (`ctest -R mesh_icosphere`): subdiv
+  0 is 12 verts / 20 faces on the exact radius with position-aligned normals; face count follows 20·4ⁿ and vertex
+  count 10·4ⁿ+2 for n=0..3; the mesh is a closed watertight manifold (every edge shared by exactly two faces, Euler
+  V−E+F==2); triangle edge lengths stay near-uniform (max/min < 2, i.e. no pole pinch); negative subdivisions clamp
+  to the base icosahedron. Honest scope: lat/long UVs carry the usual one-side seam + top/bottom texel pinch shared
+  by every lat-long sphere — fine for solid colour / triplanar / seam-tolerant maps; re-unwrap for a perfect atlas.
+  [VERIFIABLE HERE]
 - [x] **Skin / loft across sections** (`render::skinSections`) — DONE (M597); stretch a smooth surface over a stack of
   cross-section "ribs", like pulling skin over the frames of a boat hull or an aeroplane fuselage. You give it an
   ordered list of rings — each ring the outline of the shape at that station — and it bridges every rib to the next
