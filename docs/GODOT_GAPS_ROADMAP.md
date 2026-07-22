@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh mirror / symmetrize** (`render::mirrorMesh`) — DONE (M547); reflect a mesh across an axis-aligned
+  plane and join the reflection to the original, producing a symmetric whole — the "mirror modifier" every DCC
+  tool has (model one wing / half a face / the left of a ship, mirror, get a seamless symmetric result; also
+  used to symmetrize a slightly-off scan). Reflection flips handedness, so each mirrored triangle's winding is
+  REVERSED and its baked normal negated to keep faces pointing outward; vertices lying on the mirror plane
+  (within an epsilon) are SHARED not duplicated, so the seam is watertight. `axis` (0=X,1=Y,2=Z) and `planeCoord`
+  pick the plane. Verified (`ctest -R mesh_mirror`): a triangle with a vertex on the plane shares that seam
+  vertex (3→5 not 3→6) and yields a symmetric bounding box; a +X-facing triangle mirrors to a −X-facing one
+  (winding reversed → still outward); with no seam the vertex/triangle counts exactly double; the whole vertex
+  set is symmetric across the plane; Y-axis mirroring works; empty safe. Honest scope: welds only along the
+  mirror seam (not interior duplicates or the two halves elsewhere) — run MeshCleanup/MeshWeld after if needed;
+  vertices on the far side are still mirrored, so clip to a half first if you need a strict one. [VERIFIABLE HERE]
 - [x] **Point-in-mesh containment** (`render::containsPoint` / `containsPoints`) — DONE (M546); is a point INSIDE
   a closed triangle mesh? For each query point cast one ray to infinity and count triangle crossings — odd =
   inside, even = outside (the Jordan-curve / ray-parity test), reusing the M533 Möller–Trumbore ray/triangle (the
