@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Colour-blindness simulation** (`render::simulateColorVision` / `render::ColorVision`) — DONE (M619); an
+  accessibility dev-tool that previews how UI, minimap, team colours, or status effects read to players with
+  colour-vision deficiency, so red/green pairs that collapse can be caught before shipping. Applies the widely-used
+  Wickline dichromat transforms — Protanopia (red-weak), Deuteranopia (green-weak, the most common), Tritanopia
+  (blue-weak) — plus Achromatopsia (→ luminance grey). Works on a single `Color` or a whole `Image` (alpha
+  preserved). Verified (`ctest -R image_colorblind`): a neutral grey is left unchanged (each matrix row sums to 1);
+  red and green become far more similar under the red/green types (colour distance drops below half — the defining
+  "confusable" property); achromatopsia yields r==g==b equal to the colour's luminance; outputs stay in [0,1];
+  alpha survives; and the image overload matches the per-colour transform pixel-for-pixel and is empty-safe. Honest
+  scope: fast sRGB-space matrices (the common web-filter approximation), not a physically-exact LMS/Brettel
+  simulation. [VERIFIABLE HERE]
 - [x] **First-order intercept aim** (`game::solveIntercept` / `game::InterceptSolution`) — DONE (M618); the
   gravity-free "lead the target" solver: where should a turret, archer, spaceship gun, or homing AI aim so a shot
   fired at a FIXED speed hits a target moving at constant velocity? Companion to `game::Ballistics` (which arcs a
