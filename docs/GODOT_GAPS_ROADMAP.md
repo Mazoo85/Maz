@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Recycling object pool** (`core::ObjectPool<T>`) — DONE (M644); a typed pool that hands out reusable
+  objects and takes them back, so a game can spawn/despawn bullets, particles, enemies, damage numbers, or
+  temp buffers every frame WITHOUT churning the allocator. `acquire()` reuses a freed slot or grows by one;
+  `release()` returns a slot for reuse without destroying it, so capacity rises only to the high-water mark of
+  simultaneously-live objects and then stops (the whole point of pooling). Distinct from the engine's two
+  existing facilities: PoolAllocator hands out raw memory bytes, and SlotMap is a generational handle→value
+  map with stable IDs; this is the simple index-addressed live-object recycler most gameplay reaches for.
+  Deque-backed so a reference from `get()` survives pool growth. Verified (`ctest -R "^object_pool$"`): acquire
+  grows capacity + active count and `get()` is mutable; release lowers the count and marks the slot inactive;
+  the next acquire reuses the freed index with NO capacity growth; a recycled slot keeps its prior value; a
+  `get()` reference stays valid across 1000 growths; double / out-of-range release is a safe no-op that never
+  corrupts the count; under acquire/release churn capacity settles exactly at the peak concurrent count (8);
+  `reset()` frees all while keeping capacity and `clear()` drops it. Honest scope: reuses storage, does not
+  reset recycled objects (the caller re-initialises on acquire) — as documented. [VERIFIABLE HERE]
 - [x] **Squad formations** (`game::formationSlots` / `game::formationPositions` / `game::FormationShape`) — DONE
   (M643); arrange a group of units into a recognisable shape around an anchor (leader or target), oriented to a
   facing direction — the geometry every RTS squad, party of followers, tactical fireteam, or escort needs
