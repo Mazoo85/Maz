@@ -327,6 +327,11 @@ target_link_libraries(maz_meshvertexcolorcavity_tests PRIVATE maz::maz maz_warni
 add_test(NAME mesh_vertex_color_cavity COMMAND maz_meshvertexcolorcavity_tests)
 set_tests_properties(mesh_vertex_color_cavity PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshthickness_tests render/meshthickness.cpp)
+target_link_libraries(maz_meshthickness_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_thickness COMMAND maz_meshthickness_tests)
+set_tests_properties(mesh_thickness PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

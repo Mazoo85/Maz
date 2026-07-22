@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh wall-thickness probe** (`render::computeThickness`, `render::analyzeThickness`, `ThicknessReport`)
+  — DONE (M557); measure how THICK the material is at every point of a surface by shooting a ray straight INTO
+  the surface (opposite its outward normal) and returning the distance to the wall on the far side. This is the
+  "wall thickness" / "shell gauge" check 3D-printing slicers and CAD tools run to catch spots too thin to print
+  or structurally weak; it also drives subsurface-scattering thickness maps (skin, wax, leaves glowing at thin
+  edges) and "is this hollow shell uniform?" audits. For a solid model it reports the full span across the object;
+  for a hollow shell it reports the gap between outer and inner walls. `computeThickness` returns per-vertex
+  thickness (unreachable vertices → `maxDistance`, treated as open); `analyzeThickness` rolls that into a
+  `ThicknessReport` (min/mean thickness, measured vs open counts) so the thinnest wall — the print/structural risk
+  spot — pops out. Reuses the M533 ambient-occlusion Möller–Trumbore ray/triangle test. Verified (`ctest -R
+  mesh_thickness`): a slab of two parallel outward-facing sheets one unit apart reads thickness ≈ 1.0 across the
+  whole top sheet; a 0.25-unit gap reads ≈ 0.25; the summary finds min ≈ the gap, flags the oversized backing
+  sheet's overhanging corners as open, and reports a finite mean; a lone one-sided sheet reads entirely open;
+  empty meshes are safe. Honest scope: one inward ray per vertex along the smooth normal — a wall sampled at a
+  glancing angle reads thicker than its true minimum (average several offset rays for a robust min); winding must
+  be outward-consistent so the ray points into the material. [VERIFIABLE HERE]
 - [x] **Cavity (curvature) vertex-color bake** (`render::computeCavity`, `render::bakeCavityToVertexColor`) —
   DONE (M556); write a mesh's own SHAPE into its vertex colours so CREVICES, GROOVES, and concave folds go DARK
   while RIDGES, sharp edges, and convex bulges go LIGHT — the "cavity map" sculpting tools (ZBrush/Blender/
