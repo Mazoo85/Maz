@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Dice notation parser/roller** (`game::parseDice` / `rollDice` / `minRoll` / `maxRoll` / `averageRoll`) —
+  DONE (M623); parse and roll the classic tabletop dice strings ("2d6+3", "d20", "4d8-1") RPGs, board-game ports,
+  and loot/damage tables are written in. `parseDice` → a `DiceSpec` (count, sides, flat modifier); `rollDice` rolls
+  it with any engine RNG exposing `range(lo,hi)` (e.g. `core::Pcg32`), returning the total and each die; the closed
+  forms give the distribution bounds without rolling (tooltips, balancing, AI expected value). Beyond Godot (no
+  dice parser). Verified (`ctest -R "^dice$"`): valid parses incl. optional count, case-insensitive 'd', surrounding
+  spaces, and +/- modifiers; a battery of malformed strings rejected; min/max/average match the closed form (2d6+3 →
+  5/15/10), invalid spec → 0 bounds; 200 rolls each give exactly `count` dice with every face in [1,sides] and the
+  total within [min,max]; the same seed reproduces the exact roll; and the parse+roll convenience overload reports
+  the spec and rejects nonsense. Honest scope: `NdM±K` only (no keep-highest/exploding dice yet — a clean follow-up).
+  [VERIFIABLE HERE]
 - [x] **Ordinal & Roman-numeral formatting** (`core::ordinalSuffix` / `ordinal` / `toRoman`) — DONE (M622); the two
   number-to-text helpers game HUDs need that `core::NumberFormat` was missing: **ordinals** for leaderboard ranks
   and "Nth wave" ("1st", "22nd", "113th"), and **Roman numerals** for chapter/level/act titles ("Level IV",
