@@ -242,6 +242,11 @@ target_link_libraries(maz_meshcurvature_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_curvature COMMAND maz_meshcurvature_tests)
 set_tests_properties(mesh_curvature PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshvoxelize_tests render/meshvoxelize.cpp)
+target_link_libraries(maz_meshvoxelize_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_voxelize COMMAND maz_meshvoxelize_tests)
+set_tests_properties(mesh_voxelize PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Solid mesh voxelization** (`render::voxelizeSolid`, `VoxelGrid`) — DONE (M540); convert a closed triangle
+  mesh into a boolean 3D occupancy grid — each cell 1 if its centre is INSIDE the solid, 0 outside. This bridges
+  surface geometry to the volumetric representations games rely on: destructible/editable voxel terrain
+  (Minecraft/Teardown-style), 3D nav volumes, GPU-particle/fluid collision masks, fast approximate inside tests,
+  procedural interior filling, and the input to a marching-cubes/SurfaceNets re-mesh. Unlike a SURFACE
+  voxelization (cells the triangles merely pass through), this is a SOLID fill: the inside/outside decision at
+  each cell centre is a ray-parity test (one oblique ray; odd triangle-crossing count = inside), reusing the M533
+  Möller–Trumbore ray/triangle — the same sign test MeshSdf (M534) uses at its grid corners. `VoxelGrid` exposes
+  `at`, `cellCenter`, `solidCount`, and `estimatedVolume` (solid cells × cell volume). Verified
+  (`ctest -R mesh_voxelize`): a grid-aligned unit cube fills to volume exactly 1.0 (finer grids stay exact with
+  more cells); a padded cube leaves an empty outer shell yet still reads ~1.0; a radius-1 sphere fills to
+  ~(4/3)π≈4.19 and a radius-2 sphere to ~8× that (the r³ law); empty mesh is safe. [VERIFIABLE HERE]
 - [x] **Per-vertex discrete curvature** (`render::computeCurvature`, `MeshCurvature`) — DONE (M539); estimate how
   sharply a mesh bends at every vertex, producing two scalar fields: GAUSSIAN curvature K (positive on domes,
   negative on saddles, zero on developable surfaces) via the angle deficit `(2π − Σθ) / A_mixed`, and MEAN
