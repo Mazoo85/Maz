@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Closest points between two 3D segments + capsule overlap** (`math::closestBetweenSegments`,
+  `capsulesOverlap`, `SegmentDistance.hpp`) — DONE (M666); the geometry primitive under capsule-vs-capsule
+  collision and any "how far apart are these two edges?" query. [VERIFIABLE HERE] The engine had
+  point-vs-segment (2D) and point-vs-triangle (3D) closest-point queries but not segment-vs-segment; a
+  capsule is a segment + radius, so two capsules overlap exactly when the closest distance between their
+  spine segments is below the sum of radii — this is the missing piece. Uses Ericson's robust algorithm
+  (Real-Time Collision Detection): parameterize both segments by s,t in [0,1], solve the unconstrained
+  minimum, clamp into the valid square, and handle parallel and zero-length (degenerate) segments without
+  dividing by zero. Verified (`ctest -R segment_distance`): a skew perpendicular pair (X-axis vs a raised
+  Y-axis) returns the exact gap 1 with both closest points at the segment midpoints (s=t=0.5); crossing
+  segments give distance 0 at the intersection; parallel offset segments give the perpendicular gap;
+  collinear disjoint segments meet at their nearest endpoints; a zero-length segment reduces to
+  point-vs-segment; s,t stay in [0,1] and distance is non-negative for arbitrary configs; and
+  `capsulesOverlap` flips correctly around the radius-sum threshold. Complements the existing closest-point
+  queries and the capsule collider with the exact edge-edge distance the 3D physics narrowphase needs.
 - [x] **2D Simplex noise + fBm** (`core::simplex2D` / `simplexFbm2D`, `SimplexNoise.hpp`) — DONE (M665);
   the third member of the engine's noise family, joining Perlin (`core::Noise`, M85) and Worley
   (`CellularNoise.hpp`, M661). [VERIFIABLE HERE] Simplex noise (Perlin's own successor to classic Perlin)
