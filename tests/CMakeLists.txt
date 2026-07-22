@@ -2486,3 +2486,8 @@ add_executable(maz_flowaccumulation_tests game/flowaccumulation.cpp)
 target_link_libraries(maz_flowaccumulation_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME flow_accumulation COMMAND maz_flowaccumulation_tests)
 set_tests_properties(flow_accumulation PROPERTIES TIMEOUT 30)
+
+add_executable(maz_suffixarray_tests core/suffixarray.cpp)
+target_link_libraries(maz_suffixarray_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME suffix_array COMMAND maz_suffixarray_tests)
+set_tests_properties(suffix_array PROPERTIES TIMEOUT 30)

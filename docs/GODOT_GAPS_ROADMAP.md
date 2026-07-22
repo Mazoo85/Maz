@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Suffix array + LCP (text index)** (`core::SuffixArray`, `SuffixArray.hpp`) — DONE (M731); index a
+  string so ANY substring can be located fast, and answer "what is the longest chunk that repeats?" [VERIFIABLE
+  HERE] A suffix array is the string's suffixes sorted alphabetically, stored as start positions; because they
+  are sorted, every occurrence of a search pattern forms one contiguous block found by binary search in
+  O(m log n) instead of rescanning the whole text — the compact, cache-friendly cousin of a suffix tree and
+  the backbone of substring search over large STATIC text (searching a big log/script dump, dictionary
+  autocomplete, dedup / longest-repeated-substring analysis). Paired with the LCP (longest-common-prefix)
+  array it gives the longest repeat directly. Built by prefix doubling; contains()/count() binary-search the
+  match block. The ctest pins the classic "banana" suffix array [5,3,1,0,4,2], then cross-checks against a
+  brute-force lexicographic suffix sort over 3,000 random tiny-alphabet strings (many repeats), verifies the
+  LCP array against a direct common-prefix computation, checks contains()/count() against a std::string::find
+  scan for present and absent patterns, that longestRepeatedLength() equals max(LCP), and empty input.
+  Well beyond String.find for repeated queries on fixed text; Godot has no text index. Header-only, std-only,
+  deterministic. ctest `suffix_array`.
 - [x] **D8 flow accumulation (terrain hydrology)** (`game::flowAccumulation`, `FlowAccumulation.hpp`) — DONE
   (M730); figure out where water DRAINS on a heightmap — for each cell, how many cells upstream ultimately
   flow through it. [VERIFIABLE HERE] This is the standard hydrology primitive that turns terrain into rivers:
