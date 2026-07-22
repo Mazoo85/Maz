@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh flip / reverse (inside-out)** (`render::flipWinding`, `render::flipNormals`, `render::flipMesh`) —
+  DONE (M573); deliberately turn a mesh inside-out: reverse every triangle's winding AND negate every vertex
+  normal so the surface faces the OTHER way. This is a different job from M562 winding-consistency (which only
+  makes a mesh AGREE with itself) — here you WANT the flip. Uses: build an inward-facing shell (a skybox, a room
+  seen from inside, a cave interior, a hollow that culls its outer faces so you see the far walls); correct a
+  whole model that imported inside-out in one call; or make a two-sided effect by MERGING (M572) a mesh with its
+  flipped copy so both faces render under single-sided culling. `flipWinding` (swap corners 2/3) flips which face
+  back-face culling drops; `flipNormals` flips which way the surface shades; `flipMesh` does both. Verified
+  (`ctest -R mesh_flip`): on a +Y quad, flipWinding swaps corners 2 and 3 so the geometric face points the other
+  way while stored normals stay put; flipNormals negates the stored normals and leaves the indices; flipMesh does
+  both; flipping twice restores winding, normals, and facing exactly; empty meshes are safe. Honest scope: this
+  negates STORED normals and reverses triangle order — it does not recompute normals from geometry (a mesh with
+  none keeps zero normals; run computeNormals first); positions/UVs/colours are untouched. [VERIFIABLE HERE]
 - [x] **Mesh merge / concatenate** (`render::mergeMeshes`) — DONE (M572); glue several meshes into ONE mesh (one
   vertex buffer, one index buffer). This is the inverse of the M529 split-into-components and the workhorse of
   DRAW-CALL BATCHING: a scene with a hundred static props drawn as one combined mesh renders in a single draw call
