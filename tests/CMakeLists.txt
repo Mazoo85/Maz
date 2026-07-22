@@ -2491,3 +2491,8 @@ add_executable(maz_suffixarray_tests core/suffixarray.cpp)
 target_link_libraries(maz_suffixarray_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME suffix_array COMMAND maz_suffixarray_tests)
 set_tests_properties(suffix_array PROPERTIES TIMEOUT 30)
+
+add_executable(maz_trail_tests render/trail.cpp)
+target_link_libraries(maz_trail_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME trail COMMAND maz_trail_tests)
+set_tests_properties(trail PROPERTIES TIMEOUT 30)

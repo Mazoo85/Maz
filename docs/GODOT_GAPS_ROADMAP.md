@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Motion-trail ribbon builder** (`render::Trail`, `Trail.hpp`) — DONE (M732); the ribbon behind sword
+  swings, projectile streaks, dash after-images, and skid marks: keep a short history of where a point has
+  been, and turn it into a flat, camera-facing ribbon of triangles that tapers to nothing at the old end and
+  fades out over a lifetime. [VERIFIABLE HERE] Each frame you push the current position and advance time; old
+  points expire, and buildRibbon() emits a quad strip — two vertices per history point, offset sideways
+  perpendicular to both the trail direction and the view direction — with width tapering by age so the head
+  is full-width and the tail pinches to a point (the look everyone expects). This is a common Godot request
+  (its built-in trails live only inside the particle system); here it is a small standalone builder over any
+  moving point, and the geometry is exact CPU-side so it is fully testable without a GPU. The ctest checks the
+  vertex/triangle counts (2 per point, 2*(n-1) triangles), that each cross-section is centred on its trail
+  point AND its edge is perpendicular to both the tangent and the view direction, that width grows
+  monotonically from the old tail toward the fresh head (with the head clearly wider), that update() expires
+  points past the lifetime and maxPoints caps the history, and that <2 points yields an empty ribbon.
+  Header-only, std-only, deterministic. ctest `trail`.
 - [x] **Suffix array + LCP (text index)** (`core::SuffixArray`, `SuffixArray.hpp`) — DONE (M731); index a
   string so ANY substring can be located fast, and answer "what is the longest chunk that repeats?" [VERIFIABLE
   HERE] A suffix array is the string's suffixes sorted alphabetically, stored as start positions; because they
