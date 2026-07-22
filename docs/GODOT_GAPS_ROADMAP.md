@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Aho-Corasick multi-pattern text matching** (`core::AhoCorasick`, `AhoCorasick.hpp`) — DONE (M714);
+  finds EVERY occurrence of MANY search strings in a text in a SINGLE pass, in O(text + matches) no matter
+  how many patterns there are. [VERIFIABLE HERE] The naive way — loop each of k patterns and scan the whole
+  n-char text — costs O(n*k) and rescans every character k times; Aho-Corasick builds one automaton (a trie
+  of all patterns plus "failure" links that jump to the longest still-live suffix when a match breaks) and
+  sweeps the text once. It is the standard engine behind a profanity/word filter, chat slash-command
+  detection, dialogue keyword triggers, search highlighting, and content-moderation dictionaries — anywhere
+  a stream of text must be watched for a whole vocabulary at once. API: addPattern / build / findAll (matches
+  in scan order: ascending end, then pattern) / containsAny / countMatches. The ctest verifies the classic
+  "she/he/his/hers" in "ushers" overlap case, then cross-checks findAll against a brute-force per-pattern
+  std::string::find scan on 4,000 random small-alphabet pattern sets and texts (>1,000 total matches),
+  where overlaps, suffix-of-another patterns, and repeats are all exercised. Well beyond Godot's String.find.
+  Header-only, std-only, deterministic. ctest `aho_corasick`.
 - [x] **Jump Point Search grid pathfinding** (`game::JumpPointSearch`, `JumpPointSearch.hpp`) — DONE (M713);
   a much faster pathfinder for uniform-cost 8-connected grids that returns the EXACT SAME optimal path as
   ordinary grid A*, but expands a tiny fraction of the cells. [VERIFIABLE HERE] Plain A* on an open map
