@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Triangle winding / normal-consistency detector** (`render::analyzeWinding`, `render::makeWinding-
+  Consistent`, `WindingReport`) — DONE (M562); find the triangles whose winding (vertex order — which decides
+  which way a face points) DISAGREES with their neighbours, and re-wind them so the surface is uniformly
+  oriented. Flipped faces are one of the most common import defects: they render black under lighting, punch
+  holes in shadows, and break backface culling and solid-mesh tests. In a consistently wound surface every shared
+  edge is traversed in OPPOSITE directions by its two triangles; a flipped triangle runs its shared edges the
+  SAME way. This counts the inconsistently-wound edges, then walks each connected surface from a seed and
+  propagates a consistent orientation across the M528 half-edge topology, reporting the MINORITY set per
+  component (the triangles to flip) — the analysis behind a "recalculate / make normals consistent" command;
+  `makeWindingConsistent` applies the fix. Verified (`ctest -R mesh_winding`): a uniformly wound grid and a proper
+  cube report zero inconsistent edges and nothing to flip; reversing one grid triangle is detected as exactly one
+  minority flip (the reversed triangle) with its shared edges inconsistent, and `makeWindingConsistent` repairs it
+  to zero; flipping a whole cube face (two triangles) is detected as two flips and repaired; empty meshes are
+  vacuously consistent. Honest scope: this reports which triangles disagree WITH EACH OTHER and the smaller set to
+  flip per component; it does NOT decide which way is "out" (pair with M546 containsPoint or a signed-volume test
+  to orient outward); non-orientable surfaces (a Möbius strip) have no consistent assignment and keep a non-zero
+  inconsistent-edge count; boundary and non-manifold edges are not propagated across. [VERIFIABLE HERE]
 - [x] **Vertex valence / irregular-vertex report** (`render::analyzeValence`, `ValenceReport`) — DONE (M561);
   count how many edges meet at each vertex (its VALENCE) and flag the IRREGULAR ones. In a clean triangle mesh
   almost every interior vertex has valence 6; the 5s and 7s — poles or singularities — are where edge flow
