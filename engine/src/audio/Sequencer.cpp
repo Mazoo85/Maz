@@ -1490,6 +1490,14 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
                 drums[2 * (done + i) + 1] += s * rg;
             }
         }
+        // Master tuning: push the project's concert-pitch offset onto every melodic instrument so a
+        // note's pitch follows it (drums are unpitched → unaffected). Cheap; 0 keeps A440.
+        synth_.setMasterDetune(masterTuneCents_);
+        synth2_.setMasterDetune(masterTuneCents_);
+        sampler_.setMasterDetune(masterTuneCents_);
+        for (SynthInstrument& es : extraSynths_) {
+            es.setMasterDetune(masterTuneCents_);
+        }
         // Lead bus = synth + sampler; bass bus = synth2. Each has its own gain.
         synth_.updateTempo(bpm_);  // lock a tempo-synced cutoff LFO to the transport
         synth2_.updateTempo(bpm_);

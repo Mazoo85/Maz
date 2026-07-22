@@ -305,7 +305,9 @@ void SynthInstrument::render(float* out, int frames, int sampleRate) {
                 }
             }
             const double phaseInc = static_cast<double>(v.freq) * vibMul * pitchMul * octMul *
-                                    static_cast<double>(v.driftMul) / static_cast<double>(sampleRate);
+                                    static_cast<double>(v.driftMul) *
+                                    static_cast<double>(masterDetuneMul_) /
+                                    static_cast<double>(sampleRate);
             switch (v.stage) {
             case Stage::Attack:
                 // Velocity → attack: softer notes get a smaller step (a longer swell). At amount 0 the

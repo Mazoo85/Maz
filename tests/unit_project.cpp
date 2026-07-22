@@ -37,6 +37,7 @@ int main() {
     audio::Automation automation;
 
     seq.setBpm(137.0);
+    seq.setMasterTune(-31.8f); // 432 Hz concert pitch — must round-trip
     seq.setDrumGain(0.8f);
     seq.setSynthGain(1.2f);
     seq.setLeadPan(-0.5f);
@@ -679,6 +680,7 @@ int main() {
 
     // Transport + bus.
     check(near(static_cast<float>(seq2.bpm()), 137.0f), "bpm round-trips");
+    check(near(seq2.masterTune(), -31.8f), "master tune (concert pitch) round-trips");
     check(near(seq2.drumGain(), 0.8f) && near(seq2.synthGain(), 1.2f), "bus gains round-trip");
     check(near(seq2.leadPan(), -0.5f) && near(seq2.bassPan(), 0.3f), "melodic bus pans round-trip");
     check(seq2.transpose() == -7, "global transpose round-trips");

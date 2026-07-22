@@ -275,7 +275,8 @@ void Sampler::render(float* out, int frames, int sampleRate) {
         if (!v.active) {
             continue;
         }
-        const double detuneMul = std::pow(2.0, static_cast<double>(detuneCents_) / 1200.0);
+        const double detuneMul =
+            std::pow(2.0, static_cast<double>(detuneCents_ + masterDetuneCents_) / 1200.0);
         // Filter keyboard tracking: a per-voice cutoff multiplier from the note's distance above the
         // base pitch (an octave up doubles the cutoff at full tracking). 1.0 when off.
         const float ktMul =

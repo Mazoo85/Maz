@@ -84,6 +84,19 @@ int main() {
     const std::vector<float> atBase = renderMono(sampler, sr / 5, sr); // 0.2 s
     check(std::fabs(estimateHz(atBase, sr) - 220.0) < 6.0, "base note plays at 220 Hz");
 
+    // Master tuning: a global +1200-cent detune raises every voice by an octave (220 → 440 Hz), on top
+    // of the note pitch; 0 leaves it at 220 Hz. Proves the master-tune multiplier reaches playback.
+    {
+        audio::Sampler mt;
+        mt.load(path, &err);
+        mt.setBasePitch(57);
+        mt.setMasterDetune(1200.0f); // +1 octave
+        mt.noteOn(57, 1.0f);
+        const std::vector<float> up = renderMono(mt, sr / 5, sr);
+        check(std::fabs(estimateHz(up, sr) - 440.0) < 10.0,
+              "a +1200-cent master detune raises the sampled pitch an octave (220 → 440 Hz)");
+    }
+
     // Play an octave up (MIDI 69 = 440 Hz) → resampled to 440 Hz.
     audio::Sampler sampler2;
     sampler2.load(path, &err);

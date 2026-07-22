@@ -1146,6 +1146,18 @@ int main() {
         check(w.songBar() == 0, "with no clip loop region playback starts at bar 0");
     }
 
+    // --- Master tuning -------------------------------------------------------
+    {
+        audio::Sequencer s;
+        check(s.masterTune() == 0.0f, "master tune defaults to 0 (A440)");
+        s.setMasterTune(-31.8f);
+        check(std::fabs(s.masterTune() - (-31.8f)) < 1e-4f, "master tune stores the concert-pitch offset");
+        s.setMasterTune(500.0f);
+        check(s.masterTune() == 100.0f, "master tune clamps to +100 cents");
+        s.setMasterTune(-500.0f);
+        check(s.masterTune() == -100.0f, "master tune clamps to -100 cents");
+    }
+
     // --- Arrangement markers -------------------------------------------------
     {
         audio::Sequencer s;

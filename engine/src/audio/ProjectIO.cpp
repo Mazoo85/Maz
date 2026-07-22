@@ -428,6 +428,7 @@ static void readMixerTrackFields(std::istringstream& ls, MixerTrack& tr) {
 static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automation& automation) {
     f << "cjc 1\n";
     f << "bpm " << seq.bpm() << "\n";
+    f << "mastertune " << seq.masterTune() << "\n";
     f << "steps " << seq.numSteps() << "\n";
     f << "spb " << seq.stepsPerBeat() << "\n";
     f << "swing " << seq.swing() << "\n";
@@ -862,6 +863,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             double bpm = 120.0;
             ls >> bpm;
             seq.setBpm(bpm);
+        } else if (tag == "mastertune") {
+            float mt = 0.0f;
+            ls >> mt;
+            seq.setMasterTune(mt);
         } else if (tag == "steps") {
             int st = 16;
             ls >> st;

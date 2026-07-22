@@ -100,6 +100,13 @@ public:
 
     void setBpm(double bpm) { bpm_ = bpm > 1.0 ? bpm : 1.0; }
     double bpm() const { return bpm_; }
+    // Master tuning: a project-wide concert-pitch offset in cents (±100), applied to every melodic
+    // instrument (lead + bass synth, sampler, extra channels) each render — e.g. -31.8 for 432 Hz, or a
+    // fine detune. Drums (unpitched) are unaffected. 0 = standard A440 (bit-identical default).
+    void setMasterTune(float cents) {
+        masterTuneCents_ = cents < -100.0f ? -100.0f : (cents > 100.0f ? 100.0f : cents);
+    }
+    float masterTune() const { return masterTuneCents_; }
 
     // Swing/groove: 0 = straight; higher values push the off-beat (odd) steps later for a shuffled
     // feel, while keeping each pair of steps the same total length (tempo preserved). Range 0..0.9.
@@ -672,6 +679,7 @@ private:
     std::vector<unsigned char> trackMuted_;  // per arrangement-track-row mute (grows on demand)
     std::vector<unsigned char> trackSoloed_; // per arrangement-track-row solo (grows on demand)
     std::vector<ArrangementMarker> markers_; // named song-section markers at bar positions
+    float masterTuneCents_ = 0.0f; // project-wide concert-pitch offset (±100 cents); 0 = A440
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     int clipLoopStart_ = 0;         // clip-song loop region start (bar); <= relevant only in clip mode

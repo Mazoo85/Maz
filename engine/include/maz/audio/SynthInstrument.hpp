@@ -5,6 +5,7 @@
 #include "maz/audio/Wavetable.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -165,6 +166,14 @@ public:
     // Deterministic (a per-instrument RNG), so renders stay reproducible. 0 = off (perfectly in tune).
     void setDrift(float cents) { drift_ = cents < 0.0f ? 0.0f : (cents > 50.0f ? 50.0f : cents); }
     float drift() const { return drift_; }
+
+    // Master tuning: a global pitch offset in cents applied to every voice (the whole oscillator stack),
+    // so the instrument can follow a project-wide concert-pitch reference (e.g. 432 Hz ≈ -31.8 cents) or
+    // a fine detune. 0 = standard A440, bit-identical to before. Set by the Sequencer from its master
+    // tune each render.
+    void setMasterDetune(float cents) {
+        masterDetuneMul_ = std::pow(2.0f, cents / 1200.0f);
+    }
 
     // Portamento / glide: when > 0, a new note slides from the previously played pitch to its own
     // pitch over `seconds` (one-pole smoothing). 0 = off (instant pitch). Great for leads and bass.
@@ -580,6 +589,7 @@ private:
     double pwmLfoPhase_ = 0.0;  // PWM LFO phase (shared across voices)
     float noiseColor_ = 0.0f;
     float detuneCents_ = 0.0f;
+    float masterDetuneMul_ = 1.0f; // global master-tune multiplier (2^(cents/1200)); 1 = A440
     float osc2Semitones_ = 0.0f; // coarse tune for osc2 (semitones)
     Waveform osc2Waveform_ = Waveform::Saw; // osc2's own shape when unlinked
     bool osc2WaveLinked_ = true;            // true = osc2 follows the primary waveform (default)

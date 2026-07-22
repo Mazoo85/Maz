@@ -445,6 +445,12 @@ void buildRackUI(audio::Sequencer& seq) {
         seq.setBpm(static_cast<double>(bpm));
     }
     ImGui::SameLine();
+    float masterTune = seq.masterTune();
+    ImGui::SetNextItemWidth(150.0f);
+    if (ImGui::SliderFloat("Tune", &masterTune, -100.0f, 100.0f, "%.1f cents")) {
+        seq.setMasterTune(masterTune); // master concert-pitch offset (−31.8 ≈ 432 Hz)
+    }
+    ImGui::SameLine();
     int lengths[] = {8, 16, 24, 32, 48, 64};
     int lenIdx = 1;
     for (int i = 0; i < 6; ++i) {

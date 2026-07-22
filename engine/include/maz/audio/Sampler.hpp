@@ -52,6 +52,9 @@ public:
         detuneCents_ = cents < -1200.0f ? -1200.0f : (cents > 1200.0f ? 1200.0f : cents);
     }
     float detuneCents() const { return detuneCents_; }
+    // Master tuning: a global cents offset added on top of the sampler's own detune, so the sampler
+    // follows the project's concert-pitch reference. 0 = unchanged. Set by the Sequencer each render.
+    void setMasterDetune(float cents) { masterDetuneCents_ = cents; }
     void setGain(float g) { gain_ = g; }
     float gain() const { return gain_; }
 
@@ -273,6 +276,7 @@ private:
     int sampleSr_ = 48000;
     int basePitch_ = 60;
     float detuneCents_ = 0.0f;
+    float masterDetuneCents_ = 0.0f; // global master-tune offset (project concert pitch); 0 = A440
     float gain_ = 0.9f;
     float drive_ = 0.0f; // per-voice tanh saturation amount; 0 = clean
     bool reverse_ = false;
