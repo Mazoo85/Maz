@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Spring-bone / jiggle chain** (`anim::SpringBone`) — DONE (M650); secondary motion for a chain of bones
+  — tails, hair, ponytails, antennae, capes, dangling accessories — that should JIGGLE and trail as the
+  character moves rather than stay rigidly rigged. You drive the ROOT joint each frame (attach it to a real
+  bone) and the chain follows with inertia + damping: it lags behind sudden motion, overshoots, then settles
+  back to the rest pose, and because each joint chases its parent's CURRENT (also-lagging) position the motion
+  propagates down the chain like a whip. Godot exposes this as its SpringBoneSimulator/jiggle modifiers; the
+  engine had core::Spring (a single scalar/vector spring) and SoftBody (full physics) but no bone-chain jiggle.
+  Sub-stepped (1/240 s) for stability at any frame rate; tunable stiffness/damping/gravity. Verified (`ctest -R
+  "^spring_bone$"`): a chain left at rest holds its pose with velocity decaying to ~0; after the root is yanked
+  the tip visibly lags one step then converges to the new rigid pose; higher stiffness is closer to target
+  after a fixed time; the sim stays finite and bounded through 2000 steps of continuous root motion; `reset()`
+  snaps rigidly to the pose from the current root with zero velocity; identical drive gives identical output.
+  Honest scope: a translational damped-spring chain (positional jiggle) — not a rotational bone-length-
+  preserving constraint or collision-aware cloth (compose with the physics SoftBody for those). [VERIFIABLE HERE]
 - [x] **Weapon recoil pattern** (`game::RecoilPattern`) — DONE (M649); the climbing "spray" every first-person
   shooter needs — each shot kicks the aim by a DEFINED amount, the kicks ACCUMULATE while firing (so a weapon
   has a recognisable, learnable pattern like CS/Valorant), and the aim RECOVERS smoothly toward centre when you
