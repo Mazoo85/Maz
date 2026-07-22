@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Snap-to-grid** (`render::snapVerticesToGrid` → `SnapResult`) — DONE (M577); round every vertex position
+  onto a regular WORLD grid (say 0.25 units) so each vertex jumps to the nearest multiple. The "tidy up" pass for
+  CAD-like or block/voxel meshes: it removes the tiny floating-point drift that creeps in from modelling, rotation
+  or import (1.0000001 and 0.9999998 both become a clean 1.0), and makes vertices that were ALMOST at the same
+  spot land EXACTLY on it — which then lets the bit-exact `reindexMesh` (M575) actually fuse them. This is a
+  DIFFERENT job from `MeshQuantize`: that packs positions into N-bit integers relative to the mesh bounding box to
+  shrink the FILE (a per-mesh grid that moves with the box); this snaps to a fixed ABSOLUTE world grid you choose,
+  purely to clean geometry — vertices stay full 32-bit floats, just rounded. A per-axis step of 0 leaves that axis
+  free (snap X/Z ground plane, keep height); an offset origin shifts the grid lines. The `SnapResult` reports how
+  many vertices moved and the max displacement, so you can tell a gentle drift-cleanup from an aggressive
+  block-ify. Verified (`ctest -R mesh_snap_grid`): near-integer drift snaps to exact integers with a tiny
+  displacement; 0.30/0.10/0.125 round to 0.25/0.00/0.25 on a quarter grid (midpoint rounds away from zero); a
+  zero-step axis is left free; on-grid vertices don't move (report says 0 moved); an offset origin snaps 0.6→0.5;
+  maxDisplacement is the largest single move; empty is safe. Honest scope: rounds POSITIONS only — normals/colours
+  /UVs untouched, so an aggressive snap can leave stored normals stale (re-run `computeNormals`) and can pull
+  corners together into degenerate triangles (follow with `reindexMesh`/`weldVertices`). [VERIFIABLE HERE]
 - [x] **Poisson-disk prune / blue-noise scatter** (`render::prunePointsPoisson`, `render::scatterBlueNoise`) —
   DONE (M576); thin a dense cloud of surface points down to an EVENLY-SPACED subset — keep a point only if it is
   at least `minDistance` from every point already kept. Raw `sampleSurfacePoints` output is random and therefore
