@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Watertightness / hole report** (`render::analyzeWatertight`, `WatertightReport`, `MeshHole`) — DONE
+  (M566); is the mesh SEALED, or does it have gaps? A watertight (closed) surface has no open edges and no edge
+  shared by three-plus faces — what 3D printing, boolean/CSG, solid physics, volume/mass, and inside/outside tests
+  all require. This walks the mesh's edges to answer "is it closed?" and, when it isn't, finds every HOLE (open
+  boundary loop), reporting how many there are and — per hole — its rim as an ordered vertex loop with an edge
+  count and perimeter length, so you can rank the big gaps worth patching from the pinholes. It also surfaces
+  NON-MANIFOLD edges (three-plus faces meeting), the other way a mesh fails to be a clean solid. Reuses the M528
+  half-edge topology and the M536 boundary-loop extractor. Verified (`ctest -R mesh_watertight`): a closed cube is
+  watertight with zero boundary/non-manifold edges and no holes; removing one face opens exactly one hole with 4
+  boundary edges, a 4-vertex rim, and perimeter 4 (the unit face), reported as the largest hole; removing two
+  opposite faces opens two holes with 8 boundary edges; a flat quad reads as one boundary loop with the right
+  rectangle perimeter; empty meshes are vacuously watertight. Honest scope: "watertight" here is EDGE-manifold
+  closure (no boundary, no 3+-face edges) — the standard printability/solidity test; it does not separately check
+  consistent winding (use M562) or self-intersection (a distinct, costlier test); a mesh split into separate
+  closed shells reads watertight with zero holes even though it's several pieces (pair with M529 components).
+  [VERIFIABLE HERE]
 - [x] **Mesh solidity (convexity) ratio** (`render::analyzeSolidity`, `SolidityReport`) — DONE (M565); how
   CONVEX is a shape? Wrap the mesh in its convex hull (the tightest dent-free shape — imagine shrink-wrapping it)
   and compare the mesh's own enclosed volume to the hull's. The ratio (mesh volume ÷ hull volume) is 1.0 for a
