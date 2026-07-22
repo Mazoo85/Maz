@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Music theory: scales & chords** (`audio::scaleNotes` / `chordNotes` / `scaleIntervals` / `chordIntervals`)
+  — DONE (M627); build the note sets procedural music needs from a root MIDI note: scales (major, all seven modes,
+  harmonic/melodic minor, major/minor pentatonic, blues, whole-tone, chromatic) and chords (triads, sevenths, sus,
+  6ths, dominant-9). Returns MIDI numbers you feed to `midiToFrequency` (M626) → `audio::Oscillator` for
+  arpeggios, generative melodies, or chord stabs; the interval tables are the canonical semitone offsets. Verified
+  (`ctest -R "^musicscales$"`): C major = C D E F G A B, A natural minor, C minor-pentatonic = C Eb F G Bb,
+  chromatic has 12 degrees, whole-tone steps by 2; two octaves expands to 14 notes each a perfect octave higher and
+  octaves<1 → empty; the triads/sevenths are exact (C=C E G, Cm=C Eb G, Cdim, Caug, C7, Cmaj7, Cm7), roots
+  transpose (Dm = D F A), dominant-9 has 5 notes; and a chord built from a parsed name ("G4") converts to strictly
+  ascending frequencies with the G4 root ≈ 392 Hz. Honest scope: note-set generation only (no voice-leading /
+  inversions yet). [VERIFIABLE HERE]
 - [x] **Music theory: note ↔ pitch** (`audio::midiToFrequency` / `frequencyToMidi` / `noteNameToMidi` /
   `midiToNoteName` / `noteNameToFrequency`) — DONE (M626); the note/pitch conversions procedural music and synth
   voices need but the audio module lacked. 12-TET at A4 = MIDI 69 = 440 Hz, C4 = middle C = MIDI 60: convert a MIDI
