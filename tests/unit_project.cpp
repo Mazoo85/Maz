@@ -199,7 +199,8 @@ int main() {
     seq.setAudioClipGain(aclip, 0.65f);
     seq.setAudioClipBus(aclip, 2); // bass bus
     seq.setAudioClipPitch(aclip, -5); // pitched down 5 semitones
-    seq.audioClip(aclip).muted = true; // muted flag must round-trip
+    seq.audioClip(aclip).muted = true;   // muted flag must round-trip
+    seq.audioClip(aclip).reverse = true; // reverse flag must round-trip
     seq.audioClip(aclip).path = "samples/a loop with spaces.wav";
     seq.setSongMode(true);
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
@@ -725,9 +726,9 @@ int main() {
     check(seq2.audioClipCount() == 1 && seq2.audioClip(0).startBar == 6 &&
               seq2.audioClip(0).track == 1 && near(seq2.audioClip(0).gain, 0.65f) &&
               seq2.audioClip(0).bus == 2 && seq2.audioClip(0).pitch == -5 &&
-              seq2.audioClip(0).muted &&
+              seq2.audioClip(0).muted && seq2.audioClip(0).reverse &&
               seq2.audioClip(0).path == "samples/a loop with spaces.wav",
-          "2-D playlist audio-clip metadata round-trips (bar/track/gain/bus/pitch/mute/path)");
+          "2-D playlist audio-clip metadata round-trips (bar/track/gain/bus/pitch/mute/reverse/path)");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");

@@ -3554,6 +3554,11 @@ void buildArrangementUI(audio::Sequencer& seq) {
             seq.audioClip(i).muted = muted;
         }
         ImGui::SameLine();
+        bool reverse = ac.reverse;
+        if (ImGui::Checkbox("rev##ac", &reverse)) {
+            seq.audioClip(i).reverse = reverse;
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Remove##ac")) {
             seq.removeAudioClip(i);
             ImGui::PopID();

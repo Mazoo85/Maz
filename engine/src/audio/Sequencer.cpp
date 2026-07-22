@@ -1176,6 +1176,8 @@ void Sequencer::triggerAudioClipsForBar(int bar) {
     for (AudioClip& a : audioClips_) {
         if (a.startBar == bar && !a.muted && a.sampler.loaded()) {
             // One-shot from frame 0; basePitch → natural rate, +pitch semitones resamples it up/down.
+            // reverse plays the sample backward (from its end) for reverse-swell effects.
+            a.sampler.setReverse(a.reverse);
             a.sampler.noteOn(a.sampler.basePitch() + a.pitch, 1.0f);
         }
     }

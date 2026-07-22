@@ -1002,6 +1002,37 @@ int main() {
             check(leadRms(true) == 0.0, "a muted audio clip is silent");
         }
 
+        // Per-clip reverse: a ramp sample (rising 0→1) plays back with rising energy forward, but a
+        // reversed clip reads it from the end so its energy falls — the first half is louder than the
+        // second. Proves the sample is actually played backward.
+        {
+            auto halfRms = [&](bool rev) {
+                std::vector<float> ramp(4800, 0.0f);
+                for (size_t i = 0; i < ramp.size(); ++i) {
+                    ramp[i] = static_cast<float>(i) / static_cast<float>(ramp.size()); // 0 → ~1
+                }
+                audio::Sequencer s;
+                const int c = s.addAudioClip(0, 0);
+                s.audioClip(c).reverse = rev;
+                s.audioClipSampler(c).setSampleMono(ramp, 48000);
+                s.setSongMode(true);
+                s.setSongUsesClips(true);
+                s.play();
+                const int fr = 4800; // the whole sample at natural rate
+                std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+                s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+                std::vector<float> firstHalf(l.begin(), l.begin() + static_cast<long>(l.size()) / 2);
+                std::vector<float> secondHalf(l.begin() + static_cast<long>(l.size()) / 2, l.end());
+                return std::pair<double, double>{rms(firstHalf), rms(secondHalf)};
+            };
+            const auto fwd = halfRms(false);
+            const auto rev = halfRms(true);
+            check(fwd.second > fwd.first, "a forward audio clip rises in energy (ramp 0→1)");
+            check(rev.first > rev.second, "a reversed audio clip plays the sample backward (energy falls)");
+        }
+
         // removeAudioClip / clearAudioClips manage the collection.
         {
             audio::Sequencer s;

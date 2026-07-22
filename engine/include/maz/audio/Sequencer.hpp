@@ -53,9 +53,10 @@ struct AudioClip {
     int track = 0;      // arrangement-track row this clip sits on
     float gain = 1.0f;  // per-clip gain
     int bus = 1;        // target bus (0=drums, 1=lead, 2=bass) it mixes into
-    int pitch = 0;      // playback pitch shift in semitones (±24; 0 = natural pitch)
-    bool muted = false; // when true the clip is skipped in playback (mirrors pattern-clip mute)
-    Sampler sampler{};  // holds the sample + plays it back
+    int pitch = 0;       // playback pitch shift in semitones (±24; 0 = natural pitch)
+    bool muted = false;  // when true the clip is skipped in playback (mirrors pattern-clip mute)
+    bool reverse = false;// play the sample backward (reverse cymbals/vocal swells)
+    Sampler sampler{};   // holds the sample + plays it back
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete

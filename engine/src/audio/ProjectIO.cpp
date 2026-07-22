@@ -520,7 +520,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     for (int i = 0; i < seq.audioClipCount(); ++i) {
         const AudioClip& ac = seq.audioClip(i);
         f << "audioclip " << ac.startBar << " " << ac.track << " " << ac.gain << " " << ac.bus << " "
-          << ac.pitch << " " << (ac.muted ? 1 : 0) << " " << ac.path << "\n";
+          << ac.pitch << " " << (ac.muted ? 1 : 0) << " " << (ac.reverse ? 1 : 0) << " " << ac.path
+          << "\n";
     }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
@@ -1280,14 +1281,16 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 }
             }
         } else if (tag == "audioclip") {
-            int bar = 0, trk = 0, bus = 1, pitch = 0, muted = 0;
+            int bar = 0, trk = 0, bus = 1, pitch = 0, muted = 0, reverse = 0;
             float gain = 1.0f;
             ls >> bar >> trk >> gain >> bus;
-            // pitch, then muted, were appended after the initial audioclip format. Each is read only when
-            // present: a line missing them has the path follow directly, so the extraction fails on the
-            // (non-numeric) path token — clear the failbit and keep the defaults so the path still reads.
-            if (ls >> pitch) {
-                ls >> muted; // may be absent on a pitch-only line; failure leaves muted 0
+            // pitch, then muted, then reverse were appended after the initial audioclip format. Each is
+            // read only when present: a line missing them has the path follow directly, so the extraction
+            // fails on the (non-numeric) path token — clear the failbit and keep the defaults so the path
+            // still reads. (A pure-integer leading path token in an old line is the only ambiguous case,
+            // which no real sample path hits.)
+            if (ls >> pitch && ls >> muted) {
+                ls >> reverse; // may be absent on a pitch+mute line; failure leaves reverse 0
             }
             ls.clear();
             std::string path;
@@ -1299,6 +1302,7 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             seq.setAudioClipBus(idx, bus);
             seq.setAudioClipPitch(idx, pitch);
             seq.audioClip(idx).muted = (muted != 0);
+            seq.audioClip(idx).reverse = (reverse != 0);
             if (!path.empty()) {
                 seq.loadAudioClip(idx, path); // fails gracefully if the file is missing
             }
