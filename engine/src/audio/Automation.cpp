@@ -6,27 +6,27 @@
 
 namespace maz::audio {
 
-float AutoLane::sourceUnipolar(double t) const {
-    if (clip.empty()) {
-        return lfo.valueUnipolar(t);
+float Automation::evalPoints(const std::vector<AutoPoint>& points, double t, double loopLen) {
+    if (points.empty()) {
+        return 0.0f;
     }
-    // Loop the clip time if a positive length is set, otherwise clamp/hold past the last point.
+    // Loop the time if a positive length is set, otherwise clamp/hold past the last point.
     double ct = t;
-    if (clipLength > 0.0) {
-        ct = t - clipLength * std::floor(t / clipLength);
+    if (loopLen > 0.0) {
+        ct = t - loopLen * std::floor(t / loopLen);
     }
     // Before the first point → hold the first value; after the last → hold the last value.
-    if (ct <= clip.front().time) {
-        return clip.front().value;
+    if (ct <= points.front().time) {
+        return points.front().value;
     }
-    if (ct >= clip.back().time) {
-        return clip.back().value;
+    if (ct >= points.back().time) {
+        return points.back().value;
     }
     // Find the segment [a, b) containing ct and interpolate linearly.
-    for (size_t i = 1; i < clip.size(); ++i) {
-        if (ct < clip[i].time) {
-            const AutoPoint& a = clip[i - 1];
-            const AutoPoint& b = clip[i];
+    for (size_t i = 1; i < points.size(); ++i) {
+        if (ct < points[i].time) {
+            const AutoPoint& a = points[i - 1];
+            const AutoPoint& b = points[i];
             const double span = b.time - a.time;
             float frac = span > 0.0 ? static_cast<float>((ct - a.time) / span) : 0.0f;
             // Curve tension on the segment's starting point warps the interpolation fraction while
@@ -39,7 +39,14 @@ float AutoLane::sourceUnipolar(double t) const {
             return a.value + (b.value - a.value) * frac;
         }
     }
-    return clip.back().value;
+    return points.back().value;
+}
+
+float AutoLane::sourceUnipolar(double t) const {
+    if (clip.empty()) {
+        return lfo.valueUnipolar(t);
+    }
+    return Automation::evalPoints(clip, t, clipLength);
 }
 
 Automation::Automation() {
@@ -309,7 +316,12 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
         }
         const float u = l.sourceUnipolar(timeSeconds);
         const float v = l.lo + u * (l.hi - l.lo);
-        switch (static_cast<AutoTarget>(i)) {
+        applyTargetValue(engine, static_cast<AutoTarget>(i), v);
+    }
+}
+
+void Automation::applyTargetValue(AudioEngine& engine, AutoTarget target, float v) {
+    switch (target) {
         case AutoTarget::FilterCutoff:
             engine.mixer().eq().setEnabled(true);
             engine.mixer().eq().setCutoff(v);
@@ -555,7 +567,6 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             break;
         case AutoTarget::Count:
             break;
-        }
     }
 }
 

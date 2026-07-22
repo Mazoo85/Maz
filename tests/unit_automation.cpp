@@ -162,6 +162,40 @@ int main() {
               "comp-threshold automation drives the master compressor threshold and enables it");
     }
 
+    // --- Reusable helpers: applyTargetValue + evalPoints --------------------
+    {
+        // applyTargetValue writes a value straight onto a target (the same mapping apply() uses),
+        // including auto-enabling the effect. This is the path timeline automation clips will use.
+        audio::AudioEngine eng;
+        eng.initOffline();
+        audio::Automation::applyTargetValue(eng, audio::AutoTarget::FilterCutoff, 3000.0f);
+        check(std::fabs(eng.mixer().eq().cutoff() - 3000.0f) < 1e-3f && eng.mixer().eq().enabled(),
+              "applyTargetValue drives a target directly and auto-enables its effect");
+        audio::Automation::applyTargetValue(eng, audio::AutoTarget::MasterTune, -40.0f);
+        check(std::fabs(eng.sequencer().masterTune() - (-40.0f)) < 1e-3f,
+              "applyTargetValue reaches a sequencer target too");
+
+        // evalPoints reproduces the drawn-clip interpolation used by AutoLane::sourceUnipolar: a two
+        // point 0→1 ramp reads its midpoint at 0.5, holds the endpoints, and (with a loop length) wraps.
+        const std::vector<audio::AutoPoint> ramp = {{0.0, 0.0f, 0.0f}, {1.0, 1.0f, 0.0f}};
+        check(std::fabs(audio::Automation::evalPoints(ramp, 0.0, 0.0) - 0.0f) < 1e-6f,
+              "evalPoints holds the first point at t=0");
+        check(std::fabs(audio::Automation::evalPoints(ramp, 0.5, 0.0) - 0.5f) < 1e-6f,
+              "evalPoints interpolates the ramp midpoint");
+        check(std::fabs(audio::Automation::evalPoints(ramp, 2.0, 0.0) - 1.0f) < 1e-6f,
+              "evalPoints holds the last point past the end when not looping");
+        check(std::fabs(audio::Automation::evalPoints(ramp, 1.5, 1.0) - 0.5f) < 1e-6f,
+              "evalPoints loops with a positive loop length (1.5 → 0.5)");
+        check(audio::Automation::evalPoints({}, 0.5, 0.0) == 0.0f, "evalPoints returns 0 for no points");
+        // Parity with the lane path: a lane holding the same clip evaluates identically.
+        audio::AutoLane clipLane;
+        clipLane.clip = ramp;
+        clipLane.clipLength = 0.0;
+        check(std::fabs(clipLane.sourceUnipolar(0.5) - audio::Automation::evalPoints(ramp, 0.5, 0.0)) <
+                  1e-6f,
+              "sourceUnipolar and evalPoints agree on a drawn clip");
+    }
+
     // --- LFO phase offset ----------------------------------------------------
     {
         // A quarter-cycle phase offset shifts a sine LFO to its peak at t=0 (sin of a quarter turn),

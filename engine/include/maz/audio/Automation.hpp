@@ -123,6 +123,16 @@ public:
     // (> 0) lets tempo-synced lanes lock their LFO rate to the transport.
     void apply(AudioEngine& engine, double timeSeconds, double bpm = 0.0);
 
+    // Write one already-remapped value `v` onto `target`'s engine parameter (the same mapping `apply`
+    // uses per lane). Exposed so other value sources — e.g. timeline automation clips on the 2-D
+    // playlist — can drive any target through the identical code path (auto-enabling effects, etc.).
+    static void applyTargetValue(AudioEngine& engine, AutoTarget target, float v);
+
+    // Evaluate a drawn breakpoint envelope (unipolar [0,1]) at time `t`. `loopLen > 0` loops the
+    // envelope with that period; otherwise the endpoints are held. Shared by AutoLane::sourceUnipolar
+    // and timeline automation clips so both interpolate/tension identically. Empty points → 0.
+    static float evalPoints(const std::vector<AutoPoint>& points, double t, double loopLen);
+
 private:
     std::array<AutoLane, static_cast<size_t>(AutoTarget::Count)> lanes_{};
 };
