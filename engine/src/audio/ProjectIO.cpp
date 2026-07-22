@@ -537,6 +537,17 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         const ArrangementMarker& mk = seq.marker(i);
         f << "marker " << mk.bar << " " << mk.name << "\n";
     }
+    // Timeline automation clips: fixed numeric fields, then the breakpoint list last (count N, then
+    // N (time value tension) triples) — all whitespace-delimited numerics, so no getline needed.
+    for (int i = 0; i < seq.automationClipCount(); ++i) {
+        const AutomationClip& ac = seq.automationClip(i);
+        f << "automationclip " << ac.target << " " << ac.startBar << " " << ac.track << " " << ac.bars
+          << " " << ac.lo << " " << ac.hi << " " << (ac.muted ? 1 : 0) << " " << ac.points.size();
+        for (const AutoPoint& p : ac.points) {
+            f << " " << p.time << " " << p.value << " " << p.tension;
+        }
+        f << "\n";
+    }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
@@ -1341,6 +1352,29 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             const size_t nb = name.find_first_not_of(' ');
             name = (nb == std::string::npos) ? std::string() : name.substr(nb);
             seq.addMarker(bar, name);
+        } else if (tag == "automationclip") {
+            int target = 0, startBar = 0, track = 0, bars = 1, muted = 0, n = 0;
+            float lo = 0.0f, hi = 1.0f;
+            ls >> target >> startBar >> track >> bars >> lo >> hi >> muted >> n;
+            // Clamp the target index into the valid range so a project from a build with more targets
+            // still loads (the clip just retargets rather than crashing).
+            if (target < 0 || target >= Automation::count()) {
+                target = 0;
+            }
+            const int idx = seq.addAutomationClip(target, startBar, bars);
+            AutomationClip& ac = seq.automationClip(idx);
+            ac.track = track < 0 ? 0 : track;
+            ac.lo = lo;
+            ac.hi = hi;
+            ac.muted = (muted != 0);
+            for (int k = 0; k < n; ++k) {
+                double t = 0.0;
+                float v = 0.0f, tens = 0.0f;
+                if (!(ls >> t >> v >> tens)) {
+                    break; // truncated line → keep what parsed
+                }
+                ac.points.push_back(AutoPoint{t, v, tens});
+            }
         } else if (tag == "step") {
             int p = 0;
             int c = 0;
