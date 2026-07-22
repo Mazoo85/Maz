@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Polyline simplification (Ramer–Douglas–Peucker)** (`math::simplifyPolyline`, `SimplifyPolyline.hpp`)
+  — DONE (M735); throw away the points that don't matter. Given a chain of points — a hand-drawn stroke, a
+  GPS/replay track, a traced outline, a pathfinding result — it returns a shorter chain that stays within a
+  chosen tolerance everywhere, keeping only the vertices that carry the shape. Keep the two ends, find the
+  point farthest from the line between them, keep it if it's farther than epsilon, recurse on the halves;
+  everything closer than epsilon is dropped. The engine already has Chaikin *smoothing* — this is the
+  opposite operation, decimation. Godot ships no line simplifier (Geometry2D has none). [VERIFIABLE HERE]
+  The core guarantee — every original point lies within epsilon of the simplified polyline — is checked with
+  an independent point-to-polyline distance over thousands of random polylines and tolerances, plus the
+  retained points form an in-order subsequence of the input (no invented vertices), endpoints are always
+  kept, a larger epsilon never keeps more points (monotonicity), a straight run collapses to its ends, and
+  degenerate 0/1/2-point inputs pass through.
 - [x] **Convex penetration depth (EPA companion to GJK)** (`math::epaPenetration`, `Epa.hpp`) — DONE (M734);
   the other half of convex-vs-convex collision. `GjkDistance.hpp` answers "how far APART are two convex
   shapes?"; this answers "when they OVERLAP, how deep, and which way do I push to separate?" — returning the
