@@ -2511,3 +2511,8 @@ add_executable(maz_simplifypolyline_tests math/simplifypolyline.cpp)
 target_link_libraries(maz_simplifypolyline_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME simplify_polyline COMMAND maz_simplifypolyline_tests)
 set_tests_properties(simplify_polyline PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polardecompose_tests math/polardecompose.cpp)
+target_link_libraries(maz_polardecompose_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polar_decompose COMMAND maz_polardecompose_tests)
+set_tests_properties(polar_decompose PROPERTIES TIMEOUT 30)

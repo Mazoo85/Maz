@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Polar decomposition — extract the rotation** (`math::polarDecompose`/`extractRotation`,
+  `PolarDecompose.hpp`) — DONE (M736); split a 3x3 transform into a pure rotation times a symmetric stretch,
+  M = R*S. A matrix that has picked up non-uniform scale, shear, or numerical drift — a blended skinning
+  matrix, an interpolated bone transform, a deformed simulation element — can be cleaned back to its nearest
+  rotation R. It's the heart of co-rotational / shape-matching deformation (Müller et al.), of
+  orthonormalizing a drifted basis, and of recovering a stable orientation from a squished transform.
+  Computed by Higham's quadratically-convergent iteration. Godot's `Basis.orthonormalize()` is Gram–Schmidt
+  (axis-order dependent, not the closest rotation); this is the true polar factor. [VERIFIABLE HERE] Strong
+  analytic oracle — build M = R_true * S_sym from a KNOWN rotation and known symmetric positive-definite
+  matrix, decompose, and recover both exactly — plus invariants over thousands of random inputs (R
+  orthonormal with det +1, S symmetric, R*S reconstructs M), a pure-rotation identity case, and
+  singular-matrix failure reporting.
 - [x] **Polyline simplification (Ramer–Douglas–Peucker)** (`math::simplifyPolyline`, `SimplifyPolyline.hpp`)
   — DONE (M735); throw away the points that don't matter. Given a chain of points — a hand-drawn stroke, a
   GPS/replay track, a traced outline, a pathfinding result — it returns a shorter chain that stays within a
