@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Solidify / shell** (`render::solidifyMesh` → `SolidifyResult`) — DONE (M579); give a paper-thin surface
+  real THICKNESS — take a one-sided sheet (a plane, a curved patch, a wall built from a single quad, an imported
+  single-sided mesh, a heightmap skirt) and turn it into a CLOSED solid slab with a front face, a back face, and a
+  rim sealing the two along the open edges. This is Blender's "Solidify" modifier and the standard fix for
+  surfaces that vanish edge-on or leak light because they have no back. The back face is the front pushed inward
+  along each vertex's smooth normal by `thickness` and wound the opposite way; the rim bridges every boundary
+  (open) edge, so the result is watertight whenever the input was a clean manifold-with-boundary. Reuses the
+  engine's area-weighted `computeNormals`. Verified (`ctest -R mesh_solidify`): a unit quad thickens to 8 vertices
+  and 12 triangles (2 front + 2 back + 8 rim from its 4 boundary edges) that form a watertight solid (every edge
+  used exactly twice); the back layer sits at z=−thickness with a flipped normal; a negative thickness offsets the
+  other way and stays watertight; a CLOSED tetrahedron gets a second inner shell with no rim (`hadBoundary=false`);
+  empty is safe. Honest scope: this is the fast "simple" offset (each vertex straight along its smooth normal) —
+  on a very sharp concave crease the inner offsets can cross and self-intersect (Blender's "complex" mode avoids
+  this); the rim reuses the front/back vertices so rim shading is smooth (run facet/`computeNormals` after for
+  crisp rim edges). [VERIFIABLE HERE]
 - [x] **Explode faces** (`render::explodeFaces`, `render::explodeFacesRadial`) — DONE (M578); pull a mesh's
   triangles APART so the surface blooms open like an exploded-view diagram. `explodeFaces` unwelds every triangle
   (each gets its own three corners carrying that triangle's flat face normal) and pushes it OUTWARD along its own
