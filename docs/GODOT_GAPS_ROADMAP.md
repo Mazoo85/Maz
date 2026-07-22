@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh statistics report** (`render::analyzeMesh`, `MeshStats`) — DONE (M554); the at-a-glance
+  size-and-scale report an editor's mesh-info panel or an import log shows: the axis-aligned BOUNDING BOX
+  (min/max/size/centre), the area-weighted CENTROID (the shell's balance point), the total SURFACE AREA, and the
+  edge-length distribution (shortest/longest/mean — a quick read on tessellation uniformity and whether the mesh
+  is scaled sanely). It answers "how big is this, where is it centred, how dense is it" before you place, scale,
+  texture (texel density needs area), or LOD a mesh. Distinct from TriangleQuality (M537, per-triangle SHAPE) and
+  MeshMassProperties (M532, the SOLID's volume/inertia) — this is the SURFACE's extent and area. Verified
+  (`ctest -R mesh_stats`): a unit cube reports V/F/E = 8/12/18, bounds [0,1]³, size 1×1×1, surface area exactly
+  6, centroid at (0.5,0.5,0.5), shortest edge 1 and longest √2 with the mean matching the 12×1 + 6×√2 mix; a cube
+  translated to corner 2 with edge 3 shifts bounds to [2,5], centroid to 3.5, and area to 54 (6·3²); a right
+  triangle reports area 0.5, centroid (⅓,⅓), edges 1/1/√2; empty safe. Honest scope: the centroid is
+  area-weighted over the shell (not the vertex average, not the solid's centre of mass); edges counted once;
+  overlapping triangles count their area twice (accurate to the triangles present). [VERIFIABLE HERE]
 - [x] **Vertex-color ambient-occlusion bake** (`render::bakeAoToVertexColor`) — DONE (M553); darken each vertex's
   stored RGB by how OCCLUDED it is, so the mesh carries its own soft contact shadows with no texture, no
   lightmap, and no runtime lighting. AO is the free ambient shadowing of nooks and crevices — under a ledge,
