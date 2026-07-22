@@ -180,6 +180,25 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Cavity (curvature) vertex-color bake** (`render::computeCavity`, `render::bakeCavityToVertexColor`) —
+  DONE (M556); write a mesh's own SHAPE into its vertex colours so CREVICES, GROOVES, and concave folds go DARK
+  while RIDGES, sharp edges, and convex bulges go LIGHT — the "cavity map" sculpting tools (ZBrush/Blender/
+  Substance) overlay to make carved detail, panel-line grime, and worn edges read at a glance. Here it's baked
+  straight into per-vertex RGB with NO texture and NO ray-tracing, so any flat-lit or unlit renderer shows the
+  form for free. The signal is a signed first-ring curvature: the vector from each vertex to the CENTROID of its
+  edge-neighbours, projected onto the (internally recomputed, area-weighted) surface normal and scaled by local
+  edge length — neighbours further out along the normal mean the vertex is recessed → concave → positive;
+  neighbours pulled inward mean it juts out → convex → negative; flat gives ~0. Complements the M553 ambient-
+  occlusion bake (which shoots rays to measure how BOXED-IN a point is) by capturing purely LOCAL fold detail far
+  more cheaply and sharpening creases AO misses, and the M539 curvature estimator (which returns unsigned |H|
+  magnitude, no dark/light sign). Verified (`ctest -R mesh_vertex_color_cavity`): a smooth UV sphere reads
+  uniformly CONVEX (negative mean, max−min spread < 0.15); a V-shaped valley reads CONCAVE (positive) along its
+  crease and more concave than the flat flank; an inverted roof reads CONVEX (negative) along its ridge; a flat
+  grid reads ~0 everywhere; the colour bake darkens the concave crease below a bright flat flank and lightens a
+  convex ridge on a grey base, with every channel clamped to [0,1]; empty meshes are safe. Honest scope: a fast
+  first-ring DISCRETE proxy (not exact mean curvature) — detail finer than the tessellation is invisible; open
+  boundary vertices see a lopsided neighbourhood and read less reliably; the raw signal is unbounded (the colour
+  path clamps via a contrast knob). [VERIFIABLE HERE]
 - [x] **Area-weighted surface point sampler** (`render::sampleSurfacePoints`, `SurfacePoint`) — DONE (M555);
   scatter N points UNIFORMLY over a mesh's surface so every unit of area is equally likely — a triangle twice as
   big gets twice the points. This is the seed for scattering grass, rocks, foliage, or debris across terrain and
