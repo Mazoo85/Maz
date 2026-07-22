@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **UV-seam edge detection** (`render::detectUvSeams`, `UvSeamResult`) — DONE (M550); find the edges where a
+  mesh's texture coordinates are DISCONTINUOUS — the two triangles meeting along a 3D edge disagree on the UV of
+  the shared corners, so the texture is cut there. Those cuts are the seams of a UV unwrap, the boundaries of the
+  flat "islands" a model is unfolded into (a cube unwrapped as a cross is seamed along most of its rim). Knowing
+  them drives lightmap / texture-atlas SEAM DILATION (bleed colour a few texels past a seam so bilinear filtering
+  doesn't sample the gap), seam-hiding and seam-aware smoothing, and "select seams" in a UV editor. Detection
+  welds vertices by POSITION so the same physical edge from two UV islands is recognised as one edge, then
+  compares the UVs the two faces assign at each endpoint; boundary (island-rim) and non-manifold edges are
+  counted separately. Verified (`ctest -R mesh_uv_seams`): a cube whose six faces are separate UV islands reports
+  a seam along all twelve rim edges but none along the six in-face diagonals (18 interior edges, 12 seams, 0
+  boundary); a continuous shared-UV grid has zero seams; splitting a strip's UVs down its middle column yields
+  exactly one seam, lying on that column; empty safe. Honest scope: compares the mesh's stored per-vertex UVs
+  (a mesh that already welds UV-identical corners correctly reports no seam there); position weld is
+  grid-quantised. [VERIFIABLE HERE]
 - [x] **Flat-shading facet split** (`render::facetMesh`) — DONE (M549); rebuild a mesh so every triangle owns
   its three OWN vertices, each carrying that triangle's FACE normal. With no vertex shared between faces the
   lighting can't blend across an edge, so the surface renders faceted — every triangle a crisp flat plane. This
