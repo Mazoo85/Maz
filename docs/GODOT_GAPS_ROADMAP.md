@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Bend deformer** (`render::bendMesh`) — DONE (M584); curl a straight mesh around an arc — a plank becomes
+  an archway, a straight pipe becomes an elbow, a flat strip becomes a curled ribbon or barrel stave. This is
+  Blender's "Simple Deform → Bend" and the third classic deformer alongside twist (M581) and taper (M582),
+  completing the trio. You pick the `alongAxis` the bar extends down and the `upAxis` it curls toward (the third
+  axis rides through unchanged); a vertex's coordinate along the bar becomes an ANGLE (θ = alongCoord / radius)
+  swept around a bend centre sitting `radius` up the up-axis, and its up-coordinate becomes how far it sits from
+  that centre. Verified (`ctest -R mesh_bend`): with radius 2, the hinge column (along=0) stays put; a point at
+  along=π sweeps a quarter turn and lands exactly at (R,R); every vertex's distance from the bend centre equals
+  radius−up (neutral vertices at R, an up=0.5 vertex at R−0.5); the swept position matches sin/cos of along/radius
+  to 1e−4; the third axis is untouched; a near-zero radius is a safe no-op; empty is safe. Honest scope: positions
+  are exact; normals get their (along,up) components rotated by the local arc angle (right for the rotation, but
+  ignoring the slight curl-scale — re-run `computeNormals` for a tight bend). The arc's smoothness is limited by
+  how many segments the bar has along its length (a 2-segment bar bends into a single kink; subdivide first); a
+  smaller `radius` curls tighter (a full circle closes at length 2·π·radius); `radius` may be negative to bend the
+  other way; the bar should straddle along=0 for a symmetric bend. [VERIFIABLE HERE]
 - [x] **Spherify / cast-to-sphere** (`render::spherifyMesh`) — DONE (M583); inflate a mesh toward a perfect sphere
   — each vertex is pulled from where it is toward the point on a sphere of `radius` (about `centre`) along its own
   direction from the centre, blended by `t` (0 = unchanged, 1 = exactly on the sphere, in between rounds out
