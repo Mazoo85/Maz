@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Swept sphere vs plane (continuous collision)** (`math::sweepSpherePlane`, `SweptSphere.hpp`) —
+  DONE (M672); the time-of-impact of a MOVING sphere against a plane — the CCD primitive behind fast
+  ball physics and projectile-vs-surface. [VERIFIABLE HERE] Discrete collision (test where the sphere
+  lands each frame) tunnels through walls when the sphere moves faster than its own radius per step;
+  continuous collision solves for the exact fraction t of the step at first contact so you can advance to
+  the touch and respond. This adds the analytic 3D sphere-vs-plane sweep (Ericson) — first-contact
+  fraction in [0,1], contact point, and t=0 when already overlapping — complementing the engine's 2D
+  swept circle (`ShapeCast2D`) and conservative sphere cast. Verified (`ctest -R swept_sphere`): a sphere
+  falling from y=5 (r=1) hits the ground at t=(5−1)/10=0.4 with the contact point on the plane; an
+  already-overlapping sphere reports t=0; a sphere moving away, one too slow to reach the plane this step
+  (t>1), and one moving parallel all report no hit; approach from the other side works symmetrically;
+  and an offset floor (y=2) gives t=(6−1)/10=0.5 with the contact at y=2. The exact moving-sphere-vs-plane
+  TOI the CCD path needs.
 - [x] **Optics — refraction (Snell) + Fresnel** (`math::refract`, `isTotalInternalReflection`,
   `fresnelF0`, `fresnelSchlick`, `Optics.hpp`) — DONE (M671); the light-bending math for water, glass,
   gems, and PBR, completing the `reflect` (mirror) half the engine already had with the transmission
