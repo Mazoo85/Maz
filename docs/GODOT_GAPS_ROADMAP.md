@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Per-vertex ambient occlusion bake** (`render::bakeVertexAO`) — DONE (M533); the offline "bake AO into
+  the mesh" step that darkens crevices, contact points, and interiors so a scene reads with depth even under
+  flat ambient light — Godot's LightmapGI / classic vertex-bake idea, stored per vertex. For each vertex it
+  shoots a deterministic golden-angle fan of rays over the hemisphere around its (area-weighted) normal and
+  measures the fraction blocked by the mesh's own triangles within a distance (Möller–Trumbore ray/triangle):
+  fully open → 0, deep in a cavity → toward 1. No RNG, so the bake is deterministic. Verified
+  (`ctest -R mesh_ambient_occlusion`): a bare flat floor bakes to ~0 everywhere, adding a pillar makes the
+  floor vertex beside its base markedly more occluded (>0.1 higher) than a far-open vertex which stays ~0,
+  values stay in [0,1], and repeated bakes are identical. Brute force O(verts·rays·tris) — fine for offline
+  prop/level bakes; a game::Bvh acceleration and multi-bounce colour bleed are the documented follow-ups.
+  [VERIFIABLE HERE]
 - [x] **Mesh mass properties** (`render::computeMassProperties`, `MassProperties`) — DONE (M532); compute the
   VOLUME, CENTER OF MASS, and full INERTIA TENSOR of the solid bounded by a closed triangle mesh, assuming
   uniform density — what a physics engine needs to make a custom (non-primitive) collider spin correctly.
