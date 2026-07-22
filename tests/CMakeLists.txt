@@ -377,6 +377,11 @@ target_link_libraries(maz_meshwatertight_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_watertight COMMAND maz_meshwatertight_tests)
 set_tests_properties(mesh_watertight PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshholefill_tests render/meshholefill.cpp)
+target_link_libraries(maz_meshholefill_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_hole_fill COMMAND maz_meshholefill_tests)
+set_tests_properties(mesh_hole_fill PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

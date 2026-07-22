@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Hole fill / cap** (`render::fillHoles`, `HoleFillResult`) — DONE (M567); seal the open holes a mesh has,
+  turning a leaky surface into a watertight solid. Where M566 REPORTS holes, this PATCHES them: for each open
+  boundary loop it adds a centre vertex at the hole's average position and fans triangles from that centre to the
+  rim, closing the gap — the "fill holes / make watertight" repair 3D-print prep, scan cleanup, and boolean/CSG
+  post-processing all run so the mesh passes solid checks (volume, mass, inside/outside, printing). The rim comes
+  from the M536 boundary-loop walk, whose ordering follows the existing faces' winding, so each cap triangle is
+  wound to MATCH its neighbours (no flipped patch — confirmed against M562). A `maxEdges` limit fills only small
+  holes (pinholes, cut faces) while leaving big openings (a deliberately open cup mouth) untouched. Verified
+  (`ctest -R mesh_hole_fill`): a cube with one face removed starts non-watertight, and filling adds a 4-triangle
+  centre fan that seals it back to watertight with zero holes and a winding consistent with the rest of the cube;
+  two removed faces fill to two caps (8 triangles) and reseal; `maxEdges=3` leaves the 4-edge hole open so the
+  mesh stays unsealed; an already-closed cube is returned unchanged; empty meshes are safe. Honest scope: a simple
+  centre-fan cap — ideal for small, roughly-flat or convex holes; a large or highly non-planar hole gets a valid
+  but crude flat-ish patch (feed it to M540/M564 smoothing or a remesh for a nicer surface); the centre vertex
+  copies the rim's average colour and leaves its normal zero for a downstream computeNormals pass; non-manifold
+  edges are not repaired (a distinct problem). [VERIFIABLE HERE]
 - [x] **Watertightness / hole report** (`render::analyzeWatertight`, `WatertightReport`, `MeshHole`) — DONE
   (M566); is the mesh SEALED, or does it have gaps? A watertight (closed) surface has no open edges and no edge
   shared by three-plus faces — what 3D printing, boolean/CSG, solid physics, volume/mass, and inside/outside tests
