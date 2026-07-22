@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **MessagePack binary serialization** (`io::MsgValue` / `io::msgpackEncode` / `io::msgpackDecode`,
+  `MessagePack.hpp`) — DONE (M715); the MessagePack standard (msgpack.org): a compact, self-describing binary
+  format that is "JSON in bytes". [VERIFIABLE HERE] The engine already had JSON (verbose, human-editable) and
+  its own tag-free binary Serialize (tiny, but both ends must agree on the exact layout up front); MessagePack
+  is the missing middle — small and fast like binary yet SELF-DESCRIBING like JSON, so a decoder recovers the
+  full nil/bool/int/float/string/bytes/array/map structure with no schema, and it interoperates with the
+  MessagePack libraries that ship for essentially every language (ideal for network messages, replays, and
+  cross-version save files). The encoder is CANONICAL — every value takes its smallest legal representation —
+  so its output is byte-for-byte the published spec, which is exactly what the ctest pins: it asserts the
+  spec byte vectors for fixint / uint8 / uint16 / negative-fixint / int8 / float64 / fixstr / fixarray /
+  fixmap / nil / bool / bin8, decodes those bytes back, round-trips a nested mixed document, runs a
+  5,000-trial randomized encode→decode identity fuzz, rejects truncated / trailing-garbage / reserved-byte
+  streams, and pins the by-spec canonicalization that a non-negative Int decodes back as UInt. Godot offers
+  only JSON + its own var_to_bytes; this is the portable standard. Header-only, std-only, deterministic.
+  ctest `message_pack`.
 - [x] **Aho-Corasick multi-pattern text matching** (`core::AhoCorasick`, `AhoCorasick.hpp`) — DONE (M714);
   finds EVERY occurrence of MANY search strings in a text in a SINGLE pass, in O(text + matches) no matter
   how many patterns there are. [VERIFIABLE HERE] The naive way — loop each of k patterns and scan the whole

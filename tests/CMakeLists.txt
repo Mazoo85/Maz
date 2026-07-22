@@ -2406,3 +2406,8 @@ add_executable(maz_ahocorasick_tests core/ahocorasick.cpp)
 target_link_libraries(maz_ahocorasick_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME aho_corasick COMMAND maz_ahocorasick_tests)
 set_tests_properties(aho_corasick PROPERTIES TIMEOUT 30)
+
+add_executable(maz_messagepack_tests io/messagepack.cpp)
+target_link_libraries(maz_messagepack_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME message_pack COMMAND maz_messagepack_tests)
+set_tests_properties(message_pack PROPERTIES TIMEOUT 30)
