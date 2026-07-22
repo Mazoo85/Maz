@@ -682,6 +682,11 @@ target_link_libraries(maz_colorharmony_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME color_harmony COMMAND maz_colorharmony_tests)
 set_tests_properties(color_harmony PROPERTIES TIMEOUT 30)
 
+add_executable(maz_cubicbezier_tests anim/cubicbezier.cpp)
+target_link_libraries(maz_cubicbezier_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cubic_bezier COMMAND maz_cubicbezier_tests)
+set_tests_properties(cubic_bezier PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

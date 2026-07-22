@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **CSS-style cubic-bezier easing** (`anim::CubicBezierEasing` + `easeCurve`/`easeInCurve`/`easeOutCurve`/
+  `easeInOutCurve`) — DONE (M629); arbitrary motion curves defined exactly like CSS `cubic-bezier(x1,y1,x2,y2)` and
+  the browser ease presets, so a designer can dial in ANY curve by placing the two control handles rather than
+  choosing from the engine's fixed named-easing menu. Endpoints fixed at (0,0)→(1,1); evaluate the eased y at
+  progress t via the standard Newton–Raphson-then-bisection x-root solve (WebKit's UnitBezier). Verified (`ctest -R
+  "^cubic_bezier$"`): f(0)=0/f(1)=1 with input clamped; diagonal handles give the identity y=x; ease-in sits below
+  the diagonal at t=0.5 (slow start) while ease-out sits above (fast start) and ease-in-out is symmetric; ease-out
+  is the exact mirror of ease-in (easeOut(t)==1−easeIn(1−t)); all presets are monotonic non-decreasing; a custom
+  springy curve honours its endpoints and stays sampled in range. Honest scope: x-handles clamped to [0,1] for a
+  well-defined function; y unclamped so springy curves can intentionally overshoot (as in CSS). [VERIFIABLE HERE]
 - [x] **Music theory: scales & chords** (`audio::scaleNotes` / `chordNotes` / `scaleIntervals` / `chordIntervals`)
   — DONE (M627); build the note sets procedural music needs from a root MIDI note: scales (major, all seven modes,
   harmonic/melodic minor, major/minor pentatonic, blues, whole-tone, chromatic) and chords (triads, sevenths, sus,
