@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Twist deformer** (`render::twistMesh`) — DONE (M581); spiral a mesh around an axis — the further a vertex
+  sits along the axis, the more it is rotated about it, so a straight bar becomes a corkscrew, a blade gains a
+  spiral flute, a tower gets a helical sweep. This is Blender's "Simple Deform → Twist" and the classic way to add
+  a wound / barley-sugar look to straight geometry without hand-modelling every ring. The angle at a vertex is
+  `radiansPerUnit × (its distance along the axis from centre)`, applied in the plane perpendicular to the axis
+  about the axis line through `centre`; both position AND the normal's perpendicular components rotate so lighting
+  follows the twist. axis 0=X/1=Y/2=Z; `radiansPerUnit` may be negative to wind the other way. Verified
+  (`ctest -R mesh_twist`): on a vertical bar twisted π/8 per unit, the bottom ring (distance 0) does not move; the
+  top corner (1,4,1) turns a full 90° to (1,4,−1) with its height preserved; every vertex keeps its height along
+  the axis AND its radius from the axis (a rigid per-ring rotation, no stretching); zero twist is the identity; a
+  negative twist winds the opposite way; empty is safe. Honest scope: a rigid rotation per cross-section — it
+  preserves height-along-axis and radius-from-axis exactly, so a cylinder stays the same radius as it winds. The
+  spiral's smoothness is limited by how many rings the mesh has along the axis (a 2-ring bar just shears into a
+  parallelogram twist; subdivide along the axis first for a smooth helix). [VERIFIABLE HERE]
 - [x] **Displace / roughen** (`render::displaceMesh` → `DisplaceResult`) — DONE (M580); push each vertex along its
   smooth normal by a procedural NOISE amount, so a too-perfect surface gains organic bumpiness: a flat plane
   becomes rough ground, a smooth sphere becomes a lumpy rock/asteroid, a cylinder becomes a gnarled trunk. This is
