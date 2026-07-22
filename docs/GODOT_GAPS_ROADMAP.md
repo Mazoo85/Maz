@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Rotation-minimizing frames along a curve** (`math::rotationMinimizingFrames`/`advanceRMF`,
+  `RotationMinimizingFrame.hpp`) — DONE (M689); a stable orthonormal frame (tangent + two perpendicular
+  axes) at every point of a path, for extruding tube/ribbon meshes, sweeping cross-sections, orienting a
+  camera down a spline, or placing rungs on a twisting ladder. [VERIFIABLE HERE] The textbook Frenet frame
+  is unusable — undefined on straight sections and FLIPPING 180° at inflection points, so a tube built on
+  it kinks and turns inside-out. An RMF instead carries the previous frame forward with the LEAST twist
+  about the tangent (Wang et al. 2008 double-reflection method: two reflections transport the reference
+  axis sample to sample). Complements the engine's splines (Bézier/Catmull-Rom/B-spline/TCB), which give
+  the path; this gives its orientation. Verified (`ctest -R rotation_minimizing_frame`): every frame is
+  orthonormal and right-handed; along a straight line the reference axis never rotates; on a planar curve
+  the out-of-plane axis carries through without twist; and on a 3D helix and an S-curve through an
+  inflection the frame stays continuous (no Frenet flip between samples). Pure vec3 math, header-only.
 - [x] **2D wave / ripple simulation** (`game::WaveField2D`, `WaveField2D.hpp`) — DONE (M688); the "water
   surface" effect on a grid — drop a stone and rings spread out, reflect off the edges, cross each other,
   and fade. [VERIFIABLE HERE] The classic two-buffer wave step (Hugo Elias' water algorithm, a
