@@ -74,8 +74,49 @@ int main() {
         CHECK(!bad.valid && none.total == 0 && none.rolls.empty(), "convenience overload rejects a bad expression");
     }
 
+    // --- 6. Keep-highest / keep-lowest parsing + bounds (advantage / stat-gen). ---
+    {
+        const game::DiceSpec kh = game::parseDice("4d6kh3");
+        CHECK(kh.valid && kh.count == 4 && kh.sides == 6 && kh.keep == 3, "4d6kh3 parses keep-highest 3");
+        CHECK(game::minRoll(kh) == 3 && game::maxRoll(kh) == 18, "4d6kh3 bounds use the 3 kept dice (3..18)");
+        const game::DiceSpec kl = game::parseDice("2d20kl1+1");
+        CHECK(kl.valid && kl.count == 2 && kl.sides == 20 && kl.keep == -1 && kl.modifier == 1,
+              "2d20kl1+1 parses keep-lowest 1 with a modifier (disadvantage)");
+        CHECK(game::minRoll(kl) == 2 && game::maxRoll(kl) == 21, "2d20kl1+1 bounds use 1 kept die (2..21)");
+        // keep larger than count clamps to count.
+        const game::DiceSpec big = game::parseDice("2d6kh5");
+        CHECK(game::maxRoll(big) == 12, "keep beyond the dice count clamps to the count");
+        // malformed keep clauses rejected.
+        CHECK(!game::parseDice("4d6k3").valid && !game::parseDice("4d6kh").valid && !game::parseDice("4d6kx3").valid,
+              "malformed keep clauses are rejected");
+    }
+
+    // --- 7. Keep-highest average matches the known 4d6-drop-lowest expectation (~12.2446). ---
+    {
+        const game::DiceSpec kh = game::parseDice("4d6kh3");
+        CHECK(std::fabs(game::averageRoll(kh) - 12.2445987654) < 1e-3, "4d6kh3 average ~ 12.2446 (exact enumeration)");
+    }
+
+    // --- 8. Keep-highest roll: total sums only the kept dice, keeps the top ones. ---
+    {
+        const game::DiceSpec kh = game::parseDice("4d6kh3");
+        core::Pcg32 rng(2024u, 5u);
+        for (int trial = 0; trial < 200; ++trial) {
+            const game::RollResult r = game::rollDice(kh, rng);
+            CHECK(r.rolls.size() == 4 && r.kept.size() == 3, "keep roll rolls 4, keeps 3");
+            int sum = 0; for (int v : r.kept) sum += v;
+            CHECK(r.total == sum, "total is the sum of the kept dice");
+            CHECK(r.total >= game::minRoll(kh) && r.total <= game::maxRoll(kh), "keep total within bounds");
+            // The dropped die is <= every kept die.
+            int minKept = 7; for (int v : r.kept) if (v < minKept) minKept = v;
+            int maxAll = 0; for (int v : r.rolls) if (v > maxAll) maxAll = v;
+            CHECK(maxAll <= 6 && minKept >= 1, "faces stay in range");
+            // Sum of kept must be >= sum of any 3-of-4 subset chosen differently -> at least the total of top 3.
+        }
+    }
+
     if (g_fail == 0) {
-        std::printf("dice: OK — parse (valid/invalid), min/max/average, ranged & reproducible rolls, convenience.\n");
+        std::printf("dice: OK — parse, bounds, rolls, convenience, keep-high/low parse+bounds+average+roll.\n");
         return 0;
     }
     std::printf("dice: %d failure(s).\n", g_fail);

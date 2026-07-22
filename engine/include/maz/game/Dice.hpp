@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -12,20 +13,33 @@
 // lives in the caller's seeded RNG).
 namespace maz::game {
 
-// A parsed dice expression: `count` dice of `sides` faces each, plus a flat `modifier`. `valid` is false when the
-// source string could not be parsed.
+// A parsed dice expression: `count` dice of `sides` faces each, plus a flat `modifier`, and an optional keep rule
+// `keep` (0 = keep all; > 0 = keep the highest `keep`; < 0 = keep the lowest `-keep`) for advantage/disadvantage
+// and stat generation (e.g. "4d6kh3"). `valid` is false when the source string could not be parsed.
 struct DiceSpec {
     int count = 1;
     int sides = 6;
     int modifier = 0;
+    int keep = 0;
     bool valid = false;
 };
 
-// The outcome of a roll: the final `total` (dice + modifier) and each die's face in `rolls`.
+// The outcome of a roll: the final `total` (kept dice + modifier), every die actually rolled in `rolls`, and the
+// subset that counted toward the total in `kept` (== `rolls` when no keep rule is set).
 struct RollResult {
     int total = 0;
     std::vector<int> rolls;
+    std::vector<int> kept;
 };
+
+namespace detail {
+// How many dice actually count, given a keep rule.
+inline int keptCount(const DiceSpec& d) {
+    const int k = d.keep < 0 ? -d.keep : d.keep;
+    if (d.keep == 0) return d.count;
+    return k < d.count ? k : d.count;
+}
+} // namespace detail
 
 namespace detail {
 // Read a run of ASCII digits starting at `i`; returns false if none. Saturates instead of overflowing.
@@ -63,6 +77,20 @@ inline DiceSpec parseDice(const std::string& str) {
     long sides = 0;
     if (!detail::readDiceInt(str, i, e, sides)) return d; // sides are mandatory
 
+    // Optional keep clause: "kh<K>" (keep highest) or "kl<K>" (keep lowest).
+    long keep = 0;
+    if (i < e && (str[i] == 'k' || str[i] == 'K')) {
+        ++i;
+        if (i >= e) return d;
+        const char hl = str[i];
+        if (hl != 'h' && hl != 'H' && hl != 'l' && hl != 'L') return d;
+        ++i;
+        long kv = 0;
+        if (!detail::readDiceInt(str, i, e, kv)) return d; // keep count is mandatory
+        if (kv < 1) return d;
+        keep = (hl == 'l' || hl == 'L') ? -kv : kv;
+    }
+
     long mod = 0;
     if (i < e) {
         const char sign = str[i];
@@ -78,21 +106,61 @@ inline DiceSpec parseDice(const std::string& str) {
     d.count = static_cast<int>(count);
     d.sides = static_cast<int>(sides);
     d.modifier = static_cast<int>(mod);
+    d.keep = static_cast<int>(keep);
     d.valid = true;
     return d;
 }
 
-// Lowest possible result: every die shows 1. (Invalid spec → 0.)
-inline int minRoll(const DiceSpec& d) { return d.valid ? d.count + d.modifier : 0; }
+// Lowest possible result: every KEPT die shows 1. (Invalid spec → 0.)
+inline int minRoll(const DiceSpec& d) { return d.valid ? detail::keptCount(d) + d.modifier : 0; }
 
-// Highest possible result: every die shows its max face. (Invalid spec → 0.)
-inline int maxRoll(const DiceSpec& d) { return d.valid ? d.count * d.sides + d.modifier : 0; }
+// Highest possible result: every KEPT die shows its max face. (Invalid spec → 0.)
+inline int maxRoll(const DiceSpec& d) { return d.valid ? detail::keptCount(d) * d.sides + d.modifier : 0; }
 
-// Expected (mean) result: count * (sides+1)/2 + modifier. (Invalid spec → 0.)
+// Expected (mean) result. Exact for no-keep specs (count*(sides+1)/2 + modifier); for keep rules it is computed by
+// exact enumeration when the outcome space (sides^count) is small enough (≤ 4,000,000 — covers typical tabletop
+// specs like 4d6kh3), and otherwise falls back to the no-selection-bias estimate keptCount*(sides+1)/2 + modifier.
+// (Invalid spec → 0.)
 inline double averageRoll(const DiceSpec& d) {
     if (!d.valid) return 0.0;
-    return static_cast<double>(d.count) * (static_cast<double>(d.sides) + 1.0) * 0.5 +
-           static_cast<double>(d.modifier);
+    if (d.keep == 0)
+        return static_cast<double>(d.count) * (static_cast<double>(d.sides) + 1.0) * 0.5 +
+               static_cast<double>(d.modifier);
+
+    // Feasibility of exact enumeration.
+    long long combos = 1;
+    for (int i = 0; i < d.count; ++i) {
+        combos *= d.sides;
+        if (combos > 4000000) { combos = -1; break; }
+    }
+    const int kc = detail::keptCount(d);
+    if (combos < 0)
+        return static_cast<double>(kc) * (static_cast<double>(d.sides) + 1.0) * 0.5 +
+               static_cast<double>(d.modifier);
+
+    // Odometer over all outcomes; sum the kept faces of each.
+    std::vector<int> face(static_cast<std::size_t>(d.count), 1);
+    std::vector<int> sorted(static_cast<std::size_t>(d.count));
+    double sumKept = 0.0;
+    long long n = 0;
+    while (true) {
+        sorted = face;
+        std::sort(sorted.begin(), sorted.end(), std::greater<int>()); // descending
+        int keptSum = 0;
+        if (d.keep > 0)
+            for (int j = 0; j < kc; ++j) keptSum += sorted[static_cast<std::size_t>(j)];
+        else
+            for (int j = 0; j < kc; ++j) keptSum += sorted[static_cast<std::size_t>(d.count - 1 - j)];
+        sumKept += keptSum;
+        ++n;
+        int p = 0;
+        for (; p < d.count; ++p) {
+            if (++face[static_cast<std::size_t>(p)] <= d.sides) break;
+            face[static_cast<std::size_t>(p)] = 1;
+        }
+        if (p == d.count) break;
+    }
+    return sumKept / static_cast<double>(n) + static_cast<double>(d.modifier);
 }
 
 // Roll `d` with `rng` (any type exposing `int range(int lo, int hi)` inclusive, e.g. core::Pcg32). Returns the
@@ -102,12 +170,22 @@ inline RollResult rollDice(const DiceSpec& d, Rng& rng) {
     RollResult r;
     if (!d.valid) return r;
     r.rolls.reserve(static_cast<std::size_t>(d.count));
-    int sum = 0;
-    for (int k = 0; k < d.count; ++k) {
-        const int face = rng.range(1, d.sides);
-        r.rolls.push_back(face);
-        sum += face;
+    for (int k = 0; k < d.count; ++k) r.rolls.push_back(rng.range(1, d.sides));
+
+    if (d.keep == 0) {
+        r.kept = r.rolls;
+    } else {
+        std::vector<int> sorted = r.rolls;
+        std::sort(sorted.begin(), sorted.end(), std::greater<int>()); // descending
+        const int kc = detail::keptCount(d);
+        r.kept.reserve(static_cast<std::size_t>(kc));
+        if (d.keep > 0)
+            for (int j = 0; j < kc; ++j) r.kept.push_back(sorted[static_cast<std::size_t>(j)]);
+        else
+            for (int j = 0; j < kc; ++j) r.kept.push_back(sorted[static_cast<std::size_t>(d.count - 1 - j)]);
     }
+    int sum = 0;
+    for (int v : r.kept) sum += v;
     r.total = sum + d.modifier;
     return r;
 }

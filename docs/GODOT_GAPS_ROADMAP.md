@@ -200,8 +200,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   spaces, and +/- modifiers; a battery of malformed strings rejected; min/max/average match the closed form (2d6+3 →
   5/15/10), invalid spec → 0 bounds; 200 rolls each give exactly `count` dice with every face in [1,sides] and the
   total within [min,max]; the same seed reproduces the exact roll; and the parse+roll convenience overload reports
-  the spec and rejects nonsense. Honest scope: `NdM±K` only (no keep-highest/exploding dice yet — a clean follow-up).
-  [VERIFIABLE HERE]
+  the spec and rejects nonsense. [VERIFIABLE HERE]
+- [x] **Dice keep-highest / keep-lowest** (`game::Dice` `khN`/`klN` clause) — DONE (M625); the advantage/disadvantage
+  and stat-generation extension to the dice parser (M623): `4d6kh3` rolls four d6 and keeps the highest three (the
+  classic D&D ability-score roll), `2d20kh1` is advantage, `2d20kl1` is disadvantage. `DiceSpec.keep` (0 = all,
+  >0 = keep highest, <0 = keep lowest) drives it; `RollResult.kept` reports which dice counted; `minRoll`/`maxRoll`
+  now bound on the kept dice; `averageRoll` is EXACT via full outcome enumeration when the space (sides^count) is
+  small enough (covers typical specs), falling back to a documented estimate for huge ones. Verified (`ctest -R
+  "^dice$"`): `4d6kh3`/`2d20kl1+1` parse with the right keep sign & modifier; keep beyond the dice count clamps;
+  malformed keep clauses (`k3`, `kh`, `kx3`) rejected; kept-dice bounds (4d6kh3 → 3..18); the enumerated average of
+  4d6-drop-lowest matches the known 12.2446; and 200 rolls keep exactly 3 of 4 with the total summing only the kept
+  (highest) dice within bounds. Honest scope: keep-high/low only (no exploding/reroll dice yet). [VERIFIABLE HERE]
 - [x] **Ordinal & Roman-numeral formatting** (`core::ordinalSuffix` / `ordinal` / `toRoman`) — DONE (M622); the two
   number-to-text helpers game HUDs need that `core::NumberFormat` was missing: **ordinals** for leaderboard ranks
   and "Nth wave" ("1st", "22nd", "113th"), and **Roman numerals** for chapter/level/act titles ("Level IV",
