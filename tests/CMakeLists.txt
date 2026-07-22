@@ -2441,3 +2441,8 @@ add_executable(maz_kabsch_tests math/kabsch.cpp)
 target_link_libraries(maz_kabsch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME kabsch COMMAND maz_kabsch_tests)
 set_tests_properties(kabsch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_voxelraycast_tests game/voxelraycast.cpp)
+target_link_libraries(maz_voxelraycast_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME voxel_raycast COMMAND maz_voxelraycast_tests)
+set_tests_properties(voxel_raycast PROPERTIES TIMEOUT 30)

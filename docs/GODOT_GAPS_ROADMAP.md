@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **3D voxel ray traversal (Amanatides-Woo)** (`game::traverseVoxels` / `game::voxelRaycast`,
+  `VoxelRaycast.hpp`) — DONE (M722); walk a ray through a 3D grid of unit cells and visit EVERY voxel it
+  passes through, in order, with no gaps and no duplicates. [VERIFIABLE HERE] The 3D companion to GridRaycast
+  (which is 2D) and the workhorse behind block-world interaction: which block is the player looking at /
+  mining / placing against, 3D line-of-sight and light propagation through a voxel volume, ray-marching a
+  sparse voxel scene. A naive "step along the ray in small increments" either skips thin voxels or visits the
+  same voxel repeatedly and drifts; this advances exactly to the next cell boundary each iteration, so it is
+  both exact and O(voxels crossed). voxelRaycast stops at the first cell a predicate marks solid. The ctest
+  checks an axis-aligned ray, that the path starts at floor(origin), is 6-connected (one axis by +/-1 per
+  step) and monotone in the ray direction, and over 500 random rays proves SOUNDNESS (every traversed cell is
+  genuinely crossed by the ray with positive length, via an independent double-precision ray-vs-box slab
+  test — robust where naive dense sampling would skip a cell near a near-diagonal crossing) and COMPLETENESS
+  (every densely-sampled voxel appears in the traversal), plus the raycast hit/miss and degenerate inputs.
+  Godot ships no voxel traversal. Header-only, std-only, deterministic. ctest `voxel_raycast`.
 - [x] **Best-fit rigid transform (Kabsch/Horn)** (`math::kabsch`, `Kabsch.hpp`) — DONE (M721); find the single
   rotation + translation (no scale/shear) that best maps one set of 3D points onto another in the
   least-squares sense. [VERIFIABLE HERE] Given N corresponding pairs, it returns the transform minimising the
