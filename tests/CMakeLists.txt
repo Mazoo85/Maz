@@ -747,6 +747,11 @@ target_link_libraries(maz_hexringrange_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME hex_ring_range COMMAND maz_hexringrange_tests)
 set_tests_properties(hex_ring_range PROPERTIES TIMEOUT 30)
 
+add_executable(maz_noise_tests audio/noise.cpp)
+target_link_libraries(maz_noise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audio_noise COMMAND maz_noise_tests)
+set_tests_properties(audio_noise PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

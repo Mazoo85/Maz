@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Coloured noise generators** (`audio::WhiteNoise` / `audio::PinkNoise` / `audio::BrownNoise`) — DONE
+  (M642); the coloured-noise sources procedural sound design leans on, exposed as small reusable deterministic
+  generators (the Oscillator had a white source baked into its waveform enum, but nothing reusable and no pink
+  or brown). WHITE (flat spectrum) is raw static hiss; PINK (1/f, equal energy per octave) is the natural,
+  balanced "shhh" of steady rain, a waterfall, ocean surf, or ventilation hum — and the reference signal audio
+  engineers test with; BROWN/red (1/f², deeper still) is the rumble of distant thunder, heavy wind, or a
+  rocket. Pink uses Paul Kellet's economical filtered-white approximation; brown is a leaky integrator (a
+  mean-reverting random walk that never drifts to a rail). Each is seeded from an xorshift PRNG, so a wind or
+  ambience layer gets a repeatable stream. Verified (`ctest -R "^audio_noise$"`): same seed → identical stream
+  and `reset()` restores it; every white/pink/brown sample stays in [-1,1]; white is near-zero-mean, spans a
+  wide range, and is essentially uncorrelated (|r₁|<0.2); the lag-1 autocorrelation cleanly orders the colours
+  white(≈0.00) < pink(≈0.82) < brown(≈0.996), with brown a strongly-correlated random walk (r₁>0.9) and pink
+  measurably more correlated than white but less than brown. Honest scope: perceptually-standard practical
+  generators (Kellet pink, leaky-integrator brown), not a mathematically-exact 1/f / 1/f² spectral synthesis. [VERIFIABLE HERE]
 - [x] **Hex ring / range / spiral** (`game::hexRing` / `game::hexRange` / `game::hexSpiral` / `game::hexScale`)
   — DONE (M641); the area operations every hex board/strategy game needs, completing the HexGrid module which
   had `hexNeighbors`/`hexLine`/`hexDistance` but no area queries. `hexRing(c, N)` returns exactly the 6N hexes
