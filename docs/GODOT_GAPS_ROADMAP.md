@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Inset faces** (`render::insetFaces`) — DONE (M590); shrink every triangle IN PLACE toward its own centre,
+  opening a gap between neighbouring faces. Each triangle keeps its shape and facing but scales down about its
+  centroid by `amount` (0 = untouched, 1 = collapsed to a point), so a solid surface becomes a field of shrunken
+  tiles with dark seams: panel gaps on a spaceship hull, grout lines between floor tiles, a greebled panelled
+  look, or the base ring for a per-face extrude/bevel. This is Blender's "Inset Faces → Individual" (the shrink
+  part). It first UNWELDS (each triangle gets its own three corners carrying that triangle's flat face normal, so
+  the tiles separate and flat-shade), then moves each corner a fraction `amount` toward the centroid. Distinct
+  from explode (M578, which TRANSLATES whole faces) and displace (M580, which OFFSETS along normals). Verified
+  (`ctest -R mesh_inset`): one triangle stays one triangle with 3 own vertices; amount 0 leaves corners put;
+  amount 0.5 moves each corner exactly halfway to the centroid; the inset triangle keeps the original centroid and
+  its area shrinks by (1−amount)² = 1/4; every corner carries the flat face normal; amount 1 collapses all three
+  corners onto the centroid; empty is safe. Honest scope: insets each triangle INDEPENDENTLY (individual-faces
+  mode), so a flat region tiled by many triangles gets a seam along every interior edge, not just its outline —
+  run on a low-poly mesh or merge coplanar tris first for panel-only gaps; triples the vertex count; `amount` may
+  exceed 1 (overshoot) or go negative (grow the tile). [VERIFIABLE HERE]
 - [x] **Principal inertia axes** (`render::computePrincipalAxes` → `PrincipalAxes`) — DONE (M589); the three
   natural spin axes of a solid mesh and how hard it is to spin about each. Every rigid body has three perpendicular
   axes it rotates cleanly about (no wobble); a physics engine that wants realistic tumbling — a thrown plank spins
