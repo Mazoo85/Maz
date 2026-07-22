@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Signed distance field bake** (`render::bakeMeshSdf` / `render::sampleMeshSdf`, `MeshSdf`) — DONE
+  (M534); sample the signed distance to a closed mesh's surface onto a 3D grid — negative inside the solid,
+  positive outside, ~0 on the surface. An SDF is the shared currency behind soft/contact shadows, ambient
+  occlusion, collision & penetration depth, smooth CSG/booleans, raymarched volumes, and obstacle flow-fields;
+  Godot's SDFGI and 2D-SDF collision use exactly this. Unsigned distance at each cell is the exact
+  closest-point-on-triangle minimum; the SIGN comes from a ray-parity inside/outside test (odd crossings =
+  inside), reusing the M533 Möller–Trumbore ray/triangle. `sampleMeshSdf` trilinearly interpolates the grid at
+  an arbitrary point. Verified (`ctest -R mesh_sdf`) against a unit cube's closed form: the centre samples
+  −0.5 (deepest interior = the inradius), a point 0.5 outside the +X face samples +0.5, a point on a face is
+  ~0, the sign flips inside→negative / outside→positive on multiple axes, and the field's minimum is ≈−0.5.
+  Brute force O(cells·tris) with a ray-parity sign (watertight-mesh assumption); a game::Bvh acceleration and a
+  generalized-winding-number sign for open meshes are the documented follow-ups. [VERIFIABLE HERE]
 - [x] **Per-vertex ambient occlusion bake** (`render::bakeVertexAO`) — DONE (M533); the offline "bake AO into
   the mesh" step that darkens crevices, contact points, and interiors so a scene reads with depth even under
   flat ambient light — Godot's LightmapGI / classic vertex-bake idea, stored per vertex. For each vertex it

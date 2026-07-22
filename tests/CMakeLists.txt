@@ -212,6 +212,11 @@ target_link_libraries(maz_meshao_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_ambient_occlusion COMMAND maz_meshao_tests)
 set_tests_properties(mesh_ambient_occlusion PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshsdf_tests render/meshsdf.cpp)
+target_link_libraries(maz_meshsdf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_sdf COMMAND maz_meshsdf_tests)
+set_tests_properties(mesh_sdf PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
