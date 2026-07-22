@@ -477,6 +477,11 @@ target_link_libraries(maz_meshboundingcylinder_tests PRIVATE maz::maz maz_warnin
 add_test(NAME mesh_bounding_cylinder COMMAND maz_meshboundingcylinder_tests)
 set_tests_properties(mesh_bounding_cylinder PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshflatten_tests render/meshflatten.cpp)
+target_link_libraries(maz_meshflatten_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_flatten COMMAND maz_meshflatten_tests)
+set_tests_properties(mesh_flatten PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

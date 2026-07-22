@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Flatten / project-to-plane** (`render::projectToPlane`) — DONE (M587); squash a mesh toward a flat plane —
+  each vertex slides along the plane's normal toward its perpendicular projection onto the plane, blended by `t`
+  (0 = unchanged, 1 = every vertex exactly on the plane, in between squashes smoothly). Uses: a cheap
+  drop-shadow / blob-shadow caster (flatten a copy of a model onto the ground and draw it dark), a decal or
+  sticker baked onto a surface, a "pressed flat" squash pose, or projecting a prop onto a wall. The plane is a
+  point + a normal (normalised internally so any length works). Verified (`ctest -R mesh_flatten`): t=1 onto y=0
+  puts every vertex at y=0 while x/z never drift; t=0 is the identity; t=0.5 removes exactly half the distance
+  (a vertex at y=3 → 1.5, one at y=−1 → −0.5); an offset plane (y=5) projects onto y=5; a tilted +Z plane with a
+  non-unit normal flattens onto z=0; a zero-length normal is a no-op; empty is safe. Honest scope: moves POSITIONS
+  only along the normal — normals are left stale (set them to the plane normal or re-run `computeNormals` for a lit
+  pancake); at t=1 the mesh is coplanar with zero thickness (its two sides overlap — a shadow/decal source, not a
+  solid); `t` may exceed 1 (overshoot) or go negative (push away). [VERIFIABLE HERE]
 - [x] **Bounding-cylinder fit** (`render::fitBoundingCylinder` → `BoundingCylinder`) — DONE (M586); the tightest
   capsule-like cylinder wrapped around a mesh, aligned to the object's OWN long axis rather than a world axis.
   Where an axis-aligned box or an oriented box (FitObb) suits a boxy prop, a cylinder is the right hull for
