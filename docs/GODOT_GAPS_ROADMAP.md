@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Gradient-map colorizer** (`render::gradientMap`) — DONE (M614); the colour stage for the engine's procedural
+  grey textures: feed a `noiseTexture` (M612), `cellularTexture` (M613), or any height field / mask in, and get lava,
+  terrain (deep water → sand → grass → snow), fire, marble tint, a heat-map, or a toon ramp out. Each pixel's
+  perceptual luminance (0.299R+0.587G+0.114B) is the ramp parameter. Three forms: a two-colour `lo → hi` ramp, a
+  multi-stop `ColorStop` ramp (linear between sorted stops, clamped past the ends — a colour gradient baked over the
+  image), and a general callback form taking any `Color(float)` callable (e.g. `anim::Gradient::sample`). Verified
+  (`ctest -R image_gradient_map`): the output matches the source size; a black→white input through a red→green ramp
+  comes out red at the dark end and green at the bright end with a blend between; a multi-stop black/red/white ramp
+  puts mid-grey exactly on the middle (red) stop, clamps pure black/white to the end stops, and interpolates a
+  quarter-grey halfway to (0.5,0,0); the callback form runs an arbitrary function; the same input reproduces a
+  byte-identical image; colorizing grey noise yields a genuine colour range (not a flat fill); empty input is safe.
+  Honest scope: luminance uses raw 8-bit channels with no gamma handling; stop lists are used as given (assumed
+  sorted ascending). [VERIFIABLE HERE]
 - [x] **Procedural cellular / Worley texture** (`render::patterns::cellularTexture`) — DONE (M613); generate a grey
   cellular ("Worley") image in code, distinct from the smooth Perlin `noiseTexture` (M612). Two `mode`s: `Cells` bakes
   the F1 nearest-feature-point distance — rounded blobs for stone, reptile scales, cracked mud, water caustics, or
