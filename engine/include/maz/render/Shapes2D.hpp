@@ -11,8 +11,9 @@
 // you feed straight into `extrudePolygon` (M602) to make a 3D prism, `revolveProfile` (M594) to spin a solid,
 // `triangulatePolygon` (M156) to fill it flat, or a 2D polygon collider. Between them they cover most of what UI,
 // signage, and props need: a regular n-gon (hexagon nut, pentagon, octagon stop-sign), a star or sparkle, a
-// rounded rectangle (button, card, badge, panel, rounded platform), and a spur gear / cog (machinery, clocks,
-// steampunk). Header-only, deterministic, headless — pure coordinate math.
+// rounded rectangle (button, card, badge, panel, rounded platform), a spur gear / cog (machinery, clocks,
+// steampunk), and a pie slice / sector (gauges, pie charts, vision cones). Header-only, deterministic, headless —
+// pure coordinate math.
 //
 // Scope note (honest): all outlines are simple (non-self-intersecting) and wound COUNTER-CLOCKWISE, centred on the
 // origin. A star with a big enough inner radius stays simple; a rounded rect clamps its corner radius to at most
@@ -98,6 +99,24 @@ inline std::vector<math::vec2> gear(int teeth, float outerRadius, float rootRadi
         at(outerRadius, c - ht);   // tip left
         at(outerRadius, c + ht);   // tip right
         at(rootRadius, c + ht);    // base of the falling flank
+    }
+    return out;
+}
+
+// A pie slice / circular sector: a wedge of a disc of `radius`, from `startAngle` sweeping `sweepAngle` radians,
+// as center + `segments`+1 arc points (segments+2 points total), CCW. For gauges, pie-chart slices, cones of
+// vision, radar sweeps, spotlight footprints, or a Pac-Man. For a full disc use `regularPolygon` instead.
+inline std::vector<math::vec2> pieSlice(float radius, float startAngle, float sweepAngle, int segments) {
+    std::vector<math::vec2> out;
+    if (radius <= 0.0f || segments < 1 || sweepAngle <= 1e-6f) return out;
+    const float twoPi = 6.28318530717958647692f;
+    float sweep = sweepAngle;
+    if (sweep > twoPi) sweep = twoPi;
+    out.reserve(static_cast<std::size_t>(segments) + 2u);
+    out.push_back(math::vec2(0.0f, 0.0f)); // wedge apex at the centre
+    for (int i = 0; i <= segments; ++i) {
+        const float a = startAngle + sweep * static_cast<float>(i) / static_cast<float>(segments);
+        out.push_back(math::vec2(std::cos(a) * radius, std::sin(a) * radius));
     }
     return out;
 }

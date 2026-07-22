@@ -180,6 +180,15 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Pie slice / sector outline** (`render::shapes2d::pieSlice`) — DONE (M610); a wedge of a disc — from a start
+  angle sweeping a given number of radians — extending the shapes2d family. It's the shape of a pie-chart slice, a
+  radial gauge fill, a cone of vision / spotlight footprint, a radar sweep, or a Pac-Man. Returns the centre plus the
+  arc points (segments+2 total), CCW, ready for `triangulatePolygon` to fill, `extrudePolygon` to make a solid wedge,
+  or a 2D collider. Verified (`ctest -R shapes2d_pie`): a quarter sector has exactly segments+2 points; the first is
+  the centre and every arc point sits on the radius; it is wound CCW and its area equals the exact circular-sector
+  area 0.5·r²·sweep; it extrudes into a valid closed wedge (signed volume == area×depth, confirming composability);
+  zero radius, zero sweep, and zero segments all return empty. Honest scope: for a FULL disc use `regularPolygon`
+  (a full-turn pie would fold a zero-area sliver at the seam); the wedge apex is at the origin. [VERIFIABLE HERE]
 - [x] **Wireframe / edge extraction** (`render::meshEdges`, `render::meshWireframe`) — DONE (M609); pull the UNIQUE
   edges out of a triangle mesh so you can draw it as a cage of lines. Every triangle shares its edges with its
   neighbours, so the raw triangle list mentions each interior edge twice; this collapses them to one each. Feed the
