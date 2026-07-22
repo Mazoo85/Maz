@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Procedural image patterns** (`render::patterns::checkerboard` / `verticalGradient` / `radialGradient`) — DONE
+  (M607); generate common textures in code, no art files needed. A checkerboard for a placeholder / "missing texture"
+  material, a UV-check pattern, or floor tiles; a smooth top-to-bottom gradient for skies, backdrops, UI panels, and
+  fades; a radial glow for spotlights, vignettes, soft particle sprites, and button highlights. Each returns a CPU
+  `Image` (RGBA8) ready for `Renderer::createTexture` or the image codecs — great for prototyping before real art
+  exists, runtime-generated UI, and test cards. Verified (`ctest -R image_patterns`): a cell-2 checkerboard honours
+  its size and alternates colour A/B every 2 pixels from the top-left (across, down, and back on the diagonal), staying
+  constant within a cell; a vertical gradient is the top colour on row 0, the bottom colour on the last row, and the
+  exact midpoint grey in the middle, constant along each row; a radial gradient is the centre colour at the middle,
+  the edge colour in the corners, a partial blend part-way out, and darkens monotonically outward; a non-positive
+  width or height yields an empty image. Honest scope: basic building-block patterns with plain RGBA (no gamma
+  handling); a checker cell below 1 is treated as 1. [VERIFIABLE HERE]
 - [x] **Tapered / scaled extrude** (`render::extrudePolygonScaled`) — DONE (M606); like `extrudePolygon` (M602), but
   the top cap is scaled by `topScale` about the shape's centroid, so any flat outline becomes a truncated pyramid /
   frustum: a plinth, a tapered building or tower, a bevelled block, a stub, a keystone, a lampshade profile. At
