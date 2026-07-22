@@ -562,6 +562,11 @@ target_link_libraries(maz_meshprojectedarea_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_projected_area COMMAND maz_meshprojectedarea_tests)
 set_tests_properties(mesh_projected_area PROPERTIES TIMEOUT 30)
 
+add_executable(maz_shapes2d_tests render/shapes2d.cpp)
+target_link_libraries(maz_shapes2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shapes2d COMMAND maz_shapes2d_tests)
+set_tests_properties(shapes2d PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

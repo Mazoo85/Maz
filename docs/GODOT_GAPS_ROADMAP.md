@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **2D shape outlines** (`render::shapes2d::regularPolygon` / `star` / `roundedRect`) — DONE (M604); ready-made
+  point rings for the common flat shapes, so you don't hand-type coordinates. Each returns a counter-clockwise list of
+  2D points tracing an outline, which you feed straight into `extrudePolygon` (M602) for a 3D prism, `revolveProfile`
+  (M594) to spin a solid, `triangulatePolygon` (M156) to fill it flat, or a 2D polygon collider. Between them they
+  cover most of what UI, signage, and props need: a regular n-gon (hexagon nut, pentagon, octagon stop-sign), a star
+  or sparkle, and a rounded rectangle (button, card, badge, panel, rounded platform). Verified (`ctest -R shapes2d`):
+  a regular hexagon has 6 points all on the radius, wound CCW, with area exactly (3√3/2)r²; a 5-point star has 10
+  vertices alternating 5 tips at the outer radius and 5 valleys at the inner radius, CCW; a rounded rect has
+  4·(segments+1) points, spans width×height, has area w·h−(4−π)r², is CCW, and collapses to a plain 4-corner
+  rectangle at radius 0; a star fed to `extrudePolygon` makes a valid closed prism (signed volume == area×depth,
+  proving composability); <3-sided polygons, <2-point stars, and zero-size rects all return empty. Honest scope: all
+  outlines are simple (non-self-intersecting) and CCW, centred on the origin; the rounded-rect corner radius clamps
+  to half the shorter side. These are OUTLINES, not filled meshes — pair with the extrude/fill/revolve tools.
+  [VERIFIABLE HERE]
 - [x] **Projected / frontal area** (`render::projectedArea`) — DONE (M603); measure how big a shadow a model casts
   when viewed from a given direction — the area of its outline as projected onto the screen, the "frontal area" an
   engineer means by cross-section. That one number drives a lot of game and sim math: aerodynamic and water drag
