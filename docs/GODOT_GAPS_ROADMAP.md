@@ -304,6 +304,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   alpha survives; and the image overload matches the per-colour transform pixel-for-pixel and is empty-safe. Honest
   scope: fast sRGB-space matrices (the common web-filter approximation), not a physically-exact LMS/Brettel
   simulation. [VERIFIABLE HERE]
+- [x] **Weapon spread / cone sampling** (`game::spreadDirection2D` / `spreadFan2D` / `spreadDirection3D`) — DONE
+  (M632); perturb an aim direction into a cone or fan for shotgun pellets, bullet inaccuracy, spray weapons, and
+  particle emission. `spreadDirection2D`/`spreadDirection3D` jitter a direction randomly within a half-angle (any
+  RNG with `rangef`, e.g. `core::Pcg32`), the 3D one uniform over the cone's solid angle (no axis clustering);
+  `spreadFan2D` returns a DETERMINISTIC evenly-spaced fan for a fixed multi-pellet pattern. Beyond Godot (no spread
+  helper). Verified (`ctest -R "^spread$"`): the 2D fan has the right count, its outer pellets sit at ±halfAngle,
+  odd counts put the centre pellet on-axis, pellets are evenly spaced and unit-length, count 1 returns the aim,
+  count<1 is empty; 500 random 2D shots all stay within the half-angle, are unit-length, genuinely vary, and
+  reproduce for a seed; 800 random 3D shots stay within the cone, are unit-length, have a mean angle strictly
+  between 0 and the half-angle (real spread), and a zero-angle cone returns the axis exactly. Honest scope: circular
+  cone/fan spread (no falloff weighting toward the centre — layer your own if wanted). [VERIFIABLE HERE]
 - [x] **First-order intercept aim** (`game::solveIntercept` / `game::InterceptSolution`) — DONE (M618); the
   gravity-free "lead the target" solver: where should a turret, archer, spaceship gun, or homing AI aim so a shot
   fired at a FIXED speed hits a target moving at constant velocity? Companion to `game::Ballistics` (which arcs a
