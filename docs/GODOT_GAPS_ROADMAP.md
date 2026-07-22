@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **UUID (v4) generator** (`core::makeUuidV4` / `uuidV4String` / `isValidUuid` / `core::Uuid`) — DONE (M624);
+  generate RFC 4122 version-4 (random) unique identifiers for entity IDs, save files, network sessions, asset GUIDs,
+  and analytics events. `makeUuidV4` fills 128 bits from any engine RNG with `uint32_t next()` (e.g. `core::Pcg32`)
+  and stamps the version/variant bits; `Uuid::toString` renders the canonical lowercase
+  `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`; `isValidUuid` validates that layout. Randomness comes from the caller's
+  seeded RNG, so generation is fully deterministic and testable. Beyond Godot (no UUID type). Verified (`ctest -R
+  "^uuid$"`): canonical 36-char form with hyphens at 8/13/18/23, version nibble '4' and variant nibble in
+  {8,9,a,b}, lowercase hex; same seed reproduces and different seeds/consecutive draws differ; 2000 generated IDs
+  are all distinct and all validate; `isValidUuid` accepts canonical and uppercase literals and rejects empty /
+  too-short / too-long / bad-hyphen / non-hex. Honest scope: v4 (random) only — not time-based v1 or name-based
+  v3/v5. [VERIFIABLE HERE]
 - [x] **Dice notation parser/roller** (`game::parseDice` / `rollDice` / `minRoll` / `maxRoll` / `averageRoll`) —
   DONE (M623); parse and roll the classic tabletop dice strings ("2d6+3", "d20", "4d8-1") RPGs, board-game ports,
   and loot/damage tables are written in. `parseDice` → a `DiceSpec` (count, sides, flat modifier); `rollDice` rolls
