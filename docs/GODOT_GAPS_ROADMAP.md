@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Feature-line extraction (ridge/valley crest lines)** (`render::extractFeatureLines`, `FeatureLines`,
+  `FeatureEdge`, `FeatureKind`) — DONE (M558); find a mesh's SHARP FOLDS, label each as a convex RIDGE or a
+  concave VALLEY, and CHAIN them into connected polylines. Where M548 sharp-edge detection only answers "which
+  edges are creased," this goes two steps further: it tells you which WAY each crease bends (a roof ridge vs a
+  gutter valley — the sign of the fold relative to the outward face normals) and stitches the loose creased edges
+  into actual CURVES. Those curves are what stylized / NPR renderers stroke as ink outlines and interior hard
+  lines, what retopo tools follow to lay clean edge loops, what auto-UV treats as natural seam candidates, and
+  what a "select hard edges" editor command returns. Reuses the M528 half-edge topology; `FeatureKind` is
+  Ridge/Valley, `FeatureEdge` carries endpoints + sharpness + kind, and `lines` holds the chained vertex-index
+  polylines with `ridgeCount`/`valleyCount` tallies. Verified (`ctest -R mesh_feature_lines`): a convex tent fold
+  yields exactly one crease classified Ridge on the correct edge; a concave valley fold yields one Valley; a flat
+  sheet yields nothing; a cube exposes its twelve 90° edges all as convex ridges (face diagonals stay flat) and
+  the chained polylines cover all twelve edges exactly once; a fold gentler than the angle threshold is ignored
+  until the threshold drops; empty meshes are safe. Honest scope: ridge/valley sign needs outward-consistent
+  winding (an inside-out mesh flips the labels); only manifold interior edges (exactly two faces) are considered;
+  chaining produces maximal simple paths and breaks at junctions, so a branching crest network returns as several
+  polylines meeting at the junction rather than one tangled path. [VERIFIABLE HERE]
 - [x] **Mesh wall-thickness probe** (`render::computeThickness`, `render::analyzeThickness`, `ThicknessReport`)
   — DONE (M557); measure how THICK the material is at every point of a surface by shooting a ray straight INTO
   the surface (opposite its outward normal) and returning the distance to the wall on the far side. This is the
