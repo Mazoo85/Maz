@@ -67,8 +67,12 @@ only be written blind, the docs say exactly that.
   one-byte-per-sample format decode-anywhere with no tables. Both laws, exact ITU-T reference companding,
   bridged to `WavData`. Verified (`ctest -R g711_codec`) against spec anchors (μ-law silence → 0xFF), sign +
   monotonicity, and a round-trip with bounded log-quantization error. [VERIFIABLE HERE]
-- [ ] **Ogg Vorbis / MP3 decode to PCM** — large, patent-adjacent pure-CPU decoders feeding the existing
-  mixer; QOA (above) already covers the compressed-audio need dependency-free. Optional follow-up. [VERIFIABLE HERE]
+- [~] **Ogg Vorbis / MP3 decode to PCM** — MP3 **framing + metadata** landed (M656): `audio::parseMp3FrameHeader`
+  / `scanMp3` (`Mp3.hpp`) parse MPEG-1/2/2.5 Layer I/II/III frame headers, build a frame seek index, skip
+  ID3v2 tags, and compute duration — the demux/metadata half a player runs before decoding. See the M656
+  entry at the top of §5. The remaining piece is the heavy Layer III codec DSP (Huffman + IMDCT + synthesis
+  filterbank) → PCM; QOA already covers the dependency-free compressed-audio need, so playback is not blocked.
+  [VERIFIABLE HERE]
 - [x] **Font fallback chains** (`ui::FontFallback`) — DONE (M501); per-codepoint resolution + per-font runs. [VERIFIABLE HERE]
 - [~] **FBX import** — ASCII FBX **geometry** landed: `render::parseFbxAscii` / `loadFbx` reads the mesh
   `Vertices` + `PolygonVertexIndex` arrays (decoding FBX's `~i` polygon terminator) and fan-triangulates to
@@ -142,6 +146,31 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [~] **MP3 frame parsing + seek index** (`audio::parseMp3FrameHeader`, `audio::scanMp3`, `Mp3.hpp`) —
+  DONE (M656, the framing/metadata part); the demux half of the §4 "Ogg Vorbis / MP3 decode to PCM" gap.
+  [VERIFIABLE HERE] An MP3 file is a stream of independent MPEG audio frames, each led by a 4-byte header
+  encoding the version (MPEG-1/2/2.5), layer (I/II/III), bitrate, sample rate, padding, and channel mode.
+  Before you can decode *or seek* an MP3 you must FRAME it — find every frame, know its length and sample
+  count — and duration/seek metadata is what most apps (and Godot's importer) need first. This milestone
+  implements that framing layer exactly per spec: `parseMp3FrameHeader` validates the 11-bit sync word,
+  reads the header fields through the standard bitrate tables (per version × layer) and sample-rate tables
+  (per version), computes samples-per-frame (384 for Layer I, 1152 for Layer II and MPEG-1 Layer III, 576
+  for MPEG-2/2.5 Layer III) and the frame length in bytes (the Layer I `(12·br/sr+pad)·4` and Layer II/III
+  `(spf/8)·br/sr+pad` formulas). `scanMp3` skips a leading ID3v2 tag (reading its syncsafe size), walks the
+  buffer frame-by-frame resyncing past junk, builds a `{offset,length,samples}` seek index, and totals the
+  samples into a duration. Pure integer/byte logic — no external files — so every field is checked against
+  hand-built headers. Verified (`ctest -R "^mp3_frames$"`): the canonical `FF FB 90 00` header decodes to
+  MPEG-1 Layer III / 128 kbps / 44100 Hz / stereo / 1152 samples / 417-byte frame; an MPEG-2 Layer III
+  header reports 576 samples and its 208-byte frame; a bad sync word and free-format bitrate are rejected;
+  a three-frame buffer indexes all three with correct offsets and a `samples/rate` duration; a leading
+  ID3v2 tag is skipped so framing starts at the right offset; and pure garbage yields zero frames.
+  **Honest scope:** this is the MP3 container/framing + metadata layer (parse, seek index, duration) —
+  fully verifiable here — NOT the Layer III audio codec. Turning frame payloads into PCM samples is a
+  separate, large, patent-adjacent DSP step (Huffman decode → dequantize → IMDCT → synthesis filterbank),
+  and Ogg Vorbis decode is a comparable codec effort; both are impractical to implement *and honestly
+  verify* headlessly without golden reference bitstreams. The engine already ships QOA (dependency-free
+  compressed audio, tested) and WAV, so games have working compressed + uncompressed playback today; this
+  adds the MP3 demux/seek layer those codecs' full decoders would sit on top of.
 - [x] **Desktop export bundle planner** (`io::planBundle`, `BundlePlan`, `PlatformSpec` in
   `io/BundlePlan.hpp`) — DONE (M655); closes the §4 "desktop export/packaging — real per-OS bundler" gap.
   [VERIFIABLE HERE] The engine already had `tools/package.sh` (which assembles a runnable bundle and even
