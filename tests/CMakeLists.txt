@@ -927,6 +927,11 @@ target_link_libraries(maz_pitchdetect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME pitch_detect COMMAND maz_pitchdetect_tests)
 set_tests_properties(pitch_detect PROPERTIES TIMEOUT 30)
 
+add_executable(maz_envelopefollower_tests audio/envelopefollower.cpp)
+target_link_libraries(maz_envelopefollower_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME envelope_follower COMMAND maz_envelopefollower_tests)
+set_tests_properties(envelope_follower PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

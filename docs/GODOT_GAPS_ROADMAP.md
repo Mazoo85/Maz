@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Envelope follower + level metering** (`audio::EnvelopeFollower`, `rms`/`peakLevel`,
+  `EnvelopeFollower.hpp`) — DONE (M679); track the moment-to-moment loudness of a signal — the
+  foundational block under compressors/gates, sidechain ducking, VU/peak meters, envelope-driven filters
+  (auto-wah), and onset/beat detection. [VERIFIABLE HERE] The raw waveform swings through zero many times
+  per cycle, so level can't be read off it directly; an envelope follower smooths the rectified (Peak) or
+  squared (RMS) signal with separate ATTACK (rise) and RELEASE (fall) time constants — the classic
+  one-pole detector. Plus block helpers `rms()` (sqrt-mean-square energy) and `peakLevel()`. Verified
+  (`ctest -R envelope_follower`): `rms` of a unit sine is 1/√2 and `peakLevel` ~1; a peak follower fed a
+  constant converges to it; the one-pole step response reaches EXACTLY 1−1/e (~63.2%) of the target after
+  one attack time constant and decays to 1/e (~36.8%) after one release constant; an RMS follower settles
+  at the sine's true RMS; and a fast-attack/slow-release follower rises quicker than it falls. Pure CPU,
+  header-only, deterministic.
 - [x] **YIN monophonic pitch detection** (`audio::detectPitchYin`, `PitchDetect.hpp`) — DONE (M678);
   estimate the fundamental frequency (perceived pitch) of a block of mono audio — what a guitar/vocal
   TUNER, a rhythm game scoring sung or played notes, auto-harmony, and voice-driven mechanics all need.
