@@ -917,6 +917,11 @@ target_link_libraries(maz_quaternionsquad_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME quaternion_squad COMMAND maz_quaternionsquad_tests)
 set_tests_properties(quaternion_squad PROPERTIES TIMEOUT 30)
 
+add_executable(maz_tcbspline_tests math/tcbspline.cpp)
+target_link_libraries(maz_tcbspline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tcb_spline COMMAND maz_tcbspline_tests)
+set_tests_properties(tcb_spline PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Kochanek-Bartels (TCB) spline** (`math::tcbSegment`/`tcbTangentIn`/`tcbTangentOut`/`hermite`,
+  `TcbSpline.hpp`) — DONE (M677); the interpolating keyframe spline with artist Tension/Continuity/Bias
+  knobs — the animation industry's keyframe curve (3ds Max, Maya, classic game tools). [VERIFIABLE HERE]
+  The engine had centripetal Catmull-Rom and the cubic B-spline; TCB is the complement animators reach
+  for: like Catmull-Rom it passes THROUGH every keyframe, but each key carries three dials — Tension
+  (how taut vs round the bend, 1=linear/-1=slack), Continuity (smooth vs a corner/"snap"), and Bias
+  (lean past the key vs before it). It derives an incoming and outgoing tangent at each key from those
+  knobs and Hermite-interpolates each segment. Verified (`ctest -R tcb_spline`): endpoints are hit
+  exactly (s=0→p1, s=1→p2); with Tension=Continuity=Bias=0 the segment reproduces UNIFORM CATMULL-ROM
+  exactly (compared against an independent Catmull-Rom evaluation across the whole segment — the clean
+  cross-check); the default outgoing tangent equals the central difference 0.5·(next−prev);
+  Tension=1 zeroes the tangents so the midpoint is the plain endpoint average; and +bias vs −bias lean
+  the tangent toward the incoming vs outgoing segment as designed. Pure vec2 math, header-only.
 - [x] **SQUAD spherical-cubic quaternion spline** (`math::squad`/`squadSegment`/`squadIntermediate`,
   `quatLog`/`quatExp`, `QuaternionSquad.hpp`) — DONE (M676); smooth C¹ orientation interpolation through
   a list of rotation keyframes — the rotation analog of a cubic spline. [VERIFIABLE HERE] `Quaternion::slerp`
