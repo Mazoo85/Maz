@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Elo rating system** (`game::eloExpectedScore`/`eloUpdate`/`eloPlay`/`eloKFactor`, `Elo.hpp`) —
+  DONE (M681); the ranking + matchmaking math behind ranked ladders, leaderboards, bracket seeding, and
+  scaling AI difficulty to a player's measured skill (Arpad Elo's system, as used by chess and virtually
+  every competitive game). [VERIFIABLE HERE] Each competitor carries one number; before a match the
+  ratings predict each side's win probability, and after it both move by an amount proportional to how
+  surprising the result was — the exchange is zero-sum (winner gains exactly what loser drops), and the
+  K-factor sets volatility (large for provisional players, small for established). Verified (`ctest -R
+  elo`): equal ratings give a 0.5 expected score and the two sides' expectations sum to 1; a 400-point
+  lead is exactly a 10/11 (~0.909) expected score; an equal-rating win moves each player by exactly K/2;
+  a shared-K game conserves total rating (zero-sum); the underdog gains more for the same win than the
+  favorite would; a draw nudges the lower-rated up and the higher-rated down; and the provisional
+  K-factor exceeds the established one. Pure value math, header-only, deterministic.
 - [x] **Tempo (BPM) estimation** (`audio::estimateTempo`, `TempoEstimate.hpp`) — DONE (M680); find the
   beat rate of a piece of music from its samples — for rhythm games, beat-synced visuals/lighting,
   auto-cut editors, and adaptive music. [VERIFIABLE HERE] Builds an onset-strength signal (how much the

@@ -937,6 +937,11 @@ target_link_libraries(maz_tempoestimate_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME tempo_estimate COMMAND maz_tempoestimate_tests)
 set_tests_properties(tempo_estimate PROPERTIES TIMEOUT 30)
 
+add_executable(maz_elo_tests game/elo.cpp)
+target_link_libraries(maz_elo_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME elo COMMAND maz_elo_tests)
+set_tests_properties(elo PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
