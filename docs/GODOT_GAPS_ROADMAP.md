@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Bounding-cylinder fit** (`render::fitBoundingCylinder` → `BoundingCylinder`) — DONE (M586); the tightest
+  capsule-like cylinder wrapped around a mesh, aligned to the object's OWN long axis rather than a world axis.
+  Where an axis-aligned box or an oriented box (FitObb) suits a boxy prop, a cylinder is the right hull for
+  anything long-and-round: a character torso or limb, a pillar, a barrel, a thrown log, a rocket. Games use it for
+  capsule colliders, trigger volumes, and cheap broad-phase bounds on elongated bodies (Godot's CapsuleShape3D
+  wants exactly radius + height + axis). The method is PCA — centre the vertices, take the covariance matrix's
+  dominant eigenvector (via the engine's symmetric Jacobi solver, reused from FitObb) as the length axis, then
+  measure the spread ALONG it (height) and AWAY from it (radius = farthest perpendicular distance). Reports axis,
+  centre, radius, height. A measurement pivot after the twist/taper/spherify/bend/ripple deformer run. Verified
+  (`ctest -R mesh_bounding_cylinder`): a thin bar long along Y gives an axis ≈ ±Y, height 8, radius √0.5 (its
+  farthest corner), centre at the middle; EVERY vertex is provably inside the reported radius + half-height (never
+  clips); it works whichever world axis the bar runs along (X, Y, Z); fewer than two vertices returns valid=false.
+  Honest scope: the PCA-aligned fit, not a global minimum-volume optimiser — for an L-shaped or clustered cloud
+  the principal axis may not be the visually obvious one; the radius is worst-case (fully contains the mesh); reads
+  positions only. [VERIFIABLE HERE]
 - [x] **Ripple / wave deformer** (`render::rippleMesh`) — DONE (M585); send concentric ripples across a surface —
   each vertex is pushed along one axis by a sine wave of its DISTANCE from a centre, so a flat plane becomes a pond
   after a stone drops, a disc becomes a warped vinyl record, a flag gets a rippling wobble. The push along `axis`
