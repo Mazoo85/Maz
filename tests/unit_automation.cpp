@@ -124,7 +124,10 @@ int main() {
         fixLane(audio::AutoTarget::BeatRepeatMix, 0.9f);
         fixLane(audio::AutoTarget::FormantVowel, 2.5f);
         fixLane(audio::AutoTarget::CompThreshold, -20.0f);
+        fixLane(audio::AutoTarget::MasterTune, -50.0f);
         au.apply(eng, 0.0);
+        check(std::fabs(eng.sequencer().masterTune() - (-50.0f)) < 1e-3f,
+              "master-tune automation drives the project concert pitch");
         check(std::fabs(eng.mixer().reverb().shimmer() - 0.7f) < 1e-3f &&
                   eng.mixer().reverb().enabled(),
               "reverb-shimmer automation drives the shimmer and enables the reverb");

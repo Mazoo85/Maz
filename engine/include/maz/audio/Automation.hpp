@@ -62,6 +62,7 @@ enum class AutoTarget {
     WavetablePosition,
     SynthPulseWidth,
     SamplerStart,
+    MasterTune,
     Count
 };
 

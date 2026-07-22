@@ -142,6 +142,8 @@ Automation::Automation() {
     lane(AutoTarget::SynthPulseWidth).hi = 0.95f; // ...up to a thin, buzzy pulse (classic PWM sweep)
     lane(AutoTarget::SamplerStart).lo = 0.0f;     // sample start point: 0 = head...
     lane(AutoTarget::SamplerStart).hi = 0.5f;     // ...to halfway in (glitch/stutter sample-start mod)
+    lane(AutoTarget::MasterTune).lo = -100.0f;    // global concert-pitch offset in cents...
+    lane(AutoTarget::MasterTune).hi = 100.0f;     // ...for tape-stop-style pitch drops / risers
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -248,6 +250,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Synth PWM";
     case AutoTarget::SamplerStart:
         return "Sampler Start";
+    case AutoTarget::MasterTune:
+        return "Master Tune";
     case AutoTarget::Count:
         break;
     }
@@ -543,6 +547,11 @@ void Automation::apply(AudioEngine& engine, double timeSeconds, double bpm) {
             // Sweep the sampler's start point — modulate where each note begins in the loaded sample
             // for glitch/stutter/scan effects (Slicex-style). Only audible when a sample is loaded.
             engine.sequencer().sampler().setStartOffset(v);
+            break;
+        case AutoTarget::MasterTune:
+            // Sweep the project's global concert pitch — automate a tape-stop-style pitch drop, a riser,
+            // or a slow drift across every melodic instrument (drums stay put).
+            engine.sequencer().setMasterTune(v);
             break;
         case AutoTarget::Count:
             break;
