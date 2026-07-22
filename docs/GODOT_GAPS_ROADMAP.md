@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Image blend / composite modes** (`render::blend` + `render::ImageBlendMode`) — DONE (M615); layer one image
+  over another with Photoshop-style blend modes, so the engine's procedural textures can be *combined*: multiply a
+  `cellularTexture` stone pattern under a `gradientMap` tint, screen a noise grunge layer to weather a base, add a
+  glow, overlay detail, or difference two fields for edges. `top` is composited over `base` (an opaque backdrop):
+  each pixel is combined by the mode, then mixed toward the base by the top pixel's alpha × `opacity`. Nine modes:
+  Normal, Multiply, Screen, Add, Subtract, Darken, Lighten, Difference, Overlay. Verified (`ctest -R image_blend`):
+  Multiply darkens (×white is a no-op, ×black → black, ×0.5 halves), Screen brightens (black is a no-op, white →
+  white, 0.5/0.5 → 0.75), Add clamps (red+green → yellow), Darken/Lighten pick per-channel min/max, Difference is
+  |b−s|, Overlay passes a mid-grey base through; Normal honours the top's alpha (white@0.5 over black → mid grey);
+  `opacity` scales the layer (0 → base unchanged, 0.25 → a quarter mix); a smaller top only affects the overlap and
+  the base's alpha is preserved; multiplying two real patterns yields a varied image; an empty base is safe. Honest
+  scope: raw 8-bit (non-linear) channel maths, opaque base, top aligned top-left with no scaling. Note: named
+  `ImageBlendMode` to avoid colliding with the GPU renderer's `BlendMode`. [VERIFIABLE HERE]
 - [x] **Gradient-map colorizer** (`render::gradientMap`) — DONE (M614); the colour stage for the engine's procedural
   grey textures: feed a `noiseTexture` (M612), `cellularTexture` (M613), or any height field / mask in, and get lava,
   terrain (deep water → sand → grass → snow), fire, marble tint, a heat-map, or a toon ramp out. Each pixel's
