@@ -146,6 +146,27 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [~] **SSIL — screen-space indirect light (CPU gather kernel)** (`render::ssilGather`,
+  `ScreenSpaceIndirectLight.hpp`) — DONE (M657, the CPU-verifiable core); the §5 "SSIL pass" gap.
+  [VERIFIABLE HERE for the math; visual result on your GPU] SSIL is one-bounce screen-space global
+  illumination: where SSAO (already in the engine) darkens creases by counting nearby occluders, SSIL
+  gathers the *colored* light bouncing off those neighbours — a red wall throws a red tint onto the white
+  floor beside it, a bright surface casts a soft colored glow. The full effect is a fragment shader over
+  the depth/normal/color G-buffer, but the gather MATH is CPU-testable (the same way the SSAO pass was
+  validated with golden images + unit math): for each pixel, sample the screen-space neighbourhood, and
+  for every neighbour that lies in the pixel's hemisphere (in front of its surface) and within a
+  world-space radius, accumulate that neighbour's color weighted by the cosine term and a linear distance
+  falloff; the average, scaled by intensity, is the bounced light to add. This milestone implements that
+  kernel (`ssilGather` over an `SsilSample` G-buffer) in plain float math, no GPU. Verified
+  (`ctest -R "^ssil$"`): a floor pixel flanked by a red wall and a white wall receives indirect light
+  whose red channel exceeds green/blue — the defining color-bleed behaviour — while green equals blue
+  (only the white wall feeds those); intensity scales the result linearly and zero intensity yields
+  nothing; a neighbour beyond the radius, or behind the surface (negative hemisphere), contributes
+  nothing; and a coplanar same-normal neighbourhood self-bounces exactly zero (a flat wall does not light
+  itself). **Honest scope:** this is the SSIL gather kernel — the physics/color math, fully unit-tested
+  here. Wiring it as a real-time GPU pass (depth→position reconstruction, a blur, temporal accumulation)
+  and *seeing* the colored bounce is the part that needs your GPU; this is the CPU reference those shaders
+  implement, and it complements the already-done SSAO, SSR, reflection-probe, and lightmap-bake modules.
 - [~] **MP3 frame parsing + seek index** (`audio::parseMp3FrameHeader`, `audio::scanMp3`, `Mp3.hpp`) —
   DONE (M656, the framing/metadata part); the demux half of the §4 "Ogg Vorbis / MP3 decode to PCM" gap.
   [VERIFIABLE HERE] An MP3 file is a stream of independent MPEG audio frames, each led by a 4-byte header
@@ -2021,7 +2042,10 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   arithmetic and is unit-verified headlessly (`ctest -R ssr_trace`: wall-hit UV/depth, sky miss, off-screen
   miss, thickness gate); sampling the color buffer + roughness blur + temporal accumulation is the GPU pass.
   [VERIFIABLE HERE (trace) / SEE IT ON YOUR MACHINE (image)]
-- [ ] **SSIL pass** (screen-space indirect light).
+- [~] **SSIL pass** (screen-space indirect light) — CPU gather kernel DONE (M657):
+  `render::ssilGather` (`ScreenSpaceIndirectLight.hpp`) computes the one-bounce colored indirect light
+  (the color-bleed math), unit-tested headlessly. See the M657 entry at the top of §5. The GPU fragment
+  pass over the depth/normal/color G-buffer and its visible result run on your machine.
   Shaders/passes written & compiled here; visual confirmation is on your GPU. [CODE HERE / SEE IT ON YOUR MACHINE]
 - [x] **3D navigation mesh pathfinding** (`game::NavMesh3D`) — DONE (M505); path query + surface height over
   supplied walkable polygons (reuses the 2D corridor A*+funnel). Follow-up: bake from geometry + dynamic

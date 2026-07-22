@@ -822,6 +822,11 @@ target_link_libraries(maz_mp3_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mp3_frames COMMAND maz_mp3_tests)
 set_tests_properties(mp3_frames PROPERTIES TIMEOUT 30)
 
+add_executable(maz_ssil_tests render/ssil.cpp)
+target_link_libraries(maz_ssil_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ssil COMMAND maz_ssil_tests)
+set_tests_properties(ssil PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
