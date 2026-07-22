@@ -71,6 +71,73 @@ inline Hsv toHsv(const Color& c) {
     return out;
 }
 
+// ---- HSL (hue / saturation / lightness) — the CSS `hsl()` cylinder --------------------------------
+// Classic HSL, the model CSS and most web palette tools use, and distinct from both HSV above (which has
+// "value", not "lightness": pure red is v=1,s=1 in HSV but l=0.5,s=1 in HSL) and OKHSL below (perceptual,
+// built on OKLab). HSL's defining trait is that lightness runs black (l=0) -> full colour (l=0.5) -> white
+// (l=1) symmetrically, which is why it maps cleanly to how designers think about tints and shades. Like the
+// engine's HSV, these operate on the render::Color channels directly (hue in [0,1), matching from_hsv).
+struct Hsl {
+    float h = 0.0f; // hue in [0,1)
+    float s = 0.0f; // saturation [0,1]
+    float l = 0.0f; // lightness [0,1]
+    float a = 1.0f;
+};
+
+// HSL (h in [0,1)) -> RGBA. The standard piecewise reconstruction (CSS Color 4 / W3C algorithm).
+inline Color fromHsl(float h, float s, float l, float a = 1.0f) {
+    h -= std::floor(h);        // wrap hue into [0,1)
+    s = std::clamp(s, 0.0f, 1.0f);
+    l = std::clamp(l, 0.0f, 1.0f);
+    Color c;
+    c.a = a;
+    if (s <= 1e-8f) {          // achromatic: a pure grey at the lightness
+        c.r = c.g = c.b = l;
+        return c;
+    }
+    const float q = l < 0.5f ? l * (1.0f + s) : l + s - l * s;
+    const float p = 2.0f * l - q;
+    const auto hueToRgb = [](float pp, float qq, float t) {
+        if (t < 0.0f) t += 1.0f;
+        if (t > 1.0f) t -= 1.0f;
+        if (t < 1.0f / 6.0f) return pp + (qq - pp) * 6.0f * t;
+        if (t < 0.5f) return qq;
+        if (t < 2.0f / 3.0f) return pp + (qq - pp) * (2.0f / 3.0f - t) * 6.0f;
+        return pp;
+    };
+    c.r = hueToRgb(p, q, h + 1.0f / 3.0f);
+    c.g = hueToRgb(p, q, h);
+    c.b = hueToRgb(p, q, h - 1.0f / 3.0f);
+    return c;
+}
+inline Color fromHsl(const Hsl& hsl) { return fromHsl(hsl.h, hsl.s, hsl.l, hsl.a); }
+
+// RGBA -> HSL (h in [0,1)).
+inline Hsl toHsl(const Color& c) {
+    const float mx = std::max(c.r, std::max(c.g, c.b));
+    const float mn = std::min(c.r, std::min(c.g, c.b));
+    const float d = mx - mn;
+    Hsl out;
+    out.a = c.a;
+    out.l = (mx + mn) * 0.5f;
+    if (d < 1e-8f) {           // grey: hue undefined (0), no saturation
+        out.h = 0.0f;
+        out.s = 0.0f;
+        return out;
+    }
+    out.s = out.l > 0.5f ? d / (2.0f - mx - mn) : d / (mx + mn);
+    float h;
+    if (mx == c.r) {
+        h = (c.g - c.b) / d + (c.g < c.b ? 6.0f : 0.0f);
+    } else if (mx == c.g) {
+        h = (c.b - c.r) / d + 2.0f;
+    } else {
+        h = (c.r - c.g) / d + 4.0f;
+    }
+    out.h = h / 6.0f;
+    return out;
+}
+
 namespace detail {
 inline int hexNybble(char ch) {
     if (ch >= '0' && ch <= '9') return ch - '0';

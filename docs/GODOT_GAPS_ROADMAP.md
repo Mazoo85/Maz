@@ -131,6 +131,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **HSL colour model** (`render::fromHsl` / `render::toHsl` / `render::Hsl`) — DONE (M636); classic HSL, the
+  cylinder CSS `hsl()` and nearly every web palette tool use, and a genuinely distinct model from the two the
+  engine already had: HSV (has "value" not lightness — pure red is v=1 there but l=0.5 here) and OKHSL
+  (M395, perceptual, built on OKLab). HSL's trait is a lightness axis that runs black (l=0) → full colour
+  (l=0.5) → white (l=1) symmetrically, which is how designers reason about tints/shades and why imported web
+  palettes need it. Standard W3C piecewise reconstruction; operates on the `render::Color` channels directly
+  like the engine's `fromHsv`. Verified (`ctest -R "^color_hsl$"`): the canonical anchors map correctly (red =
+  h0 s1 l0.5, green = h⅓, blue = h⅔, white = l1, black = l0, mid-grey = s0 l0.5); `fromHsl` reconstructs them;
+  HSL is shown to genuinely differ from HSV (pure red is l=0.5 vs v=1.0); lightness is symmetric (l=0 black and
+  l=1 white for any hue/sat); a 125-colour RGB→HSL→RGB round-trip is the identity with alpha preserved; hue
+  wraps (1.0 and −⅓ fold correctly) and s=0 yields a pure grey at the lightness. Honest scope: operates on the
+  Color's stored channels (matching `fromHsv`), not a separate sRGB-gamma pass. [VERIFIABLE HERE]
 - [x] **Spherical coordinates** (`math::sphericalToCartesian` / `cartesianToSpherical` / `orbitPosition` /
   `directionToEquirectUV` / `equirectUVToDirection`) — DONE (M635); the (radius, azimuth, elevation) ↔ (x,y,z)
   conversion every orbit/turntable camera, sky sampler, and directional-light widget needs, plus the two jobs
