@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Hungarian algorithm — optimal assignment** (`core::hungarian`, `Hungarian.hpp`) — DONE (M697); match
+  N agents to N distinct tasks so the TOTAL cost is globally minimal, in O(n^3) (Kuhn-Munkres). [VERIFIABLE
+  HERE] A genuinely different problem from the engine's pathfinding: AStar2D finds one least-cost route, this
+  optimally pairs a whole SET at once, and unlike a greedy nearest-assignment (fast but routinely
+  sub-optimal) it is provably minimal. The canonical uses: assign N attack units to N targets to minimise
+  total travel, N defenders to N incoming threats, N workers to N jobs — any "who does what" that must be
+  globally best. Handles rectangular problems (fewer agents than tasks pick the cheapest subset); to MAXIMISE
+  a score instead, negate the values. Uses the classic potentials + augmenting-path formulation. Tested:
+  hand-worked 2x2/3x3 (including a case where greedy fails), rectangular, maximisation-via-negation, and a
+  randomized cross-check that the result equals the true minimum over ALL permutations (brute force) for
+  every n up to 8. Header-only, std-only, deterministic. Godot ships no assignment solver.
 - [x] **Fixed-window moving average + windowed min/max** (`core::MovingAverage`, `MovingAverage.hpp`) — DONE
   (M696); rolling statistics over the last N samples — mean in O(1) per push, window min and max in O(1)
   amortized (monotonic deques). [VERIFIABLE HERE] Distinct from the engine's other streaming stats:

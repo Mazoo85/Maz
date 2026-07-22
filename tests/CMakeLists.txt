@@ -2316,3 +2316,8 @@ add_executable(maz_movingaverage_tests core/movingaverage.cpp)
 target_link_libraries(maz_movingaverage_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME moving_average COMMAND maz_movingaverage_tests)
 set_tests_properties(moving_average PROPERTIES TIMEOUT 30)
+
+add_executable(maz_hungarian_tests core/hungarian.cpp)
+target_link_libraries(maz_hungarian_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hungarian_assignment COMMAND maz_hungarian_tests)
+set_tests_properties(hungarian_assignment PROPERTIES TIMEOUT 30)
