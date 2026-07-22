@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Smallest-three quaternion compression** (`net::compressQuat` / `decompressQuat`, `QuatCompress.hpp`)
+  — DONE (M717); pack a full 3D rotation into ~32 bits for cheap network replication, instead of 128 bits of
+  raw floats. [VERIFIABLE HERE] A unit quaternion has four components but only three degrees of freedom
+  (x²+y²+z²+w²=1), and one component always has magnitude ≥ ½. The trick: DON'T send the largest component —
+  send a 2-bit index of which one it was, then the other three (each guaranteed to lie in [-1/√2, +1/√2])
+  quantized to `bits` bits apiece; the receiver rebuilds the dropped one from the unit-length constraint.
+  Because q and -q are the same rotation, the sign is canonicalized so the largest component is always
+  positive (no sign bit needed either). At the default 9 bits/component that is 2 + 3·9 = 29 bits for a
+  rotation accurate to a fraction of a degree. This is how shipping engines replicate orientation (character
+  facing, projectile spin, ragdoll bones); Godot's multiplayer has no built-in equivalent. The ctest sweeps
+  20,000 uniformly-random rotations (Shoemake) and checks worst-case angular error stays under ~1.1° at 9
+  bits and ~0.6° at 10 bits AND shrinks with more bits, that identity/axis rotations survive, that q and -q
+  compress to the IDENTICAL code, that 9-bit codes fit in 29 bits (10-bit in 32), and that a non-normalized
+  input is normalized first. Builds on the existing FloatQuant. Header-only, deterministic. ctest
+  `quat_compress`.
 - [x] **Radix sort (linear-time key sorting)** (`core::radixSort` / `radixSortByKey` / `radixSortFloats`,
   `RadixSort.hpp`) — DONE (M716); sort by an integer or float key in O(n) instead of a comparison sort's
   O(n log n), with NO key comparisons at all. [VERIFIABLE HERE] Renderers sort thousands of draw calls every

@@ -2416,3 +2416,8 @@ add_executable(maz_radixsort_tests core/radixsort.cpp)
 target_link_libraries(maz_radixsort_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME radix_sort COMMAND maz_radixsort_tests)
 set_tests_properties(radix_sort PROPERTIES TIMEOUT 30)
+
+add_executable(maz_quatcompress_tests net/quatcompress.cpp)
+target_link_libraries(maz_quatcompress_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME quat_compress COMMAND maz_quatcompress_tests)
+set_tests_properties(quat_compress PROPERTIES TIMEOUT 30)
