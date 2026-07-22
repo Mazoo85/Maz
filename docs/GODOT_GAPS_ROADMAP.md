@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Convex penetration depth (EPA companion to GJK)** (`math::epaPenetration`, `Epa.hpp`) — DONE (M734);
+  the other half of convex-vs-convex collision. `GjkDistance.hpp` answers "how far APART are two convex
+  shapes?"; this answers "when they OVERLAP, how deep, and which way do I push to separate?" — returning the
+  penetration depth and the contact normal (minimum translation vector) that shoves shape A just clear of B.
+  That's exactly what a rigid-body solver needs to resolve a collision between two ARBITRARY convex polygons,
+  not just the box/circle special cases SAT hand-codes. It works on the Minkowski difference A(-)B: the shapes
+  overlap iff that set contains the origin, and the shortest way out is the closest point on its boundary; in
+  2D the exact boundary is the convex hull of all pairwise vertex differences, so the depth+normal are EXACT
+  (no iterative convergence). Godot exposes no such query. [VERIFIABLE HERE] Over thousands of random
+  overlapping convex polygons the depth matches an INDEPENDENT SAT minimum-translation computation and the
+  normal is parallel to the SAT axis; the separating property is checked directly (translating A by
+  (depth+margin)*normal removes the overlap, confirmed by an independent triangle-overlap sampler); plus a
+  hand-computed box case and disjoint-shape rejection.
 - [x] **Content-aware image resize (seam carving)** (`render::carveWidth`/`carveHeight`, `SeamCarve.hpp`) —
   DONE (M733); shrink an image by deleting the *least important* pixels instead of squashing everything, so
   the subject keeps its shape while bland background is squeezed out. Every pixel gets a dual-gradient

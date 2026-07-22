@@ -2501,3 +2501,8 @@ add_executable(maz_seamcarve_tests render/seamcarve.cpp)
 target_link_libraries(maz_seamcarve_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME seam_carve COMMAND maz_seamcarve_tests)
 set_tests_properties(seam_carve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_epa_tests math/epa.cpp)
+target_link_libraries(maz_epa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME epa COMMAND maz_epa_tests)
+set_tests_properties(epa PROPERTIES TIMEOUT 30)
