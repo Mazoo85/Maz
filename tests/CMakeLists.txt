@@ -767,6 +767,11 @@ target_link_libraries(maz_gridsample_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME grid_sample COMMAND maz_gridsample_tests)
 set_tests_properties(grid_sample PROPERTIES TIMEOUT 30)
 
+add_executable(maz_shufflebag_tests core/shufflebag.cpp)
+target_link_libraries(maz_shufflebag_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shuffle_bag COMMAND maz_shufflebag_tests)
+set_tests_properties(shuffle_bag PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

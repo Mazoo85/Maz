@@ -131,6 +131,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Shuffle bag / 7-bag randomizer** (`core::ShuffleBag<T>`) — DONE (M646); fair, clump-free randomness by
+  DEALING from a bag instead of rolling independently. An independent weighted roll can hand you the same
+  result five times running or starve an option for ages; a shuffle bag holds one token per intended outcome,
+  deals them in random order, and only refills+reshuffles once empty — so over each cycle every outcome
+  appears EXACTLY its intended number of times and the worst-case drought is bounded. This is the Tetris
+  "7-bag" piece randomizer, and what you want for enemy-type spawns, music-playlist shuffle, card decks, and
+  random events that should feel fair rather than streaky. Optional (default-on) avoidance of the same value
+  twice across a refill boundary. Complements AliasTable (fast independent weighted draws) and ReservoirSampler
+  (streaming sample) — this is the without-replacement, cycle-fair option; any RNG with an inclusive
+  `range(lo,hi)` works (e.g. `core::Pcg32`). Verified (`ctest -R "^shuffle_bag$"`): each 3-item cycle is a
+  permutation and over 500 cycles each item appears exactly 500 times; weighted counts (A×2,B×1) hold every
+  cycle; `remaining()`/`totalCount()` track the state; with avoidance on and 6 distinct outcomes there are ZERO
+  back-to-back repeats across 6000 draws (including refill boundaries); the same seed reproduces the deal
+  order; an empty bag is safe. Honest scope: uniform without-replacement dealing (equal per-token odds within
+  a cycle — not a Markov/pity-timer weighting scheme, which layers on top). [VERIFIABLE HERE]
 - [x] **Fractional grid sampling** (`math::gridNearest` / `math::gridBilinear` / `math::gridBicubic` /
   `math::GridEdge`) — DONE (M645); read a value out of a 2D data grid at FRACTIONAL coordinates, smoothly
   interpolating between cells — the everyday need behind sampling a heightfield between vertices, a flow-field
