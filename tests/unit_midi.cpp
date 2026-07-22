@@ -174,6 +174,36 @@ int main() {
               "a marker at bar 3 round-trips to the same bar through MIDI");
     }
 
+    // Time-signature meta-event (FF 58): a 3-beats-per-bar project (12 steps at 4 steps/beat) writes a
+    // 3/4 signature; a default 16-step/4 project writes 4/4. Importing DAWs need this to align bars.
+    {
+        auto tsNumerator = [&](int steps, int spb) -> int {
+            audio::Sequencer ts;
+            ts.setNumSteps(steps);
+            ts.setStepsPerBeat(spb);
+            const std::string tp = "unit_midi_timesig.mid";
+            std::string e2;
+            if (!audio::writeMidi(tp, ts, 96, &e2)) {
+                return -1;
+            }
+            std::ifstream tf(tp, std::ios::binary);
+            std::vector<uint8_t> tb((std::istreambuf_iterator<char>(tf)),
+                                    std::istreambuf_iterator<char>());
+            for (size_t i = 0; i + 4 < tb.size(); ++i) {
+                if (tb[i] == 0xFF && tb[i + 1] == 0x58 && tb[i + 2] == 0x04) {
+                    return static_cast<int>(tb[i + 3]); // numerator (beats per bar)
+                }
+            }
+            return -1;
+        };
+        check(tsNumerator(16, 4) == 4, "a 16-step/4 project exports a 4/4 time signature");
+        check(tsNumerator(12, 4) == 3, "a 12-step/4 project exports a 3/4 time signature");
+        audio::Sequencer tsIn;
+        std::string e3;
+        check(audio::readMidi("unit_midi_timesig.mid", tsIn, &e3),
+              "readMidi tolerates the time-signature meta-event");
+    }
+
     // Arrangement export: a 2-entry playlist writes both patterns back to back, each offset by one
     // pattern length.
     {

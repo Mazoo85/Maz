@@ -163,6 +163,19 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
     track.push_back(static_cast<uint8_t>((usPerQuarter >> 16) & 0xFFu));
     track.push_back(static_cast<uint8_t>((usPerQuarter >> 8) & 0xFFu));
     track.push_back(static_cast<uint8_t>(usPerQuarter & 0xFFu));
+    // Time-signature meta at tick 0 so importing DAWs align bars correctly (without it they assume 4/4,
+    // misplacing bar lines for a 3/4 or 6/8-style project). CJC's beat is a quarter note (BPM is
+    // quarter-note tempo); beats per bar = numSteps / stepsPerBeat. FF 58 nn dd cc bb: dd = 2 (quarter),
+    // cc = 24 MIDI clocks/click, bb = 8 thirty-seconds per quarter.
+    const int beatsPerBar = std::max(1, seq.numSteps() / std::max(seq.stepsPerBeat(), 1));
+    putVLQ(track, 0);
+    track.push_back(0xFF);
+    track.push_back(0x58);
+    track.push_back(0x04);
+    track.push_back(static_cast<uint8_t>(beatsPerBar & 0xFF));
+    track.push_back(0x02); // denominator 2^2 = quarter note
+    track.push_back(0x18); // 24 MIDI clocks per metronome click
+    track.push_back(0x08); // 8 notated 32nd-notes per quarter
     int prevTick = 0;
     for (const MidiEvent& e : events) {
         putVLQ(track, static_cast<uint32_t>(e.tick - prevTick));
