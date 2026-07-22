@@ -94,7 +94,11 @@ only be written blind, the docs say exactly that.
 - [x] **Localization tooling** — DONE (M652): gettext PO catalog with a real per-language plural-rule engine
   (`io::PoCatalog` / `io::PluralRule`), plus PO write-back (`serialize()`) and POT extraction (`io::PotBuilder`).
   See the M652 entry at the top of §5 for the full write-up. [VERIFIABLE HERE]
-- [ ] **Video container/codec decode** to frames (display is GPU-side). [CODE HERE / SEE IT ON YOUR MACHINE]
+- [~] **Video container/codec decode** — IVF **container demux** DONE (M658): `video::demuxIvf` /
+  `parseIvfHeader` (`video/Ivf.hpp`) read the IVF file header (codec, dimensions, frame rate, count) and
+  extract each compressed frame's timestamp + payload — the demux half every player runs before decoding.
+  See the M658 entry at the top of §5. The remaining piece is the VP8/VP9/AV1 codec (frame bytes → pixels)
+  and its GPU display. [CODE HERE / SEE IT ON YOUR MACHINE]
 
 ### §6 Scripting & language — [VERIFIABLE HERE]
 - [x] **Deepen the script VM toward GDScript-grade tooling** — DONE (M654): editor tooling for the
@@ -146,6 +150,25 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [~] **Video container demux (IVF)** (`video::demuxIvf`, `parseIvfHeader`, `video/Ivf.hpp`) — DONE
+  (M658, the container/framing part); the demux half of the §7 "video container/codec decode" gap.
+  [VERIFIABLE HERE for the container; codec + display on your GPU] A video file is a *container* wrapping a
+  stream of compressed frames; IVF is the simplest, fully-specified one (a 32-byte file header + a 12-byte
+  header before each frame), the standard wrapper for VP8/VP9/AV1 bitstreams. Before you can decode or seek
+  video you must DEMUX it — read the header (codec FourCC, width/height, frame rate, frame count) and pull
+  out each compressed frame's bytes and presentation timestamp — and dimensions/fps/duration are what a
+  playback UI needs first. This milestone implements that demuxer exactly per spec: `parseIvfHeader` reads
+  and validates the `DKIF` file header; `demuxIvf` walks the frame headers into a `{timestamp, offset,
+  size}` index and computes fps + duration, stopping cleanly on a truncated final frame. Pure byte logic,
+  no external files, so every field is checked. Verified (`ctest -R "^video_ivf$"`): a hand-built IVF with
+  a `VP80` 320×240 @30fps header and two frames parses to the right header fields and fps; the two frames
+  demux with correct timestamps, sizes, and payload offsets (and the bytes at those offsets are exactly the
+  ones written); a non-`DKIF` signature is rejected; and a truncated final frame is dropped while the first
+  is kept. **Honest scope:** this is the video *container demuxer* + metadata (parse, frame index, fps,
+  duration) — fully verifiable here — NOT the video codec. Turning a frame's compressed bytes into pixels is
+  a VP8/VP9/AV1 decoder (a very large codec), and displaying those frames is GPU-side; both are the
+  remaining work. This is the container layer those decoders sit on top of, the same demux-first pattern as
+  the MP3 framing milestone.
 - [~] **SSIL — screen-space indirect light (CPU gather kernel)** (`render::ssilGather`,
   `ScreenSpaceIndirectLight.hpp`) — DONE (M657, the CPU-verifiable core); the §5 "SSIL pass" gap.
   [VERIFIABLE HERE for the math; visual result on your GPU] SSIL is one-bounce screen-space global
