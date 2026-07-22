@@ -150,6 +150,22 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **CIELAB perceptual colour space + CIEDE2000 colour-difference** (`render::toLab`/`fromLab`,
+  `deltaE76`/`deltaE2000`, `CieLab.hpp`) — DONE (M673); the perceptually-uniform colour space and the
+  modern colour-difference metric behind accurate gradients, palette reduction, and "are these two
+  colours the same?" thresholds. [VERIFIABLE HERE] The engine already had HSV/HSL/hex/sRGB↔linear, but
+  those are *device* spaces where equal numeric steps do NOT look like equal perceptual steps — gradients
+  band and nearest-colour matching picks the wrong swatch. CIELAB (L\* lightness 0–100, a\* green↔red,
+  b\* blue↔yellow) is built on human vision so Euclidean-ish distance tracks how different colours *look*.
+  `render::Color` is linear RGB (sRGB primaries), so the pipeline is linear-RGB → CIE XYZ (D65) → L\*a\*b\*
+  with the exact inverse; two difference metrics ship: `deltaE76` (fast Euclidean, CIE 1976) and
+  `deltaE2000` (CIEDE2000, with lightness/chroma/hue weighting + the blue-region rotation term, computed
+  in double for the trig/pow precision the formula needs). Verified (`ctest -R cielab`): linear white →
+  L\*=100 neutral, black → L\*=0; Color→Lab→Color round-trips a spread of colours (incl. alpha); L\* is
+  monotonic in lightness; channel signs (red +a\*, green −a\*, yellow +b\*, blue −b\*); `deltaE76` is zero
+  for identical colours and symmetric; and `deltaE2000` matches all 13 published Sharma–Wu–Dalal reference
+  pairs to 1e-3 (2.0425, 2.8615, 3.4412, 1.0000, 2.3669, 27.1492, 1.2644, 0.9082, …) — the standard
+  correctness vectors for a CIEDE2000 implementation. Pure value maths, header-only.
 - [x] **Swept sphere vs plane (continuous collision)** (`math::sweepSpherePlane`, `SweptSphere.hpp`) —
   DONE (M672); the time-of-impact of a MOVING sphere against a plane — the CCD primitive behind fast
   ball physics and projectile-vs-surface. [VERIFIABLE HERE] Discrete collision (test where the sphere
