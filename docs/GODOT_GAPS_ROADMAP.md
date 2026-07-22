@@ -131,6 +131,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Hex ring / range / spiral** (`game::hexRing` / `game::hexRange` / `game::hexSpiral` / `game::hexScale`)
+  — DONE (M641); the area operations every hex board/strategy game needs, completing the HexGrid module which
+  had `hexNeighbors`/`hexLine`/`hexDistance` but no area queries. `hexRing(c, N)` returns exactly the 6N hexes
+  at distance N, walked in order around the ring (aura outlines, spawn rings, AoE edges); `hexRange(c, N)`
+  returns all 1+3N(N+1) hexes within N (blast radii, movement/attack range, vision area); `hexSpiral(c, N)` is
+  the same set ordered centre-outward ring by ring (ripple/expanding animations, nearest-first reveals). Exact
+  redblobgames axial-coordinate algorithms. Verified (`ctest -R "^hex_ring_range$"`): ring N has exactly 6N
+  hexes all at distance N (radius 0 = the centre alone, negative = empty); ring 1 is precisely the six
+  `hexNeighbors`; range N has exactly 1+3N(N+1) DISTINCT hexes all within N and includes the centre; spiral
+  covers the same set as range, starts at the centre, and has non-decreasing distance; all verified around a
+  non-origin centre. Honest scope: pure axial-coordinate set/geometry (no obstacle/blocking — intersect with
+  your own passability like the existing FlowField/AStar do). [VERIFIABLE HERE]
 - [x] **Even point distributions** (`math::fibonacciSphere` / `math::fibonacciHemisphere` / `math::vogelDisk`)
   — DONE (M640); spread N points as uniformly as possible over a sphere, hemisphere, or disc with NO random
   number generator (fully deterministic), using the golden-angle spiral so points never line up into spokes or

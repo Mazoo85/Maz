@@ -2,7 +2,9 @@
 
 #include "maz/math/Math.hpp" // vec2
 
+#include <algorithm> // std::min, std::max
 #include <cmath>
+#include <cstddef>
 #include <cstdlib> // std::abs
 #include <vector>
 
@@ -86,6 +88,60 @@ inline Hex pixelToHex(const math::vec2& p, float size, HexOrientation o = HexOri
         r = (-1.0f / 3.0f * p.x + k / 3.0f * p.y) / size;
     }
     return hexRound(q, r);
+}
+
+// Scale a hex (or direction) by an integer factor — `dir * k`.
+inline Hex hexScale(const Hex& h, int k) { return {h.q * k, h.r * k}; }
+
+// The ring of hexes at EXACTLY `radius` from `center`, walked in order around the ring (6*radius hexes).
+// radius 0 is the centre alone; a negative radius is empty. The staple for area-of-effect edges, aura
+// outlines, spawn rings, and "everything exactly N tiles away".
+inline std::vector<Hex> hexRing(const Hex& center, int radius) {
+    std::vector<Hex> out;
+    if (radius < 0) return out;
+    if (radius == 0) {
+        out.push_back(center);
+        return out;
+    }
+    out.reserve(static_cast<std::size_t>(6 * radius));
+    const Hex* d = hexDirections();
+    // Start at the corner offset by direction 4 * radius so the walk closes the ring cleanly.
+    Hex hex = center + hexScale(d[4], radius);
+    for (int i = 0; i < 6; ++i) {
+        for (int j = 0; j < radius; ++j) {
+            out.push_back(hex);
+            hex = hex + d[i];
+        }
+    }
+    return out;
+}
+
+// Every hex within `radius` of `center` (inclusive), i.e. hexDistance <= radius. Count is 1+3N(N+1). Order
+// is by axial q then r (a compact scan). The staple for blast radii, movement/attack range, and vision area.
+inline std::vector<Hex> hexRange(const Hex& center, int radius) {
+    std::vector<Hex> out;
+    if (radius < 0) return out;
+    out.reserve(static_cast<std::size_t>(1 + 3 * radius * (radius + 1)));
+    for (int q = -radius; q <= radius; ++q) {
+        const int rlo = std::max(-radius, -q - radius);
+        const int rhi = std::min(radius, -q + radius);
+        for (int r = rlo; r <= rhi; ++r) out.push_back(center + Hex(q, r));
+    }
+    return out;
+}
+
+// The same set as hexRange, but ordered as an outward SPIRAL: centre first, then ring 1, ring 2, … This is
+// the order you want for ripple/expanding animations, nearest-first flood reveals, and ring-by-ring iteration.
+inline std::vector<Hex> hexSpiral(const Hex& center, int radius) {
+    std::vector<Hex> out;
+    if (radius < 0) return out;
+    out.reserve(static_cast<std::size_t>(1 + 3 * radius * (radius + 1)));
+    out.push_back(center);
+    for (int k = 1; k <= radius; ++k) {
+        const std::vector<Hex> ring = hexRing(center, k);
+        out.insert(out.end(), ring.begin(), ring.end());
+    }
+    return out;
 }
 
 // The straight line of hexes from `a` to `b` inclusive (linear cube interpolation + rounding).

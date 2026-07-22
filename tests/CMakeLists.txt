@@ -742,6 +742,11 @@ target_link_libraries(maz_pointdistribution_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME point_distribution COMMAND maz_pointdistribution_tests)
 set_tests_properties(point_distribution PROPERTIES TIMEOUT 30)
 
+add_executable(maz_hexringrange_tests game/hexringrange.cpp)
+target_link_libraries(maz_hexringrange_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hex_ring_range COMMAND maz_hexringrange_tests)
+set_tests_properties(hex_ring_range PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
