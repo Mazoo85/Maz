@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh solidity (convexity) ratio** (`render::analyzeSolidity`, `SolidityReport`) — DONE (M565); how
+  CONVEX is a shape? Wrap the mesh in its convex hull (the tightest dent-free shape — imagine shrink-wrapping it)
+  and compare the mesh's own enclosed volume to the hull's. The ratio (mesh volume ÷ hull volume) is 1.0 for a
+  perfectly convex solid (a cube, a ball, a die) and drops toward 0 the more the shape caves in (a bowl, a cog, a
+  chair, a tree). This "solidity" is a one-number convexity score: it drives LOD/collision decisions (a
+  near-convex prop can use its cheap hull as a collider), flags whether a boolean/CSG result stayed solid, and
+  classifies shapes (blobby vs branchy) for procedural placement. Reuses the M532 mass-properties volume and the
+  M292-era convex-hull builder (hull volume = signed tetrahedra summed over its faces). Verified (`ctest -R
+  mesh_solidity`): a unit cube reports mesh volume 1, hull volume 1, solidity ~1; a cube with an inward cone
+  dimple in its top face reads hull volume still 1 (the hull ignores the dent), mesh volume ~0.833 (the dimple
+  removes ~1/6), solidity < 0.9 but > 0.7, and mesh volume < hull volume; an open (non-watertight) shell reports
+  invalid; empty meshes are safe. Honest scope: the mesh volume needs a CLOSED, consistently-wound surface (open
+  shells report invalid — weld/orient first via M525/M562; winding sign is auto-corrected so a closed but
+  inside-out mesh still measures); the hull is built from the mesh's VERTICES, so solidity captures vertex-cloud
+  concavity, not sub-vertex ripple; floating-point can push solidity a hair above 1.0 on a convex mesh (clamp for
+  a strict [0,1]). [VERIFIABLE HERE]
 - [x] **Vertex-colour smoothing** (`render::smoothVertexColors`) — DONE (M564); blur a mesh's per-vertex RGB
   across its edges without moving a single vertex. Baked vertex colours — ambient occlusion (M553), cavity/
   curvature (M556), hand-painted masks — often come out noisy or blocky: a low ray count leaves AO speckled, a

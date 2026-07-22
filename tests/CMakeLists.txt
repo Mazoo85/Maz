@@ -367,6 +367,11 @@ target_link_libraries(maz_meshvertexcolorsmooth_tests PRIVATE maz::maz maz_warni
 add_test(NAME mesh_vertex_color_smooth COMMAND maz_meshvertexcolorsmooth_tests)
 set_tests_properties(mesh_vertex_color_smooth PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshsolidity_tests render/meshsolidity.cpp)
+target_link_libraries(maz_meshsolidity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_solidity COMMAND maz_meshsolidity_tests)
+set_tests_properties(mesh_solidity PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
