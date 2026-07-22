@@ -257,6 +257,11 @@ target_link_libraries(maz_meshgeodesic_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_geodesic COMMAND maz_meshgeodesic_tests)
 set_tests_properties(mesh_geodesic PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshslice_tests render/meshslice.cpp)
+target_link_libraries(maz_meshslice_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_slice COMMAND maz_meshslice_tests)
+set_tests_properties(mesh_slice PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

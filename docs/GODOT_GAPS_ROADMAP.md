@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh plane slice / cross-section** (`render::sliceMesh`, `SliceContour`) — DONE (M543); intersect a
+  triangle mesh with an infinite plane and return the CONTOUR — the line segments where the surface crosses the
+  plane, chained into ordered (closed on a watertight solid) polyline loops. This is the cross-section a CAD
+  tool draws and the building block for cutaway / section views, a waterline or lava-line on a hull, terrain
+  contour ("topographic") lines at a set of heights, silhouette/outline extraction, deriving a 2D collision
+  outline from a 3D prop, and 3D-printing slicers. Each straddling triangle contributes one segment between the
+  crossings on its two sign-changing edges; the crossing on each mesh edge is keyed by that undirected edge, so
+  the two triangles sharing it resolve to the SAME point — every contour point then has exactly two incident
+  segments and the chain closes into clean loops (robust where naive spatial welding would let the chainer
+  zig-zag across the ring). Verified (`ctest -R mesh_slice`): a unit cube sliced through its middle gives one
+  closed square loop of perimeter exactly 4 with every point on the plane; a plane clear of the cube gives no
+  contour; a diagonal plane still gives one closed loop (points satisfy x+y=1); a unit sphere sliced off-centre
+  gives one closed ring whose points sit at the exact slice radius and whose perimeter approaches 2·π·r; empty
+  mesh safe. Honest scope: a vertex exactly on the plane counts to the non-positive side and a coplanar face
+  contributes no 1D contour; a non-manifold edge may leave an open chain, which is reported not silently closed.
+  [VERIFIABLE HERE]
 - [x] **Mesh geodesic distance** (`render::geodesicDistance`, `GeodesicResult`) — DONE (M542); the shortest
   "walk along the surface" distance from one or more source vertices to every other vertex, measured along the
   mesh's EDGES (Dijkstra on the vertex graph, edge weight = the 3D edge length). Straight-line distance cuts
