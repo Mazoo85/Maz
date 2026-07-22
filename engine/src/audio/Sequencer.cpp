@@ -1174,7 +1174,7 @@ void Sequencer::triggerTransportStep(int step) {
 
 void Sequencer::triggerAudioClipsForBar(int bar) {
     for (AudioClip& a : audioClips_) {
-        if (a.startBar == bar && a.sampler.loaded()) {
+        if (a.startBar == bar && !a.muted && a.sampler.loaded()) {
             // One-shot from frame 0; basePitch → natural rate, +pitch semitones resamples it up/down.
             a.sampler.noteOn(a.sampler.basePitch() + a.pitch, 1.0f);
         }

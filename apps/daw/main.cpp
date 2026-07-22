@@ -3549,6 +3549,11 @@ void buildArrangementUI(audio::Sequencer& seq) {
             seq.setAudioClipPitch(i, semis);
         }
         ImGui::SameLine();
+        bool muted = ac.muted;
+        if (ImGui::Checkbox("mute##ac", &muted)) {
+            seq.audioClip(i).muted = muted;
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Remove##ac")) {
             seq.removeAudioClip(i);
             ImGui::PopID();

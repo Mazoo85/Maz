@@ -980,6 +980,28 @@ int main() {
                   "a +12-semitone audio clip resamples at 2x rate and finishes sooner");
         }
 
+        // Per-clip mute: a muted audio clip is skipped in playback (no voice, silent stem), mirroring
+        // pattern-clip mute.
+        {
+            auto leadRms = [&](bool mute) {
+                audio::Sequencer s;
+                const int c = s.addAudioClip(0, 0);
+                s.audioClip(c).muted = mute;
+                s.audioClipSampler(c).setSampleMono(makeSample(), 48000);
+                s.setSongMode(true);
+                s.setSongUsesClips(true);
+                s.play();
+                const int fr = sampleRate / 8;
+                std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+                std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+                s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+                return rms(l);
+            };
+            check(leadRms(false) > 0.0, "an unmuted audio clip sounds");
+            check(leadRms(true) == 0.0, "a muted audio clip is silent");
+        }
+
         // removeAudioClip / clearAudioClips manage the collection.
         {
             audio::Sequencer s;
