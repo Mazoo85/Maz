@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Dominant-plane / flatness detector** (`render::fitDominantPlane`, `MeshPlane`) — DONE (M568); fit the
+  best-matching flat plane to a mesh's vertices and measure how FLAT the shape actually is. Via principal
+  component analysis (centre the points, form the 3×3 covariance, take its eigenvectors), the direction of LEAST
+  spread is the plane's normal and the leftover spread along it is the shape's departure from flat. This answers
+  "is this a wall / floor / panel / decal, and which way does it face?" — used to auto-orient flat props to a
+  surface, pick a planar-UV axis, snap a billboard, detect ground/wall pieces for gameplay, or decide a
+  nearly-flat mesh can collapse to a quad. Returns the unit normal, a point on the plane (the centroid),
+  `rmsDistance`/`thickness` (in mesh units) and a `planarity` shape score in [0,1]. Reuses the FitObb symmetric
+  Jacobi eigensolver. Verified (`ctest -R mesh_dominant_plane`): a flat grid in the XZ plane fits a ±Y normal with
+  zero tilt, zero thickness/RMS and planarity > 0.99; a sheet tilted onto the x+y=0 plane fits the (1,1,0)
+  direction (sign-independent) and stays fully planar; a cube point cloud reads planarity < 0.2 with real
+  thickness; a thin slab reads planarity > 0.9 with its normal on the thin axis and thickness equal to its gauge;
+  empty meshes are invalid. Honest scope: fits ONE global plane through the centroid — great for planar-ish meshes
+  (walls, panels, terrain patches) but a folded or multi-part mesh returns the average best-fit plane (segment
+  first via M529 components / M545 planar regions); `planarity` is a shape descriptor (1 = flat, 0 = isotropic),
+  not a physical unit; vertices are weighted equally (not area-weighted), so a dense cluster pulls the fit.
+  [VERIFIABLE HERE]
 - [x] **Hole fill / cap** (`render::fillHoles`, `HoleFillResult`) — DONE (M567); seal the open holes a mesh has,
   turning a leaky surface into a watertight solid. Where M566 REPORTS holes, this PATCHES them: for each open
   boundary loop it adds a centre vertex at the hole's average position and fans triangles from that centre to the

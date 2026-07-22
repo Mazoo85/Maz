@@ -382,6 +382,11 @@ target_link_libraries(maz_meshholefill_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_hole_fill COMMAND maz_meshholefill_tests)
 set_tests_properties(mesh_hole_fill PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshdominantplane_tests render/meshdominantplane.cpp)
+target_link_libraries(maz_meshdominantplane_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_dominant_plane COMMAND maz_meshdominantplane_tests)
+set_tests_properties(mesh_dominant_plane PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
