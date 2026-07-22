@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Image drawing primitives** (`render::drawLine` / `drawRect` / `drawCircle` / `fillCircle` /
+  `fillTriangle`) — DONE (M648); rasterize 2D shapes directly INTO an Image on the CPU. The Image class already
+  edited pixels and blitted regions but had no way to stroke a line, outline or fill a circle, draw a rectangle
+  border, or fill a triangle — the building blocks for procedural textures, generated icons, minimap/radar
+  overlays, debug visualisations, and simple CPU-side vector art. Classic Bresenham line + midpoint circle, a
+  bounding-box disc fill, and a barycentric (winding-independent) triangle fill; every primitive plots through
+  the Image's bounds-checked setPixel, so off-canvas is safely clipped. Distinct from Renderer's GPU debug-draw
+  — this writes an in-memory image you can save, upload, or sample. Verified (`ctest -R "^image_draw$"`): a line
+  sets both endpoints and a contiguous run, doesn't overrun, and clips off-canvas without crashing; a rectangle
+  outline sets its four borders but leaves the interior untouched; a circle outline hits the four cardinal
+  points with an empty centre; a filled radius-5 disc covers EXACTLY 81 pixels (centre + cardinals set, √50
+  corner not); a filled triangle lights its interior and vertices but not points clearly outside. Honest scope:
+  aliased (hard-edged) single-pixel rasterization — no anti-aliasing or thickness (compose or supersample for
+  smooth edges). [VERIFIABLE HERE]
 - [x] **Fog of war** (`game::FogOfWar` / `game::Visibility`) — DONE (M647); the persistent "what has this player
   seen?" memory for a tile map — the staple of RTS, strategy, and roguelike games. Every tile is Unseen (never
   revealed, drawn black), Explored (seen before but not in view now, drawn dimmed from memory), or Visible (in
