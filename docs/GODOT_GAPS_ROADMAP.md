@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Projection UV unwrap** (`render::planarUv` / `render::boxUv`) — DONE (M551); auto-generate texture
+  coordinates without a hand-made unwrap by PROJECTING world positions onto a plane. PLANAR drops every vertex
+  straight down one axis (the top-down decal / terrain map — paint a whole floor or landscape with one texture,
+  topology untouched); BOX (triplanar) picks, per triangle, the axis its face points most toward and projects
+  onto that plane (the instant "cube" UV DCC tools offer for hard-surface props — each face gets sensible,
+  low-distortion coordinates with no manual seam work, returned as a facet-split mesh since neighbouring faces
+  use different axes). This is the quick UV a mesh needs before it can show a tiled material, decal, or checker
+  map. Natural per-axis channel choice keeps textures upright (X→(z,y), Y→(x,z), Z→(x,y)); `scale`/offset tile
+  the result. Verified (`ctest -R mesh_uv_project`): a unit XZ quad projected top-down maps exactly to the unit
+  square with topology preserved; scale+offset shift the UV span as expected; box projection on a cube
+  facet-splits to 36 vertices with UVs filling [0,1]²; the top face (normal ±Y) projects to a full unit square
+  (not collapsed), confirming dominant-axis selection; empty safe. Honest scope: projection UVs stretch on
+  surfaces steep to the axis and seam at the 45° between box axes (inherent to projection unwraps); box maps
+  opposite faces identically (no back-face flip); angle-based/LSCM unwrap is the heavier follow-up. [VERIFIABLE HERE]
 - [x] **UV-seam edge detection** (`render::detectUvSeams`, `UvSeamResult`) — DONE (M550); find the edges where a
   mesh's texture coordinates are DISCONTINUOUS — the two triangles meeting along a 3D edge disagree on the UV of
   the shared corners, so the texture is cut there. Those cuts are the seams of a UV unwrap, the boundaries of the
