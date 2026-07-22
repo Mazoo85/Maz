@@ -707,6 +707,11 @@ target_link_libraries(maz_viewcone_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME viewcone COMMAND maz_viewcone_tests)
 set_tests_properties(viewcone PROPERTIES TIMEOUT 30)
 
+add_executable(maz_imagelineargradient_tests render/imagelineargradient.cpp)
+target_link_libraries(maz_imagelineargradient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_linear_gradient COMMAND maz_imagelineargradient_tests)
+set_tests_properties(image_linear_gradient PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

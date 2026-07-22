@@ -47,6 +47,33 @@ inline Image verticalGradient(int width, int height, const Color& top, const Col
     return img;
 }
 
+// A linear gradient at an arbitrary ANGLE (radians): `from` at the leading edge to `to` at the far edge, measured
+// along the direction (cos θ, sin θ). Angle 0 runs left→right, π/2 runs top→bottom (== verticalGradient), and any
+// diagonal in between — for slanted skies, UI sweeps, and directional light washes. The gradient spans the whole
+// image (corner to corner along the direction).
+inline Image linearGradient(int width, int height, float angleRadians, const Color& from, const Color& to) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const float dx = std::cos(angleRadians), dy = std::sin(angleRadians);
+    const float w1 = static_cast<float>(width - 1), h1 = static_cast<float>(height - 1);
+    // Projection range over the four corners so t spans [0,1] across the image.
+    const float p[4] = {0.0f, w1 * dx, h1 * dy, w1 * dx + h1 * dy};
+    float mn = p[0], mx = p[0];
+    for (int i = 1; i < 4; ++i) { mn = std::fmin(mn, p[i]); mx = std::fmax(mx, p[i]); }
+    float range = mx - mn;
+    if (range < 1e-6f) range = 1.0f;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float t = ((static_cast<float>(x) * dx + static_cast<float>(y) * dy) - mn) / range;
+            if (t < 0.0f) t = 0.0f;
+            if (t > 1.0f) t = 1.0f;
+            img.setPixel(x, y, Color{from.r + (to.r - from.r) * t, from.g + (to.g - from.g) * t,
+                                     from.b + (to.b - from.b) * t, from.a + (to.a - from.a) * t});
+        }
+    }
+    return img;
+}
+
 // A radial gradient from `centre` at the middle to `edge` at radius = half the shorter side (clamped beyond).
 inline Image radialGradient(int width, int height, const Color& centre, const Color& edge) {
     Image img(width, height);

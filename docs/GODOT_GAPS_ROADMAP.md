@@ -336,6 +336,14 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   fast-3D geometries; a target fleeing faster than the shot is correctly unreachable; the aim genuinely leads ahead
   of a crossing target; non-positive speed and a coincident target are handled. Honest scope: constant target
   velocity, no gravity/drag (use `Ballistics` for arced shots). [VERIFIABLE HERE]
+- [x] **Angled linear gradient** (`render::patterns::linearGradient`) — DONE (M634); a gradient at an ARBITRARY
+  angle (radians) from `from` at the leading edge to `to` at the far edge, spanning the image corner-to-corner along
+  the direction — for slanted skies, UI sweeps, and directional light washes. Generalises `verticalGradient` (only
+  vertical and radial existed). Verified (`ctest -R "^image_linear_gradient$"`): size honoured; angle 0 runs
+  left→right with each column a constant shade (left=from, right=to); angle π/2 runs top→bottom with each row
+  constant, matching `verticalGradient` output; a 45° diagonal puts `from` at the top-left corner and `to` at the
+  bottom-right with a ~50% blend at the centre; non-positive size is safe. Honest scope: linear RGBA interpolation
+  with no gamma handling (like the sibling gradients). [VERIFIABLE HERE]
 - [x] **Voronoi mosaic texture** (`render::patterns::voronoiTexture`) — DONE (M630); a flat-colour cellular mosaic:
   scatter one jittered feature point per grid cell and fill each pixel with the colour of its NEAREST point's cell —
   solid regions with hard edges for stained glass, low-poly art, cracked ceramic, or a mosaic floor. Distinct from
