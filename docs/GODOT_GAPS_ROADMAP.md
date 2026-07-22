@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **UTF-16 conversion** (`core::utf16Encode` / `utf16Decode` / `utf8ToUtf16` / `utf16ToUtf8`,
+  `Utf16.hpp`) — DONE (M720); the companion to Utf8.hpp for moving text between UTF-8 (the engine's
+  internal/on-disk form) and UTF-16. [VERIFIABLE HERE] UTF-16 is the native text encoding of the Windows API
+  (wide-char file paths, the clipboard, native file dialogs / message boxes) and of Java/JS/.NET strings, so
+  any engine that talks to those platforms or imports data from them must convert. The subtlety UTF-16 adds
+  over UTF-8 is SURROGATE PAIRS: code points above U+FFFF (emoji, CJK extensions, historic scripts) are
+  stored as two 16-bit units — a high surrogate (0xD800..0xDBFF) then a low (0xDC00..0xDFFF) — and the
+  split/join arithmetic is exactly where naive code breaks. This handles it and mirrors Utf8.hpp's forgiving
+  policy: any invalid scalar value (a lone surrogate, a value above U+10FFFF) becomes U+FFFD instead of
+  corrupting the stream. The ctest pins known encodings (ASCII, é, €, the 😀 emoji as D83D DE00, U+10FFFF as
+  DBFF DFFF), round-trips EVERY valid scalar value across the entire Unicode range (~1.1M code points)
+  through encode->decode, checks the replacement-char policy for lone/stray surrogates and out-of-range
+  values, and round-trips a mixed multilingual string through the utf8<->utf16 bridge. Godot exposes wide
+  conversion only through its opaque String; this is the standalone codec. Header-only, deterministic. ctest
+  `utf16`.
 - [x] **Binary diff / patch** (`io::binaryDiff` / `io::binaryPatch`, `BinaryDiff.hpp`) — DONE (M719); build a
   compact PATCH that turns one byte buffer into another, and apply it to reconstruct the target EXACTLY.
   [VERIFIABLE HERE] When two blobs are mostly the same — a save file after a few minutes of play, an asset

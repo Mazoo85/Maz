@@ -2431,3 +2431,8 @@ add_executable(maz_binarydiff_tests io/binarydiff.cpp)
 target_link_libraries(maz_binarydiff_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME binary_diff COMMAND maz_binarydiff_tests)
 set_tests_properties(binary_diff PROPERTIES TIMEOUT 30)
+
+add_executable(maz_utf16_tests core/utf16.cpp)
+target_link_libraries(maz_utf16_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME utf16 COMMAND maz_utf16_tests)
+set_tests_properties(utf16 PROPERTIES TIMEOUT 30)
