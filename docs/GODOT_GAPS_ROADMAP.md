@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Even point distributions** (`math::fibonacciSphere` / `math::fibonacciHemisphere` / `math::vogelDisk`)
+  — DONE (M640); spread N points as uniformly as possible over a sphere, hemisphere, or disc with NO random
+  number generator (fully deterministic), using the golden-angle spiral so points never line up into spokes or
+  rings at any count. The workhorse behind uniform DIRECTION sampling — AO/GI rays, reflection-probe placement,
+  spawn directions, LOD-impostor captures — and even POINT scatter — star fields, point clouds, dotted
+  patterns, soft-shadow / depth-of-field kernels. The engine already used this spiral inline in a couple of
+  shaders (SoftShadow2D, MeshAO); this exposes it as a reusable, unit-tested primitive. Pairs with
+  SphericalCoords (M635). Verified (`ctest -R "^point_distribution$"`): `fibonacciSphere(1000)` returns exactly
+  N unit-length points that reach both poles and whose centroid sits within 0.05 of the origin (the defining
+  even-coverage signal); `fibonacciHemisphere` keeps every point on z≥0, unit-length, reaches the top pole, is
+  centred in x,y, and its centroid is pulled toward +z; `vogelDisk(1000, r)` keeps every point within r, packs
+  its centroid near the centre, reaches >95% of the radius, and places its first point near the middle; results
+  are deterministic and non-positive counts are empty. Honest scope: quasi-uniform golden-angle spirals (near-
+  optimal, deterministic — not a physically-exact equal-area tessellation or blue-noise optimisation). [VERIFIABLE HERE]
 - [x] **Varint / LEB128 + zigzag** (`io::appendVarint` / `io::readVarint` / `io::appendVarintSigned` /
   `io::zigzagEncode` / `io::varintSize`) — DONE (M639); the compact way to serialize integers that are usually
   small — one byte for values under 128, two under 16384, only paying for 64 bits when the number is genuinely
