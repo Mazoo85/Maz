@@ -6,6 +6,7 @@
 #include "maz/audio/Sampler.hpp"
 #include "maz/audio/SynthInstrument.hpp"
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <string>
@@ -387,6 +388,54 @@ public:
         }
     }
     void clearAudioClips() { audioClips_.clear(); }
+    // Arrangement-track mute / solo (2-D playlist rows): mute silences every clip — pattern AND audio —
+    // on that track row; solo (when any track is soloed) restricts playback to soloed rows. Distinct
+    // from per-clip mute (which silences one clip). Track indices grow the backing vectors on demand;
+    // an index never set defaults to unmuted / unsoloed.
+    void setTrackMuted(int track, bool m) {
+        if (track < 0) {
+            return;
+        }
+        if (static_cast<size_t>(track) >= trackMuted_.size()) {
+            trackMuted_.resize(static_cast<size_t>(track) + 1, 0);
+        }
+        trackMuted_[static_cast<size_t>(track)] = m ? 1 : 0;
+    }
+    bool trackMuted(int track) const {
+        return track >= 0 && static_cast<size_t>(track) < trackMuted_.size() &&
+               trackMuted_[static_cast<size_t>(track)] != 0;
+    }
+    void setTrackSoloed(int track, bool s) {
+        if (track < 0) {
+            return;
+        }
+        if (static_cast<size_t>(track) >= trackSoloed_.size()) {
+            trackSoloed_.resize(static_cast<size_t>(track) + 1, 0);
+        }
+        trackSoloed_[static_cast<size_t>(track)] = s ? 1 : 0;
+    }
+    bool trackSoloed(int track) const {
+        return track >= 0 && static_cast<size_t>(track) < trackSoloed_.size() &&
+               trackSoloed_[static_cast<size_t>(track)] != 0;
+    }
+    bool anyTrackSoloed() const {
+        for (unsigned char v : trackSoloed_) {
+            if (v != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // A track row is audible iff it is not muted and (nothing is soloed, or it is one of the soloed rows).
+    bool trackAudible(int track) const {
+        if (trackMuted(track)) {
+            return false;
+        }
+        return !anyTrackSoloed() || trackSoloed(track);
+    }
+    int trackFlagCount() const {
+        return static_cast<int>(std::max(trackMuted_.size(), trackSoloed_.size()));
+    }
     // Clip-driven song mode: when on (and clips exist), song playback walks the 2-D clip timeline bar
     // by bar and plays EVERY clip active on the current bar simultaneously (patterns layered on the
     // shared instruments) — true multi-track playback, distinct from the legacy 1-D playlist. Off by
@@ -588,6 +637,8 @@ private:
     std::vector<PlaylistClip> clips_; // 2-D playlist clips (pattern @ bar @ track)
     std::vector<AudioClip> audioClips_; // 2-D playlist audio clips (sample @ bar @ track)
     std::vector<float> audioClipScratch_; // per-chunk mono scratch for rendering one audio clip
+    std::vector<unsigned char> trackMuted_;  // per arrangement-track-row mute (grows on demand)
+    std::vector<unsigned char> trackSoloed_; // per arrangement-track-row solo (grows on demand)
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     bool songMode_ = false;

@@ -116,8 +116,8 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
             for (int i = 0; i < seq.clipCount(); ++i) {
                 const PlaylistClip& c = seq.clip(i);
                 const int span = c.bars < 1 ? 1 : c.bars;
-                if (!c.muted && bar >= c.startBar && bar < c.startBar + span && c.pattern >= 0 &&
-                    c.pattern < seq.patternCount()) {
+                if (!c.muted && seq.trackAudible(c.track) && bar >= c.startBar &&
+                    bar < c.startBar + span && c.pattern >= 0 && c.pattern < seq.patternCount()) {
                     seq.selectPattern(c.pattern);
                     emitPattern(bar * patLen);
                 }

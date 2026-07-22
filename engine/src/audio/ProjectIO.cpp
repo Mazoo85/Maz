@@ -523,6 +523,14 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
           << ac.pitch << " " << (ac.muted ? 1 : 0) << " " << (ac.reverse ? 1 : 0) << " " << ac.path
           << "\n";
     }
+    // Arrangement-track mute/solo flags (2-D playlist rows). Only non-default rows are written; old
+    // files have none → every track defaults to audible.
+    for (int t = 0; t < seq.trackFlagCount(); ++t) {
+        if (seq.trackMuted(t) || seq.trackSoloed(t)) {
+            f << "trackflag " << t << " " << (seq.trackMuted(t) ? 1 : 0) << " "
+              << (seq.trackSoloed(t) ? 1 : 0) << "\n";
+        }
+    }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
@@ -1306,6 +1314,11 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             if (!path.empty()) {
                 seq.loadAudioClip(idx, path); // fails gracefully if the file is missing
             }
+        } else if (tag == "trackflag") {
+            int t = 0, m = 0, s = 0;
+            ls >> t >> m >> s;
+            seq.setTrackMuted(t, m != 0);
+            seq.setTrackSoloed(t, s != 0);
         } else if (tag == "step") {
             int p = 0;
             int c = 0;

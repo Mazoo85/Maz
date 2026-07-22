@@ -1047,6 +1047,61 @@ int main() {
         }
     }
 
+    // --- Arrangement-track mute / solo (2-D playlist rows) -------------------
+    {
+        // Two audio clips on the same bar, different track rows. Muting a row silences its clip; soloing
+        // a row silences every other row. Distinct from per-clip mute (this gates a whole timeline row).
+        auto makeSample = []() {
+            std::vector<float> buf(4800, 0.0f);
+            for (size_t i = 0; i < buf.size(); ++i) {
+                buf[i] = 0.5f * std::sin(2.0f * 3.14159265f * 220.0f *
+                                         static_cast<float>(i) / 48000.0f);
+            }
+            return buf;
+        };
+        // Render helper: two clips (track 0 → lead bus, track 1 → bass bus). Returns {leadRms, bassRms}.
+        auto render = [&](int muteTrack, int soloTrack) {
+            audio::Sequencer s;
+            const int c0 = s.addAudioClip(0, 0); // track 0
+            s.setAudioClipBus(c0, 1);            // lead
+            s.audioClipSampler(c0).setSampleMono(makeSample(), 48000);
+            const int c1 = s.addAudioClip(0, 1); // track 1
+            s.setAudioClipBus(c1, 2);            // bass
+            s.audioClipSampler(c1).setSampleMono(makeSample(), 48000);
+            if (muteTrack >= 0) {
+                s.setTrackMuted(muteTrack, true);
+            }
+            if (soloTrack >= 0) {
+                s.setTrackSoloed(soloTrack, true);
+            }
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.play();
+            const int fr = sampleRate / 8;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+            return std::pair<double, double>{rms(l), rms(b)};
+        };
+        const auto none = render(-1, -1);
+        check(none.first > 0.0 && none.second > 0.0, "both track rows sound when nothing is muted/soloed");
+        const auto muteT0 = render(0, -1);
+        check(muteT0.first == 0.0 && muteT0.second > 0.0,
+              "muting track 0 silences its clip while track 1 still plays");
+        const auto soloT1 = render(-1, 1);
+        check(soloT1.first == 0.0 && soloT1.second > 0.0,
+              "soloing track 1 silences every other row");
+        // trackAudible reflects the flags directly.
+        audio::Sequencer f;
+        check(f.trackAudible(0) && !f.anyTrackSoloed(), "a fresh track is audible with no solo active");
+        f.setTrackSoloed(2, true);
+        check(f.anyTrackSoloed() && f.trackAudible(2) && !f.trackAudible(0),
+              "with a solo active only the soloed row is audible");
+        f.setTrackMuted(2, true);
+        check(!f.trackAudible(2), "a muted row is inaudible even when soloed");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

@@ -391,7 +391,7 @@ int Sequencer::compileClipsToPlaylist() {
     });
     playlist_.clear();
     for (const PlaylistClip& c : sorted) {
-        if (!c.muted && c.pattern >= 0 && c.pattern < patternCount()) {
+        if (!c.muted && trackAudible(c.track) && c.pattern >= 0 && c.pattern < patternCount()) {
             const int span = c.bars < 1 ? 1 : c.bars;
             for (int b = 0; b < span; ++b) { // a multi-bar clip tiles its pattern across each bar
                 playlist_.push_back(c.pattern);
@@ -483,6 +483,8 @@ void Sequencer::clearArrangement() {
     playlist_.clear();
     clips_.clear();
     audioClips_.clear();
+    trackMuted_.clear();
+    trackSoloed_.clear();
     songMode_ = false;
     playlistPos_ = 0;
     current_ = 0;
@@ -1160,8 +1162,8 @@ void Sequencer::triggerTransportStep(int step) {
         const int saved = current_;
         for (const PlaylistClip& c : clips_) {
             const int span = c.bars < 1 ? 1 : c.bars;
-            if (!c.muted && songBar_ >= c.startBar && songBar_ < c.startBar + span &&
-                c.pattern >= 0 && c.pattern < patternCount()) {
+            if (!c.muted && trackAudible(c.track) && songBar_ >= c.startBar &&
+                songBar_ < c.startBar + span && c.pattern >= 0 && c.pattern < patternCount()) {
                 current_ = c.pattern;
                 triggerStep(step);
             }
@@ -1174,7 +1176,7 @@ void Sequencer::triggerTransportStep(int step) {
 
 void Sequencer::triggerAudioClipsForBar(int bar) {
     for (AudioClip& a : audioClips_) {
-        if (a.startBar == bar && !a.muted && a.sampler.loaded()) {
+        if (a.startBar == bar && !a.muted && trackAudible(a.track) && a.sampler.loaded()) {
             // One-shot from frame 0; basePitch → natural rate, +pitch semitones resamples it up/down.
             // reverse plays the sample backward (from its end) for reverse-swell effects.
             a.sampler.setReverse(a.reverse);

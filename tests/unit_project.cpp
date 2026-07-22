@@ -202,6 +202,8 @@ int main() {
     seq.audioClip(aclip).muted = true;   // muted flag must round-trip
     seq.audioClip(aclip).reverse = true; // reverse flag must round-trip
     seq.audioClip(aclip).path = "samples/a loop with spaces.wav";
+    seq.setTrackMuted(1, true);  // arrangement-track-row flags must round-trip
+    seq.setTrackSoloed(3, true);
     seq.setSongMode(true);
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
     seq.setSongLoop(false);
@@ -729,6 +731,8 @@ int main() {
               seq2.audioClip(0).muted && seq2.audioClip(0).reverse &&
               seq2.audioClip(0).path == "samples/a loop with spaces.wav",
           "2-D playlist audio-clip metadata round-trips (bar/track/gain/bus/pitch/mute/reverse/path)");
+    check(seq2.trackMuted(1) && !seq2.trackMuted(0) && seq2.trackSoloed(3) && !seq2.trackSoloed(0),
+          "arrangement-track mute/solo flags round-trip");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");

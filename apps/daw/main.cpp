@@ -3472,6 +3472,19 @@ void buildArrangementUI(audio::Sequencer& seq) {
         return -1;
     };
     for (int t = 0; t < kTracks; ++t) {
+        // Per-track (row) mute/solo — silences/soloes every clip (pattern + audio) on this timeline row.
+        ImGui::PushID(1000 + t);
+        bool tm = seq.trackMuted(t);
+        if (ImGui::Checkbox("M##trk", &tm)) {
+            seq.setTrackMuted(t, tm);
+        }
+        ImGui::SameLine();
+        bool ts = seq.trackSoloed(t);
+        if (ImGui::Checkbox("S##trk", &ts)) {
+            seq.setTrackSoloed(t, ts);
+        }
+        ImGui::SameLine();
+        ImGui::PopID();
         for (int bar = 0; bar < kBars; ++bar) {
             ImGui::PushID(t * kBars + bar);
             const int ci = clipAt(t, bar);
