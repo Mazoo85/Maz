@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Weighted reservoir sampling** (`core::WeightedReservoir`, `WeightedReservoir.hpp`) — DONE (M711);
+  select k items from a STREAM of weighted items in a single pass and O(k) memory, each item's chance of
+  being kept proportional to its WEIGHT (Efraimidis-Spirakis "A-Res"). [VERIFIABLE HERE] The missing middle
+  between the engine's two samplers: `AliasTable` does a weighted pick from a KNOWN in-memory set, and
+  `ReservoirSampler` picks k from a stream but treats every item EQUALLY — this does both at once. The tool
+  for drawing N loot items from a generated pile weighted by rarity, sampling spawn points weighted by
+  desirability, or keeping importance-weighted telemetry without unbounded memory. The trick: an item of
+  weight w gets key = u^(1/w) for uniform u; keep the k largest keys (a size-k min-heap), compared in log
+  space for stability. Deterministic via embedded splitmix64. Tested statistically: k=1 over weights
+  {1,2,3,4} selects each in proportion (~10/20/30/40% over 40k trials), k>=n returns everything, a dominant
+  weight is included >97% of the time, same seed reproduces the sample, non-positive weights are ignored,
+  and the reservoir never exceeds k. Header-only, std-only.
 - [x] **Streaming median filter (running median)** (`core::RunningMedian`, `RunningMedian.hpp`) — DONE
   (M710); the exact median of the most recent N samples of a stream, the great OUTLIER-RESISTANT smoother.
   [VERIFIABLE HERE] A lone spike (a glitched sensor read, a dropped-frame hitch, a network blip) is an
