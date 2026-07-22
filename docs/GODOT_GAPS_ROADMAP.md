@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Heightfield / terrain mesh** (`render::buildHeightfield`) — DONE (M596); turn a flat grid of height numbers
+  into a rolling 3D terrain surface. Hand it a cols×rows grid of heights (row-major — straight out of a Perlin/fbm
+  noise function, a greyscale heightmap image, or hand-authored contours) and it drops a vertex at every grid point,
+  lifts each to its height, and stitches the sheet together with two triangles per cell. This is the bread-and-butter
+  of outdoor game worlds — hills, dunes, valleys, ocean floors, golf courses — and is exactly Godot's HeightMapShape3D
+  / a terrain node's mesh. The grid is centred on the origin on the XZ plane with height along +Y, so it drops
+  straight into a scene; `cellSize` is the world spacing between grid points and `heightScale` multiplies the raw
+  heights. Smooth per-vertex normals from the engine's area-weighted `computeNormals` make lighting follow the slopes
+  for free. Verified (`ctest -R mesh_heightfield`): a 3×3 flat grid makes 9 vertices and (cols-1)(rows-1)·2 triangles,
+  sits at y=0 with all normals pointing straight up, and is centred with the right cellSize span; a grid with distinct
+  heights lifts each vertex to exactly height·heightScale; a ramp tilts the normals off vertical (leaning against the
+  climb) while keeping them upward; a 1×1 grid, a size mismatch, and empty input all safely return nothing. Honest
+  scope: builds an open single-sided SURFACE (no skirt/underside/walls) — add a skirt or extrude down for thickness or
+  watertightness. [VERIFIABLE HERE]
 - [x] **Sweep along a path / loft** (`render::sweepProfile`, `render::buildTube`) — DONE (M595); push a flat 2D
   cross-section down a 3D path and leave a solid tube of that shape behind it. Feed it a circle and a curvy path and
   you get a pipe, cable, rope, wire, garden hose, or tentacle (`buildTube` is the ready-made circle case); feed it a
