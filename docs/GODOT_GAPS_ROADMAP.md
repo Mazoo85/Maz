@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Vertex-color ambient-occlusion bake** (`render::bakeAoToVertexColor`) — DONE (M553); darken each vertex's
+  stored RGB by how OCCLUDED it is, so the mesh carries its own soft contact shadows with no texture, no
+  lightmap, and no runtime lighting. AO is the free ambient shadowing of nooks and crevices — under a ledge,
+  inside a fold, where two walls meet — and baking it straight into vertex colours is the cheapest way to give
+  flat-lit / mobile / retro content that grounded, hand-painted look (exactly Blender's "bake AO to vertex
+  colours", and what many low-poly games ship). Reuses the M533 hemisphere raycaster (`bakeVertexAO`, 0=open,
+  1=occluded) and multiplies each channel by (1 − ao·strength): open surfaces keep their colour, creases go
+  dark. Returns a copy; multiplicative so a tint survives. Verified (`ctest -R mesh_vertex_color_ao`): an open
+  upward face stays bright (AO≈0); a floor trapped under a low overhanging ceiling darkens strongly (every floor
+  vertex well below open brightness); strength=0 is an exact no-op; a tinted mesh keeps its channel ratios (zero
+  channel stays zero, g:r preserved); empty safe. Honest scope: MULTIPLIES existing colours (call once, baking
+  twice double-darkens), and AO smoothness is limited by tessellation (it is per-VERTEX) — bake to a texture for
+  crisp AO on low-poly meshes. [VERIFIABLE HERE]
 - [x] **Spherical & cylindrical UV projection** (`render::sphericalUv` / `render::cylindricalUv`) — DONE (M552);
   the wraparound auto-unwraps for round objects, completing the projection-UV family alongside planar/box (M551).
   SPHERICAL maps each vertex by its direction from a centre to longitude (u, around) and latitude (v,
