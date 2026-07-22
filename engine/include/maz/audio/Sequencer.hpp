@@ -60,6 +60,13 @@ struct AudioClip {
     Sampler sampler{};   // holds the sample + plays it back
 };
 
+// A named marker at a bar position on the arrangement timeline (intro / verse / chorus / drop …) — the
+// FL playlist time marker. Persisted in the project and exported as a MIDI marker meta-event.
+struct ArrangementMarker {
+    int bar = 0;       // bar position on the timeline (0-based)
+    std::string name;  // section label (may contain spaces)
+};
+
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete
                         // host is chosen by the plugin file's extension in loadLeadPlugin/loadInstrumentPlugin
 
@@ -436,6 +443,21 @@ public:
     int trackFlagCount() const {
         return static_cast<int>(std::max(trackMuted_.size(), trackSoloed_.size()));
     }
+    // Arrangement timeline markers (named song sections at bar positions). Persisted in the project and
+    // emitted as MIDI marker meta-events on export.
+    int addMarker(int bar, const std::string& name) {
+        markers_.push_back(ArrangementMarker{bar < 0 ? 0 : bar, name});
+        return static_cast<int>(markers_.size()) - 1;
+    }
+    int markerCount() const { return static_cast<int>(markers_.size()); }
+    const ArrangementMarker& marker(int i) const { return markers_[static_cast<size_t>(i)]; }
+    ArrangementMarker& marker(int i) { return markers_[static_cast<size_t>(i)]; }
+    void removeMarker(int i) {
+        if (i >= 0 && i < markerCount()) {
+            markers_.erase(markers_.begin() + i);
+        }
+    }
+    void clearMarkers() { markers_.clear(); }
     // Clip-driven song mode: when on (and clips exist), song playback walks the 2-D clip timeline bar
     // by bar and plays EVERY clip active on the current bar simultaneously (patterns layered on the
     // shared instruments) — true multi-track playback, distinct from the legacy 1-D playlist. Off by
@@ -649,6 +671,7 @@ private:
     std::vector<float> audioClipScratch_; // per-chunk mono scratch for rendering one audio clip
     std::vector<unsigned char> trackMuted_;  // per arrangement-track-row mute (grows on demand)
     std::vector<unsigned char> trackSoloed_; // per arrangement-track-row solo (grows on demand)
+    std::vector<ArrangementMarker> markers_; // named song-section markers at bar positions
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     int clipLoopStart_ = 0;         // clip-song loop region start (bar); <= relevant only in clip mode

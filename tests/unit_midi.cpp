@@ -134,6 +134,34 @@ int main() {
         check(cbIn.step(0, 2), "the cowbell hit round-trips onto the matching-type channel");
     }
 
+    // Arrangement markers export as MIDI text marker meta-events (FF 06 <len> <text>), and a file
+    // containing them still parses.
+    {
+        audio::Sequencer mk;
+        mk.addMarker(0, "Chorus");
+        const std::string mkPath = "unit_midi_marker.mid";
+        check(audio::writeMidi(mkPath, mk, 96, &err), "writeMidi (marker) succeeds");
+        std::ifstream mf(mkPath, std::ios::binary);
+        std::vector<uint8_t> mb((std::istreambuf_iterator<char>(mf)), std::istreambuf_iterator<char>());
+        const std::string want = "Chorus";
+        const uint8_t wantLen = static_cast<uint8_t>(want.size());
+        bool found = false;
+        for (size_t i = 0; i + 3 + want.size() <= mb.size(); ++i) {
+            if (mb[i] == 0xFF && mb[i + 1] == 0x06 && mb[i + 2] == wantLen) {
+                bool match = true;
+                for (size_t k = 0; k < want.size(); ++k) {
+                    if (mb[i + 3 + k] != static_cast<uint8_t>(want[k])) {
+                        match = false;
+                    }
+                }
+                found = found || match;
+            }
+        }
+        check(found, "an arrangement marker exports as a MIDI marker meta-event (FF 06)");
+        audio::Sequencer mkIn;
+        check(audio::readMidi(mkPath, mkIn, &err), "readMidi tolerates the marker meta-event");
+    }
+
     // Arrangement export: a 2-entry playlist writes both patterns back to back, each offset by one
     // pattern length.
     {

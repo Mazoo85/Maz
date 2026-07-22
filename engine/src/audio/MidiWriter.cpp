@@ -13,10 +13,11 @@ namespace {
 
 struct MidiEvent {
     int tick;
-    int order;   // 0 = note-off, 1 = note-on (offs sort first at the same tick)
+    int order;   // -1 = meta (sorts first at a tick), 0 = note-off, 1 = note-on
     uint8_t status;
     uint8_t data1;
     uint8_t data2;
+    std::string meta = ""; // when non-empty, a text marker meta-event (FF 06); status/data ignored
 };
 
 void putBE(std::vector<uint8_t>& b, uint32_t v, int bytes) {
@@ -138,6 +139,14 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         emitPattern(0);
     }
 
+    // Arrangement markers → MIDI text marker meta-events at each marker's bar position (a bar is one
+    // pattern length of steps). order -1 sorts them ahead of note events sharing the same tick.
+    const int barTicks = seq.numSteps() * ticksPerStep;
+    for (int i = 0; i < seq.markerCount(); ++i) {
+        const ArrangementMarker& mk = seq.marker(i);
+        events.push_back({mk.bar * barTicks, -1, 0, 0, 0, mk.name});
+    }
+
     std::sort(events.begin(), events.end(), [](const MidiEvent& a, const MidiEvent& b) {
         return a.tick != b.tick ? a.tick < b.tick : a.order < b.order;
     });
@@ -158,9 +167,19 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
     for (const MidiEvent& e : events) {
         putVLQ(track, static_cast<uint32_t>(e.tick - prevTick));
         prevTick = e.tick;
-        track.push_back(e.status);
-        track.push_back(e.data1);
-        track.push_back(e.data2);
+        if (!e.meta.empty()) {
+            // Text marker meta-event: FF 06 <vlq length> <bytes>.
+            track.push_back(0xFF);
+            track.push_back(0x06);
+            putVLQ(track, static_cast<uint32_t>(e.meta.size()));
+            for (char ch : e.meta) {
+                track.push_back(static_cast<uint8_t>(ch));
+            }
+        } else {
+            track.push_back(e.status);
+            track.push_back(e.data1);
+            track.push_back(e.data2);
+        }
     }
     putVLQ(track, 0);
     track.push_back(0xFF); // end of track

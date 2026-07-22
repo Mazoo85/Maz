@@ -3596,6 +3596,34 @@ void buildArrangementUI(audio::Sequencer& seq) {
         ImGui::PopID();
     }
 
+    // Arrangement markers: name a bar (intro / verse / chorus / drop). Persisted, and exported as MIDI
+    // marker meta-events.
+    ImGui::SeparatorText("Markers (song sections)");
+    static char markerName[64] = "";
+    static int markerBar = 0;
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::InputTextWithHint("##markname", "section name", markerName, sizeof(markerName));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(80.0f);
+    ImGui::InputInt("bar##mk", &markerBar);
+    markerBar = markerBar < 0 ? 0 : markerBar;
+    ImGui::SameLine();
+    if (ImGui::Button("Add marker") && markerName[0] != '\0') {
+        seq.addMarker(markerBar, markerName);
+    }
+    for (int i = 0; i < seq.markerCount(); ++i) {
+        ImGui::PushID(20000 + i);
+        const auto& mk = seq.marker(i);
+        ImGui::Text("bar %d  %s", mk.bar, mk.name.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##mk")) {
+            seq.removeMarker(i);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::PopID();
+    }
+
     ImGui::End();
 }
 

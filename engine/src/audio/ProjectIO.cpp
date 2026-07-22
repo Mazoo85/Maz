@@ -531,6 +531,11 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
               << (seq.trackSoloed(t) ? 1 : 0) << "\n";
         }
     }
+    // Arrangement timeline markers (bar + name). Name is last (getline'd) so it may contain spaces.
+    for (int i = 0; i < seq.markerCount(); ++i) {
+        const ArrangementMarker& mk = seq.marker(i);
+        f << "marker " << mk.bar << " " << mk.name << "\n";
+    }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
@@ -1323,6 +1328,14 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             ls >> t >> m >> s;
             seq.setTrackMuted(t, m != 0);
             seq.setTrackSoloed(t, s != 0);
+        } else if (tag == "marker") {
+            int bar = 0;
+            ls >> bar;
+            std::string name;
+            std::getline(ls, name); // rest of the line is the name (may contain spaces)
+            const size_t nb = name.find_first_not_of(' ');
+            name = (nb == std::string::npos) ? std::string() : name.substr(nb);
+            seq.addMarker(bar, name);
         } else if (tag == "step") {
             int p = 0;
             int c = 0;

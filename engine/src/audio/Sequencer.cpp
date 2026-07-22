@@ -485,6 +485,7 @@ void Sequencer::clearArrangement() {
     audioClips_.clear();
     trackMuted_.clear();
     trackSoloed_.clear();
+    markers_.clear();
     clipLoopStart_ = 0; // reset the clip loop region so an old project (no cliploop fields) doesn't
     clipLoopEnd_ = 0;   // inherit a stale region from a previously-loaded project
     songMode_ = false;

@@ -1146,6 +1146,24 @@ int main() {
         check(w.songBar() == 0, "with no clip loop region playback starts at bar 0");
     }
 
+    // --- Arrangement markers -------------------------------------------------
+    {
+        audio::Sequencer s;
+        check(s.markerCount() == 0, "no markers by default");
+        const int m0 = s.addMarker(0, "Intro");
+        const int m1 = s.addMarker(4, "Verse 1"); // a name with a space
+        s.addMarker(12, "Drop");
+        check(m0 == 0 && m1 == 1 && s.markerCount() == 3, "addMarker appends markers");
+        check(s.marker(1).bar == 4 && s.marker(1).name == "Verse 1", "marker stores bar + spaced name");
+        s.removeMarker(0);
+        check(s.markerCount() == 2 && s.marker(0).name == "Verse 1", "removeMarker drops the indexed marker");
+        s.clearMarkers();
+        check(s.markerCount() == 0, "clearMarkers empties the list");
+        // A negative bar clamps to 0.
+        s.addMarker(-3, "Neg");
+        check(s.marker(0).bar == 0, "a negative marker bar clamps to 0");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");
