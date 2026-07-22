@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Music theory: note ↔ pitch** (`audio::midiToFrequency` / `frequencyToMidi` / `noteNameToMidi` /
+  `midiToNoteName` / `noteNameToFrequency`) — DONE (M626); the note/pitch conversions procedural music and synth
+  voices need but the audio module lacked. 12-TET at A4 = MIDI 69 = 440 Hz, C4 = middle C = MIDI 60: convert a MIDI
+  number to Hz and back, parse scientific-pitch names ("A4", "C#5", "Bb3", "C-1") to MIDI (validated to [0,127],
+  one optional #/b accidental), and render a MIDI number back to a sharp name — feed straight into
+  `audio::Oscillator`/a `Sound`'s `freq` or drive an arpeggiator. Verified (`ctest -R "^musictheory$"`): A4→440,
+  middle C→261.63, octave up/down doubles/halves; frequency↔MIDI round-trips for all 128 notes; note names parse
+  incl. enharmonics (C#4==Db4==61), Cb4=59, case-insensitive letters, negative octaves (C-1=0), and the range ends
+  (G9=127); malformed names ("H4", "C", "C#", "4C", "Cx4") and out-of-range ("C10", "C-2") → −1;
+  midiToNoteName renders sharps and empties out of range. Honest scope: 12-TET / A440 standard tuning only. [VERIFIABLE HERE]
 - [x] **UUID (v4) generator** (`core::makeUuidV4` / `uuidV4String` / `isValidUuid` / `core::Uuid`) — DONE (M624);
   generate RFC 4122 version-4 (random) unique identifiers for entity IDs, save files, network sessions, asset GUIDs,
   and analytics events. `makeUuidV4` fills 128 bits from any engine RNG with `uint32_t next()` (e.g. `core::Pcg32`)
