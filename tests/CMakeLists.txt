@@ -622,6 +622,11 @@ target_link_libraries(maz_imageblend_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME image_blend COMMAND maz_imageblend_tests)
 set_tests_properties(image_blend PROPERTIES TIMEOUT 30)
 
+add_executable(maz_imageadjust_tests render/imageadjust.cpp)
+target_link_libraries(maz_imageadjust_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_adjust COMMAND maz_imageadjust_tests)
+set_tests_properties(image_adjust PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

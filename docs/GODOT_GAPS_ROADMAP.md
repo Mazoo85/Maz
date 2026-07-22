@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Image tone / adjustments** (`render::adjustBrightness/adjustContrast/adjustGamma/invert/grayscale/threshold`
+  + `mapRGB`) — DONE (M616); the "levels / adjustments" panel for CPU images, completing the procedural-texture
+  workshop (generate → colorize → blend → **adjust**). Brightness adds a clamped offset; contrast scales about the
+  0.5 pivot (1 identity, 0 flat grey, >1 harder); gamma is vᵍ (1 identity, >1 darkens mid-tones); invert is 1−c;
+  grayscale collapses to Rec.709 luminance; threshold makes a crisp two-colour mask on luminance (stencils, decals,
+  `blend` alphas). Each returns a new same-size image with alpha preserved; `mapRGB` is the exposed per-channel
+  building block. Verified (`ctest -R image_adjust`): brightness lifts/clamps every channel and keeps alpha; contrast
+  leaves 0.5 fixed, pushes 0.25→0 at ×2, flattens to grey at 0, is identity at 1; gamma 1 is identity, 2 darkens
+  mid-grey to 0.25 and leaves the 0/1 endpoints fixed; invert = 1−channel; grayscale makes r==g==b with pure red →
+  ~0.2126; threshold splits a ramp into low/high with custom colours honoured; all ops are empty-safe. Honest scope:
+  raw 0..1 channel maths, no sRGB/linear conversion. [VERIFIABLE HERE]
 - [x] **Image blend / composite modes** (`render::blend` + `render::ImageBlendMode`) — DONE (M615); layer one image
   over another with Photoshop-style blend modes, so the engine's procedural textures can be *combined*: multiply a
   `cellularTexture` stone pattern under a `gradientMap` tint, screen a noise grunge layer to weather a base, add a
