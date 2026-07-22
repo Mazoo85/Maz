@@ -282,6 +282,11 @@ target_link_libraries(maz_meshmirror_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_mirror COMMAND maz_meshmirror_tests)
 set_tests_properties(mesh_mirror PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshsharpedges_tests render/meshsharpedges.cpp)
+target_link_libraries(maz_meshsharpedges_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_sharp_edges COMMAND maz_meshsharpedges_tests)
+set_tests_properties(mesh_sharp_edges PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

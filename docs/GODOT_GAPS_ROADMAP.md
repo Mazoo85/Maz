@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Dihedral-angle / sharp-edge detection** (`render::detectSharpEdges`, `SharpEdgeResult`) — DONE (M548);
+  for every interior edge, the dihedral angle between the two triangles sharing it (180° = flat/coplanar, 90° =
+  a right-angle fold, → 0° = folded back on itself), plus the list of edges bending more sharply than a
+  threshold. Sharp edges are a model's CREASES — a cube's twelve rims, the fold of a roof, the lip of a cup — and
+  detecting them drives wireframe/crease overlay in an editor, automatic bevel/chamfer selection, UV-seam and
+  hard-normal suggestions (creases usually want a seam and a split normal), and feature-preserving
+  simplification/smoothing that must not round a crease off. The angle comes from the two face normals across the
+  shared edge; boundary and non-manifold edges (not exactly two faces) are skipped. Reuses MeshTopology (M528)
+  for the twin-face lookup; complements MeshHardEdges (M535) which SPLITS on crease angle — this one just
+  REPORTS. `SharpEdgeResult` gives every interior edge with its dihedral/sharpness, the sub-list past the
+  threshold, and the sharpest angle. Verified (`ctest -R mesh_sharp_edges`): two coplanar triangles read 180° and
+  are never sharp; a right-angle fold reads exactly 90°; a cube has 18 interior edges — 12 rim creases at 90°
+  (flagged) and 6 flat face-diagonals at 180° (not) — with the threshold correctly gating the count (12 sharp at
+  45°, 0 at 100°); empty safe. Honest scope: geometric normals, so inconsistent winding may mis-sign an angle
+  (reported unsigned); weld first so a crease is one edge. [VERIFIABLE HERE]
 - [x] **Mesh mirror / symmetrize** (`render::mirrorMesh`) — DONE (M547); reflect a mesh across an axis-aligned
   plane and join the reflection to the original, producing a symmetric whole — the "mirror modifier" every DCC
   tool has (model one wing / half a face / the left of a ship, mirror, get a seamless symmetric result; also
