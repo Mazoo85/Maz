@@ -2446,3 +2446,8 @@ add_executable(maz_voxelraycast_tests game/voxelraycast.cpp)
 target_link_libraries(maz_voxelraycast_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME voxel_raycast COMMAND maz_voxelraycast_tests)
 set_tests_properties(voxel_raycast PROPERTIES TIMEOUT 30)
+
+add_executable(maz_greedyvoxelmesh_tests render/greedyvoxelmesh.cpp)
+target_link_libraries(maz_greedyvoxelmesh_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME greedy_voxel_mesh COMMAND maz_greedyvoxelmesh_tests)
+set_tests_properties(greedy_voxel_mesh PROPERTIES TIMEOUT 30)

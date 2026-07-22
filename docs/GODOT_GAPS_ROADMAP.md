@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Greedy voxel meshing** (`render::greedyVoxelMesh`, `GreedyVoxelMesh.hpp`) — DONE (M723); turn a 3D
+  grid of blocks into a renderable surface mesh, merging every run of coplanar, same-type, equally-exposed
+  faces into ONE big quad (Mikola Lysenko's greedy algorithm). [VERIFIABLE HERE] The reverse of MeshVoxelize
+  (mesh -> voxels); it is what makes voxel worlds actually drawable. The naive approach emits two triangles
+  per exposed block face — a flat 100x100 floor becomes 20,000 triangles; greedy meshing turns that same
+  floor into a SINGLE quad. On real Minecraft/Teardown-style terrain it cuts triangle counts 5-10x, the
+  difference between a chunk that renders and one that tanks the GPU. Only exposed faces (a solid cell whose
+  neighbour across that face is empty) are emitted, only same-type faces merge, and each quad winds outward.
+  The ctest checks a single voxel -> 6 faces and a solid box -> exactly 6 merged quads, outward winding, and
+  — the rigorous part — over 400 random multi-type grids decomposes every quad back into unit faces and
+  proves they EXACTLY partition the exposed faces a brute-force per-cell scan finds: each exposed face covered
+  once (no gaps), none covered twice (no overlap), every quad's type matching its owning cell, and greedy
+  never emitting more quads than the naive per-face count. Godot has no voxel mesher. Header-only, std-only,
+  deterministic. ctest `greedy_voxel_mesh`.
 - [x] **3D voxel ray traversal (Amanatides-Woo)** (`game::traverseVoxels` / `game::voxelRaycast`,
   `VoxelRaycast.hpp`) — DONE (M722); walk a ray through a 3D grid of unit cells and visit EVERY voxel it
   passes through, in order, with no gaps and no duplicates. [VERIFIABLE HERE] The 3D companion to GridRaycast
