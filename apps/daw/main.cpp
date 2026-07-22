@@ -3503,6 +3503,54 @@ void buildArrangementUI(audio::Sequencer& seq) {
         }
     }
 
+    // Audio clips: drop a WAV/sample/loop onto the timeline at a bar; it plays back one-shot (natural
+    // pitch, through the Sampler) when the clip-song transport reaches that bar — FL's "audio on the
+    // playlist" workflow. Reuses the Sampler, so no new DSP.
+    ImGui::SeparatorText("Audio clips (sample on the timeline)");
+    static char audioPath[256] = "";
+    static int audioBar = 0, audioTrack = 0, audioBus = 1;
+    ImGui::SetNextItemWidth(260.0f);
+    ImGui::InputTextWithHint("##audioclippath", "path to a .wav sample", audioPath, sizeof(audioPath));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("bar##ac", &audioBar);
+    audioBar = audioBar < 0 ? 0 : audioBar;
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("track##ac", &audioTrack);
+    audioTrack = audioTrack < 0 ? 0 : audioTrack;
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.0f);
+    const char* busNames[] = {"Drums", "Lead", "Bass"};
+    ImGui::Combo("bus##ac", &audioBus, busNames, 3);
+    ImGui::SameLine();
+    if (ImGui::Button("Add audio clip") && audioPath[0] != '\0') {
+        const int i = seq.addAudioClip(audioBar, audioTrack);
+        seq.setAudioClipBus(i, audioBus);
+        seq.loadAudioClip(i, audioPath); // graceful if the file is missing (metadata still kept)
+    }
+    ImGui::TextDisabled("Plays one-shot at natural pitch when clip song mode reaches the clip's bar.");
+    for (int i = 0; i < seq.audioClipCount(); ++i) {
+        ImGui::PushID(10000 + i);
+        auto& ac = seq.audioClip(i);
+        ImGui::Text("bar %d  trk %d  %s  %s", ac.startBar, ac.track,
+                    (ac.bus == 0 ? "Drums" : ac.bus == 2 ? "Bass" : "Lead"),
+                    ac.path.empty() ? "(injected)" : ac.path.c_str());
+        ImGui::SameLine();
+        float g = ac.gain;
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::SliderFloat("gain##ac", &g, 0.0f, 2.0f)) {
+            seq.setAudioClipGain(i, g);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##ac")) {
+            seq.removeAudioClip(i);
+            ImGui::PopID();
+            break;
+        }
+        ImGui::PopID();
+    }
+
     ImGui::End();
 }
 

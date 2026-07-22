@@ -516,6 +516,12 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         f << "clip " << cl.pattern << " " << cl.startBar << " " << cl.track << " " << cl.bars << " "
           << (cl.muted ? 1 : 0) << "\n";
     }
+    // 2-D playlist audio clips (sample @ bar @ track). Path is last (getline'd) so it may contain spaces.
+    for (int i = 0; i < seq.audioClipCount(); ++i) {
+        const AudioClip& ac = seq.audioClip(i);
+        f << "audioclip " << ac.startBar << " " << ac.track << " " << ac.gain << " " << ac.bus << " "
+          << ac.path << "\n";
+    }
     for (int p = 0; p < seq.patternCount(); ++p) {
         seq.selectPattern(p);
         f << "patname " << p << " " << seq.patternName(p) << "\n";
@@ -1272,6 +1278,20 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 if (muted) {
                     seq.clip(idx).muted = true;
                 }
+            }
+        } else if (tag == "audioclip") {
+            int bar = 0, trk = 0, bus = 1;
+            float gain = 1.0f;
+            ls >> bar >> trk >> gain >> bus;
+            std::string path;
+            std::getline(ls, path); // rest of the line is the path (may contain spaces)
+            const size_t nb = path.find_first_not_of(' ');
+            path = (nb == std::string::npos) ? std::string() : path.substr(nb);
+            const int idx = seq.addAudioClip(bar, trk);
+            seq.setAudioClipGain(idx, gain);
+            seq.setAudioClipBus(idx, bus);
+            if (!path.empty()) {
+                seq.loadAudioClip(idx, path); // fails gracefully if the file is missing
             }
         } else if (tag == "step") {
             int p = 0;

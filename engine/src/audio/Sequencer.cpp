@@ -479,8 +479,10 @@ void Sequencer::clearArrangement() {
     extraGain_.clear();
     extraPan_.clear();
     extraBus_.clear();
+    extraGroup_.clear(); // parallel to extraSynths_ — must be cleared too or it desyncs after a load
     playlist_.clear();
     clips_.clear();
+    audioClips_.clear();
     songMode_ = false;
     playlistPos_ = 0;
     current_ = 0;
@@ -1152,7 +1154,7 @@ int Sequencer::primaryClipPattern(int bar) const {
 }
 
 void Sequencer::triggerTransportStep(int step) {
-    if (songMode_ && songUsesClips_ && !clips_.empty()) {
+    if (songMode_ && songUsesClips_ && hasAnyClips()) {
         // Layer every clip active on the current bar: temporarily point current_ at each clip's
         // pattern and reuse triggerStep, so the patterns play simultaneously on the shared instruments.
         const int saved = current_;
@@ -1167,6 +1169,15 @@ void Sequencer::triggerTransportStep(int step) {
         current_ = saved;
     } else {
         triggerStep(step);
+    }
+}
+
+void Sequencer::triggerAudioClipsForBar(int bar) {
+    for (AudioClip& a : audioClips_) {
+        if (a.startBar == bar && a.sampler.loaded()) {
+            // One-shot from frame 0 at the sample's natural pitch (basePitch → playback rate 1.0).
+            a.sampler.noteOn(a.sampler.basePitch(), 1.0f);
+        }
     }
 }
 
@@ -1190,12 +1201,17 @@ void Sequencer::play() {
     melodicHits_.clear();
     countingIn_ = countInBars_ > 0;
     countInStepsRemaining_ = countInBars_ * numSteps_;
-    if (songMode_ && songUsesClips_ && !clips_.empty()) {
+    // Reset every audio-clip sampler so a restart plays cleanly from the top.
+    for (AudioClip& a : audioClips_) {
+        a.sampler.allNotesOff();
+    }
+    if (songMode_ && songUsesClips_ && hasAnyClips()) {
         // Clip-song mode: start at bar 0 and select the primary (lowest-track) clip there for timing.
         const int prim = primaryClipPattern(0);
         if (prim >= 0) {
             selectPattern(prim);
         }
+        triggerAudioClipsForBar(0); // fire any audio clips placed on the first bar
     } else if (songMode_ && !playlist_.empty()) {
         // Start at the loop-region start when one is set, else the first playlist entry.
         const int plSize = static_cast<int>(playlist_.size());
@@ -1547,6 +1563,21 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
             }
         }
 
+        // Audio clips (2-D playlist): render each clip's one-shot sampler (triggered by the transport at
+        // its bar) into its target bus stem, centred, at the clip's gain. Silent unless a clip voice is
+        // active, so this is a no-op when there are no audio clips.
+        for (AudioClip& a : audioClips_) {
+            audioClipScratch_.assign(static_cast<size_t>(chunk), 0.0f);
+            a.sampler.render(audioClipScratch_.data(), chunk, sampleRate);
+            float* adst = (a.bus == 0) ? drums : (a.bus == 2) ? bass : lead;
+            const float ag = a.gain * 0.70710678f; // equal-power centre
+            for (int i = 0; i < chunk; ++i) {
+                const float sV = audioClipScratch_[static_cast<size_t>(i)] * ag;
+                adst[2 * (done + i)] += sV;
+                adst[2 * (done + i) + 1] += sV;
+            }
+        }
+
         // Advance the pending ratchets that existed during this chunk by the frames just rendered.
         // (New hits pushed by triggerStep below are timed from the upcoming boundary, so exclude
         // them here.)
@@ -1576,7 +1607,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
                     ++loopCounter_;
                 }
                 // At the top of each bar, in clip-song mode, advance along the 2-D clip timeline.
-                if (currentStep_ == 0 && songMode_ && songUsesClips_ && !clips_.empty()) {
+                if (currentStep_ == 0 && songMode_ && songUsesClips_ && hasAnyClips()) {
                     const int bars = clipBarCount();
                     const int next = songBar_ + 1;
                     if (next >= bars) {
@@ -1596,6 +1627,7 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
                         if (prim >= 0) {
                             selectPattern(prim);
                         }
+                        triggerAudioClipsForBar(songBar_); // fire audio clips starting on the new bar
                     }
                 }
                 // At the top of each bar, in the legacy 1-D song mode, advance to the next pattern.

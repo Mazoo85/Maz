@@ -43,6 +43,19 @@ struct PlaylistClip {
     bool muted = false; // a muted clip is skipped in playback, compile, and MIDI export
 };
 
+// An audio clip on the 2-D playlist: a loaded sample played back one-shot (at its natural pitch) when
+// the clip-song transport reaches its bar — FL-style "audio on the playlist". Playback reuses the
+// Sampler (SR-correct one-shot + interpolation); the clip owns its own Sampler so each has an
+// independent playback cursor.
+struct AudioClip {
+    std::string path;   // source file (for persistence / reload); empty for an injected sample
+    int startBar = 0;   // bar position on the timeline (0-based)
+    int track = 0;      // arrangement-track row this clip sits on
+    float gain = 1.0f;  // per-clip gain
+    int bus = 1;        // target bus (0=drums, 1=lead, 2=bass) it mixes into
+    Sampler sampler{};  // holds the sample + plays it back
+};
+
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete
                         // host is chosen by the plugin file's extension in loadLeadPlugin/loadInstrumentPlugin
 
@@ -332,6 +345,42 @@ public:
     }
     void clearClips() { clips_.clear(); }
     const std::vector<PlaylistClip>& clips() const { return clips_; }
+
+    // Audio clips on the 2-D playlist (a sample placed at a bar). Mirrors the pattern-clip API. An
+    // audio clip is created empty, then given a sample either by loading a file (loadAudioClip) or by
+    // injecting one directly into its Sampler (audioClipSampler().setSampleMono(), for tests/procedural
+    // audio). It plays one-shot when clip-song mode reaches its bar.
+    int addAudioClip(int startBar, int track) {
+        AudioClip a;
+        a.startBar = startBar < 0 ? 0 : startBar;
+        a.track = track < 0 ? 0 : track;
+        audioClips_.push_back(std::move(a));
+        return static_cast<int>(audioClips_.size()) - 1;
+    }
+    bool loadAudioClip(int i, const std::string& path) {
+        if (i < 0 || i >= audioClipCount()) {
+            return false;
+        }
+        AudioClip& a = audioClips_[static_cast<size_t>(i)];
+        // Keep the source reference regardless of load success, so a missing file (e.g. moved between
+        // machines) still round-trips through the .cjc and can reload once the file is present again.
+        a.path = path;
+        return a.sampler.load(path);
+    }
+    int audioClipCount() const { return static_cast<int>(audioClips_.size()); }
+    const AudioClip& audioClip(int i) const { return audioClips_[static_cast<size_t>(i)]; }
+    AudioClip& audioClip(int i) { return audioClips_[static_cast<size_t>(i)]; }
+    Sampler& audioClipSampler(int i) { return audioClips_[static_cast<size_t>(i)].sampler; }
+    void setAudioClipGain(int i, float g) { audioClips_[static_cast<size_t>(i)].gain = g < 0.0f ? 0.0f : g; }
+    void setAudioClipBus(int i, int b) {
+        audioClips_[static_cast<size_t>(i)].bus = b < 0 ? 0 : (b > 2 ? 2 : b);
+    }
+    void removeAudioClip(int i) {
+        if (i >= 0 && i < audioClipCount()) {
+            audioClips_.erase(audioClips_.begin() + i);
+        }
+    }
+    void clearAudioClips() { audioClips_.clear(); }
     // Clip-driven song mode: when on (and clips exist), song playback walks the 2-D clip timeline bar
     // by bar and plays EVERY clip active on the current bar simultaneously (patterns layered on the
     // shared instruments) — true multi-track playback, distinct from the legacy 1-D playlist. Off by
@@ -346,6 +395,11 @@ public:
             const int end = c.startBar + (c.bars < 1 ? 1 : c.bars);
             if (end > n) {
                 n = end;
+            }
+        }
+        for (const AudioClip& a : audioClips_) {
+            if (a.startBar + 1 > n) { // an audio clip occupies at least its start bar
+                n = a.startBar + 1;
             }
         }
         return n;
@@ -508,6 +562,11 @@ private:
     // temporarily pointing current_ at each clip's pattern and reusing triggerStep. Falls back to a
     // plain triggerStep in the legacy modes.
     void triggerTransportStep(int step);
+    // True if the 2-D playlist holds any clips (pattern or audio) — the gate for clip-song mode.
+    bool hasAnyClips() const { return !clips_.empty() || !audioClips_.empty(); }
+    // Trigger every audio clip whose startBar == bar (one-shot from frame 0). Called at play() and on
+    // each clip-song bar advance.
+    void triggerAudioClipsForBar(int bar);
 
     std::vector<DrumVoice> channels_;
     std::vector<std::string> names_;
@@ -521,6 +580,8 @@ private:
     int current_ = 0;
     std::vector<int> playlist_;     // ordered pattern indices for song mode (legacy 1-D playlist)
     std::vector<PlaylistClip> clips_; // 2-D playlist clips (pattern @ bar @ track)
+    std::vector<AudioClip> audioClips_; // 2-D playlist audio clips (sample @ bar @ track)
+    std::vector<float> audioClipScratch_; // per-chunk mono scratch for rendering one audio clip
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
     bool songMode_ = false;

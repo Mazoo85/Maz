@@ -193,6 +193,12 @@ int main() {
     seq.addClip(1, 4, 2, 3); // a 2-D playlist clip: pattern 1 at bar 4 on track 2, spanning 3 bars
     const int mclip = seq.addClip(0, 0, 0); // pattern 0 at bar 0 on track 0 (default single bar)
     seq.clip(mclip).muted = true;           // mark it muted to check the flag round-trips
+    // A 2-D playlist AUDIO clip: metadata (bar/track/gain/bus/path) must round-trip. The referenced
+    // file is intentionally absent, so the sample fails to reload gracefully but the metadata survives.
+    const int aclip = seq.addAudioClip(6, 1); // bar 6, track 1
+    seq.setAudioClipGain(aclip, 0.65f);
+    seq.setAudioClipBus(aclip, 2); // bass bus
+    seq.audioClip(aclip).path = "samples/a loop with spaces.wav";
     seq.setSongMode(true);
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
     seq.setSongLoop(false);
@@ -714,6 +720,11 @@ int main() {
               seq2.clip(1).pattern == 0 && seq2.clip(1).startBar == 0 && seq2.clip(1).bars == 1 &&
               seq2.clip(1).muted,
           "2-D playlist clips round-trip (including multi-bar span + mute)");
+    check(seq2.audioClipCount() == 1 && seq2.audioClip(0).startBar == 6 &&
+              seq2.audioClip(0).track == 1 && near(seq2.audioClip(0).gain, 0.65f) &&
+              seq2.audioClip(0).bus == 2 &&
+              seq2.audioClip(0).path == "samples/a loop with spaces.wav",
+          "2-D playlist audio-clip metadata round-trips (bar/track/gain/bus/path)");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");

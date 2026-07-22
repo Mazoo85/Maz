@@ -888,6 +888,88 @@ int main() {
               "clip-song mode plays both clips on the same bar simultaneously (multi-track)");
     }
 
+    // --- Audio clips on the 2-D playlist -------------------------------------
+    {
+        // A short procedural sample injected into an audio clip plays back (one-shot) when the
+        // clip-song transport reaches the clip's bar. Reuses the Sampler, so no WAV file is needed.
+        auto makeSample = []() {
+            std::vector<float> buf(4800, 0.0f); // 0.1 s @ 48k
+            for (size_t i = 0; i < buf.size(); ++i) {
+                buf[i] = 0.5f * std::sin(2.0f * 3.14159265f * 220.0f *
+                                         static_cast<float>(i) / 48000.0f);
+            }
+            return buf;
+        };
+
+        // A clip at bar 0 sounds in the lead stem immediately after play().
+        {
+            audio::Sequencer s;
+            const int c = s.addAudioClip(0, 0); // bar 0, track 0
+            check(c == 0 && s.audioClipCount() == 1, "addAudioClip appends an audio clip");
+            s.audioClipSampler(c).setSampleMono(makeSample(), 48000);
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.play();
+            const int fr = sampleRate / 8; // well under a bar → transport stays on bar 0
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+            check(rms(l) > 0.0, "an audio clip at bar 0 sounds in the lead stem in clip-song mode");
+            check(rms(b) == 0.0, "and not in an unrelated (bass) stem");
+        }
+
+        // A clip placed at a LATER bar is silent in the first bar (not yet triggered), and the
+        // clip-song length spans far enough to reach it.
+        {
+            audio::Sequencer s;
+            const int c = s.addAudioClip(2, 0); // bar 2
+            s.audioClipSampler(c).setSampleMono(makeSample(), 48000);
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.play();
+            const int fr = sampleRate / 8;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+            check(rms(l) == 0.0, "an audio clip at a later bar is silent in the first bar");
+            check(s.clipBarCount() >= 3, "clipBarCount covers an audio clip at bar 2");
+        }
+
+        // Per-clip target bus: a clip routed to the bass bus lands in the bass stem, not the lead.
+        {
+            audio::Sequencer s;
+            const int c = s.addAudioClip(0, 0);
+            s.setAudioClipBus(c, 2); // 0=drums, 1=lead, 2=bass
+            check(s.audioClip(c).bus == 2, "setAudioClipBus routes the clip");
+            s.audioClipSampler(c).setSampleMono(makeSample(), 48000);
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.play();
+            const int fr = sampleRate / 8;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+            check(rms(b) > 0.0 && rms(l) == 0.0,
+                  "an audio clip routed to the bass bus lands in the bass stem");
+        }
+
+        // removeAudioClip / clearAudioClips manage the collection.
+        {
+            audio::Sequencer s;
+            s.addAudioClip(0, 0);
+            s.addAudioClip(1, 0);
+            check(s.audioClipCount() == 2, "two audio clips added");
+            s.removeAudioClip(0);
+            check(s.audioClipCount() == 1 && s.audioClip(0).startBar == 1,
+                  "removeAudioClip drops the indexed clip");
+            s.clearAudioClips();
+            check(s.audioClipCount() == 0, "clearAudioClips empties the collection");
+        }
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");
