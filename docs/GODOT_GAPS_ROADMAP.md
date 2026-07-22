@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Closest point on a mesh** (`render::closestPointOnMesh`) — DONE (M600); for any point in space, find the
+  nearest spot ON the model's surface and how far away it is. This is the "snap to surface" / "how deep am I" query
+  games lean on constantly: stick a decal, bullet-hole, or footprint flat on the wall it hit; snap a placed object or
+  the mouse cursor onto the terrain; measure how far a character has sunk into geometry so you can push them back out;
+  find clearance to the nearest wall; pick the face nearest a click. Unlike a raycast (which needs a direction and can
+  miss), this ALWAYS returns an answer — the single closest surface point wherever the query sits. It walks every
+  triangle with the engine's exact `closestPointOnTriangle` and keeps the nearest, reporting the point, unsigned
+  distance, which triangle won, and that triangle's facing normal (handy for orienting a decal). Verified (`ctest -R
+  mesh_closest_point`): a point above a flat quad maps straight down with distance = height and a vertical hit normal;
+  a point past the quad's edge snaps to the boundary with the right distance; a point outside a cube's +X face lands
+  on x=1 carrying its y,z through; a point INSIDE the cube returns the nearest face at the correct unsigned distance;
+  an empty mesh is invalid. Honest scope: brute-force O(triangles) per query — ideal for one-offs and small/medium
+  meshes; front it with a BVH (game::Bvh / TriMesh3D) for many queries on a big mesh. Returns UNSIGNED distance (no
+  inside/outside — use M556 containment / M551 SDF for a signed result). [VERIFIABLE HERE]
 - [x] **Silhouette / outline edges** (`render::silhouetteEdges`, `render::silhouetteEdgesFromEye`) — DONE (M599); find
   the edges that form a model's OUTLINE as seen from a given direction — the crisp boundary between the parts facing
   the camera and the parts facing away. On a sphere seen head-on that's the rim circle; on a cube seen corner-on it's
