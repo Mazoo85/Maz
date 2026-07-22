@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Spherical & cylindrical UV projection** (`render::sphericalUv` / `render::cylindricalUv`) — DONE (M552);
+  the wraparound auto-unwraps for round objects, completing the projection-UV family alongside planar/box (M551).
+  SPHERICAL maps each vertex by its direction from a centre to longitude (u, around) and latitude (v,
+  top-to-bottom) — the equirectangular / lat-long layout a planet, eyeball, ball, or skydome wants (world maps
+  are stored exactly this way). CYLINDRICAL maps the angle around an axis to u and the height along it to v —
+  what a bottle label, tree trunk, pipe, or tin can wants. UVs are written onto the existing vertices (topology
+  unchanged). Verified (`ctest -R mesh_uv_radial`): spherical sends +X→(0.5,0.5), the +Y pole→v=0, the −Y
+  pole→v=1, +Z equator→(0.75,0.5), −X→(1.0,0.5), and is scale-invariant (direction only, a radius-5 point matches
+  its unit direction); cylindrical about Y sends +X→u=0.5 with height→v, +Z→u=0.75, and vScale/vOffset scale the
+  height axis; empty safe. Honest scope: both carry the inherent projection artefacts — a single wrap SEAM where
+  u jumps 1→0, spherical pole PINCHING, cylindrical cap stretch — properties of the projection, not bugs; an
+  LSCM/angle-based unwrap is the distortion-free follow-up. [VERIFIABLE HERE]
 - [x] **Projection UV unwrap** (`render::planarUv` / `render::boxUv`) — DONE (M551); auto-generate texture
   coordinates without a hand-made unwrap by PROJECTING world positions onto a plane. PLANAR drops every vertex
   straight down one axis (the top-down decal / terrain map — paint a whole floor or landscape with one texture,
