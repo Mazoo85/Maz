@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Height → normal map** (`render::heightToNormalMap`) — DONE (M608); turn a grey heightmap (bright=high,
+  dark=low) into a tangent-space NORMAL MAP — the blue-purple texture that makes a flat surface look bumpy under
+  lighting. Paint or generate a height image (bricks, cobbles, scales, wrinkles, carved detail, hammered metal) and
+  this reads its slopes and writes the surface direction at every pixel, so a lighting shader fakes all that relief
+  with no extra geometry. It is the standard "bake a normal map from a height texture" step — Godot's Image
+  bump-to-normal, Blender's bump node, Substance/Photoshop's "Normal from Height". Height comes from the RED channel;
+  `strength` exaggerates or softens the bumps; output is RGBA8 encoding the unit normal as (x,y,z)·0.5+0.5. Verified
+  (`ctest -R image_normalmap`): a flat heightmap bakes to the classic flat normal (128,128,255); a left→right
+  brightening ramp tilts the normal's X negative (red drops below 128) with green staying ~128 (no Y slope); every
+  baked normal decodes back to a UNIT vector with z>0; a higher `strength` tilts the normal further on the same ramp;
+  an empty input yields an empty image. Honest scope: slopes use central differences with border pixels clamped to
+  their neighbours (edges read flat-ish); green is +Y (OpenGL convention — flip G for DirectX); only the red channel
+  is read as height. [VERIFIABLE HERE]
 - [x] **Procedural image patterns** (`render::patterns::checkerboard` / `verticalGradient` / `radialGradient`) — DONE
   (M607); generate common textures in code, no art files needed. A checkerboard for a placeholder / "missing texture"
   material, a UV-check pattern, or floor tiles; a smooth top-to-bottom gradient for skies, backdrops, UI panels, and
