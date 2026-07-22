@@ -150,6 +150,24 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Dual-quaternion skinning (DQS)** (`math::DualQuaternion`, `blendDual`, `DualQuaternion.hpp`) —
+  DONE (M662); the skinning math that fixes the "candy-wrapper" collapse of the engine's existing
+  linear-blend skinning. [VERIFIABLE HERE] A unit dual quaternion represents a rigid motion (rotation +
+  translation, no scale): the real part is the rotation quaternion, the dual part encodes the translation
+  (dual = ½·t·real). The reason it matters is BLENDING — a vertex weighted between a straight bone and a
+  twisted one: linear-blend skinning averages the two matrices and the result shrinks toward the joint
+  axis (the elbow/wrist pinch you see in cheap rigs), whereas averaging the two transforms as dual
+  quaternions and renormalizing (dual-quaternion linear blending, DLB) yields another *rigid* transform
+  that preserves volume. This module implements dual quaternions (`fromRotationTranslation`,
+  `transformPoint`, `translation`) and `blendDual` with the essential hemisphere alignment (so opposite-
+  sign quaternions don't cancel). Pure quaternion algebra over floats. Verified (`ctest -R dual_quat`):
+  a rigid transform applied to a point equals rotate-then-translate and `translation()` round-trips it;
+  identity and pure-translation behave correctly; blending identical transforms reproduces them; **the
+  DQS property** — a 50/50 blend of 0° and 90° rotations applied to a unit vector keeps it unit length
+  (linear-blend would give ~0.707, a visible collapse) and lands exactly at the 45° screw position; and a
+  rotation blended with its opposite-hemisphere duplicate resolves to the same rotation rather than
+  cancelling to identity. Complements the engine's Skeleton/linear-blend skinning with the higher-quality
+  alternative renderers offer as a per-mesh option.
 - [x] **Worley / cellular ("Voronoi") noise** (`core::worley2D` / `worley3D`, `CellularNoise.hpp`) —
   DONE (M661); the procedural-texture noise the engine's Perlin (`core::Noise`, M85) didn't cover.
   [VERIFIABLE HERE] Space is divided into unit cells each holding one hash-placed feature point; sampling

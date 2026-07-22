@@ -842,6 +842,11 @@ target_link_libraries(maz_cellularnoise_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME cellular_noise COMMAND maz_cellularnoise_tests)
 set_tests_properties(cellular_noise PROPERTIES TIMEOUT 30)
 
+add_executable(maz_dualquat_tests math/dualquat.cpp)
+target_link_libraries(maz_dualquat_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dual_quat COMMAND maz_dualquat_tests)
+set_tests_properties(dual_quat PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
