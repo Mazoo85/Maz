@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Gray code + Hamming distance** (`core::grayEncode`/`grayDecode`/`graySequence`/`hammingDistance`,
+  `GrayCode.hpp`) — DONE (M699); reflected-binary Gray codes (consecutive values differ by EXACTLY one bit)
+  plus the bit-change count that measures that. [VERIFIABLE HERE] Neither is in the standard library (unlike
+  popcount / bit_ceil / countl_zero, which the engine already uses). Gray codes are glitch-free for rotary /
+  position encoders (a reading caught mid-transition is off by at most one), give a minimal-change
+  enumeration order for subsets/combinations, and drive dithering / LOD-transition sequences;
+  `hammingDistance` (popcount of XOR) counts differing bits — the standard metric for comparing perceptual
+  image hashes (dHash/pHash) and bitmask diffs. Templated on any unsigned type. Tested: known small codes
+  (0,1,3,2,6,7,5,4), encode/decode round trip across 200k values and uint8/uint64 edge cases, the defining
+  one-bit-adjacency property over 100k consecutive codes, `graySequence(8)` being a cyclic permutation with
+  every neighbour (and the wrap) one bit apart, and Hamming-distance basics. Header-only, std-only.
 - [x] **Token-bucket rate limiter** (`core::TokenBucket`, `TokenBucket.hpp`) — DONE (M698); the standard
   burst-tolerant rate limiter: a bucket holds up to `capacity` tokens, refills at `refillPerSecond`, and an
   action spends tokens or is refused when dry. [VERIFIABLE HERE] Distinct from `game::CooldownManager` (a

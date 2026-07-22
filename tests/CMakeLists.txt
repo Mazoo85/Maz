@@ -2326,3 +2326,8 @@ add_executable(maz_tokenbucket_tests core/tokenbucket.cpp)
 target_link_libraries(maz_tokenbucket_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME token_bucket COMMAND maz_tokenbucket_tests)
 set_tests_properties(token_bucket PROPERTIES TIMEOUT 30)
+
+add_executable(maz_graycode_tests core/graycode.cpp)
+target_link_libraries(maz_graycode_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gray_code COMMAND maz_graycode_tests)
+set_tests_properties(gray_code PROPERTIES TIMEOUT 30)
