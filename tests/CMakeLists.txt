@@ -2306,3 +2306,8 @@ add_executable(maz_segmenttree_tests core/segmenttree.cpp)
 target_link_libraries(maz_segmenttree_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME segment_tree COMMAND maz_segmenttree_tests)
 set_tests_properties(segment_tree PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clipsegmentrect_tests math/clipsegmentrect.cpp)
+target_link_libraries(maz_clipsegmentrect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clip_segment_rect COMMAND maz_clipsegmentrect_tests)
+set_tests_properties(clip_segment_rect PROPERTIES TIMEOUT 30)

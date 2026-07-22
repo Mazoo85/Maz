@@ -820,4 +820,57 @@ inline std::vector<vec2> catmullRomSpline(const std::vector<vec2>& points, int s
     return out;
 }
 
+// Clip segment a->b to the axis-aligned rectangle [rectMin, rectMax] using the Liang-Barsky algorithm.
+// Returns true if any part of the segment lies inside the rect, writing the clipped endpoints into
+// outA/outB (both on the original line, in a->b order); returns false and leaves the outputs untouched when
+// the segment is entirely outside. This is viewport/scissor clipping for a single segment — the standard
+// way to trim a debug line, laser sight, aim ray, or minimap trace to the visible bounds. It complements
+// clipPolygon (Sutherland-Hodgman, which clips a filled polygon) and segmentIntersect (which needs a second
+// segment): here the clip target is a rectangle, given as its min and max corners (e.g. Rect2 position and
+// end()). Liang-Barsky solves the four edge parameters directly, so it is branch-light and allocation-free.
+inline bool clipSegmentToRect(vec2 a, vec2 b, vec2 rectMin, vec2 rectMax, vec2& outA, vec2& outB) {
+    // Normalize the corners so min really is the lower-left, tolerating a swapped rect.
+    const float xmin = rectMin.x < rectMax.x ? rectMin.x : rectMax.x;
+    const float xmax = rectMin.x < rectMax.x ? rectMax.x : rectMin.x;
+    const float ymin = rectMin.y < rectMax.y ? rectMin.y : rectMax.y;
+    const float ymax = rectMin.y < rectMax.y ? rectMax.y : rectMin.y;
+
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
+    float t0 = 0.0f; // entering parameter along a->b
+    float t1 = 1.0f; // leaving parameter along a->b
+
+    // Each edge gives a constraint p*t <= q; test and tighten [t0, t1].
+    const float p[4] = {-dx, dx, -dy, dy};
+    const float q[4] = {a.x - xmin, xmax - a.x, a.y - ymin, ymax - a.y};
+    for (int i = 0; i < 4; ++i) {
+        if (p[i] == 0.0f) {
+            if (q[i] < 0.0f) {
+                return false; // parallel to this edge and outside its slab
+            }
+            continue;
+        }
+        const float r = q[i] / p[i];
+        if (p[i] < 0.0f) {
+            if (r > t1) {
+                return false; // enters after it already left
+            }
+            if (r > t0) {
+                t0 = r; // later entry
+            }
+        } else {
+            if (r < t0) {
+                return false; // leaves before it entered
+            }
+            if (r < t1) {
+                t1 = r; // earlier exit
+            }
+        }
+    }
+
+    outA = vec2(a.x + t0 * dx, a.y + t0 * dy);
+    outB = vec2(a.x + t1 * dx, a.y + t1 * dy);
+    return true;
+}
+
 } // namespace maz::math

@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Segment-vs-rectangle clipping (Liang-Barsky)** (`math::clipSegmentToRect`, `Geometry2D.hpp`) — DONE
+  (M695); trim a line segment to an axis-aligned rectangle (viewport / scissor clipping for one segment).
+  [VERIFIABLE HERE] Geometry2D already had segment-segment intersection, closest-points, polygon clipping
+  (Sutherland-Hodgman), and convex hull, but no way to clip a single segment to a rect — the standard need
+  when drawing a debug line, laser sight, aim ray, or minimap trace that must stop at the visible bounds.
+  Liang-Barsky solves the four edge-parameters directly (branch-light, allocation-free), returns whether any
+  part survives, writes the clipped endpoints in a->b order, tolerates swapped rect corners, and leaves the
+  outputs untouched on a full miss. Tested: fully-inside (unchanged), single-edge trim, straight-through
+  (both ends on the border), fully-outside miss, corner-to-corner diagonal, swapped corners, and a
+  20k-sample randomized cross-check that every clipped endpoint is inside the rect AND collinear with the
+  original segment. Pairs with the existing `Rect2` (pass position and end()). Header-only, pure vec2 math.
 - [x] **Segment tree — dynamic range queries with point updates** (`core::SegmentTree`, `SegmentTree.hpp`)
   — DONE (M694); arbitrary range min / max / sum / gcd AND live point updates, each in O(log n).
   [VERIFIABLE HERE] Fills the gap between the engine's two existing range structures: `FenwickTree` does
