@@ -2346,3 +2346,8 @@ add_executable(maz_gjkdistance_tests math/gjkdistance.cpp)
 target_link_libraries(maz_gjkdistance_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gjk_distance COMMAND maz_gjkdistance_tests)
 set_tests_properties(gjk_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clocksync_tests net/clocksync.cpp)
+target_link_libraries(maz_clocksync_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clock_sync COMMAND maz_clocksync_tests)
+set_tests_properties(clock_sync PROPERTIES TIMEOUT 30)

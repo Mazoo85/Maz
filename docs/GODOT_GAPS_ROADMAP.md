@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **NTP-style clock synchronization** (`net::ClockSync`, `ClockSync.hpp`) — DONE (M703); estimate the
+  clock OFFSET between this machine and a remote peer, plus the round-trip time, from timestamped ping/pong
+  exchanges. [VERIFIABLE HERE] The net/ layer already renders "in the past" (Interpolation) and predicts on
+  server time (Prediction), but both assume a shared clock — and a client's clock differs from the server's
+  in both value and drift, so the client must LEARN the offset and RTT. Each exchange yields four stamps
+  (t0 send, t1 server-recv, t2 server-send, t3 recv); the NTP formulas give offset = ((t1-t0)+(t2-t3))/2 and
+  delay = (t3-t0)-(t2-t1). Queuing jitter corrupts single samples, so — like NTP's clock filter — the best
+  estimate is taken from the SMALLEST-delay sample in a window, with an EMA-smoothed offset also exposed;
+  `toServerTime`/`toLocalTime` convert between the two clocks. Tested: symmetric delays recover the exact
+  offset and RTT, jittery delays still land close via the min-delay sample, asymmetric constant delays bias
+  the offset by exactly (up-down)/2 (the known NTP path-asymmetry limit), and window/clear behave.
+  Header-only, std-only, deterministic (caller supplies the stamps — no clock or socket inside).
 - [x] **GJK minimum-distance between convex shapes** (`math::gjkDistance`, `GjkDistance.hpp`) — DONE (M702);
   the Gilbert-Johnson-Keerthi algorithm for the exact minimum distance between two convex polygons, with the
   closest pair of witness points. [VERIFIABLE HERE] This is the proximity query the engine's SAT collider
