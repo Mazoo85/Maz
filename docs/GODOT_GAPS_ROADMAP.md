@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Streaming median filter (running median)** (`core::RunningMedian`, `RunningMedian.hpp`) — DONE
+  (M710); the exact median of the most recent N samples of a stream, the great OUTLIER-RESISTANT smoother.
+  [VERIFIABLE HERE] A lone spike (a glitched sensor read, a dropped-frame hitch, a network blip) is an
+  extreme the median simply steps over, whereas a moving AVERAGE (`core::MovingAverage`) gets dragged toward
+  the spike and smears it; the median also preserves genuine step changes (edges) that a mean rounds off.
+  The 1D streaming cousin of the engine's image median filter (`render::medianFilter`, which denoises a 2D
+  image): use it for a jitter-free frame-time readout, a de-glitched analog stick / gyro axis, or robust
+  smoothing of any noisy per-frame signal. Backed by an ordered multiset for O(log N) updates; distinct from
+  `P2Quantile` (a streaming ESTIMATE over ALL history) — this is the EXACT median of a sliding window.
+  Tested: hand cases, spike rejection (median stays at 5 while the mean is dragged past 200), a preserved
+  step edge, a randomized cross-check against a brute-force sorted window across five window sizes, and
+  clear/full. Header-only, std-only, deterministic.
 - [x] **Minimum-area oriented bounding rectangle (rotating calipers)** (`math::minAreaRect` /
   `math::OrientedRect`, `Geometry2D.hpp`) — DONE (M709); the smallest ROTATED rectangle enclosing a 2D point
   set. [VERIFIABLE HERE] Unlike an axis-aligned box (which the engine already has), this finds the tight

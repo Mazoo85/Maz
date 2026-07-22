@@ -2381,3 +2381,8 @@ add_executable(maz_minarearect_tests math/minarearect.cpp)
 target_link_libraries(maz_minarearect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME min_area_rect COMMAND maz_minarearect_tests)
 set_tests_properties(min_area_rect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_runningmedian_tests core/runningmedian.cpp)
+target_link_libraries(maz_runningmedian_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME running_median COMMAND maz_runningmedian_tests)
+set_tests_properties(running_median PROPERTIES TIMEOUT 30)
