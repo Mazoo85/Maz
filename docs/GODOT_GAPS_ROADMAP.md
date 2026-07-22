@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh vertex quantization** (`render::quantizeMesh` / `render::dequantizeMesh`, `QuantizedMesh`) —
+  DONE (M530); the lossy-but-bounded attribute compression a glTF/Draco-style exporter runs to shrink a mesh:
+  instead of a 32-bit float per position/UV channel, snap each channel to an N-bit integer grid spanning that
+  attribute's bounding box, storing the compact ints plus the box to reconstruct. Because the grid step is
+  extent / (2^bits − 1), the round-trip error on any channel is BOUNDED by half a grid step — the size win
+  comes with a provable quality guarantee. Godot's importer exposes the same idea (mesh import compression).
+  Verified (`ctest -R mesh_quantize`): at 8/10/12/14 bits the reconstruction stays within half a grid step and
+  is genuinely lossy, more bits monotonically shrink the error, indices and vertex count survive exactly, a
+  flat axis (or constant UV) reconstructs exactly with no divide-by-zero, and an empty mesh round-trips to
+  empty. This is the CPU quantize/dequantize core; octahedral normal encoding and index-stream entropy coding
+  are the documented follow-ups. [VERIFIABLE HERE]
 - [x] **Connected components / mesh island splitting** (`render::splitConnectedComponents`,
   `render::connectedComponentLabels`) — DONE (M529); the "separate into loose parts" operation every DCC and
   Godot's tooling offers — pull a merged triangle soup apart into the independent sub-meshes that are actually
