@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **MurmurHash3 (fast non-crypto hash)** (`core::murmur3_32`, `Murmur3.hpp`) — DONE (M725); a fast,
+  well-distributed non-cryptographic hash (Austin Appleby), the default workhorse for hash tables, bloom
+  filters, feature flags, and stable content/asset IDs. [VERIFIABLE HERE] The engine already had
+  cryptographic digests (SHA-1/SHA-256) and CRC32, but those are the wrong tool for hashing map keys millions
+  of times a frame: SHA is far too slow and CRC32 has poor avalanche (similar inputs cluster). MurmurHash3 is
+  built for this — a few multiplies and rotates per 4 bytes, strong mixing so a one-bit input change scatters
+  the whole output, and a `seed` to derive independent hash functions (e.g. the k hashes a bloom filter
+  needs). It is also a de-facto interchange standard, so hashes computed here match other tools and languages.
+  The ctest pins the canonical published test vectors byte-for-byte ("" at three seeds, the "a"/"aa"/"abc"/
+  "abcd" family at seed 0x9747b28c, "Hello, world!", and the classic pangram) — the strong correctness proof,
+  since every conformant implementation produces exactly these — plus determinism, seed sensitivity, avalanche
+  (a one-byte change flips many output bits), and near-zero collisions over 20,000 distinct keys. Godot
+  exposes only its own String.hash. Header-only, std-only, deterministic. ctest `murmur3`.
 - [x] **IMA ADPCM audio codec** (`audio::encodeImaAdpcm` / `decodeImaAdpcm`, `ImaAdpcm.hpp`) — DONE (M724);
   the classic 4-bit Adaptive Differential PCM codec (IMA/DVI) behind WAV format tag 0x11 and the sound banks
   of countless games. [VERIFIABLE HERE] It squeezes 16-bit PCM to 4 bits/sample — a flat 4:1 compression — by

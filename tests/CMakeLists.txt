@@ -2456,3 +2456,8 @@ add_executable(maz_imaadpcm_tests audio/imaadpcm.cpp)
 target_link_libraries(maz_imaadpcm_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ima_adpcm COMMAND maz_imaadpcm_tests)
 set_tests_properties(ima_adpcm PROPERTIES TIMEOUT 30)
+
+add_executable(maz_murmur3_tests core/murmur3.cpp)
+target_link_libraries(maz_murmur3_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME murmur3 COMMAND maz_murmur3_tests)
+set_tests_properties(murmur3 PROPERTIES TIMEOUT 30)
