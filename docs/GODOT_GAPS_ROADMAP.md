@@ -180,6 +180,24 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Poisson-disk prune / blue-noise scatter** (`render::prunePointsPoisson`, `render::scatterBlueNoise`) —
+  DONE (M576); thin a dense cloud of surface points down to an EVENLY-SPACED subset — keep a point only if it is
+  at least `minDistance` from every point already kept. Raw `sampleSurfacePoints` output is random and therefore
+  clumpy (some points nearly on top of each other, some gaps); this turns it into the tidy, no-two-too-close
+  scatter you want when placing grass blades, pebbles, trees, decals/bullet-holes, or crowd spawn points across a
+  mesh — Godot's "poisson disk" scatter, the classic "spread N items on this surface but never let two overlap."
+  The method is dart-elimination with a spatial hash keyed by `minDistance`-sized cells, so the "is anything too
+  close?" test only ever looks at the 27 neighbouring cells (O(1) expected, O(n) total). Walking in order makes
+  the INPUT ORDER the priority order (first point in a cluster wins its spot); `sampleSurfacePoints` already
+  returns random order so feeding it straight in is unbiased. `scatterBlueNoise` is the one-call convenience:
+  oversample the mesh, then prune. Kept points retain their normal, ready to orient instances. Reuses
+  `sampleSurfacePoints` (M555) and the `detail::cellHash` spatial key from the weld pass. Verified
+  (`ctest -R mesh_poisson_prune`): two points inside the radius keep only the earlier one; two beyond it both
+  survive; on a 100-point grid no two kept points are ever closer than the radius and a larger radius keeps
+  strictly fewer; radius ≤ 0 keeps everything; empty is safe; an end-to-end scatter on a quad respects the
+  spacing. Honest scope: this is greedy elimination (fast, deterministic, order-dependent), not a
+  maximal-Poisson optimiser — it guarantees the minimum-spacing invariant but not the theoretical maximum packing
+  density; oversample generously for a fuller result. [VERIFIABLE HERE]
 - [x] **Mesh index / deduplicate (bit-exact)** (`render::reindexMesh` → `ReindexReport`) — DONE (M575); turn a
   "triangle soup" (a mesh where every triangle carries its own three corners, so shared corners are stored two,
   three or six times over) into a compact INDEXED mesh: keep one copy of each truly-identical vertex and point
