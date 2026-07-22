@@ -857,6 +857,11 @@ target_link_libraries(maz_catmullrom_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME catmull_rom COMMAND maz_catmullrom_tests)
 set_tests_properties(catmull_rom PROPERTIES TIMEOUT 30)
 
+add_executable(maz_simplexnoise_tests core/simplexnoise.cpp)
+target_link_libraries(maz_simplexnoise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME simplex_noise COMMAND maz_simplexnoise_tests)
+set_tests_properties(simplex_noise PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

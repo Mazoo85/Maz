@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **2D Simplex noise + fBm** (`core::simplex2D` / `simplexFbm2D`, `SimplexNoise.hpp`) — DONE (M665);
+  the third member of the engine's noise family, joining Perlin (`core::Noise`, M85) and Worley
+  (`CellularNoise.hpp`, M661). [VERIFIABLE HERE] Simplex noise (Perlin's own successor to classic Perlin)
+  tiles space with triangles instead of a square grid, which removes the faint axis-aligned directional
+  artifacts Perlin can show, uses fewer multiplies, and has clean continuous gradients — the usual
+  default for terrain height, clouds, and flow fields (it's what FastNoiseLite defaults to). This is a
+  seedable, hash-gradient implementation (no permutation table) following Gustavson's construction, plus
+  an fBm octave-sum helper; output is calibrated to ~[-1,1] (the 8-gradient raw peak was measured and the
+  scale set to 70 so the field spans the unit range). Verified (`ctest -R simplex_noise`): deterministic
+  per (position, seed); over a 400×400 grid |n| stays under 1.05 while the field genuinely swings
+  (peak > 0.5) and its mean is within 0.05 of zero (balanced); nearby samples differ by < 0.05 (continuous,
+  bounded gradient); different seeds give different fields; and fBm stays in range and is deterministic.
+  Rounds out Perlin + Worley with the artifact-free gradient noise most terrain/cloud generators reach for.
 - [x] **Centripetal Catmull-Rom spline** (`math::CatmullRomSpline`, `CatmullRomSpline.hpp`) — DONE
   (M664); the smooth-path-through-waypoints tool for camera rails, roads/rivers, and patrol paths. The
   engine already had a single *uniform* Catmull-Rom segment (`VectorOps::cubicInterpolate`), but uniform
