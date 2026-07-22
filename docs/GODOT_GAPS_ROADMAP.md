@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Indexed binary min-heap with decrease-key** (`core::IndexedHeap<Key,Priority>`, `IndexedHeap.hpp`)
+  — DONE (M683); a priority queue whose entries can be UPDATED — the operation Dijkstra, A*, and
+  event/timer queues need constantly ("this node's tentative cost just dropped; re-prioritise it").
+  [VERIFIABLE HERE] `std::priority_queue` can push/pop by priority but cannot change the priority of an
+  element already inside it, forcing the push-duplicates-and-filter-stale-pops workaround; this pairs the
+  classic binary heap with a key→slot index map so `push`/`pop`/`decreaseKey`/`update`/`erase` are all
+  O(log n) and `contains`/`priorityOf` are O(1). Keyed by a caller id, min-heap by default with a custom
+  comparator allowed. Verified (`ctest -R indexed_heap`): popping ten pushed priorities yields them in
+  sorted order (heapsort); `top()` is always the current minimum; `decreaseKey` makes an element pop
+  before ones it was behind (and no-ops on a worse value); a worsening `update` sinks an element to pop
+  later; re-pushing a key updates rather than duplicates; `contains`/`priorityOf`/`erase` behave; and a
+  full Dijkstra relaxation loop over a small graph finds the correct shortest paths. Header-only,
+  deterministic.
 - [x] **Markov chain procedural name generator** (`game::MarkovName`, `MarkovName.hpp`) — DONE (M682);
   learn the letter patterns of an example word list (elf names, town names, potions, sci-fi surnames…)
   and invent NEW words that share the flavour without copying the inputs — the classic lightweight
