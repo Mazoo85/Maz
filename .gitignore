@@ -19,3 +19,4 @@ docs/api-html/
 compile_commands.json
 CMakeUserPresets.json
 _deps/
+Testing/
