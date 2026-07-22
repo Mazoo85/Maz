@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **YIN monophonic pitch detection** (`audio::detectPitchYin`, `PitchDetect.hpp`) — DONE (M678);
+  estimate the fundamental frequency (perceived pitch) of a block of mono audio — what a guitar/vocal
+  TUNER, a rhythm game scoring sung or played notes, auto-harmony, and voice-driven mechanics all need.
+  [VERIFIABLE HERE] Naive autocorrelation famously "octave-errors" — it locks onto a harmonic instead of
+  the fundamental. YIN (de Cheveigné & Kawahara 2002) fixes that with a cumulative-mean-normalised
+  difference function + an absolute threshold, then refines to sub-sample precision with parabolic
+  interpolation; it returns frequency, a confidence, and a found flag. Verified (`ctest -R pitch_detect`):
+  synthesised pure sines at 220/440/880 Hz are detected to within ~1.5 Hz; a harmonic-rich tone
+  (fundamental 330 Hz with stronger 2nd and 3rd harmonics — the spectrum that fools autocorrelation) still
+  reports the FUNDAMENTAL, not an octave; silence reports no pitch; and a clean tone yields high
+  confidence. Monophonic, CPU-only, header-only, deterministic. [SEE IT ON YOUR MACHINE] wiring it to a
+  live mic input is the one step that needs your hardware.
 - [x] **Kochanek-Bartels (TCB) spline** (`math::tcbSegment`/`tcbTangentIn`/`tcbTangentOut`/`hermite`,
   `TcbSpline.hpp`) — DONE (M677); the interpolating keyframe spline with artist Tension/Continuity/Bias
   knobs — the animation industry's keyframe curve (3ds Max, Maya, classic game tools). [VERIFIABLE HERE]
