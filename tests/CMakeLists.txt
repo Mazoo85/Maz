@@ -2376,3 +2376,8 @@ add_executable(maz_summedareatable_tests core/summedareatable.cpp)
 target_link_libraries(maz_summedareatable_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME summed_area_table COMMAND maz_summedareatable_tests)
 set_tests_properties(summed_area_table PROPERTIES TIMEOUT 30)
+
+add_executable(maz_minarearect_tests math/minarearect.cpp)
+target_link_libraries(maz_minarearect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME min_area_rect COMMAND maz_minarearect_tests)
+set_tests_properties(min_area_rect PROPERTIES TIMEOUT 30)

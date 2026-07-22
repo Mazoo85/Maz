@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Minimum-area oriented bounding rectangle (rotating calipers)** (`math::minAreaRect` /
+  `math::OrientedRect`, `Geometry2D.hpp`) — DONE (M709); the smallest ROTATED rectangle enclosing a 2D point
+  set. [VERIFIABLE HERE] Unlike an axis-aligned box (which the engine already has), this finds the tight
+  rotated fit — the snug hitbox for a rotated sprite, recovering an object's orientation from its silhouette,
+  or compact packing. By Toussaint's theorem the optimum has one side collinear with a convex-hull edge, so
+  it reuses the existing `convexHull` and, for each hull-edge direction, measures the bounding box in that
+  frame and keeps the smallest; returns centre, the two unit axes + half-extents, rotation angle, area, and
+  the 4 corners. Tested: an axis-aligned rectangle's corners recover its exact area and side lengths; the
+  SAME corners rotated by an angle yield the same area and sides (orientation invariance) and a strictly
+  tighter fit than the AABB; a 500-trial randomized run confirms every input point lies inside the returned
+  rectangle and its area never exceeds the axis-aligned bound; and degenerate inputs behave. Header-only.
 - [x] **Summed-area table (integral image)** (`core::SummedAreaTable`, `SummedAreaTable.hpp`) — DONE (M708);
   a 2D prefix-sum table that answers the SUM or AVERAGE over ANY axis-aligned rectangle in O(1) — no matter
   how large the rectangle — after an O(w*h) build. [VERIFIABLE HERE] Each cell stores the sum of everything

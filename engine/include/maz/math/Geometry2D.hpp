@@ -873,4 +873,101 @@ inline bool clipSegmentToRect(vec2 a, vec2 b, vec2 rectMin, vec2 rectMax, vec2& 
     return true;
 }
 
+// The minimum-AREA oriented bounding rectangle of a point set (rotating calipers). Unlike an axis-aligned
+// box, this is the smallest ROTATED rectangle that encloses the points — the tight fit for a rotated
+// sprite's hitbox, recovering an object's orientation from its silhouette, or snug packing. Toussaint's
+// theorem guarantees the optimum has one side collinear with a convex-hull edge, so we build the hull and,
+// for each edge direction, measure the bounding box in that frame and keep the smallest. Fields describe
+// the rectangle by centre, its two (unit) axes and half-extents, its rotation angle, area, and 4 corners.
+struct OrientedRect {
+    vec2 center{0.0f, 0.0f};
+    vec2 axisU{1.0f, 0.0f}; // unit direction of the "width" side
+    vec2 axisV{0.0f, 1.0f}; // unit direction of the "height" side (perpendicular)
+    float halfU = 0.0f;     // half-length along axisU
+    float halfV = 0.0f;     // half-length along axisV
+    float angle = 0.0f;     // rotation of axisU from +x (radians)
+    float area = 0.0f;
+    vec2 corners[4]{};
+};
+
+inline OrientedRect minAreaRect(const std::vector<vec2>& points) {
+    OrientedRect best;
+    if (points.empty()) {
+        return best;
+    }
+    if (points.size() == 1) {
+        best.center = points[0];
+        best.corners[0] = best.corners[1] = best.corners[2] = best.corners[3] = points[0];
+        return best;
+    }
+
+    std::vector<vec2> hull = convexHull(points);
+    if (hull.size() < 2) {
+        best.center = hull.empty() ? points[0] : hull[0];
+        for (int i = 0; i < 4; ++i) {
+            best.corners[i] = best.center;
+        }
+        return best;
+    }
+
+    float bestArea = -1.0f;
+    float bestMinU = 0.0f, bestMaxU = 0.0f, bestMinV = 0.0f, bestMaxV = 0.0f;
+    vec2 bestU(1.0f, 0.0f), bestV(0.0f, 1.0f);
+
+    const std::size_t n = hull.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        const vec2 a = hull[i];
+        const vec2 b = hull[(i + 1) % n];
+        vec2 u = b - a;
+        const float len = std::sqrt(u.x * u.x + u.y * u.y);
+        if (len < 1e-9f) {
+            continue;
+        }
+        u = vec2(u.x / len, u.y / len);
+        const vec2 v(-u.y, u.x); // perpendicular
+
+        float minU = 0.0f, maxU = 0.0f, minV = 0.0f, maxV = 0.0f;
+        bool first = true;
+        for (const vec2& p : hull) {
+            const float pu = p.x * u.x + p.y * u.y;
+            const float pv = p.x * v.x + p.y * v.y;
+            if (first) {
+                minU = maxU = pu;
+                minV = maxV = pv;
+                first = false;
+            } else {
+                if (pu < minU) minU = pu;
+                if (pu > maxU) maxU = pu;
+                if (pv < minV) minV = pv;
+                if (pv > maxV) maxV = pv;
+            }
+        }
+        const float area = (maxU - minU) * (maxV - minV);
+        if (bestArea < 0.0f || area < bestArea) {
+            bestArea = area;
+            bestU = u;
+            bestV = v;
+            bestMinU = minU;
+            bestMaxU = maxU;
+            bestMinV = minV;
+            bestMaxV = maxV;
+        }
+    }
+
+    const float cu = (bestMinU + bestMaxU) * 0.5f;
+    const float cv = (bestMinV + bestMaxV) * 0.5f;
+    best.center = bestU * cu + bestV * cv;
+    best.axisU = bestU;
+    best.axisV = bestV;
+    best.halfU = (bestMaxU - bestMinU) * 0.5f;
+    best.halfV = (bestMaxV - bestMinV) * 0.5f;
+    best.angle = std::atan2(bestU.y, bestU.x);
+    best.area = bestArea;
+    best.corners[0] = best.center - bestU * best.halfU - bestV * best.halfV;
+    best.corners[1] = best.center + bestU * best.halfU - bestV * best.halfV;
+    best.corners[2] = best.center + bestU * best.halfU + bestV * best.halfV;
+    best.corners[3] = best.center - bestU * best.halfU + bestV * best.halfV;
+    return best;
+}
+
 } // namespace maz::math
