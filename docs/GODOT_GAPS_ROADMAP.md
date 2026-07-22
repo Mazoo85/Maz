@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tempo (BPM) estimation** (`audio::estimateTempo`, `TempoEstimate.hpp`) — DONE (M680); find the
+  beat rate of a piece of music from its samples — for rhythm games, beat-synced visuals/lighting,
+  auto-cut editors, and adaptive music. [VERIFIABLE HERE] Builds an onset-strength signal (how much the
+  short-time energy JUMPS frame to frame — a "a beat just happened" proxy) and autocorrelates it; a
+  steady beat makes that signal periodic, so the autocorrelation peak's lag (refined with parabolic
+  interpolation) gives the period → BPM. A perceptual log-tempo prior (Gaussian centred on `priorBpm`)
+  resolves the classic half/double-tempo OCTAVE ambiguity toward musically-typical tempos. Verified
+  (`ctest -R tempo_estimate`): a 120 BPM click track (the prior centre) reads back exact to a few BPM;
+  90/100/140/150 BPM tracks read back correct to within an OCTAVE (the field's standard "Accuracy-2"
+  criterion — a steady beat autocorrelates equally at half and double its period, so octave-equivalent
+  answers are the honest correctness bar); detections carry positive confidence; silence yields nothing.
+  Pure CPU, header-only, deterministic. **Honest scope:** exact-octave disambiguation for arbitrary
+  material is a known-hard problem; this resolves near the prior centre and is octave-correct elsewhere.
 - [x] **Envelope follower + level metering** (`audio::EnvelopeFollower`, `rms`/`peakLevel`,
   `EnvelopeFollower.hpp`) — DONE (M679); track the moment-to-moment loudness of a signal — the
   foundational block under compressors/gates, sidechain ducking, VU/peak meters, envelope-driven filters
