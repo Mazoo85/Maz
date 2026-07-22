@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Extrude faces** (`render::extrudeFaces`) — DONE (M592); raise every triangle off the surface into a little
+  standing prism — each face is pushed OUT along its own normal by `distance` and the gap it leaves is walled in on
+  all three sides, so a flat panel sprouts a field of raised studs / buttons / greebles / brick-relief. This is
+  Blender's "Extrude Individual Faces" and the workhorse for panelled sci-fi hull detail, chunky pixel-art relief,
+  or the raised keys of a keypad. Each input triangle becomes a self-contained prism: its TOP (the triangle moved
+  out, still facing the same way) plus three SIDE walls (a quad per original edge) — 7 triangles and 6 vertices
+  from 1. Distinct from solidify (M579, one whole-mesh shell) and inset (M590, shrink in place). Verified
+  (`ctest -R mesh_extrude`): a +Y triangle extruded 0.5 makes exactly 6 vertices and 7 triangles; the base ring
+  stays at y=0 while the raised ring moves to y=0.5 sitting directly above the base corners; the top face keeps its
+  +Y facing; the bbox grows to y=0.5; a negative distance presses inward; empty is safe. Honest scope: extrudes
+  each triangle INDEPENDENTLY (individual-faces mode) and unwelds — a flat region of many triangles raises each as
+  its own stud with walls along every interior edge, so merge coplanar tris first for clean single studs; normals
+  are set to each prism's top-face normal (side walls shade like the top — re-run `computeNormals` for correct wall
+  shading); multiplies triangle count by 7. [VERIFIABLE HERE]
 - [x] **Curvature heatmap** (`render::curvatureHeatmap`) — DONE (M591); paint a mesh so you can SEE where it bends
   — flat regions go cool blue, gently curved areas green, and sharp creases/tips hot red. This is the standard
   "curvature map" every DCC/inspection tool shows: how modellers spot pinching, lumps and over-sharp edges that
