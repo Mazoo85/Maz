@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Component tint (debug viz)** (`render::tintComponents`) — DONE (M588); paint every disconnected PIECE of a
+  mesh a different colour, so you can see at a glance how many separate islands it is made of and which triangles
+  belong together. A model that looks like one object is often secretly several (a character plus loose props,
+  terrain chunks that never welded, stray shards from a bad boolean); tinting each connected component a distinct
+  hue is the standard debug view for "why is my one mesh actually 40 pieces?" and for authoring per-part masks.
+  Each vertex's colour comes from its component index via golden-ratio hue stepping (so adjacent components never
+  share a near-colour), at the given saturation/value; the component count is returned. Reuses
+  `connectedComponentLabels` (per-triangle island labels, spread onto the vertices). Verified
+  (`ctest -R mesh_component_color`): two disjoint triangles report two components, each internally one uniform
+  colour, and the two colours differ; positions are untouched; a shared-vertex quad is one component with one
+  colour; the tint is deterministic across runs; empty is safe (zero components). Honest scope: "connected" means
+  sharing a vertex INDEX (welded topology) — two pieces touching in space but with separate vertices read as
+  separate (weld first to merge); overwrites the RGB of every vertex (positions/normals/UVs untouched); the hues
+  are opaque debug colours, not a physical signal. [VERIFIABLE HERE]
 - [x] **Flatten / project-to-plane** (`render::projectToPlane`) — DONE (M587); squash a mesh toward a flat plane —
   each vertex slides along the plane's normal toward its perpendicular projection onto the plane, blended by `t`
   (0 = unchanged, 1 = every vertex exactly on the plane, in between squashes smoothly). Uses: a cheap
