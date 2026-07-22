@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Vertex-colour smoothing** (`render::smoothVertexColors`) — DONE (M564); blur a mesh's per-vertex RGB
+  across its edges without moving a single vertex. Baked vertex colours — ambient occlusion (M553), cavity/
+  curvature (M556), hand-painted masks — often come out noisy or blocky: a low ray count leaves AO speckled, a
+  coarse mesh makes cavity shading stair-step, a paint stroke lands hard-edged. This relaxes each vertex's colour
+  toward the average of its edge-neighbours (a Laplacian blur on the COLOUR signal — the same relaxation as M540
+  mesh smoothing, but on colour, not position), so shading reads soft and clean while geometry stays bit-for-bit
+  identical. `strength` (0..1) sets the blur per pass, `iterations` the number of passes, and `pinBoundary` keeps
+  open-edge vertices fixed. Reuses the M540 adjacency builder. Verified (`ctest -R mesh_vertex_color_smooth`): a
+  single black speck among white neighbours brightens toward white while its neighbour picks up some darkness (the
+  blur spreads), and the vertex POSITIONS are provably unmoved; more passes push the speck further toward white; a
+  uniform colour field is unchanged (a flat blur is a no-op); a pinned boundary vertex keeps its colour; empty
+  meshes are safe. Honest scope: smooths ONLY the RGB channels — positions, normals, UVs untouched; it's an
+  unweighted (umbrella) Laplacian (neighbour count sets the weight, not edge length/angle), fast and stable but it
+  slightly blurs across sharp colour boundaries — lower `strength`/`iterations` or pin boundaries to preserve
+  edges; output stays in the [0,1] range the vertices already use. [VERIFIABLE HERE]
 - [x] **Degenerate / sliver-triangle classifier** (`render::analyzeDegenerate`, `DegenerateReport`, `TriDefect`)
   — DONE (M563); find the badly-shaped triangles in a mesh and label each by DEFECT TYPE, returning their indices
   as a cleanup report. Bad triangles come from booleans, decimation, planar cuts, and sloppy imports; they wreck
