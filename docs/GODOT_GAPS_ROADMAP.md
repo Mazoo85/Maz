@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **k-means clustering** (`math::kMeans`, `KMeans.hpp`) — DONE (M728); partition N-dimensional points into
+  k clusters, each represented by its centroid, so points end up grouped with their nearest centre (Lloyd's
+  algorithm with k-means++ seeding). [VERIFIABLE HERE] The general clustering workhorse: grouping
+  units/enemies into squads by position, building spatial LOD clusters, deriving representative palettes or
+  "archetype" values from data, seeding procedural distributions, compressing a cloud of samples to k
+  prototypes. The engine had median-cut colour quantization (fixed to RGB) but no general k-means over
+  arbitrary vectors. It alternates ASSIGN (every point to its nearest centroid) and MOVE (each centroid to
+  the mean of its points) until stable — which provably never increases the total within-cluster squared
+  distance (inertia), so it converges; k-means++ picks well-spread initial centres to avoid poor local
+  minima. Deterministic given a seed. The ctest builds four well-separated blobs and checks each blob becomes
+  a single cluster with all four distinct, then verifies the LLOYD FIXPOINT optimality conditions directly —
+  every point is assigned to its nearest centroid AND every centroid equals the mean of its members — checks
+  the reported inertia matches a recomputation, that k>=n gives inertia ~0, determinism, and empty input.
+  Godot has no clustering. Header-only, std-only, deterministic. ctest `kmeans`.
 - [x] **Count-Min Sketch (frequency estimator)** (`core::CountMinSketch`, `CountMinSketch.hpp`) — DONE (M727);
   estimate HOW MANY TIMES each item appeared in a stream, from a small fixed table instead of one counter per
   distinct key. [VERIFIABLE HERE] Where HyperLogLog answers "how many DIFFERENT items?", a Count-Min sketch

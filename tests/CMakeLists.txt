@@ -2471,3 +2471,8 @@ add_executable(maz_countminsketch_tests core/countminsketch.cpp)
 target_link_libraries(maz_countminsketch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME count_min_sketch COMMAND maz_countminsketch_tests)
 set_tests_properties(count_min_sketch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_kmeans_tests math/kmeans.cpp)
+target_link_libraries(maz_kmeans_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME kmeans COMMAND maz_kmeans_tests)
+set_tests_properties(kmeans PROPERTIES TIMEOUT 30)
