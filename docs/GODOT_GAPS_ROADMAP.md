@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Gap buffer (text-editor buffer)** (`core::GapBuffer`, `GapBuffer.hpp`) — DONE (M712); the classic
+  editable-text data structure: a character buffer with a movable "gap" of empty slots at the cursor.
+  [VERIFIABLE HERE] Typing fills the gap and deleting widens it, so edits AT THE CURSOR are O(1) amortised —
+  no shifting the whole document on every keystroke the way a plain std::string insert/erase would (O(n)
+  each); moving the cursor pays only for the distance moved, matching how people actually edit (many
+  keystrokes in one place, occasional jumps). This is the buffer behind a real code/text editor, directly
+  useful for the engine's in-editor SCRIPT EDITOR, the developer CONSOLE line, and a chat/input field. API:
+  insert(char/string), backspace, deleteForward, moveTo/moveLeft/moveRight, at, text, size, cursor. Tested:
+  typing + middle-insert-via-the-gap, backspace/forward-delete with start/end guards, at() indexing across
+  the gap, and a 20,000-op randomized edit sequence (insert char/string, move, backspace, delete) that
+  matches a std::string+cursor reference at every step while forcing several buffer growths. Header-only.
 - [x] **Weighted reservoir sampling** (`core::WeightedReservoir`, `WeightedReservoir.hpp`) — DONE (M711);
   select k items from a STREAM of weighted items in a single pass and O(k) memory, each item's chance of
   being kept proportional to its WEIGHT (Efraimidis-Spirakis "A-Res"). [VERIFIABLE HERE] The missing middle

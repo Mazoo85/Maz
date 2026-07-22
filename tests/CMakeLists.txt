@@ -2391,3 +2391,8 @@ add_executable(maz_weightedreservoir_tests core/weightedreservoir.cpp)
 target_link_libraries(maz_weightedreservoir_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME weighted_reservoir COMMAND maz_weightedreservoir_tests)
 set_tests_properties(weighted_reservoir PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gapbuffer_tests core/gapbuffer.cpp)
+target_link_libraries(maz_gapbuffer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gap_buffer COMMAND maz_gapbuffer_tests)
+set_tests_properties(gap_buffer PROPERTIES TIMEOUT 30)
