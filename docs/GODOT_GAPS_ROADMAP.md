@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Vertex valence / irregular-vertex report** (`render::analyzeValence`, `ValenceReport`) — DONE (M561);
+  count how many edges meet at each vertex (its VALENCE) and flag the IRREGULAR ones. In a clean triangle mesh
+  almost every interior vertex has valence 6; the 5s and 7s — poles or singularities — are where edge flow
+  pinches or splays, and retopology/subdivision tools work to MINIMISE them because they cause shading artefacts,
+  uneven subdivision, and awkward UV/animation deformation. The report gives per-vertex valence, marks boundary
+  vertices (open edges, judged separately since their low valence is expected), and tallies regular (valence 6)
+  vs irregular interior vertices plus isolated (unreferenced) ones — a one-number read on mesh quality that a
+  modelling tool surfaces as a "show poles" overlay or retopo score. No topology build needed: it counts distinct
+  edge-neighbours and single-face (boundary) edges directly. Verified (`ctest -R mesh_valence`): a 5×5 regularly
+  triangulated grid reports its 9 interior vertices as regular valence-6 with zero interior poles, all 16 rim
+  vertices boundary, and the centre vertex valence exactly 6; grid corners are boundary with valence ≥ 2; a lone
+  triangle is three valence-2 boundary vertices with no interior; a closed cube has zero boundary and all eight
+  corners interior with valences ≤ 6; an unreferenced vertex is isolated (valence 0); empty meshes are safe.
+  Honest scope: "regular = 6" is the triangle-mesh convention (a quad mesh's ideal is 4 — pass `regularValence`);
+  valence counts DISTINCT connected neighbours, so a non-manifold or duplicated-vertex mesh can report surprising
+  values (weld first via M525/M559); boundary vertices are counted but never labelled irregular. [VERIFIABLE HERE]
 - [x] **Mesh symmetry-plane detection** (`render::detectSymmetryPlanes`, `SymmetryReport`, `SymmetryPlane`,
   `SymmetryAxis`) — DONE (M560); decide whether a mesh is MIRROR-SYMMETRIC and across which plane. Most game
   props and characters are built symmetric (a face, a car, a sword), and knowing the symmetry plane unlocks a
