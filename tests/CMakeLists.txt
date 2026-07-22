@@ -2361,3 +2361,8 @@ add_executable(maz_diamondsquare_tests game/diamondsquare.cpp)
 target_link_libraries(maz_diamondsquare_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME diamond_square COMMAND maz_diamondsquare_tests)
 set_tests_properties(diamond_square PROPERTIES TIMEOUT 30)
+
+add_executable(maz_simulatedannealing_tests core/simulatedannealing.cpp)
+target_link_libraries(maz_simulatedannealing_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME simulated_annealing COMMAND maz_simulatedannealing_tests)
+set_tests_properties(simulated_annealing PROPERTIES TIMEOUT 30)

@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Simulated annealing optimizer** (`core::simulatedAnnealing`, `SimulatedAnnealing.hpp`) — DONE (M706);
+  a general-purpose optimizer for hard problems with no closed-form answer. [VERIFIABLE HERE] It minimises an
+  `energy(state)` cost by wandering the state space, always accepting improvements but ALSO accepting worse
+  states with a probability that shrinks as a "temperature" cools — that controlled willingness to go uphill
+  early is what lets it ESCAPE LOCAL MINIMA a pure hill-climb gets stuck in, so it solves layout, scheduling,
+  tour (TSP-style), puzzle, and procedural-placement problems. Fully generic: supply the State type, an
+  energy function, and a `neighbour(state, rand01)` mutation, plus a cooling schedule. Deterministic via an
+  embedded splitmix64 (no <random>, no clock), so an annealed layout is reproducible. Tested: a continuous
+  convex bowl minimised to its exact minimum, a MULTIMODAL landscape solved to within 0.05 of the true
+  global minimum (found by brute force) — proving it escapes local traps — and a 14-city travelling-salesman
+  tour driven from a deliberately bad start down to within 15% of the optimal circular tour, always a valid
+  permutation and never worse than the start. Header-only, std-only. Godot ships no optimizer.
 - [x] **Diamond-square fractal heightmaps** (`game::DiamondSquare`, `DiamondSquare.hpp`) — DONE (M705); the
   midpoint-displacement terrain generator: seed four corners of a (2^n+1) grid, then recursively subdivide —
   each diamond step sets a square's centre to its corners' average plus a shrinking random offset, each
