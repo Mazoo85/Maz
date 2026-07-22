@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Poisson / exponential / geometric random sampling** (`core::poisson`/`exponential`/`geometric`,
+  `RandomDistributions.hpp`) — DONE (M693); the standard "event-timing" random variates on top of any
+  uniform source. [VERIFIABLE HERE] `core::Random` already has uniform, ranges, weighted-pick, shuffle, and
+  a Gaussian, but not these three: `exponential(rate)` gives the WAIT between independent events (respawn
+  gaps, next-drop timer; mean 1/rate); `poisson(lambda)` gives HOW MANY events land in one fixed interval
+  (spawns this second, loot rolls, packets this tick; mean == variance == lambda) via Knuth's product method,
+  with a rounded-normal fallback once `exp(-lambda)` would underflow (large lambda); `geometric(p)` gives the
+  number of trials until the first success (crit-streak length; mean 1/p). Each is a free-function template
+  taking a callable returning [0,1), so it composes with Random, Pcg32, or a deterministic test stub with no
+  hard dependency. Tested over 400k samples per distribution: strict positivity/non-negativity, sample mean
+  and variance match the closed-form moments, the large-lambda branch is exercised, and degenerate params
+  return documented edge values. Header-only, std-only, deterministic. Godot exposes only uniform + normal.
 - [x] **Streaming P² quantile estimator** (`core::P2Quantile`, `P2Quantile.hpp`) — DONE (M692); track a
   live percentile (median, p95, p99) of an unbounded data stream in CONSTANT memory and a single pass, with
   NO stored samples. [VERIFIABLE HERE] `RunningStats` (Welford) gives a streaming mean/variance but cannot

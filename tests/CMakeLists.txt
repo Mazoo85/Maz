@@ -2296,3 +2296,8 @@ add_executable(maz_p2quantile_tests core/p2quantile.cpp)
 target_link_libraries(maz_p2quantile_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME p2_quantile COMMAND maz_p2quantile_tests)
 set_tests_properties(p2_quantile PROPERTIES TIMEOUT 30)
+
+add_executable(maz_randomdistributions_tests core/randomdistributions.cpp)
+target_link_libraries(maz_randomdistributions_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME random_distributions COMMAND maz_randomdistributions_tests)
+set_tests_properties(random_distributions PROPERTIES TIMEOUT 30)
