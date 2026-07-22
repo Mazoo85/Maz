@@ -587,6 +587,11 @@ target_link_libraries(maz_imagenormalmap_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME image_normalmap COMMAND maz_imagenormalmap_tests)
 set_tests_properties(image_normalmap PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshwireframe_tests render/meshwireframe.cpp)
+target_link_libraries(maz_meshwireframe_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_wireframe COMMAND maz_meshwireframe_tests)
+set_tests_properties(mesh_wireframe PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Wireframe / edge extraction** (`render::meshEdges`, `render::meshWireframe`) — DONE (M609); pull the UNIQUE
+  edges out of a triangle mesh so you can draw it as a cage of lines. Every triangle shares its edges with its
+  neighbours, so the raw triangle list mentions each interior edge twice; this collapses them to one each. Feed the
+  result to a line renderer for a wireframe overlay, an editor "show edges" mode, a hologram / blueprint look, a
+  selection-highlight outline, or a debug view of how a mesh is built. `meshEdges` returns the edges as vertex-index
+  pairs; `meshWireframe` returns them as a flat LINE LIST (two positions per edge) ready to hand straight to a
+  line-segment draw call. Verified (`ctest -R mesh_wireframe`): a single triangle has 3 edges (and `meshWireframe`
+  returns 6 positions); a two-triangle quad has 5 unique edges (the shared diagonal counted once); a watertight
+  triangulated cube has exactly 18 unique edges (E = 3F/2), with no edge listed twice and every edge referencing
+  distinct in-range vertices; an empty mesh yields nothing. Honest scope: returns EVERY triangle edge deduplicated —
+  including the diagonal splitting each quad face (a triangulated cube gives 18, not the 12 "clean" edges an artist
+  sees); for only the visually meaningful creases use the sharp / hard / feature-edge tools (M548/M549/M567).
+  [VERIFIABLE HERE]
 - [x] **Height → normal map** (`render::heightToNormalMap`) — DONE (M608); turn a grey heightmap (bright=high,
   dark=low) into a tangent-space NORMAL MAP — the blue-purple texture that makes a flat surface look bumpy under
   lighting. Paint or generate a height image (bricks, cobbles, scales, wrinkles, carved detail, hammered metal) and
