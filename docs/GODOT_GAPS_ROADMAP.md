@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Point-in-mesh containment** (`render::containsPoint` / `containsPoints`) — DONE (M546); is a point INSIDE
+  a closed triangle mesh? For each query point cast one ray to infinity and count triangle crossings — odd =
+  inside, even = outside (the Jordan-curve / ray-parity test), reusing the M533 Möller–Trumbore ray/triangle (the
+  same inside test that signs MeshSdf and fills MeshVoxelize). Unlike those, this answers arbitrary points
+  DIRECTLY with no grid to bake — the right tool for a handful of ad-hoc tests: is a spawn point inside the level
+  geometry, is a particle/agent still within a volume, does a prop's centre sit in a trigger solid,
+  rejection-sampling points into a shape. Batch and single-point entry points; an oblique ray dodges the
+  through-a-shared-edge degeneracy and an AABB quick-reject skips points outside the bounds. Verified
+  (`ctest -R mesh_containment`): a cube reports its centre and interior points inside and beyond-face / far
+  points outside; a batched lattice matches the interior predicate everywhere (away from the ambiguous exactly-
+  on-face boundary); a sphere agrees with the analytic radius test both single and batched; empty mesh / empty
+  points safe. Honest scope: brute force O(points·triangles) assuming a watertight mesh — for many queries
+  against a big mesh, bake a MeshSdf once or index with game::Bvh; a generalized-winding-number test for open
+  meshes is the follow-up. [VERIFIABLE HERE]
 - [x] **Mesh topology summary** (`render::summarizeTopology`, `TopologySummary`) — DONE (M545); one struct
   answering "what SHAPE, topologically, is this mesh?": how many separate pieces (connected components), how many
   holes ring it (boundary loops), whether it is a closed watertight solid and manifold, its Euler characteristic
