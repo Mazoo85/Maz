@@ -2396,3 +2396,8 @@ add_executable(maz_gapbuffer_tests core/gapbuffer.cpp)
 target_link_libraries(maz_gapbuffer_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gap_buffer COMMAND maz_gapbuffer_tests)
 set_tests_properties(gap_buffer PROPERTIES TIMEOUT 30)
+
+add_executable(maz_jumppointsearch_tests game/jumppointsearch.cpp)
+target_link_libraries(maz_jumppointsearch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME jump_point_search COMMAND maz_jumppointsearch_tests)
+set_tests_properties(jump_point_search PROPERTIES TIMEOUT 30)

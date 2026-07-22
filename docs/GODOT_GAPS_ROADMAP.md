@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Jump Point Search grid pathfinding** (`game::JumpPointSearch`, `JumpPointSearch.hpp`) — DONE (M713);
+  a much faster pathfinder for uniform-cost 8-connected grids that returns the EXACT SAME optimal path as
+  ordinary grid A*, but expands a tiny fraction of the cells. [VERIFIABLE HERE] Plain A* on an open map
+  wastes almost all its effort exploring the countless equivalent zig-zag routes between two points ("path
+  symmetries"); JPS eliminates that by jumping in a straight line along each direction, skipping every cell
+  that can't be a turning point, and only ever queueing genuine decision cells (jump points). On a wide-open
+  map it is routinely 10-30x faster than the same A* — the difference between an RTS smoothly pathing
+  hundreds of units and one that stutters. Movement model is 8-connected with corner-cutting allowed
+  (straight = 1, diagonal = sqrt(2)), matching the engine's `AStarGrid2D` DiagonalMode::Always — which is
+  exactly what makes it checkable: the ctest cross-checks JPS against `AStarGrid2D` on 3,000 random obstacle
+  grids, asserting they agree on reachability and on total path COST every time (JPS is provably optimal for
+  this model), that every JPS path is valid (correct endpoints, in bounds, never on a solid cell, single
+  8-neighbour steps), that on a 50x50 open grid JPS expands under 100 of the 2,500 cells, and that the sparse
+  jump-point path expands back into the full contiguous cell path. Complements `AStarGrid2D` (correctness
+  baseline) and `AStar2D` (arbitrary weighted graphs). Godot ships no JPS. ctest `jump_point_search`.
 - [x] **Gap buffer (text-editor buffer)** (`core::GapBuffer`, `GapBuffer.hpp`) — DONE (M712); the classic
   editable-text data structure: a character buffer with a movable "gap" of empty slots at the cursor.
   [VERIFIABLE HERE] Typing fills the gap and deleting widens it, so edits AT THE CURSOR are O(1) amortised —
