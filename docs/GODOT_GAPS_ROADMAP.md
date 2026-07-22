@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Slab slicing / layer stack** (`render::sliceLayers`) — DONE (M593); chop a model into a STACK of evenly-spaced
+  cross-sections along one axis and hand back the outline of each — exactly what a 3D printer or laser cutter does
+  before it makes a part (slice the model into thin horizontal layers, then trace each layer so the machine knows
+  where to lay plastic or where to cut). The same operation draws a topographic contour map (a hill as a set of
+  stacked height rings), builds a stack of collision cross-sections, or makes a layered cutaway preview. It simply
+  aims the engine's existing plane-slicer (`sliceMesh`, M532) at N heights spread across the model's height and
+  gathers each layer's loops. By default the N planes land on the layer CENTRES (heights (i+0.5)/N across the
+  bounding box), which dodges landing a plane exactly on a flat top/bottom cap where the cut would be degenerate;
+  pass `sampleEdges=true` to place them on the layer boundaries instead. Verified (`ctest -R mesh_slice_layers`): a
+  watertight box that spans y −3..3, sliced into 3 layers along Y, produces exactly 3 contours at the centre heights
+  −2 / 0 / +2; every contour is a CLOSED ring whose points all sit exactly on that layer's plane and on the box's
+  side walls; asking for 0 layers, slicing an empty mesh, or slicing a flat (zero-height) mesh all safely return
+  nothing. Honest scope: each layer is exactly what `sliceMesh` returns — a set of ordered loops that close cleanly
+  only on a watertight (index-welded) solid; a per-face vertex soup slices into open chains, so weld first (M573
+  `weldVertices`). It returns the OUTLINES per layer, not filled 2D regions and not split solid chunks. axis 0=X,
+  1=Y (default), 2=Z. [VERIFIABLE HERE]
 - [x] **Extrude faces** (`render::extrudeFaces`) — DONE (M592); raise every triangle off the surface into a little
   standing prism — each face is pushed OUT along its own normal by `distance` and the gap it leaves is walled in on
   all three sides, so a flat panel sprouts a field of raised studs / buttons / greebles / brick-relief. This is
