@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Great-circle / spherical geometry** (`math::haversineCentralAngle`, `greatCircleDistance`,
+  `latLonToUnit`, `angleBetweenUnit`, `slerpUnit`, `GreatCircle.hpp`) — DONE (M669); distances and
+  shortest paths ON a sphere, for planet/globe games, star/sky-dome placement, orbital tracks, and
+  "shortest route between two map points." [VERIFIABLE HERE] A straight 3D line is not the shortest path
+  along a spherical surface — the great circle is — and computing separations from raw dot products loses
+  precision for both tiny and near-antipodal pairs. This adds the numerically-stable haversine
+  central-angle/distance, lat/lon↔unit-vector conversion (+Y-up convention), the angle between unit
+  vectors, and unit-vector SLERP to walk a great-circle arc at a constant angular rate. Pure trig.
+  Verified (`ctest -R great_circle`): pole-to-pole is exactly π and an equator quarter is π/2; a point to
+  itself is 0; distance scales with radius; `(0,0)→+X`, north-pole→+Y, `(0,90°)→+Z` and every conversion
+  is unit length; haversine agrees with the angle between the corresponding unit vectors; SLERP endpoints
+  are exact, its midpoint is unit length, sits at half the arc from each end, and lands on the 45° direction
+  between +X and +Z; and great-circle intermediate points stay on the unit sphere. A genuinely-missing
+  primitive for any game that wraps around a globe.
 - [x] **Spline arc-length reparameterization** (`math::ArcLengthTable`, `ArcLength.hpp`) — DONE (M668);
   the "move at constant speed along a path" tool that pairs with the Catmull-Rom spline (M664) and Bézier
   `Curve2D`. [VERIFIABLE HERE] A curve's natural parameter u∈[0,1] does not advance at constant speed —
