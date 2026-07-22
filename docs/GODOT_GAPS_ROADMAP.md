@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Gear / cog outline** (`render::shapes2d::gear`) — DONE (M605); a spur-gear silhouette — `teeth` trapezoidal
+  teeth rising from a root circle to a tip circle — extending the shapes2d family. Spin it into a machine, a clock
+  face, a steampunk prop, a factory backdrop, or a rotating puzzle piece; extrude it (M602) into a solid cog, or spin
+  it as a 2D collider. `toothWidthFrac` sets how wide each tooth is versus the gap between teeth. Verified (`ctest -R
+  shapes2d_gear`): a 12-tooth gear has exactly 5 points per tooth (60), every vertex radius sits between the root and
+  outer radius, exactly two tip vertices per tooth land on the outer circle and three root vertices per tooth on the
+  root circle, the outline is CCW, and its area lies between the root disc (πr²) and the tip disc; the gear extrudes
+  into a valid closed cog whose signed volume equals area×depth (proving composability with the extrude pipeline);
+  fewer than 3 teeth, root ≥ outer, and a zero root radius all return empty. Honest scope: this is a simple
+  flat-flanked (trapezoidal-tooth) gear for looks and props, not a true involute gear for meshing power transmission.
+  [VERIFIABLE HERE]
 - [x] **2D shape outlines** (`render::shapes2d::regularPolygon` / `star` / `roundedRect`) — DONE (M604); ready-made
   point rings for the common flat shapes, so you don't hand-type coordinates. Each returns a counter-clockwise list of
   2D points tracing an outline, which you feed straight into `extrudePolygon` (M602) for a 3D prism, `revolveProfile`

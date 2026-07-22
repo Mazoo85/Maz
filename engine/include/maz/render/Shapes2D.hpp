@@ -10,9 +10,9 @@
 // coordinates. Each function returns a counter-clockwise list of 2D points tracing the outline of a shape, which
 // you feed straight into `extrudePolygon` (M602) to make a 3D prism, `revolveProfile` (M594) to spin a solid,
 // `triangulatePolygon` (M156) to fill it flat, or a 2D polygon collider. Between them they cover most of what UI,
-// signage, and props need: a regular n-gon (hexagon nut, pentagon, octagon stop-sign), a star or sparkle, and a
-// rounded rectangle (button, card, badge, panel, rounded platform). Header-only, deterministic, headless — pure
-// coordinate math.
+// signage, and props need: a regular n-gon (hexagon nut, pentagon, octagon stop-sign), a star or sparkle, a
+// rounded rectangle (button, card, badge, panel, rounded platform), and a spur gear / cog (machinery, clocks,
+// steampunk). Header-only, deterministic, headless — pure coordinate math.
 //
 // Scope note (honest): all outlines are simple (non-self-intersecting) and wound COUNTER-CLOCKWISE, centred on the
 // origin. A star with a big enough inner radius stays simple; a rounded rect clamps its corner radius to at most
@@ -72,6 +72,32 @@ inline std::vector<math::vec2> roundedRect(float width, float height, float radi
             const float a = starts[c] + halfPi * static_cast<float>(s) / static_cast<float>(seg);
             out.push_back(math::vec2(centres[c].x + std::cos(a) * r, centres[c].y + std::sin(a) * r));
         }
+    }
+    return out;
+}
+
+// A spur-gear / cog outline: `teeth` trapezoidal teeth rising from a root circle (`rootRadius`) to a tip circle
+// (`outerRadius`). `toothWidthFrac` (0..1) is the fraction of each tooth-slot the tip occupies (0.5 = tip and gap
+// equal). Returns 5 points per tooth (valley, rising flank base, tip-left, tip-right, falling flank base), CCW.
+inline std::vector<math::vec2> gear(int teeth, float outerRadius, float rootRadius, float toothWidthFrac = 0.5f) {
+    std::vector<math::vec2> out;
+    if (teeth < 3 || outerRadius <= 0.0f || rootRadius <= 0.0f || rootRadius >= outerRadius) return out;
+    float frac = toothWidthFrac;
+    if (frac < 0.05f) frac = 0.05f;
+    if (frac > 0.95f) frac = 0.95f;
+    const float twoPi = 6.28318530717958647692f;
+    const float step = twoPi / static_cast<float>(teeth);
+    const float ht = step * frac * 0.5f;     // half the tip's angular width
+    const float half = step * 0.5f;          // half a tooth-slot
+    out.reserve(static_cast<std::size_t>(teeth) * 5u);
+    auto at = [&](float r, float a) { out.push_back(math::vec2(std::cos(a) * r, std::sin(a) * r)); };
+    for (int i = 0; i < teeth; ++i) {
+        const float c = step * static_cast<float>(i);
+        at(rootRadius, c - half);  // valley start (root)
+        at(rootRadius, c - ht);    // base of the rising flank
+        at(outerRadius, c - ht);   // tip left
+        at(outerRadius, c + ht);   // tip right
+        at(rootRadius, c + ht);    // base of the falling flank
     }
     return out;
 }
