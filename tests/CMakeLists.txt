@@ -2426,3 +2426,8 @@ add_executable(maz_intervaltree_tests core/intervaltree.cpp)
 target_link_libraries(maz_intervaltree_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME interval_tree COMMAND maz_intervaltree_tests)
 set_tests_properties(interval_tree PROPERTIES TIMEOUT 30)
+
+add_executable(maz_binarydiff_tests io/binarydiff.cpp)
+target_link_libraries(maz_binarydiff_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME binary_diff COMMAND maz_binarydiff_tests)
+set_tests_properties(binary_diff PROPERTIES TIMEOUT 30)

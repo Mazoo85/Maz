@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Binary diff / patch** (`io::binaryDiff` / `io::binaryPatch`, `BinaryDiff.hpp`) — DONE (M719); build a
+  compact PATCH that turns one byte buffer into another, and apply it to reconstruct the target EXACTLY.
+  [VERIFIABLE HERE] When two blobs are mostly the same — a save file after a few minutes of play, an asset
+  re-exported with a tweak, last tick's serialized world vs this tick's — storing/shipping the whole new blob
+  wastes space. binaryDiff block-hashes the source and greedily matches the target, emitting only COPY(from
+  source) + ADD(new bytes) ops (the classic rsync/bsdiff idea); binaryPatch replays them. It complements the
+  engine's other deltas: net::writeSnapshotDelta does FIELD-level deltas of a KNOWN schema, whereas this
+  works on ARBITRARY bytes with no schema — patched saves, incremental asset updates, diffing opaque state.
+  The patch is bounds-checked on apply (a malformed/truncated/out-of-range patch is rejected, never an
+  overrun). The ctest verifies correctness — patch(src, diff(src,dst)) == dst — over 4,000 random buffer
+  pairs (small alphabets so matches and mismatches both occur), verifies that an edited copy compresses to
+  under a third of the target size, handles empty/identical buffers, and rejects malformed patches. Godot has
+  no binary diff. Header-only, std-only, deterministic. ctest `binary_diff`.
 - [x] **Interval tree (range/stabbing queries)** (`core::IntervalTree<T>`, `IntervalTree.hpp`) — DONE (M718);
   answer "which intervals contain point x?" and "which intervals overlap [a,b]?" in O(log n + k) instead of
   scanning all n intervals per query. [VERIFIABLE HERE] An interval is a [low,high] range with a payload;
