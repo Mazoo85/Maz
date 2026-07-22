@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Arrow mesh** (`render::buildArrow`) — DONE (M601); a solid 3D arrow (a round shaft with a cone tip) pointing
+  along +Y. Arrows are the universal "look here / this way" marker: draw a force or velocity vector, show which way a
+  spawn or waypoint faces, build the move/rotate gizmo handles for an editor, point at an objective, make a compass
+  needle or wind indicator. Aim it anywhere by rotating the mesh so +Y points at your target. It is one closed
+  watertight solid — shaft tube + bottom cap + the flat under-shoulder of the head + the cone — so it lights and casts
+  shadows like any prop. `length` is the base-to-tip span, `headLength` how much of the top is the cone (kept inside
+  the interval so there's always some shaft and some head), and `shaftRadius` < `headRadius` gives the classic arrow
+  shoulder. Reuses the engine's area-weighted `computeNormals`. Verified (`ctest -R mesh_arrow`): an N-segment arrow
+  has exactly 3N+2 vertices and 6N triangles; the base sits at y=0 and a tip vertex sits at (0, length, 0); the widest
+  radius equals the head radius; it is a closed watertight manifold (every edge shared by exactly two faces, Euler
+  V−E+F==2); zero length, zero radius, and <3 segments all return an empty mesh. Honest scope: normals are smoothed
+  across the shaft/shoulder/cone joins (one `computeNormals` pass), so the creases read a touch soft — split the
+  vertices for razor-sharp edges. [VERIFIABLE HERE]
 - [x] **Closest point on a mesh** (`render::closestPointOnMesh`) — DONE (M600); for any point in space, find the
   nearest spot ON the model's surface and how far away it is. This is the "snap to surface" / "how deep am I" query
   games lean on constantly: stick a decal, bullet-hole, or footprint flat on the wall it hit; snap a placed object or
