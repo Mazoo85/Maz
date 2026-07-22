@@ -131,6 +131,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Spherical coordinates** (`math::sphericalToCartesian` / `cartesianToSpherical` / `orbitPosition` /
+  `directionToEquirectUV` / `equirectUVToDirection`) — DONE (M635); the (radius, azimuth, elevation) ↔ (x,y,z)
+  conversion every orbit/turntable camera, sky sampler, and directional-light widget needs, plus the two jobs
+  built on it: `orbitPosition` places an eye on a sphere around a target at a given yaw/pitch, and the
+  equirectangular pair maps a view ray to/from a panoramic-sky (HDRI) texel. Right-handed, +Y up, matching the
+  engine's Camera3D convention (azimuth 0 faces +Z, +π/2 azimuth is +X, +π/2 elevation is straight up). GLM has
+  no spherical notion; distinct from `MeshUvRadial` (which assigns per-vertex mesh UVs, not a single-ray lookup).
+  Verified (`ctest -R "^spherical_coords$"`): the five cardinal directions map to the documented angles; a full
+  cartesian→spherical→cartesian round-trip is the identity across a grid of 56 directions and preserves radius;
+  radius scales the vector linearly; the origin and both poles are NaN-free (asin argument clamped so a rounding
+  overshoot past the unit sphere can't crash); `orbitPosition` sits exactly `radius` from its target; and the
+  equirect UV round-trips with straight-up at v=0 (top row), straight-down at v=1, and +Z at the u=0.5 centre.
+  Honest scope: pure closed-form trig — at a pole azimuth is arbitrary (returned as 0), as it must be. [VERIFIABLE HERE]
 - [x] **Lightmap baker** (`render::bakeLightmap`) — DONE (M502); direct light + hard shadows, bake fully
   VERIFIABLE HERE (sampling the map is GPU-side). Follow-up: bounce GI + UV-atlas unwrap. [VERIFIABLE HERE]
 - [x] **Indirect / global-illumination gather** (`render::gatherIrradiance` / `bakeIndirect`) — DONE (M511);
