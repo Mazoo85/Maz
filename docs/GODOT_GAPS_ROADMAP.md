@@ -2080,10 +2080,16 @@ live viewport, visual shader/animation/theme editors, debugger GUI) requires a G
 itself, so it is written here and run on your machine. [CODE HERE / SEE IT ON YOUR MACHINE]
 
 ### §1 Foundational — the honest core
+> **Hardware hand-off:** the "see it / hear it on your PC" items below are collected, in plain language
+> with the exact command to run and what to expect, in [`docs/HARDWARE_HANDOFF.md`](HARDWARE_HANDOFF.md)
+> (M659). All are written and compile here (the editor builds to `build/bin/editor`, `Audio.cpp` compiles
+> into the engine library); the only remaining step is running them on a machine with a screen/speaker.
 - [ ] **Renderer proven on real hardware** — [NEEDS YOUR HARDWARE/TOOLCHAIN] (a GPU). This is the one
   gap only your machine can close; the code exists and is what everything in §5/§3 builds on.
+  (Owner has confirmed the app runs on their machine; see the hand-off doc.)
 - [ ] **Audio device output path** — SDL audio callback wiring is [CODE HERE / SEE IT ON YOUR MACHINE]
-  (compiles here; a speaker confirms it).
+  (compiles here — verified `Audio.cpp` builds into the engine lib; a speaker confirms it; see the
+  hand-off doc for the exact command).
 - [x] **Networking transport + reliability** — real UDP sockets (`maz::net::UdpSocket`, portable
   POSIX/Winsock; `tests/net/loopback.cpp`) AND `maz::net::ReliableChannel` wiring the ack layer onto them
   for reliable, in-order message delivery across a **40%-loss link** (`tests/net/reliable.cpp`, ctest
