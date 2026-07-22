@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Streaming P² quantile estimator** (`core::P2Quantile`, `P2Quantile.hpp`) — DONE (M692); track a
+  live percentile (median, p95, p99) of an unbounded data stream in CONSTANT memory and a single pass, with
+  NO stored samples. [VERIFIABLE HERE] `RunningStats` (Welford) gives a streaming mean/variance but cannot
+  answer "what's my p99 frame time?"; `math::quantile` answers it exactly but must hold the whole dataset in
+  RAM; `core::Histogram` approximates it but needs bin edges chosen up front. The P-Square algorithm (Jain &
+  Chlamtac, 1985) keeps just five running order-statistic "markers", nudges their positions/heights per
+  sample, and reads back an estimate that provably converges — the field-standard tool for live latency/
+  percentile telemetry (p95 ping, p99 hitch, "how bad is the slow 1%?"). Tested: on 100k U(0,1) samples every
+  quantile lands within 2% of truth, median of a shuffled ramp is centred, p50<p95<p99≤max, and fewer than
+  five samples returns an exact interpolated order statistic. (A subtle left-shift-condition bug that biased
+  every estimate high was caught and fixed during verification.) Header-only, std-only, deterministic.
 - [x] **Bounded float quantization for netcode** (`net::quantizeFloat`/`dequantizeFloat`/`quantizeAngle`,
   `FloatQuant.hpp`) — DONE (M691); shrink a float to N bits for compact network snapshots. [VERIFIABLE HERE]
   Sending full 32-bit floats for every position, angle, and health value wastes bandwidth; almost all live
