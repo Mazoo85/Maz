@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Overdraw optimization** (`render::optimizeOverdraw` / `render::simulateOverdraw`) — DONE (M527); the
+  load-time triangle reorder that pairs with vertex-cache optimization to cut redundant FRAGMENT-shader work.
+  Vertex-cache order reduces vertex-shader runs; overdraw order reduces fragment-shader runs: with early-Z
+  depth testing a fragment behind an already-drawn one is rejected before shading, so drawing triangles
+  roughly FRONT-TO-BACK means each pixel is shaded close to once instead of once per overlapping layer.
+  `optimizeOverdraw(mesh, viewDir)` returns the mesh with triangles reordered nearest-first (a pure index
+  permutation — positions and the triangle SET untouched), and `simulateOverdraw` software-rasterizes the
+  mesh orthographically and counts depth-test-passing fragment writes so the win is measurable. Verified
+  headlessly (`ctest -R overdraw_optimize`) on 8 overlapping quads fed in worst-case back-to-front order:
+  the reorder shades strictly fewer fragments, drives overdraw from >3× down to ≈1 shade/pixel, preserves the
+  exact triangle set and vertex data, and a zero view direction is a safe no-op. Run it after
+  `optimizeVertexCache` for a known dominant view. Follow-up: meshopt's view-independent cluster reorder that
+  also bounds vertex-cache ACMR degradation. [VERIFIABLE HERE]
 - [x] **Vertex-cache optimization** (`render::optimizeVertexCache`, Forsyth's algorithm) — DONE (M522); the
   load-time index reorder every importer runs so consecutive triangles reuse the GPU's post-transform vertex
   cache, cutting redundant vertex-shader runs. A pure lossless index permutation (positions untouched).
