@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **D8 flow accumulation (terrain hydrology)** (`game::flowAccumulation`, `FlowAccumulation.hpp`) — DONE
+  (M730); figure out where water DRAINS on a heightmap — for each cell, how many cells upstream ultimately
+  flow through it. [VERIFIABLE HERE] This is the standard hydrology primitive that turns terrain into rivers:
+  high accumulation traces valleys, streams, and river mouths, driving procedural river placement,
+  moisture/biome maps (wetter downstream), where hydraulic erosion cuts channels, and where to place lakes or
+  settlements. The "D8" model routes each cell's water to its single STEEPEST-DESCENT neighbour among the 8
+  around it (or nowhere, if it is a local pit / map-edge outlet); accumulation is the count of cells whose
+  drainage passes through each cell. Computed in one height-sorted pass (no recursion), so a cell is finalised
+  before its receiver. Complements thermal erosion. The ctest proves every cell accumulates >= 1, that flow is
+  MONOTONE (a cell's downstream receiver carries at least as much as the cell), CONSERVATION (the
+  accumulations at all outlet cells sum to the cell count — every unit of water reaches an outlet), the
+  analytic answer on a tilted plane (cell (x,y) accumulates x+1 and the low edge carries the whole row), and
+  determinism. Godot has no hydrology tools. Header-only, std-only, deterministic. ctest `flow_accumulation`.
 - [x] **Thermal erosion (terrain weathering)** (`game::thermalErosion`, `Erosion.hpp`) — DONE (M729); weather a
   procedural heightmap so it looks geologically aged instead of raw fractal noise. [VERIFIABLE HERE] Terrain
   straight out of Perlin/fbm or diamond-square has implausibly steep, jagged slopes; real hillsides can't hold

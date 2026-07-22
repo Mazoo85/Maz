@@ -2481,3 +2481,8 @@ add_executable(maz_erosion_tests game/erosion.cpp)
 target_link_libraries(maz_erosion_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME thermal_erosion COMMAND maz_erosion_tests)
 set_tests_properties(thermal_erosion PROPERTIES TIMEOUT 30)
+
+add_executable(maz_flowaccumulation_tests game/flowaccumulation.cpp)
+target_link_libraries(maz_flowaccumulation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME flow_accumulation COMMAND maz_flowaccumulation_tests)
+set_tests_properties(flow_accumulation PROPERTIES TIMEOUT 30)
