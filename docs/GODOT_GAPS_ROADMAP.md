@@ -241,6 +241,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   111/112/113) "th" teen exception, 0th, signed `-1st`; Roman I/IV/IX, XIV/XL/XC, CD/CM, 2024=MMXXIV,
   1984=MCMLXXXIV, 3999=MMMCMXCIX, and 0/negative/≥4000 → empty. Honest scope: English ordinals and classic
   1..3999 Roman only. [VERIFIABLE HERE]
+- [x] **Colour harmony / palette generator** (`render::complementary` / `analogous` / `triadic` /
+  `splitComplementary` / `tetradic` / `monochromatic` / `rotateHue`) — DONE (M628); generate coordinated palettes
+  from one base colour by rotating its hue on the colour wheel — the "pick colours that go together" helper for
+  procedural UI theming, generative art, faction colours, and data-viz legends (companion to `gradientMap` and the
+  colour-blindness sim). Complementary (+180°), analogous (neighbours), triadic (+120/+240°), split-complementary,
+  tetradic (square), and monochromatic value ramps; all rotate in HSV preserving saturation/value/alpha. Verified
+  (`ctest -R "^color_harmony$"`): rotateHue lands at the target wheel position and preserves S/V (a full turn is
+  identity); complement is the opposite hue; triad/tetrad sit at the exact +1/3,+2/3 and quarter-turn positions;
+  analogous & split-complementary flank correctly with the right set sizes; monochromatic keeps hue & saturation
+  while stepping value up to the base, and count<1 → empty. Honest scope: hue-rotation schemes on the RGB/HSV
+  wheel (not perceptual OkLCh spacing). [VERIFIABLE HERE]
 - [x] **Marble & wood-grain textures** (`render::patterns::marbleTexture` / `woodTexture`) — DONE (M621); two
   domain-warped procedural textures the plain fbm `noiseTexture` can't make: **marble** is parallel sine veins whose
   phase is bent by fbm turbulence (polished-stone ripples), **wood** is concentric growth rings around the image
