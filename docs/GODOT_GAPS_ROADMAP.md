@@ -304,6 +304,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   alpha survives; and the image overload matches the per-colour transform pixel-for-pixel and is empty-safe. Honest
   scope: fast sRGB-space matrices (the common web-filter approximation), not a physically-exact LMS/Brettel
   simulation. [VERIFIABLE HERE]
+- [x] **AI vision cone / perception check** (`game::inViewCone2D` / `inViewCone3D` / `sampleViewCone2D`) — DONE
+  (M633); the continuous "can this AI see that?" test — is a target within an observer's sight RANGE and inside its
+  field-of-view CONE (half-angle around a facing direction)? The geometry every stealth guard, turret, sentry, or
+  aggro check needs, distinct from the grid shadowcasting `FieldOfView`. `sampleViewCone2D` also returns the exact
+  distance and angular offset; combine with a line-of-sight raycast for wall occlusion (kept separate by design).
+  Beyond Godot. Verified (`ctest -R "^viewcone$"`): a target dead-ahead within range is seen, behind is not; the
+  cone edge (angle == halfAngle) is inclusive while just past it is excluded; out-of-range is not seen even dead
+  ahead, and exactly at range is (≤); the sample reports the right distance (√18 for (3,3)) and 45° angle; a
+  zero-length facing sees nothing and a coincident target is seen; 3D behaves identically. Honest scope: pure
+  angle+distance (no occlusion — layer a raycast for walls). [VERIFIABLE HERE]
 - [x] **Weapon spread / cone sampling** (`game::spreadDirection2D` / `spreadFan2D` / `spreadDirection3D`) — DONE
   (M632); perturb an aim direction into a cone or fan for shotgun pellets, bullet inaccuracy, spray weapons, and
   particle emission. `spreadDirection2D`/`spreadDirection3D` jitter a direction randomly within a half-angle (any

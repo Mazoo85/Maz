@@ -702,6 +702,11 @@ target_link_libraries(maz_spread_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spread COMMAND maz_spread_tests)
 set_tests_properties(spread PROPERTIES TIMEOUT 30)
 
+add_executable(maz_viewcone_tests game/viewcone.cpp)
+target_link_libraries(maz_viewcone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME viewcone COMMAND maz_viewcone_tests)
+set_tests_properties(viewcone PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
