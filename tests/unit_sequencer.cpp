@@ -1146,6 +1146,29 @@ int main() {
         check(w.songBar() == 0, "with no clip loop region playback starts at bar 0");
     }
 
+    // --- songPositionBars: fractional, monotonic, integer at bar boundaries --
+    {
+        audio::Sequencer s;
+        s.addClip(0, 0, 0);
+        s.addClip(0, 1, 0);
+        s.addClip(0, 2, 0); // three bars
+        s.setSongMode(true);
+        s.setSongUsesClips(true);
+        s.setSongLoop(true);
+        s.play();
+        check(std::fabs(s.songPositionBars()) < 1e-6, "songPositionBars starts at 0");
+        const int barFrames = 96000; // one bar @120 BPM, 48k
+        // Render most of a bar (not the whole bar) → position advances within bar 0, still < 1.
+        std::vector<float> buf(static_cast<size_t>(barFrames) * 2, 0.0f);
+        s.render(buf.data(), barFrames / 2, sampleRate);
+        const double mid = s.songPositionBars();
+        check(mid > 0.4 && mid < 0.6, "songPositionBars reads ~0.5 halfway through the first bar");
+        // Finish the bar → lands on integer bar 1.
+        s.render(buf.data(), barFrames / 2, sampleRate);
+        check(std::fabs(s.songPositionBars() - 1.0) < 0.02,
+              "songPositionBars hits ~1.0 at the first bar boundary");
+    }
+
     // --- Master tuning -------------------------------------------------------
     {
         audio::Sequencer s;

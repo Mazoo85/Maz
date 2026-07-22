@@ -486,6 +486,7 @@ void Sequencer::clearArrangement() {
     trackMuted_.clear();
     trackSoloed_.clear();
     markers_.clear();
+    automationClips_.clear();
     clipLoopStart_ = 0; // reset the clip loop region so an old project (no cliploop fields) doesn't
     clipLoopEnd_ = 0;   // inherit a stale region from a previously-loaded project
     songMode_ = false;
@@ -602,6 +603,18 @@ double Sequencer::samplesPerStep(int sampleRate, int step) const {
     const double sw = static_cast<double>(patterns_[static_cast<size_t>(current_)].swing);
     const double factor = (step % 2 == 0) ? (1.0 + sw) : (1.0 - sw);
     return base * factor;
+}
+
+double Sequencer::songPositionBars() const {
+    if (numSteps_ <= 0) {
+        return static_cast<double>(songBar_);
+    }
+    // Fraction of the current step elapsed (samplesIntoStep_ / this step's length), guarded against a
+    // zero step length. samplesPerStep folds in tempoMul + swing, so this advances in bar-domain units.
+    const double sps = samplesPerStep(sampleRate_, currentStep_);
+    const double stepFrac = sps > 0.0 ? samplesIntoStep_ / sps : 0.0;
+    return static_cast<double>(songBar_) +
+           (static_cast<double>(currentStep_) + stepFrac) / static_cast<double>(numSteps_);
 }
 
 bool Sequencer::step(int channel, int step) const {

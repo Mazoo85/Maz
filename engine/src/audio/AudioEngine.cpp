@@ -132,6 +132,7 @@ void AudioEngine::render(float* out, int frames) {
                           static_cast<double>(framesRendered_) / static_cast<double>(cfg_.sampleRate),
                           sequencer_.bpm());
     }
+    applyTimelineAutomationClips(); // 2-D playlist automation clips, gated by song-bar position
 
     const size_t total = static_cast<size_t>(frames) * static_cast<size_t>(ch);
     std::fill(out, out + total, 0.0f);
@@ -447,6 +448,34 @@ std::vector<float> AudioEngine::renderOffline(double seconds) {
     return buffer;
 }
 
+void AudioEngine::applyTimelineAutomationClips() {
+    if (sequencer_.automationClipCount() == 0) {
+        return;
+    }
+    // Timeline automation clips only sound in clip-song playback (songBar_ is only advanced there).
+    if (!(sequencer_.songMode() && sequencer_.songUsesClips() && sequencer_.playing())) {
+        return;
+    }
+    const double pos = sequencer_.songPositionBars();
+    for (int i = 0; i < sequencer_.automationClipCount(); ++i) {
+        const AutomationClip& c = sequencer_.automationClip(i);
+        const int span = c.bars < 1 ? 1 : c.bars;
+        if (c.muted || !sequencer_.trackAudible(c.track) ||
+            pos < static_cast<double>(c.startBar) ||
+            pos >= static_cast<double>(c.startBar + span)) {
+            continue;
+        }
+        // Evaluate the drawn envelope at the normalized position within the clip's span, remap into
+        // [lo, hi], and write it onto the target through the shared apply path. Applied AFTER the
+        // continuous lanes above, so a placed clip wins on its target during its span; the parameter
+        // simply holds its last value once the clip ends.
+        const double local = (pos - static_cast<double>(c.startBar)) / static_cast<double>(span);
+        const float u = Automation::evalPoints(c.points, local, 0.0);
+        const float v = c.lo + u * (c.hi - c.lo);
+        Automation::applyTargetValue(*this, static_cast<AutoTarget>(c.target), v);
+    }
+}
+
 std::vector<float> AudioEngine::renderOfflineTail(double maxTailSeconds, float threshold) {
     std::vector<float> tail;
     if (cfg_.sampleRate <= 0 || cfg_.channels <= 0 || maxTailSeconds <= 0.0) {
@@ -504,6 +533,7 @@ AudioEngine::Stems AudioEngine::renderStemsOffline(double seconds) {
             automation_.apply(*this, static_cast<double>(done) / static_cast<double>(cfg_.sampleRate),
                               sequencer_.bpm());
         }
+        applyTimelineAutomationClips(); // 2-D playlist automation clips, gated by song-bar position
         const size_t bn = static_cast<size_t>(n) * 2;
         blkDrums.assign(bn, 0.0f);
         blkLead.assign(bn, 0.0f);

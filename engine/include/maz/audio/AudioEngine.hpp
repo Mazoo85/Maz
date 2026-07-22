@@ -125,6 +125,10 @@ public:
     Stems renderStemsOffline(double seconds);
 
 private:
+    // Evaluate the sequencer's timeline automation clips at the current song-bar position and write each
+    // covered clip's value onto its target. Called once per render block, after the continuous lanes.
+    void applyTimelineAutomationClips();
+
     AudioConfig cfg_{};
     Oscillator voice_{};
     Sequencer sequencer_{};

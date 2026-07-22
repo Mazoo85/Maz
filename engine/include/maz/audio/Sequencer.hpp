@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/audio/Automation.hpp" // AutoPoint + AutoTarget for timeline automation clips
 #include "maz/audio/DrumVoice.hpp"
 #include "maz/audio/MidiInput.hpp"
 #include "maz/audio/PianoRoll.hpp"
@@ -65,6 +66,21 @@ struct AudioClip {
 struct ArrangementMarker {
     int bar = 0;       // bar position on the timeline (0-based)
     std::string name;  // section label (may contain spaces)
+};
+
+// An automation clip on the 2-D playlist: a drawn breakpoint envelope placed at a bar range that
+// drives a target parameter (by AutoTarget index) during clip-song playback — FL's automation clips.
+// Point times are normalized [0,1] across the clip's bar span; the value is remapped into [lo, hi]
+// and written to the target via Automation::applyTargetValue while the transport is inside the span.
+struct AutomationClip {
+    int target = 0;                  // AutoTarget index (kept as int so Sequencer stays apply-agnostic)
+    int startBar = 0;                // bar position on the timeline (0-based)
+    int track = 0;                   // arrangement-track row (honours per-track mute/solo)
+    int bars = 1;                    // span in bars
+    float lo = 0.0f;                 // value range low  (defaults come from the target's lane range)
+    float hi = 1.0f;                 // value range high
+    bool muted = false;              // skipped in playback when true
+    std::vector<AutoPoint> points;   // breakpoints, time normalized [0,1] across the span
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete
@@ -465,6 +481,30 @@ public:
         }
     }
     void clearMarkers() { markers_.clear(); }
+    // Timeline automation clips (2-D playlist). Mirrors the marker/audio-clip API.
+    int addAutomationClip(int target, int startBar, int bars) {
+        AutomationClip a;
+        a.target = target < 0 ? 0 : target;
+        a.startBar = startBar < 0 ? 0 : startBar;
+        a.bars = bars < 1 ? 1 : bars;
+        automationClips_.push_back(std::move(a));
+        return static_cast<int>(automationClips_.size()) - 1;
+    }
+    int automationClipCount() const { return static_cast<int>(automationClips_.size()); }
+    const AutomationClip& automationClip(int i) const {
+        return automationClips_[static_cast<size_t>(i)];
+    }
+    AutomationClip& automationClip(int i) { return automationClips_[static_cast<size_t>(i)]; }
+    void removeAutomationClip(int i) {
+        if (i >= 0 && i < automationClipCount()) {
+            automationClips_.erase(automationClips_.begin() + i);
+        }
+    }
+    void clearAutomationClips() { automationClips_.clear(); }
+    // Fractional song position in bars during clip-song playback: the integer bar plus the fraction of
+    // the current bar elapsed. Built from samplesPerStep, so it is tempo(tempoMul)- and swing-consistent
+    // — the natural domain for evaluating bar-ranged automation clips. Meaningful in clip-song mode.
+    double songPositionBars() const;
     // Clip-driven song mode: when on (and clips exist), song playback walks the 2-D clip timeline bar
     // by bar and plays EVERY clip active on the current bar simultaneously (patterns layered on the
     // shared instruments) — true multi-track playback, distinct from the legacy 1-D playlist. Off by
@@ -484,6 +524,12 @@ public:
         for (const AudioClip& a : audioClips_) {
             if (a.startBar + 1 > n) { // an audio clip occupies at least its start bar
                 n = a.startBar + 1;
+            }
+        }
+        for (const AutomationClip& a : automationClips_) {
+            const int end = a.startBar + (a.bars < 1 ? 1 : a.bars);
+            if (end > n) {
+                n = end;
             }
         }
         return n;
@@ -657,7 +703,9 @@ private:
     // plain triggerStep in the legacy modes.
     void triggerTransportStep(int step);
     // True if the 2-D playlist holds any clips (pattern or audio) — the gate for clip-song mode.
-    bool hasAnyClips() const { return !clips_.empty() || !audioClips_.empty(); }
+    bool hasAnyClips() const {
+        return !clips_.empty() || !audioClips_.empty() || !automationClips_.empty();
+    }
     // Trigger every audio clip whose startBar == bar (one-shot from frame 0). Called at play() and on
     // each clip-song bar advance.
     void triggerAudioClipsForBar(int bar);
@@ -679,6 +727,7 @@ private:
     std::vector<unsigned char> trackMuted_;  // per arrangement-track-row mute (grows on demand)
     std::vector<unsigned char> trackSoloed_; // per arrangement-track-row solo (grows on demand)
     std::vector<ArrangementMarker> markers_; // named song-section markers at bar positions
+    std::vector<AutomationClip> automationClips_; // timeline automation clips (envelope @ bar @ target)
     float masterTuneCents_ = 0.0f; // project-wide concert-pitch offset (±100 cents); 0 = A440
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist

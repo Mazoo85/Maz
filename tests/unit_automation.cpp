@@ -196,6 +196,48 @@ int main() {
               "sourceUnipolar and evalPoints agree on a drawn clip");
     }
 
+    // --- Timeline automation clips (2-D playlist) ---------------------------
+    {
+        // A clip targeting FilterCutoff over bars [1,3) with a constant-max envelope drives the EQ
+        // cutoff to its `hi` only while the clip-song transport is inside the span — untouched before.
+        audio::AudioEngine eng;
+        eng.initOffline();
+        audio::Sequencer& seq = eng.sequencer();
+        const int ci = seq.addAutomationClip(static_cast<int>(audio::AutoTarget::FilterCutoff), 1, 2);
+        audio::AutomationClip& clip = seq.automationClip(ci);
+        clip.lo = 400.0f;
+        clip.hi = 6000.0f;
+        clip.points = {{0.0, 1.0f, 0.0f}, {1.0, 1.0f, 0.0f}}; // constant full-scale → drives to hi
+        seq.setSongMode(true);
+        seq.setSongUsesClips(true);
+        seq.setSongLoop(false);
+        seq.play();
+        // Within bar 0 (0.5 s ≪ a 2 s bar @120 BPM) the clip is not yet active → cutoff untouched.
+        (void)eng.renderOffline(0.5);
+        check(std::fabs(eng.mixer().eq().cutoff() - 6000.0f) > 1.0f,
+              "a timeline automation clip is inactive before its start bar");
+        // Advance ~1 more bar → transport is inside [1,3) → the clip drives the cutoff to hi + enables EQ.
+        (void)eng.renderOffline(2.0);
+        check(std::fabs(eng.mixer().eq().cutoff() - 6000.0f) < 1.0f && eng.mixer().eq().enabled(),
+              "a timeline automation clip drives its target inside its bar span");
+
+        // A muted clip drives nothing.
+        audio::AudioEngine eng2;
+        eng2.initOffline();
+        audio::Sequencer& seq2 = eng2.sequencer();
+        const int mi = seq2.addAutomationClip(static_cast<int>(audio::AutoTarget::MasterTune), 0, 2);
+        audio::AutomationClip& mclip = seq2.automationClip(mi);
+        mclip.lo = -50.0f;
+        mclip.hi = -50.0f;
+        mclip.points = {{0.0, 1.0f, 0.0f}, {1.0, 1.0f, 0.0f}};
+        mclip.muted = true;
+        seq2.setSongMode(true);
+        seq2.setSongUsesClips(true);
+        seq2.play();
+        (void)eng2.renderOffline(0.5);
+        check(seq2.masterTune() == 0.0f, "a muted timeline automation clip drives nothing");
+    }
+
     // --- LFO phase offset ----------------------------------------------------
     {
         // A quarter-cycle phase offset shifts a sine LFO to its peak at t=0 (sin of a quarter turn),
