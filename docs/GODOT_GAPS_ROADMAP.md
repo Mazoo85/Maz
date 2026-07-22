@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Best-fit rigid transform (Kabsch/Horn)** (`math::kabsch`, `Kabsch.hpp`) — DONE (M721); find the single
+  rotation + translation (no scale/shear) that best maps one set of 3D points onto another in the
+  least-squares sense. [VERIFIABLE HERE] Given N corresponding pairs, it returns the transform minimising the
+  summed squared error — the workhorse behind point-cloud REGISTRATION (line up a scanned/streamed set with a
+  reference), POSE fitting (recover how a rigid body moved from a few tracked markers), mocap/tracking
+  alignment, and procedural retargeting. The engine had per-axis fits and eigen-based OBB fitting but no
+  "best rotation between two clouds". Uses Horn's closed-form quaternion solution (1987): build a 4x4
+  symmetric matrix from the cross-covariance of the centred clouds, take the eigenvector of its largest
+  eigenvalue (via a Jacobi eigensolve) as the optimal rotation quaternion, then translation = centroidTo -
+  R*centroidFrom — always a PROPER rotation, never a reflection. The ctest transforms random clouds by a
+  KNOWN random rotation+translation and checks kabsch recovers a fit with max residual under 1e-3 across
+  3,000 cases, that it stays accurate under small per-point noise, that identity/pure-translation give ~no
+  rotation, and that a length mismatch is reported. Header-only, deterministic. ctest `kabsch`.
 - [x] **UTF-16 conversion** (`core::utf16Encode` / `utf16Decode` / `utf8ToUtf16` / `utf16ToUtf8`,
   `Utf16.hpp`) — DONE (M720); the companion to Utf8.hpp for moving text between UTF-8 (the engine's
   internal/on-disk form) and UTF-16. [VERIFIABLE HERE] UTF-16 is the native text encoding of the Windows API
