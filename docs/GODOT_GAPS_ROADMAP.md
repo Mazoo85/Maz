@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Content-aware image resize (seam carving)** (`render::carveWidth`/`carveHeight`, `SeamCarve.hpp`) —
+  DONE (M733); shrink an image by deleting the *least important* pixels instead of squashing everything, so
+  the subject keeps its shape while bland background is squeezed out. Every pixel gets a dual-gradient
+  "energy" (how much it differs from its neighbours); dynamic programming then finds the minimum-energy
+  *seam* — a connected one-pixel-wide path top-to-bottom — and removes it, one column at a time (rows via
+  transpose). Godot's `Image.resize` only interpolates; this is the real Avidan–Shamir algorithm.
+  [VERIFIABLE HERE] The chosen seam provably minimizes total energy — the test cross-checks the DP result
+  against a brute-force enumeration of *every* 8-connected seam on small images, plus seam well-formedness
+  (one column per row, in range, adjacent rows within one column), carve dimensions, flat-image invariance,
+  and content preservation (a high-energy textured band survives while flat background is carved away).
 - [x] **Motion-trail ribbon builder** (`render::Trail`, `Trail.hpp`) — DONE (M732); the ribbon behind sword
   swings, projectile streaks, dash after-images, and skid marks: keep a short history of where a point has
   been, and turn it into a flat, camera-facing ribbon of triangles that tapers to nothing at the old end and
