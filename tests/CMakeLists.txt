@@ -887,6 +887,11 @@ target_link_libraries(maz_orientedrect2_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME oriented_rect2 COMMAND maz_orientedrect2_tests)
 set_tests_properties(oriented_rect2 PROPERTIES TIMEOUT 30)
 
+add_executable(maz_optics_tests math/optics.cpp)
+target_link_libraries(maz_optics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME optics COMMAND maz_optics_tests)
+set_tests_properties(optics PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

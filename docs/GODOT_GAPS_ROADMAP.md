@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Optics — refraction (Snell) + Fresnel** (`math::refract`, `isTotalInternalReflection`,
+  `fresnelF0`, `fresnelSchlick`, `Optics.hpp`) — DONE (M671); the light-bending math for water, glass,
+  gems, and PBR, completing the `reflect` (mirror) half the engine already had with the transmission
+  half. [VERIFIABLE HERE] `refract` bends an incident direction across a surface by the index-of-refraction
+  ratio and returns the zero vector on TOTAL INTERNAL REFLECTION (past the critical angle — the mirrored
+  underside of a water surface); Fresnel-Schlick gives the reflect-vs-transmit fraction that is near-zero
+  (base reflectance f0) head-on and rises to 1 at grazing angles (the bright rim on water/glass that every
+  PBR shader multiplies its specular by), with a `fresnelF0(n1,n2)` helper and a colored per-channel form
+  for metals. Pure vec3 math. Verified (`ctest -R "^optics$"`): at normal incidence light passes straight
+  through, unit length, for any eta; at 45° Snell's law holds exactly (sin θ_t = eta·sin θ_i) and the ray
+  stays unit length; past the critical angle refract returns zero and `isTotalInternalReflection` flags
+  it; `fresnelF0(1.0, 1.5)` ≈ 0.04 (air→glass); Fresnel-Schlick equals f0 head-on and 1 at grazing,
+  stays within [f0,1], and rises as the angle grazes; and the colored form applies per channel. The
+  transmission/Fresnel optics the water and glass shaders evaluate, now CPU-tested.
 - [x] **Oriented 2D rectangle (OBB2)** (`math::OrientedRect2`, `orientedRectsOverlap`, `OrientedRect2.hpp`)
   — DONE (M670); a *rotated* rectangle with containment + overlap, filling the gap between the engine's
   axis-aligned `Rect2` and its 3D oriented box (`Obb`). [VERIFIABLE HERE] Games constantly need a
