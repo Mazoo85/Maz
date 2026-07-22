@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tonemapping operators — ACES / Reinhard / Uncharted2** (`render::acesFilmic`, `reinhard`,
+  `reinhardExtended`, `uncharted2`, `Tonemap.hpp`) — DONE (M667); the HDR→display color curves as a
+  reusable, tested CPU function. [VERIFIABLE HERE] A physically-lit scene produces radiance well above 1.0
+  (bright sky, specular highlights, muzzle flash), but a display only shows [0,1]; a tonemap curve
+  compresses that range while keeping shadows/midtones/highlights natural. The engine already had a GPU
+  HDR target + tonemap pass (M38/M63), but not the curve as standalone, testable math (useful for CPU
+  color grading, thumbnail generation, and golden-image baselines). This adds ACES filmic (Narkowicz's
+  widely-used fit — the modern default look), Reinhard and its white-point-extended form, and the
+  Uncharted2/Hejl filmic operator, plus per-channel RGB and an exposure helper. Verified
+  (`ctest -R "^tonemap$"`): every operator maps 0→0 and is monotonically increasing; outputs stay in
+  [0,1] across a 0–20 HDR sweep; ACES compresses a midtone (0.5→~0.62) and saturates a very bright value
+  (100→~1.0); `reinhard(1)=0.5` and it approaches 1 for large input; extended Reinhard maps its white
+  point to ~1; and per-channel ACES applies the scalar curve independently so brighter input channels map
+  to brighter outputs. The reusable curve the GPU tonemap shader evaluates, now unit-tested on the CPU.
 - [x] **Closest points between two 3D segments + capsule overlap** (`math::closestBetweenSegments`,
   `capsulesOverlap`, `SegmentDistance.hpp`) — DONE (M666); the geometry primitive under capsule-vs-capsule
   collision and any "how far apart are these two edges?" query. [VERIFIABLE HERE] The engine had

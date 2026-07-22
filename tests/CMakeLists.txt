@@ -867,6 +867,11 @@ target_link_libraries(maz_segmentdistance_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME segment_distance COMMAND maz_segmentdistance_tests)
 set_tests_properties(segment_distance PROPERTIES TIMEOUT 30)
 
+add_executable(maz_tonemap_tests render/tonemap.cpp)
+target_link_libraries(maz_tonemap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tonemap COMMAND maz_tonemap_tests)
+set_tests_properties(tonemap PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
