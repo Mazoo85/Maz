@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Circular statistics — mean/variance of angles** (`math::circularMean`/`resultantLength`/
+  `circularVariance`/`circularStdDev`, `CircularMean.hpp`) — DONE (M707); the CORRECT way to average and
+  measure the spread of angles. [VERIFIABLE HERE] You cannot arithmetically average angles: the mean of 350°
+  and 10° is 0°, not 180°, because angles wrap. The circular mean treats each angle as a unit vector,
+  averages the vectors, and takes the resulting direction — so it handles the seam. Games need this
+  constantly: averaging the FACING of a flock or squad, a smoothed heading from noisy inputs, wind/current
+  direction, wave phases, a compass reading. The paired resultant length R∈[0,1] measures how CONCENTRATED
+  the angles are (1 = identical, ~0 = evenly spread with no meaningful mean), giving circular variance (1-R)
+  and a circular std dev; a weighted mean is also provided. Distinct from the engine's lerpAngle/shortestAngle
+  (which interpolate a PAIR) — this reduces a whole SET. Tested: the 350°/10°→0° wrap case (and that it is
+  NOT the naive 180°), symmetric/identical sets, R=1 for identical and ~0 for four evenly-spread angles,
+  variance=1-R, std dev growing with spread, weighted mean leaning to the heavier angle, and (-π,π] range.
+  Header-only, std-only.
 - [x] **Simulated annealing optimizer** (`core::simulatedAnnealing`, `SimulatedAnnealing.hpp`) — DONE (M706);
   a general-purpose optimizer for hard problems with no closed-form answer. [VERIFIABLE HERE] It minimises an
   `energy(state)` cost by wandering the state space, always accepting improvements but ALSO accepting worse
