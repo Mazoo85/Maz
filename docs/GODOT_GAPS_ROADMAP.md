@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Taper deformer** (`render::taperMesh`) — DONE (M582); squeeze or fan a mesh along an axis — the cross-
+  section perpendicular to the axis is scaled by a factor that ramps LINEARLY from `startScale` at the low end to
+  `endScale` at the high end, so a straight bar cones into a pyramid or spike, a cylinder becomes a carrot or
+  trumpet, a leg thins toward the ankle. This is Blender's "Simple Deform → Taper" and the quickest way to give
+  straight geometry a swelling or narrowing profile without remodelling. The axis coordinate of each vertex is
+  untouched; only its distance from the axis (through `centre`) is scaled. axis 0/1/2; leave `axisMin`/`axisMax`
+  at their defaults to auto-fit the ramp to the mesh extent. Reuses the same axis mapping as the twist deformer
+  (M581). Verified (`ctest -R mesh_taper`): on a 3-ring bar tapered 1→0 about Y, the bottom ring (scale 1) is
+  unchanged, the top ring (scale 0) collapses onto the axis (cone tip), the middle ring (scale 0.5) is exactly
+  halved with its height untouched; equal factors give a plain uniform cross-section scale; 1→1 is the identity;
+  empty is safe. Honest scope: positions are exact; normals get the inverse cross-section scale + renormalize
+  (correct for the squeeze but ignoring the along-axis slope the taper introduces — re-run `computeNormals` for
+  pixel-accurate shading on a strong taper); factor 0 collapses that end to a degenerate ring (weld/reindex for a
+  single-vertex tip); factors may exceed 1 (fan out) or be negative. [VERIFIABLE HERE]
 - [x] **Twist deformer** (`render::twistMesh`) — DONE (M581); spiral a mesh around an axis — the further a vertex
   sits along the axis, the more it is rotated about it, so a straight bar becomes a corkscrew, a blade gains a
   spiral flute, a tower gets a helical sweep. This is Blender's "Simple Deform → Twist" and the classic way to add
