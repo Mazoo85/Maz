@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **First-order intercept aim** (`game::solveIntercept` / `game::InterceptSolution`) — DONE (M618); the
+  gravity-free "lead the target" solver: where should a turret, archer, spaceship gun, or homing AI aim so a shot
+  fired at a FIXED speed hits a target moving at constant velocity? Companion to `game::Ballistics` (which arcs a
+  shot under gravity). Solves the single intercept quadratic `(|vt|²−vp²)t² + 2(d·vt)t + |d|² = 0` for the earliest
+  positive impact time, returning that time, the lead/aim point, and the unit fire direction; `hit` is false when
+  the target outruns the projectile. Works in 3D (2D leaves z=0). Verified (`ctest -R intercept_aim`) against the
+  defining invariant — firing along the returned direction at the given speed for the returned time lands exactly on
+  the target's future position — for crossing, stationary (time = distance/speed, aim = the target), head-on, and
+  fast-3D geometries; a target fleeing faster than the shot is correctly unreachable; the aim genuinely leads ahead
+  of a crossing target; non-positive speed and a coincident target are handled. Honest scope: constant target
+  velocity, no gravity/drag (use `Ballistics` for arced shots). [VERIFIABLE HERE]
 - [x] **Brick wall pattern** (`render::patterns::brickWall`) — DONE (M617); a running-bond brick texture: rows of
   `brickW`×`brickH` bricks separated by `mortarPx`-thick lines, each row shifted `offsetFrac` of a brick relative to
   the one above (0.5 = the classic half-brick stagger, 0 = a stacked bond). Distinct from `checkerboard` — this is
