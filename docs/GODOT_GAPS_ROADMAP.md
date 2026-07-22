@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Fog of war** (`game::FogOfWar` / `game::Visibility`) — DONE (M647); the persistent "what has this player
+  seen?" memory for a tile map — the staple of RTS, strategy, and roguelike games. Every tile is Unseen (never
+  revealed, drawn black), Explored (seen before but not in view now, drawn dimmed from memory), or Visible (in
+  view right now, fully lit and where enemies show). DISTINCT from FieldOfView (which computes the tiles a unit
+  can see this instant); fog of war is the layer that REMEMBERS — the per-frame cycle is `beginFrame()`
+  (demote last frame's Visible tiles to Explored), then `reveal()`/`revealCircle()` every tile in sight, so the
+  map fills in permanently as you explore while live vision comes and goes. beginFrame only touches the tiles
+  that were visible (tracked list), so it's cheap. Godot ships no fog-of-war primitive. Verified (`ctest -R
+  "^fog_of_war$"`): a fresh map is all Unseen; reveal makes a tile Visible+Explored; beginFrame demotes
+  Visible→Explored while Unseen stays Unseen; a tile seen once stays Explored across 10 frames (never reverts);
+  re-revealing lifts Explored back to Visible; `revealCircle(r=2)` marks exactly the 13-tile disc and excludes
+  the √8 corner; out-of-bounds reveal/query is safe; `exploreAll` fills memory without going live; `reset`
+  clears; and the visible/explored counts track state. Honest scope: the visibility-state memory itself (pair
+  it with the existing FieldOfView/GridRaycast to decide which tiles a unit can actually see). [VERIFIABLE HERE]
 - [x] **Shuffle bag / 7-bag randomizer** (`core::ShuffleBag<T>`) — DONE (M646); fair, clump-free randomness by
   DEALING from a bag instead of rolling independently. An independent weighted roll can hand you the same
   result five times running or starve an option for ages; a shuffle bag holds one token per intended outcome,

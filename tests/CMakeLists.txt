@@ -772,6 +772,11 @@ target_link_libraries(maz_shufflebag_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME shuffle_bag COMMAND maz_shufflebag_tests)
 set_tests_properties(shuffle_bag PROPERTIES TIMEOUT 30)
 
+add_executable(maz_fogofwar_tests game/fogofwar.cpp)
+target_link_libraries(maz_fogofwar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fog_of_war COMMAND maz_fogofwar_tests)
+set_tests_properties(fog_of_war PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
