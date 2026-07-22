@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tactical influence map** (`game::InfluenceMap`, `InfluenceMap.hpp`) — DONE (M704); a strategy/shooter
+  AI grid where influence spreads outward from sources and decays. [VERIFIABLE HERE] Drop POSITIVE influence
+  at friendly units and NEGATIVE at enemies, then `propagate(decay, spread)`: each cell blends toward its
+  4-neighbour average and loses a fraction each step, so influence bleeds across the map and fades with
+  distance. Reading the field answers what no single query can: where is it SAFE vs DANGEROUS (sign +
+  magnitude), where is the FRONT LINE (near-zero contour between opposing armies), and which way to FLEE or
+  ADVANCE (`gradient()` points toward higher influence); `peak`/`trough` find the safest/most-dangerous
+  cell. Distinct from pathfinding (a route), flow fields (a vector field toward one goal), and noise
+  (unstructured) — this is a decaying diffusion of gameplay meaning. Tested: a single source diffuses to a
+  4-fold-symmetric field that falls off with distance, spread=0 only decays in place (no leak), decay<1
+  shrinks the total, equal-and-opposite sources leave the midline at ~0, the gradient points toward a
+  positive source, and peak/trough locate the hot-spots. Header-only, std-only, deterministic.
 - [x] **NTP-style clock synchronization** (`net::ClockSync`, `ClockSync.hpp`) — DONE (M703); estimate the
   clock OFFSET between this machine and a remote peer, plus the round-trip time, from timestamped ping/pong
   exchanges. [VERIFIABLE HERE] The net/ layer already renders "in the past" (Interpolation) and predicts on

@@ -2351,3 +2351,8 @@ add_executable(maz_clocksync_tests net/clocksync.cpp)
 target_link_libraries(maz_clocksync_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME clock_sync COMMAND maz_clocksync_tests)
 set_tests_properties(clock_sync PROPERTIES TIMEOUT 30)
+
+add_executable(maz_influencemap_tests game/influencemap.cpp)
+target_link_libraries(maz_influencemap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME influence_map COMMAND maz_influencemap_tests)
+set_tests_properties(influence_map PROPERTIES TIMEOUT 30)
