@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Flat-shading facet split** (`render::facetMesh`) — DONE (M549); rebuild a mesh so every triangle owns
+  its three OWN vertices, each carrying that triangle's FACE normal. With no vertex shared between faces the
+  lighting can't blend across an edge, so the surface renders faceted — every triangle a crisp flat plane. This
+  is Blender's "Shade Flat" / the low-poly look (a sphere becomes a geodesic gem, terrain becomes stylised
+  facets) and also the honest way to export a mesh whose faces really are flat (a cube's corners should NOT be
+  smoothed). It is the inverse of smooth shared-vertex shading — pair with computeNormals (M175) for the smooth
+  version. Positions/colours/UVs are copied per corner; only the normal is replaced with the face normal.
+  Verified (`ctest -R mesh_facet`): a single triangle yields 3 vertices all bearing the +Z face normal with
+  positions unchanged; a cube expands to exactly 36 vertices (12 triangles × 3) with its triangle set preserved;
+  the cube's normals are the six unit axis directions and every normal is unit length; empty safe. Honest scope:
+  this INFLATES the vertex count by design (a display/export transform, not an optimisation); degenerate
+  triangles get a zero normal but are still emitted (drop them first with MeshCleanup if unwanted). [VERIFIABLE HERE]
 - [x] **Dihedral-angle / sharp-edge detection** (`render::detectSharpEdges`, `SharpEdgeResult`) — DONE (M548);
   for every interior edge, the dihedral angle between the two triangles sharing it (180° = flat/coplanar, 90° =
   a right-angle fold, → 0° = folded back on itself), plus the list of edges bending more sharply than a
