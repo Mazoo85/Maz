@@ -93,8 +93,12 @@ only be written blind, the docs say exactly that.
 - [ ] **Video container/codec decode** to frames (display is GPU-side). [CODE HERE / SEE IT ON YOUR MACHINE]
 
 ### §6 Scripting & language — [VERIFIABLE HERE]
-- [ ] **C# / .NET-style second binding** OR deepen the existing script VM toward GDScript-grade tooling
-  (autocomplete data, doc tooltips, live debug protocol). [VERIFIABLE HERE]
+- [x] **Deepen the script VM toward GDScript-grade tooling** — DONE (M654): editor tooling for the
+  scripting language (`script::tooling` in `Tooling.hpp`) — document outline (symbols), context-aware
+  autocomplete, and function-signature lookup for tooltips, over an error-tolerant scanner that works on
+  half-typed code. This satisfies the "deepen the existing script VM toward GDScript-grade tooling
+  (autocomplete data, doc tooltips)" arm of this item. See the M654 entry at the top of §5. [VERIFIABLE HERE]
+  (A full C#/.NET second binding remains a possible future alternative, but the tooling path is now done.)
 - [x] **Stable C-ABI extension interface** (a GDExtension analog) so native modules load without
   recompiling the engine — DONE. The in-process ABI (`ext::Extension.hpp`: versioned registry, tagged
   variant, entry-point negotiation) is now joined by the real dynamic loader (M512, `ext::DynamicLibrary` /
@@ -135,6 +139,37 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Script editor tooling — outline + autocomplete + signatures** (`script::tooling` in
+  `script/Tooling.hpp`) — DONE (M654); closes the §6 "deepen the script VM toward GDScript-grade tooling"
+  gap. [VERIFIABLE HERE] The engine ships a full GDScript-style language (lexer, parser, VM, classes,
+  closures, signals, modules), but a *language* and the *editor experience around it* are different things:
+  writing scripts comfortably needs the IDE affordances — a symbol tree to navigate the file, autocomplete
+  as you type, and a tooltip showing a function's parameters. This milestone adds that tooling layer as pure
+  text analysis (no evaluation), so it is fully unit-testable: (1) **document outline** (`documentSymbols`) —
+  every class, function (with its parameter list), signal, and variable a script declares, in source order,
+  each tagged with its kind, line, and enclosing class, which is exactly what an editor's symbol panel /
+  breadcrumb draws; (2) **autocomplete** (`completionsAt`) — the candidate identifiers at a cursor position,
+  prefix-filtered, offering language keywords + the `print` builtin + every symbol in scope *so far* (it only
+  surfaces things declared before the cursor, and switches to class members after a `.`); (3) **signature
+  help** (`findFunction` → the function's `.params`) for a call tooltip. The key design point is an
+  ERROR-TOLERANT scanner: unlike the VM's lexer (which stops at the first bad character, correct for
+  execution but useless for an editor), this one skips what it can't classify and keeps going — an
+  unterminated string ends at the line, a dangling identifier is fine — because editors must work on
+  code that is mid-edit and not yet valid. The token grammar mirrors the VM lexer exactly (`#` and `//`
+  comments, strings, numbers, identifiers, punctuation) so reported symbols match what the VM would parse.
+  Verified (`ctest -R "^script_tooling$"`): the outline reports six symbols with correct kinds/containers
+  and extracts `func greet(name, times: int)` params as `[name, times]` (skipping the type annotation);
+  `findFunction` recovers a signature; `prefixAt`/`isMemberAccessAt` read the cursor context; completion for
+  prefix "he" offers in-scope `health` but not `hurt` (prefix mismatch) nor a variable declared *after* the
+  cursor; an empty prefix offers keywords + `print` + in-scope symbols and params; `p.` offers the class's
+  `hp`/`attack` members (and `p.at` narrows to `attack`) while excluding top-level names and keywords; and
+  the tolerant scanner still finds symbols on both sides of an unterminated string. **Honest scope:** this is
+  the tooling *data provider* — the exact information an editor UI, an LSP server, or a completion popup
+  consumes — computed from source text. It is not itself a GUI or a Language Server Protocol transport
+  (those would render/serialize this data), and completion is scope- and prefix-based rather than
+  type-inferred (member completion offers all class members, since the language is dynamically typed); a
+  second C#/.NET binding remains a separate possible path. The VM, parser, and a live debug hook already
+  exist (`script/Debugger.hpp`); this adds the author-time intelligence on top.
 - [x] **OpenType-style text shaping** (`ui::shapeGlyphs`, `ShapingTable`, `LigatureRule` in
   `TextShaping.hpp`) — DONE (M653); closes the §7 "complex-script shaping hooks" gap. [VERIFIABLE HERE]
   The engine already had the *analysis* half of text (`decodeUtf8`, bidi runs, line-break opportunities in
