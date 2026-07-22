@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Fractional grid sampling** (`math::gridNearest` / `math::gridBilinear` / `math::gridBicubic` /
+  `math::GridEdge`) — DONE (M645); read a value out of a 2D data grid at FRACTIONAL coordinates, smoothly
+  interpolating between cells — the everyday need behind sampling a heightfield between vertices, a flow-field
+  or vector map between cells, or a coarse lightmap / SDF / noise grid at a continuous world position. Three
+  filters: nearest (blocky), bilinear (the smooth workhorse), and bicubic Catmull-Rom (C1-smooth, passes
+  through the grid values); out-of-bounds handled by Clamp (repeat border) or Wrap (tile). Templated on the
+  cell type, so it samples a float grid, a `vec2` flow field, or an RGB grid alike (anything supporting `T+T`
+  and `T*float`). The engine had bilinear baked into HeightField / Image / noise individually; this is the one
+  reusable primitive. Verified (`ctest -R "^grid_sample$"`): all filters return the exact grid value at integer
+  coordinates; nearest rounds to the closest cell; bilinear reproduces a linear ramp exactly and a midpoint is
+  the average of two cells; bicubic passes through the grid and is exact on a linear ramp (with an in-bounds
+  stencil); Clamp repeats the border while Wrap tiles; and a vec2 flow-field grid interpolates componentwise.
+  Honest scope: separable nearest/bilinear/bicubic on a regular grid (not anisotropic/mip-filtered texture
+  sampling — that is the GPU's job). [VERIFIABLE HERE]
 - [x] **Recycling object pool** (`core::ObjectPool<T>`) — DONE (M644); a typed pool that hands out reusable
   objects and takes them back, so a game can spawn/despawn bullets, particles, enemies, damage numbers, or
   temp buffers every frame WITHOUT churning the allocator. `acquire()` reuses a freed slot or grows by one;
