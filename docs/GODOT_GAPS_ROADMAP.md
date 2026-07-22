@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Linear extrude / prism from a polygon** (`render::extrudePolygon`) — DONE (M602); take any flat 2D shape and
+  give it thickness, turning an outline into a solid 3D block. Draw a star, a gear, a heart, a letter of the alphabet,
+  a company logo, an arrow, an L-shaped room footprint, or a staircase side-profile as a list of 2D points, and it
+  stamps the shape out into a prism `depth` units thick. This is Godot's CSGPolygon3D in Depth mode / Blender's
+  "extrude region" / the classic CAD linear-extrude — the fastest way to make chunky 3D text, coins and medals,
+  extruded signage, cookie-cutter props, pipes with a fancy cross-section, or blocky level geometry from a hand-drawn
+  footprint. The shape is laid in XY and pushed along Z, centred from z=−depth/2 to +depth/2; two end caps
+  (triangulated with the engine's ear-clipping `triangulatePolygon`, M156) plus one quad wall per outline edge make a
+  closed solid. Verified (`ctest -R mesh_extrude_polygon`): an n-gon makes exactly 4n−4 triangles; the prism spans
+  z=−depth/2..+depth/2 with the polygon's XY extent; it is a closed, consistently-wound solid whose SIGNED VOLUME
+  equals area×depth (proven for a square and a triangle, and for CLOCKWISE input too — winding auto-normalises); cap
+  faces point ±Z while wall faces lie in-plane; fewer than 3 points, zero depth, and a collinear/zero-area outline
+  all return an empty mesh. Honest scope: the outline must be a SIMPLE polygon (no self-crossings, no holes — a donut
+  needs a hole-aware path); the mesh is unwelded with flat per-face normals for crisp faceted edges. [VERIFIABLE HERE]
 - [x] **Arrow mesh** (`render::buildArrow`) — DONE (M601); a solid 3D arrow (a round shaft with a cone tip) pointing
   along +Y. Arrows are the universal "look here / this way" marker: draw a force or velocity vector, show which way a
   spawn or waypoint faces, build the move/rotate gizmo handles for an editor, point at an objective, make a compass
