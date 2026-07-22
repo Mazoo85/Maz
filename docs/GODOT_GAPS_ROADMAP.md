@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Projectile lead / intercept solver** (`math::interceptTarget`, `Intercept.hpp`) — DONE (M660);
+  the "aim ahead of a moving target" math behind every turret, homing shot, and AI marksman. [VERIFIABLE
+  HERE] The engine had a full-transform look-at and a look-rotation quaternion (M651), but those aim at a
+  *point*; hitting a *moving* target needs solving for WHERE it will be when a shot fired now arrives.
+  That's a quadratic in the intercept time t — solve |targetPos + targetVel·t − shooter| = projSpeed·t —
+  which can have zero solutions (the target outruns the projectile), one (the equal-speed linear case), or
+  two (take the soonest). `interceptTarget` (2D and 3D overloads) returns the intercept time, the future
+  aim point, and the unit aim direction. Verified (`ctest -R "^intercept$"`): a stationary target is aimed
+  at directly with time = distance/speed; the defining invariant `distance(shooter, aimPoint) ==
+  projSpeed·time` holds for perpendicular and closing motion in both 2D and 3D (the projectile reaches the
+  lead point exactly when the target does, and the target's own path reaches that same point at that time);
+  the a≈0 linear case (target speed == projectile speed) is handled; a target fleeing faster than the
+  projectile returns hit=false; and the returned direction is unit length. Pure closed-form math, no
+  allocation — a genuinely-missing staple (nothing like it existed; the only prior "intercept" was
+  least-squares line-fitting). Complements the existing steering, ballistics-check, and look-at helpers.
 - [~] **Video container demux (IVF)** (`video::demuxIvf`, `parseIvfHeader`, `video/Ivf.hpp`) — DONE
   (M658, the container/framing part); the demux half of the §7 "video container/codec decode" gap.
   [VERIFIABLE HERE for the container; codec + display on your GPU] A video file is a *container* wrapping a

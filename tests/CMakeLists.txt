@@ -832,6 +832,11 @@ target_link_libraries(maz_ivf_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME video_ivf COMMAND maz_ivf_tests)
 set_tests_properties(video_ivf PROPERTIES TIMEOUT 30)
 
+add_executable(maz_intercept_tests math/intercept.cpp)
+target_link_libraries(maz_intercept_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME intercept COMMAND maz_intercept_tests)
+set_tests_properties(intercept PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
