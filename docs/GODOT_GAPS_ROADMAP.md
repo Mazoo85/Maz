@@ -180,6 +180,15 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Ordinal & Roman-numeral formatting** (`core::ordinalSuffix` / `ordinal` / `toRoman`) — DONE (M622); the two
+  number-to-text helpers game HUDs need that `core::NumberFormat` was missing: **ordinals** for leaderboard ranks
+  and "Nth wave" ("1st", "22nd", "113th"), and **Roman numerals** for chapter/level/act titles ("Level IV",
+  "MMXXIV"). `ordinalSuffix` returns just "st/nd/rd/th"; `ordinal` prepends the number and preserves sign; `toRoman`
+  renders 1..3999 in standard additive/subtractive form and returns "" outside that range. Verified (`ctest -R
+  numberformat_ordinal`): base suffixes 1st/2nd/3rd/4th, last-digit rule (21st/22nd/23rd), the 11/12/13 (and
+  111/112/113) "th" teen exception, 0th, signed `-1st`; Roman I/IV/IX, XIV/XL/XC, CD/CM, 2024=MMXXIV,
+  1984=MCMLXXXIV, 3999=MMMCMXCIX, and 0/negative/≥4000 → empty. Honest scope: English ordinals and classic
+  1..3999 Roman only. [VERIFIABLE HERE]
 - [x] **Marble & wood-grain textures** (`render::patterns::marbleTexture` / `woodTexture`) — DONE (M621); two
   domain-warped procedural textures the plain fbm `noiseTexture` can't make: **marble** is parallel sine veins whose
   phase is bent by fbm turbulence (polished-stone ripples), **wood** is concentric growth rings around the image

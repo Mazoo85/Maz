@@ -652,6 +652,11 @@ target_link_libraries(maz_imagemarblewood_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME image_marble_wood COMMAND maz_imagemarblewood_tests)
 set_tests_properties(image_marble_wood PROPERTIES TIMEOUT 30)
 
+add_executable(maz_numberformat_ordinal_tests core/numberformat_ordinal.cpp)
+target_link_libraries(maz_numberformat_ordinal_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME numberformat_ordinal COMMAND maz_numberformat_ordinal_tests)
+set_tests_properties(numberformat_ordinal PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

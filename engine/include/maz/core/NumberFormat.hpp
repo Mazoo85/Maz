@@ -98,4 +98,36 @@ inline std::string formatBytes(unsigned long long bytes, int decimals = 1) {
     return detail::trimTrailingZeros(buf) + " " + unit[k];
 }
 
+// The English ordinal suffix for an integer ("st", "nd", "rd", "th") — 1→"st", 2→"nd", 3→"rd", 4→"th", but the
+// teens 11/12/13 are always "th". Sign is ignored. Handy for leaderboard ranks and "Nth wave".
+inline std::string ordinalSuffix(long long n) {
+    const long long a = n < 0 ? -n : n;
+    const long long twoDigits = a % 100;
+    if (twoDigits >= 11 && twoDigits <= 13) return "th";
+    switch (a % 10) {
+        case 1: return "st";
+        case 2: return "nd";
+        case 3: return "rd";
+        default: return "th";
+    }
+}
+
+// The integer with its ordinal suffix ("1st", "22nd", "113th"). Negatives keep the sign ("-1st").
+inline std::string ordinal(long long n) { return std::to_string(n) + ordinalSuffix(n); }
+
+// Classic Roman numeral for 1..3999 ("IV", "XII", "MCMLXXXIV"); values outside that range return "" (Romans had
+// no zero and the standard additive/subtractive form tops out at 3999). Great for chapter/level/act titles.
+inline std::string toRoman(int value) {
+    if (value < 1 || value > 3999) return "";
+    static const int vals[] = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+    static const char* const sym[] = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
+    std::string out;
+    for (int i = 0; i < 13; ++i)
+        while (value >= vals[i]) {
+            out += sym[i];
+            value -= vals[i];
+        }
+    return out;
+}
+
 } // namespace maz::core
