@@ -3644,6 +3644,177 @@ void buildArrangementUI(audio::Sequencer& seq) {
         ImGui::PopID();
     }
 
+    // Automation clips: draw an envelope, place it at a bar range targeting a parameter; it drives that
+    // parameter during clip-song playback (needs Song mode + Clip song mode on).
+    ImGui::SeparatorText("Automation clips (envelope on the timeline)");
+    static int newAutoTarget = 0;
+    static int newAutoBar = 0;
+    static int newAutoBars = 2;
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::BeginCombo("target##ac2",
+                          audio::Automation::targetName(static_cast<audio::AutoTarget>(newAutoTarget)))) {
+        for (int t = 0; t < audio::Automation::count(); ++t) {
+            const bool sel = (t == newAutoTarget);
+            if (ImGui::Selectable(audio::Automation::targetName(static_cast<audio::AutoTarget>(t)), sel)) {
+                newAutoTarget = t;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("bar##ac2", &newAutoBar);
+    newAutoBar = newAutoBar < 0 ? 0 : newAutoBar;
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.0f);
+    ImGui::InputInt("bars##ac2", &newAutoBars);
+    newAutoBars = newAutoBars < 1 ? 1 : newAutoBars;
+    ImGui::SameLine();
+    if (ImGui::Button("Add automation clip")) {
+        const int idx = seq.addAutomationClip(newAutoTarget, newAutoBar, newAutoBars);
+        // Seed the range from the target's lane defaults and a flat 0.5 line, so the clip is usable.
+        audio::AutomationClip& nc = seq.automationClip(idx);
+        // (lo/hi default 0..1; the user tunes them below.) Start with two endpoints at mid-height.
+        nc.points = {{0.0, 0.5f, 0.0f}, {1.0, 0.5f, 0.0f}};
+    }
+    ImGui::TextDisabled("Canvas: left-click empty space to add a point, drag a point to move it, "
+                        "right-click a point to delete. Time is left→right across the clip's span.");
+
+    static int dragClip = -1;  // which clip's canvas is mid-drag
+    static int dragPoint = -1; // which breakpoint index within it
+    for (int i = 0; i < seq.automationClipCount(); ++i) {
+        ImGui::PushID(30000 + i);
+        audio::AutomationClip& ac = seq.automationClip(i);
+        // Header row: target label, bars, value range, mute, remove.
+        ImGui::Text("%s  @bar %d", audio::Automation::targetName(static_cast<audio::AutoTarget>(ac.target)),
+                    ac.startBar);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(60.0f);
+        ImGui::InputInt("bars##r", &ac.bars);
+        ac.bars = ac.bars < 1 ? 1 : ac.bars;
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::DragFloatRange2("range##r", &ac.lo, &ac.hi, 0.5f);
+        ImGui::SameLine();
+        ImGui::Checkbox("mute##r", &ac.muted);
+        ImGui::SameLine();
+        if (ImGui::Button("Remove##ac2")) {
+            seq.removeAutomationClip(i);
+            if (dragClip == i) {
+                dragClip = -1;
+                dragPoint = -1;
+            }
+            ImGui::PopID();
+            break;
+        }
+        // Per-clip tension slider: applies the same curve to every segment (like the lane editor).
+        float tension = ac.points.empty() ? 0.0f : ac.points.front().tension;
+        ImGui::SetNextItemWidth(200.0f);
+        if (ImGui::SliderFloat("curve##r", &tension, -1.0f, 1.0f, "%.2f")) {
+            for (audio::AutoPoint& p : ac.points) {
+                p.tension = tension;
+            }
+        }
+
+        // Breakpoint canvas.
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, 90.0f);
+        if (size.x < 80.0f) {
+            size.x = 80.0f;
+        }
+        ImGui::InvisibleButton("##envcanvas", size);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(28, 28, 32, 255));
+        dl->AddRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(80, 80, 90, 255));
+        auto toScreen = [&](double t, float v) {
+            return ImVec2(origin.x + static_cast<float>(t) * size.x, origin.y + (1.0f - v) * size.y);
+        };
+        auto toData = [&](ImVec2 m) {
+            double t = static_cast<double>((m.x - origin.x) / size.x);
+            float v = 1.0f - (m.y - origin.y) / size.y;
+            t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+            v = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+            return std::pair<double, float>(t, v);
+        };
+        std::vector<audio::AutoPoint>& pts = ac.points;
+        // Draw the tension-warped envelope.
+        for (size_t s = 1; s < pts.size(); ++s) {
+            const audio::AutoPoint& a = pts[s - 1];
+            const audio::AutoPoint& b = pts[s];
+            ImVec2 prev = toScreen(a.time, a.value);
+            constexpr int kSeg = 16;
+            for (int k = 1; k <= kSeg; ++k) {
+                double frac = static_cast<double>(k) / kSeg;
+                double warped = frac;
+                if (a.tension != 0.0f) {
+                    warped = std::pow(frac, std::pow(2.0, -static_cast<double>(a.tension) * 4.0));
+                }
+                const double tt = a.time + (b.time - a.time) * frac;
+                const float vv = a.value + (b.value - a.value) * static_cast<float>(warped);
+                ImVec2 cur = toScreen(tt, vv);
+                dl->AddLine(prev, cur, IM_COL32(120, 200, 255, 255), 2.0f);
+                prev = cur;
+            }
+        }
+        for (size_t s = 0; s < pts.size(); ++s) {
+            dl->AddCircleFilled(toScreen(pts[s].time, pts[s].value), 4.0f, IM_COL32(255, 220, 80, 255));
+        }
+        // Interaction. Nearest-point hit test in screen space.
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        auto nearestPoint = [&]() {
+            int best = -1;
+            float bestD = 1e9f;
+            for (size_t s = 0; s < pts.size(); ++s) {
+                ImVec2 p = toScreen(pts[s].time, pts[s].value);
+                const float d = std::fabs(p.x - mouse.x) + std::fabs(p.y - mouse.y);
+                if (d < bestD) {
+                    bestD = d;
+                    best = static_cast<int>(s);
+                }
+            }
+            return (best >= 0 && bestD < 12.0f) ? best : -1;
+        };
+        if (ImGui::IsItemActivated()) { // mouse-down on this canvas
+            const int hit = nearestPoint();
+            if (hit >= 0) {
+                dragPoint = hit;
+            } else { // add a new point at the click, keep the vector time-sorted
+                const std::pair<double, float> d = toData(mouse);
+                audio::AutoPoint np{d.first, d.second, tension};
+                size_t ins = 0;
+                while (ins < pts.size() && pts[ins].time < np.time) {
+                    ++ins;
+                }
+                pts.insert(pts.begin() + static_cast<long>(ins), np);
+                dragPoint = static_cast<int>(ins);
+            }
+            dragClip = i;
+        }
+        if (ImGui::IsItemActive() && dragClip == i && dragPoint >= 0 &&
+            dragPoint < static_cast<int>(pts.size())) {
+            const std::pair<double, float> d = toData(mouse);
+            pts[static_cast<size_t>(dragPoint)].value = d.second;
+            // Clamp time to stay between neighbours so the list remains sorted (endpoints stay put in x).
+            double loT = (dragPoint > 0) ? pts[static_cast<size_t>(dragPoint - 1)].time : 0.0;
+            double hiT = (dragPoint < static_cast<int>(pts.size()) - 1)
+                             ? pts[static_cast<size_t>(dragPoint + 1)].time
+                             : 1.0;
+            double nt = d.first < loT ? loT : (d.first > hiT ? hiT : d.first);
+            pts[static_cast<size_t>(dragPoint)].time = nt;
+        }
+        if (!ImGui::IsItemActive() && dragClip == i) {
+            dragClip = -1;
+            dragPoint = -1;
+        }
+        if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && pts.size() > 1) {
+            const int hit = nearestPoint();
+            if (hit >= 0) {
+                pts.erase(pts.begin() + hit);
+            }
+        }
+        ImGui::PopID();
+    }
+
     ImGui::End();
 }
 
