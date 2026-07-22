@@ -85,7 +85,9 @@ only be written blind, the docs say exactly that.
 - [x] **Unicode BiDi runs + base direction** — ALREADY PRESENT (`ui::bidiRuns` / `baseDirection`, `TextServer.hpp`).
 - [x] **Line-break opportunities** — ALREADY PRESENT (`ui::lineBreakOpportunities`, `TextServer.hpp`).
 - [ ] **Basic complex-script shaping hooks** (mark positioning, ligature substitution tables). [VERIFIABLE HERE]
-- [ ] **Localization tooling** — POT/PO extract + import beyond the current CSV tables. [VERIFIABLE HERE]
+- [x] **Localization tooling** — DONE (M652): gettext PO catalog with a real per-language plural-rule engine
+  (`io::PoCatalog` / `io::PluralRule`), plus PO write-back (`serialize()`) and POT extraction (`io::PotBuilder`).
+  See the M652 entry at the top of §5 for the full write-up. [VERIFIABLE HERE]
 - [ ] **Video container/codec decode** to frames (display is GPU-side). [CODE HERE / SEE IT ON YOUR MACHINE]
 
 ### §6 Scripting & language — [VERIFIABLE HERE]
@@ -131,6 +133,31 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **gettext PO/POT localization tooling** (`io::PoCatalog`, `io::PotBuilder`, `io::PluralRule`) — DONE
+  (M652); closes the §7 "Localization tooling" gap. [VERIFIABLE HERE] The engine already had CSV translation
+  tables, but every serious localization pipeline speaks *gettext* — `.po` files — and the hard part gettext
+  solves that a CSV cannot is PLURALS: English has 2 forms ("1 apple / 2 apples"), but Polish has 3, Arabic 6,
+  each chosen by a language-specific little C expression over the count `n` (e.g. Polish uses form 1 for 2–4 and
+  22–24 but form 2 for 5–21). A module existed that could *read* PO text and answer lookups, but it was
+  untested and could only read — it could not write a catalog back out, and it had no *extraction* side (the
+  step that scans a program for its translatable strings and emits a blank `.pot` template for translators).
+  This milestone finished it into real tooling: (a) `PluralRule` is a complete evaluator for the gettext
+  C-expression subset (`n`, integer literals, `% * / + -`, comparisons, `&& || !`, and `?:` with correct
+  precedence), so the *right* plural form is selected for any language's own rule; (b) `PoCatalog::serialize()`
+  writes the catalog back to PO text that round-trips exactly through the parser (contexts, plurals, and the
+  `\n \t \" \\` escapes all preserved), with deterministic sorted output for clean diffs; (c) `PotBuilder` is
+  the extraction/template side — collect the strings a program marks (`add` / `addContext` / `addPlural`),
+  de-duplicated by (context, id) in first-seen order, upgrading a singular to a plural in place, then emit a
+  `.pot` whose header already carries a usable `Plural-Forms:` line. Verified (`ctest -R "^gettext_po$"`): the
+  English/Polish/empty-default plural rules produce the hand-computed reference indices across the tricky
+  boundaries (5, 11, 12, 22–25); a multi-context PO parses so `pgettext("menu","Open")` and
+  `pgettext("door","Open")` give different translations; `ngettext` routes n=1/3/5/22 to Polish forms 0/1/2/1;
+  the serialize output re-parses to identical lookups; and the `PotBuilder` collapses duplicates to 4 distinct
+  references, keeps the plural after a later singular re-add, and its POT re-parses with the header rule intact.
+  **Honest scope:** this is the localization *data + rule engine* (parse, plural selection, PO write-back, POT
+  template emission) — pure CPU text, fully unit-tested here. It is not a source-code *scanner*: `PotBuilder`
+  takes the marked strings you feed it; wiring an `xgettext`-style pass that walks `.cpp`/script files to find
+  `tr("…")` calls automatically is a separate (straightforward) step layered on top of this.
 - [x] **Look-rotation quaternion** (`math::Quaternion::lookRotation`) — DONE (M651); the orientation-only
   companion to `Transform3D::lookingAt`: build the quaternion that faces a direction with an up hint (local -Z
   points along `forward`, matching the engine/Godot forward convention). The engine had a full-transform

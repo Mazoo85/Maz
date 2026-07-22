@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
@@ -16,6 +17,25 @@
 // expression evaluator (the C subset gettext uses: n, literals, % * / + -, comparisons, && || !,
 // and ?:) — no I/O in the core, so it unit-tests headlessly. This is Godot's Translation/PO support.
 namespace maz::io {
+
+// Escape a raw string for a PO/POT quoted literal — the inverse of the unquote() the parser uses.
+// Backslash and double-quote are protected; the three whitespace escapes PO recognises are emitted
+// so the round-trip through parse() is exact.
+inline std::string poEscape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (const char c : s) {
+        switch (c) {
+            case '\\': out += "\\\\"; break;
+            case '"': out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\t': out += "\\t"; break;
+            case '\r': out += "\\r"; break;
+            default: out.push_back(c); break;
+        }
+    }
+    return out;
+}
 
 // Evaluate a gettext plural-rule expression for a given n. Integer semantics throughout; booleans
 // are 0/1. Returns 0 on a parse error (the safe "first form" default).
@@ -342,6 +362,53 @@ class PoCatalog {
         return lookupPlural(ctxt, id, idPlural, n);
     }
 
+    // Serialize the catalog back to PO text. The result round-trips through parse(): the header
+    // entry (empty msgid) is emitted first when present, then the remaining entries in a stable
+    // sorted-by-key order so output is deterministic across runs (m_entries is unordered).
+    std::string serialize() const {
+        const std::string headerKey = makeKey("", "");
+        std::vector<std::string> keys;
+        keys.reserve(m_entries.size());
+        for (const auto& kv : m_entries) {
+            if (kv.first != headerKey) {
+                keys.push_back(kv.first);
+            }
+        }
+        std::sort(keys.begin(), keys.end());
+
+        std::string out;
+        auto emit = [&](const std::string& key) {
+            const Entry& e = m_entries.at(key);
+            std::string ctxt;
+            std::string id;
+            splitKey(key, ctxt, id);
+            if (!ctxt.empty()) {
+                out += "msgctxt \"" + poEscape(ctxt) + "\"\n";
+            }
+            out += "msgid \"" + poEscape(id) + "\"\n";
+            if (!e.plural.empty()) {
+                out += "msgid_plural \"" + poEscape(e.plural) + "\"\n";
+                if (e.strs.empty()) {
+                    out += "msgstr[0] \"\"\n";
+                } else {
+                    for (size_t i = 0; i < e.strs.size(); ++i) {
+                        out += "msgstr[" + std::to_string(i) + "] \"" + poEscape(e.strs[i]) + "\"\n";
+                    }
+                }
+            } else {
+                out += "msgstr \"" + poEscape(e.strs.empty() ? std::string() : e.strs[0]) + "\"\n";
+            }
+            out += "\n";
+        };
+        if (m_entries.count(headerKey)) {
+            emit(headerKey);
+        }
+        for (const std::string& k : keys) {
+            emit(k);
+        }
+        return out;
+    }
+
   private:
     enum { kNone, kCtxt, kId, kPlural, kStr };
 
@@ -352,6 +419,18 @@ class PoCatalog {
 
     static std::string makeKey(const std::string& ctxt, const std::string& id) {
         return ctxt.empty() ? id : (ctxt + std::string(1, '\x04') + id);
+    }
+
+    // Inverse of makeKey: recover (context, id) from a stored key for serialization.
+    static void splitKey(const std::string& key, std::string& ctxt, std::string& id) {
+        const size_t sep = key.find('\x04');
+        if (sep == std::string::npos) {
+            ctxt.clear();
+            id = key;
+        } else {
+            ctxt = key.substr(0, sep);
+            id = key.substr(sep + 1);
+        }
     }
 
     std::string lookup(const std::string& ctxt, const std::string& id,
@@ -453,6 +532,71 @@ class PoCatalog {
     std::unordered_map<std::string, Entry> m_entries;
     PluralRule m_rule;
     int m_nplurals = 2;
+};
+
+// The extraction side of the workflow: collect the source strings a program marks for translation
+// (the msgid / msgctxt / msgid_plural references, as an xgettext-style scan would) and emit a POT
+// template — a PO file with empty translations, ready to hand to translators or to seed a new
+// per-language PO. References de-duplicate by (context, id) and keep first-seen order so the output
+// is stable and diff-friendly; adding a plural to an already-seen id upgrades that entry in place.
+class PotBuilder {
+  public:
+    void add(const std::string& id) { addRef("", id, ""); }
+    void addContext(const std::string& ctxt, const std::string& id) { addRef(ctxt, id, ""); }
+    void addPlural(const std::string& id, const std::string& idPlural) { addRef("", id, idPlural); }
+    void addContextPlural(const std::string& ctxt, const std::string& id,
+                          const std::string& idPlural) {
+        addRef(ctxt, id, idPlural);
+    }
+
+    // Number of distinct references collected (excludes the synthetic header the template carries).
+    size_t size() const { return m_order.size(); }
+
+    // Emit POT text. `pluralForms` (e.g. "nplurals=2; plural=(n != 1);") goes into the header entry's
+    // Plural-Forms line so a freshly-parsed template already knows how many forms a translator owes.
+    std::string serialize(const std::string& pluralForms = "nplurals=2; plural=(n != 1);") const {
+        std::string out;
+        out += "msgid \"\"\n";
+        out += "msgstr \"\"\n";
+        out += "\"Content-Type: text/plain; charset=UTF-8\\n\"\n";
+        out += "\"Plural-Forms: " + poEscape(pluralForms) + "\\n\"\n";
+        out += "\n";
+        for (const Ref& r : m_order) {
+            if (!r.ctxt.empty()) {
+                out += "msgctxt \"" + poEscape(r.ctxt) + "\"\n";
+            }
+            out += "msgid \"" + poEscape(r.id) + "\"\n";
+            if (!r.plural.empty()) {
+                out += "msgid_plural \"" + poEscape(r.plural) + "\"\n";
+                out += "msgstr[0] \"\"\n";
+                out += "msgstr[1] \"\"\n";
+            } else {
+                out += "msgstr \"\"\n";
+            }
+            out += "\n";
+        }
+        return out;
+    }
+
+  private:
+    struct Ref {
+        std::string ctxt;
+        std::string id;
+        std::string plural;
+    };
+    void addRef(const std::string& ctxt, const std::string& id, const std::string& plural) {
+        const std::string key = ctxt.empty() ? id : (ctxt + std::string(1, '\x04') + id);
+        auto it = m_index.find(key);
+        if (it == m_index.end()) {
+            m_index[key] = m_order.size();
+            m_order.push_back(Ref{ctxt, id, plural});
+        } else if (!plural.empty()) {
+            m_order[it->second].plural = plural; // seen as singular before; upgrade in place
+        }
+    }
+
+    std::vector<Ref> m_order;
+    std::unordered_map<std::string, size_t> m_index;
 };
 
 } // namespace maz::io
