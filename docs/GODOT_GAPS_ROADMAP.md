@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Projected / frontal area** (`render::projectedArea`) — DONE (M603); measure how big a shadow a model casts
+  when viewed from a given direction — the area of its outline as projected onto the screen, the "frontal area" an
+  engineer means by cross-section. That one number drives a lot of game and sim math: aerodynamic and water drag
+  (drag scales with frontal area), wind load on a structure, how much sunlight a solar panel or leaf catches, the
+  size of a cast shadow, and how tightly a camera must frame an object. It sums the projected area of every triangle
+  that faces the direction (each contributes its area times how square-on it is), which for a closed convex shape is
+  exactly the silhouette area. Verified (`ctest -R mesh_projected_area`): a cube of side s viewed face-on projects to
+  exactly s² (checked on all three axes); the value is symmetric in the view direction (same from front and back) and
+  independent of the direction vector's length; viewed corner-on the cube gives its hexagonal silhouette area
+  s²·√3; an icosphere of radius r projects to ~πr² from any direction (within 2%); an empty mesh or zero direction
+  gives 0. Honest scope: EXACT for a convex closed mesh; for a CONCAVE mesh it is an UPPER BOUND (hidden folds behind
+  nearer surface still count) — use a rasterised coverage method for the exact projected area of a concave shape.
+  [VERIFIABLE HERE]
 - [x] **Linear extrude / prism from a polygon** (`render::extrudePolygon`) — DONE (M602); take any flat 2D shape and
   give it thickness, turning an outline into a solid 3D block. Draw a star, a gear, a heart, a letter of the alphabet,
   a company logo, an arrow, an L-shaped room footprint, or a staircase side-profile as a list of 2D points, and it
