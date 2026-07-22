@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh topology summary** (`render::summarizeTopology`, `TopologySummary`) — DONE (M545); one struct
+  answering "what SHAPE, topologically, is this mesh?": how many separate pieces (connected components), how many
+  holes ring it (boundary loops), whether it is a closed watertight solid and manifold, its Euler characteristic
+  V−E+F, and its GENUS — the number of handles / through-holes (sphere/box = 0, donut/torus/mug = 1, pretzel
+  higher). This is the mesh-health / "is this a valid printable solid, how complex is it" report a DCC tool or
+  3D-print slicer shows, and the sanity check before physics/booleans/simplification that assume a clean
+  manifold. It composes the connectivity stack — MeshTopology (M528) for edges/manifoldness, MeshComponents
+  (M529) for the piece count, MeshBoundaryLoops (M538) for the hole count — then genus falls out of the
+  Euler–Poincaré formula χ = 2c − 2g − b. Vertex count is the number of REFERENCED vertices (unused vertices in
+  the buffer are ignored so they can't corrupt Euler). Verified (`ctest -R mesh_topology_summary`): a closed
+  cube is genus 0 / χ 2 / one component / no holes / closed+manifold; a torus is genus 1 / χ 0; a cube missing a
+  face is an open disk (χ 1, one boundary loop, genus 0, not closed); two separate cubes are two components with
+  χ 4 and genus 0; a non-manifold fan (edge shared by three triangles) is flagged and leaves genus undefined
+  (−1); empty safe. Honest scope: genus is exact only for a welded orientable manifold — run MeshCleanup/MeshWeld
+  first; un-welded duplicate corners still corrupt Euler (reported via `manifold`). [VERIFIABLE HERE]
 - [x] **Triangle-strip generation** (`render::buildTriangleStrips` / `expandTriangleStrips`, `TriangleStrips`)
   — DONE (M544); repack an indexed triangle LIST into triangle STRIPS. A strip stores a run of triangles as one
   vertex sequence v0 v1 v2 v3… where every new vertex forms a triangle with the previous two (GPU
