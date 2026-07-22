@@ -104,6 +104,7 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
     }
 
     double tempoBpm = 0.0; // captured from a tempo meta event, if any (0 = none found)
+    std::vector<std::pair<int, std::string>> rawMarkers; // (tick, name) from FF 06 marker meta-events
     for (uint32_t t = 0; t < ntrks && r.ok; ++t) {
         // Find the next MTrk chunk.
         while (r.i + 8 <= r.n && !(r.p[r.i] == 'M' && r.p[r.i + 1] == 'T' && r.p[r.i + 2] == 'r' &&
@@ -159,6 +160,11 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
                     if (us > 0 && tempoBpm <= 0.0) { // keep the first tempo found
                         tempoBpm = 60000000.0 / static_cast<double>(us);
                     }
+                } else if (metaType == 0x06 && len > 0 &&
+                           r.i + static_cast<size_t>(len) <= trackEnd) {
+                    // Text marker meta-event → an arrangement marker at this tick.
+                    rawMarkers.emplace_back(
+                        tick, std::string(reinterpret_cast<const char*>(&r.p[r.i]), len));
                 }
                 r.skip(len);
             } else if (status == 0xF0 || status == 0xF7) {
@@ -192,6 +198,12 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
     seq.roll().clear();
     seq.roll2().clear();
     seq.clear();
+    // Replace arrangement markers with any imported from marker meta-events (bar = tick / bar length).
+    seq.clearMarkers();
+    const int barTicks = seq.numSteps() * ticksPerStep;
+    for (const auto& rm : rawMarkers) {
+        seq.addMarker(barTicks > 0 ? rm.first / barTicks : 0, rm.second);
+    }
     for (const RawNote& rn : notes) {
         const int startStep = (rn.onTick + ticksPerStep / 2) / ticksPerStep;
         int lenSteps = (rn.offTick - rn.onTick + ticksPerStep / 2) / ticksPerStep;

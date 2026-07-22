@@ -160,6 +160,18 @@ int main() {
         check(found, "an arrangement marker exports as a MIDI marker meta-event (FF 06)");
         audio::Sequencer mkIn;
         check(audio::readMidi(mkPath, mkIn, &err), "readMidi tolerates the marker meta-event");
+        check(mkIn.markerCount() == 1 && mkIn.marker(0).bar == 0 && mkIn.marker(0).name == "Chorus",
+              "a marker imports back from the MIDI meta-event");
+
+        // A marker at a later bar round-trips to the same bar (tick = bar * numSteps * ticksPerStep).
+        audio::Sequencer mk2;
+        mk2.addMarker(3, "Bridge");
+        const std::string mk2Path = "unit_midi_marker2.mid";
+        check(audio::writeMidi(mk2Path, mk2, 96, &err), "writeMidi (bar-3 marker) succeeds");
+        audio::Sequencer mk2In;
+        check(audio::readMidi(mk2Path, mk2In, &err), "readMidi (bar-3 marker) succeeds");
+        check(mk2In.markerCount() == 1 && mk2In.marker(0).bar == 3 && mk2In.marker(0).name == "Bridge",
+              "a marker at bar 3 round-trips to the same bar through MIDI");
     }
 
     // Arrangement export: a 2-entry playlist writes both patterns back to back, each offset by one
