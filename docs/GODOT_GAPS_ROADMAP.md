@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Weld-tolerance auto-detect** (`render::suggestWeldTolerance`, `render::autoWeld`, `WeldSuggestion`) —
+  DONE (M559); look at how a mesh's vertices are spaced and SUGGEST a good weld distance, so you don't have to
+  guess the epsilon that M525 weldVertices needs. Importers routinely duplicate the vertices along every UV seam
+  or smoothing split — sometimes at the exact same spot, sometimes a hair apart — and welding them back together
+  is what makes a mesh watertight for physics, simplification, and normal smoothing; but too small an epsilon
+  leaves seams split, too large collapses genuine detail. This measures every vertex's nearest neighbour, finds
+  the natural GAP between the tight cluster of duplicate/seam pairs and the much larger spacing of real geometry,
+  and returns an epsilon sitting safely in that gap plus a `WeldSuggestion` report (min/median gap, exact-
+  duplicate count, weldable-vertex count, and a `bimodal` flag for whether a clear split was found). `autoWeld`
+  chains the suggestion straight into weldVertices. Verified (`ctest -R mesh_weld_auto`): a clean 1.0-spaced grid
+  suggests an epsilon below the spacing that welds nothing (not bimodal, median gap ≈ 1); a grid with 0.001-apart
+  seam duplicates detects the split, suggests an epsilon between 0.001 and 1.0, flags the six duplicate vertices
+  weldable, and autoWeld collapses them back to the unique grid; exact duplicates are counted and welded; five
+  coincident vertices weld to one; empty/single-vertex meshes are safe. Honest scope: nearest-neighbour distances
+  are pairwise O(n²) — intended for import-time analysis of moderate meshes (up to a few thousand vertices;
+  bucket or decimate very large ones first); the suggestion is a heuristic, reliable when duplicates and real
+  geometry are clearly separated (`bimodal`) and conservative (welds nothing) when they are not. [VERIFIABLE HERE]
 - [x] **Feature-line extraction (ridge/valley crest lines)** (`render::extractFeatureLines`, `FeatureLines`,
   `FeatureEdge`, `FeatureKind`) — DONE (M558); find a mesh's SHARP FOLDS, label each as a convex RIDGE or a
   concave VALLEY, and CHAIN them into connected polylines. Where M548 sharp-edge detection only answers "which
