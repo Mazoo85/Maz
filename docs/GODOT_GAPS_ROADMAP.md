@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Sweep along a path / loft** (`render::sweepProfile`, `render::buildTube`) — DONE (M595); push a flat 2D
+  cross-section down a 3D path and leave a solid tube of that shape behind it. Feed it a circle and a curvy path and
+  you get a pipe, cable, rope, wire, garden hose, or tentacle (`buildTube` is the ready-made circle case); feed it a
+  rectangle and you get a rail, moulding, road ribbon, or fence beam; feed a star or an L and you get an extruded
+  girder or trim. This is Blender's curve-bevel sweep and Godot's CSGPolygon3D in Path mode — the standard way to
+  build anything long and bendy that follows a line. The hard part of sweeping is stopping the cross-section from
+  spinning as the path curves; this carries the orientation forward with a ROTATION-MINIMIZING FRAME (parallel
+  transport — the smallest rotation that follows each bend), so a pipe never twists along its length. Reuses the
+  engine's area-weighted `computeNormals`. Verified (`ctest -R mesh_sweep`): a radius-0.5 circle swept down a
+  straight path makes a pipe whose every vertex sits exactly 0.5 from the axis with the right vertex/triangle
+  counts; each ring's centroid lands exactly on its path point; on a THREE-TURN 3D path every ring vertex still
+  keeps its radius (the frame stays coherent — no twist collapse or blow-up); an open profile makes the expected
+  fewer faces than a closed ring; single-point paths, <3-side tubes, and empty profiles all safely return nothing.
+  Honest scope: builds the swept SIDE surface only — the two ends are left OPEN (a cut pipe); cap separately for a
+  closed solid. `closedProfile` picks tube (closed ring) vs ribbon (open strip). [VERIFIABLE HERE]
 - [x] **Revolve / lathe** (`render::revolveProfile`) — DONE (M594); spin a 2D outline around the vertical axis to
   build a round 3D object. Hand it the side-view silhouette of a vase, bottle, wine glass, wheel, chess pawn, lamp
   base, or bowl — a list of (radius-from-axis, height) points — and it sweeps that outline all the way around,
