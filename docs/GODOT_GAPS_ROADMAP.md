@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Spherify / cast-to-sphere** (`render::spherifyMesh`) — DONE (M583); inflate a mesh toward a perfect sphere
+  — each vertex is pulled from where it is toward the point on a sphere of `radius` (about `centre`) along its own
+  direction from the centre, blended by `t` (0 = unchanged, 1 = exactly on the sphere, in between rounds out
+  smoothly). This is Blender's "Cast" modifier (sphere target) and the classic way to round a blocky low-poly
+  shape: turn a subdivided cube into a ball, puff an angular rock smooth, or morph a boxy↔round silhouette by
+  animating `t`. Position AND normal blend toward the outward radial direction, so lighting rounds out with the
+  shape. Third member of the deformer family (twist M581, taper M582). Verified (`ctest -R mesh_spherify`): on a
+  unit cube, t=1 lands every vertex exactly on the sphere; t=0 is the identity; at t=0.5 each corner's distance is
+  exactly lerp(√3, radius, 0.5); the cast preserves each vertex's ray (a +x+y+z corner stays equal-component); a
+  vertex at the centre has no direction and stays put; an offset centre casts about that point. Honest scope: the
+  roundness is limited by tessellation — spherifying an 8-vertex cube just moves 8 corners onto the sphere;
+  subdivide first (Subdivision) so there are enough vertices to read as round. `t` outside [0,1] is allowed (t>1
+  overshoots, t<0 pushes inward). [VERIFIABLE HERE]
 - [x] **Taper deformer** (`render::taperMesh`) — DONE (M582); squeeze or fan a mesh along an axis — the cross-
   section perpendicular to the axis is scaled by a factor that ramps LINEARLY from `startScale` at the low end to
   `endScale` at the high end, so a straight bar cones into a pyramid or spike, a cylinder becomes a carrot or
