@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Count-Min Sketch (frequency estimator)** (`core::CountMinSketch`, `CountMinSketch.hpp`) — DONE (M727);
+  estimate HOW MANY TIMES each item appeared in a stream, from a small fixed table instead of one counter per
+  distinct key. [VERIFIABLE HERE] Where HyperLogLog answers "how many DIFFERENT items?", a Count-Min sketch
+  answers "how often did THIS item occur?" — approximately, in O(1) memory that does not grow with the number
+  of distinct keys. It is the standard cheap tool for finding "heavy hitters": which item is being spammed in
+  chat, which source is flooding packets, which ability/asset is used most — without a hash map ballooning to
+  millions of entries. It is d rows of w counters; each item is hashed d ways (via MurmurHash3) and those
+  counters are bumped; the estimate is the MINIMUM of the item's d counters, so collisions can only ever make
+  it TOO HIGH, never too low, and the min makes big overestimates rare. Registers add elementwise, so
+  per-shard sketches merge for free. The ctest proves the estimate is NEVER below the true count over a known
+  500-key skewed stream, that a wide table keeps the vast majority of keys exact and the overestimate small,
+  that a heavy hitter (100k) is recovered within a few percent, that an absent key stays small / empty
+  estimates 0, that merge sums per-key counts, and that estimation is deterministic. Godot has no frequency
+  sketch. Header-only, std-only, deterministic. ctest `count_min_sketch`.
 - [x] **HyperLogLog (cardinality estimator)** (`core::HyperLogLog`, `HyperLogLog.hpp`) — DONE (M726); estimate
   how many DISTINCT items a stream contained using a few kilobytes of fixed memory, no matter how many
   billions flow through. [VERIFIABLE HERE] Counting uniques exactly needs a set that grows with the data

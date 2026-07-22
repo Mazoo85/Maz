@@ -2466,3 +2466,8 @@ add_executable(maz_hyperloglog_tests core/hyperloglog.cpp)
 target_link_libraries(maz_hyperloglog_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME hyperloglog COMMAND maz_hyperloglog_tests)
 set_tests_properties(hyperloglog PROPERTIES TIMEOUT 30)
+
+add_executable(maz_countminsketch_tests core/countminsketch.cpp)
+target_link_libraries(maz_countminsketch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME count_min_sketch COMMAND maz_countminsketch_tests)
+set_tests_properties(count_min_sketch PROPERTIES TIMEOUT 30)
