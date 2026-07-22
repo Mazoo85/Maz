@@ -180,6 +180,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Normalize to a target box** (`render::normalizeToBox`, `NormalizeResult`) — DONE (M570); recentre AND
+  uniformly scale a mesh so it fills a chosen box — the import-normalization companion to the M569 pivot snap.
+  Imported models arrive at wildly different scales (one in metres, one in centimetres, one a thousand units tall)
+  and off-centre; this fits any mesh into a consistent size (default: centred in a unit cube, longest side = 1) so
+  a whole asset library shares one scale and pivot, thumbnails frame identically, and downstream tools (voxelize,
+  SDF, sampling) get predictable extents. The scale is UNIFORM (one factor on all axes) so the shape never
+  distorts. Returns the transformed copy plus the exact scale and source/target centres so an inverse or parent
+  transform can undo it. Reuses the mesh bounding box. Verified (`ctest -R mesh_normalize`): a 10×4×2 box parked at
+  (100,50,20) scales by 1/10 so its longest side is 1, its 10:4:2 proportions become 1:0.4:0.2 (uniform scale), and
+  its centre lands at the origin with the reported source centre correct; a custom target size/centre (fit a 2-unit
+  square into a 4-unit box at x=10) scales ×2 and recentres there; a 7×3 flat sheet scales by its 7-unit longest
+  side and stays perfectly flat; a single point keeps unit scale and just translates; empty meshes are safe. Honest
+  scope: UNIFORM scale preserves proportions — the mesh is centred and touches the box on its longest axis, it does
+  NOT stretch to fill a non-cubic box on every axis (that would distort); normals/UVs/colours are untouched
+  (uniform scale keeps normals valid); this translates+scales only, never rotates (align first via M568).
+  [VERIFIABLE HERE]
 - [x] **Pivot snap / recenter** (`render::recenterMesh`, `RecenterResult`, `PivotMode`) — DONE (M569); move a
   mesh's PIVOT (the point that ends up at the world origin) to a sensible place. Imported models land wherever the
   exporter left them — floating off-axis, pivot in a random corner — which makes them awkward to place, rotate,
