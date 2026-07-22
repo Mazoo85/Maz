@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Centripetal Catmull-Rom spline** (`math::CatmullRomSpline`, `CatmullRomSpline.hpp`) — DONE
+  (M664); the smooth-path-through-waypoints tool for camera rails, roads/rivers, and patrol paths. The
+  engine already had a single *uniform* Catmull-Rom segment (`VectorOps::cubicInterpolate`), but uniform
+  parameterization famously produces cusps and self-intersecting loops when waypoints are unevenly spaced
+  or turn sharply; the CENTRIPETAL variant (alpha = 0.5, Yuksel et al.) spaces the knots by √distance and
+  provably removes those cusps/loops while still passing through every control point. This adds the
+  chain-of-segments form (`eval(u)` over `[0, n-1]`, plus `tessellate`) with selectable parameterization
+  (0 uniform / 0.5 centripetal / 1 chordal). [VERIFIABLE HERE] Verified (`ctest -R catmull_rom`): the
+  spline INTERPOLATES exactly — `eval(i)` returns control point i on the dot — endpoints and out-of-range
+  clamping are correct; it is C0-continuous through interior knots; a collinear set of control points
+  yields a straight curve; the centripetal knots stay finite (no NaN) even through a duplicated point and
+  a 180° reversal (the exact case that breaks uniform Catmull-Rom); and `tessellate` yields the right
+  sample count anchored on the endpoints. Complements the engine's Bézier `Curve2D` and single-segment
+  Catmull-Rom with the cusp-free interpolating spline paths actually want.
 - [x] **Low-discrepancy sequences — Halton / Hammersley / radical inverse** (`math::radicalInverse`,
   `halton2D`, `hammersley2D`, `LowDiscrepancy.hpp`) — DONE (M663); the quasi-random sampling the engine
   had no equivalent of (it had a PRNG and Poisson-disk, but not the QMC sequences). [VERIFIABLE HERE]
