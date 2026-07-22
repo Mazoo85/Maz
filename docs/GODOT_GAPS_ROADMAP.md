@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh mass properties** (`render::computeMassProperties`, `MassProperties`) — DONE (M532); compute the
+  VOLUME, CENTER OF MASS, and full INERTIA TENSOR of the solid bounded by a closed triangle mesh, assuming
+  uniform density — what a physics engine needs to make a custom (non-primitive) collider spin correctly.
+  Physics3D already derives inertia analytically for boxes/spheres/capsules, but an arbitrary imported hull
+  had no way to get its real mass distribution; this fills that. Uses the signed-tetrahedron method
+  (Mirtich / Blow–Binstock): each triangle forms a tetrahedron with the origin and the signed contributions
+  sum to the exact integrals over the enclosed solid, independent of the origin. Inward winding is
+  auto-corrected. Verified (`ctest -R mesh_mass_properties`) against closed-form values: a unit cube has
+  volume 1, centroid (0.5,0.5,0.5), and a 1/6 diagonal inertia with zero products; a side-2 cube gives volume
+  8 and inertia m·s²/6; translating the mesh moves only the centroid (centroid-relative inertia is invariant);
+  reversed winding still yields a positive volume and identical inertia; an open mesh reports invalid.
+  Double-precision, unit density (mass = volume) — scale by real density and shift with parallel axis for a
+  non-centroid pivot. [VERIFIABLE HERE]
 - [x] **Coplanar region segmentation** (`render::segmentCoplanarRegions`, `CoplanarRegions`) — DONE (M531);
   group a mesh's triangles into maximal CONNECTED, near-planar patches — the flat faces of a shape — the
   workhorse behind collision-hull simplification (one convex face instead of a triangle fan), greedy meshing,
