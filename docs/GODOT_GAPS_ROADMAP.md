@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Silhouette / outline edges** (`render::silhouetteEdges`, `render::silhouetteEdgesFromEye`) — DONE (M599); find
+  the edges that form a model's OUTLINE as seen from a given direction — the crisp boundary between the parts facing
+  the camera and the parts facing away. On a sphere seen head-on that's the rim circle; on a cube seen corner-on it's
+  a hexagon. Unlike the engine's sharp/hard/feature-edge tools (M548/M549/M567), which mark folds baked into the
+  geometry regardless of viewpoint, a silhouette is VIEW-DEPENDENT — it slides around the surface as the camera moves.
+  It's what you need for cartoon / ink outlines (draw a fat line along the silhouette), hidden-line and blueprint
+  looks, pencil shading, and shadow-volume caps for stencil shadows. An edge is on the silhouette when one of its two
+  triangles faces toward the view and the other away; an open boundary edge (one triangle) is always on the outline.
+  `silhouetteEdges` takes a view DIRECTION (orthographic / distant camera); `silhouetteEdgesFromEye` takes a camera
+  POSITION and tests each face against its own direction to the eye (correct for a near perspective camera). Verified
+  (`ctest -R mesh_silhouette`): a watertight cube viewed corner-on yields exactly the 6-edge hexagonal outline with no
+  boundary edges; reversing the view direction returns the same 6 edges (the front/back boundary is orientation-
+  invariant); a flat quad has no interior silhouette (its shared diagonal is excluded) but its 4 open edges are the
+  whole outline, and with boundary excluded its silhouette is empty; a distant-eye perspective query matches the
+  orthographic hexagon; an empty mesh is safe. Honest scope: faces are tested by flat geometric normal so the mesh
+  must be consistently wound; a face seen exactly edge-on counts as back-facing (a deliberate tie-break). Returns
+  undirected vertex-index pairs plus a `boundaryCount`. [VERIFIABLE HERE]
 - [x] **Icosphere / geodesic sphere** (`render::makeIcosphere`) — DONE (M598); a round ball built by repeatedly
   splitting an icosahedron (a 20-sided die) into smaller triangles, giving a sphere whose triangles are all nearly
   the SAME size — the good kind of sphere for most jobs. The everyday "UV sphere" (M28 makeSphere) crowds its
