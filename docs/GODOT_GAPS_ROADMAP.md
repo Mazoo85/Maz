@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Hard-edge / smoothing-group split by crease angle** (`render::splitHardEdges`) — DONE (M535); the
+  importer step that decides where a surface shades SMOOTH (normals averaged across an edge) versus FLAT (a
+  crisp crease): every edge whose two faces meet at more than the crease angle is a hard edge, and the shared
+  vertices along it are DUPLICATED so smooth-normal averaging doesn't bleed across the fold. This is Godot's
+  import "Normals > From Smoothing Groups" / shade-smooth-by-angle, and the correct front end to
+  `computeNormals` — a cube welded to 8 vertices would otherwise get rounded, mushy corners. Built on the M528
+  topology: around each vertex the incident triangles are union-find grouped so neighbours joined by a
+  sub-threshold edge stay together, and each group becomes one output vertex with its own averaged normal.
+  Verified (`ctest -R mesh_hard_edges`): a welded cube split at 30° yields 24 vertices (4 per face) with flat
+  axis-aligned normals; split at 100° (> the 90° edges) it stays 8 vertices with normals along the corner
+  diagonals; a coplanar quad never splits; the triangle set is preserved; deterministic. [VERIFIABLE HERE]
 - [x] **Signed distance field bake** (`render::bakeMeshSdf` / `render::sampleMeshSdf`, `MeshSdf`) — DONE
   (M534); sample the signed distance to a closed mesh's surface onto a 3D grid — negative inside the solid,
   positive outside, ~0 on the surface. An SDF is the shared currency behind soft/contact shadows, ambient
