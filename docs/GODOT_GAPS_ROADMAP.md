@@ -150,6 +150,22 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Uniform cubic B-spline (open + closed)** (`math::bsplinePoint`/`bsplineTangent`/`bsplineEval`,
+  `BSpline.hpp`) — DONE (M674); the C²-continuous *approximating* spline behind smooth camera dollies,
+  easing rails, and procedural geometry — and the curve NURBS is built on. [VERIFIABLE HERE] The engine
+  already had cubic Bézier (`Curve2D`) and centripetal Catmull-Rom (`CatmullRomSpline`), which
+  *interpolate* (pass through every waypoint) — right for patrol paths. The cubic B-spline is the
+  complement: it does NOT pass through its control points, it is pulled toward them, and in exchange it
+  is C² continuous (continuous curvature — no kink in acceleration) and provably stays inside the convex
+  hull of its four local control points (it can never overshoot). Each segment is the uniform cubic
+  basis blend `B(t)=1/6[(1-t)³P0 + (3t³-6t²+4)P1 + (-3t³+3t²+3t+1)P2 + t³P3]`; chain forms are OPEN
+  (n≥4 → n-3 segments) and CLOSED (n≥3 → n wrapped segments, a seamless C² loop), with an analytic
+  tangent. Verified (`ctest -R bspline`): the knot-point averages `B(0)=(P0+4P1+P2)/6` and
+  `B(1)=(P1+4P2+P3)/6`; the central-difference tangent `B'(0)=(P2-P0)/2`; a flat control net gives a
+  constant point (partition of unity, weights summing to 1); a hand-computed midpoint; linear precision
+  (evenly-spaced collinear points trace the straight line exactly); convex-hull containment on every
+  sample; open/closed segment counts; C⁰ continuity across every closed-loop join plus seamless wrap
+  (u=0 ≡ u=n); and the analytic tangent matching a central finite difference. Pure vec2 math, header-only.
 - [x] **CIELAB perceptual colour space + CIEDE2000 colour-difference** (`render::toLab`/`fromLab`,
   `deltaE76`/`deltaE2000`, `CieLab.hpp`) — DONE (M673); the perceptually-uniform colour space and the
   modern colour-difference metric behind accurate gradients, palette reduction, and "are these two

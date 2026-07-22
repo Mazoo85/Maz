@@ -902,6 +902,11 @@ target_link_libraries(maz_cielab_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME cielab COMMAND maz_cielab_tests)
 set_tests_properties(cielab PROPERTIES TIMEOUT 30)
 
+add_executable(maz_bspline_tests math/bspline.cpp)
+target_link_libraries(maz_bspline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bspline COMMAND maz_bspline_tests)
+set_tests_properties(bspline PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
