@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Oriented 2D rectangle (OBB2)** (`math::OrientedRect2`, `orientedRectsOverlap`, `OrientedRect2.hpp`)
+  — DONE (M670); a *rotated* rectangle with containment + overlap, filling the gap between the engine's
+  axis-aligned `Rect2` and its 3D oriented box (`Obb`). [VERIFIABLE HERE] Games constantly need a
+  rotated pickup/trigger zone, a tilted camera bound, a hit-test on a rotated UI panel or sprite, or a
+  swinging blade's hurtbox — none of which an AABB can represent. Point-in-rect transforms the point into
+  the box's local frame; rect-vs-rect uses the separating-axis theorem over the four edge normals; plus
+  `corners()` and `projectedRadius()`. Verified (`ctest -R oriented_rect2`): an axis-aligned OBB contains
+  exactly what an AABB would; a 90°-rotated 2×1 box becomes 1-wide/2-tall and correctly rejects a point
+  the AABB would accept; corners are the rotated vertices; identical and close boxes overlap while
+  far-apart ones separate; a 45°-rotated box overlaps A exactly where its diagonal corner (reach √2)
+  reaches and a small gap separates them; and `projectedRadius` onto X/Y returns the half-extents. The
+  2D oriented-box primitive that rounds out the Rect2 / Obb collision set.
 - [x] **Great-circle / spherical geometry** (`math::haversineCentralAngle`, `greatCircleDistance`,
   `latLonToUnit`, `angleBetweenUnit`, `slerpUnit`, `GreatCircle.hpp`) — DONE (M669); distances and
   shortest paths ON a sphere, for planet/globe games, star/sky-dome placement, orbital tracks, and

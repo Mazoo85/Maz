@@ -882,6 +882,11 @@ target_link_libraries(maz_greatcircle_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME great_circle COMMAND maz_greatcircle_tests)
 set_tests_properties(great_circle PROPERTIES TIMEOUT 30)
 
+add_executable(maz_orientedrect2_tests math/orientedrect2.cpp)
+target_link_libraries(maz_orientedrect2_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME oriented_rect2 COMMAND maz_orientedrect2_tests)
+set_tests_properties(oriented_rect2 PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
