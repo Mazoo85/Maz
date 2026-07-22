@@ -727,6 +727,11 @@ target_link_libraries(maz_topologicalsort_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME topological_sort COMMAND maz_topologicalsort_tests)
 set_tests_properties(topological_sort PROPERTIES TIMEOUT 30)
 
+add_executable(maz_stronglyconnected_tests core/stronglyconnected.cpp)
+target_link_libraries(maz_stronglyconnected_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME strongly_connected COMMAND maz_stronglyconnected_tests)
+set_tests_properties(strongly_connected PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

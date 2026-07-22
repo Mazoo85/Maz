@@ -131,6 +131,22 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Strongly-connected components** (`core::stronglyConnectedComponents` / `core::sameComponent` /
+  `core::SccResult`) — DONE (M638); the companion to topologicalSort (M637): where that orders a graph with no
+  cycles, this FINDS the cycles and clusters them into maximal mutually-reachable groups. Uses: collapsing a
+  tangle of mutually-dependent quests / dialogue states / crafting recipes into one unit, detecting circular
+  references in a scene or resource graph and reporting exactly which nodes form each loop, condensing a messy
+  dependency graph into a clean DAG (each SCC becomes one super-node), and deadlock/liveness analysis on a
+  state machine. Tarjan's algorithm run ITERATIVELY (explicit work stack, not recursion) so it is safe on very
+  deep graphs; components come out in REVERSE TOPOLOGICAL order of the condensation (a sink SCC before the ones
+  pointing into it) with each component's nodes sorted for determinism, and a `componentOf[node]` map. Godot
+  ships no SCC primitive. Verified (`ctest -R "^strongly_connected$"`): a 3-cycle is one component while an
+  isolated node stays separate; a DAG yields N singletons; the classic two-SCC example {0,1,2}→{3,4} groups
+  correctly and preserves the reverse-topological order (sink {3,4} before {0,1,2}); `componentOf` partitions
+  every node exactly once and matches `components[]`; every cross-component edge points sink-ward; a self-loop
+  is its own single-node SCC; the adjacency overload agrees; empty/single-node and out-of-range inputs are
+  handled. Honest scope: partition + condensation ordering only (no bridge/articulation or 2-edge-connected
+  variants — those are separate algorithms). [VERIFIABLE HERE]
 - [x] **Topological sort** (`core::topologicalSort` / `core::hasCycle` / `core::TopoResult`) — DONE (M637); order
   the nodes of a directed graph so every "must come before" edge points forward — the workhorse behind
   dependency resolution: tech/skill trees that unlock in a legal order, crafting chains (smelt ore → forge
