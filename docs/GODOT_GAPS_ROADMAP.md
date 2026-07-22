@@ -180,6 +180,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **UV / texel-density analysis** (`render::analyzeUvDensity`, `UvDensityStats`) — DONE (M536); the
+  asset-QA pass that checks a mesh's texture coordinates are sane before it ships — is the texel density
+  uniform (so the texture is equally sharp everywhere, no stretched/blurry patches), and how much of the UV
+  square does the layout use? Every DCC and Godot's lightmap importer offer this "texel density / UV stretch"
+  checker. Per triangle it computes the UV-area ÷ world-area ratio (constant across the mesh = consistent
+  density; an outlier = a stretched or over-sampled face), totals the world and UV areas (UV coverage of the
+  [0,1] square — >1 means overlap/tiling, <1 means wasted atlas space), reports the area-weighted average and
+  a min/max uniformity ratio, and counts degenerate faces. Verified (`ctest -R uv_density`): a unit quad on
+  the unit UV square reads uniform density 1; scaling one triangle's UVs 2× quadruples that triangle's density
+  (area scales as the square) giving a uniformity ratio of 4; the world/UV area totals are exact; a degenerate
+  triangle is counted and excluded from the stats. [VERIFIABLE HERE]
 - [x] **Hard-edge / smoothing-group split by crease angle** (`render::splitHardEdges`) — DONE (M535); the
   importer step that decides where a surface shades SMOOTH (normals averaged across an edge) versus FLAT (a
   crisp crease): every edge whose two faces meet at more than the crease angle is a hard edge, and the shared

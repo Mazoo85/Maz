@@ -222,6 +222,11 @@ target_link_libraries(maz_meshhardedges_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_hard_edges COMMAND maz_meshhardedges_tests)
 set_tests_properties(mesh_hard_edges PROPERTIES TIMEOUT 30)
 
+add_executable(maz_uvdensity_tests render/uvdensity.cpp)
+target_link_libraries(maz_uvdensity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME uv_density COMMAND maz_uvdensity_tests)
+set_tests_properties(uv_density PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
