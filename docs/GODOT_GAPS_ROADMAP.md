@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Spline arc-length reparameterization** (`math::ArcLengthTable`, `ArcLength.hpp`) — DONE (M668);
+  the "move at constant speed along a path" tool that pairs with the Catmull-Rom spline (M664) and Bézier
+  `Curve2D`. [VERIFIABLE HERE] A curve's natural parameter u∈[0,1] does not advance at constant speed —
+  equal steps in u cover more ground on straight sections and less through tight bends — so an object
+  animated by raw u visibly speeds up and slows down. Arc-length reparameterization fixes it: sample the
+  curve, build a cumulative chord-length table, and map DISTANCE↔parameter. Feed it the points from
+  `CatmullRomSpline::tessellate` and you can drive a camera/enemy/projectile along the path at uniform
+  speed (`parameterAtDistance` / `parameterAtFraction`), query how far along a parameter is
+  (`distanceAtParameter`), or place N evenly-spaced points (`equalArcParameters`). Verified
+  (`ctest -R arc_length`): total length equals the summed chords; on a uniformly-sampled straight line
+  distance maps linearly to parameter; the distance→parameter→distance round-trip is exact; on a
+  deliberately non-uniform sampling the distance-midpoint parameter is well past the raw midpoint (proving
+  it actually reparameterizes); distances clamp to [0,1]; and `equalArcParameters` resamples a real
+  Catmull-Rom spline into roughly equidistant points (spans within ~15%). Completes the spline/curve
+  toolset with the constant-speed traversal games actually need.
 - [x] **Tonemapping operators — ACES / Reinhard / Uncharted2** (`render::acesFilmic`, `reinhard`,
   `reinhardExtended`, `uncharted2`, `Tonemap.hpp`) — DONE (M667); the HDR→display color curves as a
   reusable, tested CPU function. [VERIFIABLE HERE] A physically-lit scene produces radiance well above 1.0
