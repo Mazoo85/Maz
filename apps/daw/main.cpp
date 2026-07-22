@@ -325,6 +325,20 @@ int runHeadless(const core::AppConfig& cfg) {
     }
 
     std::vector<float> buf = engine.renderOffline(cfg.seconds);
+    // Optional tail capture: keep the decaying reverb/delay/release ring instead of cutting it off.
+    if (cfg.tailSeconds > 0.0) {
+        const std::vector<float> tail = engine.renderOfflineTail(cfg.tailSeconds);
+        buf.insert(buf.end(), tail.begin(), tail.end());
+        MAZ_LOG_INFO("audio: captured %.2f s of tail (%zu frames)",
+                     engine.config().channels > 0
+                         ? static_cast<double>(tail.size()) /
+                               static_cast<double>(engine.config().channels) /
+                               static_cast<double>(cfg.sampleRate)
+                         : 0.0,
+                     engine.config().channels > 0 ? tail.size() / static_cast<size_t>(
+                                                        engine.config().channels)
+                                                  : tail.size());
+    }
     const audio::AudioConfig& acfg = engine.config();
     const int channels = acfg.channels;
     const int frames = channels > 0 ? static_cast<int>(buf.size()) / channels : 0;

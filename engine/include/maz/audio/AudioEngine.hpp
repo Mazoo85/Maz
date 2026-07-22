@@ -109,6 +109,12 @@ public:
     // (frames * channels floats). Handy for WAV export and deterministic tests.
     std::vector<float> renderOffline(double seconds);
 
+    // Continue rendering after the main bounce to capture a decaying reverb/delay/release tail: renders
+    // blocks (interleaved) until a whole block's peak falls below `threshold` or `maxTailSeconds` is
+    // reached, whichever comes first, and returns just the captured tail. Append it to renderOffline()'s
+    // output so an export doesn't truncate the tail. Returns empty when not applicable.
+    std::vector<float> renderOfflineTail(double maxTailSeconds, float threshold = 0.0003f);
+
     // The three mixer buses rendered separately (each interleaved stereo), for FL-style stem export:
     // each bus runs through its own insert strip (per-track EQ/drive/comp/gain/pan) but NOT the master
     // chain, so the drum/lead/bass stems can be mixed or mastered downstream independently. Advances

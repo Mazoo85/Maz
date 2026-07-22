@@ -447,6 +447,35 @@ std::vector<float> AudioEngine::renderOffline(double seconds) {
     return buffer;
 }
 
+std::vector<float> AudioEngine::renderOfflineTail(double maxTailSeconds, float threshold) {
+    std::vector<float> tail;
+    if (cfg_.sampleRate <= 0 || cfg_.channels <= 0 || maxTailSeconds <= 0.0) {
+        return tail;
+    }
+    // Keep rendering blocks (the transport keeps advancing, but with the song finished it emits only the
+    // ringing reverb/delay/release tails) until a whole block falls below the silence threshold or the
+    // max-tail cap is reached — so an export doesn't truncate a decaying tail.
+    const int maxFrames = static_cast<int>(maxTailSeconds * static_cast<double>(cfg_.sampleRate));
+    constexpr int kBlock = 512;
+    std::vector<float> block(static_cast<size_t>(kBlock) * static_cast<size_t>(cfg_.channels), 0.0f);
+    int done = 0;
+    while (done < maxFrames) {
+        const int n = std::min(kBlock, maxFrames - done);
+        render(block.data(), n); // render() zeroes then fills, so no pre-clear needed
+        const size_t count = static_cast<size_t>(n) * static_cast<size_t>(cfg_.channels);
+        float pk = 0.0f;
+        for (size_t i = 0; i < count; ++i) {
+            pk = std::max(pk, std::fabs(block[i]));
+        }
+        tail.insert(tail.end(), block.begin(), block.begin() + static_cast<long>(count));
+        done += n;
+        if (pk < threshold) {
+            break; // fully decayed → stop early
+        }
+    }
+    return tail;
+}
+
 AudioEngine::Stems AudioEngine::renderStemsOffline(double seconds) {
     Stems stems;
     if (cfg_.channels != 2 || cfg_.sampleRate <= 0) {

@@ -232,6 +232,34 @@ int main() {
     check(stereo.size() >= 2 && std::fabs(stereo[0] - stereo[1]) < 1e-6f,
           "interleaved channels carry the same mono signal");
 
+    // --- renderOfflineTail: capture a decaying tail, stop early once silent ---
+    {
+        // A dry voice released to silence: the tail rings only briefly, so tail capture stops well
+        // before the cap (proving the silence early-out). A long reverb makes the captured tail longer.
+        auto tailFrames = [&](bool reverb) {
+            audio::AudioEngine e;
+            e.initOffline();
+            if (reverb) {
+                e.mixer().reverb().setEnabled(true);
+                e.mixer().reverb().setMix(0.9f);
+                e.mixer().reverb().setRoomSize(0.95f);
+            }
+            e.noteOn(440.0f);
+            (void)e.renderOffline(0.2);
+            e.noteOff();
+            const std::vector<float> captured = e.renderOfflineTail(5.0);
+            return e.config().channels > 0
+                       ? captured.size() / static_cast<size_t>(e.config().channels)
+                       : captured.size();
+        };
+        const size_t dryTail = tailFrames(false);
+        const size_t wetTail = tailFrames(true);
+        const size_t capFrames = 5 * static_cast<size_t>(engine.config().sampleRate);
+        check(dryTail > 0 && dryTail < capFrames,
+              "tail capture rings then stops early once the dry signal is silent");
+        check(wetTail > dryTail, "a long reverb tail is captured for longer than the dry tail");
+    }
+
     // Offline render honors a custom sample rate (the --samplerate export path).
     {
         audio::AudioEngine e44;

@@ -31,6 +31,8 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.toneHz = static_cast<float>(std::atof(argv[++i]));
         } else if (std::strcmp(arg, "--seconds") == 0 && i + 1 < argc) {
             cfg.seconds = std::atof(argv[++i]);
+        } else if (std::strcmp(arg, "--tail") == 0 && i + 1 < argc) {
+            cfg.tailSeconds = std::atof(argv[++i]);
         } else if (std::strcmp(arg, "--wav") == 0 && i + 1 < argc) {
             cfg.wavPath = argv[++i];
         } else if (std::strcmp(arg, "--dither") == 0) {

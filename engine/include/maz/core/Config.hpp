@@ -18,6 +18,8 @@ struct AppConfig {
     // Audio / DAW options (used by the `daw` app).
     float toneHz = 440.0f;          // --freq HZ : oscillator frequency
     double seconds = 1.0;           // --seconds N : length of an offline render
+    double tailSeconds = 0.0;       // --tail N : after the render, capture up to N s of reverb/delay
+                                    //            tail (stops early once silent) so it isn't cut off
     const char* wavPath = nullptr;  // --wav PATH : write the offline render to a WAV file
     bool dither = false;            // --dither : TPDF-dither the 16-bit WAV/stem export (mastering)
     int fadeInMs = 0;               // --fadein N : linear fade-in over the first N ms of the bounce
