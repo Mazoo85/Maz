@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Explode faces** (`render::explodeFaces`, `render::explodeFacesRadial`) — DONE (M578); pull a mesh's
+  triangles APART so the surface blooms open like an exploded-view diagram. `explodeFaces` unwelds every triangle
+  (each gets its own three corners carrying that triangle's flat face normal) and pushes it OUTWARD along its own
+  face normal by `distance` — a cube's six sides slide straight out, a sphere's facets bristle. `explodeFacesRadial`
+  pushes each triangle away from a centre point (the bbox centre by default) so every piece flies out from the
+  middle regardless of facing — the classic exploded-parts look. Games use this for unlock reveals, deaths,
+  dissolve/shatter-bloom, and assembly animations; animating `distance` 0→D is the whole effect. Reuses the same
+  facet-split idea as `MeshFacet` (from which it differs: MeshFacet flat-shades IN PLACE, this also MOVES each
+  face). Verified (`ctest -R mesh_explode`): on a unit cube, N triangles become exactly 3N sequentially-indexed
+  vertices; distance 0 leaves the bounds at −1..1 (pure facet split); exploding by 0.5 grows the bbox to ±1.5 on
+  every axis (each face slid out 0.5 along its normal); every corner carries a unit-length face normal; radial
+  explode grows the bbox symmetrically about the centre; empty is safe. Honest scope: this triples the vertex
+  count (3× triangles, no sharing — re-run `reindexMesh` at distance 0 to recompact); positions and normals are
+  rewritten, UVs/colours ride along; degenerate faces (no defined normal) are copied in place; distance may be
+  negative to implode inward. [VERIFIABLE HERE]
 - [x] **Snap-to-grid** (`render::snapVerticesToGrid` → `SnapResult`) — DONE (M577); round every vertex position
   onto a regular WORLD grid (say 0.25 units) so each vertex jumps to the nearest multiple. The "tidy up" pass for
   CAD-like or block/voxel meshes: it removes the tiny floating-point drift that creeps in from modelling, rotation
