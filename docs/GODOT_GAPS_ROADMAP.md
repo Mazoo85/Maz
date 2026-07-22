@@ -131,6 +131,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Varint / LEB128 + zigzag** (`io::appendVarint` / `io::readVarint` / `io::appendVarintSigned` /
+  `io::zigzagEncode` / `io::varintSize`) — DONE (M639); the compact way to serialize integers that are usually
+  small — one byte for values under 128, two under 16384, only paying for 64 bits when the number is genuinely
+  huge — the encoding Protocol Buffers, WebAssembly, DWARF and most netcode use to shrink save files, replay
+  streams, delta-compressed snapshots and network packets. Unsigned values use plain LEB128; signed values are
+  folded through zigzag first so small negatives (−1, −2, …) also fit in one byte instead of ten. Decoding is
+  bounds- and overflow-checked (a truncated or over-long stream returns false rather than reading past the
+  buffer or wrapping). Complements the engine's fixed-width StreamPeer and base64 (M154). Verified (`ctest -R
+  "^varint$"`): the one-byte range and length boundaries (127/128, 16383/16384) are exact and match
+  `varintSize`; the canonical spec encodings (128→80 01, 300→AC 02) are byte-correct; a wide sweep of unsigned
+  values plus UINT64_MAX round-trip with the offset advancing exactly; zigzag maps 0,−1,1→0,1,2 and −1 encodes
+  in one byte; signed extremes (INT64_MIN/MAX) round-trip; four mixed values pack into one buffer and decode
+  back sequentially; and truncated, empty, and over-long (>64-bit) streams are all rejected safely. Honest
+  scope: the LEB128/zigzag integer codec itself (not a full message schema — pair it with StreamPeer for
+  framing). [VERIFIABLE HERE]
 - [x] **Strongly-connected components** (`core::stronglyConnectedComponents` / `core::sameComponent` /
   `core::SccResult`) — DONE (M638); the companion to topologicalSort (M637): where that orders a graph with no
   cycles, this FINDS the cycles and clusters them into maximal mutually-reachable groups. Uses: collapsing a
