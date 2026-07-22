@@ -967,6 +967,11 @@ target_link_libraries(maz_medianfilter_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME median_filter COMMAND maz_medianfilter_tests)
 set_tests_properties(median_filter PROPERTIES TIMEOUT 30)
 
+add_executable(maz_inversebilinear_tests math/inversebilinear.cpp)
+target_link_libraries(maz_inversebilinear_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME inverse_bilinear COMMAND maz_inversebilinear_tests)
+set_tests_properties(inverse_bilinear PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

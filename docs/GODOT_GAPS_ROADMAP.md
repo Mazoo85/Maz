@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Inverse bilinear interpolation** (`math::invBilinear`/`bilinear`, `InverseBilinear.hpp`) — DONE
+  (M687); map a point inside a (possibly warped) quad back to its (u,v) coordinates in the unit square.
+  [VERIFIABLE HERE] Forward bilinear (blend four corners by (u,v)) is easy; the inverse — "I have point P
+  inside this quad, what (u,v) produced it?" — is what you need to look up the UV/colour of a hit position
+  in a warped or perspective-flattened quad, deform a grid, map screen-picks into a distorted panel's
+  local space, or resample between non-aligned grids. For a general non-parallelogram quad it requires a
+  quadratic solve (Íñigo Quílez's robust formulation), falling back to the linear affine case for a
+  parallelogram. Corners A(0,0) B(1,0) C(1,1) D(0,1). Verified (`ctest -R inverse_bilinear`): the unit
+  square maps a point to itself; the four corners recover exactly (0,0)/(1,0)/(1,1)/(0,1) and the
+  corner-average recovers (0.5,0.5); forward-then-inverse round-trips (u,v) across a non-parallelogram
+  trapezoid (exercising the quadratic branch); and a point well outside the quad is flagged invalid.
+  Pure vec2 math, header-only, deterministic.
 - [x] **Median filter (edge-preserving denoise)** (`render::medianFilter`, `MedianFilter.hpp`) — DONE
   (M686); remove "salt-and-pepper" speckle while keeping edges crisp — for cleaning noisy masks,
   denoising generated/scanned textures, and pre-filtering before thresholding or edge detection.
