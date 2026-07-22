@@ -87,6 +87,32 @@ inline Image noiseTexture(int width, int height, float scale = 0.08f, std::uint6
     return img;
 }
 
+// A running-bond BRICK WALL: rows of `brickW`×`brickH` bricks separated by `mortar`-thick lines, each row shifted
+// by `offsetFrac` of a brick relative to the one above (0.5 = the classic half-brick stagger). `brick` fills the
+// bricks, `mortar` fills the gaps. Great for building fronts, dungeon walls, and paths — pair with `gradientMap`
+// to tint and `heightToNormalMap` (bricks proud, mortar recessed) for relief. Sizes below 1 are treated as 1.
+inline Image brickWall(int width, int height, int brickW, int brickH, int mortarPx, const Color& brick,
+                       const Color& mortar, float offsetFrac = 0.5f) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const int bw = brickW < 1 ? 1 : brickW;
+    const int bh = brickH < 1 ? 1 : brickH;
+    const int m = mortarPx < 1 ? 1 : mortarPx;
+    const int periodX = bw + m, periodY = bh + m;
+    const int shiftPx = static_cast<int>(offsetFrac * static_cast<float>(periodX));
+    for (int y = 0; y < height; ++y) {
+        const int row = y / periodY;
+        const int ly = y % periodY;
+        const int shift = (row % 2 != 0) ? shiftPx : 0;
+        for (int x = 0; x < width; ++x) {
+            const int lx = (x + shift) % periodX;
+            const bool isMortar = ly >= bh || lx >= bw;
+            img.setPixel(x, y, isMortar ? mortar : brick);
+        }
+    }
+    return img;
+}
+
 // Which cellular field a `cellularTexture` bakes.
 enum class Cellular {
     Cells,  // F1 distance: dark feature-point centres brightening outward — stone, scales, cracked mud, caustics, bubbles.

@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Brick wall pattern** (`render::patterns::brickWall`) — DONE (M617); a running-bond brick texture: rows of
+  `brickW`×`brickH` bricks separated by `mortarPx`-thick lines, each row shifted `offsetFrac` of a brick relative to
+  the one above (0.5 = the classic half-brick stagger, 0 = a stacked bond). Distinct from `checkerboard` — this is
+  the iconic building-front / dungeon-wall / path texture, and it composes with `gradientMap` (tint) and
+  `heightToNormalMap` (bricks proud, mortar recessed) for relief. Verified (`ctest -R image_brick`): the size is
+  honoured, both the brick and mortar colours appear, the full horizontal mortar band is mortar-coloured while a
+  brick-interior row contains brick pixels, the running bond genuinely staggers (adjacent rows' vertical mortar
+  columns differ) while `offsetFrac` 0 lines them up (stacked bond), a greyscaled wall keeps brick/mortar contrast
+  (usable as a height map), and zero/sub-1 sizes are safe (clamped to 1). Honest scope: a hard-edged two-colour
+  pattern (no per-brick colour variation or bevel — layer noise via `blend` for that). [VERIFIABLE HERE]
 - [x] **Image tone / adjustments** (`render::adjustBrightness/adjustContrast/adjustGamma/invert/grayscale/threshold`
   + `mapRGB`) — DONE (M616); the "levels / adjustments" panel for CPU images, completing the procedural-texture
   workshop (generate → colorize → blend → **adjust**). Brightness adds a clamped offset; contrast scales about the
