@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Markov chain procedural name generator** (`game::MarkovName`, `MarkovName.hpp`) — DONE (M682);
+  learn the letter patterns of an example word list (elf names, town names, potions, sci-fi surnames…)
+  and invent NEW words that share the flavour without copying the inputs — the classic lightweight
+  generator behind fantasy name makers and roguelike vocabularies. [VERIFIABLE HERE] An order-k character
+  Markov model: each next letter is drawn from the distribution that followed the previous k letters in
+  training (higher order hugs the source, lower goes wilder), with start/end sentinels so words begin and
+  end plausibly. Deterministic given a `core::Pcg32` seed. Verified (`ctest -R markov_name`): the same
+  seed always yields the same name (reproducibility); a spread of seeds yields a variety of distinct
+  names; EVERY generated word is valid — re-deriving its letter transitions confirms each one was
+  observed in training, so the model never invents unseen patterns (the core Markov invariant); training
+  only on words starting with a given letter yields names starting with that letter; an untrained model
+  generates nothing. Header-only, deterministic.
 - [x] **Elo rating system** (`game::eloExpectedScore`/`eloUpdate`/`eloPlay`/`eloKFactor`, `Elo.hpp`) —
   DONE (M681); the ranking + matchmaking math behind ranked ladders, leaderboards, bracket seeding, and
   scaling AI difficulty to a player's measured skill (Arpad Elo's system, as used by chess and virtually
