@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Triangle-quality / sliver analysis** (`render::analyzeTriangleQuality`, `TriangleQualityStats`) — DONE
+  (M537); the mesh-QA pass that flags badly-shaped triangles — long thin slivers and needles shade poorly,
+  self-shadow, crawl under rasterization, and wreck physics and simplification. Every meshing tool reports a
+  "triangle quality / minimum angle" histogram for this. Per triangle it computes the normalized mean-ratio
+  quality q = 4·√3·area / (a²+b²+c²) — 1 for a perfect equilateral, → 0 as it degenerates into a sliver — plus
+  its smallest interior angle (degrees, the number artists eyeball), and summarizes the worst triangle, the
+  sliver count under a threshold, and the degenerate count. Verified (`ctest -R triangle_quality`) against
+  closed-form values: an equilateral scores 1 with a 60° min angle; a right isosceles scores √3/2 ≈ 0.866 with
+  45°; a long thin sliver scores near 0 with a tiny min angle and is flagged; the worst-triangle index and the
+  sliver/degenerate counts are correct. [VERIFIABLE HERE]
 - [x] **UV / texel-density analysis** (`render::analyzeUvDensity`, `UvDensityStats`) — DONE (M536); the
   asset-QA pass that checks a mesh's texture coordinates are sane before it ships — is the texel density
   uniform (so the texture is equally sharp everywhere, no stretched/blurry patches), and how much of the UV
