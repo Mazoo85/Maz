@@ -342,6 +342,11 @@ target_link_libraries(maz_meshweldauto_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_weld_auto COMMAND maz_meshweldauto_tests)
 set_tests_properties(mesh_weld_auto PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshsymmetry_tests render/meshsymmetry.cpp)
+target_link_libraries(maz_meshsymmetry_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_symmetry COMMAND maz_meshsymmetry_tests)
+set_tests_properties(mesh_symmetry PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

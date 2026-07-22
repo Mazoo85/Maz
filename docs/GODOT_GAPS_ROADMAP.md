@@ -180,6 +180,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh symmetry-plane detection** (`render::detectSymmetryPlanes`, `SymmetryReport`, `SymmetryPlane`,
+  `SymmetryAxis`) — DONE (M560); decide whether a mesh is MIRROR-SYMMETRIC and across which plane. Most game
+  props and characters are built symmetric (a face, a car, a sword), and knowing the symmetry plane unlocks a
+  lot: symmetric modelling/sculpt tools that mirror edits, half-mesh authoring then reflect (feeds the M547
+  mirror tool), UV/texture mirroring, left-vs-right variant checks, and pivot/alignment fixes for importers that
+  landed a model off-axis. This tests the three axis-aligned candidate planes through the mesh's centroid (normal
+  along X, Y, Z), reflects every vertex across each, and scores the plane by the fraction of vertices that land
+  on an existing vertex within tolerance — reporting the best plane, each axis' score, and a symmetric flag. A
+  spatial hash keeps the correspondence lookup near-linear. Verified (`ctest -R mesh_symmetry`): an origin-centred
+  box scores ~1 and symmetric on all three axes; a point set mirrored only in X scores ~1 on X (symmetric), fails
+  Y, and reports X as the best plane; a lone unpaired vertex drops the best score below the acceptance threshold
+  (also shifting the centroid off the box — the honest consequence of centroid-based placement); an off-centre
+  box is still found symmetric about its own centre (the plane sits at the centroid, not the world origin); empty
+  meshes are safe. Honest scope: only the three AXIS-ALIGNED planes through the centroid are tested — a model
+  symmetric about a tilted or off-centre plane reads as non-symmetric (fit an OBB via math::FitObb and test in
+  its frame); scoring is by VERTEX correspondence, so an asymmetric tessellation of a symmetric SHAPE can score
+  below 1; default tolerance scales with the bounding box (1e-3 of its diagonal). [VERIFIABLE HERE]
 - [x] **Weld-tolerance auto-detect** (`render::suggestWeldTolerance`, `render::autoWeld`, `WeldSuggestion`) —
   DONE (M559); look at how a mesh's vertices are spaced and SUGGEST a good weld distance, so you don't have to
   guess the epsilon that M525 weldVertices needs. Importers routinely duplicate the vertices along every UV seam
