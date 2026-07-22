@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Procedural noise texture** (`render::patterns::noiseTexture`) — DONE (M612); generate a grey fractal-noise
+  (fbm Perlin) image in code — clouds, marble, dirt, smoke, static, weathering masks, or a height source to feed the
+  normal-map baker (M608). Extends the image-pattern family (M607) using the engine's existing `core::Noise`. `scale`
+  sets the frequency (smaller = broader blobs), `seed` picks the pattern (same seed → same texture), `octaves` layers
+  in fine detail. Verified (`ctest -R image_noise`): the texture honours its requested size, every pixel is grey
+  (r==g==b) and in [0,1], and the field genuinely VARIES across the image (max−min > 0.1, not a flat fill); the same
+  seed reproduces a byte-identical texture while a different seed changes it; and — proving composability — a noise
+  image fed into `heightToNormalMap` produces a valid normal map that points generally outward (blue ≥ 128); a
+  non-positive size returns an empty image. Honest scope: plain fbm value in grey with no gamma handling; it is not
+  tile-seamless (wrap the domain if you need a repeating texture). [VERIFIABLE HERE]
 - [x] **Hollow extrude / ring prism** (`render::extrudeRing`) — DONE (M611); extrude a shape WITH a hole — the solid
   region between an outer outline and an inner one — into a `depth`-thick prism. This makes a picture frame, a washer,
   a window frame, a pipe with a shaped cross-section, a ring, or a letter "O" — the one thing plain `extrudePolygon`

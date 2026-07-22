@@ -1,9 +1,11 @@
 #pragma once
 
+#include "maz/core/Noise.hpp"       // core::Noise (fbm)
 #include "maz/render/ColorOps.hpp" // Color
 #include "maz/render/Image.hpp"     // Image
 
 #include <cmath>
+#include <cstdint>
 
 // maz::render PROCEDURAL IMAGE PATTERNS — generate common textures in code, no art files needed. A checkerboard
 // for a placeholder / "missing texture" material, UV-check pattern, or floor tiles; a smooth top-to-bottom gradient
@@ -58,6 +60,27 @@ inline Image radialGradient(int width, int height, const Color& centre, const Co
             const Color c{centre.r + (edge.r - centre.r) * t, centre.g + (edge.g - centre.g) * t,
                           centre.b + (edge.b - centre.b) * t, centre.a + (edge.a - centre.a) * t};
             img.setPixel(x, y, c);
+        }
+    }
+    return img;
+}
+
+// A seamless-ish grey NOISE texture from fbm (fractal Perlin): clouds, marble, dirt, smoke, static, or a height
+// source for `heightToNormalMap`. `scale` is the world frequency (smaller = broader blobs), `seed` picks the
+// pattern (same seed → same texture), `octaves` sets how much fine detail is layered in. Values map fbm's ~[-1,1]
+// into grey [0,1].
+inline Image noiseTexture(int width, int height, float scale = 0.08f, std::uint64_t seed = 0, int octaves = 4) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const core::Noise n(seed);
+    const int oct = octaves < 1 ? 1 : octaves;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float v = n.fbm2(static_cast<float>(x) * scale, static_cast<float>(y) * scale, oct); // ~[-1,1]
+            v = v * 0.5f + 0.5f;
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            img.setPixel(x, y, Color{v, v, v, 1.0f});
         }
     }
     return img;
