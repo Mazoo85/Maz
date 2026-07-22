@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Connected components / mesh island splitting** (`render::splitConnectedComponents`,
+  `render::connectedComponentLabels`) — DONE (M529); the "separate into loose parts" operation every DCC and
+  Godot's tooling offers — pull a merged triangle soup apart into the independent sub-meshes that are actually
+  STITCHED together. Two triangles join an island when they share an EDGE (a vertex-only touch does not
+  connect them, matching how importers/physics treat loose parts). Built on the M528 topology: flood-fill
+  across edge-twins, then compact each island into its own MeshData with a minimal remapped vertex list.
+  Useful for per-part physics bodies, per-island culling/streaming, and stray-geometry cleanup. Verified
+  (`ctest -R mesh_components`): two disjoint cubes split into two watertight islands (12+12 tris, exact
+  partition), a single cube stays whole, labels are deterministic and cover every triangle, and two cubes
+  touching at only a shared corner vertex remain two islands. [VERIFIABLE HERE]
 - [x] **Mesh topology / connectivity** (`render::buildTopology`, `render::MeshTopology`) — DONE (M528); the
   reusable half-edge-style adjacency an engine builds once so everything needing to know how a mesh is
   STITCHED — boundary/hole detection, watertightness (is it a closed solid?), per-triangle neighbours for
