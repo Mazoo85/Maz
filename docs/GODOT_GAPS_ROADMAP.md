@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Monotone cubic interpolation (PCHIP)** (`math::MonotoneCubic`, `MonotoneCubic.hpp`) — DONE (M701);
+  a smooth C1 curve through data points that provably NEVER OVERSHOOTS (Fritsch-Carlson tangent clamping).
+  [VERIFIABLE HERE] The crucial difference from the engine's other interpolators: the natural `CubicSpline`
+  is C2 but can bulge past the data, and Catmull-Rom (VectorOps) overshoots too — a run of equal values can
+  ring below/above them. PCHIP guarantees the curve stays monotone wherever the data is monotone and never
+  leaves the bracket of its neighbouring samples, so it is the right tool for a tone / gamma / difficulty
+  curve, a health or fuel gauge response, an audio envelope, or a terrain cross-section that must not dip
+  below the sampled heights. O(n) build, O(log n) eval, endpoint-clamped. Tested: exact interpolation
+  through control points, a densely-sampled monotone dataset staying non-decreasing AND inside every
+  segment's value bracket, the classic step data {0,0,0,1,1,1} never leaving [0,1] (where a natural spline
+  rings), flat-stays-flat, endpoint clamping, and single-point/empty/mismatch edges. Header-only, std-only.
 - [x] **Jaro & Jaro-Winkler string similarity** (`core::jaro`/`jaroWinkler`, `JaroWinkler.hpp`) — DONE
   (M700); a normalised [0,1] closeness score tuned for SHORT strings and typos (1 identical, 0 nothing in
   common). [VERIFIABLE HERE] Complements the existing fuzzy tools — StringUtils/FuzzyMatch give Levenshtein

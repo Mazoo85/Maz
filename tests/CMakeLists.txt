@@ -2336,3 +2336,8 @@ add_executable(maz_jarowinkler_tests core/jarowinkler.cpp)
 target_link_libraries(maz_jarowinkler_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME jaro_winkler COMMAND maz_jarowinkler_tests)
 set_tests_properties(jaro_winkler PROPERTIES TIMEOUT 30)
+
+add_executable(maz_monotonecubic_tests math/monotonecubic.cpp)
+target_link_libraries(maz_monotonecubic_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME monotone_cubic COMMAND maz_monotonecubic_tests)
+set_tests_properties(monotone_cubic PROPERTIES TIMEOUT 30)
