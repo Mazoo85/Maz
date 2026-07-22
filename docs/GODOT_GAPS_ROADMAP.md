@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Thermal erosion (terrain weathering)** (`game::thermalErosion`, `Erosion.hpp`) — DONE (M729); weather a
+  procedural heightmap so it looks geologically aged instead of raw fractal noise. [VERIFIABLE HERE] Terrain
+  straight out of Perlin/fbm or diamond-square has implausibly steep, jagged slopes; real hillsides can't hold
+  material past a "talus angle" — anything steeper crumbles and slides downhill until the slope relaxes.
+  Thermal erosion simulates that: wherever an adjacent height difference exceeds the talus threshold, a
+  fraction of the excess is moved to the lower neighbours in proportion to how much lower each is; run for a
+  number of passes it softens ridges, fills gullies, and forms natural scree slopes. It is the cheap, stable
+  half of terrain weathering (the other being hydraulic/water erosion) and a staple of procedural landscape
+  tools. It only MOVES material between cells — never creates or destroys it — via a Jacobi (double-buffered)
+  update so it is order-independent and deterministic. The ctest proves TOTAL MASS is conserved to float
+  epsilon over 80 passes on jagged terrain, that the steepest adjacent slope RELAXES to under half its
+  starting value, that a single tall spike spreads to its neighbours (spike shrinks, neighbours rise, mass
+  conserved), that terrain already below the talus angle is left untouched, and determinism. Godot has no
+  terrain erosion. Header-only, std-only. ctest `thermal_erosion`.
 - [x] **k-means clustering** (`math::kMeans`, `KMeans.hpp`) — DONE (M728); partition N-dimensional points into
   k clusters, each represented by its centroid, so points end up grouped with their nearest centre (Lloyd's
   algorithm with k-means++ seeding). [VERIFIABLE HERE] The general clustering workhorse: grouping

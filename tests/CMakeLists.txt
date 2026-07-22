@@ -2476,3 +2476,8 @@ add_executable(maz_kmeans_tests math/kmeans.cpp)
 target_link_libraries(maz_kmeans_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME kmeans COMMAND maz_kmeans_tests)
 set_tests_properties(kmeans PROPERTIES TIMEOUT 30)
+
+add_executable(maz_erosion_tests game/erosion.cpp)
+target_link_libraries(maz_erosion_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME thermal_erosion COMMAND maz_erosion_tests)
+set_tests_properties(thermal_erosion PROPERTIES TIMEOUT 30)
