@@ -118,8 +118,11 @@ only be written blind, the docs say exactly that.
 - [x] **ProjectSettings / project.godot manifest** (`core::ProjectSettings`) — DONE (M518); typed project-wide
   settings (name, main scene, window size) with Godot dotted keys + sectioned save/load round-trip. Foundation
   for the editor + export. [VERIFIABLE HERE]
-- [ ] **Desktop export/packaging** — extend `tools/package.sh` into a real per-OS bundler
-  (assets + launcher + config). [VERIFIABLE HERE] (the packaging logic; running the packaged game is manual)
+- [x] **Desktop export/packaging** — DONE (M655): per-OS bundle planner (`io::planBundle` /
+  `BundlePlan` in `BundlePlan.hpp`) that computes the complete platform-specific bundle layout —
+  executable naming, library placement, per-OS launcher script, and MANIFEST — deterministically, as
+  a tested core the shell packager (or an in-editor Export button) executes. See the M655 entry at the
+  top of §5. [VERIFIABLE HERE] (the packaging *logic* is now verified here; running the packaged game is manual)
 - [x] **Web/WASM build path** — DONE (M514, the completable-here part). The one portability seam every
   desktop engine must cross for the browser — the main loop — is solved and unit-tested: `platform::runMainLoop`
   (`platform/WebLoop.hpp`) blocks on desktop but registers a per-frame browser callback under `__EMSCRIPTEN__`,
@@ -139,6 +142,33 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Desktop export bundle planner** (`io::planBundle`, `BundlePlan`, `PlatformSpec` in
+  `io/BundlePlan.hpp`) — DONE (M655); closes the §4 "desktop export/packaging — real per-OS bundler" gap.
+  [VERIFIABLE HERE] The engine already had `tools/package.sh` (which assembles a runnable bundle and even
+  self-verifies it) and `io::ExportConfig` (export presets + include/exclude filters), but the actual
+  *per-OS layout decisions* — what the executable is called, where the runtime libraries and assets land,
+  what the launcher script contains — lived inline in shell, untested and hard to reuse (e.g. from an
+  in-editor "Export Project" button). This milestone lifts that decision-making into a tested C++ core:
+  given the app name, version, target OS, and the list of input files (executable, libraries, shaders,
+  assets — each with a size and kind), `planBundle` returns the COMPLETE bundle plan: the platform
+  executable name (`game.exe` on Windows, `game` on Linux/macOS via `PlatformSpec`), a destination path
+  for every file (the exe renamed to the platform name, libraries placed beside it by basename, shaders
+  and assets keeping their res-relative layout and honoring the export preset's include/exclude filters),
+  a generated per-OS launcher (`run.bat` using `start`, or `run.sh`/`run.command` that set
+  `LD_LIBRARY_PATH`/`DYLD_LIBRARY_PATH` and exec the binary so the game finds its own libraries and runs
+  from anywhere), a deterministic MANIFEST (every file's size + dest, sorted), the total size, and the
+  `app-version-os-arch` directory name the packager tars. Pure string/size logic, no filesystem calls,
+  so the whole plan unit-tests headlessly. Verified (`ctest -R "^bundle_plan$"`): Linux keeps the bare
+  exe name and emits a `run.sh` with `LD_LIBRARY_PATH` and `./zomboid`; Windows renames to `zomboid.exe`
+  with a `@echo off` `run.bat` and no bare-name exe; macOS emits `run.command` with `DYLD_LIBRARY_PATH`;
+  an export preset excluding `levels/*` drops that asset while the executable and library still ship;
+  the manifest is sorted by dest and lists all six files; `totalSize` sums every file including the
+  launcher; and `bundleDirName` follows the `zomboid-1.0.0-windows-x86_64` convention. **Honest scope:**
+  this is the bundle *planner* — the exact copy/rename/launcher/manifest decisions, per OS, computed and
+  verified here. It does not itself copy files or build the tarball (the shell packager or editor does
+  that by executing the plan), and it does not cross-compile — packaging a Windows build still needs the
+  Windows executable and its DLLs as inputs (produced by a Windows/MinGW build). It is the deterministic,
+  testable brain the roadmap's "real per-OS bundler" asked for, replacing ad-hoc shell logic.
 - [x] **Script editor tooling — outline + autocomplete + signatures** (`script::tooling` in
   `script/Tooling.hpp`) — DONE (M654); closes the §6 "deepen the script VM toward GDScript-grade tooling"
   gap. [VERIFIABLE HERE] The engine ships a full GDScript-style language (lexer, parser, VM, classes,
