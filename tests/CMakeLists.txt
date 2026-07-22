@@ -2371,3 +2371,8 @@ add_executable(maz_circularmean_tests math/circularmean.cpp)
 target_link_libraries(maz_circularmean_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME circular_mean COMMAND maz_circularmean_tests)
 set_tests_properties(circular_mean PROPERTIES TIMEOUT 30)
+
+add_executable(maz_summedareatable_tests core/summedareatable.cpp)
+target_link_libraries(maz_summedareatable_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME summed_area_table COMMAND maz_summedareatable_tests)
+set_tests_properties(summed_area_table PROPERTIES TIMEOUT 30)

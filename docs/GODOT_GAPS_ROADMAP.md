@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Summed-area table (integral image)** (`core::SummedAreaTable`, `SummedAreaTable.hpp`) — DONE (M708);
+  a 2D prefix-sum table that answers the SUM or AVERAGE over ANY axis-aligned rectangle in O(1) — no matter
+  how large the rectangle — after an O(w*h) build. [VERIFIABLE HERE] Each cell stores the sum of everything
+  above-and-left, so a rectangle sum is four lookups (bottom-right − top-strip − left-strip + corner). This
+  is the trick behind a constant-time box blur (any radius is the same cost), average brightness or height
+  over a region, adaptive/local thresholding, fast region queries on an influence or heat map, and
+  Viola-Jones feature sums. Generalises the engine's 1D range structures — `FenwickTree` (1D prefix sums
+  with updates) and `SparseTable` (1D idempotent range queries) — to two dimensions for a static grid;
+  templated on the accumulator type. Tested: sums on a known grid and 5000 random rectangles match brute
+  force, swapped/out-of-range corners clamp, `rectMean` = sum/count, a full SAT box blur equals a
+  brute-force box blur at every pixel, and empty/mismatched grids are rejected. Header-only, std-only.
 - [x] **Circular statistics — mean/variance of angles** (`math::circularMean`/`resultantLength`/
   `circularVariance`/`circularStdDev`, `CircularMean.hpp`) — DONE (M707); the CORRECT way to average and
   measure the spread of angles. [VERIFIABLE HERE] You cannot arithmetically average angles: the mean of 350°
