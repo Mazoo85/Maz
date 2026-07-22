@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Squad formations** (`game::formationSlots` / `game::formationPositions` / `game::FormationShape`) — DONE
+  (M643); arrange a group of units into a recognisable shape around an anchor (leader or target), oriented to a
+  facing direction — the geometry every RTS squad, party of followers, tactical fireteam, or escort needs
+  (feed the returned slot to Steering/arrive or a pathfinder). Five shapes: Line (abreast), Column (single
+  file), Wedge (arrowhead V), Box (centred grid), Circle (defensive ring). `formationSlots` gives LOCAL offsets
+  (forward +Y, right +X, anchor at origin); `formationPositions` rotates them by a facing vector and translates
+  to the anchor, so the whole formation turns as the leader turns. Godot ships no formation helper. Verified
+  (`ctest -R "^formation$"`): counts honoured / non-positive empty / count-1 is the leader at origin; Line is
+  centred, abreast, gap==spacing, spans −4..+4 for 5@2; Column is single-file receding by spacing; Wedge tips
+  at the leader with a mirrored first rank one step back; Box is a centred 3×3 with rows receding; Circle is an
+  even ring at radius spacing·N/2π; world placement makes facing +Y an identity, rotation an isometry
+  (distances from the anchor preserved), +X facing a 90° turn, a zero facing defaults to +Y, and spacing scales
+  linearly. Honest scope: static slot geometry only (no collision/obstacle fitting — drive the slots through
+  your existing Steering/pathfinding). [VERIFIABLE HERE]
 - [x] **Coloured noise generators** (`audio::WhiteNoise` / `audio::PinkNoise` / `audio::BrownNoise`) — DONE
   (M642); the coloured-noise sources procedural sound design leans on, exposed as small reusable deterministic
   generators (the Oscillator had a white source baked into its waveform enum, but nothing reusable and no pink
