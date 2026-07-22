@@ -962,6 +962,11 @@ target_link_libraries(maz_otsuthreshold_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME otsu_threshold COMMAND maz_otsuthreshold_tests)
 set_tests_properties(otsu_threshold PROPERTIES TIMEOUT 30)
 
+add_executable(maz_medianfilter_tests render/medianfilter.cpp)
+target_link_libraries(maz_medianfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME median_filter COMMAND maz_medianfilter_tests)
+set_tests_properties(median_filter PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

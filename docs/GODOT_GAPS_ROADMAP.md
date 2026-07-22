@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Median filter (edge-preserving denoise)** (`render::medianFilter`, `MedianFilter.hpp`) — DONE
+  (M686); remove "salt-and-pepper" speckle while keeping edges crisp — for cleaning noisy masks,
+  denoising generated/scanned textures, and pre-filtering before thresholding or edge detection.
+  [VERIFIABLE HERE] Replacing each pixel with the MEDIAN of its neighbourhood (not the average) ignores
+  lone bright/dark outliers — the pixel takes a neighbour's real value — and, unlike a Gaussian/box blur,
+  does NOT smear edges: the majority of the window on each side of a boundary still holds that side's
+  value, so it stays sharp. Clamp-to-edge borders; radius r gives a (2r+1)² window. Verified (`ctest -R
+  median_filter`): a flat image passes through unchanged; a lone bright speckle (and a dark one) in a
+  flat field is replaced by the surrounding value; a sharp vertical edge keeps dark-left/bright-right with
+  no blur; and a hand-computed 3×3 window median (of 10..90 → 50) matches. Pure CPU, header-only,
+  deterministic.
 - [x] **Otsu automatic thresholding** (`render::otsuThreshold`/`binarize`, `OtsuThreshold.hpp`) — DONE
   (M685); pick the best black/white cutoff for a grayscale image automatically — for converting a
   coverage/height/mask texture to 1-bit, isolating a sprite silhouette, blob/marker detection, and
