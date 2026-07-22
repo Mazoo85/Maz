@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Mesh merge / concatenate** (`render::mergeMeshes`) — DONE (M572); glue several meshes into ONE mesh (one
+  vertex buffer, one index buffer). This is the inverse of the M529 split-into-components and the workhorse of
+  DRAW-CALL BATCHING: a scene with a hundred static props drawn as one combined mesh renders in a single draw call
+  instead of a hundred — usually the biggest CPU win a renderer gets. It also backs "join selected" in an editor
+  (flattening a set of pieces, each already placed via M571 applyTransform, into one exportable object) and
+  assembling procedural kit-bashed geometry. Each source mesh's indices are re-based by the running vertex count
+  so triangles keep pointing at the right (now-appended) vertices; all attributes (position/normal/UV/colour)
+  come along unchanged. Verified (`ctest -R mesh_merge`): merging two triangles gives 6 vertices and 6 indices
+  with the second triangle re-based by +3 and its vertices at the right offset; a list of three sums to 9/9 with
+  the third re-based by +6; merging two disjoint parts round-trips — the result is two connected components that
+  split back into two meshes; empty parts contribute nothing; merging an empty list yields an empty mesh. Honest
+  scope: pure concatenation — it does NOT weld coincident vertices at the seams (run M525 weldVertices / M559
+  autoWeld afterwards for a watertight join) and does NOT dedup, so merging N copies yields N× the vertices;
+  winding/attributes are preserved exactly (fix mismatched winding with M562 after merging). [VERIFIABLE HERE]
 - [x] **Apply / bake transform** (`render::applyTransform`, `translationMatrix`/`scaleMatrix`/`rotationMatrix`) —
   DONE (M571); permanently apply a 4×4 transform (translate + rotate + scale) to a mesh's geometry, moving both
   its POSITIONS and its NORMALS correctly. This "freeze transform" step is everywhere in a content pipeline:

@@ -402,6 +402,11 @@ target_link_libraries(maz_meshtransform_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_transform COMMAND maz_meshtransform_tests)
 set_tests_properties(mesh_transform PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshmerge_tests render/meshmerge.cpp)
+target_link_libraries(maz_meshmerge_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_merge COMMAND maz_meshmerge_tests)
+set_tests_properties(mesh_merge PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
