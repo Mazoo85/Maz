@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Revolve / lathe** (`render::revolveProfile`) — DONE (M594); spin a 2D outline around the vertical axis to
+  build a round 3D object. Hand it the side-view silhouette of a vase, bottle, wine glass, wheel, chess pawn, lamp
+  base, or bowl — a list of (radius-from-axis, height) points — and it sweeps that outline all the way around,
+  stitching a smooth surface. This is the single most productive way to model any round object: it is Blender's
+  "Spin", a software wood-lathe, Godot's CSGPolygon3D in Spin mode. `segments` sets how many angular steps the
+  sweep is divided into (smoothness), and a partial `sweepRadians` (< 2π) makes an open arc wedge instead of a
+  full body. Reuses the engine's area-weighted `computeNormals`, so the result shades smoothly with no extra work.
+  Verified (`ctest -R mesh_revolve`): a straight radius-2 vertical profile spun into 8 segments makes a cylinder
+  whose every side vertex sits exactly on the radius-2 wall between the right heights, with (segments+1)×2 vertices
+  and segments×2 triangles, and whose normals all point radially OUTWARD; a profile that runs down to radius 0 makes
+  a clean cone tip with only non-degenerate triangles (the pole slivers are skipped); a half-turn sweep spans from
+  +radius round to −radius; empty / single-point / <3-segment inputs safely return an empty mesh. Honest scope:
+  this builds only the swept SIDE surface — it adds NO end caps, so a profile that stops short of the axis leaves
+  the ends open (a tube); run the profile down to radius 0 for a natural closed tip, or cap it afterward. Spins
+  around +Y with outward winding for a positive-radius profile. [VERIFIABLE HERE]
 - [x] **Slab slicing / layer stack** (`render::sliceLayers`) — DONE (M593); chop a model into a STACK of evenly-spaced
   cross-sections along one axis and hand back the outline of each — exactly what a 3D printer or laser cutter does
   before it makes a part (slice the model into thin horizontal layers, then trace each layer so the machine knows
