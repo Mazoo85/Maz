@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Coplanar region segmentation** (`render::segmentCoplanarRegions`, `CoplanarRegions`) — DONE (M531);
+  group a mesh's triangles into maximal CONNECTED, near-planar patches — the flat faces of a shape — the
+  workhorse behind collision-hull simplification (one convex face instead of a triangle fan), greedy meshing,
+  decal/lightmap chart seeding, and editor "select coplanar". Flood-fills across the M528 topology's edge
+  neighbours, crossing an edge only when the neighbour triangle's face normal stays within an angle tolerance
+  of the region's SEED normal (so a region stays planar to its seed rather than slowly bending away). Verified
+  (`ctest -R mesh_planar_regions`): a welded cube yields exactly six regions of two triangles each, a flat
+  quad is one region, two quads meeting at a 90° ridge split into two despite being edge-connected, the
+  tolerance actually gates (a 3° bend merges at a 10° tolerance and splits at 1°), every triangle gets a valid
+  label with one seed normal per region, and it is deterministic. [VERIFIABLE HERE]
 - [x] **Mesh vertex quantization** (`render::quantizeMesh` / `render::dequantizeMesh`, `QuantizedMesh`) —
   DONE (M530); the lossy-but-bounded attribute compression a glTF/Draco-style exporter runs to shrink a mesh:
   instead of a 32-bit float per position/UV channel, snap each channel to an N-bit integer grid spanning that
