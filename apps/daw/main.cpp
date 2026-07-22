@@ -3456,6 +3456,22 @@ void buildArrangementUI(audio::Sequencer& seq) {
     if (ImGui::Checkbox("Clip song mode", &useClips)) {
         seq.setSongUsesClips(useClips);
     }
+    // Clip loop region (bars): loop just [start, end) of the timeline while producing. end <= start
+    // means the whole timeline. Only meaningful in clip song mode.
+    static int clipLoopStart = 0, clipLoopEnd = 0;
+    clipLoopStart = seq.clipLoopStart();
+    clipLoopEnd = seq.clipLoopEnd();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::InputInt("loop from", &clipLoopStart)) {
+        seq.setClipLoopRange(clipLoopStart, clipLoopEnd);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::InputInt("loop to", &clipLoopEnd)) {
+        seq.setClipLoopRange(clipLoopStart, clipLoopEnd);
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("(bars; to<=from = whole timeline)");
     ImGui::TextDisabled("Click a cell to place the selected pattern; click a placed clip to remove it. "
                         "Clip song mode plays every clip on a bar together (needs Song mode on).");
     constexpr int kTracks = 5, kBars = 16;

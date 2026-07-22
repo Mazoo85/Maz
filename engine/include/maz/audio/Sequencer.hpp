@@ -477,6 +477,16 @@ public:
     }
     int songLoopStart() const { return songLoopStart_; }
     int songLoopEnd() const { return songLoopEnd_; }
+    // Clip-song loop region in BARS (the clip-timeline counterpart of setSongLoopRange). When
+    // clipLoopEnd > clipLoopStart the clip transport plays [start, end) and — with songLoop on — wraps
+    // back to start; end <= start means the whole timeline (the default). Loop just a chorus/drop while
+    // producing without touching the arrangement.
+    void setClipLoopRange(int start, int end) {
+        clipLoopStart_ = start < 0 ? 0 : start;
+        clipLoopEnd_ = end;
+    }
+    int clipLoopStart() const { return clipLoopStart_; }
+    int clipLoopEnd() const { return clipLoopEnd_; }
 
     // Route the piano roll to the sampler instead of the synth (when a sample is loaded).
     void setUseSampler(bool on) { useSampler_ = on; }
@@ -641,6 +651,8 @@ private:
     std::vector<unsigned char> trackSoloed_; // per arrangement-track-row solo (grows on demand)
     int songLoopStart_ = 0;         // song loop region start (playlist index)
     int songLoopEnd_ = 0;           // song loop region end (exclusive); <= start = whole playlist
+    int clipLoopStart_ = 0;         // clip-song loop region start (bar); <= relevant only in clip mode
+    int clipLoopEnd_ = 0;           // clip-song loop region end (exclusive bar); <= start = whole timeline
     bool songMode_ = false;
     bool songLoop_ = true;
     int playlistPos_ = 0;

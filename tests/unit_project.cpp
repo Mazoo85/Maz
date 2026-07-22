@@ -208,6 +208,7 @@ int main() {
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
     seq.setSongLoop(false);
     seq.setSongLoopRange(1, 3);
+    seq.setClipLoopRange(1, 3); // clip-song loop region (bars) must round-trip
 
     mixer.setMasterGain(0.75f);
     mixer.setLimiterCeiling(0.9f);
@@ -720,6 +721,7 @@ int main() {
     check(seq2.songMode() && !seq2.songLoop(), "song mode + play-once flag round-trip");
     check(seq2.songUsesClips(), "clip-driven song-mode flag round-trips");
     check(seq2.songLoopStart() == 1 && seq2.songLoopEnd() == 3, "song loop region round-trips");
+    check(seq2.clipLoopStart() == 1 && seq2.clipLoopEnd() == 3, "clip-song loop region round-trips");
     check(seq2.clipCount() == 2 && seq2.clip(0).pattern == 1 && seq2.clip(0).startBar == 4 &&
               seq2.clip(0).track == 2 && seq2.clip(0).bars == 3 && !seq2.clip(0).muted &&
               seq2.clip(1).pattern == 0 && seq2.clip(1).startBar == 0 && seq2.clip(1).bars == 1 &&

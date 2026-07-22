@@ -1102,6 +1102,50 @@ int main() {
         check(!f.trackAudible(2), "a muted row is inaudible even when soloed");
     }
 
+    // --- Clip-song loop region (bar range) -----------------------------------
+    {
+        // Four one-bar clips (bars 0..3) → clipBarCount 4. A loop region [1,3) must start playback at
+        // bar 1 and cycle 1→2→1→2, never reaching bar 0 or bar 3.
+        audio::Sequencer s;
+        s.addClip(0, 0, 0);
+        s.addClip(0, 1, 0);
+        s.addClip(0, 2, 0);
+        s.addClip(0, 3, 0);
+        check(s.clipBarCount() == 4, "four one-bar clips span four bars");
+        s.setSongMode(true);
+        s.setSongUsesClips(true);
+        s.setSongLoop(true);
+        s.setClipLoopRange(1, 3); // loop bars 1..2 (end exclusive)
+        s.play();
+        check(s.songBar() == 1, "clip-song play starts at the loop-region start bar");
+        const int barFrames = 96000; // 16 steps * 6000 frames/step @120 BPM, 48k
+        bool saw0 = false, saw1 = false, saw2 = false, saw3 = false;
+        auto noteBar = [&](int b) {
+            saw0 = saw0 || b == 0;
+            saw1 = saw1 || b == 1;
+            saw2 = saw2 || b == 2;
+            saw3 = saw3 || b == 3;
+        };
+        noteBar(s.songBar());
+        for (int i = 0; i < 6; ++i) { // advance ~6 bars
+            std::vector<float> buf(static_cast<size_t>(barFrames) * 2, 0.0f);
+            s.render(buf.data(), barFrames, sampleRate);
+            noteBar(s.songBar());
+        }
+        check(saw1 && saw2 && !saw0 && !saw3,
+              "clip-song transport loops only within [1,3), never reaching bar 0 or 3");
+
+        // With no region (end <= start) the transport uses the whole timeline and reaches bar 0 again.
+        audio::Sequencer w;
+        w.addClip(0, 0, 0);
+        w.addClip(0, 1, 0);
+        w.setSongMode(true);
+        w.setSongUsesClips(true);
+        w.setSongLoop(true);
+        w.play();
+        check(w.songBar() == 0, "with no clip loop region playback starts at bar 0");
+    }
+
     // --- Sequencer grid ------------------------------------------------------
     audio::Sequencer seq;
     check(seq.numSteps() == 16, "default pattern is 16 steps");

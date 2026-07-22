@@ -485,6 +485,8 @@ void Sequencer::clearArrangement() {
     audioClips_.clear();
     trackMuted_.clear();
     trackSoloed_.clear();
+    clipLoopStart_ = 0; // reset the clip loop region so an old project (no cliploop fields) doesn't
+    clipLoopEnd_ = 0;   // inherit a stale region from a previously-loaded project
     songMode_ = false;
     playlistPos_ = 0;
     current_ = 0;
@@ -1210,12 +1212,16 @@ void Sequencer::play() {
         a.sampler.allNotesOff();
     }
     if (songMode_ && songUsesClips_ && hasAnyClips()) {
-        // Clip-song mode: start at bar 0 and select the primary (lowest-track) clip there for timing.
-        const int prim = primaryClipPattern(0);
+        // Clip-song mode: start at the loop-region start bar when one is set (else bar 0) and select the
+        // primary (lowest-track) clip there for timing.
+        const int bars = clipBarCount();
+        const bool region = clipLoopEnd_ > clipLoopStart_ && clipLoopStart_ < bars;
+        songBar_ = region ? clipLoopStart_ : 0;
+        const int prim = primaryClipPattern(songBar_);
         if (prim >= 0) {
             selectPattern(prim);
         }
-        triggerAudioClipsForBar(0); // fire any audio clips placed on the first bar
+        triggerAudioClipsForBar(songBar_); // fire any audio clips placed on the start bar
     } else if (songMode_ && !playlist_.empty()) {
         // Start at the loop-region start when one is set, else the first playlist entry.
         const int plSize = static_cast<int>(playlist_.size());
@@ -1613,12 +1619,17 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
                 // At the top of each bar, in clip-song mode, advance along the 2-D clip timeline.
                 if (currentStep_ == 0 && songMode_ && songUsesClips_ && hasAnyClips()) {
                     const int bars = clipBarCount();
+                    // Honour the clip loop region [start, end) in bars when set; otherwise the whole
+                    // timeline. songLoop controls wrap-vs-stop, exactly like the 1-D playlist region.
+                    const bool region = clipLoopEnd_ > clipLoopStart_ && clipLoopStart_ < bars;
+                    const int loopStart = region ? clipLoopStart_ : 0;
+                    const int loopEnd = region ? std::min(clipLoopEnd_, bars) : bars;
                     const int next = songBar_ + 1;
-                    if (next >= bars) {
+                    if (next >= loopEnd) {
                         if (songLoop_) {
-                            songBar_ = 0;
+                            songBar_ = loopStart;
                         } else {
-                            playing_ = false; // play-once: stop at the end of the timeline
+                            playing_ = false; // play-once: stop at the end of the timeline/region
                         }
                     } else {
                         songBar_ = next;
