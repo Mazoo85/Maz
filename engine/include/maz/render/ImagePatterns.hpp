@@ -147,4 +147,52 @@ inline Image cellularTexture(int width, int height, float scale = 0.06f, std::ui
     return img;
 }
 
+// A grey MARBLE texture: parallel sine "veins" whose phase is warped by fbm turbulence, so the bands ripple and
+// swirl like polished stone. `veinFrequency` sets how tightly packed the veins are (per pixel), `turbulence` how
+// much the noise distorts them (0 = perfectly straight vertical bands), `noiseScale` the turbulence frequency.
+// Grey [0,1]; tint through `gradientMap` for coloured marble. Same seed → same texture.
+inline Image marbleTexture(int width, int height, float veinFrequency = 0.12f, float turbulence = 4.0f,
+                           float noiseScale = 0.05f, std::uint64_t seed = 0, int octaves = 4) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const core::Noise n(seed);
+    const int oct = octaves < 1 ? 1 : octaves;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float turb = n.fbm2(static_cast<float>(x) * noiseScale, static_cast<float>(y) * noiseScale, oct);
+            const float phase = static_cast<float>(x) * veinFrequency + turbulence * turb;
+            float v = 0.5f + 0.5f * std::sin(phase);
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            img.setPixel(x, y, Color{v, v, v, 1.0f});
+        }
+    }
+    return img;
+}
+
+// A grey WOOD-GRAIN texture: concentric growth rings around the image centre, warped by fbm turbulence so the
+// rings wander like real timber. `ringScale` sets how many rings (larger = tighter), `turbulence` how much the
+// noise bends them (0 = perfect circles), `noiseScale` the turbulence frequency. Grey [0,1]; run through
+// `gradientMap` with a brown ramp for planks. Same seed → same texture.
+inline Image woodTexture(int width, int height, float ringScale = 0.5f, float turbulence = 3.0f,
+                         float noiseScale = 0.04f, std::uint64_t seed = 0, int octaves = 4) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const core::Noise n(seed);
+    const int oct = octaves < 1 ? 1 : octaves;
+    const float cx = static_cast<float>(width) * 0.5f, cy = static_cast<float>(height) * 0.5f;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float dx = static_cast<float>(x) - cx, dy = static_cast<float>(y) - cy;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+            const float turb = n.fbm2(static_cast<float>(x) * noiseScale, static_cast<float>(y) * noiseScale, oct);
+            float v = 0.5f + 0.5f * std::sin(dist * ringScale + turbulence * turb);
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            img.setPixel(x, y, Color{v, v, v, 1.0f});
+        }
+    }
+    return img;
+}
+
 } // namespace maz::render::patterns

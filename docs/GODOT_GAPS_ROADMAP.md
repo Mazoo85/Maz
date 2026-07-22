@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Marble & wood-grain textures** (`render::patterns::marbleTexture` / `woodTexture`) — DONE (M621); two
+  domain-warped procedural textures the plain fbm `noiseTexture` can't make: **marble** is parallel sine veins whose
+  phase is bent by fbm turbulence (polished-stone ripples), **wood** is concentric growth rings around the image
+  centre, likewise warped (timber grain). Both grey [0,1], deterministic by seed, and made for `gradientMap` (marble
+  tint / brown plank ramp) + `heightToNormalMap`. Verified (`ctest -R image_marble_wood`): both honour size, stay
+  grey and in [0,1], the field varies, the same seed reproduces and a different seed changes it; with turbulence 0
+  the structure is exact — marble bands are perfectly vertical (every column constant down its rows) and wood rings
+  are concentric (four points at equal radius from the centre share the same value) — while turbulence > 0
+  measurably warps that structure; non-positive size is safe. Honest scope: single-octave sine bands warped by fbm
+  (no anisotropic stretch or colour layering — compose via `blend`/`gradientMap`). [VERIFIABLE HERE]
 - [x] **WCAG contrast ratio** (`render::contrastRatio` / `relativeLuminance` / `passesAA` / `passesAAA` /
   `bestTextColor`) — DONE (M620); the legibility companion to the colour-blindness sim (M619): is HUD/menu/subtitle
   text actually readable against its background? Implements the WCAG 2.x relative-luminance + contrast-ratio formula
