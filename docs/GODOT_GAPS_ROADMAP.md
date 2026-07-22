@@ -84,7 +84,9 @@ only be written blind, the docs say exactly that.
 ### §7 Text / UI / localization depth — [VERIFIABLE HERE]
 - [x] **Unicode BiDi runs + base direction** — ALREADY PRESENT (`ui::bidiRuns` / `baseDirection`, `TextServer.hpp`).
 - [x] **Line-break opportunities** — ALREADY PRESENT (`ui::lineBreakOpportunities`, `TextServer.hpp`).
-- [ ] **Basic complex-script shaping hooks** (mark positioning, ligature substitution tables). [VERIFIABLE HERE]
+- [x] **Basic complex-script shaping hooks** — DONE (M653): data-driven OpenType-style shaper
+  (`ui::shapeGlyphs` / `ShapingTable` in `TextShaping.hpp`) with GSUB ligature substitution, GPOS pair
+  kerning, and GPOS mark-to-base attachment. See the M653 entry at the top of §5. [VERIFIABLE HERE]
 - [x] **Localization tooling** — DONE (M652): gettext PO catalog with a real per-language plural-rule engine
   (`io::PoCatalog` / `io::PluralRule`), plus PO write-back (`serialize()`) and POT extraction (`io::PotBuilder`).
   See the M652 entry at the top of §5 for the full write-up. [VERIFIABLE HERE]
@@ -133,6 +135,31 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **OpenType-style text shaping** (`ui::shapeGlyphs`, `ShapingTable`, `LigatureRule` in
+  `TextShaping.hpp`) — DONE (M653); closes the §7 "complex-script shaping hooks" gap. [VERIFIABLE HERE]
+  The engine already had the *analysis* half of text (`decodeUtf8`, bidi runs, line-break opportunities in
+  `TextServer.hpp`) and word-wrap layout (`ui::layoutText`), but not the *shaping* half — the step that turns a
+  run of glyphs into POSITIONED glyphs the way a real font's OpenType tables prescribe. Shaping is what makes
+  proper typography and complex scripts work: (1) **ligatures** — "f"+"i" becoming a single "fi" glyph (GSUB
+  LookupType 4); (2) **kerning** — tucking a specific letter pair like "AV" closer together (GPOS LookupType 2);
+  (3) **mark positioning** — placing a combining accent, or an Arabic/Indic vowel sign, so its anchor point lands
+  exactly on the base letter's anchor point (GPOS LookupType 4, mark-to-base). Without this, accents float in the
+  wrong place and Arabic/Devanagari are unreadable. This milestone implements the shaping ENGINE decoupled from
+  any font blob: you hand it a `ShapingTable` (the data a font's GSUB/GPOS tables would fill — default advances,
+  ligature rules, kern pairs, the set of zero-advance marks, and base/mark anchor points) plus a glyph run, and
+  it returns each output glyph with its advance and x/y offset, preserving source-character CLUSTERS (so a
+  ligature still maps back to the right characters for caret placement and hit-testing). Substitution uses
+  longest-match; positioning applies kerning between adjacent bases and anchor-aligns each mark to its base.
+  Verified (`ctest -R "^text_shaping$"`): "fi" collapses to one glyph with the ligature advance; "fii" prefers
+  the longer f-i-i ligature over f-i + i (longest match); a glyph after a ligature keeps its true source index
+  (cluster merge); "AV" kerns the first advance by −3 while "Ax" (no pair) does not; an acute mark after "a" gets
+  zero advance and the hand-computed anchor-aligned offset (x = 3−7−1 = −5, y = 8); a rule-free run passes
+  through with advances intact; and a combined "fiAV" run ligates and kerns together. **Honest scope:** this is
+  the shaping *engine + data model* (GSUB ligatures, GPOS kern, GPOS mark-to-base) — pure CPU, fully unit-tested
+  here. It is not yet a full HarfBuzz: it doesn't parse a live font's binary GSUB/GPOS tables (a font loader
+  would populate `ShapingTable` from them), and it covers the three most important lookup types rather than all
+  of OpenType (contextual chaining, cursive attachment, mark-to-mark stacking are natural follow-ons on the same
+  data model). The engine already ships bidi + line-breaking, so this is the missing shaping core they feed into.
 - [x] **gettext PO/POT localization tooling** (`io::PoCatalog`, `io::PotBuilder`, `io::PluralRule`) — DONE
   (M652); closes the §7 "Localization tooling" gap. [VERIFIABLE HERE] The engine already had CSV translation
   tables, but every serious localization pipeline speaks *gettext* — `.po` files — and the hard part gettext

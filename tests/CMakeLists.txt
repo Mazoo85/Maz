@@ -802,6 +802,11 @@ target_link_libraries(maz_gettextpo_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gettext_po COMMAND maz_gettextpo_tests)
 set_tests_properties(gettext_po PROPERTIES TIMEOUT 30)
 
+add_executable(maz_textshaping_tests ui/textshaping.cpp)
+target_link_libraries(maz_textshaping_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME text_shaping COMMAND maz_textshaping_tests)
+set_tests_properties(text_shaping PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
