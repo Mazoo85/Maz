@@ -144,4 +144,65 @@ inline shapes::MeshData extrudePolygonScaled(const std::vector<math::vec2>& poly
     return out;
 }
 
+// Extrude a HOLLOW prism: the region between an OUTER outline and an INNER hole, `depth` thick along Z. Makes a
+// picture frame, washer, window frame, pipe with a shaped cross-section, ring, or a letter "O". Both loops must have
+// the SAME number of points (point i of the outer pairs with point i of the inner), which lets the two caps be
+// triangulated as a clean quad strip between the loops — no hole-triangulation needed. The inner loop should sit
+// inside the outer one. Unwelded flat per-face normals; a closed solid whose volume is (outerArea - innerArea)*depth.
+inline shapes::MeshData extrudeRing(const std::vector<math::vec2>& outer, const std::vector<math::vec2>& inner,
+                                    float depth) {
+    shapes::MeshData out;
+    const std::size_t n = outer.size();
+    if (n < 3 || inner.size() != n || std::fabs(depth) < 1e-20f) return out;
+
+    // Normalise both loops to CCW so pairing + winding are deterministic.
+    std::vector<math::vec2> o = outer, in = inner;
+    if (polygonSignedArea2(o) < 0.0f) for (std::size_t i = 0; i < n / 2; ++i) std::swap(o[i], o[n - 1 - i]);
+    if (polygonSignedArea2(in) < 0.0f) for (std::size_t i = 0; i < n / 2; ++i) std::swap(in[i], in[n - 1 - i]);
+
+    const float zf = -depth * 0.5f, zb = depth * 0.5f;
+    auto push = [&](const math::vec3& v, const math::vec3& nrm) {
+        MeshVertex mv{};
+        mv.px = v.x; mv.py = v.y; mv.pz = v.z;
+        mv.nx = nrm.x; mv.ny = nrm.y; mv.nz = nrm.z;
+        mv.r = mv.g = mv.b = 1.0f;
+        mv.u = v.x; mv.v = v.y;
+        out.vertices.push_back(mv);
+    };
+    auto face = [&](const math::vec3& a, const math::vec3& b, const math::vec3& c, const math::vec3& nrm) {
+        const std::uint32_t base = static_cast<std::uint32_t>(out.vertices.size());
+        push(a, nrm); push(b, nrm); push(c, nrm);
+        out.indices.push_back(base); out.indices.push_back(base + 1); out.indices.push_back(base + 2);
+    };
+    const math::vec3 up(0, 0, 1), down(0, 0, -1);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::size_t j = (i + 1) % n;
+        const math::vec2 oi = o[i], oj = o[j], ii = in[i], ij = in[j];
+        // Back cap (z=zb, faces +Z): annulus quad between outer and inner.
+        face(math::vec3(oi.x, oi.y, zb), math::vec3(ij.x, ij.y, zb), math::vec3(ii.x, ii.y, zb), up);
+        face(math::vec3(oi.x, oi.y, zb), math::vec3(oj.x, oj.y, zb), math::vec3(ij.x, ij.y, zb), up);
+        // Front cap (z=zf, faces -Z): reversed winding.
+        face(math::vec3(oi.x, oi.y, zf), math::vec3(ii.x, ii.y, zf), math::vec3(ij.x, ij.y, zf), down);
+        face(math::vec3(oi.x, oi.y, zf), math::vec3(ij.x, ij.y, zf), math::vec3(oj.x, oj.y, zf), down);
+        // Outer side wall (faces outward, away from the hole).
+        {
+            const float dx = oj.x - oi.x, dy = oj.y - oi.y;
+            const float l = std::sqrt(dx * dx + dy * dy);
+            const math::vec3 nrm = l > 1e-12f ? math::vec3(dy / l, -dx / l, 0.0f) : math::vec3(0, 0, 0);
+            const math::vec3 fA(oi.x, oi.y, zf), fB(oj.x, oj.y, zf), bA(oi.x, oi.y, zb), bB(oj.x, oj.y, zb);
+            face(fA, bB, bA, nrm); face(fA, fB, bB, nrm);
+        }
+        // Inner side wall (faces INWARD, into the hole): reversed winding + normal.
+        {
+            const float dx = ij.x - ii.x, dy = ij.y - ii.y;
+            const float l = std::sqrt(dx * dx + dy * dy);
+            const math::vec3 nrm = l > 1e-12f ? math::vec3(-dy / l, dx / l, 0.0f) : math::vec3(0, 0, 0);
+            const math::vec3 fA(ii.x, ii.y, zf), fB(ij.x, ij.y, zf), bA(ii.x, ii.y, zb), bB(ij.x, ij.y, zb);
+            face(fA, bA, bB, nrm); face(fA, bB, fB, nrm);
+        }
+    }
+    return out;
+}
+
 } // namespace maz::render

@@ -180,6 +180,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Hollow extrude / ring prism** (`render::extrudeRing`) — DONE (M611); extrude a shape WITH a hole — the solid
+  region between an outer outline and an inner one — into a `depth`-thick prism. This makes a picture frame, a washer,
+  a window frame, a pipe with a shaped cross-section, a ring, or a letter "O" — the one thing plain `extrudePolygon`
+  (M602) can't do because it has no hole. Both loops must have the SAME point count (point i of the outer pairs with
+  point i of the inner), which lets the two end caps be triangulated as a clean quad strip between the loops — no
+  hole-triangulation needed — and the inner walls are wound to face INTO the hole. Verified (`ctest -R
+  mesh_extrude_ring`): a square frame (outer half-2, inner half-1) extruded depth 2 is a closed solid whose signed
+  volume equals exactly (outerArea − innerArea)·depth = 24 (proving watertight + correct orientation, inner hole
+  subtracted); it has 8 triangles per segment (both caps + outer wall + inner wall) and is centred z=−depth/2..+depth/2;
+  a round 16-gon washer also closes to (outer − inner)·depth; mismatched loop sizes, <3 points, and zero depth all
+  return empty. Honest scope: outer and inner must have equal point counts (point-to-point pairing, no resampling) and
+  the inner loop should sit inside the outer; unwelded flat per-face normals for crisp edges. [VERIFIABLE HERE]
 - [x] **Pie slice / sector outline** (`render::shapes2d::pieSlice`) — DONE (M610); a wedge of a disc — from a start
   angle sweeping a given number of radians — extending the shapes2d family. It's the shape of a pie-chart slice, a
   radial gauge fill, a cone of vision / spotlight footprint, a radar sweep, or a Pac-Man. Returns the centre plus the
