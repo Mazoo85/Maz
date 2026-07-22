@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Otsu automatic thresholding** (`render::otsuThreshold`/`binarize`, `OtsuThreshold.hpp`) — DONE
+  (M685); pick the best black/white cutoff for a grayscale image automatically — for converting a
+  coverage/height/mask texture to 1-bit, isolating a sprite silhouette, blob/marker detection, and
+  valley-of-the-histogram segmentation. [VERIFIABLE HERE] Otsu's method (1979) treats the pixel histogram
+  as two classes split at level t and picks the t that MAXIMISES between-class variance (equivalently
+  minimises the spread within each group) — so the split is as clean as the data allows, with no
+  hand-tuned constant. When the optimum is a flat plateau (a wide empty valley), it returns the plateau
+  midpoint. `binarize` applies the cut. Verified (`ctest -R otsu_threshold`): a two-value image (half at
+  50, half at 200) gets a cutoff between the clusters and `binarize` maps the dark cluster to 0 and the
+  bright to 255; a single-valued image returns that value; a bimodal image with bumps near 60 and 190
+  lands the threshold in the histogram valley between them; an empty image returns 0. Pure CPU on the
+  256-bin histogram, header-only, deterministic.
 - [x] **Sobel edge detection** (`render::sobel`/`edgeMask`, `SobelEdge.hpp`) — DONE (M684); find the edges
   (sharp brightness changes) in a grayscale image — the classic block behind toon/outline post-processing
   (run it on depth or normals to draw ink lines), sprite/UI outline generation, and image analysis.
