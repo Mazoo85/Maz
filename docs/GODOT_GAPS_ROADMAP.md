@@ -131,6 +131,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Topological sort** (`core::topologicalSort` / `core::hasCycle` / `core::TopoResult`) — DONE (M637); order
+  the nodes of a directed graph so every "must come before" edge points forward — the workhorse behind
+  dependency resolution: tech/skill trees that unlock in a legal order, crafting chains (smelt ore → forge
+  ingot → make blade → assemble sword), quest/prerequisite gating, and asset/scene/task build ordering. If a
+  circular prerequisite makes ordering impossible it reports `ok=false` and lists the nodes trapped in or
+  downstream of the cycle — the diagnostic a designer needs to find the bad edge. Kahn's algorithm with a
+  min-heap, so the result is always the LEXICOGRAPHICALLY SMALLEST valid order (fully deterministic); edge-list
+  and adjacency-list forms; multi-edges and self-loops handled. Godot ships no general topological sort.
+  Verified (`ctest -R "^topological_sort$"`): every edge points forward in the output; the order is the exact
+  lexicographically-smallest one (e.g. edge 2→0 over {0,1,2,3} gives [1,2,0,3]); isolated nodes are included; a
+  6-node crafting chain resolves with each prerequisite before its result; a 3-cycle is detected with no
+  partial order returned and the cycle+downstream nodes listed; a self-loop is a cycle trapping only that node;
+  the adjacency-list overload matches; empty/single-node graphs and out-of-range edge endpoints are handled.
+  Honest scope: unweighted ordering only (no critical-path/longest-path timing — that is a separate pass). [VERIFIABLE HERE]
 - [x] **HSL colour model** (`render::fromHsl` / `render::toHsl` / `render::Hsl`) — DONE (M636); classic HSL, the
   cylinder CSS `hsl()` and nearly every web palette tool use, and a genuinely distinct model from the two the
   engine already had: HSV (has "value" not lightness — pure red is v=1 there but l=0.5 here) and OKHSL
