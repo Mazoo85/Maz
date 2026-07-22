@@ -147,6 +147,48 @@ inline Image cellularTexture(int width, int height, float scale = 0.06f, std::ui
     return img;
 }
 
+// A flat-colour VORONOI MOSAIC: scatter one jittered feature point per grid cell and fill each pixel with the
+// colour of its NEAREST feature point's cell — solid, flat regions with hard edges, like stained glass, low-poly
+// art, cracked ceramic, or a mosaic floor. Distinct from `cellularTexture` (which is a grey distance field); this
+// bakes a colour per cell (a random pleasant hue). `scale` sets the cell frequency (larger = more, smaller cells),
+// `seed` picks the layout and palette. Pair with `blend` to overlay grout lines, or feed a grey copy to
+// `heightToNormalMap` for bevelled tiles.
+inline Image voronoiTexture(int width, int height, float scale = 0.08f, std::uint32_t seed = 0) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    auto floorInt = [](float v) { const int i = static_cast<int>(v); return (v < static_cast<float>(i)) ? i - 1 : i; };
+    auto hashf = [seed](int cx, int cy, int ch) -> float {
+        std::uint32_t h = static_cast<std::uint32_t>(cx) * 374761393u + static_cast<std::uint32_t>(cy) * 668265263u +
+                          static_cast<std::uint32_t>(ch) * 2246822519u + seed * 362437u;
+        h = (h ^ (h >> 13)) * 1274126177u;
+        h ^= h >> 16;
+        return static_cast<float>(h & 0xFFFFFFu) / static_cast<float>(0x1000000);
+    };
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float sx = static_cast<float>(x) * scale, sy = static_cast<float>(y) * scale;
+            const int xi = floorInt(sx), yi = floorInt(sy);
+            float best = 1.0e30f;
+            int bcx = 0, bcy = 0;
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int cx = xi + dx, cy = yi + dy;
+                    const float fx = static_cast<float>(cx) + hashf(cx, cy, 0);
+                    const float fy = static_cast<float>(cy) + hashf(cx, cy, 1);
+                    const float ex = sx - fx, ey = sy - fy;
+                    const float d = ex * ex + ey * ey;
+                    if (d < best) { best = d; bcx = cx; bcy = cy; }
+                }
+            }
+            const float hue = hashf(bcx, bcy, 7);
+            const float sat = 0.55f + 0.35f * hashf(bcx, bcy, 8);
+            const float val = 0.70f + 0.30f * hashf(bcx, bcy, 9);
+            img.setPixel(x, y, fromHsv(hue, sat, val, 1.0f));
+        }
+    }
+    return img;
+}
+
 // A grey MARBLE texture: parallel sine "veins" whose phase is warped by fbm turbulence, so the bands ripple and
 // swirl like polished stone. `veinFrequency` sets how tightly packed the veins are (per pixel), `turbulence` how
 // much the noise distorts them (0 = perfectly straight vertical bands), `noiseScale` the turbulence frequency.

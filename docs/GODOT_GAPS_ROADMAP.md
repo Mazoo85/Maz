@@ -304,6 +304,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   fast-3D geometries; a target fleeing faster than the shot is correctly unreachable; the aim genuinely leads ahead
   of a crossing target; non-positive speed and a coincident target are handled. Honest scope: constant target
   velocity, no gravity/drag (use `Ballistics` for arced shots). [VERIFIABLE HERE]
+- [x] **Voronoi mosaic texture** (`render::patterns::voronoiTexture`) — DONE (M630); a flat-colour cellular mosaic:
+  scatter one jittered feature point per grid cell and fill each pixel with the colour of its NEAREST point's cell —
+  solid regions with hard edges for stained glass, low-poly art, cracked ceramic, or a mosaic floor. Distinct from
+  `cellularTexture` (a grey distance field); this bakes a random pleasant hue per cell. `scale` sets cell frequency,
+  `seed` the layout & palette; pairs with `blend` for grout lines or `heightToNormalMap` for bevelled tiles.
+  Verified (`ctest -R "^image_voronoi$"`): size honoured; the image is genuinely FLAT-celled — a small palette (far
+  fewer distinct colours than pixels) and >60% of horizontal neighbours share the exact colour; most cells are
+  colourful (saturated, not grey); the same seed reproduces byte-identically while a different seed changes both
+  layout and palette; non-positive size is safe. Honest scope: nearest-point (F1) cells with hard edges (no
+  anti-aliased borders — overlay grout via `blend` if wanted). [VERIFIABLE HERE]
 - [x] **Brick wall pattern** (`render::patterns::brickWall`) — DONE (M617); a running-bond brick texture: rows of
   `brickW`×`brickH` bricks separated by `mortarPx`-thick lines, each row shifted `offsetFrac` of a brick relative to
   the one above (0.5 = the classic half-brick stagger, 0 = a stacked bond). Distinct from `checkerboard` — this is
