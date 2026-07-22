@@ -2421,3 +2421,8 @@ add_executable(maz_quatcompress_tests net/quatcompress.cpp)
 target_link_libraries(maz_quatcompress_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME quat_compress COMMAND maz_quatcompress_tests)
 set_tests_properties(quat_compress PROPERTIES TIMEOUT 30)
+
+add_executable(maz_intervaltree_tests core/intervaltree.cpp)
+target_link_libraries(maz_intervaltree_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME interval_tree COMMAND maz_intervaltree_tests)
+set_tests_properties(interval_tree PROPERTIES TIMEOUT 30)

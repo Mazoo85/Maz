@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Interval tree (range/stabbing queries)** (`core::IntervalTree<T>`, `IntervalTree.hpp`) — DONE (M718);
+  answer "which intervals contain point x?" and "which intervals overlap [a,b]?" in O(log n + k) instead of
+  scanning all n intervals per query. [VERIFIABLE HERE] An interval is a [low,high] range with a payload;
+  this is the right structure whenever many time-ranges or 1-D spans are queried repeatedly — which animation
+  clips / audio cues / cutscene triggers are ACTIVE at the current playhead, which reservations overlap a
+  window, which spans on one axis touch a probe (a 1-D broadphase). Naive code re-tests every interval per
+  query. This is a static augmented interval tree: insert all intervals, build() once (a height-balanced BST
+  ordered by low endpoint, each node augmented with the maximum high endpoint in its subtree), then query
+  many times; the max-endpoint augmentation prunes whole subtrees that cannot reach the query. The ctest
+  checks a hand-built set, inclusive/closed endpoints, degenerate point intervals, empty/single trees, and
+  cross-checks queryPoint + queryOverlap against a brute-force linear scan over 3,000 random interval sets
+  (order-independent set comparison). Godot has no interval tree. Header-only, std-only, deterministic. ctest
+  `interval_tree`.
 - [x] **Smallest-three quaternion compression** (`net::compressQuat` / `decompressQuat`, `QuatCompress.hpp`)
   — DONE (M717); pack a full 3D rotation into ~32 bits for cheap network replication, instead of 128 bits of
   raw floats. [VERIFIABLE HERE] A unit quaternion has four components but only three degrees of freedom
