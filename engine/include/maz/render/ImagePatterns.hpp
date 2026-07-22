@@ -1,6 +1,7 @@
 #pragma once
 
-#include "maz/core/Noise.hpp"       // core::Noise (fbm)
+#include "maz/core/Noise.hpp"         // core::Noise (fbm)
+#include "maz/core/WorleyNoise.hpp"   // core::WorleyNoise (cellular)
 #include "maz/render/ColorOps.hpp" // Color
 #include "maz/render/Image.hpp"     // Image
 
@@ -78,6 +79,40 @@ inline Image noiseTexture(int width, int height, float scale = 0.08f, std::uint6
         for (int x = 0; x < width; ++x) {
             float v = n.fbm2(static_cast<float>(x) * scale, static_cast<float>(y) * scale, oct); // ~[-1,1]
             v = v * 0.5f + 0.5f;
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+            img.setPixel(x, y, Color{v, v, v, 1.0f});
+        }
+    }
+    return img;
+}
+
+// Which cellular field a `cellularTexture` bakes.
+enum class Cellular {
+    Cells,  // F1 distance: dark feature-point centres brightening outward — stone, scales, cracked mud, caustics, bubbles.
+    Cracks  // F2-F1: bright interiors with dark lines along the cell boundaries — crack / vein / Voronoi-edge networks.
+};
+
+// A grey CELLULAR ("Worley") texture. `mode` picks the look: `Cells` gives rounded blobs (one dark point per grid
+// cell, brightening toward the edges) for stone, reptile scales, cracked mud, or water caustics; `Cracks` traces the
+// thin boundaries between cells for crack, vein, or Voronoi-edge networks. `scale` is the world frequency (larger =
+// more, smaller cells), `seed` picks the pattern (same seed → same texture). The distance field is clamped into grey
+// [0,1]. Distinct from the smooth Perlin `noiseTexture`; pairs well with `heightToNormalMap`.
+inline Image cellularTexture(int width, int height, float scale = 0.06f, std::uint32_t seed = 0,
+                             Cellular mode = Cellular::Cells) {
+    Image img(width, height);
+    if (img.empty()) return img;
+    const core::WorleyNoise w(seed);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float sx = static_cast<float>(x) * scale;
+            const float sy = static_cast<float>(y) * scale;
+            float v;
+            if (mode == Cellular::Cells) {
+                v = w.f1(sx, sy);              // 0 at feature points, grows outward
+            } else {
+                v = w.crackle(sx, sy) * 2.0f;  // F2-F1: ~0 on edges (dark lines), larger inside
+            }
             if (v < 0.0f) v = 0.0f;
             if (v > 1.0f) v = 1.0f;
             img.setPixel(x, y, Color{v, v, v, 1.0f});

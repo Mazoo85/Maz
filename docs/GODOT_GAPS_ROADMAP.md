@@ -180,6 +180,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Procedural cellular / Worley texture** (`render::patterns::cellularTexture`) — DONE (M613); generate a grey
+  cellular ("Worley") image in code, distinct from the smooth Perlin `noiseTexture` (M612). Two `mode`s: `Cells` bakes
+  the F1 nearest-feature-point distance — rounded blobs for stone, reptile scales, cracked mud, water caustics, or
+  bubbles; `Cracks` bakes F2−F1 — thin dark lines along the cell boundaries for crack, vein, or Voronoi-edge networks.
+  Extends the image-pattern family (M607/M612) using the engine's existing `core::WorleyNoise`. `scale` sets the
+  frequency (larger = more, smaller cells), `seed` picks the pattern (same seed → same texture). Verified (`ctest -R
+  image_cellular`): the texture honours its requested size, every pixel is grey (r==g==b) and in [0,1], and the field
+  genuinely VARIES across the image (max−min > 0.1, not a flat fill); the same seed reproduces a byte-identical texture
+  while a different seed changes it; the two modes produce different fields, and the `Cracks` field carries near-black
+  boundary-line pixels alongside bright interiors (it spans the range); a cellular image fed into `heightToNormalMap`
+  produces a valid normal map that points generally outward (blue ≥ 128); a non-positive size returns an empty image.
+  Honest scope: plain distance-field value in grey with no gamma handling; not tile-seamless (wrap the domain for a
+  repeating texture). [VERIFIABLE HERE]
 - [x] **Procedural noise texture** (`render::patterns::noiseTexture`) — DONE (M612); generate a grey fractal-noise
   (fbm Perlin) image in code — clouds, marble, dirt, smoke, static, weathering masks, or a height source to feed the
   normal-map baker (M608). Extends the image-pattern family (M607) using the engine's existing `core::Noise`. `scale`
