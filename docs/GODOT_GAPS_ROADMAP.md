@@ -180,6 +180,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Boundary / hole edge-loop extraction** (`render::extractBoundaryLoops`) — DONE (M538); walk a mesh's
+  open edges into the ordered vertex LOOPS that ring each hole or the outer rim of an open surface. MeshTopology
+  (M528) already counts boundary edges; this turns them into usable curves — the front end for hole FILLING
+  (cap each loop), silhouette/outline rendering, cloth/rope attachment along an edge, and editor "select
+  boundary". Each boundary undirected edge has one triangle, so its single directed half-edge (wound by that
+  triangle) points consistently around the hole; chaining next[a]=b yields the loops. Verified
+  (`ctest -R mesh_boundary_loops`): a watertight cube gives no loops; a cube with one face removed gives
+  exactly one 4-vertex loop that is precisely the removed face's corners; a flat quad gives one 4-vertex
+  perimeter loop; two disjoint quads give two loops; every loop is a proper closed cycle. Manifold boundaries
+  (a figure-eight boundary vertex is the documented edge case). [VERIFIABLE HERE]
 - [x] **Triangle-quality / sliver analysis** (`render::analyzeTriangleQuality`, `TriangleQualityStats`) — DONE
   (M537); the mesh-QA pass that flags badly-shaped triangles — long thin slivers and needles shade poorly,
   self-shadow, crawl under rasterization, and wreck physics and simplification. Every meshing tool reports a

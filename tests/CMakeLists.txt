@@ -232,6 +232,11 @@ target_link_libraries(maz_trianglequality_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME triangle_quality COMMAND maz_trianglequality_tests)
 set_tests_properties(triangle_quality PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshboundaryloops_tests render/meshboundaryloops.cpp)
+target_link_libraries(maz_meshboundaryloops_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_boundary_loops COMMAND maz_meshboundaryloops_tests)
+set_tests_properties(mesh_boundary_loops PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
