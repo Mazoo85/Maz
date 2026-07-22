@@ -2451,3 +2451,8 @@ add_executable(maz_greedyvoxelmesh_tests render/greedyvoxelmesh.cpp)
 target_link_libraries(maz_greedyvoxelmesh_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME greedy_voxel_mesh COMMAND maz_greedyvoxelmesh_tests)
 set_tests_properties(greedy_voxel_mesh PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imaadpcm_tests audio/imaadpcm.cpp)
+target_link_libraries(maz_imaadpcm_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ima_adpcm COMMAND maz_imaadpcm_tests)
+set_tests_properties(ima_adpcm PROPERTIES TIMEOUT 30)

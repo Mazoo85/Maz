@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **IMA ADPCM audio codec** (`audio::encodeImaAdpcm` / `decodeImaAdpcm`, `ImaAdpcm.hpp`) — DONE (M724);
+  the classic 4-bit Adaptive Differential PCM codec (IMA/DVI) behind WAV format tag 0x11 and the sound banks
+  of countless games. [VERIFIABLE HERE] It squeezes 16-bit PCM to 4 bits/sample — a flat 4:1 compression — by
+  storing per sample only a 4-bit code for the DIFFERENCE from a running prediction, with an adaptive step
+  size that grows on loud passages and shrinks on quiet ones. Decode is a few adds and shifts per sample (no
+  multiplies, no floating point), cheap enough to decode hundreds of voices on any CPU. It complements the
+  engine's other codecs — QOA (higher quality ~3.2 bits/sample), G.711 (telephony companding), raw WAV — as
+  the tiny-and-fast option for short SFX. The stream stores the first sample verbatim (reproduced exactly)
+  plus the initial step index, then two codes per byte. The ctest checks the ~4:1 encoded size, that the
+  first sample is exact, that a smooth audio-like signal (summed sines) reconstructs to a small RMS error
+  (ADPCM is a smooth-signal codec), that a linear ramp reconstructs within a tight bound, and that silence
+  stays silence / empty in-out / determinism hold. Godot has no ADPCM codec. Header-only, std-only,
+  deterministic. ctest `ima_adpcm`.
 - [x] **Greedy voxel meshing** (`render::greedyVoxelMesh`, `GreedyVoxelMesh.hpp`) — DONE (M723); turn a 3D
   grid of blocks into a renderable surface mesh, merging every run of coplanar, same-type, equally-exposed
   faces into ONE big quad (Mikola Lysenko's greedy algorithm). [VERIFIABLE HERE] The reverse of MeshVoxelize
