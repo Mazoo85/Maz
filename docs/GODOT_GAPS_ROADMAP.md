@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Worley / cellular ("Voronoi") noise** (`core::worley2D` / `worley3D`, `CellularNoise.hpp`) —
+  DONE (M661); the procedural-texture noise the engine's Perlin (`core::Noise`, M85) didn't cover.
+  [VERIFIABLE HERE] Space is divided into unit cells each holding one hash-placed feature point; sampling
+  a position returns F1 (distance to the nearest point) and F2 (second nearest). F1 alone makes bubbly
+  organic cells (water caustics, cracked mud, cell membranes); F2−F1 traces the ridges *between* cells
+  (stone veins, crackle, Voronoi edges). Distinct from `Voronoi.hpp` (which builds an explicit
+  Delaunay/Voronoi diagram from a fixed point set) — this is a cheap, seed-driven, continuously
+  sampleable NOISE FIELD with no allocation, the form shaders and terrain/texture generators actually
+  use. A 3×3 (2D) / 3×3×3 (3D) cell search guarantees the true two nearest points are found. Verified
+  (`ctest -R cellular_noise`): determinism per (position, seed); F1 ≤ F2 and both ≥ 0 across a grid;
+  sampling exactly at a cell's reconstructed feature point gives F1 ≈ 0; F1 is bounded by ~√2 in 2D and
+  ~√3 in 3D; different seeds produce different fields; and the F2−F1 edge signal is non-negative and
+  varies across space. A genuinely-missing staple complementing the existing Perlin/fBm noise.
 - [x] **Projectile lead / intercept solver** (`math::interceptTarget`, `Intercept.hpp`) — DONE (M660);
   the "aim ahead of a moving target" math behind every turret, homing shot, and AI marksman. [VERIFIABLE
   HERE] The engine had a full-transform look-at and a look-rotation quaternion (M651), but those aim at a
