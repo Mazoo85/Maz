@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **GJK minimum-distance between convex shapes** (`math::gjkDistance`, `GjkDistance.hpp`) — DONE (M702);
+  the Gilbert-Johnson-Keerthi algorithm for the exact minimum distance between two convex polygons, with the
+  closest pair of witness points. [VERIFIABLE HERE] This is the proximity query the engine's SAT collider
+  (`game::ConvexShape2D`) cannot answer: SAT reports only boolean overlap (+ penetration when touching),
+  whereas GJK returns the actual GAP between two shapes that are APART, and the two closest points, one on
+  each — what "how close is the projectile to the wall?", speculative/predictive contacts, proximity
+  triggers, and AI standoff distances need. Evolves a 1-3 point simplex over the Minkowski difference via a
+  support function; the origin being enclosed means the shapes intersect (distance 0). This is the industry-
+  standard approach (Box2D/Bullet). Tested: overlap → distance 0, exact horizontal/diagonal gaps with
+  witnesses on the facing corners/edges, point-vs-box, edge-touching, and a 4000-trial randomized
+  cross-check that the distance and witnesses match a brute-force edge-edge minimum. Header-only, pure vec2.
 - [x] **Monotone cubic interpolation (PCHIP)** (`math::MonotoneCubic`, `MonotoneCubic.hpp`) — DONE (M701);
   a smooth C1 curve through data points that provably NEVER OVERSHOOTS (Fritsch-Carlson tangent clamping).
   [VERIFIABLE HERE] The crucial difference from the engine's other interpolators: the natural `CubicSpline`

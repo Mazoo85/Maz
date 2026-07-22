@@ -2341,3 +2341,8 @@ add_executable(maz_monotonecubic_tests math/monotonecubic.cpp)
 target_link_libraries(maz_monotonecubic_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME monotone_cubic COMMAND maz_monotonecubic_tests)
 set_tests_properties(monotone_cubic PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gjkdistance_tests math/gjkdistance.cpp)
+target_link_libraries(maz_gjkdistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gjk_distance COMMAND maz_gjkdistance_tests)
+set_tests_properties(gjk_distance PROPERTIES TIMEOUT 30)
