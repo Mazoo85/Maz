@@ -412,6 +412,11 @@ target_link_libraries(maz_meshflip_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_flip COMMAND maz_meshflip_tests)
 set_tests_properties(mesh_flip PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshvertexcolorgradient_tests render/meshvertexcolorgradient.cpp)
+target_link_libraries(maz_meshvertexcolorgradient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_vertex_color_gradient COMMAND maz_meshvertexcolorgradient_tests)
+set_tests_properties(mesh_vertex_color_gradient PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

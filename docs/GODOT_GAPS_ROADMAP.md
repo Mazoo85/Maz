@@ -180,6 +180,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Vertex-colour gradient paint** (`render::paintAxisGradient`, `render::paintRadialGradient`) — DONE
+  (M574); tint a mesh's per-vertex RGB by WHERE each vertex sits, in one call — the "give it a look without a
+  texture" move. `paintAxisGradient` fades one colour to another along X, Y or Z (grass at a hill's base fading
+  to rock at its peak; a wall darker at the floor); `t` runs 0→1 from `axisMin` to `axisMax` (leave them at the
+  defaults to auto-fit the mesh's bounding box along that axis) and the RGB is a straight blend from `low` to
+  `high`, clamped at both ends. `paintRadialGradient` fades outward from a point (a glow or scorch around a hit,
+  a spotlight pool); `t` runs 0→1 as distance grows from `inner` to `outer`. Both compose with the other
+  vertex-colour tools — paint first, then layer M553 AO / M556 cavity / M564 smoothing on top. Verified
+  (`ctest -R mesh_vertex_color_gradient`): a Y-axis auto-fit gradient gives black at the bottom, white at the top,
+  mid-grey exactly half-way with all channels ramping together and geometry untouched; an explicit range clamps
+  values outside it; a zero-extent axis paints everything `low`; a radial gradient gives innerColor at the centre,
+  half-grey at half the band, outerColor at and beyond `outer`; a degenerate band (outer ≤ inner) becomes a hard
+  ring; empty meshes are safe. Honest scope: this is a hard REPLACE of RGB (not a blend over existing colour),
+  linear in stored [0,1] space (no gamma, no easing curve — pre-smooth or run M564 after for a softer ramp);
+  positions/normals/UVs and alpha are untouched. [VERIFIABLE HERE]
 - [x] **Mesh flip / reverse (inside-out)** (`render::flipWinding`, `render::flipNormals`, `render::flipMesh`) —
   DONE (M573); deliberately turn a mesh inside-out: reverse every triangle's winding AND negate every vertex
   normal so the surface faces the OTHER way. This is a different job from M562 winding-consistency (which only
