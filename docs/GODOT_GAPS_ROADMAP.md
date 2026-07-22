@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Bounded float quantization for netcode** (`net::quantizeFloat`/`dequantizeFloat`/`quantizeAngle`,
+  `FloatQuant.hpp`) — DONE (M691); shrink a float to N bits for compact network snapshots. [VERIFIABLE HERE]
+  Sending full 32-bit floats for every position, angle, and health value wastes bandwidth; almost all live
+  in a KNOWN range, so mapping that range onto a small integer of `bits` bits and reconstructing on the
+  far side (to within one step) is the core trick behind compact snapshots and delta encoding (pairs with
+  the engine's BitStream/Snapshot). Handles an arbitrary `[min,max]` at any bit width — unlike PackNorm's
+  fixed [0,1]/[-1,1] at 8/16 bits for GPU vertex attributes — and treats angles as PERIODIC so −π and +π
+  share a code (no seam). Verified (`ctest -R float_quant`): the range endpoints quantize to 0 and 2^bits−1
+  and round-trip exactly; every value round-trips within half a quantization step; out-of-range values
+  clamp; 16-bit is measurably more accurate than 8-bit; the code never exceeds its bit width; and angles
+  round-trip within half a step on the circle with −π/+π sharing a code. Pure math, header-only,
+  deterministic.
 - [x] **Leaderboard with competition ranking** (`game::Leaderboard`, `Leaderboard.hpp`) — DONE (M690); the
   ranked score table behind high-score lists, ranked ladders, speedrun times, and weekly challenges:
   submit a score and answer "what rank am I?", "show the top 10", and "show me and my neighbours".
