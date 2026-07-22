@@ -150,6 +150,21 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **SQUAD spherical-cubic quaternion spline** (`math::squad`/`squadSegment`/`squadIntermediate`,
+  `quatLog`/`quatExp`, `QuaternionSquad.hpp`) — DONE (M676); smooth C¹ orientation interpolation through
+  a list of rotation keyframes — the rotation analog of a cubic spline. [VERIFIABLE HERE] `Quaternion::slerp`
+  already blends between two orientations along the shortest arc (a straight line in rotation space), but
+  chaining slerp across keyframes is only C⁰: angular velocity jumps at every key, so a camera or bone
+  visibly "ticks" as it passes each one. SQUAD (Shoemake 1987) threads a smooth curve through the keys so
+  angular velocity is continuous — what cinematic camera rigs and skeletal-animation rotation tracks use.
+  Built on the quaternion exponential map (`quatLog` → tangent, `quatExp` → rotation): each key gets an
+  inner control `s_i = q_i·exp(-(log(q_i⁻¹q_{i-1})+log(q_i⁻¹q_{i+1}))/4)`, and a segment is
+  `slerp(slerp(q0,q1,t), slerp(s0,s1,t), 2t(1-t))`; adjacent segments share the boundary control, which is
+  what makes the join C¹. Verified (`ctest -R quaternion_squad`): `exp(log(q))==q`; segment endpoints are
+  exact (t=0→q0, t=1→q1) whatever the controls; identical keyframes give a constant orientation with no
+  drift; every sample stays unit length; the intermediate of three equal orientations is that orientation;
+  and for keyframes about a shared axis the finite-difference angular velocity is continuous across a
+  shared junction (the C¹ property SQUAD exists to provide). Header-only, deterministic.
 - [x] **Exact Euclidean distance transform + nearest-seed labelling** (`math::distanceTransform`,
   `DistanceTransform.hpp`) — DONE (M675); fills every grid cell with its EXACT Euclidean distance to the
   nearest "seed" cell, plus which seed is nearest (a grid Voronoi labelling). [VERIFIABLE HERE] This is
