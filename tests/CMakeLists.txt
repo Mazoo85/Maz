@@ -792,6 +792,11 @@ target_link_libraries(maz_springbone_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spring_bone COMMAND maz_springbone_tests)
 set_tests_properties(spring_bone PROPERTIES TIMEOUT 30)
 
+add_executable(maz_lookrotation_tests math/lookrotation.cpp)
+target_link_libraries(maz_lookrotation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME look_rotation COMMAND maz_lookrotation_tests)
+set_tests_properties(look_rotation PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

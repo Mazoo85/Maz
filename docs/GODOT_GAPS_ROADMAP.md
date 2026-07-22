@@ -131,6 +131,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Look-rotation quaternion** (`math::Quaternion::lookRotation`) — DONE (M651); the orientation-only
+  companion to `Transform3D::lookingAt`: build the quaternion that faces a direction with an up hint (local -Z
+  points along `forward`, matching the engine/Godot forward convention). The engine had a full-transform
+  look-at, but when you only want the target ORIENTATION — to SLERP a turret / enemy / camera smoothly toward
+  a target, or to set a rotation without touching translation/scale — you need it as a quaternion, which was
+  missing. Handles a zero forward (returns identity) and up-parallel-to-forward (picks an alternate up) without
+  NaN. Verified (`ctest -R "^look_rotation$"`): facing -Z is the identity; the rotation maps local -Z exactly
+  onto the normalized forward for a spread of directions and the result is unit-length; the up hint keeps
+  rotated +Y on the positive side; it agrees with `Transform3D::lookingAt` for the same target; a zero forward
+  gives identity and up∥forward stays finite and still faces the direction. Honest scope: the -Z-forward
+  convention (negate or compose if your asset faces +Z) — pure orientation, no position. [VERIFIABLE HERE]
 - [x] **Spring-bone / jiggle chain** (`anim::SpringBone`) — DONE (M650); secondary motion for a chain of bones
   — tails, hair, ponytails, antennae, capes, dangling accessories — that should JIGGLE and trail as the
   character moves rather than stay rigidly rigged. You drive the ROOT joint each frame (attach it to a real

@@ -58,6 +58,25 @@ struct Quaternion {
         return Quaternion(c.x * rs, c.y * rs, c.z * rs, s * 0.5f);
     }
 
+    // Orientation that faces `forward` with `up` kept roughly up — the rotation-only companion to
+    // Transform3D::lookingAt (same convention: the object's local -Z axis points along `forward`, matching
+    // Godot's "forward"). Use this when you want just the target ORIENTATION to slerp toward (turret/enemy/
+    // camera aiming) rather than a full transform. `forward` need not be unit length. If `forward` is
+    // degenerate (zero) the identity is returned; if `up` is parallel to `forward` an alternate up is chosen.
+    static Quaternion lookRotation(const vec3& forward, const vec3& up = vec3(0.0f, 1.0f, 0.0f)) {
+        const float flen = glm::length(forward);
+        if (flen < 1e-8f) return Quaternion(); // no direction -> identity
+        const vec3 vz = -(forward / flen);     // -Z faces `forward`
+        vec3 upv = up;
+        if (glm::length(cross(upv, vz)) < 1e-6f) {
+            // up parallel to the view axis: pick a different up so the basis is well-defined.
+            upv = (std::fabs(vz.y) < 0.99f) ? vec3(0.0f, 1.0f, 0.0f) : vec3(1.0f, 0.0f, 0.0f);
+        }
+        const vec3 vx = normalize(cross(upv, vz));
+        const vec3 vy = cross(vz, vx);
+        return fromMat3(mat3(vx, vy, vz));
+    }
+
     // Build from Euler angles using Godot's YXZ order (R = Y(y)*X(x)*Z(z)) — Godot's from_euler.
     static Quaternion fromEuler(const vec3& e) {
         const float hy = e.y * 0.5f, hx = e.x * 0.5f, hz = e.z * 0.5f;
