@@ -180,6 +180,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   Verified (`ctest -R gif_codec`): a 5-color pattern and a two-color stripe both survive encode→decode
   pixel-exact, header/dimensions check out, and malformed input is rejected. Follow-up: multi-frame
   animation + transparency index. [VERIFIABLE HERE]
+- [x] **Ripple / wave deformer** (`render::rippleMesh`) — DONE (M585); send concentric ripples across a surface —
+  each vertex is pushed along one axis by a sine wave of its DISTANCE from a centre, so a flat plane becomes a pond
+  after a stone drops, a disc becomes a warped vinyl record, a flag gets a rippling wobble. The push along `axis`
+  is `amplitude·sin(radial·frequency − phase)` where `radial` is the distance from `centre` in the plane
+  perpendicular to `axis` (so the rings are truly circular). `frequency` sets ring spacing, `amplitude` the crest
+  height, and animating `phase` makes the rings travel outward — the whole animated-water effect is just
+  `phase += speed·dt` each frame. Complements M580 displace (noise) with a clean analytic wave. Verified
+  (`ctest -R mesh_ripple`): along +X at radii 0/1/2/3 with frequency π/2 the offsets are exactly 0/+amp/0/−amp
+  (the sine at 0, π/2, π, 3π/2); a vertex at the same radius in Z gets the identical offset (rings are circular);
+  the perpendicular X/Z coords never move; a phase of π/2 puts a trough at the centre; amplitude 0 is a no-op; an
+  offset centre re-measures the radius (a vertex sitting on the new centre gets zero offset); empty is safe.
+  Honest scope: offsets POSITIONS only along a single axis — normals are left stale (re-run `computeNormals` for
+  correct crest/trough shading); the wave's smoothness is limited by tessellation along the radius (subdivide for
+  a clean sine); frequency 0 pushes the whole surface by a constant. [VERIFIABLE HERE]
 - [x] **Bend deformer** (`render::bendMesh`) — DONE (M584); curl a straight mesh around an arc — a plank becomes
   an archway, a straight pipe becomes an elbow, a flat strip becomes a curled ribbon or barrel stave. This is
   Blender's "Simple Deform → Bend" and the third classic deformer alongside twist (M581) and taper (M582),

@@ -467,6 +467,11 @@ target_link_libraries(maz_meshbend_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_bend COMMAND maz_meshbend_tests)
 set_tests_properties(mesh_bend PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshripple_tests render/meshripple.cpp)
+target_link_libraries(maz_meshripple_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_ripple COMMAND maz_meshripple_tests)
+set_tests_properties(mesh_ripple PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
