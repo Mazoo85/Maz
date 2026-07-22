@@ -982,6 +982,11 @@ target_link_libraries(maz_rmf_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME rotation_minimizing_frame COMMAND maz_rmf_tests)
 set_tests_properties(rotation_minimizing_frame PROPERTIES TIMEOUT 30)
 
+add_executable(maz_leaderboard_tests game/leaderboard.cpp)
+target_link_libraries(maz_leaderboard_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME leaderboard COMMAND maz_leaderboard_tests)
+set_tests_properties(leaderboard PROPERTIES TIMEOUT 30)
+
 # Golden-image regression: render each app on lavapipe and diff against committed references. Self-
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.

@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Leaderboard with competition ranking** (`game::Leaderboard`, `Leaderboard.hpp`) — DONE (M690); the
+  ranked score table behind high-score lists, ranked ladders, speedrun times, and weekly challenges:
+  submit a score and answer "what rank am I?", "show the top 10", and "show me and my neighbours".
+  [VERIFIABLE HERE] Uses proper COMPETITION ranking (tied scores share a rank; the next distinct score
+  skips ahead — the "1224" convention), keeps only each player's BEST score, and supports both
+  higher-is-better (points) and lower-is-better (race/lap times) boards. Pairs with the Elo system (M681)
+  which rates head-to-head skill. Verified (`ctest -R leaderboard`): `top()` lists best-first; two tied
+  top scores both rank 1 and the next distinct score is rank 3 (not 2), then 4; a worse resubmit is
+  ignored while a better one promotes; `around()` returns the centred window and clamps at the leader; and
+  a lower-is-better board ranks the smallest time first. Pure value logic, header-only, deterministic.
 - [x] **Rotation-minimizing frames along a curve** (`math::rotationMinimizingFrames`/`advanceRMF`,
   `RotationMinimizingFrame.hpp`) — DONE (M689); a stable orthonormal frame (tangent + two perpendicular
   axes) at every point of a path, for extruding tube/ribbon meshes, sweeping cross-sections, orienting a
