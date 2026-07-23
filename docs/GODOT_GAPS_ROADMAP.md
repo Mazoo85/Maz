@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Best-fit plane (total least squares)** (`math::fitPlane`, `ShapeFit.hpp`) — DONE (M763); find the
+  plane that best passes through a 3D point cloud, minimising ORTHOGONAL distance (true total least squares,
+  not a z=f(x,y) graph fit). This is how you estimate the ground/floor from scanned or sampled points, find
+  a wall or table surface, get an average surface normal for decal projection or slope checks, or flatten a
+  patch of terrain. It centres the points, forms their 3x3 covariance, and takes the smallest-eigenvalue
+  eigenvector as the normal (reusing FitObb's Jacobi eigensolver) — the direction of least spread. Rounds out
+  the circle/sphere fitters (M762); Godot has no plane fit. [VERIFIABLE HERE] `ctest -R plane_fit`: points on
+  a known tilted plane recover its normal (up to sign) and satisfy normal.p + d ~ 0; with out-of-plane
+  jitter the normal stays aligned and variance along it is < 5% of the in-plane variance (the defining
+  min-variance property); the plane passes through the centroid; fewer than three points fail; determinism.
 - [x] **Geometric circle / sphere fitting** (`math::fitCircle` / `math::fitSphere`, `ShapeFit.hpp`) — DONE
   (M762); find the CIRCLE (2D) or SPHERE (3D) that best passes through a cloud of measured points. Where the
   engine's LeastSquares fits a value as a function of x (a line or polynomial), this fits a round SHAPE to

@@ -2647,3 +2647,8 @@ add_executable(maz_shapefit_tests math/shapefit.cpp)
 target_link_libraries(maz_shapefit_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME shape_fit COMMAND maz_shapefit_tests)
 set_tests_properties(shape_fit PROPERTIES TIMEOUT 30)
+
+add_executable(maz_planefit_tests math/planefit.cpp)
+target_link_libraries(maz_planefit_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME plane_fit COMMAND maz_planefit_tests)
+set_tests_properties(plane_fit PROPERTIES TIMEOUT 30)

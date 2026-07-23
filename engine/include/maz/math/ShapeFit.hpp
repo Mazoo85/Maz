@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/math/FitObb.hpp"      // detail::jacobiEigen3 (symmetric 3x3 eigensolver)
 #include "maz/math/LinearSolve.hpp" // solveLinearSystem
 #include "maz/math/Math.hpp"        // vec2, vec3
 
@@ -28,6 +29,67 @@ struct SphereFit {
     float radius = 0.0f;
     bool ok = false;
 };
+
+struct PlaneFit {
+    vec3 normal{0.0f, 0.0f, 1.0f}; // unit normal (direction of least spread)
+    vec3 centroid{0.0f, 0.0f, 0.0f};
+    float d = 0.0f; // plane is normal.x*x + normal.y*y + normal.z*z + d = 0
+    bool ok = false;
+};
+
+// Best-fit plane through 3D points by TOTAL least squares (minimises orthogonal distance): the plane
+// through the centroid whose normal is the smallest-eigenvalue eigenvector of the point covariance. Needs
+// >= 3 non-collinear points.
+inline PlaneFit fitPlane(const std::vector<vec3>& pts) {
+    PlaneFit f;
+    if (pts.size() < 3) {
+        return f;
+    }
+    double cx = 0.0, cy = 0.0, cz = 0.0;
+    for (const vec3& p : pts) {
+        cx += p.x;
+        cy += p.y;
+        cz += p.z;
+    }
+    const double n = static_cast<double>(pts.size());
+    cx /= n;
+    cy /= n;
+    cz /= n;
+    double a[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    for (const vec3& p : pts) {
+        const double dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+        a[0][0] += dx * dx;
+        a[0][1] += dx * dy;
+        a[0][2] += dx * dz;
+        a[1][1] += dy * dy;
+        a[1][2] += dy * dz;
+        a[2][2] += dz * dz;
+    }
+    a[1][0] = a[0][1];
+    a[2][0] = a[0][2];
+    a[2][1] = a[1][2];
+    double v[3][3], d[3];
+    detail::jacobiEigen3(a, v, d);
+    // Smallest eigenvalue (covariance is PSD) -> direction of least spread -> plane normal.
+    int mi = 0;
+    if (d[1] < d[mi]) {
+        mi = 1;
+    }
+    if (d[2] < d[mi]) {
+        mi = 2;
+    }
+    vec3 nrm(static_cast<float>(v[0][mi]), static_cast<float>(v[1][mi]), static_cast<float>(v[2][mi]));
+    const float ln = std::sqrt(nrm.x * nrm.x + nrm.y * nrm.y + nrm.z * nrm.z);
+    if (ln < 1e-9f) {
+        return f;
+    }
+    nrm = vec3(nrm.x / ln, nrm.y / ln, nrm.z / ln);
+    f.normal = nrm;
+    f.centroid = vec3(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(cz));
+    f.d = -(nrm.x * f.centroid.x + nrm.y * f.centroid.y + nrm.z * f.centroid.z);
+    f.ok = true;
+    return f;
+}
 
 // Best-fit circle through 2D points (Kasa algebraic least squares). Needs >= 3 non-collinear points.
 inline CircleFit fitCircle(const std::vector<vec2>& pts) {
