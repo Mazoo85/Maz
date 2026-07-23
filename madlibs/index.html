@@ -54,6 +54,7 @@
           <button id="copy">📋 Copy</button>
           <button id="exportOne">⬇ Export .md</button>
           <button id="save" class="accent">★ Save to Library</button>
+          <button id="script" class="film" title="Send this idea to production and copy a brief to hand to Claude">🎬 Script this idea</button>
         </div>
       </article>
 
@@ -80,6 +81,21 @@
       </div>
       <ul id="libraryList" class="library-list"></ul>
       <p id="libEmpty" class="muted">Nothing saved yet. Forge a story you like and hit <strong>Save</strong>.</p>
+    </section>
+
+    <section class="productions">
+      <div class="library-head">
+        <h3>🎬 Productions <span id="prodCount" class="count film-count">0</span></h3>
+        <button id="clearProd" class="link">clear all</button>
+      </div>
+      <p class="muted how">
+        Hit <strong>🎬 Script this idea</strong> on a story to send it here. The brief
+        is copied to your clipboard — paste it to Claude and ask for the 30-minute
+        script. Track each project's stage below, and paste the script &amp;
+        storyboard links Claude gives you so everything stays in one place.
+      </p>
+      <ul id="prodList" class="prod-list"></ul>
+      <p id="prodEmpty" class="muted">No productions yet.</p>
     </section>
 
     <footer class="foot">

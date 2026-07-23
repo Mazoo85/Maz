@@ -25,6 +25,7 @@ unit_scene_*.mazscene
 .scraper/
 /scraped/
 
-# MadLibs Story Forge: generated single-file bundle (built from madlibs/ source
-# for publishing/preview; not a source file)
+# MadLibs Story Forge: generated single-file bundles / preview pages (built from
+# madlibs/ source for publishing/preview; not source files)
 madlibs/*.artifact.html
+madlibs/**/*.artifact.html

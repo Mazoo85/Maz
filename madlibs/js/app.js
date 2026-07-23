@@ -9,6 +9,15 @@
 
   var G = window.MadlibsGenerator;
   var LIB_KEY = 'madlibs.library.v1';
+  var PROD_KEY = 'madlibs.productions.v1';
+
+  // Production stages, in order. value -> label shown in the dropdown.
+  var STAGES = [
+    { value: 'idea', label: 'Idea' },
+    { value: 'scripting', label: 'Scripting' },
+    { value: 'chosen', label: 'Script chosen' },
+    { value: 'storyboarded', label: 'Storyboarded' }
+  ];
 
   var el = {
     genre: document.getElementById('genre'),
@@ -30,7 +39,12 @@
     libEmpty: document.getElementById('libEmpty'),
     clearLib: document.getElementById('clearLib'),
     templateCount: document.getElementById('templateCount'),
-    install: document.getElementById('install')
+    install: document.getElementById('install'),
+    script: document.getElementById('script'),
+    prodList: document.getElementById('prodList'),
+    prodCount: document.getElementById('prodCount'),
+    prodEmpty: document.getElementById('prodEmpty'),
+    clearProd: document.getElementById('clearProd')
   };
 
   var current = null; // the story shown right now
@@ -64,6 +78,20 @@
   function genreLabel(g) {
     return g.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
+
+  // Copy text to the clipboard with a toast; falls back gracefully.
+  function copyText(text, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { toast(okMsg || 'Copied'); },
+        function () { toast('Copy failed'); }
+      );
+    } else {
+      toast('Clipboard unavailable');
+    }
+  }
+
+  function slugFor(story) { return story.id + '-' + story.seed; }
 
   function loadLibrary() {
     try { return JSON.parse(localStorage.getItem(LIB_KEY)) || []; }
@@ -138,6 +166,16 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
 
+      var film = document.createElement('button');
+      film.className = 'li-film';
+      film.textContent = '🎬';
+      film.title = 'Send to Productions & copy the brief';
+      film.addEventListener('click', function (e) {
+        e.stopPropagation();
+        renderStory(item);   // make it current so doScript uses it
+        doScript();
+      });
+
       var del = document.createElement('button');
       del.className = 'li-del';
       del.textContent = '×';
@@ -151,6 +189,7 @@
       });
 
       li.appendChild(main);
+      li.appendChild(film);
       li.appendChild(del);
       el.libraryList.appendChild(li);
     });
@@ -166,6 +205,158 @@
     saveLibrary(lib);
     renderLibrary();
     toast('Saved to library ★');
+  }
+
+  // -------------------------------------------------------------- productions
+  function loadProductions() {
+    try { return JSON.parse(localStorage.getItem(PROD_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveProductions(list) {
+    try { localStorage.setItem(PROD_KEY, JSON.stringify(list)); }
+    catch (e) { /* non-fatal */ }
+  }
+
+  // Send the current story to production and copy its brief for the writer.
+  function doScript() {
+    if (!current) return;
+    var list = loadProductions();
+    var existing = list.filter(function (p) { return p.signature === current.signature; })[0];
+    if (!existing) {
+      list.unshift({
+        signature: current.signature,
+        slug: slugFor(current),
+        title: current.title,
+        genre: current.genre,
+        seed: current.seed,
+        story: current,
+        status: 'idea',
+        scriptUrl: '',
+        storyboardUrl: ''
+      });
+      saveProductions(list);
+      renderProductions();
+    }
+    copyText(G.toBrief(current),
+      existing ? 'Already in productions — brief copied' : 'Sent to Productions — brief copied');
+  }
+
+  function updateProduction(signature, patch) {
+    var list = loadProductions();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].signature === signature) {
+        for (var k in patch) if (patch.hasOwnProperty(k)) list[i][k] = patch[k];
+        break;
+      }
+    }
+    saveProductions(list);
+  }
+
+  function removeProduction(signature) {
+    saveProductions(loadProductions().filter(function (p) { return p.signature !== signature; }));
+    renderProductions();
+  }
+
+  // Build one labelled URL field (script or storyboard link).
+  function linkField(prod, key, label) {
+    var wrap = document.createElement('label');
+    wrap.className = 'link-field';
+    var span = document.createElement('span');
+    span.textContent = label;
+    var input = document.createElement('input');
+    input.type = 'url';
+    input.placeholder = 'paste ' + label.toLowerCase() + '…';
+    input.value = prod[key] || '';
+    input.addEventListener('change', function () {
+      updateProduction(prod.signature, defineOne(key, input.value.trim()));
+      renderProductions();
+    });
+    wrap.appendChild(span);
+    wrap.appendChild(input);
+    if (prod[key]) {
+      var open = document.createElement('a');
+      open.href = prod[key];
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.className = 'open-link';
+      open.textContent = 'open ↗';
+      wrap.appendChild(open);
+    }
+    return wrap;
+  }
+  function defineOne(k, v) { var o = {}; o[k] = v; return o; }
+
+  function renderProductions() {
+    var list = loadProductions();
+    el.prodCount.textContent = String(list.length);
+    el.prodList.innerHTML = '';
+    el.prodEmpty.style.display = list.length ? 'none' : 'block';
+
+    list.forEach(function (prod) {
+      var li = document.createElement('li');
+      li.className = 'prod-item stage-' + prod.status;
+
+      // Header row: title + stage dropdown + delete
+      var head = document.createElement('div');
+      head.className = 'prod-head';
+
+      var titleWrap = document.createElement('div');
+      titleWrap.className = 'prod-title-wrap';
+      var title = document.createElement('span');
+      title.className = 'prod-title';
+      title.textContent = prod.title;
+      var chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = genreLabel(prod.genre);
+      titleWrap.appendChild(title);
+      titleWrap.appendChild(chip);
+
+      var stage = document.createElement('select');
+      stage.className = 'stage-select';
+      stage.title = 'Production stage';
+      STAGES.forEach(function (s) {
+        var o = document.createElement('option');
+        o.value = s.value; o.textContent = s.label;
+        if (s.value === prod.status) o.selected = true;
+        stage.appendChild(o);
+      });
+      stage.addEventListener('change', function () {
+        updateProduction(prod.signature, { status: stage.value });
+        renderProductions();
+      });
+
+      var del = document.createElement('button');
+      del.className = 'li-del';
+      del.textContent = '×';
+      del.title = 'Remove from productions';
+      del.addEventListener('click', function () { removeProduction(prod.signature); });
+
+      head.appendChild(titleWrap);
+      head.appendChild(stage);
+      head.appendChild(del);
+
+      // Actions: copy brief again
+      var actions = document.createElement('div');
+      actions.className = 'prod-actions';
+      var briefBtn = document.createElement('button');
+      briefBtn.className = 'mini';
+      briefBtn.textContent = '📋 Copy brief';
+      briefBtn.addEventListener('click', function () {
+        copyText(G.toBrief(prod.story), 'Brief copied');
+      });
+      actions.appendChild(briefBtn);
+
+      // Link fields
+      var links = document.createElement('div');
+      links.className = 'prod-links';
+      links.appendChild(linkField(prod, 'scriptUrl', 'Script link'));
+      links.appendChild(linkField(prod, 'storyboardUrl', 'Storyboard link'));
+
+      li.appendChild(head);
+      li.appendChild(actions);
+      li.appendChild(links);
+      el.prodList.appendChild(li);
+    });
   }
 
   // -------------------------------------------------------------- batch
@@ -239,26 +430,25 @@
     el.reroll.addEventListener('click', doReroll);
     el.copy.addEventListener('click', function () {
       if (!current) return;
-      var md = G.toMarkdown(current);
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(md).then(
-          function () { toast('Copied to clipboard'); },
-          function () { toast('Copy failed'); }
-        );
-      } else {
-        toast('Clipboard unavailable');
-      }
+      copyText(G.toMarkdown(current), 'Copied to clipboard');
     });
     el.exportOne.addEventListener('click', function () {
       if (!current) return;
       download('madlibs-' + current.id + '-' + current.seed + '.md', G.toMarkdown(current));
     });
     el.save.addEventListener('click', doSave);
+    el.script.addEventListener('click', doScript);
     el.clearLib.addEventListener('click', function () {
       if (!loadLibrary().length) return;
       saveLibrary([]);
       renderLibrary();
       toast('Library cleared');
+    });
+    el.clearProd.addEventListener('click', function () {
+      if (!loadProductions().length) return;
+      saveProductions([]);
+      renderProductions();
+      toast('Productions cleared');
     });
     Array.prototype.forEach.call(document.querySelectorAll('.batch-btn'), function (btn) {
       btn.addEventListener('click', function () { doBatch(parseInt(btn.getAttribute('data-n'), 10), btn); });
@@ -269,6 +459,7 @@
   initScaleStat();
   initInstall();
   renderLibrary();
+  renderProductions();
   bind();
   doGenerate(); // start with one ready to go
 })();

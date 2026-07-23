@@ -1,0 +1,109 @@
+<!--
+  Storyboard page template (artifact-ready fragment: <style> + markup, no
+  <html>/<head>/<body> wrappers so it can be published directly as an Artifact).
+  Clone this and replace the .board contents with real panels. Each .panel has:
+    .frame     16:9 sketch placeholder box with the shot number
+    .shot-meta framing + camera tags
+    .slug      the scene slugline the shot belongs to
+    .desc      action described in the frame
+    .line      dialogue over the shot (optional)
+    .dur       duration estimate in seconds
+  Neon look, matching the app. Committed as documentation; the published page is
+  generated from a chosen script's storyboard.md and is git-ignored.
+-->
+<style>
+  :root {
+    --bg: #0d0820; --bg-2: #160f2e; --panel: #1c1440; --panel-2: #241858;
+    --ink: #eae6ff; --muted: #9d93c7; --pink: #ff2d95; --cyan: #00e5ff;
+    --green: #39ff14; --purple: #b06bff; --amber: #ffcf4d; --line: #33285f;
+  }
+  #board-root {
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(176,107,255,0.18), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg-2));
+    color: var(--ink);
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    padding: 28px 18px 70px;
+  }
+  .board-head { max-width: 1100px; margin: 0 auto 22px; text-align: center; }
+  .board-head h1 {
+    margin: 0; font-size: clamp(24px, 5vw, 38px); text-transform: uppercase;
+    letter-spacing: 1px; color: var(--cyan);
+    text-shadow: 0 0 16px rgba(0,229,255,0.5), 2px 2px 0 rgba(255,45,149,0.35);
+  }
+  .board-head .sub { color: var(--muted); margin-top: 8px; }
+  .board-head .totals { color: var(--amber); margin-top: 6px; font-size: 14px; }
+
+  .board {
+    max-width: 1100px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .frame {
+    position: relative; aspect-ratio: 16 / 9;
+    background:
+      linear-gradient(135deg, #120c28, #0c0820);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* rule-of-thirds guides */
+  .frame::before, .frame::after {
+    content: ""; position: absolute; background: rgba(157,147,199,0.16);
+  }
+  .frame::before { left: 33.33%; right: 33.33%; top: 0; bottom: 0; border-left: 1px solid rgba(157,147,199,0.16); border-right: 1px solid rgba(157,147,199,0.16); }
+  .frame::after { top: 33.33%; bottom: 33.33%; left: 0; right: 0; border-top: 1px solid rgba(157,147,199,0.16); border-bottom: 1px solid rgba(157,147,199,0.16); }
+  .frame .num {
+    position: relative; font-size: 34px; font-weight: 800; color: rgba(234,230,255,0.22);
+    letter-spacing: 1px;
+  }
+  .frame .dur {
+    position: absolute; right: 8px; bottom: 6px; font-size: 12px;
+    color: var(--muted); background: rgba(13,8,32,0.7); padding: 1px 7px; border-radius: 999px;
+  }
+  .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .shot-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .tag.frame-tag { background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.4); color: var(--cyan); }
+  .tag.cam-tag { background: rgba(255,45,149,0.12); border: 1px solid rgba(255,45,149,0.4); color: var(--pink); }
+  .slug { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--green); }
+  .desc { font-size: 14px; color: var(--ink); }
+  .line { font-size: 14px; color: var(--muted); border-left: 2px solid var(--purple); padding-left: 10px; }
+  .line b { color: var(--amber); font-weight: 600; }
+
+  @media (max-width: 560px) { .board { grid-template-columns: 1fr; } }
+</style>
+
+<div id="board-root">
+  <div class="board-head">
+    <h1>Episode Title — Storyboard</h1>
+    <div class="sub">Genre · from the chosen script</div>
+    <div class="totals">NN panels · ~30 min</div>
+  </div>
+
+  <div class="board">
+    <!-- one .panel per shot -->
+    <div class="panel">
+      <div class="frame">
+        <span class="num">1</span>
+        <span class="dur">4s</span>
+      </div>
+      <div class="body">
+        <div class="shot-meta">
+          <span class="tag frame-tag">WIDE</span>
+          <span class="tag cam-tag">STATIC</span>
+        </div>
+        <div class="slug">INT. LOCATION — NIGHT</div>
+        <div class="desc">What happens in the frame.</div>
+        <div class="line"><b>CHARACTER:</b> The line over this shot.</div>
+      </div>
+    </div>
+  </div>
+</div>

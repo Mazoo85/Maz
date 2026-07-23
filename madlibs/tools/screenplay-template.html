@@ -1,0 +1,108 @@
+<!--
+  Screenplay page template (artifact-ready fragment: <style> + markup, no
+  <html>/<head>/<body> wrappers so it can be published directly as an Artifact).
+  Clone this and replace the .title-block and .screenplay contents with a real
+  teleplay. Element conventions:
+    .scene         scene heading  (INT./EXT. LOCATION — DAY/NIGHT)
+    .action        action / description line
+    .dual          wrapper for a character cue + dialogue
+      .character   centered, uppercase speaker name
+      .paren       (parenthetical)
+      .dialogue    the spoken line(s)
+    .transition    right-aligned transition (CUT TO:)
+    .act           centered act break (ACT ONE, COLD OPEN, TAG, …)
+  Committed to the repo as documentation; the published page is generated from a
+  script's Markdown and is git-ignored.
+-->
+<style>
+  :root {
+    --paper: #f6f3ea;
+    --ink: #1c1a17;
+    --faint: #6b665c;
+    --rule: #d8d2c4;
+    --accent: #7a1f2b;
+  }
+  #screenplay-root {
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 32px 16px 80px;
+    font-family: "Courier New", "Courier", monospace;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .page {
+    background: #fffdf8;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 56px 64px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--rule);
+  }
+  .title-block { text-align: center; margin: 40px 0 64px; }
+  .title-block .title {
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-wrap: balance;
+  }
+  .title-block .meta { margin-top: 18px; color: var(--faint); font-size: 14px; }
+  .title-block .byline { margin-top: 28px; font-size: 15px; }
+
+  .act {
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 40px 0 24px;
+    text-decoration: underline;
+  }
+  .scene {
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 22px 0 10px;
+  }
+  .action { margin: 0 0 14px; }
+  .dual { margin: 0 0 14px; }
+  .character { text-transform: uppercase; margin-left: 38%; }
+  .paren { margin-left: 30%; color: var(--faint); }
+  .dialogue { margin: 0 22% 0 20%; }
+  .transition { text-align: right; text-transform: uppercase; margin: 16px 0; }
+  .end { text-align: center; letter-spacing: 3px; margin-top: 48px; font-weight: 700; }
+
+  @media (max-width: 560px) {
+    .page { padding: 32px 22px; }
+    .character { margin-left: 30%; }
+    .dialogue { margin: 0 8% 0 10%; }
+  }
+</style>
+
+<div id="screenplay-root">
+  <div class="page">
+    <div class="title-block">
+      <div class="title">Episode Title</div>
+      <div class="meta">A half-hour episode · Genre · Take A</div>
+      <div class="byline">Written by the MadLibs Story Forge pipeline</div>
+    </div>
+
+    <div class="act">Cold Open</div>
+
+    <p class="scene">INT. LOCATION — NIGHT</p>
+    <p class="action">Action describing what we see in the frame.</p>
+
+    <div class="dual">
+      <p class="character">CHARACTER</p>
+      <p class="paren">(beat)</p>
+      <p class="dialogue">The spoken line goes here.</p>
+    </div>
+
+    <p class="transition">CUT TO:</p>
+
+    <div class="act">Act One</div>
+    <p class="scene">EXT. LOCATION — DAY</p>
+    <p class="action">…</p>
+
+    <p class="end">END OF EPISODE</p>
+  </div>
+</div>

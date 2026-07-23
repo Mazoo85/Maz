@@ -234,6 +234,38 @@
     return lines.join('\n').trim() + '\n';
   }
 
+  /*
+   * Build a production brief for a story — the hand-off document the user gives
+   * to a writer (Claude) to turn the idea into a 30-minute episode script.
+   * Reuses toMarkdown for the idea itself and appends a fixed production spec.
+   */
+  function toBrief(story) {
+    return [
+      '# Production Brief — ' + story.title,
+      '',
+      '> Hand this to Claude to write the episode. Ask: ' +
+        '“Write the 30-minute script for this madlib.”',
+      '',
+      '## The story idea',
+      '',
+      toMarkdown(story).trim(),
+      '',
+      '## Production spec',
+      '',
+      '- **Format:** half-hour television episode (teleplay), ~25–30 pages.',
+      '- **Structure:** Cold Open → Act One → Act Two → Act Three (short) → Tag.',
+      '- **Deliverable:** 3 distinct takes (differ in tone / POV / structure), ' +
+        'so I can choose one.',
+      '- **Then:** from the chosen script, produce a visual shot-list storyboard.',
+      '- **Keep consistent:** the character names, places, and key object from ' +
+        'the beats above.',
+      '',
+      '_Source: MadLibs Story Forge · id `' + story.id + '` · seed `' +
+        story.seed + '` · signature `' + story.signature + '`_',
+      ''
+    ].join('\n');
+  }
+
   var API = {
     makeRng: makeRng,
     randomSeed: randomSeed,
@@ -244,6 +276,7 @@
     estimateCombinations: estimateCombinations,
     templatesFor: templatesFor,
     toMarkdown: toMarkdown,
+    toBrief: toBrief,
     get templates() { return TEMPLATES; },
     get dict() { return DICT; }
   };

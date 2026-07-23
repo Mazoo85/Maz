@@ -42,6 +42,21 @@ Installed, it launches in its own window with its own icon and works offline.
 - **Save to Library** — keep ideas you like (persisted in `localStorage`).
 - **Batch export** — download 50 / 500 / 5000 unique ideas as a single `.md` file.
 - **Installable & offline** — add to your home screen / desktop; runs with no network.
+- **🎬 Script this idea → Productions** — send an idea into production, copy a
+  brief for Claude to write the 30-minute episode script, and track each project
+  from Idea → Scripting → Script chosen → Storyboarded (see below).
+
+## From idea to script to storyboard
+
+The app turns story *ideas* into production-ready projects. Click **🎬 Script
+this idea** on any story: it lands in the **Productions** panel and copies a
+*production brief* to your clipboard. Paste that to Claude and ask for the
+30-minute script — Claude writes a few takes, you pick one, and Claude turns it
+into a storyboard. Paste the resulting links back into the project's row to keep
+everything together.
+
+The full pipeline, formats, and folder layout are documented in
+**[`PRODUCTION.md`](PRODUCTION.md)**.
 
 ## Project layout
 
@@ -56,6 +71,9 @@ madlibs/
   js/templates.js        story templates         -> window.MADLIBS_TEMPLATES
   js/generator.js        the engine              -> window.MadlibsGenerator
   js/app.js              UI wiring
+  PRODUCTION.md          idea → script → storyboard pipeline
+  productions/<slug>/    generated briefs, scripts, and storyboards
+  tools/                 screenplay + storyboard page templates
 ```
 
 ## How the templates work
