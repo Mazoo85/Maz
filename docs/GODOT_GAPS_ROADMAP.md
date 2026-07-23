@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Superellipse / squircle curves** (`math::superellipsePoint` / `superellipsePolyline` / `squircle` /
+  `superellipseContains`, `Superellipse.hpp`) — DONE (M770); the Lamé curve |x/a|ⁿ+|y/b|ⁿ=1 that morphs from
+  an astroid (n<1) through the ellipse (n=2) to the iOS-style "squircle" rounded rectangle (n=4) and on toward
+  a sharp box (n→∞). Godot has no superellipse primitive; this fills it for smooth rounded-rectangle UI
+  panels, organic blob shapes and procedural authoring, emitting a ready-to-fill closed ring. Verified against
+  the exact IMPLICIT EQUATION — every generated point satisfies |x/a|ⁿ+|y/b|ⁿ=1 to floating point across
+  exponents 0.7…20 and non-equal axes; the n=2 case reproduces the ellipse area π·a·b; the squircle nests
+  strictly between the inscribed circle and the bounding box; large n drives the corner to the box corner; and
+  central symmetry P(t)=−P(t+π) holds (ctest `superellipse`). [VERIFIABLE HERE]
 - [x] **General polygon boolean ops** (`math::polygonIntersection` / `polygonUnion` / `polygonDifference`,
   `PolygonBoolean.hpp`) — DONE (M769); the real Clipper-style boolean for two ARBITRARY simple polygons —
   concave allowed, multi-contour results — via the Greiner–Hormann algorithm. This closes the gap the

@@ -2682,3 +2682,8 @@ add_executable(maz_polygonboolean_tests math/polygonboolean.cpp)
 target_link_libraries(maz_polygonboolean_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME polygon_boolean COMMAND maz_polygonboolean_tests)
 set_tests_properties(polygon_boolean PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superellipse_tests math/superellipse.cpp)
+target_link_libraries(maz_superellipse_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superellipse COMMAND maz_superellipse_tests)
+set_tests_properties(superellipse PROPERTIES TIMEOUT 30)
