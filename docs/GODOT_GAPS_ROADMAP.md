@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Radial basis function scattered interpolation** (`math::RbfInterpolator2D`, `Rbf.hpp`) — DONE (M744);
+  given a handful of sample points each with a value (a height, a weight, a colour, a displacement), build
+  ONE smooth field that passes exactly through every sample and interpolates sensibly everywhere in between —
+  no grid required. This is the standard tool for smooth image warping / morphing (pin control points and
+  deform), terrain or influence maps from sparse measurements, scattered colour/weight blending, and smooth
+  "attract toward these anchors" fields. It places a radially-symmetric bump (Gaussian or multiquadric) on
+  each sample and solves a small linear system (Gaussian elimination, partial pivoting) for the weights.
+  Godot has no scattered-data interpolator. [VERIFIABLE HERE] The defining property — the field passes
+  EXACTLY through every control point — is checked over thousands of random configurations and all three
+  kernels; plus a single-point Gaussian bump that decays monotonically with distance, mirror-symmetry of the
+  field for mirrored equal-value anchors, determinism, and degenerate (no-points → invalid, evaluates to 0).
 - [x] **Poisson seamless cloning (gradient-domain compositing)** (`render::seamlessClone`, `SeamlessClone.hpp`)
   — DONE (M743); paste a patch of one image into another so the seam DISAPPEARS (Pérez et al. 2003), built
   on the M742 Poisson solver. Naively copying pixels leaves a hard edge whenever the patch's lighting differs

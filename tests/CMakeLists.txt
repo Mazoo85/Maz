@@ -2551,3 +2551,8 @@ add_executable(maz_seamlessclone_tests render/seamlessclone.cpp)
 target_link_libraries(maz_seamlessclone_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME seamless_clone COMMAND maz_seamlessclone_tests)
 set_tests_properties(seamless_clone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rbf_tests math/rbf.cpp)
+target_link_libraries(maz_rbf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME rbf COMMAND maz_rbf_tests)
+set_tests_properties(rbf PROPERTIES TIMEOUT 30)
