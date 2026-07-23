@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Savitzky–Golay smoothing filter** (`math::savitzkyGolay`, `SavitzkyGolay.hpp`) — DONE (M772);
+  denoises a 1-D signal by fitting a low-degree polynomial to a sliding window (least squares) and taking the
+  fitted value at each point. Unlike a moving average, which flattens peaks, it PRESERVES feature shape
+  (peaks, edges, slopes) because a polynomial follows curvature the box filter cannot — the tool for cleaning
+  noisy analog-stick/gyro input, sensor/telemetry traces, audio envelopes and procedural curves. Godot has no
+  such filter. Does a genuine local fit at every point (proper asymmetric fit at both ends, reusing
+  `math::solveLinearSystem`), so any polynomial of degree ≤ order passes through UNCHANGED. Verified by that
+  exact polynomial-reproduction property (a cubic is reproduced to ~0 at every sample including the
+  endpoints), by a sharp total-variation drop on a seeded-noise signal with the mean preserved, and by
+  keeping a Gaussian peak far better than a same-width moving average (ctest `savitzky_golay`). [VERIFIABLE
+  HERE]
 - [x] **Cubic Bézier curve–curve intersection** (`math::bezierIntersections` / `cubicBezierEval`,
   `BezierIntersect.hpp`) — DONE (M771); finds every point where two cubic Bézier curves cross. The engine had
   Bézier paths and easing but no "where do these two curves meet?" query — needed for path/obstacle collision,
