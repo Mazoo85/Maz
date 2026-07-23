@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Equirectangular panorama mapping** (`render::equirectUvFromDir`/`dirFromEquirectUv`/`sampleEquirect`,
+  `Equirect.hpp`) — DONE (M740); the lat-long projection that wraps a single wide photo or HDR sky panorama
+  around a scene as a skybox / environment map (Godot's PanoramaSkyMaterial), and answers "what does the
+  world look like in this direction?" for reflection lookups. Horizontal axis = compass angle around +Y,
+  vertical = up/down from the top pole, matching the engine's SphericalCoords convention. `sampleEquirect`
+  bilinearly reads a panorama image in a direction (seamless horizontal wrap, clamped poles). The engine has
+  cube maps but no equirectangular sampling. [VERIFIABLE HERE] Direction→UV→direction round-trips exactly for
+  thousands of random unit directions and UV→direction→UV round-trips away from the poles; every UV stays in
+  [0,1]²; known anchors map correctly (+Z→(0.5,0.5), +X→u=0.75, −X→u=0.25, +Y→v=0, −Y→v=1); a constant
+  panorama samples to that constant in every direction and a horizontal ramp reads the expected value.
 - [x] **Anti-aliased line rasterization (Xiaolin Wu)** (`render::drawLineAA`, `LineAA.hpp`) — DONE (M739); the
   engine's Bresenham `drawLine` snaps each step to one pixel, so diagonal lines come out jagged. Wu's
   algorithm spreads each step across the TWO pixels it straddles, weighted by how much of each the line
