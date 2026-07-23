@@ -2616,3 +2616,8 @@ add_executable(maz_paralleltransport_tests math/paralleltransport.cpp)
 target_link_libraries(maz_paralleltransport_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME parallel_transport COMMAND maz_paralleltransport_tests)
 set_tests_properties(parallel_transport PROPERTIES TIMEOUT 30)
+
+add_executable(maz_mediancut_tests render/mediancut.cpp)
+target_link_libraries(maz_mediancut_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME median_cut COMMAND maz_mediancut_tests)
+set_tests_properties(median_cut PROPERTIES TIMEOUT 30)

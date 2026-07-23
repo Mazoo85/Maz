@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Median-cut colour quantization** (`render::medianCutPalette` / `render::nearestColor`,
+  `MedianCut.hpp`) — DONE (M757); shrink a full-colour image down to a small representative PALETTE of at
+  most K colours — how a GIF, an indexed texture, or a deliberately retro/limited-palette look is produced.
+  It recursively splits the cloud of pixel colours: at each step it takes the box with the widest spread
+  along red, green, or blue and cuts it at the MEDIAN of that channel, so dense regions of colour get more
+  palette entries than sparse ones; each final box contributes its average colour. This is the classic
+  Heckbert median cut — better balanced than a naive "keep the most common colours" pass, which is exactly
+  the fallback the GIF encoder currently uses (its comment even claims median-cut it never had). Pairs with
+  `nearestColor` to remap pixels to palette indices. Godot has no runtime colour quantizer. [VERIFIABLE
+  HERE] `ctest -R median_cut`: an image with <=K distinct colours quantizes to exactly those colours with
+  zero error; two well-separated colour clusters with K=2 recover one palette entry per cluster and every
+  pixel maps to its own; quantization error decreases monotonically as K grows (2/4/8/16/32); every palette
+  colour lies within the input colour range; determinism.
 - [x] **Rotation-minimizing (parallel-transport) frames** (`math::parallelTransportFrames`,
   `ParallelTransport.hpp`) — DONE (M756); a smoothly twisting coordinate frame that rides along a 3D path.
   To sweep a cross-section down a curve — a tube, rope, cable, road, vine, ribbon trail, or a camera rail —
