@@ -255,18 +255,23 @@ int main() {
         check(audio::writeMidi(sp, song, 96, &err, true), "arrangement MIDI export succeeds");
         audio::Sequencer in2;
         check(audio::readMidi(sp, in2, &err), "arrangement MIDI reads back");
-        const auto& ns = in2.roll().notes();
-        bool got0 = false, gotOffset = false;
-        for (const audio::Note& nn : ns) {
-            if (nn.pitch == 60 && nn.startStep == 0) {
-                got0 = true;
-            }
-            if (nn.pitch == 64 && nn.startStep == n + 2) {
-                gotOffset = true;
-            }
+        (void)n;
+        // Multi-pattern import: each bar of the file becomes its own pattern, chained by a playlist.
+        check(in2.patternCount() == 2, "a 2-bar arrangement imports as two distinct patterns");
+        in2.selectPattern(0);
+        bool bar0Note = false;
+        for (const audio::Note& nn : in2.roll().notes()) {
+            bar0Note = bar0Note || (nn.pitch == 60 && nn.startStep == 0);
         }
-        check(ns.size() == 2 && got0 && gotOffset,
-              "arrangement export writes playlist patterns back to back (2nd offset by a pattern)");
+        in2.selectPattern(1);
+        bool bar1Note = false;
+        for (const audio::Note& nn : in2.roll().notes()) {
+            bar1Note = bar1Note || (nn.pitch == 64 && nn.startStep == 2);
+        }
+        check(bar0Note && bar1Note, "each bar's notes land in its own pattern at the in-bar step");
+        check(in2.playlist().size() == 2 && in2.playlist()[0] == 0 && in2.playlist()[1] == 1 &&
+                  in2.songMode(),
+              "the imported patterns are chained by a playlist in song mode");
     }
 
     // Clip-song arrangement export: the 2-D clip timeline exports each clip at its own bar offset
@@ -288,18 +293,21 @@ int main() {
         check(audio::writeMidi(cp, song, 96, &err, true), "clip-arrangement MIDI export succeeds");
         audio::Sequencer cin;
         check(audio::readMidi(cp, cin, &err), "clip-arrangement MIDI reads back");
-        const auto& cns = cin.roll().notes();
-        bool at0 = false, at2 = false;
-        for (const audio::Note& nn : cns) {
-            if (nn.pitch == 60 && nn.startStep == 0) {
-                at0 = true;
-            }
-            if (nn.pitch == 67 && nn.startStep == 2 * n + 3) {
-                at2 = true;
-            }
+        (void)n;
+        // The clip on bar 2 imports into pattern 2 (bar 1 is an empty pattern), chained by the playlist.
+        check(cin.patternCount() >= 3, "a clip on bar 2 imports as at least three patterns (bars 0-2)");
+        cin.selectPattern(0);
+        bool at0 = false;
+        for (const audio::Note& nn : cin.roll().notes()) {
+            at0 = at0 || (nn.pitch == 60 && nn.startStep == 0);
         }
-        check(cns.size() == 2 && at0 && at2,
-              "clip export places each clip's pattern at its bar offset (bar 2 → two pattern lengths in)");
+        cin.selectPattern(2);
+        bool at2 = false;
+        for (const audio::Note& nn : cin.roll().notes()) {
+            at2 = at2 || (nn.pitch == 67 && nn.startStep == 3);
+        }
+        check(at0 && at2,
+              "clip export places each clip's pattern at its bar offset (bar 2 → pattern 2, in-bar step 3)");
     }
 
     // A note held to end-of-track (no note-off) is still imported, ended at the final tick.

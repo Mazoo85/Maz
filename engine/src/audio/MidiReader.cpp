@@ -245,25 +245,39 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             ac.points.push_back(AutoPoint{t, static_cast<float>(e[2]) / 127.0f, 0.0f});
         }
     }
+    // Split notes into per-bar patterns (bar = absolute step / numSteps): each bar of the file becomes a
+    // distinct pattern, and a playlist chains them, so a multi-bar arrangement reconstructs as separate
+    // patterns instead of one long flattened roll. A single-bar file stays a single pattern (no
+    // playlist / song-mode change).
+    const int nSteps = std::max(1, seq.numSteps());
+    int maxBar = 0;
     for (const RawNote& rn : notes) {
-        const int startStep = (rn.onTick + ticksPerStep / 2) / ticksPerStep;
+        const int absStep = rn.onTick < 0 ? 0 : (rn.onTick + ticksPerStep / 2) / ticksPerStep;
+        maxBar = std::max(maxBar, absStep / nSteps);
+    }
+    while (seq.patternCount() <= maxBar) {
+        seq.addPattern(); // new patterns start empty
+    }
+    for (const RawNote& rn : notes) {
+        const int absStep = rn.onTick < 0 ? 0 : (rn.onTick + ticksPerStep / 2) / ticksPerStep;
         int lenSteps = (rn.offTick - rn.onTick + ticksPerStep / 2) / ticksPerStep;
         if (lenSteps < 1) {
             lenSteps = 1;
         }
+        const int bar = absStep / nSteps;
+        const int localStep = absStep % nSteps;
+        seq.selectPattern(bar); // subsequent roll()/roll2()/grid ops target this bar's pattern
         if (rn.channel == 9) {
-            // Percussion: map the GM note back to the channel whose drum TYPE emits that note, so a
-            // pattern round-trips whatever kit it uses (matches the type-based export).
+            // Percussion: map the GM note back to the channel whose drum TYPE emits that note.
             for (int c = 0; c < seq.numChannels(); ++c) {
-                if (gmNoteForDrum(seq.channelType(c)) == rn.pitch && startStep >= 0 &&
-                    startStep < seq.numSteps()) {
-                    seq.setStepVelocity(c, startStep, rn.velocity);
+                if (gmNoteForDrum(seq.channelType(c)) == rn.pitch) {
+                    seq.setStepVelocity(c, localStep, rn.velocity);
                     break;
                 }
             }
         } else {
             Note note;
-            note.startStep = startStep;
+            note.startStep = localStep;
             note.lengthSteps = lenSteps;
             note.pitch = rn.pitch;
             note.velocity = rn.velocity;
@@ -284,6 +298,17 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             }
         }
     }
+    // A multi-bar import chains the per-bar patterns into a playlist and switches to song mode.
+    if (maxBar > 0) {
+        std::vector<int> pl;
+        pl.reserve(static_cast<size_t>(maxBar) + 1);
+        for (int b = 0; b <= maxBar; ++b) {
+            pl.push_back(b);
+        }
+        seq.setPlaylist(pl);
+        seq.setSongMode(true);
+    }
+    seq.selectPattern(0);
     return true;
 }
 
