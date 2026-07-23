@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Cubic Bézier curve–curve intersection** (`math::bezierIntersections` / `cubicBezierEval`,
+  `BezierIntersect.hpp`) — DONE (M771); finds every point where two cubic Bézier curves cross. The engine had
+  Bézier paths and easing but no "where do these two curves meet?" query — needed for path/obstacle collision,
+  spline-vs-spline hit testing, trim/clip in a vector tool and stroke analysis (Godot's Curve2D exposes none).
+  Uses robust recursive de Casteljau subdivision with convex-hull (control-point bbox) culling — two pieces
+  can only cross where their hulls overlap, so the pair is split until each piece is sub-tolerance and the
+  surviving overlaps are reported (de-duplicated). Verified against an INDEPENDENT brute-force oracle (both
+  curves sampled to 600-segment polylines and every segment/segment crossing found + clustered): the
+  subdivision result matches on count and location across 0/1/2/3-crossing pairs; every reported point is
+  confirmed to lie on both curves (min-distance to a dense sampling ~0); the analytic diagonal cross lands on
+  the origin; separated curves report none (ctest `bezier_intersect`). [VERIFIABLE HERE]
 - [x] **Superellipse / squircle curves** (`math::superellipsePoint` / `superellipsePolyline` / `squircle` /
   `superellipseContains`, `Superellipse.hpp`) — DONE (M770); the Lamé curve |x/a|ⁿ+|y/b|ⁿ=1 that morphs from
   an astroid (n<1) through the ellipse (n=2) to the iOS-style "squircle" rounded rectangle (n=4) and on toward

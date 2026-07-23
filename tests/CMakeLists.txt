@@ -2687,3 +2687,8 @@ add_executable(maz_superellipse_tests math/superellipse.cpp)
 target_link_libraries(maz_superellipse_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME superellipse COMMAND maz_superellipse_tests)
 set_tests_properties(superellipse PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bezierintersect_tests math/bezierintersect.cpp)
+target_link_libraries(maz_bezierintersect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bezier_intersect COMMAND maz_bezierintersect_tests)
+set_tests_properties(bezier_intersect PROPERTIES TIMEOUT 30)
