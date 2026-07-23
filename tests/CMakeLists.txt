@@ -2787,3 +2787,8 @@ add_executable(maz_loxodrome_tests math/loxodrome.cpp)
 target_link_libraries(maz_loxodrome_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME loxodrome COMMAND maz_loxodrome_tests)
 set_tests_properties(loxodrome PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sphericaltriangle_tests math/sphericaltriangle.cpp)
+target_link_libraries(maz_sphericaltriangle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spherical_triangle COMMAND maz_sphericaltriangle_tests)
+set_tests_properties(spherical_triangle PROPERTIES TIMEOUT 30)

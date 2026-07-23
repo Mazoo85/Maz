@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Spherical triangle area / solid angle** (`math::sphericalTriangleArea` / `sphericalTriangleAngle` /
+  `sphericalExcess` / `sphericalPolygonArea`, `SphericalTriangle.hpp`) — DONE (M791); the area (equivalently
+  the SOLID ANGLE in steradians) of a triangle drawn on a sphere from three directions. This is exactly what
+  you need for the solid angle a triangle light/window subtends at a point (form factors, importance sampling,
+  soft shadows), the fraction of the sky/globe a region covers, geodesic-dome face areas and spherical
+  coverage tests — none exposed by Godot. Uses the numerically-robust Van Oosterom–Strackee formula
+  tan(Ω/2)=|a·(b×c)|/(1+a·b+b·c+c·a) directly from the unit vectors, plus interior-angle and spherical-polygon
+  helpers. Verified against the AIRTIGHT octant area (π/2), Girard's theorem (the Van Oosterom area equals the
+  interior-angle excess A+B+C−π over thousands of random triangles), the full-sphere partition (eight octant
+  triangles sum to 4π), and degenerate/hemisphere-cap limits. ctest `spherical_triangle`.
 - [x] **Loxodrome / rhumb line (constant-bearing sphere path)** (`math::loxodromePoint` / `latLonToUnit` /
   `loxodromePolyline`, `Loxodrome.hpp`) — DONE (M790); the path across a sphere that holds a CONSTANT compass
   bearing (crossing every meridian at the same angle), i.e. the steady-heading route a ship/plane flies with
