@@ -189,6 +189,73 @@
       'the last day of summer', 'the flood season', 'dawn', 'the plague years',
       'the festival', 'the long dark', 'the thaw', 'the coronation',
       'the storm season', 'the equinox', 'the final hour', 'the dry season'
+    ],
+
+    // --- Extra themed categories (used by the newer templates) -----------
+    gadget: [
+      'neural implant', 'holo-blade', 'cloaking rig', 'data-spike', 'drone swarm',
+      'memory chip', 'plasma cutter', 'pulse pistol', 'grappler', 'optic scrambler',
+      'signal jammer', 'exo-suit', 'nano-serum', 'ghost-key', 'railcannon',
+      'brainjack', 'hover-board', 'stealth cloak', 'EMP charge', 'wrist-comp'
+    ],
+    syndicate: [
+      'the Ashwood Family', 'the Crimson Syndicate', 'the Vesper Cartel',
+      'the Hollow Crew', 'the Black Ledger', 'the Iron Circle', 'the Nightjar Ring',
+      'the Salt Kings', 'the Glass Court', 'the Undertow', 'the Gilded Hand',
+      'the Cobra Consortium', 'the Pale Mob', 'the Thorn Collective', 'the Ninth Street Boys'
+    ],
+    sport: [
+      'boxing', 'rowing', 'motocross', 'fencing', 'sprinting', 'wrestling',
+      'ice hockey', 'street racing', 'archery', 'surfing', 'climbing',
+      'roller derby', 'chess boxing', 'dressage', 'kickboxing', 'marathon running',
+      'downhill skiing', 'skateboarding', 'weightlifting', 'sailing'
+    ],
+    era: [
+      'the Gilded Age', 'the Roaring Twenties', 'the age of sail', 'the space race',
+      'the industrial boom', 'the great frontier', 'the jazz years', 'the plague era',
+      'the age of steam', 'the reconstruction', 'the neon eighties', 'the cold war',
+      'the age of explorers', 'the dust-bowl years', 'the golden age of piracy'
+    ],
+    instrument: [
+      'violin', 'cello', 'saxophone', 'grand piano', 'trumpet', 'harp',
+      'accordion', 'electric guitar', 'double bass', 'clarinet', 'banjo',
+      'organ', 'hand drum', 'flute', 'synthesizer', 'mandolin'
+    ],
+    celestial: [
+      'a red moon', 'a dying star', 'a passing comet', 'the twin suns',
+      'a black hole', 'a shattered ring', 'the northern lights', 'a rogue planet',
+      'a meteor shower', 'the pole star', 'a supernova', 'an eclipse',
+      'a nebula', 'a wandering moon', 'the morning star'
+    ],
+    disaster: [
+      'earthquake', 'wildfire', 'flood', 'blizzard', 'volcanic eruption',
+      'hurricane', 'landslide', 'drought', 'tidal wave', 'sandstorm',
+      'meteor strike', 'plague', 'blackout', 'famine', 'reactor meltdown'
+    ],
+    relationship: [
+      'sibling', 'mentor', 'rival', 'partner', 'twin', 'cousin',
+      'friend', 'companion', 'protégé', 'bodyguard', 'childhood friend',
+      'estranged brother', 'estranged sister', 'old flame', 'business partner'
+    ],
+    landscape: [
+      'salt flats', 'a pine forest', 'a canyon', 'the tundra', 'a coral reef',
+      'a bamboo grove', 'the badlands', 'a glacier', 'a rice terrace', 'a moor',
+      'the dunes', 'a redwood valley', 'a lava field', 'the wetlands', 'a limestone cave'
+    ],
+    beverage: [
+      'whiskey', 'bitter coffee', 'moonshine', 'green tea', 'red wine',
+      'cheap beer', 'spiced cider', 'cold vodka', 'herbal tonic', 'rum',
+      'sparkling water', 'black tea', 'absinthe', 'buttermilk', 'champagne'
+    ],
+    title: [
+      'Captain', 'Professor', 'Doctor', 'Sergeant', 'Commander', 'Sister',
+      'Warden', 'Ambassador', 'Detective', 'Colonel', 'Reverend', 'Judge',
+      'Foreman', 'Skipper', 'Marshal'
+    ],
+    substance: [
+      'gold', 'silver', 'obsidian', 'amber', 'iron', 'quicksilver',
+      'crystal', 'jade', 'ivory', 'bronze', 'salt', 'ash', 'glass',
+      'moonstone', 'brass', 'coal', 'opal', 'marble'
     ]
   };
 

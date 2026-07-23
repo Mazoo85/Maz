@@ -460,6 +460,188 @@
         { label: 'Climax', text: 'To reach rescue, {name#hero} must cross {bodyOfWater} carrying {name#stranger}, {verbIng} through the worst of the storm.' },
         { label: 'Resolution', text: 'They wash ashore alive, forever bound by the {timePeriod} they {verbPast} together, {adverb} grateful.' }
       ]
+    },
+    // ---------------------------------------------------------------- CRIME
+    {
+      id: 'blood-and-ledger',
+      title: 'Blood and Ledger',
+      genre: 'crime',
+      beats: [
+        { label: 'Logline', text: 'A loyal {profession} for {syndicate#mob} must choose between the family and the {object#ledger} that could bury them all.' },
+        { label: 'Setup', text: '{name#hero} has spent {numberWord} years as a {profession} for {syndicate#mob}, the most feared outfit in {place#city}.' },
+        { label: 'Inciting Incident', text: 'When {name#boss} orders a hit on their own, {name#hero} pockets the {object#ledger} instead of burning it.' },
+        { label: 'Conflict', text: '{syndicate#mob} wants the {object#ledger} back, and every ally {name#hero} trusts is quietly {verbIng} for {name#boss}.' },
+        { label: 'Climax', text: 'At a sit-down in {place}, {name#hero} lays the {object#ledger} on the table and dares {name#boss} to {verb} them {adverb}.' },
+        { label: 'Resolution', text: 'The family falls, {place#city} changes hands, and {name#hero} walks away carrying nothing but {emotion}.' }
+      ]
+    },
+    // ---------------------------------------------------------------- SPORTS
+    {
+      id: 'the-underdog',
+      title: 'The Underdog',
+      genre: 'sports',
+      beats: [
+        { label: 'Logline', text: 'A washed-up {profession} trains a {adjective} nobody to win the {place#city} {sport#game} championship.' },
+        { label: 'Setup', text: '{name#coach}, a {adjective} former {profession}, drinks away the memory of {sport#game} in a bar in {place#city}.' },
+        { label: 'Inciting Incident', text: 'A stubborn kid, {name#hero}, begs {name#coach} to make them a champion in {sport#game} before {timePeriod}.' },
+        { label: 'Conflict', text: 'Standing in the way is {name#rival}, the reigning champion, and {name#hero}\'s own {relationship} who wants them to quit.' },
+        { label: 'Climax', text: 'On the night of the final, {name#hero} faces {name#rival} while {name#coach} watches, sick with {emotion}.' },
+        { label: 'Resolution', text: 'Win or lose, {name#hero} and {name#coach} walk out of the arena {adverb}, finally at peace with the past.' }
+      ]
+    },
+    // ---------------------------------------------------------------- HISTORICAL
+    {
+      id: 'empire-of-dust',
+      title: 'Empire of Dust',
+      genre: 'historical',
+      beats: [
+        { label: 'Logline', text: 'During {era#age}, a {adjective} {profession} rises from nothing to shape the fate of {place#nation}.' },
+        { label: 'Setup', text: 'In the years of {era#age}, {name#hero} is a penniless {profession} in the back streets of {place#nation}.' },
+        { label: 'Inciting Incident', text: 'A chance meeting with {title} {name#patron} hands {name#hero} a fortune built on {substance#metal}.' },
+        { label: 'Conflict', text: 'As {name#hero}\'s empire grows, {name#rival} and the old powers of {place#nation} conspire to {verb} them {adverb}.' },
+        { label: 'Climax', text: 'At the height of {era#age}, {name#hero} must sacrifice either their fortune in {substance#metal} or the one person they love.' },
+        { label: 'Resolution', text: 'History remembers {name#hero} as {a}{adjective} legend, but they carry only {emotion} to the grave.' }
+      ]
+    },
+    // ---------------------------------------------------------------- CYBERPUNK
+    {
+      id: 'ghost-in-the-signal',
+      title: 'Ghost in the Signal',
+      genre: 'cyberpunk',
+      beats: [
+        { label: 'Logline', text: 'A burned-out {profession} with a stolen {gadget#tech} uncovers a conspiracy running the neon city of {place#city}.' },
+        { label: 'Setup', text: '{name#hero} runs data through the rain-slick underlevels of {place#city}, jacked into a {gadget#tech}.' },
+        { label: 'Inciting Incident', text: 'A job goes wrong and the {gadget#tech} downloads the {pluralNoun} that {syndicate#corp} would kill to keep buried.' },
+        { label: 'Conflict', text: '{syndicate#corp} sends {name#agent} to {verb} {name#hero} before the truth spreads across {place#city}.' },
+        { label: 'Climax', text: 'Deep in the corporate spire, {name#hero} must upload the {gadget#tech} while {name#agent} closes in {adverb}.' },
+        { label: 'Resolution', text: 'The signal breaks free, {syndicate#corp} burns, and {name#hero} vanishes into the neon, {adverb} changed.' }
+      ]
+    },
+    // ---------------------------------------------------------------- WAR
+    {
+      id: 'no-mans-land',
+      title: 'No Man\'s Land',
+      genre: 'war',
+      beats: [
+        { label: 'Logline', text: 'In the mud of {era#war}, a young {profession} must lead {numberWord} strangers home across enemy ground.' },
+        { label: 'Setup', text: 'The war of {era#war} has left {name#hero}, a reluctant {profession}, in command of a broken unit near {landscape#ground}.' },
+        { label: 'Inciting Incident', text: 'When {title} {name#officer} falls, the order to hold {landscape#ground} becomes {name#hero}\'s alone to carry.' },
+        { label: 'Conflict', text: 'Between the enemy and their own {relationship} back home, {name#hero} is {verbIng} against impossible odds.' },
+        { label: 'Climax', text: 'Under fire at dawn, {name#hero} must choose between the mission and the lives of {numberWord} soldiers.' },
+        { label: 'Resolution', text: 'The survivors cross {landscape#ground} at last, and {name#hero} carries the {emotion} of who they left behind {adverb}, forever.' }
+      ]
+    },
+    // ---------------------------------------------------------------- PARANORMAL
+    {
+      id: 'the-seance',
+      title: 'The Séance',
+      genre: 'paranormal',
+      beats: [
+        { label: 'Logline', text: 'A skeptical {profession} joins a séance that summons something older than the {adjective} house in {place#town}.' },
+        { label: 'Setup', text: '{name#hero} the {profession} takes a case in {place#town}, certain the hauntings are a hoax.' },
+        { label: 'Inciting Incident', text: 'A séance around {a}{object#relic} wakes a {creature#spirit} that has waited {numberWord} years.' },
+        { label: 'Conflict', text: 'The {creature#spirit} is {verbIng} the living to reclaim the {object#relic}, and only {name#hero} can see it.' },
+        { label: 'Climax', text: 'Alone in the {adjective} house, {name#hero} must {verb} the {creature#spirit} back through the {object#relic} before {celestial} sets.' },
+        { label: 'Resolution', text: '{place#town} falls quiet again, but {name#hero} no longer doubts what waits {adverb} on the other side.' }
+      ]
+    },
+    // ---------------------------------------------------------------- BUDDY-COP
+    {
+      id: 'partners',
+      title: 'Partners',
+      genre: 'buddy-cop',
+      beats: [
+        { label: 'Logline', text: 'A by-the-book {profession} and a reckless {relationship} must take down {syndicate#gang} before it owns {place#city}.' },
+        { label: 'Setup', text: '{name#hero}, a careful {profession}, is saddled with {name#partner}, whose methods are anything but {adjective}.' },
+        { label: 'Inciting Incident', text: 'A stolen {object#evidence} ties {syndicate#gang} to a murder that reaches the top of {place#city}.' },
+        { label: 'Conflict', text: 'As they hunt {syndicate#gang}, {name#hero} and {name#partner} learn one of their own has been {verbIng} the whole time.' },
+        { label: 'Climax', text: 'Cornered with the {object#evidence}, the mismatched pair must trust each other to {verb} {syndicate#gang} {adverb}.' },
+        { label: 'Resolution', text: 'The city\'s cleaner by a block, and the two part as friends, bound by what they {verbPast} together.' }
+      ]
+    },
+    // ---------------------------------------------------------------- TIME-TRAVEL
+    {
+      id: 'the-long-way-back',
+      title: 'The Long Way Back',
+      genre: 'time-travel',
+      beats: [
+        { label: 'Logline', text: 'A grieving {profession} uses {a}{gadget#device} to reach {era#when} — and risks unmaking everything to save one person.' },
+        { label: 'Setup', text: 'Consumed by {emotion}, {name#hero} the {profession} builds {a}{gadget#device} that can touch {era#when}.' },
+        { label: 'Inciting Incident', text: 'A first jump to {era#when} proves the {gadget#device} works — but every trip reshapes the present in {adjective} ways.' },
+        { label: 'Conflict', text: 'To save {name#loved}, {name#hero} must {verb} a moment in {era#when} without erasing {place#home} from history.' },
+        { label: 'Climax', text: 'With the {gadget#device} failing, {name#hero} faces an impossible choice between {name#loved} and the whole timeline.' },
+        { label: 'Resolution', text: '{name#hero} returns to a {adjective} present, forever unsure what they {verbPast} — and what it cost.' }
+      ]
+    },
+    // ---------------------------------------------------------------- MUSICAL DRAMA
+    {
+      id: 'last-set',
+      title: 'Last Set at the Blue Room',
+      genre: 'music-drama',
+      beats: [
+        { label: 'Logline', text: 'A fading {instrument#ax} player gets one last shot at glory the night {place#city}\'s oldest club is set to close.' },
+        { label: 'Setup', text: '{name#hero} has played {instrument#ax} in the smoky clubs of {place#city} since {era}, chasing a sound only they can hear.' },
+        { label: 'Inciting Incident', text: 'On its final night, a legendary {title} {name#producer} walks into the club nursing {a}{beverage}.' },
+        { label: 'Conflict', text: 'A jealous {relationship} and {name#hero}\'s own {emotion} threaten to ruin the set before it begins.' },
+        { label: 'Climax', text: 'Under the last spotlight, {name#hero} plays the {instrument#ax} like their life depends on it — because it does.' },
+        { label: 'Resolution', text: 'The club goes dark for good, but {name#hero} walks into {place#city} {adverb}, the music finally theirs.' }
+      ]
+    },
+    // ---------------------------------------------------------------- COURTROOM
+    {
+      id: 'the-verdict',
+      title: 'The Verdict',
+      genre: 'courtroom',
+      beats: [
+        { label: 'Logline', text: 'A junior {profession} defends a stranger everyone in {place#city} has already judged {adjective}.' },
+        { label: 'Setup', text: '{name#hero}, an untested {profession}, is handed the hopeless case of {name#client} in {place#city}.' },
+        { label: 'Inciting Incident', text: 'A buried {object#evidence} suggests {title} {name#accuser} has {verbPast} the truth all along.' },
+        { label: 'Conflict', text: 'Powerful people want the {object#evidence} to stay hidden, and they will ruin {name#hero} to keep it {adverb} quiet.' },
+        { label: 'Climax', text: 'On the stand, {name#hero} confronts {name#accuser} with the {object#evidence} as the whole of {place#city} watches.' },
+        { label: 'Resolution', text: 'The verdict comes down, and whatever the cost, {name#hero} learns what {emotion} and justice really weigh.' }
+      ]
+    },
+    // ---------------------------------------------------------------- PIRATE
+    {
+      id: 'the-black-tide',
+      title: 'The Black Tide',
+      genre: 'pirate',
+      beats: [
+        { label: 'Logline', text: 'A cabin-hand turned captain hunts {a}{magicItem#relic} said to rule the storms of {bodyOfWater#sea}.' },
+        { label: 'Setup', text: '{name#hero} rises from the lowest deck of the {vehicle#ship} to command it across {bodyOfWater#sea}.' },
+        { label: 'Inciting Incident', text: 'A dying rival whispers of {a}{magicItem#relic} hidden past {bodyOfWater#sea}, guarded by {a}{creature#beast}.' },
+        { label: 'Conflict', text: 'The {villainTitle} {name#villain} chases the same prize, and mutiny stirs aboard the {vehicle#ship}.' },
+        { label: 'Climax', text: 'As {celestial} rises over {bodyOfWater#sea}, {name#hero} duels {name#villain} for the {magicItem#relic} on the storm-lashed deck.' },
+        { label: 'Resolution', text: 'The {magicItem#relic} is won, the {vehicle#ship} sails free, and {name#hero} becomes a legend of {bodyOfWater#sea}, {adverb} unbound.' }
+      ]
+    },
+    // ---------------------------------------------------------------- MONSTER
+    {
+      id: 'what-walks-the-marsh',
+      title: 'What Walks the Marsh',
+      genre: 'monster',
+      beats: [
+        { label: 'Logline', text: 'When livestock vanish near {landscape#marsh}, a {adjective} {profession} realizes a {creature#beast} is hunting {place#town}.' },
+        { label: 'Setup', text: '{name#hero} the {profession} has always dismissed the old tales about {landscape#marsh} outside {place#town}.' },
+        { label: 'Inciting Incident', text: 'After {name#victim} disappears, {name#hero} finds tracks that could only belong to {a}{creature#beast}.' },
+        { label: 'Conflict', text: 'The {creature#beast} is {verbIng} closer to {place#town} each night, and no one will believe {name#hero} until it is too late.' },
+        { label: 'Climax', text: 'With only {a}{weapon} and {emotion}, {name#hero} lures the {creature#beast} into {landscape#marsh} for a final stand.' },
+        { label: 'Resolution', text: '{place#town} is safe by dawn, but {name#hero} keeps watch over {landscape#marsh} {adverb}, knowing what still sleeps there.' }
+      ]
+    },
+    // ---------------------------------------------------------------- ROAD TRIP
+    {
+      id: 'two-tanks-of-gas',
+      title: 'Two Tanks of Gas',
+      genre: 'road-trip',
+      beats: [
+        { label: 'Logline', text: 'Two {relationship#bond}s cross {place#region} in a dying {vehicle#car} to reach {place#dest} before it is too late.' },
+        { label: 'Setup', text: '{name#hero} hasn\'t spoken to their {relationship#bond}, {name#kin}, since a {adjective} falling-out years ago.' },
+        { label: 'Inciting Incident', text: 'A single phone call forces them into a beat-up {vehicle#car} bound across {place#region} for {place#dest}.' },
+        { label: 'Conflict', text: 'Every mile drags up old {pluralNoun}, and between them sits a secret neither will {verb} {adverb}.' },
+        { label: 'Climax', text: 'Stranded at a diner in the middle of {place#region}, {name#hero} and {name#kin} finally say the unsayable.' },
+        { label: 'Resolution', text: 'They roll into {place#dest} at last, still bruised but {adverb} whole, the {vehicle#car} running on fumes and {emotion}.' }
+      ]
     }
   ];
 

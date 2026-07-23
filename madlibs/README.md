@@ -6,9 +6,9 @@ Conflict → Climax → Resolution) so it drops straight into a storyboard or
 script-writing workflow.
 
 It fills MadLibs-style templates with words drawn randomly from a categorized
-dictionary. A few dozen templates × large word lists yields **~10²⁸ distinct
-stories** — far more than the 5,000 target — and the app can batch-export a
-whole library at once.
+dictionary. **45 templates across 34 genres** × large word lists yields
+**~10²⁸ distinct stories** — far more than the 5,000 target — and the app can
+batch-export a whole library at once.
 
 No build step, no dependencies. Pure HTML + CSS + vanilla JavaScript.
 
@@ -21,7 +21,8 @@ python3 -m http.server      # then visit http://localhost:8000
 ## What it does
 
 - **Forge a Story** — random template + randomly filled blanks, rendered as beat cards.
-- **Genre filter** — fantasy, sci-fi, horror, mystery, romance, comedy, heist, noir, and more.
+- **Genre filter** — fantasy, sci-fi, horror, mystery, romance, comedy, heist, noir,
+  crime, cyberpunk, western, war, sports, historical, pirate, time-travel, and more.
 - **Reroll Words** — keep the current template, roll a fresh set of words.
 - **Copy / Export .md** — grab the current idea as Markdown.
 - **Save to Library** — keep ideas you like (persisted in `localStorage`).
