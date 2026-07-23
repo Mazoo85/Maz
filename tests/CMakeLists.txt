@@ -2626,3 +2626,8 @@ add_executable(maz_thetastar_tests game/thetastar.cpp)
 target_link_libraries(maz_thetastar_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME theta_star COMMAND maz_thetastar_tests)
 set_tests_properties(theta_star PROPERTIES TIMEOUT 30)
+
+add_executable(maz_closestpointcurve_tests math/closestpointcurve.cpp)
+target_link_libraries(maz_closestpointcurve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME closest_point_curve COMMAND maz_closestpointcurve_tests)
+set_tests_properties(closest_point_curve PROPERTIES TIMEOUT 30)

@@ -150,6 +150,20 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Closest-point / projection onto a path** (`math::closestPointOnPolyline` /
+  `math::closestPointOnCurve` / `math::closestPointOnSegment`, `ClosestPointCurve.hpp`) — DONE (M759); given
+  any point in space, find the nearest point on a polyline or a smooth Bezier curve, plus how far ALONG the
+  path it sits. This is the query behind snapping a dragged object to a spline, measuring an agent's progress
+  along a race line or rail, keeping a follower glued to a track, computing a car's cross-track error, or the
+  distance from anything to a route. Godot's Curve2D samples and bakes but has no "project this point onto
+  the curve" call, so gameplay code rolls it by hand; this does it robustly — exact per-segment projection
+  for polylines, and dense-sample-plus-ternary-refine for curves, returning the point, the along-path offset
+  (reusable with Curve2D::sample), and the distance. [VERIFIABLE HERE] `ctest -R closest_point_curve`: a
+  point on the path projects to itself; the returned distance is <= the distance to any of a fine brute-force
+  sampling of the path (optimality lower bound) over hundreds of random queries on both a polyline and a
+  curve; an analytic perpendicular offset from a straight segment is reported exactly at the right foot; a
+  point past an endpoint clamps to it; the residual is perpendicular to the curve tangent at an interior
+  projection; determinism.
 - [x] **Theta\* any-angle pathfinding** (`game::thetaStar` / `game::thetaLineOfSight`, `ThetaStar.hpp`) —
   DONE (M758); a grid path planner that produces short, STRAIGHT routes instead of the staircase zig-zag
   ordinary grid A\* (and the engine's jump-point search) is stuck with. Classic grid search can only step
