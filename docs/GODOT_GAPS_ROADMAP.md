@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs torus (donut) + quartic solver** (`math::rayIntersectsTorus` → `TorusHit`, `RayTorus.hpp`;
+  `math::solveQuartic` → `QuarticRoots`, `Polynomial.hpp`) — DONE (M789); the hitscan/picking test against a
+  torus with arbitrary centre/axis, returning distance, world point and outward normal. Ray-vs-torus is a
+  genuine QUARTIC in the ray parameter (not a quadratic), so most engines — Godot included — don't offer it;
+  it's needed for rings, donuts, tube loops, portal rims, tyres and halos. Added a robust general
+  `solveQuartic` (real roots of a quartic via monotone-interval bisection over the derivative-cubic's critical
+  points, reusing `solveCubic`), then transforms the ray into the torus's local frame, builds the quartic
+  `(|P|²+R²−r²)² = 4R²(Px²+Py²)`, solves it, and returns the nearest forward hit with the normal pointing from
+  the nearest tube-centre-circle point. Verified against known factored quartics (distinct / complex-pair /
+  double roots), a brute-force ray-march (hit/miss + distance), the exact surface condition (distance to the
+  tube circle == r), and analytic outer-rim / through-the-hole cases. ctest `ray_torus`; full unit suite
+  (930k checks) still green.
 - [x] **Tractrix — the drag / towed-object curve** (`math::tractrixPoint` / `tractrixDragPoint` /
   `tractrixArcLength` / `tractrixPolyline`, `Tractrix.hpp`) — DONE (M788); the path an object on a taut leash
   of length `a` traces as the other end is dragged along a straight line: x=a(t−tanh t), y=a·sech t. Its

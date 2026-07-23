@@ -2777,3 +2777,8 @@ add_executable(maz_tractrix_tests math/tractrix.cpp)
 target_link_libraries(maz_tractrix_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME tractrix COMMAND maz_tractrix_tests)
 set_tests_properties(tractrix PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raytorus_tests math/raytorus.cpp)
+target_link_libraries(maz_raytorus_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_torus COMMAND maz_raytorus_tests)
+set_tests_properties(ray_torus PROPERTIES TIMEOUT 30)
