@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Morphological thinning / skeletonization (Zhang–Suen)** (`render::thinZhangSuen`, `Thinning.hpp`) —
+  DONE (M749); reduce a filled binary shape to its one-pixel-wide SKELETON, the centerline that captures the
+  shape's topology. Where the engine's dilate/erode grow or shrink a region, thinning peels a shape down to
+  its bones without breaking it apart — turning a thick blob into a stick-figure medial axis. It's the
+  standard tool for extracting road/river centerlines from a mask, stroke skeletons for handwriting/gesture
+  analysis, path graphs from painted regions, and shape descriptors. It repeatedly deletes boundary pixels
+  whose removal neither breaks connectivity nor shortens an endpoint, in two alternating sub-passes. Godot
+  has erode/dilate but no thinning. [VERIFIABLE HERE] The skeleton only removes pixels (output ⊆ input), no
+  2x2 foreground block survives (genuinely one pixel wide), connectivity is preserved (a connected shape
+  stays one component; two blobs stay two), a solid rectangle reduces to a quarter of its pixels, and the
+  result is idempotent (re-thinning changes nothing).
 - [x] **Karplus–Strong plucked-string synthesis** (`audio::karplusStrongPluck`, `KarplusStrong.hpp`) — DONE
   (M748); a startlingly simple recipe that produces convincing plucked/struck string tones (guitar, harp,
   koto, a twangy UI blip) with no samples: fill a short delay line with a burst of noise (the "pluck"), then

@@ -2576,3 +2576,8 @@ add_executable(maz_karplusstrong_tests audio/karplusstrong.cpp)
 target_link_libraries(maz_karplusstrong_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME karplus_strong COMMAND maz_karplusstrong_tests)
 set_tests_properties(karplus_strong PROPERTIES TIMEOUT 30)
+
+add_executable(maz_thinning_tests render/thinning.cpp)
+target_link_libraries(maz_thinning_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME thinning COMMAND maz_thinning_tests)
+set_tests_properties(thinning PROPERTIES TIMEOUT 30)
