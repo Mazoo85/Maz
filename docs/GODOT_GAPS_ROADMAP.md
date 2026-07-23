@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Bicubic Bézier surface patch** (`math::bezierSurfacePoint` / `bezierSurfaceTangents` /
+  `bezierSurfaceNormal` / `bezierSurfaceGrid`, `BezierSurface.hpp`) — DONE (M798); the tensor-product cubic
+  Bézier, the free-form surface a 4×4 control net sculpts (the primitive behind the Utah teapot, car bodies,
+  and font/vector surfaces). Complements the Coons patch (M792, which fills four boundary curves) with an
+  interior control net that pushes/pulls the surface like clay. Godot has no Bézier-surface primitive.
+  Verified airtight: corner interpolation (the patch passes exactly through its four corner control points),
+  boundary-curve reproduction (each edge equals the cubic Bézier of that edge's four control points), linear
+  precision (an affine control net reproduces base + u·U + v·V exactly), planarity, and a unit surface normal
+  perpendicular to both u/v tangents. ctest `bezier_surface`.
 - [x] **Signed-distance combination operators** (`math::opUnion` / `opIntersect` / `opSubtract` / `opRound` /
   `opAnnular` / `opInterpolate` / `opSmoothUnion` / `opSmoothIntersect` / `opSmoothSubtract`, `SdfOps.hpp`) —
   DONE (M797); the composition layer for the SDF primitives (M796). Hard booleans come from min/max; the
