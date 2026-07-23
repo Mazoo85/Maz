@@ -174,6 +174,33 @@ int main() {
               "a marker at bar 3 round-trips to the same bar through MIDI");
     }
 
+    // Timeline automation clips export as MIDI CC events (channel 0, CC 20 + target index), and a file
+    // containing them still parses (the reader skips CC).
+    {
+        audio::Sequencer ac;
+        // FilterCutoff is target index 0 → CC 20.
+        const int ci = ac.addAutomationClip(static_cast<int>(audio::AutoTarget::FilterCutoff), 0, 1);
+        audio::AutomationClip& clip = ac.automationClip(ci);
+        clip.points = {{0.0, 0.0f, 0.0f}, {1.0, 1.0f, 0.0f}}; // ramp → sweeps CC 20 upward
+        const std::string ap = "unit_midi_autocc.mid";
+        check(audio::writeMidi(ap, ac, 96, &err), "writeMidi (automation clip) succeeds");
+        std::ifstream af(ap, std::ios::binary);
+        std::vector<uint8_t> ab((std::istreambuf_iterator<char>(af)), std::istreambuf_iterator<char>());
+        bool sawCC20 = false, sawHighVal = false;
+        for (size_t i = 0; i + 2 < ab.size(); ++i) {
+            if (ab[i] == 0xB0 && ab[i + 1] == 20) { // CC 20 on channel 0
+                sawCC20 = true;
+                if (ab[i + 2] > 100) { // the ramp reaches a high value late in the bar
+                    sawHighVal = true;
+                }
+            }
+        }
+        check(sawCC20, "an automation clip exports CC 20 (FilterCutoff → 20 + target index)");
+        check(sawHighVal, "the CC value sweeps up with the ramp envelope");
+        audio::Sequencer acIn;
+        check(audio::readMidi(ap, acIn, &err), "readMidi tolerates automation CC events");
+    }
+
     // Time-signature meta-event (FF 58): a 3-beats-per-bar project (12 steps at 4 steps/beat) writes a
     // 3/4 signature; a default 16-step/4 project writes 4/4. Importing DAWs need this to align bars.
     {

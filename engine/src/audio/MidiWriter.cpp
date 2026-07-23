@@ -147,6 +147,35 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         events.push_back({mk.bar * barTicks, -1, 0, 0, 0, mk.name});
     }
 
+    // Timeline automation clips → MIDI CC lanes on channel 0: sample each unmuted clip's envelope once
+    // per step across its bar span and emit a CC (number 20 + target index, clamped below the
+    // channel-mode range) with the 0..127-scaled unipolar value, so the automation exports for DAW
+    // interop. Positioned by absolute bar tick, independent of the note-export mode.
+    for (int i = 0; i < seq.automationClipCount(); ++i) {
+        const AutomationClip& ac = seq.automationClip(i);
+        if (ac.muted) {
+            continue;
+        }
+        const int span = ac.bars < 1 ? 1 : ac.bars;
+        int cc = 20 + ac.target;
+        if (cc > 119) {
+            cc = 119; // stay below the channel-mode CC range (120-127)
+        }
+        const int steps = span * seq.numSteps();
+        for (int s = 0; s < steps; ++s) {
+            const double localBars = static_cast<double>(s) / static_cast<double>(seq.numSteps());
+            const float u = (ac.loopBars > 0.0f)
+                                ? Automation::evalPoints(ac.points,
+                                                         localBars / static_cast<double>(ac.loopBars), 1.0)
+                                : Automation::evalPoints(ac.points,
+                                                         localBars / static_cast<double>(span), 0.0);
+            int val = static_cast<int>(u * 127.0f + 0.5f);
+            val = val < 0 ? 0 : (val > 127 ? 127 : val);
+            const int tick = ac.startBar * barTicks + s * ticksPerStep;
+            events.push_back({tick, 0, 0xB0, static_cast<uint8_t>(cc), static_cast<uint8_t>(val), ""});
+        }
+    }
+
     std::sort(events.begin(), events.end(), [](const MidiEvent& a, const MidiEvent& b) {
         return a.tick != b.tick ? a.tick < b.tick : a.order < b.order;
     });
