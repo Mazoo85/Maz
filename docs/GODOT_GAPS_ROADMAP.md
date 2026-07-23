@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Terrain depression filling (priority-flood)** (`game::fillDepressions`, `FillDepressions.hpp`) — DONE
+  (M745); heightfields from noise or erosion are riddled with pits and closed basins where water would pool
+  and get stuck. Before you can trace rivers, compute drainage / flow accumulation, place lakes, or run a
+  hydraulic-erosion pass, you first "fill" every depression up to the lowest lip over which water could spill,
+  turning the surface into one where every point has a downhill path to the map edge. This is the standard
+  hydrology preprocessing step (ArcGIS "Fill", GRASS r.fill.dir), distinct from the engine's thermal Erosion;
+  Godot has none. The Barnes priority-flood algorithm floods inward from the boundary via a min-heap keyed by
+  spill height. [VERIFIABLE HERE] The invariants are checked over hundreds of random terrains — the filled
+  surface is >= the input everywhere, the boundary is untouched, and NO interior pit remains (every cell has
+  a non-ascending exit) — plus an analytic bowl that fills exactly to its outlet level, idempotence, and
+  determinism.
 - [x] **Radial basis function scattered interpolation** (`math::RbfInterpolator2D`, `Rbf.hpp`) — DONE (M744);
   given a handful of sample points each with a value (a height, a weight, a colour, a displacement), build
   ONE smooth field that passes exactly through every sample and interpolates sensibly everywhere in between —

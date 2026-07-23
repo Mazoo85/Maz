@@ -2556,3 +2556,8 @@ add_executable(maz_rbf_tests math/rbf.cpp)
 target_link_libraries(maz_rbf_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME rbf COMMAND maz_rbf_tests)
 set_tests_properties(rbf PROPERTIES TIMEOUT 30)
+
+add_executable(maz_filldepressions_tests game/filldepressions.cpp)
+target_link_libraries(maz_filldepressions_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fill_depressions COMMAND maz_filldepressions_tests)
+set_tests_properties(fill_depressions PROPERTIES TIMEOUT 30)
