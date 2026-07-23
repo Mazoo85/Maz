@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Closest point on an oriented box (OBB)** (`math::closestPointOnObb` / `distanceToObb` /
+  `sphereIntersectsObb`, `ClosestPointObb.hpp`) — DONE (M777); given a point and an arbitrarily-rotated box,
+  return the nearest point on/in it and the distance. The engine's Obb (Geometry3D.hpp) does contains /
+  box-vs-box SAT / AABB bounds but not this proximity query — the one you need for sphere-vs-OBB collision
+  (overlap iff distance ≤ radius, closest point = contact), snapping a probe/agent onto the outside of a
+  crate, distance-based culling / trigger volumes and nearest-surface picking. Works by expressing the point
+  in the box's local frame, clamping each coordinate to the half-extents and mapping back, so an inside point
+  returns itself (distance 0). Godot exposes no such helper. Verified against a BRUTE-FORCE oracle — for
+  thousands of random points and a doubly-rotated box, the analytic closest point matches the nearest of
+  ~22k points sampled over the six faces in both location and distance (the analytic distance is never
+  larger) — plus inside-returns-self, result-always-on-box, the analytic axis-aligned clamp, closest∘closest
+  idempotence and sphere-vs-OBB agreement (ctest `closest_point_obb`). [VERIFIABLE HERE]
 - [x] **Damerau–Levenshtein (typo-aware) edit distance** (`core::damerauLevenshtein`,
   `DamerauLevenshtein.hpp`) — DONE (M776); like the engine's plain edit distance
   (`core::levenshtein`) but counts a SWAP of two adjacent characters as ONE edit. Transposition is the single
