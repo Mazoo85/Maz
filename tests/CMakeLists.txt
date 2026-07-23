@@ -2727,3 +2727,8 @@ add_executable(maz_reuleaux_tests math/reuleaux.cpp)
 target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME reuleaux COMMAND maz_reuleaux_tests)
 set_tests_properties(reuleaux PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycylinder_tests math/raycylinder.cpp)
+target_link_libraries(maz_raycylinder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_cylinder COMMAND maz_raycylinder_tests)
+set_tests_properties(ray_cylinder PROPERTIES TIMEOUT 30)

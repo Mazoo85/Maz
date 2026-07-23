@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs finite capped cylinder** (`math::rayIntersectsCylinder` → `CylinderHit{hit,t,point,normal}`,
+  `RayCylinder.hpp`) — DONE (M779); the hitscan / picking test against a cylinder with an ARBITRARY axis and
+  position, returning the hit distance, world point AND surface normal. The engine's
+  `Geometry3D.segmentIntersectsCylinder` only handles a segment against an origin-centred, Y-aligned cylinder
+  and returns just a point; this is the general ray query for shooting at pillars, tree trunks, barrels,
+  pipes and cylindrical colliders, or editor picking. Tests the curved side (a quadratic on the ray projected
+  perpendicular to the axis, clamped to the length) and both end caps, returning the nearest forward hit with
+  the correct outward normal (radial on the side, ±axis on a cap). Godot exposes no such helper. Verified
+  against a BRUTE-FORCE ray-march oracle over thousands of aimed random rays (hit/miss and distance agree),
+  with every side hit confirmed at exactly `radius` from the axis and within the length, cap hits within the
+  cap disk, unit outward normals, and analytic near-side / axis-cap / miss cases (ctest `ray_cylinder`).
+  [VERIFIABLE HERE]
 - [x] **Reuleaux polygon (curve of constant width)** (`math::reuleauxPolygon`, `Reuleaux.hpp`) — DONE (M778);
   a closed curve that is exactly as wide in every direction — like a circle, but not one. Built from a
   regular ODD-gon by replacing each edge with a circular arc centred on the opposite vertex: the Reuleaux
