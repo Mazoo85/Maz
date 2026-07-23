@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **2D Poisson / Laplace solver (Gauss–Seidel)** (`math::poissonSolve`, `Poisson.hpp`) — DONE (M742);
+  solve Laplacian(u) = rhs on a grid with fixed (Dirichlet) cells — the workhorse behind a surprising range
+  of game/graphics tasks: the pressure-projection step that makes fluids incompressible, gradient-domain /
+  "Poisson" image editing (seamlessly cloning a patch so its interior matches the surrounding gradients),
+  steady-state heat/temperature diffusion, and smooth scattered-data interpolation. The 5-point stencil sets
+  each free cell to the average of its four neighbours minus the source term and iterates to convergence;
+  fixed cells (the boundary, a region border, a hot spot) are held. Godot ships no PDE solver.
+  [VERIFIABLE HERE] The method of MANUFACTURED SOLUTIONS gives an airtight oracle — pick a known field u*,
+  set rhs = its discrete Laplacian and the border = u*, and the solver converges back to u* at every
+  interior cell — plus a harmonic linear field reproduced exactly, the maximum principle (with a hot fixed
+  cell, interior values stay between the fixed min and max and fall off with distance), the residual
+  actually reaching tolerance, and a zero-everywhere case.
 - [x] **Wang tiling (edge-matched aperiodic layout)** (`game::wangTiling`, `WangTiles.hpp`) — DONE (M741);
   lay tiles so their edges always match, producing large NON-REPEATING textures, terrain, dungeons, or
   road/river networks from a small tile set. Each Wang tile carries a colour on each of its four edges and

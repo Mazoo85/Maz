@@ -2541,3 +2541,8 @@ add_executable(maz_wangtiles_tests game/wangtiles.cpp)
 target_link_libraries(maz_wangtiles_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME wang_tiles COMMAND maz_wangtiles_tests)
 set_tests_properties(wang_tiles PROPERTIES TIMEOUT 30)
+
+add_executable(maz_poisson_tests math/poisson.cpp)
+target_link_libraries(maz_poisson_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME poisson COMMAND maz_poisson_tests)
+set_tests_properties(poisson PROPERTIES TIMEOUT 30)
