@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Marching Tetrahedra isosurface extraction** (`math::marchingTetrahedra`, `MarchingTetrahedra.hpp`) —
+  DONE (M773); turns a 3-D scalar field into a triangle mesh of its level set — the "give me the surface of
+  this field as a mesh" step for voxel terrain, metaballs/blobby surfaces, CSG/SDF meshing and volume data.
+  Complements the engine's 2-D MarchingSquares and dual-vertex SurfaceNets with the classic PRIMAL
+  marching-simplex method: every grid cube is split into SIX tetrahedra and each is marched, so — because
+  adjacent tetrahedra share a face whose crossing is fixed by the three shared corner values — the output is
+  WATERTIGHT and crack-free by construction, with none of marching cubes' ambiguous-case holes and no
+  256-entry table. Godot has no isosurface extractor. Verified on a sphere field to be a proper closed
+  2-manifold — every edge shared by exactly two triangles, Euler characteristic V−E+F = 2 — with every vertex
+  on the sphere to grid resolution and the closed-mesh signed volume matching (4/3)πR³ (which also proves the
+  winding is consistently outward); a box field is likewise watertight and a non-crossing field yields an
+  empty mesh (ctest `marching_tetrahedra`). [VERIFIABLE HERE]
 - [x] **Savitzky–Golay smoothing filter** (`math::savitzkyGolay`, `SavitzkyGolay.hpp`) — DONE (M772);
   denoises a 1-D signal by fitting a low-degree polynomial to a sliding window (least squares) and taking the
   fitted value at each point. Unlike a moving average, which flattens peaks, it PRESERVES feature shape
