@@ -2611,3 +2611,8 @@ add_executable(maz_wavelet_tests math/wavelet.cpp)
 target_link_libraries(maz_wavelet_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME wavelet COMMAND maz_wavelet_tests)
 set_tests_properties(wavelet PROPERTIES TIMEOUT 30)
+
+add_executable(maz_paralleltransport_tests math/paralleltransport.cpp)
+target_link_libraries(maz_paralleltransport_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME parallel_transport COMMAND maz_paralleltransport_tests)
+set_tests_properties(parallel_transport PROPERTIES TIMEOUT 30)

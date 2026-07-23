@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Rotation-minimizing (parallel-transport) frames** (`math::parallelTransportFrames`,
+  `ParallelTransport.hpp`) — DONE (M756); a smoothly twisting coordinate frame that rides along a 3D path.
+  To sweep a cross-section down a curve — a tube, rope, cable, road, vine, ribbon trail, or a camera rail —
+  you need at every point a consistent up/side pair perpendicular to the direction of travel. The textbook
+  Frenet frame (built from curvature) suddenly flips 180 degrees where the curve straightens or inflects,
+  visibly kinking the swept mesh; a rotation-minimizing frame carries the previous frame forward with the
+  LEAST possible twist so the tube never spins or snaps. Uses Wang et al.'s exact, stable double-reflection
+  method. Godot's CSGPolygon path-extrude twists on inflections; this fixes that. [VERIFIABLE HERE] `ctest
+  -R parallel_transport`: every frame is a unit right-handed orthonormal basis; each tangent follows the
+  local direction of travel; on a planar circle with an out-of-plane hint the normal stays exactly the plane
+  normal at all 64 samples (zero twist — the property the Frenet frame fails) while the binormal genuinely
+  rotates in-plane to follow the curve; a straight line yields identical frames; consecutive normals never
+  flip; determinism.
 - [x] **Haar wavelet transform** (`math::haarForward1D/2D` / `math::haarInverse1D/2D`, `Wavelet.hpp`) — DONE
   (M755); the simplest multi-resolution transform — repeatedly split a signal or image into a coarse
   "average" half and a fine "detail" half, so a texture or heightfield becomes a small blurry thumbnail plus
