@@ -2662,3 +2662,8 @@ add_executable(maz_dualcontour2d_tests math/dualcontour2d.cpp)
 target_link_libraries(maz_dualcontour2d_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME dual_contour2d COMMAND maz_dualcontour2d_tests)
 set_tests_properties(dual_contour2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bwt_tests io/bwt.cpp)
+target_link_libraries(maz_bwt_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bwt COMMAND maz_bwt_tests)
+set_tests_properties(bwt PROPERTIES TIMEOUT 30)

@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Burrows-Wheeler Transform** (`io::bwtEncode` / `io::bwtDecode`, `Bwt.hpp`) — DONE (M766); the
+  reversible byte-reordering at the heart of bzip2-style compression. The BWT rearranges a block so runs of
+  the same symbol CLUSTER together (identical contexts end up adjacent), which a following move-to-front +
+  entropy coder squeezes far better than the raw data — yet it loses nothing: the exact original is
+  recovered from the transformed block plus one index. It's the standard front-end for compressing
+  repetitive assets (text, level data, tilemaps, serialized scenes) ahead of the engine's Huffman / range
+  coder, which had no BWT stage. Classic rotation-sort forward transform, O(n) LF-mapping inverse.
+  [VERIFIABLE HERE] `ctest -R bwt`: airtight round-trip — bwtDecode(bwtEncode(x))==x over 200 random blocks
+  (sizes 1..300) and structured text; on repetitive input the transform produces MORE adjacent-equal bytes
+  than the input (the clustering that aids compression); empty and single-byte inputs round-trip;
+  determinism.
 - [x] **2D dual contouring (sharp-feature SDF meshing)** (`math::dualContour2D`, `DualContour2D.hpp`) — DONE
   (M765); extract a contour line from a signed distance field that PRESERVES SHARP CORNERS, unlike the
   engine's marching squares which bevels every corner into a chamfer. Marching squares can only put contour
