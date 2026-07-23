@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **RANSAC robust line fitting** (`math::ransacLine`, `Ransac.hpp`) — DONE (M764); fit a line to points
+  that contain GROSS OUTLIERS. Ordinary least squares (and the M762/M763 fits) assume every point belongs to
+  the shape, so a few stray points — a mistracked feature, a sensor glitch, a wall behind the floor — drag
+  the fit badly off. RANSAC guesses many candidate lines from tiny random samples, keeps the one the most
+  points AGREE with (the consensus / inliers), and refits only to those, so outliers are ignored rather than
+  averaged in. It's the standard tool for messy real-world point sets: aligning scanned edges, snapping a
+  wall/floor line out of noisy depth points, robust trend estimation, calibration with bad samples.
+  Deterministic (seeded). Godot ships no robust estimator. [VERIFIABLE HERE] `ctest -R ransac`: with ~42%
+  outliers (a competing near-vertical bar), RANSAC recovers the true line (normal aligned > 0.99) and its
+  worst error on the true inliers stays < 0.1 while a non-robust total-least-squares fit over all points is
+  dragged 5x+ further off; the consensus size is close to the true inlier count and every reported inlier is
+  within the threshold; a clean line is fit exactly; too few points fail; same seed gives the same model.
 - [x] **Best-fit plane (total least squares)** (`math::fitPlane`, `ShapeFit.hpp`) — DONE (M763); find the
   plane that best passes through a 3D point cloud, minimising ORTHOGONAL distance (true total least squares,
   not a z=f(x,y) graph fit). This is how you estimate the ground/floor from scanned or sampled points, find

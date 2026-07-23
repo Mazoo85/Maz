@@ -2652,3 +2652,8 @@ add_executable(maz_planefit_tests math/planefit.cpp)
 target_link_libraries(maz_planefit_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME plane_fit COMMAND maz_planefit_tests)
 set_tests_properties(plane_fit PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ransac_tests math/ransac.cpp)
+target_link_libraries(maz_ransac_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ransac COMMAND maz_ransac_tests)
+set_tests_properties(ransac PROPERTIES TIMEOUT 30)
