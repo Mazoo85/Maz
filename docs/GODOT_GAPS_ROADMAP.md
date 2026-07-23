@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Harris corner detection** (`render::harrisCorners`, `HarrisCorners.hpp`) — DONE (M750); find the
+  distinctive, trackable "corner" points in an image — spots where brightness changes sharply in TWO
+  directions — as opposed to flat regions (no change) or straight edges (change in only one direction).
+  Corners are the stable landmarks used to align/stitch images, match features between frames, calibrate,
+  auto-register decals or sprites, and drive simple optical-flow tracking. It builds the local structure
+  tensor (windowed sums of squared gradients) and scores each pixel with the Harris response
+  det(M) - k*trace(M)^2, then keeps the local maxima. Godot ships no feature detector. [VERIFIABLE HERE] On a
+  solid square a corner is found near each of the four true corners and NONE in the flat interior or along
+  the straight edges (the defining two-direction property); a flat image yields no corners; a single straight
+  edge yields no interior corners; and detection is deterministic.
 - [x] **Morphological thinning / skeletonization (Zhang–Suen)** (`render::thinZhangSuen`, `Thinning.hpp`) —
   DONE (M749); reduce a filled binary shape to its one-pixel-wide SKELETON, the centerline that captures the
   shape's topology. Where the engine's dilate/erode grow or shrink a region, thinning peels a shape down to

@@ -2581,3 +2581,8 @@ add_executable(maz_thinning_tests render/thinning.cpp)
 target_link_libraries(maz_thinning_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME thinning COMMAND maz_thinning_tests)
 set_tests_properties(thinning PROPERTIES TIMEOUT 30)
+
+add_executable(maz_harriscorners_tests render/harriscorners.cpp)
+target_link_libraries(maz_harriscorners_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME harris_corners COMMAND maz_harriscorners_tests)
+set_tests_properties(harris_corners PROPERTIES TIMEOUT 30)
