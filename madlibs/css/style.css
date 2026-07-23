@@ -55,6 +55,14 @@ body {
 }
 .brand-alt { color: var(--pink); text-shadow: 0 0 18px rgba(255, 45, 149, 0.5); }
 .tagline { color: var(--muted); margin: 10px 0 0; font-size: 15px; }
+.install-btn {
+  margin-top: 14px;
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(57, 255, 20, 0.08);
+  font-weight: 600;
+}
+.install-btn:hover { box-shadow: 0 0 16px rgba(57, 255, 20, 0.35); }
 
 /* ---- Controls ---- */
 .controls {

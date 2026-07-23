@@ -10,13 +10,27 @@ dictionary. **45 templates across 34 genres** × large word lists yields
 **~10²⁸ distinct stories** — far more than the 5,000 target — and the app can
 batch-export a whole library at once.
 
-No build step, no dependencies. Pure HTML + CSS + vanilla JavaScript.
+No build step, no dependencies. Pure HTML + CSS + vanilla JavaScript — and it's
+an **installable PWA** (Progressive Web App) that runs fully **offline**.
 
 ```
 cd madlibs
 python3 -m http.server      # then visit http://localhost:8000
-# ...or just open index.html directly in a browser
 ```
+
+> **Installing / offline support:** the service worker and "Install app" prompt
+> need the app to be served over `http(s)` (or `localhost`) — not opened as a
+> `file://` path. Use the `http.server` command above (or any static host).
+> Once loaded, the whole app is cached and works with no network.
+
+## Install it as an app
+
+- **Desktop (Chrome/Edge):** click the **⬇ Install app** button in the header,
+  or the install icon in the address bar.
+- **Android (Chrome):** menu → **Install app** / **Add to Home screen**.
+- **iOS (Safari):** Share → **Add to Home Screen**.
+
+Installed, it launches in its own window with its own icon and works offline.
 
 ## What it does
 
@@ -27,17 +41,21 @@ python3 -m http.server      # then visit http://localhost:8000
 - **Copy / Export .md** — grab the current idea as Markdown.
 - **Save to Library** — keep ideas you like (persisted in `localStorage`).
 - **Batch export** — download 50 / 500 / 5000 unique ideas as a single `.md` file.
+- **Installable & offline** — add to your home screen / desktop; runs with no network.
 
 ## Project layout
 
 ```
 madlibs/
-  index.html          entry point
-  css/style.css       neon/retro styling
-  js/dictionary.js    categorized word lists  -> window.MADLIBS_DICT
-  js/templates.js     story templates         -> window.MADLIBS_TEMPLATES
-  js/generator.js     the engine              -> window.MadlibsGenerator
-  js/app.js           UI wiring
+  index.html             entry point
+  manifest.webmanifest   PWA manifest (name, icons, colors, standalone)
+  sw.js                  service worker (offline app-shell cache)
+  icons/                 app icons (192/512 + maskable + apple-touch)
+  css/style.css          neon/retro styling
+  js/dictionary.js       categorized word lists  -> window.MADLIBS_DICT
+  js/templates.js        story templates         -> window.MADLIBS_TEMPLATES
+  js/generator.js        the engine              -> window.MadlibsGenerator
+  js/app.js              UI wiring
 ```
 
 ## How the templates work

@@ -7,9 +7,9 @@ This repo holds three things:
    "massive list") and **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
 2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
    engine's eventual flagship port target (roadmap Phase 13).
-3. **MadLibs Story Forge** — a zero-dependency browser app in
+3. **MadLibs Story Forge** — a zero-dependency, installable **PWA** in
    **[`madlibs/`](madlibs/)** that randomly forges story ideas (broken into
-   scene beats) to seed storyboards and scripts. See
+   scene beats) to seed storyboards and scripts. Works offline. See
    **[`madlibs/README.md`](madlibs/README.md)**.
 
 > **Codebase memory:** this repo is set up with a

@@ -29,7 +29,8 @@
     libCount: document.getElementById('libCount'),
     libEmpty: document.getElementById('libEmpty'),
     clearLib: document.getElementById('clearLib'),
-    templateCount: document.getElementById('templateCount')
+    templateCount: document.getElementById('templateCount'),
+    install: document.getElementById('install')
   };
 
   var current = null; // the story shown right now
@@ -185,6 +186,36 @@
     }, 30);
   }
 
+  // -------------------------------------------------------------- install (PWA)
+  // Chromium fires beforeinstallprompt when the app is installable; we stash the
+  // event and surface our own button, then trigger the native prompt on click.
+  function initInstall() {
+    var deferred = null;
+    if (!el.install) return;
+
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferred = e;
+      el.install.classList.remove('hidden');
+    });
+
+    el.install.addEventListener('click', function () {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted') toast('Installing Story Forge…');
+        deferred = null;
+        el.install.classList.add('hidden');
+      });
+    });
+
+    window.addEventListener('appinstalled', function () {
+      deferred = null;
+      el.install.classList.add('hidden');
+      toast('Installed ★');
+    });
+  }
+
   // -------------------------------------------------------------- init
   function initGenres() {
     var genres = {};
@@ -236,6 +267,7 @@
 
   initGenres();
   initScaleStat();
+  initInstall();
   renderLibrary();
   bind();
   doGenerate(); // start with one ready to go

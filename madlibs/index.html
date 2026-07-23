@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MadLibs Story Forge — Story-Idea Generator</title>
   <link rel="stylesheet" href="css/style.css" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0d0820" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Story Forge" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120a24'/><rect x='3' y='7' width='10' height='2' fill='%2339ff14'/><rect x='3' y='11' width='7' height='2' fill='%23ff2d95'/><rect x='3' y='3' width='6' height='2' fill='%2300e5ff'/></svg>" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
 </head>
 <body>
   <div id="app">
@@ -15,6 +25,7 @@
         <h1>MadLibs <span class="brand-alt">Story Forge</span></h1>
       </div>
       <p class="tagline">Randomly forged story ideas — broken into beats, ready for the storyboard.</p>
+      <button id="install" class="install-btn hidden">⬇ Install app</button>
     </header>
 
     <section class="controls">
@@ -82,5 +93,16 @@
   <script src="js/templates.js"></script>
   <script src="js/generator.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- register the service worker so the app works offline / is installable -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
+          console.warn('Service worker registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
