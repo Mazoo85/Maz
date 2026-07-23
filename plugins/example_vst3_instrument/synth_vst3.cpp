@@ -23,7 +23,9 @@
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
+#include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstevents.h"
+#include "pluginterfaces/vst/ivstparameterchanges.h"
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -149,6 +151,25 @@ public:
             return kResultOk;
         }
 
+        // Apply incoming parameter changes (id 0 = "Gain"): take each queue's last point value.
+        if (data.inputParameterChanges != nullptr) {
+            const int32 npc = data.inputParameterChanges->getParameterCount();
+            for (int32 q = 0; q < npc; ++q) {
+                IParamValueQueue* queue = data.inputParameterChanges->getParameterData(q);
+                if (queue == nullptr || queue->getParameterId() != 0) {
+                    continue;
+                }
+                const int32 pts = queue->getPointCount();
+                if (pts > 0) {
+                    int32 off = 0;
+                    ParamValue val = 0.0;
+                    if (queue->getPoint(pts - 1, off, val) == kResultOk) {
+                        paramGain_ = val; // normalized 0..1
+                    }
+                }
+            }
+        }
+
         // Apply incoming note events (monophonic: the latest note-on wins, note-off gates it off).
         if (data.inputEvents != nullptr) {
             const int32 nev = data.inputEvents->getEventCount();
@@ -177,7 +198,8 @@ public:
             }
             double phase = phase_;
             for (int32 i = 0; i < frames; ++i) {
-                const float s = gate_ ? static_cast<float>(std::sin(phase * kTwoPi) * gain_) : 0.0f;
+                const float s =
+                    gate_ ? static_cast<float>(std::sin(phase * kTwoPi) * gain_ * paramGain_) : 0.0f;
                 dst[i] = s;
                 phase += freq_ / sampleRate_;
                 if (phase >= 1.0) {
@@ -200,6 +222,7 @@ private:
     double phase_ = 0.0;
     double freq_ = 440.0;
     double gain_ = 0.0;
+    double paramGain_ = 1.0; // param 0 "Gain", automatable (default full)
     bool gate_ = false;
 };
 

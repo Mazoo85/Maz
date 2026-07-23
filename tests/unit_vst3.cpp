@@ -122,6 +122,21 @@ int main() {
         std::vector<float> panic(static_cast<size_t>(block) * 2, 0.0f);
         inst.process(panic.data(), block, sr);
         check(energy(panic) == 0.0, "allNotesOff releases held VST3 notes (no hang)");
+
+        // Parameter automation: the synth applies a "Gain" parameter (id 0) delivered via VST3
+        // inputParameterChanges. Setting it to 0 mutes the output; 1 restores it — proving host-queued
+        // parameter changes reach the plugin's processor.
+        inst.setParam(0, 0.0);
+        inst.noteOn(69, 1.0f);
+        std::vector<float> vquiet(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(vquiet.data(), block, sr);
+        check(energy(vquiet) == 0.0, "a Gain=0 parameter change mutes the hosted VST3 instrument");
+        inst.setParam(0, 1.0);
+        std::vector<float> vloud(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(vloud.data(), block, sr);
+        check(energy(vloud) > 0.0, "a Gain=1 parameter change restores the hosted VST3 instrument");
+        inst.allNotesOff();
+
         inst.unload();
     } else {
         std::printf("  instrument load error: %s\n", err.c_str());

@@ -14,7 +14,9 @@
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
+#include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstevents.h"
+#include "pluginterfaces/vst/ivstparameterchanges.h"
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -67,6 +69,62 @@ public:
         return kResultOk;
     }
 };
+
+// A one-parameter, one-point value queue: carries a single automation value for a ParamID.
+class HostParamValueQueue : public IParamValueQueue {
+public:
+    ParamID id = 0;
+    ParamValue value = 0.0;
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) SMTG_OVERRIDE {
+        if (FUnknownPrivate::iidEqual(_iid, FUnknown_iid) ||
+            FUnknownPrivate::iidEqual(_iid, IParamValueQueue_iid)) {
+            *obj = static_cast<IParamValueQueue*>(this);
+            return kResultOk;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() SMTG_OVERRIDE { return 1000; }
+    uint32 PLUGIN_API release() SMTG_OVERRIDE { return 1000; }
+    ParamID PLUGIN_API getParameterId() SMTG_OVERRIDE { return id; }
+    int32 PLUGIN_API getPointCount() SMTG_OVERRIDE { return 1; }
+    tresult PLUGIN_API getPoint(int32 index, int32& sampleOffset, ParamValue& val) SMTG_OVERRIDE {
+        if (index != 0) {
+            return kInvalidArgument;
+        }
+        sampleOffset = 0;
+        val = value;
+        return kResultOk;
+    }
+    tresult PLUGIN_API addPoint(int32, ParamValue, int32&) SMTG_OVERRIDE { return kNotImplemented; }
+};
+
+// Host-side IParameterChanges: one queue per queued parameter change, handed to process().
+class HostParameterChanges : public IParameterChanges {
+public:
+    std::vector<HostParamValueQueue> queues;
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) SMTG_OVERRIDE {
+        if (FUnknownPrivate::iidEqual(_iid, FUnknown_iid) ||
+            FUnknownPrivate::iidEqual(_iid, IParameterChanges_iid)) {
+            *obj = static_cast<IParameterChanges*>(this);
+            return kResultOk;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() SMTG_OVERRIDE { return 1000; }
+    uint32 PLUGIN_API release() SMTG_OVERRIDE { return 1000; }
+    int32 PLUGIN_API getParameterCount() SMTG_OVERRIDE { return static_cast<int32>(queues.size()); }
+    IParamValueQueue* PLUGIN_API getParameterData(int32 index) SMTG_OVERRIDE {
+        if (index < 0 || index >= static_cast<int32>(queues.size())) {
+            return nullptr;
+        }
+        return &queues[static_cast<size_t>(index)];
+    }
+    IParamValueQueue* PLUGIN_API addParameterData(const ParamID&, int32&) SMTG_OVERRIDE {
+        return nullptr;
+    }
+};
 } // namespace
 
 Vst3Host::~Vst3Host() { unload(); }
@@ -97,6 +155,58 @@ void Vst3Host::allNotesOff() {
         pendingNotes_.push_back({key, 0.0f, false});
     }
     heldKeys_.clear();
+}
+
+namespace {
+IEditController* controllerOf(void* p) { return static_cast<IEditController*>(p); }
+} // namespace
+
+int Vst3Host::paramCount() const {
+    return controller_ != nullptr ? static_cast<int>(controllerOf(controller_)->getParameterCount()) : 0;
+}
+
+void Vst3Host::setParam(int index, double value) {
+    // Map the display index to a ParamID via the controller when present; otherwise assume id == index
+    // (true for the simple example synth). VST3 parameter values are normalized [0,1].
+    unsigned int id = static_cast<unsigned int>(index < 0 ? 0 : index);
+    if (controller_ != nullptr) {
+        ParameterInfo info{};
+        if (controllerOf(controller_)->getParameterInfo(index, info) == kResultOk) {
+            id = info.id;
+        }
+    }
+    const double v = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+    pendingParams_.push_back({id, v});
+}
+
+double Vst3Host::paramValue(int index) const {
+    if (controller_ == nullptr) {
+        return 0.0;
+    }
+    ParameterInfo info{};
+    if (controllerOf(controller_)->getParameterInfo(index, info) != kResultOk) {
+        return 0.0;
+    }
+    return controllerOf(controller_)->getParamNormalized(info.id);
+}
+
+double Vst3Host::paramMin(int) const { return 0.0; } // VST3 params are normalized [0,1]
+double Vst3Host::paramMax(int) const { return 1.0; }
+
+std::string Vst3Host::paramName(int index) const {
+    if (controller_ == nullptr) {
+        return "";
+    }
+    ParameterInfo info{};
+    if (controllerOf(controller_)->getParameterInfo(index, info) != kResultOk) {
+        return "";
+    }
+    // title is a UTF-16 String128; convert the ASCII subset for the UI.
+    std::string out;
+    for (int i = 0; i < 128 && info.title[i] != 0; ++i) {
+        out.push_back(static_cast<char>(info.title[i] & 0x7F));
+    }
+    return out;
 }
 
 bool Vst3Host::load(const std::string& path, int sampleRate, int maxBlock, std::string* err) {
@@ -171,6 +281,13 @@ bool Vst3Host::load(const std::string& path, int sampleRate, int maxBlock, std::
     processor_ = proc;
     IAudioProcessor* processor = processorOf(processor_);
 
+    // Optional: an IEditController for parameter enumeration. Single-component plugins expose it on the
+    // component itself; a null controller just means no parameter names (delivery still works by index).
+    void* ctrl = nullptr;
+    if (component->queryInterface(IEditController_iid, &ctrl) == kResultOk && ctrl != nullptr) {
+        controller_ = ctrl;
+    }
+
     if (processor->canProcessSampleSize(kSample32) != kResultTrue) {
         return fail("plugin cannot process 32-bit float");
     }
@@ -206,6 +323,10 @@ void Vst3Host::unload() {
         componentOf(component_)->setActive(false);
     }
     active_ = false;
+    if (controller_ != nullptr) {
+        controllerOf(controller_)->release();
+        controller_ = nullptr;
+    }
     if (processor_ != nullptr) {
         processorOf(processor_)->release();
         processor_ = nullptr;
@@ -268,6 +389,15 @@ void Vst3Host::process(float* stereo, int frames, int sampleRate) {
         events.events.push_back(ev);
     }
     pendingNotes_.clear();
+    // Build the queued parameter changes (one queue per change) for the first sub-block.
+    HostParameterChanges paramChanges;
+    for (const auto& pp : pendingParams_) {
+        HostParamValueQueue q;
+        q.id = pp.id;
+        q.value = pp.value;
+        paramChanges.queues.push_back(q);
+    }
+    pendingParams_.clear();
     bool eventsFed = false;
 
     int done = 0;
@@ -298,9 +428,14 @@ void Vst3Host::process(float* stereo, int frames, int sampleRate) {
         data.numOutputs = 1;
         data.inputs = &inBus;
         data.outputs = &outBus;
-        // Deliver queued note events on the first sub-block only.
-        if (!eventsFed && !events.events.empty()) {
-            data.inputEvents = &events;
+        // Deliver queued note events + parameter changes on the first sub-block only.
+        if (!eventsFed) {
+            if (!events.events.empty()) {
+                data.inputEvents = &events;
+            }
+            if (!paramChanges.queues.empty()) {
+                data.inputParameterChanges = &paramChanges;
+            }
         }
         eventsFed = true;
 

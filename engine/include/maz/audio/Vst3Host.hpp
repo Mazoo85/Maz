@@ -43,6 +43,15 @@ public:
     // Release every currently-held note (panic / all-notes-off) so a hosted instrument doesn't hang.
     void allNotesOff() override;
 
+    // Parameter automation: enumerate via the plugin's IEditController (if any) and queue changes
+    // delivered to the processor as VST3 parameter changes at the top of the next process() block.
+    int paramCount() const override;
+    void setParam(int index, double value) override;
+    double paramValue(int index) const override;
+    double paramMin(int index) const override;
+    double paramMax(int index) const override;
+    std::string paramName(int index) const override;
+
     const char* name() const override { return name_.empty() ? "VST3" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
 
@@ -51,6 +60,12 @@ private:
     void* factory_ = nullptr;     // IPluginFactory*
     void* component_ = nullptr;   // IComponent*
     void* processor_ = nullptr;   // IAudioProcessor*
+    void* controller_ = nullptr;  // IEditController* (parameter enumeration), or null
+    struct PendingParam {
+        unsigned int id;
+        double value;
+    };
+    std::vector<PendingParam> pendingParams_; // queued param changes for the next process()
     bool moduleEntered_ = false;  // whether ModuleExit must be called
     bool active_ = false;
     int maxBlock_ = 4096;
