@@ -2601,3 +2601,8 @@ add_executable(maz_minkowskisum_tests math/minkowskisum.cpp)
 target_link_libraries(maz_minkowskisum_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME minkowski_sum COMMAND maz_minkowskisum_tests)
 set_tests_properties(minkowski_sum PROPERTIES TIMEOUT 30)
+
+add_executable(maz_catmullclark_tests render/catmullclark.cpp)
+target_link_libraries(maz_catmullclark_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME catmull_clark COMMAND maz_catmullclark_tests)
+set_tests_properties(catmull_clark PROPERTIES TIMEOUT 30)

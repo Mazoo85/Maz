@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Catmull-Clark subdivision surfaces** (`render::catmullClark`, `CatmullClark.hpp`) — DONE (M754); the
+  industry-standard way to turn a blocky low-poly QUAD cage into a smooth rounded surface, refining one level
+  at a time toward a limit surface. Where the engine's existing Loop subdivision smooths triangle meshes,
+  Catmull-Clark works on arbitrary polygon faces and always outputs quads — the scheme film and modelling
+  packages use for organic shapes (a cube rounds toward a sphere-like blob, a rough character cage becomes a
+  clean subdivision surface). Each pass places a face point at every face centroid, an edge point per edge
+  (blending the edge's ends with its two neighbouring face points), and nudges every original vertex toward
+  the average of its surrounding face and edge points, then splits every face into quads; boundary edges use
+  the open cubic-B-spline crease rule so borders stay put. Godot exposes no runtime subdivision surface.
+  [VERIFIABLE HERE] `ctest -R catmull_clark`: one pass of a cube (V8/E12/F6) yields the exact counts V'=26,
+  F'=24 quads, E'=48 so the Euler characteristic V-E+F=2 is preserved (still a closed sphere); every output
+  face is a quad; all new points stay inside the control cube and each corner rounds strictly inward; a flat
+  z=0 grid stays perfectly planar after two passes; determinism.
 - [x] **Minkowski sum of convex polygons** (`math::minkowskiSumConvex`, `MinkowskiSum.hpp`) — DONE (M753);
   sweep one shape around the boundary of another and take everything the pair can cover together — the set
   { a + b : a in A, b in B }. This is the workhorse behind collision inflation and motion planning: grow a
