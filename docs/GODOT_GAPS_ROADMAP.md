@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Geometric circle / sphere fitting** (`math::fitCircle` / `math::fitSphere`, `ShapeFit.hpp`) — DONE
+  (M762); find the CIRCLE (2D) or SPHERE (3D) that best passes through a cloud of measured points. Where the
+  engine's LeastSquares fits a value as a function of x (a line or polynomial), this fits a round SHAPE to
+  scattered positions: recover the centre and radius of an arc from sampled points (gears, dials, turning
+  circles, curved track segments), fit a bounding sphere to a vertex cloud, estimate an orbit radius, or
+  calibrate a circular sensor sweep. Uses the algebraic (Kasa) least-squares form, which linearises the fit
+  into a tiny normal-equations solve on the new dense linear solver (M761) — exact on clean data, stable on
+  noisy data. Godot exposes no such fit. [VERIFIABLE HERE] `ctest -R shape_fit`: points sampled exactly on a
+  known circle/sphere recover its centre and radius to ~1e-3; with small jitter the fit stays within 0.1 of
+  the truth and every point lies within the noise band of the fitted shape; collinear points (circle) and
+  coplanar points (sphere), or too few points, are reported as failed fits; determinism.
 - [x] **Dense linear system solver** (`math::solveLinearSystem` / `math::determinant` / `math::invertMatrix`,
   `LinearSolve.hpp`) — DONE (M761); solve A x = b for a general NxN matrix, plus determinant and inverse, via
   LU decomposition with partial pivoting. This is the numerical workhorse under least-squares FITTING (fit a

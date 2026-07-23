@@ -2642,3 +2642,8 @@ add_executable(maz_linearsolve_tests math/linearsolve.cpp)
 target_link_libraries(maz_linearsolve_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME linear_solve COMMAND maz_linearsolve_tests)
 set_tests_properties(linear_solve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shapefit_tests math/shapefit.cpp)
+target_link_libraries(maz_shapefit_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shape_fit COMMAND maz_shapefit_tests)
+set_tests_properties(shape_fit PROPERTIES TIMEOUT 30)
