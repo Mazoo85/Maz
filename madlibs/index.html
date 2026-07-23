@@ -24,78 +24,111 @@
         <span class="brand-mark">◆</span>
         <h1>MadLibs <span class="brand-alt">Story Forge</span></h1>
       </div>
-      <p class="tagline">Randomly forged story ideas — broken into beats, ready for the storyboard.</p>
+      <p class="tagline">Forge story ideas, script the episode, board the shots — all in one place.</p>
       <button id="install" class="install-btn hidden">⬇ Install app</button>
     </header>
 
-    <section class="controls">
-      <div class="control">
-        <label for="genre">Genre</label>
-        <select id="genre"></select>
-      </div>
-      <div class="buttons">
-        <button id="generate" class="primary">⚡ Forge a Story</button>
-        <button id="reroll" title="Keep this story, roll new words">🎲 Reroll Words</button>
-      </div>
-      <div class="stat" id="scaleStat" title="Distinct stories this app can produce"></div>
-    </section>
+    <nav class="mainnav">
+      <button class="navlink active" data-view="forge">✍️ Forge</button>
+      <button class="navlink" data-view="productions">🎬 Productions
+        <span id="navProdCount" class="count film-count">0</span></button>
+    </nav>
 
-    <main>
-      <article id="story" class="story hidden">
-        <div class="story-head">
-          <h2 id="storyTitle"></h2>
-          <div class="story-meta">
-            <span class="chip" id="storyGenre"></span>
-            <span class="chip ghost" id="storySeed"></span>
+    <!-- ============================================================ FORGE -->
+    <section id="view-forge" class="view">
+      <section class="controls">
+        <div class="control">
+          <label for="genre">Genre</label>
+          <select id="genre"></select>
+        </div>
+        <div class="buttons">
+          <button id="generate" class="primary">⚡ Forge a Story</button>
+          <button id="reroll" title="Keep this story, roll new words">🎲 Reroll Words</button>
+        </div>
+        <div class="stat" id="scaleStat" title="Distinct stories this app can produce"></div>
+      </section>
+
+      <main>
+        <article id="story" class="story hidden">
+          <div class="story-head">
+            <h2 id="storyTitle"></h2>
+            <div class="story-meta">
+              <span class="chip" id="storyGenre"></span>
+              <span class="chip ghost" id="storySeed"></span>
+            </div>
           </div>
-        </div>
-        <div id="beats" class="beats"></div>
-        <div class="story-actions">
-          <button id="copy">📋 Copy</button>
-          <button id="exportOne">⬇ Export .md</button>
-          <button id="save" class="accent">★ Save to Library</button>
-          <button id="script" class="film" title="Send this idea to production and copy a brief to hand to Claude">🎬 Script this idea</button>
-        </div>
-      </article>
+          <div id="beats" class="beats"></div>
+          <div class="story-actions">
+            <button id="copy">📋 Copy</button>
+            <button id="exportOne">⬇ Export .md</button>
+            <button id="save" class="accent">★ Save to Library</button>
+            <button id="script" class="film" title="Send this idea to Productions and start its script">🎬 Script this idea</button>
+          </div>
+        </article>
 
-      <div id="placeholder" class="empty">
-        <p>Press <strong>Forge a Story</strong> to generate your first idea.</p>
-      </div>
-    </main>
+        <div id="placeholder" class="empty">
+          <p>Press <strong>Forge a Story</strong> to generate your first idea.</p>
+        </div>
+      </main>
 
-    <section class="batch">
-      <h3>Batch export</h3>
-      <p class="muted">Generate a whole library of unique story ideas in one file.</p>
-      <div class="batch-row">
-        <button data-n="50" class="batch-btn">50</button>
-        <button data-n="500" class="batch-btn">500</button>
-        <button data-n="5000" class="batch-btn">5000</button>
-        <span id="batchStatus" class="muted"></span>
-      </div>
+      <section class="batch">
+        <h3>Batch export</h3>
+        <p class="muted">Generate a whole library of unique story ideas in one file.</p>
+        <div class="batch-row">
+          <button data-n="50" class="batch-btn">50</button>
+          <button data-n="500" class="batch-btn">500</button>
+          <button data-n="5000" class="batch-btn">5000</button>
+          <span id="batchStatus" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="library">
+        <div class="library-head">
+          <h3>Saved ideas <span id="libCount" class="count">0</span></h3>
+          <button id="clearLib" class="link">clear all</button>
+        </div>
+        <ul id="libraryList" class="library-list"></ul>
+        <p id="libEmpty" class="muted">Nothing saved yet. Forge a story you like and hit <strong>Save</strong>.</p>
+      </section>
     </section>
 
-    <section class="library">
-      <div class="library-head">
-        <h3>Saved ideas <span id="libCount" class="count">0</span></h3>
-        <button id="clearLib" class="link">clear all</button>
-      </div>
-      <ul id="libraryList" class="library-list"></ul>
-      <p id="libEmpty" class="muted">Nothing saved yet. Forge a story you like and hit <strong>Save</strong>.</p>
-    </section>
-
-    <section class="productions">
-      <div class="library-head">
-        <h3>🎬 Productions <span id="prodCount" class="count film-count">0</span></h3>
+    <!-- ====================================================== PRODUCTIONS -->
+    <section id="view-productions" class="view hidden">
+      <div class="view-head">
+        <h2>🎬 Productions</h2>
         <button id="clearProd" class="link">clear all</button>
       </div>
       <p class="muted how">
-        Hit <strong>🎬 Script this idea</strong> on a story to send it here. The brief
-        is copied to your clipboard — paste it to Claude and ask for the 30-minute
-        script. Track each project's stage below, and paste the script &amp;
-        storyboard links Claude gives you so everything stays in one place.
+        Every idea you send to production lives here. Open one to write its
+        <strong>30-minute script</strong> and <strong>storyboard</strong> — both
+        read right inside the app.
       </p>
-      <ul id="prodList" class="prod-list"></ul>
-      <p id="prodEmpty" class="muted">No productions yet.</p>
+      <div id="prodGrid" class="prod-grid"></div>
+      <p id="prodEmpty" class="muted">No productions yet. Forge a story and hit <strong>🎬 Script this idea</strong>.</p>
+    </section>
+
+    <!-- ========================================================== PROJECT -->
+    <section id="view-project" class="view hidden">
+      <button id="backToProd" class="back">← Productions</button>
+      <div class="project-head">
+        <h2 id="projTitle"></h2>
+        <div class="project-meta">
+          <span class="chip" id="projGenre"></span>
+          <label class="stage-inline">Stage
+            <select id="projStatus" class="stage-select"></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="idea">💡 Idea</button>
+        <button class="tab" data-tab="script">📝 Script</button>
+        <button class="tab" data-tab="storyboard">🎬 Storyboard</button>
+      </div>
+
+      <div id="tab-idea" class="tabpane"></div>
+      <div id="tab-script" class="tabpane hidden"></div>
+      <div id="tab-storyboard" class="tabpane hidden"></div>
     </section>
 
     <footer class="foot">
@@ -108,6 +141,9 @@
   <script src="js/dictionary.js"></script>
   <script src="js/templates.js"></script>
   <script src="js/generator.js"></script>
+  <script src="js/screenplay.js"></script>
+  <script src="js/storyboard.js"></script>
+  <script src="js/sample.js"></script>
   <script src="js/app.js"></script>
 
   <!-- register the service worker so the app works offline / is installable -->

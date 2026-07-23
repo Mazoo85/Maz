@@ -6,7 +6,7 @@
  * a network fallback is all we need. Bump CACHE_VERSION whenever any cached
  * asset changes so clients pick up the new build.
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = 'madlibs-forge-' + CACHE_VERSION;
 
 // Paths are relative to the service worker's scope (the madlibs/ folder).
@@ -17,6 +17,9 @@ const APP_SHELL = [
   './js/dictionary.js',
   './js/templates.js',
   './js/generator.js',
+  './js/screenplay.js',
+  './js/storyboard.js',
+  './js/sample.js',
   './js/app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',

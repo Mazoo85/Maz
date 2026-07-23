@@ -48,14 +48,24 @@ Installed, it launches in its own window with its own icon and works offline.
 
 ## From idea to script to storyboard
 
-The app turns story *ideas* into production-ready projects. Click **🎬 Script
-this idea** on any story: it lands in the **Productions** panel and copies a
-*production brief* to your clipboard. Paste that to Claude and ask for the
-30-minute script — Claude writes a few takes, you pick one, and Claude turns it
-into a storyboard. Paste the resulting links back into the project's row to keep
-everything together.
+The app has three screens: **Forge** (generate ideas), **Productions** (every
+idea you've sent to production), and a **Project** page for each one.
 
-The full pipeline, formats, and folder layout are documented in
+Click **🎬 Script this idea** on any story and it opens as a project with three
+tabs:
+
+- **Idea** — the beat outline, plus a one-click *brief* to hand to Claude.
+- **Script** — the 30-minute teleplay, rendered as a real screenplay **inside the
+  app** (paste what Claude writes; scene headings, character cues, and
+  parentheticals format automatically). Export as `.fountain`.
+- **Storyboard** — a visual shot-list of panels (framing, camera, action,
+  dialogue, duration), rendered **inside the app**.
+
+Everything is stored locally in your browser. A complete example project —
+**The Museum Ghost** (idea + full script + 14-panel storyboard) — is built in so
+you can see it all working immediately.
+
+The full pipeline, script format, and storyboard format are documented in
 **[`PRODUCTION.md`](PRODUCTION.md)**.
 
 ## Project layout
@@ -70,7 +80,10 @@ madlibs/
   js/dictionary.js       categorized word lists  -> window.MADLIBS_DICT
   js/templates.js        story templates         -> window.MADLIBS_TEMPLATES
   js/generator.js        the engine              -> window.MadlibsGenerator
-  js/app.js              UI wiring
+  js/screenplay.js       in-app screenplay viewer-> window.Screenplay
+  js/storyboard.js       in-app storyboard viewer-> window.Storyboard
+  js/sample.js           built-in example project-> window.MADLIBS_SAMPLE
+  js/app.js              UI wiring (3 screens + routing)
   PRODUCTION.md          idea → script → storyboard pipeline
   productions/<slug>/    generated briefs, scripts, and storyboards
   tools/                 screenplay + storyboard page templates
