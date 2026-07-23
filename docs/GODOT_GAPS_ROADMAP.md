@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Involute of a circle — the true gear-tooth profile** (`math::involutePoint` / `involuteTangent` /
+  `involuteTangentPoint` / `involutePolyline`, `Involute.hpp`) — DONE (M782); the curve traced by the end of a
+  taut string unwinding from a circle, and THE flank profile of real spur gears (two involute gears transmit
+  motion at a perfectly constant ratio because the contact normal stays on the fixed line of action). This is
+  the mechanically-correct complement to the decorative trapezoidal cog in `render::shapes2d::gear`; Godot has
+  no involute primitive. Verified against the AIRTIGHT unwound-string identity (the free end is exactly
+  baseRadius·t from the tangent point AND perpendicular to the base radius there — the two facts that make it
+  a valid gear flank), against the exact swept arc length baseRadius·t²/2 (independent fine-polyline sum),
+  and against the exact radius of curvature baseRadius·t (independent three-point circumradius). ctest
+  `involute`.
 - [x] **Roulette curves — cycloid / spirograph family** (`math::trochoidPoint` / `cycloidPoint` /
   `epitrochoidPoint` / `epicycloidPoint` / `hypotrochoidPoint` / `hypocycloidPoint` + polyline samplers,
   `Roulette.hpp`) — DONE (M781); the curves traced by a point on a rolling circle, either along a line

@@ -2742,3 +2742,8 @@ add_executable(maz_roulette_tests math/roulette.cpp)
 target_link_libraries(maz_roulette_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME roulette COMMAND maz_roulette_tests)
 set_tests_properties(roulette PROPERTIES TIMEOUT 30)
+
+add_executable(maz_involute_tests math/involute.cpp)
+target_link_libraries(maz_involute_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME involute COMMAND maz_involute_tests)
+set_tests_properties(involute PROPERTIES TIMEOUT 30)
