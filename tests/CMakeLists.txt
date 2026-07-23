@@ -2802,3 +2802,8 @@ add_executable(maz_tetrahedron_tests math/tetrahedron.cpp)
 target_link_libraries(maz_tetrahedron_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME tetrahedron COMMAND maz_tetrahedron_tests)
 set_tests_properties(tetrahedron PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rayplanar_tests math/rayplanar.cpp)
+target_link_libraries(maz_rayplanar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_planar COMMAND maz_rayplanar_tests)
+set_tests_properties(ray_planar PROPERTIES TIMEOUT 30)

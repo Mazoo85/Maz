@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs flat planar shapes — disk / annulus / oriented rectangle** (`math::rayIntersectsDisk` /
+  `rayIntersectsAnnulus` / `rayIntersectsRect` → `PlanarHit`, `RayPlanar.hpp`) — DONE (M794); the pick/hit
+  tests for flat things games place in 3D: circular platforms, jump pads and portals (disk), ring pickups /
+  hula-hoops (annulus), floating UI panels, billboards, doors and signboards (oriented rectangle). Each
+  intersects the ray with the shape's plane then does a cheap in-plane containment check, and returns a normal
+  oriented to FACE the incoming ray so lighting/decals read correctly from either side. Rounds out the
+  ray-vs-solid family (cylinder/cone/ellipsoid/torus). Godot has no direct ray-vs-disk/ring/oriented-quad
+  helper. Verified against analytic hits (expected t/point, ray-facing normal that flips for a back-side ray),
+  a parallel-ray miss, the annulus hole/band boundaries, the rectangle half-extent edges, and a random-ray
+  containment cross-check against an independent in-plane radius test. ctest `ray_planar`.
 - [x] **Tetrahedron utilities — volume / barycentric / contains / closest point** (`math::tetrahedronVolume`
   / `barycentricTetrahedron` → `BaryTet` / `tetrahedronContains` / `closestPointTetrahedron`, `Tetrahedron.hpp`)
   — DONE (M793); the 3D analogue of the triangle helpers. Tetrahedra are the cells of volumetric (tet) meshes,
