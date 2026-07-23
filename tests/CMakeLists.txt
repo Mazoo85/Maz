@@ -2762,3 +2762,8 @@ add_executable(maz_solarposition_tests math/solarposition.cpp)
 target_link_libraries(maz_solarposition_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME solar_position COMMAND maz_solarposition_tests)
 set_tests_properties(solar_position PROPERTIES TIMEOUT 30)
+
+add_executable(maz_catenary_tests math/catenary.cpp)
+target_link_libraries(maz_catenary_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME catenary COMMAND maz_catenary_tests)
+set_tests_properties(catenary PROPERTIES TIMEOUT 30)

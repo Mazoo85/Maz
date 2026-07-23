@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Catenary — hanging chain / rope / cable curve** (`math::solveCatenary` → `Catenary` /
+  `catenaryHeight` / `catenaryArcLength` / `catenaryPolyline`, `Catenary.hpp`) — DONE (M786); the shape a
+  uniform flexible rope, chain, cable or wire takes hanging under gravity, y=a·cosh(x/a) — NOT a parabola (a
+  common mistake), and the difference is visible on rope bridges, power lines, chains and mooring cables.
+  Given two anchors and a rope LENGTH longer than the straight gap, it root-finds the unique catenary through
+  both anchors carrying exactly that much rope, then samples it (straight-segment fallback when the rope is
+  too short or the anchors are vertical). Godot has no catenary helper. Verified against exact endpoint
+  interpolation, the requested rope length (both the closed-form a·sinh arc length AND an independent
+  fine-polyline sum), the AIRTIGHT hanging-chain ODE a·y″=√(1+y′²) (the physical law that makes a chain a
+  catenary and not a parabola), and sag monotonicity (more rope → deeper sag; symmetric low point at the
+  midpoint). ctest `catenary`.
 - [x] **Astronomical solar position (real sun angle for a date/place)** (`math::julianDate` /
   `solarDeclination` / `sunPosition` → `SunAngles` / `sunDirection`, `SolarPosition.hpp`) — DONE (M785); the
   ACTUAL solar altitude/azimuth (and a world-space light direction) from a UTC calendar date, latitude and
