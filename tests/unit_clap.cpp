@@ -1,6 +1,7 @@
 // Unit test for CLAP plugin hosting — load a real .clap plugin (built from plugins/example_clap),
 // activate it through the ClapHost, and confirm it processes/ modulates audio. No audio device.
 
+#include "maz/audio/AudioEngine.hpp"
 #include "maz/audio/Automation.hpp"
 #include "maz/audio/ClapHost.hpp"
 #include "maz/audio/Mixer.hpp"
@@ -154,6 +155,37 @@ int main() {
         audio::Automation autom2;
         audio::loadProjectFromString(proj, seq2, mx2, autom2);
         check(seq2.leadPluginLoaded(), "the lead plugin path round-trips through the project");
+    }
+
+    // Automation drives a hosted plugin parameter: the LeadPluginParam0 target sweeps the lead CLAP
+    // instrument's "Gain" param. Fixing it at 0 mutes the plugin's lead-stem energy; at 1 it's audible.
+    {
+        auto leadEnergy = [&](float paramVal) {
+            audio::AudioEngine e;
+            e.initOffline();
+            audio::Sequencer& s = e.sequencer();
+            if (!s.loadLeadPlugin(MAZ_TEST_CLAP_INSTRUMENT, sr)) {
+                return -1.0;
+            }
+            s.synth().setGain(0.0f); // built-in lead silent → lead stem is the plugin's alone
+            s.roll().addNote(audio::Note{0, 4, 69, 1.0f});
+            s.play();
+            audio::Automation::applyTargetValue(e, audio::AutoTarget::LeadPluginParam0, paramVal);
+            const int fr = sr / 8;
+            std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+            std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+            s.renderStems(d.data(), l.data(), b.data(), fr, sr);
+            double en = 0.0;
+            for (float v : l) {
+                en += static_cast<double>(v) * static_cast<double>(v);
+            }
+            return en;
+        };
+        const double open = leadEnergy(1.0f);
+        const double muted = leadEnergy(0.0f);
+        check(open > 0.0 && muted < open * 0.01,
+              "automating LeadPluginParam0 drives the hosted lead instrument's Gain parameter");
     }
 
     // A hosted CLAP instrument on an EXTRA channel, routed to the bass bus.

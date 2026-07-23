@@ -151,6 +151,8 @@ Automation::Automation() {
     lane(AutoTarget::SamplerStart).hi = 0.5f;     // ...to halfway in (glitch/stutter sample-start mod)
     lane(AutoTarget::MasterTune).lo = -100.0f;    // global concert-pitch offset in cents...
     lane(AutoTarget::MasterTune).hi = 100.0f;     // ...for tape-stop-style pitch drops / risers
+    lane(AutoTarget::LeadPluginParam0).lo = 0.0f; // hosted lead plugin's first parameter...
+    lane(AutoTarget::LeadPluginParam0).hi = 1.0f; // ...normalized 0..1
     // A gentle default rate on each.
     for (int i = 0; i < count(); ++i) {
         lane(i).lfo.rateHz = 0.5f;
@@ -259,6 +261,8 @@ const char* Automation::targetName(AutoTarget t) {
         return "Sampler Start";
     case AutoTarget::MasterTune:
         return "Master Tune";
+    case AutoTarget::LeadPluginParam0:
+        return "Lead Plugin P1";
     case AutoTarget::Count:
         break;
     }
@@ -565,6 +569,15 @@ void Automation::applyTargetValue(AudioEngine& engine, AutoTarget target, float 
             // or a slow drift across every melodic instrument (drums stay put).
             engine.sequencer().setMasterTune(v);
             break;
+        case AutoTarget::LeadPluginParam0: {
+            // Automate the hosted lead instrument's first parameter (normalized 0..1). No-op when no
+            // plugin is loaded or it exposes no such parameter.
+            InstrumentPlugin* lp = engine.sequencer().leadPlugin();
+            if (lp != nullptr && lp->loaded()) {
+                lp->setParam(0, static_cast<double>(v));
+            }
+            break;
+        }
         case AutoTarget::Count:
             break;
     }

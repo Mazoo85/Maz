@@ -63,6 +63,7 @@ enum class AutoTarget {
     SynthPulseWidth,
     SamplerStart,
     MasterTune,
+    LeadPluginParam0, // first parameter of the hosted lead CLAP/VST3 instrument (if any)
     Count
 };
 

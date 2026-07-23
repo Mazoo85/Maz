@@ -276,6 +276,8 @@ public:
     void clearLeadPlugin();
     bool leadPluginLoaded() const;
     const std::string& leadPluginPath() const { return leadPluginPath_; }
+    // The hosted lead instrument (or null) — lets automation drive its parameters via setParam.
+    InstrumentPlugin* leadPlugin() { return leadPlugin_.get(); }
 
     // Live MIDI input: a device backend (or the UI) pushes note events into this queue from any thread;
     // renderStems() drains it at the top of each block and plays the notes on the lead instrument (the
