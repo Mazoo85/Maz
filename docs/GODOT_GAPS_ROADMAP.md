@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Astronomical solar position (real sun angle for a date/place)** (`math::julianDate` /
+  `solarDeclination` / `sunPosition` → `SunAngles` / `sunDirection`, `SolarPosition.hpp`) — DONE (M785); the
+  ACTUAL solar altitude/azimuth (and a world-space light direction) from a UTC calendar date, latitude and
+  longitude, using the standard low-precision solar model (declination/RA good to ~0.01° over 1950–2050). The
+  existing `game::DayNightCycle` is only an abstract 0..1 clock with a cosine; this makes a day/night cycle
+  geographically and seasonally correct — long low winter sun, high short summer sun, June sunrise swinging
+  north of east. Godot ships no such helper. Verified against the airtight Julian-date epochs (J2000 =
+  2451545.0, unix = 2440587.5), the textbook declination swing (≤±23.44° all year, ~+23.4° June solstice,
+  ~−23.4° December, ~0° March equinox), the overhead-Sun geometry (equinox noon ~zenith at the equator, ~90°−φ
+  at latitude φ, due-south peak in the northern hemisphere), and a unit light direction. ctest
+  `solar_position`.
 - [x] **Ray vs axis-aligned ellipsoid** (`math::rayIntersectsEllipsoid` → `EllipsoidHit`, `RayEllipsoid.hpp`)
   — DONE (M784); the hitscan/picking test against an ellipsoid with independent per-axis radii, returning the
   distance, world hit point AND the correctly-scaled outward normal. Ray-vs-sphere only handles a uniform

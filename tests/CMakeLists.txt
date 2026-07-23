@@ -2757,3 +2757,8 @@ add_executable(maz_rayellipsoid_tests math/rayellipsoid.cpp)
 target_link_libraries(maz_rayellipsoid_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_ellipsoid COMMAND maz_rayellipsoid_tests)
 set_tests_properties(ray_ellipsoid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_solarposition_tests math/solarposition.cpp)
+target_link_libraries(maz_solarposition_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME solar_position COMMAND maz_solarposition_tests)
+set_tests_properties(solar_position PROPERTIES TIMEOUT 30)
