@@ -2812,3 +2812,8 @@ add_executable(maz_polylinestroke_tests math/polylinestroke.cpp)
 target_link_libraries(maz_polylinestroke_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME polyline_stroke COMMAND maz_polylinestroke_tests)
 set_tests_properties(polyline_stroke PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sdf2d_tests math/sdf2d.cpp)
+target_link_libraries(maz_sdf2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sdf_2d COMMAND maz_sdf2d_tests)
+set_tests_properties(sdf_2d PROPERTIES TIMEOUT 30)

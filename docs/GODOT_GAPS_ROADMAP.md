@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Analytic 2D signed distance functions** (`math::sdCircle` / `sdBox` / `sdRoundedBox` / `sdSegment` /
+  `sdOrientedBox` / `sdEquilateralTriangle` / `sdTriangle` / `sdHexagon` / `sdPie`, `Sdf2D.hpp`) — DONE (M796);
+  the exact distance from any point to a shape's outline (negative inside), the workhorse of crisp procedural
+  2D: resolution-independent UI shapes/icons, soft/glow/outline effects, dynamic masks, metaballs, 2D soft
+  shadows and analytic distance-based collision — all from a formula, no texture. Complements the glyph-SDF
+  baker (ui::Sdf) and the 3D SDF-CSG set (game::Csg); this is the missing library of exact 2D shape primitives
+  (the Inigo Quilez collection), composable with min/max/negation. Godot exposes none. Verified against the
+  AIRTIGHT universal eikonal property (every field has |∇|=1 outside — a true distance field — checked by
+  finite differences over a grid for all nine primitives), exact circle/box distances and signs, the triangle
+  sign vs an independent point-in-triangle test, and interior negativity. ctest `sdf_2d`.
 - [x] **Polyline stroking — path to filled outline** (`math::strokePolyline` → polygon, with `StrokeCap`
   Butt/Square/Round, `PolylineStroke.hpp`) — DONE (M795); turns an OPEN path into a filled polygon outline of
   a given width — the CPU side of what Godot's Line2D does on the GPU. This is how you render thick lines,
