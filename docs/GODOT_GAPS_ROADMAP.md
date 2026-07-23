@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Generalized winding-number point-in-mesh** (`math::windingNumber` / `math::pointInMesh`,
+  `WindingNumber.hpp`) — DONE (M760); decide whether a point is INSIDE a triangle mesh, ROBUSTLY. "Is this
+  point inside the volume?" is the query behind spawning objects inside an arbitrary shape, containment /
+  region tests, voxelizing a solid, inside/outside masks for particle or fluid collision, and
+  point-in-lava/point-in-water checks. The engine's existing `render::containsPoint` (M546) casts a ray and
+  counts surface crossings — fast but brittle: one missing triangle, a T-junction, or a grazing edge flips
+  the answer, and its own note names exactly this as the follow-up. The generalized winding number sums the
+  solid angle each triangle subtends at the point (Van Oosterom-Strackee), giving ~+/-1 inside and ~0
+  outside, and DEGRADES GRACEFULLY: a mesh with holes still reads ~1 inside where ray parity leaks.
+  Orientation-agnostic (takes the magnitude). Godot exposes no such query. [VERIFIABLE HERE] `ctest -R
+  winding_number`: a cube's interior reads winding ~1 and far points ~0; hundreds of random points are
+  classified correctly against the cube's box; after deleting a triangle to punch a hole, interior points
+  STILL read inside (the property ray parity fails); determinism.
 - [x] **Closest-point / projection onto a path** (`math::closestPointOnPolyline` /
   `math::closestPointOnCurve` / `math::closestPointOnSegment`, `ClosestPointCurve.hpp`) — DONE (M759); given
   any point in space, find the nearest point on a polyline or a smooth Bezier curve, plus how far ALONG the

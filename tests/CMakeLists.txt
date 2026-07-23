@@ -2631,3 +2631,9 @@ add_executable(maz_closestpointcurve_tests math/closestpointcurve.cpp)
 target_link_libraries(maz_closestpointcurve_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME closest_point_curve COMMAND maz_closestpointcurve_tests)
 set_tests_properties(closest_point_curve PROPERTIES TIMEOUT 30)
+
+
+add_executable(maz_windingnumber_tests math/windingnumber.cpp)
+target_link_libraries(maz_windingnumber_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME winding_number COMMAND maz_windingnumber_tests)
+set_tests_properties(winding_number PROPERTIES TIMEOUT 30)
