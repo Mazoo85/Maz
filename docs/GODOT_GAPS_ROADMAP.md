@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Karplus–Strong plucked-string synthesis** (`audio::karplusStrongPluck`, `KarplusStrong.hpp`) — DONE
+  (M748); a startlingly simple recipe that produces convincing plucked/struck string tones (guitar, harp,
+  koto, a twangy UI blip) with no samples: fill a short delay line with a burst of noise (the "pluck"), then
+  replay it while averaging each pair of adjacent samples. The averaging is a gentle low-pass that shaves the
+  highs a little more each pass, so the bright noisy attack mellows into a decaying harmonic tone whose PITCH
+  is set by the delay-line length (frequency = sampleRate / length). The classic physical-modelling method —
+  cheap enough to run per-note at runtime for procedural instruments and impacts. Godot has oscillators and
+  samples but no string model. [VERIFIABLE HERE] The autocorrelation of the output peaks at a lag equal to
+  sampleRate/frequency across a range of pitches (it really is at the requested note), an octave up halves
+  the period, the energy decays over time (the note rings down), output stays bounded in ~[-1,1], and it's
+  deterministic per seed.
 - [x] **Edge-preserving bilateral filter** (`render::bilateralFilter`, `BilateralFilter.hpp`) — DONE (M747);
   smooth away noise while keeping edges crisp. An ordinary blur averages each pixel with its neighbours
   regardless of content, so it kills noise but smears every edge into mush. The bilateral filter weights each

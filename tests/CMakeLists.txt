@@ -2571,3 +2571,8 @@ add_executable(maz_bilateralfilter_tests render/bilateralfilter.cpp)
 target_link_libraries(maz_bilateralfilter_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME bilateral_filter COMMAND maz_bilateralfilter_tests)
 set_tests_properties(bilateral_filter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_karplusstrong_tests audio/karplusstrong.cpp)
+target_link_libraries(maz_karplusstrong_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME karplus_strong COMMAND maz_karplusstrong_tests)
+set_tests_properties(karplus_strong PROPERTIES TIMEOUT 30)
