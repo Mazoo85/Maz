@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **2D dual contouring (sharp-feature SDF meshing)** (`math::dualContour2D`, `DualContour2D.hpp`) — DONE
+  (M765); extract a contour line from a signed distance field that PRESERVES SHARP CORNERS, unlike the
+  engine's marching squares which bevels every corner into a chamfer. Marching squares can only put contour
+  points on grid-edge midpoints, so a square or a hard crease comes out rounded; dual contouring places one
+  vertex inside each boundary cell at the least-squares intersection of the crossing normals (a per-cell QEF
+  on the M761 linear solver), so two edges meeting at 90 degrees produce a vertex sitting exactly on the
+  corner. That's why it needs the field's gradient (Hermite data), which MS ignores — and why it reproduces
+  features MS can't. Turns an SDF (procedural shapes, CSG, destructible terrain, brush masks) into a crisp
+  polygon outline for collision, decals, or rendering. Takes the SDF as a callable. Godot ships only
+  rounded MS-style meshing. [VERIFIABLE HERE] `ctest -R dual_contour2d`: on a box SDF, dual contouring lands
+  a vertex within 0.15 of each true corner while marching squares stays > 0.4 away (and DC is < 40% of MS's
+  distance) — the corners MS rounds, DC keeps; a circle SDF's vertices lie on the circle; a field with no
+  sign change yields nothing; endpoints are finite and in-grid; determinism.
 - [x] **RANSAC robust line fitting** (`math::ransacLine`, `Ransac.hpp`) — DONE (M764); fit a line to points
   that contain GROSS OUTLIERS. Ordinary least squares (and the M762/M763 fits) assume every point belongs to
   the shape, so a few stray points — a mistracked feature, a sensor glitch, a wall behind the floor — drag

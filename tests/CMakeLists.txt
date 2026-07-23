@@ -2657,3 +2657,8 @@ add_executable(maz_ransac_tests math/ransac.cpp)
 target_link_libraries(maz_ransac_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ransac COMMAND maz_ransac_tests)
 set_tests_properties(ransac PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dualcontour2d_tests math/dualcontour2d.cpp)
+target_link_libraries(maz_dualcontour2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dual_contour2d COMMAND maz_dualcontour2d_tests)
+set_tests_properties(dual_contour2d PROPERTIES TIMEOUT 30)
