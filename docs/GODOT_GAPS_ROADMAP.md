@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Dense linear system solver** (`math::solveLinearSystem` / `math::determinant` / `math::invertMatrix`,
+  `LinearSolve.hpp`) — DONE (M761); solve A x = b for a general NxN matrix, plus determinant and inverse, via
+  LU decomposition with partial pivoting. This is the numerical workhorse under least-squares FITTING (fit a
+  plane / polynomial / curve to data through the normal equations), inverse-kinematics and physics CONSTRAINT
+  solves (small dense Jacobian / impulse systems), colour-space and calibration transforms, arbitrary
+  interpolation setups, and any "n equations, n unknowns" in tools and gameplay math. The engine had RK4,
+  quadrature, root-finding and polynomial roots but no general Ax=b solver; this fills that. Partial pivoting
+  keeps it stable and flags singular systems. [VERIFIABLE HERE] `ctest -R linear_solve`: a known 3x3 system
+  solves to the exact vector; round-trip — for 200 random systems, solving A(Ax)=b recovers x with residual
+  < 1e-6; the identity returns b unchanged; a singular matrix is reported unsolvable and its determinant is
+  0; the determinant matches ad-bc and a diagonal product; A * inverse(A) equals the identity over random
+  matrices; determinism.
 - [x] **Generalized winding-number point-in-mesh** (`math::windingNumber` / `math::pointInMesh`,
   `WindingNumber.hpp`) — DONE (M760); decide whether a point is INSIDE a triangle mesh, ROBUSTLY. "Is this
   point inside the volume?" is the query behind spawning objects inside an arbitrary shape, containment /
