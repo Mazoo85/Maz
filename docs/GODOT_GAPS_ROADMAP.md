@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Loxodrome / rhumb line (constant-bearing sphere path)** (`math::loxodromePoint` / `latLonToUnit` /
+  `loxodromePolyline`, `Loxodrome.hpp`) — DONE (M790); the path across a sphere that holds a CONSTANT compass
+  bearing (crossing every meridian at the same angle), i.e. the steady-heading route a ship/plane flies with
+  the compass pinned — the complement to the shortest-path great circle in `GreatCircle.hpp` (whose heading
+  constantly changes). On a Mercator map it's a straight line; on the globe it spirals to the pole. For
+  navigation/strategy/globe games and rhumb spirals; Godot has no such helper. Handles the east/west
+  degenerate case (a parallel). Verified against the AIRTIGHT constant-bearing property (heading measured on
+  the sphere via local north/east frames is the same at every point and equals the input bearing), the
+  meridian (bearing 0 → longitude constant) and parallel (bearing 90° → latitude constant) limits, and the
+  exact rhumb length |Δlat|/cos(bearing) (closed form + an independent double-precision arc-length sum).
+  ctest `loxodrome`.
 - [x] **Ray vs torus (donut) + quartic solver** (`math::rayIntersectsTorus` → `TorusHit`, `RayTorus.hpp`;
   `math::solveQuartic` → `QuarticRoots`, `Polynomial.hpp`) — DONE (M789); the hitscan/picking test against a
   torus with arbitrary centre/axis, returning distance, world point and outward normal. Ray-vs-torus is a

@@ -2782,3 +2782,8 @@ add_executable(maz_raytorus_tests math/raytorus.cpp)
 target_link_libraries(maz_raytorus_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_torus COMMAND maz_raytorus_tests)
 set_tests_properties(ray_torus PROPERTIES TIMEOUT 30)
+
+add_executable(maz_loxodrome_tests math/loxodrome.cpp)
+target_link_libraries(maz_loxodrome_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME loxodrome COMMAND maz_loxodrome_tests)
+set_tests_properties(loxodrome PROPERTIES TIMEOUT 30)
