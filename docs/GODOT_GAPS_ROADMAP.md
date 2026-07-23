@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Roulette curves — cycloid / spirograph family** (`math::trochoidPoint` / `cycloidPoint` /
+  `epitrochoidPoint` / `epicycloidPoint` / `hypotrochoidPoint` / `hypocycloidPoint` + polyline samplers,
+  `Roulette.hpp`) — DONE (M781); the curves traced by a point on a rolling circle, either along a line
+  (cycloid/trochoid) or around another circle (the classic Spirograph epi-/hypo-trochoids). Gives cardioids,
+  nephroids, astroids, deltoids, gear-tooth and cycloidal-gear flanks, and spirograph rosettes from a couple
+  of numbers — Godot has none of these as primitives. Verified against an AIRTIGHT closed form (a hypocycloid
+  with R=4r must equal the astroid x=R·cos³t, y=R·sin³t to float precision), against the exact known arc
+  lengths (one cycloid arch = 8r, the astroid perimeter = 6R, both measured by an independent fine-polyline
+  sum), and by the cusp/closure invariants (the cycloid's speed vanishes at its cusp while a curtate trochoid
+  never stops; an integer-ratio epicycloid closes after one turn). ctest `roulette`.
 - [x] **Logarithmic (equiangular) spiral** (`math::logSpiralPoint` / `logSpiralTangent` / `logSpiralPolyline`,
   `LogSpiral.hpp`) — DONE (M780); the growth spiral of nautilus shells, sunflower heads, galaxy arms and
   hurricanes, r(θ)=a·e^(b·θ) — the radius multiplies by a constant factor per turn. Its defining trait is that

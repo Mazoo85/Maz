@@ -2737,3 +2737,8 @@ add_executable(maz_logspiral_tests math/logspiral.cpp)
 target_link_libraries(maz_logspiral_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME log_spiral COMMAND maz_logspiral_tests)
 set_tests_properties(log_spiral PROPERTIES TIMEOUT 30)
+
+add_executable(maz_roulette_tests math/roulette.cpp)
+target_link_libraries(maz_roulette_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME roulette COMMAND maz_roulette_tests)
+set_tests_properties(roulette PROPERTIES TIMEOUT 30)
