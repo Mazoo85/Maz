@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Polyline stroking — path to filled outline** (`math::strokePolyline` → polygon, with `StrokeCap`
+  Butt/Square/Round, `PolylineStroke.hpp`) — DONE (M795); turns an OPEN path into a filled polygon outline of
+  a given width — the CPU side of what Godot's Line2D does on the GPU. This is how you render thick lines,
+  drawn strokes/gestures, trails, roads/rivers, wires and route ribbons as an actual fillable/collidable
+  polygon (feed it to a triangulator or a polygon collider). Complements `Geometry2D.offsetPolygonConvex`
+  (which inflates a CLOSED convex polygon and explicitly scoped OUT the open-path case with end caps). Bevel
+  joins keep the outline valid at any turn angle. Verified against AIRTIGHT areas for a straight segment (butt
+  cap = the exact rectangle 2·w·L; square cap = 2·w·(L+2w); round cap = 2·w·L plus two half-disks ≈ πw²), the
+  exact ±w outline offset, and containment (every centreline vertex of a bent path lies inside the stroke, a
+  far point does not). ctest `polyline_stroke`.
 - [x] **Ray vs flat planar shapes — disk / annulus / oriented rectangle** (`math::rayIntersectsDisk` /
   `rayIntersectsAnnulus` / `rayIntersectsRect` → `PlanarHit`, `RayPlanar.hpp`) — DONE (M794); the pick/hit
   tests for flat things games place in 3D: circular platforms, jump pads and portals (disk), ring pickups /

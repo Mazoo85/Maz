@@ -2807,3 +2807,8 @@ add_executable(maz_rayplanar_tests math/rayplanar.cpp)
 target_link_libraries(maz_rayplanar_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_planar COMMAND maz_rayplanar_tests)
 set_tests_properties(ray_planar PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polylinestroke_tests math/polylinestroke.cpp)
+target_link_libraries(maz_polylinestroke_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polyline_stroke COMMAND maz_polylinestroke_tests)
+set_tests_properties(polyline_stroke PROPERTIES TIMEOUT 30)
