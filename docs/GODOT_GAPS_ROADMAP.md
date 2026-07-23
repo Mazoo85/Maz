@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Clothoid / Euler spiral** (`math::clothoidPoint` / `clothoidPolyline` / `clothoidHeading` /
+  `clothoidCurvature`, `Clothoid.hpp`) — DONE (M774); the transition curve whose CURVATURE varies linearly
+  with arc length, κ(s)=κ0+rate·s. It is the shape real roads, railways and racetracks use to join a straight
+  to a circular corner: curvature ramps smoothly instead of jumping, so a body following it feels no sudden
+  sideways lurch (continuous lateral acceleration). The engine's Bézier/B-spline curves control position but
+  not curvature directly; this is the curvature-first primitive, and Godot has no equivalent. Evaluated by
+  integrating the unit-speed tangent θ(s)=θ0+κ0·s+½·rate·s² with Simpson's rule (cumulative for the polyline).
+  Verified against its DEFINING property — the curvature measured geometrically from the sampled curve
+  (Menger/circumradius of three consecutive points) equals κ0+rate·s all along the spiral — plus the exact
+  degenerate cases (rate=0,κ0=0 → an exactly straight line of the right length; rate=0,κ0=k → an exact circle
+  of radius 1/k), unit-speed sample spacing, and point/heading-helper agreement (ctest `clothoid`).
+  [VERIFIABLE HERE]
 - [x] **Marching Tetrahedra isosurface extraction** (`math::marchingTetrahedra`, `MarchingTetrahedra.hpp`) —
   DONE (M773); turns a 3-D scalar field into a triangle mesh of its level set — the "give me the surface of
   this field as a mesh" step for voxel terrain, metaballs/blobby surfaces, CSG/SDF meshing and volume data.

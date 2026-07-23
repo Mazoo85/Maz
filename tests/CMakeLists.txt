@@ -2702,3 +2702,8 @@ add_executable(maz_marchingtetrahedra_tests math/marchingtetrahedra.cpp)
 target_link_libraries(maz_marchingtetrahedra_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME marching_tetrahedra COMMAND maz_marchingtetrahedra_tests)
 set_tests_properties(marching_tetrahedra PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clothoid_tests math/clothoid.cpp)
+target_link_libraries(maz_clothoid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clothoid COMMAND maz_clothoid_tests)
+set_tests_properties(clothoid PROPERTIES TIMEOUT 30)
