@@ -2586,3 +2586,8 @@ add_executable(maz_harriscorners_tests render/harriscorners.cpp)
 target_link_libraries(maz_harriscorners_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME harris_corners COMMAND maz_harriscorners_tests)
 set_tests_properties(harris_corners PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sph2d_tests game/sph2d.cpp)
+target_link_libraries(maz_sph2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sph2d COMMAND maz_sph2d_tests)
+set_tests_properties(sph2d PROPERTIES TIMEOUT 30)

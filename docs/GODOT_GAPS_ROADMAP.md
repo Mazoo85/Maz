@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **2D SPH fluid simulation** (`game::sphDensities` / `game::sphAccelerations`, `Sph2D.hpp`) — DONE
+  (M751); the particle-based way to simulate liquids — water, goo, lava, blood, a splash of coloured
+  fluid — as a cloud of little blobs that push apart when squeezed and drag their neighbours along. Each
+  particle carries a soft "smoothing kernel" of radius h, and the fluid's density at a particle is the
+  overlap of its neighbours' bumps (poly6 kernel); where the fluid is denser than its rest density it
+  develops pressure that shoves particles apart (spiky-gradient kernel), and a viscosity term makes
+  neighbours share velocity so the flow stays coherent (viscosity-laplacian kernel). Uses Monaghan's
+  symmetric pressure form so the internal pressure forces conserve momentum exactly. Godot has no fluid
+  solver. [VERIFIABLE HERE] `ctest -R sph2d`: a lone particle's density equals its exact self-contribution;
+  a closer neighbour raises density; the symmetric pressure forces conserve momentum (sum of mass*accel is
+  ~0 over 200 random clouds, rel < 1e-3); an over-compressed pair pushes apart; viscosity opposes relative
+  velocity; gravity adds uniformly; determinism.
 - [x] **Harris corner detection** (`render::harrisCorners`, `HarrisCorners.hpp`) — DONE (M750); find the
   distinctive, trackable "corner" points in an image — spots where brightness changes sharply in TWO
   directions — as opposed to flat regions (no change) or straight edges (change in only one direction).
