@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Barnes–Hut n-body force approximation** (`game::barnesHutAccelerations`, `BarnesHut.hpp`) — DONE
+  (M738); the quadtree method for computing inverse-square attraction on every body from every other at
+  scale. A naive per-pair loop is O(n²) and dies past a few thousand bodies; Barnes–Hut buckets bodies into
+  a quadtree, records each cell's total mass and centre of mass, and treats a distant cluster as one lumped
+  mass (when its width/distance is below the opening angle `theta`), dropping the cost to O(n log n). This is
+  what powers galaxy/gravity toys, large-scale particle attraction, dust/debris fields, and mass swarm
+  forces. Godot ships no n-body solver. [VERIFIABLE HERE] With theta = 0 the tree opens fully and reproduces
+  the EXACT brute-force all-pairs acceleration (cross-checked against an independent O(n²) reference); at
+  theta = 0.5 the error stays under 5% of the system's largest force; plus an analytic two-body inverse-
+  square case, Newton's third law (mass-weighted total acceleration ~ 0), and degenerate 0/1-body handling.
 - [x] **LZW lossless compression** (`io::lzwCompress`/`lzwDecompress`, `Lzw.hpp`) — DONE (M737); the classic
   dictionary compressor (behind GIF, TIFF, Unix `compress`) for squeezing save files, chunked tilemaps,
   procedural blobs, and network payloads. It finds repeated byte sequences and replaces each with a single

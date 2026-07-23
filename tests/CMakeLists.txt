@@ -2521,3 +2521,8 @@ add_executable(maz_lzw_tests io/lzw.cpp)
 target_link_libraries(maz_lzw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME lzw COMMAND maz_lzw_tests)
 set_tests_properties(lzw PROPERTIES TIMEOUT 30)
+
+add_executable(maz_barneshut_tests game/barneshut.cpp)
+target_link_libraries(maz_barneshut_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME barnes_hut COMMAND maz_barneshut_tests)
+set_tests_properties(barnes_hut PROPERTIES TIMEOUT 30)
