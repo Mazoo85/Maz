@@ -24,3 +24,7 @@ unit_scene_*.mazscene
 # maz-scrape run state + default output directory
 .scraper/
 /scraped/
+
+# MadLibs Story Forge: generated single-file bundle (built from madlibs/ source
+# for publishing/preview; not a source file)
+madlibs/*.artifact.html
