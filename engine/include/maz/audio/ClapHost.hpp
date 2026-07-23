@@ -2,6 +2,7 @@
 
 #include "maz/audio/InstrumentPlugin.hpp"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -39,10 +40,27 @@ public:
     // was turned on and not yet turned off, so a hosted instrument doesn't hang on stop/pattern change.
     void allNotesOff() override;
 
+    // Parameter automation: query the plugin's CLAP params extension and queue parameter changes,
+    // delivered to the plugin as CLAP_EVENT_PARAM_VALUE events at the top of the next process() block.
+    int paramCount() const override;
+    void setParam(int index, double value) override;
+    double paramValue(int index) const override;
+    double paramMin(int index) const override;
+    double paramMax(int index) const override;
+    std::string paramName(int index) const override;
+
     const char* name() const override { return name_.empty() ? "CLAP" : name_.c_str(); }
     void process(float* stereo, int frames, int sampleRate) override;
 
 private:
+    // Look up the plugin's params extension (clap_plugin_params_t*), or nullptr if it exposes none.
+    const void* paramsExt() const;
+
+    struct PendingParam {
+        uint32_t id;
+        double value;
+    };
+    std::vector<PendingParam> pendingParams_; // queued param changes for the next process()
     void* handle_ = nullptr; // dlopen handle
     const void* entry_ = nullptr;
     const void* plugin_ = nullptr;

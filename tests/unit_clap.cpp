@@ -104,6 +104,22 @@ int main() {
         std::vector<float> panic(static_cast<size_t>(block) * 2, 0.0f);
         inst.process(panic.data(), block, sr);
         check(energy(panic) == 0.0, "allNotesOff releases held notes (no hang)");
+
+        // Parameter automation: the example synth exposes a "Gain" parameter. Setting it to 0 mutes the
+        // output; setting it to 1 restores it — proving host-queued param changes reach the plugin.
+        check(inst.paramCount() == 1, "the instrument exposes one automatable parameter");
+        check(inst.paramName(0) == std::string("Gain"), "reads the parameter name");
+        inst.setParam(0, 0.0); // gain 0 → silence
+        inst.noteOn(69, 1.0f);
+        std::vector<float> quiet(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(quiet.data(), block, sr);
+        check(energy(quiet) == 0.0, "a Gain=0 parameter change mutes the hosted instrument");
+        inst.setParam(0, 1.0); // gain 1 → audible again
+        std::vector<float> loud(static_cast<size_t>(block) * 2, 0.0f);
+        inst.process(loud.data(), block, sr);
+        check(energy(loud) > 0.0, "a Gain=1 parameter change restores the hosted instrument");
+        inst.allNotesOff();
+
         inst.unload();
     } else {
         std::printf("  instrument load error: %s\n", err.c_str());

@@ -30,16 +30,22 @@ const clap_output_events_t g_outEvents = {nullptr, outEventsPush};
 // reached through the event list's ctx pointer.
 struct NoteEventFeed {
     std::vector<clap_event_note_t> notes;
+    std::vector<clap_event_param_value_t> params; // param changes delivered alongside the notes
 };
 uint32_t feedSize(const clap_input_events* e) {
-    return static_cast<uint32_t>(static_cast<const NoteEventFeed*>(e->ctx)->notes.size());
+    const auto* f = static_cast<const NoteEventFeed*>(e->ctx);
+    return static_cast<uint32_t>(f->notes.size() + f->params.size());
 }
 const clap_event_header_t* feedGet(const clap_input_events* e, uint32_t index) {
     const auto* f = static_cast<const NoteEventFeed*>(e->ctx);
-    if (index >= f->notes.size()) {
+    if (index < f->notes.size()) {
+        return &f->notes[static_cast<size_t>(index)].header;
+    }
+    const uint32_t pidx = index - static_cast<uint32_t>(f->notes.size());
+    if (pidx >= f->params.size()) {
         return nullptr;
     }
-    return &f->notes[static_cast<size_t>(index)].header;
+    return &f->params[static_cast<size_t>(pidx)].header;
 }
 
 // Minimal host callbacks.
@@ -237,6 +243,76 @@ void ClapHost::allNotesOff() {
     heldKeys_.clear();
 }
 
+const void* ClapHost::paramsExt() const {
+    const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
+    if (plugin == nullptr || plugin->get_extension == nullptr) {
+        return nullptr;
+    }
+    return plugin->get_extension(plugin, CLAP_EXT_PARAMS);
+}
+
+int ClapHost::paramCount() const {
+    const auto* pr = static_cast<const clap_plugin_params_t*>(paramsExt());
+    const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
+    if (pr == nullptr || pr->count == nullptr || plugin == nullptr) {
+        return 0;
+    }
+    return static_cast<int>(pr->count(plugin));
+}
+
+// Fetch the param info for a display index (0..count-1). Returns false if unavailable.
+static bool clapParamInfoAt(const void* paramsExt, const void* plugin_, int index,
+                            clap_param_info_t* out) {
+    const auto* pr = static_cast<const clap_plugin_params_t*>(paramsExt);
+    const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
+    if (pr == nullptr || pr->get_info == nullptr || plugin == nullptr || index < 0) {
+        return false;
+    }
+    return pr->get_info(plugin, static_cast<uint32_t>(index), out);
+}
+
+void ClapHost::setParam(int index, double value) {
+    clap_param_info_t info;
+    if (!clapParamInfoAt(paramsExt(), plugin_, index, &info)) {
+        return;
+    }
+    const double v = value < info.min_value ? info.min_value
+                                            : (value > info.max_value ? info.max_value : value);
+    pendingParams_.push_back({info.id, v});
+}
+
+double ClapHost::paramValue(int index) const {
+    clap_param_info_t info;
+    if (!clapParamInfoAt(paramsExt(), plugin_, index, &info)) {
+        return 0.0;
+    }
+    const auto* pr = static_cast<const clap_plugin_params_t*>(paramsExt());
+    const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
+    double out = info.default_value;
+    if (pr->get_value != nullptr) {
+        pr->get_value(plugin, info.id, &out);
+    }
+    return out;
+}
+
+double ClapHost::paramMin(int index) const {
+    clap_param_info_t info;
+    return clapParamInfoAt(paramsExt(), plugin_, index, &info) ? info.min_value : 0.0;
+}
+
+double ClapHost::paramMax(int index) const {
+    clap_param_info_t info;
+    return clapParamInfoAt(paramsExt(), plugin_, index, &info) ? info.max_value : 1.0;
+}
+
+std::string ClapHost::paramName(int index) const {
+    clap_param_info_t info;
+    if (!clapParamInfoAt(paramsExt(), plugin_, index, &info)) {
+        return "";
+    }
+    return std::string(info.name);
+}
+
 void ClapHost::process(float* stereo, int frames, int sampleRate) {
     (void)sampleRate;
     const auto* plugin = static_cast<const clap_plugin_t*>(plugin_);
@@ -262,6 +338,25 @@ void ClapHost::process(float* stereo, int frames, int sampleRate) {
         feed.notes.push_back(ev);
     }
     pendingNotes_.clear();
+    // Queued parameter changes ride the same event list (delivered on the first sub-block).
+    for (const PendingParam& pp : pendingParams_) {
+        clap_event_param_value_t ev;
+        std::memset(&ev, 0, sizeof(ev));
+        ev.header.size = sizeof(clap_event_param_value_t);
+        ev.header.time = 0;
+        ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        ev.header.type = static_cast<uint16_t>(CLAP_EVENT_PARAM_VALUE);
+        ev.header.flags = 0;
+        ev.param_id = pp.id;
+        ev.cookie = nullptr;
+        ev.note_id = -1;
+        ev.port_index = -1;
+        ev.channel = -1;
+        ev.key = -1;
+        ev.value = pp.value;
+        feed.params.push_back(ev);
+    }
+    pendingParams_.clear();
     const clap_input_events_t noteEvents = {&feed, feedSize, feedGet};
 
     int offset = 0;
