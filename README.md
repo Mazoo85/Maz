@@ -1,12 +1,16 @@
 # Maz
 
-This repo holds two things:
+This repo holds three things:
 
 1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
    3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
    "massive list") and **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
 2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
    engine's eventual flagship port target (roadmap Phase 13).
+3. **MadLibs Story Forge** — a zero-dependency browser app in
+   **[`madlibs/`](madlibs/)** that randomly forges story ideas (broken into
+   scene beats) to seed storyboards and scripts. See
+   **[`madlibs/README.md`](madlibs/README.md)**.
 
 > **Codebase memory:** this repo is set up with a
 > [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,

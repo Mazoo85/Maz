@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MadLibs Story Forge — Story-Idea Generator</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120a24'/><rect x='3' y='7' width='10' height='2' fill='%2339ff14'/><rect x='3' y='11' width='7' height='2' fill='%23ff2d95'/><rect x='3' y='3' width='6' height='2' fill='%2300e5ff'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <h1>MadLibs <span class="brand-alt">Story Forge</span></h1>
+      </div>
+      <p class="tagline">Randomly forged story ideas — broken into beats, ready for the storyboard.</p>
+    </header>
+
+    <section class="controls">
+      <div class="control">
+        <label for="genre">Genre</label>
+        <select id="genre"></select>
+      </div>
+      <div class="buttons">
+        <button id="generate" class="primary">⚡ Forge a Story</button>
+        <button id="reroll" title="Keep this story, roll new words">🎲 Reroll Words</button>
+      </div>
+      <div class="stat" id="scaleStat" title="Distinct stories this app can produce"></div>
+    </section>
+
+    <main>
+      <article id="story" class="story hidden">
+        <div class="story-head">
+          <h2 id="storyTitle"></h2>
+          <div class="story-meta">
+            <span class="chip" id="storyGenre"></span>
+            <span class="chip ghost" id="storySeed"></span>
+          </div>
+        </div>
+        <div id="beats" class="beats"></div>
+        <div class="story-actions">
+          <button id="copy">📋 Copy</button>
+          <button id="exportOne">⬇ Export .md</button>
+          <button id="save" class="accent">★ Save to Library</button>
+        </div>
+      </article>
+
+      <div id="placeholder" class="empty">
+        <p>Press <strong>Forge a Story</strong> to generate your first idea.</p>
+      </div>
+    </main>
+
+    <section class="batch">
+      <h3>Batch export</h3>
+      <p class="muted">Generate a whole library of unique story ideas in one file.</p>
+      <div class="batch-row">
+        <button data-n="50" class="batch-btn">50</button>
+        <button data-n="500" class="batch-btn">500</button>
+        <button data-n="5000" class="batch-btn">5000</button>
+        <span id="batchStatus" class="muted"></span>
+      </div>
+    </section>
+
+    <section class="library">
+      <div class="library-head">
+        <h3>Saved ideas <span id="libCount" class="count">0</span></h3>
+        <button id="clearLib" class="link">clear all</button>
+      </div>
+      <ul id="libraryList" class="library-list"></ul>
+      <p id="libEmpty" class="muted">Nothing saved yet. Forge a story you like and hit <strong>Save</strong>.</p>
+    </section>
+
+    <footer class="foot">
+      <span id="templateCount"></span> story templates · words drawn from a
+      categorized dictionary · everything runs locally in your browser.
+    </footer>
+  </div>
+
+  <!-- data + engine + ui -->
+  <script src="js/dictionary.js"></script>
+  <script src="js/templates.js"></script>
+  <script src="js/generator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
