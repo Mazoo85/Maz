@@ -199,6 +199,14 @@ int main() {
         check(sawHighVal, "the CC value sweeps up with the ramp envelope");
         audio::Sequencer acIn;
         check(audio::readMidi(ap, acIn, &err), "readMidi tolerates automation CC events");
+        // Symmetric import: the CC lane reconstructs a timeline automation clip on the same target with
+        // a rising envelope (the exported ramp), so automation survives a MIDI round-trip.
+        check(acIn.automationClipCount() == 1 &&
+                  acIn.automationClip(0).target == static_cast<int>(audio::AutoTarget::FilterCutoff),
+              "a CC lane imports back as an automation clip on the same target");
+        const audio::AutomationClip& rc = acIn.automationClip(0);
+        check(rc.points.size() >= 2 && rc.points.back().value > rc.points.front().value,
+              "the imported automation envelope rises like the exported ramp");
     }
 
     // Time-signature meta-event (FF 58): a 3-beats-per-bar project (12 steps at 4 steps/beat) writes a

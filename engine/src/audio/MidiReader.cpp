@@ -3,6 +3,7 @@
 #include "maz/audio/PianoRoll.hpp"
 #include "maz/audio/Sequencer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
@@ -105,6 +106,7 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
 
     double tempoBpm = 0.0; // captured from a tempo meta event, if any (0 = none found)
     std::vector<std::pair<int, std::string>> rawMarkers; // (tick, name) from FF 06 marker meta-events
+    std::vector<std::array<int, 3>> rawCC; // {tick, ccNum, value} from channel-0 control-change events
     for (uint32_t t = 0; t < ntrks && r.ok; ++t) {
         // Find the next MTrk chunk.
         while (r.i + 8 <= r.n && !(r.p[r.i] == 'M' && r.p[r.i + 1] == 'T' && r.p[r.i + 2] == 'r' &&
@@ -146,7 +148,13 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
                                      onVel[static_cast<size_t>(ch)][pitch]});
                     onTick[static_cast<size_t>(ch)][pitch] = -1;
                 }
-            } else if (hi == 0xA0 || hi == 0xB0 || hi == 0xE0) {
+            } else if (hi == 0xB0) {
+                const uint8_t cc = r.u8() & 0x7Fu;
+                const uint8_t val = r.u8() & 0x7Fu;
+                if (ch == 0) { // automation CC (exported on channel 0) → reconstructed below
+                    rawCC.push_back({tick, static_cast<int>(cc), static_cast<int>(val)});
+                }
+            } else if (hi == 0xA0 || hi == 0xE0) {
                 r.skip(2); // two data bytes
             } else if (hi == 0xC0 || hi == 0xD0) {
                 r.skip(1); // one data byte
@@ -200,9 +208,42 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
     seq.clear();
     // Replace arrangement markers with any imported from marker meta-events (bar = tick / bar length).
     seq.clearMarkers();
-    const int barTicks = seq.numSteps() * ticksPerStep;
+    const int barTicks = std::max(1, seq.numSteps() * ticksPerStep);
     for (const auto& rm : rawMarkers) {
-        seq.addMarker(barTicks > 0 ? rm.first / barTicks : 0, rm.second);
+        seq.addMarker(rm.first / barTicks, rm.second);
+    }
+    // Reconstruct timeline automation clips from channel-0 CC lanes (the symmetric inverse of the CC
+    // export: CC number 20 + target index → target, value/127 → the unipolar breakpoints, one clip per
+    // CC lane spanning the bars it covers). lo/hi default to 0..1 since CC carries the unipolar shape.
+    seq.clearAutomationClips();
+    for (int cc = 20; cc < 20 + Automation::count() && cc <= 119; ++cc) {
+        std::vector<std::array<int, 3>> evs;
+        for (const std::array<int, 3>& e : rawCC) {
+            if (e[1] == cc) {
+                evs.push_back(e);
+            }
+        }
+        if (evs.empty()) {
+            continue;
+        }
+        std::sort(evs.begin(), evs.end(),
+                  [](const std::array<int, 3>& a, const std::array<int, 3>& b) { return a[0] < b[0]; });
+        const int target = cc - 20;
+        const int startBar = evs.front()[0] / barTicks;
+        const int lastBar = evs.back()[0] / barTicks;
+        const int bars = lastBar - startBar + 1;
+        const int idx = seq.addAutomationClip(target, startBar, bars);
+        AutomationClip& ac = seq.automationClip(idx);
+        ac.lo = 0.0f;
+        ac.hi = 1.0f;
+        const double spanTicks = static_cast<double>(bars) * static_cast<double>(barTicks);
+        for (const std::array<int, 3>& e : evs) {
+            double t = (static_cast<double>(e[0]) - static_cast<double>(startBar) *
+                                                        static_cast<double>(barTicks)) /
+                       spanTicks;
+            t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+            ac.points.push_back(AutoPoint{t, static_cast<float>(e[2]) / 127.0f, 0.0f});
+        }
     }
     for (const RawNote& rn : notes) {
         const int startStep = (rn.onTick + ticksPerStep / 2) / ticksPerStep;
