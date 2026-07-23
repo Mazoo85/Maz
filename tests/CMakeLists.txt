@@ -2566,3 +2566,8 @@ add_executable(maz_rangecoder_tests io/rangecoder.cpp)
 target_link_libraries(maz_rangecoder_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME range_coder COMMAND maz_rangecoder_tests)
 set_tests_properties(range_coder PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bilateralfilter_tests render/bilateralfilter.cpp)
+target_link_libraries(maz_bilateralfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bilateral_filter COMMAND maz_bilateralfilter_tests)
+set_tests_properties(bilateral_filter PROPERTIES TIMEOUT 30)

@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Edge-preserving bilateral filter** (`render::bilateralFilter`, `BilateralFilter.hpp`) — DONE (M747);
+  smooth away noise while keeping edges crisp. An ordinary blur averages each pixel with its neighbours
+  regardless of content, so it kills noise but smears every edge into mush. The bilateral filter weights each
+  neighbour by BOTH how close it is (spatial) AND how similar its colour is (range), so neighbours across a
+  strong edge get almost no weight — the edge stays sharp while flat regions still clean up. This is the
+  staple behind photo denoise, skin-smoothing / "beautify", cartoon-stylize preprocessing, and cleaning noisy
+  procedural or baked textures. Output is a convex blend of the input, so it never overshoots. Godot's Image
+  has no bilateral. [VERIFIABLE HERE] A constant image is unchanged; the defining property holds on a noisy
+  step edge — each flat side is smoothed (variance drops by more than half) while the edge contrast is
+  preserved (each side keeps its own tone, not smeared across) — plus the no-overshoot convex-blend bound and
+  determinism.
 - [x] **Arithmetic (range) coding** (`io::rangeEncode`/`rangeDecode`, `RangeCoder.hpp`) — DONE (M746); entropy
   compression that squeezes a stream of symbols down toward its true information content. Where LZW replaces
   repeats with dictionary codes, a range coder assigns each symbol a slice of a numeric interval proportional
