@@ -2747,3 +2747,8 @@ add_executable(maz_involute_tests math/involute.cpp)
 target_link_libraries(maz_involute_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME involute COMMAND maz_involute_tests)
 set_tests_properties(involute PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superformula_tests math/superformula.cpp)
+target_link_libraries(maz_superformula_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superformula COMMAND maz_superformula_tests)
+set_tests_properties(superformula PROPERTIES TIMEOUT 30)

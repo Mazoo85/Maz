@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Gielis superformula — procedural organic/star/flower shapes** (`math::superformulaRadius` /
+  `superformulaPoint` / `superformulaPolyline`, `Superformula.hpp`) — DONE (M783); one polar equation,
+  r(θ)=(|cos(mθ/4)/a|^n2+|sin(mθ/4)/b|^n3)^(−1/n1), that generates an enormous family of closed shapes —
+  circles, superellipses, polygons, stars, flowers, starfish, gems and shockwave rings — from six numbers,
+  where `m` sets the symmetry/lobe count and `n1,n2,n3` the lobe pinch. It generalises the superellipse
+  (M770); Godot has no such generator. Verified against the AIRTIGHT superellipse identity (with m=4, a=b=1,
+  n1=n2=n3=n the generated point satisfies the exact implicit |x|^n+|y|^n=1 for every angle and several n),
+  the circle limit (n=2 → radius 1 in all directions), and the exact radial periodicity r(θ)=r(θ+8π/m).
+  ctest `superformula`.
 - [x] **Involute of a circle — the true gear-tooth profile** (`math::involutePoint` / `involuteTangent` /
   `involuteTangentPoint` / `involutePolyline`, `Involute.hpp`) — DONE (M782); the curve traced by the end of a
   taut string unwinding from a circle, and THE flank profile of real spur gears (two involute gears transmit
