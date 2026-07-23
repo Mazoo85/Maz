@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Wang tiling (edge-matched aperiodic layout)** (`game::wangTiling`, `WangTiles.hpp`) — DONE (M741);
+  lay tiles so their edges always match, producing large NON-REPEATING textures, terrain, dungeons, or
+  road/river networks from a small tile set. Each Wang tile carries a colour on each of its four edges and
+  may sit next to another only if their touching edges share a colour; because the rule is purely local you
+  can fill an arbitrarily large grid one tile at a time and it tiles seamlessly yet never falls into an
+  obvious repeat. Stochastic scanline placement picks (deterministically from a seed) among the tiles
+  matching the already-placed left and upper neighbours; with a complete tile set it never gets stuck.
+  Godot ships no Wang tiler. [VERIFIABLE HERE] The core constraint is checked directly — over hundreds of
+  random complete tile sets and grid sizes, every placed tile's east edge equals its right neighbour's west
+  edge and its south edge equals its lower neighbour's north edge — plus full grid coverage, determinism
+  (same seed → same grid), real tile variety, incomplete-set failure detection, and degenerate handling.
 - [x] **Equirectangular panorama mapping** (`render::equirectUvFromDir`/`dirFromEquirectUv`/`sampleEquirect`,
   `Equirect.hpp`) — DONE (M740); the lat-long projection that wraps a single wide photo or HDR sky panorama
   around a scene as a skybox / environment map (Godot's PanoramaSkyMaterial), and answers "what does the

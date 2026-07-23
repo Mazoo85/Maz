@@ -2536,3 +2536,8 @@ add_executable(maz_equirect_tests render/equirect.cpp)
 target_link_libraries(maz_equirect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME equirect COMMAND maz_equirect_tests)
 set_tests_properties(equirect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_wangtiles_tests game/wangtiles.cpp)
+target_link_libraries(maz_wangtiles_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wang_tiles COMMAND maz_wangtiles_tests)
+set_tests_properties(wang_tiles PROPERTIES TIMEOUT 30)
