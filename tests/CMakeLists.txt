@@ -2827,3 +2827,8 @@ add_executable(maz_beziersurface_tests math/beziersurface.cpp)
 target_link_libraries(maz_beziersurface_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME bezier_surface COMMAND maz_beziersurface_tests)
 set_tests_properties(bezier_surface PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycapsule_tests math/raycapsule.cpp)
+target_link_libraries(maz_raycapsule_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_capsule COMMAND maz_raycapsule_tests)
+set_tests_properties(ray_capsule PROPERTIES TIMEOUT 30)

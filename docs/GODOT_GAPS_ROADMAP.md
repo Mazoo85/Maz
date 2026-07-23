@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs capsule** (`math::rayIntersectsCapsule` → `CapsuleHit`, `RayCapsule.hpp`) — DONE (M799); the
+  hitscan / picking query against a capsule (a segment a→b swept by a sphere of radius r — the workhorse
+  collider for characters, limbs and pills). Extends the ray-primitive family (RayCylinder, RayCone, RayTorus,
+  RayEllipsoid, RayPlanar) with the rounded one; the existing `game::rayCapsule` is bound to a physics `Body3D`
+  whereas this is a free-standing vec3 helper. Tests the cylindrical side plus the two hemispherical end caps
+  (each sphere restricted to its own hemisphere so caps meet the side with no doubled surface), returning the
+  nearest forward hit with the correct outward normal. Verified: closed-form side and cap hits for an
+  axis-aligned capsule; the airtight surface identity that every hit satisfies distance(point, spine)=radius
+  with normal = normalize(point − closest point on the spine); agreement with an independent brute-force
+  ray-march oracle (first sign change of dist(spine)−r, bisected) over thousands of seeded rays; and the
+  degenerate a==b sphere case. ctest `ray_capsule`.
 - [x] **Bicubic Bézier surface patch** (`math::bezierSurfacePoint` / `bezierSurfaceTangents` /
   `bezierSurfaceNormal` / `bezierSurfaceGrid`, `BezierSurface.hpp`) — DONE (M798); the tensor-product cubic
   Bézier, the free-form surface a 4×4 control net sculpts (the primitive behind the Utah teapot, car bodies,
