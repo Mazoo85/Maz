@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tractrix — the drag / towed-object curve** (`math::tractrixPoint` / `tractrixDragPoint` /
+  `tractrixArcLength` / `tractrixPolyline`, `Tractrix.hpp`) — DONE (M788); the path an object on a taut leash
+  of length `a` traces as the other end is dragged along a straight line: x=a(t−tanh t), y=a·sech t. Its
+  defining trait is that the leash stays TANGENT to the curve and the SAME length `a` — exactly how a towed
+  trailer, a dog on a lead, a swinging pendant or a lagging camera-target trails behind a mover (and spun
+  about its asymptote it generates the pseudosphere). Godot has no such curve. Verified against the AIRTIGHT
+  constant-leash property (curve-point to drag-point is always length a), the AIRTIGHT tangency (the leash is
+  parallel to the curve tangent everywhere), the exact arc length a·ln(cosh t) via an independent fine-polyline
+  sum, and the monotone drag shape. ctest `tractrix`.
 - [x] **Ray vs finite capped cone** (`math::rayIntersectsCone` → `ConeHit`, `RayCone.hpp`) — DONE (M787); the
   hitscan/picking test against a right circular cone given by apex, axis, half-angle and height, returning the
   distance, world point and outward normal. Cones are spotlight/flashlight volumes, particle-emitter cones,

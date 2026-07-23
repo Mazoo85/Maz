@@ -2772,3 +2772,8 @@ add_executable(maz_raycone_tests math/raycone.cpp)
 target_link_libraries(maz_raycone_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_cone COMMAND maz_raycone_tests)
 set_tests_properties(ray_cone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tractrix_tests math/tractrix.cpp)
+target_link_libraries(maz_tractrix_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tractrix COMMAND maz_tractrix_tests)
+set_tests_properties(tractrix PROPERTIES TIMEOUT 30)
