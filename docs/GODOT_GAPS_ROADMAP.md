@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Signed-distance combination operators** (`math::opUnion` / `opIntersect` / `opSubtract` / `opRound` /
+  `opAnnular` / `opInterpolate` / `opSmoothUnion` / `opSmoothIntersect` / `opSmoothSubtract`, `SdfOps.hpp`) —
+  DONE (M797); the composition layer for the SDF primitives (M796). Hard booleans come from min/max; the
+  SMOOTH variants blend two shapes with a rounded seam of width k — what gives metaballs, soft merges, blobby
+  creatures, welded UI shapes and organic terrain their look — plus per-shape modifiers `round` (fillet by r),
+  `annular` (hollow shell of thickness 2r) and `interpolate` (morph). Plain float combinators, so they work on
+  2D or 3D distances alike; `game::Csg` wraps the 3D field case, this is the light value-level primitive.
+  Verified against the AIRTIGHT hard identities (union=min, intersect=max, subtract=max(a,−b); round=d−r;
+  annular=|d|−r), the smooth-op band reduction (smooth ops equal the hard op outside the k-band and for k≤0),
+  and the smooth-union bound (never above the hard min, dips exactly k/4 at a==b, symmetric). ctest `sdf_ops`.
 - [x] **Analytic 2D signed distance functions** (`math::sdCircle` / `sdBox` / `sdRoundedBox` / `sdSegment` /
   `sdOrientedBox` / `sdEquilateralTriangle` / `sdTriangle` / `sdHexagon` / `sdPie`, `Sdf2D.hpp`) — DONE (M796);
   the exact distance from any point to a shape's outline (negative inside), the workhorse of crisp procedural

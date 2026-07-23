@@ -2817,3 +2817,8 @@ add_executable(maz_sdf2d_tests math/sdf2d.cpp)
 target_link_libraries(maz_sdf2d_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME sdf_2d COMMAND maz_sdf2d_tests)
 set_tests_properties(sdf_2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sdfops_tests math/sdfops.cpp)
+target_link_libraries(maz_sdfops_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sdf_ops COMMAND maz_sdfops_tests)
+set_tests_properties(sdf_ops PROPERTIES TIMEOUT 30)
