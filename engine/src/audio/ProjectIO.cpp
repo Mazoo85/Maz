@@ -785,6 +785,11 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         f << "track " << t << " ";
         writeMixerTrackFields(f, tr);
         f << " " << tr.output() << "\n";
+        // Optional bus name on its own line (may contain spaces → off the numeric track line), mirroring
+        // groupname. Old readers ignore it; old files without it keep the built-in default names.
+        if (!tr.name().empty()) {
+            f << "busname " << t << " " << tr.name() << "\n";
+        }
     }
     // Mixer group (submix) tracks — a count line then one full insert strip per group (same format).
     if (mixer.groupCount() > 0) {
@@ -2223,6 +2228,16 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 if (ls >> outIdx) {
                     tr.setOutput(outIdx);
                 }
+            }
+        } else if (tag == "busname") {
+            int t = -1;
+            ls >> t;
+            std::string nm;
+            std::getline(ls, nm); // the rest of the line is the name (may contain spaces)
+            const size_t nb = nm.find_first_not_of(' ');
+            nm = (nb == std::string::npos) ? std::string() : nm.substr(nb);
+            if (t >= 0 && t < Mixer::trackCount()) {
+                mixer.track(t).setName(nm);
             }
         } else if (tag == "groupcount") {
             int n = 0;

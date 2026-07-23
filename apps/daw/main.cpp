@@ -3157,7 +3157,16 @@ void buildMixerUI(audio::AudioEngine& engine) {
         for (int t = 0; t < audio::Mixer::trackCount(); ++t) {
             audio::MixerTrack& tr = mx.track(t);
             ImGui::PushID(t);
-            ImGui::TextUnformatted(busNames[t]);
+            // Editable bus name (the built-ins default to Drums/Lead/Bass; the hint restores that label
+            // if the user clears it). Persisted via a `busname` line — buses are named like groups.
+            {
+                char bname[64];
+                std::snprintf(bname, sizeof(bname), "%s", tr.name().c_str());
+                ImGui::SetNextItemWidth(90.0f);
+                if (ImGui::InputTextWithHint("##busname", busNames[t], bname, sizeof(bname))) {
+                    tr.setName(bname);
+                }
+            }
             ImGui::SameLine();
             bool muted = tr.muted();
             if (ImGui::Checkbox("Mute##trk", &muted)) tr.setMuted(muted);

@@ -94,6 +94,13 @@ Mixer::Mixer() {
     reverbReturn_.setMix(1.0f);
     delayReturn_.setEnabled(true);
     delayReturn_.setMix(1.0f);
+
+    // The three built-in buses carry default display names, so they read as first-class named tracks
+    // alongside user-added groups (FL treats every mixer insert uniformly). The user can rename them;
+    // the name persists via a `busname` line. Order matches the MixerBus enum (Drums / Lead / Bass).
+    tracks_[static_cast<size_t>(MixerBus::Drums)].setName("Drums");
+    tracks_[static_cast<size_t>(MixerBus::Lead)].setName("Lead");
+    tracks_[static_cast<size_t>(MixerBus::Bass)].setName("Bass");
 }
 
 bool Mixer::anyTrackActive() const {

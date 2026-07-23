@@ -544,6 +544,7 @@ int main() {
     mixer.group(grpIdx).eq().setEnabled(true);
     mixer.group(grpIdx).eq().setLowGain(3.0f);
     mixer.track(audio::MixerBus::Bass).setOutput(grpIdx);
+    mixer.track(audio::MixerBus::Lead).setName("My Lead Bus"); // rename a built-in bus (name with spaces)
     mixer.group(grpIdx).setName("Drum bus"); // named group (with a space) — group 1 stays unnamed
     const int grp2 = mixer.addGroup();      // a second group…
     mixer.group(grpIdx).setOutput(grp2);    // …that group 0 is nested into (group 0 -> group 1)
@@ -1003,6 +1004,10 @@ int main() {
               mixer2.group(0).output() == 1 && mixer2.group(1).output() == -1 &&
               mixer2.group(0).name() == "Drum bus" && mixer2.group(1).name().empty(),
           "mixer submix groups + per-bus and nested group routing + name round-trip");
+    check(mixer2.track(audio::MixerBus::Lead).name() == "My Lead Bus" &&
+              mixer2.track(audio::MixerBus::Drums).name() == "Drums" &&
+              mixer2.track(audio::MixerBus::Bass).name() == "Bass",
+          "built-in bus names round-trip (renamed bus persists; untouched buses keep their defaults)");
     check(mixer2.highpass().enabled() && near(mixer2.highpass().cutoff(), 45.0f),
           "high-pass round-trips");
     check(mixer2.tilt().enabled() && near(mixer2.tilt().tilt(), -6.0f) &&
