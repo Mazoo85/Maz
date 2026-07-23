@@ -80,7 +80,9 @@ struct AutomationClip {
     float lo = 0.0f;                 // value range low  (defaults come from the target's lane range)
     float hi = 1.0f;                 // value range high
     bool muted = false;              // skipped in playback when true
-    std::vector<AutoPoint> points;   // breakpoints, time normalized [0,1] across the span
+    float loopBars = 0.0f;           // 0 = envelope spans the whole clip once; >0 = it repeats every
+                                     //     loopBars bars (points are then one cycle) — LFO-like motion
+    std::vector<AutoPoint> points;   // breakpoints, time normalized [0,1] (across the span, or one cycle)
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete

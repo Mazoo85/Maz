@@ -546,6 +546,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
         for (const AutoPoint& p : ac.points) {
             f << " " << p.time << " " << p.value << " " << p.tension;
         }
+        f << " " << ac.loopBars; // appended after the points so old readers ignore it (old files → 0)
         f << "\n";
     }
     for (int p = 0; p < seq.patternCount(); ++p) {
@@ -1374,6 +1375,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                     break; // truncated line → keep what parsed
                 }
                 ac.points.push_back(AutoPoint{t, v, tens});
+            }
+            float loopBars = 0.0f; // appended after the points; absent in older automationclip lines
+            if (ls >> loopBars) {
+                ac.loopBars = loopBars < 0.0f ? 0.0f : loopBars;
             }
         } else if (tag == "step") {
             int p = 0;

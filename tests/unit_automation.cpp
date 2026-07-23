@@ -236,6 +236,30 @@ int main() {
         seq2.play();
         (void)eng2.renderOffline(0.5);
         check(seq2.masterTune() == 0.0f, "a muted timeline automation clip drives nothing");
+
+        // Looping envelope: the same ramp over a 4-bar span reads a different value one-shot vs. looped
+        // (loopBars=1 repeats the cycle each bar) at 1.5 bars in — proving loopBars changes the motion.
+        auto tuneAt1p5Bars = [](float loopBars) {
+            audio::AudioEngine e;
+            e.initOffline();
+            audio::Sequencer& s = e.sequencer();
+            const int lci = s.addAutomationClip(static_cast<int>(audio::AutoTarget::MasterTune), 0, 4);
+            audio::AutomationClip& c = s.automationClip(lci);
+            c.lo = -100.0f;
+            c.hi = 100.0f;
+            c.loopBars = loopBars;
+            c.points = {{0.0, 0.0f, 0.0f}, {1.0, 1.0f, 0.0f}}; // ramp 0→1
+            s.setSongMode(true);
+            s.setSongUsesClips(true);
+            s.setSongLoop(true);
+            s.play();
+            (void)e.renderOffline(3.0); // 1.5 bars @120 BPM (2 s/bar)
+            return s.masterTune();
+        };
+        const float oneShot = tuneAt1p5Bars(0.0f);
+        const float looped = tuneAt1p5Bars(1.0f);
+        check(std::fabs(oneShot - looped) > 1.0f,
+              "a looping automation envelope reads differently than a one-shot over the span");
     }
 
     // --- LFO phase offset ----------------------------------------------------

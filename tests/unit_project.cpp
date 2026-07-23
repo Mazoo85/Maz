@@ -214,6 +214,7 @@ int main() {
     automClip.lo = 300.0f;
     automClip.hi = 7000.0f;
     automClip.muted = true;
+    automClip.loopBars = 2.0f; // looping envelope must round-trip
     automClip.points = {{0.0, 0.2f, 0.0f}, {0.5, 0.9f, -0.4f}, {1.0, 0.1f, 0.0f}};
     seq.setSongMode(true);
     seq.setSongUsesClips(true); // clip-driven (2-D) song mode
@@ -755,10 +756,11 @@ int main() {
               seq2.automationClip(0).startBar == 4 && seq2.automationClip(0).track == 1 &&
               seq2.automationClip(0).bars == 2 && near(seq2.automationClip(0).lo, 300.0f) &&
               near(seq2.automationClip(0).hi, 7000.0f) && seq2.automationClip(0).muted &&
+              near(seq2.automationClip(0).loopBars, 2.0f) &&
               seq2.automationClip(0).points.size() == 3 &&
               near(seq2.automationClip(0).points[1].value, 0.9f) &&
               near(seq2.automationClip(0).points[1].tension, -0.4f),
-          "timeline automation clip round-trips (target/bar/track/bars/range/mute + breakpoints)");
+          "timeline automation clip round-trips (target/bar/track/bars/range/mute/loop + breakpoints)");
     check(seq2.playlist().size() == 3 && seq2.playlist()[0] == 0 && seq2.playlist()[1] == 1 &&
               seq2.playlist()[2] == 0,
           "playlist round-trips");

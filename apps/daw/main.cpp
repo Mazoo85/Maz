@@ -3696,6 +3696,10 @@ void buildArrangementUI(audio::Sequencer& seq) {
         ImGui::SetNextItemWidth(140.0f);
         ImGui::DragFloatRange2("range##r", &ac.lo, &ac.hi, 0.5f);
         ImGui::SameLine();
+        ImGui::SetNextItemWidth(80.0f);
+        ImGui::DragFloat("loop##r", &ac.loopBars, 0.1f, 0.0f, 64.0f, "%.2f bars");
+        ac.loopBars = ac.loopBars < 0.0f ? 0.0f : ac.loopBars; // 0 = one-shot across the span
+        ImGui::SameLine();
         ImGui::Checkbox("mute##r", &ac.muted);
         ImGui::SameLine();
         if (ImGui::Button("Remove##ac2")) {
