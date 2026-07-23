@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Logarithmic (equiangular) spiral** (`math::logSpiralPoint` / `logSpiralTangent` / `logSpiralPolyline`,
+  `LogSpiral.hpp`) — DONE (M780); the growth spiral of nautilus shells, sunflower heads, galaxy arms and
+  hurricanes, r(θ)=a·e^(b·θ) — the radius multiplies by a constant factor per turn. Its defining trait is that
+  it crosses every ray from the centre at the SAME angle (equiangular), which makes it self-similar. Use it
+  for procedural shells/horns, spiral galaxies/vortices, spiral camera/motion paths and radial UI layouts;
+  Godot has no spiral primitive. `a` sets the start radius, `b` the tightness (0 → a circle). Returns a
+  polyline for the line/polygon renderer. Verified against its equiangular property — the radius-to-tangent
+  angle, measured NUMERICALLY by finite differences (independent of the library's tangent), is constant along
+  the spiral and equals acos(b/√(b²+1)) — plus self-similarity (one turn scales the radius by exactly e^(2πb)),
+  the analytic tangent matching the numerical one, and the b=0 circle limit (ctest `log_spiral`). [VERIFIABLE
+  HERE]
 - [x] **Ray vs finite capped cylinder** (`math::rayIntersectsCylinder` → `CylinderHit{hit,t,point,normal}`,
   `RayCylinder.hpp`) — DONE (M779); the hitscan / picking test against a cylinder with an ARBITRARY axis and
   position, returning the hit distance, world point AND surface normal. The engine's

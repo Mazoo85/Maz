@@ -2732,3 +2732,8 @@ add_executable(maz_raycylinder_tests math/raycylinder.cpp)
 target_link_libraries(maz_raycylinder_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_cylinder COMMAND maz_raycylinder_tests)
 set_tests_properties(ray_cylinder PROPERTIES TIMEOUT 30)
+
+add_executable(maz_logspiral_tests math/logspiral.cpp)
+target_link_libraries(maz_logspiral_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME log_spiral COMMAND maz_logspiral_tests)
+set_tests_properties(log_spiral PROPERTIES TIMEOUT 30)
