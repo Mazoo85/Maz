@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **LZW lossless compression** (`io::lzwCompress`/`lzwDecompress`, `Lzw.hpp`) — DONE (M737); the classic
+  dictionary compressor (behind GIF, TIFF, Unix `compress`) for squeezing save files, chunked tilemaps,
+  procedural blobs, and network payloads. It finds repeated byte sequences and replaces each with a single
+  code, building its dictionary from the data itself so the decompressor rebuilds the identical table as it
+  goes — nothing extra is stored. Fixed 16-bit codes with the dictionary frozen once full keep encode/decode
+  trivially in lockstep (no variable-width sync to get wrong). Godot exposes zlib/gzip; this is a
+  dependency-free engine-side compressor. [VERIFIABLE HERE] The airtight guarantee — decompress(compress(x))
+  == x for EVERY input — is checked over empty/single-byte/run inputs, thousands of random payloads across
+  every alphabet size, 5000 bytes of full-range noise (worst case), and a ~300 000-byte structured input
+  that fills and FREEZES the 65536-entry dictionary; plus repetitive data provably shrinks (ratio < 1).
 - [x] **Polar decomposition — extract the rotation** (`math::polarDecompose`/`extractRotation`,
   `PolarDecompose.hpp`) — DONE (M736); split a 3x3 transform into a pure rotation times a symmetric stretch,
   M = R*S. A matrix that has picked up non-uniform scale, shear, or numerical drift — a blended skinning
