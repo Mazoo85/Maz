@@ -3680,8 +3680,9 @@ void buildArrangementUI(audio::Sequencer& seq) {
     ImGui::TextDisabled("Canvas: left-click empty space to add a point, drag a point to move it, "
                         "right-click a point to delete. Time is left→right across the clip's span.");
 
-    static int dragClip = -1;  // which clip's canvas is mid-drag
-    static int dragPoint = -1; // which breakpoint index within it
+    static int dragClip = -1;    // which clip's canvas is mid-drag
+    static int dragPoint = -1;   // which breakpoint index within it (point move)
+    static int dragTension = -1; // which segment's tension handle within it (curve drag)
     for (int i = 0; i < seq.automationClipCount(); ++i) {
         ImGui::PushID(30000 + i);
         audio::AutomationClip& ac = seq.automationClip(i);
@@ -3707,6 +3708,7 @@ void buildArrangementUI(audio::Sequencer& seq) {
             if (dragClip == i) {
                 dragClip = -1;
                 dragPoint = -1;
+                dragTension = -1;
             }
             ImGui::PopID();
             break;
@@ -3763,7 +3765,30 @@ void buildArrangementUI(audio::Sequencer& seq) {
         for (size_t s = 0; s < pts.size(); ++s) {
             dl->AddCircleFilled(toScreen(pts[s].time, pts[s].value), 4.0f, IM_COL32(255, 220, 80, 255));
         }
-        // Interaction. Nearest-point hit test in screen space.
+        // On-curve tension handle at each non-flat segment's midpoint (drag it to bend that segment).
+        auto segHandlePos = [&](size_t s) {
+            const audio::AutoPoint& a = pts[s];
+            const audio::AutoPoint& b = pts[s + 1];
+            double w = 0.5;
+            if (a.tension != 0.0f) {
+                w = std::pow(0.5, std::pow(2.0, -static_cast<double>(a.tension) * 4.0));
+            }
+            const double mt = (a.time + b.time) * 0.5;
+            const float mv = a.value + (b.value - a.value) * static_cast<float>(w);
+            return toScreen(mt, mv);
+        };
+        auto segIsFlat = [&](size_t s) {
+            return std::fabs(pts[s + 1].value - pts[s].value) < 1e-4f;
+        };
+        for (size_t s = 0; s + 1 < pts.size(); ++s) {
+            if (segIsFlat(s)) {
+                continue;
+            }
+            ImVec2 h = segHandlePos(s);
+            dl->AddRect(ImVec2(h.x - 3.0f, h.y - 3.0f), ImVec2(h.x + 3.0f, h.y + 3.0f),
+                        IM_COL32(160, 255, 160, 255));
+        }
+        // Interaction. Nearest-point / nearest-handle hit tests in screen space.
         const ImVec2 mouse = ImGui::GetIO().MousePos;
         auto nearestPoint = [&]() {
             int best = -1;
@@ -3778,9 +3803,28 @@ void buildArrangementUI(audio::Sequencer& seq) {
             }
             return (best >= 0 && bestD < 12.0f) ? best : -1;
         };
+        auto nearestHandle = [&]() {
+            int best = -1;
+            float bestD = 1e9f;
+            for (size_t s = 0; s + 1 < pts.size(); ++s) {
+                if (segIsFlat(s)) {
+                    continue;
+                }
+                ImVec2 h = segHandlePos(s);
+                const float d = std::fabs(h.x - mouse.x) + std::fabs(h.y - mouse.y);
+                if (d < bestD) {
+                    bestD = d;
+                    best = static_cast<int>(s);
+                }
+            }
+            return (best >= 0 && bestD < 10.0f) ? best : -1;
+        };
         if (ImGui::IsItemActivated()) { // mouse-down on this canvas
+            const int handle = nearestHandle();
             const int hit = nearestPoint();
-            if (hit >= 0) {
+            if (handle >= 0) {
+                dragTension = handle; // grabbing a tension handle takes priority
+            } else if (hit >= 0) {
                 dragPoint = hit;
             } else { // add a new point at the click, keep the vector time-sorted
                 const std::pair<double, float> d = toData(mouse);
@@ -3806,9 +3850,27 @@ void buildArrangementUI(audio::Sequencer& seq) {
             double nt = d.first < loT ? loT : (d.first > hiT ? hiT : d.first);
             pts[static_cast<size_t>(dragPoint)].time = nt;
         }
+        if (ImGui::IsItemActive() && dragClip == i && dragTension >= 0 &&
+            dragTension + 1 < static_cast<int>(pts.size())) {
+            // Solve the tension that makes the segment's midpoint pass through the mouse value:
+            // frac = 0.5^p with p = 2^(-tension*4), so tension = -log2(log(frac)/log(0.5)) / 4.
+            const audio::AutoPoint& a = pts[static_cast<size_t>(dragTension)];
+            const audio::AutoPoint& b = pts[static_cast<size_t>(dragTension + 1)];
+            const std::pair<double, float> d = toData(mouse);
+            const float dv = b.value - a.value;
+            if (std::fabs(dv) > 1e-4f) {
+                float frac = (d.second - a.value) / dv;
+                frac = frac < 0.02f ? 0.02f : (frac > 0.98f ? 0.98f : frac); // keep log() well-defined
+                const double p = std::log(static_cast<double>(frac)) / std::log(0.5);
+                double tens = -std::log2(p) / 4.0;
+                tens = tens < -1.0 ? -1.0 : (tens > 1.0 ? 1.0 : tens);
+                pts[static_cast<size_t>(dragTension)].tension = static_cast<float>(tens);
+            }
+        }
         if (!ImGui::IsItemActive() && dragClip == i) {
             dragClip = -1;
             dragPoint = -1;
+            dragTension = -1;
         }
         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && pts.size() > 1) {
             const int hit = nearestPoint();
