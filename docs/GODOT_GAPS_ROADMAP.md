@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Anti-aliased line rasterization (Xiaolin Wu)** (`render::drawLineAA`, `LineAA.hpp`) — DONE (M739); the
+  engine's Bresenham `drawLine` snaps each step to one pixel, so diagonal lines come out jagged. Wu's
+  algorithm spreads each step across the TWO pixels it straddles, weighted by how much of each the line
+  actually covers, producing smooth edges — what crisp graph plots, wireframe overlays, vector-style UI
+  strokes, minimap routes, and debug gizmos want on a CPU raster. It also takes sub-pixel float endpoints and
+  alpha-composites its coverage over the existing image. Godot's `Image` has no anti-aliased line primitive.
+  [VERIFIABLE HERE] Perfectly horizontal/vertical lines light exactly one row/column at full coverage and
+  leave neighbours dark; a 45° diagonal lights one full pixel per step; the AA energy invariant holds (each
+  interior column of a shallow line carries ~1 unit of coverage split across its two straddling pixels);
+  total ink approximates the line's pixel span; and drawing A→B equals B→A (order independence) — all exact,
+  plus determinism.
 - [x] **Barnes–Hut n-body force approximation** (`game::barnesHutAccelerations`, `BarnesHut.hpp`) — DONE
   (M738); the quadtree method for computing inverse-square attraction on every body from every other at
   scale. A naive per-pair loop is O(n²) and dies past a few thousand bodies; Barnes–Hut buckets bodies into

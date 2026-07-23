@@ -2526,3 +2526,8 @@ add_executable(maz_barneshut_tests game/barneshut.cpp)
 target_link_libraries(maz_barneshut_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME barnes_hut COMMAND maz_barneshut_tests)
 set_tests_properties(barnes_hut PROPERTIES TIMEOUT 30)
+
+add_executable(maz_lineaa_tests render/lineaa.cpp)
+target_link_libraries(maz_lineaa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME line_aa COMMAND maz_lineaa_tests)
+set_tests_properties(line_aa PROPERTIES TIMEOUT 30)
