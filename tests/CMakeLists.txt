@@ -2546,3 +2546,8 @@ add_executable(maz_poisson_tests math/poisson.cpp)
 target_link_libraries(maz_poisson_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME poisson COMMAND maz_poisson_tests)
 set_tests_properties(poisson PROPERTIES TIMEOUT 30)
+
+add_executable(maz_seamlessclone_tests render/seamlessclone.cpp)
+target_link_libraries(maz_seamlessclone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME seamless_clone COMMAND maz_seamlessclone_tests)
+set_tests_properties(seamless_clone PROPERTIES TIMEOUT 30)

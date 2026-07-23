@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Poisson seamless cloning (gradient-domain compositing)** (`render::seamlessClone`, `SeamlessClone.hpp`)
+  — DONE (M743); paste a patch of one image into another so the seam DISAPPEARS (Pérez et al. 2003), built
+  on the M742 Poisson solver. Naively copying pixels leaves a hard edge whenever the patch's lighting differs
+  from its surroundings; this copies the patch's GRADIENTS (its internal detail) while forcing its border to
+  match the destination, then solves a Poisson problem per colour channel to fill the interior — so the patch
+  keeps its texture but its overall tone slides to blend perfectly. This is how the "healing brush" / seamless
+  compositing works, and it's handy for decals, damage overlays, terrain-splat blending, and joining texture
+  tiles. Godot has no gradient-domain compositing. [VERIFIABLE HERE] The defining property is checked
+  directly — at every solved cell the result's discrete Laplacian equals the source's guidance field (to
+  8-bit quantization) and every cell outside the region equals the destination exactly — plus identity
+  (cloning from an identical image is a no-op), constant-offset absorption (a flat brightness difference
+  blends away entirely, the seam vanishing), and determinism.
 - [x] **2D Poisson / Laplace solver (Gauss–Seidel)** (`math::poissonSolve`, `Poisson.hpp`) — DONE (M742);
   solve Laplacian(u) = rhs on a grid with fixed (Dirichlet) cells — the workhorse behind a surprising range
   of game/graphics tasks: the pressure-projection step that makes fluids incompressible, gradient-domain /
