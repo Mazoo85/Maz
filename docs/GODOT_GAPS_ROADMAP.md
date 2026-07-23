@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs finite capped cone** (`math::rayIntersectsCone` → `ConeHit`, `RayCone.hpp`) — DONE (M787); the
+  hitscan/picking test against a right circular cone given by apex, axis, half-angle and height, returning the
+  distance, world point and outward normal. Cones are spotlight/flashlight volumes, particle-emitter cones,
+  funnels, horns, drill tips and AI vision volumes; shooting/picking them (or clipping a spotlight gizmo in an
+  editor) needs this query, which Godot does not expose (`game::ViewCone` is only a 2D FOV test). Solves the
+  quadratic for the single forward nappe (clamped to the height, excluding the mirror-cone behind the apex)
+  plus the circular base cap, returning the nearest forward hit. Verified against a brute-force ray-march
+  (hit/miss + distance), the exact half-angle surface condition dot(P−apex,axis)=|P−apex|·cosθ, an
+  outward-pointing normal, and analytic side/cap hits on a 45° cone. ctest `ray_cone`.
 - [x] **Catenary — hanging chain / rope / cable curve** (`math::solveCatenary` → `Catenary` /
   `catenaryHeight` / `catenaryArcLength` / `catenaryPolyline`, `Catenary.hpp`) — DONE (M786); the shape a
   uniform flexible rope, chain, cable or wire takes hanging under gravity, y=a·cosh(x/a) — NOT a parabola (a

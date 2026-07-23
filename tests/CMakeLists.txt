@@ -2767,3 +2767,8 @@ add_executable(maz_catenary_tests math/catenary.cpp)
 target_link_libraries(maz_catenary_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME catenary COMMAND maz_catenary_tests)
 set_tests_properties(catenary PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycone_tests math/raycone.cpp)
+target_link_libraries(maz_raycone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_cone COMMAND maz_raycone_tests)
+set_tests_properties(ray_cone PROPERTIES TIMEOUT 30)
