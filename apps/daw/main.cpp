@@ -3326,7 +3326,10 @@ void buildMixerUI(audio::AudioEngine& engine) {
 // Draw the automation panel: one row per target with an enable, LFO shape, rate, and lo/hi range.
 void buildAutomationUI(audio::Automation& automation) {
     ImGui::Begin("CJC Music Station — Automation");
-    ImGui::TextDisabled("LFOs sweep a parameter over time, synced to the transport.");
+    ImGui::TextDisabled("LFOs sweep a parameter over time; or draw an envelope clip (it overrides the "
+                        "LFO). Canvas: click to add a point, drag to move, right-click to delete.");
+    static ImGuiID laneDragCanvas = 0; // which lane canvas is mid-drag (0 = none)
+    static int laneDragPt = -1;        // breakpoint index being dragged
     for (int i = 0; i < audio::Automation::count(); ++i) {
         audio::AutoLane& lane = automation.lane(i);
         ImGui::PushID(i);
@@ -3358,15 +3361,129 @@ void buildAutomationUI(audio::Automation& automation) {
         ImGui::SetNextItemWidth(90.0f);
         // Phase offset (fraction of a cycle) — run lanes out of phase (e.g. pan vs filter).
         ImGui::SliderFloat("phase", &lane.lfo.phase, 0.0f, 1.0f, "%.2f");
-        // When the lane carries a drawn automation clip (from a loaded project), expose a single curve
-        // control that sets the tension on every breakpoint (+ eases out, − eases in, 0 = linear).
-        if (!lane.clip.empty()) {
+        // Envelope clip: draw a breakpoint curve for this lane (overrides the LFO while it has points).
+        ImGui::SameLine();
+        if (lane.clip.empty()) {
+            if (ImGui::SmallButton("Draw envelope")) {
+                if (lane.clipLength <= 0.0) {
+                    lane.clipLength = 4.0; // default 4 s loop
+                }
+                lane.clip = {{0.0, 0.5f, 0.0f}, {lane.clipLength, 0.5f, 0.0f}};
+            }
+        } else {
+            ImGui::SetNextItemWidth(90.0f);
+            float len = static_cast<float>(lane.clipLength > 0.0 ? lane.clipLength : 4.0);
+            if (ImGui::DragFloat("len s##auto", &len, 0.1f, 0.1f, 64.0f, "%.1f s")) {
+                lane.clipLength = static_cast<double>(len);
+            }
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(110.0f);
+            ImGui::SetNextItemWidth(90.0f);
             float clipTension = lane.clip.front().tension;
             if (ImGui::SliderFloat("curve##autoclip", &clipTension, -1.0f, 1.0f, "%.2f")) {
                 for (audio::AutoPoint& pt : lane.clip) {
                     pt.tension = clipTension;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Clear env")) {
+                lane.clip.clear();
+            }
+            // Breakpoint canvas. x maps [0, clipLength] seconds; y maps [0,1] unipolar.
+            const double xSpan = lane.clipLength > 0.0 ? lane.clipLength : 4.0;
+            const ImVec2 origin = ImGui::GetCursorScreenPos();
+            ImVec2 csize = ImVec2(ImGui::GetContentRegionAvail().x, 70.0f);
+            if (csize.x < 80.0f) {
+                csize.x = 80.0f;
+            }
+            ImGui::InvisibleButton("##laneenv", csize);
+            const ImGuiID canvasId = ImGui::GetItemID();
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(origin, ImVec2(origin.x + csize.x, origin.y + csize.y),
+                              IM_COL32(28, 28, 32, 255));
+            dl->AddRect(origin, ImVec2(origin.x + csize.x, origin.y + csize.y), IM_COL32(80, 80, 90, 255));
+            auto toScreen = [&](double t, float v) {
+                return ImVec2(origin.x + static_cast<float>(t / xSpan) * csize.x,
+                              origin.y + (1.0f - v) * csize.y);
+            };
+            auto toData = [&](ImVec2 m) {
+                double t = static_cast<double>((m.x - origin.x) / csize.x) * xSpan;
+                float v = 1.0f - (m.y - origin.y) / csize.y;
+                t = t < 0.0 ? 0.0 : (t > xSpan ? xSpan : t);
+                v = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+                return std::pair<double, float>(t, v);
+            };
+            std::vector<audio::AutoPoint>& pts = lane.clip;
+            for (size_t s = 1; s < pts.size(); ++s) {
+                const audio::AutoPoint& a = pts[s - 1];
+                const audio::AutoPoint& b = pts[s];
+                ImVec2 prev = toScreen(a.time, a.value);
+                constexpr int kSeg = 14;
+                for (int k = 1; k <= kSeg; ++k) {
+                    double frac = static_cast<double>(k) / kSeg;
+                    double warped = frac;
+                    if (a.tension != 0.0f) {
+                        warped = std::pow(frac, std::pow(2.0, -static_cast<double>(a.tension) * 4.0));
+                    }
+                    const double tt = a.time + (b.time - a.time) * frac;
+                    const float vv = a.value + (b.value - a.value) * static_cast<float>(warped);
+                    ImVec2 cur = toScreen(tt, vv);
+                    dl->AddLine(prev, cur, IM_COL32(120, 200, 255, 255), 2.0f);
+                    prev = cur;
+                }
+            }
+            for (size_t s = 0; s < pts.size(); ++s) {
+                dl->AddCircleFilled(toScreen(pts[s].time, pts[s].value), 4.0f, IM_COL32(255, 220, 80, 255));
+            }
+            const ImVec2 mouse = ImGui::GetIO().MousePos;
+            auto nearestPoint = [&]() {
+                int best = -1;
+                float bestD = 1e9f;
+                for (size_t s = 0; s < pts.size(); ++s) {
+                    ImVec2 p = toScreen(pts[s].time, pts[s].value);
+                    const float d = std::fabs(p.x - mouse.x) + std::fabs(p.y - mouse.y);
+                    if (d < bestD) {
+                        bestD = d;
+                        best = static_cast<int>(s);
+                    }
+                }
+                return (best >= 0 && bestD < 12.0f) ? best : -1;
+            };
+            if (ImGui::IsItemActivated()) {
+                const int hit = nearestPoint();
+                if (hit >= 0) {
+                    laneDragPt = hit;
+                } else {
+                    const std::pair<double, float> d = toData(mouse);
+                    size_t ins = 0;
+                    while (ins < pts.size() && pts[ins].time < d.first) {
+                        ++ins;
+                    }
+                    pts.insert(pts.begin() + static_cast<long>(ins),
+                               audio::AutoPoint{d.first, d.second, clipTension});
+                    laneDragPt = static_cast<int>(ins);
+                }
+                laneDragCanvas = canvasId;
+            }
+            if (ImGui::IsItemActive() && laneDragCanvas == canvasId && laneDragPt >= 0 &&
+                laneDragPt < static_cast<int>(pts.size())) {
+                const std::pair<double, float> d = toData(mouse);
+                pts[static_cast<size_t>(laneDragPt)].value = d.second;
+                double loT = (laneDragPt > 0) ? pts[static_cast<size_t>(laneDragPt - 1)].time : 0.0;
+                double hiT = (laneDragPt < static_cast<int>(pts.size()) - 1)
+                                 ? pts[static_cast<size_t>(laneDragPt + 1)].time
+                                 : xSpan;
+                double nt = d.first < loT ? loT : (d.first > hiT ? hiT : d.first);
+                pts[static_cast<size_t>(laneDragPt)].time = nt;
+            }
+            if (!ImGui::IsItemActive() && laneDragCanvas == canvasId) {
+                laneDragCanvas = 0;
+                laneDragPt = -1;
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
+                pts.size() > 1) {
+                const int hit = nearestPoint();
+                if (hit >= 0) {
+                    pts.erase(pts.begin() + hit);
                 }
             }
         }
