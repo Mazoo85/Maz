@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Theta\* any-angle pathfinding** (`game::thetaStar` / `game::thetaLineOfSight`, `ThetaStar.hpp`) —
+  DONE (M758); a grid path planner that produces short, STRAIGHT routes instead of the staircase zig-zag
+  ordinary grid A\* (and the engine's jump-point search) is stuck with. Classic grid search can only step
+  between cell centres along the 8 compass directions, so crossing an open room comes out jagged, longer,
+  and visibly unnatural; Theta\* adds a line-of-sight test — when relaxing a node it checks whether the
+  node's grandparent can see the new cell directly and, if so, links straight to it — letting segments cut
+  the grid at any angle. In open space the path collapses to a single straight line of the true Euclidean
+  length. This is exactly the natural-looking route Godot's grid navigation can't produce. Uses the standard
+  Nash line-of-sight; grid steps are 8-connected with no corner cutting. [VERIFIABLE HERE] `ctest -R
+  theta_star`: across an empty grid the path is a single straight segment of the exact Euclidean length; with
+  a wall in the way the Theta\* path is never longer than an independent 8-connected Dijkstra optimum and is
+  strictly shorter than the staircase route; an INDEPENDENT dense sampler confirms no segment tunnels through
+  a wall's body; a walled-off goal is reported unreachable; determinism.
 - [x] **Median-cut colour quantization** (`render::medianCutPalette` / `render::nearestColor`,
   `MedianCut.hpp`) — DONE (M757); shrink a full-colour image down to a small representative PALETTE of at
   most K colours — how a GIF, an indexed texture, or a deliberately retro/limited-palette look is produced.

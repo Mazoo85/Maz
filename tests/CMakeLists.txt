@@ -2621,3 +2621,8 @@ add_executable(maz_mediancut_tests render/mediancut.cpp)
 target_link_libraries(maz_mediancut_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME median_cut COMMAND maz_mediancut_tests)
 set_tests_properties(median_cut PROPERTIES TIMEOUT 30)
+
+add_executable(maz_thetastar_tests game/thetastar.cpp)
+target_link_libraries(maz_thetastar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME theta_star COMMAND maz_thetastar_tests)
+set_tests_properties(theta_star PROPERTIES TIMEOUT 30)
