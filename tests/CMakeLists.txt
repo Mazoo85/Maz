@@ -2667,3 +2667,8 @@ add_executable(maz_bwt_tests io/bwt.cpp)
 target_link_libraries(maz_bwt_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME bwt COMMAND maz_bwt_tests)
 set_tests_properties(bwt PROPERTIES TIMEOUT 30)
+
+add_executable(maz_movetofront_tests io/movetofront.cpp)
+target_link_libraries(maz_movetofront_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME move_to_front COMMAND maz_movetofront_tests)
+set_tests_properties(move_to_front PROPERTIES TIMEOUT 30)

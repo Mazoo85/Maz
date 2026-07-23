@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Move-To-Front coding** (`io::mtfEncode` / `io::mtfDecode`, `MoveToFront.hpp`) — DONE (M767); the stage
+  that sits between a Burrows-Wheeler Transform and the entropy coder in bzip2-style compression. It keeps a
+  running list of the 256 byte values and, for each input byte, emits its CURRENT POSITION then moves it to
+  the front; when the data has clustered symbols (exactly what the BWT produces), recently-seen bytes sit
+  near the front so their codes are small — long runs collapse to streams of zeros that the following
+  run-length + Huffman / range coder squeezes hard. Perfectly reversible. Completes the BWT (M766) -> MTF ->
+  entropy pipeline the engine's coders now have. [VERIFIABLE HERE] `ctest -R move_to_front`: airtight
+  round-trip over 200 random blocks and text; a same-symbol run encodes to a leading value then all zeros;
+  the full BWT+MTF pipeline on repetitive data yields a MAJORITY of zeros and >3/4 small values (the
+  low-entropy stream that aids compression) and reverses exactly; empty input round-trips; determinism.
 - [x] **Burrows-Wheeler Transform** (`io::bwtEncode` / `io::bwtDecode`, `Bwt.hpp`) — DONE (M766); the
   reversible byte-reordering at the heart of bzip2-style compression. The BWT rearranges a block so runs of
   the same symbol CLUSTER together (identical contexts end up adjacent), which a following move-to-front +
