@@ -2677,3 +2677,8 @@ add_executable(maz_nurbscurve_tests math/nurbscurve.cpp)
 target_link_libraries(maz_nurbscurve_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME nurbs_curve COMMAND maz_nurbscurve_tests)
 set_tests_properties(nurbs_curve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polygonboolean_tests math/polygonboolean.cpp)
+target_link_libraries(maz_polygonboolean_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polygon_boolean COMMAND maz_polygonboolean_tests)
+set_tests_properties(polygon_boolean PROPERTIES TIMEOUT 30)

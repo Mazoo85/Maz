@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **General polygon boolean ops** (`math::polygonIntersection` / `polygonUnion` / `polygonDifference`,
+  `PolygonBoolean.hpp`) — DONE (M769); the real Clipper-style boolean for two ARBITRARY simple polygons —
+  concave allowed, multi-contour results — via the Greiner–Hormann algorithm. This closes the gap the
+  engine's existing `clipPolygonConvex` (Geometry2D.hpp, Sutherland–Hodgman) explicitly left open: that one
+  only clips against a *convex* window, while this handles a concave subject AND a concave clip and returns
+  the full result, including holes as separate oppositely-wound contours. Use it for destructible-terrain
+  carving, merging painted regions, overlap-area between swept shapes, coverage/visibility masks and
+  vector-boolean authoring — Godot's `Geometry2D.clip_polygons` / `intersect_polygons` / `merge_polygons`.
+  Verified INDEPENDENTLY of the tracing code: a seeded Monte-Carlo membership oracle (even–odd ray cast over
+  all result edges) confirms the output region equals the boolean predicate over thousands of random points
+  for intersection/union/difference; the analytic inclusion–exclusion identity |A∩B|+|A∪B|=|A|+|B| holds
+  exactly; concave (L-shape), full-containment and disjoint cases all check out (ctest `polygon_boolean`, 12
+  checks, 0 failures). [VERIFIABLE HERE]
 - [x] **NURBS curves (exact conics)** (`math::nurbsPoint` / `math::nurbsClampedKnots`, `NurbsCurve.hpp`) —
   DONE (M768); the industry-standard freeform curve used by every CAD tool and vector program. It generalises
   the engine's plain B-spline by giving each control point a WEIGHT, which lets one curve type represent
