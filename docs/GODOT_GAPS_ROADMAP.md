@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Minkowski sum of convex polygons** (`math::minkowskiSumConvex`, `MinkowskiSum.hpp`) — DONE (M753);
+  sweep one shape around the boundary of another and take everything the pair can cover together — the set
+  { a + b : a in A, b in B }. This is the workhorse behind collision inflation and motion planning: grow a
+  level's walls by the player's radius and a point-sized dot can be tested instead of a fat body (the grown
+  obstacle is exactly wall (+) player-disc); build the "configuration-space obstacle" a moving convex agent
+  must avoid (obstacle (+) reflected-agent) so path-planning collapses to routing a single point; round a
+  polygon by summing it with a small disc, or fatten a swept shape. The result is always convex and its
+  support (extent in any direction) is the sum of the two inputs' supports. Complements the existing convex
+  clip / offset / hull ops; Godot exposes no Minkowski sum. [VERIFIABLE HERE] `ctest -R minkowski_sum`: a
+  unit square (+) a unit square is the 2x2 square (area 4); the support identity support(A+B, d) ==
+  support(A, d) + support(B, d) holds for every direction over 60 random convex-shape pairs; every result is
+  convex CCW; brute-force — 400 interior points a+b land inside the sum polygon; determinism.
 - [x] **Alpha shapes / concave hull** (`math::alphaShapeEdges` / `math::concaveHull`, `AlphaShape.hpp`) —
   DONE (M752); the "shrink-wrap" outline of a scattered 2D point cloud. A convex hull is the tightest
   CONVEX rubber band and can never dip into a bay or wrap a C-shape; the alpha shape can — it keeps only the

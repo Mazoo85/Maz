@@ -2596,3 +2596,8 @@ add_executable(maz_alphashape_tests math/alphashape.cpp)
 target_link_libraries(maz_alphashape_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME alpha_shape COMMAND maz_alphashape_tests)
 set_tests_properties(alpha_shape PROPERTIES TIMEOUT 30)
+
+add_executable(maz_minkowskisum_tests math/minkowskisum.cpp)
+target_link_libraries(maz_minkowskisum_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME minkowski_sum COMMAND maz_minkowskisum_tests)
+set_tests_properties(minkowski_sum PROPERTIES TIMEOUT 30)
