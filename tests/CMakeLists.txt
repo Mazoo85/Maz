@@ -2792,3 +2792,8 @@ add_executable(maz_sphericaltriangle_tests math/sphericaltriangle.cpp)
 target_link_libraries(maz_sphericaltriangle_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spherical_triangle COMMAND maz_sphericaltriangle_tests)
 set_tests_properties(spherical_triangle PROPERTIES TIMEOUT 30)
+
+add_executable(maz_coonspatch_tests math/coonspatch.cpp)
+target_link_libraries(maz_coonspatch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME coons_patch COMMAND maz_coonspatch_tests)
+set_tests_properties(coons_patch PROPERTIES TIMEOUT 30)

@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Coons patch — surface from four boundary curves** (`math::coonsPatchPoint` / `coonsPatchGrid`,
+  `CoonsPatch.hpp`) — DONE (M792); a smooth surface that fills in the interior given only its four boundary
+  curves (the two u-edges and two v-edges, passed as callables `f(t)→vec3`), reproducing each edge exactly.
+  This is the standard way to build procedural surfaces from edge curves: lofted track/road ribbons, terrain
+  patches stitched to a neighbour's edges, cloth/sail panels, tent canopies and swept shapes — Godot has no
+  surface-from-curves primitive. Bilinearly-blended construction (two ruled surfaces minus the corners'
+  bilinear term) plus a grid sampler for meshing. Verified against the AIRTIGHT boundary-reproduction property
+  (the patch edges equal the four input curves exactly for all u,v), corner consistency, and the flat-quad
+  limit (straight edges → exact bilinear interpolation of the corners). ctest `coons_patch`.
 - [x] **Spherical triangle area / solid angle** (`math::sphericalTriangleArea` / `sphericalTriangleAngle` /
   `sphericalExcess` / `sphericalPolygonArea`, `SphericalTriangle.hpp`) — DONE (M791); the area (equivalently
   the SOLID ANGLE in steradians) of a triangle drawn on a sphere from three directions. This is exactly what
