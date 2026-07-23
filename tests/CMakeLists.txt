@@ -2606,3 +2606,8 @@ add_executable(maz_catmullclark_tests render/catmullclark.cpp)
 target_link_libraries(maz_catmullclark_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME catmull_clark COMMAND maz_catmullclark_tests)
 set_tests_properties(catmull_clark PROPERTIES TIMEOUT 30)
+
+add_executable(maz_wavelet_tests math/wavelet.cpp)
+target_link_libraries(maz_wavelet_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wavelet COMMAND maz_wavelet_tests)
+set_tests_properties(wavelet PROPERTIES TIMEOUT 30)

@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Haar wavelet transform** (`math::haarForward1D/2D` / `math::haarInverse1D/2D`, `Wavelet.hpp`) — DONE
+  (M755); the simplest multi-resolution transform — repeatedly split a signal or image into a coarse
+  "average" half and a fine "detail" half, so a texture or heightfield becomes a small blurry thumbnail plus
+  a stack of ever-finer correction layers. That decomposition is the backbone of progressive/streamed
+  loading (show the thumbnail, refine as detail arrives), level-of-detail, and lossy compression (most
+  detail coefficients are tiny — zero the small ones and the picture barely changes). This is the normalised
+  orthonormal Haar basis, so it preserves energy exactly and inverts perfectly; works on power-of-two 1D
+  arrays and square power-of-two 2D grids to the deepest level. Godot ships no wavelet transform.
+  [VERIFIABLE HERE] `ctest -R wavelet`: perfect reconstruction inverse(forward(x))==x for 1D and 2D; energy
+  (Parseval) preserved to float epsilon; a constant image transforms to a single non-zero DC coefficient
+  carrying all the energy with zero detail; compression — zeroing the smallest 50% of coefficients of a
+  smooth image barely changes it and dropping more never lowers the error (monotone); determinism.
 - [x] **Catmull-Clark subdivision surfaces** (`render::catmullClark`, `CatmullClark.hpp`) — DONE (M754); the
   industry-standard way to turn a blocky low-poly QUAD cage into a smooth rounded surface, refining one level
   at a time toward a limit surface. Where the engine's existing Loop subdivision smooths triangle meshes,
