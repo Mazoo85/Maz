@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Closest point / distance to an ellipse** (`math::closestPointOnEllipse` / `distanceToEllipse` /
+  `signedDistanceEllipse`, `EllipseDistance.hpp`) — DONE (M800); the robust "nearest point on the oval and how
+  far" query. Unlike a circle there is no closed form and the naive radial projection is wrong everywhere but
+  the axes; this uses Eberly's method (reduce to the first quadrant, bisect one monotone function for the foot
+  of the perpendicular), which stays accurate near the flat sides and sharp ends where iterative solvers
+  usually degrade. The engine had parametric ellipse points (Superellipse.hpp) but no distance/closest-point
+  query; Godot has none either. Gives an exact elliptical SDF (better than the usual gradient-scaled
+  approximation), and snapping to elliptical orbits/tracks, oval GUI hit-testing and elliptical collision
+  response. Verified airtight: the closest point always lies on the ellipse; the vector from p to it is
+  perpendicular to the ellipse there; the distance matches a dense brute-force boundary search over thousands
+  of seeded points across three ellipses; the signed distance is negative strictly inside and positive
+  outside; and the a==b circle reduces to the closed form. ctest `ellipse_distance`.
 - [x] **Ray vs capsule** (`math::rayIntersectsCapsule` → `CapsuleHit`, `RayCapsule.hpp`) — DONE (M799); the
   hitscan / picking query against a capsule (a segment a→b swept by a sphere of radius r — the workhorse
   collider for characters, limbs and pills). Extends the ray-primitive family (RayCylinder, RayCone, RayTorus,

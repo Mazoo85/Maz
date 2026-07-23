@@ -2832,3 +2832,8 @@ add_executable(maz_raycapsule_tests math/raycapsule.cpp)
 target_link_libraries(maz_raycapsule_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_capsule COMMAND maz_raycapsule_tests)
 set_tests_properties(ray_capsule PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ellipsedistance_tests math/ellipsedistance.cpp)
+target_link_libraries(maz_ellipsedistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ellipse_distance COMMAND maz_ellipsedistance_tests)
+set_tests_properties(ellipse_distance PROPERTIES TIMEOUT 30)
