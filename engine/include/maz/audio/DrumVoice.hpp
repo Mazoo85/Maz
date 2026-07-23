@@ -106,7 +106,11 @@ public:
     // Strike the drum: reset the envelope/phase and start sounding. `velocity` (0..1) scales the
     // hit's loudness for per-step accents; `extraSemitones` is a per-hit pitch offset (added to the
     // channel's base tune) captured at strike time, for per-step pitch.
-    void trigger(float velocity = 1.0f, float extraSemitones = 0.0f);
+    void trigger(float velocity = 1.0f, float extraSemitones = 0.0f, float pan = 0.0f);
+
+    // Stereo pan of the current hit (−1 left … +1 right), captured at trigger time for per-step pan.
+    // The voice renders mono; the caller applies this at its stereo bus mix.
+    float pan() const { return pan_; }
 
     // Choke this voice: ramp it to silence over a few ms (click-free), used by choke groups so one
     // drum cuts off another (e.g. a closed hat chokes an open hat).
@@ -131,6 +135,7 @@ private:
     Drum type_ = Drum::Kick;
     float gain_ = 0.8f;
     float level_ = 1.0f;
+    float pan_ = 0.0f; // per-hit stereo pan (−1..+1), captured at trigger
     float tuneSemitones_ = 0.0f;
     float hitTune_ = 0.0f; // pitch (base + per-step offset) captured at the last trigger()
     float decayMul_ = 1.0f;

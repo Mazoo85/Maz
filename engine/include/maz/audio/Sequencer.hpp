@@ -24,6 +24,7 @@ struct Pattern {
     std::vector<uint8_t> ratchet; // per-step retrigger count 1..4 (0/1 = single hit). Parallel to grid.
     std::vector<int8_t> tune;     // per-step pitch offset in semitones (0 = channel pitch). Parallel to grid.
     std::vector<int8_t> nudge;    // per-step timing push, % of the step's slot (0 = on-grid, later). Parallel to grid.
+    std::vector<int8_t> pan;      // per-step stereo pan, −100..100 (0 = centre). Parallel to grid.
     std::vector<uint8_t> stride;  // per-step trig condition: fire only every Nth pattern loop (1 = always). Parallel to grid.
     PianoRoll roll;            // lead instrument
     PianoRoll roll2;           // second (bass) instrument
@@ -674,6 +675,11 @@ public:
     // so the strike stays sample-accurate. Drum grid only (the piano roll keeps its own timing).
     int stepNudge(int channel, int step) const;
     void setStepNudge(int channel, int step, int percent);
+    // Per-step stereo pan (−100..100, 0 = centre) — a channel-rack graph-editor pan row. Captured at
+    // strike time onto the (monophonic) drum voice and applied at the drum bus mix on top of the
+    // channel pan.
+    int stepPan(int channel, int step) const;
+    void setStepPan(int channel, int step, int pan);
 
     // Per-step trig condition (1..8): the step fires only on transport loops where (loopIndex %
     // stride) == 0, i.e. stride 1 = every loop (default), 2 = every other loop, 4 = one loop in four —
@@ -843,6 +849,7 @@ private:
         float velocity;
         int framesUntil;
         float tune = 0.0f; // per-step pitch offset carried to the sub-hit
+        float pan = 0.0f;  // per-step pan carried to the sub-hit
     };
     std::vector<RatchetHit> ratchets_; // pending ratchet retriggers
 

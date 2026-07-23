@@ -182,6 +182,7 @@ int main() {
     seq.setStep(2, 5, true);
     seq.setStepTune(2, 5, -5); // per-step pitch offset
     seq.setStepNudge(2, 5, 40); // per-step timing nudge
+    seq.setStepPan(2, 5, -60);  // per-step pan
     seq.setStepStride(2, 5, 3); // per-step trig condition (fire every 3rd loop)
     seq.roll().addNote(audio::Note{4, 1, 72, 0.5f, 0.6f, 35.0f, 3, true, 4, 25,
                                    -1.5f}); // roll=3, slide, stride=4, nudge=25, cutoff=-1.5 oct
@@ -769,6 +770,7 @@ int main() {
     check(seq2.step(2, 5) && seq2.roll().notes().size() == 1, "second pattern content round-trips");
     check(seq2.stepTune(2, 5) == -5, "per-step pitch round-trips");
     check(seq2.stepNudge(2, 5) == 40, "per-step timing nudge round-trips");
+    check(seq2.stepPan(2, 5) == -60, "per-step pan round-trips");
     check(seq2.stepStride(2, 5) == 3, "per-step trig condition (stride) round-trips");
     check(near(seq2.roll().notes()[0].probability, 0.6f), "per-note probability round-trips");
     check(near(seq2.roll().notes()[0].fineTune, 35.0f), "per-note fine tune round-trips");

@@ -377,6 +377,7 @@ int Sequencer::addPattern() {
     p.ratchet.assign(cells, 1); // one hit per step by default
     p.tune.assign(cells, 0);    // no per-step pitch offset by default
     p.nudge.assign(cells, 0);   // every step on the grid by default
+    p.pan.assign(cells, 0);     // every step centred by default
     p.stride.assign(cells, 1);  // every step fires on every loop by default
     p.name = "Pattern " + std::to_string(patterns_.size() + 1);
     p.extraRolls.resize(extraSynths_.size()); // one lane per existing extra instrument channel
@@ -759,6 +760,32 @@ void Sequencer::setStepNudge(int channel, int step, int percent) {
             static_cast<size_t>(step)] = static_cast<int8_t>(nd);
 }
 
+int Sequencer::stepPan(int channel, int step) const {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return 0;
+    }
+    const Pattern& p = patterns_[static_cast<size_t>(current_)];
+    const size_t idx =
+        static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step);
+    if (idx >= p.pan.size()) {
+        return 0; // patterns loaded before per-step pan existed → centred
+    }
+    return static_cast<int>(p.pan[idx]);
+}
+
+void Sequencer::setStepPan(int channel, int step, int pan) {
+    if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
+        return;
+    }
+    Pattern& p = patterns_[static_cast<size_t>(current_)];
+    if (p.pan.size() != p.grid.size()) {
+        p.pan.assign(p.grid.size(), 0);
+    }
+    const int pv = pan < -100 ? -100 : (pan > 100 ? 100 : pan);
+    p.pan[static_cast<size_t>(channel) * static_cast<size_t>(numSteps_) + static_cast<size_t>(step)] =
+        static_cast<int8_t>(pv);
+}
+
 int Sequencer::stepStride(int channel, int step) const {
     if (channel < 0 || channel >= numChannels() || step < 0 || step >= numSteps_) {
         return 1;
@@ -891,6 +918,8 @@ void Sequencer::triggerStep(int step) {
 
             // Per-step pitch offset (captured into each hit at strike time).
             const float stune = static_cast<float>(stepTune(c, step));
+            // Per-step pan (−1..+1), captured onto the hit for a channel-rack pan row.
+            const float span = static_cast<float>(stepPan(c, step)) * 0.01f;
 
             // Per-step micro-timing nudge: push this step's hits later by a fraction of the step's
             // own slot (0 = on the grid). Delivered through the same deferred-hit queue as ratchets
@@ -906,18 +935,18 @@ void Sequencer::triggerStep(int step) {
             const float flamMs = chanFlam_[static_cast<size_t>(c)];
             if (flamMs > 0.0f) {
                 if (nudgeFrames > 0) {
-                    ratchets_.push_back(RatchetHit{c, vel * 0.5f, nudgeFrames, stune}); // grace
+                    ratchets_.push_back(RatchetHit{c, vel * 0.5f, nudgeFrames, stune, span}); // grace
                 } else {
-                    channels_[static_cast<size_t>(c)].trigger(vel * 0.5f, stune); // grace
+                    channels_[static_cast<size_t>(c)].trigger(vel * 0.5f, stune, span); // grace
                 }
                 const int flamSamples =
                     static_cast<int>(flamMs * 0.001f * static_cast<float>(sampleRate_));
                 ratchets_.push_back(
-                    RatchetHit{c, vel, (flamSamples > 0 ? flamSamples : 1) + nudgeFrames, stune});
+                    RatchetHit{c, vel, (flamSamples > 0 ? flamSamples : 1) + nudgeFrames, stune, span});
             } else if (nudgeFrames > 0) {
-                ratchets_.push_back(RatchetHit{c, vel, nudgeFrames, stune});
+                ratchets_.push_back(RatchetHit{c, vel, nudgeFrames, stune, span});
             } else {
-                channels_[static_cast<size_t>(c)].trigger(vel, stune);
+                channels_[static_cast<size_t>(c)].trigger(vel, stune, span);
             }
 
             // Ratchet: schedule extra evenly-spaced retriggers within this step's slot.
@@ -926,7 +955,7 @@ void Sequencer::triggerStep(int step) {
                 const int stepSamples = static_cast<int>(samplesPerStep(sampleRate_, step));
                 const int interval = stepSamples / r;
                 for (int k = 1; k < r; ++k) {
-                    ratchets_.push_back(RatchetHit{c, vel, interval * k + nudgeFrames, stune});
+                    ratchets_.push_back(RatchetHit{c, vel, interval * k + nudgeFrames, stune, span});
                 }
             }
         }
@@ -1389,8 +1418,8 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
         // sample-accurate.
         for (size_t ri = 0; ri < ratchets_.size();) {
             if (ratchets_[ri].framesUntil <= 0) {
-                channels_[static_cast<size_t>(ratchets_[ri].channel)].trigger(ratchets_[ri].velocity,
-                                                                              ratchets_[ri].tune);
+                channels_[static_cast<size_t>(ratchets_[ri].channel)].trigger(
+                    ratchets_[ri].velocity, ratchets_[ri].tune, ratchets_[ri].pan);
                 ratchets_.erase(ratchets_.begin() + static_cast<long>(ri));
             } else {
                 chunk = std::min(chunk, ratchets_[ri].framesUntil);
@@ -1507,8 +1536,12 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
             mixScratch_.assign(static_cast<size_t>(chunk), 0.0f);
             channels_[static_cast<size_t>(c)].setLevel(chanVolume_[static_cast<size_t>(c)]);
             channels_[static_cast<size_t>(c)].render(mixScratch_.data(), chunk, sampleRate);
-            // Equal-power pan: angle 0..pi/2 as pan goes -1..+1.
-            const float angle = (chanPan_[static_cast<size_t>(c)] + 1.0f) * 0.5f * kHalfPi;
+            // Equal-power pan: angle 0..pi/2 as pan goes -1..+1. The channel pan is offset by the
+            // current hit's per-step pan (captured on the monophonic voice at trigger), so a step can
+            // sit off-centre; a centred step (per-step pan 0) is bit-identical to before.
+            const float effPan = std::clamp(
+                chanPan_[static_cast<size_t>(c)] + channels_[static_cast<size_t>(c)].pan(), -1.0f, 1.0f);
+            const float angle = (effPan + 1.0f) * 0.5f * kHalfPi;
             const float lg = std::cos(angle) * drumGain_;
             const float rg = std::sin(angle) * drumGain_;
             for (int i = 0; i < chunk; ++i) {

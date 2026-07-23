@@ -1169,6 +1169,34 @@ int main() {
               "songPositionBars hits ~1.0 at the first bar boundary");
     }
 
+    // --- Per-step pan --------------------------------------------------------
+    {
+        // A kick step panned hard-left puts most of the drum stem's energy in the left channel; a
+        // centred step stays balanced (bit-identical to before).
+        audio::Sequencer s;
+        s.setStep(0, 0, true);
+        s.setStepPan(0, 0, -100);
+        check(s.stepPan(0, 0) == -100, "setStepPan stores the per-step pan");
+        s.play();
+        const int fr = sampleRate / 4;
+        std::vector<float> d(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> l(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> b(static_cast<size_t>(fr) * 2, 0.0f);
+        s.renderStems(d.data(), l.data(), b.data(), fr, sampleRate);
+        check(rmsChannel(d, 0) > rmsChannel(d, 1) * 2.0,
+              "a hard-left per-step pan pushes the drum hit into the left channel");
+
+        audio::Sequencer c;
+        c.setStep(0, 0, true); // centred (no per-step pan)
+        c.play();
+        std::vector<float> cd(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> cl(static_cast<size_t>(fr) * 2, 0.0f);
+        std::vector<float> cb(static_cast<size_t>(fr) * 2, 0.0f);
+        c.renderStems(cd.data(), cl.data(), cb.data(), fr, sampleRate);
+        check(std::fabs(rmsChannel(cd, 0) - rmsChannel(cd, 1)) < 1e-4,
+              "a centred step stays balanced L/R (default path unchanged)");
+    }
+
     // --- Master tuning -------------------------------------------------------
     {
         audio::Sequencer s;

@@ -109,13 +109,14 @@ int gmNoteForDrum(Drum type) {
     return 36;
 }
 
-void DrumVoice::trigger(float velocity, float extraSemitones) {
+void DrumVoice::trigger(float velocity, float extraSemitones, float pan) {
     active_ = true;
     choking_ = false;
     chokeGain_ = 1.0f;
     t_ = 0.0;
     phase_ = 0.0;
     velocity_ = velocity < 0.0f ? 0.0f : (velocity > 1.0f ? 1.0f : velocity);
+    pan_ = pan < -1.0f ? -1.0f : (pan > 1.0f ? 1.0f : pan);
     // Capture the hit's pitch (base tune + a per-step offset) at strike time, so a later per-step
     // pitch change never retroactively bends a still-ringing hit.
     hitTune_ = tuneSemitones_ + extraSemitones;

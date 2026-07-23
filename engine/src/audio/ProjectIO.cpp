@@ -563,7 +563,8 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
                     const int prob = static_cast<int>(seq.stepProbability(c, s) * 255.0f + 0.5f);
                     f << "step " << p << " " << c << " " << s << " " << vel << " " << prob << " "
                       << seq.stepRatchet(c, s) << " " << seq.stepTune(c, s) << " "
-                      << seq.stepNudge(c, s) << " " << seq.stepStride(c, s) << "\n";
+                      << seq.stepNudge(c, s) << " " << seq.stepStride(c, s) << " "
+                      << seq.stepPan(c, s) << "\n";
                 }
             }
         }
@@ -1415,6 +1416,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             int stride = 1; // optional per-step trig condition (older files omit it → every loop)
             if (ls >> stride) {
                 seq.setStepStride(c, s, stride);
+            }
+            int pan = 0; // optional per-step pan (older files omit it → centred)
+            if (ls >> pan) {
+                seq.setStepPan(c, s, pan);
             }
         } else if (tag == "note") {
             int p = 0;
