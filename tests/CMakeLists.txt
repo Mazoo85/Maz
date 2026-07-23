@@ -2672,3 +2672,8 @@ add_executable(maz_movetofront_tests io/movetofront.cpp)
 target_link_libraries(maz_movetofront_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME move_to_front COMMAND maz_movetofront_tests)
 set_tests_properties(move_to_front PROPERTIES TIMEOUT 30)
+
+add_executable(maz_nurbscurve_tests math/nurbscurve.cpp)
+target_link_libraries(maz_nurbscurve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME nurbs_curve COMMAND maz_nurbscurve_tests)
+set_tests_properties(nurbs_curve PROPERTIES TIMEOUT 30)

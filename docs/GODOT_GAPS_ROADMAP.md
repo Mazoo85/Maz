@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **NURBS curves (exact conics)** (`math::nurbsPoint` / `math::nurbsClampedKnots`, `NurbsCurve.hpp`) —
+  DONE (M768); the industry-standard freeform curve used by every CAD tool and vector program. It generalises
+  the engine's plain B-spline by giving each control point a WEIGHT, which lets one curve type represent
+  EXACT conics — perfect circles, ellipses and arcs — that no polynomial Bezier or B-spline can reproduce,
+  alongside arbitrary smooth freeform shapes; non-uniform knots place sharper/gentler regions and pin the
+  endpoints. Use it for precise vector paths, camera/motion rails that must follow exact circular arcs,
+  lofting profiles, and authoring tools. Evaluated by the stable de Boor algorithm on homogeneous control
+  points. Godot's Curve2D is cubic Bezier only — no rational curves. [VERIFIABLE HERE] `ctest -R nurbs_curve`:
+  a degree-2 rational quarter arc and a 9-point full circle are mathematically EXACT — every sampled point is
+  radius R from the centre to within 1e-3 (the property polynomial curves cannot achieve); clamped endpoints
+  interpolate the first/last control points; a weight-1 curve stays within the control polygon (B-spline
+  convex-hull behaviour); determinism.
 - [x] **Move-To-Front coding** (`io::mtfEncode` / `io::mtfDecode`, `MoveToFront.hpp`) — DONE (M767); the stage
   that sits between a Burrows-Wheeler Transform and the entropy coder in bzip2-style compression. It keeps a
   running list of the 256 byte values and, for each input byte, emits its CURRENT POSITION then moves it to
