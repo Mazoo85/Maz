@@ -2712,3 +2712,8 @@ add_executable(maz_compensatedsum_tests math/compensatedsum.cpp)
 target_link_libraries(maz_compensatedsum_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME compensated_sum COMMAND maz_compensatedsum_tests)
 set_tests_properties(compensated_sum PROPERTIES TIMEOUT 30)
+
+add_executable(maz_damerau_tests core/damerau.cpp)
+target_link_libraries(maz_damerau_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME damerau COMMAND maz_damerau_tests)
+set_tests_properties(damerau PROPERTIES TIMEOUT 30)

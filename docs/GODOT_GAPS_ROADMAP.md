@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Damerau–Levenshtein (typo-aware) edit distance** (`core::damerauLevenshtein`,
+  `DamerauLevenshtein.hpp`) — DONE (M776); like the engine's plain edit distance
+  (`core::levenshtein`) but counts a SWAP of two adjacent characters as ONE edit. Transposition is the single
+  most common human typo ("teh"→"the", "recieve"→"receive"): Levenshtein charges it as two edits, this charges
+  one, so ranking fuzzy search / command-palette / player-name matches by it tolerates typos the way people
+  actually make them. Restricted (optimal-string-alignment) variant — symmetric and always ≤ Levenshtein.
+  Godot exposes no edit-distance utility. Verified against known values (a transposition is exactly 1 where
+  Levenshtein is 2; kitten→sitting = 3), and cross-checked against the engine's OWN `core::levenshtein` over
+  5000 seeded random string pairs: the Damerau distance is always ≤ Levenshtein, is sometimes strictly less
+  (a transposition genuinely helped), is symmetric, and respects the |lenA−lenB| lower bound (ctest
+  `damerau`). [VERIFIABLE HERE]
 - [x] **Compensated (Kahan/Neumaier) summation** (`math::KahanSum` / `math::compensatedSum`,
   `CompensatedSum.hpp`) — DONE (M775); add up many floating-point numbers without the rounding drift plain
   left-to-right addition accumulates. Once a running total is large, adding a small value loses low bits to
