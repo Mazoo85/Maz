@@ -83,6 +83,16 @@ struct AutomationClip {
     float loopBars = 0.0f;           // 0 = envelope spans the whole clip once; >0 = it repeats every
                                      //     loopBars bars (points are then one cycle) — LFO-like motion
     std::vector<AutoPoint> points;   // breakpoints, time normalized [0,1] (across the span, or one cycle)
+
+    // Unipolar [0,1] envelope value at absolute song position `songPosBars` (single source of truth for
+    // both the render apply and MIDI-CC export, so loop/one-shot handling can't diverge).
+    float unipolarAt(double songPosBars) const {
+        const int span = bars < 1 ? 1 : bars;
+        const double localBars = songPosBars - static_cast<double>(startBar);
+        return (loopBars > 0.0f)
+                   ? Automation::evalPoints(points, localBars / static_cast<double>(loopBars), 1.0)
+                   : Automation::evalPoints(points, localBars / static_cast<double>(span), 0.0);
+    }
 };
 
 class InstrumentPlugin; // hosted CLAP/VST3 instrument (defined in InstrumentPlugin.hpp) — the concrete

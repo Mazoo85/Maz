@@ -469,13 +469,7 @@ void AudioEngine::applyTimelineAutomationClips() {
         // [lo, hi], and write it onto the target through the shared apply path. Applied AFTER the
         // continuous lanes above, so a placed clip wins on its target during its span; the parameter
         // simply holds its last value once the clip ends.
-        const double localBars = pos - static_cast<double>(c.startBar);
-        // loopBars > 0 → the drawn cycle repeats every loopBars bars (phase in cycles, looped);
-        // otherwise the envelope spans the whole clip once (normalized position, held at the ends).
-        const float u = (c.loopBars > 0.0f)
-                            ? Automation::evalPoints(c.points, localBars / static_cast<double>(c.loopBars),
-                                                     1.0)
-                            : Automation::evalPoints(c.points, localBars / static_cast<double>(span), 0.0);
+        const float u = c.unipolarAt(pos); // loop/one-shot handled in AutomationClip (single source)
         const float v = c.lo + u * (c.hi - c.lo);
         Automation::applyTargetValue(*this, static_cast<AutoTarget>(c.target), v);
     }

@@ -163,12 +163,9 @@ bool writeMidi(const std::string& path, Sequencer& seq, int ppq, std::string* er
         }
         const int steps = span * seq.numSteps();
         for (int s = 0; s < steps; ++s) {
-            const double localBars = static_cast<double>(s) / static_cast<double>(seq.numSteps());
-            const float u = (ac.loopBars > 0.0f)
-                                ? Automation::evalPoints(ac.points,
-                                                         localBars / static_cast<double>(ac.loopBars), 1.0)
-                                : Automation::evalPoints(ac.points,
-                                                         localBars / static_cast<double>(span), 0.0);
+            const double songPos =
+                static_cast<double>(ac.startBar) + static_cast<double>(s) / static_cast<double>(seq.numSteps());
+            const float u = ac.unipolarAt(songPos); // same eval as playback (single source of truth)
             int val = static_cast<int>(u * 127.0f + 0.5f);
             val = val < 0 ? 0 : (val > 127 ? 127 : val);
             const int tick = ac.startBar * barTicks + s * ticksPerStep;
