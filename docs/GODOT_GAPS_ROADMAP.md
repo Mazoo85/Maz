@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tetrahedron utilities — volume / barycentric / contains / closest point** (`math::tetrahedronVolume`
+  / `barycentricTetrahedron` → `BaryTet` / `tetrahedronContains` / `closestPointTetrahedron`, `Tetrahedron.hpp`)
+  — DONE (M793); the 3D analogue of the triangle helpers. Tetrahedra are the cells of volumetric (tet) meshes,
+  the interpolation stencil for scattered 3D data (FEM, fluid/soft-body fields), and the containment primitive
+  for deformation cages. Barycentric coordinates express any point as a weighted blend of the four corners
+  (weights summing to 1, all ≥ 0 exactly when inside) — the natural way to interpolate a value stored at the
+  vertices. Godot exposes none of this. Reuses the existing `closestPointOnTriangle` for the face projection.
+  Verified against the AIRTIGHT barycentric reconstruction (weights sum to 1 and rebuild the point exactly;
+  each vertex has a unit basis weight), the contains↔all-weights-nonnegative equivalence, the signed volume
+  (unit corner tetra = 1/6, sign flips on a vertex swap), and the closest point (interior → itself; exterior →
+  the brute-force nearest of the four faces). ctest `tetrahedron`.
 - [x] **Coons patch — surface from four boundary curves** (`math::coonsPatchPoint` / `coonsPatchGrid`,
   `CoonsPatch.hpp`) — DONE (M792); a smooth surface that fills in the interior given only its four boundary
   curves (the two u-edges and two v-edges, passed as callables `f(t)→vec3`), reproducing each edge exactly.

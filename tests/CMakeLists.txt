@@ -2797,3 +2797,8 @@ add_executable(maz_coonspatch_tests math/coonspatch.cpp)
 target_link_libraries(maz_coonspatch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME coons_patch COMMAND maz_coonspatch_tests)
 set_tests_properties(coons_patch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tetrahedron_tests math/tetrahedron.cpp)
+target_link_libraries(maz_tetrahedron_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tetrahedron COMMAND maz_tetrahedron_tests)
+set_tests_properties(tetrahedron PROPERTIES TIMEOUT 30)
