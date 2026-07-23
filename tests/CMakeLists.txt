@@ -2722,3 +2722,8 @@ add_executable(maz_closestpointobb_tests math/closestpointobb.cpp)
 target_link_libraries(maz_closestpointobb_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME closest_point_obb COMMAND maz_closestpointobb_tests)
 set_tests_properties(closest_point_obb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_reuleaux_tests math/reuleaux.cpp)
+target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME reuleaux COMMAND maz_reuleaux_tests)
+set_tests_properties(reuleaux PROPERTIES TIMEOUT 30)

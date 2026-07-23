@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Reuleaux polygon (curve of constant width)** (`math::reuleauxPolygon`, `Reuleaux.hpp`) — DONE (M778);
+  a closed curve that is exactly as wide in every direction — like a circle, but not one. Built from a
+  regular ODD-gon by replacing each edge with a circular arc centred on the opposite vertex: the Reuleaux
+  triangle is the guitar-pick / Wankel-rotor shape (and why some manhole covers can't fall in), and higher
+  odd counts give rounder constant-width shapes (the UK 20p/50p coins). Distinctive procedural sprites/icons,
+  rollers, cams and props; Godot has no constant-width primitive. Returns a closed CCW polyline for the fill
+  / triangulator. Verified against its DEFINING property — measuring the extent in 360 directions gives the
+  same width every time (to ~1e-3) for 3/5/7 sides — plus the corollaries: the diameter (largest chord)
+  equals the width, the boundary is convex, and an even/invalid side count is bumped to a valid odd
+  constant-width shape (ctest `reuleaux`). [VERIFIABLE HERE]
 - [x] **Closest point on an oriented box (OBB)** (`math::closestPointOnObb` / `distanceToObb` /
   `sphereIntersectsObb`, `ClosestPointObb.hpp`) — DONE (M777); given a point and an arbitrarily-rotated box,
   return the nearest point on/in it and the distance. The engine's Obb (Geometry3D.hpp) does contains /
