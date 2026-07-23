@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Compensated (Kahan/Neumaier) summation** (`math::KahanSum` / `math::compensatedSum`,
+  `CompensatedSum.hpp`) — DONE (M775); add up many floating-point numbers without the rounding drift plain
+  left-to-right addition accumulates. Once a running total is large, adding a small value loses low bits to
+  rounding; over thousands of adds (mixing audio samples, accumulating forces/particle contributions, summing
+  analytics, integrating over a frame) the error compounds. This carries a Neumaier compensation term that
+  captures the lost bits and feeds them back, giving near-double accuracy at ~4 extra flops/element — a
+  drop-in accumulator (`KahanSum`) plus a one-shot `compensatedSum`. Godot has no such utility. Verified with
+  a pathological case — 1e8 followed by a million 1.0s, where the float32 ULP (8) makes every small add
+  vanish for naive summation: the compensated result matches the EXACT double-precision total to within a
+  ULP while naive drifts by ~1e6; the Neumaier ordering case (a large term after small ones) stays exact; and
+  on a 500k-element seeded set the compensated float32 total is >20× closer to the double reference than
+  naive (ctest `compensated_sum`). [VERIFIABLE HERE]
 - [x] **Clothoid / Euler spiral** (`math::clothoidPoint` / `clothoidPolyline` / `clothoidHeading` /
   `clothoidCurvature`, `Clothoid.hpp`) — DONE (M774); the transition curve whose CURVATURE varies linearly
   with arc length, κ(s)=κ0+rate·s. It is the shape real roads, railways and racetracks use to join a straight

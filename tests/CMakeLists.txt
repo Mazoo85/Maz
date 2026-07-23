@@ -2707,3 +2707,8 @@ add_executable(maz_clothoid_tests math/clothoid.cpp)
 target_link_libraries(maz_clothoid_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME clothoid COMMAND maz_clothoid_tests)
 set_tests_properties(clothoid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_compensatedsum_tests math/compensatedsum.cpp)
+target_link_libraries(maz_compensatedsum_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME compensated_sum COMMAND maz_compensatedsum_tests)
+set_tests_properties(compensated_sum PROPERTIES TIMEOUT 30)
