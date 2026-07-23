@@ -2561,3 +2561,8 @@ add_executable(maz_filldepressions_tests game/filldepressions.cpp)
 target_link_libraries(maz_filldepressions_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME fill_depressions COMMAND maz_filldepressions_tests)
 set_tests_properties(fill_depressions PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rangecoder_tests io/rangecoder.cpp)
+target_link_libraries(maz_rangecoder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME range_coder COMMAND maz_rangecoder_tests)
+set_tests_properties(range_coder PROPERTIES TIMEOUT 30)

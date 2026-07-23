@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Arithmetic (range) coding** (`io::rangeEncode`/`rangeDecode`, `RangeCoder.hpp`) — DONE (M746); entropy
+  compression that squeezes a stream of symbols down toward its true information content. Where LZW replaces
+  repeats with dictionary codes, a range coder assigns each symbol a slice of a numeric interval proportional
+  to its probability, so common symbols cost a fraction of a bit — beating fixed-width and Huffman on skewed
+  data (quantized audio/mesh residuals, save-game deltas, tile histograms). Dmitry Subbotin's carryless
+  32-bit range coder with a caller-supplied static frequency model. Godot exposes zlib/gzip but no arithmetic
+  coder. [VERIFIABLE HERE] The airtight guarantee — decode(encode(s)) == s — is checked over thousands of
+  random alphabets, frequency tables, and stream lengths; plus a skewed distribution that provably compresses
+  well below the fixed-width size, and degenerate (empty stream, single-symbol alphabet) round-trips.
 - [x] **Terrain depression filling (priority-flood)** (`game::fillDepressions`, `FillDepressions.hpp`) — DONE
   (M745); heightfields from noise or erosion are riddled with pits and closed basins where water would pool
   and get stuck. Before you can trace rivers, compute drainage / flow accumulation, place lakes, or run a
