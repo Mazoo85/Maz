@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Dubins shortest path** (`math::dubinsShortestPath` / `dubinsComputeWord` / `dubinsSample` →
+  `DubinsPath`/`Pose2`, `DubinsPath.hpp`) — DONE (M801); the shortest path for a forward-only vehicle with a
+  minimum turning radius, from a start pose (position + heading) to a goal pose. A Dubins car drives straight
+  or turns left/right at a fixed radius but never reverses; the optimum is always one of six primitive words
+  (four arc-straight-arc: LSL/LSR/RSL/RSR, and two arc-arc-arc: RLR/LRL), and the shortest valid one wins.
+  The standard motion primitive for steering cars, boats, planes and any agent that can't turn on a dime —
+  lane changes, approach curves, patrol turns, or the reference path a pursuit controller tracks. Godot has
+  no curvature-constrained planner. Verified airtight: following any valid word with the independent forward
+  integrator (`dubinsSample`) lands exactly on the goal pose (position + heading) — which validates every
+  closed-form segment formula, since a wrong one would miss the goal; the returned path is the minimum-length
+  word that reaches the goal; the length never dips below the straight-line distance; the sampler moves at
+  unit speed and turns at rate 0 or exactly 1/radius (never tighter than the turning radius); and aligned
+  poses give a pure straight line of length equal to the gap. ctest `dubins_path`.
 - [x] **Closest point / distance to an ellipse** (`math::closestPointOnEllipse` / `distanceToEllipse` /
   `signedDistanceEllipse`, `EllipseDistance.hpp`) — DONE (M800); the robust "nearest point on the oval and how
   far" query. Unlike a circle there is no closed form and the naive radial projection is wrong everywhere but

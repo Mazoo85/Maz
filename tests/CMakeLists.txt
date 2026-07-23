@@ -2837,3 +2837,8 @@ add_executable(maz_ellipsedistance_tests math/ellipsedistance.cpp)
 target_link_libraries(maz_ellipsedistance_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ellipse_distance COMMAND maz_ellipsedistance_tests)
 set_tests_properties(ellipse_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dubinspath_tests math/dubinspath.cpp)
+target_link_libraries(maz_dubinspath_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dubins_path COMMAND maz_dubinspath_tests)
+set_tests_properties(dubins_path PROPERTIES TIMEOUT 30)
