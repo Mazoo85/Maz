@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Alpha shapes / concave hull** (`math::alphaShapeEdges` / `math::concaveHull`, `AlphaShape.hpp`) —
+  DONE (M752); the "shrink-wrap" outline of a scattered 2D point cloud. A convex hull is the tightest
+  CONVEX rubber band and can never dip into a bay or wrap a C-shape; the alpha shape can — it keeps only the
+  Delaunay triangles small enough to hold a disc of radius alpha, so any gap wider than ~2*alpha is left
+  outside, carving out concavities and notches. Sweep alpha large→small and the outline morphs from the
+  convex hull down to the bare points. This turns a splatter of samples (a scanned blob, hit points, a
+  territory of unit positions, a lasso) into a real polygon you can fill, collide, or path around. Godot
+  ships convex hulls only. [VERIFIABLE HERE] `ctest -R alpha_shape`: with a huge alpha the concave hull's
+  enclosed area equals the convex hull's (100.0 for a 10x10 grid); cutting a 3-wide notch into the square
+  and using a moderate alpha carves it — the concave area drops well below the convex area yet still covers
+  most of the shape; a probe point in the carved notch is inside the convex hull but OUTSIDE the concave
+  hull, while a probe in the solid body is inside both; determinism.
 - [x] **2D SPH fluid simulation** (`game::sphDensities` / `game::sphAccelerations`, `Sph2D.hpp`) — DONE
   (M751); the particle-based way to simulate liquids — water, goo, lava, blood, a splash of coloured
   fluid — as a cloud of little blobs that push apart when squeezed and drag their neighbours along. Each
