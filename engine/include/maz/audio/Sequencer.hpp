@@ -186,6 +186,13 @@ public:
     // a clap — be the sidechain trigger, FL-style.
     void setSidechainSource(int channel) { sidechainSource_ = channel < 0 ? 0 : channel; }
     int sidechainSource() const { return sidechainSource_; }
+    // Use a MELODIC lane as the sidechain trigger instead of a drum channel: -1 = drum (per
+    // sidechainSource, the default), 0 = lead roll, 1 = bass roll — a note onset on that lane fires the
+    // duck. Lets a bassline or lead pump the mix, FL-style, not just a kick.
+    void setSidechainMelodicSource(int lane) {
+        sidechainMelodic_ = lane < -1 ? -1 : (lane > 1 ? 1 : lane);
+    }
+    int sidechainMelodicSource() const { return sidechainMelodic_; }
 
     // Number of grid steps that make up one loop of the pattern (default 16 = one 4/4 bar of 16ths).
     int numSteps() const { return numSteps_; }
@@ -813,6 +820,7 @@ private:
     float scReleaseMs_ = 200.0f;
     float scAttackMs_ = 0.0f; // duck engage time (0 = instant snap)
     int sidechainSource_ = 0; // drum channel that triggers the duck (0 = kick)
+    int sidechainMelodic_ = -1; // melodic trigger lane: -1 = use drum source, 0 = lead, 1 = bass
     float scEnv_ = 1.0f;      // current ducking gain (1 = open)
     float scTarget_ = 1.0f;   // floor the duck is heading toward while attacking (1 - amount)
     bool scAttacking_ = false; // true while ramping down to scTarget_ (attack phase)

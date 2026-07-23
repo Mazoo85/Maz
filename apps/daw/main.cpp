@@ -1947,6 +1947,14 @@ void buildMixerUI(audio::AudioEngine& engine) {
                          seq.channelName(scSrc < seq.numChannels() ? scSrc : 0).c_str())) {
         seq.setSidechainSource(scSrc);
     }
+    ImGui::SameLine();
+    // Trigger source kind: a drum channel (the slider above) or a melodic lane's note onsets.
+    int scMel = seq.sidechainMelodicSource() + 1; // -1/0/1 → 0/1/2 for the combo
+    const char* scKinds[] = {"Drum src", "Lead notes", "Bass notes"};
+    ImGui::SetNextItemWidth(110.0f);
+    if (ImGui::Combo("trig##sc", &scMel, scKinds, 3)) {
+        seq.setSidechainMelodicSource(scMel - 1);
+    }
 
     ImGui::SeparatorText("Master FX");
     {

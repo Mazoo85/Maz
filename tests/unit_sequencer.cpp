@@ -1761,6 +1761,33 @@ int main() {
         check(win2(200, 1500) < win2(20000, 25000) * 0.7,
               "the routed (snare) channel drives the sidechain duck");
 
+        // Melodic source: a note on the BASS lane (not a drum) triggers the duck. Measure the isolated
+        // lead stem (the bass audio lands in the bass stem, so the lead stem cleanly shows the duck).
+        audio::Sequencer scm;
+        scm.setBpm(120.0);
+        scm.roll().addNote(audio::Note{0, 16, 60, 1.0f});  // sustained lead note (the ducked content)
+        scm.roll2().addNote(audio::Note{0, 1, 40, 1.0f});  // bass note at step 0 → the trigger
+        scm.synth().setEnvelope(0.001f, 0.01f, 1.0f, 0.05f);
+        scm.setSidechain(true, 0.9f, 250.0f);
+        scm.setSidechainMelodicSource(1); // bass lane drives the duck
+        check(scm.sidechainMelodicSource() == 1, "melodic sidechain source is settable");
+        scm.play();
+        const int mfr = 16 * 6000;
+        std::vector<float> md(static_cast<size_t>(mfr) * 2, 0.0f);
+        std::vector<float> ml(static_cast<size_t>(mfr) * 2, 0.0f);
+        std::vector<float> mb(static_cast<size_t>(mfr) * 2, 0.0f);
+        scm.renderStems(md.data(), ml.data(), mb.data(), mfr, sampleRate);
+        auto leadWin = [&](int a, int b) {
+            double s = 0.0;
+            for (int i = a; i < b; ++i) {
+                const double v = static_cast<double>(ml[static_cast<size_t>(i) * 2]);
+                s += v * v;
+            }
+            return std::sqrt(s / static_cast<double>(b - a));
+        };
+        check(leadWin(200, 1500) < leadWin(20000, 25000) * 0.7,
+              "a melodic (bass-lane) note drives the sidechain duck on the lead bus");
+
         // Attack: with an attack time the duck ramps in, so the level *immediately* after the kick is
         // higher (less ducked) than with the instant (attack=0) snap — a softer, rounded pump.
         auto buildSc = [&](float attackMs) {

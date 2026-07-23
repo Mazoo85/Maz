@@ -434,7 +434,7 @@ static void writeProjectTo(std::ostream& f, Sequencer& seq, Mixer& mixer, Automa
     f << "swing " << seq.swing() << "\n";
     f << "sidechain " << (seq.sidechainOn() ? 1 : 0) << " " << seq.sidechainAmount() << " "
       << seq.sidechainReleaseMs() << " " << seq.sidechainSource() << " " << seq.sidechainAttackMs()
-      << "\n";
+      << " " << seq.sidechainMelodicSource() << "\n";
     f << "arp " << (seq.arpOn() ? 1 : 0) << " " << seq.arpMode() << " " << seq.arpOctaves() << " "
       << seq.arpGate() << " " << seq.arpRate() << "\n";
     f << "humanize " << seq.humanize() << "\n";
@@ -901,6 +901,10 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
             ls >> atk;        // fails on old files → atk stays 0 (instant)
             seq.setSidechain(on != 0, amount, rel, atk);
             seq.setSidechainSource(src);
+            int mel = -1; // melodic trigger lane optional (older files omit it → drum source)
+            if (ls >> mel) {
+                seq.setSidechainMelodicSource(mel);
+            }
         } else if (tag == "arp") {
             int on = 0, mode = 0;
             ls >> on >> mode;

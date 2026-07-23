@@ -934,7 +934,21 @@ void Sequencer::triggerStep(int step) {
     // Sidechain: a kick (channel 0) hit ducks the melodic bus. With no attack the gain snaps down
     // instantly (the classic hard pump); with an attack time it ramps down to the floor over that
     // window (a softer, rounded duck) — handled per-sample in the render loop.
-    if (sidechainOn_ && this->step(sidechainSource_, step)) {
+    bool scTrig;
+    if (sidechainMelodic_ == 0 || sidechainMelodic_ == 1) {
+        // Melodic trigger: fire the duck on a note onset in the chosen lane this step.
+        const PianoRoll& sr = (sidechainMelodic_ == 0) ? roll() : roll2();
+        scTrig = false;
+        for (const Note& n : sr.notes()) {
+            if (n.startStep == step) {
+                scTrig = true;
+                break;
+            }
+        }
+    } else {
+        scTrig = this->step(sidechainSource_, step); // drum-channel trigger (default)
+    }
+    if (sidechainOn_ && scTrig) {
         scTarget_ = 1.0f - scAmount_;
         if (scAttackMs_ <= 0.0f) {
             scEnv_ = scTarget_;
