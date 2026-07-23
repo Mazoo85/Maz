@@ -2752,3 +2752,8 @@ add_executable(maz_superformula_tests math/superformula.cpp)
 target_link_libraries(maz_superformula_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME superformula COMMAND maz_superformula_tests)
 set_tests_properties(superformula PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rayellipsoid_tests math/rayellipsoid.cpp)
+target_link_libraries(maz_rayellipsoid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_ellipsoid COMMAND maz_rayellipsoid_tests)
+set_tests_properties(ray_ellipsoid PROPERTIES TIMEOUT 30)

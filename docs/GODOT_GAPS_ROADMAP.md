@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ray vs axis-aligned ellipsoid** (`math::rayIntersectsEllipsoid` → `EllipsoidHit`, `RayEllipsoid.hpp`)
+  — DONE (M784); the hitscan/picking test against an ellipsoid with independent per-axis radii, returning the
+  distance, world hit point AND the correctly-scaled outward normal. Ray-vs-sphere only handles a uniform
+  radius; real colliders and bounding volumes are frequently squashed or stretched (egg, capsule cap,
+  flattened blast radius, stretched planet), which is exactly an ellipsoid. Warps space to a unit sphere,
+  solves the sphere quadratic, maps back — taking the normal from the implicit gradient (p−c)/radii² (NOT the
+  naive warped direction, which is wrong on non-uniform radii). Godot has no such helper. Verified against a
+  brute-force ray-march (hit/miss + distance), the exact implicit surface eq Σ((p−c)/radii)²=1 at every hit,
+  the analytic gradient normal, the closed-form ray-sphere reduction when radii are equal, and an analytic
+  axis-aligned cap hit. ctest `ray_ellipsoid`.
 - [x] **Gielis superformula — procedural organic/star/flower shapes** (`math::superformulaRadius` /
   `superformulaPoint` / `superformulaPolyline`, `Superformula.hpp`) — DONE (M783); one polar equation,
   r(θ)=(|cos(mθ/4)/a|^n2+|sin(mθ/4)/b|^n3)^(−1/n1), that generates an enormous family of closed shapes —
