@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — bleed / laceration DoT.** Kinetic rounds (bullets and the railgun beam) now open a
+  bleeding wound on the zombies they hit: a stacking damage-over-time that ticks for a few seconds
+  after the shot, rewards staying on-target (stacks build up, capped at 5), and finishes fleeing or
+  weakened bodies without another bullet. It's distinct from fire (fire ignites; bullets lacerate),
+  so the two DoTs layer. Hemorrhaging zombies show a dark-crimson wash that deepens with the stack
+  count. Headless-tested: bleed drains health over time, stacks cap at 5, an un-hit zombie takes no
+  bleed damage, and a real bullet impact opens a wound on the zombie it strikes.
 - **ZOMBOID** (`apps/zomboid`) — a top-down twin-stick zombie **shooter** whose entire simulation is
   written in `maz::script` and driven on a `scene::SceneTree`. Mouse-aim + hold-to-fire pulls rounds
   from an object-pooled bullet system (a script can't spawn nodes, so bullets and zombies are fixed

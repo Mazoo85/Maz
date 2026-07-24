@@ -2166,6 +2166,69 @@ int main() {
         CHECK(activeAcid(t3) >= 1);                                  // the glob landed and left acid
     }
 
+    // Bleed / laceration: kinetic rounds open a bleeding wound that ticks damage over time. Stacks
+    // build with sustained fire, cap at 5, and a body left alone keeps hemorrhaging until the wound
+    // closes. A zombie that was never hit takes no bleed damage.
+    {
+        // DoT case: an applied bleed chews health over a couple of seconds of standing there.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> sp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};   // parked walker, hp 100
+        vm.callOn(zv, "spawn_at", sp);
+        std::vector<Value> b3 = {Value::fromNum(3.0)};
+        vm.callOn(zv, "apply_bleed", b3);
+        CHECK((int)sField(z, "bleed_stacks")->number == 3);
+        CHECK(sField(z, "bleed_timer")->number > 0.0);
+        const double h0 = sField(z, "health")->number;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 120; ++i) vm.callOn(zv, "_process", dt);   // ~2 s
+        CHECK(sField(z, "health")->number < h0);                        // bled for real
+
+        // Cap: stacks never exceed 5 no matter how many hits land.
+        std::vector<Value> b10 = {Value::fromNum(10.0)};
+        vm.callOn(zv, "apply_bleed", b10);
+        CHECK((int)sField(z, "bleed_stacks")->number == 5);
+
+        // Control: a never-hit zombie loses no health from the same idle stepping.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value z2v = z2->script();
+        std::vector<Value> sp2 = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                  Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm2.callOn(z2v, "spawn_at", sp2);
+        const double hc = sField(z2, "health")->number;
+        for (int i = 0; i < 120; ++i) vm2.callOn(z2v, "_process", dt);
+        CHECK(sField(z2, "health")->number == hc);                      // no wound, no bleed
+        CHECK((int)sField(z2, "bleed_stacks")->number == 0);
+
+        // Wiring: an actual bullet impact opens a bleed on the zombie it strikes.
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* z3 = t3.findNode("Zombie0");
+        Value z3v = z3->script();
+        std::vector<Value> sp3 = {Value::fromNum(3.0), Value::fromNum(0.0),
+                                  Value::fromNum(200.0), Value::fromNum(0.0)};   // tanky so it survives
+        vm3.callOn(z3v, "spawn_at", sp3);
+        sField(surv3, "aim_x")->number = 1.0;
+        sField(surv3, "aim_y")->number = 0.0;
+        Value s3v = surv3->script();
+        std::vector<Value> none;
+        vm3.callOn(s3v, "do_shoot", none);                              // one pistol round downrange
+        for (int i = 0; i < 20 && (int)sField(z3, "bleed_stacks")->number == 0; ++i)
+            t3.process(1.0 / 60.0);
+        CHECK((int)sField(z3, "bleed_stacks")->number >= 1);            // the hit lacerated it
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

@@ -534,6 +534,7 @@ class Survivor {
                     var rr = beam + z.radius;
                     if (px * px + py * py <= rr * rr) {
                         z.take_damage(dmg);
+                        z.apply_bleed(1);   # the beam lacerates too
                         self.hits = self.hits + 1;   # railgun beam connections count too
                     }
                 }
@@ -936,6 +937,7 @@ class Bullet {
                     var spd = sqrt(self.vx * self.vx + self.vy * self.vy);
                     if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
                     z.take_damage(self.damage);
+                    z.apply_bleed(1);   # kinetic round tears a bleeding wound
                     if (g_player != nil) { g_player.hits = g_player.hits + 1; }
                     self.hit_list.append(z);
                     # A piercing round spends one pierce and flies on; a normal round stops here.
@@ -1660,6 +1662,9 @@ class Zombie {
     var leaping = 0;       # leaper: seconds remaining in the current pounce (flies along leap vector)
     var leap_vx = 0;       # leaper: stored pounce velocity locked in at the start of the lunge
     var leap_vy = 0;
+    var bleed_stacks = 0;  # laceration stacks from kinetic rounds — each ticks damage over time
+    var bleed_timer = 0;   # while > 0 the wound is open and bleeding; refreshed by fresh hits
+    var bleed_tick = 0;    # accumulator so bleed damage lands in periodic ticks, not every frame
 
     func _ready() { g_zombies.append(self); }
 
@@ -1673,6 +1678,15 @@ class Zombie {
     # Chill this zombie (e.g. caught in a grenade blast): it crawls slowly for `dur` seconds.
     func apply_slow(dur) {
         if (dur > self.slow_timer) { self.slow_timer = dur; }
+    }
+
+    # Open a bleeding wound: kinetic rounds add laceration stacks that tick damage over time.
+    # Stacks build with sustained fire (rewarding staying on-target) and cap so it can't run away.
+    func apply_bleed(n) {
+        if (self.alive == false) { return; }
+        self.bleed_stacks = self.bleed_stacks + n;
+        if (self.bleed_stacks > 5) { self.bleed_stacks = 5; }   # cap the stack
+        self.bleed_timer = 3.0;                                 # fresh hits keep the wound open
     }
 
     # Shove this zombie along (dirx, diry) when shot. Heavy bodies (brutes/bosses) mostly resist it.
@@ -1788,6 +1802,9 @@ class Zombie {
         self.leaping = 0;
         self.leap_vx = 0;
         self.leap_vy = 0;
+        self.bleed_stacks = 0;
+        self.bleed_timer = 0;
+        self.bleed_tick = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -2028,6 +2045,18 @@ class Zombie {
                 if (self.alive == false) { return; }   # burned to death this tick
             }
             if (self.burn_timer <= 0) { self.burn_timer = 0; self.burn_dps = 0; }
+        }
+        # Bleeding status: open wounds from kinetic rounds tick damage in periodic bursts that scale
+        # with the stack count, so a body raked with fire keeps hemorrhaging even after you stop shooting.
+        if (self.bleed_stacks > 0) {
+            self.bleed_timer = self.bleed_timer - dt;
+            self.bleed_tick = self.bleed_tick - dt;
+            if (self.bleed_tick <= 0) {
+                self.bleed_tick = 0.4;
+                self.take_damage(self.bleed_stacks * 1.0);   # 1 dmg per stack per tick
+                if (self.alive == false) { return; }         # bled out this tick
+            }
+            if (self.bleed_timer <= 0) { self.bleed_timer = 0; self.bleed_stacks = 0; }
         }
         # Summoner (kind 7): periodically calls a reinforcement until its budget runs out.
         if (self.kind == 7 and self.summon_budget > 0) {

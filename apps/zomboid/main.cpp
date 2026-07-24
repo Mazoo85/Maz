@@ -633,6 +633,13 @@ int main(int argc, char** argv) {
                 } else if (field(z, "shield") > 0.0) {
                     tint = render::Color{0.8f, 0.9f, 1.0f, 1.0f};   // armored — steel sheen
                 }
+                // Bleeding shows a dark crimson wash that deepens with the stack count, so a
+                // hemorrhaging body reads at a glance (fire and rage still override it below).
+                const double bleed = field(z, "bleed_stacks");
+                if (bleed > 0.0) {
+                    const float bt = std::min(1.0f, static_cast<float>(bleed) / 5.0f);
+                    tint = render::Color{0.85f, 0.15f + 0.2f * (1.0f - bt), 0.2f, 1.0f};
+                }
                 // An enraged boss pulses an angry red, whatever its wound tint.
                 if (fieldBool(z, "enraged")) {
                     const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 16.0f);
