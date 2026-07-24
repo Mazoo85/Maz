@@ -887,6 +887,59 @@ int main() {
         }
     }
 
+    // Auto-turret sentry: deployed from stock, it auto-fires at nearby zombies over its lifetime,
+    // then powers down. Out-of-range zombies are ignored.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        CHECK((int)tree.nodesInGroup("sentries").size() == zomboid::kSentryPool);
+        const double stock0 = sField(survivor, "sentries")->number;
+        CHECK(stock0 >= 1.0);
+
+        // Deploy a sentry at the origin.
+        std::vector<Value> none;
+        Value placed = tree.scripts().vm().callOn(sv, "place_sentry", none);
+        CHECK(placed.boolean);
+        CHECK(sField(survivor, "sentries")->number == stock0 - 1.0);
+        SceneNode* sen = tree.findNode("Sentry0");
+        CHECK(sen->script().instance->findField("active")->boolean);
+
+        // A zombie in range takes fire; a far zombie stays untouched.
+        SceneNode* zin = tree.findNode("Zombie0");
+        SceneNode* zout = tree.findNode("Zombie1");
+        std::vector<Value> atIn = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                   Value::fromNum(0.0)};
+        std::vector<Value> atOut = {Value::fromNum(60.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                    Value::fromNum(0.0)};
+        Value zinS = zin->script();
+        Value zoutS = zout->script();
+        tree.scripts().vm().callOn(zinS, "spawn_at", atIn);
+        tree.scripts().vm().callOn(zoutS, "spawn_at", atOut);
+        const double inHp0 = zin->script().instance->findField("health")->number;
+        const double outHp0 = zout->script().instance->findField("health")->number;
+
+        // Drive the sentry directly for a second (isolated from zombie movement).
+        Value senv = sen->script();
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(senv, "_process", dtv);
+        CHECK(zin->script().instance->findField("health")->number < inHp0);    // in-range zombie shot
+        CHECK(zout->script().instance->findField("health")->number == outHp0); // far zombie ignored
+
+        // It powers down once its lifetime elapses (~12 s more).
+        for (int i = 0; i < 60 * 13; ++i) tree.scripts().vm().callOn(senv, "_process", dtv);
+        CHECK(!sen->script().instance->findField("active")->boolean);
+
+        // A supply crate replenishes a sentry.
+        survivor->setPosition(0.0, 0.0);
+        const double stock1 = sField(survivor, "sentries")->number;
+        std::vector<Value> catv = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_crate", catv);
+        tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "sentries")->number == stock1 + 1.0);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

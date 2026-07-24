@@ -34,6 +34,7 @@ var g_spits = [];       # object pool for spitter acid globs (enemy ranged proje
 var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / damage / shield)
 var g_crates = [];      # object pool for periodic supply-crate care packages
 var g_mines = [];       # object pool for deployable proximity mines
+var g_sentries = [];    # object pool for deployable auto-turret sentries
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -132,6 +133,7 @@ class Survivor {
     var is_reloading = false;
     var grenades = 3;        # thrown-explosive count
     var mines = 2;           # deployable proximity-mine stock
+    var sentries = 1;        # deployable auto-turret stock
     # Overcharge ultimate: kills fill the meter; when full, detonate wipes the field.
     var ult = 0;
     var ult_max = 25;
@@ -567,6 +569,24 @@ class Survivor {
         return false;
     }
 
+    # Deploy an auto-turret sentry at the survivor's feet: it auto-fires at nearby zombies for a short
+    # lifetime, then powers down. Consumes one from the stock. Returns true if one was placed.
+    func place_sentry() {
+        if (self.sentries <= 0) { return false; }
+        var i = 0;
+        var n = len(g_sentries);
+        while (i < n) {
+            var s = g_sentries[i];
+            if (s.active == false) {
+                s.deploy(self.node.x, self.node.y);
+                self.sentries = self.sentries - 1;
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     func eat() {
         if (self.food > 0) {
             self.food = self.food - 1;
@@ -597,6 +617,7 @@ class Survivor {
         self.heal(50);
         self.grenades = self.grenades + 2;
         self.mines = self.mines + 1;
+        self.sentries = self.sentries + 1;
         self.reserves[0] = self.reserves[0] + 48;
         self.reserves[1] = self.reserves[1] + 16;
         self.reserves[2] = self.reserves[2] + 90;
@@ -1109,6 +1130,57 @@ class Mine {
     }
 }
 
+# A pooled auto-turret sentry. Dormant until the survivor deploys it; then it auto-fires a hitscan bolt
+# at the nearest live zombie in range on a cadence, for a limited lifetime, before powering down. A
+# stationary ally that thins a lane while the survivor handles another.
+class Sentry {
+    var active = false;
+    var life = 0;
+    var max_life = 12;
+    var fire_cd = 0;
+    var fire_rate = 3.0;     # bolts per second
+    var range = 16.0;
+    var damage = 22;
+
+    func _ready() { g_sentries.append(self); }
+
+    func deploy(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.fire_cd = 0;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        self.fire_cd = self.fire_cd - dt;
+        if (self.fire_cd > 0) { return; }
+        # Acquire the nearest live zombie in range and shoot it.
+        var best = self.range * self.range;
+        var target = nil;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= best) { best = d2; target = z; }
+            }
+            i = i + 1;
+        }
+        if (target != nil) {
+            target.take_damage(self.damage);
+            emit(target.node.x, target.node.y, 3, 0);   # impact sparks on the target
+            self.fire_cd = 1.0 / self.fire_rate;
+        }
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -1513,6 +1585,7 @@ constexpr int kSpitPool = 24;
 constexpr int kPowerupPool = 8;
 constexpr int kCratePool = 2;
 constexpr int kMinePool = 6;
+constexpr int kSentryPool = 3;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -1587,6 +1660,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         m->setPosition(100000.0, 100000.0);
         m->addToGroup("mines");
         tree.attachScript(*m, "Mine");
+    }
+
+    // Auto-turret sentry pool — dormant until the survivor deploys one.
+    for (int i = 0; i < kSentryPool; ++i) {
+        maz::scene::SceneNode* s = tree.createChild(tree.root(), "Sentry" + std::to_string(i));
+        s->setPosition(100000.0, 100000.0);
+        s->addToGroup("sentries");
+        tree.attachScript(*s, "Sentry");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

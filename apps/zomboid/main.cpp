@@ -126,6 +126,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texPowShield = renderer->createTexture(16, 16, makeSquare(70, 180, 255).data());
     render::TextureHandle texCrate = renderer->createTexture(16, 16, makeSquare(200, 160, 90).data());
     render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
+    render::TextureHandle texSentry = renderer->createTexture(16, 16, makeSquare(90, 150, 220).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -175,6 +176,7 @@ int main(int argc, char** argv) {
     double simTime = 0.0;
     double nextGrenade = 4.0; // autopilot's next grenade toss time
     double nextMine = 7.0;    // autopilot's next proximity-mine deploy time
+    double nextSentry = 5.0;  // autopilot's next sentry deploy time
     // A bounded run (headless or --frames N) steps a deterministic fixed dt per frame so the sim
     // actually advances and is reproducible; interactive play uses the wall-clock fixed-step accumulator.
     const bool deterministic = cfg.headless || cfg.frames >= 0;
@@ -380,6 +382,18 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> none;
                 tree.scripts().vm().callOn(self, "place_mine", none);
             }
+
+            // Deploy an auto-turret sentry (Y while playing; autopilot lays one every ~11 s if it has any).
+            bool sentryNow = !autopilot && input.keyPressed(SDL_SCANCODE_Y);
+            if (autopilot && simTime >= nextSentry && field(survivor, "sentries") > 0.0) {
+                sentryNow = true;
+                nextSentry = simTime + 11.0;
+            }
+            if (sentryNow) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "place_sentry", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -489,6 +503,15 @@ int main(int argc, char** argv) {
                 const render::Color mc = armed ? render::Color{1.0f, 0.25f * pulse, 0.2f * pulse, 1.0f}
                                                : render::Color{0.6f, 0.6f, 0.65f, 0.8f};
                 drawAt(mn->x(), mn->y(), texMine, 1.6f, mc);
+            }
+            // Auto-turret sentries: a steady blue block that flashes brighter as it fires; dims near expiry.
+            for (scene::SceneNode* st : tree.nodesInGroup("sentries")) {
+                if (!fieldBool(st, "active")) continue;
+                const float slife = static_cast<float>(field(st, "life"));
+                const float flash = 0.8f + 0.2f * std::sin(static_cast<float>(simTime) * 18.0f);
+                const float dim = slife < 3.0f ? 0.5f : 1.0f;
+                drawAt(st->x(), st->y(), texSentry, 2.0f,
+                       render::Color{0.6f * flash * dim, 0.85f * flash * dim, 1.0f * dim, 1.0f});
             }
             // Power-up pickups (rapid-fire / damage / shield), blinking as they near expiry.
             for (scene::SceneNode* p : tree.nodesInGroup("powerups")) {
@@ -634,10 +657,11 @@ int main(int argc, char** argv) {
                           lowAmmo ? render::Color{0.95f, 0.5f, 0.35f, 1.0f}
                                   : render::Color{0.85f, 0.9f, 0.95f, 1.0f},
                           0.5f);
-            char nadeBuf[64];
-            std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d  (G)     MINES %d  (T)",
+            char nadeBuf[96];
+            std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d (G)   MINES %d (T)   SENTRY %d (Y)",
                           static_cast<int>(field(survivor, "grenades")),
-                          static_cast<int>(field(survivor, "mines")));
+                          static_cast<int>(field(survivor, "mines")),
+                          static_cast<int>(field(survivor, "sentries")));
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
                           0.45f);
             const int revives = static_cast<int>(field(survivor, "revives"));

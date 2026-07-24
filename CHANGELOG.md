@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Auto-turret sentries** — press Y (or, on autopilot, every ~11 s) to deploy a pooled sentry from a
+  small stock (starts at 1). It auto-fires a hitscan bolt at the nearest zombie in range (~16 units) a
+  few times a second for ~12 seconds, then powers down — a stationary ally that thins one lane while
+  you handle another. Supply crates replenish sentries (+1) alongside mines, grenades, and ammo.
+  Verified headless (`zomboid_sim`): the pool builds, deploying consumes stock + activates a sentry, an
+  in-range zombie takes fire while a far one is ignored, the sentry powers down after its lifetime, and
+  a supply crate replenishes it.
 - **Splitter zombie (new enemy)** — a bloated mid-tier zombie (kind 6, magenta) that bursts into two
   fast runners the instant it dies, so killing it trades one slow target for two quick ones. It joins
   the wave roster from wave 6 onward. Punishes careless AoE and rewards positioning before the pop.
