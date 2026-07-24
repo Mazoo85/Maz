@@ -386,6 +386,12 @@ int main(int argc, char** argv) {
             const int kills = static_cast<int>(globalNum(tree, "g_kills"));
             std::snprintf(buf, sizeof(buf), "WAVE %d      SCORE %d      KILLS %d", wave, score, kills);
             font.drawText(*renderer, sw * 0.5f - 220.0f, 14.0f, buf, kWhite, 0.55f);
+            // Upgrade progression.
+            std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f",
+                          static_cast<int>(field(survivor, "upgrades")), field(survivor, "dmg_mult"),
+                          field(survivor, "rate_mult"));
+            font.drawText(*renderer, sw * 0.5f - 220.0f, 44.0f, buf,
+                          render::Color{0.7f, 0.95f, 0.75f, 1.0f}, 0.42f);
 
             const float health = static_cast<float>(field(survivor, "health"));
             const float hunger = static_cast<float>(field(survivor, "hunger"));

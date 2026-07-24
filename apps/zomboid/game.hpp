@@ -83,9 +83,14 @@ class Survivor {
 
     # Weapon state (set by set_weapon): 0 = pistol, 1 = shotgun, 2 = SMG.
     var weapon = 0;
-    var fire_rate = 6;      # shots per second
+    var fire_rate = 6;      # shots per second (base * rate_mult)
     var fire_cd = 0;
-    var damage = 25;        # damage per bullet
+    var damage = 25;        # damage per bullet (base * dmg_mult)
+    var base_fr = 6;        # per-weapon base fire rate / damage, before upgrade multipliers
+    var base_dmg = 25;
+    var dmg_mult = 1.0;     # upgrade multipliers, grow between waves
+    var rate_mult = 1.0;
+    var upgrades = 0;       # number of between-wave upgrades applied
     var pellets = 1;        # bullets per shot (shotgun fires several)
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
@@ -148,33 +153,63 @@ class Survivor {
     func set_weapon(i) {
         self.weapon = i;
         if (i == 1) {
-            self.fire_rate = 1.6;
-            self.damage = 14;
+            self.base_fr = 1.6;
+            self.base_dmg = 14;
             self.pellets = 6;
             self.spread = 0.28;
             self.bullet_speed = 58;
         } else {
             if (i == 2) {
-                self.fire_rate = 12;
-                self.damage = 11;
+                self.base_fr = 12;
+                self.base_dmg = 11;
                 self.pellets = 1;
                 self.spread = 0.06;
                 self.bullet_speed = 82;
             } else {
                 self.weapon = 0;
-                self.fire_rate = 6;
-                self.damage = 25;
+                self.base_fr = 6;
+                self.base_dmg = 25;
                 self.pellets = 1;
                 self.spread = 0;
                 self.bullet_speed = 70;
             }
         }
+        self.apply_mults();
         self.fire_cd = 0;
         self.reloading = false;
         self.reload_t = 0;
         self.is_reloading = false;
         self.cur_ammo = self.mags[self.weapon];
         self.cur_reserve = self.reserves[self.weapon];
+    }
+
+    # Fold the upgrade multipliers onto the active weapon's base stats.
+    func apply_mults() {
+        self.fire_rate = self.base_fr * self.rate_mult;
+        self.damage = self.base_dmg * self.dmg_mult;
+    }
+
+    # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo.
+    func apply_upgrade() {
+        var k = self.upgrades % 4;
+        if (k == 0) {
+            self.dmg_mult = self.dmg_mult + 0.2;
+        } else {
+            if (k == 1) {
+                self.rate_mult = self.rate_mult + 0.15;
+            } else {
+                if (k == 2) {
+                    self.max_health = self.max_health + 25;
+                    self.health = self.max_health;
+                } else {
+                    self.reserves[0] = self.reserves[0] + 36;
+                    self.reserves[1] = self.reserves[1] + 12;
+                    self.reserves[2] = self.reserves[2] + 60;
+                }
+            }
+        }
+        self.upgrades = self.upgrades + 1;
+        self.apply_mults();
     }
 
     # Fire the whole shot: one bullet per pellet, each jittered within the weapon's spread.
@@ -488,6 +523,8 @@ class Director {
     }
 
     func start_wave(w) {
+        # Reward surviving the previous wave with a permanent upgrade.
+        if (w >= 2 and g_player != nil) { g_player.apply_upgrade(); }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         if (count > pool) { count = pool; }

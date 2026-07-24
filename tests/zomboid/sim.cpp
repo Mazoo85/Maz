@@ -306,9 +306,50 @@ int main() {
         CHECK((*sField(survivor, "reserves")->array)[0].number > res0);
     }
 
+    // Upgrades: each apply_upgrade cycles a distinct boost (+dmg, +rate, +max health, +ammo).
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        const double dmg0 = sField(s, "damage")->number;      // pistol 25
+        const double rate0 = sField(s, "fire_rate")->number;  // pistol 6
+        const double hp0 = sField(s, "max_health")->number;   // 100
+        const double res0 = (*sField(s, "reserves")->array)[0].number;
+        Value self = s->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k0: +damage
+        CHECK(sField(s, "damage")->number > dmg0);
+        CHECK(sField(s, "dmg_mult")->number > 1.0);
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k1: +fire rate
+        CHECK(sField(s, "fire_rate")->number > rate0);
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k2: +max health (heal)
+        CHECK(sField(s, "max_health")->number > hp0);
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k3: +ammo
+        CHECK((*sField(s, "reserves")->array)[0].number > res0);
+        CHECK((int)sField(s, "upgrades")->number == 4);
+    }
+
+    // Progression is wired to waves: clearing wave 1 grants the first upgrade when wave 2 opens.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        tree.process(0.016);
+        CHECK((int)glob(tree, "g_wave") == 1);
+        CHECK((int)sField(survivor, "upgrades")->number == 0); // no upgrade yet on wave 1
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (z->script().instance->findField("alive")->boolean) {
+                Value zs = z->script();
+                std::vector<Value> dmg = {Value::fromNum(9999.0)};
+                tree.scripts().vm().callOn(zs, "take_damage", dmg);
+            }
+        }
+        for (int i = 0; i < 240; ++i) tree.process(1.0 / 60.0);
+        CHECK((int)glob(tree, "g_wave") == 2);
+        CHECK((int)sField(survivor, "upgrades")->number == 1); // wave 2 handed out an upgrade
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
-                    "impact juice, ammo + reload, kills/score, survival, loot.\n");
+                    "impact juice, ammo + reload, wave upgrades, kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);

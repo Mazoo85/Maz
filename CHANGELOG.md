@@ -42,6 +42,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   (`zomboid_sim`): firing drains the magazine and an auto-reload refills it from a diminished reserve;
   a weapon with an empty magazine and empty reserve fires exactly its last round then goes dry and
   cannot reload; and collecting loot raises the reserve.
+- **Between-wave upgrades** — surviving a wave grants a permanent upgrade, cycling +20% damage, +15%
+  fire rate, +25 max health (with a full heal), and an ammo top-up. Damage and fire rate are applied
+  as multipliers over each weapon's base stats, so the whole arsenal scales together as the run goes
+  on. The HUD shows the upgrade count and current DMG/RATE multipliers. Verified headless
+  (`zomboid_sim`): each `apply_upgrade` raises the matching stat in turn, and clearing wave 1 hands out
+  the first upgrade exactly when wave 2 opens (none before).
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,
