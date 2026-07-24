@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Closest point / distance / SDF to an oriented box (OBB)** (`math::closestPointOnObb` /
+  `distanceToObb` / `sqDistanceToObb` / `signedDistanceObb` / `obbIntersectsSphere`, `ObbDistance.hpp`) —
+  DONE (M805); the query the engine's `Obb` was missing. `Obb` already answered "contains this point?" and
+  "do two boxes overlap?" (SAT) but not "what is the nearest point on this box and how far?" — the workhorse
+  for sphere-vs-box collision, character-vs-crate resolution, editor picking and proximity/trigger tests
+  against a rotated box. Drops the point into the box's local frame, clamps per-axis, maps back; also gives
+  the EXACT oriented-box signed distance field (negative inside), which the cheap gradient-scaled implicit
+  only approximates. Godot exposes no OBB closest-point helper. Verified airtight: the reported closest point
+  lies in the box and its distance equals the true minimum over a dense sampling of the box (no sampled point
+  is nearer); distance == |p − closest| and sqDistance is its square; the SDF is negative strictly inside,
+  positive outside, matches the unsigned distance outside, and has unit gradient (eikonal) there; hand-checked
+  values for an axis-aligned unit box; distance is invariant under a shared rotation of box and point; and
+  sphere overlap agrees with distance ≤ radius. ctest `obb_distance`.
 - [x] **Newell polygon normal + area + centroid** (`math::polygonInfo3D` / `polygonNormal3D` /
   `polygonArea3D` / `newellVector`, `PolygonNewell.hpp`) — DONE (M804); the robust normal, area, and
   area-weighted centroid of an arbitrary planar (or nearly-planar) polygon with any vertex count. The naive

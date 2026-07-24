@@ -2857,3 +2857,8 @@ add_executable(maz_polygonnewell_tests math/polygonnewell.cpp)
 target_link_libraries(maz_polygonnewell_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME polygon_newell COMMAND maz_polygonnewell_tests)
 set_tests_properties(polygon_newell PROPERTIES TIMEOUT 30)
+
+add_executable(maz_obbdistance_tests math/obbdistance.cpp)
+target_link_libraries(maz_obbdistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME obb_distance COMMAND maz_obbdistance_tests)
+set_tests_properties(obb_distance PROPERTIES TIMEOUT 30)
