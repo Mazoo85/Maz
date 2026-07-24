@@ -118,6 +118,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Piercing Rounds** — your bullets punch through several zombies.
 - **Cryo Nova** — instantly chills *every* zombie on the field — a panic button when swarmed.
 - **Overflow** — infinite ammo and no reloads for a while — hose down a wave without pausing.
+- **Frost Field** — a lingering cold aura that keeps *every* zombie crawling at half speed for its
+  duration (unlike the one-shot Cryo Nova), so you can reposition or thin a swarm at your leisure.
 
 ## Combat systems worth knowing
 

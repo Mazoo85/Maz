@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Frost Field power-up (8th power-up).** A new drop that projects a sustained cold aura:
+  while it lasts, **every zombie on the field crawls at half speed** — unlike the one-shot Cryo Nova,
+  this is a lingering slow that buys you sustained breathing room to reposition or thin a swarm. The
+  survivor glows icy blue while it's active. Headless-tested: a walker covers well under half its
+  normal ground toward the survivor while the Frost Field is up.
 - **ZOMBOID — night pays better.** The day/night cycle already made the horde faster and deadlier
   after dusk; now kills landed at night also bank **50% more salvage cash**, so holding out through
   the dark hours is a real risk/reward play instead of pure danger. Headless-tested: the same walker

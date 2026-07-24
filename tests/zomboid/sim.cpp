@@ -2957,6 +2957,43 @@ int main() {
         CHECK(glob(t2, "g_cash") == 10.0);             // 7 + int(7/2)
     }
 
+    // Frost Field power-up (kind 7): a sustained aura that halves every zombie's movement while it's
+    // active — a frosted zombie covers noticeably less ground than an un-frosted one over the same span.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> sp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(10.0)};  // walker, speed 10
+
+        // Control: no buff — the walker closes the normal distance toward the survivor.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        s1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        Value z1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(z1, "spawn_at", sp);
+        const double x1 = t1.findNode("Zombie0")->x();
+        for (int i = 0; i < 30; ++i) { vm1.callOn(z1, "_process", dt); }
+        const double moved1 = x1 - t1.findNode("Zombie0")->x();
+
+        // Frosted: the survivor holds a Frost Field buff, so the same walker crawls.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        Value s2v = s2->script();
+        std::vector<Value> grant = {Value::fromNum(7.0)};
+        vm2.callOn(s2v, "grant_powerup", grant);
+        CHECK(sField(s2, "buff_kind")->number == 7.0);
+        Value z2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(z2, "spawn_at", sp);
+        const double x2 = t2.findNode("Zombie0")->x();
+        for (int i = 0; i < 30; ++i) { vm2.callOn(z2, "_process", dt); }
+        const double moved2 = x2 - t2.findNode("Zombie0")->x();
+
+        CHECK(moved2 < moved1);                // frosted crawls less ground
+        CHECK(moved2 < moved1 * 0.6);          // roughly half speed (with margin)
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

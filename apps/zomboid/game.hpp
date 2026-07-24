@@ -510,6 +510,15 @@ class Survivor {
         return false;
     }
 
+    # True while a Frost Field (kind 7) buff is active — every zombie crawls at half speed for the
+    # duration (a sustained slow aura, unlike the one-shot cryo nova).
+    func frost_active() {
+        if (self.buff_kind == 7) {
+            if (self.buff_timer > 0) { return true; }
+        }
+        return false;
+    }
+
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
     # +crit chance.
     func apply_upgrade() {
@@ -2281,8 +2290,8 @@ class Zombie {
             # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric,
             # overflow).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 7));
-                if (pk > 6) { pk = 6; }
+                var pk = int(randf_range(0, 8));
+                if (pk > 7) { pk = 7; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.
@@ -2401,6 +2410,7 @@ class Zombie {
         var sm = 1.0;
         if (self.slow_timer > 0) { sm = 0.4; }
         if (self.frenzy_timer > 0) { sm = sm * 1.6; }   # whipped into a frenzy — surges faster
+        if (g_player != nil and g_player.frost_active()) { sm = sm * 0.5; }   # Frost Field aura
         if (self.stagger_timer > 0) { sm = 0.0; }   # flinching — rooted where it stands
         if (self.kind == 3) {
             # Boss enrage: once badly wounded (below 35% health) it flies into a rage for a climactic
