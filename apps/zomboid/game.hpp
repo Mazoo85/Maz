@@ -33,6 +33,7 @@ var g_medkits = [];     # object pool for dropped health pickups
 var g_spits = [];       # object pool for spitter acid globs (enemy ranged projectiles)
 var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / damage / shield)
 var g_crates = [];      # object pool for periodic supply-crate care packages
+var g_mines = [];       # object pool for deployable proximity mines
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -130,6 +131,7 @@ class Survivor {
     var cur_reserve = 48;
     var is_reloading = false;
     var grenades = 3;        # thrown-explosive count
+    var mines = 2;           # deployable proximity-mine stock
     # Overcharge ultimate: kills fill the meter; when full, detonate wipes the field.
     var ult = 0;
     var ult_max = 25;
@@ -507,6 +509,24 @@ class Survivor {
         }
     }
 
+    # Deploy a proximity mine at the survivor's feet: it arms after a short delay, then detonates when
+    # a zombie steps near. Consumes one from the stock. Returns true if one was placed.
+    func place_mine() {
+        if (self.mines <= 0) { return false; }
+        var i = 0;
+        var n = len(g_mines);
+        while (i < n) {
+            var m = g_mines[i];
+            if (m.active == false) {
+                m.arm(self.node.x, self.node.y);
+                self.mines = self.mines - 1;
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     func eat() {
         if (self.food > 0) {
             self.food = self.food - 1;
@@ -536,6 +556,7 @@ class Survivor {
     func collect_crate() {
         self.heal(50);
         self.grenades = self.grenades + 2;
+        self.mines = self.mines + 1;
         self.reserves[0] = self.reserves[0] + 48;
         self.reserves[1] = self.reserves[1] + 16;
         self.reserves[2] = self.reserves[2] + 90;
@@ -972,6 +993,78 @@ func drop_crate(x, y) {
     }
 }
 
+# A pooled proximity mine. Dormant until the survivor deploys it; arms after a short delay (so you
+# don't blow yourself up placing it), then detonates the moment a live zombie steps within trigger
+# range — a heavy blast that damages, knocks back, and chills everything in the blast radius.
+class Mine {
+    var active = false;
+    var armed = false;
+    var arm_delay = 0;
+    var trigger_range = 3.0;
+    var blast_radius = 6.0;
+    var blast_dmg = 120;
+
+    func _ready() { g_mines.append(self); }
+
+    func arm(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.arm_delay = 0.6;   # brief safety fuse before it can trigger
+        self.armed = false;
+        self.active = true;
+    }
+
+    func detonate() {
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= self.blast_radius * self.blast_radius) {
+                    var m = sqrt(d2);
+                    if (m < 0.01) { m = 0.01; }
+                    z.hit_knockback(dx / m, dy / m, 5.0);
+                    z.apply_slow(2.0);
+                    z.take_damage(self.blast_dmg);
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 28, 1);
+        g_shake = g_shake + 2.2;
+        if (g_shake > 3.0) { g_shake = 3.0; }
+        self.active = false;
+        self.armed = false;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        if (self.arm_delay > 0) {
+            self.arm_delay = self.arm_delay - dt;
+            if (self.arm_delay <= 0) { self.armed = true; }
+            return;
+        }
+        # Once armed, detonate if any live zombie is within trigger range.
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= self.trigger_range * self.trigger_range) {
+                    self.detonate();
+                    return;
+                }
+            }
+            i = i + 1;
+        }
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -1337,6 +1430,7 @@ constexpr int kMedkitPool = 12;
 constexpr int kSpitPool = 24;
 constexpr int kPowerupPool = 8;
 constexpr int kCratePool = 2;
+constexpr int kMinePool = 6;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -1403,6 +1497,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         c->setPosition(100000.0, 100000.0);
         c->addToGroup("crates");
         tree.attachScript(*c, "Crate");
+    }
+
+    // Proximity-mine pool — dormant until the survivor deploys one.
+    for (int i = 0; i < kMinePool; ++i) {
+        maz::scene::SceneNode* m = tree.createChild(tree.root(), "Mine" + std::to_string(i));
+        m->setPosition(100000.0, 100000.0);
+        m->addToGroup("mines");
+        tree.attachScript(*m, "Mine");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

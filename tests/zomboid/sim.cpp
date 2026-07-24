@@ -759,6 +759,52 @@ int main() {
         CHECK(nearZ->script().instance->findField("health")->number == nearHp1);
     }
 
+    // Proximity mine: deployed at the survivor's feet, arms after a safety delay, then detonates when
+    // a zombie steps into trigger range — a heavy AoE blast. Consumes one from the stock.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        CHECK((int)tree.nodesInGroup("mines").size() == zomboid::kMinePool);
+        const double stock0 = sField(survivor, "mines")->number;
+        CHECK(stock0 >= 1.0);
+
+        // Deploy a mine at the origin.
+        std::vector<Value> none;
+        Value placed = tree.scripts().vm().callOn(sv, "place_mine", none);
+        CHECK(placed.boolean);
+        CHECK(sField(survivor, "mines")->number == stock0 - 1.0);
+        SceneNode* mine = tree.findNode("Mine0");
+        CHECK(mine->script().instance->findField("active")->boolean);
+
+        // Park a zombie right on the mine BEFORE it arms: the safety fuse means no early detonation.
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(0.5), Value::fromNum(0.0), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", at);
+        const double zHp0 = z->script().instance->findField("health")->number;
+        Value mv = mine->script();
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        tree.scripts().vm().callOn(mv, "_process", dtv);   // still arming
+        CHECK(mine->script().instance->findField("active")->boolean);        // not yet blown
+        CHECK(z->script().instance->findField("health")->number == zHp0);    // no early damage
+
+        // Let the safety fuse elapse (~0.6s), then it detonates on the in-range zombie.
+        for (int i = 0; i < 45; ++i) tree.scripts().vm().callOn(mv, "_process", dtv);
+        CHECK(!mine->script().instance->findField("active")->boolean);       // detonated + recycled
+        CHECK(z->script().instance->findField("health")->number < zHp0);     // caught in the blast
+
+        // Collecting a supply crate replenishes a mine.
+        survivor->setPosition(0.0, 0.0);
+        std::vector<Value> catv = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_crate", catv);
+        const double stock1 = sField(survivor, "mines")->number;
+        tree.process(1.0 / 60.0);   // survivor is on the crate → collected
+        CHECK(sField(survivor, "mines")->number == stock1 + 1.0);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

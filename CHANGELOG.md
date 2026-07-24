@@ -105,6 +105,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Proximity mines** — press T (or, on autopilot, every ~9 s) to deploy a pooled proximity mine at
+  your feet from a small stock (starts at 2). It arms after a ~0.6 s safety fuse, then detonates the
+  instant a zombie steps within trigger range — a heavy blast that damages, knocks back, and chills
+  everything in radius. Supply crates now top up mines (+1) alongside grenades and ammo. Adds a
+  trap-laying, area-denial layer to the survival toolkit. Verified headless (`zomboid_sim`): the pool
+  builds, deploying consumes one from the stock and activates a mine, an unarmed mine ignores a zombie
+  sitting on it (safety fuse), it detonates and damages the zombie once the fuse elapses, and a supply
+  crate replenishes a mine.
 - **Melee shove** — press F (or, on autopilot, when a zombie is point-blank) for a free close-range
   swing that damages and knocks back every zombie in a short radius, then goes on a ~1-second cooldown.
   It costs no ammo, so it's the last-resort answer when a walker is right on top of you or you're mid-

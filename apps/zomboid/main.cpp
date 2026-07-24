@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
     render::TextureHandle texPowShield = renderer->createTexture(16, 16, makeSquare(70, 180, 255).data());
     render::TextureHandle texCrate = renderer->createTexture(16, 16, makeSquare(200, 160, 90).data());
+    render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -172,6 +173,7 @@ int main(int argc, char** argv) {
     bool ateLast = false;
     double simTime = 0.0;
     double nextGrenade = 4.0; // autopilot's next grenade toss time
+    double nextMine = 7.0;    // autopilot's next proximity-mine deploy time
     // A bounded run (headless or --frames N) steps a deterministic fixed dt per frame so the sim
     // actually advances and is reproducible; interactive play uses the wall-clock fixed-step accumulator.
     const bool deterministic = cfg.headless || cfg.frames >= 0;
@@ -365,6 +367,18 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> none;
                 tree.scripts().vm().callOn(self, "melee", none);
             }
+
+            // Deploy a proximity mine (T while playing; autopilot lays one every ~9 s if it has any).
+            bool mineNow = !autopilot && input.keyPressed(SDL_SCANCODE_T);
+            if (autopilot && simTime >= nextMine && field(survivor, "mines") > 0.0) {
+                mineNow = true;
+                nextMine = simTime + 9.0;
+            }
+            if (mineNow) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "place_mine", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -465,6 +479,15 @@ int main(int argc, char** argv) {
                                         ? 1.0f
                                         : 0.4f;
                 drawAt(c->x(), c->y(), texCrate, 2.4f, render::Color{blink, blink * 0.9f, blink * 0.6f, 1.0f});
+            }
+            // Proximity mines: dim while arming (safety fuse), then a steady red pulse once armed.
+            for (scene::SceneNode* mn : tree.nodesInGroup("mines")) {
+                if (!fieldBool(mn, "active")) continue;
+                const bool armed = fieldBool(mn, "armed");
+                const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 9.0f);
+                const render::Color mc = armed ? render::Color{1.0f, 0.25f * pulse, 0.2f * pulse, 1.0f}
+                                               : render::Color{0.6f, 0.6f, 0.65f, 0.8f};
+                drawAt(mn->x(), mn->y(), texMine, 1.6f, mc);
             }
             // Power-up pickups (rapid-fire / damage / shield), blinking as they near expiry.
             for (scene::SceneNode* p : tree.nodesInGroup("powerups")) {
@@ -586,7 +609,7 @@ int main(int argc, char** argv) {
             const render::Color kDim{0.75f, 0.8f, 0.85f, 1};
             font.drawText(*renderer, 16.0f, 12.0f, "ZOMBOID", kWhite, 0.8f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          autopilot ? "AUTOPILOT" : "WASD MOVE  AIM  FIRE  1-4 GUN  SPACE DODGE  F MELEE  E EAT",
+                          autopilot ? "AUTOPILOT" : "WASD  AIM  FIRE  1-4 GUN  SPACE DODGE  F MELEE  T MINE  G NADE  E EAT",
                           kDim, 0.45f);
             // Active weapon name.
             const char* kWeaponNames[4] = {"PISTOL", "SHOTGUN", "SMG", "RAILGUN"};
@@ -609,9 +632,10 @@ int main(int argc, char** argv) {
                           lowAmmo ? render::Color{0.95f, 0.5f, 0.35f, 1.0f}
                                   : render::Color{0.85f, 0.9f, 0.95f, 1.0f},
                           0.5f);
-            char nadeBuf[48];
-            std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d  (G)",
-                          static_cast<int>(field(survivor, "grenades")));
+            char nadeBuf[64];
+            std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d  (G)     MINES %d  (T)",
+                          static_cast<int>(field(survivor, "grenades")),
+                          static_cast<int>(field(survivor, "mines")));
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
                           0.45f);
             // Overcharge ultimate meter.
