@@ -59,10 +59,13 @@ func is_night() {
     return g_phase >= (g_day_len / 2);
 }
 
-# Aggression multiplier: 1.0 by day, ramps to 1.7 at night, so dusk gets tense.
+# Aggression multiplier driving horde speed + bite damage. Smoothly ramps from 1.0 at dawn/midday up
+# to 1.7 at midnight and back down, so tension builds through dusk and eases at first light instead of
+# snapping on at a hard boundary.
 func danger() {
-    if (is_night() == false) { return 1.0; }
-    return 1.7;
+    var t = g_phase / g_day_len;                     # 0..1 across a full day
+    var night = (1.0 - cos(t * 6.2831853)) / 2.0;    # 0 at midday/dawn, 1 at midnight
+    return 1.0 + 0.7 * night;
 }
 
 # Spawn up to `count` impact particles at (x, y) from the shared pool. kind 0 = spark, 1 = blood.

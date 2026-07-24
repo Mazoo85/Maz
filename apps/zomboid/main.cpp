@@ -793,8 +793,15 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, bx + bw2 + 16.0f, by - 4.0f, buf, kWhite, 0.55f);
 
             const bool night = nightT > 0.001f;
-            font.drawText(*renderer, sw - 190.0f, 16.0f,
-                          night ? "NIGHT - HORDE ENRAGED" : "DAY",
+            // Threat multiplier tracks the smooth danger() ramp: 1.0 by day up to 1.7 at midnight.
+            const double phaseNow = globalNum(tree, "g_phase");
+            const double dayLenNow = globalNum(tree, "g_day_len");
+            const double threat =
+                1.0 + 0.7 * (1.0 - std::cos(phaseNow / dayLenNow * 6.2831853)) * 0.5;
+            char threatBuf[48];
+            std::snprintf(threatBuf, sizeof(threatBuf), "%s  THREAT x%.1f",
+                          night ? "NIGHT" : "DAY", threat);
+            font.drawText(*renderer, sw - 210.0f, 16.0f, threatBuf,
                           night ? render::Color{0.95f, 0.5f, 0.45f, 1}
                                 : render::Color{0.9f, 0.9f, 0.6f, 1},
                           0.5f);

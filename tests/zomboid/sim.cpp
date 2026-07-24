@@ -577,13 +577,20 @@ int main() {
         tree.process(0.016);
         CHECK(sField(survivor, "health")->number == cap); // not over max
 
-        // An ignored medkit expires.
+        // An ignored medkit expires. Drive the kit's own _process in isolation so the assertion is
+        // about its lifetime alone, not the surrounding sim (which can drop fresh kits over 15 s).
         survivor->setPosition(0.0, 0.0);
         std::vector<Value> far = {Value::fromNum(500.0), Value::fromNum(500.0)};
         tree.scripts().vm().call("drop_medkit", far);
         CHECK(activeMedkits(tree) == 1);
-        for (int i = 0; i < 900; ++i) tree.process(1.0 / 60.0); // > 12 s max_life
-        CHECK(activeMedkits(tree) == 0);
+        SceneNode* expiring = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) expiring = m;
+        CHECK(expiring != nullptr);
+        Value kv = expiring->script();
+        std::vector<Value> dtk = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 900; ++i) tree.scripts().vm().callOn(kv, "_process", dtk); // > 12 s max_life
+        CHECK(!expiring->script().instance->findField("active")->boolean);
     }
 
     // Pickup magnetism: a medkit near the survivor drifts toward them; a far one stays put.
@@ -1161,6 +1168,34 @@ int main() {
         // A second empty-field step does NOT pay again (bonus is once-per-wave).
         tree.scripts().vm().callOn(dv, "_process", dt1);
         CHECK(glob(tree, "g_score") == afterBonus);
+    }
+
+    // Day/night danger ramp: aggression smoothly rises from 1.0 at dawn/midday to 1.7 at midnight and
+    // back, so night speeds up the horde and hardens its bite (danger() scales both).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        const double dayLen = glob(tree, "g_day_len");
+        Value* phase = const_cast<Value*>(vm.getGlobal("g_phase"));
+        std::vector<Value> none;
+
+        phase->number = 0.0;                       // dawn
+        const double dDawn = vm.call("danger", none).number;
+        phase->number = dayLen * 0.25;             // dusk
+        const double dDusk = vm.call("danger", none).number;
+        phase->number = dayLen * 0.5;              // midnight
+        const double dMid = vm.call("danger", none).number;
+
+        CHECK(dDawn > 0.99 && dDawn < 1.01);       // ~1.0 by day
+        CHECK(dMid > 1.69 && dMid < 1.71);         // ~1.7 at deep night
+        CHECK(dDusk > dDawn && dDusk < dMid);      // smoothly ramping through dusk
+
+        // Symmetry: the pre-dawn small hours ease back toward day.
+        phase->number = dayLen * 0.75;
+        const double dPre = vm.call("danger", none).number;
+        CHECK(dPre > dDawn && dPre < dMid);
+        phase->number = 0.0;                       // restore
     }
 
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death

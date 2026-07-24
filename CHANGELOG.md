@@ -105,6 +105,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Smooth day/night danger ramp** — the horde's aggression (which scales both movement speed and bite
+  damage) now ramps *smoothly* from 1.0 at dawn/midday up to 1.7 at midnight and back down, via a cosine
+  over the day cycle, instead of snapping on at a hard night boundary. Tension builds through dusk and
+  eases at first light. The HUD shows the live "THREAT x1.4" multiplier next to the DAY/NIGHT readout.
+  Verified headless (`zomboid_sim`): danger is ~1.0 at dawn, ~1.7 at midnight, strictly greater at dusk
+  than dawn and less than midnight, and eases back symmetrically in the pre-dawn hours. (Also isolated
+  the medkit-expiry test to drive the kit's own timer, since the faster daytime horde could otherwise
+  drop fresh kits mid-assertion.)
 - **Wave-clear bonus** — clearing a wave now awards a score bonus that scales with the wave number
   (wave × 50), paid once per wave the moment the field is empty, with a pulsing "WAVE N CLEARED  +bonus"
   banner during the breather. It rewards finishing waves cleanly and gives the between-wave lull a
