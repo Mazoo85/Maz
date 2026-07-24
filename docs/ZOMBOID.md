@@ -66,8 +66,9 @@ cycling automatically.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
   so it's a true panic button. Kills charge the meter; unleash it when full.
 - **Last-stand adrenaline** — drop below 25% health and a desperation surge kicks in: you **fire
-  faster and hit 30% harder** until you recover. Being cornered is dangerous, but it's also your
-  biggest damage window — a real chance to claw a fight back.
+  faster, hit 30% harder, and shrug off a quarter of all incoming damage** until you recover. Being
+  cornered is dangerous, but the surge turns it into your biggest damage window *and* buys you extra
+  survivability — a real chance to claw a fight back rather than a death spiral.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**.

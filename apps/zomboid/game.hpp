@@ -934,6 +934,11 @@ class Survivor {
         self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay
         g_wave_clean = false;   # a landed hit spoils a flawless-wave run (even if armor eats it)
         var d = dmg;
+        # Last-stand grit: while the desperation surge is up (critically wounded, <25% health), the
+        # survivor doesn't just hit harder and faster — they also shrug off a quarter of incoming
+        # damage, so the comeback window is a genuine fighting chance instead of a death spiral.
+        # Applied before armor, so a plate soaks more real hits while the surge lasts, too.
+        if (self.adrenaline) { d = d * 0.75; }
         # Body armor is a depletable buffer: it takes the hit first, and only the overflow past a
         # spent plate bleeds through to health (bought from the shop, key 9).
         if (self.armor > 0) {

@@ -2641,6 +2641,30 @@ int main() {
         CHECK(sField(s2, "adrenaline")->boolean);
     }
 
+    // Last-stand grit: the desperation surge also cuts incoming damage by a quarter, so the low-health
+    // comeback window is survivable, not a death spiral. Off the surge, the same hit lands in full.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        sField(survivor, "armor")->number = 0.0;      // no plate — measure health loss directly
+        sField(survivor, "iframes")->number = 0.0;    // not mid-dodge
+        std::vector<Value> hit = {Value::fromNum(20.0)};
+
+        // Surge off: a 20-damage hit removes the full 20 health.
+        sField(survivor, "adrenaline")->boolean = false;
+        sField(survivor, "health")->number = 100.0;
+        vm.callOn(sv, "take_damage", hit);
+        CHECK(sField(survivor, "health")->number == 80.0);
+
+        // Surge on: the same hit is cut to 15 (×0.75), so only 15 health is lost.
+        sField(survivor, "adrenaline")->boolean = true;
+        sField(survivor, "health")->number = 100.0;
+        vm.callOn(sv, "take_damage", hit);
+        CHECK(sField(survivor, "health")->number == 85.0);
+    }
+
     // Wave-clear pickup vacuum: clearing a wave sweeps up any medkit or power-up still lying on the
     // field (out of walking range), so a cleared wave never strands a drop during the between-wave lull.
     {

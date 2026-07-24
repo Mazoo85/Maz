@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — last-stand grit (adrenaline damage resistance).** The desperation surge that kicks in
+  below 25% health already made the survivor fire faster and hit 30% harder; now it also **cuts all
+  incoming damage by 25%** while it's up. The low-health comeback window becomes a genuine fighting
+  chance instead of a death spiral — you're most dangerous *and* toughest exactly when cornered.
+  Headless-tested: a 20-damage hit removes the full 20 health normally but only 15 while the surge
+  is active.
 - **ZOMBOID — Volatile Horde wave mutator (5th mutator).** A new random wave modifier (from wave 3
   on): under it, **every non-boss body ruptures into a caustic acid pool where it falls**. As the
   fight drags on the arena steadily fills with hazard, so camping a single kill-zone poisons the
