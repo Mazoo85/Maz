@@ -105,6 +105,8 @@ Thirteen zombie types join the horde as the waves climb:
 | 12 | **Healer** | A back-line medic that periodically **mends** nearby wounded zombies, undoing your chip damage. Fragile and never heals itself — cull it before it patches the pack back up. |
 
 Some zombies spawn as **elites** — bigger, tankier, worth far more, and they always drop a medkit.
+Killing one releases a **shockwave** that knocks back and wounds the surrounding crowd, so felling an
+elite in the middle of a pack thins the pack and clears space around the medkit it leaves.
 
 ## Power-ups
 

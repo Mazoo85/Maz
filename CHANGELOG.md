@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — elite kills release a shockwave.** Felling an elite champion now bursts a nova that
+  knocks back and wounds the surrounding crowd, clearing breathing room around the corpse (and the
+  medkit it always drops) — so killing an elite while it's waded into a pack thins the pack too.
+  Headless-tested: an elite's death deals 30 damage and knocks back a zombie inside the radius, while
+  one standing well clear takes nothing.
 - **ZOMBOID — molotov fire cooks off barrels.** A burning molotov patch now chips any explosive barrel
   caught inside it until it detonates, so you can throw a molotov onto (or beside) a barrel to chain the
   flames into a blast — flames for area denial *and* a delayed explosion for burst. Headless-tested: a

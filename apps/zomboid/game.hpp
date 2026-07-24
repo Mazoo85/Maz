@@ -2221,6 +2221,26 @@ class Zombie {
             if (self.elite) {
                 drop_medkit(self.node.x, self.node.y);
                 emit(self.node.x, self.node.y, 16, 1);
+                # An elite's death releases a shockwave that knocks back and wounds the surrounding
+                # crowd, clearing breathing room around the corpse (and the medkit it drops) — a reward
+                # for felling it inside a pack.
+                var ei = 0;
+                var en = len(g_zombies);
+                while (ei < en) {
+                    var ez = g_zombies[ei];
+                    if (ez.alive and ez != self) {
+                        var edx = ez.node.x - self.node.x;
+                        var edy = ez.node.y - self.node.y;
+                        var ed2 = edx * edx + edy * edy;
+                        if (ed2 <= 49.0) {   # radius 7
+                            var em = sqrt(ed2);
+                            if (em < 0.01) { em = 0.01; }
+                            ez.hit_knockback(edx / em, edy / em, 5.0);
+                            ez.take_damage(30);
+                        }
+                    }
+                    ei = ei + 1;
+                }
             } else {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }

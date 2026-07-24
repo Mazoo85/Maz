@@ -2838,6 +2838,46 @@ int main() {
         CHECK(sField(barrel2, "active")->boolean);        // well clear of the flames — intact
     }
 
+    // Elite death shockwave: killing an elite champion releases a nova that knocks back and wounds
+    // the surrounding crowd, clearing space; a zombie well clear of it is untouched.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+
+        // Elite at the origin (make_elite triples score and multiplies health to 250).
+        SceneNode* elite = tree.findNode("Zombie0");
+        Value ev = elite->script();
+        std::vector<Value> es = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};   // walker, 100 hp
+        vm.callOn(ev, "spawn_at", es);
+        vm.callOn(ev, "make_elite", {});
+        CHECK(sField(elite, "elite")->boolean);
+
+        // A zombie 4 units away (inside the nova) and one 20 units away (clear of it).
+        SceneNode* near_ = tree.findNode("Zombie1");
+        Value nv = near_->script();
+        std::vector<Value> np = {Value::fromNum(4.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm.callOn(nv, "spawn_at", np);
+        SceneNode* far_ = tree.findNode("Zombie2");
+        Value fv = far_->script();
+        std::vector<Value> fp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm.callOn(fv, "spawn_at", fp);
+
+        // Kill the elite with a hit big enough to drop it but under the overkill-gib threshold (1.5x
+        // its 250 max), so only the elite death nova touches the neighbours.
+        std::vector<Value> kill = {Value::fromNum(300.0)};
+        vm.callOn(ev, "take_damage", kill);
+        CHECK(!sField(elite, "alive")->boolean);
+
+        CHECK(sField(near_, "health")->number == 70.0);   // nova dealt 30
+        CHECK(near_->x() > 4.0);                           // and knocked it outward
+        CHECK(sField(far_, "health")->number == 100.0);   // out of range — unscathed
+        CHECK(far_->x() == 20.0);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
