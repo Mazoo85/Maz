@@ -695,6 +695,11 @@ class Loot {
 )MAZ";
 }
 
+// True when a run's (wave, score) beats the stored best — score is the primary key, wave breaks ties.
+inline bool beatsBest(int wave, int score, int bestWave, int bestScore) {
+    return score > bestScore || (score == bestScore && wave > bestWave);
+}
+
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;

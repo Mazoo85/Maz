@@ -59,6 +59,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   scores `score_value × multiplier`. The HUD flashes the live combo. Verified headless (`zomboid_sim`)
   against a hand-computed total: five back-to-back walker kills reach a 5-streak / 2× and score exactly
   60 (four at 1× + one at 2×), and the streak resets to 1× after the window elapses with no kills.
+- **Persistent high score + restart** — the best run (best wave + best score) is saved to the platform
+  pref dir via `core::KeyValueStore` and shown on the HUD; on death the game saves a new best (flagging
+  "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
+  Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
+  and a best written through `KeyValueStore.save()` reloads intact.
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

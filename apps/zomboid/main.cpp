@@ -134,6 +134,14 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Persistent best run (best wave + best score), saved to the platform pref dir.
+    core::KeyValueStore store;
+    store.load(platform::prefPath("MazEngine", "Zomboid", "zomboid.ini"));
+    int bestWave = store.getInt("best_wave", 0);
+    int bestScore = store.getInt("best_score", 0);
+    bool savedThisDeath = false;
+    bool newBestThisRun = false;
+
     const float moveSpeed = 18.0f; // world units / second (survivor)
     const float worldToPx = 7.0f;  // scene units -> screen pixels for the camera zoom
     int rendered = 0;
@@ -182,6 +190,32 @@ int main(int argc, char** argv) {
 
         // --- Per-frame intent: aim toward the mouse (or the nearest zombie on autopilot), fire. ---
         const bool alive = survivor && fieldBool(survivor, "alive");
+
+        // On death: save the best run once, then allow a restart with Enter.
+        if (!alive) {
+            if (!savedThisDeath) {
+                const int w = static_cast<int>(globalNum(tree, "g_wave"));
+                const int sc = static_cast<int>(globalNum(tree, "g_score"));
+                if (zomboid::beatsBest(w, sc, bestWave, bestScore)) {
+                    if (w > bestWave) bestWave = w;
+                    if (sc > bestScore) bestScore = sc;
+                    store.set("best_wave", bestWave);
+                    store.set("best_score", bestScore);
+                    store.save();
+                    newBestThisRun = true;
+                }
+                savedThisDeath = true;
+            }
+            if (!autopilot && input.keyPressed(SDL_SCANCODE_RETURN)) {
+                tree = scene::SceneTree{};
+                survivor = zomboid::buildScene(tree);
+                simTime = 0.0;
+                ateLast = false;
+                nextGrenade = 4.0;
+                savedThisDeath = false;
+                newBestThisRun = false;
+            }
+        }
         double aimX = field(survivor, "aim_x"), aimY = field(survivor, "aim_y");
         bool firing = false;
         if (alive) {
@@ -467,11 +501,23 @@ int main(int argc, char** argv) {
                 rect(mx - 1, my + 2, 2, 8, ret);
             }
 
+            // Persistent best, top-right under the day/night readout.
+            std::snprintf(buf, sizeof(buf), "BEST  WAVE %d   SCORE %d", bestWave, bestScore);
+            font.drawText(*renderer, sw - 300.0f, 44.0f, buf, render::Color{0.8f, 0.8f, 0.9f, 1.0f}, 0.4f);
+
             if (!alive) {
-                font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f - 20.0f, "YOU DIED",
+                font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f - 40.0f, "YOU DIED",
                               render::Color{0.95f, 0.25f, 0.25f, 1}, 1.2f);
                 std::snprintf(buf, sizeof(buf), "REACHED WAVE %d   -   SCORE %d", wave, score);
-                font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 24.0f, buf, kWhite, 0.5f);
+                font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 8.0f, buf, kWhite, 0.5f);
+                if (newBestThisRun) {
+                    font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f + 40.0f, "NEW BEST!",
+                                  render::Color{1.0f, 0.85f, 0.2f, 1.0f}, 0.6f);
+                }
+                if (!autopilot) {
+                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 76.0f,
+                                  "PRESS ENTER TO RESTART", render::Color{0.85f, 0.9f, 0.95f, 1}, 0.5f);
+                }
             }
 
             renderer->endFrame();

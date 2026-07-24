@@ -5,6 +5,7 @@
 #include "game.hpp" // apps/zomboid — the flagship game's logic (on the include path via CMake)
 
 #include "maz/scene/SceneTree.hpp"
+#include "maz/core/KeyValueStore.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -436,10 +437,34 @@ int main() {
         CHECK((int)glob(tree, "g_mult") == 1);
     }
 
+    // High-score meta: beatsBest ranks runs, and the persistence round-trips through KeyValueStore.
+    {
+        CHECK(zomboid::beatsBest(3, 500, 2, 400));   // a higher score wins
+        CHECK(zomboid::beatsBest(5, 400, 3, 400));   // equal score, deeper wave wins
+        CHECK(!zomboid::beatsBest(2, 300, 3, 400));  // a worse run does not
+        CHECK(!zomboid::beatsBest(2, 400, 2, 400));  // an identical run is not "better"
+
+        const char* path = "zomboid_hs_test.ini";
+        {
+            maz::core::KeyValueStore w;
+            w.load(path);
+            w.set("best_wave", 7);
+            w.set("best_score", 1234);
+            CHECK(w.save());
+        }
+        {
+            maz::core::KeyValueStore r;
+            r.load(path);
+            CHECK(r.getInt("best_wave", 0) == 7);       // survived a save/load cycle
+            CHECK(r.getInt("best_score", 0) == 1234);
+        }
+        std::remove(path);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
-                    "kills/score, survival, loot.\n");
+                    "high-score persistence, kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
