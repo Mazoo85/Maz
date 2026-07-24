@@ -1915,6 +1915,28 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Bloater (kind 10): a slow, tanky zombie that bursts into a lingering toxic cloud (an acid puddle)
+    // when it dies — so a careless point-blank kill leaves the survivor standing in poison.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* bloater = tree.findNode("Zombie0");
+        Value bv = bloater->script();
+        std::vector<Value> sp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(10.0), Value::fromNum(3.0)}; // spawn(x,y,kind=10,wave=3)
+        vm.callOn(bv, "spawn", sp);
+        CHECK((int)sField(bloater, "kind")->number == 10);
+        CHECK((int)sField(bloater, "score_value")->number == 30);  // high-value tank
+        CHECK(sField(bloater, "radius")->number > 1.5);            // visibly fat
+        CHECK(activeAcid(tree) == 0);                              // no cloud while alive
+
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(bv, "take_damage", lethal);
+        CHECK(!sField(bloater, "alive")->boolean);                // it died
+        CHECK(activeAcid(tree) >= 1);                             // ...and left a toxic cloud behind
+    }
+
     // Acid puddles: a spitter's glob leaves a caustic patch where it lands, and the survivor loses health
     // while standing in it — but is safe just outside the radius. Also: a spitter's spit spawns a puddle.
     {

@@ -1788,12 +1788,23 @@ class Zombie {
                                             self.attack_range = 1.2;
                                             self.score_value = 16;
                                         } else {
-                                            self.health = 25 + w * 8;
-                                            self.speed = 13 + w;
-                                            self.damage = 6;
-                                            self.radius = 1.0;
-                                            self.attack_range = 1.2;
-                                            self.score_value = 10;
+                                            if (k == 10) {
+                                                # Bloater: fat, slow, tanky — bursts into a toxic cloud
+                                                # on death, so it's best popped at a distance.
+                                                self.health = 70 + w * 14;
+                                                self.speed = 6;
+                                                self.damage = 10;
+                                                self.radius = 1.7;
+                                                self.attack_range = 1.7;
+                                                self.score_value = 30;
+                                            } else {
+                                                self.health = 25 + w * 8;
+                                                self.speed = 13 + w;
+                                                self.damage = 6;
+                                                self.radius = 1.0;
+                                                self.attack_range = 1.2;
+                                                self.score_value = 10;
+                                            }
                                         }
                                     }
                                 }
@@ -1872,6 +1883,12 @@ class Zombie {
             if (self.kind == 6) {
                 self.split_off(2);
                 emit(self.node.x, self.node.y, 12, 1);
+            }
+            # A bloater ruptures on death into a lingering toxic cloud (reusing the acid hazard), so a
+            # careless close-range kill leaves you standing in poison.
+            if (self.kind == 10) {
+                leave_acid(self.node.x, self.node.y);
+                emit(self.node.x, self.node.y, 20, 1);
             }
             # Overkill: if the killing hit alone dwarfed this body's full health (and it isn't an
             # exploder or boss, which have their own death behaviour), it gibs in a chain shockwave.
@@ -2069,6 +2086,9 @@ class Director {
                     if (i % 4 == 0 and w >= 5) {
                         k = 9;
                     } else {
+                    if (i % 11 == 0 and w >= 6) {
+                        k = 10;
+                    } else {
                         if (i % 6 == 0 and w >= 5) {
                             k = 5;
                         } else {
@@ -2082,6 +2102,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

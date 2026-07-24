@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Bloater zombie (new enemy)** — a fat, slow, tanky zombie (kind 10) that *ruptures into a lingering
+  toxic cloud when it dies* (reusing the acid-puddle hazard). Popping one at point-blank range leaves you
+  standing in poison, so it's best dropped from a distance — a natural fit for the railgun or a well-timed
+  grenade. Joins the wave roster from wave 6. Verified headless (`zomboid_sim`): it spawns as a tanky,
+  high-value body with no cloud while alive, and a lethal hit both kills it and leaves an active toxic
+  cloud behind.
 - **Acid puddles (spitter ground hazard)** — a spitter's acid glob now leaves a bubbling green caustic
   puddle where it lands, and the puddle lingers for a few seconds eating away at the survivor's health
   while they stand in it (safe just outside the radius). Where molotov fire is *your* tool against the
