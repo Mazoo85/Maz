@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **3D superquadric / superellipsoid** (`math::superellipsoidPoint` / `superquadricInsideOutside` /
+  `superquadricNormal`, `Superquadric.hpp`) — DONE (M807); the 3D family of shapes that morph between a box,
+  sphere, barrel, rounded cube and octahedron by turning two "squareness" exponents. It is the 3D
+  generalisation of the engine's 2D superellipse (Superellipse.hpp): semi-axes (a,b,c) set size, exponents
+  (e1 poles, e2 equator) set roundness. A classic procedural-modelling and shape-fitting primitive (rounded
+  crates, pebbles, capsule-ish hulls, point-cloud fitting); Godot has no superquadric. Gives the parametric
+  surface point, the exact surface normal, and the inside-outside function (<1 inside, ==1 on the surface, >1
+  outside). Verified airtight: every parametric surface point satisfies the INDEPENDENT inside-outside
+  function F==1 for all exponents (two unrelated formulas agreeing); e1=e2=1 reduces to the ellipsoid point
+  and (x/a)²+(y/b)²+(z/c)²=1; a=b=c gives radius r; the poles are (0,0,±c); the centre is inside and a far
+  point outside; and the gradient normal is unit and perpendicular to both parametric tangents. ctest
+  `superquadric`.
 - [x] **3D (trilinear) volume grid sampling** (`math::grid3DTrilinear` / `grid3DNearest`, `Grid3DSample.hpp`)
   — DONE (M806); the 3D companion to the existing 2D `GridSample` (M-series bilinear/bicubic). Reads a value
   at CONTINUOUS coordinates from a volume grid — the primitive under sampling a density / fog / SDF / 3D-noise

@@ -2867,3 +2867,8 @@ add_executable(maz_grid3dsample_tests math/grid3dsample.cpp)
 target_link_libraries(maz_grid3dsample_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME grid3d_sample COMMAND maz_grid3dsample_tests)
 set_tests_properties(grid3d_sample PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superquadric_tests math/superquadric.cpp)
+target_link_libraries(maz_superquadric_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superquadric COMMAND maz_superquadric_tests)
+set_tests_properties(superquadric PROPERTIES TIMEOUT 30)
