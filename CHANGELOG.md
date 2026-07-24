@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — flawless-wave bonus.** Clearing a whole wave without taking a single hit now **doubles**
+  the wave-clear score bonus, pays a cash reward, and patches the survivor up a little — a reward for
+  aggressive, clean play that also gives skilled runs a real scoring ceiling. Any hit that lands
+  (even one soaked entirely by armor) forfeits the bonus for that wave. Headless-tested: an untouched
+  clear pays the double bonus + cash + heal and is flagged flawless, while taking one hit drops it
+  back to the base bonus with no cash and no flawless flag.
 - **ZOMBOID — Screamer support zombie (12th enemy type).** A fragile back-line zombie (kind 11) that
   periodically shrieks, whipping every nearby zombie into a temporary speed **frenzy** — turning a
   slow shamble into a sudden surge. It makes the horde a priority-target puzzle: silence the screamer

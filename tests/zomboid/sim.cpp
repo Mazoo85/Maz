@@ -1148,11 +1148,16 @@ int main() {
     // and only once per wave.
     {
         SceneTree tree;
-        zomboid::buildScene(tree);
+        SceneNode* survivor = zomboid::buildScene(tree);
         tree.process(1.0 / 60.0);                 // Director opens wave 1
         CHECK((int)glob(tree, "g_wave") == 1);
         CHECK(aliveZombies(tree) > 0);
         const double score0 = glob(tree, "g_score");
+
+        // Take a hit so this is a normal (non-flawless) clear — the flawless bonus is covered elsewhere.
+        Value pv = survivor->script();
+        std::vector<Value> ph = {Value::fromNum(5.0)};
+        tree.scripts().vm().callOn(pv, "take_damage", ph);
 
         // Wipe the field, then a step with the field empty pays the wave-1 bonus (1 * 50).
         for (SceneNode* z : tree.nodesInGroup("zombies")) {
@@ -2408,6 +2413,52 @@ int main() {
         const double fzMoved = fx0 - fz->x();   // both close toward the origin (x decreasing)
         const double czMoved = cx0 - cz->x();
         CHECK(fzMoved > czMoved);   // the frenzied one covered more ground
+    }
+
+    // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
+    // and patches the survivor up; taking any hit during the wave forfeits all of that.
+    {
+        auto clearWave = [](SceneTree& t) {
+            for (SceneNode* z : t.nodesInGroup("zombies")) {
+                if (z->script().instance->findField("alive")->boolean) {
+                    Value zs = z->script();
+                    std::vector<Value> dmg = {Value::fromNum(9999.0)};
+                    t.scripts().vm().callOn(zs, "take_damage", dmg);
+                }
+            }
+        };
+
+        // Flawless case: no hit taken → double bonus (+100 at wave 1), +25 cash, +health.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        tree.process(1.0 / 60.0);                       // wave 1 opens, zombies spawn on the ring
+        CHECK((int)glob(tree, "g_wave") == 1);
+        sField(survivor, "health")->number = 50.0;      // wounded, so the flawless patch-up shows
+        clearWave(tree);                                // kill them all, untouched
+        const double s0 = glob(tree, "g_score");
+        const double c0 = glob(tree, "g_cash");
+        tree.process(1.0 / 60.0);                       // director awards the clear + flawless bonus
+        SceneNode* dir = tree.findNode("Director");
+        CHECK(sField(dir, "last_clean")->boolean);      // flagged flawless
+        CHECK(glob(tree, "g_score") - s0 == 100.0);     // base 50 + flawless 50
+        CHECK(glob(tree, "g_cash") - c0 == 25.0);       // cash reward
+        CHECK(sField(survivor, "health")->number > 55.0); // patched up (~60)
+
+        // Hit case: take one hit during the wave → only the base bonus, no cash, not flagged clean.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        t2.process(1.0 / 60.0);
+        Value s2 = surv2->script();
+        std::vector<Value> hit = {Value::fromNum(5.0)};
+        t2.scripts().vm().callOn(s2, "take_damage", hit);   // spoils the flawless run
+        clearWave(t2);
+        const double s0b = glob(t2, "g_score");
+        const double c0b = glob(t2, "g_cash");
+        t2.process(1.0 / 60.0);
+        SceneNode* dir2 = t2.findNode("Director");
+        CHECK(!sField(dir2, "last_clean")->boolean);     // not flawless
+        CHECK(glob(t2, "g_score") - s0b == 50.0);        // base bonus only
+        CHECK(glob(t2, "g_cash") - c0b == 0.0);          // no cash reward
     }
 
     if (g_fail == 0) {

@@ -49,6 +49,10 @@ var g_wave = 0;
 # (keys 6/7/8). A light between-the-action shop that rewards racking up kills.
 var g_cash = 0;
 
+# Flips to false the moment the survivor takes any health/armor damage during the current wave.
+# Clearing a wave with it still true earns a "flawless wave" bonus. Reset to true at each wave start.
+var g_wave_clean = true;
+
 # Wave mutator: from wave 3 on, each wave rolls a random modifier that reshapes the whole horde for
 # that wave, for run-to-run variety. 0 none, 1 feral (faster), 2 hulking (tougher), 3 frenzy (more of
 # them). Applied to every zombie as it spawns; the survivor sees the active modifier on the HUD.
@@ -869,6 +873,7 @@ class Survivor {
         # An active shield power-up soaks all incoming damage.
         if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
         self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay
+        g_wave_clean = false;   # a landed hit spoils a flawless-wave run (even if armor eats it)
         var d = dmg;
         # Body armor is a depletable buffer: it takes the hit first, and only the overflow past a
         # spent plate bleeds through to health (bought from the shop, key 9).
@@ -2230,6 +2235,7 @@ class Director {
     var base = 4;
     var bonus_wave = 0;     # highest wave already awarded a clear bonus (avoids double-paying)
     var last_bonus = 0;     # the most recent clear bonus (for the HUD banner)
+    var last_clean = false; # whether the most recent cleared wave was flawless (for the HUD banner)
 
     func _ready() { g_director = self; }
 
@@ -2247,6 +2253,7 @@ class Director {
     func start_wave(w) {
         # Reward surviving the previous wave with a permanent upgrade.
         if (w >= 2 and g_player != nil) { g_player.apply_upgrade(); }
+        g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
         if (w >= 3) { g_mutator = int(randf_range(1, 4)); }
@@ -2332,6 +2339,16 @@ class Director {
                 self.bonus_wave = self.wave;
                 self.last_bonus = self.wave * 50;
                 g_score = g_score + self.last_bonus;
+                # Flawless wave: cleared without taking a single hit. Doubles the clear bonus, pays a
+                # cash reward, and patches the survivor up a little — rewarding aggressive, clean play.
+                self.last_clean = g_wave_clean;
+                if (g_wave_clean) {
+                    var fb = self.wave * 50;
+                    g_score = g_score + fb;
+                    self.last_bonus = self.last_bonus + fb;
+                    g_cash = g_cash + 25;
+                    if (g_player != nil) { g_player.heal(10.0); }
+                }
             }
             self.break_timer = self.break_timer - dt;
             if (self.break_timer <= 0) {
