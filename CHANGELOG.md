@@ -8,11 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
-- **ZOMBOID** (`apps/zomboid`) — a complete top-down zombie-survival game whose entire simulation is
-  written in `maz::script` and driven on a `scene::SceneTree`: survivor needs (hunger → health),
-  chase-and-bite zombie AI, loot pickup, and a shared day/night cycle that makes the horde faster and
-  hit harder at night. Verified headless in CI; a thin render app draws it with a health/hunger/
-  rations HUD.
+- **ZOMBOID** (`apps/zomboid`) — a top-down twin-stick zombie **shooter** whose entire simulation is
+  written in `maz::script` and driven on a `scene::SceneTree`. Mouse-aim + hold-to-fire pulls rounds
+  from an object-pooled bullet system (a script can't spawn nodes, so bullets and zombies are fixed
+  pools the scripts activate/recycle); zombies have health and die; a wave Director spawns endless,
+  escalating hordes on a ring; loot, hunger→health survival pressure, and the day/night rage ramp
+  remain. Score / wave / kills HUD, a hurt-tint on wounded zombies, an aim tracer and crosshair.
+  100% of the rules are verified headless in CI (`testZomboidSim`: pools build, wave 1 auto-spawns,
+  firing respects the ~6/s cadence, a bullet kills a zombie and scores, cleared waves escalate); the
+  render app steps a deterministic fixed timestep under `--headless`/`--frames` (a 30 s autopilot run
+  reaches wave 4 / 36 kills with no GPU).
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

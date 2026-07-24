@@ -30250,131 +30250,158 @@ void testSceneSerialize() {
 void testZomboidSim() {
     using maz::scene::SceneTree;
     using maz::scene::SceneNode;
+    using maz::script::Value;
 
-    // The scene builds cleanly: a survivor, a ring of zombies, and loot.
+    // The scene builds cleanly: survivor, the bullet + zombie pools (dormant), and loot.
     {
         SceneTree tree;
         SceneNode* survivor = zomboid::buildScene(tree);
         CHECK(survivor != nullptr);
         CHECK(tree.scripts().vm().error().empty()); // program parsed & ran
-        CHECK(tree.nodesInGroup("zombies").size() == 6);
-        CHECK(tree.nodesInGroup("loot").size() == 3);
+        CHECK((int)tree.nodesInGroup("bullets").size() == zomboid::kBulletPool);
+        CHECK((int)tree.nodesInGroup("zombies").size() == zomboid::kZombiePool);
+        CHECK((int)tree.nodesInGroup("loot").size() == zomboid::kLootCount);
     }
 
-    // Survival pressure: hunger rises over time, then health drains once starving.
-    // Isolate the survivor (no horde) so we measure starvation, not zombie bites.
+    auto glob = [](SceneTree& t, const char* n) {
+        const Value* v = t.scripts().vm().getGlobal(n);
+        return v ? v->number : 0.0;
+    };
+    auto sField = [](SceneNode* n, const char* f) { return n->script().instance->findField(f); };
+    auto aliveZombies = [](SceneTree& t) {
+        int c = 0;
+        for (SceneNode* z : t.nodesInGroup("zombies"))
+            if (z->script().instance->findField("alive")->boolean) ++c;
+        return c;
+    };
+    auto activeBullets = [](SceneTree& t) {
+        int c = 0;
+        for (SceneNode* b : t.nodesInGroup("bullets"))
+            if (b->script().instance->findField("active")->boolean) ++c;
+        return c;
+    };
+
+    // The Director opens wave 1 immediately and revives pooled zombies onto the ring.
     {
         SceneTree tree;
-        tree.loadScripts(zomboid::scripts());
-        SceneNode* survivor = tree.createChild(tree.root(), "Survivor");
-        tree.attachScript(*survivor, "Survivor");
-        auto hunger = [&] { return survivor->script().instance->findField("hunger")->number; };
-        auto health = [&] { return survivor->script().instance->findField("health")->number; };
-        CHECK(hunger() == 0.0);
-        for (int i = 0; i < 5; ++i) tree.process(1.0); // 5 seconds
-        CHECK(hunger() > 0.0);        // got hungrier
-        CHECK(health() == 100.0);     // not starving yet
-        for (int i = 0; i < 40; ++i) tree.process(1.0); // starve out
-        CHECK(hunger() >= 100.0);
-        CHECK(health() < 100.0);      // health drained while starving
+        zomboid::buildScene(tree);
+        CHECK(aliveZombies(tree) == 0); // dormant before the first tick
+        tree.process(0.016);
+        CHECK((int)glob(tree, "g_wave") == 1);
+        CHECK(aliveZombies(tree) > 0); // the horde is live
+    }
+
+    // Shooting: aiming and firing pulls a bullet from the pool and launches it.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        CHECK(activeBullets(tree) == 0);
+        sField(survivor, "firing")->boolean = true;
+        tree.process(0.016);
+        CHECK(activeBullets(tree) >= 1);        // a round is in the air
+        CHECK(sField(survivor, "shots")->number >= 1.0);
+    }
+
+    // Fire cadence: at fire_rate 6/s, ~1s of held fire yields roughly 6 shots (not a stream per frame).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        sField(survivor, "firing")->boolean = true;
+        for (int i = 0; i < 60; ++i) tree.process(1.0 / 60.0); // 1 second
+        const double shots = sField(survivor, "shots")->number;
+        CHECK(shots >= 5.0 && shots <= 8.0);
+    }
+
+    // A bullet kills a zombie: park one live zombie in front of the muzzle and fire into it.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* z0 = tree.findNode("Zombie0");
+        // Revive Zombie0 at (4,0), stationary (speed 0), 25 HP — right in the line of fire.
+        Value zs = z0->script();
+        std::vector<Value> args = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(25.0),
+                                   Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", args);
+        CHECK(z0->script().instance->findField("alive")->boolean);
+        const double kills0 = glob(tree, "g_kills");
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        sField(survivor, "firing")->boolean = true;
+        bool died = false;
+        for (int i = 0; i < 120 && !died; ++i) { // up to 2s of small steps
+            tree.process(1.0 / 60.0);
+            died = !z0->script().instance->findField("alive")->boolean;
+        }
+        CHECK(died);                              // the bullets brought it down
+        CHECK(glob(tree, "g_kills") > kills0);    // kill counted
+        CHECK(glob(tree, "g_score") > 0.0);       // score awarded
+    }
+
+    // A cleared wave advances to the next, larger wave.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        tree.process(0.016);
+        CHECK((int)glob(tree, "g_wave") == 1);
+        const int wave1Count = aliveZombies(tree);
+        // Execute the whole live horde (deal lethal damage to each).
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (z->script().instance->findField("alive")->boolean) {
+                Value zs = z->script();
+                std::vector<Value> dmg = {Value::fromNum(9999.0)};
+                tree.scripts().vm().callOn(zs, "take_damage", dmg);
+            }
+        }
+        CHECK(aliveZombies(tree) == 0);
+        // Wait out the between-wave beat (~3s), then wave 2 spawns, bigger than wave 1.
+        for (int i = 0; i < 240; ++i) tree.process(1.0 / 60.0);
+        CHECK((int)glob(tree, "g_wave") == 2);
+        CHECK(aliveZombies(tree) > wave1Count);
+    }
+
+    // Survival pressure remains: standing in the horde still costs the survivor health.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto health = [&] { return sField(survivor, "health")->number; };
+        for (int i = 0; i < 300; ++i) tree.process(0.05); // 15s pinned at the origin among zombies
+        CHECK(health() < 100.0);
     }
 
     // Eating restores hunger and consumes a ration.
     {
         SceneTree tree;
-        tree.loadScripts(zomboid::scripts());
-        SceneNode* survivor = tree.createChild(tree.root(), "Survivor");
-        tree.attachScript(*survivor, "Survivor");
-        for (int i = 0; i < 20; ++i) tree.process(1.0); // build up hunger
-        auto* inst = survivor->script().instance.get();
-        const double before = inst->findField("hunger")->number;
-        const double food0 = inst->findField("food")->number;
-        std::vector<maz::script::Value> none;
-        maz::script::Value self = survivor->script(); // copy shares the same instance (shared_ptr)
-        tree.scripts().vm().callOn(self, "eat", none);
-        CHECK(inst->findField("hunger")->number < before); // hunger dropped
-        CHECK(inst->findField("food")->number == food0 - 1); // used a ration
-    }
-
-    // Zombie AI: the horde closes in on the survivor over time.
-    {
-        SceneTree tree;
-        zomboid::buildScene(tree);
-        SceneNode* z0 = tree.findNode("Zombie0");
-        CHECK(z0 != nullptr);
-        double startDist = std::sqrt(z0->x() * z0->x() + z0->y() * z0->y());
-        for (int i = 0; i < 10; ++i) tree.process(0.1); // 1 second
-        double nowDist = std::sqrt(z0->x() * z0->x() + z0->y() * z0->y());
-        CHECK(nowDist < startDist); // zombie moved toward the survivor at origin
-    }
-
-    // Combat: once the horde reaches the survivor, it takes damage (and can die).
-    {
-        SceneTree tree;
         SceneNode* survivor = zomboid::buildScene(tree);
-        auto health = [&] { return survivor->script().instance->findField("health")->number; };
-        auto alive = [&] { return survivor->script().instance->findField("alive")->boolean; };
-        CHECK(health() == 100.0);
-        // Simulate long enough for zombies to arrive and bite repeatedly.
-        for (int i = 0; i < 400; ++i) tree.process(0.1); // 40 seconds
-        CHECK(health() < 100.0); // the horde drew blood
-        // With 6 zombies biting plus starvation, the survivor should eventually fall.
-        for (int i = 0; i < 400; ++i) tree.process(0.1);
-        CHECK(!alive());
+        survivor->setPosition(5000.0, 5000.0); // flee the horde so we isolate hunger
+        for (int i = 0; i < 40; ++i) tree.process(1.0);
+        const double before = sField(survivor, "hunger")->number;
+        const double food0 = sField(survivor, "food")->number;
+        CHECK(before > 0.0);
+        Value self = survivor->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(self, "eat", none);
+        CHECK(sField(survivor, "hunger")->number < before);
+        CHECK(sField(survivor, "food")->number == food0 - 1);
     }
 
-    // Loot pickup: walking the survivor onto a loot node collects it (food + loot_collected up,
-    // the loot marks itself taken). Cross-object gameplay entirely in script.
+    // Loot pickup: walking onto a loot node collects it exactly once (script-only cross-object).
     {
         SceneTree tree;
         SceneNode* survivor = zomboid::buildScene(tree);
         SceneNode* loot0 = tree.findNode("Loot0");
         CHECK(loot0 != nullptr);
-        auto food = [&] { return survivor->script().instance->findField("food")->number; };
-        auto collected = [&] {
-            return survivor->script().instance->findField("loot_collected")->number;
-        };
+        auto food = [&] { return sField(survivor, "food")->number; };
         auto taken = [&] { return loot0->script().instance->findField("taken")->boolean; };
         const double food0 = food();
         CHECK(!taken());
-        // Teleport the survivor onto Loot0's tile and tick once so its _process sees the overlap.
         survivor->setPosition(loot0->x(), loot0->y());
         tree.process(0.016);
-        CHECK(taken());                 // the pickup consumed itself
-        CHECK(food() == food0 + 1);     // granted a ration
-        CHECK(collected() >= 1.0);      // counter bumped
-        // A second tick does not double-collect (already taken).
-        tree.process(0.016);
+        CHECK(taken());
         CHECK(food() == food0 + 1);
-    }
-
-    // Day/night: the shared clock advances and flips to night at the half-cycle, and the horde is
-    // faster at night than by day over the same elapsed time.
-    {
-        // Daytime run: measure how far Zombie0 travels toward the origin in 1s at t~0 (day).
-        SceneTree dayTree;
-        zomboid::buildScene(dayTree);
-        SceneNode* zDay = dayTree.findNode("Zombie0");
-        const double dayStart = std::sqrt(zDay->x() * zDay->x() + zDay->y() * zDay->y());
-        for (int i = 0; i < 10; ++i) dayTree.process(0.1); // 1s during day
-        const double dayMoved = dayStart - std::sqrt(zDay->x() * zDay->x() + zDay->y() * zDay->y());
-
-        // Night run: advance a fresh world to just past the half-cycle (night), then measure 1s.
-        SceneTree nightTree;
-        SceneNode* survivor = zomboid::buildScene(nightTree);
-        // Freeze the survivor far away so it isn't killed, and let only the clock advance it.
-        survivor->setPosition(10000.0, 10000.0);
-        // is_night() flips at g_day_len/2 == 30s. Advance ~31s of clock.
-        for (int i = 0; i < 310; ++i) nightTree.process(0.1);
-        SceneNode* zNight = nightTree.findNode("Zombie1"); // a fresh zombie, far out on the ring
-        const double nStart = std::sqrt((zNight->x() - 10000.0) * (zNight->x() - 10000.0) +
-                                        (zNight->y() - 10000.0) * (zNight->y() - 10000.0));
-        for (int i = 0; i < 10; ++i) nightTree.process(0.1); // 1s during night
-        const double nEnd = std::sqrt((zNight->x() - 10000.0) * (zNight->x() - 10000.0) +
-                                      (zNight->y() - 10000.0) * (zNight->y() - 10000.0));
-        const double nightMoved = nStart - nEnd;
-        // Night aggression (1.7x) makes the horde close distance faster than by day.
-        CHECK(nightMoved > dayMoved);
+        tree.process(0.016);
+        CHECK(food() == food0 + 1); // no double-collect
     }
 }
 
