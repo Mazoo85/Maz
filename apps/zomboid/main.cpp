@@ -121,6 +121,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texSpitter = renderer->createTexture(16, 16, makeSquare(150, 200, 40).data());
     render::TextureHandle texSplitter = renderer->createTexture(16, 16, makeSquare(210, 90, 180).data());
     render::TextureHandle texSummoner = renderer->createTexture(16, 16, makeSquare(120, 60, 190).data());
+    render::TextureHandle texArmored = renderer->createTexture(16, 16, makeSquare(110, 120, 140).data());
     render::TextureHandle texSpit = renderer->createTexture(16, 16, makeSquare(180, 230, 60).data());
     render::TextureHandle texPowRapid = renderer->createTexture(16, 16, makeSquare(255, 200, 40).data());
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
@@ -581,6 +582,7 @@ int main(int argc, char** argv) {
                 else if (zk == 5) ztex = texSpitter;
                 else if (zk == 6) ztex = texSplitter;
                 else if (zk == 7) ztex = texSummoner;
+                else if (zk == 8) ztex = texArmored;
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;
@@ -594,6 +596,8 @@ int main(int argc, char** argv) {
                     esize = size * 1.3f; // elites are visibly bigger
                 } else if (field(z, "slow_timer") > 0.0) {
                     tint = render::Color{0.55f, 0.75f, 1.0f, 1.0f}; // chilled — icy blue
+                } else if (field(z, "shield") > 0.0) {
+                    tint = render::Color{0.8f, 0.9f, 1.0f, 1.0f};   // armored — steel sheen
                 }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {

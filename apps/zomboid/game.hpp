@@ -1424,6 +1424,7 @@ class Zombie {
     var burn_tick = 0;     # accumulator so burn damage lands in periodic ticks, not every frame
     var summon_cd = 0;     # summoner (kind 7) reinforcement timer
     var summon_budget = 0; # summoner: remaining reinforcements it may call before it's spent
+    var shield = 0;        # armored zombie (kind 8): damage pool that must be broken before health
 
     func _ready() { g_zombies.append(self); }
 
@@ -1528,6 +1529,8 @@ class Zombie {
         self.summon_cd = 4.0;    # a summoner's first reinforcement lands a few seconds in
         self.summon_budget = 0;
         if (k == 7) { self.summon_budget = 6; }
+        self.shield = 0;
+        if (k == 8) { self.shield = 50 + w * 8; }   # armored zombie's damage-absorbing shield
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -1588,12 +1591,22 @@ class Zombie {
                                     self.attack_range = 1.4;
                                     self.score_value = 40;
                                 } else {
-                                    self.health = 25 + w * 8;
-                                    self.speed = 13 + w;
-                                    self.damage = 6;
-                                    self.radius = 1.0;
-                                    self.attack_range = 1.2;
-                                    self.score_value = 10;
+                                    if (k == 8) {
+                                        # Armored: modest health behind a heavy damage-absorbing shield.
+                                        self.health = 30 + w * 6;
+                                        self.speed = 10 + w;
+                                        self.damage = 7;
+                                        self.radius = 1.2;
+                                        self.attack_range = 1.3;
+                                        self.score_value = 28;
+                                    } else {
+                                        self.health = 25 + w * 8;
+                                        self.speed = 13 + w;
+                                        self.damage = 6;
+                                        self.radius = 1.0;
+                                        self.attack_range = 1.2;
+                                        self.score_value = 10;
+                                    }
                                 }
                             }
                         }
@@ -1609,6 +1622,15 @@ class Zombie {
         if (self.alive == false) { return; }
         var d = dmg;
         if (self.slow_timer > 0) { d = dmg * 1.5; }  # chilled bodies are brittle — shatter bonus
+        # An armored zombie's shield soaks damage first; only the overflow past a broken shield bleeds
+        # through to its health, so it must be broken down before it can be killed.
+        if (self.shield > 0) {
+            self.shield = self.shield - d;
+            emit(self.node.x, self.node.y, 3, 0); # shield sparks
+            if (self.shield >= 0) { return; }     # fully absorbed
+            d = 0 - self.shield;                  # remainder past the broken shield
+            self.shield = 0;
+        }
         self.health = self.health - d;
         emit(self.node.x, self.node.y, 3, 0); # hit sparks
         if (self.health <= 0) {
@@ -1792,6 +1814,9 @@ class Director {
                 if (boss == 1 and i == 0) {
                     k = 3;
                 } else {
+                    if (i % 10 == 0 and w >= 8) {
+                        k = 8;
+                    } else {
                     if (i % 9 == 0 and w >= 7) {
                         k = 7;
                     } else {
@@ -1814,6 +1839,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

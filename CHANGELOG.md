@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Armored zombie (new enemy)** — a steel-sheened zombie (kind 8) that carries a heavy damage-
+  absorbing shield in front of modest health. Shots (and any damage) chip the shield first; only the
+  overflow past a *broken* shield bleeds into its health, so it must be worn down before it can be
+  killed — rewarding sustained fire and heavy weapons. Joins the wave roster from wave 8. Verified
+  headless (`zomboid_sim`): a hit under the shield is fully absorbed (health untouched), a blow past
+  the remaining shield breaks it and passes exactly the overflow to health, and once broken further
+  hits damage health directly.
 - **Explosive barrels** — six rusty barrels are scattered around the arena from the start. Shoot one
   (it has a small hull that chips down, popping at zero) and it detonates a hefty blast that damages,
   knocks back and ignites every zombie in radius — and chain-reacts to neighbouring barrels. A one-shot

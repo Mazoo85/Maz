@@ -1235,6 +1235,39 @@ int main() {
         CHECK(z->script().instance->findField("burn_timer")->number > 0.0);
     }
 
+    // Armored zombie (kind 8): a shield soaks damage before health; only overflow past a broken
+    // shield bleeds through, so it must be worn down before it can be killed.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> spawn = {Value::fromNum(5.0), Value::fromNum(0.0), Value::fromNum(8.0),
+                                    Value::fromNum(1.0)}; // spawn(x,y,kind=8,wave=1)
+        tree.scripts().vm().callOn(zs, "spawn", spawn);
+        CHECK((int)z->script().instance->findField("kind")->number == 8);
+        const double shield0 = z->script().instance->findField("shield")->number;
+        const double hp0 = z->script().instance->findField("health")->number;
+        CHECK(shield0 > 0.0);
+
+        // A hit smaller than the shield is fully absorbed: shield drops, health untouched.
+        std::vector<Value> hit = {Value::fromNum(20.0)};
+        tree.scripts().vm().callOn(zs, "take_damage", hit);
+        CHECK(z->script().instance->findField("shield")->number == shield0 - 20.0);
+        CHECK(z->script().instance->findField("health")->number == hp0);   // shield ate it
+
+        // A blow that exceeds the remaining shield breaks it and the overflow bleeds into health.
+        const double remaining = z->script().instance->findField("shield")->number;
+        std::vector<Value> big = {Value::fromNum(remaining + 5.0)};
+        tree.scripts().vm().callOn(zs, "take_damage", big);
+        CHECK(z->script().instance->findField("shield")->number == 0.0);      // broken
+        CHECK(z->script().instance->findField("health")->number == hp0 - 5.0); // 5 overflow through
+
+        // With the shield gone, further hits damage health directly.
+        tree.scripts().vm().callOn(zs, "take_damage", hit);
+        CHECK(z->script().instance->findField("health")->number == hp0 - 5.0 - 20.0);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
