@@ -2729,6 +2729,50 @@ int main() {
         CHECK(sField(surv2, "iframes")->number == 0.0);      // no charge → no free i-frames
     }
 
+    // Overflow power-up (kind 6): while active, holding fire spends no ammo and never reloads — the
+    // magazine stays full through a long burst; without the buff, sustained fire drains the magazine.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Overflow case: magazine never dips below full while firing.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        Value sv = survivor->script();
+        std::vector<Value> six = {Value::fromNum(6.0)};
+        vm.callOn(sv, "grant_powerup", six);
+        tree.process(1.0 / 60.0);                       // sync cur_ammo after the top-up
+        const double full = sField(survivor, "cur_ammo")->number;
+        const double shots0 = sField(survivor, "shots")->number;
+        sField(survivor, "firing")->boolean = true;
+        double minAmmo = full;
+        for (int i = 0; i < 180; ++i) {                 // 3 s of held fire
+            tree.process(1.0 / 60.0);
+            const double a = sField(survivor, "cur_ammo")->number;
+            if (a < minAmmo) minAmmo = a;
+        }
+        CHECK(sField(survivor, "shots")->number > shots0);   // it actually fired a burst
+        CHECK(minAmmo == full);                              // yet the magazine never dropped
+
+        // Control: no buff — the same burst drains the magazine below full at some point.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        sField(surv2, "aim_x")->number = 1.0;
+        sField(surv2, "aim_y")->number = 0.0;
+        t2.process(1.0 / 60.0);
+        const double full2 = sField(surv2, "cur_ammo")->number;
+        sField(surv2, "firing")->boolean = true;
+        double minAmmo2 = full2;
+        for (int i = 0; i < 180; ++i) {
+            t2.process(1.0 / 60.0);
+            const double a = sField(surv2, "cur_ammo")->number;
+            if (a < minAmmo2) minAmmo2 = a;
+        }
+        CHECK(minAmmo2 < full2);                             // normal fire spent rounds
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

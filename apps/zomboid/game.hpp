@@ -364,13 +364,21 @@ class Survivor {
             if (self.reload_t <= 0) { self.finish_reload(); }
         } else {
             if (self.firing and self.fire_cd <= 0) {
-                if (self.mags[self.weapon] > 0) {
+                # Overflow power-up (kind 6): while active, fire freely — no ammo spent, no reloads.
+                var infinite = false;
+                if (self.buff_kind == 6 and self.buff_timer > 0) { infinite = true; }
+                if (infinite) {
                     self.do_shoot();
-                    self.mags[self.weapon] = self.mags[self.weapon] - 1;
                     self.fire_cd = 1.0 / self.fire_rate;
-                    if (self.mags[self.weapon] <= 0) { self.start_reload(); }
                 } else {
-                    self.start_reload();
+                    if (self.mags[self.weapon] > 0) {
+                        self.do_shoot();
+                        self.mags[self.weapon] = self.mags[self.weapon] - 1;
+                        self.fire_cd = 1.0 / self.fire_rate;
+                        if (self.mags[self.weapon] <= 0) { self.start_reload(); }
+                    } else {
+                        self.start_reload();
+                    }
                 }
             }
         }
@@ -476,6 +484,12 @@ class Survivor {
         }
         # Vampiric (kind 5): a sustained buff — no instant effect. While it lasts, each kinetic hit
         # (bullet / railgun beam) siphons a little health back, handled where those hits land.
+        # Overflow (kind 6): infinite ammo / no reloads while active. Cancel any in-progress reload so
+        # you can fire immediately, and top the current magazine for a clean look on the HUD.
+        if (kind == 6) {
+            self.reloading = false;
+            self.mags[self.weapon] = self.mag_sizes[self.weapon];
+        }
         self.apply_mults();
     }
 
@@ -2107,10 +2121,11 @@ class Zombie {
             } else {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
-            # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric).
+            # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric,
+            # overflow).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 6));
-                if (pk > 5) { pk = 5; }
+                var pk = int(randf_range(0, 7));
+                if (pk > 6) { pk = 6; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.

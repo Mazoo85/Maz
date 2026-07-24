@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Overflow power-up (infinite ammo).** A new seventh power-up: for its duration you fire
+  freely — no ammo spent, no reloads — so you can hose down a wave without pausing to reload. Grabbing
+  it also tops your current magazine and cancels any reload in progress; the survivor glows warm gold
+  while it lasts. Joins the drop pool alongside the other six. Headless-tested: with the buff active a
+  long held burst never dips the magazine below full, while the same burst without it drains rounds.
 - **ZOMBOID — ultimate grants panic-button i-frames.** Unleashing the charged overcharge (Q) now
   also gives a brief invulnerability window as the screen-wide blast goes off, so it's a true
   get-out-of-jail button you can fire mid-swarm without eating a hit in the same instant. A not-ready

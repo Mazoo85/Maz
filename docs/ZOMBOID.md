@@ -106,6 +106,7 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Shield** — brief total immunity.
 - **Piercing Rounds** — your bullets punch through several zombies.
 - **Cryo Nova** — instantly chills *every* zombie on the field — a panic button when swarmed.
+- **Overflow** — infinite ammo and no reloads for a while — hose down a wave without pausing.
 
 ## Combat systems worth knowing
 
