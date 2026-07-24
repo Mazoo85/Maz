@@ -54,8 +54,10 @@ cycling automatically.
 - **Dodge roll (Space)** — a fast dash with brief **invincibility**. It's also *offensive*: you
   shoulder-check zombies you roll through, knocking them back and hurting them — dash *into* a pinch to
   bulldoze free.
-- **Melee (F)** — a free heavy shove on a short cooldown. **Executes** any badly-wounded (<30% health)
-  non-boss outright, and an execute refunds most of the cooldown — chain them to clean up stragglers.
+- **Melee (F)** — a free heavy shove on a short cooldown. It knocks back and **briefly staggers** any
+  non-boss it hits — even a brute — so it's a reliable *create-space* button when you're pinned. It also
+  **executes** any badly-wounded (<30% health) non-boss outright, and an execute refunds most of the
+  cooldown — chain them to clean up stragglers.
 - **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
   **slows** anything standing in it, so it holds a lane as area denial, not just chip damage.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The

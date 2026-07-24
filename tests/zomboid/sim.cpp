@@ -2633,6 +2633,42 @@ int main() {
         CHECK(sField(outFire, "slow_timer")->number == 0.0);  // clear of the patch — untouched
     }
 
+    // Melee shove reliably staggers: a heavy swing flinches even a tanky brute it can't threaten with
+    // damage alone (a create-space button), while the boss shrugs the shove off (stays un-staggered).
+    {
+        // Brute case: a high-wave brute takes far less than the stagger damage-threshold from the
+        // 55-damage swing, so the only way it flinches is the melee's own guaranteed stagger.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* brute = tree.findNode("Zombie0");
+        Value bz = brute->script();
+        std::vector<Value> sp = {Value::fromNum(1.0), Value::fromNum(0.0),
+                                 Value::fromNum(2.0), Value::fromNum(10.0)};  // brute, wave 10: hp 280
+        vm.callOn(bz, "spawn", sp);
+        CHECK(sField(brute, "stagger_timer")->number == 0.0);
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        vm.callOn(sv, "melee", none);
+        CHECK(sField(brute, "stagger_timer")->number > 0.0);   // the shove flinched it
+        CHECK(sField(brute, "alive")->boolean);                // but didn't kill it
+
+        // Boss case: the shove connects but the boss (kind 3) is immune to stagger.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* boss = t2.findNode("Zombie0");
+        Value bv = boss->script();
+        std::vector<Value> bsp = {Value::fromNum(1.0), Value::fromNum(0.0),
+                                  Value::fromNum(3.0), Value::fromNum(1.0)};   // boss
+        vm2.callOn(bv, "spawn", bsp);
+        Value s2v = surv2->script();
+        vm2.callOn(s2v, "melee", none);
+        CHECK(sField(boss, "stagger_timer")->number == 0.0);   // boss shrugs off the shove
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

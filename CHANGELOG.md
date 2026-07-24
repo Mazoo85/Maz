@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — melee shove reliably staggers.** The melee shove (F) now briefly flinches whatever
+  non-boss it hits, even a heavily-armored brute it can't meaningfully damage in one swing — turning
+  melee into a dependable "create space" button when you're about to be surrounded, not just a weak
+  hit. The boss stays immune, and the shove's own cooldown bounds it. Headless-tested: a high-wave
+  brute (taking far less than the damage-stagger threshold) is flinched by the shove yet survives,
+  while the boss shrugs it off.
 - **ZOMBOID — molotov fire is now crowd control.** Zombies standing in a molotov's fire patch not only
   burn but **stumble** (a brief slow refreshed every frame they're in it), so the flames actually hold
   a lane instead of just chipping health — real area denial to buy space or funnel the horde. Headless-

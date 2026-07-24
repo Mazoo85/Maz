@@ -856,6 +856,7 @@ class Survivor {
                         executed = executed + 1;
                     } else {
                         z.take_damage(self.melee_dmg);
+                        z.stagger(0.4);   # a shove reliably flinches even a brute — a create-space button
                     }
                     hit = hit + 1;
                 }
@@ -1733,6 +1734,14 @@ class Zombie {
     func apply_frenzy(dur) {
         if (self.alive == false) { return; }
         if (dur > self.frenzy_timer) { self.frenzy_timer = dur; }
+    }
+
+    # Directly flinch this zombie for `dur` seconds — an ungated stagger used by reliable interrupts
+    # like the melee shove (the take_damage stagger is threshold + cooldown gated). The boss is immune.
+    func stagger(dur) {
+        if (self.alive == false) { return; }
+        if (self.kind == 3) { return; }
+        if (dur > self.stagger_timer) { self.stagger_timer = dur; }
     }
 
     # Open a bleeding wound: kinetic rounds add laceration stacks that tick damage over time.
