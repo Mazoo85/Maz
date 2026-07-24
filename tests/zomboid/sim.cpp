@@ -1881,6 +1881,34 @@ int main() {
         CHECK(sField(boss, "speed")->number == rageSpeed);
     }
 
+    // Cryo-nova power-up (kind 4): grabbing it instantly chills every live zombie on the field, buying
+    // breathing room. Dormant pool slots (not alive) are left untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* zs[3] = {tree.findNode("Zombie0"), tree.findNode("Zombie1"), tree.findNode("Zombie2")};
+        const double xs[3] = {5.0, -8.0, 20.0};
+        for (int i = 0; i < 3; ++i) {
+            Value zv = zs[i]->script();
+            std::vector<Value> a = {Value::fromNum(xs[i]), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)};
+            vm.callOn(zv, "spawn_at", a);
+            CHECK(sField(zs[i], "slow_timer")->number == 0.0);   // not chilled yet
+        }
+        SceneNode* dormant = tree.findNode("Zombie5");           // never spawned — stays dead
+        CHECK(!sField(dormant, "alive")->boolean);
+
+        Value sv = survivor->script();
+        std::vector<Value> pk = {Value::fromNum(4.0)};
+        vm.callOn(sv, "grant_powerup", pk);
+        CHECK((int)sField(survivor, "buff_kind")->number == 4);
+        for (int i = 0; i < 3; ++i)
+            CHECK(sField(zs[i], "slow_timer")->number > 0.0);    // whole field chilled, any distance
+        CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

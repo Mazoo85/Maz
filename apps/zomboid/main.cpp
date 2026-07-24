@@ -128,6 +128,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
     render::TextureHandle texPowShield = renderer->createTexture(16, 16, makeSquare(70, 180, 255).data());
     render::TextureHandle texPowPierce = renderer->createTexture(16, 16, makeSquare(180, 90, 255).data());
+    render::TextureHandle texPowCryo = renderer->createTexture(16, 16, makeSquare(120, 230, 255).data());
     render::TextureHandle texCrate = renderer->createTexture(16, 16, makeSquare(200, 160, 90).data());
     render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
     render::TextureHandle texSentry = renderer->createTexture(16, 16, makeSquare(90, 150, 220).data());
@@ -550,7 +551,8 @@ int main(int argc, char** argv) {
                 const int pk = static_cast<int>(field(p, "kind"));
                 render::TextureHandle ptex = pk == 1 ? texPowDamage
                                              : (pk == 2 ? texPowShield
-                                                : (pk == 3 ? texPowPierce : texPowRapid));
+                                                : (pk == 3 ? texPowPierce
+                                                   : (pk == 4 ? texPowCryo : texPowRapid)));
                 const float life = static_cast<float>(field(p, "life"));
                 const float blink = (life > 3.0f || std::sin(static_cast<float>(simTime) * 12.0f) > 0.0f)
                                         ? 1.0f
@@ -666,6 +668,7 @@ int main(int argc, char** argv) {
                     else if (bk == 1) body = render::Color{1.0f, 0.6f, 0.6f, 1.0f};  // damage
                     else if (bk == 0) body = render::Color{1.0f, 0.95f, 0.5f, 1.0f}; // rapid fire
                     else if (bk == 3) body = render::Color{0.8f, 0.5f, 1.0f, 1.0f};  // piercing rounds
+                    else if (bk == 4) body = render::Color{0.6f, 0.9f, 1.0f, 1.0f};  // cryo nova
                 } else if (fieldBool(survivor, "adrenaline")) {
                     // Last-stand: pulse red-hot while critically wounded.
                     const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 14.0f);

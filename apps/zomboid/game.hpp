@@ -424,6 +424,18 @@ class Survivor {
         if (kind == 0) { self.buff_fr = 2.2; }   # rapid fire
         if (kind == 1) { self.buff_dmg = 2.2; }  # double damage
         if (kind == 3) { self.pierce_shots = true; }  # piercing rounds
+        # Cryo nova (kind 4): an instant panic button — chills every zombie on the field so a swarm
+        # crawls while you reposition. One-shot on pickup rather than a sustained buff.
+        if (kind == 4) {
+            var i = 0;
+            var n = len(g_zombies);
+            while (i < n) {
+                var z = g_zombies[i];
+                if (z.alive) { z.apply_slow(4.0); }
+                i = i + 1;
+            }
+            emit(self.node.x, self.node.y, 24, 0);   # frost burst
+        }
         self.apply_mults();
     }
 
@@ -1813,10 +1825,10 @@ class Zombie {
             } else {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
-            # Rarely it drops a power-up instead (kind: rapid-fire, damage, shield, or piercing rounds).
+            # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, or cryo nova).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 4));
-                if (pk > 3) { pk = 3; }
+                var pk = int(randf_range(0, 5));
+                if (pk > 4) { pk = 4; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.

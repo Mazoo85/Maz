@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Cryo-nova power-up (new pickup)** — an icy-cyan power-up (kind 4) that works as a panic button:
+  grabbing it instantly *chills every zombie on the field*, so a swarm crawls at reduced speed while you
+  reload, reposition, or break for a medkit. Joins the random drop table alongside rapid-fire, damage,
+  shield, and piercing rounds; the survivor glows pale-cyan while it's fresh. Verified headless
+  (`zomboid_sim`): picking it up sets a slow timer on every live zombie regardless of distance, while a
+  dormant (unspawned) pool slot is left untouched.
 - **Boss enrage phase** — a boss (every 5th wave) that drops below 35% health flies into a permanent
   rage for a climactic second phase: it moves markedly faster and slams the ground twice as often,
   pulsing angry red so you can read the shift at a glance. The transition triggers exactly once, so
