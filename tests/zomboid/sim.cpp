@@ -2648,6 +2648,30 @@ int main() {
         CHECK(sField(survivor, "buff_timer")->number > 0.0); // power-up buff granted
     }
 
+    // Boss slam knockback: the boss's ground slam physically hurls a nearby survivor away from it, so
+    // standing next to the boss is punished with a shove, not just chip damage.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(5.0, 0.0);                 // 5 units from the boss at the origin
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bv = boss->script();
+        std::vector<Value> bs = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(5.0)};  // spawn(x,y,boss,wave)
+        vm.callOn(bv, "spawn", bs);
+        CHECK((int)sField(boss, "kind")->number == 3);
+        sField(boss, "slam_cd")->number = 0.0;           // slam fires on this step
+
+        vm.callOn(bv, "_process", dt);
+
+        // The survivor was at x=5, one unit-vector *6 knockback along +x lands them past x=10.
+        CHECK(survivor->x() > 10.0);
+        CHECK(survivor->y() == 0.0);                      // pushed straight along the boss→survivor axis
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

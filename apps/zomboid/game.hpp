@@ -2337,7 +2337,15 @@ class Zombie {
             self.slam_cd = self.slam_cd - dt;
             if (self.slam_cd <= 0) {
                 self.slam_cd = slam_gap;
-                if (dist <= 10.0) { g_player.take_damage(25); }
+                if (dist <= 10.0) {
+                    g_player.take_damage(25);
+                    # Knockback: the shockwave physically hurls the survivor away from the boss, so a
+                    # slam clears space instead of just chipping health — punishing standing too close.
+                    if (dist > 0.01) {
+                        g_player.node.x = g_player.node.x + (dx / dist) * 6.0;
+                        g_player.node.y = g_player.node.y + (dy / dist) * 6.0;
+                    }
+                }
                 emit(self.node.x, self.node.y, 28, 1); # shockwave burst
                 g_shake = g_shake + 2.5;
                 if (g_shake > 3.0) { g_shake = 3.0; }

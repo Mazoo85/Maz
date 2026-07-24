@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — boss slam now knocks you back.** The boss's ground slam already hammered a nearby
+  survivor for damage; now the shockwave also physically **hurls you away from the boss**, so a slam
+  clears space instead of just chipping health — you can't simply stand in its face and trade hits.
+  Headless-tested: a survivor 5 units from a slamming boss is thrown out past 10 units, straight along
+  the boss→survivor axis.
 - **ZOMBOID — wave-clear pickup vacuum.** Clearing a wave now sweeps up every medkit and power-up
   still lying on the field and delivers it straight to you, so a drop you couldn't reach mid-fight is
   never stranded and wasted during the between-wave lull. Headless-tested: a medkit and a power-up
