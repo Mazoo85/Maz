@@ -32,6 +32,7 @@ var g_grenades = [];    # object pool for thrown grenades
 var g_medkits = [];     # object pool for dropped health pickups
 var g_spits = [];       # object pool for spitter acid globs (enemy ranged projectiles)
 var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / damage / shield)
+var g_crates = [];      # object pool for periodic supply-crate care packages
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -88,6 +89,7 @@ class Survivor {
     var regen_timer = 0;   # seconds since last damage; after a delay the survivor slowly heals
     var time_survived = 0; # seconds alive this run (for the end-of-run summary)
     var hits = 0;          # bullets that connected (paired with `shots` for accuracy)
+    var crate_timer = 30;  # seconds until the next supply-crate care package drops
 
     var aim_x = 1;
     var aim_y = 0;
@@ -214,6 +216,15 @@ class Survivor {
 
         # Run timer for the end-of-run summary (advances only while alive).
         self.time_survived = self.time_survived + dt;
+
+        # Periodic supply-crate care package: drops on the ring around the survivor.
+        self.crate_timer = self.crate_timer - dt;
+        if (self.crate_timer <= 0) {
+            self.crate_timer = 30;
+            var cang = randf_range(0, 6.2831853);
+            var crad = 14 + randf_range(0, 8);
+            drop_crate(self.node.x + cos(cang) * crad, self.node.y + sin(cang) * crad);
+        }
 
         # Out-of-combat regeneration: stay unharmed for a few seconds and health slowly recovers.
         self.regen_timer = self.regen_timer + dt;
@@ -495,6 +506,16 @@ class Survivor {
         self.reserves[2] = self.reserves[2] + 40;
         self.reserves[3] = self.reserves[3] + 6;
         self.grenades = self.grenades + 1;
+    }
+
+    # Grab a supply-crate care package: a big refill of ammo, grenades, and health.
+    func collect_crate() {
+        self.heal(50);
+        self.grenades = self.grenades + 2;
+        self.reserves[0] = self.reserves[0] + 48;
+        self.reserves[1] = self.reserves[1] + 16;
+        self.reserves[2] = self.reserves[2] + 90;
+        self.reserves[3] = self.reserves[3] + 15;
     }
 
     func take_damage(dmg) {
@@ -827,6 +848,52 @@ func drop_powerup(x, y, k) {
         var p = g_powerups[i];
         if (p.active == false) {
             p.place(x, y, k);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
+# A pooled supply crate: a periodic care package. Sits on the ground for a while; walk over it for a
+# big refill of ammo, grenades, and health. Expires if ignored, then recycles.
+class Crate {
+    var active = false;
+    var life = 0;
+    var max_life = 20;
+    var pickup_range = 2.4;
+
+    func _ready() { g_crates.append(self); }
+
+    func place(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        if (g_player == nil) { return; }
+        if (g_player.alive == false) { return; }
+        var dx = g_player.node.x - self.node.x;
+        var dy = g_player.node.y - self.node.y;
+        if (dx * dx + dy * dy <= self.pickup_range * self.pickup_range) {
+            g_player.collect_crate();
+            self.active = false;
+        }
+    }
+}
+
+# Activate a dormant supply crate from the pool at (x, y).
+func drop_crate(x, y) {
+    var i = 0;
+    var n = len(g_crates);
+    while (i < n) {
+        var c = g_crates[i];
+        if (c.active == false) {
+            c.place(x, y);
             return;
         }
         i = i + 1;
@@ -1197,6 +1264,7 @@ constexpr int kGrenadePool = 8;
 constexpr int kMedkitPool = 12;
 constexpr int kSpitPool = 24;
 constexpr int kPowerupPool = 8;
+constexpr int kCratePool = 2;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -1255,6 +1323,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         p->setPosition(100000.0, 100000.0);
         p->addToGroup("powerups");
         tree.attachScript(*p, "Powerup");
+    }
+
+    // Supply-crate pool — dormant care packages the survivor spawns periodically.
+    for (int i = 0; i < kCratePool; ++i) {
+        maz::scene::SceneNode* c = tree.createChild(tree.root(), "Crate" + std::to_string(i));
+        c->setPosition(100000.0, 100000.0);
+        c->addToGroup("crates");
+        tree.attachScript(*c, "Crate");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

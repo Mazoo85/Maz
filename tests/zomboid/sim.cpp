@@ -658,6 +658,29 @@ int main() {
         CHECK(fr > baseRate - 0.01 && fr < baseRate + 0.01);         // back to base
     }
 
+    // Supply crate: a dropped care package refills ammo + grenades and heals when collected.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("crates").size() == zomboid::kCratePool);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 50.0;
+        const double nades0 = sField(survivor, "grenades")->number;
+        const double res0 = (*sField(survivor, "reserves")->array)[0].number;
+
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_crate", at);
+        int active = 0;
+        for (SceneNode* c : tree.nodesInGroup("crates"))
+            if (c->script().instance->findField("active")->boolean) ++active;
+        CHECK(active == 1);
+
+        tree.process(1.0 / 60.0);   // survivor is on the crate → collected
+        CHECK(sField(survivor, "grenades")->number == nades0 + 2);              // +2 grenades
+        CHECK((*sField(survivor, "reserves")->array)[0].number > res0);         // ammo refilled
+        CHECK(sField(survivor, "health")->number > 50.0);                       // healed
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

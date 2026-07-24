@@ -105,6 +105,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Supply crates** — every ~30 seconds a care package drops on the ring around the survivor (an
+  object-pooled `Crate`); reach it before it expires for a big refill: heal 50, +2 grenades, and a
+  generous ammo top-up for all four weapons. It gives a reason to reposition between fights and a
+  periodic goal. Verified headless (`zomboid_sim`): the pool builds, a dropped crate becomes active,
+  and collecting it grants the grenades, ammo, and heal.
 - **Pickup magnetism** — medkits and power-ups within a short radius (~6 units) drift toward the
   survivor instead of sitting inert, so you scoop them up by getting close rather than standing exactly
   on them. Verified headless (`zomboid_sim`): a medkit 5 units away slides toward the survivor over a

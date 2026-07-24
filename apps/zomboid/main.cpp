@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texPowRapid = renderer->createTexture(16, 16, makeSquare(255, 200, 40).data());
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
     render::TextureHandle texPowShield = renderer->createTexture(16, 16, makeSquare(70, 180, 255).data());
+    render::TextureHandle texCrate = renderer->createTexture(16, 16, makeSquare(200, 160, 90).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -405,6 +406,15 @@ int main(int argc, char** argv) {
                                         ? 1.0f
                                         : 0.35f;
                 drawAt(m->x(), m->y(), texMedkit, 1.8f, render::Color{0.5f * blink, blink, 0.6f * blink, 1.0f});
+            }
+            // Supply crates (periodic care packages), blinking as they near expiry.
+            for (scene::SceneNode* c : tree.nodesInGroup("crates")) {
+                if (!fieldBool(c, "active")) continue;
+                const float life = static_cast<float>(field(c, "life"));
+                const float blink = (life > 4.0f || std::sin(static_cast<float>(simTime) * 8.0f) > 0.0f)
+                                        ? 1.0f
+                                        : 0.4f;
+                drawAt(c->x(), c->y(), texCrate, 2.4f, render::Color{blink, blink * 0.9f, blink * 0.6f, 1.0f});
             }
             // Power-up pickups (rapid-fire / damage / shield), blinking as they near expiry.
             for (scene::SceneNode* p : tree.nodesInGroup("powerups")) {
