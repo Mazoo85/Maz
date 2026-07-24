@@ -783,6 +783,32 @@ int main() {
         CHECK(moved2 < moved1 * 0.6); // chilled to ~40% speed
     }
 
+    // Shatter: a chilled zombie takes extra damage from the same hit (freeze-then-shred synergy).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* a = tree.findNode("Zombie0");
+        SceneNode* b = tree.findNode("Zombie1");
+        Value as = a->script();
+        Value bs = b->script();
+        std::vector<Value> park = {Value::fromNum(5.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                   Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(as, "spawn_at", park);
+        tree.scripts().vm().callOn(bs, "spawn_at", park);
+        std::vector<Value> dur = {Value::fromNum(2.0)};
+        tree.scripts().vm().callOn(bs, "apply_slow", dur); // chill only b
+
+        const double ah0 = a->script().instance->findField("health")->number;
+        const double bh0 = b->script().instance->findField("health")->number;
+        std::vector<Value> hit = {Value::fromNum(50.0)};
+        tree.scripts().vm().callOn(as, "take_damage", hit);
+        tree.scripts().vm().callOn(bs, "take_damage", hit);
+        const double aLost = ah0 - a->script().instance->findField("health")->number;
+        const double bLost = bh0 - b->script().instance->findField("health")->number;
+        CHECK(bLost > aLost);              // chilled body took more
+        CHECK(bLost > aLost * 1.4);        // ~1.5x shatter multiplier
+    }
+
     // Elite ("champion") zombies: crowning one boosts its health and score and guarantees a medkit.
     {
         SceneTree tree;

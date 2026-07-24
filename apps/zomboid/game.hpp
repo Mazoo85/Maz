@@ -948,7 +948,9 @@ class Zombie {
 
     func take_damage(dmg) {
         if (self.alive == false) { return; }
-        self.health = self.health - dmg;
+        var d = dmg;
+        if (self.slow_timer > 0) { d = dmg * 1.5; }  # chilled bodies are brittle — shatter bonus
+        self.health = self.health - d;
         emit(self.node.x, self.node.y, 3, 0); # hit sparks
         if (self.health <= 0) {
             self.health = 0;
