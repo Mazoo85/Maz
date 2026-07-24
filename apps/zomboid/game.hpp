@@ -1794,6 +1794,7 @@ class Zombie {
             }
             i = i + 1;
         }
+        return made;
     }
 
     # Overkill gib: a decisive killing blow bursts this body in a small shockwave that chips every
@@ -2205,8 +2206,22 @@ class Zombie {
             if (self.enraged == false and self.health <= self.max_health * 0.35) {
                 self.enraged = true;
                 self.speed = self.speed * 1.7;
+                self.summon_cd = 4.0;      # first reinforcement wave lands a few seconds into the rage
+                self.summon_budget = 4;    # calls the horde a handful of times before it's spent
                 emit(self.node.x, self.node.y, 30, 1);   # rage burst
                 g_shake = 3.0;
+            }
+            # Enraged second phase: the boss periodically bellows and calls the horde, spawning a pair
+            # of runners until its reinforcement budget runs dry — the climax becomes a real scramble.
+            if (self.enraged and self.summon_budget > 0) {
+                self.summon_cd = self.summon_cd - dt;
+                if (self.summon_cd <= 0) {
+                    self.summon_cd = 6.0;
+                    if (self.split_off(2) > 0) {
+                        self.summon_budget = self.summon_budget - 1;
+                        emit(self.node.x, self.node.y, 8, 1);   # summon burst
+                    }
+                }
             }
             # Boss ground slam: a periodic radial shockwave that hammers a nearby survivor, so
             # standing next to the boss is punished even though it lumbers slowly. Still bites below.

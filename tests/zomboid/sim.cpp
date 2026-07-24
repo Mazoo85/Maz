@@ -2669,6 +2669,34 @@ int main() {
         CHECK(sField(boss, "stagger_timer")->number == 0.0);   // boss shrugs off the shove
     }
 
+    // Boss enrage phase-2 adds: once the boss rages (below 35% health) it periodically calls in a
+    // pair of runners, up to a fixed reinforcement budget — then stops (no endless flood).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bv = boss->script();
+        std::vector<Value> sp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(3.0)};   // boss, wave 3
+        vm.callOn(bv, "spawn", sp);
+        CHECK(aliveZombies(tree) == 1);                       // just the boss on the field
+        const double mh = sField(boss, "max_health")->number;
+        sField(boss, "health")->number = mh * 0.3;           // drop it below the 35% rage threshold
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // ~5 s: enrage triggers and the first reinforcement wave (2 runners) lands.
+        for (int i = 0; i < 300; ++i) vm.callOn(bv, "_process", dt);
+        CHECK(sField(boss, "enraged")->boolean);
+        CHECK(aliveZombies(tree) >= 3);                       // boss + its first pair of adds
+
+        // Long run: it keeps calling until the budget is spent, then stops — a bounded flood.
+        for (int i = 0; i < 2400; ++i) vm.callOn(bv, "_process", dt);
+        CHECK((int)sField(boss, "summon_budget")->number == 0);   // reinforcement budget spent
+        CHECK(aliveZombies(tree) == 9);                           // boss + 4 waves * 2 runners = 9, capped
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

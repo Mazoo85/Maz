@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — enraged boss calls in reinforcements.** The boss's second phase (below 35% health) now
+  periodically bellows and summons a pair of runners, up to a fixed reinforcement budget, so the climax
+  becomes a real scramble instead of a straight damage race — then stops (a bounded flood, no endless
+  spawns). Fixes a latent bug the test caught: `Zombie.split_off` never returned its spawn count, so
+  callers gating on it (now the boss) misread it as zero. Headless-tested: an enraged boss spawns its
+  first add-wave, and after a long run its reinforcement budget is exactly spent with the add count capped.
 - **ZOMBOID — melee shove reliably staggers.** The melee shove (F) now briefly flinches whatever
   non-boss it hits, even a heavily-armored brute it can't meaningfully damage in one swing — turning
   melee into a dependable "create space" button when you're about to be surrounded, not just a weak
