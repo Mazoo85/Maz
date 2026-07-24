@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — boss bounty (guaranteed care package on a boss kill).** Felling a boss — the wave leader
+  that heads every 5th wave — now **always drops a medkit AND a power-up** where it falls, on top of
+  the big score and cash, instead of leaving the same rare dice-roll drops as a common zombie. Grinding
+  down the hardest target on the field is now a reliable, satisfying payoff. Headless-tested: killing a
+  boss leaves at least one active medkit and one active power-up on the ground; nothing drops while it
+  still lives.
 - **ZOMBOID — sixth permanent upgrade: +crit damage.** The between-wave upgrade cycle gained a sixth
   step that raises the **critical-hit multiplier** (+0.25 each), alongside the existing +damage,
   +fire-rate, +max-health, +ammo and +crit-chance. The two crit upgrades now compound — a crit build

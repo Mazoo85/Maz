@@ -2295,6 +2295,16 @@ class Zombie {
             }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
+            # Felling a boss — the wave leader — is a landmark kill, so it always drops a full care
+            # package: a guaranteed medkit AND a guaranteed power-up (on top of the big score and cash).
+            # A just reward for grinding down the hardest target on the field.
+            if (self.kind == 3) {
+                drop_medkit(self.node.x, self.node.y);
+                var bpk = int(randf_range(0, 8));
+                if (bpk > 7) { bpk = 7; }
+                drop_powerup(self.node.x - 2.0, self.node.y, bpk);
+                emit(self.node.x, self.node.y, 24, 1);   # triumphant burst
+            }
             # A slain zombie sometimes drops a medkit; an elite always does, plus an extra flourish.
             if (self.elite) {
                 drop_medkit(self.node.x, self.node.y);

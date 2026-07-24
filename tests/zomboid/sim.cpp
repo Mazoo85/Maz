@@ -1935,6 +1935,34 @@ int main() {
         CHECK(sField(boss, "speed")->number == rageSpeed);
     }
 
+    // Boss bounty: felling a boss (the wave leader) always drops a full care package — a guaranteed
+    // medkit AND a guaranteed power-up — unlike an ordinary zombie whose drops are a rare dice roll.
+    {
+        auto bossMedkits = [](SceneTree& t) {
+            int n = 0;
+            for (SceneNode* m : t.nodesInGroup("medkits"))
+                if (sField(m, "active")->boolean) ++n;
+            return n;
+        };
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bv = boss->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(5.0)}; // boss (kind 3), wave 5
+        vm.callOn(bv, "spawn", sp);
+        CHECK((int)sField(boss, "kind")->number == 3);
+        CHECK(bossMedkits(tree) == 0);                         // nothing dropped while it lives
+        CHECK(activePowerups(tree) == 0);
+
+        std::vector<Value> lethal = {Value::fromNum(999999.0)};
+        vm.callOn(bv, "take_damage", lethal);
+        CHECK(!sField(boss, "alive")->boolean);                // the boss fell
+        CHECK(bossMedkits(tree) >= 1);                         // guaranteed medkit
+        CHECK(activePowerups(tree) >= 1);                      // ...and a guaranteed power-up
+    }
+
     // Cryo-nova power-up (kind 4): grabbing it instantly chills every live zombie on the field, buying
     // breathing room. Dormant pool slots (not alive) are left untouched.
     {
