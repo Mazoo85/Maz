@@ -629,6 +629,23 @@ class Survivor {
             }
             i = i + 1;
         }
+        # The cone cooks explosive barrels too, so torching a barrel pops it — same as a molotov.
+        var fbi = 0;
+        var fbn = len(g_barrels);
+        while (fbi < fbn) {
+            var fb = g_barrels[fbi];
+            if (fb.active) {
+                var frx = fb.node.x - self.node.x;
+                var fry = fb.node.y - self.node.y;
+                var fbd = sqrt(frx * frx + fry * fry);
+                if (fbd <= range) {
+                    var fdot = 1.0;
+                    if (fbd > 0.01) { fdot = (frx * ax + fry * ay) / fbd; }
+                    if (fdot > 0.6) { fb.take_damage(dmg); }
+                }
+            }
+            fbi = fbi + 1;
+        }
         emit(self.node.x + ax * 3.0, self.node.y + ay * 3.0, 4, 2);   # flame lick at the nozzle
         self.shots = self.shots + 1;
     }

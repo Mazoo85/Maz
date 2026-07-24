@@ -133,8 +133,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   stacks with the chill bonus.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
-  the damage and get flung clear, so detonate them at a distance, never in your own face. A **molotov
-  thrown onto a barrel** cooks it off too, chaining the fire into an explosion.
+  the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks
+  them off** too — a molotov thrown onto a barrel, or the flamethrower's cone sweeping over it, pops it.
 
 ## The siege
 

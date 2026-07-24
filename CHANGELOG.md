@@ -8,6 +8,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the flamethrower cooks off barrels too.** For consistency with the molotov, the
+  flamethrower's flame cone now chips any explosive barrel it sweeps over until the barrel detonates —
+  so you can torch a barrel to pop it, not just shoot it. Headless-tested: a barrel held in the flame
+  cone cooks off, while one behind the survivor (out of the cone) stays intact.
 - **ZOMBOID — elite kills release a shockwave.** Felling an elite champion now bursts a nova that
   knocks back and wounds the surrounding crowd, clearing breathing room around the corpse (and the
   medkit it always drops) — so killing an elite while it's waded into a pack thins the pack too.

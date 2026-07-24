@@ -2878,6 +2878,32 @@ int main() {
         CHECK(far_->x() == 20.0);
     }
 
+    // Flamethrower cooks barrels: a barrel in the flame cone detonates; one behind the survivor
+    // (outside the cone) is untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        sField(survivor, "crit_chance")->number = 0.0;   // steady base damage per lick
+
+        SceneNode* front = tree.findNode("Barrel0");
+        Value fbv = front->script();
+        std::vector<Value> inCone = {Value::fromNum(5.0), Value::fromNum(0.0)};   // ahead, in the +x cone
+        vm.callOn(fbv, "place", inCone);
+        SceneNode* back = tree.findNode("Barrel1");
+        Value bbv = back->script();
+        std::vector<Value> away = {Value::fromNum(0.0), Value::fromNum(40.0)};    // off to the side, clear
+        vm.callOn(bbv, "place", away);
+
+        Value sv = survivor->script();
+        std::vector<Value> aim = {Value::fromNum(1.0), Value::fromNum(0.0)};      // torch straight ahead
+        for (int i = 0; i < 30; ++i) { vm.callOn(sv, "flamethrower_fire", aim); }
+
+        CHECK(!sField(front, "active")->boolean);   // the flames cooked it off
+        CHECK(sField(back, "active")->boolean);     // out of the cone — intact
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
