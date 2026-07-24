@@ -361,7 +361,8 @@ int main() {
         CHECK((*sField(survivor, "reserves")->array)[0].number > res0);
     }
 
-    // Upgrades: each apply_upgrade cycles a distinct boost (+dmg, +rate, +max health, +ammo).
+    // Upgrades: each apply_upgrade cycles a distinct boost (+dmg, +rate, +max health, +ammo,
+    // +crit chance, +crit damage) on a six-step loop.
     {
         SceneTree tree;
         SceneNode* s = zomboid::buildScene(tree);
@@ -385,6 +386,14 @@ int main() {
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k4: +crit chance
         CHECK(sField(s, "crit_chance")->number > crit0);
         CHECK((int)sField(s, "upgrades")->number == 5);
+        const double cmult0 = sField(s, "crit_mult")->number;    // 2.0 by default
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k5: +crit damage
+        CHECK(sField(s, "crit_mult")->number == cmult0 + 0.25);
+        CHECK((int)sField(s, "upgrades")->number == 6);
+        // The cycle wraps at six: the seventh upgrade rolls back to +damage (k0).
+        const double dmgMult6 = sField(s, "dmg_mult")->number;
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k0 again: +damage
+        CHECK(sField(s, "dmg_mult")->number > dmgMult6);
     }
 
     // Critical hits: a shot rolls for bonus damage; forcing the odds proves both branches.

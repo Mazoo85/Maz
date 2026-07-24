@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — sixth permanent upgrade: +crit damage.** The between-wave upgrade cycle gained a sixth
+  step that raises the **critical-hit multiplier** (+0.25 each), alongside the existing +damage,
+  +fire-rate, +max-health, +ammo and +crit-chance. The two crit upgrades now compound — a crit build
+  lands criticals both more often *and* harder over a long run. The upgrade HUD readout now also shows
+  the current crit multiplier. Headless-tested: the sixth upgrade raises crit_mult from 2.0 to 2.25
+  and the cycle wraps back to +damage on the seventh.
 - **ZOMBOID — executioner's bloodthirst (melee execute heals).** A melee shove that **executes** a
   badly-wounded (<30% health) non-boss already refunds most of its cooldown; now each finisher also
   **siphons 5 health back** to the survivor. Wading into a wounded pack to shove-execute stragglers

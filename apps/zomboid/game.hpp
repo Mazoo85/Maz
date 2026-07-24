@@ -522,7 +522,7 @@ class Survivor {
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
     # +crit chance.
     func apply_upgrade() {
-        var k = self.upgrades % 5;
+        var k = self.upgrades % 6;
         if (k == 0) {
             self.dmg_mult = self.dmg_mult + 0.2;
         } else {
@@ -540,7 +540,13 @@ class Survivor {
                         self.reserves[3] = self.reserves[3] + 10;
                         self.reserves[4] = self.reserves[4] + 120;
                     } else {
-                        self.crit_chance = self.crit_chance + 0.05;
+                        if (k == 4) {
+                            self.crit_chance = self.crit_chance + 0.05;
+                        } else {
+                            # k == 5: heavier critical hits — deepens the crit build so +crit-chance
+                            # upgrades keep paying off with bigger spikes, not just more-frequent ones.
+                            self.crit_mult = self.crit_mult + 0.25;
+                        }
                     }
                 }
             }

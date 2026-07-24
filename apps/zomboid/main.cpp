@@ -861,10 +861,11 @@ int main(int argc, char** argv) {
                 }
             }
             // Upgrade progression.
-            std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f   CRIT %d%%",
+            std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f   CRIT %d%% x%.2f",
                           static_cast<int>(field(survivor, "upgrades")), field(survivor, "dmg_mult"),
                           field(survivor, "rate_mult"),
-                          static_cast<int>(field(survivor, "crit_chance") * 100.0 + 0.5));
+                          static_cast<int>(field(survivor, "crit_chance") * 100.0 + 0.5),
+                          field(survivor, "crit_mult"));
             font.drawText(*renderer, sw * 0.5f - 220.0f, 44.0f, buf,
                           render::Color{0.7f, 0.95f, 0.75f, 1.0f}, 0.42f);
             // Combo multiplier — flashes big when it's live.
