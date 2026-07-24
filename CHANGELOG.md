@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — explosive barrels are now double-edged.** A barrel blast used to hurt only zombies;
+  now a survivor caught in it takes **half the blast damage** and is **flung clear** (still respecting
+  dodge i-frames, shield, and armor). So a barrel is a trap to lure the horde onto, not something to
+  detonate in your own face — hug one at your peril. Headless-tested: a survivor 2 units from a
+  detonating barrel loses 45 health and is knocked back, while one standing well clear is untouched.
 - **ZOMBOID — boss slam now knocks you back.** The boss's ground slam already hammered a nearby
   survivor for damage; now the shockwave also physically **hurls you away from the boss**, so a slam
   clears space instead of just chipping health — you can't simply stand in its face and trade hits.

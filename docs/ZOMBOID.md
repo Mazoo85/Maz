@@ -129,7 +129,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   **40% more damage** while it reels, so the combo is: knock it off balance, then pour fire in. It
   stacks with the chill bonus.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
-  and lure the horde onto them.
+  and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
+  the damage and get flung clear, so detonate them at a distance, never in your own face.
 
 ## The siege
 

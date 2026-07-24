@@ -1719,6 +1719,20 @@ class Barrel {
             }
             i = i + 1;
         }
+        # The blast is double-edged: a survivor caught in it takes half damage (still respecting dodge
+        # i-frames, shield and armor) and is flung clear — so lure the horde onto a barrel, don't hug it.
+        if (g_player != nil and g_player.alive) {
+            var pdx = g_player.node.x - self.node.x;
+            var pdy = g_player.node.y - self.node.y;
+            var pd2 = pdx * pdx + pdy * pdy;
+            if (pd2 <= self.blast_radius * self.blast_radius) {
+                g_player.take_damage(self.blast_dmg * 0.5);
+                var pm = sqrt(pd2);
+                if (pm < 0.01) { pm = 0.01; }
+                g_player.node.x = g_player.node.x + (pdx / pm) * 5.0;
+                g_player.node.y = g_player.node.y + (pdy / pm) * 5.0;
+            }
+        }
         # Chain-react to other barrels in range (self is already inactive, so no infinite loop).
         var bi = 0;
         var bn = len(g_barrels);

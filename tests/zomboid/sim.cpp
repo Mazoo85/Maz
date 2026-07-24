@@ -2672,6 +2672,39 @@ int main() {
         CHECK(survivor->y() == 0.0);                      // pushed straight along the boss→survivor axis
     }
 
+    // Explosive barrel is double-edged: a survivor caught in the blast takes half damage and is flung
+    // clear, so hugging a barrel you shoot is punished; standing well clear is safe.
+    {
+        std::vector<Value> none;
+
+        // In-blast case: survivor 2 units from a barrel at the origin — well inside blast radius 7.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(2.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* barrel = tree.findNode("Barrel0");
+        Value bv = barrel->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(bv, "place", at);                       // move it onto the origin, hp reset
+        const double h0 = sField(survivor, "health")->number;
+        vm.callOn(bv, "explode", none);
+        CHECK(sField(survivor, "health")->number == h0 - 45.0);   // 90 blast * 0.5, no armor
+        CHECK(survivor->x() > 2.0);                                // flung away from the barrel
+
+        // Clear case: survivor far away takes nothing from the same blast.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(100.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* b2 = t2.findNode("Barrel0");
+        Value b2v = b2->script();
+        vm2.callOn(b2v, "place", at);
+        const double h2 = sField(s2, "health")->number;
+        vm2.callOn(b2v, "explode", none);
+        CHECK(sField(s2, "health")->number == h2);        // out of range — untouched
+        CHECK(s2->x() == 100.0);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
