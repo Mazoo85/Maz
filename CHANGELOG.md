@@ -105,6 +105,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Offensive dodge (dash strike)** — the dodge-roll now *shoulder-checks* every zombie it passes
+  through: one shove each, knocking them back and dealing dash damage. The dodge is no longer purely
+  escape — dashing straight into a clump both grants i-frames and bulldozes a path clear, so a
+  well-timed roll through a pinch is genuinely aggressive. Verified headless (`zomboid_sim`): a dash
+  into a parked zombie strikes it exactly once (not per-frame) and knocks it further along the dash.
 - **Body armor (buyable damage buffer)** — a depletable armor plate the survivor buys from the shop
   (key **9**, $80): incoming hits chip the plate first, and only damage that overflows a *spent* plate
   reaches health — a persistent survivability buffer distinct from the shield power-up's brief total

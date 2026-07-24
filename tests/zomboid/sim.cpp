@@ -1915,6 +1915,30 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Dash strike: the dodge-roll now shoulder-checks zombies it passes through — one shove each,
+    // knocking them back and dealing dash damage — so a dash both escapes and clears a path.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z0 = tree.findNode("Zombie0");
+        Value zv = z0->script();
+        std::vector<Value> at = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(100.0),
+                                 Value::fromNum(0.0)};   // a walker parked 4 units ahead
+        vm.callOn(zv, "spawn_at", at);
+        const double zx0 = z0->x();
+
+        Value sv = survivor->script();
+        std::vector<Value> dir = {Value::fromNum(1.0), Value::fromNum(0.0)}; // dash straight at it
+        Value ok = vm.callOn(sv, "dash", dir);
+        CHECK(ok.boolean);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 20; ++i) vm.callOn(sv, "_process", dt);   // ride out the dash burst
+        CHECK(sField(z0, "health")->number == 60.0);   // struck exactly once for 40 (not per-frame)
+        CHECK(z0->x() > zx0);                           // and knocked further along the dash
+    }
+
     // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
     // reaches health. Bought from the shop (kind 3) for cash.
     {

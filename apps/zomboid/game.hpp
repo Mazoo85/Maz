@@ -176,6 +176,8 @@ class Survivor {
     var dash_vy = 0;
     var iframes = 0;         # invulnerability window granted by the dodge
     var dash_speed = 46;
+    var dash_dmg = 40;       # a dash shoulder-checks zombies it passes through for this damage
+    var dash_hits = [];      # zombies already struck this dash (one shove each, not per-frame)
     # Close-quarters melee shove: a last-resort swing that damages and knocks back adjacent zombies.
     var melee_cd = 0;
     var melee_cd_max = 1.1;
@@ -275,6 +277,26 @@ class Survivor {
             self.dash_time = self.dash_time - dt;
             self.node.x = self.node.x + self.dash_vx * dt;
             self.node.y = self.node.y + self.dash_vy * dt;
+            # Offensive dodge: shoulder-check every zombie the roll passes through — one shove each,
+            # knocking it back and dealing dash damage, so the dodge doubles as a way to bulldoze out.
+            var di = 0;
+            var dn = len(g_zombies);
+            while (di < dn) {
+                var dz = g_zombies[di];
+                if (dz.alive and self.dash_struck(dz) == false) {
+                    var ddx = dz.node.x - self.node.x;
+                    var ddy = dz.node.y - self.node.y;
+                    var dr = 2.5 + dz.radius;
+                    if (ddx * ddx + ddy * ddy <= dr * dr) {
+                        var dm = sqrt(ddx * ddx + ddy * ddy);
+                        if (dm < 0.01) { dm = 0.01; }
+                        dz.hit_knockback(ddx / dm, ddy / dm, 5.0);
+                        dz.take_damage(self.dash_dmg);
+                        self.dash_hits.append(dz);
+                    }
+                }
+                di = di + 1;
+            }
         }
 
         # Advance the shared world clock (survivor owns it).
@@ -773,7 +795,19 @@ class Survivor {
         self.dash_time = 0.22;
         self.iframes = 0.35;
         self.dash_cd = self.dash_cd_max;
+        self.dash_hits = [];   # fresh strike list for this dash
         return true;
+    }
+
+    # Has this dash already shoulder-checked zombie `z`? (so each body is struck once per dash).
+    func dash_struck(z) {
+        var i = 0;
+        var n = len(self.dash_hits);
+        while (i < n) {
+            if (self.dash_hits[i] == z) { return true; }
+            i = i + 1;
+        }
+        return false;
     }
 
     # Close-quarters melee shove: a heavy swing that damages and knocks back every zombie in a short
