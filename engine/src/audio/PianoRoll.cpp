@@ -99,7 +99,7 @@ int PianoRoll::addChord(int startStep, int lengthSteps, int rootPitch, Chord cho
         Note n;
         n.startStep = startStep;
         n.lengthSteps = lengthSteps < 1 ? 1 : lengthSteps;
-        n.pitch = rootPitch + off;
+        n.pitch = std::clamp(rootPitch + off, 0, 127); // keep every chord tone a valid MIDI note
         n.velocity = velocity;
         notes_.push_back(n);
     }
@@ -422,12 +422,12 @@ int PianoRoll::snapToScale(int rootPitch, Scale scale) {
         // Search outward for the nearest in-scale pitch: distance 1 down, 1 up, 2 down, 2 up, …
         // (down first, so exact ties resolve downward). A degree is always within 6 semitones.
         for (int k = 1; k <= 6; ++k) {
-            if (inScale(n.pitch - k)) {
+            if (n.pitch - k >= 0 && inScale(n.pitch - k)) {
                 n.pitch -= k;
                 ++moved;
                 break;
             }
-            if (inScale(n.pitch + k)) {
+            if (n.pitch + k <= 127 && inScale(n.pitch + k)) {
                 n.pitch += k;
                 ++moved;
                 break;
@@ -463,7 +463,8 @@ int PianoRoll::transposeDiatonic(int degrees, int rootPitch, Scale scale) {
         const int newDegAbs = idx + degrees;
         const int degOct = floorDiv(newDegAbs, n);
         const int newIdx = newDegAbs - degOct * n; // 0..n-1
-        const int newPitch = rootPitch + (oct + degOct) * 12 + deg[static_cast<size_t>(newIdx)];
+        const int newPitch =
+            std::clamp(rootPitch + (oct + degOct) * 12 + deg[static_cast<size_t>(newIdx)], 0, 127);
         if (newPitch != note.pitch) {
             ++moved;
         }

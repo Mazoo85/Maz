@@ -1976,6 +1976,34 @@ int main() {
         check(hi.harmonize(audio::Chord::Major) == 0, "harmonize skips copies pushed out of MIDI range");
     }
 
+    // --- Regression: edit tools must keep every note pitch a valid MIDI note [0,127] ---------
+    // addChord / transposeDiatonic / snapToScale previously wrote unclamped pitches (their sibling
+    // tools clamp/skip). A high root or wide voicing produced pitches > 127 (or < 0).
+    {
+        auto inRange = [](const audio::PianoRoll& r) {
+            for (const audio::Note& n : r.notes()) {
+                if (n.pitch < 0 || n.pitch > 127) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        // A wide chord at a very high root: Dom13 reaches +21 semitones (120+21 = 141 without a clamp).
+        audio::PianoRoll ch;
+        ch.addChord(0, 1, 120, audio::Chord::Dom13, 0.9f);
+        check(inRange(ch), "addChord clamps every chord tone into MIDI range at a high root");
+        // Diatonic transpose up from near the ceiling (125 +3 degrees in C major → 131 without a clamp).
+        audio::PianoRoll td;
+        td.addNote(audio::Note{0, 1, 125, 1.0f});
+        td.transposeDiatonic(3, 0, audio::Scale::Major);
+        check(inRange(td), "transposeDiatonic clamps the result into MIDI range");
+        // Scale-snap of a top note whose nearest in-scale pitch is upward (would exceed 127).
+        audio::PianoRoll sn;
+        sn.addNote(audio::Note{0, 1, 127, 1.0f});
+        sn.snapToScale(125, audio::Scale::Blues);
+        check(inRange(sn), "snapToScale never pushes a note past MIDI range");
+    }
+
     // --- Scale snap ----------------------------------------------------------
     {
         // C major degrees (pitch classes): 0 2 4 5 7 9 11. Off-scale notes should snap to the
