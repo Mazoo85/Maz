@@ -731,6 +731,31 @@ int main() {
         CHECK(sField(survivor, "health")->number == maxHp);
     }
 
+    // Knockback: a bullet shoves a light zombie along its travel; a heavy brute barely budges.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        (void)survivor;
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> park = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(200.0),
+                                   Value::fromNum(0.0)}; // walker, radius 1.0
+        tree.scripts().vm().callOn(zs, "spawn_at", park);
+        const double wx0 = z->x();
+        std::vector<Value> kb = {Value::fromNum(1.0), Value::fromNum(0.0), Value::fromNum(0.6)};
+        tree.scripts().vm().callOn(zs, "hit_knockback", kb);
+        CHECK(z->x() > wx0 + 0.4);  // shoved along +x
+
+        SceneNode* zb = tree.findNode("Zombie1");
+        Value zbs = zb->script();
+        std::vector<Value> brute = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(2.0),
+                                    Value::fromNum(1.0)}; // brute, radius 1.8
+        tree.scripts().vm().callOn(zbs, "spawn", brute);
+        const double bx0 = zb->x();
+        tree.scripts().vm().callOn(zbs, "hit_knockback", kb);
+        CHECK(zb->x() - bx0 < 0.3);  // heavy body resists
+    }
+
     // Elite ("champion") zombies: crowning one boosts its health and score and guarantees a medkit.
     {
         SceneTree tree;

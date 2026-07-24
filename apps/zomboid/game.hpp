@@ -548,6 +548,8 @@ class Bullet {
                 var dy = z.node.y - self.node.y;
                 var rr = self.hit_radius + z.radius;
                 if (dx * dx + dy * dy <= rr * rr) {
+                    var spd = sqrt(self.vx * self.vx + self.vy * self.vy);
+                    if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
                     z.take_damage(self.damage);
                     if (g_player != nil) { g_player.hits = g_player.hits + 1; }
                     self.active = false;
@@ -832,6 +834,14 @@ class Zombie {
     var elite = false;     # "champion" modifier: much tankier, faster, worth far more
 
     func _ready() { g_zombies.append(self); }
+
+    # Shove this zombie along (dirx, diry) when shot. Heavy bodies (brutes/bosses) mostly resist it.
+    func hit_knockback(dirx, diry, amount) {
+        var k = amount;
+        if (self.radius > 1.5) { k = amount * 0.25; }
+        self.node.x = self.node.x + dirx * k;
+        self.node.y = self.node.y + diry * k;
+    }
 
     # Crown this zombie an elite: a tankier, faster, high-value champion that always drops a medkit.
     func make_elite() {

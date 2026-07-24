@@ -45,6 +45,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   hit. Verified headless: a forced wave 5 spawns a boss (HP > 300) plus a genuine runner/brute/walker
   mix with runners out-pacing and brutes out-tanking walkers, and a brute survives a single pistol
   shot. Autopilot 45 s run reaches wave 5 (a boss wave).
+- **Bullet knockback** — a bullet shoves the zombie it hits back along the shot's direction (a new
+  `hit_knockback` on the zombie), giving fire tactile weight and a crowd-control lever — the shotgun's
+  burst can stall a rush. Heavy bodies (brutes and bosses, by radius) shrug most of it off. Verified
+  headless (`zomboid_sim`): a knockback impulse pushes a walker along the travel direction while a
+  brute barely moves.
 - **Impact juice** — a script-side particle pool (sparks on every hit, a blood burst on a kill) and a
   decaying screen-shake value that the camera reads (bigger kicks for brutes and bosses), plus an
   app-side muzzle flash. The simulation core is verified headless (`zomboid_sim`): the particle pool
