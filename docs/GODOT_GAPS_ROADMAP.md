@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **3D (trilinear) volume grid sampling** (`math::grid3DTrilinear` / `grid3DNearest`, `Grid3DSample.hpp`)
+  — DONE (M806); the 3D companion to the existing 2D `GridSample` (M-series bilinear/bicubic). Reads a value
+  at CONTINUOUS coordinates from a volume grid — the primitive under sampling a density / fog / SDF / 3D-noise
+  volume, a baked GI light-probe grid, or a 3D LUT at a world position. Trilinear blends the 8 surrounding
+  cells and reproduces any affine or multilinear field EXACTLY; nearest snaps to the closest cell; edges use
+  Clamp (repeat border) or Wrap (tile). Templated on the cell type (float density, vec3 vector field, RGB
+  volume). The engine had trilinear baked into MeshSdf/noise individually; this is the one reusable primitive,
+  and Godot's volume sampling is GPU-side only. Verified airtight: sampling at integer coords returns the
+  stored cell; an affine field ax+by+cz+e is reproduced exactly at any fractional coordinate; a full trilinear
+  polynomial is reproduced exactly within each cell; the result matches an independent nested 3-stage lerp;
+  Clamp and Wrap edge behaviours hold; and a vec3-typed grid samples componentwise. ctest `grid3d_sample`.
 - [x] **Closest point / distance / SDF to an oriented box (OBB)** (`math::closestPointOnObb` /
   `distanceToObb` / `sqDistanceToObb` / `signedDistanceObb` / `obbIntersectsSphere`, `ObbDistance.hpp`) —
   DONE (M805); the query the engine's `Obb` was missing. `Obb` already answered "contains this point?" and

@@ -2862,3 +2862,8 @@ add_executable(maz_obbdistance_tests math/obbdistance.cpp)
 target_link_libraries(maz_obbdistance_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME obb_distance COMMAND maz_obbdistance_tests)
 set_tests_properties(obb_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_grid3dsample_tests math/grid3dsample.cpp)
+target_link_libraries(maz_grid3dsample_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME grid3d_sample COMMAND maz_grid3dsample_tests)
+set_tests_properties(grid3d_sample PROPERTIES TIMEOUT 30)
