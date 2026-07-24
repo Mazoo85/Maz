@@ -805,6 +805,51 @@ int main() {
         CHECK(sField(survivor, "mines")->number == stock1 + 1.0);
     }
 
+    // Second wind: lethal damage is cancelled while a revive charge remains — the survivor bursts back
+    // with half health, i-frames, and a crowd-clearing nova. Only the final (chargeless) hit is fatal.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        CHECK(sField(survivor, "revives")->number == 1.0);
+        const double maxhp = sField(survivor, "max_health")->number;
+
+        // Park a zombie in the nova radius so we can confirm the burst hits it.
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(300.0),
+                                 Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", at);
+        const double zHp0 = z->script().instance->findField("health")->number;
+
+        // A killing blow: cancelled by the revive instead of ending the run.
+        std::vector<Value> big = {Value::fromNum(9999.0)};
+        tree.scripts().vm().callOn(sv, "take_damage", big);
+        CHECK(sField(survivor, "alive")->boolean);                        // survived
+        CHECK(sField(survivor, "revives")->number == 0.0);               // charge spent
+        CHECK(sField(survivor, "health")->number == maxhp * 0.5);        // back at half health
+        CHECK(sField(survivor, "iframes")->number > 0.0);                // emergency i-frames
+        CHECK(z->script().instance->findField("health")->number < zHp0); // nova hit the crowd
+
+        // The nova's i-frames make the next blow harmless; clear them, then a chargeless killing blow
+        // is now actually fatal.
+        sField(survivor, "iframes")->number = 0.0;
+        tree.scripts().vm().callOn(sv, "take_damage", big);
+        CHECK(!sField(survivor, "alive")->boolean);                       // no charge left → dead
+    }
+
+    // Second wind is re-earned at the 50-kill milestone (capped at 3).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        sField(survivor, "revives")->number = 0.0;   // spend the starting charge
+        std::vector<Value> none;
+        for (int i = 0; i < 50; ++i) tree.scripts().vm().callOn(sv, "on_kill", none);
+        CHECK(sField(survivor, "revives")->number == 1.0);   // milestone granted one back
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

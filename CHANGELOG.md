@@ -105,6 +105,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Second wind (auto-revive)** — the survivor carries a revive charge (starts with 1). A blow that
+  would kill you is cancelled: you burst back with half health, ~2 s of emergency invulnerability, and
+  a nova that damages and knocks back the surrounding crowd to buy breathing room. A fresh charge is
+  earned every 50 kills (capped at 3), and a HUD readout shows how many you're holding. Turns one
+  fatal mistake per charge into a comeback instead of a game over. Verified headless (`zomboid_sim`):
+  a 9999-damage killing blow is survived (charge spent, health at half, i-frames set, a parked zombie
+  caught by the nova), a follow-up blow after clearing the i-frames with no charge left is fatal, and
+  the 50-kill milestone grants a charge back.
 - **Proximity mines** — press T (or, on autopilot, every ~9 s) to deploy a pooled proximity mine at
   your feet from a small stock (starts at 2). It arms after a ~0.6 s safety fuse, then detonates the
   instant a zombie steps within trigger range — a heavy blast that damages, knocks back, and chills

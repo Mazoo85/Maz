@@ -140,6 +140,10 @@ class Survivor {
     var kills = 0;
     var next_bonus = 25;
     var bonus_step = 25;
+    # Second wind: a stored revive charge. Lethal damage is cancelled — the survivor bursts back with
+    # half health, brief invulnerability, and a nova that clears the crowd. Earned again every 50 kills.
+    var revives = 1;
+    var next_revive_at = 50;
     # Evasive dodge-roll: a quick directional burst with brief invulnerability, then a cooldown.
     var dash_cd = 0;         # seconds until the dodge is ready again
     var dash_cd_max = 4.0;
@@ -165,6 +169,39 @@ class Survivor {
             self.grenades = self.grenades + 1;
             self.heal(15);
         }
+        if (self.kills >= self.next_revive_at) {
+            self.next_revive_at = self.next_revive_at + 50;
+            if (self.revives < 3) { self.revives = self.revives + 1; }
+        }
+    }
+
+    # Cash in a second-wind charge: cancel death, burst back to half health with emergency i-frames,
+    # and detonate a nova that damages and knocks back the surrounding crowd to buy breathing room.
+    func second_wind() {
+        self.revives = self.revives - 1;
+        self.health = self.max_health * 0.5;
+        self.alive = true;
+        self.iframes = 2.0;     # emergency invulnerability window
+        self.hunger = 0;        # relieve the hunger pressure too
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= 100.0) {   # nova radius 10
+                    var m = sqrt(d2);
+                    if (m < 0.01) { m = 0.01; }
+                    z.hit_knockback(dx / m, dy / m, 8.0);
+                    z.take_damage(150);
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 40, 1);
+        g_shake = 3.0;
     }
 
     # Add ultimate charge (one per kill) until the meter is full.
@@ -285,7 +322,10 @@ class Survivor {
         self.cur_reserve = self.reserves[self.weapon];
         self.is_reloading = self.reloading;
 
-        if (self.health <= 0) { self.health = 0; self.alive = false; }
+        if (self.health <= 0) {
+            if (self.revives > 0) { self.second_wind(); }
+            else { self.health = 0; self.alive = false; }
+        }
     }
 
     # Configure the active weapon. 0 = pistol (accurate), 1 = shotgun (spread pellets, slow),
@@ -616,7 +656,11 @@ class Survivor {
         if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
         self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay
         self.health = self.health - dmg;
-        if (self.health <= 0) { self.health = 0; self.alive = false; }
+        if (self.health <= 0) {
+            if (self.revives > 0) { self.second_wind(); return; }
+            self.health = 0;
+            self.alive = false;
+        }
     }
 }
 

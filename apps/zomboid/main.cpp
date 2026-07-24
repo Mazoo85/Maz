@@ -638,6 +638,14 @@ int main(int argc, char** argv) {
                           static_cast<int>(field(survivor, "mines")));
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
                           0.45f);
+            const int revives = static_cast<int>(field(survivor, "revives"));
+            if (revives > 0) {
+                char revBuf[48];
+                std::snprintf(revBuf, sizeof(revBuf), "SECOND WIND x%d", revives);
+                const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 4.0f);
+                font.drawText(*renderer, 16.0f, 140.0f, revBuf,
+                              render::Color{0.95f, 0.85f, 0.35f * rp + 0.2f, 1.0f}, 0.42f);
+            }
             // Overcharge ultimate meter.
             const bool ultReady = fieldBool(survivor, "ult_ready");
             char ultBuf[48];
