@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Sequence diff / longest common subsequence** (`core::longestCommonSubsequence` / `core::diff` →
+  `DiffEntry`/`DiffOp`, `Diff.hpp`) — DONE (M816); compare two sequences and produce the minimal edit script
+  (keeps, deletions, insertions) that turns one into the other, built on the classic LCS dynamic program.
+  The engine behind: showing what changed between two versions of a save/scene/config, computing a compact
+  patch to send over the network or store in an undo stack, merging/reconciling lists, and text/line diffing
+  in tools. Templated on the element type (chars, lines, ids, any equality-comparable T). Godot has no diff
+  utility. Verified airtight: LCS("ABCBDAB","BDCAB") has length 4 and the LCS is a subsequence of both;
+  filtering the edit script to {Keep,Delete} reproduces A and {Keep,Insert} reproduces B over 3000 random
+  pairs; the Keep count equals the LCS length (a minimal edit); identical inputs give all-Keep; disjoint
+  inputs give empty LCS with only deletes+inserts; and empty inputs are handled. ctest `diff`.
 - [x] **Quaternion averaging (mean rotation)** (`math::averageQuaternions`, `QuaternionAverage.hpp`) — DONE
   (M815); the correct mean of a set of orientations. You cannot average rotations by averaging their
   components (that biases toward whichever double-cover hemisphere the signs land in and breaks for

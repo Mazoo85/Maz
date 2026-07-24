@@ -2907,3 +2907,8 @@ add_executable(maz_quaternionaverage_tests math/quaternionaverage.cpp)
 target_link_libraries(maz_quaternionaverage_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME quaternion_average COMMAND maz_quaternionaverage_tests)
 set_tests_properties(quaternion_average PROPERTIES TIMEOUT 30)
+
+add_executable(maz_diff_tests core/diff.cpp)
+target_link_libraries(maz_diff_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME diff COMMAND maz_diff_tests)
+set_tests_properties(diff PROPERTIES TIMEOUT 30)
