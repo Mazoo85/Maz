@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Summoner zombie (new enemy)** — a slow, tanky support zombie (kind 7, violet) that periodically
+  calls reinforcement walkers from the pool while it lives, up to a finite budget (6). It makes killing
+  a target a priority — leave it alive and the horde keeps replenishing; take it out and the tide stops.
+  Joins the wave roster from wave 7. Verified headless (`zomboid_sim`): a spawned summoner reports kind
+  7 with a full budget, calls at least one walker after its first timer, consumes budget as it summons,
+  and stops entirely once the budget is spent (bounded — no infinite spawns).
 - **Molotov firebomb** — press X (or, on autopilot, every ~10 s) to hurl a molotov from a small stock
   (starts at 2). It lands ~9 units ahead in your aim direction and leaves a burning fire patch (pooled
   `FirePool`, ~5 s, ~5-unit radius) that re-ignites any zombie standing in it — a proactive way to

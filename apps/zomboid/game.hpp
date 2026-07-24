@@ -1273,6 +1273,8 @@ class Zombie {
     var burn_timer = 0;    # while > 0 the zombie is on fire, taking damage over time
     var burn_dps = 0;      # fire damage per second while burning
     var burn_tick = 0;     # accumulator so burn damage lands in periodic ticks, not every frame
+    var summon_cd = 0;     # summoner (kind 7) reinforcement timer
+    var summon_budget = 0; # summoner: remaining reinforcements it may call before it's spent
 
     func _ready() { g_zombies.append(self); }
 
@@ -1294,6 +1296,24 @@ class Zombie {
         if (self.radius > 1.5) { k = amount * 0.25; }
         self.node.x = self.node.x + dirx * k;
         self.node.y = self.node.y + diry * k;
+    }
+
+    # Call `cnt` reinforcement walkers: revive that many dormant pool zombies as kind-0 walkers around
+    # this body. Used by the summoner (kind 7) on a timer. Returns how many it actually spawned.
+    func summon(cnt) {
+        var made = 0;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n and made < cnt) {
+            var z = g_zombies[i];
+            if (z.alive == false and z != self) {
+                var ang = randf_range(0, 6.2831853);
+                z.spawn(self.node.x + cos(ang) * 2.0, self.node.y + sin(ang) * 2.0, 0, self.spawn_wave);
+                made = made + 1;
+            }
+            i = i + 1;
+        }
+        return made;
     }
 
     # Burst into `cnt` fast runners: revive that many dormant pool zombies as kind-1 runners around
@@ -1356,6 +1376,9 @@ class Zombie {
         self.burn_timer = 0;
         self.burn_dps = 0;
         self.burn_tick = 0;
+        self.summon_cd = 4.0;    # a summoner's first reinforcement lands a few seconds in
+        self.summon_budget = 0;
+        if (k == 7) { self.summon_budget = 6; }
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -1407,12 +1430,22 @@ class Zombie {
                                 self.attack_range = 1.5;
                                 self.score_value = 22;
                             } else {
-                                self.health = 25 + w * 8;
-                                self.speed = 13 + w;
-                                self.damage = 6;
-                                self.radius = 1.0;
-                                self.attack_range = 1.2;
-                                self.score_value = 10;
+                                if (k == 7) {
+                                    # Summoner: slow, tanky support that periodically calls reinforcements.
+                                    self.health = 90 + w * 16;
+                                    self.speed = 7;
+                                    self.damage = 5;
+                                    self.radius = 1.5;
+                                    self.attack_range = 1.4;
+                                    self.score_value = 40;
+                                } else {
+                                    self.health = 25 + w * 8;
+                                    self.speed = 13 + w;
+                                    self.damage = 6;
+                                    self.radius = 1.0;
+                                    self.attack_range = 1.2;
+                                    self.score_value = 10;
+                                }
                             }
                         }
                     }
@@ -1512,6 +1545,17 @@ class Zombie {
             }
             if (self.burn_timer <= 0) { self.burn_timer = 0; self.burn_dps = 0; }
         }
+        # Summoner (kind 7): periodically calls a reinforcement until its budget runs out.
+        if (self.kind == 7 and self.summon_budget > 0) {
+            self.summon_cd = self.summon_cd - dt;
+            if (self.summon_cd <= 0) {
+                self.summon_cd = 4.0;
+                if (self.summon(1) > 0) {
+                    self.summon_budget = self.summon_budget - 1;
+                    emit(self.node.x, self.node.y, 8, 1);
+                }
+            }
+        }
         # Chill status: while slowed, the zombie crawls at 40% speed.
         self.slow_timer = self.slow_timer - dt;
         if (self.slow_timer < 0) { self.slow_timer = 0; }
@@ -1595,6 +1639,9 @@ class Director {
                 if (boss == 1 and i == 0) {
                     k = 3;
                 } else {
+                    if (i % 9 == 0 and w >= 7) {
+                        k = 7;
+                    } else {
                     if (i % 8 == 0 and w >= 6) {
                         k = 6;
                     } else {
@@ -1614,6 +1661,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                 }

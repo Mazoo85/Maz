@@ -1046,6 +1046,38 @@ int main() {
         CHECK(sField(survivor, "molotovs")->number == stock1 + 1.0);
     }
 
+    // Summoner (kind 7): a support zombie that periodically calls reinforcement walkers, bounded by a
+    // finite budget so it can't spawn forever. Killing it stops the reinforcements.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        CHECK(aliveZombies(tree) == 0);
+
+        // Spawn a lone summoner far from the survivor (so summons don't immediately reach it).
+        SceneNode* sm = tree.findNode("Zombie0");
+        Value smv = sm->script();
+        std::vector<Value> spawn = {Value::fromNum(40.0), Value::fromNum(0.0), Value::fromNum(7.0),
+                                    Value::fromNum(7.0)}; // spawn(x,y,kind=7,wave=7)
+        tree.scripts().vm().callOn(smv, "spawn", spawn);
+        CHECK((int)sm->script().instance->findField("kind")->number == 7);
+        CHECK(sm->script().instance->findField("summon_budget")->number == 6.0);
+        CHECK(aliveZombies(tree) == 1);
+
+        // Drive the summoner's _process past its first summon timer (~4 s): a reinforcement appears.
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 60 * 5; ++i) tree.scripts().vm().callOn(smv, "_process", dtv);
+        CHECK(aliveZombies(tree) >= 2);   // at least one walker summoned
+        CHECK(sm->script().instance->findField("summon_budget")->number < 6.0); // budget consumed
+
+        // Exhaust the budget: it stops summoning once spent (bounded, no infinite spawns).
+        for (int i = 0; i < 60 * 30; ++i) tree.scripts().vm().callOn(smv, "_process", dtv);
+        CHECK(sm->script().instance->findField("summon_budget")->number == 0.0);
+        const int capped = aliveZombies(tree);
+        for (int i = 0; i < 60 * 10; ++i) tree.scripts().vm().callOn(smv, "_process", dtv);
+        CHECK(aliveZombies(tree) == capped);   // no more reinforcements after the budget is spent
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
