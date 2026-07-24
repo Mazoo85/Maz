@@ -2023,6 +2023,9 @@ class Zombie {
         # feral runner still tops out at the hard speed cap.
         if (g_mutator == 1) { self.speed = self.speed * 1.35; }
         if (g_mutator == 2) { self.health = self.health * 1.5; }
+        # Bulwark horde: every zombie carries a damage-absorbing shield (like the armored kind), so the
+        # whole wave must be broken down before it can be hurt — punishing weak, spread-out fire.
+        if (g_mutator == 4) { self.shield = self.shield + 15 + w * 2; }
         if (self.speed > 30) { self.speed = 30; }
         self.max_health = self.health;
     }
@@ -2395,8 +2398,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 4)); }
-        if (g_mutator > 3) { g_mutator = 3; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 5)); }
+        if (g_mutator > 4) { g_mutator = 4; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.

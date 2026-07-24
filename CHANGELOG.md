@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Bulwark wave mutator (4th modifier).** Joining Feral, Hulking, and Frenzied, a wave can
+  now roll **Bulwark**: every zombie in it — even a plain walker — spawns behind a damage-absorbing
+  shield that must be broken before its health can be touched, punishing weak, spread-out fire and
+  rewarding heavy hitters (railgun, shotgun point-blank). Shown as "BULWARK HORDE" on the HUD.
+  Headless-tested: under the mutator a wave-5 walker spawns with a 25-point shield; with it off, none.
 - **ZOMBOID — weak-point window on staggered zombies.** A zombie that's reeling from a stagger now
   takes **40% more damage** from your shots, so the play is to flinch a tough target with a melee shove
   (F) or a dash-strike (Space) and then pour fire into it while it's defenceless. Stacks with the

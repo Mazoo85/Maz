@@ -2518,6 +2518,31 @@ int main() {
         CHECK(sField(t2.findNode("Zombie0"), "health")->number == 172.0);   // 200 - 20*1.4
     }
 
+    // Bulwark mutator (g_mutator == 4): the whole horde spawns carrying a damage-absorbing shield,
+    // even a plain walker — so a normally-shieldless zombie must be broken down first. Off, it has none.
+    {
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(0.0), Value::fromNum(5.0)};  // spawn(x,y,walker,wave 5)
+
+        // Bulwark on: a walker gets a shield of 15 + wave*2 = 25 at wave 5.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        const_cast<Value*>(vm1.getGlobal("g_mutator"))->number = 4.0;
+        Value zv1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(zv1, "spawn", sp);
+        CHECK(sField(t1.findNode("Zombie0"), "shield")->number == 25.0);
+
+        // Bulwark off: the same walker has no shield.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_mutator"))->number = 0.0;
+        Value zv2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(zv2, "spawn", sp);
+        CHECK(sField(t2.findNode("Zombie0"), "shield")->number == 0.0);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

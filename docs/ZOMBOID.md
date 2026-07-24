@@ -132,7 +132,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Day / night** — a smooth threat ramp: the horde hunts faster and bites harder toward midnight,
   easing at dawn. Watch the **THREAT** readout.
 - **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD: **Feral**
-  (faster), **Hulking** (tougher), or **Frenzied** (more of them). No two runs feel the same.
+  (faster), **Hulking** (tougher), **Frenzied** (more of them), or **Bulwark** (the whole horde spawns
+  behind damage-absorbing shields — break them down with heavy hits). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.
