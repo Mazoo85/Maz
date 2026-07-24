@@ -993,6 +993,59 @@ int main() {
         CHECK(nb->script().instance->findField("burn_timer")->number > 0.0); // neighbour set alight
     }
 
+    // Molotov: thrown ahead of the survivor, it leaves a burning patch that ignites zombies standing
+    // in it. Consumes one from the stock; a supply crate replenishes it.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;   // aim +x → lands ~9 units to the right
+        sField(survivor, "aim_y")->number = 0.0;
+        CHECK((int)tree.nodesInGroup("fires").size() == zomboid::kFirePool);
+        const double stock0 = sField(survivor, "molotovs")->number;
+        CHECK(stock0 >= 1.0);
+
+        // Park a tanky zombie at the landing point (x=9), out of biting range irrelevant here.
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(9.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                 Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", at);
+
+        // Throw the molotov.
+        std::vector<Value> none;
+        Value thrown = tree.scripts().vm().callOn(sv, "throw_molotov", none);
+        CHECK(thrown.boolean);
+        CHECK(sField(survivor, "molotovs")->number == stock0 - 1.0);
+        int firesActive = 0;
+        for (SceneNode* f : tree.nodesInGroup("fires"))
+            if (f->script().instance->findField("active")->boolean) ++firesActive;
+        CHECK(firesActive == 1);
+
+        // Drive the fire patch for a moment: the zombie in it gets ignited, then burns.
+        SceneNode* fire = tree.findNode("Fire0");
+        Value fv = fire->script();
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        tree.scripts().vm().callOn(fv, "_process", dtv);
+        CHECK(z->script().instance->findField("burn_timer")->number > 0.0);   // caught in the flames
+        const double hp0 = z->script().instance->findField("health")->number;
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(zs, "_process", dtv);
+        CHECK(z->script().instance->findField("health")->number < hp0);       // burned by the patch
+
+        // The patch burns out after its lifetime (~5 s).
+        for (int i = 0; i < 60 * 6; ++i) tree.scripts().vm().callOn(fv, "_process", dtv);
+        CHECK(!fire->script().instance->findField("active")->boolean);
+
+        // A supply crate replenishes a molotov.
+        survivor->setPosition(0.0, 0.0);
+        const double stock1 = sField(survivor, "molotovs")->number;
+        std::vector<Value> catv = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_crate", catv);
+        tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "molotovs")->number == stock1 + 1.0);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

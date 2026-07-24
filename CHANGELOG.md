@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Molotov firebomb** — press X (or, on autopilot, every ~10 s) to hurl a molotov from a small stock
+  (starts at 2). It lands ~9 units ahead in your aim direction and leaves a burning fire patch (pooled
+  `FirePool`, ~5 s, ~5-unit radius) that re-ignites any zombie standing in it — a proactive way to
+  wield the fire system for area denial and choke-point control, not just via exploders. Supply crates
+  replenish molotovs (+1). Verified headless (`zomboid_sim`): throwing consumes stock + activates one
+  patch, a zombie at the landing point is ignited and burned, the patch burns out after its lifetime,
+  and a supply crate replenishes it.
 - **Incendiary blast + burning status** — zombies can now catch fire and take damage over time. The
   exploder's death blast is now incendiary: survivors of the initial hit are set alight (3 s at 10
   dps), so shooting an exploder inside a pack lights the whole pack up. Burn damage lands in periodic

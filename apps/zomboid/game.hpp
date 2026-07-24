@@ -35,6 +35,7 @@ var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / d
 var g_crates = [];      # object pool for periodic supply-crate care packages
 var g_mines = [];       # object pool for deployable proximity mines
 var g_sentries = [];    # object pool for deployable auto-turret sentries
+var g_fires = [];       # object pool for molotov fire patches (burning ground)
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -134,6 +135,7 @@ class Survivor {
     var grenades = 3;        # thrown-explosive count
     var mines = 2;           # deployable proximity-mine stock
     var sentries = 1;        # deployable auto-turret stock
+    var molotovs = 2;        # thrown firebomb stock
     # Overcharge ultimate: kills fill the meter; when full, detonate wipes the field.
     var ult = 0;
     var ult_max = 25;
@@ -551,6 +553,32 @@ class Survivor {
         }
     }
 
+    # Hurl a molotov in the aim direction: it lands a fixed distance ahead and leaves a burning fire
+    # patch that ignites any zombie standing in it. Consumes one from the stock. Returns true if thrown.
+    func throw_molotov() {
+        if (self.molotovs <= 0) { return false; }
+        var ax = self.aim_x;
+        var ay = self.aim_y;
+        var m = sqrt(ax * ax + ay * ay);
+        if (m <= 0.0001) { return false; }
+        ax = ax / m;
+        ay = ay / m;
+        var tx = self.node.x + ax * 9.0;   # landing point ahead of the survivor
+        var ty = self.node.y + ay * 9.0;
+        var i = 0;
+        var n = len(g_fires);
+        while (i < n) {
+            var f = g_fires[i];
+            if (f.active == false) {
+                f.ignite_ground(tx, ty);
+                self.molotovs = self.molotovs - 1;
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     # Deploy a proximity mine at the survivor's feet: it arms after a short delay, then detonates when
     # a zombie steps near. Consumes one from the stock. Returns true if one was placed.
     func place_mine() {
@@ -618,6 +646,7 @@ class Survivor {
         self.grenades = self.grenades + 2;
         self.mines = self.mines + 1;
         self.sentries = self.sentries + 1;
+        self.molotovs = self.molotovs + 1;
         self.reserves[0] = self.reserves[0] + 48;
         self.reserves[1] = self.reserves[1] + 16;
         self.reserves[2] = self.reserves[2] + 90;
@@ -1181,6 +1210,48 @@ class Sentry {
     }
 }
 
+# A pooled molotov fire patch. Dormant until a molotov lands; then it burns for a few seconds,
+# re-igniting any zombie standing inside its radius (the burn status deals the actual damage).
+class FirePool {
+    var active = false;
+    var life = 0;
+    var max_life = 5.0;
+    var radius = 5.0;
+    var burn_dps = 18;
+    var puff = 0;   # timer for occasional flame particles
+
+    func _ready() { g_fires.append(self); }
+
+    func ignite_ground(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.puff = 0;
+        self.active = true;
+        emit(x, y, 18, 1);
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        # Keep every zombie in the patch alight (topping up burn_timer so they cook while they stand in it).
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= self.radius * self.radius) { z.ignite(1.0, self.burn_dps); }
+            }
+            i = i + 1;
+        }
+        self.puff = self.puff - dt;
+        if (self.puff <= 0) { self.puff = 0.3; emit(self.node.x, self.node.y, 3, 1); }
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -1611,6 +1682,7 @@ constexpr int kPowerupPool = 8;
 constexpr int kCratePool = 2;
 constexpr int kMinePool = 6;
 constexpr int kSentryPool = 3;
+constexpr int kFirePool = 4;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -1693,6 +1765,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         s->setPosition(100000.0, 100000.0);
         s->addToGroup("sentries");
         tree.attachScript(*s, "Sentry");
+    }
+
+    // Molotov fire-patch pool — dormant until a molotov lands.
+    for (int i = 0; i < kFirePool; ++i) {
+        maz::scene::SceneNode* f = tree.createChild(tree.root(), "Fire" + std::to_string(i));
+        f->setPosition(100000.0, 100000.0);
+        f->addToGroup("fires");
+        tree.attachScript(*f, "FirePool");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.
