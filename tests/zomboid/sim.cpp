@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 using maz::scene::SceneNode;
@@ -509,6 +510,19 @@ int main() {
         CHECK(zomboid::beatsBest(5, 400, 3, 400));   // equal score, deeper wave wins
         CHECK(!zomboid::beatsBest(2, 300, 3, 400));  // a worse run does not
         CHECK(!zomboid::beatsBest(2, 400, 2, 400));  // an identical run is not "better"
+
+        // Run rank: a composite of wave + kills + accuracy graded S..D, monotonic in each input.
+        CHECK(std::string(zomboid::runRankLetter(zomboid::runRank(1, 0, 0))) == "D");   // a quick death
+        CHECK(std::string(zomboid::runRankLetter(zomboid::runRank(15, 200, 90))) == "S"); // a great run
+        // A deeper/cleaner run never grades lower than a worse one.
+        CHECK(zomboid::runRank(10, 120, 80) >= zomboid::runRank(4, 40, 50));
+        CHECK(zomboid::runRank(8, 100, 100) >= zomboid::runRank(8, 100, 40)); // accuracy only helps
+        // Accuracy is clamped, so out-of-range values don't distort the grade.
+        CHECK(zomboid::runRank(5, 50, 150) == zomboid::runRank(5, 50, 100));
+        // The five tiers all map to distinct letters.
+        CHECK(std::string(zomboid::runRankLetter(0)) == "D");
+        CHECK(std::string(zomboid::runRankLetter(2)) == "B");
+        CHECK(std::string(zomboid::runRankLetter(4)) == "S");
 
         const char* path = "zomboid_hs_test.ini";
         {

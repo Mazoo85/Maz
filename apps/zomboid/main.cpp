@@ -806,12 +806,23 @@ int main(int argc, char** argv) {
                               secs / 60, secs % 60, acc, kills);
                 font.drawText(*renderer, sw * 0.5f - 190.0f, sh * 0.5f + 34.0f, buf,
                               render::Color{0.75f, 0.85f, 0.95f, 1.0f}, 0.42f);
+                // Performance grade: a single S/A/B/C/D letter from wave + kills + accuracy.
+                const int tier = zomboid::runRank(wave, kills, acc);
+                char rbuf[24];
+                std::snprintf(rbuf, sizeof(rbuf), "RANK  %s", zomboid::runRankLetter(tier));
+                const render::Color kRankCol[5] = {
+                    render::Color{0.7f, 0.7f, 0.75f, 1.0f},   // D grey
+                    render::Color{0.6f, 0.8f, 0.6f, 1.0f},    // C green
+                    render::Color{0.5f, 0.8f, 1.0f, 1.0f},    // B blue
+                    render::Color{0.8f, 0.5f, 1.0f, 1.0f},    // A purple
+                    render::Color{1.0f, 0.82f, 0.2f, 1.0f}};  // S gold
+                font.drawText(*renderer, sw * 0.5f - 70.0f, sh * 0.5f + 62.0f, rbuf, kRankCol[tier], 0.9f);
                 if (newBestThisRun) {
-                    font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f + 64.0f, "NEW BEST!",
+                    font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f + 100.0f, "NEW BEST!",
                                   render::Color{1.0f, 0.85f, 0.2f, 1.0f}, 0.6f);
                 }
                 if (!autopilot) {
-                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 100.0f,
+                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 132.0f,
                                   "PRESS ENTER TO RESTART", render::Color{0.85f, 0.9f, 0.95f, 1}, 0.5f);
                 }
             }

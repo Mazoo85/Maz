@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **End-of-run performance rank** — the death screen now grades each run with a single S/A/B/C/D
+  letter, computed from a composite of how far you got (wave), how much you cleared (kills), and how
+  cleanly you shot (accuracy). The grade is a pure function (`runRank`/`runRankLetter`) and is colour-
+  coded (gold S down to grey D) so a run's quality reads at a glance beyond the raw score. Verified
+  headless (`zomboid_sim`): a quick death grades D and a deep, accurate run grades S; the grade is
+  monotonic in each input (a deeper/cleaner run never scores lower), accuracy is clamped to 0–100, and
+  the five tiers map to distinct letters.
 - **Summoner zombie (new enemy)** — a slow, tanky support zombie (kind 7, violet) that periodically
   calls reinforcement walkers from the pool while it lives, up to a finite budget (6). It makes killing
   a target a priority — leave it alive and the horde keeps replenishing; take it out and the tide stops.

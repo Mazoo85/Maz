@@ -1719,6 +1719,28 @@ inline bool beatsBest(int wave, int score, int bestWave, int bestScore) {
     return score > bestScore || (score == bestScore && wave > bestWave);
 }
 
+// Grade a finished run S/A/B/C/D from how far it got (wave), how much it cleared (kills), and how
+// cleanly it shot (accuracy %). A single composite score keeps the letter meaningful across playstyles.
+// Returns a 0-4 tier: 0=D, 1=C, 2=B, 3=A, 4=S. runRankLetter() maps the tier to its letter.
+inline int runRank(int wave, int kills, int accuracyPct) {
+    if (accuracyPct < 0) accuracyPct = 0;
+    if (accuracyPct > 100) accuracyPct = 100;
+    const int points = wave * 120 + kills * 6 + accuracyPct * 4;
+    if (points >= 1900) return 4; // S
+    if (points >= 1300) return 3; // A
+    if (points >= 800) return 2;  // B
+    if (points >= 400) return 1;  // C
+    return 0;                     // D
+}
+
+inline const char* runRankLetter(int tier) {
+    if (tier <= 0) return "D";
+    if (tier == 1) return "C";
+    if (tier == 2) return "B";
+    if (tier == 3) return "A";
+    return "S";
+}
+
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;
