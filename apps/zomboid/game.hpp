@@ -268,9 +268,12 @@ class Survivor {
         # Screen shake always eases back toward rest, even on the death screen.
         g_shake = g_shake - dt * 4.0;
         if (g_shake < 0) { g_shake = 0; }
-        # Combo decays if you stop killing.
+        # Combo decays if you stop killing — but a hard-won streak buys grace: the higher your
+        # multiplier, the longer the window before it resets (base 2.5s up to +2s at ×5), so a big
+        # combo is more resilient and worth pushing for.
         g_combo_timer = g_combo_timer + dt;
-        if (g_combo_timer > g_combo_window) {
+        var win = g_combo_window + (g_mult - 1) * 0.5;
+        if (g_combo_timer > win) {
             g_combo = 0;
             g_mult = 1;
         }

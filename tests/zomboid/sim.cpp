@@ -2705,6 +2705,39 @@ int main() {
         CHECK(s2->x() == 100.0);
     }
 
+    // Combo grace scales with the streak: a hard-won high multiplier survives a longer idle gap than a
+    // fresh streak (base 2.5s, +0.5s per multiplier step, up to 4.5s at x5).
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        auto setG = [](SceneTree& t, const char* n, double v) {
+            const_cast<Value*>(t.scripts().vm().getGlobal(n))->number = v;
+        };
+
+        // High streak (x5) idle 3.0s: still inside its 4.5s window — combo survives.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        setG(t1, "g_combo", 20.0); setG(t1, "g_mult", 5.0); setG(t1, "g_combo_timer", 3.0);
+        Value s1v = s1->script();
+        t1.scripts().vm().callOn(s1v, "_process", dt);
+        CHECK((int)glob(t1, "g_combo") == 20);
+
+        // Fresh streak (x1) idle the same 3.0s: past its 2.5s window — combo resets.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        setG(t2, "g_combo", 3.0); setG(t2, "g_mult", 1.0); setG(t2, "g_combo_timer", 3.0);
+        Value s2v = s2->script();
+        t2.scripts().vm().callOn(s2v, "_process", dt);
+        CHECK((int)glob(t2, "g_combo") == 0);
+
+        // High streak past even its extended 4.5s window: it finally resets too.
+        SceneTree t3;
+        SceneNode* s3 = zomboid::buildScene(t3);
+        setG(t3, "g_combo", 20.0); setG(t3, "g_mult", 5.0); setG(t3, "g_combo_timer", 4.6);
+        Value s3v = s3->script();
+        t3.scripts().vm().callOn(s3v, "_process", dt);
+        CHECK((int)glob(t3, "g_combo") == 0);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

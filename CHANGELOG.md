@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a big combo buys grace.** The kill-streak multiplier no longer decays on a flat timer:
+  the higher your multiplier, the longer the gap you can go between kills before it resets (base 2.5s,
+  up to 4.5s at ×5). A hard-won streak is now more resilient and worth pushing for, instead of
+  evaporating on the same short fuse as a fresh one. Headless-tested: a ×5 streak survives a 3-second
+  idle that resets a fresh streak, and still resets once past its own extended window.
 - **ZOMBOID — explosive barrels are now double-edged.** A barrel blast used to hurt only zombies;
   now a survivor caught in it takes **half the blast damage** and is **flung clear** (still respecting
   dodge i-frames, shield, and armor). So a barrel is a trap to lure the horde onto, not something to
