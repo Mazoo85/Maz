@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Monte-Carlo sampling warps** (`math::sampleConcentricDisk` / `sampleUniformDisk` /
+  `sampleUniformTriangle` / `sampleCosineHemisphere` / `sampleUniformHemisphere` / `sampleUniformSphere`,
+  `Sampling.hpp`) — DONE (M814); map a pair of uniform [0,1) random numbers onto a disk, triangle, sphere or
+  hemisphere with the CORRECT distribution — the building blocks of every stochastic CPU task: scattering
+  rays for a GI/AO bake, sampling an area light or environment, jittering a lens for depth-of-field / bokeh,
+  emitting particles uniformly over a surface. The warps matter: a naive (r=u, θ=2πv) disk clumps at the
+  centre; the concentric and sqrt maps here are area-uniform, and the cosine-hemisphere map (Malley's method)
+  concentrates samples toward the pole exactly as importance-sampling a Lambertian surface needs. Godot
+  exposes none. Verified airtight against known expectations: disk samples stay in the unit disk with mean
+  radius 2/3 and half the area within r=1/√2; triangle barycentrics stay inside with centroid mean (1/3,1/3);
+  cosine-hemisphere directions are unit, +Z, with E[z]=2/3 (the diffuse weight); uniform-hemisphere E[z]=1/2;
+  uniform-sphere E[z]=0; and the concentric square corners map to the disk rim. ctest `sampling`.
 - [x] **Goertzel single-frequency detector** (`audio::goertzelBin` / `goertzelMagnitude` /
   `goertzelMagnitudeHz` → `GoertzelBin`, `Goertzel.hpp`) — DONE (M812); measure how much of ONE specific
   frequency is present in a block of samples, far cheaper than a full FFT when you only care about a handful
