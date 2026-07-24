@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Vampiric power-up (lifesteal).** A new sixth power-up: for its duration, every kinetic
+  hit you land (bullets and the railgun beam) siphons a little health back to you — a comeback tool
+  that turns a target-rich swarm into a heal instead of a threat. Joins the drop table alongside
+  rapid-fire, double-damage, shield, piercing, and cryo, and tints the survivor crimson while active.
+  Headless-tested: a buffed, wounded survivor heals when a bullet connects; an unbuffed one does not;
+  and the leech stops the instant the buff expires.
 - **ZOMBOID — heavy-hit stagger / flinch.** A single big blow (at least 40% of a zombie's full
   health) that doesn't kill now briefly roots it where it stands — rewarding shotgun point-blanks,
   railgun shots, grenades, and crits with a moment of breathing room. A short per-zombie cooldown

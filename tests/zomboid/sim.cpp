@@ -2287,6 +2287,64 @@ int main() {
         CHECK(sField(z3, "alive")->boolean);                          // 300-130-130 = 40, still up
     }
 
+    // Vampiric power-up (kind 5): while active, each kinetic bullet hit leeches a little health back
+    // to a wounded survivor — but only while the buff lasts, and never without it.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Leech case: buffed + wounded, a bullet hit heals the survivor.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> sp = {Value::fromNum(3.0), Value::fromNum(0.0),
+                                 Value::fromNum(400.0), Value::fromNum(0.0)};   // tanky, survives the shot
+        vm.callOn(zv, "spawn_at", sp);
+        Value sv = survivor->script();
+        std::vector<Value> vamp = {Value::fromNum(5.0)};
+        vm.callOn(sv, "grant_powerup", vamp);
+        CHECK((int)sField(survivor, "buff_kind")->number == 5);
+        sField(survivor, "health")->number = 50.0;                 // wounded (max 100), room to heal
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        std::vector<Value> none;
+        vm.callOn(sv, "do_shoot", none);
+        for (int i = 0; i < 20 && sField(survivor, "health")->number == 50.0; ++i)
+            tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "health")->number > 50.0);          // the hit leeched health back
+
+        // Control: no buff, the same wounded shot heals nothing.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value z2v = z2->script();
+        std::vector<Value> sp2 = {Value::fromNum(3.0), Value::fromNum(0.0),
+                                  Value::fromNum(400.0), Value::fromNum(0.0)};
+        vm2.callOn(z2v, "spawn_at", sp2);
+        Value s2v = surv2->script();
+        sField(surv2, "health")->number = 50.0;
+        sField(surv2, "aim_x")->number = 1.0;
+        sField(surv2, "aim_y")->number = 0.0;
+        vm2.callOn(s2v, "do_shoot", none);
+        for (int i = 0; i < 20; ++i) t2.process(1.0 / 60.0);
+        CHECK(sField(surv2, "health")->number == 50.0);            // no buff → no leech
+
+        // Expiry: once the buff timer runs out, lifesteal stops.
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        Value s3v = surv3->script();
+        vm3.callOn(s3v, "grant_powerup", vamp);
+        sField(surv3, "buff_timer")->number = 0.0;                 // force the buff expired
+        Value active = vm3.callOn(s3v, "lifesteal_active", none);
+        CHECK(!active.boolean);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

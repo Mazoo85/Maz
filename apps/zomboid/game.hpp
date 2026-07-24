@@ -465,7 +465,17 @@ class Survivor {
             }
             emit(self.node.x, self.node.y, 24, 0);   # frost burst
         }
+        # Vampiric (kind 5): a sustained buff — no instant effect. While it lasts, each kinetic hit
+        # (bullet / railgun beam) siphons a little health back, handled where those hits land.
         self.apply_mults();
+    }
+
+    # True while a Vampiric (kind 5) buff is active — kinetic hits leech health back to the survivor.
+    func lifesteal_active() {
+        if (self.buff_kind == 5) {
+            if (self.buff_timer > 0) { return true; }
+        }
+        return false;
     }
 
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
@@ -535,6 +545,7 @@ class Survivor {
                     if (px * px + py * py <= rr * rr) {
                         z.take_damage(dmg);
                         z.apply_bleed(1);   # the beam lacerates too
+                        if (self.lifesteal_active()) { self.heal(1.0); }   # Vampiric leech, per body
                         self.hits = self.hits + 1;   # railgun beam connections count too
                     }
                 }
@@ -938,7 +949,10 @@ class Bullet {
                     if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
                     z.take_damage(self.damage);
                     z.apply_bleed(1);   # kinetic round tears a bleeding wound
-                    if (g_player != nil) { g_player.hits = g_player.hits + 1; }
+                    if (g_player != nil) {
+                        g_player.hits = g_player.hits + 1;
+                        if (g_player.lifesteal_active()) { g_player.heal(2.0); }   # Vampiric leech
+                    }
                     self.hit_list.append(z);
                     # A piercing round spends one pierce and flies on; a normal round stops here.
                     if (self.pierce_left > 0) {
@@ -2020,10 +2034,10 @@ class Zombie {
             } else {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
-            # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, or cryo nova).
+            # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 5));
-                if (pk > 4) { pk = 4; }
+                var pk = int(randf_range(0, 6));
+                if (pk > 5) { pk = 5; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.
