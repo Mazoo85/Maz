@@ -681,6 +681,45 @@ int main() {
         CHECK(sField(survivor, "health")->number > 50.0);                       // healed
     }
 
+    // Dodge-roll: bursts the survivor in a direction, grants i-frame invulnerability, then cools
+    // down. Damage taken mid-roll is ignored; a second dodge is refused until the cooldown clears.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        CHECK(sField(survivor, "dash_cd")->number == 0.0);
+
+        // Fire the dodge to the right (+x).
+        std::vector<Value> dir = {Value::fromNum(1.0), Value::fromNum(0.0)};
+        Value ok = tree.scripts().vm().callOn(sv, "dash", dir);
+        CHECK(ok.boolean);                                    // dodge fired
+        CHECK(sField(survivor, "iframes")->number > 0.0);     // invulnerable now
+        CHECK(sField(survivor, "dash_cd")->number > 0.0);     // on cooldown
+
+        // A second dodge is refused while cooling down.
+        Value again = tree.scripts().vm().callOn(sv, "dash", dir);
+        CHECK(!again.boolean);
+
+        // Damage taken during i-frames is fully ignored.
+        sField(survivor, "health")->number = 100.0;
+        std::vector<Value> dmg = {Value::fromNum(40.0)};
+        tree.scripts().vm().callOn(sv, "take_damage", dmg);
+        CHECK(sField(survivor, "health")->number == 100.0);   // untouchable mid-roll
+
+        // The burst carries the survivor to the right over a few frames.
+        const double x0 = survivor->x();
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 15; ++i) tree.scripts().vm().callOn(sv, "_process", dtv);
+        CHECK(survivor->x() > x0 + 1.0);                       // moved rightward
+
+        // After the i-frames lapse, damage lands normally again.
+        for (int i = 0; i < 40; ++i) tree.scripts().vm().callOn(sv, "_process", dtv);
+        CHECK(sField(survivor, "iframes")->number <= 0.0);
+        tree.scripts().vm().callOn(sv, "take_damage", dmg);
+        CHECK(sField(survivor, "health")->number < 100.0);    // vulnerable again
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

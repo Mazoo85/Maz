@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Dodge-roll** — press SPACE (or, on autopilot, when a zombie crowds you) for an evasive burst in
+  your movement/aim direction, with a brief window of invulnerability (i-frames) that ignores all
+  damage mid-roll, then a ~4-second cooldown. The survivor ghosts translucent-blue while invulnerable.
+  It rewards timing dodges through spitter volleys, exploder rushes, and boss slams. Verified headless
+  (`zomboid_sim`): the dodge fires and sets i-frames + cooldown, a second dodge is refused until it
+  cools down, damage taken mid-roll is fully ignored, the burst carries the survivor, and damage lands
+  normally again once the i-frames lapse.
 - **Supply crates** — every ~30 seconds a care package drops on the ring around the survivor (an
   object-pooled `Crate`); reach it before it expires for a big refill: heal 50, +2 grenades, and a
   generous ammo top-up for all four weapons. It gives a reason to reposition between fights and a

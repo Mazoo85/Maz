@@ -138,6 +138,14 @@ class Survivor {
     var kills = 0;
     var next_bonus = 25;
     var bonus_step = 25;
+    # Evasive dodge-roll: a quick directional burst with brief invulnerability, then a cooldown.
+    var dash_cd = 0;         # seconds until the dodge is ready again
+    var dash_cd_max = 4.0;
+    var dash_time = 0;       # remaining dodge-burst movement duration
+    var dash_vx = 0;
+    var dash_vy = 0;
+    var iframes = 0;         # invulnerability window granted by the dodge
+    var dash_speed = 46;
 
     func _ready() { g_player = self; self.set_weapon(0); }
 
@@ -189,6 +197,16 @@ class Survivor {
             g_mult = 1;
         }
         if (self.alive == false) { return; }
+
+        # Dodge-roll timers: cooldown recharges, i-frames tick down, and an active
+        # dodge carries the survivor in a short burst.
+        if (self.dash_cd > 0) { self.dash_cd = self.dash_cd - dt; }
+        if (self.iframes > 0) { self.iframes = self.iframes - dt; }
+        if (self.dash_time > 0) {
+            self.dash_time = self.dash_time - dt;
+            self.node.x = self.node.x + self.dash_vx * dt;
+            self.node.y = self.node.y + self.dash_vy * dt;
+        }
 
         # Advance the shared world clock (survivor owns it).
         g_phase = g_phase + dt;
@@ -518,7 +536,24 @@ class Survivor {
         self.reserves[3] = self.reserves[3] + 15;
     }
 
+    # Evasive dodge-roll in a direction: a quick burst of movement plus brief invulnerability,
+    # then a cooldown. Returns true if the dodge fired, false if unavailable (cooling down / no aim).
+    func dash(dirx, diry) {
+        if (self.alive == false) { return false; }
+        if (self.dash_cd > 0) { return false; }
+        var m = sqrt(dirx * dirx + diry * diry);
+        if (m < 0.01) { return false; }
+        self.dash_vx = dirx / m * self.dash_speed;
+        self.dash_vy = diry / m * self.dash_speed;
+        self.dash_time = 0.22;
+        self.iframes = 0.35;
+        self.dash_cd = self.dash_cd_max;
+        return true;
+    }
+
     func take_damage(dmg) {
+        # Dodge-roll invulnerability: i-frames make the survivor untouchable mid-roll.
+        if (self.iframes > 0) { return; }
         # An active shield power-up soaks all incoming damage.
         if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
         self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay

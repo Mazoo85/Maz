@@ -315,6 +315,36 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> none;
                 tree.scripts().vm().callOn(self, "detonate", none);
             }
+
+            // Dodge-roll (SPACE while playing; autopilot rolls away when a zombie crowds it).
+            bool dashNow = false;
+            double dashX = 0.0, dashY = 0.0;
+            if (autopilot) {
+                // If the nearest zombie is close and the dodge is ready, roll away from it.
+                double best = 1e18, bx = 0.0, by = 0.0;
+                for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
+                    if (!fieldBool(z, "alive")) continue;
+                    const double dx = z->x() - survivor->x(), dy = z->y() - survivor->y();
+                    const double d2 = dx * dx + dy * dy;
+                    if (d2 < best) { best = d2; bx = dx; by = dy; }
+                }
+                if (best < 25.0 && field(survivor, "dash_cd") <= 0.0) {
+                    dashNow = true; dashX = -bx; dashY = -by;
+                }
+            } else if (input.keyPressed(SDL_SCANCODE_SPACE)) {
+                double dx = 0.0, dy = 0.0;
+                if (input.keyDown(SDL_SCANCODE_A) || input.keyDown(SDL_SCANCODE_LEFT)) dx -= 1;
+                if (input.keyDown(SDL_SCANCODE_D) || input.keyDown(SDL_SCANCODE_RIGHT)) dx += 1;
+                if (input.keyDown(SDL_SCANCODE_W) || input.keyDown(SDL_SCANCODE_UP)) dy -= 1;
+                if (input.keyDown(SDL_SCANCODE_S) || input.keyDown(SDL_SCANCODE_DOWN)) dy += 1;
+                if (dx == 0.0 && dy == 0.0) { dx = aimX; dy = aimY; } // no move keys: roll where you aim
+                dashNow = true; dashX = dx; dashY = dy;
+            }
+            if (dashNow) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> a = {script::Value::fromNum(dashX), script::Value::fromNum(dashY)};
+                tree.scripts().vm().callOn(self, "dash", a);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -505,6 +535,11 @@ int main(int argc, char** argv) {
                     const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 14.0f);
                     body = render::Color{1.0f, 0.3f * pulse, 0.2f * pulse, 1.0f};
                 }
+                // Dodge-roll i-frames: ghost the survivor translucent-blue while invulnerable.
+                if (field(survivor, "iframes") > 0.0) {
+                    const float g = 0.5f + 0.5f * std::sin(static_cast<float>(simTime) * 40.0f);
+                    body = render::Color{0.6f, 0.85f, 1.0f, 0.35f + 0.35f * g};
+                }
                 drawAt(survivor->x(), survivor->y(), texSurvivor, 3.0f, body);
             }
 
@@ -531,7 +566,7 @@ int main(int argc, char** argv) {
             const render::Color kDim{0.75f, 0.8f, 0.85f, 1};
             font.drawText(*renderer, 16.0f, 12.0f, "ZOMBOID", kWhite, 0.8f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          autopilot ? "AUTOPILOT" : "WASD MOVE  MOUSE AIM  LMB FIRE  1-4 GUN  E EAT",
+                          autopilot ? "AUTOPILOT" : "WASD MOVE  MOUSE AIM  LMB FIRE  1-4 GUN  SPACE DODGE  E EAT",
                           kDim, 0.45f);
             // Active weapon name.
             const char* kWeaponNames[4] = {"PISTOL", "SHOTGUN", "SMG", "RAILGUN"};
