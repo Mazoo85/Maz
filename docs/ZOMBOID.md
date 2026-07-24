@@ -147,8 +147,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   easing at dawn. Watch the **THREAT** readout. Night is also more lucrative — kills after dusk bank
   **50% more salvage cash**, so braving the dark hours pays off.
 - **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD: **Feral**
-  (faster), **Hulking** (tougher), **Frenzied** (more of them), or **Bulwark** (the whole horde spawns
-  behind damage-absorbing shields — break them down with heavy hits). No two runs feel the same.
+  (faster), **Hulking** (tougher), **Frenzied** (more of them), **Bulwark** (the whole horde spawns
+  behind damage-absorbing shields — break them down with heavy hits), or **Volatile** (every body
+  ruptures into a caustic acid pool where it falls, so the arena fills with hazard and camping a
+  kill-zone poisons the ground under your feet — keep moving). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

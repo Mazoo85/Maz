@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Volatile Horde wave mutator (5th mutator).** A new random wave modifier (from wave 3
+  on): under it, **every non-boss body ruptures into a caustic acid pool where it falls**. As the
+  fight drags on the arena steadily fills with hazard, so camping a single kill-zone poisons the
+  ground under your own feet and forces you to keep repositioning. Shown as **VOLATILE HORDE** on the
+  HUD. Headless-tested: a plain walker — which normally leaves nothing on death — drops a puddle when
+  killed under the mutator, and none with it off.
 - **ZOMBOID — Frost Field power-up (8th power-up).** A new drop that projects a sustained cold aura:
   while it lasts, **every zombie on the field crawls at half speed** — unlike the one-shot Cryo Nova,
   this is a lingering slow that buys you sustained breathing room to reposition or thin a swarm. The

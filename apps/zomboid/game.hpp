@@ -2237,6 +2237,13 @@ class Zombie {
                 leave_acid(self.node.x, self.node.y);
                 emit(self.node.x, self.node.y, 20, 1);
             }
+            # Volatile Horde mutator: every body ruptures into a caustic pool where it falls, so the
+            # arena steadily fills with hazard as you fight — camping a single kill-zone poisons the
+            # ground under your own feet, forcing you to keep repositioning. Bosses are exempt, and
+            # bloaters already leave one (so we skip them here to avoid stacking two puddles).
+            if (g_mutator == 5 and self.kind != 3 and self.kind != 10) {
+                leave_acid(self.node.x, self.node.y);
+            }
             # Overkill: if the killing hit alone dwarfed this body's full health (and it isn't an
             # exploder or boss, which have their own death behaviour), it gibs in a chain shockwave.
             if (d >= self.max_health * 1.5 and self.kind != 4 and self.kind != 3) {
@@ -2571,8 +2578,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 5)); }
-        if (g_mutator > 4) { g_mutator = 4; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 6)); }
+        if (g_mutator > 5) { g_mutator = 5; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.

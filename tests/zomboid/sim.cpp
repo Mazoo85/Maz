@@ -2545,6 +2545,38 @@ int main() {
         CHECK(sField(t2.findNode("Zombie0"), "shield")->number == 0.0);
     }
 
+    // Volatile Horde mutator (g_mutator == 5): every non-boss body ruptures into a caustic pool where
+    // it falls, so the arena fills with hazard as the fight drags on. A plain walker — which normally
+    // leaves nothing — drops a puddle when it dies under this mutator, but not with the mutator off.
+    {
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(0.0), Value::fromNum(3.0)};  // walker at (30,0), wave 3
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+
+        // Volatile on: killing the walker leaves a caustic puddle behind.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        const_cast<Value*>(vm1.getGlobal("g_mutator"))->number = 5.0;
+        Value zv1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(zv1, "spawn", sp);
+        CHECK(activeAcid(t1) == 0);                     // no hazard while it's alive
+        vm1.callOn(zv1, "take_damage", lethal);
+        CHECK(!sField(t1.findNode("Zombie0"), "alive")->boolean);
+        CHECK(activeAcid(t1) >= 1);                     // ...ruptured into a caustic pool on death
+
+        // Volatile off: the same walker leaves nothing when it dies.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_mutator"))->number = 0.0;
+        Value zv2b = t2.findNode("Zombie0")->script();
+        vm2.callOn(zv2b, "spawn", sp);
+        vm2.callOn(zv2b, "take_damage", lethal);
+        CHECK(!sField(t2.findNode("Zombie0"), "alive")->boolean);
+        CHECK(activeAcid(t2) == 0);                     // a plain walker leaves no hazard
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {
