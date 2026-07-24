@@ -1092,6 +1092,45 @@ int main() {
         CHECK(aliveZombies(tree) == capped);   // no more reinforcements after the budget is spent
     }
 
+    // Ammo drop: a pooled ammo box refills the active weapon's reserve (and a little for the rest) on
+    // pickup, and drifts toward a nearby survivor via magnetism.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        CHECK((int)tree.nodesInGroup("ammo").size() == zomboid::kAmmoPool);
+
+        // Drain the pistol's (weapon 0) reserve so the top-up is visible.
+        (*sField(survivor, "reserves")->array)[0].number = 0.0;
+        (*sField(survivor, "reserves")->array)[2].number = 0.0;
+
+        // Drop an ammo box right on the survivor.
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_ammo", at);
+        int active = 0;
+        for (SceneNode* a : tree.nodesInGroup("ammo"))
+            if (a->script().instance->findField("active")->boolean) ++active;
+        CHECK(active == 1);
+
+        tree.process(1.0 / 60.0);   // survivor is on the box → collected
+        CHECK((*sField(survivor, "reserves")->array)[0].number > 0.0);  // active weapon topped up
+        CHECK((*sField(survivor, "reserves")->array)[2].number > 0.0);  // others get a little too
+
+        // Magnetism: a box dropped a few units away drifts toward the survivor over a second.
+        std::vector<Value> at2 = {Value::fromNum(5.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_ammo", at2);
+        SceneNode* box = nullptr;
+        for (SceneNode* a : tree.nodesInGroup("ammo"))
+            if (a->script().instance->findField("active")->boolean) box = a;
+        CHECK(box != nullptr);
+        const double bx0 = box->x();
+        Value bv = box->script();
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 20; ++i) tree.scripts().vm().callOn(bv, "_process", dtv);
+        CHECK(box->x() < bx0);   // drifted toward the survivor at the origin
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

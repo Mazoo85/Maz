@@ -30,6 +30,7 @@ var g_zombies = [];     # object pool: every Zombie appends itself here in _read
 var g_particles = [];   # object pool for impact / blood particles (juice)
 var g_grenades = [];    # object pool for thrown grenades
 var g_medkits = [];     # object pool for dropped health pickups
+var g_ammo = [];        # object pool for dropped ammo pickups
 var g_spits = [];       # object pool for spitter acid globs (enemy ranged projectiles)
 var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / damage / shield)
 var g_crates = [];      # object pool for periodic supply-crate care packages
@@ -640,6 +641,16 @@ class Survivor {
         self.grenades = self.grenades + 1;
     }
 
+    # Grab a dropped ammo box: tops up the active weapon's reserve, with a little for the others.
+    func collect_ammo() {
+        self.reserves[self.weapon] = self.reserves[self.weapon] + self.mag_sizes[self.weapon] * 2;
+        var i = 0;
+        while (i < 4) {
+            if (i != self.weapon) { self.reserves[i] = self.reserves[i] + 4; }
+            i = i + 1;
+        }
+    }
+
     # Grab a supply-crate care package: a big refill of ammo, grenades, and health.
     func collect_crate() {
         self.heal(50);
@@ -979,6 +990,59 @@ func drop_medkit(x, y) {
         var m = g_medkits[i];
         if (m.active == false) {
             m.place(x, y);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
+# A pooled ammo box dropped by a dying zombie. Walk over it (or let it drift in) to top up reserves.
+class Ammo {
+    var active = false;
+    var life = 0;
+    var max_life = 12;
+    var pickup_range = 2.2;
+
+    func _ready() { g_ammo.append(self); }
+
+    func place(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        if (g_player == nil) { return; }
+        if (g_player.alive == false) { return; }
+        var dx = g_player.node.x - self.node.x;
+        var dy = g_player.node.y - self.node.y;
+        var d2 = dx * dx + dy * dy;
+        if (d2 <= self.pickup_range * self.pickup_range) {
+            g_player.collect_ammo();
+            self.active = false;
+        } else {
+            # Magnetism: within a short radius the box drifts toward the survivor.
+            if (d2 <= 36.0) {
+                var d = sqrt(d2);
+                self.node.x = self.node.x + (dx / d) * 12.0 * dt;
+                self.node.y = self.node.y + (dy / d) * 12.0 * dt;
+            }
+        }
+    }
+}
+
+# Activate a dormant ammo box from the pool at (x, y) — called when a zombie drops one.
+func drop_ammo(x, y) {
+    var i = 0;
+    var n = len(g_ammo);
+    while (i < n) {
+        var a = g_ammo[i];
+        if (a.active == false) {
+            a.place(x, y);
             return;
         }
         i = i + 1;
@@ -1523,6 +1587,8 @@ class Zombie {
                 if (pk > 2) { pk = 2; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
+            # And sometimes an ammo box, to keep reserves topped up between crates.
+            if (randf() < 0.10) { drop_ammo(self.node.x, self.node.y); }
         }
     }
 
@@ -1747,6 +1813,7 @@ constexpr int kZombiePool = 40;
 constexpr int kParticlePool = 90;
 constexpr int kGrenadePool = 8;
 constexpr int kMedkitPool = 12;
+constexpr int kAmmoPool = 8;
 constexpr int kSpitPool = 24;
 constexpr int kPowerupPool = 8;
 constexpr int kCratePool = 2;
@@ -1795,6 +1862,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         m->setPosition(100000.0, 100000.0);
         m->addToGroup("medkits");
         tree.attachScript(*m, "Medkit");
+    }
+
+    // Ammo pool — dormant ammo boxes zombies may drop.
+    for (int i = 0; i < kAmmoPool; ++i) {
+        maz::scene::SceneNode* a = tree.createChild(tree.root(), "Ammo" + std::to_string(i));
+        a->setPosition(100000.0, 100000.0);
+        a->addToGroup("ammo");
+        tree.attachScript(*a, "Ammo");
     }
 
     // Spit pool — dormant acid globs spitter zombies lob at the survivor.

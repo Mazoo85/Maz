@@ -133,6 +133,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
     render::TextureHandle texMedkit = renderer->createTexture(16, 16, makeSquare(70, 210, 90).data());
+    render::TextureHandle texAmmo = renderer->createTexture(16, 16, makeSquare(220, 190, 80).data());
     render::TextureHandle texLoot = renderer->createTexture(16, 16, makeSquare(210, 120, 200).data());
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -500,6 +501,16 @@ int main(int argc, char** argv) {
                                         ? 1.0f
                                         : 0.35f;
                 drawAt(m->x(), m->y(), texMedkit, 1.8f, render::Color{0.5f * blink, blink, 0.6f * blink, 1.0f});
+            }
+            // Dropped ammo boxes (brass), blinking as they near expiry.
+            for (scene::SceneNode* am : tree.nodesInGroup("ammo")) {
+                if (!fieldBool(am, "active")) continue;
+                const float life = static_cast<float>(field(am, "life"));
+                const float blink = (life > 3.0f || std::sin(static_cast<float>(simTime) * 10.0f) > 0.0f)
+                                        ? 1.0f
+                                        : 0.35f;
+                drawAt(am->x(), am->y(), texAmmo, 1.6f,
+                       render::Color{blink, 0.85f * blink, 0.35f * blink, 1.0f});
             }
             // Supply crates (periodic care packages), blinking as they near expiry.
             for (scene::SceneNode* c : tree.nodesInGroup("crates")) {

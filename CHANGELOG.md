@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Ammo drops** — killed zombies now occasionally (~10%) drop a brass ammo box. Walking over it (or
+  letting it drift in via magnetism) tops up the active weapon's reserve by two magazines, plus a
+  little for the other three, so reserves stay healthy between supply crates and you're rewarded for
+  staying on the offensive. Pooled (`Ammo`, 8) and despawns after ~12 s like other drops. Verified
+  headless (`zomboid_sim`): the pool builds, a dropped box activates, collecting it tops up the active
+  weapon's reserve (and a little for the others), and a box a few units away drifts toward the survivor.
 - **End-of-run performance rank** — the death screen now grades each run with a single S/A/B/C/D
   letter, computed from a composite of how far you got (wave), how much you cleared (kills), and how
   cleanly you shot (accuracy). The grade is a pure function (`runRank`/`runRankLetter`) and is colour-
