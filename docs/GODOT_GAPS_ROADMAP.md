@@ -150,17 +150,6 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
-- [x] **Morton (Z-order) codes** (`math::mortonEncode2D` / `mortonDecode2D` / `mortonEncode3D` /
-  `mortonDecode3D`, `MortonCode.hpp`) — DONE (M813); interleave the bits of 2D/3D integer coordinates into a
-  single number that snakes through space along a Z-shaped curve, so points near each other in space get
-  numbers that are (mostly) near each other too. The workhorse key for LINEAR quadtrees/octrees (store a
-  sparse tree as a sorted list of Morton codes), cache-coherent grid/texture traversal and GPU swizzle
-  layouts, spatial hashing, and sorting particles/entities so neighbours sit close in memory. 2D packs two
-  16-bit coords into 32 bits; 3D packs three 10-bit coords into 30 bits, via the classic magic-bit spread.
-  Godot exposes no Morton helpers. Verified airtight: decode(encode(x,y)) recovers every coordinate over a
-  full 256×256 grid (and a sampled 3D grid); the known small codes match (encode(1,1)=3, (3,3)=15, 3D axes →
-  1/2/4); encode(x,0) lives only in even bits and encode(0,y) only in odd bits; the code increases
-  monotonically along a single axis; and one-cell steps stay local in code space. ctest `morton_code`.
 - [x] **Goertzel single-frequency detector** (`audio::goertzelBin` / `goertzelMagnitude` /
   `goertzelMagnitudeHz` → `GoertzelBin`, `Goertzel.hpp`) — DONE (M812); measure how much of ONE specific
   frequency is present in a block of samples, far cheaper than a full FFT when you only care about a handful
