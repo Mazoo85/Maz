@@ -1199,8 +1199,18 @@ class Zombie {
     var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
     var elite = false;     # "champion" modifier: much tankier, faster, worth far more
     var slow_timer = 0;    # while > 0 the zombie is chilled and crawls at reduced speed
+    var burn_timer = 0;    # while > 0 the zombie is on fire, taking damage over time
+    var burn_dps = 0;      # fire damage per second while burning
+    var burn_tick = 0;     # accumulator so burn damage lands in periodic ticks, not every frame
 
     func _ready() { g_zombies.append(self); }
+
+    # Set this zombie alight for `dur` seconds at `dps` damage/second (strongest ignition wins).
+    func ignite(dur, dps) {
+        if (self.alive == false) { return; }
+        if (dur > self.burn_timer) { self.burn_timer = dur; }
+        if (dps > self.burn_dps) { self.burn_dps = dps; }
+    }
 
     # Chill this zombie (e.g. caught in a grenade blast): it crawls slowly for `dur` seconds.
     func apply_slow(dur) {
@@ -1272,6 +1282,9 @@ class Zombie {
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
         self.elite = false;
         self.slow_timer = 0;
+        self.burn_timer = 0;
+        self.burn_dps = 0;
+        self.burn_tick = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -1379,7 +1392,8 @@ class Zombie {
                     if (oz.alive and oz.kind != 4) {
                         var ozx = oz.node.x - self.node.x;
                         var ozy = oz.node.y - self.node.y;
-                        if (ozx * ozx + ozy * ozy <= 25.0) { oz.take_damage(40); }
+                        # The incendiary blast burns survivors of the initial hit.
+                        if (ozx * ozx + ozy * ozy <= 25.0) { oz.take_damage(40); oz.ignite(3.0, 10); }
                     }
                     bi = bi + 1;
                 }
@@ -1416,6 +1430,17 @@ class Zombie {
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
+        # Burning status: fire deals damage in periodic ticks (bounded so it doesn't spam per frame).
+        if (self.burn_timer > 0) {
+            self.burn_timer = self.burn_timer - dt;
+            self.burn_tick = self.burn_tick - dt;
+            if (self.burn_tick <= 0) {
+                self.burn_tick = 0.25;
+                self.take_damage(self.burn_dps * 0.25);
+                if (self.alive == false) { return; }   # burned to death this tick
+            }
+            if (self.burn_timer <= 0) { self.burn_timer = 0; self.burn_dps = 0; }
+        }
         # Chill status: while slowed, the zombie crawls at 40% speed.
         self.slow_timer = self.slow_timer - dt;
         if (self.slow_timer < 0) { self.slow_timer = 0; }

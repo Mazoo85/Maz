@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Incendiary blast + burning status** — zombies can now catch fire and take damage over time. The
+  exploder's death blast is now incendiary: survivors of the initial hit are set alight (3 s at 10
+  dps), so shooting an exploder inside a pack lights the whole pack up. Burn damage lands in periodic
+  quarter-second ticks (bounded, no per-frame spam), stacks by taking the strongest ignition, and
+  burning zombies flicker an ember glow. Verified headless (`zomboid_sim`): an ignited zombie loses
+  health over ~1 s and stops taking damage once the fire burns out, and a dying exploder sets a
+  neighbouring zombie alight.
 - **Auto-turret sentries** — press Y (or, on autopilot, every ~11 s) to deploy a pooled sentry from a
   small stock (starts at 1). It auto-fires a hitscan bolt at the nearest zombie in range (~16 units) a
   few times a second for ~12 seconds, then powers down — a stationary ally that thins one lane while

@@ -549,6 +549,12 @@ int main(int argc, char** argv) {
                 } else if (field(z, "slow_timer") > 0.0) {
                     tint = render::Color{0.55f, 0.75f, 1.0f, 1.0f}; // chilled — icy blue
                 }
+                // Burning overrides other tints: a flickering ember glow.
+                if (field(z, "burn_timer") > 0.0) {
+                    const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +
+                                                            static_cast<float>(z->x()));
+                    tint = render::Color{1.0f, 0.5f * fl, 0.15f * fl, 1.0f};
+                }
                 drawAt(z->x(), z->y(), ztex, esize, tint);
             }
             // Bullets in flight.

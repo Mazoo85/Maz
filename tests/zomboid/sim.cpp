@@ -940,6 +940,59 @@ int main() {
         CHECK(sField(survivor, "sentries")->number == stock1 + 1.0);
     }
 
+    // Burning status: an ignited zombie takes fire damage over time, then the fire burns out.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(30.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                 Value::fromNum(0.0)}; // tanky, parked far from the survivor
+        tree.scripts().vm().callOn(zs, "spawn_at", at);
+        CHECK(z->script().instance->findField("burn_timer")->number == 0.0);
+
+        // Ignite it: 3 seconds at 20 dps.
+        std::vector<Value> ig = {Value::fromNum(3.0), Value::fromNum(20.0)};
+        tree.scripts().vm().callOn(zs, "ignite", ig);
+        CHECK(z->script().instance->findField("burn_timer")->number > 0.0);
+        const double hp0 = z->script().instance->findField("health")->number;
+
+        // Drive the zombie's own _process for ~1 s: fire ticks should chew its health.
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(zs, "_process", dtv);
+        CHECK(z->script().instance->findField("health")->number < hp0);   // burned
+
+        // After the burn duration lapses (~3 s total), the fire is out and stops damaging.
+        for (int i = 0; i < 60 * 3; ++i) tree.scripts().vm().callOn(zs, "_process", dtv);
+        CHECK(z->script().instance->findField("burn_timer")->number == 0.0);
+        const double hpAfter = z->script().instance->findField("health")->number;
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(zs, "_process", dtv);
+        CHECK(z->script().instance->findField("health")->number == hpAfter); // no more fire damage
+    }
+
+    // Incendiary exploder blast: a dying exploder ignites zombies caught in its blast.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        // A tanky neighbour parked right next to the exploder (out of the survivor's way).
+        SceneNode* nb = tree.findNode("Zombie1");
+        Value nbs = nb->script();
+        std::vector<Value> nat = {Value::fromNum(50.0), Value::fromNum(0.0), Value::fromNum(400.0),
+                                  Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(nbs, "spawn_at", nat);
+        CHECK(nb->script().instance->findField("burn_timer")->number == 0.0);
+
+        // An exploder at the neighbour's position (kind 4), then kill it to trigger its blast.
+        SceneNode* ex = tree.findNode("Zombie0");
+        Value exs = ex->script();
+        std::vector<Value> espawn = {Value::fromNum(50.5), Value::fromNum(0.0), Value::fromNum(4.0),
+                                     Value::fromNum(1.0)}; // spawn(x,y,kind=4,wave=1)
+        tree.scripts().vm().callOn(exs, "spawn", espawn);
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        tree.scripts().vm().callOn(exs, "take_damage", lethal);   // detonate
+        CHECK(nb->script().instance->findField("burn_timer")->number > 0.0); // neighbour set alight
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
