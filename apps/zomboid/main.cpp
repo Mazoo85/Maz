@@ -438,6 +438,8 @@ int main(int argc, char** argv) {
                     tint = f < 0.4f ? render::Color{1.0f, 0.75f, 0.35f, 1.0f}   // wounded gold
                                     : render::Color{1.0f, 0.85f, 0.25f, 1.0f};  // champion gold
                     esize = size * 1.3f; // elites are visibly bigger
+                } else if (field(z, "slow_timer") > 0.0) {
+                    tint = render::Color{0.55f, 0.75f, 1.0f, 1.0f}; // chilled — icy blue
                 }
                 drawAt(z->x(), z->y(), ztex, esize, tint);
             }

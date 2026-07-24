@@ -82,6 +82,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   on. The HUD shows the upgrade count and current DMG/RATE multipliers. Verified headless
   (`zomboid_sim`): each `apply_upgrade` raises the matching stat in turn, and clearing wave 1 hands out
   the first upgrade exactly when wave 2 opens (none before).
+- **Chill / slow status** — grenade blasts now also chill every zombie caught in a slightly wider radius,
+  leaving survivors crawling at 40% speed for ~2.5 s (a new `slow_timer` + `apply_slow` on the zombie,
+  folded into its movement). Grenades become crowd control as well as damage — lob one to freeze a
+  rush in place. Chilled zombies read as icy blue in the app. Verified headless (`zomboid_sim`): a
+  chilled walker advances less than 60% as far per tick as an unimpaired one.
 - **Grenades** — a throwable, object-pooled explosive (start with 3, press G): it flies along the aim,
   slows, and after a short fuse detonates, damaging every zombie inside the blast radius plus a burst
   of blood and screen-shake. Loot tops one up. The HUD shows the grenade count. Verified headless

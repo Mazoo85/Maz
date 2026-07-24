@@ -756,6 +756,33 @@ int main() {
         CHECK(zb->x() - bx0 < 0.3);  // heavy body resists
     }
 
+    // Chill/slow: a slowed zombie crawls toward the survivor far less per tick than an unimpaired one.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> dtv = {Value::fromNum(0.1)};
+        std::vector<Value> park = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(999.0),
+                                   Value::fromNum(15.0)};
+
+        // Baseline advance over one tick.
+        tree.scripts().vm().callOn(zs, "spawn_at", park);
+        tree.scripts().vm().callOn(zs, "_process", dtv);
+        const double moved1 = 10.0 - z->x();
+        CHECK(moved1 > 0.0);
+
+        // Same tick, but chilled first: it barely moves.
+        tree.scripts().vm().callOn(zs, "spawn_at", park);
+        std::vector<Value> dur = {Value::fromNum(2.0)};
+        tree.scripts().vm().callOn(zs, "apply_slow", dur);
+        tree.scripts().vm().callOn(zs, "_process", dtv);
+        const double moved2 = 10.0 - z->x();
+        CHECK(moved2 > 0.0);
+        CHECK(moved2 < moved1 * 0.6); // chilled to ~40% speed
+    }
+
     // Elite ("champion") zombies: crowning one boosts its health and score and guarantees a medkit.
     {
         SceneTree tree;

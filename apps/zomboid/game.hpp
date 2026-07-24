@@ -592,9 +592,10 @@ class Grenade {
             if (z.alive) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
-                if (dx * dx + dy * dy <= self.blast_radius * self.blast_radius) {
-                    z.take_damage(self.blast_dmg);
-                }
+                var d2 = dx * dx + dy * dy;
+                var cr = self.blast_radius + 2.0;    # chill reaches a bit past the kill radius
+                if (d2 <= cr * cr) { z.apply_slow(2.5); }
+                if (d2 <= self.blast_radius * self.blast_radius) { z.take_damage(self.blast_dmg); }
             }
             i = i + 1;
         }
@@ -832,8 +833,14 @@ class Zombie {
     var cooldown = 0;
     var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
     var elite = false;     # "champion" modifier: much tankier, faster, worth far more
+    var slow_timer = 0;    # while > 0 the zombie is chilled and crawls at reduced speed
 
     func _ready() { g_zombies.append(self); }
+
+    # Chill this zombie (e.g. caught in a grenade blast): it crawls slowly for `dur` seconds.
+    func apply_slow(dur) {
+        if (dur > self.slow_timer) { self.slow_timer = dur; }
+    }
 
     # Shove this zombie along (dirx, diry) when shot. Heavy bodies (brutes/bosses) mostly resist it.
     func hit_knockback(dirx, diry, amount) {
@@ -867,6 +874,7 @@ class Zombie {
         self.score_value = 10;
         self.cooldown = 0;
         self.elite = false;
+        self.slow_timer = 0;
         self.alive = true;
     }
 
@@ -880,6 +888,7 @@ class Zombie {
         self.cooldown = 0;
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
         self.elite = false;
+        self.slow_timer = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -994,6 +1003,11 @@ class Zombie {
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
+        # Chill status: while slowed, the zombie crawls at 40% speed.
+        self.slow_timer = self.slow_timer - dt;
+        if (self.slow_timer < 0) { self.slow_timer = 0; }
+        var sm = 1.0;
+        if (self.slow_timer > 0) { sm = 0.4; }
         if (self.kind == 3) {
             # Boss ground slam: a periodic radial shockwave that hammers a nearby survivor, so
             # standing next to the boss is punished even though it lumbers slowly. Still bites below.
@@ -1009,8 +1023,8 @@ class Zombie {
         if (self.kind == 5) {
             # Spitter: advance only until inside spitting range, then hold and lob acid on a cooldown.
             if (dist > self.attack_range) {
-                self.node.x = self.node.x + (dx / dist) * self.speed * aggro * dt;
-                self.node.y = self.node.y + (dy / dist) * self.speed * aggro * dt;
+                self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
+                self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
             }
             self.cooldown = self.cooldown - dt;
             if (dist <= self.attack_range and self.cooldown <= 0) {
@@ -1020,8 +1034,8 @@ class Zombie {
             return;
         }
         if (dist > self.attack_range) {
-            self.node.x = self.node.x + (dx / dist) * self.speed * aggro * dt;
-            self.node.y = self.node.y + (dy / dist) * self.speed * aggro * dt;
+            self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
+            self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
         }
         self.cooldown = self.cooldown - dt;
         if (dist <= self.attack_range and self.cooldown <= 0) {
