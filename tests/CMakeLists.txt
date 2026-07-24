@@ -2882,3 +2882,8 @@ add_executable(maz_octahedralnormal_tests math/octahedralnormal.cpp)
 target_link_libraries(maz_octahedralnormal_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME octahedral_normal COMMAND maz_octahedralnormal_tests)
 set_tests_properties(octahedral_normal PROPERTIES TIMEOUT 30)
+
+add_executable(maz_colorlab_tests math/colorlab.cpp)
+target_link_libraries(maz_colorlab_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME color_lab COMMAND maz_colorlab_tests)
+set_tests_properties(color_lab PROPERTIES TIMEOUT 30)

@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **CIE color science: XYZ / CIELAB + Delta-E** (`math::linearRgbToXyz` / `xyzToLab` / `linearRgbToLab`
+  (+ inverses) / `deltaE76`, `ColorLab.hpp`) — DONE (M810); convert linear RGB (the engine's working space)
+  to CIE XYZ and then CIELAB (L*a*b*), plus the CIE76 perceptual colour difference (Delta-E). CIELAB is the
+  classic PERCEPTUALLY-UNIFORM space — equal numeric steps look like equal visual steps — so it is the right
+  space for "how different do these two colours look?": palette matching, colour quantisation / nearest
+  swatch, gradient generation, and accessibility. Complements the engine's Oklab (ColorOps.hpp) with the CIE
+  standard; Godot exposes no Lab/Delta-E. Uses sRGB/Rec.709 primaries at D65. Verified airtight: linear-RGB
+  white maps to L*=100 with a*=b*=0 and black to (0,0,0); linearRgb↔Lab and the XYZ matrix pair round-trip for
+  thousands of in-gamut colours; grays are achromatic with L* monotone in luminance; and Delta-E is zero for
+  identical colours, symmetric, small for small changes and large between distinct primaries. ctest
+  `color_lab`.
 - [x] **Octahedral unit-vector encoding** (`math::octEncode` / `octDecode` / `octEncodeHemi` /
   `octDecodeHemi`, `OctahedralNormal.hpp`) — DONE (M809); pack a unit vector (a normal, a direction) into
   just TWO numbers in [-1,1] and unpack it back with barely any error — the standard way modern renderers
