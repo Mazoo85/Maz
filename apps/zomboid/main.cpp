@@ -118,6 +118,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texBrute = renderer->createTexture(16, 16, makeSquare(165, 55, 55).data());
     render::TextureHandle texBoss = renderer->createTexture(16, 16, makeSquare(195, 70, 195).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
+    render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texLoot = renderer->createTexture(16, 16, makeSquare(210, 120, 200).data());
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -240,8 +241,12 @@ int main(int argc, char** argv) {
         render::Camera2D cam;
         cam.usePixelSpace = false;
         cam.zoom = worldToPx;
-        cam.centerX = survivor ? static_cast<float>(survivor->x()) : 0.0f;
-        cam.centerY = survivor ? static_cast<float>(survivor->y()) : 0.0f;
+        // Screen shake: jitter the camera centre by the decaying g_shake magnitude.
+        const float shake = static_cast<float>(globalNum(tree, "g_shake"));
+        const float shX = shake * 0.5f * std::cos(static_cast<float>(simTime) * 47.0f);
+        const float shY = shake * 0.5f * std::sin(static_cast<float>(simTime) * 41.0f);
+        cam.centerX = (survivor ? static_cast<float>(survivor->x()) : 0.0f) + shX;
+        cam.centerY = (survivor ? static_cast<float>(survivor->y()) : 0.0f) + shY;
         renderer->setCamera2D(cam);
 
         // Day/night: darken toward night so the night ramp is felt.
@@ -292,6 +297,17 @@ int main(int argc, char** argv) {
             for (scene::SceneNode* b : tree.nodesInGroup("bullets")) {
                 if (fieldBool(b, "active")) drawAt(b->x(), b->y(), texBullet, 0.7f, kNoTint);
             }
+            // Impact particles (sparks + blood), fading with life.
+            for (scene::SceneNode* p : tree.nodesInGroup("particles")) {
+                if (!fieldBool(p, "active")) continue;
+                const int pk = static_cast<int>(field(p, "kind"));
+                const double life = field(p, "life"), ml = field(p, "max_life");
+                const float a = ml > 0.0 ? static_cast<float>(life / ml) : 0.0f;
+                const render::TextureHandle ptex = pk == 1 ? texBlood : texBullet;
+                const render::Color pc = pk == 1 ? render::Color{0.85f, 0.15f, 0.15f, a}
+                                                 : render::Color{1.0f, 0.9f, 0.5f, a};
+                drawAt(p->x(), p->y(), ptex, pk == 1 ? 0.55f : 0.4f, pc);
+            }
             // Aim tracer: a few dots from the survivor along the aim vector.
             if (alive) {
                 for (int i = 1; i <= 5; ++i) {
@@ -299,6 +315,12 @@ int main(int argc, char** argv) {
                     drawAt(survivor->x() + aimX * d, survivor->y() + aimY * d, texBullet, 0.35f,
                            render::Color{1.0f, 0.9f, 0.4f, 0.5f});
                 }
+            }
+            // Muzzle flash while firing (flickers a touch).
+            if (alive && firing) {
+                const float flick = 1.0f + 0.3f * std::sin(static_cast<float>(simTime) * 60.0f);
+                drawAt(survivor->x() + aimX * 2.2, survivor->y() + aimY * 2.2, texBullet, 1.3f * flick,
+                       render::Color{1.0f, 0.95f, 0.6f, 0.9f});
             }
             // Survivor on top.
             if (alive) drawAt(survivor->x(), survivor->y(), texSurvivor, 3.0f, kNoTint);

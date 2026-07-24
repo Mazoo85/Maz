@@ -27,6 +27,8 @@ var g_player = nil;
 var g_director = nil;
 var g_bullets = [];     # object pool: every Bullet appends itself here in _ready
 var g_zombies = [];     # object pool: every Zombie appends itself here in _ready
+var g_particles = [];   # object pool for impact / blood particles (juice)
+var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
 var g_kills = 0;
@@ -46,6 +48,21 @@ func is_night() {
 func danger() {
     if (is_night() == false) { return 1.0; }
     return 1.7;
+}
+
+# Spawn up to `count` impact particles at (x, y) from the shared pool. kind 0 = spark, 1 = blood.
+func emit(x, y, count, kind) {
+    var i = 0;
+    var n = len(g_particles);
+    var spawned = 0;
+    while (i < n and spawned < count) {
+        var p = g_particles[i];
+        if (p.active == false) {
+            p.ignite(x, y, kind);
+            spawned = spawned + 1;
+        }
+        i = i + 1;
+    }
 }
 
 # The survivor the player controls. The app sets aim_x/aim_y (a unit vector toward the mouse) and the
@@ -76,6 +93,9 @@ class Survivor {
     func _ready() { g_player = self; self.set_weapon(0); }
 
     func _process(dt) {
+        # Screen shake always eases back toward rest, even on the death screen.
+        g_shake = g_shake - dt * 4.0;
+        if (g_shake < 0) { g_shake = 0; }
         if (self.alive == false) { return; }
 
         # Advance the shared world clock (survivor owns it).
@@ -229,6 +249,48 @@ class Bullet {
     }
 }
 
+# A pooled impact particle: a short-lived speck that flies out from a hit and fades. Sparks (kind 0) are
+# fast and brief; blood (kind 1) is redder, slower, and lingers a touch longer. Pure juice.
+class Particle {
+    var active = false;
+    var vx = 0;
+    var vy = 0;
+    var life = 0;
+    var max_life = 0.5;
+    var kind = 0;
+
+    func _ready() { g_particles.append(self); }
+
+    func ignite(x, y, k) {
+        self.node.x = x;
+        self.node.y = y;
+        self.kind = k;
+        var ang = randf_range(0, 6.2831853);
+        var spd = 0;
+        if (k == 1) {
+            spd = randf_range(6, 20);
+            self.max_life = randf_range(0.3, 0.7);
+        } else {
+            spd = randf_range(10, 30);
+            self.max_life = randf_range(0.12, 0.3);
+        }
+        self.vx = cos(ang) * spd;
+        self.vy = sin(ang) * spd;
+        self.life = self.max_life;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.node.x = self.node.x + self.vx * dt;
+        self.node.y = self.node.y + self.vy * dt;
+        self.vx = self.vx * 0.9;
+        self.vy = self.vy * 0.9;
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; }
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -311,11 +373,18 @@ class Zombie {
     func take_damage(dmg) {
         if (self.alive == false) { return; }
         self.health = self.health - dmg;
+        emit(self.node.x, self.node.y, 3, 0); # hit sparks
         if (self.health <= 0) {
             self.health = 0;
             self.alive = false;
             g_kills = g_kills + 1;
             g_score = g_score + self.score_value;
+            emit(self.node.x, self.node.y, 10, 1); # blood burst on death
+            var s = 0.5;
+            if (self.kind == 2) { s = 1.0; }
+            if (self.kind == 3) { s = 2.5; }
+            g_shake = g_shake + s;
+            if (g_shake > 3.0) { g_shake = 3.0; }
         }
     }
 
@@ -438,6 +507,7 @@ class Loot {
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;
+constexpr int kParticlePool = 90;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -456,6 +526,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         b->setPosition(100000.0, 100000.0);
         b->addToGroup("bullets");
         tree.attachScript(*b, "Bullet");
+    }
+
+    // Particle pool — dormant sparks/blood the game ignites on impacts.
+    for (int i = 0; i < kParticlePool; ++i) {
+        maz::scene::SceneNode* p = tree.createChild(tree.root(), "Particle" + std::to_string(i));
+        p->setPosition(100000.0, 100000.0);
+        p->addToGroup("particles");
+        tree.attachScript(*p, "Particle");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

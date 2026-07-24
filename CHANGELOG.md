@@ -30,6 +30,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   hit. Verified headless: a forced wave 5 spawns a boss (HP > 300) plus a genuine runner/brute/walker
   mix with runners out-pacing and brutes out-tanking walkers, and a brute survives a single pistol
   shot. Autopilot 45 s run reaches wave 5 (a boss wave).
+- **Impact juice** — a script-side particle pool (sparks on every hit, a blood burst on a kill) and a
+  decaying screen-shake value that the camera reads (bigger kicks for brutes and bosses), plus an
+  app-side muzzle flash. The simulation core is verified headless (`zomboid_sim`): the particle pool
+  builds, a kill emits particles and raises `g_shake`, and both ease back to rest within a couple of
+  seconds. The muzzle flash and camera shake render on the app side (owner-visible on real hardware).
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

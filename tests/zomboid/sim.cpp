@@ -34,6 +34,12 @@ static int activeBullets(SceneTree& t) {
         if (b->script().instance->findField("active")->boolean) ++c;
     return c;
 }
+static int activeParticles(SceneTree& t) {
+    int c = 0;
+    for (SceneNode* p : t.nodesInGroup("particles"))
+        if (p->script().instance->findField("active")->boolean) ++c;
+    return c;
+}
 static void setWeapon(SceneTree& t, SceneNode* s, int w) {
     Value self = s->script();
     std::vector<Value> a = {Value::fromNum(static_cast<double>(w))};
@@ -236,9 +242,30 @@ int main() {
         (void)survivor;
     }
 
+    // Juice: killing a zombie sprays particles and kicks the screen shake, which then settle.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("particles").size() == zomboid::kParticlePool);
+        CHECK(activeParticles(tree) == 0);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> sa = {Value::fromNum(3.0), Value::fromNum(0.0), Value::fromNum(20.0),
+                                 Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", sa);
+        std::vector<Value> dmg = {Value::fromNum(9999.0)}; // lethal
+        tree.scripts().vm().callOn(zs, "take_damage", dmg);
+        CHECK(activeParticles(tree) > 0);       // sparks + blood emitted
+        CHECK(glob(tree, "g_shake") > 0.0);     // the hit shook the screen
+        // Everything eases back to rest within a couple of seconds.
+        for (int i = 0; i < 150; ++i) tree.process(1.0 / 60.0);
+        CHECK(activeParticles(tree) == 0);
+        CHECK(glob(tree, "g_shake") < 0.01);
+    }
+
     if (g_fail == 0) {
-        std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety "
-                    "(runner/brute/boss), kills/score, survival, loot.\n");
+        std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
+                    "impact juice (particles + shake), kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
