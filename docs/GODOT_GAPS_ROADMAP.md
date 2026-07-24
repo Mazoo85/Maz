@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Tetrahedron circumsphere + in-sphere test** (`math::circumsphere` → `Circumsphere`,
+  `math::insideCircumsphere`, `Circumsphere.hpp`) — DONE (M802); the unique sphere through four 3D points
+  (centre equidistant from all four), the 3D companion to a triangle's circumcircle and the core predicate of
+  3D Delaunay tetrahedralisation (a tetralisation is Delaunay iff no vertex lies inside any tetrahedron's
+  circumsphere). Also used for simplex bounding spheres, mesh-quality metrics (radius-edge ratio), and
+  sphere-fitting. The engine has a Ritter bounding sphere (BoundingSphere.hpp) but no exact
+  sphere-through-4-points; Godot has neither. Solves the 3×3 linear system from the equal-distance equalities.
+  Verified airtight: the centre is equidistant from all four vertices (= the radius) over thousands of seeded
+  non-degenerate tetrahedra; the regular tetra has centre origin and circumradius sqrt(3); the centre
+  translates with the tetra and the radius is translation-invariant; four coplanar points report invalid; and
+  the in-sphere predicate reads points just inside/outside correctly. ctest `circumsphere`.
 - [x] **Dubins shortest path** (`math::dubinsShortestPath` / `dubinsComputeWord` / `dubinsSample` →
   `DubinsPath`/`Pose2`, `DubinsPath.hpp`) — DONE (M801); the shortest path for a forward-only vehicle with a
   minimum turning radius, from a start pose (position + heading) to a goal pose. A Dubins car drives straight

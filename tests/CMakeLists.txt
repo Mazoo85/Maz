@@ -2842,3 +2842,8 @@ add_executable(maz_dubinspath_tests math/dubinspath.cpp)
 target_link_libraries(maz_dubinspath_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME dubins_path COMMAND maz_dubinspath_tests)
 set_tests_properties(dubins_path PROPERTIES TIMEOUT 30)
+
+add_executable(maz_circumsphere_tests math/circumsphere.cpp)
+target_link_libraries(maz_circumsphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME circumsphere COMMAND maz_circumsphere_tests)
+set_tests_properties(circumsphere PROPERTIES TIMEOUT 30)
