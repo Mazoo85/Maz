@@ -850,6 +850,43 @@ int main() {
         CHECK(sField(survivor, "revives")->number == 1.0);   // milestone granted one back
     }
 
+    // Splitter (kind 6): a mid-tier zombie that bursts into two fast runners when killed.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        CHECK(aliveZombies(tree) == 0);
+
+        // Spawn a lone splitter and confirm its kind, then kill it in one blow.
+        SceneNode* sp = tree.findNode("Zombie0");
+        Value spv = sp->script();
+        std::vector<Value> spawn = {Value::fromNum(20.0), Value::fromNum(0.0), Value::fromNum(6.0),
+                                    Value::fromNum(3.0)}; // spawn(x,y,kind=6,wave=3)
+        tree.scripts().vm().callOn(spv, "spawn", spawn);
+        CHECK((int)sp->script().instance->findField("kind")->number == 6);
+        CHECK(aliveZombies(tree) == 1);
+
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        tree.scripts().vm().callOn(spv, "take_damage", lethal);
+        CHECK(!sp->script().instance->findField("alive")->boolean);   // the splitter itself is dead
+
+        // Its death left exactly two live kind-1 runners spawned near where it fell.
+        int runners = 0;
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (!z->script().instance->findField("alive")->boolean) continue;
+            if ((int)z->script().instance->findField("kind")->number == 1) ++runners;
+        }
+        CHECK(runners == 2);
+        CHECK(aliveZombies(tree) == 2);   // only the two splitlings remain
+
+        // The splitlings spawned near the splitter's position (within a small radius).
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (!z->script().instance->findField("alive")->boolean) continue;
+            const double dx = z->x() - 20.0, dy = z->y() - 0.0;
+            CHECK(dx * dx + dy * dy <= 16.0);   // within ~4 units of the split point
+        }
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

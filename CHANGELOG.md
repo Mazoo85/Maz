@@ -105,6 +105,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Splitter zombie (new enemy)** — a bloated mid-tier zombie (kind 6, magenta) that bursts into two
+  fast runners the instant it dies, so killing it trades one slow target for two quick ones. It joins
+  the wave roster from wave 6 onward. Punishes careless AoE and rewards positioning before the pop.
+  Verified headless (`zomboid_sim`): a spawned splitter reports kind 6, and a lethal blow leaves
+  exactly two live kind-1 runners spawned within a few units of where it fell (and nothing else alive).
 - **Second wind (auto-revive)** — the survivor carries a revive charge (starts with 1). A blow that
   would kill you is cancelled: you burst back with half health, ~2 s of emergency invulnerability, and
   a nova that damages and knocks back the surrounding crowd to buy breathing room. A fresh charge is

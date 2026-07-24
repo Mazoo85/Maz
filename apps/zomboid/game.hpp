@@ -1114,7 +1114,8 @@ class Mine {
 # so the Director can recycle it next wave.
 class Zombie {
     var alive = false;
-    var kind = 0;          # 0 walker, 1 runner, 2 brute, 3 boss
+    var kind = 0;          # 0 walker, 1 runner, 2 brute, 3 boss, 4 exploder, 5 spitter, 6 splitter
+    var spawn_wave = 1;    # wave this zombie was spawned in (used to scale its splitlings)
     var health = 30;
     var max_health = 30;
     var speed = 15;
@@ -1140,6 +1141,23 @@ class Zombie {
         if (self.radius > 1.5) { k = amount * 0.25; }
         self.node.x = self.node.x + dirx * k;
         self.node.y = self.node.y + diry * k;
+    }
+
+    # Burst into `cnt` fast runners: revive that many dormant pool zombies as kind-1 runners around
+    # this body. Used by the splitter (kind 6) on death. Bounded by the free slots in the pool.
+    func split_off(cnt) {
+        var made = 0;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n and made < cnt) {
+            var z = g_zombies[i];
+            if (z.alive == false and z != self) {
+                var ang = randf_range(0, 6.2831853);
+                z.spawn(self.node.x + cos(ang) * 1.6, self.node.y + sin(ang) * 1.6, 1, self.spawn_wave);
+                made = made + 1;
+            }
+            i = i + 1;
+        }
     }
 
     # Crown this zombie an elite: a tankier, faster, high-value champion that always drops a medkit.
@@ -1177,6 +1195,7 @@ class Zombie {
         self.node.x = x;
         self.node.y = y;
         self.kind = k;
+        self.spawn_wave = w;
         self.cooldown = 0;
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
         self.elite = false;
@@ -1223,12 +1242,22 @@ class Zombie {
                             self.attack_range = 13;
                             self.score_value = 18;
                         } else {
-                            self.health = 25 + w * 8;
-                            self.speed = 13 + w;
-                            self.damage = 6;
-                            self.radius = 1.0;
-                            self.attack_range = 1.2;
-                            self.score_value = 10;
+                            if (k == 6) {
+                                # Splitter: a bloated mid-tier that bursts into two fast runners on death.
+                                self.health = 45 + w * 10;
+                                self.speed = 10 + w;
+                                self.damage = 8;
+                                self.radius = 1.4;
+                                self.attack_range = 1.5;
+                                self.score_value = 22;
+                            } else {
+                                self.health = 25 + w * 8;
+                                self.speed = 13 + w;
+                                self.damage = 6;
+                                self.radius = 1.0;
+                                self.attack_range = 1.2;
+                                self.score_value = 10;
+                            }
                         }
                     }
                 }
@@ -1283,6 +1312,11 @@ class Zombie {
                     bi = bi + 1;
                 }
                 emit(self.node.x, self.node.y, 20, 1); # blast burst
+            }
+            # A splitter bursts into two fast runners at its position.
+            if (self.kind == 6) {
+                self.split_off(2);
+                emit(self.node.x, self.node.y, 12, 1);
             }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
@@ -1393,6 +1427,9 @@ class Director {
                 if (boss == 1 and i == 0) {
                     k = 3;
                 } else {
+                    if (i % 8 == 0 and w >= 6) {
+                        k = 6;
+                    } else {
                     if (i % 7 == 0 and w >= 4) {
                         k = 4;
                     } else {
@@ -1409,6 +1446,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                 }
                 var ang = 6.28318530718 * i / count;
