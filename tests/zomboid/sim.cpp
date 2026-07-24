@@ -2488,6 +2488,36 @@ int main() {
         CHECK(glob(t2, "g_cash") - c0 == 14.0);   // salvage 7 + int(7*2/2) = 14
     }
 
+    // Weak-point window: a staggered (flinching) zombie takes 40% more damage from a hit, rewarding
+    // following a stagger — from a melee shove or dash-strike — with fire. A calm zombie takes the
+    // hit at face value.
+    {
+        std::vector<Value> hit = {Value::fromNum(20.0)};
+        std::vector<Value> stag = {Value::fromNum(1.0)};
+
+        // Control: an un-staggered walker loses exactly the hit amount.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        Value zv1 = t1.findNode("Zombie0")->script();
+        std::vector<Value> sp = {Value::fromNum(50.0), Value::fromNum(0.0),
+                                 Value::fromNum(200.0), Value::fromNum(0.0)};  // walker, 200 hp
+        vm1.callOn(zv1, "spawn_at", sp);
+        vm1.callOn(zv1, "take_damage", hit);
+        CHECK(sField(t1.findNode("Zombie0"), "health")->number == 180.0);   // 200 - 20
+
+        // Staggered: the same hit bites 40% deeper (28 instead of 20).
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        Value zv2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(zv2, "spawn_at", sp);
+        vm2.callOn(zv2, "stagger", stag);                                   // flinch it first
+        CHECK(sField(t2.findNode("Zombie0"), "stagger_timer")->number > 0.0);
+        vm2.callOn(zv2, "take_damage", hit);
+        CHECK(sField(t2.findNode("Zombie0"), "health")->number == 172.0);   // 200 - 20*1.4
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

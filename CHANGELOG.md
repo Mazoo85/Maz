@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — weak-point window on staggered zombies.** A zombie that's reeling from a stagger now
+  takes **40% more damage** from your shots, so the play is to flinch a tough target with a melee shove
+  (F) or a dash-strike (Space) and then pour fire into it while it's defenceless. Stacks with the
+  chilled-body shatter bonus for an extremely brittle target. The existing stagger flash already
+  telegraphs the window. Headless-tested: an identical 20-damage hit removes 20 health from a calm
+  zombie and 28 from a staggered one.
 - **ZOMBOID — combo-scaled salvage.** The cash you bank per kill now grows with your streak
   multiplier: nothing extra at ×1, scaling up to +200% at ×5. Killing fast and unbroken pays out far
   more salvage, tightening the loop between the combo system and the shop economy. Headless-tested: an

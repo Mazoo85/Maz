@@ -2030,7 +2030,11 @@ class Zombie {
     func take_damage(dmg) {
         if (self.alive == false) { return; }
         var d = dmg;
-        if (self.slow_timer > 0) { d = dmg * 1.5; }  # chilled bodies are brittle — shatter bonus
+        if (self.slow_timer > 0) { d = d * 1.5; }  # chilled bodies are brittle — shatter bonus
+        # Weak-point window: a staggered zombie is reeling and defenceless, so shots landed while it
+        # flinches bite 40% deeper. Rewards following a melee shove or dash-strike (both stagger) with
+        # fire — and stacks with the chill bonus for a very brittle target.
+        if (self.stagger_timer > 0) { d = d * 1.4; }
         # An armored zombie's shield soaks damage first; only the overflow past a broken shield bleeds
         # through to its health, so it must be broken down before it can be killed.
         if (self.shield > 0) {

@@ -119,6 +119,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   through a weakened pack.
 - **Chilled = brittle** — frozen zombies take extra damage, and killing one while it's frozen
   **shatters** it into a spreading freeze.
+- **Stagger = weak point** — a zombie flinching from a stagger (a melee shove or dash-strike) takes
+  **40% more damage** while it reels, so the combo is: knock it off balance, then pour fire in. It
+  stacks with the chill bonus.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them.
 
