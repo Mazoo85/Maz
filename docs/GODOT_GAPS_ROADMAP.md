@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Goertzel single-frequency detector** (`audio::goertzelBin` / `goertzelMagnitude` /
+  `goertzelMagnitudeHz` → `GoertzelBin`, `Goertzel.hpp`) — DONE (M812); measure how much of ONE specific
+  frequency is present in a block of samples, far cheaper than a full FFT when you only care about a handful
+  of target tones. The Goertzel algorithm evaluates a single DFT bin with a tiny two-tap recurrence — the
+  classic tool for DTMF/touch-tone decoding, detecting a whistle or reference pitch, a cheap guitar-tuner
+  bin, or watching a couple of alarm/marker frequencies in a stream. Complements the full FFT SpectrumAnalyzer
+  and the M811 windows; Godot's only frequency tool is the whole-spectrum analyzer. Verified airtight: the
+  Goertzel magnitude equals a direct DFT sum's magnitude at the same bin for integer and fractional k (two
+  independent formulas agreeing); a pure sine of amplitude A on an integer bin gives magnitude A·N/2 while
+  other bins read ~0; with two tones summed each target bin recovers its own amplitude; magnitude scales
+  linearly with the signal; and the Hz helper maps to the right bin. ctest `goertzel`.
 - [x] **DSP window functions** (`audio::windowValue` / `applyWindow` / `coherentGain`, `WindowType`,
   `Window.hpp`) — DONE (M811); the tapering envelopes you multiply a block of samples by BEFORE an FFT (or a
   filter design) so the block's abrupt edges don't smear energy across the spectrum ("spectral leakage").

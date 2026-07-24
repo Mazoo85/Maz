@@ -2892,3 +2892,8 @@ add_executable(maz_window_tests audio/window.cpp)
 target_link_libraries(maz_window_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME audio_window COMMAND maz_window_tests)
 set_tests_properties(audio_window PROPERTIES TIMEOUT 30)
+
+add_executable(maz_goertzel_tests audio/goertzel.cpp)
+target_link_libraries(maz_goertzel_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME goertzel COMMAND maz_goertzel_tests)
+set_tests_properties(goertzel PROPERTIES TIMEOUT 30)
