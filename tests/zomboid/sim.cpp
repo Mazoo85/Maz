@@ -1915,6 +1915,45 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
+    // most of its cooldown; a healthy target takes only the normal swing and no refund.
+    {
+        // Execute case: a wounded brute is finished and the cooldown is refunded.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* brute = tree.findNode("Zombie0");
+        Value bv = brute->script();
+        std::vector<Value> sp = {Value::fromNum(1.0), Value::fromNum(0.0),
+                                 Value::fromNum(2.0), Value::fromNum(5.0)}; // brute (kind 2) point-blank
+        vm.callOn(bv, "spawn", sp);
+        const double mhp = sField(brute, "max_health")->number;
+        sField(brute, "health")->number = mhp * 0.2;           // wounded to 20%
+        const double cdMax = sField(survivor, "melee_cd_max")->number;
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        vm.callOn(sv, "melee", none);
+        CHECK(!sField(brute, "alive")->boolean);               // executed outright
+        CHECK(sField(survivor, "melee_cd")->number < cdMax);   // cooldown refunded
+
+        // No-execute case: a healthy brute survives the swing and the cooldown is not refunded.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* brute2 = t2.findNode("Zombie0");
+        Value b2 = brute2->script();
+        vm2.callOn(b2, "spawn", sp);
+        const double full = sField(brute2, "health")->number;  // full brute health
+        const double dmg = sField(surv2, "melee_dmg")->number;
+        Value sv2 = surv2->script();
+        vm2.callOn(sv2, "melee", none);
+        CHECK(sField(brute2, "alive")->boolean);               // survives the swing
+        CHECK(sField(brute2, "health")->number == full - dmg); // took a normal melee hit
+        CHECK(sField(surv2, "melee_cd")->number == sField(surv2, "melee_cd_max")->number); // no refund
+    }
+
     // Dash strike: the dodge-roll now shoulder-checks zombies it passes through — one shove each,
     // knocking them back and dealing dash damage — so a dash both escapes and clears a path.
     {

@@ -818,6 +818,7 @@ class Survivor {
         if (self.melee_cd > 0) { return -1; }
         self.melee_cd = self.melee_cd_max;
         var hit = 0;
+        var executed = 0;
         var i = 0;
         var n = len(g_zombies);
         while (i < n) {
@@ -830,12 +831,21 @@ class Survivor {
                     var m = sqrt(d2);
                     if (m < 0.01) { m = 0.01; }
                     z.hit_knockback(dx / m, dy / m, 6.0);
-                    z.take_damage(self.melee_dmg);
+                    # Execute: a melee against a badly-wounded non-boss (under 30% health) finishes it
+                    # outright, rewarding cleanup; otherwise it's a normal heavy swing.
+                    if (z.kind != 3 and z.health <= z.max_health * 0.3) {
+                        z.take_damage(z.health + 1000);
+                        executed = executed + 1;
+                    } else {
+                        z.take_damage(self.melee_dmg);
+                    }
                     hit = hit + 1;
                 }
             }
             i = i + 1;
         }
+        # Landing an execute refunds most of the melee cooldown, so cleaning up stragglers chains fast.
+        if (executed > 0) { self.melee_cd = self.melee_cd_max * 0.35; }
         emit(self.node.x, self.node.y, 14, 2);
         g_shake = 1.2;
         return hit;

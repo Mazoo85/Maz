@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Melee execute finisher** — a melee swing now *finishes off* any badly-wounded non-boss zombie
+  (under 30% health) outright, and landing an execute refunds most of the melee cooldown — so cleaning
+  up a row of stragglers chains into a fast flurry of swings instead of waiting on the timer. Bosses are
+  exempt (no cheap execute). Verified headless (`zomboid_sim`): a melee against a brute at 20% health
+  kills it and shortens the cooldown, while a full-health brute takes only the normal swing with no
+  refund.
 - **Offensive dodge (dash strike)** — the dodge-roll now *shoulder-checks* every zombie it passes
   through: one shove each, knocking them back and dealing dash damage. The dodge is no longer purely
   escape — dashing straight into a clump both grants i-frames and bulldozes a path clear, so a
