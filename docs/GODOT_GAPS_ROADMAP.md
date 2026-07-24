@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Numerical integration** (`math::integrateGauss` / `integrateAdaptiveSimpson`, `Integrate.hpp`) —
+  DONE (M808); estimate the definite integral of a function you can only evaluate pointwise — the everyday
+  need behind measuring a curve's ARC LENGTH (integrate its speed), the AREA under a response curve, the WORK
+  done by a varying force, an expected value, or any "sum a continuous quantity" with no closed form. Two
+  methods: composite 5-point Gauss-Legendre (spectacularly accurate for smooth functions, EXACT for
+  polynomials up to degree 9 per panel) and adaptive Simpson (spends samples only where the function wiggles,
+  to a caller tolerance, Richardson-extrapolated). Templated on any callable double(double); computes in
+  double. Godot has no general numeric integrator. Verified airtight: 5-point Gauss is exact for x^k over
+  [a,b] for k=0..9; sin, e^x, 4/(1+x²)=π and x³ match their closed forms; the integral is additive over a
+  split point; adaptive Simpson converges to the closed form and agrees with Gauss on a wiggly function; and
+  a quarter-circle's arc length integrates to R·π/2. ctest `integrate`.
 - [x] **3D superquadric / superellipsoid** (`math::superellipsoidPoint` / `superquadricInsideOutside` /
   `superquadricNormal`, `Superquadric.hpp`) — DONE (M807); the 3D family of shapes that morph between a box,
   sphere, barrel, rounded cube and octahedron by turning two "squareness" exponents. It is the 3D

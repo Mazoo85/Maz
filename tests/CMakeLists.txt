@@ -2872,3 +2872,8 @@ add_executable(maz_superquadric_tests math/superquadric.cpp)
 target_link_libraries(maz_superquadric_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME superquadric COMMAND maz_superquadric_tests)
 set_tests_properties(superquadric PROPERTIES TIMEOUT 30)
+
+add_executable(maz_integrate_tests math/integrate.cpp)
+target_link_libraries(maz_integrate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME integrate COMMAND maz_integrate_tests)
+set_tests_properties(integrate PROPERTIES TIMEOUT 30)
