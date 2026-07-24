@@ -128,7 +128,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   stop killing. A bigger streak buys **grace**: the higher your multiplier, the longer you can go
   between kills before it drops (2.5s at ×1, up to 4.5s at ×5), so a hard-won combo is harder to lose.
 - **Overkill gibs** — a hit far bigger than a zombie's health bursts it in a shockwave that can chain
-  through a weakened pack.
+  through a weakened pack. The **harder** the killing blow overkills, the **bigger and wider** the
+  burst — so a point-blank shotgun, a railgun line, or a double-damage crit landed deep in a crowd
+  throws a far deadlier chain than a hit that only just tips a body over. (Exploders, bosses, and
+  splitters have their own death behaviour and don't gib.)
 - **Chilled = brittle** — frozen zombies take extra damage, and killing one while it's frozen
   **shatters** it into a spreading freeze.
 - **Stagger = weak point** — a zombie flinching from a stagger (a melee shove or dash-strike) takes

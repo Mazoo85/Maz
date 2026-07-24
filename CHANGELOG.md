@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — overkill gibs now scale with force.** The chain shockwave from an overkill (a hit that
+  dwarfs a zombie's health) used to be a flat 25-damage, radius-4 burst regardless of how hard the
+  killing blow landed. Now it **scales with the overkill magnitude** — a monster hit (point-blank
+  shotgun, railgun line, double-damage crit) throws a burst up to 70 damage and a wider radius, while
+  a body that only just tipped over the threshold still pops the base burst. Splitters are now exempt
+  from the gib alongside exploders and bosses, so a huge hit no longer vaporises the runners a splitter
+  spawns the same frame. Headless-tested: a threshold kill splashes a neighbour for 25, a monster kill
+  for 70.
 - **ZOMBOID — last-stand grit (adrenaline damage resistance).** The desperation surge that kicks in
   below 25% health already made the survivor fire faster and hit 30% harder; now it also **cuts all
   incoming damage by 25%** while it's up. The low-health comeback window becomes a genuine fighting

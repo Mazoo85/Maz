@@ -1940,7 +1940,17 @@ class Zombie {
 
     # Overkill gib: a decisive killing blow bursts this body in a small shockwave that chips every
     # nearby zombie, so a heavy hit (railgun, crit) landed on a weakened pack chains through it.
-    func overkill_burst() {
+    # A gib shockwave that chains through the surrounding pack. Its force scales with how badly the
+    # killing blow overkilled this body (`power` = killing-damage / max-health, always >= 1.5 here):
+    # a monster hit — a point-blank shotgun, a railgun line, a double-damage crit — throws a bigger,
+    # wider burst than a body that only just tipped over the overkill threshold. So overkilling deep
+    # inside a crowd is rewarded with a proportionally deadlier chain, not a flat one.
+    func overkill_burst(power) {
+        var extra = power - 1.5;
+        if (extra < 0) { extra = 0; }
+        if (extra > 3.0) { extra = 3.0; }         # cap the runaway on absurd hits
+        var burst_dmg = 25 + int(extra * 15);     # 25 at the threshold, up to 70 on a huge overkill
+        var rad2 = 16.0 + extra * 6.0;            # radius 4 → up to ~5.8 as the burst grows
         var i = 0;
         var n = len(g_zombies);
         while (i < n) {
@@ -1948,7 +1958,7 @@ class Zombie {
             if (z.alive and z != self) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
-                if (dx * dx + dy * dy <= 16.0) { z.take_damage(25); }   # radius 4
+                if (dx * dx + dy * dy <= rad2) { z.take_damage(burst_dmg); }
             }
             i = i + 1;
         }
@@ -2249,10 +2259,12 @@ class Zombie {
             if (g_mutator == 5 and self.kind != 3 and self.kind != 10) {
                 leave_acid(self.node.x, self.node.y);
             }
-            # Overkill: if the killing hit alone dwarfed this body's full health (and it isn't an
-            # exploder or boss, which have their own death behaviour), it gibs in a chain shockwave.
-            if (d >= self.max_health * 1.5 and self.kind != 4 and self.kind != 3) {
-                self.overkill_burst();
+            # Overkill: if the killing hit alone dwarfed this body's full health, it gibs in a chain
+            # shockwave. Kinds with their own death behaviour are exempt — an exploder (4) and boss (3)
+            # have bespoke blasts, and a splitter (6) bursts into runners, so a gib would just vaporise
+            # the very splitlings it spawned this same frame.
+            if (d >= self.max_health * 1.5 and self.kind != 4 and self.kind != 3 and self.kind != 6) {
+                self.overkill_burst(d / self.max_health);
             }
             # Frost shatter: a chilled body killed while frozen bursts into an icy cloud that chills
             # nearby zombies — chaining the cryo-nova / grenade-slow into a spreading freeze.

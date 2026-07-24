@@ -1862,6 +1862,38 @@ int main() {
         CHECK(sField(nb2, "health")->number == 100.0);       // but no overkill splash
     }
 
+    // Overkill scales with force: a monster hit throws a bigger gib shockwave than one that only just
+    // tips a body over the overkill threshold. Same setup, same neighbour distance — only the killing
+    // blow's size differs, and the neighbour loses proportionally more health to the bigger burst.
+    {
+        auto splashOnNeighbour = [](double killDamage) {
+            SceneTree tree;
+            zomboid::buildScene(tree);
+            SceneNode* target = tree.findNode("Zombie0");
+            SceneNode* nb = tree.findNode("Zombie1");         // 3 units away — inside every burst radius
+            auto place = [&](SceneNode* z, double x, double hp) {
+                Value zv = z->script();
+                std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                        Value::fromNum(hp), Value::fromNum(0.0)};
+                tree.scripts().vm().callOn(zv, "spawn_at", a);
+            };
+            place(target, 0.0, 20.0);                          // 20-hp body
+            place(nb, 3.0, 100.0);
+            Value tv = target->script();
+            std::vector<Value> hit = {Value::fromNum(killDamage)};
+            tree.scripts().vm().callOn(tv, "take_damage", hit);
+            return 100.0 - sField(nb, "health")->number;       // damage the neighbour took from the burst
+        };
+
+        // Threshold kill (30 onto 20 hp → power 1.5): the smallest, base 25-damage burst.
+        const double weak = splashOnNeighbour(30.0);
+        CHECK(weak == 25.0);
+        // Monster kill (100 onto 20 hp → power 5, capped): the biggest, 70-damage burst.
+        const double strong = splashOnNeighbour(100.0);
+        CHECK(strong == 70.0);
+        CHECK(strong > weak);                                 // heavier hit → deadlier chain
+    }
+
     // Boss enrage: a boss dropped below 35% health flips into a permanent rage — it speeds up (once),
     // and the flag latches so a second frame doesn't compound the speed boost.
     {
