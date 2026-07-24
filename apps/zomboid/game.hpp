@@ -2051,7 +2051,10 @@ class Zombie {
             g_mult = 1 + int(g_combo / 5);
             if (g_mult > 5) { g_mult = 5; }
             g_score = g_score + self.score_value * g_mult;
-            g_cash = g_cash + 5 + int(self.score_value / 4);   # salvage banked from the kill
+            # Salvage scales with the streak multiplier: a base cut per kill, plus a combo bonus that
+            # grows as the multiplier climbs (nothing extra at ×1, up to +200% at ×5). Killing fast pays.
+            var salvage = 5 + int(self.score_value / 4);
+            g_cash = g_cash + salvage + int(salvage * (g_mult - 1) / 2);
             # Killstreak milestones: every 10th unbroken kill pays a cash bounty, and every 20th also
             # patches the survivor up a little — rewarding sustained aggression before the combo decays.
             if (g_combo % 10 == 0) {

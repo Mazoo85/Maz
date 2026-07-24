@@ -2458,6 +2458,36 @@ int main() {
         CHECK(sField(farZ, "health")->number == 20.0);       // out of range — untouched
     }
 
+    // Combo-scaled salvage: cash per kill grows with the streak multiplier — the same zombie pays
+    // more killed on a hot streak (×3) than cold (×1), rewarding sustained aggression.
+    {
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        std::vector<Value> sp = {Value::fromNum(50.0), Value::fromNum(0.0),
+                                 Value::fromNum(10.0), Value::fromNum(0.0)};  // walker, score 10
+
+        // Cold kill: fresh combo (multiplier ×1) → base salvage only.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        Value zv1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(zv1, "spawn_at", sp);
+        vm1.callOn(zv1, "take_damage", lethal);
+        CHECK((int)glob(t1, "g_mult") == 1);
+        CHECK(glob(t1, "g_cash") == 7.0);     // 5 + int(10/4), ×1 multiplier, no combo bonus
+
+        // Hot kill: preload the streak so this kill lands at ×3 → base + 100% bonus.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_combo"))->number = 12.0;   // → 13 after the kill, mult 3
+        Value zv2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(zv2, "spawn_at", sp);
+        const double c0 = glob(t2, "g_cash");
+        vm2.callOn(zv2, "take_damage", lethal);
+        CHECK((int)glob(t2, "g_mult") == 3);
+        CHECK(glob(t2, "g_cash") - c0 == 14.0);   // salvage 7 + int(7*2/2) = 14
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
@@ -2564,12 +2594,13 @@ int main() {
         }
         CHECK((int)glob(tree, "g_combo") == 9);
         CHECK(glob(tree, "g_streak_rewards") == 0.0);   // not tripped before the 10th
-        CHECK(glob(tree, "g_cash") == 63.0);            // 9 kills * 7 cash, no bounty
+        // Salvage scales with the streak multiplier: kills 1-4 at ×1 (7 each), 5-9 at ×2 (10 each).
+        CHECK(glob(tree, "g_cash") == 78.0);            // 4*7 + 5*10, no bounty
         Value zv10 = zs[9]->script();
         vm.callOn(zv10, "take_damage", lethal);          // the 10th trips the milestone
         CHECK((int)glob(tree, "g_combo") == 10);
         CHECK(glob(tree, "g_streak_rewards") == 1.0);
-        CHECK(glob(tree, "g_cash") == 85.0);            // 70 from kills + 15 milestone bounty
+        CHECK(glob(tree, "g_cash") == 107.0);           // 78 + 14 (×3 salvage) + 15 milestone bounty
     }
 
     // Sentry ammo: the auto-turret carries a limited magazine and shuts down once it's dry — even

@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — combo-scaled salvage.** The cash you bank per kill now grows with your streak
+  multiplier: nothing extra at ×1, scaling up to +200% at ×5. Killing fast and unbroken pays out far
+  more salvage, tightening the loop between the combo system and the shop economy. Headless-tested: an
+  identical zombie pays 7 cash killed cold (×1) and 14 killed on a ×3 streak; the killstreak test's
+  totals were re-derived to match.
 - **ZOMBOID — Healer zombie (12th enemy type).** A back-line medic joins the horde from wave 9: on a
   cooldown it knits the wounds of every nearby zombie inside a radius, restoring a quarter of their max
   health (capped at full, never over), which can steadily undo your chip damage on a tough pack. It's
