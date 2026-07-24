@@ -62,11 +62,18 @@ class Survivor {
     var aim_x = 1;
     var aim_y = 0;
     var firing = false;
-    var fire_rate = 6;      # shots per second
-    var fire_cd = 0;
     var shots = 0;
 
-    func _ready() { g_player = self; }
+    # Weapon state (set by set_weapon): 0 = pistol, 1 = shotgun, 2 = SMG.
+    var weapon = 0;
+    var fire_rate = 6;      # shots per second
+    var fire_cd = 0;
+    var damage = 25;        # damage per bullet
+    var pellets = 1;        # bullets per shot (shotgun fires several)
+    var spread = 0;         # random aim jitter per pellet, radians
+    var bullet_speed = 70;
+
+    func _ready() { g_player = self; self.set_weapon(0); }
 
     func _process(dt) {
         if (self.alive == false) { return; }
@@ -90,7 +97,36 @@ class Survivor {
         if (self.health <= 0) { self.health = 0; self.alive = false; }
     }
 
-    # Grab the first dormant bullet from the pool and launch it along the aim vector.
+    # Configure the active weapon. 0 = pistol (accurate), 1 = shotgun (spread pellets, slow),
+    # 2 = SMG (fast, weaker, slight spread).
+    func set_weapon(i) {
+        self.weapon = i;
+        if (i == 1) {
+            self.fire_rate = 1.6;
+            self.damage = 14;
+            self.pellets = 6;
+            self.spread = 0.28;
+            self.bullet_speed = 58;
+        } else {
+            if (i == 2) {
+                self.fire_rate = 12;
+                self.damage = 11;
+                self.pellets = 1;
+                self.spread = 0.06;
+                self.bullet_speed = 82;
+            } else {
+                self.weapon = 0;
+                self.fire_rate = 6;
+                self.damage = 25;
+                self.pellets = 1;
+                self.spread = 0;
+                self.bullet_speed = 70;
+            }
+        }
+        self.fire_cd = 0;
+    }
+
+    # Fire the whole shot: one bullet per pellet, each jittered within the weapon's spread.
     func do_shoot() {
         var ax = self.aim_x;
         var ay = self.aim_y;
@@ -98,12 +134,26 @@ class Survivor {
         if (m <= 0.0001) { return; }
         ax = ax / m;
         ay = ay / m;
+        var p = 0;
+        while (p < self.pellets) {
+            self.fire_one(ax, ay);
+            p = p + 1;
+        }
+    }
+
+    # Launch one bullet from the pool along (ax, ay) rotated by a random spread offset.
+    func fire_one(ax, ay) {
+        var a = randf_range(0 - self.spread, self.spread);
+        var ca = cos(a);
+        var sa = sin(a);
+        var dx = ax * ca - ay * sa;
+        var dy = ax * sa + ay * ca;
         var i = 0;
         var n = len(g_bullets);
         while (i < n) {
             var b = g_bullets[i];
             if (b.active == false) {
-                b.fire(self.node.x, self.node.y, ax, ay);
+                b.fire(self.node.x, self.node.y, dx, dy, self.bullet_speed, self.damage);
                 self.shots = self.shots + 1;
                 return;
             }
@@ -136,7 +186,6 @@ class Bullet {
     var active = false;
     var vx = 0;
     var vy = 0;
-    var speed = 70;
     var life = 0;
     var max_life = 2.0;
     var damage = 25;
@@ -144,11 +193,12 @@ class Bullet {
 
     func _ready() { g_bullets.append(self); }
 
-    func fire(px, py, dirx, diry) {
+    func fire(px, py, dirx, diry, speed, dmg) {
         self.node.x = px;
         self.node.y = py;
-        self.vx = dirx * self.speed;
-        self.vy = diry * self.speed;
+        self.vx = dirx * speed;
+        self.vy = diry * speed;
+        self.damage = dmg;
         self.life = self.max_life;
         self.active = true;
     }
@@ -316,7 +366,7 @@ class Loot {
 }
 
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
-constexpr int kBulletPool = 48;
+constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;
 constexpr int kLootCount = 3;
 
