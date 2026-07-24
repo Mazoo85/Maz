@@ -2847,3 +2847,8 @@ add_executable(maz_circumsphere_tests math/circumsphere.cpp)
 target_link_libraries(maz_circumsphere_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME circumsphere COMMAND maz_circumsphere_tests)
 set_tests_properties(circumsphere PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ballistics_tests math/ballistics.cpp)
+target_link_libraries(maz_ballistics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ballistics COMMAND maz_ballistics_tests)
+set_tests_properties(ballistics PROPERTIES TIMEOUT 30)

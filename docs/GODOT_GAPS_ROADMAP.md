@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Ballistics: launch-angle solver + intercept lead** (`math::ballisticAngles` / `ballisticVelocities`,
+  `math::interceptLead`, `Ballistics.hpp`) — DONE (M803); the two aiming problems every action game needs and
+  neither GLM nor Godot ships. (1) LAUNCH ANGLE: given projectile speed and gravity, at what angle do you fire
+  to hit a target? A reachable target has two solutions — a flat direct shot and a lobbed mortar arc — and
+  beyond the range limit, none (artillery, grenades, basketball AI, catapults, trajectory previews); the 3D
+  helper returns the launch velocity vectors. (2) INTERCEPT LEAD: where to aim a constant-speed projectile to
+  hit a target moving at constant velocity (turret lead, homing launch, aiming ahead of a runner) via the
+  quadratic in time-to-impact. Verified airtight by INDEPENDENT simulation: firing at each solved angle and
+  integrating the projectile under gravity with a drift-free constant-acceleration step lands it on the
+  target; the max-range target needs a single 45° shot and level low/high angles sum to 90°; out-of-range
+  targets yield no solution; 3D launch velocities carry the requested speed and reach the target; and at the
+  intercept time |aim − shooter| == projectileSpeed·time with the target exactly at the aim point. ctest
+  `ballistics`.
 - [x] **Tetrahedron circumsphere + in-sphere test** (`math::circumsphere` → `Circumsphere`,
   `math::insideCircumsphere`, `Circumsphere.hpp`) — DONE (M802); the unique sphere through four 3D points
   (centre equidistant from all four), the 3D companion to a triangle's circumcircle and the core predicate of
