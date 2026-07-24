@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **DSP window functions** (`audio::windowValue` / `applyWindow` / `coherentGain`, `WindowType`,
+  `Window.hpp`) — DONE (M811); the tapering envelopes you multiply a block of samples by BEFORE an FFT (or a
+  filter design) so the block's abrupt edges don't smear energy across the spectrum ("spectral leakage").
+  The standard front-end for the engine's SpectrumAnalyzer/FFT (Spectrum.hpp only had an inline Hann), for
+  building FIR filters, and for smooth grain/crossfade envelopes. The classic family — rectangular, Hann,
+  Hamming, Blackman, Blackman-Harris, Bartlett — each a symmetric taper peaking at the centre, plus
+  `applyWindow` and `coherentGain` (the amplitude-scaling a window imposes on a tone). Godot exposes no window
+  functions. Verified airtight: endpoints match (Hann/Bartlett→0, Hamming→0.08, Blackman→~0); every window
+  peaks at 1 at the centre and is symmetric w[n]==w[N-1-n]; all values lie in [0,1]; coherent gains match the
+  analytic means (rectangular 1, Hann ~0.5, Hamming ~0.54); and applyWindow multiplies a buffer pointwise.
+  ctest `audio_window`.
 - [x] **CIE color science: XYZ / CIELAB + Delta-E** (`math::linearRgbToXyz` / `xyzToLab` / `linearRgbToLab`
   (+ inverses) / `deltaE76`, `ColorLab.hpp`) — DONE (M810); convert linear RGB (the engine's working space)
   to CIE XYZ and then CIELAB (L*a*b*), plus the CIE76 perceptual colour difference (Delta-E). CIELAB is the

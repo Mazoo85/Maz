@@ -2887,3 +2887,8 @@ add_executable(maz_colorlab_tests math/colorlab.cpp)
 target_link_libraries(maz_colorlab_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME color_lab COMMAND maz_colorlab_tests)
 set_tests_properties(color_lab PROPERTIES TIMEOUT 30)
+
+add_executable(maz_window_tests audio/window.cpp)
+target_link_libraries(maz_window_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audio_window COMMAND maz_window_tests)
+set_tests_properties(audio_window PROPERTIES TIMEOUT 30)
