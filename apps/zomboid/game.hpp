@@ -919,8 +919,13 @@ class Survivor {
             }
             i = i + 1;
         }
-        # Landing an execute refunds most of the melee cooldown, so cleaning up stragglers chains fast.
-        if (executed > 0) { self.melee_cd = self.melee_cd_max * 0.35; }
+        # Landing an execute refunds most of the melee cooldown, so cleaning up stragglers chains fast,
+        # and each finisher siphons a little life back (executioner's bloodthirst) — so wading in to
+        # shove-execute a wounded pack is a genuine sustain button, not just a create-space one.
+        if (executed > 0) {
+            self.melee_cd = self.melee_cd_max * 0.35;
+            self.heal(executed * 5.0);
+        }
         emit(self.node.x, self.node.y, 14, 2);
         g_shake = 1.2;
         return hit;

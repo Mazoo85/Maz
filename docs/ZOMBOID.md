@@ -58,7 +58,9 @@ cycling automatically.
 - **Melee (F)** — a free heavy shove on a short cooldown. It knocks back and **briefly staggers** any
   non-boss it hits — even a brute — so it's a reliable *create-space* button when you're pinned. It also
   **executes** any badly-wounded (<30% health) non-boss outright, and an execute refunds most of the
-  cooldown — chain them to clean up stragglers.
+  cooldown **and siphons a little health back** (executioner's bloodthirst) — so wading into a wounded
+  pack to shove-execute stragglers is a real *sustain* button, and chaining finishers both cleans up
+  and patches you up.
 - **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
   **slows** anything standing in it, so it holds a lane as area denial, not just chip damage.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The

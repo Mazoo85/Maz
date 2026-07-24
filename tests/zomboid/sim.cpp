@@ -2017,11 +2017,13 @@ int main() {
         const double mhp = sField(brute, "max_health")->number;
         sField(brute, "health")->number = mhp * 0.2;           // wounded to 20%
         const double cdMax = sField(survivor, "melee_cd_max")->number;
+        sField(survivor, "health")->number = 50.0;             // wounded, with room to heal
         Value sv = survivor->script();
         std::vector<Value> none;
         vm.callOn(sv, "melee", none);
         CHECK(!sField(brute, "alive")->boolean);               // executed outright
         CHECK(sField(survivor, "melee_cd")->number < cdMax);   // cooldown refunded
+        CHECK(sField(survivor, "health")->number == 55.0);     // executioner's bloodthirst: +5 per finisher
 
         // No-execute case: a healthy brute survives the swing and the cooldown is not refunded.
         SceneTree t2;
@@ -2033,11 +2035,13 @@ int main() {
         vm2.callOn(b2, "spawn", sp);
         const double full = sField(brute2, "health")->number;  // full brute health
         const double dmg = sField(surv2, "melee_dmg")->number;
+        sField(surv2, "health")->number = 50.0;                // wounded, room to heal
         Value sv2 = surv2->script();
         vm2.callOn(sv2, "melee", none);
         CHECK(sField(brute2, "alive")->boolean);               // survives the swing
         CHECK(sField(brute2, "health")->number == full - dmg); // took a normal melee hit
         CHECK(sField(surv2, "melee_cd")->number == sField(surv2, "melee_cd_max")->number); // no refund
+        CHECK(sField(surv2, "health")->number == 50.0);        // no execute → no bloodthirst heal
     }
 
     // Dash strike: the dodge-roll now shoulder-checks zombies it passes through — one shove each,

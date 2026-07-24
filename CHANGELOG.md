@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — executioner's bloodthirst (melee execute heals).** A melee shove that **executes** a
+  badly-wounded (<30% health) non-boss already refunds most of its cooldown; now each finisher also
+  **siphons 5 health back** to the survivor. Wading into a wounded pack to shove-execute stragglers
+  becomes a genuine *sustain* button, not just a create-space one, and chaining executes both clears
+  and heals. Healthy targets (a normal swing, no execute) grant no heal. Headless-tested: a survivor
+  at 50 health rises to 55 after executing one zombie, and stays at 50 when the swing doesn't execute.
 - **ZOMBOID — overkill gibs now scale with force.** The chain shockwave from an overkill (a hit that
   dwarfs a zombie's health) used to be a flat 25-damage, radius-4 burst regardless of how hard the
   killing blow landed. Now it **scales with the overkill magnitude** — a monster hit (point-blank
