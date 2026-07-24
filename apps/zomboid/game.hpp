@@ -37,6 +37,7 @@ var g_crates = [];      # object pool for periodic supply-crate care packages
 var g_mines = [];       # object pool for deployable proximity mines
 var g_sentries = [];    # object pool for deployable auto-turret sentries
 var g_fires = [];       # object pool for molotov fire patches (burning ground)
+var g_barrels = [];     # explosive barrels scattered in the arena (shoot to detonate)
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -780,6 +781,24 @@ class Bullet {
             }
             i = i + 1;
         }
+        # Explosive barrels are shootable too: a hit chips their hull and pops them at zero.
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var b = g_barrels[bi];
+            if (b.active) {
+                var bdx = b.node.x - self.node.x;
+                var bdy = b.node.y - self.node.y;
+                var brr = self.hit_radius + b.radius;
+                if (bdx * bdx + bdy * bdy <= brr * brr) {
+                    b.take_damage(self.damage);
+                    if (g_player != nil) { g_player.hits = g_player.hits + 1; }
+                    self.active = false;
+                    return;
+                }
+            }
+            bi = bi + 1;
+        }
     }
 }
 
@@ -1319,6 +1338,69 @@ class FirePool {
     }
 }
 
+# A pooled explosive barrel scattered around the arena. Shoot it to pop it: a hefty blast that damages,
+# knocks back and ignites every zombie nearby, and chain-reacts to other barrels in range. A one-shot
+# environmental trap the survivor lures the horde onto.
+class Barrel {
+    var active = false;
+    var hp = 30;
+    var radius = 1.4;         # hittable body radius
+    var blast_radius = 7.0;
+    var blast_dmg = 90;
+
+    func _ready() { g_barrels.append(self); }
+
+    func place(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.hp = 30;
+        self.active = true;
+    }
+
+    func take_damage(dmg) {
+        if (self.active == false) { return; }
+        self.hp = self.hp - dmg;
+        if (self.hp <= 0) { self.explode(); }
+    }
+
+    func explode() {
+        self.active = false;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= self.blast_radius * self.blast_radius) {
+                    var m = sqrt(d2);
+                    if (m < 0.01) { m = 0.01; }
+                    z.hit_knockback(dx / m, dy / m, 6.0);
+                    z.take_damage(self.blast_dmg);
+                    z.ignite(2.5, 12);
+                }
+            }
+            i = i + 1;
+        }
+        # Chain-react to other barrels in range (self is already inactive, so no infinite loop).
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var b = g_barrels[bi];
+            if (b.active and b != self) {
+                var bx = b.node.x - self.node.x;
+                var by = b.node.y - self.node.y;
+                if (bx * bx + by * by <= self.blast_radius * self.blast_radius) { b.take_damage(999); }
+            }
+            bi = bi + 1;
+        }
+        emit(self.node.x, self.node.y, 30, 1);
+        g_shake = g_shake + 2.5;
+        if (g_shake > 3.0) { g_shake = 3.0; }
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -1831,6 +1913,7 @@ constexpr int kCratePool = 2;
 constexpr int kMinePool = 6;
 constexpr int kSentryPool = 3;
 constexpr int kFirePool = 4;
+constexpr int kBarrelPool = 6;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -1929,6 +2012,19 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         f->setPosition(100000.0, 100000.0);
         f->addToGroup("fires");
         tree.attachScript(*f, "FirePool");
+    }
+
+    // Explosive barrels — scattered around the arena, live from the start (shoot to detonate).
+    for (int i = 0; i < kBarrelPool; ++i) {
+        maz::scene::SceneNode* b = tree.createChild(tree.root(), "Barrel" + std::to_string(i));
+        b->addToGroup("barrels");
+        tree.attachScript(*b, "Barrel");
+        const double ang = 6.2831853 * i / kBarrelPool + 0.4;
+        const double rad = 18.0 + (i % 3) * 6.0;
+        maz::script::Value bv = b->script();
+        std::vector<maz::script::Value> a = {maz::script::Value::fromNum(std::cos(ang) * rad),
+                                             maz::script::Value::fromNum(std::sin(ang) * rad)};
+        tree.scripts().vm().callOn(bv, "place", a);
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

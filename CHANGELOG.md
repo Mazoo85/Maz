@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Explosive barrels** — six rusty barrels are scattered around the arena from the start. Shoot one
+  (it has a small hull that chips down, popping at zero) and it detonates a hefty blast that damages,
+  knocks back and ignites every zombie in radius — and chain-reacts to neighbouring barrels. A one-shot
+  environmental trap you lure the horde onto, drawn on the ground and flashing hotter as its hull is
+  chipped low. Verified headless (`zomboid_sim`): all six start live, a chipping hit leaves a barrel
+  standing while a lethal one pops it, and a detonation blasts and ignites a nearby zombie.
 - **Smooth day/night danger ramp** — the horde's aggression (which scales both movement speed and bite
   damage) now ramps *smoothly* from 1.0 at dawn/midday up to 1.7 at midnight and back down, via a cosine
   over the day cycle, instead of snapping on at a hard night boundary. Tension builds through dusk and

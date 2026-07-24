@@ -129,6 +129,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
     render::TextureHandle texSentry = renderer->createTexture(16, 16, makeSquare(90, 150, 220).data());
     render::TextureHandle texFire = renderer->createTexture(16, 16, makeSquare(255, 120, 30).data());
+    render::TextureHandle texBarrel = renderer->createTexture(16, 16, makeSquare(200, 60, 40).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -559,6 +560,15 @@ int main(int argc, char** argv) {
                                                            static_cast<float>(fp->x()));
                 drawAt(fp->x(), fp->y(), texFire, fr,
                        render::Color{1.0f, 0.5f * flick + 0.1f, 0.1f, 0.5f});
+            }
+            // Explosive barrels — a rusty hazard; flashes as its hull is chipped low.
+            for (scene::SceneNode* bl : tree.nodesInGroup("barrels")) {
+                if (!fieldBool(bl, "active")) continue;
+                const float hpf = static_cast<float>(field(bl, "hp")) / 30.0f;
+                const render::Color bc = hpf < 0.5f
+                    ? render::Color{1.0f, 0.4f + 0.4f * hpf, 0.2f, 1.0f}   // damaged: hotter
+                    : render::Color{0.8f, 0.3f, 0.2f, 1.0f};
+                drawAt(bl->x(), bl->y(), texBarrel, 2.6f, bc);
             }
             for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
                 if (!fieldBool(z, "alive")) continue;

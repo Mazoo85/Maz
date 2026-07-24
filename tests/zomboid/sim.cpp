@@ -1198,6 +1198,43 @@ int main() {
         phase->number = 0.0;                       // restore
     }
 
+    // Explosive barrels: live from the start, they detonate when shot (or chipped to zero hull),
+    // blasting + igniting nearby zombies, and chain-react to neighbouring barrels.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("barrels").size() == zomboid::kBarrelPool);
+        int liveBarrels = 0;
+        for (SceneNode* b : tree.nodesInGroup("barrels"))
+            if (b->script().instance->findField("active")->boolean) ++liveBarrels;
+        CHECK(liveBarrels == zomboid::kBarrelPool);   // all start active
+
+        // Move one barrel to a known spot, park a tanky zombie next to it, then detonate the barrel.
+        SceneNode* barrel = tree.findNode("Barrel0");
+        Value bv = barrel->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(bv, "place", at);
+
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> zat = {Value::fromNum(3.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                  Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zs, "spawn_at", zat);
+        const double zhp0 = z->script().instance->findField("health")->number;
+
+        // A chipping hit that doesn't reach zero leaves it intact; a lethal hit pops it.
+        std::vector<Value> small = {Value::fromNum(10.0)};
+        tree.scripts().vm().callOn(bv, "take_damage", small);
+        CHECK(barrel->script().instance->findField("active")->boolean);   // 30-10 > 0, still standing
+        std::vector<Value> big = {Value::fromNum(99.0)};
+        tree.scripts().vm().callOn(bv, "take_damage", big);
+        CHECK(!barrel->script().instance->findField("active")->boolean);  // detonated
+
+        // The nearby zombie was blasted and set alight.
+        CHECK(z->script().instance->findField("health")->number < zhp0);
+        CHECK(z->script().instance->findField("burn_timer")->number > 0.0);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
