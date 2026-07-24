@@ -56,7 +56,8 @@ cycling automatically.
   bulldoze free.
 - **Melee (F)** — a free heavy shove on a short cooldown. **Executes** any badly-wounded (<30% health)
   non-boss outright, and an execute refunds most of the cooldown — chain them to clean up stragglers.
-- **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch.
+- **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
+  **slows** anything standing in it, so it holds a lane as area denial, not just chip damage.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
 - **Overcharge (Q)** — a screen-wide ultimate blast. Kills charge the meter; unleash it when full.

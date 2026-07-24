@@ -2604,6 +2604,35 @@ int main() {
         CHECK(anyFalloff);   // shotgun pellets carry the falloff flag
     }
 
+    // Molotov crowd control: a zombie standing in a fire patch not only burns but stumbles (a slow),
+    // so the flames hold a lane; a zombie outside the patch is untouched.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* fire = tree.findNode("Fire0");
+        Value fv = fire->script();
+        std::vector<Value> ig = {Value::fromNum(0.0), Value::fromNum(0.0)};   // burn patch at origin
+        vm.callOn(fv, "ignite_ground", ig);
+
+        SceneNode* inFire = tree.findNode("Zombie0");   // stands in the flames
+        SceneNode* outFire = tree.findNode("Zombie1");  // parked well clear
+        auto park = [&](SceneNode* z, double x) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        park(inFire, 1.0);    // inside the radius-5 patch
+        park(outFire, 40.0);  // far outside
+        CHECK(sField(inFire, "slow_timer")->number == 0.0);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        vm.callOn(fv, "_process", dt);
+        CHECK(sField(inFire, "slow_timer")->number > 0.0);    // chilled/stumbling in the flames
+        CHECK(sField(inFire, "burn_timer")->number > 0.0);    // and alight
+        CHECK(sField(outFire, "slow_timer")->number == 0.0);  // clear of the patch — untouched
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

@@ -1541,7 +1541,12 @@ class FirePool {
             if (z.alive) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
-                if (dx * dx + dy * dy <= self.radius * self.radius) { z.ignite(1.0, self.burn_dps); }
+                # A zombie in the flames both cooks (burn DoT) and stumbles (a brief slow), so a molotov
+                # is area denial and crowd control — the fire holds a lane, not just chips health.
+                if (dx * dx + dy * dy <= self.radius * self.radius) {
+                    z.ignite(1.0, self.burn_dps);
+                    z.apply_slow(0.5);
+                }
             }
             i = i + 1;
         }

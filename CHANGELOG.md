@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — molotov fire is now crowd control.** Zombies standing in a molotov's fire patch not only
+  burn but **stumble** (a brief slow refreshed every frame they're in it), so the flames actually hold
+  a lane instead of just chipping health — real area denial to buy space or funnel the horde. Headless-
+  tested: a zombie in the patch is both slowed and alight after one tick, while one clear of it is
+  untouched.
 - **ZOMBOID — shotgun point-blank damage ramp.** Shotgun pellets now hit hardest fresh out of the
   barrel and fade with travel, down to a 40% floor at the end of their flight — giving the shotgun a
   true close-range identity (devastating in your face, weak across the arena) instead of flat damage
