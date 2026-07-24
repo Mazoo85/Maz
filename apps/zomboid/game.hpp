@@ -740,6 +740,7 @@ class Zombie {
     var attack_range = 1.2;
     var score_value = 10;
     var cooldown = 0;
+    var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
 
     func _ready() { g_zombies.append(self); }
 
@@ -767,6 +768,7 @@ class Zombie {
         self.node.y = y;
         self.kind = k;
         self.cooldown = 0;
+        self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -875,6 +877,18 @@ class Zombie {
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
+        if (self.kind == 3) {
+            # Boss ground slam: a periodic radial shockwave that hammers a nearby survivor, so
+            # standing next to the boss is punished even though it lumbers slowly. Still bites below.
+            self.slam_cd = self.slam_cd - dt;
+            if (self.slam_cd <= 0) {
+                self.slam_cd = 4.0;
+                if (dist <= 10.0) { g_player.take_damage(25); }
+                emit(self.node.x, self.node.y, 28, 1); # shockwave burst
+                g_shake = g_shake + 2.5;
+                if (g_shake > 3.0) { g_shake = 3.0; }
+            }
+        }
         if (self.kind == 5) {
             # Spitter: advance only until inside spitting range, then hold and lob acid on a cooldown.
             if (dist > self.attack_range) {

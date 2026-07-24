@@ -668,6 +668,37 @@ int main() {
         CHECK(hasExploder);
     }
 
+    // Boss ground slam (kind 3): a periodic shockwave hits a survivor within its radius even when
+    // they are outside melee-bite range, but spares one standing well clear of it.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bz = boss->script();
+        std::vector<Value> sp = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(3.0),
+                                 Value::fromNum(1.0)}; // boss at dist 6 (inside slam 10, outside bite)
+        tree.scripts().vm().callOn(bz, "spawn", sp);
+        boss->script().instance->findField("slam_cd")->number = 0.01; // slam almost ready
+        tree.process(0.02);
+        CHECK(sField(survivor, "health")->number <= 75.0); // slam landed (~25), no bite at range 6
+    }
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bz = boss->script();
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0), Value::fromNum(3.0),
+                                 Value::fromNum(1.0)}; // far outside the slam radius
+        tree.scripts().vm().callOn(bz, "spawn", sp);
+        boss->script().instance->findField("slam_cd")->number = 0.01;
+        tree.process(0.02);
+        CHECK(sField(survivor, "health")->number == 100.0); // out of slam range, unscathed
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

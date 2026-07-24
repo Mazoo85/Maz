@@ -26,6 +26,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   emits a 6-bullet burst, the SMG out-shoots the pistol over a second, a bullet kills a zombie and
   scores, cleared waves escalate, and survival/loot still hold. Kept as its own fast-compiling target
   so game iterations verify in a second instead of rebuilding the full unit suite.
+- **Boss ground slam** — the boss now has a special attack on top of its bite: every ~4 seconds it
+  slams the ground, emitting a radial shockwave (particle burst + heavy screen-shake) that deals a
+  flat 25 damage to the survivor if they are within ~10 units. Because the boss is slow, the slam is
+  what punishes standing next to it — you have to keep circling. Verified headless (`zomboid_sim`): a
+  boss slamming with a survivor 6 units away (inside the shockwave but outside bite range) drains
+  their health, while an identical boss 30 units away leaves them untouched.
 - **Enemy variety** — four zombie kinds with distinct stats, sprites and sizes: walkers (baseline),
   runners (fast, fragile), brutes (slow, tanky, big, hard-hitting) and a boss that leads every 5th
   wave. The Director mixes kinds into each wave (runners from wave 2, brutes from wave 3); tougher
