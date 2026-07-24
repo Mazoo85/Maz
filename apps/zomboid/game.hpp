@@ -1614,6 +1614,21 @@ class FirePool {
             }
             i = i + 1;
         }
+        # Fire cooks off any explosive barrel caught in the patch, so a molotov thrown onto a barrel
+        # detonates it after a moment — chaining the flames into a blast for extra area control.
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var b = g_barrels[bi];
+            if (b.active) {
+                var bdx = b.node.x - self.node.x;
+                var bdy = b.node.y - self.node.y;
+                if (bdx * bdx + bdy * bdy <= self.radius * self.radius) {
+                    b.take_damage(self.burn_dps * dt);
+                }
+            }
+            bi = bi + 1;
+        }
         self.puff = self.puff - dt;
         if (self.puff <= 0) { self.puff = 0.3; emit(self.node.x, self.node.y, 3, 1); }
     }

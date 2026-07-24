@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — molotov fire cooks off barrels.** A burning molotov patch now chips any explosive barrel
+  caught inside it until it detonates, so you can throw a molotov onto (or beside) a barrel to chain the
+  flames into a blast — flames for area denial *and* a delayed explosion for burst. Headless-tested: a
+  barrel sitting in a fire patch cooks off within a few seconds, while one well clear of the flames
+  stays intact.
 - **ZOMBOID — leaper pounce is now telegraphed.** The leaper no longer springs the instant its
   cooldown is up: it first **crouches and coils for a beat** (flashing lime), rooted in place, before
   it lunges — and the pounce commits toward wherever you are when the wind-up ends. Read the coil and

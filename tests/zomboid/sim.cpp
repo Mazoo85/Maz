@@ -2803,6 +2803,41 @@ int main() {
         CHECK(leaper->x() < x0);                             // closed the gap (moved toward the origin)
     }
 
+    // Molotov fire cooks off barrels: an explosive barrel sitting in a burning patch is chipped by the
+    // flames until it detonates, while a barrel well clear of the fire is left intact.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // In-fire case: barrel at the patch centre cooks off within a couple of seconds.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        SceneNode* fire1 = t1.findNode("Fire0");
+        Value f1 = fire1->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm1.callOn(f1, "ignite_ground", at);
+        SceneNode* barrel1 = t1.findNode("Barrel0");
+        Value b1 = barrel1->script();
+        vm1.callOn(b1, "place", at);
+        CHECK(sField(barrel1, "active")->boolean);
+        for (int i = 0; i < 180; ++i) { vm1.callOn(f1, "_process", dt); }  // ~3s of burning
+        CHECK(!sField(barrel1, "active")->boolean);       // cooked off and detonated
+
+        // Clear case: a barrel outside the fire radius is untouched.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* fire2 = t2.findNode("Fire0");
+        Value f2 = fire2->script();
+        vm2.callOn(f2, "ignite_ground", at);
+        SceneNode* barrel2 = t2.findNode("Barrel0");
+        Value b2 = barrel2->script();
+        std::vector<Value> far = {Value::fromNum(50.0), Value::fromNum(0.0)};
+        vm2.callOn(b2, "place", far);
+        for (int i = 0; i < 180; ++i) { vm2.callOn(f2, "_process", dt); }
+        CHECK(sField(barrel2, "active")->boolean);        // well clear of the flames — intact
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
