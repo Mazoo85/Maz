@@ -263,9 +263,52 @@ int main() {
         CHECK(glob(tree, "g_shake") < 0.01);
     }
 
+    // Ammo: firing drains the magazine, then an auto-reload refills it from reserve.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        CHECK(sField(s, "cur_ammo")->number == 12.0);   // pistol magazine
+        const double res0 = (*sField(s, "reserves")->array)[0].number; // 48 spare
+        sField(s, "firing")->boolean = true;
+        bool sawReload = false;
+        for (int i = 0; i < 180; ++i) { // 3 s of held fire — drains the mag and starts a reload
+            tree.process(1.0 / 60.0);
+            if (sField(s, "is_reloading")->boolean) sawReload = true;
+        }
+        CHECK(sawReload);                                // an empty mag triggered a reload
+        sField(s, "firing")->boolean = false;
+        for (int i = 0; i < 200; ++i) tree.process(1.0 / 60.0); // let it finish
+        CHECK(sField(s, "cur_ammo")->number == 12.0);    // magazine refilled
+        CHECK((*sField(s, "reserves")->array)[0].number < res0); // reserve was consumed
+    }
+
+    // Dry weapon: with an empty magazine AND empty reserve, exactly the last round fires and no more.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        (*sField(s, "mags")->array)[0] = Value::fromNum(1.0);     // one round chambered
+        (*sField(s, "reserves")->array)[0] = Value::fromNum(0.0); // nothing to reload
+        sField(s, "firing")->boolean = true;
+        for (int i = 0; i < 120; ++i) tree.process(1.0 / 60.0);
+        CHECK(sField(s, "shots")->number == 1.0);        // fired once, then dry
+        CHECK(sField(s, "cur_ammo")->number == 0.0);
+        CHECK(sField(s, "is_reloading")->boolean == false); // can't reload from an empty reserve
+    }
+
+    // Loot is an ammo crate: collecting it tops up the reserve.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* loot0 = tree.findNode("Loot0");
+        const double res0 = (*sField(survivor, "reserves")->array)[0].number;
+        survivor->setPosition(loot0->x(), loot0->y());
+        tree.process(0.016);
+        CHECK((*sField(survivor, "reserves")->array)[0].number > res0);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
-                    "impact juice (particles + shake), kills/score, survival, loot.\n");
+                    "impact juice, ammo + reload, kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);

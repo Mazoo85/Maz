@@ -90,6 +90,18 @@ class Survivor {
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
 
+    # Ammo, per weapon index [pistol, shotgun, smg]: rounds in the magazine, spare rounds in reserve,
+    # magazine capacity, and reload time (seconds). Firing a shot spends one magazine round.
+    var mags = [12, 6, 30];
+    var reserves = [48, 24, 90];
+    var mag_sizes = [12, 6, 30];
+    var reload_times = [1.2, 1.8, 2.0];
+    var reloading = false;
+    var reload_t = 0;
+    var cur_ammo = 12;       # convenience mirrors of the active weapon for the HUD
+    var cur_reserve = 48;
+    var is_reloading = false;
+
     func _ready() { g_player = self; self.set_weapon(0); }
 
     func _process(dt) {
@@ -107,12 +119,26 @@ class Survivor {
         if (self.hunger > 100) { self.hunger = 100; }
         if (self.hunger >= 100) { self.health = self.health - dt * 3; }
 
-        # Weapon cadence: while firing, emit bullets at fire_rate.
+        # Weapon cadence + ammo + reload.
         self.fire_cd = self.fire_cd - dt;
-        if (self.firing and self.fire_cd <= 0) {
-            self.do_shoot();
-            self.fire_cd = 1.0 / self.fire_rate;
+        if (self.reloading) {
+            self.reload_t = self.reload_t - dt;
+            if (self.reload_t <= 0) { self.finish_reload(); }
+        } else {
+            if (self.firing and self.fire_cd <= 0) {
+                if (self.mags[self.weapon] > 0) {
+                    self.do_shoot();
+                    self.mags[self.weapon] = self.mags[self.weapon] - 1;
+                    self.fire_cd = 1.0 / self.fire_rate;
+                    if (self.mags[self.weapon] <= 0) { self.start_reload(); }
+                } else {
+                    self.start_reload();
+                }
+            }
         }
+        self.cur_ammo = self.mags[self.weapon];
+        self.cur_reserve = self.reserves[self.weapon];
+        self.is_reloading = self.reloading;
 
         if (self.health <= 0) { self.health = 0; self.alive = false; }
     }
@@ -144,6 +170,11 @@ class Survivor {
             }
         }
         self.fire_cd = 0;
+        self.reloading = false;
+        self.reload_t = 0;
+        self.is_reloading = false;
+        self.cur_ammo = self.mags[self.weapon];
+        self.cur_reserve = self.reserves[self.weapon];
     }
 
     # Fire the whole shot: one bullet per pellet, each jittered within the weapon's spread.
@@ -181,6 +212,30 @@ class Survivor {
         }
     }
 
+    # Begin reloading the active weapon (if not already, has reserve, and isn't full).
+    func start_reload() {
+        if (self.reloading) { return; }
+        var w = self.weapon;
+        if (self.reserves[w] <= 0) { return; }
+        if (self.mags[w] >= self.mag_sizes[w]) { return; }
+        self.reloading = true;
+        self.reload_t = self.reload_times[w];
+    }
+
+    # Move rounds from reserve into the magazine (up to capacity) and end the reload.
+    func finish_reload() {
+        var w = self.weapon;
+        var need = self.mag_sizes[w] - self.mags[w];
+        var take = need;
+        if (take > self.reserves[w]) { take = self.reserves[w]; }
+        self.mags[w] = self.mags[w] + take;
+        self.reserves[w] = self.reserves[w] - take;
+        self.reloading = false;
+    }
+
+    # Manual reload (bound to R in the app).
+    func reload() { self.start_reload(); }
+
     func eat() {
         if (self.food > 0) {
             self.food = self.food - 1;
@@ -192,6 +247,10 @@ class Survivor {
     func collect(kind) {
         self.food = self.food + 1;
         self.loot_collected = self.loot_collected + 1;
+        # Loot is also an ammo crate: top up every weapon's reserve.
+        self.reserves[0] = self.reserves[0] + 24;
+        self.reserves[1] = self.reserves[1] + 8;
+        self.reserves[2] = self.reserves[2] + 40;
     }
 
     func take_damage(dmg) {

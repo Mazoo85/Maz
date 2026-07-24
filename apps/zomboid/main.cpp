@@ -225,6 +225,13 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> a = {script::Value::fromNum(static_cast<double>(want))};
                 tree.scripts().vm().callOn(self, "set_weapon", a);
             }
+
+            // Manual reload (R).
+            if (!autopilot && input.keyPressed(SDL_SCANCODE_R)) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "reload", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -357,6 +364,20 @@ int main(int argc, char** argv) {
             if (wi > 2) wi = 2;
             font.drawText(*renderer, 16.0f, 72.0f, kWeaponNames[wi],
                           render::Color{1.0f, 0.85f, 0.4f, 1.0f}, 0.55f);
+            // Ammo readout / reloading indicator.
+            char ammoBuf[64];
+            if (fieldBool(survivor, "is_reloading")) {
+                std::snprintf(ammoBuf, sizeof(ammoBuf), "RELOADING...");
+            } else {
+                std::snprintf(ammoBuf, sizeof(ammoBuf), "AMMO %d / %d",
+                              static_cast<int>(field(survivor, "cur_ammo")),
+                              static_cast<int>(field(survivor, "cur_reserve")));
+            }
+            const bool lowAmmo = field(survivor, "cur_ammo") <= 0.0 || fieldBool(survivor, "is_reloading");
+            font.drawText(*renderer, 16.0f, 98.0f, ammoBuf,
+                          lowAmmo ? render::Color{0.95f, 0.5f, 0.35f, 1.0f}
+                                  : render::Color{0.85f, 0.9f, 0.95f, 1.0f},
+                          0.5f);
 
             // Wave / score / kills, top-centre-ish.
             char buf[96];

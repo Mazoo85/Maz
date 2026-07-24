@@ -35,6 +35,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   app-side muzzle flash. The simulation core is verified headless (`zomboid_sim`): the particle pool
   builds, a kill emits particles and raises `g_shake`, and both ease back to rest within a couple of
   seconds. The muzzle flash and camera shake render on the app side (owner-visible on real hardware).
+- **Ammo + reload** — each weapon has a magazine, a reserve, a capacity and a reload time (pistol
+  12/48, shotgun 6/24, SMG 30/90). A shot spends one round; emptying the magazine auto-reloads (or
+  press R), and switching weapons cancels a reload. Loot doubles as an ammo crate, topping up every
+  weapon's reserve. The HUD shows `AMMO mag / reserve` and a RELOADING indicator. Verified headless
+  (`zomboid_sim`): firing drains the magazine and an auto-reload refills it from a diminished reserve;
+  a weapon with an empty magazine and empty reserve fires exactly its last round then goes dry and
+  cannot reload; and collecting loot raises the reserve.
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,
