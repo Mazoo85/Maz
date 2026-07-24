@@ -1974,6 +1974,22 @@ class Zombie {
             if (d >= self.max_health * 1.5 and self.kind != 4 and self.kind != 3) {
                 self.overkill_burst();
             }
+            # Frost shatter: a chilled body killed while frozen bursts into an icy cloud that chills
+            # nearby zombies — chaining the cryo-nova / grenade-slow into a spreading freeze.
+            if (self.slow_timer > 0) {
+                var ci = 0;
+                var cn = len(g_zombies);
+                while (ci < cn) {
+                    var cz = g_zombies[ci];
+                    if (cz.alive and cz != self) {
+                        var cdx = cz.node.x - self.node.x;
+                        var cdy = cz.node.y - self.node.y;
+                        if (cdx * cdx + cdy * cdy <= 20.25) { cz.apply_slow(1.5); }   # radius 4.5
+                    }
+                    ci = ci + 1;
+                }
+                emit(self.node.x, self.node.y, 12, 0);
+            }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
             # A slain zombie sometimes drops a medkit; an elite always does, plus an extra flourish.

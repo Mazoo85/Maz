@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Frost shatter (chain freeze)** — a chilled zombie killed while it's still frozen now bursts into an
+  icy cloud that chills every zombie nearby, so freezing a pack (cryo-nova power-up, chill grenade, or a
+  mine's chill) and popping one can cascade the freeze across the whole clump. Composes with the
+  existing shatter-damage bonus (chilled bodies already take 1.5×). Verified headless (`zomboid_sim`): a
+  frozen zombie's death chills an in-range neighbour but not a far one, while an *unfrozen* zombie's
+  death chills nothing.
 - **Melee execute finisher** — a melee swing now *finishes off* any badly-wounded non-boss zombie
   (under 30% health) outright, and landing an execute refunds most of the melee cooldown — so cleaning
   up a row of stragglers chains into a fast flurry of swings instead of waiting on the timer. Bosses are

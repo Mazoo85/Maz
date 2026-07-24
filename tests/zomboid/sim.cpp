@@ -1915,6 +1915,53 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Frost shatter: a chilled zombie killed while frozen bursts into an icy cloud that chills nearby
+    // zombies (chain freeze), but a body killed while NOT chilled does no such thing.
+    {
+        // Chilled target: killing it chills an in-range neighbour but not a far one.
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* target = tree.findNode("Zombie0");
+        SceneNode* near_ = tree.findNode("Zombie1");   // 3 units — inside the radius-4.5 shatter
+        SceneNode* farZ = tree.findNode("Zombie2");    // 12 units — outside
+        auto place = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place(target, 0.0, 20.0);
+        place(near_, 3.0, 100.0);
+        place(farZ, 12.0, 100.0);
+        Value tv = target->script();
+        std::vector<Value> chill = {Value::fromNum(3.0)};
+        vm.callOn(tv, "apply_slow", chill);            // freeze the target before it dies
+        CHECK(sField(near_, "slow_timer")->number == 0.0);
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(tv, "take_damage", lethal);
+        CHECK(!sField(target, "alive")->boolean);
+        CHECK(sField(near_, "slow_timer")->number > 0.0);   // caught the frost shatter
+        CHECK(sField(farZ, "slow_timer")->number == 0.0);   // out of range — unchilled
+
+        // Control: a target killed while NOT chilled shatters nothing.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        SceneNode* tgt2 = t2.findNode("Zombie0");
+        SceneNode* nb2 = t2.findNode("Zombie1");
+        auto place2 = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            t2.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place2(tgt2, 0.0, 20.0);
+        place2(nb2, 3.0, 100.0);
+        Value t2v = tgt2->script();
+        t2.scripts().vm().callOn(t2v, "take_damage", lethal);   // killed unfrozen
+        CHECK(sField(nb2, "slow_timer")->number == 0.0);        // no chain freeze
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {
