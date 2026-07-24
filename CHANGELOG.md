@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — last-stand adrenaline now hits harder.** The desperation surge that kicks in when
+  you're critically wounded (below 25% health) already made you fire faster; now it also lends **+30%
+  damage to every shot**, turning a near-death moment into a genuine comeback window instead of just a
+  faster losing battle. Headless-tested: with the flag forced on, a shot deals 1.3× base; dropping to
+  25% health flips it on automatically through the survivor's own update.
 - **ZOMBOID — railgun is now an armor-piercer.** The railgun's beam **shears any shield clean off**
   before biting into health, making it the definitive answer to armored zombies and the new Bulwark
   waves — where lesser guns stall against the plating, one slug punches straight through. Gives the

@@ -454,10 +454,14 @@ class Survivor {
         self.damage = self.base_dmg * self.dmg_mult * self.buff_dmg;
     }
 
-    # Roll this shot's damage: usually the base, occasionally a critical hit for bonus damage.
+    # Roll this shot's damage: usually the base, occasionally a critical hit for bonus damage. While
+    # critically wounded, last-stand adrenaline also lends a desperation +30% to every shot — so a
+    # cornered survivor hits back harder, turning a near-death moment into a real comeback window.
     func shot_damage() {
-        if (randf() < self.crit_chance) { return self.damage * self.crit_mult; }
-        return self.damage;
+        var out = self.damage;
+        if (randf() < self.crit_chance) { out = self.damage * self.crit_mult; }
+        if (self.adrenaline) { out = out * 1.3; }
+        return out;
     }
 
     # Activate a timed power-up buff picked up from the field. A new pickup refreshes the timer.

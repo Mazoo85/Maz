@@ -65,6 +65,9 @@ cycling automatically.
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
   so it's a true panic button. Kills charge the meter; unleash it when full.
+- **Last-stand adrenaline** — drop below 25% health and a desperation surge kicks in: you **fire
+  faster and hit 30% harder** until you recover. Being cornered is dangerous, but it's also your
+  biggest damage window — a real chance to claw a fight back.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**.

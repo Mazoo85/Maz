@@ -2577,6 +2577,36 @@ int main() {
         CHECK(sField(offZ, "health")->number == 100.0);
     }
 
+    // Last-stand adrenaline damage: when critically wounded the survivor's shots hit 30% harder, and
+    // the flag flips on automatically once health drops to 25% of max.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        sField(survivor, "crit_chance")->number = 0.0;   // no crit rolls — isolate the adrenaline term
+        const double base = sField(survivor, "damage")->number;
+
+        // Healthy: no adrenaline, shot deals exactly base damage.
+        CHECK(!sField(survivor, "adrenaline")->boolean);
+        CHECK(vm.callOn(sv, "shot_damage", none).number == base);
+
+        // Force the last-stand flag: shots now hit 30% harder.
+        sField(survivor, "adrenaline")->boolean = true;
+        CHECK(vm.callOn(sv, "shot_damage", none).number == base * 1.3);
+
+        // Wiring: dropping to 25% health flips adrenaline on through the survivor's own update.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        Value s2v = s2->script();
+        const double mh = sField(s2, "max_health")->number;
+        sField(s2, "health")->number = mh * 0.25;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        t2.scripts().vm().callOn(s2v, "_process", dt);
+        CHECK(sField(s2, "adrenaline")->boolean);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
