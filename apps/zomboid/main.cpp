@@ -740,6 +740,18 @@ int main(int argc, char** argv) {
             const int kills = static_cast<int>(globalNum(tree, "g_kills"));
             std::snprintf(buf, sizeof(buf), "WAVE %d      SCORE %d      KILLS %d", wave, score, kills);
             font.drawText(*renderer, sw * 0.5f - 220.0f, 14.0f, buf, kWhite, 0.55f);
+            // Between-wave "cleared" banner: the field is empty and a wave has started.
+            if (alive && wave >= 1) {
+                int aliveZ = 0;
+                for (scene::SceneNode* z : tree.nodesInGroup("zombies"))
+                    if (fieldBool(z, "alive")) { ++aliveZ; break; }
+                if (aliveZ == 0) {
+                    const float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 5.0f);
+                    std::snprintf(buf, sizeof(buf), "WAVE %d CLEARED   +%d", wave, wave * 50);
+                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f - 120.0f, buf,
+                                  render::Color{1.0f, 0.9f, 0.35f * pulse + 0.2f, 1.0f}, 0.7f);
+                }
+            }
             // Upgrade progression.
             std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f   CRIT %d%%",
                           static_cast<int>(field(survivor, "upgrades")), field(survivor, "dmg_mult"),

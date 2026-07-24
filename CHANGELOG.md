@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Wave-clear bonus** — clearing a wave now awards a score bonus that scales with the wave number
+  (wave × 50), paid once per wave the moment the field is empty, with a pulsing "WAVE N CLEARED  +bonus"
+  banner during the breather. It rewards finishing waves cleanly and gives the between-wave lull a
+  payoff beat. Verified headless (`zomboid_sim`): after wave 1 starts and the field is wiped, an
+  empty-field step pays exactly +50 (tracked on the Director), and a second empty step does not pay
+  again (once-per-wave).
 - **Ammo drops** — killed zombies now occasionally (~10%) drop a brass ammo box. Walking over it (or
   letting it drift in via magnetism) tops up the active weapon's reserve by two magazines, plus a
   little for the other three, so reserves stay healthy between supply crates and you're rewarded for

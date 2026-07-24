@@ -1670,6 +1670,8 @@ class Director {
     var wave = 0;
     var break_timer = 0;    # 0 at start so wave 1 begins immediately
     var base = 4;
+    var bonus_wave = 0;     # highest wave already awarded a clear bonus (avoids double-paying)
+    var last_bonus = 0;     # the most recent clear bonus (for the HUD banner)
 
     func _ready() { g_director = self; }
 
@@ -1745,6 +1747,12 @@ class Director {
         if (g_player == nil) { return; }
         if (g_player.alive == false) { return; }
         if (self.alive_count() == 0) {
+            # Clearing a wave (once one has actually started) awards a score bonus that scales with it.
+            if (self.wave >= 1 and self.bonus_wave < self.wave) {
+                self.bonus_wave = self.wave;
+                self.last_bonus = self.wave * 50;
+                g_score = g_score + self.last_bonus;
+            }
             self.break_timer = self.break_timer - dt;
             if (self.break_timer <= 0) {
                 self.wave = self.wave + 1;

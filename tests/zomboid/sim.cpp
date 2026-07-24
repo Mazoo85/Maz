@@ -1131,6 +1131,38 @@ int main() {
         CHECK(box->x() < bx0);   // drifted toward the survivor at the origin
     }
 
+    // Wave-clear bonus: clearing a wave (once one has started) awards a score bonus scaling with it,
+    // and only once per wave.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        tree.process(1.0 / 60.0);                 // Director opens wave 1
+        CHECK((int)glob(tree, "g_wave") == 1);
+        CHECK(aliveZombies(tree) > 0);
+        const double score0 = glob(tree, "g_score");
+
+        // Wipe the field, then a step with the field empty pays the wave-1 bonus (1 * 50).
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            Value zv = z->script();
+            std::vector<Value> big = {Value::fromNum(9999.0)};
+            if (z->script().instance->findField("alive")->boolean)
+                tree.scripts().vm().callOn(zv, "take_damage", big);
+        }
+        // Kills also add score, so measure the bonus via the Director's own field.
+        SceneNode* dir = tree.findNode("Director");
+        Value dv = dir->script();
+        std::vector<Value> dt1 = {Value::fromNum(1.0 / 60.0)};
+        tree.scripts().vm().callOn(dv, "_process", dt1);
+        CHECK((int)dir->script().instance->findField("bonus_wave")->number == 1);
+        CHECK((int)dir->script().instance->findField("last_bonus")->number == 50);
+        const double afterBonus = glob(tree, "g_score");
+        CHECK(afterBonus >= score0 + 50.0);
+
+        // A second empty-field step does NOT pay again (bonus is once-per-wave).
+        tree.scripts().vm().callOn(dv, "_process", dt1);
+        CHECK(glob(tree, "g_score") == afterBonus);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
