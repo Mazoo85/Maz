@@ -1357,6 +1357,39 @@ func drop_powerup(x, y, k) {
     }
 }
 
+# Wave-clear vacuum: sweep up every pickup still lying on the field so clearing a wave never strands a
+# medkit or power-up during the lull before the next one. Returns how many were collected.
+func vacuum_pickups() {
+    var collected = 0;
+    if (g_player == nil) { return collected; }
+    if (g_player.alive == false) { return collected; }
+    var i = 0;
+    var mn = len(g_medkits);
+    while (i < mn) {
+        var m = g_medkits[i];
+        if (m.active) {
+            g_player.heal(m.heal);
+            m.active = false;
+            emit(m.node.x, m.node.y, 4, 0);
+            collected = collected + 1;
+        }
+        i = i + 1;
+    }
+    var j = 0;
+    var pn = len(g_powerups);
+    while (j < pn) {
+        var p = g_powerups[j];
+        if (p.active) {
+            g_player.grant_powerup(p.kind);
+            p.active = false;
+            emit(p.node.x, p.node.y, 4, 0);
+            collected = collected + 1;
+        }
+        j = j + 1;
+    }
+    return collected;
+}
+
 # A pooled supply crate: a periodic care package. Sits on the ground for a while; walk over it for a
 # big refill of ammo, grenades, and health. Expires if ignored, then recycles.
 class Crate {
@@ -2492,6 +2525,8 @@ class Director {
                 self.bonus_wave = self.wave;
                 self.last_bonus = self.wave * 50;
                 g_score = g_score + self.last_bonus;
+                # Sweep up any pickups still on the field so a cleared wave never strands a drop.
+                vacuum_pickups();
                 # Flawless wave: cleared without taking a single hit. Doubles the clear bonus, pays a
                 # cash reward, and patches the survivor up a little — rewarding aggressive, clean play.
                 self.last_clean = g_wave_clean;

@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — wave-clear pickup vacuum.** Clearing a wave now sweeps up every medkit and power-up
+  still lying on the field and delivers it straight to you, so a drop you couldn't reach mid-fight is
+  never stranded and wasted during the between-wave lull. Headless-tested: a medkit and a power-up
+  dropped far out of reach are both collected the instant the wave clears (the medkit heals, the buff
+  activates).
 - **ZOMBOID — last-stand adrenaline now hits harder.** The desperation surge that kicks in when
   you're critically wounded (below 25% health) already made you fire faster; now it also lends **+30%
   damage to every shot**, turning a near-death moment into a genuine comeback window instead of just a

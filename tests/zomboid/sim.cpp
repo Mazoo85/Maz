@@ -2607,6 +2607,47 @@ int main() {
         CHECK(sField(s2, "adrenaline")->boolean);
     }
 
+    // Wave-clear pickup vacuum: clearing a wave sweeps up any medkit or power-up still lying on the
+    // field (out of walking range), so a cleared wave never strands a drop during the between-wave lull.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        tree.process(1.0 / 60.0);                        // wave 1 opens, zombies spawn
+        CHECK((int)glob(tree, "g_wave") == 1);
+        sField(survivor, "health")->number = 50.0;       // wounded, so a vacuumed medkit shows
+
+        // Drop a medkit and a power-up far from the survivor — well out of pickup/magnet range.
+        SceneNode* kit = tree.findNode("Medkit0");
+        Value kv = kit->script();
+        std::vector<Value> kp = {Value::fromNum(100.0), Value::fromNum(100.0)};
+        vm.callOn(kv, "place", kp);
+        SceneNode* pow = tree.findNode("Powerup0");
+        Value pv = pow->script();
+        std::vector<Value> pp = {Value::fromNum(100.0), Value::fromNum(100.0),
+                                 Value::fromNum(0.0)};    // kind 0 = rapid fire
+        vm.callOn(pv, "place", pp);
+        CHECK(sField(kit, "active")->boolean);
+        CHECK(sField(pow, "active")->boolean);
+
+        // Kill the whole wave, then step once so the Director registers the clear and vacuums.
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (z->script().instance->findField("alive")->boolean) {
+                Value zs = z->script();
+                std::vector<Value> lethal = {Value::fromNum(9999.0)};
+                vm.callOn(zs, "take_damage", lethal);
+            }
+        }
+        tree.process(1.0 / 60.0);
+
+        CHECK(!sField(kit, "active")->boolean);           // medkit swept up
+        CHECK(!sField(pow, "active")->boolean);           // power-up swept up
+        CHECK(sField(survivor, "health")->number > 50.0); // medkit healed on the way in
+        CHECK(sField(survivor, "buff_timer")->number > 0.0); // power-up buff granted
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
