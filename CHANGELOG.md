@@ -48,6 +48,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   on. The HUD shows the upgrade count and current DMG/RATE multipliers. Verified headless
   (`zomboid_sim`): each `apply_upgrade` raises the matching stat in turn, and clearing wave 1 hands out
   the first upgrade exactly when wave 2 opens (none before).
+- **Grenades** — a throwable, object-pooled explosive (start with 3, press G): it flies along the aim,
+  slows, and after a short fuse detonates, damaging every zombie inside the blast radius plus a burst
+  of blood and screen-shake. Loot tops one up. The HUD shows the grenade count. Verified headless
+  (`zomboid_sim`): the pool builds, throwing spends exactly one and arms a grenade, a detonation in the
+  middle of a three-zombie cluster kills all three at once, throwing with none left does nothing, and
+  loot refills a grenade.
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

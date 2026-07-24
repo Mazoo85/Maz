@@ -28,6 +28,7 @@ var g_director = nil;
 var g_bullets = [];     # object pool: every Bullet appends itself here in _ready
 var g_zombies = [];     # object pool: every Zombie appends itself here in _ready
 var g_particles = [];   # object pool for impact / blood particles (juice)
+var g_grenades = [];    # object pool for thrown grenades
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -106,6 +107,7 @@ class Survivor {
     var cur_ammo = 12;       # convenience mirrors of the active weapon for the HUD
     var cur_reserve = 48;
     var is_reloading = false;
+    var grenades = 3;        # thrown-explosive count
 
     func _ready() { g_player = self; self.set_weapon(0); }
 
@@ -271,6 +273,28 @@ class Survivor {
     # Manual reload (bound to R in the app).
     func reload() { self.start_reload(); }
 
+    # Throw a grenade along the aim vector, if any are left.
+    func throw_grenade() {
+        if (self.grenades <= 0) { return; }
+        var ax = self.aim_x;
+        var ay = self.aim_y;
+        var m = sqrt(ax * ax + ay * ay);
+        if (m <= 0.0001) { return; }
+        ax = ax / m;
+        ay = ay / m;
+        var i = 0;
+        var n = len(g_grenades);
+        while (i < n) {
+            var g = g_grenades[i];
+            if (g.active == false) {
+                g.throw_at(self.node.x, self.node.y, ax, ay);
+                self.grenades = self.grenades - 1;
+                return;
+            }
+            i = i + 1;
+        }
+    }
+
     func eat() {
         if (self.food > 0) {
             self.food = self.food - 1;
@@ -282,10 +306,11 @@ class Survivor {
     func collect(kind) {
         self.food = self.food + 1;
         self.loot_collected = self.loot_collected + 1;
-        # Loot is also an ammo crate: top up every weapon's reserve.
+        # Loot is also an ammo crate: top up every weapon's reserve and a grenade.
         self.reserves[0] = self.reserves[0] + 24;
         self.reserves[1] = self.reserves[1] + 8;
         self.reserves[2] = self.reserves[2] + 40;
+        self.grenades = self.grenades + 1;
     }
 
     func take_damage(dmg) {
@@ -340,6 +365,60 @@ class Bullet {
             }
             i = i + 1;
         }
+    }
+}
+
+# A pooled thrown grenade: flies from the survivor along the aim, slows, and after a short fuse
+# explodes — damaging every zombie inside the blast radius and throwing off blood/shake. Great for
+# clearing a cluster, but limited in supply (topped up by loot).
+class Grenade {
+    var active = false;
+    var vx = 0;
+    var vy = 0;
+    var fuse = 0;
+    var blast_radius = 5.0;
+    var blast_dmg = 60;
+
+    func _ready() { g_grenades.append(self); }
+
+    func throw_at(x, y, dx, dy) {
+        self.node.x = x;
+        self.node.y = y;
+        var spd = 28;
+        self.vx = dx * spd;
+        self.vy = dy * spd;
+        self.fuse = 0.9;
+        self.active = true;
+    }
+
+    func explode() {
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= self.blast_radius * self.blast_radius) {
+                    z.take_damage(self.blast_dmg);
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 24, 1);
+        g_shake = g_shake + 1.8;
+        if (g_shake > 3.0) { g_shake = 3.0; }
+        self.active = false;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.node.x = self.node.x + self.vx * dt;
+        self.node.y = self.node.y + self.vy * dt;
+        self.vx = self.vx * 0.92;
+        self.vy = self.vy * 0.92;
+        self.fuse = self.fuse - dt;
+        if (self.fuse <= 0) { self.explode(); }
     }
 }
 
@@ -604,6 +683,7 @@ class Loot {
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;
 constexpr int kParticlePool = 90;
+constexpr int kGrenadePool = 8;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -630,6 +710,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         p->setPosition(100000.0, 100000.0);
         p->addToGroup("particles");
         tree.attachScript(*p, "Particle");
+    }
+
+    // Grenade pool — dormant thrown explosives.
+    for (int i = 0; i < kGrenadePool; ++i) {
+        maz::scene::SceneNode* g = tree.createChild(tree.root(), "Grenade" + std::to_string(i));
+        g->setPosition(100000.0, 100000.0);
+        g->addToGroup("grenades");
+        tree.attachScript(*g, "Grenade");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

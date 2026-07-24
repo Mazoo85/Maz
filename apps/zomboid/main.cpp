@@ -119,6 +119,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texBoss = renderer->createTexture(16, 16, makeSquare(195, 70, 195).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
+    render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
     render::TextureHandle texLoot = renderer->createTexture(16, 16, makeSquare(210, 120, 200).data());
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -138,6 +139,7 @@ int main(int argc, char** argv) {
     int rendered = 0;
     bool ateLast = false;
     double simTime = 0.0;
+    double nextGrenade = 4.0; // autopilot's next grenade toss time
     // A bounded run (headless or --frames N) steps a deterministic fixed dt per frame so the sim
     // actually advances and is reproducible; interactive play uses the wall-clock fixed-step accumulator.
     const bool deterministic = cfg.headless || cfg.frames >= 0;
@@ -232,6 +234,18 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> none;
                 tree.scripts().vm().callOn(self, "reload", none);
             }
+
+            // Throw a grenade (G while playing; autopilot lobs one every ~5 s).
+            bool throwNow = !autopilot && input.keyPressed(SDL_SCANCODE_G);
+            if (autopilot && simTime >= nextGrenade && field(survivor, "grenades") > 0.0) {
+                throwNow = true;
+                nextGrenade = simTime + 5.0;
+            }
+            if (throwNow) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "throw_grenade", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -303,6 +317,12 @@ int main(int argc, char** argv) {
             // Bullets in flight.
             for (scene::SceneNode* b : tree.nodesInGroup("bullets")) {
                 if (fieldBool(b, "active")) drawAt(b->x(), b->y(), texBullet, 0.7f, kNoTint);
+            }
+            // Grenades in flight (blink faster as the fuse runs down).
+            for (scene::SceneNode* g : tree.nodesInGroup("grenades")) {
+                if (!fieldBool(g, "active")) continue;
+                const float blink = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 20.0f);
+                drawAt(g->x(), g->y(), texGrenade, 1.1f, render::Color{blink, 1.0f, blink, 1.0f});
             }
             // Impact particles (sparks + blood), fading with life.
             for (scene::SceneNode* p : tree.nodesInGroup("particles")) {
@@ -378,6 +398,11 @@ int main(int argc, char** argv) {
                           lowAmmo ? render::Color{0.95f, 0.5f, 0.35f, 1.0f}
                                   : render::Color{0.85f, 0.9f, 0.95f, 1.0f},
                           0.5f);
+            char nadeBuf[48];
+            std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d  (G)",
+                          static_cast<int>(field(survivor, "grenades")));
+            font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
+                          0.45f);
 
             // Wave / score / kills, top-centre-ish.
             char buf[96];

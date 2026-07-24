@@ -347,9 +347,74 @@ int main() {
         CHECK((int)sField(survivor, "upgrades")->number == 1); // wave 2 handed out an upgrade
     }
 
+    // Grenades: throwing spends one and arms a grenade; the blast kills a whole cluster of zombies.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("grenades").size() == zomboid::kGrenadePool);
+        CHECK(sField(s, "grenades")->number == 3.0);
+        sField(s, "aim_x")->number = 1.0;
+        sField(s, "aim_y")->number = 0.0;
+        Value self = s->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(self, "throw_grenade", none);
+        CHECK(sField(s, "grenades")->number == 2.0); // one spent
+        int armed = 0;
+        for (SceneNode* g : tree.nodesInGroup("grenades"))
+            if (g->script().instance->findField("active")->boolean) ++armed;
+        CHECK(armed == 1);
+
+        // Detonate a grenade in the middle of three zombies -> all three die from the blast.
+        SceneNode* g0 = tree.findNode("Grenade0");
+        g0->setPosition(50.0, 0.0);
+        const char* names[3] = {"Zombie0", "Zombie1", "Zombie2"};
+        const double pos[3][2] = {{50.0, 0.0}, {51.5, 0.0}, {49.0, 1.0}};
+        for (int i = 0; i < 3; ++i) {
+            SceneNode* z = tree.findNode(names[i]);
+            Value zs = z->script();
+            std::vector<Value> sa = {Value::fromNum(pos[i][0]), Value::fromNum(pos[i][1]),
+                                     Value::fromNum(30.0), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zs, "spawn_at", sa);
+        }
+        const double kills0 = glob(tree, "g_kills");
+        Value gs = g0->script();
+        tree.scripts().vm().callOn(gs, "explode", none);
+        for (int i = 0; i < 3; ++i) {
+            SceneNode* z = tree.findNode(names[i]);
+            CHECK(!z->script().instance->findField("alive")->boolean); // caught in the blast
+        }
+        CHECK(glob(tree, "g_kills") >= kills0 + 3.0);
+    }
+
+    // Out of grenades: throwing does nothing.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        sField(s, "grenades")->number = 0.0;
+        Value self = s->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(self, "throw_grenade", none);
+        int armed = 0;
+        for (SceneNode* g : tree.nodesInGroup("grenades"))
+            if (g->script().instance->findField("active")->boolean) ++armed;
+        CHECK(armed == 0);
+    }
+
+    // Loot refills a grenade too.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* loot0 = tree.findNode("Loot0");
+        const double g0 = sField(survivor, "grenades")->number;
+        survivor->setPosition(loot0->x(), loot0->y());
+        tree.process(0.016);
+        CHECK(sField(survivor, "grenades")->number == g0 + 1.0);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
-                    "impact juice, ammo + reload, wave upgrades, kills/score, survival, loot.\n");
+                    "impact juice, ammo + reload, grenades, wave upgrades, kills/score, survival, "
+                    "loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
