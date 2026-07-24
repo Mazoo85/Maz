@@ -417,6 +417,16 @@ int main(int argc, char** argv) {
                           field(survivor, "rate_mult"));
             font.drawText(*renderer, sw * 0.5f - 220.0f, 44.0f, buf,
                           render::Color{0.7f, 0.95f, 0.75f, 1.0f}, 0.42f);
+            // Combo multiplier — flashes big when it's live.
+            const int mult = static_cast<int>(globalNum(tree, "g_mult"));
+            const int combo = static_cast<int>(globalNum(tree, "g_combo"));
+            if (mult > 1) {
+                char cbuf[48];
+                std::snprintf(cbuf, sizeof(cbuf), "COMBO x%d  (%d streak)", mult, combo);
+                const float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 8.0f);
+                font.drawText(*renderer, sw * 0.5f - 130.0f, 74.0f, cbuf,
+                              render::Color{1.0f, 0.85f * pulse, 0.2f, 1.0f}, 0.6f);
+            }
 
             const float health = static_cast<float>(field(survivor, "health"));
             const float hunger = static_cast<float>(field(survivor, "hunger"));

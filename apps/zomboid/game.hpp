@@ -35,6 +35,12 @@ var g_score = 0;
 var g_kills = 0;
 var g_wave = 0;
 
+# Kill-streak combo: fast, unbroken kills build a score multiplier that decays if you stop killing.
+var g_combo = 0;         # current streak length
+var g_mult = 1;          # score multiplier from the streak (1 + one per 5 kills, capped at 5)
+var g_combo_timer = 0;   # seconds since the last kill
+var g_combo_window = 2.5;
+
 # Day/night cycle. g_phase runs 0..g_day_len and wraps; the back half is night, when the horde
 # hunts faster and bites harder. Advanced once per frame by the survivor so the whole world shares
 # one clock.
@@ -115,6 +121,12 @@ class Survivor {
         # Screen shake always eases back toward rest, even on the death screen.
         g_shake = g_shake - dt * 4.0;
         if (g_shake < 0) { g_shake = 0; }
+        # Combo decays if you stop killing.
+        g_combo_timer = g_combo_timer + dt;
+        if (g_combo_timer > g_combo_window) {
+            g_combo = 0;
+            g_mult = 1;
+        }
         if (self.alive == false) { return; }
 
         # Advance the shared world clock (survivor owns it).
@@ -551,7 +563,11 @@ class Zombie {
             self.health = 0;
             self.alive = false;
             g_kills = g_kills + 1;
-            g_score = g_score + self.score_value;
+            g_combo = g_combo + 1;
+            g_combo_timer = 0;
+            g_mult = 1 + int(g_combo / 5);
+            if (g_mult > 5) { g_mult = 5; }
+            g_score = g_score + self.score_value * g_mult;
             emit(self.node.x, self.node.y, 10, 1); # blood burst on death
             var s = 0.5;
             if (self.kind == 2) { s = 1.0; }

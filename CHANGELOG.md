@@ -54,6 +54,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   (`zomboid_sim`): the pool builds, throwing spends exactly one and arms a grenade, a detonation in the
   middle of a three-zombie cluster kills all three at once, throwing with none left does nothing, and
   loot refills a grenade.
+- **Combo multiplier** — fast, unbroken kills build a score multiplier (+1× every 5 kills in the
+  streak, capped at 5×) that decays after ~2.5 s without a kill, rewarding aggressive play. Each kill
+  scores `score_value × multiplier`. The HUD flashes the live combo. Verified headless (`zomboid_sim`)
+  against a hand-computed total: five back-to-back walker kills reach a 5-streak / 2× and score exactly
+  60 (four at 1× + one at 2×), and the streak resets to 1× after the window elapses with no kills.
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

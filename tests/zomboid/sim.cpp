@@ -411,10 +411,35 @@ int main() {
         CHECK(sField(survivor, "grenades")->number == g0 + 1.0);
     }
 
+    // Combo: consecutive kills build a score multiplier; score follows the hand-computed total.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        CHECK(glob(tree, "g_score") == 0.0);
+        // Kill 5 dormant walkers back-to-back (no ticks between, so the combo can't decay).
+        for (int i = 0; i < 5; ++i) {
+            SceneNode* z = tree.findNode("Zombie" + std::to_string(i));
+            Value zs = z->script();
+            std::vector<Value> sa = {Value::fromNum(60.0 + i * 3), Value::fromNum(0.0),
+                                     Value::fromNum(20.0), Value::fromNum(0.0)}; // walker, 20 hp
+            tree.scripts().vm().callOn(zs, "spawn_at", sa);
+            std::vector<Value> dmg = {Value::fromNum(9999.0)};
+            tree.scripts().vm().callOn(zs, "take_damage", dmg);
+        }
+        // Kills 1-4 at x1 (score_value 10 each), the 5th at x2 (streak hits 5) => 40 + 20 = 60.
+        CHECK((int)glob(tree, "g_combo") == 5);
+        CHECK((int)glob(tree, "g_mult") == 2);
+        CHECK(glob(tree, "g_score") == 60.0);
+        // Stop killing: after the combo window the streak resets.
+        for (int i = 0; i < 200; ++i) tree.process(1.0 / 60.0);
+        CHECK((int)glob(tree, "g_combo") == 0);
+        CHECK((int)glob(tree, "g_mult") == 1);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
-                    "impact juice, ammo + reload, grenades, wave upgrades, kills/score, survival, "
-                    "loot.\n");
+                    "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
+                    "kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
