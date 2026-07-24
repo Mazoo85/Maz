@@ -818,6 +818,25 @@ int main() {
         CHECK(sField(survivor, "ult")->number == 0.0);
     }
 
+    // Kill milestones: every 25th kill grants a bonus grenade and a small heal.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        const double nades0 = sField(survivor, "grenades")->number;
+        sField(survivor, "health")->number = 50.0;
+        std::vector<Value> none;
+
+        for (int i = 0; i < 24; ++i) tree.scripts().vm().callOn(sv, "on_kill", none);
+        CHECK(sField(survivor, "grenades")->number == nades0);   // no bonus before the milestone
+        CHECK(sField(survivor, "health")->number == 50.0);
+
+        tree.scripts().vm().callOn(sv, "on_kill", none);         // the 25th kill
+        CHECK(sField(survivor, "grenades")->number == nades0 + 1); // bonus grenade
+        CHECK(sField(survivor, "health")->number > 50.0);          // bonus heal
+        CHECK((int)sField(survivor, "next_bonus")->number == 50);  // next milestone advanced
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

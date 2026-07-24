@@ -57,6 +57,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   (`zomboid_sim`): firing drains the magazine and an auto-reload refills it from a diminished reserve;
   a weapon with an empty magazine and empty reserve fires exactly its last round then goes dry and
   cannot reload; and collecting loot raises the reserve.
+- **Kill-milestone rewards** — every 25th kill hands the survivor a bonus grenade and a small heal,
+  a steady sustained-play reward that runs alongside the between-wave upgrades. A single `on_kill` hook
+  now drives kill tracking, the ultimate charge, and the milestone check. Verified headless
+  (`zomboid_sim`): the 25th kill (and not the 24th) grants a grenade and heals, and the next milestone
+  advances to 50.
 - **Critical hits** — every shot rolls against a crit chance (15% base) for bonus damage (×2), across
   all four weapons (the railgun rolls once for the whole beam). Crit chance is a permanent stat the
   survivor can grow, and the HUD shows the live percentage. Verified headless (`zomboid_sim`): with the

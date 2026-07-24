@@ -130,8 +130,23 @@ class Survivor {
     var ult = 0;
     var ult_max = 25;
     var ult_ready = false;
+    # Kill-milestone rewards: every `bonus_step` kills grant a grenade and a small heal.
+    var kills = 0;
+    var next_bonus = 25;
+    var bonus_step = 25;
 
     func _ready() { g_player = self; self.set_weapon(0); }
+
+    # Called once per zombie kill: charges the ultimate and hands out milestone rewards.
+    func on_kill() {
+        self.kills = self.kills + 1;
+        self.add_ult(1);
+        if (self.kills >= self.next_bonus) {
+            self.next_bonus = self.next_bonus + self.bonus_step;
+            self.grenades = self.grenades + 1;
+            self.heal(15);
+        }
+    }
 
     # Add ultimate charge (one per kill) until the meter is full.
     func add_ult(n) {
@@ -916,7 +931,7 @@ class Zombie {
             g_mult = 1 + int(g_combo / 5);
             if (g_mult > 5) { g_mult = 5; }
             g_score = g_score + self.score_value * g_mult;
-            if (g_player != nil) { g_player.add_ult(1); } # a kill charges the ultimate meter
+            if (g_player != nil) { g_player.on_kill(); } # charges the ultimate + milestone rewards
             emit(self.node.x, self.node.y, 10, 1); # blood burst on death
             var s = 0.5;
             if (self.kind == 2) { s = 1.0; }
