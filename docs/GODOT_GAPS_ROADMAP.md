@@ -150,6 +150,16 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Nelder-Mead downhill simplex minimiser** (`math::nelderMead` → `NelderMeadResult`, `NelderMead.hpp`) —
+  DONE (M818); derivative-free minimisation of a scalar function of several variables — hand it any `f(x)` you
+  can evaluate (a fit error, a simulation score, a physics residual) and a starting guess and it walks a
+  simplex downhill to a local minimum. Complements the engine's existing `RootFind` (1-D), `SimulatedAnnealing`
+  (stochastic global) and `Minimax` (game trees) with the workhorse for small smooth deterministic local
+  optimisation: fitting an easing/curve to data, auto-tuning spring/controller gains, few-parameter aim/IK
+  residuals, model calibration. Neither Godot nor Unity ships a general optimiser. Verified against known
+  analytic minima (sphere, Rosenbrock's banana valley, Booth, Beale) AND — independently of those answers — a
+  local-optimality oracle that samples the neighbourhood and confirms no lower point exists (ctest
+  `nelder_mead`).
 - [x] **AHRS attitude filter — gyro + accelerometer sensor fusion** (`math::MadgwickFilter::updateImu` /
   `math::gravityDirectionBody`, `AhrsFilter.hpp`) — DONE (M817); Madgwick's gradient-descent IMU filter fuses
   a noisy accelerometer ("which way is down") with a drift-prone gyroscope into a stable orientation

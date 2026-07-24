@@ -2917,3 +2917,8 @@ add_executable(maz_ahrsfilter_tests math/ahrsfilter.cpp)
 target_link_libraries(maz_ahrsfilter_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ahrs_filter COMMAND maz_ahrsfilter_tests)
 set_tests_properties(ahrs_filter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_neldermead_tests math/neldermead.cpp)
+target_link_libraries(maz_neldermead_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME nelder_mead COMMAND maz_neldermead_tests)
+set_tests_properties(nelder_mead PROPERTIES TIMEOUT 30)
