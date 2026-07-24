@@ -105,6 +105,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Pickup magnetism** — medkits and power-ups within a short radius (~6 units) drift toward the
+  survivor instead of sitting inert, so you scoop them up by getting close rather than standing exactly
+  on them. Verified headless (`zomboid_sim`): a medkit 5 units away slides toward the survivor over a
+  tick while one 20 units away stays put.
 - **Health medkits** — a slain zombie has a ~12% chance to drop a medkit; walk over it to heal 40
   (capped at max health). Kits are an object pool, blink as they near expiry, and vanish if ignored,
   giving a reason to push into danger for a top-up. Verified headless (`zomboid_sim`): the pool builds,

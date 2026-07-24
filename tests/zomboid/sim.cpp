@@ -572,6 +572,36 @@ int main() {
         CHECK(activeMedkits(tree) == 0);
     }
 
+    // Pickup magnetism: a medkit near the survivor drifts toward them; a far one stays put.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        // Near kit (5 units, inside the 6-unit magnet, outside the 2.2 pickup range).
+        std::vector<Value> nearAt = {Value::fromNum(5.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_medkit", nearAt);
+        SceneNode* kit = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) kit = m;
+        const double nx0 = kit->x();
+        tree.process(1.0 / 60.0);
+        CHECK(kit->script().instance->findField("active")->boolean); // not yet picked up
+        CHECK(kit->x() < nx0);                                        // drifted toward the survivor
+    }
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        std::vector<Value> farAt = {Value::fromNum(20.0), Value::fromNum(0.0)}; // outside magnet range
+        tree.scripts().vm().call("drop_medkit", farAt);
+        SceneNode* kit = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) kit = m;
+        const double fx0 = kit->x();
+        tree.process(1.0 / 60.0);
+        CHECK(kit->x() == fx0); // stayed put — no magnet at 20 units
+    }
+
     // Power-ups: rare pooled pickups grant a timed buff that reverts when it lapses.
     {
         SceneTree tree;

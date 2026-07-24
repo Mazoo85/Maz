@@ -748,9 +748,17 @@ class Medkit {
         if (g_player.alive == false) { return; }
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
-        if (dx * dx + dy * dy <= self.pickup_range * self.pickup_range) {
+        var d2 = dx * dx + dy * dy;
+        if (d2 <= self.pickup_range * self.pickup_range) {
             g_player.heal(self.heal);
             self.active = false;
+        } else {
+            # Magnetism: within a short radius the kit drifts toward the survivor.
+            if (d2 <= 36.0) {
+                var d = sqrt(d2);
+                self.node.x = self.node.x + (dx / d) * 12.0 * dt;
+                self.node.y = self.node.y + (dy / d) * 12.0 * dt;
+            }
         }
     }
 }
@@ -796,9 +804,17 @@ class Powerup {
         if (g_player.alive == false) { return; }
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
-        if (dx * dx + dy * dy <= self.pickup_range * self.pickup_range) {
+        var d2 = dx * dx + dy * dy;
+        if (d2 <= self.pickup_range * self.pickup_range) {
             g_player.grant_powerup(self.kind);
             self.active = false;
+        } else {
+            # Magnetism: within a short radius the power-up drifts toward the survivor.
+            if (d2 <= 36.0) {
+                var d = sqrt(d2);
+                self.node.x = self.node.x + (dx / d) * 12.0 * dt;
+                self.node.y = self.node.y + (dy / d) * 12.0 * dt;
+            }
         }
     }
 }
