@@ -114,11 +114,13 @@ class Survivor {
     var dmg_mult = 1.0;     # upgrade multipliers, grow between waves
     var rate_mult = 1.0;
     var upgrades = 0;       # number of between-wave upgrades applied
-    # Temporary power-up buff (from pooled pickups): kind -1 none, 0 rapid-fire, 1 damage, 2 shield.
+    # Temporary power-up buff (from pooled pickups): kind -1 none, 0 rapid-fire, 1 damage, 2 shield,
+    # 3 piercing rounds.
     var buff_kind = -1;
     var buff_timer = 0;
     var buff_fr = 1.0;      # temporary fire-rate / damage multipliers layered over the upgrades
     var buff_dmg = 1.0;
+    var pierce_shots = false;  # while a piercing power-up is active, bullets punch through zombies
     var adrenaline = false; # last-stand surge: fire faster while critically wounded (<25% health)
     var crit_chance = 0.15; # chance a shot lands a critical hit for bonus damage
     var crit_mult = 2.0;    # critical-hit damage multiplier
@@ -274,6 +276,7 @@ class Survivor {
                 self.buff_timer = 0;
                 self.buff_fr = 1.0;
                 self.buff_dmg = 1.0;
+                self.pierce_shots = false;
                 self.apply_mults();
             }
         }
@@ -401,8 +404,10 @@ class Survivor {
         self.buff_timer = 8.0;
         self.buff_fr = 1.0;
         self.buff_dmg = 1.0;
+        self.pierce_shots = false;
         if (kind == 0) { self.buff_fr = 2.2; }   # rapid fire
         if (kind == 1) { self.buff_dmg = 2.2; }  # double damage
+        if (kind == 3) { self.pierce_shots = true; }  # piercing rounds
         self.apply_mults();
     }
 
@@ -505,6 +510,7 @@ class Survivor {
             var b = g_bullets[i];
             if (b.active == false) {
                 b.fire(self.node.x, self.node.y, dx, dy, self.bullet_speed, self.shot_damage());
+                if (self.pierce_shots) { b.pierce_left = 2; }  # punch through up to 2 extra zombies
                 self.shots = self.shots + 1;
                 return;
             }
@@ -740,6 +746,8 @@ class Bullet {
     var damage = 25;
     var hit_radius = 1.6;
     var pierce = false;    # a railgun tracer flies through zombies without dealing contact damage
+    var pierce_left = 0;   # piercing power-up: extra zombies this bullet can punch through and keep going
+    var hit_list = [];     # zombies already struck (so a piercing bullet doesn't re-hit the same body)
 
     func _ready() { g_bullets.append(self); }
 
@@ -751,7 +759,20 @@ class Bullet {
         self.damage = dmg;
         self.life = self.max_life;
         self.pierce = false;
+        self.pierce_left = 0;
+        self.hit_list = [];
         self.active = true;
+    }
+
+    # True unless this bullet has already struck zombie `z` on an earlier frame (piercing bookkeeping).
+    func not_hit(z) {
+        var i = 0;
+        var n = len(self.hit_list);
+        while (i < n) {
+            if (self.hit_list[i] == z) { return false; }
+            i = i + 1;
+        }
+        return true;
     }
 
     func _process(dt) {
@@ -766,7 +787,7 @@ class Bullet {
         var n = len(g_zombies);
         while (i < n) {
             var z = g_zombies[i];
-            if (z.alive) {
+            if (z.alive and self.not_hit(z)) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
                 var rr = self.hit_radius + z.radius;
@@ -775,6 +796,12 @@ class Bullet {
                     if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
                     z.take_damage(self.damage);
                     if (g_player != nil) { g_player.hits = g_player.hits + 1; }
+                    self.hit_list.append(z);
+                    # A piercing round spends one pierce and flies on; a normal round stops here.
+                    if (self.pierce_left > 0) {
+                        self.pierce_left = self.pierce_left - 1;
+                        return;
+                    }
                     self.active = false;
                     return;
                 }
@@ -1688,10 +1715,10 @@ class Zombie {
             } else {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
-            # Rarely it drops a power-up instead (random kind: rapid-fire, damage, or shield).
+            # Rarely it drops a power-up instead (kind: rapid-fire, damage, shield, or piercing rounds).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 3));
-                if (pk > 2) { pk = 2; }
+                var pk = int(randf_range(0, 4));
+                if (pk > 3) { pk = 3; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.

@@ -1611,6 +1611,75 @@ int main() {
         CHECK(sField(survivor, "hits")->number >= 1.0); // a shot landed
     }
 
+    // Piercing-rounds power-up (kind 3): a single bullet punches through a line of zombies, hitting
+    // each once, where a normal bullet would stop at the first. Drives the spawned bullet's _process
+    // directly so the line stays put (spd 0) and the outcome is deterministic.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+
+        // Grant the piercing power-up and confirm the flag latched.
+        Value sv = survivor->script();
+        std::vector<Value> pk = {Value::fromNum(3.0)};
+        tree.scripts().vm().callOn(sv, "grant_powerup", pk);
+        CHECK(sField(survivor, "pierce_shots")->boolean);
+
+        // Three tanky zombies parked in a straight line ahead (hp 200 so one hit can't kill them).
+        SceneNode* zs[3] = {tree.findNode("Zombie0"), tree.findNode("Zombie1"), tree.findNode("Zombie2")};
+        const double xs[3] = {4.0, 6.0, 8.0};
+        for (int i = 0; i < 3; ++i) {
+            Value zv = zs[i]->script();
+            std::vector<Value> a = {Value::fromNum(xs[i]), Value::fromNum(0.0),
+                                    Value::fromNum(200.0), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        }
+
+        // Fire one shot, then find the spawned bullet and confirm it carries pierces.
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(sv, "do_shoot", none);
+        SceneNode* bullet = nullptr;
+        for (SceneNode* b : tree.nodesInGroup("bullets"))
+            if (b->script().instance->findField("active")->boolean) { bullet = b; break; }
+        CHECK(bullet != nullptr);
+        CHECK((int)sField(bullet, "pierce_left")->number == 2);
+
+        // Fly the bullet forward; it should chip all three (1 initial hit + 2 pierces) then expire.
+        Value bv = bullet->script();
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(bv, "_process", dt);
+        for (int i = 0; i < 3; ++i)
+            CHECK(sField(zs[i], "health")->number < 200.0); // every zombie in the line was struck
+        CHECK(!sField(bullet, "active")->boolean);          // pierces spent, bullet consumed
+
+        // Contrast: without the power-up, one bullet stops at the first body.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        sField(surv2, "aim_x")->number = 1.0;
+        sField(surv2, "aim_y")->number = 0.0;
+        SceneNode* zn[3] = {t2.findNode("Zombie0"), t2.findNode("Zombie1"), t2.findNode("Zombie2")};
+        for (int i = 0; i < 3; ++i) {
+            Value zv = zn[i]->script();
+            std::vector<Value> a = {Value::fromNum(xs[i]), Value::fromNum(0.0),
+                                    Value::fromNum(200.0), Value::fromNum(0.0)};
+            t2.scripts().vm().callOn(zv, "spawn_at", a);
+        }
+        Value sv2 = surv2->script();
+        t2.scripts().vm().callOn(sv2, "do_shoot", none);
+        SceneNode* b2 = nullptr;
+        for (SceneNode* b : t2.nodesInGroup("bullets"))
+            if (b->script().instance->findField("active")->boolean) { b2 = b; break; }
+        CHECK(b2 != nullptr);
+        Value b2v = b2->script();
+        for (int i = 0; i < 60; ++i) t2.scripts().vm().callOn(b2v, "_process", dt);
+        CHECK(sField(zn[0], "health")->number < 200.0);  // first zombie struck
+        CHECK(sField(zn[1], "health")->number == 200.0); // second untouched — bullet stopped
+        CHECK(sField(zn[2], "health")->number == 200.0); // third untouched
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

@@ -105,6 +105,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Piercing-rounds power-up (new pickup)** — a violet power-up (kind 3) that, while active, makes the
+  survivor's bullets punch *through* zombies instead of stopping at the first: each round now carries up
+  to two extra pierces, hitting a whole line of enemies before it's spent. A mid-tier version of the
+  railgun's line-clearing, it turns a packed corridor into a shooting gallery. Bullets track which
+  bodies they've already struck so a piercing round can't double-hit the same zombie. Drops (rarely)
+  from slain zombies alongside rapid-fire, damage, and shield; the survivor and the pickup both glow
+  violet while it's live. Verified headless (`zomboid_sim`): with the buff, one bullet fired down a line
+  of three tanky zombies chips all three then expires; without it, the same bullet stops at the first
+  and leaves the other two untouched.
 - **Armored zombie (new enemy)** — a steel-sheened zombie (kind 8) that carries a heavy damage-
   absorbing shield in front of modest health. Shots (and any damage) chip the shield first; only the
   overflow past a *broken* shield bleeds into its health, so it must be worn down before it can be
