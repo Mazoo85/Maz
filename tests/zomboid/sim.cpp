@@ -461,10 +461,55 @@ int main() {
         std::remove(path);
     }
 
+    // Medkits: a dropped kit activates, heals the survivor on pickup (capped), and expires if ignored.
+    auto activeMedkits = [](SceneTree& t) {
+        int c = 0;
+        for (SceneNode* m : t.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) ++c;
+        return c;
+    };
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("medkits").size() == zomboid::kMedkitPool);
+        CHECK(activeMedkits(tree) == 0);
+
+        // Drop a medkit far from a wounded survivor, then walk onto it: it heals and is consumed.
+        sField(survivor, "health")->number = 50.0;
+        survivor->setPosition(0.0, 0.0);
+        std::vector<Value> at = {Value::fromNum(200.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_medkit", at);
+        CHECK(activeMedkits(tree) == 1);
+        // Move the survivor onto it and tick.
+        SceneNode* kit = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) kit = m;
+        survivor->setPosition(kit->x(), kit->y());
+        tree.process(0.016);
+        CHECK(sField(survivor, "health")->number > 50.0);  // healed
+        CHECK(activeMedkits(tree) == 0);                    // consumed
+
+        // Heal is capped at max health.
+        sField(survivor, "health")->number = sField(survivor, "max_health")->number - 5.0;
+        const double cap = sField(survivor, "max_health")->number;
+        std::vector<Value> at2 = {Value::fromNum(survivor->x()), Value::fromNum(survivor->y())};
+        tree.scripts().vm().call("drop_medkit", at2);
+        tree.process(0.016);
+        CHECK(sField(survivor, "health")->number == cap); // not over max
+
+        // An ignored medkit expires.
+        survivor->setPosition(0.0, 0.0);
+        std::vector<Value> far = {Value::fromNum(500.0), Value::fromNum(500.0)};
+        tree.scripts().vm().call("drop_medkit", far);
+        CHECK(activeMedkits(tree) == 1);
+        for (int i = 0; i < 900; ++i) tree.process(1.0 / 60.0); // > 12 s max_life
+        CHECK(activeMedkits(tree) == 0);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
-                    "high-score persistence, kills/score, survival, loot.\n");
+                    "high-score persistence, medkits, kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);

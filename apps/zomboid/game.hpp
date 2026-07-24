@@ -29,6 +29,7 @@ var g_bullets = [];     # object pool: every Bullet appends itself here in _read
 var g_zombies = [];     # object pool: every Zombie appends itself here in _ready
 var g_particles = [];   # object pool for impact / blood particles (juice)
 var g_grenades = [];    # object pool for thrown grenades
+var g_medkits = [];     # object pool for dropped health pickups
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -315,6 +316,12 @@ class Survivor {
         }
     }
 
+    # Restore health from a medkit, capped at the current max.
+    func heal(amount) {
+        self.health = self.health + amount;
+        if (self.health > self.max_health) { self.health = self.max_health; }
+    }
+
     func collect(kind) {
         self.food = self.food + 1;
         self.loot_collected = self.loot_collected + 1;
@@ -476,6 +483,53 @@ class Particle {
     }
 }
 
+# A pooled health pickup dropped by a dying zombie. Sits on the ground for a while, blinking; walk over
+# it to heal. Expires if left too long. Recycled from the pool.
+class Medkit {
+    var active = false;
+    var life = 0;
+    var max_life = 12;
+    var heal = 40;
+    var pickup_range = 2.2;
+
+    func _ready() { g_medkits.append(self); }
+
+    func place(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        if (g_player == nil) { return; }
+        if (g_player.alive == false) { return; }
+        var dx = g_player.node.x - self.node.x;
+        var dy = g_player.node.y - self.node.y;
+        if (dx * dx + dy * dy <= self.pickup_range * self.pickup_range) {
+            g_player.heal(self.heal);
+            self.active = false;
+        }
+    }
+}
+
+# Activate a dormant medkit from the pool at (x, y) — called when a zombie drops one.
+func drop_medkit(x, y) {
+    var i = 0;
+    var n = len(g_medkits);
+    while (i < n) {
+        var m = g_medkits[i];
+        if (m.active == false) {
+            m.place(x, y);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -574,6 +628,8 @@ class Zombie {
             if (self.kind == 3) { s = 2.5; }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
+            # A slain zombie sometimes drops a medkit.
+            if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
         }
     }
 
@@ -705,6 +761,7 @@ constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;
 constexpr int kParticlePool = 90;
 constexpr int kGrenadePool = 8;
+constexpr int kMedkitPool = 12;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -739,6 +796,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         g->setPosition(100000.0, 100000.0);
         g->addToGroup("grenades");
         tree.attachScript(*g, "Grenade");
+    }
+
+    // Medkit pool — dormant health pickups zombies may drop.
+    for (int i = 0; i < kMedkitPool; ++i) {
+        maz::scene::SceneNode* m = tree.createChild(tree.root(), "Medkit" + std::to_string(i));
+        m->setPosition(100000.0, 100000.0);
+        m->addToGroup("medkits");
+        tree.attachScript(*m, "Medkit");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

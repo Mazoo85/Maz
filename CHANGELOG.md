@@ -64,6 +64,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Health medkits** — a slain zombie has a ~12% chance to drop a medkit; walk over it to heal 40
+  (capped at max health). Kits are an object pool, blink as they near expiry, and vanish if ignored,
+  giving a reason to push into danger for a top-up. Verified headless (`zomboid_sim`): the pool builds,
+  `drop_medkit` activates a kit, walking onto it heals and consumes it, the heal is capped at max, and
+  an ignored kit expires.
 - **Sound effects** — procedural SFX (`audio::Audio`) for gunfire (per-weapon pitch), zombie deaths,
   reloads, grenade/boss booms, wave starts, taking a bite, and dying. The app fires one-shots by
   watching simulation state change frame-to-frame — no script hooks needed — and resyncs on restart so

@@ -120,6 +120,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
+    render::TextureHandle texMedkit = renderer->createTexture(16, 16, makeSquare(70, 210, 90).data());
     render::TextureHandle texLoot = renderer->createTexture(16, 16, makeSquare(210, 120, 200).data());
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -379,6 +380,15 @@ int main(int argc, char** argv) {
             // Loot.
             for (scene::SceneNode* l : tree.nodesInGroup("loot")) {
                 if (!fieldBool(l, "taken")) drawAt(l->x(), l->y(), texLoot, 2.0f, kNoTint);
+            }
+            // Medkits (dropped health), blinking as they near expiry.
+            for (scene::SceneNode* m : tree.nodesInGroup("medkits")) {
+                if (!fieldBool(m, "active")) continue;
+                const float life = static_cast<float>(field(m, "life"));
+                const float blink = (life > 3.0f || std::sin(static_cast<float>(simTime) * 10.0f) > 0.0f)
+                                        ? 1.0f
+                                        : 0.35f;
+                drawAt(m->x(), m->y(), texMedkit, 1.8f, render::Color{0.5f * blink, blink, 0.6f * blink, 1.0f});
             }
             // Zombies (only the live ones); sprite + size by kind, tinted red as health drops.
             for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
