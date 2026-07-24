@@ -297,6 +297,7 @@ class Survivor {
                         if (dm < 0.01) { dm = 0.01; }
                         dz.hit_knockback(ddx / dm, ddy / dm, 5.0);
                         dz.take_damage(self.dash_dmg);
+                        dz.stagger(0.4);   # bulldozing through a body flinches it, like the melee shove
                         self.dash_hits.append(dz);
                     }
                 }

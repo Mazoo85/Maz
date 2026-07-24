@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — dash strike now staggers too.** The offensive dodge-roll (Space) already shoulder-checks
+  zombies it bulldozes through; now it also briefly flinches each one (reusing the same `stagger()` the
+  melee shove uses), so dashing *into* a pinch reliably scatters and roots the pack you punch through,
+  not just knocks it back. (Also audited every script method used as an expression for the missing-return
+  class of bug found last increment — `split_off` was the only case, and it's already fixed.) Headless-
+  tested: a zombie the dash passes through is staggered in addition to taking the hit and knockback.
 - **ZOMBOID — enraged boss calls in reinforcements.** The boss's second phase (below 35% health) now
   periodically bellows and summons a pair of runners, up to a fixed reinforcement budget, so the climax
   becomes a real scramble instead of a straight damage race — then stops (a bounded flood, no endless

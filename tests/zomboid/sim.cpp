@@ -2028,6 +2028,7 @@ int main() {
         for (int i = 0; i < 20; ++i) vm.callOn(sv, "_process", dt);   // ride out the dash burst
         CHECK(sField(z0, "health")->number == 60.0);   // struck exactly once for 40 (not per-frame)
         CHECK(z0->x() > zx0);                           // and knocked further along the dash
+        CHECK(sField(z0, "stagger_timer")->number > 0.0);   // and briefly flinched by the shoulder-check
     }
 
     // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
