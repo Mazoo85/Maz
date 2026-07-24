@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — railgun is now an armor-piercer.** The railgun's beam **shears any shield clean off**
+  before biting into health, making it the definitive answer to armored zombies and the new Bulwark
+  waves — where lesser guns stall against the plating, one slug punches straight through. Gives the
+  slow, limited railgun a sharp identity as your shield-breaker. Headless-tested: a shielded zombie on
+  the beam loses its shield and takes health damage in one shot, while an off-beam one keeps its plating.
 - **ZOMBOID — Bulwark wave mutator (4th modifier).** Joining Feral, Hulking, and Frenzied, a wave can
   now roll **Bulwark**: every zombie in it — even a plain walker — spawns behind a damage-absorbing
   shield that must be broken before its health can be touched, punishing weak, spread-out fire and

@@ -2543,6 +2543,40 @@ int main() {
         CHECK(sField(t2.findNode("Zombie0"), "shield")->number == 0.0);
     }
 
+    // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
+    // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+
+        // On-beam target: parked straight ahead (+x) with a shield in front of its health.
+        SceneNode* onZ = tree.findNode("Zombie0");
+        Value onv = onZ->script();
+        std::vector<Value> sp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};  // walker at (10,0), 100 hp
+        vm.callOn(onv, "spawn_at", sp);
+        sField(onZ, "shield")->number = 40.0;
+
+        // Off-beam control: parked to the side, well clear of the beam line.
+        SceneNode* offZ = tree.findNode("Zombie1");
+        Value offv = offZ->script();
+        std::vector<Value> sp2 = {Value::fromNum(0.0), Value::fromNum(40.0),
+                                  Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm.callOn(offv, "spawn_at", sp2);
+        sField(offZ, "shield")->number = 40.0;
+
+        Value sv = survivor->script();
+        std::vector<Value> aim = {Value::fromNum(1.0), Value::fromNum(0.0)};  // fire straight down +x
+        vm.callOn(sv, "railgun_fire", aim);
+
+        CHECK(sField(onZ, "shield")->number == 0.0);        // slug sheared the plating off
+        CHECK(sField(onZ, "health")->number < 100.0);       // and bit into health
+        CHECK(sField(offZ, "shield")->number == 40.0);      // off the beam — plating intact
+        CHECK(sField(offZ, "health")->number == 100.0);
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

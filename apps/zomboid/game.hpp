@@ -566,6 +566,9 @@ class Survivor {
                     var py = ry - t * ay;
                     var rr = beam + z.radius;
                     if (px * px + py * py <= rr * rr) {
+                        # Armor-piercing slug: the railgun shears any shield clean off before biting
+                        # into health, so it's the definitive answer to armored zombies and Bulwark waves.
+                        if (z.shield > 0) { z.shield = 0; emit(z.node.x, z.node.y, 6, 0); }
                         z.take_damage(dmg);
                         z.apply_bleed(1);   # the beam lacerates too
                         if (self.lifesteal_active()) { self.heal(1.0); }   # Vampiric leech, per body
